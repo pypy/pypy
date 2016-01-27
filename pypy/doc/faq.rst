@@ -54,7 +54,8 @@ and read on.
 It is quite common nowadays that xyz is available on PyPI_ and
 installable with ``pip install xyz``.  The simplest solution is to `use
 virtualenv (as documented here)`_.  Then enter (activate) the virtualenv
-and type: ``pip install xyz``.
+and type: ``pip install xyz``.  If you don't know or don't want virtualenv,
+you can also install ``pip`` globally by saying ``pypy -m ensurepip``.
 
 If you get errors from the C compiler, the module is a CPython C
 Extension module using unsupported features.  `See below.`_

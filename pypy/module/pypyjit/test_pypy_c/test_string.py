@@ -82,7 +82,7 @@ class TestString(BaseTestPyPyC):
             strsetitem(p25, 0, i23)
             p93 = call_r(ConstClass(fromstr), p25, 16, descr=<Callr . ri EF=4>)
             guard_no_exception(descr=...)
-            i95 = getfield_gc_pure_i(p93, descr=<FieldS rpython.rlib.rbigint.rbigint.inst_size .*>)
+            i95 = getfield_gc_i(p93, descr=<FieldS rpython.rlib.rbigint.rbigint.inst_size .*>)
             i96 = int_gt(i95, #)
             guard_false(i96, descr=...)
             i94 = call_i(ConstClass(rbigint._toint_helper), p93, descr=<Calli . r EF=4>)

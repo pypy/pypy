@@ -146,7 +146,7 @@ def update_all_slots(space, w_type, pto):
             assert len(slot_names) == 2
             struct = getattr(pto, slot_names[0])
             if not struct:
-                assert not space.config.translating
+                #assert not space.config.translating
                 assert not pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE
                 if slot_names[0] == 'c_tp_as_number':
                     STRUCT_TYPE = PyNumberMethods
@@ -310,36 +310,6 @@ def init_typeobject(space):
                    realize=type_realize,
                    dealloc=type_dealloc)
 
-    # There is the obvious cycle of 'type(type) == type', but there are
-    # also several other ones, like 'tuple.tp_bases' being itself a
-    # tuple instance.  We solve the first one by creating the type
-    # "type" manually here.  For the other cycles, we fix them by delaying
-    # creation of the types here, and hoping nothing breaks by seeing
-    # uninitialized-yet types (only for a few basic types like 'type',
-    # 'tuple', 'object', 'str').
-    space._cpyext_delay_type_creation = []
-
-    py_type   = _type_alloc(space, lltype.nullptr(PyTypeObject))
-    py_type.c_ob_type = rffi.cast(PyTypeObjectPtr, py_type)
-    track_reference(space, py_type, space.w_type)
-    type_attach(space, py_type, space.w_type)
-
-    as_pyobj(space, space.w_str)
-    as_pyobj(space, space.w_tuple)
-    as_pyobj(space, space.w_object)
-
-    delayed_types = []
-    while space._cpyext_delay_type_creation:
-        (py_obj, w_type) = space._cpyext_delay_type_creation.pop()
-        _type_really_attach(space, py_obj, w_type)
-        delayed_types.append((py_obj, w_type))
-    del space._cpyext_delay_type_creation
-    for py_obj, w_type in delayed_types:
-        pto = rffi.cast(PyTypeObjectPtr, py_obj)
-        finish_type_1(space, pto)
-        finish_type_2(space, pto, w_type)
-        finish_type_3(space, pto, w_type)
-
 
 @cpython_api([PyObject], lltype.Void, external=False)
 def subtype_dealloc(space, obj):
@@ -440,16 +410,13 @@ def type_dealloc(space, obj):
 
 
 def type_alloc(space, w_metatype):
-    metatype = make_ref(space, w_metatype)
-    metatype = rffi.cast(PyTypeObjectPtr, metatype)
-    assert metatype
+    metatype = rffi.cast(PyTypeObjectPtr, make_ref(space, w_metatype))
     # Don't increase refcount for non-heaptypes
-    flags = rffi.cast(lltype.Signed, metatype.c_tp_flags)
-    if not flags & Py_TPFLAGS_HEAPTYPE:
-        Py_DecRef(space, w_metatype)
-    return _type_alloc(space, metatype)
+    if metatype:
+        flags = rffi.cast(lltype.Signed, metatype.c_tp_flags)
+        if not flags & Py_TPFLAGS_HEAPTYPE:
+            Py_DecRef(space, w_metatype)
 
-def _type_alloc(space, metatype):
     heaptype = lltype.malloc(PyHeapTypeObject.TO,
                              flavor='raw', zero=True)
     pto = heaptype.c_ht_type
@@ -460,7 +427,6 @@ def _type_alloc(space, metatype):
     pto.c_tp_as_sequence = heaptype.c_as_sequence
     pto.c_tp_as_mapping = heaptype.c_as_mapping
     pto.c_tp_as_buffer = heaptype.c_as_buffer
-
     pto.c_tp_basicsize = -1 # hopefully this makes malloc bail out
     pto.c_tp_itemsize = 0
 
@@ -470,13 +436,6 @@ def type_attach(space, py_obj, w_type):
     """
     Fills a newly allocated PyTypeObject from an existing type.
     """
-    if hasattr(space, '_cpyext_delay_type_creation'):
-        space._cpyext_delay_type_creation.append((py_obj, w_type))
-    else:
-        _type_really_attach(space, py_obj, w_type)
-    return rffi.cast(PyTypeObjectPtr, py_obj)
-
-def _type_really_attach(space, py_obj, w_type):
     from pypy.module.cpyext.object import PyObject_Del
 
     assert isinstance(w_type, W_TypeObject)
@@ -497,15 +456,24 @@ def _type_really_attach(space, py_obj, w_type):
             PyObject_Del.api_func.get_wrapper(space))
     pto.c_tp_alloc = llhelper(PyType_GenericAlloc.api_func.functype,
             PyType_GenericAlloc.api_func.get_wrapper(space))
+    if pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE:
+        w_typename = space.getattr(w_type, space.wrap('__name__'))
+        heaptype = rffi.cast(PyHeapTypeObject, pto)
+        heaptype.c_ht_name = make_ref(space, w_typename)
+        from pypy.module.cpyext.stringobject import PyString_AsString
+        pto.c_tp_name = PyString_AsString(space, heaptype.c_ht_name)
+    else:
+        pto.c_tp_name = rffi.str2charp(w_type.name)
     # uninitialized fields:
     # c_tp_print, c_tp_getattr, c_tp_setattr
     # XXX implement
     # c_tp_compare and the following fields (see http://docs.python.org/c-api/typeobj.html )
     w_base = best_base(space, w_type.bases_w)
-    py_base = make_ref(space, w_base)
-    pto.c_tp_base = rffi.cast(PyTypeObjectPtr, py_base)
+    pto.c_tp_base = rffi.cast(PyTypeObjectPtr, make_ref(space, w_base))
 
-    if not hasattr(space, '_cpyext_delay_type_creation'):
+    if hasattr(space, '_cpyext_type_init'):
+        space._cpyext_type_init.append((pto, w_type))
+    else:
         finish_type_1(space, pto)
         finish_type_2(space, pto, w_type)
 
@@ -519,21 +487,8 @@ def _type_really_attach(space, py_obj, w_type):
     if space.is_w(w_type, space.w_object):
         pto.c_tp_new = rffi.cast(newfunc, 1)
     update_all_slots(space, w_type, pto)
-
-    if not hasattr(space, '_cpyext_delay_type_creation'):
-        finish_type_3(space, pto, w_type)
-
     pto.c_tp_flags |= Py_TPFLAGS_READY
-
-def finish_type_3(space, pto, w_type):
-    if pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE:
-        w_typename = space.getattr(w_type, space.wrap('__name__'))
-        heaptype = rffi.cast(PyHeapTypeObject, pto)
-        heaptype.c_ht_name = make_ref(space, w_typename)
-        from pypy.module.cpyext.stringobject import PyString_AsString
-        pto.c_tp_name = PyString_AsString(space, heaptype.c_ht_name)
-    else:
-        pto.c_tp_name = rffi.str2charp(w_type.name)
+    return pto
 
 def py_type_ready(space, pto):
     if pto.c_tp_flags & Py_TPFLAGS_READY:

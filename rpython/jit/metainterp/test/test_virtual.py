@@ -1077,7 +1077,7 @@ class VirtualMiscTests:
         res = self.meta_interp(f, [], repeat=7)
         assert res == f()
 
-    def test_getfield_gc_pure_nobug(self):
+    def test_pure_getfield_gc_nobug(self):
         mydriver = JitDriver(reds=['i', 's', 'a'], greens=[])
 
         class A(object):

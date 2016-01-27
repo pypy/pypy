@@ -113,7 +113,7 @@ class TestMisc(BaseTestPyPyC):
             i12 = int_is_true(i4)
             guard_true(i12, descr=...)
             guard_not_invalidated(descr=...)
-            i10p = getfield_gc_pure_i(p10, descr=...)
+            i10p = getfield_gc_i(p10, descr=...)
             i10 = int_mul_ovf(2, i10p)
             guard_no_overflow(descr=...)
             i14 = int_add_ovf(i13, i10)
