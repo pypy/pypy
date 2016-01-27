@@ -146,7 +146,7 @@ def update_all_slots(space, w_type, pto):
             assert len(slot_names) == 2
             struct = getattr(pto, slot_names[0])
             if not struct:
-                assert not space.config.translating
+                #assert not space.config.translating
                 assert not pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE
                 if slot_names[0] == 'c_tp_as_number':
                     STRUCT_TYPE = PyNumberMethods
@@ -427,6 +427,8 @@ def type_alloc(space, w_metatype):
     pto.c_tp_as_sequence = heaptype.c_as_sequence
     pto.c_tp_as_mapping = heaptype.c_as_mapping
     pto.c_tp_as_buffer = heaptype.c_as_buffer
+    pto.c_tp_basicsize = -1 # hopefully this makes malloc bail out
+    pto.c_tp_itemsize = 0
 
     return rffi.cast(PyObject, heaptype)
 
@@ -462,8 +464,6 @@ def type_attach(space, py_obj, w_type):
         pto.c_tp_name = PyString_AsString(space, heaptype.c_ht_name)
     else:
         pto.c_tp_name = rffi.str2charp(w_type.name)
-    pto.c_tp_basicsize = -1 # hopefully this makes malloc bail out
-    pto.c_tp_itemsize = 0
     # uninitialized fields:
     # c_tp_print, c_tp_getattr, c_tp_setattr
     # XXX implement

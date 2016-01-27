@@ -506,7 +506,9 @@ build_exported_objects()
 def get_structtype_for_ctype(ctype):
     from pypy.module.cpyext.typeobjectdefs import PyTypeObjectPtr
     from pypy.module.cpyext.cdatetime import PyDateTime_CAPI
+    from pypy.module.cpyext.intobject import PyIntObject
     return {"PyObject*": PyObject, "PyTypeObject*": PyTypeObjectPtr,
+            "PyIntObject*": PyIntObject,
             "PyDateTime_CAPI*": lltype.Ptr(PyDateTime_CAPI)}[ctype]
 
 PyTypeObject = lltype.ForwardReference()
@@ -1088,7 +1090,7 @@ def build_eci(building_bridge, export_symbols, code):
 
 def setup_library(space):
     "NOT_RPYTHON"
-    from pypy.module.cpyext.pyobject import get_typedescr, make_ref
+    from pypy.module.cpyext.pyobject import make_ref
 
     export_symbols = list(FUNCTIONS) + SYMBOLS_C + list(GLOBALS)
     from rpython.translator.c.database import LowLevelDatabase
@@ -1108,25 +1110,22 @@ def setup_library(space):
 
     from pypy.module import cpyext   # for eval() below
 
-    # Set up the types.  This version of the code really allocates
-    # them: this is different from build_bridge(), where they are set
-    # up at the static address from the bridge library.  This needs
-    # special logic to solve the cycles issue; otherwise, we could
-    # simply leave everything to make_ref() in the "populate static
-    # data" loop below.
-    builder = StaticObjectBuilder(space)
-    for name, (typ, expr) in GLOBALS.iteritems():
+    # Set up the types.  Needs a special case, because of the
+    # immediate cycle involving 'c_ob_type', and because we don't
+    # want these types to be Py_TPFLAGS_HEAPTYPE.
+    static_types = {}
+    for name, (typ, expr) in GLOBALS.items():
         if typ == 'PyTypeObject*':
-            w_type = eval(expr)
-            w_typetype = space.type(w_type)
-            if not space.is_w(w_typetype, space.w_type):
-                continue     # skip types with a custom metaclass
-            typedescr = get_typedescr(w_typetype.instancetypedef)
-            py_obj = typedescr.allocate(space, None)
-            builder.prepare(py_obj, w_type)
-    py_typetype = rffi.cast(PyTypeObjectPtr, make_ref(space, space.w_type))
-    for py_obj, w_type in builder.to_attach:
-        py_obj.c_ob_type = py_typetype
+            pto = lltype.malloc(PyTypeObject, immortal=True,
+                                zero=True, flavor='raw')
+            pto.c_ob_refcnt = 1
+            pto.c_tp_basicsize = -1
+            static_types[name] = pto
+    builder = StaticObjectBuilder(space)
+    for name, pto in static_types.items():
+        pto.c_ob_type = static_types['PyType_Type#']
+        w_type = eval(GLOBALS[name][1])
+        builder.prepare(rffi.cast(PyObject, pto), w_type)
     builder.attach_all()
 
     # populate static data
