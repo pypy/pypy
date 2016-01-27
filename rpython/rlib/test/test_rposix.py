@@ -227,6 +227,7 @@ class TestPosixFunction:
         fid.close()
         py.test.raises(OSError, rposix.fsync, fd)
 
+    @py.test.mark.skipif("not hasattr(os, 'fdatasync')")
     def test_os_fdatasync(self):
         fname = str(udir.join('os_test.txt'))
         fd = os.open(fname, os.O_WRONLY|os.O_CREAT, 0777)
@@ -247,7 +248,10 @@ class TestPosixFunction:
                              ],
                             )
         rposix.kill(proc.pid, signal.SIGTERM)
-        expected = -signal.SIGTERM
+        if os.name == 'nt':
+            expected = signal.SIGTERM
+        else:
+            expected = -signal.SIGTERM
         assert proc.wait() == expected
 
     def test_isatty(self):
@@ -283,6 +287,8 @@ def ll_to_string(s):
     return ''.join(s.chars)
 
 class UnicodeWithEncoding:
+    is_unicode = True
+
     def __init__(self, unistr):
         self.unistr = unistr
 

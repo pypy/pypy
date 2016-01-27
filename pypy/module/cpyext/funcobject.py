@@ -30,6 +30,7 @@ PyCodeObjectStruct = lltype.ForwardReference()
 PyCodeObject = lltype.Ptr(PyCodeObjectStruct)
 PyCodeObjectFields = PyObjectFields + \
     (("co_name", PyObject),
+     ("co_filename", PyObject),
      ("co_flags", rffi.INT),
      ("co_argcount", rffi.INT),
     )
@@ -66,6 +67,7 @@ def code_attach(space, py_obj, w_obj):
     py_code = rffi.cast(PyCodeObject, py_obj)
     assert isinstance(w_obj, PyCode)
     py_code.c_co_name = make_ref(space, space.wrap(w_obj.co_name))
+    py_code.c_co_filename = make_ref(space, space.wrap(w_obj.co_filename))
     co_flags = 0
     for name, value in ALL_CODE_FLAGS:
         if w_obj.co_flags & getattr(pycode, name):
@@ -77,6 +79,7 @@ def code_attach(space, py_obj, w_obj):
 def code_dealloc(space, py_obj):
     py_code = rffi.cast(PyCodeObject, py_obj)
     Py_DecRef(space, py_code.c_co_name)
+    Py_DecRef(space, py_code.c_co_filename)
     from pypy.module.cpyext.object import PyObject_dealloc
     PyObject_dealloc(space, py_obj)
 

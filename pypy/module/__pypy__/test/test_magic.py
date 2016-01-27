@@ -13,3 +13,21 @@ class AppTestMagic:
         #
         sys.dont_write_bytecode = d
         __pypy__.save_module_content_for_future_reload(sys)
+
+    def test_new_code_hook(self):
+        l = []
+
+        def callable(code):
+            l.append(code)
+
+        import __pypy__
+        __pypy__.set_code_callback(callable)
+        d = {}
+        try:
+            exec """
+def f():
+    pass
+""" in d
+        finally:
+            __pypy__.set_code_callback(None)
+        assert d['f'].__code__ in l

@@ -10,16 +10,19 @@ from pypy.module._cffi_backend.lib_obj import W_LibObject
 VERSION_MIN    = 0x2601
 VERSION_MAX    = 0x26FF
 
-VERSION_EXPORT = 0x0A02
+VERSION_EXPORT = 0x0A03
 
 initfunctype = lltype.Ptr(lltype.FuncType([rffi.VOIDPP], lltype.Void))
 
 
 def load_cffi1_module(space, name, path, initptr):
     # This is called from pypy.module.cpyext.api.load_extension_module()
+    from pypy.module._cffi_backend.call_python import get_ll_cffi_call_python
+
     initfunc = rffi.cast(initfunctype, initptr)
-    with lltype.scoped_alloc(rffi.VOIDPP.TO, 2) as p:
+    with lltype.scoped_alloc(rffi.VOIDPP.TO, 16, zero=True) as p:
         p[0] = rffi.cast(rffi.VOIDP, VERSION_EXPORT)
+        p[1] = rffi.cast(rffi.VOIDP, get_ll_cffi_call_python())
         initfunc(p)
         version = rffi.cast(lltype.Signed, p[0])
         if not (VERSION_MIN <= version <= VERSION_MAX):

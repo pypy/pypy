@@ -10,6 +10,9 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rlib.rarithmetic import intmask, widen
 from rpython.rlib.objectmodel import (
     specialize, enforceargs, register_replacement_for)
+from rpython.rlib.signature import signature
+from rpython.rlib import types
+from rpython.annotator.model import s_Str0
 from rpython.rlib import jit
 from rpython.translator.platform import platform
 from rpython.rlib import rstring
@@ -23,22 +26,6 @@ _MACRO_ON_POSIX = True if not _WIN32 else None
 if _WIN32:
     from rpython.rlib import rwin32
     from rpython.rlib.rwin32file import make_win32_traits
-
-class CConfig:
-    _compilation_info_ = ExternalCompilationInfo(
-        includes=['sys/stat.h',
-                  'unistd.h',
-                  'fcntl.h'],
-    )
-    for _name in """fchdir fchmod fchmodat fchown fchownat fexecve fdopendir
-                    fpathconf fstat fstatat fstatvfs ftruncate futimens futimes
-                    futimesat linkat lchflags lchmod lchown lstat lutimes
-                    mkdirat mkfifoat mknodat openat readlinkat renameat
-                    symlinkat unlinkat utimensat""".split():
-        locals()['HAVE_%s' % _name.upper()] = rffi_platform.Has(_name)
-cConfig = rffi_platform.configure(CConfig)
-globals().update(cConfig)
-
 
 class CConstantErrno(CConstant):
     # these accessors are used when calling get_errno() or set_errno()
@@ -247,15 +234,9 @@ if _WIN32:
     includes = ['io.h', 'sys/utime.h', 'sys/types.h']
     libraries = []
 else:
-    if sys.platform.startswith(('darwin', 'netbsd', 'openbsd')):
-        _ptyh = 'util.h'
-    elif sys.platform.startswith('freebsd'):
-        _ptyh = 'libutil.h'
-    else:
-        _ptyh = 'pty.h'
     includes = ['unistd.h',  'sys/types.h', 'sys/wait.h',
                 'utime.h', 'sys/time.h', 'sys/times.h',
-                'grp.h', 'dirent.h', _ptyh]
+                'grp.h', 'dirent.h']
     libraries = ['util']
 eci = ExternalCompilationInfo(
     includes=includes,
@@ -319,6 +300,7 @@ c_wopen = external(UNDERSCORE_ON_WIN32 + 'wopen',
 # - but rpython.rtyper.module.ll_os.py on Windows will replace these functions
 #   with other wrappers that directly handle unicode strings.
 @specialize.argtype(0)
+@signature(types.any(), returns=s_Str0)
 def _as_bytes(path):
     assert path is not None
     if isinstance(path, str):
@@ -361,6 +343,7 @@ string_traits = StringTraits()
 if _WIN32:
     @specialize.argtype(0)
     def _prefer_unicode(path):
+        assert path is not None
         if isinstance(path, str):
             return False
         elif isinstance(path, unicode):
@@ -593,7 +576,10 @@ def getfullpathname(path):
             buf.raw, lltype.nullptr(win32traits.LPSTRP.TO))
         if res == 0:
             raise rwin32.lastSavedWindowsError("_getfullpathname failed")
-        return buf.str(intmask(res))
+        result = buf.str(intmask(res))
+        assert result is not None
+        result = rstring.assert_str0(result)
+        return result
 
 c_getcwd = external(UNDERSCORE_ON_WIN32 + 'getcwd',
                     [rffi.CCHARP, rffi.SIZE_T], rffi.CCHARP,
@@ -814,6 +800,7 @@ def fork():
     return childpid
 
 @replace_os_function('openpty')
+@jit.dont_look_inside
 def openpty():
     master_p = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
     slave_p = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
@@ -847,6 +834,7 @@ if _WIN32:
     c__cwait = external('_cwait',
                         [rffi.INTP, rffi.PID_T, rffi.INT], rffi.PID_T,
                         save_err=rffi.RFFI_SAVE_ERRNO)
+    @jit.dont_look_inside
     def c_waitpid(pid, status_p, options):
         result = c__cwait(status_p, pid, options)
         # shift the status left a byte so this is more
@@ -1014,6 +1002,7 @@ def mkdir(path, mode=0o777):
 
 @replace_os_function('rmdir')
 @specialize.argtype(0)
+@jit.dont_look_inside
 def rmdir(path):
     if _prefer_unicode(path):
         handle_posix_error('wrmdir', c_wrmdir(_as_unicode0(path)))
@@ -1063,13 +1052,6 @@ def rename(path1, path2):
         path2 = traits.as_str0(path2)
         if not win32traits.MoveFile(path1, path2):
             raise rwin32.lastSavedWindowsError()
-
-@specialize.argtype(0, 1)
-def replace(path1, path2):
-    if os.name == 'nt':
-        raise NotImplementedError(
-            'On windows, os.replace() should overwrite the destination')
-    return rename(path1, path2)
 
 #___________________________________________________________________
 
@@ -1338,7 +1320,7 @@ def times():
                 rffi.cast(lltype.Signed, pkernel.c_dwLowDateTime) * 1E-7,
                 rffi.cast(lltype.Signed, puser.c_dwHighDateTime) * 429.4967296 +
                 rffi.cast(lltype.Signed, puser.c_dwLowDateTime) * 1E-7,
-                0, 0, 0)
+                0., 0., 0.)
         finally:
             lltype.free(puser,   flavor='raw')
             lltype.free(pkernel, flavor='raw')

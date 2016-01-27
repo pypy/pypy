@@ -1,5 +1,6 @@
 from pypy.interpreter.error import OperationError, wrap_oserror
 from pypy.interpreter.gateway import WrappedDefault, unwrap_spec
+from pypy.interpreter.pycode import CodeHookCache
 from pypy.interpreter.pyframe import PyFrame
 from pypy.interpreter.mixedmodule import MixedModule
 from rpython.rlib.objectmodel import we_are_translated
@@ -130,6 +131,13 @@ def locals_to_fast(space, w_frame):
 @unwrap_spec(w_module=MixedModule)
 def save_module_content_for_future_reload(space, w_module):
     w_module.save_module_content_for_future_reload()
+
+def set_code_callback(space, w_callable):
+    cache = space.fromcache(CodeHookCache)
+    if space.is_none(w_callable):
+        cache._code_hook = None
+    else:
+        cache._code_hook = w_callable
 
 @unwrap_spec(w_value=WrappedDefault(None), w_tb=WrappedDefault(None))
 def normalize_exc(space, w_type, w_value=None, w_tb=None):

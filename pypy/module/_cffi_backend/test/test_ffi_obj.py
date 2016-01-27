@@ -12,6 +12,7 @@ class AppTestFFIObj:
         p = ffi.new("int *")
         p[0] = -42
         assert p[0] == -42
+        assert type(ffi) is ffi.__class__ is _cffi1_backend.FFI
 
     def test_ffi_subclass(self):
         import _cffi_backend as _cffi1_backend
@@ -22,6 +23,7 @@ class AppTestFFIObj:
         assert foo.x == 42
         p = foo.new("int *")
         assert p[0] == 0
+        assert type(foo) is foo.__class__ is FOO
 
     def test_ffi_no_argument(self):
         import _cffi_backend as _cffi1_backend
@@ -447,3 +449,30 @@ class AppTestFFIObj:
                 assert int(ffi.cast("_Bool", ffi.cast(type, 42))) == 1
                 assert int(ffi.cast("bool", ffi.cast(type, 42))) == 1
                 assert int(ffi.cast("_Bool", ffi.cast(type, 0))) == 0
+
+    def test_init_once(self):
+        import _cffi_backend as _cffi1_backend
+        def do_init():
+            seen.append(1)
+            return 42
+        ffi = _cffi1_backend.FFI()
+        seen = []
+        for i in range(3):
+            res = ffi.init_once(do_init, "tag1")
+            assert res == 42
+            assert seen == [1]
+        for i in range(3):
+            res = ffi.init_once(do_init, "tag2")
+            assert res == 42
+            assert seen == [1, 1]
+
+    def test_init_once_failure(self):
+        import _cffi_backend as _cffi1_backend
+        def do_init():
+            seen.append(1)
+            raise ValueError
+        ffi = _cffi1_backend.FFI()
+        seen = []
+        for i in range(5):
+            raises(ValueError, ffi.init_once, do_init, "tag")
+            assert seen == [1] * (i + 1)

@@ -2,10 +2,10 @@
 PyPy 4.0.1
 ==========
 
-We have released PyPy 4.0.1, a bux-fix release after PyPy 4.0.1. We have fixed
-a few critical bugs in the JIT compiled code, reported by users. We encourage
-all users of PyPy to update to this version.
-
+We have released PyPy 4.0.1, three weeks after PyPy 4.0.0. We have fixed
+a few critical bugs in the JIT compiled code, reported by users. We therefore
+encourage all users of PyPy to update to this version. There are a few minor
+enhancements in this version as well.
 
 You can download the PyPy 4.0.1 release here:
 
@@ -46,18 +46,12 @@ We also welcome developers of other
 `dynamic languages`_ to see what RPython can do for them.
 
 This release supports **x86** machines on most common operating systems
-(Linux 32/64, Mac OS X 64, Windows 32, OpenBSD_, freebsd_),
-as well as newer **ARM** hardware (ARMv6 or ARMv7, with VFPv3) running Linux.
-
-We also introduce `support for the 64 bit PowerPC`_ hardware, specifically 
-Linux running the big- and little-endian variants of ppc64.
+(Linux 32/64, Mac OS X 64, Windows 32, OpenBSD, freebsd),
+newer **ARM** hardware (ARMv6 or ARMv7, with VFPv3) running Linux, and the
+big- and little-endian variants of **ppc64** running Linux.
 
 .. _`pypy and cpython 2.7.x`: http://speed.pypy.org
-.. _OpenBSD: http://cvsweb.openbsd.org/cgi-bin/cvsweb/ports/lang/pypy
-.. _freebsd: https://svnweb.freebsd.org/ports/head/lang/pypy/
 .. _`dynamic languages`: http://pypyjs.org
-.. _`support for the 64 bit PowerPC`: http://morepypy.blogspot.com/2015/10/powerpc-backend-for-jit.html
-.. _`here`: http://morepypy.blogspot.com/2015/10/automatic-simd-vectorization-support-in.html
 
 Other Highlights (since 4.0.0 released three weeks ago)
 =======================================================
@@ -91,7 +85,7 @@ Other Highlights (since 4.0.0 released three weeks ago)
 
   * Improve support for __array_interface__
 
-  * Propogate NAN mantissas through float16-float32-float64 conversions
+  * Propagate NAN mantissas through float16-float32-float64 conversions
 
 
 * Performance improvements and refactorings:

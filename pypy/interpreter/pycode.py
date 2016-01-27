@@ -70,6 +70,9 @@ def cpython_code_signature(code):
         kwargname = None
     return Signature(argnames, varargname, kwargname, kwonlyargs)
 
+class CodeHookCache(object):
+    def __init__(self, space):
+        self._code_hook = None
 
 class PyCode(eval.Code):
     "CPython-style code objects."
@@ -110,6 +113,15 @@ class PyCode(eval.Code):
         self._signature = cpython_code_signature(self)
         self._initialize()
         self._init_ready()
+        self.new_code_hook()
+
+    def new_code_hook(self):
+        code_hook = self.space.fromcache(CodeHookCache)._code_hook
+        if code_hook is not None:
+            try:
+                self.space.call_function(code_hook, self)
+            except OperationError, e:
+                e.write_unraisable(self.space, "new_code_hook()")
 
     def _initialize(self):
         if self.co_cellvars:

@@ -19,10 +19,10 @@ from rpython.jit.metainterp.optimizeopt.dependency import (DependencyGraph,
         MemoryRef, Node, IndexVar)
 from rpython.jit.metainterp.optimizeopt.version import LoopVersionInfo
 from rpython.jit.metainterp.optimizeopt.schedule import (VecScheduleState,
-        SchedulerState, Scheduler, Pack, Pair, AccumPack)
+        SchedulerState, Scheduler, Pack, Pair, AccumPack, forwarded_vecinfo)
 from rpython.jit.metainterp.optimizeopt.guard import GuardStrengthenOpt
 from rpython.jit.metainterp.resoperation import (rop, ResOperation, GuardResOp,
-        OpHelpers, VecOperation)
+        OpHelpers, VecOperation, VectorizationInfo)
 from rpython.rlib import listsort
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.debug import debug_print, debug_start, debug_stop
@@ -30,6 +30,13 @@ from rpython.rlib.jit import Counters
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.jit.backend.llsupport.symbolic import (WORD as INT_WORD,
         SIZEOF_FLOAT as FLOAT_WORD)
+
+def copy_resop(op):
+    newop = op.copy()
+    fwd = op.get_forwarded()
+    if fwd is not None and isinstance(fwd, VectorizationInfo):
+        newop.set_forwarded(fwd)
+    return newop
 
 class VectorLoop(object):
     def __init__(self, label, oplist, jump):
@@ -41,6 +48,14 @@ class VectorLoop(object):
         self.operations = oplist
         self.jump = jump
         assert self.jump.getopnum() == rop.JUMP
+
+    def setup_vectorization(self):
+        for op in self.operations:
+            op.set_forwarded(VectorizationInfo(op))
+
+    def teardown_vectorization(self):
+        for op in self.operations:
+            op.set_forwarded(None)
 
     def finaloplist(self, jitcell_token=None, reset_label_token=True, label=False):
         oplist = []
@@ -71,28 +86,28 @@ class VectorLoop(object):
 
     def clone(self):
         renamer = Renamer()
-        label = self.label.copy()
+        label = copy_resop(self.label)
         prefix = []
         for op in self.prefix:
-            newop = op.copy()
+            newop = copy_resop(op)
             renamer.rename(newop)
             if not newop.returns_void():
                 renamer.start_renaming(op, newop)
             prefix.append(newop)
         prefix_label = None
         if self.prefix_label:
-            prefix_label = self.prefix_label.copy()
+            prefix_label = copy_resop(self.prefix_label)
             renamer.rename(prefix_label)
         oplist = []
         for op in self.operations:
-            newop = op.copy()
+            newop = copy_resop(op)
             renamer.rename(newop)
             if not newop.returns_void():
                 renamer.start_renaming(op, newop)
             oplist.append(newop)
-        jump = self.jump.copy()
+        jump = copy_resop(self.jump)
         renamer.rename(jump)
-        loop = VectorLoop(self.label.copy(), oplist, jump)
+        loop = VectorLoop(copy_resop(self.label), oplist, jump)
         loop.prefix = prefix
         loop.prefix_label = prefix_label
         return loop
@@ -110,6 +125,7 @@ def optimize_vector(metainterp_sd, jitdriver_sd, warmstate,
     # the original loop (output of optimize_unroll)
     info = LoopVersionInfo(loop_info)
     version = info.snapshot(loop)
+    loop.setup_vectorization()
     try:
         debug_start("vec-opt-loop")
         metainterp_sd.logger_noopt.log_loop([], loop.finaloplist(label=True), -2, None, None, "pre vectorize")
@@ -148,6 +164,8 @@ def optimize_vector(metainterp_sd, jitdriver_sd, warmstate,
             llop.debug_print_traceback(lltype.Void)
         else:
             raise
+    finally:
+        loop.teardown_vectorization()
     return loop_info, loop_ops
 
 def user_loop_bail_fast_path(loop, warmstate):
@@ -262,7 +280,7 @@ class VectorizingOptimizer(Optimizer):
             for i, op in enumerate(operations):
                 if op.getopnum() in prohibit_opnums:
                     continue # do not unroll this operation twice
-                copied_op = op.copy()
+                copied_op = copy_resop(op)
                 if not copied_op.returns_void():
                     # every result assigns a new box, thus creates an entry
                     # to the rename map.
@@ -593,7 +611,8 @@ class X86_CostModel(CostModel):
             self.savings += -count
 
     def record_vector_pack(self, src, index, count):
-        if src.datatype == FLOAT:
+        vecinfo = forwarded_vecinfo(src)
+        if vecinfo.datatype == FLOAT:
             if index == 1 and count == 1:
                 self.savings -= 2
                 return
@@ -607,7 +626,9 @@ def isomorphic(l_op, r_op):
         See limintations (vectorization.rst).
     """
     if l_op.getopnum() == r_op.getopnum():
-        return l_op.bytesize == r_op.bytesize
+        l_vecinfo = forwarded_vecinfo(l_op)
+        r_vecinfo = forwarded_vecinfo(r_op)
+        return l_vecinfo.bytesize == r_vecinfo.bytesize
     return False
 
 class PackSet(object):
@@ -728,7 +749,9 @@ class PackSet(object):
             size = INT_WORD
             if left.type == 'f':
                 size = FLOAT_WORD
-            if not (left.bytesize == right.bytesize and left.bytesize == size):
+            l_vecinfo = forwarded_vecinfo(left)
+            r_vecinfo = forwarded_vecinfo(right)
+            if not (l_vecinfo.bytesize == r_vecinfo.bytesize and l_vecinfo.bytesize == size):
                 # do not support if if the type size is smaller
                 # than the cpu word size.
                 # WHY?

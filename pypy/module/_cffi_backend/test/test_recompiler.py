@@ -16,8 +16,8 @@ def prepare(space, cdef, module_name, source, w_includes=None,
         from cffi import ffiplatform
     except ImportError:
         py.test.skip("system cffi module not found or older than 1.0.0")
-    if cffi.__version_info__ < (1, 2, 0):
-        py.test.skip("system cffi module needs to be at least 1.2.0")
+    if cffi.__version_info__ < (1, 4, 0):
+        py.test.skip("system cffi module needs to be at least 1.4.0")
     space.appexec([], """():
         import _cffi_backend     # force it to be initialized
     """)
@@ -1029,6 +1029,7 @@ class AppTestRecompiler:
         assert hasattr(lib, '__dict__')
         assert lib.__all__ == ['MYFOO', 'mybar']   # but not 'myvar'
         assert lib.__name__ == repr(lib)
+        assert lib.__class__ is type(lib)
 
     def test_macro_var_callback(self):
         ffi, lib = self.prepare(
@@ -1376,3 +1377,252 @@ class AppTestRecompiler:
                                   'test_share_FILE_b',
                                   "FILE *barize(void) { return NULL; }")
         lib1.do_stuff(lib2.barize())
+
+    def w_StdErrCapture(self, fd=False):
+        if fd:
+            # note: this is for a case where CPython prints to sys.stderr
+            # too, but not PyPy
+            import os
+            class MiniStringIO(object):
+                def __init__(self):
+                    self._rd, self._wr = os.pipe()
+                    self._result = None
+                def getvalue(self):
+                    if self._result is None:
+                        os.close(self._wr)
+                        self._result = os.read(self._rd, 4096)
+                        os.close(self._rd)
+                        # xxx hack away these lines
+                        while self._result.startswith('[platform:execute]'):
+                            self._result = ''.join(
+                                self._result.splitlines(True)[1:])
+                    return self._result
+            class StdErrCapture(object):
+                def __enter__(self):
+                    f = MiniStringIO()
+                    self.old_fd2 = os.dup(2)
+                    os.dup2(f._wr, 2)
+                    return f
+                def __exit__(self, *args):
+                    os.dup2(self.old_fd2, 2)
+                    os.close(self.old_fd2)
+            return StdErrCapture()
+        else:
+            import sys
+            class MiniStringIO(object):
+                def __init__(self):
+                    self._lst = []
+                    self.write = self._lst.append
+                def getvalue(self):
+                    return ''.join(self._lst)
+            class StdErrCapture(object):
+                def __enter__(self):
+                    self.old_stderr = sys.stderr
+                    sys.stderr = f = MiniStringIO()
+                    return f
+                def __exit__(self, *args):
+                    sys.stderr = self.old_stderr
+            return StdErrCapture()
+
+    def test_extern_python_1(self):
+        ffi, lib = self.prepare("""
+            extern "Python" {
+                int bar(int, int);
+                void baz(int, int);
+                int bok(void);
+                void boz(void);
+            }
+        """, 'test_extern_python_1', "")
+        assert ffi.typeof(lib.bar) == ffi.typeof("int(*)(int, int)")
+        with self.StdErrCapture(fd=True) as f:
+            res = lib.bar(4, 5)
+        assert res == 0
+        assert f.getvalue() == (
+            "extern \"Python\": function bar() called, but no code was attached "
+            "to it yet with @ffi.def_extern().  Returning 0.\n")
+
+        @ffi.def_extern("bar")
+        def my_bar(x, y):
+            seen.append(("Bar", x, y))
+            return x * y
+        assert my_bar != lib.bar
+        seen = []
+        res = lib.bar(6, 7)
+        assert seen == [("Bar", 6, 7)]
+        assert res == 42
+
+        def baz(x, y):
+            seen.append(("Baz", x, y))
+        baz1 = ffi.def_extern()(baz)
+        assert baz1 is baz
+        seen = []
+        baz(40L, 4L)
+        res = lib.baz(50L, 8L)
+        assert res is None
+        assert seen == [("Baz", 40L, 4L), ("Baz", 50, 8)]
+        assert type(seen[0][1]) is type(seen[0][2]) is long
+        assert type(seen[1][1]) is type(seen[1][2]) is int
+
+        @ffi.def_extern(name="bok")
+        def bokk():
+            seen.append("Bok")
+            return 42
+        seen = []
+        assert lib.bok() == 42
+        assert seen == ["Bok"]
+
+        @ffi.def_extern()
+        def boz():
+            seen.append("Boz")
+        seen = []
+        assert lib.boz() is None
+        assert seen == ["Boz"]
+
+    def test_extern_python_bogus_name(self):
+        ffi, lib = self.prepare("int abc;",
+                                'test_extern_python_bogus_name',
+                                "int abc;")
+        def fn():
+            pass
+        raises(ffi.error, ffi.def_extern("unknown_name"), fn)
+        raises(ffi.error, ffi.def_extern("abc"), fn)
+        assert lib.abc == 0
+        e = raises(ffi.error, ffi.def_extern("abc"), fn)
+        assert str(e.value) == ("ffi.def_extern('abc'): no 'extern \"Python\"' "
+                                "function with this name")
+        e = raises(ffi.error, ffi.def_extern(), fn)
+        assert str(e.value) == ("ffi.def_extern('fn'): no 'extern \"Python\"' "
+                                "function with this name")
+        #
+        raises(TypeError, ffi.def_extern(42), fn)
+        raises((TypeError, AttributeError), ffi.def_extern(), "foo")
+        class X:
+            pass
+        x = X()
+        x.__name__ = x
+        raises(TypeError, ffi.def_extern(), x)
+
+    def test_extern_python_bogus_result_type(self):
+        ffi, lib = self.prepare("""extern "Python" void bar(int);""",
+                                'test_extern_python_bogus_result_type',
+                                "")
+        @ffi.def_extern()
+        def bar(n):
+            return n * 10
+        with self.StdErrCapture() as f:
+            res = lib.bar(321)
+        assert res is None
+        assert f.getvalue() == (
+            "From cffi callback %r:\n" % (bar,) +
+            "Trying to convert the result back to C:\n"
+            "TypeError: callback with the return type 'void' must return None\n")
+
+    def test_extern_python_redefine(self):
+        ffi, lib = self.prepare("""extern "Python" int bar(int);""",
+                                'test_extern_python_redefine',
+                                "")
+        @ffi.def_extern()
+        def bar(n):
+            return n * 10
+        assert lib.bar(42) == 420
+        #
+        @ffi.def_extern()
+        def bar(n):
+            return -n
+        assert lib.bar(42) == -42
+
+    def test_extern_python_struct(self):
+        ffi, lib = self.prepare("""
+            struct foo_s { int a, b, c; };
+            extern "Python" int bar(int, struct foo_s, int);
+            extern "Python" { struct foo_s baz(int, int);
+                              struct foo_s bok(void); }
+        """, 'test_extern_python_struct',
+             "struct foo_s { int a, b, c; };")
+        #
+        @ffi.def_extern()
+        def bar(x, s, z):
+            return x + s.a + s.b + s.c + z
+        res = lib.bar(1000, [1001, 1002, 1004], 1008)
+        assert res == 5015
+        #
+        @ffi.def_extern()
+        def baz(x, y):
+            return [x + y, x - y, x * y]
+        res = lib.baz(1000, 42)
+        assert res.a == 1042
+        assert res.b == 958
+        assert res.c == 42000
+        #
+        @ffi.def_extern()
+        def bok():
+            return [10, 20, 30]
+        res = lib.bok()
+        assert [res.a, res.b, res.c] == [10, 20, 30]
+
+    def test_extern_python_long_double(self):
+        ffi, lib = self.prepare("""
+            extern "Python" int bar(int, long double, int);
+            extern "Python" long double baz(int, int);
+            extern "Python" long double bok(void);
+        """, 'test_extern_python_long_double', "")
+        #
+        @ffi.def_extern()
+        def bar(x, l, z):
+            seen.append((x, l, z))
+            return 6
+        seen = []
+        lib.bar(10, 3.5, 20)
+        expected = ffi.cast("long double", 3.5)
+        assert repr(seen) == repr([(10, expected, 20)])
+        #
+        @ffi.def_extern()
+        def baz(x, z):
+            assert x == 10 and z == 20
+            return expected
+        res = lib.baz(10, 20)
+        assert repr(res) == repr(expected)
+        #
+        @ffi.def_extern()
+        def bok():
+            return expected
+        res = lib.bok()
+        assert repr(res) == repr(expected)
+
+    def test_extern_python_signature(self):
+        ffi, lib = self.prepare("", 'test_extern_python_signature', "")
+        raises(TypeError, ffi.def_extern(425), None)
+        raises(TypeError, ffi.def_extern, 'a', 'b', 'c', 'd')
+
+    def test_extern_python_errors(self):
+        ffi, lib = self.prepare("""
+            extern "Python" int bar(int);
+        """, 'test_extern_python_errors', "")
+
+        seen = []
+        def oops(*args):
+            seen.append(args)
+
+        @ffi.def_extern(onerror=oops)
+        def bar(x):
+            return x + ""
+        assert lib.bar(10) == 0
+
+        @ffi.def_extern(name="bar", onerror=oops, error=-66)
+        def bar2(x):
+            return x + ""
+        assert lib.bar(10) == -66
+
+        assert len(seen) == 2
+        exc, val, tb = seen[0]
+        assert exc is TypeError
+        assert isinstance(val, TypeError)
+        assert tb.tb_frame.f_code.co_name == "bar"
+        exc, val, tb = seen[1]
+        assert exc is TypeError
+        assert isinstance(val, TypeError)
+        assert tb.tb_frame.f_code.co_name == "bar2"
+        #
+        # a case where 'onerror' is not callable
+        raises(TypeError, ffi.def_extern(name='bar', onerror=42),
+                       lambda x: x)
