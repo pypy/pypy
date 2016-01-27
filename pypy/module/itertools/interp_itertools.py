@@ -1088,6 +1088,42 @@ class W_Combinations(W_Root):
         self.last_result_w = result_w
         return space.newtuple(result_w)
 
+    def descr_reduce(self, space):
+        if self.stopped:
+            pool_w = []
+        else:
+            pool_w = self.pool_w
+        result_w = [
+            space.type(self),
+            space.newtuple([
+                space.newtuple(pool_w), space.wrap(self.r)
+            ])]
+        if self.last_result_w is not None and not self.stopped:
+            # we must pickle the indices and use them for setstate
+            result_w = result_w + [
+                space.newtuple([
+                    space.wrap(index) for index in self.indices])]
+        return space.newtuple(result_w)
+
+    def descr_setstate(self, space, w_state):
+        indices_w = space.fixedview(w_state)
+        if len(indices_w) != self.r:
+            import pdb;pdb.set_trace()
+            raise OperationError(space.w_ValueError, space.wrap(
+                "invalid arguments"))
+        for i in range(self.r):
+            index = space.int_w(indices_w[i])
+            max = self.get_maximum(i)
+            # clamp the index (beware of negative max)
+            if index > max:
+                index = max
+            if index < 0:
+                index = 0
+            self.indices.append(index)
+        self.last_result_w = [
+            self.pool_w[self.indices[i]]
+            for i in range(self.r)]
+
 @unwrap_spec(r=int)
 def W_Combinations__new__(space, w_subtype, w_iterable, r):
     pool_w = space.fixedview(w_iterable)
@@ -1095,7 +1131,7 @@ def W_Combinations__new__(space, w_subtype, w_iterable, r):
         raise OperationError(space.w_ValueError,
             space.wrap("r must be non-negative")
         )
-    indices = range(len(pool_w))
+    indices = range(r)
     res = space.allocate_instance(W_Combinations, w_subtype)
     res.__init__(space, pool_w, indices, r)
     return space.wrap(res)
@@ -1104,6 +1140,8 @@ W_Combinations.typedef = TypeDef("itertools.combinations",
     __new__ = interp2app(W_Combinations__new__),
     __iter__ = interp2app(W_Combinations.descr__iter__),
     __next__ = interp2app(W_Combinations.descr_next),
+    __reduce__ = interp2app(W_Combinations.descr_reduce),
+    __setstate__ = interp2app(W_Combinations.descr_setstate),
     __doc__ = """\
 combinations(iterable, r) --> combinations object
 

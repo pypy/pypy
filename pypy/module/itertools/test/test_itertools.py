@@ -975,6 +975,25 @@ class AppTestItertools27:
         islice = itertools.islice(myiter, 5, 8)
         raises(StopIteration, islice.__next__)
 
+    def test_combinations_pickle(self):
+        from itertools import combinations
+        import pickle
+        for op in (lambda a:a, lambda a:pickle.loads(pickle.dumps(a))):
+            assert list(op(combinations('abc', 32))) == []     # r > n
+            assert list(op(combinations('ABCD', 2))) == [
+                ('A','B'), ('A','C'), ('A','D'), ('B','C'), ('B','D'), ('C','D')]
+            testIntermediate = combinations('ABCD', 2)
+            next(testIntermediate)
+            assert list(op(testIntermediate)) == [
+                ('A','C'), ('A','D'), ('B','C'), ('B','D'), ('C','D')]
+
+            assert list(op(combinations(range(4), 3))) == [
+                (0,1,2), (0,1,3), (0,2,3), (1,2,3)]
+            testIntermediate = combinations(range(4), 3)
+            next(testIntermediate)
+            assert list(op(testIntermediate)) == [
+                (0,1,3), (0,2,3), (1,2,3)]
+
 
 class AppTestItertools32:
     spaceconfig = dict(usemodules=['itertools'])
