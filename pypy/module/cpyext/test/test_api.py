@@ -53,7 +53,6 @@ class BaseApiTest(LeakCheckingTest):
         return state.clear_exception()
 
     def setup_method(self, func):
-        #return   # ZZZ
         freeze_refcnts(self)
 
     def teardown_method(self, func):
