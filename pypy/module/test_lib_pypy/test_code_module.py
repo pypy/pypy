@@ -21,7 +21,9 @@ class AppTestCodeModule:
 
     def test_cause_tb(self):
         interp = self.get_interp()
-        interp.runsource('raise IOError from OSError')
+        # (Arbitrarily) Changing to TypeError as IOError is now an alias of
+        # OSError, making testing confusing
+        interp.runsource('raise TypeError from OSError')
         result = interp.out.getvalue()
         expected_header = """OSError
 
@@ -30,7 +32,7 @@ The above exception was the direct cause of the following exception:
 Traceback (most recent call last):
 """
         assert expected_header in result
-        assert result.endswith("IOError\n")
+        assert result.endswith("TypeError\n")
 
     def test_context_tb(self):
         interp = self.get_interp()

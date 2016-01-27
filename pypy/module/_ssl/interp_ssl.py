@@ -1094,27 +1094,13 @@ def SSLError_descr_str(space, w_exc):
     return space.str(space.getattr(w_exc, space.wrap("args")))
 
 
-class W_Error(interp_exceptions.W_OSError):
-    "An error occurred in the SSL implementation."
-
-    def descr_str(self, space):
-        if space.isinstance_w(self.w_strerror, space.w_unicode):
-            return self.w_strerror
-        else:
-            return space.str(space.newtuple(self.args_w))
-
-W_Error.typedef = TypeDef(
-    "ssl.SSLError",
-    interp_exceptions.W_OSError.typedef,
-    __new__  = interp_exceptions._new(W_Error),
-    __doc__  = W_Error.__doc__,
-    __str__  = interp2app(W_Error.descr_str),
-    )
-
-
 class ErrorCache:
     def __init__(self, space):
-        self.w_error = space.gettypefor(W_Error)
+        w_socketerror = interp_socket.get_error(space, "error")
+        self.w_error = space.new_exception_class(
+            "_ssl.SSLError", w_socketerror)
+        space.setattr(self.w_error, space.wrap('__str__'),
+                      space.wrap(interp2app(SSLError_descr_str)))
         self.w_ZeroReturnError = space.new_exception_class(
             "ssl.SSLZeroReturnError", self.w_error)
         self.w_WantReadError = space.new_exception_class(

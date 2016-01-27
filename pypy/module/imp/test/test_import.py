@@ -499,7 +499,7 @@ class AppTestImport(BaseImportTest):
         # Check relative fails when __package__ set to a non-string
         ns = dict(__package__=object())
         check_absolute()
-        raises(ValueError, check_relative)
+        raises(TypeError, check_relative)
 
     def test_import_function(self):
         # More tests for __import__
@@ -636,7 +636,9 @@ class AppTestImport(BaseImportTest):
     def test_del_from_sys_modules(self):
         try:
             import del_sys_module
-        except ImportError:
+        #This raises a KeyError in cpython,
+        #not an import error
+        except KeyError:
             pass    # ok
         else:
             assert False, 'should not work'

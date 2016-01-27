@@ -30,7 +30,7 @@ class Module(MixedModule):
                       space.wrap(space.builtin))
         code_w.exec_code(space, self.w_dict, self.w_dict)
 
-        self.w_import = space.wrap(interp_import.import_with_frames_removed)
+        self.w_import = space.wrap(interp_import.__import__)
 
     def startup(self, space):
         """Copy our __import__ to builtins."""

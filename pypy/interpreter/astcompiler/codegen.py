@@ -1381,7 +1381,7 @@ class ClassCodeGenerator(PythonCodeGenerator):
         # ... and store it as __module__
         self.name_op("__module__", ast.Store)
         # store the qualname
-        w_qualname = self.space.wrap(self.qualname)
+        w_qualname = self.space.wrap(self.qualname.decode("utf-8"))
         self.load_const(w_qualname)
         self.name_op("__qualname__", ast.Store)
         # compile the body proper
