@@ -290,9 +290,8 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, external=True,
 
             @specialize.ll()
             def unwrapper(space, *args):
-                from pypy.module.cpyext.pyobject import Py_DecRef
+                from pypy.module.cpyext.pyobject import Py_DecRef, is_pyobj
                 from pypy.module.cpyext.pyobject import make_ref, from_ref
-                from pypy.module.cpyext.pyobject import Reference
                 newargs = ()
                 keepalives = ()
                 assert len(args) == len(api_function.argtypes)
