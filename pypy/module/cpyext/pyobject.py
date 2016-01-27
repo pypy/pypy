@@ -5,7 +5,7 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from pypy.module.cpyext.api import (
     cpython_api, bootstrap_function, PyObject, PyObjectP, ADDR,
-    CANNOT_FAIL, Py_TPFLAGS_HEAPTYPE, PyTypeObjectPtr,
+    CANNOT_FAIL, Py_TPFLAGS_HEAPTYPE, PyTypeObjectPtr, is_PyObject,
     INTERPLEVEL_API)
 from pypy.module.cpyext.state import State
 from pypy.objspace.std.typeobject import W_TypeObject
@@ -212,7 +212,7 @@ def from_ref(space, ref):
     assert is_pyobj(ref)
     if not ref:
         return None
-    w_obj = rawrefcount.to_obj(W_Root, pyobj)
+    w_obj = rawrefcount.to_obj(W_Root, ref)
     if w_obj is not None:
         return w_obj
 

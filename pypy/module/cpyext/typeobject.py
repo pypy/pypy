@@ -324,9 +324,21 @@ def init_typeobject(space):
     track_reference(space, py_type, space.w_type)
     type_attach(space, py_type, space.w_type)
 
+    as_pyobj(space, space.w_str)
+    as_pyobj(space, space.w_tuple)
+    as_pyobj(space, space.w_object)
+
+    delayed_types = []
     while space._cpyext_delay_type_creation:
-        _type_really_attach(space, *space._cpyext_delay_type_creation.pop())
+        (py_obj, w_type) = space._cpyext_delay_type_creation.pop()
+        _type_really_attach(space, py_obj, w_type)
+        delayed_types.append((py_obj, w_type))
     del space._cpyext_delay_type_creation
+    for py_obj, w_type in delayed_types:
+        pto = rffi.cast(PyTypeObjectPtr, py_obj)
+        finish_type_1(space, pto)
+        finish_type_2(space, pto, w_type)
+        finish_type_3(space, pto, w_type)
 
 
 @cpython_api([PyObject], lltype.Void, external=False)
@@ -493,8 +505,9 @@ def _type_really_attach(space, py_obj, w_type):
     py_base = make_ref(space, w_base)
     pto.c_tp_base = rffi.cast(PyTypeObjectPtr, py_base)
 
-    finish_type_1(space, pto)
-    finish_type_2(space, pto, w_type)
+    if not hasattr(space, '_cpyext_delay_type_creation'):
+        finish_type_1(space, pto)
+        finish_type_2(space, pto, w_type)
 
     pto.c_tp_basicsize = rffi.sizeof(typedescr.basestruct)
     if pto.c_tp_base:
@@ -507,6 +520,12 @@ def _type_really_attach(space, py_obj, w_type):
         pto.c_tp_new = rffi.cast(newfunc, 1)
     update_all_slots(space, w_type, pto)
 
+    if not hasattr(space, '_cpyext_delay_type_creation'):
+        finish_type_3(space, pto, w_type)
+
+    pto.c_tp_flags |= Py_TPFLAGS_READY
+
+def finish_type_3(space, pto, w_type):
     if pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE:
         w_typename = space.getattr(w_type, space.wrap('__name__'))
         heaptype = rffi.cast(PyHeapTypeObject, pto)
@@ -515,8 +534,6 @@ def _type_really_attach(space, py_obj, w_type):
         pto.c_tp_name = PyString_AsString(space, heaptype.c_ht_name)
     else:
         pto.c_tp_name = rffi.str2charp(w_type.name)
-
-    pto.c_tp_flags |= Py_TPFLAGS_READY
 
 def py_type_ready(space, pto):
     if pto.c_tp_flags & Py_TPFLAGS_READY:
@@ -608,8 +625,7 @@ def finish_type_1(space, pto):
     base = pto.c_tp_base
     base_pyo = rffi.cast(PyObject, pto.c_tp_base)
     if base and not base.c_tp_flags & Py_TPFLAGS_READY:
-        if not hasattr(space, '_cpyext_delay_type_creation'):
-            type_realize(space, rffi.cast(PyObject, base_pyo))
+        type_realize(space, rffi.cast(PyObject, base_pyo))
     if base and not pto.c_ob_type: # will be filled later
         pto.c_ob_type = base.c_ob_type
     if not pto.c_tp_bases:
