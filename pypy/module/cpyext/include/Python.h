@@ -100,6 +100,7 @@ typedef long Py_ssize_t;
 #include "complexobject.h"
 #include "methodobject.h"
 #include "funcobject.h"
+#include "code.h"
 
 #include "moduleobject.h"
 #include "modsupport.h"

@@ -4,6 +4,8 @@ Minimal (and limited) RPython version of some functions contained in os.path.
 
 import os, stat
 from rpython.rlib import rposix
+from rpython.rlib.signature import signature
+from rpython.annotator.model import s_Str0
 
 
 # ____________________________________________________________
@@ -56,6 +58,7 @@ def _posix_rnormpath(path):
         path = slash*initial_slashes + path
     return path or dot
 
+@signature(s_Str0, returns=s_Str0)
 def _posix_rabspath(path):
     """Return an absolute, **non-normalized** path.
       **This version does not let exceptions propagate.**"""
@@ -142,11 +145,12 @@ def _nt_rnormpath(path):
         comps.append(dot)
     return prefix + backslash.join(comps)
 
+@signature(s_Str0, returns=s_Str0)
 def _nt_rabspath(path):
     try:
         if path == '':
             path = os.getcwd()
-        return rposix._getfullpathname(path)
+        return rposix.getfullpathname(path)
     except OSError:
         return path
 

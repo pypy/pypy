@@ -417,7 +417,12 @@ class BaseMapdictObject:
         w_dict = check_new_dictionary(space, w_dict)
         w_olddict = self.getdict(space)
         assert isinstance(w_dict, W_DictMultiObject)
-        if type(w_olddict.strategy) is not ObjectDictStrategy:
+        # The old dict has got 'self' as dstorage, but we are about to
+        # change self's ("dict", SPECIAL) attribute to point to the
+        # new dict.  If the old dict was using the MapDictStrategy, we
+        # have to force it now: otherwise it would remain an empty
+        # shell that continues to delegate to 'self'.
+        if type(w_olddict.strategy) is MapDictStrategy:
             w_olddict.strategy.switch_to_object_strategy(w_olddict)
         flag = self._get_mapdict_map().write(self, ("dict", SPECIAL), w_dict)
         assert flag

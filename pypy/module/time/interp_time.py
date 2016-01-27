@@ -505,13 +505,6 @@ def time(space):
     secs = pytime.time()
     return space.wrap(secs)
 
-if _WIN:
-    class PCCache:
-        pass
-    pccache = PCCache()
-    pccache.divisor = 0.0
-    pccache.ctrStart = 0
-
 def clock(space):
     """clock() -> floating point number
 

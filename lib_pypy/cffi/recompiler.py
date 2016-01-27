@@ -118,6 +118,7 @@ class TypenameExpr:
 
 
 class Recompiler:
+    _num_externpy = 0
 
     def __init__(self, ffi, module_name, target_is_python=False):
         self.ffi = ffi
@@ -356,7 +357,10 @@ class Recompiler:
         else:
             prnt('  NULL,  /* no includes */')
         prnt('  %d,  /* num_types */' % (len(self.cffi_types),))
-        prnt('  0,  /* flags */')
+        flags = 0
+        if self._num_externpy:
+            flags |= 1     # set to mean that we use extern "Python"
+        prnt('  %d,  /* flags */' % flags)
         prnt('};')
         prnt()
         #
@@ -366,6 +370,11 @@ class Recompiler:
         prnt('PyMODINIT_FUNC')
         prnt('_cffi_pypyinit_%s(const void *p[])' % (base_module_name,))
         prnt('{')
+        if self._num_externpy:
+            prnt('    if (((intptr_t)p[0]) >= 0x0A03) {')
+            prnt('        _cffi_call_python = '
+                 '(void(*)(struct _cffi_externpy_s *, char *))p[1];')
+            prnt('    }')
         prnt('    p[0] = (const void *)%s;' % VERSION)
         prnt('    p[1] = &_cffi_type_context;')
         prnt('}')
@@ -1108,6 +1117,75 @@ class Recompiler:
             GlobalExpr(name, '_cffi_var_%s' % name, CffiOp(op, type_index)))
 
     # ----------
+    # extern "Python"
+
+    def _generate_cpy_extern_python_collecttype(self, tp, name):
+        assert isinstance(tp, model.FunctionPtrType)
+        self._do_collect_type(tp)
+
+    def _generate_cpy_extern_python_decl(self, tp, name):
+        prnt = self._prnt
+        if isinstance(tp.result, model.VoidType):
+            size_of_result = '0'
+        else:
+            context = 'result of %s' % name
+            size_of_result = '(int)sizeof(%s)' % (
+                tp.result.get_c_name('', context),)
+        prnt('static struct _cffi_externpy_s _cffi_externpy__%s =' % name)
+        prnt('  { "%s", %s };' % (name, size_of_result))
+        prnt()
+        #
+        arguments = []
+        context = 'argument of %s' % name
+        for i, type in enumerate(tp.args):
+            arg = type.get_c_name(' a%d' % i, context)
+            arguments.append(arg)
+        #
+        repr_arguments = ', '.join(arguments)
+        repr_arguments = repr_arguments or 'void'
+        name_and_arguments = '%s(%s)' % (name, repr_arguments)
+        #
+        def may_need_128_bits(tp):
+            return (isinstance(tp, model.PrimitiveType) and
+                    tp.name == 'long double')
+        #
+        size_of_a = max(len(tp.args)*8, 8)
+        if may_need_128_bits(tp.result):
+            size_of_a = max(size_of_a, 16)
+        if isinstance(tp.result, model.StructOrUnion):
+            size_of_a = 'sizeof(%s) > %d ? sizeof(%s) : %d' % (
+                tp.result.get_c_name(''), size_of_a,
+                tp.result.get_c_name(''), size_of_a)
+        prnt('static %s' % tp.result.get_c_name(name_and_arguments))
+        prnt('{')
+        prnt('  char a[%s];' % size_of_a)
+        prnt('  char *p = a;')
+        for i, type in enumerate(tp.args):
+            arg = 'a%d' % i
+            if (isinstance(type, model.StructOrUnion) or
+                    may_need_128_bits(type)):
+                arg = '&' + arg
+                type = model.PointerType(type)
+            prnt('  *(%s)(p + %d) = %s;' % (type.get_c_name('*'), i*8, arg))
+        prnt('  _cffi_call_python(&_cffi_externpy__%s, p);' % name)
+        if not isinstance(tp.result, model.VoidType):
+            prnt('  return *(%s)p;' % (tp.result.get_c_name('*'),))
+        prnt('}')
+        prnt()
+        self._num_externpy += 1
+
+    def _generate_cpy_extern_python_ctx(self, tp, name):
+        if self.target_is_python:
+            raise ffiplatform.VerificationError(
+                "cannot use 'extern \"Python\"' in the ABI mode")
+        if tp.ellipsis:
+            raise NotImplementedError("a vararg function is extern \"Python\"")
+        type_index = self._typesdict[tp]
+        type_op = CffiOp(OP_EXTERN_PYTHON, type_index)
+        self._lsts["global"].append(
+            GlobalExpr(name, '&_cffi_externpy__%s' % name, type_op, name))
+
+    # ----------
     # emitting the opcodes for individual types
 
     def _emit_bytecode_VoidType(self, tp, index):
@@ -1232,7 +1310,8 @@ def _modname_to_file(outputdir, modname, extension):
     return os.path.join(outputdir, *parts), parts
 
 def recompile(ffi, module_name, preamble, tmpdir='.', call_c_compiler=True,
-              c_file=None, source_extension='.c', extradir=None, **kwds):
+              c_file=None, source_extension='.c', extradir=None,
+              compiler_verbose=1, **kwds):
     if not isinstance(module_name, str):
         module_name = module_name.encode('ascii')
     if ffi._windows_unicode:
@@ -1252,7 +1331,7 @@ def recompile(ffi, module_name, preamble, tmpdir='.', call_c_compiler=True,
             cwd = os.getcwd()
             try:
                 os.chdir(tmpdir)
-                outputfilename = ffiplatform.compile('.', ext)
+                outputfilename = ffiplatform.compile('.', ext, compiler_verbose)
             finally:
                 os.chdir(cwd)
             return outputfilename

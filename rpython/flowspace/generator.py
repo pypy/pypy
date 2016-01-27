@@ -156,8 +156,7 @@ def tweak_generator_body_graph(Entry, graph):
     regular_entry_block = Block([Variable('entry')])
     block = regular_entry_block
     for Resume in mappings:
-        op_check = op.simple_call(
-            const(isinstance), block.inputargs[0], const(Resume))
+        op_check = op.isinstance(block.inputargs[0], const(Resume))
         block.operations.append(op_check)
         block.exitswitch = op_check.result
         link1 = Link([block.inputargs[0]], Resume.block)

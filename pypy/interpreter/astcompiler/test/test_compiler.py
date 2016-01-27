@@ -1017,6 +1017,9 @@ class TestCompiler:
         finally:
             space.call_function(w_set_debug, space.w_True)
 
+    def test_dont_fold_equal_code_objects(self):
+        yield self.st, "f=lambda:1;g=lambda:1.0;x=g()", 'type(x)', float
+
     def test_raise_from(self):
         test = """if 1:
         def f():

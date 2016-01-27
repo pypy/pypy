@@ -471,7 +471,8 @@ class W_Ufunc1(W_Ufunc):
 
     def find_specialization(self, space, dtype, out, casting):
         if dtype.is_flexible():
-            raise oefmt(space.w_TypeError, 'Not implemented for this type')
+            raise oefmt(space.w_TypeError, "ufunc '%s' did not contain a loop",
+                        self.name)
         if (not self.allow_bool and dtype.is_bool() or
                 not self.allow_complex and dtype.is_complex()):
             raise oefmt(space.w_TypeError,
@@ -555,7 +556,23 @@ class W_Ufunc2(W_Ufunc):
         w_ldtype = w_lhs.get_dtype(space)
         w_rdtype = w_rhs.get_dtype(space)
         if w_ldtype.is_object() or w_rdtype.is_object():
-            pass
+            if ((w_ldtype.is_object() and w_ldtype.is_record()) and
+                (w_rdtype.is_object() and w_rdtype.is_record())):
+                pass
+            elif ((w_ldtype.is_object() and w_ldtype.is_record()) or
+                (w_rdtype.is_object() and w_rdtype.is_record())):
+                if self.name == 'not_equal':
+                    return space.wrap(True)
+                elif self.name == 'equal':
+                    return space.wrap(False)
+                else:
+                    msg = ("ufunc '%s' not supported for the input types, "
+                           "and the inputs could not be safely coerced to "
+                           "any supported types according to the casting "
+                           "rule '%s'")
+                    raise oefmt(space.w_TypeError, msg, self.name, casting)
+            else:
+                pass
         elif w_ldtype.is_str() and w_rdtype.is_str() and \
                 self.bool_result:
             pass

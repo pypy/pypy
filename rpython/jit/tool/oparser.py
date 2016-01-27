@@ -9,7 +9,8 @@ from rpython.jit.tool.oparser_model import get_model
 
 from rpython.jit.metainterp.resoperation import rop, ResOperation, \
      InputArgInt, InputArgRef, InputArgFloat, InputArgVector, \
-     ResOpWithDescr, N_aryOp, UnaryOp, PlainResOp, optypes, OpHelpers
+     ResOpWithDescr, N_aryOp, UnaryOp, PlainResOp, optypes, OpHelpers, \
+     VectorizationInfo
 
 class ParseError(Exception):
     pass
@@ -338,7 +339,8 @@ class OpParser(object):
         if res in self.vars:
             raise ParseError("Double assign to var %s in line: %s" % (res, line))
         resop = self.create_op(opnum, args, res, descr, fail_args)
-        res = self.update_vector(resop, res)
+        if not self.use_mock_model:
+            res = self.update_vector(resop, res)
         self.update_memo(resop, res)
         self.vars[res] = resop
         return resop
@@ -363,11 +365,17 @@ class OpParser(object):
         pattern = re.compile('.*\[(\d+)x(u?)(i|f)(\d+)\]')
         match = pattern.match(var)
         if match:
-            resop.count = int(match.group(1))
-            resop.signed = not (match.group(2) == 'u')
-            resop.datatype = match.group(3)
-            resop.bytesize = int(match.group(4)) // 8
+            vecinfo = VectorizationInfo(None)
+            vecinfo.count = int(match.group(1))
+            vecinfo.signed = not (match.group(2) == 'u')
+            vecinfo.datatype = match.group(3)
+            vecinfo.bytesize = int(match.group(4)) // 8
+            resop._vec_debug_info = vecinfo
             return var[:var.find('[')]
+
+        vecinfo = VectorizationInfo(resop)
+        vecinfo.count = -1
+        resop._vec_debug_info = vecinfo
         return var
 
     def parse_op_no_result(self, line):

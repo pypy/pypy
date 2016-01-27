@@ -269,7 +269,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (y == x.T).all()
 
         exc = raises(ValueError, ndarray, [1,2,256]*10000)
-        assert exc.value[0] == 'sequence too large; must be smaller than 32'
+        assert exc.value[0] == 'sequence too large; cannot be greater than 32'
         exc = raises(ValueError, ndarray, [1,2,256]*10)
         assert exc.value[0] == 'array is too big.'
 
@@ -838,14 +838,19 @@ class AppTestNumArray(BaseNumpyAppTest):
 
     def test_build_scalar(self):
         from numpy import dtype
+        import sys
         try:
             from numpy.core.multiarray import scalar
         except ImportError:
             from numpy import scalar
         exc = raises(TypeError, scalar, int, 2)
         assert exc.value[0] == 'argument 1 must be numpy.dtype, not type'
-        exc = raises(ValueError, scalar, dtype('void'), 'abc')
-        assert exc.value[0] == 'itemsize cannot be zero'
+        if '__pypy__' in sys.builtin_module_names:
+            exc = raises(TypeError, scalar, dtype('void'), 'abc')
+        else:
+            a = scalar(dtype('void'), 'abc')
+            exc = raises(TypeError, str, a)
+        assert exc.value[0] == 'Empty data-type'
         exc = raises(TypeError, scalar, dtype(float), 2.5)
         assert exc.value[0] == 'initializing object must be a string'
         exc = raises(ValueError, scalar, dtype(float), 'abc')
@@ -1080,14 +1085,6 @@ class AppTestNumArray(BaseNumpyAppTest):
             reg_op = op.replace('__i', '__')
             for i in range(5):
                 assert a[i] == getattr(c[i], reg_op).__call__(d[i])
-
-    def test_inplace_cast(self):
-        import numpy as np
-        a = np.zeros(5, dtype=np.float64)
-        b = np.zeros(5, dtype=np.complex64)
-        a += b
-        assert a.sum() == 0
-        assert a.dtype is np.dtype(np.float64)
 
     def test_add_list(self):
         from numpy import array, ndarray
@@ -1965,7 +1962,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert len(a) == 6
         assert (a == [0,1,2,3,4,5]).all()
         assert a.dtype is dtype(int)
-        a = concatenate((a1, a2), axis=1)
+        a = concatenate((a1, a2), axis=0)
         assert (a == [0,1,2,3,4,5]).all()
         a = concatenate((a1, a2), axis=-1)
         assert (a == [0,1,2,3,4,5]).all()
@@ -2013,7 +2010,7 @@ class AppTestNumArray(BaseNumpyAppTest):
 
         g1 = array([0,1,2])
         g2 = array([[3,4,5]])
-        exc = raises(ValueError, concatenate, (g1, g2), axis=2)
+        exc = raises(ValueError, concatenate, (g1, g2), axis=0)
         assert str(exc.value) == \
                 "all the input arrays must have same number of dimensions"
 
@@ -2129,16 +2126,16 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert exc.value.message == "'axis' entry 5 is out of bounds [-4, 4)"
         exc = raises(ValueError, a.squeeze, 0)
         assert exc.value.message == "cannot select an axis to squeeze out " \
-                                    "which has size greater than one"
+                                    "which has size not equal to one"
         exc = raises(ValueError, a.squeeze, (1, 1))
         assert exc.value.message == "duplicate value in 'axis'"
 
     def test_swapaxes(self):
         from numpy import array
         x = array([])
-        assert x.swapaxes(0, 2) is x
+        raises(ValueError, x.swapaxes,0, 2)
         x = array([[1, 2]])
-        assert x.swapaxes(0, 0) is x
+        assert x.swapaxes(0, 0) is not x
         exc = raises(ValueError, x.swapaxes, -3, 0)
         assert exc.value.message == "bad axis1 argument to swapaxes"
         exc = raises(ValueError, x.swapaxes, 0, 3)
@@ -2169,7 +2166,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         # test virtual
         assert ((x + x).swapaxes(0,1) == array([[[ 2,  4,  6], [14, 16, 18]],
                                          [[ 8, 10, 12], [20, 22, 24]]])).all()
-        assert array(1).swapaxes(10, 12) == 1
+        raises(ValueError, array(1).swapaxes, 10, 12)
 
     def test_filter_bug(self):
         from numpy import array
@@ -2410,6 +2407,7 @@ class AppTestNumArray(BaseNumpyAppTest):
 
     def test_data(self):
         from numpy import array
+        import sys
         a = array([1, 2, 3, 4], dtype='i4')
         assert a.data[0] == '\x01'
         assert a.data[1] == '\x00'
@@ -2418,7 +2416,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a[1] == 0xff
         assert len(a.data) == 16
         assert type(a.data) is buffer
-        assert a[1:].data._pypy_raw_address() - a.data._pypy_raw_address() == a.strides[0]
+        if '__pypy__' in sys.builtin_module_names:
+            assert a[1:].data._pypy_raw_address() - a.data._pypy_raw_address() == a.strides[0]
 
     def test_explicit_dtype_conversion(self):
         from numpy import array
@@ -2496,7 +2495,7 @@ class AppTestNumArray(BaseNumpyAppTest):
 
     def test_string_filling(self):
         import numpy
-        a = numpy.empty((10,10), dtype='c1')
+        a = numpy.empty((10,10), dtype='S1')
         a.fill(12)
         assert (a == '1').all()
 
@@ -3064,7 +3063,8 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert (b == zeros(10)).all()
 
     def test_array_interface(self):
-        from numpy import array, ones
+        from numpy import array
+        import numpy as np
         a = array(2.5)
         i = a.__array_interface__
         assert isinstance(i['data'][0], int)
@@ -3086,9 +3086,10 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert b_data + 3 * b.dtype.itemsize == c_data
 
         class Dummy(object):
-            def __init__(self, aif=None):
+            def __init__(self, aif=None, base=None):
                 if aif is not None:
                     self.__array_interface__ = aif
+                self.base = base
 
         a = array(Dummy())
         assert a.dtype == object
@@ -3116,11 +3117,21 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert b.dtype == 'uint8'
         assert b.shape == (50,)
 
-        a = ones((1,), dtype='float16')
+        a = np.ones((1,), dtype='float16')
         b = Dummy(a.__array_interface__)
         c = array(b)
         assert c.dtype == 'float16'
         assert (a == c).all()
+
+        t = np.dtype([("a", np.float64), ("b", np.float64)], align=True)
+        a = np.zeros(10, dtype=t)
+        a['a'] = range(10, 20)
+        a['b'] = range(20, 30)
+        interface = dict(a.__array_interface__)
+        array = np.array(Dummy(interface))
+        assert array.dtype.kind == 'V'
+        array.dtype = a.dtype
+        assert array[5]['b'] == 25
 
     def test_array_indexing_one_elem(self):
         from numpy import array, arange
@@ -3717,7 +3728,7 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         assert a[()]['y'] == 0
         assert a.shape == ()
         a = zeros(2, dtype=[('x', int), ('y', float)])
-        raises(IndexError, 'a[0]["xyz"]')
+        raises(ValueError, 'a[0]["xyz"]')
         assert a[0]['x'] == 0
         assert a[0]['y'] == 0
         exc = raises(ValueError, "a[0] = (1, 2, 3)")
@@ -3785,7 +3796,7 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         exc = raises(IndexError, "arr[3L]")
         assert exc.value.message == "too many indices for array"
         exc = raises(ValueError, "arr['xx'] = 2")
-        assert exc.value.message == "field named xx not found"
+        assert exc.value.message == "no field of name xx"
         assert arr['y'].dtype == a
         assert arr['y'].shape == ()
         assert arr['y'][()]['x'] == 0
@@ -3960,8 +3971,8 @@ class AppTestRecordDtype(BaseNumpyAppTest):
             exc = raises(IndexError, "a[0][%d]" % v)
             assert exc.value.message == "invalid index (%d)" % \
                                         (v + 2 if v < 0 else v)
-        exc = raises(IndexError, "a[0]['z']")
-        assert exc.value.message == "invalid index"
+        exc = raises(ValueError, "a[0]['z']")
+        assert exc.value.message == "no field of name z"
         exc = raises(IndexError, "a[0][None]")
         assert exc.value.message == "invalid index"
 
@@ -4144,7 +4155,7 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         d = np.ones(3, dtype=[('a', 'i8'), ('b', 'i8')])
         e = np.ones(3, dtype=[('a', 'i8'), ('b', 'i8'), ('c', 'i8')])
         exc = raises(TypeError, abs, a)
-        assert exc.value[0] == 'Not implemented for this type'
+        assert exc.value[0].startswith("ufunc 'absolute' did not contain a loop")
         assert (a == a).all()
         assert not (a != a).any()
         assert (a == b).all()

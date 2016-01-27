@@ -15,14 +15,14 @@ from rpython.tool.pairtype import pairtype
 from rpython.rtyper.rmodel import Repr
 from rpython.rtyper.rint import IntegerRepr
 from rpython.rtyper.error import TyperError
-from rpython.rtyper.module import ll_os_stat
+from rpython.rlib import rposix_stat
 
 
 class StatResultRepr(Repr):
 
     def __init__(self, rtyper):
         self.rtyper = rtyper
-        self.stat_fields = ll_os_stat.STAT_FIELDS
+        self.stat_fields = rposix_stat.STAT_FIELDS
 
         self.stat_field_indexes = {}
         for i, (name, TYPE) in enumerate(self.stat_fields):
@@ -64,7 +64,7 @@ class __extend__(pairtype(StatResultRepr, IntegerRepr)):
 
 
 def specialize_make_stat_result(hop):
-    r_StatResult = hop.rtyper.getrepr(ll_os_stat.s_StatResult)
+    r_StatResult = hop.rtyper.getrepr(rposix_stat.s_StatResult)
     [v_result] = hop.inputargs(r_StatResult.r_tuple)
     # no-op conversion from r_StatResult.r_tuple to r_StatResult
     hop.exception_cannot_occur()
@@ -75,7 +75,7 @@ class StatvfsResultRepr(Repr):
 
     def __init__(self, rtyper):
         self.rtyper = rtyper
-        self.statvfs_fields = ll_os_stat.STATVFS_FIELDS
+        self.statvfs_fields = rposix_stat.STATVFS_FIELDS
 
         self.statvfs_field_indexes = {}
         for i, (name, TYPE) in enumerate(self.statvfs_fields):
@@ -116,7 +116,7 @@ class __extend__(pairtype(StatvfsResultRepr, IntegerRepr)):
 
 
 def specialize_make_statvfs_result(hop):
-    r_StatvfsResult = hop.rtyper.getrepr(ll_os_stat.s_StatvfsResult)
+    r_StatvfsResult = hop.rtyper.getrepr(rposix_stat.s_StatvfsResult)
     [v_result] = hop.inputargs(r_StatvfsResult.r_tuple)
     hop.exception_cannot_occur()
     return v_result

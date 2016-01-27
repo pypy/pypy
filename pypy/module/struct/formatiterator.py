@@ -143,3 +143,13 @@ class UnpackFormatIterator(FormatIterator):
             self.result_w.append(self.space.wrapbytes(value))
         else:
             self.result_w.append(self.space.wrap(value))
+
+    def get_pos(self):
+        return self.pos
+
+    def get_buffer_as_string_maybe(self):
+        string, pos = self.buf.as_str_and_offset_maybe()
+        return string, pos+self.pos
+
+    def skip(self, size):
+        self.read(size) # XXX, could avoid taking the slice

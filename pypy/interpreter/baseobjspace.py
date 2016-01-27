@@ -398,7 +398,7 @@ class ObjSpace(object):
         self.check_signal_action = None   # changed by the signal module
         self.user_del_action = UserDelAction(self)
         self._code_of_sys_exc_info = None
-
+        
         # can be overridden to a subclass
         self.initialize()
 

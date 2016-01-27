@@ -1,12 +1,11 @@
 import os
 import sys
 
-from rpython.rlib import rposix, objectmodel, rurandom
+from rpython.rlib import rposix, rposix_stat
+from rpython.rlib import objectmodel, rurandom
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import r_longlong, intmask
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rtyper.module import ll_os_stat
-from rpython.rtyper.module.ll_os import RegisterOs
 
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 from pypy.interpreter.error import (OperationError, wrap_oserror,
@@ -37,6 +36,8 @@ else:
                                  space.wrap("integer out of range"))
 
 class FileEncoder(object):
+    is_unicode = True
+
     def __init__(self, space, w_obj):
         self.space = space
         self.w_obj = w_obj
@@ -48,6 +49,8 @@ class FileEncoder(object):
         return self.space.unicode0_w(self.w_obj)
 
 class FileDecoder(object):
+    is_unicode = False
+
     def __init__(self, space, w_obj):
         self.space = space
         self.w_obj = w_obj
@@ -203,13 +206,13 @@ opened on a directory, not a file."""
 
 # ____________________________________________________________
 
-STAT_FIELDS = unrolling_iterable(enumerate(ll_os_stat.STAT_FIELDS))
+STAT_FIELDS = unrolling_iterable(enumerate(rposix_stat.STAT_FIELDS))
 
-STATVFS_FIELDS = unrolling_iterable(enumerate(ll_os_stat.STATVFS_FIELDS))
+STATVFS_FIELDS = unrolling_iterable(enumerate(rposix_stat.STATVFS_FIELDS))
 
 def build_stat_result(space, st):
     FIELDS = STAT_FIELDS    # also when not translating at all
-    lst = [None] * ll_os_stat.N_INDEXABLE_FIELDS
+    lst = [None] * rposix_stat.N_INDEXABLE_FIELDS
     w_keywords = space.newdict()
     stat_float_times = space.fromcache(StatState).stat_float_times
     for i, (name, TYPE) in FIELDS:
@@ -217,7 +220,7 @@ def build_stat_result(space, st):
         if name in ('st_atime', 'st_mtime', 'st_ctime'):
             value = int(value)   # rounded to an integer for indexed access
         w_value = space.wrap(value)
-        if i < ll_os_stat.N_INDEXABLE_FIELDS:
+        if i < rposix_stat.N_INDEXABLE_FIELDS:
             lst[i] = w_value
         else:
             space.setitem(w_keywords, space.wrap(name), w_value)
@@ -245,7 +248,7 @@ def build_stat_result(space, st):
 
 
 def build_statvfs_result(space, st):
-    vals_w = [None] * len(ll_os_stat.STATVFS_FIELDS)
+    vals_w = [None] * len(rposix_stat.STATVFS_FIELDS)
     for i, (name, _) in STATVFS_FIELDS:
         vals_w[i] = space.wrap(getattr(st, name))
     w_tuple = space.newtuple(vals_w)
@@ -258,7 +261,7 @@ def fstat(space, fd):
     """Perform a stat system call on the file referenced to by an open
 file descriptor."""
     try:
-        st = os.fstat(fd)
+        st = rposix_stat.fstat(fd)
     except OSError, e:
         raise wrap_oserror(space, e)
     else:
@@ -280,7 +283,7 @@ with (at least) the following attributes:
 """
 
     try:
-        st = dispatch_filename(rposix.stat)(space, w_path)
+        st = dispatch_filename(rposix_stat.stat)(space, w_path)
     except OSError, e:
         raise wrap_oserror2(space, e, w_path)
     else:
@@ -289,7 +292,7 @@ with (at least) the following attributes:
 def lstat(space, w_path):
     "Like stat(path), but do no follow symbolic links."
     try:
-        st = dispatch_filename(rposix.lstat)(space, w_path)
+        st = dispatch_filename(rposix_stat.lstat)(space, w_path)
     except OSError, e:
         raise wrap_oserror2(space, e, w_path)
     else:
@@ -318,7 +321,7 @@ If newval is omitted, return the current setting.
 @unwrap_spec(fd=c_int)
 def fstatvfs(space, fd):
     try:
-        st = os.fstatvfs(fd)
+        st = rposix_stat.fstatvfs(fd)
     except OSError as e:
         raise wrap_oserror(space, e)
     else:
@@ -327,7 +330,7 @@ def fstatvfs(space, fd):
 
 def statvfs(space, w_path):
     try:
-        st = dispatch_filename(rposix.statvfs)(space, w_path)
+        st = dispatch_filename(rposix_stat.statvfs)(space, w_path)
     except OSError as e:
         raise wrap_oserror2(space, e, w_path)
     else:
@@ -418,11 +421,11 @@ def _getfullpathname(space, w_path):
     try:
         if space.isinstance_w(w_path, space.w_unicode):
             path = FileEncoder(space, w_path)
-            fullpath = rposix._getfullpathname(path)
+            fullpath = rposix.getfullpathname(path)
             w_fullpath = space.wrap(fullpath)
         else:
             path = space.str0_w(w_path)
-            fullpath = rposix._getfullpathname(path)
+            fullpath = rposix.getfullpathname(path)
             w_fullpath = space.wrapbytes(fullpath)
     except OSError, e:
         raise wrap_oserror2(space, e, w_path)
@@ -664,7 +667,7 @@ def getpid(space):
 def kill(space, pid, sig):
     "Kill a process with a signal."
     try:
-        rposix.os_kill(pid, sig)
+        rposix.kill(pid, sig)
     except OSError, e:
         raise wrap_oserror(space, e)
 
@@ -680,7 +683,7 @@ def abort(space):
     """Abort the interpreter immediately.  This 'dumps core' or otherwise fails
 in the hardest way possible on the hosting operating system."""
     import signal
-    rposix.os_kill(os.getpid(), signal.SIGABRT)
+    rposix.kill(os.getpid(), signal.SIGABRT)
 
 @unwrap_spec(src='fsencode', dst='fsencode')
 def link(space, src, dst):
@@ -1210,7 +1213,7 @@ def setresgid(space, rgid, egid, sgid):
         raise wrap_oserror(space, e)
 
 def declare_new_w_star(name):
-    if name in RegisterOs.w_star_returning_int:
+    if name in ('WEXITSTATUS', 'WSTOPSIG', 'WTERMSIG'):
         @unwrap_spec(status=c_int)
         def WSTAR(space, status):
             return space.wrap(getattr(os, name)(status))
@@ -1222,7 +1225,7 @@ def declare_new_w_star(name):
     WSTAR.func_name = name
     return WSTAR
 
-for name in RegisterOs.w_star:
+for name in rposix.WAIT_MACROS:
     if hasattr(os, name):
         func = declare_new_w_star(name)
         globals()[name] = func
