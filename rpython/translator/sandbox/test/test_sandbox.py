@@ -2,43 +2,51 @@ import py
 import sys, os, time
 import struct
 import subprocess
+import signal
 
 from rpython.rtyper.lltypesystem import rffi
 from rpython.translator.interactive import Translation
 from rpython.translator.sandbox.sandlib import read_message, write_message
 from rpython.translator.sandbox.sandlib import write_exception
 
+if hasattr(signal, 'alarm'):
+    _orig_read_message = read_message
+
+    def _timed_out(*args):
+        raise EOFError("timed out waiting for data")
+
+    def read_message(f):
+        signal.signal(signal.SIGALRM, _timed_out)
+        signal.alarm(20)
+        try:
+            return _orig_read_message(f)
+        finally:
+            signal.alarm(0)
+            signal.signal(signal.SIGALRM, signal.SIG_DFL)
+
 def expect(f, g, fnname, args, result, resulttype=None):
-    msg = read_message(f, timeout=10.0)
+    msg = read_message(f)
     assert msg == fnname
-    msg = read_message(f, timeout=10.0)
+    msg = read_message(f)
     assert msg == args
     if isinstance(result, Exception):
         write_exception(g, result)
     else:
         write_message(g, 0)
         write_message(g, result, resulttype)
-        g.flush()
+    g.flush()
 
 def compile(f, gc='ref'):
     t = Translation(f, backend='c', sandbox=True, gc=gc,
                     check_str_without_nul=True)
     return str(t.compile())
 
-unsupported_platform = ('False', '')
-if sys.platform == 'win32':
-    unsupported_platform = ('True', 'sandbox not supported on this platform')
-    def test_unavailable():
-        def entry_point(argv):
-            fd = os.open("/tmp/foobar", os.O_RDONLY, 0777)
-            os.close(fd)
-            return 0
-        exc = py.test.raises(TypeError, compile, entry_point)
-        assert str(exc).find('not supported') >= 0
+def run_in_subprocess(exe):
+    popen = subprocess.Popen(exe, stdin=subprocess.PIPE,
+                             stdout=subprocess.PIPE,
+                             stderr=subprocess.STDOUT)
+    return popen.stdin, popen.stdout
 
-supported = py.test.mark.skipif(unsupported_platform[0], reason=unsupported_platform[1])
-
-@supported
 def test_open_dup():
     def entry_point(argv):
         fd = os.open("/tmp/foobar", os.O_RDONLY, 0777)
@@ -48,7 +56,7 @@ def test_open_dup():
         return 0
 
     exe = compile(entry_point)
-    g, f = os.popen2(exe, "t", 0)
+    g, f = run_in_subprocess(exe)
     expect(f, g, "ll_os.ll_os_open", ("/tmp/foobar", os.O_RDONLY, 0777), 77)
     expect(f, g, "ll_os.ll_os_dup",  (77,), 78)
     g.close()
@@ -56,7 +64,6 @@ def test_open_dup():
     f.close()
     assert tail == ""
 
-@supported
 def test_read_write():
     def entry_point(argv):
         fd = os.open("/tmp/foobar", os.O_RDONLY, 0777)
@@ -69,7 +76,7 @@ def test_read_write():
         return 0
 
     exe = compile(entry_point)
-    g, f = os.popen2(exe, "t", 0)
+    g, f = run_in_subprocess(exe)
     expect(f, g, "ll_os.ll_os_open",  ("/tmp/foobar", os.O_RDONLY, 0777), 77)
     expect(f, g, "ll_os.ll_os_read",  (77, 123), "he\x00llo")
     expect(f, g, "ll_os.ll_os_write", (77, "world\x00!\x00"), 42)
@@ -79,7 +86,6 @@ def test_read_write():
     f.close()
     assert tail == ""
 
-@supported
 def test_dup2_access():
     def entry_point(argv):
         os.dup2(34, 56)
@@ -87,7 +93,7 @@ def test_dup2_access():
         return 1 - y
 
     exe = compile(entry_point)
-    g, f = os.popen2(exe, "t", 0)
+    g, f = run_in_subprocess(exe)
     expect(f, g, "ll_os.ll_os_dup2",   (34, 56), None)
     expect(f, g, "ll_os.ll_os_access", ("spam", 77), True)
     g.close()
@@ -95,11 +101,13 @@ def test_dup2_access():
     f.close()
     assert tail == ""
 
-@supported
 def test_stat_ftruncate():
     from rpython.translator.sandbox.sandlib import RESULTTYPE_STATRESULT
     from rpython.rlib.rarithmetic import r_longlong
     r0x12380000007 = r_longlong(0x12380000007)
+
+    if not hasattr(os, 'ftruncate'):
+        py.test.skip("posix only")
 
     def entry_point(argv):
         st = os.stat("somewhere")
@@ -107,7 +115,7 @@ def test_stat_ftruncate():
         return 0
 
     exe = compile(entry_point)
-    g, f = os.popen2(exe, "t", 0)
+    g, f = run_in_subprocess(exe)
     st = os.stat_result((55, 0, 0, 0, 0, 0, 0x12380000007, 0, 0, 0))
     expect(f, g, "ll_os.ll_os_stat", ("somewhere",), st,
            resulttype = RESULTTYPE_STATRESULT)
@@ -117,7 +125,6 @@ def test_stat_ftruncate():
     f.close()
     assert tail == ""
 
-@supported
 def test_time():
     def entry_point(argv):
         t = time.time()
@@ -125,7 +132,7 @@ def test_time():
         return 0
 
     exe = compile(entry_point)
-    g, f = os.popen2(exe, "t", 0)
+    g, f = run_in_subprocess(exe)
     expect(f, g, "ll_time.ll_time_time", (), 3.141592)
     expect(f, g, "ll_os.ll_os_dup", (3141,), 3)
     g.close()
@@ -133,7 +140,6 @@ def test_time():
     f.close()
     assert tail == ""
 
-@supported
 def test_getcwd():
     def entry_point(argv):
         t = os.getcwd()
@@ -141,7 +147,7 @@ def test_getcwd():
         return 0
 
     exe = compile(entry_point)
-    g, f = os.popen2(exe, "t", 0)
+    g, f = run_in_subprocess(exe)
     expect(f, g, "ll_os.ll_os_getcwd", (), "/tmp/foo/bar")
     expect(f, g, "ll_os.ll_os_dup", (len("/tmp/foo/bar"),), 3)
     g.close()
@@ -149,7 +155,6 @@ def test_getcwd():
     f.close()
     assert tail == ""
 
-@supported
 def test_oserror():
     def entry_point(argv):
         try:
@@ -159,7 +164,7 @@ def test_oserror():
         return 0
 
     exe = compile(entry_point)
-    g, f = os.popen2(exe, "t", 0)
+    g, f = run_in_subprocess(exe)
     expect(f, g, "ll_os.ll_os_stat", ("somewhere",), OSError(6321, "egg"))
     expect(f, g, "ll_os.ll_os_close", (6321,), None)
     g.close()
@@ -167,7 +172,6 @@ def test_oserror():
     f.close()
     assert tail == ""
 
-@supported
 def test_hybrid_gc():
     def entry_point(argv):
         l = []
@@ -192,7 +196,6 @@ def test_hybrid_gc():
     rescode = pipe.wait()
     assert rescode == 0
 
-@supported
 def test_segfault_1():
     class A:
         def __init__(self, m):
@@ -206,16 +209,12 @@ def test_segfault_1():
         return int(x.m)
 
     exe = compile(entry_point)
-    g, f, e = os.popen3(exe, "t", 0)
+    g, f = run_in_subprocess(exe)
     g.close()
     tail = f.read()
     f.close()
-    assert tail == ""
-    errors = e.read()
-    e.close()
-    assert 'Invalid RPython operation' in errors
+    assert 'Invalid RPython operation' in tail
 
-@supported
 def test_segfault_2():
     py.test.skip("hum, this is one example, but we need to be very careful")
     class Base:
@@ -248,7 +247,6 @@ def test_segfault_2():
     e.close()
     assert '...think what kind of errors to get...' in errors
 
-@supported
 def test_safe_alloc():
     from rpython.rlib.rmmap import alloc, free
 
@@ -269,7 +267,6 @@ def test_safe_alloc():
     rescode = pipe.wait()
     assert rescode == 0
 
-@supported
 def test_unsafe_mmap():
     py.test.skip("Since this stuff is unimplemented, it won't work anyway "
                  "however, the day it starts working, it should pass test")
@@ -295,7 +292,6 @@ def test_unsafe_mmap():
     rescode = pipe.wait()
     assert rescode == 0
 
-@supported
 class TestPrintedResults:
 
     def run(self, entry_point, args, expected):

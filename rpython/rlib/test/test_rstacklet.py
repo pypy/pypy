@@ -7,6 +7,7 @@ try:
 except CompilationError, e:
     py.test.skip("cannot import rstacklet: %s" % e)
 
+from rpython.config.translationoption import DEFL_ROOTFINDER_WITHJIT
 from rpython.rlib import rrandom, rgc
 from rpython.rlib.rarithmetic import intmask
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
@@ -289,6 +290,9 @@ def entry_point(argv):
 class BaseTestStacklet(StandaloneTests):
 
     def setup_class(cls):
+        if cls.gcrootfinder == "asmgcc" and DEFL_ROOTFINDER_WITHJIT != "asmgcc":
+            py.test.skip("asmgcc is disabled on the current platform")
+
         from rpython.config.translationoption import get_combined_translation_config
         config = get_combined_translation_config(translating=True)
         config.translation.gc = cls.gc
@@ -300,8 +304,6 @@ class BaseTestStacklet(StandaloneTests):
         cls.old_values = Runner.config, Runner.STATUSMAX
         Runner.config = config
         Runner.STATUSMAX = 25000
-        if cls.gcrootfinder == "asmgcc" and sys.platform == "win32":
-            py.test.skip("fails with asmgcc on win32")
 
     def teardown_class(cls):
         Runner.config, Runner.STATUSMAX = cls.old_values

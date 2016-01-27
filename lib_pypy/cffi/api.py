@@ -310,6 +310,22 @@ class FFI(object):
         """
         return self._backend.from_buffer(self.BCharA, python_buffer)
 
+    def memmove(self, dest, src, n):
+        """ffi.memmove(dest, src, n) copies n bytes of memory from src to dest.
+
+        Like the C function memmove(), the memory areas may overlap;
+        apart from that it behaves like the C function memcpy().
+
+        'src' can be any cdata ptr or array, or any Python buffer object.
+        'dest' can be any cdata ptr or array, or a writable Python buffer
+        object.  The size to copy, 'n', is always measured in bytes.
+
+        Unlike other methods, this one supports all Python buffer including
+        byte strings and bytearrays---but it still does not support
+        non-contiguous buffers.
+        """
+        return self._backend.memmove(dest, src, n)
+
     def callback(self, cdecl, python_callable=None, error=None, onerror=None):
         """Return a callback object or a decorator making such a
         callback object.  'cdecl' must name a C function pointer type.
@@ -609,7 +625,7 @@ def _make_ffi_library(ffi, libname, flags):
     def make_accessor_locked(name):
         key = 'function ' + name
         if key in ffi._parser._declarations:
-            tp = ffi._parser._declarations[key]
+            tp, _ = ffi._parser._declarations[key]
             BType = ffi._get_cached_btype(tp)
             try:
                 value = backendlib.load_function(BType, name)
@@ -620,7 +636,7 @@ def _make_ffi_library(ffi, libname, flags):
         #
         key = 'variable ' + name
         if key in ffi._parser._declarations:
-            tp = ffi._parser._declarations[key]
+            tp, _ = ffi._parser._declarations[key]
             BType = ffi._get_cached_btype(tp)
             read_variable = backendlib.read_variable
             write_variable = backendlib.write_variable
@@ -631,12 +647,23 @@ def _make_ffi_library(ffi, libname, flags):
         #
         if not copied_enums:
             from . import model
-            for key, tp in ffi._parser._declarations.items():
+            error = None
+            for key, (tp, _) in ffi._parser._declarations.items():
                 if not isinstance(tp, model.EnumType):
+                    continue
+                try:
+                    tp.check_not_partial()
+                except Exception as e:
+                    error = e
                     continue
                 for enumname, enumval in zip(tp.enumerators, tp.enumvalues):
                     if enumname not in library.__dict__:
                         library.__dict__[enumname] = enumval
+            if error is not None:
+                if name in library.__dict__:
+                    return     # ignore error, about a different enum
+                raise error
+
             for key, val in ffi._parser._int_constants.items():
                 if key not in library.__dict__:
                     library.__dict__[key] = val

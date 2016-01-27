@@ -1063,6 +1063,12 @@ class AppTestAppSetTest:
         s.intersection_update(set())
         assert strategy(s) == "EmptySetStrategy"
 
+    def test_weird_exception_from_iterable(self):
+        def f():
+           raise ValueError
+           yield 1
+        raises(ValueError, set, f())
+
     def test_pickle(self):
         d = {1, 2, 3}
         it = iter(d)
@@ -1075,4 +1081,3 @@ class AppTestAppSetTest:
         assert len(items) == 2
         items.add(first)
         assert items == set(d)        
-

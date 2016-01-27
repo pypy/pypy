@@ -49,12 +49,6 @@ class AbstractX86CPU(AbstractLLCPU):
     def set_debug(self, flag):
         return self.assembler.set_debug(flag)
 
-    def get_failargs_limit(self):
-        if self.opts is not None:
-            return self.opts.failargs_limit
-        else:
-            return 1000
-
     def setup(self):
         self.assembler = Assembler386(self, self.translate_support_code)
 
@@ -154,5 +148,10 @@ class CPU_X86_64(AbstractX86CPU):
 
     IS_64_BIT = True
     HAS_CODEMAP = True
+
+class CPU_X86_64_SSE4(CPU_X86_64):
+    vector_extension = True
+    vector_register_size = 16
+    vector_horizontal_operations = True
 
 CPU = CPU386

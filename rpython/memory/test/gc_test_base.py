@@ -864,6 +864,16 @@ class GCTest(object):
         else:
             assert res == 0 or res == 13
 
+    def test_gettypeid(self):
+        class A(object):
+            pass
+        
+        def fn():
+            a = A()
+            return rgc.get_typeid(a)
+
+        self.interpret(fn, [])
+
 
 from rpython.rlib.objectmodel import UnboxedValue
 

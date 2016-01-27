@@ -12,3 +12,7 @@ class InvalidLoop(JitException):
         debug_print(msg)
         debug_stop("jit-abort")
         self.msg = msg
+
+class SpeculativeError(JitException):
+    """Raised when speculative heap access would be ill-typed,
+    which should only occur when optimizing the unrolled loop."""

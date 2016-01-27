@@ -9,6 +9,7 @@ class ThreadLocals:
     implementation for this feature, and patches 'space.threadlocals' when
     'thread' is initialized.
     """
+    _immutable_fields_ = ['_value?']
     _value = None
 
     def get_ec(self):

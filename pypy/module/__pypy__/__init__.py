@@ -110,7 +110,6 @@ class Module(MixedModule):
                                      'interp_magic.mapdict_cache_counter')
         PYC_MAGIC = get_pyc_magic(self.space)
         self.extra_interpdef('PYC_MAGIC', 'space.wrap(%d)' % PYC_MAGIC)
-        #
         try:
             from rpython.jit.backend import detect_cpu
             model = detect_cpu.autodetect()
@@ -120,7 +119,7 @@ class Module(MixedModule):
                 raise
             else:
                 pass   # ok fine to ignore in this case
-        #
+        
         if self.space.config.translation.jit:
             features = detect_cpu.getcpufeatures(model)
             self.extra_interpdef('jit_backend_features',

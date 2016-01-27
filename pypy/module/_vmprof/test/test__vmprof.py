@@ -34,13 +34,14 @@ class AppTestVMProf(object):
                     i += 1
                     _, size = struct.unpack("ll", s[i:i + 2 * WORD])
                     i += 2 * WORD + size * struct.calcsize("P")
+                    i += WORD    # thread id
                 elif s[i] == 2:
                     i += 1
                     _, size = struct.unpack("ll", s[i:i + 2 * WORD])
                     count += 1
                     i += 2 * WORD + size
                 else:
-                    raise AssertionError(ord(s[i]))
+                    raise AssertionError(s[i])
             return count
         
         import _vmprof

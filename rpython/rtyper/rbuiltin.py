@@ -1,3 +1,5 @@
+from collections import OrderedDict
+
 from rpython.annotator import model as annmodel
 from rpython.flowspace.model import Constant
 from rpython.rlib import rarithmetic, objectmodel
@@ -693,18 +695,24 @@ def rtype_builtin_isinstance(hop):
     return hop.args_r[0].rtype_isinstance(hop)
 
 @typer_for(objectmodel.instantiate)
-def rtype_instantiate(hop):
+def rtype_instantiate(hop, i_nonmovable=None):
     hop.exception_cannot_occur()
     s_class = hop.args_s[0]
     assert isinstance(s_class, annmodel.SomePBC)
+    v_nonmovable, = parse_kwds(hop, (i_nonmovable, None))
+    nonmovable = (i_nonmovable is not None and v_nonmovable.value)
     if len(s_class.descriptions) != 1:
         # instantiate() on a variable class
+        if nonmovable:
+            raise TyperError("instantiate(x, nonmovable=True) cannot be used "
+                             "if x is not a constant class")
         vtypeptr, = hop.inputargs(rclass.get_type_repr(hop.rtyper))
         r_class = hop.args_r[0]
         return r_class._instantiate_runtime_class(hop, vtypeptr,
                                                   hop.r_result.lowleveltype)
     classdef = s_class.any_description().getuniqueclassdef()
-    return rclass.rtype_new_instance(hop.rtyper, classdef, hop.llops)
+    return rclass.rtype_new_instance(hop.rtyper, classdef, hop.llops,
+                                     nonmovable=nonmovable)
 
 
 @typer_for(hasattr)
@@ -715,7 +723,7 @@ def rtype_builtin_hasattr(hop):
 
     raise TyperError("hasattr is only suported on a constant")
 
-@typer_for(annmodel.SomeOrderedDict.knowntype)
+@typer_for(OrderedDict)
 @typer_for(objectmodel.r_dict)
 @typer_for(objectmodel.r_ordereddict)
 def rtype_dict_constructor(hop, i_force_non_null=None):

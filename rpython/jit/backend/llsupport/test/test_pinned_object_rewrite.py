@@ -1,14 +1,13 @@
 from test_rewrite import get_size_descr, get_array_descr, get_description, BaseFakeCPU
 from rpython.jit.backend.llsupport.descr import get_size_descr,\
      get_field_descr, get_array_descr, ArrayDescr, FieldDescr,\
-     SizeDescrWithVTable, get_interiorfield_descr
+     SizeDescr, get_interiorfield_descr
 from rpython.jit.backend.llsupport.gc import GcLLDescr_boehm,\
      GcLLDescr_framework, MovableObjectTracker
 from rpython.jit.backend.llsupport import jitframe, gc
 from rpython.jit.metainterp.gc import get_description
 from rpython.jit.tool.oparser import parse
 from rpython.jit.metainterp.optimizeopt.util import equaloplists
-from rpython.jit.codewriter.heaptracker import register_known_gctype
 from rpython.jit.metainterp.history import JitCellToken, FLOAT
 from rpython.rtyper.lltypesystem import lltype, rffi, lltype, llmemory
 from rpython.rtyper import rclass
@@ -52,7 +51,6 @@ class RewriteTests(object):
         O = lltype.GcStruct('O', ('parent', rclass.OBJECT),
                                  ('x', lltype.Signed))
         o_vtable = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
-        register_known_gctype(self.cpu, o_vtable, O)
         #
         tiddescr = self.gc_ll_descr.fielddescr_tid
         wbdescr = self.gc_ll_descr.write_barrier_descr
@@ -116,35 +114,36 @@ class TestFramework(RewriteTests):
             lambda cpu: True)
         #
         class FakeCPU(BaseFakeCPU):
-            def sizeof(self, STRUCT):
-                descr = SizeDescrWithVTable(104)
+            def sizeof(self, STRUCT, is_object):
+                descr = SizeDescr(104)
                 descr.tid = 9315
+                descr.vtable = 12
                 return descr
         self.cpu = FakeCPU()
 
     def test_simple_getfield(self):
         self.check_rewrite("""
             []
-            i0 = getfield_gc(ConstPtr(pinned_obj_gcref), descr=pinned_obj_my_int_descr)
+            i0 = getfield_gc_i(ConstPtr(pinned_obj_gcref), descr=pinned_obj_my_int_descr)
             """, """
             []
-            p1 = getarrayitem_gc(ConstPtr(ptr_array_gcref), 0, descr=ptr_array_descr)
-            i0 = getfield_gc(p1, descr=pinned_obj_my_int_descr)
+            p1 = getarrayitem_gc_r(ConstPtr(ptr_array_gcref), 0, descr=ptr_array_descr)
+            i0 = getfield_gc_i(p1, descr=pinned_obj_my_int_descr)
             """)
         assert len(self.gc_ll_descr.last_moving_obj_tracker._indexes) == 1
 
     def test_simple_getfield_twice(self):
         self.check_rewrite("""
             []
-            i0 = getfield_gc(ConstPtr(pinned_obj_gcref), descr=pinned_obj_my_int_descr)
-            i1 = getfield_gc(ConstPtr(notpinned_obj_gcref), descr=notpinned_obj_my_int_descr)
-            i2 = getfield_gc(ConstPtr(pinned_obj_gcref), descr=pinned_obj_my_int_descr)
+            i0 = getfield_gc_i(ConstPtr(pinned_obj_gcref), descr=pinned_obj_my_int_descr)
+            i1 = getfield_gc_i(ConstPtr(notpinned_obj_gcref), descr=notpinned_obj_my_int_descr)
+            i2 = getfield_gc_i(ConstPtr(pinned_obj_gcref), descr=pinned_obj_my_int_descr)
             """, """
             []
-            p1 = getarrayitem_gc(ConstPtr(ptr_array_gcref), 0, descr=ptr_array_descr)
-            i0 = getfield_gc(p1, descr=pinned_obj_my_int_descr)
-            i1 = getfield_gc(ConstPtr(notpinned_obj_gcref), descr=notpinned_obj_my_int_descr)
-            p2 = getarrayitem_gc(ConstPtr(ptr_array_gcref), 1, descr=ptr_array_descr)
-            i2 = getfield_gc(p2, descr=pinned_obj_my_int_descr)
+            p1 = getarrayitem_gc_r(ConstPtr(ptr_array_gcref), 0, descr=ptr_array_descr)
+            i0 = getfield_gc_i(p1, descr=pinned_obj_my_int_descr)
+            i1 = getfield_gc_i(ConstPtr(notpinned_obj_gcref), descr=notpinned_obj_my_int_descr)
+            p2 = getarrayitem_gc_r(ConstPtr(ptr_array_gcref), 1, descr=ptr_array_descr)
+            i2 = getfield_gc_i(p2, descr=pinned_obj_my_int_descr)
             """)
         assert len(self.gc_ll_descr.last_moving_obj_tracker._indexes) == 2

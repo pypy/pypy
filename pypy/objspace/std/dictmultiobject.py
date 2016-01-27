@@ -446,7 +446,7 @@ class DictStrategy(object):
     def getitervalues(self, w_dict):
         raise NotImplementedError
 
-    def getiteritems(self, w_dict):
+    def getiteritems_with_hash(self, w_dict):
         raise NotImplementedError
 
     has_iterreversed = False
@@ -571,7 +571,7 @@ class EmptyDictStrategy(DictStrategy):
     def getitervalues(self, w_dict):
         return iter([])
 
-    def getiteritems(self, w_dict):
+    def getiteritems_with_hash(self, w_dict):
         return iter([])
 
     def getiterreversed(self, w_dict):
@@ -696,15 +696,15 @@ def create_iterator_classes(dictimpl,
                     return None
 
     class IterClassItems(BaseItemIterator):
-        def __init__(self, space, strategy, w_dict):
-            self.iterator = strategy.getiteritems(w_dict)
-            BaseIteratorImplementation.__init__(self, space, strategy, w_dict)
+        def __init__(self, space, strategy, impl):
+            self.iterator = strategy.getiteritems_with_hash(impl)
+            BaseIteratorImplementation.__init__(self, space, strategy, impl)
 
         if override_next_item is not None:
             next_item_entry = override_next_item
         else:
             def next_item_entry(self):
-                for key, value in self.iterator:
+                for key, value, keyhash in self.iterator:
                     return (wrapkey(self.space, key),
                             wrapvalue(self.space, value))
                 else:
@@ -757,10 +757,10 @@ def create_iterator_classes(dictimpl,
                     return
                 w_updatedict.setitem(w_key, w_value)
         else:
-            iteritems = self.getiteritems(w_dict)
+            iteritemsh = self.getiteritems_with_hash(w_dict)
             if not same_strategy(self, w_updatedict):
                 # Different strategy.  Try to copy one item of w_dict
-                for key, value in iteritems:
+                for key, value, keyhash in iteritemsh:
                     w_key = wrapkey(self.space, key)
                     w_value = wrapvalue(self.space, value)
                     w_updatedict.setitem(w_key, w_value)
@@ -771,7 +771,7 @@ def create_iterator_classes(dictimpl,
                 w_updatedict.strategy.prepare_update(w_updatedict, count)
                 # If the strategy is still different, continue the slow way
                 if not same_strategy(self, w_updatedict):
-                    for key, value in iteritems:
+                    for key, value, keyhash in iteritemsh:
                         w_key = wrapkey(self.space, key)
                         w_value = wrapvalue(self.space, value)
                         w_updatedict.setitem(w_key, w_value)
@@ -784,8 +784,8 @@ def create_iterator_classes(dictimpl,
             # wrapping/unwrapping the key.
             assert setitem_untyped is not None
             dstorage = w_updatedict.dstorage
-            for key, value in iteritems:
-                setitem_untyped(self, dstorage, key, value)
+            for key, value, keyhash in iteritemsh:
+                setitem_untyped(self, dstorage, key, value, keyhash)
 
     def same_strategy(self, w_otherdict):
         return (setitem_untyped is not None and
@@ -909,8 +909,8 @@ class AbstractTypedStrategy(object):
     def getitervalues(self, w_dict):
         return self.unerase(w_dict.dstorage).itervalues()
 
-    def getiteritems(self, w_dict):
-        return self.unerase(w_dict.dstorage).iteritems()
+    def getiteritems_with_hash(self, w_dict):
+        return objectmodel.iteritems_with_hash(self.unerase(w_dict.dstorage))
 
     def getiterreversed(self, w_dict):
         return objectmodel.reversed_dict(self.unerase(w_dict.dstorage))
@@ -919,8 +919,9 @@ class AbstractTypedStrategy(object):
         objectmodel.prepare_dict_update(self.unerase(w_dict.dstorage),
                                         num_extra)
 
-    def setitem_untyped(self, dstorage, key, w_value):
-        self.unerase(dstorage)[key] = w_value
+    def setitem_untyped(self, dstorage, key, w_value, keyhash):
+        d = self.unerase(dstorage)
+        objectmodel.setitem_with_hash(d, key, keyhash, w_value)
 
 
 class ObjectDictStrategy(AbstractTypedStrategy, DictStrategy):

@@ -35,7 +35,8 @@ class AppTestSSL:
         assert isinstance(_ssl.OPENSSL_VERSION_INFO, tuple)
         assert len(_ssl.OPENSSL_VERSION_INFO) == 5
         assert isinstance(_ssl.OPENSSL_VERSION, str)
-        assert 'openssl' in _ssl.OPENSSL_VERSION.lower()
+        lower_version = _ssl.OPENSSL_VERSION.lower()
+        assert 'openssl' in lower_version or "libressl" in lower_version
 
         assert isinstance(_ssl.ALERT_DESCRIPTION_ACCESS_DENIED, int)
 
@@ -68,8 +69,9 @@ class AppTestSSL:
 
     def test_sslwrap(self):
         import ssl, _socket, sys, gc
-        if sys.platform == 'darwin' or 'freebsd' in sys.platform:
-            skip("hangs indefinitely on OSX & FreeBSD (also on CPython)")
+        if sys.platform == 'darwin' or 'freebsd' in sys.platform or \
+                'openbsd' in sys.platform:
+            skip("hangs indefinitely on OSX & BSD (also on CPython)")
         s = _socket.socket()
         ss = ssl.wrap_socket(s)
 

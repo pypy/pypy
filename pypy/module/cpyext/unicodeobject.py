@@ -376,7 +376,7 @@ def PyUnicode_Decode(space, s, size, encoding, errors):
     if errors:
         w_errors = space.wrapbytes(rffi.charp2str(errors))
     else:
-        w_errors = space.w_None
+        w_errors = None
     return space.call_method(w_str, 'decode', w_encoding, w_errors)
 
 @cpython_api([PyObject], PyObject)
@@ -407,7 +407,7 @@ def PyUnicode_FromEncodedObject(space, w_obj, encoding, errors):
     if errors:
         w_errors = space.wrap(rffi.charp2str(errors))
     else:
-        w_errors = space.w_None
+        w_errors = None
 
     # - unicode is disallowed
     # - raise TypeError for non-string types
@@ -600,7 +600,7 @@ def make_conversion_functions(suffix, encoding):
         if errors:
             w_errors = space.wrap(rffi.charp2str(errors))
         else:
-            w_errors = space.w_None
+            w_errors = None
         return space.call_method(w_s, 'decode', space.wrap(encoding), w_errors)
     globals()['PyUnicode_Decode%s' % suffix] = PyUnicode_DecodeXXX
 
@@ -614,7 +614,7 @@ def make_conversion_functions(suffix, encoding):
         if errors:
             w_errors = space.wrap(rffi.charp2str(errors))
         else:
-            w_errors = space.w_None
+            w_errors = None
         return space.call_method(w_u, 'encode', space.wrap(encoding), w_errors)
     globals()['PyUnicode_Encode%s' % suffix] = PyUnicode_EncodeXXX
 

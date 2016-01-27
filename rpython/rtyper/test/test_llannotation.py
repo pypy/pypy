@@ -5,7 +5,7 @@ from rpython.annotator.model import (
 from rpython.rlib.rarithmetic import r_uint, r_singlefloat
 from rpython.rtyper.llannotation import (
     SomePtr, annotation_to_lltype, ll_to_annotation)
-from rpython.rtyper.typesystem import lltype
+from rpython.rtyper.lltypesystem import lltype
 import rpython.rtyper.rtyper  # make sure to import the world
 
 class C(object):

@@ -106,7 +106,11 @@ PRIM_INTMAX        = 46
 PRIM_UINTMAX       = 47
 
 _NUM_PRIM          = 48
-_UNKNOWN_PRIM      = -1
+_UNKNOWN_PRIM          = -1
+_UNKNOWN_FLOAT_PRIM    = -2
+_UNKNOWN_LONG_DOUBLE   = -3
+
+_IO_FILE_STRUCT        = -1
 
 PRIMITIVE_TO_INDEX = {
     'char':               PRIM_CHAR,

@@ -86,7 +86,7 @@ def open(space, w_file, mode="r", buffering=-1, encoding=None, errors=None,
         )
     if binary and encoding is not None:
         raise OperationError(space.w_ValueError,
-            space.wrap("binary mode doesn't take an errors argument")
+            space.wrap("binary mode doesn't take an encoding argument")
         )
     if binary and newline is not None:
         raise OperationError(space.w_ValueError,

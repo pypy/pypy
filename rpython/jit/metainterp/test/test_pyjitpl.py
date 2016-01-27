@@ -3,9 +3,9 @@
 
 from rpython.jit.metainterp import pyjitpl
 from rpython.jit.metainterp import jitprof
-from rpython.jit.metainterp.history import BoxInt, ConstInt
+from rpython.jit.metainterp.history import ConstInt
 from rpython.jit.metainterp.history import History
-from rpython.jit.metainterp.resoperation import ResOperation, rop
+from rpython.jit.metainterp.resoperation import ResOperation, rop, InputArgInt
 from rpython.jit.metainterp.optimizeopt.util import equaloplists
 from rpython.jit.codewriter.jitcode import JitCode
 
@@ -17,6 +17,7 @@ def test_portal_trace_positions():
     portal.setup(None)
     class FakeStaticData:
         cpu = None
+        warmstate = None
         warmrunnerdesc = None
         mainjitcode = portal
 
@@ -58,13 +59,13 @@ def test_remove_consts_and_duplicates():
         warmrunnerdesc = None
     def is_another_box_like(box, referencebox):
         assert box is not referencebox
-        assert isinstance(box, referencebox.clonebox().__class__)
-        assert box.value == referencebox.value
+        assert box.type == referencebox.type
+        assert box.getint() == referencebox.getint()
         return True
     metainterp = pyjitpl.MetaInterp(FakeStaticData(), None)
     metainterp.history = History()
-    b1 = BoxInt(1)
-    b2 = BoxInt(2)
+    b1 = InputArgInt(1)
+    b2 = InputArgInt(2)
     c3 = ConstInt(3)
     boxes = [b1, b2, b1, c3]
     dup = {}
@@ -74,19 +75,19 @@ def test_remove_consts_and_duplicates():
     assert is_another_box_like(boxes[2], b1)
     assert is_another_box_like(boxes[3], c3)
     assert equaloplists(metainterp.history.operations, [
-        ResOperation(rop.SAME_AS, [b1], boxes[2]),
-        ResOperation(rop.SAME_AS, [c3], boxes[3]),
+        ResOperation(rop.SAME_AS_I, [b1]),
+        ResOperation(rop.SAME_AS_I, [c3]),
         ])
     assert dup == {b1: None, b2: None}
     #
     del metainterp.history.operations[:]
-    b4 = BoxInt(4)
+    b4 = InputArgInt(4)
     boxes = [b2, b4, "something random"]
     metainterp.remove_consts_and_duplicates(boxes, 2, dup)
     assert is_another_box_like(boxes[0], b2)
     assert boxes[1] is b4
     assert equaloplists(metainterp.history.operations, [
-        ResOperation(rop.SAME_AS, [b2], boxes[0]),
+        ResOperation(rop.SAME_AS_I, [b2]),
         ])
 
 def test_get_name_from_address():

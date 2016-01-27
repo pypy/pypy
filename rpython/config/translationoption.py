@@ -16,10 +16,11 @@ DEFL_LOW_INLINE_THRESHOLD = DEFL_INLINE_THRESHOLD / 2.0
 
 DEFL_GC = "incminimark"   # XXX
 
+DEFL_ROOTFINDER_WITHJIT = "shadowstack"
 if sys.platform.startswith("linux"):
-    DEFL_ROOTFINDER_WITHJIT = "asmgcc"
-else:
-    DEFL_ROOTFINDER_WITHJIT = "shadowstack"
+    _mach = os.popen('uname -m', 'r').read().strip()
+    if _mach.startswith('x86') or _mach in ['i386', 'i486', 'i586', 'i686']:
+        DEFL_ROOTFINDER_WITHJIT = "asmgcc"   # only for Linux on x86 / x86-64
 
 IS_64_BITS = sys.maxint > 2147483647
 

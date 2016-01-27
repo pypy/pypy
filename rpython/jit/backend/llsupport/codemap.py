@@ -15,7 +15,7 @@ from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rlib.entrypoint import jit_entrypoint
 from rpython.rlib.rbisect import bisect_right, bisect_right_addr
 from rpython.rlib.rbisect import bisect_left, bisect_left_addr
-from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator import cdir
 
@@ -74,11 +74,12 @@ pypy_jit_depthmap_clear = llexternal('pypy_jit_depthmap_clear',
 stack_depth_at_loc = llexternal('pypy_jit_stack_depth_at_loc',
                                 [lltype.Signed], lltype.Signed)
 find_codemap_at_addr = llexternal('pypy_find_codemap_at_addr',
-                                  [lltype.Signed, rffi.CArrayPtr(lltype.Signed)], lltype.Signed)
+                                 [lltype.Signed, rffi.CArrayPtr(lltype.Signed)],
+                                 llmemory.Address)
 yield_bytecode_at_addr = llexternal('pypy_yield_codemap_at_addr',
-                                    [lltype.Signed, lltype.Signed,
+                                    [llmemory.Address, lltype.Signed,
                                      rffi.CArrayPtr(lltype.Signed)],
-                                     lltype.Signed)
+                                    lltype.Signed)
 
 
 class CodemapStorage(object):

@@ -26,6 +26,7 @@ class TranslationTest(CCompiledMixin):
         # - profiler
         # - full optimizer
         # - floats neg and abs
+        # - cast_int_to_float
         # - llexternal with macro=True
 
         class BasicFrame(object):
@@ -69,6 +70,7 @@ class TranslationTest(CCompiledMixin):
                 frame.i -= 1
                 j *= -0.712
                 if j + (-j):    raise ValueError
+                j += frame.i
                 k = myabs1(myabs2(j))
                 if k - abs(j):  raise ValueError
                 if k - abs(-j): raise ValueError
@@ -211,6 +213,8 @@ class TranslationTestJITStats(CCompiledMixin):
     CPUClass = getcpuclass()
 
     def test_jit_get_stats(self):
+        py.test.skip("disabled feature")
+
         driver = JitDriver(greens = [], reds = ['i'])
 
         def f():
@@ -226,8 +230,8 @@ class TranslationTestJITStats(CCompiledMixin):
             return len(ll_times)
 
         res = self.meta_interp(main, [])
-        assert res == 3
-        # one for loop, one for entry point and one for the prologue
+        assert res == 2
+        # one for loop and one for the prologue, no unrolling
 
 
 class TranslationRemoveTypePtrTest(CCompiledMixin):
@@ -303,7 +307,7 @@ class TranslationRemoveTypePtrTest(CCompiledMixin):
         for line in open(str(logfile)):
             if 'guard_class' in line:
                 guard_class += 1
-        # if we get many more guard_classes, it means that we generate
+        # if we get many more guard_classes (~93), it means that we generate
         # guards that always fail (the following assert's original purpose
         # is to catch the following case: each GUARD_CLASS is misgenerated
         # and always fails with "gcremovetypeptr")

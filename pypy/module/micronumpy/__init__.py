@@ -9,6 +9,7 @@ class MultiArrayModule(MixedModule):
         'ndarray': 'ndarray.W_NDimArray',
         'dtype': 'descriptor.W_Dtype',
         'flatiter': 'flatiter.W_FlatIterator',
+        'flagsobj': 'flagsobj.W_FlagsObject',
 
         '_reconstruct' : 'ndarray._reconstruct',
         'scalar' : 'ctors.build_scalar',

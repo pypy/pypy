@@ -56,14 +56,15 @@ copyrighted by one or more of the following people and organizations:
   Anders Chrigstrom
   Eric van Riet Paap
   Wim Lavrijsen
+  Richard Plangger
   Richard Emslie
   Alexander Schremmer
   Dan Villiom Podlaski Christiansen
   Lukas Diekmann
   Sven Hager
   Anders Lehmann
-  Aurelien Campeas
   Remi Meier
+  Aurelien Campeas
   Niklaus Haldimann
   Camillo Bruni
   Laura Creighton
@@ -87,7 +88,6 @@ copyrighted by one or more of the following people and organizations:
   Ludovic Aubry
   Jacob Hallen
   Jason Creighton
-  Richard Plangger
   Alex Martelli
   Michal Bendowski
   stian
@@ -168,7 +168,6 @@ copyrighted by one or more of the following people and organizations:
   Michael Twomey
   Lucian Branescu Mihaila
   Yichao Yu
-  Anton Gulenko
   Gabriel Lavoie
   Olivier Dormond
   Jared Grubb
@@ -201,9 +200,12 @@ copyrighted by one or more of the following people and organizations:
   Alex Perry
   Vincent Legoll
   Alan McIntyre
+  Spenser Bauman
   Alexander Sedov
   Attila Gobi
   Christopher Pope
+  Devin Jeanpierre
+  Vaibhav Sood
   Christian Tismer 
   Marc Abramowitz
   Dan Stromberg
@@ -215,6 +217,7 @@ copyrighted by one or more of the following people and organizations:
   Carl Meyer
   Karl Ramm
   Pieter Zieschang
+  Anton Gulenko
   Gabriel
   Lukas Vacek
   Andrew Dalke
@@ -234,6 +237,7 @@ copyrighted by one or more of the following people and organizations:
   Lutz Paelike
   Lucio Torre
   Lars Wassermann
+  Philipp Rustemeuer
   Henrik Vendelbo
   Dan Buch
   Miguel de Val Borro
@@ -244,14 +248,17 @@ copyrighted by one or more of the following people and organizations:
   Martin Blais
   Lene Wagner
   Tomo Cocoa
+  Kim Jin Su
   Toni Mattis
   Lucas Stadler
   Julian Berman
+  Markus Holtermann
   roberto@goyle
   Yury V. Zaytsev
   Anna Katrina Dominguez
   William Leslie
   Bobby Impollonia
+  Faye Zhao
   timo@eistee.fritz.box
   Andrew Thompson
   Yusei Tahara
@@ -282,6 +289,7 @@ copyrighted by one or more of the following people and organizations:
   shoma hosaka
   Daniel Neuhäuser
   Ben Mather
+  Niclas Olofsson
   halgari
   Boglarka Vezer
   Chris Pressey
@@ -308,13 +316,16 @@ copyrighted by one or more of the following people and organizations:
   Stefan Marr
   jiaaro
   Mads Kiilerich
+  Richard Lancaster
   opassembler.py
   Antony Lee
+  Yaroslav Fedevych
   Jim Hunziker
   Markus Unterwaditzer
   Even Wiik Thomassen
   jbs
   squeaky
+  Zearin
   soareschen
   Kurt Griffiths
   Mike Bayer
@@ -326,6 +337,7 @@ copyrighted by one or more of the following people and organizations:
   Anna Ravencroft
   Andrey Churin
   Dan Crosta
+  Tobias Diaz
   Julien Phalip
   Roman Podoliaka
   Dan Loewenherz
@@ -352,8 +364,7 @@ License for 'lib-python/2.7'
 Except when otherwise stated (look for LICENSE files or copyright/license
 information at the beginning of each file) the files in the 'lib-python/2.7'
 directory are all copyrighted by the Python Software Foundation and licensed
-under the Python Software License of which you can find a copy here:
-http://www.python.org/doc/Copyright.html 
+under the terms that you can find here: https://docs.python.org/2/license.html
 
 License for 'pypy/module/unicodedata/'
 ======================================
@@ -430,12 +441,12 @@ the terms of the GPL license version 2 or any later version.  Thus the
 _gdbm module, provided in the file lib_pypy/_gdbm.py, is redistributed
 under the terms of the GPL license as well.
 
-License for 'pypy/module/_vmprof/src'
+License for 'rpython/rlib/rvmprof/src'
 --------------------------------------
 
 The code is based on gperftools. You may see a copy of the License for it at
 
-    https://code.google.com/p/gperftools/source/browse/COPYING
+    https://github.com/gperftools/gperftools/blob/master/COPYING
 
 License for 'liblzma and 'lzmaffi'
 ----------------------------------

@@ -2,6 +2,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
+from rpython.rlib import jit
 
 from pypy.module.__builtin__.functional import W_Filter, W_Map
 
@@ -269,6 +270,11 @@ W_FilterFalse.typedef = TypeDef(
     """)
 
 
+islice_ignore_items_driver = jit.JitDriver(name='islice_ignore_items',
+                                           greens=['tp'],
+                                           reds=['num', 'w_islice',
+                                                 'w_iterator'])
+
 class W_ISlice(W_Root):
     def __init__(self, space, w_iterable, w_startstop, args_w):
         self.iterable = space.iter(w_iterable)
@@ -354,11 +360,18 @@ class W_ISlice(W_Root):
             raise
 
     def _ignore_items(self, num):
-        if self.iterable is None:
+        w_iterator = self.iterable
+        if w_iterator is None:
             raise OperationError(self.space.w_StopIteration, self.space.w_None)
+
+        tp = self.space.type(w_iterator)
         while True:
+            islice_ignore_items_driver.jit_merge_point(tp=tp,
+                                                       num=num,
+                                                       w_islice=self,
+                                                       w_iterator=w_iterator)
             try:
-                self.space.next(self.iterable)
+                self.space.next(w_iterator)
             except OperationError as e:
                 if e.match(self.space, self.space.w_StopIteration):
                     self.iterable = None
@@ -458,33 +471,38 @@ W_Chain.typedef = TypeDef(
 
 class W_ZipLongest(W_Map):
     _error_name = "zip_longest"
+    _immutable_fields_ = ["w_fillvalue"]
+
+    def _fetch(self, index):
+        w_iter = self.iterators_w[index]
+        if w_iter is not None:
+            space = self.space
+            try:
+                return space.next(w_iter)
+            except OperationError, e:
+                if not e.match(space, space.w_StopIteration):
+                    raise
+                self.active -= 1
+                if self.active <= 0:
+                    # It was the last active iterator
+                    raise
+                self.iterators_w[index] = None
+        return self.w_fillvalue
 
     def next_w(self):
-        space = self.space
+        # common case: 2 arguments
+        if len(self.iterators_w) == 2:
+            objects = [self._fetch(0), self._fetch(1)]
+        else:
+            objects = self._get_objects()
+        return self.space.newtuple(objects)
+
+    def _get_objects(self):
+        # the loop is out of the way of the JIT
         nb = len(self.iterators_w)
-
         if nb == 0:
-            raise OperationError(space.w_StopIteration, space.w_None)
-
-        objects_w = [None] * nb
-        for index in range(nb):
-            w_value = self.w_fillvalue
-            w_it = self.iterators_w[index]
-            if w_it is not None:
-                try:
-                    w_value = space.next(w_it)
-                except OperationError, e:
-                    if not e.match(space, space.w_StopIteration):
-                        raise
-
-                    self.active -= 1
-                    if self.active == 0:
-                        # It was the last active iterator
-                        raise
-                    self.iterators_w[index] = None
-
-            objects_w[index] = w_value
-        return space.newtuple(objects_w)
+            raise OperationError(self.space.w_StopIteration, self.space.w_None)
+        return [self._fetch(index) for index in range(nb)]
 
 def W_ZipLongest___new__(space, w_subtype, __args__):
     arguments_w, kwds_w = __args__.unpack()

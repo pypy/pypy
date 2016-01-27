@@ -8,6 +8,8 @@ from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.unicodeobject import W_UnicodeObject
 
 from rpython.rlib.objectmodel import r_dict
+from rpython.rlib.objectmodel import iterkeys_with_hash, contains_with_hash
+from rpython.rlib.objectmodel import setitem_with_hash, delitem_with_hash
 from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.rlib import rerased, jit
 
@@ -941,12 +943,12 @@ class AbstractUnwrappedSetStrategy(object):
         return self.erase(result_dict)
 
     def _difference_unwrapped(self, w_set, w_other):
-        iterator = self.unerase(w_set.sstorage).iterkeys()
+        self_dict = self.unerase(w_set.sstorage)
         other_dict = self.unerase(w_other.sstorage)
         result_dict = self.get_empty_dict()
-        for key in iterator:
-            if key not in other_dict:
-                result_dict[key] = None
+        for key, keyhash in iterkeys_with_hash(self_dict):
+            if not contains_with_hash(other_dict, key, keyhash):
+                setitem_with_hash(result_dict, key, keyhash, None)
         return self.erase(result_dict)
 
     def _difference_base(self, w_set, w_other):
@@ -969,10 +971,10 @@ class AbstractUnwrappedSetStrategy(object):
         if w_set.sstorage is w_other.sstorage:
             my_dict.clear()
             return
-        iterator = self.unerase(w_other.sstorage).iterkeys()
-        for key in iterator:
+        other_dict = self.unerase(w_other.sstorage)
+        for key, keyhash in iterkeys_with_hash(other_dict):
             try:
-                del my_dict[key]
+                delitem_with_hash(my_dict, key, keyhash)
             except KeyError:
                 pass
 
@@ -1000,12 +1002,12 @@ class AbstractUnwrappedSetStrategy(object):
         d_new = self.get_empty_dict()
         d_this = self.unerase(w_set.sstorage)
         d_other = self.unerase(w_other.sstorage)
-        for key in d_other.keys():
-            if not key in d_this:
-                d_new[key] = None
-        for key in d_this.keys():
-            if not key in d_other:
-                d_new[key] = None
+        for key, keyhash in iterkeys_with_hash(d_other):
+            if not contains_with_hash(d_this, key, keyhash):
+                setitem_with_hash(d_new, key, keyhash, None)
+        for key, keyhash in iterkeys_with_hash(d_this):
+            if not contains_with_hash(d_other, key, keyhash):
+                setitem_with_hash(d_new, key, keyhash, None)
 
         storage = self.erase(d_new)
         return storage
@@ -1085,9 +1087,9 @@ class AbstractUnwrappedSetStrategy(object):
         result = self.get_empty_dict()
         d_this = self.unerase(w_set.sstorage)
         d_other = self.unerase(w_other.sstorage)
-        for key in d_this:
-            if key in d_other:
-                result[key] = None
+        for key, keyhash in iterkeys_with_hash(d_this):
+            if contains_with_hash(d_other, key, keyhash):
+                setitem_with_hash(result, key, keyhash, None)
         return self.erase(result)
 
     def intersect(self, w_set, w_other):
@@ -1105,9 +1107,10 @@ class AbstractUnwrappedSetStrategy(object):
         w_set.sstorage = storage
 
     def _issubset_unwrapped(self, w_set, w_other):
+        d_set = self.unerase(w_set.sstorage)
         d_other = self.unerase(w_other.sstorage)
-        for item in self.unerase(w_set.sstorage):
-            if not item in d_other:
+        for key, keyhash in iterkeys_with_hash(d_set):
+            if not contains_with_hash(d_other, key, keyhash):
                 return False
         return True
 
@@ -1132,8 +1135,8 @@ class AbstractUnwrappedSetStrategy(object):
     def _isdisjoint_unwrapped(self, w_set, w_other):
         d_set = self.unerase(w_set.sstorage)
         d_other = self.unerase(w_other.sstorage)
-        for key in d_set:
-            if key in d_other:
+        for key, keyhash in iterkeys_with_hash(d_set):
+            if contains_with_hash(d_other, key, keyhash):
                 return False
         return True
 
@@ -1579,18 +1582,18 @@ def set_strategy_and_setdata(space, w_set, w_iterable):
         w_set.sstorage = strategy.get_storage_from_unwrapped_list(intlist)
         return
 
+    length_hint = space.length_hint(w_iterable, 0)
+
+    if jit.isconstant(length_hint):
+        return _pick_correct_strategy_unroll(space, w_set, w_iterable)
+
+    _create_from_iterable(space, w_set, w_iterable)
+
+
+@jit.unroll_safe
+def _pick_correct_strategy_unroll(space, w_set, w_iterable):
+
     iterable_w = space.listview(w_iterable)
-
-    if len(iterable_w) == 0:
-        w_set.strategy = strategy = space.fromcache(EmptySetStrategy)
-        w_set.sstorage = strategy.get_empty_storage()
-        return
-
-    _pick_correct_strategy(space, w_set, iterable_w)
-
-@jit.look_inside_iff(lambda space, w_set, iterable_w:
-        jit.loop_unrolling_heuristic(iterable_w, len(iterable_w), UNROLL_CUTOFF))
-def _pick_correct_strategy(space, w_set, iterable_w):
     # check for integers
     for w_item in iterable_w:
         if type(w_item) is not W_IntObject:
@@ -1629,6 +1632,29 @@ def _pick_correct_strategy(space, w_set, iterable_w):
 
     w_set.strategy = space.fromcache(ObjectSetStrategy)
     w_set.sstorage = w_set.strategy.get_storage_from_list(iterable_w)
+
+
+create_set_driver = jit.JitDriver(name='create_set',
+                                  greens=['tp', 'strategy'],
+                                  reds='auto')
+
+def _create_from_iterable(space, w_set, w_iterable):
+    w_set.strategy = strategy = space.fromcache(EmptySetStrategy)
+    w_set.sstorage = strategy.get_empty_storage()
+
+    tp = space.type(w_iterable)
+
+    w_iter = space.iter(w_iterable)
+    while True:
+        try:
+            w_item = space.next(w_iter)
+        except OperationError, e:
+            if not e.match(space, space.w_StopIteration):
+                raise
+            return
+        create_set_driver.jit_merge_point(tp=tp, strategy=w_set.strategy)
+        w_set.add(w_item)
+
 
 init_signature = Signature(['some_iterable'], None, None)
 init_defaults = [None]
