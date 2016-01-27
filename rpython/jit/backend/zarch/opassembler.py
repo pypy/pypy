@@ -836,6 +836,22 @@ class GuardOpAssembler(object):
     def emit_restore_exception(self, op, arglocs, regalloc):
         self._restore_exception(self.mc, arglocs[1], arglocs[0])
 
+    def emit_guard_no_exception(self, op, arglocs, regalloc):
+        self.mc.load_imm(r.SCRATCH, self.cpu.pos_exception())
+        self.mc.LG(r.SCRATCH2, l.addr(0,r.SCRATCH))
+        self.mc.cmp_op(r.SCRATCH2, l.imm(0), imm=True)
+        self.guard_success_cc = c.EQ
+        self._emit_guard(op, arglocs)
+        # If the previous operation was a COND_CALL, overwrite its conditional
+        # jump to jump over this GUARD_NO_EXCEPTION as well, if we can
+        if self._find_nearby_operation(regalloc,-1).getopnum() == rop.COND_CALL:
+            jmp_adr, fcond = self.previous_cond_call_jcond
+            relative_target = self.mc.currpos() - jmp_adr
+            pmc = OverwritingBuilder(self.mc, jmp_adr, 1)
+            pmc.BRCL(fcond, l.imm(relative_target))
+            pmc.overwrite()
+
+
 class MemoryOpAssembler(object):
     _mixin_ = True
 
@@ -1193,21 +1209,6 @@ class MiscOpAssembler(object):
 
     def emit_leave_portal_frame(self, op, arglocs, regalloc):
         self.leave_portal_frame(op)
-
-    def emit_guard_no_exception(self, op, arglocs, regalloc):
-        self.mc.load_imm(r.SCRATCH, self.cpu.pos_exception())
-        self.mc.LG(r.SCRATCH2, l.addr(0,r.SCRATCH))
-        self.mc.cmp_op(r.SCRATCH2, l.imm(0), imm=True)
-        self.guard_success_cc = c.EQ
-        self._emit_guard(op, arglocs)
-        # If the previous operation was a COND_CALL, overwrite its conditional
-        # jump to jump over this GUARD_NO_EXCEPTION as well, if we can
-        if self._find_nearby_operation(regalloc,-1).getopnum() == rop.COND_CALL:
-            jmp_adr, fcond = self.previous_cond_call_jcond
-            relative_target = self.mc.currpos() - jmp_adr
-            pmc = OverwritingBuilder(self.mc, jmp_adr, 1)
-            pmc.BRCL(fcond, l.imm(relative_target))
-            pmc.overwrite()
 
 class OpAssembler(IntOpAssembler, FloatOpAssembler,
                   GuardOpAssembler, CallOpAssembler,

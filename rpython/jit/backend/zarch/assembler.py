@@ -278,7 +278,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         if exctploc is not None:
             mc.LG(exctploc, l.addr(diff, r.SCRATCH))
         # Zero out the exception fields
-        mc.LGHI(r.SCRATCH2, l.imm(0))
+        mc.XGR(r.SCRATCH2, r.SCRATCH2)
         mc.STG(r.SCRATCH2, l.addr(0, r.SCRATCH))
         mc.STG(r.SCRATCH2, l.addr(diff, r.SCRATCH))
 
@@ -1169,10 +1169,8 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
             # to be executed, thus remove the first opcode
             self.mc.b_offset(descr._ll_loop_code + self.mc.LARL_byte_count)
         else:
-            # restore the pool address
             offset = self.pool.get_descr_offset(descr) + \
                      JUMPABS_TARGET_ADDR__POOL_OFFSET
-            offset_pool = offset + JUMPABS_POOL_ADDR_POOL_OFFSET
             self.mc.LG(r.SCRATCH, l.pool(offset))
             self.mc.BCR(c.ANY, r.SCRATCH)
 
