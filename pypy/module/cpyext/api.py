@@ -828,6 +828,9 @@ def build_bridge(space):
     space.fromcache(State).install_dll(eci)
 
     # populate static data
+    from pypy.module.cpyext.pyobject import track_reference, get_typedescr
+    from pypy.module.cpyext.typeobject import finish_type_1, finish_type_2
+    to_attach = []
     for name, (typ, expr) in GLOBALS.iteritems():
         from pypy.module import cpyext
         w_obj = eval(expr)
@@ -861,17 +864,24 @@ def build_bridge(space):
                 # we have a structure, get its address
                 in_dll = ll2ctypes.get_ctypes_type(PyObject.TO).in_dll(bridge, name)
                 py_obj = ll2ctypes.ctypes2lltype(PyObject, ctypes.pointer(in_dll))
-            from pypy.module.cpyext.pyobject import (
-                track_reference, get_typedescr)
-            w_type = space.type(w_obj)
-            typedescr = get_typedescr(w_type.instancetypedef)
             py_obj.c_ob_refcnt = 1
-            py_obj.c_ob_type = rffi.cast(PyTypeObjectPtr,
-                                         make_ref(space, w_type))
-            typedescr.attach(space, py_obj, w_obj)
             track_reference(space, py_obj, w_obj)
+            to_attach.append((py_obj, w_obj))
         else:
             assert False, "Unknown static object: %s %s" % (typ, name)
+
+    space._cpyext_type_init = []
+    for py_obj, w_obj in to_attach:
+        w_type = space.type(w_obj)
+        typedescr = get_typedescr(w_type.instancetypedef)
+        py_obj.c_ob_type = rffi.cast(PyTypeObjectPtr,
+                                     make_ref(space, w_type))
+        typedescr.attach(space, py_obj, w_obj)
+    cpyext_type_init = space._cpyext_type_init
+    del space._cpyext_type_init
+    for pto, w_type in cpyext_type_init:
+        finish_type_1(space, pto)
+        finish_type_2(space, pto, w_type)
 
     pypyAPI = ctypes.POINTER(ctypes.c_void_p).in_dll(bridge, 'pypyAPI')
 
