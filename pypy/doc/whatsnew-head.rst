@@ -133,3 +133,4 @@ entirely by `rpython/jit/metainterp/optimizeopt/heap.py` rather than
 `rpython/jit/metainterp/optimizeopt/pure.py`, which can result in better codegen
 for traces containing a large number of pure getfield operations.
 
+.. branch: cpyext-bootstrap
