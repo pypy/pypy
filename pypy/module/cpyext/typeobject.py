@@ -310,12 +310,23 @@ def init_typeobject(space):
                    realize=type_realize,
                    dealloc=type_dealloc)
 
-    # we create the type "type" manually here, because of the cycle
-    # through its 'c_ob_type' field
+    # There is the obvious cycle of 'type(type) == type', but there are
+    # also several other ones, like 'tuple.tp_bases' being itself a
+    # tuple instance.  We solve the first one by creating the type
+    # "type" manually here.  For the other cycles, we fix them by delaying
+    # creation of the types here, and hoping nothing breaks by seeing
+    # uninitialized-yet types (only for a few basic types like 'type',
+    # 'tuple', 'object', 'str').
+    space._cpyext_delay_type_creation = []
+
     py_type   = _type_alloc(space, lltype.nullptr(PyTypeObject))
     py_type.c_ob_type = rffi.cast(PyTypeObjectPtr, py_type)
     track_reference(space, py_type, space.w_type)
     type_attach(space, py_type, space.w_type)
+
+    while space._cpyext_delay_type_creation:
+        _type_really_attach(space, *space._cpyext_delay_type_creation.pop())
+    del space._cpyext_delay_type_creation
 
 
 @cpython_api([PyObject], lltype.Void, external=False)
@@ -447,6 +458,13 @@ def type_attach(space, py_obj, w_type):
     """
     Fills a newly allocated PyTypeObject from an existing type.
     """
+    if hasattr(space, '_cpyext_delay_type_creation'):
+        space._cpyext_delay_type_creation.append((py_obj, w_type))
+    else:
+        _type_really_attach(space, py_obj, w_type)
+    return rffi.cast(PyTypeObjectPtr, py_obj)
+
+def _type_really_attach(space, py_obj, w_type):
     from pypy.module.cpyext.object import PyObject_Del
 
     assert isinstance(w_type, W_TypeObject)
@@ -499,7 +517,6 @@ def type_attach(space, py_obj, w_type):
         pto.c_tp_name = rffi.str2charp(w_type.name)
 
     pto.c_tp_flags |= Py_TPFLAGS_READY
-    return pto
 
 def py_type_ready(space, pto):
     if pto.c_tp_flags & Py_TPFLAGS_READY:
@@ -513,6 +530,7 @@ def PyType_Ready(space, pto):
 
 def type_realize(space, py_obj):
     pto = rffi.cast(PyTypeObjectPtr, py_obj)
+    assert pto.c_tp_flags & Py_TPFLAGS_READY == 0
     assert pto.c_tp_flags & Py_TPFLAGS_READYING == 0
     pto.c_tp_flags |= Py_TPFLAGS_READYING
     try:
@@ -590,7 +608,8 @@ def finish_type_1(space, pto):
     base = pto.c_tp_base
     base_pyo = rffi.cast(PyObject, pto.c_tp_base)
     if base and not base.c_tp_flags & Py_TPFLAGS_READY:
-        type_realize(space, rffi.cast(PyObject, base_pyo))
+        if not hasattr(space, '_cpyext_delay_type_creation'):
+            type_realize(space, rffi.cast(PyObject, base_pyo))
     if base and not pto.c_ob_type: # will be filled later
         pto.c_ob_type = base.c_ob_type
     if not pto.c_tp_bases:

@@ -164,6 +164,10 @@ class W_TypeObject(W_Root):
             else:
                 w_self.terminator = NoDictTerminator(space, w_self)
 
+    def __repr__(self):
+        "NOT_RPYTHON"
+        return '<W_TypeObject %r at 0x%x>' % (self.name, id(self))
+
     def mutated(w_self, key):
         """
         The type is being mutated. key is either the string containing the
