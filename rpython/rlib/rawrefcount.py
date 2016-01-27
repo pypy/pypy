@@ -1,6 +1,9 @@
 #
 #  See documentation in pypy/doc/discussion/rawrefcount.rst
 #
+#  This is meant for pypy's cpyext module, but is a generally
+#  useful interface over our GC.  XXX "pypy" should be removed here
+#
 import sys, weakref
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rlib.objectmodel import we_are_translated, specialize
