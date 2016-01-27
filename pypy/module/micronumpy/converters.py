@@ -77,9 +77,8 @@ def order_converter(space, w_order, default):
         elif order.startswith('K') or order.startswith('k'):
             return NPY.KEEPORDER
         else:
-            raise OperationError(space.w_TypeError, space.wrap(
-                "order not understood"))
-
+            raise oefmt(space.w_TypeError, "Unknown order: '%s'", order)
+    return -1
 
 def multi_axis_converter(space, w_axis, ndim):
     if space.is_none(w_axis):

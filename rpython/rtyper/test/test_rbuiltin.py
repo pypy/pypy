@@ -432,6 +432,14 @@ class TestRbuiltin(BaseRtypingTest):
         res = self.interpret(f, [2])
         assert self.class_name(res) == 'B'
 
+    def test_instantiate_nonmovable(self):
+        class A:
+            pass
+        def f():
+            return instantiate(A, nonmovable=True)   # no effect before GC
+        res = self.interpret(f, [])
+        assert self.class_name(res) == 'A'
+
     def test_os_path_join(self):
         def fn(a, b):
             return os.path.join(a, b)

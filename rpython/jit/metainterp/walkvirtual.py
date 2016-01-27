@@ -5,7 +5,7 @@ class VirtualVisitor(object):
     def visit_not_virtual(self, value):
         raise NotImplementedError("abstract base class")
 
-    def visit_virtual(self, known_class, fielddescrs):
+    def visit_virtual(self, descr, fielddescrs):
         raise NotImplementedError("abstract base class")
 
     def visit_vstruct(self, typedescr, fielddescrs):

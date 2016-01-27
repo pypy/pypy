@@ -6,6 +6,7 @@ from rpython.rlib.objectmodel import ComputedIntSymbolic
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.rmodel import getgcflavor
 from rpython.tool.sourcetools import valid_identifier
+from rpython.annotator.classdesc import ClassDesc
 
 
 def normalize_call_familes(annotator):
@@ -213,7 +214,7 @@ def merge_classpbc_getattr_into_classdef(annotator):
             descs = access_set.descs
             if len(descs) <= 1:
                 continue
-            if not isinstance(descs.iterkeys().next(), description.ClassDesc):
+            if not isinstance(descs.iterkeys().next(), ClassDesc):
                 continue
             classdefs = [desc.getuniqueclassdef() for desc in descs]
             commonbase = classdefs[0]
@@ -241,7 +242,7 @@ def create_class_constructors(annotator):
         if len(family.descs) <= 1:
             continue
         descs = family.descs.keys()
-        if not isinstance(descs[0], description.ClassDesc):
+        if not isinstance(descs[0], ClassDesc):
             continue
         # Note that if classes are in the same callfamily, their __init__
         # attribute must be in the same attrfamily as well.

@@ -37,6 +37,18 @@ def test_stdout_flush_at_shutdown(space):
         space.setattr(w_sys, space.wrap('stdout'), w_sys.get('__stdout__'))
         space.setattr(w_sys, space.wrap('stderr'), w_sys.get('__stderr__'))
 
+def test_stdio_missing_at_shutdown(space):
+    w_sys = space.sys
+
+    try:
+        space.delattr(w_sys, space.wrap('stdout'))
+        space.delattr(w_sys, space.wrap('stderr'))
+        # called at shtudown
+        w_sys.flush_std_files(space)
+    finally:
+        space.setattr(w_sys, space.wrap('stdout'), w_sys.get('__stdout__'))
+        space.setattr(w_sys, space.wrap('stderr'), w_sys.get('__stderr__'))
+
 class AppTestAppSysTests:
     spaceconfig = {
         "usemodules": ["thread"],

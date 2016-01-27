@@ -960,6 +960,22 @@ class AppTestItertools27:
                 c3 = pickle.loads(pickle.dumps(c))
                 assert list(itertools.islice(c3, 3)) == expected
 
+    def test_islice_attack(self):
+        import itertools
+        class Iterator(object):
+            first = True
+            def __iter__(self):
+                return self
+            def __next__(self):
+                if self.first:
+                    self.first = False
+                    list(islice)
+                return 52
+        myiter = Iterator()
+        islice = itertools.islice(myiter, 5, 8)
+        raises(StopIteration, islice.__next__)
+
+
 class AppTestItertools32:
     spaceconfig = dict(usemodules=['itertools'])
 

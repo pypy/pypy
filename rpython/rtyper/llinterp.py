@@ -41,6 +41,10 @@ class LLFatalError(Exception):
     def __str__(self):
         return ': '.join([str(x) for x in self.args])
 
+class LLAssertFailure(Exception):
+    pass
+
+
 def type_name(etype):
     return ''.join(etype.name.chars)
 
@@ -466,7 +470,7 @@ class LLFrame(object):
         raise LLException(etype, evalue, *extraargs)
 
     def invoke_callable_with_pyexceptions(self, fptr, *args):
-        obj = self.llinterpreter.typer.type_system.deref(fptr)
+        obj = fptr._obj
         try:
             return obj._callable(*args)
         except LLException, e:
@@ -508,7 +512,8 @@ class LLFrame(object):
         track(*ll_objects)
 
     def op_debug_assert(self, x, msg):
-        assert x, msg
+        if not x:
+            raise LLAssertFailure(msg)
 
     def op_debug_fatalerror(self, ll_msg, ll_exc=None):
         msg = ''.join(ll_msg.chars)
@@ -644,7 +649,7 @@ class LLFrame(object):
             array[index] = item
 
     def perform_call(self, f, ARGS, args):
-        fobj = self.llinterpreter.typer.type_system.deref(f)
+        fobj = f._obj
         has_callable = getattr(fobj, '_callable', None) is not None
         if hasattr(fobj, 'graph'):
             graph = fobj.graph
@@ -669,7 +674,7 @@ class LLFrame(object):
         graphs = args[-1]
         args = args[:-1]
         if graphs is not None:
-            obj = self.llinterpreter.typer.type_system.deref(f)
+            obj = f._obj
             if hasattr(obj, 'graph'):
                 assert obj.graph in graphs
         else:
@@ -708,6 +713,9 @@ class LLFrame(object):
 
     def op_gc_add_memory_pressure(self, size):
         self.heap.add_memory_pressure(size)
+
+    def op_gc_gettypeid(self, obj):
+        return lloperation.llop.combine_ushort(lltype.Signed, self.heap.gettypeid(obj), 0)
 
     def op_shrink_array(self, obj, smallersize):
         return self.heap.shrink_array(obj, smallersize)
@@ -886,19 +894,6 @@ class LLFrame(object):
         raise NotImplementedError("gc_detach_callback_pieces")
     def op_gc_reattach_callback_pieces(self):
         raise NotImplementedError("gc_reattach_callback_pieces")
-
-    def op_gc_shadowstackref_new(self):   # stacklet+shadowstack
-        raise NotImplementedError("gc_shadowstackref_new")
-    def op_gc_shadowstackref_context(self):
-        raise NotImplementedError("gc_shadowstackref_context")
-    def op_gc_save_current_state_away(self):
-        raise NotImplementedError("gc_save_current_state_away")
-    def op_gc_forget_current_state(self):
-        raise NotImplementedError("gc_forget_current_state")
-    def op_gc_restore_state_from(self):
-        raise NotImplementedError("gc_restore_state_from")
-    def op_gc_start_fresh_new_state(self):
-        raise NotImplementedError("gc_start_fresh_new_state")
 
     def op_gc_get_type_info_group(self):
         raise NotImplementedError("gc_get_type_info_group")

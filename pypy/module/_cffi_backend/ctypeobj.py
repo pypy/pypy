@@ -11,7 +11,8 @@ from pypy.module._cffi_backend import cdataobj
 
 
 class W_CType(W_Root):
-    _attrs_ = ['space', 'size',  'name', 'name_position', '_lifeline_']
+    _attrs_ = ['space', 'size',  'name', 'name_position', '_lifeline_',
+               '_pointer_type']
     _immutable_fields_ = ['size?', 'name', 'name_position']
     # note that 'size' is not strictly immutable, because it can change
     # from -1 to the real value in the W_CTypeStruct subclass.
@@ -20,6 +21,7 @@ class W_CType(W_Root):
 
     cast_anything = False
     is_primitive_integer = False
+    is_nonfunc_pointer_or_array = False
     kind = "?"
 
     def __init__(self, space, size, name, name_position):
@@ -142,7 +144,7 @@ class W_CType(W_Root):
             # obscure hack when untranslated, maybe, approximate, don't use
             if isinstance(align, llmemory.FieldOffset):
                 align = rffi.sizeof(align.TYPE.y)
-                if (1 << (8*align-2)) > sys.maxint:
+                if sys.platform != 'win32' and (1 << (8*align-2)) > sys.maxint:
                     align /= 2
         else:
             # a different hack when translated, to avoid seeing constants

@@ -74,6 +74,9 @@ class GCManagedHeap(object):
             return lltype.malloc(TYPE, n, flavor=flavor, zero=zero,
                                  track_allocation=track_allocation)
 
+    def gettypeid(self, obj):
+        return self.get_type_id(lltype.typeOf(obj).TO)
+
     def add_memory_pressure(self, size):
         if hasattr(self.gc, 'raw_malloc_memory_pressure'):
             self.gc.raw_malloc_memory_pressure(size)

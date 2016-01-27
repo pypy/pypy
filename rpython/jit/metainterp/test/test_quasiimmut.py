@@ -124,7 +124,8 @@ class QuasiImmutTests(object):
         assert f(100, 7) == 721
         res = self.meta_interp(f, [100, 7])
         assert res == 721
-        self.check_resops(guard_not_invalidated=0, getfield_gc=1, getfield_gc_pure=2)
+        self.check_resops(guard_not_invalidated=0, getfield_gc_r=1,
+                          getfield_gc_pure_i=2)
         #
         from rpython.jit.metainterp.warmspot import get_stats
         loops = get_stats().loops
@@ -369,8 +370,12 @@ class QuasiImmutTests(object):
         #
         res = self.meta_interp(f, [100, 7])
         assert res == 700
-        self.check_resops(getarrayitem_gc_pure=0, guard_not_invalidated=2,
-                          getarrayitem_gc=0, getfield_gc=0, getfield_gc_pure=0)
+        self.check_resops(getarrayitem_gc_pure_i=0, guard_not_invalidated=2,
+                          getarrayitem_gc_pure_r=0,
+                          getarrayitem_gc_i=0,
+                          getarrayitem_gc_r=0,
+                          getfield_gc_i=0, getfield_gc_pure_i=0,
+                          getfield_gc_r=0, getfield_gC_pure_r=0)
         #
         from rpython.jit.metainterp.warmspot import get_stats
         loops = get_stats().loops
@@ -399,8 +404,10 @@ class QuasiImmutTests(object):
         res = self.meta_interp(f, [100, 7], enable_opts="")
         assert res == 700
         # operations must have been removed by the frontend
-        self.check_resops(getarrayitem_gc_pure=0, guard_not_invalidated=1,
-                          getarrayitem_gc=0, getfield_gc=0, getfield_gc_pure=0)
+        self.check_resops(getarrayitem_gc_pure_i=0, guard_not_invalidated=1,
+                          getarrayitem_gc_i=0,
+                          getfield_gc=0, getfield_gc_pure_i=0,
+                          getfield_gc_pure_r=0)
 
     def test_list_length_1(self):
         myjitdriver = JitDriver(greens=['foo'], reds=['x', 'total'])

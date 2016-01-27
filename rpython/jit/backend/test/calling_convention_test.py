@@ -1,7 +1,7 @@
 
-from rpython.jit.metainterp.history import BasicFinalDescr, BoxInt,\
-     JitCellToken, ConstInt, BoxFloat, ConstFloat
-from rpython.jit.metainterp.resoperation import rop
+from rpython.jit.metainterp.history import BasicFinalDescr,\
+     JitCellToken, ConstInt, ConstFloat
+from rpython.jit.metainterp.resoperation import rop, InputArgInt, InputArgFloat
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.tool.oparser import parse
 from rpython.rtyper.lltypesystem import lltype, llmemory
@@ -14,7 +14,7 @@ import sys
 import platform
 
 def boxfloat(x):
-    return BoxFloat(longlong.getfloatstorage(x))
+    return InputArgFloat(longlong.getfloatstorage(x))
 
 def constfloat(x):
     return ConstFloat(longlong.getfloatstorage(x))
@@ -23,7 +23,6 @@ class FakeStats(object):
     pass
 
 class CallingConvTests(Runner):
-    type_system = 'lltype'
     Ptr = lltype.Ptr
     FuncType = lltype.FuncType
 
@@ -98,8 +97,8 @@ class CallingConvTests(Runner):
 
             ops = '[%s]\n' % arguments
             ops += '%s\n' % spill_ops
-            ops += 'f99 = call(ConstClass(func_ptr), %s, descr=calldescr)\n' % arguments
-            ops += 'i99 = same_as(0)\n'
+            ops += 'f99 = call_f(ConstClass(func_ptr), %s, descr=calldescr)\n' % arguments
+            ops += 'i99 = same_as_i(0)\n'
             ops += 'guard_true(i99) [f99, %s]\n' % arguments
             ops += 'finish()\n'
 
@@ -149,10 +148,11 @@ class CallingConvTests(Runner):
                                         EffectInfo.MOST_GENERAL)
             funcbox = self.get_funcbox(cpu, func_ptr)
 
-            res = self.execute_operation(rop.CALL,
+            res = self.execute_operation(rop.CALL_F,
                                          [funcbox] + argslist,
                                          'float', descr=calldescr)
-            assert abs(res.getfloat() - result) < 0.0001
+            res = longlong.getrealfloat(res)
+            assert abs(res - result) < 0.0001
 
     def test_call_aligned_with_args_on_the_stack(self):
         cpu = self.cpu
@@ -183,7 +183,7 @@ class CallingConvTests(Runner):
                     args.append(I)
                     arg = local_ints.pop()
                     result += arg
-                    argslist.append(BoxInt(arg))
+                    argslist.append(InputArgInt(arg))
             FUNC = self.FuncType(args, F)
             FPTR = self.Ptr(FUNC)
             func_ptr = llhelper(FPTR, func)
@@ -191,10 +191,11 @@ class CallingConvTests(Runner):
                                         EffectInfo.MOST_GENERAL)
             funcbox = self.get_funcbox(cpu, func_ptr)
 
-            res = self.execute_operation(rop.CALL,
+            res = self.execute_operation(rop.CALL_F,
                                          [funcbox] + argslist,
                                          'float', descr=calldescr)
-            assert abs(res.getfloat() - result) < 0.0001
+            res = longlong.getrealfloat(res)
+            assert abs(res - result) < 0.0001
 
     def test_call_alignment_call_assembler(self):
         cpu = self.cpu
@@ -269,7 +270,7 @@ class CallingConvTests(Runner):
                 EffectInfo.MOST_GENERAL)
             ops = '''
             [%s]
-            f99 = call_assembler(%s, descr=called_looptoken)
+            f99 = call_assembler_f(%s, descr=called_looptoken)
             guard_not_forced()[]
             finish(f99, descr=fdescr4)
             ''' % (arguments, arguments)
@@ -311,10 +312,10 @@ class CallingConvTests(Runner):
         calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT, EffectInfo.MOST_GENERAL)
         funcbox = self.get_funcbox(cpu, func_ptr)
 
-        res = self.execute_operation(rop.CALL,
+        res = self.execute_operation(rop.CALL_I,
                                      [funcbox] + argslist,
                                      'int', descr=calldescr)
-        assert res.value == result
+        assert res == result
 
 
     def test_call_with_singlefloats(self):
@@ -346,7 +347,7 @@ class CallingConvTests(Runner):
             local_ints = list(ints)
             for i in range(random.randrange(4, 20)):
                 case = random.randrange(0, 6)
-                if case & 1: boxme = BoxInt
+                if case & 1: boxme = InputArgInt
                 else:        boxme = ConstInt
                 if case < 2:
                     args.append(F)
@@ -369,11 +370,12 @@ class CallingConvTests(Runner):
                                         EffectInfo.MOST_GENERAL)
             funcbox = self.get_funcbox(cpu, func_ptr)
 
-            res = self.execute_operation(rop.CALL,
+            res = self.execute_operation(rop.CALL_F,
                                          [funcbox] + argslist,
                                          'float', descr=calldescr)
             expected = func(*argvalues)
-            assert abs(res.getfloat() - expected) < 0.0001
+            res = longlong.getrealfloat(res)
+            assert abs(res - expected) < 0.0001
 
 
     def make_function_returning_stack_pointer(self):
@@ -418,7 +420,7 @@ class CallingConvTests(Runner):
                                         EffectInfo.MOST_GENERAL)
 
             ops = '[%s]\n' % arguments
-            ops += 'i99 = call(%d, %s, descr=calldescr)\n' % (func_addr,
+            ops += 'i99 = call_i(%d, %s, descr=calldescr)\n' % (func_addr,
                                                               arguments)
             ops += 'finish(i99)\n'
 

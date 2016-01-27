@@ -1035,33 +1035,6 @@ def flow_rev_numbers(n):
     raise Exception
 
 
-# class specialization
-
-class PolyStk:
-    _annspecialcase_ = "specialize:ctr_location"
-
-    def __init__(self):
-        self.itms = []
-
-    def push(self, v):
-        self.itms.append(v)
-
-    def top(self):
-        return self.itms[-1]
-
-
-def class_spec():
-    istk = PolyStk()
-    istk.push(1)
-    sstk = PolyStk()
-    sstk.push("a")
-    istk.push(2)
-    sstk.push("b")
-    #if not isinstance(istk, PolyStk):
-    #    return "confused"
-    return istk.top(), sstk.top()
-
-
 from rpython.rlib.rarithmetic import ovfcheck
 
 def add_func(i=numtype):

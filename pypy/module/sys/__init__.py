@@ -146,8 +146,8 @@ class Module(MixedModule):
                """)
 
     def flush_std_files(self, space):
-        w_stdout = space.sys.get('stdout')
-        w_stderr = space.sys.get('stderr')
+        w_stdout = space.sys.getdictvalue(space, 'stdout')
+        w_stderr = space.sys.getdictvalue(space, 'stderr')
         for w_file in [w_stdout, w_stderr]:
             if not (space.is_none(w_file) or
                     self._file_is_closed(space, w_file)):

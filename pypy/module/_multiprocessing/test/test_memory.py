@@ -1,3 +1,5 @@
+import sys
+
 class AppTestMemory:
     spaceconfig = dict(usemodules=('_multiprocessing', 'mmap',
                                    '_rawffi',

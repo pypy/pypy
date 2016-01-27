@@ -8,7 +8,7 @@ from pypy.interpreter.error import OperationError
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance, hlstr
 from rpython.rtyper.rclass import OBJECT
-from rpython.jit.metainterp.resoperation import rop
+#from rpython.jit.metainterp.resoperation import rop
 from rpython.rlib.nonconst import NonConstant
 from rpython.rlib import jit_hooks
 from rpython.rlib.jit import Counters
@@ -22,7 +22,6 @@ class Cache(object):
     def __init__(self, space):
         self.w_compile_hook = space.w_None
         self.w_abort_hook = space.w_None
-        self.w_optimize_hook = space.w_None
 
     def getno(self):
         self.no += 1
@@ -43,8 +42,9 @@ def wrap_greenkey(space, jitdriver, greenkey, greenkey_repr):
     else:
         return space.wrap(greenkey_repr)
 
-def set_compile_hook(space, w_hook):
-    """ set_compile_hook(hook)
+@unwrap_spec(operations=bool)
+def set_compile_hook(space, w_hook, operations=True):
+    """ set_compile_hook(hook, operations=True)
 
     Set a compiling hook that will be called each time a loop is compiled.
 
@@ -58,24 +58,8 @@ def set_compile_hook(space, w_hook):
     cache = space.fromcache(Cache)
     assert w_hook is not None
     cache.w_compile_hook = w_hook
+    cache.compile_hook_with_ops = operations
     cache.in_recursion = NonConstant(False)
-
-def set_optimize_hook(space, w_hook):
-    """ set_optimize_hook(hook)
-
-    Set a compiling hook that will be called each time a loop is optimized,
-    but before assembler compilation. This allows adding additional
-    optimizations on Python level.
-
-    The hook will be called with the pypyjit.JitLoopInfo object. Refer to it's
-    docstring for details.
-
-    Result value will be the resulting list of operations, or None
-    """
-    cache = space.fromcache(Cache)
-    cache.w_optimize_hook = w_hook
-    cache.in_recursion = NonConstant(False)
-
 
 def set_abort_hook(space, w_hook):
     """ set_abort_hook(hook)
@@ -96,6 +80,9 @@ def set_abort_hook(space, w_hook):
     cache.in_recursion = NonConstant(False)
 
 def wrap_oplist(space, logops, operations, ops_offset=None):
+    # this function is called from the JIT
+    from rpython.jit.metainterp.resoperation import rop
+    
     l_w = []
     jitdrivers_sd = logops.metainterp_sd.jitdrivers_sd
     for op in operations:
@@ -103,117 +90,58 @@ def wrap_oplist(space, logops, operations, ops_offset=None):
             ofs = -1
         else:
             ofs = ops_offset.get(op, 0)
-        if op.opnum == rop.DEBUG_MERGE_POINT:
+        num = op.getopnum()
+        name = op.getopname()
+        if num == rop.DEBUG_MERGE_POINT:
             jd_sd = jitdrivers_sd[op.getarg(0).getint()]
             greenkey = op.getarglist()[3:]
             repr = jd_sd.warmstate.get_location_str(greenkey)
             w_greenkey = wrap_greenkey(space, jd_sd.jitdriver, greenkey, repr)
-            l_w.append(DebugMergePoint(space, jit_hooks._cast_to_gcref(op),
+            l_w.append(DebugMergePoint(space, name,
                                        logops.repr_of_resop(op),
                                        jd_sd.jitdriver.name,
                                        op.getarg(1).getint(),
                                        op.getarg(2).getint(),
                                        w_greenkey))
         else:
-            l_w.append(WrappedOp(jit_hooks._cast_to_gcref(op), ofs,
-                                 logops.repr_of_resop(op)))
+            l_w.append(WrappedOp(name, ofs, logops.repr_of_resop(op)))
     return l_w
 
+@unwrap_spec(offset=int, repr=str, name=str)
+def descr_new_resop(space, w_tp, name, offset=-1, repr=''):
+    return WrappedOp(name, offset, repr)
 
-class WrappedBox(W_Root):
-    """ A class representing a single box
-    """
-    def __init__(self, llbox):
-        self.llbox = llbox
-
-    def descr_getint(self, space):
-        if not jit_hooks.box_isint(self.llbox):
-            raise OperationError(space.w_NotImplementedError,
-                                 space.wrap("Box has no int value"))
-        return space.wrap(jit_hooks.box_getint(self.llbox))
-
-@unwrap_spec(no=int)
-def descr_new_box(space, w_tp, no):
-    return WrappedBox(jit_hooks.boxint_new(no))
-
-WrappedBox.typedef = TypeDef(
-    'Box',
-    __new__ = interp2app(descr_new_box),
-    getint = interp2app(WrappedBox.descr_getint),
-)
-
-@unwrap_spec(num=int, offset=int, repr=str, w_res=W_Root)
-def descr_new_resop(space, w_tp, num, w_args, w_res, offset=-1,
-                    repr=''):
-    args = [space.interp_w(WrappedBox, w_arg).llbox for w_arg in
-            space.listview(w_args)]
-    if space.is_none(w_res):
-        llres = jit_hooks.emptyval()
-    else:
-        if not isinstance(w_res, WrappedBox):
-            raise OperationError(space.w_TypeError, space.wrap(
-                "expected box type, got %s" % space.type(w_res)))
-        llres = w_res.llbox
-    return WrappedOp(jit_hooks.resop_new(num, args, llres), offset, repr)
-
-@unwrap_spec(repr=str, jd_name=str, call_depth=int, call_id=int)
-def descr_new_dmp(space, w_tp, w_args, repr, jd_name, call_depth, call_id,
+@unwrap_spec(repr=str, name=str, jd_name=str, call_depth=int, call_id=int)
+def descr_new_dmp(space, w_tp, name, repr, jd_name, call_depth, call_id,
     w_greenkey):
 
-    args = [space.interp_w(WrappedBox, w_arg).llbox for w_arg in
-            space.listview(w_args)]
-    num = rop.DEBUG_MERGE_POINT
-    return DebugMergePoint(space,
-                           jit_hooks.resop_new(num, args, jit_hooks.emptyval()),
+    return DebugMergePoint(space, name,
                            repr, jd_name, call_depth, call_id, w_greenkey)
 
 
 class WrappedOp(W_Root):
     """ A class representing a single ResOperation, wrapped nicely
     """
-    def __init__(self, op, offset, repr_of_resop):
-        self.op = op
+    def __init__(self, name, offset, repr_of_resop):
         self.offset = offset
+        self.name = name
         self.repr_of_resop = repr_of_resop
 
     def descr_repr(self, space):
         return space.wrap(self.repr_of_resop)
 
-    def descr_num(self, space):
-        return space.wrap(jit_hooks.resop_getopnum(self.op))
-
     def descr_name(self, space):
-        return space.wrap(hlstr(jit_hooks.resop_getopname(self.op)))
-
-    @unwrap_spec(no=int)
-    def descr_getarg(self, space, no):
-        try:
-            box = jit_hooks.resop_getarg(self.op, no)
-        except IndexError:
-            raise OperationError(space.w_IndexError,
-                                 space.wrap("Index out of range"))
-        return WrappedBox(box)
-
-    @unwrap_spec(no=int, w_box=WrappedBox)
-    def descr_setarg(self, space, no, w_box):
-        jit_hooks.resop_setarg(self.op, no, w_box.llbox)
-
-    def descr_getresult(self, space):
-        return WrappedBox(jit_hooks.resop_getresult(self.op))
-
-    def descr_setresult(self, space, w_box):
-        box = space.interp_w(WrappedBox, w_box)
-        jit_hooks.resop_setresult(self.op, box.llbox)
+        return space.wrap(self.name)
 
 class DebugMergePoint(WrappedOp):
     """ A class representing Debug Merge Point - the entry point
     to a jitted loop.
     """
 
-    def __init__(self, space, op, repr_of_resop, jd_name, call_depth, call_id,
-        w_greenkey):
+    def __init__(self, space, name, repr_of_resop, jd_name, call_depth,
+                 call_id, w_greenkey):
 
-        WrappedOp.__init__(self, op, -1, repr_of_resop)
+        WrappedOp.__init__(self, name, -1, repr_of_resop)
         self.jd_name = jd_name
         self.call_depth = call_depth
         self.call_id = call_id
@@ -237,12 +165,7 @@ WrappedOp.typedef = TypeDef(
     __doc__ = WrappedOp.__doc__,
     __new__ = interp2app(descr_new_resop),
     __repr__ = interp2app(WrappedOp.descr_repr),
-    num = GetSetProperty(WrappedOp.descr_num),
     name = GetSetProperty(WrappedOp.descr_name),
-    getarg = interp2app(WrappedOp.descr_getarg),
-    setarg = interp2app(WrappedOp.descr_setarg),
-    result = GetSetProperty(WrappedOp.descr_getresult,
-                            WrappedOp.descr_setresult),
     offset = interp_attrproperty("offset", cls=WrappedOp),
 )
 WrappedOp.typedef.acceptable_as_base_class = False
@@ -278,14 +201,18 @@ class W_JitLoopInfo(W_Root):
     asmaddr     = 0
     asmlen      = 0
 
-    def __init__(self, space, debug_info, is_bridge=False):
-        logops = debug_info.logger._make_log_operations()
-        if debug_info.asminfo is not None:
-            ofs = debug_info.asminfo.ops_offset
+    def __init__(self, space, debug_info, is_bridge=False, wrap_ops=True):
+        if wrap_ops:
+            memo = {}
+            logops = debug_info.logger._make_log_operations(memo)
+            if debug_info.asminfo is not None:
+                ofs = debug_info.asminfo.ops_offset
+            else:
+                ofs = {}
+            ops = debug_info.operations
+            self.w_ops = space.newlist(wrap_oplist(space, logops, ops, ofs))
         else:
-            ofs = {}
-        self.w_ops = space.newlist(
-            wrap_oplist(space, logops, debug_info.operations, ofs))
+            self.w_ops = space.w_None
 
         self.jd_name = debug_info.get_jitdriver().name
         self.type = debug_info.type
@@ -388,11 +315,12 @@ def get_stats_snapshot(space):
     """
     ll_times = jit_hooks.stats_get_loop_run_times(None)
     w_times = space.newdict()
-    for i in range(len(ll_times)):
-        w_key = space.newtuple([space.wrap(ll_times[i].type),
-                                space.wrap(ll_times[i].number)])
-        space.setitem(w_times, w_key,
-                      space.wrap(ll_times[i].counter))
+    if ll_times:
+        for i in range(len(ll_times)):
+            w_key = space.newtuple([space.wrap(ll_times[i].type),
+                                    space.wrap(ll_times[i].number)])
+            space.setitem(w_times, w_key,
+                          space.wrap(ll_times[i].counter))
     w_counters = space.newdict()
     for i, counter_name in enumerate(Counters.counter_names):
         v = jit_hooks.stats_get_counter_value(None, i)
@@ -404,6 +332,13 @@ def get_stats_snapshot(space):
     space.setitem_str(w_counter_times, 'BACKEND', space.wrap(b_time))
     return space.wrap(W_JitInfoSnapshot(space, w_times, w_counters,
                                         w_counter_times))
+
+def get_stats_asmmemmgr(space):
+    """Returns the raw memory currently used by the JIT backend,
+    as a pair (total_memory_allocated, memory_in_use)."""
+    m1 = jit_hooks.stats_asmmemmgr_allocated(None)
+    m2 = jit_hooks.stats_asmmemmgr_used(None)
+    return space.newtuple([space.wrap(m1), space.wrap(m2)])
 
 def enable_debug(space):
     """ Set the jit debugging - completely necessary for some stats to work,

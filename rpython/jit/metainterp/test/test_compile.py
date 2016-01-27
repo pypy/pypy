@@ -10,6 +10,8 @@ from rpython.jit.tool.oparser import parse
 from rpython.jit.metainterp.optimizeopt import ALL_OPTS_DICT
 
 class FakeCPU(object):
+    supports_guard_gc_type = True
+    
     class Storage:
         pass
     
@@ -26,7 +28,7 @@ class FakeCPU(object):
         self.seen.append((inputargs, operations, token))
 
 class FakeLogger(object):
-    def log_loop(self, inputargs, operations, number=0, type=None, ops_offset=None, name=''):
+    def log_loop(self, inputargs, operations, number=0, type=None, ops_offset=None, name='', memo=None):
         pass
 
     def repr_of_resop(self, op):
@@ -62,10 +64,12 @@ class FakeMetaInterpStaticData(object):
 
 class FakeMetaInterp:
     call_pure_results = {}
+    box_names_memo = {}
     class jitdriver_sd:
         index = 0
         warmstate = FakeState()
         virtualizable_info = None
+        vec = False
 
 def test_compile_loop():
     cpu = FakeCPU()
@@ -76,9 +80,9 @@ def test_compile_loop():
     #
     loop = parse('''
     [p1]
-    i1 = getfield_gc(p1, descr=valuedescr)
+    i1 = getfield_gc_i(p1, descr=valuedescr)
     i2 = int_add(i1, 1)
-    p2 = new_with_vtable(ConstClass(node_vtable))
+    p2 = new_with_vtable(descr=nodesize)
     setfield_gc(p2, i2, descr=valuedescr)
     jump(p2)
     ''', namespace=LLtypeMixin.__dict__.copy())
@@ -89,8 +93,6 @@ def test_compile_loop():
     metainterp.history = History()
     metainterp.history.operations = loop.operations[:-1]
     metainterp.history.inputargs = loop.inputargs[:]
-    cpu.tracker._all_size_descrs_with_vtable = (
-        LLtypeMixin.cpu.tracker._all_size_descrs_with_vtable)
     #
     greenkey = 'faked'
     target_token = compile_loop(metainterp, greenkey, 0,

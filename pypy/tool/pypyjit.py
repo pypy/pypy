@@ -14,6 +14,9 @@ except AttributeError:
     print >> sys.stderr, __doc__
     sys.exit(2)
 
+import sys
+sys.setrecursionlimit(100000000)
+
 from pypy.objspace.std import Space
 from rpython.config.translationoption import set_opt_level
 from pypy.config.pypyoption import get_pypy_config, set_pypy_opt_level
@@ -22,6 +25,7 @@ from rpython.rtyper.lltypesystem.rstr import STR
 from rpython.rtyper.lltypesystem import lltype
 from pypy.interpreter.pycode import PyCode
 from rpython.translator.goal import unixcheckpoint
+import pypy.module.pypyjit.interp_jit
 
 config = get_pypy_config(translating=True)
 config.translation.backendopt.inline_threshold = 0.1
@@ -33,6 +37,8 @@ config.objspace.allworkingmodules = False
 config.objspace.usemodules.pypyjit = True
 config.objspace.usemodules.array = False
 config.objspace.usemodules._weakref = False
+config.objspace.usemodules.struct = True
+config.objspace.usemodules.time = True
 config.objspace.usemodules._sre = False
 config.objspace.usemodules._lsprof = False
 #
@@ -73,6 +79,7 @@ FPTR = lltype.Ptr(lltype.FuncType([], lltype.Ptr(STR)))
 read_code_ptr = llhelper(FPTR, read_code)
 
 def entry_point():
+    space.startup()
     from pypy.module.marshal.interp_marshal import loads
     code = loads(space, space.wrap(hlstr(read_code_ptr())))
     assert isinstance(code, PyCode)
@@ -86,7 +93,6 @@ def test_run_translation():
     try:
         interp, graph = get_interpreter(entry_point, [], backendopt=False,
                                         config=config,
-                                        type_system=config.translation.type_system,
                                         policy=PyPyAnnotatorPolicy(space))
     except Exception, e:
         print '%s: %s' % (e.__class__, e)

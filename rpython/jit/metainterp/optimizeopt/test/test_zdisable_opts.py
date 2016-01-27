@@ -1,7 +1,11 @@
+
+import py
 from rpython.jit.metainterp.optimizeopt.test.test_optimizeopt import OptimizeOptTest
 from rpython.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin
 from rpython.jit.metainterp.resoperation import rop
 
+def setup_module(mod):
+    py.test.skip("purpose unclear")
 
 allopts = OptimizeOptTest.enable_opts.split(':')
 for optnum in range(len(allopts)):
