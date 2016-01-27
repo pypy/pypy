@@ -85,7 +85,8 @@ if sys.platform == "sunos5":
 module_dependencies = {
     '_multiprocessing': [('objspace.usemodules.time', True),
                          ('objspace.usemodules.thread', True)],
-    'cpyext': [('objspace.usemodules.array', True)],
+    'cpyext': [('objspace.usemodules.array', True),
+               ('objspace.usemodules.micronumpy', True)],
     'cppyy': [('objspace.usemodules.cpyext', True)],
     }
 module_suggests = {
