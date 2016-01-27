@@ -291,7 +291,7 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, external=True,
             @specialize.ll()
             def unwrapper(space, *args):
                 from pypy.module.cpyext.pyobject import Py_DecRef, is_pyobj
-                from pypy.module.cpyext.pyobject import make_ref, from_ref
+                from pypy.module.cpyext.pyobject import from_ref, as_pyobj
                 newargs = ()
                 keepalives = ()
                 assert len(args) == len(api_function.argtypes)
@@ -301,7 +301,7 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, external=True,
                         # build a 'PyObject *' (not holding a reference)
                         if not is_pyobj(input_arg):
                             keepalives += (input_arg,)
-                            arg = rffi.cast(ARG, as_xpyobj(space, input_arg))
+                            arg = rffi.cast(ARG, as_pyobj(space, input_arg))
                         else:
                             arg = rffi.cast(ARG, input_arg)
                     elif is_PyObject(ARG) and is_wrapped:
