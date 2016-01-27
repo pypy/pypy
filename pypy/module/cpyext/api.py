@@ -442,8 +442,8 @@ SYMBOLS_C = [
 TYPES = {}
 GLOBALS = { # this needs to include all prebuilt pto, otherwise segfaults occur
     '_Py_NoneStruct#': ('PyObject*', 'space.w_None'),
-    '_Py_TrueStruct#': ('PyObject*', 'space.w_True'),
-    '_Py_ZeroStruct#': ('PyObject*', 'space.w_False'),
+    '_Py_TrueStruct#': ('PyIntObject*', 'space.w_True'),
+    '_Py_ZeroStruct#': ('PyIntObject*', 'space.w_False'),
     '_Py_NotImplementedStruct#': ('PyObject*', 'space.w_NotImplemented'),
     '_Py_EllipsisObject#': ('PyObject*', 'space.w_Ellipsis'),
     'PyDateTimeAPI': ('PyDateTime_CAPI*', 'None'),
@@ -506,7 +506,9 @@ build_exported_objects()
 def get_structtype_for_ctype(ctype):
     from pypy.module.cpyext.typeobjectdefs import PyTypeObjectPtr
     from pypy.module.cpyext.cdatetime import PyDateTime_CAPI
+    from pypy.module.cpyext.intobject import PyIntObject
     return {"PyObject*": PyObject, "PyTypeObject*": PyTypeObjectPtr,
+            "PyIntObject*": PyIntObject,
             "PyDateTime_CAPI*": lltype.Ptr(PyDateTime_CAPI)}[ctype]
 
 PyTypeObject = lltype.ForwardReference()
@@ -828,6 +830,7 @@ def build_bridge(space):
     space.fromcache(State).install_dll(eci)
 
     # populate static data
+    builder = StaticObjectBuilder(space)
     for name, (typ, expr) in GLOBALS.iteritems():
         from pypy.module import cpyext
         w_obj = eval(expr)
@@ -852,7 +855,7 @@ def build_bridge(space):
                 assert False, "Unknown static pointer: %s %s" % (typ, name)
             ptr.value = ctypes.cast(ll2ctypes.lltype2ctypes(value),
                                     ctypes.c_void_p).value
-        elif typ in ('PyObject*', 'PyTypeObject*'):
+        elif typ in ('PyObject*', 'PyTypeObject*', 'PyIntObject*'):
             if name.startswith('PyPyExc_') or name.startswith('cpyexttestExc_'):
                 # we already have the pointer
                 in_dll = ll2ctypes.get_ctypes_type(PyObject).in_dll(bridge, name)
@@ -861,17 +864,10 @@ def build_bridge(space):
                 # we have a structure, get its address
                 in_dll = ll2ctypes.get_ctypes_type(PyObject.TO).in_dll(bridge, name)
                 py_obj = ll2ctypes.ctypes2lltype(PyObject, ctypes.pointer(in_dll))
-            from pypy.module.cpyext.pyobject import (
-                track_reference, get_typedescr)
-            w_type = space.type(w_obj)
-            typedescr = get_typedescr(w_type.instancetypedef)
-            py_obj.c_ob_refcnt = 1
-            py_obj.c_ob_type = rffi.cast(PyTypeObjectPtr,
-                                         make_ref(space, w_type))
-            typedescr.attach(space, py_obj, w_obj)
-            track_reference(space, py_obj, w_obj)
+            builder.prepare(py_obj, w_obj)
         else:
             assert False, "Unknown static object: %s %s" % (typ, name)
+    builder.attach_all()
 
     pypyAPI = ctypes.POINTER(ctypes.c_void_p).in_dll(bridge, 'pypyAPI')
 
@@ -887,6 +883,36 @@ def build_bridge(space):
 
     setup_init_functions(eci, translating=False)
     return modulename.new(ext='')
+
+
+class StaticObjectBuilder:
+    def __init__(self, space):
+        self.space = space
+        self.to_attach = []
+
+    def prepare(self, py_obj, w_obj):
+        from pypy.module.cpyext.pyobject import track_reference
+        py_obj.c_ob_refcnt = 1
+        track_reference(self.space, py_obj, w_obj)
+        self.to_attach.append((py_obj, w_obj))
+
+    def attach_all(self):
+        from pypy.module.cpyext.pyobject import get_typedescr, make_ref
+        from pypy.module.cpyext.typeobject import finish_type_1, finish_type_2
+        space = self.space
+        space._cpyext_type_init = []
+        for py_obj, w_obj in self.to_attach:
+            w_type = space.type(w_obj)
+            typedescr = get_typedescr(w_type.instancetypedef)
+            py_obj.c_ob_type = rffi.cast(PyTypeObjectPtr,
+                                         make_ref(space, w_type))
+            typedescr.attach(space, py_obj, w_obj)
+        cpyext_type_init = space._cpyext_type_init
+        del space._cpyext_type_init
+        for pto, w_type in cpyext_type_init:
+            finish_type_1(space, pto)
+            finish_type_2(space, pto, w_type)
+
 
 def mangle_name(prefix, name):
     if name.startswith('Py'):
@@ -1082,14 +1108,33 @@ def setup_library(space):
     run_bootstrap_functions(space)
     setup_va_functions(eci)
 
+    from pypy.module import cpyext   # for eval() below
+
+    # Set up the types.  Needs a special case, because of the
+    # immediate cycle involving 'c_ob_type', and because we don't
+    # want these types to be Py_TPFLAGS_HEAPTYPE.
+    static_types = {}
+    for name, (typ, expr) in GLOBALS.items():
+        if typ == 'PyTypeObject*':
+            pto = lltype.malloc(PyTypeObject, immortal=True,
+                                zero=True, flavor='raw')
+            pto.c_ob_refcnt = 1
+            pto.c_tp_basicsize = -1
+            static_types[name] = pto
+    builder = StaticObjectBuilder(space)
+    for name, pto in static_types.items():
+        pto.c_ob_type = static_types['PyType_Type#']
+        w_type = eval(GLOBALS[name][1])
+        builder.prepare(rffi.cast(PyObject, pto), w_type)
+    builder.attach_all()
+
     # populate static data
     for name, (typ, expr) in GLOBALS.iteritems():
         name = name.replace("#", "")
         if name.startswith('PyExc_'):
             name = '_' + name
-        from pypy.module import cpyext
         w_obj = eval(expr)
-        if typ in ('PyObject*', 'PyTypeObject*'):
+        if typ in ('PyObject*', 'PyTypeObject*', 'PyIntObject*'):
             struct_ptr = make_ref(space, w_obj)
         elif typ == 'PyDateTime_CAPI*':
             continue
