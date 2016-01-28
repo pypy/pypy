@@ -582,7 +582,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         """
         descrs = self.cpu.gc_ll_descr.getframedescrs(self.cpu)
         ofs = self.cpu.unpack_fielddescr(descrs.arraydescr.lendescr)
-        mc.LG(r.SCRATCH2, l.addr(ofs, r.SPP))
+        mc.LG(r.r1, l.addr(ofs, r.SPP))
         patch_pos = mc.currpos()
         # placeholder for the following instructions
         # CGFI r1, ... (6  bytes)
@@ -602,8 +602,8 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         for traps_pos, jmp_target in self.frame_depth_to_patch:
             pmc = OverwritingBuilder(self.mc, traps_pos, 3)
             # three traps, so exactly three instructions to patch here
-            pmc.CGFI(r.SCRATCH2, l.imm(frame_depth))
-            pmc.BRC(c.EQ, l.imm(jmp_target - (traps_pos + 6)))
+            pmc.CGFI(r.r1, l.imm(frame_depth))
+            pmc.BRC(c.GE, l.imm(jmp_target - (traps_pos + 6)))
             pmc.LGHI(r.r0, l.imm(frame_depth))
             pmc.overwrite()
 
