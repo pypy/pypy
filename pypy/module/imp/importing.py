@@ -15,7 +15,7 @@ from rpython.rlib import streamio, jit
 from rpython.rlib.streamio import StreamErrors
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rlib.signature import signature
-from rpython.rlib import rposix, types
+from rpython.rlib import rposix_stat, types
 from pypy.module.sys.version import PYPY_VERSION
 
 _WIN32 = sys.platform == 'win32'
@@ -465,7 +465,7 @@ class W_NullImporter(W_Root):
 
         # Directory should not exist
         try:
-            st = rposix.stat(_WIN32Path(path) if win32 else path)
+            st = rposix_stat.stat(_WIN32Path(path) if win32 else path)
         except OSError:
             pass
         else:
