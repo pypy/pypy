@@ -1034,10 +1034,8 @@ class MemoryOpAssembler(object):
         if basesize != 0:
             self.mc.AGHI(r.r2, l.imm(basesize))
 
-        self.mc.push_std_frame()
         self.mc.load_imm(self.mc.RAW_CALL_REG, self.memcpy_addr)
         self.mc.raw_call()
-        self.mc.pop_std_frame()
 
     def emit_zero_array(self, op, arglocs, regalloc):
         base_loc, startindex_loc, length_loc, \
@@ -1090,9 +1088,7 @@ class ForceOpAssembler(object):
             vloc = imm(0)
         self._store_force_index(self._find_nearby_operation(regalloc, +1))
         # 'result_loc' is either r2, f0 or None
-        self.subject_op = op
         self.call_assembler(op, argloc, vloc, result_loc, r.r2)
-        self.subject_op = None
         self.mc.LARL(r.POOL, l.halfword(self.pool.pool_start - self.mc.get_relative_pos()))
 
     emit_call_assembler_i = _genop_call_assembler
@@ -1106,13 +1102,11 @@ class ForceOpAssembler(object):
         self.regalloc_mov(argloc, r.r2)
         self.mc.LG(r.r3, l.addr(THREADLOCAL_ADDR_OFFSET, r.SP))
 
-        descr = self.subject_op.getdescr()
-        cb = callbuilder.CallBuilder(self, addr, [r.r2, r.r3], r.r2, descr)
+        cb = callbuilder.CallBuilder(self, addr, [r.r2, r.r3], r.r2, None)
         cb.emit()
 
     def _call_assembler_emit_helper_call(self, addr, arglocs, result_loc):
-        descr = self.subject_op.getdescr()
-        cb = callbuilder.CallBuilder(self, addr, arglocs, result_loc, descr)
+        cb = callbuilder.CallBuilder(self, addr, arglocs, result_loc, None)
         cb.emit()
 
     def _call_assembler_check_descr(self, value, tmploc):

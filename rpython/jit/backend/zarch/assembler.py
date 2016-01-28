@@ -44,7 +44,6 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         self.current_clt = None
         self._regalloc = None
         self.datablockwrapper = None
-        self.subject_op = None # needed in call assembler to pass by the operation
         self.propagate_exception_path = 0
         self.stack_check_slowpath = 0
         self.loop_run_counters = []
@@ -332,10 +331,8 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
 
         # Do the call
         adr = rffi.cast(lltype.Signed, self.cpu.realloc_frame)
-        mc.push_std_frame()
         mc.load_imm(mc.RAW_CALL_REG, adr)
         mc.raw_call()
-        mc.pop_std_frame()
 
         # The result is stored back into SPP (= r31)
         mc.LGR(r.SPP, r.r2)
@@ -595,11 +592,9 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         # LGHI r0, ... (4  bytes)
         #       sum -> (14 bytes)
         mc.write('\x00'*14)
-        mc.push_std_frame()
         mc.load_imm(r.RETURN, self._frame_realloc_slowpath)
         self.load_gcmap(mc, r.r1, gcmap)
         mc.raw_call()
-        mc.pop_std_frame()
 
         self.frame_depth_to_patch.append((patch_pos, mc.currpos()))
 
