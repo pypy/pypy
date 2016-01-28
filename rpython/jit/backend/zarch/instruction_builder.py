@@ -388,6 +388,12 @@ def _encode_rrf(self, opcode1, opcode2, r1, r2, rm3, rm4):
     byte = (r1 & BIT_MASK_4) << 4 | (r2 & BIT_MASK_4)
     self.writechar(chr(byte))
 
+def build_rrf_a(mnemonic, (opcode1,opcode2), argtypes='r,r,r'):
+    @builder.arguments(argtypes)
+    def encode_rrf_a(self, r1, r2, r3):
+        _encode_rrf(self, opcode1, opcode2, r1, r2, r3, 0)
+    return encode_rrf_a
+
 def build_rrf_c(mnemonic, (opcode1,opcode2), argtypes='r,r,r/m,-'):
     @builder.arguments(argtypes)
     def encode_rrf_b(self, r1, r2, rm3, rm4):

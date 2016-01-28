@@ -21,6 +21,7 @@ arith_mnemonic_codes = {
     'SR':      ('rr',    ['\x1B']),
     'SG':      ('rxy',   ['\xE3','\x09']),
     'SGR':     ('rre',   ['\xB9','\x09']),
+    'SGRK':    ('rrf_a',   ['\xB9','\xE9']),
     # mul
     'MSGR':    ('rre',   ['\xB9','\x0C']),
     'MSG':     ('rxy',   ['\xE3','\x0C']),
@@ -287,3 +288,9 @@ all_mnemonic_codes.update(logic_mnemonic_codes)
 all_mnemonic_codes.update(memory_mnemonic_codes)
 all_mnemonic_codes.update(floatingpoint_mnemonic_codes)
 all_mnemonic_codes.update(branch_mnemonic_codes)
+
+
+if __name__ == "__main__":
+    print("%d instructions:" % len(all_mnemonic_codes))
+    for name, (typeinstr, _) in all_mnemonic_codes.items():
+        print(" %s\t(type: %s)" % (name, typeinstr))
