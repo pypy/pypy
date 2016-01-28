@@ -9,7 +9,6 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.tool import rffi_platform
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.objectmodel import register_replacement_for
-from rpython.rlib import jit
 from rpython.rlib.rarithmetic import intmask, UINT_MAX
 from rpython.rlib import rposix
 
@@ -168,28 +167,30 @@ elif CLOCK_PROCESS_CPUTIME_ID is not None:
     c_clock_gettime = external('clock_gettime',
                                [lltype.Signed, lltype.Ptr(TIMESPEC)],
                                rffi.INT, releasegil=False)
-else:
+if need_rusage:
     RUSAGE = RUSAGE
     RUSAGE_SELF = RUSAGE_SELF or 0
     c_getrusage = external('getrusage',
                            [rffi.INT, lltype.Ptr(RUSAGE)],
-                           lltype.Void,
+                           rffi.INT,
                            releasegil=False)
 
+def win_perf_counter():
+    a = lltype.malloc(A, flavor='raw')
+    if state.divisor == 0.0:
+        QueryPerformanceCounter(a)
+        state.counter_start = a[0]
+        QueryPerformanceFrequency(a)
+        state.divisor = float(a[0])
+    QueryPerformanceCounter(a)
+    diff = a[0] - state.counter_start
+    lltype.free(a, flavor='raw')
+    return float(diff) / state.divisor
+
 @replace_time_function('clock')
-@jit.dont_look_inside  # the JIT doesn't like FixedSizeArray
 def clock():
     if _WIN32:
-        a = lltype.malloc(A, flavor='raw')
-        if state.divisor == 0.0:
-            QueryPerformanceCounter(a)
-            state.counter_start = a[0]
-            QueryPerformanceFrequency(a)
-            state.divisor = float(a[0])
-        QueryPerformanceCounter(a)
-        diff = a[0] - state.counter_start
-        lltype.free(a, flavor='raw')
-        return float(diff) / state.divisor
+        return win_perf_counter()
     elif CLOCK_PROCESS_CPUTIME_ID is not None:
         with lltype.scoped_alloc(TIMESPEC) as a:
             c_clock_gettime(CLOCK_PROCESS_CPUTIME_ID, a)

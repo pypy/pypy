@@ -27,6 +27,22 @@ if _WIN32:
     from rpython.rlib import rwin32
     from rpython.rlib.rwin32file import make_win32_traits
 
+class CConfig:
+    _compilation_info_ = ExternalCompilationInfo(
+        includes=['sys/stat.h',
+                  'unistd.h',
+                  'fcntl.h'],
+    )
+    for _name in """fchdir fchmod fchmodat fchown fchownat fexecve fdopendir
+                    fpathconf fstat fstatat fstatvfs ftruncate futimens futimes
+                    futimesat linkat lchflags lchmod lchown lstat lutimes
+                    mkdirat mkfifoat mknodat openat readlinkat renameat
+                    symlinkat unlinkat utimensat""".split():
+        locals()['HAVE_%s' % _name.upper()] = rffi_platform.Has(_name)
+cConfig = rffi_platform.configure(CConfig)
+globals().update(cConfig)
+
+
 class CConstantErrno(CConstant):
     # these accessors are used when calling get_errno() or set_errno()
     # on top of CPython
@@ -1052,6 +1068,13 @@ def rename(path1, path2):
         path2 = traits.as_str0(path2)
         if not win32traits.MoveFile(path1, path2):
             raise rwin32.lastSavedWindowsError()
+
+@specialize.argtype(0, 1)
+def replace(path1, path2):
+    if os.name == 'nt':
+        raise NotImplementedError(
+            'On windows, os.replace() should overwrite the destination')
+    return rename(path1, path2)
 
 #___________________________________________________________________
 
