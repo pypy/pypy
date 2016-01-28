@@ -994,6 +994,13 @@ class AppTestItertools27:
             assert list(op(testIntermediate)) == [
                 (0,1,3), (0,2,3), (1,2,3)]
 
+    def test_cycle_pickle(self):
+        import itertools, pickle
+        c = itertools.cycle('abc')
+        next(c)
+        assert list(itertools.islice(
+            pickle.loads(pickle.dumps(c)), 10)) == list('bcabcabcab')
+
 
 class AppTestItertools32:
     spaceconfig = dict(usemodules=['itertools'])

@@ -575,6 +575,24 @@ class W_Cycle(W_Root):
                 self.saved_w.append(w_obj)
         return w_obj
 
+    def descr_reduce(self, space):
+        return space.newtuple([
+            space.type(self),
+            space.newtuple([self.w_iterable]),
+            space.newtuple([
+                space.newlist(self.saved_w),
+                space.wrap(self.index),
+                space.wrap(self.exhausted),
+            ]),
+        ])
+
+    def descr_setstate(self, space, w_state):
+        w_saved, w_index, w_exhausted = space.unpackiterable(w_state, 3)
+        self.saved_w = space.unpackiterable(w_saved)
+        self.index = space.int_w(w_index)
+        self.exhausted = space.bool_w(w_exhausted)
+
+
 def W_Cycle___new__(space, w_subtype, w_iterable):
     r = space.allocate_instance(W_Cycle, w_subtype)
     r.__init__(space, w_iterable)
@@ -585,6 +603,8 @@ W_Cycle.typedef = TypeDef(
         __new__  = interp2app(W_Cycle___new__),
         __iter__ = interp2app(W_Cycle.iter_w),
         __next__ = interp2app(W_Cycle.next_w),
+        __reduce__ = interp2app(W_Cycle.descr_reduce),
+        __setstate__ = interp2app(W_Cycle.descr_setstate),
         __doc__  = """Make an iterator returning elements from the iterable and
     saving a copy of each. When the iterable is exhausted, return
     elements from the saved copy. Repeats indefinitely.
@@ -895,6 +915,12 @@ class W_Compress(W_Root):
             if self.space.is_true(w_next_selector):
                 return w_next_item
 
+    def descr_reduce(self, space):
+        return space.newtuple([
+            space.type(self),
+            space.newtuple([self.w_data, self.w_selectors])
+        ])
+
 
 def W_Compress__new__(space, w_subtype, w_data, w_selectors):
     r = space.allocate_instance(W_Compress, w_subtype)
@@ -906,6 +932,7 @@ W_Compress.typedef = TypeDef(
     __new__ = interp2app(W_Compress__new__),
     __iter__ = interp2app(W_Compress.iter_w),
     __next__ = interp2app(W_Compress.next_w),
+    __reduce__ = interp2app(W_Compress.descr_reduce),
     __doc__ = """Make an iterator that filters elements from *data* returning
    only those that have a corresponding element in *selectors* that evaluates to
    ``True``.  Stops when either the *data* or *selectors* iterables has been
@@ -1108,7 +1135,6 @@ class W_Combinations(W_Root):
     def descr_setstate(self, space, w_state):
         indices_w = space.fixedview(w_state)
         if len(indices_w) != self.r:
-            import pdb;pdb.set_trace()
             raise OperationError(space.w_ValueError, space.wrap(
                 "invalid arguments"))
         for i in range(self.r):
