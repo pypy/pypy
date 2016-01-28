@@ -275,7 +275,7 @@ def W_FilterFalse___new__(space, w_subtype, w_predicate, w_iterable):
     return space.wrap(r)
 
 W_FilterFalse.typedef = TypeDef(
-        'itertools.ifilterfalse',
+        'itertools.filterfalse',
         __new__  = interp2app(W_FilterFalse___new__),
         __iter__ = interp2app(W_FilterFalse.iter_w),
         __next__ = interp2app(W_FilterFalse.next_w),
