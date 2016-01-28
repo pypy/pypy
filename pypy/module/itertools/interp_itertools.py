@@ -148,7 +148,7 @@ class W_TakeWhile(W_Root):
     def __init__(self, space, w_predicate, w_iterable):
         self.space = space
         self.w_predicate = w_predicate
-        self.iterable = space.iter(w_iterable)
+        self.w_iterable = space.iter(w_iterable)
         self.stopped = False
 
     def iter_w(self):
@@ -158,13 +158,23 @@ class W_TakeWhile(W_Root):
         if self.stopped:
             raise OperationError(self.space.w_StopIteration, self.space.w_None)
 
-        w_obj = self.space.next(self.iterable)  # may raise a w_StopIteration
+        w_obj = self.space.next(self.w_iterable)  # may raise a w_StopIteration
         w_bool = self.space.call_function(self.w_predicate, w_obj)
         if not self.space.is_true(w_bool):
             self.stopped = True
             raise OperationError(self.space.w_StopIteration, self.space.w_None)
 
         return w_obj
+
+    def descr_reduce(self, space):
+        return space.newtuple([
+            space.type(self),
+            space.newtuple([self.w_predicate, self.w_iterable]),
+            space.wrap(self.stopped)
+        ])
+
+    def descr_setstate(self, space, w_state):
+        self.stopped = space.bool_w(w_state)
 
 def W_TakeWhile___new__(space, w_subtype, w_predicate, w_iterable):
     r = space.allocate_instance(W_TakeWhile, w_subtype)
@@ -177,6 +187,8 @@ W_TakeWhile.typedef = TypeDef(
         __new__  = interp2app(W_TakeWhile___new__),
         __iter__ = interp2app(W_TakeWhile.iter_w),
         __next__ = interp2app(W_TakeWhile.next_w),
+        __reduce__ = interp2app(W_TakeWhile.descr_reduce),
+        __setstate__ = interp2app(W_TakeWhile.descr_setstate),
         __doc__  = """Make an iterator that returns elements from the iterable as
     long as the predicate is true.
 
@@ -195,7 +207,7 @@ class W_DropWhile(W_Root):
     def __init__(self, space, w_predicate, w_iterable):
         self.space = space
         self.w_predicate = w_predicate
-        self.iterable = space.iter(w_iterable)
+        self.w_iterable = space.iter(w_iterable)
         self.started = False
 
     def iter_w(self):
@@ -203,16 +215,26 @@ class W_DropWhile(W_Root):
 
     def next_w(self):
         if self.started:
-            w_obj = self.space.next(self.iterable)  # may raise w_StopIteration
+            w_obj = self.space.next(self.w_iterable)  # may raise w_StopIter
         else:
             while True:
-                w_obj = self.space.next(self.iterable)  # may raise w_StopIter
+                w_obj = self.space.next(self.w_iterable)  # may raise w_StopIter
                 w_bool = self.space.call_function(self.w_predicate, w_obj)
                 if not self.space.is_true(w_bool):
                     self.started = True
                     break
 
         return w_obj
+
+    def descr_reduce(self, space):
+        return space.newtuple([
+            space.type(self),
+            space.newtuple([self.w_predicate, self.w_iterable]),
+            space.wrap(self.started)
+        ])
+
+    def descr_setstate(self, space, w_state):
+        self.started = space.bool_w(w_state)
 
 def W_DropWhile___new__(space, w_subtype, w_predicate, w_iterable):
     r = space.allocate_instance(W_DropWhile, w_subtype)
@@ -225,6 +247,8 @@ W_DropWhile.typedef = TypeDef(
         __new__  = interp2app(W_DropWhile___new__),
         __iter__ = interp2app(W_DropWhile.iter_w),
         __next__ = interp2app(W_DropWhile.next_w),
+        __reduce__ = interp2app(W_DropWhile.descr_reduce),
+        __setstate__ = interp2app(W_DropWhile.descr_setstate),
         __doc__  = """Make an iterator that drops elements from the iterable as long
     as the predicate is true; afterwards, returns every
     element. Note, the iterator does not produce any output until the

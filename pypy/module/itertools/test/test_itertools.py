@@ -836,12 +836,6 @@ class AppTestItertools27:
         "usemodules": ['itertools', 'struct', 'binascii'],
     }
 
-    def setup_class(cls):
-        if cls.space.is_true(cls.space.appexec([], """():
-            import sys; return sys.version_info < (2, 7)
-            """)):
-            py.test.skip("Requires Python 2.7")
-
     def test_compress(self):
         import itertools
         it = itertools.compress(['a', 'b', 'c'], [0, 1, 0])
@@ -1000,6 +994,16 @@ class AppTestItertools27:
         next(c)
         assert list(itertools.islice(
             pickle.loads(pickle.dumps(c)), 10)) == list('bcabcabcab')
+
+    def test_takewhile_pickle(self):
+        data = [1, 2, 3, 0, 4, 5, 6]
+        import itertools, pickle
+        t = itertools.takewhile(bool, data)
+        next(t)
+        assert list(pickle.loads(pickle.dumps(t))) == [2, 3]
+        t = itertools.dropwhile(bool, data)
+        next(t)
+        assert list(pickle.loads(pickle.dumps(t))) == [4, 5, 6]
 
 
 class AppTestItertools32:
