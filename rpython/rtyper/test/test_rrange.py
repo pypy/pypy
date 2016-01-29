@@ -1,6 +1,7 @@
 from rpython.rlib.rarithmetic import intmask
-from rpython.rtyper.rrange import ll_rangelen, ll_rangeitem, ll_rangeitem_nonneg, dum_nocheck
-from rpython.rtyper.lltypesystem import rrange
+from rpython.rtyper.rrange import (
+    ll_rangelen, ll_rangeitem, ll_rangeitem_nonneg, dum_nocheck, ll_newrangest,
+    RangeRepr, ll_newrange)
 from rpython.rtyper.test.tool import BaseRtypingTest
 
 
@@ -11,11 +12,11 @@ class TestRrange(BaseRtypingTest):
             expected = range(start, stop, step)
             length = len(expected)
             if varstep:
-                l = rrange.ll_newrangest(start, stop, step)
+                l = ll_newrangest(start, stop, step)
                 step = l.step
             else:
-                RANGE = rrange.RangeRepr(step).RANGE
-                l = rrange.ll_newrange(RANGE, start, stop)
+                RANGE = RangeRepr(step).RANGE
+                l = ll_newrange(RANGE, start, stop)
             assert ll_rangelen(l, step) == length
             lst = [ll_rangeitem(dum_nocheck, l, i, step) for i in range(length)]
             assert lst == expected

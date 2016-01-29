@@ -44,7 +44,7 @@ class __extend__(annmodel.SomeList):
         s_value = listitem.s_value
         if (listitem.range_step is not None and not listitem.mutated and
                 not isinstance(s_value, annmodel.SomeImpossibleValue)):
-            from rpython.rtyper.lltypesystem.rrange import RangeRepr
+            from rpython.rtyper.rrange import RangeRepr
             return RangeRepr(listitem.range_step)
         else:
             # cannot do the rtyper.getrepr() call immediately, for the case
