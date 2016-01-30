@@ -171,25 +171,23 @@ class Bookkeeper(object):
         clsdefs = {self.getuniqueclassdef(cls) for cls in exc_classes}
         return SomeException(clsdefs)
 
-    def getlistdef(self, **flags_if_new):
-        """Get the ListDef associated with the current position."""
+    def newlist(self, *s_values):
+        """Make a SomeList associated with the current position, general
+        enough to contain the s_values as items."""
         try:
             listdef = self.listdefs[self.position_key]
         except KeyError:
             listdef = self.listdefs[self.position_key] = ListDef(self)
-            listdef.listitem.__dict__.update(flags_if_new)
-        return listdef
-
-    def newlist(self, *s_values):
-        """Make a SomeList associated with the current position, general
-        enough to contain the s_values as items."""
-        listdef = self.getlistdef()
         for s_value in s_values:
             listdef.generalize(s_value)
         return SomeList(listdef)
 
     def newrange(self, s_item, step):
-        listdef = self.getlistdef(range_step=step)
+        try:
+            listdef = self.listdefs[self.position_key]
+        except KeyError:
+            listdef = self.listdefs[self.position_key] = ListDef(self)
+            listdef.listitem.range_step = step
         listdef.generalize(s_item)
         listdef.generalize_range_step(step)
         return SomeList(listdef)
