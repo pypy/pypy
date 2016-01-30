@@ -69,6 +69,11 @@ def enable(space, fileno, period):
     except rvmprof.VMProfError, e:
         raise VMProfError(space, e)
 
+def write_all_code_objects(space):
+    """ Needed on cpython, just empty function here
+    """
+    pass
+
 def disable(space):
     """Disable vmprof.  Remember to close the file descriptor afterwards
     if necessary.
