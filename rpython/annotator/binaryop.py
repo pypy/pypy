@@ -9,7 +9,7 @@ from rpython.annotator.model import (
     SomeDict, SomeUnicodeCodePoint, SomeUnicodeString, SomeException,
     SomeTuple, SomeImpossibleValue, s_ImpossibleValue, SomeInstance,
     SomeBuiltinMethod, SomeIterator, SomePBC, SomeNone, SomeFloat, s_None,
-    SomeByteArray, SomeWeakRef, SomeSingleFloat,
+    SomeByteArray, SomeWeakRef, SomeSingleFloat, SomeRange,
     SomeLongFloat, SomeType, SomeTypeOf, SomeConstantType, unionof, UnionError,
     read_can_only_throw, add_knowntypedata,
     merge_knowntypedata,)
@@ -485,6 +485,12 @@ class __extend__(pairtype(SomeList, SomeObject)):
         lst1.listdef.resize()
         return lst1
     inplace_mul.can_only_throw = []
+
+class __extend__(pairtype(SomeRange, SomeObject)):
+
+    def inplace_mul((lst1, obj2)):
+        raise AnnotatorError(
+            "In RPython, lists returned by range() are immutable")
 
 class __extend__(pairtype(SomeTuple, SomeTuple)):
 

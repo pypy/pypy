@@ -14,7 +14,7 @@ from rpython.annotator.model import (SomeObject, SomeInteger, SomeBool,
     SomeUnicodeCodePoint, SomeInstance, SomeBuiltin, SomeBuiltinMethod,
     SomeFloat, SomeIterator, SomePBC, SomeNone, SomeTypeOf, s_ImpossibleValue,
     s_Bool, s_None, s_Int, unionof, add_knowntypedata,
-    SomeWeakRef, SomeUnicodeString, SomeByteArray)
+    SomeWeakRef, SomeUnicodeString, SomeByteArray, SomeRange)
 from rpython.annotator.bookkeeper import getbookkeeper, immutablevalue
 from rpython.annotator.binaryop import _clone ## XXX where to put this?
 from rpython.annotator.binaryop import _dict_can_only_throw_keyerror
@@ -428,6 +428,32 @@ class __extend__(SomeList):
     def delslice(self, s_start, s_stop):
         check_negative_slice(s_start, s_stop)
         self.listdef.resize()
+
+class __extend__(SomeRange):
+
+    def method_append(self, s_value):
+        raise AnnotatorError(
+            "In RPython, lists returned by range() are immutable")
+
+    def method_extend(self, s_iterable):
+        raise AnnotatorError(
+            "In RPython, lists returned by range() are immutable")
+
+    def method_reverse(self):
+        raise AnnotatorError(
+            "In RPython, lists returned by range() are immutable")
+
+    def method_insert(self, s_index, s_value):
+        raise AnnotatorError(
+            "In RPython, lists returned by range() are immutable")
+
+    def method_remove(self, s_value):
+        raise AnnotatorError(
+            "In RPython, lists returned by range() are immutable")
+
+    def method_pop(self, s_index=None):
+        raise AnnotatorError(
+            "In RPython, lists returned by range() are immutable")
 
 def check_negative_slice(s_start, s_stop, error="slicing"):
     if isinstance(s_start, SomeInteger) and not s_start.nonneg:
