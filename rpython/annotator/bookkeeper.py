@@ -13,7 +13,8 @@ from rpython.annotator.model import (
     SomeOrderedDict, SomeString, SomeChar, SomeFloat, unionof, SomeInstance,
     SomeDict, SomeBuiltin, SomePBC, SomeInteger, TLS, SomeUnicodeCodePoint,
     s_None, s_ImpossibleValue, SomeBool, SomeTuple, SomeException,
-    SomeImpossibleValue, SomeUnicodeString, SomeList, HarmlesslyBlocked,
+    SomeImpossibleValue, SomeUnicodeString, SomeList, SomeRange,
+    HarmlesslyBlocked,
     SomeWeakRef, SomeByteArray, SomeConstantType, SomeProperty)
 from rpython.annotator.classdesc import ClassDef, ClassDesc
 from rpython.annotator.listdef import ListDef, ListItem
@@ -190,7 +191,7 @@ class Bookkeeper(object):
             listdef.listitem.range_step = step
         listdef.generalize(s_item)
         listdef.generalize_range_step(step)
-        return SomeList(listdef)
+        return SomeRange(listdef)
 
     def getdictdef(self, is_r_dict=False, force_non_null=False):
         """Get the DictDef associated with the current position."""

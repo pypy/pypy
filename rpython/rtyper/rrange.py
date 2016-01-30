@@ -89,6 +89,9 @@ class RangeRepr(Repr):
             v_step = self._getstep(v_rng, hop)
         return hop.gendirectcall(ll_rangelen, v_rng, v_step)
 
+    def __eq__(self, other):
+        return other.__class__ is self.__class__ and other.__dict__ == self.__dict__
+
 
 
 class __extend__(pairtype(RangeRepr, IntegerRepr)):

@@ -359,6 +359,9 @@ class SomeList(SomeObject):
     def noneify(self):
         return SomeList(self.listdef)
 
+class SomeRange(SomeList):
+    pass
+
 
 class SomeTuple(SomeObject):
     "Stands for a tuple of known length."
