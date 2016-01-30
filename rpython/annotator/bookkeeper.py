@@ -180,15 +180,18 @@ class Bookkeeper(object):
             listdef.listitem.__dict__.update(flags_if_new)
         return listdef
 
-    def newlist(self, *s_values, **flags):
+    def newlist(self, *s_values):
         """Make a SomeList associated with the current position, general
         enough to contain the s_values as items."""
-        listdef = self.getlistdef(**flags)
+        listdef = self.getlistdef()
         for s_value in s_values:
             listdef.generalize(s_value)
-        if flags:
-            assert flags.keys() == ['range_step']
-            listdef.generalize_range_step(flags['range_step'])
+        return SomeList(listdef)
+
+    def newrange(self, s_item, step):
+        listdef = self.getlistdef(range_step=step)
+        listdef.generalize(s_item)
+        listdef.generalize_range_step(step)
         return SomeList(listdef)
 
     def getdictdef(self, is_r_dict=False, force_non_null=False):

@@ -80,7 +80,7 @@ def builtin_range(*args):
             nonneg = s_stop.nonneg or (s_stop.is_constant() and
                                        s_stop.const >= -1)
         s_item = SomeInteger(nonneg=nonneg)
-    return getbookkeeper().newlist(s_item, range_step=step)
+    return getbookkeeper().newrange(s_item, step)
 
 builtin_xrange = builtin_range # xxx for now allow it
 
