@@ -59,7 +59,7 @@ include_dirs = [
 class CConfig:
     _compilation_info_ = ExternalCompilationInfo(
         include_dirs=include_dirs,
-        includes=['Python.h', 'stdarg.h'],
+        includes=['Python.h', 'stdarg.h', 'structmember.h'],
         compile_extra=['-DPy_BUILD_CORE'],
         )
 
@@ -129,6 +129,7 @@ Py_LT Py_LE Py_EQ Py_NE Py_GT Py_GE Py_TPFLAGS_CHECKTYPES
 for name in constant_names:
     setattr(CConfig_constants, name, rffi_platform.ConstantInteger(name))
 udir.join('pypy_decl.h').write("/* Will be filled later */\n")
+udir.join('pypy_structmember_decl.h').write("/* Will be filled later */\n")
 udir.join('pypy_macros.h').write("/* Will be filled later */\n")
 globals().update(rffi_platform.configure(CConfig_constants))
 
@@ -147,7 +148,7 @@ def copy_header_files(dstdir, copy_numpy_headers):
     # XXX: 20 lines of code to recursively copy a directory, really??
     assert dstdir.check(dir=True)
     headers = include_dir.listdir('*.h') + include_dir.listdir('*.inl')
-    for name in ("pypy_decl.h", "pypy_macros.h"):
+    for name in ("pypy_decl.h", "pypy_macros.h", "pypy_structmember_decl.h"):
         headers.append(udir.join(name))
     _copy_header_files(headers, dstdir)
 
@@ -232,7 +233,7 @@ class ApiFunction:
                 wrapper.c_name = cpyext_namespace.uniquename(self.c_name)
         return wrapper
 
-def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, external=True,
+def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header='pypy_decl.h',
                 gil=None):
     """
     Declares a function to be exported.
@@ -241,8 +242,8 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, external=True,
       special value 'CANNOT_FAIL' (also when restype is Void) turns an eventual
       exception into a wrapped SystemError.  Unwrapped exceptions also cause a
       SytemError.
-    - set `external` to False to get a C function pointer, but not exported by
-      the API headers.
+    - `header` is the header file to export the function in, Set to None to get
+      a C function pointer, but not exported by the API headers.
     - set `gil` to "acquire", "release" or "around" to acquire the GIL,
       release the GIL, or both
     """
@@ -263,7 +264,7 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, external=True,
 
     def decorate(func):
         func_name = func.func_name
-        if external:
+        if header is not None:
             c_name = None
         else:
             c_name = func_name
@@ -271,7 +272,7 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, external=True,
                                    c_name=c_name, gil=gil)
         func.api_func = api_function
 
-        if external:
+        if header is not None:
             assert func_name not in FUNCTIONS, (
                 "%s already registered" % func_name)
 
@@ -363,8 +364,9 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, external=True,
 
         unwrapper_catch = make_unwrapper(True)
         unwrapper_raise = make_unwrapper(False)
-        if external:
+        if header is not None:
             FUNCTIONS[func_name] = api_function
+            FUNCTIONS_BY_HEADER.setdefault(header, {})[func_name] = api_function
         INTERPLEVEL_API[func_name] = unwrapper_catch # used in tests
         return unwrapper_raise # used in 'normal' RPython code.
     return decorate
@@ -383,6 +385,7 @@ def cpython_struct(name, fields, forward=None, level=1):
 
 INTERPLEVEL_API = {}
 FUNCTIONS = {}
+FUNCTIONS_BY_HEADER = {}
 
 # These are C symbols which cpyext will export, but which are defined in .c
 # files somewhere in the implementation of cpyext (rather than being defined in
@@ -811,6 +814,7 @@ def build_bridge(space):
     global_code = '\n'.join(global_objects)
 
     prologue = ("#include <Python.h>\n"
+                "#include <structmember.h>\n"
                 "#include <src/thread.c>\n")
     code = (prologue +
             struct_declaration_code +
@@ -956,34 +960,62 @@ def generate_macros(export_symbols, prefix):
     pypy_macros_h = udir.join('pypy_macros.h')
     pypy_macros_h.write('\n'.join(pypy_macros))
 
+def _header_to_guard(header_name):
+    return '_PYPY_' + header_name.replace('.', '_').upper()
+
+def _decl_header_top(header_name):
+    guard = _header_to_guard(header_name)
+    header = [
+        "#ifndef %s\n" % guard,
+        "#define %s\n" % guard,
+        "#ifndef PYPY_STANDALONE\n",
+        "#ifdef __cplusplus",
+        "extern \"C\" {",
+        "#endif\n",
+        '#define Signed   long           /* xxx temporary fix */\n',
+        '#define Unsigned unsigned long  /* xxx temporary fix */\n'
+    ]
+    if header_name == 'pypy_decl.h': # XXX don't send for code review unless I'm sure this is necessary
+        for decl in FORWARD_DECLS:
+            header.append("%s;" % (decl,))
+    return header
+
+def _decl_header_bottom(header_name):
+    return [
+        '#undef Signed    /* xxx temporary fix */\n',
+        '#undef Unsigned  /* xxx temporary fix */\n',
+        "#ifdef __cplusplus",
+        "}",
+        "#endif",
+        "#endif /*PYPY_STANDALONE*/\n",
+        "#endif /*%s*/\n" % _header_to_guard(header_name),
+    ]
+
 def generate_decls_and_callbacks(db, export_symbols, api_struct=True):
     "NOT_RPYTHON"
     # implement function callbacks and generate function decls
     functions = []
-    pypy_decls = []
-    pypy_decls.append("#ifndef _PYPY_PYPY_DECL_H\n")
-    pypy_decls.append("#define _PYPY_PYPY_DECL_H\n")
-    pypy_decls.append("#ifndef PYPY_STANDALONE\n")
-    pypy_decls.append("#ifdef __cplusplus")
-    pypy_decls.append("extern \"C\" {")
-    pypy_decls.append("#endif\n")
-    pypy_decls.append('#define Signed   long           /* xxx temporary fix */\n')
-    pypy_decls.append('#define Unsigned unsigned long  /* xxx temporary fix */\n')
+    decls = {}
 
-    for decl in FORWARD_DECLS:
-        pypy_decls.append("%s;" % (decl,))
+    for header_name, header_functions in FUNCTIONS_BY_HEADER.iteritems():
+        if header_name not in decls:
+            decls[header_name] = header = []
+            header.extend(_decl_header_top(header_name))
+        else:
+            header = decls[header_name]
 
-    for name, func in sorted(FUNCTIONS.iteritems()):
-        restype, args = c_function_signature(db, func)
-        pypy_decls.append("PyAPI_FUNC(%s) %s(%s);" % (restype, name, args))
-        if api_struct:
-            callargs = ', '.join('arg%d' % (i,)
-                                 for i in range(len(func.argtypes)))
-            if func.restype is lltype.Void:
-                body = "{ _pypyAPI.%s(%s); }" % (name, callargs)
-            else:
-                body = "{ return _pypyAPI.%s(%s); }" % (name, callargs)
-            functions.append('%s %s(%s)\n%s' % (restype, name, args, body))
+        for name, func in sorted(header_functions.iteritems()):
+            restype, args = c_function_signature(db, func)
+            header.append("PyAPI_FUNC(%s) %s(%s);" % (restype, name, args))
+            if api_struct:
+                callargs = ', '.join('arg%d' % (i,)
+                                    for i in range(len(func.argtypes)))
+                if func.restype is lltype.Void:
+                    body = "{ _pypyAPI.%s(%s); }" % (name, callargs)
+                else:
+                    body = "{ return _pypyAPI.%s(%s); }" % (name, callargs)
+                functions.append('%s %s(%s)\n%s' % (restype, name, args, body))
+    pypy_decls = decls['pypy_decl.h']
     for name in VA_TP_LIST:
         name_no_star = process_va_name(name)
         header = ('%s pypy_va_get_%s(va_list* vp)' %
@@ -999,16 +1031,11 @@ def generate_decls_and_callbacks(db, export_symbols, api_struct=True):
             typ = 'PyObject*'
         pypy_decls.append('PyAPI_DATA(%s) %s;' % (typ, name))
 
-    pypy_decls.append('#undef Signed    /* xxx temporary fix */\n')
-    pypy_decls.append('#undef Unsigned  /* xxx temporary fix */\n')
-    pypy_decls.append("#ifdef __cplusplus")
-    pypy_decls.append("}")
-    pypy_decls.append("#endif")
-    pypy_decls.append("#endif /*PYPY_STANDALONE*/\n")
-    pypy_decls.append("#endif /*_PYPY_PYPY_DECL_H*/\n")
+    for header_name, header_decls in decls.iteritems():
+        header_decls.extend(_decl_header_bottom(header_name))
 
-    pypy_decl_h = udir.join('pypy_decl.h')
-    pypy_decl_h.write('\n'.join(pypy_decls))
+        decl_h = udir.join(header_name)
+        decl_h.write('\n'.join(header_decls))
     return functions
 
 separate_module_files = [source_dir / "varargwrapper.c",

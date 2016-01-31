@@ -132,9 +132,6 @@ typedef long Py_ssize_t;
 /* Missing definitions */
 #include "missing.h"
 
-// XXX This shouldn't be included here
-#include "structmember.h"
-
 #include <pypy_decl.h>
 
 /* Define macros for inline documentation. */

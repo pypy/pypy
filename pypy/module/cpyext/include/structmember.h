@@ -55,3 +55,6 @@ typedef struct PyMemberDef {
 }
 #endif
 #endif /* !Py_STRUCTMEMBER_H */
+
+/* API functions. */
+#include "pypy_structmember_decl.h"
