@@ -237,6 +237,43 @@ if HAVE_OPENSSL_RAND:
         with rffi.scoped_str2charp(string) as buf:
             libssl_RAND_add(buf, len(string), entropy)
 
+    def _RAND_bytes(space, n, pseudo):
+        if n < 0:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "num must be positive"))
+
+        with rffi.scoped_alloc_buffer(n) as buf:
+            if pseudo:
+                ok = libssl_RAND_pseudo_bytes(
+                    rffi.cast(rffi.UCHARP, buf.raw), n)
+                if ok == 0 or ok == 1:
+                    return space.newtuple([
+                        space.wrapbytes(buf.str(n)),
+                        space.wrap(ok == 1),
+                    ])
+            else:
+                ok = libssl_RAND_bytes(
+                    rffi.cast(rffi.UCHARP, buf.raw), n)
+                if ok == 1:
+                    return space.wrapbytes(buf.str(n))
+
+        raise ssl_error(space, "", errcode=libssl_ERR_get_error())
+
+    @unwrap_spec(n=int)
+    def RAND_bytes(space, n):
+        """RAND_bytes(n) -> bytes
+
+        Generate n cryptographically strong pseudo-random bytes."""
+        return _RAND_bytes(space, n, pseudo=False)
+
+    @unwrap_spec(n=int)
+    def RAND_pseudo_bytes(space, n):
+        """RAND_pseudo_bytes(n) -> (bytes, is_cryptographic)
+
+        Generate n pseudo-random bytes. is_cryptographic is True if the bytes
+        generated are cryptographically strong."""
+        return _RAND_bytes(space, n, pseudo=True)
+
     def RAND_status(space):
         """RAND_status() -> 0 or 1
 

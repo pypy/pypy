@@ -43,8 +43,8 @@ class Module(MixedModule):
 
         if HAVE_OPENSSL_RAND:
             Module.interpleveldefs['RAND_add'] = "interp_ssl.RAND_add"
-            Module.interpleveldefs['RAND_bytes'] = "space.w_None"  # so far
-            Module.interpleveldefs['RAND_pseudo_bytes'] = "space.w_None"  # so far
+            Module.interpleveldefs['RAND_bytes'] = "interp_ssl.RAND_bytes"
+            Module.interpleveldefs['RAND_pseudo_bytes'] = "interp_ssl.RAND_pseudo_bytes"
             Module.interpleveldefs['RAND_status'] = "interp_ssl.RAND_status"
             Module.interpleveldefs['RAND_egd'] = "interp_ssl.RAND_egd"
 

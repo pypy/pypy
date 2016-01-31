@@ -311,6 +311,8 @@ ssl_external('CRYPTO_set_id_callback',
 
 if HAVE_OPENSSL_RAND:
     ssl_external('RAND_add', [rffi.CCHARP, rffi.INT, rffi.DOUBLE], lltype.Void)
+    ssl_external('RAND_bytes', [rffi.UCHARP, rffi.INT], rffi.INT)
+    ssl_external('RAND_pseudo_bytes', [rffi.UCHARP, rffi.INT], rffi.INT)
     ssl_external('RAND_status', [], rffi.INT)
     if HAVE_OPENSSL_RAND_EGD:
         ssl_external('RAND_egd', [rffi.CCHARP], rffi.INT)

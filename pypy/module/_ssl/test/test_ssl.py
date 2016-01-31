@@ -48,6 +48,16 @@ class AppTestSSL:
         raises(TypeError, _ssl.RAND_add, "xyz", "zyx")
         _ssl.RAND_add("xyz", 1.2345)
 
+    def test_RAND_bytes(self):
+        import _ssl
+        b = _ssl.RAND_bytes(3)
+        assert type(b) is bytes
+        assert len(b) == 3
+        b, ok = _ssl.RAND_pseudo_bytes(3)
+        assert type(b) is bytes
+        assert len(b) == 3
+        assert ok is True or ok is False
+
     def test_RAND_status(self):
         import _ssl
         if not hasattr(_ssl, "RAND_status"):
