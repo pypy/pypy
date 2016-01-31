@@ -5710,6 +5710,11 @@ _totitle = {
 
 _totitle_corrected = {
 }
+_special_casing = {
+}
+
+_special_casing_corrected = {
+}
 
 def toupper(code):
     try:
@@ -5737,6 +5742,39 @@ def totitle(code):
             return base_mod._totitle.get(code, code)
         else:
             return code
+
+def toupper_full(code):
+    try:
+        return _special_casing[code][2]
+    except KeyError:
+        if base_mod is not None and code not in _special_casing_corrected:
+            try:
+                return base_mod._special_casing[code][2]
+            except KeyError:
+                pass
+    return [toupper(code)]
+
+def tolower_full(code):
+    try:
+        return _special_casing[code][0]
+    except KeyError:
+        if base_mod is not None and code not in _special_casing_corrected:
+            try:
+                return base_mod._special_casing[code][0]
+            except KeyError:
+                pass
+    return [tolower(code)]
+
+def totitle_full(code):
+    try:
+        return _special_casing[code][1]
+    except KeyError:
+        if base_mod is not None and code not in _special_casing_corrected:
+            try:
+                return base_mod._special_casing[code][1]
+            except KeyError:
+                pass
+    return [totitle(code)]
 
 _raw_decomposition = {
 8341: '<sub> 0068',

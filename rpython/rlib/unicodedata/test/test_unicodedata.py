@@ -118,3 +118,10 @@ class TestUnicodeData600(object):
         for un, name in additions.iteritems():
             assert unicodedb_6_0_0.name(un) == name
             assert unicodedb_6_0_0.isprintable(un)
+
+    def test_special_casing(self):
+        assert unicodedb_6_0_0.tolower_full(ord('A')) == [ord('a')]
+        # The German es-zed is special--the normal mapping is to SS.
+        assert unicodedb_6_0_0.tolower_full(ord(u'\xdf')) == [0xdf]
+        assert unicodedb_6_0_0.toupper_full(ord(u'\xdf')) == map(ord, 'SS')
+        assert unicodedb_6_0_0.totitle_full(ord(u'\xdf')) == map(ord, 'Ss')

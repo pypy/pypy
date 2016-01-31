@@ -264,6 +264,24 @@ def read_unicodedata(files):
     for code, value in extra_numeric.iteritems():
         table.clone_char(code).numeric = value
 
+    table.special_casing = {}
+    if 'special_casing' in files:
+        for line in files['special_casing']:
+            line = line[:-1].split('#', 1)[0]
+            if not line:
+                continue
+            data = line.split("; ")
+            if data[4]:
+                # We ignore all conditionals (since they depend on
+                # languages) except for one, which is hardcoded. See
+                # handle_capital_sigma in unicodeobject.py.
+                continue
+            c = int(data[0], 16)
+            lower = [int(char, 16) for char in data[1].split()]
+            title = [int(char, 16) for char in data[2].split()]
+            upper = [int(char, 16) for char in data[3].split()]
+            table.special_casing[c] = (lower, title, upper)
+
     # Compute full decompositions.
     for code, char in table.enum_chars():
         table.get_canonical_decomposition(code)
@@ -703,6 +721,7 @@ def numeric(code):
     writeDict(outfile, '_toupper', toupper, base_mod)
     writeDict(outfile, '_tolower', tolower, base_mod)
     writeDict(outfile, '_totitle', totitle, base_mod)
+    writeDict(outfile, '_special_casing', table.special_casing, base_mod)
     print >> outfile, '''
 def toupper(code):
     try:
@@ -730,6 +749,39 @@ def totitle(code):
             return base_mod._totitle.get(code, code)
         else:
             return code
+
+def toupper_full(code):
+    try:
+        return _special_casing[code][2]
+    except KeyError:
+        if base_mod is not None and code not in _special_casing_corrected:
+            try:
+                return base_mod._special_casing[code][2]
+            except KeyError:
+                pass
+    return [toupper(code)]
+
+def tolower_full(code):
+    try:
+        return _special_casing[code][0]
+    except KeyError:
+        if base_mod is not None and code not in _special_casing_corrected:
+            try:
+                return base_mod._special_casing[code][0]
+            except KeyError:
+                pass
+    return [tolower(code)]
+
+def totitle_full(code):
+    try:
+        return _special_casing[code][1]
+    except KeyError:
+        if base_mod is not None and code not in _special_casing_corrected:
+            try:
+                return base_mod._special_casing[code][1]
+            except KeyError:
+                pass
+    return [totitle(code)]
 '''
     # Decomposition
     decomposition = {}
@@ -854,6 +906,8 @@ def main():
         name_aliases='NameAliases-%(version)s.txt',
         named_sequences = 'NamedSequences-%(version)s.txt',
     )
+    if options.unidata_version > '5':
+        filenames['special_casing'] = 'SpecialCasing-%(version)s.txt'
     filenames = dict((name, filename % dict(version=options.unidata_version))
                      for (name, filename) in filenames.items())
     files = dict((name, open(filename))

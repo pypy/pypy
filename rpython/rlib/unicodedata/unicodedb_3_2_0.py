@@ -19403,6 +19403,114 @@ _totitle_corrected = {
 66638: None,
 66639: None,
 }
+_special_casing = {
+}
+
+_special_casing_corrected = {
+223: None,
+304: None,
+329: None,
+496: None,
+912: None,
+944: None,
+1415: None,
+7830: None,
+7831: None,
+7832: None,
+7833: None,
+7834: None,
+8016: None,
+8018: None,
+8020: None,
+8022: None,
+8064: None,
+8065: None,
+8066: None,
+8067: None,
+8068: None,
+8069: None,
+8070: None,
+8071: None,
+8072: None,
+8073: None,
+8074: None,
+8075: None,
+8076: None,
+8077: None,
+8078: None,
+8079: None,
+8080: None,
+8081: None,
+8082: None,
+8083: None,
+8084: None,
+8085: None,
+8086: None,
+8087: None,
+8088: None,
+8089: None,
+8090: None,
+8091: None,
+8092: None,
+8093: None,
+8094: None,
+8095: None,
+8096: None,
+8097: None,
+8098: None,
+8099: None,
+8100: None,
+8101: None,
+8102: None,
+8103: None,
+8104: None,
+8105: None,
+8106: None,
+8107: None,
+8108: None,
+8109: None,
+8110: None,
+8111: None,
+8114: None,
+8115: None,
+8116: None,
+8118: None,
+8119: None,
+8124: None,
+8130: None,
+8131: None,
+8132: None,
+8134: None,
+8135: None,
+8140: None,
+8146: None,
+8147: None,
+8150: None,
+8151: None,
+8162: None,
+8163: None,
+8164: None,
+8166: None,
+8167: None,
+8178: None,
+8179: None,
+8180: None,
+8182: None,
+8183: None,
+8188: None,
+64256: None,
+64257: None,
+64258: None,
+64259: None,
+64260: None,
+64261: None,
+64262: None,
+64275: None,
+64276: None,
+64277: None,
+64278: None,
+64279: None,
+}
 
 def toupper(code):
     try:
@@ -19430,6 +19538,39 @@ def totitle(code):
             return base_mod._totitle.get(code, code)
         else:
             return code
+
+def toupper_full(code):
+    try:
+        return _special_casing[code][2]
+    except KeyError:
+        if base_mod is not None and code not in _special_casing_corrected:
+            try:
+                return base_mod._special_casing[code][2]
+            except KeyError:
+                pass
+    return [toupper(code)]
+
+def tolower_full(code):
+    try:
+        return _special_casing[code][0]
+    except KeyError:
+        if base_mod is not None and code not in _special_casing_corrected:
+            try:
+                return base_mod._special_casing[code][0]
+            except KeyError:
+                pass
+    return [tolower(code)]
+
+def totitle_full(code):
+    try:
+        return _special_casing[code][1]
+    except KeyError:
+        if base_mod is not None and code not in _special_casing_corrected:
+            try:
+                return base_mod._special_casing[code][1]
+            except KeyError:
+                pass
+    return [totitle(code)]
 
 _raw_decomposition = {
 194664: '2136A',
