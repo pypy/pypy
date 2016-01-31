@@ -988,6 +988,11 @@ class AppTestItertools27:
             assert list(op(testIntermediate)) == [
                 (0,1,3), (0,2,3), (1,2,3)]
 
+    def test_islice_pickle(self):
+        import itertools, pickle
+        it = itertools.islice(range(100), 10, 20, 3)
+        assert list(pickle.loads(pickle.dumps(it))) == list(range(100)[10:20:3])
+
     def test_cycle_pickle(self):
         import itertools, pickle
         c = itertools.cycle('abc')

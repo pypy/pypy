@@ -404,6 +404,15 @@ class W_ISlice(W_Root):
             if num <= 0:
                 break
 
+    def descr_reduce(self, space):
+        return space.newtuple([
+            space.type(self),
+            space.newtuple([self.iterable,
+                            space.wrap(self.start),
+                            space.wrap(self.stop),
+                            space.wrap(self.ignore + 1)]),
+        ])
+
 def W_ISlice___new__(space, w_subtype, w_iterable, w_startstop, args_w):
     r = space.allocate_instance(W_ISlice, w_subtype)
     r.__init__(space, w_iterable, w_startstop, args_w)
@@ -414,6 +423,7 @@ W_ISlice.typedef = TypeDef(
         __new__  = interp2app(W_ISlice___new__),
         __iter__ = interp2app(W_ISlice.iter_w),
         __next__ = interp2app(W_ISlice.next_w),
+        __reduce__ = interp2app(W_ISlice.descr_reduce),
         __doc__  = """Make an iterator that returns selected elements from the
     iterable.  If start is non-zero, then elements from the iterable
     are skipped until start is reached. Afterward, elements are
