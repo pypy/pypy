@@ -155,13 +155,16 @@ class W_UnicodeObject(W_Root):
         return unicodedb.islinebreak(ord(ch))
 
     def _upper(self, ch):
-        return unichr(unicodedb.toupper(ord(ch)))
+        return u''.join([unichr(x) for x in
+                         unicodedb.toupper_full(ord(ch))])
 
     def _lower(self, ch):
-        return unichr(unicodedb.tolower(ord(ch)))
+        return u''.join([unichr(x) for x in
+                         unicodedb.tolower_full(ord(ch))])
 
     def _title(self, ch):
-        return unichr(unicodedb.totitle(ord(ch)))
+        return u''.join([unichr(x) for x in
+                         unicodedb.totitle_full(ord(ch))])
 
     def _newlist_unwrapped(self, space, lst):
         return space.newlist_unicode(lst)
