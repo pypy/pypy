@@ -156,7 +156,6 @@ class AbstractAttribute(object):
             jit.isconstant(name) and
             jit.isconstant(index))
     def add_attr(self, obj, name, index, w_value):
-        # grumble, jit needs this
         attr = self._get_new_attr(name, index)
         oldattr = obj._get_mapdict_map()
         if not jit.we_are_jitted():
