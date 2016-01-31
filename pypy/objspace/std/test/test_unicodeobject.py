@@ -729,7 +729,7 @@ class AppTestUnicodeString:
         assert 'ababa'.count('aba') == 1
 
     def test_swapcase(self):
-        assert '\xe4\xc4\xdf'.swapcase() == '\xc4\xe4\xdf'
+        assert '\xe4\xc4\xdf'.swapcase() == '\xc4\xe4SS'
 
     def test_call_special_methods(self):
         # xxx not completely clear if these are implementation details or not
