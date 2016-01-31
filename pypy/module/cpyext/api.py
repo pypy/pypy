@@ -960,47 +960,27 @@ def generate_macros(export_symbols, prefix):
     pypy_macros_h = udir.join('pypy_macros.h')
     pypy_macros_h.write('\n'.join(pypy_macros))
 
-def _header_to_guard(header_name):
-    return '_PYPY_' + header_name.replace('.', '_').upper()
-
-def _decl_header_top(header_name):
-    guard = _header_to_guard(header_name)
-    header = [
-        "#ifndef %s\n" % guard,
-        "#define %s\n" % guard,
-        "#ifndef PYPY_STANDALONE\n",
-        "#ifdef __cplusplus",
-        "extern \"C\" {",
-        "#endif\n",
-        '#define Signed   long           /* xxx temporary fix */\n',
-        '#define Unsigned unsigned long  /* xxx temporary fix */\n'
-    ]
-    if header_name == 'pypy_decl.h': # XXX don't send for code review unless I'm sure this is necessary
-        for decl in FORWARD_DECLS:
-            header.append("%s;" % (decl,))
-    return header
-
-def _decl_header_bottom(header_name):
-    return [
-        '#undef Signed    /* xxx temporary fix */\n',
-        '#undef Unsigned  /* xxx temporary fix */\n',
-        "#ifdef __cplusplus",
-        "}",
-        "#endif",
-        "#endif /*PYPY_STANDALONE*/\n",
-        "#endif /*%s*/\n" % _header_to_guard(header_name),
-    ]
-
 def generate_decls_and_callbacks(db, export_symbols, api_struct=True):
     "NOT_RPYTHON"
     # implement function callbacks and generate function decls
     functions = []
     decls = {}
+    pypy_decls = decls['pypy_decl.h'] = []
+    pypy_decls.append("#ifndef _PYPY_PYPY_DECL_H\n")
+    pypy_decls.append("#define _PYPY_PYPY_DECL_H\n")
+    pypy_decls.append("#ifndef PYPY_STANDALONE\n")
+    pypy_decls.append("#ifdef __cplusplus")
+    pypy_decls.append("extern \"C\" {")
+    pypy_decls.append("#endif\n")
+    pypy_decls.append('#define Signed   long           /* xxx temporary fix */\n')
+    pypy_decls.append('#define Unsigned unsigned long  /* xxx temporary fix */\n')
+
+    for decl in FORWARD_DECLS:
+        pypy_decls.append("%s;" % (decl,))
 
     for header_name, header_functions in FUNCTIONS_BY_HEADER.iteritems():
         if header_name not in decls:
-            decls[header_name] = header = []
-            header.extend(_decl_header_top(header_name))
+            header = decls[header_name] = []
         else:
             header = decls[header_name]
 
@@ -1015,7 +995,6 @@ def generate_decls_and_callbacks(db, export_symbols, api_struct=True):
                 else:
                     body = "{ return _pypyAPI.%s(%s); }" % (name, callargs)
                 functions.append('%s %s(%s)\n%s' % (restype, name, args, body))
-    pypy_decls = decls['pypy_decl.h']
     for name in VA_TP_LIST:
         name_no_star = process_va_name(name)
         header = ('%s pypy_va_get_%s(va_list* vp)' %
@@ -1031,9 +1010,15 @@ def generate_decls_and_callbacks(db, export_symbols, api_struct=True):
             typ = 'PyObject*'
         pypy_decls.append('PyAPI_DATA(%s) %s;' % (typ, name))
 
-    for header_name, header_decls in decls.iteritems():
-        header_decls.extend(_decl_header_bottom(header_name))
+    pypy_decls.append('#undef Signed    /* xxx temporary fix */\n')
+    pypy_decls.append('#undef Unsigned  /* xxx temporary fix */\n')
+    pypy_decls.append("#ifdef __cplusplus")
+    pypy_decls.append("}")
+    pypy_decls.append("#endif")
+    pypy_decls.append("#endif /*PYPY_STANDALONE*/\n")
+    pypy_decls.append("#endif /*_PYPY_PYPY_DECL_H*/\n")
 
+    for header_name, header_decls in decls.iteritems():
         decl_h = udir.join(header_name)
         decl_h.write('\n'.join(header_decls))
     return functions

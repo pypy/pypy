@@ -50,11 +50,18 @@ typedef struct PyMemberDef {
 #define PY_WRITE_RESTRICTED 4
 #define RESTRICTED    (READ_RESTRICTED | PY_WRITE_RESTRICTED)
 
+#define Signed   long           /* xxx temporary fix */
+#define Unsigned unsigned long  /* xxx temporary fix */
+
+/* API functions. */
+#include "pypy_structmember_decl.h"
+
+#undef Signed    /* xxx temporary fix */
+#undef Unsigned  /* xxx temporary fix */
 
 #ifdef __cplusplus
 }
 #endif
 #endif /* !Py_STRUCTMEMBER_H */
 
-/* API functions. */
-#include "pypy_structmember_decl.h"
+
