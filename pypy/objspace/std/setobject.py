@@ -942,7 +942,7 @@ class AbstractUnwrappedSetStrategy(object):
             return False
         if w_set.length() == 0:
             return True
-        # it's possible to have 0-lenght strategy that's not empty
+        # it's possible to have 0-length strategy that's not empty
         if w_set.strategy is w_other.strategy:
             return self._issubset_unwrapped(w_set, w_other)
         if not self.may_contain_equal_elements(w_other.strategy):
