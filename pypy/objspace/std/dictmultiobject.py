@@ -130,8 +130,8 @@ class W_DictMultiObject(W_Root):
             if ulist is not None:
                 strategy = space.fromcache(UnicodeDictStrategy)
                 storage = strategy.get_storage_fromkeys(ulist, w_fill)
-                w_dict = space.allocate_instance(W_DictMultiObject, w_type)
-                W_DictMultiObject.__init__(w_dict, space, strategy, storage)
+                w_dict = space.allocate_instance(W_DictObject, w_type)
+                W_DictObject.__init__(w_dict, space, strategy, storage)
             else:
                 w_dict = W_DictMultiObject.allocate_and_init_instance(space,
                                                                       w_type)
