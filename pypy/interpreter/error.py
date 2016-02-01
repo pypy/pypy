@@ -350,8 +350,9 @@ class OperationError(Exception):
             self.normalize_exception(space)
             w_value = self.get_w_value(space)
             w_last = last_exception.get_w_value(space)
-            w_context = setup_context(space, w_value, w_last, lazy=True)
-            space.setattr(w_value, space.wrap('__context__'), w_context)
+            if not space.is_w(w_value, w_last):
+                w_context = setup_context(space, w_value, w_last, lazy=True)
+                space.setattr(w_value, space.wrap('__context__'), w_context)
 
 
 def setup_context(space, w_exc, w_last, lazy=False):
