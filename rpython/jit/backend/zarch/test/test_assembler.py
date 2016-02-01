@@ -119,6 +119,13 @@ class TestRunningAssembler(object):
         assert assembler.asm_operations[i] \
             is AssemblerZARCH.emit_int_add.im_func
 
+    def test_sync(self):
+        self.a.mc.XGR(r.r2, r.r2)
+        self.a.mc.sync()
+        self.a.mc.BCR(con.ANY, r.r14)
+        assert run_asm(self.a) == 0
+
+
     def test_byte_count_instr(self):
         assert self.mc.BRC_byte_count == 4
         assert self.mc.LG_byte_count == 6

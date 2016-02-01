@@ -143,7 +143,7 @@ class CallBuilder(AbstractCallBuilder):
                 # in this mode, RSHADOWOLD happens to contain the shadowstack
                 # top at this point, so reuse it instead of loading it again
                 # RSHADOWOLD is moved to the scratch reg just before restoring r8
-                ssreg = None # r.SCRATCH
+                ssreg = r.SCRATCH
         self.asm._reload_frame_if_necessary(self.mc, shadowstack_reg=ssreg)
 
     def emit_raw_call(self):
@@ -197,7 +197,7 @@ class CallBuilder(AbstractCallBuilder):
         # 6 registers, 1 for a floating point return value!
         # registered by prepare_arguments!
         #
-        # Save this thread's shadowstack pointer into r29, for later comparison
+        # Save this thread's shadowstack pointer into r8, for later comparison
         gcrootmap = self.asm.cpu.gc_ll_descr.gcrootmap
         if gcrootmap:
             if gcrootmap.is_shadow_stack:
@@ -207,9 +207,9 @@ class CallBuilder(AbstractCallBuilder):
         #
         # change 'rpy_fastgil' to 0 (it should be non-zero right now)
         self.mc.load_imm(RFASTGILPTR, fastgil)
-        self.mc.LGHI(r.SCRATCH, l.imm(0))
+        self.mc.XGR(r.SCRATCH, r.SCRATCH)
+        self.mc.sync()
         self.mc.STG(r.SCRATCH, l.addr(0, RFASTGILPTR))
-        self.mc.sync() # renders the store visible to other cpus
 
 
     def move_real_result_and_call_reacqgil_addr(self, fastgil):
@@ -217,24 +217,24 @@ class CallBuilder(AbstractCallBuilder):
 
         # try to reacquire the lock.  The following registers are still
         # valid from before the call:
+        RSHADOWOLD  = self.RSHADOWOLD     # r8: previous val of root_stack_top
         RSHADOWPTR  = self.RSHADOWPTR     # r9: &root_stack_top
         RFASTGILPTR = self.RFASTGILPTR    # r10: &fastgil
-        RSHADOWOLD  = self.RSHADOWOLD     # r12: previous val of root_stack_top
 
-        # Equivalent of 'r12 = __sync_lock_test_and_set(&rpy_fastgil, 1);'
+        # Equivalent of 'r13 = __sync_lock_test_and_set(&rpy_fastgil, 1);'
         self.mc.LGHI(r.SCRATCH, l.imm(1))
         retry_label = self.mc.currpos()
-        # compare and swap, only succeeds if the the contents of the
-        # lock is equal to r12 (= 0)
-        self.mc.LG(r.r12, l.addr(0, RFASTGILPTR))
-        self.mc.CSG(r.r12, r.SCRATCH, l.addr(0, RFASTGILPTR))  # try to claim lock
+        self.mc.LG(r.r13, l.addr(0, RFASTGILPTR))
+        self.mc.CSG(r.r13, r.SCRATCH, l.addr(0, RFASTGILPTR))  # try to claim lock
         self.mc.BRC(c.NE, l.imm(retry_label - self.mc.currpos())) # retry if failed
-        self.mc.sync()
 
-        self.mc.CGHI(r.r12, l.imm0)
+        # CSG performs a serialization
+
+        self.mc.CGHI(r.r13, l.imm0)
         b1_location = self.mc.currpos()
-        self.mc.trap()          # boehm: patched with a BEQ: jump if r12 is zero
-        self.mc.write('\x00'*4) # shadowstack: patched with BNE instead
+        # boehm: patched with a BEQ: jump if r13 is zero
+        # shadowstack: patched with BNE instead
+        self.mc.reserve_cond_jump()
 
         gcrootmap = self.asm.cpu.gc_ll_descr.gcrootmap
         if gcrootmap:
@@ -247,13 +247,12 @@ class CallBuilder(AbstractCallBuilder):
             self.mc.CGR(RSHADOWPTR, RSHADOWOLD)
             bne_location = b1_location
             b1_location = self.mc.currpos()
-            self.mc.trap()
-            self.mc.write('\x00'*4)
+            self.mc.reserve_cond_jump()
 
             # revert the rpy_fastgil acquired above, so that the
             # general 'reacqgil_addr' below can acquire it again...
-            # (here, r12 is conveniently zero)
-            self.mc.STG(r.r12, l.addr(0,RFASTGILPTR))
+            # (here, r13 is conveniently zero)
+            self.mc.STG(r.r13, l.addr(0,RFASTGILPTR))
 
             pmc = OverwritingBuilder(self.mc, bne_location, 1)
             pmc.BRCL(c.NE, l.imm(self.mc.currpos() - bne_location))
@@ -268,7 +267,7 @@ class CallBuilder(AbstractCallBuilder):
             # save 1 word below the stack pointer
             pos = STD_FRAME_SIZE_IN_BYTES
             if reg.is_core_reg():
-                self.mc.STG(reg, l.addr(pos-1*WORD, r.SP))
+                self.mc.LGR(RSAVEDRES, reg)
             elif reg.is_fp_reg():
                 self.mc.STD(reg, l.addr(pos-1*WORD, r.SP))
         self.mc.load_imm(self.mc.RAW_CALL_REG, self.asm.reacqgil_addr)
@@ -276,7 +275,7 @@ class CallBuilder(AbstractCallBuilder):
         if reg is not None:
             pos = STD_FRAME_SIZE_IN_BYTES
             if reg.is_core_reg():
-                self.mc.LG(reg, l.addr(pos-1*WORD, r.SP))
+                self.mc.LGR(reg, RSAVEDRES)
             elif reg.is_fp_reg():
                 self.mc.LD(reg, l.addr(pos-1*WORD, r.SP))
 
@@ -285,6 +284,9 @@ class CallBuilder(AbstractCallBuilder):
         pmc.BRCL(c.EQ, l.imm(self.mc.currpos() - b1_location))
         pmc.overwrite()
 
+        if gcrootmap:
+            if gcrootmap.is_shadow_stack and self.is_call_release_gil:
+                self.mc.LGR(r.SCRATCH, RSHADOWOLD)
         pos = STD_FRAME_SIZE_IN_BYTES - 7*WORD
         self.mc.LMG(r.r8, r.r13, l.addr(pos, r.SP))
 
