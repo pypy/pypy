@@ -244,7 +244,7 @@ class CallBuilder(AbstractCallBuilder):
             # thread.  So here we check if the shadowstack pointer
             # is still the same as before we released the GIL (saved
             # in RSHADOWOLD), and if not, we fall back to 'reacqgil_addr'.
-            self.load(r.r11, RSHADOWPTR, 0)
+            self.mc.load(r.r11, RSHADOWPTR, 0)
             self.mc.CGR(r.r11, RSHADOWOLD)
             bne_location = b1_location
             b1_location = self.mc.currpos()
