@@ -104,6 +104,8 @@ class LiteralPool(object):
 
     def unique_value(self, val):
         if val.type == FLOAT:
+            if val.getfloat() == 0.0:
+                return 0
             return float2longlong(val.getfloat())
         elif val.type == INT:
             return rffi.cast(lltype.Signed, val.getint())
