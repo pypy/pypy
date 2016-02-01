@@ -7,8 +7,8 @@
 extern "C" {
 #endif
 
-#define PyString_GET_SIZE(op) PyString_Size(op)
-#define PyString_AS_STRING(op) PyString_AsString(op)
+#define PyString_GET_SIZE(op) PyString_Size((PyObject*)(op))
+#define PyString_AS_STRING(op) PyString_AsString((PyObject*)(op))
 
 typedef struct {
     PyObject_HEAD

@@ -146,7 +146,7 @@ def update_all_slots(space, w_type, pto):
             assert len(slot_names) == 2
             struct = getattr(pto, slot_names[0])
             if not struct:
-                assert not space.config.translating
+                #assert not space.config.translating
                 assert not pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE
                 if slot_names[0] == 'c_tp_as_number':
                     STRUCT_TYPE = PyNumberMethods
@@ -310,55 +310,6 @@ def init_typeobject(space):
                    realize=type_realize,
                    dealloc=type_dealloc)
 
-    # some types are difficult to create because of cycles.
-    # - object.ob_type = type
-    # - type.ob_type   = type
-    # - tuple.ob_type  = type
-    # - type.tp_base   = object
-    # - tuple.tp_base  = object
-    # - type.tp_bases is a tuple
-    # - object.tp_bases is a tuple
-    # - tuple.tp_bases is a tuple
-
-    # insert null placeholders to please create_ref()
-    track_reference(space, lltype.nullptr(PyObject.TO), space.w_type)
-    track_reference(space, lltype.nullptr(PyObject.TO), space.w_object)
-    track_reference(space, lltype.nullptr(PyObject.TO), space.w_tuple)
-    track_reference(space, lltype.nullptr(PyObject.TO), space.w_str)
-
-    # create the objects
-    py_type = create_ref(space, space.w_type)
-    py_object = create_ref(space, space.w_object)
-    py_tuple = create_ref(space, space.w_tuple)
-    py_str = create_ref(space, space.w_str)
-    # XXX py_str is not initialized here correctly, because we are
-    #     not tracking it, it gets an empty c_ob_type from py_basestring
-
-    # form cycles
-    pto_type = rffi.cast(PyTypeObjectPtr, py_type)
-    py_type.c_ob_type = pto_type
-    py_object.c_ob_type = pto_type
-    py_tuple.c_ob_type = pto_type
-
-    pto_object = rffi.cast(PyTypeObjectPtr, py_object)
-    pto_type.c_tp_base = pto_object
-    pto_tuple = rffi.cast(PyTypeObjectPtr, py_tuple)
-    pto_tuple.c_tp_base = pto_object
-
-    pto_type.c_tp_bases.c_ob_type = pto_tuple
-    pto_object.c_tp_bases.c_ob_type = pto_tuple
-    pto_tuple.c_tp_bases.c_ob_type = pto_tuple
-
-    for typ in (py_type, py_object, py_tuple, py_str):
-        heaptype = rffi.cast(PyHeapTypeObject, typ)
-        heaptype.c_ht_name.c_ob_type = pto_type
-
-    # Restore the mapping
-    track_reference(space, py_type, space.w_type, replace=True)
-    track_reference(space, py_object, space.w_object, replace=True)
-    track_reference(space, py_tuple, space.w_tuple, replace=True)
-    track_reference(space, py_str, space.w_str, replace=True)
-
 
 @cpython_api([PyObject], lltype.Void, external=False)
 def subtype_dealloc(space, obj):
@@ -476,6 +427,8 @@ def type_alloc(space, w_metatype):
     pto.c_tp_as_sequence = heaptype.c_as_sequence
     pto.c_tp_as_mapping = heaptype.c_as_mapping
     pto.c_tp_as_buffer = heaptype.c_as_buffer
+    pto.c_tp_basicsize = -1 # hopefully this makes malloc bail out
+    pto.c_tp_itemsize = 0
 
     return rffi.cast(PyObject, heaptype)
 
@@ -511,8 +464,6 @@ def type_attach(space, py_obj, w_type):
         pto.c_tp_name = PyString_AsString(space, heaptype.c_ht_name)
     else:
         pto.c_tp_name = rffi.str2charp(w_type.name)
-    pto.c_tp_basicsize = -1 # hopefully this makes malloc bail out
-    pto.c_tp_itemsize = 0
     # uninitialized fields:
     # c_tp_print, c_tp_getattr, c_tp_setattr
     # XXX implement
@@ -520,8 +471,11 @@ def type_attach(space, py_obj, w_type):
     w_base = best_base(space, w_type.bases_w)
     pto.c_tp_base = rffi.cast(PyTypeObjectPtr, make_ref(space, w_base))
 
-    finish_type_1(space, pto)
-    finish_type_2(space, pto, w_type)
+    if hasattr(space, '_cpyext_type_init'):
+        space._cpyext_type_init.append((pto, w_type))
+    else:
+        finish_type_1(space, pto)
+        finish_type_2(space, pto, w_type)
 
     pto.c_tp_basicsize = rffi.sizeof(typedescr.basestruct)
     if pto.c_tp_base:

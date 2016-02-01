@@ -13,8 +13,9 @@ from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem.lltype import (
     Ptr, Struct, GcStruct, malloc, cast_pointer, castable, nullptr,
     RuntimeTypeInfo, getRuntimeTypeInfo, typeOf, Void, FuncType, Bool, Signed,
-    functionptr)
+    functionptr, attachRuntimeTypeInfo)
 from rpython.rtyper.lltypesystem.lloperation import llop
+from rpython.rtyper.llannotation import SomePtr
 from rpython.rtyper.lltypesystem import rstr
 from rpython.rtyper.rmodel import (
     Repr, getgcflavor, inputconst, warning, mangle)
@@ -590,10 +591,17 @@ class InstanceRepr(Repr):
                                        _callable=graph.func)
             else:
                 destrptr = None
-            OBJECT = OBJECT_BY_FLAVOR[LLFLAVOR[self.gcflavor]]
-            self.rtyper.attachRuntimeTypeInfoFunc(self.object_type,
-                                                  ll_runtime_type_info,
-                                                  OBJECT, destrptr)
+            self.rtyper.call_all_setups()  # compute ForwardReferences now
+            args_s = [SomePtr(Ptr(OBJECT))]
+            graph = self.rtyper.annotate_helper(ll_runtime_type_info, args_s)
+            s = self.rtyper.annotation(graph.getreturnvar())
+            if (not isinstance(s, SomePtr) or
+                s.ll_ptrtype != Ptr(RuntimeTypeInfo)):
+                raise TyperError("runtime type info function returns %r, "
+                                "expected Ptr(RuntimeTypeInfo)" % (s))
+            funcptr = self.rtyper.getcallable(graph)
+            attachRuntimeTypeInfo(self.object_type, funcptr, destrptr)
+
             vtable = self.rclass.getvtable()
             self.rtyper.set_type_for_typeptr(vtable, self.lowleveltype.TO)
 
