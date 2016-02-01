@@ -143,7 +143,7 @@ def _copy_header_files(headers, dstdir):
         target.chmod(0444) # make the file read-only, to make sure that nobody
                            # edits it by mistake
 
-def copy_header_files(dstdir):
+def copy_header_files(dstdir, copy_numpy_headers):
     # XXX: 20 lines of code to recursively copy a directory, really??
     assert dstdir.check(dir=True)
     headers = include_dir.listdir('*.h') + include_dir.listdir('*.inl')
@@ -151,15 +151,16 @@ def copy_header_files(dstdir):
         headers.append(udir.join(name))
     _copy_header_files(headers, dstdir)
 
-    try:
-        dstdir.mkdir('numpy')
-    except py.error.EEXIST:
-        pass
-    numpy_dstdir = dstdir / 'numpy'
+    if copy_numpy_headers:
+        try:
+            dstdir.mkdir('numpy')
+        except py.error.EEXIST:
+            pass
+        numpy_dstdir = dstdir / 'numpy'
 
-    numpy_include_dir = include_dir / 'numpy'
-    numpy_headers = numpy_include_dir.listdir('*.h') + numpy_include_dir.listdir('*.inl')
-    _copy_header_files(numpy_headers, numpy_dstdir)
+        numpy_include_dir = include_dir / 'numpy'
+        numpy_headers = numpy_include_dir.listdir('*.h') + numpy_include_dir.listdir('*.inl')
+        _copy_header_files(numpy_headers, numpy_dstdir)
 
 
 class NotSpecified(object):
@@ -482,7 +483,6 @@ def build_exported_objects():
         "PyComplex_Type": "space.w_complex",
         "PyByteArray_Type": "space.w_bytearray",
         "PyMemoryView_Type": "space.w_memoryview",
-        "PyArray_Type": "space.gettypeobject(W_NDimArray.typedef)",
         "PyBaseObject_Type": "space.w_object",
         'PyNone_Type': 'space.type(space.w_None)',
         'PyNotImplemented_Type': 'space.type(space.w_NotImplemented)',
@@ -773,6 +773,8 @@ def build_bridge(space):
     "NOT_RPYTHON"
     from pypy.module.cpyext.pyobject import make_ref
 
+    use_micronumpy = setup_micronumpy(space)
+
     export_symbols = list(FUNCTIONS) + SYMBOLS_C + list(GLOBALS)
     from rpython.translator.c.database import LowLevelDatabase
     db = LowLevelDatabase()
@@ -1009,6 +1011,24 @@ def generate_decls_and_callbacks(db, export_symbols, api_struct=True):
     pypy_decl_h.write('\n'.join(pypy_decls))
     return functions
 
+separate_module_files = [source_dir / "varargwrapper.c",
+                         source_dir / "pyerrors.c",
+                         source_dir / "modsupport.c",
+                         source_dir / "getargs.c",
+                         source_dir / "abstract.c",
+                         source_dir / "stringobject.c",
+                         source_dir / "mysnprintf.c",
+                         source_dir / "pythonrun.c",
+                         source_dir / "sysmodule.c",
+                         source_dir / "bufferobject.c",
+                         source_dir / "cobject.c",
+                         source_dir / "structseq.c",
+                         source_dir / "capsule.c",
+                         source_dir / "pysignals.c",
+                         source_dir / "pythread.c",
+                         source_dir / "missing.c",
+                         ]
+
 def build_eci(building_bridge, export_symbols, code):
     "NOT_RPYTHON"
     # Build code and get pointer to the structure
@@ -1062,24 +1082,7 @@ def build_eci(building_bridge, export_symbols, code):
 
     eci = ExternalCompilationInfo(
         include_dirs=include_dirs,
-        separate_module_files=[source_dir / "varargwrapper.c",
-                               source_dir / "pyerrors.c",
-                               source_dir / "modsupport.c",
-                               source_dir / "getargs.c",
-                               source_dir / "abstract.c",
-                               source_dir / "stringobject.c",
-                               source_dir / "mysnprintf.c",
-                               source_dir / "pythonrun.c",
-                               source_dir / "sysmodule.c",
-                               source_dir / "bufferobject.c",
-                               source_dir / "cobject.c",
-                               source_dir / "structseq.c",
-                               source_dir / "capsule.c",
-                               source_dir / "pysignals.c",
-                               source_dir / "pythread.c",
-                               source_dir / "ndarrayobject.c",
-                               source_dir / "missing.c",
-                               ],
+        separate_module_files= separate_module_files,
         separate_module_sources=separate_module_sources,
         compile_extra=compile_extra,
         **kwds
@@ -1087,10 +1090,22 @@ def build_eci(building_bridge, export_symbols, code):
 
     return eci
 
+def setup_micronumpy(space):
+    use_micronumpy = space.config.objspace.usemodules.micronumpy
+    if not use_micronumpy:
+        return use_micronumpy
+    # import to register api functions by side-effect
+    import pypy.module.cpyext.ndarrayobject 
+    global GLOBALS, SYMBOLS_C, separate_module_files
+    GLOBALS["PyArray_Type#"]= ('PyTypeObject*', "space.gettypeobject(W_NDimArray.typedef)")
+    SYMBOLS_C += ['PyArray_Type', '_PyArray_FILLWBYTE', '_PyArray_ZEROS']
+    separate_module_files.append(source_dir / "ndarrayobject.c")
+    return use_micronumpy
 
 def setup_library(space):
     "NOT_RPYTHON"
     from pypy.module.cpyext.pyobject import make_ref
+    use_micronumpy = setup_micronumpy(space)
 
     export_symbols = list(FUNCTIONS) + SYMBOLS_C + list(GLOBALS)
     from rpython.translator.c.database import LowLevelDatabase
@@ -1151,7 +1166,7 @@ def setup_library(space):
 
     setup_init_functions(eci, translating=True)
     trunk_include = pypydir.dirpath() / 'include'
-    copy_header_files(trunk_include)
+    copy_header_files(trunk_include, use_micronumpy)
 
 def _load_from_cffi(space, name, path, initptr):
     from pypy.module._cffi_backend import cffi1_module
