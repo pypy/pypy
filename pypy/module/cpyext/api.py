@@ -445,8 +445,8 @@ SYMBOLS_C = [
 TYPES = {}
 GLOBALS = { # this needs to include all prebuilt pto, otherwise segfaults occur
     '_Py_NoneStruct#': ('PyObject*', 'space.w_None'),
-    '_Py_TrueStruct#': ('PyIntObject*', 'space.w_True'),
-    '_Py_ZeroStruct#': ('PyIntObject*', 'space.w_False'),
+    '_Py_TrueStruct#': ('PyObject*', 'space.w_True'),
+    '_Py_ZeroStruct#': ('PyObject*', 'space.w_False'),
     '_Py_NotImplementedStruct#': ('PyObject*', 'space.w_NotImplemented'),
     '_Py_EllipsisObject#': ('PyObject*', 'space.w_Ellipsis'),
     'PyDateTimeAPI': ('PyDateTime_CAPI*', 'None'),
@@ -855,7 +855,7 @@ def build_bridge(space):
                 assert False, "Unknown static pointer: %s %s" % (typ, name)
             ptr.value = ctypes.cast(ll2ctypes.lltype2ctypes(value),
                                     ctypes.c_void_p).value
-        elif typ in ('PyObject*', 'PyTypeObject*', 'PyIntObject*'):
+        elif typ in ('PyObject*', 'PyTypeObject*'):
             if name.startswith('PyPyExc_') or name.startswith('cpyexttestExc_'):
                 # we already have the pointer
                 in_dll = ll2ctypes.get_ctypes_type(PyObject).in_dll(bridge, name)
@@ -1149,7 +1149,7 @@ def setup_library(space):
         if name.startswith('PyExc_'):
             name = '_' + name
         w_obj = eval(expr)
-        if typ in ('PyObject*', 'PyTypeObject*', 'PyIntObject*'):
+        if typ in ('PyObject*', 'PyTypeObject*'):
             struct_ptr = make_ref(space, w_obj)
         elif typ == 'PyDateTime_CAPI*':
             continue
