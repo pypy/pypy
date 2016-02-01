@@ -495,8 +495,7 @@ class AllocOpAssembler(object):
         mc.NILL(r.SCRATCH, l.imm(mask & 0xFF))
 
         jz_location = mc.get_relative_pos()
-        mc.trap()        # patched later with 'EQ'
-        mc.write('\x00' * 4)
+        mc.reserve_cond_jump()  # patched later with 'EQ'
 
         # for cond_call_gc_wb_array, also add another fast path:
         # if GCFLAG_CARDS_SET, then we can just set one bit and be done
@@ -505,8 +504,7 @@ class AllocOpAssembler(object):
             mc.LGR(r.SCRATCH, r.SCRATCH2)
             mc.NILL(r.SCRATCH, l.imm(card_marking_mask & 0xFF))
             js_location = mc.get_relative_pos()
-            mc.trap()        # patched later with 'NE'
-            mc.write('\x00' * 4)
+            mc.reserve_cond_jump()  # patched later with 'NE'
         else:
             js_location = 0
 

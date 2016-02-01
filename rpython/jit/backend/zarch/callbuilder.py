@@ -203,7 +203,7 @@ class CallBuilder(AbstractCallBuilder):
             if gcrootmap.is_shadow_stack:
                 rst = gcrootmap.get_root_stack_top_addr()
                 self.mc.load_imm(RSHADOWPTR, rst)
-                self.mc.LGR(RSHADOWOLD, RSHADOWPTR)
+                self.mc.load(RSHADOWOLD, RSHADOWPTR, 0)
         #
         # change 'rpy_fastgil' to 0 (it should be non-zero right now)
         self.mc.load_imm(RFASTGILPTR, fastgil)
@@ -244,7 +244,8 @@ class CallBuilder(AbstractCallBuilder):
             # thread.  So here we check if the shadowstack pointer
             # is still the same as before we released the GIL (saved
             # in RSHADOWOLD), and if not, we fall back to 'reacqgil_addr'.
-            self.mc.CGR(RSHADOWPTR, RSHADOWOLD)
+            self.load(r.r11, RSHADOWPTR, 0)
+            self.mc.CGR(r.r11, RSHADOWOLD)
             bne_location = b1_location
             b1_location = self.mc.currpos()
             self.mc.reserve_cond_jump()
@@ -291,6 +292,8 @@ class CallBuilder(AbstractCallBuilder):
         self.mc.LMG(r.r8, r.r13, l.addr(pos, r.SP))
 
     def write_real_errno(self, save_err):
+        # r11 is saved in call_releasegil_addr_and_move_real_arguments,
+        # thus can be used freely here!
         if save_err & rffi.RFFI_READSAVED_ERRNO:
             # Just before a call, read '*_errno' and write it into the
             # real 'errno'.
@@ -314,14 +317,14 @@ class CallBuilder(AbstractCallBuilder):
     def read_real_errno(self, save_err):
         if save_err & rffi.RFFI_SAVE_ERRNO:
             # Just after a call, read the real 'errno' and save a copy of
-            # it inside our thread-local '*_errno'.  Registers r4-r10
+            # it inside our thread-local '*_errno'.  Registers r3-r6
             # never contain anything after the call.
             if save_err & rffi.RFFI_ALT_ERRNO:
                 rpy_errno = llerrno.get_alt_errno_offset(self.asm.cpu)
             else:
                 rpy_errno = llerrno.get_rpy_errno_offset(self.asm.cpu)
             p_errno = llerrno.get_p_errno_offset(self.asm.cpu)
-            self.mc.LG(r.r12, l.addr(THREADLOCAL_ADDR_OFFSET, r.SP))
-            self.mc.LG(r.r11, l.addr(p_errno, r.r12))
-            self.mc.LGF(r.r11, l.addr(0, r.r11))
-            self.mc.STY(r.r11, l.addr(rpy_errno, r.r12))
+            self.mc.LG(r.r3, l.addr(THREADLOCAL_ADDR_OFFSET, r.SP))
+            self.mc.LG(r.r4, l.addr(p_errno, r.r3))
+            self.mc.LGF(r.r4, l.addr(0, r.r4))
+            self.mc.STY(r.r4, l.addr(rpy_errno, r.r3))
