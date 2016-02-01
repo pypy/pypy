@@ -244,8 +244,8 @@ class CallBuilder(AbstractCallBuilder):
             # thread.  So here we check if the shadowstack pointer
             # is still the same as before we released the GIL (saved
             # in RSHADOWOLD), and if not, we fall back to 'reacqgil_addr'.
-            self.mc.load(r.r11, RSHADOWPTR, 0)
-            self.mc.CGR(r.r11, RSHADOWOLD)
+            self.mc.load(r.SCRATCH, RSHADOWPTR, 0)
+            self.mc.CGR(r.SCRATCH, RSHADOWOLD)
             bne_location = b1_location
             b1_location = self.mc.currpos()
             self.mc.reserve_cond_jump()
@@ -253,7 +253,7 @@ class CallBuilder(AbstractCallBuilder):
             # revert the rpy_fastgil acquired above, so that the
             # general 'reacqgil_addr' below can acquire it again...
             # (here, r13 is conveniently zero)
-            self.mc.STG(r.r13, l.addr(0,RFASTGILPTR))
+            self.mc.STG(r.r13, l.addr(0, RFASTGILPTR))
 
             pmc = OverwritingBuilder(self.mc, bne_location, 1)
             pmc.BRCL(c.NE, l.imm(self.mc.currpos() - bne_location))
