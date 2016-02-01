@@ -506,9 +506,7 @@ build_exported_objects()
 def get_structtype_for_ctype(ctype):
     from pypy.module.cpyext.typeobjectdefs import PyTypeObjectPtr
     from pypy.module.cpyext.cdatetime import PyDateTime_CAPI
-    from pypy.module.cpyext.intobject import PyIntObject
     return {"PyObject*": PyObject, "PyTypeObject*": PyTypeObjectPtr,
-            "PyIntObject*": PyIntObject,
             "PyDateTime_CAPI*": lltype.Ptr(PyDateTime_CAPI)}[ctype]
 
 PyTypeObject = lltype.ForwardReference()
@@ -1097,7 +1095,7 @@ def setup_micronumpy(space):
     if not use_micronumpy:
         return use_micronumpy
     # import to register api functions by side-effect
-    import pypy.module.cpyext.ndarrayobject 
+    import pypy.module.cpyext.ndarrayobject
     global GLOBALS, SYMBOLS_C, separate_module_files
     GLOBALS["PyArray_Type#"]= ('PyTypeObject*', "space.gettypeobject(W_NDimArray.typedef)")
     SYMBOLS_C += ['PyArray_Type', '_PyArray_FILLWBYTE', '_PyArray_ZEROS']
