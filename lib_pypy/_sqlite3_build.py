@@ -159,6 +159,7 @@ int sqlite3_column_type(sqlite3_stmt*, int iCol);
 const char *sqlite3_column_decltype(sqlite3_stmt*,int);
 
 void sqlite3_progress_handler(sqlite3*, int, int(*)(void*), void*);
+void sqlite3_trace(sqlite3*, void(*)(void*, const char*), void*);
 int sqlite3_create_collation(
     sqlite3*,
     const char *zName,

@@ -624,6 +624,22 @@ class Connection(object):
         _lib.sqlite3_progress_handler(self._db, nsteps, progress_handler,
                                       _ffi.NULL)
 
+    @_check_thread_wrap
+    @_check_closed_wrap
+    def set_trace_callback(self, callable):
+        if callable is None:
+            trace_callback = _ffi.NULL
+        else:
+            try:
+                trace_callback = self.__func_cache[callable]
+            except KeyError:
+                @_ffi.callback("void(void*, const char*)")
+                def trace_callback(userdata, statement):
+                    stmt = _ffi.string(statement).decode('utf-8')
+                    callable(stmt)
+                self.__func_cache[callable] = trace_callback
+        _lib.sqlite3_trace(self._db, trace_callback, _ffi.NULL)
+
     if sys.version_info[0] >= 3:
         def __get_in_transaction(self):
             return self._in_transaction
