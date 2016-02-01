@@ -537,7 +537,7 @@ class W_DequeIter(W_Root):
         self.index = ri
         return w_x
 
-W_DequeIter.typedef = TypeDef("deque_iterator",
+W_DequeIter.typedef = TypeDef("_collections.deque_iterator",
     __iter__        = interp2app(W_DequeIter.iter),
     __length_hint__ = interp2app(W_DequeIter.length),
     __next__        = interp2app(W_DequeIter.next),
@@ -580,7 +580,7 @@ class W_DequeRevIter(W_Root):
         self.index = ri
         return w_x
 
-W_DequeRevIter.typedef = TypeDef("deque_reverse_iterator",
+W_DequeRevIter.typedef = TypeDef("_collections.deque_reverse_iterator",
     __iter__        = interp2app(W_DequeRevIter.iter),
     __length_hint__ = interp2app(W_DequeRevIter.length),
     __next__        = interp2app(W_DequeRevIter.next),
