@@ -520,7 +520,6 @@ class W_ListObject(W_Root):
 
     def descr_getitem(self, space, w_index):
         if isinstance(w_index, W_SliceObject):
-            # XXX consider to extend rlist's functionality?
             length = self.length()
             start, stop, step, slicelength = w_index.indices4(space, length)
             assert slicelength >= 0

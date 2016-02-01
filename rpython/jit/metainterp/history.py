@@ -68,8 +68,8 @@ def repr_object(box):
         return box.value
 
 def repr_rpython(box, typechars):
-    return '%s/%s%d' % (box._get_hash_(), typechars,
-                        compute_unique_id(box))
+    return '%s/%s' % (box._get_hash_(), typechars,
+                        ) #compute_unique_id(box))
 
 
 class XxxAbstractValue(object):
@@ -816,9 +816,6 @@ class Stats(object):
         if 'getfield_gc' in check:
             assert check.pop('getfield_gc') == 0
             check['getfield_gc_i'] = check['getfield_gc_r'] = check['getfield_gc_f'] = 0
-        if 'getfield_gc_pure' in check:
-            assert check.pop('getfield_gc_pure') == 0
-            check['getfield_gc_pure_i'] = check['getfield_gc_pure_r'] = check['getfield_gc_pure_f'] = 0
         if 'getarrayitem_gc_pure' in check:
             assert check.pop('getarrayitem_gc_pure') == 0
             check['getarrayitem_gc_pure_i'] = check['getarrayitem_gc_pure_r'] = check['getarrayitem_gc_pure_f'] = 0

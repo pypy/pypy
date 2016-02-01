@@ -29,6 +29,10 @@ class AbstractARMCPU(AbstractLLCPU):
     float_regs = VFPRegisterManager.all_regs
     frame_reg = fp
 
+    # can an ISA instruction handle a factor to the offset?
+    # XXX should be: tuple(1 << i for i in range(31))
+    load_supported_factors = (1,)
+
     def __init__(self, rtyper, stats, opts=None, translate_support_code=False,
                  gcdescr=None):
         AbstractLLCPU.__init__(self, rtyper, stats, opts,

@@ -277,10 +277,14 @@ def test_has_0001():
     assert not rffi_platform.has("x", "#include <some/path/which/cannot/exist>")
 
 def test_has_0002():
+    if platform.name == 'msvc':
+        py.test.skip('no m.lib in msvc')
     assert rffi_platform.has("pow", "#include <math.h>", libraries=["m"])
 
 def test_has_0003():
     """multiple libraries"""
+    if platform.name == 'msvc':
+        py.test.skip('no m.lib in msvc')
     assert rffi_platform.has("pow", "#include <math.h>", libraries=["m", "c"])
 
 def test_has_0004():

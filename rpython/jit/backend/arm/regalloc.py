@@ -34,9 +34,6 @@ from rpython.jit.backend.llsupport import symbolic
 from rpython.rtyper.lltypesystem import lltype, rffi, rstr, llmemory
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.jit.codewriter.effectinfo import EffectInfo
-from rpython.jit.backend.llsupport.descr import unpack_arraydescr
-from rpython.jit.backend.llsupport.descr import unpack_fielddescr
-from rpython.jit.backend.llsupport.descr import unpack_interiorfielddescr
 from rpython.rlib.rarithmetic import r_uint
 from rpython.jit.backend.llsupport.descr import CallDescr
 
@@ -802,15 +799,12 @@ class Regalloc(BaseRegalloc):
                                  src_locations2, dst_locations2, vfptmploc)
         return []
 
-    def prepare_op_setfield_gc(self, op, fcond):
+    def prepare_op_gc_store(self, op, fcond):
         boxes = op.getarglist()
-        ofs, size, sign = unpack_fielddescr(op.getdescr())
-        return self._prepare_op_setfield(boxes, ofs, size)
-
-    def _prepare_op_setfield(self, boxes, ofs, size):
-        a0, a1 = boxes
-        base_loc = self.make_sure_var_in_reg(a0, boxes)
-        value_loc = self.make_sure_var_in_reg(a1, boxes)
+        base_loc = self.make_sure_var_in_reg(boxes[0], boxes)
+        ofs = boxes[1].getint()
+        value_loc = self.make_sure_var_in_reg(boxes[2], boxes)
+        size = boxes[3].getint()
         ofs_size = default_imm_size if size < 8 else VMEM_imm_size
         if check_imm_arg(ofs, size=ofs_size):
             ofs_loc = imm(ofs)
@@ -819,19 +813,13 @@ class Regalloc(BaseRegalloc):
             self.assembler.load(ofs_loc, imm(ofs))
         return [value_loc, base_loc, ofs_loc, imm(size)]
 
-    prepare_op_setfield_raw = prepare_op_setfield_gc
-
-    def prepare_op_zero_ptr_field(self, op, fcond):
+    def _prepare_op_gc_load(self, op, fcond):
         a0 = op.getarg(0)
         ofs = op.getarg(1).getint()
-        return self._prepare_op_setfield([a0, ConstInt(0)], ofs, WORD)
-
-    def _prepare_op_getfield(self, op, fcond):
-        a0 = op.getarg(0)
-        ofs, size, sign = unpack_fielddescr(op.getdescr())
+        nsize = op.getarg(2).getint()    # negative for "signed"
         base_loc = self.make_sure_var_in_reg(a0)
         immofs = imm(ofs)
-        ofs_size = default_imm_size if size < 8 else VMEM_imm_size
+        ofs_size = default_imm_size if abs(nsize) < 8 else VMEM_imm_size
         if check_imm_arg(ofs, size=ofs_size):
             ofs_loc = immofs
         else:
@@ -839,17 +827,12 @@ class Regalloc(BaseRegalloc):
             self.assembler.load(ofs_loc, immofs)
         self.possibly_free_vars_for_op(op)
         self.free_temp_vars()
-        res = self.force_allocate_reg(op)
-        return [base_loc, ofs_loc, res, imm(size)]
+        res_loc = self.force_allocate_reg(op)
+        return [base_loc, ofs_loc, res_loc, imm(nsize)]
 
-    prepare_op_getfield_gc_i = _prepare_op_getfield
-    prepare_op_getfield_gc_r = _prepare_op_getfield
-    prepare_op_getfield_gc_f = _prepare_op_getfield
-    prepare_op_getfield_raw_i = _prepare_op_getfield
-    prepare_op_getfield_raw_f = _prepare_op_getfield
-    prepare_op_getfield_gc_pure_i = _prepare_op_getfield
-    prepare_op_getfield_gc_pure_r = _prepare_op_getfield
-    prepare_op_getfield_gc_pure_f = _prepare_op_getfield
+    prepare_op_gc_load_i = _prepare_op_gc_load
+    prepare_op_gc_load_r = _prepare_op_gc_load
+    prepare_op_gc_load_f = _prepare_op_gc_load
 
     def prepare_op_increment_debug_counter(self, op, fcond):
         boxes = op.getarglist()
@@ -859,187 +842,37 @@ class Regalloc(BaseRegalloc):
         self.free_temp_vars()
         return [base_loc, value_loc]
 
-    def _prepare_op_getinteriorfield(self, op, fcond):
-        t = unpack_interiorfielddescr(op.getdescr())
-        ofs, itemsize, fieldsize, sign = t
-        args = op.getarglist()
-        base_loc = self.make_sure_var_in_reg(op.getarg(0), args)
-        index_loc = self.make_sure_var_in_reg(op.getarg(1), args)
-        immofs = imm(ofs)
-        ofs_size = default_imm_size if fieldsize < 8 else VMEM_imm_size
-        if check_imm_arg(ofs, size=ofs_size):
-            ofs_loc = immofs
-        else:
-            ofs_loc = self.get_scratch_reg(INT, args)
-            self.assembler.load(ofs_loc, immofs)
-        self.possibly_free_vars_for_op(op)
-        self.free_temp_vars()
-        result_loc = self.force_allocate_reg(op)
-        return [base_loc, index_loc, result_loc, ofs_loc, imm(ofs),
-                                    imm(itemsize), imm(fieldsize)]
-
-    prepare_op_getinteriorfield_gc_i = _prepare_op_getinteriorfield
-    prepare_op_getinteriorfield_gc_r = _prepare_op_getinteriorfield
-    prepare_op_getinteriorfield_gc_f = _prepare_op_getinteriorfield
-
-    def prepare_op_setinteriorfield_gc(self, op, fcond):
-        t = unpack_interiorfielddescr(op.getdescr())
-        ofs, itemsize, fieldsize, sign = t
-        args = op.getarglist()
-        base_loc = self.make_sure_var_in_reg(op.getarg(0), args)
-        index_loc = self.make_sure_var_in_reg(op.getarg(1), args)
-        value_loc = self.make_sure_var_in_reg(op.getarg(2), args)
-        immofs = imm(ofs)
-        ofs_size = default_imm_size if fieldsize < 8 else VMEM_imm_size
-        if check_imm_arg(ofs, size=ofs_size):
-            ofs_loc = immofs
-        else:
-            ofs_loc = self.get_scratch_reg(INT, args)
-            self.assembler.load(ofs_loc, immofs)
-        return [base_loc, index_loc, value_loc, ofs_loc, imm(ofs),
-                                        imm(itemsize), imm(fieldsize)]
-    prepare_op_setinteriorfield_raw = prepare_op_setinteriorfield_gc
-
-    def prepare_op_arraylen_gc(self, op, fcond):
-        arraydescr = op.getdescr()
-        assert isinstance(arraydescr, ArrayDescr)
-        ofs = arraydescr.lendescr.offset
-        arg = op.getarg(0)
-        base_loc = self.make_sure_var_in_reg(arg)
-        self.possibly_free_vars_for_op(op)
-        self.free_temp_vars()
-        res = self.force_allocate_reg(op)
-        return [res, base_loc, imm(ofs)]
-
-    def prepare_op_setarrayitem_gc(self, op, fcond):
-        size, ofs, _ = unpack_arraydescr(op.getdescr())
-        scale = get_scale(size)
-        args = op.getarglist()
-        base_loc = self.make_sure_var_in_reg(args[0], args)
-        value_loc = self.make_sure_var_in_reg(args[2], args)
-        ofs_loc = self.make_sure_var_in_reg(args[1], args)
-        assert check_imm_arg(ofs)
-        return [value_loc, base_loc, ofs_loc, imm(scale), imm(ofs)]
-    prepare_op_setarrayitem_raw = prepare_op_setarrayitem_gc
-    prepare_op_raw_store = prepare_op_setarrayitem_gc
-
-    def _prepare_op_getarrayitem(self, op, fcond):
-        boxes = op.getarglist()
-        size, ofs, _ = unpack_arraydescr(op.getdescr())
-        scale = get_scale(size)
-        base_loc = self.make_sure_var_in_reg(boxes[0], boxes)
-        ofs_loc = self.make_sure_var_in_reg(boxes[1], boxes)
-        self.possibly_free_vars_for_op(op)
-        self.free_temp_vars()
-        res = self.force_allocate_reg(op)
-        assert check_imm_arg(ofs)
-        return [res, base_loc, ofs_loc, imm(scale), imm(ofs)]
-
-    prepare_op_getarrayitem_gc_i = _prepare_op_getarrayitem
-    prepare_op_getarrayitem_gc_r = _prepare_op_getarrayitem
-    prepare_op_getarrayitem_gc_f = _prepare_op_getarrayitem
-    prepare_op_getarrayitem_raw_i = _prepare_op_getarrayitem
-    prepare_op_getarrayitem_raw_f = _prepare_op_getarrayitem
-    prepare_op_getarrayitem_gc_pure_i = _prepare_op_getarrayitem
-    prepare_op_getarrayitem_gc_pure_r = _prepare_op_getarrayitem
-    prepare_op_getarrayitem_gc_pure_f = _prepare_op_getarrayitem
-    prepare_op_raw_load_i = _prepare_op_getarrayitem
-    prepare_op_raw_load_f = _prepare_op_getarrayitem
-
-    def prepare_op_strlen(self, op, fcond):
-        args = op.getarglist()
-        l0 = self.make_sure_var_in_reg(op.getarg(0))
-        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
-                                         self.cpu.translate_support_code)
-        immofs = imm(ofs_length)
-        if check_imm_arg(ofs_length):
-            l1 = immofs
-        else:
-            l1 = self.get_scratch_reg(INT, args)
-            self.assembler.load(l1, immofs)
-
-        self.possibly_free_vars_for_op(op)
-        self.free_temp_vars()
-
-        res = self.force_allocate_reg(op)
-        self.possibly_free_var(op)
-        return [l0, l1, res]
-
-    def prepare_op_strgetitem(self, op, fcond):
-        boxes = op.getarglist()
-        base_loc = self.make_sure_var_in_reg(boxes[0])
-
-        a1 = boxes[1]
-        imm_a1 = check_imm_box(a1)
-        if imm_a1:
-            ofs_loc = self.convert_to_imm(a1)
-        else:
-            ofs_loc = self.make_sure_var_in_reg(a1, boxes)
-
-        self.possibly_free_vars_for_op(op)
-        self.free_temp_vars()
-        res = self.force_allocate_reg(op)
-
-        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
-                                         self.cpu.translate_support_code)
-        assert itemsize == 1
-        return [res, base_loc, ofs_loc, imm(basesize)]
-
-    def prepare_op_strsetitem(self, op, fcond):
+    def prepare_op_gc_store_indexed(self, op, fcond):
         boxes = op.getarglist()
         base_loc = self.make_sure_var_in_reg(boxes[0], boxes)
-        ofs_loc = self.make_sure_var_in_reg(boxes[1], boxes)
         value_loc = self.make_sure_var_in_reg(boxes[2], boxes)
-        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
-                                         self.cpu.translate_support_code)
-        assert itemsize == 1
-        return [value_loc, base_loc, ofs_loc, imm(basesize)]
+        index_loc = self.make_sure_var_in_reg(boxes[1], boxes)
+        assert boxes[3].getint() == 1    # scale
+        ofs = boxes[4].getint()
+        size = boxes[5].getint()
+        assert check_imm_arg(ofs)
+        return [value_loc, base_loc, index_loc, imm(size), imm(ofs)]
+
+    def _prepare_op_gc_load_indexed(self, op, fcond):
+        boxes = op.getarglist()
+        base_loc = self.make_sure_var_in_reg(boxes[0], boxes)
+        index_loc = self.make_sure_var_in_reg(boxes[1], boxes)
+        assert boxes[2].getint() == 1    # scale
+        ofs = boxes[3].getint()
+        nsize = boxes[4].getint()
+        assert check_imm_arg(ofs)
+        self.possibly_free_vars_for_op(op)
+        self.free_temp_vars()
+        res_loc = self.force_allocate_reg(op)
+        return [res_loc, base_loc, index_loc, imm(nsize), imm(ofs)]
+
+    prepare_op_gc_load_indexed_i = _prepare_op_gc_load_indexed
+    prepare_op_gc_load_indexed_r = _prepare_op_gc_load_indexed
+    prepare_op_gc_load_indexed_f = _prepare_op_gc_load_indexed
 
     prepare_op_copystrcontent = void
     prepare_op_copyunicodecontent = void
     prepare_op_zero_array = void
-
-    def prepare_op_unicodelen(self, op, fcond):
-        l0 = self.make_sure_var_in_reg(op.getarg(0))
-        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.UNICODE,
-                                         self.cpu.translate_support_code)
-        immofs = imm(ofs_length)
-        if check_imm_arg(ofs_length):
-            l1 = immofs
-        else:
-            l1 = self.get_scratch_reg(INT, [op.getarg(0)])
-            self.assembler.load(l1, immofs)
-
-        self.possibly_free_vars_for_op(op)
-        self.free_temp_vars()
-        res = self.force_allocate_reg(op)
-        return [l0, l1, res]
-
-    def prepare_op_unicodegetitem(self, op, fcond):
-        boxes = op.getarglist()
-        base_loc = self.make_sure_var_in_reg(boxes[0], boxes)
-        ofs_loc = self.make_sure_var_in_reg(boxes[1], boxes)
-
-        self.possibly_free_vars_for_op(op)
-        self.free_temp_vars()
-        res = self.force_allocate_reg(op)
-
-        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.UNICODE,
-                                         self.cpu.translate_support_code)
-        scale = itemsize / 2
-        return [res, base_loc, ofs_loc,
-            imm(scale), imm(basesize), imm(itemsize)]
-
-    def prepare_op_unicodesetitem(self, op, fcond):
-        boxes = op.getarglist()
-        base_loc = self.make_sure_var_in_reg(boxes[0], boxes)
-        ofs_loc = self.make_sure_var_in_reg(boxes[1], boxes)
-        value_loc = self.make_sure_var_in_reg(boxes[2], boxes)
-        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.UNICODE,
-                                         self.cpu.translate_support_code)
-        scale = itemsize / 2
-        return [value_loc, base_loc, ofs_loc,
-            imm(scale), imm(basesize), imm(itemsize)]
 
     def _prepare_op_same_as(self, op, fcond):
         arg = op.getarg(0)
@@ -1142,8 +975,7 @@ class Regalloc(BaseRegalloc):
 
     def prepare_op_cond_call_gc_wb(self, op, fcond):
         # we force all arguments in a reg because it will be needed anyway by
-        # the following setfield_gc or setarrayitem_gc. It avoids loading it
-        # twice from the memory.
+        # the following gc_store. It avoids loading it twice from the memory.
         N = op.numargs()
         args = op.getarglist()
         arglocs = [self.make_sure_var_in_reg(op.getarg(i), args)

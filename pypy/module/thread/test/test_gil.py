@@ -1,5 +1,6 @@
 import time
 from pypy.module.thread import gil
+from rpython.rlib import rgil
 from rpython.rlib.test import test_rthread
 from rpython.rlib import rthread as thread
 from rpython.rlib.objectmodel import we_are_translated
@@ -55,7 +56,7 @@ class GILTests(test_rthread.AbstractGCTestClass):
                 assert state.datalen3 == len(state.data)
                 assert state.datalen4 == len(state.data)
                 debug_print(main, i, state.datalen4)
-                gil.do_yield_thread()
+                rgil.yield_thread()
                 assert i == j
                 j += 1
         def bootstrap():
@@ -64,7 +65,7 @@ class GILTests(test_rthread.AbstractGCTestClass):
             except Exception, e:
                 assert 0
             thread.gc_thread_die()
-        my_gil_threadlocals = gil.GILThreadLocals()
+        my_gil_threadlocals = gil.GILThreadLocals(space)
         def f():
             state.data = []
             state.datalen1 = 0
@@ -82,9 +83,9 @@ class GILTests(test_rthread.AbstractGCTestClass):
                 if not still_waiting:
                     raise ValueError("time out")
                 still_waiting -= 1
-                if not we_are_translated(): gil.before_external_call()
+                if not we_are_translated(): rgil.release()
                 time.sleep(0.01)
-                if not we_are_translated(): gil.after_external_call()
+                if not we_are_translated(): rgil.acquire()
             debug_print("leaving!")
             i1 = i2 = 0
             for tid, i in state.data:

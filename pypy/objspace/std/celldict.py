@@ -153,7 +153,7 @@ class ModuleDictStrategy(DictStrategy):
         d_new = strategy.unerase(strategy.get_empty_storage())
         for key, cell in d.iteritems():
             d_new[_wrapkey(space, key)] = unwrap_cell(self.space, cell)
-        w_dict.strategy = strategy
+        w_dict.set_strategy(strategy)
         w_dict.dstorage = strategy.erase(d_new)
 
     def getiterkeys(self, w_dict):

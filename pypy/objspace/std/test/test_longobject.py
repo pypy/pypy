@@ -399,6 +399,13 @@ class AppTestLong:
         assert str(e.value) == (
             "int() argument must be a string or a number, not 'list'")
 
+    def test_linear_long_base_16(self):
+        # never finishes if int(_, 16) is not linear-time
+        size = 100000
+        n = "a" * size
+        expected = (2 << (size * 4)) // 3
+        assert int(n, 16) == expected
+
     def test_large_identity(self):
         import sys
         if '__pypy__' not in sys.builtin_module_names:

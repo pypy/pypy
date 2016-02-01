@@ -123,7 +123,7 @@ Py_TPFLAGS_READY Py_TPFLAGS_READYING Py_TPFLAGS_HAVE_GETCHARBUFFER
 METH_COEXIST METH_STATIC METH_CLASS
 METH_NOARGS METH_VARARGS METH_KEYWORDS METH_O
 Py_TPFLAGS_HEAPTYPE Py_TPFLAGS_HAVE_CLASS
-Py_LT Py_LE Py_EQ Py_NE Py_GT Py_GE
+Py_LT Py_LE Py_EQ Py_NE Py_GT Py_GE Py_TPFLAGS_CHECKTYPES
 Py_CLEANUP_SUPPORTED
 """.split()
 for name in constant_names:
@@ -143,7 +143,7 @@ def _copy_header_files(headers, dstdir):
         target.chmod(0444) # make the file read-only, to make sure that nobody
                            # edits it by mistake
 
-def copy_header_files(dstdir):
+def copy_header_files(dstdir, copy_numpy_headers):
     # XXX: 20 lines of code to recursively copy a directory, really??
     assert dstdir.check(dir=True)
     headers = include_dir.listdir('*.h') + include_dir.listdir('*.inl')
@@ -151,15 +151,16 @@ def copy_header_files(dstdir):
         headers.append(udir.join(name))
     _copy_header_files(headers, dstdir)
 
-    try:
-        dstdir.mkdir('numpy')
-    except py.error.EEXIST:
-        pass
-    numpy_dstdir = dstdir / 'numpy'
+    if copy_numpy_headers:
+        try:
+            dstdir.mkdir('numpy')
+        except py.error.EEXIST:
+            pass
+        numpy_dstdir = dstdir / 'numpy'
 
-    numpy_include_dir = include_dir / 'numpy'
-    numpy_headers = numpy_include_dir.listdir('*.h') + numpy_include_dir.listdir('*.inl')
-    _copy_header_files(numpy_headers, numpy_dstdir)
+        numpy_include_dir = include_dir / 'numpy'
+        numpy_headers = numpy_include_dir.listdir('*.h') + numpy_include_dir.listdir('*.inl')
+        _copy_header_files(numpy_headers, numpy_dstdir)
 
 
 class NotSpecified(object):
@@ -444,8 +445,8 @@ SYMBOLS_C = [
 TYPES = {}
 GLOBALS = { # this needs to include all prebuilt pto, otherwise segfaults occur
     '_Py_NoneStruct#': ('PyObject*', 'space.w_None'),
-    '_Py_TrueStruct#': ('PyObject*', 'space.w_True'),
-    '_Py_ZeroStruct#': ('PyObject*', 'space.w_False'),
+    '_Py_TrueStruct#': ('PyIntObject*', 'space.w_True'),
+    '_Py_ZeroStruct#': ('PyIntObject*', 'space.w_False'),
     '_Py_NotImplementedStruct#': ('PyObject*', 'space.w_NotImplemented'),
     '_Py_EllipsisObject#': ('PyObject*', 'space.w_Ellipsis'),
     'PyDateTimeAPI': ('PyDateTime_CAPI*', 'None'),
@@ -482,7 +483,6 @@ def build_exported_objects():
         "PyComplex_Type": "space.w_complex",
         "PyByteArray_Type": "space.w_bytearray",
         "PyMemoryView_Type": "space.w_memoryview",
-        #"PyArray_Type": "space.gettypeobject(W_NDimArray.typedef)",
         "PyBaseObject_Type": "space.w_object",
         'PyNone_Type': 'space.type(space.w_None)',
         'PyNotImplemented_Type': 'space.type(space.w_NotImplemented)',
@@ -506,7 +506,9 @@ build_exported_objects()
 def get_structtype_for_ctype(ctype):
     from pypy.module.cpyext.typeobjectdefs import PyTypeObjectPtr
     from pypy.module.cpyext.cdatetime import PyDateTime_CAPI
+    from pypy.module.cpyext.intobject import PyIntObject
     return {"PyObject*": PyObject, "PyTypeObject*": PyTypeObjectPtr,
+            "PyIntObject*": PyIntObject,
             "PyDateTime_CAPI*": lltype.Ptr(PyDateTime_CAPI)}[ctype]
 
 PyTypeObject = lltype.ForwardReference()
@@ -602,6 +604,7 @@ pypy_debug_catch_fatal_exception = rffi.llexternal('pypy_debug_catch_fatal_excep
 # Make the wrapper for the cases (1) and (2)
 def make_wrapper(space, callable, gil=None):
     "NOT_RPYTHON"
+    from rpython.rlib import rgil
     names = callable.api_func.argnames
     argtypes_enum_ui = unrolling_iterable(enumerate(zip(callable.api_func.argtypes,
         [name.startswith("w_") for name in names])))
@@ -617,9 +620,7 @@ def make_wrapper(space, callable, gil=None):
         # we hope that malloc removal removes the newtuple() that is
         # inserted exactly here by the varargs specializer
         if gil_acquire:
-            after = rffi.aroundstate.after
-            if after:
-                after()
+            rgil.acquire()
         rffi.stackcounter.stacks_counter += 1
         llop.gc_stack_bottom(lltype.Void)   # marker for trackgcroot.py
         retval = fatal_value
@@ -692,9 +693,7 @@ def make_wrapper(space, callable, gil=None):
                 pypy_debug_catch_fatal_exception()
         rffi.stackcounter.stacks_counter -= 1
         if gil_release:
-            before = rffi.aroundstate.before
-            if before:
-                before()
+            rgil.release()
         return retval
     callable._always_inline_ = 'try'
     wrapper.__name__ = "wrapper for %r" % (callable, )
@@ -774,6 +773,8 @@ def build_bridge(space):
     "NOT_RPYTHON"
     from pypy.module.cpyext.pyobject import make_ref
 
+    use_micronumpy = setup_micronumpy(space)
+
     export_symbols = list(FUNCTIONS) + SYMBOLS_C + list(GLOBALS)
     from rpython.translator.c.database import LowLevelDatabase
     db = LowLevelDatabase()
@@ -831,6 +832,7 @@ def build_bridge(space):
     space.fromcache(State).install_dll(eci)
 
     # populate static data
+    builder = StaticObjectBuilder(space)
     for name, (typ, expr) in GLOBALS.iteritems():
         from pypy.module import cpyext
         w_obj = eval(expr)
@@ -855,7 +857,7 @@ def build_bridge(space):
                 assert False, "Unknown static pointer: %s %s" % (typ, name)
             ptr.value = ctypes.cast(ll2ctypes.lltype2ctypes(value),
                                     ctypes.c_void_p).value
-        elif typ in ('PyObject*', 'PyTypeObject*'):
+        elif typ in ('PyObject*', 'PyTypeObject*', 'PyIntObject*'):
             if name.startswith('PyPyExc_') or name.startswith('cpyexttestExc_'):
                 # we already have the pointer
                 in_dll = ll2ctypes.get_ctypes_type(PyObject).in_dll(bridge, name)
@@ -864,17 +866,10 @@ def build_bridge(space):
                 # we have a structure, get its address
                 in_dll = ll2ctypes.get_ctypes_type(PyObject.TO).in_dll(bridge, name)
                 py_obj = ll2ctypes.ctypes2lltype(PyObject, ctypes.pointer(in_dll))
-            from pypy.module.cpyext.pyobject import (
-                track_reference, get_typedescr)
-            w_type = space.type(w_obj)
-            typedescr = get_typedescr(w_type.instancetypedef)
-            py_obj.c_ob_refcnt = 1
-            py_obj.c_ob_type = rffi.cast(PyTypeObjectPtr,
-                                         make_ref(space, w_type))
-            typedescr.attach(space, py_obj, w_obj)
-            track_reference(space, py_obj, w_obj)
+            builder.prepare(py_obj, w_obj)
         else:
             assert False, "Unknown static object: %s %s" % (typ, name)
+    builder.attach_all()
 
     pypyAPI = ctypes.POINTER(ctypes.c_void_p).in_dll(bridge, 'pypyAPI')
 
@@ -890,6 +885,36 @@ def build_bridge(space):
 
     setup_init_functions(eci, translating=False)
     return modulename.new(ext='')
+
+
+class StaticObjectBuilder:
+    def __init__(self, space):
+        self.space = space
+        self.to_attach = []
+
+    def prepare(self, py_obj, w_obj):
+        from pypy.module.cpyext.pyobject import track_reference
+        py_obj.c_ob_refcnt = 1
+        track_reference(self.space, py_obj, w_obj)
+        self.to_attach.append((py_obj, w_obj))
+
+    def attach_all(self):
+        from pypy.module.cpyext.pyobject import get_typedescr, make_ref
+        from pypy.module.cpyext.typeobject import finish_type_1, finish_type_2
+        space = self.space
+        space._cpyext_type_init = []
+        for py_obj, w_obj in self.to_attach:
+            w_type = space.type(w_obj)
+            typedescr = get_typedescr(w_type.instancetypedef)
+            py_obj.c_ob_type = rffi.cast(PyTypeObjectPtr,
+                                         make_ref(space, w_type))
+            typedescr.attach(space, py_obj, w_obj)
+        cpyext_type_init = space._cpyext_type_init
+        del space._cpyext_type_init
+        for pto, w_type in cpyext_type_init:
+            finish_type_1(space, pto)
+            finish_type_2(space, pto, w_type)
+
 
 def mangle_name(prefix, name):
     if name.startswith('Py'):
@@ -986,6 +1011,23 @@ def generate_decls_and_callbacks(db, export_symbols, api_struct=True):
     pypy_decl_h.write('\n'.join(pypy_decls))
     return functions
 
+separate_module_files = [source_dir / "varargwrapper.c",
+                         source_dir / "pyerrors.c",
+                         source_dir / "modsupport.c",
+                         source_dir / "getargs.c",
+                         source_dir / "abstract.c",
+                         source_dir / "unicodeobject.c",
+                         source_dir / "mysnprintf.c",
+                         source_dir / "pythonrun.c",
+                         source_dir / "sysmodule.c",
+                         source_dir / "cobject.c",
+                         source_dir / "structseq.c",
+                         source_dir / "capsule.c",
+                         source_dir / "pysignals.c",
+                         source_dir / "pythread.c",
+                         source_dir / "missing.c",
+                         ]
+
 def build_eci(building_bridge, export_symbols, code):
     "NOT_RPYTHON"
     # Build code and get pointer to the structure
@@ -1039,23 +1081,7 @@ def build_eci(building_bridge, export_symbols, code):
 
     eci = ExternalCompilationInfo(
         include_dirs=include_dirs,
-        separate_module_files=[source_dir / "varargwrapper.c",
-                               source_dir / "pyerrors.c",
-                               source_dir / "modsupport.c",
-                               source_dir / "getargs.c",
-                               source_dir / "abstract.c",
-                               source_dir / "unicodeobject.c",
-                               source_dir / "mysnprintf.c",
-                               source_dir / "pythonrun.c",
-                               source_dir / "sysmodule.c",
-                               source_dir / "cobject.c",
-                               source_dir / "structseq.c",
-                               source_dir / "capsule.c",
-                               source_dir / "pysignals.c",
-                               source_dir / "pythread.c",
-                               #source_dir / "ndarrayobject.c",
-                               source_dir / "missing.c",
-                               ],
+        separate_module_files= separate_module_files,
         separate_module_sources=separate_module_sources,
         compile_extra=compile_extra,
         **kwds
@@ -1063,10 +1089,25 @@ def build_eci(building_bridge, export_symbols, code):
 
     return eci
 
+def setup_micronumpy(space):
+    # py3k
+    return False
+
+    use_micronumpy = space.config.objspace.usemodules.micronumpy
+    if not use_micronumpy:
+        return use_micronumpy
+    # import to register api functions by side-effect
+    import pypy.module.cpyext.ndarrayobject 
+    global GLOBALS, SYMBOLS_C, separate_module_files
+    GLOBALS["PyArray_Type#"]= ('PyTypeObject*', "space.gettypeobject(W_NDimArray.typedef)")
+    SYMBOLS_C += ['PyArray_Type', '_PyArray_FILLWBYTE', '_PyArray_ZEROS']
+    separate_module_files.append(source_dir / "ndarrayobject.c")
+    return use_micronumpy
 
 def setup_library(space):
     "NOT_RPYTHON"
     from pypy.module.cpyext.pyobject import make_ref
+    use_micronumpy = setup_micronumpy(space)
 
     export_symbols = list(FUNCTIONS) + SYMBOLS_C + list(GLOBALS)
     from rpython.translator.c.database import LowLevelDatabase
@@ -1084,14 +1125,33 @@ def setup_library(space):
     run_bootstrap_functions(space)
     setup_va_functions(eci)
 
+    from pypy.module import cpyext   # for eval() below
+
+    # Set up the types.  Needs a special case, because of the
+    # immediate cycle involving 'c_ob_type', and because we don't
+    # want these types to be Py_TPFLAGS_HEAPTYPE.
+    static_types = {}
+    for name, (typ, expr) in GLOBALS.items():
+        if typ == 'PyTypeObject*':
+            pto = lltype.malloc(PyTypeObject, immortal=True,
+                                zero=True, flavor='raw')
+            pto.c_ob_refcnt = 1
+            pto.c_tp_basicsize = -1
+            static_types[name] = pto
+    builder = StaticObjectBuilder(space)
+    for name, pto in static_types.items():
+        pto.c_ob_type = static_types['PyType_Type#']
+        w_type = eval(GLOBALS[name][1])
+        builder.prepare(rffi.cast(PyObject, pto), w_type)
+    builder.attach_all()
+
     # populate static data
     for name, (typ, expr) in GLOBALS.iteritems():
         name = name.replace("#", "")
         if name.startswith('PyExc_'):
             name = '_' + name
-        from pypy.module import cpyext
         w_obj = eval(expr)
-        if typ in ('PyObject*', 'PyTypeObject*'):
+        if typ in ('PyObject*', 'PyTypeObject*', 'PyIntObject*'):
             struct_ptr = make_ref(space, w_obj)
         elif typ == 'PyDateTime_CAPI*':
             continue
@@ -1108,7 +1168,7 @@ def setup_library(space):
 
     setup_init_functions(eci, translating=True)
     trunk_include = pypydir.dirpath() / 'include'
-    copy_header_files(trunk_include)
+    copy_header_files(trunk_include, use_micronumpy)
 
 def _load_from_cffi(space, name, path, initptr):
     from pypy.module._cffi_backend import cffi1_module

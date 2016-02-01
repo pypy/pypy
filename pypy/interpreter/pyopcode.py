@@ -832,16 +832,16 @@ class __extend__(pyframe.PyFrame):
     def STORE_GLOBAL(self, nameindex, next_instr):
         varname = self.getname_u(nameindex)
         w_newvalue = self.popvalue()
-        self.space.setitem_str(self.w_globals, varname, w_newvalue)
+        self.space.setitem_str(self.get_w_globals(), varname, w_newvalue)
 
     def DELETE_GLOBAL(self, nameindex, next_instr):
         w_varname = self.getname_w(nameindex)
-        self.space.delitem(self.w_globals, w_varname)
+        self.space.delitem(self.get_w_globals(), w_varname)
 
     def LOAD_NAME(self, nameindex, next_instr):
         w_varname = self.getname_w(nameindex)
         varname = self.space.identifier_w(w_varname)
-        if self.getorcreatedebug().w_locals is not self.w_globals:
+        if self.getorcreatedebug().w_locals is not self.get_w_globals():
             w_value = self.space.finditem_str(self.getorcreatedebug().w_locals,
                                               varname)
             if w_value is not None:
@@ -855,7 +855,7 @@ class __extend__(pyframe.PyFrame):
         self.pushvalue(w_value)
 
     def _load_global(self, varname):
-        w_value = self.space.finditem_str(self.w_globals, varname)
+        w_value = self.space.finditem_str(self.get_w_globals(), varname)
         if w_value is None:
             # not in the globals, now look in the built-ins
             w_value = self.get_builtin().getdictvalue(self.space, varname)
@@ -986,7 +986,7 @@ class __extend__(pyframe.PyFrame):
             w_locals = d.w_locals
         if w_locals is None:            # CPython does this
             w_locals = space.w_None
-        w_globals = self.w_globals
+        w_globals = self.get_w_globals()
         if w_flag is None:
             w_obj = space.call_function(w_import, w_modulename, w_globals,
                                         w_locals, w_fromlist)
@@ -1221,7 +1221,7 @@ class __extend__(pyframe.PyFrame):
                 w_name = self.popvalue()
                 w_def = self.popvalue()
                 space.setitem(w_kw_defs, w_def, w_name)
-        fn = function.Function(space, codeobj, self.w_globals, defaultarguments,
+        fn = function.Function(space, codeobj, self.get_w_globals(), defaultarguments,
                                w_kw_defs, freevars, w_ann)
         self.pushvalue(space.wrap(fn))
 
@@ -1610,7 +1610,7 @@ def ensure_ns(space, w_globals, w_locals, funcname, caller=None):
             if space.is_none(w_locals):
                 w_locals = w_globals
         else:
-            w_globals = caller.w_globals
+            w_globals = caller.get_w_globals()
             if space.is_none(w_locals):
                 w_locals = caller.getdictscope()
     elif space.is_none(w_locals):

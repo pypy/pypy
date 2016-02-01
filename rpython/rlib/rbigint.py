@@ -414,14 +414,18 @@ class rbigint(object):
     @jit.elidable
     def _toint_helper(self):
         x = self._touint_helper()
-        # Haven't lost any bits, but if the sign bit is set we're in
-        # trouble *unless* this is the min negative number.  So,
-        # trouble iff sign bit set && (positive || some bit set other
-        # than the sign bit).
-        sign = self.sign
-        if intmask(x) < 0 and (sign > 0 or (x << 1) != 0):
-            raise OverflowError
-        return intmask(intmask(x) * sign)
+        # Haven't lost any bits so far
+        if self.sign >= 0:
+            res = intmask(x)
+            if res < 0:
+                raise OverflowError
+        else:
+            # Use "-" on the unsigned number, not on the signed number.
+            # This is needed to produce valid C code.
+            res = intmask(-x)
+            if res >= 0:
+                raise OverflowError
+        return res
 
     @jit.elidable
     def tolonglong(self):
@@ -2794,8 +2798,10 @@ def _decimalstr_to_bigint(s):
 
 def parse_digit_string(parser):
     # helper for fromstr
-    a = rbigint()
     base = parser.base
+    if (base & (base - 1)) == 0:
+        return parse_string_from_binary_base(parser)
+    a = rbigint()
     digitmax = BASE_MAX[base]
     tens, dig = 1, 0
     while True:
@@ -2811,3 +2817,52 @@ def parse_digit_string(parser):
             tens *= base
     a.sign *= parser.sign
     return a
+
+def parse_string_from_binary_base(parser):
+    # The point to this routine is that it takes time linear in the number of
+    # string characters.
+    from rpython.rlib.rstring import ParseStringError
+
+    base = parser.base
+    if   base ==  2: bits_per_char = 1
+    elif base ==  4: bits_per_char = 2
+    elif base ==  8: bits_per_char = 3
+    elif base == 16: bits_per_char = 4
+    elif base == 32: bits_per_char = 5
+    else:
+        raise AssertionError
+
+    # n <- total number of bits needed, while moving 'parser' to the end
+    n = 0
+    while parser.next_digit() >= 0:
+        n += 1
+
+    # b <- number of Python digits needed, = ceiling(n/SHIFT). */
+    try:
+        b = ovfcheck(n * bits_per_char)
+        b = ovfcheck(b + (SHIFT - 1))
+    except OverflowError:
+        raise ParseStringError("long string too large to convert")
+    b = (b // SHIFT) or 1
+    z = rbigint([NULLDIGIT] * b, sign=parser.sign)
+
+    # Read string from right, and fill in long from left; i.e.,
+    # from least to most significant in both.
+    accum = _widen_digit(0)
+    bits_in_accum = 0
+    pdigit = 0
+    for _ in range(n):
+        k = parser.prev_digit()
+        accum |= _widen_digit(k) << bits_in_accum
+        bits_in_accum += bits_per_char
+        if bits_in_accum >= SHIFT:
+            z.setdigit(pdigit, accum)
+            pdigit += 1
+            assert pdigit <= b
+            accum >>= SHIFT
+            bits_in_accum -= SHIFT
+
+    if bits_in_accum:
+        z.setdigit(pdigit, accum)
+    z._normalize()
+    return z

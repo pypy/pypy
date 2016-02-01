@@ -28,7 +28,8 @@ typedef enum RPyLockStatus {
 
 RPY_EXTERN void RPyGilAllocate(void);
 RPY_EXTERN long RPyGilYieldThread(void);
-RPY_EXTERN void RPyGilAcquire(void);
+RPY_EXTERN void RPyGilAcquireSlowPath(long);
+#define RPyGilAcquire _RPyGilAcquire
 #define RPyGilRelease _RPyGilRelease
 #define RPyFetchFastGil _RPyFetchFastGil
 
@@ -40,9 +41,14 @@ RPY_EXTERN void RPyGilAcquire(void);
 
 RPY_EXTERN long rpy_fastgil;
 
+static inline void _RPyGilAcquire(void) {
+    long old_fastgil = lock_test_and_set(&rpy_fastgil, 1);
+    if (old_fastgil != 0)
+        RPyGilAcquireSlowPath(old_fastgil);
+}
 static inline void _RPyGilRelease(void) {
     assert(RPY_FASTGIL_LOCKED(rpy_fastgil));
-    rpy_fastgil = 0;
+    lock_release(&rpy_fastgil);
 }
 static inline long *_RPyFetchFastGil(void) {
     return &rpy_fastgil;

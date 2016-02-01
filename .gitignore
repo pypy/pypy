@@ -29,4 +29,4 @@ pypy/translator/goal/target*-c
 release/
 !pypy/tool/release/
 rpython/_cache/
-__pycache__/
+.cache/

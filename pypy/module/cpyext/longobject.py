@@ -228,26 +228,11 @@ UCHARP = rffi.CArrayPtr(rffi.UCHAR)
 def _PyLong_FromByteArray(space, bytes, n, little_endian, signed):
     little_endian = rffi.cast(lltype.Signed, little_endian)
     signed = rffi.cast(lltype.Signed, signed)
-
-    result = rbigint()
-    negative = False
-
-    for i in range(0, n):
-        if little_endian:
-            c = intmask(bytes[i])
-        else:
-            c = intmask(bytes[n - i - 1])
-        if i == 0 and signed and c & 0x80:
-            negative = True
-        if negative:
-            c = c ^ 0xFF
-        digit = rbigint.fromint(c)
-
-        result = result.lshift(8)
-        result = result.add(digit)
-
-    if negative:
-        result = result.neg()
-
+    s = rffi.charpsize2str(rffi.cast(rffi.CCHARP, bytes),
+                           rffi.cast(lltype.Signed, n))
+    if little_endian:
+        byteorder = 'little'
+    else:
+        byteorder = 'big'
+    result = rbigint.frombytes(s, byteorder, signed != 0)
     return space.newlong_from_rbigint(result)
-
