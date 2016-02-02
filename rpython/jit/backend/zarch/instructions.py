@@ -13,6 +13,7 @@ arith_mnemonic_codes = {
     # add
     'AR':      ('rr',    ['\x1A']),
     'AGR':     ('rre',   ['\xB9','\x08']),
+    'AGRK':    ('rrf_a', ['\xB9','\xE8']),
     'AGFR':    ('rre',   ['\xB9','\x18']),
     'A':       ('rx',    ['\x5A']),
     'AGFI':    ('ril',   ['\xC2','\x08']),
@@ -60,6 +61,7 @@ arith_mnemonic_codes = {
     'AGF':     ('rxy',   ['\xE3','\x18']),
     'AHI':     ('ri',    ['\xA7','\x0A']),
     'AGHI':    ('ri',    ['\xA7','\x0B']),
+    'AGHIK':   ('rie_d', ['\xEC','\xD9']),
 
 
     # comparision
@@ -150,6 +152,7 @@ memory_mnemonic_codes = {
     'LGB':     ('rxy',   ['\xE3','\x77']),
     'LLGC':     ('rxy',   ['\xE3','\x90']),
     'LARL':    ('ril',   ['\xC0','\x00'], 'r/m,h32'),
+    'IILF':    ('ril',   ['\xC0','\x09'], 'r,u32'),
     'IIHF':    ('ril',   ['\xC0','\x08'], 'r,u32'),
 
     # load on condition
@@ -251,6 +254,9 @@ floatingpoint_mnemonic_codes = {
     'CDBR':    ('rre',   ['\xB3','\x19']),
     'CEB':     ('rxe',   ['\xED','\x09'], 'r,bidl,-'),
     'CDB':     ('rxe',   ['\xED','\x19'], 'r,bidl,-'),
+
+    # compare and trap
+    'CGRT':    ('rrf_c', ['\xB9','\x60']),
 
     # complement & positive
     'LPDBR':    ('rre',   ['\xB3','\x10']),

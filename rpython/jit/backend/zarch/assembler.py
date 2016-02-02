@@ -466,21 +466,17 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
 
         if kind == 'fixed':
             # compute the size we want
-            # r5 is saved to the jit frame
-            # RES == r2!
-            mc.LGR(r.r5, r.RSZ)
-            mc.SGR(r.r5, r.RES)
-            mc.LGR(r.r2, r.r5)
+            mc.SGRK(r.r2, r.RSZ, r.RES)
             if hasattr(self.cpu.gc_ll_descr, 'passes_frame'):
                 # for tests only
                 mc.LGR(r.r3, r.SPP)
         elif kind == 'str' or kind == 'unicode':
-            pass  # length is already in r3
+            pass  # length is already in r2
         else:
             # arguments to the called function are [itemsize, tid, length]
             # itemsize is already in r2
-            mc.LGR(r.r3, r.SCRATCH2)   # tid
             mc.LGR(r.r4, r.RSZ)        # length
+            mc.LGR(r.r3, r.SCRATCH2)   # tid
 
         # Do the call
         addr = rffi.cast(lltype.Signed, addr)
@@ -498,11 +494,11 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         self._pop_fp_regs_from_jitframe(mc)
 
         nursery_free_adr = self.cpu.gc_ll_descr.get_nursery_free_addr()
-        self.mc.load_imm(r.SCRATCH, nursery_free_adr)
+        self.mc.load_imm(r.r1, nursery_free_adr)
 
-        # r.SCRATCH is now the address of nursery_free
+        # r.r1 is now the address of nursery_free
         # r.RES is still the result of the call done above
-        # r.RSZ is loaded from [SCRATCH], to make the caller's store a no-op here
+        # r.RSZ is loaded from [r1], to make the caller's store a no-op here
         mc.load(r.RSZ, r.r1, 0)
         #
         mc.restore_link()
@@ -1283,6 +1279,8 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         # no frame needed, r14 is saved on the jitframe
         mc.branch_absolute(self.malloc_slowpath)
 
+        # here r1 holds nursery_free_addr
+
         offset = mc.currpos() - fast_jmp_pos
         pmc = OverwritingBuilder(mc, fast_jmp_pos, 1)
         pmc.BRC(c.LE, l.imm(offset))    # jump if LE (not GT), predicted to be true
@@ -1362,15 +1360,13 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         force_realignment = (itemsize % WORD) != 0
         if force_realignment:
             constsize += WORD - 1
-        if lengthloc is not r.RSZ:
-            mc.LGR(r.RSZ, lengthloc)
-        mc.AGFI(r.RSZ, l.imm(constsize))
+        mc.AGHIK(r.RSZ, lengthloc, l.imm(constsize))
         if force_realignment:
             # "& ~(WORD-1)"
             mc.LGHI(r.SCRATCH2, l.imm(~(WORD-1)))
             mc.NGR(r.RSZ, r.SCRATCH2)
 
-        mc.AGR(r.RSZ, r.RES)
+        mc.AGRK(r.RSZ, r.RES, r.RSZ)
         # now RSZ contains the total size in bytes, rounded up to a multiple
         # of WORD, plus nursery_free_adr
 
@@ -1393,14 +1389,6 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         # save the gcmap
         self.load_gcmap(mc, r.r1, gcmap)
         #
-        # load the argument(s)
-        if kind == rewrite.FLAG_ARRAY:
-            mc.LGR(r.RSZ, lengthloc)
-            mc.load_imm(r.RES, itemsize)
-            mc.load_imm(r.SCRATCH2, arraydescr.tid)
-        else:
-            mc.LGR(r.RES, lengthloc)
-        #
         # load the function into r14 and jump
         if kind == rewrite.FLAG_ARRAY:
             addr = self.malloc_slowpath_varsize
@@ -1410,6 +1398,15 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
             addr = self.malloc_slowpath_unicode
         else:
             raise AssertionError(kind)
+        #
+        # load the argument(s)
+        if kind == rewrite.FLAG_ARRAY:
+            mc.LGR(r.RSZ, lengthloc)
+            mc.load_imm(r.RES, itemsize)
+            mc.load_imm(r.SCRATCH2, arraydescr.tid)
+        else:
+            mc.LGR(r.RES, lengthloc)
+        #
         #
         # call!
         mc.branch_absolute(addr)

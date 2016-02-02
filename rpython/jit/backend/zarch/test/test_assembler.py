@@ -125,6 +125,20 @@ class TestRunningAssembler(object):
         self.a.mc.BCR(con.ANY, r.r14)
         assert run_asm(self.a) == 0
 
+    def test_load_64bit(self):
+        self.a.mc.load_imm(r.r2, 0x0fffFFFF)
+        self.a.mc.BCR(con.ANY, r.r14)
+        assert run_asm(self.a) == 0x0fffFFFF
+
+    def test_load_64bit_2(self):
+        self.a.mc.load_imm(r.r2, 0xffffFFFF)
+        self.a.mc.BCR(con.ANY, r.r14)
+        assert run_asm(self.a) == 0xffffFFFF
+
+    def test_load_64bit_3(self):
+        self.a.mc.load_imm(r.r2, 2177165728)
+        self.a.mc.BCR(con.ANY, r.r14)
+        assert run_asm(self.a) == 2177165728
 
     def test_byte_count_instr(self):
         assert self.mc.BRC_byte_count == 4

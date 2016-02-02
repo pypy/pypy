@@ -679,12 +679,17 @@ class GuardOpAssembler(object):
 
     def emit_guard_nonnull_class(self, op, arglocs, regalloc):
         self.mc.cmp_op(arglocs[0], l.imm(1), imm=True, signed=False)
+
         patch_pos = self.mc.currpos()
         self.mc.reserve_cond_jump(short=True)
+
         self._cmp_guard_class(op, arglocs, regalloc)
+        #self.mc.CGRT(r.SCRATCH, r.SCRATCH2, c.NE)
+
         pmc = OverwritingBuilder(self.mc, patch_pos, 1)
         pmc.BRC(c.LT, l.imm(self.mc.currpos() - patch_pos))
         pmc.overwrite()
+
         self.guard_success_cc = c.EQ
         self._emit_guard(op, arglocs[2:])
 

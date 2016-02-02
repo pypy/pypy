@@ -175,7 +175,7 @@ class InstrBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
         else:
             # this is not put into the constant pool, because it
             # is an immediate value that cannot easily be forseen
-            self.LGFI(dest_reg, l.imm(word & 0xFFFFffff))
+            self.IILF(dest_reg, l.imm(word & 0xFFFFffff))
             self.IIHF(dest_reg, l.imm((word >> 32) & 0xFFFFffff))
 
     def load_imm_plus(self, dest_reg, word):
