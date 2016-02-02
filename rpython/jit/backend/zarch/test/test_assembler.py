@@ -144,6 +144,19 @@ class TestRunningAssembler(object):
         assert self.mc.BRC_byte_count == 4
         assert self.mc.LG_byte_count == 6
 
+    def test_facility(self):
+        adr = self.a.datablockwrapper.malloc_aligned(16, 16)
+        self.a.mc.load_imm(r.r2, adr)
+        self.a.mc.STFLE(loc.addr(0,r.r2))
+        self.a.mc.BCR(con.ANY, r.r14)
+        run_asm(self.a)
+        fac_data = rffi.cast(rffi.CArrayPtr(rffi.ULONG), adr)
+        f64 = bin(fac_data[0])[2:]
+        s64 = bin(fac_data[1])[2:]
+        print(f64)
+        print(s64)
+        assert f64[18] == '1' # long displacement facility
+
     def test_load_small_int_to_reg(self):
         self.a.mc.LGHI(r.r2, loc.imm(123))
         self.a.jmpto(r.r14)

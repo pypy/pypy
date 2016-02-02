@@ -62,7 +62,6 @@ class CallBuilder(AbstractCallBuilder):
         # called function will in turn call further functions (which must be passed the
         # address of the new frame). This stack grows downwards from high addresses
         # """
-        self.subtracted_to_sp = 0
 
         gpr_regs = 0
         fpr_regs = 0
@@ -88,11 +87,6 @@ class CallBuilder(AbstractCallBuilder):
         if self.is_call_release_gil:
             self.subtracted_to_sp += 8*WORD
             base += 8*WORD
-        # one additional word for remap frame layout
-        # regalloc_push will overwrite -8(r.SP) and destroy
-        # a parameter if we would not reserve that space
-        # base += WORD
-        # TODO self.subtracted_to_sp += WORD
         for idx,i in enumerate(stack_params):
             loc = arglocs[i]
             offset = STD_FRAME_SIZE_IN_BYTES - base + 8 * idx
@@ -149,7 +143,7 @@ class CallBuilder(AbstractCallBuilder):
     def emit_raw_call(self):
         # always allocate a stack frame for the new function
         # save the SP back chain
-        #self.mc.STG(r.SP, l.addr(-self.subtracted_to_sp, r.SP))
+        self.mc.STG(r.SP, l.addr(-self.subtracted_to_sp, r.SP))
         # move the frame pointer
         if self.subtracted_to_sp != 0:
             self.mc.LAY(r.SP, l.addr(-self.subtracted_to_sp, r.SP))
@@ -194,8 +188,6 @@ class CallBuilder(AbstractCallBuilder):
         #
         pos = STD_FRAME_SIZE_IN_BYTES - 7*WORD
         self.mc.STMG(r.r8, r.r13, l.addr(pos, r.SP))
-        # 6 registers, 1 for a floating point return value!
-        # registered by prepare_arguments!
         #
         # Save this thread's shadowstack pointer into r8, for later comparison
         gcrootmap = self.asm.cpu.gc_ll_descr.gcrootmap
@@ -266,19 +258,17 @@ class CallBuilder(AbstractCallBuilder):
         PARAM_SAVE_AREA_OFFSET = 0
         if reg is not None:
             # save 1 word below the stack pointer
-            pos = STD_FRAME_SIZE_IN_BYTES
             if reg.is_core_reg():
                 self.mc.LGR(RSAVEDRES, reg)
             elif reg.is_fp_reg():
-                self.mc.STD(reg, l.addr(pos-1*WORD, r.SP))
+                self.mc.STD(reg, l.addr(16*WORD, r.SP))
         self.mc.load_imm(self.mc.RAW_CALL_REG, self.asm.reacqgil_addr)
         self.mc.raw_call()
         if reg is not None:
-            pos = STD_FRAME_SIZE_IN_BYTES
             if reg.is_core_reg():
                 self.mc.LGR(reg, RSAVEDRES)
             elif reg.is_fp_reg():
-                self.mc.LD(reg, l.addr(pos-1*WORD, r.SP))
+                self.mc.LD(reg, l.addr(16*WORD, r.SP))
 
         # replace b1_location with BEQ(here)
         pmc = OverwritingBuilder(self.mc, b1_location, 1)

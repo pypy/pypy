@@ -288,6 +288,8 @@ all_mnemonic_codes = {
 
     'SVC':     ('i',     ['\x0A']),
     'TRAP2':   ('e',     ['\x01','\xFF']),
+
+    'STFLE':   ('s',     ['\xB2','\xB0']),
 }
 all_mnemonic_codes.update(arith_mnemonic_codes)
 all_mnemonic_codes.update(logic_mnemonic_codes)

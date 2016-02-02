@@ -191,6 +191,13 @@ def build_ril(mnemonic, (opcode,halfopcode), args='r/m,i32'):
         self.write_i32(imm32 & BIT_MASK_32)
     return encode_ri
 
+def build_s(mnemonic, (opcode1,opcode2)):
+    @builder.arguments('bd')
+    def encode_s(self, base_displace):
+        self.writechar(opcode1)
+        self.writechar(opcode2)
+        encode_base_displace(self, base_displace)
+    return encode_s
 
 def build_si(mnemonic, (opcode,)):
     @builder.arguments('bd,u8')

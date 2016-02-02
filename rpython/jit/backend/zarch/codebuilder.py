@@ -189,11 +189,7 @@ class InstrBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
         return diff
 
     def sync(self):
-        # see sync. section of the zarch manual!
-        # 0xf creates a checkpoint which is not needed.
-        # we never want to restore the checkpoint, we only
-        # want to create a memory fence (i.e. serialization)
-        self.BCR_rr(0xe,0)
+        self.BCR_rr(0xf,0)
 
     def raw_call(self, call_reg=r.RETURN):
         """Emit a call to the address stored in the register 'call_reg',
