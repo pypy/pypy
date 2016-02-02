@@ -20,7 +20,7 @@ def PyImport_Import(space, w_name):
     caller = space.getexecutioncontext().gettopframe_nohidden()
     # Get the builtins from current globals
     if caller is not None:
-        w_globals = caller.w_globals
+        w_globals = caller.get_w_globals()
         w_builtin = space.getitem(w_globals, space.wrap('__builtins__'))
     else:
         # No globals -- use standard builtins, and fake globals

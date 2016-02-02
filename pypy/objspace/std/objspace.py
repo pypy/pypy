@@ -18,7 +18,7 @@ from pypy.objspace.std.boolobject import W_BoolObject
 from pypy.objspace.std.bytearrayobject import W_BytearrayObject
 from pypy.objspace.std.bytesobject import W_AbstractBytesObject, W_BytesObject, wrapstr
 from pypy.objspace.std.complexobject import W_ComplexObject
-from pypy.objspace.std.dictmultiobject import W_DictMultiObject
+from pypy.objspace.std.dictmultiobject import W_DictMultiObject, W_DictObject
 from pypy.objspace.std.floatobject import W_FloatObject
 from pypy.objspace.std.intobject import (
     W_AbstractIntObject, W_IntObject, setup_prebuilt, wrapint)
@@ -460,7 +460,7 @@ class StdObjSpace(ObjSpace):
         # and isinstance() for others.  See test_listobject.test_uses_custom...
         if type(w_obj) is W_ListObject:
             return w_obj.getitems_bytes()
-        if type(w_obj) is W_DictMultiObject:
+        if type(w_obj) is W_DictObject:
             return w_obj.listview_bytes()
         if type(w_obj) is W_SetObject or type(w_obj) is W_FrozensetObject:
             return w_obj.listview_bytes()
@@ -476,7 +476,7 @@ class StdObjSpace(ObjSpace):
         # and isinstance() for others.  See test_listobject.test_uses_custom...
         if type(w_obj) is W_ListObject:
             return w_obj.getitems_unicode()
-        if type(w_obj) is W_DictMultiObject:
+        if type(w_obj) is W_DictObject:
             return w_obj.listview_unicode()
         if type(w_obj) is W_SetObject or type(w_obj) is W_FrozensetObject:
             return w_obj.listview_unicode()
@@ -489,7 +489,7 @@ class StdObjSpace(ObjSpace):
     def listview_int(self, w_obj):
         if type(w_obj) is W_ListObject:
             return w_obj.getitems_int()
-        if type(w_obj) is W_DictMultiObject:
+        if type(w_obj) is W_DictObject:
             return w_obj.listview_int()
         if type(w_obj) is W_SetObject or type(w_obj) is W_FrozensetObject:
             return w_obj.listview_int()
@@ -510,7 +510,7 @@ class StdObjSpace(ObjSpace):
         return None
 
     def view_as_kwargs(self, w_dict):
-        if type(w_dict) is W_DictMultiObject:
+        if type(w_dict) is W_DictObject:
             return w_dict.view_as_kwargs()
         return (None, None)
 

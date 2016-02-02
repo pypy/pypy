@@ -321,7 +321,7 @@ with (at least) the following attributes:
         return build_stat_result(space, st)
 
 def lstat(space, w_path):
-    "Like stat(path), but do no follow symbolic links."
+    "Like stat(path), but do not follow symbolic links."
     try:
         st = dispatch_filename(rposix_stat.lstat)(space, w_path)
     except OSError, e:

@@ -18,7 +18,7 @@ class EmptyKwargsDictStrategy(EmptyDictStrategy):
     def switch_to_unicode_strategy(self, w_dict):
         strategy = self.space.fromcache(KwargsDictStrategy)
         storage = strategy.get_empty_storage()
-        w_dict.strategy = strategy
+        w_dict.set_strategy(strategy)
         w_dict.dstorage = storage
 
 
@@ -143,7 +143,7 @@ class KwargsDictStrategy(DictStrategy):
         d_new = strategy.unerase(strategy.get_empty_storage())
         for i in range(len(keys)):
             d_new[self.wrap(keys[i])] = values_w[i]
-        w_dict.strategy = strategy
+        w_dict.set_strategy(strategy)
         w_dict.dstorage = strategy.erase(d_new)
 
     def switch_to_unicode_strategy(self, w_dict):
@@ -153,7 +153,7 @@ class KwargsDictStrategy(DictStrategy):
         d_new = strategy.unerase(storage)
         for i in range(len(keys)):
             d_new[self.decodekey_str(keys[i])] = values_w[i]
-        w_dict.strategy = strategy
+        w_dict.set_strategy(strategy)
         w_dict.dstorage = storage
 
     def view_as_kwargs(self, w_dict):

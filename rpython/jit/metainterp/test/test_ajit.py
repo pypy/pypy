@@ -320,7 +320,7 @@ class BasicTests:
         assert res == 252
         self.check_trace_count(1)
         self.check_resops({'jump': 1, 'int_gt': 2, 'int_add': 2,
-                           'getfield_gc_pure_i': 1, 'int_mul': 1,
+                           'getfield_gc_i': 1, 'int_mul': 1,
                            'guard_true': 2, 'int_sub': 2})
 
     def test_loops_are_transient(self):
@@ -1405,7 +1405,7 @@ class BasicTests:
             return tup[1]
         res = self.interp_operations(f, [3, 5])
         assert res == 5
-        self.check_operations_history(setfield_gc=2, getfield_gc_pure_i=0)
+        self.check_operations_history(setfield_gc=2, getfield_gc_i=0)
 
     def test_oosend_look_inside_only_one(self):
         class A:
@@ -2522,7 +2522,7 @@ class BasicTests:
                 if counter > 10:
                     return 7
         assert self.meta_interp(build, []) == 7
-        self.check_resops(getfield_gc_pure_r=2)
+        self.check_resops(getfield_gc_r=2)
 
     def test_args_becomming_equal(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'i', 'sa', 'a', 'b'])
@@ -4044,7 +4044,7 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
         self.interp_operations(f, [])
 
     def test_external_call(self):
-        from rpython.rlib.objectmodel import invoke_around_extcall
+        from rpython.rlib import rgil
 
         TIME_T = lltype.Signed
         # ^^^ some 32-bit platforms have a 64-bit rffi.TIME_T, but we
@@ -4058,11 +4058,6 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
             pass
         state = State()
 
-        def before():
-            if we_are_jitted():
-                raise Oups
-            state.l.append("before")
-
         def after():
             if we_are_jitted():
                 raise Oups
@@ -4070,14 +4065,14 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
 
         def f():
             state.l = []
-            invoke_around_extcall(before, after)
+            rgil.invoke_after_thread_switch(after)
             external(lltype.nullptr(T.TO))
             return len(state.l)
 
         res = self.interp_operations(f, [])
-        assert res == 2
+        assert res == 1
         res = self.interp_operations(f, [])
-        assert res == 2
+        assert res == 1
         self.check_operations_history(call_release_gil_i=1, call_may_force_i=0)
 
     def test_unescaped_write_zero(self):

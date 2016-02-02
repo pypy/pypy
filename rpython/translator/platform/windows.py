@@ -151,7 +151,7 @@ class MsvcPlatform(Platform):
 
             # Increase stack size, for the linker and the stack check code.
             stack_size = 8 << 20  # 8 Mb
-            self.link_flags.append('/STACK:%d' % stack_size)
+            self.link_flags = self.link_flags + ('/STACK:%d' % stack_size,)
             # The following symbol is used in c/src/stack.h
             self.cflags.append('/DMAX_STACK_SIZE=%d' % (stack_size - 1024))
 

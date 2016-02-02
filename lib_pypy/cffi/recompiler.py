@@ -3,6 +3,7 @@ from . import ffiplatform, model
 from .cffi_opcode import *
 
 VERSION = "0x2601"
+VERSION_EMBEDDED = "0x2701"
 
 
 class GlobalExpr:
@@ -281,6 +282,29 @@ class Recompiler:
         lines[i:i+1] = self._rel_readlines('parse_c_type.h')
         prnt(''.join(lines))
         #
+        # if we have ffi._embedding != None, we give it here as a macro
+        # and include an extra file
+        base_module_name = self.module_name.split('.')[-1]
+        if self.ffi._embedding is not None:
+            prnt('#define _CFFI_MODULE_NAME  "%s"' % (self.module_name,))
+            prnt('#define _CFFI_PYTHON_STARTUP_CODE  %s' %
+                 (self._string_literal(self.ffi._embedding),))
+            prnt('#ifdef PYPY_VERSION')
+            prnt('# define _CFFI_PYTHON_STARTUP_FUNC  _cffi_pypyinit_%s' % (
+                base_module_name,))
+            prnt('#elif PY_MAJOR_VERSION >= 3')
+            prnt('# define _CFFI_PYTHON_STARTUP_FUNC  PyInit_%s' % (
+                base_module_name,))
+            prnt('#else')
+            prnt('# define _CFFI_PYTHON_STARTUP_FUNC  init%s' % (
+                base_module_name,))
+            prnt('#endif')
+            lines = self._rel_readlines('_embedding.h')
+            prnt(''.join(lines))
+            version = VERSION_EMBEDDED
+        else:
+            version = VERSION
+        #
         # then paste the C source given by the user, verbatim.
         prnt('/************************************************************/')
         prnt()
@@ -365,17 +389,16 @@ class Recompiler:
         prnt()
         #
         # the init function
-        base_module_name = self.module_name.split('.')[-1]
         prnt('#ifdef PYPY_VERSION')
         prnt('PyMODINIT_FUNC')
         prnt('_cffi_pypyinit_%s(const void *p[])' % (base_module_name,))
         prnt('{')
         if self._num_externpy:
             prnt('    if (((intptr_t)p[0]) >= 0x0A03) {')
-            prnt('        _cffi_call_python = '
+            prnt('        _cffi_call_python_org = '
                  '(void(*)(struct _cffi_externpy_s *, char *))p[1];')
             prnt('    }')
-        prnt('    p[0] = (const void *)%s;' % VERSION)
+        prnt('    p[0] = (const void *)%s;' % version)
         prnt('    p[1] = &_cffi_type_context;')
         prnt('}')
         # on Windows, distutils insists on putting init_cffi_xyz in
@@ -394,14 +417,14 @@ class Recompiler:
         prnt('PyInit_%s(void)' % (base_module_name,))
         prnt('{')
         prnt('  return _cffi_init("%s", %s, &_cffi_type_context);' % (
-            self.module_name, VERSION))
+            self.module_name, version))
         prnt('}')
         prnt('#else')
         prnt('PyMODINIT_FUNC')
         prnt('init%s(void)' % (base_module_name,))
         prnt('{')
         prnt('  _cffi_init("%s", %s, &_cffi_type_context);' % (
-            self.module_name, VERSION))
+            self.module_name, version))
         prnt('}')
         prnt('#endif')
 
@@ -1123,7 +1146,10 @@ class Recompiler:
         assert isinstance(tp, model.FunctionPtrType)
         self._do_collect_type(tp)
 
-    def _generate_cpy_extern_python_decl(self, tp, name):
+    def _generate_cpy_dllexport_python_collecttype(self, tp, name):
+        self._generate_cpy_extern_python_collecttype(tp, name)
+
+    def _generate_cpy_extern_python_decl(self, tp, name, dllexport=False):
         prnt = self._prnt
         if isinstance(tp.result, model.VoidType):
             size_of_result = '0'
@@ -1156,7 +1182,11 @@ class Recompiler:
             size_of_a = 'sizeof(%s) > %d ? sizeof(%s) : %d' % (
                 tp.result.get_c_name(''), size_of_a,
                 tp.result.get_c_name(''), size_of_a)
-        prnt('static %s' % tp.result.get_c_name(name_and_arguments))
+        if dllexport:
+            tag = 'CFFI_DLLEXPORT'
+        else:
+            tag = 'static'
+        prnt('%s %s' % (tag, tp.result.get_c_name(name_and_arguments)))
         prnt('{')
         prnt('  char a[%s];' % size_of_a)
         prnt('  char *p = a;')
@@ -1174,6 +1204,9 @@ class Recompiler:
         prnt()
         self._num_externpy += 1
 
+    def _generate_cpy_dllexport_python_decl(self, tp, name):
+        self._generate_cpy_extern_python_decl(tp, name, dllexport=True)
+
     def _generate_cpy_extern_python_ctx(self, tp, name):
         if self.target_is_python:
             raise ffiplatform.VerificationError(
@@ -1184,6 +1217,21 @@ class Recompiler:
         type_op = CffiOp(OP_EXTERN_PYTHON, type_index)
         self._lsts["global"].append(
             GlobalExpr(name, '&_cffi_externpy__%s' % name, type_op, name))
+
+    def _generate_cpy_dllexport_python_ctx(self, tp, name):
+        self._generate_cpy_extern_python_ctx(tp, name)
+
+    def _string_literal(self, s):
+        def _char_repr(c):
+            # escape with a '\' the characters '\', '"' or (for trigraphs) '?'
+            if c in '\\"?': return '\\' + c
+            if ' ' <= c < '\x7F': return c
+            if c == '\n': return '\\n'
+            return '\\%03o' % ord(c)
+        lines = []
+        for line in s.splitlines(True):
+            lines.append('"%s"' % ''.join([_char_repr(c) for c in line]))
+        return ' \\\n'.join(lines)
 
     # ----------
     # emitting the opcodes for individual types
@@ -1311,12 +1359,15 @@ def _modname_to_file(outputdir, modname, extension):
 
 def recompile(ffi, module_name, preamble, tmpdir='.', call_c_compiler=True,
               c_file=None, source_extension='.c', extradir=None,
-              compiler_verbose=1, **kwds):
+              compiler_verbose=1, target=None, **kwds):
     if not isinstance(module_name, str):
         module_name = module_name.encode('ascii')
     if ffi._windows_unicode:
         ffi._apply_windows_unicode(kwds)
     if preamble is not None:
+        embedding = (ffi._embedding is not None)
+        if embedding:
+            ffi._apply_embedding_fix(kwds)
         if c_file is None:
             c_file, parts = _modname_to_file(tmpdir, module_name,
                                              source_extension)
@@ -1325,13 +1376,40 @@ def recompile(ffi, module_name, preamble, tmpdir='.', call_c_compiler=True,
             ext_c_file = os.path.join(*parts)
         else:
             ext_c_file = c_file
-        ext = ffiplatform.get_extension(ext_c_file, module_name, **kwds)
+        #
+        if target is None:
+            if embedding:
+                target = '%s.*' % module_name
+            else:
+                target = '*'
+        if target == '*':
+            target_module_name = module_name
+            target_extension = None      # use default
+        else:
+            if target.endswith('.*'):
+                target = target[:-2]
+                if sys.platform == 'win32':
+                    target += '.dll'
+                else:
+                    target += '.so'
+            # split along the first '.' (not the last one, otherwise the
+            # preceeding dots are interpreted as splitting package names)
+            index = target.find('.')
+            if index < 0:
+                raise ValueError("target argument %r should be a file name "
+                                 "containing a '.'" % (target,))
+            target_module_name = target[:index]
+            target_extension = target[index:]
+        #
+        ext = ffiplatform.get_extension(ext_c_file, target_module_name, **kwds)
         updated = make_c_source(ffi, module_name, preamble, c_file)
         if call_c_compiler:
             cwd = os.getcwd()
             try:
                 os.chdir(tmpdir)
-                outputfilename = ffiplatform.compile('.', ext, compiler_verbose)
+                outputfilename = ffiplatform.compile('.', ext, compiler_verbose,
+                                                     target_extension,
+                                                     embedding=embedding)
             finally:
                 os.chdir(cwd)
             return outputfilename

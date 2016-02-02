@@ -63,19 +63,25 @@ class CheckSignalAction(PeriodicAsyncAction):
         AsyncAction.__init__(self, space)
         self.pending_signal = -1
         self.fire_in_another_thread = False
-        if self.space.config.objspace.usemodules.thread:
-            from pypy.module.thread import gil
-            gil.after_thread_switch = self._after_thread_switch
+        #
+        @rgc.no_collect
+        def _after_thread_switch():
+            if self.fire_in_another_thread:
+                if self.space.threadlocals.signals_enabled():
+                    self.fire_in_another_thread = False
+                    self.space.actionflag.rearm_ticker()
+                    # this occurs when we just switched to the main thread
+                    # and there is a signal pending: we force the ticker to
+                    # -1, which should ensure perform() is called quickly.
+        self._after_thread_switch = _after_thread_switch
+        # ^^^ so that 'self._after_thread_switch' can be annotated as a
+        # constant
 
-    @rgc.no_collect
-    def _after_thread_switch(self):
-        if self.fire_in_another_thread:
-            if self.space.threadlocals.signals_enabled():
-                self.fire_in_another_thread = False
-                self.space.actionflag.rearm_ticker()
-                # this occurs when we just switched to the main thread
-                # and there is a signal pending: we force the ticker to
-                # -1, which should ensure perform() is called quickly.
+    def startup(self, space):
+        # this is translated
+        if space.config.objspace.usemodules.thread:
+            from rpython.rlib import rgil
+            rgil.invoke_after_thread_switch(self._after_thread_switch)
 
     def perform(self, executioncontext, frame):
         self._poll_for_signals()

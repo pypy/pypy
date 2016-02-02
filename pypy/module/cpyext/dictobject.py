@@ -59,7 +59,7 @@ def PyDict_GetItemString(space, w_dict, key):
         return None
     return borrow_from(w_dict, w_res)
 
-@cpython_api([PyObject, rffi.CCHARP], rffi.INT_real, error=-1)
+@cpython_api([PyObject, CONST_STRING], rffi.INT_real, error=-1)
 def PyDict_DelItemString(space, w_dict, key_ptr):
     """Remove the entry in dictionary p which has a key specified by the string
     key.  Return 0 on success or -1 on failure."""

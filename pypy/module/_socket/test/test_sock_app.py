@@ -232,7 +232,7 @@ def test_addr_raw_packet():
     from pypy.module._socket.interp_socket import addr_as_object
     if not hasattr(rsocket._c, 'sockaddr_ll'):
         py.test.skip("posix specific test")
-    # HACK: To get the correct interface numer of lo, which in most cases is 1,
+    # HACK: To get the correct interface number of lo, which in most cases is 1,
     # but can be anything (i.e. 39), we need to call the libc function
     # if_nametoindex to get the correct index
     import ctypes
@@ -505,7 +505,7 @@ class AppTestSocket:
     def test_getsetsockopt(self):
         import _socket as socket
         import struct
-        # A socket sould start with reuse == 0
+        # A socket should start with reuse == 0
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         reuse = s.getsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR)
         assert reuse == 0
@@ -649,6 +649,26 @@ class AppTestSocket:
         assert len(w) == 1, [str(warning) for warning in w]
         assert r in str(w[0])
 
+
+class AppTestNetlink:
+    def setup_class(cls):
+        if not hasattr(os, 'getpid'):
+            py.test.skip("AF_NETLINK needs os.getpid()")
+        w_ok = space.appexec([], "(): import _socket; " +
+                                 "return hasattr(_socket, 'AF_NETLINK')")
+        if not space.is_true(w_ok):
+            py.test.skip("no AF_NETLINK on this platform")
+        cls.space = space
+
+    def test_connect_to_kernel_netlink_routing_socket(self):
+        import _socket, os
+        s = _socket.socket(_socket.AF_NETLINK, _socket.SOCK_DGRAM, _socket.NETLINK_ROUTE)
+        assert s.getsockname() == (0, 0)
+        s.bind((0, 0))
+        a, b = s.getsockname()
+        assert a == os.getpid()
+        assert b == 0
+ 
 
 class AppTestPacket:
     def setup_class(cls):

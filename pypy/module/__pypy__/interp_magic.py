@@ -1,4 +1,4 @@
-from pypy.interpreter.error import OperationError, wrap_oserror
+from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
 from pypy.interpreter.gateway import WrappedDefault, unwrap_spec
 from pypy.interpreter.pycode import CodeHookCache
 from pypy.interpreter.pyframe import PyFrame
@@ -83,7 +83,7 @@ def strategy(space, w_obj):
     Return the underlying strategy currently used by a dict, list or set object
     """
     if isinstance(w_obj, W_DictMultiObject):
-        name = w_obj.strategy.__class__.__name__
+        name = w_obj.get_strategy().__class__.__name__
     elif isinstance(w_obj, W_ListObject):
         name = w_obj.strategy.__class__.__name__
     elif isinstance(w_obj, W_BaseSetObject):
@@ -138,6 +138,15 @@ def set_code_callback(space, w_callable):
         cache._code_hook = None
     else:
         cache._code_hook = w_callable
+
+@unwrap_spec(string=str, byteorder=str, signed=int)
+def decode_long(space, string, byteorder='little', signed=1):
+    from rpython.rlib.rbigint import rbigint, InvalidEndiannessError
+    try:
+        result = rbigint.frombytes(string, byteorder, bool(signed))
+    except InvalidEndiannessError:
+        raise oefmt(space.w_ValueError, "invalid byteorder argument")
+    return space.newlong_from_rbigint(result)
 
 @unwrap_spec(w_value=WrappedDefault(None), w_tb=WrappedDefault(None))
 def normalize_exc(space, w_type, w_value=None, w_tb=None):

@@ -1046,7 +1046,7 @@ class AppTestRecompiler:
         #
         @ffi.callback("int *(*)(void)")
         def get_my_value():
-            return values + it.next()
+            return values + next(it)
         lib.get_my_value = get_my_value
         #
         values[0] = 41
@@ -1390,7 +1390,7 @@ class AppTestRecompiler:
                 def getvalue(self):
                     if self._result is None:
                         os.close(self._wr)
-                        self._result = os.read(self._rd, 4096)
+                        self._result = os.read(self._rd, 4096).decode()
                         os.close(self._rd)
                         # xxx hack away these lines
                         while self._result.startswith('[platform:execute]'):
@@ -1456,11 +1456,11 @@ class AppTestRecompiler:
         baz1 = ffi.def_extern()(baz)
         assert baz1 is baz
         seen = []
-        baz(40L, 4L)
-        res = lib.baz(50L, 8L)
+        baz(40, 4)
+        res = lib.baz(50, 8)
         assert res is None
-        assert seen == [("Baz", 40L, 4L), ("Baz", 50, 8)]
-        assert type(seen[0][1]) is type(seen[0][2]) is long
+        assert seen == [("Baz", 40, 4), ("Baz", 50, 8)]
+        assert type(seen[0][1]) is type(seen[0][2]) is int
         assert type(seen[1][1]) is type(seen[1][2]) is int
 
         @ffi.def_extern(name="bok")

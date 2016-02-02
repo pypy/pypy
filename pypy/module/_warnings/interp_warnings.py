@@ -75,7 +75,7 @@ def setup_context(space, stacklevel):
         frame = ec.getnextframe_nohidden(frame)
         stacklevel -= 1
     if frame:
-        w_globals = frame.w_globals
+        w_globals = frame.get_w_globals()
         lineno = frame.get_last_lineno()
     else:
         w_globals = space.sys.w_dict

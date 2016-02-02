@@ -546,8 +546,9 @@ static inline int mutex2_lock_timeout(mutex2_t *mutex, double delay) {
     return result;
 }
 
-#define lock_test_and_set(ptr, value)  __sync_lock_test_and_set(ptr, value)
+//#define lock_test_and_set(ptr, value)  see thread_pthread.h
 #define atomic_increment(ptr)          __sync_fetch_and_add(ptr, 1)
 #define atomic_decrement(ptr)          __sync_fetch_and_sub(ptr, 1)
+#define HAVE_PTHREAD_ATFORK            1
 
 #include "src/thread_gil.c"

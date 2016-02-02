@@ -199,6 +199,12 @@ class AppTestItertools:
             assert next(it) == x
         raises(StopIteration, next, it)
 
+        # CPython implementation allows floats
+        it = itertools.islice([1, 2, 3, 4, 5], 0.0, 3.0, 2.0)
+        for x in [1, 3]:
+            assert next(it) == x
+        raises(StopIteration, next, it)
+
         it = itertools.islice([1, 2, 3], 0, None)
         for x in [1, 2, 3]:
             assert next(it) == x

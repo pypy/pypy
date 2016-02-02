@@ -195,7 +195,7 @@ def get_w_module_dict(space):
 class SThread(StackletThread):
 
     def __init__(self, space, ec):
-        StackletThread.__init__(self, space.config)
+        StackletThread.__init__(self)
         self.space = space
         self.ec = ec
         # for unpickling

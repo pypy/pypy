@@ -688,42 +688,6 @@ class TestRffiInternals:
 
         assert interpret(f, []) == 4
 
-    def test_around_extcall(self):
-        if sys.platform == "win32":
-            py.test.skip('No pipes on windows')
-        import os
-        from rpython.annotator import model as annmodel
-        from rpython.rlib.objectmodel import invoke_around_extcall
-        from rpython.rtyper.extfuncregistry import register_external
-        read_fd, write_fd = os.pipe()
-        try:
-            # we need an external function that is not going to get wrapped around
-            # before()/after() calls, in order to call it from before()/after()...
-            def mywrite(s):
-                os.write(write_fd, s)
-            def llimpl(s):
-                s = ''.join(s.chars)
-                os.write(write_fd, s)
-            register_external(mywrite, [str], annmodel.s_None, 'll_mywrite',
-                              llfakeimpl=llimpl, sandboxsafe=True)
-
-            def before():
-                mywrite("B")
-            def after():
-                mywrite("A")
-            def f():
-                os.write(write_fd, "-")
-                invoke_around_extcall(before, after)
-                os.write(write_fd, "E")
-
-            interpret(f, [])
-            data = os.read(read_fd, 99)
-            assert data == "-BEA"
-
-        finally:
-            os.close(write_fd)
-            os.close(read_fd)
-
     def test_external_callable(self):
         """ Try to call some llexternal function with llinterp
         """

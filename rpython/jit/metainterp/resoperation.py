@@ -231,7 +231,7 @@ class VectorizationInfo(AbstractValue):
 
 class AbstractResOpOrInputArg(AbstractValue):
     _attrs_ = ('_forwarded',)
-    _forwarded = None # either another resop or OptInfo  
+    _forwarded = None # either another resop or OptInfo
 
     def get_forwarded(self):
         return self._forwarded
@@ -412,6 +412,8 @@ class AbstractResOp(AbstractResOpOrInputArg):
         return rop._JIT_DEBUG_FIRST <= self.getopnum() <= rop._JIT_DEBUG_LAST
 
     def is_always_pure(self):
+        # Tells whether an operation is pure based solely on the opcode.
+        # Other operations (e.g. getfield ops) may be pure in some cases are well.
         return rop._ALWAYS_PURE_FIRST <= self.getopnum() <= rop._ALWAYS_PURE_LAST
 
     def has_no_side_effect(self):
@@ -434,9 +436,7 @@ class AbstractResOp(AbstractResOpOrInputArg):
         return self.opnum in (rop.SAME_AS_I, rop.SAME_AS_F, rop.SAME_AS_R)
 
     def is_getfield(self):
-        return self.opnum in (rop.GETFIELD_GC_I, rop.GETFIELD_GC_F,
-                              rop.GETFIELD_GC_R, rop.GETFIELD_GC_PURE_I,
-                              rop.GETFIELD_GC_PURE_R, rop.GETFIELD_GC_PURE_F)
+        return self.opnum in (rop.GETFIELD_GC_I, rop.GETFIELD_GC_F, rop.GETFIELD_GC_R)
 
     def is_getarrayitem(self):
         return self.opnum in (rop.GETARRAYITEM_GC_I, rop.GETARRAYITEM_GC_F,
@@ -1154,7 +1154,6 @@ _oplist = [
     'ARRAYLEN_GC/1d/i',
     'STRLEN/1/i',
     'STRGETITEM/2/i',
-    'GETFIELD_GC_PURE/1d/rfi',
     'GETARRAYITEM_GC_PURE/2d/rfi',
     #'GETFIELD_RAW_PURE/1d/rfi',     these two operations not useful and
     #'GETARRAYITEM_RAW_PURE/2d/fi',  dangerous when unrolling speculatively
@@ -1170,10 +1169,11 @@ _oplist = [
     'GC_LOAD/3/rfi',
     # parameters GC_LOAD_INDEXED
     # 1: pointer to complex object
-    # 2: integer describing the offset
+    # 2: integer describing the index
     # 3: constant integer scale factor
-    # 4: constant integer offset
+    # 4: constant integer base offset   (final offset is 'base + scale * index')
     # 5: constant integer. byte size of datatype to load (negative if it is signed)
+    # (GC_LOAD is equivalent to GC_LOAD_INDEXED with arg3==1, arg4==0)
     'GC_LOAD_INDEXED/5/rfi',
 
     '_RAW_LOAD_FIRST',
@@ -1203,9 +1203,14 @@ _oplist = [
     '_NOSIDEEFFECT_LAST', # ----- end of no_side_effect operations -----
 
     # same paramters as GC_LOAD, but one additional for the value to store
-    # note that the itemsize is not signed!
+    # note that the itemsize is not signed (always > 0)
+    # (gcptr, index, value, [scale, base_offset,] itemsize)
+    # invariants for GC_STORE: index is constant, but can be large
+    # invariants for GC_STORE_INDEXED: index is a non-constant box;
+    #                                  scale is a constant;
+    #                                  base_offset is a small constant
     'GC_STORE/4d/n',
-    'GC_STORE_INDEXED/5d/n',
+    'GC_STORE_INDEXED/6d/n',
 
     'INCREMENT_DEBUG_COUNTER/1/n',
     '_RAW_STORE_FIRST',
@@ -1219,8 +1224,6 @@ _oplist = [
     'SETINTERIORFIELD_GC/3d/n',
     'SETINTERIORFIELD_RAW/3d/n',    # right now, only used by tests
     'SETFIELD_GC/2d/n',
-    'ZERO_PTR_FIELD/2/n', # only emitted by the rewrite, clears a pointer field
-                        # at a given constant offset, no descr
     'ZERO_ARRAY/3d/n',  # only emitted by the rewrite, clears (part of) an array
                         # [arraygcptr, firstindex, length], descr=ArrayDescr
     'SETFIELD_RAW/2d/n',
@@ -1598,14 +1601,6 @@ class OpHelpers(object):
         return rop.CALL_LOOPINVARIANT_N
 
     @staticmethod
-    def getfield_pure_for_descr(descr):
-        if descr.is_pointer_field():
-            return rop.GETFIELD_GC_PURE_R
-        elif descr.is_float_field():
-            return rop.GETFIELD_GC_PURE_F
-        return rop.GETFIELD_GC_PURE_I
-
-    @staticmethod
     def getfield_for_descr(descr):
         if descr.is_pointer_field():
             return rop.GETFIELD_GC_R
@@ -1756,4 +1751,26 @@ class OpHelpers(object):
             opnum = rop.VEC_UNPACK_F
         return VecOperationNew(opnum, args, datatype, bytesize, signed, count)
 
+    @staticmethod
+    def is_pure_getfield(opnum, descr):
+        if (opnum == rop.GETFIELD_GC_I or
+            opnum == rop.GETFIELD_GC_F or
+            opnum == rop.GETFIELD_GC_R):
+            return descr is not None and descr.is_always_pure()
+        return False
+
+    @staticmethod
+    def is_pure_with_descr(opnum, descr):
+        is_pure = rop._ALWAYS_PURE_FIRST <= opnum <= rop._ALWAYS_PURE_LAST
+        if not is_pure:
+            if (opnum == rop.GETFIELD_RAW_I or
+                opnum == rop.GETFIELD_RAW_R or
+                opnum == rop.GETFIELD_RAW_F or
+                opnum == rop.GETFIELD_GC_I or
+                opnum == rop.GETFIELD_GC_R or
+                opnum == rop.GETFIELD_GC_F or
+                opnum == rop.GETARRAYITEM_RAW_I or
+                opnum == rop.GETARRAYITEM_RAW_F):
+                is_pure = descr.is_always_pure()
+        return is_pure
 

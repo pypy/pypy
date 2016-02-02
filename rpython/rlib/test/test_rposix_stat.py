@@ -32,7 +32,11 @@ class TestPosixStatFunctions:
         fname = udir.join('test_stat_large_number.txt')
         fname.ensure()
         t1 = 5000000000.0
-        os.utime(str(fname), (t1, t1))
+        try:
+            os.utime(str(fname), (t1, t1))
+        except OverflowError:
+            py.test.skip("This platform doesn't support setting stat times "
+                         "to large values")
         assert rposix_stat.stat(str(fname)).st_mtime == t1
 
     @py.test.mark.skipif(not hasattr(os, 'statvfs'),

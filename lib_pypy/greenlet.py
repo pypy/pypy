@@ -203,7 +203,7 @@ def _greenlet_throw(greenlet, exc, value, tb):
         try:
             if hasattr(_tls, 'trace'):
                 _run_trace_callback('throw')
-            raise exc, value, tb
+            raise __pypy__.normalize_exc(exc, value, tb)
         except GreenletExit as e:
             res = e
         finally:

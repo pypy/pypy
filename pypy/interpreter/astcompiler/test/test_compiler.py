@@ -1019,6 +1019,8 @@ class TestCompiler:
 
     def test_dont_fold_equal_code_objects(self):
         yield self.st, "f=lambda:1;g=lambda:1.0;x=g()", 'type(x)', float
+        yield (self.st, "x=(lambda: (-0.0, 0.0), lambda: (0.0, -0.0))[1]()",
+                        'repr(x)', '(0.0, -0.0)')
 
     def test_raise_from(self):
         test = """if 1:

@@ -40,10 +40,9 @@ def _cffi_call_python(ll_externpy, ll_args):
        at least 8 bytes in size.
     """
     from pypy.module._cffi_backend.ccallback import reveal_callback
+    from rpython.rlib import rgil
 
-    after = rffi.aroundstate.after
-    if after:
-        after()
+    rgil.acquire()
     rffi.stackcounter.stacks_counter += 1
     llop.gc_stack_bottom(lltype.Void)   # marker for trackgcroot.py
 
@@ -71,9 +70,7 @@ def _cffi_call_python(ll_externpy, ll_args):
     cerrno._errno_before(rffi.RFFI_ERR_ALL | rffi.RFFI_ALT_ERRNO)
 
     rffi.stackcounter.stacks_counter -= 1
-    before = rffi.aroundstate.before
-    if before:
-        before()
+    rgil.release()
 
 
 def get_ll_cffi_call_python():

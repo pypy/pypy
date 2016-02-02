@@ -5,11 +5,11 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef
 from pypy.objspace.std.dictmultiobject import (
-    DictStrategy, W_DictMultiObject, create_iterator_classes)
+    DictStrategy, W_DictObject, create_iterator_classes)
 from pypy.objspace.std.typeobject import unwrap_cell
 
 
-class W_DictProxyObject(W_DictMultiObject):
+class W_DictProxyObject(W_DictObject):
     @staticmethod
     def descr_new(space, w_type, w_mapping):
         if (not space.lookup(w_mapping, "__getitem__") or
@@ -28,10 +28,10 @@ class W_DictProxyObject(W_DictMultiObject):
 
     def descr_repr(self, space):
         return space.wrap(u"mappingproxy(%s)" % (
-            space.unicode_w(W_DictMultiObject.descr_repr(self, space))))
+            space.unicode_w(W_DictObject.descr_repr(self, space))))
 
 W_DictProxyObject.typedef = TypeDef(
-    "mappingproxy", W_DictMultiObject.typedef,
+    "mappingproxy", W_DictObject.typedef,
     __new__ = interp2app(W_DictProxyObject.descr_new),
     __init__ = interp2app(W_DictProxyObject.descr_init),
     __repr__ = interp2app(W_DictProxyObject.descr_repr),
