@@ -651,7 +651,7 @@ class AppTestNetlink:
     def test_connect_to_kernel_netlink_routing_socket(self):
         import _socket, os
         s = _socket.socket(_socket.AF_NETLINK, _socket.SOCK_DGRAM, _socket.NETLINK_ROUTE)
-        assert s.getsockname() == (0L, 0L)
+        assert s.getsockname() == (0, 0)
         s.bind((0, 0))
         a, b = s.getsockname()
         assert a == os.getpid()
