@@ -221,6 +221,8 @@ class CallBuilder(AbstractCallBuilder):
         self.mc.BRC(c.NE, l.imm(retry_label - self.mc.currpos())) # retry if failed
 
         # CSG performs a serialization
+        # but be sure (testing)
+        self.mc.sync()
 
         self.mc.CGHI(r.r13, l.imm0)
         b1_location = self.mc.currpos()
