@@ -479,6 +479,7 @@ def build_unpack_func(mnemonic, func):
     bt = argtypes[1] if len(argtypes) >= 2 else '-'
     ct = argtypes[2] if len(argtypes) >= 3 else '-'
     dt = argtypes[3] if len(argtypes) >= 4 else '-'
+    et = argtypes[4] if len(argtypes) >= 5 else '-'
     def function0(self):
         return func(self)
     def function1(self, a):
@@ -511,6 +512,13 @@ def build_unpack_func(mnemonic, func):
         f = unpack_arg(b, bt)
         g = unpack_arg(c, ct)
         return func(self, e, f, g, 0)
+    def function5(self, a, b, c, d, e):
+        f = unpack_arg(a, at)
+        g = unpack_arg(b, bt)
+        h = unpack_arg(c, ct)
+        i = unpack_arg(d, dt)
+        j = unpack_arg(e, et)
+        return func(self, f, g, h, i, j)
     if len(argtypes) == 0:
         function = function0
     elif len(argtypes) == 1:
@@ -530,6 +538,8 @@ def build_unpack_func(mnemonic, func):
         if argtypes[3] == '-':
             # e.g. FIEBR or CGEBR ignore the last element
             function = function4_last_default
+    elif len(argtypes) == 5:
+        function = function5
     else:
         assert 0, "implement function for argtypes %s" % (argtypes,)
     function.__name__ = mnemonic

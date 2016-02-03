@@ -1258,16 +1258,15 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         mc.load_imm(r.r1, nursery_free_adr)
 
         mc.load(r.RES, r.r1, 0)          # load nursery_free
+        mc.load(r.r14, r.r1, diff)        # load nursery_top
 
-        mc.LGR(r.RSZ, r.RES)
         if check_imm_value(size):
             mc.AGHI(r.RSZ, l.imm(size))
         else:
-            mc.load_imm(r.SCRATCH2, size)
-            mc.AGR(r.RSZ, r.SCRATCH2)
+            mc.load_imm(r.RSZ, size)
+            mc.AGRK(r.RSZ, r.RES, r.RSZ)
 
-        mc.load(r.SCRATCH2, r.r1, diff)  # load nursery_top
-        mc.cmp_op(r.RSZ, r.SCRATCH2, signed=False)
+        mc.cmp_op(r.RSZ, r.r14, signed=False)
 
         fast_jmp_pos = mc.currpos()
         mc.reserve_cond_jump(short=True) # conditional jump, patched later
@@ -1276,7 +1275,6 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         # new value of nursery_free_adr in RSZ and the adr of the new object
         # in RES.
         self.load_gcmap(mc, r.r1, gcmap)
-        # no frame needed, r14 is saved on the jitframe
         mc.branch_absolute(self.malloc_slowpath)
 
         # here r1 holds nursery_free_addr
@@ -1301,14 +1299,11 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
             sizeloc = r.RSZ
 
         mc.load(r.RES, r.r1, 0)          # load nursery_free
+        mc.load(r.r0, r.r1, diff)        # load nursery_top
 
-        mc.LGR(r.SCRATCH2, r.RES)
-        mc.AGR(r.SCRATCH2, sizeloc) # sizeloc can be RSZ
-        mc.LGR(r.RSZ, r.SCRATCH2)
+        mc.AGRK(RSZ, r.RES, sizeloc)
 
-        mc.load(r.SCRATCH2, r.r1, diff)  # load nursery_top
-
-        mc.cmp_op(r.RSZ, r.SCRATCH2, signed=False)
+        mc.cmp_op(r.RSZ, r.r0, signed=False)
 
         fast_jmp_pos = mc.currpos()
         mc.reserve_cond_jump(short=True)        # conditional jump, patched later
@@ -1354,6 +1349,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         # item size
 
         mc.load(r.RES, r.r1, 0)          # load nursery_free
+        mc.load(r.SCRATCH2, r.r1, diff)  # load nursery_top
 
         assert arraydescr.basesize >= self.gc_minimal_size_in_nursery
         constsize = arraydescr.basesize + self.gc_size_of_header
@@ -1363,14 +1359,12 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         mc.AGHIK(r.RSZ, lengthloc, l.imm(constsize))
         if force_realignment:
             # "& ~(WORD-1)"
-            mc.LGHI(r.SCRATCH2, l.imm(~(WORD-1)))
-            mc.NGR(r.RSZ, r.SCRATCH2)
+            mc.RISBGN(r.RSZ, r.RSZ, loc.imm(0), loc.imm(0x80 | 60), loc.imm(0))
 
         mc.AGRK(r.RSZ, r.RES, r.RSZ)
         # now RSZ contains the total size in bytes, rounded up to a multiple
         # of WORD, plus nursery_free_adr
 
-        mc.load(r.SCRATCH2, r.r1, diff)  # load nursery_top
         mc.cmp_op(r.RSZ, r.SCRATCH2, signed=False)
 
         jmp_adr1 = mc.currpos()

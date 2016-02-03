@@ -157,6 +157,42 @@ class TestRunningAssembler(object):
         print(s64)
         assert f64[18] == '1' # long displacement facility
 
+    def test_load_byte_zero_extend(self):
+        adr = self.a.datablockwrapper.malloc_aligned(16, 16)
+        data = rffi.cast(rffi.CArrayPtr(rffi.ULONG), adr)
+        data[0] = rffi.cast(rffi.ULONG,0xffffFFFFffffFF02)
+        self.a.mc.load_imm(r.r3, adr+7)
+        self.a.mc.LLGC(r.r2, loc.addr(0,r.r3))
+        self.a.mc.BCR(con.ANY, r.r14)
+        assert run_asm(self.a) == 2
+
+    def test_load_byte_and_imm(self):
+        adr = self.a.datablockwrapper.malloc_aligned(16, 16)
+        data = rffi.cast(rffi.CArrayPtr(rffi.ULONG), adr)
+        data[0] = rffi.cast(rffi.ULONG,0xffffFFFFffff0001)
+        self.a.mc.load_imm(r.r3, adr)
+        self.a.mc.LG(r.r2, loc.addr(0,r.r3))
+        self.a.mc.LLGC(r.r2, loc.addr(7,r.r3))
+        self.a.mc.NILL(r.r2, loc.imm(0x0))
+        self.a.mc.BCR(con.ANY, r.r14)
+        assert run_asm(self.a) == 0
+
+    @py.test.mark.parametrize('p,v', [(0,0),(8,8),(7,0),(4,0),(1,0),(9,8)])
+    def test_align(self, p, v):
+        WORD = 8
+        self.a.mc.load_imm(r.r2, p)
+        self.a.mc.LGHI(r.r0, loc.imm(~(WORD-1)))
+        self.a.mc.NGR(r.r2, r.r0)
+        self.a.mc.BCR(con.ANY, r.r14)
+        assert run_asm(self.a) == v
+
+    @py.test.mark.parametrize('p', [2**32,2**32+1,2**63-1,2**63-2,0,1,2,3,4,5,6,7,8,10001])
+    def test_align_withroll(self, p):
+        self.a.mc.load_imm(r.r2, p & 0xffffFFFFffffFFFF)
+        self.a.mc.RISBGN(r.r2, r.r2, loc.imm(0), loc.imm(0x80 | 60), loc.imm(0))
+        self.a.mc.BCR(con.ANY, r.r14)
+        assert run_asm(self.a) == rffi.cast(rffi.ULONG,p) & ~(7)
+
     def test_load_small_int_to_reg(self):
         self.a.mc.LGHI(r.r2, loc.imm(123))
         self.a.jmpto(r.r14)

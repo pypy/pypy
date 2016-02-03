@@ -47,7 +47,8 @@ arith_mnemonic_codes = {
     # does not seem to be installed
     # cpu fails at this instruction, and gnu assembler
     # does not recognize mnemonic
-    # 'RISBGN':  ('rie_f',   ['\xEC','\x59']),
+    'RISBG':   ('rie_f',   ['\xEC','\x55']),
+    'RISBGN':  ('rie_f',   ['\xEC','\x59']),
 
     # invert & negative & absolute
     'LPGR':    ('rre',   ['\xB9','\x00']),
