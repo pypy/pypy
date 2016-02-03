@@ -535,8 +535,7 @@ class AllocOpAssembler(object):
             # So here, we can simply write again a beq, which will be
             # taken if GCFLAG_CARDS_SET is still not set.
             jns_location = mc.get_relative_pos()
-            mc.trap()
-            mc.write('\x00'*4)
+            mc.reserve_cond_jump()
             #
             # patch the 'NE' above
             currpos = mc.currpos()
@@ -560,25 +559,23 @@ class AllocOpAssembler(object):
 
                 # compute in SCRATCH the index of the bit inside the byte:
                 #     (index >> card_page_shift) & 7
-                # not supported on the development s390x :(, extension is not installed
-                # 0x80 sets zero flag. will store 0 into all selected bits
-                # mc.RISBGN(r.SCRATCH, loc_index, l.imm(3), l.imm(0x80 | 63), l.imm(61))
-                mc.SRAG(r.SCRATCH, loc_index, l.addr(n))
-                mc.NILL(r.SCRATCH, l.imm(0x7))
+                # 0x80 sets zero flag. will store 0 into all not selected bits
+                mc.RISBGN(r.SCRATCH, loc_index, l.imm(61), l.imm(0x80 | 63), l.imm(64-n))
 
                 # invert the bits of tmp_loc
-                mc.XIHF(tmp_loc, l.imm(0xffffFFFF))
-                mc.XILF(tmp_loc, l.imm(0xffffFFFF))
+                mc.LCGR(tmp_loc, tmp_loc)
+                #mc.XIHF(tmp_loc, l.imm(0xffffFFFF))
+                #mc.XILF(tmp_loc, l.imm(0xffffFFFF))
 
-                # set SCRATCH to 1 << r2
+                # set SCRATCH to 1 << r1
                 mc.LGHI(r.SCRATCH2, l.imm(1))
-                mc.SLAG(r.SCRATCH2, r.SCRATCH2, l.addr(0,r.SCRATCH))
+                mc.SLAG(r.SCRATCH, r.SCRATCH2, l.addr(0,r.SCRATCH))
 
                 # set this bit inside the byte of interest
                 addr = l.addr(0, loc_base, tmp_loc)
                 mc.LLGC(r.SCRATCH, addr)
-                mc.OGR(r.SCRATCH, r.SCRATCH2)
-                mc.STCY(r.SCRATCH, addr)
+                mc.OGRK(r.SCRATCH, r.SCRATCH, r.SCRATCH2)
+                mc.STC(r.SCRATCH, addr)
                 # done
             else:
                 byte_index = loc_index.value >> descr.jit_wb_card_page_shift
@@ -589,7 +586,7 @@ class AllocOpAssembler(object):
                 addr = l.addr(byte_ofs, loc_base)
                 mc.LLGC(r.SCRATCH, addr)
                 mc.OILL(r.SCRATCH, l.imm(byte_val))
-                mc.STCY(r.SCRATCH, addr)
+                mc.STC(r.SCRATCH, addr)
             #
             # patch the beq just above
             currpos = mc.currpos()

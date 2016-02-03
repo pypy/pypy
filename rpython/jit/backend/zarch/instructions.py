@@ -100,6 +100,7 @@ logic_mnemonic_codes = {
 
     # OR operations
     'OGR':        ('rre',      ['\xB9','\x81']),
+    'OGRK':       ('rrf_a',    ['\xB9','\xE6']),
     'OG':         ('rxy',      ['\xE3','\x81']),
     # or one byte and store it back at the op2 position
     'OI':         ('si',       ['\x96']),

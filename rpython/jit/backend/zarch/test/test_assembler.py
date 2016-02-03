@@ -193,6 +193,16 @@ class TestRunningAssembler(object):
         self.a.mc.BCR(con.ANY, r.r14)
         assert run_asm(self.a) == rffi.cast(rffi.ULONG,p) & ~(7)
 
+    def test_nill(self):
+        self.a.mc.load_imm(r.r2, 1)
+        self.a.mc.load_imm(r.r3, 0x010001)
+        self.a.mc.NILL(r.r3, loc.imm(0xFFFF))
+        self.a.mc.BCR(con.EQ, r.r14) # should not branch
+        self.a.mc.load_imm(r.r2, 0) # should return here
+        self.a.mc.BCR(con.ANY, r.r14)
+        assert run_asm(self.a) == 0
+
+
     def test_load_small_int_to_reg(self):
         self.a.mc.LGHI(r.r2, loc.imm(123))
         self.a.jmpto(r.r14)

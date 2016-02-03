@@ -205,7 +205,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
             saved_regs = None
             saved_fp_regs = None
         else:
-            # push all volatile registers, push RCS1, and sometimes push RCS2
+            # push all volatile registers, sometimes push RCS2
             if withcards:
                 saved_regs = r.VOLATILES + [RCS2]
             else:
@@ -223,8 +223,9 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
             # since the call to write barrier can't collect
             # (and this is assumed a bit left and right here, like lack
             # of _reload_frame_if_necessary)
-            # This trashes r0 and r2, which is fine in this case
+            # This trashes r0 and r1, which is fine in this case
             assert argument_loc is not r.r0
+            assert argument_loc is not r.r1
             self._store_and_reset_exception(mc, RCS2, RCS3)
 
         if withcards:
