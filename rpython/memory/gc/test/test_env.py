@@ -168,7 +168,7 @@ def test_estimate_best_nursery_size_linux2_s390x():
 vendor_id       : IBM/S390
 # processors    : 2
 bogomips per cpu: 20325.00
-features	: esan3 zarch stfle msa ldisp eimm dfp etf3eh highgprs 
+features        : esan3 zarch stfle msa ldisp eimm dfp etf3eh highgprs 
 cache0          : level=1 type=Data scope=Private size=128K line_size=256 associativity=8
 cache1          : level=1 type=Instruction scope=Private size=96K line_size=256 associativity=6
 cache2          : level=2 type=Data scope=Private size=2048K line_size=256 associativity=8
