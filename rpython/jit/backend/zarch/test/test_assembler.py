@@ -202,6 +202,13 @@ class TestRunningAssembler(object):
         self.a.mc.BCR(con.ANY, r.r14)
         assert run_asm(self.a) == 0
 
+    def test_complement(self):
+        self.a.mc.load_imm(r.r2, 0)
+        #self.a.mc.LCGR(r.r2, r.r2)
+        self.a.mc.XIHF(r.r2, loc.imm(0xffffFFFF))
+        self.a.mc.XILF(r.r2, loc.imm(0xffffFFFF))
+        self.a.mc.BCR(con.ANY, r.r14)
+        assert run_asm(self.a) == -1
 
     def test_load_small_int_to_reg(self):
         self.a.mc.LGHI(r.r2, loc.imm(123))

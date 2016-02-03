@@ -241,7 +241,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
             self._restore_exception(mc, RCS2, RCS3)
 
         if withcards:
-            # A final andix before the blr, for the caller.  Careful to
+            # A final NILL before the return to the caller.  Careful to
             # not follow this instruction with another one that changes
             # the status of the condition code
             card_marking_mask = descr.jit_wb_cards_set_singlebyte

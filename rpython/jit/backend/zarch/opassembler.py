@@ -495,7 +495,7 @@ class AllocOpAssembler(object):
         mc.NILL(r.SCRATCH, l.imm(mask & 0xFF))
 
         jz_location = mc.get_relative_pos()
-        mc.reserve_cond_jump()  # patched later with 'EQ'
+        mc.reserve_cond_jump(short=True)  # patched later with 'EQ'
 
         # for cond_call_gc_wb_array, also add another fast path:
         # if GCFLAG_CARDS_SET, then we can just set one bit and be done
@@ -535,7 +535,7 @@ class AllocOpAssembler(object):
             # So here, we can simply write again a beq, which will be
             # taken if GCFLAG_CARDS_SET is still not set.
             jns_location = mc.get_relative_pos()
-            mc.reserve_cond_jump()
+            mc.reserve_cond_jump(short=True)
             #
             # patch the 'NE' above
             currpos = mc.currpos()
@@ -547,6 +547,8 @@ class AllocOpAssembler(object):
             # directly the card flag setting
             loc_index = arglocs[1]
             if loc_index.is_reg():
+                # must a register that is preserved across function calls
+                assert loc_index.value >= 6
                 tmp_loc = arglocs[2]
                 n = descr.jit_wb_card_page_shift
 
@@ -562,14 +564,15 @@ class AllocOpAssembler(object):
                 # 0x80 sets zero flag. will store 0 into all not selected bits
                 mc.RISBGN(r.SCRATCH, loc_index, l.imm(61), l.imm(0x80 | 63), l.imm(64-n))
 
+                # set SCRATCH2 to 1 << r1
                 # invert the bits of tmp_loc
-                mc.LCGR(tmp_loc, tmp_loc)
                 #mc.XIHF(tmp_loc, l.imm(0xffffFFFF))
                 #mc.XILF(tmp_loc, l.imm(0xffffFFFF))
-
-                # set SCRATCH2 to 1 << r1
+                mc.LG(r.SCRATCH2, l.pool(self.pool.constant_64_ones))
+                mc.XGR(tmp_loc, r.SCRATCH2)
                 mc.LGHI(r.SCRATCH2, l.imm(1))
                 mc.SLAG(r.SCRATCH2, r.SCRATCH2, l.addr(0,r.SCRATCH))
+
 
                 # set this bit inside the byte of interest
                 addr = l.addr(0, loc_base, tmp_loc)
@@ -591,13 +594,13 @@ class AllocOpAssembler(object):
             # patch the beq just above
             currpos = mc.currpos()
             pmc = OverwritingBuilder(mc, jns_location, 1)
-            pmc.BRCL(c.EQ, l.imm(currpos - jns_location))
+            pmc.BRC(c.EQ, l.imm(currpos - jns_location))
             pmc.overwrite()
 
         # patch the JZ above
         currpos = mc.currpos()
         pmc = OverwritingBuilder(mc, jz_location, 1)
-        pmc.BRCL(c.EQ, l.imm(currpos - jz_location))
+        pmc.BRC(c.EQ, l.imm(currpos - jz_location))
         pmc.overwrite()
 
     def emit_cond_call_gc_wb(self, op, arglocs, regalloc):

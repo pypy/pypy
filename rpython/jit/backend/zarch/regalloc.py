@@ -99,9 +99,9 @@ class FPRegisterManager(RegisterManager):
                     forbidden_vars=self.temp_boxes)
         return loc
 
-    def get_scratch_reg(self,):
+    def get_scratch_reg(self, selected_reg=None):
         box = TempFloat()
-        reg = self.force_allocate_reg(box, forbidden_vars=self.temp_boxes)
+        reg = self.force_allocate_reg(box, forbidden_vars=self.temp_boxes, selected_reg=selected_reg)
         self.temp_boxes.append(box)
         return reg
 
@@ -151,9 +151,9 @@ class ZARCHRegisterManager(RegisterManager):
                     selected_reg=selected_reg)
         return loc
 
-    def get_scratch_reg(self):
+    def get_scratch_reg(self, selected_reg=None):
         box = TempInt()
-        reg = self.force_allocate_reg(box, forbidden_vars=self.temp_boxes)
+        reg = self.force_allocate_reg(box, forbidden_vars=self.temp_boxes, selected_reg=selected_reg)
         self.temp_boxes.append(box)
         return reg
 
@@ -583,13 +583,13 @@ class Regalloc(BaseRegalloc):
         else:
             return self.rm.ensure_reg(box, force_in_reg)
 
-    def ensure_reg_or_16bit_imm(self, box):
+    def ensure_reg_or_16bit_imm(self, box, selected_reg=None):
         if box.type == FLOAT:
             return self.fprm.ensure_reg(box, True)
         else:
             if helper.check_imm(box):
                 return imm(box.getint())
-            return self.rm.ensure_reg(box, force_in_reg=True)
+            return self.rm.ensure_reg(box, force_in_reg=True, selected_reg=selected_reg)
 
     def ensure_reg_or_any_imm(self, box):
         if box.type == FLOAT:
@@ -599,11 +599,11 @@ class Regalloc(BaseRegalloc):
                 return imm(box.getint())
             return self.rm.ensure_reg(box, force_in_reg=True)
 
-    def get_scratch_reg(self, type):
+    def get_scratch_reg(self, type, selected_reg=None):
         if type == FLOAT:
             return self.fprm.get_scratch_reg()
         else:
-            return self.rm.get_scratch_reg()
+            return self.rm.get_scratch_reg(selected_reg=selected_reg)
 
     def free_op_vars(self):
         # free the boxes in the 'temp_boxes' lists, which contain both
@@ -984,8 +984,11 @@ class Regalloc(BaseRegalloc):
         return arglocs
 
     def prepare_cond_call_gc_wb_array(self, op):
+        # just calling ensure_reg may return a register r2->r6.
+        # but in the assembly a sub routine is called that trashes r2->r6.
+        # thus select two registers that are preserved
         arglocs = [self.ensure_reg(op.getarg(0), force_in_reg=True),
-                   self.ensure_reg_or_16bit_imm(op.getarg(1)),
+                   self.ensure_reg_or_16bit_imm(op.getarg(1), selected_reg=r.r7),
                    None]
         if arglocs[1].is_reg():
             arglocs[2] = self.get_scratch_reg(INT)
