@@ -237,6 +237,8 @@ class TestZARCH(object):
         return mode
 
     def make_all_tests(self, methname, modes, args=[]):
+        if methname.startswith("RIS"):
+            return []
         arg_types = self.get_func_arg_types(methname)
         combinations = []
         for i,m in enumerate(arg_types):
