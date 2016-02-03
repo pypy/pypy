@@ -175,6 +175,7 @@ memory_mnemonic_codes = {
     'STG':     ('rxy',   ['\xE3','\x24']),
     'STY':     ('rxy',   ['\xE3','\x50']),
     'STHY':    ('rxy',   ['\xE3','\x70']),
+    'STC':     ('rx',    ['\x42']),
     'STCY':    ('rxy',   ['\xE3','\x72']),
 
     # store float

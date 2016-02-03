@@ -182,9 +182,8 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         RCS2 = r.r10
         RCS3 = r.r12
 
-        LOCAL_VARS_OFFSET = 0
-        extra_stack_size = LOCAL_VARS_OFFSET + 4 * WORD + 8
-        extra_stack_size = (extra_stack_size + 15) & ~15
+        # r10,r11,r12,r2,f0 -> makes exactly 4 words + 8 byte
+        extra_stack_size = 4 * WORD + 8
         if for_frame:
             # NOTE: don't save registers on the jitframe here!  It might
             # override already-saved values that will be restored
@@ -199,9 +198,10 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
             # the RPython exception that occurred in the CALL, if any).
             #
             off = STD_FRAME_SIZE_IN_BYTES
-            mc.STMG(r.r10, r.r12, l.addr(off+10*WORD, r.SP))
-            mc.STG(r.r2, l.addr(off+2*WORD, r.SP))
-            mc.STD(r.f0, l.addr(off+16*WORD, r.SP))
+            mc.LAY(r.SP, l.addr(-extra_stack_size, r.SP))
+            mc.STMG(r.r10, r.r12, l.addr(off, r.SP))
+            mc.STG(r.r2, l.addr(off+3*WORD, r.SP))
+            mc.STD(r.f0, l.addr(off+4*WORD, r.SP))
             saved_regs = None
             saved_fp_regs = None
         else:
@@ -250,9 +250,10 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
 
         if for_frame:
             off = STD_FRAME_SIZE_IN_BYTES
-            mc.LMG(r.r10, r.r12, l.addr(off+10*WORD, r.SP))
-            mc.LG(r.r2, l.addr(off+2*WORD, r.SP))
-            mc.LD(r.f0, l.addr(off+16*WORD, r.SP))
+            mc.LMG(r.r10, r.r12, l.addr(off, r.SP))
+            mc.LG(r.r2, l.addr(off+3*WORD, r.SP))
+            mc.LD(r.f0, l.addr(off+4*WORD, r.SP))
+            mc.LAY(r.SP, l.addr(extra_stack_size, r.SP))
         else:
             self._pop_core_regs_from_jitframe(mc, saved_regs)
             self._pop_fp_regs_from_jitframe(mc, saved_fp_regs)
@@ -1259,15 +1260,15 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         mc.load_imm(r.r1, nursery_free_adr)
 
         mc.load(r.RES, r.r1, 0)          # load nursery_free
-        mc.load(r.r14, r.r1, diff)        # load nursery_top
+        mc.load(r.r0, r.r1, diff)        # load nursery_top
 
         if check_imm_value(size):
-            mc.AGHI(r.RSZ, l.imm(size))
+            mc.AGHIK(r.RSZ, r.RES, l.imm(size))
         else:
             mc.load_imm(r.RSZ, size)
             mc.AGRK(r.RSZ, r.RES, r.RSZ)
 
-        mc.cmp_op(r.RSZ, r.r14, signed=False)
+        mc.cmp_op(r.RSZ, r.r0, signed=False)
 
         fast_jmp_pos = mc.currpos()
         mc.reserve_cond_jump(short=True) # conditional jump, patched later

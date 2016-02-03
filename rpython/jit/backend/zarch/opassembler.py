@@ -567,9 +567,9 @@ class AllocOpAssembler(object):
                 #mc.XIHF(tmp_loc, l.imm(0xffffFFFF))
                 #mc.XILF(tmp_loc, l.imm(0xffffFFFF))
 
-                # set SCRATCH to 1 << r1
+                # set SCRATCH2 to 1 << r1
                 mc.LGHI(r.SCRATCH2, l.imm(1))
-                mc.SLAG(r.SCRATCH, r.SCRATCH2, l.addr(0,r.SCRATCH))
+                mc.SLAG(r.SCRATCH2, r.SCRATCH2, l.addr(0,r.SCRATCH))
 
                 # set this bit inside the byte of interest
                 addr = l.addr(0, loc_base, tmp_loc)
