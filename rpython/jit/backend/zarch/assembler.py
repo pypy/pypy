@@ -1301,7 +1301,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         mc.load(r.RES, r.r1, 0)          # load nursery_free
         mc.load(r.r0, r.r1, diff)        # load nursery_top
 
-        mc.AGRK(RSZ, r.RES, sizeloc)
+        mc.AGRK(r.RSZ, r.RES, sizeloc)
 
         mc.cmp_op(r.RSZ, r.r0, signed=False)
 
