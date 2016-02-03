@@ -1359,7 +1359,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         mc.AGHIK(r.RSZ, lengthloc, l.imm(constsize))
         if force_realignment:
             # "& ~(WORD-1)"
-            mc.RISBGN(r.RSZ, r.RSZ, loc.imm(0), loc.imm(0x80 | 60), loc.imm(0))
+            mc.RISBGN(r.RSZ, r.RSZ, l.imm(0), l.imm(0x80 | 60), l.imm(0))
 
         mc.AGRK(r.RSZ, r.RES, r.RSZ)
         # now RSZ contains the total size in bytes, rounded up to a multiple
