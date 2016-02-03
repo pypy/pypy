@@ -88,6 +88,8 @@ class LiteralPool(object):
                 if arg.is_constant():
                     self.reserve_literal(8, arg)
             return
+        elif opnum == rop.COND_CALL_GC_WB_ARRAY:
+            self.constant_64_ones = 1 # we need constant ones!!!
         for arg in op.getarglist():
             if arg.is_constant():
                 self.reserve_literal(8, arg)
