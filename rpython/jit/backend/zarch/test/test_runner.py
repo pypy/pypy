@@ -27,4 +27,4 @@ class TestZARCH(LLtypeBackendTest):
     add_loop_instructions = "lg; lgr; larl; agr; cgfi; je; j;$"
     # realloc frame takes the most space (from just after larl, to lay)
     bridge_loop_instructions = "larl; lg; cgfi; jhe; lghi; " \
-                               "lgfi;( iihf;)? lgfi;( iihf;)? basr; lg; br;$"
+                               "iilf;( iihf;)? iilf;( iihf;)? basr; lg; br;$"

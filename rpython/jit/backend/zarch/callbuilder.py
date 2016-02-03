@@ -200,7 +200,7 @@ class CallBuilder(AbstractCallBuilder):
         # change 'rpy_fastgil' to 0 (it should be non-zero right now)
         self.mc.load_imm(RFASTGILPTR, fastgil)
         self.mc.XGR(r.SCRATCH, r.SCRATCH)
-        self.mc.sync()
+        # zarch is sequentially consistent
         self.mc.STG(r.SCRATCH, l.addr(0, RFASTGILPTR))
 
 
@@ -221,8 +221,7 @@ class CallBuilder(AbstractCallBuilder):
         self.mc.BRC(c.NE, l.imm(retry_label - self.mc.currpos())) # retry if failed
 
         # CSG performs a serialization
-        # but be sure (testing)
-        self.mc.sync()
+        # zarch is sequential consistent!
 
         self.mc.CGHI(r.r13, l.imm0)
         b1_location = self.mc.currpos()
