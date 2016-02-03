@@ -566,10 +566,10 @@ class AllocOpAssembler(object):
 
                 # set SCRATCH2 to 1 << r1
                 # invert the bits of tmp_loc
-                #mc.XIHF(tmp_loc, l.imm(0xffffFFFF))
-                #mc.XILF(tmp_loc, l.imm(0xffffFFFF))
-                mc.LG(r.SCRATCH2, l.pool(self.pool.constant_64_ones))
-                mc.XGR(tmp_loc, r.SCRATCH2)
+                mc.XIHF(tmp_loc, l.imm(0xffffFFFF))
+                mc.XILF(tmp_loc, l.imm(0xffffFFFF))
+                #mc.LG(r.SCRATCH2, l.pool(self.pool.constant_64_ones))
+                #mc.XGR(tmp_loc, r.SCRATCH2)
                 mc.LGHI(r.SCRATCH2, l.imm(1))
                 mc.SLAG(r.SCRATCH2, r.SCRATCH2, l.addr(0,r.SCRATCH))
 
