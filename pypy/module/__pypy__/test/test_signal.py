@@ -71,6 +71,8 @@ class AppTestThreadSignal(GenericTestThread):
     def test_thread_fork_signals(self):
         import __pypy__
         import os, thread, signal
+        if os.uname()[4] == 's390x':
+            skip("skip for now s390x")
 
         if not hasattr(os, 'fork'):
             skip("No fork on this platform")
