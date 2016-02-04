@@ -1117,7 +1117,7 @@ def ll_record_exact_class(ll_value, ll_cls):
     from rpython.rtyper.lltypesystem.lloperation import llop
     from rpython.rtyper.lltypesystem import lltype
     from rpython.rtyper.rclass import ll_type
-    ll_assert(ll_value == lltype.nullptr(lltype.typeOf(ll_value).TO), "record_exact_class called with None argument")
+    ll_assert(ll_value != lltype.nullptr(lltype.typeOf(ll_value).TO), "record_exact_class called with None argument")
     ll_assert(ll_type(ll_value) is ll_cls, "record_exact_class called with invalid arguments")
     llop.jit_record_exact_class(lltype.Void, ll_value, ll_cls)
 
