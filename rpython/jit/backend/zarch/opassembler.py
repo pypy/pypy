@@ -533,13 +533,13 @@ class AllocOpAssembler(object):
 
         if loc_index.is_reg() and loc_index.value < 6:
             mc.LAY(r.SP, l.addr(-WORD, r.SP))
-            mc.STG(loc_index, l.addr(0, r.SP))
+            mc.STG(loc_index, l.addr(STD_FRAME_SIZE_IN_BYTES, r.SP))
 
         mc.load_imm(r.r14, self.wb_slowpath[helper_num])
         mc.BASR(r.r14, r.r14)
 
         if loc_index.is_reg() and loc_index.value < 6:
-            mc.LG(loc_index, l.addr(0, r.SP))
+            mc.LG(loc_index, l.addr(STD_FRAME_SIZE_IN_BYTES, r.SP))
             mc.LAY(r.SP, l.addr(WORD, r.SP))
 
         if card_marking_mask:
@@ -567,12 +567,12 @@ class AllocOpAssembler(object):
                 #   tmp_loc = ~(index >> (card_page_shift + 3))
                 mc.SRAG(tmp_loc, loc_index, l.addr(n+3))
                 # invert the bits of tmp_loc
-                mc.XG(tmp_loc, l.pool(self.pool.constant_64_ones))
 
                 # compute in SCRATCH the index of the bit inside the byte:
                 #    scratch = (index >> card_page_shift) & 7
                 # 0x80 sets zero flag. will store 0 into all not selected bits
                 mc.RISBGN(r.SCRATCH, loc_index, l.imm(61), l.imm(0x80 | 63), l.imm(64-n))
+                mc.XG(tmp_loc, l.pool(self.pool.constant_64_ones))
                 #mc.SRAG(r.SCRATCH, loc_index, l.addr(n))
                 #mc.NILL(r.SCRATCH, l.imm(0x7))
 
