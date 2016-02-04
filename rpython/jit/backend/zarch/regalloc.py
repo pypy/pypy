@@ -984,11 +984,8 @@ class Regalloc(BaseRegalloc):
         return arglocs
 
     def prepare_cond_call_gc_wb_array(self, op):
-        # just calling ensure_reg may return a register r2->r6.
-        # but in the assembly a sub routine is called that trashes r2->r6.
-        # thus select two registers that are preserved
         arglocs = [self.ensure_reg(op.getarg(0), force_in_reg=True),
-                   self.ensure_reg_or_16bit_imm(op.getarg(1), selected_reg=r.r7),
+                   self.ensure_reg_or_16bit_imm(op.getarg(1)),
                    None]
         if arglocs[1].is_reg():
             arglocs[2] = self.get_scratch_reg(INT)
