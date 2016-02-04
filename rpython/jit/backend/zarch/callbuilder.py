@@ -263,8 +263,13 @@ class CallBuilder(AbstractCallBuilder):
                 self.mc.LGR(RSAVEDRES, reg)
             elif reg.is_fp_reg():
                 self.mc.STD(reg, l.addr(16*WORD, r.SP))
+        # r8-r13 live on the stack and must NOT be overwritten,
+        # restore_stack_pointer already moved SP + subtracted_to_sp,
+        self.mc.LAY(r.SP, l.addr(-self.subtracted_to_sp, r.SP))
         self.mc.load_imm(self.mc.RAW_CALL_REG, self.asm.reacqgil_addr)
         self.mc.raw_call()
+        self.mc.LAY(r.SP, l.addr(self.subtracted_to_sp, r.SP))
+
         if reg is not None:
             if reg.is_core_reg():
                 self.mc.LGR(reg, RSAVEDRES)
