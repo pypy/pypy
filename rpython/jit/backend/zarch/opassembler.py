@@ -540,6 +540,7 @@ class AllocOpAssembler(object):
         mc.BASR(r.r14, r.r14)
 
         if len(arglocs) > 1:
+            loc_index = arglocs[1]
             if loc_index.is_reg() and loc_index.value < 6:
                 mc.LG(loc_index, l.addr(STD_FRAME_SIZE_IN_BYTES, r.SP))
                 mc.LAY(r.SP, l.addr(WORD, r.SP))
@@ -559,6 +560,7 @@ class AllocOpAssembler(object):
             #
             # case GCFLAG_CARDS_SET: emit a few instructions to do
             # directly the card flag setting
+            loc_index = arglocs[1]
             if loc_index.is_reg():
                 tmp_loc = arglocs[2]
                 n = descr.jit_wb_card_page_shift
