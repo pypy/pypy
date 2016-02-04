@@ -872,6 +872,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         from rpython.rlib.rvmprof.rvmprof import cintf
         # edx = address of pypy_threadlocal_s
         self.mc.MOV_rs(edx.value, THREADLOCAL_OFS)
+        self.mc.AND_ri(edx.value, ~1)
         # eax = (our local vmprof_tl_stack).next
         self.mc.MOV_rs(eax.value, (FRAME_FIXED_SIZE - 4 + 0) * WORD)
         # save in vmprof_tl_stack the value eax
