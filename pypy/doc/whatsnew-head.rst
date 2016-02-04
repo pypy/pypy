@@ -139,3 +139,7 @@ Try to ensure that no new functions get annotated during the 'source_c' phase.
 Refactor sandboxing to operate at a higher level.
 
 .. branch: cpyext-bootstrap
+
+.. branch: vmprof-newstack
+
+Refactor vmprof to work cross-operating-system.
