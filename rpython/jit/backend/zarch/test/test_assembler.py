@@ -210,6 +210,23 @@ class TestRunningAssembler(object):
         self.a.mc.BCR(con.ANY, r.r14)
         assert run_asm(self.a) == -1
 
+    def test_and_7_with_risbgn(self):
+        n = 13
+        l = loc
+        self.a.mc.load_imm(r.r2, 7<<n)
+        self.a.mc.RISBGN(r.r2, r.r2, l.imm(61), l.imm(0x80 | 63), l.imm(64-n))
+        self.a.mc.BCR(con.ANY, r.r14)
+        assert run_asm(self.a) == 7
+
+    def test_risbgn(self):
+        n = 16
+        l = loc
+        self.a.mc.load_imm(r.r2, 0xffFFffFF)
+        self.a.mc.RISBGN(r.r2, r.r2, l.imm(60), l.imm(0x80 | 63), l.imm(64-n))
+        self.a.mc.BCR(con.ANY, r.r14)
+        assert run_asm(self.a) == 15
+
+
     def test_load_small_int_to_reg(self):
         self.a.mc.LGHI(r.r2, loc.imm(123))
         self.a.jmpto(r.r14)

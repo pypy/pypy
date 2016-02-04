@@ -561,25 +561,22 @@ class AllocOpAssembler(object):
                 tmp_loc = arglocs[2]
                 n = descr.jit_wb_card_page_shift
 
-                assert tmp_loc is not r.SCRATCH
-                assert tmp_loc is not r.SCRATCH2
+                assert tmp_loc is not loc_index
 
                 # compute in tmp_loc the byte offset:
-                #     ~(index >> (card_page_shift + 3))
+                #   tmp_loc = ~(index >> (card_page_shift + 3))
                 mc.SRAG(tmp_loc, loc_index, l.addr(n+3))
+                # invert the bits of tmp_loc
+                mc.XG(tmp_loc, l.pool(self.pool.constant_64_ones))
 
                 # compute in SCRATCH the index of the bit inside the byte:
-                #     (index >> card_page_shift) & 7
+                #    scratch = (index >> card_page_shift) & 7
                 # 0x80 sets zero flag. will store 0 into all not selected bits
                 mc.RISBGN(r.SCRATCH, loc_index, l.imm(61), l.imm(0x80 | 63), l.imm(64-n))
                 #mc.SRAG(r.SCRATCH, loc_index, l.addr(n))
                 #mc.NILL(r.SCRATCH, l.imm(0x7))
 
                 # set SCRATCH2 to 1 << r1
-                # invert the bits of tmp_loc
-                #mc.XIHF(tmp_loc, l.imm(0xffffFFFF))
-                #mc.XILF(tmp_loc, l.imm(0xffffFFFF))
-                mc.XG(tmp_loc, l.pool(self.pool.constant_64_ones))
                 mc.LGHI(r.SCRATCH2, l.imm(1))
                 mc.SLAG(r.SCRATCH2, r.SCRATCH2, l.addr(0,r.SCRATCH))
 
