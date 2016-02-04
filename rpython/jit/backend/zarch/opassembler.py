@@ -527,20 +527,22 @@ class AllocOpAssembler(object):
         if not is_frame:
             mc.LGR(r.r0, loc_base)    # unusual argument location
 
-        loc_index = arglocs[1]
-        # loc_index may be in r2 to r5.
-        # the wb_slow_path may trash these registers
+        if len(arglocs) > 1:
+            loc_index = arglocs[1]
+            # loc_index may be in r2 to r5.
+            # the wb_slow_path may trash these registers
 
-        if loc_index.is_reg() and loc_index.value < 6:
-            mc.LAY(r.SP, l.addr(-WORD, r.SP))
-            mc.STG(loc_index, l.addr(STD_FRAME_SIZE_IN_BYTES, r.SP))
+            if loc_index.is_reg() and loc_index.value < 6:
+                mc.LAY(r.SP, l.addr(-WORD, r.SP))
+                mc.STG(loc_index, l.addr(STD_FRAME_SIZE_IN_BYTES, r.SP))
 
         mc.load_imm(r.r14, self.wb_slowpath[helper_num])
         mc.BASR(r.r14, r.r14)
 
-        if loc_index.is_reg() and loc_index.value < 6:
-            mc.LG(loc_index, l.addr(STD_FRAME_SIZE_IN_BYTES, r.SP))
-            mc.LAY(r.SP, l.addr(WORD, r.SP))
+        if len(arglocs) > 1:
+            if loc_index.is_reg() and loc_index.value < 6:
+                mc.LG(loc_index, l.addr(STD_FRAME_SIZE_IN_BYTES, r.SP))
+                mc.LAY(r.SP, l.addr(WORD, r.SP))
 
         if card_marking_mask:
             # The helper ends again with a check of the flag in the object.
