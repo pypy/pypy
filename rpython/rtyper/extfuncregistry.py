@@ -11,7 +11,6 @@ from rpython.rlib import rtime
 
 import math
 from rpython.rtyper.lltypesystem.module import ll_math
-from rpython.rtyper.module import ll_pdb
 from rpython.rlib import rfloat
 
 # the following functions all take one float, return one float

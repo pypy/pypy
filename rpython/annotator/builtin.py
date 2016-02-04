@@ -311,3 +311,14 @@ def weakref_ref(s_obj):
 @analyzer_for(rpython.rlib.objectmodel.free_non_gc_object)
 def robjmodel_free_non_gc_object(obj):
     pass
+
+#________________________________
+# pdb
+
+import pdb
+
+@analyzer_for(pdb.set_trace)
+def pdb_set_trace(*args_s):
+    raise AnnotatorError(
+        "you left pdb.set_trace() in your interpreter! "
+        "If you want to attach a gdb instead, call rlib.debug.attach_gdb()")
