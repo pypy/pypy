@@ -369,8 +369,7 @@ class CallOpAssembler(object):
         fcond = c.negate(fcond)
 
         jmp_adr = self.mc.get_relative_pos()
-        self.mc.trap()        # patched later to a relative branch
-        self.mc.write('\x00' * 4)
+        self.mc.reserve_cond_jump() # patched later to a relative branch
 
         # save away r2, r3, r4, r5, r12 into the jitframe
         should_be_saved = [
@@ -378,6 +377,7 @@ class CallOpAssembler(object):
                 if reg in self._COND_CALL_SAVE_REGS]
         self._push_core_regs_to_jitframe(self.mc, should_be_saved)
 
+        # load gc map into unusual location: r0
         self.load_gcmap(self.mc, r.SCRATCH2, regalloc.get_gcmap())
         #
         # load the 0-to-4 arguments into these registers, with the address of
@@ -751,10 +751,9 @@ class GuardOpAssembler(object):
         self._read_typeid(r.SCRATCH2, loc_object)
         self.mc.load_imm(r.SCRATCH, base_type_info + infobits_offset)
         assert shift_by == 0
-        self.mc.AGR(r.SCRATCH, r.SCRATCH2)
-        self.mc.LLGC(r.SCRATCH2, l.addr(0, r.SCRATCH))
-        self.mc.LGHI(r.SCRATCH, l.imm(IS_OBJECT_FLAG & 0xff))
-        self.mc.NGR(r.SCRATCH2, r.SCRATCH)
+        self.mc.LGR(r.SCRATCH, r.SCRATCH2)
+        self.mc.LLGC(r.SCRATCH2, l.addr(0, r.SCRATCH)) # cannot use r.r0 as index reg
+        self.mc.NILL(r.SCRATCH2, l.imm(IS_OBJECT_FLAG & 0xff))
         self.guard_success_cc = c.NE
         self._emit_guard(op, arglocs[1:])
 

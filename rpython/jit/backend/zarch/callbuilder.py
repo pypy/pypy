@@ -143,15 +143,16 @@ class CallBuilder(AbstractCallBuilder):
     def emit_raw_call(self):
         # always allocate a stack frame for the new function
         # save the SP back chain
-        self.mc.STG(r.SP, l.addr(-self.subtracted_to_sp, r.SP))
         # move the frame pointer
         if self.subtracted_to_sp != 0:
+            # rewrite the back chain
+            self.mc.LG(r.SCRATCH, l.addr(0, r.SP))
+            self.mc.STG(r.SCRATCH, l.addr(-self.subtracted_to_sp, r.SP))
             self.mc.LAY(r.SP, l.addr(-self.subtracted_to_sp, r.SP))
         self.mc.raw_call()
 
 
     def restore_stack_pointer(self):
-        # it must at LEAST be 160 bytes
         if self.subtracted_to_sp != 0:
             self.mc.LAY(r.SP, l.addr(self.subtracted_to_sp, r.SP))
 

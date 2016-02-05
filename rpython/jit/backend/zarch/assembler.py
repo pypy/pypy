@@ -198,6 +198,8 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
             # the RPython exception that occurred in the CALL, if any).
             #
             off = STD_FRAME_SIZE_IN_BYTES
+            mc.LG(r.SCRATCH, l.addr(0, r.SP))
+            mc.STG(r.SCRATCH, l.addr(-extra_stack_size, r.SP))
             mc.LAY(r.SP, l.addr(-extra_stack_size, r.SP))
             mc.STMG(r.r10, r.r12, l.addr(off, r.SP))
             mc.STG(r.r2, l.addr(off+3*WORD, r.SP))
@@ -347,7 +349,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
             mc.load(r.r5, r.r5, diff)
             mc.store(r.r2, r.r5, -WORD)
 
-        self._pop_core_regs_from_jitframe(mc)
+        self._pop_core_regs_from_jitframe(mc, r.MANAGED_REGS)
         self._pop_fp_regs_from_jitframe(mc)
 
         mc.restore_link()
@@ -490,7 +492,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         # Check that we don't get NULL; if we do, we always interrupt the
         # current loop, as a "good enough" approximation (same as
         # emit_call_malloc_gc()).
-        self.propagate_memoryerror_if_r2_is_null()
+        self.propagate_memoryerror_if_r2_is_null(True)
 
         self._pop_core_regs_from_jitframe(mc, saved_regs)
         self._pop_fp_regs_from_jitframe(mc)
@@ -599,7 +601,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
             raise JitFrameTooDeep     # XXX
         for traps_pos, jmp_target in self.frame_depth_to_patch:
             pmc = OverwritingBuilder(self.mc, traps_pos, 3)
-            # three traps, so exactly three instructions to patch here
+            # patch 3 instructions as shown above
             pmc.CGFI(r.r1, l.imm(frame_depth))
             pmc.BRC(c.GE, l.imm(jmp_target - (traps_pos + 6)))
             pmc.LGHI(r.r0, l.imm(frame_depth))
@@ -756,18 +758,28 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
             # sadly we cannot use LOCGHI
             # it is included in some extension that seem to be NOT installed
             # by default.
-            self.mc.LGHI(result_loc, l.imm(1))
+            self.mc.LGHI(result_loc, l.imm(-1))
             off = self.mc.XGR_byte_count + self.mc.BRC_byte_count
-            self.mc.BRC(condition, l.imm(off)) # branch over LGHI
+            self.mc.BRC(condition, l.imm(off)) # branch over XGR
             self.mc.XGR(result_loc, result_loc)
 
-    def propagate_memoryerror_if_r2_is_null(self):
+    def propagate_memoryerror_if_r2_is_null(self, pop_one_stackframe=False):
         # if self.propagate_exception_path == 0 (tests), this may jump to 0
         # and segfaults.  too bad.  the alternative is to continue anyway
         # with r2==0, but that will segfault too.
+        jmp_pos = self.mc.get_relative_pos()
+        # bails to propagate exception path if r2 != 0
+        self.mc.reserve_cond_jump()
+
         self.mc.load_imm(r.RETURN, self.propagate_exception_path)
-        self.mc.cmp_op(r.r2, l.imm(0), imm=True)
-        self.mc.BCR(c.EQ, r.RETURN)
+        if pop_one_stackframe:
+            self.mc.LAY(r.SP, l.addr(STD_FRAME_SIZE_IN_BYTES, r.SP))
+        self.mc.BCR(c.ANY, r.RETURN)
+
+        currpos = self.mc.currpos()
+        pmc = OverwritingBuilder(self.mc, jmp_pos, 1)
+        pmc.CGIJ(r.r2, l.imm(0), c.EQ, l.imm(curpos - jmp_pos))
+        pmc.overwrite()
 
     def regalloc_push(self, loc, already_pushed):
         """Pushes the value stored in loc to the stack
