@@ -326,7 +326,7 @@ class Func(AbstractFuncPtr):
     #@jit.oopspec('libffi_call_int(self, funcsym, ll_args)')
     @jit.dont_look_inside
     def _do_call_int(self, funcsym, ll_args):
-        return self._do_call(funcsym, ll_args, rffi.SIGNED)
+        return self._do_call(funcsym, ll_args, rffi.INT)
 
     #@jit.oopspec('libffi_call_float(self, funcsym, ll_args)')
     @jit.dont_look_inside

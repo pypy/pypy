@@ -47,7 +47,6 @@ class LiteralPool(object):
             descr = op.getdescr()
             if descr not in asm.target_tokens_currently_compiling:
                 # this is a 'long' jump instead of a relative jump
-                # TODO why no reserve literal? self.offset_map[descr] = self.size
                 self.offset_descr[descr] = self.size
                 self.allocate_slot(8)
         elif op.getopnum() == rop.INT_INVERT:
