@@ -65,6 +65,9 @@ class LiteralPool(object):
             arg = op.getarg(0)
             if arg.is_constant():
                 self.reserve_literal(8, arg)
+            arg = op.getarg(1)
+            if arg.is_constant():
+                self.reserve_literal(8, arg)
             arg = op.getarg(2)
             if arg.is_constant():
                 self.reserve_literal(8, arg)
@@ -78,10 +81,9 @@ class LiteralPool(object):
             arg = op.getarg(0)
             if arg.is_constant():
                 self.reserve_literal(8, arg)
-            if opnum == rop.GC_LOAD_INDEXED_R:
-                arg = op.getarg(1)
-                if arg.is_constant():
-                    self.reserve_literal(8, arg)
+            arg = op.getarg(1)
+            if arg.is_constant():
+                self.reserve_literal(8, arg)
             return
         elif op.is_call_release_gil():
             for arg in op.getarglist()[1:]:
