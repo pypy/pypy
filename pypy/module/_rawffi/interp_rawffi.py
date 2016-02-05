@@ -4,7 +4,6 @@ from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 
-from rpython.jit.backend.llsupport.symbolic import WORD
 from rpython.rlib.clibffi import *
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.tool import rffi_platform
@@ -447,6 +446,9 @@ class W_FuncPtr(W_Root):
         self.ptr = ptr
         self.argshapes = argshapes
         self.resshape = resshape
+        self.narrow_integer = False
+        if resshape is not None:
+            self.narrow_integer = resshape.itemcode.lower() in ('c','h','i')
 
     def getbuffer(self, space):
         return space.wrap(rffi.cast(lltype.Unsigned, self.ptr.funcsym))
@@ -506,9 +508,9 @@ class W_FuncPtr(W_Root):
                 result = self.resshape.allocate(space, 1, autofree=True)
                 # adjust_return_size() was used here on result.ll_buffer
                 self.ptr.call(args_ll, result.ll_buffer)
-                if BIGENDIAN and result.shape.itemcode in ('c','h','i','C','H','I'):
+                if BIGENDIAN and self.narrow_integer:
                     # we get a 8 byte value in big endian
-                    n = WORD - result.shape.size
+                    n = rffi.sizeof(lltype.Signed) - result.shape.size
                     result.buffer_advance(n)
 
                 return space.wrap(result)
