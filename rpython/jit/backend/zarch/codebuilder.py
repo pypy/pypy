@@ -219,7 +219,7 @@ class InstrBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
 
     def push_std_frame(self, additional_bytes=0):
         off = (STD_FRAME_SIZE_IN_BYTES + additional_bytes)
-        self.STG(r.SP, l.addr(off, r.SP))
+        self.STG(r.SP, l.addr(-off, r.SP))
         self.LAY(r.SP, l.addr(-off, r.SP))
 
     def pop_std_frame(self, additional_bytes=0):

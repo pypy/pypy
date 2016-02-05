@@ -758,7 +758,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
             # sadly we cannot use LOCGHI
             # it is included in some extension that seem to be NOT installed
             # by default.
-            self.mc.LGHI(result_loc, l.imm(-1))
+            self.mc.LGHI(result_loc, l.imm(1))
             off = self.mc.XGR_byte_count + self.mc.BRC_byte_count
             self.mc.BRC(condition, l.imm(off)) # branch over XGR
             self.mc.XGR(result_loc, result_loc)
@@ -776,7 +776,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
             self.mc.LAY(r.SP, l.addr(STD_FRAME_SIZE_IN_BYTES, r.SP))
         self.mc.BCR(c.ANY, r.RETURN)
 
-        currpos = self.mc.currpos()
+        curpos = self.mc.currpos()
         pmc = OverwritingBuilder(self.mc, jmp_pos, 1)
         pmc.CGIJ(r.r2, l.imm(0), c.EQ, l.imm(curpos - jmp_pos))
         pmc.overwrite()
@@ -1024,6 +1024,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap and gcrootmap.is_shadow_stack:
             self._call_header_shadowstack(gcrootmap)
+
 
     def _call_header_shadowstack(self, gcrootmap):
         # we need to put one word into the shadowstack: the jitframe (SPP)
