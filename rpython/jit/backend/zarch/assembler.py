@@ -778,7 +778,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
 
         curpos = self.mc.currpos()
         pmc = OverwritingBuilder(self.mc, jmp_pos, 1)
-        pmc.CGIJ(r.r2, l.imm(0), c.EQ, l.imm(curpos - jmp_pos))
+        pmc.CGIJ(r.r2, l.imm(0), c.NE, l.imm(curpos - jmp_pos))
         pmc.overwrite()
 
     def regalloc_push(self, loc, already_pushed):
