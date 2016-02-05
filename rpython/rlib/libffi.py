@@ -271,7 +271,7 @@ class Func(AbstractFuncPtr):
             assert not types.is_struct(self.restype)
             for res in NARROW_INTEGER_TYPES:
                 if RESULT is res:
-                    res = self._do_call_int(self.funcsym, ll_args, rffi.CHAR)
+                    res = self._do_call_int(self.funcsym, ll_args, RESULT)
                     break
             else:
                 res = self._do_call_int(self.funcsym, ll_args, rffi.SIGNED)
