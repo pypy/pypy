@@ -32,9 +32,9 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include "vmprof_stack.h"
 #include "vmprof_getpc.h"
 #include "vmprof_mt.h"
-#include "vmprof_stack.h"
 #include "vmprof_common.h"
 
 /************************************************************/
