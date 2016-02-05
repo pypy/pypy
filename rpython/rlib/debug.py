@@ -4,7 +4,7 @@ import time
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import is_valid_int
-from rpython.rtyper.extfunc import ExtFuncEntry
+from rpython.rtyper.extfunc import register_external
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem import rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
@@ -397,12 +397,11 @@ def attach_gdb():
     import pdb; pdb.set_trace()
 
 if not sys.platform.startswith('win'):
-    def _make_impl_attach_gdb():
-        if sys.platform.startswith('linux'):
-            # Only necessary on Linux
-            eci = ExternalCompilationInfo(includes=['string.h', 'assert.h',
-                                                    'sys/prctl.h'],
-                                          post_include_bits=["""
+    if sys.platform.startswith('linux'):
+        # Only necessary on Linux
+        eci = ExternalCompilationInfo(includes=['string.h', 'assert.h',
+                                                'sys/prctl.h'],
+                                        post_include_bits=["""
 /* If we have an old Linux kernel (or compile with old system headers),
    the following two macros are not defined.  But we would still like
    a pypy translated on such a system to run on a more modern system. */
@@ -416,55 +415,38 @@ static void pypy__allow_attach(void) {
     prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY);
 }
 """])
-            allow_attach = rffi.llexternal(
-                "pypy__allow_attach", [], lltype.Void,
-                compilation_info=eci, _nowrapper=True)
-        else:
-            # Do nothing, there's no prctl
-            def allow_attach():
-                pass
+        allow_attach = rffi.llexternal(
+            "pypy__allow_attach", [], lltype.Void,
+            compilation_info=eci, _nowrapper=True)
+    else:
+        # Do nothing, there's no prctl
+        def allow_attach():
+            pass
 
-        def impl_attach_gdb():
-            import os
-            allow_attach()
-            pid = os.getpid()
-            gdbpid = os.fork()
-            if gdbpid == 0:
-                shell = os.environ.get("SHELL") or "/bin/sh"
-                sepidx = shell.rfind(os.sep) + 1
-                if sepidx > 0:
-                    argv0 = shell[sepidx:]
-                else:
-                    argv0 = shell
-                try:
-                    os.execv(shell, [argv0, "-c", "gdb -p %d" % pid])
-                except OSError as e:
-                    os.write(2, "Could not start GDB: %s" % (
-                        os.strerror(e.errno)))
-                    raise SystemExit
+    def impl_attach_gdb():
+        import os
+        allow_attach()
+        pid = os.getpid()
+        gdbpid = os.fork()
+        if gdbpid == 0:
+            shell = os.environ.get("SHELL") or "/bin/sh"
+            sepidx = shell.rfind(os.sep) + 1
+            if sepidx > 0:
+                argv0 = shell[sepidx:]
             else:
-                time.sleep(1)  # give the GDB time to attach
+                argv0 = shell
+            try:
+                os.execv(shell, [argv0, "-c", "gdb -p %d" % pid])
+            except OSError as e:
+                os.write(2, "Could not start GDB: %s" % (
+                    os.strerror(e.errno)))
+                raise SystemExit
+        else:
+            time.sleep(1)  # give the GDB time to attach
 
-        return impl_attach_gdb
 else:
-    def _make_impl_attach_gdb():
-        def impl_attach_gdb():
-            print "Don't know how to attach GDB on Windows"
-        return impl_attach_gdb
+    def impl_attach_gdb():
+        print "Don't know how to attach GDB on Windows"
 
-
-class FunEntry(ExtFuncEntry):
-    _about_ = attach_gdb
-    signature_args = []
-    #lltypeimpl = staticmethod(impl_attach_gdb) --- done lazily below
-    name = "impl_attach_gdb"
-
-    @property
-    def lltypeimpl(self):
-        if not hasattr(self.__class__, '_lltypeimpl'):
-            self.__class__._lltypeimpl = staticmethod(_make_impl_attach_gdb())
-        return self._lltypeimpl
-
-    def compute_result_annotation(self, *args_s):
-        from rpython.annotator.model import s_None
-        return s_None
+register_external(attach_gdb, [], result=None,
+                  export_name="impl_attach_gdb", llimpl=impl_attach_gdb)
