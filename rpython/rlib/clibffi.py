@@ -594,10 +594,10 @@ class FuncPtr(AbstractFuncPtr):
                                             intmask(argtypes[i].c_size),
                                             flavor='raw')
         if restype != ffi_type_void:
-            size = adjust_return_size(intmask(restype.c_size))
+            self.restype_size = intmask(restype.c_size)
+            size = adjust_return_size(self.restype_size)
             self.ll_result = lltype.malloc(rffi.VOIDP.TO, size,
                                            flavor='raw')
-            self.restype_size = intmask(restype.c_size)
         else:
             self.restype_size = -1
 
@@ -637,7 +637,7 @@ class FuncPtr(AbstractFuncPtr):
         if RES_TP is not lltype.Void:
             TP = lltype.Ptr(rffi.CArray(RES_TP))
             ptr = self.ll_result
-            if _BIG_ENDIAN and self.restype_size != -1:
+            if _BIG_ENDIAN and RES_TP in TYPE_MAP_INT:
                 # we get a 8 byte value in big endian
                 n = rffi.sizeof(lltype.Signed) - self.restype_size
                 ptr = rffi.ptradd(ptr, n)
