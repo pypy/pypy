@@ -70,3 +70,15 @@ static int opened_profile(char *interp_name)
     memcpy(&header.interp_name[4], interp_name, namelen);
     return _write_all((char*)&header, 5 * sizeof(long) + 4 + namelen);
 }
+
+#ifndef RPYTHON_LL2CTYPES
+static vmprof_stack_t *get_vmprof_stack(void)
+{
+    return RPY_THREADLOCALREF_GET(vmprof_tl_stack);
+}
+#else
+static vmprof_stack_t *get_vmprof_stack(void)
+{
+    return 0;
+}
+#endif

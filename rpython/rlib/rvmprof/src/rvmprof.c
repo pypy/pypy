@@ -22,4 +22,8 @@
 #endif
 
 
+#if defined(__unix__) || defined(__APPLE__)
 #include "vmprof_main.h"
+#else
+#include "vmprof_main_win32.h"
+#endif

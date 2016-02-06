@@ -86,18 +86,6 @@ static char atfork_hook_installed = 0;
  */
 
 
-#ifndef RPYTHON_LL2CTYPES
-static vmprof_stack_t *get_vmprof_stack(void)
-{
-    return RPY_THREADLOCALREF_GET(vmprof_tl_stack);
-}
-#else
-static vmprof_stack_t *get_vmprof_stack(void)
-{
-    return 0;
-}
-#endif
-
 static int get_stack_trace(intptr_t *result, int max_depth, intptr_t pc, ucontext_t *ucontext)
 {
     vmprof_stack_t* stack = get_vmprof_stack();
