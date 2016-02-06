@@ -616,8 +616,7 @@ def make_wrapper(space, callable, gil=None):
 
     @specialize.ll()
     def wrapper(*args):
-        from pypy.module.cpyext.pyobject import make_ref, from_ref
-        from pypy.module.cpyext.pyobject import Reference
+        from pypy.module.cpyext.pyobject import make_ref, from_ref, is_pyobj
         # we hope that malloc removal removes the newtuple() that is
         # inserted exactly here by the varargs specializer
         if gil_acquire:

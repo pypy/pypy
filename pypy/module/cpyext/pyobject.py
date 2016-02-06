@@ -227,7 +227,7 @@ def from_ref(space, ref):
 
 
 def debug_collect():
-    rawrefcount._collect(track_allocation=False)
+    rawrefcount._collect()
 
 
 def as_pyobj(space, w_obj):

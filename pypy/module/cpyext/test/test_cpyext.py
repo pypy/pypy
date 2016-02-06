@@ -130,11 +130,10 @@ class LeakCheckingTest(object):
 
     def check_and_print_leaks(self):
         debug_collect()
-        return #ZZZ
         # check for sane refcnts
         import gc
 
-        if not self.enable_leak_checking:
+        if 1:  #ZZZ  not self.enable_leak_checking:
             leakfinder.stop_tracking_allocations(check=False)
             return False
 
@@ -198,6 +197,9 @@ class AppTestApi(LeakCheckingTest):
             "Test leaks or loses object(s).  You should also check if "
             "the test actually passed in the first place; if it failed "
             "it is likely to reach this place.")
+
+    def test_only_import(self):
+        import cpyext
 
     def test_load_error(self):
         import cpyext
