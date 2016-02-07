@@ -48,21 +48,19 @@ class ExtFuncEntry(ExtRegistryEntry):
         if impl:
             impl = make_impl(rtyper, impl, self.safe_not_sandboxed, self.name,
                              signature_args, s_result)
-            if isinstance(impl, _ptr):
+            if hasattr(self, 'lltypefakeimpl') and rtyper.backend is llinterp_backend:
+                FT = FuncType(args_ll, ll_result)
+                obj = functionptr(FT, name, _external_name=self.name,
+                                _callable=fakeimpl)
+            elif isinstance(impl, _ptr):
                 obj = impl
             else:
-                if hasattr(self, 'lltypefakeimpl') and rtyper.backend is llinterp_backend:
-                    FT = FuncType(args_ll, ll_result)
-                    obj = functionptr(FT, name, _external_name=self.name,
-                                    _callable=fakeimpl,
-                                    _safe_not_sandboxed=self.safe_not_sandboxed)
-                else:
-                    # store some attributes to the 'impl' function, where
-                    # the eventual call to rtyper.getcallable() will find them
-                    # and transfer them to the final lltype.functionptr().
-                    impl._llfnobjattrs_ = {'_name': self.name}
-                    obj = rtyper.getannmixlevel().delayedfunction(
-                        impl, signature_args, hop.s_result)
+                # store some attributes to the 'impl' function, where
+                # the eventual call to rtyper.getcallable() will find them
+                # and transfer them to the final lltype.functionptr().
+                impl._llfnobjattrs_ = {'_name': self.name}
+                obj = rtyper.getannmixlevel().delayedfunction(
+                    impl, signature_args, hop.s_result)
         else:
             FT = FuncType(args_ll, ll_result)
             obj = functionptr(FT, name, _external_name=self.name,
@@ -93,10 +91,6 @@ def register_external(function, args, result=None, export_name=None,
 
     if export_name is None:
         export_name = function.__name__
-
-    if isinstance(llimpl, _ptr) and llfakeimpl:
-        llimpl._obj.__dict__['_fakeimpl'] = llfakeimpl
-        llfakeimpl = None
 
     class FunEntry(ExtFuncEntry):
         _about_ = function
