@@ -4,12 +4,19 @@ from rpython.rlib import jit, rgc, rposix
 from rpython.rlib.rvmprof import cintf
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
-from rpython.rtyper.lltypesystem import rffi
+from rpython.rtyper.lltypesystem import rffi, llmemory
+from rpython.rtyper.lltypesystem.lloperation import llop
 
 MAX_FUNC_NAME = 1023
 
 # ____________________________________________________________
 
+# keep in sync with vmprof_stack.h
+VMPROF_CODE_TAG = 1
+VMPROF_BLACKHOLE_TAG = 2
+VMPROF_JITTED_TAG = 3
+VMPROF_JITTING_TAG = 4
+VMPROF_GC_TAG = 5
 
 class VMProfError(Exception):
     def __init__(self, msg):
@@ -19,17 +26,16 @@ class VMProfError(Exception):
 
 class VMProf(object):
 
+    _immutable_fields_ = ['is_enabled?']
+
     def __init__(self):
         "NOT_RPYTHON: use _get_vmprof()"
         self._code_classes = set()
         self._gather_all_code_objs = lambda: None
         self._cleanup_()
-        if sys.maxint == 2147483647:
-            self._code_unique_id = 0 # XXX this is wrong, it won't work on 32bit
-        else:
-            self._code_unique_id = 0x7000000000000000
+        self._code_unique_id = 4
         self.cintf = cintf.setup()
-
+        
     def _cleanup_(self):
         self.is_enabled = False
 
@@ -127,7 +133,6 @@ class VMProf(object):
         if self.cintf.vmprof_register_virtual_function(name, uid, 500000) < 0:
             raise VMProfError("vmprof buffers full!  disk full or too slow")
 
-
 def vmprof_execute_code(name, get_code_fn, result_class=None):
     """Decorator to be used on the function that interprets a code object.
 
@@ -136,12 +141,7 @@ def vmprof_execute_code(name, get_code_fn, result_class=None):
     'get_code_fn(*args)' is called to extract the code object from the
     arguments given to the decorated function.
 
-    The original function can return None, an integer, or an instance.
-    In the latter case (only), 'result_class' must be set.
-
-    NOTE: for now, this assumes that the decorated functions only takes
-    instances or plain integer arguments, and at most 5 of them
-    (including 'self' if applicable).
+    'result_class' is ignored (backward compatibility).
     """
     def decorate(func):
         try:
@@ -149,52 +149,19 @@ def vmprof_execute_code(name, get_code_fn, result_class=None):
         except cintf.VMProfPlatformUnsupported:
             return func
 
-        if hasattr(func, 'im_self'):
-            assert func.im_self is None
-            func = func.im_func
-
-        def lower(*args):
-            if len(args) == 0:
-                return (), ""
-            ll_args, token = lower(*args[1:])
-            ll_arg = args[0]
-            if isinstance(ll_arg, int):
-                tok = "i"
-            else:
-                tok = "r"
-                ll_arg = cast_instance_to_gcref(ll_arg)
-            return (ll_arg,) + ll_args, tok + token
-
-        @specialize.memo()
-        def get_ll_trampoline(token):
-            if result_class is None:
-                restok = "i"
-            else:
-                restok = "r"
-            return cintf.make_trampoline_function(name, func, token, restok)
-
         def decorated_function(*args):
-            # go through the asm trampoline ONLY if we are translated but not
-            # being JITted.
-            #
-            # If we are not translated, we obviously don't want to go through
-            # the trampoline because there is no C function it can call.
-            #
             # If we are being JITted, we want to skip the trampoline, else the
             # JIT cannot see through it.
-            #
-            if we_are_translated() and not jit.we_are_jitted():
-                # if we are translated, call the trampoline
+            if not jit.we_are_jitted():
                 unique_id = get_code_fn(*args)._vmprof_unique_id
-                ll_args, token = lower(*args)
-                ll_trampoline = get_ll_trampoline(token)
-                ll_result = ll_trampoline(*ll_args + (unique_id,))
-                if result_class is not None:
-                    return cast_base_ptr_to_instance(result_class, ll_result)
-                else:
-                    return ll_result
+                x = cintf.enter_code(unique_id)
+                try:
+                    return func(*args)
+                finally:
+                    cintf.leave_code(x)
             else:
                 return func(*args)
+
         decorated_function.__name__ = func.__name__ + '_rvmprof'
         return decorated_function
 

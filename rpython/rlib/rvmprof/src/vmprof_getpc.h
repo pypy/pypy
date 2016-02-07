@@ -134,7 +134,7 @@ static const CallUnrollInfo callunrollinfo[] = {
   }
 };
 
-void* GetPC(ucontext_t *signal_ucontext) {
+intptr_t GetPC(ucontext_t *signal_ucontext) {
   // See comment above struct CallUnrollInfo.  Only try instruction
   // flow matching if both eip and esp looks reasonable.
   const int eip = signal_ucontext->uc_mcontext.gregs[REG_EIP];
@@ -146,12 +146,12 @@ void* GetPC(ucontext_t *signal_ucontext) {
       if (!memcmp(eip_char + callunrollinfo[i].pc_offset,
                   callunrollinfo[i].ins, callunrollinfo[i].ins_size)) {
         // We have a match.
-        void **retaddr = (void**)(esp + callunrollinfo[i].return_sp_offset);
+        intptr_t *retaddr = (intptr_t*)(esp + callunrollinfo[i].return_sp_offset);
         return *retaddr;
       }
     }
   }
-  return (void*)eip;
+  return eip;
 }
 
 // Special case #2: Windows, which has to do something totally different.
@@ -170,7 +170,7 @@ void* GetPC(ucontext_t *signal_ucontext) {
 typedef int ucontext_t;
 #endif
 
-void* GetPC(ucontext_t *signal_ucontext) {
+intptr_t GetPC(ucontext_t *signal_ucontext) {
   RAW_LOG(ERROR, "GetPC is not yet implemented on Windows\n");
   return NULL;
 }
@@ -180,11 +180,11 @@ void* GetPC(ucontext_t *signal_ucontext) {
 // the right value for your system, and add it to the list in
 // configure.ac (or set it manually in your config.h).
 #else
-void* GetPC(ucontext_t *signal_ucontext) {
+intptr_t GetPC(ucontext_t *signal_ucontext) {
 #ifdef __APPLE__
-  return (void*)(signal_ucontext->uc_mcontext->__ss.__rip);
+  return (signal_ucontext->uc_mcontext->__ss.__rip);
 #else
-  return (void*)signal_ucontext->PC_FROM_UCONTEXT;   // defined in config.h
+  return signal_ucontext->PC_FROM_UCONTEXT;   // defined in config.h
 #endif
 }
 
