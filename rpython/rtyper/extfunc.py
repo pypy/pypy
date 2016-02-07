@@ -44,12 +44,8 @@ class ExtFuncEntry(ExtRegistryEntry):
         impl = getattr(self, 'lltypeimpl', None)
         fakeimpl = getattr(self, 'lltypefakeimpl', self.instance)
         if impl:
-            if (rtyper.annotator.translator.config.translation.sandbox
-                    and not self.safe_not_sandboxed):
-                from rpython.translator.sandbox.rsandbox import (
-                    make_sandbox_trampoline)
-                impl = make_sandbox_trampoline(
-                    self.name, signature_args, s_result)
+            impl = make_impl(rtyper, impl, self.safe_not_sandboxed, self.name,
+                             signature_args, s_result)
             if isinstance(impl, _ptr):
                 obj = impl
             else:
@@ -69,6 +65,13 @@ class ExtFuncEntry(ExtRegistryEntry):
         vlist = [hop.inputconst(typeOf(obj), obj)] + hop.inputargs(*args_r)
         hop.exception_is_here()
         return hop.genop('direct_call', vlist, r_result)
+
+def make_impl(rtyper, impl, sandboxsafe, name, args_s, s_result):
+    if (rtyper.annotator.translator.config.translation.sandbox
+            and not sandboxsafe):
+        from rpython.translator.sandbox.rsandbox import make_sandbox_trampoline
+        impl = make_sandbox_trampoline(name, args_s, s_result)
+    return impl
 
 def register_external(function, args, result=None, export_name=None,
                        llimpl=None, llfakeimpl=None, sandboxsafe=False):
