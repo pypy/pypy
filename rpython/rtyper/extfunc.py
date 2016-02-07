@@ -1,3 +1,4 @@
+from rpython.tool.sourcetools import func_with_new_name
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.lltypesystem.lltype import typeOf, FuncType, functionptr, _ptr
 from rpython.annotator.model import unionof
@@ -33,6 +34,7 @@ class ExtFuncEntry(ExtRegistryEntry):
         return self.signature_result
 
     def specialize_call(self, hop):
+        from rpython.rtyper.rtyper import llinterp_backend
         rtyper = hop.rtyper
         signature_args = self.normalize_args(*hop.args_s)
         args_r = [rtyper.getrepr(s_arg) for s_arg in signature_args]
@@ -49,14 +51,18 @@ class ExtFuncEntry(ExtRegistryEntry):
             if isinstance(impl, _ptr):
                 obj = impl
             else:
-                # store some attributes to the 'impl' function, where
-                # the eventual call to rtyper.getcallable() will find them
-                # and transfer them to the final lltype.functionptr().
-                impl._llfnobjattrs_ = {'_name': self.name}
-                if hasattr(self, 'lltypefakeimpl'):
-                    impl._llfnobjattrs_['_fakeimpl'] = fakeimpl
-                obj = rtyper.getannmixlevel().delayedfunction(
-                    impl, signature_args, hop.s_result)
+                if hasattr(self, 'lltypefakeimpl') and rtyper.backend is llinterp_backend:
+                    FT = FuncType(args_ll, ll_result)
+                    obj = functionptr(FT, name, _external_name=self.name,
+                                    _callable=fakeimpl,
+                                    _safe_not_sandboxed=self.safe_not_sandboxed)
+                else:
+                    # store some attributes to the 'impl' function, where
+                    # the eventual call to rtyper.getcallable() will find them
+                    # and transfer them to the final lltype.functionptr().
+                    impl._llfnobjattrs_ = {'_name': self.name}
+                    obj = rtyper.getannmixlevel().delayedfunction(
+                        impl, signature_args, hop.s_result)
         else:
             FT = FuncType(args_ll, ll_result)
             obj = functionptr(FT, name, _external_name=self.name,
