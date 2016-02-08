@@ -17,16 +17,10 @@ class ExtFuncEntry(ExtRegistryEntry):
         for i, expected in enumerate(signature_args):
             arg = unionof(args_s[i], expected)
             if not expected.contains(arg):
-                name = getattr(self, 'name', None)
-                if not name:
-                    try:
-                        name = self.instance.__name__
-                    except AttributeError:
-                        name = '?'
                 raise SignatureError("In call to external function %r:\n"
                                 "arg %d must be %s,\n"
                                 "          got %s" % (
-                    name, i+1, expected, args_s[i]))
+                    self.name, i+1, expected, args_s[i]))
         return signature_args
 
     def compute_result_annotation(self, *args_s):
@@ -42,7 +36,6 @@ class ExtFuncEntry(ExtRegistryEntry):
         s_result = hop.s_result
         r_result = rtyper.getrepr(s_result)
         ll_result = r_result.lowleveltype
-        name = getattr(self, 'name', None) or self.instance.__name__
         impl = getattr(self, 'lltypeimpl', None)
         fakeimpl = getattr(self, 'lltypefakeimpl', self.instance)
         if impl:
@@ -50,7 +43,7 @@ class ExtFuncEntry(ExtRegistryEntry):
                              signature_args, s_result)
             if hasattr(self, 'lltypefakeimpl') and rtyper.backend is llinterp_backend:
                 FT = FuncType(args_ll, ll_result)
-                obj = functionptr(FT, name, _external_name=self.name,
+                obj = functionptr(FT, self.name, _external_name=self.name,
                                 _callable=fakeimpl)
             elif isinstance(impl, _ptr):
                 obj = impl
@@ -63,7 +56,7 @@ class ExtFuncEntry(ExtRegistryEntry):
                     impl, signature_args, hop.s_result)
         else:
             FT = FuncType(args_ll, ll_result)
-            obj = functionptr(FT, name, _external_name=self.name,
+            obj = functionptr(FT, self.name, _external_name=self.name,
                               _callable=fakeimpl,
                               _safe_not_sandboxed=self.safe_not_sandboxed)
         vlist = [hop.inputconst(typeOf(obj), obj)] + hop.inputargs(*args_r)
