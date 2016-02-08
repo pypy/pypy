@@ -121,23 +121,6 @@ class TestExtFuncEntry:
         s = a.build_types(f, [])
         assert isinstance(s, SomeInteger)
 
-    def test_register_external_specialcase(self):
-        """
-        When args=None, the external function accepts any arguments unmodified.
-        """
-        def function_withspecialcase(arg):
-            return repr(arg)
-        register_external(function_withspecialcase, args=None, result=str)
-
-        def f():
-            x = function_withspecialcase
-            return x(33) + x("aaa") + x([]) + "\n"
-
-        policy = AnnotatorPolicy()
-        a = RPythonAnnotator(policy=policy)
-        s = a.build_types(f, [])
-        assert isinstance(s, SomeString)
-
     def test_str0(self):
         str0 = SomeString(no_nul=True)
         def os_open(s):

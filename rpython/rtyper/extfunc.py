@@ -1,4 +1,3 @@
-from rpython.tool.sourcetools import func_with_new_name
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.lltypesystem.lltype import typeOf, FuncType, functionptr, _ptr
 from rpython.annotator.model import unionof
@@ -88,16 +87,7 @@ def register_external(function, args, result=None, export_name=None,
     class FunEntry(ExtFuncEntry):
         _about_ = function
         safe_not_sandboxed = sandboxsafe
-
-        if args is None:
-            def normalize_args(self, *args_s):
-                return args_s    # accept any argument unmodified
-        elif callable(args):
-            # custom annotation normalizer (see e.g. os.utime())
-            normalize_args = staticmethod(args)
-        else: # use common case behavior
-            signature_args = args
-
+        signature_args = args
         signature_result = annotation(result, None)
         name = export_name
         if llimpl:
