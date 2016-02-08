@@ -751,7 +751,7 @@ class GuardOpAssembler(object):
         self._read_typeid(r.SCRATCH2, loc_object)
         self.mc.load_imm(r.SCRATCH, base_type_info + infobits_offset)
         assert shift_by == 0
-        self.mc.LGR(r.SCRATCH, r.SCRATCH2)
+        self.mc.AGR(r.SCRATCH, r.SCRATCH2)
         self.mc.LLGC(r.SCRATCH2, l.addr(0, r.SCRATCH)) # cannot use r.r0 as index reg
         self.mc.NILL(r.SCRATCH2, l.imm(IS_OBJECT_FLAG & 0xff))
         self.guard_success_cc = c.NE
