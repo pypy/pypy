@@ -215,7 +215,7 @@ class LongLongArg(AbstractArg):
 
 # ======================================================================
 
-NARROW_INTEGER_TYPES = unrolling_iterable([rffi.CHAR,
+NARROW_INTEGER_TYPES = unrolling_iterable([rffi.CHAR, rffi.SIGNEDCHAR,
     rffi.UCHAR, rffi.SHORT, rffi.USHORT, rffi.INT, rffi.UINT])
 
 class Func(AbstractFuncPtr):
@@ -338,7 +338,7 @@ class Func(AbstractFuncPtr):
     @jit.dont_look_inside
     @specialize.arg(3)
     def _do_call_int(self, funcsym, ll_args, TP):
-        return self._do_call(funcsym, ll_args, TP)
+        return rffi.cast(rffi.SIGNED, self._do_call(funcsym, ll_args, TP))
 
     #@jit.oopspec('libffi_call_float(self, funcsym, ll_args)')
     @jit.dont_look_inside
