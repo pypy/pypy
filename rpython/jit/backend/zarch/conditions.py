@@ -23,39 +23,41 @@ EQ = ConditionLocation(0x8)
 LT = ConditionLocation(0x4)
 GT = ConditionLocation(0x2)
 OF = ConditionLocation(0x1) # overflow
-LE = ConditionLocation(EQ.value | LT.value)
-GE = ConditionLocation(EQ.value | GT.value)
+
+LE = ConditionLocation(EQ.value | LT.value | OF.value)
+GE = ConditionLocation(EQ.value | GT.value | OF.value)
 NE = ConditionLocation(LT.value | GT.value | OF.value)
 NO = ConditionLocation(0xe) # NO overflow
+
 ANY = ConditionLocation(0xf)
 
 FP_ROUND_DEFAULT = loc.imm(0x0)
 FP_TOWARDS_ZERO = loc.imm(0x5)
 
-cond_none = loc.imm(0x0)
+cond_none = loc.imm(-1)
 
 def negate(cond):
-    isfloat = (cond.value & 0x10) != 0
+    val = cond.value
+    isfloat = (val & 0x10) != 0
+    cc = (~val) & 0xf
     if isfloat:
         # inverting is handeled differently for floats
-        # overflow is never inverted
-        value = (~cond.value) & 0xf
-        return ConditionLocation(value | FLOAT.value)
-    value = (~cond.value) & 0xf
-    return ConditionLocation(value)
+        return ConditionLocation(cc | FLOAT.value)
+    return ConditionLocation(cc)
 
 def prepare_float_condition(cond):
     newcond = ConditionLocation(cond.value | FLOAT.value)
     return newcond
 
-def _assert_invert(v1, v2):
-    assert (v1.value & 0xe) == (v2.value & 0xe)
-_assert_invert(negate(EQ), NE)
-_assert_invert(negate(NE), EQ)
-_assert_invert(negate(LT), GE)
-_assert_invert(negate(LE), GT)
-_assert_invert(negate(GT), LE)
-_assert_invert(negate(GE), LT)
-assert negate(NO).value == OF.value
-assert negate(OF).value == NO.value
-del _assert_invert
+def _assert_value(v1, v2):
+    assert v1.value == v2.value
+
+_assert_value(negate(EQ), NE)
+_assert_value(negate(NE), EQ)
+_assert_value(negate(LT), GE)
+_assert_value(negate(LE), GT)
+_assert_value(negate(GT), LE)
+_assert_value(negate(GE), LT)
+_assert_value(negate(NO), OF)
+_assert_value(negate(OF), NO)
+del _assert_value

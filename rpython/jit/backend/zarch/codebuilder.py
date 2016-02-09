@@ -123,14 +123,14 @@ class InstrBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
 
     def b_cond_offset(self, offset, condition):
         assert condition != c.cond_none
-        self.BRC(condition, l.imm(offset))
+        self.BRCL(condition, l.imm(offset))
 
     def b_offset(self, reladdr):
         offset = reladdr - self.get_relative_pos()
         self.BRC(c.ANY, l.imm(offset))
 
     def reserve_guard_branch(self):
-        self.BRC(l.imm(0x0), l.imm(0))
+        self.BRCL(l.imm(0x0), l.imm(0))
 
     def trap(self):
         self.TRAP2()
@@ -168,7 +168,7 @@ class InstrBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
 
 
     def load_imm(self, dest_reg, word):
-        if -32768 <= word <= 32767:
+        if -2**15 <= word <= 2**15-1:
             self.LGHI(dest_reg, l.imm(word))
         elif -2**31 <= word <= 2**31-1:
             self.LGFI(dest_reg, l.imm(word))

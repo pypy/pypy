@@ -365,7 +365,7 @@ class CallOpAssembler(object):
     def emit_cond_call(self, op, arglocs, regalloc):
         fcond = self.guard_success_cc
         self.guard_success_cc = c.cond_none
-        assert fcond != c.cond_none
+        assert fcond.value != c.cond_none.value
         fcond = c.negate(fcond)
 
         jmp_adr = self.mc.get_relative_pos()
@@ -631,7 +631,7 @@ class GuardOpAssembler(object):
         else:
             fcond = self.guard_success_cc
             self.guard_success_cc = c.cond_none
-            assert fcond != c.cond_none
+            assert fcond.value != c.cond_none.value
             fcond = c.negate(fcond)
         token = self.build_guard_token(op, arglocs[0].value, arglocs[1:], fcond)
         token.pos_jump_offset = self.mc.currpos()

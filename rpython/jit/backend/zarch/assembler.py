@@ -144,7 +144,6 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         self.mc.LG(r.r14, l.pool(offset))
 
         self.mc.load_imm(r.SCRATCH, fail_descr)
-        #self.mc.LGFI(r.SCRATCH, l.imm(fail_descr))
         self.mc.BCR(l.imm(0xf), r.r14)
 
         return startpos
