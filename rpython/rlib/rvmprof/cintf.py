@@ -30,10 +30,10 @@ global_eci = ExternalCompilationInfo(**eci_kwds)
 
 
 def setup():
+    compile_extra = ['-DRPYTHON_LL2CTYPES']
     platform.verify_eci(ExternalCompilationInfo(
-        compile_extra=['-DRPYTHON_LL2CTYPES'],
+        compile_extra=compile_extra,
         **eci_kwds))
-
 
     eci = global_eci
     vmprof_init = rffi.llexternal("vmprof_init",
@@ -89,9 +89,11 @@ def enter_code(unique_id):
     s.c_next = vmprof_tl_stack.get_or_make_raw()
     s.c_value = unique_id
     s.c_kind = VMPROF_CODE_TAG
+    print s
     vmprof_tl_stack.setraw(s)
     return s
 
 def leave_code(s):
     vmprof_tl_stack.setraw(s.c_next)
+    print "pop"
     lltype.free(s, flavor='raw')

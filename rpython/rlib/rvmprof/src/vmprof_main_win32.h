@@ -10,12 +10,28 @@ int prepare_concurrent_bufs(void)
     return 0;
 }
 
+#if defined(_MSC_VER)
+#include <BaseTsd.h>
+typedef SSIZE_T ssize_t;
+#endif
+
+#include <assert.h>
+#include <errno.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <sys/types.h>
+#include <signal.h>
+#include <stddef.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include "vmprof_stack.h"
 #include "vmprof_common.h"
 #include <tlhelp32.h>
 
 // This file has been inspired (but not copied from since the LICENSE
 // would not allow it) from verysleepy profiler
+
+#define SINGLE_BUF_SIZE 8192
 
 volatile int thread_started = 0;
 volatile int enabled = 0;
@@ -55,9 +71,42 @@ int vmprof_register_virtual_function(char *code_name, long code_uid,
     return 0;
 }
 
-int vmprof_snapshot_thread(DWORD thread_id, PyThreadState *tstate, prof_stacktrace_s *stack)
+int vmprof_snapshot_thread(prof_stacktrace_s *stack)
 {
-    HRESULT result;
+  void *addr;
+  vmprof_stack_t *cur;
+  long tid;
+  HANDLE hThread;
+
+#ifdef RPYTHON_LL2CTYPES
+  return 0; // not much we can do
+#else
+  OP_THREADLOCALREF_ADDR(addr);
+#ifdef RPY_TLOFS_thread_ident // compiled with threads
+  tid = *(long*)((char*)addr + RPY_TLOFS_thread_ident);
+  hThread = OpenThread(THREAD_ALL_ACCESS, FALSE, tid);
+  if (!hThread) {
+    return -1;
+  }
+  result = SuspendThread(hThread);
+  if(result == 0xffffffff)
+    return -1; // possible, e.g. attached debugger or thread alread suspended
+  if (*(long*)((char*)addr + RPY_TLOFS_thread_ident) != tid) {
+    // swapped threads, bail
+    ResumeThread(hThread);
+    return -1;
+  }
+#endif
+  cur = *(vmprof_stack_t**)((char*)addr + RPY_TLOFS_vmprof_tl_stack);
+  if (cur) {
+    printf("%p\n", cur->kind);
+  } else {
+    printf("null\n");
+  }
+#ifdef RPY_TLOFS_thread_ident
+  ResumeThread(hThread);
+#endif
+  /*    HRESULT result;
     HANDLE hThread = OpenThread(THREAD_ALL_ACCESS, FALSE, thread_id);
     int depth;
     if (!hThread) {
@@ -74,7 +123,9 @@ int vmprof_snapshot_thread(DWORD thread_id, PyThreadState *tstate, prof_stacktra
     stack->count = 1;
     stack->marker = MARKER_STACKTRACE;
     ResumeThread(hThread);
-    return depth;
+    return depth;*/
+    return 0;
+#endif
 }
 
 long __stdcall vmprof_mainloop(void *arg)
@@ -82,23 +133,19 @@ long __stdcall vmprof_mainloop(void *arg)
     prof_stacktrace_s *stack = (prof_stacktrace_s*)malloc(SINGLE_BUF_SIZE);
     HANDLE hThreadSnap = INVALID_HANDLE_VALUE; 
     int depth;
-    PyThreadState *tstate;
 
     while (1) {
-        Sleep(profile_interval_usec * 1000);
+      //Sleep(profile_interval_usec * 1000);
+      Sleep(10);
         if (!enabled) {
             continue;
         }
-        tstate = PyInterpreterState_Head()->tstate_head;
-        while (tstate) {
-            depth = vmprof_snapshot_thread(tstate->thread_id, tstate, stack);
-            if (depth > 0) {
-                _write_all((char*)stack + offsetof(prof_stacktrace_s, marker),
-                    depth * sizeof(void *) +
-                        sizeof(struct prof_stacktrace_s) -
-                        offsetof(struct prof_stacktrace_s, marker));
-            }
-            tstate = tstate->next;
+        depth = vmprof_snapshot_thread(stack);
+        if (depth > 0) {
+          _write_all((char*)stack + offsetof(prof_stacktrace_s, marker),
+                     depth * sizeof(void *) +
+                     sizeof(struct prof_stacktrace_s) -
+                     offsetof(struct prof_stacktrace_s, marker));
         }
     }
 }

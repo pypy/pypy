@@ -7,9 +7,6 @@ static long prepare_interval_usec = 0;
 static long profile_interval_usec = 0;
 static int opened_profile(char *interp_name);
 
-#define MAX_STACK_DEPTH   \
-    ((SINGLE_BUF_SIZE - sizeof(struct prof_stacktrace_s)) / sizeof(void *))
-
 #define MARKER_STACKTRACE '\x01'
 #define MARKER_VIRTUAL_IP '\x02'
 #define MARKER_TRAILER '\x03'
@@ -19,6 +16,9 @@ static int opened_profile(char *interp_name);
 #define VERSION_BASE '\x00'
 #define VERSION_THREAD_ID '\x01'
 #define VERSION_TAG '\x02'
+
+#define MAX_STACK_DEPTH   \
+    ((SINGLE_BUF_SIZE - sizeof(struct prof_stacktrace_s)) / sizeof(void *))
 
 typedef struct prof_stacktrace_s {
     char padding[sizeof(long) - 1];
