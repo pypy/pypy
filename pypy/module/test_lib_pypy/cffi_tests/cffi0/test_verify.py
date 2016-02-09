@@ -92,8 +92,8 @@ def test_simple_case():
     assert lib.sin(1.23) == math.sin(1.23)
 
 def _Wconversion(cdef, source, **kargs):
-    if sys.platform == 'win32':
-        py.test.skip("needs GCC or Clang")
+    if sys.platform in ('win32', 'darwin'):
+        py.test.skip("needs GCC")
     ffi = FFI()
     ffi.cdef(cdef)
     py.test.raises(VerificationError, ffi.verify, source, **kargs)
