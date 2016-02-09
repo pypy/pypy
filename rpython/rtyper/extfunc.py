@@ -6,31 +6,29 @@ from rpython.annotator.signature import annotation, SignatureError
 class ExtFuncEntry(ExtRegistryEntry):
     safe_not_sandboxed = False
 
-    # common case: args is a list of annotation or types
-    def normalize_args(self, *args_s):
-        args = self.signature_args
-        signature_args = [annotation(arg, None) for arg in args]
-        assert len(args_s) == len(signature_args),\
+    def check_args(self, *args_s):
+        params_s = self.signature_args
+        assert len(args_s) == len(params_s),\
                "Argument number mismatch"
 
-        for i, expected in enumerate(signature_args):
-            arg = unionof(args_s[i], expected)
-            if not expected.contains(arg):
+        for i, s_param in enumerate(params_s):
+            arg = unionof(args_s[i], s_param)
+            if not s_param.contains(arg):
                 raise SignatureError("In call to external function %r:\n"
                                 "arg %d must be %s,\n"
                                 "          got %s" % (
-                    self.name, i+1, expected, args_s[i]))
-        return signature_args
+                    self.name, i+1, s_param, args_s[i]))
+        return params_s
 
     def compute_result_annotation(self, *args_s):
-        self.normalize_args(*args_s)   # check arguments
+        self.check_args(*args_s)
         return self.signature_result
 
     def specialize_call(self, hop):
         from rpython.rtyper.rtyper import llinterp_backend
         rtyper = hop.rtyper
-        signature_args = self.normalize_args(*hop.args_s)
-        args_r = [rtyper.getrepr(s_arg) for s_arg in signature_args]
+        signature_args = self.signature_args
+        args_r = [rtyper.getrepr(s_arg) for s_arg in self.signature_args]
         args_ll = [r_arg.lowleveltype for r_arg in args_r]
         s_result = hop.s_result
         r_result = rtyper.getrepr(s_result)
@@ -83,22 +81,19 @@ def register_external(function, args, result=None, export_name=None,
 
     if export_name is None:
         export_name = function.__name__
+    params_s = [annotation(arg) for arg in args]
+    s_result = annotation(result)
 
     class FunEntry(ExtFuncEntry):
         _about_ = function
         safe_not_sandboxed = sandboxsafe
-        signature_args = args
-        signature_result = annotation(result, None)
+        signature_args = params_s
+        signature_result = s_result
         name = export_name
         if llimpl:
             lltypeimpl = staticmethod(llimpl)
         if llfakeimpl:
             lltypefakeimpl = staticmethod(llfakeimpl)
-
-    if export_name:
-        FunEntry.__name__ = export_name
-    else:
-        FunEntry.__name__ = function.func_name
 
 def is_external(func):
     if hasattr(func, 'value'):
