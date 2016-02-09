@@ -33,40 +33,41 @@ class ExtFuncEntry(ExtRegistryEntry):
             return self.bookkeeper.immutablevalue(impl)
         return super(ExtFuncEntry, self).compute_annotation()
 
-
     def specialize_call(self, hop):
-        from rpython.rtyper.rtyper import llinterp_backend
         rtyper = hop.rtyper
-        signature_args = self.signature_args
         args_r = [rtyper.getrepr(s_arg) for s_arg in self.signature_args]
+        r_result = rtyper.getrepr(self.signature_result)
+        obj = self.get_funcptr(rtyper, args_r, r_result)
+        vlist = [hop.inputconst(typeOf(obj), obj)] + hop.inputargs(*args_r)
+        hop.exception_is_here()
+        return hop.genop('direct_call', vlist, r_result)
+
+    def get_funcptr(self, rtyper, args_r, r_result):
+        from rpython.rtyper.rtyper import llinterp_backend
         args_ll = [r_arg.lowleveltype for r_arg in args_r]
-        s_result = hop.s_result
-        r_result = rtyper.getrepr(s_result)
         ll_result = r_result.lowleveltype
         impl = getattr(self, 'lltypeimpl', None)
         fakeimpl = getattr(self, 'lltypefakeimpl', self.instance)
         if impl:
             if hasattr(self, 'lltypefakeimpl') and rtyper.backend is llinterp_backend:
                 FT = FuncType(args_ll, ll_result)
-                obj = functionptr(FT, self.name, _external_name=self.name,
-                                _callable=fakeimpl)
+                return functionptr(
+                    FT, self.name, _external_name=self.name,
+                    _callable=fakeimpl)
             elif isinstance(impl, _ptr):
-                obj = impl
+                return impl
             else:
                 # store some attributes to the 'impl' function, where
                 # the eventual call to rtyper.getcallable() will find them
                 # and transfer them to the final lltype.functionptr().
                 impl._llfnobjattrs_ = {'_name': self.name}
-                obj = rtyper.getannmixlevel().delayedfunction(
-                    impl, signature_args, hop.s_result)
+                return rtyper.getannmixlevel().delayedfunction(
+                    impl, self.signature_args, self.signature_result)
         else:
             FT = FuncType(args_ll, ll_result)
-            obj = functionptr(FT, self.name, _external_name=self.name,
-                              _callable=fakeimpl,
-                              _safe_not_sandboxed=self.safe_not_sandboxed)
-        vlist = [hop.inputconst(typeOf(obj), obj)] + hop.inputargs(*args_r)
-        hop.exception_is_here()
-        return hop.genop('direct_call', vlist, r_result)
+            return functionptr(
+                FT, self.name, _external_name=self.name, _callable=fakeimpl,
+                _safe_not_sandboxed=self.safe_not_sandboxed)
 
 
 def register_external(function, args, result=None, export_name=None,
