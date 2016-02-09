@@ -84,72 +84,87 @@ def pypy_init_embedded_cffi_module(version, init_struct):
     return rffi.cast(rffi.INT, res)
 
 # ____________________________________________________________
+
 if os.name == 'nt':
-    do_startup = r'''
-#include <stdio.h>
-#define WIN32_LEAN_AND_MEAN
+
+    do_includes = r"""
+#define _WIN32_WINNT 0x0501
 #include <windows.h>
-RPY_EXPORTED void rpython_startup_code(void);
-RPY_EXPORTED int pypy_setup_home(char *, int);
 
-static unsigned char _cffi_ready = 0;
-static const char *volatile _cffi_module_name;
+#define CFFI_INIT_HOME_PATH_MAX  _MAX_PATH
+static void _cffi_init(void);
+static void _cffi_init_error(const char *msg, const char *extra);
 
-static void _cffi_init_error(const char *msg, const char *extra)
+static int _cffi_init_home(char *output_home_path)
 {
-    fprintf(stderr,
-            "\nPyPy initialization failure when loading module '%s':\n%s%s\n",
-            _cffi_module_name, msg, extra);
-}
-
-BOOL CALLBACK _cffi_init(PINIT_ONCE InitOnce, PVOID Parameter, PVOID *lpContex)
-{
-
-    HMODULE hModule;
-    TCHAR home[_MAX_PATH];
-    rpython_startup_code();
-    RPyGilAllocate();
+    HMODULE hModule = 0;
+    DWORD res;
 
     GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | 
                        GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
                        (LPCTSTR)&_cffi_init, &hModule);
+
     if (hModule == 0 ) {
-        /* TODO turn the int into a string with FormatMessage */
-        
-        _cffi_init_error("dladdr() failed: ", "");
-        return TRUE;
+        _cffi_init_error("GetModuleHandleEx() failed", "");
+        return -1;
     }
-    GetModuleFileName(hModule, home, _MAX_PATH);
-    if (pypy_setup_home(home, 1) != 0) {
-        _cffi_init_error("pypy_setup_home() failed", "");
-        return TRUE;
+    res = GetModuleFileName(hModule, output_home_path, CFFI_INIT_HOME_PATH_MAX);
+    if (res >= CFFI_INIT_HOME_PATH_MAX) {
+        return -1;
     }
-    _cffi_ready = 1;
-    fprintf(stderr, "startup succeeded, home %s\n", home);
-    return TRUE;
+    return 0;
 }
 
-RPY_EXPORTED
-int pypy_carefully_make_gil(const char *name)
+static void _cffi_init_once(void)
 {
-    /* For CFFI: this initializes the GIL and loads the home path.
-       It can be called completely concurrently from unrelated threads.
-       It assumes that we don't hold the GIL before (if it exists), and we
-       don't hold it afterwards.
-    */
-    static INIT_ONCE s_init_once;
+    static LONG volatile lock = 0;
+    static int _init_called = 0;
 
-    _cffi_module_name = name;    /* not really thread-safe, but better than
-                                    nothing */
-    InitOnceExecuteOnce(&s_init_once, _cffi_init, NULL, NULL);
-    return (int)_cffi_ready - 1;
-}'''
+    while (InterlockedCompareExchange(&lock, 1, 0) != 0) {
+         SwitchToThread();        /* spin loop */
+    }
+    if (!_init_called) {
+        _cffi_init();
+        _init_called = 1;
+    }
+    InterlockedCompareExchange(&lock, 0, 1);
+}
+"""
+
 else:
-    do_startup = r"""
-#include <stdio.h>
+
+    do_includes = r"""
 #include <dlfcn.h>
 #include <pthread.h>
 
+#define CFFI_INIT_HOME_PATH_MAX  PATH_MAX
+static void _cffi_init(void);
+static void _cffi_init_error(const char *msg, const char *extra);
+
+static int _cffi_init_home(char *output_home_path)
+{
+    Dl_info info;
+    dlerror();   /* reset */
+    if (dladdr(&_cffi_init, &info) == 0) {
+        _cffi_init_error("dladdr() failed: ", dlerror());
+        return -1;
+    }
+    if (realpath(info.dli_fname, output_home_path) == NULL) {
+        perror("realpath() failed");
+        _cffi_init_error("realpath() failed", "");
+        return -1;
+    }
+    return 0;
+}
+
+static void _cffi_init_once(void)
+{
+    static pthread_once_t once_control = PTHREAD_ONCE_INIT;
+    pthread_once(&once_control, _cffi_init);
+}
+"""
+
+do_startup = do_includes + r"""
 RPY_EXPORTED void rpython_startup_code(void);
 RPY_EXPORTED int pypy_setup_home(char *, int);
 
@@ -165,17 +180,13 @@ static void _cffi_init_error(const char *msg, const char *extra)
 
 static void _cffi_init(void)
 {
-    Dl_info info;
-    char *home;
+    char home[CFFI_INIT_HOME_PATH_MAX + 1];
 
     rpython_startup_code();
     RPyGilAllocate();
 
-    if (dladdr(&_cffi_init, &info) == 0) {
-        _cffi_init_error("dladdr() failed: ", dlerror());
+    if (_cffi_init_home(home) != 0)
         return;
-    }
-    home = realpath(info.dli_fname, NULL);
     if (pypy_setup_home(home, 1) != 0) {
         _cffi_init_error("pypy_setup_home() failed", "");
         return;
@@ -191,11 +202,9 @@ int pypy_carefully_make_gil(const char *name)
        It assumes that we don't hold the GIL before (if it exists), and we
        don't hold it afterwards.
     */
-    static pthread_once_t once_control = PTHREAD_ONCE_INIT;
-
     _cffi_module_name = name;    /* not really thread-safe, but better than
                                     nothing */
-    pthread_once(&once_control, _cffi_init);
+    _cffi_init_once();
     return (int)_cffi_ready - 1;
 }
 """
