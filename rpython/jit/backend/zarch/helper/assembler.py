@@ -12,11 +12,6 @@ def do_emit_cmp_op(self, arglocs, condition, signed, fp):
     assert not l0.is_imm()
     # do the comparison
     self.mc.cmp_op(l0, l1, pool=l1.is_in_pool(), imm=l1.is_imm(), signed=signed, fp=fp)
-
-    if fp:
-        # Support for NaNs: S390X sets condition register to 0x3 (unordered)
-        # as soon as any of the operands is NaN
-        condition = c.prepare_float_condition(condition)
     self.flush_cc(condition, arglocs[2])
 
 

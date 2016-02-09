@@ -24,7 +24,7 @@ class TestZARCH(LLtypeBackendTest):
         cpu.setup_once()
         return cpu
 
-    add_loop_instructions = "lg; lgr; larl; agr; cgfi; je; j;$"
+    add_loop_instructions = "lg; lgr; larl; agr; cgfi; jge; j;$"
     # realloc frame takes the most space (from just after larl, to lay)
     bridge_loop_instructions = "larl; lg; cgfi; jhe; lghi; " \
                                "iilf;( iihf;)? iilf;( iihf;)? basr; lg; br;$"

@@ -240,12 +240,19 @@ class FloatOpAssembler(object):
     emit_float_mul = gen_emit_rr_or_rpool('MDBR','MDB')
     emit_float_truediv = gen_emit_rr_or_rpool('DDBR','DDB')
 
+    # Support for NaNs: S390X sets condition code to 0x3 (unordered)
+    # whenever any operand is nan.
+    # in the case float_le,float_ge the overflow bit is not set of
+    # the initial condition!
+    # e.g. guard_true(nan <= x): jumps 1100 inv => 0011, bit 3 set
+    # e.g. guard_false(nan <= x): does not jump 1100, bit 3 not set
+    # e.g. guard_true(nan >= nan): jumps 1010 inv => 0101, bit 3 set
     emit_float_lt = gen_emit_cmp_op(c.LT, fp=True)
-    emit_float_le = gen_emit_cmp_op(c.LE, fp=True)
+    emit_float_le = gen_emit_cmp_op(c.FLE, fp=True)
     emit_float_eq = gen_emit_cmp_op(c.EQ, fp=True)
     emit_float_ne = gen_emit_cmp_op(c.NE, fp=True)
     emit_float_gt = gen_emit_cmp_op(c.GT, fp=True)
-    emit_float_ge = gen_emit_cmp_op(c.GE, fp=True)
+    emit_float_ge = gen_emit_cmp_op(c.FGE, fp=True)
 
     def emit_float_neg(self, op, arglocs, regalloc):
         l0, = arglocs
@@ -633,6 +640,7 @@ class GuardOpAssembler(object):
             self.guard_success_cc = c.cond_none
             assert fcond.value != c.cond_none.value
             fcond = c.negate(fcond)
+
         token = self.build_guard_token(op, arglocs[0].value, arglocs[1:], fcond)
         token.pos_jump_offset = self.mc.currpos()
         assert token.guard_not_invalidated() == is_guard_not_invalidated
