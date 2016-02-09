@@ -24,6 +24,16 @@ class ExtFuncEntry(ExtRegistryEntry):
         self.check_args(*args_s)
         return self.signature_result
 
+    def compute_annotation(self):
+        if (self.bookkeeper.annotator.translator.config.translation.sandbox
+                and not self.safe_not_sandboxed):
+            from rpython.translator.sandbox.rsandbox import make_sandbox_trampoline
+            impl = make_sandbox_trampoline(self.name, self.signature_args,
+                self.signature_result)
+            return self.bookkeeper.immutablevalue(impl)
+        return super(ExtFuncEntry, self).compute_annotation()
+
+
     def specialize_call(self, hop):
         from rpython.rtyper.rtyper import llinterp_backend
         rtyper = hop.rtyper
@@ -36,8 +46,6 @@ class ExtFuncEntry(ExtRegistryEntry):
         impl = getattr(self, 'lltypeimpl', None)
         fakeimpl = getattr(self, 'lltypefakeimpl', self.instance)
         if impl:
-            impl = make_impl(rtyper, impl, self.safe_not_sandboxed, self.name,
-                             signature_args, s_result)
             if hasattr(self, 'lltypefakeimpl') and rtyper.backend is llinterp_backend:
                 FT = FuncType(args_ll, ll_result)
                 obj = functionptr(FT, self.name, _external_name=self.name,
@@ -60,12 +68,6 @@ class ExtFuncEntry(ExtRegistryEntry):
         hop.exception_is_here()
         return hop.genop('direct_call', vlist, r_result)
 
-def make_impl(rtyper, impl, sandboxsafe, name, args_s, s_result):
-    if (rtyper.annotator.translator.config.translation.sandbox
-            and not sandboxsafe):
-        from rpython.translator.sandbox.rsandbox import make_sandbox_trampoline
-        impl = make_sandbox_trampoline(name, args_s, s_result)
-    return impl
 
 def register_external(function, args, result=None, export_name=None,
                        llimpl=None, llfakeimpl=None, sandboxsafe=False):
