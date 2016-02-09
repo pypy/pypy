@@ -1,4 +1,4 @@
-import weakref
+import weakref, os
 
 from rpython.rlib import jit, objectmodel, debug, rerased
 from rpython.rlib.rarithmetic import intmask, r_uint
@@ -22,15 +22,110 @@ NUM_DIGITS_POW2 = 1 << NUM_DIGITS
 # note: we use "x * NUM_DIGITS_POW2" instead of "x << NUM_DIGITS" because
 # we want to propagate knowledge that the result cannot be negative
 
+class All(object):
+    def __init__(self):
+        self.all = []
+
+@objectmodel.specialize.argtype(1)
+def _print_line(key, value, indent=0):
+    from pypy.objspace.std.bytesobject import string_escape_encode
+    if isinstance(value, int):
+        value = str(value)
+    else:
+        value = string_escape_encode(str(value), '"')
+    return "%s%s: %s," % (" " * (indent * 4), string_escape_encode(key, '"'), value)
+
+def _print_stats(space):
+    fn = space.bytes_w(space.getitem(space.getattr(space.sys, space.wrap('argv')), space.wrap(0)))
+    if fn.endswith(".py"):
+        end = len(fn) - len('.py')
+        assert end >= 0
+        fn = fn[:end]
+    elif fn.endswith(".pyc"):
+        end = len(fn) - len('.pyc')
+        assert end >= 0
+        fn = fn[:end]
+    if "/" in fn:
+        index = fn.rfind("/")
+        assert index >= 0
+        fn = fn[index+1:]
+    f = file("mapstats-%s-%s.txt" % (fn, os.getpid(), ), "w")
+    try:
+        f.write("[\n")
+        for map in AbstractAttribute._all_maps.all:
+            map.print_counts(f)
+        f.write("]\n")
+    finally:
+        f.close()
+
 class AbstractAttribute(object):
     _immutable_fields_ = ['terminator']
     cache_attrs = None
     _size_estimate = 0
+    _number_instantiated = 0
+    _number_unnecessary_writes = 0
+    _number_writes = None
+    _number_reads = None
+    _number_transitions = None
+    _all_maps = All()
 
     def __init__(self, space, terminator):
         self.space = space
         assert isinstance(terminator, Terminator)
         self.terminator = terminator
+        self._number_reads = {}
+        self._number_writes = {}
+        self._number_transitions = {}
+        self._all_maps.all.append(self)
+
+    def _count_read(self, name, index):
+        key = (name, index)
+        self._number_reads[key] = self._number_reads.get(key, 0) + 1
+
+    def _count_write(self, name, index, w_value):
+        key = (name, index, w_value.__class__.__name__)
+        self._number_writes[key] = self._number_writes.get(key, 0) + 1
+
+    def _count_transition(self, key):
+        self._number_transitions[key] = self._number_transitions.get(key, 0) + 1
+
+    def print_counts(self, f):
+        lines = ["{"]
+        lines.append(_print_line('type', self.__class__.__name__, 1))
+        lines.append(_print_line('id', str(objectmodel.compute_unique_id(self)), 1))
+        lines.append(_print_line('instances', self._number_instantiated, 1))
+        if isinstance(self, PlainAttribute):
+            lines.append(_print_line('back', str(objectmodel.compute_unique_id(self.back)), 1))
+            lines.append(_print_line('name', self.name, 1))
+            lines.append(_print_line('index', self.index, 1))
+            lines.append(_print_line('ever_mutated', self.ever_mutated, 1))
+            lines.append(_print_line('can_contain_mutable_cell', self.can_contain_mutable_cell, 1))
+            lines.append(_print_line('number_unnecessary_writes', self._number_unnecessary_writes, 1))
+            lines.append(_print_line('_hprof_status', str(self._hprof_status), 1))
+            if self.class_is_known():
+                lines.append(_print_line('_hprof_const_cls', self.read_constant_cls().__name__, 1))
+        elif isinstance(self, Terminator):
+            if self.w_cls is not None:
+                lines.append(_print_line('w_cls', self.w_cls.name, 1))
+        if self._number_reads:
+            lines.append('    "reads": {')
+            for key, value in self._number_reads.items():
+                lines.append(_print_line(str(key), value, 2))
+            lines.append("    },")
+        if self._number_writes:
+            lines.append('    "writes": {')
+            for key, value in self._number_writes.items():
+                lines.append(_print_line(str(key), value, 2))
+            lines.append("    },")
+        if self._number_transitions:
+            lines.append('    "transitions": {')
+            for key, value in self._number_transitions.items():
+                lines.append(_print_line(str(objectmodel.compute_unique_id(key)), value, 2))
+            lines.append("    },")
+        lines.append("},")
+        lines.append("")
+        lines.append("")
+        f.write("\n".join(lines))
 
     def read(self, obj, name, index):
         from pypy.objspace.std.intobject import W_IntObject
@@ -38,6 +133,7 @@ class AbstractAttribute(object):
         attr = self.find_map_attr(name, index)
         if attr is None:
             return self.terminator._read_terminator(obj, name, index)
+        attr._count_read(name, index)
         # XXX move to PlainAttribute?
         if jit.we_are_jitted():
             if attr.can_fold_read_int():
@@ -74,11 +170,13 @@ class AbstractAttribute(object):
         attr = self.find_map_attr(name, index)
         if attr is None:
             return self.terminator._write_terminator(obj, name, index, w_value)
+        attr._count_write(name, index, w_value)
         # if the write is not necessary, the storage is already filled from the
         # time we did the map transition. Therefore, if the value profiler says
         # so, we can not do the write
         write_necessary = attr.write_necessary(w_value)
         if not write_necessary:
+            self._number_unnecessary_writes += 1
             return True
         if not attr.ever_mutated:
             attr.ever_mutated = True
@@ -206,6 +304,7 @@ class AbstractAttribute(object):
     def add_attr(self, obj, name, index, w_value):
         # grumble, jit needs this
         attr = self._get_new_attr(name, index)
+        attr._count_write(name, index, w_value)
         oldattr = obj._get_mapdict_map()
         if not jit.we_are_jitted():
             size_est = (oldattr._size_estimate + attr.size_estimate()
@@ -501,18 +600,24 @@ class BaseMapdictObject:
     def _get_mapdict_map(self):
         return jit.promote(self.map)
     def _set_mapdict_map(self, map):
+        old = self.map
+        if old is not map and map:
+            old._count_transition(map)
         self.map = map
     # _____________________________________________
     # objspace interface
 
     def getdictvalue(self, space, attrname):
-        return self._get_mapdict_map().read(self, attrname, DICT)
+        map = self._get_mapdict_map()
+        return map.read(self, attrname, DICT)
 
     def setdictvalue(self, space, attrname, w_value):
-        return self._get_mapdict_map().write(self, attrname, DICT, w_value)
+        map = self._get_mapdict_map()
+        return map.write(self, attrname, DICT, w_value)
 
     def deldictvalue(self, space, attrname):
-        new_obj = self._get_mapdict_map().delete(self, attrname, DICT)
+        map = self._get_mapdict_map()
+        new_obj = map.delete(self, attrname, DICT)
         if new_obj is None:
             return False
         self._become(new_obj)
@@ -558,6 +663,7 @@ class BaseMapdictObject:
         self.space = space
         assert (not self.typedef.hasdict or
                 self.typedef is W_InstanceObject.typedef)
+        w_subtype.terminator._number_instantiated += 1
         self._init_empty(w_subtype.terminator)
 
     def getslotvalue(self, slotindex):
@@ -615,7 +721,7 @@ class ObjectMixin(object):
         return len(self.storage)
     def _set_mapdict_storage_and_map(self, storage, map):
         self.storage = storage
-        self.map = map
+        self._set_mapdict_map(map)
 
 class Object(ObjectMixin, BaseMapdictObject, W_Root):
     pass # mainly for tests
@@ -705,7 +811,7 @@ def _make_subclass_size_n(supercls, n):
             return n
 
         def _set_mapdict_storage_and_map(self, storage, map):
-            self.map = map
+            self._set_mapdict_map(map)
             len_storage = len(storage)
             for i in rangenmin1:
                 if i < len_storage:
@@ -980,7 +1086,7 @@ def LOAD_ATTR_caching(pycode, w_obj, nameindex):
     # used if we_are_jitted().
     entry = pycode._mapdict_caches[nameindex]
     map = w_obj._get_mapdict_map()
-    if entry.is_valid_for_map(map) and entry.w_method is None:
+    if False: #entry.is_valid_for_map(map) and entry.w_method is None:
         # everything matches, it's incredibly fast
         return unwrap_cell(
                 map.space, w_obj._mapdict_read_storage(entry.storageindex))
@@ -1026,6 +1132,7 @@ def LOAD_ATTR_slowpath(pycode, w_obj, nameindex, map):
             if index != INVALID:
                 attr = map.find_map_attr(attrname, index)
                 if attr is not None:
+                    attr._count_read(attrname, index)
                     # Note that if map.terminator is a DevolvedDictTerminator,
                     # map.find_map_attr will always return None if index==DICT.
                     _fill_cache(pycode, nameindex, map, version_tag, attr.storageindex)

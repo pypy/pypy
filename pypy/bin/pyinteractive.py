@@ -192,6 +192,8 @@ def main_(argv=None):
                 exit_status = 0
     finally:
         def doit():
+            from pypy.objspace.std.mapdict import _print_stats
+            _print_stats(space)
             space.finish()
         main.run_toplevel(space, doit, verbose=interactiveconfig.verbose)
 

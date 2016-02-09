@@ -69,6 +69,8 @@ def create_entry_point(space, w_dict):
                 debug(" operror-value: " + space.str_w(space.str(e.get_w_value(space))))
                 return 1
         finally:
+            from pypy.objspace.std.mapdict import _print_stats
+            _print_stats(space)
             try:
                 space.finish()
             except OperationError, e:
