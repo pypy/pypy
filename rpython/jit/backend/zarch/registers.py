@@ -27,7 +27,7 @@ FPR_RETURN = f0
 FP_SCRATCH = f15
 
 MANAGED_FP_REGS = fpregisters[:-1]
-VOLATILES_FLOAT = [f0,f2,f4,f6]
+VOLATILES_FLOAT = [f0,f1,f2,f3,f4,f5,f6,f7]
 
 # The JITFRAME_FIXED_SIZE is measured in words, and should be the
 # number of registers that need to be saved into the jitframe when
