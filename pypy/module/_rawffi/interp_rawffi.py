@@ -440,6 +440,10 @@ def wrap_value(space, func, add_arg, argdesc, letter):
                          space.wrap("cannot directly read value"))
 wrap_value._annspecialcase_ = 'specialize:arg(1)'
 
+NARROW_INTEGER_TYPES = 'cbhiBIH?'
+
+def is_narrow_integer_type(letter):
+    return letter in NARROW_INTEGER_TYPES
 
 class W_FuncPtr(W_Root):
     def __init__(self, space, ptr, argshapes, resshape):
@@ -448,7 +452,7 @@ class W_FuncPtr(W_Root):
         self.resshape = resshape
         self.narrow_integer = False
         if resshape is not None:
-            self.narrow_integer = resshape.itemcode.lower() in ('c','h','i')
+            self.narrow_integer = is_narrow_integer_type(resshape.itemcode.lower())
 
     def getbuffer(self, space):
         return space.wrap(rffi.cast(lltype.Unsigned, self.ptr.funcsym))
@@ -512,7 +516,6 @@ class W_FuncPtr(W_Root):
                     # we get a 8 byte value in big endian
                     n = rffi.sizeof(lltype.Signed) - result.shape.size
                     result.buffer_advance(n)
-
                 return space.wrap(result)
             else:
                 self.ptr.call(args_ll, lltype.nullptr(rffi.VOIDP.TO))
