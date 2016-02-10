@@ -5,7 +5,7 @@ import rpython.jit.backend.zarch.registers as r
 import rpython.jit.backend.zarch.conditions as c
 
 
-class TestPPCCallingConvention(CallingConvTests):
+class TestZARCHCallingConvention(CallingConvTests):
     # ../../test/calling_convention_test.py
 
     def make_function_returning_stack_pointer(self):

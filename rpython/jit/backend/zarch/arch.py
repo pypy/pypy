@@ -83,3 +83,9 @@ RECOVERY_GCMAP_POOL_OFFSET = 8
 
 JUMPABS_TARGET_ADDR__POOL_OFFSET = 0
 JUMPABS_POOL_ADDR_POOL_OFFSET = 8
+
+# r8 through r15 are saved registers (= non volatile)
+# thus when entering the jit, we do not know if those
+# are overwritten in the jit. save them using some extra
+# stack space!
+JIT_ENTER_EXTRA_STACK_SPACE = 8*8

@@ -95,6 +95,9 @@ class LiteralPool(object):
             if arg.is_constant():
                 self.reserve_literal(8, arg)
 
+    def contains_constant(self, unique_val):
+        return unique_val in self.offset_map
+
     def get_descr_offset(self, descr):
         return self.offset_descr[descr]
 
@@ -104,6 +107,11 @@ class LiteralPool(object):
         if not we_are_translated():
             assert self.offset_map[uvalue] >= 0
         return self.offset_map[uvalue]
+
+    def get_direct_offset(self, unique_val):
+        """ Get the offset directly using a unique value,
+            use get_offset if you have a Const box """
+        return self.offset_map[unique_val]
 
     def unique_value(self, val):
         if val.type == FLOAT:
@@ -170,6 +178,8 @@ class LiteralPool(object):
         self.pool_start = asm.mc.get_relative_pos()
         for op in operations:
             self.ensure_can_hold_constants(asm, op)
+        self.ensure_value(asm.cpu.pos_exc_value())
+        # TODO add more values that are loaded with load_imm
         if self.size == 0:
             # no pool needed!
             return

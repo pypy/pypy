@@ -69,9 +69,10 @@ class InstrBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
 
     RAW_CALL_REG = r.r14
 
-    def __init__(self):
+    def __init__(self, pool=None):
         AbstractZARCHBuilder.__init__(self)
         self.init_block_builder()
+        self.pool = pool
         #
         # ResOperation --> offset in the assembly.
         # ops_offset[None] represents the beginning of the code after the last op
@@ -173,6 +174,9 @@ class InstrBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
         elif -2**31 <= word <= 2**31-1:
             self.LGFI(dest_reg, l.imm(word))
         else:
+            if self.pool and self.pool.contains_constant(word):
+                self.LG(dest_reg, l.pool(self.pool.get_direct_offset(word)))
+                return
             # this is not put into the constant pool, because it
             # is an immediate value that cannot easily be forseen
             self.IILF(dest_reg, l.imm(word & 0xFFFFffff))

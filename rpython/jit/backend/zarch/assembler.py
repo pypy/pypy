@@ -17,7 +17,7 @@ from rpython.jit.backend.zarch.arch import (WORD,
         STD_FRAME_SIZE_IN_BYTES, THREADLOCAL_ADDR_OFFSET,
         RECOVERY_GCMAP_POOL_OFFSET, RECOVERY_TARGET_POOL_OFFSET,
         JUMPABS_TARGET_ADDR__POOL_OFFSET, JUMPABS_POOL_ADDR_POOL_OFFSET,
-        THREADLOCAL_ON_ENTER_JIT)
+        THREADLOCAL_ON_ENTER_JIT, JIT_ENTER_EXTRA_STACK_SPACE)
 from rpython.jit.backend.zarch.opassembler import OpAssembler
 from rpython.jit.backend.zarch.regalloc import Regalloc
 from rpython.jit.codewriter.effectinfo import EffectInfo
@@ -50,6 +50,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         self.gcrootmap_retaddr_forced = 0
         self.failure_recovery_code = [0, 0, 0, 0]
         self.wb_slowpath = [0,0,0,0,0]
+        self.pool = None
 
     def setup(self, looptoken):
         BaseAssembler.setup(self, looptoken)
@@ -57,7 +58,8 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         if we_are_translated():
             self.debug = False
         self.current_clt = looptoken.compiled_loop_token
-        self.mc = InstrBuilder()
+        self.pool = LiteralPool()
+        self.mc = InstrBuilder(self.pool)
         self.pending_guard_tokens = []
         self.pending_guard_tokens_recovered = 0
         #assert self.datablockwrapper is None --- but obscure case
@@ -68,7 +70,6 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         self.mc.datablockwrapper = self.datablockwrapper
         self.target_tokens_currently_compiling = {}
         self.frame_depth_to_patch = []
-        self.pool = LiteralPool()
 
     def teardown(self):
         self.pending_guard_tokens = None
@@ -91,7 +92,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         self.mc.BCR_rr(0xf, register.value)
 
     def _build_failure_recovery(self, exc, withfloats=False):
-        mc = InstrBuilder()
+        mc = InstrBuilder(self.pool)
         self.mc = mc
         # fill in the jf_descr and jf_gcmap fields of the frame according
         # to which failure we are resuming from.  These are set before
@@ -202,6 +203,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
             mc.LAY(r.SP, l.addr(-extra_stack_size, r.SP))
             mc.STMG(r.r10, r.r12, l.addr(off, r.SP))
             mc.STG(r.r2, l.addr(off+3*WORD, r.SP))
+            # OK to use STD, because offset is not negative
             mc.STD(r.f0, l.addr(off+4*WORD, r.SP))
             saved_regs = None
             saved_fp_regs = None
@@ -1008,14 +1010,22 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
 
     def _call_header(self):
         # Build a new stackframe of size STD_FRAME_SIZE_IN_BYTES
-        self.mc.STMG(r.r6, r.r15, l.addr(6*WORD, r.SP))
+        fpoff = JIT_ENTER_EXTRA_STACK_SPACE
+        self.mc.STMG(r.r6, r.r15, l.addr(-fpoff+6*WORD, r.SP))
         self.mc.LARL(r.POOL, l.halfword(self.pool.pool_start - self.mc.get_relative_pos()))
+        # f8 through f15 are saved registers (= non volatile)
+        # TODO it would be good to detect if any float is used in the loop
+        # and to skip this push/pop whenever no float operation occurs
+        for i,reg in enumerate(range(8,16)):
+            off = -fpoff + STD_FRAME_SIZE_IN_BYTES
+            assert off > 0
+            self.mc.STD_rx(reg, l.addr(off + i*8, r.SP))
 
         # save r3, the second argument, to the thread local position
         self.mc.STG(r.r3, l.addr(THREADLOCAL_ON_ENTER_JIT, r.SP))
 
-        # push a standard frame for any call
-        self.mc.push_std_frame()
+        # push a standard frame for any within the jit trace
+        self.mc.push_std_frame(fpoff)
 
         # move the first argument to SPP: the jitframe object
         self.mc.LGR(r.SPP, r.r2)
@@ -1060,8 +1070,13 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         if gcrootmap and gcrootmap.is_shadow_stack:
             self._call_footer_shadowstack(gcrootmap)
 
-        # restore registers r6-r15
         size = STD_FRAME_SIZE_IN_BYTES
+        # f8 through f15 are saved registers (= non volatile)
+        # TODO it would be good to detect if any float is used in the loop
+        # and to skip this push/pop whenever no float operation occurs
+        for i,reg in enumerate(range(8,16)):
+            self.mc.LD_rx(reg, l.addr(size + size + i*8, r.SP))
+        # restore registers r6-r15
         self.mc.LMG(r.r6, r.r15, l.addr(size+6*WORD, r.SP))
         self.jmpto(r.r14)
 
