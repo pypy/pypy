@@ -19,6 +19,7 @@ long buffer[];
 
 lib = ffi.verify("""
 #define PYPY_JIT_CODEMAP
+#include "vmprof_stack.h"
 
 volatile int pypy_codemap_currently_invalid = 0;
 
@@ -42,7 +43,7 @@ long pypy_yield_codemap_at_addr(void *codemap_raw, long addr,
 }
 
 
-""" + open(str(srcdir.join("vmprof_get_custom_offset.h"))).read())
+""" + open(str(srcdir.join("vmprof_get_custom_offset.h"))).read(), include_dirs=[str(srcdir)])
 
 class TestDirect(object):
     def test_infrastructure(self):
@@ -67,8 +68,5 @@ class TestDirect(object):
         buf = ffi.new("long[10]", [0] * 10)
         result = ffi.cast("void**", buf)
         res = lib.vmprof_write_header_for_jit_addr(result, 0, ffi.NULL, 100)
-        assert res == 6
-        assert buf[0] == 2
-        assert buf[1] == 16
-        assert buf[2] == 12
-        assert buf[3] == 8
+        assert res == 10
+        assert [x for x in buf] == [6, 0, 3, 16, 3, 12, 3, 8, 3, 4]

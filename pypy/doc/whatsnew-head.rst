@@ -140,6 +140,10 @@ Refactor sandboxing to operate at a higher level.
 
 .. branch: cpyext-bootstrap
 
+.. branch: vmprof-newstack
+
+Refactor vmprof to work cross-operating-system.
+
 .. branch: memop-simplify3
 
 Further simplifying the backend operations malloc_cond_varsize and zero_array.

@@ -21,14 +21,12 @@ def get_extension(srcfilename, modname, sources=(), **kwds):
         allsources.append(os.path.normpath(src))
     return Extension(name=modname, sources=allsources, **kwds)
 
-def compile(tmpdir, ext, compiler_verbose=0, target_extension=None,
-            embedding=False):
+def compile(tmpdir, ext, compiler_verbose=0):
     """Compile a C extension module using distutils."""
 
     saved_environ = os.environ.copy()
     try:
-        outputfilename = _build(tmpdir, ext, compiler_verbose,
-                                target_extension, embedding)
+        outputfilename = _build(tmpdir, ext, compiler_verbose)
         outputfilename = os.path.abspath(outputfilename)
     finally:
         # workaround for a distutils bugs where some env vars can
@@ -38,32 +36,7 @@ def compile(tmpdir, ext, compiler_verbose=0, target_extension=None,
                 os.environ[key] = value
     return outputfilename
 
-def _save_val(name):
-    import distutils.sysconfig
-    config_vars = distutils.sysconfig.get_config_vars()
-    return config_vars.get(name, Ellipsis)
-
-def _restore_val(name, value):
-    import distutils.sysconfig
-    config_vars = distutils.sysconfig.get_config_vars()
-    config_vars[name] = value
-    if value is Ellipsis:
-        del config_vars[name]
-
-def _win32_hack_for_embedding():
-    from distutils.msvc9compiler import MSVCCompiler
-    if not hasattr(MSVCCompiler, '_remove_visual_c_ref_CFFI_BAK'):
-        MSVCCompiler._remove_visual_c_ref_CFFI_BAK = \
-            MSVCCompiler._remove_visual_c_ref
-    MSVCCompiler._remove_visual_c_ref = lambda self,manifest_file: manifest_file
-
-def _win32_unhack_for_embedding():
-    from distutils.msvc9compiler import MSVCCompiler
-    MSVCCompiler._remove_visual_c_ref = \
-        MSVCCompiler._remove_visual_c_ref_CFFI_BAK
-
-def _build(tmpdir, ext, compiler_verbose=0, target_extension=None,
-           embedding=False):
+def _build(tmpdir, ext, compiler_verbose=0):
     # XXX compact but horrible :-(
     from distutils.core import Distribution
     import distutils.errors, distutils.log
@@ -76,25 +49,14 @@ def _build(tmpdir, ext, compiler_verbose=0, target_extension=None,
     options['build_temp'] = ('ffiplatform', tmpdir)
     #
     try:
-        if sys.platform == 'win32' and embedding:
-            _win32_hack_for_embedding()
         old_level = distutils.log.set_threshold(0) or 0
-        old_SO = _save_val('SO')
-        old_EXT_SUFFIX = _save_val('EXT_SUFFIX')
         try:
-            if target_extension is not None:
-                _restore_val('SO', target_extension)
-                _restore_val('EXT_SUFFIX', target_extension)
             distutils.log.set_verbosity(compiler_verbose)
             dist.run_command('build_ext')
             cmd_obj = dist.get_command_obj('build_ext')
             [soname] = cmd_obj.get_outputs()
         finally:
             distutils.log.set_threshold(old_level)
-            _restore_val('SO', old_SO)
-            _restore_val('EXT_SUFFIX', old_EXT_SUFFIX)
-            if sys.platform == 'win32' and embedding:
-                _win32_unhack_for_embedding()
     except (distutils.errors.CompileError,
             distutils.errors.LinkError) as e:
         raise VerificationError('%s: %s' % (e.__class__.__name__, e))

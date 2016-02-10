@@ -31,7 +31,7 @@ else:
 
 if WORD == 4:
     # ebp + ebx + esi + edi + 15 extra words = 19 words
-    FRAME_FIXED_SIZE = 19
+    FRAME_FIXED_SIZE = 19 + 4 # 4 for vmprof, XXX make more compact!
     PASS_ON_MY_FRAME = 15
     JITFRAME_FIXED_SIZE = 6 + 8 * 2 # 6 GPR + 8 XMM * 2 WORDS/float
     # 'threadlocal_addr' is passed as 2nd argument on the stack,
@@ -41,7 +41,7 @@ if WORD == 4:
     THREADLOCAL_OFS = (FRAME_FIXED_SIZE + 2) * WORD
 else:
     # rbp + rbx + r12 + r13 + r14 + r15 + threadlocal + 12 extra words = 19
-    FRAME_FIXED_SIZE = 19
+    FRAME_FIXED_SIZE = 19 + 4 # 4 for vmprof, XXX make more compact!
     PASS_ON_MY_FRAME = 12
     JITFRAME_FIXED_SIZE = 28 # 13 GPR + 15 XMM
     # 'threadlocal_addr' is passed as 2nd argument in %esi,

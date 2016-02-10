@@ -3,7 +3,7 @@ import re
 
 import py
 
-from rpython.rlib.debug import ll_assert
+from rpython.rtyper.debug import ll_assert
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.llinterp import LLException, LLAssertFailure
 from rpython.rtyper.lltypesystem import rlist as ll_rlist
