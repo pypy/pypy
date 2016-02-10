@@ -153,51 +153,51 @@ class AbstractAttribute(object):
             cache[name, index] = attr
         return attr
 
+    @jit.elidable
+    def _get_cache_attr(self, name, index):
+        key = name, index
+        # this method is not actually elidable, but it's fine anyway
+        if self.cache_attrs is not None:
+            return self.cache_attrs.get(key, None)
+        return None
+
     @jit.look_inside_iff(lambda self, obj, name, index, w_value:
             jit.isconstant(self) and
             jit.isconstant(name) and
             jit.isconstant(index))
     def add_attr(self, obj, name, index, w_value):
         reordered = self._try_reorder_and_add(obj, name, index, w_value)
-        if reordered != NOT_REORDERED:
-            return
-        self._add_attr_without_reordering(obj, name, index, w_value)
-
-    def _add_attr_without_reordering(self, obj, name, index, w_value):
-        attr = self._get_new_attr(name, index)
-        oldattr = obj._get_mapdict_map()
+        if reordered == NOT_REORDERED:
+            self._add_attr_without_reordering(obj, name, index, w_value)
         if not jit.we_are_jitted():
+            oldattr = self
+            attr = obj._get_mapdict_map()
             size_est = (oldattr._size_estimate + attr.size_estimate()
                                                - oldattr.size_estimate())
             assert size_est >= (oldattr.length() * NUM_DIGITS_POW2)
             oldattr._size_estimate = size_est
-        if attr.length() > obj._mapdict_storage_length():
-            # note that attr.size_estimate() is always at least attr.length()
-            new_storage = [None] * attr.size_estimate()
+
+    def _add_attr_without_reordering(self, obj, name, index, w_value):
+        attr = self._get_new_attr(name, index)
+        attr._switch_map_and_write_storage(obj, w_value)
+
+    def _switch_map_and_write_storage(self, obj, w_value):
+        if self.length() > obj._mapdict_storage_length():
+            # note that self.size_estimate() is always at least self.length()
+            new_storage = [None] * self.size_estimate()
             for i in range(obj._mapdict_storage_length()):
                 new_storage[i] = obj._mapdict_read_storage(i)
-            obj._set_mapdict_storage_and_map(new_storage, attr)
+            obj._set_mapdict_storage_and_map(new_storage, self)
 
         # the order is important here: first change the map, then the storage,
         # for the benefit of the special subclasses
-        obj._set_mapdict_map(attr)
-        obj._mapdict_write_storage(attr.storageindex, w_value)
+        obj._set_mapdict_map(self)
+        obj._mapdict_write_storage(self.storageindex, w_value)
 
     def _try_reorder_and_add(self, obj, name, index, w_value):
-        key = name, index
-        if self.cache_attrs is not None and key in self.cache_attrs:
-            attr = self.cache_attrs[key]
-            # xxx: remove duplicated code
-
-            if attr.length() > obj._mapdict_storage_length():
-                # note that attr.size_estimate() is always at least attr.length()
-                new_storage = [None] * attr.size_estimate()
-                for i in range(obj._mapdict_storage_length()):
-                    new_storage[i] = obj._mapdict_read_storage(i)
-                obj._set_mapdict_storage_and_map(new_storage, attr)
-
-            obj._set_mapdict_map(attr)
-            obj._mapdict_write_storage(attr.storageindex, w_value)
+        attr = self._get_cache_attr(name, index)
+        if attr is not None:
+            attr._switch_map_and_write_storage(obj, w_value)
             return JUST_REORDERED
 
         elif isinstance(self, PlainAttribute):
