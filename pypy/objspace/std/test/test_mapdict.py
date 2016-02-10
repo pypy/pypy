@@ -107,6 +107,87 @@ def test_add_attribute():
     assert obj2.getdictvalue(space, "b") == 60
     assert obj2.map is obj.map
 
+def test_insert_different_orders():
+    cls = Class()
+    obj = cls.instantiate()
+    obj.setdictvalue(space, "a", 10)
+    obj.setdictvalue(space, "b", 20)
+
+    obj2 = cls.instantiate()
+    obj2.setdictvalue(space, "b", 30)
+    obj2.setdictvalue(space, "a", 40)
+
+    assert obj.map is obj2.map
+
+def test_insert_different_orders_2():
+    cls = Class()
+    obj = cls.instantiate()
+    obj2 = cls.instantiate()
+
+    obj.setdictvalue(space, "a", 10)
+
+    obj2.setdictvalue(space, "b", 20)
+    obj2.setdictvalue(space, "a", 30)
+
+    obj.setdictvalue(space, "b", 40)
+    assert obj.map is obj2.map
+
+def test_insert_different_orders_3():
+    cls = Class()
+    obj = cls.instantiate()
+    obj2 = cls.instantiate()
+    obj3 = cls.instantiate()
+    obj4 = cls.instantiate()
+    obj5 = cls.instantiate()
+    obj6 = cls.instantiate()
+
+    obj.setdictvalue(space, "a", 10)
+    obj.setdictvalue(space, "b", 20)
+    obj.setdictvalue(space, "c", 30)
+
+    obj2.setdictvalue(space, "a", 30)
+    obj2.setdictvalue(space, "c", 40)
+    obj2.setdictvalue(space, "b", 50)
+    
+    obj3.setdictvalue(space, "c", 30)
+    obj3.setdictvalue(space, "a", 40)
+    obj3.setdictvalue(space, "b", 50)
+    
+    obj4.setdictvalue(space, "c", 30)
+    obj4.setdictvalue(space, "b", 40)
+    obj4.setdictvalue(space, "a", 50)
+    
+    obj5.setdictvalue(space, "b", 30)
+    obj5.setdictvalue(space, "a", 40)
+    obj5.setdictvalue(space, "c", 50)
+    
+    obj6.setdictvalue(space, "b", 30)
+    obj6.setdictvalue(space, "c", 40)
+    obj6.setdictvalue(space, "a", 50)
+    
+    assert obj.map is obj2.map
+    assert obj.map is obj3.map
+    assert obj.map is obj4.map
+    assert obj.map is obj5.map
+    assert obj.map is obj6.map
+
+
+def test_insert_different_orders_perm():
+    from itertools import permutations
+    cls = Class()
+    seen_maps = {}
+    for i, attributes in enumerate(permutations("abcdef")):
+        obj = cls.instantiate()
+        key = ""
+        for j, attr in enumerate(attributes):
+            obj.setdictvalue(space, attr, i*10+j)
+            key = "".join(sorted(key+attr))
+            if key in seen_maps:
+                assert obj.map is seen_maps[key]
+            else:
+                seen_maps[key] = obj.map
+    print len(seen_maps)
+
 def test_attr_immutability(monkeypatch):
     cls = Class()
     obj = cls.instantiate()

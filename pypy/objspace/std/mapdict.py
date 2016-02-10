@@ -20,6 +20,8 @@ NUM_DIGITS_POW2 = 1 << NUM_DIGITS
 # note: we use "x * NUM_DIGITS_POW2" instead of "x << NUM_DIGITS" because
 # we want to propagate knowledge that the result cannot be negative
 
+NOT_REORDERED, JUST_REORDERED, SOMEWHERE_REORDERED = range(3)
+
 class AbstractAttribute(object):
     _immutable_fields_ = ['terminator']
     cache_attrs = None
@@ -156,7 +158,12 @@ class AbstractAttribute(object):
             jit.isconstant(name) and
             jit.isconstant(index))
     def add_attr(self, obj, name, index, w_value):
-        # grumble, jit needs this
+        reordered = self._try_reorder_and_add(obj, name, index, w_value)
+        if reordered != NOT_REORDERED:
+            return
+        self._add_attr_without_reordering(obj, name, index, w_value)
+
+    def _add_attr_without_reordering(self, obj, name, index, w_value):
         attr = self._get_new_attr(name, index)
         oldattr = obj._get_mapdict_map()
         if not jit.we_are_jitted():
@@ -175,6 +182,39 @@ class AbstractAttribute(object):
         # for the benefit of the special subclasses
         obj._set_mapdict_map(attr)
         obj._mapdict_write_storage(attr.storageindex, w_value)
+
+    def _try_reorder_and_add(self, obj, name, index, w_value):
+        key = name, index
+        if self.cache_attrs is not None and key in self.cache_attrs:
+            attr = self.cache_attrs[key]
+            # xxx: remove duplicated code
+
+            if attr.length() > obj._mapdict_storage_length():
+                # note that attr.size_estimate() is always at least attr.length()
+                new_storage = [None] * attr.size_estimate()
+                for i in range(obj._mapdict_storage_length()):
+                    new_storage[i] = obj._mapdict_read_storage(i)
+                obj._set_mapdict_storage_and_map(new_storage, attr)
+
+            obj._set_mapdict_map(attr)
+            obj._mapdict_write_storage(attr.storageindex, w_value)
+            return JUST_REORDERED
+
+        elif isinstance(self, PlainAttribute):
+            w_self_value = obj._mapdict_read_storage(self.storageindex)
+            reordered = self.back._try_reorder_and_add(obj, name, index, w_value)
+            if reordered == JUST_REORDERED:
+                obj._get_mapdict_map()._add_attr_without_reordering(
+                    obj, self.name, self.index, w_self_value)
+            elif reordered == SOMEWHERE_REORDERED:
+                obj._get_mapdict_map().add_attr(obj, self.name, self.index, w_self_value)
+            else:
+                assert reordered == NOT_REORDERED
+                return NOT_REORDERED
+            return SOMEWHERE_REORDERED
+        else:
+            # we are terminator
+            return NOT_REORDERED
 
     def materialize_r_dict(self, space, obj, dict_w):
         raise NotImplementedError("abstract base class")
