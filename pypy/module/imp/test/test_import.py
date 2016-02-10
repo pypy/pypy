@@ -1208,20 +1208,6 @@ class AppTestImportHooks(object):
             sys.meta_path.pop()
 
 
-class AppTestPyPyExtension(object):
-    spaceconfig = dict(usemodules=['imp', 'zipimport', '__pypy__'])
-
-    def setup_class(cls):
-        cls.w_udir = cls.space.wrap(str(udir))
-
-    def test_run_compiled_module(self):
-        # XXX minimal test only
-        import imp, types
-        module = types.ModuleType('foobar')
-        raises(IOError, imp._run_compiled_module,
-               'foobar', 'this_file_does_not_exist', None, module)
-
-
 class AppTestNoPycFile(object):
     spaceconfig = {
         "objspace.usepycfiles": False,
