@@ -17,6 +17,30 @@ from pypy.module.imp import importing
 
 from pypy import conftest
 
+
+def _read_n(stream, n):
+    buf = ''
+    while len(buf) < n:
+        data = stream.read(n - len(buf))
+        if not data:
+            raise streamio.StreamError("end of file")
+        buf += data
+    return buf
+
+def _r_long(stream):
+    s = _read_n(stream, 4)
+    return importing._get_long(s)
+
+def _w_long(stream, x):
+    a = x & 0xff
+    x >>= 8
+    b = x & 0xff
+    x >>= 8
+    c = x & 0xff
+    x >>= 8
+    d = x & 0xff
+    stream.write(chr(a) + chr(b) + chr(c) + chr(d))
+
 def setuppkg(pkgname, **entries):
     p = udir.join('impsubdir')
     if pkgname:
@@ -838,8 +862,8 @@ class TestPycStuff:
         stream = streamio.open_file_as_stream(cpathname, "rb")
         try:
             w_mod = space.wrap(Module(space, w_modulename))
-            magic = importing._r_long(stream)
-            timestamp = importing._r_long(stream)
+            magic = _r_long(stream)
+            timestamp = _r_long(stream)
             w_ret = importing.load_compiled_module(space,
                                                    w_modulename,
                                                    w_mod,
@@ -863,8 +887,8 @@ class TestPycStuff:
         stream = streamio.open_file_as_stream(cpathname, "rb")
         try:
             w_mod = space.wrap(Module(space, w_modulename))
-            magic = importing._r_long(stream)
-            timestamp = importing._r_long(stream)
+            magic = _r_long(stream)
+            timestamp = _r_long(stream)
             w_ret = importing.load_compiled_module(space,
                                                    w_modulename,
                                                    w_mod,
@@ -899,18 +923,18 @@ class TestPycStuff:
         pathname = str(udir.join('test.dat'))
         stream = streamio.open_file_as_stream(pathname, "wb")
         try:
-            importing._w_long(stream, 42)
-            importing._w_long(stream, 12312)
-            importing._w_long(stream, 128397198)
+            _w_long(stream, 42)
+            _w_long(stream, 12312)
+            _w_long(stream, 128397198)
         finally:
             stream.close()
         stream = streamio.open_file_as_stream(pathname, "rb")
         try:
-            res = importing._r_long(stream)
+            res = _r_long(stream)
             assert res == 42
-            res = importing._r_long(stream)
+            res = _r_long(stream)
             assert res == 12312
-            res = importing._r_long(stream)
+            res = _r_long(stream)
             assert res == 128397198
         finally:
             stream.close()
@@ -937,8 +961,8 @@ class TestPycStuff:
                 stream = streamio.open_file_as_stream(cpathname, "rb")
                 try:
                     w_mod = space2.wrap(Module(space2, w_modulename))
-                    magic = importing._r_long(stream)
-                    timestamp = importing._r_long(stream)
+                    magic = _r_long(stream)
+                    timestamp = _r_long(stream)
                     space2.raises_w(space2.w_ImportError,
                                     importing.load_compiled_module,
                                     space2,
