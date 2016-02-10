@@ -1016,10 +1016,11 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         # f8 through f15 are saved registers (= non volatile)
         # TODO it would be good to detect if any float is used in the loop
         # and to skip this push/pop whenever no float operation occurs
-        for i,reg in enumerate(range(8,16)):
+        for i,reg in enumerate([r.f8, r.f9, r.f10, r.f11,
+                                r.f12, r.f13, r.f14, r.f15]):
             off = -fpoff + STD_FRAME_SIZE_IN_BYTES
             assert off > 0
-            self.mc.STD_rx(reg, l.addr(off + i*8, r.SP))
+            self.mc.STD(reg, l.addr(off + i*8, r.SP))
 
         # save r3, the second argument, to the thread local position
         self.mc.STG(r.r3, l.addr(-fpoff+THREADLOCAL_ON_ENTER_JIT, r.SP))
@@ -1074,8 +1075,9 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         # f8 through f15 are saved registers (= non volatile)
         # TODO it would be good to detect if any float is used in the loop
         # and to skip this push/pop whenever no float operation occurs
-        for i,reg in enumerate(range(8,16)):
-            self.mc.LD_rx(reg, l.addr(size + size + i*8, r.SP))
+        for i,reg in enumerate([r.f8, r.f9, r.f10, r.f11,
+                                r.f12, r.f13, r.f14, r.f15]):
+            self.mc.LD(reg, l.addr(size + size + i*8, r.SP))
         # restore registers r6-r15
         self.mc.LMG(r.r6, r.r15, l.addr(size+6*WORD, r.SP))
         self.jmpto(r.r14)
