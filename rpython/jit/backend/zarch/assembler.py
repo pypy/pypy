@@ -1022,7 +1022,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
             self.mc.STD_rx(reg, l.addr(off + i*8, r.SP))
 
         # save r3, the second argument, to the thread local position
-        self.mc.STG(r.r3, l.addr(THREADLOCAL_ON_ENTER_JIT, r.SP))
+        self.mc.STG(r.r3, l.addr(-fpoff+THREADLOCAL_ON_ENTER_JIT, r.SP))
 
         # push a standard frame for any within the jit trace
         self.mc.push_std_frame(fpoff)
