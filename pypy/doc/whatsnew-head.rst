@@ -143,3 +143,8 @@ Refactor sandboxing to operate at a higher level.
 .. branch: vmprof-newstack
 
 Refactor vmprof to work cross-operating-system.
+
+.. branch: seperate-strucmember_h
+
+Seperate structmember.h from Python.h Also enhance creating api functions
+to specify which header file they appear in (previously only pypy_decl.h) 
