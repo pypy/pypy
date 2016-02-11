@@ -84,68 +84,11 @@ def pypy_init_embedded_cffi_module(version, init_struct):
     return rffi.cast(rffi.INT, res)
 
 # ____________________________________________________________
-if os.name == 'nt':
-    do_startup = r'''
-#include <stdio.h>
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-RPY_EXPORTED void rpython_startup_code(void);
-RPY_EXPORTED int pypy_setup_home(char *, int);
 
-static unsigned char _cffi_ready = 0;
-static const char *volatile _cffi_module_name;
 
-static void _cffi_init_error(const char *msg, const char *extra)
-{
-    fprintf(stderr,
-            "\nPyPy initialization failure when loading module '%s':\n%s%s\n",
-            _cffi_module_name, msg, extra);
-}
-
-BOOL CALLBACK _cffi_init(PINIT_ONCE InitOnce, PVOID Parameter, PVOID *lpContex)
-{
-
-    HMODULE hModule;
-    TCHAR home[_MAX_PATH];
-    rpython_startup_code();
-    RPyGilAllocate();
-
-    GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | 
-                       GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-                       (LPCTSTR)&_cffi_init, &hModule);
-    if (hModule == 0 ) {
-        /* TODO turn the int into a string with FormatMessage */
-        
-        _cffi_init_error("dladdr() failed: ", "");
-        return TRUE;
-    }
-    GetModuleFileName(hModule, home, _MAX_PATH);
-    if (pypy_setup_home(home, 1) != 0) {
-        _cffi_init_error("pypy_setup_home() failed", "");
-        return TRUE;
-    }
-    _cffi_ready = 1;
-    fprintf(stderr, "startup succeeded, home %s\n", home);
-    return TRUE;
-}
-
-RPY_EXPORTED
-int pypy_carefully_make_gil(const char *name)
-{
-    /* For CFFI: this initializes the GIL and loads the home path.
-       It can be called completely concurrently from unrelated threads.
-       It assumes that we don't hold the GIL before (if it exists), and we
-       don't hold it afterwards.
-    */
-    static INIT_ONCE s_init_once;
-
-    _cffi_module_name = name;    /* not really thread-safe, but better than
-                                    nothing */
-    InitOnceExecuteOnce(&s_init_once, _cffi_init, NULL, NULL);
-    return (int)_cffi_ready - 1;
-}'''
-else:
-    do_startup = r"""
+eci = ExternalCompilationInfo(separate_module_sources=[
+r"""
+/* XXX Windows missing */
 #include <stdio.h>
 #include <dlfcn.h>
 #include <pthread.h>
@@ -198,7 +141,6 @@ int pypy_carefully_make_gil(const char *name)
     pthread_once(&once_control, _cffi_init);
     return (int)_cffi_ready - 1;
 }
-"""
-eci = ExternalCompilationInfo(separate_module_sources=[do_startup])
+"""])
 
 declare_c_function = rffi.llexternal_use_eci(eci)
