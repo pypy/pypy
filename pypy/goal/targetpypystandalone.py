@@ -105,10 +105,6 @@ def create_entry_point(space, w_dict):
         space.appexec([w_path], """(path):
             import sys
             sys.path[:] = path
-            import os
-            sys.stdin  = sys.__stdin__  = os.fdopen(0, 'rb', 0)
-            sys.stdout = sys.__stdout__ = os.fdopen(1, 'wb', 0)
-            sys.stderr = sys.__stderr__ = os.fdopen(2, 'wb', 0)
         """)
         # import site
         try:
