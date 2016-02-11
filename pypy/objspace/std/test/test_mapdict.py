@@ -171,6 +171,12 @@ def test_insert_different_orders_3():
     assert obj.map is obj5.map
     assert obj.map is obj6.map
 
+def test_bug_stack_overflow_insert_attributes():
+    cls = Class()
+    obj = cls.instantiate()
+
+    for i in range(1000):
+        obj.setdictvalue(space, str(i), i)
 
 def test_insert_different_orders_perm():
     from itertools import permutations

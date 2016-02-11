@@ -160,15 +160,9 @@ class AbstractAttribute(object):
         if self.cache_attrs is not None:
             return self.cache_attrs.get(key, None)
         return None
-
-    @jit.look_inside_iff(lambda self, obj, name, index, w_value:
-            jit.isconstant(self) and
-            jit.isconstant(name) and
-            jit.isconstant(index))
+    
     def add_attr(self, obj, name, index, w_value):
-        reordered = self._try_reorder_and_add(obj, name, index, w_value)
-        if reordered == NOT_REORDERED:
-            self._add_attr_without_reordering(obj, name, index, w_value)
+        self._reorder_and_add(obj, name, index, w_value)
         if not jit.we_are_jitted():
             oldattr = self
             attr = obj._get_mapdict_map()
@@ -181,6 +175,7 @@ class AbstractAttribute(object):
         attr = self._get_new_attr(name, index)
         attr._switch_map_and_write_storage(obj, w_value)
 
+    @jit.unroll_safe
     def _switch_map_and_write_storage(self, obj, w_value):
         if self.length() > obj._mapdict_storage_length():
             # note that self.size_estimate() is always at least self.length()
@@ -194,27 +189,51 @@ class AbstractAttribute(object):
         obj._set_mapdict_map(self)
         obj._mapdict_write_storage(self.storageindex, w_value)
 
-    def _try_reorder_and_add(self, obj, name, index, w_value):
-        attr = self._get_cache_attr(name, index)
-        if attr is not None:
-            attr._switch_map_and_write_storage(obj, w_value)
-            return JUST_REORDERED
+    @jit.look_inside_iff(lambda self, obj, name, index, w_value:
+            jit.isconstant(self) and
+            jit.isconstant(name) and
+            jit.isconstant(index))
+    def _reorder_and_add(self, obj, name, index, w_value):
+        stack = []
+        while True:
+            current = self
+            localstack = []
+            while True:
+                attr = current._get_cache_attr(name, index)
+                if attr is None:
+                    # if not found in all ancestors
+                    if not isinstance(current, PlainAttribute):
+                        self._add_attr_without_reordering(obj, name, index, w_value)
+                        break
 
-        elif isinstance(self, PlainAttribute):
-            w_self_value = obj._mapdict_read_storage(self.storageindex)
-            reordered = self.back._try_reorder_and_add(obj, name, index, w_value)
-            if reordered == JUST_REORDERED:
-                obj._get_mapdict_map()._add_attr_without_reordering(
-                    obj, self.name, self.index, w_self_value)
-            elif reordered == SOMEWHERE_REORDERED:
-                obj._get_mapdict_map().add_attr(obj, self.name, self.index, w_self_value)
-            else:
-                assert reordered == NOT_REORDERED
-                return NOT_REORDERED
-            return SOMEWHERE_REORDERED
-        else:
-            # we are terminator
-            return NOT_REORDERED
+                    # if not found try parent
+                    else:
+                        w_self_value = obj._mapdict_read_storage(current.storageindex)
+                        localstack.append((current, w_self_value))
+                        current = current.back
+                else:
+                    attr._switch_map_and_write_storage(obj, w_value)
+                    stack.extend(localstack)
+                    break
+
+            if not stack:
+                return
+            
+            # add the first attribute of the stack without reordering
+            # to prevent an endless loop
+            next_map, w_value = stack.pop()
+            obj._get_mapdict_map()._add_attr_without_reordering(
+                obj, next_map.name, next_map.index, w_value)
+
+            if not stack:
+                return
+
+            # readd all other values from the stack (with reordering)
+            # the last element of the stack will be the new current
+            next_map, w_value = stack.pop()
+            name = next_map.name
+            index = next_map.index
+            self = obj._get_mapdict_map()
 
     def materialize_r_dict(self, space, obj, dict_w):
         raise NotImplementedError("abstract base class")
