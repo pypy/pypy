@@ -4,7 +4,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 
 # side-effect: FORMAT_LONGDOUBLE must be built before test_checkmodule()
 from pypy.module._cffi_backend import misc
-from pypy.module._cffi_backend import cffi1_module, embedding
+from pypy.module._cffi_backend import embedding
 
 
 def test_checkmodule():
