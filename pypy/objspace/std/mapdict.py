@@ -194,10 +194,12 @@ class AbstractAttribute(object):
             jit.isconstant(name) and
             jit.isconstant(index))
     def _reorder_and_add(self, obj, name, index, w_value):
-        stack = []
+        stack_maps = None
+        stack_values = None
+        stack_index = 0
         while True:
             current = self
-            localstack = []
+            localstack_index = stack_index
             while True:
                 attr = current._get_cache_attr(name, index)
                 if attr is None:
@@ -209,28 +211,37 @@ class AbstractAttribute(object):
                     # if not found try parent
                     else:
                         w_self_value = obj._mapdict_read_storage(current.storageindex)
-                        localstack.append((current, w_self_value))
+                        if stack_maps is None:
+                            stack_maps = [None] * self.length()
+                            stack_values = [None] * self.length()
+                        stack_maps[localstack_index] = current
+                        stack_values[localstack_index] = w_self_value
+                        localstack_index += 1
                         current = current.back
                 else:
                     attr._switch_map_and_write_storage(obj, w_value)
-                    stack.extend(localstack)
+                    stack_index = localstack_index
                     break
 
-            if not stack:
+            if not stack_index:
                 return
             
             # add the first attribute of the stack without reordering
             # to prevent an endless loop
-            next_map, w_value = stack.pop()
+            stack_index += -1
+            next_map = stack_maps[stack_index]
+            w_value = stack_values[stack_index]
             obj._get_mapdict_map()._add_attr_without_reordering(
                 obj, next_map.name, next_map.index, w_value)
 
-            if not stack:
+            if not stack_index:
                 return
 
             # readd all other values from the stack (with reordering)
             # the last element of the stack will be the new current
-            next_map, w_value = stack.pop()
+            stack_index += -1
+            next_map = stack_maps[stack_index]
+            w_value = stack_values[stack_index]
             name = next_map.name
             index = next_map.index
             self = obj._get_mapdict_map()
