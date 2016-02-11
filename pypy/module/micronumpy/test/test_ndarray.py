@@ -1840,8 +1840,12 @@ class AppTestNumArray(BaseNumpyAppTest):
             assert y[0] == 513 == 0x0201
         assert y.dtype == dtype('int16')
         y[0] = 670
-        assert x[0] == 2
-        assert x[1] == -98
+        if sys.byteorder == 'little':
+            assert x[0] == -98
+            assert x[1] == 2
+        else:
+            assert x[0] == 2
+            assert x[1] == -98
         f = array([1000, -1234], dtype='i4')
         nnp = self.non_native_prefix
         d = f.view(dtype=nnp + 'i4')
