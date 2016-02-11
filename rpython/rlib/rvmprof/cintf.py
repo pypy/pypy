@@ -30,6 +30,9 @@ global_eci = ExternalCompilationInfo(**eci_kwds)
 
 
 def setup():
+    if detect_cpu.autodetect().startswith(detect_cpu.MODEL_S390_64):
+        raise VMProfPlatformUnsupported("rvmprof not supported on"
+                                        " s390x CPUs for now")
     platform.verify_eci(ExternalCompilationInfo(
         compile_extra=['-DRPYTHON_LL2CTYPES'],
         **eci_kwds))
