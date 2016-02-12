@@ -188,6 +188,29 @@ def test_insert_different_orders_4():
 
     assert obj.map is obj2.map
 
+def test_insert_different_orders_5():
+    cls = Class()
+    obj = cls.instantiate()
+    obj2 = cls.instantiate()
+    
+    obj.setdictvalue(space, "a", 10)
+    obj.setdictvalue(space, "b", 20)
+    obj.setdictvalue(space, "c", 30)
+    obj.setdictvalue(space, "d", 40)
+
+    obj2.setdictvalue(space, "d", 50)
+    obj2.setdictvalue(space, "c", 50)
+    obj2.setdictvalue(space, "b", 50)
+    obj2.setdictvalue(space, "a", 50)
+
+    obj3 = cls.instantiate()
+    obj3.setdictvalue(space, "d", 50)
+    obj3.setdictvalue(space, "c", 50)
+    obj3.setdictvalue(space, "b", 50)
+    obj3.setdictvalue(space, "a", 50)
+
+    assert obj.map is obj3.map
+
 def test_bug_stack_overflow_insert_attributes():
     cls = Class()
     obj = cls.instantiate()

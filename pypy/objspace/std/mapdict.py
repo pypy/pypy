@@ -219,19 +219,19 @@ class AbstractAttribute(object):
                         current = current.back
                 else:
                     attr._switch_map_and_write_storage(obj, w_value)
-                    stack_index = localstack_index
-                    
-                    if not stack_index:
+                    if not localstack_index:
                         return
-                    
-                    # add the first attribute of the stack without reordering
-                    # to prevent an endless loop
-                    stack_index += -1
-                    next_map = stack_maps[stack_index]
-                    w_value = stack_values[stack_index]
-                    obj._get_mapdict_map()._add_attr_without_reordering(
-                        obj, next_map.name, next_map.index, w_value)
 
+                    if not stack_index:
+                        # add the first attribute of the stack without reordering
+                        # to prevent an endless loop
+                        localstack_index += -1
+                        next_map = stack_maps[localstack_index]
+                        w_value = stack_values[localstack_index]
+                        obj._get_mapdict_map()._add_attr_without_reordering(
+                            obj, next_map.name, next_map.index, w_value)
+
+                    stack_index = localstack_index    
                     break
 
             if not stack_index:
