@@ -164,8 +164,7 @@ class GcLLDescription(GcCache):
             array_index = moving_obj_tracker.get_array_index(v)
 
             size, offset, _ = unpack_arraydescr(moving_obj_tracker.ptr_array_descr)
-            factor = size
-            array_index = array_index * factor + offset
+            array_index = array_index * size + offset
             args = [moving_obj_tracker.const_ptr_gcref_array,
                     ConstInt(array_index),
                     ConstInt(size)]

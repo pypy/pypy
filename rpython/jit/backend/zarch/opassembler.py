@@ -880,7 +880,7 @@ class MemoryOpAssembler(object):
         # res, base_loc, ofs, size and signed are all locations
         if size == 8:
             if result_loc.is_fp_reg():
-                self.mc.LD(result_loc, source_loc)
+                self.mc.LDY(result_loc, source_loc)
             else:
                 self.mc.LG(result_loc, source_loc)
         elif size == 4:
