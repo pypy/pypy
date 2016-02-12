@@ -676,7 +676,7 @@ def run_command_line(interactive,
                 filename = filename.lower()
             if filename.endswith('.pyc') or filename.endswith('.pyo'):
                 loader = SourcelessFileLoader('__main__', filename)
-                args = (loader.load_module,)
+                args = (loader.load_module, loader.name)
             else:
                 filename = sys.argv[0]
                 for hook in sys.path_hooks:
