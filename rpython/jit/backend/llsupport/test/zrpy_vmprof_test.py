@@ -9,10 +9,6 @@ from rpython.jit.backend.detect_cpu import getcpuclass
 class CompiledVmprofTest(CCompiledMixin):
     CPUClass = getcpuclass()
 
-    def setup(self):
-        if self.CPUClass.backend_name != 'x86_64':
-            py.test.skip("vmprof only supports x86-64 CPUs at the moment")
-
     def _get_TranslationContext(self):
         t = TranslationContext()
         t.config.translation.gc = 'incminimark'
