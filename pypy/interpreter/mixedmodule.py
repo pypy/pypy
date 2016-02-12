@@ -58,8 +58,17 @@ class MixedModule(Module):
                 self.save_module_content_for_future_reload()
 
     def save_module_content_for_future_reload(self):
-        self.w_initialdict = self.space.call_method(self.w_dict, 'copy')
-
+        if not self.space.is_none(self.w_initialdict):
+            present_keys = self.w_initialdict.w_keys()
+            new_keys = self.w_dict.w_keys()
+            key_count = new_keys.length()
+            for i in range(key_count):
+                key = new_keys.getitem(i)
+                val_to_set = self.space.getitem(self.w_dict, key)
+                if not self.space.is_true(self.space.contains(present_keys, key)):
+                    self.space.setitem(self.w_initialdict, key, val_to_set)
+        else:
+            self.w_initialdict = self.space.call_method(self.w_dict, 'copy')
 
     def get_applevel_name(cls):
         """ NOT_RPYTHON """
@@ -90,6 +99,7 @@ class MixedModule(Module):
     def setdictvalue(self, space, attr, w_value):
         if self.lazy:
             self._load_lazily(space, attr)
+            self.save_module_content_for_future_reload()
         space.setitem_str(self.w_dict, attr, w_value)
         return True
 
