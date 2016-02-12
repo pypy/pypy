@@ -12,12 +12,18 @@
 #else
 
 #  include "common_header.h"
+#  include "structdef.h"
+#  include "src/threadlocal.h"
 #  include "rvmprof.h"
-#  ifndef VMPROF_ADDR_OF_TRAMPOLINE
+/*#  ifndef VMPROF_ADDR_OF_TRAMPOLINE
 #   error "RPython program using rvmprof, but not calling vmprof_execute_code()"
-#  endif
+#  endif*/
 
 #endif
 
 
+#if defined(__unix__) || defined(__APPLE__)
 #include "vmprof_main.h"
+#else
+#include "vmprof_main_win32.h"
+#endif

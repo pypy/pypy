@@ -457,7 +457,7 @@ class AppTestSocket:
         sizes = {socket.htonl: 32, socket.ntohl: 32,
                  socket.htons: 16, socket.ntohs: 16}
         for func, size in sizes.items():
-            mask = (1<<size) - 1
+            mask = (1 << size) - 1
             for i in (0, 1, 0xffff, ~0xffff, 2, 0x01234567, 0x76543210):
                 assert i & mask == func(func(i&mask)) & mask
 
@@ -656,7 +656,7 @@ class AppTestNetlink:
         a, b = s.getsockname()
         assert a == os.getpid()
         assert b == 0
- 
+
 
 class AppTestPacket:
     def setup_class(cls):

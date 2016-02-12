@@ -132,6 +132,9 @@ def create_package(basedir, options, _fake=False):
         win_extras = ['libpypy-c.dll', 'sqlite3.dll']
         if not options.no_tk:
             win_extras += ['tcl85.dll', 'tk85.dll']
+        # add the .lib too, which is convenient to compile other programs
+        # that use the .dll (and for cffi's embedding mode)
+        win_extras.append('libpypy-c.lib')
 
         for extra in win_extras:
             p = pypy_c.dirpath().join(extra)

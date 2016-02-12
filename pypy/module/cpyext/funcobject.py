@@ -56,7 +56,7 @@ def function_attach(space, py_obj, w_obj):
     assert isinstance(w_obj, Function)
     py_func.c_func_name = make_ref(space, space.wrap(w_obj.name))
 
-@cpython_api([PyObject], lltype.Void, external=False)
+@cpython_api([PyObject], lltype.Void, header=None)
 def function_dealloc(space, py_obj):
     py_func = rffi.cast(PyFunctionObject, py_obj)
     Py_DecRef(space, py_func.c_func_name)
@@ -75,7 +75,7 @@ def code_attach(space, py_obj, w_obj):
     rffi.setintfield(py_code, 'c_co_flags', co_flags)
     rffi.setintfield(py_code, 'c_co_argcount', w_obj.co_argcount)
 
-@cpython_api([PyObject], lltype.Void, external=False)
+@cpython_api([PyObject], lltype.Void, header=None)
 def code_dealloc(space, py_obj):
     py_code = rffi.cast(PyCodeObject, py_obj)
     Py_DecRef(space, py_code.c_co_name)

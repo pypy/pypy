@@ -23,7 +23,7 @@ class AppTestVMProf(object):
             i += 5 * WORD # header
             assert s[i    ] == 5    # MARKER_HEADER
             assert s[i + 1] == 0    # 0
-            assert s[i + 2] == 1    # VERSION_THREAD_ID
+            assert s[i + 2] == 2    # VERSION_THREAD_ID
             assert s[i + 3] == 4    # len('pypy')
             assert s[i + 4: i + 8] == b'pypy'
             i += 8

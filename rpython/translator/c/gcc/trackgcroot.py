@@ -528,6 +528,8 @@ class FunctionGcRootTracker(object):
         'rex64',
         # movbe, converts from big-endian, so most probably not GC pointers
         'movbe',
+        # xchgb, byte-sized, so not GC pointers
+        'xchgb',
     ])
 
     # a partial list is hopefully good enough for now; it's all to support
