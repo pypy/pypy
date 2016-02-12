@@ -171,6 +171,23 @@ def test_insert_different_orders_3():
     assert obj.map is obj5.map
     assert obj.map is obj6.map
 
+def test_insert_different_orders_4():
+    cls = Class()
+    obj = cls.instantiate()
+    obj2 = cls.instantiate()
+    
+    obj.setdictvalue(space, "a", 10)
+    obj.setdictvalue(space, "b", 20)
+    obj.setdictvalue(space, "c", 30)
+    obj.setdictvalue(space, "d", 40)
+
+    obj2.setdictvalue(space, "d", 50)
+    obj2.setdictvalue(space, "c", 50)
+    obj2.setdictvalue(space, "b", 50)
+    obj2.setdictvalue(space, "a", 50)
+
+    assert obj.map is obj2.map
+
 def test_bug_stack_overflow_insert_attributes():
     cls = Class()
     obj = cls.instantiate()
@@ -182,16 +199,20 @@ def test_insert_different_orders_perm():
     from itertools import permutations
     cls = Class()
     seen_maps = {}
-    for i, attributes in enumerate(permutations("abcdef")):
-        obj = cls.instantiate()
-        key = ""
-        for j, attr in enumerate(attributes):
-            obj.setdictvalue(space, attr, i*10+j)
-            key = "".join(sorted(key+attr))
-            if key in seen_maps:
-                assert obj.map is seen_maps[key]
-            else:
-                seen_maps[key] = obj.map
+    for preexisting in ['', 'x', 'xy']:
+        for i, attributes in enumerate(permutations("abcdef")):
+            obj = cls.instantiate()
+            for i, attr in enumerate(preexisting):
+                obj.setdictvalue(space, attr, i*1000)
+            key = preexisting
+            for j, attr in enumerate(attributes):
+                obj.setdictvalue(space, attr, i*10+j)
+                key = "".join(sorted(key+attr))
+                if key in seen_maps:
+                    assert obj.map is seen_maps[key]
+                else:
+                    seen_maps[key] = obj.map
+
     print len(seen_maps)
 
 def test_attr_immutability(monkeypatch):

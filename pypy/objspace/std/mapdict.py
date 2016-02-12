@@ -20,7 +20,6 @@ NUM_DIGITS_POW2 = 1 << NUM_DIGITS
 # note: we use "x * NUM_DIGITS_POW2" instead of "x << NUM_DIGITS" because
 # we want to propagate knowledge that the result cannot be negative
 
-NOT_REORDERED, JUST_REORDERED, SOMEWHERE_REORDERED = range(3)
 
 class AbstractAttribute(object):
     _immutable_fields_ = ['terminator']
@@ -221,18 +220,19 @@ class AbstractAttribute(object):
                 else:
                     attr._switch_map_and_write_storage(obj, w_value)
                     stack_index = localstack_index
-                    break
+                    
+                    if not stack_index:
+                        return
+                    
+                    # add the first attribute of the stack without reordering
+                    # to prevent an endless loop
+                    stack_index += -1
+                    next_map = stack_maps[stack_index]
+                    w_value = stack_values[stack_index]
+                    obj._get_mapdict_map()._add_attr_without_reordering(
+                        obj, next_map.name, next_map.index, w_value)
 
-            if not stack_index:
-                return
-            
-            # add the first attribute of the stack without reordering
-            # to prevent an endless loop
-            stack_index += -1
-            next_map = stack_maps[stack_index]
-            w_value = stack_values[stack_index]
-            obj._get_mapdict_map()._add_attr_without_reordering(
-                obj, next_map.name, next_map.index, w_value)
+                    break
 
             if not stack_index:
                 return
