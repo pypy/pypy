@@ -188,12 +188,6 @@ class OptVirtualize(optimizer.Optimization):
     optimize_GETFIELD_GC_R = optimize_GETFIELD_GC_I
     optimize_GETFIELD_GC_F = optimize_GETFIELD_GC_I
 
-    # note: the following line does not mean that the two operations are
-    # completely equivalent, because GETFIELD_GC_PURE is_always_pure().
-    optimize_GETFIELD_GC_PURE_I = optimize_GETFIELD_GC_I
-    optimize_GETFIELD_GC_PURE_R = optimize_GETFIELD_GC_I
-    optimize_GETFIELD_GC_PURE_F = optimize_GETFIELD_GC_I
-
     def optimize_SETFIELD_GC(self, op):
         struct = op.getarg(0)
         opinfo = self.getptrinfo(struct)

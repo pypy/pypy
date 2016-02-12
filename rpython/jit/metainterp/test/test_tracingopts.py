@@ -436,10 +436,10 @@ class TestLLtype(LLJitMixin):
             return p.x[0] + p.x[1]
         res = self.interp_operations(fn, [7])
         assert res == 7 + 7 + 1
-        self.check_operations_history(getfield_gc_r=0, getfield_gc_pure_r=0)
+        self.check_operations_history(getfield_gc_r=0)
         res = self.interp_operations(fn, [-7])
         assert res == -7 - 7 + 1
-        self.check_operations_history(getfield_gc_r=0, getfield_gc_pure_r=0)
+        self.check_operations_history(getfield_gc_r=0)
 
     def test_heap_caching_and_elidable_function(self):
         class A:
@@ -517,12 +517,12 @@ class TestLLtype(LLJitMixin):
             return a1[0] + a2[0] + gn(a1, a2)
         res = self.interp_operations(fn, [7])
         assert res == 2 * 7 + 2 * 6
-        self.check_operations_history(getfield_gc_pure_i=0,
-                                      getfield_gc_pure_r=0)
+        self.check_operations_history(getfield_gc_i=0,
+                                      getfield_gc_r=0)
         res = self.interp_operations(fn, [-7])
         assert res == 2 * -7 + 2 * -8
-        self.check_operations_history(getfield_gc_pure_i=0,
-                                      getfield_gc_pure_r=0)
+        self.check_operations_history(getfield_gc_i=0,
+                                      getfield_gc_r=0)
 
     def test_heap_caching_multiple_arrays(self):
         class Gbl(object):

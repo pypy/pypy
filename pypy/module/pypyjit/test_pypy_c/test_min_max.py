@@ -54,7 +54,7 @@ class TestMinMax(BaseTestPyPyC):
         i19 = int_add(i11, 1)
         setfield_gc(p2, i19, descr=...)
         guard_nonnull_class(p18, ConstClass(W_IntObject), descr=...)
-        i20 = getfield_gc_pure_i(p18, descr=...)
+        i20 = getfield_gc_i(p18, descr=...)
         i21 = int_gt(i20, i14)
         guard_true(i21, descr=...)
         jump(..., descr=...)

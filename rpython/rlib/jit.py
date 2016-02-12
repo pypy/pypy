@@ -623,6 +623,8 @@ class JitDriver(object):
             raise AttributeError("no 'greens' or 'reds' supplied")
         if virtualizables is not None:
             self.virtualizables = virtualizables
+        if get_unique_id is not None:
+            assert is_recursive, "get_unique_id and is_recursive must be specified at the same time"
         for v in self.virtualizables:
             assert v in self.reds
         # if reds are automatic, they won't be passed to jit_merge_point, so
@@ -1115,7 +1117,7 @@ def ll_record_exact_class(ll_value, ll_cls):
     from rpython.rtyper.lltypesystem.lloperation import llop
     from rpython.rtyper.lltypesystem import lltype
     from rpython.rtyper.rclass import ll_type
-    ll_assert(ll_value == lltype.nullptr(lltype.typeOf(ll_value).TO), "record_exact_class called with None argument")
+    ll_assert(ll_value != lltype.nullptr(lltype.typeOf(ll_value).TO), "record_exact_class called with None argument")
     ll_assert(ll_type(ll_value) is ll_cls, "record_exact_class called with invalid arguments")
     llop.jit_record_exact_class(lltype.Void, ll_value, ll_cls)
 

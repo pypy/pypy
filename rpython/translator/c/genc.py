@@ -126,8 +126,10 @@ class CBuilder(object):
             if not self.standalone:
                 raise NotImplementedError("--gcrootfinder=asmgcc requires standalone")
 
+        exctransformer = translator.getexceptiontransformer()
         db = LowLevelDatabase(translator, standalone=self.standalone,
                               gcpolicyclass=gcpolicyclass,
+                              exctransformer=exctransformer,
                               thread_enabled=self.config.translation.thread,
                               sandbox=self.config.translation.sandbox)
         self.db = db
@@ -193,22 +195,8 @@ class CBuilder(object):
     DEBUG_DEFINES = {'RPY_ASSERT': 1,
                      'RPY_LL_ASSERT': 1}
 
-    def generate_graphs_for_llinterp(self, db=None):
-        # prepare the graphs as when the source is generated, but without
-        # actually generating the source.
-        if db is None:
-            db = self.build_database()
-        graphs = db.all_graphs()
-        db.gctransformer.prepare_inline_helpers(graphs)
-        for node in db.containerlist:
-            if hasattr(node, 'funcgens'):
-                for funcgen in node.funcgens:
-                    funcgen.patch_graph(copy_graph=False)
-        return db
-
     def generate_source(self, db=None, defines={}, exe_name=None):
         assert self.c_source_filename is None
-
         if db is None:
             db = self.build_database()
         pf = self.getentrypointptr()
@@ -846,7 +834,6 @@ def gen_source(database, modulename, targetdir,
     #
     sg = SourceGenerator(database)
     sg.set_strategy(targetdir, split)
-    database.prepare_inline_helpers()
     sg.gen_readable_parts_of_source(f)
     headers_to_precompile = sg.headers_to_precompile[:]
     headers_to_precompile.insert(0, incfilename)

@@ -1,4 +1,4 @@
-import sys, types
+import sys, sysconfig, types
 from .lock import allocate_lock
 
 try:
@@ -544,28 +544,32 @@ class FFI(object):
 
     def _apply_embedding_fix(self, kwds):
         # must include an argument like "-lpython2.7" for the compiler
+        def ensure(key, value):
+            lst = kwds.setdefault(key, [])
+            if value not in lst:
+                lst.append(value)
+        #
         if '__pypy__' in sys.builtin_module_names:
             if hasattr(sys, 'prefix'):
                 import os
-                libdir = os.path.join(sys.prefix, 'bin')
-                dirs = kwds.setdefault('library_dirs', [])
-                if libdir not in dirs:
-                    dirs.append(libdir)
+                ensure('library_dirs', os.path.join(sys.prefix, 'bin'))
             pythonlib = "pypy-c"
         else:
             if sys.platform == "win32":
                 template = "python%d%d"
-                if sys.flags.debug:
-                    template = template + '_d'
+                if hasattr(sys, 'gettotalrefcount'):
+                    template += '_d'
             else:
                 template = "python%d.%d"
+                if sysconfig.get_config_var('DEBUG_EXT'):
+                    template += sysconfig.get_config_var('DEBUG_EXT')
             pythonlib = (template %
                     (sys.hexversion >> 24, (sys.hexversion >> 16) & 0xff))
             if hasattr(sys, 'abiflags'):
                 pythonlib += sys.abiflags
-        libraries = kwds.setdefault('libraries', [])
-        if pythonlib not in libraries:
-            libraries.append(pythonlib)
+        ensure('libraries', pythonlib)
+        if sys.platform == "win32":
+            ensure('extra_link_args', '/MANIFEST')
 
     def set_source(self, module_name, source, source_extension='.c', **kwds):
         if hasattr(self, '_assigned_source'):
@@ -631,7 +635,7 @@ class FFI(object):
         compiled DLL.  Use '*' to force distutils' choice, suitable for
         regular CPython C API modules.  Use a file name ending in '.*'
         to ask for the system's default extension for dynamic libraries
-        (.so/.dll).
+        (.so/.dll/.dylib).
 
         The default is '*' when building a non-embedded C API extension,
         and (module_name + '.*') when building an embedded library.
@@ -694,6 +698,10 @@ class FFI(object):
         compile(pysource, "cffi_init", "exec")
         #
         self._embedding = pysource
+
+    def def_extern(self, *args, **kwds):
+        raise ValueError("ffi.def_extern() is only available on API-mode FFI "
+                         "objects")
 
 
 def _load_backend_lib(backend, name, flags):

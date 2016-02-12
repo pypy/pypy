@@ -12,7 +12,7 @@ from rpython.jit.metainterp.history import AbstractFailDescr, INT, REF, FLOAT
 from rpython.jit.metainterp.compile import ResumeGuardDescr
 from rpython.rtyper.lltypesystem import lltype, rffi, rstr, llmemory
 from rpython.rtyper.lltypesystem.lloperation import llop
-from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_gcref
+from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.rtyper import rclass
 from rpython.rlib.jit import AsmInfo
 from rpython.jit.backend.model import CompiledLoopToken
@@ -837,11 +837,56 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             frame_depth = max(frame_depth, target_frame_depth)
         return frame_depth
 
+    def _call_header_vmprof(self):
+        from rpython.rlib.rvmprof.rvmprof import cintf, VMPROF_JITTED_TAG
+
+        # tloc = address of pypy_threadlocal_s
+        if IS_X86_32:
+            # Can't use esi here, its old value is not saved yet.
+            # But we can use eax and ecx.
+            self.mc.MOV_rs(edx.value, THREADLOCAL_OFS)
+            tloc = edx
+            old = ecx
+        else:
+            # The thread-local value is already in esi.
+            # We should avoid if possible to use ecx or edx because they
+            # would be used to pass arguments #3 and #4 (even though, so
+            # far, the assembler only receives two arguments).
+            tloc = esi
+            old = r11
+        # eax = address in the stack of a 3-words struct vmprof_stack_s
+        self.mc.LEA_rs(eax.value, (FRAME_FIXED_SIZE - 4) * WORD)
+        # old = current value of vmprof_tl_stack
+        offset = cintf.vmprof_tl_stack.getoffset()
+        self.mc.MOV_rm(old.value, (tloc.value, offset))
+        # eax->next = old
+        self.mc.MOV_mr((eax.value, 0), old.value)
+        # eax->value = my esp
+        self.mc.MOV_mr((eax.value, WORD), esp.value)
+        # eax->kind = VMPROF_JITTED_TAG
+        self.mc.MOV_mi((eax.value, WORD * 2), VMPROF_JITTED_TAG)
+        # save in vmprof_tl_stack the new eax
+        self.mc.MOV_mr((tloc.value, offset), eax.value)
+
+    def _call_footer_vmprof(self):
+        from rpython.rlib.rvmprof.rvmprof import cintf
+        # edx = address of pypy_threadlocal_s
+        self.mc.MOV_rs(edx.value, THREADLOCAL_OFS)
+        self.mc.AND_ri(edx.value, ~1)
+        # eax = (our local vmprof_tl_stack).next
+        self.mc.MOV_rs(eax.value, (FRAME_FIXED_SIZE - 4 + 0) * WORD)
+        # save in vmprof_tl_stack the value eax
+        offset = cintf.vmprof_tl_stack.getoffset()
+        self.mc.MOV_mr((edx.value, offset), eax.value)
+
     def _call_header(self):
         self.mc.SUB_ri(esp.value, FRAME_FIXED_SIZE * WORD)
         self.mc.MOV_sr(PASS_ON_MY_FRAME * WORD, ebp.value)
         if IS_X86_64:
             self.mc.MOV_sr(THREADLOCAL_OFS, esi.value)
+        if self.cpu.translate_support_code:
+            self._call_header_vmprof()     # on X86_64, this uses esi
+        if IS_X86_64:
             self.mc.MOV_rr(ebp.value, edi.value)
         else:
             self.mc.MOV_rs(ebp.value, (FRAME_FIXED_SIZE + 1) * WORD)
@@ -873,6 +918,8 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
 
     def _call_footer(self):
         # the return value is the jitframe
+        if self.cpu.translate_support_code:
+            self._call_footer_vmprof()
         self.mc.MOV_rr(eax.value, ebp.value)
 
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
@@ -1477,9 +1524,6 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
     genop_getfield_gc_f = _genop_getfield
     genop_getfield_raw_i = _genop_getfield
     genop_getfield_raw_f = _genop_getfield
-    genop_getfield_gc_pure_i = _genop_getfield
-    genop_getfield_gc_pure_r = _genop_getfield
-    genop_getfield_gc_pure_f = _genop_getfield
 
     def _genop_gc_load(self, op, arglocs, resloc):
         base_loc, ofs_loc, size_loc, sign_loc = arglocs
