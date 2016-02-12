@@ -24,10 +24,10 @@ typedef SSIZE_T ssize_t;
 #include <stddef.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include "src/threadlocal.h"
 #include "vmprof_stack.h"
 #include "vmprof_get_custom_offset.h"
 #include "vmprof_common.h"
-#include "threadlocal.h"
 #include <tlhelp32.h>
 
 // This file has been inspired (but not copied from since the LICENSE
