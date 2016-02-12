@@ -367,6 +367,7 @@ class TestSpecialCases(_LLVMMixin):
 
     def test_two_exits_non_bool(self):
         genllvm_mod.database = genllvm_mod.Database(_Stub(), None)
+        genllvm_mod.database.target_attributes = ''
         genllvm_mod.database.genllvm.entrypoints = set()
         var = varoftype(lltype.Signed)
         startblock = Block([var])

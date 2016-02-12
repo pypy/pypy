@@ -972,7 +972,6 @@ class FunctionWriter(object):
 
     def prepare_graph(self, ptr_type, name, graph):
         genllvm = database.genllvm
-        genllvm.gcpolicy.gctransformer.inline_helpers(graph)
         remove_same_as(graph)
 
         llvmgcroot = genllvm.translator.config.translation.gcrootfinder == \
@@ -1671,7 +1670,7 @@ class GCPolicy(object):
                 for finish_table in finish_tables:
                     for dep in finish_table:
                         self._consider_constant(lltype.typeOf(dep), dep)
-        self.gctransformer.prepare_inline_helpers(genllvm.translator.graphs)
+        self.gctransformer.inline_helpers(genllvm.translator.graphs)
 
 
 class FrameworkGCPolicy(GCPolicy):

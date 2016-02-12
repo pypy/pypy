@@ -234,7 +234,6 @@ class GcRewriterAssembler(object):
             self.emit_gc_store_or_indexed(op, ptr_box, index_box, value_box,
                                           fieldsize, itemsize, ofs)
         elif op.getopnum() in (rop.GETFIELD_GC_I, rop.GETFIELD_GC_F, rop.GETFIELD_GC_R,
-                               rop.GETFIELD_GC_PURE_I, rop.GETFIELD_GC_PURE_F, rop.GETFIELD_GC_PURE_R,
                                rop.GETFIELD_RAW_I, rop.GETFIELD_RAW_F, rop.GETFIELD_RAW_R):
             ofs, itemsize, sign = unpack_fielddescr(op.getdescr())
             ptr_box = op.getarg(0)

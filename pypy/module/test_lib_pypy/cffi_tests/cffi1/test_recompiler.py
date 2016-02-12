@@ -1714,3 +1714,33 @@ def test_extern_python_errors():
     # a case where 'onerror' is not callable
     py.test.raises(TypeError, ffi.def_extern(name='bar', onerror=42),
                    lambda x: x)
+
+def test_extern_python_stdcall():
+    ffi = FFI()
+    ffi.cdef("""
+        extern "Python" int __stdcall foo(int);
+        extern "Python" int WINAPI bar(int);
+        int (__stdcall * mycb1)(int);
+        int indirect_call(int);
+    """)
+    lib = verify(ffi, 'test_extern_python_stdcall', """
+        #ifndef _MSC_VER
+        #  define __stdcall
+        #endif
+        static int (__stdcall * mycb1)(int);
+        static int indirect_call(int x) {
+            return mycb1(x);
+        }
+    """)
+    #
+    @ffi.def_extern()
+    def foo(x):
+        return x + 42
+    @ffi.def_extern()
+    def bar(x):
+        return x + 43
+    assert lib.foo(100) == 142
+    assert lib.bar(100) == 143
+    lib.mycb1 = lib.foo
+    assert lib.mycb1(200) == 242
+    assert lib.indirect_call(300) == 342
