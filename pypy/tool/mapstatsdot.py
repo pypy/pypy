@@ -60,6 +60,8 @@ class Map(object):
             return
         seen.add(self)
         if hasattr(self, 'back'):
+            if self not in self.back.transitions:
+                output.edge(self.back.id, self.id, dir="none")
             self.back.dot(output, seen)
         if not self.instances:
             return
@@ -107,7 +109,7 @@ class Attribute(Map):
         if writes:
             for tup, count in writes.iteritems():
                 key, index, cls = tup.strip('()').split(', ')
-                if key.startswith('"'):
+                if key.startswith(('"', "'")):
                     key = eval(key)
                 assert key == self.name
                 assert int(index) == self.nametype
@@ -120,7 +122,7 @@ class Attribute(Map):
             assert len(reads) == 1
             for tup, count in reads.iteritems():
                 key, index = tup.strip('()').split(', ')
-                if key.startswith('"'):
+                if key.startswith(('"', "'")):
                     key = eval(key)
                 assert key == self.name
                 assert int(index) == self.nametype

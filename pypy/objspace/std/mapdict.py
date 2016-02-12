@@ -93,6 +93,7 @@ class AbstractAttribute(object):
         lines = ["{"]
         lines.append(_print_line('type', self.__class__.__name__, 1))
         lines.append(_print_line('id', str(objectmodel.compute_unique_id(self)), 1))
+        lines.append(_print_line('size_estimate', str(self.size_estimate()), 1))
         lines.append(_print_line('instances', self._number_instantiated, 1))
         if isinstance(self, PlainAttribute):
             lines.append(_print_line('back', str(objectmodel.compute_unique_id(self.back)), 1))
@@ -170,7 +171,8 @@ class AbstractAttribute(object):
         attr = self.find_map_attr(name, index)
         if attr is None:
             return self.terminator._write_terminator(obj, name, index, w_value)
-        attr._count_write(name, index, w_value)
+        if type(obj) is not Object:
+            attr._count_write(name, index, w_value)
         # if the write is not necessary, the storage is already filled from the
         # time we did the map transition. Therefore, if the value profiler says
         # so, we can not do the write
@@ -304,7 +306,8 @@ class AbstractAttribute(object):
     def add_attr(self, obj, name, index, w_value):
         # grumble, jit needs this
         attr = self._get_new_attr(name, index)
-        attr._count_write(name, index, w_value)
+        if type(obj) is not Object:
+            attr._count_write(name, index, w_value)
         oldattr = obj._get_mapdict_map()
         if not jit.we_are_jitted():
             size_est = (oldattr._size_estimate + attr.size_estimate()
@@ -601,7 +604,8 @@ class BaseMapdictObject:
         return jit.promote(self.map)
     def _set_mapdict_map(self, map):
         old = self.map
-        if old is not map and map:
+        # don't count Object, it's just an intermediate
+        if old is not map and map and type(self) is not Object:
             old._count_transition(map)
         self.map = map
     # _____________________________________________
