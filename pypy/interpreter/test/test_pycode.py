@@ -15,5 +15,5 @@ def test_dump(space):
         sys.stdout = stdout
     print '>>>\n' + output + '\n<<<'
     assert ' 1 (7)' in output
-    assert ' 3 (None)' in output
-    assert ' 16 RETURN_VALUE ' in output
+    assert ' 4 (None)' in output
+    assert ' 19 RETURN_VALUE ' in output
