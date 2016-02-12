@@ -161,6 +161,14 @@ class ZARCHRegisterManager(RegisterManager):
     def ensure_even_odd_pair(self, var, bindvar, bind_first=True,
                              must_exist=True, load_loc_odd=True,
                              move_regs=True):
+        """ Allocates two registers that can be used by the instruction.
+            var: is the original register holding the value
+            bindvar: is the variable that will be bound
+                     (= self.reg_bindings[bindvar] = new register)
+            bind_first: the even register will be bound to bindvar,
+                        if bind_first == False: the odd register will
+                        be bound
+        """
         self._check_type(var)
         prev_loc = self.loc(var, must_exist=must_exist)
         var2 = TempVar()
@@ -592,13 +600,23 @@ class Regalloc(BaseRegalloc):
                 return imm(box.getint())
             return self.rm.ensure_reg(box, force_in_reg=True, selected_reg=selected_reg)
 
-    def ensure_reg_or_any_imm(self, box):
+    def ensure_reg_or_20bit_imm(self, box, selected_reg=None):
         if box.type == FLOAT:
             return self.fprm.ensure_reg(box, True)
         else:
+            if helper.check_imm20(box):
+                return imm(box.getint())
+            return self.rm.ensure_reg(box, force_in_reg=True, selected_reg=selected_reg)
+
+    def ensure_reg_or_any_imm(self, box, selected_reg=None):
+        if box.type == FLOAT:
+            return self.fprm.ensure_reg(box, True,
+                                        selected_reg=selected_reg)
+        else:
             if isinstance(box, Const):
                 return imm(box.getint())
-            return self.rm.ensure_reg(box, force_in_reg=True)
+            return self.rm.ensure_reg(box, force_in_reg=True,
+                                      selected_reg=selected_reg)
 
     def get_scratch_reg(self, type, selected_reg=None):
         if type == FLOAT:
@@ -798,7 +816,7 @@ class Regalloc(BaseRegalloc):
 
     def _prepare_gc_load(self, op):
         base_loc = self.ensure_reg(op.getarg(0), force_in_reg=True)
-        index_loc = self.ensure_reg_or_any_imm(op.getarg(1))
+        index_loc = self.ensure_reg_or_20bit_imm(op.getarg(1))
         size_box = op.getarg(2)
         assert isinstance(size_box, ConstInt)
         size = abs(size_box.value)
@@ -815,7 +833,7 @@ class Regalloc(BaseRegalloc):
 
     def _prepare_gc_load_indexed(self, op):
         base_loc = self.ensure_reg(op.getarg(0), force_in_reg=True)
-        index_loc = self.ensure_reg(op.getarg(1), force_in_reg=True)
+        index_loc = self.ensure_reg_or_20bit_imm(op.getarg(1))
         scale_box = op.getarg(2)
         offset_box = op.getarg(3)
         size_box = op.getarg(4)
@@ -841,7 +859,7 @@ class Regalloc(BaseRegalloc):
 
     def prepare_gc_store(self, op):
         base_loc = self.ensure_reg(op.getarg(0), force_in_reg=True)
-        index_loc = self.ensure_reg_or_any_imm(op.getarg(1))
+        index_loc = self.ensure_reg_or_20bit_imm(op.getarg(1))
         value_loc = self.ensure_reg(op.getarg(2))
         size_box = op.getarg(3)
         assert isinstance(size_box, ConstInt)
@@ -852,7 +870,7 @@ class Regalloc(BaseRegalloc):
     def prepare_gc_store_indexed(self, op):
         args = op.getarglist()
         base_loc = self.ensure_reg(op.getarg(0), force_in_reg=True)
-        index_loc = self.ensure_reg_or_any_imm(op.getarg(1))
+        index_loc = self.ensure_reg_or_20bit_imm(op.getarg(1))
         value_loc = self.ensure_reg(op.getarg(2))
         scale_box = op.getarg(3)
         offset_box = op.getarg(4)
@@ -953,21 +971,20 @@ class Regalloc(BaseRegalloc):
             return self._prepare_call_default(op)
 
     def prepare_zero_array(self, op):
+        # args: base, start, len, scale_start, scale_len
         itemsize, ofs, _ = unpack_arraydescr(op.getdescr())
         startindex_loc = self.ensure_reg_or_16bit_imm(op.getarg(1))
         tempvar = TempInt()
         self.rm.temp_boxes.append(tempvar)
         ofs_loc = self.ensure_reg_or_16bit_imm(ConstInt(ofs))
-        pad_byte, _ = self.rm.ensure_even_odd_pair(tempvar, tempvar,
-                              bind_first=True, must_exist=False, move_regs=False)
-        base_loc, length_loc = self.rm.ensure_even_odd_pair(op.getarg(0), op,
+        base_loc, length_loc = self.rm.ensure_even_odd_pair(op.getarg(0), tempvar,
               bind_first=True, must_exist=False, load_loc_odd=False)
 
         length_box = op.getarg(2)
         ll = self.rm.loc(length_box)
         if length_loc is not ll:
             self.assembler.regalloc_mov(ll, length_loc)
-        return [base_loc, startindex_loc, length_loc, ofs_loc, imm(itemsize), pad_byte]
+        return [base_loc, startindex_loc, length_loc, ofs_loc, imm(itemsize)]
 
     def prepare_cond_call(self, op):
         self.load_condition_into_cc(op.getarg(0))
@@ -1102,12 +1119,25 @@ class Regalloc(BaseRegalloc):
         return [loc0, loc1]
 
     def prepare_copystrcontent(self, op):
-        src_ptr_loc = self.ensure_reg(op.getarg(0), force_in_reg=True)
-        dst_ptr_loc = self.ensure_reg(op.getarg(1), force_in_reg=True)
+        """ this function needs five registers.
+            src & src_len: are allocated using ensure_even_odd_pair.
+              note that these are tmp registers, thus the actual variable
+              value is not modified.
+            src_len: when entering the assembler, src_ofs_loc's value is contained
+              in src_len register.
+        """
+        src_tmp = TempVar()
+        src_ptr_loc, _ = \
+                self.rm.ensure_even_odd_pair(op.getarg(0),
+                             src_tmp, bind_first=True, 
+                             must_exist=False, load_loc_odd=False)
         src_ofs_loc = self.ensure_reg_or_any_imm(op.getarg(2))
+        self.rm.temp_boxes.append(src_tmp)
+        dst_ptr_loc = self.ensure_reg(op.getarg(1), force_in_reg=True)
         dst_ofs_loc = self.ensure_reg_or_any_imm(op.getarg(3))
         length_loc  = self.ensure_reg_or_any_imm(op.getarg(4))
-        self._spill_before_call(save_all_regs=False)
+        # no need to spill, we do not call memcpy, but we use s390x's
+        # hardware instruction to copy memory
         return [src_ptr_loc, dst_ptr_loc,
                 src_ofs_loc, dst_ofs_loc, length_loc]
 

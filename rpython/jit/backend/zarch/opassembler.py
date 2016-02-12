@@ -589,7 +589,7 @@ class AllocOpAssembler(object):
 
                 # set SCRATCH2 to 1 << r1
                 mc.LGHI(r.SCRATCH2, l.imm(1))
-                mc.SLAG(r.SCRATCH2, r.SCRATCH2, l.addr(0,r.SCRATCH))
+                mc.SLLG(r.SCRATCH2, r.SCRATCH2, l.addr(0,r.SCRATCH))
 
 
                 # set this bit inside the byte of interest
@@ -1002,20 +1002,17 @@ class MemoryOpAssembler(object):
         if src_ofs.is_imm():
             value = src_ofs.value << scale
             if check_imm_value(value):
-                if dst is not src_ptr:
-                    self.mc.LGR(dst, src_ptr)
-                if value != 0:
-                    self.mc.AGHI(dst, l.imm(value))
+                self.mc.AGHIK(dst, src_ptr, l.imm(value))
             else:
-                self.mc.load_imm(dst, value)
-                self.mc.AGR(dst, src_ptr)
+                # it is fine to use r1 here, because it will
+                # only hold a value before invoking the memory copy
+                self.mc.load_imm(r.SCRATCH, value)
+                self.mc.AGRK(dst, src_ptr, r.SCRATCH)
         elif scale == 0:
-            if dst is not src_ptr:
-                self.mc.LGR(dst, src_ptr)
-            self.mc.AGR(dst, src_ofs)
+            self.mc.AGRK(dst, src_ptr, src_ofs)
         else:
-            self.mc.SLLG(dst, src_ofs, l.addr(scale))
-            self.mc.AGR(dst, src_ptr)
+            self.mc.SLLG(r.SCRATCH, src_ofs, l.addr(scale))
+            self.mc.AGRK(dst, src_ptr, r.SCRATCH)
 
     def _emit_copycontent(self, arglocs, is_unicode):
         [src_ptr_loc, dst_ptr_loc,
@@ -1033,34 +1030,40 @@ class MemoryOpAssembler(object):
             assert itemsize == 1
             scale = 0
 
-        self._emit_load_for_copycontent(r.SCRATCH, src_ptr_loc, src_ofs_loc, scale)
-        self._emit_load_for_copycontent(r.SCRATCH2, dst_ptr_loc, dst_ofs_loc, scale)
-        #
-        # DO NOT USE r2-r6 before this line!
-        # either of the parameter (e.g. str_ptr_loc, ...) locations might be allocated
+        # src and src_len are tmp registers
+        src = src_ptr_loc
+        src_len = r.odd_reg(src)
+        dst = r.r0
+        dst_len = r.r1
+        self._emit_load_for_copycontent(src, src_ptr_loc, src_ofs_loc, scale)
+        self._emit_load_for_copycontent(dst, dst_ptr_loc, dst_ofs_loc, scale)
 
         if length_loc.is_imm():
             length = length_loc.getint()
-            self.mc.load_imm(r.r4, length << scale)
+            self.mc.load_imm(dst_len, length << scale)
         else:
             if scale > 0:
-                self.mc.SLAG(r.r4, length_loc, l.addr(scale))
-            elif length_loc is not r.r4:
-                self.mc.LGR(r.r4, length_loc)
+                self.mc.SLLG(dst_len, length_loc, l.addr(scale))
+            else:
+                self.mc.LGR(dst_len, length_loc)
+        # ensure that src_len is as long as dst_len, otherwise
+        # padding bytes are written to dst
+        self.mc.LGR(src_len, dst_len)
 
-        self.mc.LGR(r.r3, r.SCRATCH)
-        self.mc.LGR(r.r2, r.SCRATCH2)
-        if basesize != 0:
-            self.mc.AGHI(r.r3, l.imm(basesize))
-        if basesize != 0:
-            self.mc.AGHI(r.r2, l.imm(basesize))
+        self.mc.AGHI(src, l.imm(basesize))
+        self.mc.AGHI(dst, l.imm(basesize))
 
-        self.mc.load_imm(self.mc.RAW_CALL_REG, self.memcpy_addr)
-        self.mc.raw_call()
+        # s390x has memset directly as a hardware instruction!!
+        # 0xB8 means we might reference dst later
+        self.mc.MVCLE(dst, src, l.addr(0xB8))
+        # NOTE this instruction can (determined by the cpu), just
+        # quit the movement any time, thus it is looped until all bytes
+        # are copied!
+        self.mc.BRC(c.OF, l.imm(-self.mc.MVCLE_byte_count))
 
     def emit_zero_array(self, op, arglocs, regalloc):
         base_loc, startindex_loc, length_loc, \
-            ofs_loc, itemsize_loc, pad_byte_loc = arglocs
+            ofs_loc, itemsize_loc = arglocs
 
         if ofs_loc.is_imm():
             assert check_imm_value(ofs_loc.value)
@@ -1073,24 +1076,21 @@ class MemoryOpAssembler(object):
         else:
             self.mc.AGR(base_loc, startindex_loc)
         assert not length_loc.is_imm()
-        self.mc.XGR(pad_byte_loc, pad_byte_loc)
-        pad_plus = r.odd_reg(pad_byte_loc)
-        self.mc.XGR(pad_plus, pad_plus)
-        self.mc.XGR(r.SCRATCH, r.SCRATCH)
-        # s390x has memset directly as a hardware instruction!!
-        # it needs 5 registers allocated
-        # dst = rX, length = rX+1 (ensured by the regalloc)
-        # pad_byte is rY to rY+1
-        # scratch register holds the value written to dst
-        assert pad_byte_loc.is_even()
-        assert pad_plus.value == pad_byte_loc.value + 1
+        # contents of r0 do not matter because r1 is zero, so
+        # no copying takes place
+        self.mc.XGR(r.r1, r.r1)
+
         assert base_loc.is_even()
         assert length_loc.value == base_loc.value + 1
-        assert base_loc.value != pad_byte_loc.value
+
+        # s390x has memset directly as a hardware instruction!!
+        # it needs 5 registers allocated
+        # dst = rX, dst len = rX+1 (ensured by the regalloc)
+        # src = r0, src len = r1
+        self.mc.MVCLE(base_loc, r.r0, l.addr(0))
         # NOTE this instruction can (determined by the cpu), just
         # quit the movement any time, thus it is looped until all bytes
         # are copied!
-        self.mc.MVCLE(base_loc, pad_byte_loc, l.addr(0, r.SCRATCH))
         self.mc.BRC(c.OF, l.imm(-self.mc.MVCLE_byte_count))
 
 

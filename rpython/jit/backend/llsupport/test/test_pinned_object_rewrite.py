@@ -127,7 +127,7 @@ class TestFramework(RewriteTests):
             i0 = getfield_gc_i(ConstPtr(pinned_obj_gcref), descr=pinned_obj_my_int_descr)
             """, """
             []
-            p1 = gc_load_indexed_r(ConstPtr(ptr_array_gcref), %(0 * ptr_array_descr.itemsize + 1)s, 1, 0, %(ptr_array_descr.itemsize)s)
+            p1 = gc_load_r(ConstPtr(ptr_array_gcref), %(0 * ptr_array_descr.itemsize + 1)s, %(ptr_array_descr.itemsize)s)
             i0 = gc_load_i(p1, 0, -%(pinned_obj_my_int_descr.field_size)s)
             """)
         assert len(self.gc_ll_descr.last_moving_obj_tracker._indexes) == 1

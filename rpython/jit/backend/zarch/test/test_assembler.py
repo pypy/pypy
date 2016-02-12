@@ -226,6 +226,35 @@ class TestRunningAssembler(object):
         self.a.mc.BCR(con.ANY, r.r14)
         assert run_asm(self.a) == 15
 
+    def test_shift_same_register(self):
+        self.a.mc.load_imm(r.r3, 0x1)
+        self.a.mc.SLLG(r.r2, r.r3, loc.addr(1))
+        self.a.mc.BCR(con.ANY, r.r14)
+        assert run_asm(self.a) == 2
+
+    def test_shift_arith(self):
+        self.a.mc.load_imm(r.r2, -14)
+        self.a.mc.SLAG(r.r2, r.r2, loc.addr(1))
+        self.a.mc.BCR(con.ANY, r.r14)
+        assert run_asm(self.a) == -28
+
+    def test_shift_negative_logical(self):
+        self.a.mc.load_imm(r.r2, -14)
+        self.a.mc.SLLG(r.r2, r.r2, loc.addr(1))
+        self.a.mc.BCR(con.ANY, r.r14)
+        assert run_asm(self.a) == -28
+
+    def test_shift_negative_logical_2(self):
+        self.a.mc.load_imm(r.r2, -2)
+        self.a.mc.SLLG(r.r2, r.r2, loc.addr(63))
+        self.a.mc.BCR(con.ANY, r.r14)
+        assert run_asm(self.a) == 0
+
+    def test_shift_negative_logical_3(self):
+        self.a.mc.load_imm(r.r2, -2)
+        self.a.mc.SLLG(r.r3, r.r2, loc.addr(1))
+        self.a.mc.BCR(con.ANY, r.r14)
+        assert run_asm(self.a) == -2
 
     def test_load_small_int_to_reg(self):
         self.a.mc.LGHI(r.r2, loc.imm(123))
