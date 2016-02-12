@@ -113,6 +113,7 @@ int vmprof_snapshot_thread(struct pypy_threadlocal_s *p, prof_stacktrace_s *stac
 
 long __stdcall vmprof_mainloop(void *arg)
 {   
+#ifndef RPYTHON_LL2CTYPES
     struct pypy_threadlocal_s *p;
     prof_stacktrace_s *stack = (prof_stacktrace_s*)malloc(SINGLE_BUF_SIZE);
     int depth;
@@ -140,6 +141,7 @@ long __stdcall vmprof_mainloop(void *arg)
         }
         _RPython_ThreadLocals_Release();
     }
+#endif
 }
 
 RPY_EXTERN
