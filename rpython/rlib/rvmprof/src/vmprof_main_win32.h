@@ -25,6 +25,7 @@ typedef SSIZE_T ssize_t;
 #include <sys/stat.h>
 #include <fcntl.h>
 #include "vmprof_stack.h"
+#include "vmprof_get_custom_offset.h"
 #include "vmprof_common.h"
 #include <tlhelp32.h>
 

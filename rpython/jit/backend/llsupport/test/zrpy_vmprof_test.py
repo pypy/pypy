@@ -3,6 +3,7 @@ import os, py
 from rpython.jit.backend.test.support import CCompiledMixin
 from rpython.rlib.jit import JitDriver
 from rpython.tool.udir import udir
+from rpython.rlib import rthread
 from rpython.translator.translator import TranslationContext
 from rpython.jit.backend.detect_cpu import getcpuclass
 
@@ -58,6 +59,7 @@ class CompiledVmprofTest(CCompiledMixin):
         tmpfilename = str(udir.join('test_rvmprof'))
 
         def f(num):
+            rthread.get_ident() # register TLOFS_thread_ident
             code = MyCode("py:x:foo:3")
             rvmprof.register_code(code, get_name)
             fd = os.open(tmpfilename, os.O_WRONLY | os.O_CREAT, 0666)

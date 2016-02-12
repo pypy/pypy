@@ -35,6 +35,7 @@
 #include "vmprof_stack.h"
 #include "vmprof_getpc.h"
 #include "vmprof_mt.h"
+#include "vmprof_get_custom_offset.h"
 #include "vmprof_common.h"
 
 /************************************************************/
@@ -76,9 +77,6 @@ void vmprof_ignore_signals(int ignored)
  */
 
 static char atfork_hook_installed = 0;
-
-
-#include "vmprof_get_custom_offset.h"
 
 
 static intptr_t get_current_thread_id(void)
