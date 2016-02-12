@@ -71,6 +71,43 @@ static int opened_profile(char *interp_name)
     return _write_all((char*)&header, 5 * sizeof(long) + 4 + namelen);
 }
 
+/* *************************************************************
+ * functions to dump the stack trace
+ * *************************************************************
+ */
+
+
+static int get_stack_trace(vmprof_stack_t* stack, intptr_t *result, int max_depth, intptr_t pc)
+{
+    int n = 0;
+    intptr_t addr = 0;
+    int bottom_jitted = 0;
+    // check if the pc is in JIT
+#ifdef PYPY_JIT_CODEMAP
+    if (pypy_find_codemap_at_addr((intptr_t)pc, &addr)) {
+        // the bottom part is jitted, means we can fill up the first part
+        // from the JIT
+        n = vmprof_write_header_for_jit_addr(result, n, pc, max_depth);
+        stack = stack->next; // skip the first item as it contains garbage
+    }
+#endif
+    while (n < max_depth - 1 && stack) {
+        if (stack->kind == VMPROF_CODE_TAG) {
+            result[n] = stack->kind;
+            result[n + 1] = stack->value;
+            n += 2;
+        }
+#ifdef PYPY_JIT_CODEMAP
+        else if (stack->kind == VMPROF_JITTED_TAG) {
+            pc = ((intptr_t*)(stack->value - sizeof(intptr_t)))[0];
+            n = vmprof_write_header_for_jit_addr(result, n, pc, max_depth);
+        }
+#endif
+        stack = stack->next;
+    }
+    return n;
+}
+
 #ifndef RPYTHON_LL2CTYPES
 static vmprof_stack_t *get_vmprof_stack(void)
 {
