@@ -420,3 +420,7 @@ class TestBitfield:
             ]:
             x = ffi.sizeof(name)
             assert 1 <= x <= 16
+
+    def test_ffi_def_extern(self):
+        ffi = FFI()
+        py.test.raises(ValueError, ffi.def_extern)

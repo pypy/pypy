@@ -1847,3 +1847,8 @@ class BackendTests:
             thread.start_new_thread(f, ())
         time.sleep(1.5)
         assert seen == ['init!', 'init done'] + 6 * [7]
+
+    def test_sizeof_struct_directly(self):
+        # only works with the Python FFI instances
+        ffi = FFI(backend=self.Backend())
+        assert ffi.sizeof("struct{int a;}") == ffi.sizeof("int")

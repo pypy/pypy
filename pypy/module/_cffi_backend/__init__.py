@@ -3,7 +3,7 @@ from pypy.interpreter.mixedmodule import MixedModule
 from rpython.rlib import rdynload, clibffi, entrypoint
 from rpython.rtyper.lltypesystem import rffi
 
-VERSION = "1.5.0"
+VERSION = "1.5.1"
 
 FFI_DEFAULT_ABI = clibffi.FFI_DEFAULT_ABI
 try:
@@ -69,6 +69,7 @@ class Module(MixedModule):
     def startup(self, space):
         from pypy.module._cffi_backend import embedding
         embedding.glob.space = space
+        embedding.glob.patched_sys = False
 
 
 def get_dict_rtld_constants():
