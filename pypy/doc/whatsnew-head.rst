@@ -7,6 +7,9 @@ What's new in PyPy 4.1.+
 
 Fixed ``_PyLong_FromByteArray()``, which was buggy.
 
+Fixed a crash with stacklets (or greenlets) on non-Linux machines
+which showed up if you forget stacklets without resuming them.
+
 .. branch: numpy-1.10
 
 Fix tests to run cleanly with -A and start to fix micronumpy for upstream numpy
