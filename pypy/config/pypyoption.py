@@ -37,13 +37,13 @@ working_modules.update([
     "thread", "itertools", "pyexpat", "_ssl", "cpyext", "array",
     "binascii", "_multiprocessing", '_warnings', "_collections",
     "_multibytecodec", "_continuation", "_cffi_backend",
-    "_csv", "_pypyjson", "_posixsubprocess", # "cppyy", "micronumpy"
+    "_csv", "_pypyjson", "_vmprof", "_posixsubprocess", # "cppyy", "micronumpy"
 ])
 
-if ((sys.platform.startswith('linux') or sys.platform == 'darwin')
-    and os.uname()[4] == 'x86_64' and sys.maxint > 2**32):
+#if ((sys.platform.startswith('linux') or sys.platform == 'darwin')
+#    and os.uname()[4] == 'x86_64' and sys.maxint > 2**32):
     # it's not enough that we get x86_64
-    working_modules.add('_vmprof')
+#    working_modules.add('_vmprof')
 
 translation_modules = default_modules.copy()
 translation_modules.update([

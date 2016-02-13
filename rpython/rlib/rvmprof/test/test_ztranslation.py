@@ -3,10 +3,9 @@ if __name__ == '__main__':
     sys.path += ['../../../..']    # for subprocess in test_interpreted
 import py
 from rpython.tool.udir import udir
-from rpython.rlib import rvmprof
+from rpython.rlib import rvmprof, rthread
 from rpython.translator.c.test.test_genc import compile
 from rpython.rlib.nonconst import NonConstant
-
 
 class MyCode:
     def __init__(self, count):
@@ -39,6 +38,7 @@ one_less._dont_inline_ = True
 PROF_FILE = str(udir.join('test_ztranslation.prof'))
 
 def main(argv=[]):
+    rthread.get_ident() # force TLOFS_thread_ident
     if NonConstant(False):
         # Hack to give os.open() the correct annotation
         os.open('foo', 1, 1)
