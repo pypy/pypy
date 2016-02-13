@@ -220,7 +220,7 @@ class Parser(object):
         self._included_declarations = set()
         self._anonymous_counter = 0
         self._structnode2type = weakref.WeakKeyDictionary()
-        self._options = None
+        self._options = {}
         self._int_constants = {}
         self._recomplete = []
         self._uses_new_feature = None
@@ -374,7 +374,7 @@ class Parser(object):
 
     def _declare_function(self, tp, quals, decl):
         tp = self._get_type_pointer(tp, quals)
-        if self._options['dllexport']:
+        if self._options.get('dllexport'):
             tag = 'dllexport_python '
         elif self._inside_extern_python:
             tag = 'extern_python '
@@ -450,7 +450,7 @@ class Parser(object):
             prevobj, prevquals = self._declarations[name]
             if prevobj is obj and prevquals == quals:
                 return
-            if not self._options['override']:
+            if not self._options.get('override'):
                 raise api.FFIError(
                     "multiple declarations of %s (for interactive usage, "
                     "try cdef(xx, override=True))" % (name,))
@@ -729,7 +729,7 @@ class Parser(object):
             if isinstance(tp, model.StructType) and tp.partial:
                 raise NotImplementedError("%s: using both bitfields and '...;'"
                                           % (tp,))
-        tp.packed = self._options['packed']
+        tp.packed = self._options.get('packed')
         if tp.completed:    # must be re-completed: it is not opaque any more
             tp.completed = 0
             self._recomplete.append(tp)

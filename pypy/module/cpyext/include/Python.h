@@ -85,6 +85,7 @@ typedef long Py_ssize_t;
 
 #include "object.h"
 #include "abstract.h"
+#include "pymath.h"
 #include "pyport.h"
 #include "pymacro.h"
 #include "warnings.h"
@@ -118,7 +119,6 @@ typedef long Py_ssize_t;
 #include "compile.h"
 #include "frameobject.h"
 #include "eval.h"
-#include "pymath.h"
 #include "pymem.h"
 #include "pycobject.h"
 #include "pycapsule.h"
@@ -133,9 +133,6 @@ typedef long Py_ssize_t;
 
 /* Missing definitions */
 #include "missing.h"
-
-// XXX This shouldn't be included here
-#include "structmember.h"
 
 #include <pypy_decl.h>
 
