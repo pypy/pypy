@@ -58,8 +58,23 @@ class MixedModule(Module):
                 self.save_module_content_for_future_reload()
 
     def save_module_content_for_future_reload(self):
-        self.w_initialdict = self.space.call_method(self.w_dict, 'copy')
-
+        # Because setdictvalue is unable to immediately load all attributes
+        # (due to an importlib bootstrapping problem), this method needs to be
+        # able to support saving the content of a module's dict without
+        # requiring that the entire dict already be loaded. To support that
+        # properly, when updating the dict, we must be careful to never
+        # overwrite the value of a key already in w_initialdict. (So as to avoid
+        # overriding the builtin value with a user-provided value)
+        if not self.space.is_none(self.w_initialdict):
+            new_items = self.w_dict.iteritems()
+            while True:
+                w_key, w_value = new_items.next_item()
+                if w_key is None:
+                    break
+                if not self.space.is_true(self.space.contains(self.w_initialdict, w_key)):
+                    self.space.setitem(self.w_initialdict, w_key, w_value)
+        else:
+            self.w_initialdict = self.space.call_method(self.w_dict, 'copy')
 
     def get_applevel_name(cls):
         """ NOT_RPYTHON """
@@ -90,6 +105,7 @@ class MixedModule(Module):
     def setdictvalue(self, space, attr, w_value):
         if self.lazy:
             self._load_lazily(space, attr)
+            self.save_module_content_for_future_reload()
         space.setitem_str(self.w_dict, attr, w_value)
         return True
 

@@ -86,7 +86,7 @@ def init_builtin(space, w_name):
         return
     # force_init is needed to make reload actually reload instead of just
     # using the already-present module in sys.modules.
-    return space.getbuiltinmodule(name, force_init=True)
+    return space.getbuiltinmodule(name, force_init=True, reuse=False)
 
 def init_frozen(space, w_name):
     return None
