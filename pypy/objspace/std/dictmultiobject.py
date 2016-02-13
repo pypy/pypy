@@ -1353,9 +1353,8 @@ class W_DictViewObject(W_Root):
         return space.len(self.w_dict)
 
 def _all_contained_in(space, w_dictview, w_other):
-    w_iter = space.iter(w_dictview)
-    for w_item in space.iteriterable(w_iter):
-        if not space.is_true(space.contains(w_other, w_item)):
+    for w_item in space.iteriterable(w_dictview):
+        if not space.contains_w(w_other, w_item):
             return space.w_False
     return space.w_True
 
@@ -1420,9 +1419,8 @@ class SetLikeDictView(object):
             if len_other > len_self:
                 self, w_other = w_other, self
 
-        w_iter = space.iter(w_other)
-        for w_item in space.iteriterable(w_iter):
-            if space.is_true(space.contains(self, w_item)):
+        for w_item in space.iteriterable(w_other):
+            if space.contains_w(self, w_item):
                 return space.w_False
         return space.w_True
 
