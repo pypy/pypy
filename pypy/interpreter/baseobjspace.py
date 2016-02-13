@@ -306,7 +306,7 @@ class W_Root(object):
         return None
 
 
-class W_InterpIterable(W_Root):
+class InterpIterable(object):
     def __init__(self, space, w_iterable):
         self.w_iter = space.iter(w_iterable)
         self.space = space
@@ -846,7 +846,7 @@ class ObjSpace(object):
             return lst_w[:]     # make the resulting list resizable
 
     def iteriterable(self, w_iterable):
-        return W_InterpIterable(self, w_iterable)
+        return InterpIterable(self, w_iterable)
 
     def _unpackiterable_unknown_length(self, w_iterator, w_iterable):
         """Unpack an iterable of unknown length into an interp-level
