@@ -1421,7 +1421,7 @@ class W_DictViewObject(W_Root):
 def _all_contained_in(space, w_dictview, w_other):
     w_iter = space.iter(w_dictview)
     for w_item in space.iteriterable(w_iter):
-        if not space.is_true(space.contains(w_other, w_item)):
+        if not space.contains_w(w_other, w_item):
             return space.w_False
     return space.w_True
 

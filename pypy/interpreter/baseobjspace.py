@@ -745,8 +745,12 @@ class ObjSpace(object):
         return self.int_w(self.hash(w_obj))
 
     def len_w(self, w_obj):
-        """shotcut for space.int_w(space.len(w_obj))"""
+        """shortcut for space.int_w(space.len(w_obj))"""
         return self.int_w(self.len(w_obj))
+
+    def contains_w(self, w_container, w_item):
+        """shortcut for space.is_true(space.contains(w_container, w_item))"""
+        return self.is_true(self.contains(w_container, w_item))
 
     def setitem_str(self, w_obj, key, w_value):
         return self.setitem(w_obj, self.wrap(key), w_value)
@@ -1237,7 +1241,7 @@ class ObjSpace(object):
         if not isinstance(statement, PyCode):
             raise TypeError('space.exec_(): expected a string, code or PyCode object')
         w_key = self.wrap('__builtins__')
-        if not self.is_true(self.contains(w_globals, w_key)):
+        if not self.contains_w(w_globals, w_key):
             self.setitem(w_globals, w_key, self.wrap(self.builtin))
         return statement.exec_code(self, w_globals, w_locals)
 
