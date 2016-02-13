@@ -185,24 +185,6 @@ def track_reference(space, py_obj, w_obj):
         assert py_obj
     rawrefcount.create_link_pypy(w_obj, py_obj)
 
-def make_ref(space, w_obj):
-    """
-    Returns a new reference to an intepreter object.
-    """
-    GOES_AWAY
-    if w_obj is None:
-        return lltype.nullptr(PyObject.TO)
-    assert isinstance(w_obj, W_Root)
-    state = space.fromcache(RefcountState)
-    try:
-        py_obj = state.py_objects_w2r[w_obj]
-    except KeyError:
-        py_obj = create_ref(space, w_obj)
-        track_reference(space, py_obj, w_obj)
-    else:
-        Py_IncRef(space, py_obj)
-    return py_obj
-
 
 def from_ref(space, ref):
     """
