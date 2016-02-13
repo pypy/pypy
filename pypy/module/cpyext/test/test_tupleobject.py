@@ -44,16 +44,13 @@ class TestTupleObject(BaseApiTest):
         lltype.free(ar, flavor='raw')
 
     def test_setitem(self, space, api):
-        atuple = space.newtuple([space.wrap(0), space.wrap("hello")])
-        assert api.PyTuple_Size(atuple) == 2
-        assert space.eq_w(space.getitem(atuple, space.wrap(0)), space.wrap(0))
-        assert space.eq_w(space.getitem(atuple, space.wrap(1)), space.wrap("hello"))
-        w_obj = space.wrap(1)
-        api.Py_IncRef(w_obj)
-        api.PyTuple_SetItem(atuple, 1, w_obj)
-        assert api.PyTuple_Size(atuple) == 2
-        assert space.eq_w(space.getitem(atuple, space.wrap(0)), space.wrap(0))
-        assert space.eq_w(space.getitem(atuple, space.wrap(1)), space.wrap(1))
+        py_tuple = api.PyTuple_New(2)
+        api.PyTuple_SetItem(py_tuple, 0, make_ref(space, space.wrap(42)))
+        api.PyTuple_SetItem(py_tuple, 1, make_ref(space, space.wrap(43)))
+
+        w_tuple = from_ref(space, py_tuple)
+        assert space.eq_w(w_tuple, space.newtuple([space.wrap(42),
+                                                   space.wrap(43)]))
 
     def test_getslice(self, space, api):
         w_tuple = space.newtuple([space.wrap(i) for i in range(10)])
