@@ -260,18 +260,16 @@ def make_ref(space, obj):
     """Increment the reference counter of the PyObject and return it.
     Can be called with either a PyObject or a W_Root.
     """
-    if obj:
-        if is_pyobj(obj):
-            pyobj = rffi.cast(PyObject, obj)
-        else:
-            pyobj = as_pyobj(space, obj)
+    if is_pyobj(obj):
+        pyobj = rffi.cast(PyObject, obj)
+    else:
+        pyobj = as_pyobj(space, obj)
+    if pyobj:
         assert pyobj.c_ob_refcnt > 0
         pyobj.c_ob_refcnt += 1
         if not is_pyobj(obj):
             keepalive_until_here(obj)
-        return pyobj
-    else:
-        return lltype.nullptr(PyObject.TO)
+    return pyobj
 INTERPLEVEL_API['make_ref'] = make_ref
 
 
