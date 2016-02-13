@@ -60,14 +60,16 @@ class MixedModule(Module):
     def save_module_content_for_future_reload(self):
         # Because setdictvalue is unable to immediately load all attributes
         # (due to an importlib bootstrapping problem), this method needs to be
-        # able to able to save single names at a time. The idea now is to save
-        # in pieces, being careful to never overwrite the value of a key
-        # already in w_initialdict.
+        # able to support saving the content of a module's dict without
+        # requiring that the entire dict already be loaded. To support that
+        # properly, when updating the dict, we must be careful to never
+        # overwrite the value of a key already in w_initialdict. (So as to avoid
+        # overriding the builtin value with a user-provided value)
         if not self.space.is_none(self.w_initialdict):
             w_present_keys = self.w_initialdict.w_keys()
-            w_new_items = self.w_dict.iteritems()
+            new_items = self.w_dict.iteritems()
             while True:
-                w_key, w_value = w_new_items.next_item()
+                w_key, w_value = new_items.next_item()
                 if w_key is None:
                     break
                 if not self.space.is_true(self.space.contains(w_present_keys, w_key)):
