@@ -66,7 +66,10 @@ class MixedModule(Module):
         # overwrite the value of a key already in w_initialdict. (So as to avoid
         # overriding the builtin value with a user-provided value)
         if not self.space.is_none(self.w_initialdict):
-            new_items = self.w_dict.iteritems()
+            w_dict = self.w_dict
+            from pypy.objspace.std.dictmultiobject import W_DictMultiObject
+            assert isinstance(w_dict, W_DictMultiObject)
+            new_items = w_dict.iteritems()
             while True:
                 w_key, w_value = new_items.next_item()
                 if w_key is None:
