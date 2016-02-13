@@ -66,13 +66,12 @@ class MixedModule(Module):
         # overwrite the value of a key already in w_initialdict. (So as to avoid
         # overriding the builtin value with a user-provided value)
         if not self.space.is_none(self.w_initialdict):
-            w_present_keys = self.w_initialdict.w_keys()
             new_items = self.w_dict.iteritems()
             while True:
                 w_key, w_value = new_items.next_item()
                 if w_key is None:
                     break
-                if not self.space.is_true(self.space.contains(w_present_keys, w_key)):
+                if not self.space.is_true(self.space.contains(self.w_initialdict, w_key)):
                     self.space.setitem(self.w_initialdict, w_key, w_value)
         else:
             self.w_initialdict = self.space.call_method(self.w_dict, 'copy')
