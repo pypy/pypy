@@ -4,6 +4,7 @@ from pypy.module.cpyext.pyobject import PyObject, PyObjectP, make_ref, from_ref
 from pypy.module.cpyext.pyobject import as_pyobj
 from pypy.module.cpyext.tupleobject import PyTupleObject
 from pypy.module.cpyext.test.test_api import BaseApiTest
+from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from rpython.rtyper.lltypesystem import rffi, lltype
 
 
@@ -58,3 +59,45 @@ class TestTupleObject(BaseApiTest):
         assert space.eq_w(w_slice,
                           space.newtuple([space.wrap(i) for i in range(3, 7)]))
 
+
+class AppTestTuple(AppTestCpythonExtensionBase):
+    def test_refcounts(self):
+        module = self.import_extension('foo', [
+            ("run", "METH_NOARGS",
+             """
+                PyObject *item = PyTuple_New(0);
+                PyObject *t = PyTuple_New(1);
+                if (t->ob_refcnt != 1 || item->ob_refcnt != 1) {
+                    PyErr_SetString(PyExc_SystemError, "bad initial refcnt");
+                    return NULL;
+                }
+
+                PyTuple_SetItem(t, 0, item);
+                if (t->ob_refcnt != 1) {
+                    PyErr_SetString(PyExc_SystemError, "SetItem: t refcnt != 1");
+                    return NULL;
+                }
+                if (item->ob_refcnt != 1) {
+                    PyErr_SetString(PyExc_SystemError, "SetItem: item refcnt != 1");
+                    return NULL;
+                }
+
+                if (PyTuple_GetItem(t, 0) != item ||
+                    PyTuple_GetItem(t, 0) != item) {
+                    PyErr_SetString(PyExc_SystemError, "GetItem: bogus item");
+                    return NULL;
+                }
+
+                if (t->ob_refcnt != 1) {
+                    PyErr_SetString(PyExc_SystemError, "GetItem: t refcnt != 1");
+                    return NULL;
+                }
+                if (item->ob_refcnt != 1) {
+                    PyErr_SetString(PyExc_SystemError, "GetItem: item refcnt != 1");
+                    return NULL;
+                }
+                return t;
+             """),
+            ])
+        x = module.run()
+        assert x == ((),)
