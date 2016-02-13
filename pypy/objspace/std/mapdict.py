@@ -108,6 +108,7 @@ class AbstractAttribute(object):
         elif isinstance(self, Terminator):
             if self.w_cls is not None:
                 lines.append(_print_line('w_cls', self.w_cls.name, 1))
+                lines.append(_print_line('w_cls_module', self.space.bytes_w(self.w_cls.get_module()), 1))
         if self._number_reads:
             lines.append('    "reads": {')
             for key, value in self._number_reads.items():
