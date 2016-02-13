@@ -35,6 +35,7 @@
 #include "vmprof_stack.h"
 #include "vmprof_getpc.h"
 #include "vmprof_mt.h"
+#include "vmprof_get_custom_offset.h"
 #include "vmprof_common.h"
 
 /************************************************************/
@@ -77,46 +78,6 @@ void vmprof_ignore_signals(int ignored)
 
 static char atfork_hook_installed = 0;
 
-
-#include "vmprof_get_custom_offset.h"
-
-/* *************************************************************
- * functions to dump the stack trace
- * *************************************************************
- */
-
-
-static int get_stack_trace(intptr_t *result, int max_depth, intptr_t pc, ucontext_t *ucontext)
-{
-    vmprof_stack_t* stack = get_vmprof_stack();
-    int n = 0;
-    intptr_t addr = 0;
-    int bottom_jitted = 0;
-    // check if the pc is in JIT
-#ifdef PYPY_JIT_CODEMAP
-    if (pypy_find_codemap_at_addr((intptr_t)pc, &addr)) {
-        // the bottom part is jitted, means we can fill up the first part
-        // from the JIT
-        n = vmprof_write_header_for_jit_addr(result, n, pc, max_depth);
-        stack = stack->next; // skip the first item as it contains garbage
-    }
-#endif
-    while (n < max_depth - 1 && stack) {
-        if (stack->kind == VMPROF_CODE_TAG) {
-            result[n] = stack->kind;
-            result[n + 1] = stack->value;
-            n += 2;
-        }
-#ifdef PYPY_JIT_CODEMAP
-        else if (stack->kind == VMPROF_JITTED_TAG) {
-            pc = ((intptr_t*)(stack->value - sizeof(intptr_t)))[0];
-            n = vmprof_write_header_for_jit_addr(result, n, pc, max_depth);
-        }
-#endif
-        stack = stack->next;
-    }
-    return n;
-}
 
 static intptr_t get_current_thread_id(void)
 {
@@ -194,8 +155,8 @@ static void sigprof_handler(int sig_nr, siginfo_t* info, void *ucontext)
             struct prof_stacktrace_s *st = (struct prof_stacktrace_s *)p->data;
             st->marker = MARKER_STACKTRACE;
             st->count = 1;
-            depth = get_stack_trace(st->stack,
-                MAX_STACK_DEPTH-2, GetPC((ucontext_t*)ucontext), ucontext);
+            depth = get_stack_trace(get_vmprof_stack(), st->stack,
+                MAX_STACK_DEPTH-2, GetPC((ucontext_t*)ucontext));
             st->depth = depth;
             st->stack[depth++] = get_current_thread_id();
             p->data_offset = offsetof(struct prof_stacktrace_s, marker);
