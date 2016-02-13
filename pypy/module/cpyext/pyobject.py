@@ -61,9 +61,9 @@ class BaseCpyTypedescr(object):
         w_type = from_ref(space, rffi.cast(PyObject, obj.c_ob_type))
         w_obj = space.allocate_instance(self.W_BaseObject, w_type)
         track_reference(space, obj, w_obj)
-        if w_type is not space.gettypefor(self.W_BaseObject):
-            state = space.fromcache(RefcountState)
-            state.set_lifeline(w_obj, obj)
+        #if w_type is not space.gettypefor(self.W_BaseObject):
+        #    state = space.fromcache(RefcountState)
+        #    state.set_lifeline(w_obj, obj)
         return w_obj
 
 typedescr_cache = {}
