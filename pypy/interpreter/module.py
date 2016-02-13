@@ -121,12 +121,11 @@ class Module(W_Root):
         return space.newtuple(tup_return)
 
     def descr_module__repr__(self, space):
-        from pypy.interpreter.mixedmodule import MixedModule
         if self.w_name is not None:
             name = space.unicode_w(space.repr(self.w_name))
         else:
             name = u"'?'"
-        if isinstance(self, MixedModule):
+        if self.getname(space) in self.space.builtin_modules:
             return space.wrap(u"<module %s (built-in)>" % name)
         try:
             w___file__ = space.getattr(self, space.wrap('__file__'))
