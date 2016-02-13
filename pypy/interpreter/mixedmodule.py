@@ -58,15 +58,20 @@ class MixedModule(Module):
                 self.save_module_content_for_future_reload()
 
     def save_module_content_for_future_reload(self):
+        # Because setdictvalue is unable to immediately load all attributes
+        # (due to an importlib bootstrapping problem), this method needs to be
+        # able to able to save single names at a time. The idea now is to save
+        # in pieces, being careful to never overwrite the value of a key
+        # already in w_initialdict.
         if not self.space.is_none(self.w_initialdict):
-            present_keys = self.w_initialdict.w_keys()
-            new_keys = self.w_dict.w_keys()
-            key_count = new_keys.length()
-            for i in range(key_count):
-                key = new_keys.getitem(i)
-                val_to_set = self.space.getitem(self.w_dict, key)
-                if not self.space.is_true(self.space.contains(present_keys, key)):
-                    self.space.setitem(self.w_initialdict, key, val_to_set)
+            w_present_keys = self.w_initialdict.w_keys()
+            w_new_items = self.w_dict.iteritems()
+            while True:
+                w_key, w_value = w_new_items.next_item()
+                if w_key is None:
+                    break
+                if not self.space.is_true(self.space.contains(w_present_keys, w_key)):
+                    self.space.setitem(self.w_initialdict, w_key, w_value)
         else:
             self.w_initialdict = self.space.call_method(self.w_dict, 'copy')
 
