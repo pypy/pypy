@@ -160,11 +160,11 @@ def create_ref(space, w_obj, itemcount=0):
     """
     #state = space.fromcache(RefcountState)
     w_type = space.type(w_obj)
-    if w_type.is_cpytype():
-        ZZZ # py_obj = state.get_from_lifeline(w_obj)
-        if py_obj:
-            Py_IncRef(space, py_obj)
-            return py_obj
+    #if w_type.is_cpytype():
+    #    py_obj = state.get_from_lifeline(w_obj)
+    #    if py_obj:
+    #        Py_IncRef(space, py_obj)
+    #        return py_obj
 
     typedescr = get_typedescr(w_obj.typedef)
     py_obj = typedescr.allocate(space, w_type, itemcount=itemcount)
