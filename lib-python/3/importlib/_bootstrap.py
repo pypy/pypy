@@ -1496,7 +1496,6 @@ def _sanity_check(name, package, level):
         raise TypeError("module name must be str, not {}".format(type(name)))
     if level < 0:
         raise ValueError('level must be >= 0')
-    #print(name, package, level)
     if package:
         if not isinstance(package, str):
             raise TypeError("__package__ not set to a string")

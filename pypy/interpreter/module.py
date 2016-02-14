@@ -123,10 +123,10 @@ class Module(W_Root):
     def descr_module__repr__(self, space):
         if self.w_name is not None:
             name = space.unicode_w(space.repr(self.w_name))
-            nonrepr_name = space.unicode_w(self.w_name)
+            nonrepr_name = self.space.identifier_w(self.w_name)
         else:
             name = u"'?'"
-            nonrepr_name = u"?"
+            nonrepr_name = "?"
         if nonrepr_name in self.space.builtin_modules:
             return space.wrap(u"<module %s (built-in)>" % name)
         try:
