@@ -49,7 +49,7 @@ def PyList_GetItem(space, w_list, index):
     if index < 0 or index >= w_list.length():
         raise OperationError(space.w_IndexError, space.wrap(
             "list index out of range"))
-    w_list.switch_to_object_strategy()  # make sure we can return a borrowed obj
+    w_list.ensure_object_strategy()  # make sure we can return a borrowed obj
     # XXX ^^^ how does this interact with CPyListStrategy?
     return w_list.getitem(index)
 

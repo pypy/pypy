@@ -45,7 +45,7 @@ def PySequence_Fast(space, w_obj, m):
     if isinstance(w_obj, listobject.W_ListObject):
         # make sure we can return a borrowed obj from PySequence_Fast_GET_ITEM
         # XXX how does this interact with CPyListStrategy?
-        w_obj.switch_to_object_strategy()
+        w_obj.ensure_object_strategy()
         return w_obj
     if isinstance(w_obj, tupleobject.W_TupleObject):
         return w_obj
