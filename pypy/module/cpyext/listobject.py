@@ -38,7 +38,7 @@ def PyList_SetItem(space, w_list, index, w_item):
     w_list.setitem(index, w_item)
     return 0
 
-@cpython_api([PyObject, Py_ssize_t], PyObject)
+@cpython_api([PyObject, Py_ssize_t], PyObject, result_borrowed=True)
 def PyList_GetItem(space, w_list, index):
     """Return the object at position pos in the list pointed to by p.  The
     position must be positive, indexing from the end of the list is not
@@ -49,8 +49,9 @@ def PyList_GetItem(space, w_list, index):
     if index < 0 or index >= w_list.length():
         raise OperationError(space.w_IndexError, space.wrap(
             "list index out of range"))
-    w_item = w_list.getitem(index)
-    return borrow_from(w_list, w_item)
+    w_list.switch_to_object_strategy()  # make sure we can return a borrowed obj
+    # XXX ^^^ how does this interact with CPyListStrategy?
+    return w_list.getitem(index)
 
 
 @cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
