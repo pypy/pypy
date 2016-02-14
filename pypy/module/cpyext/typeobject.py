@@ -21,7 +21,7 @@ from pypy.module.cpyext.methodobject import (
 from pypy.module.cpyext.modsupport import convert_method_defs
 from pypy.module.cpyext.pyobject import (
     PyObject, make_ref, create_ref, from_ref, get_typedescr, make_typedescr,
-    track_reference, RefcountState, borrow_from, Py_DecRef, as_pyobj)
+    track_reference, RefcountState, Py_DecRef, as_pyobj)
 from pypy.module.cpyext.slotdefs import (
     slotdefs_for_tp_slots, slotdefs_for_wrappers, get_slot_tp_function)
 from pypy.module.cpyext.state import State
@@ -633,7 +633,8 @@ def PyType_GenericNew(space, type, w_args, w_kwds):
     return generic_cpy_call(
         space, type.c_tp_alloc, type, 0)
 
-@cpython_api([PyTypeObjectPtr, PyObject], PyObject, error=CANNOT_FAIL)
+@cpython_api([PyTypeObjectPtr, PyObject], PyObject, error=CANNOT_FAIL,
+             result_borrowed=True)
 def _PyType_Lookup(space, type, w_name):
     """Internal API to look for a name through the MRO.
     This returns a borrowed reference, and doesn't set an exception!"""
@@ -644,7 +645,9 @@ def _PyType_Lookup(space, type, w_name):
         return None
     name = space.str_w(w_name)
     w_obj = w_type.lookup(name)
-    return borrow_from(w_type, w_obj)
+    # this assumes that w_obj is not dynamically created, but will stay alive
+    # until w_type is modified or dies
+    return w_obj
 
 @cpython_api([PyTypeObjectPtr], lltype.Void)
 def PyType_Modified(space, w_obj):
