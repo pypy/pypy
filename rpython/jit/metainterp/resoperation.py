@@ -1448,32 +1448,11 @@ class rop(object):
                 opnum == rop.CALL_N)
 
     @staticmethod
-    def is_call_assembler(opnum):
-        return (opnum == rop.CALL_ASSEMBLER_I or
-                opnum == rop.CALL_ASSEMBLER_R or
-                opnum == rop.CALL_ASSEMBLER_F or
-                opnum == rop.CALL_ASSEMBLER_N)
-
-    @staticmethod
     def is_call_loopinvariant(opnum):
         return (opnum == rop.CALL_LOOPINVARIANT_I or
                 opnum == rop.CALL_LOOPINVARIANT_R or
                 opnum == rop.CALL_LOOPINVARIANT_F or
                 opnum == rop.CALL_LOOPINVARIANT_N)
-
-    @staticmethod
-    def is_call_may_force(opnum):
-        return (opnum == rop.CALL_MAY_FORCE_I or
-                opnum == rop.CALL_MAY_FORCE_R or
-                opnum == rop.CALL_MAY_FORCE_F or
-                opnum == rop.CALL_MAY_FORCE_N)
-
-    @staticmethod
-    def is_call_release_gil(opnum):
-        # no R returning call_release_gil
-        return (opnum == rop.CALL_RELEASE_GIL_I or
-                opnum == rop.CALL_RELEASE_GIL_F or
-                opnum == rop.CALL_RELEASE_GIL_N)
 
     @staticmethod
     def inputarg_from_tp(tp):

@@ -24,8 +24,9 @@ class BaseTestOparser(object):
         finish() # (tricky)
         """
         loop = self.parse(x)
-        assert len(loop.operations) == 3
-        assert [op.getopnum() for op in loop.operations] == [rop.INT_ADD, rop.INT_SUB,
+        ops = loop._get_operations()
+        assert len(ops) == 3
+        assert [op.getopnum() for op in ops] == [rop.INT_ADD, rop.INT_SUB,
                                                         rop.FINISH]
         assert len(loop.inputargs) == 2
         assert loop.operations[-1].getdescr()

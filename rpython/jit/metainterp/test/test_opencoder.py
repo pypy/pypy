@@ -34,35 +34,7 @@ class TestOpencoder(object):
         assert len(l) == 2
         assert l[0].opnum == rop.INT_ADD
         assert l[1].opnum == rop.INT_ADD
-        assert untag(l[1].args[1]) == (TAGINT, 1)
-        assert untag(l[1].args[0]) == (TAGBOX, l[0]._pos)
-        assert untag(l[0].args[0]) == (TAGBOX, 0)
-        assert untag(l[0].args[1]) == (TAGBOX, 1)
-
-    def test_forwarding(self):
-        i0, i1 = InputArgInt(), InputArgInt()
-        t = Trace([i0, i1])
-        add = t.record_op(rop.INT_ADD, [i0, i1])
-        t.record_op(rop.INT_ADD, [add, ConstInt(1)])
-        opt = SimpleOptimizer(t)
-        add, add2 = self.unpack(t)
-        assert (untag(opt.get_box_replacement(add.get_tag())) == TAGBOX, add._pos)
-        newtag = opt.replace_op_with(add, rop.INT_NEG, [i0])
-        assert opt.get_box_replacement(add.get_tag()) == newtag
-
-    def test_infos(self):
-        i0 = InputArgInt()
-        t = Trace([i0])
-        t.record_op(rop.INT_ADD, [i0, ConstInt(1)])
-        opt = SimpleOptimizer(t)
-        add,  = self.unpack(t)
-        assert opt.getintbound(add.get_tag())
-
-    def test_output(self):
-        i0 = InputArgInt()
-        t = Trace([i0])
-        t.record_op(rop.INT_ADD, [i0, ConstInt(1)])
-        opt = SimpleOptimizer(t)
-        add, = self.unpack(t)
-        opt.emit_operation(add)
-#        xxx
+        assert l[1].getarg(1).getint() == 1
+        assert l[1].getarg(0) is l[0]
+        assert l[0].getarg(0) is i0
+        assert l[0].getarg(1) is i1

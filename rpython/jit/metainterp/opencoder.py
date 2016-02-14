@@ -2,10 +2,10 @@
 from rpython.jit.metainterp.history import ConstInt, Const, AbstractDescr,\
     AbstractValue
 from rpython.jit.metainterp.resoperation import AbstractResOp, AbstractInputArg,\
-    ResOperation, oparity, opname, rop
+    ResOperation, oparity, opname, rop, ResOperation, opwithdescr
 from rpython.rlib.rarithmetic import intmask
 
-TAGINT, TAGCONST, TAGBOX, TAGOUTPUT = range(4)
+TAGINT, TAGCONST, TAGBOX = range(3)
 TAGMASK = 0x3
 TAGSHIFT = 2
 MAXINT = 65536
@@ -13,8 +13,18 @@ MAXINT = 65536
 class TraceIterator(object):
     def __init__(self, trace, end):
         self.trace = trace
-        self.pos = trace._start
+        self.inpargs = trace._inpargs
+        self.pos = 0
+        self._count = 0
         self.end = end
+        self._cache = [None] * trace._count
+
+    def _get(self, i):
+        if i < 0:
+            return self.inpargs[-i-1]
+        res = self._cache[i]
+        assert res is not None
+        return res
 
     def done(self):
         return self.pos >= self.end
@@ -24,69 +34,46 @@ class TraceIterator(object):
         self.pos += 1
         return res
 
+    def _untag(self, tagged):
+        tag, v = untag(tagged)
+        if tag == TAGBOX:
+            return self._get(v)
+        elif tag == TAGINT:
+            return ConstInt(v)
+        else:
+            yyyy
+
     def next(self):
         pos = self.pos
         opnum = self._next()
-        self._next() # forwarding
         if oparity[opnum] == -1:
             argnum = self._next()
         else:
             argnum = oparity[opnum]
         args = []
         for i in range(argnum):
-            args.append(self._next())
-        return RecordedOp(pos, opnum, args)
-
-class RecordedOp(AbstractValue):
-    def __init__(self, pos, opnum, args, descr=None):
-        self.opnum = opnum
-        self.args = args
-        self._pos = pos
-        self.descr = descr
-
-    def get_tag(self):
-        return tag(TAGBOX, self._pos)
-
-    def getarglist(self):
-        return self.args
-
-    def getdescr(self):
-        return self.descr
-
-    def numargs(self):
-        return len(self.args)
-
-    def getopnum(self):
-        return self.opnum
-
-    def getarg(self, i):
-        return self.args[i]
-
-    def getopname(self):
-        try:
-            return opname[self.getopnum()].lower()
-        except KeyError:
-            return '<%d>' % self.getopnum()
-
-    def __hash__(self):
-        raise NotImplementedError
-
+            args.append(self._untag(self._next()))
+        if opwithdescr[opnum]:
+            xxx
+        else:
+            descr = None
+        res = ResOperation(opnum, args, -1, descr=descr)
+        self._cache[self._count] = res
+        self._count += 1
+        return res
 
 class Trace(object):
     def __init__(self, inputargs):
-        self._ops = [0] * (2 * len(inputargs)) # place for forwarding inputargs
-        # plus infos
+        self._ops = []
         for i, inparg in enumerate(inputargs):
-            self._ops[i * 2 + i] = i
-            inparg.position = i * 2
-        self._start = len(inputargs) * 2
-        self._count = len(inputargs)
+            inparg.position = -i - 1
+        self._count = 0
+        self._inpargs = inputargs
 
     def _record_op(self, opnum, argboxes, descr=None):
         operations = self._ops
         pos = len(operations)
         operations.append(opnum)
-        operations.append(self._count) # here we keep the index into infos
         if oparity[opnum] == -1:
             operations.append(len(argboxes))
         operations.extend([encode(box) for box in argboxes])
@@ -99,7 +86,6 @@ class Trace(object):
         operations = self._ops
         pos = len(operations)
         operations.append(opnum)
-        operations.append(self._count) # here we keep the index into infos
         if oparity[opnum] == -1:
             operations.append(len(tagged_args))
         operations.extend(tagged_args)
@@ -120,19 +106,17 @@ class Trace(object):
     def record_op_tag(self, opnum, tagged_args, descr=None):
         return tag(TAGBOX, self._record_raw(opnum, tagged_args, descr))
 
-    def record_op_output_tag(self, opnum, tagged_args, descr=None):
-        return tag(TAGOUTPUT, self._record_raw(opnum, tagged_args, descr))
-
-    def get_info(self, infos, pos):
-        index = self._ops[pos + 1]
-        return infos[index]
-
-    def set_info(self, infos, pos, info):
-        index = self._ops[pos + 1]
-        infos[index] = info
-
     def get_iter(self):
         return TraceIterator(self, len(self._ops))
+
+    def _get_operations(self):
+        """ NOT_RPYTHON
+        """
+        l = []
+        i = self.get_iter()
+        while not i.done():
+            l.append(i.next())
+        return l
 
 def tag(kind, pos):
     return (pos << TAGSHIFT) | kind
