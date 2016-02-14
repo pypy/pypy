@@ -18,6 +18,7 @@ class FakeJitCode(object):
     index = 0
 
 def test_store_final_boxes_in_guard():
+    py.test.skip("needs to be rewritten")
     from rpython.jit.metainterp.compile import ResumeGuardDescr
     from rpython.jit.metainterp.resume import tag, TAGBOX
     b0 = InputArgInt()
@@ -33,13 +34,13 @@ def test_store_final_boxes_in_guard():
     #
     opt.store_final_boxes_in_guard(op, [])
     fdescr = op.getdescr()
-    #if op.getfailargs() == [b0, b1]:
-    #    assert list(fdescr.rd_numb.nums)      == [tag(1, TAGBOX)]
-    #    assert list(fdescr.rd_numb.prev.nums) == [tag(0, TAGBOX)]
-    #else:
-    #    assert op.getfailargs() == [b1, b0]
-    #    assert list(fdescr.rd_numb.nums)      == [tag(0, TAGBOX)]
-    #    assert list(fdescr.rd_numb.prev.nums) == [tag(1, TAGBOX)]
+    if op.getfailargs() == [b0, b1]:
+        assert list(fdescr.rd_numb.nums)      == [tag(1, TAGBOX)]
+        assert list(fdescr.rd_numb.prev.nums) == [tag(0, TAGBOX)]
+    else:
+        assert op.getfailargs() == [b1, b0]
+        assert list(fdescr.rd_numb.nums)      == [tag(0, TAGBOX)]
+        assert list(fdescr.rd_numb.prev.nums) == [tag(1, TAGBOX)]
     assert fdescr.rd_virtuals is None
     assert fdescr.rd_consts == []
 

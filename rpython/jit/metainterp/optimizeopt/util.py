@@ -7,7 +7,7 @@ from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.jit.metainterp import resoperation
 from rpython.rlib.debug import make_sure_not_resized
-from rpython.jit.metainterp.resoperation import rop
+from rpython.jit.metainterp.resoperation import rop, OpHelpers
 from rpython.jit.metainterp.resume import Snapshot, AccumInfo
 
 # ____________________________________________________________
@@ -154,7 +154,8 @@ def equaloplists(oplist1, oplist2, strict_fail_args=True, remap={},
         else:
             if op1.type != 'v':
                 remap[op2] = op1
-        if op1.getopnum() not in [rop.JUMP, rop.LABEL, rop.FINISH] and not op1.is_guard():
+        if (op1.getopnum() not in [rop.JUMP, rop.LABEL, rop.FINISH] and
+            not OpHelpers.is_guard(op1.getopnum())):
             assert op1.getdescr() == op2.getdescr()
         if op1.getfailargs() or op2.getfailargs():
             assert len(op1.getfailargs()) == len(op2.getfailargs())

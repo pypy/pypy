@@ -19,7 +19,7 @@ from rpython.jit.metainterp.jitprof import EmptyProfiler
 from rpython.jit.metainterp.counter import DeterministicJitCounter
 from rpython.config.translationoption import get_combined_translation_config
 from rpython.jit.metainterp.resoperation import (rop, ResOperation,
-        InputArgRef, AbstractValue)
+        InputArgRef, AbstractValue, OpHelpers)
 from rpython.jit.metainterp.optimizeopt.util import args_dict
 
 
@@ -55,11 +55,11 @@ def test_equaloplists():
     loop2 = pure_parse(ops, namespace=namespace)
     loop3 = pure_parse(ops.replace("i2 = int_add", "i2 = int_sub"),
                        namespace=namespace)
-    assert equaloplists(loop1.operations, loop2.operations,
+    assert equaloplists(loop1._get_operations(), loop2._get_operations(),
                         remap=make_remap(loop1.inputargs,
                                          loop2.inputargs))
     py.test.raises(AssertionError,
-                   "equaloplists(loop1.operations, loop3.operations,"
+                   "equaloplists(loop1._get_operations(), loop3._get_operations(),"
                    "remap=make_remap(loop1.inputargs, loop3.inputargs))")
 
 def test_equaloplists_fail_args():
@@ -484,7 +484,7 @@ class BaseTest(object):
         class FakeJitCode(object):
             index = 0
 
-        if op.is_guard():
+        if OpHelpers.is_guard(op.getopnum()):
             op.rd_snapshot = resume.Snapshot(None, op.getfailargs())
             op.rd_frame_info_list = resume.FrameInfo(None, FakeJitCode(), 11)
 
