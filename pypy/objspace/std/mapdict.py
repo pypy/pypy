@@ -1,4 +1,4 @@
-import weakref
+import weakref, sys
 
 from rpython.rlib import jit, objectmodel, debug, rerased
 from rpython.rlib.rarithmetic import intmask, r_uint
@@ -159,7 +159,7 @@ class AbstractAttribute(object):
         if self.cache_attrs is not None:
             return self.cache_attrs.get(key, None)
         return None
-    
+
     def add_attr(self, obj, name, index, w_value):
         self._reorder_and_add(obj, name, index, w_value)
         if not jit.we_are_jitted():
@@ -193,53 +193,71 @@ class AbstractAttribute(object):
             jit.isconstant(name) and
             jit.isconstant(index))
     def _reorder_and_add(self, obj, name, index, w_value):
+        # the idea is as follows: the subtrees of any map are ordered by insertion.
+        # the invariant is that subtrees that are inserted later must not contain
+        # the name of the attribute of any earlier inserted attribute anywhere
+        #                              m______
+        #         inserted first      / \ ... \   further attributes
+        #           attrname a      0/  1\    n\
+        #                           m  a must not appear here anywhere
+        #
+        # when inserting a new attribute in an object we check whether any
+        # parent of lower order has seen that attribute yet. if yes, we follow
+        # that branch. if not, we normally append that attribute. When we
+        # follow a prior branch, we necessarily remove some attributes to be
+        # able to do that. They need to be re-added, which has to follow the
+        # reordering procedure recusively.
+
+        # we store the to-be-readded attribute in stack_maps and stack_values
+        # those are lazily initialized to two lists large enough to store all
+        # current attributes
         stack_maps = None
         stack_values = None
         stack_index = 0
         while True:
             current = self
-            localstack_index = stack_index
+            number_to_readd = 0
+            current_order = sys.maxint
+            # walk up the map chain to find an ancestor with lower order that
+            # already has the current name as a child inserted
             while True:
                 attr = current._get_cache_attr(name, index)
-                if attr is None:
-                    # if not found in all ancestors
+                if attr is None or attr.order > current_order:
+                    # we reached the top, so we didn't find it anywhere,
+                    # just add it
                     if not isinstance(current, PlainAttribute):
                         self._add_attr_without_reordering(obj, name, index, w_value)
                         break
 
                     # if not found try parent
                     else:
-                        w_self_value = obj._mapdict_read_storage(current.storageindex)
+                        number_to_readd += 1
+                        current_order = current.order
+                        current = current.back
+                else:
+                    # we found the attributes further up, need to save the
+                    # previous values of the attributes we passed
+                    if number_to_readd:
                         if stack_maps is None:
                             stack_maps = [None] * self.length()
                             stack_values = [None] * self.length()
-                        stack_maps[localstack_index] = current
-                        stack_values[localstack_index] = w_self_value
-                        localstack_index += 1
-                        current = current.back
-                else:
+                        current = self
+                        for i in range(number_to_readd):
+                            assert isinstance(current, PlainAttribute)
+                            w_self_value = obj._mapdict_read_storage(
+                                    current.storageindex)
+                            stack_maps[stack_index] = current
+                            stack_values[stack_index] = w_self_value
+                            stack_index += 1
+                            current = current.back
                     attr._switch_map_and_write_storage(obj, w_value)
-                    if not localstack_index:
-                        return
-
-                    if not stack_index:
-                        # add the first attribute of the stack without reordering
-                        # to prevent an endless loop
-                        localstack_index += -1
-                        next_map = stack_maps[localstack_index]
-                        w_value = stack_values[localstack_index]
-                        obj._get_mapdict_map()._add_attr_without_reordering(
-                            obj, next_map.name, next_map.index, w_value)
-
-                    stack_index = localstack_index    
                     break
 
             if not stack_index:
                 return
 
-            # readd all other values from the stack (with reordering)
-            # the last element of the stack will be the new current
-            stack_index += -1
+            # readd the current top of the stack
+            stack_index -= 1
             next_map = stack_maps[stack_index]
             w_value = stack_values[stack_index]
             name = next_map.name
@@ -350,7 +368,7 @@ class DevolvedDictTerminator(Terminator):
         return Terminator.set_terminator(self, obj, terminator)
 
 class PlainAttribute(AbstractAttribute):
-    _immutable_fields_ = ['name', 'index', 'storageindex', 'back', 'ever_mutated?']
+    _immutable_fields_ = ['name', 'index', 'storageindex', 'back', 'ever_mutated?', 'order']
 
     def __init__(self, name, index, back):
         AbstractAttribute.__init__(self, back.space, back.terminator)
@@ -360,6 +378,7 @@ class PlainAttribute(AbstractAttribute):
         self.back = back
         self._size_estimate = self.length() * NUM_DIGITS_POW2
         self.ever_mutated = False
+        self.order = len(back.cache_attrs) if back.cache_attrs else 0
 
     def _copy_attr(self, obj, new_obj):
         w_value = self.read(obj, self.name, self.index)
