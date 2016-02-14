@@ -73,7 +73,9 @@ def compile_extension_module(space, modname, **kwds):
     else:
         kwds["link_files"] = [str(api_library + '.so')]
         if sys.platform.startswith('linux'):
-            kwds["compile_extra"]=["-Werror=implicit-function-declaration"]
+            kwds["compile_extra"]=["-Werror=implicit-function-declaration",
+                                   "-g", "-O0"]
+            kwds["link_extra"]=["-g"]
 
     modname = modname.split('.')[-1]
     eci = ExternalCompilationInfo(
