@@ -38,8 +38,8 @@ def int_realize(space, obj):
     w_obj = space.allocate_instance(W_IntObject, w_type)
     w_obj.__init__(intval)
     track_reference(space, obj, w_obj)
-    state = space.fromcache(RefcountState)
-    state.set_lifeline(w_obj, obj)
+    #state = space.fromcache(RefcountState)
+    #state.set_lifeline(w_obj, obj)
     return w_obj
 
 PyInt_Check, PyInt_CheckExact = build_type_checkers("Int")
