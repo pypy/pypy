@@ -41,7 +41,8 @@ Remove unnecessary special handling of space.wrap().
 
 .. branch: compress-numbering
 
-Improve the memory signature of numbering instances in the JIT.
+Improve the memory signature of numbering instances in the JIT. This should massively
+decrease the amount of memory consumed by the JIT, which is significant for most programs.
 
 .. branch: fix-trace-too-long-heuristic
 
