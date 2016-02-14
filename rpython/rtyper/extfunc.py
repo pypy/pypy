@@ -25,13 +25,12 @@ class ExtFuncEntry(ExtRegistryEntry):
         return self.signature_result
 
     def compute_annotation(self):
+        s_result = super(ExtFuncEntry, self).compute_annotation()
         if (self.bookkeeper.annotator.translator.config.translation.sandbox
                 and not self.safe_not_sandboxed):
-            from rpython.translator.sandbox.rsandbox import make_sandbox_trampoline
-            impl = make_sandbox_trampoline(self.name, self.signature_args,
-                self.signature_result)
-            return self.bookkeeper.immutablevalue(impl)
-        return super(ExtFuncEntry, self).compute_annotation()
+            s_result.needs_sandboxing = True
+            s_result.entry = self
+        return s_result
 
     def specialize_call(self, hop):
         rtyper = hop.rtyper

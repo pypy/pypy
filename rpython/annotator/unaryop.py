@@ -113,8 +113,9 @@ def contains_number(annotator, number, element):
 
 @op.simple_call.register(SomeObject)
 def simple_call_SomeObject(annotator, func, *args):
-    return annotator.annotation(func).call(
-        simple_args([annotator.annotation(arg) for arg in args]))
+    s_func = annotator.annotation(func)
+    argspec = simple_args([annotator.annotation(arg) for arg in args])
+    return s_func.call(argspec)
 
 @op.call_args.register_transform(SomeObject)
 def transform_varargs(annotator, v_func, v_shape, *data_v):
