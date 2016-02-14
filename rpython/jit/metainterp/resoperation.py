@@ -95,7 +95,7 @@ def ResOperation(opnum, args, position, descr=None):
         assert isinstance(op, ResOpWithDescr)
         if opnum == rop.FINISH:
             assert descr.final_descr
-        elif op.is_guard():
+        elif OpHelpers.is_guard(opnum):
             assert not descr.final_descr
         op.setdescr(descr)
     op.inittype()

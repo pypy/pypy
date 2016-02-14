@@ -29,7 +29,6 @@ def get_real_model():
 
 def get_mock_model():
     class MockLoopModel(object):
-
         class TreeLoop(object):
             def __init__(self, name):
                 self.name = name

@@ -13,7 +13,6 @@ MAXINT = 65536
 class TraceIterator(object):
     def __init__(self, trace, end):
         self.trace = trace
-        self.inpargs = trace._inpargs
         self.pos = 0
         self._count = 0
         self.end = end
@@ -21,7 +20,7 @@ class TraceIterator(object):
 
     def _get(self, i):
         if i < 0:
-            return self.inpargs[-i-1]
+            return self.trace.inputargs[-i - 1]
         res = self._cache[i]
         assert res is not None
         return res
@@ -40,6 +39,8 @@ class TraceIterator(object):
             return self._get(v)
         elif tag == TAGINT:
             return ConstInt(v)
+        elif tag == TAGCONST:
+            return self.trace._consts[v]
         else:
             yyyy
 
@@ -54,7 +55,11 @@ class TraceIterator(object):
         for i in range(argnum):
             args.append(self._untag(self._next()))
         if opwithdescr[opnum]:
-            xxx
+            descr_index = self._next()
+            if descr_index == -1:
+                descr = None
+            else:
+                descr = self.trace._descrs[descr_index]
         else:
             descr = None
         res = ResOperation(opnum, args, -1, descr=descr)
@@ -65,10 +70,26 @@ class TraceIterator(object):
 class Trace(object):
     def __init__(self, inputargs):
         self._ops = []
+        self._descrs = [None]
+        self._consts = [None]
         for i, inparg in enumerate(inputargs):
             inparg.position = -i - 1
         self._count = 0
-        self._inpargs = inputargs
+        self.inputargs = inputargs
+
+    def _encode(self, box):
+        if isinstance(box, Const):
+            if isinstance(box, ConstInt) and box.getint() < MAXINT:
+                return tag(TAGINT, box.getint())
+            else:
+                self._consts.append(box)
+                return tag(TAGCONST, len(self._consts) - 1)
+        elif isinstance(box, AbstractResOp):
+            return tag(TAGBOX, box.position)
+        elif isinstance(box, AbstractInputArg):
+            return tag(TAGBOX, box.position)
+        else:
+            assert False, "unreachable code"
 
     def _record_op(self, opnum, argboxes, descr=None):
         operations = self._ops
@@ -76,9 +97,12 @@ class Trace(object):
         operations.append(opnum)
         if oparity[opnum] == -1:
             operations.append(len(argboxes))
-        operations.extend([encode(box) for box in argboxes])
-        if descr is not None:
-            operations.append(encode(descr))
+        operations.extend([self._encode(box) for box in argboxes])
+        if opwithdescr[opnum]:
+            if descr is None:
+                operations.append(-1)
+            else:
+                operations.append(self._encode_descr(descr))
         self._count += 1
         return pos
 
@@ -93,6 +117,12 @@ class Trace(object):
             operations.append(tagged_descr)
         self._count += 1
         return pos        
+
+    def _encode_descr(self, descr):
+        # XXX provide a global cache for prebuilt descrs so we don't
+        #     have to repeat them here        
+        self._descrs.append(descr)
+        return len(self._descrs) - 1
 
     def record_forwarding(self, op, newtag):
         index = op._pos
@@ -123,18 +153,3 @@ def tag(kind, pos):
 
 def untag(tagged):
     return intmask(tagged) & TAGMASK, intmask(tagged) >> TAGSHIFT
-
-def encode(box):
-    if isinstance(box, Const):
-        if isinstance(box, ConstInt) and box.getint() < MAXINT:
-            return tag(TAGINT, box.getint())
-        else:
-            yyy
-    elif isinstance(box, AbstractResOp):
-        return tag(TAGBOX, box.position)
-    elif isinstance(box, AbstractInputArg):
-        return tag(TAGBOX, box.position)
-    elif isinstance(box, AbstractDescr):
-        pass
-    else:
-        yyy

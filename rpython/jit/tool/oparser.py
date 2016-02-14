@@ -408,10 +408,7 @@ class OpParser(object):
         if num < len(newlines):
             raise ParseError("unexpected dedent at line: %s" % newlines[num])
         self.trace.comment = first_comment
-        #self.trace.original_jitcell_token = self.original_jitcell_token
-        #loop.operations = ops
-        #loop.inputargs = inpargs
-        #loop.last_offset = last_offset
+        self.trace.original_jitcell_token = self.original_jitcell_token
         return self.trace
 
     def record(self, opnum, args, descr):
