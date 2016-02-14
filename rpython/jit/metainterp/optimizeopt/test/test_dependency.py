@@ -144,6 +144,7 @@ class DependencyBaseTest(BaseTest):
         # arguments
         [str(arg) for arg in loop.inputargs]
         loop.graph = FakeDependencyGraph(loop)
+        loop.setup_vectorization()
         return loop
 
 
@@ -520,8 +521,8 @@ class BaseTestDependencyGraph(DependencyBaseTest):
     def test_getfield(self):
         graph = self.build_dependency("""
         [p0, p1] # 0: 1,2,5
-        p2 = getfield_gc_r(p0) # 1: 3,5
-        p3 = getfield_gc_r(p0) # 2: 4
+        p2 = getfield_gc_r(p0, descr=valuedescr) # 1: 3,5
+        p3 = getfield_gc_r(p0, descr=valuedescr) # 2: 4
         guard_nonnull(p2) [p2] # 3: 4,5
         guard_nonnull(p3) [p3] # 4: 5
         jump(p0,p2) # 5:
@@ -531,10 +532,10 @@ class BaseTestDependencyGraph(DependencyBaseTest):
     def test_cyclic(self):
         graph = self.build_dependency("""
         [p0, p1, p5, p6, p7, p9, p11, p12] # 0: 1,6
-        p13 = getfield_gc_r(p9) # 1: 2,5
+        p13 = getfield_gc_r(p9, descr=valuedescr) # 1: 2,5
         guard_nonnull(p13) [] # 2: 4,5
-        i14 = getfield_gc_i(p9) # 3: 5
-        p15 = getfield_gc_r(p13) # 4: 5
+        i14 = getfield_gc_i(p9, descr=valuedescr) # 3: 5
+        p15 = getfield_gc_r(p13, descr=valuedescr) # 4: 5
         guard_class(p15, 14073732) [p1, p0, p9, i14, p15, p13, p5, p6, p7] # 5: 6
         jump(p0,p1,p5,p6,p7,p9,p11,p12) # 6:
         """)

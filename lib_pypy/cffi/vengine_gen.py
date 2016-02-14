@@ -1,3 +1,6 @@
+#
+# DEPRECATED: implementation for ffi.verify()
+#
 import sys, os
 import types
 

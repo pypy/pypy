@@ -13,6 +13,7 @@ from rpython.jit.codewriter.effectinfo import EffectInfo
 
 from rpython.rtyper.llinterp import LLInterpreter, LLException
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rstr
+from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper import rclass
 
 from rpython.rlib.clibffi import FFI_DEFAULT_ABI
@@ -151,7 +152,7 @@ class FieldDescr(AbstractDescr):
         self.fieldname = fieldname
         self.FIELD = getattr(S, fieldname)
         self.index = heaptracker.get_fielddescr_index_in(S, fieldname)
-        self._is_pure = S._immutable_field(fieldname)
+        self._is_pure = S._immutable_field(fieldname) != False
 
     def is_always_pure(self):
         return self._is_pure
@@ -607,9 +608,6 @@ class LLGraphCPU(model.AbstractCPU):
         p = support.cast_arg(lltype.Ptr(descr.S), p)
         return support.cast_result(descr.FIELD, getattr(p, descr.fieldname))
 
-    bh_getfield_gc_pure_i = bh_getfield_gc
-    bh_getfield_gc_pure_r = bh_getfield_gc
-    bh_getfield_gc_pure_f = bh_getfield_gc
     bh_getfield_gc_i = bh_getfield_gc
     bh_getfield_gc_r = bh_getfield_gc
     bh_getfield_gc_f = bh_getfield_gc
@@ -638,18 +636,9 @@ class LLGraphCPU(model.AbstractCPU):
         return array.getlength()
 
     def bh_getarrayitem_gc(self, a, index, descr):
-        assert index >= 0
-        if descr.A is descr.OUTERA:
-            a = support.cast_arg(lltype.Ptr(descr.A), a)
-        else:
-            # we use rffi.cast instead of support.cast_arg because the types
-            # might not be "compatible" enough from the lltype point of
-            # view. In particular, this happens when we use
-            # str_storage_getitem, in which an rpy_string is casted to
-            # rpy_string_as_Signed (or similar)
-            a = rffi.cast(lltype.Ptr(descr.OUTERA), a)
-            a = getattr(a, descr.OUTERA._arrayfld)
+        a = support.cast_arg(lltype.Ptr(descr.A), a)
         array = a._obj
+        assert index >= 0
         return support.cast_result(descr.A.OF, array.getitem(index))
 
     bh_getarrayitem_gc_pure_i = bh_getarrayitem_gc
@@ -713,6 +702,25 @@ class LLGraphCPU(model.AbstractCPU):
             return self.bh_raw_load_f(struct, offset, descr)
         else:
             return self.bh_raw_load_i(struct, offset, descr)
+
+    def bh_gc_load_indexed_i(self, struct, index, scale, base_ofs, bytes):
+        if   bytes == 1: T = rffi.UCHAR
+        elif bytes == 2: T = rffi.USHORT
+        elif bytes == 4: T = rffi.UINT
+        elif bytes == 8: T = rffi.ULONGLONG
+        elif bytes == -1: T = rffi.SIGNEDCHAR
+        elif bytes == -2: T = rffi.SHORT
+        elif bytes == -4: T = rffi.INT
+        elif bytes == -8: T = rffi.LONGLONG
+        else: raise NotImplementedError(bytes)
+        x = llop.gc_load_indexed(T, struct, index, scale, base_ofs)
+        return lltype.cast_primitive(lltype.Signed, x)
+
+    def bh_gc_load_indexed_f(self, struct, index, scale, base_ofs, bytes):
+        if bytes != 8:
+            raise Exception("gc_load_indexed_f is only for 'double'!")
+        return llop.gc_load_indexed(longlong.FLOATSTORAGE,
+                                    struct, index, scale, base_ofs)
 
     def bh_increment_debug_counter(self, addr):
         p = rffi.cast(rffi.CArrayPtr(lltype.Signed), addr)
@@ -1157,16 +1165,22 @@ class LLFrame(object):
         self.do_renaming(argboxes, args)
 
     def _test_true(self, arg):
-        if isinstance(arg, list):
-            return all(arg)
         assert arg in (0, 1)
         return arg
 
     def _test_false(self, arg):
-        if isinstance(arg, list):
-            return any(arg)
         assert arg in (0, 1)
         return arg
+
+    def execute_vec_guard_true(self, descr, arg):
+        assert isinstance(arg, list)
+        if not all(arg):
+            self.fail_guard(descr)
+
+    def execute_vec_guard_false(self, descr, arg):
+        assert isinstance(arg, list)
+        if any(arg):
+            self.fail_guard(descr)
 
     def execute_guard_true(self, descr, arg):
         if not self._test_true(arg):

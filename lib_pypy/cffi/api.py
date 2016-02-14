@@ -73,6 +73,8 @@ class FFI(object):
         self._included_ffis = []
         self._windows_unicode = None
         self._init_once_cache = {}
+        self._cdef_version = None
+        self._embedding = None
         if hasattr(backend, 'set_ffi'):
             backend.set_ffi(self)
         for name in backend.__dict__:
@@ -100,12 +102,21 @@ class FFI(object):
         If 'packed' is specified as True, all structs declared inside this
         cdef are packed, i.e. laid out without any field alignment at all.
         """
+        self._cdef(csource, override=override, packed=packed)
+
+    def embedding_api(self, csource, packed=False):
+        self._cdef(csource, packed=packed, dllexport=True)
+        if self._embedding is None:
+            self._embedding = ''
+
+    def _cdef(self, csource, override=False, **options):
         if not isinstance(csource, str):    # unicode, on Python 2
             if not isinstance(csource, basestring):
                 raise TypeError("cdef() argument must be a string")
             csource = csource.encode('ascii')
         with self._lock:
-            self._parser.parse(csource, override=override, packed=packed)
+            self._cdef_version = object()
+            self._parser.parse(csource, override=override, **options)
             self._cdefsources.append(csource)
             if override:
                 for cache in self._function_caches:
@@ -531,6 +542,50 @@ class FFI(object):
                                        ('_UNICODE', '1')]
         kwds['define_macros'] = defmacros
 
+    def _apply_embedding_fix(self, kwds):
+        # must include an argument like "-lpython2.7" for the compiler
+        def ensure(key, value):
+            lst = kwds.setdefault(key, [])
+            if value not in lst:
+                lst.append(value)
+        #
+        if '__pypy__' in sys.builtin_module_names:
+            if sys.platform == "win32":
+                # we need 'libpypy-c.lib'.  Right now, distributions of
+                # pypy contain it as 'include/python27.lib'.  You need
+                # to manually copy it back to 'libpypy-c.lib'.  XXX Will
+                # be fixed in the next pypy release.
+                pythonlib = "libpypy-c"
+                if hasattr(sys, 'prefix'):
+                    ensure('library_dirs', sys.prefix)
+            else:
+                # we need 'libpypy-c.{so,dylib}', which should be by
+                # default located in 'sys.prefix/bin'
+                pythonlib = "pypy-c"
+                if hasattr(sys, 'prefix'):
+                    import os
+                    ensure('library_dirs', os.path.join(sys.prefix, 'bin'))
+        else:
+            if sys.platform == "win32":
+                template = "python%d%d"
+                if hasattr(sys, 'gettotalrefcount'):
+                    template += '_d'
+            else:
+                try:
+                    import sysconfig
+                except ImportError:    # 2.6
+                    from distutils import sysconfig
+                template = "python%d.%d"
+                if sysconfig.get_config_var('DEBUG_EXT'):
+                    template += sysconfig.get_config_var('DEBUG_EXT')
+            pythonlib = (template %
+                    (sys.hexversion >> 24, (sys.hexversion >> 16) & 0xff))
+            if hasattr(sys, 'abiflags'):
+                pythonlib += sys.abiflags
+        ensure('libraries', pythonlib)
+        if sys.platform == "win32":
+            ensure('extra_link_args', '/MANIFEST')
+
     def set_source(self, module_name, source, source_extension='.c', **kwds):
         if hasattr(self, '_assigned_source'):
             raise ValueError("set_source() cannot be called several times "
@@ -590,14 +645,24 @@ class FFI(object):
         recompile(self, module_name, source,
                   c_file=filename, call_c_compiler=False, **kwds)
 
-    def compile(self, tmpdir='.'):
+    def compile(self, tmpdir='.', verbose=0, target=None):
+        """The 'target' argument gives the final file name of the
+        compiled DLL.  Use '*' to force distutils' choice, suitable for
+        regular CPython C API modules.  Use a file name ending in '.*'
+        to ask for the system's default extension for dynamic libraries
+        (.so/.dll/.dylib).
+
+        The default is '*' when building a non-embedded C API extension,
+        and (module_name + '.*') when building an embedded library.
+        """
         from .recompiler import recompile
         #
         if not hasattr(self, '_assigned_source'):
             raise ValueError("set_source() must be called before compile()")
         module_name, source, source_extension, kwds = self._assigned_source
         return recompile(self, module_name, source, tmpdir=tmpdir,
-                         source_extension=source_extension, **kwds)
+                         target=target, source_extension=source_extension,
+                         compiler_verbose=verbose, **kwds)
 
     def init_once(self, func, tag):
         # Read _init_once_cache[tag], which is either (False, lock) if
@@ -623,6 +688,36 @@ class FFI(object):
             self._init_once_cache[tag] = (True, result)
         return result
 
+    def embedding_init_code(self, pysource):
+        if self._embedding:
+            raise ValueError("embedding_init_code() can only be called once")
+        # fix 'pysource' before it gets dumped into the C file:
+        # - remove empty lines at the beginning, so it starts at "line 1"
+        # - dedent, if all non-empty lines are indented
+        # - check for SyntaxErrors
+        import re
+        match = re.match(r'\s*\n', pysource)
+        if match:
+            pysource = pysource[match.end():]
+        lines = pysource.splitlines() or ['']
+        prefix = re.match(r'\s*', lines[0]).group()
+        for i in range(1, len(lines)):
+            line = lines[i]
+            if line.rstrip():
+                while not line.startswith(prefix):
+                    prefix = prefix[:-1]
+        i = len(prefix)
+        lines = [line[i:]+'\n' for line in lines]
+        pysource = ''.join(lines)
+        #
+        compile(pysource, "cffi_init", "exec")
+        #
+        self._embedding = pysource
+
+    def def_extern(self, *args, **kwds):
+        raise ValueError("ffi.def_extern() is only available on API-mode FFI "
+                         "objects")
+
 
 def _load_backend_lib(backend, name, flags):
     if name is None:
@@ -645,70 +740,70 @@ def _make_ffi_library(ffi, libname, flags):
     import os
     backend = ffi._backend
     backendlib = _load_backend_lib(backend, libname, flags)
-    copied_enums = []
     #
-    def make_accessor_locked(name):
+    def accessor_function(name):
         key = 'function ' + name
-        if key in ffi._parser._declarations:
-            tp, _ = ffi._parser._declarations[key]
-            BType = ffi._get_cached_btype(tp)
-            try:
-                value = backendlib.load_function(BType, name)
-            except KeyError as e:
-                raise AttributeError('%s: %s' % (name, e))
-            library.__dict__[name] = value
-            return
-        #
+        tp, _ = ffi._parser._declarations[key]
+        BType = ffi._get_cached_btype(tp)
+        try:
+            value = backendlib.load_function(BType, name)
+        except KeyError as e:
+            raise AttributeError('%s: %s' % (name, e))
+        library.__dict__[name] = value
+    #
+    def accessor_variable(name):
         key = 'variable ' + name
-        if key in ffi._parser._declarations:
-            tp, _ = ffi._parser._declarations[key]
-            BType = ffi._get_cached_btype(tp)
-            read_variable = backendlib.read_variable
-            write_variable = backendlib.write_variable
-            setattr(FFILibrary, name, property(
-                lambda self: read_variable(BType, name),
-                lambda self, value: write_variable(BType, name, value)))
+        tp, _ = ffi._parser._declarations[key]
+        BType = ffi._get_cached_btype(tp)
+        read_variable = backendlib.read_variable
+        write_variable = backendlib.write_variable
+        setattr(FFILibrary, name, property(
+            lambda self: read_variable(BType, name),
+            lambda self, value: write_variable(BType, name, value)))
+    #
+    def accessor_constant(name):
+        raise NotImplementedError("non-integer constant '%s' cannot be "
+                                  "accessed from a dlopen() library" % (name,))
+    #
+    def accessor_int_constant(name):
+        library.__dict__[name] = ffi._parser._int_constants[name]
+    #
+    accessors = {}
+    accessors_version = [False]
+    #
+    def update_accessors():
+        if accessors_version[0] is ffi._cdef_version:
             return
         #
-        if not copied_enums:
-            from . import model
-            error = None
-            for key, (tp, _) in ffi._parser._declarations.items():
-                if not isinstance(tp, model.EnumType):
-                    continue
-                try:
-                    tp.check_not_partial()
-                except Exception as e:
-                    error = e
-                    continue
-                for enumname, enumval in zip(tp.enumerators, tp.enumvalues):
-                    if enumname not in library.__dict__:
-                        library.__dict__[enumname] = enumval
-            if error is not None:
-                if name in library.__dict__:
-                    return     # ignore error, about a different enum
-                raise error
-
-            for key, val in ffi._parser._int_constants.items():
-                if key not in library.__dict__:
-                    library.__dict__[key] = val
-
-            copied_enums.append(True)
-            if name in library.__dict__:
-                return
-        #
-        key = 'constant ' + name
-        if key in ffi._parser._declarations:
-            raise NotImplementedError("fetching a non-integer constant "
-                                      "after dlopen()")
-        #
-        raise AttributeError(name)
+        from . import model
+        for key, (tp, _) in ffi._parser._declarations.items():
+            if not isinstance(tp, model.EnumType):
+                tag, name = key.split(' ', 1)
+                if tag == 'function':
+                    accessors[name] = accessor_function
+                elif tag == 'variable':
+                    accessors[name] = accessor_variable
+                elif tag == 'constant':
+                    accessors[name] = accessor_constant
+            else:
+                for i, enumname in enumerate(tp.enumerators):
+                    def accessor_enum(name, tp=tp, i=i):
+                        tp.check_not_partial()
+                        library.__dict__[name] = tp.enumvalues[i]
+                    accessors[enumname] = accessor_enum
+        for name in ffi._parser._int_constants:
+            accessors.setdefault(name, accessor_int_constant)
+        accessors_version[0] = ffi._cdef_version
     #
     def make_accessor(name):
         with ffi._lock:
             if name in library.__dict__ or name in FFILibrary.__dict__:
                 return    # added by another thread while waiting for the lock
-            make_accessor_locked(name)
+            if name not in accessors:
+                update_accessors()
+                if name not in accessors:
+                    raise AttributeError(name)
+            accessors[name](name)
     #
     class FFILibrary(object):
         def __getattr__(self, name):
@@ -722,6 +817,10 @@ def _make_ffi_library(ffi, libname, flags):
                 setattr(self, name, value)
             else:
                 property.__set__(self, value)
+        def __dir__(self):
+            with ffi._lock:
+                update_accessors()
+                return accessors.keys()
     #
     if libname is not None:
         try:

@@ -188,12 +188,6 @@ class OptVirtualize(optimizer.Optimization):
     optimize_GETFIELD_GC_R = optimize_GETFIELD_GC_I
     optimize_GETFIELD_GC_F = optimize_GETFIELD_GC_I
 
-    # note: the following line does not mean that the two operations are
-    # completely equivalent, because GETFIELD_GC_PURE is_always_pure().
-    optimize_GETFIELD_GC_PURE_I = optimize_GETFIELD_GC_I
-    optimize_GETFIELD_GC_PURE_R = optimize_GETFIELD_GC_I
-    optimize_GETFIELD_GC_PURE_F = optimize_GETFIELD_GC_I
-
     def optimize_SETFIELD_GC(self, op):
         struct = op.getarg(0)
         opinfo = self.getptrinfo(struct)
@@ -277,10 +271,8 @@ class OptVirtualize(optimizer.Optimization):
             self.emit_operation(op)
 
     def optimize_GETARRAYITEM_GC_I(self, op):
-        # When using str_storage_getitem we op.getarg(0) is a string, NOT an
-        # array, hence the check. In that case, it will be forced
         opinfo = self.getptrinfo(op.getarg(0))
-        if opinfo and opinfo.is_virtual() and not opinfo.is_vstring():
+        if opinfo and opinfo.is_virtual():
             indexbox = self.get_constant_box(op.getarg(1))
             if indexbox is not None:
                 item = opinfo.getitem(op.getdescr(), indexbox.getint())

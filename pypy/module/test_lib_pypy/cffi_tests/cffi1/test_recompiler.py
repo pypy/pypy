@@ -4,7 +4,8 @@ import sys, os, py
 from cffi import FFI, VerificationError, FFIError
 from cffi import recompiler
 from pypy.module.test_lib_pypy.cffi_tests.udir import udir
-from pypy.module.test_lib_pypy.cffi_tests.support import u
+from pypy.module.test_lib_pypy.cffi_tests.support import u, long
+from pypy.module.test_lib_pypy.cffi_tests.support import FdWriteCapture, StdErrCapture
 
 
 def check_type_table(input, expected_output, included=None):
@@ -948,6 +949,19 @@ def test_constant_of_value_unknown_to_the_compiler():
     """, sources=[str(extra_c_source)])
     assert lib.external_foo == 42
 
+def test_dotdot_in_source_file_names():
+    extra_c_source = udir.join(
+        'extra_test_dotdot_in_source_file_names.c')
+    extra_c_source.write('const int external_foo = 42;\n')
+    ffi = FFI()
+    ffi.cdef("const int external_foo;")
+    lib = verify(ffi, 'test_dotdot_in_source_file_names', """
+        extern const int external_foo;
+    """, sources=[os.path.join(os.path.dirname(str(extra_c_source)),
+                               'foobar', '..',
+                               os.path.basename(str(extra_c_source)))])
+    assert lib.external_foo == 42
+
 def test_call_with_incomplete_structs():
     ffi = FFI()
     ffi.cdef("typedef struct {...;} foo_t; "
@@ -1143,6 +1157,7 @@ def test_import_from_lib():
     assert hasattr(lib, '__dict__')
     assert lib.__all__ == ['MYFOO', 'mybar']   # but not 'myvar'
     assert lib.__name__ == repr(lib)
+    assert lib.__class__ is type(lib)
 
 def test_macro_var_callback():
     ffi = FFI()
@@ -1485,3 +1500,247 @@ def test_win32_calling_convention_3():
     assert (pt.x, pt.y) == (99*500*999, -99*500*999)
     pt = ptr_call2(ffi.addressof(lib, 'cb2'))
     assert (pt.x, pt.y) == (99*500*999, -99*500*999)
+
+def test_extern_python_1():
+    ffi = FFI()
+    ffi.cdef("""
+        extern "Python" {
+            int bar(int, int);
+            void baz(int, int);
+            int bok(void);
+            void boz(void);
+        }
+    """)
+    lib = verify(ffi, 'test_extern_python_1', "")
+    assert ffi.typeof(lib.bar) == ffi.typeof("int(*)(int, int)")
+    with FdWriteCapture() as f:
+        res = lib.bar(4, 5)
+    assert res == 0
+    assert f.getvalue() == (
+        b"extern \"Python\": function bar() called, but no code was attached "
+        b"to it yet with @ffi.def_extern().  Returning 0.\n")
+
+    @ffi.def_extern("bar")
+    def my_bar(x, y):
+        seen.append(("Bar", x, y))
+        return x * y
+    assert my_bar != lib.bar
+    seen = []
+    res = lib.bar(6, 7)
+    assert seen == [("Bar", 6, 7)]
+    assert res == 42
+
+    def baz(x, y):
+        seen.append(("Baz", x, y))
+    baz1 = ffi.def_extern()(baz)
+    assert baz1 is baz
+    seen = []
+    baz(long(40), long(4))
+    res = lib.baz(long(50), long(8))
+    assert res is None
+    assert seen == [("Baz", 40, 4), ("Baz", 50, 8)]
+    assert type(seen[0][1]) is type(seen[0][2]) is long
+    assert type(seen[1][1]) is type(seen[1][2]) is int
+
+    @ffi.def_extern(name="bok")
+    def bokk():
+        seen.append("Bok")
+        return 42
+    seen = []
+    assert lib.bok() == 42
+    assert seen == ["Bok"]
+
+    @ffi.def_extern()
+    def boz():
+        seen.append("Boz")
+    seen = []
+    assert lib.boz() is None
+    assert seen == ["Boz"]
+
+def test_extern_python_bogus_name():
+    ffi = FFI()
+    ffi.cdef("int abc;")
+    lib = verify(ffi, 'test_extern_python_bogus_name', "int abc;")
+    def fn():
+        pass
+    py.test.raises(ffi.error, ffi.def_extern("unknown_name"), fn)
+    py.test.raises(ffi.error, ffi.def_extern("abc"), fn)
+    assert lib.abc == 0
+    e = py.test.raises(ffi.error, ffi.def_extern("abc"), fn)
+    assert str(e.value) == ("ffi.def_extern('abc'): no 'extern \"Python\"' "
+                            "function with this name")
+    e = py.test.raises(ffi.error, ffi.def_extern(), fn)
+    assert str(e.value) == ("ffi.def_extern('fn'): no 'extern \"Python\"' "
+                            "function with this name")
+    #
+    py.test.raises(TypeError, ffi.def_extern(42), fn)
+    py.test.raises((TypeError, AttributeError), ffi.def_extern(), "foo")
+    class X:
+        pass
+    x = X()
+    x.__name__ = x
+    py.test.raises(TypeError, ffi.def_extern(), x)
+
+def test_extern_python_bogus_result_type():
+    ffi = FFI()
+    ffi.cdef("""extern "Python" void bar(int);""")
+    lib = verify(ffi, 'test_extern_python_bogus_result_type', "")
+    #
+    @ffi.def_extern()
+    def bar(n):
+        return n * 10
+    with StdErrCapture() as f:
+        res = lib.bar(321)
+    assert res is None
+    assert f.getvalue() == (
+        "From cffi callback %r:\n" % (bar,) +
+        "Trying to convert the result back to C:\n"
+        "TypeError: callback with the return type 'void' must return None\n")
+
+def test_extern_python_redefine():
+    ffi = FFI()
+    ffi.cdef("""extern "Python" int bar(int);""")
+    lib = verify(ffi, 'test_extern_python_redefine', "")
+    #
+    @ffi.def_extern()
+    def bar(n):
+        return n * 10
+    assert lib.bar(42) == 420
+    #
+    @ffi.def_extern()
+    def bar(n):
+        return -n
+    assert lib.bar(42) == -42
+
+def test_extern_python_struct():
+    ffi = FFI()
+    ffi.cdef("""
+        struct foo_s { int a, b, c; };
+        extern "Python" int bar(int, struct foo_s, int);
+        extern "Python" { struct foo_s baz(int, int);
+                          struct foo_s bok(void); }
+    """)
+    lib = verify(ffi, 'test_extern_python_struct',
+                 "struct foo_s { int a, b, c; };")
+    #
+    @ffi.def_extern()
+    def bar(x, s, z):
+        return x + s.a + s.b + s.c + z
+    res = lib.bar(1000, [1001, 1002, 1004], 1008)
+    assert res == 5015
+    #
+    @ffi.def_extern()
+    def baz(x, y):
+        return [x + y, x - y, x * y]
+    res = lib.baz(1000, 42)
+    assert res.a == 1042
+    assert res.b == 958
+    assert res.c == 42000
+    #
+    @ffi.def_extern()
+    def bok():
+        return [10, 20, 30]
+    res = lib.bok()
+    assert [res.a, res.b, res.c] == [10, 20, 30]
+
+def test_extern_python_long_double():
+    ffi = FFI()
+    ffi.cdef("""
+        extern "Python" int bar(int, long double, int);
+        extern "Python" long double baz(int, int);
+        extern "Python" long double bok(void);
+    """)
+    lib = verify(ffi, 'test_extern_python_long_double', "")
+    #
+    @ffi.def_extern()
+    def bar(x, l, z):
+        seen.append((x, l, z))
+        return 6
+    seen = []
+    lib.bar(10, 3.5, 20)
+    expected = ffi.cast("long double", 3.5)
+    assert repr(seen) == repr([(10, expected, 20)])
+    #
+    @ffi.def_extern()
+    def baz(x, z):
+        assert x == 10 and z == 20
+        return expected
+    res = lib.baz(10, 20)
+    assert repr(res) == repr(expected)
+    #
+    @ffi.def_extern()
+    def bok():
+        return expected
+    res = lib.bok()
+    assert repr(res) == repr(expected)
+
+def test_extern_python_signature():
+    ffi = FFI()
+    lib = verify(ffi, 'test_extern_python_signature', "")
+    py.test.raises(TypeError, ffi.def_extern(425), None)
+    py.test.raises(TypeError, ffi.def_extern, 'a', 'b', 'c', 'd')
+
+def test_extern_python_errors():
+    ffi = FFI()
+    ffi.cdef("""
+        extern "Python" int bar(int);
+    """)
+    lib = verify(ffi, 'test_extern_python_errors', "")
+
+    seen = []
+    def oops(*args):
+        seen.append(args)
+
+    @ffi.def_extern(onerror=oops)
+    def bar(x):
+        return x + ""
+    assert lib.bar(10) == 0
+
+    @ffi.def_extern(name="bar", onerror=oops, error=-66)
+    def bar2(x):
+        return x + ""
+    assert lib.bar(10) == -66
+
+    assert len(seen) == 2
+    exc, val, tb = seen[0]
+    assert exc is TypeError
+    assert isinstance(val, TypeError)
+    assert tb.tb_frame.f_code.co_name == "bar"
+    exc, val, tb = seen[1]
+    assert exc is TypeError
+    assert isinstance(val, TypeError)
+    assert tb.tb_frame.f_code.co_name == "bar2"
+    #
+    # a case where 'onerror' is not callable
+    py.test.raises(TypeError, ffi.def_extern(name='bar', onerror=42),
+                   lambda x: x)
+
+def test_extern_python_stdcall():
+    ffi = FFI()
+    ffi.cdef("""
+        extern "Python" int __stdcall foo(int);
+        extern "Python" int WINAPI bar(int);
+        int (__stdcall * mycb1)(int);
+        int indirect_call(int);
+    """)
+    lib = verify(ffi, 'test_extern_python_stdcall', """
+        #ifndef _MSC_VER
+        #  define __stdcall
+        #endif
+        static int (__stdcall * mycb1)(int);
+        static int indirect_call(int x) {
+            return mycb1(x);
+        }
+    """)
+    #
+    @ffi.def_extern()
+    def foo(x):
+        return x + 42
+    @ffi.def_extern()
+    def bar(x):
+        return x + 43
+    assert lib.foo(100) == 142
+    assert lib.bar(100) == 143
+    lib.mycb1 = lib.foo
+    assert lib.mycb1(200) == 242
+    assert lib.indirect_call(300) == 342

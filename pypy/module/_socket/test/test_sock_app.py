@@ -102,7 +102,7 @@ def test_fromfd():
     fd = space.appexec([w_socket, space.wrap(orig_fd.fileno()),
             space.wrap(socket.AF_INET), space.wrap(socket.SOCK_STREAM),
             space.wrap(0)],
-           """(_socket, fd, family, type, proto): 
+           """(_socket, fd, family, type, proto):
                  return _socket.fromfd(fd, family, type, proto)""")
 
     assert space.unwrap(space.call_method(fd, 'fileno'))
@@ -251,7 +251,7 @@ def test_addr_raw_packet():
     from pypy.module._socket.interp_socket import addr_as_object
     if not hasattr(rsocket._c, 'sockaddr_ll'):
         py.test.skip("posix specific test")
-    # HACK: To get the correct interface numer of lo, which in most cases is 1,
+    # HACK: To get the correct interface number of lo, which in most cases is 1,
     # but can be anything (i.e. 39), we need to call the libc function
     # if_nametoindex to get the correct index
     import ctypes
@@ -326,7 +326,7 @@ class AppTestSocket:
 
     def test_ntoa_exception(self):
         import _socket
-        raises(_socket.error, _socket.inet_ntoa, "ab")
+        raises(_socket.error, _socket.inet_ntoa, b"ab")
 
     def test_aton_exceptions(self):
         import _socket
@@ -418,7 +418,7 @@ class AppTestSocket:
         # it if there is no connection.
         try:
             s.connect(("www.python.org", 80))
-        except _socket.gaierror, ex:
+        except _socket.gaierror as ex:
             skip("GAIError - probably no connection: %s" % str(ex.args))
         name = s.getpeername() # Will raise socket.error if not connected
         assert name[1] == 80
@@ -465,7 +465,7 @@ class AppTestSocket:
         sizes = {socket.htonl: 32, socket.ntohl: 32,
                  socket.htons: 16, socket.ntohs: 16}
         for func, size in sizes.items():
-            mask = (1L<<size) - 1
+            mask = (1 << size) - 1
             for i in (0, 1, 0xffff, ~0xffff, 2, 0x01234567, 0x76543210):
                 assert i & mask == func(func(i&mask)) & mask
 
@@ -493,7 +493,7 @@ class AppTestSocket:
                  socket.htons: 16, socket.ntohs: 16}
         for func, size in sizes.items():
             try:
-                func(1L << size)
+                func(1 << size)
             except OverflowError:
                 pass
             else:
@@ -513,7 +513,7 @@ class AppTestSocket:
     def test_getsetsockopt(self):
         import _socket as socket
         import struct
-        # A socket sould start with reuse == 0
+        # A socket should start with reuse == 0
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         reuse = s.getsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR)
         assert reuse == 0
@@ -574,7 +574,7 @@ class AppTestSocket:
         # connection.
         try:
             s.connect(("www.python.org", 80))
-        except _socket.gaierror, ex:
+        except _socket.gaierror as ex:
             skip("GAIError - probably no connection: %s" % str(ex.args))
         exc = raises(TypeError, s.send, None)
         assert str(exc.value) == "must be string or buffer, not None"
@@ -608,12 +608,12 @@ class AppTestSocket:
             s, addr = serversock.accept()
             assert not addr
 
-            s.send('X')
+            s.send(b'X')
             data = clientsock.recv(100)
-            assert data == 'X'
-            clientsock.send('Y')
+            assert data == b'X'
+            clientsock.send(b'Y')
             data = s.recv(100)
-            assert data == 'Y'
+            assert data == b'Y'
 
             clientsock.close()
             s.close()
@@ -625,6 +625,26 @@ class AppTestSocket:
         # in close_all_sockets()
         import _socket
         self.foo = _socket.socket()
+
+
+class AppTestNetlink:
+    def setup_class(cls):
+        if not hasattr(os, 'getpid'):
+            py.test.skip("AF_NETLINK needs os.getpid()")
+        w_ok = space.appexec([], "(): import _socket; " +
+                                 "return hasattr(_socket, 'AF_NETLINK')")
+        if not space.is_true(w_ok):
+            py.test.skip("no AF_NETLINK on this platform")
+        cls.space = space
+
+    def test_connect_to_kernel_netlink_routing_socket(self):
+        import _socket, os
+        s = _socket.socket(_socket.AF_NETLINK, _socket.SOCK_DGRAM, _socket.NETLINK_ROUTE)
+        assert s.getsockname() == (0, 0)
+        s.bind((0, 0))
+        a, b = s.getsockname()
+        assert a == os.getpid()
+        assert b == 0
 
 
 class AppTestPacket:
@@ -691,20 +711,20 @@ class AppTestSocketTCP:
         t, addr = self.serv.accept()
         cli.settimeout(1.0)
         # test recv() timeout
-        t.send('*')
+        t.send(b'*')
         buf = cli.recv(100)
-        assert buf == '*'
+        assert buf == b'*'
         raises(timeout, cli.recv, 100)
         # test that send() works
-        count = cli.send('!')
+        count = cli.send(b'!')
         assert count == 1
         buf = t.recv(1)
-        assert buf == '!'
+        assert buf == b'!'
         # test that sendall() works
-        count = cli.sendall('?')
+        count = cli.sendall(b'?')
         assert count is None
         buf = t.recv(1)
-        assert buf == '?'
+        assert buf == b'?'
         # speed up filling the buffers
         t.setsockopt(SOL_SOCKET, SO_RCVBUF, 4096)
         cli.setsockopt(SOL_SOCKET, SO_SNDBUF, 4096)
@@ -712,14 +732,14 @@ class AppTestSocketTCP:
         count = 0
         try:
             while 1:
-                count += cli.send('foobar' * 70)
+                count += cli.send(b'foobar' * 70)
         except timeout:
             pass
         t.recv(count)
         # test sendall() timeout
         try:
             while 1:
-                cli.sendall('foobar' * 70)
+                cli.sendall(b'foobar' * 70)
         except timeout:
             pass
         # done
@@ -729,13 +749,13 @@ class AppTestSocketTCP:
     def test_recv_into(self):
         import socket
         import array
-        MSG = 'dupa was here\n'
+        MSG = b'dupa was here\n'
         cli = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         cli.connect(self.serv.getsockname())
         conn, addr = self.serv.accept()
         buf = buffer(MSG)
         conn.send(buf)
-        buf = array.array('c', ' ' * 1024)
+        buf = array.array('b', b' ' * 1024)
         nbytes = cli.recv_into(buf)
         assert nbytes == len(MSG)
         msg = buf.tostring()[:len(MSG)]
@@ -751,13 +771,13 @@ class AppTestSocketTCP:
     def test_recvfrom_into(self):
         import socket
         import array
-        MSG = 'dupa was here\n'
+        MSG = b'dupa was here\n'
         cli = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         cli.connect(self.serv.getsockname())
         conn, addr = self.serv.accept()
         buf = buffer(MSG)
         conn.send(buf)
-        buf = array.array('c', ' ' * 1024)
+        buf = array.array('b', b' ' * 1024)
         nbytes, addr = cli.recvfrom_into(buf)
         assert nbytes == len(MSG)
         msg = buf.tostring()[:len(MSG)]

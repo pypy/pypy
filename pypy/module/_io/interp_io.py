@@ -7,7 +7,9 @@ from pypy.interpreter.typedef import (
 from pypy.module.exceptions.interp_exceptions import W_IOError
 from pypy.module._io.interp_fileio import W_FileIO
 from pypy.module._io.interp_textio import W_TextIOWrapper
-from rpython.rtyper.module.ll_os_stat import STAT_FIELD_TYPES
+from rpython.rlib.rposix_stat import STAT_FIELD_TYPES
+
+HAS_BLKSIZE = 'st_blksize' in STAT_FIELD_TYPES
 
 
 class Cache:
@@ -118,7 +120,7 @@ def open(space, w_file, mode="r", buffering=-1, encoding=None, errors=None,
     if buffering < 0:
         buffering = DEFAULT_BUFFER_SIZE
 
-        if 'st_blksize' in STAT_FIELD_TYPES:
+        if HAS_BLKSIZE:
             fileno = space.c_int_w(space.call_method(w_raw, "fileno"))
             try:
                 st = os.fstat(fileno)

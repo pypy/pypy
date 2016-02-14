@@ -10,7 +10,7 @@ from pypy.module._cffi_backend import get_dict_rtld_constants
 from pypy.module._cffi_backend import parse_c_type, realize_c_type
 from pypy.module._cffi_backend import newtype, cerrno, ccallback, ctypearray
 from pypy.module._cffi_backend import ctypestruct, ctypeptr, handle
-from pypy.module._cffi_backend import cbuffer, func, wrapper
+from pypy.module._cffi_backend import cbuffer, func, wrapper, call_python
 from pypy.module._cffi_backend import cffi_opcode, allocator
 from pypy.module._cffi_backend.ctypeobj import W_CType
 from pypy.module._cffi_backend.cdataobj import W_CData
@@ -279,6 +279,30 @@ manipulated with:
     buf[idx] = ...  change the content"""
         #
         return cbuffer.buffer(self.space, w_cdata, size)
+
+
+    @unwrap_spec(w_name=WrappedDefault(None),
+                 w_error=WrappedDefault(None),
+                 w_onerror=WrappedDefault(None))
+    def descr_def_extern(self, w_name, w_error, w_onerror):
+        """\
+A decorator.  Attaches the decorated Python function to the C code
+generated for the 'extern "Python" function of the same name.
+Calling the C function will then invoke the Python function.
+
+Optional arguments: 'name' is the name of the C function, if
+different from the Python function; and 'error' and 'onerror'
+handle what occurs if the Python function raises an exception
+(see the docs for details)."""
+        #
+        # returns a single-argument function
+        space = self.space
+        w_ffi = space.wrap(self)
+        w_decorator = call_python.get_generic_decorator(space)
+        return space.appexec([w_decorator, w_ffi, w_name, w_error, w_onerror],
+        """(decorator, ffi, name, error, onerror):
+            return lambda python_callable: decorator(ffi, python_callable,
+                                                     name, error, onerror)""")
 
 
     @unwrap_spec(w_python_callable=WrappedDefault(None),
@@ -588,7 +612,15 @@ where you have an 'ffi' object but not any associated 'lib' object."""
 
 
     def descr_init_once(self, w_func, w_tag):
-        """XXX document me"""
+        """\
+init_once(function, tag): run function() once.  More precisely,
+'function()' is called the first time we see a given 'tag'.
+
+The return value of function() is remembered and returned by the current
+and all future init_once() with the same tag.  If init_once() is called
+from multiple threads in parallel, all calls block until the execution
+of function() is done.  If function() raises an exception, it is
+propagated and nothing is cached."""
         #
         # first, a fast-path for the JIT which only works if the very
         # same w_tag object is passed; then it turns into no code at all
@@ -690,6 +722,7 @@ W_FFIObject.typedef = TypeDef(
         buffer      = interp2app(W_FFIObject.descr_buffer),
         callback    = interp2app(W_FFIObject.descr_callback),
         cast        = interp2app(W_FFIObject.descr_cast),
+        def_extern  = interp2app(W_FFIObject.descr_def_extern),
         dlclose     = interp2app(W_FFIObject.descr_dlclose),
         dlopen      = interp2app(W_FFIObject.descr_dlopen),
         from_buffer = interp2app(W_FFIObject.descr_from_buffer),

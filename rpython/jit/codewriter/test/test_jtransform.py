@@ -1332,7 +1332,7 @@ def _test_threadlocalref_get(loop_inv):
     tlfield = ThreadLocalField(lltype.Signed, 'foobar_test_',
                                loop_invariant=loop_inv)
     OS_THREADLOCALREF_GET = effectinfo.EffectInfo.OS_THREADLOCALREF_GET
-    c = const(tlfield.offset)
+    c = const(tlfield.getoffset())
     v = varoftype(lltype.Signed)
     op = SpaceOperation('threadlocalref_get', [c], v)
     cc = FakeBuiltinCallControl()

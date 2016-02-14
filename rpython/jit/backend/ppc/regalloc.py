@@ -17,12 +17,9 @@ from rpython.rtyper.lltypesystem import rffi, lltype, rstr, llmemory
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.jit.backend.llsupport import symbolic
-from rpython.jit.backend.llsupport.descr import ArrayDescr
+from rpython.jit.backend.llsupport.descr import unpack_arraydescr
 import rpython.jit.backend.ppc.register as r
 import rpython.jit.backend.ppc.condition as c
-from rpython.jit.backend.llsupport.descr import unpack_arraydescr
-from rpython.jit.backend.llsupport.descr import unpack_fielddescr
-from rpython.jit.backend.llsupport.descr import unpack_interiorfielddescr
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.debug import debug_print
@@ -318,6 +315,8 @@ class Regalloc(BaseRegalloc):
             i += 1
         assert not self.rm.reg_bindings
         assert not self.fprm.reg_bindings
+        if not we_are_translated():
+            self.assembler.mc.trap()
         self.flush_loop()
         self.assembler.mc.mark_op(None) # end of the loop
         self.operations = None
@@ -689,158 +688,68 @@ class Regalloc(BaseRegalloc):
                                  src_locations2, dst_locations2, fptmploc)
         return []
 
-    def prepare_setfield_gc(self, op):
-        ofs, size, _ = unpack_fielddescr(op.getdescr())
+    def prepare_gc_store(self, op):
         base_loc = self.ensure_reg(op.getarg(0))
-        value_loc = self.ensure_reg(op.getarg(1))
-        ofs_loc = self.ensure_reg_or_16bit_imm(ConstInt(ofs))
-        return [value_loc, base_loc, ofs_loc, imm(size)]
+        ofs_loc = self.ensure_reg_or_16bit_imm(op.getarg(1))
+        value_loc = self.ensure_reg(op.getarg(2))
+        size_loc = self.ensure_reg_or_any_imm(op.getarg(3))
+        return [value_loc, base_loc, ofs_loc, size_loc]
 
-    prepare_setfield_raw = prepare_setfield_gc
-
-    def _prepare_getfield(self, op):
-        ofs, size, sign = unpack_fielddescr(op.getdescr())
+    def _prepare_gc_load(self, op):
         base_loc = self.ensure_reg(op.getarg(0))
-        ofs_loc = self.ensure_reg_or_16bit_imm(ConstInt(ofs))
+        ofs_loc = self.ensure_reg_or_16bit_imm(op.getarg(1))
         self.free_op_vars()
-        res = self.force_allocate_reg(op)
-        return [base_loc, ofs_loc, res, imm(size), imm(sign)]
+        res_loc = self.force_allocate_reg(op)
+        size_box = op.getarg(2)
+        assert isinstance(size_box, ConstInt)
+        nsize = size_box.value      # negative for "signed"
+        size_loc = imm(abs(nsize))
+        if nsize < 0:
+            sign = 1
+        else:
+            sign = 0
+        return [base_loc, ofs_loc, res_loc, size_loc, imm(sign)]
 
-    prepare_getfield_gc_i = _prepare_getfield
-    prepare_getfield_gc_r = _prepare_getfield
-    prepare_getfield_gc_f = _prepare_getfield
-    prepare_getfield_raw_i = _prepare_getfield
-    prepare_getfield_raw_f = _prepare_getfield
-    prepare_getfield_gc_pure_i = _prepare_getfield
-    prepare_getfield_gc_pure_r = _prepare_getfield
-    prepare_getfield_gc_pure_f = _prepare_getfield
+    prepare_gc_load_i = _prepare_gc_load
+    prepare_gc_load_r = _prepare_gc_load
+    prepare_gc_load_f = _prepare_gc_load
+
+    def prepare_gc_store_indexed(self, op):
+        base_loc = self.ensure_reg(op.getarg(0))
+        index_loc = self.ensure_reg_or_any_imm(op.getarg(1))
+        value_loc = self.ensure_reg(op.getarg(2))
+        assert op.getarg(3).getint() == 1    # scale
+        ofs_loc = self.ensure_reg_or_16bit_imm(op.getarg(4))
+        assert ofs_loc.is_imm()  # the arg(4) should always be a small constant
+        size_loc = self.ensure_reg_or_any_imm(op.getarg(5))
+        return [base_loc, index_loc, value_loc, ofs_loc, size_loc]
+
+    def _prepare_gc_load_indexed(self, op):
+        base_loc = self.ensure_reg(op.getarg(0))
+        index_loc = self.ensure_reg_or_any_imm(op.getarg(1))
+        assert op.getarg(2).getint() == 1    # scale
+        ofs_loc = self.ensure_reg_or_16bit_imm(op.getarg(3))
+        assert ofs_loc.is_imm()  # the arg(3) should always be a small constant
+        self.free_op_vars()
+        res_loc = self.force_allocate_reg(op)
+        size_box = op.getarg(4)
+        assert isinstance(size_box, ConstInt)
+        nsize = size_box.value      # negative for "signed"
+        size_loc = imm(abs(nsize))
+        if nsize < 0:
+            sign = 1
+        else:
+            sign = 0
+        return [base_loc, index_loc, res_loc, ofs_loc, size_loc, imm(sign)]
+
+    prepare_gc_load_indexed_i = _prepare_gc_load_indexed
+    prepare_gc_load_indexed_r = _prepare_gc_load_indexed
+    prepare_gc_load_indexed_f = _prepare_gc_load_indexed
 
     def prepare_increment_debug_counter(self, op):
         base_loc = self.ensure_reg(op.getarg(0))
         temp_loc = r.SCRATCH2
         return [base_loc, temp_loc]
-
-    def _prepare_getinteriorfield(self, op):
-        t = unpack_interiorfielddescr(op.getdescr())
-        ofs, itemsize, fieldsize, sign = t
-        base_loc = self.ensure_reg(op.getarg(0))
-        index_loc = self.ensure_reg_or_any_imm(op.getarg(1))
-        ofs_loc = self.ensure_reg_or_16bit_imm(ConstInt(ofs))
-        self.free_op_vars()
-        result_loc = self.force_allocate_reg(op)
-        return [base_loc, index_loc, result_loc, ofs_loc,
-                imm(itemsize), imm(fieldsize), imm(sign)]
-
-    prepare_getinteriorfield_gc_i = _prepare_getinteriorfield
-    prepare_getinteriorfield_gc_r = _prepare_getinteriorfield
-    prepare_getinteriorfield_gc_f = _prepare_getinteriorfield
-
-    def prepare_setinteriorfield_gc(self, op):
-        t = unpack_interiorfielddescr(op.getdescr())
-        ofs, itemsize, fieldsize, _ = t
-        base_loc = self.ensure_reg(op.getarg(0))
-        index_loc = self.ensure_reg_or_any_imm(op.getarg(1))
-        value_loc = self.ensure_reg(op.getarg(2))
-        ofs_loc = self.ensure_reg_or_16bit_imm(ConstInt(ofs))
-        return [base_loc, index_loc, value_loc, ofs_loc,
-                imm(itemsize), imm(fieldsize)]
-
-    prepare_setinteriorfield_raw = prepare_setinteriorfield_gc
-
-    def prepare_arraylen_gc(self, op):
-        arraydescr = op.getdescr()
-        assert isinstance(arraydescr, ArrayDescr)
-        ofs = arraydescr.lendescr.offset
-        assert _check_imm_arg(ofs)
-        base_loc = self.ensure_reg(op.getarg(0))
-        self.free_op_vars()
-        res = self.force_allocate_reg(op)
-        return [res, base_loc, imm(ofs)]
-
-    def prepare_setarrayitem_gc(self, op):
-        size, ofs, _ = unpack_arraydescr(op.getdescr())
-        base_loc = self.ensure_reg(op.getarg(0))
-        index_loc = self.ensure_reg_or_any_imm(op.getarg(1))
-        value_loc = self.ensure_reg(op.getarg(2))
-        ofs_loc = self.ensure_reg_or_16bit_imm(ConstInt(ofs))
-        imm_size = imm(size)
-        return [base_loc, index_loc, value_loc, ofs_loc,
-                imm_size, imm_size]
-
-    prepare_setarrayitem_raw = prepare_setarrayitem_gc
-
-    def prepare_raw_store(self, op):
-        size, ofs, _ = unpack_arraydescr(op.getdescr())
-        base_loc = self.ensure_reg(op.getarg(0))
-        index_loc = self.ensure_reg_or_any_imm(op.getarg(1))
-        value_loc = self.ensure_reg(op.getarg(2))
-        ofs_loc = self.ensure_reg_or_16bit_imm(ConstInt(ofs))
-        return [base_loc, index_loc, value_loc, ofs_loc,
-                imm(1), imm(size)]
-
-    def _prepare_getarrayitem(self, op):
-        size, ofs, sign = unpack_arraydescr(op.getdescr())
-        base_loc = self.ensure_reg(op.getarg(0))
-        index_loc = self.ensure_reg_or_any_imm(op.getarg(1))
-        ofs_loc = self.ensure_reg_or_16bit_imm(ConstInt(ofs))
-        self.free_op_vars()
-        result_loc = self.force_allocate_reg(op)
-        imm_size = imm(size)
-        return [base_loc, index_loc, result_loc, ofs_loc,
-                imm_size, imm_size, imm(sign)]
-
-    prepare_getarrayitem_gc_i = _prepare_getarrayitem
-    prepare_getarrayitem_gc_r = _prepare_getarrayitem
-    prepare_getarrayitem_gc_f = _prepare_getarrayitem
-    prepare_getarrayitem_raw_i = _prepare_getarrayitem
-    prepare_getarrayitem_raw_f = _prepare_getarrayitem
-    prepare_getarrayitem_gc_pure_i = _prepare_getarrayitem
-    prepare_getarrayitem_gc_pure_r = _prepare_getarrayitem
-    prepare_getarrayitem_gc_pure_f = _prepare_getarrayitem
-
-    def _prepare_raw_load(self, op):
-        size, ofs, sign = unpack_arraydescr(op.getdescr())
-        base_loc = self.ensure_reg(op.getarg(0))
-        index_loc = self.ensure_reg_or_any_imm(op.getarg(1))
-        ofs_loc = self.ensure_reg_or_16bit_imm(ConstInt(ofs))
-        self.free_op_vars()
-        result_loc = self.force_allocate_reg(op)
-        return [base_loc, index_loc, result_loc, ofs_loc,
-                imm(1), imm(size), imm(sign)]
-
-    prepare_raw_load_i = _prepare_raw_load
-    prepare_raw_load_f = _prepare_raw_load
-
-    def prepare_strlen(self, op):
-        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
-                                             self.cpu.translate_support_code)
-        base_loc = self.ensure_reg(op.getarg(0))
-        self.free_op_vars()
-        result_loc = self.force_allocate_reg(op)
-        return [base_loc, imm(ofs_length), result_loc, imm(WORD), imm(0)]
-
-    def prepare_strgetitem(self, op):
-        basesize, itemsize, _ = symbolic.get_array_token(rstr.STR,
-                                    self.cpu.translate_support_code)
-        base_loc = self.ensure_reg(op.getarg(0))
-        index_loc = self.ensure_reg_or_any_imm(op.getarg(1))
-        ofs_loc = self.ensure_reg_or_16bit_imm(ConstInt(basesize))
-        self.free_op_vars()
-        result_loc = self.force_allocate_reg(op)
-        imm_size = imm(itemsize)
-        return [base_loc, index_loc, result_loc, ofs_loc,
-                imm_size, imm_size, imm(0)]
-
-    def prepare_strsetitem(self, op):
-        basesize, itemsize, _ = symbolic.get_array_token(rstr.STR,
-                                    self.cpu.translate_support_code)
-        base_loc = self.ensure_reg(op.getarg(0))
-        index_loc = self.ensure_reg_or_any_imm(op.getarg(1))
-        value_loc = self.ensure_reg(op.getarg(2))
-        ofs_loc = self.ensure_reg_or_16bit_imm(ConstInt(basesize))
-        imm_size = imm(itemsize)
-        return [base_loc, index_loc, value_loc, ofs_loc,
-                imm_size, imm_size]
 
     def prepare_copystrcontent(self, op):
         src_ptr_loc = self.ensure_reg(op.getarg(0))
@@ -853,37 +762,6 @@ class Regalloc(BaseRegalloc):
                 src_ofs_loc, dst_ofs_loc, length_loc]
 
     prepare_copyunicodecontent = prepare_copystrcontent
-
-    def prepare_unicodelen(self, op):
-        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.UNICODE,
-                                             self.cpu.translate_support_code)
-        base_loc = self.ensure_reg(op.getarg(0))
-        self.free_op_vars()
-        result_loc = self.force_allocate_reg(op)
-        return [base_loc, imm(ofs_length), result_loc, imm(WORD), imm(0)]
-
-    def prepare_unicodegetitem(self, op):
-        basesize, itemsize, _ = symbolic.get_array_token(rstr.UNICODE,
-                                    self.cpu.translate_support_code)
-        base_loc = self.ensure_reg(op.getarg(0))
-        index_loc = self.ensure_reg_or_any_imm(op.getarg(1))
-        ofs_loc = self.ensure_reg_or_16bit_imm(ConstInt(basesize))
-        self.free_op_vars()
-        result_loc = self.force_allocate_reg(op)
-        imm_size = imm(itemsize)
-        return [base_loc, index_loc, result_loc, ofs_loc,
-                imm_size, imm_size, imm(0)]
-
-    def prepare_unicodesetitem(self, op):
-        basesize, itemsize, _ = symbolic.get_array_token(rstr.UNICODE,
-                                    self.cpu.translate_support_code)
-        base_loc = self.ensure_reg(op.getarg(0))
-        index_loc = self.ensure_reg_or_any_imm(op.getarg(1))
-        value_loc = self.ensure_reg(op.getarg(2))
-        ofs_loc = self.ensure_reg_or_16bit_imm(ConstInt(basesize))
-        imm_size = imm(itemsize)
-        return [base_loc, index_loc, value_loc, ofs_loc,
-                imm_size, imm_size]
 
     prepare_same_as_i = helper.prepare_unary_op
     prepare_same_as_r = helper.prepare_unary_op
@@ -1075,12 +953,6 @@ class Regalloc(BaseRegalloc):
         self.rm.before_call(op.getfailargs(), save_all_regs=True)
         arglocs = self._prepare_guard(op)
         return arglocs
-
-    def prepare_zero_ptr_field(self, op):
-        base_loc = self.ensure_reg(op.getarg(0))
-        ofs_loc = self.ensure_reg_or_16bit_imm(op.getarg(1))
-        value_loc = self.ensure_reg(ConstInt(0))
-        return [value_loc, base_loc, ofs_loc, imm(WORD)]
 
     def prepare_zero_array(self, op):
         itemsize, ofs, _ = unpack_arraydescr(op.getdescr())

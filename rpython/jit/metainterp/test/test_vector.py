@@ -173,7 +173,7 @@ class VectorizeTests:
             (lltype.Signed, lambda x: not bool(x), 1, None, -1,32, False),
             (lltype.Signed, lambda x: not bool(x), 1, 0,    14,32, True),
             (lltype.Signed, lambda x: not bool(x), 1, 0,    15,31, True),
-            (lltype.Signed, lambda x: not bool(x), 1, 0,    16,30, True),
+            (lltype.Signed, lambda x: not bool(x), 1, 0,    4,30, True),
             (lltype.Signed, lambda x: x == 0,      1, None, -1,33, False),
             (lltype.Signed, lambda x: x == 0,      1, 0,  33,34, True),
             # any

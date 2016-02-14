@@ -68,8 +68,8 @@ def test_rabspath_absolute_nt():
     assert rpath._nt_rabspath('d:\\foo\\bar\\..') == 'd:\\foo'
     assert rpath._nt_rabspath('d:\\foo\\bar\\..\\x') == 'd:\\foo\\x'
     curdrive = _ = rpath._nt_rsplitdrive(os.getcwd())
-    assert len(curdrive) == 2 and curdrive[1] == ':'
-    assert rpath.rabspath('\\foo') == '%s\\foo' % curdrive
+    assert len(curdrive) == 2 and curdrive[0][1] == ':'
+    assert rpath.rabspath('\\foo') == '%s\\foo' % curdrive[0]
 
 def test_risabs_posix():
     assert rpath._posix_risabs('/foo/bar')

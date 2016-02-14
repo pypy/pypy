@@ -81,7 +81,7 @@ class HeapOp(AbstractShortOp):
             assert index >= 0
             cf = optheap.arrayitem_cache(descr, index)
             opinfo.setitem(self.getfield_op.getdescr(), index, self.res,
-                           pop, cf, optheap=optheap)
+                           pop, optheap, cf)
 
     def repr(self, memo):
         return "HeapOp(%s, %s)" % (self.res.repr(memo),

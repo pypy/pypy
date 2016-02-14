@@ -2,14 +2,15 @@
 
 from rpython.rtyper.extfunc import register_external
 
+# Register replacement functions for builtin functions
+from rpython.rlib import rposix, rposix_stat, rposix_environ
+from rpython.rlib import rtime
+
 # ___________________________
 # math functions
 
 import math
 from rpython.rtyper.lltypesystem.module import ll_math
-from rpython.rtyper.module import ll_os
-from rpython.rtyper.module import ll_time
-from rpython.rtyper.module import ll_pdb
 from rpython.rlib import rfloat
 
 # the following functions all take one float, return one float

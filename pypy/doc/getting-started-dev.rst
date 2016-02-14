@@ -19,7 +19,9 @@ like this:
 
 * Clone this new repo (i.e. the fork) to your local machine with the command 
   ``hg clone ssh://hg@bitbucket.org/yourname/pypy``.  It is a very slow
-  operation but only ever needs to be done once.  If you already cloned
+  operation but only ever needs to be done once.  See also 
+  http://pypy.org/download.html#building-from-source .
+  If you already cloned
   ``https://bitbucket.org/pypy/pypy`` before, even if some time ago,
   then you can reuse the same clone by editing the file ``.hg/hgrc`` in
   your clone to contain the line ``default =

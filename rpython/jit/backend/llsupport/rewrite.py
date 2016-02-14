@@ -1,15 +1,18 @@
 from rpython.rlib import rgc
 from rpython.rlib.objectmodel import we_are_translated
-from rpython.rlib.rarithmetic import ovfcheck
-from rpython.rtyper.lltypesystem import llmemory, lltype
+from rpython.rlib.rarithmetic import ovfcheck, highest_bit
+from rpython.rtyper.lltypesystem import llmemory, lltype, rstr
 from rpython.jit.metainterp import history
 from rpython.jit.metainterp.history import ConstInt, ConstPtr
 from rpython.jit.metainterp.resoperation import ResOperation, rop, OpHelpers
 from rpython.jit.codewriter import heaptracker
-from rpython.jit.backend.llsupport.symbolic import WORD
+from rpython.jit.backend.llsupport.symbolic import (WORD,
+        get_array_token)
 from rpython.jit.backend.llsupport.descr import SizeDescr, ArrayDescr,\
      FLAG_POINTER
 from rpython.jit.metainterp.history import JitCellToken
+from rpython.jit.backend.llsupport.descr import (unpack_arraydescr,
+        unpack_fielddescr, unpack_interiorfielddescr)
 
 FLAG_ARRAY = 0
 FLAG_STR = 1
@@ -112,6 +115,186 @@ class GcRewriterAssembler(object):
         assert not op.get_forwarded()
         op.set_forwarded(newop)
 
+    def handle_setarrayitem(self, op):
+        itemsize, basesize, _ = unpack_arraydescr(op.getdescr())
+        ptr_box = op.getarg(0)
+        index_box = op.getarg(1)
+        value_box = op.getarg(2)
+        self.emit_gc_store_or_indexed(op, ptr_box, index_box, value_box,
+                                      itemsize, itemsize, basesize)
+
+    def emit_gc_store_or_indexed(self, op, ptr_box, index_box, value_box,
+                                 itemsize, factor, offset):
+        factor, offset, index_box = \
+                self._emit_mul_if_factor_offset_not_supported(index_box,
+                        factor, offset)
+        #
+        if index_box is None:
+            args = [ptr_box, ConstInt(offset), value_box, ConstInt(itemsize)]
+            newload = ResOperation(rop.GC_STORE, args)
+        else:
+            args = [ptr_box, index_box, value_box, ConstInt(factor),
+                    ConstInt(offset), ConstInt(itemsize)]
+            newload = ResOperation(rop.GC_STORE_INDEXED, args)
+        if op is not None:
+            self.replace_op_with(op, newload)
+        else:
+            self.emit_op(newload)
+
+    def handle_getarrayitem(self, op):
+        itemsize, ofs, sign = unpack_arraydescr(op.getdescr())
+        ptr_box = op.getarg(0)
+        index_box = op.getarg(1)
+        self.emit_gc_load_or_indexed(op, ptr_box, index_box, itemsize, itemsize, ofs, sign)
+
+    def handle_rawload(self, op):
+        itemsize, ofs, sign = unpack_arraydescr(op.getdescr())
+        ptr_box = op.getarg(0)
+        index_box = op.getarg(1)
+        self.emit_gc_load_or_indexed(op, ptr_box, index_box, itemsize, 1, ofs, sign)
+
+    def _emit_mul_if_factor_offset_not_supported(self, index_box,
+                                                 factor, offset):
+        # Returns (factor, offset, index_box) where index_box is either
+        # a non-constant BoxInt or None.
+        if isinstance(index_box, ConstInt):
+            return 1, index_box.value * factor + offset, None
+        else:
+            if factor != 1 and factor not in self.cpu.load_supported_factors:
+                # the factor is supported by the cpu
+                # x & (x - 1) == 0 is a quick test for power of 2
+                assert factor > 0
+                if (factor & (factor - 1)) == 0:
+                    index_box = ResOperation(rop.INT_LSHIFT,
+                            [index_box, ConstInt(highest_bit(factor))])
+                else:
+                    index_box = ResOperation(rop.INT_MUL,
+                            [index_box, ConstInt(factor)])
+                self.emit_op(index_box)
+                factor = 1
+            return factor, offset, index_box
+
+    def emit_gc_load_or_indexed(self, op, ptr_box, index_box, itemsize,
+                                factor, offset, sign, type='i'):
+        factor, offset, index_box = \
+                self._emit_mul_if_factor_offset_not_supported(index_box,
+                        factor, offset)
+        #
+        if sign:
+            # encode signed into the itemsize value
+            itemsize = -itemsize
+        #
+        optype = type
+        if op is not None:
+            optype = op.type
+        if index_box is None:
+            args = [ptr_box, ConstInt(offset), ConstInt(itemsize)]
+            newload = ResOperation(OpHelpers.get_gc_load(optype), args)
+        else:
+            args = [ptr_box, index_box, ConstInt(factor),
+                    ConstInt(offset), ConstInt(itemsize)]
+            newload = ResOperation(OpHelpers.get_gc_load_indexed(optype), args)
+        if op is None:
+            self.emit_op(newload)
+        else:
+            self.replace_op_with(op, newload)
+        return newload
+
+    def transform_to_gc_load(self, op):
+        NOT_SIGNED = 0
+        CINT_ZERO = ConstInt(0)
+        if op.is_getarrayitem() or \
+           op.getopnum() in (rop.GETARRAYITEM_RAW_I,
+                             rop.GETARRAYITEM_RAW_F):
+            self.handle_getarrayitem(op)
+        elif op.getopnum() in (rop.SETARRAYITEM_GC, rop.SETARRAYITEM_RAW):
+            self.handle_setarrayitem(op)
+        elif op.getopnum() == rop.RAW_STORE:
+            itemsize, ofs, _ = unpack_arraydescr(op.getdescr())
+            ptr_box = op.getarg(0)
+            index_box = op.getarg(1)
+            value_box = op.getarg(2)
+            self.emit_gc_store_or_indexed(op, ptr_box, index_box, value_box, itemsize, 1, ofs)
+        elif op.getopnum() in (rop.RAW_LOAD_I, rop.RAW_LOAD_F):
+            itemsize, ofs, sign = unpack_arraydescr(op.getdescr())
+            ptr_box = op.getarg(0)
+            index_box = op.getarg(1)
+            self.emit_gc_load_or_indexed(op, ptr_box, index_box, itemsize, 1, ofs, sign)
+        elif op.getopnum() in (rop.GETINTERIORFIELD_GC_I, rop.GETINTERIORFIELD_GC_R,
+                               rop.GETINTERIORFIELD_GC_F):
+            ofs, itemsize, fieldsize, sign = unpack_interiorfielddescr(op.getdescr())
+            ptr_box = op.getarg(0)
+            index_box = op.getarg(1)
+            self.emit_gc_load_or_indexed(op, ptr_box, index_box, fieldsize, itemsize, ofs, sign)
+        elif op.getopnum() in (rop.SETINTERIORFIELD_RAW, rop.SETINTERIORFIELD_GC):
+            ofs, itemsize, fieldsize, sign = unpack_interiorfielddescr(op.getdescr())
+            ptr_box = op.getarg(0)
+            index_box = op.getarg(1)
+            value_box = op.getarg(2)
+            self.emit_gc_store_or_indexed(op, ptr_box, index_box, value_box,
+                                          fieldsize, itemsize, ofs)
+        elif op.getopnum() in (rop.GETFIELD_GC_I, rop.GETFIELD_GC_F, rop.GETFIELD_GC_R,
+                               rop.GETFIELD_RAW_I, rop.GETFIELD_RAW_F, rop.GETFIELD_RAW_R):
+            ofs, itemsize, sign = unpack_fielddescr(op.getdescr())
+            ptr_box = op.getarg(0)
+            if op.getopnum() in (rop.GETFIELD_GC_F, rop.GETFIELD_GC_I, rop.GETFIELD_GC_R):
+                # See test_zero_ptr_field_before_getfield().  We hope there is
+                # no getfield_gc in the middle of initialization code, but there
+                # shouldn't be, given that a 'new' is already delayed by previous
+                # optimization steps.  In practice it should immediately be
+                # followed by a bunch of 'setfields', and the 'pending_zeros'
+                # optimization we do here is meant for this case.
+                self.emit_pending_zeros()
+                self.emit_gc_load_or_indexed(op, ptr_box, ConstInt(0), itemsize, 1, ofs, sign)
+                self.emit_op(op)
+                return True
+            self.emit_gc_load_or_indexed(op, ptr_box, ConstInt(0), itemsize, 1, ofs, sign)
+        elif op.getopnum() in (rop.SETFIELD_GC, rop.SETFIELD_RAW):
+            ofs, itemsize, sign = unpack_fielddescr(op.getdescr())
+            ptr_box = op.getarg(0)
+            value_box = op.getarg(1)
+            self.emit_gc_store_or_indexed(op, ptr_box, ConstInt(0), value_box, itemsize, 1, ofs)
+        elif op.getopnum() == rop.ARRAYLEN_GC:
+            descr = op.getdescr()
+            assert isinstance(descr, ArrayDescr)
+            ofs = descr.lendescr.offset
+            self.emit_gc_load_or_indexed(op, op.getarg(0), ConstInt(0),
+                                         WORD, 1, ofs, NOT_SIGNED)
+        elif op.getopnum() == rop.STRLEN:
+            basesize, itemsize, ofs_length = get_array_token(rstr.STR,
+                                                 self.cpu.translate_support_code)
+            self.emit_gc_load_or_indexed(op, op.getarg(0), ConstInt(0),
+                                         WORD, 1, ofs_length, NOT_SIGNED)
+        elif op.getopnum() == rop.UNICODELEN:
+            basesize, itemsize, ofs_length = get_array_token(rstr.UNICODE,
+                                                 self.cpu.translate_support_code)
+            self.emit_gc_load_or_indexed(op, op.getarg(0), ConstInt(0),
+                                         WORD, 1, ofs_length, NOT_SIGNED)
+        elif op.getopnum() == rop.STRGETITEM:
+            basesize, itemsize, ofs_length = get_array_token(rstr.STR,
+                                                 self.cpu.translate_support_code)
+            assert itemsize == 1
+            self.emit_gc_load_or_indexed(op, op.getarg(0), op.getarg(1),
+                                         itemsize, itemsize, basesize, NOT_SIGNED)
+        elif op.getopnum() == rop.UNICODEGETITEM:
+            basesize, itemsize, ofs_length = get_array_token(rstr.UNICODE,
+                                                 self.cpu.translate_support_code)
+            self.emit_gc_load_or_indexed(op, op.getarg(0), op.getarg(1),
+                                         itemsize, itemsize, basesize, NOT_SIGNED)
+        elif op.getopnum() == rop.STRSETITEM:
+            basesize, itemsize, ofs_length = get_array_token(rstr.STR,
+                                                 self.cpu.translate_support_code)
+            assert itemsize == 1
+            self.emit_gc_store_or_indexed(op, op.getarg(0), op.getarg(1), op.getarg(2),
+                                         itemsize, itemsize, basesize)
+        elif op.getopnum() == rop.UNICODESETITEM:
+            basesize, itemsize, ofs_length = get_array_token(rstr.UNICODE,
+                                                 self.cpu.translate_support_code)
+            self.emit_gc_store_or_indexed(op, op.getarg(0), op.getarg(1), op.getarg(2),
+                                         itemsize, itemsize, basesize)
+        return False
+
+
     def rewrite(self, operations):
         # we can only remember one malloc since the next malloc can possibly
         # collect; but we can try to collapse several known-size mallocs into
@@ -128,10 +311,8 @@ class GcRewriterAssembler(object):
                 continue
             if op is self._changed_op:
                 op = self._changed_op_to
-            # ---------- GETFIELD_GC ----------
-            if op.getopnum() in (rop.GETFIELD_GC_I, rop.GETFIELD_GC_F,
-                                 rop.GETFIELD_GC_R):
-                self.handle_getfield_gc(op)
+            # ---------- GC_LOAD/STORE transformations --------------
+            if self.transform_to_gc_load(op):
                 continue
             # ---------- turn NEWxxx into CALL_MALLOC_xxx ----------
             if op.is_malloc():
@@ -221,18 +402,6 @@ class GcRewriterAssembler(object):
 
     # ----------
 
-    def handle_getfield_gc(self, op):
-        """See test_zero_ptr_field_before_getfield().  We hope there is
-        no getfield_gc in the middle of initialization code, but there
-        shouldn't be, given that a 'new' is already delayed by previous
-        optimization steps.  In practice it should immediately be
-        followed by a bunch of 'setfields', and the 'pending_zeros'
-        optimization we do here is meant for this case."""
-        self.emit_pending_zeros()
-        self.emit_op(op)
-
-    # ----------
-
     def handle_malloc_operation(self, op):
         opnum = op.getopnum()
         if opnum == rop.NEW:
@@ -241,10 +410,8 @@ class GcRewriterAssembler(object):
             descr = op.getdescr()
             self.handle_new_fixedsize(descr, op)
             if self.gc_ll_descr.fielddescr_vtable is not None:
-                op = ResOperation(rop.SETFIELD_GC,
-                                  [op, ConstInt(descr.get_vtable())],
-                                  descr=self.gc_ll_descr.fielddescr_vtable)
-                self.emit_op(op)
+                self.emit_setfield(op, ConstInt(descr.get_vtable()),
+                                   descr=self.gc_ll_descr.fielddescr_vtable)
         elif opnum == rop.NEW_ARRAY or opnum == rop.NEW_ARRAY_CLEAR:
             descr = op.getdescr()
             assert isinstance(descr, ArrayDescr)
@@ -295,9 +462,7 @@ class GcRewriterAssembler(object):
             hash_descr = self.gc_ll_descr.unicode_hash_descr
         else:
             return
-        op = ResOperation(rop.SETFIELD_GC, [result, self.c_zero],
-                          descr=hash_descr)
-        self.emit_op(op)
+        self.emit_setfield(result, self.c_zero, descr=hash_descr)
 
     def handle_new_fixedsize(self, descr, op):
         assert isinstance(descr, SizeDescr)
@@ -356,7 +521,9 @@ class GcRewriterAssembler(object):
             return
         # the ZERO_ARRAY operation will be optimized according to what
         # SETARRAYITEM_GC we see before the next allocation operation.
-        # See emit_pending_zeros().
+        # See emit_pending_zeros().  (This optimization is done by
+        # hacking the object 'o' in-place: e.g., o.getarg(1) may be
+        # replaced with another constant greater than 0.)
         o = ResOperation(rop.ZERO_ARRAY, [v_arr, self.c_zero, v_length],
                          descr=arraydescr)
         self.emit_op(o)
@@ -366,47 +533,56 @@ class GcRewriterAssembler(object):
     def gen_malloc_frame(self, frame_info):
         descrs = self.gc_ll_descr.getframedescrs(self.cpu)
         if self.gc_ll_descr.kind == 'boehm':
-            size = ResOperation(rop.GETFIELD_RAW_I,
-                                    [history.ConstInt(frame_info)],
-                               descr=descrs.jfi_frame_depth)
+            ofs, size, sign = unpack_fielddescr(descrs.jfi_frame_depth)
+            if sign:
+                size = -size
+            args = [ConstInt(frame_info), ConstInt(ofs), ConstInt(size)]
+            size = ResOperation(rop.GC_LOAD_I, args)
             self.emit_op(size)
             frame = ResOperation(rop.NEW_ARRAY, [size],
-                               descr=descrs.arraydescr)
+                                 descr=descrs.arraydescr)
             self.handle_new_array(descrs.arraydescr, frame)
             return self.get_box_replacement(frame)
         else:
             # we read size in bytes here, not the length
-            size = ResOperation(rop.GETFIELD_RAW_I,
-                                [history.ConstInt(frame_info)],
-                               descr=descrs.jfi_frame_size)
+            ofs, size, sign = unpack_fielddescr(descrs.jfi_frame_size)
+            if sign:
+                size = -size
+            args = [ConstInt(frame_info), ConstInt(ofs), ConstInt(size)]
+            size = ResOperation(rop.GC_LOAD_I, args)
             self.emit_op(size)
             frame = self.gen_malloc_nursery_varsize_frame(size)
             self.gen_initialize_tid(frame, descrs.arraydescr.tid)
             # we need to explicitely zero all the gc fields, because
             # of the unusal malloc pattern
-            length = ResOperation(rop.GETFIELD_RAW_I,
-                                  [history.ConstInt(frame_info)],
-                                  descr=descrs.jfi_frame_depth)
-            extra_ops = [
-                length,
-                ResOperation(rop.SETFIELD_GC, [frame, self.c_zero],
-                             descr=descrs.jf_extra_stack_depth),
-                ResOperation(rop.SETFIELD_GC, [frame, self.c_null],
-                             descr=descrs.jf_savedata),
-                ResOperation(rop.SETFIELD_GC, [frame, self.c_null],
-                             descr=descrs.jf_force_descr),
-                ResOperation(rop.SETFIELD_GC, [frame, self.c_null],
-                             descr=descrs.jf_descr),
-                ResOperation(rop.SETFIELD_GC, [frame, self.c_null],
-                             descr=descrs.jf_guard_exc),
-                ResOperation(rop.SETFIELD_GC, [frame, self.c_null],
-                             descr=descrs.jf_forward),
-            ]
-            for op in extra_ops:
-                self.emit_op(op)
+
+            length = self.emit_getfield(ConstInt(frame_info),
+                                        descr=descrs.jfi_frame_depth, raw=True)
+            self.emit_setfield(frame, self.c_zero,
+                               descr=descrs.jf_extra_stack_depth)
+            self.emit_setfield(frame, self.c_null,
+                               descr=descrs.jf_savedata)
+            self.emit_setfield(frame, self.c_null,
+                               descr=descrs.jf_force_descr)
+            self.emit_setfield(frame, self.c_null,
+                               descr=descrs.jf_descr)
+            self.emit_setfield(frame, self.c_null,
+                               descr=descrs.jf_guard_exc)
+            self.emit_setfield(frame, self.c_null,
+                               descr=descrs.jf_forward)
             self.gen_initialize_len(frame, length,
                                     descrs.arraydescr.lendescr)
             return self.get_box_replacement(frame)
+
+    def emit_getfield(self, ptr, descr, type='i', raw=False):
+        ofs, size, sign = unpack_fielddescr(descr)
+        op = self.emit_gc_load_or_indexed(None, ptr, ConstInt(0), size, 1, ofs, sign)
+        return op
+
+    def emit_setfield(self, ptr, value, descr):
+        ofs, size, sign = unpack_fielddescr(descr)
+        self.emit_gc_store_or_indexed(None, ptr, ConstInt(0), value,
+                                      size, 1, ofs)
 
     def handle_call_assembler(self, op):
         descrs = self.gc_ll_descr.getframedescrs(self.cpu)
@@ -415,20 +591,21 @@ class GcRewriterAssembler(object):
         jfi = loop_token.compiled_loop_token.frame_info
         llfi = heaptracker.adr2int(llmemory.cast_ptr_to_adr(jfi))
         frame = self.gen_malloc_frame(llfi)
-        op2 = ResOperation(rop.SETFIELD_GC, [frame, history.ConstInt(llfi)],
+        self.emit_setfield(frame, history.ConstInt(llfi),
                            descr=descrs.jf_frame_info)
-        self.emit_op(op2)
         arglist = op.getarglist()
         index_list = loop_token.compiled_loop_token._ll_initial_locs
         for i, arg in enumerate(arglist):
             descr = self.cpu.getarraydescr_for_frame(arg.type)
             assert self.cpu.JITFRAME_FIXED_SIZE & 1 == 0
             _, itemsize, _ = self.cpu.unpack_arraydescr_size(descr)
-            index = index_list[i] // itemsize # index is in bytes
-            self.emit_op(ResOperation(rop.SETARRAYITEM_GC,
-                                            [frame, ConstInt(index),
-                                             arg],
-                                            descr))
+            array_offset = index_list[i]   # index, already measured in bytes
+            # emit GC_STORE
+            _, basesize, _ = unpack_arraydescr(descr)
+            offset = basesize + array_offset
+            args = [frame, ConstInt(offset), arg, ConstInt(itemsize)]
+            self.emit_op(ResOperation(rop.GC_STORE, args))
+
         descr = op.getdescr()
         assert isinstance(descr, JitCellToken)
         jd = descr.outermost_jitdriver_sd
@@ -438,7 +615,7 @@ class GcRewriterAssembler(object):
         else:
             args = [frame]
         call_asm = ResOperation(op.getopnum(), args,
-                                  op.getdescr())
+                                op.getdescr())
         self.replace_op_with(self.get_box_replacement(op), call_asm)
         self.emit_op(call_asm)
 
@@ -485,12 +662,12 @@ class GcRewriterAssembler(object):
         del self.last_zero_arrays[:]
         self._setarrayitems_occurred.clear()
         #
-        # Then write the ZERO_PTR_FIELDs that are still pending
+        # Then write the NULL-pointer-writing ops that are still pending
         for v, d in self._delayed_zero_setfields.iteritems():
             v = self.get_box_replacement(v)
             for ofs in d.iterkeys():
-                op = ResOperation(rop.ZERO_PTR_FIELD, [v, ConstInt(ofs)], None)
-                self.emit_op(op)
+                self.emit_gc_store_or_indexed(None, v, ConstInt(ofs), ConstInt(0),
+                                              WORD, 1, 0)
         self._delayed_zero_setfields.clear()
 
     def _gen_call_malloc_gc(self, args, v_result, descr):
@@ -641,15 +818,12 @@ class GcRewriterAssembler(object):
     def gen_initialize_tid(self, v_newgcobj, tid):
         if self.gc_ll_descr.fielddescr_tid is not None:
             # produce a SETFIELD to initialize the GC header
-            op = ResOperation(rop.SETFIELD_GC,
-                              [v_newgcobj, ConstInt(tid)],
-                              descr=self.gc_ll_descr.fielddescr_tid)
-            self.emit_op(op)
+            self.emit_setfield(v_newgcobj, ConstInt(tid),
+                               descr=self.gc_ll_descr.fielddescr_tid)
 
     def gen_initialize_len(self, v_newgcobj, v_length, arraylen_descr):
         # produce a SETFIELD to initialize the array length
-        self.emit_op(ResOperation(rop.SETFIELD_GC, [v_newgcobj, v_length],
-                     descr=arraylen_descr))
+        self.emit_setfield(v_newgcobj, v_length, descr=arraylen_descr)
 
     # ----------
 

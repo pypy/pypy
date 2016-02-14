@@ -17,7 +17,6 @@ from rpython.rtyper.annlowlevel import llhelper, llhelper_args
 from rpython.jit.backend.llsupport.test.test_regalloc_integration import BaseTestRegalloc
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.codewriter import longlong
-from rpython.rlib.objectmodel import invoke_around_extcall
 
 CPU = getcpuclass()
 
@@ -251,7 +250,7 @@ class TestMallocFastpath(BaseTestRegalloc):
         p0 = call_malloc_nursery_varsize_frame(i0)
         p1 = call_malloc_nursery_varsize_frame(i1)
         p2 = call_malloc_nursery_varsize_frame(i2)
-        guard_true(i0) [p0, p1, p2]
+        guard_false(i0) [p0, p1, p2]
         '''
         self.interpret(ops, [16, 32, 16])
         # check the returned pointers
@@ -625,9 +624,6 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         self.S = S
         self.cpu = cpu
 
-    def teardown_method(self, meth):
-        rffi.aroundstate._cleanup_()
-
     def test_shadowstack_call(self):
         cpu = self.cpu
         cpu.gc_ll_descr.init_nursery(100)
@@ -720,7 +716,7 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         [i0, p0]
         p = force_token()
         cond_call(i0, ConstClass(funcptr), i0, p, descr=calldescr)
-        guard_true(i0, descr=faildescr) [p0]
+        guard_false(i0, descr=faildescr) [p0]
         """, namespace={
             'faildescr': BasicFailDescr(),
             'funcptr': checkptr,

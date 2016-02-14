@@ -12,7 +12,7 @@ from rpython.jit.metainterp.history import AbstractFailDescr, INT, REF, FLOAT
 from rpython.jit.metainterp.compile import ResumeGuardDescr
 from rpython.rtyper.lltypesystem import lltype, rffi, rstr, llmemory
 from rpython.rtyper.lltypesystem.lloperation import llop
-from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_gcref
+from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.rtyper import rclass
 from rpython.rlib.jit import AsmInfo
 from rpython.jit.backend.model import CompiledLoopToken
@@ -837,11 +837,56 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             frame_depth = max(frame_depth, target_frame_depth)
         return frame_depth
 
+    def _call_header_vmprof(self):
+        from rpython.rlib.rvmprof.rvmprof import cintf, VMPROF_JITTED_TAG
+
+        # tloc = address of pypy_threadlocal_s
+        if IS_X86_32:
+            # Can't use esi here, its old value is not saved yet.
+            # But we can use eax and ecx.
+            self.mc.MOV_rs(edx.value, THREADLOCAL_OFS)
+            tloc = edx
+            old = ecx
+        else:
+            # The thread-local value is already in esi.
+            # We should avoid if possible to use ecx or edx because they
+            # would be used to pass arguments #3 and #4 (even though, so
+            # far, the assembler only receives two arguments).
+            tloc = esi
+            old = r11
+        # eax = address in the stack of a 3-words struct vmprof_stack_s
+        self.mc.LEA_rs(eax.value, (FRAME_FIXED_SIZE - 4) * WORD)
+        # old = current value of vmprof_tl_stack
+        offset = cintf.vmprof_tl_stack.getoffset()
+        self.mc.MOV_rm(old.value, (tloc.value, offset))
+        # eax->next = old
+        self.mc.MOV_mr((eax.value, 0), old.value)
+        # eax->value = my esp
+        self.mc.MOV_mr((eax.value, WORD), esp.value)
+        # eax->kind = VMPROF_JITTED_TAG
+        self.mc.MOV_mi((eax.value, WORD * 2), VMPROF_JITTED_TAG)
+        # save in vmprof_tl_stack the new eax
+        self.mc.MOV_mr((tloc.value, offset), eax.value)
+
+    def _call_footer_vmprof(self):
+        from rpython.rlib.rvmprof.rvmprof import cintf
+        # edx = address of pypy_threadlocal_s
+        self.mc.MOV_rs(edx.value, THREADLOCAL_OFS)
+        self.mc.AND_ri(edx.value, ~1)
+        # eax = (our local vmprof_tl_stack).next
+        self.mc.MOV_rs(eax.value, (FRAME_FIXED_SIZE - 4 + 0) * WORD)
+        # save in vmprof_tl_stack the value eax
+        offset = cintf.vmprof_tl_stack.getoffset()
+        self.mc.MOV_mr((edx.value, offset), eax.value)
+
     def _call_header(self):
         self.mc.SUB_ri(esp.value, FRAME_FIXED_SIZE * WORD)
         self.mc.MOV_sr(PASS_ON_MY_FRAME * WORD, ebp.value)
         if IS_X86_64:
             self.mc.MOV_sr(THREADLOCAL_OFS, esi.value)
+        if self.cpu.translate_support_code:
+            self._call_header_vmprof()     # on X86_64, this uses esi
+        if IS_X86_64:
             self.mc.MOV_rr(ebp.value, edi.value)
         else:
             self.mc.MOV_rs(ebp.value, (FRAME_FIXED_SIZE + 1) * WORD)
@@ -873,6 +918,8 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
 
     def _call_footer(self):
         # the return value is the jitframe
+        if self.cpu.translate_support_code:
+            self._call_footer_vmprof()
         self.mc.MOV_rr(eax.value, ebp.value)
 
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
@@ -1477,34 +1524,27 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
     genop_getfield_gc_f = _genop_getfield
     genop_getfield_raw_i = _genop_getfield
     genop_getfield_raw_f = _genop_getfield
-    genop_getfield_gc_pure_i = _genop_getfield
-    genop_getfield_gc_pure_r = _genop_getfield
-    genop_getfield_gc_pure_f = _genop_getfield
 
-    def _genop_getarrayitem(self, op, arglocs, resloc):
-        base_loc, ofs_loc, size_loc, ofs, sign_loc = arglocs
-        assert isinstance(ofs, ImmedLoc)
+    def _genop_gc_load(self, op, arglocs, resloc):
+        base_loc, ofs_loc, size_loc, sign_loc = arglocs
         assert isinstance(size_loc, ImmedLoc)
-        scale = get_scale(size_loc.value)
-        src_addr = addr_add(base_loc, ofs_loc, ofs.value, scale)
+        src_addr = addr_add(base_loc, ofs_loc, 0, 0)
         self.load_from_mem(resloc, src_addr, size_loc, sign_loc)
 
-    genop_getarrayitem_gc_i = _genop_getarrayitem
-    genop_getarrayitem_gc_r = _genop_getarrayitem
-    genop_getarrayitem_gc_f = _genop_getarrayitem
-    genop_getarrayitem_gc_pure_i = _genop_getarrayitem
-    genop_getarrayitem_gc_pure_r = _genop_getarrayitem
-    genop_getarrayitem_gc_pure_f = _genop_getarrayitem
-    genop_getarrayitem_raw_i = _genop_getarrayitem
-    genop_getarrayitem_raw_f = _genop_getarrayitem
+    genop_gc_load_i = _genop_gc_load
+    genop_gc_load_r = _genop_gc_load
+    genop_gc_load_f = _genop_gc_load
 
-    def _genop_raw_load(self, op, arglocs, resloc):
-        base_loc, ofs_loc, size_loc, ofs, sign_loc = arglocs
-        assert isinstance(ofs, ImmedLoc)
-        src_addr = addr_add(base_loc, ofs_loc, ofs.value, 0)
+    def _genop_gc_load_indexed(self, op, arglocs, resloc):
+        base_loc, ofs_loc, scale_loc, offset_loc, size_loc, sign_loc = arglocs
+        assert isinstance(scale_loc, ImmedLoc)
+        scale = get_scale(scale_loc.value)
+        src_addr = addr_add(base_loc, ofs_loc, offset_loc.value, scale)
         self.load_from_mem(resloc, src_addr, size_loc, sign_loc)
-    genop_raw_load_i = _genop_raw_load
-    genop_raw_load_f = _genop_raw_load
+
+    genop_gc_load_indexed_i = _genop_gc_load_indexed
+    genop_gc_load_indexed_r = _genop_gc_load_indexed
+    genop_gc_load_indexed_f = _genop_gc_load_indexed
 
     def _imul_const_scaled(self, mc, targetreg, sourcereg, itemsize):
         """Produce one operation to do roughly
@@ -1551,17 +1591,6 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         assert isinstance(ofs_loc, ImmedLoc)
         return AddressLoc(base_loc, temp_loc, shift, ofs_loc.value)
 
-    def _genop_getinteriorfield(self, op, arglocs, resloc):
-        (base_loc, ofs_loc, itemsize_loc, fieldsize_loc,
-            index_loc, temp_loc, sign_loc) = arglocs
-        src_addr = self._get_interiorfield_addr(temp_loc, index_loc,
-                                                itemsize_loc, base_loc,
-                                                ofs_loc)
-        self.load_from_mem(resloc, src_addr, fieldsize_loc, sign_loc)
-    genop_getinteriorfield_gc_i = _genop_getinteriorfield
-    genop_getinteriorfield_gc_r = _genop_getinteriorfield
-    genop_getinteriorfield_gc_f = _genop_getinteriorfield
-
     def genop_discard_increment_debug_counter(self, op, arglocs):
         # The argument should be an immediate address.  This should
         # generate code equivalent to a GETFIELD_RAW, an ADD(1), and a
@@ -1570,36 +1599,18 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         base_loc, = arglocs
         self.mc.INC(mem(base_loc, 0))
 
-    def genop_discard_setfield_gc(self, op, arglocs):
-        base_loc, ofs_loc, size_loc, value_loc = arglocs
-        assert isinstance(size_loc, ImmedLoc)
-        dest_addr = AddressLoc(base_loc, ofs_loc)
-        self.save_into_mem(dest_addr, value_loc, size_loc)
-
-    genop_discard_zero_ptr_field = genop_discard_setfield_gc
-
-    def genop_discard_setinteriorfield_gc(self, op, arglocs):
-        (base_loc, ofs_loc, itemsize_loc, fieldsize_loc,
-            index_loc, temp_loc, value_loc) = arglocs
-        dest_addr = self._get_interiorfield_addr(temp_loc, index_loc,
-                                                 itemsize_loc, base_loc,
-                                                 ofs_loc)
-        self.save_into_mem(dest_addr, value_loc, fieldsize_loc)
-
-    genop_discard_setinteriorfield_raw = genop_discard_setinteriorfield_gc
-
-    def genop_discard_setarrayitem_gc(self, op, arglocs):
-        base_loc, ofs_loc, value_loc, size_loc, baseofs = arglocs
-        assert isinstance(baseofs, ImmedLoc)
+    def genop_discard_gc_store(self, op, arglocs):
+        base_loc, ofs_loc, value_loc, size_loc = arglocs
         assert isinstance(size_loc, ImmedLoc)
         scale = get_scale(size_loc.value)
-        dest_addr = AddressLoc(base_loc, ofs_loc, scale, baseofs.value)
+        dest_addr = AddressLoc(base_loc, ofs_loc, 0, 0)
         self.save_into_mem(dest_addr, value_loc, size_loc)
 
-    def genop_discard_raw_store(self, op, arglocs):
-        base_loc, ofs_loc, value_loc, size_loc, baseofs = arglocs
-        assert isinstance(baseofs, ImmedLoc)
-        dest_addr = AddressLoc(base_loc, ofs_loc, 0, baseofs.value)
+    def genop_discard_gc_store_indexed(self, op, arglocs):
+        base_loc, ofs_loc, value_loc, factor_loc, offset_loc, size_loc = arglocs
+        assert isinstance(size_loc, ImmedLoc)
+        scale = get_scale(factor_loc.value)
+        dest_addr = AddressLoc(base_loc, ofs_loc, scale, offset_loc.value)
         self.save_into_mem(dest_addr, value_loc, size_loc)
 
     def genop_discard_strsetitem(self, op, arglocs):
@@ -1621,43 +1632,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         else:
             assert 0, itemsize
 
-    genop_discard_setfield_raw = genop_discard_setfield_gc
-    genop_discard_setarrayitem_raw = genop_discard_setarrayitem_gc
-
-    def genop_strlen(self, op, arglocs, resloc):
-        base_loc = arglocs[0]
-        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
-                                             self.cpu.translate_support_code)
-        self.mc.MOV(resloc, addr_add_const(base_loc, ofs_length))
-
-    def genop_unicodelen(self, op, arglocs, resloc):
-        base_loc = arglocs[0]
-        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.UNICODE,
-                                             self.cpu.translate_support_code)
-        self.mc.MOV(resloc, addr_add_const(base_loc, ofs_length))
-
-    def genop_arraylen_gc(self, op, arglocs, resloc):
-        base_loc, ofs_loc = arglocs
-        assert isinstance(ofs_loc, ImmedLoc)
-        self.mc.MOV(resloc, addr_add_const(base_loc, ofs_loc.value))
-
-    def genop_strgetitem(self, op, arglocs, resloc):
-        base_loc, ofs_loc = arglocs
-        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
-                                             self.cpu.translate_support_code)
-        assert itemsize == 1
-        self.mc.MOVZX8(resloc, AddressLoc(base_loc, ofs_loc, 0, basesize))
-
-    def genop_unicodegetitem(self, op, arglocs, resloc):
-        base_loc, ofs_loc = arglocs
-        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.UNICODE,
-                                             self.cpu.translate_support_code)
-        if itemsize == 4:
-            self.mc.MOV32(resloc, AddressLoc(base_loc, ofs_loc, 2, basesize))
-        elif itemsize == 2:
-            self.mc.MOVZX16(resloc, AddressLoc(base_loc, ofs_loc, 1, basesize))
-        else:
-            assert 0, itemsize
+    # genop_discard_setfield_raw = genop_discard_setfield_gc
 
     def genop_math_read_timestamp(self, op, arglocs, resloc):
         self.mc.RDTSC()
@@ -2136,7 +2111,9 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             if IS_X86_64:
                 tmploc = esi    # already the correct place
                 if argloc is tmploc:
-                    self.mc.MOV_rr(esi.value, edi.value)
+                    # this case is theoretical only so far: in practice,
+                    # argloc is always eax, never esi
+                    self.mc.MOV_rr(edi.value, esi.value)
                     argloc = edi
             else:
                 tmploc = eax

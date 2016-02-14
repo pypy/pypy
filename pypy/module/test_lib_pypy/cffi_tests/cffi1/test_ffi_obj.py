@@ -8,6 +8,7 @@ def test_ffi_new():
     p = ffi.new("int *")
     p[0] = -42
     assert p[0] == -42
+    assert type(ffi) is ffi.__class__ is _cffi1_backend.FFI
 
 def test_ffi_subclass():
     class FOO(_cffi1_backend.FFI):
@@ -17,6 +18,7 @@ def test_ffi_subclass():
     assert foo.x == 42
     p = foo.new("int *")
     assert p[0] == 0
+    assert type(foo) is foo.__class__ is FOO
 
 def test_ffi_no_argument():
     py.test.raises(TypeError, _cffi1_backend.FFI, 42)
@@ -438,13 +440,18 @@ def test_init_once():
         assert seen == [1, 1]
 
 def test_init_once_multithread():
-    import thread, time
+    if sys.version_info < (3,):
+        import thread
+    else:
+        import _thread as thread
+    import time
+    #
     def do_init():
-        print 'init!'
+        print('init!')
         seen.append('init!')
         time.sleep(1)
         seen.append('init done')
-        print 'init done'
+        print('init done')
         return 7
     ffi = _cffi1_backend.FFI()
     seen = []
@@ -455,3 +462,37 @@ def test_init_once_multithread():
         thread.start_new_thread(f, ())
     time.sleep(1.5)
     assert seen == ['init!', 'init done'] + 6 * [7]
+
+def test_init_once_failure():
+    def do_init():
+        seen.append(1)
+        raise ValueError
+    ffi = _cffi1_backend.FFI()
+    seen = []
+    for i in range(5):
+        py.test.raises(ValueError, ffi.init_once, do_init, "tag")
+        assert seen == [1] * (i + 1)
+
+def test_init_once_multithread_failure():
+    if sys.version_info < (3,):
+        import thread
+    else:
+        import _thread as thread
+    import time
+    def do_init():
+        seen.append('init!')
+        time.sleep(1)
+        seen.append('oops')
+        raise ValueError
+    ffi = _cffi1_backend.FFI()
+    seen = []
+    for i in range(3):
+        def f():
+            py.test.raises(ValueError, ffi.init_once, do_init, "tag")
+        thread.start_new_thread(f, ())
+    i = 0
+    while len(seen) < 6:
+        i += 1
+        assert i < 20
+        time.sleep(0.51)
+    assert seen == ['init!', 'oops'] * 3

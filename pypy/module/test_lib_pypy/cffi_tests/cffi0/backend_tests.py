@@ -1353,8 +1353,8 @@ class BackendTests:
         ffi = FFI(backend=self.Backend())
         ffi.cdef("enum foo;")
         from cffi import __version_info__
-        if __version_info__ < (1, 4):
-            py.test.skip("re-enable me in version 1.4")
+        if __version_info__ < (1, 6):
+            py.test.skip("re-enable me in version 1.6")
         e = py.test.raises(CDefError, ffi.cast, "enum foo", -1)
         assert str(e.value) == (
             "'enum foo' has no values explicitly defined: refusing to guess "
@@ -1827,7 +1827,12 @@ class BackendTests:
             assert seen == [1, 1]
 
     def test_init_once_multithread(self):
-        import thread, time
+        import sys, time
+        if sys.version_info < (3,):
+            import thread
+        else:
+            import _thread as thread
+        #
         def do_init():
             seen.append('init!')
             time.sleep(1)
@@ -1842,3 +1847,8 @@ class BackendTests:
             thread.start_new_thread(f, ())
         time.sleep(1.5)
         assert seen == ['init!', 'init done'] + 6 * [7]
+
+    def test_sizeof_struct_directly(self):
+        # only works with the Python FFI instances
+        ffi = FFI(backend=self.Backend())
+        assert ffi.sizeof("struct{int a;}") == ffi.sizeof("int")
