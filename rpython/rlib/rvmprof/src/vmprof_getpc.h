@@ -111,47 +111,9 @@ struct CallUnrollInfo {
 // PC_FROM_UCONTEXT in config.h.  The only thing we need to do here,
 // then, is to do the magic call-unrolling for systems that support it.
 
-// -- Special case 1: linux x86, for which we have CallUnrollInfo
 #if defined(__linux) && defined(__i386) && defined(__GNUC__)
-static const CallUnrollInfo callunrollinfo[] = {
-  // Entry to a function:  push %ebp;  mov  %esp,%ebp
-  // Top-of-stack contains the caller IP.
-  { 0,
-    {0x55, 0x89, 0xe5}, 3,
-    0
-  },
-  // Entry to a function, second instruction:  push %ebp;  mov  %esp,%ebp
-  // Top-of-stack contains the old frame, caller IP is +4.
-  { -1,
-    {0x55, 0x89, 0xe5}, 3,
-    4
-  },
-  // Return from a function: RET.
-  // Top-of-stack contains the caller IP.
-  { 0,
-    {0xc3}, 1,
-    0
-  }
-};
-
 intptr_t GetPC(ucontext_t *signal_ucontext) {
-  // See comment above struct CallUnrollInfo.  Only try instruction
-  // flow matching if both eip and esp looks reasonable.
-  const int eip = signal_ucontext->uc_mcontext.gregs[REG_EIP];
-  const int esp = signal_ucontext->uc_mcontext.gregs[REG_ESP];
-  if ((eip & 0xffff0000) != 0 && (~eip & 0xffff0000) != 0 &&
-      (esp & 0xffff0000) != 0) {
-    char* eip_char = reinterpret_cast<char*>(eip);
-    for (int i = 0; i < sizeof(callunrollinfo)/sizeof(*callunrollinfo); ++i) {
-      if (!memcmp(eip_char + callunrollinfo[i].pc_offset,
-                  callunrollinfo[i].ins, callunrollinfo[i].ins_size)) {
-        // We have a match.
-        intptr_t *retaddr = (intptr_t*)(esp + callunrollinfo[i].return_sp_offset);
-        return *retaddr;
-      }
-    }
-  }
-  return eip;
+  return signal_ucontext->uc_mcontext.gregs[REG_EIP];
 }
 
 // Special case #2: Windows, which has to do something totally different.

@@ -69,4 +69,4 @@ class TestDirect(object):
         result = ffi.cast("void**", buf)
         res = lib.vmprof_write_header_for_jit_addr(result, 0, ffi.NULL, 100)
         assert res == 10
-        assert [x for x in buf] == [6, 0, 3, 16, 3, 12, 3, 8, 3, 4
+        assert [x for x in buf] == [6, 0, 3, 16, 3, 12, 3, 8, 3, 4]
