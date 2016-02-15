@@ -551,13 +551,11 @@ class FFI(object):
         #
         if '__pypy__' in sys.builtin_module_names:
             if sys.platform == "win32":
-                # we need 'libpypy-c.lib'.  Right now, distributions of
-                # pypy contain it as 'include/python27.lib'.  You need
-                # to manually copy it back to 'libpypy-c.lib'.  XXX Will
-                # be fixed in the next pypy release.
-                pythonlib = "libpypy-c"
+                # we need 'libpypy-c.lib'.  Current distributions of
+                # pypy (>= 4.1) contain it as 'libs/python27.lib'.
+                pythonlib = "python27"
                 if hasattr(sys, 'prefix'):
-                    ensure('library_dirs', sys.prefix)
+                    ensure('library_dirs', os.path.join(sys.prefix, 'libs'))
             else:
                 # we need 'libpypy-c.{so,dylib}', which should be by
                 # default located in 'sys.prefix/bin'
