@@ -635,7 +635,7 @@ def make_wrapper(space, callable, gil=None):
                 arg = args[i]
                 if is_PyObject(typ) and is_wrapped:
                     assert is_pyobj(arg)
-                    arg_conv = from_ref(space, arg)
+                    arg_conv = from_ref(space, rffi.cast(PyObject, arg))
                 else:
                     arg_conv = arg
                 boxed_args += (arg_conv, )
