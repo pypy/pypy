@@ -955,24 +955,20 @@ class MemoryOpAssembler(object):
         (base_loc, index_loc, value_loc, size_loc) = arglocs
         assert not base_loc.is_in_pool()
         assert not index_loc.is_in_pool()
+        assert not value_loc.is_in_pool()
         if index_loc.is_imm() and self._mem_offset_supported(index_loc.value):
             addr_loc = l.addr(index_loc.value, base_loc)
         else:
             self.mc.LGR(r.SCRATCH, index_loc)
             addr_loc = l.addr(0, base_loc, r.SCRATCH)
-        if value_loc.is_in_pool():
-            self.mc.LG(r.SCRATCH2, value_loc)
-            value_loc = r.SCRATCH2
         self._memory_store(value_loc, addr_loc, size_loc)
 
     def emit_gc_store_indexed(self, op, arglocs, regalloc):
         (base_loc, index_loc, value_loc, offset_loc, size_loc) = arglocs
         assert not base_loc.is_in_pool()
         assert not index_loc.is_in_pool()
+        assert not value_loc.is_in_pool()
         addr_loc = self._load_address(base_loc, index_loc, offset_loc, r.SCRATCH)
-        if value_loc.is_in_pool():
-            self.mc.LG(r.SCRATCH2, value_loc)
-            value_loc = r.SCRATCH2
         self._memory_store(value_loc, addr_loc, size_loc)
 
     def _load_address(self, base_loc, index_loc, offset_loc, helper_reg):

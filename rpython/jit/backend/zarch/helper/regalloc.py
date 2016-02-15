@@ -27,7 +27,7 @@ def prepare_int_add(self, op):
     if check_imm32(a1):
         l1 = imm(a1.getint())
     else:
-        l1 = self.ensure_reg(a1)
+        l1 = self.ensure_reg_or_pool(a1)
     self.force_result_in_reg(op, a0)
     self.free_op_vars()
     return [l0, l1]
@@ -41,7 +41,7 @@ def prepare_int_mul(self, op):
     if check_imm32(a1):
         l1 = imm(a1.getint())
     else:
-        l1 = self.ensure_reg(a1)
+        l1 = self.ensure_reg_or_pool(a1)
     self.force_result_in_reg(op, a0)
     self.free_op_vars()
     return [l0, l1]
@@ -54,7 +54,7 @@ def prepare_int_mul_ovf(self, op):
     if check_imm32(a1):
         l1 = imm(a1.getint())
     else:
-        l1 = self.ensure_reg(a1)
+        l1 = self.ensure_reg_or_pool(a1)
     lr,lq = self.rm.ensure_even_odd_pair(a0, op, bind_first=False)
     self.free_op_vars()
     return [lr, lq, l1]
@@ -65,9 +65,9 @@ def generate_div_mod(modulus):
         a1 = op.getarg(1)
         l1 = self.ensure_reg(a1)
         if isinstance(a0, Const):
-            poolloc = self.ensure_reg(a0)
+            poolloc = self.ensure_reg_or_pool(a0)
             lr,lq = self.rm.ensure_even_odd_pair(a0, op, bind_first=modulus, must_exist=False)
-            self.assembler.mc.LG(lq, poolloc)
+            self.assembler.regalloc_mov(poolloc, lq)
         else:
             lr,lq = self.rm.ensure_even_odd_pair(a0, op, bind_first=modulus)
         self.free_op_vars()

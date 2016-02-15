@@ -83,17 +83,24 @@ class FPRegisterManager(RegisterManager):
         offset = self.assembler.pool.get_offset(var)
         return l.pool(offset, float=True)
 
-    def ensure_reg(self, box, force_in_reg):
+    def ensure_reg_or_pool(self, box):
+        if isinstance(box, Const):
+            return self.place_in_pool(box)
+        else:
+            assert box in self.temp_boxes
+            loc = self.make_sure_var_in_reg(box,
+                    forbidden_vars=self.temp_boxes)
+        return loc
+
+    def ensure_reg(self, box):
         if isinstance(box, Const):
             poolloc = self.place_in_pool(box)
-            if force_in_reg:
-                tmp = TempVar()
-                self.temp_boxes.append(tmp)
-                reg = self.force_allocate_reg(tmp)
-                assert poolloc.displace > 0
-                self.assembler.mc.LD(reg, poolloc)
-                return reg
-            return poolloc
+            tmp = TempVar()
+            reg = self.force_allocate_reg(tmp, self.temp_boxes)
+            self.temp_boxes.append(tmp)
+            assert poolloc.displace > 0
+            self.assembler.mc.LD(reg, poolloc)
+            return reg
         else:
             assert box in self.temp_boxes
             loc = self.make_sure_var_in_reg(box,
@@ -133,18 +140,26 @@ class ZARCHRegisterManager(RegisterManager):
         off = self.pool.get_offset(c)
         return l.pool(off)
 
-    def ensure_reg(self, box, force_in_reg, selected_reg=None):
+    def ensure_reg_or_pool(self, box):
+        if isinstance(box, Const):
+            offset = self.assembler.pool.get_offset(box)
+            return l.pool(offset)
+        else:
+            assert box in self.temp_boxes
+            loc = self.make_sure_var_in_reg(box,
+                    forbidden_vars=self.temp_boxes,
+                    selected_reg=selected_reg)
+        return loc
+
+    def ensure_reg(self, box):
         if isinstance(box, Const):
             offset = self.assembler.pool.get_offset(box)
             poolloc = l.pool(offset)
-            if force_in_reg:
-                if selected_reg is None:
-                    tmp = TempInt()
-                    selected_reg = self.force_allocate_reg(tmp, forbidden_vars=self.temp_boxes)
-                    self.temp_boxes.append(tmp)
-                self.assembler.mc.LG(selected_reg, poolloc)
-                return selected_reg
-            return poolloc
+            tmp = TempInt()
+            reg = self.force_allocate_reg(tmp, forbidden_vars=self.temp_boxes)
+            self.temp_boxes.append(tmp)
+            self.assembler.mc.LG(reg, poolloc)
+            return reg
         else:
             assert box in self.temp_boxes
             loc = self.make_sure_var_in_reg(box,
@@ -586,37 +601,35 @@ class Regalloc(BaseRegalloc):
         else:
             return self.rm.call_result_location(v)
 
-    def ensure_reg(self, box, force_in_reg=False):
+    def ensure_reg(self, box)a:
         if box.type == FLOAT:
-            return self.fprm.ensure_reg(box, force_in_reg)
+            return self.fprm.ensure_reg(box)
         else:
-            return self.rm.ensure_reg(box, force_in_reg)
+            return self.rm.ensure_reg(box)
 
-    def ensure_reg_or_16bit_imm(self, box, selected_reg=None):
+    def ensure_reg_or_16bit_imm(self, box):
         if box.type == FLOAT:
             return self.fprm.ensure_reg(box, True)
         else:
             if helper.check_imm(box):
                 return imm(box.getint())
-            return self.rm.ensure_reg(box, force_in_reg=True, selected_reg=selected_reg)
+            return self.rm.ensure_reg(box)
 
-    def ensure_reg_or_20bit_imm(self, box, selected_reg=None):
+    def ensure_reg_or_20bit_imm(self, box):
         if box.type == FLOAT:
-            return self.fprm.ensure_reg(box, True)
+            return self.fprm.ensure_reg(box)
         else:
             if helper.check_imm20(box):
                 return imm(box.getint())
-            return self.rm.ensure_reg(box, force_in_reg=True, selected_reg=selected_reg)
+            return self.rm.ensure_reg(box)
 
-    def ensure_reg_or_any_imm(self, box, selected_reg=None):
+    def ensure_reg_or_any_imm(self, box):
         if box.type == FLOAT:
-            return self.fprm.ensure_reg(box, True,
-                                        selected_reg=selected_reg)
+            return self.fprm.ensure_reg(box):
         else:
             if isinstance(box, Const):
                 return imm(box.getint())
-            return self.rm.ensure_reg(box, force_in_reg=True,
-                                      selected_reg=selected_reg)
+            return self.rm.ensure_reg(box)
 
     def get_scratch_reg(self, type, selected_reg=None):
         if type == FLOAT:
@@ -673,7 +686,6 @@ class Regalloc(BaseRegalloc):
     # ******************************************************
 
     def prepare_increment_debug_counter(self, op):
-        #poolloc = self.ensure_reg(op.getarg(0))
         immvalue = self.convert_to_int(op.getarg(0))
         base_loc = r.SCRATCH
         self.assembler.mc.load_imm(base_loc, immvalue)
@@ -810,12 +822,12 @@ class Regalloc(BaseRegalloc):
         # sure it is in a register different from r.RES and r.RSZ.  (It
         # should not be a ConstInt at all.)
         length_box = op.getarg(2)
-        lengthloc = self.ensure_reg(length_box, force_in_reg=True)
+        lengthloc = self.ensure_reg(length_box)
         return [lengthloc]
 
 
     def _prepare_gc_load(self, op):
-        base_loc = self.ensure_reg(op.getarg(0), force_in_reg=True)
+        base_loc = self.ensure_reg(op.getarg(0))
         index_loc = self.ensure_reg_or_20bit_imm(op.getarg(1))
         size_box = op.getarg(2)
         assert isinstance(size_box, ConstInt)
@@ -832,7 +844,7 @@ class Regalloc(BaseRegalloc):
     prepare_gc_load_r = _prepare_gc_load
 
     def _prepare_gc_load_indexed(self, op):
-        base_loc = self.ensure_reg(op.getarg(0), force_in_reg=True)
+        base_loc = self.ensure_reg(op.getarg(0))
         index_loc = self.ensure_reg_or_20bit_imm(op.getarg(1))
         scale_box = op.getarg(2)
         offset_box = op.getarg(3)
@@ -858,7 +870,7 @@ class Regalloc(BaseRegalloc):
     prepare_gc_load_indexed_r = _prepare_gc_load_indexed
 
     def prepare_gc_store(self, op):
-        base_loc = self.ensure_reg(op.getarg(0), force_in_reg=True)
+        base_loc = self.ensure_reg(op.getarg(0))
         index_loc = self.ensure_reg_or_20bit_imm(op.getarg(1))
         value_loc = self.ensure_reg(op.getarg(2))
         size_box = op.getarg(3)
@@ -869,7 +881,7 @@ class Regalloc(BaseRegalloc):
 
     def prepare_gc_store_indexed(self, op):
         args = op.getarglist()
-        base_loc = self.ensure_reg(op.getarg(0), force_in_reg=True)
+        base_loc = self.ensure_reg(op.getarg(0))
         index_loc = self.ensure_reg_or_20bit_imm(op.getarg(1))
         value_loc = self.ensure_reg(op.getarg(2))
         scale_box = op.getarg(3)
@@ -893,12 +905,12 @@ class Regalloc(BaseRegalloc):
         return EffectInfo.OS_NONE
 
     def prepare_convert_float_bytes_to_longlong(self, op):
-        loc1 = self.ensure_reg(op.getarg(0), force_in_reg=True)
+        loc1 = self.ensure_reg(op.getarg(0))
         res = self.force_allocate_reg(op)
         return [loc1, res]
 
     def prepare_convert_longlong_bytes_to_float(self, op):
-        loc1 = self.ensure_reg(op.getarg(0), force_in_reg=True)
+        loc1 = self.ensure_reg(op.getarg(0))
         res = self.force_allocate_reg(op)
         return [loc1, res]
 
@@ -998,11 +1010,11 @@ class Regalloc(BaseRegalloc):
         return locs
 
     def prepare_cond_call_gc_wb(self, op):
-        arglocs = [self.ensure_reg(op.getarg(0), force_in_reg=True)]
+        arglocs = [self.ensure_reg(op.getarg(0))]
         return arglocs
 
     def prepare_cond_call_gc_wb_array(self, op):
-        arglocs = [self.ensure_reg(op.getarg(0), force_in_reg=True),
+        arglocs = [self.ensure_reg(op.getarg(0)),
                    self.ensure_reg_or_16bit_imm(op.getarg(1)),
                    None]
         if arglocs[1].is_reg():
@@ -1010,7 +1022,7 @@ class Regalloc(BaseRegalloc):
         return arglocs
 
     def _prepare_math_sqrt(self, op):
-        loc = self.ensure_reg(op.getarg(1), force_in_reg=True)
+        loc = self.ensure_reg(op.getarg(1))
         self.free_op_vars()
         res = self.fprm.force_allocate_reg(op)
         return [loc, res]
@@ -1060,7 +1072,7 @@ class Regalloc(BaseRegalloc):
     prepare_guard_overflow = _prepare_guard_cc
 
     def prepare_guard_class(self, op):
-        x = self.ensure_reg(op.getarg(0), force_in_reg=True)
+        x = self.ensure_reg(op.getarg(0))
         y_val = force_int(op.getarg(1).getint())
         arglocs = self._prepare_guard(op, [x, imm(y_val)])
         return arglocs
