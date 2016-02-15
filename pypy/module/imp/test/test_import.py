@@ -1105,8 +1105,7 @@ class AppTestImportHooks(object):
                 import b
             except ImportError:
                 pass
-            assert isinstance(sys.path_importer_cache['yyy'],
-                              imp.NullImporter)
+            assert sys.path_importer_cache['yyy'] is None
         finally:
             sys.path.pop(0)
             sys.path.pop(0)
