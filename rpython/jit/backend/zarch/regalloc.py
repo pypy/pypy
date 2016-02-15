@@ -991,10 +991,10 @@ class Regalloc(BaseRegalloc):
         itemsize, ofs, _ = unpack_arraydescr(op.getdescr())
         startindex_loc = self.ensure_reg_or_16bit_imm(op.getarg(1))
         tempvar = TempInt()
-        self.rm.temp_boxes.append(tempvar)
         ofs_loc = self.ensure_reg_or_16bit_imm(ConstInt(ofs))
         base_loc, length_loc = self.rm.ensure_even_odd_pair(op.getarg(0), tempvar,
               bind_first=True, must_exist=False, load_loc_odd=False)
+        self.rm.temp_boxes.append(tempvar)
 
         length_box = op.getarg(2)
         ll = self.rm.loc(length_box)
@@ -1028,17 +1028,20 @@ class Regalloc(BaseRegalloc):
     def _prepare_math_sqrt(self, op):
         loc = self.ensure_reg(op.getarg(1))
         self.free_op_vars()
+        # can be the same register as loc
         res = self.fprm.force_allocate_reg(op)
         return [loc, res]
 
     def prepare_cast_int_to_float(self, op):
         loc1 = self.ensure_reg(op.getarg(0))
+        # ok not to use forbidden_vars, parameter is a int box
         res = self.fprm.force_allocate_reg(op)
         return [loc1, res]
 
     def prepare_cast_float_to_int(self, op):
         loc1 = self.ensure_reg(op.getarg(0))
         self.free_op_vars()
+        # ok not to use forbidden_vars, parameter is a float box
         res = self.rm.force_allocate_reg(op)
         return [loc1, res]
 
