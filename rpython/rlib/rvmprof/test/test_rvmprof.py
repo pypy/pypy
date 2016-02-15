@@ -101,7 +101,7 @@ def test_enable():
         s = 0
         for i in range(num):
             s += (i << 1)
-            if s % 2423423423 == 0:
+            if s % 2123423423 == 0:
                 print s
         return s
 
