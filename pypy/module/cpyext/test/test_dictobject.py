@@ -146,7 +146,7 @@ class TestDictObject(BaseApiTest):
     def test_dictproxy(self, space, api):
         w_dict = space.sys.get('modules')
         w_proxy = api.PyDictProxy_New(w_dict)
-        assert space.is_true(space.contains(w_proxy, space.wrap('sys')))
+        assert space.contains_w(w_proxy, space.wrap('sys'))
         raises(OperationError, space.setitem,
                w_proxy, space.wrap('sys'), space.w_None)
         raises(OperationError, space.delitem,

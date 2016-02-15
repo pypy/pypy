@@ -1,4 +1,4 @@
-import sys, sysconfig, types
+import sys, types
 from .lock import allocate_lock
 
 try:
@@ -550,16 +550,31 @@ class FFI(object):
                 lst.append(value)
         #
         if '__pypy__' in sys.builtin_module_names:
-            if hasattr(sys, 'prefix'):
-                import os
-                ensure('library_dirs', os.path.join(sys.prefix, 'bin'))
-            pythonlib = "pypy-c"
+            if sys.platform == "win32":
+                # we need 'libpypy-c.lib'.  Right now, distributions of
+                # pypy contain it as 'include/python27.lib'.  You need
+                # to manually copy it back to 'libpypy-c.lib'.  XXX Will
+                # be fixed in the next pypy release.
+                pythonlib = "libpypy-c"
+                if hasattr(sys, 'prefix'):
+                    ensure('library_dirs', sys.prefix)
+            else:
+                # we need 'libpypy-c.{so,dylib}', which should be by
+                # default located in 'sys.prefix/bin'
+                pythonlib = "pypy-c"
+                if hasattr(sys, 'prefix'):
+                    import os
+                    ensure('library_dirs', os.path.join(sys.prefix, 'bin'))
         else:
             if sys.platform == "win32":
                 template = "python%d%d"
                 if hasattr(sys, 'gettotalrefcount'):
                     template += '_d'
             else:
+                try:
+                    import sysconfig
+                except ImportError:    # 2.6
+                    from distutils import sysconfig
                 template = "python%d.%d"
                 if sysconfig.get_config_var('DEBUG_EXT'):
                     template += sysconfig.get_config_var('DEBUG_EXT')

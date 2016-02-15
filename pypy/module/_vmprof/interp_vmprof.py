@@ -60,7 +60,7 @@ def enable(space, fileno, period):
     Must be smaller than 1.0
     """
     w_modules = space.sys.get('modules')
-    if space.is_true(space.contains(w_modules, space.wrap('_continuation'))):
+    if space.contains_w(w_modules, space.wrap('_continuation')):
         space.warn(space.wrap("Using _continuation/greenlet/stacklet together "
                               "with vmprof will crash"),
                    space.w_RuntimeWarning)

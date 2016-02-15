@@ -101,6 +101,7 @@ class EmbeddingTests:
             c = distutils.ccompiler.new_compiler()
             print('compiling %s with %r' % (name, modules))
             extra_preargs = []
+            debug = True
             if sys.platform == 'win32':
                 libfiles = []
                 for m in modules:
@@ -109,9 +110,12 @@ class EmbeddingTests:
                     libfiles.append('Release\\%s.lib' % m[:-4])
                 modules = libfiles
                 extra_preargs.append('/MANIFEST')
+                debug = False    # you need to install extra stuff
+                                 # for this to work
             elif threads:
                 extra_preargs.append('-pthread')
-            objects = c.compile([filename], macros=sorted(defines.items()), debug=True)
+            objects = c.compile([filename], macros=sorted(defines.items()),
+                                debug=debug)
             c.link_executable(objects + modules, name, extra_preargs=extra_preargs)
         finally:
             os.chdir(curdir)
@@ -119,12 +123,18 @@ class EmbeddingTests:
     def execute(self, name):
         path = self.get_path()
         env_extra = {'PYTHONPATH': prefix_pythonpath()}
-        libpath = os.environ.get('LD_LIBRARY_PATH')
-        if libpath:
-            libpath = path + ':' + libpath
+        if sys.platform == 'win32':
+            _path = os.environ.get('PATH')
+            # for libpypy-c.dll or Python27.dll
+            _path = os.path.split(sys.executable)[0] + ';' + _path
+            env_extra['PATH'] = _path
         else:
-            libpath = path
-        env_extra['LD_LIBRARY_PATH'] = libpath
+            libpath = os.environ.get('LD_LIBRARY_PATH')
+            if libpath:
+                libpath = path + ':' + libpath
+            else:
+                libpath = path
+            env_extra['LD_LIBRARY_PATH'] = libpath
         print('running %r in %r' % (name, path))
         executable_name = name
         if sys.platform == 'win32':

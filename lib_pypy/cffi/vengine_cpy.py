@@ -1,3 +1,6 @@
+#
+# DEPRECATED: implementation for ffi.verify()
+#
 import sys, imp
 from . import model, ffiplatform
 
