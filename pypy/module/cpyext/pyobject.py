@@ -47,6 +47,7 @@ class BaseCpyTypedescr(object):
             size = rffi.sizeof(self.basestruct)
         if itemcount:
             size += itemcount * pytype.c_tp_itemsize
+        assert size >= rffi.sizeof(PyObject.TO)
         buf = lltype.malloc(rffi.VOIDP.TO, size,
                             flavor='raw', zero=True)
         pyobj = rffi.cast(PyObject, buf)
