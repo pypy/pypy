@@ -108,13 +108,8 @@ def create_package(basedir, options, _fake=False):
     #
     builddir = py.path.local(options.builddir)
     pypydir = builddir.ensure(name, dir=True)
+
     includedir = basedir.join('include')
-    # Recursively copy all headers, shutil has only ignore
-    # so we do a double-negative to include what we want
-    def copyonly(dirpath, contents):
-        return set(contents) - set(    # XXX function not used?
-            shutil.ignore_patterns('*.h', '*.incl')(dirpath, contents),
-        )
     shutil.copytree(str(includedir), str(pypydir.join('include')))
     pypydir.ensure('include', dir=True)
 
@@ -139,22 +134,27 @@ def create_package(basedir, options, _fake=False):
                     continue
             print "Picking %s" % p
             binaries.append((p, p.basename))
-        importlib_name = 'python27.lib'
-        if pypy_c.dirpath().join(importlib_name).check():
-            shutil.copyfile(str(pypy_c.dirpath().join(importlib_name)),
-                        str(pypydir.join('include/python27.lib')))
-            print "Picking %s as %s" % (pypy_c.dirpath().join(importlib_name),
-                        pypydir.join('include/python27.lib'))
+        libsdir = basedir.join('libs')
+        if libsdir.exists():
+            print 'Picking %s (and contents)' % libsdir
+            shutil.copytree(str(libsdir), str(pypydir.join('libs')))
         else:
-            pass
-            # XXX users will complain that they cannot compile cpyext
-            # modules for windows, has the lib moved or are there no
-            # exported functions in the dll so no import library is created?
+            print '"libs" dir with import library not found.'
+            print 'You have to create %r' % (str(libsdir),)
+            print 'and copy libpypy-c.lib in there, renamed to python27.lib'
+            # XXX users will complain that they cannot compile capi (cpyext)
+            # modules for windows, also embedding pypy (i.e. in cffi)
+            # will fail.
+            # Has the lib moved, was translation not 'shared', or are 
+            # there no exported functions in the dll so no import
+            # library was created?
         if not options.no_tk:
             try:
                 p = pypy_c.dirpath().join('tcl85.dll')
                 if not p.check():
                     p = py.path.local.sysfind('tcl85.dll')
+                    if p is None:
+                        raise WindowsError("tcl85.dll not found")
                 tktcldir = p.dirpath().join('..').join('lib')
                 shutil.copytree(str(tktcldir), str(pypydir.join('tcl')))
             except WindowsError:

@@ -1,7 +1,11 @@
 #ifndef _VMPROF_STACK_H_
 #define _VMPROF_STACK_H_
 
+#ifdef _WIN32
+#define intptr_t long // XXX windows VC++ 2008 lacks stdint.h
+#else
 #include <unistd.h>
+#endif
 
 #define VMPROF_CODE_TAG 1        /* <- also in cintf.py */
 #define VMPROF_BLACKHOLE_TAG 2

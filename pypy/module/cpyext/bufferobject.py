@@ -73,7 +73,7 @@ def buffer_realize(space, py_obj):
         "Don't know how to realize a buffer"))
 
 
-@cpython_api([PyObject], lltype.Void, external=False)
+@cpython_api([PyObject], lltype.Void, header=None)
 def buffer_dealloc(space, py_obj):
     py_buf = rffi.cast(PyBufferObject, py_obj)
     if py_buf.c_b_base:
