@@ -4,7 +4,7 @@ from pypy.module.cpyext.api import (cpython_api, Py_ssize_t, CANNOT_FAIL,
                                     build_type_checkers, PyObjectFields,
                                     cpython_struct, bootstrap_function)
 from pypy.module.cpyext.pyobject import (PyObject, PyObjectP, Py_DecRef,
-    borrow_from, make_ref, from_ref, decref,
+    make_ref, from_ref, decref,
     track_reference, make_typedescr, get_typedescr)
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
 from pypy.objspace.std.tupleobject import W_TupleObject
@@ -148,7 +148,7 @@ def PyTuple_GetItem(space, ref, index):
     if index < 0 or index >= size:
         raise OperationError(space.w_IndexError,
                              space.wrap("tuple index out of range"))
-    return ref.c_ob_item[index]
+    return ref.c_ob_item[index]     # borrowed ref
 
 @cpython_api([PyObject], Py_ssize_t, error=-1)
 def PyTuple_Size(space, ref):

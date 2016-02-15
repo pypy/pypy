@@ -64,7 +64,7 @@ def PySequence_Fast_GET_ITEM(space, w_obj, index):
     else:
         assert isinstance(w_obj, tupleobject.W_TupleObject)
         w_res = w_obj.wrappeditems[index]
-    return w_res
+    return w_res     # borrowed ref
 
 @cpython_api([PyObject], Py_ssize_t, error=CANNOT_FAIL)
 def PySequence_Fast_GET_SIZE(space, w_obj):

@@ -51,7 +51,8 @@ def PyList_GetItem(space, w_list, index):
             "list index out of range"))
     w_list.ensure_object_strategy()  # make sure we can return a borrowed obj
     # XXX ^^^ how does this interact with CPyListStrategy?
-    return w_list.getitem(index)
+    w_res = w_list.getitem(index)
+    return w_res     # borrowed ref
 
 
 @cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)

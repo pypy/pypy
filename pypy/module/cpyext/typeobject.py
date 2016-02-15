@@ -646,7 +646,7 @@ def _PyType_Lookup(space, type, w_name):
     name = space.str_w(w_name)
     w_obj = w_type.lookup(name)
     # this assumes that w_obj is not dynamically created, but will stay alive
-    # until w_type is modified or dies
+    # until w_type is modified or dies.  Assuming this, we return a borrowed ref
     return w_obj
 
 @cpython_api([PyTypeObjectPtr], lltype.Void)

@@ -14,7 +14,8 @@ def PyDict_New(space):
 
 PyDict_Check, PyDict_CheckExact = build_type_checkers("Dict")
 
-@cpython_api([PyObject, PyObject], PyObject, error=CANNOT_FAIL, result_borrowed=True)
+@cpython_api([PyObject, PyObject], PyObject, error=CANNOT_FAIL,
+             result_borrowed=True)
 def PyDict_GetItem(space, w_dict, w_key):
     try:
         w_res = space.getitem(w_dict, w_key)
@@ -22,7 +23,7 @@ def PyDict_GetItem(space, w_dict, w_key):
         return None
     # NOTE: this works so far because all our dict strategies store
     # *values* as full objects, which stay alive as long as the dict is
-    # alive and not modified.
+    # alive and not modified.  So we can return a borrowed ref.
     return w_res
 
 @cpython_api([PyObject, PyObject, PyObject], rffi.INT_real, error=-1)
@@ -61,7 +62,7 @@ def PyDict_GetItemString(space, w_dict, key):
         w_res = None
     # NOTE: this works so far because all our dict strategies store
     # *values* as full objects, which stay alive as long as the dict is
-    # alive and not modified.
+    # alive and not modified.  So we can return a borrowed ref.
     return w_res
 
 @cpython_api([PyObject, CONST_STRING], rffi.INT_real, error=-1)
