@@ -530,6 +530,7 @@ def struct_use_ctypes_storage(container, ctypes_storage):
 # Ctypes-aware subclasses of the _parentable classes
 
 ALLOCATED = {}     # mapping {address: _container}
+DEBUG_ALLOCATED = True
 
 def get_common_subclass(cls1, cls2, cache={}):
     """Return a unique subclass with (cls1, cls2) as bases."""
@@ -569,7 +570,8 @@ class _parentable_mixin(object):
             raise Exception("internal ll2ctypes error - "
                             "double conversion from lltype to ctypes?")
         # XXX don't store here immortal structures
-        print "LL2CTYPES:", addr
+        if DEBUG_ALLOCATED:
+            print "LL2CTYPES:", hex(addr)
         ALLOCATED[addr] = self
 
     def _addressof_storage(self):
@@ -582,7 +584,8 @@ class _parentable_mixin(object):
         self._check()   # no double-frees
         # allow the ctypes object to go away now
         addr = ctypes.cast(self._storage, ctypes.c_void_p).value
-        print "LL2C FREE:", addr
+        if DEBUG_ALLOCATED:
+            print "LL2C FREE:", hex(addr)
         try:
             del ALLOCATED[addr]
         except KeyError:

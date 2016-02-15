@@ -28,7 +28,7 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
                  if(PyString_Size(s) == 11) {
                      result = 1;
                  }
-                 if(s->ob_type->tp_basicsize != sizeof(void*)*4)
+                 if(s->ob_type->tp_basicsize != sizeof(void*)*5)
                      result = 0;
                  Py_DECREF(s);
                  return PyBool_FromLong(result);
