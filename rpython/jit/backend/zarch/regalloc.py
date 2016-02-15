@@ -147,8 +147,7 @@ class ZARCHRegisterManager(RegisterManager):
         else:
             assert box in self.temp_boxes
             loc = self.make_sure_var_in_reg(box,
-                    forbidden_vars=self.temp_boxes,
-                    selected_reg=selected_reg)
+                    forbidden_vars=self.temp_boxes)
         return loc
 
     def ensure_reg(self, box):
@@ -163,8 +162,7 @@ class ZARCHRegisterManager(RegisterManager):
         else:
             assert box in self.temp_boxes
             loc = self.make_sure_var_in_reg(box,
-                    forbidden_vars=self.temp_boxes,
-                    selected_reg=selected_reg)
+                    forbidden_vars=self.temp_boxes)
         return loc
 
     def get_scratch_reg(self, selected_reg=None):
@@ -601,7 +599,13 @@ class Regalloc(BaseRegalloc):
         else:
             return self.rm.call_result_location(v)
 
-    def ensure_reg(self, box)a:
+    def ensure_reg_or_pool(self, box):
+        if box.type == FLOAT:
+            return self.fprm.ensure_reg_or_pool(box)
+        else:
+            return self.rm.ensure_reg_or_pool(box)
+
+    def ensure_reg(self, box):
         if box.type == FLOAT:
             return self.fprm.ensure_reg(box)
         else:
@@ -609,7 +613,7 @@ class Regalloc(BaseRegalloc):
 
     def ensure_reg_or_16bit_imm(self, box):
         if box.type == FLOAT:
-            return self.fprm.ensure_reg(box, True)
+            return self.fprm.ensure_reg(box)
         else:
             if helper.check_imm(box):
                 return imm(box.getint())
@@ -625,7 +629,7 @@ class Regalloc(BaseRegalloc):
 
     def ensure_reg_or_any_imm(self, box):
         if box.type == FLOAT:
-            return self.fprm.ensure_reg(box):
+            return self.fprm.ensure_reg(box)
         else:
             if isinstance(box, Const):
                 return imm(box.getint())
@@ -1107,7 +1111,7 @@ class Regalloc(BaseRegalloc):
         return locs
 
     def prepare_guard_exception(self, op):
-        loc = self.ensure_reg(op.getarg(0), force_in_reg=True)
+        loc = self.ensure_reg(op.getarg(0))
         if op in self.longevity:
             resloc = self.force_allocate_reg(op)
         else:
@@ -1116,7 +1120,7 @@ class Regalloc(BaseRegalloc):
         return arglocs
 
     def prepare_guard_is_object(self, op):
-        loc_object = self.ensure_reg(op.getarg(0), force_in_reg=True)
+        loc_object = self.ensure_reg(op.getarg(0))
         arglocs = self._prepare_guard(op, [loc_object])
         return arglocs
 
@@ -1126,8 +1130,8 @@ class Regalloc(BaseRegalloc):
     prepare_save_exc_class = prepare_save_exception
 
     def prepare_restore_exception(self, op):
-        loc0 = self.ensure_reg(op.getarg(0), force_in_reg=True)
-        loc1 = self.ensure_reg(op.getarg(1), force_in_reg=True)
+        loc0 = self.ensure_reg(op.getarg(0))
+        loc1 = self.ensure_reg(op.getarg(1))
         return [loc0, loc1]
 
     def prepare_copystrcontent(self, op):
@@ -1145,7 +1149,7 @@ class Regalloc(BaseRegalloc):
                              must_exist=False, load_loc_odd=False)
         src_ofs_loc = self.ensure_reg_or_any_imm(op.getarg(2))
         self.rm.temp_boxes.append(src_tmp)
-        dst_ptr_loc = self.ensure_reg(op.getarg(1), force_in_reg=True)
+        dst_ptr_loc = self.ensure_reg(op.getarg(1))
         dst_ofs_loc = self.ensure_reg_or_any_imm(op.getarg(3))
         length_loc  = self.ensure_reg_or_any_imm(op.getarg(4))
         # no need to spill, we do not call memcpy, but we use s390x's
