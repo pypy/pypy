@@ -42,7 +42,7 @@ else:
 
 def _getfilesystemencoding(space):
     encoding = base_encoding
-    if rlocale.HAVE_LANGINFO and rlocale.CODESET:
+    if rlocale.HAVE_LANGINFO:
         try:
             oldlocale = rlocale.setlocale(rlocale.LC_CTYPE, None)
             rlocale.setlocale(rlocale.LC_CTYPE, "")
