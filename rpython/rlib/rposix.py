@@ -874,6 +874,10 @@ def _make_waitmacro(name):
     # note that rffi.INT as first parameter type is intentional.
     # on s390x providing a lltype.Signed as param type, the
     # macro wrapper function will always return 0
+    # reason: legacy code required a union wait. see
+    # https://sourceware.org/bugzilla/show_bug.cgi?id=19613
+    # for more details. If this get's fixed we can use lltype.Signed
+    # again.
     c_func = external(name, [rffi.INT], lltype.Signed,
                       macro=_MACRO_ON_POSIX)
     returning_int = name in ('WEXITSTATUS', 'WSTOPSIG', 'WTERMSIG')
