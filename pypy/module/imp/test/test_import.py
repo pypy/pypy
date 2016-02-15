@@ -1040,7 +1040,7 @@ class AppTestImportHooks(object):
         import sys, math
         del sys.modules["math"]
 
-        sys.meta_path.append(Importer())
+        sys.meta_path.insert(0, Importer())
         try:
             import math
             assert len(tried_imports) == 1
@@ -1050,7 +1050,7 @@ class AppTestImportHooks(object):
             else:
                 assert tried_imports[0][0] == "math"
         finally:
-            sys.meta_path.pop()
+            sys.meta_path.pop(0)
 
     def test_meta_path_block(self):
         class ImportBlocker(object):
@@ -1069,7 +1069,7 @@ class AppTestImportHooks(object):
         if modname in sys.modules:
             mod = sys.modules
             del sys.modules[modname]
-        sys.meta_path.append(ImportBlocker(modname))
+        sys.meta_path.insert(0, ImportBlocker(modname))
         try:
             raises(ImportError, __import__, modname)
             # the imp module doesn't use meta_path, and is not blocked
@@ -1077,7 +1077,7 @@ class AppTestImportHooks(object):
             file, filename, stuff = imp.find_module(modname)
             imp.load_module(modname, file, filename, stuff)
         finally:
-            sys.meta_path.pop()
+            sys.meta_path.pop(0)
             if mod:
                 sys.modules[modname] = mod
 
