@@ -231,7 +231,9 @@ class TestString(BaseApiTest):
         ref = make_ref(space, space.wrap('abc'))
         ptr = lltype.malloc(PyObjectP.TO, 1, flavor='raw')
         ptr[0] = ref
+        prev_refcnt = ref.c_ob_refcnt
         api.PyString_Concat(ptr, space.wrap('def'))
+        assert ref.c_ob_refcnt == prev_refcnt - 1
         assert space.str_w(from_ref(space, ptr[0])) == 'abcdef'
         api.PyString_Concat(ptr, space.w_None)
         assert not ptr[0]
@@ -244,14 +246,16 @@ class TestString(BaseApiTest):
         ref2 = make_ref(space, space.wrap('def'))
         ptr = lltype.malloc(PyObjectP.TO, 1, flavor='raw')
         ptr[0] = ref1
+        prev_refcnf = ref2.c_ob_refcnt
         api.PyString_ConcatAndDel(ptr, ref2)
         assert space.str_w(from_ref(space, ptr[0])) == 'abcdef'
-        assert ref2.c_ob_refcnt == 0
+        assert ref2.c_ob_refcnt == prev_refcnf - 1
         Py_DecRef(space, ptr[0])
         ptr[0] = lltype.nullptr(PyObject.TO)
         ref2 = make_ref(space, space.wrap('foo'))
+        prev_refcnf = ref2.c_ob_refcnt
         api.PyString_ConcatAndDel(ptr, ref2) # should not crash
-        assert ref2.c_ob_refcnt == 0
+        assert ref2.c_ob_refcnt == prev_refcnf - 1
         lltype.free(ptr, flavor='raw')
 
     def test_format(self, space, api):
