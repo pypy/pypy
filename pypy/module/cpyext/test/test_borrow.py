@@ -65,4 +65,5 @@ class AppTestBorrow(AppTestCpythonExtensionBase):
             ])
         wr = module.run()
         # check that the set() object was deallocated
+        self.debug_collect()
         assert wr() is None
