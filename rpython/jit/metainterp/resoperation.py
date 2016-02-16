@@ -332,7 +332,7 @@ class AbstractResOp(AbstractResOpOrInputArg):
             descr = self.getdescr()
         if descr is DONT_CHANGE:
             descr = None
-        newop = ResOperation(opnum, args, descr)
+        newop = ResOperation(opnum, args, -1, descr)
         if self.type != 'v':
             newop.copy_value_from(self)
         return newop
@@ -1404,19 +1404,23 @@ class rop(object):
     def is_comparison(opnum):
         return rop.is_always_pure(opnum) and rop.returns_bool_result(opnum)
 
-    def is_foldable_guard(self):
-        return rop._GUARD_FOLDABLE_FIRST <= self.getopnum() <= rop._GUARD_FOLDABLE_LAST
+    @staticmethod
+    def is_foldable_guard(opnum):
+        return rop._GUARD_FOLDABLE_FIRST <= opnum <= rop._GUARD_FOLDABLE_LAST
 
-    def is_guard_exception(self):
-        return (self.getopnum() == rop.GUARD_EXCEPTION or
-                self.getopnum() == rop.GUARD_NO_EXCEPTION)
+    @staticmethod
+    def is_guard_exception(opnum):
+        return (opnum == rop.GUARD_EXCEPTION or
+                opnum == rop.GUARD_NO_EXCEPTION)
 
-    def is_guard_overflow(self):
-        return (self.getopnum() == rop.GUARD_OVERFLOW or
-                self.getopnum() == rop.GUARD_NO_OVERFLOW)
+    @staticmethod
+    def is_guard_overflow(opnum):
+        return (opnum == rop.GUARD_OVERFLOW or
+                opnum == rop.GUARD_NO_OVERFLOW)
 
-    def is_jit_debug(self):
-        return rop._JIT_DEBUG_FIRST <= self.getopnum() <= rop._JIT_DEBUG_LAST
+    @staticmethod
+    def is_jit_debug(opnum):
+        return rop._JIT_DEBUG_FIRST <= opnum <= rop._JIT_DEBUG_LAST
 
     @staticmethod
     def is_always_pure(opnum):
@@ -1465,8 +1469,8 @@ class rop(object):
                 opnum == rop.CALL_ASSEMBLER_N or
                 opnum == rop.CALL_ASSEMBLER_F)
 
-    def is_call_may_force(self):
-        opnum = self.opnum
+    @staticmethod
+    def is_call_may_force(opnum):
         return (opnum == rop.CALL_MAY_FORCE_I or
                 opnum == rop.CALL_MAY_FORCE_R or
                 opnum == rop.CALL_MAY_FORCE_N or

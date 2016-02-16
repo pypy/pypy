@@ -13,6 +13,8 @@ MAXINT = 65536
 class TraceIterator(object):
     def __init__(self, trace, end):
         self.trace = trace
+        self.inputargs = [rop.inputarg_from_tp(arg.type) for
+                          arg in self.trace.inputargs]
         self.pos = 0
         self._count = 0
         self.end = end
@@ -20,7 +22,7 @@ class TraceIterator(object):
 
     def _get(self, i):
         if i < 0:
-            return self.trace.inputargs[-i - 1]
+            return self.inputargs[-i - 1]
         res = self._cache[i]
         assert res is not None
         return res

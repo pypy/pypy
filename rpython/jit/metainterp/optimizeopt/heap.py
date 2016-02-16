@@ -323,11 +323,11 @@ class OptHeap(Optimization):
             Optimization.emit_operation(self, op)
 
     def emitting_operation(self, op):
-        if OpHelpers.has_no_side_effect(op.opnum):
+        if rop.has_no_side_effect(op.opnum):
             return
-        if op.is_ovf():
+        if rop.is_ovf(op.opnum):
             return
-        if op.is_guard():
+        if rop.is_guard(op.opnum):
             self.optimizer.pendingfields = (
                 self.force_lazy_sets_for_guard())
             return
