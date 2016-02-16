@@ -292,8 +292,8 @@ class ZARCHRegisterManager(RegisterManager):
         # require one spill, thus we need to spill two!
         # this is a rare case!
         for even, odd in r.MANAGED_REG_PAIRS:
-            orig_var_even = reverse_mapping[even]
-            orig_var_odd = reverse_mapping[odd]
+            orig_var_even = reverse_mapping.get(even,None)
+            orig_var_odd = reverse_mapping.get(odd,None)
             if orig_var_even in forbidden_vars or \
                orig_var_odd in forbidden_vars:
                 continue
