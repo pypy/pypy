@@ -1,9 +1,12 @@
-from rpython.rtyper.extregistry import ExtRegistryEntry
-from rpython.rtyper.lltypesystem.lltype import typeOf, FuncType, functionptr, _ptr
-from rpython.annotator.model import unionof, SomeBuiltin
+from rpython.annotator.model import unionof, SomeObject
 from rpython.annotator.signature import annotation, SignatureError
+from rpython.rtyper.extregistry import ExtRegistryEntry
+from rpython.rtyper.lltypesystem.lltype import (
+    typeOf, FuncType, functionptr, _ptr)
+from rpython.rtyper.error import TyperError
+from rpython.rtyper.rbuiltin import BuiltinFunctionRepr
 
-class SomeExternalFunction(SomeBuiltin):
+class SomeExternalFunction(SomeObject):
     def __init__(self, name, args_s, s_result):
         self.name = name
         self.args_s = args_s
@@ -20,21 +23,31 @@ class SomeExternalFunction(SomeBuiltin):
         for i, s_param in enumerate(params_s):
             arg = unionof(args_s[i], s_param)
             if not s_param.contains(arg):
-                raise SignatureError("In call to external function %r:\n"
-                                "arg %d must be %s,\n"
-                                "          got %s" % (
-                    self.name, i+1, s_param, args_s[i]))
+                raise SignatureError(
+                    "In call to external function %r:\n"
+                    "arg %d must be %s,\n"
+                    "          got %s" % (
+                        self.name, i + 1, s_param, args_s[i]))
 
     def call(self, callspec):
         self.check_args(callspec)
         return self.s_result
+
+    def rtyper_makerepr(self, rtyper):
+        if not self.is_constant():
+            raise TyperError("Non-constant external function!")
+        return BuiltinFunctionRepr(self.const)
+
+    def rtyper_makekey(self):
+        return self.__class__, self.const
+
 
 class ExtFuncEntry(ExtRegistryEntry):
     safe_not_sandboxed = False
 
     def compute_annotation(self):
         s_result = SomeExternalFunction(
-                self.name, self.signature_args, self.signature_result)
+            self.name, self.signature_args, self.signature_result)
         if (self.bookkeeper.annotator.translator.config.translation.sandbox
                 and not self.safe_not_sandboxed):
             s_result.needs_sandboxing = True
