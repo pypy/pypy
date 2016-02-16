@@ -188,14 +188,41 @@ class AbstractAttribute(object):
         obj._set_mapdict_map(self)
         obj._mapdict_write_storage(self.storageindex, w_value)
 
+
+    @jit.elidable
+    def _find_branch_to_move_into(self, name, index):
+        # walk up the map chain to find an ancestor with lower order that
+        # already has the current name as a child inserted
+        current_order = sys.maxint
+        number_to_readd = 0
+        current = self
+        key = (name, index)
+        while True:
+            attr = None
+            if current.cache_attrs is not None:
+                attr = current.cache_attrs.get(key, None)
+            if attr is None or attr.order > current_order:
+                # we reached the top, so we didn't find it anywhere,
+                # just add it to the top attribute
+                if not isinstance(current, PlainAttribute):
+                    return 0, self._get_new_attr(name, index)
+
+            else:
+                return number_to_readd, attr
+            # if not found try parent
+            number_to_readd += 1
+            current_order = current.order
+            current = current.back
+
     @jit.look_inside_iff(lambda self, obj, name, index, w_value:
             jit.isconstant(self) and
             jit.isconstant(name) and
             jit.isconstant(index))
     def _reorder_and_add(self, obj, name, index, w_value):
-        # the idea is as follows: the subtrees of any map are ordered by insertion.
-        # the invariant is that subtrees that are inserted later must not contain
-        # the name of the attribute of any earlier inserted attribute anywhere
+	# the idea is as follows: the subtrees of any map are ordered by
+	# insertion.  the invariant is that subtrees that are inserted later
+	# must not contain the name of the attribute of any earlier inserted
+	# attribute anywhere
         #                              m______
         #         inserted first      / \ ... \   further attributes
         #           attrname a      0/  1\    n\
@@ -217,41 +244,23 @@ class AbstractAttribute(object):
         while True:
             current = self
             number_to_readd = 0
-            current_order = sys.maxint
-            # walk up the map chain to find an ancestor with lower order that
-            # already has the current name as a child inserted
-            while True:
-                attr = current._get_cache_attr(name, index)
-                if attr is None or attr.order > current_order:
-                    # we reached the top, so we didn't find it anywhere,
-                    # just add it
-                    if not isinstance(current, PlainAttribute):
-                        self._add_attr_without_reordering(obj, name, index, w_value)
-                        break
-
-                    # if not found try parent
-                    else:
-                        number_to_readd += 1
-                        current_order = current.order
-                        current = current.back
-                else:
-                    # we found the attributes further up, need to save the
-                    # previous values of the attributes we passed
-                    if number_to_readd:
-                        if stack_maps is None:
-                            stack_maps = [None] * self.length()
-                            stack_values = [None] * self.length()
-                        current = self
-                        for i in range(number_to_readd):
-                            assert isinstance(current, PlainAttribute)
-                            w_self_value = obj._mapdict_read_storage(
-                                    current.storageindex)
-                            stack_maps[stack_index] = current
-                            stack_values[stack_index] = w_self_value
-                            stack_index += 1
-                            current = current.back
-                    attr._switch_map_and_write_storage(obj, w_value)
-                    break
+            number_to_readd, attr = self._find_branch_to_move_into(name, index)
+            # we found the attributes further up, need to save the
+            # previous values of the attributes we passed
+            if number_to_readd:
+                if stack_maps is None:
+                    stack_maps = [None] * self.length()
+                    stack_values = [None] * self.length()
+                current = self
+                for i in range(number_to_readd):
+                    assert isinstance(current, PlainAttribute)
+                    w_self_value = obj._mapdict_read_storage(
+                            current.storageindex)
+                    stack_maps[stack_index] = current
+                    stack_values[stack_index] = w_self_value
+                    stack_index += 1
+                    current = current.back
+            attr._switch_map_and_write_storage(obj, w_value)
 
             if not stack_index:
                 return
