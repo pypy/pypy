@@ -98,7 +98,7 @@ class Type(object):
         else:
             global_attrs += 'global'
 
-        hash_ = database.genllvm.gcpolicy.get_prebuilt_hash(obj)
+        hash_ = database.genllvm.gcpolicy.gctransformer.get_prebuilt_hash(obj)
         if hash_ is None:
             if self.varsize:
                 extra_len = self.get_extra_len(obj)
@@ -1653,9 +1653,6 @@ class GCPolicy(object):
     def get_gc_fields(self):
         return [(database.get_type(self.gctransformer.HDR), '_gc_header')]
 
-    def get_prebuilt_hash(self, obj):
-        pass
-
     def finish(self):
         genllvm = self.genllvm
         while self.delayed_ptrs:
@@ -1696,22 +1693,9 @@ class FrameworkGCPolicy(GCPolicy):
 
     def get_gc_field_values(self, obj):
         obj = lltype.top_container(obj)
-        needs_hash = self.get_prebuilt_hash(obj) is not None
+        needs_hash = self.gctransformer.get_prebuilt_hash(obj) is not None
         hdr = self.gctransformer.gc_header_for(obj, needs_hash)
         return [hdr._obj]
-
-    # from c backend
-    def get_prebuilt_hash(self, obj):
-        # for prebuilt objects that need to have their hash stored and
-        # restored.  Note that only structures that are StructNodes all
-        # the way have their hash stored (and not e.g. structs with var-
-        # sized arrays at the end).  'obj' must be the top_container.
-        TYPE = lltype.typeOf(obj)
-        if not isinstance(TYPE, lltype.GcStruct):
-            return None
-        if TYPE._is_varsize():
-            return None
-        return getattr(obj, '_hash_cache_', None)
 
 
 class RefcountGCPolicy(GCPolicy):
