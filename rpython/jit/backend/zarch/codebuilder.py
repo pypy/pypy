@@ -195,9 +195,9 @@ class InstrBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
     def sync(self):
         self.BCR_rr(0xf,0)
 
-    def raw_call(self, call_reg=r.RETURN):
+    def raw_call(self, call_reg=r.r14):
         """Emit a call to the address stored in the register 'call_reg',
-        which must be either RAW_CALL_REG or r12.  This is a regular C
+        which must be either RAW_CALL_REG or r11.  This is a regular C
         function pointer, which means on big-endian that it is actually
         the address of a three-words descriptor.
         """

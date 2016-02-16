@@ -367,7 +367,7 @@ class CallOpAssembler(object):
     def _find_nearby_operation(self, regalloc, delta):
         return regalloc.operations[regalloc.rm.position + delta]
 
-    _COND_CALL_SAVE_REGS = [r.r12, r.r2, r.r3, r.r4, r.r5]
+    _COND_CALL_SAVE_REGS = [r.r11, r.r2, r.r3, r.r4, r.r5]
 
     def emit_cond_call(self, op, arglocs, regalloc):
         fcond = self.guard_success_cc
@@ -378,7 +378,7 @@ class CallOpAssembler(object):
         jmp_adr = self.mc.get_relative_pos()
         self.mc.reserve_cond_jump() # patched later to a relative branch
 
-        # save away r2, r3, r4, r5, r12 into the jitframe
+        # save away r2, r3, r4, r5, r11 into the jitframe
         should_be_saved = [
             reg for reg in self._regalloc.rm.reg_bindings.itervalues()
                 if reg in self._COND_CALL_SAVE_REGS]
@@ -388,9 +388,9 @@ class CallOpAssembler(object):
         self.load_gcmap(self.mc, r.SCRATCH2, regalloc.get_gcmap())
         #
         # load the 0-to-4 arguments into these registers, with the address of
-        # the function to call into r12
+        # the function to call into r11
         remap_frame_layout(self, arglocs,
-                           [r.r12, r.r2, r.r3, r.r4, r.r5][:len(arglocs)],
+                           [r.r11, r.r2, r.r3, r.r4, r.r5][:len(arglocs)],
                            r.SCRATCH)
         #
         # figure out which variant of cond_call_slowpath to call, and call it

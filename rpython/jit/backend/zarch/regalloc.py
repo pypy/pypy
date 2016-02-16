@@ -171,24 +171,29 @@ class ZARCHRegisterManager(RegisterManager):
         self.temp_boxes.append(box)
         return reg
 
-    def ensure_even_odd_pair(self, var, bindvar, bind_first=True,
+    def ensure_even_odd_pair(self, origvar, bindvar, bind_first=True,
                              must_exist=True, load_loc_odd=True,
                              move_regs=True):
         """ Allocates two registers that can be used by the instruction.
-            var: is the original register holding the value
+            origvar: is the original register holding the value
             bindvar: is the variable that will be bound
                      (= self.reg_bindings[bindvar] = new register)
             bind_first: the even register will be bound to bindvar,
                         if bind_first == False: the odd register will
                         be bound
         """
-        self._check_type(var)
-        prev_loc = self.loc(var, must_exist=must_exist)
+        self._check_type(origvar)
+        prev_loc = self.loc(origvar, must_exist=must_exist)
         var2 = TempVar()
+        if bindvar is None:
+            bindvar = TempVar()
         if bind_first:
             loc, loc2 = self.force_allocate_reg_pair(bindvar, var2, self.temp_boxes)
         else:
             loc, loc2 = self.force_allocate_reg_pair(var2, bindvar, self.temp_boxes)
+        if isinstance(bindvar, TempVar):
+            self.temp_boxes.append(bindvar)
+
         self.temp_boxes.append(var2)
         assert loc.is_even() and loc2.is_odd()
         if move_regs and prev_loc is not loc2:
@@ -198,147 +203,114 @@ class ZARCHRegisterManager(RegisterManager):
                 self.assembler.regalloc_mov(prev_loc, loc)
         return loc, loc2
 
-    def force_allocate_reg_pair(self, var, var2, forbidden_vars=[], selected_reg=None):
-        """ Forcibly allocate a register for the new variable var.
-        var will have an even register (var2 will have an odd register).
+    def force_allocate_reg_pair(self, even_var, odd_var, forbidden_vars):
+        """ Forcibly allocate a register for the new variable even_var.
+            even_var will have an even register (odd_var, you guessed it,
+            will have an odd register).
         """
-        self._check_type(var)
-        self._check_type(var2)
-        if isinstance(var, TempVar):
-            self.longevity[var] = (self.position, self.position)
-        if isinstance(var2, TempVar):
-            self.longevity[var2] = (self.position, self.position)
+        self._check_type(even_var)
+        self._check_type(odd_var)
+        if isinstance(even_var, TempVar):
+            self.longevity[even_var] = (self.position, self.position)
+        if isinstance(odd_var, TempVar):
+            self.longevity[odd_var] = (self.position, self.position)
+
+        # this function steps through the following:
+        # 1) maybe there is an even/odd pair that is always
+        #    free, then allocate them!
+        # 2) try to just spill one variable in either the even
+        #    or the odd reg
+        # 3) spill two variables
+
+        # start in 1)
+        SPILL_EVEN = 0
+        SPILL_ODD = 1
         even, odd = None, None
-        REGS = r.registers
+        candidates = []
         i = len(self.free_regs)-1
-        candidates = {}
         while i >= 0:
             even = self.free_regs[i]
             if even.is_even():
                 # found an even registers that is actually free
-                odd = REGS[even.value+1]
-                if odd not in r.MANAGED_REGS:
-                    # makes no sense to use this register!
-                    i -= 1
-                    continue
+                odd = r.registers[even.value+1]
                 if odd not in self.free_regs:
                     # sadly odd is not free, but for spilling
                     # we found a candidate
-                    candidates[odd] = True
+                    candidates.append((even, odd, SPILL_ODD))
                     i -= 1
                     continue
-                assert var not in self.reg_bindings
-                assert var2 not in self.reg_bindings
-                self.reg_bindings[var] = even
-                self.reg_bindings[var2] = odd
-                del self.free_regs[i]
-                i = self.free_regs.index(odd)
-                del self.free_regs[i]
-                assert even.is_even() and odd.is_odd()
+                # even is free and so is odd! allocate these
+                # two registers
+                assert even_var not in self.reg_bindings
+                assert odd_var not in self.reg_bindings
+                self.reg_bindings[even_var] = even
+                self.reg_bindings[odd_var] = odd
+                self.free_regs = [fr for fr in self.free_regs \
+                                  if fr is not even and \
+                                     fr is not odd]
                 return even, odd
             else:
                 # an odd free register, maybe the even one is
                 # a candidate?
                 odd = even
-                even = REGS[odd.value-1]
-                if even not in r.MANAGED_REGS:
-                    # makes no sense to use this register!
-                    i -= 1
-                    continue
+                even = r.registers[odd.value-1]
                 if even not in self.free_regs:
                     # yes even might be a candidate
                     # this means that odd is free, but not even
-                    candidates[even] = True
+                    candidates.append((even, odd, SPILL_EVEN))
             i -= 1
 
-        if len(candidates) != 0:
-            cur_max_age = -1
-            candidate = None
-            # pseudo step to find best spilling candidate
-            # similar to _pick_variable_to_spill, but tailored
-            # to take the even/odd register allocation in consideration
-            for next in self.reg_bindings:
-                if next in forbidden_vars:
-                    continue
-                reg = self.reg_bindings[next]
-                if reg in candidates:
-                    reg2 = None
-                    if reg.is_even():
-                        reg2 = REGS[reg.value+1]
-                    else:
-                        reg2 = REGS[reg.value-1]
-                    if reg2 not in r.MANAGED_REGS:
-                        continue
-                    max_age = self.longevity[next][1]
-                    if cur_max_age < max_age:
-                        cur_max_age = max_age
-                        candidate = next
-            if candidate is not None:
-                # well, we got away with a single spill :)
-                reg = self.reg_bindings[candidate]
-                self._sync_var(candidate)
-                del self.reg_bindings[candidate]
-                if reg.is_even():
-                    assert var is not candidate
-                    self.reg_bindings[var] = reg
-                    rmfree = REGS[reg.value+1]
-                    self.reg_bindings[var2] = rmfree
-                    self.free_regs = [fr for fr in self.free_regs if fr is not rmfree]
-                    return reg, rmfree
-                else:
-                    assert var2 is not candidate
-                    self.reg_bindings[var2] = reg
-                    rmfree = REGS[reg.value-1]
-                    self.reg_bindings[var] = rmfree
-                    self.free_regs = [fr for fr in self.free_regs if fr is not rmfree]
-                    return rmfree, reg
+        reverse_mapping = {}
+        for v, reg in self.reg_bindings.items():
+            reverse_mapping[reg] = v
+
+        # needs to spill one variable
+        for even, odd, which_to_spill in candidates:
+            # no heuristic, pick the first
+            if which_to_spill == SPILL_EVEN:
+                orig_var_even = reverse_mapping[even]
+                if orig_var_even in forbidden_vars:
+                    continue # duh!
+                self._sync_var(orig_var_even)
+                del self.reg_bindings[orig_var_even]
+            elif which_to_spill == SPILL_ODD:
+                orig_var_odd = reverse_mapping[odd]
+                if orig_var_odd in forbidden_vars:
+                    continue # duh!
+                self._sync_var(orig_var_odd)
+                del self.reg_bindings[orig_var_odd]
+            
+            # well, we got away with a single spill :)
+            self.free_regs = [fr for fr in self.free_regs \
+                              if fr is not even and \
+                                 fr is not odd]
+            self.reg_bindings[even_var] = even
+            self.reg_bindings[odd_var] = odd
+            return even, odd
 
         # there is no candidate pair that only would
         # require one spill, thus we need to spill two!
         # this is a rare case!
-        reverse_mapping = {}
-        for v, reg in self.reg_bindings.items():
-            reverse_mapping[reg] = v
-        # always take the first
-        for i, reg in enumerate(r.MANAGED_REGS):
-            if i % 2 == 1:
+        for even, odd in r.MANAGED_REG_PAIRS:
+            orig_var_even = reverse_mapping[even]
+            orig_var_odd = reverse_mapping[odd]
+            if orig_var_even in forbidden_vars or \
+               orig_var_odd in forbidden_vars:
                 continue
-            if i+1 < len(r.MANAGED_REGS):
-                reg2 = r.MANAGED_REGS[i+1]
-                assert reg.is_even() and reg2.is_odd()
-                ovar = reverse_mapping.get(reg,None)
-                if ovar is None:
-                    continue
-                if ovar in forbidden_vars:
-                    continue
-                ovar2 = reverse_mapping.get(reg2, None)
-                if ovar2 is not None and ovar2 in forbidden_vars:
-                    # blocked, try other register pair
-                    continue
-                even = reg
-                odd = reg2
-                self._sync_var(ovar)
-                self._sync_var(ovar2)
-                del self.reg_bindings[ovar]
-                if ovar2 is not None:
-                    del self.reg_bindings[ovar2]
-                # both are not added to free_regs! no need to do so
-                self.reg_bindings[var] = even
-                self.reg_bindings[var2] = odd
-                break
+
+            self._sync_var(orig_var_even)
+            del self.reg_bindings[orig_var_even]
+            self._sync_var(orig_var_odd)
+            del self.reg_bindings[orig_var_odd]
+
+            self.reg_bindings[even_var] = even
+            self.reg_bindings[odd_var] = odd
+            break
         else:
             # no break! this is bad. really bad
             raise NoVariableToSpill()
 
-        reverse_mapping = None
-
         return even, odd
-
-    def force_result_in_even_reg(self, result_v, loc, forbidden_vars=[]):
-        pass
-
-    def force_result_in_odd_reg(self, result_v, loc, forbidden_vars=[]):
-        pass
 
 class ZARCHFrameManager(FrameManager):
     def __init__(self, base_ofs):
@@ -990,11 +962,9 @@ class Regalloc(BaseRegalloc):
         # args: base, start, len, scale_start, scale_len
         itemsize, ofs, _ = unpack_arraydescr(op.getdescr())
         startindex_loc = self.ensure_reg_or_16bit_imm(op.getarg(1))
-        tempvar = TempInt()
         ofs_loc = self.ensure_reg_or_16bit_imm(ConstInt(ofs))
-        base_loc, length_loc = self.rm.ensure_even_odd_pair(op.getarg(0), tempvar,
+        base_loc, length_loc = self.rm.ensure_even_odd_pair(op.getarg(0), None,
               bind_first=True, must_exist=False, load_loc_odd=False)
-        self.rm.temp_boxes.append(tempvar)
 
         length_box = op.getarg(2)
         ll = self.rm.loc(length_box)
@@ -1145,13 +1115,11 @@ class Regalloc(BaseRegalloc):
             src_len: when entering the assembler, src_ofs_loc's value is contained
               in src_len register.
         """
-        src_tmp = TempVar()
         src_ptr_loc, _ = \
                 self.rm.ensure_even_odd_pair(op.getarg(0),
-                             src_tmp, bind_first=True, 
+                             None, bind_first=True, 
                              must_exist=False, load_loc_odd=False)
         src_ofs_loc = self.ensure_reg_or_any_imm(op.getarg(2))
-        self.rm.temp_boxes.append(src_tmp)
         dst_ptr_loc = self.ensure_reg(op.getarg(1))
         dst_ofs_loc = self.ensure_reg_or_any_imm(op.getarg(3))
         length_loc  = self.ensure_reg_or_any_imm(op.getarg(4))

@@ -7,17 +7,18 @@ fpregisters = [FloatRegisterLocation(i) for i in range(16)]
 [r0,r1,r2,r3,r4,r5,r6,r7,r8,
  r9,r10,r11,r12,r13,r14,r15] = registers
 
-MANAGED_REGS = [r2,r3,r4,r5,r6,r7,r8,r9,r10,r12] # keep this list sorted (asc)!
+MANAGED_REGS = [r2,r3,r4,r5,r6,r7,r8,r9,r10,r11] # keep this list sorted (asc)!
+MANAGED_REG_PAIRS = [(r2,r3), (r4,r5), (r6,r7), (r8,r9), (r10,r11)]
 VOLATILES = [r2,r3,r4,r5,r6]
 SP = r15
 RETURN = r14
 POOL = r13
-SPP = r11
+SPP = r12
 SCRATCH = r1
 SCRATCH2 = r0
 GPR_RETURN = r2
 RES = r2
-RSZ = r12 # do not use a volatile register
+RSZ = r11 # do not use a volatile register
 
 [f0,f1,f2,f3,f4,f5,f6,f7,f8,
  f9,f10,f11,f12,f13,f14,f15] = fpregisters

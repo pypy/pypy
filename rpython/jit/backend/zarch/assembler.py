@@ -180,7 +180,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         mc.push_std_frame()
 
         RCS2 = r.r10
-        RCS3 = r.r12
+        RCS3 = r.r11
 
         # r10,r11,r12,r2,f0 -> makes exactly 4 words + 8 byte
         extra_stack_size = 4 * WORD + 8
@@ -330,7 +330,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         mc.LGR(r.r3, r.SCRATCH2)
 
         RCS2 = r.r10
-        RCS3 = r.r12
+        RCS3 = r.r11
 
         self._store_and_reset_exception(mc, RCS2, RCS3)
 
@@ -387,7 +387,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         come.
         """
         # signature of these cond_call_slowpath functions:
-        #   * on entry, r12 contains the function to call
+        #   * on entry, r11 contains the function to call
         #   * r2, r3, r4, r5 contain arguments for the call
         #   * r0 is the gcmap
         #   * the old value of these regs must already be stored in the jitframe
@@ -400,7 +400,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         mc.store_link()
         mc.push_std_frame()
 
-        # copy registers to the frame, with the exception of r2 to r5 and r12,
+        # copy registers to the frame, with the exception of r2 to r5 and r11,
         # because these have already been saved by the caller.  Note that
         # this is not symmetrical: these 5 registers are saved by the caller
         # but restored here at the end of this function.
@@ -413,13 +413,13 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
                        reg is not r.r3 and
                        reg is not r.r4 and
                        reg is not r.r5 and
-                       reg is not r.r12]
+                       reg is not r.r11]
         self._push_core_regs_to_jitframe(mc, regs)
         if supports_floats:
             self._push_fp_regs_to_jitframe(mc)
 
         # allocate a stack frame!
-        mc.raw_call(r.r12)
+        mc.raw_call(r.r11)
 
         # Finish
         self._reload_frame_if_necessary(mc)
