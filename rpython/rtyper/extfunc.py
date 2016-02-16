@@ -1,10 +1,10 @@
 from rpython.annotator.model import unionof, SomeObject
 from rpython.annotator.signature import annotation, SignatureError
-from rpython.rtyper.extregistry import ExtRegistryEntry
+from rpython.rtyper.extregistry import ExtRegistryEntry, lookup
 from rpython.rtyper.lltypesystem.lltype import (
-    typeOf, FuncType, functionptr, _ptr)
+    typeOf, FuncType, functionptr, _ptr, Void)
 from rpython.rtyper.error import TyperError
-from rpython.rtyper.rbuiltin import BuiltinFunctionRepr
+from rpython.rtyper.rmodel import Repr
 
 class SomeExternalFunction(SomeObject):
     def __init__(self, name, args_s, s_result):
@@ -36,10 +36,58 @@ class SomeExternalFunction(SomeObject):
     def rtyper_makerepr(self, rtyper):
         if not self.is_constant():
             raise TyperError("Non-constant external function!")
-        return BuiltinFunctionRepr(self.const)
+        entry = lookup(self.const)
+        impl = getattr(entry, 'lltypeimpl', None)
+        fakeimpl = getattr(entry, 'lltypefakeimpl', None)
+        return ExternalFunctionRepr(self, impl, fakeimpl)
 
     def rtyper_makekey(self):
-        return self.__class__, self.const
+        return self.__class__, self
+
+class ExternalFunctionRepr(Repr):
+    lowleveltype = Void
+
+    def __init__(self, s_func, impl, fakeimpl):
+        self.s_func = s_func
+        self.impl = impl
+        self.fakeimpl = fakeimpl
+
+    def rtype_simple_call(self, hop):
+        rtyper = hop.rtyper
+        args_r = [rtyper.getrepr(s_arg) for s_arg in self.s_func.args_s]
+        r_result = rtyper.getrepr(self.s_func.s_result)
+        obj = self.get_funcptr(rtyper, args_r, r_result)
+        hop2 = hop.copy()
+        hop2.r_s_popfirstarg()
+        vlist = [hop2.inputconst(typeOf(obj), obj)] + hop2.inputargs(*args_r)
+        hop2.exception_is_here()
+        return hop2.genop('direct_call', vlist, r_result)
+
+    def get_funcptr(self, rtyper, args_r, r_result):
+        from rpython.rtyper.rtyper import llinterp_backend
+        args_ll = [r_arg.lowleveltype for r_arg in args_r]
+        ll_result = r_result.lowleveltype
+        name = self.s_func.name
+        fakeimpl = getattr(self, 'lltypefakeimpl', self.s_func.const)
+        if self.impl:
+            if self.fakeimpl and rtyper.backend is llinterp_backend:
+                FT = FuncType(args_ll, ll_result)
+                return functionptr(
+                    FT, name, _external_name=name, _callable=fakeimpl)
+            elif isinstance(self.impl, _ptr):
+                return self.impl
+            else:
+                # store some attributes to the 'impl' function, where
+                # the eventual call to rtyper.getcallable() will find them
+                # and transfer them to the final lltype.functionptr().
+                self.impl._llfnobjattrs_ = {'_name': name}
+                return rtyper.getannmixlevel().delayedfunction(
+                    self.impl, self.s_func.args_s, self.s_func.s_result)
+        else:
+            fakeimpl = self.fakeimpl or self.s_func.const
+            FT = FuncType(args_ll, ll_result)
+            return functionptr(
+                FT, name, _external_name=name, _callable=fakeimpl)
 
 
 class ExtFuncEntry(ExtRegistryEntry):
@@ -52,42 +100,6 @@ class ExtFuncEntry(ExtRegistryEntry):
                 and not self.safe_not_sandboxed):
             s_result.needs_sandboxing = True
         return s_result
-
-    def specialize_call(self, hop):
-        rtyper = hop.rtyper
-        args_r = [rtyper.getrepr(s_arg) for s_arg in self.signature_args]
-        r_result = rtyper.getrepr(self.signature_result)
-        obj = self.get_funcptr(rtyper, args_r, r_result)
-        vlist = [hop.inputconst(typeOf(obj), obj)] + hop.inputargs(*args_r)
-        hop.exception_is_here()
-        return hop.genop('direct_call', vlist, r_result)
-
-    def get_funcptr(self, rtyper, args_r, r_result):
-        from rpython.rtyper.rtyper import llinterp_backend
-        args_ll = [r_arg.lowleveltype for r_arg in args_r]
-        ll_result = r_result.lowleveltype
-        impl = getattr(self, 'lltypeimpl', None)
-        fakeimpl = getattr(self, 'lltypefakeimpl', self.instance)
-        if impl:
-            if hasattr(self, 'lltypefakeimpl') and rtyper.backend is llinterp_backend:
-                FT = FuncType(args_ll, ll_result)
-                return functionptr(
-                    FT, self.name, _external_name=self.name,
-                    _callable=fakeimpl)
-            elif isinstance(impl, _ptr):
-                return impl
-            else:
-                # store some attributes to the 'impl' function, where
-                # the eventual call to rtyper.getcallable() will find them
-                # and transfer them to the final lltype.functionptr().
-                impl._llfnobjattrs_ = {'_name': self.name}
-                return rtyper.getannmixlevel().delayedfunction(
-                    impl, self.signature_args, self.signature_result)
-        else:
-            FT = FuncType(args_ll, ll_result)
-            return functionptr(
-                FT, self.name, _external_name=self.name, _callable=fakeimpl,
-                _safe_not_sandboxed=self.safe_not_sandboxed)
 
 
 def register_external(function, args, result=None, export_name=None,
