@@ -139,10 +139,12 @@ class AbstractAttribute(object):
         # XXX move to PlainAttribute?
         if jit.we_are_jitted():
             if attr.can_fold_read_int():
+                jit.jit_debug("map: folded read int", objectmodel.compute_unique_id(attr), attr.read_constant_int())
                 return W_IntObject(attr.read_constant_int())
             elif attr.can_fold_read_obj():
                 w_res = attr.try_read_constant_obj()
                 if w_res is not None:
+                    jit.jit_debug("map: folded read int", objectmodel.compute_unique_id(attr))
                     return w_res
         if (
             jit.isconstant(attr) and
@@ -157,12 +159,15 @@ class AbstractAttribute(object):
                 if cls is W_IntObject:
                     # this means that the class stored in the storage is an
                     # IntMutableCell
+                    jit.jit_debug("map: known class int", objectmodel.compute_unique_id(attr))
                     assert isinstance(result, IntMutableCell)
                     return W_IntObject(result.intvalue)
                 if cls is W_FloatObject:
                     # ditto
+                    jit.jit_debug("map: known class float", objectmodel.compute_unique_id(attr))
                     assert isinstance(result, FloatMutableCell)
                     return W_FloatObject(result.floatvalue)
+                jit.jit_debug("map: recorded exact class", objectmodel.compute_unique_id(attr))
                 jit.record_exact_class(result, cls)
             return attr._read_cell(result)
 
@@ -601,7 +606,10 @@ class BaseMapdictObject:
         self._set_mapdict_storage_and_map(new_obj.storage, new_obj.map)
 
     def _get_mapdict_map(self):
-        return jit.promote(self.map)
+        map = jit.promote(self.map)
+        jit.jit_debug("map: promoted map", objectmodel.compute_unique_id(self))
+        return map
+
     def _set_mapdict_map(self, map):
         old = self.map
         # don't count Object, it's just an intermediate
