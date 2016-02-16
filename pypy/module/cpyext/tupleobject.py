@@ -52,7 +52,7 @@ def new_empty_tuple(space, length):
     """
     Allocate a PyTupleObject and its array of PyObject *, but without a
     corresponding interpreter object.  The array may be mutated, until
-    tuple_realize() is called.
+    tuple_realize() is called.  Refcount of the result is 1.
     """
     typedescr = get_typedescr(space.w_tuple.instancetypedef)
     py_obj = typedescr.allocate(space, space.w_tuple)

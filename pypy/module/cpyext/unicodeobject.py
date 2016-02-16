@@ -44,9 +44,9 @@ Py_UNICODE = lltype.UniChar
 
 def new_empty_unicode(space, length):
     """
-    Allocatse a PyUnicodeObject and its buffer, but without a corresponding
+    Allocate a PyUnicodeObject and its buffer, but without a corresponding
     interpreter object.  The buffer may be mutated, until unicode_realize() is
-    called.
+    called.  Refcount of the result is 1.
     """
     typedescr = get_typedescr(space.w_unicode.instancetypedef)
     py_obj = typedescr.allocate(space, space.w_unicode)

@@ -911,7 +911,7 @@ class StaticObjectBuilder:
 
     def prepare(self, py_obj, w_obj):
         from pypy.module.cpyext.pyobject import track_reference
-        py_obj.c_ob_refcnt = 1
+        py_obj.c_ob_refcnt = 1     # 1 for kept immortal
         track_reference(self.space, py_obj, w_obj)
         self.to_attach.append((py_obj, w_obj))
 

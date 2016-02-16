@@ -32,14 +32,15 @@ class BaseCpyTypedescr(object):
     def allocate(self, space, w_type, itemcount=0):
         # similar to PyType_GenericAlloc?
         # except that it's not related to any pypy object.
+        # this returns a PyObject with ob_refcnt == 1.
 
-        pytype = make_ref(space, w_type)
+        pytype = as_pyobj(space, w_type)
         pytype = rffi.cast(PyTypeObjectPtr, pytype)
         assert pytype
         # Don't increase refcount for non-heaptypes
         flags = rffi.cast(lltype.Signed, pytype.c_tp_flags)
-        if not flags & Py_TPFLAGS_HEAPTYPE:
-            Py_DecRef(space, w_type)
+        if flags & Py_TPFLAGS_HEAPTYPE:
+            Py_IncRef(space, w_type)
 
         if pytype:
             size = pytype.c_tp_basicsize
@@ -170,12 +171,22 @@ def create_ref(space, w_obj, itemcount=0):
     typedescr = get_typedescr(w_obj.typedef)
     py_obj = typedescr.allocate(space, w_type, itemcount=itemcount)
     track_reference(space, py_obj, w_obj)
+    #
+    # py_obj.c_ob_refcnt should be exactly REFCNT_FROM_PYPY + 1 here,
+    # and we want only REFCNT_FROM_PYPY, i.e. only count as attached
+    # to the W_Root but not with any reference from the py_obj side.
+    assert py_obj.c_ob_refcnt > rawrefcount.REFCNT_FROM_PYPY
+    py_obj.c_ob_refcnt -= 1
+    #
     typedescr.attach(space, py_obj, w_obj)
     return py_obj
 
 def track_reference(space, py_obj, w_obj):
     """
     Ties together a PyObject and an interpreter object.
+    The PyObject's refcnt is increased by REFCNT_FROM_PYPY.
+    The reference in 'py_obj' is not stolen!  Remember to Py_DecRef()
+    it is you need to.
     """
     # XXX looks like a PyObject_GC_TRACK
     assert py_obj.c_ob_refcnt < rawrefcount.REFCNT_FROM_PYPY
@@ -226,7 +237,6 @@ def as_pyobj(space, w_obj):
         py_obj = rawrefcount.from_obj(PyObject, w_obj)
         if not py_obj:
             py_obj = create_ref(space, w_obj)
-            #track_reference(space, py_obj, w_obj) -- included with create_ref()
         return py_obj
     else:
         return lltype.nullptr(PyObject.TO)
