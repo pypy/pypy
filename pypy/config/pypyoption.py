@@ -40,8 +40,11 @@ working_modules.update([
 ])
 
 from rpython.jit.backend import detect_cpu
-if detect_cpu.startswith('x86'):
-    working_modules.add('_vmprof')
+try:
+    if detect_cpu.autodetect().startswith('x86'):
+        working_modules.add('_vmprof')
+except detect_cpu.ProcessorAutodetectError:
+    pass
 
 
 translation_modules = default_modules.copy()
