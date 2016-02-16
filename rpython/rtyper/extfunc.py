@@ -1,16 +1,22 @@
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.lltypesystem.lltype import typeOf, FuncType, functionptr, _ptr
-from rpython.annotator.model import unionof
+from rpython.annotator.model import unionof, SomeBuiltin
 from rpython.annotator.signature import annotation, SignatureError
 
-class ExtFuncEntry(ExtRegistryEntry):
-    safe_not_sandboxed = False
+class SomeExternalFunction(SomeBuiltin):
+    def __init__(self, name, args_s, s_result):
+        self.name = name
+        self.args_s = args_s
+        self.s_result = s_result
 
-    def check_args(self, *args_s):
-        params_s = self.signature_args
-        assert len(args_s) == len(params_s),\
-               "Argument number mismatch"
-
+    def check_args(self, callspec):
+        params_s = self.args_s
+        args_s, kwargs = callspec.unpack()
+        if kwargs:
+            raise SignatureError(
+                "External functions cannot be called with keyword arguments")
+        if len(args_s) != len(params_s):
+            raise SignatureError("Argument number mismatch")
         for i, s_param in enumerate(params_s):
             arg = unionof(args_s[i], s_param)
             if not s_param.contains(arg):
@@ -18,18 +24,20 @@ class ExtFuncEntry(ExtRegistryEntry):
                                 "arg %d must be %s,\n"
                                 "          got %s" % (
                     self.name, i+1, s_param, args_s[i]))
-        return params_s
 
-    def compute_result_annotation(self, *args_s):
-        self.check_args(*args_s)
-        return self.signature_result
+    def call(self, callspec):
+        self.check_args(callspec)
+        return self.s_result
+
+class ExtFuncEntry(ExtRegistryEntry):
+    safe_not_sandboxed = False
 
     def compute_annotation(self):
-        s_result = super(ExtFuncEntry, self).compute_annotation()
+        s_result = SomeExternalFunction(
+                self.name, self.signature_args, self.signature_result)
         if (self.bookkeeper.annotator.translator.config.translation.sandbox
                 and not self.safe_not_sandboxed):
             s_result.needs_sandboxing = True
-            s_result.entry = self
         return s_result
 
     def specialize_call(self, hop):

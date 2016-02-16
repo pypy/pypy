@@ -86,12 +86,11 @@ class AnnotatorPolicy(object):
                     continue
                 key = ('sandboxing', s_func.const)
                 if key not in bk.emulated_pbc_calls:
-                    entry = s_func.entry
-                    params_s = entry.signature_args
-                    s_result = entry.signature_result
+                    params_s = s_func.args_s
+                    s_result = s_func.s_result
                     from rpython.translator.sandbox.rsandbox import make_sandbox_trampoline
                     sandbox_trampoline = make_sandbox_trampoline(
-                        entry.name, params_s, s_result)
+                        s_func.name, params_s, s_result)
                     sandbox_trampoline._signature_ = [SomeTuple(items=params_s)], s_result
                     bk.emulate_pbc_call(key, bk.immutablevalue(sandbox_trampoline), params_s)
                 else:
