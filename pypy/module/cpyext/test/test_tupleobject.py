@@ -1,7 +1,6 @@
 import py
 
 from pypy.module.cpyext.pyobject import PyObject, PyObjectP, make_ref, from_ref
-from pypy.module.cpyext.pyobject import as_pyobj
 from pypy.module.cpyext.tupleobject import PyTupleObject
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
@@ -25,7 +24,9 @@ class TestTupleObject(BaseApiTest):
         ar = lltype.malloc(PyObjectP.TO, 1, flavor='raw')
 
         py_tuple = api.PyTuple_New(3)
-        rffi.cast(PyTupleObject, py_tuple).c_ob_item[0] = as_pyobj(space, w_42)
+        # inside py_tuple is an array of "PyObject *" items which each hold
+        # a reference
+        rffi.cast(PyTupleObject, py_tuple).c_ob_item[0] = make_ref(space, w_42)
         ar[0] = py_tuple
         api._PyTuple_Resize(ar, 2)
         w_tuple = from_ref(space, ar[0])
@@ -34,7 +35,7 @@ class TestTupleObject(BaseApiTest):
         api.Py_DecRef(ar[0])
 
         py_tuple = api.PyTuple_New(3)
-        rffi.cast(PyTupleObject, py_tuple).c_ob_item[0] = as_pyobj(space, w_42)
+        rffi.cast(PyTupleObject, py_tuple).c_ob_item[0] = make_ref(space, w_42)
         ar[0] = py_tuple
         api._PyTuple_Resize(ar, 10)
         w_tuple = from_ref(space, ar[0])
