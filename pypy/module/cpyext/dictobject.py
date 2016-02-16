@@ -3,7 +3,6 @@ from pypy.module.cpyext.api import (
     cpython_api, CANNOT_FAIL, build_type_checkers, Py_ssize_t,
     Py_ssize_tP, CONST_STRING)
 from pypy.module.cpyext.pyobject import PyObject, PyObjectP, as_pyobj
-from pypy.module.cpyext.pyobject import RefcountState
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
 from pypy.interpreter.error import OperationError
 from rpython.rlib.objectmodel import specialize

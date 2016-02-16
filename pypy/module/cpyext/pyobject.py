@@ -63,9 +63,6 @@ class BaseCpyTypedescr(object):
         w_type = from_ref(space, rffi.cast(PyObject, obj.c_ob_type))
         w_obj = space.allocate_instance(self.W_BaseObject, w_type)
         track_reference(space, obj, w_obj)
-        #if w_type is not space.gettypefor(self.W_BaseObject):
-        #    state = space.fromcache(RefcountState)
-        #    state.set_lifeline(w_obj, obj)
         return w_obj
 
 typedescr_cache = {}
@@ -160,14 +157,7 @@ def create_ref(space, w_obj, itemcount=0):
     Allocates a PyObject, and fills its fields with info from the given
     interpreter object.
     """
-    #state = space.fromcache(RefcountState)
     w_type = space.type(w_obj)
-    #if w_type.is_cpytype():
-    #    py_obj = state.get_from_lifeline(w_obj)
-    #    if py_obj:
-    #        Py_IncRef(space, py_obj)
-    #        return py_obj
-
     typedescr = get_typedescr(w_obj.typedef)
     py_obj = typedescr.allocate(space, w_type, itemcount=itemcount)
     track_reference(space, py_obj, w_obj)
@@ -350,11 +340,3 @@ def _Py_Dealloc(space, obj):
 @cpython_api([rffi.VOIDP], lltype.Signed, error=CANNOT_FAIL)
 def _Py_HashPointer(space, ptr):
     return rffi.cast(lltype.Signed, ptr)
-
-
-class RefcountState:
-    def __init__(self, *args):
-        GOES_AWAY
-
-def borrow_from(container, borrowed):
-    GOES_AWAY

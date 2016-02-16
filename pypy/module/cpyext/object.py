@@ -6,7 +6,7 @@ from pypy.module.cpyext.api import (
     Py_GE, CONST_STRING, FILEP, fwrite)
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, create_ref, from_ref, Py_IncRef, Py_DecRef,
-    get_typedescr, _Py_NewReference, RefcountState)
+    get_typedescr, _Py_NewReference)
 from pypy.module.cpyext.typeobject import PyTypeObjectPtr
 from pypy.module.cpyext.pyerrors import PyErr_NoMemory, PyErr_BadInternalCall
 from pypy.objspace.std.typeobject import W_TypeObject
