@@ -12,6 +12,11 @@ from pypy.objspace.std.dictmultiobject import (
 from pypy.objspace.std.typeobject import MutableCell
 
 
+erase_item, unerase_item = rerased.new_erasing_pair("mapdict storage item")
+erase_map,  unerase_map = rerased.new_erasing_pair("map")
+erase_list, unerase_list = rerased.new_erasing_pair("mapdict storage list")
+
+
 # ____________________________________________________________
 # attribute shapes
 
@@ -219,10 +224,10 @@ class AbstractAttribute(object):
             jit.isconstant(name) and
             jit.isconstant(index))
     def _reorder_and_add(self, obj, name, index, w_value):
-	# the idea is as follows: the subtrees of any map are ordered by
-	# insertion.  the invariant is that subtrees that are inserted later
-	# must not contain the name of the attribute of any earlier inserted
-	# attribute anywhere
+        # the idea is as follows: the subtrees of any map are ordered by
+        # insertion.  the invariant is that subtrees that are inserted later
+        # must not contain the name of the attribute of any earlier inserted
+        # attribute anywhere
         #                              m______
         #         inserted first      / \ ... \   further attributes
         #           attrname a      0/  1\    n\
@@ -235,11 +240,10 @@ class AbstractAttribute(object):
         # able to do that. They need to be re-added, which has to follow the
         # reordering procedure recusively.
 
-        # we store the to-be-readded attribute in stack_maps and stack_values
-        # those are lazily initialized to two lists large enough to store all
-        # current attributes
-        stack_maps = None
-        stack_values = None
+        # we store the to-be-readded attribute in the stack, with the map and
+        # the value paired up those are lazily initialized to a list large
+        # enough to store all current attributes
+        stack = None
         stack_index = 0
         while True:
             current = self
@@ -248,17 +252,16 @@ class AbstractAttribute(object):
             # we found the attributes further up, need to save the
             # previous values of the attributes we passed
             if number_to_readd:
-                if stack_maps is None:
-                    stack_maps = [None] * self.length()
-                    stack_values = [None] * self.length()
+                if stack is None:
+                    stack = [erase_map(None)] * (self.length() * 2)
                 current = self
                 for i in range(number_to_readd):
                     assert isinstance(current, PlainAttribute)
                     w_self_value = obj._mapdict_read_storage(
                             current.storageindex)
-                    stack_maps[stack_index] = current
-                    stack_values[stack_index] = w_self_value
-                    stack_index += 1
+                    stack[stack_index] = erase_map(current)
+                    stack[stack_index + 1] = erase_item(w_self_value)
+                    stack_index += 2
                     current = current.back
             attr._switch_map_and_write_storage(obj, w_value)
 
@@ -266,9 +269,9 @@ class AbstractAttribute(object):
                 return
 
             # readd the current top of the stack
-            stack_index -= 1
-            next_map = stack_maps[stack_index]
-            w_value = stack_values[stack_index]
+            stack_index -= 2
+            next_map = unerase_map(stack[stack_index])
+            w_value = unerase_item(stack[stack_index + 1])
             name = next_map.name
             index = next_map.index
             self = obj._get_mapdict_map()
@@ -640,9 +643,6 @@ def memo_get_subclass_of_correct_size(space, supercls):
         return result
 memo_get_subclass_of_correct_size._annspecialcase_ = "specialize:memo"
 _subclass_cache = {}
-
-erase_item, unerase_item = rerased.new_erasing_pair("mapdict storage item")
-erase_list, unerase_list = rerased.new_erasing_pair("mapdict storage list")
 
 def _make_subclass_size_n(supercls, n):
     from rpython.rlib import unroll
