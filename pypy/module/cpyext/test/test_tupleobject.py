@@ -102,3 +102,29 @@ class AppTestTuple(AppTestCpythonExtensionBase):
             ])
         x = module.run()
         assert x == ((),)
+
+    def test_refcounts_more(self):
+        module = self.import_extension('foo', [
+            ("run", "METH_NOARGS",
+             """
+                long prev, next;
+                PyObject *t = PyTuple_New(1);
+                prev = Py_True->ob_refcnt;
+                Py_INCREF(Py_True);
+                PyTuple_SetItem(t, 0, Py_True);
+                if (Py_True->ob_refcnt != prev + 1) {
+                    PyErr_SetString(PyExc_SystemError,
+                        "SetItem: Py_True refcnt != prev + 1");
+                    return NULL;
+                }
+                Py_DECREF(t);
+                if (Py_True->ob_refcnt != prev) {
+                    PyErr_SetString(PyExc_SystemError,
+                        "after: Py_True refcnt != prev");
+                    return NULL;
+                }
+                Py_INCREF(Py_None);
+                return Py_None;
+             """),
+            ])
+        module.run()
