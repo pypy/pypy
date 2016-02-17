@@ -98,7 +98,7 @@ class FPRegisterManager(RegisterManager):
             tmp = TempVar()
             reg = self.force_allocate_reg(tmp, self.temp_boxes)
             self.temp_boxes.append(tmp)
-            assert poolloc.displace > 0
+            assert poolloc.displace >= 0
             self.assembler.mc.LD(reg, poolloc)
             return reg
         else:
