@@ -32,11 +32,24 @@ from rpython.translator.unsimplify import insert_empty_block
 from rpython.translator.sandbox.rsandbox import make_sandbox_trampoline
 
 
+class RTyperBackend(object):
+    pass
+
+class GenCBackend(RTyperBackend):
+    pass
+genc_backend = GenCBackend()
+
+class LLInterpBackend(RTyperBackend):
+    pass
+llinterp_backend = LLInterpBackend()
+
+
 class RPythonTyper(object):
     from rpython.rtyper.rmodel import log
 
-    def __init__(self, annotator):
+    def __init__(self, annotator, backend=genc_backend):
         self.annotator = annotator
+        self.backend = backend
         self.lowlevel_ann_policy = LowLevelAnnotatorPolicy(self)
         self.reprs = {}
         self._reprs_must_call_setup = []

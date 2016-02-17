@@ -13,7 +13,7 @@ from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.rlib.rarithmetic import r_uint, ovfcheck
 from rpython.tool import leakfinder
 from rpython.conftest import option
-
+from rpython.rtyper.rtyper import llinterp_backend
 
 # switch on logging of interp to show more info on failing tests
 
@@ -39,6 +39,7 @@ def gengraph(func, argtypes=[], viewbefore='auto', policy=None,
         t.view()
     global typer # we need it for find_exception
     typer = t.buildrtyper()
+    typer.backend = llinterp_backend
     typer.specialize()
     #t.view()
     t.checkgraphs()
