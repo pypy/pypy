@@ -153,6 +153,7 @@ class LiteralPool(object):
         val = self.size + size
         self.check_size(val)
         self.size = val
+        assert val >= 0
 
     def ensure_value(self, val):
         if val not in self.offset_map:

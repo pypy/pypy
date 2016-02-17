@@ -23,12 +23,11 @@ def prepare_int_add(self, op):
     a1 = op.getarg(1)
     if a0.is_constant():
         a0, a1 = a1, a0
-    l0 = self.ensure_reg(a0)
     if check_imm32(a1):
         l1 = imm(a1.getint())
     else:
         l1 = self.ensure_reg_or_pool(a1)
-    self.force_result_in_reg(op, a0)
+    l0 = self.force_result_in_reg(op, a0)
     return [l0, l1]
 
 def prepare_int_mul(self, op):
@@ -36,12 +35,11 @@ def prepare_int_mul(self, op):
     a1 = op.getarg(1)
     if a0.is_constant():
         a0, a1 = a1, a0
-    l0 = self.ensure_reg(a0)
     if check_imm32(a1):
         l1 = imm(a1.getint())
     else:
         l1 = self.ensure_reg_or_pool(a1)
-    self.force_result_in_reg(op, a0)
+    l0 = self.force_result_in_reg(op, a0)
     return [l0, l1]
 
 def prepare_int_mul_ovf(self, op):
@@ -63,7 +61,9 @@ def generate_div_mod(modulus):
         l1 = self.ensure_reg(a1)
         if isinstance(a0, Const):
             poolloc = self.ensure_reg_or_pool(a0)
-            lr,lq = self.rm.ensure_even_odd_pair(a0, op, bind_first=modulus, must_exist=False)
+            lr,lq = self.rm.ensure_even_odd_pair(a0, op,
+                                bind_first=modulus, must_exist=False,
+                                move_regs=False)
             self.assembler.regalloc_mov(poolloc, lq)
         else:
             lr,lq = self.rm.ensure_even_odd_pair(a0, op, bind_first=modulus)
@@ -139,29 +139,19 @@ def generate_prepare_float_binary_op(allow_swap=False):
         if allow_swap:
             if isinstance(a0, Const):
                 a0,a1 = a1,a0
-        l0 = self.ensure_reg(a0)
-        l1 = self.ensure_reg(a1)
-        if isinstance(a0, Const):
-            newloc = self.force_allocate_reg(op)
-            self.assembler.regalloc_mov(l0, newloc)
-            l0 = newloc
-        else:
-            self.force_result_in_reg(op, a0)
+        l1 = self.ensure_reg_or_pool(a1)
+        l0 = self.force_result_in_reg(op, a0)
         return [l0, l1]
     return prepare_float_binary_op
 
 def prepare_unary_cmp(self, op):
-    a0 = op.getarg(0)
-    l0 = self.ensure_reg(a0)
-    self.force_result_in_reg(op, a0)
+    l0 = self.ensure_reg(op.getarg(0))
     res = self.force_allocate_reg_or_cc(op)
     return [l0, res]
 
 def prepare_unary_op(self, op):
-    a0 = op.getarg(0)
-    l0 = self.ensure_reg(a0)
-    res = self.force_result_in_reg(op, a0)
-    return [l0,]
+    res = self.force_result_in_reg(op, op.getarg(0))
+    return [res,]
 
 def prepare_same_as(self, op):
     a0 = op.getarg(0)

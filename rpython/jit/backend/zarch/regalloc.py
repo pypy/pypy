@@ -298,10 +298,12 @@ class ZARCHRegisterManager(RegisterManager):
                orig_var_odd in forbidden_vars:
                 continue
 
-            self._sync_var(orig_var_even)
-            del self.reg_bindings[orig_var_even]
-            self._sync_var(orig_var_odd)
-            del self.reg_bindings[orig_var_odd]
+            if orig_var_even is not None:
+                self._sync_var(orig_var_even)
+                del self.reg_bindings[orig_var_even]
+            if orig_var_odd is not None:
+                self._sync_var(orig_var_odd)
+                del self.reg_bindings[orig_var_odd]
 
             self.reg_bindings[even_var] = even
             self.reg_bindings[odd_var] = odd
