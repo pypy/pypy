@@ -84,7 +84,8 @@ class State:
         if we_are_translated():
             rawrefcount.init(llhelper(rawrefcount.RAWREFCOUNT_DEALLOC_TRIGGER,
                                       self.dealloc_trigger))
-            XXX#init_static_data_translated(space)
+            builder = space.fromcache(StaticObjectBuilder)
+            builder.attach_all()
 
         setup_new_method_def(space)
 

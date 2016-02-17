@@ -849,7 +849,7 @@ def build_bridge(space):
     space.fromcache(State).install_dll(eci)
 
     # populate static data
-    builder = StaticObjectBuilder(space)
+    builder = space.fromcache(StaticObjectBuilder)
     for name, (typ, expr) in GLOBALS.iteritems():
         from pypy.module import cpyext    # for the eval() below
         w_obj = eval(expr)
@@ -908,26 +908,32 @@ class StaticObjectBuilder:
     def __init__(self, space):
         self.space = space
         self.to_attach = []
+        self.cpyext_type_init = None
 
     def prepare(self, py_obj, w_obj):
-        from pypy.module.cpyext.pyobject import track_reference
+        "NOT_RPYTHON"
         py_obj.c_ob_refcnt = 1     # 1 for kept immortal
-        track_reference(self.space, py_obj, w_obj)
         self.to_attach.append((py_obj, w_obj))
 
     def attach_all(self):
+        # this is RPython, called once in pypy-c when it imports cpyext
         from pypy.module.cpyext.pyobject import get_typedescr, make_ref
         from pypy.module.cpyext.typeobject import finish_type_1, finish_type_2
+        from pypy.module.cpyext.pyobject import track_reference
+        #
         space = self.space
-        space._cpyext_type_init = []
+        for py_obj, w_obj in self.to_attach:
+            track_reference(space, py_obj, w_obj)
+        #
+        self.cpyext_type_init = []
         for py_obj, w_obj in self.to_attach:
             w_type = space.type(w_obj)
             typedescr = get_typedescr(w_type.instancetypedef)
             py_obj.c_ob_type = rffi.cast(PyTypeObjectPtr,
                                          make_ref(space, w_type))
             typedescr.attach(space, py_obj, w_obj)
-        cpyext_type_init = space._cpyext_type_init
-        del space._cpyext_type_init
+        cpyext_type_init = self.cpyext_type_init
+        self.cpyext_type_init = None
         for pto, w_type in cpyext_type_init:
             finish_type_1(space, pto)
             finish_type_2(space, pto, w_type)
@@ -1140,12 +1146,12 @@ def setup_library(space):
             pto.c_ob_refcnt = 1
             pto.c_tp_basicsize = -1
             static_types[name] = pto
-    builder = StaticObjectBuilder(space)
+    builder = space.fromcache(StaticObjectBuilder)
     for name, pto in static_types.items():
         pto.c_ob_type = static_types['PyType_Type#']
         w_type = eval(GLOBALS[name][1])
         builder.prepare(rffi.cast(PyObject, pto), w_type)
-    builder.attach_all()
+    #builder.attach_all() is done by State.startup() inside pypy-c
 
     # populate static data
     for name, (typ, expr) in GLOBALS.iteritems():

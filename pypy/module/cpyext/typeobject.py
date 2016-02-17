@@ -15,7 +15,7 @@ from pypy.module.cpyext.api import (
     cpython_api, cpython_struct, bootstrap_function, Py_ssize_t, Py_ssize_tP,
     generic_cpy_call, Py_TPFLAGS_READY, Py_TPFLAGS_READYING,
     Py_TPFLAGS_HEAPTYPE, METH_VARARGS, METH_KEYWORDS, CANNOT_FAIL,
-    Py_TPFLAGS_HAVE_GETCHARBUFFER, build_type_checkers)
+    Py_TPFLAGS_HAVE_GETCHARBUFFER, build_type_checkers, StaticObjectBuilder)
 from pypy.module.cpyext.methodobject import (
     PyDescr_NewWrapper, PyCFunction_NewEx, PyCFunction_typedef)
 from pypy.module.cpyext.modsupport import convert_method_defs
@@ -474,8 +474,9 @@ def type_attach(space, py_obj, w_type):
     w_base = best_base(space, w_type.bases_w)
     pto.c_tp_base = rffi.cast(PyTypeObjectPtr, make_ref(space, w_base))
 
-    if hasattr(space, '_cpyext_type_init'):
-        space._cpyext_type_init.append((pto, w_type))
+    builder = space.fromcache(StaticObjectBuilder)
+    if builder.cpyext_type_init is not None:
+        builder.cpyext_type_init.append((pto, w_type))
     else:
         finish_type_1(space, pto)
         finish_type_2(space, pto, w_type)
