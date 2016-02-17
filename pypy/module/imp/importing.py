@@ -38,7 +38,7 @@ SO = '.pyd' if _WIN32 else '.so'
 # and cffi so's.  If we do have to update it, we'd likely need a way to
 # split the two usages again.
 #DEFAULT_SOABI = 'pypy-%d%d' % PYPY_VERSION[:2]
-DEFAULT_SOABI = 'pypy-26'
+DEFAULT_SOABI = 'pypy-41'
 
 @specialize.memo()
 def get_so_extension(space):
