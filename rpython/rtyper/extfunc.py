@@ -68,13 +68,12 @@ class ExternalFunctionRepr(Repr):
         args_ll = [r_arg.lowleveltype for r_arg in args_r]
         ll_result = r_result.lowleveltype
         name = self.s_func.name
-        fakeimpl = getattr(self, 'lltypefakeimpl', self.s_func.const)
-        if self.impl:
-            if self.fakeimpl and rtyper.backend is llinterp_backend:
-                FT = FuncType(args_ll, ll_result)
-                return functionptr(
-                    FT, name, _external_name=name, _callable=fakeimpl)
-            elif isinstance(self.impl, _ptr):
+        if self.fakeimpl and rtyper.backend is llinterp_backend:
+            FT = FuncType(args_ll, ll_result)
+            return functionptr(
+                FT, name, _external_name=name, _callable=self.fakeimpl)
+        elif self.impl:
+            if isinstance(self.impl, _ptr):
                 return self.impl
             else:
                 # store some attributes to the 'impl' function, where
