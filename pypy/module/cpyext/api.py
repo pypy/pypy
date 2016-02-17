@@ -30,7 +30,6 @@ from rpython.rlib.entrypoint import entrypoint_lowlevel
 from rpython.rlib.rposix import is_valid_fd, validate_fd
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import specialize
-from rpython.rlib.exports import export_struct
 from pypy.module import exceptions
 from pypy.module.exceptions import interp_exceptions
 # CPython 2.4 compatibility
@@ -907,13 +906,20 @@ def build_bridge(space):
 class StaticObjectBuilder:
     def __init__(self, space):
         self.space = space
-        self.to_attach = []
+        self.static_pyobjs = []
+        self.static_objs_w = []
         self.cpyext_type_init = None
 
     def prepare(self, py_obj, w_obj):
         "NOT_RPYTHON"
-        py_obj.c_ob_refcnt = 1     # 1 for kept immortal
-        self.to_attach.append((py_obj, w_obj))
+        if py_obj:
+            py_obj.c_ob_refcnt = 1     # 1 for kept immortal
+        self.static_pyobjs.append(py_obj)
+        self.static_objs_w.append(w_obj)
+
+    def get_static_pyobjs(self):
+        # method overridden in setup_library()
+        return self.static_pyobjs
 
     def attach_all(self):
         # this is RPython, called once in pypy-c when it imports cpyext
@@ -922,11 +928,15 @@ class StaticObjectBuilder:
         from pypy.module.cpyext.pyobject import track_reference
         #
         space = self.space
-        for py_obj, w_obj in self.to_attach:
-            track_reference(space, py_obj, w_obj)
+        static_pyobjs = self.get_static_pyobjs()
+        static_objs_w = self.static_objs_w
+        for i in range(len(static_objs_w)):
+            track_reference(space, static_pyobjs[i], static_objs_w[i])
         #
         self.cpyext_type_init = []
-        for py_obj, w_obj in self.to_attach:
+        for i in range(len(static_objs_w)):
+            py_obj = static_pyobjs[i]
+            w_obj = static_objs_w[i]
             w_type = space.type(w_obj)
             typedescr = get_typedescr(w_type.instancetypedef)
             py_obj.c_ob_type = rffi.cast(PyTypeObjectPtr,
@@ -1115,9 +1125,7 @@ def build_eci(building_bridge, export_symbols, code):
 
 def setup_library(space):
     "NOT_RPYTHON"
-    from pypy.module.cpyext.pyobject import make_ref
-
-    export_symbols = list(FUNCTIONS) + SYMBOLS_C + list(GLOBALS)
+    export_symbols = sorted(FUNCTIONS) + sorted(SYMBOLS_C) + sorted(GLOBALS)
     from rpython.translator.c.database import LowLevelDatabase
     db = LowLevelDatabase()
 
@@ -1133,41 +1141,37 @@ def setup_library(space):
     run_bootstrap_functions(space)
     setup_va_functions(eci)
 
-    from pypy.module import cpyext   # for eval() below
-
-    # Set up the types.  Needs a special case, because of the
-    # immediate cycle involving 'c_ob_type', and because we don't
-    # want these types to be Py_TPFLAGS_HEAPTYPE.
-    static_types = {}
-    for name, (typ, expr) in GLOBALS.items():
-        if typ == 'PyTypeObject*':
-            pto = lltype.malloc(PyTypeObject, immortal=True,
-                                zero=True, flavor='raw')
-            pto.c_ob_refcnt = 1
-            pto.c_tp_basicsize = -1
-            static_types[name] = pto
+    # emit uninitialized static data
     builder = space.fromcache(StaticObjectBuilder)
-    for name, pto in static_types.items():
-        pto.c_ob_type = static_types['PyType_Type#']
-        w_type = eval(GLOBALS[name][1])
-        builder.prepare(rffi.cast(PyObject, pto), w_type)
-    #builder.attach_all() is done by State.startup() inside pypy-c
-
-    # populate static data
-    for name, (typ, expr) in GLOBALS.iteritems():
-        name = name.replace("#", "")
-        if name.startswith('PyExc_'):
+    lines = ['PyObject *pypy_static_pyobjs[] = {\n']
+    include_lines = ['RPY_EXTERN PyObject *pypy_static_pyobjs[];\n']
+    for name, (typ, expr) in sorted(GLOBALS.items()):
+        if name.endswith('#'):
+            assert typ in ('PyObject*', 'PyTypeObject*', 'PyIntObject*')
+            typ, name = typ[:-1], name[:-1]
+        elif name.startswith('PyExc_'):
+            typ = 'PyTypeObject'
             name = '_' + name
-        w_obj = eval(expr)
-        if typ in ('PyObject*', 'PyTypeObject*', 'PyIntObject*'):
-            struct_ptr = make_ref(space, w_obj)
         elif typ == 'PyDateTime_CAPI*':
             continue
         else:
             assert False, "Unknown static data: %s %s" % (typ, name)
-        struct = rffi.cast(get_structtype_for_ctype(typ), struct_ptr)._obj
-        struct._compilation_info = eci
-        export_struct(name, struct)
+
+        from pypy.module import cpyext     # for the eval() below
+        w_obj = eval(expr)
+        builder.prepare(None, w_obj)
+        lines.append('\t(PyObject *)&%s,\n' % (name,))
+        include_lines.append('RPY_EXPORTED %s %s;\n' % (typ, name))
+
+    lines.append('};\n')
+    eci2 = CConfig._compilation_info_.merge(ExternalCompilationInfo(
+        separate_module_sources = [''.join(lines)],
+        post_include_bits = [''.join(include_lines)],
+        ))
+    # override this method to return a pointer to this C array directly
+    builder.get_static_pyobjs = rffi.CExternVariable(
+        PyObjectP, 'pypy_static_pyobjs', eci2, c_type='PyObject **',
+        getter_only=True, declare_as_extern=False)
 
     for name, func in FUNCTIONS.iteritems():
         newname = mangle_name('PyPy', name) or name
@@ -1177,6 +1181,10 @@ def setup_library(space):
     setup_init_functions(eci, translating=True)
     trunk_include = pypydir.dirpath() / 'include'
     copy_header_files(trunk_include)
+
+def init_static_data_translated(space):
+    builder = space.fromcache(StaticObjectBuilder)
+    builder.attach_all()
 
 def _load_from_cffi(space, name, path, initptr):
     from pypy.module._cffi_backend import cffi1_module

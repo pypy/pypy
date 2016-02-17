@@ -80,12 +80,12 @@ class State:
 
         from pypy.module.cpyext.typeobject import setup_new_method_def
         from pypy.module.cpyext.api import INIT_FUNCTIONS
+        from pypy.module.cpyext.api import init_static_data_translated
 
         if we_are_translated():
             rawrefcount.init(llhelper(rawrefcount.RAWREFCOUNT_DEALLOC_TRIGGER,
                                       self.dealloc_trigger))
-            builder = space.fromcache(StaticObjectBuilder)
-            builder.attach_all()
+            init_static_data_translated()
 
         setup_new_method_def(space)
 
