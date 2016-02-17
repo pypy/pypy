@@ -99,7 +99,10 @@ class FPRegisterManager(RegisterManager):
             reg = self.force_allocate_reg(tmp, self.temp_boxes)
             self.temp_boxes.append(tmp)
             assert poolloc.displace >= 0
-            self.assembler.mc.LD(reg, poolloc)
+            if poolloc.displace <= 2**16-1:
+                self.assembler.mc.LD(reg, poolloc)
+            else:
+                self.assembler.mc.LDY(reg, poolloc)
             return reg
         else:
             assert box in self.temp_boxes
