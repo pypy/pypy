@@ -152,3 +152,9 @@ Refactor vmprof to work cross-operating-system.
 
 Seperate structmember.h from Python.h Also enhance creating api functions
 to specify which header file they appear in (previously only pypy_decl.h) 
+
+.. branch: llimpl
+
+Refactor register_external(), remove running_on_llinterp mechanism and
+apply sandbox transform on externals at the end of annotation.
+
