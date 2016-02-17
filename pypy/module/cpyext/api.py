@@ -1070,7 +1070,7 @@ def build_eci(building_bridge, export_symbols, code):
         if name.endswith('#'):
             structs.append('%s %s;' % (typ[:-1], name[:-1]))
         elif name.startswith('PyExc_'):
-            structs.append('extern PyTypeObject _%s;' % (name,))
+            structs.append('PyTypeObject _%s;' % (name,))
             structs.append('PyObject* %s = (PyObject*)&_%s;' % (name, name))
         elif typ == 'PyDateTime_CAPI*':
             structs.append('%s %s = NULL;' % (typ, name))
