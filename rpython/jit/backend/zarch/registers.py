@@ -34,13 +34,16 @@ VOLATILES_FLOAT = [f0,f1,f2,f3,f4,f5,f6,f7]
 # number of registers that need to be saved into the jitframe when
 # failing a guard, for example.
 ALL_REG_INDEXES = {}
-for _r in registers:
+for _r in MANAGED_REGS:
     ALL_REG_INDEXES[_r] = len(ALL_REG_INDEXES)
-for _r in fpregisters:
+for _r in MANAGED_FP_REGS:
     ALL_REG_INDEXES[_r] = len(ALL_REG_INDEXES)
-JITFRAME_FIXED_SIZE = len(ALL_REG_INDEXES)
-assert JITFRAME_FIXED_SIZE == 32
+JITFRAME_FIXED_SIZE = len(ALL_REG_INDEXES) + 1 # plus one word to have an even number
 
 def odd_reg(r):
     assert r.value % 2 == 0
     return registers[r.value+1]
+
+def even_reg(r):
+    assert r.value % 2 == 1
+    return registers[r.value-1]

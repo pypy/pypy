@@ -235,7 +235,7 @@ class ZARCHRegisterManager(RegisterManager):
             even = self.free_regs[i]
             if even.is_even():
                 # found an even registers that is actually free
-                odd = r.registers[even.value+1]
+                odd = r.odd_reg(even)
                 if odd not in self.free_regs:
                     # sadly odd is not free, but for spilling
                     # we found a candidate
@@ -256,7 +256,7 @@ class ZARCHRegisterManager(RegisterManager):
                 # an odd free register, maybe the even one is
                 # a candidate?
                 odd = even
-                even = r.registers[odd.value-1]
+                even = r.even_reg(odd)
                 if even not in self.free_regs:
                     # yes even might be a candidate
                     # this means that odd is free, but not even

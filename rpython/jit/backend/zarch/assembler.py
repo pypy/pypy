@@ -1082,7 +1082,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         self.mc.LMG(r.r6, r.r15, l.addr(size+6*WORD, r.SP))
         self.jmpto(r.r14)
 
-    def _push_core_regs_to_jitframe(self, mc, includes=r.registers):
+    def _push_core_regs_to_jitframe(self, mc, includes=r.MANAGED_REGS):
         self._multiple_to_or_from_jitframe(mc, includes, store=True)
 
     @specialize.arg(3)
@@ -1114,7 +1114,8 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
             if regval != (val+1):
                 iv = includes[i]
                 diff = (val - iv.value)
-                addr = l.addr(base_ofs + iv.value * WORD, r.SPP)
+                v = r.ALL_REG_INDEXES[iv]
+                addr = l.addr(base_ofs + v * WORD, r.SPP)
                 if diff > 0:
                     if store:
                         mc.STMG(iv, includes[i+diff], addr) 
@@ -1134,7 +1135,8 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
             return
         diff = (val - includes[i].value)
         iv = includes[i]
-        addr = l.addr(base_ofs + iv.value * WORD, r.SPP)
+        v = r.ALL_REG_INDEXES[iv]
+        addr = l.addr(base_ofs + v * WORD, r.SPP)
         if diff > 0:
             if store:
                 mc.STMG(iv, includes[-1], addr) 
@@ -1149,19 +1151,25 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
     def _pop_core_regs_from_jitframe(self, mc, includes=r.MANAGED_REGS):
         self._multiple_to_or_from_jitframe(mc, includes, store=False)
 
-    def _push_fp_regs_to_jitframe(self, mc, includes=r.fpregisters):
+    def _push_fp_regs_to_jitframe(self, mc, includes=r.MANAGED_FP_REGS):
         if len(includes) == 0:
             return
         base_ofs = self.cpu.get_baseofs_of_frame_field()
-        v = 16
-        for i,reg in enumerate(includes):
-            mc.STDY(reg, l.addr(base_ofs + (v+i) * WORD, r.SPP))
+        for reg in includes:
+            v = r.ALL_REG_INDEXES[reg]
+            offset = base_ofs + v * WORD
+            assert offset >= 0
+            assert offset <= 2**16-1
+            mc.STD(reg, l.addr(offset, r.SPP))
 
     def _pop_fp_regs_from_jitframe(self, mc, includes=r.MANAGED_FP_REGS):
         base_ofs = self.cpu.get_baseofs_of_frame_field()
-        v = 16
         for reg in includes:
-            mc.LD(reg, l.addr(base_ofs + (v+reg.value) * WORD, r.SPP))
+            v = r.ALL_REG_INDEXES[reg]
+            offset = base_ofs + v * WORD
+            assert offset >= 0
+            assert offset <= 2**16-1
+            mc.LD(reg, l.addr(offset, r.SPP))
 
 
     # ________________________________________

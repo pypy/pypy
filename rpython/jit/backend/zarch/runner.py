@@ -22,9 +22,9 @@ class CPU_S390_64(AbstractZARCHCPU):
 
     frame_reg = r.SP
     all_reg_indexes = [-1] * 32
-    for _i, _r in enumerate(r.registers):
+    for _i, _r in enumerate(r.MANAGED_REGS):
         all_reg_indexes[_r.value] = _i
-    gen_regs = r.registers
+    gen_regs = r.MANAGED_REGS
     float_regs = r.MANAGED_FP_REGS
 
     load_supported_factors = (1,)
