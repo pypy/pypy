@@ -909,6 +909,10 @@ class StaticObjectBuilder:
         self.static_pyobjs = []
         self.static_objs_w = []
         self.cpyext_type_init = None
+        #
+        # add a "method" that is overridden in setup_library()
+        # ('self.static_pyobjs' is completely ignored in that case)
+        self.get_static_pyobjs = lambda: self.static_pyobjs
 
     def prepare(self, py_obj, w_obj):
         "NOT_RPYTHON"
@@ -916,10 +920,6 @@ class StaticObjectBuilder:
             py_obj.c_ob_refcnt = 1     # 1 for kept immortal
         self.static_pyobjs.append(py_obj)
         self.static_objs_w.append(w_obj)
-
-    def get_static_pyobjs(self):
-        # method overridden in setup_library()
-        return self.static_pyobjs
 
     def attach_all(self):
         # this is RPython, called once in pypy-c when it imports cpyext
