@@ -520,21 +520,7 @@ class W_IntObject(W_AbstractIntObject):
         return _new_int(space, w_inttype, w_x, w_base)
 
     def descr_hash(self, space):
-        a = self.intval
-        sign = 1
-        if a < 0:
-            sign = -1
-            a = -a
-
-        x = r_uint(a)
-        # efficient x % HASH_MODULUS: as HASH_MODULUS is a Mersenne
-        # prime
-        x = (x & HASH_MODULUS) + (x >> HASH_BITS)
-        if x >= HASH_MODULUS:
-            x -= HASH_MODULUS
-
-        x = intmask(intmask(x) * sign)
-        return wrapint(space, -2 if x == -1 else x)
+        return space.wrap(_hash_int(space, self.intval))
 
     def as_w_long(self, space):
         # XXX: should try smalllong
