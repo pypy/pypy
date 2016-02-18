@@ -520,7 +520,7 @@ class W_IntObject(W_AbstractIntObject):
         return _new_int(space, w_inttype, w_x, w_base)
 
     def descr_hash(self, space):
-        return space.wrap(_hash_int(space, self.intval))
+        return space.wrap(_hash_int(self.intval))
 
     def as_w_long(self, space):
         # XXX: should try smalllong
@@ -1016,7 +1016,7 @@ Base 0 means to interpret the base from the string as an integer literal.
 )
 
 
-def _hash_int(space, a):
+def _hash_int(a):
     sign = 1
     if a < 0:
         sign = -1

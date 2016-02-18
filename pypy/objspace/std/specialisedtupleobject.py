@@ -71,7 +71,7 @@ def make_specialised_class(typetuple):
                     # hash for int which is different from the hash
                     # given by rpython
                     from pypy.objspace.std.intobject import _hash_int
-                    y = _hash_int(space, value)
+                    y = _hash_int(value)
                 else:
                     raise NotImplementedError
 
