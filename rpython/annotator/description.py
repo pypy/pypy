@@ -283,17 +283,20 @@ class FunctionDesc(Desc):
                             (self.name, e.getmsg()))
         return inputcells
 
-    def specialize(self, inputcells, op=None):
-        if (op is None and
-                getattr(self.bookkeeper, "position_key", None) is not None):
-            _, block, i = self.bookkeeper.position_key
-            op = block.operations[i]
+    def init_specializer(self):
         if self.specializer is None:
             # get the specializer based on the tag of the 'pyobj'
             # (if any), according to the current policy
             tag = getattr(self.pyobj, '_annspecialcase_', None)
             policy = self.bookkeeper.annotator.policy
             self.specializer = policy.get_specializer(tag)
+
+    def specialize(self, inputcells, op=None):
+        if (op is None and
+                getattr(self.bookkeeper, "position_key", None) is not None):
+            _, block, i = self.bookkeeper.position_key
+            op = block.operations[i]
+        self.init_specializer()
         enforceargs = getattr(self.pyobj, '_annenforceargs_', None)
         signature = getattr(self.pyobj, '_signature_', None)
         if enforceargs and signature:
