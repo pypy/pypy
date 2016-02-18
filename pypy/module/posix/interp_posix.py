@@ -731,8 +731,9 @@ def link(space, src, dst):
     except OSError, e:
         raise wrap_oserror(space, e)
 
-def symlink(space, w_src, w_dst):
+def symlink(space, w_src, w_dst, w_target_is_directory=None):
     "Create a symbolic link pointing to src named dst."
+    # TODO: target_is_directory has a meaning on Windows
     try:
         dispatch_filename_2(rposix.symlink)(space, w_src, w_dst)
     except OSError, e:
