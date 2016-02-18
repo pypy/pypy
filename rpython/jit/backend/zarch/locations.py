@@ -75,8 +75,8 @@ class FloatRegisterLocation(RegisterLocation):
     def is_fp_reg(self):
         return True
 
-    def as_key(self):            # 20 <= as_key <= 35
-        return self.value + 20
+    def as_key(self):            # 16 <= as_key <= 32
+        return self.value + 16
 
     def is_float(self):
         return True
@@ -125,33 +125,10 @@ class StackLocation(AssemblerLocation):
         return True
 
     def as_key(self):                # an aligned word + 10000
-        return self.position + 10000
+        return -self.position + 10000
 
     def is_float(self):
         return self.type == FLOAT
-
-class RawSPStackLocation(AssemblerLocation):
-    _immutable_ = True
-
-    def __init__(self, sp_offset, type=INT):
-        if type == FLOAT:
-            self.width = DOUBLE_WORD
-        else:
-            self.width = WORD
-        self.value = sp_offset
-        self.type = type
-
-    def __repr__(self):
-        return 'SP(%s)+%d' % (self.type, self.value,)
-
-    def is_raw_sp(self):
-        return True
-
-    def is_float(self):
-        return self.type == FLOAT
-
-    def as_key(self):            # a word >= 1000, and < 1000 + size of SP frame
-        return self.value + 1000
 
 class AddressLocation(AssemblerLocation):
     _immutable_ = True
@@ -172,9 +149,6 @@ class AddressLocation(AssemblerLocation):
             self.index = indexreg.value
         if length:
             self.length = length.value
-
-    def as_key(self):
-        return self.displace + 100000
 
 class PoolLoc(AddressLocation):
     _immutable_ = True
@@ -204,6 +178,9 @@ class PoolLoc(AddressLocation):
 
     def __repr__(self):
         return "pool(i,%d)" %  self.displace
+
+    def as_key(self):
+        return -self.displace // 8 + 20000
 
 def addr(displace, basereg=None, indexreg=None, length=None):
     return AddressLocation(basereg, indexreg, displace, length)

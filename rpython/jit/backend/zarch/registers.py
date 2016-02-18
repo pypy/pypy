@@ -38,7 +38,9 @@ for _r in MANAGED_REGS:
     ALL_REG_INDEXES[_r] = len(ALL_REG_INDEXES)
 for _r in MANAGED_FP_REGS:
     ALL_REG_INDEXES[_r] = len(ALL_REG_INDEXES)
-JITFRAME_FIXED_SIZE = len(ALL_REG_INDEXES) + 1 # plus one word to have an even number
+# NOT used, but keeps JITFRAME_FIXED_SIZE even
+ALL_REG_INDEXES[f15] = len(ALL_REG_INDEXES)
+JITFRAME_FIXED_SIZE = len(ALL_REG_INDEXES)
 
 def odd_reg(r):
     assert r.value % 2 == 0

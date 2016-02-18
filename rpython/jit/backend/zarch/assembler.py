@@ -182,7 +182,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         RCS2 = r.r10
         RCS3 = r.r11
 
-        # r10,r11,r12,r2,f0 -> makes exactly 4 words + 8 byte
+        # r9,r10,r11,r2,f0 -> makes exactly 4 words + 8 byte
         extra_stack_size = 4 * WORD + 8
         if for_frame:
             # NOTE: don't save registers on the jitframe here!  It might
@@ -201,7 +201,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
             mc.LG(r.SCRATCH, l.addr(0, r.SP))
             mc.STG(r.SCRATCH, l.addr(-extra_stack_size, r.SP))
             mc.LAY(r.SP, l.addr(-extra_stack_size, r.SP))
-            mc.STMG(r.r10, r.r12, l.addr(off, r.SP))
+            mc.STMG(r.r9, r.r11, l.addr(off, r.SP))
             mc.STG(r.r2, l.addr(off+3*WORD, r.SP))
             # OK to use STD, because offset is not negative
             mc.STD(r.f0, l.addr(off+4*WORD, r.SP))
@@ -253,7 +253,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
 
         if for_frame:
             off = STD_FRAME_SIZE_IN_BYTES
-            mc.LMG(r.r10, r.r12, l.addr(off, r.SP))
+            mc.LMG(r.r9, r.r11, l.addr(off, r.SP))
             mc.LG(r.r2, l.addr(off+3*WORD, r.SP))
             mc.LD(r.f0, l.addr(off+4*WORD, r.SP))
             mc.LAY(r.SP, l.addr(extra_stack_size, r.SP))
@@ -418,7 +418,6 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         if supports_floats:
             self._push_fp_regs_to_jitframe(mc)
 
-        # allocate a stack frame!
         mc.raw_call(r.r11)
 
         # Finish
@@ -1092,7 +1091,8 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         base_ofs = self.cpu.get_baseofs_of_frame_field()
         if len(includes) == 1:
             iv = includes[0]
-            addr = l.addr(base_ofs + iv.value * WORD, r.SPP)
+            v = r.ALL_REG_INDEXES[iv]
+            addr = l.addr(base_ofs + v * WORD, r.SPP)
             if store:
                 mc.STG(iv, addr)
             else:

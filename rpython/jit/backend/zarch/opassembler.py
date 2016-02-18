@@ -404,8 +404,8 @@ class CallOpAssembler(object):
         if regalloc.fprm.reg_bindings:
             floats = True
         cond_call_adr = self.cond_call_slowpath[floats * 2 + callee_only]
-        self.mc.load_imm(r.SCRATCH, cond_call_adr)
-        self.mc.BASR(r.RETURN, r.SCRATCH)
+        self.mc.load_imm(r.r14, cond_call_adr)
+        self.mc.BASR(r.r14, r.r14)
         # restoring the registers saved above, and doing pop_gcmap(), is left
         # to the cond_call_slowpath helper.  We never have any result value.
         relative_target = self.mc.currpos() - jmp_adr
