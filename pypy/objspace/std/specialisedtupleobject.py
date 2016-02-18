@@ -67,6 +67,11 @@ def make_specialised_class(typetuple):
                     # integer & other less frequent cases
                     from pypy.objspace.std.floatobject import _hash_float
                     y = _hash_float(space, value)
+                elif typetuple[i] == int:
+                    # hash for int which is different from the hash
+                    # given by rpython
+                    from pypy.objspace.std.intobject import _hash_int
+                    y = _hash_int(space, value)
                 else:
                     y = compute_hash(value)
                 x = (x ^ y) * mult
