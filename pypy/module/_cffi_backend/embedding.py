@@ -57,7 +57,7 @@ def patch_sys(space):
     # pypy_init_embedded_cffi_module().
     if not glob.patched_sys:
         space.appexec([], """():
-            import os
+            import os, sys
             sys.stdin  = sys.__stdin__  = os.fdopen(0, 'rb', 0)
             sys.stdout = sys.__stdout__ = os.fdopen(1, 'wb', 0)
             sys.stderr = sys.__stderr__ = os.fdopen(2, 'wb', 0)

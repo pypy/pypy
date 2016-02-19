@@ -5,6 +5,7 @@ from rpython.translator.translator import TranslationContext, graphof
 from rpython.translator.exceptiontransform import ExceptionTransformer
 from rpython.rtyper.lltypesystem import lltype
 from rpython.conftest import option
+from rpython.rtyper.rtyper import llinterp_backend
 
 
 class LLInterpedTranformerTests:
@@ -131,8 +132,10 @@ def checkblock(block, is_borrowed, is_start_block):
 def rtype(func, inputtypes, specialize=True):
     t = TranslationContext()
     t.buildannotator().build_types(func, inputtypes)
+    rtyper = t.buildrtyper()
+    rtyper.backend = llinterp_backend
     if specialize:
-        t.buildrtyper().specialize()
+        rtyper.specialize()
     if option.view:
         t.view()
     return t
