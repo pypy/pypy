@@ -550,6 +550,7 @@ class FFI(object):
                 lst.append(value)
         #
         if '__pypy__' in sys.builtin_module_names:
+            import os
             if sys.platform == "win32":
                 # we need 'libpypy-c.lib'.  Current distributions of
                 # pypy (>= 4.1) contain it as 'libs/python27.lib'.
@@ -558,11 +559,15 @@ class FFI(object):
                     ensure('library_dirs', os.path.join(sys.prefix, 'libs'))
             else:
                 # we need 'libpypy-c.{so,dylib}', which should be by
-                # default located in 'sys.prefix/bin'
+                # default located in 'sys.prefix/bin' for installed
+                # systems.
                 pythonlib = "pypy-c"
                 if hasattr(sys, 'prefix'):
-                    import os
                     ensure('library_dirs', os.path.join(sys.prefix, 'bin'))
+            # On uninstalled pypy's, the libpypy-c is typically found in
+            # .../pypy/goal/.
+            if hasattr(sys, 'prefix'):
+                ensure('library_dirs', os.path.join(sys.prefix, 'pypy', 'goal'))
         else:
             if sys.platform == "win32":
                 template = "python%d%d"
