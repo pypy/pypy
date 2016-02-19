@@ -236,7 +236,6 @@ class BaseConcreteArray(object):
 
     @jit.unroll_safe
     def _prepare_slice_args(self, space, w_idx):
-        print '_prepare_slice_args', w_idx
         from pypy.module.micronumpy import boxes
         if space.isinstance_w(w_idx, space.w_str):
             raise oefmt(space.w_IndexError, "only integers, slices (`:`), "
@@ -293,14 +292,11 @@ class BaseConcreteArray(object):
         return result
 
     def descr_getitem(self, space, orig_arr, w_index):
-        print 'concrete descr_gettiem %s' % str(w_index)[:35]
         try:
             item = self._single_item_index(space, w_index)
-            print 'concrete descr_gettiem _single_item_index succeeded'
             return self.getitem(item)
         except IndexError:
             # not a single result
-            print 'concrete descr_gettiem _single_item_index failed'
             chunks = self._prepare_slice_args(space, w_index)
             return new_view(space, orig_arr, chunks)
 
