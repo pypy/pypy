@@ -2973,9 +2973,13 @@ class IncrementalMiniMarkGC(MovingGCBase):
         self.rrc_o_list_old = new_o_list
 
     def _rrc_major_free(self, pyobject, surviving_list, surviving_dict):
+        # The pyobject survives if the corresponding obj survives.
+        # This is true if the obj has one of the following two flags:
+        #  * GCFLAG_VISITED: was seen during tracing
+        #  * GCFLAG_NO_HEAP_PTRS: immortal object never traced (so far)
         intobj = self._pyobj(pyobject).ob_pypy_link
         obj = llmemory.cast_int_to_adr(intobj)
-        if self.header(obj).tid & GCFLAG_VISITED:
+        if self.header(obj).tid & (GCFLAG_VISITED | GCFLAG_NO_HEAP_PTRS):
             surviving_list.append(pyobject)
             if surviving_dict:
                 surviving_dict.insertclean(obj, pyobject)

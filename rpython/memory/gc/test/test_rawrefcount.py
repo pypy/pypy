@@ -29,7 +29,7 @@ class TestRawRefCount(BaseDirectGCTest):
         assert count2 - count1 == expected_trigger
 
     def _rawrefcount_pair(self, intval, is_light=False, is_pyobj=False,
-                          create_old=False):
+                          create_old=False, create_immortal=False):
         if is_light:
             rc = REFCNT_FROM_PYPY_LIGHT
         else:
@@ -37,14 +37,19 @@ class TestRawRefCount(BaseDirectGCTest):
         self.trigger = []
         self.gc.rawrefcount_init(lambda: self.trigger.append(1))
         #
-        p1 = self.malloc(S)
+        if create_immortal:
+            p1 = lltype.malloc(S, immortal=True)
+        else:
+            p1 = self.malloc(S)
         p1.x = intval
-        if create_old:
+        if create_immortal:
+            self.consider_constant(p1)
+        elif create_old:
             self.stackroots.append(p1)
             self._collect(major=False)
             p1 = self.stackroots.pop()
         p1ref = lltype.cast_opaque_ptr(llmemory.GCREF, p1)
-        r1 = lltype.malloc(PYOBJ_HDR, flavor='raw')
+        r1 = lltype.malloc(PYOBJ_HDR, flavor='raw', immortal=create_immortal)
         r1.ob_refcnt = rc
         r1.ob_pypy_link = 0
         r1addr = llmemory.cast_ptr_to_adr(r1)
@@ -268,3 +273,10 @@ class TestRawRefCount(BaseDirectGCTest):
         self.test_pyobject_dies(old=True)
     def test_pyobject_survives_from_obj_old(self):
         self.test_pyobject_survives_from_obj(old=True)
+
+    def test_pyobject_attached_to_prebuilt_obj(self):
+        p1, p1ref, r1, r1addr, check_alive = (
+            self._rawrefcount_pair(42, create_immortal=True))
+        check_alive(0)
+        self._collect(major=True)
+        check_alive(0)
