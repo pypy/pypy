@@ -2,6 +2,7 @@ from __future__ import absolute_import
 
 import types
 from collections import defaultdict
+from contextlib import contextmanager
 
 from rpython.tool.ansi_print import ansi_log
 from rpython.tool.pairtype import pair
@@ -89,14 +90,9 @@ class RPythonAnnotator(object):
 
     def get_call_parameters(self, function, args_s, policy):
         desc = self.bookkeeper.getdesc(function)
-        prevpolicy = self.policy
-        self.policy = policy
-        self.bookkeeper.enter(None)
-        try:
-            return desc.get_call_parameters(args_s)
-        finally:
-            self.bookkeeper.leave()
-            self.policy = prevpolicy
+        with self.using_policy(policy):
+            with self.bookkeeper.at_position(None):
+                return desc.get_call_parameters(args_s)
 
     def annotate_helper(self, function, args_s, policy=None):
         if policy is None:
@@ -111,15 +107,23 @@ class RPythonAnnotator(object):
         return graph
 
     def complete_helpers(self, policy):
-        saved = self.policy, self.added_blocks
+        saved = self.added_blocks
+        self.added_blocks = {}
+        with self.using_policy(policy):
+            try:
+                self.complete()
+                # invoke annotation simplifications for the new blocks
+                self.simplify(block_subset=self.added_blocks)
+            finally:
+                self.added_blocks = saved
+
+    @contextmanager
+    def using_policy(self, policy):
+        """A context manager that temporarily replaces the annotator policy"""
+        old_policy = self.policy
         self.policy = policy
-        try:
-            self.added_blocks = {}
-            self.complete()
-            # invoke annotation simplifications for the new blocks
-            self.simplify(block_subset=self.added_blocks)
-        finally:
-            self.policy, self.added_blocks = saved
+        yield
+        self.policy = old_policy
 
     def build_graph_types(self, flowgraph, inputcells, complete_now=True):
         checkgraph(flowgraph)
