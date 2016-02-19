@@ -3,6 +3,7 @@ from rpython.jit.metainterp.opencoder import Trace, untag, TAGINT, TAGBOX
 from rpython.jit.metainterp.resoperation import rop, InputArgInt
 from rpython.jit.metainterp.history import ConstInt
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer
+from rpython.jit.metainterp import resume
 
 class TestOpencoder(object):
     def unpack(self, t):
@@ -30,4 +31,14 @@ class TestOpencoder(object):
         i0, i1 = InputArgInt(), InputArgInt()
         t = Trace([i0, i1])
         add = t.record_op(rop.INT_ADD, [i0, i1])
-        guard_op = t.record_op(rop.GUARD_FALSE, [add])
+        t.record_op(rop.GUARD_FALSE, [add])
+        # now we write rd_snapshot and friends
+        virtualizable_boxes = []
+        virutalref_boxes = []
+        framestack = []
+        framestack.xxx
+        resume.capture_resumedata(framestack, virtualizable_boxes,
+                                  virutalref_boxes, t)
+        (i0, i1), l = self.unpack(t)
+        assert l[1].opnum == rop.GUARD_FALSE
+        assert l[1].rd_snapshot == [i0, i1]

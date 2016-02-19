@@ -652,9 +652,12 @@ class History(object):
 
         self.trace = Trace(inpargs)
 
+    def any_operation(self):
+        return self.trace._count > 0
+
     @specialize.argtype(3)
     def record(self, opnum, argboxes, value, descr=None):
-        op = self.trace.record_op(self.operations, opnum, argboxes, value, descr)
+        op = self.trace.record_op(opnum, argboxes, descr)
         if value is None:
             assert op.type == 'v'
         elif isinstance(value, bool):
@@ -751,7 +754,9 @@ class Stats(object):
         self.jitcell_token_wrefs.append(weakref.ref(token))
 
     def set_history(self, history):
-        self.operations = history.operations
+        # XXX think about something
+        pass
+        #self.operations = history.operations
 
     def aborted(self):
         self.aborted_count += 1

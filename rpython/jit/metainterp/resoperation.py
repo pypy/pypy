@@ -1427,6 +1427,12 @@ class rop(object):
         return rop._ALWAYS_PURE_FIRST <= opnum <= rop._ALWAYS_PURE_LAST
 
     @staticmethod
+    def is_pure_with_descr(opnum, descr):
+        if rop.is_always_pure(opnum):
+            return True
+        xxxx
+
+    @staticmethod
     def has_no_side_effect(opnum):
         return rop._NOSIDEEFFECT_FIRST <= opnum <= rop._NOSIDEEFFECT_LAST
 
