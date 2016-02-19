@@ -111,13 +111,8 @@ def create_package(basedir, options, _fake=False):
     #
     builddir = py.path.local(options.builddir)
     pypydir = builddir.ensure(name, dir=True)
+
     includedir = basedir.join('include')
-    # Recursively copy all headers, shutil has only ignore
-    # so we do a double-negative to include what we want
-    def copyonly(dirpath, contents):
-        return set(contents) - set(    # XXX function not used?
-            shutil.ignore_patterns('*.h', '*.incl')(dirpath, contents),
-        )
     shutil.copytree(str(includedir), str(pypydir.join('include')))
     pypydir.ensure('include', dir=True)
 
@@ -132,9 +127,6 @@ def create_package(basedir, options, _fake=False):
         win_extras = ['libpypy-c.dll', 'sqlite3.dll']
         if not options.no_tk:
             win_extras += ['tcl85.dll', 'tk85.dll']
-        # add the .lib too, which is convenient to compile other programs
-        # that use the .dll (and for cffi's embedding mode)
-        win_extras.append('libpypy-c.lib')
 
         for extra in win_extras:
             p = pypy_c.dirpath().join(extra)
@@ -145,32 +137,27 @@ def create_package(basedir, options, _fake=False):
                     continue
             print "Picking %s" % p
             binaries.append((p, p.basename))
-        importlib_name = 'libpypy-c.lib'    
-        if pypy_c.dirpath().join(importlib_name).check():
-            try:
-                ver = subprocess.check_output([r'pypy\goal\pypy-c','-c',
-                                            "import sys;print(sys.version)"])
-                importlib_target = 'python%s%s.lib' % (ver[0], ver[2])
-                shutil.copyfile(str(pypy_c.dirpath().join(importlib_name)),
-                            str(pypydir.join(importlib_target)))
-                # XXX fix this, either an additional build step or rename
-                # both DLL and LIB to versioned names, like cpython
-                shutil.copyfile(str(pypy_c.dirpath().join(importlib_name)),
-                            str(pypy_c.dirpath().join(importlib_target)))
-                print "Picking %s as %s" % (pypy_c.dirpath().join(importlib_name),
-                            pypydir.join('include', importlib_target))
-            except:
-                pass
+        libsdir = basedir.join('libs')
+        if libsdir.exists():
+            print 'Picking %s (and contents)' % libsdir
+            shutil.copytree(str(libsdir), str(pypydir.join('libs')))
         else:
-            pass
-            # XXX users will complain that they cannot compile cpyext
-            # modules for windows, has the lib moved or are there no
-            # exported functions in the dll so no import library is created?
+            print '"libs" dir with import library not found.'
+            print 'You have to create %r' % (str(libsdir),)
+            print 'and copy libpypy-c.lib in there, renamed to python32.lib'
+            # XXX users will complain that they cannot compile capi (cpyext)
+            # modules for windows, also embedding pypy (i.e. in cffi)
+            # will fail.
+            # Has the lib moved, was translation not 'shared', or are 
+            # there no exported functions in the dll so no import
+            # library was created?
         if not options.no_tk:
             try:
                 p = pypy_c.dirpath().join('tcl85.dll')
                 if not p.check():
                     p = py.path.local.sysfind('tcl85.dll')
+                    if p is None:
+                        raise WindowsError("tcl85.dll not found")
                 tktcldir = p.dirpath().join('..').join('lib')
                 shutil.copytree(str(tktcldir), str(pypydir.join('tcl')))
             except WindowsError:

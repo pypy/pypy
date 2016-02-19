@@ -487,7 +487,15 @@ class TranslationDriver(SimpleTaskEngine):
                     exe = py.path.local(exename)
                     exename = exe.new(purebasename=exe.purebasename + 'w')
                     shutil_copy(str(exename), str(newexename))
-                    ext_to_copy = ['lib', 'pdb']
+                    # for pypy, the import library is renamed and moved to
+                    # libs/python32.lib, according to the pragma in pyconfig.h
+                    libname = self.config.translation.libname
+                    libname = libname or soname.new(ext='lib').basename
+                    libname = str(newsoname.dirpath().join(libname))
+                    shutil.copyfile(str(soname.new(ext='lib')), libname)
+                    self.log.info("copied: %s" % (libname,))
+                    # the pdb file goes in the same place as pypy(w).exe
+                    ext_to_copy = ['pdb',]
                     for ext in ext_to_copy:
                         name = soname.new(ext=ext)
                         newname = newexename.new(basename=soname.basename)

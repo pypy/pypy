@@ -1,3 +1,6 @@
+#
+# DEPRECATED: implementation for ffi.verify()
+#
 import sys, os, binascii, shutil, io
 from . import __version_verifier_modules__
 from . import ffiplatform
