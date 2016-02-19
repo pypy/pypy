@@ -487,6 +487,7 @@ class AppTestImport(BaseImportTest):
         import imp
         pkg = imp.new_module('newpkg')
         sys.modules['newpkg'] = pkg
+        sys.modules['newpkg.foo'] = imp.new_module('newpkg.foo')
         mydict = {'__name__': 'newpkg.foo', '__path__': '/some/path'}
         res = __import__('', mydict, None, ['bar'], 2)
         assert res is pkg
