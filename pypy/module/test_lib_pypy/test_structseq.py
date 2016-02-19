@@ -6,7 +6,8 @@ class AppTestStructseq:
     spaceconfig = dict(usemodules=('binascii', 'struct',))
 
     def setup_class(cls):
-        cls.w__structseq = import_lib_pypy(cls.space, '_structseq')
+        cls.w__structseq = cls.space.appexec(
+                [], "(): import _structseq; return _structseq")
 
     def w_get_mydata(self):
         _structseq = self._structseq
