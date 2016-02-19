@@ -208,6 +208,11 @@ class RelativeImports(unittest.TestCase):
         with self.assertRaises(KeyError):
             import_util.import_('sys', level=1)
 
+    def test_relative_import_no_package_exists_absolute(self):
+        with self.assertRaises(SystemError):
+            self.__import__('sys', {'__package__': '', '__spec__': None},
+                            level=1)
+
 
 def test_main():
     from test.support import run_unittest
