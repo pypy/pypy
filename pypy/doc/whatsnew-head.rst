@@ -158,3 +158,8 @@ to specify which header file they appear in (previously only pypy_decl.h)
 Refactor register_external(), remove running_on_llinterp mechanism and
 apply sandbox transform on externals at the end of annotation.
 
+.. branch: cffi-embedding-win32
+
+.. branch: windows-vmprof-support
+
+vmprof should work on Windows.
