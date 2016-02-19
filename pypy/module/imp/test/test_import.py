@@ -458,14 +458,14 @@ class AppTestImport(BaseImportTest):
                     print('__name__ =', __name__)
                     from .struct import inpackage
         """, ns)
-        raises(ValueError, ns['imp'])
+        raises(SystemError, ns['imp'])
 
     def test_future_relative_import_error_when_in_non_package2(self):
         ns = {'__name__': __name__}
         exec("""def imp():
                     from .. import inpackage
         """, ns)
-        raises(ValueError, ns['imp'])
+        raises(SystemError, ns['imp'])
 
     def test_relative_import_with___name__(self):
         import sys
