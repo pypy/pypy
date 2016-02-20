@@ -1945,7 +1945,7 @@ class TestSmallFuncSets(TestRPBC):
 
     def interpret(self, fn, args, **kwds):
         kwds['config'] = self.config
-        return TestRPBC.interpret(self, fn, args, **kwds)
+        return TestRPBC.interpret(fn, args, **kwds)
 
 def test_smallfuncsets_basic():
     from rpython.translator.translator import TranslationContext, graphof
