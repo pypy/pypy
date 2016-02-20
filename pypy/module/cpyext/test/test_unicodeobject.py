@@ -73,7 +73,7 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
             ])
         s = module.getunicode()
         assert len(s) == 4
-        assert s == u'aé\x00c'
+        assert s == u'aï¿½\x00c'
 
     def test_hash(self):
         module = self.import_extension('foo', [
@@ -91,10 +91,10 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
 
 class TestUnicode(BaseApiTest):
     def test_unicodeobject(self, space, api):
-        assert api.PyUnicode_GET_SIZE(space.wrap(u'späm')) == 4
-        assert api.PyUnicode_GetSize(space.wrap(u'späm')) == 4
+        assert api.PyUnicode_GET_SIZE(space.wrap(u'spï¿½m')) == 4
+        assert api.PyUnicode_GetSize(space.wrap(u'spï¿½m')) == 4
         unichar = rffi.sizeof(Py_UNICODE)
-        assert api.PyUnicode_GET_DATA_SIZE(space.wrap(u'späm')) == 4 * unichar
+        assert api.PyUnicode_GET_DATA_SIZE(space.wrap(u'spï¿½m')) == 4 * unichar
 
         encoding = rffi.charp2str(api.PyUnicode_GetDefaultEncoding())
         w_default_encoding = space.call_function(
@@ -128,10 +128,10 @@ class TestUnicode(BaseApiTest):
                     space.wrap('spam'))
 
         utf_8 = rffi.str2charp('utf-8')
-        encoded = api.PyUnicode_AsEncodedString(space.wrap(u'späm'),
+        encoded = api.PyUnicode_AsEncodedString(space.wrap(u'spï¿½m'),
                                                 utf_8, None)
         assert space.unwrap(encoded) == 'sp\xc3\xa4m'
-        encoded_obj = api.PyUnicode_AsEncodedObject(space.wrap(u'späm'),
+        encoded_obj = api.PyUnicode_AsEncodedObject(space.wrap(u'spï¿½m'),
                                                 utf_8, None)
         assert space.eq_w(encoded, encoded_obj)
         self.raises(space, api, TypeError, api.PyUnicode_AsEncodedString,
@@ -140,7 +140,7 @@ class TestUnicode(BaseApiTest):
                space.wrap(''), None, None)
         ascii = rffi.str2charp('ascii')
         replace = rffi.str2charp('replace')
-        encoded = api.PyUnicode_AsEncodedString(space.wrap(u'späm'),
+        encoded = api.PyUnicode_AsEncodedString(space.wrap(u'spï¿½m'),
                                                 ascii, replace)
         assert space.unwrap(encoded) == 'sp?m'
         rffi.free_charp(utf_8)
@@ -155,14 +155,14 @@ class TestUnicode(BaseApiTest):
         rffi.free_wcharp(buf)
 
     def test_fromstring(self, space, api):
-        s = rffi.str2charp(u'späm'.encode("utf-8"))
+        s = rffi.str2charp(u'spï¿½m'.encode("utf-8"))
         w_res = api.PyUnicode_FromString(s)
-        assert space.unwrap(w_res) == u'späm'
+        assert space.unwrap(w_res) == u'spï¿½m'
 
         res = api.PyUnicode_FromStringAndSize(s, 4)
         w_res = from_ref(space, res)
         api.Py_DecRef(res)
-        assert space.unwrap(w_res) == u'spä'
+        assert space.unwrap(w_res) == u'spï¿½'
         rffi.free_charp(s)
 
     def test_unicode_resize(self, space, api):
@@ -188,16 +188,16 @@ class TestUnicode(BaseApiTest):
         lltype.free(ar, flavor='raw')
 
     def test_AsUTF8String(self, space, api):
-        w_u = space.wrap(u'späm')
+        w_u = space.wrap(u'spï¿½m')
         w_res = api.PyUnicode_AsUTF8String(w_u)
         assert space.type(w_res) is space.w_str
         assert space.unwrap(w_res) == 'sp\xc3\xa4m'
     
     def test_decode_utf8(self, space, api):
-        u = rffi.str2charp(u'späm'.encode("utf-8"))
+        u = rffi.str2charp(u'spï¿½m'.encode("utf-8"))
         w_u = api.PyUnicode_DecodeUTF8(u, 5, None)
         assert space.type(w_u) is space.w_unicode
-        assert space.unwrap(w_u) == u'späm'
+        assert space.unwrap(w_u) == u'spï¿½m'
         
         w_u = api.PyUnicode_DecodeUTF8(u, 2, None)
         assert space.type(w_u) is space.w_unicode
@@ -205,9 +205,9 @@ class TestUnicode(BaseApiTest):
         rffi.free_charp(u)
 
     def test_encode_utf8(self, space, api):
-        u = rffi.unicode2wcharp(u'späm')
+        u = rffi.unicode2wcharp(u'spï¿½m')
         w_s = api.PyUnicode_EncodeUTF8(u, 4, None)
-        assert space.unwrap(w_s) == u'späm'.encode('utf-8')
+        assert space.unwrap(w_s) == u'spï¿½m'.encode('utf-8')
         rffi.free_wcharp(u)
 
     def test_encode_decimal(self, space, api):
@@ -269,28 +269,28 @@ class TestUnicode(BaseApiTest):
         for char in [0x0a, 0x0d, 0x1c, 0x1d, 0x1e, 0x85, 0x2028, 0x2029]:
             assert api.Py_UNICODE_ISLINEBREAK(unichr(char))
 
-        assert api.Py_UNICODE_ISLOWER(u'ä')
-        assert not api.Py_UNICODE_ISUPPER(u'ä')
+        assert api.Py_UNICODE_ISLOWER(u'ï¿½')
+        assert not api.Py_UNICODE_ISUPPER(u'ï¿½')
         assert api.Py_UNICODE_ISLOWER(u'a')
         assert not api.Py_UNICODE_ISUPPER(u'a')
-        assert not api.Py_UNICODE_ISLOWER(u'Ä')
-        assert api.Py_UNICODE_ISUPPER(u'Ä')
+        assert not api.Py_UNICODE_ISLOWER(u'ï¿½')
+        assert api.Py_UNICODE_ISUPPER(u'ï¿½')
         assert not api.Py_UNICODE_ISTITLE(u'A')
         assert api.Py_UNICODE_ISTITLE(
             u'\N{LATIN CAPITAL LETTER L WITH SMALL LETTER J}')
 
     def test_TOLOWER(self, space, api):
-        assert api.Py_UNICODE_TOLOWER(u'ä') == u'ä'
-        assert api.Py_UNICODE_TOLOWER(u'Ä') == u'ä'
+        assert api.Py_UNICODE_TOLOWER(u'ï¿½') == u'ï¿½'
+        assert api.Py_UNICODE_TOLOWER(u'ï¿½') == u'ï¿½'
 
     def test_TOUPPER(self, space, api):
-        assert api.Py_UNICODE_TOUPPER(u'ä') == u'Ä'
-        assert api.Py_UNICODE_TOUPPER(u'Ä') == u'Ä'
+        assert api.Py_UNICODE_TOUPPER(u'ï¿½') == u'ï¿½'
+        assert api.Py_UNICODE_TOUPPER(u'ï¿½') == u'ï¿½'
 
     def test_TOTITLE(self, space, api):
         assert api.Py_UNICODE_TOTITLE(u'/') == u'/'
-        assert api.Py_UNICODE_TOTITLE(u'ä') == u'Ä'
-        assert api.Py_UNICODE_TOTITLE(u'Ä') == u'Ä'
+        assert api.Py_UNICODE_TOTITLE(u'ï¿½') == u'ï¿½'
+        assert api.Py_UNICODE_TOTITLE(u'ï¿½') == u'ï¿½'
 
     def test_TODECIMAL(self, space, api):
         assert api.Py_UNICODE_TODECIMAL(u'6') == 6
@@ -488,7 +488,7 @@ class TestUnicode(BaseApiTest):
         assert space.eq_w(space.wrap("abcdefg"), w_s)
         rffi.free_wcharp(data)
 
-        u = u'äbcdéfg'
+        u = u'ï¿½bcdï¿½fg'
         data = rffi.unicode2wcharp(u)
         w_s = api.PyUnicode_EncodeASCII(data, len(u), lltype.nullptr(rffi.CCHARP.TO))
         self.raises(space, api, UnicodeEncodeError, api.PyUnicode_EncodeASCII,

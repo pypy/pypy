@@ -80,7 +80,7 @@ class TestNDArrayObject(BaseApiTest):
         a0 = scalar(space)
         assert a0.get_scalar_value().value == 10.
 
-        a = api._PyArray_FromAny(a0, NULL, 0, 0, 0, NULL)
+        a = api._PyArray_FromAny(a0, None, 0, 0, 0, NULL)
         assert api._PyArray_NDIM(a) == 0
 
         ptr = rffi.cast(rffi.DOUBLEP, api._PyArray_DATA(a))
@@ -88,10 +88,10 @@ class TestNDArrayObject(BaseApiTest):
 
     def test_FromAny(self, space, api):
         a = array(space, [10, 5, 3])
-        assert api._PyArray_FromAny(a, NULL, 0, 0, 0, NULL) is a
-        assert api._PyArray_FromAny(a, NULL, 1, 4, 0, NULL) is a
+        assert api._PyArray_FromAny(a, None, 0, 0, 0, NULL) is a
+        assert api._PyArray_FromAny(a, None, 1, 4, 0, NULL) is a
         self.raises(space, api, ValueError, api._PyArray_FromAny,
-                    a, NULL, 4, 5, 0, NULL)
+                    a, None, 4, 5, 0, NULL)
 
     def test_FromObject(self, space, api):
         a = array(space, [10, 5, 3])

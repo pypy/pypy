@@ -16,14 +16,13 @@ from pypy.module.cpyext.api import (
     cpython_api, cpython_struct, bootstrap_function, Py_ssize_t, Py_ssize_tP,
     generic_cpy_call, Py_TPFLAGS_READY, Py_TPFLAGS_READYING,
     Py_TPFLAGS_HEAPTYPE, METH_VARARGS, METH_KEYWORDS, CANNOT_FAIL,
-    Py_TPFLAGS_HAVE_GETCHARBUFFER, build_type_checkers, PyObjectFields,
-    PyObject)
+    Py_TPFLAGS_HAVE_GETCHARBUFFER, build_type_checkers, StaticObjectBuilder)
 from pypy.module.cpyext.methodobject import (
     PyDescr_NewWrapper, PyCFunction_NewEx, PyCFunction_typedef)
 from pypy.module.cpyext.modsupport import convert_method_defs
 from pypy.module.cpyext.pyobject import (
     PyObject, make_ref, create_ref, from_ref, get_typedescr, make_typedescr,
-    track_reference, RefcountState, borrow_from, Py_DecRef)
+    track_reference, Py_DecRef, as_pyobj)
 from pypy.module.cpyext.slotdefs import (
     slotdefs_for_tp_slots, slotdefs_for_wrappers, get_slot_tp_function)
 from pypy.module.cpyext.state import State
@@ -318,6 +317,9 @@ def add_tp_new_wrapper(space, dict_w, pto):
 
 def inherit_special(space, pto, base_pto):
     # XXX missing: copy basicsize and flags in a magical way
+    # (minimally, if tp_basicsize is zero we copy it from the base)
+    if not pto.c_tp_basicsize:
+        pto.c_tp_basicsize = base_pto.c_tp_basicsize
     flags = rffi.cast(lltype.Signed, pto.c_tp_flags)
     base_object_pyo = make_ref(space, space.w_object)
     base_object_pto = rffi.cast(PyTypeObjectPtr, base_object_pyo)
@@ -553,8 +555,9 @@ def type_attach(space, py_obj, w_type):
     w_base = best_base(space, w_type.bases_w)
     pto.c_tp_base = rffi.cast(PyTypeObjectPtr, make_ref(space, w_base))
 
-    if hasattr(space, '_cpyext_type_init'):
-        space._cpyext_type_init.append((pto, w_type))
+    builder = space.fromcache(StaticObjectBuilder)
+    if builder.cpyext_type_init is not None:
+        builder.cpyext_type_init.append((pto, w_type))
     else:
         finish_type_1(space, pto)
         finish_type_2(space, pto, w_type)
@@ -584,6 +587,7 @@ def PyType_Ready(space, pto):
 
 def type_realize(space, py_obj):
     pto = rffi.cast(PyTypeObjectPtr, py_obj)
+    assert pto.c_tp_flags & Py_TPFLAGS_READY == 0
     assert pto.c_tp_flags & Py_TPFLAGS_READYING == 0
     pto.c_tp_flags |= Py_TPFLAGS_READYING
     try:
@@ -634,8 +638,7 @@ def _type_realize(space, py_obj):
 
     if not py_type.c_tp_base:
         # borrowed reference, but w_object is unlikely to disappear
-        base = make_ref(space, space.w_object)
-        Py_DecRef(space, base)
+        base = as_pyobj(space, space.w_object)
         py_type.c_tp_base = rffi.cast(PyTypeObjectPtr, base)
 
     finish_type_1(space, py_type)
@@ -661,9 +664,6 @@ def _type_realize(space, py_obj):
         if not py_type.c_tp_as_sequence: py_type.c_tp_as_sequence = base.c_tp_as_sequence 
         if not py_type.c_tp_as_mapping: py_type.c_tp_as_mapping = base.c_tp_as_mapping 
         if not py_type.c_tp_as_buffer: py_type.c_tp_as_buffer = base.c_tp_as_buffer 
-
-    state = space.fromcache(RefcountState)
-    state.non_heaptypes_w.append(w_obj)
 
     return w_obj
 
@@ -730,7 +730,8 @@ def PyType_GenericNew(space, type, w_args, w_kwds):
     return generic_cpy_call(
         space, type.c_tp_alloc, type, 0)
 
-@cpython_api([PyTypeObjectPtr, PyObject], PyObject, error=CANNOT_FAIL)
+@cpython_api([PyTypeObjectPtr, PyObject], PyObject, error=CANNOT_FAIL,
+             result_borrowed=True)
 def _PyType_Lookup(space, type, w_name):
     """Internal API to look for a name through the MRO.
     This returns a borrowed reference, and doesn't set an exception!"""
@@ -741,7 +742,9 @@ def _PyType_Lookup(space, type, w_name):
         return None
     name = space.str_w(w_name)
     w_obj = w_type.lookup(name)
-    return borrow_from(w_type, w_obj)
+    # this assumes that w_obj is not dynamically created, but will stay alive
+    # until w_type is modified or dies.  Assuming this, we return a borrowed ref
+    return w_obj
 
 @cpython_api([PyTypeObjectPtr], lltype.Void)
 def PyType_Modified(space, w_obj):

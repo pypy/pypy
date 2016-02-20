@@ -27,7 +27,7 @@ unpackiterable_driver = jit.JitDriver(name='unpackiterable',
 class W_Root(object):
     """This is the abstract root class of all wrapped objects that live
     in a 'normal' object space like StdObjSpace."""
-    __slots__ = ()
+    __slots__ = ('__weakref__',)
     user_overridden_class = False
 
     def getdict(self, space):

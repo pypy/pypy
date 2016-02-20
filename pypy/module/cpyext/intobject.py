@@ -5,7 +5,7 @@ from pypy.module.cpyext.api import (
     cpython_api, cpython_struct, build_type_checkers, bootstrap_function,
     PyObject, PyObjectFields, CONST_STRING, CANNOT_FAIL, Py_ssize_t)
 from pypy.module.cpyext.pyobject import (
-    make_typedescr, track_reference, RefcountState, from_ref)
+    make_typedescr, track_reference, from_ref)
 from rpython.rlib.rarithmetic import r_uint, intmask, LONG_TEST, r_ulonglong
 from pypy.objspace.std.intobject import W_IntObject
 import sys
@@ -38,8 +38,6 @@ def int_realize(space, obj):
     w_obj = space.allocate_instance(W_IntObject, w_type)
     w_obj.__init__(intval)
     track_reference(space, obj, w_obj)
-    state = space.fromcache(RefcountState)
-    state.set_lifeline(w_obj, obj)
     return w_obj
 
 PyInt_Check, PyInt_CheckExact = build_type_checkers("Int")

@@ -70,9 +70,9 @@ PyString_Check, PyString_CheckExact = build_type_checkers("String", "w_str")
 
 def new_empty_str(space, length):
     """
-    Allocatse a PyStringObject and its buffer, but without a corresponding
+    Allocate a PyStringObject and its buffer, but without a corresponding
     interpreter object.  The buffer may be mutated, until string_realize() is
-    called.
+    called.  Refcount of the result is 1.
     """
     typedescr = get_typedescr(space.w_str.instancetypedef)
     py_obj = typedescr.allocate(space, space.w_str)

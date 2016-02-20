@@ -4,7 +4,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.objspace.std.listobject import ListStrategy
 from pypy.module.cpyext.api import (
     cpython_api, CANNOT_FAIL, CONST_STRING, Py_ssize_t, PyObject, PyObjectP)
-from pypy.module.cpyext.pyobject import borrow_from, make_ref, from_ref
+from pypy.module.cpyext.pyobject import PyObject
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.objspace.std import listobject, tupleobject
 
@@ -44,16 +44,18 @@ def PySequence_Fast(space, w_obj, m):
     which case o is returned.  Use PySequence_Fast_GET_ITEM() to access the
     members of the result.  Returns NULL on failure.  If the object is not a
     sequence, raises TypeError with m as the message text."""
-    
     if isinstance(w_obj, listobject.W_ListObject):
+        # make sure we can return a borrowed obj from PySequence_Fast_GET_ITEM    
         w_obj.convert_to_cpy_strategy(space)
+        return w_obj
+    if isinstance(w_obj, tupleobject.W_TupleObject):
         return w_obj
     try:
         return listobject.W_ListObject.newlist_cpyext(space, space.listview(w_obj))
     except OperationError:
         raise OperationError(space.w_TypeError, space.wrap(rffi.charp2str(m)))
 
-@cpython_api([PyObject, Py_ssize_t], PyObject)
+@cpython_api([PyObject, Py_ssize_t], PyObject, result_borrowed=True)
 def PySequence_Fast_GET_ITEM(space, w_obj, index):
     """Return the ith element of o, assuming that o was returned by
     PySequence_Fast(), o is not NULL, and that i is within bounds.
@@ -63,7 +65,7 @@ def PySequence_Fast_GET_ITEM(space, w_obj, index):
     else:
         assert isinstance(w_obj, tupleobject.W_TupleObject)
         w_res = w_obj.wrappeditems[index]
-    return borrow_from(w_obj, w_res)
+    return w_res     # borrowed ref
 
 @cpython_api([PyObject], Py_ssize_t, error=CANNOT_FAIL)
 def PySequence_Fast_GET_SIZE(space, w_obj):
