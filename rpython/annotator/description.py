@@ -3,7 +3,6 @@ import types
 from rpython.annotator.signature import (
     enforce_signature_args, enforce_signature_return, finish_type)
 from rpython.flowspace.model import FunctionGraph
-from rpython.flowspace.bytecode import cpython_code_signature
 from rpython.annotator.argument import rawshape, ArgErr, simple_args
 from rpython.tool.sourcetools import valid_identifier
 from rpython.tool.pairtype import extendabletype
@@ -192,29 +191,16 @@ NODEFAULT = object()
 class FunctionDesc(Desc):
     knowntype = types.FunctionType
 
-    def __init__(self, bookkeeper, pyobj=None,
-                 name=None, signature=None, defaults=None,
+    def __init__(self, bookkeeper, pyobj, name, signature, defaults,
                  specializer=None):
         super(FunctionDesc, self).__init__(bookkeeper, pyobj)
-        if name is None:
-            name = pyobj.func_name
-        if signature is None:
-            if hasattr(pyobj, '_generator_next_method_of_'):
-                from rpython.flowspace.argument import Signature
-                signature = Signature(['entry'])     # haaaaaack
-                defaults = ()
-            else:
-                signature = cpython_code_signature(pyobj.func_code)
-        if defaults is None:
-            defaults = pyobj.func_defaults
         self.name = name
         self.signature = signature
-        self.defaults = defaults or ()
+        self.defaults = defaults
         # 'specializer' is a function with the following signature:
         #      specializer(funcdesc, args_s) => graph
         #                                 or => s_result (overridden/memo cases)
         self.specializer = specializer
-        self.init_specializer()
         self._cache = {}     # convenience for the specializer
 
     def buildgraph(self, alt_name=None, builder=None):
@@ -283,14 +269,6 @@ class FunctionDesc(Desc):
             raise AnnotatorError("signature mismatch: %s() %s" %
                             (self.name, e.getmsg()))
         return inputcells
-
-    def init_specializer(self):
-        if self.specializer is None:
-            # get the specializer based on the tag of the 'pyobj'
-            # (if any), according to the current policy
-            tag = getattr(self.pyobj, '_annspecialcase_', None)
-            policy = self.bookkeeper.annotator.policy
-            self.specializer = policy.get_specializer(tag)
 
     def specialize(self, inputcells, op=None):
         if (op is None and
