@@ -49,6 +49,7 @@ syntax: regexp
 ^rpython/translator/jvm/\.classpath$
 ^rpython/translator/jvm/eclipse-bin$
 ^rpython/translator/jvm/src/pypy/.+\.class$
+^rpython/translator/llvm/.+\.so$
 ^rpython/translator/benchmark/docutils$
 ^rpython/translator/benchmark/templess$
 ^rpython/translator/benchmark/gadfly$
@@ -72,6 +73,7 @@ syntax: regexp
 ^rpython/translator/cli/src/pypylib\.dll$
 ^rpython/translator/cli/src/query\.exe$
 ^rpython/translator/cli/src/main\.exe$
+^lib-python/2.7/lib2to3/.+\.pickle$
 ^lib_pypy/__pycache__$
 ^lib_pypy/ctypes_config_cache/_.+_cache\.py$
 ^lib_pypy/ctypes_config_cache/_.+_.+_\.py$
