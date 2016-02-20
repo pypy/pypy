@@ -3,7 +3,7 @@ from pypy.module.cpyext.api import (PyObjectFields, bootstrap_function,
     cpython_struct,
     CANNOT_FAIL, cpython_api, PyObject, build_type_checkers, CONST_STRING)
 from pypy.module.cpyext.pyobject import (
-    make_typedescr, track_reference, RefcountState, from_ref)
+    make_typedescr, track_reference, from_ref)
 from pypy.interpreter.error import OperationError
 from rpython.rlib.rstruct import runpack
 from pypy.objspace.std.floatobject import W_FloatObject
@@ -36,8 +36,6 @@ def float_realize(space, obj):
     w_obj = space.allocate_instance(W_FloatObject, w_type)
     w_obj.__init__(floatval)
     track_reference(space, obj, w_obj)
-    state = space.fromcache(RefcountState)
-    state.set_lifeline(w_obj, obj)
     return w_obj
 
 PyFloat_Check, PyFloat_CheckExact = build_type_checkers("Float")
