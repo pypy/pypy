@@ -204,6 +204,13 @@ class TestRfloat(BaseRtypingTest):
         res = self.ll_to_string(self.interpret(f, [10/3.0]))
         assert res == '3.33'
 
+    def test_formatd_g(self):
+        for flags in [0, rfloat.DTSF_ADD_DOT_0]:
+            def f(y):
+                return rfloat.formatd(y, 'g', 2, flags)
+
+            assert self.ll_to_string(self.interpret(f, [3.0])) == f(3.0)
+
     def test_formatd_repr(self):
         from rpython.rlib.rfloat import formatd
         def f(x):
