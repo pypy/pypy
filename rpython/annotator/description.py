@@ -214,6 +214,7 @@ class FunctionDesc(Desc):
         #      specializer(funcdesc, args_s) => graph
         #                                 or => s_result (overridden/memo cases)
         self.specializer = specializer
+        self.init_specializer()
         self._cache = {}     # convenience for the specializer
 
     def buildgraph(self, alt_name=None, builder=None):
@@ -296,7 +297,6 @@ class FunctionDesc(Desc):
                 getattr(self.bookkeeper, "position_key", None) is not None):
             _, block, i = self.bookkeeper.position_key
             op = block.operations[i]
-        self.init_specializer()
         enforceargs = getattr(self.pyobj, '_annenforceargs_', None)
         signature = getattr(self.pyobj, '_signature_', None)
         if enforceargs and signature:

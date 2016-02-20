@@ -82,17 +82,17 @@ class RPythonAnnotator(object):
         annmodel.TLS.check_str_without_nul = (
             self.translator.config.translation.check_str_without_nul)
 
-        flowgraph, inputs_s = self.get_call_parameters(function, args_s, policy)
+        with self.using_policy(policy):
+            flowgraph, inputs_s = self.get_call_parameters(function, args_s)
 
         if main_entry_point:
             self.translator.entry_point_graph = flowgraph
         return self.build_graph_types(flowgraph, inputs_s, complete_now=complete_now)
 
-    def get_call_parameters(self, function, args_s, policy):
-        desc = self.bookkeeper.getdesc(function)
-        with self.using_policy(policy):
-            with self.bookkeeper.at_position(None):
-                return desc.get_call_parameters(args_s)
+    def get_call_parameters(self, function, args_s):
+        with self.bookkeeper.at_position(None):
+            desc = self.bookkeeper.getdesc(function)
+            return desc.get_call_parameters(args_s)
 
     def annotate_helper(self, function, args_s, policy=None):
         if policy is None:
@@ -101,21 +101,21 @@ class RPythonAnnotator(object):
             # XXX hack
             annmodel.TLS.check_str_without_nul = (
                 self.translator.config.translation.check_str_without_nul)
-        graph, inputcells = self.get_call_parameters(function, args_s, policy)
-        self.build_graph_types(graph, inputcells, complete_now=False)
-        self.complete_helpers(policy)
+        with self.using_policy(policy):
+            graph, inputcells = self.get_call_parameters(function, args_s)
+            self.build_graph_types(graph, inputcells, complete_now=False)
+            self.complete_helpers()
         return graph
 
-    def complete_helpers(self, policy):
+    def complete_helpers(self):
         saved = self.added_blocks
         self.added_blocks = {}
-        with self.using_policy(policy):
-            try:
-                self.complete()
-                # invoke annotation simplifications for the new blocks
-                self.simplify(block_subset=self.added_blocks)
-            finally:
-                self.added_blocks = saved
+        try:
+            self.complete()
+            # invoke annotation simplifications for the new blocks
+            self.simplify(block_subset=self.added_blocks)
+        finally:
+            self.added_blocks = saved
 
     @contextmanager
     def using_policy(self, policy):
