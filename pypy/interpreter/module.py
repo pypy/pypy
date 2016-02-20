@@ -1,5 +1,5 @@
 """
-Module objects.
+eodule objects.
 """
 
 from pypy.interpreter.baseobjspace import W_Root
@@ -121,20 +121,36 @@ class Module(W_Root):
         return space.newtuple(tup_return)
 
     def descr_module__repr__(self, space):
-        if self.w_name is not None:
-            name = space.unicode_w(space.repr(self.w_name))
-            nonrepr_name = self.space.identifier_w(self.w_name)
-        else:
-            name = u"'?'"
-            nonrepr_name = "?"
-        if nonrepr_name in self.space.builtin_modules:
-            return space.wrap(u"<module %s (built-in)>" % name)
+        w_loader = space.finditem(self.w_dict, space.wrap('__loader__'))
+        if w_loader is not None:
+            try:
+                w_repr = space.call_method(w_loader, "module_repr",
+                                           space.wrap(self))
+            except OperationError:
+                w_repr = None
+
+            if w_repr is not None:
+                return w_repr
+
+        try:
+            w_name = space.getattr(self, space.wrap('__name__'))
+        except OperationError:
+            w_name = space.wrap(u'?')
+        name = space.unicode_w(space.repr(w_name))
+
         try:
             w___file__ = space.getattr(self, space.wrap('__file__'))
-            __file__ = space.unicode_w(space.repr(w___file__))
         except OperationError:
-            __file__ = u'?'
-        return space.wrap(u"<module %s from %s>" % (name, __file__))
+            w___file__ = space.w_None
+        if not space.is_true(space.isinstance(w___file__, space.w_unicode)):
+            if w_loader is not None:
+                w_loader_repr = space.unicode_w(space.repr(w_loader))
+                return space.wrap(u"<module %s (%s)>" % (name, w_loader_repr))
+            else:
+                return space.wrap(u"<module %s>" % (name,))
+        else:
+            __file__ = space.unicode_w(space.repr(w___file__))
+            return space.wrap(u"<module %s from %s>" % (name, __file__))
 
     def descr_module__dir__(self, space):
         w_dict = space.getattr(self, space.wrap('__dict__'))

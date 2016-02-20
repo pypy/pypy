@@ -74,10 +74,98 @@ class AppTest_ModuleObject:
                  r'lib_pypy\\_pypy_interact.py' in r.lower()) and
                 r.endswith('>'))
         nofile = type(_pypy_interact)('nofile', 'foo')
-        assert repr(nofile) == "<module 'nofile' from ?>"
+        assert repr(nofile) == "<module 'nofile'>"
 
         m = type(_pypy_interact).__new__(type(_pypy_interact))
         assert repr(m).startswith("<module '?'")
+
+    def test_repr_with_loader_with_valid_module_repr(self):
+        import _frozen_importlib, sys
+        test_module = type(sys)("test_module", "doc")
+
+        # If the module has a __loader__ and that loader has a module_repr()
+        # method, call it with a single argument, which is the module object.
+        # The value returned is used as the module’s repr.
+        class CustomLoader(_frozen_importlib.BuiltinImporter):
+            """Operates just like the builtin importer, but returns its own
+            special repr."""
+            @classmethod
+            def module_repr(cls, module):
+                mod_repr = ("<module {mod_name}: "
+                            "{cls} Test>".format(mod_name=repr(module.__name__),
+                                                cls=repr(cls.__name__)))
+                return mod_repr
+        test_module.__loader__ = CustomLoader
+        assert repr(test_module) == "<module 'test_module': 'CustomLoader' Test>"
+
+    def test_repr_with_loader_with_module_repr_wrong_type(self):
+        import _frozen_importlib, sys
+        test_module = type(sys)("test_module", "doc")
+
+        # This return value must be a string.
+        class BuggyCustomLoader(_frozen_importlib.BuiltinImporter):
+            """Operates just like the builtin importer, but implements a
+            module_repr method that returns a non-string value."""
+            @classmethod
+            def module_repr(cls, module):
+                return 5
+
+        test_module.__loader__ = BuggyCustomLoader
+        try:
+            repr(test_module)
+            assert False, "module_repr must fail if it returns a nonstring."
+        except TypeError:
+            pass
+
+    def test_repr_with_loader_with_raising_module_repr(self):
+        import _frozen_importlib, sys
+        test_module = type(sys)("test_module", "doc")
+        # If an exception occurs in module_repr(), the exception is caught
+        # and discarded, and the calculation of the module’s repr continues
+        # as if module_repr() did not exist.
+        class CustomLoaderWithRaisingRepr(_frozen_importlib.BuiltinImporter):
+            """Operates just like the builtin importer, but implements a
+            module_repr method that raises an exception."""
+            @classmethod
+            def module_repr(cls, module):
+                return repr(1/0)
+
+        test_module.__loader__ = CustomLoaderWithRaisingRepr
+        mod_repr = repr(test_module)
+
+        # The module has no __file__ attribute, so the repr should use 
+        # the loader and name
+        loader_repr = repr(test_module.__loader__)
+        expected_repr = "<module 'test_module' ({})>".format(loader_repr)
+        assert mod_repr == expected_repr
+
+    def test_repr_with_raising_loader_and___file__(self):
+        import _frozen_importlib, sys
+        test_module = type(sys)("test_module", "doc")
+        test_module.__file__ = "/fake_dir/test_module.py"
+        class CustomLoaderWithRaisingRepr(_frozen_importlib.BuiltinImporter):
+            """Operates just like the builtin importer, but implements a
+            module_repr method that raises an exception."""
+            @classmethod
+            def module_repr(cls, module):
+                return repr(1/0)
+
+        test_module.__loader__ = CustomLoaderWithRaisingRepr
+
+        # If the module has an __file__ attribute, this is used as part
+        # of the module's repr.
+        # (If we have a loader that doesn't correctly implement module_repr,
+        # if we have a path, we always just use name and path.
+        expected_repr = "<module 'test_module' from '/fake_dir/test_module.py'>"
+        assert repr(test_module) == expected_repr
+
+    def test_repr_with_missing_name(self):
+        import _frozen_importlib, sys
+        test_module = type(sys)("test_module", "doc")
+        del test_module.__name__
+        mod_repr = repr(test_module)
+        assert mod_repr == "<module '?'>"
+
 
     def test_dir(self):
         import sys
