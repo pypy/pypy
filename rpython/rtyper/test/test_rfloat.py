@@ -205,6 +205,7 @@ class TestRfloat(BaseRtypingTest):
         assert res == '3.33'
 
     def test_formatd_g(self):
+        from rpython.rlib import rfloat
         for flags in [0, rfloat.DTSF_ADD_DOT_0]:
             def f(y):
                 return rfloat.formatd(y, 'g', 2, flags)
