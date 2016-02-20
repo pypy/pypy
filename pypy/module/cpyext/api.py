@@ -119,6 +119,8 @@ def feof(fp):
 def is_valid_fp(fp):
     return is_valid_fd(fileno(fp))
 
+pypy_decl = 'pypy_decl.h'
+
 constant_names = """
 Py_TPFLAGS_READY Py_TPFLAGS_READYING Py_TPFLAGS_HAVE_GETCHARBUFFER
 METH_COEXIST METH_STATIC METH_CLASS
@@ -128,7 +130,7 @@ Py_LT Py_LE Py_EQ Py_NE Py_GT Py_GE Py_TPFLAGS_CHECKTYPES
 """.split()
 for name in constant_names:
     setattr(CConfig_constants, name, rffi_platform.ConstantInteger(name))
-udir.join('pypy_decl.h').write("/* Will be filled later */\n")
+udir.join(pypy_decl).write("/* Will be filled later */\n")
 udir.join('pypy_structmember_decl.h').write("/* Will be filled later */\n")
 udir.join('pypy_macros.h').write("/* Will be filled later */\n")
 globals().update(rffi_platform.configure(CConfig_constants))
@@ -233,7 +235,7 @@ class ApiFunction:
                 wrapper.c_name = cpyext_namespace.uniquename(self.c_name)
         return wrapper
 
-def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header='pypy_decl.h',
+def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=pypy_decl,
                 gil=None):
     """
     Declares a function to be exported.
@@ -964,7 +966,7 @@ def generate_decls_and_callbacks(db, export_symbols, api_struct=True):
     # implement function callbacks and generate function decls
     functions = []
     decls = {}
-    pypy_decls = decls['pypy_decl.h'] = []
+    pypy_decls = decls[pypy_decl] = []
     pypy_decls.append("#ifndef _PYPY_PYPY_DECL_H\n")
     pypy_decls.append("#define _PYPY_PYPY_DECL_H\n")
     pypy_decls.append("#ifndef PYPY_STANDALONE\n")

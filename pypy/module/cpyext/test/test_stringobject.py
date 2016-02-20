@@ -366,9 +366,3 @@ class TestString(BaseApiTest):
         w_joined = api._PyString_Join(w_sep, w_seq)
         assert space.unwrap(w_joined) == 'a<sep>b'
 
-    def test_type(self, space, api):
-        py_str = make_ref(space, space.w_str)
-        py_unicode = make_ref(space, space.w_unicode)
-        py_basestr = make_ref(space, space.w_basestring)
-        #import pdb
-        #pdb.set_trace()

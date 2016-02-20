@@ -5,7 +5,7 @@ import re
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     cpython_api, generic_cpy_call, PyObject, Py_ssize_t, Py_TPFLAGS_CHECKTYPES,
-    mangle_name)
+    mangle_name, pypy_decl)
 from pypy.module.cpyext.typeobjectdefs import (
     unaryfunc, wrapperfunc, ternaryfunc, PyTypeObjectPtr, binaryfunc,
     getattrfunc, getattrofunc, setattrofunc, lenfunc, ssizeargfunc, inquiry,
@@ -365,7 +365,9 @@ def get_slot_tp_function(space, typedef, name):
 def build_slot_tp_function(space, typedef, name):
     w_type = space.gettypeobject(typedef)
 
-    external = mangle_name('', typedef.name) is not None
+    header = pypy_decl
+    if mangle_name('', typedef.name) is None:
+        header = None
     if name == 'tp_setattro':
         setattr_fn = w_type.getdictvalue(space, '__setattr__')
         delattr_fn = w_type.getdictvalue(space, '__delattr__')
@@ -373,7 +375,7 @@ def build_slot_tp_function(space, typedef, name):
             return
 
         @cpython_api([PyObject, PyObject, PyObject], rffi.INT_real,
-                     error=-1, external=external)
+                     error=-1, header=header)
         @func_renamer("cpyext_tp_setattro_%s" % (typedef.name,))
         def slot_tp_setattro(space, w_self, w_name, w_value):
             if w_value is not None:
@@ -387,8 +389,7 @@ def build_slot_tp_function(space, typedef, name):
         if getattr_fn is None:
             return
 
-        @cpython_api([PyObject, PyObject], PyObject,
-                     external=external)
+        @cpython_api([PyObject, PyObject], PyObject, header=header)
         @func_renamer("cpyext_tp_getattro_%s" % (typedef.name,))
         def slot_tp_getattro(space, w_self, w_name):
             return space.call_function(getattr_fn, w_self, w_name)
