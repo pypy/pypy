@@ -11,8 +11,8 @@ from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rlib import rgc
 
 
-REFCNT_FROM_PYPY       = 80
-REFCNT_FROM_PYPY_LIGHT = REFCNT_FROM_PYPY + (sys.maxint//2+1)
+REFCNT_FROM_PYPY       = sys.maxint // 4 + 1
+REFCNT_FROM_PYPY_LIGHT = REFCNT_FROM_PYPY + (sys.maxint // 2 + 1)
 
 RAWREFCOUNT_DEALLOC_TRIGGER = lltype.Ptr(lltype.FuncType([], lltype.Void))
 
