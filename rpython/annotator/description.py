@@ -196,7 +196,7 @@ class FunctionDesc(Desc):
         super(FunctionDesc, self).__init__(bookkeeper, pyobj)
         self.name = name
         self.signature = signature
-        self.defaults = defaults
+        self.defaults = defaults if defaults is not None else ()
         # 'specializer' is a function with the following signature:
         #      specializer(funcdesc, args_s) => graph
         #                                 or => s_result (overridden/memo cases)
