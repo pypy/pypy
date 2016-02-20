@@ -5,10 +5,6 @@ import shutil, subprocess, time
 from pypy.module.test_lib_pypy.cffi_tests.udir import udir
 import cffi
 
-if hasattr(sys, 'gettotalrefcount'):
-    py.test.skip("tried hard and failed to have these tests run "
-                 "in a debug-mode python")
-
 
 local_dir = os.path.dirname(os.path.abspath(__file__))
 _link_error = '?'
@@ -30,21 +26,35 @@ def check_lib_python_found(tmpdir):
         py.test.skip(str(_link_error))
 
 
+def prefix_pythonpath():
+    cffi_base = os.path.dirname(os.path.dirname(local_dir))
+    pythonpath = org_env.get('PYTHONPATH', '').split(os.pathsep)
+    if cffi_base not in pythonpath:
+        pythonpath.insert(0, cffi_base)
+    return os.pathsep.join(pythonpath)
+
+def setup_module(mod):
+    mod.org_env = os.environ.copy()
+
+
 class EmbeddingTests:
     _compiled_modules = {}
 
     def setup_method(self, meth):
         check_lib_python_found(str(udir.ensure('embedding', dir=1)))
         self._path = udir.join('embedding', meth.__name__)
-        if sys.platform == "win32":
+        if sys.platform == "win32" or sys.platform == "darwin":
             self._compiled_modules.clear()   # workaround
 
     def get_path(self):
         return str(self._path.ensure(dir=1))
 
-    def _run(self, args, env=None):
-        print(args)
-        popen = subprocess.Popen(args, env=env, cwd=self.get_path(),
+    def _run_base(self, args, **kwds):
+        print('RUNNING:', args, kwds)
+        return subprocess.Popen(args, **kwds)
+
+    def _run(self, args):
+        popen = self._run_base(args, cwd=self.get_path(),
                                  stdout=subprocess.PIPE,
                                  universal_newlines=True)
         output = popen.stdout.read()
@@ -56,6 +66,7 @@ class EmbeddingTests:
         return output
 
     def prepare_module(self, name):
+        self.patch_environment()
         if name not in self._compiled_modules:
             path = self.get_path()
             filename = '%s.py' % name
@@ -65,15 +76,15 @@ class EmbeddingTests:
             # find a solution to that: we could hack sys.path inside the
             # script run here, but we can't hack it in the same way in
             # execute().
-            env = os.environ.copy()
-            env['PYTHONPATH'] = os.path.dirname(os.path.dirname(local_dir))
-            output = self._run([sys.executable, os.path.join(local_dir, filename)],
-                               env=env)
+            output = self._run([sys.executable,
+                                os.path.join(local_dir, filename)])
             match = re.compile(r"\bFILENAME: (.+)").search(output)
             assert match
             dynamic_lib_name = match.group(1)
             if sys.platform == 'win32':
                 assert dynamic_lib_name.endswith('_cffi.dll')
+            elif sys.platform == 'darwin':
+                assert dynamic_lib_name.endswith('_cffi.dylib')
             else:
                 assert dynamic_lib_name.endswith('_cffi.so')
             self._compiled_modules[name] = dynamic_lib_name
@@ -91,6 +102,7 @@ class EmbeddingTests:
             c = distutils.ccompiler.new_compiler()
             print('compiling %s with %r' % (name, modules))
             extra_preargs = []
+            debug = True
             if sys.platform == 'win32':
                 libfiles = []
                 for m in modules:
@@ -98,30 +110,48 @@ class EmbeddingTests:
                     assert m.endswith('.dll')
                     libfiles.append('Release\\%s.lib' % m[:-4])
                 modules = libfiles
+                extra_preargs.append('/MANIFEST')
+                debug = False    # you need to install extra stuff
+                                 # for this to work
             elif threads:
                 extra_preargs.append('-pthread')
-            objects = c.compile([filename], macros=sorted(defines.items()), debug=True)
+            objects = c.compile([filename], macros=sorted(defines.items()),
+                                debug=debug)
             c.link_executable(objects + modules, name, extra_preargs=extra_preargs)
         finally:
             os.chdir(curdir)
 
-    def execute(self, name):
+    def patch_environment(self):
         path = self.get_path()
-        env = os.environ.copy()
-        env['PYTHONPATH'] = os.path.dirname(os.path.dirname(local_dir))
-        libpath = env.get('LD_LIBRARY_PATH')
+        # for libpypy-c.dll or Python27.dll
+        path = os.path.split(sys.executable)[0] + os.path.pathsep + path
+        env_extra = {'PYTHONPATH': prefix_pythonpath()}
+        if sys.platform == 'win32':
+            envname = 'PATH'
+        else:
+            envname = 'LD_LIBRARY_PATH'
+        libpath = org_env.get(envname)
         if libpath:
-            libpath = path + ':' + libpath
+            libpath = path + os.path.pathsep + libpath
         else:
             libpath = path
-        env['LD_LIBRARY_PATH'] = libpath
+        env_extra[envname] = libpath
+        for key, value in sorted(env_extra.items()):
+            if os.environ.get(key) != value:
+                print '* setting env var %r to %r' % (key, value)
+                os.environ[key] = value
+
+    def execute(self, name):
+        path = self.get_path()
         print('running %r in %r' % (name, path))
         executable_name = name
         if sys.platform == 'win32':
             executable_name = os.path.join(path, executable_name + '.exe')
-        popen = subprocess.Popen([executable_name], cwd=path, env=env,
-                                 stdout=subprocess.PIPE,
-                                 universal_newlines=True)
+        else:
+            executable_name = os.path.join('.', executable_name)
+        popen = self._run_base([executable_name], cwd=path,
+                               stdout=subprocess.PIPE,
+                               universal_newlines=True)
         result = popen.stdout.read()
         err = popen.wait()
         if err:

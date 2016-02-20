@@ -12,8 +12,8 @@ from pypy.module.micronumpy.base import convert_to_array, W_NDimArray, \
     ArrayArgumentException, W_NumpyObject
 from pypy.module.micronumpy.iterators import ArrayIter
 from pypy.module.micronumpy.strides import (
-    IntegerChunk, SliceChunk, NewAxisChunk, EllipsisChunk, new_view,
-    calc_strides, calc_new_strides, shape_agreement,
+    IntegerChunk, SliceChunk, NewAxisChunk, EllipsisChunk, BooleanChunk,
+    new_view, calc_strides, calc_new_strides, shape_agreement,
     calculate_broadcast_strides, calc_backstrides, calc_start, is_c_contiguous,
     is_f_contiguous)
 from rpython.rlib.objectmodel import keepalive_until_here
@@ -236,6 +236,7 @@ class BaseConcreteArray(object):
 
     @jit.unroll_safe
     def _prepare_slice_args(self, space, w_idx):
+        from pypy.module.micronumpy import boxes
         if space.isinstance_w(w_idx, space.w_str):
             raise oefmt(space.w_IndexError, "only integers, slices (`:`), "
                 "ellipsis (`...`), numpy.newaxis (`None`) and integer or "
@@ -258,6 +259,7 @@ class BaseConcreteArray(object):
         result = []
         i = 0
         has_ellipsis = False
+        has_filter = False
         for w_item in space.fixedview(w_idx):
             if space.is_w(w_item, space.w_Ellipsis):
                 if has_ellipsis:
@@ -272,6 +274,16 @@ class BaseConcreteArray(object):
             elif space.isinstance_w(w_item, space.w_slice):
                 result.append(SliceChunk(w_item))
                 i += 1
+            elif isinstance(w_item, W_NDimArray) and w_item.get_dtype().is_bool():
+                if has_filter:
+                    # in CNumPy, the support for this is incomplete
+                    raise oefmt(space.w_ValueError,
+                        "an index can only have a single boolean mask; "
+                        "use np.take or create a sinlge mask array")
+                has_filter = True
+                result.append(BooleanChunk(w_item))
+            elif isinstance(w_item, boxes.W_GenericBox):
+                result.append(IntegerChunk(w_item.descr_int(space)))
             else:
                 result.append(IntegerChunk(w_item))
                 i += 1

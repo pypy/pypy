@@ -1170,6 +1170,8 @@ class Recompiler:
         repr_arguments = ', '.join(arguments)
         repr_arguments = repr_arguments or 'void'
         name_and_arguments = '%s(%s)' % (name, repr_arguments)
+        if tp.abi == "__stdcall":
+            name_and_arguments = '_cffi_stdcall ' + name_and_arguments
         #
         def may_need_128_bits(tp):
             return (isinstance(tp, model.PrimitiveType) and
@@ -1357,6 +1359,58 @@ def _modname_to_file(outputdir, modname, extension):
     parts[-1] += extension
     return os.path.join(outputdir, *parts), parts
 
+
+# Aaargh.  Distutils is not tested at all for the purpose of compiling
+# DLLs that are not extension modules.  Here are some hacks to work
+# around that, in the _patch_for_*() functions...
+
+def _patch_meth(patchlist, cls, name, new_meth):
+    old = getattr(cls, name)
+    patchlist.append((cls, name, old))
+    setattr(cls, name, new_meth)
+    return old
+
+def _unpatch_meths(patchlist):
+    for cls, name, old_meth in reversed(patchlist):
+        setattr(cls, name, old_meth)
+
+def _patch_for_embedding(patchlist):
+    if sys.platform == 'win32':
+        # we must not remove the manifest when building for embedding!
+        from distutils.msvc9compiler import MSVCCompiler
+        _patch_meth(patchlist, MSVCCompiler, '_remove_visual_c_ref',
+                    lambda self, manifest_file: manifest_file)
+
+    if sys.platform == 'darwin':
+        # we must not make a '-bundle', but a '-dynamiclib' instead
+        from distutils.ccompiler import CCompiler
+        def my_link_shared_object(self, *args, **kwds):
+            if '-bundle' in self.linker_so:
+                self.linker_so = list(self.linker_so)
+                i = self.linker_so.index('-bundle')
+                self.linker_so[i] = '-dynamiclib'
+            return old_link_shared_object(self, *args, **kwds)
+        old_link_shared_object = _patch_meth(patchlist, CCompiler,
+                                             'link_shared_object',
+                                             my_link_shared_object)
+
+def _patch_for_target(patchlist, target):
+    from distutils.command.build_ext import build_ext
+    # if 'target' is different from '*', we need to patch some internal
+    # method to just return this 'target' value, instead of having it
+    # built from module_name
+    if target.endswith('.*'):
+        target = target[:-2]
+        if sys.platform == 'win32':
+            target += '.dll'
+        elif sys.platform == 'darwin':
+            target += '.dylib'
+        else:
+            target += '.so'
+    _patch_meth(patchlist, build_ext, 'get_ext_filename',
+                lambda self, ext_name: target)
+
+
 def recompile(ffi, module_name, preamble, tmpdir='.', call_c_compiler=True,
               c_file=None, source_extension='.c', extradir=None,
               compiler_verbose=1, target=None, **kwds):
@@ -1382,36 +1436,22 @@ def recompile(ffi, module_name, preamble, tmpdir='.', call_c_compiler=True,
                 target = '%s.*' % module_name
             else:
                 target = '*'
-        if target == '*':
-            target_module_name = module_name
-            target_extension = None      # use default
-        else:
-            if target.endswith('.*'):
-                target = target[:-2]
-                if sys.platform == 'win32':
-                    target += '.dll'
-                else:
-                    target += '.so'
-            # split along the first '.' (not the last one, otherwise the
-            # preceeding dots are interpreted as splitting package names)
-            index = target.find('.')
-            if index < 0:
-                raise ValueError("target argument %r should be a file name "
-                                 "containing a '.'" % (target,))
-            target_module_name = target[:index]
-            target_extension = target[index:]
         #
-        ext = ffiplatform.get_extension(ext_c_file, target_module_name, **kwds)
+        ext = ffiplatform.get_extension(ext_c_file, module_name, **kwds)
         updated = make_c_source(ffi, module_name, preamble, c_file)
         if call_c_compiler:
+            patchlist = []
             cwd = os.getcwd()
             try:
+                if embedding:
+                    _patch_for_embedding(patchlist)
+                if target != '*':
+                    _patch_for_target(patchlist, target)
                 os.chdir(tmpdir)
-                outputfilename = ffiplatform.compile('.', ext, compiler_verbose,
-                                                     target_extension,
-                                                     embedding=embedding)
+                outputfilename = ffiplatform.compile('.', ext, compiler_verbose)
             finally:
                 os.chdir(cwd)
+                _unpatch_meths(patchlist)
             return outputfilename
         else:
             return ext, updated
