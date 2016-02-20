@@ -46,12 +46,22 @@ class BaseRtypingTest(object):
         return u''.join(s.chars)
 
     def string_to_ll(self, s):
-        from rpython.rtyper.module.support import LLSupport
-        return LLSupport.to_rstr(s)
+        from rpython.rtyper.lltypesystem.rstr import STR, mallocstr
+        if s is None:
+            return lltype.nullptr(STR)
+        p = mallocstr(len(s))
+        for i in range(len(s)):
+            p.chars[i] = s[i]
+        return p
 
     def unicode_to_ll(self, s):
-        from rpython.rtyper.module.support import LLSupport
-        return LLSupport.to_runicode(s)
+        from rpython.rtyper.lltypesystem.rstr import UNICODE, mallocunicode
+        if s is None:
+            return lltype.nullptr(UNICODE)
+        p = mallocunicode(len(s))
+        for i in range(len(s)):
+            p.chars[i] = s[i]
+        return p
 
     def ll_to_list(self, l):
         r = []

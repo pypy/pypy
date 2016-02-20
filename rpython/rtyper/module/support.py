@@ -8,42 +8,6 @@ from rpython.rlib import rstring
 _WIN32 = sys.platform.startswith('win')
 UNDERSCORE_ON_WIN32 = '_' if _WIN32 else ''
 
-# utility conversion functions
-class LLSupport:
-    _mixin_ = True
-
-    def to_rstr(s):
-        from rpython.rtyper.lltypesystem.rstr import STR, mallocstr
-        if s is None:
-            return lltype.nullptr(STR)
-        p = mallocstr(len(s))
-        for i in range(len(s)):
-            p.chars[i] = s[i]
-        return p
-    to_rstr = staticmethod(to_rstr)
-
-    def to_runicode(s):
-        from rpython.rtyper.lltypesystem.rstr import UNICODE, mallocunicode
-        if s is None:
-            return lltype.nullptr(UNICODE)
-        p = mallocunicode(len(s))
-        for i in range(len(s)):
-            p.chars[i] = s[i]
-        return p
-    to_runicode = staticmethod(to_runicode)
-
-    def from_rstr(rs):
-        if not rs:   # null pointer
-            return None
-        else:
-            return ''.join([rs.chars[i] for i in range(len(rs.chars))])
-    from_rstr = staticmethod(from_rstr)
-
-    def from_rstr_nonnull(rs):
-        assert rs
-        return ''.join([rs.chars[i] for i in range(len(rs.chars))])
-    from_rstr_nonnull = staticmethod(from_rstr_nonnull)
-
 
 class StringTraits:
     str = str
