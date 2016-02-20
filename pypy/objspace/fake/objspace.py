@@ -397,8 +397,13 @@ def see_typedef(space, typedef):
             space.wrap(value)
 
 class FakeCompiler(object):
-    pass
+    def compile(self, code, name, mode, flags):
+        return FakePyCode()
 FakeObjSpace.default_compiler = FakeCompiler()
+
+class FakePyCode(W_Root):
+    def exec_code(self, space, w_globals, w_locals):
+        return W_Root()
 
 
 class FakeModule(W_Root):

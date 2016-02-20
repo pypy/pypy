@@ -49,7 +49,8 @@ class TestDist(object):
             import setuptools
         except ImportError:
             py.test.skip("setuptools not found")
-        self.run(['setup.py', 'egg_info'], cwd=self.rootdir)
+        if os.path.exists(os.path.join(self.rootdir, 'setup.py')):
+            self.run(['setup.py', 'egg_info'], cwd=self.rootdir)
         TestDist._setuptools_ready = True
 
     def check_produced_files(self, content, curdir=None):
@@ -58,7 +59,7 @@ class TestDist(object):
         found_so = None
         for name in os.listdir(curdir):
             if (name.endswith('.so') or name.endswith('.pyd') or
-                name.endswith('.dylib')):
+                name.endswith('.dylib') or name.endswith('.dll')):
                 found_so = os.path.join(curdir, name)
                 # foo.so => foo
                 parts = name.split('.')
@@ -220,23 +221,6 @@ class TestDist(object):
         x = ffi.compile(target="foo.bar.*")
         if sys.platform != 'win32':
             sofile = self.check_produced_files({
-                'foo.bar.SO': None,
-                'mod_name_in_package': {'mymod.c': None,
-                                        'mymod.o': None}})
-            assert os.path.isabs(x) and os.path.samefile(x, sofile)
-        else:
-            self.check_produced_files({
-                'foo.bar.SO': None,
-                'mod_name_in_package': {'mymod.c': None},
-                'Release': '?'})
-
-    @chdir_to_tmp
-    def test_api_compile_explicit_target_2(self):
-        ffi = cffi.FFI()
-        ffi.set_source("mod_name_in_package.mymod", "/*code would be here*/")
-        x = ffi.compile(target=os.path.join("mod_name_in_package", "foo.bar.*"))
-        if sys.platform != 'win32':
-            sofile = self.check_produced_files({
                 'mod_name_in_package': {'foo.bar.SO': None,
                                         'mymod.c': None,
                                         'mymod.o': None}})
@@ -254,15 +238,16 @@ class TestDist(object):
         x = ffi.compile(target="foo.bar.baz")
         if sys.platform != 'win32':
             self.check_produced_files({
-                'foo.bar.baz': None,
-                'mod_name_in_package': {'mymod.c': None,
+                'mod_name_in_package': {'foo.bar.baz': None,
+                                        'mymod.c': None,
                                         'mymod.o': None}})
-            sofile = os.path.join(str(self.udir), 'foo.bar.baz')
+            sofile = os.path.join(str(self.udir),
+                                  'mod_name_in_package', 'foo.bar.baz')
             assert os.path.isabs(x) and os.path.samefile(x, sofile)
         else:
             self.check_produced_files({
-                'foo.bar.baz': None,
-                'mod_name_in_package': {'mymod.c': None},
+                'mod_name_in_package': {'foo.bar.baz': None,
+                                        'mymod.c': None},
                 'Release': '?'})
 
     @chdir_to_tmp

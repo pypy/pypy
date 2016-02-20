@@ -3,6 +3,9 @@ from rpython.annotator.specialize import default_specialize as default
 from rpython.annotator.specialize import (
     specialize_argvalue, specialize_argtype, specialize_arglistitemtype,
     specialize_arg_or_var, memo, specialize_call_location)
+from rpython.flowspace.operation import op
+from rpython.flowspace.model import Constant
+from rpython.annotator.model import SomeTuple
 
 
 class AnnotatorPolicy(object):
@@ -64,7 +67,34 @@ class AnnotatorPolicy(object):
         return LowLevelAnnotatorPolicy.specialize__ll_and_arg(*args)
 
     def no_more_blocks_to_annotate(pol, annotator):
+        bk = annotator.bookkeeper
         # hint to all pending specializers that we are done
-        for callback in annotator.bookkeeper.pending_specializations:
+        for callback in bk.pending_specializations:
             callback()
-        del annotator.bookkeeper.pending_specializations[:]
+        del bk.pending_specializations[:]
+        if annotator.added_blocks is not None:
+            all_blocks = annotator.added_blocks
+        else:
+            all_blocks = annotator.annotated
+        for block in list(all_blocks):
+            for i, instr in enumerate(block.operations):
+                if not isinstance(instr, (op.simple_call, op.call_args)):
+                    continue
+                v_func = instr.args[0]
+                s_func = annotator.annotation(v_func)
+                if not hasattr(s_func, 'needs_sandboxing'):
+                    continue
+                key = ('sandboxing', s_func.const)
+                if key not in bk.emulated_pbc_calls:
+                    params_s = s_func.args_s
+                    s_result = s_func.s_result
+                    from rpython.translator.sandbox.rsandbox import make_sandbox_trampoline
+                    sandbox_trampoline = make_sandbox_trampoline(
+                        s_func.name, params_s, s_result)
+                    sandbox_trampoline._signature_ = [SomeTuple(items=params_s)], s_result
+                    bk.emulate_pbc_call(key, bk.immutablevalue(sandbox_trampoline), params_s)
+                else:
+                    s_trampoline = bk.emulated_pbc_calls[key][0]
+                    sandbox_trampoline = s_trampoline.const
+                new = instr.replace({instr.args[0]: Constant(sandbox_trampoline)})
+                block.operations[i] = new

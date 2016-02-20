@@ -1312,7 +1312,7 @@ class RecursiveTests:
                 return (code + 1) * 2
 
             driver = JitDriver(greens=["pc", "code"], reds='auto',
-                               get_unique_id=get_unique_id)
+                               get_unique_id=get_unique_id, is_recursive=True)
 
             def f(pc, code):
                 i = 0

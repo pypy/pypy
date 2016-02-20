@@ -99,6 +99,7 @@ class AppTestIntObject(AppTestCpythonExtensionBase):
              """),
             ],
             prologue="""
+            #include "structmember.h"
             typedef struct
             {
                 PyObject_HEAD

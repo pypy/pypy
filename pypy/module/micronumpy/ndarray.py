@@ -107,8 +107,9 @@ class __extend__(W_NDimArray):
             arr = W_NDimArray(self.implementation.transpose(self, None))
         return space.wrap(loop.tostring(space, arr))
 
-    def getitem_filter(self, space, arr):
-        if arr.ndims() > 1 and arr.get_shape() != self.get_shape():
+    def getitem_filter(self, space, arr, axis=0):
+        shape = self.get_shape()
+        if arr.ndims() > 1 and arr.get_shape() != shape:
             raise OperationError(space.w_IndexError, space.wrap(
                 "boolean index array should have 1 dimension"))
         if arr.get_size() > self.get_size():
@@ -116,14 +117,14 @@ class __extend__(W_NDimArray):
                 "index out of range for array"))
         size = loop.count_all_true(arr)
         if arr.ndims() == 1:
-            if self.ndims() > 1 and arr.get_shape()[0] != self.get_shape()[0]:
+            if self.ndims() > 1 and arr.get_shape()[0] != shape[axis]:
                 msg = ("boolean index did not match indexed array along"
-                      " dimension 0; dimension is %d but corresponding"
-                      " boolean dimension is %d" % (self.get_shape()[0],
+                      " dimension %d; dimension is %d but corresponding"
+                      " boolean dimension is %d" % (axis, shape[axis],
                       arr.get_shape()[0]))
                 #warning = space.gettypefor(support.W_VisibleDeprecationWarning)
                 space.warn(space.wrap(msg), space.w_VisibleDeprecationWarning)
-            res_shape = [size] + self.get_shape()[1:]
+            res_shape = shape[:axis] + [size] + shape[axis+1:]
         else:
             res_shape = [size]
         w_res = W_NDimArray.from_shape(space, res_shape, self.get_dtype(),
@@ -149,6 +150,8 @@ class __extend__(W_NDimArray):
     def _prepare_array_index(self, space, w_index):
         if isinstance(w_index, W_NDimArray):
             return [], w_index.get_shape(), w_index.get_shape(), [w_index]
+        if isinstance(w_index, boxes.W_GenericBox):
+            return [], [1], [1], [w_index]
         w_lst = space.listview(w_index)
         for w_item in w_lst:
             if not (space.isinstance_w(w_item, space.w_int) or space.isinstance_w(w_item, space.w_float)):
@@ -162,7 +165,14 @@ class __extend__(W_NDimArray):
         arr_index_in_shape = False
         prefix = []
         for i, w_item in enumerate(w_lst):
-            if (isinstance(w_item, W_NDimArray) or
+            if isinstance(w_item, W_NDimArray) and w_item.get_dtype().is_bool():
+                if w_item.ndims() > 0:
+                    indexes_w[i] = w_item
+                else:
+                    raise oefmt(space.w_IndexError,
+                        "in the future, 0-d boolean arrays will be "
+                        "interpreted as a valid boolean index")
+            elif (isinstance(w_item, W_NDimArray) or
                     space.isinstance_w(w_item, space.w_list)):
                 w_item = convert_to_array(space, w_item)
                 if shape is None:
@@ -232,6 +242,8 @@ class __extend__(W_NDimArray):
                 raise oefmt(space.w_IndexError,
                         "in the future, 0-d boolean arrays will be "
                         "interpreted as a valid boolean index")
+        elif isinstance(w_idx, boxes.W_GenericBox):
+            w_ret = self.getitem_array_int(space, w_idx)
         else:
             try:
                 w_ret = self.implementation.descr_getitem(space, self, w_idx)

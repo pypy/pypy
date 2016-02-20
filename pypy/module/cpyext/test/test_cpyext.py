@@ -942,3 +942,15 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
                 os.unlink('_imported_already')
             except OSError:
                 pass
+
+    def test_no_structmember(self):
+        """structmember.h should not be included by default."""
+        mod = self.import_extension('foo', [
+            ('bar', 'METH_NOARGS',
+             '''
+             /* reuse a name that is #defined in structmember.h */
+             int RO;
+             Py_RETURN_NONE;
+             '''
+             ),
+        ])

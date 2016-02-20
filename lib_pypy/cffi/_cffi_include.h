@@ -231,6 +231,12 @@ static void (*_cffi_call_python_org)(struct _cffi_externpy_s *, char *);
     ((got_nonpos) == (expected <= 0) &&                 \
      (got) == (unsigned long long)expected)
 
+#ifdef MS_WIN32
+# define _cffi_stdcall  __stdcall
+#else
+# define _cffi_stdcall  /* nothing */
+#endif
+
 #ifdef __cplusplus
 }
 #endif

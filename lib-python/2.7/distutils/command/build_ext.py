@@ -188,7 +188,7 @@ class build_ext (Command):
             # the 'libs' directory is for binary installs - we assume that
             # must be the *native* platform.  But we don't really support
             # cross-compiling via a binary install anyway, so we let it go.
-            self.library_dirs.append(os.path.join(sys.exec_prefix, 'include'))
+            self.library_dirs.append(os.path.join(sys.exec_prefix, 'libs'))
             if self.debug:
                 self.build_temp = os.path.join(self.build_temp, "Debug")
             else:

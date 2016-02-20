@@ -3063,6 +3063,16 @@ class OptimizeOptTest(BaseTestWithUnroll):
         self.optimize_loop(ops, expected, preamble)
         #self.check_expanded_fail_descr("i0", rop.GUARD_VALUE)
 
+    def test_invalid_guard_value_after_guard_class(self):
+        ops = """
+        [p1, i0, i1, i2, p2]
+        guard_class(p1, ConstClass(node_vtable)) [i0]
+        i3 = int_add(i1, i2)
+        guard_value(p1, NULL) [i1]
+        jump(p2, i0, i1, i3, p2)
+        """
+        self.raises(InvalidLoop, self.optimize_loop, ops, ops)
+
     def test_guard_class_oois(self):
         ops = """
         [p1]

@@ -77,14 +77,40 @@ class EllipsisChunk(BaseChunk):
         backstride = base_stride * max(0, base_length - 1)
         return 0, base_length, base_stride, backstride
 
+class BooleanChunk(BaseChunk):
+    input_dim = 1
+    out_dim = 1
+    def __init__(self, w_idx):
+        self.w_idx = w_idx
+
+    def compute(self, space, base_length, base_stride):
+        raise oefmt(space.w_NotImplementedError, 'cannot reach')
 
 def new_view(space, w_arr, chunks):
     arr = w_arr.implementation
-    r = calculate_slice_strides(space, arr.shape, arr.start, arr.get_strides(),
-                                arr.get_backstrides(), chunks)
+    dim = -1
+    for i, c in enumerate(chunks):
+        if isinstance(c, BooleanChunk):
+            dim = i
+            break
+    if dim >= 0:
+        # filter by axis r
+        filtr = chunks.pop(dim)
+        assert isinstance(filtr, BooleanChunk) 
+        w_arr = w_arr.getitem_filter(space, filtr.w_idx, axis=dim)
+        arr = w_arr.implementation
+        r = calculate_slice_strides(space, arr.shape, arr.start,
+                 arr.get_strides(), arr.get_backstrides(), chunks)
+    else:
+        r = calculate_slice_strides(space, arr.shape, arr.start,
+                     arr.get_strides(), arr.get_backstrides(), chunks)
     shape, start, strides, backstrides = r
-    return W_NDimArray.new_slice(space, start, strides[:], backstrides[:],
+    w_ret = W_NDimArray.new_slice(space, start, strides[:], backstrides[:],
                                  shape[:], arr, w_arr)
+    if dim == 0:
+        # Do not return a view
+        return w_ret.descr_copy(space, space.wrap(w_ret.get_order()))
+    return w_ret
 
 @jit.unroll_safe
 def _extend_shape(old_shape, chunks):
@@ -127,7 +153,7 @@ def enumerate_chunks(chunks):
                      jit.isconstant(len(chunks)))
 def calculate_slice_strides(space, shape, start, strides, backstrides, chunks):
     """
-    Note: `chunks` must contain exactly one EllipsisChunk object.
+    Note: `chunks` can contain at most one EllipsisChunk object.
     """
     size = 0
     used_dims = 0

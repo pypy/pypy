@@ -9,6 +9,8 @@ extern "C" {
 
 #include <stdarg.h>
 
+#define PyString_GET_SIZE(op) PyString_Size((PyObject*)(op))
+#define PyString_AS_STRING(op) PyString_AsString((PyObject*)(op))
 /*
 Type PyStringObject represents a character string.  An extra zero byte is
 reserved at the end to ensure it is zero-terminated, but a size is
@@ -34,8 +36,6 @@ functions should be applied to nil objects.
    "public" interface PyPy must reimpliment them. */
 
 
-#define PyString_GET_SIZE(op) PyString_Size(op)
-#define PyString_AS_STRING(op) PyString_AsString(op)
 
 typedef struct {
     PyObject_HEAD
