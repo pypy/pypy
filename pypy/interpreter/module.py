@@ -1,5 +1,5 @@
 """
-eodule objects.
+Module objects.
 """
 
 from pypy.interpreter.baseobjspace import W_Root

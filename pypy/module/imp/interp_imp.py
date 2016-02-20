@@ -86,6 +86,9 @@ def init_builtin(space, w_name):
         return
     # force_init is needed to make reload actually reload instead of just
     # using the already-present module in sys.modules.
+
+    # If the module is already in sys.modules, it must be a reload, so
+    # we want to reuse (and reinitialize) the existing module object
     reuse = space.finditem(space.sys.get('modules'), w_name) is not None
     return space.getbuiltinmodule(name, force_init=True, reuse=reuse)
 
