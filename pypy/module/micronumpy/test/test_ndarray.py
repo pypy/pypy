@@ -2532,6 +2532,25 @@ class AppTestNumArray(BaseNumpyAppTest):
         a[b] = np.array([[4.]])
         assert (a == [[4., 4., 4.]]).all()
 
+    def test_indexing_by_boolean(self):
+        import numpy as np
+        a = np.arange(6).reshape(2,3)
+        assert (a[[True, False], :] == [[3, 4, 5], [0, 1, 2]]).all()
+        b = a[np.array([True, False]), :]
+        assert (b == [[0, 1, 2]]).all()
+        assert b.base is None
+        b = a[:, np.array([True, False, True])]
+        assert b.base is not None
+        b = a[np.array([True, False]), 0]
+        assert (b ==[0]).all()
+
+    def test_scalar_indexing(self):
+        import numpy as np
+        a = np.arange(6).reshape(2,3)
+        i = np.dtype('int32').type(0)
+        assert (a[0] == a[i]).all()
+        
+
     def test_ellipsis_indexing(self):
         import numpy as np
         import sys
