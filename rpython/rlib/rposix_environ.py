@@ -2,10 +2,10 @@ import os
 import sys
 from rpython.annotator import model as annmodel
 from rpython.rlib.objectmodel import enforceargs
+from rpython.rlib.rposix import _WIN32, StringTraits, UnicodeTraits
 from rpython.rtyper.controllerentry import Controller
 from rpython.rtyper.extfunc import register_external
 from rpython.rtyper.lltypesystem import rffi, lltype
-from rpython.rtyper.module.support import _WIN32, StringTraits, UnicodeTraits
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 str0 = annmodel.s_Str0
