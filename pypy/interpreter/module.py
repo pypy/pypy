@@ -124,19 +124,15 @@ class Module(W_Root):
         w_loader = space.finditem(self.w_dict, space.wrap('__loader__'))
         if w_loader is not None:
             try:
-                w_repr = space.call_method(w_loader, "module_repr",
-                                           space.wrap(self))
+                return space.call_method(w_loader, "module_repr",
+                                         space.wrap(self))
             except OperationError:
-                w_repr = None
-
-            if w_repr is not None:
-                return w_repr
-
+                pass
         try:
             w_name = space.getattr(self, space.wrap('__name__'))
+            name = space.unicode_w(space.repr(w_name))
         except OperationError:
-            w_name = space.wrap(u'?')
-        name = space.unicode_w(space.repr(w_name))
+            name = u"'?'"
 
         try:
             w___file__ = space.getattr(self, space.wrap('__file__'))
