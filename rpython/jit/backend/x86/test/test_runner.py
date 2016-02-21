@@ -265,6 +265,22 @@ class TestX86(LLtypeBackendTest):
                                'void', ofsi)
         assert p.i == 3**33
 
+    def test_getfield_64bit_offset(self):
+        if WORD == 4:
+            py.test.skip("only for 64 bits")
+        TP = lltype.Struct('S', ('i', lltype.Signed))
+        p = lltype.malloc(TP, flavor='raw')
+        p.i = 0x123456789ABC
+        offset = 3**33
+        val = rffi.cast(lltype.Signed, rffi.cast(lltype.Signed, p) - offset)
+        res = self.execute_operation(rop.GC_LOAD_I,
+                                     [InputArgInt(val),
+                                      ConstInt(offset),
+                                      ConstInt(WORD)],
+                                     'int')
+        assert res == 0x123456789ABC
+        lltype.free(p, flavor='raw')
+
     def test_and_mask_common_patterns(self):
         cases = [8, 16, 24]
         if WORD == 8:

@@ -217,6 +217,8 @@ class W_Dtype(W_Root):
             endian = ignore
         if self.num == NPY.UNICODE:
             size >>= 2
+        if self.num == NPY.OBJECT:
+            return "%s%s" %(endian, basic)
         return "%s%s%s" % (endian, basic, size)
 
     def descr_get_descr(self, space, style='descr', force_dict=False):
@@ -420,6 +422,10 @@ class W_Dtype(W_Root):
         if space.is_w(self, w_other):
             return True
         if isinstance(w_other, W_Dtype):
+            if self.is_object() and w_other.is_object():
+                # ignore possible 'record' unions
+                # created from dtype(('O', spec))
+                return True
             return space.eq_w(self.descr_reduce(space),
                               w_other.descr_reduce(space))
         return False
@@ -485,7 +491,12 @@ class W_Dtype(W_Root):
 
     def descr_str(self, space):
         if self.fields:
-            return space.str(self.descr_get_descr(space, style='str'))
+            r = self.descr_get_descr(space, style='str')
+            name = space.str_w(space.str(self.w_box_type))
+            if name != "<type 'numpy.void'>":
+                boxname = space.str(self.w_box_type)
+                r = space.newtuple([self.w_box_type, r])
+            return space.str(r)
         elif self.subdtype is not None:
             return space.str(space.newtuple([
                 self.subdtype.descr_get_str(space),
@@ -497,8 +508,13 @@ class W_Dtype(W_Root):
                 return self.descr_get_name(space)
 
     def descr_repr(self, space):
+        if isinstance(self.itemtype, types.CharType):
+            return space.wrap("dtype('S1')")
         if self.fields:
             r = self.descr_get_descr(space, style='repr')
+            name = space.str_w(space.str(self.w_box_type))
+            if name != "<type 'numpy.void'>":
+                r = space.newtuple([space.wrap(self.w_box_type), r])
         elif self.subdtype is not None:
             r = space.newtuple([self.subdtype.descr_get_str(space),
                                 self.descr_get_shape(space)])
@@ -800,8 +816,8 @@ def _get_list_or_none(space, w_dict, key):
 def _usefields(space, w_dict, align):
     # Only for testing, a shortened version of the real _usefields
     allfields = []
-    for fname in w_dict.iterkeys().iterator:
-        obj = _get_list_or_none(space, w_dict, fname)
+    for fname_w in space.unpackiterable(w_dict):
+        obj = _get_list_or_none(space, w_dict, space.str_w(fname_w))
         num = space.int_w(obj[1])
         if align:
             alignment = 0
@@ -812,8 +828,8 @@ def _usefields(space, w_dict, align):
             title = space.wrap(obj[2])
         else:
             title = space.w_None
-        allfields.append((space.wrap(fname), format, num, title))
-    allfields.sort(key=lambda x: x[2])
+        allfields.append((fname_w, format, num, title))
+    #allfields.sort(key=lambda x: x[2])
     names   = [space.newtuple([x[0], x[3]]) for x in allfields]
     formats = [x[1] for x in allfields]
     offsets = [x[2] for x in allfields]
@@ -837,12 +853,14 @@ def dtype_from_dict(space, w_dict, alignment):
     aligned_w = _get_val_or_none(space, w_dict, 'aligned')
     itemsize_w = _get_val_or_none(space, w_dict, 'itemsize')
     if names_w is None or formats_w is None:
-        if we_are_translated():
+        try:
             return get_appbridge_cache(space).call_method(space,
                 'numpy.core._internal', '_usefields', Arguments(space, 
                                 [w_dict, space.wrap(alignment >= 0)]))
-        else:
-            return _usefields(space, w_dict, alignment >= 0)
+        except OperationError as e:
+            if e.match(space, space.w_ImportError):
+                return _usefields(space, w_dict, alignment >= 0)
+            raise
     n = len(names_w)
     if (n != len(formats_w) or 
         (offsets_w is not None and n != len(offsets_w)) or
@@ -882,16 +900,17 @@ def dtype_from_dict(space, w_dict, alignment):
 
 def dtype_from_spec(space, w_spec, alignment):
 
-    if we_are_translated():
+    w_lst = w_spec
+    try:
         w_lst = get_appbridge_cache(space).call_method(space,
             'numpy.core._internal', '_commastring', Arguments(space, [w_spec]))
-    else:
+    except OperationError as e:
+        if not e.match(space, space.w_ImportError):
+            raise
         # handle only simple cases for testing
         if space.isinstance_w(w_spec, space.w_str):
             spec = [s.strip() for s in space.str_w(w_spec).split(',')]
             w_lst = space.newlist([space.wrap(s) for s in spec]) 
-        elif space.isinstance_w(w_spec, space.w_list):
-            w_lst = w_spec
     if not space.isinstance_w(w_lst, space.w_list) or space.len_w(w_lst) < 1:
         raise oefmt(space.w_RuntimeError,
                     "_commastring is not returning a list with len >= 1")
@@ -942,7 +961,7 @@ def _get_shape(space, w_shape):
     shape_w = space.fixedview(w_shape)
     if len(shape_w) < 1:
         return None
-    elif len(shape_w) == 1 and space.isinstance_w(shape_w[0], space.w_tuple):
+    elif space.isinstance_w(shape_w[0], space.w_tuple):
         # (base_dtype, new_dtype) dtype spectification
         return None
     shape = []
@@ -997,12 +1016,17 @@ def make_new_dtype(space, w_subtype, w_dtype, alignment, copy=False, w_shape=Non
         if len(spec) > 0:
             # this is (base_dtype, new_dtype) so just make it a union by setting both
             # parts' offset to 0
-            try:
-                dtype1 = make_new_dtype(space, w_subtype, w_shape, alignment)
-            except:
-                raise
-            raise oefmt(space.w_NotImplementedError, 
-                "(base_dtype, new_dtype) dtype spectification discouraged, not implemented")
+            w_dtype1 = make_new_dtype(space, w_subtype, w_shape, alignment)
+            assert isinstance(w_dtype, W_Dtype)
+            assert isinstance(w_dtype1, W_Dtype)
+            if (w_dtype.elsize != 0 and w_dtype1.elsize != 0 and 
+                    w_dtype1.elsize != w_dtype.elsize):
+                raise oefmt(space.w_ValueError,
+                    'mismatch in size of old and new data-descriptor')
+            retval = W_Dtype(w_dtype.itemtype, w_dtype.w_box_type,
+                    names=w_dtype1.names[:], fields=w_dtype1.fields.copy(),
+                    elsize=w_dtype1.elsize)
+            return retval
     if space.is_none(w_dtype):
         return cache.w_float64dtype
     if space.isinstance_w(w_dtype, w_subtype):
@@ -1032,19 +1056,22 @@ def make_new_dtype(space, w_subtype, w_dtype, alignment, copy=False, w_shape=Non
     elif space.isinstance_w(w_dtype, space.w_tuple):
         w_dtype0 = space.getitem(w_dtype, space.wrap(0))
         w_dtype1 = space.getitem(w_dtype, space.wrap(1))
-        if space.isinstance_w(w_dtype0, space.w_type) and \
-           space.isinstance_w(w_dtype1, space.w_list):
-            #obscure api - (subclass, spec). Ignore the subclass
-            return make_new_dtype(space, w_subtype, w_dtype1, alignment, 
-                        copy=copy, w_shape=w_shape, w_metadata=w_metadata)
-        subdtype = make_new_dtype(space, w_subtype, w_dtype0, alignment, copy)
-        assert isinstance(subdtype, W_Dtype)
-        if subdtype.elsize == 0:
-            name = "%s%d" % (subdtype.kind, space.int_w(w_dtype1))
+        # create a new dtype object
+        l_side = make_new_dtype(space, w_subtype, w_dtype0, alignment, copy)
+        assert isinstance(l_side, W_Dtype)
+        if l_side.elsize == 0 and space.isinstance_w(w_dtype1, space.w_int):
+            #(flexible_dtype, itemsize)
+            name = "%s%d" % (l_side.kind, space.int_w(w_dtype1))
             retval = make_new_dtype(space, w_subtype, space.wrap(name), alignment, copy)
-        else:
-            retval = make_new_dtype(space, w_subtype, w_dtype0, alignment, copy, w_shape=w_dtype1)
-        return _set_metadata_and_copy(space, w_metadata, retval, copy)
+            return _set_metadata_and_copy(space, w_metadata, retval, copy)
+        elif (space.isinstance_w(w_dtype1, space.w_int) or
+                space.isinstance_w(w_dtype1, space.w_tuple) or 
+                space.isinstance_w(w_dtype1, space.w_list) or 
+                isinstance(w_dtype1, W_NDimArray)):
+            #(fixed_dtype, shape) or (base_dtype, new_dtype)
+            retval = make_new_dtype(space, w_subtype, l_side, alignment,
+                                    copy, w_shape=w_dtype1)
+            return _set_metadata_and_copy(space, w_metadata, retval, copy)
     elif space.isinstance_w(w_dtype, space.w_dict):
         return _set_metadata_and_copy(space, w_metadata,
                 dtype_from_dict(space, w_dtype, alignment), copy)
@@ -1122,7 +1149,7 @@ def variable_dtype(space, name):
             size = int(name[1:])
         except ValueError:
             raise oefmt(space.w_TypeError, "data type not understood")
-    if char == NPY.CHARLTR:
+    if char == NPY.CHARLTR and size == 0:
         return W_Dtype(
             types.CharType(space),
             elsize=1,
@@ -1133,7 +1160,7 @@ def variable_dtype(space, name):
         return new_unicode_dtype(space, size)
     elif char == NPY.VOIDLTR:
         return new_void_dtype(space, size)
-    assert False
+    raise oefmt(space.w_TypeError, 'data type "%s" not understood', name)
 
 
 def new_string_dtype(space, size):

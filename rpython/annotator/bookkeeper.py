@@ -12,7 +12,7 @@ from rpython.flowspace.model import Constant
 from rpython.annotator.model import (SomeOrderedDict,
     SomeString, SomeChar, SomeFloat, unionof, SomeInstance, SomeDict,
     SomeBuiltin, SomePBC, SomeInteger, TLS, TlsClass, SomeUnicodeCodePoint,
-    s_None, s_ImpossibleValue, SomeBool, SomeTuple,
+    s_None, s_ImpossibleValue, SomeBool, SomeTuple, SomeException,
     SomeImpossibleValue, SomeUnicodeString, SomeList, HarmlesslyBlocked,
     SomeWeakRef, SomeByteArray, SomeConstantType, SomeProperty)
 from rpython.annotator.classdesc import ClassDef, ClassDesc
@@ -219,6 +219,10 @@ class Bookkeeper(object):
         desc = self.getdesc(cls)
         return desc.getuniqueclassdef()
 
+    def new_exception(self, exc_classes):
+        clsdefs = {self.getuniqueclassdef(cls) for cls in exc_classes}
+        return SomeException(clsdefs)
+
     def getlistdef(self, **flags_if_new):
         """Get the ListDef associated with the current position."""
         try:
@@ -401,8 +405,9 @@ class Bookkeeper(object):
         #  * a user-defined bound or unbound method object
         #  * a frozen pre-built constant (with _freeze_() == True)
         #  * a bound method of a frozen pre-built constant
+        obj_key = Constant(pyobj)
         try:
-            return self.descs[pyobj]
+            return self.descs[obj_key]
         except KeyError:
             if isinstance(pyobj, types.FunctionType):
                 result = description.FunctionDesc(self, pyobj)
@@ -447,7 +452,7 @@ class Bookkeeper(object):
                         msg = "unexpected prebuilt constant"
                     raise Exception("%s: %r" % (msg, pyobj))
                 result = self.getfrozen(pyobj)
-            self.descs[pyobj] = result
+            self.descs[obj_key] = result
             return result
 
     def getfrozen(self, pyobj):

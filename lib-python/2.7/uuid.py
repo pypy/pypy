@@ -604,21 +604,8 @@ def uuid3(namespace, name):
 
 def uuid4():
     """Generate a random UUID."""
-
-    # When the system provides a version-4 UUID generator, use it.
-    if _uuid_generate_random:
-        _buffer = ctypes.create_string_buffer(16)
-        _uuid_generate_random(_buffer)
-        return UUID(bytes=_buffer.raw)
-
-    # Otherwise, get randomness from urandom or the 'random' module.
-    try:
-        import os
-        return UUID(bytes=os.urandom(16), version=4)
-    except:
-        import random
-        bytes = [chr(random.randrange(256)) for i in range(16)]
-        return UUID(bytes=bytes, version=4)
+    import os
+    return UUID(bytes=os.urandom(16), version=4)
 
 def uuid5(namespace, name):
     """Generate a UUID from the SHA-1 hash of a namespace UUID and a name."""

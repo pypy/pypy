@@ -449,6 +449,13 @@ class __extend__(annmodel.SomeInstance):
     def rtyper_makekey(self):
         return self.__class__, self.classdef
 
+class __extend__(annmodel.SomeException):
+    def rtyper_makerepr(self, rtyper):
+        return self.as_SomeInstance().rtyper_makerepr(rtyper)
+
+    def rtyper_makekey(self):
+        return self.__class__, frozenset(self.classdefs)
+
 class __extend__(annmodel.SomeType):
     def rtyper_makerepr(self, rtyper):
         return get_type_repr(rtyper)

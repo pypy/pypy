@@ -3,22 +3,28 @@ and os.fstat().  In RPython like in plain Python the stat result can be
 indexed like a tuple but also exposes the st_xxx attributes.
 """
 
-import os
-import sys
+import os, sys
 
 from rpython.annotator import model as annmodel
-from rpython.rtyper.llannotation import lltype_to_annotation
-from rpython.rlib import rposix
-from rpython.rlib.rarithmetic import intmask
 from rpython.rtyper import extregistry
-from rpython.rtyper.annlowlevel import hlstr
-from rpython.rtyper.extfunc import extdef
-from rpython.rtyper.lltypesystem import rffi, lltype
-from rpython.rtyper.rtuple import TUPLE_TYPE
-from rpython.rtyper.tool import rffi_platform as platform
 from rpython.tool.pairtype import pairtype
-from rpython.tool.sourcetools import func_renamer
+from rpython.rtyper.tool import rffi_platform as platform
+from rpython.rtyper.llannotation import lltype_to_annotation
+
+from rpython.rlib.objectmodel import specialize
+from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.rposix import (
+    replace_os_function, handle_posix_error, _as_bytes0,
+    _preferred_traits, string_traits)
+
+_WIN32 = sys.platform.startswith('win')
+_LINUX = sys.platform.startswith('linux')
+
+if _WIN32:
+    from rpython.rlib import rwin32 
+    from rpython.rlib.rwin32file import make_win32_traits
 
 # Support for float times is here.
 # - ALL_STAT_FIELDS contains Float fields if the system can retrieve
@@ -78,8 +84,8 @@ class SomeStatResult(annmodel.SomeObject):
     knowntype = os.stat_result
 
     def rtyper_makerepr(self, rtyper):
-        from rpython.rtyper.module import r_os_stat
-        return r_os_stat.StatResultRepr(rtyper)
+        from rpython.rlib import _rposix_repr
+        return _rposix_repr.StatResultRepr(rtyper)
 
     def rtyper_makekey(self):
         return self.__class__,
@@ -112,8 +118,8 @@ class SomeStatvfsResult(annmodel.SomeObject):
         knowntype = None # will not be used
 
     def rtyper_makerepr(self, rtyper):
-        from rpython.rtyper.module import r_os_stat
-        return r_os_stat.StatvfsResultRepr(rtyper)
+        from rpython.rlib import _rposix_repr
+        return _rposix_repr.StatvfsResultRepr(rtyper)
 
     def rtyper_makekey(self):
         return self.__class__,
@@ -164,8 +170,8 @@ class MakeStatResultEntry(extregistry.ExtRegistryEntry):
         return s_StatResult
 
     def specialize_call(self, hop):
-        from rpython.rtyper.module import r_os_stat
-        return r_os_stat.specialize_make_stat_result(hop)
+        from rpython.rlib import _rposix_repr
+        return _rposix_repr.specialize_make_stat_result(hop)
 
 
 class MakeStatvfsResultEntry(extregistry.ExtRegistryEntry):
@@ -175,8 +181,8 @@ class MakeStatvfsResultEntry(extregistry.ExtRegistryEntry):
         return s_StatvfsResult
 
     def specialize_call(self, hop):
-        from rpython.rtyper.module import r_os_stat
-        return r_os_stat.specialize_make_statvfs_result(hop)
+        from rpython.rlib import _rposix_repr
+        return _rposix_repr.specialize_make_statvfs_result(hop)
 
 # ____________________________________________________________
 #
@@ -186,7 +192,7 @@ if sys.platform.startswith('win'):
     _name_struct_stat = '_stati64'
     INCLUDES = ['sys/types.h', 'sys/stat.h', 'sys/statvfs.h']
 else:
-    if sys.platform.startswith('linux'):
+    if _LINUX:
         _name_struct_stat = 'stat64'
     else:
         _name_struct_stat = 'stat'
@@ -274,7 +280,6 @@ del _name, _TYPE
 STATVFS_FIELD_TYPES = dict(STATVFS_FIELDS)
 STATVFS_FIELD_NAMES = [name for name, tp in STATVFS_FIELDS]
 
-
 def build_stat_result(st):
     # only for LL backends
     if TIMESPEC is not None:
@@ -320,223 +325,43 @@ def build_statvfs_result(st):
     ))
 
 
-def register_stat_variant(name, traits):
-    if name != 'fstat':
-        arg_is_path = True
-        s_arg = traits.str0
-        ARG1 = traits.CCHARP
-    else:
-        arg_is_path = False
-        s_arg = int
-        ARG1 = rffi.INT
+# Implement and register os.stat() & variants
 
-    if sys.platform == 'win32':
-        # See Win32 implementation below
-        posix_stat_llimpl = make_win32_stat_impl(name, traits)
+if not _WIN32:
+  c_fstat = rffi.llexternal('fstat64' if _LINUX else 'fstat',
+                            [rffi.INT, STAT_STRUCT], rffi.INT,
+                            compilation_info=compilation_info,
+                            save_err=rffi.RFFI_SAVE_ERRNO,
+                            macro=True)
+  c_stat = rffi.llexternal('stat64' if _LINUX else 'stat',
+                           [rffi.CCHARP, STAT_STRUCT], rffi.INT,
+                           compilation_info=compilation_info,
+                           save_err=rffi.RFFI_SAVE_ERRNO,
+                           macro=True)
+  c_lstat = rffi.llexternal('lstat64' if _LINUX else 'lstat',
+                            [rffi.CCHARP, STAT_STRUCT], rffi.INT,
+                            compilation_info=compilation_info,
+                            save_err=rffi.RFFI_SAVE_ERRNO,
+                            macro=True)
 
-        return extdef(
-            [s_arg], s_StatResult, traits.ll_os_name(name),
-            llimpl=posix_stat_llimpl)
+  c_fstatvfs = rffi.llexternal('fstatvfs',
+                               [rffi.INT, STATVFS_STRUCT], rffi.INT,
+                               compilation_info=compilation_info,
+                               save_err=rffi.RFFI_SAVE_ERRNO)
+  c_statvfs = rffi.llexternal('statvfs',
+                              [rffi.CCHARP, STATVFS_STRUCT], rffi.INT,
+                              compilation_info=compilation_info,
+                              save_err=rffi.RFFI_SAVE_ERRNO)
 
-    if sys.platform.startswith('linux'):
-        # because we always use _FILE_OFFSET_BITS 64 - this helps things work that are not a c compiler
-        _functions = {'stat':  'stat64',
-                      'fstat': 'fstat64',
-                      'lstat': 'lstat64'}
-        c_func_name = _functions[name]
-    else:
-        c_func_name = name
-
-    posix_mystat = rffi.llexternal(c_func_name,
-                                   [ARG1, STAT_STRUCT], rffi.INT,
-                                   compilation_info=compilation_info,
-                                   save_err=rffi.RFFI_SAVE_ERRNO)
-
-    @func_renamer('os_%s_llimpl' % (name,))
-    def posix_stat_llimpl(arg):
-        stresult = lltype.malloc(STAT_STRUCT.TO, flavor='raw')
-        try:
-            if arg_is_path:
-                arg = traits.str2charp(arg)
-            error = rffi.cast(rffi.LONG, posix_mystat(arg, stresult))
-            if arg_is_path:
-                traits.free_charp(arg)
-            if error != 0:
-                raise OSError(rposix.get_saved_errno(), "os_?stat failed")
+@replace_os_function('fstat')
+def fstat(fd):
+    if not _WIN32:
+        with lltype.scoped_alloc(STAT_STRUCT.TO) as stresult:
+            handle_posix_error('fstat', c_fstat(fd, stresult))
             return build_stat_result(stresult)
-        finally:
-            lltype.free(stresult, flavor='raw')
-
-    @func_renamer('os_%s_fake' % (name,))
-    def posix_fakeimpl(arg):
-        if s_arg == traits.str0:
-            arg = hlstr(arg)
-        st = getattr(os, name)(arg)
-        fields = [TYPE for fieldname, TYPE in STAT_FIELDS]
-        TP = TUPLE_TYPE(fields)
-        ll_tup = lltype.malloc(TP.TO)
-        for i, (fieldname, TYPE) in enumerate(STAT_FIELDS):
-            val = getattr(st, fieldname)
-            if isinstance(TYPE, lltype.Number):
-                rffi.setintfield(ll_tup, 'item%d' % i, int(val))
-            elif TYPE is lltype.Float:
-                setattr(ll_tup, 'item%d' % i, float(val))
-            else:
-                setattr(ll_tup, 'item%d' % i, val)
-        return ll_tup
-
-    return extdef(
-        [s_arg], s_StatResult, "ll_os.ll_os_%s" % (name,),
-        llimpl=posix_stat_llimpl, llfakeimpl=posix_fakeimpl)
-
-
-def register_statvfs_variant(name, traits):
-    if name != 'fstatvfs':
-        arg_is_path = True
-        s_arg = traits.str0
-        ARG1 = traits.CCHARP
     else:
-        arg_is_path = False
-        s_arg = int
-        ARG1 = rffi.INT
-
-    posix_mystatvfs = rffi.llexternal(name,
-        [ARG1, STATVFS_STRUCT], rffi.INT,
-        compilation_info=compilation_info,
-        save_err=rffi.RFFI_SAVE_ERRNO)
-
-    @func_renamer('os_%s_llimpl' % (name,))
-    def posix_statvfs_llimpl(arg):
-        stresult = lltype.malloc(STATVFS_STRUCT.TO, flavor='raw')
-        try:
-            if arg_is_path:
-                arg = traits.str2charp(arg)
-            error = rffi.cast(rffi.LONG, posix_mystatvfs(arg, stresult))
-            if arg_is_path:
-                traits.free_charp(arg)
-            if error != 0:
-                raise OSError(rposix.get_saved_errno(), "os_?statvfs failed")
-            return build_statvfs_result(stresult)
-        finally:
-            lltype.free(stresult, flavor='raw')
-
-    @func_renamer('os_%s_fake' % (name,))
-    def posix_fakeimpl(arg):
-        if s_arg == traits.str0:
-            arg = hlstr(arg)
-        st = getattr(os, name)(arg)
-        fields = [TYPE for fieldname, TYPE in STATVFS_FIELDS]
-        TP = TUPLE_TYPE(fields)
-        ll_tup = lltype.malloc(TP.TO)
-        for i, (fieldname, TYPE) in enumerate(STATVFS_FIELDS):
-            val = getattr(st, fieldname)
-            rffi.setintfield(ll_tup, 'item%d' % i, int(val))
-        return ll_tup
-
-    return extdef(
-        [s_arg], s_StatvfsResult, "ll_os.ll_os_%s" % (name,),
-        llimpl=posix_statvfs_llimpl, llfakeimpl=posix_fakeimpl
-    )
-
-
-def make_win32_stat_impl(name, traits):
-    from rpython.rlib import rwin32
-    from rpython.rtyper.module.ll_win32file import make_win32_traits
-    win32traits = make_win32_traits(traits)
-
-    # The CRT of Windows has a number of flaws wrt. its stat() implementation:
-    # - time stamps are restricted to second resolution
-    # - file modification times suffer from forth-and-back conversions between
-    #   UTC and local time
-    # Therefore, we implement our own stat, based on the Win32 API directly.
-    from rpython.rtyper.tool import rffi_platform as platform
-    from rpython.translator.tool.cbuild import ExternalCompilationInfo
-    from rpython.rlib import rwin32
-
-    assert len(STAT_FIELDS) == 10    # no extra fields on Windows
-
-    def attributes_to_mode(attributes):
-        m = 0
-        attributes = intmask(attributes)
-        if attributes & win32traits.FILE_ATTRIBUTE_DIRECTORY:
-            m |= win32traits._S_IFDIR | 0111 # IFEXEC for user,group,other
-        else:
-            m |= win32traits._S_IFREG
-        if attributes & win32traits.FILE_ATTRIBUTE_READONLY:
-            m |= 0444
-        else:
-            m |= 0666
-        return m
-
-    def attribute_data_to_stat(info):
-        st_mode = attributes_to_mode(info.c_dwFileAttributes)
-        st_size = make_longlong(info.c_nFileSizeHigh, info.c_nFileSizeLow)
-        ctime = FILE_TIME_to_time_t_float(info.c_ftCreationTime)
-        mtime = FILE_TIME_to_time_t_float(info.c_ftLastWriteTime)
-        atime = FILE_TIME_to_time_t_float(info.c_ftLastAccessTime)
-
-        result = (st_mode,
-                  0, 0, 0, 0, 0,
-                  st_size,
-                  atime, mtime, ctime)
-
-        return make_stat_result(result)
-
-    def by_handle_info_to_stat(info):
-        # similar to the one above
-        st_mode = attributes_to_mode(info.c_dwFileAttributes)
-        st_size = make_longlong(info.c_nFileSizeHigh, info.c_nFileSizeLow)
-        ctime = FILE_TIME_to_time_t_float(info.c_ftCreationTime)
-        mtime = FILE_TIME_to_time_t_float(info.c_ftLastWriteTime)
-        atime = FILE_TIME_to_time_t_float(info.c_ftLastAccessTime)
-
-        # specific to fstat()
-        st_ino = make_longlong(info.c_nFileIndexHigh, info.c_nFileIndexLow)
-        st_nlink = info.c_nNumberOfLinks
-
-        result = (st_mode,
-                  st_ino, 0, st_nlink, 0, 0,
-                  st_size,
-                  atime, mtime, ctime)
-
-        return make_stat_result(result)
-
-    def attributes_from_dir(l_path, data):
-        filedata = lltype.malloc(win32traits.WIN32_FIND_DATA, flavor='raw')
-        try:
-            hFindFile = win32traits.FindFirstFile(l_path, filedata)
-            if hFindFile == rwin32.INVALID_HANDLE_VALUE:
-                return 0
-            win32traits.FindClose(hFindFile)
-            data.c_dwFileAttributes = filedata.c_dwFileAttributes
-            rffi.structcopy(data.c_ftCreationTime, filedata.c_ftCreationTime)
-            rffi.structcopy(data.c_ftLastAccessTime, filedata.c_ftLastAccessTime)
-            rffi.structcopy(data.c_ftLastWriteTime, filedata.c_ftLastWriteTime)
-            data.c_nFileSizeHigh    = filedata.c_nFileSizeHigh
-            data.c_nFileSizeLow     = filedata.c_nFileSizeLow
-            return 1
-        finally:
-            lltype.free(filedata, flavor='raw')
-
-    def win32_stat_llimpl(path):
-        data = lltype.malloc(win32traits.WIN32_FILE_ATTRIBUTE_DATA, flavor='raw')
-        try:
-            l_path = traits.str2charp(path)
-            res = win32traits.GetFileAttributesEx(l_path, win32traits.GetFileExInfoStandard, data)
-            errcode = rwin32.GetLastError_saved()
-            if res == 0:
-                if errcode == win32traits.ERROR_SHARING_VIOLATION:
-                    res = attributes_from_dir(l_path, data)
-                    errcode = rwin32.GetLastError_saved()
-            traits.free_charp(l_path)
-            if res == 0:
-                raise WindowsError(errcode, "os_stat failed")
-            return attribute_data_to_stat(data)
-        finally:
-            lltype.free(data, flavor='raw')
-
-    def win32_fstat_llimpl(fd):
         handle = rwin32.get_osfhandle(fd)
+        win32traits = make_win32_traits(string_traits)
         filetype = win32traits.GetFileType(handle)
         if filetype == win32traits.FILE_TYPE_CHAR:
             # console or LPT device
@@ -562,31 +387,141 @@ def make_win32_stat_impl(name, traits):
             if res == 0:
                 raise WindowsError(rwin32.GetLastError_saved(),
                                    "os_fstat failed")
-            return by_handle_info_to_stat(info)
+            return win32_by_handle_info_to_stat(win32traits, info)
         finally:
             lltype.free(info, flavor='raw')
 
-    if name == 'fstat':
-        return win32_fstat_llimpl
+@replace_os_function('stat')
+@specialize.argtype(0)
+def stat(path):
+    if not _WIN32:
+        with lltype.scoped_alloc(STAT_STRUCT.TO) as stresult:
+            arg = _as_bytes0(path)
+            handle_posix_error('stat', c_stat(arg, stresult))
+            return build_stat_result(stresult)
     else:
-        return win32_stat_llimpl
+        traits = _preferred_traits(path)
+        path = traits.as_str0(path)
+        return win32_xstat(traits, path, traverse=True)
 
+@replace_os_function('lstat')
+@specialize.argtype(0)
+def lstat(path):
+    if not _WIN32:
+        with lltype.scoped_alloc(STAT_STRUCT.TO) as stresult:
+            arg = _as_bytes0(path)
+            handle_posix_error('lstat', c_lstat(arg, stresult))
+            return build_stat_result(stresult)
+    else:
+        traits = _preferred_traits(path)
+        path = traits.as_str0(path)
+        return win32_xstat(traits, path, traverse=False)
+
+@replace_os_function('fstatvfs')
+def fstatvfs(fd):
+    with lltype.scoped_alloc(STATVFS_STRUCT.TO) as stresult:
+        handle_posix_error('fstatvfs', c_fstatvfs(fd, stresult))
+        return build_statvfs_result(stresult)
+
+@replace_os_function('statvfs')
+@specialize.argtype(0)
+def statvfs(path):
+    with lltype.scoped_alloc(STATVFS_STRUCT.TO) as stresult:
+        arg = _as_bytes0(path)
+        handle_posix_error('statvfs', c_statvfs(arg, stresult))
+        return build_statvfs_result(stresult)
 
 #__________________________________________________
 # Helper functions for win32
+if _WIN32:
+    from rpython.rlib.rwin32file import FILE_TIME_to_time_t_float
 
-def make_longlong(high, low):
-    return (rffi.r_longlong(high) << 32) + rffi.r_longlong(low)
+    def make_longlong(high, low):
+        return (rffi.r_longlong(high) << 32) + rffi.r_longlong(low)
 
-# Seconds between 1.1.1601 and 1.1.1970
-secs_between_epochs = rffi.r_longlong(11644473600)
+    # Seconds between 1.1.1601 and 1.1.1970
+    secs_between_epochs = rffi.r_longlong(11644473600)
 
-def FILE_TIME_to_time_t_float(filetime):
-    ft = make_longlong(filetime.c_dwHighDateTime, filetime.c_dwLowDateTime)
-    # FILETIME is in units of 100 nsec
-    return float(ft) * (1.0 / 10000000.0) - secs_between_epochs
+    @specialize.arg(0)
+    def win32_xstat(traits, path, traverse=False):
+        win32traits = make_win32_traits(traits)
+        with lltype.scoped_alloc(
+                win32traits.WIN32_FILE_ATTRIBUTE_DATA) as data:
+            res = win32traits.GetFileAttributesEx(
+                path, win32traits.GetFileExInfoStandard, data)
+            if res == 0:
+                errcode = rwin32.GetLastError_saved()
+                if errcode == win32traits.ERROR_SHARING_VIOLATION:
+                    res = win32_attributes_from_dir(
+                        win32traits, path, data)
+            if res == 0:
+                errcode = rwin32.GetLastError_saved()
+                raise WindowsError(errcode, "os_stat failed")
+            return win32_attribute_data_to_stat(win32traits, data)
 
-def time_t_to_FILE_TIME(time, filetime):
-    ft = rffi.r_longlong((time + secs_between_epochs) * 10000000)
-    filetime.c_dwHighDateTime = rffi.r_uint(ft >> 32)
-    filetime.c_dwLowDateTime = rffi.r_uint(ft)    # masking off high bits
+    @specialize.arg(0)
+    def win32_attributes_to_mode(win32traits, attributes):
+        m = 0
+        attributes = intmask(attributes)
+        if attributes & win32traits.FILE_ATTRIBUTE_DIRECTORY:
+            m |= win32traits._S_IFDIR | 0111 # IFEXEC for user,group,other
+        else:
+            m |= win32traits._S_IFREG
+        if attributes & win32traits.FILE_ATTRIBUTE_READONLY:
+            m |= 0444
+        else:
+            m |= 0666
+        return m
+
+    @specialize.arg(0)
+    def win32_attribute_data_to_stat(win32traits, info):
+        st_mode = win32_attributes_to_mode(win32traits, info.c_dwFileAttributes)
+        st_size = make_longlong(info.c_nFileSizeHigh, info.c_nFileSizeLow)
+        ctime = FILE_TIME_to_time_t_float(info.c_ftCreationTime)
+        mtime = FILE_TIME_to_time_t_float(info.c_ftLastWriteTime)
+        atime = FILE_TIME_to_time_t_float(info.c_ftLastAccessTime)
+
+        result = (st_mode,
+                  0, 0, 0, 0, 0,
+                  st_size,
+                  atime, mtime, ctime)
+
+        return make_stat_result(result)
+
+    def win32_by_handle_info_to_stat(win32traits, info):
+        # similar to the one above
+        st_mode = win32_attributes_to_mode(win32traits, info.c_dwFileAttributes)
+        st_size = make_longlong(info.c_nFileSizeHigh, info.c_nFileSizeLow)
+        ctime = FILE_TIME_to_time_t_float(info.c_ftCreationTime)
+        mtime = FILE_TIME_to_time_t_float(info.c_ftLastWriteTime)
+        atime = FILE_TIME_to_time_t_float(info.c_ftLastAccessTime)
+
+        # specific to fstat()
+        st_ino = make_longlong(info.c_nFileIndexHigh, info.c_nFileIndexLow)
+        st_nlink = info.c_nNumberOfLinks
+
+        result = (st_mode,
+                  st_ino, 0, st_nlink, 0, 0,
+                  st_size,
+                  atime, mtime, ctime)
+
+        return make_stat_result(result)
+
+    @specialize.arg(0)
+    def win32_attributes_from_dir(win32traits, path, data):
+        filedata = lltype.malloc(win32traits.WIN32_FIND_DATA, flavor='raw')
+        try:
+            hFindFile = win32traits.FindFirstFile(path, filedata)
+            if hFindFile == rwin32.INVALID_HANDLE_VALUE:
+                return 0
+            win32traits.FindClose(hFindFile)
+            data.c_dwFileAttributes = filedata.c_dwFileAttributes
+            rffi.structcopy(data.c_ftCreationTime, filedata.c_ftCreationTime)
+            rffi.structcopy(data.c_ftLastAccessTime, filedata.c_ftLastAccessTime)
+            rffi.structcopy(data.c_ftLastWriteTime, filedata.c_ftLastWriteTime)
+            data.c_nFileSizeHigh    = filedata.c_nFileSizeHigh
+            data.c_nFileSizeLow     = filedata.c_nFileSizeLow
+            return 1
+        finally:
+            lltype.free(filedata, flavor='raw')
+

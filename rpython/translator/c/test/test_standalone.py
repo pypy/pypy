@@ -8,7 +8,7 @@ from rpython.rlib.rarithmetic import r_longlong
 from rpython.rlib.debug import ll_assert, have_debug_prints, debug_flush
 from rpython.rlib.debug import debug_print, debug_start, debug_stop
 from rpython.rlib.debug import debug_offset, have_debug_prints_for
-from rpython.rlib.entrypoint import entrypoint, secondary_entrypoints
+from rpython.rlib.entrypoint import entrypoint_highlevel, secondary_entrypoints
 from rpython.rtyper.lltypesystem import lltype
 from rpython.translator.translator import TranslationContext
 from rpython.translator.backendopt import all
@@ -1443,7 +1443,7 @@ class TestShared(StandaloneTests):
         config = get_combined_translation_config(translating=True)
         self.config = config
 
-        @entrypoint('test', [lltype.Signed], c_name='foo')
+        @entrypoint_highlevel('test', [lltype.Signed], c_name='foo')
         def f(a):
             return a + 3
 
@@ -1451,7 +1451,8 @@ class TestShared(StandaloneTests):
             return 0
 
         t, cbuilder = self.compile(entry_point, shared=True,
-                                   entrypoints=[f], local_icon='red.ico')
+                                   entrypoints=[f.exported_wrapper],
+                                   local_icon='red.ico')
         ext_suffix = '.so'
         if cbuilder.eci.platform.name == 'msvc':
             ext_suffix = '.dll'

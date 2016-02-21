@@ -17,6 +17,7 @@ from rpython.jit.backend.llsupport.descr import SizeDescr, ArrayDescr
 from rpython.jit.backend.llsupport.descr import GcCache, get_field_descr
 from rpython.jit.backend.llsupport.descr import get_array_descr
 from rpython.jit.backend.llsupport.descr import get_call_descr
+from rpython.jit.backend.llsupport.descr import unpack_arraydescr
 from rpython.jit.backend.llsupport.descr import build_stm_tid_field_descr
 from rpython.memory.gctransform import asmgcroot
 from rpython.jit.codewriter.effectinfo import EffectInfo
@@ -164,10 +165,15 @@ class GcLLDescription(GcCache):
             # assert to make sure we got what we expected
             assert isinstance(v, ConstPtr)
             array_index = moving_obj_tracker.get_array_index(v)
-            load_op = ResOperation(rop.GETARRAYITEM_GC_R,
-                    [moving_obj_tracker.const_ptr_gcref_array,
-                        ConstInt(array_index)],
-                    descr=moving_obj_tracker.ptr_array_descr)
+
+            size, offset, _ = unpack_arraydescr(moving_obj_tracker.ptr_array_descr)
+            scale = size
+            args = [moving_obj_tracker.const_ptr_gcref_array,
+                    ConstInt(array_index),
+                    ConstInt(scale),
+                    ConstInt(offset),
+                    ConstInt(size)]
+            load_op = ResOperation(rop.GC_LOAD_INDEXED_R, args)
             newops.append(load_op)
             op.setarg(arg_i, load_op)
         #
@@ -493,7 +499,7 @@ class GcLLDescr_framework(GcLLDescription):
 
     def _initialize_for_tests(self):
         self.layoutbuilder = None
-        self.fielddescr_tid = AbstractDescr()
+        self.fielddescr_tid = FieldDescr("test_tid",0,8,0)
         if self.stm:
             self.fielddescr_stmflags = AbstractDescr()
         self.max_size_of_young_obj = 1000

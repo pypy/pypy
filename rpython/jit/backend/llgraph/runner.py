@@ -151,10 +151,10 @@ class FieldDescr(AbstractDescr):
         self.fieldname = fieldname
         self.FIELD = getattr(S, fieldname)
         self.index = heaptracker.get_fielddescr_index_in(S, fieldname)
-        self._is_immutable = S._immutable_field(fieldname)
+        self._is_pure = S._immutable_field(fieldname)
 
-    def is_immutable(self):
-        return self._is_immutable
+    def is_always_pure(self):
+        return self._is_pure
 
     def get_parent_descr(self):
         return self.parent_descr
@@ -208,7 +208,7 @@ class ArrayDescr(AbstractDescr):
 
     def __init__(self, A, runner):
         self.A = self.OUTERA = A
-        self._is_immutable = A._immutable_field(None)
+        self._is_pure = A._immutable_field(None)
         self.concrete_type = '\x00'
         if isinstance(A, lltype.Struct):
             self.A = A._flds[A._arrayfld]
@@ -218,8 +218,8 @@ class ArrayDescr(AbstractDescr):
         return kind == 'float' or \
                kind == 'int'
 
-    def is_immutable(self):
-        return self._is_immutable
+    def is_always_pure(self):
+        return self._is_pure
 
     def get_all_fielddescrs(self):
         return self.all_interiorfielddescrs
@@ -642,9 +642,18 @@ class LLGraphCPU(model.AbstractCPU):
         return array.getlength()
 
     def _bh_getarrayitem(self, a, index, descr, pure=False):
-        a = support.cast_arg(lltype.Ptr(descr.A), a)
-        array = a._obj
         assert index >= 0
+        if descr.A is descr.OUTERA:
+            a = support.cast_arg(lltype.Ptr(descr.A), a)
+        else:
+            # we use rffi.cast instead of support.cast_arg because the types
+            # might not be "compatible" enough from the lltype point of
+            # view. In particular, this happens when we use
+            # str_storage_getitem, in which an rpy_string is casted to
+            # rpy_string_as_Signed (or similar)
+            a = rffi.cast(lltype.Ptr(descr.OUTERA), a)
+            a = getattr(a, descr.OUTERA._arrayfld)
+        array = a._obj
         return support.cast_result(descr.A.OF, array.getitem(index))
 
     direct_getarrayitem_gc = _bh_getarrayitem
@@ -1156,16 +1165,22 @@ class LLFrame(object):
         self.do_renaming(argboxes, args)
 
     def _test_true(self, arg):
-        if isinstance(arg, list):
-            return all(arg)
         assert arg in (0, 1)
         return arg
 
     def _test_false(self, arg):
-        if isinstance(arg, list):
-            return any(arg)
         assert arg in (0, 1)
         return arg
+
+    def execute_vec_guard_true(self, descr, arg):
+        assert isinstance(arg, list)
+        if not all(arg):
+            self.fail_guard(descr)
+
+    def execute_vec_guard_false(self, descr, arg):
+        assert isinstance(arg, list)
+        if any(arg):
+            self.fail_guard(descr)
 
     def execute_guard_true(self, descr, arg):
         if not self._test_true(arg):

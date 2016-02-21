@@ -105,6 +105,7 @@ class VecTestHelper(DependencyBaseTest):
     def vectoroptimizer_unrolled(self, loop, unroll_factor = -1):
         opt = self.vectoroptimizer(loop)
         opt.linear_find_smallest_type(loop)
+        loop.setup_vectorization()
         if unroll_factor == -1 and opt.smallest_type_bytes == 0:
             raise NotAVectorizeableLoop()
         if unroll_factor == -1:
@@ -309,7 +310,7 @@ class BaseTestVectorize(VecTestHelper):
             'v10[4xi32] = vec_getarrayitem_raw_i(p0,i0,descr=int32arraydescr)',
             'v11[4xi32] = vec_int_is_true(v10[4xi32])',
             'i100 = vec_unpack_i(v11[4xi32], 0, 1)',
-            'guard_true(v11[4xi32]) [i100]',
+            'vec_guard_true(v11[4xi32]) [i100]',
         ], trace)
 
     def test_vectorize_skip(self):

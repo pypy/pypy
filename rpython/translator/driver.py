@@ -502,7 +502,6 @@ class TranslationDriver(SimpleTaskEngine):
                         shutil.copyfile(str(name), str(newname.new(ext=ext)))
                         self.log.info("copied: %s" % (newname,))
             self.c_entryp = newexename
-        self.log.info('usession directory: %s' % (udir,))
         self.log.info("created: %s" % (self.c_entryp,))
 
     @taskdef(['source_c'], "Compiling c source")
@@ -548,7 +547,9 @@ class TranslationDriver(SimpleTaskEngine):
             goals = [goals]
         goals.extend(self.extra_goals)
         goals = self.backend_select_goals(goals)
-        return self._execute(goals, task_skip = self._maybe_skip())
+        result = self._execute(goals, task_skip = self._maybe_skip())
+        self.log.info('usession directory: %s' % (udir,))
+        return result
 
     @staticmethod
     def from_targetspec(targetspec_dic, config=None, args=None,

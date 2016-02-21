@@ -130,6 +130,7 @@ class StdObjSpace(ObjSpace):
     def wrapbytes(self, x):
         return wrapstr(self, x)
 
+    @specialize.argtype(1)
     def wrap(self, x):
         "Wraps the Python value 'x' into one of the wrapper classes."
         # You might notice that this function is rather conspicuously
@@ -172,7 +173,6 @@ class StdObjSpace(ObjSpace):
             else:
                 return W_LongObject.fromrarith_int(x)
         return self._wrap_not_rpython(x)
-    wrap._annspecialcase_ = "specialize:wrap"
 
     def _wrap_not_rpython(self, x):
         "NOT_RPYTHON"

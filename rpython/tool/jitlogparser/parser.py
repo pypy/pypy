@@ -179,7 +179,6 @@ class SimpleParser(OpParser):
     def update_memo(self, val, name):
         pass
 
-
 class NonCodeError(Exception):
     pass
 

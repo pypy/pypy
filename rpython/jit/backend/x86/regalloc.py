@@ -384,6 +384,8 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
             i += 1
         assert not self.rm.reg_bindings
         assert not self.xrm.reg_bindings
+        if not we_are_translated():
+            self.assembler.mc.UD2()
         self.flush_loop()
         self.assembler.mc.mark_op(None) # end of the loop
         self.operations = None
@@ -420,21 +422,15 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
             self.assembler.guard_success_cc = rx86.Conditions['NZ']
 
 
-    def _consider_guard_cc(true):
-        def consider_guard_cc(self, op):
-            arg = op.getarg(0)
-            if arg.is_vector():
-                loc = self.loc(arg)
-                self.assembler.guard_vector(op, self.loc(arg), true)
-            else:
-                self.load_condition_into_cc(arg)
-            self.perform_guard(op, [], None)
-        return consider_guard_cc
+    def _consider_guard_cc(self, op):
+        arg = op.getarg(0)
+        self.load_condition_into_cc(arg)
+        self.perform_guard(op, [], None)
 
-    consider_guard_true = _consider_guard_cc(True)
-    consider_guard_false = _consider_guard_cc(False)
-    consider_guard_nonnull = _consider_guard_cc(True)
-    consider_guard_isnull = _consider_guard_cc(False)
+    consider_guard_true = _consider_guard_cc
+    consider_guard_false = _consider_guard_cc
+    consider_guard_nonnull = _consider_guard_cc
+    consider_guard_isnull = _consider_guard_cc
 
     def consider_finish(self, op):
         # the frame is in ebp, but we have to point where in the frame is
@@ -915,7 +911,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
     consider_call_release_gil_i = _consider_call_release_gil
     consider_call_release_gil_f = _consider_call_release_gil
     consider_call_release_gil_n = _consider_call_release_gil
-
+    
     def consider_call_malloc_gc(self, op):
         self._consider_call(op)
 
@@ -932,8 +928,8 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         args = op.getarglist()
         N = len(args)
         # we force all arguments in a reg (unless they are Consts),
-        # because it will be needed anyway by the following setfield_gc
-        # or setarrayitem_gc. It avoids loading it twice from the memory.
+        # because it will be needed anyway by the following gc_load
+        # It avoids loading it twice from the memory.
         arglocs = [self.rm.make_sure_var_in_reg(op.getarg(i), args)
                    for i in range(N)]
         self.perform_discard(op, arglocs)
@@ -1034,22 +1030,9 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
             gc_ll_descr.get_nursery_top_addr(),
             lengthloc, itemsize, maxlength, gcmap, arraydescr)
 
-    def extract_raw_stm_location(self):
-        if self.stm_location is not None:
-            num = rffi.cast(lltype.Signed, self.stm_location.num)
-            ref = rffi.cast(lltype.Signed, self.stm_location.ref)
-        else:
-            num = 0
-            ref = 0
-        return (num, ref)
-
-    def get_empty_gcmap(self, frame_depth):
-        return allocate_gcmap(self.assembler, frame_depth,
-                              JITFRAME_FIXED_SIZE)
-
     def get_gcmap(self, forbidden_regs=[], noregs=False):
         frame_depth = self.fm.get_frame_depth()
-        gcmap = self.get_empty_gcmap(frame_depth)
+        gcmap = allocate_gcmap(self.assembler, frame_depth, JITFRAME_FIXED_SIZE)
         for box, loc in self.rm.reg_bindings.iteritems():
             if loc in forbidden_regs:
                 continue
@@ -1065,35 +1048,14 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
                 gcmap[val // WORD // 8] |= r_uint(1) << (val % (WORD * 8))
         return gcmap
 
-    def consider_setfield_gc(self, op):
-        ofs, size, _ = unpack_fielddescr(op.getdescr())
-        ofs_loc = imm(ofs)
-        size_loc = imm(size)
-        assert isinstance(size_loc, ImmedLoc)
-        if size_loc.value == 1:
-            need_lower_byte = True
-        else:
-            need_lower_byte = False
+    def consider_gc_store(self, op):
         args = op.getarglist()
         base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
-        value_loc = self.make_sure_var_in_reg(op.getarg(1), args,
-                                              need_lower_byte=need_lower_byte)
-        self.perform_discard(op, [base_loc, ofs_loc, size_loc, value_loc])
-
-    def consider_zero_ptr_field(self, op):
-        ofs_loc = imm(op.getarg(1).getint())
-        size_loc = imm(WORD)
-        base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), [])
-        value_loc = imm(0)
-        self.perform_discard(op, [base_loc, ofs_loc, size_loc, value_loc])
-
-    consider_setfield_raw = consider_setfield_gc
-
-    def consider_setinteriorfield_gc(self, op):
-        t = unpack_interiorfielddescr(op.getdescr())
-        ofs, itemsize, fieldsize = imm(t[0]), imm(t[1]), imm(t[2])
-        args = op.getarglist()
-        if fieldsize.value == 1:
+        size_box = op.getarg(3)
+        assert isinstance(size_box, ConstInt)
+        size = size_box.value
+        itemsize = abs(size)
+        if size == 1:
             need_lower_byte = True
         else:
             need_lower_byte = False
@@ -1120,21 +1082,29 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         self.perform_discard(op, [base_loc, ofs, itemsize, fieldsize,
                                  index_loc, temp_loc, value_loc])
 
+    consider_setinteriorfield_raw = consider_setinteriorfield_gc
+
     def consider_strsetitem(self, op):
         args = op.getarglist()
         base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
         ofs_loc = self.rm.make_sure_var_in_reg(op.getarg(1), args)
-        value_loc = self.rm.make_sure_var_in_reg(op.getarg(2), args,
-                                                 need_lower_byte=True)
-        self.perform_discard(op, [base_loc, ofs_loc, value_loc])
+        self.perform_discard(op, [base_loc, ofs_loc, value_loc,
+                                 imm(itemsize)])
 
-    consider_unicodesetitem = consider_strsetitem
-
-    def consider_setarrayitem_gc(self, op):
-        itemsize, ofs, _ = unpack_arraydescr(op.getdescr())
+    def consider_gc_store_indexed(self, op):
         args = op.getarglist()
         base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
-        if itemsize == 1:
+        scale_box = op.getarg(3)
+        offset_box = op.getarg(4)
+        size_box = op.getarg(5)
+        assert isinstance(scale_box, ConstInt)
+        assert isinstance(offset_box, ConstInt)
+        assert isinstance(size_box, ConstInt)
+        factor = scale_box.value
+        offset = offset_box.value
+        size = size_box.value
+        itemsize = abs(size)
+        if size == 1:
             need_lower_byte = True
         else:
             need_lower_byte = False
@@ -1142,92 +1112,56 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
                                           need_lower_byte=need_lower_byte)
         ofs_loc = self.rm.make_sure_var_in_reg(op.getarg(1), args)
         self.perform_discard(op, [base_loc, ofs_loc, value_loc,
-                                 imm(itemsize), imm(ofs)])
-
-    consider_setarrayitem_raw = consider_setarrayitem_gc
-    consider_raw_store = consider_setarrayitem_gc
-
-    def _consider_getfield(self, op):
-        ofs, size, sign = unpack_fielddescr(op.getdescr())
-        ofs_loc = imm(ofs)
-        size_loc = imm(size)
-        args = op.getarglist()
-        base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
-        result_loc = self.force_allocate_reg(op)
-        if sign:
-            sign_loc = imm1
-        else:
-            sign_loc = imm0
-        self.perform(op, [base_loc, ofs_loc, size_loc, sign_loc], result_loc)
-
-    consider_getfield_gc_i = _consider_getfield
-    consider_getfield_gc_r = _consider_getfield
-    consider_getfield_gc_f = _consider_getfield
-    consider_getfield_raw_i = _consider_getfield
-    consider_getfield_raw_f = _consider_getfield
-    consider_getfield_gc_pure_i = _consider_getfield
-    consider_getfield_gc_pure_r = _consider_getfield
-    consider_getfield_gc_pure_f = _consider_getfield
+                                  imm(factor), imm(offset), imm(itemsize)])
 
     def consider_increment_debug_counter(self, op):
         base_loc = self.loc(op.getarg(0))
         self.perform_discard(op, [base_loc])
 
-    def _consider_getarrayitem(self, op):
-        itemsize, ofs, sign = unpack_arraydescr(op.getdescr())
+    def _consider_gc_load(self, op):
         args = op.getarglist()
         base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
         ofs_loc = self.rm.make_sure_var_in_reg(op.getarg(1), args)
         result_loc = self.force_allocate_reg(op)
-        if sign:
+        size_box = op.getarg(2)
+        assert isinstance(size_box, ConstInt)
+        size = size_box.value
+        size_loc = imm(abs(size))
+        if size < 0:
             sign_loc = imm1
         else:
             sign_loc = imm0
-        self.perform(op, [base_loc, ofs_loc, imm(itemsize), imm(ofs),
-                          sign_loc], result_loc)
+        self.perform(op, [base_loc, ofs_loc, size_loc, sign_loc], result_loc)
 
-    consider_getarrayitem_gc_i = _consider_getarrayitem
-    consider_getarrayitem_gc_r = _consider_getarrayitem
-    consider_getarrayitem_gc_f = _consider_getarrayitem
-    consider_getarrayitem_raw_i = _consider_getarrayitem
-    consider_getarrayitem_raw_f = _consider_getarrayitem
-    consider_getarrayitem_gc_pure_i = _consider_getarrayitem
-    consider_getarrayitem_gc_pure_r = _consider_getarrayitem
-    consider_getarrayitem_gc_pure_f = _consider_getarrayitem
-    consider_raw_load_i = _consider_getarrayitem
-    consider_raw_load_f = _consider_getarrayitem
+    consider_gc_load_i = _consider_gc_load
+    consider_gc_load_r = _consider_gc_load
+    consider_gc_load_f = _consider_gc_load
 
-    def _consider_getinteriorfield(self, op):
-        t = unpack_interiorfielddescr(op.getdescr())
-        ofs, itemsize, fieldsize, sign = imm(t[0]), imm(t[1]), imm(t[2]), t[3]
-        if sign:
-            sign_loc = imm1
-        else:
-            sign_loc = imm0
+    def _consider_gc_load_indexed(self, op):
         args = op.getarglist()
         base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
-        index_loc = self.rm.make_sure_var_in_reg(op.getarg(1), args)
-        # 'base' and 'index' are put in two registers (or one if 'index'
-        # is an immediate).  'result' can be in the same register as
-        # 'index' but must be in a different register than 'base'.
-        result_loc = self.force_allocate_reg(op, [op.getarg(0)])
-        assert isinstance(result_loc, RegLoc)
-        # two cases: 1) if result_loc is a normal register, use it as temp_loc
-        if not result_loc.is_xmm:
-            temp_loc = result_loc
+        ofs_loc = self.rm.make_sure_var_in_reg(op.getarg(1), args)
+        result_loc = self.force_allocate_reg(op)
+        scale_box = op.getarg(2)
+        offset_box = op.getarg(3)
+        size_box = op.getarg(4)
+        assert isinstance(scale_box, ConstInt)
+        assert isinstance(offset_box, ConstInt)
+        assert isinstance(size_box, ConstInt)
+        scale = scale_box.value
+        offset = offset_box.value
+        size = size_box.value
+        size_loc = imm(abs(size))
+        if size < 0:
+            sign_loc = imm1
         else:
-            # 2) if result_loc is an xmm register, we (likely) need another
-            # temp_loc that is a normal register.  It can be in the same
-            # register as 'index' but not 'base'.
-            tempvar = TempVar()
-            temp_loc = self.rm.force_allocate_reg(tempvar, [op.getarg(0)])
-            self.rm.possibly_free_var(tempvar)
-        self.perform(op, [base_loc, ofs, itemsize, fieldsize,
-                          index_loc, temp_loc, sign_loc], result_loc)
+            sign_loc = imm0
+        locs = [base_loc, ofs_loc, imm(scale), imm(offset), size_loc, sign_loc]
+        self.perform(op, locs, result_loc)
 
-    consider_getinteriorfield_gc_i = _consider_getinteriorfield
-    consider_getinteriorfield_gc_r = _consider_getinteriorfield
-    consider_getinteriorfield_gc_f = _consider_getinteriorfield
+    consider_gc_load_indexed_i = _consider_gc_load_indexed
+    consider_gc_load_indexed_r = _consider_gc_load_indexed
+    consider_gc_load_indexed_f = _consider_gc_load_indexed
 
     def consider_int_is_true(self, op):
         # doesn't need arg to be in a register
@@ -1251,32 +1185,6 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         argloc = self.make_sure_var_in_reg(op.getarg(0))
         resloc = self.force_allocate_reg(op, [op.getarg(0)])
         self.perform(op, [argloc], resloc)
-
-    def consider_strlen(self, op):
-        args = op.getarglist()
-        base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
-        result_loc = self.rm.force_allocate_reg(op)
-        self.perform(op, [base_loc], result_loc)
-
-    consider_unicodelen = consider_strlen
-
-    def consider_arraylen_gc(self, op):
-        arraydescr = op.getdescr()
-        assert isinstance(arraydescr, ArrayDescr)
-        ofs = arraydescr.lendescr.offset
-        args = op.getarglist()
-        base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
-        result_loc = self.rm.force_allocate_reg(op)
-        self.perform(op, [base_loc, imm(ofs)], result_loc)
-
-    def consider_strgetitem(self, op):
-        args = op.getarglist()
-        base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
-        ofs_loc = self.rm.make_sure_var_in_reg(op.getarg(1), args)
-        result_loc = self.rm.force_allocate_reg(op)
-        self.perform(op, [base_loc, ofs_loc], result_loc)
-
-    consider_unicodegetitem = consider_strgetitem
 
     def consider_copystrcontent(self, op):
         self._consider_copystrcontent(op, is_unicode=False)
@@ -1303,8 +1211,6 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         dstaddr_loc = self.rm.force_allocate_reg(dstaddr_box, forbidden_vars)
         self._gen_address_inside_string(base_loc, ofs_loc, dstaddr_loc,
                                         is_unicode=is_unicode)
-        # for stm: convert the addresses from %gs-based to linear
-        self.assembler.convert_addresses_to_linear(srcaddr_loc, dstaddr_loc)
         # compute the length in bytes
         length_box = args[4]
         length_loc = self.loc(length_box)
@@ -1405,11 +1311,6 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
                 loc = arglocs[i]
                 if isinstance(loc, FrameLoc):
                     self.fm.hint_frame_pos[box] = self.fm.get_loc_index(loc)
-
-
-    def consider_stm_should_break_transaction(self, op):
-        resloc = self.force_allocate_reg_or_cc(op)
-        self.perform(op, [], resloc)
 
     def consider_jump(self, op):
         assembler = self.assembler
@@ -1528,20 +1429,6 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
     def consider_keepalive(self, op):
         pass
 
-    def consider_stm_read(self, op):
-        loc_src = self.loc(op.getarg(0))
-        self.possibly_free_vars_for_op(op)
-        # this will get in 'loc_tmp' a register that is the same as
-        # 'loc_src' if the op.getarg(0) is freed now
-        if (isinstance(loc_src, ImmedLoc) and
-                rx86.fits_in_32bits(loc_src.value >> 4)):
-            loc_tmp = None
-        else:
-            tmpxvar = TempVar()
-            loc_tmp = self.rm.force_allocate_reg(tmpxvar)
-            self.rm.possibly_free_var(tmpxvar)
-        self.perform_discard(op, [loc_src, loc_tmp])
-
     def consider_zero_array(self, op):
         itemsize, baseofs, _ = unpack_arraydescr(op.getdescr())
         length_box = op.getarg(2)
@@ -1579,8 +1466,6 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
                 dstaddr_loc, startindex_loc, itemsize_loc,
                 base_loc, imm(baseofs))
             self.assembler.mc.LEA(dstaddr_loc, dst_addr)
-            # for stm: convert the address from %gs-based to linear
-            self.assembler.convert_addresses_to_linear(dstaddr_loc)
             #
             if constbytes >= 0:
                 length_loc = imm(constbytes)
