@@ -161,17 +161,13 @@ class TestDictObject(BaseApiTest):
 
     def test_dictproxy(self, space, api):
         w_dict = space.sys.get('modules')
+        w_proxy = api.PyDictProxy_New(w_dict)
         assert space.contains_w(w_proxy, space.wrap('sys'))
         raises(OperationError, space.setitem,
                w_proxy, space.wrap('sys'), space.w_None)
         raises(OperationError, space.delitem,
                w_proxy, space.wrap('sys'))
         raises(OperationError, space.call_method, w_proxy, 'clear')
-
-
-    @py.test.mark.xfail(reason='make_frozendict memoize only works translated')
-    def test_dictproxy(self, space, api):
-        w_proxy = api.PyDictProxy_New(w_dict)
         assert api.PyDictProxy_Check(w_proxy)
     
 class AppTestDictObject(AppTestCpythonExtensionBase):
@@ -187,7 +183,6 @@ class AppTestDictObject(AppTestCpythonExtensionBase):
                      return NULL;
                  proxydict = PyDictProxy_New(dict);
                  Py_DECREF(dict);
-                 /* when memoize works untranslated, add these tests
                  if (!PyDictProxy_Check(proxydict)) {
                     Py_DECREF(proxydict);
                     PyErr_SetNone(PyExc_ValueError);
@@ -198,7 +193,6 @@ class AppTestDictObject(AppTestCpythonExtensionBase):
                     PyErr_SetNone(PyExc_ValueError);
                     return NULL;
                  }
-                 */
                  i = PyObject_Size(proxydict);
                  Py_DECREF(proxydict);
                  return PyLong_FromLong(i); 

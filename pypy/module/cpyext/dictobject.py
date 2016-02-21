@@ -230,6 +230,12 @@ def PyDict_Next(space, w_dict, ppos, pkey, pvalue):
 
 @specialize.memo()
 def make_frozendict(space):
+    if space not in _frozendict_cache:
+        _frozendict_cache[space] = _make_frozendict(space)
+    return _frozendict_cache[space]
+        
+_frozendict_cache = {}
+def _make_frozendict(space):
     return space.appexec([], '''():
     import _abcoll
     class FrozenDict(_abcoll.Mapping):
