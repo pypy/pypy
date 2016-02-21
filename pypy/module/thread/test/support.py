@@ -5,19 +5,19 @@ import os, sys
 import errno
 
 from pypy.interpreter.gateway import interp2app, unwrap_spec
+from rpython.rlib import rgil
 
 
 NORMAL_TIMEOUT = 300.0   # 5 minutes
 
 
 def waitfor(space, w_condition, delay=1):
-    from pypy.module.thread import gil
     adaptivedelay = 0.04
     limit = time.time() + delay * NORMAL_TIMEOUT
     while time.time() <= limit:
-        gil.before_external_call()
+        rgil.release()
         time.sleep(adaptivedelay)
-        gil.after_external_call()
+        rgil.acquire()
         gc.collect()
         if space.is_true(space.call_function(w_condition)):
             return

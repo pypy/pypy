@@ -594,7 +594,7 @@ class Entry(ExtRegistryEntry):
         from rpython.rtyper.lltypesystem import lltype
         if isinstance(vobj.concretetype, lltype.Ptr):
             return hop.genop('cast_ptr_to_int', [vobj],
-                             resulttype = lltype.Signed)
+                                resulttype = lltype.Signed)
         from rpython.rtyper.error import TyperError
         raise TyperError("current_object_addr_as_int() cannot be applied to"
                          " %r" % (vobj.concretetype,))
@@ -604,30 +604,10 @@ class Entry(ExtRegistryEntry):
 def hlinvoke(repr, llcallable, *args):
     raise TypeError("hlinvoke is meant to be rtyped and not called direclty")
 
-def invoke_around_extcall(before, after,
-                          enter_callback=None, leave_callback=None):
-    """Call before() before any external function call, and after() after.
-    At the moment only one pair before()/after() can be registered at a time.
-    """
-    # NOTE: the hooks are cleared during translation!  To be effective
-    # in a compiled program they must be set at run-time.
-    from rpython.rtyper.lltypesystem import rffi
-    rffi.aroundstate.before = before
-    rffi.aroundstate.after = after
-    # the 'aroundstate' contains regular function and not ll pointers to them,
-    # but let's call llhelper() anyway to force their annotation
-    from rpython.rtyper.annlowlevel import llhelper
-    if before is not None: llhelper(rffi.AroundFnPtr, before)
-    if after  is not None: llhelper(rffi.AroundFnPtr, after)
-    # do the same thing about enter/leave_callback
-    if enter_callback is not None:
-        rffi.aroundstate.enter_callback = enter_callback
-        llhelper(rffi.EnterCallbackFnPtr, enter_callback)
-    if leave_callback is not None:
-        rffi.aroundstate.leave_callback = leave_callback
-        llhelper(rffi.LeaveCallbackFnPtr, leave_callback)
-
 def is_in_callback():
+    """Returns True if we're currently in a callback *or* if there are
+    multiple threads around.
+    """
     from rpython.rtyper.lltypesystem import rffi
     return rffi.stackcounter.stacks_counter > 1
 

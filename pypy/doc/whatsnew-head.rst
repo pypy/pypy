@@ -73,3 +73,7 @@ commonly known loading operations
 Move wrappers for OS functions from `rpython/rtyper` to `rpython/rlib` and 
 turn them into regular RPython functions. Most RPython-compatible `os.*` 
 functions are now directly accessible as `rpython.rposix.*`.
+
+.. branch: always-enable-gil
+
+Simplify a bit the GIL handling in non-jitted code.  Fixes issue #2205.

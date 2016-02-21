@@ -79,12 +79,18 @@ def allocate_lock():
 
 @specialize.arg(0)
 def ll_start_new_thread(func):
+    from rpython.rlib import rgil
     _check_thread_enabled()
     if rgc.stm_is_enabled():
         from rpython.rlib.rstm import (register_invoke_around_extcall,
                                        set_transaction_length)
         register_invoke_around_extcall()
         set_transaction_length(1.0)
+    else:
+        rgil.allocate()
+        # ^^^ convenience: any RPython program which uses explicitly
+        # rthread.start_new_thread() will initialize the GIL at that
+        # point.
     ident = c_thread_start(func)
     if ident == -1:
         raise error("can't start new thread")
