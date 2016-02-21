@@ -212,7 +212,7 @@ class NumberingState(object):
         c = len(snapshot.vable_boxes)
         for snapshot in lst:
             c += len(snapshot.boxes)
-        c += 2 * (len(lst) - 1) + 1
+        c += 2 * (len(lst) - 1) + 1 + 1
         return c
 
     def append(self, item):
@@ -328,11 +328,12 @@ class ResumeDataLoopMemo(object):
             state.position -= len(snapshot_list[i].boxes) + 2
 
         assert isinstance(topsnapshot, TopSnapshot)
-        special_boxes_size = (len(topsnapshot.vable_boxes) +
+        special_boxes_size = (1 + len(topsnapshot.vable_boxes) +
                               1 + len(topsnapshot.boxes))
         assert state.position == special_boxes_size
 
         state.position = 0
+        state.append(rffi.cast(rffi.SHORT, len(topsnapshot.vable_boxes)))
         self._number_boxes(topsnapshot.vable_boxes, optimizer, state)
         n = len(topsnapshot.boxes)
         assert not (n & 1)
@@ -1447,12 +1448,14 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
         info = blackholeinterp.get_current_position_info()
         self._prepare_next_section(info)
 
-    def consume_virtualref_info(self, vrefinfo, end):
+    def consume_virtualref_info(self, vrefinfo, index):
         # we have to decode a list of references containing pairs
-        # [..., virtual, vref, ...]  stopping at 'end'
+        # [..., virtual, vref, ...] and returns the index at the end
+        size, index = resumecode.numb_next_item(self.numb, index)
         if vrefinfo is None:
-            assert end == 0
-            return
+            assert size == 0
+            return index
+        xxxx
         assert (end & 1) == 0
         self.cur_index = 0
         for i in range(0, end, 2):
@@ -1496,15 +1499,18 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
     load_value_of_type._annspecialcase_ = 'specialize:arg(1)'
 
     def consume_vref_and_vable(self, vrefinfo, vinfo, ginfo):
+        vable_size, index = resumecode.numb_next_item(self.numb, 0)
         if self.resume_after_guard_not_forced != 2:
-            end_vref = rffi.cast(lltype.Signed, self.numb.first_snapshot_size)
             if vinfo is not None:
-                end_vref = self.consume_vable_info(vinfo)
+                index = self.consume_vable_info(vinfo, index)
             if ginfo is not None:
                 end_vref -= 1
                 xxxxxxxxxxxxxxx
-            self.consume_virtualref_info(vrefinfo, end_vref) 
-        self.cur_index = rffi.cast(lltype.Signed, self.numb.first_snapshot_size)
+            index = self.consume_virtualref_info(vrefinfo, index)
+        else:
+            index = resumecode.numb_next_n_items(self.numb, vable_size, index)
+            xxxx
+        self.cur_index = index 
 
     def allocate_with_vtable(self, descr=None):
         from rpython.jit.metainterp.executor import exec_new_with_vtable

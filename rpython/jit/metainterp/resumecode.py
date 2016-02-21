@@ -1,11 +1,11 @@
 
 """ Resume bytecode. It goes as following:
 
-  [<virtualizable object> <numb> <numb> <numb>]    if vinfo is not None
+  [<length> <virtualizable object> <numb> <numb> <numb>]    if vinfo is not None
    -OR-
-  [<ginfo object>]                                 if ginfo is not None
+  [1 <ginfo object>]                                        if ginfo is not None
    -OR-
-  []                                               if both are None
+  [0]                                                       if both are None
 
   [<length> <virtual> <vref> <virtual> <vref>]     for virtualrefs
 
@@ -27,6 +27,7 @@ NULL_NUMBER = lltype.nullptr(NUMBERING)
 def create_numbering(lst):
     result = []
     for item in lst:
+        item = rffi.cast(lltype.Signed, item)
         item *= 2
         if item < 0:
             item = -1 - item
