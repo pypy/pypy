@@ -1107,7 +1107,7 @@ def setup_micronumpy(space):
     if not use_micronumpy:
         return use_micronumpy
     # import to register api functions by side-effect
-    import pypy.module.cpyext.ndarrayobject 
+    import pypy.module.cpyext.ndarrayobject
     global GLOBALS, SYMBOLS_C, separate_module_files
     GLOBALS["PyArray_Type#"]= ('PyTypeObject*', "space.gettypeobject(W_NDimArray.typedef)")
     SYMBOLS_C += ['PyArray_Type', '_PyArray_FILLWBYTE', '_PyArray_ZEROS']
@@ -1295,9 +1295,8 @@ def make_generic_cpy_call(FT, decref_args, expect_null):
     miniglobals = {'__name__':    __name__, # for module name propagation
                    }
     exec source.compile() in miniglobals
-    call_external_function = miniglobals['cpy_call_external']
+    call_external_function = specialize.ll(miniglobals['cpy_call_external'])
     call_external_function._dont_inline_ = True
-    call_external_function._annspecialcase_ = 'specialize:ll'
     call_external_function._gctransformer_hint_close_stack_ = True
     # don't inline, as a hack to guarantee that no GC pointer is alive
     # anywhere in call_external_function

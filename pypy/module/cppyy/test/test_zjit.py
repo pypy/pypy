@@ -124,13 +124,13 @@ class FakeSpace(object):
         assert isinstance(w_obj, FakeFloat)
         return w_obj.val
 
+    @specialize.arg(1)
     def interp_w(self, RequiredClass, w_obj, can_be_None=False):
         if can_be_None and w_obj is None:
             return None
         if not isinstance(w_obj, RequiredClass):
             raise TypeError
         return w_obj
-    interp_w._annspecialcase_ = 'specialize:arg(1)'
 
     def getarg_w(self, code, w_obj):    # for retrieving buffers
         return FakeBuffer(w_obj)

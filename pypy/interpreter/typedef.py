@@ -138,6 +138,7 @@ def default_identity_hash(space, w_obj):
 #         /           \
 #        5             6
 
+@specialize.memo()
 def get_unique_interplevel_subclass(config, cls, hasdict, wants_slots,
                                     needsdel=False, weakrefable=False):
     "NOT_RPYTHON: initialization-time only"
@@ -153,7 +154,6 @@ def get_unique_interplevel_subclass(config, cls, hasdict, wants_slots,
         assert key not in _subclass_cache
         _subclass_cache[key] = subcls
         return subcls
-get_unique_interplevel_subclass._annspecialcase_ = "specialize:memo"
 _subclass_cache = {}
 
 def enum_interplevel_subclasses(config, cls):

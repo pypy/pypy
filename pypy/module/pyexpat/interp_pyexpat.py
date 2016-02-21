@@ -3,6 +3,7 @@ from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib import rgc, jit
+from rpython.rlib.objectmodel import specialize
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.tool import rffi_platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
@@ -565,6 +566,7 @@ getting the advantage of providing document type information to the parser.
             return self.w_character_data_handler or space.w_None
         return self.handlers[index]
 
+    @specialize.arg(2)
     def sethandler(self, space, name, w_handler, index, setter, handler):
         if name == 'CharacterDataHandler':
             self.flush_character_buffer(space)
@@ -575,8 +577,6 @@ getting the advantage of providing document type information to the parser.
         #
         self.handlers[index] = w_handler
         setter(self.itself, handler)
-
-    sethandler._annspecialcase_ = 'specialize:arg(2)'
 
     all_chars = ''.join(chr(i) for i in range(256))
 

@@ -4,6 +4,7 @@ ROOT = py.path.local(__file__).dirpath('..', '..', '..')
 sys.path.insert(0, str(ROOT))
 
 import time
+from rpython.rlib.objectmodel import specialize
 from pypy.interpreter.error import OperationError
 from pypy.module._pypyjson.interp_decoder import loads
 
@@ -91,6 +92,7 @@ class FakeSpace(object):
     def wrapfloat(self, x):
         return W_Float(x)
 
+    @specialize.argtype(1)
     def wrap(self, x):
         if isinstance(x, int):
             return W_Int(x)
@@ -100,7 +102,6 @@ class FakeSpace(object):
         ##     assert False
         else:
             return W_Unicode(unicode(x))
-    wrap._annspecialcase_ = "specialize:argtype(1)"
 
 
 fakespace = FakeSpace()

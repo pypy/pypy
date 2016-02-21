@@ -2,6 +2,7 @@ import weakref
 
 from rpython.rlib import jit, objectmodel, debug, rerased
 from rpython.rlib.rarithmetic import intmask, r_uint
+from rpython.rlib.objectmodel import specialize
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.objspace.std.dictmultiobject import (
@@ -507,6 +508,7 @@ class ObjectMixin(object):
 class Object(ObjectMixin, BaseMapdictObject, W_Root):
     pass # mainly for tests
 
+@specialize.arg(1)
 def get_subclass_of_correct_size(space, cls, w_type):
     assert space.config.objspace.std.withmapdict
     map = w_type.terminator
@@ -519,11 +521,11 @@ def get_subclass_of_correct_size(space, cls, w_type):
         return classes[size]
     else:
         return classes[len(classes)-1]
-get_subclass_of_correct_size._annspecialcase_ = "specialize:arg(1)"
 
 SUBCLASSES_MIN_FIELDS = 5 # XXX tweak these numbers
 SUBCLASSES_MAX_FIELDS = 5
 
+@specialize.memo()
 def memo_get_subclass_of_correct_size(space, supercls):
     key = space, supercls
     try:
@@ -539,7 +541,6 @@ def memo_get_subclass_of_correct_size(space, supercls):
             assert len(set(result)) == 1
         _subclass_cache[key] = result
         return result
-memo_get_subclass_of_correct_size._annspecialcase_ = "specialize:memo"
 _subclass_cache = {}
 
 erase_item, unerase_item = rerased.new_erasing_pair("mapdict storage item")
