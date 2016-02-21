@@ -248,3 +248,15 @@ def PyDictProxy_New(space, w_dict):
     w_frozendict = make_frozendict(space)
     return space.call_function(w_frozendict, w_dict)
 
+@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
+def PyDictProxy_Check(space, w_obj):
+    w_typ = make_frozendict(space)
+    print 'check', w_typ, space.type(w_obj)
+    return space.isinstance_w(w_obj, w_typ)
+
+@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
+def PyDictProxy_CheckExact(space, w_obj):
+    w_typ = make_frozendict(space)
+    print 'exact', w_typ, w_obj
+    return space.is_w(space.type(w_obj), w_typ)
+

@@ -1,8 +1,10 @@
+import py
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.api import Py_ssize_tP, PyObjectP
 from pypy.module.cpyext.pyobject import make_ref, from_ref
 from pypy.interpreter.error import OperationError
+from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 
 class TestDictObject(BaseApiTest):
     def test_dict(self, space, api):
@@ -159,7 +161,6 @@ class TestDictObject(BaseApiTest):
 
     def test_dictproxy(self, space, api):
         w_dict = space.sys.get('modules')
-        w_proxy = api.PyDictProxy_New(w_dict)
         assert space.contains_w(w_proxy, space.wrap('sys'))
         raises(OperationError, space.setitem,
                w_proxy, space.wrap('sys'), space.w_None)
@@ -167,6 +168,40 @@ class TestDictObject(BaseApiTest):
                w_proxy, space.wrap('sys'))
         raises(OperationError, space.call_method, w_proxy, 'clear')
 
-    def test_dictproxytype(self, space, api):
-        # XXX test PyDictProxy_Type, currently space.NotImplemented
-        assert False
+
+    @py.test.mark.xfail(reason='make_frozendict memoize only works translated')
+    def test_dictproxy(self, space, api):
+        w_proxy = api.PyDictProxy_New(w_dict)
+        assert api.PyDictProxy_Check(w_proxy)
+    
+class AppTestDictObject(AppTestCpythonExtensionBase):
+    #@py.test.mark.xfail(reason='make_frozendict memoize only works translated')
+    def test_dictproxytype(self):
+        module = self.import_extension('foo', [
+            ("dict_proxy", "METH_VARARGS",
+             """
+                 PyObject * dict;
+                 PyObject * proxydict;
+                 int i;
+                 if (!PyArg_ParseTuple(args, "O", &dict))
+                     return NULL;
+                 proxydict = PyDictProxy_New(dict);
+                 Py_DECREF(dict);
+                 /* when memoize works untranslated, add these tests
+                 if (!PyDictProxy_Check(proxydict)) {
+                    Py_DECREF(proxydict);
+                    PyErr_SetNone(PyExc_ValueError);
+                    return NULL;
+                 } 
+                 if (!PyDictProxy_CheckExact(proxydict)) {
+                    Py_DECREF(proxydict);
+                    PyErr_SetNone(PyExc_ValueError);
+                    return NULL;
+                 }
+                 */
+                 i = PyObject_Size(proxydict);
+                 Py_DECREF(proxydict);
+                 return PyLong_FromLong(i); 
+             """),
+            ])
+        assert module.dict_proxy({'a': 1, 'b': 2}) == 2
