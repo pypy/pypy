@@ -1774,7 +1774,6 @@ class _struct(_parentable):
             raise TypeError("%r is not variable-sized" % (TYPE,))
         if n is None and TYPE._arrayfld is not None:
             raise TypeError("%r is variable-sized" % (TYPE,))
-        first, FIRSTTYPE = TYPE._first_struct()
         for fld, typ in TYPE._flds.items():
             if fld == TYPE._arrayfld:
                 value = _array(typ, n, initialization=initialization,
