@@ -7,7 +7,7 @@ from pypy.interpreter.typedef import weakref_descr, GetSetProperty,\
 from pypy.interpreter.astcompiler.misc import mangle
 
 from rpython.rlib.jit import (promote, elidable_promote, we_are_jitted,
-     promote_string, elidable, dont_look_inside, unroll_safe)
+     elidable, dont_look_inside, unroll_safe)
 from rpython.rlib.objectmodel import current_object_addr_as_int, compute_hash
 from rpython.rlib.rarithmetic import intmask, r_uint
 
@@ -402,7 +402,6 @@ class W_TypeObject(W_Root):
         if version_tag is None:
             tup = w_self._lookup_where(name)
             return tup
-        name = promote_string(name)
         tup_w = w_self._pure_lookup_where_with_method_cache(name, version_tag)
         w_class, w_value = tup_w
         if (space.config.objspace.std.withtypeversion and
