@@ -563,43 +563,43 @@ class TestRunningAssembler(object):
         loaded = []
 
         # two sequences 10-11, 13-14
-        self.pushpop_jitframe([r.r10, r.r11, r.r13, r.r14])
-        assert stored == [(r.r10, r.r11), (r.r13, r.r14)]
+        self.pushpop_jitframe([r.r2, r.r3, r.r10, r.r11])
+        assert stored == [(r.r2, r.r3), (r.r10, r.r11)]
         assert stored == loaded
         stored = []
         loaded = []
 
         # one sequence and on single
-        self.pushpop_jitframe([r.r0, r.r1, r.r3])
-        assert stored == [(r.r0, r.r1), (r.r3,)]
+        self.pushpop_jitframe([r.r2, r.r3, r.r5])
+        assert stored == [(r.r2, r.r3), (r.r5,)]
         assert stored == loaded
         stored = []
         loaded = []
 
         # single items
-        self.pushpop_jitframe(r.registers[::2])
-        assert stored == [(x,) for x in r.registers[::2]]
+        self.pushpop_jitframe(r.MANAGED_REGS[::2])
+        assert stored == [(x,) for x in r.MANAGED_REGS[::2]]
         assert stored == loaded
         stored = []
         loaded = []
 
         # large sequence 0-5 and one hole between
-        self.pushpop_jitframe([r.r0, r.r1, r.r2, r.r3,
-            r.r4, r.r5, r.r12, r.r13])
-        assert stored == [(r.r0, r.r5), (r.r12, r.r13)]
+        self.pushpop_jitframe([r.r2, r.r3,
+            r.r4, r.r5, r.r10, r.r11])
+        assert stored == [(r.r2, r.r5), (r.r10, r.r11)]
         assert stored == loaded
         stored = []
         loaded = []
 
         # ensure there is just on instruction for the 'best case'
-        self.pushpop_jitframe(r.registers)
-        assert stored == [(r.r0, r.r15)]
+        self.pushpop_jitframe(r.MANAGED_REGS)
+        assert stored == [(r.r2, r.r11)]
         assert stored == loaded
         stored = []
         loaded = []
 
         # just one single
-        for x in [r.r14, r.r0, r.r1, r.r15]:
+        for x in [r.r10, r.r3, r.r2, r.r11]:
             self.pushpop_jitframe([x])
             assert stored == [(x,)]
             assert stored == loaded
@@ -607,8 +607,8 @@ class TestRunningAssembler(object):
             loaded = []
 
         # unordered
-        self.pushpop_jitframe([r.r14, r.r8, r.r4, r.r0])
-        assert stored == [(r.r14,), (r.r8,), (r.r4,), (r.r0,)]
+        self.pushpop_jitframe([r.r11, r.r8, r.r4, r.r2])
+        assert stored == [(r.r11,), (r.r8,), (r.r4,), (r.r2,)]
         assert stored == loaded
         stored = []
         loaded = []
