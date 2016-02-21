@@ -1,44 +1,30 @@
 
 """ Resume bytecode. It goes as following:
 
-<numb> <numb> <pc> <jitcode> <numb> <numb> <numb> <pc> <jitcode>
+  [<virtualizable object> <numb> <numb> <numb>]    if vinfo is not None
+   -OR-
+  [<ginfo object>]                                 if ginfo is not None
+   -OR-
+  []                                               if both are None
 
-until the length of the array.
+  [<length> <virtual> <vref> <virtual> <vref>]     for virtualrefs
 
-The interface is only create_numbering/numb_next_item, but! there is a trick
-that uses first_snapshot_size + some knowledge about inside to decode
-virtualref/virtualizable_fields/virtualizable in that order in resume.py.
+  [<pc> <jitcode> <numb> <numb> <numb>]            the frames
+  [<pc> <jitcode> <numb> <numb>]
+  ...
 
-If the algorithm changes, the part about how to find where virtualizable
-and virtualrefs are to be found
+  until the length of the array.
 """
 
 from rpython.rtyper.lltypesystem import rffi, lltype
 
 NUMBERINGP = lltype.Ptr(lltype.GcForwardReference())
 NUMBERING = lltype.GcStruct('Numbering',
-#                            ('prev', NUMBERINGP),
-#                            ('prev_index', rffi.USHORT),
-                            ('first_snapshot_size', rffi.USHORT), # ugh, ugly
                             ('code', lltype.Array(rffi.UCHAR)))
 NUMBERINGP.TO.become(NUMBERING)
 NULL_NUMBER = lltype.nullptr(NUMBERING)
 
-# this is the actually used version
-
-## def create_numbering(lst, first_snapshot_size):
-##     numb = lltype.malloc(NUMBERING, len(lst))
-##     for i in range(len(lst)):
-##         numb.code[i] = rffi.cast(rffi.SHORT, lst[i])
-##     numb.first_snapshot_size = rffi.cast(rffi.USHORT, first_snapshot_size)
-##     return numb
-
-## def numb_next_item(numb, index):
-##     return rffi.cast(lltype.Signed, numb.code[index]), index + 1
-
-# this is the version that can be potentially used
-
-def create_numbering(lst, first_snapshot_size):
+def create_numbering(lst):
     result = []
     for item in lst:
         item *= 2
@@ -58,7 +44,6 @@ def create_numbering(lst, first_snapshot_size):
             result.append(rffi.cast(rffi.UCHAR, item >> 14))
 
     numb = lltype.malloc(NUMBERING, len(result))
-    numb.first_snapshot_size = rffi.cast(rffi.USHORT, first_snapshot_size)
     for i in range(len(result)):
         numb.code[i] = result[i]
     return numb

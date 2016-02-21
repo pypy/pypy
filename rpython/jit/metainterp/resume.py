@@ -27,6 +27,13 @@ class Snapshot(object):
         self.prev = prev
         self.boxes = boxes
 
+class TopSnapshot(Snapshot):
+    __slots__ = ('vable_boxes',)
+
+    def __init__(self, prev, boxes, vable_boxes):
+        Snapshot.__init__(self, prev, boxes)
+        self.vable_boxes = vable_boxes
+
 def combine_uint(index1, index2):
     assert 0 <= index1 < 65536
     assert 0 <= index2 < 65536
@@ -127,9 +134,8 @@ def capture_resumedata(framestack, virtualizable_boxes, virtualref_boxes,
                        snapshot_storage):
     n = len(framestack) - 1
     if virtualizable_boxes is not None:
-        boxes = virtualref_boxes + virtualizable_boxes
-    else:
-        boxes = virtualref_boxes[:]
+        virtualizable_boxes = virtualizable_boxes[:]
+    virtualref_boxes = virtualref_boxes[:]
     if n >= 0:
         top = framestack[n]
         _ensure_parent_resumedata(framestack, n)
@@ -138,11 +144,12 @@ def capture_resumedata(framestack, virtualizable_boxes, virtualref_boxes,
         snapshot_storage.rd_frame_info_list = frame_info_list
         snapshot = Snapshot(top.parent_resumedata_snapshot,
                             top.get_list_of_active_boxes(False))
-        snapshot = Snapshot(snapshot, boxes)
+        snapshot = TopSnapshot(snapshot, virtualref_boxes, virtualizable_boxes)
         snapshot_storage.rd_snapshot = snapshot
     else:
         snapshot_storage.rd_frame_info_list = None
-        snapshot_storage.rd_snapshot = Snapshot(None, boxes)
+        snapshot_storage.rd_snapshot = TopSnapshot(None, virtualref_boxes,
+                                                   virtualizable_boxes)
 
 PENDINGFIELDSTRUCT = lltype.Struct('PendingField',
                                    ('lldescr', OBJECTPTR),
@@ -200,10 +207,12 @@ class NumberingState(object):
         self.v = 0
 
     def count_boxes(self, lst):
-        c = 0
+        snapshot = lst[0]
+        assert isinstance(snapshot, TopSnapshot)
+        c = len(snapshot.vable_boxes)
         for snapshot in lst:
             c += len(snapshot.boxes)
-        c += 2 * (len(lst) - 1)
+        c += 2 * (len(lst) - 1) + 1
         return c
 
     def append(self, item):
@@ -294,13 +303,11 @@ class ResumeDataLoopMemo(object):
             state.append(tagged)
         state.n = n
         state.v = v
-        state.position -= length + 2
 
-    def number(self, optimizer, snapshot, frameinfo):
+    def number(self, optimizer, topsnapshot, frameinfo):
         # flatten the list
-        vref_snapshot = snapshot
-        cur = snapshot.prev
-        snapshot_list = [vref_snapshot]
+        cur = topsnapshot.prev
+        snapshot_list = [topsnapshot]
         framestack_list = []
         while cur:
             framestack_list.append(frameinfo)
@@ -311,19 +318,29 @@ class ResumeDataLoopMemo(object):
 
         # we want to number snapshots starting from the back, but ending
         # with a forward list
-        for i in range(len(snapshot_list) - 1, -1, -1):
-            state.position -= len(snapshot_list[i].boxes)
-            if i != 0:
-                frameinfo = framestack_list[i - 1]
-                jitcode_pos, pc = unpack_uint(frameinfo.packed_jitcode_pc)
-                state.position -= 2
-                state.append(rffi.cast(rffi.SHORT, jitcode_pos))
-                state.append(rffi.cast(rffi.SHORT, pc))
+        for i in range(len(snapshot_list) - 1, 0, -1):
+            state.position -= len(snapshot_list[i].boxes) + 2
+            frameinfo = framestack_list[i - 1]
+            jitcode_pos, pc = unpack_uint(frameinfo.packed_jitcode_pc)
+            state.append(rffi.cast(rffi.SHORT, jitcode_pos))
+            state.append(rffi.cast(rffi.SHORT, pc))
             self._number_boxes(snapshot_list[i].boxes, optimizer, state)
+            state.position -= len(snapshot_list[i].boxes) + 2
 
-        numb = resumecode.create_numbering(state.current,
-                                           len(vref_snapshot.boxes))
+        assert isinstance(topsnapshot, TopSnapshot)
+        special_boxes_size = (len(topsnapshot.vable_boxes) +
+                              1 + len(topsnapshot.boxes))
+        assert state.position == special_boxes_size
 
+        state.position = 0
+        self._number_boxes(topsnapshot.vable_boxes, optimizer, state)
+        n = len(topsnapshot.boxes)
+        assert not (n & 1)
+        state.append(rffi.cast(rffi.SHORT, n >> 1))
+        self._number_boxes(topsnapshot.boxes, optimizer, state)
+        assert state.position == special_boxes_size
+
+        numb = resumecode.create_numbering(state.current)
         return numb, state.liveboxes, state.v
         
     def forget_numberings(self):
@@ -1146,8 +1163,9 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
             virtualizable_boxes = self.consume_virtualizable_boxes(vinfo)
             end = first_snapshot_size - len(virtualizable_boxes)
         elif ginfo is not None:
+            xxxxxx
             item, self.cur_index = resumecode.numb_next_item(self.numb,
-                first_snapshot_size - 1)xxxxxxxxxxxxx
+                first_snapshot_size - 1)
             virtualizable_boxes = [self.decode_ref(item)]
             end = first_snapshot_size - 1
         else:
@@ -1483,7 +1501,8 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
             if vinfo is not None:
                 end_vref = self.consume_vable_info(vinfo)
             if ginfo is not None:
-                end_vref -= 1         xxxxxxxxxxxxxxx
+                end_vref -= 1
+                xxxxxxxxxxxxxxx
             self.consume_virtualref_info(vrefinfo, end_vref) 
         self.cur_index = rffi.cast(lltype.Signed, self.numb.first_snapshot_size)
 
