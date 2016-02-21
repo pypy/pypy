@@ -1147,7 +1147,7 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
             end = first_snapshot_size - len(virtualizable_boxes)
         elif ginfo is not None:
             item, self.cur_index = resumecode.numb_next_item(self.numb,
-                first_snapshot_size - 1)
+                first_snapshot_size - 1)xxxxxxxxxxxxx
             virtualizable_boxes = [self.decode_ref(item)]
             end = first_snapshot_size - 1
         else:
@@ -1483,7 +1483,7 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
             if vinfo is not None:
                 end_vref = self.consume_vable_info(vinfo)
             if ginfo is not None:
-                end_vref -= 1
+                end_vref -= 1         xxxxxxxxxxxxxxx
             self.consume_virtualref_info(vrefinfo, end_vref) 
         self.cur_index = rffi.cast(lltype.Signed, self.numb.first_snapshot_size)
 
