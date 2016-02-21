@@ -154,8 +154,6 @@ def memberdescr_realize(space, obj):
     w_obj = space.allocate_instance(W_MemberDescr, w_type)
     w_obj.__init__(member, w_type)
     track_reference(space, obj, w_obj)
-    state = space.fromcache(RefcountState)
-    state.set_lifeline(w_obj, obj)
     return w_obj
 
 def getsetdescr_attach(space, py_obj, w_obj):

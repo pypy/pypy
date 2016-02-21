@@ -4,7 +4,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.objspace.std.listobject import ListStrategy
 from pypy.module.cpyext.api import (
     cpython_api, CANNOT_FAIL, CONST_STRING, Py_ssize_t, PyObject, PyObjectP)
-from pypy.module.cpyext.pyobject import PyObject
+from pypy.module.cpyext.pyobject import PyObject, make_ref, from_ref
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.objspace.std import listobject, tupleobject
 

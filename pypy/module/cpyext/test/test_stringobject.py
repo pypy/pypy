@@ -30,7 +30,7 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
                      result = 1;
                  }
                  #ifdef PYPY_VERSION
-                    size_t expected_size = sizeof(void*)*6;
+                    size_t expected_size = sizeof(void*)*7;
                  #else
                     size_t expected_size = 37;
                  #endif
