@@ -1151,8 +1151,8 @@ def setup_micronumpy(space):
 
 def setup_library(space):
     "NOT_RPYTHON"
-    export_symbols = sorted(FUNCTIONS) + sorted(SYMBOLS_C) + sorted(GLOBALS)
     use_micronumpy = setup_micronumpy(space)
+    export_symbols = sorted(FUNCTIONS) + sorted(SYMBOLS_C) + sorted(GLOBALS)
     from rpython.translator.c.database import LowLevelDatabase
     db = LowLevelDatabase()
 
