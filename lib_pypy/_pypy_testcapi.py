@@ -63,7 +63,7 @@ def compile_shared(csource, modulename, output_dir=None):
     if sys.platform == 'win32':
         # XXX pyconfig.h uses a pragma to link to the import library,
         #     which is currently python27.lib
-        library = os.path.join(thisdir, '..', 'include', 'python27')
+        library = os.path.join(thisdir, '..', 'libs', 'python27')
         if not os.path.exists(library + '.lib'):
             # For a local translation or nightly build
             library = os.path.join(thisdir, '..', 'pypy', 'goal', 'python27')

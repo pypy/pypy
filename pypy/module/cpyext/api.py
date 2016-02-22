@@ -59,7 +59,7 @@ include_dirs = [
 class CConfig:
     _compilation_info_ = ExternalCompilationInfo(
         include_dirs=include_dirs,
-        includes=['Python.h', 'stdarg.h'],
+        includes=['Python.h', 'stdarg.h', 'structmember.h'],
         compile_extra=['-DPy_BUILD_CORE'],
         )
 
@@ -129,6 +129,7 @@ Py_LT Py_LE Py_EQ Py_NE Py_GT Py_GE Py_TPFLAGS_CHECKTYPES
 for name in constant_names:
     setattr(CConfig_constants, name, rffi_platform.ConstantInteger(name))
 udir.join('pypy_decl.h').write("/* Will be filled later */\n")
+udir.join('pypy_structmember_decl.h').write("/* Will be filled later */\n")
 udir.join('pypy_macros.h').write("/* Will be filled later */\n")
 globals().update(rffi_platform.configure(CConfig_constants))
 
@@ -143,23 +144,24 @@ def _copy_header_files(headers, dstdir):
         target.chmod(0444) # make the file read-only, to make sure that nobody
                            # edits it by mistake
 
-def copy_header_files(dstdir):
+def copy_header_files(dstdir, copy_numpy_headers):
     # XXX: 20 lines of code to recursively copy a directory, really??
     assert dstdir.check(dir=True)
     headers = include_dir.listdir('*.h') + include_dir.listdir('*.inl')
-    for name in ("pypy_decl.h", "pypy_macros.h"):
+    for name in ("pypy_decl.h", "pypy_macros.h", "pypy_structmember_decl.h"):
         headers.append(udir.join(name))
     _copy_header_files(headers, dstdir)
 
-    try:
-        dstdir.mkdir('numpy')
-    except py.error.EEXIST:
-        pass
-    numpy_dstdir = dstdir / 'numpy'
+    if copy_numpy_headers:
+        try:
+            dstdir.mkdir('numpy')
+        except py.error.EEXIST:
+            pass
+        numpy_dstdir = dstdir / 'numpy'
 
-    numpy_include_dir = include_dir / 'numpy'
-    numpy_headers = numpy_include_dir.listdir('*.h') + numpy_include_dir.listdir('*.inl')
-    _copy_header_files(numpy_headers, numpy_dstdir)
+        numpy_include_dir = include_dir / 'numpy'
+        numpy_headers = numpy_include_dir.listdir('*.h') + numpy_include_dir.listdir('*.inl')
+        _copy_header_files(numpy_headers, numpy_dstdir)
 
 
 class NotSpecified(object):
@@ -229,7 +231,7 @@ class ApiFunction:
                 wrapper.c_name = cpyext_namespace.uniquename(self.c_name)
         return wrapper
 
-def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, external=True,
+def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header='pypy_decl.h',
                 gil=None, result_borrowed=False):
     """
     Declares a function to be exported.
@@ -238,8 +240,8 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, external=True,
       special value 'CANNOT_FAIL' (also when restype is Void) turns an eventual
       exception into a wrapped SystemError.  Unwrapped exceptions also cause a
       SytemError.
-    - set `external` to False to get a C function pointer, but not exported by
-      the API headers.
+    - `header` is the header file to export the function in, Set to None to get
+      a C function pointer, but not exported by the API headers.
     - set `gil` to "acquire", "release" or "around" to acquire the GIL,
       release the GIL, or both
     """
@@ -261,7 +263,7 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, external=True,
     def decorate(func):
         func._always_inline_ = 'try'
         func_name = func.func_name
-        if external:
+        if header is not None:
             c_name = None
         else:
             c_name = func_name
@@ -270,7 +272,7 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, external=True,
                                    result_borrowed=result_borrowed)
         func.api_func = api_function
 
-        if external:
+        if header is not None:
             assert func_name not in FUNCTIONS, (
                 "%s already registered" % func_name)
 
@@ -360,8 +362,9 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, external=True,
 
         unwrapper_catch = make_unwrapper(True)
         unwrapper_raise = make_unwrapper(False)
-        if external:
+        if header is not None:
             FUNCTIONS[func_name] = api_function
+            FUNCTIONS_BY_HEADER.setdefault(header, {})[func_name] = api_function
         INTERPLEVEL_API[func_name] = unwrapper_catch # used in tests
         return unwrapper_raise # used in 'normal' RPython code.
     return decorate
@@ -380,6 +383,7 @@ def cpython_struct(name, fields, forward=None, level=1):
 
 INTERPLEVEL_API = {}
 FUNCTIONS = {}
+FUNCTIONS_BY_HEADER = {}
 
 # These are C symbols which cpyext will export, but which are defined in .c
 # files somewhere in the implementation of cpyext (rather than being defined in
@@ -480,7 +484,6 @@ def build_exported_objects():
         "PyComplex_Type": "space.w_complex",
         "PyByteArray_Type": "space.w_bytearray",
         "PyMemoryView_Type": "space.w_memoryview",
-        "PyArray_Type": "space.gettypeobject(W_NDimArray.typedef)",
         "PyBaseObject_Type": "space.w_object",
         'PyNone_Type': 'space.type(space.w_None)',
         'PyNotImplemented_Type': 'space.type(space.w_NotImplemented)',
@@ -778,6 +781,8 @@ def build_bridge(space):
     "NOT_RPYTHON"
     from pypy.module.cpyext.pyobject import make_ref
 
+    use_micronumpy = setup_micronumpy(space)
+
     export_symbols = list(FUNCTIONS) + SYMBOLS_C + list(GLOBALS)
     from rpython.translator.c.database import LowLevelDatabase
     db = LowLevelDatabase()
@@ -814,6 +819,7 @@ def build_bridge(space):
     global_code = '\n'.join(global_objects)
 
     prologue = ("#include <Python.h>\n"
+                "#include <structmember.h>\n"
                 "#include <src/thread.c>\n")
     code = (prologue +
             struct_declaration_code +
@@ -993,7 +999,8 @@ def generate_decls_and_callbacks(db, export_symbols, api_struct=True):
     "NOT_RPYTHON"
     # implement function callbacks and generate function decls
     functions = []
-    pypy_decls = []
+    decls = {}
+    pypy_decls = decls['pypy_decl.h'] = []
     pypy_decls.append("#ifndef _PYPY_PYPY_DECL_H\n")
     pypy_decls.append("#define _PYPY_PYPY_DECL_H\n")
     pypy_decls.append("#ifndef PYPY_STANDALONE\n")
@@ -1006,17 +1013,23 @@ def generate_decls_and_callbacks(db, export_symbols, api_struct=True):
     for decl in FORWARD_DECLS:
         pypy_decls.append("%s;" % (decl,))
 
-    for name, func in sorted(FUNCTIONS.iteritems()):
-        restype, args = c_function_signature(db, func)
-        pypy_decls.append("PyAPI_FUNC(%s) %s(%s);" % (restype, name, args))
-        if api_struct:
-            callargs = ', '.join('arg%d' % (i,)
-                                 for i in range(len(func.argtypes)))
-            if func.restype is lltype.Void:
-                body = "{ _pypyAPI.%s(%s); }" % (name, callargs)
-            else:
-                body = "{ return _pypyAPI.%s(%s); }" % (name, callargs)
-            functions.append('%s %s(%s)\n%s' % (restype, name, args, body))
+    for header_name, header_functions in FUNCTIONS_BY_HEADER.iteritems():
+        if header_name not in decls:
+            header = decls[header_name] = []
+        else:
+            header = decls[header_name]
+
+        for name, func in sorted(header_functions.iteritems()):
+            restype, args = c_function_signature(db, func)
+            header.append("PyAPI_FUNC(%s) %s(%s);" % (restype, name, args))
+            if api_struct:
+                callargs = ', '.join('arg%d' % (i,)
+                                    for i in range(len(func.argtypes)))
+                if func.restype is lltype.Void:
+                    body = "{ _pypyAPI.%s(%s); }" % (name, callargs)
+                else:
+                    body = "{ return _pypyAPI.%s(%s); }" % (name, callargs)
+                functions.append('%s %s(%s)\n%s' % (restype, name, args, body))
     for name in VA_TP_LIST:
         name_no_star = process_va_name(name)
         header = ('%s pypy_va_get_%s(va_list* vp)' %
@@ -1040,9 +1053,28 @@ def generate_decls_and_callbacks(db, export_symbols, api_struct=True):
     pypy_decls.append("#endif /*PYPY_STANDALONE*/\n")
     pypy_decls.append("#endif /*_PYPY_PYPY_DECL_H*/\n")
 
-    pypy_decl_h = udir.join('pypy_decl.h')
-    pypy_decl_h.write('\n'.join(pypy_decls))
+    for header_name, header_decls in decls.iteritems():
+        decl_h = udir.join(header_name)
+        decl_h.write('\n'.join(header_decls))
     return functions
+
+separate_module_files = [source_dir / "varargwrapper.c",
+                         source_dir / "pyerrors.c",
+                         source_dir / "modsupport.c",
+                         source_dir / "getargs.c",
+                         source_dir / "abstract.c",
+                         source_dir / "stringobject.c",
+                         source_dir / "mysnprintf.c",
+                         source_dir / "pythonrun.c",
+                         source_dir / "sysmodule.c",
+                         source_dir / "bufferobject.c",
+                         source_dir / "cobject.c",
+                         source_dir / "structseq.c",
+                         source_dir / "capsule.c",
+                         source_dir / "pysignals.c",
+                         source_dir / "pythread.c",
+                         source_dir / "missing.c",
+                         ]
 
 def build_eci(building_bridge, export_symbols, code):
     "NOT_RPYTHON"
@@ -1097,24 +1129,7 @@ def build_eci(building_bridge, export_symbols, code):
 
     eci = ExternalCompilationInfo(
         include_dirs=include_dirs,
-        separate_module_files=[source_dir / "varargwrapper.c",
-                               source_dir / "pyerrors.c",
-                               source_dir / "modsupport.c",
-                               source_dir / "getargs.c",
-                               source_dir / "abstract.c",
-                               source_dir / "stringobject.c",
-                               source_dir / "mysnprintf.c",
-                               source_dir / "pythonrun.c",
-                               source_dir / "sysmodule.c",
-                               source_dir / "bufferobject.c",
-                               source_dir / "cobject.c",
-                               source_dir / "structseq.c",
-                               source_dir / "capsule.c",
-                               source_dir / "pysignals.c",
-                               source_dir / "pythread.c",
-                               source_dir / "ndarrayobject.c",
-                               source_dir / "missing.c",
-                               ],
+        separate_module_files= separate_module_files,
         separate_module_sources=separate_module_sources,
         compile_extra=compile_extra,
         **kwds
@@ -1122,10 +1137,22 @@ def build_eci(building_bridge, export_symbols, code):
 
     return eci
 
+def setup_micronumpy(space):
+    use_micronumpy = space.config.objspace.usemodules.micronumpy
+    if not use_micronumpy:
+        return use_micronumpy
+    # import to register api functions by side-effect
+    import pypy.module.cpyext.ndarrayobject 
+    global GLOBALS, SYMBOLS_C, separate_module_files
+    GLOBALS["PyArray_Type#"]= ('PyTypeObject*', "space.gettypeobject(W_NDimArray.typedef)")
+    SYMBOLS_C += ['PyArray_Type', '_PyArray_FILLWBYTE', '_PyArray_ZEROS']
+    separate_module_files.append(source_dir / "ndarrayobject.c")
+    return use_micronumpy
 
 def setup_library(space):
     "NOT_RPYTHON"
     export_symbols = sorted(FUNCTIONS) + sorted(SYMBOLS_C) + sorted(GLOBALS)
+    use_micronumpy = setup_micronumpy(space)
     from rpython.translator.c.database import LowLevelDatabase
     db = LowLevelDatabase()
 
@@ -1180,7 +1207,7 @@ def setup_library(space):
 
     setup_init_functions(eci, translating=True)
     trunk_include = pypydir.dirpath() / 'include'
-    copy_header_files(trunk_include)
+    copy_header_files(trunk_include, use_micronumpy)
 
 def init_static_data_translated(space):
     builder = space.fromcache(StaticObjectBuilder)

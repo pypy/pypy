@@ -116,7 +116,7 @@ class AbstractAttribute(object):
 
     def _find_map_attr(self, name, index):
         while isinstance(self, PlainAttribute):
-            if name == self.name and index == self.index:
+            if index == self.index and name == self.name:
                 return self
             self = self.back
         return None
@@ -156,7 +156,6 @@ class AbstractAttribute(object):
             jit.isconstant(name) and
             jit.isconstant(index))
     def add_attr(self, obj, name, index, w_value):
-        # grumble, jit needs this
         attr = self._get_new_attr(name, index)
         oldattr = obj._get_mapdict_map()
         if not jit.we_are_jitted():
@@ -296,7 +295,7 @@ class PlainAttribute(AbstractAttribute):
         new_obj._get_mapdict_map().add_attr(new_obj, self.name, self.index, w_value)
 
     def delete(self, obj, name, index):
-        if name == self.name and index == self.index:
+        if index == self.index and name == self.name:
             # ok, attribute is deleted
             if not self.ever_mutated:
                 self.ever_mutated = True

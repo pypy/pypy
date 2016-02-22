@@ -317,18 +317,6 @@ def cartesian_product(lstlst):
             yield (value,) + tuple_tail
 
 
-def make_constgraphbuilder(n, v=None, factory=None, srcmodule=None):
-    def constgraphbuilder(translator, ignore):
-        args = ','.join(["arg%d" % i for i in range(n)])
-        if factory is not None:
-            computed_v = factory()
-        else:
-            computed_v = v
-        miniglobals = {'v': computed_v, '__name__': srcmodule}
-        exec py.code.Source("constf = lambda %s: v" % args).compile() in miniglobals
-        return translator.buildflowgraph(miniglobals['constf'])
-    return constgraphbuilder
-
 def maybe_star_args(funcdesc, key, args_s):
     args_s, key1, builder = flatten_star_args(funcdesc, args_s)
     if key1 is not None:

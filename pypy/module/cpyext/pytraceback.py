@@ -41,7 +41,7 @@ def traceback_attach(space, py_obj, w_obj):
     rffi.setintfield(py_traceback, 'c_tb_lasti', traceback.lasti)
     rffi.setintfield(py_traceback, 'c_tb_lineno',traceback.get_lineno())
 
-@cpython_api([PyObject], lltype.Void, external=False)
+@cpython_api([PyObject], lltype.Void, header=None)
 def traceback_dealloc(space, py_obj):
     py_traceback = rffi.cast(PyTracebackObject, py_obj)
     Py_DecRef(space, rffi.cast(PyObject, py_traceback.c_tb_next))

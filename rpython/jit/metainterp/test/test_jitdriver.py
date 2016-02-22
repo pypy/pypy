@@ -193,7 +193,7 @@ class MultipleJitDriversTests(object):
             return pc + 1
         
         driver = JitDriver(greens=["pc"], reds='auto',
-                           get_unique_id=get_unique_id)
+                           get_unique_id=get_unique_id, is_recursive=True)
 
         def f(arg):
             i = 0
