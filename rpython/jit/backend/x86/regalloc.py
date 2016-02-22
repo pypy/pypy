@@ -1030,9 +1030,22 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
             gc_ll_descr.get_nursery_top_addr(),
             lengthloc, itemsize, maxlength, gcmap, arraydescr)
 
+    def extract_raw_stm_location(self):
+        if self.stm_location is not None:
+            num = rffi.cast(lltype.Signed, self.stm_location.num)
+            ref = rffi.cast(lltype.Signed, self.stm_location.ref)
+        else:
+            num = 0
+            ref = 0
+        return (num, ref)
+
+    def get_empty_gcmap(self, frame_depth):
+        return allocate_gcmap(self.assembler, frame_depth,
+                              JITFRAME_FIXED_SIZE)
+
     def get_gcmap(self, forbidden_regs=[], noregs=False):
         frame_depth = self.fm.get_frame_depth()
-        gcmap = allocate_gcmap(self.assembler, frame_depth, JITFRAME_FIXED_SIZE)
+        gcmap = self.get_empty_gcmap(frame_depth)
         for box, loc in self.rm.reg_bindings.iteritems():
             if loc in forbidden_regs:
                 continue
@@ -1187,6 +1200,8 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         dstaddr_loc = self.rm.force_allocate_reg(dstaddr_box, forbidden_vars)
         self._gen_address_inside_string(base_loc, ofs_loc, dstaddr_loc,
                                         is_unicode=is_unicode)
+        # for stm: convert the addresses from %gs-based to linear
+        self.assembler.convert_addresses_to_linear(srcaddr_loc, dstaddr_loc)
         # compute the length in bytes
         length_box = args[4]
         length_loc = self.loc(length_box)
@@ -1287,6 +1302,11 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
                 loc = arglocs[i]
                 if isinstance(loc, FrameLoc):
                     self.fm.hint_frame_pos[box] = self.fm.get_loc_index(loc)
+
+
+    def consider_stm_should_break_transaction(self, op):
+        resloc = self.force_allocate_reg_or_cc(op)
+        self.perform(op, [], resloc)
 
     def consider_jump(self, op):
         assembler = self.assembler
@@ -1405,6 +1425,20 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
     def consider_keepalive(self, op):
         pass
 
+    def consider_stm_read(self, op):
+        loc_src = self.loc(op.getarg(0))
+        self.possibly_free_vars_for_op(op)
+        # this will get in 'loc_tmp' a register that is the same as
+        # 'loc_src' if the op.getarg(0) is freed now
+        if (isinstance(loc_src, ImmedLoc) and
+                rx86.fits_in_32bits(loc_src.value >> 4)):
+            loc_tmp = None
+        else:
+            tmpxvar = TempVar()
+            loc_tmp = self.rm.force_allocate_reg(tmpxvar)
+            self.rm.possibly_free_var(tmpxvar)
+        self.perform_discard(op, [loc_src, loc_tmp])
+
     def consider_zero_array(self, op):
         itemsize, baseofs, _ = unpack_arraydescr(op.getdescr())
         length_box = op.getarg(2)
@@ -1442,6 +1476,8 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
                 dstaddr_loc, startindex_loc, itemsize_loc,
                 base_loc, imm(baseofs))
             self.assembler.mc.LEA(dstaddr_loc, dst_addr)
+            # for stm: convert the address from %gs-based to linear
+            self.assembler.convert_addresses_to_linear(dstaddr_loc)
             #
             if constbytes >= 0:
                 length_loc = imm(constbytes)
