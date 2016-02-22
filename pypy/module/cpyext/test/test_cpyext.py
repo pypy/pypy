@@ -646,8 +646,8 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         static PyObject* foo_pi(PyObject* self, PyObject *args)
         {
             PyObject *true_obj = Py_True;
-            int refcnt = true_obj->ob_refcnt;
-            int refcnt_after;
+            Py_ssize_t refcnt = true_obj->ob_refcnt;
+            Py_ssize_t refcnt_after;
             Py_INCREF(true_obj);
             Py_INCREF(true_obj);
             PyBool_Check(true_obj);
@@ -661,8 +661,8 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         {
             PyObject *true_obj = Py_True;
             PyObject *tup = NULL;
-            int refcnt = true_obj->ob_refcnt;
-            int refcnt_after;
+            Py_ssize_t refcnt = true_obj->ob_refcnt;
+            Py_ssize_t refcnt_after;
 
             tup = PyTuple_New(1);
             Py_INCREF(true_obj);
