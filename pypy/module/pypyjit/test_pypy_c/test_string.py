@@ -28,7 +28,6 @@ class TestString(BaseTestPyPyC):
             guard_true(i14, descr=...)
             guard_not_invalidated(descr=...)
             i16 = int_eq(i6, %d)
-            guard_false(i16, descr=...)
             i15 = int_mod(i6, i10)
             i17 = int_rshift(i15, %d)
             i18 = int_and(i10, i17)
@@ -68,7 +67,6 @@ class TestString(BaseTestPyPyC):
             guard_true(i11, descr=...)
             guard_not_invalidated(descr=...)
             i13 = int_eq(i6, %d)         # value provided below
-            guard_false(i13, descr=...)
             i15 = int_mod(i6, 10)
             i17 = int_rshift(i15, %d)    # value provided below
             i18 = int_and(10, i17)
