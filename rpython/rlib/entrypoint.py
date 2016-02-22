@@ -56,10 +56,12 @@ def entrypoint_highlevel(key, argtypes, c_name=None):
     """
     def deco(func):
         source = py.code.Source("""
-        from rpython.rlib import rgil
+        from rpython.rlib import rgil,rgc
 
         def wrapper(%(args)s):
             # acquire the GIL
+            if rgc.stm_is_enabled():
+                raise NotImplementedError("XXX for STM")
             rgil.acquire()
             #
             rffi.stackcounter.stacks_counter += 1

@@ -602,7 +602,7 @@ pypy_debug_catch_fatal_exception = rffi.llexternal('pypy_debug_catch_fatal_excep
 # Make the wrapper for the cases (1) and (2)
 def make_wrapper(space, callable, gil=None):
     "NOT_RPYTHON"
-    from rpython.rlib import rgil
+    from rpython.rlib import rgil, rgc
     names = callable.api_func.argnames
     argtypes_enum_ui = unrolling_iterable(enumerate(zip(callable.api_func.argtypes,
         [name.startswith("w_") for name in names])))
@@ -618,6 +618,8 @@ def make_wrapper(space, callable, gil=None):
         # we hope that malloc removal removes the newtuple() that is
         # inserted exactly here by the varargs specializer
         if gil_acquire:
+            if rgc.stm_is_enabled():
+                raise NotImplementedError("XXX for STM")
             rgil.acquire()
         rffi.stackcounter.stacks_counter += 1
         llop.gc_stack_bottom(lltype.Void)   # marker for trackgcroot.py

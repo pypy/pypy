@@ -40,8 +40,10 @@ def _cffi_call_python(ll_externpy, ll_args):
        at least 8 bytes in size.
     """
     from pypy.module._cffi_backend.ccallback import reveal_callback
-    from rpython.rlib import rgil
+    from rpython.rlib import rgil, rgc
 
+    if rgc.stm_is_enabled():
+        raise NotImplementedError("XXX for STM")
     rgil.acquire()
     rffi.stackcounter.stacks_counter += 1
     llop.gc_stack_bottom(lltype.Void)   # marker for trackgcroot.py
