@@ -123,3 +123,10 @@ Deprecates http://pypy.readthedocs.org/en/latest/embedding.html.
 .. branch: fix-cpython-ssl-tests-2.7
 
 Fix SSL tests by importing cpython's patch
+
+
+.. branch: reorder-map-attributes
+
+When creating instances and adding attributes in several different orders
+depending on some condition, the JIT would create too much code. This is now
+fixed.
