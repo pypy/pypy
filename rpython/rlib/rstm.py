@@ -153,13 +153,6 @@ def leave_callback_call(rjbuf, token):
 leave_callback_call._dont_reach_me_in_del_ = True
 leave_callback_call._transaction_break_ = True
 
-def register_invoke_around_extcall():
-    """Initialize the STM system.
-    Called automatically by rthread.start_new_thread()."""
-    from rpython.rlib.objectmodel import invoke_around_extcall
-    invoke_around_extcall(before_external_call, after_external_call,
-                          enter_callback_call, leave_callback_call)
-
 @specialize.argtype(1)
 def push_marker(odd_num, object):
     llop.stm_push_marker(lltype.Void, odd_num, object)

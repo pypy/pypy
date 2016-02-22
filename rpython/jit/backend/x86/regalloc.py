@@ -1059,34 +1059,8 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
             need_lower_byte = True
         else:
             need_lower_byte = False
-        box_base, box_index, box_value = args
-        base_loc = self.rm.make_sure_var_in_reg(box_base, args)
-        index_loc = self.rm.make_sure_var_in_reg(box_index, args)
-        value_loc = self.make_sure_var_in_reg(box_value, args,
-                                              need_lower_byte=need_lower_byte)
-        # If 'index_loc' is not an immediate, then we need a 'temp_loc' that
-        # is a register whose value will be destroyed.  It's fine to destroy
-        # the same register as 'index_loc', but not the other ones.
-        if not isinstance(index_loc, ImmedLoc):
-            # ...that is, except in a corner case where 'index_loc' would be
-            # in the same register as 'value_loc'...
-            tempvar = TempVar()
-            temp_loc = self.rm.force_allocate_reg(tempvar, [box_base,
-                                                            box_value])
-            self.rm.possibly_free_var(tempvar)
-        else:
-            temp_loc = None
-        self.rm.possibly_free_var(box_index)
-        self.rm.possibly_free_var(box_base)
-        self.possibly_free_var(box_value)
-        self.perform_discard(op, [base_loc, ofs, itemsize, fieldsize,
-                                 index_loc, temp_loc, value_loc])
-
-    consider_setinteriorfield_raw = consider_setinteriorfield_gc
-
-    def consider_strsetitem(self, op):
-        args = op.getarglist()
-        base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
+        value_loc = self.make_sure_var_in_reg(op.getarg(2), args,
+                                          need_lower_byte=need_lower_byte)
         ofs_loc = self.rm.make_sure_var_in_reg(op.getarg(1), args)
         self.perform_discard(op, [base_loc, ofs_loc, value_loc,
                                  imm(itemsize)])
@@ -1127,6 +1101,8 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         assert isinstance(size_box, ConstInt)
         size = size_box.value
         size_loc = imm(abs(size))
+        segment = op.getarg(3)
+        assert isinstance(segment, int)
         if size < 0:
             sign_loc = imm1
         else:

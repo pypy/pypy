@@ -1,6 +1,5 @@
 from rpython.rlib.objectmodel import stm_ignored
 from rpython.translator.stm.test.transform_support import BaseTestTransform
-from rpython.rlib.rstm import register_invoke_around_extcall
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
 
@@ -120,7 +119,6 @@ class TestReadBarrier(BaseTestTransform):
     def test_call_external_release_gil(self):
         X = lltype.GcStruct('X', ('foo', lltype.Signed))
         def f1(p):
-            register_invoke_around_extcall()
             x1 = p.foo
             external_release_gil()
             x2 = p.foo
@@ -134,7 +132,6 @@ class TestReadBarrier(BaseTestTransform):
     def test_call_external_any_gcobj(self):
         X = lltype.GcStruct('X', ('foo', lltype.Signed))
         def f1(p):
-            register_invoke_around_extcall()
             x1 = p.foo
             external_any_gcobj()
             x2 = p.foo
@@ -148,7 +145,6 @@ class TestReadBarrier(BaseTestTransform):
     def test_call_external_safest(self):
         X = lltype.GcStruct('X', ('foo', lltype.Signed))
         def f1(p):
-            register_invoke_around_extcall()
             x1 = p.foo
             external_safest()
             x2 = p.foo

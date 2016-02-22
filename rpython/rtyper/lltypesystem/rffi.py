@@ -178,9 +178,13 @@ def llexternal(name, args, result, _callable=None,
 
         argnames = ', '.join(['a%d' % i for i in range(len(args))])
         source = py.code.Source("""
-            from rpython.rlib import rgil
+            from rpython.rlib import rgil, rgc
             def call_external_function(%(argnames)s):
-                rgil.release()
+                if rgc.stm_is_enabled():
+                    from rpython.rlib import rstm
+                    rstm.before_external_call()
+                else:
+                    rgil.release()
                 # NB. it is essential that no exception checking occurs here!
                 if %(save_err)d:
                     from rpython.rlib import rposix
@@ -189,7 +193,11 @@ def llexternal(name, args, result, _callable=None,
                 if %(save_err)d:
                     from rpython.rlib import rposix
                     rposix._errno_after(%(save_err)d)
-                rgil.acquire()
+                if rgc.stm_is_enabled():
+                    from rpython.rlib import rstm
+                    rstm.after_external_call()
+                else:
+                    rgil.acquire()
                 return res
         """ % locals())
         miniglobals = {'funcptr':     funcptr,
@@ -346,7 +354,8 @@ def _make_wrapper_for(TP, callable, callbackholder, use_gil):
                 rjbuf = llmemory.NULL
             if rgil is not None:
                 if rgc.stm_is_enabled():
-                    token = aroundstate.enter_callback(rjbuf)
+                    from rpython.rlib import rstm
+                    token = rstm.enter_callback_call(rjbuf)
                 else:
                     rgil.acquire()
             # from now on we hold the GIL
@@ -363,9 +372,10 @@ def _make_wrapper_for(TP, callable, callbackholder, use_gil):
                     traceback.print_exc()
                 result = errorcode
             stackcounter.stacks_counter -= 1
-            if aroundstate is not None:
+            if rgil is not None:
                 if rgc.stm_is_enabled():
-                    aroundstate.leave_callback(rjbuf, token)
+                    from rpython.rlib import rstm
+                    rstm.leave_callback_call(rjbuf, token)
                 else:
                     rgil.release()
             # here we don't hold the GIL any more. As in the wrapper() produced

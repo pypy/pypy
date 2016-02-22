@@ -583,7 +583,6 @@ class GcRewriterAssembler(object):
             self.gen_initialize_tid(frame, descrs.arraydescr.tid)
             # we need to explicitely zero all the gc fields, because
             # of the unusal malloc pattern
-
             length = self.emit_getfield(ConstInt(frame_info),
                                         descr=descrs.jfi_frame_depth, raw=True)
             self.emit_setfield(frame, self.c_zero,
@@ -603,30 +602,32 @@ class GcRewriterAssembler(object):
             return self.get_box_replacement(frame)
         else:
             # jfi_frame_size not set in STM!
-            length = ResOperation(rop.GETFIELD_RAW_I,
-                                  [history.ConstInt(frame_info)],
-                                  descr=descrs.jfi_frame_depth)
-            self.emit_op(length)
+            length = self.emit_getfield(ConstInt(frame_info),
+                                        descr=descrs.jfi_frame_depth, raw=True)
+            # ofs, size, sign = unpack_fielddescr(descrs.jfi_frame_depth)
+            # if sign:
+            #     size = -size
+            # args = [ConstInt(frame_info), ConstInt(0), ConstInt(1),
+            #         ConstInt(ofs), ConstInt(size)]
+            # length = ResOperation(rop.GC_LOAD_INDEXED_I, args)
+            # self.emit_op(length)
             frame = self.gen_malloc_nursery_varsize_frame(length)
             self.gen_initialize_tid(frame, descrs.arraydescr.tid)
             # we need to explicitely zero all the gc fields, because
             # of the unusal malloc pattern
-            extra_ops = [
-                ResOperation(rop.SETFIELD_GC, [frame, self.c_zero],
-                             descr=descrs.jf_extra_stack_depth),
-                ResOperation(rop.SETFIELD_GC, [frame, self.c_null],
-                             descr=descrs.jf_savedata),
-                ResOperation(rop.SETFIELD_GC, [frame, self.c_null],
-                             descr=descrs.jf_force_descr),
-                ResOperation(rop.SETFIELD_GC, [frame, self.c_null],
-                             descr=descrs.jf_descr),
-                ResOperation(rop.SETFIELD_GC, [frame, self.c_null],
-                             descr=descrs.jf_guard_exc),
-                ResOperation(rop.SETFIELD_GC, [frame, self.c_null],
-                             descr=descrs.jf_forward),
-            ]
-            for op in extra_ops:
-                self.emit_op(op)
+            self.emit_setfield(frame, self.c_zero,
+                               descr=descrs.jf_extra_stack_depth)
+            self.emit_setfield(frame, self.c_null,
+                               descr=descrs.jf_savedata)
+            self.emit_setfield(frame, self.c_null,
+                               descr=descrs.jf_force_descr)
+            self.emit_setfield(frame, self.c_null,
+                               descr=descrs.jf_descr)
+            self.emit_setfield(frame, self.c_null,
+                               descr=descrs.jf_guard_exc)
+            self.emit_setfield(frame, self.c_null,
+                               descr=descrs.jf_forward)
+
             self.gen_initialize_len(frame, length,
                                     descrs.arraydescr.lendescr)
             return self.get_box_replacement(frame)

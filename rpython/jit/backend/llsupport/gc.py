@@ -499,9 +499,10 @@ class GcLLDescr_framework(GcLLDescription):
 
     def _initialize_for_tests(self):
         self.layoutbuilder = None
-        self.fielddescr_tid = FieldDescr("test_tid",0,8,0)
+        from rpython.jit.backend.llsupport.descr import FieldDescr
+        self.fielddescr_tid = FieldDescr("test_tid", 0, 8, 0)
         if self.stm:
-            self.fielddescr_stmflags = AbstractDescr()
+            self.fielddescr_stmflags = FieldDescr("test_stmflags", 4, 4, 0)
         self.max_size_of_young_obj = 1000
         self.GCClass = None
         self.gcheaderbuilder = None

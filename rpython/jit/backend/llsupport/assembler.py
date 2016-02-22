@@ -432,8 +432,12 @@ class BaseAssembler(object):
         # 'rpy_fastgil' contains only zero or non-zero, and this is only
         # called when the old value stored in 'rpy_fastgil' was non-zero
         # (i.e. still locked, must wait with the regular mutex)
-        from rpython.rlib import rgil
-        rgil.acquire()
+        if rgc.stm_is_enabled():
+            from rpython.rlib import rstm
+            rstm.after_external_call()
+        else:
+            from rpython.rlib import rgil
+            rgil.acquire()
 
     _REACQGIL0_FUNC = lltype.Ptr(lltype.FuncType([], lltype.Void))
     _REACQGIL2_FUNC = lltype.Ptr(lltype.FuncType([rffi.CCHARP, lltype.Signed],

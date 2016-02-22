@@ -1,5 +1,4 @@
 from rpython.rlib import jit, rstm, rthread
-from rpython.rlib.objectmodel import invoke_around_extcall
 
 
 class Global(object):
@@ -119,8 +118,6 @@ bootstrapper = Bootstrapper()
 def setup_threads():
     #space.threadlocals.setup_threads(space)
     bootstrapper.setup()
-    invoke_around_extcall(rstm.before_external_call, rstm.after_external_call,
-                          rstm.enter_callback_call, rstm.leave_callback_call)
 
 def start_thread(args):
     bootstrapper.acquire(args)

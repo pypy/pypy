@@ -1,5 +1,6 @@
 from rpython.jit.backend.llsupport.rewrite import GcRewriterAssembler
-from rpython.jit.backend.llsupport.descr import CallDescr, ArrayOrFieldDescr
+from rpython.jit.backend.llsupport.descr import (
+    CallDescr, ArrayOrFieldDescr, unpack_fielddescr)
 from rpython.jit.metainterp.resoperation import ResOperation, rop
 from rpython.jit.metainterp.history import ConstInt
 from rpython.rlib.objectmodel import specialize
@@ -38,13 +39,14 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
         if op.is_always_pure() or op.is_guard() or op.is_ovf():
             self.emit_op(op)
             return
-        # ----------  non-pure getfields  ----------
+        # # ----------  non-pure getfields  ----------
         if opnum in (rop.GETARRAYITEM_GC_I, rop.GETARRAYITEM_GC_F,
                      rop.GETARRAYITEM_GC_R,
                      rop.VEC_GETARRAYITEM_GC_I, rop.VEC_GETARRAYITEM_GC_F,
                      rop.GETINTERIORFIELD_GC_I,
                      rop.GETINTERIORFIELD_GC_F, rop.GETINTERIORFIELD_GC_R):
-            self.handle_getfields(op)
+            #self.handle_getfields(op)
+            self.emit_op(op)
             return
         # ----------  calls  ----------
         if op.is_call():
@@ -118,23 +120,24 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
         self.always_inevitable = False
         self.read_barrier_applied.clear()
 
-    def handle_getfields(self, op):
+    def emit_gc_load_or_indexed(self, op, ptr_box, index_box, itemsize, factor, offset, sign, type='i'):
         # XXX missing optimitations: the placement of stm_read should
         # ideally be delayed for a bit longer after the getfields; if we
         # group together several stm_reads then we can save one
         # instruction; if delayed over a cond_call_gc_wb then we can
         # omit the stm_read completely; ...
-        self.emit_op(op)
-        v_ptr = op.getarg(0)
-        if (v_ptr not in self.read_barrier_applied and
-            not self.write_barrier_applied(v_ptr)):
-            op1 = ResOperation(rop.STM_READ, [v_ptr], None)
+        newop = GcRewriterAssembler.emit_gc_load_or_indexed(
+            self, op, ptr_box, index_box, itemsize, factor, offset, sign, type)
+        ptr_box = newop.getarg(0)
+        if (op and not op.is_always_pure() and ptr_box.type == 'r'
+            and ptr_box not in self.read_barrier_applied
+            and not self.write_barrier_applied(ptr_box)):
+            op1 = ResOperation(rop.STM_READ, [ptr_box], None)
+            self.read_barrier_applied[ptr_box] = None
             self.emit_op(op1)
-            self.read_barrier_applied[v_ptr] = None
+        return newop
 
-    def handle_getfield_gc(self, op):
-        self.emit_pending_zeros()
-        self.handle_getfields(op)
+
 
     def possibly_add_dummy_allocation(self):
         # was necessary in C7 for others to commit, but in C8 it is only
@@ -167,11 +170,8 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
         # This is necessary since we merge some allocations together and
         # stmgc assumes flags to be cleared.
         assert self.gc_ll_descr.fielddescr_stmflags is not None
-
-        op = ResOperation(rop.SETFIELD_GC,
-                          [v_newgcobj, self.c_zero],
-                          descr=self.gc_ll_descr.fielddescr_stmflags)
-        self.emit_op(op)
+        self.emit_setfield(v_newgcobj, self.c_zero,
+                           descr=self.gc_ll_descr.fielddescr_stmflags)
         return GcRewriterAssembler.gen_initialize_tid(self, v_newgcobj, tid)
 
     @specialize.arg(1)

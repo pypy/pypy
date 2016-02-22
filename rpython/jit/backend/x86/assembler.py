@@ -1760,9 +1760,13 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
     genop_getfield_raw_i = _genop_getfield_raw
     genop_getfield_raw_f = _genop_getfield_raw
 
-    def _genop_gc_load(self, op, arglocs, resloc, segment):
+    def _genop_gc_load(self, op, arglocs, resloc):
         base_loc, ofs_loc, size_loc, sign_loc = arglocs
         assert isinstance(size_loc, ImmedLoc)
+        if op.getarg(0).type == 'r':
+            segment = self.SEGMENT_GC
+        else:
+            segment = self.SEGMENT_NO
         src_addr = addr_add(segment, base_loc, ofs_loc, 0, 0)
         self.load_from_mem(resloc, src_addr, size_loc, sign_loc)
 
@@ -1770,10 +1774,14 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
     genop_gc_load_r = _genop_gc_load
     genop_gc_load_f = _genop_gc_load
 
-    def _genop_gc_load_indexed(self, op, arglocs, resloc, segment):
+    def _genop_gc_load_indexed(self, op, arglocs, resloc):
         base_loc, ofs_loc, scale_loc, offset_loc, size_loc, sign_loc = arglocs
         assert isinstance(scale_loc, ImmedLoc)
         scale = get_scale(scale_loc.value)
+        if op.getarg(0).type == 'r':
+            segment = self.SEGMENT_GC
+        else:
+            segment = self.SEGMENT_NO
         src_addr = addr_add(segment, base_loc, ofs_loc, offset_loc.value, scale)
         self.load_from_mem(resloc, src_addr, size_loc, sign_loc)
 
@@ -1835,17 +1843,25 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         base_loc, = arglocs
         self.mc.INC(mem(self.SEGMENT_NO, base_loc, 0))
 
-    def genop_discard_gc_store(self, op, arglocs, segment):
+    def genop_discard_gc_store(self, op, arglocs):
         base_loc, ofs_loc, value_loc, size_loc = arglocs
         assert isinstance(size_loc, ImmedLoc)
         scale = get_scale(size_loc.value)
+        if op.getarg(0).type == 'r':
+            segment = self.SEGMENT_GC
+        else:
+            segment = self.SEGMENT_NO
         dest_addr = AddressLoc(segment, base_loc, ofs_loc, 0, 0)
         self.save_into_mem(dest_addr, value_loc, size_loc)
 
-    def genop_discard_gc_store_indexed(self, op, arglocs, segment):
+    def genop_discard_gc_store_indexed(self, op, arglocs):
         base_loc, ofs_loc, value_loc, factor_loc, offset_loc, size_loc = arglocs
         assert isinstance(size_loc, ImmedLoc)
         scale = get_scale(factor_loc.value)
+        if op.getarg(0).type == 'r':
+            segment = self.SEGMENT_GC
+        else:
+            segment = self.SEGMENT_NO
         dest_addr = AddressLoc(segment, base_loc, ofs_loc, scale, offset_loc.value)
         self.save_into_mem(dest_addr, value_loc, size_loc)
 
