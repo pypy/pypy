@@ -1114,8 +1114,6 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         assert isinstance(size_box, ConstInt)
         size = size_box.value
         size_loc = imm(abs(size))
-        segment = op.getarg(3)
-        assert isinstance(segment, int)
         if size < 0:
             sign_loc = imm1
         else:
