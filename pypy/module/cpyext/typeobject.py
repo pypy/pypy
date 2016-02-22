@@ -116,7 +116,7 @@ def convert_member_defs(space, dict_w, members, w_type):
 def update_all_slots(space, w_type, pto):
     #  XXX fill slots in pto
 
-    typedef = w_type.instancetypedef
+    typedef = w_type.layout.typedef
     for method_name, slot_name, slot_names, slot_func in slotdefs_for_tp_slots:
         w_descr = w_type.lookup(method_name)
         if w_descr is None:
@@ -306,7 +306,7 @@ class W_PyCTypeObject(W_TypeObject):
 
 @bootstrap_function
 def init_typeobject(space):
-    make_typedescr(space.w_type.instancetypedef,
+    make_typedescr(space.w_type.layout.typedef,
                    basestruct=PyTypeObject,
                    alloc=type_alloc,
                    attach=type_attach,
@@ -445,7 +445,7 @@ def type_attach(space, py_obj, w_type):
 
     pto = rffi.cast(PyTypeObjectPtr, py_obj)
 
-    typedescr = get_typedescr(w_type.instancetypedef)
+    typedescr = get_typedescr(w_type.layout.typedef)
 
     # dealloc
     pto.c_tp_dealloc = typedescr.get_dealloc(space)
@@ -517,7 +517,7 @@ def type_realize(space, py_obj):
     return w_obj
 
 def solid_base(space, w_type):
-    typedef = w_type.instancetypedef
+    typedef = w_type.layout.typedef
     return space.gettypeobject(typedef)
 
 def best_base(space, bases_w):

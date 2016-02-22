@@ -59,7 +59,7 @@ cpython_struct("PyStringObject", PyStringObjectFields, PyStringObjectStruct)
 @bootstrap_function
 def init_stringobject(space):
     "Type description of PyStringObject"
-    make_typedescr(space.w_str.instancetypedef,
+    make_typedescr(space.w_str.layout.typedef,
                    basestruct=PyStringObject.TO,
                    attach=string_attach,
                    dealloc=string_dealloc,
@@ -73,7 +73,7 @@ def new_empty_str(space, length):
     interpreter object.  The buffer may be mutated, until string_realize() is
     called.  Refcount of the result is 1.
     """
-    typedescr = get_typedescr(space.w_str.instancetypedef)
+    typedescr = get_typedescr(space.w_str.layout.typedef)
     py_obj = typedescr.allocate(space, space.w_str)
     py_str = rffi.cast(PyStringObject, py_obj)
 

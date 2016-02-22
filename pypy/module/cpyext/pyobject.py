@@ -115,7 +115,7 @@ def make_typedescr(typedef, **kw):
 def init_pyobject(space):
     from pypy.module.cpyext.object import PyObject_dealloc
     # typedescr for the 'object' type
-    make_typedescr(space.w_object.instancetypedef,
+    make_typedescr(space.w_object.layout.typedef,
                    dealloc=PyObject_dealloc)
     # almost all types, which should better inherit from object.
     make_typedescr(None)
@@ -207,7 +207,7 @@ def from_ref(space, ref):
         raise InvalidPointerException(str(ref))
     w_type = from_ref(space, ref_type)
     assert isinstance(w_type, W_TypeObject)
-    return get_typedescr(w_type.instancetypedef).realize(space, ref)
+    return get_typedescr(w_type.layout.typedef).realize(space, ref)
 
 
 def debug_collect():
@@ -327,7 +327,7 @@ def _Py_NewReference(space, obj):
     obj.c_ob_refcnt = 1
     w_type = from_ref(space, rffi.cast(PyObject, obj.c_ob_type))
     assert isinstance(w_type, W_TypeObject)
-    get_typedescr(w_type.instancetypedef).realize(space, obj)
+    get_typedescr(w_type.layout.typedef).realize(space, obj)
 
 @cpython_api([PyObject], lltype.Void)
 def _Py_Dealloc(space, obj):

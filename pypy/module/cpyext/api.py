@@ -944,7 +944,7 @@ class StaticObjectBuilder:
             py_obj = static_pyobjs[i]
             w_obj = static_objs_w[i]
             w_type = space.type(w_obj)
-            typedescr = get_typedescr(w_type.instancetypedef)
+            typedescr = get_typedescr(w_type.layout.typedef)
             py_obj.c_ob_type = rffi.cast(PyTypeObjectPtr,
                                          make_ref(space, w_type))
             typedescr.attach(space, py_obj, w_obj)
@@ -1142,7 +1142,7 @@ def setup_micronumpy(space):
     if not use_micronumpy:
         return use_micronumpy
     # import to register api functions by side-effect
-    import pypy.module.cpyext.ndarrayobject 
+    import pypy.module.cpyext.ndarrayobject
     global GLOBALS, SYMBOLS_C, separate_module_files
     GLOBALS["PyArray_Type#"]= ('PyTypeObject*', "space.gettypeobject(W_NDimArray.typedef)")
     SYMBOLS_C += ['PyArray_Type', '_PyArray_FILLWBYTE', '_PyArray_ZEROS']

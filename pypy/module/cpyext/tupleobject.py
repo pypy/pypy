@@ -35,7 +35,7 @@ cpython_struct("PyTupleObject", PyTupleObjectFields, PyTupleObjectStruct)
 @bootstrap_function
 def init_stringobject(space):
     "Type description of PyTupleObject"
-    make_typedescr(space.w_tuple.instancetypedef,
+    make_typedescr(space.w_tuple.layout.typedef,
                    basestruct=PyTupleObject.TO,
                    attach=tuple_attach,
                    dealloc=tuple_dealloc,
@@ -54,7 +54,7 @@ def new_empty_tuple(space, length):
     corresponding interpreter object.  The array may be mutated, until
     tuple_realize() is called.  Refcount of the result is 1.
     """
-    typedescr = get_typedescr(space.w_tuple.instancetypedef)
+    typedescr = get_typedescr(space.w_tuple.layout.typedef)
     py_obj = typedescr.allocate(space, space.w_tuple)
     py_tup = rffi.cast(PyTupleObject, py_obj)
 

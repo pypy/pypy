@@ -19,7 +19,7 @@ cpython_struct("PyIntObject", PyIntObjectFields, PyIntObjectStruct)
 @bootstrap_function
 def init_intobject(space):
     "Type description of PyIntObject"
-    make_typedescr(space.w_int.instancetypedef,
+    make_typedescr(space.w_int.layout.typedef,
                    basestruct=PyIntObject.TO,
                    attach=int_attach,
                    realize=int_realize)
@@ -51,7 +51,7 @@ def PyInt_GetMax(space):
 @cpython_api([lltype.Signed], PyObject)
 def PyInt_FromLong(space, ival):
     """Create a new integer object with a value of ival.
-    
+
     """
     return space.wrap(ival)
 
