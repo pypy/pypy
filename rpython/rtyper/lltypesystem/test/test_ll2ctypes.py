@@ -1461,3 +1461,20 @@ class TestPlatform(object):
         assert a[3].a == 17
         #lltype.free(a, flavor='raw')
         py.test.skip("free() not working correctly here...")
+
+    def test_fixedsizedarray_to_ctypes(self):
+        T = lltype.Ptr(rffi.CFixedArray(rffi.INT, 1))
+        inst = lltype.malloc(T.TO, flavor='raw')
+        inst[0] = rffi.cast(rffi.INT, 42)
+        assert inst[0] == 42
+        cinst = lltype2ctypes(inst)
+        assert rffi.cast(lltype.Signed, inst[0]) == 42
+        assert cinst.contents.item0 == 42
+        lltype.free(inst, flavor='raw')
+
+    def test_fixedsizedarray_to_ctypes(self):
+        T = lltype.Ptr(rffi.CFixedArray(rffi.CHAR, 123))
+        inst = lltype.malloc(T.TO, flavor='raw', zero=True)
+        cinst = lltype2ctypes(inst)
+        assert cinst.contents.item0 == 0
+        lltype.free(inst, flavor='raw')
