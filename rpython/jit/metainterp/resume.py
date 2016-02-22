@@ -134,7 +134,10 @@ def capture_resumedata(framestack, virtualizable_boxes, virtualref_boxes,
                        snapshot_storage):
     n = len(framestack) - 1
     if virtualizable_boxes is not None:
-        virtualizable_boxes = virtualizable_boxes[:]
+        virtualizable_boxes = ([virtualizable_boxes[-1]] +
+                                virtualizable_boxes[:-1])
+    else:
+        virtualizable_boxes = []
     virtualref_boxes = virtualref_boxes[:]
     if n >= 0:
         top = framestack[n]
@@ -1131,49 +1134,42 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
         self.boxes_f = boxes_f
         self._prepare_next_section(info)
 
-    def consume_virtualizable_boxes(self, vinfo):
+    def consume_virtualizable_boxes(self, vinfo, index):
         # we have to ignore the initial part of 'nums' (containing vrefs),
         # find the virtualizable from nums[-1], and use it to know how many
         # boxes of which type we have to return.  This does not write
         # anything into the virtualizable.
         numb = self.numb
-        first_snapshot_size = rffi.cast(lltype.Signed, numb.first_snapshot_size)
-        item, _ = resumecode.numb_next_item(numb, first_snapshot_size - 1)
+        item, index = resumecode.numb_next_item(numb, index)
         virtualizablebox = self.decode_ref(item)
-        index = first_snapshot_size - vinfo.get_total_size(virtualizablebox.getref_base()) - 1
         virtualizable = vinfo.unwrap_virtualizable_box(virtualizablebox)
         return vinfo.load_list_of_boxes(virtualizable, self, virtualizablebox,
             numb, index)
 
-    def consume_virtualref_boxes(self, end):
+    def consume_virtualref_boxes(self, index):
         # Returns a list of boxes, assumed to be all BoxPtrs.
         # We leave up to the caller to call vrefinfo.continue_tracing().
-        assert (end & 1) == 0
+        size, index = resumecode.numb_next_item(self.numb, index)
+        if size == 0:
+            return [], index
         lst = []
-        self.cur_index = 0
-        for i in range(end):
-            item, self.cur_index = resumecode.numb_next_item(self.numb,
-                self.cur_index)
+        for i in range(size * 2):
+            item, index = resumecode.numb_next_item(self.numb, index)
             lst.append(self.decode_ref(item))
-        return lst
+        return lst, index
 
     def consume_vref_and_vable_boxes(self, vinfo, ginfo):
-        first_snapshot_size = rffi.cast(lltype.Signed,
-                                        self.numb.first_snapshot_size)
+        vable_size, index = resumecode.numb_next_item(self.numb, 0)
         if vinfo is not None:
-            virtualizable_boxes = self.consume_virtualizable_boxes(vinfo)
-            end = first_snapshot_size - len(virtualizable_boxes)
+            virtualizable_boxes, index = self.consume_virtualizable_boxes(vinfo,
+                                                                          index)
         elif ginfo is not None:
-            xxxxxx
-            item, self.cur_index = resumecode.numb_next_item(self.numb,
-                first_snapshot_size - 1)
+            item, index = resumecode.numb_next_item(self.numb, index)
             virtualizable_boxes = [self.decode_ref(item)]
-            end = first_snapshot_size - 1
         else:
-            end = first_snapshot_size
             virtualizable_boxes = None
-        virtualref_boxes = self.consume_virtualref_boxes(end)
-        self.cur_index = rffi.cast(lltype.Signed, self.numb.first_snapshot_size)
+        virtualref_boxes, index = self.consume_virtualref_boxes(index)
+        self.cur_index = index
         return virtualizable_boxes, virtualref_boxes
 
     def allocate_with_vtable(self, descr=None):
@@ -1452,37 +1448,32 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
         # we have to decode a list of references containing pairs
         # [..., virtual, vref, ...] and returns the index at the end
         size, index = resumecode.numb_next_item(self.numb, index)
-        if vrefinfo is None:
+        if vrefinfo is None or size == 0:
             assert size == 0
             return index
-        xxxx
-        assert (end & 1) == 0
-        self.cur_index = 0
-        for i in range(0, end, 2):
-            virtual_item, self.cur_index = resumecode.numb_next_item(
-                self.numb, self.cur_index)
-            vref_item, self.cur_index = resumecode.numb_next_item(
-                self.numb, self.cur_index)
+        for i in range(size):
+            virtual_item, index = resumecode.numb_next_item(
+                self.numb, index)
+            vref_item, index = resumecode.numb_next_item(
+                self.numb, index)
             virtual = self.decode_ref(virtual_item)
             vref = self.decode_ref(vref_item)
             # For each pair, we store the virtual inside the vref.
             vrefinfo.continue_tracing(vref, virtual)
+        return index
 
-    def consume_vable_info(self, vinfo):
+    def consume_vable_info(self, vinfo, index):
         # we have to ignore the initial part of 'nums' (containing vrefs),
         # find the virtualizable from nums[-1], load all other values
         # from the CPU stack, and copy them into the virtualizable
         numb = self.numb
-        first_snapshot_size = rffi.cast(lltype.Signed, numb.first_snapshot_size)
-        item, _ = resumecode.numb_next_item(self.numb,
-            first_snapshot_size - 1)
+        item, index = resumecode.numb_next_item(self.numb, index)
         virtualizable = self.decode_ref(item)
-        start_index = first_snapshot_size - 1 - vinfo.get_total_size(virtualizable)
         # just reset the token, we'll force it later
         vinfo.reset_token_gcref(virtualizable)
-        vinfo.write_from_resume_data_partial(virtualizable, self, start_index,
-            numb)
-        return start_index
+        index = vinfo.write_from_resume_data_partial(virtualizable, self,
+            index, numb)
+        return index
 
     def load_value_of_type(self, TYPE, tagged):
         from rpython.jit.metainterp.warmstate import specialize_value
@@ -1504,12 +1495,12 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
             if vinfo is not None:
                 index = self.consume_vable_info(vinfo, index)
             if ginfo is not None:
-                end_vref -= 1
-                xxxxxxxxxxxxxxx
+                _, index = resumecode.numb_next_item(self.numb, index)
             index = self.consume_virtualref_info(vrefinfo, index)
         else:
             index = resumecode.numb_next_n_items(self.numb, vable_size, index)
-            xxxx
+            vref_size, index = resumecode.numb_next_item(self.numb, index)
+            index = resumecode.numb_next_n_items(self.numb, vref_size * 2, index)
         self.cur_index = index 
 
     def allocate_with_vtable(self, descr=None):

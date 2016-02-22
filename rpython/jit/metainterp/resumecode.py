@@ -65,6 +65,11 @@ def numb_next_item(numb, index):
     value >>= 1
     return value, index
 
+def numb_next_n_items(numb, size, index):
+    for i in range(size):
+        _, index = numb_next_item(numb, index)
+    return index
+
 def unpack_numbering(numb):
     l = []
     i = 0

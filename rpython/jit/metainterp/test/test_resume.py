@@ -612,7 +612,7 @@ def test_capture_resumedata():
     
     snapshot = storage.rd_snapshot
     assert snapshot.boxes == vrs
-    assert snapshot.vable_boxes == vbs
+    assert snapshot.vable_boxes == [b2, b1]
 
     snapshot = snapshot.prev
     assert snapshot.prev is fs[2].parent_resumedata_snapshot
