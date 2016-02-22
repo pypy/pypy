@@ -262,7 +262,7 @@ def _builduserclswithfeature(config, supercls, *features):
             def user_setup(self, space, w_subtype):
                 self.space = space
                 self.w__class__ = w_subtype
-                self.user_setup_slots(w_subtype.nslots)
+                self.user_setup_slots(w_subtype.layout.nslots)
 
             def user_setup_slots(self, nslots):
                 assert nslots == 0

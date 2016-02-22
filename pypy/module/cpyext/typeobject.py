@@ -523,7 +523,7 @@ def solid_base(space, w_type):
 def best_base(space, bases_w):
     if not bases_w:
         return None
-    return find_best_base(space, bases_w)
+    return find_best_base(bases_w)
 
 def inherit_slots(space, pto, w_base):
     # XXX missing: nearly everything
