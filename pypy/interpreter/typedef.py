@@ -156,20 +156,6 @@ def get_unique_interplevel_subclass(config, cls, hasdict, wants_slots,
 get_unique_interplevel_subclass._annspecialcase_ = "specialize:memo"
 _subclass_cache = {}
 
-def enum_interplevel_subclasses(config, cls):
-    """Return a list of all the extra interp-level subclasses of 'cls' that
-    can be built by get_unique_interplevel_subclass()."""
-    result = []
-    for flag1 in (False, True):
-        for flag2 in (False, True):
-            for flag3 in (False, True):
-                for flag4 in (False, True):
-                    result.append(get_unique_interplevel_subclass(
-                        config, cls, flag1, flag2, flag3, flag4))
-    result = dict.fromkeys(result)
-    assert len(result) <= 6
-    return result.keys()
-
 def _getusercls(config, cls, wants_dict, wants_slots, wants_del, weakrefable):
     typedef = cls.typedef
     if wants_dict and typedef.hasdict:

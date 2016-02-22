@@ -11,12 +11,12 @@ from rpython.rtyper.lltypesystem.ll2ctypes import cast_adr_to_int, get_ctypes_ty
 from rpython.rtyper.lltypesystem.ll2ctypes import _llgcopaque
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib import rposix
+from rpython.rlib.rposix import UNDERSCORE_ON_WIN32
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator import cdir
 from rpython.tool.udir import udir
 from rpython.rtyper.test.test_llinterp import interpret
 from rpython.annotator.annrpython import RPythonAnnotator
-from rpython.rtyper.module.support import UNDERSCORE_ON_WIN32
 from rpython.rtyper.rtyper import RPythonTyper
 from rpython.rlib.rarithmetic import r_uint, get_long_pattern, is_emulated_long
 from rpython.rlib.rarithmetic import is_valid_int

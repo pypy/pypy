@@ -94,11 +94,13 @@ def new_view(space, w_arr, chunks):
             dim = i
             break
     if dim >= 0:
-        # filter by axis r
-        filtr = chunks.pop(dim)
+        # filter by axis dim
+        filtr = chunks[dim]
         assert isinstance(filtr, BooleanChunk) 
         w_arr = w_arr.getitem_filter(space, filtr.w_idx, axis=dim)
         arr = w_arr.implementation
+        chunks[dim] = SliceChunk(space.newslice(space.wrap(0), 
+                                 space.wrap(-1), space.w_None))
         r = calculate_slice_strides(space, arr.shape, arr.start,
                  arr.get_strides(), arr.get_backstrides(), chunks)
     else:

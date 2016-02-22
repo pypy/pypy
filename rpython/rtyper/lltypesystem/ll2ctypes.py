@@ -463,6 +463,9 @@ def convert_struct(container, cstruct=None, delayed_converters=None):
 
 def remove_regular_struct_content(container):
     STRUCT = container._TYPE
+    if isinstance(STRUCT, lltype.FixedSizeArray):
+        del container._items
+        return
     for field_name in STRUCT._names:
         FIELDTYPE = getattr(STRUCT, field_name)
         if not isinstance(FIELDTYPE, lltype.ContainerType):
@@ -651,6 +654,12 @@ class _struct_mixin(_parentable_mixin):
         else:
             cobj = lltype2ctypes(value)
             setattr(self._storage.contents, field_name, cobj)
+
+    def getitem(self, index, uninitialized_ok=False):
+        return getattr(self, "item%s" % index)
+
+    def setitem(self, index, value):
+        setattr(self, "item%s" % index, value)
 
 class _array_mixin(_parentable_mixin):
     """Mixin added to _array containers when they become ctypes-based."""
