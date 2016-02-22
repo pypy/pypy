@@ -165,9 +165,11 @@ elif CLOCK_PROCESS_CPUTIME_ID is not None:
     globals().update(rffi_platform.configure(CConfigForClockGetTime))
     TIMESPEC = TIMESPEC
     CLOCK_PROCESS_CPUTIME_ID = CLOCK_PROCESS_CPUTIME_ID
+    eci_with_lrt = eci.merge(ExternalCompilationInfo(libraries=['rt']))
     c_clock_gettime = external('clock_gettime',
                                [lltype.Signed, lltype.Ptr(TIMESPEC)],
-                               rffi.INT, releasegil=False)
+                               rffi.INT, releasegil=False,
+                               compilation_info=eci_with_lrt)
 else:
     RUSAGE = RUSAGE
     RUSAGE_SELF = RUSAGE_SELF or 0

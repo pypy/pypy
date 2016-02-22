@@ -21,6 +21,9 @@ class PPC_CPU(AbstractLLCPU):
     IS_64_BIT = True
     backend_name = 'ppc64'
 
+    # can an ISA instruction handle a factor to the offset?
+    load_supported_factors = (1,)
+
     from rpython.jit.backend.ppc.register import JITFRAME_FIXED_SIZE
     frame_reg = r.SP
     all_reg_indexes = [-1] * 32

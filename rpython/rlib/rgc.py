@@ -205,7 +205,13 @@ def needs_write_barrier(obj):
     """
     if not obj:
         return False
-    return can_move(obj)
+    # XXX returning can_move() here might acidentally work for the use
+    # cases (see issue #2212), but this is not really safe.  Now we
+    # just return True for any non-NULL pointer, and too bad for the
+    # few extra 'cond_call_gc_wb'.  It could be improved e.g. to return
+    # False if 'obj' is a static prebuilt constant, or if we're not
+    # running incminimark...
+    return True #can_move(obj)
 
 def _heap_stats():
     raise NotImplementedError # can't be run directly

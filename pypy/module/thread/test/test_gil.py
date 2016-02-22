@@ -65,7 +65,7 @@ class GILTests(test_rthread.AbstractGCTestClass):
             except Exception, e:
                 assert 0
             thread.gc_thread_die()
-        my_gil_threadlocals = gil.GILThreadLocals()
+        my_gil_threadlocals = gil.GILThreadLocals(space)
         def f():
             state.data = []
             state.datalen1 = 0

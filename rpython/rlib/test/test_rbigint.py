@@ -825,7 +825,19 @@ class TestInternalFunctions(object):
             def __init__(self, base, sign, digits):
                 self.base = base
                 self.sign = sign
-                self.next_digit = iter(digits + [-1]).next
+                self.i = 0
+                self._digits = digits
+            def next_digit(self):
+                i = self.i
+                if i == len(self._digits):
+                    return -1
+                self.i = i + 1
+                return self._digits[i]
+            def prev_digit(self):
+                i = self.i - 1
+                assert i >= 0
+                self.i = i
+                return self._digits[i]
         x = parse_digit_string(Parser(10, 1, [6]))
         assert x.eq(rbigint.fromint(6))
         x = parse_digit_string(Parser(10, 1, [6, 2, 3]))
@@ -846,6 +858,16 @@ class TestInternalFunctions(object):
         assert x.tobool() is False
         x = parse_digit_string(Parser(7, -1, [0, 0, 0]))
         assert x.tobool() is False
+
+        for base in [2, 4, 8, 16, 32]:
+            for inp in [[0], [1], [1, 0], [0, 1], [1, 0, 1], [1, 0, 0, 1],
+                        [1, 0, 0, base-1, 0, 1], [base-1, 1, 0, 0, 0, 1, 0],
+                        [base-1]]:
+                inp = inp * 97
+                x = parse_digit_string(Parser(base, -1, inp))
+                num = sum(inp[i] * (base ** (len(inp)-1-i))
+                          for i in range(len(inp)))
+                assert x.eq(rbigint.fromlong(-num))
 
 
 BASE = 2 ** SHIFT

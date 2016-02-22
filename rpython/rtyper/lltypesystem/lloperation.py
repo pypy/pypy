@@ -515,6 +515,7 @@ LL_OPERATIONS = {
     'raw_load':             LLOp(sideeffects=False, canrun=True),
     'raw_store':            LLOp(canrun=True),
     'bare_raw_store':       LLOp(),
+    'gc_load_indexed':      LLOp(sideeffects=False, canrun=True),
     'stack_malloc':         LLOp(), # mmh
     'track_alloc_start':    LLOp(),
     'track_alloc_stop':     LLOp(),
@@ -646,8 +647,11 @@ LL_OPERATIONS = {
     'getslice':             LLOp(canraise=(Exception,)),
     'check_and_clear_exc':  LLOp(),
 
-    'threadlocalref_addr':  LLOp(sideeffects=False),  # get (or make) addr of tl
+    'threadlocalref_addr':  LLOp(),                   # get (or make) addr of tl
     'threadlocalref_get':   LLOp(sideeffects=False),  # read field (no check)
+    'threadlocalref_acquire':  LLOp(),                # lock for enum
+    'threadlocalref_release':  LLOp(),                # lock for enum
+    'threadlocalref_enum':  LLOp(sideeffects=False),  # enum all threadlocalrefs
 
     # __________ debugging __________
     'debug_view':           LLOp(),

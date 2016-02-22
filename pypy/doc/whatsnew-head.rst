@@ -5,6 +5,8 @@ What's new in PyPy 4.1.+
 .. this is a revision shortly after release-4.0.1
 .. startrev: 4b5c840d0da2
 
+Fixed ``_PyLong_FromByteArray()``, which was buggy.
+
 .. branch: numpy-1.10
 
 Fix tests to run cleanly with -A and start to fix micronumpy for upstream numpy
@@ -44,6 +46,9 @@ Improve the heuristic when disable trace-too-long
 
 .. branch: fix-setslice-can-resize
 
+Make rlist's ll_listsetslice() able to resize the target list to help
+simplify objspace/std/listobject.py. Was issue #2196.
+
 .. branch: anntype2
 
 A somewhat random bunch of changes and fixes following up on branch 'anntype'. Highlights:
@@ -77,3 +82,24 @@ functions are now directly accessible as `rpython.rposix.*`.
 .. branch: always-enable-gil
 
 Simplify a bit the GIL handling in non-jitted code.  Fixes issue #2205.
+
+.. branch: flowspace-cleanups
+
+Trivial cleanups in flowspace.operation : fix comment & duplicated method
+
+.. branch: test-AF_NETLINK
+
+Add a test for pre-existing AF_NETLINK support. Was part of issue #1942.
+
+.. branch: small-cleanups-misc
+
+Trivial misc cleanups: typo, whitespace, obsolete comments
+
+.. branch: cpyext-slotdefs
+.. branch: fix-missing-canraise
+.. branch: whatsnew
+
+.. branch: fix-2211
+
+Fix the cryptic exception message when attempting to use extended slicing
+in rpython. Was issue #2211.

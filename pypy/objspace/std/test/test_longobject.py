@@ -358,3 +358,10 @@ class AppTestLong:
         assert 3L.__coerce__(4L) == (3L, 4L)
         assert 3L.__coerce__(4) == (3, 4)
         assert 3L.__coerce__(object()) == NotImplemented
+
+    def test_linear_long_base_16(self):
+        # never finishes if long(_, 16) is not linear-time
+        size = 100000
+        n = "a" * size
+        expected = (2 << (size * 4)) // 3
+        assert long(n, 16) == expected

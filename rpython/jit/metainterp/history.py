@@ -68,8 +68,8 @@ def repr_object(box):
         return box.value
 
 def repr_rpython(box, typechars):
-    return '%s/%s%d' % (box._get_hash_(), typechars,
-                        compute_unique_id(box))
+    return '%s/%s' % (box._get_hash_(), typechars,
+                        ) #compute_unique_id(box))
 
 
 class XxxAbstractValue(object):

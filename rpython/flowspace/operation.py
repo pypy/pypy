@@ -1,5 +1,5 @@
 """
-This module defines all the SpaceOeprations used in rpython.flowspace.
+This module defines all the SpaceOperations used in rpython.flowspace.
 """
 
 import __builtin__
@@ -179,21 +179,6 @@ class SingleDispatchMixin(object):
         args_s = [annotator.annotation(v) for v in self.args]
         spec = type(self).get_specialization(*args_s)
         return read_can_only_throw(spec, args_s[0])
-
-    @classmethod
-    def get_specialization(cls, s_arg, *_ignored):
-        try:
-            impl = getattr(s_arg, cls.opname)
-
-            def specialized(annotator, arg, *other_args):
-                return impl(*[annotator.annotation(x) for x in other_args])
-            try:
-                specialized.can_only_throw = impl.can_only_throw
-            except AttributeError:
-                pass
-            return specialized
-        except AttributeError:
-            return cls._dispatch(type(s_arg))
 
     @classmethod
     def get_specialization(cls, s_arg, *_ignored):
@@ -521,6 +506,14 @@ class NewList(HLOperation):
     def consider(self, annotator):
         return annotator.bookkeeper.newlist(
                 *[annotator.annotation(arg) for arg in self.args])
+
+
+class NewSlice(HLOperation):
+    opname = 'newslice'
+    canraise = []
+
+    def consider(self, annotator):
+        raise AnnotatorError("Cannot use extended slicing in rpython")
 
 
 class Pow(PureOperation):

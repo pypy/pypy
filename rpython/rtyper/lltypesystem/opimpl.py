@@ -726,6 +726,17 @@ def op_raw_load(TVAL, p, ofs, pure=False):
     return p[0]
 op_raw_load.need_result_type = True
 
+def op_gc_load_indexed(TVAL, p, index, scale, base_ofs):
+    # 'base_ofs' should be a CompositeOffset(..., ArrayItemsOffset).
+    # 'scale' should be a llmemory.sizeof().
+    from rpython.rtyper.lltypesystem import rffi
+    ofs = base_ofs + scale * index
+    if isinstance(ofs, int):
+        return op_raw_load(TVAL, p, ofs)
+    p = rffi.cast(rffi.CArrayPtr(TVAL), llmemory.cast_ptr_to_adr(p) + ofs)
+    return p[0]
+op_gc_load_indexed.need_result_type = True
+
 def op_jit_assembler_call(funcptr, *args):
     return funcptr(*args)
 

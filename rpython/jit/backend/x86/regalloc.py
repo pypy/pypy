@@ -4,8 +4,7 @@
 
 import os, sys
 from rpython.jit.backend.llsupport import symbolic
-from rpython.jit.backend.llsupport.descr import (ArrayDescr, CallDescr,
-    unpack_arraydescr, unpack_fielddescr, unpack_interiorfielddescr)
+from rpython.jit.backend.llsupport.descr import CallDescr, unpack_arraydescr
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.jit.backend.llsupport.jitframe import GCMAP
 from rpython.jit.backend.llsupport.regalloc import (FrameManager, BaseRegalloc,
@@ -1067,7 +1066,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         size_box = op.getarg(3)
         assert isinstance(size_box, ConstInt)
         size = size_box.value
-        itemsize = abs(size)
+        assert size >= 1
         if size == 1:
             need_lower_byte = True
         else:
@@ -1076,7 +1075,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
                                           need_lower_byte=need_lower_byte)
         ofs_loc = self.rm.make_sure_var_in_reg(op.getarg(1), args)
         self.perform_discard(op, [base_loc, ofs_loc, value_loc,
-                                 imm(itemsize)])
+                                 imm(size)])
 
     def consider_gc_store_indexed(self, op):
         args = op.getarglist()
@@ -1090,7 +1089,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         factor = scale_box.value
         offset = offset_box.value
         size = size_box.value
-        itemsize = abs(size)
+        assert size >= 1
         if size == 1:
             need_lower_byte = True
         else:
@@ -1099,7 +1098,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
                                           need_lower_byte=need_lower_byte)
         ofs_loc = self.rm.make_sure_var_in_reg(op.getarg(1), args)
         self.perform_discard(op, [base_loc, ofs_loc, value_loc,
-                                  imm(factor), imm(offset), imm(itemsize)])
+                                  imm(factor), imm(offset), imm(size)])
 
     def consider_increment_debug_counter(self, op):
         base_loc = self.loc(op.getarg(0))
@@ -1112,9 +1111,9 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         result_loc = self.force_allocate_reg(op)
         size_box = op.getarg(2)
         assert isinstance(size_box, ConstInt)
-        size = size_box.value
-        size_loc = imm(abs(size))
-        if size < 0:
+        nsize = size_box.value      # negative for "signed"
+        size_loc = imm(abs(nsize))
+        if nsize < 0:
             sign_loc = imm1
         else:
             sign_loc = imm0
@@ -1137,9 +1136,9 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         assert isinstance(size_box, ConstInt)
         scale = scale_box.value
         offset = offset_box.value
-        size = size_box.value
-        size_loc = imm(abs(size))
-        if size < 0:
+        nsize = size_box.value      # negative for "signed"
+        size_loc = imm(abs(nsize))
+        if nsize < 0:
             sign_loc = imm1
         else:
             sign_loc = imm0

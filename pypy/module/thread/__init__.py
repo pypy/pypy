@@ -30,7 +30,7 @@ class Module(MixedModule):
             space.threadlocals = stm.STMThreadLocals()
         else:
             from pypy.module.thread import gil
-            space.threadlocals = gil.GILThreadLocals()
+            space.threadlocals = gil.GILThreadLocals(space)
         space.threadlocals.initialize(space)
         if prev_ec is not None:
             space.threadlocals._set_ec(prev_ec)

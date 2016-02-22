@@ -745,7 +745,6 @@ for i in range(4):      # make more common
     OPERATIONS.append(GetInteriorFieldOperation(rop.GETINTERIORFIELD_GC_I))
     OPERATIONS.append(GetInteriorFieldOperation(rop.GETINTERIORFIELD_GC_I))
     OPERATIONS.append(SetFieldOperation(rop.SETFIELD_GC))
-    OPERATIONS.append(ZeroPtrFieldOperation(rop.ZERO_PTR_FIELD))
     OPERATIONS.append(SetInteriorFieldOperation(rop.SETINTERIORFIELD_GC))
     OPERATIONS.append(NewOperation(rop.NEW))
     OPERATIONS.append(NewOperation(rop.NEW_WITH_VTABLE))
