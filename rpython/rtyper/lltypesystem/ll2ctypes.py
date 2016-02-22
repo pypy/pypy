@@ -426,7 +426,12 @@ def convert_struct(container, cstruct=None, delayed_converters=None):
         else:
             n = None
         cstruct = cls._malloc(n)
-    add_storage(container, _struct_mixin, ctypes.pointer(cstruct))
+
+    if isinstance(container, lltype._fixedsizearray):
+        cls_mixin = _fixedsizedarray_mixin
+    else:
+        cls_mixin = _struct_mixin
+    add_storage(container, cls_mixin, ctypes.pointer(cstruct))
 
     if delayed_converters is None:
         delayed_converters_was_None = True
@@ -506,7 +511,11 @@ def remove_regular_array_content(container):
 def struct_use_ctypes_storage(container, ctypes_storage):
     STRUCT = container._TYPE
     assert isinstance(STRUCT, lltype.Struct)
-    add_storage(container, _struct_mixin, ctypes_storage)
+    if isinstance(container, lltype._fixedsizearray):
+        cls_mixin = _fixedsizedarray_mixin
+    else:
+        cls_mixin = _struct_mixin
+    add_storage(container, cls_mixin, ctypes_storage)
     remove_regular_struct_content(container)
     for field_name in STRUCT._names:
         FIELDTYPE = getattr(STRUCT, field_name)
@@ -645,11 +654,44 @@ class _struct_mixin(_parentable_mixin):
             cobj = lltype2ctypes(value)
             setattr(self._storage.contents, field_name, cobj)
 
+class _fixedsizedarray_mixin(_parentable_mixin):
+    """Mixin added to _fixedsizearray containers when they become ctypes-based."""
+    __slots__ = ()
+
+    def __getattr__(self, field_name):
+        if hasattr(self, '_items'):
+            obj = lltype._fixedsizearray.__getattr__.im_func(self, field_name)
+            return obj
+        else:
+            cobj = getattr(self._storage.contents, field_name)
+            T = getattr(self._TYPE, field_name)
+            return ctypes2lltype(T, cobj)
+
+    def __setattr__(self, field_name, value):
+        if field_name.startswith('_'):
+            object.__setattr__(self, field_name, value)  # '_xxx' attributes
+        else:
+            cobj = lltype2ctypes(value)
+            if hasattr(self, '_items'):
+                lltype._fixedsizearray.__setattr__.im_func(self, field_name, cobj)
+            else:
+                setattr(self._storage.contents, field_name, cobj)
+
+
     def getitem(self, index, uninitialized_ok=False):
-        return getattr(self, "item%s" % index)
+        if hasattr(self, '_items'):
+            obj = lltype._fixedsizearray.getitem.im_func(self, 
+                                     index, uninitialized_ok=uninitialized_ok)
+            return obj
+        else:
+            return getattr(self, 'item%d' % index)
 
     def setitem(self, index, value):
-        setattr(self, "item%s" % index, value)
+        cobj = lltype2ctypes(value)
+        if hasattr(self, '_items'):
+            lltype._fixedsizearray.setitem.im_func(self, index, value)
+        else:
+            setattr(self, 'item%d' % index, cobj)
 
 class _array_mixin(_parentable_mixin):
     """Mixin added to _array containers when they become ctypes-based."""

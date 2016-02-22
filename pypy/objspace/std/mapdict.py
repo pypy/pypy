@@ -1,4 +1,4 @@
-import weakref
+import weakref, sys
 
 from rpython.rlib import jit, objectmodel, debug, rerased
 from rpython.rlib.rarithmetic import intmask, r_uint
@@ -12,6 +12,11 @@ from pypy.objspace.std.dictmultiobject import (
 from pypy.objspace.std.typeobject import MutableCell
 
 
+erase_item, unerase_item = rerased.new_erasing_pair("mapdict storage item")
+erase_map,  unerase_map = rerased.new_erasing_pair("map")
+erase_list, unerase_list = rerased.new_erasing_pair("mapdict storage list")
+
+
 # ____________________________________________________________
 # attribute shapes
 
@@ -19,6 +24,7 @@ NUM_DIGITS = 4
 NUM_DIGITS_POW2 = 1 << NUM_DIGITS
 # note: we use "x * NUM_DIGITS_POW2" instead of "x << NUM_DIGITS" because
 # we want to propagate knowledge that the result cannot be negative
+
 
 class AbstractAttribute(object):
     _immutable_fields_ = ['terminator']
@@ -151,29 +157,124 @@ class AbstractAttribute(object):
             cache[name, index] = attr
         return attr
 
-    @jit.look_inside_iff(lambda self, obj, name, index, w_value:
-            jit.isconstant(self) and
-            jit.isconstant(name) and
-            jit.isconstant(index))
+    @jit.elidable
+    def _get_cache_attr(self, name, index):
+        key = name, index
+        # this method is not actually elidable, but it's fine anyway
+        if self.cache_attrs is not None:
+            return self.cache_attrs.get(key, None)
+        return None
+
     def add_attr(self, obj, name, index, w_value):
-        attr = self._get_new_attr(name, index)
-        oldattr = obj._get_mapdict_map()
+        self._reorder_and_add(obj, name, index, w_value)
         if not jit.we_are_jitted():
+            oldattr = self
+            attr = obj._get_mapdict_map()
             size_est = (oldattr._size_estimate + attr.size_estimate()
                                                - oldattr.size_estimate())
             assert size_est >= (oldattr.length() * NUM_DIGITS_POW2)
             oldattr._size_estimate = size_est
-        if attr.length() > obj._mapdict_storage_length():
-            # note that attr.size_estimate() is always at least attr.length()
-            new_storage = [None] * attr.size_estimate()
+
+    def _add_attr_without_reordering(self, obj, name, index, w_value):
+        attr = self._get_new_attr(name, index)
+        attr._switch_map_and_write_storage(obj, w_value)
+
+    @jit.unroll_safe
+    def _switch_map_and_write_storage(self, obj, w_value):
+        if self.length() > obj._mapdict_storage_length():
+            # note that self.size_estimate() is always at least self.length()
+            new_storage = [None] * self.size_estimate()
             for i in range(obj._mapdict_storage_length()):
                 new_storage[i] = obj._mapdict_read_storage(i)
-            obj._set_mapdict_storage_and_map(new_storage, attr)
+            obj._set_mapdict_storage_and_map(new_storage, self)
 
         # the order is important here: first change the map, then the storage,
         # for the benefit of the special subclasses
-        obj._set_mapdict_map(attr)
-        obj._mapdict_write_storage(attr.storageindex, w_value)
+        obj._set_mapdict_map(self)
+        obj._mapdict_write_storage(self.storageindex, w_value)
+
+
+    @jit.elidable
+    def _find_branch_to_move_into(self, name, index):
+        # walk up the map chain to find an ancestor with lower order that
+        # already has the current name as a child inserted
+        current_order = sys.maxint
+        number_to_readd = 0
+        current = self
+        key = (name, index)
+        while True:
+            attr = None
+            if current.cache_attrs is not None:
+                attr = current.cache_attrs.get(key, None)
+            if attr is None or attr.order > current_order:
+                # we reached the top, so we didn't find it anywhere,
+                # just add it to the top attribute
+                if not isinstance(current, PlainAttribute):
+                    return 0, self._get_new_attr(name, index)
+
+            else:
+                return number_to_readd, attr
+            # if not found try parent
+            number_to_readd += 1
+            current_order = current.order
+            current = current.back
+
+    @jit.look_inside_iff(lambda self, obj, name, index, w_value:
+            jit.isconstant(self) and
+            jit.isconstant(name) and
+            jit.isconstant(index))
+    def _reorder_and_add(self, obj, name, index, w_value):
+        # the idea is as follows: the subtrees of any map are ordered by
+        # insertion.  the invariant is that subtrees that are inserted later
+        # must not contain the name of the attribute of any earlier inserted
+        # attribute anywhere
+        #                              m______
+        #         inserted first      / \ ... \   further attributes
+        #           attrname a      0/  1\    n\
+        #                           m  a must not appear here anywhere
+        #
+        # when inserting a new attribute in an object we check whether any
+        # parent of lower order has seen that attribute yet. if yes, we follow
+        # that branch. if not, we normally append that attribute. When we
+        # follow a prior branch, we necessarily remove some attributes to be
+        # able to do that. They need to be re-added, which has to follow the
+        # reordering procedure recusively.
+
+        # we store the to-be-readded attribute in the stack, with the map and
+        # the value paired up those are lazily initialized to a list large
+        # enough to store all current attributes
+        stack = None
+        stack_index = 0
+        while True:
+            current = self
+            number_to_readd = 0
+            number_to_readd, attr = self._find_branch_to_move_into(name, index)
+            # we found the attributes further up, need to save the
+            # previous values of the attributes we passed
+            if number_to_readd:
+                if stack is None:
+                    stack = [erase_map(None)] * (self.length() * 2)
+                current = self
+                for i in range(number_to_readd):
+                    assert isinstance(current, PlainAttribute)
+                    w_self_value = obj._mapdict_read_storage(
+                            current.storageindex)
+                    stack[stack_index] = erase_map(current)
+                    stack[stack_index + 1] = erase_item(w_self_value)
+                    stack_index += 2
+                    current = current.back
+            attr._switch_map_and_write_storage(obj, w_value)
+
+            if not stack_index:
+                return
+
+            # readd the current top of the stack
+            stack_index -= 2
+            next_map = unerase_map(stack[stack_index])
+            w_value = unerase_item(stack[stack_index + 1])
+            name = next_map.name
+            index = next_map.index
+            self = obj._get_mapdict_map()
 
     def materialize_r_dict(self, space, obj, dict_w):
         raise NotImplementedError("abstract base class")
@@ -279,7 +380,7 @@ class DevolvedDictTerminator(Terminator):
         return Terminator.set_terminator(self, obj, terminator)
 
 class PlainAttribute(AbstractAttribute):
-    _immutable_fields_ = ['name', 'index', 'storageindex', 'back', 'ever_mutated?']
+    _immutable_fields_ = ['name', 'index', 'storageindex', 'back', 'ever_mutated?', 'order']
 
     def __init__(self, name, index, back):
         AbstractAttribute.__init__(self, back.space, back.terminator)
@@ -289,6 +390,7 @@ class PlainAttribute(AbstractAttribute):
         self.back = back
         self._size_estimate = self.length() * NUM_DIGITS_POW2
         self.ever_mutated = False
+        self.order = len(back.cache_attrs) if back.cache_attrs else 0
 
     def _copy_attr(self, obj, new_obj):
         w_value = self.read(obj, self.name, self.index)
@@ -539,9 +641,6 @@ def memo_get_subclass_of_correct_size(space, supercls):
         return result
 memo_get_subclass_of_correct_size._annspecialcase_ = "specialize:memo"
 _subclass_cache = {}
-
-erase_item, unerase_item = rerased.new_erasing_pair("mapdict storage item")
-erase_list, unerase_list = rerased.new_erasing_pair("mapdict storage list")
 
 def _make_subclass_size_n(supercls, n):
     from rpython.rlib import unroll

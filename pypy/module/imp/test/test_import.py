@@ -1216,12 +1216,12 @@ def test_PYTHONPATH_takes_precedence(space):
         py.test.skip("unresolved issues with win32 shell quoting rules")
     from pypy.interpreter.test.test_zpy import pypypath 
     extrapath = udir.ensure("pythonpath", dir=1) 
-    extrapath.join("urllib.py").write("print(42)\n")
+    extrapath.join("sched.py").write("print(42)\n")
     old = os.environ.get('PYTHONPATH', None)
     oldlang = os.environ.pop('LANG', None)
     try:
         os.environ['PYTHONPATH'] = str(extrapath)
-        output = py.process.cmdexec('''"%s" "%s" -c "import urllib"''' %
+        output = py.process.cmdexec('''"%s" "%s" -c "import sched"''' %
                                  (sys.executable, pypypath))
         assert output.strip() == '42'
     finally:

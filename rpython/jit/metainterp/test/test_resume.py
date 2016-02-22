@@ -10,7 +10,7 @@ from rpython.jit.metainterp.resume import ResumeDataVirtualAdder,\
      VArrayInfoNotClear, VStrPlainInfo, VStrConcatInfo, VStrSliceInfo,\
      VUniPlainInfo, VUniConcatInfo, VUniSliceInfo, Snapshot, FrameInfo,\
      capture_resumedata, ResumeDataLoopMemo, UNASSIGNEDVIRTUAL, INT,\
-     annlowlevel, PENDINGFIELDSP, unpack_uint, TAG_CONST_OFFSET
+     annlowlevel, PENDINGFIELDSP, unpack_uint, TAG_CONST_OFFSET, TopSnapshot
 from rpython.jit.metainterp.resumecode import unpack_numbering,\
      create_numbering, NULL_NUMBER
 
@@ -22,8 +22,11 @@ from rpython.jit.metainterp import executor
 from rpython.jit.codewriter import heaptracker, longlong
 from rpython.jit.metainterp.resoperation import ResOperation, InputArgInt,\
      InputArgRef, rop
+from rpython.jit.metainterp.test.strategies import boxlists
 from rpython.rlib.debug import debug_start, debug_stop, debug_print,\
      have_debug_prints
+
+from hypothesis import given
 
 class Storage:
     rd_frame_info_list = None
@@ -278,9 +281,7 @@ def _next_section(reader, *expected):
     assert bh.written_f == expected_f
 
 
-def Numbering(nums):
-    numb = create_numbering(nums, 0)
-    return numb
+Numbering = create_numbering
 
 def tagconst(i):
     return tag(i + TAG_CONST_OFFSET, TAGCONST)
@@ -610,7 +611,8 @@ def test_capture_resumedata():
     assert unpack_uint(frame_info_list.packed_jitcode_pc) == (2, 15)
     
     snapshot = storage.rd_snapshot
-    assert snapshot.boxes == vrs + vbs      # in the same list
+    assert snapshot.boxes == vrs
+    assert snapshot.vable_boxes == [b2, b1]
 
     snapshot = snapshot.prev
     assert snapshot.prev is fs[2].parent_resumedata_snapshot
@@ -904,9 +906,9 @@ def test_ResumeDataLoopMemo_number():
     env = [b1, c1, b2, b1, c2]
     snap = Snapshot(None, env)
     env1 = [c3, b3, b1, c1]
-    snap1 = Snapshot(snap, env1)
+    snap1 = TopSnapshot(snap, env1, [])
     env2 = [c3, b3, b1, c3]
-    snap2 = Snapshot(snap, env2)
+    snap2 = TopSnapshot(snap, env2, [])
 
     memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
     frameinfo = FrameInfo(None, FakeJitCode("jitcode", 0), 0)
@@ -916,10 +918,11 @@ def test_ResumeDataLoopMemo_number():
 
     assert liveboxes == {b1: tag(0, TAGBOX), b2: tag(1, TAGBOX),
                          b3: tag(2, TAGBOX)}
-    base = [tag(0, TAGBOX), tag(1, TAGINT), tag(1, TAGBOX), tag(0, TAGBOX), tag(2, TAGINT)]
+    base = [0, 0, tag(0, TAGBOX), tag(1, TAGINT),
+            tag(1, TAGBOX), tag(0, TAGBOX), tag(2, TAGINT)]
 
-    assert unpack_numbering(numb) == [
-          tag(3, TAGINT), tag(2, TAGBOX), tag(0, TAGBOX), tag(1, TAGINT), 0, 0] + base
+    assert unpack_numbering(numb) == [0, 2, tag(3, TAGINT), tag(2, TAGBOX),
+                                      tag(0, TAGBOX), tag(1, TAGINT)] + base
 
     numb2, liveboxes2, v = memo.number(FakeOptimizer(), snap2, frameinfo)
     assert v == 0
@@ -927,11 +930,11 @@ def test_ResumeDataLoopMemo_number():
     assert liveboxes2 == {b1: tag(0, TAGBOX), b2: tag(1, TAGBOX),
                          b3: tag(2, TAGBOX)}
     assert liveboxes2 is not liveboxes
-    assert unpack_numbering(numb2) == [
-         tag(3, TAGINT), tag(2, TAGBOX), tag(0, TAGBOX), tag(3, TAGINT), 0, 0] + base
+    assert unpack_numbering(numb2) == [0, 2, tag(3, TAGINT), tag(2, TAGBOX),
+                                       tag(0, TAGBOX), tag(3, TAGINT)] + base
 
     env3 = [c3, b3, b1, c3]
-    snap3 = Snapshot(snap, env3)
+    snap3 = TopSnapshot(snap, env3, [])
 
     class FakeVirtualInfo(info.AbstractInfo):
         def __init__(self, virt):
@@ -946,13 +949,12 @@ def test_ResumeDataLoopMemo_number():
     assert v == 0
     
     assert liveboxes3 == {b1: tag(0, TAGBOX), b2: tag(1, TAGBOX)}
-    assert unpack_numbering(numb3) == [tag(3, TAGINT), tag(4, TAGINT),
-                                       tag(0, TAGBOX),
-                                       tag(3, TAGINT), 0, 0] + base
+    assert unpack_numbering(numb3) == [0, 2, tag(3, TAGINT), tag(4, TAGINT),
+                                       tag(0, TAGBOX), tag(3, TAGINT)] + base
 
     # virtual
     env4 = [c3, b4, b1, c3]
-    snap4 = Snapshot(snap, env4)
+    snap4 = TopSnapshot(snap, env4, [])
 
     b4.set_forwarded(FakeVirtualInfo(True))
     numb4, liveboxes4, v = memo.number(FakeOptimizer(), snap4, frameinfo)
@@ -960,11 +962,11 @@ def test_ResumeDataLoopMemo_number():
     
     assert liveboxes4 == {b1: tag(0, TAGBOX), b2: tag(1, TAGBOX),
                           b4: tag(0, TAGVIRTUAL)}
-    assert unpack_numbering(numb4) == [tag(3, TAGINT), tag(0, TAGVIRTUAL),
-                                tag(0, TAGBOX), tag(3, TAGINT), 0, 0] + base
+    assert unpack_numbering(numb4) == [0, 2, tag(3, TAGINT), tag(0, TAGVIRTUAL),
+                                       tag(0, TAGBOX), tag(3, TAGINT)] + base
 
     env5 = [b1, b4, b5]
-    snap5 = Snapshot(snap4, env5)
+    snap5 = TopSnapshot(snap4, [], env5)
 
     b4.set_forwarded(FakeVirtualInfo(True))
     b5.set_forwarded(FakeVirtualInfo(True))
@@ -974,9 +976,30 @@ def test_ResumeDataLoopMemo_number():
     
     assert liveboxes5 == {b1: tag(0, TAGBOX), b2: tag(1, TAGBOX),
                           b4: tag(0, TAGVIRTUAL), b5: tag(1, TAGVIRTUAL)}
-    assert unpack_numbering(numb5) == [tag(0, TAGBOX), tag(0, TAGVIRTUAL),
-                           tag(1, TAGVIRTUAL), 2, 1] + unpack_numbering(numb4)
+    assert unpack_numbering(numb5) == [
+        3, tag(0, TAGBOX), tag(0, TAGVIRTUAL), tag(1, TAGVIRTUAL),
+        0,
+        2, 1, tag(3, TAGINT), tag(0, TAGVIRTUAL), tag(0, TAGBOX), tag(3, TAGINT)
+        ] + base
 
+@given(boxlists)
+def test_ResumeDataLoopMemo_random(lst):
+    s = TopSnapshot(None, [], lst)
+    frameinfo = FrameInfo(None, FakeJitCode("foo", 0), 0)
+    memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
+    num, liveboxes, v = memo.number(FakeOptimizer(), s, frameinfo)
+    l = unpack_numbering(num)
+    assert l[-1] == 0
+    assert l[0] == len(lst)
+    for i, item in enumerate(lst):
+        v, tag = untag(l[i + 1])
+        if tag == TAGBOX:
+            assert l[i + 1] == liveboxes[item]
+        elif tag == TAGCONST:
+            assert memo.consts[v].getint() == item.getint()
+        elif tag == TAGINT:
+            assert v == item.getint()
+    
 def test_ResumeDataLoopMemo_number_boxes():
     memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
     b1, b2 = [InputArgInt(), InputArgInt()]
@@ -1060,10 +1083,11 @@ def make_storage(b1, b2, b3):
     storage = Storage()
     snapshot = Snapshot(None, [b1, ConstInt(1), b1, b2])
     snapshot = Snapshot(snapshot, [ConstInt(2), ConstInt(3)])
-    snapshot = Snapshot(snapshot, [b1, b2, b3])    
-    frameinfo = FrameInfo(FrameInfo(None, FakeJitCode("code1", 21), 22),
-        FakeJitCode("code2", 31), 32)
-    storage.rd_snapshot = snapshot
+    snapshot = Snapshot(snapshot, [b1, b2, b3])
+    top_snapshot = TopSnapshot(snapshot, [], [])
+    frameinfo = FrameInfo(FrameInfo(FrameInfo(None, FakeJitCode("code1", 21), 22),
+        FakeJitCode("code2", 31), 32), FakeJitCode("code3", 41), 42)
+    storage.rd_snapshot = top_snapshot
     storage.rd_frame_info_list = frameinfo
     return storage
 
@@ -1076,6 +1100,8 @@ def test_virtual_adder_int_constants():
     assert storage.rd_snapshot is None
     cpu = MyCPU([])
     reader = ResumeDataDirectReader(MyMetaInterp(cpu), storage, "deadframe")
+    reader.consume_vref_and_vable(None, None, None)
+    reader.cur_index += 2 # framestack
     _next_section(reader, sys.maxint, 2**16, -65)
     reader.cur_index += 2 # framestack
     _next_section(reader, 2, 3)
