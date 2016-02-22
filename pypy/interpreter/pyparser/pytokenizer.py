@@ -261,14 +261,13 @@ def generate_tokens(lines, flags):
     token_list.append((tokens.ENDMARKER, '', lnum, pos, line))
     return token_list
 
+
 def universal_newline(line):
-    if len(line) >= 2:
-        c0 = line[-2]
-        c1 = line[-1]
-        if c0 == '\r' and c1 == '\n':
-            return line[:-2] + '\n'
-    if len(line) >= 1:
-        c = line[-1]
-        if c == '\r':
-            return line[:-1] + '\n'
+    # show annotator that indexes below are non-negative
+    line_len_m2 = len(line) - 2
+    if line_len_m2 >= 0 and line[-2] == '\r' and line[-1] == '\n':
+        return line[:line_len_m2] + '\n'
+    line_len_m1 = len(line) - 1
+    if line_len_m1 >= 0 and line[-1] == '\r':
+        return line[:line_len_m1] + '\n'
     return line
