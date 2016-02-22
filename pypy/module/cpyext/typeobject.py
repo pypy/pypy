@@ -297,7 +297,7 @@ class W_PyCTypeObject(W_TypeObject):
         name = rffi.charp2str(pto.c_tp_name)
 
         W_TypeObject.__init__(self, space, name,
-            bases_w or [space.w_object], dict_w)
+            bases_w or [space.w_object], dict_w, force_new_layout=True)
         if not space.is_true(space.issubtype(self, space.w_type)):
             self.flag_cpytype = True
         self.flag_heaptype = False

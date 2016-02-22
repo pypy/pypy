@@ -148,7 +148,7 @@ class W_TypeObject(W_Root):
 
     @dont_look_inside
     def __init__(w_self, space, name, bases_w, dict_w,
-                 overridetypedef=None):
+                 overridetypedef=None, force_new_layout=False):
         w_self.space = space
         w_self.name = name
         w_self.bases_w = bases_w
@@ -164,9 +164,10 @@ class W_TypeObject(W_Root):
         w_self.flag_sequence_bug_compat = False
 
         if overridetypedef is not None:
+            assert not force_new_layout
             layout = setup_builtin_type(w_self, overridetypedef)
         else:
-            layout = setup_user_defined_type(w_self)
+            layout = setup_user_defined_type(w_self, force_new_layout)
         w_self.layout = layout
 
         if space.config.objspace.std.withtypeversion:
@@ -1000,7 +1001,7 @@ def copy_flags_from_bases(w_self, w_bestbase):
         w_self.weakrefable = w_self.weakrefable or w_base.weakrefable
     return hasoldstylebase
 
-def create_all_slots(w_self, hasoldstylebase, w_bestbase):
+def create_all_slots(w_self, hasoldstylebase, w_bestbase, force_new_layout):
     base_layout = w_bestbase.layout
     index_next_extra_slot = base_layout.nslots
     space = w_self.space
@@ -1040,7 +1041,7 @@ def create_all_slots(w_self, hasoldstylebase, w_bestbase):
     if '__del__' in dict_w:
         w_self.needsdel = True
     #
-    if index_next_extra_slot == base_layout.nslots:
+    if index_next_extra_slot == base_layout.nslots and not force_new_layout:
         return base_layout
     else:
         return Layout(base_layout.typedef, index_next_extra_slot,
@@ -1081,7 +1082,7 @@ def valid_slot_name(slot_name):
             return False
     return True
 
-def setup_user_defined_type(w_self):
+def setup_user_defined_type(w_self, force_new_layout):
     if len(w_self.bases_w) == 0:
         w_self.bases_w = [w_self.space.w_object]
     w_bestbase = check_and_find_best_base(w_self.space, w_self.bases_w)
@@ -1093,7 +1094,8 @@ def setup_user_defined_type(w_self):
         w_self.flag_abstract |= w_base.flag_abstract
 
     hasoldstylebase = copy_flags_from_bases(w_self, w_bestbase)
-    layout = create_all_slots(w_self, hasoldstylebase, w_bestbase)
+    layout = create_all_slots(w_self, hasoldstylebase, w_bestbase,
+                              force_new_layout)
 
     ensure_common_attributes(w_self)
     return layout
