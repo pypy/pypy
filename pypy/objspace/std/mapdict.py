@@ -159,12 +159,12 @@ class AbstractAttribute(object):
                 if cls is W_IntObject:
                     # this means that the class stored in the storage is an
                     # IntMutableCell
-                    jit.jit_debug("map: known class int", objectmodel.compute_unique_id(attr))
+                    jit.jit_debug("map: read known class int", objectmodel.compute_unique_id(attr))
                     assert isinstance(result, IntMutableCell)
                     return W_IntObject(result.intvalue)
                 if cls is W_FloatObject:
                     # ditto
-                    jit.jit_debug("map: known class float", objectmodel.compute_unique_id(attr))
+                    jit.jit_debug("map: read known class float", objectmodel.compute_unique_id(attr))
                     assert isinstance(result, FloatMutableCell)
                     return W_FloatObject(result.floatvalue)
                 jit.jit_debug("map: recorded exact class", objectmodel.compute_unique_id(attr))

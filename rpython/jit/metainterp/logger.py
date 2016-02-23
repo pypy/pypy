@@ -6,6 +6,7 @@ from rpython.rlib.objectmodel import we_are_translated, compute_unique_id
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 
+JIT_LOG_VERSION = 1.0
 
 class Logger(object):
     def __init__(self, metainterp_sd, guard_number=False):

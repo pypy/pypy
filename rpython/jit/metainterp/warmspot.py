@@ -1030,7 +1030,11 @@ class WarmRunnerDesc(object):
         checkgraph(origportalgraph)
 
     def add_finish(self):
+        from rpython.jit.metainterp.logger import JIT_LOG_VERSION
         def finish():
+            debug_start("jit-log-opt-version")
+            debug_print(JIT_LOG_VERSION)
+            debug_stop("jit-log-opt-version")
             if self.metainterp_sd.profiler.initialized:
                 self.metainterp_sd.profiler.finish()
             self.metainterp_sd.cpu.finish_once()

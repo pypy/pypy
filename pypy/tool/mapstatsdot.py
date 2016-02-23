@@ -1,5 +1,6 @@
 #! /usr/bin/env python
 import sys
+sys.setrecursionlimit(100000)
 
 class Getattrwrap(object):
     def __init__(self, obj):
@@ -61,7 +62,7 @@ class Map(object):
         seen.add(self)
         if hasattr(self, 'back'):
             if self not in self.back.transitions:
-                output.edge(self.back.id, self.id, dir="none")
+                output.edge(self.back.id, self.id, dir="back")
             self.back.dot(output, seen)
         if not self.instances:
             return
@@ -70,7 +71,10 @@ class Map(object):
                            fillcolor=self.getfillcolor())
         for next, count in self.transitions.iteritems():
             next.dot(output, seen)
-            output.edge(self.id, next.id, label=str(count))
+            args = {}
+            if getattr(next, 'back', None) is not self:
+                args = dict(style="dotted")
+            output.edge(self.id, next.id, label=str(count), **args)
         return node
 
     def getfillcolor(self):
@@ -80,12 +84,21 @@ class Map(object):
 
 
 class Terminator(Map):
+    def __repr__(self):
+        return "Terminator(%s)" % (self.w_cls)
     def fill(self, content):
         Map.fill(self, content)
         self.w_cls = content.w_cls
+        self.w_cls_module = content.w_cls_module
 
     def getlabel(self):
+        if self.w_cls_module is not None:
+            return self.w_cls + "\\l" + self.w_cls_module
         return self.w_cls
+
+    def get_chain(self):
+        return [self]
+
 
 class Attribute(Map):
     def fill(self, content):
@@ -128,6 +141,14 @@ class Attribute(Map):
                 assert int(index) == self.nametype
         self.reads = count
 
+    def get_chain(self):
+        l = []
+        while isinstance(self, Attribute):
+            l.append((self.name, self.nametype))
+            self = self.back
+        l.reverse()
+        return self.get_chain() + l
+
     def getlabel(self):
         if self.nametype == 0:
             name = self.name
@@ -143,7 +164,7 @@ class Attribute(Map):
         for write, count in self.writes.items():
             label.append("    %s: %s" % (write, count))
         if self.number_unnecessary_writes and self.constant:
-            assert len(self.writes) == 1
+            assert len(self.writes) <= 1
             label[-1] += " (%s unnecessary)" % (self.number_unnecessary_writes, )
         if not self.ever_mutated:
             label.append('immutable')
@@ -193,7 +214,21 @@ def main():
     goodattrs = 0
     unnecessary = 0
 
+    seen_sorted_chains = set()
+    duplicate_orders = 0
+    duplicate_order_reads = 0
+    all_instances = 0
+
     for mp in allmaps:
+        chain = mp.get_chain()
+        chain.sort()
+        if tuple(chain) in seen_sorted_chains:
+            duplicate_orders += 1
+            duplicate_order_reads += mp.reads
+            print >> sys.stderr, chain, mp.instances
+        else:
+            seen_sorted_chains.add(tuple(chain))
+
         if not isinstance(mp, Attribute):
             continue
         totalwrites += sum(mp.writes.values())
@@ -210,6 +245,8 @@ def main():
     print >> sys.stderr, "reads:", totalreads, goodreads, float(goodreads) / totalreads
     print >> sys.stderr, "writes:", totalwrites, goodwrites, float(goodwrites) / totalwrites
     print >> sys.stderr, "unnecessary writes:", unnecessary, totalwrites, float(unnecessary) / totalwrites
+    print >> sys.stderr, "wrongly ordered:", duplicate_orders, totalattrs, float(duplicate_orders) / totalattrs
+    print >> sys.stderr, "wrongly ordered reads:", duplicate_order_reads, totalreads, float(duplicate_order_reads) / totalreads
     print >> sys.stderr, "attrs:", totalattrs, goodattrs, float(goodattrs) / totalattrs
     print >> sys.stderr, "reads / writes", float(totalreads) / totalwrites
 
