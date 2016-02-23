@@ -138,7 +138,7 @@ class Module(W_Root):
             w___file__ = space.getattr(self, space.wrap('__file__'))
         except OperationError:
             w___file__ = space.w_None
-        if not space.is_true(space.isinstance(w___file__, space.w_unicode)):
+        if not space.isinstance_w(w___file__, space.w_unicode):
             if w_loader is not None:
                 w_loader_repr = space.unicode_w(space.repr(w_loader))
                 return space.wrap(u"<module %s (%s)>" % (name, w_loader_repr))

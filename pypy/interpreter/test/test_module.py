@@ -80,15 +80,13 @@ class AppTest_ModuleObject:
         assert repr(m).startswith("<module '?'")
 
     def test_repr_with_loader_with_valid_module_repr(self):
-        import _frozen_importlib, sys
+        import sys
         test_module = type(sys)("test_module", "doc")
 
         # If the module has a __loader__ and that loader has a module_repr()
         # method, call it with a single argument, which is the module object.
         # The value returned is used as the module’s repr.
-        class CustomLoader(_frozen_importlib.BuiltinImporter):
-            """Operates just like the builtin importer, but returns its own
-            special repr."""
+        class CustomLoader:
             @classmethod
             def module_repr(cls, module):
                 mod_repr = ("<module {mod_name}: "
@@ -99,33 +97,25 @@ class AppTest_ModuleObject:
         assert repr(test_module) == "<module 'test_module': 'CustomLoader' Test>"
 
     def test_repr_with_loader_with_module_repr_wrong_type(self):
-        import _frozen_importlib, sys
+        import sys
         test_module = type(sys)("test_module", "doc")
 
         # This return value must be a string.
-        class BuggyCustomLoader(_frozen_importlib.BuiltinImporter):
-            """Operates just like the builtin importer, but implements a
-            module_repr method that returns a non-string value."""
+        class BuggyCustomLoader:
             @classmethod
             def module_repr(cls, module):
                 return 5
 
         test_module.__loader__ = BuggyCustomLoader
-        try:
-            repr(test_module)
-            assert False, "module_repr must fail if it returns a nonstring."
-        except TypeError:
-            pass
+        raises(TypeError, repr, test_module)
 
     def test_repr_with_loader_with_raising_module_repr(self):
-        import _frozen_importlib, sys
+        import sys
         test_module = type(sys)("test_module", "doc")
         # If an exception occurs in module_repr(), the exception is caught
         # and discarded, and the calculation of the module’s repr continues
         # as if module_repr() did not exist.
-        class CustomLoaderWithRaisingRepr(_frozen_importlib.BuiltinImporter):
-            """Operates just like the builtin importer, but implements a
-            module_repr method that raises an exception."""
+        class CustomLoaderWithRaisingRepr:
             @classmethod
             def module_repr(cls, module):
                 return repr(1/0)
@@ -140,10 +130,10 @@ class AppTest_ModuleObject:
         assert mod_repr == expected_repr
 
     def test_repr_with_raising_loader_and___file__(self):
-        import _frozen_importlib, sys
+        import sys
         test_module = type(sys)("test_module", "doc")
         test_module.__file__ = "/fake_dir/test_module.py"
-        class CustomLoaderWithRaisingRepr(_frozen_importlib.BuiltinImporter):
+        class CustomLoaderWithRaisingRepr:
             """Operates just like the builtin importer, but implements a
             module_repr method that raises an exception."""
             @classmethod
@@ -160,12 +150,11 @@ class AppTest_ModuleObject:
         assert repr(test_module) == expected_repr
 
     def test_repr_with_missing_name(self):
-        import _frozen_importlib, sys
+        import sys
         test_module = type(sys)("test_module", "doc")
         del test_module.__name__
         mod_repr = repr(test_module)
         assert mod_repr == "<module '?'>"
-
 
     def test_dir(self):
         import sys
