@@ -483,12 +483,12 @@ class W_TypeObject(W_Root):
 
     def getdict(w_self, space): # returning a dict-proxy!
         from pypy.objspace.std.dictproxyobject import DictProxyStrategy
-        from pypy.objspace.std.dictmultiobject import W_DictMultiObject
+        from pypy.objspace.std.dictmultiobject import W_DictObject
         if w_self.lazyloaders:
             w_self._cleanup_()    # force un-lazification
         strategy = space.fromcache(DictProxyStrategy)
         storage = strategy.erase(w_self)
-        return W_DictMultiObject(space, strategy, storage)
+        return W_DictObject(space, strategy, storage)
 
     def is_heaptype(w_self):
         return w_self.flag_heaptype
@@ -1144,7 +1144,7 @@ def ensure_module_attr(w_self):
         space = w_self.space
         caller = space.getexecutioncontext().gettopframe_nohidden()
         if caller is not None:
-            w_globals = caller.w_globals
+            w_globals = caller.get_w_globals()
             w_name = space.finditem(w_globals, space.wrap('__name__'))
             if w_name is not None:
                 w_self.dict_w['__module__'] = w_name

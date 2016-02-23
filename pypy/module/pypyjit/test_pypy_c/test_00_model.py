@@ -534,7 +534,7 @@ class TestRunPyPyC(BaseTestPyPyC):
         log = self.run(f)
         loop, = log.loops_by_filename(self.filepath)
         call_ops = log.opnames(loop.ops_by_id('call'))
-        assert call_ops == ['force_token'] # it does not follow inlining
+        assert call_ops == ['guard_not_invalidated', 'force_token'] # it does not follow inlining
         #
         add_ops = log.opnames(loop.ops_by_id('add'))
         assert add_ops == ['int_add']
@@ -542,7 +542,8 @@ class TestRunPyPyC(BaseTestPyPyC):
         ops = log.opnames(loop.allops())
         assert ops == [
             # this is the actual loop
-            'int_lt', 'guard_true', 'force_token', 'int_add',
+            'int_lt', 'guard_true',
+            'guard_not_invalidated?', 'force_token', 'int_add',
             # this is the signal checking stuff
             ] + SIGCHECK + [
             'jump'

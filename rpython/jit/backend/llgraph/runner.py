@@ -730,7 +730,8 @@ class LLGraphCPU(model.AbstractCPU):
     def bh_gc_load_indexed_f(self, struct, index, scale, base_ofs, bytes):
         if bytes != 8:
             raise Exception("gc_load_indexed_f is only for 'double'!")
-        return llop.gc_load_indexed(rffi.DOUBLE, struct, index, scale, base_ofs)
+        return llop.gc_load_indexed(longlong.FLOATSTORAGE,
+                                    struct, index, scale, base_ofs)
 
     def bh_increment_debug_counter(self, addr):
         p = rffi.cast(rffi.CArrayPtr(lltype.Signed), addr)

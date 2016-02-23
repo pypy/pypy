@@ -443,9 +443,7 @@ def _make_execute_list():
                          rop.GC_LOAD_I,
                          rop.GC_LOAD_R,
                          rop.GC_LOAD_F,
-                         rop.GC_LOAD_INDEXED_I,
                          rop.GC_LOAD_INDEXED_R,
-                         rop.GC_LOAD_INDEXED_F,
                          rop.GC_STORE,
                          rop.GC_STORE_INDEXED,
                          ):      # list of opcodes never executed by pyjitpl

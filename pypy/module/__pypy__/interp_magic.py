@@ -93,7 +93,7 @@ def strategy(space, w_obj):
     Return the underlying strategy currently used by a dict, list or set object
     """
     if isinstance(w_obj, W_DictMultiObject):
-        name = w_obj.strategy.__class__.__name__
+        name = w_obj.get_strategy().__class__.__name__
     elif isinstance(w_obj, W_ListObject):
         name = w_obj.strategy.__class__.__name__
     elif isinstance(w_obj, W_BaseSetObject):
