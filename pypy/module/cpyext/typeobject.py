@@ -376,9 +376,11 @@ class W_PyCTypeObject(W_TypeObject):
         convert_member_defs(space, dict_w, pto.c_tp_members, self)
 
         name = rffi.charp2str(pto.c_tp_name)
+        new_layout = (pto.c_tp_basicsize > rffi.sizeof(PyObject.TO) or
+                      pto.c_tp_itemsize > 0)
 
         W_TypeObject.__init__(self, space, name,
-            bases_w or [space.w_object], dict_w, force_new_layout=True)
+            bases_w or [space.w_object], dict_w, force_new_layout=new_layout)
         if not space.is_true(space.issubtype(self, space.w_type)):
             self.flag_cpytype = True
         self.flag_heaptype = False
