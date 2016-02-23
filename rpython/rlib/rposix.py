@@ -355,10 +355,6 @@ class StringTraits:
     scoped_alloc_buffer = staticmethod(rffi.scoped_alloc_buffer)
 
     @staticmethod
-    def ll_os_name(name):
-        return 'll_os.ll_os_' + name
-
-    @staticmethod
     @specialize.argtype(0)
     def as_str(path):
         assert path is not None
@@ -391,11 +387,6 @@ class UnicodeTraits:
     scoped_str2charp = staticmethod(rffi.scoped_unicode2wcharp)
     free_charp = staticmethod(rffi.free_wcharp)
     scoped_alloc_buffer = staticmethod(rffi.scoped_alloc_unicodebuffer)
-
-    @staticmethod
-    @specialize.argtype(0)
-    def ll_os_name(name):
-        return 'll_os.ll_os_w' + name
 
     @staticmethod
     @specialize.argtype(0)
