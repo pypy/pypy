@@ -506,7 +506,8 @@ class BaseTest(object):
             index = 0
 
         if op.is_guard():
-            op.rd_snapshot = resume.Snapshot(None, op.getfailargs())
+            op.rd_snapshot = resume.TopSnapshot(
+                resume.Snapshot(None, op.getfailargs()), [], [])
             op.rd_frame_info_list = resume.FrameInfo(None, FakeJitCode(), 11)
 
     def add_guard_future_condition(self, res):
