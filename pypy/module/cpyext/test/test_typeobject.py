@@ -396,7 +396,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                     which should have a different tp_getattro/tp_setattro
                     than its tp_base, which is 'object'.
                   */
-                  
+
                  if (!args->ob_type->tp_setattro)
                  {
                      PyErr_SetString(PyExc_ValueError, "missing tp_setattro");
@@ -719,7 +719,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 long ival;
             } IntLikeObject;
 
-            static PyObject * 
+            static PyObject *
             intlike_nb_add(PyObject *self, PyObject *other)
             {
                 long val2, val1 = ((IntLikeObject *)(self))->ival;
@@ -782,7 +782,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
     def test_app_cant_subclass_two_types(self):
         module = self.import_module(name='foo')
         try:
-            class bar(module.fooType, module.Property):
+            class bar(module.fooType, module.UnicodeSubtype):
                 pass
         except TypeError as e:
             assert str(e) == 'instance layout conflicts in multiple inheritance'
