@@ -8,7 +8,6 @@ from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, Py_DecRef, make_ref, from_ref, track_reference,
     make_typedescr, get_typedescr)
 
-
 ##
 ## Implementation of PyBytesObject
 ## ================================
@@ -144,8 +143,6 @@ def PyBytes_AsString(space, ref):
         ref_str.c_buffer = rffi.str2charp(s)
     return ref_str.c_buffer
 
-#_______________________________________________________________________
-
 @cpython_api([PyObject, rffi.CCHARPP, rffi.CArrayPtr(Py_ssize_t)], rffi.INT_real, error=-1)
 def PyBytes_AsStringAndSize(space, ref, buffer, length):
     if not PyBytes_Check(space, ref):
@@ -228,9 +225,9 @@ def PyBytes_Concat(space, ref, w_newpart):
 
     if w_newpart is None or not PyBytes_Check(space, ref[0]) or \
             not PyBytes_Check(space, w_newpart):
-         Py_DecRef(space, ref[0])
-         ref[0] = lltype.nullptr(PyObject.TO)
-         return
+        Py_DecRef(space, ref[0])
+        ref[0] = lltype.nullptr(PyObject.TO)
+        return
     w_str = from_ref(space, ref[0])
     w_newstr = space.add(w_str, w_newpart)
     Py_DecRef(space, ref[0])
