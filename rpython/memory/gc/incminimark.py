@@ -706,6 +706,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 self.major_collection_step()
         else:
             self.minor_and_major_collection()
+        self.rrc_invoke_callback()
 
 
     def collect_and_reserve(self, totalsize):
@@ -783,12 +784,15 @@ class IncrementalMiniMarkGC(MovingGCBase):
                                self.threshold_reached()):  # ^^but only if still
                             self.minor_collection()        # the same collection
                             self.major_collection_step()
-                        #
-                        # The nursery might not be empty now, because of
-                        # execute_finalizers().  If it is almost full again,
-                        # we need to fix it with another call to minor_collection().
-                        if self.nursery_free + totalsize > self.nursery_top:
-                            self.minor_collection()
+                    #
+                    self.rrc_invoke_callback()
+                    #
+                    # The nursery might not be empty now, because of
+                    # execute_finalizers() or rrc_invoke_callback().
+                    # If it is almost full again,
+                    # we need to fix it with another call to minor_collection().
+                    if self.nursery_free + totalsize > self.nursery_top:
+                        self.minor_collection()
                     #
                 else:
                     ll_assert(minor_collection_count == 2,
@@ -861,6 +865,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             if self.threshold_reached(raw_malloc_usage(totalsize) +
                                       self.nursery_size // 2):
                 self.major_collection_step(raw_malloc_usage(totalsize))
+            self.rrc_invoke_callback()
             # note that this loop should not be infinite: when the
             # last step of a major collection is done but
             # threshold_reached(totalsize) is still true, then
@@ -1080,35 +1085,19 @@ class IncrementalMiniMarkGC(MovingGCBase):
                   "odd-valued (i.e. tagged) pointer unexpected here")
         return self.nursery <= addr < self.nursery + self.nursery_size
 
-    def appears_to_be_young(self, addr):
-        # "is a valid addr to a young object?"
-        # but it's ok to occasionally return True accidentally.
-        # Maybe the best implementation would be a bloom filter
-        # of some kind instead of the dictionary lookup that is
-        # sometimes done below.  But the expected common answer
-        # is "Yes" because addr points to the nursery, so it may
-        # not be useful to optimize the other case too much.
-        #
-        # First, if 'addr' appears to be a pointer to some place within
-        # the nursery, return True
-        if not self.translated_to_c:
-            # When non-translated, filter out tagged pointers explicitly.
-            # When translated, it may occasionally give a wrong answer
-            # of True if 'addr' is a tagged pointer with just the wrong value.
-            if not self.is_valid_gc_object(addr):
-                return False
-
+    def is_young_object(self, addr):
+        # Check if the object at 'addr' is young.
+        if not self.is_valid_gc_object(addr):
+            return False     # filter out tagged pointers explicitly.
         if self.nursery <= addr < self.nursery_top:
             return True      # addr is in the nursery
-        #
         # Else, it may be in the set 'young_rawmalloced_objects'
         return (bool(self.young_rawmalloced_objects) and
                 self.young_rawmalloced_objects.contains(addr))
-    appears_to_be_young._always_inline_ = True
 
     def debug_is_old_object(self, addr):
         return (self.is_valid_gc_object(addr)
-                and not self.appears_to_be_young(addr))
+                and not self.is_young_object(addr))
 
     def is_forwarded(self, obj):
         """Returns True if the nursery obj is marked as forwarded.
@@ -1618,6 +1607,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 self._visit_old_objects_pointing_to_pinned, None)
             current_old_objects_pointing_to_pinned.delete()
         #
+        # visit the P list from rawrefcount, if enabled.
+        if self.rrc_enabled:
+            self.rrc_minor_collection_trace()
+        #
         while True:
             # If we are using card marking, do a partial trace of the arrays
             # that are flagged with GCFLAG_CARDS_SET.
@@ -1665,6 +1658,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # them or make them old.
         if self.young_rawmalloced_objects:
             self.free_young_rawmalloced_objects()
+        #
+        # visit the P and O lists from rawrefcount, if enabled.
+        if self.rrc_enabled:
+            self.rrc_minor_collection_free()
         #
         # All live nursery objects are out of the nursery or pinned inside
         # the nursery.  Create nursery barriers to protect the pinned objects,
@@ -2178,8 +2175,12 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # finalizers/weak references are rare and short which means that
             # they do not need a separate state and do not need to be
             # made incremental.
+            # For now, the same applies to rawrefcount'ed objects.
             if (not self.objects_to_trace.non_empty() and
                 not self.more_objects_to_trace.non_empty()):
+                #
+                if self.rrc_enabled:
+                    self.rrc_major_collection_trace()
                 #
                 if self.objects_with_finalizers.non_empty():
                     self.deal_with_objects_with_finalizers()
@@ -2215,6 +2216,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
                     self.old_objects_pointing_to_pinned = \
                             new_old_objects_pointing_to_pinned
                     self.updated_old_objects_pointing_to_pinned = True
+                #
+                if self.rrc_enabled:
+                    self.rrc_major_collection_free()
+                #
                 self.gc_state = STATE_SWEEPING
             #END MARKING
         elif self.gc_state == STATE_SWEEPING:
@@ -2745,3 +2750,238 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 (obj + offset).address[0] = llmemory.NULL
         self.old_objects_with_weakrefs.delete()
         self.old_objects_with_weakrefs = new_with_weakref
+
+
+    # ----------
+    # RawRefCount
+
+    rrc_enabled = False
+
+    _ADDRARRAY = lltype.Array(llmemory.Address, hints={'nolength': True})
+    PYOBJ_HDR = lltype.Struct('GCHdr_PyObject',
+                              ('ob_refcnt', lltype.Signed),
+                              ('ob_pypy_link', lltype.Signed))
+    PYOBJ_HDR_PTR = lltype.Ptr(PYOBJ_HDR)
+    RAWREFCOUNT_DEALLOC_TRIGGER = lltype.Ptr(lltype.FuncType([], lltype.Void))
+
+    def _pyobj(self, pyobjaddr):
+        return llmemory.cast_adr_to_ptr(pyobjaddr, self.PYOBJ_HDR_PTR)
+
+    def rawrefcount_init(self, dealloc_trigger_callback):
+        # see pypy/doc/discussion/rawrefcount.rst
+        if not self.rrc_enabled:
+            self.rrc_p_list_young = self.AddressStack()
+            self.rrc_p_list_old   = self.AddressStack()
+            self.rrc_o_list_young = self.AddressStack()
+            self.rrc_o_list_old   = self.AddressStack()
+            self.rrc_p_dict       = self.AddressDict()  # non-nursery keys only
+            self.rrc_p_dict_nurs  = self.AddressDict()  # nursery keys only
+            p = lltype.malloc(self._ADDRARRAY, 1, flavor='raw',
+                              track_allocation=False)
+            self.rrc_singleaddr = llmemory.cast_ptr_to_adr(p)
+            self.rrc_dealloc_trigger_callback = dealloc_trigger_callback
+            self.rrc_dealloc_pending = self.AddressStack()
+            self.rrc_enabled = True
+
+    def check_no_more_rawrefcount_state(self):
+        "NOT_RPYTHON: for tests"
+        assert self.rrc_p_list_young.length() == 0
+        assert self.rrc_p_list_old  .length() == 0
+        assert self.rrc_o_list_young.length() == 0
+        assert self.rrc_o_list_old  .length() == 0
+        def check_value_is_null(key, value, ignore):
+            assert value == llmemory.NULL
+        self.rrc_p_dict.foreach(check_value_is_null, None)
+        self.rrc_p_dict_nurs.foreach(check_value_is_null, None)
+
+    def rawrefcount_create_link_pypy(self, gcobj, pyobject):
+        ll_assert(self.rrc_enabled, "rawrefcount.init not called")
+        obj = llmemory.cast_ptr_to_adr(gcobj)
+        objint = llmemory.cast_adr_to_int(obj, "symbolic")
+        self._pyobj(pyobject).ob_pypy_link = objint
+        #
+        lst = self.rrc_p_list_young
+        if self.is_in_nursery(obj):
+            dct = self.rrc_p_dict_nurs
+        else:
+            dct = self.rrc_p_dict
+            if not self.is_young_object(obj):
+                lst = self.rrc_p_list_old
+        lst.append(pyobject)
+        dct.setitem(obj, pyobject)
+
+    def rawrefcount_create_link_pyobj(self, gcobj, pyobject):
+        ll_assert(self.rrc_enabled, "rawrefcount.init not called")
+        obj = llmemory.cast_ptr_to_adr(gcobj)
+        if self.is_young_object(obj):
+            self.rrc_o_list_young.append(pyobject)
+        else:
+            self.rrc_o_list_old.append(pyobject)
+        objint = llmemory.cast_adr_to_int(obj, "symbolic")
+        self._pyobj(pyobject).ob_pypy_link = objint
+        # there is no rrc_o_dict
+
+    def rawrefcount_from_obj(self, gcobj):
+        obj = llmemory.cast_ptr_to_adr(gcobj)
+        if self.is_in_nursery(obj):
+            dct = self.rrc_p_dict_nurs
+        else:
+            dct = self.rrc_p_dict
+        return dct.get(obj)
+
+    def rawrefcount_to_obj(self, pyobject):
+        obj = llmemory.cast_int_to_adr(self._pyobj(pyobject).ob_pypy_link)
+        return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
+
+    def rawrefcount_next_dead(self):
+        if self.rrc_dealloc_pending.non_empty():
+            return self.rrc_dealloc_pending.pop()
+        return llmemory.NULL
+
+
+    def rrc_invoke_callback(self):
+        if self.rrc_enabled and self.rrc_dealloc_pending.non_empty():
+            self.rrc_dealloc_trigger_callback()
+
+    def rrc_minor_collection_trace(self):
+        length_estimate = self.rrc_p_dict_nurs.length()
+        self.rrc_p_dict_nurs.delete()
+        self.rrc_p_dict_nurs = self.AddressDict(length_estimate)
+        self.rrc_p_list_young.foreach(self._rrc_minor_trace,
+                                      self.rrc_singleaddr)
+
+    def _rrc_minor_trace(self, pyobject, singleaddr):
+        from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY
+        from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY_LIGHT
+        #
+        rc = self._pyobj(pyobject).ob_refcnt
+        if rc == REFCNT_FROM_PYPY or rc == REFCNT_FROM_PYPY_LIGHT:
+            pass     # the corresponding object may die
+        else:
+            # force the corresponding object to be alive
+            intobj = self._pyobj(pyobject).ob_pypy_link
+            singleaddr.address[0] = llmemory.cast_int_to_adr(intobj)
+            self._trace_drag_out(singleaddr, llmemory.NULL)
+
+    def rrc_minor_collection_free(self):
+        ll_assert(self.rrc_p_dict_nurs.length() == 0, "p_dict_nurs not empty 1")
+        lst = self.rrc_p_list_young
+        while lst.non_empty():
+            self._rrc_minor_free(lst.pop(), self.rrc_p_list_old,
+                                            self.rrc_p_dict)
+        lst = self.rrc_o_list_young
+        no_o_dict = self.null_address_dict()
+        while lst.non_empty():
+            self._rrc_minor_free(lst.pop(), self.rrc_o_list_old,
+                                            no_o_dict)
+
+    def _rrc_minor_free(self, pyobject, surviving_list, surviving_dict):
+        intobj = self._pyobj(pyobject).ob_pypy_link
+        obj = llmemory.cast_int_to_adr(intobj)
+        if self.is_in_nursery(obj):
+            if self.is_forwarded(obj):
+                # Common case: survives and moves
+                obj = self.get_forwarding_address(obj)
+                intobj = llmemory.cast_adr_to_int(obj, "symbolic")
+                self._pyobj(pyobject).ob_pypy_link = intobj
+                surviving = True
+                if surviving_dict:
+                    # Surviving nursery object: was originally in
+                    # rrc_p_dict_nurs and now must be put into rrc_p_dict
+                    surviving_dict.setitem(obj, pyobject)
+            else:
+                surviving = False
+        elif (bool(self.young_rawmalloced_objects) and
+              self.young_rawmalloced_objects.contains(obj)):
+            # young weakref to a young raw-malloced object
+            if self.header(obj).tid & GCFLAG_VISITED_RMY:
+                surviving = True    # survives, but does not move
+            else:
+                surviving = False
+                if surviving_dict:
+                    # Dying young large object: was in rrc_p_dict,
+                    # must be deleted
+                    surviving_dict.setitem(obj, llmemory.NULL)
+        else:
+            ll_assert(False, "rrc_X_list_young contains non-young obj")
+            return
+        #
+        if surviving:
+            surviving_list.append(pyobject)
+        else:
+            self._rrc_free(pyobject)
+
+    def _rrc_free(self, pyobject):
+        from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY
+        from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY_LIGHT
+        #
+        rc = self._pyobj(pyobject).ob_refcnt
+        if rc >= REFCNT_FROM_PYPY_LIGHT:
+            rc -= REFCNT_FROM_PYPY_LIGHT
+            if rc == 0:
+                lltype.free(self._pyobj(pyobject), flavor='raw')
+            else:
+                # can only occur if LIGHT is used in create_link_pyobj()
+                self._pyobj(pyobject).ob_refcnt = rc
+                self._pyobj(pyobject).ob_pypy_link = 0
+        else:
+            ll_assert(rc >= REFCNT_FROM_PYPY, "refcount underflow?")
+            ll_assert(rc < int(REFCNT_FROM_PYPY_LIGHT * 0.99),
+                      "refcount underflow from REFCNT_FROM_PYPY_LIGHT?")
+            rc -= REFCNT_FROM_PYPY
+            self._pyobj(pyobject).ob_refcnt = rc
+            self._pyobj(pyobject).ob_pypy_link = 0
+            if rc == 0:
+                self.rrc_dealloc_pending.append(pyobject)
+    _rrc_free._always_inline_ = True
+
+    def rrc_major_collection_trace(self):
+        self.rrc_p_list_old.foreach(self._rrc_major_trace, None)
+
+    def _rrc_major_trace(self, pyobject, ignore):
+        from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY
+        from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY_LIGHT
+        #
+        rc = self._pyobj(pyobject).ob_refcnt
+        if rc == REFCNT_FROM_PYPY or rc == REFCNT_FROM_PYPY_LIGHT:
+            pass     # the corresponding object may die
+        else:
+            # force the corresponding object to be alive
+            intobj = self._pyobj(pyobject).ob_pypy_link
+            obj = llmemory.cast_int_to_adr(intobj)
+            self.objects_to_trace.append(obj)
+            self.visit_all_objects()
+
+    def rrc_major_collection_free(self):
+        ll_assert(self.rrc_p_dict_nurs.length() == 0, "p_dict_nurs not empty 2")
+        length_estimate = self.rrc_p_dict.length()
+        self.rrc_p_dict.delete()
+        self.rrc_p_dict = new_p_dict = self.AddressDict(length_estimate)
+        new_p_list = self.AddressStack()
+        while self.rrc_p_list_old.non_empty():
+            self._rrc_major_free(self.rrc_p_list_old.pop(), new_p_list,
+                                                            new_p_dict)
+        self.rrc_p_list_old.delete()
+        self.rrc_p_list_old = new_p_list
+        #
+        new_o_list = self.AddressStack()
+        no_o_dict = self.null_address_dict()
+        while self.rrc_o_list_old.non_empty():
+            self._rrc_major_free(self.rrc_o_list_old.pop(), new_o_list,
+                                                            no_o_dict)
+        self.rrc_o_list_old.delete()
+        self.rrc_o_list_old = new_o_list
+
+    def _rrc_major_free(self, pyobject, surviving_list, surviving_dict):
+        # The pyobject survives if the corresponding obj survives.
+        # This is true if the obj has one of the following two flags:
+        #  * GCFLAG_VISITED: was seen during tracing
+        #  * GCFLAG_NO_HEAP_PTRS: immortal object never traced (so far)
+        intobj = self._pyobj(pyobject).ob_pypy_link
+        obj = llmemory.cast_int_to_adr(intobj)
+        if self.header(obj).tid & (GCFLAG_VISITED | GCFLAG_NO_HEAP_PTRS):
+            surviving_list.append(pyobject)
+            if surviving_dict:
+                surviving_dict.insertclean(obj, pyobject)
+        else:
+            self._rrc_free(pyobject)

@@ -161,7 +161,9 @@ class AppTestGetargs(AppTestCpythonExtensionBase):
                 freed.append('x')
         raises(TypeError, pybuffer,
                freestring("string"), freestring("other string"), 42)
-        import gc; gc.collect()
+        self.debug_collect()    # gc.collect() is not enough in this test:
+                                # we need to check and free the PyObject
+                                # linked to the freestring object as well
         assert freed == ['x', 'x']
 
 

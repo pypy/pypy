@@ -43,7 +43,7 @@ def _PyComplex_FromCComplex(space, v):
 
 # lltype does not handle functions returning a structure.  This implements a
 # helper function, which takes as argument a reference to the return value.
-@cpython_api([PyObject, Py_complex_ptr], lltype.Void)
+@cpython_api([PyObject, Py_complex_ptr], rffi.INT_real, error=-1)
 def _PyComplex_AsCComplex(space, w_obj, result):
     """Return the Py_complex value of the complex number op.
 
@@ -60,7 +60,7 @@ def _PyComplex_AsCComplex(space, w_obj, result):
             # if the above did not work, interpret obj as a float giving the
             # real part of the result, and fill in the imaginary part as 0.
             result.c_real = PyFloat_AsDouble(space, w_obj) # -1 on failure
-            return
+            return 0
 
         if not PyComplex_Check(space, w_obj):
             raise OperationError(space.w_TypeError, space.wrap(
@@ -69,3 +69,4 @@ def _PyComplex_AsCComplex(space, w_obj, result):
     assert isinstance(w_obj, W_ComplexObject)
     result.c_real = w_obj.realval
     result.c_imag = w_obj.imagval
+    return 0
