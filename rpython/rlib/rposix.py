@@ -355,10 +355,6 @@ class StringTraits:
     scoped_alloc_buffer = staticmethod(rffi.scoped_alloc_buffer)
 
     @staticmethod
-    def posix_function_name(name):
-        return UNDERSCORE_ON_WIN32 + name
-
-    @staticmethod
     def ll_os_name(name):
         return 'll_os.ll_os_' + name
 
@@ -395,10 +391,6 @@ class UnicodeTraits:
     scoped_str2charp = staticmethod(rffi.scoped_unicode2wcharp)
     free_charp = staticmethod(rffi.free_wcharp)
     scoped_alloc_buffer = staticmethod(rffi.scoped_alloc_unicodebuffer)
-
-    @staticmethod
-    def posix_function_name(name):
-        return UNDERSCORE_ON_WIN32 + 'w' + name
 
     @staticmethod
     @specialize.argtype(0)
