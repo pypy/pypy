@@ -2042,6 +2042,11 @@ class Transformer(object):
         self.vable_flags[op.args[0]] = op.args[2].value
         return []
 
+    def rewrite_op_jit_enter_portal_frame(self, op):
+        return [op]
+    def rewrite_op_jit_leave_portal_frame(self, op):
+        return [op]
+
     # ---------
     # ll_math.sqrt_nonneg()
 

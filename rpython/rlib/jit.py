@@ -1168,6 +1168,24 @@ class ConditionalCallEntry(ExtRegistryEntry):
         hop.exception_is_here()
         return hop.genop('jit_conditional_call', args_v)
 
+def enter_portal_frame(unique_id):
+    """call this when starting to interpret a function. calling this is not
+    necessary for almost all interpreters. The only exception is stackless
+    interpreters where the portal never calls itself.
+    """
+    from rpython.rtyper.lltypesystem import lltype
+    from rpython.rtyper.lltypesystem.lloperation import llop
+    llop.jit_enter_portal_frame(lltype.Void, unique_id)
+
+def leave_portal_frame():
+    """call this after the end of executing a function. calling this is not
+    necessary for almost all interpreters. The only exception is stackless
+    interpreters where the portal never calls itself.
+    """
+    from rpython.rtyper.lltypesystem import lltype
+    from rpython.rtyper.lltypesystem.lloperation import llop
+    llop.jit_leave_portal_frame(lltype.Void)
+
 class Counters(object):
     counters="""
     TRACING
