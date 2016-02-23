@@ -2550,6 +2550,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert b.base is None
         b = a[:, np.array([True, False, True])]
         assert b.base is not None
+        b = a[np.array([True, False]), 0]
+        assert (b ==[0]).all()
 
     def test_scalar_indexing(self):
         import numpy as np

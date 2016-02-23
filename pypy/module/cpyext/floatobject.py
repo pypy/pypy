@@ -17,7 +17,7 @@ cpython_struct("PyFloatObject", PyFloatObjectFields, PyFloatObjectStruct)
 @bootstrap_function
 def init_floatobject(space):
     "Type description of PyFloatObject"
-    make_typedescr(space.w_float.instancetypedef,
+    make_typedescr(space.w_float.layout.typedef,
                    basestruct=PyFloatObject.TO,
                    attach=float_attach,
                    realize=float_realize)

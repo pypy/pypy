@@ -31,7 +31,7 @@ def _PyObject_New(space, type):
 def _PyObject_NewVar(space, type, itemcount):
     w_type = from_ref(space, rffi.cast(PyObject, type))
     assert isinstance(w_type, W_TypeObject)
-    typedescr = get_typedescr(w_type.instancetypedef)
+    typedescr = get_typedescr(w_type.layout.typedef)
     py_obj = typedescr.allocate(space, w_type, itemcount=itemcount)
     #py_obj.c_ob_refcnt = 0 --- will be set to 1 again by PyObject_Init{Var}
     if type.c_tp_itemsize == 0:

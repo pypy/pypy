@@ -28,7 +28,7 @@ cpython_struct("PyUnicodeObject", PyUnicodeObjectFields, PyUnicodeObjectStruct)
 
 @bootstrap_function
 def init_unicodeobject(space):
-    make_typedescr(space.w_unicode.instancetypedef,
+    make_typedescr(space.w_unicode.layout.typedef,
                    basestruct=PyUnicodeObject.TO,
                    attach=unicode_attach,
                    dealloc=unicode_dealloc,
@@ -49,7 +49,7 @@ def new_empty_unicode(space, length):
     interpreter object.  The buffer may be mutated, until unicode_realize() is
     called.  Refcount of the result is 1.
     """
-    typedescr = get_typedescr(space.w_unicode.instancetypedef)
+    typedescr = get_typedescr(space.w_unicode.layout.typedef)
     py_obj = typedescr.allocate(space, space.w_unicode)
     py_uni = rffi.cast(PyUnicodeObject, py_obj)
 

@@ -736,12 +736,18 @@ static PyObject * cmp_docstring(PyObject * self, PyObject * args)
     Py_RETURN_NONE;
 }
 
+static PyObject *size_of_instances(PyObject *self, PyObject *t)
+{
+    return PyInt_FromLong(((PyTypeObject *)t)->tp_basicsize);
+}
+
 /* List of functions exported by this module */
 
 static PyMethodDef foo_functions[] = {
     {"new",        (PyCFunction)foo_new, METH_NOARGS, NULL},
     {"newCustom",  (PyCFunction)newCustom, METH_NOARGS, NULL},
     {"cmp_docstring",  (PyCFunction)cmp_docstring, METH_VARARGS, NULL},
+    {"size_of_instances", (PyCFunction)size_of_instances, METH_O, NULL},
     {NULL,        NULL}    /* Sentinel */
 };
 
