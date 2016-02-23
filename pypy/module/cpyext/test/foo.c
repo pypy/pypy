@@ -182,7 +182,7 @@ static PyMemberDef foo_members[] = {
     {"float_member", T_FLOAT, offsetof(fooobject, foo_float), 0, NULL},
     {"double_member", T_DOUBLE, offsetof(fooobject, foo_double), 0, NULL},
     {"longlong_member", T_LONGLONG, offsetof(fooobject, foo_longlong), 0, NULL},
-    {"ulonglong_member", T_ULONGLONG, offsetof(fooobject, foo_ulonglong), 0, NULL},  
+    {"ulonglong_member", T_ULONGLONG, offsetof(fooobject, foo_ulonglong), 0, NULL},
     {"ssizet_member", T_PYSSIZET, offsetof(fooobject, foo_ssizet), 0, NULL},
     {NULL}  /* Sentinel */
 };
@@ -450,7 +450,7 @@ foo_new(PyObject *self, PyObject *args)
     if ((foop = newfooobject()) == NULL) {
         return NULL;
     }
-    
+
     return (PyObject *)foop;
 }
 
@@ -666,7 +666,7 @@ static PyObject * cmp_docstring(PyObject * self, PyObject * args)
         PyMethodDescr_TypePtr == PyGetSetDescr_TypePtr ||
         PyMemberDescr_TypePtr == PyGetSetDescr_TypePtr)
     {
-        PyErr_Format(PyExc_RuntimeError, 
+        PyErr_Format(PyExc_RuntimeError,
             "at least two of the 'Py{Method,Member,GetSet}Descr_Type's are the same\n"
             "(in cmp_docstring %s %d)", __FILE__, __LINE__);
         return NULL;
@@ -695,7 +695,20 @@ static PyObject * cmp_docstring(PyObject * self, PyObject * args)
         _CMPDOC(CFunction, new->m_ml->ml_doc, new->m_ml->ml_name);
     }
     else if (_TESTDOC1(Type)) {
-        _CMPDOC(Type, new->tp_doc, new->tp_name);
+        PyTypeObject *new = (PyTypeObject *)obj;
+        if (!(new->tp_doc)) {
+            PyErr_Format(PyExc_RuntimeError, "Type '%s' %s", new->tp_name, msg);
+            return NULL;
+        }
+        else {
+            if (strcmp(new->tp_doc, docstr) != 0)
+            {
+                PyErr_Format(PyExc_RuntimeError,
+                             "%s's docstring '%s' is not '%s'",
+                             new->tp_name, new->tp_doc, docstr);
+                return NULL;
+            }
+        }
     }
     else if (_TESTDOC2(MemberDescr)) {
         _CMPDOC(MemberDescr, new->d_member->doc, new->d_member->name);
@@ -718,13 +731,13 @@ static PyObject * cmp_docstring(PyObject * self, PyObject * args)
 
         attr_as_str = PyString_AS_STRING(doc_attr);
         if (strcmp(attr_as_str, docstr) != 0)
-        {                                                           
-            PyErr_Format(PyExc_RuntimeError,                        
-                         "objects's docstring '%s' is not '%s'", 
-                         attr_as_str, docstr);               
+        {
+            PyErr_Format(PyExc_RuntimeError,
+                         "objects's docstring '%s' is not '%s'",
+                         attr_as_str, docstr);
             Py_XDECREF(doc_attr);
-            return NULL;                                            
-        }                                                           
+            return NULL;
+        }
         Py_XDECREF(doc_attr);
         Py_RETURN_NONE;
     }
@@ -782,7 +795,7 @@ initfoo(void)
         return;
     if (PyType_Ready(&SimplePropertyType) < 0)
         return;
-    
+
     SimplePropertyType.tp_new = PyType_GenericNew;
     InitErrType.tp_new = PyType_GenericNew;
 
