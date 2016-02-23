@@ -8,7 +8,6 @@ from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, Py_DecRef, make_ref, from_ref, track_reference,
     make_typedescr, get_typedescr)
 
-
 ##
 ## Implementation of PyBytesObject
 ## ================================
@@ -60,7 +59,7 @@ cpython_struct("PyBytesObject", PyBytesObjectFields, PyBytesObjectStruct)
 @bootstrap_function
 def init_bytesobject(space):
     "Type description of PyBytesObject"
-    make_typedescr(space.w_str.instancetypedef,
+    make_typedescr(space.w_str.layout.typedef,
                    basestruct=PyBytesObject.TO,
                    attach=bytes_attach,
                    dealloc=bytes_dealloc,
@@ -70,11 +69,11 @@ PyBytes_Check, PyBytes_CheckExact = build_type_checkers("Bytes", "w_bytes")
 
 def new_empty_str(space, length):
     """
-    Allocates a PyBytesObject and its buffer, but without a corresponding
+    Allocate a PyBytesObject and its buffer, but without a corresponding
     interpreter object.  The buffer may be mutated, until bytes_realize() is
-    called.
+    called.  Refcount of the result is 1.
     """
-    typedescr = get_typedescr(space.w_bytes.instancetypedef)
+    typedescr = get_typedescr(space.w_bytes.layout.typedef)
     py_obj = typedescr.allocate(space, space.w_bytes)
     py_str = rffi.cast(PyBytesObject, py_obj)
 
@@ -143,8 +142,6 @@ def PyBytes_AsString(space, ref):
         s = space.bytes_w(w_str)
         ref_str.c_buffer = rffi.str2charp(s)
     return ref_str.c_buffer
-
-#_______________________________________________________________________
 
 @cpython_api([PyObject, rffi.CCHARPP, rffi.CArrayPtr(Py_ssize_t)], rffi.INT_real, error=-1)
 def PyBytes_AsStringAndSize(space, ref, buffer, length):
@@ -228,9 +225,9 @@ def PyBytes_Concat(space, ref, w_newpart):
 
     if w_newpart is None or not PyBytes_Check(space, ref[0]) or \
             not PyBytes_Check(space, w_newpart):
-         Py_DecRef(space, ref[0])
-         ref[0] = lltype.nullptr(PyObject.TO)
-         return
+        Py_DecRef(space, ref[0])
+        ref[0] = lltype.nullptr(PyObject.TO)
+        return
     w_str = from_ref(space, ref[0])
     w_newstr = space.add(w_str, w_newpart)
     Py_DecRef(space, ref[0])

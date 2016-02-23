@@ -1,7 +1,6 @@
 from pypy.interpreter import module
 from pypy.module.cpyext.api import (
     generic_cpy_call, cpython_api, PyObject, CONST_STRING)
-from pypy.module.cpyext.pyobject import borrow_from
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.module import Module
@@ -57,7 +56,7 @@ def PyImport_ReloadModule(space, w_mod):
     w_imp = space.call_function(w_import, space.wrap('imp'))
     return space.call_method(w_imp, 'reload', w_mod)
 
-@cpython_api([CONST_STRING], PyObject)
+@cpython_api([CONST_STRING], PyObject, result_borrowed=True)
 def PyImport_AddModule(space, name):
     """Return the module object corresponding to a module name.  The name
     argument may be of the form package.module. First check the modules
@@ -72,19 +71,19 @@ def PyImport_AddModule(space, name):
     not already present."""
     from pypy.module.imp.importing import check_sys_modules_w
     modulename = rffi.charp2str(name)
-    w_modulename = space.wrap(modulename)
     w_mod = check_sys_modules_w(space, modulename)
     if not w_mod or space.is_w(w_mod, space.w_None):
-        w_mod = Module(space, w_modulename)
-    space.setitem(space.sys.get('modules'), w_modulename, w_mod)
-    return borrow_from(None, w_mod)
+        w_mod = Module(space, space.wrap(modulename))
+    space.setitem(space.sys.get('modules'), space.wrap(modulename), w_mod)
+    # return a borrowed ref --- assumes one copy in sys.modules
+    return w_mod
 
-@cpython_api([], PyObject)
+@cpython_api([], PyObject, result_borrowed=True)
 def PyImport_GetModuleDict(space):
     """Return the dictionary used for the module administration (a.k.a.
     sys.modules).  Note that this is a per-interpreter variable."""
     w_modulesDict = space.sys.get('modules')
-    return borrow_from(None, w_modulesDict)
+    return w_modulesDict     # borrowed ref
 
 @cpython_api([rffi.CCHARP, PyObject], PyObject)
 def PyImport_ExecCodeModule(space, name, w_code):

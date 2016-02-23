@@ -3,7 +3,7 @@ from pypy.module.cpyext.api import (
     PyObjectFields, generic_cpy_call, CONST_STRING, CANNOT_FAIL, Py_ssize_t,
     cpython_api, bootstrap_function, cpython_struct, build_type_checkers)
 from pypy.module.cpyext.pyobject import (
-    PyObject, make_ref, from_ref, Py_DecRef, make_typedescr, borrow_from)
+    PyObject, make_ref, from_ref, Py_DecRef, make_typedescr)
 from rpython.rlib.unroll import unrolling_iterable
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.function import Function, Method
@@ -83,12 +83,12 @@ def code_dealloc(space, py_obj):
     from pypy.module.cpyext.object import PyObject_dealloc
     PyObject_dealloc(space, py_obj)
 
-@cpython_api([PyObject], PyObject)
+@cpython_api([PyObject], PyObject, result_borrowed=True)
 def PyFunction_GetCode(space, w_func):
     """Return the code object associated with the function object op."""
     func = space.interp_w(Function, w_func)
     w_code = space.wrap(func.code)
-    return borrow_from(w_func, w_code)
+    return w_code      # borrowed ref
 
 @cpython_api([PyObject, PyObject], PyObject)
 def PyMethod_New(space, w_func, w_self):
@@ -98,18 +98,18 @@ def PyMethod_New(space, w_func, w_self):
     not be NULL."""
     return Method(space, w_func, w_self)
 
-@cpython_api([PyObject], PyObject)
+@cpython_api([PyObject], PyObject, result_borrowed=True)
 def PyMethod_Function(space, w_method):
     """Return the function object associated with the method meth."""
     assert isinstance(w_method, Method)
-    return borrow_from(w_method, w_method.w_function)
+    return w_method.w_function     # borrowed ref
 
-@cpython_api([PyObject], PyObject)
+@cpython_api([PyObject], PyObject, result_borrowed=True)
 def PyMethod_Self(space, w_method):
     """Return the instance associated with the method meth if it is bound,
     otherwise return NULL."""
     assert isinstance(w_method, Method)
-    return borrow_from(w_method, w_method.w_instance)
+    return w_method.w_instance     # borrowed ref
 
 def unwrap_list_of_strings(space, w_list):
     return [space.str_w(w_item) for w_item in space.fixedview(w_list)]

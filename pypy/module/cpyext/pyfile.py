@@ -1,7 +1,7 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
-    cpython_api, CANNOT_FAIL, CONST_STRING, FILEP)
-from pypy.module.cpyext.pyobject import PyObject, borrow_from
+    cpython_api, CONST_STRING, FILEP)
+from pypy.module.cpyext.pyobject import PyObject
 from pypy.module.cpyext.object import Py_PRINT_RAW
 from pypy.interpreter.error import OperationError
 
@@ -80,4 +80,5 @@ def PyFile_WriteObject(space, w_obj, w_p, flags):
 @cpython_api([PyObject], PyObject)
 def PyFile_Name(space, w_p):
     """Return the name of the file specified by p as a string object."""
-    return borrow_from(w_p, space.getattr(w_p, space.wrap("name")))
+    w_name = space.getattr(w_p, space.wrap("name"))
+    return w_name     # borrowed ref, should be a W_StringObject from the file

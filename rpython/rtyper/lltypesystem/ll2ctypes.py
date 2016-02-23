@@ -527,8 +527,10 @@ def struct_use_ctypes_storage(container, ctypes_storage):
                 struct_use_ctypes_storage(struct_container, struct_storage)
                 struct_container._setparentstructure(container, field_name)
             elif isinstance(FIELDTYPE, lltype.Array):
-                assert FIELDTYPE._hints.get('nolength', False) == False
-                arraycontainer = _array_of_known_length(FIELDTYPE)
+                if FIELDTYPE._hints.get('nolength', False):
+                    arraycontainer = _array_of_unknown_length(FIELDTYPE)
+                else:
+                    arraycontainer = _array_of_known_length(FIELDTYPE)
                 arraycontainer._storage = ctypes.pointer(
                     getattr(ctypes_storage.contents, field_name))
                 arraycontainer._setparentstructure(container, field_name)
@@ -540,6 +542,7 @@ def struct_use_ctypes_storage(container, ctypes_storage):
 # Ctypes-aware subclasses of the _parentable classes
 
 ALLOCATED = {}     # mapping {address: _container}
+DEBUG_ALLOCATED = False
 
 def get_common_subclass(cls1, cls2, cache={}):
     """Return a unique subclass with (cls1, cls2) as bases."""
@@ -579,6 +582,8 @@ class _parentable_mixin(object):
             raise Exception("internal ll2ctypes error - "
                             "double conversion from lltype to ctypes?")
         # XXX don't store here immortal structures
+        if DEBUG_ALLOCATED:
+            print >> sys.stderr, "LL2CTYPES:", hex(addr)
         ALLOCATED[addr] = self
 
     def _addressof_storage(self):
@@ -591,6 +596,8 @@ class _parentable_mixin(object):
         self._check()   # no double-frees
         # allow the ctypes object to go away now
         addr = ctypes.cast(self._storage, ctypes.c_void_p).value
+        if DEBUG_ALLOCATED:
+            print >> sys.stderr, "LL2C FREE:", hex(addr)
         try:
             del ALLOCATED[addr]
         except KeyError:
@@ -625,11 +632,14 @@ class _parentable_mixin(object):
             return object.__hash__(self)
 
     def __repr__(self):
-        if self._storage is None:
-            return '<freed C object %s>' % (self._TYPE,)
+        if '__str__' in self._TYPE._adtmeths:
+            r = self._TYPE._adtmeths['__str__'](self)
         else:
-            return '<C object %s at 0x%x>' % (self._TYPE,
-                                              fixid(self._addressof_storage()))
+            r = 'C object %s' % (self._TYPE,)
+        if self._storage is None:
+            return '<freed %s>' % (r,)
+        else:
+            return '<%s at 0x%x>' % (r, fixid(self._addressof_storage()))
 
     def __str__(self):
         return repr(self)
@@ -993,7 +1003,8 @@ def ctypes2lltype(T, cobj):
                 REAL_TYPE = T.TO
                 if T.TO._arrayfld is not None:
                     carray = getattr(cobj.contents, T.TO._arrayfld)
-                    container = lltype._struct(T.TO, carray.length)
+                    length = getattr(carray, 'length', 9999)   # XXX
+                    container = lltype._struct(T.TO, length)
                 else:
                     # special treatment of 'OBJECT' subclasses
                     if get_rtyper() and lltype._castdepth(REAL_TYPE, OBJECT) >= 0:

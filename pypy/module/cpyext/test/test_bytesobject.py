@@ -28,7 +28,7 @@ class AppTestBytesObject(AppTestCpythonExtensionBase):
                  if(PyBytes_Size(s) == 11) {
                      result = 1;
                  }
-                 if(s->ob_type->tp_basicsize != sizeof(void*)*4)
+                 if(s->ob_type->tp_basicsize != sizeof(void*)*5)
                      result = 0;
                  Py_DECREF(s);
                  return PyBool_FromLong(result);
@@ -167,7 +167,9 @@ class TestBytes(BaseApiTest):
         ref = make_ref(space, space.wrapbytes('abc'))
         ptr = lltype.malloc(PyObjectP.TO, 1, flavor='raw')
         ptr[0] = ref
+        prev_refcnt = ref.c_ob_refcnt
         api.PyBytes_Concat(ptr, space.wrapbytes('def'))
+        assert ref.c_ob_refcnt == prev_refcnt - 1
         assert space.bytes_w(from_ref(space, ptr[0])) == 'abcdef'
         api.PyBytes_Concat(ptr, space.w_None)
         assert not ptr[0]
@@ -180,14 +182,16 @@ class TestBytes(BaseApiTest):
         ref2 = make_ref(space, space.wrapbytes('def'))
         ptr = lltype.malloc(PyObjectP.TO, 1, flavor='raw')
         ptr[0] = ref1
+        prev_refcnf = ref2.c_ob_refcnt
         api.PyBytes_ConcatAndDel(ptr, ref2)
         assert space.bytes_w(from_ref(space, ptr[0])) == 'abcdef'
-        assert ref2.c_ob_refcnt == 0
+        assert ref2.c_ob_refcnt == prev_refcnf - 1
         Py_DecRef(space, ptr[0])
         ptr[0] = lltype.nullptr(PyObject.TO)
         ref2 = make_ref(space, space.wrapbytes('foo'))
+        prev_refcnf = ref2.c_ob_refcnt
         api.PyBytes_ConcatAndDel(ptr, ref2) # should not crash
-        assert ref2.c_ob_refcnt == 0
+        assert ref2.c_ob_refcnt == prev_refcnf - 1
         lltype.free(ptr, flavor='raw')
 
     def test_asbuffer(self, space, api):

@@ -409,15 +409,15 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             ("test_tp_getattro", "METH_VARARGS",
              '''
                  PyObject *obj = PyTuple_GET_ITEM(args, 0);
-                 PyIntObject *value = PyTuple_GET_ITEM(args, 1);
+                 PyLongObject *value = PyTuple_GET_ITEM(args, 1);
                  if (!obj->ob_type->tp_getattro)
                  {
                      PyErr_SetString(PyExc_ValueError, "missing tp_getattro");
                      return NULL;
                  }
                  PyObject *name = PyUnicode_FromString("attr1");
-                 PyIntObject *attr = obj->ob_type->tp_getattro(obj, name);
-                 if (attr->ob_ival != value->ob_ival)
+                 PyLongObject *attr = obj->ob_type->tp_getattro(obj, name);
+                 if (PyLong_AsLong(attr) != PyLong_AsLong(value))
                  {
                      PyErr_SetString(PyExc_ValueError,
                                      "tp_getattro returned wrong value");
@@ -737,3 +737,25 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         module = self.import_module(name='foo3')
         print('calling module.Type()...')
         module.Type("X", (object,), {})
+
+    def test_app_subclass_of_c_type(self):
+        module = self.import_module(name='foo')
+        size = module.size_of_instances(module.fooType)
+        class f1(object):
+            pass
+        class f2(module.fooType):
+            pass
+        class bar(f1, f2):
+            pass
+        assert bar.__base__ is f2
+        assert module.size_of_instances(bar) == size
+
+    def test_app_cant_subclass_two_types(self):
+        module = self.import_module(name='foo')
+        try:
+            class bar(module.fooType, module.Property):
+                pass
+        except TypeError as e:
+            assert str(e) == 'instance layout conflicts in multiple inheritance'
+        else:
+            raise AssertionError("did not get TypeError!")

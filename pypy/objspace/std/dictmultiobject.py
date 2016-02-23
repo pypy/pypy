@@ -287,6 +287,12 @@ class W_DictMultiObject(W_Root):
         F: D[k] = F[k]"""
         init_or_update(space, self, __args__, 'dict.update')
 
+    def ensure_object_strategy(self):    # for cpyext
+        object_strategy = self.space.fromcache(ObjectDictStrategy)
+        strategy = self.get_strategy()
+        if strategy is not object_strategy:
+            strategy.switch_to_object_strategy(self)
+
 
 class W_DictObject(W_DictMultiObject):
     """ a regular dict object """

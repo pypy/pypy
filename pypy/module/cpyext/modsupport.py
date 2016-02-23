@@ -1,7 +1,7 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import cpython_api, cpython_struct, \
         METH_STATIC, METH_CLASS, METH_COEXIST, CANNOT_FAIL, CONST_STRING
-from pypy.module.cpyext.pyobject import PyObject, borrow_from
+from pypy.module.cpyext.pyobject import PyObject
 from pypy.interpreter.module import Module
 from pypy.module.cpyext.methodobject import (
     W_PyCFunctionObject, PyCFunction_NewEx, PyDescr_NewMethod,
@@ -101,12 +101,12 @@ def PyModule_Check(space, w_obj):
     return int(space.is_w(w_type, w_obj_type) or
                space.is_true(space.issubtype(w_obj_type, w_type)))
 
-@cpython_api([PyObject], PyObject)
+@cpython_api([PyObject], PyObject, result_borrowed=True)
 def PyModule_GetDict(space, w_mod):
     if PyModule_Check(space, w_mod):
         assert isinstance(w_mod, Module)
         w_dict = w_mod.getdict(space)
-        return borrow_from(w_mod, w_dict)
+        return w_dict    # borrowed reference, likely from w_mod.w_dict
     else:
         PyErr_BadInternalCall(space)
 

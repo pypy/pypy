@@ -58,7 +58,6 @@ import pypy.module.cpyext.weakrefobject
 import pypy.module.cpyext.funcobject
 import pypy.module.cpyext.frameobject
 import pypy.module.cpyext.classobject
-import pypy.module.cpyext.pypyintf
 import pypy.module.cpyext.exception
 import pypy.module.cpyext.memoryobject
 import pypy.module.cpyext.codecs
