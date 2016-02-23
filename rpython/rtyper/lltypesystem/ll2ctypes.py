@@ -533,7 +533,7 @@ def struct_use_ctypes_storage(container, ctypes_storage):
 # Ctypes-aware subclasses of the _parentable classes
 
 ALLOCATED = {}     # mapping {address: _container}
-DEBUG_ALLOCATED = True
+DEBUG_ALLOCATED = False
 
 def get_common_subclass(cls1, cls2, cache={}):
     """Return a unique subclass with (cls1, cls2) as bases."""
