@@ -27,7 +27,7 @@ class Module(MixedModule):
         prev_ec = space.threadlocals.get_ec()
         if space.config.translation.stm:
             from pypy.module.thread import stm
-            space.threadlocals = stm.STMThreadLocals()
+            space.threadlocals = stm.STMThreadLocals(space)
         else:
             from pypy.module.thread import gil
             space.threadlocals = gil.GILThreadLocals(space)
