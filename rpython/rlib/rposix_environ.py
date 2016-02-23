@@ -1,8 +1,9 @@
 import os
 import sys
 from rpython.annotator import model as annmodel
+from rpython.rlib._os_support import _WIN32, StringTraits, UnicodeTraits
 from rpython.rlib.objectmodel import enforceargs
-from rpython.rlib.rposix import _WIN32, StringTraits, UnicodeTraits
+# importing rposix here creates a cycle on Windows
 from rpython.rtyper.controllerentry import Controller
 from rpython.rtyper.extfunc import register_external
 from rpython.rtyper.lltypesystem import rffi, lltype

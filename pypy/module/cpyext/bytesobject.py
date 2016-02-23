@@ -59,7 +59,7 @@ cpython_struct("PyBytesObject", PyBytesObjectFields, PyBytesObjectStruct)
 @bootstrap_function
 def init_bytesobject(space):
     "Type description of PyBytesObject"
-    make_typedescr(space.w_str.instancetypedef,
+    make_typedescr(space.w_str.layout.typedef,
                    basestruct=PyBytesObject.TO,
                    attach=bytes_attach,
                    dealloc=bytes_dealloc,
@@ -69,11 +69,11 @@ PyBytes_Check, PyBytes_CheckExact = build_type_checkers("Bytes", "w_bytes")
 
 def new_empty_str(space, length):
     """
-    Allocates a PyBytesObject and its buffer, but without a corresponding
+    Allocate a PyBytesObject and its buffer, but without a corresponding
     interpreter object.  The buffer may be mutated, until bytes_realize() is
-    called.
+    called.  Refcount of the result is 1.
     """
-    typedescr = get_typedescr(space.w_bytes.instancetypedef)
+    typedescr = get_typedescr(space.w_bytes.layout.typedef)
     py_obj = typedescr.allocate(space, space.w_bytes)
     py_str = rffi.cast(PyBytesObject, py_obj)
 
