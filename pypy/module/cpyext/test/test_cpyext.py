@@ -285,7 +285,7 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             return space.wrap(pydname)
 
         @gateway.unwrap_spec(name=str, init='str_or_None', body=str,
-                     load_it=bool, filename='str_or_None', 
+                     load_it=bool, filename='str_or_None',
                      PY_SSIZE_T_CLEAN=bool)
         def import_module(space, name, init=None, body='', load_it=True,
                           filename=None, w_include_dirs=None,
@@ -307,7 +307,7 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
                 code = """
                 %(PY_SSIZE_T_CLEAN)s
                 #include <Python.h>
-                /* fix for cpython 2.7 Python.h if running tests with -A 
+                /* fix for cpython 2.7 Python.h if running tests with -A
                    since pypy compiles with -fvisibility-hidden */
                 #undef PyMODINIT_FUNC
                 #define PyMODINIT_FUNC RPY_EXPORTED void
@@ -433,9 +433,8 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
         self.w_reimport_module = wrap(interp2app(reimport_module))
         self.w_import_extension = wrap(interp2app(import_extension))
         self.w_record_imported_module = wrap(interp2app(record_imported_module))
-        self.w_here = self.space.wrap(
-            str(py.path.local(pypydir)) + '/module/cpyext/test/')
-        self.w_debug_collect = self.space.wrap(interp2app(debug_collect))
+        self.w_here = wrap(str(py.path.local(pypydir)) + '/module/cpyext/test/')
+        self.w_debug_collect = wrap(interp2app(debug_collect))
 
         # create the file lock before we count allocations
         self.space.call_method(self.space.sys.get("stdout"), "flush")
