@@ -128,6 +128,7 @@ Deprecates http://pypy.readthedocs.org/en/latest/embedding.html.
 
 Fix SSL tests by importing cpython's patch
 
+
 .. branch: remove-getfield-pure
 
 Remove pure variants of ``getfield_gc_*`` operations from the JIT. Relevant
@@ -163,3 +164,10 @@ apply sandbox transform on externals at the end of annotation.
 .. branch: windows-vmprof-support
 
 vmprof should work on Windows.
+
+
+.. branch: reorder-map-attributes
+
+When creating instances and adding attributes in several different orders
+depending on some condition, the JIT would create too much code. This is now
+fixed.
