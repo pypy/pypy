@@ -539,7 +539,13 @@ def type_attach(space, py_obj, w_type):
             PyObject_Free.api_func.get_wrapper(space))
     pto.c_tp_alloc = llhelper(PyType_GenericAlloc.api_func.functype,
             PyType_GenericAlloc.api_func.get_wrapper(space))
-    if pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE:
+    builder = space.fromcache(StaticObjectBuilder)
+    if ((pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE) != 0
+            and builder.cpyext_type_init is None):
+            # this ^^^ is not None only during startup of cpyext.  At that
+            # point we might get into troubles by doing make_ref() when
+            # things are not initialized yet.  So in this case, simply use
+            # str2charp() and "leak" the string.
         w_typename = space.getattr(w_type, space.wrap('__name__'))
         heaptype = rffi.cast(PyHeapTypeObject, pto)
         heaptype.c_ht_name = make_ref(space, w_typename)
@@ -554,7 +560,6 @@ def type_attach(space, py_obj, w_type):
     w_base = best_base(space, w_type.bases_w)
     pto.c_tp_base = rffi.cast(PyTypeObjectPtr, make_ref(space, w_base))
 
-    builder = space.fromcache(StaticObjectBuilder)
     if builder.cpyext_type_init is not None:
         builder.cpyext_type_init.append((pto, w_type))
     else:
