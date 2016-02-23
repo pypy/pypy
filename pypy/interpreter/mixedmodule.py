@@ -57,7 +57,7 @@ class MixedModule(Module):
             if not self.lazy and self.w_initialdict is None:
                 self.save_module_content_for_future_reload()
 
-    def save_module_content_for_future_reload(self):
+    def save_module_content_for_future_reload(self, force_override=False):
         # Because setdictvalue is unable to immediately load all attributes
         # (due to an importlib bootstrapping problem), this method needs to be
         # able to support saving the content of a module's dict without
@@ -69,7 +69,7 @@ class MixedModule(Module):
             w_items = self.space.iteriterable(self.space.call_method(self.w_dict,'items'))
             for w_item in w_items:
                 w_key, w_value = self.space.fixedview(w_item, expected_length=2)
-                if not self.space.is_true(self.space.contains(self.w_initialdict, w_key)):
+                if force_override or not self.space.is_true(self.space.contains(self.w_initialdict, w_key)):
                     self.space.setitem(self.w_initialdict, w_key, w_value)
         else:
             self.w_initialdict = self.space.call_method(self.w_dict, 'copy')
