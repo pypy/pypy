@@ -191,7 +191,7 @@ def track_reference(space, py_obj, w_obj):
 def from_ref(space, ref):
     """
     Finds the interpreter object corresponding to the given reference.  If the
-    object is not yet realized (see stringobject.py), creates it.
+    object is not yet realized (see bytesobject.py), creates it.
     """
     assert is_pyobj(ref)
     if not ref:
