@@ -514,7 +514,7 @@ class BaseTest(object):
         # invent a GUARD_FUTURE_CONDITION to not have to change all tests
         if res.operations[-1].getopnum() == rop.JUMP:
             guard = ResOperation(rop.GUARD_FUTURE_CONDITION, [], None)
-            guard.rd_snapshot = resume.Snapshot(None, [])
+            guard.rd_snapshot = resume.TopSnapshot(None, [], [])
             res.operations.insert(-1, guard)
 
     def assert_equal(self, optimized, expected, text_right=None):

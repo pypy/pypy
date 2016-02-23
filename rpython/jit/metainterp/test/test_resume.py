@@ -25,6 +25,7 @@ from rpython.jit.metainterp.resoperation import ResOperation, InputArgInt,\
 from rpython.jit.metainterp.test.strategies import boxlists
 from rpython.rlib.debug import debug_start, debug_stop, debug_print,\
      have_debug_prints
+from rpython.jit.metainterp import resumecode
 
 from hypothesis import given
 
@@ -1142,7 +1143,8 @@ class ResumeDataFakeReader(ResumeDataBoxReader):
         class MyInfo:
             @staticmethod
             def enumerate_vars(callback_i, callback_r, callback_f, _, index):
-                for tagged in self.numb.code:
+                while index < len(self.numb.code):
+                    tagged, _ = resumecode.numb_next_item(self.numb, index)
                     _, tag = untag(tagged)
                     if tag == TAGVIRTUAL:
                         kind = REF
@@ -1157,6 +1159,13 @@ class ResumeDataFakeReader(ResumeDataBoxReader):
                         index = callback_f(index, index)
                     else:
                         assert 0
+        size, self.cur_index = resumecode.numb_next_item(self.numb, 0)
+        assert size == 0
+        size, self.cur_index = resumecode.numb_next_item(self.numb, self.cur_index)
+        assert size == 0
+        pc, self.cur_index = resumecode.numb_next_item(self.numb, self.cur_index)
+        jitcode_pos, self.cur_index = resumecode.numb_next_item(self.numb, self.cur_index)
+
         self._prepare_next_section(MyInfo())
         return self.lst
 
