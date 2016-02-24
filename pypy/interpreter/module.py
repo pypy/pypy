@@ -124,8 +124,7 @@ class Module(W_Root):
         w_loader = space.finditem(self.w_dict, space.wrap('__loader__'))
         if w_loader is not None:
             try:
-                return space.call_method(w_loader, "module_repr",
-                                         space.wrap(self))
+                return space.call_method(w_loader, "module_repr", self)
             except OperationError:
                 pass
         try:
