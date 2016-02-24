@@ -1,14 +1,14 @@
 """
 RTyper: converts high-level operations into low-level operations in flow graphs.
 
-The main class, with code to walk blocks and dispatch individual operations
-to the care of the rtype_*() methods implemented in the other r* modules.
-For each high-level operation 'hop', the rtype_*() methods produce low-level
-operations that are collected in the 'llops' list defined here.  When necessary,
-conversions are inserted.
+The main class, with code to walk blocks and dispatch individual operations to
+the care of the rtype_*() methods implemented in the other r* modules.  For
+each high-level operation 'hop', the rtype_*() methods produce low-level
+operations that are collected in the 'llops' list defined here.  When
+necessary, conversions are inserted.
 
-This logic borrows a bit from rpython.annotator.annrpython, without the fixpoint
-computation part.
+This logic borrows a bit from rpython.annotator.annrpython, without the
+fixpoint computation part.
 """
 
 import os
@@ -16,19 +16,20 @@ import os
 import py, math
 
 from rpython.annotator import model as annmodel, unaryop, binaryop
-from rpython.rtyper.llannotation import SomePtr, lltype_to_annotation
+from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.flowspace.model import Variable, Constant, SpaceOperation
-from rpython.rtyper.annlowlevel import annotate_lowlevel_helper, LowLevelAnnotatorPolicy
+from rpython.rtyper.annlowlevel import (
+        annotate_lowlevel_helper, LowLevelAnnotatorPolicy)
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.exceptiondata import ExceptionData
 from rpython.rtyper.lltypesystem.lltype import (Signed, Void, LowLevelType,
-    Ptr, ContainerType, FuncType, typeOf, RuntimeTypeInfo,
-    attachRuntimeTypeInfo, Primitive, getfunctionptr)
-from rpython.rtyper.rmodel import Repr, inputconst, BrokenReprTyperError
+    ContainerType, typeOf, Primitive, getfunctionptr)
+from rpython.rtyper.rmodel import Repr, inputconst
 from rpython.rtyper import rclass
 from rpython.rtyper.rclass import RootClassRepr
 from rpython.tool.pairtype import pair
 from rpython.translator.unsimplify import insert_empty_block
+from rpython.translator.sandbox.rsandbox import make_sandbox_trampoline
 
 try:
     from pypystm import stmset, stmdict
@@ -616,6 +617,17 @@ class RPythonTyper(object):
     def getcallable(self, graph):
         def getconcretetype(v):
             return self.bindingrepr(v).lowleveltype
+        if self.annotator.translator.config.translation.sandbox:
+            try:
+                name = graph.func._sandbox_external_name
+            except AttributeError:
+                pass
+            else:
+                args_s = [v.annotation for v in graph.getargs()]
+                s_result = graph.getreturnvar().annotation
+                sandboxed = make_sandbox_trampoline(name, args_s, s_result)
+                return self.getannmixlevel().delayedfunction(
+                        sandboxed, args_s, s_result)
 
         return getfunctionptr(graph, getconcretetype)
 
@@ -644,21 +656,6 @@ class RPythonTyper(object):
         """
         graph = self.annotate_helper(ll_function, argtypes)
         return self.getcallable(graph)
-
-    def attachRuntimeTypeInfoFunc(self, GCSTRUCT, func, ARG_GCSTRUCT=None,
-                                  destrptr=None):
-        self.call_all_setups()  # compute ForwardReferences now
-        if ARG_GCSTRUCT is None:
-            ARG_GCSTRUCT = GCSTRUCT
-        args_s = [SomePtr(Ptr(ARG_GCSTRUCT))]
-        graph = self.annotate_helper(func, args_s)
-        s = self.annotation(graph.getreturnvar())
-        if (not isinstance(s, SomePtr) or
-            s.ll_ptrtype != Ptr(RuntimeTypeInfo)):
-            raise TyperError("runtime type info function %r returns %r, "
-                             "excepted Ptr(RuntimeTypeInfo)" % (func, s))
-        funcptr = self.getcallable(graph)
-        attachRuntimeTypeInfo(GCSTRUCT, funcptr, destrptr)
 
 # register operations from annotation model
 RPythonTyper._registeroperations(unaryop.UNARY_OPERATIONS, binaryop.BINARY_OPERATIONS)

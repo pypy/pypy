@@ -123,3 +123,13 @@ Deprecates http://pypy.readthedocs.org/en/latest/embedding.html.
 .. branch: fix-cpython-ssl-tests-2.7
 
 Fix SSL tests by importing cpython's patch
+
+.. branch: remove-getfield-pure
+
+Remove pure variants of ``getfield_gc_*`` operations from the JIT. Relevant
+optimizations instead consult the field descriptor to determine the purity of
+the operation. Additionally, pure ``getfield`` operations are now handled
+entirely by `rpython/jit/metainterp/optimizeopt/heap.py` rather than
+`rpython/jit/metainterp/optimizeopt/pure.py`, which can result in better codegen
+for traces containing a large number of pure getfield operations.
+

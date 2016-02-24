@@ -1338,7 +1338,7 @@ class TestStm(RewriteTests):
 
             self.check_rewrite("""
                 [p1, p3, i1, p4]
-                p2 = getfield_gc%(pure)s_r(p1, descr=uxdescr)
+                p2 = getfield_gc_r(p1, descr=uxdescr)
                 i4 = getarrayitem_gc%(pure)s_i(p4, i1, descr=vdescr)
                 jump(p2)
             """ % d, """

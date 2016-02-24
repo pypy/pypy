@@ -33,14 +33,18 @@ class StmHeader_OpaqueNode(ContainerNode):
 
     def __init__(self, db, T, obj):
         assert isinstance(obj._name, int)
-        self.db = db
-        self.T = T
-        self.obj = obj
+        ContainerNode.__init__(self, db, T, obj)
 
     def initializationexpr(self, decoration=''):
         yield '{ { }, %s }' % (
             name_small_integer(self.obj.typeid16, self.db))
         #    self.obj.prebuilt_hash
+
+    def enum_dependencies(self):
+        return []
+
+    def basename(self):
+        return self.nodekind
 
 
 def stm_hint_commit_soon(funcgen, op):

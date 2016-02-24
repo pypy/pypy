@@ -48,7 +48,7 @@ def test_framework_simple(gc="minimark"):
 
     cbuild = CStandaloneBuilder(t, entrypoint, t.config,
                                 gcpolicy=gcpolicy)
-    db = cbuild.generate_graphs_for_llinterp()
+    db = cbuild.build_database()
     entrypointptr = cbuild.getentrypointptr()
     entrygraph = entrypointptr._obj.graph
 
@@ -129,7 +129,7 @@ def test_no_collect(gc="minimark"):
     t.config.translation.gc = gc
     cbuild = CStandaloneBuilder(t, entrypoint, t.config,
                                 gcpolicy=gcpolicy)
-    db = cbuild.generate_graphs_for_llinterp()
+    db = cbuild.build_database()
 
 def test_no_collect_stm():
     test_no_collect("stmgc")
@@ -161,7 +161,8 @@ def test_no_collect_detection(gc="minimark"):
     t.config.translation.gc = gc
     cbuild = CStandaloneBuilder(t, entrypoint, t.config,
                                 gcpolicy=gcpolicy)
-    f = py.test.raises(Exception, cbuild.generate_graphs_for_llinterp)
+    with py.test.raises(Exception) as f:
+        cbuild.build_database()
     expected = "'no_collect' function can trigger collection: <function g at "
     assert str(f.value).startswith(expected)
 
@@ -188,7 +189,8 @@ def test_custom_trace_function_no_collect():
     t.config.translation.gc = "minimark"
     cbuild = CStandaloneBuilder(t, entrypoint, t.config,
                                 gcpolicy=FrameworkGcPolicy2)
-    f = py.test.raises(Exception, cbuild.generate_graphs_for_llinterp)
+    with py.test.raises(Exception) as f:
+        cbuild.build_database()
     assert 'can cause the GC to be called' in str(f.value)
     assert 'trace_func' in str(f.value)
     assert 'MyStructure' in str(f.value)
@@ -283,7 +285,7 @@ def test_remove_duplicate_write_barrier(gc="minimark"):
     t.config.translation.gc = gc
     cbuild = CStandaloneBuilder(t, g, t.config,
                                 gcpolicy=gcpolicy)
-    db = cbuild.generate_graphs_for_llinterp()
+    db = cbuild.build_database()
 
     ff = graphof(t, f)
     #ff.show()
@@ -323,7 +325,7 @@ def test_remove_write_barrier_stm():
     t.config.translation.gc = "stmgc"
     cbuild = CStandaloneBuilder(t, g, t.config,
                                 gcpolicy=gcpolicy)
-    db = cbuild.generate_graphs_for_llinterp()
+    db = cbuild.build_database()
 
     ff = graphof(t, f)
     #ff.show()
@@ -356,7 +358,7 @@ def test_remove_write_barrier_stm2():
     t.config.translation.gc = "stmgc"
     cbuild = CStandaloneBuilder(t, g, t.config,
                                 gcpolicy=gcpolicy)
-    db = cbuild.generate_graphs_for_llinterp()
+    db = cbuild.build_database()
 
     ff = graphof(t, f)
     #ff.show()
@@ -389,7 +391,7 @@ def test_remove_write_barrier_stm3():
     t.config.translation.gc = "stmgc"
     cbuild = CStandaloneBuilder(t, g, t.config,
                                 gcpolicy=gcpolicy)
-    db = cbuild.generate_graphs_for_llinterp()
+    db = cbuild.build_database()
 
     ff = graphof(t, f)
     #ff.show()
@@ -427,7 +429,7 @@ def test_remove_write_barrier_stm4():
     t.config.translation.gc = "stmgc"
     cbuild = CStandaloneBuilder(t, g, t.config,
                                 gcpolicy=gcpolicy)
-    db = cbuild.generate_graphs_for_llinterp()
+    db = cbuild.build_database()
 
     ff = graphof(t, f)
     #ff.show()
@@ -455,7 +457,7 @@ def test_remove_write_barrier_stm5():
     t.config.translation.gc = "stmgc"
     cbuild = CStandaloneBuilder(t, g, t.config,
                                 gcpolicy=gcpolicy)
-    db = cbuild.generate_graphs_for_llinterp()
+    db = cbuild.build_database()
 
     ff = graphof(t, f)
     #ff.show()
@@ -490,7 +492,7 @@ def test_remove_write_barrier_stm6():
     t.config.translation.gc = "stmgc"
     cbuild = CStandaloneBuilder(t, g, t.config,
                                 gcpolicy=gcpolicy)
-    db = cbuild.generate_graphs_for_llinterp()
+    db = cbuild.build_database()
 
     ff = graphof(t, f)
     #ff.show()
@@ -525,7 +527,7 @@ def test_remove_write_barrier_stm7():
     t.config.translation.gc = "stmgc"
     cbuild = CStandaloneBuilder(t, g, t.config,
                                 gcpolicy=gcpolicy)
-    db = cbuild.generate_graphs_for_llinterp()
+    db = cbuild.build_database()
 
     ff = graphof(t, f)
     #ff.show()
@@ -555,7 +557,7 @@ def test_no_wb_for_varsize_mallocs_stm():
     t.config.translation.gc = "stmgc"
     cbuild = CStandaloneBuilder(t, g, t.config,
                                 gcpolicy=gcpolicy)
-    db = cbuild.generate_graphs_for_llinterp()
+    db = cbuild.build_database()
 
     ff = graphof(t, f)
     #ff.show()
@@ -667,7 +669,7 @@ def test_write_barrier_collector_stm_inevitable_interaction():
     t.config.translation.gc = "stmgc"
     cbuild = CStandaloneBuilder(t, g, t.config,
                                 gcpolicy=gcpolicy)
-    db = cbuild.generate_graphs_for_llinterp()
+    db = cbuild.build_database()
 
     ff = graphof(t, f)
     #ff.show()

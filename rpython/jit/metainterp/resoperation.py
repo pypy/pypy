@@ -1156,7 +1156,6 @@ _oplist = [
     'ARRAYLEN_GC/1d/i',
     'STRLEN/1/i',
     'STRGETITEM/2/i',
-    'GETFIELD_GC_PURE/1d/rfi',
     'GETARRAYITEM_GC_PURE/2d/rfi',
     #'GETFIELD_RAW_PURE/1d/rfi',     these two operations not useful and
     #'GETARRAYITEM_RAW_PURE/2d/fi',  dangerous when unrolling speculatively

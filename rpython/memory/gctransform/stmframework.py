@@ -284,6 +284,14 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
         hop.genop("cast_opaque_ptr", [v_result], resultvar=op.result)
         hop.genop("stm_set_into_obj", [v_result, c_ofstolength, v_length])
 
+    def get_prebuilt_hash(self, obj):
+        return None       # done differently with the stmgc
+
+    def get_stm_prebuilt_hash(self, obj):
+        h = BaseFrameworkGCTransformer.get_prebuilt_hash(self, obj)
+        if h is None:
+            h = lltype.identityhash(obj._as_ptr())
+        return h
 
 
 

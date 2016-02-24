@@ -870,7 +870,7 @@ def make_string_mappings(strtype):
 
         pinned = False
         if rgc.stm_is_enabled() or rgc.can_move(data):
-            if rgc.pin(data):
+            if not rgc.stm_is_enabled() and rgc.pin(data):
                 pinned = True
             else:
                 buf = lltype.malloc(TYPEP.TO, count, flavor='raw')

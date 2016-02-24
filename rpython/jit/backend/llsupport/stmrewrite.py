@@ -1,7 +1,8 @@
 from rpython.jit.backend.llsupport.rewrite import GcRewriterAssembler
 from rpython.jit.backend.llsupport.descr import (
     CallDescr, ArrayOrFieldDescr, unpack_fielddescr)
-from rpython.jit.metainterp.resoperation import ResOperation, rop
+from rpython.jit.metainterp.resoperation import (
+    ResOperation, rop, ResOpWithDescr, OpHelpers)
 from rpython.jit.metainterp.history import ConstInt
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.debug import (have_debug_prints, debug_start, debug_stop,
@@ -129,12 +130,17 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
         newop = GcRewriterAssembler.emit_gc_load_or_indexed(
             self, op, ptr_box, index_box, itemsize, factor, offset, sign, type)
         ptr_box = newop.getarg(0)
-        if (op and not op.is_always_pure() and ptr_box.type == 'r'
-            and ptr_box not in self.read_barrier_applied
-            and not self.write_barrier_applied(ptr_box)):
-            op1 = ResOperation(rop.STM_READ, [ptr_box], None)
-            self.read_barrier_applied[ptr_box] = None
-            self.emit_op(op1)
+        if op:
+            is_pure = op.is_always_pure()
+            if not is_pure and isinstance(op, ResOpWithDescr):
+                is_pure = OpHelpers.is_pure_with_descr(op.getopnum(), op.getdescr())
+            if (ptr_box.type == 'r'  # not raw
+                and not is_pure      # needs stm_read
+                and ptr_box not in self.read_barrier_applied
+                and not self.write_barrier_applied(ptr_box)):
+                op1 = ResOperation(rop.STM_READ, [ptr_box], None)
+                self.read_barrier_applied[ptr_box] = None
+                self.emit_op(op1)
         return newop
 
 

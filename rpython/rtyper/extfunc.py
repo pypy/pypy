@@ -47,6 +47,12 @@ class ExtFuncEntry(ExtRegistryEntry):
         impl = getattr(self, 'lltypeimpl', None)
         fakeimpl = getattr(self, 'lltypefakeimpl', self.instance)
         if impl:
+            if (rtyper.annotator.translator.config.translation.sandbox
+                    and not self.safe_not_sandboxed):
+                from rpython.translator.sandbox.rsandbox import (
+                    make_sandbox_trampoline)
+                impl = make_sandbox_trampoline(
+                    self.name, signature_args, s_result)
             if hasattr(self, 'lltypefakeimpl'):
                 # If we have both an llimpl and an llfakeimpl,
                 # we need a wrapper that selects the proper one and calls it
@@ -75,14 +81,11 @@ class ExtFuncEntry(ExtRegistryEntry):
                             return original_impl(%s)
                 """ % (args, args, args)) in d
                 impl = func_with_new_name(d['ll_wrapper'], name + '_wrapper')
-            if rtyper.annotator.translator.config.translation.sandbox:
-                impl._dont_inline_ = True
             # store some attributes to the 'impl' function, where
             # the eventual call to rtyper.getcallable() will find them
             # and transfer them to the final lltype.functionptr().
             impl._llfnobjattrs_ = {
                 '_name': self.name,
-                '_safe_not_sandboxed': self.safe_not_sandboxed,
                 'transactionsafe': self.transactionsafe
                 }
             obj = rtyper.getannmixlevel().delayedfunction(

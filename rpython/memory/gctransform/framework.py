@@ -427,7 +427,6 @@ class BaseFrameworkGCTransformer(GCTransformer):
 
         s_gcref = SomePtr(llmemory.GCREF)
         gcdata = self.gcdata
-        translator = self.translator
         #use the GC flag to find which malloc method to use
         #malloc_zero_filled == Ture -> malloc_fixedsize/varsize_clear
         #malloc_zero_filled == Flase -> malloc_fixedsize/varsize
@@ -1614,6 +1613,24 @@ class BaseFrameworkGCTransformer(GCTransformer):
         v_adr = llops.genop('adr_add', [v_a, c_fixedofs],
                             resulttype=llmemory.Address)
         llops.genop('raw_memclear', [v_adr, v_totalsize])
+
+    def gcheader_initdata(self, defnode):
+        o = lltype.top_container(defnode.obj)
+        needs_hash = self.get_prebuilt_hash(o) is not None
+        hdr = self.gc_header_for(o, needs_hash)
+        return hdr._obj
+
+    def get_prebuilt_hash(self, obj):
+        # for prebuilt objects that need to have their hash stored and
+        # restored.  Note that only structures that are StructNodes all
+        # the way have their hash stored (and not e.g. structs with var-
+        # sized arrays at the end).  'obj' must be the top_container.
+        TYPE = lltype.typeOf(obj)
+        if not isinstance(TYPE, lltype.GcStruct):
+            return None
+        if TYPE._is_varsize():
+            return None
+        return getattr(obj, '_hash_cache_', None)
 
     def emit_stm_memclearinit(self, llops, v_size, c_size, c_fixedofs, v_a):
         assert self.translator.config.translation.stm
