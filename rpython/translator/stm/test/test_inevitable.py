@@ -556,3 +556,18 @@ class TestTransform:
                 return x1.foo
         res = self.interpret_inevitable(f2, [])
         assert res == []
+
+    def test_gc_load_indexed(self):
+        from rpython.rtyper.annlowlevel import llstr
+        from rpython.rtyper.lltypesystem.rstr import STR
+
+        s = "hi"
+        def f(byte_offset):
+            lls = llstr(s)
+            base_ofs = (llmemory.offsetof(STR, 'chars') +
+                        llmemory.itemoffsetof(STR.chars, 0))
+            scale_factor = llmemory.sizeof(lltype.Char)
+            return llop.gc_load_indexed(rffi.SHORT, lls, byte_offset,
+                                        scale_factor, base_ofs)
+        res = self.interpret_inevitable(f, [1])
+        assert res == []

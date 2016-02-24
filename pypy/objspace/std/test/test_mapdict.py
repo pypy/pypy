@@ -34,8 +34,8 @@ class Object(Object):
 
 def test_plain_attribute():
     w_cls = "class"
-    aa = PlainAttribute(("b", DICT),
-                        PlainAttribute(("a", DICT),
+    aa = PlainAttribute("b", DICT,
+                        PlainAttribute("a", DICT,
                                        Terminator(space, w_cls)))
     assert aa.space is space
     assert aa.terminator.w_cls is w_cls
@@ -63,16 +63,16 @@ def test_plain_attribute():
 def test_huge_chain():
     current = Terminator(space, "cls")
     for i in range(20000):
-        current = PlainAttribute((str(i), DICT), current)
-    assert current.find_map_attr(("0", DICT)).storageindex == 0
+        current = PlainAttribute(str(i), DICT, current)
+    assert current.find_map_attr("0", DICT).storageindex == 0
 
 
 def test_search():
-    aa = PlainAttribute(("b", DICT), PlainAttribute(("a", DICT), Terminator(None, None)))
+    aa = PlainAttribute("b", DICT, PlainAttribute("a", DICT, Terminator(None, None)))
     assert aa.search(DICT) is aa
     assert aa.search(SLOTS_STARTING_FROM) is None
     assert aa.search(SPECIAL) is None
-    bb = PlainAttribute(("C", SPECIAL), PlainAttribute(("A", SLOTS_STARTING_FROM), aa))
+    bb = PlainAttribute("C", SPECIAL, PlainAttribute("A", SLOTS_STARTING_FROM, aa))
     assert bb.search(DICT) is aa
     assert bb.search(SLOTS_STARTING_FROM) is bb.back
     assert bb.search(SPECIAL) is bb
@@ -320,7 +320,7 @@ def test_materialize_r_dict():
 
     d = {}
     w_d = FakeDict(d)
-    flag = obj.map.write(obj, ("dict", SPECIAL), w_d)
+    flag = obj.map.write(obj, "dict", SPECIAL, w_d)
     assert flag
     materialize_r_dict(space, obj, d)
     assert d == {"a": 5, "b": 6, "c": 7}

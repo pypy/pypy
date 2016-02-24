@@ -1754,9 +1754,6 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
     genop_getfield_gc_i = _genop_getfield_gc
     genop_getfield_gc_r = _genop_getfield_gc
     genop_getfield_gc_f = _genop_getfield_gc
-    genop_getfield_gc_pure_i = _genop_getfield_gc
-    genop_getfield_gc_pure_r = _genop_getfield_gc
-    genop_getfield_gc_pure_f = _genop_getfield_gc
     genop_getfield_raw_i = _genop_getfield_raw
     genop_getfield_raw_f = _genop_getfield_raw
 
@@ -2437,7 +2434,9 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             if IS_X86_64:
                 tmploc = esi    # already the correct place
                 if argloc is tmploc:
-                    self.mc.MOV_rr(esi.value, edi.value)
+                    # this case is theoretical only so far: in practice,
+                    # argloc is always eax, never esi
+                    self.mc.MOV_rr(edi.value, esi.value)
                     argloc = edi
             else:
                 tmploc = eax

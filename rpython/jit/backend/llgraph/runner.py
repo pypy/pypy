@@ -152,7 +152,7 @@ class FieldDescr(AbstractDescr):
         self.fieldname = fieldname
         self.FIELD = getattr(S, fieldname)
         self.index = heaptracker.get_fielddescr_index_in(S, fieldname)
-        self._is_pure = S._immutable_field(fieldname)
+        self._is_pure = S._immutable_field(fieldname) != False
 
     def is_always_pure(self):
         return self._is_pure
@@ -604,37 +604,30 @@ class LLGraphCPU(model.AbstractCPU):
     bh_call_f = _do_call
     bh_call_v = _do_call
 
-    def _bh_getfield(self, p, descr, pure=False):
+    def bh_getfield_gc(self, p, descr):
         p = support.cast_arg(lltype.Ptr(descr.S), p)
         return support.cast_result(descr.FIELD, getattr(p, descr.fieldname))
 
-    direct_getfield_gc = _bh_getfield
-    bh_getfield_gc_pure_i = _bh_getfield
-    bh_getfield_gc_pure_r = _bh_getfield
-    bh_getfield_gc_pure_f = _bh_getfield
-    bh_getfield_gc_i = _bh_getfield
-    bh_getfield_gc_r = _bh_getfield
-    bh_getfield_gc_f = _bh_getfield
+    bh_getfield_gc_i = bh_getfield_gc
+    bh_getfield_gc_r = bh_getfield_gc
+    bh_getfield_gc_f = bh_getfield_gc
 
-    direct_getfield_raw = _bh_getfield
-    bh_getfield_raw_i = _bh_getfield
-    bh_getfield_raw_r = _bh_getfield
-    bh_getfield_raw_f = _bh_getfield
+    bh_getfield_raw = bh_getfield_gc
+    bh_getfield_raw_i = bh_getfield_raw
+    bh_getfield_raw_r = bh_getfield_raw
+    bh_getfield_raw_f = bh_getfield_raw
 
-    def _bh_setfield(self, p, newvalue, descr):
+    def bh_setfield_gc(self, p, newvalue, descr):
         p = support.cast_arg(lltype.Ptr(descr.S), p)
         setattr(p, descr.fieldname, support.cast_arg(descr.FIELD, newvalue))
 
-    direct_setfield_gc = _bh_setfield
-    direct_setfield_raw = _bh_setfield
+    bh_setfield_gc_i = bh_setfield_gc
+    bh_setfield_gc_r = bh_setfield_gc
+    bh_setfield_gc_f = bh_setfield_gc
 
-    bh_setfield_gc_i = _bh_setfield
-    bh_setfield_gc_r = _bh_setfield
-    bh_setfield_gc_f = _bh_setfield
-
-    bh_setfield_raw   = _bh_setfield
-    bh_setfield_raw_i = _bh_setfield
-    bh_setfield_raw_f = _bh_setfield
+    bh_setfield_raw   = bh_setfield_gc
+    bh_setfield_raw_i = bh_setfield_raw
+    bh_setfield_raw_f = bh_setfield_raw
 
     def bh_arraylen_gc(self, a, descr):
         array = a._obj.container
@@ -642,41 +635,37 @@ class LLGraphCPU(model.AbstractCPU):
             array = getattr(array, descr.OUTERA._arrayfld)
         return array.getlength()
 
-    def _bh_getarrayitem(self, a, index, descr, pure=False):
+    def bh_getarrayitem_gc(self, a, index, descr):
         a = support.cast_arg(lltype.Ptr(descr.A), a)
         array = a._obj
         assert index >= 0
         return support.cast_result(descr.A.OF, array.getitem(index))
 
-    direct_getarrayitem_gc = _bh_getarrayitem
-    bh_getarrayitem_gc_pure_i = _bh_getarrayitem
-    bh_getarrayitem_gc_pure_r = _bh_getarrayitem
-    bh_getarrayitem_gc_pure_f = _bh_getarrayitem
-    bh_getarrayitem_gc_i = _bh_getarrayitem
-    bh_getarrayitem_gc_r = _bh_getarrayitem
-    bh_getarrayitem_gc_f = _bh_getarrayitem
+    bh_getarrayitem_gc_pure_i = bh_getarrayitem_gc
+    bh_getarrayitem_gc_pure_r = bh_getarrayitem_gc
+    bh_getarrayitem_gc_pure_f = bh_getarrayitem_gc
+    bh_getarrayitem_gc_i = bh_getarrayitem_gc
+    bh_getarrayitem_gc_r = bh_getarrayitem_gc
+    bh_getarrayitem_gc_f = bh_getarrayitem_gc
 
+    bh_getarrayitem_raw = bh_getarrayitem_gc
+    bh_getarrayitem_raw_i = bh_getarrayitem_raw
+    bh_getarrayitem_raw_r = bh_getarrayitem_raw
+    bh_getarrayitem_raw_f = bh_getarrayitem_raw
 
-    direct_getarrayitem_raw = _bh_getarrayitem
-    bh_getarrayitem_raw_i = _bh_getarrayitem
-    bh_getarrayitem_raw_r = _bh_getarrayitem
-    bh_getarrayitem_raw_f = _bh_getarrayitem
-
-    def _bh_setarrayitem(self, a, index, item, descr):
+    def bh_setarrayitem_gc(self, a, index, item, descr):
         a = support.cast_arg(lltype.Ptr(descr.A), a)
         array = a._obj
         array.setitem(index, support.cast_arg(descr.A.OF, item))
 
-    direct_setarrayitem_gc = _bh_setarrayitem
-    direct_setarrayitem_raw = _bh_setarrayitem
+    bh_setarrayitem_gc_i = bh_setarrayitem_gc
+    bh_setarrayitem_gc_r = bh_setarrayitem_gc
+    bh_setarrayitem_gc_f = bh_setarrayitem_gc
 
-    bh_setarrayitem_gc_i = _bh_setarrayitem
-    bh_setarrayitem_gc_r = _bh_setarrayitem
-    bh_setarrayitem_gc_f = _bh_setarrayitem
-
-    bh_setarrayitem_raw_i = _bh_setarrayitem
-    bh_setarrayitem_raw_r = _bh_setarrayitem
-    bh_setarrayitem_raw_f = _bh_setarrayitem
+    bh_setarrayitem_raw   = bh_setarrayitem_gc
+    bh_setarrayitem_raw_i = bh_setarrayitem_raw
+    bh_setarrayitem_raw_r = bh_setarrayitem_raw
+    bh_setarrayitem_raw_f = bh_setarrayitem_raw
 
     def bh_getinteriorfield_gc(self, a, index, descr):
         array = a._obj.container
@@ -943,10 +932,10 @@ class LLGraphCPU(model.AbstractCPU):
             return values
         return method
 
-    bh_vec_getarrayitem_gc_i = build_getarrayitem(direct_getarrayitem_gc)
-    bh_vec_getarrayitem_gc_f = build_getarrayitem(direct_getarrayitem_gc)
-    bh_vec_getarrayitem_raw_i = build_getarrayitem(direct_getarrayitem_raw)
-    bh_vec_getarrayitem_raw_f = build_getarrayitem(direct_getarrayitem_raw)
+    bh_vec_getarrayitem_gc_i = build_getarrayitem(bh_getarrayitem_gc)
+    bh_vec_getarrayitem_gc_f = build_getarrayitem(bh_getarrayitem_gc)
+    bh_vec_getarrayitem_raw_i = build_getarrayitem(bh_getarrayitem_raw)
+    bh_vec_getarrayitem_raw_f = build_getarrayitem(bh_getarrayitem_raw)
     del build_getarrayitem
 
     def _bh_vec_raw_load(self, struct, offset, descr, _count):
@@ -970,11 +959,11 @@ class LLGraphCPU(model.AbstractCPU):
 
     def bh_vec_setarrayitem_raw(self, struct, offset, newvalues, descr, count):
         for i,n in enumerate(newvalues):
-            self.direct_setarrayitem_raw(struct, offset + i, n, descr)
+            self.bh_setarrayitem_raw(struct, offset + i, n, descr)
 
     def bh_vec_setarrayitem_gc(self, struct, offset, newvalues, descr, count):
         for i,n in enumerate(newvalues):
-            self.direct_setarrayitem_gc(struct, offset + i, n, descr)
+            self.bh_setarrayitem_gc(struct, offset + i, n, descr)
 
     def store_fail_descr(self, deadframe, descr):
         pass # I *think*
@@ -1556,11 +1545,6 @@ def _setup():
         return _op_default_implementation
 
     def _new_execute(opname):
-        if hasattr(LLGraphCPU, 'direct_' + opname):
-            methname = 'direct_' + opname
-        else:
-            methname = 'bh_' + opname
-        #
         def execute(self, descr, *args):
             if descr is not None:
                 new_args = args + (descr,)
@@ -1571,7 +1555,7 @@ def _setup():
                 count = self.current_op.count
                 assert count >= 1
                 new_args = new_args + (count,)
-            result = getattr(self.cpu, methname)(*new_args)
+            result = getattr(self.cpu, 'bh_' + opname)(*new_args)
             if isinstance(result, list):
                 # post vector op
                 count = self.current_op.count

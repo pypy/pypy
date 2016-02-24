@@ -220,8 +220,7 @@ class Parser(object):
         self._included_declarations = set()
         self._anonymous_counter = 0
         self._structnode2type = weakref.WeakKeyDictionary()
-        self._override = False
-        self._packed = False
+        self._options = None
         self._int_constants = {}
         self._recomplete = []
         self._uses_new_feature = None
@@ -281,16 +280,15 @@ class Parser(object):
             msg = 'parse error\n%s' % (msg,)
         raise api.CDefError(msg)
 
-    def parse(self, csource, override=False, packed=False):
-        prev_override = self._override
-        prev_packed = self._packed
+    def parse(self, csource, override=False, packed=False, dllexport=False):
+        prev_options = self._options
         try:
-            self._override = override
-            self._packed = packed
+            self._options = {'override': override,
+                             'packed': packed,
+                             'dllexport': dllexport}
             self._internal_parse(csource)
         finally:
-            self._override = prev_override
-            self._packed = prev_packed
+            self._options = prev_options
 
     def _internal_parse(self, csource):
         ast, macros, csource = self._parse(csource)
@@ -376,10 +374,13 @@ class Parser(object):
 
     def _declare_function(self, tp, quals, decl):
         tp = self._get_type_pointer(tp, quals)
-        if self._inside_extern_python:
-            self._declare('extern_python ' + decl.name, tp)
+        if self._options['dllexport']:
+            tag = 'dllexport_python '
+        elif self._inside_extern_python:
+            tag = 'extern_python '
         else:
-            self._declare('function ' + decl.name, tp)
+            tag = 'function '
+        self._declare(tag + decl.name, tp)
 
     def _parse_decl(self, decl):
         node = decl.type
@@ -449,7 +450,7 @@ class Parser(object):
             prevobj, prevquals = self._declarations[name]
             if prevobj is obj and prevquals == quals:
                 return
-            if not self._override:
+            if not self._options['override']:
                 raise api.FFIError(
                     "multiple declarations of %s (for interactive usage, "
                     "try cdef(xx, override=True))" % (name,))
@@ -728,7 +729,7 @@ class Parser(object):
             if isinstance(tp, model.StructType) and tp.partial:
                 raise NotImplementedError("%s: using both bitfields and '...;'"
                                           % (tp,))
-        tp.packed = self._packed
+        tp.packed = self._options['packed']
         if tp.completed:    # must be re-completed: it is not opaque any more
             tp.completed = 0
             self._recomplete.append(tp)

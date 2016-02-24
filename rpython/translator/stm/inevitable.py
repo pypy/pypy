@@ -41,6 +41,7 @@ ALWAYS_ALLOW_OPERATIONS = set([
     'gc_set_max_heap_size', 'gc_gcflag_extra',
     'raw_malloc_usage',
     'track_alloc_start', 'track_alloc_stop',
+    'threadlocalref_acquire', 'threadlocalref_enum', 'threadlocalref_release',
     ])
 ALWAYS_ALLOW_OPERATIONS |= set(lloperation.enum_tryfold_ops())
 
@@ -49,7 +50,8 @@ for opname, opdesc in lloperation.LL_OPERATIONS.iteritems():
         ALWAYS_ALLOW_OPERATIONS.add(opname)
 
 CALLS   = set(['direct_call', 'indirect_call'])
-GETTERS = set(['getfield', 'getarrayitem', 'getinteriorfield', 'raw_load'])
+GETTERS = set(['getfield', 'getarrayitem', 'getinteriorfield', 'raw_load',
+               'gc_load_indexed'])
 SETTERS = set(['setfield', 'setarrayitem', 'setinteriorfield', 'raw_store'])
 MALLOCS = set(['malloc', 'malloc_varsize',
                'raw_malloc',

@@ -168,9 +168,6 @@ class HeapCache(object):
         elif (opnum != rop.GETFIELD_GC_R and
               opnum != rop.GETFIELD_GC_I and
               opnum != rop.GETFIELD_GC_F and
-              opnum != rop.GETFIELD_GC_PURE_R and
-              opnum != rop.GETFIELD_GC_PURE_I and
-              opnum != rop.GETFIELD_GC_PURE_F and
               opnum != rop.PTR_EQ and
               opnum != rop.PTR_NE and
               opnum != rop.INSTANCE_PTR_EQ and

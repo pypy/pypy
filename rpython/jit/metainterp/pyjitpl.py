@@ -678,46 +678,37 @@ class MIFrame(object):
 
     @arguments("box", "descr")
     def opimpl_getfield_gc_i(self, box, fielddescr):
+        if fielddescr.is_always_pure() and isinstance(box, ConstPtr):
+            # if 'box' is directly a ConstPtr, bypass the heapcache completely
+            resbox = executor.execute(self.metainterp.cpu, self.metainterp,
+                                      rop.GETFIELD_GC_I, fielddescr, box)
+            return ConstInt(resbox)
         return self._opimpl_getfield_gc_any_pureornot(
                 rop.GETFIELD_GC_I, box, fielddescr, 'i')
-    @arguments("box", "descr")
-    def opimpl_getfield_gc_r(self, box, fielddescr):
-        return self._opimpl_getfield_gc_any_pureornot(
-                rop.GETFIELD_GC_R, box, fielddescr, 'r')
+
     @arguments("box", "descr")
     def opimpl_getfield_gc_f(self, box, fielddescr):
+        if fielddescr.is_always_pure() and isinstance(box, ConstPtr):
+            # if 'box' is directly a ConstPtr, bypass the heapcache completely
+            resvalue = executor.execute(self.metainterp.cpu, self.metainterp,
+                                        rop.GETFIELD_GC_F, fielddescr, box)
+            return ConstFloat(resvalue)
         return self._opimpl_getfield_gc_any_pureornot(
                 rop.GETFIELD_GC_F, box, fielddescr, 'f')
 
     @arguments("box", "descr")
-    def opimpl_getfield_gc_i_pure(self, box, fielddescr):
-        if isinstance(box, ConstPtr):
-            # if 'box' is directly a ConstPtr, bypass the heapcache completely
-            resbox = executor.execute(self.metainterp.cpu, self.metainterp,
-                                      rop.GETFIELD_GC_PURE_I, fielddescr, box)
-            return ConstInt(resbox)
-        return self._opimpl_getfield_gc_any_pureornot(
-                rop.GETFIELD_GC_PURE_I, box, fielddescr, 'i')
-
-    @arguments("box", "descr")
-    def opimpl_getfield_gc_f_pure(self, box, fielddescr):
-        if isinstance(box, ConstPtr):
-            # if 'box' is directly a ConstPtr, bypass the heapcache completely
-            resvalue = executor.execute(self.metainterp.cpu, self.metainterp,
-                                      rop.GETFIELD_GC_PURE_F, fielddescr, box)
-            return ConstFloat(resvalue)
-        return self._opimpl_getfield_gc_any_pureornot(
-                rop.GETFIELD_GC_PURE_F, box, fielddescr, 'f')
-
-    @arguments("box", "descr")
-    def opimpl_getfield_gc_r_pure(self, box, fielddescr):
-        if isinstance(box, ConstPtr):
+    def opimpl_getfield_gc_r(self, box, fielddescr):
+        if fielddescr.is_always_pure() and isinstance(box, ConstPtr):
             # if 'box' is directly a ConstPtr, bypass the heapcache completely
             val = executor.execute(self.metainterp.cpu, self.metainterp,
-                                      rop.GETFIELD_GC_PURE_R, fielddescr, box)
+                                   rop.GETFIELD_GC_R, fielddescr, box)
             return ConstPtr(val)
         return self._opimpl_getfield_gc_any_pureornot(
-                rop.GETFIELD_GC_PURE_R, box, fielddescr, 'r')
+                rop.GETFIELD_GC_R, box, fielddescr, 'r')
+
+    opimpl_getfield_gc_i_pure = opimpl_getfield_gc_i
+    opimpl_getfield_gc_r_pure = opimpl_getfield_gc_r
+    opimpl_getfield_gc_f_pure = opimpl_getfield_gc_f
 
     @arguments("box", "box", "descr")
     def opimpl_getinteriorfield_gc_i(self, array, index, descr):
@@ -758,7 +749,7 @@ class MIFrame(object):
     @arguments("box", "descr", "orgpc")
     def _opimpl_getfield_gc_greenfield_any(self, box, fielddescr, pc):
         ginfo = self.metainterp.jitdriver_sd.greenfield_info
-        opnum = OpHelpers.getfield_pure_for_descr(fielddescr)
+        opnum = OpHelpers.getfield_for_descr(fielddescr)
         if (ginfo is not None and fielddescr in ginfo.green_field_descrs
             and not self._nonstandard_virtualizable(pc, box, fielddescr)):
             # fetch the result, but consider it as a Const box and don't
@@ -2087,7 +2078,7 @@ class MetaInterp(object):
             guard_op = self.history.record(opnum, moreargs,
                                            lltype.nullptr(llmemory.GCREF.TO))
         else:
-            guard_op = self.history.record(opnum, moreargs, None)
+            guard_op = self.history.record(opnum, moreargs, None)            
         assert isinstance(guard_op, GuardResOp)
         self.capture_resumedata(guard_op, resumepc)
         self.staticdata.profiler.count_ops(opnum, Counters.GUARDS)
@@ -2134,17 +2125,7 @@ class MetaInterp(object):
         profiler = self.staticdata.profiler
         profiler.count_ops(opnum)
         resvalue = executor.execute(self.cpu, self, opnum, descr, *argboxes)
-        #
-        is_pure = rop._ALWAYS_PURE_FIRST <= opnum <= rop._ALWAYS_PURE_LAST
-        if not is_pure:
-            if (opnum == rop.GETFIELD_RAW_I or
-                opnum == rop.GETFIELD_RAW_R or
-                opnum == rop.GETFIELD_RAW_F or
-                opnum == rop.GETARRAYITEM_RAW_I or
-                opnum == rop.GETARRAYITEM_RAW_F):
-                is_pure = descr.is_immutable()
-        #
-        if is_pure:
+        if OpHelpers.is_pure_with_descr(opnum, descr):
             return self._record_helper_pure(opnum, resvalue, descr, *argboxes)
         if rop._OVF_FIRST <= opnum <= rop._OVF_LAST:
             return self._record_helper_ovf(opnum, resvalue, descr, *argboxes)
@@ -3187,7 +3168,7 @@ class MetaInterp(object):
             resbox = None
         else:
             assert False, "no CALL_RELEASE_GIL_R"
-
+            
         if not we_are_translated():       # for llgraph
             calldescr._original_func_ = argboxes[0].getint()
         return resbox

@@ -84,13 +84,6 @@ def create_entry_point(space, w_dict):
     from rpython.rlib.entrypoint import entrypoint_highlevel
     from rpython.rtyper.lltypesystem import rffi, lltype
 
-    w_pathsetter = space.appexec([], """():
-    def f(path):
-        import sys
-        sys.path[:] = path
-    return f
-    """)
-
     @entrypoint_highlevel('main', [rffi.CCHARP, rffi.INT],
                           c_name='pypy_setup_home')
     def pypy_setup_home(ll_home, verbose):
@@ -109,7 +102,10 @@ def create_entry_point(space, w_dict):
                       " not found in '%s' or in any parent directory" % home1)
             return rffi.cast(rffi.INT, 1)
         space.startup()
-        space.call_function(w_pathsetter, w_path)
+        space.appexec([w_path], """(path):
+            import sys
+            sys.path[:] = path
+        """)
         # import site
         try:
             space.setattr(space.getbuiltinmodule('sys'),
@@ -149,6 +145,9 @@ def create_entry_point(space, w_dict):
             return
         os_thread.setup_threads(space)
         os_thread.bootstrapper.acquire(space, None, None)
+        # XXX this doesn't really work.  Don't use os.fork(), and
+        # if your embedder program uses fork(), don't use any PyPy
+        # code in the fork
         rthread.gc_thread_start()
         os_thread.bootstrapper.nbthreads += 1
         os_thread.bootstrapper.release()

@@ -30,10 +30,10 @@ class AbstractAttribute(object):
         assert isinstance(terminator, Terminator)
         self.terminator = terminator
 
-    def read(self, obj, selector):
-        attr = self.find_map_attr(selector)
+    def read(self, obj, name, index):
+        attr = self.find_map_attr(name, index)
         if attr is None:
-            return self.terminator._read_terminator(obj, selector)
+            return self.terminator._read_terminator(obj, name, index)
         if (
             jit.isconstant(attr.storageindex) and
             jit.isconstant(obj) and
@@ -47,39 +47,39 @@ class AbstractAttribute(object):
     def _pure_mapdict_read_storage(self, obj, storageindex):
         return obj._mapdict_read_storage(storageindex)
 
-    def write(self, obj, selector, w_value):
-        attr = self.find_map_attr(selector)
+    def write(self, obj, name, index, w_value):
+        attr = self.find_map_attr(name, index)
         if attr is None:
-            return self.terminator._write_terminator(obj, selector, w_value)
+            return self.terminator._write_terminator(obj, name, index, w_value)
         if not attr.ever_mutated:
             attr.ever_mutated = True
         obj._mapdict_write_storage(attr.storageindex, w_value)
         return True
 
-    def delete(self, obj, selector):
+    def delete(self, obj, name, index):
         pass
 
-    def find_map_attr(self, selector):
+    def find_map_attr(self, name, index):
         if jit.we_are_jitted():
             # hack for the jit:
             # the _find_map_attr method is pure too, but its argument is never
             # constant, because it is always a new tuple
-            return self._find_map_attr_jit_pure(selector[0], selector[1])
+            return self._find_map_attr_jit_pure(name, index)
         else:
-            return self._find_map_attr_indirection(selector)
+            return self._find_map_attr_indirection(name, index)
 
     @jit.elidable
     def _find_map_attr_jit_pure(self, name, index):
-        return self._find_map_attr_indirection((name, index))
+        return self._find_map_attr_indirection(name, index)
 
     @jit.dont_look_inside
-    def _find_map_attr_indirection(self, selector):
+    def _find_map_attr_indirection(self, name, index):
         if (self.space.config.objspace.std.withmethodcache):
-            return self._find_map_attr_cache(selector)
-        return self._find_map_attr(selector)
+            return self._find_map_attr_cache(name, index)
+        return self._find_map_attr(name, index)
 
     @jit.dont_look_inside
-    def _find_map_attr_cache(self, selector):
+    def _find_map_attr_cache(self, name, index):
         space = self.space
         cache = space.fromcache(MapAttrCache)
         SHIFT2 = r_uint.BITS - space.config.objspace.std.methodcachesizeexp
@@ -87,31 +87,36 @@ class AbstractAttribute(object):
         attrs_as_int = objectmodel.current_object_addr_as_int(self)
         # ^^^Note: see comment in typeobject.py for
         # _pure_lookup_where_with_method_cache()
-        hash_selector = objectmodel.compute_hash(selector)
+
+        # unrolled hash computation for 2-tuple
+        c1 = 0x345678
+        c2 = 1000003
+        hash_name = objectmodel.compute_hash(name)
+        hash_selector = intmask((c2 * ((c2 * c1) ^ hash_name)) ^ index)
         product = intmask(attrs_as_int * hash_selector)
         attr_hash = (r_uint(product) ^ (r_uint(product) << SHIFT1)) >> SHIFT2
         # ^^^Note2: same comment too
         cached_attr = cache.attrs[attr_hash]
         if cached_attr is self:
-            cached_selector = cache.selectors[attr_hash]
-            if cached_selector == selector:
+            cached_name = cache.names[attr_hash]
+            cached_index = cache.indexes[attr_hash]
+            if cached_name == name and cached_index == index:
                 attr = cache.cached_attrs[attr_hash]
                 if space.config.objspace.std.withmethodcachecounter:
-                    name = selector[0]
                     cache.hits[name] = cache.hits.get(name, 0) + 1
                 return attr
-        attr = self._find_map_attr(selector)
+        attr = self._find_map_attr(name, index)
         cache.attrs[attr_hash] = self
-        cache.selectors[attr_hash] = selector
+        cache.names[attr_hash] = name
+        cache.indexes[attr_hash] = index
         cache.cached_attrs[attr_hash] = attr
         if space.config.objspace.std.withmethodcachecounter:
-            name = selector[0]
             cache.misses[name] = cache.misses.get(name, 0) + 1
         return attr
 
-    def _find_map_attr(self, selector):
+    def _find_map_attr(self, name, index):
         while isinstance(self, PlainAttribute):
-            if selector == self.selector:
+            if name == self.name and index == self.index:
                 return self
             self = self.back
         return None
@@ -149,23 +154,22 @@ class AbstractAttribute(object):
 
     @jit.elidable
     def _get_new_attr(self, name, index):
-        selector = name, index
         cache = self.cache_attrs
         if cache is None:
             cache = self.cache_attrs = {}
-        attr = cache.get(selector, None)
+        attr = cache.get((name, index), None)
         if attr is None:
-            attr = PlainAttribute(selector, self)
-            cache[selector] = attr
+            attr = PlainAttribute(name, index, self)
+            cache[name, index] = attr
         return attr
 
-    @jit.look_inside_iff(lambda self, obj, selector, w_value:
+    @jit.look_inside_iff(lambda self, obj, name, index, w_value:
             jit.isconstant(self) and
-            jit.isconstant(selector[0]) and
-            jit.isconstant(selector[1]))
-    def add_attr(self, obj, selector, w_value):
+            jit.isconstant(name) and
+            jit.isconstant(index))
+    def add_attr(self, obj, name, index, w_value):
         # grumble, jit needs this
-        attr = self._get_new_attr(selector[0], selector[1])
+        attr = self._get_new_attr(name, index)
         oldattr = obj._get_mapdict_map()
         if not jit.we_are_jitted():
             oldattr._update_size_estimate(attr.size_estimate())
@@ -198,11 +202,11 @@ class Terminator(AbstractAttribute):
         AbstractAttribute.__init__(self, space, self)
         self.w_cls = w_cls
 
-    def _read_terminator(self, obj, selector):
+    def _read_terminator(self, obj, name, index):
         return None
 
-    def _write_terminator(self, obj, selector, w_value):
-        obj._get_mapdict_map().add_attr(obj, selector, w_value)
+    def _write_terminator(self, obj, name, index, w_value):
+        obj._get_mapdict_map().add_attr(obj, name, index, w_value)
         return True
 
     def copy(self, obj):
@@ -240,40 +244,40 @@ class DictTerminator(Terminator):
 
 
 class NoDictTerminator(Terminator):
-    def _write_terminator(self, obj, selector, w_value):
-        if selector[1] == DICT:
+    def _write_terminator(self, obj, name, index, w_value):
+        if index == DICT:
             return False
-        return Terminator._write_terminator(self, obj, selector, w_value)
+        return Terminator._write_terminator(self, obj, name, index, w_value)
 
 
 class DevolvedDictTerminator(Terminator):
-    def _read_terminator(self, obj, selector):
-        if selector[1] == DICT:
+    def _read_terminator(self, obj, name, index):
+        if index == DICT:
             space = self.space
             w_dict = obj.getdict(space)
-            return space.finditem_str(w_dict, selector[0])
-        return Terminator._read_terminator(self, obj, selector)
+            return space.finditem_str(w_dict, name)
+        return Terminator._read_terminator(self, obj, name, index)
 
-    def _write_terminator(self, obj, selector, w_value):
-        if selector[1] == DICT:
+    def _write_terminator(self, obj, name, index, w_value):
+        if index == DICT:
             space = self.space
             w_dict = obj.getdict(space)
-            space.setitem_str(w_dict, selector[0], w_value)
+            space.setitem_str(w_dict, name, w_value)
             return True
-        return Terminator._write_terminator(self, obj, selector, w_value)
+        return Terminator._write_terminator(self, obj, name, index, w_value)
 
-    def delete(self, obj, selector):
+    def delete(self, obj, name, index):
         from pypy.interpreter.error import OperationError
-        if selector[1] == DICT:
+        if index == DICT:
             space = self.space
             w_dict = obj.getdict(space)
             try:
-                space.delitem(w_dict, space.wrap(selector[0]))
+                space.delitem(w_dict, space.wrap(name))
             except OperationError, ex:
                 if not ex.match(space, space.w_KeyError):
                     raise
             return Terminator.copy(self, obj)
-        return Terminator.delete(self, obj, selector)
+        return Terminator.delete(self, obj, name, index)
 
     def remove_dict_entries(self, obj):
         assert 0, "should be unreachable"
@@ -285,27 +289,28 @@ class DevolvedDictTerminator(Terminator):
         return Terminator.set_terminator(self, obj, terminator)
 
 class PlainAttribute(AbstractAttribute):
-    _immutable_fields_ = ['selector', 'storageindex', 'back', 'ever_mutated?']
+    _immutable_fields_ = ['name', 'index', 'storageindex', 'back', 'ever_mutated?']
 
-    def __init__(self, selector, back):
+    def __init__(self, name, index, back):
         AbstractAttribute.__init__(self, back.space, back.terminator)
-        self.selector = selector
+        self.name = name
+        self.index = index
         self.storageindex = back.length()
         self.back = back
         self._size_estimate = self.length() * NUM_DIGITS_POW2
         self.ever_mutated = False
 
     def _copy_attr(self, obj, new_obj):
-        w_value = self.read(obj, self.selector)
-        new_obj._get_mapdict_map().add_attr(new_obj, self.selector, w_value)
+        w_value = self.read(obj, self.name, self.index)
+        new_obj._get_mapdict_map().add_attr(new_obj, self.name, self.index, w_value)
 
-    def delete(self, obj, selector):
-        if selector == self.selector:
+    def delete(self, obj, name, index):
+        if name == self.name and index == self.index:
             # ok, attribute is deleted
             if not self.ever_mutated:
                 self.ever_mutated = True
             return self.back.copy(obj)
-        new_obj = self.back.delete(obj, selector)
+        new_obj = self.back.delete(obj, name, index)
         if new_obj is not None:
             self._copy_attr(obj, new_obj)
         return new_obj
@@ -324,14 +329,14 @@ class PlainAttribute(AbstractAttribute):
         return new_obj
 
     def search(self, attrtype):
-        if self.selector[1] == attrtype:
+        if self.index == attrtype:
             return self
         return self.back.search(attrtype)
 
     def materialize_r_dict(self, space, obj, dict_w):
         new_obj = self.back.materialize_r_dict(space, obj, dict_w)
-        if self.selector[1] == DICT:
-            w_attr = space.wrap(self.selector[0])
+        if self.index == DICT:
+            w_attr = space.wrap(self.name)
             dict_w[w_attr] = obj._mapdict_read_storage(self.storageindex)
         else:
             self._copy_attr(obj, new_obj)
@@ -339,12 +344,12 @@ class PlainAttribute(AbstractAttribute):
 
     def remove_dict_entries(self, obj):
         new_obj = self.back.remove_dict_entries(obj)
-        if self.selector[1] != DICT:
+        if self.index != DICT:
             self._copy_attr(obj, new_obj)
         return new_obj
 
     def __repr__(self):
-        return "<PlainAttribute %s %s %r>" % (self.selector, self.storageindex, self.back)
+        return "<PlainAttribute %s %s %s %r>" % (self.name, self.index, self.storageindex, self.back)
 
 def _become(w_obj, new_obj):
     # this is like the _become method, really, but we cannot use that due to
@@ -356,8 +361,8 @@ class MapAttrCache(object):
         assert space.config.objspace.std.withmethodcache
         SIZE = 1 << space.config.objspace.std.methodcachesizeexp
         self.attrs = [None] * SIZE
-        self._empty_selector = (None, INVALID)
-        self.selectors = [self._empty_selector] * SIZE
+        self.names = [None] * SIZE
+        self.indexes = [INVALID] * SIZE
         self.cached_attrs = [None] * SIZE
         if space.config.objspace.std.withmethodcachecounter:
             self.hits = {}
@@ -366,8 +371,9 @@ class MapAttrCache(object):
     def clear(self):
         for i in range(len(self.attrs)):
             self.attrs[i] = None
-        for i in range(len(self.selectors)):
-            self.selectors[i] = self._empty_selector
+        for i in range(len(self.names)):
+            self.names[i] = None
+            self.indexes[i] = INVALID
         for i in range(len(self.cached_attrs)):
             self.cached_attrs[i] = None
 
@@ -397,20 +403,20 @@ class BaseMapdictObject:
     # objspace interface
 
     def getdictvalue(self, space, attrname):
-        return self._get_mapdict_map().read(self, (attrname, DICT))
+        return self._get_mapdict_map().read(self, attrname, DICT)
 
     def setdictvalue(self, space, attrname, w_value):
-        return self._get_mapdict_map().write(self, (attrname, DICT), w_value)
+        return self._get_mapdict_map().write(self, attrname, DICT, w_value)
 
     def deldictvalue(self, space, attrname):
-        new_obj = self._get_mapdict_map().delete(self, (attrname, DICT))
+        new_obj = self._get_mapdict_map().delete(self, attrname, DICT)
         if new_obj is None:
             return False
         self._become(new_obj)
         return True
 
     def getdict(self, space):
-        w_dict = self._get_mapdict_map().read(self, ("dict", SPECIAL))
+        w_dict = self._get_mapdict_map().read(self, "dict", SPECIAL)
         if w_dict is not None:
             assert isinstance(w_dict, W_DictMultiObject)
             return w_dict
@@ -418,7 +424,7 @@ class BaseMapdictObject:
         strategy = space.fromcache(MapDictStrategy)
         storage = strategy.erase(self)
         w_dict = W_DictObject(space, strategy, storage)
-        flag = self._get_mapdict_map().write(self, ("dict", SPECIAL), w_dict)
+        flag = self._get_mapdict_map().write(self, "dict", SPECIAL, w_dict)
         assert flag
         return w_dict
 
@@ -434,7 +440,7 @@ class BaseMapdictObject:
         # shell that continues to delegate to 'self'.
         if type(w_olddict.get_strategy()) is MapDictStrategy:
             w_olddict.get_strategy().switch_to_object_strategy(w_olddict)
-        flag = self._get_mapdict_map().write(self, ("dict", SPECIAL), w_dict)
+        flag = self._get_mapdict_map().write(self, "dict", SPECIAL, w_dict)
         assert flag
 
     def getclass(self, space):
@@ -452,16 +458,16 @@ class BaseMapdictObject:
         self._init_empty(w_subtype.terminator)
 
     def getslotvalue(self, slotindex):
-        key = ("slot", SLOTS_STARTING_FROM + slotindex)
-        return self._get_mapdict_map().read(self, key)
+        index = SLOTS_STARTING_FROM + slotindex
+        return self._get_mapdict_map().read(self, "slot", index)
 
     def setslotvalue(self, slotindex, w_value):
-        key = ("slot", SLOTS_STARTING_FROM + slotindex)
-        self._get_mapdict_map().write(self, key, w_value)
+        index = SLOTS_STARTING_FROM + slotindex
+        self._get_mapdict_map().write(self, "slot", index, w_value)
 
     def delslotvalue(self, slotindex):
-        key = ("slot", SLOTS_STARTING_FROM + slotindex)
-        new_obj = self._get_mapdict_map().delete(self, key)
+        index = SLOTS_STARTING_FROM + slotindex
+        new_obj = self._get_mapdict_map().delete(self, "slot", index)
         if new_obj is None:
             return False
         self._become(new_obj)
@@ -471,7 +477,7 @@ class BaseMapdictObject:
 
     def getweakref(self):
         from pypy.module._weakref.interp__weakref import WeakrefLifeline
-        lifeline = self._get_mapdict_map().read(self, ("weakref", SPECIAL))
+        lifeline = self._get_mapdict_map().read(self, "weakref", SPECIAL)
         if lifeline is None:
             return None
         assert isinstance(lifeline, WeakrefLifeline)
@@ -481,11 +487,11 @@ class BaseMapdictObject:
     def setweakref(self, space, weakreflifeline):
         from pypy.module._weakref.interp__weakref import WeakrefLifeline
         assert isinstance(weakreflifeline, WeakrefLifeline)
-        self._get_mapdict_map().write(self, ("weakref", SPECIAL), weakreflifeline)
+        self._get_mapdict_map().write(self, "weakref", SPECIAL, weakreflifeline)
     setweakref._cannot_really_call_random_things_ = True
 
     def delweakref(self):
-        self._get_mapdict_map().write(self, ("weakref", SPECIAL), None)
+        self._get_mapdict_map().write(self, "weakref", SPECIAL, None)
     delweakref._cannot_really_call_random_things_ = True
 
 class ObjectMixin(object):
@@ -730,7 +736,7 @@ class MapDictStrategy(DictStrategy):
         curr = self.unerase(w_dict.dstorage)._get_mapdict_map().search(DICT)
         if curr is None:
             raise KeyError
-        key = curr.selector[0]
+        key = curr.name
         w_value = self.getitem_str(w_dict, key)
         w_key = self.space.wrap(key)
         self.delitem(w_dict, w_key)
@@ -767,7 +773,7 @@ class MapDictIteratorKeys(BaseKeyIterator):
             curr_map = self.curr_map.search(DICT)
             if curr_map:
                 self.curr_map = curr_map.back
-                attr = curr_map.selector[0]
+                attr = curr_map.name
                 w_attr = self.space.wrap(attr)
                 return w_attr
         return None
@@ -789,7 +795,7 @@ class MapDictIteratorValues(BaseValueIterator):
             curr_map = self.curr_map.search(DICT)
             if curr_map:
                 self.curr_map = curr_map.back
-                attr = curr_map.selector[0]
+                attr = curr_map.name
                 return self.w_obj.getdictvalue(self.space, attr)
         return None
 
@@ -810,7 +816,7 @@ class MapDictIteratorItems(BaseItemIterator):
             curr_map = self.curr_map.search(DICT)
             if curr_map:
                 self.curr_map = curr_map.back
-                attr = curr_map.selector[0]
+                attr = curr_map.name
                 w_attr = self.space.wrap(attr)
                 return w_attr, self.w_obj.getdictvalue(self.space, attr)
         return None, None
@@ -931,9 +937,9 @@ def LOAD_ATTR_slowpath(pycode, w_obj, nameindex, map):
             _, w_descr = w_type._pure_lookup_where_possibly_with_method_cache(
                 name, version_tag)
             #
-            selector = ("", INVALID)
+            attrname, index = ("", INVALID)
             if w_descr is None:
-                selector = (name, DICT) # common case: no such attr in the class
+                attrname, index = (name, DICT) # common case: no such attr in the class
             elif isinstance(w_descr, MutableCell):
                 pass              # we have a MutableCell in the class: give up
             elif space.is_data_descr(w_descr):
@@ -941,20 +947,21 @@ def LOAD_ATTR_slowpath(pycode, w_obj, nameindex, map):
                 # (if any) has no relevance.
                 from pypy.interpreter.typedef import Member
                 if isinstance(w_descr, Member):    # it is a slot -- easy case
-                    selector = ("slot", SLOTS_STARTING_FROM + w_descr.index)
+                    attrname, index = ("slot", SLOTS_STARTING_FROM + w_descr.index)
             else:
                 # There is a non-data descriptor in the class.  If there is
                 # also a dict attribute, use the latter, caching its storageindex.
                 # If not, we loose.  We could do better in this case too,
                 # but we don't care too much; the common case of a method
                 # invocation is handled by LOOKUP_METHOD_xxx below.
-                selector = (name, DICT)
+                attrname = name
+                index = DICT
             #
-            if selector[1] != INVALID:
-                attr = map.find_map_attr(selector)
+            if index != INVALID:
+                attr = map.find_map_attr(attrname, index)
                 if attr is not None:
                     # Note that if map.terminator is a DevolvedDictTerminator,
-                    # map.find_map_attr will always return None if selector[1]==DICT.
+                    # map.find_map_attr will always return None if index==DICT.
                     _fill_cache(pycode, nameindex, map, version_tag, attr.storageindex)
                     return w_obj._mapdict_read_storage(attr.storageindex)
     if space.config.objspace.std.withmethodcachecounter:

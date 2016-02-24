@@ -10,6 +10,15 @@ project. The `PyPy uwsgi plugin`_ is a good example of using the embedding API.
 with a ``libpypy-c.so`` or ``pypy-c.dll`` file.  This is the default in
 recent versions of PyPy.
 
+.. note::
+
+   The interface described in this page is kept for backward compatibility.
+   From PyPy 4.1, it is recommended to use instead CFFI's `native embedding
+   support,`__ which gives a simpler approach that works on CPython as well
+   as PyPy.
+
+.. __: http://cffi.readthedocs.org/en/latest/embedding.html
+
 The resulting shared library exports very few functions, however they are
 enough to accomplish everything you need, provided you follow a few principles.
 The API is:

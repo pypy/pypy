@@ -128,22 +128,21 @@ class FieldDescr(ArrayOrFieldDescr):
     offset = 0      # help translation
     field_size = 0
     flag = '\x00'
-    _immutable = False
+    _is_pure = False
 
-    def __init__(self, name, offset, field_size, flag,
-                 index_in_parent=0,
+    def __init__(self, name, offset, field_size, flag, index_in_parent=0,
                  stm_dont_track_raw_accesses=False,
-                 immutable=False):
+                 is_pure=False):
         self.name = name
         self.offset = offset
         self.field_size = field_size
         self.flag = flag
         self.index = index_in_parent
         self.stm_dont_track_raw_accesses = stm_dont_track_raw_accesses
-        self._immutable = immutable
+        self._is_pure = is_pure
 
-    def is_immutable(self):
-        return self._immutable
+    def is_always_pure(self):
+        return self._is_pure
 
     def __repr__(self):
         return 'FieldDescr<%s>' % (self.name,)
@@ -189,7 +188,8 @@ class FieldDescr(ArrayOrFieldDescr):
         return self.offset
 
     def repr_of_descr(self):
-        return '<Field%s %s %s>' % (self.flag, self.name, self.offset)
+        ispure = " pure" if self._is_pure else ""
+        return '<Field%s %s %s%s>' % (self.flag, self.name, self.offset, ispure)
 
     def get_parent_descr(self):
         return self.parent_descr
@@ -211,11 +211,11 @@ def get_field_descr(gccache, STRUCT, fieldname):
         index_in_parent = heaptracker.get_fielddescr_index_in(STRUCT, fieldname)
         stm_dont_track_raw_accesses = STRUCT._hints.get(
             'stm_dont_track_raw_accesses', False)
-        immutable = bool(STRUCT._immutable_field(fieldname))
+        is_pure = STRUCT._immutable_field(fieldname) != False
         fielddescr = FieldDescr(name, offset, size, flag,
                                 index_in_parent,
                                 stm_dont_track_raw_accesses,
-                                immutable)
+                                is_pure)
         cachedict = cache.setdefault(STRUCT, {})
         cachedict[fieldname] = fielddescr
         if STRUCT is rclass.OBJECT:
@@ -271,26 +271,26 @@ class ArrayDescr(ArrayOrFieldDescr):
     lendescr = None
     flag = '\x00'
     vinfo = None
-    _immutable = False
     all_interiorfielddescrs = None
     concrete_type = '\x00'
+    _is_pure = False
 
     def __init__(self, basesize, itemsize, lendescr, flag,
                  stm_dont_track_raw_accesses=False,
-                 immutable=False, concrete_type='\x00'):
+                 is_pure=False, concrete_type='\x00'):
         self.basesize = basesize
         self.itemsize = itemsize
         self.lendescr = lendescr    # or None, if no length
         self.flag = flag
         self.stm_dont_track_raw_accesses = stm_dont_track_raw_accesses
-        self._immutable = immutable
+        self._is_pure = is_pure
         self.concrete_type = concrete_type
 
     def get_all_fielddescrs(self):
         return self.all_interiorfielddescrs
 
-    def is_immutable(self):
-        return self._immutable
+    def is_always_pure(self):
+        return self._is_pure
 
     def getconcrete_type(self):
         return self.concrete_type
@@ -361,17 +361,17 @@ def get_array_descr(gccache, ARRAY_OR_STRUCT):
         stm_dont_track_raw_accesses = ARRAY_INSIDE._hints.get(
             'stm_dont_track_raw_accesses', False)
         flag = get_type_flag(ARRAY_INSIDE.OF)
-        immutable = bool(ARRAY_INSIDE._immutable_field())
+        is_pure = bool(ARRAY_INSIDE._immutable_field(None))
         arraydescr = ArrayDescr(basesize, itemsize, lendescr, flag,
                                 stm_dont_track_raw_accesses,
-                                immutable)
+                                is_pure)
         if ARRAY_INSIDE.OF is lltype.SingleFloat or \
            ARRAY_INSIDE.OF is lltype.Float:
             # it would be better to set the flag as FLOAT_TYPE
             # for single float -> leads to problems
             arraydescr = ArrayDescr(basesize, itemsize, lendescr, flag,
                                     stm_dont_track_raw_accesses,
-                                    immutable, concrete_type='f')
+                                    is_pure, concrete_type='f')
         cache[ARRAY_OR_STRUCT] = arraydescr
         if isinstance(ARRAY_INSIDE.OF, lltype.Struct):
             descrs = heaptracker.all_interiorfielddescrs(gccache,
@@ -388,16 +388,16 @@ def get_array_descr(gccache, ARRAY_OR_STRUCT):
 class InteriorFieldDescr(AbstractDescr):
     arraydescr = ArrayDescr(0, 0, None, '\x00')  # workaround for the annotator
     fielddescr = FieldDescr('', 0, 0, '\x00')
-    _immutable = False
+    _is_pure = False
 
-    def __init__(self, arraydescr, fielddescr, immutable=False):
+    def __init__(self, arraydescr, fielddescr, is_pure=False):
         assert arraydescr.flag == FLAG_STRUCT
         self.arraydescr = arraydescr
         self.fielddescr = fielddescr
-        self._immutable = immutable
+        self._is_pure = is_pure
 
-    def is_immutable(self):
-        return self._immutable
+    def is_always_pure(self):
+        return self._is_pure
 
     def get_index(self):
         return self.fielddescr.get_index()
@@ -442,8 +442,9 @@ def get_interiorfield_descr(gc_ll_descr, ARRAY, name, arrayfieldname=None):
         else:
             REALARRAY = getattr(ARRAY, arrayfieldname)
         fielddescr = get_field_descr(gc_ll_descr, REALARRAY.OF, name)
-        immutable = bool(arraydescr.is_immutable() or fielddescr.is_immutable())
-        descr = InteriorFieldDescr(arraydescr, fielddescr, immutable)
+        is_pure = bool(arraydescr.is_always_pure() 
+                       or fielddescr.is_always_pure())
+        descr = InteriorFieldDescr(arraydescr, fielddescr, is_pure)
         cache[(ARRAY, name, arrayfieldname)] = descr
         return descr
 

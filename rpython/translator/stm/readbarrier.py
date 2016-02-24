@@ -10,7 +10,8 @@ MALLOCS = set([
     'malloc_noconflict', 'malloc_noconflict_varsize',
     'stm_allocate_tid',
     ])
-READ_OPS = set(['getfield', 'getarrayitem', 'getinteriorfield', 'raw_load'])
+READ_OPS = set(['getfield', 'getarrayitem', 'getinteriorfield', 'raw_load',
+                'gc_load_indexed'])
 
 
 

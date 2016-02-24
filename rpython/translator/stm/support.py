@@ -17,6 +17,13 @@ def is_immutable(op):
         return len(op.args) >= 3 and bool(op.args[2].value)
     if op.opname == 'raw_store':
         return False
+    if op.opname == 'gc_load_indexed':
+        T = op.args[0].concretetype.TO
+        # XXX: unfortunately, we lost the information about immutability
+        # of the inline-array that we are going to access here.
+        # E.g., if arg0 is a str, we probably index into the immutable
+        # 'chars' field, but it's hard to know.
+        return T._hints.get('immutable', False)
     raise AssertionError(op)
 
 def unwraplist(list_v):

@@ -2,7 +2,7 @@ from rpython.rlib.objectmodel import stm_ignored
 from rpython.translator.stm.test.transform_support import BaseTestTransform
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
-
+import py
 
 class TestReadBarrier(BaseTestTransform):
     do_read_barrier = True
@@ -240,6 +240,45 @@ class TestReadBarrier(BaseTestTransform):
 
         self.interpret(f1, [1])
         assert len(self.read_barriers) == 5
+
+    def test_gc_load_indexed(self):
+        from rpython.rtyper.annlowlevel import llstr
+        from rpython.rtyper.lltypesystem.rstr import STR
+        from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, lloperation
+
+        s = "hi"
+        def f(byte_offset):
+            lls = llstr(s)
+            base_ofs = (llmemory.offsetof(STR, 'chars') +
+                        llmemory.itemoffsetof(STR.chars, 0))
+            scale_factor = llmemory.sizeof(lltype.Char)
+            return llop.gc_load_indexed(rffi.SHORT, lls, byte_offset,
+                                        scale_factor, base_ofs)
+        res = self.interpret(f, [1])
+        assert res == ord('i')
+        # XXX: we would want 0 here, but gc_load_indexed is annoying.
+        # see next test
+        assert len(self.read_barriers) == 1
+
+    @py.test.mark.xfail(reason="missing opt")
+    def test_gc_load_indexed_real(self):
+        from rpython.rtyper.annlowlevel import llstr
+        from rpython.rtyper.lltypesystem.rstr import STR
+        from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, lloperation
+
+        s = "hi"
+        def f(byte_offset):
+            lls = llstr(s)
+            base_ofs = (llmemory.offsetof(STR, 'chars') +
+                        llmemory.itemoffsetof(STR.chars, 0))
+            scale_factor = llmemory.sizeof(lltype.Char)
+            return llop.gc_load_indexed(rffi.SHORT, lls, byte_offset,
+                                        scale_factor, base_ofs)
+        res = self.interpret(f, [1])
+        assert res == ord('i')
+        # XXX: we would want 0 here, but gc_load_indexed is annoying.
+        assert len(self.read_barriers) == 0
+
 
 
 
