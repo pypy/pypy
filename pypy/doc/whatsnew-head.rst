@@ -7,6 +7,9 @@ What's new in PyPy 4.1.+
 
 Fixed ``_PyLong_FromByteArray()``, which was buggy.
 
+Fixed a crash with stacklets (or greenlets) on non-Linux machines
+which showed up if you forget stacklets without resuming them.
+
 .. branch: numpy-1.10
 
 Fix tests to run cleanly with -A and start to fix micronumpy for upstream numpy
@@ -38,7 +41,8 @@ Remove unnecessary special handling of space.wrap().
 
 .. branch: compress-numbering
 
-Improve the memory signature of numbering instances in the JIT.
+Improve the memory signature of numbering instances in the JIT. This should massively
+decrease the amount of memory consumed by the JIT, which is significant for most programs.
 
 .. branch: fix-trace-too-long-heuristic
 
@@ -124,6 +128,7 @@ Deprecates http://pypy.readthedocs.org/en/latest/embedding.html.
 
 Fix SSL tests by importing cpython's patch
 
+
 .. branch: remove-getfield-pure
 
 Remove pure variants of ``getfield_gc_*`` operations from the JIT. Relevant
@@ -148,3 +153,21 @@ Refactor vmprof to work cross-operating-system.
 
 Seperate structmember.h from Python.h Also enhance creating api functions
 to specify which header file they appear in (previously only pypy_decl.h) 
+
+.. branch: llimpl
+
+Refactor register_external(), remove running_on_llinterp mechanism and
+apply sandbox transform on externals at the end of annotation.
+
+.. branch: cffi-embedding-win32
+
+.. branch: windows-vmprof-support
+
+vmprof should work on Windows.
+
+
+.. branch: reorder-map-attributes
+
+When creating instances and adding attributes in several different orders
+depending on some condition, the JIT would create too much code. This is now
+fixed.

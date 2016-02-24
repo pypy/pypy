@@ -86,6 +86,11 @@ _RPython_ThreadLocals_Enum(struct pypy_threadlocal_s *prev)
     return prev->next;
 }
 
+struct pypy_threadlocal_s *_RPython_ThreadLocals_Head(void)
+{
+    return &linkedlist_head;
+}
+
 static void _RPy_ThreadLocals_Init(void *p)
 {
     struct pypy_threadlocal_s *tls = (struct pypy_threadlocal_s *)p;

@@ -489,13 +489,14 @@ class TranslationDriver(SimpleTaskEngine):
                     exe = py.path.local(exename)
                     exename = exe.new(purebasename=exe.purebasename + 'w')
                     shutil_copy(str(exename), str(newexename))
-                    # the import library is named python27.lib, according
-                    # to the pragma in pyconfig.h
-                    libname = str(newsoname.dirpath().join('python27.lib'))
+                    # for pypy, the import library is renamed and moved to
+                    # libs/python27.lib, according to the pragma in pyconfig.h
+                    libname = self.config.translation.libname
+                    libname = libname or soname.new(ext='lib').basename
+                    libname = str(newsoname.dirpath().join(libname))
                     shutil.copyfile(str(soname.new(ext='lib')), libname)
                     self.log.info("copied: %s" % (libname,))
-                    # XXX TODO : replace the nonsense above with
-                    # ext_to_copy = ['lib', 'pdb']
+                    # the pdb file goes in the same place as pypy(w).exe
                     ext_to_copy = ['pdb',]
                     for ext in ext_to_copy:
                         name = soname.new(ext=ext)

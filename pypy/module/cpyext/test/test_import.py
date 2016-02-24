@@ -21,7 +21,7 @@ class TestImport(BaseApiTest):
     def test_getmoduledict(self, space, api):
         testmod = "_functools"
         w_pre_dict = api.PyImport_GetModuleDict()
-        assert not space.is_true(space.contains(w_pre_dict, space.wrap(testmod)))
+        assert not space.contains_w(w_pre_dict, space.wrap(testmod))
 
         with rffi.scoped_str2charp(testmod) as modname:
             w_module = api.PyImport_ImportModule(modname)
@@ -29,7 +29,7 @@ class TestImport(BaseApiTest):
             assert w_module
 
         w_dict = api.PyImport_GetModuleDict()
-        assert space.is_true(space.contains(w_dict, space.wrap(testmod)))
+        assert space.contains_w(w_dict, space.wrap(testmod))
 
     def test_reload(self, space, api):
         stat = api.PyImport_Import(space.wrap("stat"))

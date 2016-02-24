@@ -36,13 +36,16 @@ working_modules.update([
     "cStringIO", "thread", "itertools", "pyexpat", "_ssl", "cpyext", "array",
     "binascii", "_multiprocessing", '_warnings', "_collections",
     "_multibytecodec", "micronumpy", "_continuation", "_cffi_backend",
-    "_csv", "cppyy", "_pypyjson"
+    "_csv", "cppyy", "_pypyjson",
 ])
 
-if ((sys.platform.startswith('linux') or sys.platform == 'darwin')
-    and os.uname()[4] == 'x86_64' and sys.maxint > 2**32):
-    # it's not enough that we get x86_64
-    working_modules.add('_vmprof')
+from rpython.jit.backend import detect_cpu
+try:
+    if detect_cpu.autodetect().startswith('x86'):
+        working_modules.add('_vmprof')
+except detect_cpu.ProcessorAutodetectError:
+    pass
+
 
 translation_modules = default_modules.copy()
 translation_modules.update([

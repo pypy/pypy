@@ -7,8 +7,6 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.tool import rffi_platform as platform
 from rpython.rlib import rthread
 
-from rpython.jit.backend import detect_cpu
-
 class VMProfPlatformUnsupported(Exception):
     pass
 
@@ -30,10 +28,10 @@ global_eci = ExternalCompilationInfo(**eci_kwds)
 
 
 def setup():
+    compile_extra = ['-DRPYTHON_LL2CTYPES']
     platform.verify_eci(ExternalCompilationInfo(
-        compile_extra=['-DRPYTHON_LL2CTYPES'],
+        compile_extra=compile_extra,
         **eci_kwds))
-
 
     eci = global_eci
     vmprof_init = rffi.llexternal("vmprof_init",

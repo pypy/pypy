@@ -18,7 +18,7 @@ from rpython.rlib import exports
 from rpython.rlib.compilerinfo import COMPILER_INFO
 from rpython.rlib.jit import _we_are_jitted
 from rpython.rlib.objectmodel import (Symbolic, ComputedIntSymbolic,
-     CDefinedIntSymbolic, malloc_zero_filled, running_on_llinterp)
+     CDefinedIntSymbolic, malloc_zero_filled)
 from rpython.rtyper.annlowlevel import MixLevelHelperAnnotator
 from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.rtyper.lltypesystem import (llarena, llgroup, llmemory, lltype,
@@ -207,8 +207,6 @@ class IntegralType(Type):
                 gctransformer = database.genllvm.gcpolicy.gctransformer
                 return str(int(gctransformer.malloc_zero_filled))
             elif value is _we_are_jitted:
-                return '0'
-            elif value is running_on_llinterp:
                 return '0'
             elif value.expr.startswith('RPY_TLOFS_'):
                 fieldname = value.expr[10:]

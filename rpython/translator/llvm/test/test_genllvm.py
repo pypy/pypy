@@ -14,7 +14,7 @@ from rpython.rtyper.rtuple import TupleRepr
 from rpython.rtyper.lltypesystem.lltype import getfunctionptr
 from rpython.rtyper.lltypesystem.rstr import StringRepr, UnicodeRepr
 from rpython.rtyper.lltypesystem.test.test_rffi import BaseTestRffi
-from rpython.rtyper.module.support import LLSupport
+from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.translator.backendopt.all import backend_optimizations
 from rpython.translator.backendopt.raisingop2direct_call import (
      raisingop2direct_call)
@@ -301,19 +301,19 @@ class CTypesFuncWrapper(object):
     def _Repr2lltype(self, repr_, value):
         if isinstance(repr_.lowleveltype, lltype.Primitive):
             return value
-        return {StringRepr: LLSupport.to_rstr,
-                UnicodeRepr: LLSupport.to_runicode
+        return {StringRepr: BaseRtypingTest.string_to_ll,
+                UnicodeRepr: BaseRtypingTest.unicode_to_ll
                }[repr_.__class__](value)
 
     def _lltype2Repr(self, repr_, value):
         if isinstance(repr_.lowleveltype, lltype.Primitive):
             return value
-        return {TupleRepr: lambda repr_, value: tuple(
+        return {TupleRepr: lambda value: tuple(
                     self._lltype2Repr(item_r, getattr(value, name))
                     for item_r, name in zip(repr_.items_r, repr_.fieldnames)),
-                StringRepr: lambda repr_, value: ''.join(value.chars),
-                UnicodeRepr: lambda repr_, value: u''.join(value.chars)
-               }[repr_.__class__](repr_, value)
+                StringRepr: BaseRtypingTest.ll_to_string,
+                UnicodeRepr: BaseRtypingTest.ll_to_unicode
+               }[repr_.__class__](value)
 
 
 class _LLVMMixin(object):
