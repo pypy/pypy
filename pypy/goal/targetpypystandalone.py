@@ -250,6 +250,9 @@ class PyPyTarget(object):
                 raise Exception("Cannot use the --output option with PyPy "
                                 "when --shared is on (it is by default). "
                                 "See issue #1971.")
+        if sys.platform == 'win32':
+            config.translation.libname = '..\\..\\libs\\python27.lib'
+            thisdir.join('..', '..', 'libs').ensure(dir=1)
 
         if config.translation.thread:
             config.objspace.usemodules.thread = True

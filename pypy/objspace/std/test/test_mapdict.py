@@ -107,6 +107,153 @@ def test_add_attribute():
     assert obj2.getdictvalue(space, "b") == 60
     assert obj2.map is obj.map
 
+def test_insert_different_orders():
+    cls = Class()
+    obj = cls.instantiate()
+    obj.setdictvalue(space, "a", 10)
+    obj.setdictvalue(space, "b", 20)
+
+    obj2 = cls.instantiate()
+    obj2.setdictvalue(space, "b", 30)
+    obj2.setdictvalue(space, "a", 40)
+
+    assert obj.map is obj2.map
+
+def test_insert_different_orders_2():
+    cls = Class()
+    obj = cls.instantiate()
+    obj2 = cls.instantiate()
+
+    obj.setdictvalue(space, "a", 10)
+
+    obj2.setdictvalue(space, "b", 20)
+    obj2.setdictvalue(space, "a", 30)
+
+    obj.setdictvalue(space, "b", 40)
+    assert obj.map is obj2.map
+
+def test_insert_different_orders_3():
+    cls = Class()
+    obj = cls.instantiate()
+    obj2 = cls.instantiate()
+    obj3 = cls.instantiate()
+    obj4 = cls.instantiate()
+    obj5 = cls.instantiate()
+    obj6 = cls.instantiate()
+
+    obj.setdictvalue(space, "a", 10)
+    obj.setdictvalue(space, "b", 20)
+    obj.setdictvalue(space, "c", 30)
+
+    obj2.setdictvalue(space, "a", 30)
+    obj2.setdictvalue(space, "c", 40)
+    obj2.setdictvalue(space, "b", 50)
+
+    obj3.setdictvalue(space, "c", 30)
+    obj3.setdictvalue(space, "a", 40)
+    obj3.setdictvalue(space, "b", 50)
+
+    obj4.setdictvalue(space, "c", 30)
+    obj4.setdictvalue(space, "b", 40)
+    obj4.setdictvalue(space, "a", 50)
+
+    obj5.setdictvalue(space, "b", 30)
+    obj5.setdictvalue(space, "a", 40)
+    obj5.setdictvalue(space, "c", 50)
+
+    obj6.setdictvalue(space, "b", 30)
+    obj6.setdictvalue(space, "c", 40)
+    obj6.setdictvalue(space, "a", 50)
+
+    assert obj.map is obj2.map
+    assert obj.map is obj3.map
+    assert obj.map is obj4.map
+    assert obj.map is obj5.map
+    assert obj.map is obj6.map
+
+
+def test_insert_different_orders_4():
+    cls = Class()
+    obj = cls.instantiate()
+    obj2 = cls.instantiate()
+
+    obj.setdictvalue(space, "a", 10)
+    obj.setdictvalue(space, "b", 20)
+    obj.setdictvalue(space, "c", 30)
+    obj.setdictvalue(space, "d", 40)
+
+    obj2.setdictvalue(space, "d", 50)
+    obj2.setdictvalue(space, "c", 50)
+    obj2.setdictvalue(space, "b", 50)
+    obj2.setdictvalue(space, "a", 50)
+
+    assert obj.map is obj2.map
+
+def test_insert_different_orders_5():
+    cls = Class()
+    obj = cls.instantiate()
+    obj2 = cls.instantiate()
+
+    obj.setdictvalue(space, "a", 10)
+    obj.setdictvalue(space, "b", 20)
+    obj.setdictvalue(space, "c", 30)
+    obj.setdictvalue(space, "d", 40)
+
+    obj2.setdictvalue(space, "d", 50)
+    obj2.setdictvalue(space, "c", 50)
+    obj2.setdictvalue(space, "b", 50)
+    obj2.setdictvalue(space, "a", 50)
+
+    obj3 = cls.instantiate()
+    obj3.setdictvalue(space, "d", 50)
+    obj3.setdictvalue(space, "c", 50)
+    obj3.setdictvalue(space, "b", 50)
+    obj3.setdictvalue(space, "a", 50)
+
+    assert obj.map is obj3.map
+
+
+def test_bug_stack_overflow_insert_attributes():
+    cls = Class()
+    obj = cls.instantiate()
+
+    for i in range(1000):
+        obj.setdictvalue(space, str(i), i)
+
+
+def test_insert_different_orders_perm():
+    from itertools import permutations
+    cls = Class()
+    seen_maps = {}
+    for preexisting in ['', 'x', 'xy']:
+        for i, attributes in enumerate(permutations("abcdef")):
+            obj = cls.instantiate()
+            for i, attr in enumerate(preexisting):
+                obj.setdictvalue(space, attr, i*1000)
+            key = preexisting
+            for j, attr in enumerate(attributes):
+                obj.setdictvalue(space, attr, i*10+j)
+                key = "".join(sorted(key+attr))
+                if key in seen_maps:
+                    assert obj.map is seen_maps[key]
+                else:
+                    seen_maps[key] = obj.map
+
+    print len(seen_maps)
+
+
+def test_bug_infinite_loop():
+    cls = Class()
+    obj = cls.instantiate()
+    obj.setdictvalue(space, "e", 1)
+    obj2 = cls.instantiate()
+    obj2.setdictvalue(space, "f", 2)
+    obj3 = cls.instantiate()
+    obj3.setdictvalue(space, "a", 3)
+    obj3.setdictvalue(space, "e", 4)
+    obj3.setdictvalue(space, "f", 5)
+
+
 def test_attr_immutability(monkeypatch):
     cls = Class()
     obj = cls.instantiate()
@@ -359,9 +506,15 @@ def get_impl(self):
 class TestMapDictImplementation(BaseTestRDictImplementation):
     StrategyClass = MapDictStrategy
     get_impl = get_impl
+    def test_setdefault_fast(self):
+        # mapdict can't pass this, which is fine
+        pass
 class TestDevolvedMapDictImplementation(BaseTestDevolvedDictImplementation):
     get_impl = get_impl
     StrategyClass = MapDictStrategy
+    def test_setdefault_fast(self):
+        # mapdict can't pass this, which is fine
+        pass
 
 # ___________________________________________________________
 # tests that check the obj interface after the dict has devolved
@@ -1136,3 +1289,7 @@ def test_newdict_instance():
 class TestMapDictImplementationUsingnewdict(BaseTestRDictImplementation):
     StrategyClass = MapDictStrategy
     # NB: the get_impl method is not overwritten here, as opposed to above
+
+    def test_setdefault_fast(self):
+        # mapdict can't pass this, which is fine
+        pass

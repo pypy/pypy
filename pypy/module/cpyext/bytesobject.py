@@ -59,7 +59,7 @@ cpython_struct("PyStringObject", PyStringObjectFields, PyStringObjectStruct)
 @bootstrap_function
 def init_stringobject(space):
     "Type description of PyStringObject"
-    make_typedescr(space.w_str.instancetypedef,
+    make_typedescr(space.w_str.layout.typedef,
                    basestruct=PyStringObject.TO,
                    attach=string_attach,
                    dealloc=string_dealloc,
@@ -69,11 +69,11 @@ PyString_Check, PyString_CheckExact = build_type_checkers("String", "w_str")
 
 def new_empty_str(space, length):
     """
-    Allocatse a PyStringObject and its buffer, but without a corresponding
+    Allocate a PyStringObject and its buffer, but without a corresponding
     interpreter object.  The buffer may be mutated, until string_realize() is
-    called.
+    called.  Refcount of the result is 1.
     """
-    typedescr = get_typedescr(space.w_str.instancetypedef)
+    typedescr = get_typedescr(space.w_str.layout.typedef)
     py_obj = typedescr.allocate(space, space.w_str)
     py_str = rffi.cast(PyStringObject, py_obj)
 
@@ -103,7 +103,7 @@ def string_realize(space, py_obj):
     track_reference(space, py_obj, w_obj)
     return w_obj
 
-@cpython_api([PyObject], lltype.Void, external=False)
+@cpython_api([PyObject], lltype.Void, header=None)
 def string_dealloc(space, py_obj):
     """Frees allocated PyStringObject resources.
     """

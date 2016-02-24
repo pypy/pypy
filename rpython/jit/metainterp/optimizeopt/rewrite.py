@@ -380,7 +380,7 @@ class OptRewrite(Optimization):
                     raise InvalidLoop("promote of a virtual")
                 old_guard_op = info.get_last_guard(self.optimizer)
                 if old_guard_op is not None:
-                    op = self.replace_guard_class_with_guard_value(op, info,
+                    op = self.replace_old_guard_with_guard_value(op, info,
                                                               old_guard_op)
         elif arg0.type == 'f':
             arg0 = self.get_box_replacement(arg0)
@@ -390,11 +390,26 @@ class OptRewrite(Optimization):
         assert isinstance(constbox, Const)
         self.optimize_guard(op, constbox)
 
-    def replace_guard_class_with_guard_value(self, op, info, old_guard_op):
-        if old_guard_op.opnum != rop.GUARD_NONNULL:
-            previous_classbox = info.get_known_class(self.optimizer.cpu)
-            expected_classbox = self.optimizer.cpu.ts.cls_of_box(op.getarg(1))
-            assert previous_classbox is not None
+    def replace_old_guard_with_guard_value(self, op, info, old_guard_op):
+        # there already has been a guard_nonnull or guard_class or
+        # guard_nonnull_class on this value, which is rather silly.
+        # This function replaces the original guard with a
+        # guard_value.  Must be careful: doing so is unsafe if the
+        # original guard checks for something inconsistent,
+        # i.e. different than what it would give if the guard_value
+        # passed (this is a rare case, but possible).  If we get
+        # inconsistent results in this way, then we must not do the
+        # replacement, otherwise we'd put guard_value up there but all
+        # intermediate ops might be executed by assuming something
+        # different, from the old guard that is now removed...
+
+        c_value = op.getarg(1)
+        if not c_value.nonnull():
+            raise InvalidLoop('A GUARD_VALUE(..., NULL) follows some other '
+                              'guard that it is not NULL')
+        previous_classbox = info.get_known_class(self.optimizer.cpu)
+        if previous_classbox is not None:
+            expected_classbox = self.optimizer.cpu.ts.cls_of_box(c_value)
             assert expected_classbox is not None
             if not previous_classbox.same_constant(
                     expected_classbox):

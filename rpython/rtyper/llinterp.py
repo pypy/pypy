@@ -944,6 +944,21 @@ class LLFrame(object):
     def op_gc_gcflag_extra(self, subopnum, *args):
         return self.heap.gcflag_extra(subopnum, *args)
 
+    def op_gc_rawrefcount_init(self, *args):
+        raise NotImplementedError("gc_rawrefcount_init")
+
+    def op_gc_rawrefcount_to_obj(self, *args):
+        raise NotImplementedError("gc_rawrefcount_to_obj")
+
+    def op_gc_rawrefcount_from_obj(self, *args):
+        raise NotImplementedError("gc_rawrefcount_from_obj")
+
+    def op_gc_rawrefcount_create_link_pyobj(self, *args):
+        raise NotImplementedError("gc_rawrefcount_create_link_pyobj")
+
+    def op_gc_rawrefcount_create_link_pypy(self, *args):
+        raise NotImplementedError("gc_rawrefcount_create_link_pypy")
+
     def op_do_malloc_fixedsize(self):
         raise NotImplementedError("do_malloc_fixedsize")
     def op_do_malloc_fixedsize_clear(self):

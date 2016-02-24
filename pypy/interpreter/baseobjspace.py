@@ -27,7 +27,7 @@ unpackiterable_driver = jit.JitDriver(name='unpackiterable',
 class W_Root(object):
     """This is the abstract root class of all wrapped objects that live
     in a 'normal' object space like StdObjSpace."""
-    __slots__ = ()
+    __slots__ = ('__weakref__',)
     user_overridden_class = False
 
     def getdict(self, space):
@@ -306,7 +306,7 @@ class W_Root(object):
         return None
 
 
-class W_InterpIterable(W_Root):
+class InterpIterable(object):
     def __init__(self, space, w_iterable):
         self.w_iter = space.iter(w_iterable)
         self.space = space
@@ -755,8 +755,12 @@ class ObjSpace(object):
         return self.int_w(self.hash(w_obj))
 
     def len_w(self, w_obj):
-        """shotcut for space.int_w(space.len(w_obj))"""
+        """shortcut for space.int_w(space.len(w_obj))"""
         return self.int_w(self.len(w_obj))
+
+    def contains_w(self, w_container, w_item):
+        """shortcut for space.is_true(space.contains(w_container, w_item))"""
+        return self.is_true(self.contains(w_container, w_item))
 
     def setitem_str(self, w_obj, key, w_value):
         return self.setitem(w_obj, self.wrap(key), w_value)
@@ -856,7 +860,7 @@ class ObjSpace(object):
             return lst_w[:]     # make the resulting list resizable
 
     def iteriterable(self, w_iterable):
-        return W_InterpIterable(self, w_iterable)
+        return InterpIterable(self, w_iterable)
 
     def _unpackiterable_unknown_length(self, w_iterator, w_iterable):
         """Unpack an iterable of unknown length into an interp-level
@@ -1247,7 +1251,7 @@ class ObjSpace(object):
         if not isinstance(statement, PyCode):
             raise TypeError('space.exec_(): expected a string, code or PyCode object')
         w_key = self.wrap('__builtins__')
-        if not self.is_true(self.contains(w_globals, w_key)):
+        if not self.contains_w(w_globals, w_key):
             self.setitem(w_globals, w_key, self.wrap(self.builtin))
         return statement.exec_code(self, w_globals, w_locals)
 

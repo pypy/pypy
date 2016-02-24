@@ -7,8 +7,6 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.tool import rffi_platform as platform
 from rpython.rlib import rthread
 
-from rpython.jit.backend import detect_cpu
-
 class VMProfPlatformUnsupported(Exception):
     pass
 
@@ -21,7 +19,7 @@ else:
     _libs = []
 eci_kwds = dict(
     include_dirs = [SRC],
-    includes = ['rvmprof.h'],
+    includes = ['rvmprof.h', 'vmprof_stack.h'],
     libraries = _libs,
     separate_module_files = [SRC.join('rvmprof.c')],
     post_include_bits=['#define RPYTHON_VMPROF\n'],
@@ -30,14 +28,10 @@ global_eci = ExternalCompilationInfo(**eci_kwds)
 
 
 def setup():
-    if not detect_cpu.autodetect().startswith(detect_cpu.MODEL_X86_64):
-        raise VMProfPlatformUnsupported("rvmprof only supports"
-                                        " x86-64 CPUs for now")
-
+    compile_extra = ['-DRPYTHON_LL2CTYPES']
     platform.verify_eci(ExternalCompilationInfo(
-        compile_extra=['-DRPYTHON_LL2CTYPES'],
+        compile_extra=compile_extra,
         **eci_kwds))
-
 
     eci = global_eci
     vmprof_init = rffi.llexternal("vmprof_init",

@@ -350,6 +350,12 @@ class W_DictMultiObject(W_Root):
         F: D[k] = F[k]"""
         init_or_update(space, self, __args__, 'dict.update')
 
+    def ensure_object_strategy(self):    # for cpyext
+        object_strategy = self.space.fromcache(ObjectDictStrategy)
+        strategy = self.get_strategy()
+        if strategy is not object_strategy:
+            strategy.switch_to_object_strategy(self)
+
 
 class W_DictObject(W_DictMultiObject):
     """ a regular dict object """
@@ -1419,9 +1425,8 @@ class W_DictViewObject(W_Root):
         return space.len(self.w_dict)
 
 def _all_contained_in(space, w_dictview, w_other):
-    w_iter = space.iter(w_dictview)
-    for w_item in space.iteriterable(w_iter):
-        if not space.is_true(space.contains(w_other, w_item)):
+    for w_item in space.iteriterable(w_dictview):
+        if not space.contains_w(w_other, w_item):
             return space.w_False
     return space.w_True
 

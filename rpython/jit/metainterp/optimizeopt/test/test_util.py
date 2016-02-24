@@ -506,14 +506,15 @@ class BaseTest(object):
             index = 0
 
         if op.is_guard():
-            op.rd_snapshot = resume.Snapshot(None, op.getfailargs())
+            op.rd_snapshot = resume.TopSnapshot(
+                resume.Snapshot(None, op.getfailargs()), [], [])
             op.rd_frame_info_list = resume.FrameInfo(None, FakeJitCode(), 11)
 
     def add_guard_future_condition(self, res):
         # invent a GUARD_FUTURE_CONDITION to not have to change all tests
         if res.operations[-1].getopnum() == rop.JUMP:
             guard = ResOperation(rop.GUARD_FUTURE_CONDITION, [], None)
-            guard.rd_snapshot = resume.Snapshot(None, [])
+            guard.rd_snapshot = resume.TopSnapshot(None, [], [])
             res.operations.insert(-1, guard)
 
     def assert_equal(self, optimized, expected, text_right=None):

@@ -7,12 +7,12 @@ except ImportError:
 
 from rpython.annotator import model as annmodel
 from rpython.rlib import jit, types, rgc
-from rpython.rlib.debug import ll_assert
 from rpython.rlib.objectmodel import (malloc_zero_filled, we_are_translated,
     _hash_string, keepalive_until_here, specialize, enforceargs, stm_ignored)
 from rpython.rlib.signature import signature
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rtyper.error import TyperError
+from rpython.rtyper.debug import ll_assert
 from rpython.rtyper.lltypesystem import ll_str, llmemory
 from rpython.rtyper.lltypesystem.lltype import (GcStruct, Signed, Array, Char,
     UniChar, Ptr, malloc, Bool, Void, GcArray, nullptr, cast_primitive,

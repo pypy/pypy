@@ -551,6 +551,8 @@ LL_OPERATIONS = {
     'jit_record_exact_class'  : LLOp(canrun=True),
     'jit_ffi_save_result':  LLOp(canrun=True),
     'jit_conditional_call': LLOp(),
+    'jit_enter_portal_frame': LLOp(canrun=True),
+    'jit_leave_portal_frame': LLOp(canrun=True),
     'get_exception_addr':   LLOp(),
     'get_exc_value_addr':   LLOp(),
     'do_malloc_fixedsize':LLOp(canmallocgc=True),
@@ -603,6 +605,12 @@ LL_OPERATIONS = {
     'gc_gettypeid'        : LLOp(),
     'gc_gcflag_extra'     : LLOp(),
     'gc_add_memory_pressure': LLOp(),
+
+    'gc_rawrefcount_init':              LLOp(),
+    'gc_rawrefcount_create_link_pypy':  LLOp(),
+    'gc_rawrefcount_create_link_pyobj': LLOp(),
+    'gc_rawrefcount_from_obj':          LLOp(sideeffects=False),
+    'gc_rawrefcount_to_obj':            LLOp(sideeffects=False),
 
     # ------- JIT & GC interaction, only for some GCs ----------
 

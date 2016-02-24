@@ -292,6 +292,21 @@ def test_unsafe_mmap():
     rescode = pipe.wait()
     assert rescode == 0
 
+def test_environ_items():
+    def entry_point(argv):
+        print os.environ.items()
+        return 0
+
+    exe = compile(entry_point)
+    g, f = run_in_subprocess(exe)
+    expect(f, g, "ll_os.ll_os_envitems", (), [])
+    expect(f, g, "ll_os.ll_os_write", (1, "[]\n"), 3)
+    g.close()
+    tail = f.read()
+    f.close()
+    assert tail == ""
+
+
 class TestPrintedResults:
 
     def run(self, entry_point, args, expected):

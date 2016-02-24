@@ -14,6 +14,7 @@ from rpython.rlib import rgc
 from rpython.conftest import option
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rarithmetic import LONG_BIT
+from rpython.rtyper.rtyper import llinterp_backend
 
 
 WORD = LONG_BIT // 8
@@ -29,9 +30,11 @@ def rtype(func, inputtypes, specialize=True, gcname='ref',
     t.config.set(**extraconfigopts)
     ann = t.buildannotator()
     ann.build_types(func, inputtypes)
+    rtyper = t.buildrtyper()
+    rtyper.backend = llinterp_backend
 
     if specialize:
-        t.buildrtyper().specialize()
+        rtyper.specialize()
     if backendopt:
         from rpython.translator.backendopt.all import backend_optimizations
         backend_optimizations(t)

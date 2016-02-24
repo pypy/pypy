@@ -968,6 +968,7 @@ class ExternalFuncNode(FuncNodeBase):
         return []
 
 def new_funcnode(db, T, obj, forcename=None):
+    from rpython.rtyper.rtyper import llinterp_backend
     if db.sandbox:
         if (getattr(obj, 'external', None) is not None and
                 not obj._safe_not_sandboxed):
@@ -989,6 +990,9 @@ def new_funcnode(db, T, obj, forcename=None):
         return ExternalFuncNode(db, T, obj, name)
     elif hasattr(obj._callable, "c_name"):
         return ExternalFuncNode(db, T, obj, name)  # this case should only be used for entrypoints
+    elif db.translator.rtyper.backend is llinterp_backend:
+        # on llinterp, anything goes
+        return ExternalFuncNode(db, T, obj, name)
     else:
         raise ValueError("don't know how to generate code for %r" % (obj,))
 

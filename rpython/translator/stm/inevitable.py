@@ -42,6 +42,7 @@ ALWAYS_ALLOW_OPERATIONS = set([
     'raw_malloc_usage',
     'track_alloc_start', 'track_alloc_stop',
     'threadlocalref_acquire', 'threadlocalref_enum', 'threadlocalref_release',
+    'jit_enter_portal_frame', 'jit_leave_portal_frame',
     ])
 ALWAYS_ALLOW_OPERATIONS |= set(lloperation.enum_tryfold_ops())
 
@@ -82,6 +83,9 @@ INCOMPATIBLE_OPS = set([
     'getslice', 'instrument_count',
     'stack_malloc',
     'zero_gc_pointers_inside',
+    'gc_rawrefcount_from_obj', 'gc_rawrefcount_init',
+    'gc_rawrefcount_create_link_pyobj', 'gc_rawrefcount_create_link_pypy',
+    'gc_rawrefcount_to_obj',
     ])
 
 # These operations always turn the transaction inevitable.

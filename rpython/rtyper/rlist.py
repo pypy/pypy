@@ -1,7 +1,7 @@
 from rpython.annotator import model as annmodel
 from rpython.flowspace.model import Constant
 from rpython.rlib import rgc, jit, types
-from rpython.rlib.debug import ll_assert
+from rpython.rtyper.debug import ll_assert
 from rpython.rlib.objectmodel import malloc_zero_filled, enforceargs, specialize
 from rpython.rlib.signature import signature
 from rpython.rlib.rarithmetic import ovfcheck, widen, r_uint, intmask

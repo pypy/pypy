@@ -9,7 +9,7 @@ from pypy.module.cpyext.pyerrors import PyErr_BadArgument
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, Py_DecRef, make_ref, from_ref, track_reference,
     make_typedescr, get_typedescr)
-from pypy.module.cpyext.stringobject import PyString_Check
+from pypy.module.cpyext.bytesobject import PyString_Check
 from pypy.module.sys.interp_encoding import setdefaultencoding
 from pypy.module._codecs.interp_codecs import CodecState
 from pypy.objspace.std import unicodeobject
@@ -17,7 +17,7 @@ from rpython.rlib import rstring, runicode
 from rpython.tool.sourcetools import func_renamer
 import sys
 
-## See comment in stringobject.py.
+## See comment in bytesobject.py.
 
 PyUnicodeObjectStruct = lltype.ForwardReference()
 PyUnicodeObject = lltype.Ptr(PyUnicodeObjectStruct)
@@ -27,7 +27,7 @@ cpython_struct("PyUnicodeObject", PyUnicodeObjectFields, PyUnicodeObjectStruct)
 
 @bootstrap_function
 def init_unicodeobject(space):
-    make_typedescr(space.w_unicode.instancetypedef,
+    make_typedescr(space.w_unicode.layout.typedef,
                    basestruct=PyUnicodeObject.TO,
                    attach=unicode_attach,
                    dealloc=unicode_dealloc,
@@ -44,11 +44,11 @@ Py_UNICODE = lltype.UniChar
 
 def new_empty_unicode(space, length):
     """
-    Allocatse a PyUnicodeObject and its buffer, but without a corresponding
+    Allocate a PyUnicodeObject and its buffer, but without a corresponding
     interpreter object.  The buffer may be mutated, until unicode_realize() is
-    called.
+    called.  Refcount of the result is 1.
     """
-    typedescr = get_typedescr(space.w_unicode.instancetypedef)
+    typedescr = get_typedescr(space.w_unicode.layout.typedef)
     py_obj = typedescr.allocate(space, space.w_unicode)
     py_uni = rffi.cast(PyUnicodeObject, py_obj)
 
@@ -75,7 +75,7 @@ def unicode_realize(space, py_obj):
     track_reference(space, py_obj, w_obj)
     return w_obj
 
-@cpython_api([PyObject], lltype.Void, external=False)
+@cpython_api([PyObject], lltype.Void, header=None)
 def unicode_dealloc(space, py_obj):
     py_unicode = rffi.cast(PyUnicodeObject, py_obj)
     if py_unicode.c_buffer:

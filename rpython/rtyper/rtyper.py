@@ -37,11 +37,24 @@ except ImportError:
     stmset, stmdict = set, dict
 
 
+class RTyperBackend(object):
+    pass
+
+class GenCBackend(RTyperBackend):
+    pass
+genc_backend = GenCBackend()
+
+class LLInterpBackend(RTyperBackend):
+    pass
+llinterp_backend = LLInterpBackend()
+
+
 class RPythonTyper(object):
     from rpython.rtyper.rmodel import log
 
-    def __init__(self, annotator):
+    def __init__(self, annotator, backend=genc_backend):
         self.annotator = annotator
+        self.backend = backend
         self.lowlevel_ann_policy = LowLevelAnnotatorPolicy(self)
         self.reprs = stmdict()
         self._seen_reprs_must_call_setup = stmset()
