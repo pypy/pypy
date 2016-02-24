@@ -275,19 +275,7 @@ class FunctionDesc(Desc):
                 getattr(self.bookkeeper, "position_key", None) is not None):
             _, block, i = self.bookkeeper.position_key
             op = block.operations[i]
-        enforceargs = getattr(self.pyobj, '_annenforceargs_', None)
-        signature = getattr(self.pyobj, '_signature_', None)
-        if enforceargs and signature:
-            raise Exception("%r: signature and enforceargs cannot both be "
-                            "used" % (self,))
-        if enforceargs:
-            if not callable(enforceargs):
-                from rpython.annotator.signature import Sig
-                enforceargs = Sig(*enforceargs)
-                self.pyobj._annenforceargs_ = enforceargs
-            enforceargs(self, inputcells)  # can modify inputcells in-place
-        if signature:
-            enforce_signature_args(self, signature[0], inputcells)  # mutates inputcells
+        self.normalize_args(inputcells)
         if getattr(self.pyobj, '_annspecialcase_', '').endswith("call_location"):
             return self.specializer(self, inputcells, op)
         else:
@@ -318,6 +306,27 @@ class FunctionDesc(Desc):
         from rpython.annotator.model import unionof
         result = unionof(result, s_previous_result)
         return result
+
+    def normalize_args(self, inputs_s):
+        """
+        Canonicalize argument annotations into the exact parameter
+        annotations of a specific specialized graph.
+
+        Note: this method has no return value but mutates its argument instead.
+        """
+        enforceargs = getattr(self.pyobj, '_annenforceargs_', None)
+        signature = getattr(self.pyobj, '_signature_', None)
+        if enforceargs and signature:
+            raise Exception("%r: signature and enforceargs cannot both be "
+                            "used" % (self,))
+        if enforceargs:
+            if not callable(enforceargs):
+                from rpython.annotator.signature import Sig
+                enforceargs = Sig(*enforceargs)
+                self.pyobj._annenforceargs_ = enforceargs
+            enforceargs(self, inputs_s)  # can modify inputs_s in-place
+        if signature:
+            enforce_signature_args(self, signature[0], inputs_s)  # mutates inputs_s
 
     def get_graph(self, args, op):
         inputs_s = self.parse_arguments(args)
