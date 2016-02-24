@@ -395,6 +395,15 @@ class FunctionDesc(Desc):
 
             return s_sigs
 
+class MemoDesc(FunctionDesc):
+    def pycall(self, whence, args, s_previous_result, op=None):
+        inputcells = self.parse_arguments(args)
+        s_result = self.specialize(inputcells, op)
+        assert not isinstance(s_result, FunctionGraph)
+        assert s_result.contains(s_previous_result)
+        return s_result
+
+
 class MethodDesc(Desc):
     knowntype = types.MethodType
 

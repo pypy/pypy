@@ -22,6 +22,7 @@ from rpython.annotator.dictdef import DictDef
 from rpython.annotator import description
 from rpython.annotator.signature import annotationoftype
 from rpython.annotator.argument import simple_args
+from rpython.annotator.specialize import memo
 from rpython.rlib.objectmodel import r_dict, r_ordereddict, Symbolic
 from rpython.tool.algo.unionfind import UnionFind
 from rpython.rtyper import extregistry
@@ -417,6 +418,8 @@ class Bookkeeper(object):
         # (if any), according to the current policy
         tag = getattr(pyfunc, '_annspecialcase_', None)
         specializer = self.annotator.policy.get_specializer(tag)
+        if specializer is memo:
+            return description.MemoDesc(self, pyfunc, name, signature, defaults, specializer)
         return description.FunctionDesc(self, pyfunc, name, signature, defaults, specializer)
 
     def getfrozen(self, pyobj):
