@@ -121,19 +121,32 @@ class Module(W_Root):
         return space.newtuple(tup_return)
 
     def descr_module__repr__(self, space):
-        from pypy.interpreter.mixedmodule import MixedModule
-        if self.w_name is not None:
-            name = space.unicode_w(space.repr(self.w_name))
-        else:
+        w_loader = space.finditem(self.w_dict, space.wrap('__loader__'))
+        if w_loader is not None:
+            try:
+                return space.call_method(w_loader, "module_repr",
+                                         space.wrap(self))
+            except OperationError:
+                pass
+        try:
+            w_name = space.getattr(self, space.wrap('__name__'))
+            name = space.unicode_w(space.repr(w_name))
+        except OperationError:
             name = u"'?'"
-        if isinstance(self, MixedModule):
-            return space.wrap(u"<module %s (built-in)>" % name)
+
         try:
             w___file__ = space.getattr(self, space.wrap('__file__'))
-            __file__ = space.unicode_w(space.repr(w___file__))
         except OperationError:
-            __file__ = u'?'
-        return space.wrap(u"<module %s from %s>" % (name, __file__))
+            w___file__ = space.w_None
+        if not space.isinstance_w(w___file__, space.w_unicode):
+            if w_loader is not None:
+                w_loader_repr = space.unicode_w(space.repr(w_loader))
+                return space.wrap(u"<module %s (%s)>" % (name, w_loader_repr))
+            else:
+                return space.wrap(u"<module %s>" % (name,))
+        else:
+            __file__ = space.unicode_w(space.repr(w___file__))
+            return space.wrap(u"<module %s from %s>" % (name, __file__))
 
     def descr_module__dir__(self, space):
         w_dict = space.getattr(self, space.wrap('__dict__'))
