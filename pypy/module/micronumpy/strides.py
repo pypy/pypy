@@ -97,6 +97,7 @@ def new_view(space, w_arr, chunks):
         # filter by axis dim
         filtr = chunks[dim]
         assert isinstance(filtr, BooleanChunk) 
+        # XXX this creates a new array, and fails in setitem
         w_arr = w_arr.getitem_filter(space, filtr.w_idx, axis=dim)
         arr = w_arr.implementation
         chunks[dim] = SliceChunk(space.newslice(space.wrap(0), 
