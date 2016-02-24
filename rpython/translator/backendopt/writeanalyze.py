@@ -61,15 +61,14 @@ class WriteAnalyzer(graphanalyze.GraphAnalyzer):
     def _array_result(self, TYPE):
         return frozenset([("array", TYPE)])
 
-    def analyze_external_call(self, op, seen=None):
+    def analyze_external_call(self, funcobj, seen=None):
         try:
-            funcobj = op.args[0].value._obj
             random = funcobj.random_effects_on_gcobjs
-        except (AttributeError, lltype.DelayedPointer):
+        except AttributeError:
             random = True
         if random:
             return self.top_result()
-        return graphanalyze.GraphAnalyzer.analyze_external_call(self, op, seen)
+        return graphanalyze.GraphAnalyzer.analyze_external_call(self, funcobj, seen)
 
     def _interiorfield_result(self, TYPE, fieldname):
         return frozenset([("interiorfield", TYPE, fieldname)])

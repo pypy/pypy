@@ -32,7 +32,7 @@ class GilAnalyzer(graphanalyze.BoolGraphAnalyzer):
         return graphanalyze.BoolGraphAnalyzer.analyze_direct_call(
             self, graph, seen)
 
-    def analyze_external_call(self, op, seen=None):
+    def analyze_external_call(self, funcobj, seen=None):
         # if 'funcobj' releases the GIL, then the GIL-releasing
         # functions themselves will call enter/leave transactional
         # zone. This case is covered above.
