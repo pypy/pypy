@@ -357,7 +357,7 @@ class TestTransform:
         from rpython.rlib.rthread import _threadlocalref_seeme
         from rpython.rlib.rthread import _field2structptr
         foobar = ThreadLocalField(lltype.Signed, 'foobar')
-        offset = foobar.offset
+        offset = foobar._offset
         PSTRUCTTYPE = _field2structptr(lltype.Signed)
         def f1():
             addr = llop.threadlocalref_addr(llmemory.Address)

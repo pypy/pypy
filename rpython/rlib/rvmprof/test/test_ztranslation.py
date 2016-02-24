@@ -64,8 +64,14 @@ def target(driver, args):
 def test_interpreted():
     # takes forever if the Python process is already big...
     import subprocess
-    subprocess.check_call([sys.executable, os.path.basename(__file__)],
-                          cwd=(os.path.dirname(__file__) or '.'))
+    me = os.path.basename(__file__)
+    if me.endswith('pyc') or me.endswith('pyo'):
+        me = me[:-1]
+    env = os.environ.copy()
+    env['PYTHONPATH'] = ''
+    subprocess.check_call([sys.executable, me],
+                          cwd=(os.path.dirname(__file__) or '.'),
+                          env=env)
 
 def test_compiled():
     fn = compile(main, [], gcpolicy="minimark")

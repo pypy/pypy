@@ -320,7 +320,7 @@ class ThreadLocalField(object):
         offset = CDefinedIntSymbolic('RPY_TLOFS_%s' % self.fieldname,
                                      default='?')
         offset.loop_invariant = loop_invariant
-        self.offset = offset
+        self._offset = offset
 
         # for STM only
         PSTRUCTTYPE = _field2structptr(FIELDTYPE)
@@ -387,7 +387,7 @@ class ThreadLocalReference(ThreadLocalField):
         ThreadLocalField.__init__(self, lltype.Signed, 'tlref%d' % unique_id,
                                   loop_invariant=loop_invariant)
         setraw = self.setraw
-        offset = self.offset
+        offset = self._offset
 
         def get():
             if we_are_translated():
