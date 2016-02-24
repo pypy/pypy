@@ -145,7 +145,7 @@ class AbstractAttribute(object):
         return self._size_estimate >> NUM_DIGITS
 
     @jit.dont_look_inside
-    def _update_size_estimate(self, new_size_estimate):
+    def _update_size_estimate(self, obj):
         oldattr = self
         attr = obj._get_mapdict_map()
         size_est = (oldattr._size_estimate + attr.size_estimate()
@@ -183,7 +183,7 @@ class AbstractAttribute(object):
     def add_attr(self, obj, name, index, w_value):
         self._reorder_and_add(obj, name, index, w_value)
         if not jit.we_are_jitted():
-            oldattr._update_size_estimate(attr.size_estimate())
+            self._update_size_estimate(obj)
 
     def _add_attr_without_reordering(self, obj, name, index, w_value):
         attr = self._get_new_attr(name, index)
