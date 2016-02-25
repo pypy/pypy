@@ -150,6 +150,8 @@ def _setup(space):
     """)
 
 def _teardown(space, w_saved_modules):
+    p = udir.join('impsubdir')
+    p.remove()
     space.appexec([w_saved_modules], """
         ((saved_path, saved_modules)):
             import sys
