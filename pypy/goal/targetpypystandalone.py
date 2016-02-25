@@ -231,6 +231,9 @@ class PyPyTarget(object):
             # for now, disable _vmprof: the JIT's stm parts are not adapted
             # to track the stack depth
             config.objspace.usemodules._vmprof = False
+            # we don't support rlib.rawrefcount for our GC, so we need
+            # to disable cpyext...
+            config.objspace.usemodules.cpyext = False
 
         if config.objspace.allworkingmodules:
             from pypy.config.pypyoption import enable_allworkingmodules
