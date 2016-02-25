@@ -174,9 +174,6 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                cmdline="--translationmodules",
                suggests=[("objspace.allworkingmodules", False)]),
 
-    BoolOption("usepycfiles", "Write and read pyc files when importing",
-               default=True),
-
     StrOption("soabi",
               "Tag to differentiate extension modules built for different Python interpreters",
               cmdline="--soabi",

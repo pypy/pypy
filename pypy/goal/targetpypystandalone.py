@@ -282,9 +282,6 @@ class PyPyTarget(object):
         elif config.objspace.usemodules.pypyjit:
             config.translation.jit = True
 
-        if config.translation.sandbox:
-            config.objspace.usepycfiles = False
-
         config.translating = True
 
         import translate
