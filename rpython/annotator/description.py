@@ -6,7 +6,7 @@ from rpython.flowspace.model import FunctionGraph
 from rpython.annotator.argument import rawshape, ArgErr, simple_args
 from rpython.tool.sourcetools import valid_identifier
 from rpython.tool.pairtype import extendabletype
-from rpython.annotator.model import AnnotatorError, s_ImpossibleValue
+from rpython.annotator.model import AnnotatorError, s_ImpossibleValue, unionof
 
 class CallFamily(object):
     """A family of Desc objects that could be called from common call sites.
@@ -116,7 +116,6 @@ class ClassAttrFamily(object):
         self.s_value = s_ImpossibleValue    # union of possible values
 
     def update(self, other):
-        from rpython.annotator.model import unionof
         self.descs.update(other.descs)
         self.read_locations.update(other.read_locations)
         self.s_value = unionof(self.s_value, other.s_value)
@@ -303,7 +302,6 @@ class FunctionDesc(Desc):
         # Some specializations may break the invariant of returning
         # annotations that are always more general than the previous time.
         # We restore it here:
-        from rpython.annotator.model import unionof
         result = unionof(result, s_previous_result)
         return result
 
@@ -399,8 +397,9 @@ class MemoDesc(FunctionDesc):
     def pycall(self, whence, args, s_previous_result, op=None):
         inputcells = self.parse_arguments(args)
         s_result = self.specialize(inputcells, op)
-        assert not isinstance(s_result, FunctionGraph)
-        assert s_result.contains(s_previous_result)
+        if isinstance(s_result, FunctionGraph):
+            s_result = s_result.getreturnvar().annotation
+        s_result = unionof(s_result, s_previous_result)
         return s_result
 
 
