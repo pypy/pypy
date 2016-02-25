@@ -98,6 +98,10 @@ def setup_directory_structure(space):
         'a=5\nb=6\rc="""hello\r\nworld"""\r', mode='wb')
     p.join('mod.py').write(
         'a=15\nb=16\rc="""foo\r\nbar"""\r', mode='wb')
+    setuppkg("test_bytecode",
+             a = '',
+             b = '',
+             c = '')
 
     # create compiled/x.py and a corresponding pyc file
     p = setuppkg("compiled", x = "x = 84")
@@ -1340,6 +1344,36 @@ class AppTestPyPyExtension(object):
         importer = imp._getimporter(path)
         import zipimport
         assert isinstance(importer, zipimport.zipimporter)
+
+
+class AppTestWriteBytecode(object):
+    def setup(cls):
+        cls.saved_modules = _setup(cls.space)
+
+    def teardown(cls):
+        _teardown(cls.space, cls.saved_modules)
+
+    def test_default(self):
+        import os.path
+        from test_bytecode import a
+        assert a.__file__.endswith('a.py')
+        assert os.path.exists(a.__file__ + 'c')
+
+    def test_write_bytecode(self):
+        import os.path
+        import sys
+        sys.dont_write_bytecode = False
+        from test_bytecode import b
+        assert b.__file__.endswith('b.py')
+        assert os.path.exists(b.__file__ + 'c')
+
+    def test_dont_write_bytecode(self):
+        import os.path
+        import sys
+        sys.dont_write_bytecode = True
+        from test_bytecode import c
+        assert c.__file__.endswith('c.py')
+        assert not os.path.exists(c.__file__ + 'c')
 
 
 class AppTestNoPycFile(object):
