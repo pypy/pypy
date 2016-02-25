@@ -227,7 +227,7 @@ class MultipleJitDriversTests(object):
                 i += 1
 
         self.meta_interp(f, [0])
-        self.check_resops(enter_portal_frame=1, leave_portal_frame=1)
+        self.check_simple_loop(enter_portal_frame=1, leave_portal_frame=1)
 
 class TestLLtype(MultipleJitDriversTests, LLJitMixin):
     pass
