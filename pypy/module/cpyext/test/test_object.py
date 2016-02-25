@@ -217,6 +217,20 @@ class AppTestObject(AppTestCpythonExtensionBase):
         AppTestCpythonExtensionBase.setup_class.im_func(cls)
         cls.w_tmpname = cls.space.wrap(str(py.test.ensuretemp("out", dir=0)))
 
+    def test_object_malloc(self):
+        module = self.import_extension('foo', [
+            ("malloctest", "METH_NOARGS",
+             """
+                 PyObject *obj = PyObject_MALLOC(sizeof(PyIntObject));
+                 obj = PyObject_Init(obj, &PyInt_Type);
+                 if (obj != NULL)
+                     ((PyIntObject *)obj)->ob_ival = -424344;
+                 return obj;
+             """)])
+        x = module.malloctest()
+        assert type(x) is int
+        assert x == -424344
+
     def test_TypeCheck(self):
         module = self.import_extension('foo', [
             ("typecheck", "METH_VARARGS",

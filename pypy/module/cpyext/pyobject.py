@@ -53,6 +53,7 @@ class BaseCpyTypedescr(object):
                             flavor='raw', zero=True)
         pyobj = rffi.cast(PyObject, buf)
         pyobj.c_ob_refcnt = 1
+        #pyobj.c_ob_pypy_link should get assigned very quickly
         pyobj.c_ob_type = pytype
         return pyobj
 
@@ -325,6 +326,7 @@ def Py_DecRef(space, obj):
 @cpython_api([PyObject], lltype.Void)
 def _Py_NewReference(space, obj):
     obj.c_ob_refcnt = 1
+    # XXX is it always useful to create the W_Root object here?
     w_type = from_ref(space, rffi.cast(PyObject, obj.c_ob_type))
     assert isinstance(w_type, W_TypeObject)
     get_typedescr(w_type.layout.typedef).realize(space, obj)

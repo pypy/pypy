@@ -16,8 +16,9 @@ import pypy.module.__builtin__.operation as operation
 
 @cpython_api([Py_ssize_t], rffi.VOIDP)
 def PyObject_Malloc(space, size):
+    # returns non-zero-initialized memory, like CPython
     return lltype.malloc(rffi.VOIDP.TO, size,
-                         flavor='raw', zero=True)
+                         flavor='raw')
 
 @cpython_api([rffi.VOIDP], lltype.Void)
 def PyObject_Free(space, ptr):
@@ -189,6 +190,7 @@ def PyObject_Init(space, obj, type):
     if not obj:
         PyErr_NoMemory(space)
     obj.c_ob_type = type
+    obj.c_ob_pypy_link = 0
     obj.c_ob_refcnt = 1
     return obj
 

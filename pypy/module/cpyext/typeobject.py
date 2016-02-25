@@ -506,6 +506,7 @@ def type_alloc(space, w_metatype):
                              flavor='raw', zero=True)
     pto = heaptype.c_ht_type
     pto.c_ob_refcnt = 1
+    pto.c_ob_pypy_link = 0
     pto.c_ob_type = metatype
     pto.c_tp_flags |= Py_TPFLAGS_HEAPTYPE
     pto.c_tp_as_number = heaptype.c_as_number
