@@ -123,7 +123,7 @@ def setup_directory_structure(space):
                 stream.try_to_find_file_descriptor())
         finally:
             stream.close()
-        if space.config.objspace.usepycfiles:
+        if not space.config.translation.sandbox:
             # also create a lone .pyc file
             p.join('lone.pyc').write(p.join('x.pyc').read(mode='rb'),
                                      mode='wb')
@@ -1349,8 +1349,14 @@ class AppTestPyPyExtension(object):
 
 
 class AppTestWriteBytecode(object):
+    spaceconfig = {
+        "translation.sandbox": False
+    }
+
     def setup_class(cls):
         cls.saved_modules = _setup(cls.space)
+        sandbox = cls.spaceconfig['translation.sandbox']
+        cls.w_sandbox = cls.space.wrap(sandbox)
 
     def teardown_class(cls):
         _teardown(cls.space, cls.saved_modules)
@@ -1364,7 +1370,7 @@ class AppTestWriteBytecode(object):
         import os.path
         from test_bytecode import a
         assert a.__file__.endswith('a.py')
-        assert os.path.exists(a.__file__ + 'c')
+        assert os.path.exists(a.__file__ + 'c') == (not self.sandbox)
 
     def test_write_bytecode(self):
         import os.path
@@ -1383,15 +1389,15 @@ class AppTestWriteBytecode(object):
         assert not os.path.exists(c.__file__ + 'c')
 
 
-class AppTestNoPycFile(object):
+class AppTestWriteBytecodeSandbox(AppTestWriteBytecode):
     spaceconfig = {
-        "objspace.usepycfiles": False,
-        "objspace.lonepycfiles": False
+        "translation.sandbox": True
     }
+
+
+class _AppTestLonePycFileBase(object):
     def setup_class(cls):
-        usepycfiles = cls.spaceconfig['objspace.usepycfiles']
         lonepycfiles = cls.spaceconfig['objspace.lonepycfiles']
-        cls.w_usepycfiles = cls.space.wrap(usepycfiles)
         cls.w_lonepycfiles = cls.space.wrap(lonepycfiles)
         cls.saved_modules = _setup(cls.space)
 
@@ -1400,10 +1406,7 @@ class AppTestNoPycFile(object):
 
     def test_import_possibly_from_pyc(self):
         from compiled import x
-        if self.usepycfiles:
-            assert x.__file__.endswith('x.pyc')
-        else:
-            assert x.__file__.endswith('x.py')
+        assert x.__file__.endswith('x.pyc')
         try:
             from compiled import lone
         except ImportError:
@@ -1412,15 +1415,13 @@ class AppTestNoPycFile(object):
             assert self.lonepycfiles, "should not have found 'lone.pyc'"
             assert lone.__file__.endswith('lone.pyc')
 
-class AppTestNoLonePycFile(AppTestNoPycFile):
+class AppTestNoLonePycFile(_AppTestLonePycFileBase):
     spaceconfig = {
-        "objspace.usepycfiles": True,
         "objspace.lonepycfiles": False
     }
 
-class AppTestLonePycFile(AppTestNoPycFile):
+class AppTestLonePycFile(_AppTestLonePycFileBase):
     spaceconfig = {
-        "objspace.usepycfiles": True,
         "objspace.lonepycfiles": True
     }
 
