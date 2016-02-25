@@ -104,6 +104,10 @@ def setup_directory_structure(cls):
         'a=5\nb=6\rc="""hello\r\nworld"""\r', mode='wb')
     p.join('mod.py').write(
         'a=15\nb=16\rc="""foo\r\nbar"""\r', mode='wb')
+    setuppkg("test_bytecode",
+             a = '',
+             b = '',
+             c = '')
     p = setuppkg("encoded",
              # actually a line 2, setuppkg() sets up a line1
              line2 = "# encoding: iso-8859-1\n",
@@ -159,7 +163,7 @@ def setup_directory_structure(cls):
                 stream.try_to_find_file_descriptor())
         finally:
             stream.close()
-        if space.config.objspace.usepycfiles:
+        if not space.config.translation.sandbox:
             # also create a lone .pyc file
             p.join('lone.pyc').write(p.join(pycname).read(mode='rb'),
                                      mode='wb')
@@ -190,6 +194,9 @@ def _setup_path(space, path):
     """)
 
 def _teardown(space, w_saved_modules):
+    p = udir.join('impsubdir')
+    if p.check():
+        p.remove()
     space.appexec([w_saved_modules], """
         (path_and_modules):
             saved_path, saved_modules = path_and_modules
@@ -1501,13 +1508,55 @@ class AppTestPyPyExtension(object):
         assert isinstance(importer, zipimport.zipimporter)
 
 
-class AppTestNoPycFile(object):
+class AppTestWriteBytecode(object):
     spaceconfig = {
-        "objspace.usepycfiles": False,
+        "translation.sandbox": False
     }
+
     def setup_class(cls):
-        usepycfiles = cls.spaceconfig['objspace.usepycfiles']
-        cls.w_usepycfiles = cls.space.wrap(usepycfiles)
+        cls.saved_modules = _setup(cls)
+        sandbox = cls.spaceconfig['translation.sandbox']
+        cls.w_sandbox = cls.space.wrap(sandbox)
+
+    def teardown_class(cls):
+        _teardown(cls.space, cls.saved_modules)
+        cls.space.appexec([], """
+            ():
+                import sys
+                sys.dont_write_bytecode = False
+        """)
+
+    def test_default(self):
+        import os.path
+        from test_bytecode import a
+        assert a.__file__.endswith('a.py')
+        assert os.path.exists(a.__cached__) == (not self.sandbox)
+
+    def test_write_bytecode(self):
+        import os.path
+        import sys
+        sys.dont_write_bytecode = False
+        from test_bytecode import b
+        assert b.__file__.endswith('b.py')
+        assert os.path.exists(b.__cached__)
+
+    def test_dont_write_bytecode(self):
+        import os.path
+        import sys
+        sys.dont_write_bytecode = True
+        from test_bytecode import c
+        assert c.__file__.endswith('c.py')
+        assert not os.path.exists(c.__cached__)
+
+
+class AppTestWriteBytecodeSandbox(AppTestWriteBytecode):
+    spaceconfig = {
+        "translation.sandbox": True
+    }
+
+
+class AppTestNoLonePycFile(object):
+    def setup_class(cls):
         cls.saved_modules = _setup(cls)
 
     def teardown_class(cls):
@@ -1519,14 +1568,9 @@ class AppTestNoPycFile(object):
         try:
             from compiled import lone
         except ImportError:
-            assert not self.usepycfiles
+            pass
         else:
             assert lone.__cached__.endswith('.pyc')
-
-class AppTestNoLonePycFile(AppTestNoPycFile):
-    spaceconfig = {
-        "objspace.usepycfiles": True,
-    }
 
 
 class AppTestMultithreadedImp(object):

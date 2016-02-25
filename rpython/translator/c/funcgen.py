@@ -842,6 +842,12 @@ class FunctionCodeGenerator(object):
     def OP_JIT_FFI_SAVE_RESULT(self, op):
         return '/* JIT_FFI_SAVE_RESULT %s */' % op
 
+    def OP_JIT_ENTER_PORTAL_FRAME(self, op):
+        return '/* JIT_ENTER_PORTAL_FRAME %s */' % op
+
+    def OP_JIT_LEAVE_PORTAL_FRAME(self, op):
+        return '/* JIT_LEAVE_PORTAL_FRAME %s */' % op
+
     def OP_GET_GROUP_MEMBER(self, op):
         typename = self.db.gettype(op.result.concretetype)
         return '%s = (%s)_OP_GET_GROUP_MEMBER(%s, %s);' % (

@@ -76,13 +76,6 @@ def find_modtype(space, filepart):
         if file_exists(pyfile):
             return PY_SOURCE, ".pyw", "U"
 
-    # The .py file does not exist, check the .pyc file
-    if space.config.objspace.usepycfiles:
-        pycfile = filepart + ".pyc"
-        if file_exists(pycfile):
-            # existing .pyc file
-            return PY_COMPILED, ".pyc", "rb"
-
     if has_so_extension(space):
         so_extension = get_so_extension(space)
         pydfile = filepart + so_extension
@@ -978,17 +971,11 @@ def load_source_module(space, w_modulename, w_mod, pathname, source, fd,
     """
     w = space.wrap
 
-    if space.config.objspace.usepycfiles:
-        src_stat = os.fstat(fd)
-        cpathname = make_compiled_pathname(pathname)
-        mtime = int(src_stat[stat.ST_MTIME])
-        mode = src_stat[stat.ST_MODE]
-        stream = check_compiled_module(space, cpathname, mtime)
-    else:
-        cpathname = None
-        mtime = 0
-        mode = 0
-        stream = None
+    src_stat = os.fstat(fd)
+    cpathname = make_compiled_pathname(pathname)
+    mtime = int(src_stat[stat.ST_MTIME])
+    mode = src_stat[stat.ST_MODE]
+    stream = check_compiled_module(space, cpathname, mtime)
 
     if stream:
         # existing and up-to-date .pyc file
@@ -1002,7 +989,7 @@ def load_source_module(space, w_modulename, w_mod, pathname, source, fd,
     else:
         code_w = parse_source_module(space, pathname, source)
 
-        if space.config.objspace.usepycfiles and write_pyc:
+        if write_pyc:
             if not space.is_true(space.sys.get('dont_write_bytecode')):
                 write_compiled_module(space, code_w, cpathname, mode, mtime)
 
