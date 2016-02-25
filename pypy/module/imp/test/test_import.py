@@ -1347,11 +1347,16 @@ class AppTestPyPyExtension(object):
 
 
 class AppTestWriteBytecode(object):
-    def setup(cls):
+    def setup_class(cls):
         cls.saved_modules = _setup(cls.space)
 
-    def teardown(cls):
+    def teardown_class(cls):
         _teardown(cls.space, cls.saved_modules)
+        cls.space.appexec([], """
+            ():
+                import sys
+                sys.dont_write_bytecode = False
+        """)
 
     def test_default(self):
         import os.path
