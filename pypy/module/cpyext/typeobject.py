@@ -17,7 +17,7 @@ from pypy.module.cpyext.api import (
     generic_cpy_call, Py_TPFLAGS_READY, Py_TPFLAGS_READYING,
     Py_TPFLAGS_HEAPTYPE, METH_VARARGS, METH_KEYWORDS, CANNOT_FAIL,
     Py_TPFLAGS_HAVE_GETCHARBUFFER, build_type_checkers, StaticObjectBuilder,
-    PyObjectFields)
+    PyObjectFields, Py_TPFLAGS_BASETYPE)
 from pypy.module.cpyext.methodobject import (
     PyDescr_NewWrapper, PyCFunction_NewEx, PyCFunction_typedef)
 from pypy.module.cpyext.modsupport import convert_method_defs
