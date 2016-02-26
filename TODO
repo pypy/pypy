@@ -1,0 +1,5 @@
+* finish PySequence_Fast
+* typeobject.py and handling of __float__ prevents us from using pypy
+* python setup.py install in numpy does not somehow tell setuptools
+  it's installed (I bet it's about the py27 tag)
+* implement PyFile_AsFile

@@ -48,8 +48,6 @@ def PySequence_Fast(space, w_obj, m):
         # make sure we can return a borrowed obj from PySequence_Fast_GET_ITEM    
         w_obj.convert_to_cpy_strategy(space)
         return w_obj
-    if isinstance(w_obj, tupleobject.W_TupleObject):
-        return w_obj
     try:
         return listobject.W_ListObject.newlist_cpyext(space, space.listview(w_obj))
     except OperationError:

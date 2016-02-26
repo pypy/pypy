@@ -11,7 +11,7 @@ from pypy.module.cpyext.typeobjectdefs import (
     getattrfunc, getattrofunc, setattrofunc, lenfunc, ssizeargfunc, inquiry,
     ssizessizeargfunc, ssizeobjargproc, iternextfunc, initproc, richcmpfunc,
     cmpfunc, hashfunc, descrgetfunc, descrsetfunc, objobjproc, objobjargproc,
-    readbufferproc)
+    readbufferproc, ssizessizeobjargproc)
 from pypy.module.cpyext.pyobject import from_ref, make_ref, Py_DecRef
 from pypy.module.cpyext.pyerrors import PyErr_Occurred
 from pypy.module.cpyext.state import State
@@ -169,6 +169,15 @@ def wrap_descr_delete(space, w_self, w_args, func):
 def wrap_call(space, w_self, w_args, func, w_kwds):
     func_target = rffi.cast(ternaryfunc, func)
     return generic_cpy_call(space, func_target, w_self, w_args, w_kwds)
+
+def wrap_ssizessizeobjargproc(space, w_self, w_args, func):
+    func_target = rffi.cast(ssizessizeobjargproc, func)
+    check_num_args(space, w_args, 3)
+    args_w = space.fixedview(w_args)
+    i = space.int_w(space.index(args_w[0]))
+    j = space.int_w(space.index(args_w[1]))
+    w_y = args_w[2]
+    return space.wrap(generic_cpy_call(space, func_target, w_self, i, j, w_y))
 
 def wrap_lenfunc(space, w_self, w_args, func):
     func_len = rffi.cast(lenfunc, func)
