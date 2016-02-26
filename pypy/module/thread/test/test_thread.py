@@ -243,14 +243,14 @@ class AppTestThread(GenericTestThread):
 
         def busy_wait():
             waiting.append(None)
-            for x in range(100):
+            for x in range(50):
                 time.sleep(0.1)
             waiting.pop()
 
         # This is normally called by app_main.py
         signal.signal(signal.SIGINT, signal.default_int_handler)
 
-        for i in range(10):
+        for i in range(100):
             print()
             print("loop", i)
             waiting = []
