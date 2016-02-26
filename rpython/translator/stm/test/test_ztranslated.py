@@ -13,6 +13,20 @@ from rpython.translator.stm.test import targetdemo2
 
 class TestSTMTranslated(CompiledSTMTests):
 
+    def test_math(self):
+        from rpython.rtyper.lltypesystem.module.ll_math import sqrt_nonneg
+        def entry_point(argv):
+            lst = []
+            for i in range(int(argv[1])):
+                lst.append(sqrt_nonneg(99))
+            print '<', len(lst), '>'
+            return 0
+        #
+        t, cbuilder = self.compile(entry_point, backendopt=True)
+        data = cbuilder.cmdexec('5')
+        assert '< 5 >' in data, "got: %r" % (data,)
+
+
     def test_malloc(self):
         class Foo:
             pass
@@ -430,6 +444,25 @@ class TestSTMTranslated(CompiledSTMTests):
         t, cbuilder = self.compile(main)
         data = cbuilder.cmdexec('')
         assert '< 42 >\n< 84 >\n' in data
+
+    def test_gc_load_indexed(self):
+        from rpython.rtyper.annlowlevel import llstr
+        from rpython.rtyper.lltypesystem.rstr import STR
+        from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, lloperation
+
+        s = "hillo world"
+        lls = llstr(s)
+        base_ofs = (llmemory.offsetof(STR, 'chars') +
+                    llmemory.itemoffsetof(STR.chars, 0))
+        scale_factor = llmemory.sizeof(lltype.Char)
+
+        def main(argv):
+            print int(llop.gc_load_indexed(rffi.SHORT, lls, int(argv[1]),
+                                           scale_factor, base_ofs))
+            return 0
+        t, cbuilder = self.compile(main)
+        data = cbuilder.cmdexec('1')
+        assert '105\n'
 
     def test_raw_load_store_on_gc(self):
         X = lltype.GcStruct('X', ('foo', lltype.Signed))

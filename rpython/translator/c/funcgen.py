@@ -725,15 +725,19 @@ class FunctionCodeGenerator(object):
                 ' (((%(char)s *)%(addr)s) + %(offset)s))[0];' % locals())
 
     def OP_GC_LOAD_INDEXED(self, op):
+        tlprefix, char = '', 'char'
+        if (self._is_stm() and isinstance(op.args[0].concretetype, Ptr)
+                           and op.args[0].concretetype.TO._gckind == 'gc'):
+            tlprefix, char = ' TLPREFIX ', 'rpygcchar_t'
         addr = self.expr(op.args[0])
         index = self.expr(op.args[1])
         scale = self.expr(op.args[2])
         base_ofs = self.expr(op.args[3])
         result = self.expr(op.result)
         TYPE = op.result.concretetype
-        typename = cdecl(self.db.gettype(TYPE).replace('@', '*@'), '')
+        typename = cdecl(self.db.gettype(TYPE).replace('@', tlprefix+'*@'), '')
         return (
-          "%(result)s = ((%(typename)s) (((char *)%(addr)s) + "
+          "%(result)s = ((%(typename)s) (((%(char)s *)%(addr)s) + "
           "%(base_ofs)s + %(scale)s * %(index)s))[0];"
           % locals())
 
