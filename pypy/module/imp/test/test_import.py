@@ -736,11 +736,13 @@ class AppTestImport(BaseImportTest):
         # one in sys.path.
         import sys
         assert '_md5' not in sys.modules
-        import _md5
-        assert hasattr(_md5, 'hello_world')
-        assert not hasattr(_md5, 'md5')
-        assert '(built-in)' not in repr(_md5)
-        del sys.modules['_md5']
+        try:
+            import _md5
+            assert hasattr(_md5, 'hello_world')
+            assert not hasattr(_md5, 'md5')
+            assert '(built-in)' not in repr(_md5)
+        finally:
+            sys.modules.pop('_md5', None)
 
     def test_shadow_extension_2(self):
         if self.runappdirect: skip("hard to test: module is already imported")
@@ -759,7 +761,7 @@ class AppTestImport(BaseImportTest):
             assert '(built-in)' in repr(_md5)
         finally:
             sys.path.insert(0, sys.path.pop())
-        del sys.modules['_md5']
+            sys.modules.pop('_md5', None)
 
     def test_invalid_pathname(self):
         import imp
