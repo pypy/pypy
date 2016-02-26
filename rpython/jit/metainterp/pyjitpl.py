@@ -13,6 +13,7 @@ from rpython.jit.metainterp.jitprof import EmptyProfiler
 from rpython.jit.metainterp.logger import Logger
 from rpython.jit.metainterp.optimizeopt.util import args_dict
 from rpython.jit.metainterp.resoperation import rop, OpHelpers, GuardResOp
+from rpython.jit.metainterp import jitlog
 from rpython.rlib import nonconst, rstack
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
 from rpython.rlib.debug import have_debug_prints, make_sure_not_resized
@@ -1717,12 +1718,14 @@ class MIFrame(object):
 class MetaInterpStaticData(object):
     logger_noopt = None
     logger_ops = None
+    jitlog = None
 
     def __init__(self, cpu, options,
                  ProfilerClass=EmptyProfiler, warmrunnerdesc=None):
         self.cpu = cpu
         self.stats = self.cpu.stats
         self.options = options
+        self.jitlog = jitlog.VMProfJitLogger()
         self.logger_noopt = Logger(self)
         self.logger_ops = Logger(self, guard_number=True)
 

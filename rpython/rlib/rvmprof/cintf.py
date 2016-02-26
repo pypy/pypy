@@ -51,6 +51,11 @@ def setup():
                                             [rffi.INT], lltype.Void,
                                             compilation_info=eci,
                                             _nowrapper=True)
+
+    jitlog_init = rffi.llexternal("jitlog_init", [rffi.INT, rffi.CHARP],
+                                  rffi.CHARP, compilation_info=eci,
+                                  save_err=rffi.RFFI_SAVE_ERRNO)
+
     return CInterface(locals())
 
 

@@ -7,11 +7,7 @@ static long prepare_interval_usec = 0;
 static long profile_interval_usec = 0;
 static int opened_profile(char *interp_name);
 
-#define MARKER_STACKTRACE '\x01'
-#define MARKER_VIRTUAL_IP '\x02'
-#define MARKER_TRAILER '\x03'
-#define MARKER_INTERP_NAME '\x04'   /* deprecated */
-#define MARKER_HEADER '\x05'
+#include "vmprof_markers.h"
 
 #define VERSION_BASE '\x00'
 #define VERSION_THREAD_ID '\x01'

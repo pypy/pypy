@@ -8,3 +8,6 @@ RPY_EXTERN void* vmprof_stack_new(void);
 RPY_EXTERN int vmprof_stack_append(void*, long);
 RPY_EXTERN long vmprof_stack_pop(void*);
 RPY_EXTERN void vmprof_stack_free(void*);
+
+RPY_EXTERN char * jitlog_init(int, char*);
+RPY_EXTERN void jitlog_try_init_using_env(void);
