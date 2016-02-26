@@ -4,7 +4,7 @@ from pypy.interpreter.error import OperationError, oefmt, strerror as _strerror
 from pypy.interpreter.gateway import unwrap_spec
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.rarithmetic import intmask
-from rpython.rlib import rposix
+from rpython.rlib import rposix, rtime
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 import os
 import sys
@@ -314,13 +314,13 @@ if sys.platform != 'win32':
         if secs < 0:
             raise OperationError(space.w_IOError,
                                  space.wrap("Invalid argument: negative time in sleep"))
-        pytime.sleep(secs)
+        rtime.sleep(secs)
 else:
     from rpython.rlib import rwin32
     from errno import EINTR
     def _simple_sleep(space, secs, interruptible):
         if secs == 0.0 or not interruptible:
-            pytime.sleep(secs)
+            rtime.sleep(secs)
         else:
             millisecs = int(secs * 1000)
             interrupt_event = space.fromcache(State).get_interrupt_event()
@@ -329,7 +329,7 @@ else:
             if rc == rwin32.WAIT_OBJECT_0:
                 # Yield to make sure real Python signal handler
                 # called.
-                pytime.sleep(0.001)
+                rtime.sleep(0.001)
                 raise wrap_oserror(space,
                                    OSError(EINTR, "sleep() interrupted"))
     @unwrap_spec(secs=float)

@@ -171,3 +171,16 @@ vmprof should work on Windows.
 When creating instances and adding attributes in several different orders
 depending on some condition, the JIT would create too much code. This is now
 fixed.
+
+.. branch: cpyext-gc-support-2
+
+Improve CPython C API support, which means lxml now runs unmodified
+(after removing pypy hacks, pending pull request)
+
+.. branch: look-inside-tuple-hash
+
+Look inside tuple hash, improving mdp benchmark
+
+.. branch: vlen-resume
+
+Compress resume data, saving 10-20% of memory consumed by the JIT
