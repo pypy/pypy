@@ -654,7 +654,7 @@ class AppTestImport:
         assert '_md5' not in sys.modules
         import _md5
         assert hasattr(_md5, 'hello_world')
-        assert not hasattr(_md5, 'count')
+        assert not hasattr(_md5, 'digest_size')
         assert '(built-in)' not in repr(_md5)
         del sys.modules['_md5']
 
