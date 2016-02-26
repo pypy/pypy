@@ -17,6 +17,7 @@ class AppTestOsWait:
         if not hasattr(os, "fork"):
             py.test.skip("Need fork() to test wait3/wait4()")
         rebuild.rebuild_one('resource.ctc.py')
+        cls.space.appexec([], "(): import ctypes")
         cls.w__pypy_wait = import_lib_pypy(
             cls.space, '_pypy_wait')
 
