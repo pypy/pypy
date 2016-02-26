@@ -200,6 +200,12 @@ class AppTestMarshal:
         assert str(exc.value) == "bad marshal data (unknown type code)"
 
     def test_bad_data(self):
+        # If you have sufficiently little memory, the line at the end of the
+        # test will fail immediately.  If not, the test will consume high
+        # amounts of memory and make your system unstable.  CPython (I tried
+        # 3.3 and 3.5) shows the same behaviour on my computers (4 GB and 12 GB).
+        skip("takes too much memory")
+
         import marshal
         # Yes, there is code that depends on this :-(
         raises(EOFError, marshal.loads, b'<test>')
