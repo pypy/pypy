@@ -65,21 +65,8 @@ class AbstractAttribute(object):
     def delete(self, obj, name, index):
         pass
 
-    def find_map_attr(self, name, index):
-        if jit.we_are_jitted():
-            # hack for the jit:
-            # the _find_map_attr method is pure too, but its argument is never
-            # constant, because it is always a new tuple
-            return self._find_map_attr_jit_pure(name, index)
-        else:
-            return self._find_map_attr_indirection(name, index)
-
     @jit.elidable
-    def _find_map_attr_jit_pure(self, name, index):
-        return self._find_map_attr_indirection(name, index)
-
-    @jit.dont_look_inside
-    def _find_map_attr_indirection(self, name, index):
+    def find_map_attr(self, name, index):
         if (self.space.config.objspace.std.withmethodcache):
             return self._find_map_attr_cache(name, index)
         return self._find_map_attr(name, index)

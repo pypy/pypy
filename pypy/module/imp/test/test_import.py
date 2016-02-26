@@ -65,7 +65,7 @@ def setup_directory_structure(cls):
                     test_reload = "def test():\n    raise ValueError\n",
                     infinite_reload = "import infinite_reload, imp; imp.reload(infinite_reload)",
                     del_sys_module = "import sys\ndel sys.modules['del_sys_module']\n",
-                    itertools = "hello_world = 42\n",
+                    _md5 = "hello_world = 42\n",
                     gc = "should_never_be_seen = 42\n",
                     )
     root.ensure("packagenamespace", dir=1)    # empty, no __init__.py
@@ -202,7 +202,7 @@ def _teardown(space, w_saved_modules):
 
 class AppTestImport(BaseImportTest):
     spaceconfig = {
-        "usemodules": ['time', 'struct'],
+        "usemodules": ['_md5', 'time', 'struct'],
     }
 
     def setup_class(cls):
@@ -696,13 +696,15 @@ class AppTestImport(BaseImportTest):
 
     def test_shadow_extension_1(self):
         if self.runappdirect: skip("hard to test: module is already imported")
+        # 'import _md5' is supposed to find _md5.py if there is
+        # one in sys.path.
         import sys
-        sys.modules.pop('itertools', None)
-        import itertools
-        assert hasattr(itertools, 'hello_world')
-        assert not hasattr(itertools, 'count')
-        assert '(built-in)' not in repr(itertools)
-        del sys.modules['itertools']
+        assert '_md5' not in sys.modules
+        import _md5
+        assert hasattr(_md5, 'hello_world')
+        assert not hasattr(_md5, 'md5')
+        assert '(built-in)' not in repr(_md5)
+        del sys.modules['_md5']
 
     def test_shadow_extension_2(self):
         if self.runappdirect: skip("hard to test: module is already imported")
@@ -712,16 +714,16 @@ class AppTestImport(BaseImportTest):
         # there is one in lib_pypy/_md5.py, which should not be seen
         # either; hence the (built-in) test below.)
         import sys
-        sys.modules.pop('itertools', None)
+        assert '_md5' not in sys.modules
         sys.path.append(sys.path.pop(0))
         try:
-            import itertools
-            assert not hasattr(itertools, 'hello_world')
-            assert hasattr(itertools, 'islice')
-            assert '(built-in)' in repr(itertools)
+            import _md5
+            assert not hasattr(_md5, 'hello_world')
+            assert hasattr(_md5, 'md5')
+            assert '(built-in)' in repr(_md5)
         finally:
             sys.path.insert(0, sys.path.pop())
-        del sys.modules['itertools']
+        del sys.modules['_md5']
 
     def test_invalid_pathname(self):
         skip("This test fails on CPython 3.3, but passes on CPython 3.4+")
