@@ -5,6 +5,12 @@ static char * jitlog_prefix = NULL;
 static int jitlog_ready = 0;
 
 RPY_EXTERN
+int jitlog_filter(int tag)
+{
+    return 0; // TODO
+}
+
+RPY_EXTERN
 void jitlog_try_init_using_env(void) {
     if (jitlog_ready) { return; }
 
