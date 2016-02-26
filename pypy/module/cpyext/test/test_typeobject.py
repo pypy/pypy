@@ -488,6 +488,24 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         assert module.nb_int(-12.3) == -12
         raises(ValueError, module.nb_int, "123")
 
+    def test_nb_float(self):
+        module = self.import_extension('foo', [
+            ("nb_float", "METH_O",
+             '''
+                 if (!args->ob_type->tp_as_number ||
+                     !args->ob_type->tp_as_number->nb_float)
+                 {
+                     PyErr_SetNone(PyExc_ValueError);
+                     return NULL;
+                 }
+                 return args->ob_type->tp_as_number->nb_float(args);
+             '''
+             )
+            ])
+        assert module.nb_float(10) == 10.0
+        assert module.nb_float(-12.3) == -12.3
+        raises(ValueError, module.nb_float, "123")
+
     def test_tp_call(self):
         module = self.import_extension('foo', [
             ("tp_call", "METH_VARARGS",

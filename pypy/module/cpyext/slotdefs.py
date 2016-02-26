@@ -349,6 +349,10 @@ def slot_nb_int(space, w_self):
     return space.int(w_self)
 
 @cpython_api([PyObject], PyObject, header=None)
+def slot_nb_float(space, w_self):
+    return space.float(w_self)
+
+@cpython_api([PyObject], PyObject, header=None)
 def slot_tp_iter(space, w_self):
     return space.iter(w_self)
 
