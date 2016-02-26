@@ -78,6 +78,7 @@ struct stm_hashtable_s {
     stm_hashtable_table_t *table;
     stm_hashtable_table_t initial_table;
     uint64_t additions;
+    uint64_t pickitem_index;
 };
 
 
@@ -488,6 +489,90 @@ long stm_hashtable_list(object_t *hobj, stm_hashtable_t *hashtable,
         }
     }
     return nresult;
+}
+
+stm_hashtable_entry_t *stm_hashtable_pickitem(object_t *hobj,
+                                       stm_hashtable_t *hashtable)
+{
+    /* We use hashtable->pickitem_index as a shared index counter (not
+       initialized, any initial garbage is fine).  The goal is
+       two-folds:
+
+       - This is used to implement popitem().  Like CPython and PyPy's
+         non-STM dict implementations, the goal is that repeated calls
+         to pickitem() maintains a roughly O(1) time per call while
+         returning different items (in the case of popitem(), the
+         returned items are immediately deleted).
+
+       - Additionally, with STM, if several threads all call
+         pickitem(), this should give the best effort to distribute
+         different items to different threads and thus minimize
+         conflicts.  (At least that's the theory; it should be tested
+         in practice.)
+    */
+ restart:;
+    uint64_t startindex = VOLATILE_HASHTABLE(hashtable)->pickitem_index;
+
+    /* Get the table.  No synchronization is needed: we may miss some
+       entries that are being added, but they would contain NULL in
+       this segment anyway. */
+    stm_hashtable_table_t *table = VOLATILE_HASHTABLE(hashtable)->table;
+
+    /* Find the first entry with a non-NULL object, starting at
+       'index'. */
+    uintptr_t mask = table->mask;
+    uintptr_t count;
+    stm_hashtable_entry_t *entry;
+
+    for (count = 0; count <= mask; ) {
+        entry = VOLATILE_TABLE(table)->items[(startindex + count) & mask];
+        count++;
+        if (entry != NULL && entry->object != NULL) {
+            /*
+               Found the next entry.  Update pickitem_index now.  If
+               it was already changed under our feet, we assume that
+               it is because another thread just did pickitem() too
+               and is likely to have got the very same entry.  In that
+               case we start again from scratch to look for the
+               following entry.
+            */
+            if (!__sync_bool_compare_and_swap(&hashtable->pickitem_index,
+                                              startindex,
+                                              startindex + count))
+                goto restart;
+
+            /* Here we mark the entry as as read and return it.
+
+               Note a difference with notably stm_hashtable_list(): we
+               only call stm_read() after we checked that
+               entry->object is not NULL.  If we find NULL, we don't
+               mark the entry as read from this thread at all in this
+               step---this is fine, as we can return a random
+               different entry here.
+            */
+            stm_read((object_t *)entry);
+            return entry;
+        }
+    }
+
+    /* Didn't find any entry.  We have to be sure that the dictionary
+       is empty now, in the sense that returning NULL must guarantee
+       conflicts with a different thread adding items.  This is done
+       by marking both the dict and all entries' read marker. */
+    stm_read(hobj);
+
+    /* Reload the table after setting the read marker */
+    uintptr_t i;
+    table = VOLATILE_HASHTABLE(hashtable)->table;
+    mask = table->mask;
+    for (i = 0; i <= mask; i++) {
+        entry = VOLATILE_TABLE(table)->items[i];
+        if (entry != NULL) {
+            stm_read((object_t *)entry);
+            assert(entry->object == NULL);
+        }
+    }
+    return NULL;
 }
 
 static void _stm_compact_hashtable(struct object_s *hobj,

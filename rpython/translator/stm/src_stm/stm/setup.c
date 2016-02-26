@@ -39,20 +39,6 @@ static void setup_protection_settings(void)
 }
 
 
-static void setup_signal_handler(void)
-{
-    struct sigaction act;
-    memset(&act, 0, sizeof(act));
-
-	act.sa_sigaction = &_signal_handler;
-	/* The SA_SIGINFO flag tells sigaction() to use the sa_sigaction field, not sa_handler. */
-	act.sa_flags = SA_SIGINFO | SA_NODEFER;
-
-	if (sigaction(SIGSEGV, &act, NULL) < 0) {
-		perror ("sigaction");
-		abort();
-	}
-}
 
 void stm_setup(void)
 {
@@ -301,13 +287,15 @@ static void detect_shadowstack_overflow(char *addr)
     if (addr == NULL)
         return;
     stm_thread_local_t *tl = stm_all_thread_locals;
-    while (tl != NULL) {
+    if (tl == NULL)
+        return;
+    do {
         char *trap = _shadowstack_trap_page(tl->shadowstack_base);
         if (trap <= addr && addr <= trap + 4095) {
             fprintf(stderr, "This is caused by a stack overflow.\n"
-                "Sorry, proper RuntimeError support is not implemented yet.\n");
+                    "Sorry, proper RuntimeError support is not implemented yet.\n");
             return;
         }
         tl = tl->next;
-    }
+    } while (tl != stm_all_thread_locals);
 }

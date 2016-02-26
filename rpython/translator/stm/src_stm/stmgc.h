@@ -749,6 +749,7 @@ void stm_hashtable_write(object_t *, stm_hashtable_t *, uintptr_t key,
 void stm_hashtable_write_entry(object_t *hobj, stm_hashtable_entry_t *entry,
                                object_t *nvalue);
 long stm_hashtable_length_upper_bound(stm_hashtable_t *);
+stm_hashtable_entry_t *stm_hashtable_pickitem(object_t *, stm_hashtable_t *);
 
 /* WARNING: stm_hashtable_list does not do a stm_write() on the 'results'
    argument. 'results' may point inside an object. So if 'results' may be

@@ -303,6 +303,14 @@ static void _signal_handler(int sig, siginfo_t *siginfo, void *context);
 static bool _stm_validate(void);
 static void _core_commit_transaction(bool external);
 
+static void import_objects(
+        int from_segnum,            /* or -1: from undo->backup,
+                                       or -2: from undo->backup if not modified */
+        uintptr_t pagenum,          /* or -1: "all accessible" */
+        struct stm_undo_s *undo,
+        struct stm_undo_s *end);
+
+
 static inline bool was_read_remote(char *base, object_t *obj)
 {
     uint8_t other_transaction_read_version =
