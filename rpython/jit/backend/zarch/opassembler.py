@@ -534,23 +534,8 @@ class AllocOpAssembler(object):
         if not is_frame:
             mc.LGR(r.r0, loc_base)    # unusual argument location
 
-        if len(arglocs) > 1:
-            loc_index = arglocs[1]
-            # loc_index may be in r2 to r5.
-            # the wb_slow_path may trash these registers
-
-            if loc_index.is_reg() and loc_index.value < 6:
-                mc.LAY(r.SP, l.addr(-WORD, r.SP))
-                mc.STG(loc_index, l.addr(STD_FRAME_SIZE_IN_BYTES, r.SP))
-
         mc.load_imm(r.r14, self.wb_slowpath[helper_num])
         mc.BASR(r.r14, r.r14)
-
-        if len(arglocs) > 1:
-            loc_index = arglocs[1]
-            if loc_index.is_reg() and loc_index.value < 6:
-                mc.LG(loc_index, l.addr(STD_FRAME_SIZE_IN_BYTES, r.SP))
-                mc.LAY(r.SP, l.addr(WORD, r.SP))
 
         if card_marking_mask:
             # The helper ends again with a check of the flag in the object.
@@ -576,7 +561,7 @@ class AllocOpAssembler(object):
 
                 # compute in tmp_loc the byte offset:
                 #   tmp_loc = ~(index >> (card_page_shift + 3))
-                mc.SRAG(tmp_loc, loc_index, l.addr(n+3))
+                mc.SRLG(tmp_loc, loc_index, l.addr(n+3))
                 # invert the bits of tmp_loc
 
                 # compute in SCRATCH the index of the bit inside the byte:
@@ -584,8 +569,6 @@ class AllocOpAssembler(object):
                 # 0x80 sets zero flag. will store 0 into all not selected bits
                 mc.RISBGN(r.SCRATCH, loc_index, l.imm(61), l.imm(0x80 | 63), l.imm(64-n))
                 mc.XG(tmp_loc, l.pool(self.pool.constant_64_ones))
-                #mc.SRAG(r.SCRATCH, loc_index, l.addr(n))
-                #mc.NILL(r.SCRATCH, l.imm(0x7))
 
                 # set SCRATCH2 to 1 << r1
                 mc.LGHI(r.SCRATCH2, l.imm(1))
@@ -596,13 +579,13 @@ class AllocOpAssembler(object):
                 addr = l.addr(0, loc_base, tmp_loc)
                 mc.LLGC(r.SCRATCH, addr)
                 mc.OGRK(r.SCRATCH, r.SCRATCH, r.SCRATCH2)
-                mc.STC(r.SCRATCH, addr)
+                mc.STCY(r.SCRATCH, addr)
                 # done
             else:
                 byte_index = loc_index.value >> descr.jit_wb_card_page_shift
                 byte_ofs = ~(byte_index >> 3)
                 byte_val = 1 << (byte_index & 7)
-                assert check_imm_value(byte_ofs)
+                assert check_imm_value(byte_ofs, lower_bound=-2**19, upper_bound=2**19-1)
 
                 addr = l.addr(byte_ofs, loc_base)
                 mc.LLGC(r.SCRATCH, addr)
