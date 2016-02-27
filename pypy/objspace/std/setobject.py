@@ -1442,7 +1442,8 @@ class IntegerSetStrategy(SetStrategy):
         if self is w_other.strategy:
             d_set = self.unerase(w_set.sstorage)
             d_other = self.unerase(w_other.sstorage)
-            d_set.update(d_other)
+            for key, item in d_other.iteritems():
+                d_set[key] = d_set.get(key, 0) | item
             return
         if w_other.length() == 0:
             return

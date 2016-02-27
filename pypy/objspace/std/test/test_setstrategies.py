@@ -247,6 +247,17 @@ class TestSetHypothesis:
                 assert not s.has_key(self.wrap(i))
         # XXX check that no additional keys
 
+    @given(intlists, intlists)
+    def test_union(self, c1, c2):
+        s1 = self.intset(c1)
+        s2 = self.intset(c2)
+        s = s1.copy_real()
+        s.update(s2)
+        for i in c1:
+            assert s.has_key(self.wrap(i))
+        for i in c2:
+            assert s.has_key(self.wrap(i))
+        # XXX check that no additional keys
 
     @given(intlists, intlists)
     def test_issubset(self, c1, c2):
