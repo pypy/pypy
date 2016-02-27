@@ -1,4 +1,8 @@
 #include <string.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 static int jitlog_fd = -1;
 static char * jitlog_prefix = NULL;
@@ -30,8 +34,8 @@ void jitlog_try_init_using_env(void) {
         } else {
             /* JITLOG=prefix:filename --- conditional logging */
             int n = colon - filename;
-            debug_prefix = malloc(n + 1);
-            memcpy(debug_prefix, filename, n);
+            jitlog_prefix = malloc(n + 1);
+            memcpy(jitlog_prefix, filename, n);
             debug_prefix[n] = '\0';
             filename = colon + 1;
         }
