@@ -13,6 +13,14 @@ from rpython.rlib.objectmodel import setitem_with_hash, delitem_with_hash
 from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.rlib import rerased, jit
 
+def popcount(i):
+    # XXX
+    i = r_uint(i)
+    res = 0
+    while i:
+        res += i & 1
+        i >>= 1
+    return res
 
 UNROLL_CUTOFF = 5
 
@@ -687,7 +695,7 @@ class SetStrategy(object):
     # __________________ methods called on W_SetObject _________________
 
     def clear(self, w_set):
-        raise NotImplementedError
+        w_set.switch_to_empty_strategy()
 
     def copy_real(self, w_set):
         raise NotImplementedError
@@ -877,9 +885,6 @@ class AbstractUnwrappedSetStrategy(object):
 
     def length(self, w_set):
         return len(self.unerase(w_set.sstorage))
-
-    def clear(self, w_set):
-        w_set.switch_to_empty_strategy()
 
     def copy_real(self, w_set):
         # may be used internally on frozen sets, although frozenset().copy()
@@ -1281,13 +1286,16 @@ class UnicodeSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
         return UnicodeIteratorImplementation(self.space, self, w_set)
 
 
-class IntegerSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
+class IntegerSetStrategy(SetStrategy):
     erase, unerase = rerased.new_erasing_pair("integer")
     erase = staticmethod(erase)
     unerase = staticmethod(unerase)
 
     intersect_jmp = jit.JitDriver(greens = [], reds = 'auto',
                                   name='set(int).intersect')
+
+    BITMASK = 3
+    KEYMASK = ~BITMASK
 
     def get_empty_storage(self):
         return self.erase({})
@@ -1296,7 +1304,16 @@ class IntegerSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
         return {}
 
     def listview_int(self, w_set):
-        return self.unerase(w_set.sstorage).keys()
+        result = []
+        items = self.unerase(w_set.sstorage).iteritems()
+        for key, value in items:
+            i = 0
+            while value:
+                if value & 1:
+                    result.append(key | i)
+                value >>= 1
+                i += 1
+        return result
 
     def is_correct_type(self, w_key):
         return type(w_key) is W_IntObject
@@ -1320,6 +1337,231 @@ class IntegerSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
 
     def iter(self, w_set):
         return IntegerIteratorImplementation(self.space, self, w_set)
+
+    def _set_key(self, setdata, i):
+        setdata[i & self.KEYMASK] = setdata.get(i & self.KEYMASK, 0) | (1 << (i & self.BITMASK))
+
+    def _set_key_wrapped(self, setdata, w_key):
+        self._set_key(setdata, self.unwrap(w_key))
+
+    def _remove_key(self, setdata, i):
+        key = i & self.KEYMASK
+        item = setdata.get(key, 0)
+        bit = (1 << (i & self.BITMASK))
+        is_there = item & bit
+        if is_there:
+            if item & (~bit) == 0:
+                del setdata[key]
+            else:
+                setdata[key] = item & (~bit)
+        return bool(is_there)
+
+    def _has_key(self, setdata, i):
+        return bool(setdata.get(i & self.KEYMASK, 0) & (1 << (i & self.BITMASK)))
+
+    def _has_key_wrapped(self, setdata, w_key):
+        return self._has_key(setdata, self.unwrap(w_key))
+
+    @jit.look_inside_iff(lambda self, list_w:
+            jit.loop_unrolling_heuristic(list_w, len(list_w), UNROLL_CUTOFF))
+    def get_storage_from_list(self, list_w):
+        setdata = {}
+        for w_item in list_w:
+            self._set_key_wrapped(setdata, w_item)
+        return self.erase(setdata)
+
+    @jit.look_inside_iff(lambda self, items:
+            jit.loop_unrolling_heuristic(items, len(items), UNROLL_CUTOFF))
+    def get_storage_from_unwrapped_list(self, items):
+        setdata = self.get_empty_dict()
+        for item in items:
+            self._set_key(setdata, item)
+        return self.erase(setdata)
+
+    def get_storage_copy(self, w_set):
+        d = self.unerase(w_set.sstorage)
+        copy = self.erase(d.copy())
+        return copy
+
+    def copy_real(self, w_set):
+        # may be used internally on frozen sets, although frozenset().copy()
+        # returns self in frozenset_copy__Frozenset.
+        strategy = w_set.strategy
+        d = self.unerase(w_set.sstorage)
+        storage = self.erase(d.copy())
+        clone = w_set.from_storage_and_strategy(storage, strategy)
+        return clone
+
+    def add(self, w_set, w_key):
+        if self.is_correct_type(w_key):
+            d = self.unerase(w_set.sstorage)
+            self._set_key_wrapped(d, w_key)
+        else:
+            w_set.switch_to_object_strategy(self.space)
+            w_set.add(w_key)
+
+    def remove(self, w_set, w_item):
+        d = self.unerase(w_set.sstorage)
+        if not self.is_correct_type(w_item):
+            #XXX check type of w_item and immediately return False in some cases
+            w_set.switch_to_object_strategy(self.space)
+            return w_set.remove(w_item)
+
+        key = self.unwrap(w_item)
+        return self._remove_key(d, key)
+
+    def has_key(self, w_set, w_key):
+        if not self.is_correct_type(w_key):
+            #XXX check type of w_item and immediately return False in some cases
+            w_set.switch_to_object_strategy(self.space)
+            return w_set.has_key(w_key)
+        d = self.unerase(w_set.sstorage)
+        return self._has_key_wrapped(d, w_key)
+
+    def length(self, w_set):
+        l = 0
+        # XXX too slow!
+        for value in self.unerase(w_set.sstorage).itervalues():
+            assert value
+            l += popcount(value)
+        return l
+
+    def getdict_w(self, w_set):
+        result = newset(self.space)
+        items = self.unerase(w_set.sstorage).iteritems()
+        for key, value in items:
+            i = 0
+            while value:
+                if value & 1:
+                    result[self.wrap(key | i)] = None
+                value >>= 1
+                i += 1
+        return result
+
+    def update(self, w_set, w_other):
+        if self is w_other.strategy:
+            d_set = self.unerase(w_set.sstorage)
+            d_other = self.unerase(w_other.sstorage)
+            d_set.update(d_other)
+            return
+        if w_other.length() == 0:
+            return
+        w_set.switch_to_object_strategy(self.space)
+        w_set.update(w_other)
+
+    def XXX_symmetric_difference_base(self, w_set, w_other):
+        if self is w_other.strategy:
+            strategy = w_set.strategy
+            storage = self._symmetric_difference_unwrapped(w_set, w_other)
+        else:
+            w_set.switch_to_object_strategy(self.space)
+            return w_set.symmetric_difference(w_other)
+        return storage, strategy
+
+    def XXXsymmetric_difference(self, w_set, w_other):
+        if w_other.length() == 0:
+            return w_set.copy_real()
+        storage, strategy = self._symmetric_difference_base(w_set, w_other)
+        return w_set.from_storage_and_strategy(storage, strategy)
+
+    def symmetric_difference_update(self, w_set, w_other):
+        if w_other.length() == 0:
+            return
+        if self is w_other.strategy:
+            w_set.sstorage = self._symmetric_difference_unwrapped(w_set, w_other)
+        else:
+            w_set.switch_to_object_strategy(self.space)
+            w_set.symmetric_difference_update(w_other)
+
+    def _symmetric_difference_unwrapped(self, w_set, w_other):
+        d_new = self.get_empty_dict()
+        d_this = self.unerase(w_set.sstorage)
+        d_other = self.unerase(w_other.sstorage)
+        # XXX
+        for key, item in d_other.iteritems():
+            new = item ^ d_this.get(key, 0)
+            if new:
+                d_new[key] = new
+        for key, item in d_this.iteritems():
+            new = item ^ d_other.get(key, 0)
+            if new:
+                d_new[key] = new
+
+        storage = self.erase(d_new)
+        return storage
+
+    def _symmetric_difference_wrapped(self, w_set, w_other):
+        newsetdata = newset(self.space)
+        for obj in self.unerase(w_set.sstorage):
+            w_item = self.wrap(obj)
+            if not w_other.has_key(w_item):
+                newsetdata[w_item] = None
+
+        w_iterator = w_other.iter()
+        while True:
+            w_item = w_iterator.next_entry()
+            if w_item is None:
+                break
+            if not w_set.has_key(w_item):
+                newsetdata[w_item] = None
+
+        strategy = self.space.fromcache(ObjectSetStrategy)
+        return strategy.erase(newsetdata)
+
+    def _intersect_base(self, w_set, w_other):
+        if self is w_other.strategy:
+            strategy = self
+            if w_set.length() > w_other.length():
+                # swap operands
+                storage = self._intersect_unwrapped(w_other, w_set)
+            else:
+                storage = self._intersect_unwrapped(w_set, w_other)
+        elif not self.may_contain_equal_elements(w_other.strategy):
+            strategy = self.space.fromcache(EmptySetStrategy)
+            storage = strategy.get_empty_storage()
+        else:
+            strategy = self.space.fromcache(ObjectSetStrategy)
+            if w_set.length() > w_other.length():
+                # swap operands
+                storage = w_other.strategy._intersect_wrapped(w_other, w_set)
+            else:
+                storage = self._intersect_wrapped(w_set, w_other)
+        return storage, strategy
+
+    def XXX_intersect_wrapped(self, w_set, w_other):
+        result = newset(self.space)
+        for key in self.unerase(w_set.sstorage):
+            self.intersect_jmp.jit_merge_point()
+            w_key = self.wrap(key)
+            if w_other.has_key(w_key):
+                result[w_key] = None
+
+        strategy = self.space.fromcache(ObjectSetStrategy)
+        return strategy.erase(result)
+
+    def _intersect_unwrapped(self, w_set, w_other):
+        result = self.get_empty_dict()
+        d_this = self.unerase(w_set.sstorage)
+        d_other = self.unerase(w_other.sstorage)
+        for key, value in d_this.iteritems():
+            value = value & d_other.get(key, 0)
+            if value:
+                result[key] = value
+        return self.erase(result)
+
+    def intersect(self, w_set, w_other):
+        storage, strategy = self._intersect_base(w_set, w_other)
+        return w_set.from_storage_and_strategy(storage, strategy)
+
+    def intersect_update(self, w_set, w_other):
+        if w_set.length() > w_other.length():
+            w_intersection = w_other.intersect(w_set)
+            strategy = w_intersection.strategy
+            storage = w_intersection.sstorage
+        else:
+            storage, strategy = self._intersect_base(w_set, w_other)
+        w_set.strategy = strategy
+        w_set.sstorage = storage
 
 
 class ObjectSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
@@ -1489,14 +1731,36 @@ class IntegerIteratorImplementation(IteratorImplementation):
     def __init__(self, space, strategy, w_set):
         IteratorImplementation.__init__(self, space, strategy, w_set)
         d = strategy.unerase(w_set.sstorage)
-        self.iterator = d.iterkeys()
+        self.iterator = d.iteritems()
+        self.key_from_dict = 0
+        self.value_from_dict = 0
+        self.intvalue = 0
 
     def next_entry(self):
-        # note that this 'for' loop only runs once, at most
-        for key in self.iterator:
-            return self.space.wrap(key)
-        else:
-            return None
+        value_from_dict = self.value_from_dict
+        key_from_dict = self.key_from_dict
+        intvalue = self.intvalue
+        if not value_from_dict:
+            # note that this 'for' loop only runs once, at most
+            for item in self.iterator:
+                key_from_dict, value_from_dict = item
+                self.key_from_dict = key_from_dict
+                assert value_from_dict
+                intvalue = 0
+                break
+            else:
+                return None
+        while True:
+            result = intvalue
+            should_return = value_from_dict & 1
+            value_from_dict >>= 1
+            intvalue += 1
+            if should_return:
+                self.value_from_dict = value_from_dict
+                self.intvalue = intvalue
+                return self.space.wrap(key_from_dict | result)
+
+
 
 class IdentityIteratorImplementation(IteratorImplementation):
     def __init__(self, space, strategy, w_set):

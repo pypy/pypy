@@ -1,9 +1,16 @@
+import sys
 from pypy.objspace.std.setobject import W_SetObject
 from pypy.objspace.std.setobject import (
     BytesIteratorImplementation, BytesSetStrategy, EmptySetStrategy,
     IntegerIteratorImplementation, IntegerSetStrategy, ObjectSetStrategy,
     UnicodeIteratorImplementation, UnicodeSetStrategy)
 from pypy.objspace.std.listobject import W_ListObject
+
+
+from hypothesis import strategies, given
+
+ints = strategies.integers(-sys.maxint-1, sys.maxint)
+intlists = strategies.lists(ints)
 
 class TestW_SetStrategies:
 
@@ -144,3 +151,85 @@ class TestW_SetStrategies:
         #
         s = W_SetObject(space, self.wrapped([u"a", u"b"]))
         assert sorted(space.listview_unicode(s)) == [u"a", u"b"]
+
+
+class TestSetHypothesis:
+    def wrapped(self, l):
+        return W_ListObject(self.space, [self.space.wrap(x) for x in l])
+
+    def wrap(self, x):
+        return self.space.wrap(x)
+
+    def intset(self, content):
+        return W_SetObject(self.space, self.wrapped(content))
+
+    @given(intlists, ints)
+    def test_intset_added_element_in_set(self, content, i):
+        s = self.intset(content)
+        w_i = self.wrap(i)
+        s.add(w_i)
+        assert s.has_key(w_i)
+
+    @given(intlists, ints)
+    def test_remove(self, content, i):
+        s = self.intset(content + [i])
+        w_i = self.wrap(i)
+        s.remove(w_i)
+        assert not s.has_key(w_i)
+
+    @given(intlists, ints)
+    def test_length(self, content, i):
+        s = self.intset(content)
+        assert len(set(content)) == s.length()
+
+    @given(intlists, intlists)
+    def test_update(self, c1, c2):
+        s1 = self.intset(c1)
+        s2 = self.intset(c2)
+        s1.update(s2)
+        for i in c1:
+            assert s1.has_key(self.wrap(i))
+        for i in c2:
+            assert s1.has_key(self.wrap(i))
+        # XXX check that no additional keys
+
+    @given(intlists, intlists)
+    def test_symmetric_update(self, c1, c2):
+        s1 = self.intset(c1)
+        s2 = self.intset(c2)
+        s1.symmetric_difference_update(s2)
+        s1.length()
+        for i in c1:
+            if i not in c2:
+                assert s1.has_key(self.wrap(i))
+            else:
+                assert not s1.has_key(self.wrap(i))
+        for i in c2:
+            if i not in c1:
+                assert s1.has_key(self.wrap(i))
+            else:
+                assert not s1.has_key(self.wrap(i))
+        # XXX check that no additional keys
+
+    @given(intlists, intlists)
+    def XXXtest_update_vs_not(self, c1, c2):
+        return #XXX write me!
+
+    @given(intlists, intlists)
+    def test_intersect(self, c1, c2):
+        s1 = self.intset(c1)
+        s2 = self.intset(c2)
+        s = s1.intersect(s2)
+        for i in c1:
+            if i in c2:
+                assert s.has_key(self.wrap(i))
+            else:
+                assert not s.has_key(self.wrap(i))
+        for i in c2:
+            if i in c1:
+                assert s.has_key(self.wrap(i))
+            else:
+                assert not s.has_key(self.wrap(i))
+        # XXX check that no additional keys
+
+
