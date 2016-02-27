@@ -23,6 +23,7 @@ def PyDict_GetItem(space, w_dict, w_key):
     # NOTE: this works so far because all our dict strategies store
     # *values* as full objects, which stay alive as long as the dict is
     # alive and not modified.  So we can return a borrowed ref.
+    # XXX this is wrong with IntMutableCell.  Hope it works...
     return w_res
 
 @cpython_api([PyObject, PyObject, PyObject], rffi.INT_real, error=-1)
@@ -62,6 +63,7 @@ def PyDict_GetItemString(space, w_dict, key):
     # NOTE: this works so far because all our dict strategies store
     # *values* as full objects, which stay alive as long as the dict is
     # alive and not modified.  So we can return a borrowed ref.
+    # XXX this is wrong with IntMutableCell.  Hope it works...
     return w_res
 
 @cpython_api([PyObject, CONST_STRING], rffi.INT_real, error=-1)
