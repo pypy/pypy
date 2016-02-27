@@ -614,13 +614,25 @@ class AppTestSocket:
         import _socket
         self.foo = _socket.socket()
 
-    def test_subclass(self):
+    def test_subclass_init(self):
         # Socket is not created in __new__, but in __init__.
         import socket
         class Socket_IPV6(socket.socket):
             def __init__(self):
                 socket.socket.__init__(self, family=socket.AF_INET6)
         assert Socket_IPV6().family == socket.AF_INET6
+
+    def test_subclass_noinit(self):
+        from _socket import socket
+        class MySock(socket):
+            def __init__(self, *args):
+                pass  # don't call super
+        s = MySock()
+        assert s.type == 0
+        assert s.proto == 0
+        assert s.family == 0
+        assert s.fileno() < 0
+        raises(OSError, s.bind, ('localhost', 0))
 
     def test_dealloc_warn(self):
         import _socket
