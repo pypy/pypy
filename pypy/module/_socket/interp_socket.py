@@ -166,6 +166,7 @@ class W_Socket(W_Root):
 
     def descr_new(space, w_subtype, __args__):
         sock = space.allocate_instance(W_Socket, w_subtype)
+        W_Socket.__init__(sock, space, RSocket.empty_rsocket())
         return space.wrap(sock)
 
     @unwrap_spec(family=int, type=int, proto=int,

@@ -623,7 +623,7 @@ class AppTestSocket:
         assert Socket_IPV6().family == socket.AF_INET6
 
     def test_subclass_noinit(self):
-        from _socket import socket
+        from _socket import socket, error
         class MySock(socket):
             def __init__(self, *args):
                 pass  # don't call super
@@ -632,7 +632,7 @@ class AppTestSocket:
         assert s.proto == 0
         assert s.family == 0
         assert s.fileno() < 0
-        raises(OSError, s.bind, ('localhost', 0))
+        raises(error, s.bind, ('localhost', 0))
 
     def test_dealloc_warn(self):
         import _socket
