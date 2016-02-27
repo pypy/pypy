@@ -1,6 +1,9 @@
 import py
 
 
+py.test.skip("XXX: crashes: https://bitbucket.org/pypy/pypy/issue/1773")
+
+
 class AppTestCopy:
     spaceconfig = dict(usemodules=['_continuation'],
                        continuation=True)
@@ -215,7 +218,6 @@ class AppTestPickle:
         ''', mod.__dict__)
 
     def test_pickle_continulet_real_subclass(self):
-        skip("XXX: triggers a crash: https://bitbucket.org/pypy/pypy/issue/1773")
         import types, sys
         mod = types.ModuleType('test_pickle_continulet_real_subclass')
         sys.modules['test_pickle_continulet_real_subclass'] = mod
