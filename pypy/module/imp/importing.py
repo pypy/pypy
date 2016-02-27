@@ -76,6 +76,12 @@ def find_modtype(space, filepart):
         if file_exists(pyfile):
             return PY_SOURCE, ".pyw", "U"
 
+    # The .py file does not exist, check the .pyc file
+    pycfile = filepart + ".pyc"
+    if file_exists(pycfile):
+        # existing .pyc file
+        return PY_COMPILED, ".pyc", "rb"
+
     if has_so_extension(space):
         so_extension = get_so_extension(space)
         pydfile = filepart + so_extension
