@@ -212,6 +212,21 @@ class TestSetHypothesis:
         # XXX check that no additional keys
 
     @given(intlists, intlists)
+    def test_difference_update(self, c1, c2):
+        s1 = self.intset(c1)
+        s2 = self.intset(c2)
+        s1.difference_update(s2)
+        s1.length()
+        for i in c1:
+            if i not in c2:
+                assert s1.has_key(self.wrap(i))
+            else:
+                assert not s1.has_key(self.wrap(i))
+        for i in c2:
+            assert not s1.has_key(self.wrap(i))
+        # XXX check that no additional keys
+
+    @given(intlists, intlists)
     def XXXtest_update_vs_not(self, c1, c2):
         return #XXX write me!
 
@@ -233,3 +248,11 @@ class TestSetHypothesis:
         # XXX check that no additional keys
 
 
+    @given(intlists, intlists)
+    def test_issubset(self, c1, c2):
+        s1 = self.intset(c1)
+        s2 = self.intset(c1)
+        for i in c2:
+            s2.remove(self.wrap(i))
+        assert s2.issubset(s1)
+        assert not s1.issubset(s2) or s1.equals(s2)

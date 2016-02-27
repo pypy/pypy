@@ -1563,6 +1563,106 @@ class IntegerSetStrategy(SetStrategy):
         w_set.strategy = strategy
         w_set.sstorage = storage
 
+    def difference(self, w_set, w_other):
+        storage = self._difference_base(w_set, w_other)
+        w_newset = w_set.from_storage_and_strategy(storage, w_set.strategy)
+        return w_newset
+
+    def _difference_base(self, w_set, w_other):
+        if self is w_other.strategy:
+            storage = self._difference_unwrapped(w_set, w_other)
+        elif not w_set.strategy.may_contain_equal_elements(w_other.strategy):
+            d = self.unerase(w_set.sstorage)
+            storage = self.erase(d.copy())
+        else:
+            storage = self._difference_wrapped(w_set, w_other)
+        return storage
+
+    def _difference_unwrapped(self, w_set, w_other):
+        self_dict = self.unerase(w_set.sstorage)
+        other_dict = self.unerase(w_other.sstorage)
+        result_dict = self.get_empty_dict()
+        for key, value in self_dict.iteritems():
+            new = value & (~other_dict.get(key, 0))
+            if new:
+                result_dict[key] = new
+        return self.erase(result_dict)
+
+    def _difference_update_unwrapped(self, w_set, w_other):
+        my_dict = self.unerase(w_set.sstorage)
+        if w_set.sstorage is w_other.sstorage:
+            my_dict.clear()
+            return
+        other_dict = self.unerase(w_other.sstorage)
+        for key, value in other_dict.iteritems():
+            try:
+                new = my_dict[key] & (~value)
+            except KeyError:
+                pass
+            else:
+                if new:
+                    my_dict[key] = new
+                else:
+                    del my_dict[key]
+
+    def _difference_update_wrapped(self, w_set, w_other):
+        w_iterator = w_other.iter()
+        while True:
+            w_item = w_iterator.next_entry()
+            if w_item is None:
+                break
+            w_set.remove(w_item)
+
+    def difference_update(self, w_set, w_other):
+        if self.length(w_set) < w_other.strategy.length(w_other):
+            # small_set -= big_set: compute the difference as a new set
+            storage = self._difference_base(w_set, w_other)
+            w_set.sstorage = storage
+        else:
+            # big_set -= small_set: be more subtle
+            if self is w_other.strategy:
+                self._difference_update_unwrapped(w_set, w_other)
+            elif w_set.strategy.may_contain_equal_elements(w_other.strategy):
+                self._difference_update_wrapped(w_set, w_other)
+
+    def equals(self, w_set, w_other):
+        if w_set.length() != w_other.length():
+            return False
+        if w_set.length() == 0:
+            return True
+        # it's possible to have 0-length strategy that's not empty
+        if w_set.strategy is w_other.strategy:
+            return self._issubset_unwrapped(w_set, w_other)
+        if not self.may_contain_equal_elements(w_other.strategy):
+            return False
+        items = self.unerase(w_set.sstorage).keys()
+        for key in items:
+            if not w_other.has_key(self.wrap(key)):
+                return False
+        return True
+
+    def _issubset_unwrapped(self, w_set, w_other):
+        d_set = self.unerase(w_set.sstorage)
+        d_other = self.unerase(w_other.sstorage)
+        for key, keyhash in iterkeys_with_hash(d_set):
+            if not contains_with_hash(d_other, key, keyhash):
+                return False
+        return True
+
+    def _issubset_wrapped(self, w_set, w_other):
+        XXX
+
+    def issubset(self, w_set, w_other):
+        if w_set.length() == 0:
+            return True
+
+        if w_set.strategy is w_other.strategy:
+            return self._issubset_unwrapped(w_set, w_other)
+        elif not w_set.strategy.may_contain_equal_elements(w_other.strategy):
+            return False
+        else:
+            return self._issubset_wrapped(w_set, w_other)
+
 
 class ObjectSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
     erase, unerase = rerased.new_erasing_pair("object")
