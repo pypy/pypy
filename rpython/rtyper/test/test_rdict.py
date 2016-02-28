@@ -1270,3 +1270,72 @@ def test_stress_2(key_can_be_none, value_can_be_none):
             print 'current dict length:', len(reference)
         assert l_dict.num_items == len(reference)
     complete_check()
+
+from hypothesis.strategies import builds, sampled_from, binary, just
+
+class Action(object):
+    pass
+
+class SetItem(Action):
+    def __init__(self, key, value):
+        self.key = key
+        self.value = value
+
+    def __repr__(self):
+        return 'SetItem(%r, %r)' % (self.key, self.value)
+
+class DelItem(Action):
+    def __init__(self, key):
+        self.key = key
+
+    def __repr__(self):
+        return 'DelItem(%r)' % (self.key)
+
+class CompleteCheck(Action):
+    pass
+
+st_keys = binary()
+st_values = binary()
+st_setitem = builds(SetItem, st_keys, st_values)
+
+def st_delitem(keys):
+    return builds(DelItem, sampled_from(keys))
+
+from hypothesis.stateful import GenericStateMachine
+
+_ll = string_repr.convert_const
+
+class StressTest(GenericStateMachine):
+    def __init__(self):
+        class PseudoRTyper:
+            cache_dummy_values = {}
+        dictrepr = rdict.DictRepr(PseudoRTyper(), string_repr, string_repr,
+                        DictKey(None, annmodel.SomeString(False)),
+                        DictValue(None, annmodel.SomeString(False)))
+        dictrepr.setup()
+        self.l_dict = rdict.ll_newdict(dictrepr.DICT)
+        self.reference = {}
+
+    def steps(self):
+        return (st_setitem | st_delitem(self.reference) | just(CompleteCheck())) if self.reference else (st_setitem | just(CompleteCheck()))
+
+    def execute_step(self, action):
+        if isinstance(action, SetItem):
+            ll_key = string_repr.convert_const(action.key)
+            ll_value = string_repr.convert_const(action.value)
+            rdict.ll_dict_setitem(self.l_dict, ll_key, ll_value)
+            self.reference[action.key] = action.value
+            assert rdict.ll_contains(self.l_dict, ll_key)
+        elif isinstance(action, DelItem):
+            ll_key = string_repr.convert_const(action.key)
+            rdict.ll_dict_delitem(self.l_dict, ll_key)
+            del self.reference[action.key]
+            assert not rdict.ll_contains(self.l_dict, ll_key)
+        elif isinstance(action, CompleteCheck):
+            assert self.l_dict.num_items == len(self.reference)
+            for key, value in self.reference.iteritems():
+                assert rdict.ll_dict_getitem(self.l_dict, _ll(key)) == _ll(value)
+
+
+TestHyp = StressTest.TestCase
+
