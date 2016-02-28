@@ -102,7 +102,15 @@ class TestExceptions(BaseApiTest):
         assert api.PyExceptionInstance_Class(instance) is space.w_ValueError
 
     def test_interrupt_occurred(self, space, api):
-        assert False # XXX test PyOS_InterruptOccurred
+        assert not api.PyOS_InterruptOccurred()
+        import signal, os
+        recieved = []
+        def default_int_handler(*args):
+            recieved.append('ok')
+        signal.signal(signal.SIGINT, default_int_handler)
+        os.kill(os.getpid(), signal.SIGINT)
+        assert recieved == ['ok']
+        assert api.PyOS_InterruptOccurred()
 
 class AppTestFetch(AppTestCpythonExtensionBase):
 
