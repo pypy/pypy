@@ -254,6 +254,17 @@ class CPyListStrategy(ListStrategy):
         storage = self.unerase(w_list.lstorage)
         return storage._elems
 
+    def getslice(self, w_list, start, stop, step, length):
+        #storage = self.unerase(w_list.lstorage)
+        raise oefmt(w_list.space.w_NotImplementedError,
+            "settting a slice of a PySequence_Fast is not supported")
+        
+    def setslice(self, w_list, start, stop, step, length):
+        #storage = self.unerase(w_list.lstorage)
+        raise oefmt(w_list.space.w_NotImplementedError,
+            "settting a slice of a PySequence_Fast is not supported")
+        
+
 PyObjectList = lltype.Ptr(lltype.Array(PyObject, hints={'nolength': True}))
 
 class CPyListStorage(object):
