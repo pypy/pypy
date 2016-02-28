@@ -16,13 +16,13 @@ from rpython.rtyper.rmodel import Repr
 from rpython.rtyper.rint import IntegerRepr
 from rpython.rtyper.error import TyperError
 
+from rpython.rlib._os_support import _preferred_traits, string_traits
 from rpython.rlib.objectmodel import specialize
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.rposix import (
-    replace_os_function, handle_posix_error, _as_bytes0,
-    _preferred_traits, string_traits)
+    replace_os_function, handle_posix_error, _as_bytes0)
 
 _WIN32 = sys.platform.startswith('win')
 _LINUX = sys.platform.startswith('linux')

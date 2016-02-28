@@ -1,27 +1,22 @@
 import os
 import sys
 import errno
+from rpython.annotator.model import s_Str0
 from rpython.rtyper.lltypesystem.rffi import CConstant, CExternVariable, INT
 from rpython.rtyper.lltypesystem import lltype, ll2ctypes, rffi
-from rpython.rtyper.module.support import StringTraits, UnicodeTraits
 from rpython.rtyper.tool import rffi_platform
-from rpython.tool.sourcetools import func_renamer
-from rpython.translator.tool.cbuild import ExternalCompilationInfo
-from rpython.rlib.rarithmetic import intmask, widen
+from rpython.rlib import debug, jit, rstring, rthread, types
+from rpython.rlib._os_support import (
+    _CYGWIN, _MACRO_ON_POSIX, UNDERSCORE_ON_WIN32, _WIN32,
+    _prefer_unicode, _preferred_traits)
 from rpython.rlib.objectmodel import (
     specialize, enforceargs, register_replacement_for, NOT_CONSTANT)
+from rpython.rlib.rarithmetic import intmask, widen
 from rpython.rlib.signature import signature
-from rpython.rlib import types
-from rpython.annotator.model import s_Str0
-from rpython.rlib import jit
+from rpython.tool.sourcetools import func_renamer
 from rpython.translator.platform import platform
-from rpython.rlib import rstring
-from rpython.rlib import debug, rthread
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
-_WIN32 = sys.platform.startswith('win')
-_CYGWIN = sys.platform == 'cygwin'
-UNDERSCORE_ON_WIN32 = '_' if _WIN32 else ''
-_MACRO_ON_POSIX = True if not _WIN32 else None
 
 if _WIN32:
     from rpython.rlib import rwin32
@@ -135,7 +130,6 @@ def get_saved_errno():
     with the flag llexternal(..., save_err=rffi.RFFI_SAVE_ERRNO).
     Functions without that flag don't change the saved errno.
     """
-    from rpython.rlib import rthread
     return intmask(rthread.tlfield_rpy_errno.getraw())
 
 def set_saved_errno(errno):
@@ -146,7 +140,6 @@ def set_saved_errno(errno):
     zero; for that case, use llexternal(..., save_err=RFFI_ZERO_ERRNO_BEFORE)
     and then you don't need set_saved_errno(0).
     """
-    from rpython.rlib import rthread
     rthread.tlfield_rpy_errno.setraw(rffi.cast(INT, errno))
 
 def get_saved_alterrno():
@@ -155,7 +148,6 @@ def get_saved_alterrno():
     with the flag llexternal(..., save_err=rffi.RFFI_SAVE_ERRNO | rffl.RFFI_ALT_ERRNO).
     Functions without that flag don't change the saved errno.
     """
-    from rpython.rlib import rthread
     return intmask(rthread.tlfield_alt_errno.getraw())
 
 def set_saved_alterrno(errno):
@@ -166,7 +158,6 @@ def set_saved_alterrno(errno):
     zero; for that case, use llexternal(..., save_err=RFFI_ZERO_ERRNO_BEFORE)
     and then you don't need set_saved_errno(0).
     """
-    from rpython.rlib import rthread
     rthread.tlfield_alt_errno.setraw(rffi.cast(INT, errno))
 
 
@@ -174,7 +165,6 @@ def set_saved_alterrno(errno):
 @specialize.call_location()
 def _errno_before(save_err):
     if save_err & rffi.RFFI_READSAVED_ERRNO:
-        from rpython.rlib import rthread
         if save_err & rffi.RFFI_ALT_ERRNO:
             _set_errno(rthread.tlfield_alt_errno.getraw())
         else:
@@ -182,7 +172,6 @@ def _errno_before(save_err):
     elif save_err & rffi.RFFI_ZERO_ERRNO_BEFORE:
         _set_errno(rffi.cast(rffi.INT, 0))
     if _WIN32 and (save_err & rffi.RFFI_READSAVED_LASTERROR):
-        from rpython.rlib import rthread, rwin32
         if save_err & rffi.RFFI_ALT_ERRNO:
             err = rthread.tlfield_alt_lasterror.getraw()
         else:
@@ -196,7 +185,6 @@ def _errno_before(save_err):
 def _errno_after(save_err):
     if _WIN32:
         if save_err & rffi.RFFI_SAVE_LASTERROR:
-            from rpython.rlib import rthread, rwin32
             err = rwin32._GetLastError()
             # careful, setraw() overwrites GetLastError.
             # We must read it first, before the errno handling.
@@ -205,14 +193,13 @@ def _errno_after(save_err):
             else:
                 rthread.tlfield_rpy_lasterror.setraw(err)
         elif save_err & rffi.RFFI_SAVE_WSALASTERROR:
-            from rpython.rlib import rthread, _rsocket_rffi
+            from rpython.rlib import _rsocket_rffi
             err = _rsocket_rffi._WSAGetLastError()
             if save_err & rffi.RFFI_ALT_ERRNO:
                 rthread.tlfield_alt_lasterror.setraw(err)
             else:
                 rthread.tlfield_rpy_lasterror.setraw(err)
     if save_err & rffi.RFFI_SAVE_ERRNO:
-        from rpython.rlib import rthread
         if save_err & rffi.RFFI_ALT_ERRNO:
             rthread.tlfield_alt_errno.setraw(_get_errno())
         else:
@@ -357,37 +344,6 @@ def _as_unicode0(path):
     res = _as_unicode(path)
     rstring.check_str0(res)
     return res
-
-# Returns True when the unicode function should be called:
-# - on Windows
-# - if the path is Unicode.
-unicode_traits = UnicodeTraits()
-string_traits = StringTraits()
-if _WIN32:
-    @specialize.argtype(0)
-    def _prefer_unicode(path):
-        assert path is not None
-        if isinstance(path, str):
-            return False
-        elif isinstance(path, unicode):
-            return True
-        else:
-            return path.is_unicode
-
-    @specialize.argtype(0)
-    def _preferred_traits(path):
-        if _prefer_unicode(path):
-            return unicode_traits
-        else:
-            return string_traits
-else:
-    @specialize.argtype(0)
-    def _prefer_unicode(path):
-        return False
-
-    @specialize.argtype(0)
-    def _preferred_traits(path):
-        return string_traits
 
 @specialize.argtype(0, 1)
 def putenv(name, value):

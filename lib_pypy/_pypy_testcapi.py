@@ -8,6 +8,7 @@ def get_hashed_dir(cfile):
         content = fid.read()
     # from cffi's Verifier()
     key = '\x00'.join([sys.version[:3], content])
+    key += 'cpyext-gc-support-2'   # this branch requires recompilation!
     if sys.version_info >= (3,):
         key = key.encode('utf-8')
     k1 = hex(binascii.crc32(key[0::2]) & 0xffffffff)
@@ -62,7 +63,7 @@ def compile_shared(csource, modulename, output_dir=None):
     if sys.platform == 'win32':
         # XXX pyconfig.h uses a pragma to link to the import library,
         #     which is currently python3.lib
-        library = os.path.join(thisdir, '..', 'include', 'python32')
+        library = os.path.join(thisdir, '..', 'libs', 'python32')
         if not os.path.exists(library + '.lib'):
             # For a local translation or nightly build
             library = os.path.join(thisdir, '..', 'pypy', 'goal', 'python32')

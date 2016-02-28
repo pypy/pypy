@@ -65,7 +65,7 @@ def setup_directory_structure(cls):
                     test_reload = "def test():\n    raise ValueError\n",
                     infinite_reload = "import infinite_reload, imp; imp.reload(infinite_reload)",
                     del_sys_module = "import sys\ndel sys.modules['del_sys_module']\n",
-                    itertools = "hello_world = 42\n",
+                    _md5 = "hello_world = 42\n",
                     gc = "should_never_be_seen = 42\n",
                     )
     root.ensure("packagenamespace", dir=1)    # empty, no __init__.py
@@ -123,6 +123,10 @@ def setup_directory_structure(cls):
         'a=5\nb=6\rc="""hello\r\nworld"""\r', mode='wb')
     p.join('mod.py').write(
         'a=15\nb=16\rc="""foo\r\nbar"""\r', mode='wb')
+    setuppkg("test_bytecode",
+             a = '',
+             b = '',
+             c = '')
     p = setuppkg("encoded",
              # actually a line 2, setuppkg() sets up a line1
              line2 = "# encoding: iso-8859-1\n",
@@ -183,6 +187,9 @@ def _setup_path(space, path):
     """)
 
 def _teardown(space, w_saved_modules):
+    p = udir.join('impsubdir')
+    if p.check():
+        p.remove()
     space.appexec([w_saved_modules], """
         (path_and_modules):
             saved_path, saved_modules = path_and_modules
@@ -195,7 +202,7 @@ def _teardown(space, w_saved_modules):
 
 class AppTestImport(BaseImportTest):
     spaceconfig = {
-        "usemodules": ['time', 'struct'],
+        "usemodules": ['_md5', 'time', 'struct'],
     }
 
     def setup_class(cls):
@@ -458,14 +465,14 @@ class AppTestImport(BaseImportTest):
                     print('__name__ =', __name__)
                     from .struct import inpackage
         """, ns)
-        raises(ValueError, ns['imp'])
+        raises(SystemError, ns['imp'])
 
     def test_future_relative_import_error_when_in_non_package2(self):
         ns = {'__name__': __name__}
         exec("""def imp():
                     from .. import inpackage
         """, ns)
-        raises(ValueError, ns['imp'])
+        raises(SystemError, ns['imp'])
 
     def test_relative_import_with___name__(self):
         import sys
@@ -487,6 +494,7 @@ class AppTestImport(BaseImportTest):
         import imp
         pkg = imp.new_module('newpkg')
         sys.modules['newpkg'] = pkg
+        sys.modules['newpkg.foo'] = imp.new_module('newpkg.foo')
         mydict = {'__name__': 'newpkg.foo', '__path__': '/some/path'}
         res = __import__('', mydict, None, ['bar'], 2)
         assert res is pkg
@@ -688,13 +696,17 @@ class AppTestImport(BaseImportTest):
 
     def test_shadow_extension_1(self):
         if self.runappdirect: skip("hard to test: module is already imported")
+        # 'import _md5' is supposed to find _md5.py if there is
+        # one in sys.path.
         import sys
-        sys.modules.pop('itertools', None)
-        import itertools
-        assert hasattr(itertools, 'hello_world')
-        assert not hasattr(itertools, 'count')
-        assert '(built-in)' not in repr(itertools)
-        del sys.modules['itertools']
+        assert '_md5' not in sys.modules
+        try:
+            import _md5
+            assert hasattr(_md5, 'hello_world')
+            assert not hasattr(_md5, 'md5')
+            assert '(built-in)' not in repr(_md5)
+        finally:
+            sys.modules.pop('_md5', None)
 
     def test_shadow_extension_2(self):
         if self.runappdirect: skip("hard to test: module is already imported")
@@ -704,16 +716,16 @@ class AppTestImport(BaseImportTest):
         # there is one in lib_pypy/_md5.py, which should not be seen
         # either; hence the (built-in) test below.)
         import sys
-        sys.modules.pop('itertools', None)
+        assert '_md5' not in sys.modules
         sys.path.append(sys.path.pop(0))
         try:
-            import itertools
-            assert not hasattr(itertools, 'hello_world')
-            assert hasattr(itertools, 'islice')
-            assert '(built-in)' in repr(itertools)
+            import _md5
+            assert not hasattr(_md5, 'hello_world')
+            assert hasattr(_md5, 'md5')
+            assert '(built-in)' in repr(_md5)
         finally:
             sys.path.insert(0, sys.path.pop())
-        del sys.modules['itertools']
+            sys.modules.pop('_md5', None)
 
     def test_invalid_pathname(self):
         skip("This test fails on CPython 3.3, but passes on CPython 3.4+")
@@ -991,12 +1003,12 @@ def test_PYTHONPATH_takes_precedence(space):
         py.test.skip("unresolved issues with win32 shell quoting rules")
     from pypy.interpreter.test.test_zpy import pypypath 
     extrapath = udir.ensure("pythonpath", dir=1) 
-    extrapath.join("urllib.py").write("print(42)\n")
+    extrapath.join("sched.py").write("print(42)\n")
     old = os.environ.get('PYTHONPATH', None)
     oldlang = os.environ.pop('LANG', None)
     try:
         os.environ['PYTHONPATH'] = str(extrapath)
-        output = py.process.cmdexec('''"%s" "%s" -c "import urllib"''' %
+        output = py.process.cmdexec('''"%s" "%s" -c "import sched"''' %
                                  (sys.executable, pypypath))
         assert output.strip() == '42'
     finally:
@@ -1040,7 +1052,7 @@ class AppTestImportHooks(object):
         import sys, math
         del sys.modules["math"]
 
-        sys.meta_path.append(Importer())
+        sys.meta_path.insert(0, Importer())
         try:
             import math
             assert len(tried_imports) == 1
@@ -1050,7 +1062,7 @@ class AppTestImportHooks(object):
             else:
                 assert tried_imports[0][0] == "math"
         finally:
-            sys.meta_path.pop()
+            sys.meta_path.pop(0)
 
     def test_meta_path_block(self):
         class ImportBlocker(object):
@@ -1069,7 +1081,7 @@ class AppTestImportHooks(object):
         if modname in sys.modules:
             mod = sys.modules
             del sys.modules[modname]
-        sys.meta_path.append(ImportBlocker(modname))
+        sys.meta_path.insert(0, ImportBlocker(modname))
         try:
             raises(ImportError, __import__, modname)
             # the imp module doesn't use meta_path, and is not blocked
@@ -1077,7 +1089,7 @@ class AppTestImportHooks(object):
             file, filename, stuff = imp.find_module(modname)
             imp.load_module(modname, file, filename, stuff)
         finally:
-            sys.meta_path.pop()
+            sys.meta_path.pop(0)
             if mod:
                 sys.modules[modname] = mod
 
@@ -1105,8 +1117,7 @@ class AppTestImportHooks(object):
                 import b
             except ImportError:
                 pass
-            assert isinstance(sys.path_importer_cache['yyy'],
-                              imp.NullImporter)
+            assert sys.path_importer_cache['yyy'] is None
         finally:
             sys.path.pop(0)
             sys.path.pop(0)
@@ -1232,31 +1243,50 @@ class AppTestImportHooks(object):
             sys.meta_path.pop()
 
 
-class AppTestNoPycFile(object):
+class AppTestWriteBytecode(object):
     spaceconfig = {
-        "objspace.usepycfiles": False,
+        "translation.sandbox": False
     }
+
     def setup_class(cls):
-        usepycfiles = cls.spaceconfig['objspace.usepycfiles']
-        cls.w_usepycfiles = cls.space.wrap(usepycfiles)
         cls.saved_modules = _setup(cls)
+        sandbox = cls.spaceconfig['translation.sandbox']
+        cls.w_sandbox = cls.space.wrap(sandbox)
 
     def teardown_class(cls):
         _teardown(cls.space, cls.saved_modules)
+        cls.space.appexec([], """
+            ():
+                import sys
+                sys.dont_write_bytecode = False
+        """)
 
-    def test_import_possibly_from_pyc(self):
-        from compiled import x
-        assert x.__file__.endswith('.py')
-        try:
-            from compiled import lone
-        except ImportError:
-            assert not self.usepycfiles
-        else:
-            assert lone.__cached__.endswith('.pyc')
+    def test_default(self):
+        import os.path
+        from test_bytecode import a
+        assert a.__file__.endswith('a.py')
+        assert os.path.exists(a.__cached__) == (not self.sandbox)
 
-class AppTestNoLonePycFile(AppTestNoPycFile):
+    def test_write_bytecode(self):
+        import os.path
+        import sys
+        sys.dont_write_bytecode = False
+        from test_bytecode import b
+        assert b.__file__.endswith('b.py')
+        assert os.path.exists(b.__cached__)
+
+    def test_dont_write_bytecode(self):
+        import os.path
+        import sys
+        sys.dont_write_bytecode = True
+        from test_bytecode import c
+        assert c.__file__.endswith('c.py')
+        assert not os.path.exists(c.__cached__)
+
+
+class AppTestWriteBytecodeSandbox(AppTestWriteBytecode):
     spaceconfig = {
-        "objspace.usepycfiles": True,
+        "translation.sandbox": True
     }
 
 

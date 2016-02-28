@@ -31,17 +31,16 @@ Py_GT = 4
 Py_GE = 5
 
 
-def check_num_args(space, ob, n):
-    from pypy.module.cpyext.tupleobject import PyTuple_CheckExact, \
-            PyTuple_GET_SIZE
-    if not PyTuple_CheckExact(space, ob):
+def check_num_args(space, w_ob, n):
+    from pypy.module.cpyext.tupleobject import PyTuple_CheckExact
+    if not PyTuple_CheckExact(space, w_ob):
         raise OperationError(space.w_SystemError,
             space.wrap("PyArg_UnpackTuple() argument list is not a tuple"))
-    if n == PyTuple_GET_SIZE(space, ob):
+    if n == space.len_w(w_ob):
         return
     raise oefmt(space.w_TypeError,
                 "expected %d arguments, got %d",
-                n, PyTuple_GET_SIZE(space, ob))
+                n, space.len_w(w_ob))
 
 def wrap_init(space, w_self, w_args, func, w_kwargs):
     func_init = rffi.cast(initproc, func)
@@ -309,7 +308,7 @@ def wrap_cmpfunc(space, w_self, w_args, func):
 
     return space.wrap(generic_cpy_call(space, func_target, w_self, w_other))
 
-@cpython_api([PyTypeObjectPtr, PyObject, PyObject], PyObject, external=False)
+@cpython_api([PyTypeObjectPtr, PyObject, PyObject], PyObject, header=None)
 def slot_tp_new(space, type, w_args, w_kwds):
     from pypy.module.cpyext.tupleobject import PyTuple_Check
     pyo = rffi.cast(PyObject, type)
@@ -320,30 +319,30 @@ def slot_tp_new(space, type, w_args, w_kwds):
     w_args_new = space.newtuple(args_w)
     return space.call(w_func, w_args_new, w_kwds)
 
-@cpython_api([PyObject, PyObject, PyObject], rffi.INT_real, error=-1, external=False)
+@cpython_api([PyObject, PyObject, PyObject], rffi.INT_real, error=-1, header=None)
 def slot_tp_init(space, w_self, w_args, w_kwds):
     w_descr = space.lookup(w_self, '__init__')
     args = Arguments.frompacked(space, w_args, w_kwds)
     space.get_and_call_args(w_descr, w_self, args)
     return 0
 
-@cpython_api([PyObject, PyObject, PyObject], PyObject, external=False)
+@cpython_api([PyObject, PyObject, PyObject], PyObject, header=None)
 def slot_tp_call(space, w_self, w_args, w_kwds):
     return space.call(w_self, w_args, w_kwds)
 
-@cpython_api([PyObject], PyObject, external=False)
+@cpython_api([PyObject], PyObject, header=None)
 def slot_tp_str(space, w_self):
     return space.str(w_self)
 
-@cpython_api([PyObject], PyObject, external=False)
+@cpython_api([PyObject], PyObject, header=None)
 def slot_nb_int(space, w_self):
     return space.int(w_self)
 
-@cpython_api([PyObject], PyObject, external=False)
+@cpython_api([PyObject], PyObject, header=None)
 def slot_tp_iter(space, w_self):
     return space.iter(w_self)
 
-@cpython_api([PyObject], PyObject, external=False)
+@cpython_api([PyObject], PyObject, header=None)
 def slot_tp_iternext(space, w_self):
     return space.next(w_self)
 
@@ -371,7 +370,7 @@ def build_slot_tp_function(space, typedef, name):
             return
 
         @cpython_api([PyObject, PyObject, PyObject], rffi.INT_real,
-                     error=-1, external=True) # XXX should not be exported
+                     error=-1) # XXX should be header=None
         @func_renamer("cpyext_tp_setattro_%s" % (typedef.name,))
         def slot_tp_setattro(space, w_self, w_name, w_value):
             if w_value is not None:
@@ -385,8 +384,7 @@ def build_slot_tp_function(space, typedef, name):
         if getattr_fn is None:
             return
 
-        @cpython_api([PyObject, PyObject], PyObject,
-                     external=True)
+        @cpython_api([PyObject, PyObject], PyObject)
         @func_renamer("cpyext_tp_getattro_%s" % (typedef.name,))
         def slot_tp_getattro(space, w_self, w_name):
             return space.call_function(getattr_fn, w_self, w_name)

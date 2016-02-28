@@ -1134,6 +1134,9 @@ class FakeSpace:
     def wrapbytes(self, obj):
         return obj
 
+    def new_interned_str(self, s):
+        return s.decode('utf-8')
+
     def isinstance_w(self, obj, klass):
         return isinstance(obj, klass)
     isinstance = isinstance_w

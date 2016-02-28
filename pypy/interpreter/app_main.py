@@ -668,12 +668,15 @@ def run_command_line(interactive,
             # assume it's a pyc file only if its name says so.
             # CPython goes to great lengths to detect other cases
             # of pyc file format, but I think it's ok not to care.
-            import _frozen_importlib
+            try:
+                from _frozen_importlib import SourcelessFileLoader
+            except ImportError:
+                from _frozen_importlib_external import SourcelessFileLoader
             if IS_WINDOWS:
                 filename = filename.lower()
             if filename.endswith('.pyc') or filename.endswith('.pyo'):
-                loader = _frozen_importlib.SourcelessFileLoader('__main__', filename)
-                args = (loader.load_module,)
+                loader = SourcelessFileLoader('__main__', filename)
+                args = (loader.load_module, loader.name)
             else:
                 filename = sys.argv[0]
                 for hook in sys.path_hooks:

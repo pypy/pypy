@@ -14,11 +14,15 @@ elif sys.platform == "darwin":
 elif sys.platform == "linux2":
     base_encoding = "ascii"
 else:
-    base_encoding = None
+    # In CPython, the default base encoding is NULL. This is paired with a
+    # comment that says "If non-NULL, this is different than the default
+    # encoding for strings". Therefore, the default filesystem encoding is the
+    # default encoding for strings, which is ASCII.
+    base_encoding = "ascii"
 
 def _getfilesystemencoding(space):
     encoding = base_encoding
-    if rlocale.HAVE_LANGINFO and rlocale.CODESET:
+    if rlocale.HAVE_LANGINFO:
         try:
             oldlocale = rlocale.setlocale(rlocale.LC_CTYPE, None)
             rlocale.setlocale(rlocale.LC_CTYPE, "")

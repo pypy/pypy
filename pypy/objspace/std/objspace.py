@@ -375,7 +375,8 @@ class StdObjSpace(ObjSpace):
                 subcls = get_subclass_of_correct_size(self, cls, w_subtype)
             else:
                 subcls = get_unique_interplevel_subclass(
-                        self.config, cls, w_subtype.hasdict, w_subtype.nslots != 0,
+                        self.config, cls, w_subtype.hasdict,
+                        w_subtype.layout.nslots != 0,
                         w_subtype.needsdel, w_subtype.weakrefable)
             instance = instantiate(subcls)
             assert isinstance(instance, cls)

@@ -58,6 +58,9 @@ class AppFrame(py.code.Frame):
         self.w_locals = space.getattr(pyframe, space.wrap('f_locals'))
         self.f_locals = self.w_locals   # for py.test's recursion detection
 
+    def get_w_globals(self):
+        return self.w_globals
+
     def eval(self, code, **vars):
         space = self.space
         for key, w_value in vars.items():

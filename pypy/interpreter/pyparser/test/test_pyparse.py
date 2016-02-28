@@ -139,6 +139,13 @@ if 1:
     def test_print_function(self):
         self.parse("from __future__ import print_function\nx = print\n")
 
+    def test_universal_newlines(self):
+        fmt = 'stuff = """hello%sworld"""'
+        expected_tree = self.parse(fmt % '\n')
+        for linefeed in ["\r\n","\r"]:
+            tree = self.parse(fmt % linefeed)
+            assert expected_tree == tree
+
     def test_py3k_reject_old_binary_literal(self):
         py.test.raises(SyntaxError, self.parse, '0777')
 

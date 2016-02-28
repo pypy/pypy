@@ -8,7 +8,6 @@ class AppTestImpModule:
     }
 
     def setup_class(cls):
-        cls.w_imp = cls.space.getbuiltinmodule('_imp')
         cls.w_file_module = cls.space.wrap(__file__)
         latin1 = udir.join('latin1.py')
         latin1.write("# -*- coding: iso-8859-1 -*\n")
@@ -75,7 +74,8 @@ class AppTestImpModule:
                 assert type == 'rb'
 
     def test_ext_suffixes(self):
-        for suffix in self.imp.extension_suffixes():
+        import _imp
+        for suffix in _imp.extension_suffixes():
             assert suffix.endswith(('.pyd', '.so'))
 
     def test_obscure_functions(self):

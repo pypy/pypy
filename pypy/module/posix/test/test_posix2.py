@@ -996,7 +996,8 @@ class AppTestPosix:
             # Check invalid inputs
             mkfile(dest)
             raises(OSError, posix.truncate, dest, -1)
-            raises(OSError, posix.truncate, 1, 1)
+            with open(dest, 'rb') as f:  # f is read-only so cannot be truncated
+                raises(OSError, posix.truncate, f.fileno(), 1)
             raises(TypeError, posix.truncate, dest, None)
             raises(TypeError, posix.truncate, None, None)
 

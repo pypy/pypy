@@ -30,6 +30,7 @@ class AppTestVersion(AppTestCpythonExtensionBase):
             PyModule_AddIntConstant(m, "py_minor_version", PY_MINOR_VERSION);
             PyModule_AddIntConstant(m, "py_micro_version", PY_MICRO_VERSION);
             PyModule_AddStringConstant(m, "pypy_version", PYPY_VERSION);
+            PyModule_AddIntConstant(m, "pypy_version_num", PYPY_VERSION_NUM);
             return m;
         }
         """
@@ -43,3 +44,6 @@ class AppTestVersion(AppTestCpythonExtensionBase):
         if v.releaselevel != 'final':
             s += '-%s%d' % (v[3], v[4])
         assert module.pypy_version == s
+        assert module.pypy_version_num == ((v[0] << 24) |
+                                           (v[1] << 16) |
+                                           (v[2] << 8))

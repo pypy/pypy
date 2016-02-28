@@ -1,7 +1,7 @@
 
 from rpython.rtyper.rbytearray import AbstractByteArrayRepr
 from rpython.rtyper.lltypesystem import lltype, rstr
-from rpython.rlib.debug import ll_assert
+from rpython.rtyper.debug import ll_assert
 
 BYTEARRAY = lltype.GcForwardReference()
 

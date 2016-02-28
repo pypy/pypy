@@ -15,6 +15,10 @@ class AppTestMagic:
         __pypy__.save_module_content_for_future_reload(sys)
 
     def test_new_code_hook(self):
+        # workaround for running on top of old CPython 2.7 versions
+        def exec_(code, d):
+            exec(code, d)
+
         l = []
 
         def callable(code):
@@ -24,7 +28,7 @@ class AppTestMagic:
         __pypy__.set_code_callback(callable)
         d = {}
         try:
-            exec("""
+            exec_("""
 def f():
     pass
 """, d)

@@ -80,11 +80,17 @@ typedef long Py_ssize_t;
 
 #include <pypy_macros.h>
 
+#define PyExc_EnvironmentError PyExc_OSError
+#define PyExc_IOError PyExc_OSError
+// TODO: fix windows support
+// #define PyExc_WindowsError PyExc_OSError
+
 #include "patchlevel.h"
 #include "pyconfig.h"
 
 #include "object.h"
 #include "abstract.h"
+#include "pymath.h"
 #include "pyport.h"
 #include "pymacro.h"
 #include "warnings.h"
@@ -118,7 +124,6 @@ typedef long Py_ssize_t;
 #include "compile.h"
 #include "frameobject.h"
 #include "eval.h"
-#include "pymath.h"
 #include "pymem.h"
 #include "pycobject.h"
 #include "pycapsule.h"
@@ -133,9 +138,6 @@ typedef long Py_ssize_t;
 
 /* Missing definitions */
 #include "missing.h"
-
-// XXX This shouldn't be included here
-#include "structmember.h"
 
 #include <pypy_decl.h>
 
