@@ -453,7 +453,8 @@ class StructType(Type):
         self.needs_gc_header = needs_gc_header
         fields = list(fields)
         if needs_gc_header:
-            fields = database.genllvm.gcpolicy.get_gc_fields() + fields
+            header_type = database.genllvm.gcpolicy.gctransformer.HDR
+            fields.insert(0, (database.get_type(header_type), '_gc_header'))
         elif all(t is LLVMVoid for t, f in fields):
             fields.append((LLVMSigned, '_fill'))
         self.fields = fields
@@ -799,8 +800,8 @@ class Database(object):
             self.types[type] = ret = class_()
             ret.setup_from_lltype(self, type)
             if ret.needs_gc_header:
-                _llvm_needs_header[type] = database.genllvm.gcpolicy \
-                        .get_gc_fields_lltype() # hint for ll2ctypes
+                gctransformer = database.genllvm.gcpolicy.gctransformer
+                _llvm_needs_header[type] = [(gctransformer.HDR, '_gc_header')]
             ret.lltype = type
             return ret
 
@@ -1644,12 +1645,6 @@ class GCPolicy(object):
 
     def get_setup_ptr(self):
         return None
-
-    def get_gc_fields_lltype(self):
-        return [(self.gctransformer.HDR, '_gc_header')]
-
-    def get_gc_fields(self):
-        return [(database.get_type(self.gctransformer.HDR), '_gc_header')]
 
     def finish(self):
         genllvm = self.genllvm
