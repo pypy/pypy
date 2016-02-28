@@ -156,9 +156,9 @@ class BoehmGCTransformer(GCTransformer):
                           resulttype = lltype.Signed)
         hop.genop('int_invert', [v_int], resultvar=hop.spaceop.result)
 
-    def gcheader_initdata(self, defnode):
+    def gcheader_initdata(self, obj):
         hdr = lltype.malloc(self.HDR, immortal=True)
-        hdr.hash = lltype.identityhash_nocache(defnode.obj._as_ptr())
+        hdr.hash = lltype.identityhash_nocache(obj._as_ptr())
         return hdr._obj
 
 
