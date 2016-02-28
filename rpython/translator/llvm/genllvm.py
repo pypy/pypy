@@ -511,7 +511,8 @@ class StructType(Type):
         if self.is_zero(value):
             return 'zeroinitializer'
         if self.needs_gc_header:
-            data = database.genllvm.gcpolicy.get_gc_field_values(value)
+            gctransformer = database.genllvm.gcpolicy.gctransformer
+            data = [gctransformer.gcheader_initdata(value)]
             data.extend(getattr(value, fn) for _, fn in self.fields[1:])
         else:
             data = [getattr(value, fn) for _, fn in self.fields]
@@ -1684,12 +1685,6 @@ class FrameworkGCPolicy(GCPolicy):
     def get_setup_ptr(self):
         return self.gctransformer.frameworkgc_setup_ptr.value
 
-    def get_gc_field_values(self, obj):
-        obj = lltype.top_container(obj)
-        needs_hash = self.gctransformer.get_prebuilt_hash(obj) is not None
-        hdr = self.gctransformer.gc_header_for(obj, needs_hash)
-        return [hdr._obj]
-
 
 class RefcountGCPolicy(GCPolicy):
     class RttiType(FuncType):
@@ -1706,10 +1701,6 @@ class RefcountGCPolicy(GCPolicy):
     def __init__(self, genllvm):
         GCPolicy.__init__(self, genllvm)
         self.gctransformer = RefcountingGCTransformer(genllvm.translator)
-
-    def get_gc_field_values(self, obj):
-        obj = lltype.top_container(obj)
-        return [self.gctransformer.gcheaderbuilder.header_of_object(obj)._obj]
 
 
 def extfunc(name, args, result, compilation_info):
