@@ -1284,6 +1284,13 @@ class SetItem(Action):
     def __repr__(self):
         return 'SetItem(%r, %r)' % (self.key, self.value)
 
+    def execute(self, state):
+        ll_key = string_repr.convert_const(self.key)
+        ll_value = string_repr.convert_const(self.value)
+        rdict.ll_dict_setitem(state.l_dict, ll_key, ll_value)
+        state.reference[self.key] = self.value
+        assert rdict.ll_contains(state.l_dict, ll_key)
+
 class DelItem(Action):
     def __init__(self, key):
         self.key = key
@@ -1291,8 +1298,17 @@ class DelItem(Action):
     def __repr__(self):
         return 'DelItem(%r)' % (self.key)
 
+    def execute(self, state):
+        ll_key = string_repr.convert_const(self.key)
+        rdict.ll_dict_delitem(state.l_dict, ll_key)
+        del state.reference[self.key]
+        assert not rdict.ll_contains(state.l_dict, ll_key)
+
 class CompleteCheck(Action):
-    pass
+    def execute(self, state):
+        assert state.l_dict.num_items == len(state.reference)
+        for key, value in state.reference.iteritems():
+            assert rdict.ll_dict_getitem(state.l_dict, _ll(key)) == _ll(value)
 
 st_keys = binary()
 st_values = binary()
@@ -1320,22 +1336,6 @@ class StressTest(GenericStateMachine):
         return (st_setitem | st_delitem(self.reference) | just(CompleteCheck())) if self.reference else (st_setitem | just(CompleteCheck()))
 
     def execute_step(self, action):
-        if isinstance(action, SetItem):
-            ll_key = string_repr.convert_const(action.key)
-            ll_value = string_repr.convert_const(action.value)
-            rdict.ll_dict_setitem(self.l_dict, ll_key, ll_value)
-            self.reference[action.key] = action.value
-            assert rdict.ll_contains(self.l_dict, ll_key)
-        elif isinstance(action, DelItem):
-            ll_key = string_repr.convert_const(action.key)
-            rdict.ll_dict_delitem(self.l_dict, ll_key)
-            del self.reference[action.key]
-            assert not rdict.ll_contains(self.l_dict, ll_key)
-        elif isinstance(action, CompleteCheck):
-            assert self.l_dict.num_items == len(self.reference)
-            for key, value in self.reference.iteritems():
-                assert rdict.ll_dict_getitem(self.l_dict, _ll(key)) == _ll(value)
-
+        action.execute(self)
 
 TestHyp = StressTest.TestCase
-
