@@ -1,8 +1,9 @@
+import sys
 from contextlib import contextmanager
 import signal
 
 from rpython.translator.translator import TranslationContext
-from rpython.annotator import model as annmodel
+from rpython.annotator.model import SomeInteger, SomeString
 from rpython.annotator.dictdef import DictKey, DictValue
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem.rstr import string_repr
@@ -13,7 +14,20 @@ from rpython.rlib.objectmodel import r_dict
 from rpython.rlib.rarithmetic import r_int, r_uint, r_longlong, r_ulonglong
 
 import py
-py.log.setconsumer("rtyper", py.log.STDOUT)
+from hypothesis.strategies import builds, sampled_from, binary, just, integers
+from hypothesis.stateful import GenericStateMachine, run_state_machine_as_test
+
+def ann2strategy(s_value):
+    if isinstance(s_value, SomeString):
+        if s_value.can_be_None:
+            return binary() | just(None)
+        else:
+            return binary()
+    elif isinstance(s_value, SomeInteger):
+        return integers(min_value=~sys.maxint, max_value=sys.maxint)
+    else:
+        raise TypeError("Cannot convert annotation %s to a strategy" % s_value)
+
 
 if hasattr(signal, 'alarm'):
     @contextmanager
@@ -33,7 +47,6 @@ else:
     @contextmanager
     def signal_timeout(n):
         yield
-
 
 
 def not_really_random():
@@ -1031,28 +1044,6 @@ class TestRDict(BaseTestRDict):
         assert r_AB_dic.lowleveltype == r_BA_dic.lowleveltype
 
 
-    def test_dict_resize(self):
-        py.test.skip("test written for non-ordered dicts, update or kill")
-        # XXX we no longer automatically resize on 'del'.  We need to
-        # hack a bit in this test to trigger a resize by continuing to
-        # fill the dict's table while keeping the actual size very low
-        # in order to force a resize to shrink the table back
-        def func(want_empty):
-            d = self.newdict()
-            for i in range(rdict.DICT_INITSIZE << 1):
-                d[chr(ord('a') + i)] = i
-            if want_empty:
-                for i in range(rdict.DICT_INITSIZE << 1):
-                    del d[chr(ord('a') + i)]
-                for i in range(rdict.DICT_INITSIZE << 3):
-                    d[chr(ord('A') - i)] = i
-                    del d[chr(ord('A') - i)]
-            return d
-        res = self.interpret(func, [0])
-        assert len(res.entries) > rdict.DICT_INITSIZE
-        res = self.interpret(func, [1])
-        assert len(res.entries) == rdict.DICT_INITSIZE
-
     def test_opt_dummykeymarker(self):
         def f():
             d = {"hello": None}
@@ -1144,238 +1135,101 @@ class TestRDict(BaseTestRDict):
         DICT = lltype.typeOf(llres.item1)
         assert sorted(DICT.TO.entries.TO.OF._flds) == ['f_hash', 'key', 'value']
 
-    def test_deleted_entry_reusage_with_colliding_hashes(self):
-        py.test.skip("test written for non-ordered dicts, update or kill")
-        def lowlevelhash(value):
-            p = rstr.mallocstr(len(value))
-            for i in range(len(value)):
-                p.chars[i] = value[i]
-            return rstr.LLHelpers.ll_strhash(p)
 
-        def func(c1, c2):
-            c1 = chr(c1)
-            c2 = chr(c2)
-            d = self.newdict()
-            d[c1] = 1
-            d[c2] = 2
-            del d[c1]
-            return d[c2]
-
-        char_by_hash = {}
-        base = rdict.DICT_INITSIZE
-        for y in range(0, 256):
-            y = chr(y)
-            y_hash = lowlevelhash(y) % base
-            char_by_hash.setdefault(y_hash, []).append(y)
-
-        x, y = char_by_hash[0][:2]   # find a collision
-
-        res = self.interpret(func, [ord(x), ord(y)])
-        assert res == 2
-
-        def func2(c1, c2):
-            c1 = chr(c1)
-            c2 = chr(c2)
-            d = self.newdict()
-            d[c1] = 1
-            d[c2] = 2
-            del d[c1]
-            d[c1] = 3
-            return d
-
-        res = self.interpret(func2, [ord(x), ord(y)])
-        for i in range(len(res.entries)):
-            assert not (res.entries.everused(i) and not res.entries.valid(i))
-
-        def func3(c0, c1, c2, c3, c4, c5, c6, c7):
-            d = self.newdict()
-            c0 = chr(c0) ; d[c0] = 1; del d[c0]
-            c1 = chr(c1) ; d[c1] = 1; del d[c1]
-            c2 = chr(c2) ; d[c2] = 1; del d[c2]
-            c3 = chr(c3) ; d[c3] = 1; del d[c3]
-            c4 = chr(c4) ; d[c4] = 1; del d[c4]
-            c5 = chr(c5) ; d[c5] = 1; del d[c5]
-            c6 = chr(c6) ; d[c6] = 1; del d[c6]
-            c7 = chr(c7) ; d[c7] = 1; del d[c7]
-            return d
-
-        if rdict.DICT_INITSIZE != 8:
-            py.test.skip("make dict tests more indepdent from initsize")
-        res = self.interpret(func3, [ord(char_by_hash[i][0])
-                                   for i in range(rdict.DICT_INITSIZE)])
-        count_frees = 0
-        for i in range(len(res.entries)):
-            if not res.entries.everused(i):
-                count_frees += 1
-        assert count_frees >= 3
-
-N_KEYS = 400
-
-def test_stress():
-    dictrepr = rdict.DictRepr(None, rint.signed_repr, rint.signed_repr,
-                                DictKey(None, annmodel.SomeInteger()),
-                                DictValue(None, annmodel.SomeInteger()))
-    dictrepr.setup()
-    l_dict = rdict.ll_newdict(dictrepr.DICT)
-    reference = {}
-    value = 0
-
-    def check_value(n):
-        try:
-            gotvalue = rdict.ll_dict_getitem(l_dict, n)
-        except KeyError:
-            n not in reference
-        else:
-            assert gotvalue == reference[n]
-
-    def complete_check():
-        for n in range(N_KEYS):
-            check_value(n)
-
-    for x in not_really_random():
-        n = int(x*100.0)    # 0 <= x < 400
-        op = repr(x)[-1]
-        if op <= '2' and n in reference:
-            rdict.ll_dict_delitem(l_dict, n)
-            del reference[n]
-        elif op <= '6':
-            rdict.ll_dict_setitem(l_dict, n, value)
-            reference[n] = value
-            value += 1
-        else:
-            check_value(n)
-        if 1.38 <= x <= 1.39:
-            complete_check()
-            print 'current dict length:', len(reference)
-        assert l_dict.num_items == len(reference)
-    complete_check()
-
-
-@py.test.mark.parametrize('key_can_be_none', [True, False])
-@py.test.mark.parametrize('value_can_be_none', [True, False])
-def test_stress_2(key_can_be_none, value_can_be_none):
-    class PseudoRTyper:
-        cache_dummy_values = {}
-    dictrepr = rdict.DictRepr(PseudoRTyper(), string_repr, string_repr,
-                    DictKey(None, annmodel.SomeString(key_can_be_none)),
-                    DictValue(None, annmodel.SomeString(value_can_be_none)))
-    dictrepr.setup()
-    l_dict = rdict.ll_newdict(dictrepr.DICT)
-    reference = {}
-    values = not_really_random()
-    keytable = [string_repr.convert_const("foo%d" % n) for n in range(N_KEYS)]
-
-    def check_value(n):
-        try:
-            gotvalue = rdict.ll_dict_getitem(l_dict, keytable[n])
-        except KeyError:
-            assert n not in reference
-        else:
-            assert gotvalue == reference[n]
-
-    def complete_check():
-        for n in range(N_KEYS):
-            check_value(n)
-
-    for x in not_really_random():
-        n = int(x*100.0)    # 0 <= x < 400
-        op = repr(x)[-1]
-        if op <= '2' and n in reference:
-            rdict.ll_dict_delitem(l_dict, keytable[n])
-            del reference[n]
-        elif op <= '6':
-            ll_value = string_repr.convert_const(str(values.next()))
-            rdict.ll_dict_setitem(l_dict, keytable[n], ll_value)
-            reference[n] = ll_value
-        else:
-            check_value(n)
-        if 1.38 <= x <= 1.39:
-            complete_check()
-            print 'current dict length:', len(reference)
-        assert l_dict.num_items == len(reference)
-    complete_check()
-
-from hypothesis.strategies import builds, sampled_from, binary, just
 
 class Action(object):
-    pass
-
-class SetItem(Action):
-    def __init__(self, key, value):
-        self.key = key
-        self.value = value
-
     def __repr__(self):
-        return 'SetItem(%r, %r)' % (self.key, self.value)
+        return "%s()" % self.__class__.__name__
 
-    def execute(self, state):
-        ll_key = string_repr.convert_const(self.key)
-        ll_value = string_repr.convert_const(self.value)
-        rdict.ll_dict_setitem(state.l_dict, ll_key, ll_value)
-        state.reference[self.key] = self.value
-        assert rdict.ll_contains(state.l_dict, ll_key)
+class PseudoRTyper:
+    cache_dummy_values = {}
 
-class DelItem(Action):
-    def __init__(self, key):
-        self.key = key
+# XXX: None keys crash the test, but translation sort-of allows it
+@py.test.mark.parametrize('s_key',
+    [SomeString(), SomeInteger()])
+@py.test.mark.parametrize('s_value',
+    [SomeString(can_be_None=True), SomeString(), SomeInteger()])
+def test_hypothesis(s_key, s_value):
+    rtyper = PseudoRTyper()
+    r_key = s_key.rtyper_makerepr(rtyper)
+    r_value = s_value.rtyper_makerepr(rtyper)
+    dictrepr = rdict.DictRepr(rtyper, r_key, r_value,
+                    DictKey(None, s_key),
+                    DictValue(None, s_value))
+    dictrepr.setup()
 
-    def __repr__(self):
-        return 'DelItem(%r)' % (self.key)
+    _ll_key = r_key.convert_const
+    _ll_value = r_value.convert_const
 
-    def execute(self, state):
-        ll_key = string_repr.convert_const(self.key)
-        rdict.ll_dict_delitem(state.l_dict, ll_key)
-        del state.reference[self.key]
-        assert not rdict.ll_contains(state.l_dict, ll_key)
+    class SetItem(Action):
+        def __init__(self, key, value):
+            self.key = key
+            self.value = value
 
-class CopyDict(Action):
-    def execute(self, state):
-        state.l_dict = rdict.ll_copy(state.l_dict)
+        def __repr__(self):
+            return 'SetItem(%r, %r)' % (self.key, self.value)
 
-class ClearDict(Action):
-    def execute(self, state):
-        rdict.ll_clear(state.l_dict)
-        state.reference.clear()
+        def execute(self, state):
+            ll_key = _ll_key(self.key)
+            ll_value = _ll_value(self.value)
+            rdict.ll_dict_setitem(state.l_dict, ll_key, ll_value)
+            state.reference[self.key] = self.value
+            assert rdict.ll_contains(state.l_dict, ll_key)
 
-st_keys = binary()
-st_values = binary()
-st_setitem = builds(SetItem, st_keys, st_values)
+    class DelItem(Action):
+        def __init__(self, key):
+            self.key = key
 
-def st_delitem(keys):
-    return builds(DelItem, sampled_from(keys))
+        def __repr__(self):
+            return 'DelItem(%r)' % (self.key)
 
-from hypothesis.stateful import GenericStateMachine
+        def execute(self, state):
+            ll_key = _ll_key(self.key)
+            rdict.ll_dict_delitem(state.l_dict, ll_key)
+            del state.reference[self.key]
+            assert not rdict.ll_contains(state.l_dict, ll_key)
 
-_ll = string_repr.convert_const
+    class CopyDict(Action):
+        def execute(self, state):
+            state.l_dict = rdict.ll_copy(state.l_dict)
 
-class StressTest(GenericStateMachine):
-    def __init__(self):
-        class PseudoRTyper:
-            cache_dummy_values = {}
-        dictrepr = rdict.DictRepr(PseudoRTyper(), string_repr, string_repr,
-                        DictKey(None, annmodel.SomeString(False)),
-                        DictValue(None, annmodel.SomeString(False)))
-        dictrepr.setup()
-        self.l_dict = rdict.ll_newdict(dictrepr.DICT)
-        self.reference = {}
+    class ClearDict(Action):
+        def execute(self, state):
+            rdict.ll_clear(state.l_dict)
+            state.reference.clear()
 
-    def steps(self):
-        global_actions = [CopyDict(), ClearDict()]
-        if self.reference:
-            return (
-                st_setitem | st_delitem(self.reference) |
-                sampled_from(global_actions))
-        else:
-            return (st_setitem | sampled_from(global_actions))
+    st_keys = ann2strategy(s_key)
+    st_values = ann2strategy(s_value)
+    st_setitem = builds(SetItem, st_keys, st_values)
 
-    def execute_step(self, action):
-        with signal_timeout(1):  # catches infinite loops
-            action.execute(self)
+    def st_delitem(keys):
+        return builds(DelItem, sampled_from(keys))
 
-    def teardown(self):
-        assert rdict.ll_dict_len(self.l_dict) == len(self.reference)
-        for key, value in self.reference.iteritems():
-            assert rdict.ll_dict_getitem(self.l_dict, _ll(key)) == _ll(value)
+    def st_updateitem(keys):
+        return builds(SetItem, sampled_from(keys), st_values)
 
+    class StressTest(GenericStateMachine):
+        def __init__(self):
+            self.l_dict = rdict.ll_newdict(dictrepr.DICT)
+            self.reference = {}
 
-TestHyp = StressTest.TestCase
+        def steps(self):
+            global_actions = [CopyDict(), ClearDict()]
+            if self.reference:
+                return (
+                    st_setitem | sampled_from(global_actions) |
+                    st_updateitem(self.reference) | st_delitem(self.reference))
+            else:
+                return (st_setitem | sampled_from(global_actions))
+
+        def execute_step(self, action):
+            with signal_timeout(1):  # catches infinite loops
+                action.execute(self)
+
+        def teardown(self):
+            assert rdict.ll_dict_len(self.l_dict) == len(self.reference)
+            for key, value in self.reference.iteritems():
+                assert (rdict.ll_dict_getitem(self.l_dict, _ll_key(key)) ==
+                    _ll_value(value))
+
+    run_state_machine_as_test(StressTest)
