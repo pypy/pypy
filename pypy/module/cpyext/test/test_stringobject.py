@@ -89,7 +89,26 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
         assert len(s) == 4
         assert s == 'ab\x00c'
 
-
+    def test_string_tp_alloc(self):
+        module = self.import_extension('foo', [
+            ("getstring", "METH_NOARGS",
+             """
+                PyObject *base;
+                PyTypeObject * type;
+                PyStringObject *obj;
+                char * p_str;
+                base = PyString_FromString("test");
+                type = base->ob_type;
+                obj = (PyStringObject*)type->tp_alloc(type, 10);
+                if (PyString_GET_SIZE(obj) == 0)
+                    return PyLong_FromLong(-1);
+                memcpy(PyString_AS_STRING(obj), "works", 6);
+                Py_INCREF(obj);
+                return (PyObject*)obj;
+             """),
+            ])
+        s = module.getstring()
+        assert s == 'works\x00\x00\x00\x00\x00'
 
     def test_AsString(self):
         module = self.import_extension('foo', [
