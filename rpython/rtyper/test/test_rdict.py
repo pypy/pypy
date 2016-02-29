@@ -1,3 +1,6 @@
+from contextlib import contextmanager
+import signal
+
 from rpython.translator.translator import TranslationContext
 from rpython.annotator import model as annmodel
 from rpython.annotator.dictdef import DictKey, DictValue
@@ -11,6 +14,27 @@ from rpython.rlib.rarithmetic import r_int, r_uint, r_longlong, r_ulonglong
 
 import py
 py.log.setconsumer("rtyper", py.log.STDOUT)
+
+if hasattr(signal, 'alarm'):
+    @contextmanager
+    def signal_timeout(n):
+        """A flaky context manager that throws an exception if the body of the
+        `with` block runs for longer than `n` seconds.
+        """
+        def handler(signum, frame):
+            raise RuntimeError('timeout')
+        signal.signal(signal.SIGALRM, handler)
+        signal.alarm(n)
+        try:
+            yield
+        finally:
+            signal.alarm(0)
+else:
+    @contextmanager
+    def signal_timeout(n):
+        yield
+
+
 
 def not_really_random():
     """A random-ish generator, which also generates nice patterns from time to time.
@@ -1313,12 +1337,6 @@ class ClearDict(Action):
         rdict.ll_clear(state.l_dict)
         state.reference.clear()
 
-class CompleteCheck(Action):
-    def execute(self, state):
-        assert state.l_dict.num_items == len(state.reference)
-        for key, value in state.reference.iteritems():
-            assert rdict.ll_dict_getitem(state.l_dict, _ll(key)) == _ll(value)
-
 st_keys = binary()
 st_values = binary()
 st_setitem = builds(SetItem, st_keys, st_values)
@@ -1342,7 +1360,7 @@ class StressTest(GenericStateMachine):
         self.reference = {}
 
     def steps(self):
-        global_actions = [CopyDict(), ClearDict(), CompleteCheck()]
+        global_actions = [CopyDict(), ClearDict()]
         if self.reference:
             return (
                 st_setitem | st_delitem(self.reference) |
@@ -1351,6 +1369,13 @@ class StressTest(GenericStateMachine):
             return (st_setitem | sampled_from(global_actions))
 
     def execute_step(self, action):
-        action.execute(self)
+        with signal_timeout(1):  # catches infinite loops
+            action.execute(self)
+
+    def teardown(self):
+        assert rdict.ll_dict_len(self.l_dict) == len(self.reference)
+        for key, value in self.reference.iteritems():
+            assert rdict.ll_dict_getitem(self.l_dict, _ll(key)) == _ll(value)
+
 
 TestHyp = StressTest.TestCase
