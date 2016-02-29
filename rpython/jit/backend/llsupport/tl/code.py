@@ -128,6 +128,25 @@ class AddStr(ByteCode):
     def __init__(self):
         pass
 
+@requires_stack(LIST_TYP, LIST_TYP)
+@leaves_on_stack(LIST_TYP)
+class AddList(ByteCode):
+    BYTE_CODE = unique_code()
+    def __init__(self):
+        pass
+
+@requires_stack()
+@leaves_on_stack(LIST_TYP)
+class CreateList(ByteCode):
+    BYTE_CODE = unique_code()
+    @requires_param(BYTE_TYP)
+    def __init__(self, size=8):
+        self.size = size
+    def encode(self, ctx):
+        ctx.append_byte(self.BYTE_CODE)
+        ctx.append_short(self.size)
+
+
 # remove comment one by one!
 
 #@requires_stack()
@@ -157,24 +176,6 @@ class AddStr(ByteCode):
 #        pass
 #
 
-#
-#@requires_stack(LIST_TYP, LIST_TYP)
-#@leaves_on_stack(LIST_TYP)
-#class AddList(ByteCode):
-#    BYTE_CODE = unique_code()
-#    def __init__(self):
-#        pass
-#
-#@requires_stack()
-#class CreateList(ByteCode):
-#    BYTE_CODE = unique_code()
-#    @requires_param(BYTE_TYP)
-#    def __init__(self, size=8):
-#        self.size = size
-#    def encode(self, ctx):
-#        ctx.append_byte(self.BYTE_CODE)
-#        ctx.append_short(self.size)
-#
 #@requires_stack(LIST_TYP, INT_TYP, INT_TYP) # TODO VAL_TYP
 #class InsertList(ByteCode):
 #    BYTE_CODE = unique_code()

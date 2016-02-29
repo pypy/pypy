@@ -6,8 +6,12 @@ class W_Root(object):
     pass
 
 class W_ListObject(W_Root):
-    def __init__(self):
-        self.items = []
+    def __init__(self, items):
+        self.items = items
+
+    def concat(self, w_lst):
+        assert isinstance(w_lst, W_ListObject)
+        return self.items + w_lst.items
 
 class W_IntObject(W_Root):
     def __init__(self, value):
@@ -36,6 +40,8 @@ class Space(object):
             return W_StrObject(val)
         if isinstance(val, unicode):
             return W_StrObject(val.encode('utf-8'))
+        if isinstance(val, list):
+            return W_ListObject(val)
         raise NotImplementedError("cannot handle: " + str(val) + str(type(val)))
 
 def entry_point(argv):
@@ -70,6 +76,14 @@ def dispatch_once(space, i, bytecode, consts, stack):
         w_str2 = stack.pop()
         w_str1 = stack.pop()
         stack.append(space.wrap(w_str1.concat(w_str2)))
+    elif opcode == code.AddList.BYTE_CODE:
+        w_lst2 = stack.pop()
+        w_lst1 = stack.pop()
+        stack.append(space.wrap(w_lst1.concat(w_lst2)))
+    elif opcode == code.CreateList.BYTE_CODE:
+        size = runpack('h', bytecode[i+1:i+3])
+        stack.append(space.wrap([None] * size))
+        i += 2
     else:
         raise NotImplementedError
     return i + 1
