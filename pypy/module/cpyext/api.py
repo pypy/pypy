@@ -952,6 +952,8 @@ class StaticObjectBuilder:
         cpyext_type_init = self.cpyext_type_init
         self.cpyext_type_init = None
         for pto, w_type in cpyext_type_init:
+            if space.is_w(w_type, space.w_str):
+                pto.c_tp_itemsize = 1
             finish_type_1(space, pto)
             finish_type_2(space, pto, w_type)
 

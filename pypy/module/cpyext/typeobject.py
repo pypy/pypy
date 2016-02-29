@@ -494,7 +494,7 @@ def type_dealloc(space, obj):
         PyObject_dealloc(space, obj)
 
 
-def type_alloc(space, w_metatype):
+def type_alloc(space, w_metatype, itemsize=0):
     metatype = rffi.cast(PyTypeObjectPtr, make_ref(space, w_metatype))
     # Don't increase refcount for non-heaptypes
     if metatype:

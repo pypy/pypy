@@ -99,6 +99,8 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
                 char * p_str;
                 base = PyString_FromString("test");
                 type = base->ob_type;
+                if (type->tp_itemsize != 1)
+                    return PyLong_FromLong(type->tp_itemsize);
                 obj = (PyStringObject*)type->tp_alloc(type, 10);
                 if (PyString_GET_SIZE(obj) == 0)
                     return PyLong_FromLong(-1);

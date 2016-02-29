@@ -6,7 +6,7 @@ from pypy.module.cpyext.api import (
 from pypy.module.cpyext.pyerrors import PyErr_BadArgument
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, Py_DecRef, make_ref, from_ref, track_reference,
-    make_typedescr, get_typedescr)
+    make_typedescr, get_typedescr, as_pyobj)
 
 ##
 ## Implementation of PyStringObject
@@ -62,11 +62,42 @@ def init_stringobject(space):
     "Type description of PyStringObject"
     make_typedescr(space.w_str.layout.typedef,
                    basestruct=PyStringObject.TO,
+                   alloc = string_alloc,
                    attach=string_attach,
                    dealloc=string_dealloc,
                    realize=string_realize)
 
 PyString_Check, PyString_CheckExact = build_type_checkers("String", "w_str")
+
+def string_alloc(space, w_type, length):
+    '''
+    Yet another way to allocate a PyObject, this time a
+    PyStringObject. The first bit is copied from 
+    BaseCpyTypedescr.allocate, the bit after length>0
+    from string_attach. This is used as the tp_alloc function
+    for PyStringObject
+    '''
+    from pypy.module.cpyext.typeobjectdefs import PyTypeObjectPtr
+    pytype = as_pyobj(space, w_type)
+    pytype = rffi.cast(PyTypeObjectPtr, pytype)
+    assert pytype
+    size = pytype.c_tp_basicsize
+    buf = lltype.malloc(rffi.VOIDP.TO, size,
+                        flavor='raw', zero=True)
+    py_str = rffi.cast(PyStringObject, buf)
+    py_str.c_ob_refcnt = 1
+    py_str.c_ob_type = pytype
+    if length > 0:
+        py_str.c_buffer = lltype.malloc(rffi.CCHARP.TO, length+1,
+                                        flavor='raw', zero=True)
+        py_str.c_size = length
+        py_str.c_ob_sstate = rffi.cast(rffi.INT, 0) # SSTATE_NOT_INTERNED
+        s = rffi.charpsize2str(py_str.c_buffer, length+1)
+        w_obj = space.wrap(s)
+        py_str.c_ob_shash = space.hash_w(w_obj)
+        py_str.c_ob_sstate = rffi.cast(rffi.INT, 1) # SSTATE_INTERNED_MORTAL
+        track_reference(space, rffi.cast(PyObject, py_str), w_obj)
+    return rffi.cast(PyObject, py_str)
 
 def new_empty_str(space, length):
     """

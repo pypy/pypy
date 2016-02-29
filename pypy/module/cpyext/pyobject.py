@@ -92,7 +92,7 @@ def make_typedescr(typedef, **kw):
 
         if tp_alloc:
             def allocate(self, space, w_type, itemcount=0):
-                return tp_alloc(space, w_type)
+                return tp_alloc(space, w_type, itemcount)
 
         if tp_dealloc:
             def get_dealloc(self, space):

@@ -30,6 +30,7 @@ cpython_struct("PyUnicodeObject", PyUnicodeObjectFields, PyUnicodeObjectStruct)
 def init_unicodeobject(space):
     make_typedescr(space.w_unicode.layout.typedef,
                    basestruct=PyUnicodeObject.TO,
+                   alloc = unicode_alloc,
                    attach=unicode_attach,
                    dealloc=unicode_dealloc,
                    realize=unicode_realize)
@@ -42,6 +43,30 @@ default_encoding = lltype.malloc(rffi.CCHARP.TO, DEFAULT_ENCODING_SIZE,
 PyUnicode_Check, PyUnicode_CheckExact = build_type_checkers("Unicode", "w_unicode")
 
 Py_UNICODE = lltype.UniChar
+
+def unicode_alloc(space, w_type, length):
+    '''
+    see comments with string_alloc in stringobject.py
+    '''
+    from pypy.module.cpyext.typeobjectdefs import PyTypeObjectPtr
+    pytype = as_pyobj(space, w_type)
+    pytype = rffi.cast(PyTypeObjectPtr, pytype)
+    assert pytype
+    size = pytype.c_tp_basicsize
+    buf = lltype.malloc(rffi.VOIDP.TO, size,
+                        flavor='raw', zero=True)
+    py_uni = rffi.cast(PyUnicodeObject, buf)
+    py_uni.c_ob_refcnt = 1
+    py_uni.c_ob_type = pytype
+    if length > 0:
+        py_uni.c_str = lltype.malloc(rffi.CCHARP.TO, length+1,
+                                        flavor='raw', zero=True)
+        py_str.c_length = length
+        s = rffi.wcharpsize2unicode(py_uni.c_str, py_uni.c_length)
+        w_obj = space.wrap(s)
+        py_str.c_ob_shash = space.hash_w(w_obj)
+        track_reference(space, rffi.cast(PyObject, py_str), w_obj)
+    return rffi.cast(PyObject, py_str)
 
 def new_empty_unicode(space, length):
     """
