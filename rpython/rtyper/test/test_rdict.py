@@ -1304,6 +1304,15 @@ class DelItem(Action):
         del state.reference[self.key]
         assert not rdict.ll_contains(state.l_dict, ll_key)
 
+class CopyDict(Action):
+    def execute(self, state):
+        state.l_dict = rdict.ll_copy(state.l_dict)
+
+class ClearDict(Action):
+    def execute(self, state):
+        rdict.ll_clear(state.l_dict)
+        state.reference.clear()
+
 class CompleteCheck(Action):
     def execute(self, state):
         assert state.l_dict.num_items == len(state.reference)
@@ -1333,7 +1342,13 @@ class StressTest(GenericStateMachine):
         self.reference = {}
 
     def steps(self):
-        return (st_setitem | st_delitem(self.reference) | just(CompleteCheck())) if self.reference else (st_setitem | just(CompleteCheck()))
+        global_actions = [CopyDict(), ClearDict(), CompleteCheck()]
+        if self.reference:
+            return (
+                st_setitem | st_delitem(self.reference) |
+                sampled_from(global_actions))
+        else:
+            return (st_setitem | sampled_from(global_actions))
 
     def execute_step(self, action):
         action.execute(self)
