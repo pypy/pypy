@@ -213,7 +213,10 @@ class TestPendingCalls(unittest.TestCase):
 # Bug #6012
 class Test6012(unittest.TestCase):
     def test(self):
-        self.assertEqual(_testcapi.argparsing("Hello", "World"), 1)
+        # PyPy change: Mask out higher bits of reference count.  PyPy increases
+        # the reference count by a high number if the object is linked to a
+        # PyPy object.
+        self.assertEqual(_testcapi.argparsing("Hello", "World") & 0xfffffff, 1)
 
 
 class EmbeddingTest(unittest.TestCase):
