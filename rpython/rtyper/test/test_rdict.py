@@ -1,8 +1,9 @@
+import sys
 from contextlib import contextmanager
 import signal
 
 from rpython.translator.translator import TranslationContext
-from rpython.annotator import model as annmodel
+from rpython.annotator.model import SomeInteger, SomeString
 from rpython.annotator.dictdef import DictKey, DictValue
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem.rstr import string_repr
@@ -1213,8 +1214,8 @@ N_KEYS = 400
 
 def test_stress():
     dictrepr = rdict.DictRepr(None, rint.signed_repr, rint.signed_repr,
-                                DictKey(None, annmodel.SomeInteger()),
-                                DictValue(None, annmodel.SomeInteger()))
+                                DictKey(None, SomeInteger()),
+                                DictValue(None, SomeInteger()))
     dictrepr.setup()
     l_dict = rdict.ll_newdict(dictrepr.DICT)
     reference = {}
@@ -1257,8 +1258,8 @@ def test_stress_2(key_can_be_none, value_can_be_none):
     class PseudoRTyper:
         cache_dummy_values = {}
     dictrepr = rdict.DictRepr(PseudoRTyper(), string_repr, string_repr,
-                    DictKey(None, annmodel.SomeString(key_can_be_none)),
-                    DictValue(None, annmodel.SomeString(value_can_be_none)))
+                    DictKey(None, SomeString(key_can_be_none)),
+                    DictValue(None, SomeString(value_can_be_none)))
     dictrepr.setup()
     l_dict = rdict.ll_newdict(dictrepr.DICT)
     reference = {}
@@ -1295,87 +1296,114 @@ def test_stress_2(key_can_be_none, value_can_be_none):
         assert l_dict.num_items == len(reference)
     complete_check()
 
-from hypothesis.strategies import builds, sampled_from, binary, just
+from hypothesis.strategies import builds, sampled_from, binary, just, integers
+from hypothesis.stateful import GenericStateMachine, run_state_machine_as_test
+
+def ann2strategy(s_value):
+    if isinstance(s_value, SomeString):
+        if s_value.can_be_None:
+            return binary() | just(None)
+        else:
+            return binary()
+    elif isinstance(s_value, SomeInteger):
+        return integers(min_value=~sys.maxint, max_value=sys.maxint)
+    else:
+        raise TypeError("Cannot convert annotation %s to a strategy" % s_value)
+
 
 class Action(object):
-    pass
-
-class SetItem(Action):
-    def __init__(self, key, value):
-        self.key = key
-        self.value = value
-
     def __repr__(self):
-        return 'SetItem(%r, %r)' % (self.key, self.value)
+        return "%s()" % self.__class__.__name__
 
-    def execute(self, state):
-        ll_key = string_repr.convert_const(self.key)
-        ll_value = string_repr.convert_const(self.value)
-        rdict.ll_dict_setitem(state.l_dict, ll_key, ll_value)
-        state.reference[self.key] = self.value
-        assert rdict.ll_contains(state.l_dict, ll_key)
+class PseudoRTyper:
+    cache_dummy_values = {}
 
-class DelItem(Action):
-    def __init__(self, key):
-        self.key = key
+# XXX: None keys crash the test, but translation sort-of allows it
+@py.test.mark.parametrize('s_key',
+    [SomeString(), SomeInteger()])
+@py.test.mark.parametrize('s_value',
+    [SomeString(can_be_None=True), SomeString(), SomeInteger()])
+def test_hypothesis(s_key, s_value):
+    rtyper = PseudoRTyper()
+    r_key = s_key.rtyper_makerepr(rtyper)
+    r_value = s_value.rtyper_makerepr(rtyper)
+    dictrepr = rdict.DictRepr(rtyper, r_key, r_value,
+                    DictKey(None, s_key),
+                    DictValue(None, s_value))
+    dictrepr.setup()
 
-    def __repr__(self):
-        return 'DelItem(%r)' % (self.key)
+    _ll_key = r_key.convert_const
+    _ll_value = r_value.convert_const
 
-    def execute(self, state):
-        ll_key = string_repr.convert_const(self.key)
-        rdict.ll_dict_delitem(state.l_dict, ll_key)
-        del state.reference[self.key]
-        assert not rdict.ll_contains(state.l_dict, ll_key)
+    class SetItem(Action):
+        def __init__(self, key, value):
+            self.key = key
+            self.value = value
 
-class CopyDict(Action):
-    def execute(self, state):
-        state.l_dict = rdict.ll_copy(state.l_dict)
+        def __repr__(self):
+            return 'SetItem(%r, %r)' % (self.key, self.value)
 
-class ClearDict(Action):
-    def execute(self, state):
-        rdict.ll_clear(state.l_dict)
-        state.reference.clear()
+        def execute(self, state):
+            ll_key = _ll_key(self.key)
+            ll_value = _ll_value(self.value)
+            rdict.ll_dict_setitem(state.l_dict, ll_key, ll_value)
+            state.reference[self.key] = self.value
+            assert rdict.ll_contains(state.l_dict, ll_key)
 
-st_keys = binary()
-st_values = binary()
-st_setitem = builds(SetItem, st_keys, st_values)
+    class DelItem(Action):
+        def __init__(self, key):
+            self.key = key
 
-def st_delitem(keys):
-    return builds(DelItem, sampled_from(keys))
+        def __repr__(self):
+            return 'DelItem(%r)' % (self.key)
 
-from hypothesis.stateful import GenericStateMachine
+        def execute(self, state):
+            ll_key = _ll_key(self.key)
+            rdict.ll_dict_delitem(state.l_dict, ll_key)
+            del state.reference[self.key]
+            assert not rdict.ll_contains(state.l_dict, ll_key)
 
-_ll = string_repr.convert_const
+    class CopyDict(Action):
+        def execute(self, state):
+            state.l_dict = rdict.ll_copy(state.l_dict)
 
-class StressTest(GenericStateMachine):
-    def __init__(self):
-        class PseudoRTyper:
-            cache_dummy_values = {}
-        dictrepr = rdict.DictRepr(PseudoRTyper(), string_repr, string_repr,
-                        DictKey(None, annmodel.SomeString(False)),
-                        DictValue(None, annmodel.SomeString(False)))
-        dictrepr.setup()
-        self.l_dict = rdict.ll_newdict(dictrepr.DICT)
-        self.reference = {}
+    class ClearDict(Action):
+        def execute(self, state):
+            rdict.ll_clear(state.l_dict)
+            state.reference.clear()
 
-    def steps(self):
-        global_actions = [CopyDict(), ClearDict()]
-        if self.reference:
-            return (
-                st_setitem | st_delitem(self.reference) |
-                sampled_from(global_actions))
-        else:
-            return (st_setitem | sampled_from(global_actions))
+    st_keys = ann2strategy(s_key)
+    st_values = ann2strategy(s_value)
+    st_setitem = builds(SetItem, st_keys, st_values)
 
-    def execute_step(self, action):
-        with signal_timeout(1):  # catches infinite loops
-            action.execute(self)
+    def st_delitem(keys):
+        return builds(DelItem, sampled_from(keys))
 
-    def teardown(self):
-        assert rdict.ll_dict_len(self.l_dict) == len(self.reference)
-        for key, value in self.reference.iteritems():
-            assert rdict.ll_dict_getitem(self.l_dict, _ll(key)) == _ll(value)
+    def st_updateitem(keys):
+        return builds(SetItem, sampled_from(keys), st_values)
 
+    class StressTest(GenericStateMachine):
+        def __init__(self):
+            self.l_dict = rdict.ll_newdict(dictrepr.DICT)
+            self.reference = {}
 
-TestHyp = StressTest.TestCase
+        def steps(self):
+            global_actions = [CopyDict(), ClearDict()]
+            if self.reference:
+                return (
+                    st_setitem | sampled_from(global_actions) |
+                    st_updateitem(self.reference) | st_delitem(self.reference))
+            else:
+                return (st_setitem | sampled_from(global_actions))
+
+        def execute_step(self, action):
+            with signal_timeout(1):  # catches infinite loops
+                action.execute(self)
+
+        def teardown(self):
+            assert rdict.ll_dict_len(self.l_dict) == len(self.reference)
+            for key, value in self.reference.iteritems():
+                assert (rdict.ll_dict_getitem(self.l_dict, _ll_key(key)) ==
+                    _ll_value(value))
+
+    run_state_machine_as_test(StressTest)
