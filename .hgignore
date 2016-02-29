@@ -94,5 +94,6 @@ syntax: regexp
 ^pypy/module/test_lib_pypy/ctypes_tests/_ctypes_test\.o$
 ^compiled
 ^.git/
+^.hypothesis/
 ^release/
 ^rpython/_cache$
