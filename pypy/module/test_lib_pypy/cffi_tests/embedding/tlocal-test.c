@@ -7,7 +7,7 @@
 
 extern int add1(int, int);
 
-static sem_t done;
+static sem_t *done;
 
 
 static void *start_routine(void *arg)
@@ -22,7 +22,7 @@ static void *start_routine(void *arg)
         assert(x == expected + 8 + i);
     }
 
-    status = sem_post(&done);
+    status = sem_post(done);
     assert(status == 0);
 
     return arg;
@@ -31,7 +31,8 @@ static void *start_routine(void *arg)
 int main(void)
 {
     pthread_t th;
-    int i, status = sem_init(&done, 0, 0);
+    int i, status;
+    done = sem_open("tlocal-test", O_CREAT, 0777, 0);
     assert(status == 0);
 
     for (i = 0; i < NTHREADS; i++) {
@@ -39,7 +40,7 @@ int main(void)
         assert(status == 0);
     }
     for (i = 0; i < NTHREADS; i++) {
-        status = sem_wait(&done);
+        status = sem_wait(done);
         assert(status == 0);
     }
     printf("done\n");
