@@ -911,6 +911,10 @@ class __extend__(W_NDimArray):
             return
         return self.implementation.sort(space, w_axis, w_order)
 
+    def descr_partition(self, space, __args__):
+        return get_appbridge_cache(space).call_method(
+            space, 'numpy.core._partition_use', 'partition', __args__.prepend(self))
+
     def descr_squeeze(self, space, w_axis=None):
         cur_shape = self.get_shape()
         if not space.is_none(w_axis):
@@ -1635,6 +1639,7 @@ W_NDimArray.typedef = TypeDef("numpy.ndarray",
 
     argsort  = interp2app(W_NDimArray.descr_argsort),
     sort  = interp2app(W_NDimArray.descr_sort),
+    partition  = interp2app(W_NDimArray.descr_partition),
     astype   = interp2app(W_NDimArray.descr_astype),
     base     = GetSetProperty(W_NDimArray.descr_get_base),
     byteswap = interp2app(W_NDimArray.descr_byteswap),
