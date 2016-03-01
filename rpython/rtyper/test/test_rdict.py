@@ -3,26 +3,35 @@ from contextlib import contextmanager
 import signal
 
 from rpython.translator.translator import TranslationContext
-from rpython.annotator.model import SomeInteger, SomeString
+from rpython.annotator.model import (
+    SomeInteger, SomeString, SomeChar, SomeUnicodeString, SomeUnicodeCodePoint)
 from rpython.annotator.dictdef import DictKey, DictValue
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rtyper.lltypesystem.rstr import string_repr
-from rpython.rtyper import rint
-from rpython.rtyper.lltypesystem import rdict, rstr
+from rpython.rtyper.lltypesystem import rdict
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rlib.objectmodel import r_dict
 from rpython.rlib.rarithmetic import r_int, r_uint, r_longlong, r_ulonglong
 
 import py
-from hypothesis.strategies import builds, sampled_from, binary, just, integers
+from hypothesis.strategies import (
+    builds, sampled_from, binary, just, integers, text, characters)
 from hypothesis.stateful import GenericStateMachine, run_state_machine_as_test
 
 def ann2strategy(s_value):
-    if isinstance(s_value, SomeString):
+    if isinstance(s_value, SomeChar):
+        return builds(chr, integers(min_value=0, max_value=255))
+    elif isinstance(s_value, SomeString):
         if s_value.can_be_None:
             return binary() | just(None)
         else:
             return binary()
+    elif isinstance(s_value, SomeUnicodeCodePoint):
+        return characters()
+    elif isinstance(s_value, SomeUnicodeString):
+        if s_value.can_be_None:
+            return text() | just(None)
+        else:
+            return text()
     elif isinstance(s_value, SomeInteger):
         return integers(min_value=~sys.maxint, max_value=sys.maxint)
     else:
@@ -239,9 +248,8 @@ class BaseTestRDict(BaseRtypingTest):
 
     def test_dict_copy(self):
         def func():
-            # XXX this does not work if we use chars, only!
             dic = self.newdict()
-            dic['ab'] = 1
+            dic['a'] = 1
             dic['b'] = 2
             d2 = dic.copy()
             ok = 1
@@ -1146,9 +1154,9 @@ class PseudoRTyper:
 
 # XXX: None keys crash the test, but translation sort-of allows it
 @py.test.mark.parametrize('s_key',
-    [SomeString(), SomeInteger()])
+    [SomeString(), SomeInteger(), SomeChar(), SomeUnicodeString(), SomeUnicodeCodePoint()])
 @py.test.mark.parametrize('s_value',
-    [SomeString(can_be_None=True), SomeString(), SomeInteger()])
+    [SomeString(can_be_None=True), SomeString(), SomeChar(), SomeInteger(), SomeUnicodeString(), SomeUnicodeCodePoint()])
 def test_hypothesis(s_key, s_value):
     rtyper = PseudoRTyper()
     r_key = s_key.rtyper_makerepr(rtyper)
