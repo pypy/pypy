@@ -204,15 +204,15 @@ class GcRewriterAssembler(object):
         NOT_SIGNED = 0
         CINT_ZERO = ConstInt(0)
         opnum = op.getopnum()
-        if opnum == rop.CALL_MALLOC_NURSERY_VARSIZE:
-            v_length = op.getarg(2)
-            scale = op.getarg(1).getint()
-            if scale not in self.cpu.load_supported_factors:
-                scale, offset, v_length = \
-                        self._emit_mul_if_factor_offset_not_supported(v_length, scale, 0)
-                op.setarg(1, ConstInt(scale))
-                op.setarg(2, v_length)
-        elif op.is_getarrayitem() or \
+        #if opnum == rop.CALL_MALLOC_NURSERY_VARSIZE:
+        #    v_length = op.getarg(2)
+        #    scale = op.getarg(1).getint()
+        #    if scale not in self.cpu.load_supported_factors:
+        #        scale, offset, v_length = \
+        #                self._emit_mul_if_factor_offset_not_supported(v_length, scale, 0)
+        #        op.setarg(1, ConstInt(scale))
+        #        op.setarg(2, v_length)
+        if op.is_getarrayitem() or \
            opnum in (rop.GETARRAYITEM_RAW_I,
                      rop.GETARRAYITEM_RAW_F):
             self.handle_getarrayitem(op)
@@ -793,12 +793,12 @@ class GcRewriterAssembler(object):
              arraydescr.lendescr.offset != gc_descr.standard_array_length_ofs)):
             return False
         self.emitting_an_operation_that_can_collect()
-        scale = itemsize
-        if scale not in self.cpu.load_supported_factors:
-            scale, offset, v_length = \
-                    self._emit_mul_if_factor_offset_not_supported(v_length, scale, 0)
+        #scale = itemsize
+        #if scale not in self.cpu.load_supported_factors:
+        #    scale, offset, v_length = \
+        #            self._emit_mul_if_factor_offset_not_supported(v_length, scale, 0)
         op = ResOperation(rop.CALL_MALLOC_NURSERY_VARSIZE,
-                          [ConstInt(kind), ConstInt(scale), v_length],
+                          [ConstInt(kind), ConstInt(itemsize), v_length],
                           descr=arraydescr)
         self.replace_op_with(v_result, op)
         self.emit_op(op)

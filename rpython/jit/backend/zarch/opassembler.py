@@ -454,8 +454,7 @@ class AllocOpAssembler(object):
         [lengthloc] = arglocs
         arraydescr = op.getdescr()
         itemsize = op.getarg(1).getint()
-        assert itemsize == 1
-        maxlength = (gc_ll_descr.max_size_of_young_obj - WORD * 2)
+        maxlength = (gc_ll_descr.max_size_of_young_obj - WORD * 2) // itemsize
         gcmap = regalloc.get_gcmap([r.RES, r.RSZ])
         self.malloc_cond_varsize(
             op.getarg(0).getint(),

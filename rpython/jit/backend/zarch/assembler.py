@@ -432,7 +432,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         return mc.materialize(self.cpu, [])
 
     def _build_malloc_slowpath(self, kind):
-        """ While arriving on slowpath, we have a gcmap in SCRATCH.
+        """ While arriving on slowpath, we have a gcmap in r1.
         The arguments are passed in r.RES and r.RSZ, as follows:
 
         kind == 'fixed': nursery_head in r.RES and the size in r.RSZ - r.RES.
@@ -440,7 +440,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         kind == 'str/unicode': length of the string to allocate in r.RES.
 
         kind == 'var': itemsize in r.RES, length to allocate in r.RSZ,
-                       and tid in r.SCRATCH2.
+                       and tid in r.r0.
 
         This function must preserve all registers apart from r.RES and r.RSZ.
         On return, SCRATCH must contain the address of nursery_free.
@@ -480,7 +480,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
             # arguments to the called function are [itemsize, tid, length]
             # itemsize is already in r2
             mc.LGR(r.r4, r.RSZ)        # length
-            mc.LGR(r.r3, r.SCRATCH2)   # tid
+            mc.LGR(r.r3, r.r0)         # tid
 
         # Do the call
         addr = rffi.cast(lltype.Signed, addr)
@@ -1355,6 +1355,26 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
 
         mc.STG(r.RSZ, l.addr(0, r.r1))    # store into nursery_free
 
+    SIZE2SCALE = dict([(1<<_i, _i) for _i in range(32)])
+    def _multiply_by_constant(self, loc, multiply_by, scratch_loc):
+        # XXX should die together with _apply_scale() but can't because
+        # of emit_zero_array() and malloc_cond_varsize() at the moment
+        assert loc.is_reg()
+        if multiply_by == 1:
+            return loc
+        try:
+            scale = self.SIZE2SCALE[multiply_by]
+        except KeyError:
+            if check_imm_value(multiply_by, lower_bound=-2**31, upper_bound=2**31-1):
+                self.mc.LGR(scratch_loc, loc)
+                self.mc.MSGFI(scratch_loc, l.imm(multiply_by))
+            else:
+                self.mc.load_imm(scratch_loc, multiply_by)
+                self.mc.MSGR(scratch_loc, loc)
+        else:
+            self.mc.SLLG(scratch_loc, loc, l.addr(scale))
+        return scratch_loc
+
     def malloc_cond_varsize(self, kind, nursery_free_adr, nursery_top_adr,
                             lengthloc, itemsize, maxlength, gcmap,
                             arraydescr):
@@ -1381,8 +1401,11 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         assert check_imm_value(diff)
         mc.load_imm(r.r1, nursery_free_adr)
 
-        # no shifting needed, lengthloc is already multiplied by the
-        # item size
+        varsizeloc = self._multiply_by_constant(lengthloc, itemsize, r.RSZ)
+
+        # varsizeloc is either RSZ here, or equal to lengthloc if
+        # itemsize == 1.  It is the size of the variable part of the
+        # array, in bytes.
 
         mc.load(r.RES, r.r1, 0)          # load nursery_free
         mc.load(r.SCRATCH2, r.r1, diff)  # load nursery_top
@@ -1392,7 +1415,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         force_realignment = (itemsize % WORD) != 0
         if force_realignment:
             constsize += WORD - 1
-        mc.AGHIK(r.RSZ, lengthloc, l.imm(constsize))
+        mc.AGHIK(r.RSZ, varsizeloc, l.imm(constsize))
         if force_realignment:
             # "& ~(WORD-1)"
             mc.RISBG(r.RSZ, r.RSZ, l.imm(0), l.imm(0x80 | 60), l.imm(0))
