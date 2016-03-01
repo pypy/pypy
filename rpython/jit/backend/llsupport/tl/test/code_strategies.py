@@ -49,6 +49,12 @@ def byte_code_classes():
         if hasattr(clazz, 'BYTE_CODE'):
             yield clazz
 
+def get_byte_code_class(num):
+    for clazz in byte_code_classes():
+        if clazz.BYTE_CODE == num:
+            return clazz
+    return None
+
 @composite
 def single_bytecode(draw,
         clazzes=st.sampled_from(byte_code_classes()),
@@ -57,5 +63,14 @@ def single_bytecode(draw,
     inst = clazz.create_from(draw, get_strategy_for)
     bytecode, consts = code.Context().transform([inst])
     _stack = draw(runtime_stack(clazz))
-    return clazz, bytecode, consts, _stack
+    return bytecode, consts, _stack
+
+@composite
+def bytecode_block(draw,
+        clazzes=st.sampled_from(byte_code_classes()),
+        integrals=st.integers(), texts=st.text()):
+    clazz = draw(clazzes)
+    inst = clazz.create_from(draw, get_strategy_for)
+    bytecode, consts = code.Context().transform([inst])
+    return bytecode, consts
 

@@ -53,7 +53,7 @@ class GCHypothesis(object):
         res = self.builder.translator.platform.execute(exe, args, env=env)
         return res.returncode, res.out, res.err
 
-    @given(st.single_bytecode())
+    @given(st.bytecode_block())
     def test_execute_single_bytecode(self, program):
         clazz, bytecode, consts, stack = program
         result, out, err = self.execute(bytecode, consts)
