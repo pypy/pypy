@@ -1,19 +1,35 @@
-from rpython.jit.backend.detect_cpu import getcpuclass
-from rpython.jit.tool.oparser import parse
-from rpython.jit.metainterp.history import JitCellToken, NoStats
-from rpython.jit.metainterp.history import BasicFinalDescr, BasicFailDescr
-from rpython.jit.metainterp.gc import get_description
+import py
+from hypothesis import given
+from rpython.tool.udir import udir
 from rpython.jit.metainterp.optimize import SpeculativeError
 from rpython.annotator.listdef import s_list_of_strings
-from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
-from rpython.rtyper.rclass import getclassrepr, getinstancerepr
-from rpython.translator.unsimplify import call_initial_function
 from rpython.translator.translator import TranslationContext
 from rpython.translator.c import genc
 from rpython.jit.backend.llsupport.tl import interp
+from rpython.jit.backend.llsupport.tl.test import code_strategies as st
+
+def persist(type, contents):
+    dir = udir.ensure(type)
+    print "written", type, "to", dir
+    with open(dir.strpath, 'wb') as fd:
+        fd.write(contents)
+    return dir.strpath
+
+def persist_constants(consts):
+    contents = ""
+    for string in consts:
+        contents += string.replace("\n", "\\n") + "\n"
+    return persist('constants', contents)
+
+def persist_bytecode(bc):
+    return persist('bytecode', bc)
 
 class GCHypothesis(object):
-    def setup_class(self):
+    builder = None
+    def setup_method(self, name):
+        if self.builder:
+            return
+
         t = TranslationContext()
         t.config.translation.gc = "incminimark"
         t.config.translation.gcremovetypeptr = True
@@ -22,12 +38,23 @@ class GCHypothesis(object):
         rtyper = t.buildrtyper()
         rtyper.specialize()
 
-        cbuilder = genc.CStandaloneBuilder(t, f, t.config)
+        cbuilder = genc.CStandaloneBuilder(t, interp.entry_point, t.config)
         cbuilder.generate_source(defines=cbuilder.DEBUG_DEFINES)
         cbuilder.compile()
+        # prevent from rebuilding the c object!
+        self.builder = cbuilder
 
-        import pdb; pdb.set_trace()
+    def execute(self, bytecode, consts):
+        exe = self.builder.executable_name
+        bc_file = persist_bytecode(bytecode)
+        consts_file = persist_constants(consts)
+        args = [bc_file, consts_file]
+        env = {}
+        res = self.builder.translator.platform.execute(exe, args, env=env)
+        return res.returncode, res.out, res.err
 
-
-    def test_void(self):
-        pass
+    @given(st.single_bytecode())
+    def test_execute_single_bytecode(self, program):
+        clazz, bytecode, consts, stack = program
+        result, out, err = self.execute(bytecode, consts)
+        assert result == 0

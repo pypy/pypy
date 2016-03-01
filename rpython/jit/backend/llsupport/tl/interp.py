@@ -2,6 +2,7 @@ from rpython.rlib.rstruct.runpack import runpack
 from rpython.rlib.objectmodel import specialize, always_inline
 from rpython.jit.backend.llsupport.tl import code
 from rpython.jit.backend.llsupport.tl.stack import Stack
+from rpython.rlib import rstring
 
 class W_Root(object):
     pass
@@ -48,14 +49,28 @@ class Space(object):
             return W_ListObject(val)
         raise NotImplementedError("cannot handle: " + str(val))
 
+def _read_all_from_file(file):
+    with open(file, 'rb') as fd:
+        return fd.read()
+
+_read_bytecode_from_file = _read_all_from_file
+
+def _read_consts_from_file(file):
+    consts = []
+    bytestring = _read_all_from_file(file)
+    for line in bytestring.splitlines():
+        consts.append(rstring.replace(line, "\\n", "\n"))
+    return consts
+
 def entry_point(argv):
-    bytecode = argv[0]
+    bytecode = _read_bytecode_from_file(argv[0])
+    consts = _read_consts_from_file(argv[1])
+    print(bytecode)
+    print(consts)
     pc = 0
     end = len(bytecode)
     stack = Stack(16)
     space = Space()
-    consts = ["hello"] * 100
-    consts[0] = "world"
     while pc < end:
         pc = dispatch_once(space, pc, bytecode, consts, stack)
     return 0
@@ -106,5 +121,6 @@ def dispatch_once(space, i, bytecode, consts, stack):
         del w_lst.items[w_idx.value]
         # index error, just crash the machine!!
     else:
+        print("opcode %d is not implemented" % opcode)
         raise NotImplementedError
     return i + 1
