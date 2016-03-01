@@ -56,4 +56,4 @@ class TestOpencoder(object):
                                   virutalref_boxes, t)
         (i0, i1), l = self.unpack(t)
         assert l[1].opnum == rop.GUARD_FALSE
-        assert l[1].rd_snapshot == [i0, i1]
+        assert l[1].rd_snapshot.boxes == [i0, i1]

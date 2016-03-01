@@ -4,6 +4,7 @@ from rpython.jit.metainterp.history import ConstInt, Const, AbstractDescr,\
 from rpython.jit.metainterp.resoperation import AbstractResOp, AbstractInputArg,\
     ResOperation, oparity, opname, rop, ResOperation, opwithdescr
 from rpython.rlib.rarithmetic import intmask
+from rpython.jit.metainterp import resume
 
 TAGINT, TAGCONST, TAGBOX = range(3)
 TAGMASK = 0x3
@@ -46,8 +47,20 @@ class TraceIterator(object):
         else:
             yyyy
 
+    def read_resume(self, op):
+        jc_index = self._next()
+        pc = self._next()
+        f = resume.FrameInfo(None, jc_index, pc)
+        op.rd_frame_info_list = f
+        lgt = self._next()
+        box_list = []
+        for i in range(lgt):
+            box = self._get(self._next())
+            assert box
+            box_list.append(box)
+        op.rd_snapshot = resume.Snapshot(None, box_list)
+
     def next(self):
-        pos = self.pos
         opnum = self._next()
         if oparity[opnum] == -1:
             argnum = self._next()
@@ -65,6 +78,8 @@ class TraceIterator(object):
         else:
             descr = None
         res = ResOperation(opnum, args, -1, descr=descr)
+        if rop.is_guard(opnum):
+            self.read_resume(res)
         self._cache[self._count] = res
         self._count += 1
         return res
@@ -137,6 +152,14 @@ class Trace(object):
 
     def record_op_tag(self, opnum, tagged_args, descr=None):
         return tag(TAGBOX, self._record_raw(opnum, tagged_args, descr))
+
+    def record_snapshot(self, jitcode, pc, active_boxes):
+        self._ops.append(jitcode.index)
+        self._ops.append(pc)
+        self._ops.append(len(active_boxes)) # unnecessary, can be read from
+        # jitcode
+        for box in active_boxes:
+            self._ops.append(box.position) # not tagged, as it must be boxes
 
     def get_iter(self):
         return TraceIterator(self, len(self._ops))

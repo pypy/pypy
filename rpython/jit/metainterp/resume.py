@@ -39,9 +39,9 @@ def unpack_uint(packed):
 class FrameInfo(object):
     __slots__ = ('prev', 'packed_jitcode_pc')
 
-    def __init__(self, prev, jitcode, pc):
+    def __init__(self, prev, jitcode_index, pc):
         self.prev = prev
-        self.packed_jitcode_pc = combine_uint(jitcode.index, pc)
+        self.packed_jitcode_pc = combine_uint(jitcode_index, pc)
 
 class VectorInfo(object):
     """
@@ -123,8 +123,7 @@ def _ensure_parent_resumedata(framestack, n):
                                          back.parent_resumedata_snapshot,
                                          back.get_list_of_active_boxes(True))
 
-def capture_resumedata(framestack, virtualizable_boxes, virtualref_boxes,
-                       snapshot_storage):
+def capture_resumedata(framestack, virtualizable_boxes, virtualref_boxes, t):
     n = len(framestack) - 1
     if virtualizable_boxes is not None:
         boxes = virtualref_boxes + virtualizable_boxes
@@ -132,15 +131,19 @@ def capture_resumedata(framestack, virtualizable_boxes, virtualref_boxes,
         boxes = virtualref_boxes[:]
     if n >= 0:
         top = framestack[n]
-        _ensure_parent_resumedata(framestack, n)
-        frame_info_list = FrameInfo(top.parent_resumedata_frame_info_list,
-                                    top.jitcode, top.pc)
-        snapshot_storage.rd_frame_info_list = frame_info_list
-        snapshot = Snapshot(top.parent_resumedata_snapshot,
-                            top.get_list_of_active_boxes(False))
-        snapshot = Snapshot(snapshot, boxes)
-        snapshot_storage.rd_snapshot = snapshot
+        #_ensure_parent_resumedata(framestack, n)
+        t.record_snapshot(top.jitcode, top.pc,
+                          top.get_list_of_active_boxes(False))
+        #XXX
+        #frame_info_list = FrameInfo(top.parent_resumedata_frame_info_list,
+        #                            top.jitcode, top.pc)
+        #snapshot_storage.rd_frame_info_list = frame_info_list
+        #snapshot = Snapshot(top.parent_resumedata_snapshot,
+        #                    top.get_list_of_active_boxes(False))
+        #snapshot = Snapshot(snapshot, boxes)
+        #snapshot_storage.rd_snapshot = snapshot
     else:
+        yyy
         snapshot_storage.rd_frame_info_list = None
         snapshot_storage.rd_snapshot = Snapshot(None, boxes)
 
