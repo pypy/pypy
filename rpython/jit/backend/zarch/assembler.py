@@ -1158,8 +1158,6 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         for reg in includes:
             v = r.ALL_REG_INDEXES[reg]
             offset = base_ofs + v * WORD
-            assert offset >= 0
-            assert offset <= 2**16-1
             mc.STD(reg, l.addr(offset, r.SPP))
 
     def _pop_fp_regs_from_jitframe(self, mc, includes=r.MANAGED_FP_REGS):
@@ -1167,8 +1165,6 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         for reg in includes:
             v = r.ALL_REG_INDEXES[reg]
             offset = base_ofs + v * WORD
-            assert offset >= 0
-            assert offset <= 2**16-1
             mc.LD(reg, l.addr(offset, r.SPP))
 
 
@@ -1399,7 +1395,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         mc.AGHIK(r.RSZ, lengthloc, l.imm(constsize))
         if force_realignment:
             # "& ~(WORD-1)"
-            mc.RISBGN(r.RSZ, r.RSZ, l.imm(0), l.imm(0x80 | 60), l.imm(0))
+            mc.RISBG(r.RSZ, r.RSZ, l.imm(0), l.imm(0x80 | 60), l.imm(0))
 
         mc.AGRK(r.RSZ, r.RES, r.RSZ)
         # now RSZ contains the total size in bytes, rounded up to a multiple

@@ -568,13 +568,12 @@ class AllocOpAssembler(object):
                 # compute in SCRATCH the index of the bit inside the byte:
                 #    scratch = (index >> card_page_shift) & 7
                 # 0x80 sets zero flag. will store 0 into all not selected bits
-                mc.RISBGN(r.SCRATCH, loc_index, l.imm(61), l.imm(0x80 | 63), l.imm(64-n))
+                mc.RISBG(r.SCRATCH, loc_index, l.imm(61), l.imm(0x80 | 63), l.imm(64-n))
                 mc.XG(tmp_loc, l.pool(self.pool.constant_64_ones))
 
                 # set SCRATCH2 to 1 << r1
                 mc.LGHI(r.SCRATCH2, l.imm(1))
                 mc.SLLG(r.SCRATCH2, r.SCRATCH2, l.addr(0,r.SCRATCH))
-
 
                 # set this bit inside the byte of interest
                 addr = l.addr(0, loc_base, tmp_loc)

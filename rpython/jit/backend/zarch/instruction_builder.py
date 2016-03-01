@@ -341,7 +341,7 @@ def build_rie_e(mnemonic, (opcode1,opcode2)):
     return encode_rie_e
 
 def build_rie_f(mnemonic, (opcode1,opcode2)):
-    @builder.arguments('r,r,i8,i8,i8')
+    @builder.arguments('r,r,u8,u8,u8')
     def encode_rie_f(self, reg1, reg2, i1, i2, i3):
         self.writechar(opcode1)
         byte = (reg1 & BIT_MASK_4) << 4 | (reg2 & BIT_MASK_4)
@@ -496,7 +496,6 @@ def build_unpack_func(mnemonic, func):
         if type == 'h32':
             value = arg.value
             assert -2**31 <= value <= 2**31-1
-            assert value & 0x1 == 0
     @always_inline
     def unpack_arg(arg, argtype):
         check_arg_type(arg, argtype)

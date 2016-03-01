@@ -42,11 +42,6 @@ arith_mnemonic_codes = {
     'SLLG':    ('rsy_a',   ['\xEB','\x0D']),
 
     # rotating
-    # rotate, then insert selected bits
-    # on the VM the miscellaneous-instruction-extensions
-    # does not seem to be installed
-    # cpu fails at this instruction, and gnu assembler
-    # does not recognize mnemonic
     'RISBG':   ('rie_f',   ['\xEC','\x55']),
     'RISBGN':  ('rie_f',   ['\xEC','\x59']),
 
