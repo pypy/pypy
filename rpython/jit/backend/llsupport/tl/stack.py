@@ -5,7 +5,7 @@ class Stack(object):
 
     def __init__(self, size):
         self = hint(self, access_directly=True, fresh_virtualizable=True)
-        self.stack = [0] * size
+        self.stack = [None] * size
         self.stackpos = 0        # always store a known-nonneg integer here
 
     def size(self):

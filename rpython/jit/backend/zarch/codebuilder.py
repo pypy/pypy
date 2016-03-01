@@ -128,7 +128,11 @@ class InstrBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
 
     def b_offset(self, reladdr):
         offset = reladdr - self.get_relative_pos()
-        self.BRC(c.ANY, l.imm(offset))
+        if -2**15 <= offset <= 2**15-1:
+            self.BRC(c.ANY, l.imm(offset))
+        else:
+            # we have big loops!
+            self.BRCL(c.ANY, l.imm(offset))
 
     def reserve_guard_branch(self):
         self.BRCL(l.imm(0x0), l.imm(0))

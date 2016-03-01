@@ -10,7 +10,7 @@ from rpython.rtyper.rclass import getclassrepr, getinstancerepr
 from rpython.translator.unsimplify import call_initial_function
 from rpython.translator.translator import TranslationContext
 from rpython.translator.c import genc
-from rpython.jit.backend.llsupport.gcstress import interp
+from rpython.jit.backend.llsupport.tl import interp
 
 class GCHypothesis(object):
     def setup_class(self):
