@@ -349,10 +349,6 @@ def slot_nb_int(space, w_self):
     return space.int(w_self)
 
 @cpython_api([PyObject], PyObject, header=None)
-def slot_nb_float(space, w_self):
-    return space.float(w_self)
-
-@cpython_api([PyObject], PyObject, header=None)
 def slot_tp_iter(space, w_self):
     return space.iter(w_self)
 
@@ -406,6 +402,16 @@ def build_slot_tp_function(space, typedef, name):
         def slot_tp_getattro(space, w_self, w_name):
             return space.call_function(getattr_fn, w_self, w_name)
         api_func = slot_tp_getattro.api_func
+    elif name == 'tp_as_number.c_nb_float':
+        float_fn = w_type.getdictvalue(space, '__float__')
+        if float_fn is None:
+            return
+
+        @cpython_api([PyObject], PyObject, header=header)
+        @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
+        def slot_nb_float(space, w_self):
+            return space.call_function(float_fn, w_self)
+        api_func = slot_nb_float.api_func
     else:
         return
 

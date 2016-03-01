@@ -487,21 +487,36 @@ class AppTestSlots(AppTestCpythonExtensionBase):
 
     def test_nb_float(self):
         module = self.import_extension('foo', [
-            ("nb_float", "METH_O",
+            ("nb_float", "METH_VARARGS",
              '''
-                 if (!args->ob_type->tp_as_number ||
-                     !args->ob_type->tp_as_number->nb_float)
+                 PyTypeObject *type = (PyTypeObject *)PyTuple_GET_ITEM(args, 0);
+                 PyObject *obj = PyTuple_GET_ITEM(args, 1);
+                 if (!type->tp_as_number ||
+                     !type->tp_as_number->nb_float)
                  {
                      PyErr_SetNone(PyExc_ValueError);
                      return NULL;
                  }
-                 return args->ob_type->tp_as_number->nb_float(args);
+                 return type->tp_as_number->nb_float(obj);
              '''
              )
             ])
-        assert module.nb_float(10) == 10.0
-        assert module.nb_float(-12.3) == -12.3
-        raises(ValueError, module.nb_float, "123")
+        assert module.nb_float(int, 10) == 10.0
+        assert module.nb_float(float, -12.3) == -12.3
+        raises(ValueError, module.nb_float, str, "123")
+        #
+        # check that calling PyInt_Type->tp_as_number->nb_float(x)
+        # does not invoke a user-defined __float__()
+        class I(int):
+            def __float__(self):
+                return -55.55
+        class F(float):
+            def __float__(self):
+                return -66.66
+        assert float(I(10)) == -55.55
+        assert float(F(10.5)) == -66.66
+        assert module.nb_float(int, I(10)) == 10.0
+        assert module.nb_float(float, F(10.5)) == 10.5
 
     def test_tp_call(self):
         module = self.import_extension('foo', [
