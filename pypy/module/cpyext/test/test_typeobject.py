@@ -517,6 +517,10 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         assert float(F(10.5)) == -66.66
         assert module.nb_float(int, I(10)) == 10.0
         assert module.nb_float(float, F(10.5)) == 10.5
+        # XXX but the subtype's tp_as_number->nb_float(x) should really invoke
+        # the user-defined __float__(); it doesn't so far
+        #assert module.nb_float(I, I(10)) == -55.55
+        #assert module.nb_float(F, F(10.5)) == -66.66
 
     def test_tp_call(self):
         module = self.import_extension('foo', [
