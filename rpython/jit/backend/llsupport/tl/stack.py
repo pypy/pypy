@@ -17,6 +17,12 @@ class Stack(object):
         self.stack[self.stackpos] = elem
         self.stackpos += 1
 
+    def peek(self, i):
+        stackpos = self.stackpos - i - 1
+        if stackpos < 0:
+            raise IndexError
+        return self.stack[stackpos]
+
     def pop(self):
         stackpos = self.stackpos - 1
         if stackpos < 0:

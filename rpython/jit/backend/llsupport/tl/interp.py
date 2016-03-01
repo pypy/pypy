@@ -84,6 +84,21 @@ def dispatch_once(space, i, bytecode, consts, stack):
         size = runpack('h', bytecode[i+1:i+3])
         stack.append(space.wrap([None] * size))
         i += 2
+    elif opcode == code.AppendList.BYTE_CODE:
+        w_val = stack.pop()
+        w_lst = stack.peek(0)
+        w_lst.items.append(w_val)
+    elif opcode == code.InsertList.BYTE_CODE:
+        w_val = stack.pop()
+        w_idx = stack.pop()
+        w_lst = stack.peek(0)
+        w_lst.items[w_idx.value] = w_val
+        # index error, just crash here!
+    elif opcode == code.DelList.BYTE_CODE:
+        w_idx = stack.pop()
+        w_lst = stack.peek(0)
+        del w_lst.items[w_idx.value]
+        # index error, just crash the machine!!
     else:
         raise NotImplementedError
     return i + 1

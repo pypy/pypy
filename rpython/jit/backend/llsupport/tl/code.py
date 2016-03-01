@@ -14,14 +14,16 @@ _c = 0
 
 LIST_TYP = 'l'
 INT_TYP = 'i'
-SHORT_TYP = 'h'
-BYTE_TYP = 'b'
 OBJ_TYP = 'o'
 STR_TYP = 's'
-COND_TYP = 'c'
 VAL_TYP = 'v' # either one of the earlier
 
-all_types = [INT_TYP, LIST_TYP, STR_TYP]
+all_types = [INT_TYP, LIST_TYP, STR_TYP] # TODO OBJ_TYP
+
+SHORT_TYP = 'h'
+BYTE_TYP = 'b'
+COND_TYP = 'c'
+IDX_TYP = 'x'
 
 
 def unique_code():
@@ -146,6 +148,27 @@ class CreateList(ByteCode):
         ctx.append_byte(self.BYTE_CODE)
         ctx.append_short(self.size)
 
+@requires_stack(LIST_TYP, IDX_TYP, INT_TYP) # TODO VAL_TYP
+@leaves_on_stack(LIST_TYP)
+class InsertList(ByteCode):
+    BYTE_CODE = unique_code()
+    def __init__(self):
+        pass
+
+@requires_stack(LIST_TYP, IDX_TYP)
+@leaves_on_stack(LIST_TYP)
+class DelList(ByteCode):
+    BYTE_CODE = unique_code()
+    def __init__(self):
+        pass
+
+@requires_stack(LIST_TYP, INT_TYP) # TODO VAL_TYP)
+@leaves_on_stack(LIST_TYP)
+class AppendList(ByteCode):
+    BYTE_CODE = unique_code()
+    def __init__(self):
+        pass
+
 
 # remove comment one by one!
 
@@ -176,33 +199,6 @@ class CreateList(ByteCode):
 #        pass
 #
 
-#@requires_stack(LIST_TYP, INT_TYP, INT_TYP) # TODO VAL_TYP
-#class InsertList(ByteCode):
-#    BYTE_CODE = unique_code()
-#    @requires_param(INT_TYP)
-#    def __init__(self, index):
-#        self.index = index
-#    def encode(self, ctx):
-#        ctx.append_byte(self.BYTE_CODE)
-#        ctx.append_int(self.index)
-#
-#@requires_stack(LIST_TYP, INT_TYP)
-#@leaves_on_stack(LIST_TYP)
-#class DelList(ByteCode):
-#    BYTE_CODE = unique_code()
-#    @requires_param(INT_TYP)
-#    def __init__(self, index):
-#        self.index = index
-#    def encode(self, ctx):
-#        ctx.append_byte(self.BYTE_CODE)
-#        ctx.append_int(self.index)
-#
-#@requires_stack(LIST_TYP, INT_TYP, INT_TYP) # TODO VAL_TYP)
-#class AppendList(ByteCode):
-#    BYTE_CODE = unique_code()
-#    def __init__(self):
-#        pass
-#
 #@requires_stack(LIST_TYP)
 #@leaves_on_stack(LIST_TYP, INT_TYP)
 #class LenList(ByteCode):
