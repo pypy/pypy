@@ -585,6 +585,21 @@ def build_unpack_func(mnemonic, func):
 def is_branch_relative(name):
     return name.startswith('BR') or name.endswith('J')
 
+def get_arg_types_of(mnemonic):
+    """ NOT_RPYTHON """
+    params = all_mnemonic_codes[mnemonic.split("_")[0]]
+    if len(params) == 2:
+        argtypes = None
+        (instrtype, args) = params
+    else:
+        (instrtype, args, argtypes) = params
+    builder = globals()['build_' + instrtype]
+    if argtypes:
+        func = builder(mnemonic, args, argtypes)
+    else:
+        func = builder(mnemonic, args)
+    return func._arguments_
+
 def build_instr_codes(clazz):
     for mnemonic, params in all_mnemonic_codes.items():
         argtypes = None

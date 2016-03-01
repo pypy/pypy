@@ -167,9 +167,8 @@ class TestZARCH(object):
     methname = '?'
 
     def get_func_arg_types(self, methodname):
-        from rpython.jit.backend.zarch.codebuilder import AbstractZARCHBuilder
-        func = getattr(AbstractZARCHBuilder, methodname)
-        return func._arguments_
+        from rpython.jit.backend.zarch.instruction_builder import get_arg_types_of
+        return get_arg_types_of(methodname)
 
     def operand_combinations(self, methodname, modes, arguments):
         mapping = {
