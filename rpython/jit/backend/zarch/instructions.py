@@ -182,6 +182,7 @@ memory_mnemonic_codes = {
     'STE':     ('rx',    ['\x70']),
     # note displacement is UNsigned 12 bit
     'STD':     ('rx',    ['\x60']),
+    # here it is 20 bit signed
     'STDY':    ('rxy',   ['\xED','\x67']),
 
     'SPM':     ('rr',    ['\x04'], 'r,-'),

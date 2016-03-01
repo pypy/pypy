@@ -803,6 +803,7 @@ class Regalloc(BaseRegalloc):
         # sure it is in a register different from r.RES and r.RSZ.  (It
         # should not be a ConstInt at all.)
         length_box = op.getarg(2)
+        assert not isinstance(length_box, Const)
         lengthloc = self.ensure_reg(length_box)
         return [lengthloc]
 

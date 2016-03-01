@@ -461,7 +461,45 @@ def build_ris(mnemonic, (opcode1,opcode2), argtypes='r,i8,r/m,bd'):
 
 def build_unpack_func(mnemonic, func):
     @always_inline
+    def check_arg_type(arg, type):
+        #iX     - immediate X bits (signed)
+        if type.startswith('i'):
+            value = arg.value
+            if type == 'i8': assert -2**7 <= value <= 2**7-1
+            if type == 'i12': assert -2**11 <= value <= 2**11-1
+            if type == 'i16': assert -2**15 <= value <= 2**15-1
+            if type == 'i20': assert -2**19 <= value <= 2**19-1
+            if type == 'i32': assert -2**31 <= value <= 2**31-1
+        #uX     - immediate X bits (unsigend)
+        if type.startswith('u'):
+            value = arg.value
+            if type == 'u8': assert  0 <= value <= 2**8-1
+            if type == 'u12': assert 0 <= value <= 2**12-1
+            if type == 'u16': assert 0 <= value <= 2**16-1
+            if type == 'u20': assert 0 <= value <= 2**20-1
+            if type == 'u32': assert 0 <= value <= 2**32-1
+        #bd     - base displacement (unsigned 12 bit)
+        #bid    - index base displacement (unsigned 12 bit)
+        if type == 'bd' or type == 'bid':
+            value = arg.displace
+            assert 0 <= value <= 2**12-1
+        #bdl    - base displacement long (20 bit)
+        #bidl   - index base displacement (20 bit)
+        if type == 'bdl' or type == 'bidl':
+            value = arg.displace
+            assert -2**19 <= value <= 2**19-1
+        #l4bd   - length base displacement (4 bit)
+        if type == 'l4db':
+            value = arg.displace
+            assert 0 <= value <= 2**4-1
+        #h32    - halfwords 32 bit (e.g. LARL, or other relative instr.)
+        if type == 'h32':
+            value = arg.value
+            assert -2**31 <= value <= 2**31-1
+            assert value & 0x1 == 0
+    @always_inline
     def unpack_arg(arg, argtype):
+        check_arg_type(arg, argtype)
         if argtype == '-':
             return 0
         elif argtype == 'r' or argtype == 'r/m' or \
@@ -565,3 +603,4 @@ def build_instr_codes(clazz):
         setattr(clazz, mnemonic, build_unpack_func(mnemonic, func))
         setattr(clazz, mnemonic + '_byte_count', func._byte_count)
         del func._byte_count
+        del func._arguments_

@@ -1369,6 +1369,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         assert lengthloc is not r.RES and lengthloc is not r.RSZ
         assert lengthloc.is_reg()
 
+        assert maxlength >= 0
         if maxlength > 2**16-1:
             maxlength = 2**16-1      # makes things easier
         mc = self.mc
