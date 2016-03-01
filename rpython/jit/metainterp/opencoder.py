@@ -58,7 +58,7 @@ class TraceIterator(object):
             box = self._get(self._next())
             assert box
             box_list.append(box)
-        op.rd_snapshot = resume.Snapshot(None, box_list)
+        op.rd_snapshot = resume.TopSnapshot(resume.Snapshot(None, box_list), [], [])
 
     def next(self):
         opnum = self._next()

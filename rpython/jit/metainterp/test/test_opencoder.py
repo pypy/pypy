@@ -49,11 +49,11 @@ class TestOpencoder(object):
         add = t.record_op(rop.INT_ADD, [i0, i1])
         t.record_op(rop.GUARD_FALSE, [add])
         # now we write rd_snapshot and friends
-        virtualizable_boxes = []
+        virtualizable_boxes = None
         virutalref_boxes = []
         framestack = [FakeFrame(1, JitCode(2), [i0, i1])]
         resume.capture_resumedata(framestack, virtualizable_boxes,
                                   virutalref_boxes, t)
         (i0, i1), l = self.unpack(t)
         assert l[1].opnum == rop.GUARD_FALSE
-        assert l[1].rd_snapshot.boxes == [i0, i1]
+        assert l[1].rd_snapshot.prev.boxes == [i0, i1]
