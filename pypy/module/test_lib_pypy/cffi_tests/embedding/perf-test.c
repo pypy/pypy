@@ -1,12 +1,10 @@
 #include <stdio.h>
 #include <assert.h>
-#include <string.h>
 #include <sys/time.h>
-#include <errno.h>
 #ifdef PTEST_USE_THREAD
 # include <pthread.h>
 # include <semaphore.h>
-sem_t *done;
+static sem_t done;
 #endif
 
 
@@ -56,7 +54,7 @@ static void *start_routine(void *arg)
     printf("time per call: %.3g\n", t);
 
 #ifdef PTEST_USE_THREAD
-    int status = sem_post(done);
+    int status = sem_post(&done);
     assert(status == 0);
 #endif
 
@@ -70,8 +68,8 @@ int main(void)
     start_routine(0);
 #else
     pthread_t th;
-    done = sem_open("perf-test", O_CREAT, 0777, 0);
-    int i, status;
+    int i, status = sem_init(&done, 0, 0);
+    assert(status == 0);
 
     add1(0, 0);   /* this is the main thread */
 
@@ -80,9 +78,7 @@ int main(void)
         assert(status == 0);
     }
     for (i = 0; i < PTEST_USE_THREAD; i++) {
-        status = sem_wait(done);
-        if (status)
-            fprintf(stderr, "%s\n", strerror(errno));
+        status = sem_wait(&done);
         assert(status == 0);
     }
 #endif
