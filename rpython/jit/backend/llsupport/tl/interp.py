@@ -63,8 +63,8 @@ def _read_consts_from_file(file):
     return consts
 
 def entry_point(argv):
-    bytecode = _read_bytecode_from_file(argv[0])
-    consts = _read_consts_from_file(argv[1])
+    bytecode = _read_bytecode_from_file(argv[1])
+    consts = _read_consts_from_file(argv[2])
     print(bytecode)
     print(consts)
     pc = 0
