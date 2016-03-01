@@ -336,14 +336,6 @@ def slot_tp_init(space, w_self, w_args, w_kwds):
     space.get_and_call_args(w_descr, w_self, args)
     return 0
 
-@cpython_api([PyObject], PyObject, header=None)
-def slot_tp_iter(space, w_self):
-    return space.iter(w_self)
-
-@cpython_api([PyObject], PyObject, header=None)
-def slot_tp_iternext(space, w_self):
-    return space.next(w_self)
-
 from rpython.rlib.nonconst import NonConstant
 
 SLOTS = {}
@@ -436,6 +428,33 @@ def build_slot_tp_function(space, typedef, name):
         def slot_tp_str(space, w_self):
             return space.call_function(str_fn, w_self)
         api_func = slot_tp_str.api_func
+
+    elif name == 'tp_iter':
+        iter_fn = w_type.getdictvalue(space, '__iter__')
+        if iter_fn is None:
+            return
+
+        @cpython_api([PyObject], PyObject, header=header)
+        @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
+        def slot_tp_iter(space, w_self):
+            return space.call_function(iter_fn, w_self)
+        api_func = slot_tp_iter.api_func
+
+    elif name == 'tp_iternext':
+        iternext_fn = w_type.getdictvalue(space, 'next')
+        if iternext_fn is None:
+            return
+
+        @cpython_api([PyObject], PyObject, header=header)
+        @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
+        def slot_tp_iternext(space, w_self):
+            try:
+                return space.call_function(iternext_fn, w_self)
+            except OperationError, e:
+                if not e.match(space, space.w_StopIteration):
+                    raise
+                return None
+        api_func = slot_tp_iternext.api_func
 
     else:
         return

@@ -645,32 +645,49 @@ class AppTestSlots(AppTestCpythonExtensionBase):
 
     def test_tp_iter(self):
         module = self.import_extension('foo', [
-           ("tp_iter", "METH_O",
+           ("tp_iter", "METH_VARARGS",
             '''
-                 if (!args->ob_type->tp_iter)
+                 PyTypeObject *type = (PyTypeObject *)PyTuple_GET_ITEM(args, 0);
+                 PyObject *obj = PyTuple_GET_ITEM(args, 1);
+                 if (!type->tp_iter)
                  {
                      PyErr_SetNone(PyExc_ValueError);
                      return NULL;
                  }
-                 return args->ob_type->tp_iter(args);
+                 return type->tp_iter(obj);
              '''
              ),
-           ("tp_iternext", "METH_O",
+           ("tp_iternext", "METH_VARARGS",
             '''
-                 if (!args->ob_type->tp_iternext)
+                 PyTypeObject *type = (PyTypeObject *)PyTuple_GET_ITEM(args, 0);
+                 PyObject *obj = PyTuple_GET_ITEM(args, 1);
+                 PyObject *result;
+                 if (!type->tp_iternext)
                  {
                      PyErr_SetNone(PyExc_ValueError);
                      return NULL;
                  }
-                 return args->ob_type->tp_iternext(args);
+                 result = type->tp_iternext(obj);
+                 if (!result && !PyErr_Occurred())
+                     result = PyString_FromString("stop!");
+                 return result;
              '''
              )
             ])
         l = [1]
-        it = module.tp_iter(l)
+        it = module.tp_iter(list, l)
         assert type(it) is type(iter([]))
-        assert module.tp_iternext(it) == 1
-        raises(StopIteration, module.tp_iternext, it)
+        assert module.tp_iternext(type(it), it) == 1
+        assert module.tp_iternext(type(it), it) == "stop!"
+        #
+        class LL(list):
+            def __iter__(self):
+                return iter(())
+        ll = LL([1])
+        it = module.tp_iter(list, ll)
+        assert type(it) is type(iter([]))
+        x = list(it)
+        assert x == [1]
 
     def test_bool(self):
         module = self.import_extension('foo', [
