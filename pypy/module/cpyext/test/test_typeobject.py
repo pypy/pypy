@@ -526,21 +526,28 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
             ("tp_call", "METH_VARARGS",
              '''
-                 PyObject *obj = PyTuple_GET_ITEM(args, 0);
-                 PyObject *c_args = PyTuple_GET_ITEM(args, 1);
-                 if (!obj->ob_type->tp_call)
+                 PyTypeObject *type = (PyTypeObject *)PyTuple_GET_ITEM(args, 0);
+                 PyObject *obj = PyTuple_GET_ITEM(args, 1);
+                 PyObject *c_args = PyTuple_GET_ITEM(args, 2);
+                 if (!type->tp_call)
                  {
                      PyErr_SetNone(PyExc_ValueError);
                      return NULL;
                  }
-                 return obj->ob_type->tp_call(obj, c_args, NULL);
+                 return type->tp_call(obj, c_args, NULL);
              '''
              )
             ])
         class C:
             def __call__(self, *args):
                 return args
-        assert module.tp_call(C(), ('x', 2)) == ('x', 2)
+        assert module.tp_call(type(C()), C(), ('x', 2)) == ('x', 2)
+        class D(type):
+            def __call__(self, *args):
+                return "foo! %r" % (args,)
+        typ1 = D('d', (), {})
+        #assert module.tp_call(D, typ1, ()) == "foo! ()" XXX not working so far
+        assert isinstance(module.tp_call(type, typ1, ()), typ1)
 
     def test_tp_str(self):
         module = self.import_extension('foo', [

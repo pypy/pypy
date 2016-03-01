@@ -336,10 +336,6 @@ def slot_tp_init(space, w_self, w_args, w_kwds):
     space.get_and_call_args(w_descr, w_self, args)
     return 0
 
-@cpython_api([PyObject, PyObject, PyObject], PyObject, header=None)
-def slot_tp_call(space, w_self, w_args, w_kwds):
-    return space.call(w_self, w_args, w_kwds)
-
 @cpython_api([PyObject], PyObject, header=None)
 def slot_tp_str(space, w_self):
     return space.str(w_self)
@@ -402,6 +398,7 @@ def build_slot_tp_function(space, typedef, name):
         def slot_tp_getattro(space, w_self, w_name):
             return space.call_function(getattr_fn, w_self, w_name)
         api_func = slot_tp_getattro.api_func
+
     elif name == 'tp_as_number.c_nb_float':
         float_fn = w_type.getdictvalue(space, '__float__')
         if float_fn is None:
@@ -412,6 +409,20 @@ def build_slot_tp_function(space, typedef, name):
         def slot_nb_float(space, w_self):
             return space.call_function(float_fn, w_self)
         api_func = slot_nb_float.api_func
+
+    elif name == 'tp_call':
+        call_fn = w_type.getdictvalue(space, '__call__')
+        if call_fn is None:
+            return
+
+        @cpython_api([PyObject, PyObject, PyObject], PyObject, header=header)
+        @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
+        def slot_tp_call(space, w_self, w_args, w_kwds):
+            args = Arguments(space, [w_self],
+                             w_stararg=w_args, w_starstararg=w_kwds)
+            return space.call_args(call_fn, args)
+        api_func = slot_tp_call.api_func
+
     else:
         return
 
