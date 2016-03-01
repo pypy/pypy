@@ -489,8 +489,11 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         class F(float):
             def __int__(self):
                 return 666
-        skip("XXX fix issue 2248 first")
-        assert module.nb_int(float, F(-12.3)) == -12
+        # as long as issue 2248 is not fixed, 'expected' is 666 on pypy,
+        # but it should be -12.  This test is not concerned about that,
+        # but only about getting the same answer with module.nb_int().
+        expected = float.__int__(F(-12.3))
+        assert module.nb_int(float, F(-12.3)) == expected
 
     def test_nb_float(self):
         module = self.import_extension('foo', [
