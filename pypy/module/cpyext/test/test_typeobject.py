@@ -559,6 +559,35 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         #assert module.tp_call(D, typ1, ()) == "foo! ()" XXX not working so far
         assert isinstance(module.tp_call(type, typ1, ()), typ1)
 
+    def test_tp_init(self):
+        module = self.import_extension('foo', [
+            ("tp_init", "METH_VARARGS",
+             '''
+                 PyTypeObject *type = (PyTypeObject *)PyTuple_GET_ITEM(args, 0);
+                 PyObject *obj = PyTuple_GET_ITEM(args, 1);
+                 PyObject *c_args = PyTuple_GET_ITEM(args, 2);
+                 if (!type->tp_init)
+                 {
+                     PyErr_SetNone(PyExc_ValueError);
+                     return NULL;
+                 }
+                 if (type->tp_init(obj, c_args, NULL) < 0)
+                     return NULL;
+                 Py_INCREF(Py_None);
+                 return Py_None;
+             '''
+             )
+            ])
+        x = [42]
+        assert module.tp_init(list, x, ("hi",)) is None
+        assert x == ["h", "i"]
+        class LL(list):
+            def __init__(self, *ignored):
+                raise Exception
+        x = LL.__new__(LL)
+        assert module.tp_init(list, x, ("hi",)) is None
+        assert x == ["h", "i"]
+
     def test_tp_str(self):
         module = self.import_extension('foo', [
            ("tp_str", "METH_VARARGS",

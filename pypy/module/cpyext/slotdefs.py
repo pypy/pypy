@@ -329,13 +329,6 @@ def slot_tp_new(space, type, w_args, w_kwds):
     w_args_new = space.newtuple(args_w)
     return space.call(w_func, w_args_new, w_kwds)
 
-@cpython_api([PyObject, PyObject, PyObject], rffi.INT_real, error=-1, header=None)
-def slot_tp_init(space, w_self, w_args, w_kwds):
-    w_descr = space.lookup(w_self, '__init__')
-    args = Arguments.frompacked(space, w_args, w_kwds)
-    space.get_and_call_args(w_descr, w_self, args)
-    return 0
-
 from rpython.rlib.nonconst import NonConstant
 
 SLOTS = {}
@@ -455,6 +448,21 @@ def build_slot_tp_function(space, typedef, name):
                     raise
                 return None
         api_func = slot_tp_iternext.api_func
+
+    elif name == 'tp_init':
+        init_fn = w_type.getdictvalue(space, '__init__')
+        if init_fn is None:
+            return
+
+        @cpython_api([PyObject, PyObject, PyObject], rffi.INT_real, error=-1,
+                     header=header)
+        @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
+        def slot_tp_init(space, w_self, w_args, w_kwds):
+            args = Arguments(space, [w_self],
+                             w_stararg=w_args, w_starstararg=w_kwds)
+            space.call_args(init_fn, args)
+            return 0
+        api_func = slot_tp_init.api_func
 
     else:
         return
