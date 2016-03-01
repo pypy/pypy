@@ -469,21 +469,28 @@ class AppTestSlots(AppTestCpythonExtensionBase):
 
     def test_nb_int(self):
         module = self.import_extension('foo', [
-            ("nb_int", "METH_O",
+            ("nb_int", "METH_VARARGS",
              '''
-                 if (!args->ob_type->tp_as_number ||
-                     !args->ob_type->tp_as_number->nb_int)
+                 PyTypeObject *type = (PyTypeObject *)PyTuple_GET_ITEM(args, 0);
+                 PyObject *obj = PyTuple_GET_ITEM(args, 1);
+                 if (!type->tp_as_number ||
+                     !type->tp_as_number->nb_int)
                  {
                      PyErr_SetNone(PyExc_ValueError);
                      return NULL;
                  }
-                 return args->ob_type->tp_as_number->nb_int(args);
+                 return type->tp_as_number->nb_int(obj);
              '''
              )
             ])
-        assert module.nb_int(10) == 10
-        assert module.nb_int(-12.3) == -12
-        raises(ValueError, module.nb_int, "123")
+        assert module.nb_int(int, 10) == 10
+        assert module.nb_int(float, -12.3) == -12
+        raises(ValueError, module.nb_int, str, "123")
+        class F(float):
+            def __int__(self):
+                return 666
+        skip("XXX fix issue 2248 first")
+        assert module.nb_int(float, F(-12.3)) == -12
 
     def test_nb_float(self):
         module = self.import_extension('foo', [
