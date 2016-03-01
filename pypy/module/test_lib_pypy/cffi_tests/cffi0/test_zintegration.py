@@ -12,7 +12,7 @@ if sys.version_info < (2, 7):
 def create_venv(name):
     tmpdir = udir.join(name)
     try:
-        subprocess.check_call(['virtualenv', '--distribute',
+        subprocess.check_call(['virtualenv', '--never-download',
                                '-p', os.path.abspath(sys.executable),
                                str(tmpdir)])
     except OSError as e:

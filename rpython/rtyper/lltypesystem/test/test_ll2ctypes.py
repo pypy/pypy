@@ -11,12 +11,12 @@ from rpython.rtyper.lltypesystem.ll2ctypes import cast_adr_to_int, get_ctypes_ty
 from rpython.rtyper.lltypesystem.ll2ctypes import _llgcopaque
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib import rposix
+from rpython.rlib.rposix import UNDERSCORE_ON_WIN32
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator import cdir
 from rpython.tool.udir import udir
 from rpython.rtyper.test.test_llinterp import interpret
 from rpython.annotator.annrpython import RPythonAnnotator
-from rpython.rtyper.module.support import UNDERSCORE_ON_WIN32
 from rpython.rtyper.rtyper import RPythonTyper
 from rpython.rlib.rarithmetic import r_uint, get_long_pattern, is_emulated_long
 from rpython.rlib.rarithmetic import is_valid_int
@@ -1461,3 +1461,20 @@ class TestPlatform(object):
         assert a[3].a == 17
         #lltype.free(a, flavor='raw')
         py.test.skip("free() not working correctly here...")
+
+    def test_fixedsizedarray_to_ctypes(self):
+        T = lltype.Ptr(rffi.CFixedArray(rffi.INT, 1))
+        inst = lltype.malloc(T.TO, flavor='raw')
+        inst[0] = rffi.cast(rffi.INT, 42)
+        assert inst[0] == 42
+        cinst = lltype2ctypes(inst)
+        assert rffi.cast(lltype.Signed, inst[0]) == 42
+        assert cinst.contents.item0 == 42
+        lltype.free(inst, flavor='raw')
+
+    def test_fixedsizedarray_to_ctypes(self):
+        T = lltype.Ptr(rffi.CFixedArray(rffi.CHAR, 123))
+        inst = lltype.malloc(T.TO, flavor='raw', zero=True)
+        cinst = lltype2ctypes(inst)
+        assert cinst.contents.item0 == 0
+        lltype.free(inst, flavor='raw')

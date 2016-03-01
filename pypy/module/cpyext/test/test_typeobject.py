@@ -744,3 +744,25 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         module = self.import_module(name='foo3')
         print('calling module.Type()...')
         module.Type("X", (object,), {})
+
+    def test_app_subclass_of_c_type(self):
+        module = self.import_module(name='foo')
+        size = module.size_of_instances(module.fooType)
+        class f1(object):
+            pass
+        class f2(module.fooType):
+            pass
+        class bar(f1, f2):
+            pass
+        assert bar.__base__ is f2
+        assert module.size_of_instances(bar) == size
+
+    def test_app_cant_subclass_two_types(self):
+        module = self.import_module(name='foo')
+        try:
+            class bar(module.fooType, module.Property):
+                pass
+        except TypeError as e:
+            assert str(e) == 'instance layout conflicts in multiple inheritance'
+        else:
+            raise AssertionError("did not get TypeError!")

@@ -1358,6 +1358,17 @@ class MIFrame(object):
         self.metainterp.attach_debug_info(op)
 
     @arguments("box")
+    def opimpl_jit_enter_portal_frame(self, uniqueidbox):
+        unique_id = uniqueidbox.getint()
+        jd_no = self.metainterp.jitdriver_sd.mainjitcode.index # fish
+        self.metainterp.enter_portal_frame(jd_no, unique_id)
+
+    @arguments()
+    def opimpl_jit_leave_portal_frame(self):
+        jd_no = self.metainterp.jitdriver_sd.mainjitcode.index # fish
+        self.metainterp.leave_portal_frame(jd_no)
+
+    @arguments("box")
     def _opimpl_assert_green(self, box):
         if not isinstance(box, Const):
             msg = "assert_green failed at %s:%d" % (

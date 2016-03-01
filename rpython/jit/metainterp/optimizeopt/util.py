@@ -7,8 +7,7 @@ from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.jit.metainterp import resoperation
 from rpython.rlib.debug import make_sure_not_resized
-from rpython.jit.metainterp.resoperation import rop, OpHelpers
-from rpython.jit.metainterp.resume import Snapshot, AccumInfo
+from rpython.jit.metainterp.resoperation import rop
 
 # ____________________________________________________________
 # Misc. utilities

@@ -6,8 +6,8 @@ import sys
 from rpython.translator import cdir
 from rpython.rlib import jit, rposix
 from rpython.rlib.rfloat import INFINITY, NAN, isfinite, isinf, isnan
+from rpython.rlib.rposix import UNDERSCORE_ON_WIN32
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rtyper.module.support import UNDERSCORE_ON_WIN32
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import platform

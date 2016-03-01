@@ -5,14 +5,15 @@ from pypy.tool.pytest.objspace import gettestobjspace
 class AppTestVMProf(object):
     def setup_class(cls):
         cls.space = gettestobjspace(usemodules=['_vmprof', 'struct'])
-        cls.tmpfile = udir.join('test__vmprof.1').open('wb')
-        cls.w_tmpfileno = cls.space.wrap(cls.tmpfile.fileno())
-        cls.w_tmpfilename = cls.space.wrap(cls.tmpfile.name)
-        cls.tmpfile2 = udir.join('test__vmprof.2').open('wb')
-        cls.w_tmpfileno2 = cls.space.wrap(cls.tmpfile2.fileno())
-        cls.w_tmpfilename2 = cls.space.wrap(cls.tmpfile2.name)
+        cls.w_tmpfilename = cls.space.wrap(str(udir.join('test__vmprof.1')))
+        cls.w_tmpfilename2 = cls.space.wrap(str(udir.join('test__vmprof.2')))
 
     def test_import_vmprof(self):
+        tmpfile = open(self.tmpfilename, 'wb')
+        tmpfileno = tmpfile.fileno()
+        tmpfile2 = open(self.tmpfilename2, 'wb')
+        tmpfileno2 = tmpfile2.fileno()
+
         import struct, sys
 
         WORD = struct.calcsize('l')
@@ -45,7 +46,7 @@ class AppTestVMProf(object):
             return count
         
         import _vmprof
-        _vmprof.enable(self.tmpfileno, 0.01)
+        _vmprof.enable(tmpfileno, 0.01)
         _vmprof.disable()
         s = open(self.tmpfilename, 'rb').read()
         no_of_codes = count(s)
@@ -56,7 +57,7 @@ class AppTestVMProf(object):
             pass
         """ in d
 
-        _vmprof.enable(self.tmpfileno2, 0.01)
+        _vmprof.enable(tmpfileno2, 0.01)
 
         exec """def foo2():
             pass

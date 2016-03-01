@@ -29,7 +29,7 @@ def test_store_final_boxes_in_guard():
     # setup rd data
     fi0 = resume.FrameInfo(None, FakeJitCode(), 11)
     snapshot0 = resume.Snapshot(None, [b0])
-    op.rd_snapshot = resume.Snapshot(snapshot0, [b1])
+    op.rd_snapshot = resume.TopSnapshot(snapshot0, [], [b1])
     op.rd_frame_info_list = resume.FrameInfo(fi0, FakeJitCode(), 33)
     #
     opt.store_final_boxes_in_guard(op, [])

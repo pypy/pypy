@@ -1199,6 +1199,31 @@ class BasicTests:
                        (-sys.maxint-1) // (-6) +
                        100 * 8)
 
+    def test_overflow_fold_if_divisor_constant(self):
+        import sys
+        from rpython.rtyper.lltypesystem.lloperation import llop
+        myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'res'])
+        def f(x, y):
+            res = 0
+            while y > 0:
+                myjitdriver.can_enter_jit(x=x, y=y, res=res)
+                myjitdriver.jit_merge_point(x=x, y=y, res=res)
+                try:
+                    res += llop.int_floordiv_ovf(lltype.Signed,
+                                                 x, 2)
+                    res += llop.int_mod_ovf(lltype.Signed,
+                                                 x, 2)
+                    x += 5
+                except OverflowError:
+                    res += 100
+                y -= 1
+            return res
+        res = self.meta_interp(f, [-41, 8])
+        # the guard_true are for the loop condition
+        # the guard_false needed to check whether an overflow can occur have
+        # been folded away
+        self.check_resops(guard_true=2, guard_false=0)
+
     def test_isinstance(self):
         class A:
             pass
