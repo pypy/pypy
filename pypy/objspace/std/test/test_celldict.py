@@ -109,21 +109,9 @@ class AppTestModuleDict(object):
 class TestModuleDictImplementation(BaseTestRDictImplementation):
     StrategyClass = ModuleDictStrategy
 
-class TestModuleDictImplementationWithBuiltinNames(BaseTestRDictImplementation):
-    StrategyClass = ModuleDictStrategy
-
-    string = "int"
-    string2 = "isinstance"
-
 
 class TestDevolvedModuleDictImplementation(BaseTestDevolvedDictImplementation):
     StrategyClass = ModuleDictStrategy
-
-class TestDevolvedModuleDictImplementationWithBuiltinNames(BaseTestDevolvedDictImplementation):
-    StrategyClass = ModuleDictStrategy
-
-    string = "int"
-    string2 = "isinstance"
 
 
 class AppTestCellDict(object):
