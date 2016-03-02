@@ -13,7 +13,7 @@ from rpython.rlib.objectmodel import r_dict
 from rpython.rlib.rarithmetic import r_int, r_uint, r_longlong, r_ulonglong
 
 import py
-from hypothesis import given, settings
+from hypothesis import settings
 from hypothesis.strategies import (
     builds, sampled_from, binary, just, integers, text, characters, tuples)
 from hypothesis.stateful import GenericStateMachine, run_state_machine_as_test
@@ -1145,14 +1145,19 @@ class TestRDict(BaseTestRDict):
         assert sorted(DICT.TO.entries.TO.OF._flds) == ['f_hash', 'key', 'value']
 
 
-
 class Action(object):
+    def __init__(self, method, args):
+        self.method = method
+        self.args = args
+
+    def execute(self, space):
+        getattr(space, self.method)(*self.args)
+
     def __repr__(self):
-        return "%s()" % self.__class__.__name__
+        return "space.%s(%s)" % (self.method, ', '.join(map(repr, self.args)))
 
 class PseudoRTyper:
     cache_dummy_values = {}
-
 
 # XXX: None keys crash the test, but translation sort-of allows it
 keytypes_s = [
@@ -1204,53 +1209,27 @@ class Space(object):
             assert (rdict.ll_dict_getitem(self.l_dict, self.ll_key(key)) ==
                 self.ll_value(value))
 
-class SetItem(Action):
-    def __init__(self, key, value):
-        self.key = key
-        self.value = value
-
-    def __repr__(self):
-        return 'SetItem(%r, %r)' % (self.key, self.value)
-
-    def execute(self, space):
-        space.setitem(self.key, self.value)
-
-class DelItem(Action):
-    def __init__(self, key):
-        self.key = key
-
-    def __repr__(self):
-        return 'DelItem(%r)' % (self.key)
-
-    def execute(self, space):
-        space.delitem(self.key)
-
-class CopyDict(Action):
-    def execute(self, space):
-        space.copydict()
-
-class ClearDict(Action):
-    def execute(self, space):
-        space.cleardict()
-
 class StressTest(GenericStateMachine):
     def __init__(self):
         self.space = None
 
     def st_setitem(self):
-        return builds(SetItem, self.st_keys, self.st_values)
+        return builds(Action,
+            just('setitem'), tuples(self.st_keys, self.st_values))
 
     def st_updateitem(self):
-        return builds(SetItem, sampled_from(self.space.reference),
-            self.st_values)
+        return builds(Action,
+            just('setitem'),
+            tuples(sampled_from(self.space.reference), self.st_values))
 
     def st_delitem(self):
-        return builds(DelItem, sampled_from(self.space.reference))
+        return builds(Action,
+            just('delitem'), tuples(sampled_from(self.space.reference)))
 
     def steps(self):
         if not self.space:
-            return builds(Space, st_keys, st_values)
-        global_actions = [CopyDict(), ClearDict()]
+            return builds(Action, just('setup'), tuples(st_keys, st_values))
+        global_actions = [Action('copydict', ()), Action('cleardict', ())]
         if self.space.reference:
             return (
                 self.st_setitem() | sampled_from(global_actions) |
@@ -1259,8 +1238,8 @@ class StressTest(GenericStateMachine):
             return (self.st_setitem() | sampled_from(global_actions))
 
     def execute_step(self, action):
-        if isinstance(action, Space):
-            self.space = action
+        if action.method == 'setup':
+            self.space = Space(*action.args)
             self.st_keys = ann2strategy(self.space.s_key)
             self.st_values = ann2strategy(self.space.s_value)
             return
