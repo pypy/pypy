@@ -8,7 +8,7 @@ from pypy.module.cpyext.api import (
 from pypy.module.cpyext.pyerrors import PyErr_BadArgument
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, Py_DecRef, make_ref, from_ref, track_reference,
-    make_typedescr, get_typedescr)
+    make_typedescr, get_typedescr, as_pyobj)
 from pypy.module.cpyext.stringobject import PyString_Check
 from pypy.module.sys.interp_encoding import setdefaultencoding
 from pypy.module._codecs.interp_codecs import CodecState
@@ -59,14 +59,14 @@ def unicode_alloc(space, w_type, length):
     py_uni.c_ob_refcnt = 1
     py_uni.c_ob_type = pytype
     if length > 0:
-        py_uni.c_str = lltype.malloc(rffi.CCHARP.TO, length+1,
+        py_uni.c_str = lltype.malloc(rffi.CWCHARP.TO, length+1,
                                         flavor='raw', zero=True)
-        py_str.c_length = length
+        py_uni.c_length = length
         s = rffi.wcharpsize2unicode(py_uni.c_str, py_uni.c_length)
         w_obj = space.wrap(s)
-        py_str.c_ob_shash = space.hash_w(w_obj)
-        track_reference(space, rffi.cast(PyObject, py_str), w_obj)
-    return rffi.cast(PyObject, py_str)
+        py_uni.c_hash = space.hash_w(w_obj)
+        track_reference(space, rffi.cast(PyObject, py_uni), w_obj)
+    return rffi.cast(PyObject, py_uni)
 
 def new_empty_unicode(space, length):
     """
