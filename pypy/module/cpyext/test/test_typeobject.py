@@ -865,7 +865,6 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         assert (d + a) == 5
 
     def test_tp_new_in_subclass_of_type(self):
-        skip("BROKEN")
         module = self.import_module(name='foo3')
         print('calling module.Type()...')
         module.Type("X", (object,), {})

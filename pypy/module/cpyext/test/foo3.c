@@ -59,11 +59,14 @@ PyTypeObject Foo3Type_Type = {
 
 static PyMethodDef sbkMethods[] = {{NULL, NULL, 0, NULL}};
 
-#ifdef _WIN32
-	__declspec(dllexport) void		// PyModINIT_FUNC is broken on PyPy/Windows
+/* Initialize this module. */
+#ifdef __GNUC__
+extern __attribute__((visibility("default")))
 #else
-	PyMODINIT_FUNC
+extern __declspec(dllexport)
 #endif
+
+PyMODINIT_FUNC
 initfoo3(void)
 {
 	PyObject* mod = Py_InitModule("Foo3", sbkMethods);
