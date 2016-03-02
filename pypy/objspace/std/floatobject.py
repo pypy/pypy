@@ -159,17 +159,6 @@ class W_FloatObject(W_Root):
     def _float_w(self, space):
         return self.floatval
 
-    def int(self, space):
-        if (type(self) is not W_FloatObject and
-            space.is_overloaded(self, space.w_float, '__int__')):
-            return W_Root.int(self, space)
-        try:
-            value = ovfcheck_float_to_int(self.floatval)
-        except OverflowError:
-            return space.long(self)
-        else:
-            return space.newint(value)
-
     def is_w(self, space, w_other):
         from rpython.rlib.longlong2float import float2longlong
         if not isinstance(w_other, W_FloatObject):
