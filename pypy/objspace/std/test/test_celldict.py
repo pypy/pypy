@@ -108,10 +108,11 @@ class AppTestModuleDict(object):
 
 class TestModuleDictImplementation(BaseTestRDictImplementation):
     StrategyClass = ModuleDictStrategy
-
+    setdefault_hash_count = 2
 
 class TestDevolvedModuleDictImplementation(BaseTestDevolvedDictImplementation):
     StrategyClass = ModuleDictStrategy
+    setdefault_hash_count = 2
 
 
 class AppTestCellDict(object):
