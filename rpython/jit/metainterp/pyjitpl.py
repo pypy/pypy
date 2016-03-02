@@ -70,8 +70,7 @@ class MIFrame(object):
         self.copy_constants(self.registers_f, jitcode.constants_f, ConstFloat)
         self._result_argcode = 'v'
         # for resume.py operation
-        self.parent_resumedata_snapshot = None
-        self.parent_resumedata_frame_info_list = None
+        self.parent_resumedata_position = -1
         # counter for unrolling inlined loops
         self.unroll_iterations = 1
 
@@ -2061,7 +2060,8 @@ class MetaInterp(object):
         else:
             guard_op = self.history.record(opnum, moreargs, None)            
         assert isinstance(guard_op, GuardResOp)
-        self.capture_resumedata(resumepc) # <- records extra to history
+        self.capture_resumedata(resumepc)
+        # ^^^ records extra to history
         self.staticdata.profiler.count_ops(opnum, Counters.GUARDS)
         # count
         self.attach_debug_info(guard_op)

@@ -11,14 +11,14 @@ class TestOpencoder(object):
         l = []
         while not iter.done():
             l.append(iter.next())
-        return iter.inputargs, l
+        return iter.inputargs, l, iter
 
     def test_simple_iterator(self):
         i0, i1 = InputArgInt(), InputArgInt()
         t = Trace([i0, i1])
         add = t.record_op(rop.INT_ADD, [i0, i1])
         t.record_op(rop.INT_ADD, [add, ConstInt(1)])
-        (i0, i1), l = self.unpack(t)
+        (i0, i1), l, _ = self.unpack(t)
         assert len(l) == 2
         assert l[0].opnum == rop.INT_ADD
         assert l[1].opnum == rop.INT_ADD
@@ -27,14 +27,26 @@ class TestOpencoder(object):
         assert l[0].getarg(0) is i0
         assert l[0].getarg(1) is i1
 
+    def unpack_snapshot(self, t, pos):
+        trace = t.trace
+        first = trace._ops[pos] # this is the size
+        pos += 1
+        boxes = []
+        while first > pos + 1:
+            snapshot_size = trace._ops[pos]
+            # 2 for jitcode and pc
+            pos += 1 + 2
+            boxes += [t._get(trace._ops[i + pos]) for i in range(snapshot_size)]
+            pos += len(boxes)
+        return boxes
+
     def test_rd_snapshot(self):
         class JitCode(object):
             def __init__(self, index):
                 self.index = index
 
         class FakeFrame(object):
-            parent_resumedata_frame_info_list = None
-            parent_resumedata_snapshot = None
+            parent_resumedata_position = -1
 
             def __init__(self, pc, jitcode, boxes):
                 self.pc = pc
@@ -49,11 +61,20 @@ class TestOpencoder(object):
         add = t.record_op(rop.INT_ADD, [i0, i1])
         t.record_op(rop.GUARD_FALSE, [add])
         # now we write rd_snapshot and friends
-        virtualizable_boxes = None
-        virutalref_boxes = []
-        framestack = [FakeFrame(1, JitCode(2), [i0, i1])]
-        resume.capture_resumedata(framestack, virtualizable_boxes,
-                                  virutalref_boxes, t)
-        (i0, i1), l = self.unpack(t)
+        frame0 = FakeFrame(1, JitCode(2), [i0, i1])
+        frame1 = FakeFrame(3, JitCode(4), [i0, i0, add])
+        framestack = [frame0]
+        resume.capture_resumedata(framestack, None, [], t)
+        (i0, i1), l, iter = self.unpack(t)
         assert l[1].opnum == rop.GUARD_FALSE
-        assert l[1].rd_snapshot.prev.boxes == [i0, i1]
+        boxes = self.unpack_snapshot(iter, l[1].rd_snapshot_position)
+        assert boxes == [i0, i1]
+        t.record_op(rop.GUARD_FALSE, [add])
+        resume.capture_resumedata([frame0, frame1], None, [], t)
+        (i0, i1), l, iter = self.unpack(t)
+        assert l[1].opnum == rop.GUARD_FALSE
+        boxes = self.unpack_snapshot(iter, l[1].rd_snapshot_position)
+        assert boxes == [i0, i1]
+        assert l[2].opnum == rop.GUARD_FALSE
+        boxes = self.unpack_snapshot(iter, l[2].rd_snapshot_position)
+        assert boxes == [i0, i0, l[0], i0, i1]

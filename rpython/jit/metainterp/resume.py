@@ -112,23 +112,20 @@ class AccumInfo(VectorInfo):
                                               self.variable,
                                               self.location)
 
-def _ensure_parent_resumedata(framestack, n):
-    target = framestack[n]
+def _ensure_parent_resumedata(framestack, n, t):
     if n == 0:
         return
+    target = framestack[n]
     back = framestack[n - 1]
-    if target.parent_resumedata_frame_info_list is not None:
-        _, pc = unpack_uint(target.parent_resumedata_frame_info_list.packed_jitcode_pc)
-        assert pc == back.pc
+    if target.parent_resumedata_position != -1:
+        t.check_snapshot_jitcode_pc(back.jitcode, back.pc,
+            target.parent_resumedata_position)
+        t.record_snapshot_link(target.parent_resumedata_position)
         return
-    _ensure_parent_resumedata(framestack, n - 1)
-    target.parent_resumedata_frame_info_list = FrameInfo(
-                                         back.parent_resumedata_frame_info_list,
-                                         back.jitcode,
-                                         back.pc)
-    target.parent_resumedata_snapshot = Snapshot(
-                                         back.parent_resumedata_snapshot,
-                                         back.get_list_of_active_boxes(True))
+    pos = t.record_snapshot(back.jitcode, back.pc,
+                            back.get_list_of_active_boxes(True))
+    _ensure_parent_resumedata(framestack, n - 1, t)
+    target.parent_resumedata_position = pos
 
 def capture_resumedata(framestack, virtualizable_boxes, virtualref_boxes, t):
     n = len(framestack) - 1
@@ -140,16 +137,11 @@ def capture_resumedata(framestack, virtualizable_boxes, virtualref_boxes, t):
     virtualref_boxes = virtualref_boxes[:]
     if n >= 0:
         top = framestack[n]
+        pos = t.get_patchable_position()
         t.record_snapshot(top.jitcode, top.pc,
                           top.get_list_of_active_boxes(False))
-        #_ensure_parent_resumedata(framestack, n)
-        #frame_info_list = FrameInfo(top.parent_resumedata_frame_info_list,
-        #                            top.jitcode, top.pc)
-        #snapshot_storage.rd_frame_info_list = frame_info_list
-        #snapshot = Snapshot(top.parent_resumedata_snapshot,
-        #                    top.get_list_of_active_boxes(False))
-        #snapshot = TopSnapshot(snapshot, virtualref_boxes, virtualizable_boxes)
-        #snapshot_storage.rd_snapshot = snapshot
+        _ensure_parent_resumedata(framestack, n, t)
+        t.patch_position_to_current(pos)
     else:
         yyy
         snapshot_storage.rd_frame_info_list = None

@@ -502,13 +502,10 @@ class BaseTest(object):
         return self.oparse.parse()
 
     def postprocess(self, op):
-        class FakeJitCode(object):
-            index = 0
-
         if OpHelpers.is_guard(op.getopnum()):
-            op.rd_snapshot = resume.TopSnapshot(None,
+            op.rd_snapshot = resume.TopSnapshot(
                 resume.Snapshot(None, op.getfailargs()), [], [])
-            op.rd_frame_info_list = resume.FrameInfo(None, FakeJitCode(), 11)
+            op.rd_frame_info_list = resume.FrameInfo(None, 0, 11)
 
     def add_guard_future_condition(self, res):
         # invent a GUARD_FUTURE_CONDITION to not have to change all tests

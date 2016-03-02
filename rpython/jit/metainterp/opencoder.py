@@ -5,11 +5,15 @@ from rpython.jit.metainterp.resoperation import AbstractResOp, AbstractInputArg,
     ResOperation, oparity, opname, rop, ResOperation, opwithdescr
 from rpython.rlib.rarithmetic import intmask
 from rpython.jit.metainterp import resume
+from rpython.rlib.objectmodel import we_are_translated
 
 TAGINT, TAGCONST, TAGBOX = range(3)
 TAGMASK = 0x3
 TAGSHIFT = 2
 MAXINT = 65536
+
+class Sentinel(object):
+    pass
 
 class TraceIterator(object):
     def __init__(self, trace, end):
@@ -47,18 +51,10 @@ class TraceIterator(object):
         else:
             yyyy
 
-    def read_resume(self, op):
-        jc_index = self._next()
-        pc = self._next()
-        f = resume.FrameInfo(None, jc_index, pc)
-        op.rd_frame_info_list = f
-        lgt = self._next()
-        box_list = []
-        for i in range(lgt):
-            box = self._get(self._next())
-            assert box
-            box_list.append(box)
-        op.rd_snapshot = resume.TopSnapshot(resume.Snapshot(None, box_list), [], [])
+    def skip_resume_data(self):
+        pos = self.pos
+        self.pos = self._next()
+        return pos
 
     def next(self):
         opnum = self._next()
@@ -79,7 +75,7 @@ class TraceIterator(object):
             descr = None
         res = ResOperation(opnum, args, -1, descr=descr)
         if rop.is_guard(opnum):
-            self.read_resume(res)
+            res.rd_snapshot_position = self.skip_resume_data()
         self._cache[self._count] = res
         self._count += 1
         return res
@@ -145,6 +141,9 @@ class Trace(object):
         index = op._pos
         self._ops[index] = -newtag - 1
 
+    def record_snapshot_link(self, pos):
+        self._ops.append(-pos - 1)
+
     def record_op(self, opnum, argboxes, descr=None):
         # return an ResOperation instance, ideally die in hell
         pos = self._record_op(opnum, argboxes, descr)
@@ -154,12 +153,29 @@ class Trace(object):
         return tag(TAGBOX, self._record_raw(opnum, tagged_args, descr))
 
     def record_snapshot(self, jitcode, pc, active_boxes):
+        pos = len(self._ops)
+        self._ops.append(len(active_boxes)) # unnecessary, can be read from
         self._ops.append(jitcode.index)
         self._ops.append(pc)
-        self._ops.append(len(active_boxes)) # unnecessary, can be read from
-        # jitcode
         for box in active_boxes:
             self._ops.append(box.position) # not tagged, as it must be boxes
+        return pos
+
+    def get_patchable_position(self):
+        p = len(self._ops)
+        if not we_are_translated():
+            self._ops.append(Sentinel())
+        else:
+            self._ops.append(-1)
+        return p
+
+    def patch_position_to_current(self, p):
+        prev = self._ops[p]
+        if we_are_translated():
+            assert prev == -1
+        else:
+            assert isinstance(prev, Sentinel)
+        self._ops[p] = len(self._ops)
 
     def get_iter(self):
         return TraceIterator(self, len(self._ops))
