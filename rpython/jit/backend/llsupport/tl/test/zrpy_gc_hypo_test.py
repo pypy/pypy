@@ -55,7 +55,7 @@ class GCHypothesis(object):
 
     @given(st.bytecode_block())
     def test_execute_single_bytecode(self, program):
-        clazz, bytecode, consts, stack = program
+        bytecode, consts = program
         result, out, err = self.execute(bytecode, consts)
         if result != 0:
             raise Exception(("could not run program. returned %d"

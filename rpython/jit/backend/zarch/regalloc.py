@@ -261,6 +261,9 @@ class ZARCHRegisterManager(RegisterManager):
         i = len(self.free_regs)-1
         while i >= 0:
             even = self.free_regs[i]
+            if even.value == 13:
+                i -= 1
+                continue
             if even.is_even():
                 # found an even registers that is actually free
                 odd = r.odd_reg(even)
