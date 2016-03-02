@@ -13,8 +13,9 @@ from rpython.rlib.objectmodel import r_dict
 from rpython.rlib.rarithmetic import r_int, r_uint, r_longlong, r_ulonglong
 
 import py
+from hypothesis import given, settings
 from hypothesis.strategies import (
-    builds, sampled_from, binary, just, integers, text, characters)
+    builds, sampled_from, binary, just, integers, text, characters, tuples)
 from hypothesis.stateful import GenericStateMachine, run_state_machine_as_test
 
 def ann2strategy(s_value):
@@ -1152,92 +1153,123 @@ class Action(object):
 class PseudoRTyper:
     cache_dummy_values = {}
 
+
 # XXX: None keys crash the test, but translation sort-of allows it
-@py.test.mark.parametrize('s_key',
-    [SomeString(), SomeInteger(), SomeChar(), SomeUnicodeString(), SomeUnicodeCodePoint()])
-@py.test.mark.parametrize('s_value',
-    [SomeString(can_be_None=True), SomeString(), SomeChar(), SomeInteger(), SomeUnicodeString(), SomeUnicodeCodePoint()])
-def test_hypothesis(s_key, s_value):
-    rtyper = PseudoRTyper()
-    r_key = s_key.rtyper_makerepr(rtyper)
-    r_value = s_value.rtyper_makerepr(rtyper)
-    dictrepr = rdict.DictRepr(rtyper, r_key, r_value,
-                    DictKey(None, s_key),
-                    DictValue(None, s_value))
-    dictrepr.setup()
+keytypes_s = [
+    SomeString(), SomeInteger(), SomeChar(),
+    SomeUnicodeString(), SomeUnicodeCodePoint()]
+st_keys = sampled_from(keytypes_s)
+st_values = sampled_from(keytypes_s + [SomeString(can_be_None=True)])
 
-    _ll_key = r_key.convert_const
-    _ll_value = r_value.convert_const
+class Space(object):
+    def __init__(self, s_key, s_value):
+        self.s_key = s_key
+        self.s_value = s_value
+        rtyper = PseudoRTyper()
+        r_key = s_key.rtyper_makerepr(rtyper)
+        r_value = s_value.rtyper_makerepr(rtyper)
+        dictrepr = rdict.DictRepr(rtyper, r_key, r_value,
+                        DictKey(None, s_key),
+                        DictValue(None, s_value))
+        dictrepr.setup()
+        self.l_dict = rdict.ll_newdict(dictrepr.DICT)
+        self.reference = {}
+        self.ll_key = r_key.convert_const
+        self.ll_value = r_value.convert_const
 
-    class SetItem(Action):
-        def __init__(self, key, value):
-            self.key = key
-            self.value = value
+    def setitem(self, key, value):
+        ll_key = self.ll_key(key)
+        ll_value = self.ll_value(value)
+        rdict.ll_dict_setitem(self.l_dict, ll_key, ll_value)
+        self.reference[key] = value
+        assert rdict.ll_contains(self.l_dict, ll_key)
 
-        def __repr__(self):
-            return 'SetItem(%r, %r)' % (self.key, self.value)
+    def delitem(self, key):
+        ll_key = self.ll_key(key)
+        rdict.ll_dict_delitem(self.l_dict, ll_key)
+        del self.reference[key]
+        assert not rdict.ll_contains(self.l_dict, ll_key)
 
-        def execute(self, state):
-            ll_key = _ll_key(self.key)
-            ll_value = _ll_value(self.value)
-            rdict.ll_dict_setitem(state.l_dict, ll_key, ll_value)
-            state.reference[self.key] = self.value
-            assert rdict.ll_contains(state.l_dict, ll_key)
+    def copydict(self):
+        self.l_dict = rdict.ll_copy(self.l_dict)
 
-    class DelItem(Action):
-        def __init__(self, key):
-            self.key = key
+    def cleardict(self):
+        rdict.ll_clear(self.l_dict)
+        self.reference.clear()
+        assert rdict.ll_dict_len(self.l_dict) == 0
 
-        def __repr__(self):
-            return 'DelItem(%r)' % (self.key)
+    def fullcheck(self):
+        assert rdict.ll_dict_len(self.l_dict) == len(self.reference)
+        for key, value in self.reference.iteritems():
+            assert (rdict.ll_dict_getitem(self.l_dict, self.ll_key(key)) ==
+                self.ll_value(value))
 
-        def execute(self, state):
-            ll_key = _ll_key(self.key)
-            rdict.ll_dict_delitem(state.l_dict, ll_key)
-            del state.reference[self.key]
-            assert not rdict.ll_contains(state.l_dict, ll_key)
+class SetItem(Action):
+    def __init__(self, key, value):
+        self.key = key
+        self.value = value
 
-    class CopyDict(Action):
-        def execute(self, state):
-            state.l_dict = rdict.ll_copy(state.l_dict)
+    def __repr__(self):
+        return 'SetItem(%r, %r)' % (self.key, self.value)
 
-    class ClearDict(Action):
-        def execute(self, state):
-            rdict.ll_clear(state.l_dict)
-            state.reference.clear()
+    def execute(self, space):
+        space.setitem(self.key, self.value)
 
-    st_keys = ann2strategy(s_key)
-    st_values = ann2strategy(s_value)
-    st_setitem = builds(SetItem, st_keys, st_values)
+class DelItem(Action):
+    def __init__(self, key):
+        self.key = key
 
-    def st_delitem(keys):
-        return builds(DelItem, sampled_from(keys))
+    def __repr__(self):
+        return 'DelItem(%r)' % (self.key)
 
-    def st_updateitem(keys):
-        return builds(SetItem, sampled_from(keys), st_values)
+    def execute(self, space):
+        space.delitem(self.key)
 
-    class StressTest(GenericStateMachine):
-        def __init__(self):
-            self.l_dict = rdict.ll_newdict(dictrepr.DICT)
-            self.reference = {}
+class CopyDict(Action):
+    def execute(self, space):
+        space.copydict()
 
-        def steps(self):
-            global_actions = [CopyDict(), ClearDict()]
-            if self.reference:
-                return (
-                    st_setitem | sampled_from(global_actions) |
-                    st_updateitem(self.reference) | st_delitem(self.reference))
-            else:
-                return (st_setitem | sampled_from(global_actions))
+class ClearDict(Action):
+    def execute(self, space):
+        space.cleardict()
 
-        def execute_step(self, action):
-            with signal_timeout(1):  # catches infinite loops
-                action.execute(self)
+class StressTest(GenericStateMachine):
+    def __init__(self):
+        self.space = None
 
-        def teardown(self):
-            assert rdict.ll_dict_len(self.l_dict) == len(self.reference)
-            for key, value in self.reference.iteritems():
-                assert (rdict.ll_dict_getitem(self.l_dict, _ll_key(key)) ==
-                    _ll_value(value))
+    def st_setitem(self):
+        return builds(SetItem, self.st_keys, self.st_values)
 
-    run_state_machine_as_test(StressTest)
+    def st_updateitem(self):
+        return builds(SetItem, sampled_from(self.space.reference),
+            self.st_values)
+
+    def st_delitem(self):
+        return builds(DelItem, sampled_from(self.space.reference))
+
+    def steps(self):
+        if not self.space:
+            return builds(Space, st_keys, st_values)
+        global_actions = [CopyDict(), ClearDict()]
+        if self.space.reference:
+            return (
+                self.st_setitem() | sampled_from(global_actions) |
+                self.st_updateitem() | self.st_delitem())
+        else:
+            return (self.st_setitem() | sampled_from(global_actions))
+
+    def execute_step(self, action):
+        if isinstance(action, Space):
+            self.space = action
+            self.st_keys = ann2strategy(self.space.s_key)
+            self.st_values = ann2strategy(self.space.s_value)
+            return
+        with signal_timeout(1):  # catches infinite loops
+            action.execute(self.space)
+
+    def teardown(self):
+        if self.space:
+            self.space.fullcheck()
+
+def test_hypothesis():
+    run_state_machine_as_test(StressTest, settings(max_examples=500, stateful_step_count=100))
