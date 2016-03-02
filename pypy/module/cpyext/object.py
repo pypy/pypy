@@ -6,7 +6,7 @@ from pypy.module.cpyext.api import (
     Py_GE, CONST_STRING, FILEP, fwrite)
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, create_ref, from_ref, Py_IncRef, Py_DecRef,
-    track_reference, get_typedescr, _Py_NewReference, RefcountState)
+    get_typedescr, _Py_NewReference)
 from pypy.module.cpyext.typeobject import PyTypeObjectPtr
 from pypy.module.cpyext.pyerrors import PyErr_NoMemory, PyErr_BadInternalCall
 from pypy.objspace.std.typeobject import W_TypeObject
@@ -31,9 +31,9 @@ def _PyObject_New(space, type):
 def _PyObject_NewVar(space, type, itemcount):
     w_type = from_ref(space, rffi.cast(PyObject, type))
     assert isinstance(w_type, W_TypeObject)
-    typedescr = get_typedescr(w_type.instancetypedef)
+    typedescr = get_typedescr(w_type.layout.typedef)
     py_obj = typedescr.allocate(space, w_type, itemcount=itemcount)
-    py_obj.c_ob_refcnt = 0
+    #py_obj.c_ob_refcnt = 0 --- will be set to 1 again by PyObject_Init{Var}
     if type.c_tp_itemsize == 0:
         w_obj = PyObject_Init(space, py_obj, type)
     else:

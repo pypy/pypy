@@ -944,6 +944,14 @@ class BlackholeInterpreter(object):
         pass
 
     @arguments("i")
+    def bhimpl_jit_enter_portal_frame(x):
+        pass
+
+    @arguments()
+    def bhimpl_jit_leave_portal_frame():
+        pass
+
+    @arguments("i")
     def bhimpl_int_assert_green(x):
         pass
     @arguments("r")

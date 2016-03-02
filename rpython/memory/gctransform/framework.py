@@ -153,6 +153,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
         else:
             # for regular translation: pick the GC from the config
             GCClass, GC_PARAMS = choose_gc_from_config(translator.config)
+            self.GCClass = GCClass
 
         if hasattr(translator, '_jit2gc'):
             self.layoutbuilder = translator._jit2gc['layoutbuilder']
@@ -481,6 +482,29 @@ class BaseFrameworkGCTransformer(GCTransformer):
                                            [s_gc,
                                             annmodel.SomeInteger(nonneg=True)],
                                            annmodel.s_None)
+
+        if hasattr(GCClass, 'rawrefcount_init'):
+            self.rawrefcount_init_ptr = getfn(
+                GCClass.rawrefcount_init,
+                [s_gc, SomePtr(GCClass.RAWREFCOUNT_DEALLOC_TRIGGER)],
+                annmodel.s_None)
+            self.rawrefcount_create_link_pypy_ptr = getfn(
+                GCClass.rawrefcount_create_link_pypy,
+                [s_gc, s_gcref, SomeAddress()],
+                annmodel.s_None)
+            self.rawrefcount_create_link_pyobj_ptr = getfn(
+                GCClass.rawrefcount_create_link_pyobj,
+                [s_gc, s_gcref, SomeAddress()],
+                annmodel.s_None)
+            self.rawrefcount_from_obj_ptr = getfn(
+                GCClass.rawrefcount_from_obj, [s_gc, s_gcref], SomeAddress(),
+                inline = True)
+            self.rawrefcount_to_obj_ptr = getfn(
+                GCClass.rawrefcount_to_obj, [s_gc, SomeAddress()], s_gcref,
+                inline = True)
+            self.rawrefcount_next_dead_ptr = getfn(
+                GCClass.rawrefcount_next_dead, [s_gc], SomeAddress(),
+                inline = True)
 
         if GCClass.can_usually_pin_objects:
             self.pin_ptr = getfn(GCClass.pin,
@@ -1227,6 +1251,50 @@ class BaseFrameworkGCTransformer(GCTransformer):
                   resultvar=hop.spaceop.result)
         self.pop_roots(hop, livevars)
 
+    def gct_gc_rawrefcount_init(self, hop):
+        [v_fnptr] = hop.spaceop.args
+        assert v_fnptr.concretetype == self.GCClass.RAWREFCOUNT_DEALLOC_TRIGGER
+        hop.genop("direct_call",
+                  [self.rawrefcount_init_ptr, self.c_const_gc, v_fnptr])
+
+    def gct_gc_rawrefcount_create_link_pypy(self, hop):
+        [v_gcobj, v_pyobject] = hop.spaceop.args
+        assert v_gcobj.concretetype == llmemory.GCREF
+        assert v_pyobject.concretetype == llmemory.Address
+        hop.genop("direct_call",
+                  [self.rawrefcount_create_link_pypy_ptr, self.c_const_gc,
+                   v_gcobj, v_pyobject])
+
+    def gct_gc_rawrefcount_create_link_pyobj(self, hop):
+        [v_gcobj, v_pyobject] = hop.spaceop.args
+        assert v_gcobj.concretetype == llmemory.GCREF
+        assert v_pyobject.concretetype == llmemory.Address
+        hop.genop("direct_call",
+                  [self.rawrefcount_create_link_pyobj_ptr, self.c_const_gc,
+                   v_gcobj, v_pyobject])
+
+    def gct_gc_rawrefcount_from_obj(self, hop):
+        [v_gcobj] = hop.spaceop.args
+        assert v_gcobj.concretetype == llmemory.GCREF
+        assert hop.spaceop.result.concretetype == llmemory.Address
+        hop.genop("direct_call",
+                  [self.rawrefcount_from_obj_ptr, self.c_const_gc, v_gcobj],
+                  resultvar=hop.spaceop.result)
+
+    def gct_gc_rawrefcount_to_obj(self, hop):
+        [v_pyobject] = hop.spaceop.args
+        assert v_pyobject.concretetype == llmemory.Address
+        assert hop.spaceop.result.concretetype == llmemory.GCREF
+        hop.genop("direct_call",
+                  [self.rawrefcount_to_obj_ptr, self.c_const_gc, v_pyobject],
+                  resultvar=hop.spaceop.result)
+
+    def gct_gc_rawrefcount_next_dead(self, hop):
+        assert hop.spaceop.result.concretetype == llmemory.Address
+        hop.genop("direct_call",
+                  [self.rawrefcount_next_dead_ptr, self.c_const_gc],
+                  resultvar=hop.spaceop.result)
+
     def _set_into_gc_array_part(self, op):
         if op.opname == 'setarrayitem':
             return op.args[1]
@@ -1411,8 +1479,8 @@ class BaseFrameworkGCTransformer(GCTransformer):
                             resulttype=llmemory.Address)
         llops.genop('raw_memclear', [v_adr, v_totalsize])
 
-    def gcheader_initdata(self, defnode):
-        o = lltype.top_container(defnode.obj)
+    def gcheader_initdata(self, obj):
+        o = lltype.top_container(obj)
         needs_hash = self.get_prebuilt_hash(o) is not None
         hdr = self.gc_header_for(o, needs_hash)
         return hdr._obj

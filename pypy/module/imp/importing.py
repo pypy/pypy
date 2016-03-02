@@ -38,7 +38,7 @@ SO = '.pyd' if _WIN32 else '.so'
 # and cffi so's.  If we do have to update it, we'd likely need a way to
 # split the two usages again.
 #DEFAULT_SOABI = 'pypy-%d%d' % PYPY_VERSION[:2]
-DEFAULT_SOABI = 'pypy-26'
+DEFAULT_SOABI = 'pypy-41'
 
 @specialize.memo()
 def get_so_extension(space):
@@ -85,7 +85,7 @@ def find_modtype(space, filepart):
     # The "imp" module does not respect this, and is allowed to find
     # lone .pyc files.
     # check the .pyc file
-    if space.config.objspace.usepycfiles and space.config.objspace.lonepycfiles:
+    if space.config.objspace.lonepycfiles:
         pycfile = filepart + ".pyc"
         if file_exists(pycfile):
             # existing .pyc file
@@ -888,17 +888,11 @@ def load_source_module(space, w_modulename, w_mod, pathname, source, fd,
     """
     w = space.wrap
 
-    if space.config.objspace.usepycfiles:
-        src_stat = os.fstat(fd)
-        cpathname = pathname + 'c'
-        mtime = int(src_stat[stat.ST_MTIME])
-        mode = src_stat[stat.ST_MODE]
-        stream = check_compiled_module(space, cpathname, mtime)
-    else:
-        cpathname = None
-        mtime = 0
-        mode = 0
-        stream = None
+    src_stat = os.fstat(fd)
+    cpathname = pathname + 'c'
+    mtime = int(src_stat[stat.ST_MTIME])
+    mode = src_stat[stat.ST_MODE]
+    stream = check_compiled_module(space, cpathname, mtime)
 
     if stream:
         # existing and up-to-date .pyc file
@@ -913,7 +907,7 @@ def load_source_module(space, w_modulename, w_mod, pathname, source, fd,
     else:
         code_w = parse_source_module(space, pathname, source)
 
-        if space.config.objspace.usepycfiles and write_pyc:
+        if write_pyc:
             if not space.is_true(space.sys.get('dont_write_bytecode')):
                 write_compiled_module(space, code_w, cpathname, mode, mtime)
 

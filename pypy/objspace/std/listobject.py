@@ -222,6 +222,10 @@ class W_ListObject(W_Root):
         self.strategy = object_strategy
         object_strategy.init_from_list_w(self, list_w)
 
+    def ensure_object_strategy(self):     # for cpyext
+        if self.strategy is not self.space.fromcache(ObjectListStrategy):
+            self.switch_to_object_strategy()
+
     def _temporarily_as_objects(self):
         if self.strategy is self.space.fromcache(ObjectListStrategy):
             return self

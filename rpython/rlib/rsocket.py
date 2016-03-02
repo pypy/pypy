@@ -516,6 +516,10 @@ class RSocket(object):
     """RPython-level socket object.
     """
     fd = _c.INVALID_SOCKET
+    family = 0
+    type = 0
+    proto = 0
+    timeout = -1.0
 
     def __init__(self, family=AF_INET, type=SOCK_STREAM, proto=0,
                  fd=_c.INVALID_SOCKET):
@@ -530,6 +534,11 @@ class RSocket(object):
         self.type = type
         self.proto = proto
         self.timeout = defaults.timeout
+
+    @staticmethod
+    def empty_rsocket():
+        rsocket = instantiate(RSocket)
+        return rsocket
 
     @rgc.must_be_light_finalizer
     def __del__(self):

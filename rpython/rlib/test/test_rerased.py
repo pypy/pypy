@@ -192,7 +192,7 @@ class TestRErased(BaseRtypingTest):
 
     def interpret(self, *args, **kwargs):
         kwargs["taggedpointers"] = True
-        return BaseRtypingTest.interpret(self, *args, **kwargs)
+        return BaseRtypingTest.interpret(*args, **kwargs)
     def test_rtype_1(self):
         def f():
             return eraseX(X())

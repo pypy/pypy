@@ -98,6 +98,10 @@ def setup_directory_structure(space):
         'a=5\nb=6\rc="""hello\r\nworld"""\r', mode='wb')
     p.join('mod.py').write(
         'a=15\nb=16\rc="""foo\r\nbar"""\r', mode='wb')
+    setuppkg("test_bytecode",
+             a = '',
+             b = '',
+             c = '')
 
     # create compiled/x.py and a corresponding pyc file
     p = setuppkg("compiled", x = "x = 84")
@@ -119,7 +123,7 @@ def setup_directory_structure(space):
                 stream.try_to_find_file_descriptor())
         finally:
             stream.close()
-        if space.config.objspace.usepycfiles:
+        if not space.config.translation.sandbox:
             # also create a lone .pyc file
             p.join('lone.pyc').write(p.join('x.pyc').read(mode='rb'),
                                      mode='wb')
@@ -146,6 +150,8 @@ def _setup(space):
     """)
 
 def _teardown(space, w_saved_modules):
+    p = udir.join('impsubdir')
+    p.remove()
     space.appexec([w_saved_modules], """
         ((saved_path, saved_modules)):
             import sys
@@ -646,11 +652,13 @@ class AppTestImport:
         # one in sys.path.
         import sys
         assert '_md5' not in sys.modules
-        import _md5
-        assert hasattr(_md5, 'hello_world')
-        assert not hasattr(_md5, 'count')
-        assert '(built-in)' not in repr(_md5)
-        del sys.modules['_md5']
+        try:
+            import _md5
+            assert hasattr(_md5, 'hello_world')
+            assert not hasattr(_md5, 'digest_size')
+            assert '(built-in)' not in repr(_md5)
+        finally:
+            sys.modules.pop('_md5', None)
 
     def test_shadow_extension_2(self):
         if self.runappdirect: skip("hard to test: module is already imported")
@@ -669,7 +677,7 @@ class AppTestImport:
             assert '(built-in)' in repr(_md5)
         finally:
             sys.path.insert(0, sys.path.pop())
-        del sys.modules['_md5']
+            sys.modules.pop('_md5', None)
 
     def test_invalid_pathname(self):
         import imp
@@ -1061,12 +1069,12 @@ def test_PYTHONPATH_takes_precedence(space):
         py.test.skip("unresolved issues with win32 shell quoting rules")
     from pypy.interpreter.test.test_zpy import pypypath 
     extrapath = udir.ensure("pythonpath", dir=1) 
-    extrapath.join("urllib.py").write("print 42\n")
+    extrapath.join("sched.py").write("print 42\n")
     old = os.environ.get('PYTHONPATH', None)
     oldlang = os.environ.pop('LANG', None)
     try:
         os.environ['PYTHONPATH'] = str(extrapath)
-        output = py.process.cmdexec('''"%s" "%s" -c "import urllib"''' %
+        output = py.process.cmdexec('''"%s" "%s" -c "import sched"''' %
                                  (sys.executable, pypypath))
         assert output.strip() == '42'
     finally:
@@ -1342,15 +1350,56 @@ class AppTestPyPyExtension(object):
         assert isinstance(importer, zipimport.zipimporter)
 
 
-class AppTestNoPycFile(object):
+class AppTestWriteBytecode(object):
     spaceconfig = {
-        "objspace.usepycfiles": False,
-        "objspace.lonepycfiles": False
+        "translation.sandbox": False
     }
+
     def setup_class(cls):
-        usepycfiles = cls.spaceconfig['objspace.usepycfiles']
+        cls.saved_modules = _setup(cls.space)
+        sandbox = cls.spaceconfig['translation.sandbox']
+        cls.w_sandbox = cls.space.wrap(sandbox)
+
+    def teardown_class(cls):
+        _teardown(cls.space, cls.saved_modules)
+        cls.space.appexec([], """
+            ():
+                import sys
+                sys.dont_write_bytecode = False
+        """)
+
+    def test_default(self):
+        import os.path
+        from test_bytecode import a
+        assert a.__file__.endswith('a.py')
+        assert os.path.exists(a.__file__ + 'c') == (not self.sandbox)
+
+    def test_write_bytecode(self):
+        import os.path
+        import sys
+        sys.dont_write_bytecode = False
+        from test_bytecode import b
+        assert b.__file__.endswith('b.py')
+        assert os.path.exists(b.__file__ + 'c')
+
+    def test_dont_write_bytecode(self):
+        import os.path
+        import sys
+        sys.dont_write_bytecode = True
+        from test_bytecode import c
+        assert c.__file__.endswith('c.py')
+        assert not os.path.exists(c.__file__ + 'c')
+
+
+class AppTestWriteBytecodeSandbox(AppTestWriteBytecode):
+    spaceconfig = {
+        "translation.sandbox": True
+    }
+
+
+class _AppTestLonePycFileBase(object):
+    def setup_class(cls):
         lonepycfiles = cls.spaceconfig['objspace.lonepycfiles']
-        cls.w_usepycfiles = cls.space.wrap(usepycfiles)
         cls.w_lonepycfiles = cls.space.wrap(lonepycfiles)
         cls.saved_modules = _setup(cls.space)
 
@@ -1359,10 +1408,7 @@ class AppTestNoPycFile(object):
 
     def test_import_possibly_from_pyc(self):
         from compiled import x
-        if self.usepycfiles:
-            assert x.__file__.endswith('x.pyc')
-        else:
-            assert x.__file__.endswith('x.py')
+        assert x.__file__.endswith('x.pyc')
         try:
             from compiled import lone
         except ImportError:
@@ -1371,15 +1417,13 @@ class AppTestNoPycFile(object):
             assert self.lonepycfiles, "should not have found 'lone.pyc'"
             assert lone.__file__.endswith('lone.pyc')
 
-class AppTestNoLonePycFile(AppTestNoPycFile):
+class AppTestNoLonePycFile(_AppTestLonePycFileBase):
     spaceconfig = {
-        "objspace.usepycfiles": True,
         "objspace.lonepycfiles": False
     }
 
-class AppTestLonePycFile(AppTestNoPycFile):
+class AppTestLonePycFile(_AppTestLonePycFileBase):
     spaceconfig = {
-        "objspace.usepycfiles": True,
         "objspace.lonepycfiles": True
     }
 

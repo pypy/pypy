@@ -7,8 +7,6 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.tool import rffi_platform as platform
 from rpython.rlib import rthread
 
-from rpython.jit.backend import detect_cpu
-
 class VMProfPlatformUnsupported(Exception):
     pass
 

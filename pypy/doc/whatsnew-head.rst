@@ -153,6 +153,37 @@ Refactor vmprof to work cross-operating-system.
 Seperate structmember.h from Python.h Also enhance creating api functions
 to specify which header file they appear in (previously only pypy_decl.h) 
 
+.. branch: llimpl
+
+Refactor register_external(), remove running_on_llinterp mechanism and
+apply sandbox transform on externals at the end of annotation.
+
+.. branch: cffi-embedding-win32
+
+.. branch: windows-vmprof-support
+
+vmprof should work on Windows.
+
+
+.. branch: reorder-map-attributes
+
+When creating instances and adding attributes in several different orders
+depending on some condition, the JIT would create too much code. This is now
+fixed.
+
+.. branch: cpyext-gc-support-2
+
+Improve CPython C API support, which means lxml now runs unmodified
+(after removing pypy hacks, pending pull request)
+
+.. branch: look-inside-tuple-hash
+
+Look inside tuple hash, improving mdp benchmark
+
+.. branch: vlen-resume
+
+Compress resume data, saving 10-20% of memory consumed by the JIT
+
 .. branch: memop-simplify3
 
 Further simplifying the backend operations malloc_cond_varsize and zero_array.

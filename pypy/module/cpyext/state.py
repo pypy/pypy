@@ -1,8 +1,11 @@
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.interpreter.error import OperationError
+from pypy.interpreter.executioncontext import AsyncAction
 from rpython.rtyper.lltypesystem import lltype
+from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib.rdynload import DLLHANDLE
+from rpython.rlib import rawrefcount
 import sys
 
 class State:
@@ -11,6 +14,8 @@ class State:
         self.reset()
         self.programname = lltype.nullptr(rffi.CCHARP.TO)
         self.version = lltype.nullptr(rffi.CCHARP.TO)
+        pyobj_dealloc_action = PyObjDeallocAction(space)
+        self.dealloc_trigger = lambda: pyobj_dealloc_action.fire()
 
     def reset(self):
         from pypy.module.cpyext.modsupport import PyMethodDef
@@ -74,13 +79,15 @@ class State:
         "This function is called when the program really starts"
 
         from pypy.module.cpyext.typeobject import setup_new_method_def
-        from pypy.module.cpyext.pyobject import RefcountState
         from pypy.module.cpyext.api import INIT_FUNCTIONS
+        from pypy.module.cpyext.api import init_static_data_translated
+
+        if we_are_translated():
+            rawrefcount.init(llhelper(rawrefcount.RAWREFCOUNT_DEALLOC_TRIGGER,
+                                      self.dealloc_trigger))
+            init_static_data_translated(space)
 
         setup_new_method_def(space)
-        if we_are_translated():
-            refcountstate = space.fromcache(RefcountState)
-            refcountstate.init_r2w_from_w2r()
 
         for func in INIT_FUNCTIONS:
             func(space)
@@ -133,3 +140,17 @@ class State:
         w_dict = w_mod.getdict(space)
         w_copy = space.call_method(w_dict, 'copy')
         self.extensions[path] = w_copy
+
+
+class PyObjDeallocAction(AsyncAction):
+    """An action that invokes _Py_Dealloc() on the dying PyObjects.
+    """
+
+    def perform(self, executioncontext, frame):
+        from pypy.module.cpyext.pyobject import PyObject, _Py_Dealloc
+
+        while True:
+            py_obj = rawrefcount.next_dead(PyObject)
+            if not py_obj:
+                break
+            _Py_Dealloc(self.space, py_obj)
