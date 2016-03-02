@@ -866,8 +866,8 @@ class AppTestSlots(AppTestCpythonExtensionBase):
 
     def test_tp_new_in_subclass_of_type(self):
         module = self.import_module(name='foo3')
-        print('calling module.Type()...')
-        module.Type("X", (object,), {})
+        print('calling module.footype()...')
+        module.footype("X", (object,), {})
 
     def test_app_subclass_of_c_type(self):
         module = self.import_module(name='foo')

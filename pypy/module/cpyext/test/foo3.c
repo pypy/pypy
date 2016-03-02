@@ -9,9 +9,9 @@ PyObject* foo3type_tp_new(PyTypeObject* metatype, PyObject* args, PyObject* kwds
     return newType;
 }
 
-PyTypeObject Foo3Type_Type = {
-    PyVarObject_HEAD_INIT(0, 0)
-    /*tp_name*/             "Foo3.Type",
+PyTypeObject footype = {
+    PyVarObject_HEAD_INIT(NULL, 0)
+    /*tp_name*/             "foo3.footype",
     /*tp_basicsize*/        sizeof(PyTypeObject),
     /*tp_itemsize*/         0,
     /*tp_dealloc*/          0,
@@ -40,7 +40,7 @@ PyTypeObject Foo3Type_Type = {
     /*tp_methods*/          0,
     /*tp_members*/          0,
     /*tp_getset*/           0,
-    /*tp_base*/             0,		//  set to &PyType_Type in module init function (why can it not be done here?)
+    /*tp_base*/             0,  //  set to &PyType_Type in module init function (why can it not be done here?)
     /*tp_dict*/             0,
     /*tp_descr_get*/        0,
     /*tp_descr_set*/        0,
@@ -69,8 +69,15 @@ extern __declspec(dllexport)
 PyMODINIT_FUNC
 initfoo3(void)
 {
-	PyObject* mod = Py_InitModule("Foo3", sbkMethods);
-	Foo3Type_Type.tp_base = &PyType_Type;
-	PyType_Ready(&Foo3Type_Type);
-	PyModule_AddObject(mod, "Type", (PyObject*)&Foo3Type_Type);
+    PyObject *mod, *d;
+    footype.tp_base = &PyType_Type;
+    PyType_Ready(&footype);
+    mod = Py_InitModule("foo3", sbkMethods);
+    if (mod == NULL)
+        return;
+    d = PyModule_GetDict(mod);
+    if (d == NULL)
+        return;
+    if (PyDict_SetItemString(d, "footype", (PyObject *)&footype) < 0)
+        return;
 }
