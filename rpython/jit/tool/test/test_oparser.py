@@ -24,12 +24,11 @@ class BaseTestOparser(object):
         finish() # (tricky)
         """
         loop = self.parse(x)
-        ops = loop._get_operations()
-        assert len(ops) == 3
-        assert [op.getopnum() for op in ops] == [rop.INT_ADD, rop.INT_SUB,
+        assert len(loop.operations) == 3
+        assert [op.getopnum() for op in loop.operations] == [rop.INT_ADD, rop.INT_SUB,
                                                         rop.FINISH]
         assert len(loop.inputargs) == 2
-        assert ops[-1].getdescr()
+        assert loop.operations[-1].getdescr()
 
     def test_const_ptr_subops(self):
         x = """
@@ -39,10 +38,9 @@ class BaseTestOparser(object):
         S = lltype.Struct('S')
         vtable = lltype.nullptr(S)
         loop = self.parse(x, None, locals())
-        ops = loop._get_operations()
-        assert len(ops) == 1
-        assert ops[0].getdescr()
-        assert not ops[0].getfailargs()
+        assert len(loop.operations) == 1
+        assert loop.operations[0].getdescr()
+        assert loop.operations[0].getfailargs() == []
 
     def test_descr(self):
         class Xyz(AbstractDescr):
@@ -54,8 +52,7 @@ class BaseTestOparser(object):
         """
         stuff = Xyz()
         loop = self.parse(x, None, locals())
-        ops = loop._get_operations()
-        assert ops[0].getdescr() is stuff
+        assert loop.operations[0].getdescr() is stuff
 
     def test_after_fail(self):
         x = """
@@ -64,7 +61,7 @@ class BaseTestOparser(object):
         i1 = int_add(1, 2)
         """
         loop = self.parse(x, None, {})
-        assert len(loop._get_operations()) == 2
+        assert len(loop.operations) == 2
 
     def test_descr_setfield(self):
         class Xyz(AbstractDescr):
@@ -76,7 +73,7 @@ class BaseTestOparser(object):
         """
         stuff = Xyz()
         loop = self.parse(x, None, locals())
-        assert loop._get_operations()[0].getdescr() is stuff
+        assert loop.operations[0].getdescr() is stuff
 
     def test_getvar_const_ptr(self):
         x = '''
@@ -86,7 +83,7 @@ class BaseTestOparser(object):
         TP = lltype.GcArray(lltype.Signed)
         NULL = lltype.cast_opaque_ptr(llmemory.GCREF, lltype.nullptr(TP))
         loop = self.parse(x, None, {'func_ptr' : NULL})
-        assert loop._get_operations()[0].getarg(0).value == NULL
+        assert loop.operations[0].getarg(0).value == NULL
 
     def test_jump_target(self):
         x = '''
@@ -94,7 +91,7 @@ class BaseTestOparser(object):
         jump()
         '''
         loop = self.parse(x)
-        assert loop._get_operations()[0].getdescr() is loop.original_jitcell_token
+        assert loop.operations[0].getdescr() is loop.original_jitcell_token
 
     def test_jump_target_other(self):
         looptoken = JitCellToken()
@@ -104,7 +101,7 @@ class BaseTestOparser(object):
         jump(descr=looptoken)
         '''
         loop = self.parse(x, namespace=locals())
-        assert loop._get_operations()[0].getdescr() is looptoken
+        assert loop.operations[0].getdescr() is looptoken
 
     def test_floats(self):
         x = '''
@@ -112,7 +109,7 @@ class BaseTestOparser(object):
         f1 = float_add(f0, 3.5)
         '''
         loop = self.parse(x)
-        box = loop._get_operations()[0].getarg(0)
+        box = loop.operations[0].getarg(0)
         # we cannot use isinstance, because in case of mock the class will be
         # constructed on the fly
         assert box.__class__.__name__ == 'InputArgFloat'
@@ -126,13 +123,12 @@ class BaseTestOparser(object):
         debug_merge_point(0, 0, '(stuff) #1')
         '''
         loop = self.parse(x)
-        ops = loop._get_operations()
-        assert ops[0].getarg(2)._get_str() == 'info'
-        assert ops[0].getarg(1).value == 0
-        assert ops[1].getarg(2)._get_str() == 'info'
-        assert ops[2].getarg(2)._get_str() == "<some ('other.')> info"
-        assert ops[2].getarg(1).value == 1
-        assert ops[3].getarg(2)._get_str() == "(stuff) #1"
+        assert loop.operations[0].getarg(2)._get_str() == 'info'
+        assert loop.operations[0].getarg(1).value == 0
+        assert loop.operations[1].getarg(2)._get_str() == 'info'
+        assert loop.operations[2].getarg(2)._get_str() == "<some ('other.')> info"
+        assert loop.operations[2].getarg(1).value == 1
+        assert loop.operations[3].getarg(2)._get_str() == "(stuff) #1"
 
 
     def test_descr_with_obj_print(self):
@@ -168,7 +164,7 @@ class BaseTestOparser(object):
         p0 = new(, descr=<SizeDescr 12>)
         '''
         loop = self.parse(x)
-        assert loop._get_operations()[0].getopname() == 'new'
+        assert loop.operations[0].getopname() == 'new'
 
     def test_no_fail_args(self):
         x = '''
@@ -176,7 +172,7 @@ class BaseTestOparser(object):
         guard_true(i0, descr=<Guard0>)
         '''
         loop = self.parse(x, nonstrict=True)
-        assert not loop._get_operations()[0].getfailargs()
+        assert loop.operations[0].getfailargs() == []
 
     def test_offsets(self):
         x = """
@@ -212,9 +208,8 @@ class TestOpParser(BaseTestOparser):
         jump(i0, descr=1)
         """
         loop = self.parse(x)
-        ops = loop._get_operations()
-        assert ops[0].getdescr() is ops[1].getdescr()
-        assert isinstance(ops[0].getdescr(), TargetToken)
+        assert loop.operations[0].getdescr() is loop.operations[1].getdescr()
+        assert isinstance(loop.operations[0].getdescr(), TargetToken)
 
 
 class ForbiddenModule(object):

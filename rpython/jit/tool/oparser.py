@@ -9,9 +9,8 @@ from rpython.jit.tool.oparser_model import get_model
 
 from rpython.jit.metainterp.resoperation import rop, ResOperation, \
      InputArgInt, InputArgRef, InputArgFloat, InputArgVector, \
-     ResOpWithDescr, N_aryOp, UnaryOp, PlainResOp, optypes, OpHelpers,\
+     ResOpWithDescr, N_aryOp, UnaryOp, PlainResOp, optypes, OpHelpers, \
      VectorizationInfo
-from rpython.jit.metainterp.opencoder import Trace
 
 class ParseError(Exception):
     pass
@@ -325,7 +324,7 @@ class OpParser(object):
             assert descr is None
             return op
         else:
-            res = self.record(opnum, args, descr)
+            res = ResOperation(opnum, args, -1, descr)
             if fail_args is not None:
                 res.setfailargs(fail_args)
             if self._postproces:
@@ -392,6 +391,7 @@ class OpParser(object):
 
     def parse(self):
         lines = self.input.splitlines()
+        ops = []
         newlines = []
         first_comment = None
         for line in lines:
@@ -411,25 +411,26 @@ class OpParser(object):
                 continue  # a comment or empty line
             newlines.append(line)
         base_indent, inpargs, newlines = self.parse_inpargs(newlines)
-        self.trace = self.model.Trace(inpargs)
-        num, last_offset = self.parse_ops(base_indent, newlines, 0)
+        num, ops, last_offset = self.parse_ops(base_indent, newlines, 0)
         if num < len(newlines):
             raise ParseError("unexpected dedent at line: %s" % newlines[num])
-        self.trace.comment = first_comment
-        self.trace.original_jitcell_token = self.original_jitcell_token
-        return self.trace
-
-    def record(self, opnum, args, descr):
-        return self.trace.record_op(opnum, args, descr)
+        loop = self.model.ExtendedTreeLoop("loop")
+        loop.comment = first_comment
+        loop.original_jitcell_token = self.original_jitcell_token
+        loop.operations = ops
+        loop.inputargs = inpargs
+        loop.last_offset = last_offset
+        return loop
 
     def parse_ops(self, indent, lines, start):
         num = start
+        ops = []
         last_offset = None
         while num < len(lines):
             line = lines[num]
             if not line.startswith(" " * indent):
                 # dedent
-                return num, None
+                return num, ops
             elif line.startswith(" "*(indent + 1)):
                 raise ParseError("indentation not valid any more")
             elif line.startswith(" " * indent + "#"):
@@ -444,8 +445,9 @@ class OpParser(object):
                     op = self.parse_next_op(line)
                     if offset:
                         op.offset = offset
+                    ops.append(op)
                 num += 1
-        return num, last_offset
+        return num, ops, last_offset
 
     def postprocess(self, loop):
         """ A hook that can be overloaded to do some postprocessing
