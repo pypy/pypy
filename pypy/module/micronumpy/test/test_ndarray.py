@@ -1936,6 +1936,22 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = array([[1, 2], [3, 4]])
         assert (a + a).tolist() == [[2, 4], [6, 8]]
 
+    def test_tolist_object(self):
+        from numpy import array
+        a = array([0], dtype=object)
+        assert a.tolist() == [0]
+
+    def test_tolist_object_slice(self):
+        from numpy import array
+        list_expected = [slice(0, 1), 0]
+        a = array(list_expected, dtype=object)
+        assert a.tolist() == list_expected
+
+    def test_tolist_object_slice_2d(self):
+        from numpy import array
+        a = array([(slice(0, 1), 1), (0, 1)], dtype=object)
+        assert a.tolist() == [[slice(0, 1, None), 1], [0, 1]]
+
     def test_tolist_slice(self):
         from numpy import array
         a = array([[17.1, 27.2], [40.3, 50.3]])
