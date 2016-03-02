@@ -3,8 +3,7 @@ from rpython.jit.backend.zarch.arch import (WORD,
         STD_FRAME_SIZE_IN_BYTES)
 from rpython.jit.backend.zarch.arch import THREADLOCAL_ADDR_OFFSET
 from rpython.jit.backend.zarch.helper.assembler import (gen_emit_cmp_op,
-        gen_emit_rr_or_rpool, gen_emit_shift, gen_emit_pool_or_rr_evenodd,
-        gen_emit_imm_pool_rr)
+        gen_emit_rr, gen_emit_shift, gen_emit_rr_rh_ri, gen_emit_div_mod)
 from rpython.jit.backend.zarch.helper.regalloc import (check_imm,
         check_imm_value)
 from rpython.jit.metainterp.history import (ConstInt)
@@ -29,29 +28,33 @@ from rpython.rlib.objectmodel import we_are_translated
 class IntOpAssembler(object):
     _mixin_ = True
 
-    emit_int_add = gen_emit_imm_pool_rr('AGFI','AG','AGR')
+    emit_int_add = gen_emit_rr_rh_ri('AGR', 'AGHI', 'AGFI')
     emit_int_add_ovf = emit_int_add
 
     emit_nursery_ptr_increment = emit_int_add
 
     def emit_int_sub(self, op, arglocs, regalloc):
-        l0, l1 = arglocs
-        if l1.is_imm() and not l1.is_in_pool():
-            assert 0, "logical imm must reside in pool!"
-        if l1.is_in_pool():
-            self.mc.SG(l0, l1)
-        else:
-            self.mc.SGR(l0, l1)
+        res, l0, l1 = arglocs
+        self.mc.SGRK(res, l0, l1)
+        # POOL
+        #if l1.is_imm() and not l1.is_in_pool():
+        #    assert 0, "logical imm must reside in pool!"
+        #if l1.is_in_pool():
+        #    self.mc.SG(l0, l1)
+        #else:
+        #    self.mc.SGR(l0, l1)
 
     emit_int_sub_ovf = emit_int_sub
 
-    emit_int_mul = gen_emit_imm_pool_rr('MSGFI', 'MSG', 'MSGR')
+    emit_int_mul = gen_emit_rr_rh_ri('MSGR', 'MGHI', 'MSGFI')
     def emit_int_mul_ovf(self, op, arglocs, regalloc):
         lr, lq, l1 = arglocs
-        if l1.is_in_pool():
-            self.mc.LG(r.SCRATCH, l1)
-            l1 = r.SCRATCH
-        elif l1.is_imm():
+        # POOL
+        # if l1.is_in_pool():
+        #     self.mc.LG(r.SCRATCH, l1)
+        #     l1 = r.SCRATCH
+        # elif
+        if l1.is_imm():
             self.mc.LGFI(r.SCRATCH, l1)
             l1 = r.SCRATCH
         else:
@@ -77,7 +80,8 @@ class IntOpAssembler(object):
         mc.LPGR(lq, lq)
         mc.LPGR(l1, l1)
         mc.MLGR(lr, l1)
-        mc.LG(r.SCRATCH, l.pool(self.pool.constant_64_sign_bit))
+        mc.LGHI(r.SCRATCH, l.imm(-1))
+        mc.RISBG(r.SCRATCH, r.SCRATCH, l.imm(0), l.imm(0x80 | 0), l.imm(0))
         # is the value greater than 2**63 ? then an overflow occured
         jmp_xor_lq_overflow = mc.get_relative_pos()
         mc.reserve_cond_jump() # CLGRJ lq > 0x8000 ... 00 -> (label_overflow)
@@ -94,7 +98,9 @@ class IntOpAssembler(object):
         mc.LPGR(lq, lq)
         mc.LPGR(l1, l1)
         mc.MLGR(lr, l1)
-        mc.LG(r.SCRATCH, l.pool(self.pool.constant_max_64_positive))
+        mc.LGHI(r.SCRATCH, l.imm(-1))
+        # 0xff -> shift 0 -> 0xff set MSB on pos 0 to zero -> 7f 
+        mc.RISBG(r.SCRATCH, r.SCRATCH, l.imm(1), l.imm(0x80 | 63), l.imm(0))
         jmp_lq_overflow = mc.get_relative_pos()
         mc.reserve_cond_jump() # CLGRJ lq > 0x7fff ... ff -> (label_overflow)
         jmp_lr_overflow = mc.get_relative_pos()
@@ -163,16 +169,17 @@ class IntOpAssembler(object):
         omc.BRC(c.ANY, l.imm(label_end - jmp_neither_lqlr_overflow))
         omc.overwrite()
 
-    emit_int_floordiv = gen_emit_pool_or_rr_evenodd('DSG','DSGR')
-    emit_uint_floordiv = gen_emit_pool_or_rr_evenodd('DLG','DLGR')
+    emit_int_floordiv = gen_emit_div_mod('DSGR')
+    emit_uint_floordiv = gen_emit_div_mod('DLGR')
     # NOTE division sets one register with the modulo value, thus
     # the regalloc ensures the right register survives.
-    emit_int_mod = gen_emit_pool_or_rr_evenodd('DSG','DSGR')
+    emit_int_mod = gen_emit_div_mod('DSGR')
 
     def emit_int_invert(self, op, arglocs, regalloc):
         l0, = arglocs
         assert not l0.is_imm()
-        self.mc.XG(l0, l.pool(self.pool.constant_64_ones))
+        self.mc.LGHI(r.SCRATCH, l.imm(-1))
+        self.mc.XGR(l0, r.SCRATCH)
 
     def emit_int_neg(self, op, arglocs, regalloc):
         l0, = arglocs
@@ -206,9 +213,9 @@ class IntOpAssembler(object):
         self.mc.CGHI(l0, l.imm(0))
         self.flush_cc(c.NE, res)
 
-    emit_int_and = gen_emit_rr_or_rpool("NGR", "NG")
-    emit_int_or  = gen_emit_rr_or_rpool("OGR", "OG")
-    emit_int_xor = gen_emit_rr_or_rpool("XGR", "XG")
+    emit_int_and = gen_emit_rr("NGR")
+    emit_int_or  = gen_emit_rr("OGR")
+    emit_int_xor = gen_emit_rr("XGR")
 
     emit_int_rshift  = gen_emit_shift("SRAG")
     emit_int_lshift  = gen_emit_shift("SLLG")
@@ -235,10 +242,10 @@ class IntOpAssembler(object):
 class FloatOpAssembler(object):
     _mixin_ = True
 
-    emit_float_add = gen_emit_rr_or_rpool('ADBR','ADB')
-    emit_float_sub = gen_emit_rr_or_rpool('SDBR','SDB')
-    emit_float_mul = gen_emit_rr_or_rpool('MDBR','MDB')
-    emit_float_truediv = gen_emit_rr_or_rpool('DDBR','DDB')
+    emit_float_add = gen_emit_rr('ADBR')
+    emit_float_sub = gen_emit_rr('SDBR')
+    emit_float_mul = gen_emit_rr('MDBR')
+    emit_float_truediv = gen_emit_rr('DDBR')
 
     # Support for NaNs: S390X sets condition code to 0x3 (unordered)
     # whenever any operand is nan.
@@ -568,7 +575,8 @@ class AllocOpAssembler(object):
                 #    scratch = (index >> card_page_shift) & 7
                 # 0x80 sets zero flag. will store 0 into all not selected bits
                 mc.RISBG(r.SCRATCH, loc_index, l.imm(61), l.imm(0x80 | 63), l.imm(64-n))
-                mc.XG(tmp_loc, l.pool(self.pool.constant_64_ones))
+                mc.LGHI(r.SCRATCH2, l.imm(-1))
+                mc.XGR(tmp_loc, r.SCRATCH2)
 
                 # set SCRATCH2 to 1 << r1
                 mc.LGHI(r.SCRATCH2, l.imm(1))
@@ -636,7 +644,7 @@ class GuardOpAssembler(object):
         token = ZARCHGuardToken(self.cpu, gcmap, descr, op.getfailargs(),
                               arglocs, op.getopnum(), frame_depth,
                               fcond)
-        token._pool_offset = self.pool.get_descr_offset(descr)
+        #token._pool_offset = self.pool.get_descr_offset(descr)
         return token
 
     def emit_guard_true(self, op, arglocs, regalloc):
@@ -901,9 +909,9 @@ class MemoryOpAssembler(object):
 
     def _emit_gc_load(self, op, arglocs, regalloc):
         result_loc, base_loc, ofs_loc, size_loc, sign_loc = arglocs
-        assert not result_loc.is_in_pool()
-        assert not base_loc.is_in_pool()
-        assert not ofs_loc.is_in_pool()
+        # POOL assert not result_loc.is_in_pool()
+        # POOL assert not base_loc.is_in_pool()
+        # POOL assert not ofs_loc.is_in_pool()
         if ofs_loc.is_imm():
             assert self._mem_offset_supported(ofs_loc.value)
             src_addr = l.addr(ofs_loc.value, base_loc)
@@ -917,15 +925,14 @@ class MemoryOpAssembler(object):
 
     def _emit_gc_load_indexed(self, op, arglocs, regalloc):
         result_loc, base_loc, index_loc, offset_loc, size_loc, sign_loc=arglocs
-        assert not result_loc.is_in_pool()
-        assert not base_loc.is_in_pool()
-        assert not index_loc.is_in_pool()
-        assert not offset_loc.is_in_pool()
+        # POOL assert not result_loc.is_in_pool()
+        # POOL assert not base_loc.is_in_pool()
+        # POOL assert not index_loc.is_in_pool()
+        # POOL assert not offset_loc.is_in_pool()
         if offset_loc.is_imm() and self._mem_offset_supported(offset_loc.value):
             addr_loc = l.addr(offset_loc.value, base_loc, index_loc)
         else:
-            self.mc.LGR(r.SCRATCH, index_loc)
-            self.mc.AGR(r.SCRATCH, offset_loc)
+            self.mc.AGRK(r.SCRATCH, index_loc, offset_loc)
             addr_loc = l.addr(0, base_loc, r.SCRATCH)
         self._memory_read(result_loc, addr_loc, size_loc.value, sign_loc.value)
 
@@ -935,9 +942,9 @@ class MemoryOpAssembler(object):
 
     def emit_gc_store(self, op, arglocs, regalloc):
         (base_loc, index_loc, value_loc, size_loc) = arglocs
-        assert not base_loc.is_in_pool()
-        assert not index_loc.is_in_pool()
-        assert not value_loc.is_in_pool()
+        # POOL assert not base_loc.is_in_pool()
+        # POOL assert not index_loc.is_in_pool()
+        # POOL assert not value_loc.is_in_pool()
         if index_loc.is_imm() and self._mem_offset_supported(index_loc.value):
             addr_loc = l.addr(index_loc.value, base_loc)
         else:
@@ -947,9 +954,9 @@ class MemoryOpAssembler(object):
 
     def emit_gc_store_indexed(self, op, arglocs, regalloc):
         (base_loc, index_loc, value_loc, offset_loc, size_loc) = arglocs
-        assert not base_loc.is_in_pool()
-        assert not index_loc.is_in_pool()
-        assert not value_loc.is_in_pool()
+        # POOL assert not base_loc.is_in_pool()
+        # POOL assert not index_loc.is_in_pool()
+        # POOL assert not value_loc.is_in_pool()
         addr_loc = self._load_address(base_loc, index_loc, offset_loc, r.SCRATCH)
         self._memory_store(value_loc, addr_loc, size_loc)
 
@@ -962,8 +969,7 @@ class MemoryOpAssembler(object):
             assert index_loc.is_core_reg()
             addr_loc = l.addr(offset_loc.value, base_loc, index_loc)
         else:
-            self.mc.LGR(helper_reg, index_loc)
-            self.mc.AGR(helper_reg, offset_loc)
+            self.mc.AGRK(helper_reg, index_loc, offset_loc)
             addr_loc = l.addr(0, base_loc, helper_reg)
         return addr_loc
 
@@ -1088,7 +1094,7 @@ class ForceOpAssembler(object):
         self._store_force_index(self._find_nearby_operation(regalloc, +1))
         # 'result_loc' is either r2, f0 or None
         self.call_assembler(op, argloc, vloc, result_loc, r.r2)
-        self.mc.LARL(r.POOL, l.halfword(self.pool.pool_start - self.mc.get_relative_pos()))
+        # POOL self.mc.LARL(r.POOL, l.halfword(self.pool.pool_start - self.mc.get_relative_pos()))
 
     emit_call_assembler_i = _genop_call_assembler
     emit_call_assembler_r = _genop_call_assembler

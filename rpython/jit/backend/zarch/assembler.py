@@ -50,7 +50,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         self.gcrootmap_retaddr_forced = 0
         self.failure_recovery_code = [0, 0, 0, 0]
         self.wb_slowpath = [0,0,0,0,0]
-        self.pool = None
+        # self.pool = None
 
     def setup(self, looptoken):
         BaseAssembler.setup(self, looptoken)
@@ -58,8 +58,8 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         if we_are_translated():
             self.debug = False
         self.current_clt = looptoken.compiled_loop_token
-        self.pool = LiteralPool()
-        self.mc = InstrBuilder(self.pool)
+        # POOL self.pool = LiteralPool()
+        self.mc = InstrBuilder(None)
         self.pending_guard_tokens = []
         self.pending_guard_tokens_recovered = 0
         #assert self.datablockwrapper is None --- but obscure case
@@ -76,7 +76,8 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         self.current_clt = None
         self._regalloc = None
         self.mc = None
-        self.pool = None
+        # self.pool = None
+
 
     def target_arglocs(self, looptoken):
         return looptoken._zarch_arglocs
@@ -92,7 +93,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         self.mc.BCR_rr(0xf, register.value)
 
     def _build_failure_recovery(self, exc, withfloats=False):
-        mc = InstrBuilder(self.pool)
+        mc = InstrBuilder(None)
         self.mc = mc
         # fill in the jf_descr and jf_gcmap fields of the frame according
         # to which failure we are resuming from.  These are set before
@@ -132,20 +133,23 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         startpos = self.mc.currpos()
         fail_descr, target = self.store_info_on_descr(startpos, guardtok)
         assert target != 0
-        pool_offset = guardtok._pool_offset
-        assert pool_offset != -1
 
+        # POOL
+        #pool_offset = guardtok._pool_offset
+        #assert pool_offset != -1
         # overwrite the gcmap in the jitframe
-        offset = pool_offset + RECOVERY_GCMAP_POOL_OFFSET
-        self.mc.LG(r.SCRATCH2, l.pool(offset))
+        #offset = pool_offset + RECOVERY_GCMAP_POOL_OFFSET
+        #self.mc.LG(r.SCRATCH2, l.pool(offset))
+        ## overwrite the target in pool
+        #offset = pool_offset + RECOVERY_TARGET_POOL_OFFSET
+        ## overwrite!!
+        #self.pool.overwrite_64(self.mc, offset, target)
+        #self.mc.LG(r.r14, l.pool(offset))
 
-        # overwrite the target in pool
-        offset = pool_offset + RECOVERY_TARGET_POOL_OFFSET
-        self.pool.overwrite_64(self.mc, offset, target)
-        self.mc.LG(r.r14, l.pool(offset))
-
+        self.load_gcmap(self.mc, r.SCRATCH2, gcmap=guardtok.gcmap)
+        self.mc.load_imm(r.r14, target)
         self.mc.load_imm(r.SCRATCH, fail_descr)
-        self.mc.BCR(l.imm(0xf), r.r14)
+        self.mc.BCR(c.ANY, r.r14)
 
         return startpos
 
@@ -632,7 +636,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         #
         operations = regalloc.prepare_loop(inputargs, operations,
                                            looptoken, clt.allgcrefs)
-        self.pool.pre_assemble(self, operations)
+        # POOL self.pool.pre_assemble(self, operations)
         entrypos = self.mc.get_relative_pos()
         self._call_header_with_stack_check()
         looppos = self.mc.get_relative_pos()
@@ -641,7 +645,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         self.update_frame_depth(frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)
         #
         size_excluding_failure_stuff = self.mc.get_relative_pos()
-        self.pool.post_assemble(self)
+        # POOL self.pool.post_assemble(self)
         self.write_pending_failure_recoveries()
         full_size = self.mc.get_relative_pos()
         #
@@ -700,13 +704,13 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
                                              operations,
                                              self.current_clt.allgcrefs,
                                              self.current_clt.frame_info)
-        self.pool.pre_assemble(self, operations, bridge=True)
+        # POOL self.pool.pre_assemble(self, operations, bridge=True)
         startpos = self.mc.get_relative_pos()
-        self.mc.LARL(r.POOL, l.halfword(self.pool.pool_start - startpos))
+        # POOL self.mc.LARL(r.POOL, l.halfword(self.pool.pool_start - startpos))
         self._check_frame_depth(self.mc, regalloc.get_gcmap())
         frame_depth_no_fixed_size = self._assemble(regalloc, inputargs, operations)
         codeendpos = self.mc.get_relative_pos()
-        self.pool.post_assemble(self)
+        # POOL self.pool.post_assemble(self)
         self.write_pending_failure_recoveries()
         fullsize = self.mc.get_relative_pos()
         #
@@ -733,7 +737,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         # to 'adr_new_target'.
         # Updates the pool address
         mc = InstrBuilder()
-        mc.write_i64(adr_new_target)
+        mc.b_abs(adr_new_target)
         mc.copy_to_raw_memory(faildescr.adr_jump_offset)
         assert faildescr.adr_jump_offset != 0
         faildescr.adr_jump_offset = 0    # means "patched"
@@ -878,14 +882,16 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
                 self.mc.STG(r.SCRATCH, l.addr(offset, r.SPP))
                 return
             assert 0, "not supported location"
-        elif prev_loc.is_in_pool():
-            if loc.is_reg():
-                self.mc.LG(loc, prev_loc)
+        elif prev_loc.is_imm_float():
+            self.mc.load_imm(r.SCRATCH, prev_loc.value)
+            if loc.is_fp_reg():
+                self.mc.LDY(loc, l.addr(0, r.SCRATCH))
                 return
-            elif loc.is_fp_reg():
-                self.mc.LDY(loc, prev_loc)
+            elif loc.is_stack():
+                src_adr = l.addr(0, r.SCRATCH)
+                tgt_adr = l.AddressLocation(r.SPP, None, loc.value, l.imm(7))
+                self.mc.MVC(tgt_adr, src_adr)
                 return
-            assert 0, "not supported location (previous is pool loc)"
         elif prev_loc.is_stack():
             offset = prev_loc.value
             # move from memory to register
@@ -989,9 +995,11 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         for tok in self.pending_guard_tokens:
             addr = rawstart + tok.pos_jump_offset
             #
-            tok.faildescr.adr_jump_offset = rawstart + \
-                    self.pool.pool_start + tok._pool_offset + \
-                    RECOVERY_TARGET_POOL_OFFSET
+            # POOL
+            #tok.faildescr.adr_jump_offset = rawstart + \
+            #        self.pool.pool_start + tok._pool_offset + \
+            #        RECOVERY_TARGET_POOL_OFFSET
+            tok.faildescr.adr_jump_offset = rawstart + tok.pos_recovery_stub
             relative_target = tok.pos_recovery_stub - tok.pos_jump_offset
             #
             if not tok.guard_not_invalidated():
@@ -1011,7 +1019,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         # Build a new stackframe of size STD_FRAME_SIZE_IN_BYTES
         fpoff = JIT_ENTER_EXTRA_STACK_SPACE
         self.mc.STMG(r.r6, r.r15, l.addr(-fpoff+6*WORD, r.SP))
-        self.mc.LARL(r.POOL, l.halfword(self.pool.pool_start - self.mc.get_relative_pos()))
+        # POOL self.mc.LARL(r.POOL, l.halfword(self.pool.pool_start - self.mc.get_relative_pos()))
         # f8 through f15 are saved registers (= non volatile)
         # TODO it would be good to detect if any float is used in the loop
         # and to skip this push/pop whenever no float operation occurs
@@ -1172,9 +1180,11 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
     # ASSEMBLER EMISSION
 
     def emit_label(self, op, arglocs, regalloc):
-        offset = self.pool.pool_start - self.mc.get_relative_pos()
+        pass
+        # POOL
+        #offset = self.pool.pool_start - self.mc.get_relative_pos()
         # load the pool address at each label
-        self.mc.LARL(r.POOL, l.halfword(offset))
+        #self.mc.LARL(r.POOL, l.halfword(offset))
 
     def emit_jump(self, op, arglocs, regalloc):
         # The backend's logic assumes that the target code is in a piece of
@@ -1191,14 +1201,16 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         if descr in self.target_tokens_currently_compiling:
             # a label has a LARL instruction that does not need
             # to be executed, thus remove the first opcode
-            self.mc.b_offset(descr._ll_loop_code + self.mc.LARL_byte_count)
+            self.mc.b_offset(descr._ll_loop_code) # POOL + self.mc.LARL_byte_count)
         else:
-            offset = self.pool.get_descr_offset(descr) + \
-                     JUMPABS_TARGET_ADDR__POOL_OFFSET
-            self.mc.LG(r.SCRATCH, l.pool(offset))
+            # POOL
+            #offset = self.pool.get_descr_offset(descr) + \
+            #         JUMPABS_TARGET_ADDR__POOL_OFFSET
+            #self.mc.LG(r.SCRATCH, l.pool(offset))
+            #self.pool.overwrite_64(self.mc, offset, descr._ll_loop_code)
+            self.mc.load_imm(r.SCRATCH, descr._ll_loop_code)
             self.mc.BCR(c.ANY, r.SCRATCH)
 
-            self.pool.overwrite_64(self.mc, offset, descr._ll_loop_code)
 
 
     def emit_finish(self, op, arglocs, regalloc):

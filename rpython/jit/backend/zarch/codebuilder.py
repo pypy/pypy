@@ -35,7 +35,7 @@ class ZARCHGuardToken(GuardToken):
         GuardToken.__init__(self, cpu, gcmap, descr, failargs, faillocs,
                             guard_opnum, frame_depth)
         self.fcond = fcond
-        self._pool_offset = -1
+        # POOL self._pool_offset = -1
 
 class AbstractZARCHBuilder(object):
 
@@ -122,6 +122,10 @@ class InstrBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
     def currpos(self):
         return self.get_relative_pos()
 
+    def b_abs(self, addr):
+        self.load_imm(r.r14, addr)
+        self.BCR(c.ANY, r.r14)
+
     def b_cond_offset(self, offset, condition):
         assert condition != c.cond_none
         self.BRCL(condition, l.imm(offset))
@@ -171,7 +175,6 @@ class InstrBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
                     # 64 bit unsigned
                     self.CLGR(a, b)
 
-
     def load_imm(self, dest_reg, word):
         if -2**15 <= word <= 2**15-1:
             self.LGHI(dest_reg, l.imm(word))
@@ -181,8 +184,6 @@ class InstrBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
             if self.pool and self.pool.contains_constant(word):
                 self.LG(dest_reg, l.pool(self.pool.get_direct_offset(word)))
                 return
-            # this is not put into the constant pool, because it
-            # is an immediate value that cannot easily be forseen
             self.IILF(dest_reg, l.imm(word & 0xFFFFffff))
             self.IIHF(dest_reg, l.imm((word >> 32) & 0xFFFFffff))
 

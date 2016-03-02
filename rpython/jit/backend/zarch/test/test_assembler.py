@@ -325,10 +325,22 @@ class TestRunningAssembler(object):
         self.a.mc.LGFI(r.r5, loc.imm(63))
         self.a.mc.NGR(r.r4, r.r5)
         self.a.mc.LGFI(r.r3, loc.imm(18))
-        self.a.mc.LGFI(r.r2, loc.imm(0xffffffff))
+        self.a.mc.LGFI(r.r2, loc.imm(-1))
         self.a.mc.SRLG(r.r2, r.r3, loc.addr(18))
         self.a.jmpto(r.r14)
         assert run_asm(self.a) == 0
+
+    def test_generate_max_integral_64bit(self):
+        self.a.mc.LGHI(r.r2, loc.imm(-1))
+        self.a.mc.RISBG(r.r2, r.r2, loc.imm(1), loc.imm(0x80 | 63), loc.imm(0))
+        self.a.jmpto(r.r14)
+        assert run_asm(self.a) == 2**63-1
+
+    def test_generate_sign_bit(self):
+        self.a.mc.LGHI(r.r2, loc.imm(-1))
+        self.a.mc.RISBG(r.r2, r.r2, loc.imm(0), loc.imm(0x80 | 0), loc.imm(0))
+        self.a.jmpto(r.r14)
+        assert run_asm(self.a) == -2**63
 
     def test_ag_overflow(self):
         self.a.mc.BRC(con.ANY, loc.imm(4+8+8))
@@ -593,7 +605,7 @@ class TestRunningAssembler(object):
 
         # ensure there is just on instruction for the 'best case'
         self.pushpop_jitframe(r.MANAGED_REGS)
-        assert stored == [(r.r2, r.r11)]
+        assert stored == [(r.r2, r.r11), (r.r13,)]
         assert stored == loaded
         stored = []
         loaded = []

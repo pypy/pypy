@@ -26,6 +26,7 @@ arith_mnemonic_codes = {
     # mul
     'MSGR':    ('rre',   ['\xB9','\x0C']),
     'MSG':     ('rxy',   ['\xE3','\x0C']),
+    'MGHI':    ('ri',    ['\xA7','\x0D']),
     'MSGFI':   ('ril',   ['\xC2','\x00']),
     'MLGR':    ('rre',   ['\xB9','\x86'], 'eo,r'),
     # div/mod
@@ -131,6 +132,7 @@ memory_mnemonic_codes = {
 
     # move
     'MVCLE':   ('rs',    ['\xA8'], 'eo,eo,bd'),
+    'MVC':     ('ssa',   ['\xD2']),
 
 
     # load memory

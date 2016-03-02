@@ -73,4 +73,3 @@ def bytecode_block(draw,
     inst = clazz.create_from(draw, get_strategy_for)
     bytecode, consts = code.Context().transform([inst])
     return bytecode, consts
-

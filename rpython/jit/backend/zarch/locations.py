@@ -1,6 +1,8 @@
 from rpython.jit.metainterp.history import INT, FLOAT
 from rpython.jit.backend.zarch.arch import WORD, DOUBLE_WORD
 
+FWORD = 8
+
 class AssemblerLocation(object):
     _immutable_ = True
     type = INT
@@ -60,6 +62,30 @@ class RegisterLocation(AssemblerLocation):
     def as_key(self):       # 0 <= as_key <= 15
         return self.value
 
+class ConstFloatLoc(AssemblerLocation):
+    """This class represents an imm float value which is stored in memory at
+    the address stored in the field value"""
+    _immutable_ = True
+    width = FWORD
+    type = FLOAT
+
+    def __init__(self, value):
+        self.value = value
+
+    def getint(self):
+        return self.value
+
+    def __repr__(self):
+        return "imm_float(stored at %d)" % (self.value)
+
+    def is_imm_float(self):
+        return True
+
+    def is_float(self):
+        return True
+
+    def as_key(self):
+        return self.value
 
 class FloatRegisterLocation(RegisterLocation):
     _immutable_ = True
