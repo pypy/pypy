@@ -849,8 +849,8 @@ class Regalloc(BaseRegalloc):
         sign_loc = imm0
         if size_box.value < 0:
             sign_loc = imm1
-        self.free_op_vars()
         result_loc = self.force_allocate_reg(op)
+        self.free_op_vars()
         return [result_loc, base_loc, index_loc, imm(size), sign_loc]
 
     prepare_gc_load_i = _prepare_gc_load

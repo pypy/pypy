@@ -908,16 +908,9 @@ class MemoryOpAssembler(object):
 
 
     def _emit_gc_load(self, op, arglocs, regalloc):
-        result_loc, base_loc, ofs_loc, size_loc, sign_loc = arglocs
-        # POOL assert not result_loc.is_in_pool()
-        # POOL assert not base_loc.is_in_pool()
-        # POOL assert not ofs_loc.is_in_pool()
-        if ofs_loc.is_imm():
-            assert self._mem_offset_supported(ofs_loc.value)
-            src_addr = l.addr(ofs_loc.value, base_loc)
-        else:
-            src_addr = l.addr(0, base_loc, ofs_loc)
-        self._memory_read(result_loc, src_addr, size_loc.value, sign_loc.value)
+        result_loc, base_loc, index_loc, size_loc, sign_loc = arglocs
+        addr_loc = self._load_address(base_loc, index_loc, l.imm0)
+        self._memory_read(result_loc, addr_loc, size_loc.value, sign_loc.value)
 
     emit_gc_load_i = _emit_gc_load
     emit_gc_load_f = _emit_gc_load
@@ -925,15 +918,7 @@ class MemoryOpAssembler(object):
 
     def _emit_gc_load_indexed(self, op, arglocs, regalloc):
         result_loc, base_loc, index_loc, offset_loc, size_loc, sign_loc=arglocs
-        # POOL assert not result_loc.is_in_pool()
-        # POOL assert not base_loc.is_in_pool()
-        # POOL assert not index_loc.is_in_pool()
-        # POOL assert not offset_loc.is_in_pool()
-        if offset_loc.is_imm() and self._mem_offset_supported(offset_loc.value):
-            addr_loc = l.addr(offset_loc.value, base_loc, index_loc)
-        else:
-            self.mc.AGRK(r.SCRATCH, index_loc, offset_loc)
-            addr_loc = l.addr(0, base_loc, r.SCRATCH)
+        addr_loc = self._load_address(base_loc, index_loc, offset_loc)
         self._memory_read(result_loc, addr_loc, size_loc.value, sign_loc.value)
 
     emit_gc_load_indexed_i = _emit_gc_load_indexed
@@ -942,36 +927,29 @@ class MemoryOpAssembler(object):
 
     def emit_gc_store(self, op, arglocs, regalloc):
         (base_loc, index_loc, value_loc, size_loc) = arglocs
-        # POOL assert not base_loc.is_in_pool()
-        # POOL assert not index_loc.is_in_pool()
-        # POOL assert not value_loc.is_in_pool()
-        if index_loc.is_imm() and self._mem_offset_supported(index_loc.value):
-            addr_loc = l.addr(index_loc.value, base_loc)
-        else:
-            self.mc.LGR(r.SCRATCH, index_loc)
-            addr_loc = l.addr(0, base_loc, r.SCRATCH)
+        addr_loc = self._load_address(base_loc, index_loc, l.imm0)
         self._memory_store(value_loc, addr_loc, size_loc)
 
     def emit_gc_store_indexed(self, op, arglocs, regalloc):
         (base_loc, index_loc, value_loc, offset_loc, size_loc) = arglocs
-        # POOL assert not base_loc.is_in_pool()
-        # POOL assert not index_loc.is_in_pool()
-        # POOL assert not value_loc.is_in_pool()
-        addr_loc = self._load_address(base_loc, index_loc, offset_loc, r.SCRATCH)
+        addr_loc = self._load_address(base_loc, index_loc, offset_loc)
         self._memory_store(value_loc, addr_loc, size_loc)
 
-    def _load_address(self, base_loc, index_loc, offset_loc, helper_reg):
-        if index_loc.is_imm() and offset_loc.is_imm():
-            const = offset_loc.value + index_loc.value
-            assert self._mem_offset_supported(const)
-            addr_loc = l.addr(const, base_loc)
-        elif offset_loc.is_imm() and self._mem_offset_supported(offset_loc.value):
-            assert index_loc.is_core_reg()
-            addr_loc = l.addr(offset_loc.value, base_loc, index_loc)
+    def _load_address(self, base_loc, index_loc, offset_imm):
+        assert offset_imm.is_imm()
+        offset = offset_imm.value
+        if index_loc.is_imm():
+            offset = index_loc.value + offset
+            if self._mem_offset_supported(offset):
+                addr_loc = l.addr(offset, base_loc)
+            else:
+                self.mc.load_imm(r.SCRATCH, offset)
+                addr_loc = l.addr(0, base_loc, r.SCRATCH)
         else:
-            self.mc.AGRK(helper_reg, index_loc, offset_loc)
-            addr_loc = l.addr(0, base_loc, helper_reg)
+            assert self._mem_offset_supported(offset)
+            addr_loc = l.addr(offset, base_loc, index_loc)
         return addr_loc
+
 
     def _mem_offset_supported(self, value):
         return -2**19 <= value < 2**19
