@@ -22,7 +22,8 @@ from pypy.module.micronumpy.converters import (
 from pypy.module.micronumpy.flagsobj import W_FlagsObject
 from pypy.module.micronumpy.strides import (
     get_shape_from_iterable, shape_agreement, shape_agreement_multiple,
-    is_c_contiguous, is_f_contiguous, calc_strides, new_view, BooleanChunk)
+    is_c_contiguous, is_f_contiguous, calc_strides, new_view, BooleanChunk,
+    SliceChunk)
 from pypy.module.micronumpy.casting import can_cast_array
 from pypy.module.micronumpy.descriptor import get_dtype_cache
 
@@ -226,8 +227,24 @@ class __extend__(W_NDimArray):
         if iter_shape is None:
             # w_index is a list of slices
             chunks = self.implementation._prepare_slice_args(space, w_index)
-            view = new_view(space, self, chunks)
-            view.implementation.setslice(space, val_arr)
+            dim = -1
+            view = self
+            for i, c in enumerate(chunks):
+                if isinstance(c, BooleanChunk):
+                    dim = i
+                    idx = c.w_idx
+                    chunks.pop(i)
+                    chunks.insert(0, SliceChunk(space.newslice(space.wrap(0), 
+                                 space.w_None, space.w_None)))
+                    break
+            if dim > 0:
+                view = self.implementation.swapaxes(space, self, 0, dim) 
+            if dim >= 0:
+                view = new_view(space, self, chunks)
+                view.setitem_filter(space, idx, val_arr)
+            else:
+                view = new_view(space, self, chunks)
+                view.implementation.setslice(space, val_arr)
             return
         if support.product(iter_shape) == 0:
             return
