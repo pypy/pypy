@@ -36,6 +36,8 @@ def slice_w(space, ctx, start, end, w_default):
     if 0 <= start <= end:
         if isinstance(ctx, rsre_core.BufMatchContext):
             return space.wrap(ctx._buffer.getslice(start, end, 1, end-start))
+        if isinstance(ctx, rsre_core.StrMatchContext):
+            return space.wrap(ctx._string[start:end])
         elif isinstance(ctx, rsre_core.UnicodeMatchContext):
             return space.wrap(ctx._unicodestr[start:end])
         else:
@@ -98,8 +100,8 @@ class W_SRE_Pattern(W_Root):
                              space.wrap("cannot copy this pattern object"))
 
     def make_ctx(self, w_string, pos=0, endpos=sys.maxint):
-        """Make a BufMatchContext or a UnicodeMatchContext for searching
-        in the given w_string object."""
+        """Make a StrMatchContext, BufMatchContext or a UnicodeMatchContext for
+        searching in the given w_string object."""
         space = self.space
         if pos < 0:
             pos = 0
@@ -113,6 +115,14 @@ class W_SRE_Pattern(W_Root):
                 endpos = len(unicodestr)
             return rsre_core.UnicodeMatchContext(self.code, unicodestr,
                                                  pos, endpos, self.flags)
+        elif space.isinstance_w(w_string, space.w_str):
+            str = space.str_w(w_string)
+            if pos > len(str):
+                pos = len(str)
+            if endpos > len(str):
+                endpos = len(str)
+            return rsre_core.StrMatchContext(self.code, str,
+                                             pos, endpos, self.flags)
         else:
             buf = space.readbuf_w(w_string)
             size = buf.getlength()
@@ -482,6 +492,8 @@ class W_SRE_Match(W_Root):
         ctx = self.ctx
         if isinstance(ctx, rsre_core.BufMatchContext):
             return space.wrap(ctx._buffer.as_str())
+        elif isinstance(ctx, rsre_core.StrMatchContext):
+            return space.wrap(ctx._string)
         elif isinstance(ctx, rsre_core.UnicodeMatchContext):
             return space.wrap(ctx._unicodestr)
         else:
