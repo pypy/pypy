@@ -59,19 +59,6 @@ else:
         yield
 
 
-def not_really_random():
-    """A random-ish generator, which also generates nice patterns from time to time.
-    Could be useful to detect problems associated with specific usage patterns."""
-    import random
-    x = random.random()
-    print 'random seed: %r' % (x,)
-    for i in range(12000):
-        r = 3.4 + i/20000.0
-        x = r*x - x*x
-        assert 0 <= x < 4
-        yield x
-
-
 class BaseTestRDict(BaseRtypingTest):
     def test_dict_creation(self):
         def createdict(i):
