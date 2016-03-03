@@ -318,17 +318,6 @@ def wrap_cmpfunc(space, w_self, w_args, func):
 
     return space.wrap(generic_cpy_call(space, func_target, w_self, w_other))
 
-@cpython_api([PyTypeObjectPtr, PyObject, PyObject], PyObject, header=None)
-def slot_tp_new(space, type, w_args, w_kwds):
-    from pypy.module.cpyext.tupleobject import PyTuple_Check
-    pyo = rffi.cast(PyObject, type)
-    w_type = from_ref(space, pyo)
-    w_func = space.getattr(w_type, space.wrap("__new__"))
-    assert PyTuple_Check(space, w_args)
-    args_w = [w_type] + space.fixedview(w_args)
-    w_args_new = space.newtuple(args_w)
-    return space.call(w_func, w_args_new, w_kwds)
-
 from rpython.rlib.nonconst import NonConstant
 
 SLOTS = {}
@@ -463,7 +452,16 @@ def build_slot_tp_function(space, typedef, name):
             space.call_args(init_fn, args)
             return 0
         api_func = slot_tp_init.api_func
+    elif name == 'tp_new':
+        new_fn = w_type.getdictvalue(space, '__new__')
+        if new_fn is None:
+            return
 
+        @cpython_api([PyTypeObjectPtr, PyObject, PyObject], PyObject, header=None)
+        @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
+        def slot_tp_new(space, type, w_args, w_kwds):
+            return space.call(w_type, w_args, w_kwds)
+        api_func = slot_tp_new.api_func
     else:
         return
 
