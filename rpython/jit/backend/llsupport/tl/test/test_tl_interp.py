@@ -1,5 +1,6 @@
 import py
 from hypothesis import given
+from hypothesis.strategies import lists
 from rpython.jit.backend.llsupport.tl import code, interp
 from rpython.jit.backend.llsupport.tl.stack import Stack
 from rpython.jit.backend.llsupport.tl.test import code_strategies as st
@@ -22,7 +23,7 @@ class TestByteCode(object):
         assert c.get_short(3) == 1
 
 class TestInterp(object):
-    @given(st.single_bytecode())
+    @given(st.bytecode())
     def test_consume_stack(self, args):
         bytecode, consts, stack = args
         space = interp.Space()
@@ -31,9 +32,9 @@ class TestInterp(object):
         clazz = st.get_byte_code_class(ord(bytecode[0]))
         assert stack.size() == len(clazz._return_on_stack_types)
 
-    @given(st.bytecode_block())
+    @given(lists(st.bytecode(max_stack_size=0)))
     def test_execute_bytecode_block(self, args):
-        bytecode, consts = args
+        bytecode, consts, _ = args
         space = interp.Space()
         stack = Stack(16)
         pc = 0

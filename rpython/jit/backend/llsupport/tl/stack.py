@@ -3,6 +3,14 @@ from rpython.rlib.jit import JitDriver, hint, dont_look_inside, promote
 class Stack(object):
     _virtualizable_ = ['stackpos', 'stack[*]']
 
+    @staticmethod
+    def from_items(space, elems):
+        s = Stack(len(elems))
+        for elem in elems:
+            s.append(space.wrap(elem))
+        return s
+
+
     def __init__(self, size):
         self = hint(self, access_directly=True, fresh_virtualizable=True)
         self.stack = [None] * size

@@ -15,6 +15,10 @@ class W_ListObject(W_Root):
         assert isinstance(w_lst, W_ListObject)
         return space.wrap(self.items + w_lst.items)
 
+    def is_of_type(self, type):
+        """ NOT_RPYTHON """
+        return type in (LIST_TYP,)
+
 class W_IntObject(W_Root):
     def __init__(self, value):
         self.value = value
@@ -26,6 +30,12 @@ class W_IntObject(W_Root):
     def concat(self, space, w_obj):
         raise NotImplementedError("cannot concat int with object")
 
+    def is_of_type(self, type):
+        """ NOT_RPYTHON """
+        return type in (code.INT_TYP,code.IDX_TYP,
+                        code.COND_TYP,code.SHORT_TYP,
+                        code.BYTE_TYP)
+
 class W_StrObject(W_Root):
     def __init__(self, value):
         self.value = value
@@ -33,6 +43,10 @@ class W_StrObject(W_Root):
     def concat(self, space, w_str):
         assert isinstance(w_str, W_StrObject)
         return space.wrap(self.value + w_str.value)
+
+    def is_of_type(self, type):
+        """ NOT_RPYTHON """
+        return type in (code.STR_TYP,)
 
 class Space(object):
     @specialize.argtype(1)
