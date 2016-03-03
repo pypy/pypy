@@ -59,19 +59,6 @@ else:
         yield
 
 
-def not_really_random():
-    """A random-ish generator, which also generates nice patterns from time to time.
-    Could be useful to detect problems associated with specific usage patterns."""
-    import random
-    x = random.random()
-    print 'random seed: %r' % (x,)
-    for i in range(12000):
-        r = 3.4 + i/20000.0
-        x = r*x - x*x
-        assert 0 <= x < 4
-        yield x
-
-
 class BaseTestRDict(BaseRtypingTest):
     def test_dict_creation(self):
         def createdict(i):
@@ -1048,7 +1035,7 @@ class TestRDict(BaseTestRDict):
         s_BA_dic = s.items[1]
 
         r_AB_dic = rtyper.getrepr(s_AB_dic)
-        r_BA_dic = rtyper.getrepr(s_AB_dic)
+        r_BA_dic = rtyper.getrepr(s_BA_dic)
 
         assert r_AB_dic.lowleveltype == r_BA_dic.lowleveltype
 
@@ -1166,50 +1153,51 @@ keytypes_s = [
 st_keys = sampled_from(keytypes_s)
 st_values = sampled_from(keytypes_s + [SomeString(can_be_None=True)])
 
-class Space(object):
+class MappingSpace(object):
     def __init__(self, s_key, s_value):
         self.s_key = s_key
         self.s_value = s_value
         rtyper = PseudoRTyper()
         r_key = s_key.rtyper_makerepr(rtyper)
         r_value = s_value.rtyper_makerepr(rtyper)
-        dictrepr = rdict.DictRepr(rtyper, r_key, r_value,
+        dictrepr = self.MappingRepr(rtyper, r_key, r_value,
                         DictKey(None, s_key),
                         DictValue(None, s_value))
         dictrepr.setup()
-        self.l_dict = rdict.ll_newdict(dictrepr.DICT)
-        self.reference = {}
+        self.l_dict = self.newdict(dictrepr)
+        self.reference = self.new_reference()
         self.ll_key = r_key.convert_const
         self.ll_value = r_value.convert_const
 
     def setitem(self, key, value):
         ll_key = self.ll_key(key)
         ll_value = self.ll_value(value)
-        rdict.ll_dict_setitem(self.l_dict, ll_key, ll_value)
+        self.ll_setitem(self.l_dict, ll_key, ll_value)
         self.reference[key] = value
-        assert rdict.ll_contains(self.l_dict, ll_key)
+        assert self.ll_contains(self.l_dict, ll_key)
 
     def delitem(self, key):
         ll_key = self.ll_key(key)
-        rdict.ll_dict_delitem(self.l_dict, ll_key)
+        self.ll_delitem(self.l_dict, ll_key)
         del self.reference[key]
-        assert not rdict.ll_contains(self.l_dict, ll_key)
+        assert not self.ll_contains(self.l_dict, ll_key)
 
     def copydict(self):
-        self.l_dict = rdict.ll_copy(self.l_dict)
+        self.l_dict = self.ll_copy(self.l_dict)
+        assert self.ll_len(self.l_dict) == len(self.reference)
 
     def cleardict(self):
-        rdict.ll_clear(self.l_dict)
+        self.ll_clear(self.l_dict)
         self.reference.clear()
-        assert rdict.ll_dict_len(self.l_dict) == 0
+        assert self.ll_len(self.l_dict) == 0
 
     def fullcheck(self):
-        assert rdict.ll_dict_len(self.l_dict) == len(self.reference)
+        assert self.ll_len(self.l_dict) == len(self.reference)
         for key, value in self.reference.iteritems():
-            assert (rdict.ll_dict_getitem(self.l_dict, self.ll_key(key)) ==
+            assert (self.ll_getitem(self.l_dict, self.ll_key(key)) ==
                 self.ll_value(value))
 
-class StressTest(GenericStateMachine):
+class MappingSM(GenericStateMachine):
     def __init__(self):
         self.space = None
 
@@ -1239,7 +1227,7 @@ class StressTest(GenericStateMachine):
 
     def execute_step(self, action):
         if action.method == 'setup':
-            self.space = Space(*action.args)
+            self.space = self.Space(*action.args)
             self.st_keys = ann2strategy(self.space.s_key)
             self.st_values = ann2strategy(self.space.s_value)
             return
@@ -1250,5 +1238,24 @@ class StressTest(GenericStateMachine):
         if self.space:
             self.space.fullcheck()
 
+
+class DictSpace(MappingSpace):
+    MappingRepr = rdict.DictRepr
+    new_reference = dict
+    ll_getitem = staticmethod(rdict.ll_dict_getitem)
+    ll_setitem = staticmethod(rdict.ll_dict_setitem)
+    ll_delitem = staticmethod(rdict.ll_dict_delitem)
+    ll_len = staticmethod(rdict.ll_dict_len)
+    ll_contains = staticmethod(rdict.ll_contains)
+    ll_copy = staticmethod(rdict.ll_copy)
+    ll_clear = staticmethod(rdict.ll_clear)
+
+    def newdict(self, repr):
+        return rdict.ll_newdict(repr.DICT)
+
+class DictSM(MappingSM):
+    Space = DictSpace
+
 def test_hypothesis():
-    run_state_machine_as_test(StressTest, settings(max_examples=500, stateful_step_count=100))
+    run_state_machine_as_test(
+        DictSM, settings(max_examples=500, stateful_step_count=100))
