@@ -1,14 +1,18 @@
-
 import py
 from collections import OrderedDict
+
+from hypothesis import settings
+from hypothesis.stateful import run_state_machine_as_test
 
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem import rordereddict, rstr
 from rpython.rlib.rarithmetic import intmask
 from rpython.rtyper.annlowlevel import llstr, hlstr
-from rpython.rtyper.test.test_rdict import BaseTestRDict
+from rpython.rtyper.test.test_rdict import (
+    BaseTestRDict, MappingSpace, MappingSM)
 from rpython.rlib import objectmodel
 
+rodct = rordereddict
 
 def get_indexes(ll_d):
     return ll_d.indexes._obj.container._as_ptr()
@@ -451,3 +455,50 @@ class TestStress:
                 print 'current dict length:', referencelength
             assert l_dict.num_live_items == referencelength
         complete_check()
+
+
+class ODictSpace(MappingSpace):
+    MappingRepr = rodct.OrderedDictRepr
+    new_reference = OrderedDict
+    ll_getitem = staticmethod(rodct.ll_dict_getitem)
+    ll_setitem = staticmethod(rodct.ll_dict_setitem)
+    ll_delitem = staticmethod(rodct.ll_dict_delitem)
+    ll_len = staticmethod(rodct.ll_dict_len)
+    ll_contains = staticmethod(rodct.ll_dict_contains)
+    ll_copy = staticmethod(rodct.ll_dict_copy)
+    ll_clear = staticmethod(rodct.ll_dict_clear)
+
+    def newdict(self, repr):
+        return rodct.ll_newdict(repr.DICT)
+
+    def get_keys(self):
+        DICT = lltype.typeOf(self.l_dict).TO
+        ITER = rordereddict.get_ll_dictiter(lltype.Ptr(DICT))
+        ll_iter = rordereddict.ll_dictiter(ITER, self.l_dict)
+        ll_dictnext = rordereddict._ll_dictnext
+        keys_ll = []
+        while True:
+            try:
+                num = ll_dictnext(ll_iter)
+                keys_ll.append(self.l_dict.entries[num].key)
+            except StopIteration:
+                break
+        return keys_ll
+
+    def fullcheck(self):
+        # overridden to also check key order
+        assert self.ll_len(self.l_dict) == len(self.reference)
+        keys_ll = self.get_keys()
+        assert len(keys_ll) == len(self.reference)
+        for key, ll_key in zip(self.reference, keys_ll):
+            assert self.ll_key(key) == ll_key
+            assert (self.ll_getitem(self.l_dict, self.ll_key(key)) ==
+                self.ll_value(self.reference[key]))
+
+
+class ODictSM(MappingSM):
+    Space = ODictSpace
+
+def test_hypothesis():
+    run_state_machine_as_test(
+        ODictSM, settings(max_examples=500, stateful_step_count=100))
