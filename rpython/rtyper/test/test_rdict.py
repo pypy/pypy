@@ -1048,7 +1048,7 @@ class TestRDict(BaseTestRDict):
         s_BA_dic = s.items[1]
 
         r_AB_dic = rtyper.getrepr(s_AB_dic)
-        r_BA_dic = rtyper.getrepr(s_AB_dic)
+        r_BA_dic = rtyper.getrepr(s_BA_dic)
 
         assert r_AB_dic.lowleveltype == r_BA_dic.lowleveltype
 
