@@ -557,7 +557,7 @@ class BaseTest(object):
         from rpython.jit.metainterp.opencoder import Trace
         trace = Trace(loop.inputargs)
         for op in loop.operations:
-            newop = trace.record_op(op.getopnum(), op.getarglist())
+            newop = trace.record_op(op.getopnum(), op.getarglist(), op.getdescr())
             if rop.is_guard(op.getopnum()):
                 frame = FakeFrame(op.getfailargs())
                 resume.capture_resumedata([frame], None, [], trace)

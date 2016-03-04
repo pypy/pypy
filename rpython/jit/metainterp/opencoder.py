@@ -134,7 +134,9 @@ class Trace(object):
 
     def _encode(self, box):
         if isinstance(box, Const):
-            if isinstance(box, ConstInt) and 0 <= box.getint() < MAXINT:
+            if (isinstance(box, ConstInt) and
+                isinstance(box.getint(), int) and # symbolics
+                0 <= box.getint() < MAXINT):
                 return tag(TAGINT, box.getint())
             else:
                 self._consts.append(box)
@@ -189,6 +191,7 @@ class Trace(object):
     def record_op(self, opnum, argboxes, descr=None):
         # return an ResOperation instance, ideally die in hell
         pos = self._record_op(opnum, argboxes, descr)
+        assert opnum >= 0
         return ResOperation(opnum, argboxes, pos, descr)
 
     def record_op_tag(self, opnum, tagged_args, descr=None):

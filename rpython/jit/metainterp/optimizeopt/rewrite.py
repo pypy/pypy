@@ -56,13 +56,13 @@ class OptRewrite(Optimization):
         arg0 = op.getarg(0)
         arg1 = op.getarg(1)
         if oldopnum != -1:
-            top = ResOperation(oldopnum, [arg0, arg1], None)
+            top = ResOperation(oldopnum, [arg0, arg1], -1)
             if self.try_boolinvers(op, top):
                 return True
 
         oldopnum = op.boolreflex # FIXME: add INT_ADD, INT_MUL
         if oldopnum != -1:
-            top = ResOperation(oldopnum, [arg1, arg0], None)
+            top = ResOperation(oldopnum, [arg1, arg0], -1)
             oldop = self.get_pure_result(top)
             if oldop is not None:
                 self.optimizer.make_equal_to(op, oldop)
@@ -72,7 +72,7 @@ class OptRewrite(Optimization):
             return False
         oldopnum = opclasses[op.boolreflex].boolinverse
         if oldopnum != -1:
-            top = ResOperation(oldopnum, [arg1, arg0], None)
+            top = ResOperation(oldopnum, [arg1, arg0], -1)
             if self.try_boolinvers(op, top):
                 return True
 

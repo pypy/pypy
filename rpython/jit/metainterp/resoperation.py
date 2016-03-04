@@ -81,7 +81,7 @@ class AbstractValue(object):
         return False
 
 
-def ResOperation(opnum, args, position, descr=None):
+def ResOperation(opnum, args, position=-1, descr=None):
     cls = opclasses[opnum]
     op = cls()
     op.initarglist(args)
@@ -1153,8 +1153,6 @@ _oplist = [
     'STRLEN/1/i',
     'STRGETITEM/2/i',
     'GETARRAYITEM_GC_PURE/2d/rfi',
-    #'GETFIELD_RAW_PURE/1d/rfi',     these two operations not useful and
-    #'GETARRAYITEM_RAW_PURE/2d/fi',  dangerous when unrolling speculatively
     'UNICODELEN/1/i',
     'UNICODEGETITEM/2/i',
     #
@@ -1235,6 +1233,8 @@ _oplist = [
     'LEAVE_PORTAL_FRAME/1/n',     # debugging only
     'JIT_DEBUG/*/n',              # debugging only
     '_JIT_DEBUG_LAST',
+    'ESCAPE/*/rfin',              # tests only
+    'FORCE_SPILL/1/n',            # tests only
     'VIRTUAL_REF_FINISH/2/n',   # removed before it's passed to the backend
     'COPYSTRCONTENT/5/n',       # src, dst, srcstart, dststart, length
     'COPYUNICODECONTENT/5/n',
