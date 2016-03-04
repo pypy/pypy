@@ -74,7 +74,8 @@ class TestRawRefCount(BaseDirectGCTest):
             return p1
         return p1, p1ref, r1, r1addr, check_alive
 
-    def test_rawrefcount_objects_basic(self, old=False):
+    @py.test.mark.parametrize('old', [True, False])
+    def test_rawrefcount_objects_basic(self, old):
         p1, p1ref, r1, r1addr, check_alive = (
             self._rawrefcount_pair(42, is_light=True, create_old=old))
         p2 = self.malloc(S)
@@ -95,7 +96,8 @@ class TestRawRefCount(BaseDirectGCTest):
         lltype.free(r1, flavor='raw')
         lltype.free(r2, flavor='raw')
 
-    def test_rawrefcount_objects_collection_survives_from_raw(self, old=False):
+    @py.test.mark.parametrize('old', [True, False])
+    def test_rawrefcount_objects_collection_survives_from_raw(self, old):
         p1, p1ref, r1, r1addr, check_alive = (
             self._rawrefcount_pair(42, is_light=True, create_old=old))
         check_alive(0)
@@ -114,7 +116,8 @@ class TestRawRefCount(BaseDirectGCTest):
         assert self.trigger == []
         assert self.gc.rawrefcount_next_dead() == llmemory.NULL
 
-    def test_rawrefcount_dies_quickly(self, old=False):
+    @py.test.mark.parametrize('old', [True, False])
+    def test_rawrefcount_dies_quickly(self, old):
         p1, p1ref, r1, r1addr, check_alive = (
             self._rawrefcount_pair(42, is_light=True, create_old=old))
         check_alive(0)
@@ -126,7 +129,8 @@ class TestRawRefCount(BaseDirectGCTest):
         py.test.raises(RuntimeError, "p1.x")            # dead
         self.gc.check_no_more_rawrefcount_state()
 
-    def test_rawrefcount_objects_collection_survives_from_obj(self, old=False):
+    @py.test.mark.parametrize('old', [True, False])
+    def test_rawrefcount_objects_collection_survives_from_obj(self, old):
         p1, p1ref, r1, r1addr, check_alive = (
             self._rawrefcount_pair(42, is_light=True, create_old=old))
         check_alive(0)
@@ -144,16 +148,8 @@ class TestRawRefCount(BaseDirectGCTest):
         py.test.raises(RuntimeError, "p1.x")            # dead
         self.gc.check_no_more_rawrefcount_state()
 
-    def test_rawrefcount_objects_basic_old(self):
-        self.test_rawrefcount_objects_basic(old=True)
-    def test_rawrefcount_objects_collection_survives_from_raw_old(self):
-        self.test_rawrefcount_objects_collection_survives_from_raw(old=True)
-    def test_rawrefcount_dies_quickly_old(self):
-        self.test_rawrefcount_dies_quickly(old=True)
-    def test_rawrefcount_objects_collection_survives_from_obj_old(self):
-        self.test_rawrefcount_objects_collection_survives_from_obj(old=True)
-
-    def test_pypy_nonlight_survives_from_raw(self, old=False):
+    @py.test.mark.parametrize('old', [True, False])
+    def test_pypy_nonlight_survives_from_raw(self, old):
         p1, p1ref, r1, r1addr, check_alive = (
             self._rawrefcount_pair(42, is_light=False, create_old=old))
         check_alive(0)
@@ -175,7 +171,8 @@ class TestRawRefCount(BaseDirectGCTest):
         self.gc.check_no_more_rawrefcount_state()
         lltype.free(r1, flavor='raw')
 
-    def test_pypy_nonlight_survives_from_obj(self, old=False):
+    @py.test.mark.parametrize('old', [True, False])
+    def test_pypy_nonlight_survives_from_obj(self, old):
         p1, p1ref, r1, r1addr, check_alive = (
             self._rawrefcount_pair(42, is_light=False, create_old=old))
         check_alive(0)
@@ -196,7 +193,8 @@ class TestRawRefCount(BaseDirectGCTest):
         self.gc.check_no_more_rawrefcount_state()
         lltype.free(r1, flavor='raw')
 
-    def test_pypy_nonlight_dies_quickly(self, old=False):
+    @py.test.mark.parametrize('old', [True, False])
+    def test_pypy_nonlight_dies_quickly(self, old):
         p1, p1ref, r1, r1addr, check_alive = (
             self._rawrefcount_pair(42, is_light=False, create_old=old))
         check_alive(0)
@@ -213,13 +211,6 @@ class TestRawRefCount(BaseDirectGCTest):
         self.gc.check_no_more_rawrefcount_state()
         lltype.free(r1, flavor='raw')
 
-    def test_pypy_nonlight_survives_from_raw_old(self):
-        self.test_pypy_nonlight_survives_from_raw(old=True)
-    def test_pypy_nonlight_survives_from_obj_old(self):
-        self.test_pypy_nonlight_survives_from_obj(old=True)
-    def test_pypy_nonlight_dies_quickly_old(self):
-        self.test_pypy_nonlight_dies_quickly(old=True)
-
     def test_pyobject_pypy_link_dies_on_minor_collection(self):
         p1, p1ref, r1, r1addr, check_alive = (
             self._rawrefcount_pair(42, is_pyobj=True))
@@ -231,7 +222,8 @@ class TestRawRefCount(BaseDirectGCTest):
         self.gc.check_no_more_rawrefcount_state()
         lltype.free(r1, flavor='raw')
 
-    def test_pyobject_dies(self, old=False):
+    @py.test.mark.parametrize('old', [True, False])
+    def test_pyobject_dies(self, old):
         p1, p1ref, r1, r1addr, check_alive = (
             self._rawrefcount_pair(42, is_pyobj=True, create_old=old))
         check_alive(0)
@@ -247,7 +239,8 @@ class TestRawRefCount(BaseDirectGCTest):
         self.gc.check_no_more_rawrefcount_state()
         lltype.free(r1, flavor='raw')
 
-    def test_pyobject_survives_from_obj(self, old=False):
+    @py.test.mark.parametrize('old', [True, False])
+    def test_pyobject_survives_from_obj(self, old):
         p1, p1ref, r1, r1addr, check_alive = (
             self._rawrefcount_pair(42, is_pyobj=True, create_old=old))
         check_alive(0)
@@ -268,11 +261,6 @@ class TestRawRefCount(BaseDirectGCTest):
         assert self.gc.rawrefcount_next_dead() == r1addr
         self.gc.check_no_more_rawrefcount_state()
         lltype.free(r1, flavor='raw')
-
-    def test_pyobject_dies_old(self):
-        self.test_pyobject_dies(old=True)
-    def test_pyobject_survives_from_obj_old(self):
-        self.test_pyobject_survives_from_obj(old=True)
 
     def test_pyobject_attached_to_prebuilt_obj(self):
         p1, p1ref, r1, r1addr, check_alive = (
