@@ -134,7 +134,7 @@ class Trace(object):
 
     def _encode(self, box):
         if isinstance(box, Const):
-            if isinstance(box, ConstInt) and box.getint() < MAXINT:
+            if isinstance(box, ConstInt) and 0 <= box.getint() < MAXINT:
                 return tag(TAGINT, box.getint())
             else:
                 self._consts.append(box)
@@ -148,7 +148,7 @@ class Trace(object):
 
     def _record_op(self, opnum, argboxes, descr=None):
         operations = self._ops
-        pos = len(operations)
+        pos = self._count
         operations.append(opnum)
         if oparity[opnum] == -1:
             operations.append(len(argboxes))
@@ -163,7 +163,7 @@ class Trace(object):
 
     def _record_raw(self, opnum, tagged_args, tagged_descr=-1):
         operations = self._ops
-        pos = len(operations)
+        pos = self._count
         operations.append(opnum)
         if oparity[opnum] == -1:
             operations.append(len(tagged_args))
@@ -179,9 +179,9 @@ class Trace(object):
         self._descrs.append(descr)
         return len(self._descrs) - 1
 
-    def record_forwarding(self, op, newtag):
-        index = op._pos
-        self._ops[index] = -newtag - 1
+#    def record_forwarding(self, op, newtag):
+#        index = op._pos
+#        self._ops[index] = -newtag - 1
 
     def record_snapshot_link(self, pos):
         self._ops.append(-pos - 1)

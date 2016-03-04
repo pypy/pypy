@@ -118,7 +118,8 @@ class TestOpencoder(object):
         inputargs, ops = lst
         t = Trace(inputargs)
         for op in ops:
-            t.record_op(op.getopnum(), op.getarglist())
+            newop = t.record_op(op.getopnum(), op.getarglist())
+            op.position = newop.position
         inpargs, l, iter = self.unpack(t)
         loop1 = TreeLoop("loop1")
         loop1.inputargs = inputargs
@@ -127,3 +128,4 @@ class TestOpencoder(object):
         loop2.inputargs = inpargs
         loop2.operations = l
         BaseTest.assert_equal(loop1, loop2)
+        print "success"
