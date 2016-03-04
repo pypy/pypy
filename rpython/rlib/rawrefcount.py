@@ -35,6 +35,19 @@ def init(dealloc_trigger_callback=None):
     _d_list = []
     _dealloc_trigger_callback = dealloc_trigger_callback
 
+class Entry(ExtRegistryEntry):
+    _about_ = init
+
+    def compute_result_annotation(self, s_dealloc_callback):
+        from rpython.rtyper.llannotation import SomePtr
+        assert isinstance(s_dealloc_callback, SomePtr)   # ll-ptr-to-function
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        [v_dealloc_callback] = hop.inputargs(hop.args_r[0])
+        hop.genop('gc_rawrefcount_init', [v_dealloc_callback])
+
+
 def create_link_pypy(gcobj, ob):
     "NOT_RPYTHON: a link where the PyPy object contains some or all the data"
     assert gcobj not in _pypy2ob
@@ -49,6 +62,22 @@ def create_link_pyobj(gcobj, ob):
     ob.c_ob_pypy_link = _build_pypy_link(gcobj)
     _o_list.append(ob)
 
+class Entry(ExtRegistryEntry):
+    _about_ = (create_link_pypy, create_link_pyobj)
+
+    def compute_result_annotation(self, s_gcobj, s_ob):
+        pass
+
+    def specialize_call(self, hop):
+        if self.instance is create_link_pypy:
+            name = 'gc_rawrefcount_create_link_pypy'
+        elif self.instance is create_link_pyobj:
+            name = 'gc_rawrefcount_create_link_pyobj'
+        v_gcobj, v_ob = hop.inputargs(*hop.args_r)
+        hop.exception_cannot_occur()
+        hop.genop(name, [_unspec_gc(hop, v_gcobj), _unspec_ob(hop, v_ob)])
+
+
 def from_obj(OB_PTR_TYPE, gcobj):
     "NOT_RPYTHON"
     ob = _pypy2ob.get(gcobj)
@@ -56,6 +85,25 @@ def from_obj(OB_PTR_TYPE, gcobj):
         return lltype.nullptr(OB_PTR_TYPE.TO)
     assert lltype.typeOf(ob) == OB_PTR_TYPE
     return ob
+
+class Entry(ExtRegistryEntry):
+    _about_ = from_obj
+
+    def compute_result_annotation(self, s_OB_PTR_TYPE, s_gcobj):
+        from rpython.annotator import model as annmodel
+        from rpython.rtyper.llannotation import lltype_to_annotation
+        assert (isinstance(s_gcobj, annmodel.SomeInstance) or
+                    annmodel.s_None.contains(s_gcobj))
+        assert s_OB_PTR_TYPE.is_constant()
+        return lltype_to_annotation(s_OB_PTR_TYPE.const)
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        v_gcobj = hop.inputarg(hop.args_r[1], arg=1)
+        v_adr = hop.genop('gc_rawrefcount_from_obj', [_unspec_gc(hop, v_gcobj)],
+                         resulttype=llmemory.Address)
+        return _spec_ob(hop, v_adr)
+
 
 def to_obj(Class, ob):
     "NOT_RPYTHON"
@@ -66,12 +114,46 @@ def to_obj(Class, ob):
     assert isinstance(gcobj, Class)
     return gcobj
 
+class Entry(ExtRegistryEntry):
+    _about_ = to_obj
+
+    def compute_result_annotation(self, s_Class, s_ob):
+        from rpython.annotator import model as annmodel
+        from rpython.rtyper.llannotation import SomePtr
+        assert isinstance(s_ob, SomePtr)
+        assert s_Class.is_constant()
+        classdef = self.bookkeeper.getuniqueclassdef(s_Class.const)
+        return annmodel.SomeInstance(classdef, can_be_None=True)
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        v_ob = hop.inputarg(hop.args_r[1], arg=1)
+        v_gcobj = hop.genop('gc_rawrefcount_to_obj', [_unspec_ob(hop, v_ob)],
+                        resulttype=llmemory.GCREF)
+        return _spec_gc(hop, v_gcobj)
+
+
 def next_dead(OB_PTR_TYPE):
     if len(_d_list) == 0:
         return lltype.nullptr(OB_PTR_TYPE.TO)
     ob = _d_list.pop()
     assert lltype.typeOf(ob) == OB_PTR_TYPE
     return ob
+
+class Entry(ExtRegistryEntry):
+    _about_ = next_dead
+
+    def compute_result_annotation(self, s_OB_PTR_TYPE):
+        from rpython.rtyper.llannotation import lltype_to_annotation
+        assert s_OB_PTR_TYPE.is_constant()
+        return lltype_to_annotation(s_OB_PTR_TYPE.const)
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        v_rawaddr = hop.genop('gc_rawrefcount_next_dead', [],
+                         resulttype=llmemory.Address)
+        return _spec_ob(hop, v_rawaddr)
+
 
 def _collect(track_allocation=True):
     """NOT_RPYTHON: for tests only.  Emulates a GC collection.
@@ -177,83 +259,3 @@ def _spec_ob(hop, v_adr):
     assert v_adr.concretetype == llmemory.Address
     return hop.genop('cast_adr_to_ptr', [v_adr],
                      resulttype=hop.r_result.lowleveltype)
-
-
-class Entry(ExtRegistryEntry):
-    _about_ = init
-
-    def compute_result_annotation(self, s_dealloc_callback):
-        from rpython.rtyper.llannotation import SomePtr
-        assert isinstance(s_dealloc_callback, SomePtr)   # ll-ptr-to-function
-
-    def specialize_call(self, hop):
-        hop.exception_cannot_occur()
-        [v_dealloc_callback] = hop.inputargs(hop.args_r[0])
-        hop.genop('gc_rawrefcount_init', [v_dealloc_callback])
-
-
-class Entry(ExtRegistryEntry):
-    _about_ = (create_link_pypy, create_link_pyobj)
-
-    def compute_result_annotation(self, s_gcobj, s_ob):
-        pass
-
-    def specialize_call(self, hop):
-        if self.instance is create_link_pypy:
-            name = 'gc_rawrefcount_create_link_pypy'
-        elif self.instance is create_link_pyobj:
-            name = 'gc_rawrefcount_create_link_pyobj'
-        v_gcobj, v_ob = hop.inputargs(*hop.args_r)
-        hop.exception_cannot_occur()
-        hop.genop(name, [_unspec_gc(hop, v_gcobj), _unspec_ob(hop, v_ob)])
-
-
-class Entry(ExtRegistryEntry):
-    _about_ = from_obj
-
-    def compute_result_annotation(self, s_OB_PTR_TYPE, s_gcobj):
-        from rpython.annotator import model as annmodel
-        from rpython.rtyper.llannotation import lltype_to_annotation
-        assert (isinstance(s_gcobj, annmodel.SomeInstance) or
-                    annmodel.s_None.contains(s_gcobj))
-        assert s_OB_PTR_TYPE.is_constant()
-        return lltype_to_annotation(s_OB_PTR_TYPE.const)
-
-    def specialize_call(self, hop):
-        hop.exception_cannot_occur()
-        v_gcobj = hop.inputarg(hop.args_r[1], arg=1)
-        v_adr = hop.genop('gc_rawrefcount_from_obj', [_unspec_gc(hop, v_gcobj)],
-                         resulttype=llmemory.Address)
-        return _spec_ob(hop, v_adr)
-
-class Entry(ExtRegistryEntry):
-    _about_ = to_obj
-
-    def compute_result_annotation(self, s_Class, s_ob):
-        from rpython.annotator import model as annmodel
-        from rpython.rtyper.llannotation import SomePtr
-        assert isinstance(s_ob, SomePtr)
-        assert s_Class.is_constant()
-        classdef = self.bookkeeper.getuniqueclassdef(s_Class.const)
-        return annmodel.SomeInstance(classdef, can_be_None=True)
-
-    def specialize_call(self, hop):
-        hop.exception_cannot_occur()
-        v_ob = hop.inputarg(hop.args_r[1], arg=1)
-        v_gcobj = hop.genop('gc_rawrefcount_to_obj', [_unspec_ob(hop, v_ob)],
-                        resulttype=llmemory.GCREF)
-        return _spec_gc(hop, v_gcobj)
-
-class Entry(ExtRegistryEntry):
-    _about_ = next_dead
-
-    def compute_result_annotation(self, s_OB_PTR_TYPE):
-        from rpython.rtyper.llannotation import lltype_to_annotation
-        assert s_OB_PTR_TYPE.is_constant()
-        return lltype_to_annotation(s_OB_PTR_TYPE.const)
-
-    def specialize_call(self, hop):
-        hop.exception_cannot_occur()
-        v_rawaddr = hop.genop('gc_rawrefcount_next_dead', [],
-                         resulttype=llmemory.Address)
-        return _spec_ob(hop, v_rawaddr)
