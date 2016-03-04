@@ -27,7 +27,7 @@ class LoopInfo(object):
 class BasicLoopInfo(LoopInfo):
     def __init__(self, inputargs, quasi_immutable_deps):
         self.inputargs = inputargs
-        self.label_op = ResOperation(rop.LABEL, inputargs)
+        self.label_op = ResOperation(rop.LABEL, inputargs, -1)
         self.quasi_immutable_deps = quasi_immutable_deps
         self.extra_same_as = []
 
@@ -509,30 +509,24 @@ class Optimizer(Optimization):
         trace = trace.get_iter()
         self.trace = trace
         self.call_pure_results = call_pure_results
+        last_op = None
+        i = 0
         while not trace.done():
             self._really_emitted_operation = None
             op = trace.next()
             if op.getopnum() in (rop.FINISH, rop.JUMP):
-                xxx
-            self.first_optimization.propagate_forward(trace.next())
-        xxxx
-        if ops[-1].getopnum() in (rop.FINISH, rop.JUMP):
-            last = len(ops) - 1
-            extra_jump = True
-        else:
-            extra_jump = False
-            last = len(ops)
-        for i in range(last):
-            self._really_emitted_operation = None
-            self.first_optimization.propagate_forward(ops[i])
+                last_op = op
+                break
+            self.first_optimization.propagate_forward(op)
+            i += 1
         # accumulate counters
         if flush:
             self.flush()
-        if extra_jump:
-            self.first_optimization.propagate_forward(ops[-1])
+        if last_op:
+            self.first_optimization.propagate_forward(last_op)
         self.resumedata_memo.update_counters(self.metainterp_sd.profiler)
         
-        return (BasicLoopInfo(newargs, self.quasi_immutable_deps),
+        return (BasicLoopInfo(trace.inputargs, self.quasi_immutable_deps),
                 self._newoperations)
 
     def _clean_optimization_info(self, lst):

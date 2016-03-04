@@ -35,7 +35,7 @@ class BaseTestBasic(BaseTest):
         compile_data = compile.SimpleCompileData(label_op, trace,
                                                  call_pure_results)
         info, ops = self._do_optimize_loop(compile_data)
-        label_op = ResOperation(rop.LABEL, info.inputargs)
+        label_op = ResOperation(rop.LABEL, info.inputargs, -1)
         loop.inputargs = info.inputargs
         loop.operations = [label_op] + ops
         #print '\n'.join([str(o) for o in loop.operations])

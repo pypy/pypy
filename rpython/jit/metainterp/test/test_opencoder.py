@@ -77,7 +77,7 @@ class TestOpencoder(object):
         assert boxes == [i0, i1]
         assert l[2].opnum == rop.GUARD_FALSE
         boxes = self.unpack_snapshot(iter, l[2].rd_resume_position)
-        assert boxes == [i0, i0, l[0], i0, i1]
+        assert boxes == [i0, i1, i0, i0, l[0]]
 
     def test_read_snapshot_interface(self):
         i0, i1, i2 = InputArgInt(), InputArgInt(), InputArgInt()
@@ -86,16 +86,26 @@ class TestOpencoder(object):
         frame0 = FakeFrame(1, JitCode(2), [i0, i1])
         frame1 = FakeFrame(3, JitCode(4), [i2, i2])
         resume.capture_resumedata([frame0, frame1], None, [], t)
+        t.record_op(rop.GUARD_TRUE, [i1])
+        resume.capture_resumedata([frame0, frame1], None, [], t)
         (i0, i1, i2), l, iter = self.unpack(t)
         pos = l[0].rd_resume_position
         snapshot_iter = iter.get_snapshot_iter(pos)
         size, jc_index, pc = snapshot_iter.get_size_jitcode_pc()
         assert size == 2
+        assert jc_index == 2
+        assert pc == 1
+        assert [snapshot_iter.next() for i in range(2)] == [i0, i1]
+        size, jc_index, pc = snapshot_iter.get_size_jitcode_pc()
+        assert size == 2
         assert jc_index == 4
         assert pc == 3
         assert [snapshot_iter.next() for i in range(2)] == [i2, i2]
+        pos = l[1].rd_resume_position
+        snapshot_iter = iter.get_snapshot_iter(pos)
         size, jc_index, pc = snapshot_iter.get_size_jitcode_pc()
         assert size == 2
         assert jc_index == 2
         assert pc == 1
         assert [snapshot_iter.next() for i in range(2)] == [i0, i1]
+        

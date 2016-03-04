@@ -1,10 +1,11 @@
 
-from rpython.jit.metainterp.history import ConstInt, Const, AbstractDescr,\
-    AbstractValue
+""" Storage format:
+"""
+
+from rpython.jit.metainterp.history import ConstInt, Const
 from rpython.jit.metainterp.resoperation import AbstractResOp, AbstractInputArg,\
-    ResOperation, oparity, opname, rop, ResOperation, opwithdescr
+    ResOperation, oparity, rop, opwithdescr
 from rpython.rlib.rarithmetic import intmask
-from rpython.jit.metainterp import resume
 from rpython.rlib.objectmodel import we_are_translated
 
 TAGINT, TAGCONST, TAGBOX = range(3)
@@ -20,7 +21,12 @@ class SnapshotIterator(object):
         self.trace = main_iter.trace
         self.main_iter = main_iter
         self.end = end_pos
+        self.start = pos
         self.pos = pos
+        self.save_pos = -1
+
+    def length(self):
+        return self.end - self.start
 
     def done(self):
         return self.pos >= self.end
@@ -36,7 +42,16 @@ class SnapshotIterator(object):
         return r
 
     def get_size_jitcode_pc(self):
-        return self._next(), self._next(), self._next()
+        if self.save_pos >= 0:
+            self.pos = self.save_pos
+        size = self._next()
+        if size < 0:
+            self.save_pos = self.pos
+            self.pos = -size - 1
+            assert self.pos >= 0
+            size = self._next()
+            assert size >= 0
+        return size, self._next(), self._next()
 
 class TraceIterator(object):
     def __init__(self, trace, end):
@@ -203,6 +218,10 @@ class Trace(object):
         else:
             assert isinstance(prev, Sentinel)
         self._ops[p] = len(self._ops)
+
+    def check_snapshot_jitcode_pc(self, jitcode, pc, resumedata_pos):
+        assert self._ops[resumedata_pos + 1] == jitcode.index
+        assert self._ops[resumedata_pos + 2] == pc
 
     def get_iter(self):
         return TraceIterator(self, len(self._ops))

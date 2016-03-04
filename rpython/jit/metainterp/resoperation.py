@@ -396,7 +396,16 @@ class AbstractResOp(AbstractResOpOrInputArg):
         except KeyError:
             return '<%d>' % self.getopnum()
 
-    # XXX kill all those in favor of ophelpers
+    def is_guard(self):
+        return rop.is_guard(self.getopnum())
+
+    def is_ovf(self):
+        return rop.is_ovf(self.getopnum())
+
+    def can_raise(self):
+        return rop.can_raise(self.getopnum())
+
+    # XXX fix
 
     def is_foldable_guard(self):
         return rop._GUARD_FOLDABLE_FIRST <= self.getopnum() <= rop._GUARD_FOLDABLE_LAST
@@ -1428,6 +1437,14 @@ class rop(object):
         if rop.is_always_pure(opnum):
             return True
         xxxx
+
+    @staticmethod
+    def is_pure_getfield(opnum, descr):
+        if (opnum == rop.GETFIELD_GC_I or
+            opnum == rop.GETFIELD_GC_F or
+            opnum == rop.GETFIELD_GC_R):
+            return descr is not None and descr.is_always_pure()
+        return False
 
     @staticmethod
     def has_no_side_effect(opnum):

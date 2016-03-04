@@ -115,6 +115,7 @@ class AccumInfo(VectorInfo):
 def _ensure_parent_resumedata(framestack, n, t):
     if n == 0:
         return
+    _ensure_parent_resumedata(framestack, n - 1, t)
     target = framestack[n]
     back = framestack[n - 1]
     if target.parent_resumedata_position != -1:
@@ -124,7 +125,6 @@ def _ensure_parent_resumedata(framestack, n, t):
         return
     pos = t.record_snapshot(back.jitcode, back.pc,
                             back.get_list_of_active_boxes(True))
-    _ensure_parent_resumedata(framestack, n - 1, t)
     target.parent_resumedata_position = pos
 
 def capture_resumedata(framestack, virtualizable_boxes, virtualref_boxes, t):
@@ -138,9 +138,9 @@ def capture_resumedata(framestack, virtualizable_boxes, virtualref_boxes, t):
     if n >= 0:
         top = framestack[n]
         pos = t.get_patchable_position()
+        _ensure_parent_resumedata(framestack, n, t)
         t.record_snapshot(top.jitcode, top.pc,
                           top.get_list_of_active_boxes(False))
-        _ensure_parent_resumedata(framestack, n, t)
         t.patch_position_to_current(pos)
     else:
         yyy
@@ -196,21 +196,12 @@ UNINITIALIZED = tag(-2, TAGCONST)   # used for uninitialized string characters
 TAG_CONST_OFFSET = 0
 
 class NumberingState(object):
-    def __init__(self, snapshot_list):
+    def __init__(self, size):
         self.liveboxes = {}
-        self.current = [rffi.cast(rffi.SHORT, 0)] * self.count_boxes(snapshot_list)
-        self.position = len(self.current)
+        self.current = [rffi.cast(rffi.SHORT, 0)] * (size + 2)
+        self.position = 0
         self.n = 0
         self.v = 0
-
-    def count_boxes(self, lst):
-        snapshot = lst[0]
-        assert isinstance(snapshot, TopSnapshot)
-        c = len(snapshot.vable_boxes)
-        for snapshot in lst:
-            c += len(snapshot.boxes)
-        c += 2 * (len(lst) - 1) + 1 + 1
-        return c
 
     def append(self, item):
         self.current[self.position] = item
@@ -267,15 +258,14 @@ class ResumeDataLoopMemo(object):
 
     # env numbering
 
-    def _number_boxes(self, boxes, optimizer, state):
+    def _number_boxes(self, iter, length, optimizer, state):
         """ Number boxes from one snapshot
         """
         n = state.n
         v = state.v
         liveboxes = state.liveboxes
-        length = len(boxes)
         for i in range(length):
-            box = boxes[i]
+            box = iter.next()
             box = optimizer.get_box_replacement(box)
 
             if isinstance(box, Const):
@@ -302,32 +292,33 @@ class ResumeDataLoopMemo(object):
         state.v = v
 
     def number(self, optimizer, position, trace):
-        state = NumberingState(snapshot_list)
-
-        # we want to number snapshots starting from the back, but ending
-        # with a forward list
-        for i in range(len(snapshot_list) - 1, 0, -1):
-            state.position -= len(snapshot_list[i].boxes) + 2
-            frameinfo = framestack_list[i - 1]
-            jitcode_pos, pc = unpack_uint(frameinfo.packed_jitcode_pc)
-            state.append(rffi.cast(rffi.SHORT, jitcode_pos))
+        snapshot_iter = trace.get_snapshot_iter(position)
+        state = NumberingState(snapshot_iter.length())
+        while not snapshot_iter.done():
+            size, jitcode_index, pc = snapshot_iter.get_size_jitcode_pc()
+            state.append(rffi.cast(rffi.SHORT, jitcode_index))
             state.append(rffi.cast(rffi.SHORT, pc))
-            self._number_boxes(snapshot_list[i].boxes, optimizer, state)
-            state.position -= len(snapshot_list[i].boxes) + 2
+            self._number_boxes(snapshot_iter, size, optimizer, state)
 
-        assert isinstance(topsnapshot, TopSnapshot)
-        special_boxes_size = (1 + len(topsnapshot.vable_boxes) +
-                              1 + len(topsnapshot.boxes))
-        assert state.position == special_boxes_size
-
-        state.position = 0
-        state.append(rffi.cast(rffi.SHORT, len(topsnapshot.vable_boxes)))
-        self._number_boxes(topsnapshot.vable_boxes, optimizer, state)
-        n = len(topsnapshot.boxes)
+        state.append(rffi.cast(rffi.SHORT, 0))
+        n = 0 # len(topsnapshot.boxes)
         assert not (n & 1)
         state.append(rffi.cast(rffi.SHORT, n >> 1))
-        self._number_boxes(topsnapshot.boxes, optimizer, state)
-        assert state.position == special_boxes_size
+        #
+        # XXX ignore vables and virtualrefs for now
+        #assert isinstance(topsnapshot, TopSnapshot)
+        #special_boxes_size = (1 + len(topsnapshot.vable_boxes) +
+        #                      1 + len(topsnapshot.boxes))
+        #assert state.position == special_boxes_size
+
+        #state.position = 0
+        #state.append(rffi.cast(rffi.SHORT, len(topsnapshot.vable_boxes)))
+        #self._number_boxes(topsnapshot.vable_boxes, optimizer, state)
+        #n = len(topsnapshot.boxes)
+        #assert not (n & 1)
+        #state.append(rffi.cast(rffi.SHORT, n >> 1))
+        #self._number_boxes(topsnapshot.boxes, optimizer, state)
+        #assert state.position == special_boxes_size
 
         numb = resumecode.create_numbering(state.current)
         return numb, state.liveboxes, state.v
@@ -476,11 +467,10 @@ class ResumeDataVirtualAdder(VirtualVisitor):
         assert resume_position > 0
         # count stack depth
         numb, liveboxes_from_env, v = self.memo.number(optimizer,
-            resume_position, self.optimize.trace)
+            resume_position, self.optimizer.trace)
         self.liveboxes_from_env = liveboxes_from_env
         self.liveboxes = {}
         storage.rd_numb = numb
-        self.snapshot_storage.rd_snapshot = None
         
         # collect liveboxes and virtuals
         n = len(liveboxes_from_env) - v
