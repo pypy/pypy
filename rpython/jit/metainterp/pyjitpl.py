@@ -2608,6 +2608,7 @@ class MetaInterp(object):
 
         self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None,
                             descr=target_jitcell_token)
+        self.history.ends_with_jump = True
         try:
             target_token = compile.compile_trace(self, self.resumekey)
         finally:

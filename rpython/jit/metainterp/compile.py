@@ -1037,20 +1037,20 @@ def compile_trace(metainterp, resumekey):
     else:
         inline_short_preamble = True
     inputargs = metainterp.history.inputargs[:]
-    operations = metainterp.history.operations
+    trace = metainterp.history.trace
     label = ResOperation(rop.LABEL, inputargs)
     jitdriver_sd = metainterp.jitdriver_sd
     enable_opts = jitdriver_sd.warmstate.enable_opts
 
     call_pure_results = metainterp.call_pure_results
 
-    if operations[-1].getopnum() == rop.JUMP:
+    if metainterp.history.ends_with_jump:
         data = BridgeCompileData(label, operations[:],
                                  call_pure_results=call_pure_results,
                                  enable_opts=enable_opts,
                                  inline_short_preamble=inline_short_preamble)
     else:
-        data = SimpleCompileData(label, operations[:],
+        data = SimpleCompileData(label, trace,
                                  call_pure_results=call_pure_results,
                                  enable_opts=enable_opts)
     try:

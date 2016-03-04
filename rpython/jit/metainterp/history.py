@@ -641,8 +641,9 @@ def _list_all_operations(result, operations, omit_finish=True):
 
 
 class History(object):
+    ends_with_jump = False
+
     def __init__(self):
-        self.inputargs = None
         self.descr_cache = {}
         self.descrs = {}
         self.consts = []
@@ -651,6 +652,7 @@ class History(object):
         from rpython.jit.metainterp.opencoder import Trace
 
         self.trace = Trace(inpargs)
+        self.inputargs = inpargs
 
     def any_operation(self):
         return self.trace._count > 0
