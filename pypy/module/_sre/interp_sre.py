@@ -275,6 +275,22 @@ class W_SRE_Pattern(W_Root):
             sublist_w = []
         n = last_pos = 0
         while not count or n < count:
+            sub_jitdriver.jit_merge_point(
+                self=self,
+                use_builder=use_builder,
+                filter_is_callable=filter_is_callable,
+                filter_type=type(w_filter),
+                ctx=ctx,
+                w_filter=w_filter,
+                strbuilder=strbuilder,
+                unicodebuilder=unicodebuilder,
+                filter_as_string=filter_as_string,
+                filter_as_unicode=filter_as_unicode,
+                count=count,
+                w_string=w_string,
+                n=n, last_pos=last_pos, sublist_w=sublist_w
+                )
+            space = self.space
             if not searchcontext(space, ctx):
                 break
             if last_pos < ctx.match_start:
@@ -328,6 +344,16 @@ class W_SRE_Pattern(W_Root):
             w_item = space.call_method(w_emptystr, 'join',
                                        space.newlist(sublist_w))
             return w_item, n
+
+sub_jitdriver = jit.JitDriver(
+    reds="""count n last_pos
+            ctx w_filter
+            strbuilder unicodebuilder
+            filter_as_string
+            filter_as_unicode
+            w_string sublist_w
+            self""".split(),
+    greens=["filter_is_callable", "use_builder", "filter_type", "ctx.pattern"])
 
 
 def _sub_append_slice(ctx, space, use_builder, sublist_w,
