@@ -285,7 +285,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         assert small_request_threshold % WORD == 0
         self.read_from_env = read_from_env
         self.nursery_size = nursery_size
-        
+
         self.small_request_threshold = small_request_threshold
         self.major_collection_threshold = major_collection_threshold
         self.growth_rate_max = growth_rate_max
@@ -729,7 +729,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 # nursery. "Next area" in this case is the space between the
                 # pinned object in front of nusery_top and the pinned object
                 # after that. Graphically explained:
-                # 
+                #
                 #     |- allocating totalsize failed in this area
                 #     |     |- nursery_top
                 #     |     |    |- pinned object in front of nursery_top,
@@ -774,7 +774,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                     # true after that.  In that case we do a second step.
                     # The goal is to avoid too high memory peaks if the
                     # program allocates a lot of surviving objects.
-                    # 
+                    #
                     if (self.gc_state != STATE_SCANNING or
                            self.threshold_reached()):
 
@@ -2767,6 +2767,14 @@ class IncrementalMiniMarkGC(MovingGCBase):
     def _pyobj(self, pyobjaddr):
         return llmemory.cast_adr_to_ptr(pyobjaddr, self.PYOBJ_HDR_PTR)
 
+    def _rrc_set_gc_partner(self, adr_rawobj, adr_gcobj):
+        int_gcobj = llmemory.cast_adr_to_int(adr_gcobj, "symbolic")
+        self._pyobj(adr_rawobj).ob_pypy_link = int_gcobj
+
+    def _rrc_get_gc_partner(self, adr_rawobj):
+        int_gcobj = self._pyobj(adr_rawobj).ob_pypy_link
+        return llmemory.cast_int_to_adr(int_gcobj)
+
     def rawrefcount_init(self, dealloc_trigger_callback):
         # see pypy/doc/discussion/rawrefcount.rst
         if not self.rrc_enabled:
@@ -2797,8 +2805,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
     def rawrefcount_create_link_pypy(self, gcobj, pyobject):
         ll_assert(self.rrc_enabled, "rawrefcount.init not called")
         obj = llmemory.cast_ptr_to_adr(gcobj)
-        objint = llmemory.cast_adr_to_int(obj, "symbolic")
-        self._pyobj(pyobject).ob_pypy_link = objint
+        self._rrc_set_gc_partner(pyobject, obj)
         #
         lst = self.rrc_p_list_young
         if self.is_in_nursery(obj):
@@ -2813,12 +2820,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
     def rawrefcount_create_link_pyobj(self, gcobj, pyobject):
         ll_assert(self.rrc_enabled, "rawrefcount.init not called")
         obj = llmemory.cast_ptr_to_adr(gcobj)
+        self._rrc_set_gc_partner(pyobject, obj)
         if self.is_young_object(obj):
             self.rrc_o_list_young.append(pyobject)
         else:
             self.rrc_o_list_old.append(pyobject)
-        objint = llmemory.cast_adr_to_int(obj, "symbolic")
-        self._pyobj(pyobject).ob_pypy_link = objint
         # there is no rrc_o_dict
 
     def rawrefcount_from_obj(self, gcobj):
@@ -2830,7 +2836,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         return dct.get(obj)
 
     def rawrefcount_to_obj(self, pyobject):
-        obj = llmemory.cast_int_to_adr(self._pyobj(pyobject).ob_pypy_link)
+        obj = self._rrc_get_gc_partner(pyobject)
         return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
 
     def rawrefcount_next_dead(self):
@@ -2859,8 +2865,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             pass     # the corresponding object may die
         else:
             # force the corresponding object to be alive
-            intobj = self._pyobj(pyobject).ob_pypy_link
-            singleaddr.address[0] = llmemory.cast_int_to_adr(intobj)
+            singleaddr.address[0] = self._rrc_get_gc_partner(pyobject)
             self._trace_drag_out(singleaddr, llmemory.NULL)
 
     def rrc_minor_collection_free(self):
@@ -2876,14 +2881,12 @@ class IncrementalMiniMarkGC(MovingGCBase):
                                             no_o_dict)
 
     def _rrc_minor_free(self, pyobject, surviving_list, surviving_dict):
-        intobj = self._pyobj(pyobject).ob_pypy_link
-        obj = llmemory.cast_int_to_adr(intobj)
+        obj = self._rrc_get_gc_partner(pyobject)
         if self.is_in_nursery(obj):
             if self.is_forwarded(obj):
                 # Common case: survives and moves
                 obj = self.get_forwarding_address(obj)
-                intobj = llmemory.cast_adr_to_int(obj, "symbolic")
-                self._pyobj(pyobject).ob_pypy_link = intobj
+                self._rrc_set_gc_partner(pyobject, obj)
                 surviving = True
                 if surviving_dict:
                     # Surviving nursery object: was originally in
@@ -2947,8 +2950,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             pass     # the corresponding object may die
         else:
             # force the corresponding object to be alive
-            intobj = self._pyobj(pyobject).ob_pypy_link
-            obj = llmemory.cast_int_to_adr(intobj)
+            obj = self._rrc_get_gc_partner(pyobject)
             self.objects_to_trace.append(obj)
             self.visit_all_objects()
 
@@ -2977,8 +2979,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # This is true if the obj has one of the following two flags:
         #  * GCFLAG_VISITED: was seen during tracing
         #  * GCFLAG_NO_HEAP_PTRS: immortal object never traced (so far)
-        intobj = self._pyobj(pyobject).ob_pypy_link
-        obj = llmemory.cast_int_to_adr(intobj)
+        obj = self._rrc_get_gc_partner(pyobject)
         if self.header(obj).tid & (GCFLAG_VISITED | GCFLAG_NO_HEAP_PTRS):
             surviving_list.append(pyobject)
             if surviving_dict:
