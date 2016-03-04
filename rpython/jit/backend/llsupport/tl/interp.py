@@ -17,6 +17,15 @@ class W_ListObject(W_Root):
         assert isinstance(w_lst, W_ListObject)
         return space.wrap(self.items + w_lst.items)
 
+    def copy(self):
+        newlist = []
+        for item in self.items:
+            if item is None:
+                newlist.append(None)
+            else:
+                newlist.append(item.copy())
+        return W_ListObject(newlist)
+
     def is_of_type(self, type):
         """ NOT_RPYTHON """
         return type in (code.LIST_TYP,)
@@ -30,6 +39,9 @@ class W_IntObject(W_Root):
     def compare(self, space, w_int):
         assert isinstance(w_int, W_IntObject)
         return space.wrap(self.value - w_int.value)
+
+    def copy(self):
+        return W_IntObject(self.value)
 
     def concat(self, space, w_obj):
         raise NotImplementedError("cannot concat int with object")
@@ -49,6 +61,9 @@ class W_StrObject(W_Root):
     def concat(self, space, w_str):
         assert isinstance(w_str, W_StrObject)
         return space.wrap(self.value + w_str.value)
+
+    def copy(self):
+        return W_StrObject(self.value)
 
     def is_of_type(self, type):
         """ NOT_RPYTHON """

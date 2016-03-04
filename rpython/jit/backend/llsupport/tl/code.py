@@ -165,7 +165,8 @@ class InsertList(ByteCode):
     def filter_bytecode(self, stack):
         w_idx = stack.peek(1)
         w_list = stack.peek(2)
-        if w_idx.value >= len(w_list.items):
+        if w_idx.value >= len(w_list.items) or \
+           w_idx.value < 0:
             return True
         return False
 
@@ -178,7 +179,8 @@ class DelList(ByteCode):
     def filter_bytecode(self, stack):
         w_idx = stack.peek(0)
         w_list = stack.peek(1)
-        if w_idx.value >= len(w_list.items):
+        if w_idx.value >= len(w_list.items) or \
+           w_idx.value < 0:
             return True
         return False
 

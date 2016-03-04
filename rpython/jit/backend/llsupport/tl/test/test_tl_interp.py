@@ -105,7 +105,6 @@ class TestInterp(object):
         _, stack = codes[0]
         bytecode, consts = code.Context().transform(bc_obj_list)
         space = interp.Space()
-        stack = Stack(16)
         pc = 0
         end = len(bytecode)
         while pc < end:

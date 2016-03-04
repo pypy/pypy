@@ -1,35 +1,33 @@
 import py
 from hypothesis import given
+from hypothesis.strategies import lists
 from rpython.tool.udir import udir
 from rpython.jit.metainterp.optimize import SpeculativeError
 from rpython.annotator.listdef import s_list_of_strings
 from rpython.translator.translator import TranslationContext
 from rpython.translator.c import genc
-from rpython.jit.backend.llsupport.tl import interp
+from rpython.jit.backend.llsupport.tl import interp, code
 from rpython.jit.backend.llsupport.tl.test import code_strategies as st
 
 def persist(type, contents):
     dir = udir.ensure(type)
-    print "written", type, "to", dir
     with open(dir.strpath, 'wb') as fd:
         fd.write(contents)
     return dir.strpath
 
 def persist_constants(consts):
     contents = ""
-    for string in consts:
+    for key, string in sorted(consts.items()):
         contents += string.replace("\n", "\\n") + "\n"
-    return persist('constants', contents)
+    return persist('constants', contents.encode('utf-8'))
 
 def persist_bytecode(bc):
     return persist('bytecode', bc)
 
-class GCHypothesis(object):
-    builder = None
-    def setup_method(self, name):
-        if self.builder:
-            return
 
+class GCHypothesis(object):
+
+    def setup_class(cls):
         t = TranslationContext()
         t.config.translation.gc = "incminimark"
         t.config.translation.gcremovetypeptr = True
@@ -42,7 +40,7 @@ class GCHypothesis(object):
         cbuilder.generate_source(defines=cbuilder.DEBUG_DEFINES)
         cbuilder.compile()
         # prevent from rebuilding the c object!
-        self.builder = cbuilder
+        cls.builder = cbuilder
 
     def execute(self, bytecode, consts):
         exe = self.builder.executable_name
@@ -53,9 +51,24 @@ class GCHypothesis(object):
         res = self.builder.translator.platform.execute(exe, args, env=env)
         return res.returncode, res.out, res.err
 
-    @given(st.bytecode_block())
+    # cannot have a non empty stack, cannot pass stack to executable!
+    @given(st.bytecode(max_stack_size=0))
     def test_execute_single_bytecode(self, program):
-        bytecode, consts = program
+        bc_obj, stack = program
+        assert stack.size() == 0
+        bytecode, consts = code.Context().transform([bc_obj])
+        result, out, err = self.execute(bytecode, consts)
+        if result != 0:
+            raise Exception(("could not run program. returned %d"
+                            " stderr:\n%s\nstdout:\n%s\n") % (result, err, out))
+
+    # cannot have a non empty stack, cannot pass stack to executable!
+    @given(lists(st.bytecode(max_stack_size=0), min_size=1, average_size=24))
+    def test_execute_bytecodes(self, args):
+        _, stack = args[0]
+        assert stack.size() == 0
+        bc_objs = [bc for bc, _ in args]
+        bytecode, consts = code.Context().transform(bc_objs)
         result, out, err = self.execute(bytecode, consts)
         if result != 0:
             raise Exception(("could not run program. returned %d"

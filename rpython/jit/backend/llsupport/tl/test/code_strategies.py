@@ -20,9 +20,11 @@ def get_strategy_for(typ):
     elif typ == COND_TYP:
         return st.integers(min_value=0, max_value=4)
     elif typ == STR_TYP:
-        return st.text()
+        return st.text().filter(lambda x: x is not None)
     elif typ == LIST_TYP:
-        return st.lists(elements=st.one_of(st.integers())) # TODO must be recursive
+        # TODO recursive
+        result = st.lists(elements=st.one_of(get_strategy_for('i')))
+        return result.filter(lambda x: x is not None)
     else:
         raise NotImplementedError("type: " + str(typ))
 
@@ -35,10 +37,11 @@ def stack_entry(types=all_types):
 @defines_strategy
 def runtime_stack(min_size=0, average_size=5, max_size=4096,
           types=all_types):
-    if max_size < average_size:
-        average_size = max_size // 2
-    stack_entries = st.lists(stack_entry(all_types), min_size,
-                             average_size, max_size)
+    if max_size == 0:
+        return st.just(stack.Stack(0))
+    stack_entries = st.lists(stack_entry(all_types), min_size=min_size,
+                             average_size=average_size,
+                             max_size=max_size)
     return stack_entries.map(lambda elems: \
                                 stack.Stack.from_items(STD_SPACE, elems))
 
@@ -89,6 +92,9 @@ def bytecode(draw, max_stack_size=4096):
     # get a stack that is the same for one test run
     stack_strat = runtime_stack(max_size=max_stack_size)
     run_stack = draw(st.shared(stack_strat, 'stack'))
+    # propagate the changes to the stack
+    orig_stack = run_stack.copy(values=True)
+    assert orig_stack is not run_stack
 
     # get a byte code class
     clazz = draw(bytecode_class(run_stack))
@@ -96,7 +102,5 @@ def bytecode(draw, max_stack_size=4096):
     assume(not inst.filter_bytecode(run_stack))
     bytecode, consts = code.Context().transform([inst])
 
-    # propagate the changes to the stack
-    orig_stack = run_stack.copy()
     interp.dispatch_once(STD_SPACE, 0, bytecode, consts, run_stack)
     return inst, orig_stack

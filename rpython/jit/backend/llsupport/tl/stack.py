@@ -7,6 +7,8 @@ class Stack(object):
     def from_items(space, elems):
         s = Stack(len(elems))
         for elem in elems:
+            if isinstance(elem, list):
+                elem = [space.wrap(e) for e in elem]
             s.append(space.wrap(elem))
         return s
 
@@ -19,11 +21,14 @@ class Stack(object):
     def size(self):
         return self.stackpos
 
-    def copy(self):
+    def copy(self, values=False):
         """ NOT_RPYTHON """
         copy = Stack(self.size())
         for item in self.stack:
-            copy.append(item)
+            if values:
+                copy.append(item.copy())
+            else:
+                copy.append(item)
         return copy
 
     def append(self, elem):
@@ -79,6 +84,10 @@ class Stack(object):
             n = self.stackpos - 1
             assert n >= 0
             self.stack[n] = elem
+
+    def reset(self):
+        self.stack = [None] * self.size()
+        self.stackpos = 0
 
     def __repr__(self):
         """ NOT_RPYTHON """
