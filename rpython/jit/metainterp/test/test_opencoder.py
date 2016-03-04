@@ -4,6 +4,10 @@ from rpython.jit.metainterp.resoperation import rop, InputArgInt
 from rpython.jit.metainterp.history import ConstInt
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer
 from rpython.jit.metainterp import resume
+from rpython.jit.metainterp.test.strategies import lists_of_operations
+from rpython.jit.metainterp.optimizeopt.test.test_util import BaseTest
+from rpython.jit.metainterp.history import TreeLoop
+from hypothesis import given
 
 class JitCode(object):
     def __init__(self, index):
@@ -108,3 +112,18 @@ class TestOpencoder(object):
         assert jc_index == 2
         assert pc == 1
         assert [snapshot_iter.next() for i in range(2)] == [i0, i1]
+
+    @given(lists_of_operations())
+    def test_random_snapshot(self, lst):
+        inputargs, ops = lst
+        t = Trace(inputargs)
+        for op in ops:
+            t.record_op(op.getopnum(), op.getarglist())
+        inpargs, l, iter = self.unpack(t)
+        loop1 = TreeLoop("loop1")
+        loop1.inputargs = inputargs
+        loop1.operations = ops
+        loop2 = TreeLoop("loop2")
+        loop2.inputargs = inpargs
+        loop2.operations = l
+        BaseTest.assert_equal(loop1, loop2)

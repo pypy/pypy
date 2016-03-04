@@ -13,7 +13,7 @@ boxlists = strategies.lists(boxes, min_size=1).flatmap(
     lambda cis: strategies.lists(strategies.sampled_from(cis)))
 
 @strategies.composite
-def lists_of_operations(draw, inputboxes):
+def lists_of_operations(draw, inputboxes=intboxes):
     def get(draw, l1, l2, index):
         if index < len(l1):
             return l1[index]
@@ -33,7 +33,7 @@ def lists_of_operations(draw, inputboxes):
         arg0 = get(draw, inputargs, ops, draw(s))
         arg1 = get(draw, inputargs, ops, draw(s))
         ops.append(ResOperation(rop.INT_ADD, [arg0, arg1], -1))
-    return ops
+    return inputargs, ops
 
 if __name__ == '__main__':
     import pprint

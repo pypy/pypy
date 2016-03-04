@@ -520,7 +520,8 @@ class BaseTest(object):
             guard.rd_snapshot = resume.TopSnapshot(None, [], [])
             res.operations.insert(-1, guard)
 
-    def assert_equal(self, optimized, expected, text_right=None):
+    @staticmethod
+    def assert_equal(optimized, expected, text_right=None):
         from rpython.jit.metainterp.optimizeopt.util import equaloplists
         assert len(optimized.inputargs) == len(expected.inputargs)
         remap = {}
