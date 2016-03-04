@@ -108,4 +108,3 @@ class TestOpencoder(object):
         assert jc_index == 2
         assert pc == 1
         assert [snapshot_iter.next() for i in range(2)] == [i0, i1]
-        
