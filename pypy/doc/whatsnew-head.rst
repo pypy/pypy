@@ -184,3 +184,10 @@ Look inside tuple hash, improving mdp benchmark
 .. branch: vlen-resume
 
 Compress resume data, saving 10-20% of memory consumed by the JIT
+
+.. branch: issue-2248
+
+.. branch: ndarray-setitem-filtered
+
+Fix boolean-array indexing in micronumpy
+
