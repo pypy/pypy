@@ -14,10 +14,13 @@ boxlists = strategies.lists(boxes, min_size=1).flatmap(
 
 @strategies.composite
 def lists_of_operations(draw, inputboxes):
-    def get(l1, l2, index):
+    def get(draw, l1, l2, index):
         if index < len(l1):
             return l1[index]
-        return l2[index - len(l1)]
+        index -= len(l1)
+        if index >= len(l2):
+            return draw(intconsts)
+        return l2[index]
 
     size = draw(strategies.integers(min_value=1, max_value=100))
     inputargs = []
@@ -26,9 +29,9 @@ def lists_of_operations(draw, inputboxes):
     size = draw(strategies.integers(min_value=1, max_value=100))
     ops = []
     for i in range(size):
-        s = strategies.integers(min_value=0, max_value=len(inputargs) + len(ops) - 1)
-        arg0 = get(inputargs, ops, draw(s))
-        arg1 = get(inputargs, ops, draw(s))
+        s = strategies.integers(min_value=0, max_value=len(inputargs) + 2 * len(ops))
+        arg0 = get(draw, inputargs, ops, draw(s))
+        arg1 = get(draw, inputargs, ops, draw(s))
         ops.append(ResOperation(rop.INT_ADD, [arg0, arg1], -1))
     return ops
 
