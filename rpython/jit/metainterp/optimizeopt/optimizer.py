@@ -507,6 +507,7 @@ class Optimizer(Optimization):
 
     def propagate_all_forward(self, trace, call_pure_results=None, flush=True):
         trace = trace.get_iter()
+        self.trace = trace
         self.call_pure_results = call_pure_results
         while not trace.done():
             self._really_emitted_operation = None
@@ -691,7 +692,7 @@ class Optimizer(Optimization):
             op.setdescr(descr)
         assert isinstance(descr, compile.ResumeGuardDescr)
         assert isinstance(op, GuardResOp)
-        modifier = resume.ResumeDataVirtualAdder(self, descr, op,
+        modifier = resume.ResumeDataVirtualAdder(self, descr, op, self.trace,
                                                  self.resumedata_memo)
         try:
             newboxes = modifier.finish(self, pendingfields)

@@ -581,9 +581,7 @@ class ResOpWithDescr(AbstractResOp):
 class GuardResOp(ResOpWithDescr):
 
     _fail_args = None
-
-    rd_snapshot = None
-    rd_frame_info_list = None
+    rd_resume_position = -1
 
     def getfailargs(self):
         return self._fail_args
@@ -598,8 +596,7 @@ class GuardResOp(ResOpWithDescr):
         newop = AbstractResOp.copy_and_change(self, opnum, args, descr)
         assert isinstance(newop, GuardResOp)
         newop.setfailargs(self.getfailargs())
-        newop.rd_snapshot = self.rd_snapshot
-        newop.rd_frame_info_list = self.rd_frame_info_list
+        newop.rd_resume_position = self.rd_resume_position
         return newop
 
 class VectorGuardOp(GuardResOp):

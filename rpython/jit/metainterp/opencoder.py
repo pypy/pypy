@@ -15,6 +15,29 @@ MAXINT = 65536
 class Sentinel(object):
     pass
 
+class SnapshotIterator(object):
+    def __init__(self, main_iter, pos, end_pos):
+        self.trace = main_iter.trace
+        self.main_iter = main_iter
+        self.end = end_pos
+        self.pos = pos
+
+    def done(self):
+        return self.pos >= self.end
+
+    def _next(self):
+        res = self.trace._ops[self.pos]
+        self.pos += 1
+        return res
+
+    def next(self):
+        r = self.main_iter._get(self._next())
+        assert r
+        return r
+
+    def get_size_jitcode_pc(self):
+        return self._next(), self._next(), self._next()
+
 class TraceIterator(object):
     def __init__(self, trace, end):
         self.trace = trace
@@ -56,6 +79,10 @@ class TraceIterator(object):
         self.pos = self._next()
         return pos
 
+    def get_snapshot_iter(self, pos):
+        end = self.trace._ops[pos]
+        return SnapshotIterator(self, pos + 1, end)
+
     def next(self):
         opnum = self._next()
         if oparity[opnum] == -1:
@@ -75,7 +102,7 @@ class TraceIterator(object):
             descr = None
         res = ResOperation(opnum, args, -1, descr=descr)
         if rop.is_guard(opnum):
-            res.rd_snapshot_position = self.skip_resume_data()
+            res.rd_resume_position = self.skip_resume_data()
         self._cache[self._count] = res
         self._count += 1
         return res

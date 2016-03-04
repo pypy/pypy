@@ -301,16 +301,7 @@ class ResumeDataLoopMemo(object):
         state.n = n
         state.v = v
 
-    def number(self, optimizer, topsnapshot, frameinfo):
-        # flatten the list
-        cur = topsnapshot.prev
-        snapshot_list = [topsnapshot]
-        framestack_list = []
-        while cur:
-            framestack_list.append(frameinfo)
-            frameinfo = frameinfo.prev
-            snapshot_list.append(cur)
-            cur = cur.prev
+    def number(self, optimizer, position, trace):
         state = NumberingState(snapshot_list)
 
         # we want to number snapshots starting from the back, but ending
@@ -387,10 +378,11 @@ _frame_info_placeholder = (None, 0, 0)
 
 class ResumeDataVirtualAdder(VirtualVisitor):
 
-    def __init__(self, optimizer, storage, snapshot_storage, memo):
+    def __init__(self, optimizer, storage, guard_op, trace, memo):
         self.optimizer = optimizer
+        self.trace = trace
         self.storage = storage
-        self.snapshot_storage = snapshot_storage
+        self.guard_op = guard_op
         self.memo = memo
 
     def make_virtual_info(self, info, fieldnums):
@@ -480,11 +472,11 @@ class ResumeDataVirtualAdder(VirtualVisitor):
         storage = self.storage
         # make sure that nobody attached resume data to this guard yet
         assert not storage.rd_numb
-        snapshot = self.snapshot_storage.rd_snapshot
-        assert snapshot is not None # is that true?
+        resume_position = self.guard_op.rd_resume_position
+        assert resume_position > 0
         # count stack depth
-        numb, liveboxes_from_env, v = self.memo.number(optimizer, snapshot,
-            self.snapshot_storage.rd_frame_info_list)
+        numb, liveboxes_from_env, v = self.memo.number(optimizer,
+            resume_position, self.optimize.trace)
         self.liveboxes_from_env = liveboxes_from_env
         self.liveboxes = {}
         storage.rd_numb = numb

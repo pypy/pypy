@@ -493,6 +493,18 @@ def _sortboxes(boxes):
 
 final_descr = history.BasicFinalDescr()
 
+class FakeFrame(object):
+    pc = 0
+
+    class jitcode:
+        index = 0
+
+    def __init__(self, boxes):
+        self.boxes = boxes
+
+    def get_list_of_active_boxes(self, flag):
+        return self.boxes
+
 class BaseTest(object):
 
     def parse(self, s, boxkinds=None, want_fail_descr=True, postprocess=None):
@@ -500,12 +512,6 @@ class BaseTest(object):
         self.oparse = OpParser(s, self.cpu, self.namespace, boxkinds,
                                None, False, postprocess)
         return self.oparse.parse()
-
-    def postprocess(self, op):
-        if OpHelpers.is_guard(op.getopnum()):
-            op.rd_snapshot = resume.TopSnapshot(
-                resume.Snapshot(None, op.getfailargs()), [], [])
-            op.rd_frame_info_list = resume.FrameInfo(None, 0, 11)
 
     def add_guard_future_condition(self, res):
         # invent a GUARD_FUTURE_CONDITION to not have to change all tests
@@ -545,6 +551,17 @@ class BaseTest(object):
         for k, v in d.items():
             call_pure_results[list(k)] = v
         return call_pure_results
+
+    def convert_loop_to_packed(self, loop):
+        from rpython.jit.metainterp.opencoder import Trace
+        trace = Trace(loop.inputargs)
+        for op in loop.operations:
+            newop = trace.record_op(op.getopnum(), op.getarglist())
+            if rop.is_guard(op.getopnum()):
+                frame = FakeFrame(op.getfailargs())
+                resume.capture_resumedata([frame], None, [], trace)
+            op.position = newop.position
+        return trace
 
     def unroll_and_optimize(self, loop, call_pure_results=None):
         self.add_guard_future_condition(loop)
@@ -601,7 +618,7 @@ class FakeDescr(compile.ResumeGuardDescr):
 def convert_old_style_to_targets(loop, jump):
     newloop = TreeLoop(loop.name)
     newloop.inputargs = loop.inputargs
-    newloop.operations = [ResOperation(rop.LABEL, loop.inputargs, descr=FakeDescr())] + \
+    newloop.operations = [ResOperation(rop.LABEL, loop.inputargs, -1, descr=FakeDescr())] + \
                       loop.operations
     if not jump:
         assert newloop.operations[-1].getopnum() == rop.JUMP
