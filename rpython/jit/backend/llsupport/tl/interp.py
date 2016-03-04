@@ -8,6 +8,8 @@ class W_Root(object):
     pass
 
 class W_ListObject(W_Root):
+    TYPE = code.LIST_TYP
+
     def __init__(self, items):
         self.items = items
 
@@ -17,9 +19,11 @@ class W_ListObject(W_Root):
 
     def is_of_type(self, type):
         """ NOT_RPYTHON """
-        return type in (LIST_TYP,)
+        return type in (code.LIST_TYP,)
 
 class W_IntObject(W_Root):
+    TYPE = code.INT_TYP
+
     def __init__(self, value):
         self.value = value
 
@@ -37,6 +41,8 @@ class W_IntObject(W_Root):
                         code.BYTE_TYP)
 
 class W_StrObject(W_Root):
+    TYPE = code.STR_TYP
+
     def __init__(self, value):
         self.value = value
 
@@ -79,8 +85,6 @@ def _read_consts_from_file(file):
 def entry_point(argv):
     bytecode = _read_bytecode_from_file(argv[1])
     consts = _read_consts_from_file(argv[2])
-    print(bytecode)
-    print(consts)
     pc = 0
     end = len(bytecode)
     stack = Stack(16)

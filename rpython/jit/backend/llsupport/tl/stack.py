@@ -19,6 +19,13 @@ class Stack(object):
     def size(self):
         return self.stackpos
 
+    def copy(self):
+        """ NOT_RPYTHON """
+        copy = Stack(self.size())
+        for item in self.stack:
+            copy.append(item)
+        return copy
+
     def append(self, elem):
         while len(self.stack) <= self.stackpos:
             self.stack.append(None)
@@ -72,3 +79,9 @@ class Stack(object):
             n = self.stackpos - 1
             assert n >= 0
             self.stack[n] = elem
+
+    def __repr__(self):
+        """ NOT_RPYTHON """
+        entry_types = [e.TYPE for e in self.stack]
+        return "Stack(%s)" % ','.join(entry_types)
+

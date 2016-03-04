@@ -10,6 +10,14 @@ class ByteCode(object):
         pt = getattr(self.__init__, '_param_types', [])
         return self(*[draw(get_strategy_for(t)) for t in pt])
 
+    def filter_bytecode(self, stack):
+        """ filter this byte code if the stack does
+            not contain the right values on the stack.
+            This should only be used for values hypothesis
+            cannot forsee (like list manipulation)
+        """
+        return False
+
 _c = 0
 
 LIST_TYP = 'l'
@@ -154,6 +162,12 @@ class InsertList(ByteCode):
     BYTE_CODE = unique_code()
     def __init__(self):
         pass
+    def filter_bytecode(self, stack):
+        w_idx = stack.peek(1)
+        w_list = stack.peek(2)
+        if w_idx.value >= len(w_list.items):
+            return True
+        return False
 
 @requires_stack(LIST_TYP, IDX_TYP)
 @leaves_on_stack(LIST_TYP)
@@ -161,6 +175,12 @@ class DelList(ByteCode):
     BYTE_CODE = unique_code()
     def __init__(self):
         pass
+    def filter_bytecode(self, stack):
+        w_idx = stack.peek(0)
+        w_list = stack.peek(1)
+        if w_idx.value >= len(w_list.items):
+            return True
+        return False
 
 @requires_stack(LIST_TYP, INT_TYP) # TODO VAL_TYP)
 @leaves_on_stack(LIST_TYP)
@@ -169,6 +189,8 @@ class AppendList(ByteCode):
     def __init__(self):
         pass
 
+def op_modifies_list(clazz):
+    return clazz in (DelList, InsertList)
 
 # remove comment one by one!
 
