@@ -14,7 +14,7 @@ interaction between c-level objects and PyPy interpreter level objects. As a
 result, lxml  with its cython compiled component `passes all tests`_ on PyPy
 
 Users who have gotten used to vmprof_ on Linux, and those on other platforms
-who have not yet tried it's awesomeness, will be happy to hear that vmprof
+who have not yet tried its awesomeness, will be happy to hear that vmprof
 now just works on MacOS and Windows too, in both PyPy (built-in support) and
 CPython (as an installed module).
 
