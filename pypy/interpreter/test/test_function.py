@@ -257,6 +257,9 @@ class AppTestFunction:
         meth = func.__get__(obj, object)
         assert meth() == obj
 
+    def test_none_get_interaction(self):
+        assert type(None).__repr__(None) == 'None'
+
     def test_no_get_builtin(self):
         assert not hasattr(dir, '__get__')
         class A(object):
