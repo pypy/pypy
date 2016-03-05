@@ -535,7 +535,8 @@ class __extend__(W_NDimArray):
         l_w = []
         for i in range(self.get_shape()[0]):
             item_w = self.descr_getitem(space, space.wrap(i))
-            if isinstance(item_w, W_NDimArray):
+            if (isinstance(item_w, W_NDimArray) or 
+                    isinstance(item_w, boxes.W_GenericBox)):
                 l_w.append(space.call_method(item_w, "tolist"))
             else:
                 l_w.append(item_w)
