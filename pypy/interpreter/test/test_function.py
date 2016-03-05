@@ -258,7 +258,12 @@ class AppTestFunction:
         assert meth() == obj
 
     def test_none_get_interaction(self):
+        skip("XXX issue #2083")
         assert type(None).__repr__(None) == 'None'
+
+    def test_none_get_interaction_2(self):
+        f = None.__repr__
+        assert f() == 'None'
 
     def test_no_get_builtin(self):
         assert not hasattr(dir, '__get__')
