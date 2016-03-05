@@ -2,6 +2,7 @@ from rpython.rlib.rstring import InvalidBaseError
 
 from pypy.interpreter.error import OperationError, oefmt
 
+IDTAG_SHIFT   = 3
 
 IDTAG_INT     = 1
 IDTAG_LONG    = 3
