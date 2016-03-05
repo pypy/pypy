@@ -214,7 +214,7 @@ class AppTestBuiltinApp:
         c = C()
         assert C.goo(1) == (C, 1)
         assert c.goo(1) == (C, 1)
-        
+
         assert c.foo(1) == (c, 1)
         class D(C):
             pass
@@ -237,6 +237,12 @@ class AppTestBuiltinApp:
 
         meth = classmethod(1).__get__(1)
         raises(TypeError, meth)
+
+    def test_super_thisclass(self):
+        class A(object):
+            pass
+
+        assert super(A, A()).__thisclass__ is A
 
 
     def test_property_docstring(self):
