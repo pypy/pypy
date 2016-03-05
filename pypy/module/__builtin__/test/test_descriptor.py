@@ -244,6 +244,11 @@ class AppTestBuiltinApp:
 
         assert super(A, A()).__thisclass__ is A
 
+        class B(A):
+            pass
+
+        assert super(B, B()).__thisclass__ is B
+        assert super(A, B()).__thisclass__ is A
 
     def test_property_docstring(self):
         assert property.__doc__.startswith('property')
