@@ -552,6 +552,37 @@ class AppTestMethod:
         assert A().m == X()
         assert X() == A().m
 
+    @pytest.mark.skipif("config.option.runappdirect")
+    def test_method_identity(self):
+        class A(object):
+            def m(self):
+                pass
+            def n(self):
+                pass
+
+        class B(A):
+            pass
+
+        class X(object):
+            def __eq__(self, other):
+                return True
+
+        a = A()
+        a2 = A()
+        assert a.m is a.m
+        assert id(a.m) == id(a.m)
+        assert a.m is not a.n
+        assert id(a.m) != id(a.n)
+        assert a.m is not a2.m
+        assert id(a.m) != id(a2.m)
+
+        assert A.m is A.m
+        assert id(A.m) == id(A.m)
+        assert A.m is not A.n
+        assert id(A.m) != id(A.n)
+        assert A.m is not B.m
+        assert id(A.m) != id(B.m)
+
 
 class TestMethod:
     def setup_method(self, method):
