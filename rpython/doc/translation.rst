@@ -85,7 +85,7 @@ The following figure gives a simplified overview (`PDF color version`_):
 
 
 .. _PDF color version: _static/translation.pdf
-.. _bytecode evaluator: interpreter.html
+.. _bytecode evaluator: http://pypy.readthedocs.org/en/latest/interpreter.html
 .. _abstract interpretation: http://en.wikipedia.org/wiki/Abstract_interpretation
 
 
