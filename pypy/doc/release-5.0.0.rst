@@ -67,7 +67,7 @@ big- and little-endian variants of **ppc64** running Linux.
 .. _`dynamic languages`: http://pypyjs.org
 
 Other Highlights (since 4.0.1 released in November 2015)
-=======================================================
+=========================================================
 
 * New features:
 
