@@ -1,5 +1,4 @@
-
-import unittest
+import pytest
 from pypy.interpreter import eval
 from pypy.interpreter.function import Function, Method, descr_function_get
 from pypy.interpreter.pycode import PyCode
@@ -187,6 +186,7 @@ class AppTestFunction:
         raises(
             TypeError, func, 42, {'arg1': 23})
 
+    @pytest.mark.skipif("config.option.runappdirect")
     def test_kwargs_nondict_mapping(self):
         class Mapping:
             def keys(self):
@@ -284,6 +284,7 @@ class AppTestFunction:
         raises(TypeError, len, s, some_unknown_keyword=s)
         raises(TypeError, len, s, s, some_unknown_keyword=s)
 
+    @pytest.mark.skipif("config.option.runappdirect")
     def test_call_error_message(self):
         try:
             len()
@@ -325,6 +326,7 @@ class AppTestFunction:
         f = lambda: 42
         assert f.func_doc is None
 
+    @pytest.mark.skipif("config.option.runappdirect")
     def test_setstate_called_with_wrong_args(self):
         f = lambda: 42
         # not sure what it should raise, since CPython doesn't have setstate
