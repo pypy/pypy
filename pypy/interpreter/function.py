@@ -572,7 +572,7 @@ class Method(W_Root):
         from pypy.objspace.std.util import IDTAG_SHIFT
         if self.w_instance is not None:
             id = space.bigint_w(space.id(self.w_instance))
-            id.lshift(LONG_BIT)
+            id = id.lshift(LONG_BIT)
         else:
             id = rbigint.fromint(0)
         id = id.or_(space.bigint_w(space.id(self.w_function)))
