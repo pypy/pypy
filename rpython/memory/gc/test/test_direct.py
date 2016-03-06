@@ -13,7 +13,7 @@ from rpython.rlib.rarithmetic import LONG_BIT, is_valid_int
 from rpython.memory.gc import minimark, incminimark
 from rpython.memory.gctypelayout import zero_gc_pointers_inside, zero_gc_pointers
 from rpython.rlib.debug import debug_print
-import pdb
+
 WORD = LONG_BIT // 8
 
 ADDR_ARRAY = lltype.Array(llmemory.Address)
@@ -29,15 +29,15 @@ VARNODE = lltype.GcStruct('VARNODE', ('a', lltype.Ptr(VAR)))
 
 class DirectRootWalker(object):
 
-    def __init__(self, tester):
-        self.tester = tester
+    def __init__(self, space):
+        self.space = space
 
     def walk_roots(self, collect_stack_root,
                    collect_static_in_prebuilt_nongc,
                    collect_static_in_prebuilt_gc,
                    is_minor=False):
-        gc = self.tester.gc
-        layoutbuilder = self.tester.layoutbuilder
+        gc = self.space.gc
+        layoutbuilder = self.space.layoutbuilder
         if collect_static_in_prebuilt_gc:
             for addrofaddr in layoutbuilder.addresses_of_static_ptrs:
                 if addrofaddr.address[0]:
@@ -47,7 +47,7 @@ class DirectRootWalker(object):
                 if addrofaddr.address[0]:
                     collect_static_in_prebuilt_nongc(gc, addrofaddr)
         if collect_stack_root:
-            stackroots = self.tester.stackroots
+            stackroots = self.space.stackroots
             a = lltype.malloc(ADDR_ARRAY, len(stackroots), flavor='raw')
             for i in range(len(a)):
                 a[i] = llmemory.cast_ptr_to_adr(stackroots[i])
@@ -67,22 +67,18 @@ class DirectRootWalker(object):
         pass
 
 
-class BaseDirectGCTest(object):
-    GC_PARAMS = {}
-
-    def setup_method(self, meth):
+class GCSpace(object):
+    def __init__(self, GCClass, GC_PARAMS):
         from rpython.config.translationoption import get_combined_translation_config
         config = get_combined_translation_config(translating=True).translation
         self.stackroots = []
-        GC_PARAMS = self.GC_PARAMS.copy()
-        if hasattr(meth, 'GC_PARAMS'):
-            GC_PARAMS.update(meth.GC_PARAMS)
+        GC_PARAMS = GC_PARAMS.copy()
         GC_PARAMS['translated_to_c'] = False
-        self.gc = self.GCClass(config, **GC_PARAMS)
+        self.gc = GCClass(config, **GC_PARAMS)
         self.gc.DEBUG = True
         self.rootwalker = DirectRootWalker(self)
         self.gc.set_root_walker(self.rootwalker)
-        self.layoutbuilder = TypeLayoutBuilder(self.GCClass)
+        self.layoutbuilder = TypeLayoutBuilder(GCClass)
         self.get_type_id = self.layoutbuilder.get_type_id
         self.layoutbuilder.initialize_gc_query_function(self.gc)
         self.gc.setup()
@@ -115,9 +111,34 @@ class BaseDirectGCTest(object):
             zero_gc_pointers_inside(obj_ptr, TYPE)
         return obj_ptr
 
+class BaseDirectGCTest(object):
+    GC_PARAMS = {}
+
+    def setup_method(self, meth):
+        GC_PARAMS = self.GC_PARAMS.copy()
+        if hasattr(meth, 'GC_PARAMS'):
+            GC_PARAMS.update(meth.GC_PARAMS)
+        self.space = GCSpace(self.GCClass, GC_PARAMS)
+        self.stackroots = self.space.stackroots
+        self.gc = self.space.gc
+        self.get_type_id = self.space.get_type_id
+
+    def consider_constant(self, p):
+        self.space.consider_constant(p)
+
+    def write(self, p, fieldname, newvalue):
+        self.space.write(p, fieldname, newvalue)
+
+    def writearray(self, p, index, newvalue):
+        self.space.writearray(p, index, newvalue)
+
+    def malloc(self, TYPE, n=None):
+        return self.space.malloc(TYPE, n)
+
+
 
 class DirectGCTest(BaseDirectGCTest):
-    
+
     def test_simple(self):
         p = self.malloc(S)
         p.x = 5
@@ -679,7 +700,7 @@ class TestIncrementalMiniMarkGCFull(DirectGCTest):
         #ensure all the ptr fields are zeroed
         assert p.prev == lltype.nullptr(S)
         assert p.next == lltype.nullptr(S)
-    
+
     def test_malloc_varsize_no_cleanup(self):
         x = lltype.Signed
         VAR1 = lltype.GcArray(x)
@@ -744,4 +765,4 @@ class TestIncrementalMiniMarkGCFull(DirectGCTest):
                 assert elem.prev == lltype.nullptr(S)
                 assert elem.next == lltype.nullptr(S)
 
-            
+
