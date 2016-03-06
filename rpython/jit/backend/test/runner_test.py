@@ -576,7 +576,9 @@ class BaseBackendTest(Runner):
 
         if cpu.supports_floats:
             def func(f0, f1, f2, f3, f4, f5, f6, i0, f7, i1, f8, f9):
+                seen.append((f0, f1, f2, f3, f4, f5, f6, i0, f7, i1, f8, f9))
                 return f0 + f1 + f2 + f3 + f4 + f5 + f6 + float(i0 + i1) + f7 + f8 + f9
+            seen = []
             F = lltype.Float
             I = lltype.Signed
             FUNC = self.FuncType([F] * 7 + [I] + [F] + [I] + [F]* 2, F)
@@ -585,13 +587,15 @@ class BaseBackendTest(Runner):
             calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
                                         EffectInfo.MOST_GENERAL)
             funcbox = self.get_funcbox(cpu, func_ptr)
-            args = ([boxfloat(.1) for i in range(7)] +
-                    [InputArgInt(1), boxfloat(.2), InputArgInt(2), boxfloat(.3),
-                     boxfloat(.4)])
+            args = ([boxfloat(.0), boxfloat(.1), boxfloat(.2), boxfloat(.3),
+                     boxfloat(.4), boxfloat(.5), boxfloat(.6),
+                     InputArgInt(1), boxfloat(.7), InputArgInt(2), boxfloat(.8),
+                     boxfloat(.9)])
             res = self.execute_operation(rop.CALL_F,
                                          [funcbox] + args,
                                          'float', descr=calldescr)
-            assert abs(longlong.getrealfloat(res) - 4.6) < 0.0001
+            assert seen == [(.0, .1, .2, .3, .4, .5, .6, 1, .7, 2, .8, .9)]
+            assert abs(longlong.getrealfloat(res) - 7.5) < 0.0001
 
     def test_call_many_arguments(self):
         # Test calling a function with a large number of arguments (more than

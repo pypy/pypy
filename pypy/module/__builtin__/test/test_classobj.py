@@ -452,7 +452,6 @@ class AppTestOldstyle(object):
         assert a + 1 == 2
         assert a + 1.1 == 2
 
-
     def test_binaryop_calls_coerce_always(self):
         l = []
         class A:
@@ -1075,6 +1074,16 @@ class AppTestOldstyle(object):
         assert (D() <= A()) == 'D:A.le'
         assert (D() >  A()) == 'D:A.gt'
         assert (D() >= A()) == 'D:A.ge'
+
+    def test_override___int__(self):
+        class F(float):
+            def __int__(self):
+                return 666
+        f = F(-12.3)
+        assert int(f) == 666
+        # on cpython, this calls float_trunc() in floatobject.c
+        # which ends up calling PyFloat_AS_DOUBLE((PyFloatObject*) f)
+        assert float.__int__(f) == -12
 
 
 class AppTestOldStyleClassBytesDict(object):

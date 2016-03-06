@@ -79,6 +79,7 @@ def descr_new_super(space, w_subtype, w_starttype, w_obj_or_type=None):
 W_Super.typedef = TypeDef(
     'super',
     __new__          = interp2app(descr_new_super),
+    __thisclass__    = interp_attrproperty_w("w_starttype", W_Super),
     __getattribute__ = interp2app(W_Super.getattribute),
     __get__          = interp2app(W_Super.get),
     __doc__          =     """super(type) -> unbound super object

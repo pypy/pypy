@@ -184,6 +184,9 @@ Look inside tuple hash, improving mdp benchmark
 
 Compress resume data, saving 10-20% of memory consumed by the JIT
 
-.. branch: s390x-backend
+.. branch: issue-2248
 
-The jit compiler backend implementation for the s390x architecutre.
+.. branch: ndarray-setitem-filtered
+
+Fix boolean-array indexing in micronumpy
+
