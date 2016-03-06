@@ -28,7 +28,7 @@ from pypy.interpreter.gateway import (
 from pypy.interpreter.typedef import TypeDef
 from pypy.objspace.std import newformat
 from pypy.objspace.std.util import (
-    BINARY_OPS, CMP_OPS, COMMUTATIVE_OPS, IDTAG_INT, wrap_parsestringerror)
+    BINARY_OPS, CMP_OPS, COMMUTATIVE_OPS, IDTAG_INT, IDTAG_SHIFT, wrap_parsestringerror)
 
 SENTINEL = object()
 
@@ -54,7 +54,7 @@ class W_AbstractIntObject(W_Root):
         if self.user_overridden_class:
             return None
         b = space.bigint_w(self)
-        b = b.lshift(3).int_or_(IDTAG_INT)
+        b = b.lshift(IDTAG_SHIFT).int_or_(IDTAG_INT)
         return space.newlong_from_rbigint(b)
 
     @staticmethod

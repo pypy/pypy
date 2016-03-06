@@ -557,8 +557,12 @@ class __extend__(W_NDimArray):
             return self.get_scalar_value().item(space)
         l_w = []
         for i in range(self.get_shape()[0]):
-            l_w.append(space.call_method(self.descr_getitem(space,
-                                         space.wrap(i)), "tolist"))
+            item_w = self.descr_getitem(space, space.wrap(i))
+            if (isinstance(item_w, W_NDimArray) or 
+                    isinstance(item_w, boxes.W_GenericBox)):
+                l_w.append(space.call_method(item_w, "tolist"))
+            else:
+                l_w.append(item_w)
         return space.newlist(l_w)
 
     def descr_ravel(self, space, w_order=None):
@@ -925,6 +929,10 @@ class __extend__(W_NDimArray):
         if self.is_scalar():
             return
         return self.implementation.sort(space, w_axis, w_order)
+
+    def descr_partition(self, space, __args__):
+        return get_appbridge_cache(space).call_method(
+            space, 'numpy.core._partition_use', 'partition', __args__.prepend(self))
 
     def descr_squeeze(self, space, w_axis=None):
         cur_shape = self.get_shape()
@@ -1639,6 +1647,7 @@ W_NDimArray.typedef = TypeDef("numpy.ndarray",
 
     argsort  = interp2app(W_NDimArray.descr_argsort),
     sort  = interp2app(W_NDimArray.descr_sort),
+    partition  = interp2app(W_NDimArray.descr_partition),
     astype   = interp2app(W_NDimArray.descr_astype),
     base     = GetSetProperty(W_NDimArray.descr_get_base),
     byteswap = interp2app(W_NDimArray.descr_byteswap),
