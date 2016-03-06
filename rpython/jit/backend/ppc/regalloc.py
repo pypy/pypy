@@ -955,12 +955,19 @@ class Regalloc(BaseRegalloc):
         return arglocs
 
     def prepare_zero_array(self, op):
-        itemsize, ofs, _ = unpack_arraydescr(op.getdescr())
+        _, ofs, _ = unpack_arraydescr(op.getdescr())
         base_loc = self.ensure_reg(op.getarg(0))
         startindex_loc = self.ensure_reg_or_16bit_imm(op.getarg(1))
         length_loc = self.ensure_reg_or_16bit_imm(op.getarg(2))
+        # startindex and length are bytes, not array items anymore.
+        # rewrite already applied the scale!
+        startindex_scale_box = op.getarg(3)
+        assert startindex_scale_box.getint() == 1
+        length_scale_box = op.getarg(4)
+        assert length_scale_box.getint() == 1
+        #
         ofs_loc = self.ensure_reg_or_16bit_imm(ConstInt(ofs))
-        return [base_loc, startindex_loc, length_loc, ofs_loc, imm(itemsize)]
+        return [base_loc, startindex_loc, length_loc, ofs_loc]
 
     def prepare_cond_call(self, op):
         self.load_condition_into_cc(op.getarg(0))

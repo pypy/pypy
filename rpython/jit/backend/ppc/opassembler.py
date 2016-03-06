@@ -910,79 +910,78 @@ class FieldOpAssembler(object):
         else:                             self.mc.std(a, b, c)
 
     def emit_zero_array(self, op, arglocs, regalloc):
-        base_loc, startindex_loc, length_loc, ofs_loc, itemsize_loc = arglocs
+        base_loc, startindex_loc, length_loc, ofs_loc = arglocs
 
-        # assume that an array where an item size is N:
-        # * if N is even, then all items are aligned to a multiple of 2
-        # * if N % 4 == 0, then all items are aligned to a multiple of 4
-        # * if N % 8 == 0, then all items are aligned to a multiple of 8
-        itemsize = itemsize_loc.getint()
-        if itemsize & 1:                  stepsize = 1
-        elif itemsize & 2:                stepsize = 2
-        elif (itemsize & 4) or IS_PPC_32: stepsize = 4
-        else:                             stepsize = WORD
+        stepsize = 8
+        if IS_PPC_32:
+            stepsize = 4
 
-        repeat_factor = itemsize // stepsize
-        if repeat_factor != 1:
-            # This is only for itemsize not in (1, 2, 4, WORD).
-            # Include the repeat_factor inside length_loc if it is a constant
-            if length_loc.is_imm():
-                length_loc = imm(length_loc.value * repeat_factor)
-                repeat_factor = 1     # included
-
-        unroll = -1
         if length_loc.is_imm():
-            if length_loc.value <= 8:
-                unroll = length_loc.value
-                if unroll <= 0:
-                    return     # nothing to do
+            if length_loc.value <= 0:
+                return     # nothing to do
 
-        ofs_loc = self._apply_scale(ofs_loc, startindex_loc, itemsize_loc)
-        ofs_loc = self._copy_in_scratch2(ofs_loc)
+        self.mc.addi(r.SCRATCH2.value, startindex_loc.value, ofs_loc.getint())
+        ofs_loc = r.SCRATCH2
+        # ofs_loc is now the startindex in bytes + the array offset
 
-        if unroll > 0:
-            assert repeat_factor == 1
-            self.mc.li(r.SCRATCH.value, 0)
-            self.eza_stXux(r.SCRATCH.value, ofs_loc.value, base_loc.value,
-                           itemsize)
-            for i in range(1, unroll):
-                self.eza_stX(r.SCRATCH.value, ofs_loc.value, i * stepsize,
-                             itemsize)
-
+        if length_loc.is_imm():
+            self.mc.load_imm(r.SCRATCH, length_loc.value)
+            length_loc = r.SCRATCH
+            jz_location = -1
         else:
-            if length_loc.is_imm():
-                self.mc.load_imm(r.SCRATCH, length_loc.value)
-                length_loc = r.SCRATCH
-                jz_location = -1
-                assert repeat_factor == 1
-            else:
-                self.mc.cmp_op(0, length_loc.value, 0, imm=True)
-                jz_location = self.mc.currpos()
-                self.mc.trap()
-                length_loc = self._multiply_by_constant(length_loc,
-                                                        repeat_factor,
-                                                        r.SCRATCH)
-            self.mc.mtctr(length_loc.value)
-            self.mc.li(r.SCRATCH.value, 0)
-
-            self.eza_stXux(r.SCRATCH.value, ofs_loc.value, base_loc.value,
-                           itemsize)
-            bdz_location = self.mc.currpos()
+            # jump to end if length is less than stepsize
+            self.mc.cmp_op(0, length_loc.value, stepsize, imm=True)
+            jz_location = self.mc.currpos()
             self.mc.trap()
 
-            loop_location = self.mc.currpos()
-            self.eza_stXu(r.SCRATCH.value, ofs_loc.value, stepsize,
-                          itemsize)
-            self.mc.bdnz(loop_location - self.mc.currpos())
+        self.mc.li(r.SCRATCH.value, 0)
 
-            pmc = OverwritingBuilder(self.mc, bdz_location, 1)
-            pmc.bdz(self.mc.currpos() - bdz_location)
+        # NOTE the following assumes that bytes have been passed to both startindex
+        # and length. Thus we zero 4/8 bytes in a loop in 1) and every remaining
+        # byte is zeroed in another loop in 2)
+
+        # first store of case 1)
+        self.eza_stXux(r.SCRATCH.value, ofs_loc.value, base_loc.value, stepsize)
+        self.mc.subi(length_loc.value, length_loc.value, stepsize)
+        self.mc.cmp_op(0, length_loc.value, stepsize, imm=True)
+        lt_location = self.mc.currpos()
+        self.mc.trap() # jump over the loop if we are already done with 1)
+
+        # 1) The next loop copies WORDS into the memory chunk starting at startindex
+        # ending at startindex + length. These are bytes
+        loop_location = self.mc.currpos()
+        self.eza_stXu(r.SCRATCH.value, ofs_loc.value, stepsize, stepsize)
+        self.mc.subi(length_loc.value, length_loc.value, stepsize)
+        self.mc.cmp_op(0, length_loc.value, stepsize, imm=True)
+        self.mc.bge(loop_location - self.mc.currpos())
+
+        pmc = OverwritingBuilder(self.mc, lt_location, 1)
+        pmc.blt(self.mc.currpos() - lt_location)
+        pmc.overwrite()
+
+        if jz_location != -1:
+            pmc = OverwritingBuilder(self.mc, jz_location, 1)
+            pmc.ble(self.mc.currpos() - jz_location)    # !GT
             pmc.overwrite()
 
-            if jz_location != -1:
-                pmc = OverwritingBuilder(self.mc, jz_location, 1)
-                pmc.ble(self.mc.currpos() - jz_location)    # !GT
-                pmc.overwrite()
+        # 2) There might be some bytes left to be written.
+        # following scenario: length_loc == 3 bytes, stepsize == 4!
+        # need to write the last bytes.
+        self.mc.cmp_op(0, length_loc.value, 0, imm=True)
+        jle_location = self.mc.curpos()
+        self.mc.trap()
+
+        self.mc.mtctr(length_loc.value)
+
+        loop_position = self.mc.curpos()
+        self.eza_stXu(r.SCRATCH.value, ofs_loc.value, 1, 1)
+        self.mc.bdnz(self.mc.currpos() - loop_location)
+
+        pmc = OverwritingBuilder(self.mc, jle_location, 1)
+        pmc.ble(self.mc.currpos() - jle_location)    # !GT
+        pmc.overwrite()
+
+
 
 class StrOpAssembler(object):
 
