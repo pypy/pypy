@@ -828,63 +828,6 @@ class FieldOpAssembler(object):
 
     SIZE2SCALE = dict([(1<<_i, _i) for _i in range(32)])
 
-    def _multiply_by_constant(self, loc, multiply_by, scratch_loc):
-        # XXX should die together with _apply_scale() but can't because
-        # of emit_zero_array() and malloc_cond_varsize() at the moment
-        assert loc.is_reg()
-        if multiply_by == 1:
-            return loc
-        try:
-            scale = self.SIZE2SCALE[multiply_by]
-        except KeyError:
-            if _check_imm_arg(multiply_by):
-                self.mc.mulli(scratch_loc.value, loc.value, multiply_by)
-            else:
-                self.mc.load_imm(scratch_loc, multiply_by)
-                if IS_PPC_32:
-                    self.mc.mullw(scratch_loc.value, loc.value,
-                                  scratch_loc.value)
-                else:
-                    self.mc.mulld(scratch_loc.value, loc.value,
-                                  scratch_loc.value)
-        else:
-            self.mc.sldi(scratch_loc.value, loc.value, scale)
-        return scratch_loc
-
-    def _apply_scale(self, ofs, index_loc, itemsize):
-        # XXX should die now that getarrayitem and getinteriorfield are gone
-        # but can't because of emit_zero_array() at the moment
-
-        # For arrayitem and interiorfield reads and writes: this returns an
-        # offset suitable for use in ld/ldx or similar instructions.
-        # The result will be either the register r2 or a 16-bit immediate.
-        # The arguments stand for "ofs + index_loc * itemsize",
-        # with the following constrains:
-        assert ofs.is_imm()                # must be an immediate...
-        assert _check_imm_arg(ofs.getint())   # ...that fits 16 bits
-        assert index_loc is not r.SCRATCH2 # can be a reg or imm (any size)
-        assert itemsize.is_imm()           # must be an immediate (any size)
-
-        multiply_by = itemsize.value
-        offset = ofs.getint()
-        if index_loc.is_imm():
-            offset += index_loc.getint() * multiply_by
-            if _check_imm_arg(offset):
-                return imm(offset)
-            else:
-                self.mc.load_imm(r.SCRATCH2, offset)
-                return r.SCRATCH2
-        else:
-            index_loc = self._multiply_by_constant(index_loc, multiply_by,
-                                                   r.SCRATCH2)
-            # here, the new index_loc contains 'index_loc * itemsize'.
-            # If offset != 0 then we have to add it here.  Note that
-            # mc.addi() would not be valid with operand r0.
-            if offset != 0:
-                self.mc.addi(r.SCRATCH2.value, index_loc.value, offset)
-                index_loc = r.SCRATCH2
-            return index_loc
-
     def _copy_in_scratch2(self, loc):
         if loc.is_imm():
             self.mc.li(r.SCRATCH2.value, loc.value)
