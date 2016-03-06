@@ -911,12 +911,12 @@ class FieldOpAssembler(object):
         # following scenario: length_loc == 3 bytes, stepsize == 4!
         # need to write the last bytes.
         self.mc.cmp_op(0, length_loc.value, 0, imm=True)
-        jle_location = self.mc.curpos()
+        jle_location = self.mc.currpos()
         self.mc.trap()
 
         self.mc.mtctr(length_loc.value)
 
-        loop_position = self.mc.curpos()
+        loop_position = self.mc.currpos()
         self.eza_stXu(r.SCRATCH.value, ofs_loc.value, 1, 1)
         self.mc.bdnz(self.mc.currpos() - loop_location)
 
