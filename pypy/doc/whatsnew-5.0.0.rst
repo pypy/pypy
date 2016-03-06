@@ -1,5 +1,5 @@
 =========================
-What's new in PyPy 4.1.+
+What's new in PyPy 5.0.+
 =========================
 
 .. this is a revision shortly after release-4.0.1
@@ -189,4 +189,3 @@ Compress resume data, saving 10-20% of memory consumed by the JIT
 .. branch: ndarray-setitem-filtered
 
 Fix boolean-array indexing in micronumpy
-
