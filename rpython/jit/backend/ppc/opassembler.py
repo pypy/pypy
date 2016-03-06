@@ -879,12 +879,18 @@ class FieldOpAssembler(object):
         base_loc, startindex_loc, length_loc, ofs_loc = arglocs
 
         stepsize = 8
+        shift_by = 3
         if IS_PPC_32:
             stepsize = 4
+            shift_by = 2
 
         if length_loc.is_imm():
             if length_loc.value <= 0:
                 return     # nothing to do
+
+        if startindex_loc.is_imm():
+            self.mc.load_imm(r.SCRATCH, startindex_loc.value)
+            startindex_loc = r.SCRATCH
 
         self.mc.addi(r.SCRATCH2.value, startindex_loc.value, ofs_loc.getint())
         ofs_loc = r.SCRATCH2
@@ -900,6 +906,9 @@ class FieldOpAssembler(object):
             jz_location = self.mc.currpos()
             self.mc.trap()
 
+        self.mc.sradi(r.SCRATCH.value, r.length_loc.value, shift_by)
+        self.mc.mtctr(r.SCRATCH.value) # store the length in count register
+
         self.mc.li(r.SCRATCH.value, 0)
 
         # NOTE the following assumes that bytes have been passed to both startindex
@@ -908,21 +917,17 @@ class FieldOpAssembler(object):
 
         # first store of case 1)
         self.eza_stXux(r.SCRATCH.value, ofs_loc.value, base_loc.value, stepsize)
-        self.mc.subi(length_loc.value, length_loc.value, stepsize)
-        self.mc.cmp_op(0, length_loc.value, stepsize, imm=True)
-        lt_location = self.mc.currpos()
+        bdz_location = self.mc.currpos()
         self.mc.trap() # jump over the loop if we are already done with 1)
 
         # 1) The next loop copies WORDS into the memory chunk starting at startindex
         # ending at startindex + length. These are bytes
         loop_location = self.mc.currpos()
         self.eza_stXu(r.SCRATCH.value, ofs_loc.value, stepsize, stepsize)
-        self.mc.subi(length_loc.value, length_loc.value, stepsize)
-        self.mc.cmp_op(0, length_loc.value, stepsize, imm=True)
-        self.mc.bge(loop_location - self.mc.currpos())
+        self.mc.bdnz(loop_location - self.mc.currpos())
 
-        pmc = OverwritingBuilder(self.mc, lt_location, 1)
-        pmc.blt(self.mc.currpos() - lt_location)
+        pmc = OverwritingBuilder(self.mc, bdz_location, 1)
+        pmc.bdz(self.mc.currpos() - bdz_location)
         pmc.overwrite()
 
         if jz_location != -1:
@@ -933,11 +938,19 @@ class FieldOpAssembler(object):
         # 2) There might be some bytes left to be written.
         # following scenario: length_loc == 3 bytes, stepsize == 4!
         # need to write the last bytes.
-        self.mc.cmp_op(0, length_loc.value, 0, imm=True)
+
+        # move the last bytes to the count register
+        if length_loc.is_imm():
+            self.mc.load_imm(r.SCRATCH, length_loc.value & (stepsize-1))
+        else:
+            self.mc.andi(r.SCRATCH.value, length_loc, stepsize-1)
+
+        self.mc.cmp_op(0, SCRATCH.value, 0, imm=True)
         jle_location = self.mc.currpos()
         self.mc.trap()
 
-        self.mc.mtctr(length_loc.value)
+        self.mc.mtctr(r.SCRATCH.value)
+        self.mc.li(r.SCRATCH.value, 0)
 
         loop_position = self.mc.currpos()
         self.eza_stXu(r.SCRATCH.value, ofs_loc.value, 1, 1)
@@ -946,7 +959,6 @@ class FieldOpAssembler(object):
         pmc = OverwritingBuilder(self.mc, jle_location, 1)
         pmc.ble(self.mc.currpos() - jle_location)    # !GT
         pmc.overwrite()
-
 
 
 class StrOpAssembler(object):
