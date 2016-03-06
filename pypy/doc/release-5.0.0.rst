@@ -1,8 +1,8 @@
-==========
-PyPy 5.0.0
-==========
+========
+PyPy 5.0
+========
 
-We have released PyPy 5.0.0, about three months after PyPy 4.0.0. 
+We have released PyPy 5.0, about three months after PyPy 4.0.1. 
 We encourage all users of PyPy to update to this version. Apart from the usual
 bug fixes, there is an ongoing effort to improve the warmup time and memory
 usage of JIT-related metadata. The exact effects depend vastly on the program
@@ -18,7 +18,7 @@ who have not yet tried its awesomeness, will be happy to hear that vmprof
 now just works on MacOS and Windows too, in both PyPy (built-in support) and
 CPython (as an installed module).
 
-You can download the PyPy 5.0.0 release here:
+You can download the PyPy 5.0 release here:
 
     http://pypy.org/download.html
 
@@ -35,7 +35,7 @@ CFFI
 ====
 
 While not applicable only to PyPy, `cffi`_ is arguably our most significant
-contribution to the python ecosystem. PyPy 5.0.0 ships with 
+contribution to the python ecosystem. PyPy 5.0 ships with 
 `cffi-1.5.2`_ which now allows embedding PyPy (or cpython) in a c program.
 
 .. _`PyPy`: http://doc.pypy.org 
