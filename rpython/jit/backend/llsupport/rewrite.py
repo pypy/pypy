@@ -540,8 +540,9 @@ class GcRewriterAssembler(object):
             scale, offset, v_length_scaled = \
                     self._emit_mul_if_factor_offset_not_supported(v_length, scale, 0)
         v_scale = ConstInt(scale)
-        # there is probably no point in doing _emit_mul_if.. for
-        # c_zero!
+        # there is probably no point in doing _emit_mul_if.. for c_zero!
+        # NOTE that the scale might be != 1 for e.g. v_length_scaled if it is a constant
+        # it is later applied in emit_pending_zeros
         args = [v_arr, self.c_zero, v_length_scaled, ConstInt(scale), v_scale]
         o = ResOperation(rop.ZERO_ARRAY, args, descr=arraydescr)
         self.emit_op(o)
