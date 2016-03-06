@@ -186,4 +186,10 @@ Compress resume data, saving 10-20% of memory consumed by the JIT
 
 .. branch: s390x-backend
 
+.. branch: memop-simplify3
+
+Simplification of zero_array. Start and end index are scaled using res ops (or cpu scaling) rather than doing it manually.
+
+.. branch: s390x-backend
+
 The jit compiler backend implementation for the s390x architecutre.
