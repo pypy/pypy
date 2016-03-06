@@ -33,8 +33,12 @@ def prefix_pythonpath():
         pythonpath.insert(0, cffi_base)
     return os.pathsep.join(pythonpath)
 
-def setup_module(mod):
-    mod.org_env = os.environ.copy()
+def copy_away_env():
+    global org_env
+    try:
+        org_env
+    except NameError:
+        org_env = os.environ.copy()
 
 
 class EmbeddingTests:
@@ -122,6 +126,7 @@ class EmbeddingTests:
             os.chdir(curdir)
 
     def patch_environment(self):
+        copy_away_env()
         path = self.get_path()
         # for libpypy-c.dll or Python27.dll
         path = os.path.split(sys.executable)[0] + os.path.pathsep + path

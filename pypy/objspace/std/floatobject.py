@@ -170,15 +170,11 @@ class W_FloatObject(W_Root):
         return self.floatval
 
     def int(self, space):
+        # this is a speed-up only, for space.int(w_float).
         if (type(self) is not W_FloatObject and
             space.is_overloaded(self, space.w_float, '__int__')):
             return W_Root.int(self, space)
-        try:
-            value = ovfcheck_float_to_int(self.floatval)
-        except OverflowError:
-            return newlong_from_float(space, self.floatval)
-        else:
-            return space.newint(value)
+        return self.descr_trunc(space)
 
     def is_w(self, space, w_other):
         from rpython.rlib.longlong2float import float2longlong
@@ -417,11 +413,10 @@ class W_FloatObject(W_Root):
         return W_FloatObject(a)
 
     def descr_trunc(self, space):
-        whole = math.modf(self.floatval)[1]
         try:
-            value = ovfcheck_float_to_int(whole)
+            value = ovfcheck_float_to_int(self.floatval)
         except OverflowError:
-            return newlong_from_float(space, whole)
+            return newlong_from_float(space, self.floatval)
         else:
             return space.newint(value)
 
@@ -656,7 +651,7 @@ Convert a string or number to a floating point number, if possible.''',
     __hash__ = interp2app(W_FloatObject.descr_hash),
     __format__ = interp2app(W_FloatObject.descr_format),
     __bool__ = interp2app(W_FloatObject.descr_bool),
-    __int__ = interp2app(W_FloatObject.int),
+    __int__ = interp2app(W_FloatObject.descr_trunc),
     __float__ = interp2app(W_FloatObject.descr_float),
     __trunc__ = interp2app(W_FloatObject.descr_trunc),
     __neg__ = interp2app(W_FloatObject.descr_neg),

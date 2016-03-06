@@ -1056,7 +1056,7 @@ class AbstractUnwrappedSetStrategy(object):
         if self is w_other.strategy:
             strategy = self
             if w_set.length() > w_other.length():
-                # swap operants
+                # swap operands
                 storage = self._intersect_unwrapped(w_other, w_set)
             else:
                 storage = self._intersect_unwrapped(w_set, w_other)
@@ -1066,7 +1066,7 @@ class AbstractUnwrappedSetStrategy(object):
         else:
             strategy = self.space.fromcache(ObjectSetStrategy)
             if w_set.length() > w_other.length():
-                # swap operants
+                # swap operands
                 storage = w_other.strategy._intersect_wrapped(w_other, w_set)
             else:
                 storage = self._intersect_wrapped(w_set, w_other)
