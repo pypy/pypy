@@ -869,11 +869,6 @@ class FieldOpAssembler(object):
         elif itemsize & 2:                self.mc.sthu(a, b, c)
         elif (itemsize & 4) or IS_PPC_32: self.mc.stwu(a, b, c)
         else:                             self.mc.stdu(a, b, c)
-    def eza_stX(self, a, b, c, itemsize):
-        if itemsize & 1:                  self.mc.stb(a, b, c)
-        elif itemsize & 2:                self.mc.sth(a, b, c)
-        elif (itemsize & 4) or IS_PPC_32: self.mc.stw(a, b, c)
-        else:                             self.mc.std(a, b, c)
 
     def emit_zero_array(self, op, arglocs, regalloc):
         base_loc, startindex_loc, length_loc, ofs_loc = arglocs
@@ -894,17 +889,17 @@ class FieldOpAssembler(object):
 
         self.mc.addi(r.SCRATCH2.value, startindex_loc.value, ofs_loc.getint())
         ofs_loc = r.SCRATCH2
-        # ofs_loc is now the startindex in bytes + the array offset
+        self.mc.add(ofs_loc.value, ofs_loc.value, base_loc.value)
+        # ofs_loc is now the real address pointing to the first
+        # byte to be zeroed
 
         if length_loc.is_imm():
             self.mc.load_imm(r.SCRATCH, length_loc.value)
             length_loc = r.SCRATCH
-            jz_location = -1
-        else:
-            # jump to end if length is less than stepsize
-            self.mc.cmp_op(0, length_loc.value, stepsize, imm=True)
-            jz_location = self.mc.currpos()
-            self.mc.trap()
+
+        self.mc.cmp_op(0, length_loc.value, stepsize, imm=True)
+        jlt_location = self.mc.currpos()
+        self.mc.trap()
 
         self.mc.sradi(r.SCRATCH.value, r.length_loc.value, shift_by)
         self.mc.mtctr(r.SCRATCH.value) # store the length in count register
@@ -916,24 +911,15 @@ class FieldOpAssembler(object):
         # byte is zeroed in another loop in 2)
 
         # first store of case 1)
-        self.eza_stXux(r.SCRATCH.value, ofs_loc.value, base_loc.value, stepsize)
-        bdz_location = self.mc.currpos()
-        self.mc.trap() # jump over the loop if we are already done with 1)
-
         # 1) The next loop copies WORDS into the memory chunk starting at startindex
         # ending at startindex + length. These are bytes
         loop_location = self.mc.currpos()
         self.eza_stXu(r.SCRATCH.value, ofs_loc.value, stepsize, stepsize)
         self.mc.bdnz(loop_location - self.mc.currpos())
 
-        pmc = OverwritingBuilder(self.mc, bdz_location, 1)
-        pmc.bdz(self.mc.currpos() - bdz_location)
+        pmc = OverwritingBuilder(self.mc, jlt_location, 1)
+        pmc.blt(self.mc.currpos() - jlt_location)    # jump if length < WORD
         pmc.overwrite()
-
-        if jz_location != -1:
-            pmc = OverwritingBuilder(self.mc, jz_location, 1)
-            pmc.ble(self.mc.currpos() - jz_location)    # !GT
-            pmc.overwrite()
 
         # 2) There might be some bytes left to be written.
         # following scenario: length_loc == 3 bytes, stepsize == 4!
@@ -943,9 +929,9 @@ class FieldOpAssembler(object):
         if length_loc.is_imm():
             self.mc.load_imm(r.SCRATCH, length_loc.value & (stepsize-1))
         else:
-            self.mc.andi(r.SCRATCH.value, length_loc, stepsize-1)
+            self.mc.andi(r.SCRATCH.value, length_loc.value, stepsize-1)
 
-        self.mc.cmp_op(0, SCRATCH.value, 0, imm=True)
+        self.mc.cmp_op(0, r.SCRATCH.value, 0, imm=True)
         jle_location = self.mc.currpos()
         self.mc.trap()
 
