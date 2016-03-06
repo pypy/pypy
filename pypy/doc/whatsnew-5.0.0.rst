@@ -1,6 +1,6 @@
-=========================
-What's new in PyPy 5.0.+
-=========================
+======================
+What's new in PyPy 5.0
+======================
 
 .. this is a revision shortly after release-4.0.1
 .. startrev: 4b5c840d0da2
@@ -128,6 +128,7 @@ Deprecates http://pypy.readthedocs.org/en/latest/embedding.html.
 
 Fix SSL tests by importing cpython's patch
 
+
 .. branch: remove-getfield-pure
 
 Remove pure variants of ``getfield_gc_*`` operations from the JIT. Relevant
@@ -189,3 +190,8 @@ Compress resume data, saving 10-20% of memory consumed by the JIT
 .. branch: ndarray-setitem-filtered
 
 Fix boolean-array indexing in micronumpy
+
+.. branch: numpy_partition
+Support ndarray.partition() as an app-level function numpy.core._partition_use,
+provided as a cffi wrapper to upstream's implementation in the pypy/numpy repo
+
