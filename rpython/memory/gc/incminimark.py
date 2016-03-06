@@ -2775,6 +2775,26 @@ class IncrementalMiniMarkGC(MovingGCBase):
         int_gcobj = self._pyobj(adr_rawobj).ob_pypy_link
         return llmemory.cast_int_to_adr(int_gcobj)
 
+    def _rrc_has_untracked_referents(self, raw_obj):
+        from rpython.rlib.rawrefcount import (
+            REFCNT_FROM_PYPY, REFCNT_FROM_PYPY_LIGHT)
+        rc = self._pyobj(raw_obj).ob_refcnt
+        return rc != REFCNT_FROM_PYPY and rc != REFCNT_FROM_PYPY_LIGHT
+
+    def _rrc_unlink(self, adr_rawobj):
+        from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY
+        RC_MASK = REFCNT_FROM_PYPY - 1
+        rawobj = self._pyobj(adr_rawobj)
+        rawobj.ob_refcnt &= RC_MASK
+        rawobj.ob_pypy_link = 0
+
+    def _rrc_is_light(self, adr_rawobj):
+        from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY_LIGHT
+        return self._pyobj(adr_rawobj).ob_refcnt >= REFCNT_FROM_PYPY_LIGHT
+
+    def _rrc_dealloc_light(self, adr_rawobj):
+        lltype.free(self._pyobj(adr_rawobj), flavor='raw')
+
     def rawrefcount_init(self, dealloc_trigger_callback):
         # see pypy/doc/discussion/rawrefcount.rst
         if not self.rrc_enabled:
@@ -2844,7 +2864,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
             return self.rrc_dealloc_pending.pop()
         return llmemory.NULL
 
-
     def rrc_invoke_callback(self):
         if self.rrc_enabled and self.rrc_dealloc_pending.non_empty():
             self.rrc_dealloc_trigger_callback()
@@ -2857,13 +2876,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                                       self.rrc_singleaddr)
 
     def _rrc_minor_trace(self, pyobject, singleaddr):
-        from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY
-        from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY_LIGHT
-        #
-        rc = self._pyobj(pyobject).ob_refcnt
-        if rc == REFCNT_FROM_PYPY or rc == REFCNT_FROM_PYPY_LIGHT:
-            pass     # the corresponding object may die
-        else:
+        if self._rrc_has_untracked_referents(pyobject):
             # force the corresponding object to be alive
             singleaddr.address[0] = self._rrc_get_gc_partner(pyobject)
             self._trace_drag_out(singleaddr, llmemory.NULL)
@@ -2915,40 +2928,20 @@ class IncrementalMiniMarkGC(MovingGCBase):
             self._rrc_free(pyobject)
 
     def _rrc_free(self, pyobject):
-        from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY
-        from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY_LIGHT
-        #
-        rc = self._pyobj(pyobject).ob_refcnt
-        if rc >= REFCNT_FROM_PYPY_LIGHT:
-            rc -= REFCNT_FROM_PYPY_LIGHT
-            if rc == 0:
-                lltype.free(self._pyobj(pyobject), flavor='raw')
-            else:
-                # can only occur if LIGHT is used in create_link_pyobj()
-                self._pyobj(pyobject).ob_refcnt = rc
-                self._pyobj(pyobject).ob_pypy_link = 0
+        if self._rrc_has_untracked_referents(pyobject):
+            self._rrc_unlink(pyobject)
+        elif self._rrc_is_light(pyobject):
+            self._rrc_dealloc_light(pyobject)
         else:
-            ll_assert(rc >= REFCNT_FROM_PYPY, "refcount underflow?")
-            ll_assert(rc < int(REFCNT_FROM_PYPY_LIGHT * 0.99),
-                      "refcount underflow from REFCNT_FROM_PYPY_LIGHT?")
-            rc -= REFCNT_FROM_PYPY
-            self._pyobj(pyobject).ob_refcnt = rc
-            self._pyobj(pyobject).ob_pypy_link = 0
-            if rc == 0:
-                self.rrc_dealloc_pending.append(pyobject)
+            self._rrc_unlink(pyobject)
+            self.rrc_dealloc_pending.append(pyobject)
     _rrc_free._always_inline_ = True
 
     def rrc_major_collection_trace(self):
         self.rrc_p_list_old.foreach(self._rrc_major_trace, None)
 
     def _rrc_major_trace(self, pyobject, ignore):
-        from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY
-        from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY_LIGHT
-        #
-        rc = self._pyobj(pyobject).ob_refcnt
-        if rc == REFCNT_FROM_PYPY or rc == REFCNT_FROM_PYPY_LIGHT:
-            pass     # the corresponding object may die
-        else:
+        if self._rrc_has_untracked_referents(pyobject):
             # force the corresponding object to be alive
             obj = self._rrc_get_gc_partner(pyobject)
             self.objects_to_trace.append(obj)
