@@ -828,6 +828,29 @@ class FieldOpAssembler(object):
 
     SIZE2SCALE = dict([(1<<_i, _i) for _i in range(32)])
 
+    def _multiply_by_constant(self, loc, multiply_by, scratch_loc):
+        # XXX should die together with _apply_scale() but can't because
+        # of emit_zero_array() and malloc_cond_varsize() at the moment
+        assert loc.is_reg()
+        if multiply_by == 1:
+            return loc
+        try:
+            scale = self.SIZE2SCALE[multiply_by]
+        except KeyError:
+            if _check_imm_arg(multiply_by):
+                self.mc.mulli(scratch_loc.value, loc.value, multiply_by)
+            else:
+                self.mc.load_imm(scratch_loc, multiply_by)
+                if IS_PPC_32:
+                    self.mc.mullw(scratch_loc.value, loc.value,
+                                  scratch_loc.value)
+                else:
+                    self.mc.mulld(scratch_loc.value, loc.value,
+                                  scratch_loc.value)
+        else:
+            self.mc.sldi(scratch_loc.value, loc.value, scale)
+        return scratch_loc
+
     def _copy_in_scratch2(self, loc):
         if loc.is_imm():
             self.mc.li(r.SCRATCH2.value, loc.value)
