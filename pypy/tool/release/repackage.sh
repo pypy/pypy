@@ -1,7 +1,7 @@
 # Edit these appropriately before running this script
-maj=4
+maj=5
 min=0
-rev=1
+rev=0
 # This script will download latest builds from the buildmaster, rename the top
 # level directory, and repackage ready to be uploaded to bitbucket. It will also
 # download source, assuming a tag for the release already exists, and repackage them.
