@@ -350,8 +350,8 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
 
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap and gcrootmap.is_shadow_stack:
-            diff = mc.load_imm_plus(r.r5, gcrootmap.get_root_stack_top_addr())
-            mc.load(r.r5, r.r5, diff)
+            diff = mc.load_imm(r.r5, gcrootmap.get_root_stack_top_addr())
+            mc.load(r.r5, r.r5, 0)
             mc.store(r.r2, r.r5, -WORD)
 
         self._pop_core_regs_from_jitframe(mc, r.MANAGED_REGS)
@@ -978,9 +978,8 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         if gcrootmap:
             if gcrootmap.is_shadow_stack:
                 if shadowstack_reg is None:
-                    diff = mc.load_imm_plus(r.SPP,
-                                            gcrootmap.get_root_stack_top_addr())
-                    mc.load(r.SPP, r.SPP, diff)
+                    diff = mc.load_imm(r.SPP, gcrootmap.get_root_stack_top_addr())
+                    mc.load(r.SPP, r.SPP, 0)
                     shadowstack_reg = r.SPP
                 mc.load(r.SPP, shadowstack_reg, -WORD)
         wbdescr = self.cpu.gc_ll_descr.write_barrier_descr
@@ -1048,18 +1047,18 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
     def _call_header_shadowstack(self, gcrootmap):
         # we need to put one word into the shadowstack: the jitframe (SPP)
         # we saved all registers to the stack
-        RCS1 = r.r2
-        RCS2 = r.r3
-        RCS3 = r.r4
+        RCS1 = r.r3
+        RCS2 = r.r4
+        RCS3 = r.r5
         mc = self.mc
-        diff = mc.load_imm_plus(RCS1, gcrootmap.get_root_stack_top_addr())
-        mc.load(RCS2, RCS1, diff)  # ld RCS2, [rootstacktop]
+        mc.load_imm(RCS1, gcrootmap.get_root_stack_top_addr())
+        mc.load(RCS2, RCS1, 0)  # ld RCS2, [rootstacktop]
         #
         mc.LGR(RCS3, RCS2)
         mc.AGHI(RCS3, l.imm(WORD)) # add RCS3, RCS2, WORD
         mc.store(r.SPP, RCS2, 0)   # std SPP, RCS2
         #
-        mc.store(RCS3, RCS1, diff) # std RCS3, [rootstacktop]
+        mc.store(RCS3, RCS1, 0) # std RCS3, [rootstacktop]
 
     def _call_footer_shadowstack(self, gcrootmap):
         # r6 -> r15 can be used freely, they will be restored by 
@@ -1067,10 +1066,10 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         RCS1 = r.r9
         RCS2 = r.r10
         mc = self.mc
-        diff = mc.load_imm_plus(RCS1, gcrootmap.get_root_stack_top_addr())
-        mc.load(RCS2, RCS1, diff)    # ld RCS2, [rootstacktop]
+        mc.load_imm(RCS1, gcrootmap.get_root_stack_top_addr())
+        mc.load(RCS2, RCS1, 0)    # ld RCS2, [rootstacktop]
         mc.AGHI(RCS2, l.imm(-WORD))  # sub RCS2, RCS2, WORD
-        mc.store(RCS2, RCS1, diff)   # std RCS2, [rootstacktop]
+        mc.store(RCS2, RCS1, 0)   # std RCS2, [rootstacktop]
 
     def _call_footer(self):
         # the return value is the jitframe

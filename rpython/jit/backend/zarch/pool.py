@@ -117,6 +117,9 @@ class LiteralPool(object):
         for op in operations:
             self.ensure_can_hold_constants(asm, op)
         self._ensure_value(asm.cpu.pos_exc_value(), asm)
+        gcrootmap = asm.cpu.gc_ll_descr.gcrootmap
+        if gcrootmap and gcrootmap.is_shadow_stack:
+            self._ensure_value(gcrootmap.get_root_stack_top_addr())
         # TODO add more values that are loaded with load_imm
 
     # XXX def post_assemble(self, asm):
