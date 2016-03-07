@@ -539,8 +539,7 @@ class Method(W_Root):
         if not isinstance(other, Method):
             return False
         return (self.w_instance is other.w_instance and
-                self.w_function is other.w_function and
-                self.w_class is other.w_class)
+                self.w_function is other.w_function)
 
     def immutable_unique_id(self, space):
         from pypy.objspace.std.util import IDTAG_METHOD as tag
@@ -551,7 +550,6 @@ class Method(W_Root):
         else:
             id = rbigint.fromint(0)
         id = id.or_(space.bigint_w(space.id(self.w_function)))
-        id = id.lshift(LONG_BIT).or_(space.bigint_w(space.id(self.w_class)))
         id = id.lshift(IDTAG_SHIFT).int_or_(tag)
         return space.newlong_from_rbigint(id)
 

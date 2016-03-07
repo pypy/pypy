@@ -563,8 +563,8 @@ class AppTestMethod:
         assert id(A.m) == id(A.m)
         assert A.m is not A.n
         assert id(A.m) != id(A.n)
-        assert A.m is not B.m
-        assert id(A.m) != id(B.m)
+        assert A.m is B.m
+        assert id(A.m) == id(B.m)
 
 
 class TestMethod:
