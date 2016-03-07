@@ -12,11 +12,11 @@ faster and memory dropping by about 30%.
 We also merged a major upgrade to our C-API layer (cpyext), simplifying the
 interaction between c-level objects and PyPy interpreter level objects. As a
 result, lxml  with its cython compiled component `passes all tests`_ on PyPy
+and the new cpyext is a lot faster than the previous one.
 
-Users who have gotten used to vmprof_ on Linux, and those on other platforms
-who have not yet tried its awesomeness, will be happy to hear that vmprof
-now just works on MacOS and Windows too, in both PyPy (built-in support) and
-CPython (as an installed module).
+vmprof_ has been a go-to profiler for PyPy on linux for a few releases
+and we're happy to announce that thanks to commercial cooperation, vmprof
+now works on Linux, OS X and Windows on both PyPy and CPython.
 
 You can download the PyPy 5.0 release here:
 
