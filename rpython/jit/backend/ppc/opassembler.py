@@ -901,7 +901,7 @@ class FieldOpAssembler(object):
         jlt_location = self.mc.currpos()
         self.mc.trap()
 
-        self.mc.sradi(r.SCRATCH.value, r.length_loc.value, shift_by)
+        self.mc.sradi(r.SCRATCH.value, length_loc.value, shift_by)
         self.mc.mtctr(r.SCRATCH.value) # store the length in count register
 
         self.mc.li(r.SCRATCH.value, 0)
