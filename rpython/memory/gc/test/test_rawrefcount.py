@@ -1,7 +1,7 @@
 import py
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.memory.gc.incminimark import IncrementalMiniMarkGC
-from rpython.memory.gc.test.test_direct import BaseDirectGCTest
+from rpython.memory.gc.test.test_direct import BaseDirectGCTest, GCSpace
 from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY
 from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY_LIGHT
 
@@ -289,3 +289,178 @@ class TestRawRefCount(BaseDirectGCTest):
         check_alive(0)
         self._collect(major=True)
         check_alive(0)
+
+class RefcountSpace(GCSpace):
+    def __init__(self):
+        GCSpace.__init__(self, IncrementalMiniMarkGC, {})
+        self.trigger = []
+        self.gc.rawrefcount_init(lambda: self.trigger.append(1))
+
+    def new_rawobj(self):
+        r1 = lltype.malloc(PYOBJ_HDR, flavor='raw')
+        r1.ob_refcnt = 0
+        r1.ob_pypy_link = 0
+        return r1
+
+    def new_gcobj(self, intval):
+        p1 = self.malloc(S)
+        p1.x = intval
+        return p1
+
+    def create_link(self, rawobj, gcobj, is_light=False, is_pyobj=False):
+        if is_light:
+            rawobj.ob_refcnt += REFCNT_FROM_PYPY_LIGHT
+        else:
+            rawobj.ob_refcnt += REFCNT_FROM_PYPY
+        rawaddr = llmemory.cast_ptr_to_adr(rawobj)
+        gcref = lltype.cast_opaque_ptr(llmemory.GCREF, gcobj)
+        if is_pyobj:
+            self.gc.rawrefcount_create_link_pyobj(gcref, rawaddr)
+        else:
+            self.gc.rawrefcount_create_link_pypy(gcref, rawaddr)
+
+    def from_gc(self, gcobj):
+        gcref = lltype.cast_opaque_ptr(llmemory.GCREF, gcobj)
+        rawaddr = self.gc.rawrefcount_from_obj(gcref)
+        if rawaddr == llmemory.NULL:
+            return None
+        else:
+            return self.gc._pyobj(rawaddr)
+
+from rpython.rtyper.test.test_rdict import signal_timeout, Action
+from hypothesis.strategies import (
+    builds, sampled_from, binary, just, integers, text, characters, tuples,
+    booleans, one_of)
+from hypothesis.stateful import GenericStateMachine, run_state_machine_as_test
+from rpython.tool.leakfinder import start_tracking_allocations, stop_tracking_allocations
+
+RC_MASK = REFCNT_FROM_PYPY - 1
+
+class StateMachine(GenericStateMachine):
+    def __init__(self):
+        self.space = RefcountSpace()
+        self.rawobjs = []
+        self.rootlinks = []
+        self.next_id = 0
+        start_tracking_allocations()
+
+    def free(self, rawobj):
+        lltype.free(rawobj, flavor='raw')
+
+    def incref(self, rawobj):
+        rawobj.ob_refcnt += 1
+
+    def decref(self, rawobj):
+        assert rawobj.ob_refcnt > 0
+        rawobj.ob_refcnt -= 1
+        if rawobj.ob_refcnt == 0:
+            i = self.rawobjs.index(rawobj)
+            self.free(rawobj)
+            del self.rawobjs[i]
+        elif rawobj.ob_refcnt & RC_MASK == 0:
+            i = self.rawobjs.index(rawobj)
+            del self.rawobjs[i]
+
+    def get_linkable_gcobjs(self):
+        res = []
+        for p, has_link in zip(self.space.stackroots, self.rootlinks):
+            if not has_link:
+                res.append(p)
+        return res
+
+    def get_linkable_rawobjs(self):
+        return [r for r in self.rawobjs
+                if r.ob_refcnt != 0 and r.ob_pypy_link == 0]
+
+    def find_root_index(self, p):
+        return self.space.stackroots.index(p)
+
+    def add_rawobj(self):
+        r = self.space.new_rawobj()
+        self.incref(r)
+        self.rawobjs.append(r)
+
+    def add_gcobj(self):
+        p = self.space.new_gcobj(self.next_id)
+        self.space.stackroots.append(p)
+        self.rootlinks.append(False)
+        self.next_id += 1
+        return p
+
+    def create_gcpartner(self, raw, is_light=False, is_pyobj=False):
+        p = self.space.new_gcobj(self.next_id)
+        self.next_id += 1
+        self.space.create_link(raw, p, is_light=is_light, is_pyobj=is_pyobj)
+
+    def create_rawpartner(self, p, is_light=False, is_pyobj=False):
+        assert self.space.from_gc(p) is None
+        i = self.find_root_index(p)
+        raw = self.space.new_rawobj()
+        self.space.create_link(raw, p, is_light=is_light, is_pyobj=is_pyobj)
+        self.rootlinks[i] = True
+
+    def minor_collection(self):
+        self.space.gc.minor_collection()
+
+    def major_collection(self):
+        self.space.gc.collect()
+
+    def forget_root(self, n):
+        del self.space.stackroots[n]
+        del self.rootlinks[n]
+
+    def steps(self):
+        valid_st = []
+        global_actions = [
+            Action('add_rawobj', ()),
+            Action('minor_collection', ()),
+            Action('major_collection', ()),
+        ]
+        valid_st.append(sampled_from(global_actions))
+        valid_st.append(builds(Action, just('add_gcobj'), tuples()))
+        if self.rawobjs:
+            valid_st.append(builds(Action, just('incref'), tuples(
+                sampled_from(self.rawobjs))))
+        candidates = [r for r in self.rawobjs if r.ob_refcnt & RC_MASK > 0]
+        if candidates:
+            valid_st.append(builds(Action, just('decref'), tuples(
+                sampled_from(candidates))))
+        candidates = self.get_linkable_rawobjs()
+        if candidates:
+            st = builds(Action, just('create_gcpartner'), tuples(
+                sampled_from(candidates),
+                booleans(), booleans()))
+            valid_st.append(st)
+        candidates = self.get_linkable_gcobjs()
+        if candidates:
+            st = builds(Action, just('create_rawpartner'), tuples(
+                sampled_from(candidates),
+                booleans(), booleans()))
+            valid_st.append(st)
+        if self.space.stackroots:
+            st = builds(Action, just('forget_root'), tuples(
+                sampled_from(range(len(self.space.stackroots)))))
+            valid_st.append(st)
+        return one_of(*valid_st)
+
+    def execute_step(self, action):
+        with signal_timeout(1):  # catches infinite loops
+            action.execute(self)
+
+    def teardown(self):
+        self.space.stackroots[:] = []
+        self.space.gc.collect()
+        for r in self.rawobjs:
+            lltype.free(r, flavor='raw')
+        while True:
+            r = self.space.gc.rawrefcount_next_dead()
+            if r == llmemory.NULL:
+                break
+            else:
+                lltype.free(self.space.gc._pyobj(r), flavor='raw')
+        stop_tracking_allocations(check=True)
+
+
+def test_hypothesis():
+    run_state_machine_as_test(StateMachine)
+test_hypothesis.dont_track_allocations = True
