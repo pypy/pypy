@@ -259,14 +259,13 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
     assert start == 0
     #ops = history.operations[start:]
     if 'unroll' not in enable_opts or not metainterp.cpu.supports_guard_gc_type:
+        xxx
         return compile_simple_loop(metainterp, greenkey, start, inputargs, ops,
                                    jumpargs, enable_opts)
     jitcell_token = make_jitcell_token(jitdriver_sd)
-    label = ResOperation(rop.LABEL, inputargs,
-                         descr=TargetToken(jitcell_token))
     end_label = ResOperation(rop.LABEL, jumpargs, descr=jitcell_token)
     call_pure_results = metainterp.call_pure_results
-    preamble_data = LoopCompileData(label, end_label, history.trace,
+    preamble_data = LoopCompileData(history.trace, inputargs,
                                     call_pure_results=call_pure_results,
                                     enable_opts=enable_opts)
     try:
@@ -1031,19 +1030,19 @@ def compile_trace(metainterp, resumekey):
         inline_short_preamble = True
     inputargs = metainterp.history.inputargs[:]
     trace = metainterp.history.trace
-    label = ResOperation(rop.LABEL, inputargs)
     jitdriver_sd = metainterp.jitdriver_sd
     enable_opts = jitdriver_sd.warmstate.enable_opts
 
     call_pure_results = metainterp.call_pure_results
 
     if metainterp.history.ends_with_jump:
+        xxx
         data = BridgeCompileData(label, operations[:],
                                  call_pure_results=call_pure_results,
                                  enable_opts=enable_opts,
                                  inline_short_preamble=inline_short_preamble)
     else:
-        data = SimpleCompileData(label, trace,
+        data = SimpleCompileData(trace,
                                  call_pure_results=call_pure_results,
                                  enable_opts=enable_opts)
     try:

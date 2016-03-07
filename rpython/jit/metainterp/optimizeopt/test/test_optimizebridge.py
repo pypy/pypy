@@ -11,7 +11,7 @@ class TestOptimizeBridge(BaseTest, LLtypeMixin):
     def optimize(self, ops, bridge_ops, expected, expected_loop=None,
                  inline_short_preamble=True, jump_values=None,
                  bridge_values=None):
-        loop = self.parse(ops, postprocess=self.postprocess)
+        loop = self.parse(ops)
         self.set_values(loop.operations, jump_values)
         if expected_loop is not None:
             xxx
