@@ -184,7 +184,7 @@ class MyMetaInterp:
 
     def execute_and_record(self, opnum, descr, *argboxes):
         resvalue = executor.execute(self.cpu, None, opnum, descr, *argboxes)
-        op = ResOperation(opnum, list(argboxes), descr)
+        op = ResOperation(opnum, list(argboxes), -1, descr)
         setvalue(op, resvalue)
         self.trace.append((opnum, list(argboxes), resvalue, descr))
         return op
