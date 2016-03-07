@@ -48,7 +48,7 @@ class BaseTestWithUnroll(BaseTest):
     def optimize_loop(self, ops, expected, expected_preamble=None,
                       call_pure_results=None, expected_short=None,
                       jump_values=None):
-        loop = self.parse(ops, postprocess=self.postprocess)
+        loop = self.parse(ops)
         self.set_values(loop.operations, jump_values)
         if expected != "crash!":
             expected = self.parse(expected)

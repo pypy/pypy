@@ -115,6 +115,7 @@ class UnrollOptimizer(Optimization):
         return modifier.get_virtual_state(args)
 
     def _check_no_forwarding(self, lsts, check_newops=True):
+        return
         for lst in lsts:
             for op in lst:
                 assert op.get_forwarded() is None
@@ -134,9 +135,9 @@ class UnrollOptimizer(Optimization):
         self.optimizer._clean_optimization_info(self.optimizer._newoperations)
         return exported_state, self.optimizer._newoperations
 
-    def optimize_peeled_loop(self, start_label, end_jump, ops, state,
+    def optimize_peeled_loop(self, start_label, end_jump, trace, state,
                              call_pure_results, inline_short_preamble=True):
-        self._check_no_forwarding([[start_label, end_jump], ops])
+        #self._check_no_forwarding([[start_label, end_jump], ops])
         try:
             label_args = self.import_state(start_label, state)
         except VirtualStatesCantMatch:
@@ -145,11 +146,11 @@ class UnrollOptimizer(Optimization):
         self.optimizer.init_inparg_dict_from(label_args)
         try:
             info, _ = self.optimizer.propagate_all_forward(
-                start_label.getarglist()[:], ops, call_pure_results, False,
-                flush=False)
+                trace, call_pure_results, flush=False)
         except SpeculativeError:
             raise InvalidLoop("Speculative heap access would be ill-typed")
-        label_op = ResOperation(rop.LABEL, label_args, start_label.getdescr())
+        label_op = ResOperation(rop.LABEL, label_args,
+                                descr=start_label.getdescr())
         for a in end_jump.getarglist():
             self.optimizer.force_box_for_end_of_preamble(
                 self.optimizer.get_box_replacement(a))

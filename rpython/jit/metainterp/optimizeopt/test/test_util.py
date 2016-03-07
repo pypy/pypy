@@ -516,7 +516,7 @@ class BaseTest(object):
     def add_guard_future_condition(self, res):
         # invent a GUARD_FUTURE_CONDITION to not have to change all tests
         if res.operations[-1].getopnum() == rop.JUMP:
-            guard = ResOperation(rop.GUARD_FUTURE_CONDITION, [], None)
+            guard = ResOperation(rop.GUARD_FUTURE_CONDITION, [])
             guard.rd_snapshot = resume.TopSnapshot(None, [], [])
             res.operations.insert(-1, guard)
 
@@ -553,13 +553,19 @@ class BaseTest(object):
             call_pure_results[list(k)] = v
         return call_pure_results
 
-    def convert_loop_to_packed(self, loop):
+    def convert_loop_to_packed(self, loop, skip_last=False):
         from rpython.jit.metainterp.opencoder import Trace
         trace = Trace(loop.inputargs)
-        for op in loop.operations:
+        ops = loop.operations
+        if skip_last:
+            ops = ops[:-1]
+        for op in ops:
             newop = trace.record_op(op.getopnum(), op.getarglist(), op.getdescr())
             if rop.is_guard(op.getopnum()):
-                frame = FakeFrame(op.getfailargs())
+                failargs = []
+                if op.getfailargs():
+                    failargs = op.getfailargs()
+                frame = FakeFrame(failargs)
                 resume.capture_resumedata([frame], None, [], trace)
             op.position = newop.position
         return trace
@@ -568,18 +574,18 @@ class BaseTest(object):
         self.add_guard_future_condition(loop)
         jump_op = loop.operations[-1]
         assert jump_op.getopnum() == rop.JUMP
-        ops = loop.operations[:-1]
         jump_op.setdescr(JitCellToken())
         start_label = ResOperation(rop.LABEL, loop.inputargs,
-                                   jump_op.getdescr())
+                                   descr=jump_op.getdescr())
         end_label = jump_op.copy_and_change(opnum=rop.LABEL)
         call_pure_results = self._convert_call_pure_results(call_pure_results)
-        preamble_data = compile.LoopCompileData(start_label, end_label, ops,
+        t = self.convert_loop_to_packed(loop, skip_last=True)
+        preamble_data = compile.LoopCompileData(start_label, end_label, t,
                                                 call_pure_results)
         start_state, preamble_ops = self._do_optimize_loop(preamble_data)
         preamble_data.forget_optimization_info()
         loop_data = compile.UnrolledLoopData(start_label, jump_op,
-                                             ops, start_state,
+                                             t, start_state,
                                              call_pure_results)
         loop_info, ops = self._do_optimize_loop(loop_data)
         preamble = TreeLoop('preamble')
