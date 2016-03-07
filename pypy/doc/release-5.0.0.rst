@@ -150,16 +150,39 @@ Other Highlights (since 4.0.1 released in November 2015)
   * Support partition() as an app-level function, together with a cffi wrapper
     in pypy/numpy, this now provides partial support for partition()
 
-* Performance improvements and refactorings:
+* Performance improvements:
 
-  * Refactor and improve exception analysis in the annotator
-
-  * Remove unnecessary special handling of space.wrap().
+  * Optimize global lookups
 
   * Improve the memory signature of numbering instances in the JIT. This should
     massively decrease the amount of memory consumed by the JIT, which is
     significant for most programs. Also compress the numberings using variable-
     size encoding
+
+  * Optimize string concatination
+
+  * Use INT_LSHIFT instead of INT_MUL when possible
+
+  * Improve struct.unpack by casting directly from the underlying buffer.
+    Unpacking floats and doubles is about 15 times faster, and integer types
+    about 50% faster (on 64 bit integers). This was then subsequently
+    improved further in optimizeopt.py.
+
+  * Optimize two-tuple lookups in mapdict
+
+  * Reduce all guards from int_floordiv_ovf if one of the arguments is constant
+
+  * Identify permutations of attributes at instance creation, reducing the
+    number of bridges created
+
+  * Greatly improve re.sub() performance
+
+
+* Internal refactorings:
+
+  * Refactor and improve exception analysis in the annotator
+
+  * Remove unnecessary special handling of space.wrap().
 
   * Support list-resizing setslice operations in RPython
 
@@ -167,31 +190,18 @@ Other Highlights (since 4.0.1 released in November 2015)
 
   * Refactor bookkeeping (such a cool word - three double letters) in the
     annotater
-    
+
   * Refactor wrappers for OS functions from rtyper to rlib and simplify them
 
   * Simplify backend loading instructions to only use four variants
 
-  * Optimize string concatination
-
   * Simplify GIL handling in non-jitted code
-
-  * Use INT_LSHIFT instead of INT_MUL when possible
-
-  * Improve struct.unpack by casting directly from the underlying buffer. 
-    Unpacking floats and doubles is about 15 times faster, and integer types
-    about 50% faster (on 64 bit integers). This was then subsequently
-    improved further in optimizeopt.py.
 
   * Refactor naming in optimizeopt
 
   * Change GraphAnalyzer to use a more precise way to recognize external
     functions and fix null pointer handling, generally clean up external
     function handling
-
-  * Optimize global lookups
-
-  * Optimize two-tuple lookups in mapdict
 
   * Remove pure variants of ``getfield_gc_*`` operations from the JIT by
     determining purity while tracing
@@ -203,16 +213,9 @@ Other Highlights (since 4.0.1 released in November 2015)
   * Refactor rtyper debug code into python.rtyper.debug
 
   * Seperate structmember.h from Python.h Also enhance creating api functions
-    to specify which header file they appear in (previously only pypy_decl.h) 
-
-  * Reduce all guards from int_floordiv_ovf if one of the arguments is constant
+    to specify which header file they appear in (previously only pypy_decl.h)
 
   * Fix tokenizer to enforce universal newlines, needed for Python 3 support
-
-  * Identify permutations of attributes at instance creation, reducing the
-    number of bridges created
-
-  * Greatly improve re.sub() performance
 
 .. _resolved: http://doc.pypy.org/en/latest/whatsnew-5.0.0.html
 .. _`hypothesis`: http://hypothesis.readthedocs.org
