@@ -1,16 +1,20 @@
 .. _s390x:
 
-Translation on the IBM Mainframe
-================================
+S390X JIT Backend
+=================
 
-Redhat Linux (rel65)
---------------------
+Our JIT implements the 64 bit version of the IBM Mainframe called s390x.
+Note that this architecture is big endian.
 
-Unfortunatley there is no ffi development package (yet?), thus
-one needs to install this manually.
-libffi is not installed on the rl65.
-This can be resolved by installing it locally (./configure && make install) and
-adjusting th PKG_CONFIG_PATH to point to the install location.
-In addition the LD_LIBRARY_PATH must be set to the install location the libffi.so
-can be found.
+The following facilities need to be installed to operate
+correctly (all of the machines used for development these where installed):
 
+* General-Instructions-Extension
+* Long-Displacement
+* Binary Floating Point (IEEE)
+
+Translating
+-----------
+
+Ensure that libffi is installed (version should do > 3.0.+).
+CPython should be version 2.7.+.
