@@ -121,12 +121,11 @@ class UnrollOptimizer(Optimization):
         if check_newops:
             assert not self.optimizer._newoperations
     
-    def optimize_preamble(self, start_label, end_label, ops, call_pure_results,
+    def optimize_preamble(self, start_label, end_label, trace, call_pure_results,
                           memo):
-        self._check_no_forwarding([[start_label, end_label], ops])
-        info, newops = self.optimizer.propagate_all_forward(
-            start_label.getarglist()[:], ops, call_pure_results, True,
-            flush=False)
+        #self._check_no_forwarding([[start_label, end_label], ops])
+        info, newops = self.optimizer.propagate_all_forward(trace,
+            call_pure_results, flush=False)
         exported_state = self.export_state(start_label, end_label.getarglist(),
                                            info.inputargs, memo)
         exported_state.quasi_immutable_deps = info.quasi_immutable_deps

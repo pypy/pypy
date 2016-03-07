@@ -654,6 +654,9 @@ class History(object):
         self.trace = Trace(inpargs)
         self.inputargs = inpargs
 
+    def length(self):
+        return self.trace._count
+
     def any_operation(self):
         return self.trace._count > 0
 

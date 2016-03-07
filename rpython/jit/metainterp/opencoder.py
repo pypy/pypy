@@ -37,9 +37,12 @@ class SnapshotIterator(object):
         return res
 
     def next(self):
-        r = self.main_iter._get(self._next())
+        r = self.main_iter._untag(self._next())
         assert r
         return r
+
+    def read_boxes(self, size):
+        return [self.next() for i in range(size)]
 
     def get_size_jitcode_pc(self):
         if self.save_pos >= 0:
@@ -132,6 +135,9 @@ class Trace(object):
         self._count = 0
         self.inputargs = inputargs
 
+    def length(self):
+        return len(self._ops)
+
     def _encode(self, box):
         if isinstance(box, Const):
             if (isinstance(box, ConstInt) and
@@ -203,7 +209,7 @@ class Trace(object):
         self._ops.append(jitcode.index)
         self._ops.append(pc)
         for box in active_boxes:
-            self._ops.append(box.position) # not tagged, as it must be boxes
+            self._ops.append(self._encode(box)) # not tagged, as it must be boxes
         return pos
 
     def get_patchable_position(self):

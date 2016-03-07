@@ -129,6 +129,7 @@ def _ensure_parent_resumedata(framestack, n, t):
 
 def capture_resumedata(framestack, virtualizable_boxes, virtualref_boxes, t):
     n = len(framestack) - 1
+    result = t.length()
     if virtualizable_boxes is not None:
         virtualizable_boxes = ([virtualizable_boxes[-1]] +
                                 virtualizable_boxes[:-1])
@@ -147,6 +148,7 @@ def capture_resumedata(framestack, virtualizable_boxes, virtualref_boxes, t):
         snapshot_storage.rd_frame_info_list = None
         snapshot_storage.rd_snapshot = TopSnapshot(None, virtualref_boxes,
                                                    virtualizable_boxes)
+    return result
 
 PENDINGFIELDSTRUCT = lltype.Struct('PendingField',
                                    ('lldescr', OBJECTPTR),
@@ -263,6 +265,8 @@ class ResumeDataLoopMemo(object):
         """
         n = state.n
         v = state.v
+        import pdb
+        pdb.set_trace()
         liveboxes = state.liveboxes
         for i in range(length):
             box = iter.next()

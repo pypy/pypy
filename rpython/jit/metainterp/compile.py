@@ -29,7 +29,7 @@ class CompileData(object):
     memo = None
     
     def forget_optimization_info(self):
-        return
+        return # no longer necessary?
         for arg in self.start_label.getarglist():
             arg.set_forwarded(None)
         for op in self.operations:
@@ -41,14 +41,14 @@ class LoopCompileData(CompileData):
 
     This is the case of label() ops label()
     """
-    def __init__(self, start_label, end_label, operations,
+    def __init__(self, start_label, end_label, trace,
                  call_pure_results=None, enable_opts=None):
         self.start_label = start_label
         self.end_label = end_label
         self.enable_opts = enable_opts
         assert start_label.getopnum() == rop.LABEL
         assert end_label.getopnum() == rop.LABEL
-        self.operations = operations
+        self.trace = trace
         self.call_pure_results = call_pure_results
 
     def optimize(self, metainterp_sd, jitdriver_sd, optimizations, unroll):
@@ -58,13 +58,13 @@ class LoopCompileData(CompileData):
         if unroll:
             opt = UnrollOptimizer(metainterp_sd, jitdriver_sd, optimizations)
             return opt.optimize_preamble(self.start_label, self.end_label,
-                                         self.operations,
+                                         self.trace,
                                          self.call_pure_results,
                                          self.box_names_memo)
         else:
             opt = Optimizer(metainterp_sd, jitdriver_sd, optimizations)
             return opt.propagate_all_forward(self.start_label.getarglist(),
-               self.operations, self.call_pure_results)
+               self.trace, self.call_pure_results)
 
 class SimpleCompileData(CompileData):
     """ This represents label() ops jump with no extra info associated with
@@ -264,7 +264,8 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
         enable_opts = enable_opts.copy()
         del enable_opts['unroll']
 
-    ops = history.operations[start:]
+    assert start == 0
+    #ops = history.operations[start:]
     if 'unroll' not in enable_opts or not metainterp.cpu.supports_guard_gc_type:
         return compile_simple_loop(metainterp, greenkey, start, inputargs, ops,
                                    jumpargs, enable_opts)
@@ -273,7 +274,7 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
                          descr=TargetToken(jitcell_token))
     end_label = ResOperation(rop.LABEL, jumpargs, descr=jitcell_token)
     call_pure_results = metainterp.call_pure_results
-    preamble_data = LoopCompileData(label, end_label, ops,
+    preamble_data = LoopCompileData(label, end_label, history.trace,
                                     call_pure_results=call_pure_results,
                                     enable_opts=enable_opts)
     try:
@@ -291,7 +292,7 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
     start_descr = TargetToken(jitcell_token,
                               original_jitcell_token=jitcell_token)
     jitcell_token.target_tokens = [start_descr]
-    loop_data = UnrolledLoopData(end_label, jump_op, ops, start_state,
+    loop_data = UnrolledLoopData(end_label, jump_op, history.trace, start_state,
                                  call_pure_results=call_pure_results,
                                  enable_opts=enable_opts)
     try:

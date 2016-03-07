@@ -24,6 +24,20 @@ class FakeFrame(object):
     def get_list_of_active_boxes(self, flag):
         return self.boxes
 
+def unpack_snapshot(t, pos):
+    trace = t.trace
+    first = trace._ops[pos] # this is the size
+    pos += 1
+    boxes = []
+    while first > pos + 1:
+        snapshot_size = trace._ops[pos]
+        # 2 for jitcode and pc
+        pos += 1 + 2
+        boxes += [t._untag(trace._ops[i + pos]) for i in range(snapshot_size)]
+        pos += len(boxes)
+    return boxes
+
+
 class TestOpencoder(object):
     def unpack(self, t):
         iter = t.get_iter()
@@ -46,19 +60,6 @@ class TestOpencoder(object):
         assert l[0].getarg(0) is i0
         assert l[0].getarg(1) is i1
 
-    def unpack_snapshot(self, t, pos):
-        trace = t.trace
-        first = trace._ops[pos] # this is the size
-        pos += 1
-        boxes = []
-        while first > pos + 1:
-            snapshot_size = trace._ops[pos]
-            # 2 for jitcode and pc
-            pos += 1 + 2
-            boxes += [t._get(trace._ops[i + pos]) for i in range(snapshot_size)]
-            pos += len(boxes)
-        return boxes
-
     def test_rd_snapshot(self):
         i0, i1 = InputArgInt(), InputArgInt()
         t = Trace([i0, i1])
@@ -71,16 +72,16 @@ class TestOpencoder(object):
         resume.capture_resumedata(framestack, None, [], t)
         (i0, i1), l, iter = self.unpack(t)
         assert l[1].opnum == rop.GUARD_FALSE
-        boxes = self.unpack_snapshot(iter, l[1].rd_resume_position)
+        boxes = unpack_snapshot(iter, l[1].rd_resume_position)
         assert boxes == [i0, i1]
         t.record_op(rop.GUARD_FALSE, [add])
         resume.capture_resumedata([frame0, frame1], None, [], t)
         (i0, i1), l, iter = self.unpack(t)
         assert l[1].opnum == rop.GUARD_FALSE
-        boxes = self.unpack_snapshot(iter, l[1].rd_resume_position)
+        boxes = unpack_snapshot(iter, l[1].rd_resume_position)
         assert boxes == [i0, i1]
         assert l[2].opnum == rop.GUARD_FALSE
-        boxes = self.unpack_snapshot(iter, l[2].rd_resume_position)
+        boxes = unpack_snapshot(iter, l[2].rd_resume_position)
         assert boxes == [i0, i1, i0, i0, l[0]]
 
     def test_read_snapshot_interface(self):

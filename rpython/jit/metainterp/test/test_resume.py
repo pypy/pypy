@@ -13,6 +13,7 @@ from rpython.jit.metainterp.resume import ResumeDataVirtualAdder,\
      annlowlevel, PENDINGFIELDSP, unpack_uint, TAG_CONST_OFFSET, TopSnapshot
 from rpython.jit.metainterp.resumecode import unpack_numbering,\
      create_numbering, NULL_NUMBER
+from rpython.jit.metainterp.opencoder import Trace
 
 from rpython.jit.metainterp.optimizeopt import info
 from rpython.jit.metainterp.history import ConstInt, Const, AbstractDescr
@@ -145,7 +146,7 @@ def test_reuse_vinfo():
     class FakeVirtualValue(info.AbstractVirtualPtrInfo):
         def visitor_dispatch_virtual_type(self, *args):
             return FakeVInfo()
-    modifier = ResumeDataVirtualAdder(None, None, None, None)
+    modifier = ResumeDataVirtualAdder(None, None, None, None, None)
     v1 = FakeVirtualValue()
     vinfo1 = modifier.make_virtual_info(v1, [1, 2, 4])
     vinfo2 = modifier.make_virtual_info(v1, [1, 2, 4])
@@ -502,8 +503,7 @@ def test_vunisliceinfo():
 
 
 class FakeFrame(object):
-    parent_resumedata_snapshot = None
-    parent_resumedata_frame_info_list = None
+    parent_resume_position = -1
 
     def __init__(self, code, pc, *boxes):
         self.jitcode = code
@@ -539,49 +539,35 @@ class FakeJitCode(object):
         self.name = name
         self.index = index
 
-def test_FrameInfo_create():
-    jitcode = FakeJitCode("jitcode", 13)
-    fi = FrameInfo(None, jitcode, 1)
-    assert fi.prev is None
-    jitcode_pos, pc = unpack_uint(fi.packed_jitcode_pc)
-    assert jitcode_pos == 13
-    assert pc == 1
-
-    jitcode1 = FakeJitCode("JITCODE1", 42)
-    fi1 = FrameInfo(fi, jitcode1, 3)
-    assert fi1.prev is fi
-    jitcode_pos, pc = unpack_uint(fi1.packed_jitcode_pc)
-    assert jitcode_pos == 42
-    assert pc == 3
-
 def test_capture_resumedata():
     b1, b2, b3 = [InputArgInt(), InputArgRef(), InputArgInt()]
     c1, c2, c3 = [ConstInt(1), ConstInt(2), ConstInt(3)]
     fs = [FakeFrame(FakeJitCode("code0", 13), 0, b1, c1, b2)]
 
-    storage = Storage()
-    capture_resumedata(fs, None, [], storage)
+    t = Trace([b1, b2, b3])
+    pos = capture_resumedata(fs, None, [], t)
 
-    assert fs[0].parent_resumedata_snapshot is None
-    assert fs[0].parent_resumedata_frame_info_list is None
+    assert fs[0].parent_resume_position == -1
+    s = t.get_iter().get_snapshot_iter(pos)
 
-    assert storage.rd_frame_info_list.prev is None
-    assert unpack_uint(storage.rd_frame_info_list.packed_jitcode_pc)[0] == 13
-    assert storage.rd_snapshot.boxes == []    # for virtualrefs
-    snapshot = storage.rd_snapshot.prev
-    assert snapshot.prev is None
-    assert snapshot.boxes == fs[0]._env
+    size, jitcode, pc = s.get_size_jitcode_pc()
+    assert jitcode == 13
+    boxes = s.read_boxes(size)
+    assert boxes == fs[0]._env
 
     storage = Storage()
     fs = [FakeFrame(FakeJitCode("code0", 0), 0, b1, c1, b2),
           FakeFrame(FakeJitCode("code1", 1), 3, b3, c2, b1),
           FakeFrame(FakeJitCode("code2", 2), 9, c3, b2)]
-    capture_resumedata(fs, None, [], storage)
+    t = Trace([b1, b2, b3])
+    pos = capture_resumedata(fs, None, [], t)
 
-    frame_info_list = storage.rd_frame_info_list
-    assert frame_info_list.prev is fs[2].parent_resumedata_frame_info_list
-    assert unpack_uint(frame_info_list.packed_jitcode_pc) == (2, 9)
+    assert fs[2].parent_resume_position != -1
+    s = t.get_iter().get_snapshot_iter(pos)
+    size, jitcode, pc = s.get_size_jitcode_pc()
+    assert (jitcode, pc) == (2, 9)
 
+    xxx
     assert storage.rd_snapshot.boxes == []    # for virtualrefs
     snapshot = storage.rd_snapshot.prev
     assert snapshot.prev is fs[2].parent_resumedata_snapshot
