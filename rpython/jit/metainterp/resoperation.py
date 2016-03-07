@@ -1436,7 +1436,16 @@ class rop(object):
     def is_pure_with_descr(opnum, descr):
         if rop.is_always_pure(opnum):
             return True
-        xxxx
+        if (opnum == rop.GETFIELD_RAW_I or
+            opnum == rop.GETFIELD_RAW_R or
+            opnum == rop.GETFIELD_RAW_F or
+            opnum == rop.GETFIELD_GC_I or
+            opnum == rop.GETFIELD_GC_R or
+            opnum == rop.GETFIELD_GC_F or
+            opnum == rop.GETARRAYITEM_RAW_I or
+            opnum == rop.GETARRAYITEM_RAW_F):
+            return descr.is_always_pure()
+        return False
 
     @staticmethod
     def is_pure_getfield(opnum, descr):

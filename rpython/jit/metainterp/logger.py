@@ -12,6 +12,15 @@ class Logger(object):
         self.metainterp_sd = metainterp_sd
         self.guard_number = guard_number
 
+    def log_loop_from_trace(self, trace, memo):
+        if not have_debug_prints():
+            return
+        ops = []
+        i = trace.get_iter()
+        while not i.done():
+            ops.append(i.next())
+        self.log_loop(i.inputargs, ops, memo=memo)
+
     def log_loop(self, inputargs, operations, number=0, type=None,
                  ops_offset=None, name='', memo=None):
         if type is None:

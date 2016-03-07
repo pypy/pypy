@@ -2609,14 +2609,12 @@ class MetaInterp(object):
         self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None,
                             descr=target_jitcell_token)
         self.history.ends_with_jump = True
-        try:
-            target_token = compile.compile_trace(self, self.resumekey)
-        finally:
-            self.history.operations.pop()     # remove the JUMP
+        target_token = compile.compile_trace(self, self.resumekey)
         if target_token is not None: # raise if it *worked* correctly
             assert isinstance(target_token, TargetToken)
             jitcell_token = target_token.targeting_jitcell_token
             self.raise_continue_running_normally(live_arg_boxes, jitcell_token)
+        xxxx # remove the jump op and continue tracing
 
     def compile_done_with_this_frame(self, exitbox):
         # temporarily put a JUMP to a pseudo-loop
@@ -2709,7 +2707,7 @@ class MetaInterp(object):
             self.history = history.History()
             inputargs_and_holes = self.rebuild_state_after_failure(resumedescr,
                                                                    deadframe)
-            self.history.inputargs = [box for box in inputargs_and_holes if box]
+            self.history.set_inputargs([box for box in inputargs_and_holes if box])
         finally:
             rstack._stack_criticalcode_stop()
 

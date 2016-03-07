@@ -82,10 +82,10 @@ class BridgeCompileData(CompileData):
     """ This represents ops() with a jump at the end that goes to some
     loop, we need to deal with virtual state and inlining of short preamble
     """
-    def __init__(self, start_label, operations, call_pure_results=None,
+    def __init__(self, trace, runtime_boxes, call_pure_results=None,
                  enable_opts=None, inline_short_preamble=False):
-        self.start_label = start_label
-        self.operations = operations
+        self.trace = trace
+        self.runtime_boxes = runtime_boxes
         self.call_pure_results = call_pure_results
         self.enable_opts = enable_opts
         self.inline_short_preamble = inline_short_preamble
@@ -94,7 +94,7 @@ class BridgeCompileData(CompileData):
         from rpython.jit.metainterp.optimizeopt.unroll import UnrollOptimizer
 
         opt = UnrollOptimizer(metainterp_sd, jitdriver_sd, optimizations)
-        return opt.optimize_bridge(self.start_label, self.operations,
+        return opt.optimize_bridge(self.trace, self.runtime_boxes,
                                    self.call_pure_results,
                                    self.inline_short_preamble,
                                    self.box_names_memo)
@@ -200,8 +200,9 @@ def record_loop_or_bridge(metainterp_sd, loop):
 # ____________________________________________________________
 
 
-def compile_simple_loop(metainterp, greenkey, start, inputargs, ops, jumpargs,
+def compile_simple_loop(metainterp, greenkey, start, trace, jumpargs,
                         enable_opts):
+    xxxx
     from rpython.jit.metainterp.optimizeopt import optimize_trace
 
     jitdriver_sd = metainterp.jitdriver_sd
@@ -261,8 +262,8 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
     jitcell_token = make_jitcell_token(jitdriver_sd)
     history.record(rop.JUMP, jumpargs, None, descr=jitcell_token)
     if 'unroll' not in enable_opts or not metainterp.cpu.supports_guard_gc_type:
-        xxx
-        return compile_simple_loop(metainterp, greenkey, start, inputargs, ops,
+        return compile_simple_loop(metainterp, greenkey, start, inputargs,
+                                   history.trace,
                                    jumpargs, enable_opts)
     call_pure_results = metainterp.call_pure_results
     preamble_data = LoopCompileData(history.trace, inputargs,
@@ -1033,8 +1034,7 @@ def compile_trace(metainterp, resumekey):
     call_pure_results = metainterp.call_pure_results
 
     if metainterp.history.ends_with_jump:
-        xxx
-        data = BridgeCompileData(label, operations[:],
+        data = BridgeCompileData(trace, inputargs,
                                  call_pure_results=call_pure_results,
                                  enable_opts=enable_opts,
                                  inline_short_preamble=inline_short_preamble)

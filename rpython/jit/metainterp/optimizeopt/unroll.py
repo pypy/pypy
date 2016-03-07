@@ -224,13 +224,12 @@ class UnrollOptimizer(Optimization):
                 return token.virtual_state
         return label_vs
 
-    def optimize_bridge(self, start_label, operations, call_pure_results,
+    def optimize_bridge(self, trace, runtime_boxes, call_pure_results,
                         inline_short_preamble, box_names_memo):
-        self._check_no_forwarding([start_label.getarglist()])
-        info, ops = self.optimizer.propagate_all_forward(
-            start_label.getarglist()[:], operations[:-1],
+        self._check_no_forwarding([trace.inputargs])
+        info, ops = self.optimizer.propagate_all_forward(trace.get_iter(),
             call_pure_results)
-        jump_op = operations[-1]
+        jump_op = info.jump_op
         cell_token = jump_op.getdescr()
         assert isinstance(cell_token, JitCellToken)
         if not inline_short_preamble or len(cell_token.target_tokens) == 1:
@@ -241,9 +240,9 @@ class UnrollOptimizer(Optimization):
         for a in jump_op.getarglist():
             self.optimizer.force_box_for_end_of_preamble(a)
         try:
-            vs = self.jump_to_existing_trace(jump_op, None)
+            vs = self.jump_to_existing_trace(jump_op, None, runtime_boxes)
         except InvalidLoop:
-            return self.jump_to_preamble(cell_token, jump_op, info)            
+            return self.jump_to_preamble(cell_token, jump_op, info)
         if vs is None:
             return info, self.optimizer._newoperations[:]
         warmrunnerdescr = self.optimizer.metainterp_sd.warmrunnerdesc
@@ -254,6 +253,7 @@ class UnrollOptimizer(Optimization):
         else:
             debug_print("Retrace count reached, jumping to preamble")
             return self.jump_to_preamble(cell_token, jump_op, info)
+        xxx
         exported_state = self.export_state(start_label,
                                            operations[-1].getarglist(),
                                            info.inputargs, box_names_memo)
