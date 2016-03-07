@@ -258,12 +258,12 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
 
     assert start == 0
     #ops = history.operations[start:]
+    jitcell_token = make_jitcell_token(jitdriver_sd)
+    history.record(rop.JUMP, jumpargs, None, descr=jitcell_token)
     if 'unroll' not in enable_opts or not metainterp.cpu.supports_guard_gc_type:
         xxx
         return compile_simple_loop(metainterp, greenkey, start, inputargs, ops,
                                    jumpargs, enable_opts)
-    jitcell_token = make_jitcell_token(jitdriver_sd)
-    end_label = ResOperation(rop.LABEL, jumpargs, descr=jitcell_token)
     call_pure_results = metainterp.call_pure_results
     preamble_data = LoopCompileData(history.trace, inputargs,
                                     call_pure_results=call_pure_results,
@@ -277,13 +277,10 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
 
     metainterp_sd = metainterp.staticdata
     jitdriver_sd = metainterp.jitdriver_sd
-    end_label = ResOperation(rop.LABEL, inputargs,
-                             descr=jitcell_token)
-    jump_op = ResOperation(rop.JUMP, jumpargs, descr=jitcell_token)
     start_descr = TargetToken(jitcell_token,
                               original_jitcell_token=jitcell_token)
     jitcell_token.target_tokens = [start_descr]
-    loop_data = UnrolledLoopData(end_label, jump_op, history.trace, start_state,
+    loop_data = UnrolledLoopData(history.trace, jitcell_token, start_state,
                                  call_pure_results=call_pure_results,
                                  enable_opts=enable_opts)
     try:
