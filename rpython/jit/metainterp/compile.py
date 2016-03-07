@@ -29,11 +29,8 @@ class CompileData(object):
     memo = None
     
     def forget_optimization_info(self):
-        return # no longer necessary?
-        for arg in self.start_label.getarglist():
+        for arg in self.trace.inputargs:
             arg.set_forwarded(None)
-        for op in self.operations:
-            op.set_forwarded(None)
 
 class LoopCompileData(CompileData):
     """ An object that accumulates all of the necessary info for
@@ -41,13 +38,8 @@ class LoopCompileData(CompileData):
 
     This is the case of label() ops label()
     """
-    def __init__(self, start_label, end_label, trace,
-                 call_pure_results=None, enable_opts=None):
-        self.start_label = start_label
-        self.end_label = end_label
+    def __init__(self, trace, call_pure_results=None, enable_opts=None):
         self.enable_opts = enable_opts
-        assert start_label.getopnum() == rop.LABEL
-        assert end_label.getopnum() == rop.LABEL
         self.trace = trace
         self.call_pure_results = call_pure_results
 
@@ -57,22 +49,19 @@ class LoopCompileData(CompileData):
 
         if unroll:
             opt = UnrollOptimizer(metainterp_sd, jitdriver_sd, optimizations)
-            return opt.optimize_preamble(self.start_label, self.end_label,
-                                         self.trace,
+            return opt.optimize_preamble(self.trace,
                                          self.call_pure_results,
                                          self.box_names_memo)
         else:
             opt = Optimizer(metainterp_sd, jitdriver_sd, optimizations)
-            return opt.propagate_all_forward(self.start_label.getarglist(),
-               self.trace, self.call_pure_results)
+            return opt.propagate_all_forward(self.trace, self.call_pure_results)
 
 class SimpleCompileData(CompileData):
     """ This represents label() ops jump with no extra info associated with
     the label
     """
-    def __init__(self, start_label, trace, call_pure_results=None,
+    def __init__(self, trace, call_pure_results=None,
                  enable_opts=None):
-        self.start_label = start_label
         self.trace = trace
         self.call_pure_results = call_pure_results
         self.enable_opts = enable_opts
@@ -82,7 +71,8 @@ class SimpleCompileData(CompileData):
 
         #assert not unroll
         opt = Optimizer(metainterp_sd, jitdriver_sd, optimizations)
-        return opt.propagate_all_forward(self.trace, self.call_pure_results)
+        return opt.propagate_all_forward(self.trace.get_iter(),
+            self.call_pure_results)
 
 class BridgeCompileData(CompileData):
     """ This represents ops() with a jump at the end that goes to some
@@ -109,12 +99,11 @@ class UnrolledLoopData(CompileData):
     """ This represents label() ops jump with extra info that's from the
     run of LoopCompileData. Jump goes to the same label
     """
-    def __init__(self, start_label, end_jump, operations, state,
+    def __init__(self, trace, celltoken, state,
                  call_pure_results=None, enable_opts=None,
                  inline_short_preamble=True):
-        self.start_label = start_label
-        self.end_jump = end_jump
-        self.operations = operations
+        self.trace = trace
+        self.celltoken = celltoken
         self.enable_opts = enable_opts
         self.state = state
         self.call_pure_results = call_pure_results
@@ -125,9 +114,8 @@ class UnrolledLoopData(CompileData):
 
         assert unroll # we should not be here if it's disabled
         opt = UnrollOptimizer(metainterp_sd, jitdriver_sd, optimizations)
-        return opt.optimize_peeled_loop(self.start_label, self.end_jump,
-            self.operations, self.state, self.call_pure_results,
-            self.inline_short_preamble)
+        return opt.optimize_peeled_loop(self.trace, self.celltoken, self.state,
+            self.call_pure_results, self.inline_short_preamble)
 
 def show_procedures(metainterp_sd, procedure=None, error=None):
     # debugging

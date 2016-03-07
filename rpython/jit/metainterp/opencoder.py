@@ -61,6 +61,7 @@ class TraceIterator(object):
         self.trace = trace
         self.inputargs = [rop.inputarg_from_tp(arg.type) for
                           arg in self.trace.inputargs]
+        self.start = 0
         self.pos = 0
         self._count = 0
         self.end = end

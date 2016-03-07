@@ -574,19 +574,18 @@ class BaseTest(object):
         self.add_guard_future_condition(loop)
         jump_op = loop.operations[-1]
         assert jump_op.getopnum() == rop.JUMP
-        jump_op.setdescr(JitCellToken())
-        start_label = ResOperation(rop.LABEL, loop.inputargs,
-                                   descr=jump_op.getdescr())
-        end_label = jump_op.copy_and_change(opnum=rop.LABEL)
+        celltoken = JitCellToken()
+        jump_op.setdescr(celltoken)
+        #start_label = ResOperation(rop.LABEL, loop.inputargs,
+        #                           descr=jump_op.getdescr())
+        #end_label = jump_op.copy_and_change(opnum=rop.LABEL)
         call_pure_results = self._convert_call_pure_results(call_pure_results)
-        t = self.convert_loop_to_packed(loop, skip_last=True)
-        preamble_data = compile.LoopCompileData(start_label, end_label, t,
-                                                call_pure_results)
+        t = self.convert_loop_to_packed(loop)
+        preamble_data = compile.LoopCompileData(t, call_pure_results)
         start_state, preamble_ops = self._do_optimize_loop(preamble_data)
         preamble_data.forget_optimization_info()
-        loop_data = compile.UnrolledLoopData(start_label, jump_op,
-                                             t, start_state,
-                                             call_pure_results)
+        loop_data = compile.UnrolledLoopData(preamble_data.trace,
+            celltoken, start_state, call_pure_results)
         loop_info, ops = self._do_optimize_loop(loop_data)
         preamble = TreeLoop('preamble')
         preamble.inputargs = start_state.renamed_inputargs

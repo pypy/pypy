@@ -326,17 +326,17 @@ class InstancePtrInfo(AbstractStructPtrInfo):
 
     def make_guards(self, op, short, optimizer):
         if self._known_class is not None:
-            short.append(ResOperation(rop.GUARD_NONNULL, [op], None))
+            short.append(ResOperation(rop.GUARD_NONNULL, [op]))
             if not optimizer.cpu.remove_gctypeptr:
-                short.append(ResOperation(rop.GUARD_IS_OBJECT, [op], None))
+                short.append(ResOperation(rop.GUARD_IS_OBJECT, [op]))
             short.append(ResOperation(rop.GUARD_CLASS,
-                                      [op, self._known_class], None))
+                                      [op, self._known_class]))
         elif self.descr is not None:
-            short.append(ResOperation(rop.GUARD_NONNULL, [op], None))
+            short.append(ResOperation(rop.GUARD_NONNULL, [op]))
             if not optimizer.cpu.remove_gctypeptr:
-                short.append(ResOperation(rop.GUARD_IS_OBJECT, [op], None))
+                short.append(ResOperation(rop.GUARD_IS_OBJECT, [op]))
             short.append(ResOperation(rop.GUARD_SUBCLASS, [op,
-                            ConstInt(self.descr.get_vtable())], None))
+                            ConstInt(self.descr.get_vtable())]))
         else:
             AbstractStructPtrInfo.make_guards(self, op, short, optimizer)
 
@@ -349,8 +349,8 @@ class StructPtrInfo(AbstractStructPtrInfo):
         if self.descr is not None:
             c_typeid = ConstInt(self.descr.get_type_id())
             short.extend([
-                ResOperation(rop.GUARD_NONNULL, [op], None),
-                ResOperation(rop.GUARD_GC_TYPE, [op, c_typeid], None)
+                ResOperation(rop.GUARD_NONNULL, [op]),
+                ResOperation(rop.GUARD_GC_TYPE, [op, c_typeid])
             ])
 
     @specialize.argtype(1)

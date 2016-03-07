@@ -115,19 +115,16 @@ class UnrollOptimizer(Optimization):
         return modifier.get_virtual_state(args)
 
     def _check_no_forwarding(self, lsts, check_newops=True):
-        return
         for lst in lsts:
             for op in lst:
                 assert op.get_forwarded() is None
         if check_newops:
             assert not self.optimizer._newoperations
     
-    def optimize_preamble(self, start_label, end_label, trace, call_pure_results,
-                          memo):
-        #self._check_no_forwarding([[start_label, end_label], ops])
-        info, newops = self.optimizer.propagate_all_forward(trace,
+    def optimize_preamble(self, trace, call_pure_results, memo):
+        info, newops = self.optimizer.propagate_all_forward(trace.get_iter(),
             call_pure_results, flush=False)
-        exported_state = self.export_state(start_label, end_label.getarglist(),
+        exported_state = self.export_state(info.jump_op.getarglist(),
                                            info.inputargs, memo)
         exported_state.quasi_immutable_deps = info.quasi_immutable_deps
         # we need to absolutely make sure that we've cleaned up all
@@ -135,11 +132,11 @@ class UnrollOptimizer(Optimization):
         self.optimizer._clean_optimization_info(self.optimizer._newoperations)
         return exported_state, self.optimizer._newoperations
 
-    def optimize_peeled_loop(self, start_label, end_jump, trace, state,
+    def optimize_peeled_loop(self, trace, celltoken, state,
                              call_pure_results, inline_short_preamble=True):
-        #self._check_no_forwarding([[start_label, end_jump], ops])
+        trace = trace.get_iter()
         try:
-            label_args = self.import_state(start_label, state)
+            label_args = self.import_state(trace.inputargs, state)
         except VirtualStatesCantMatch:
             raise InvalidLoop("Cannot import state, virtual states don't match")
         self.potential_extra_ops = {}
@@ -149,14 +146,14 @@ class UnrollOptimizer(Optimization):
                 trace, call_pure_results, flush=False)
         except SpeculativeError:
             raise InvalidLoop("Speculative heap access would be ill-typed")
+        end_jump = info.jump_op
         label_op = ResOperation(rop.LABEL, label_args,
-                                descr=start_label.getdescr())
+                                descr=celltoken)
         for a in end_jump.getarglist():
             self.optimizer.force_box_for_end_of_preamble(
                 self.optimizer.get_box_replacement(a))
         current_vs = self.get_virtual_state(end_jump.getarglist())
         # pick the vs we want to jump to
-        celltoken = start_label.getdescr()
         assert isinstance(celltoken, JitCellToken)
         
         target_virtual_state = self.pick_virtual_state(current_vs,
@@ -227,11 +224,10 @@ class UnrollOptimizer(Optimization):
 
     def optimize_bridge(self, start_label, operations, call_pure_results,
                         inline_short_preamble, box_names_memo):
-        self._check_no_forwarding([start_label.getarglist(),
-                                    operations])
+        self._check_no_forwarding([start_label.getarglist()])
         info, ops = self.optimizer.propagate_all_forward(
             start_label.getarglist()[:], operations[:-1],
-            call_pure_results, True)
+            call_pure_results)
         jump_op = operations[-1]
         cell_token = jump_op.getdescr()
         assert isinstance(cell_token, JitCellToken)
@@ -375,8 +371,7 @@ class UnrollOptimizer(Optimization):
                     op = sop.copy_and_change(sop.getopnum(), arglist,
                                     descr=compile.ResumeAtPositionDescr())
                     assert isinstance(op, GuardResOp)
-                    op.rd_snapshot = patchguardop.rd_snapshot
-                    op.rd_frame_info_list = patchguardop.rd_frame_info_list
+                    op.rd_resume_position = patchguardop.rd_resume_position
                 else:
                     op = sop.copy_and_change(sop.getopnum(), arglist)
                 mapping[sop] = op
@@ -412,8 +407,7 @@ class UnrollOptimizer(Optimization):
                 continue
             self._expand_info(item, infos)
 
-    def export_state(self, start_label, original_label_args, renamed_inputargs,
-                     memo):
+    def export_state(self, original_label_args, renamed_inputargs, memo):
         end_args = [self.optimizer.force_box_for_end_of_preamble(a)
                     for a in original_label_args]
         self.optimizer.flush()
@@ -435,18 +429,17 @@ class UnrollOptimizer(Optimization):
             if not isinstance(op, Const):
                 self._expand_info(op, infos)
         self.optimizer._clean_optimization_info(end_args)
-        self.optimizer._clean_optimization_info(start_label.getarglist())
         return ExportedState(label_args, end_args, virtual_state, infos,
                              short_boxes, renamed_inputargs,
                              short_inputargs, memo)
 
-    def import_state(self, targetop, exported_state):
+    def import_state(self, targetargs, exported_state):
         # the mapping between input args (from old label) and what we need
         # to actually emit. Update the info
         assert (len(exported_state.next_iteration_args) ==
-                len(targetop.getarglist()))
+                len(targetargs))
         for i, target in enumerate(exported_state.next_iteration_args):
-            source = targetop.getarg(i)
+            source = targetargs[i]
             assert source is not target
             source.set_forwarded(target)
             info = exported_state.exported_infos.get(target, None)
@@ -456,7 +449,7 @@ class UnrollOptimizer(Optimization):
         # import the optimizer state, starting from boxes that can be produced
         # by short preamble
         label_args = exported_state.virtual_state.make_inputargs(
-            targetop.getarglist(), self.optimizer)
+            targetargs, self.optimizer)
         
         self.short_preamble_producer = ShortPreambleBuilder(
             label_args, exported_state.short_boxes,
