@@ -35,7 +35,6 @@ class ZARCHGuardToken(GuardToken):
         GuardToken.__init__(self, cpu, gcmap, descr, failargs, faillocs,
                             guard_opnum, frame_depth)
         self.fcond = fcond
-        # POOL self._pool_offset = -1
 
 class AbstractZARCHBuilder(object):
 
