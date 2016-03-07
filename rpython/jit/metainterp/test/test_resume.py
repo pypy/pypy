@@ -1145,6 +1145,7 @@ class ResumeDataFakeReader(ResumeDataBoxReader):
                         index = callback_f(index, index)
                     else:
                         assert 0
+
         size, self.cur_index = resumecode.numb_next_item(self.numb, 0)
         assert size == 0
         size, self.cur_index = resumecode.numb_next_item(self.numb, self.cur_index)

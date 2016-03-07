@@ -494,10 +494,10 @@ def _sortboxes(boxes):
 final_descr = history.BasicFinalDescr()
 
 class FakeFrame(object):
-    pc = 0
+    pc = 100
 
     class jitcode:
-        index = 0
+        index = 200
 
     def __init__(self, boxes):
         self.boxes = boxes

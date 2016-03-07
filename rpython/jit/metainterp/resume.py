@@ -265,8 +265,6 @@ class ResumeDataLoopMemo(object):
         """
         n = state.n
         v = state.v
-        import pdb
-        pdb.set_trace()
         liveboxes = state.liveboxes
         for i in range(length):
             box = iter.next()
@@ -298,11 +296,6 @@ class ResumeDataLoopMemo(object):
     def number(self, optimizer, position, trace):
         snapshot_iter = trace.get_snapshot_iter(position)
         state = NumberingState(snapshot_iter.length())
-        while not snapshot_iter.done():
-            size, jitcode_index, pc = snapshot_iter.get_size_jitcode_pc()
-            state.append(rffi.cast(rffi.SHORT, jitcode_index))
-            state.append(rffi.cast(rffi.SHORT, pc))
-            self._number_boxes(snapshot_iter, size, optimizer, state)
 
         state.append(rffi.cast(rffi.SHORT, 0))
         n = 0 # len(topsnapshot.boxes)
@@ -323,6 +316,12 @@ class ResumeDataLoopMemo(object):
         #state.append(rffi.cast(rffi.SHORT, n >> 1))
         #self._number_boxes(topsnapshot.boxes, optimizer, state)
         #assert state.position == special_boxes_size
+
+        while not snapshot_iter.done():
+            size, jitcode_index, pc = snapshot_iter.get_size_jitcode_pc()
+            state.append(rffi.cast(rffi.SHORT, jitcode_index))
+            state.append(rffi.cast(rffi.SHORT, pc))
+            self._number_boxes(snapshot_iter, size, optimizer, state)
 
         numb = resumecode.create_numbering(state.current)
         return numb, state.liveboxes, state.v

@@ -76,6 +76,7 @@ class TestOpencoder(object):
         assert boxes == [i0, i1]
         t.record_op(rop.GUARD_FALSE, [add])
         resume.capture_resumedata([frame0, frame1], None, [], t)
+        t.record_op(rop.INT_ADD, [add, add])
         (i0, i1), l, iter = self.unpack(t)
         assert l[1].opnum == rop.GUARD_FALSE
         boxes = unpack_snapshot(iter, l[1].rd_resume_position)
