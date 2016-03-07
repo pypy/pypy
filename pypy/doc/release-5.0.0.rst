@@ -2,12 +2,12 @@
 PyPy 5.0
 ========
 
-We have released PyPy 5.0, about three months after PyPy 4.0.1. 
+We have released PyPy 5.0, about three months after PyPy 4.0.1.
 We encourage all users of PyPy to update to this version. Apart from the usual
 bug fixes, there is an ongoing effort to improve the warmup time and memory
 usage of JIT-related metadata. The exact effects depend vastly on the program
 you're running and can range from insignificant to warmup being up to 30%
-faster and memory dropping by about 30%. 
+faster and memory dropping by about 30%.
 
 We also merged a major upgrade to our C-API layer (cpyext), simplifying the
 interaction between c-level objects and PyPy interpreter level objects. As a
@@ -25,20 +25,20 @@ You can download the PyPy 5.0 release here:
 We would like to thank our donors for the continued support of the PyPy
 project.
 
-We would also like to thank our contributors and 
+We would also like to thank our contributors and
 encourage new people to join the project. PyPy has many
 layers and we need help with all of them: `PyPy`_ and `RPython`_ documentation
-improvements, tweaking popular `modules`_ to run on pypy, or general `help`_ 
-with making RPython's JIT even better. 
+improvements, tweaking popular `modules`_ to run on pypy, or general `help`_
+with making RPython's JIT even better.
 
 CFFI
 ====
 
 While not applicable only to PyPy, `cffi`_ is arguably our most significant
-contribution to the python ecosystem. PyPy 5.0 ships with 
+contribution to the python ecosystem. PyPy 5.0 ships with
 `cffi-1.5.2`_ which now allows embedding PyPy (or cpython) in a c program.
 
-.. _`PyPy`: http://doc.pypy.org 
+.. _`PyPy`: http://doc.pypy.org
 .. _`RPython`: https://rpython.readthedocs.org
 .. _`cffi`: https://cffi.readthedocs.org
 .. _`cffi-1.5.2`: http://cffi.readthedocs.org/en/latest/whatsnew.html#v1-5-2
@@ -159,7 +159,7 @@ Other Highlights (since 4.0.1 released in November 2015)
     significant for most programs. Also compress the numberings using variable-
     size encoding
 
-  * Optimize string concatination
+  * Optimize string concatenation
 
   * Use INT_LSHIFT instead of INT_MUL when possible
 
@@ -168,7 +168,8 @@ Other Highlights (since 4.0.1 released in November 2015)
     about 50% faster (on 64 bit integers). This was then subsequently
     improved further in optimizeopt.py.
 
-  * Optimize two-tuple lookups in mapdict
+  * Optimize two-tuple lookups in mapdict, which improves warmup of instance
+    variable access somewhat
 
   * Reduce all guards from int_floordiv_ovf if one of the arguments is constant
 
