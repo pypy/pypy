@@ -49,7 +49,6 @@ class BaseTestWithUnroll(BaseTest):
                       call_pure_results=None, expected_short=None,
                       jump_values=None):
         loop = self.parse(ops)
-        self.set_values(loop.operations, jump_values)
         if expected != "crash!":
             expected = self.parse(expected)
         if expected_preamble:
@@ -58,7 +57,7 @@ class BaseTestWithUnroll(BaseTest):
             # the short preamble doesn't have fail descrs, they are patched in when it is used
             expected_short = self.parse(expected_short, want_fail_descr=False)
 
-        info = self.unroll_and_optimize(loop, call_pure_results)
+        info = self.unroll_and_optimize(loop, call_pure_results, jump_values)
         preamble = info.preamble
         preamble.check_consistency(check_descr=False)
 
@@ -873,7 +872,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(i1, p1, p3sub)
         """
         self.optimize_loop(ops, expected, preamble,
-                jump_values=[None, self.nodefulladdr, self.nodefulladdr, None])
+                jump_values=[None, self.nodefulladdr, self.nodefulladdr])
 
     def test_dont_delay_setfields(self):
         ops = """

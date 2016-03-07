@@ -570,18 +570,21 @@ class BaseTest(object):
             op.position = newop.position
         return trace
 
-    def unroll_and_optimize(self, loop, call_pure_results=None):
+    def unroll_and_optimize(self, loop, call_pure_results=None,
+                            jump_values=None):
         self.add_guard_future_condition(loop)
         jump_op = loop.operations[-1]
         assert jump_op.getopnum() == rop.JUMP
         celltoken = JitCellToken()
+        runtime_boxes = self.pack_into_boxes(jump_op, jump_values)
         jump_op.setdescr(celltoken)
         #start_label = ResOperation(rop.LABEL, loop.inputargs,
         #                           descr=jump_op.getdescr())
         #end_label = jump_op.copy_and_change(opnum=rop.LABEL)
         call_pure_results = self._convert_call_pure_results(call_pure_results)
         t = self.convert_loop_to_packed(loop)
-        preamble_data = compile.LoopCompileData(t, call_pure_results)
+        preamble_data = compile.LoopCompileData(t, runtime_boxes,
+                                                call_pure_results)
         start_state, preamble_ops = self._do_optimize_loop(preamble_data)
         preamble_data.forget_optimization_info()
         loop_data = compile.UnrolledLoopData(preamble_data.trace,
@@ -597,13 +600,16 @@ class BaseTest(object):
         return Info(preamble, loop_info.target_token.short_preamble,
                     start_state.virtual_state)
 
-    def set_values(self, ops, jump_values=None):
-        jump_op = ops[-1]
+    def pack_into_boxes(self, jump_op, jump_values):
         assert jump_op.getopnum() == rop.JUMP
+        r = []
         if jump_values is not None:
+            assert len(jump_values) == len(jump_op.getarglist())
             for i, v in enumerate(jump_values):
                 if v is not None:
-                    jump_op.getarg(i).setref_base(v)
+                    r.append(InputArgRef(v))
+                else:
+                    r.append(None)
         else:
             for i, box in enumerate(jump_op.getarglist()):
                 if box.type == 'r' and not box.is_constant():
@@ -611,9 +617,10 @@ class BaseTest(object):
                     # object here.  If you need something different, you
                     # need to pass a 'jump_values' argument to e.g.
                     # optimize_loop()
-                    box.setref_base(self.nodefulladdr)
-
-
+                    r.append(InputArgRef(self.nodefulladdr))
+                else:
+                    r.append(None)
+        return r
 
 class FakeDescr(compile.ResumeGuardDescr):
     def clone_if_mutable(self):

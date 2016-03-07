@@ -396,7 +396,7 @@ class AbstractShortPreambleBuilder(object):
                 arg.set_forwarded(None)
         self.short.append(preamble_op)
         if preamble_op.is_ovf():
-            self.short.append(ResOperation(rop.GUARD_NO_OVERFLOW, [], None))
+            self.short.append(ResOperation(rop.GUARD_NO_OVERFLOW, []))
         info = preamble_op.get_forwarded()
         preamble_op.set_forwarded(None)
         if optimizer is not None:

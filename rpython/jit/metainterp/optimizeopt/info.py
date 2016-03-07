@@ -114,7 +114,7 @@ class NonNullPtrInfo(PtrInfo):
         assert self.get_last_guard(optimizer).is_guard()
 
     def make_guards(self, op, short, optimizer):
-        op = ResOperation(rop.GUARD_NONNULL, [op], None)
+        op = ResOperation(rop.GUARD_NONNULL, [op])
         short.append(op)
 
 class AbstractVirtualPtrInfo(NonNullPtrInfo):
@@ -592,7 +592,7 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
     def make_guards(self, op, short, optimizer):
         AbstractVirtualPtrInfo.make_guards(self, op, short, optimizer)
         c_type_id = ConstInt(self.descr.get_type_id())
-        short.append(ResOperation(rop.GUARD_GC_TYPE, [op, c_type_id], None))
+        short.append(ResOperation(rop.GUARD_GC_TYPE, [op, c_type_id]))
         if self.lenbound is not None:
             lenop = ResOperation(rop.ARRAYLEN_GC, [op], descr=self.descr)
             short.append(lenop)

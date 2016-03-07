@@ -38,10 +38,13 @@ class LoopCompileData(CompileData):
 
     This is the case of label() ops label()
     """
-    def __init__(self, trace, call_pure_results=None, enable_opts=None):
+    def __init__(self, trace, runtime_boxes, call_pure_results=None,
+                 enable_opts=None):
         self.enable_opts = enable_opts
         self.trace = trace
         self.call_pure_results = call_pure_results
+        assert runtime_boxes is not None
+        self.runtime_boxes = runtime_boxes
 
     def optimize(self, metainterp_sd, jitdriver_sd, optimizations, unroll):
         from rpython.jit.metainterp.optimizeopt.unroll import (UnrollOptimizer,
@@ -50,6 +53,7 @@ class LoopCompileData(CompileData):
         if unroll:
             opt = UnrollOptimizer(metainterp_sd, jitdriver_sd, optimizations)
             return opt.optimize_preamble(self.trace,
+                                         self.runtime_boxes,
                                          self.call_pure_results,
                                          self.box_names_memo)
         else:
