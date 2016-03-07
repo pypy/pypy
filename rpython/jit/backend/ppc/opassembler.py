@@ -884,9 +884,8 @@ class FieldOpAssembler(object):
                 return     # nothing to do
 
         if startindex_loc.is_imm():
-            self.mc.load_imm(r.SCRATCH, startindex_loc.value)
-            startindex_loc = r.SCRATCH
-
+            self.mc.load_imm(r.SCRATCH2, startindex_loc.value)
+            startindex_loc = r.SCRATCH2
         if ofs_loc.is_imm():
             self.mc.addi(r.SCRATCH2.value, startindex_loc.value, ofs_loc.value)
         else:
@@ -897,6 +896,7 @@ class FieldOpAssembler(object):
         # ofs_loc is now the real address pointing to the first
         # byte to be zeroed
 
+        prev_length_loc = length_loc
         if length_loc.is_imm():
             self.mc.load_imm(r.SCRATCH, length_loc.value)
             length_loc = r.SCRATCH
@@ -905,7 +905,7 @@ class FieldOpAssembler(object):
         jlt_location = self.mc.currpos()
         self.mc.trap()
 
-        self.mc.sradi(r.SCRATCH.value, length_loc.value, shift_by, 0)
+        self.mc.sradi(r.SCRATCH.value, length_loc.value, shift_by, 31)
         self.mc.mtctr(r.SCRATCH.value) # store the length in count register
 
         self.mc.li(r.SCRATCH.value, 0)
@@ -914,12 +914,16 @@ class FieldOpAssembler(object):
         # and length. Thus we zero 4/8 bytes in a loop in 1) and every remaining
         # byte is zeroed in another loop in 2)
 
+        self.mc.subi(ofs_loc.value, ofs_loc.value, stepsize)
+
         # first store of case 1)
         # 1) The next loop copies WORDS into the memory chunk starting at startindex
         # ending at startindex + length. These are bytes
         loop_location = self.mc.currpos()
         self.eza_stXu(r.SCRATCH.value, ofs_loc.value, stepsize, stepsize)
         self.mc.bdnz(loop_location - self.mc.currpos())
+
+        self.mc.addi(ofs_loc.value, ofs_loc.value, stepsize)
 
         pmc = OverwritingBuilder(self.mc, jlt_location, 1)
         pmc.blt(self.mc.currpos() - jlt_location)    # jump if length < WORD
@@ -930,6 +934,7 @@ class FieldOpAssembler(object):
         # need to write the last bytes.
 
         # move the last bytes to the count register
+        length_loc = prev_length_loc
         if length_loc.is_imm():
             self.mc.load_imm(r.SCRATCH, length_loc.value & (stepsize-1))
         else:
@@ -941,6 +946,8 @@ class FieldOpAssembler(object):
 
         self.mc.mtctr(r.SCRATCH.value)
         self.mc.li(r.SCRATCH.value, 0)
+
+        self.mc.subi(ofs_loc.value, ofs_loc.value, 1)
 
         loop_position = self.mc.currpos()
         self.eza_stXu(r.SCRATCH.value, ofs_loc.value, 1, 1)
