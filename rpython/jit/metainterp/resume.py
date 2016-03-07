@@ -317,13 +317,15 @@ class ResumeDataLoopMemo(object):
         #self._number_boxes(topsnapshot.boxes, optimizer, state)
         #assert state.position == special_boxes_size
 
+        total = 2
         while not snapshot_iter.done():
             size, jitcode_index, pc = snapshot_iter.get_size_jitcode_pc()
+            total += 2 + size
             state.append(rffi.cast(rffi.SHORT, jitcode_index))
             state.append(rffi.cast(rffi.SHORT, pc))
             self._number_boxes(snapshot_iter, size, optimizer, state)
 
-        numb = resumecode.create_numbering(state.current)
+        numb = resumecode.create_numbering(state.current, total)
         return numb, state.liveboxes, state.v
         
     def forget_numberings(self):

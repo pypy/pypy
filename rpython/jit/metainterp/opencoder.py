@@ -26,7 +26,7 @@ class SnapshotIterator(object):
         self.save_pos = -1
 
     def length(self):
-        return self.end - self.start - 1
+        return self.end - self.start
 
     def done(self):
         return self.pos >= self.end

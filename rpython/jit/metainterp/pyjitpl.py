@@ -2609,7 +2609,10 @@ class MetaInterp(object):
         self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None,
                             descr=target_jitcell_token)
         self.history.ends_with_jump = True
-        target_token = compile.compile_trace(self, self.resumekey)
+        try:
+            target_token = compile.compile_trace(self, self.resumekey)
+        finally:
+            xxxx
         if target_token is not None: # raise if it *worked* correctly
             assert isinstance(target_token, TargetToken)
             jitcell_token = target_token.targeting_jitcell_token
