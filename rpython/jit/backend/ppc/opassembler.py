@@ -887,8 +887,12 @@ class FieldOpAssembler(object):
             self.mc.load_imm(r.SCRATCH, startindex_loc.value)
             startindex_loc = r.SCRATCH
 
-        self.mc.addi(r.SCRATCH2.value, startindex_loc.value, ofs_loc.getint())
+        if ofs_loc.is_imm():
+            self.mc.addi(r.SCRATCH2.value, startindex_loc.value, ofs_loc.value)
+        else:
+            self.mc.add(r.SCRATCH2.value, startindex_loc.value, ofs_loc.value)
         ofs_loc = r.SCRATCH2
+        assert base_loc.is_core_reg()
         self.mc.add(ofs_loc.value, ofs_loc.value, base_loc.value)
         # ofs_loc is now the real address pointing to the first
         # byte to be zeroed
@@ -901,7 +905,7 @@ class FieldOpAssembler(object):
         jlt_location = self.mc.currpos()
         self.mc.trap()
 
-        self.mc.sradi(r.SCRATCH.value, length_loc.value, shift_by)
+        self.mc.sradi(r.SCRATCH.value, length_loc.value, shift_by, 0)
         self.mc.mtctr(r.SCRATCH.value) # store the length in count register
 
         self.mc.li(r.SCRATCH.value, 0)
@@ -929,7 +933,7 @@ class FieldOpAssembler(object):
         if length_loc.is_imm():
             self.mc.load_imm(r.SCRATCH, length_loc.value & (stepsize-1))
         else:
-            self.mc.andi(r.SCRATCH.value, length_loc.value, stepsize-1)
+            self.mc.andix(r.SCRATCH.value, length_loc.value, (stepsize-1) & 0xff)
 
         self.mc.cmp_op(0, r.SCRATCH.value, 0, imm=True)
         jle_location = self.mc.currpos()
