@@ -117,9 +117,16 @@ class LiteralPool(object):
         for op in operations:
             self.ensure_can_hold_constants(asm, op)
         self._ensure_value(asm.cpu.pos_exc_value(), asm)
+        # the top of shadow stack
         gcrootmap = asm.cpu.gc_ll_descr.gcrootmap
         if gcrootmap and gcrootmap.is_shadow_stack:
-            self._ensure_value(gcrootmap.get_root_stack_top_addr())
+            self._ensure_value(gcrootmap.get_root_stack_top_addr(), asm)
+        # endaddr of insert stack check
+        endaddr, lengthaddr, _ = self.cpu.insert_stack_check()
+        self._ensure_value(endaddr, asm)
+        # fast gil
+        fastgil = rgil.gil_fetch_fastgil()
+        self._ensure_value(fastgil, asm)
         # TODO add more values that are loaded with load_imm
 
     # XXX def post_assemble(self, asm):

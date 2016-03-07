@@ -1063,8 +1063,8 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
     def _call_footer_shadowstack(self, gcrootmap):
         # r6 -> r15 can be used freely, they will be restored by 
         # _call_footer after this call
-        RCS1 = r.r9
-        RCS2 = r.r10
+        RCS1 = r.r8
+        RCS2 = r.r7
         mc = self.mc
         mc.load_imm(RCS1, gcrootmap.get_root_stack_top_addr())
         mc.load(RCS2, RCS1, 0)    # ld RCS2, [rootstacktop]
@@ -1072,12 +1072,13 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         mc.store(RCS2, RCS1, 0)   # std RCS2, [rootstacktop]
 
     def _call_footer(self):
-        # the return value is the jitframe
-        self.mc.LGR(r.r2, r.SPP)
 
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap and gcrootmap.is_shadow_stack:
             self._call_footer_shadowstack(gcrootmap)
+
+        # the return value is the jitframe
+        self.mc.LGR(r.r2, r.SPP)
 
         size = STD_FRAME_SIZE_IN_BYTES
         # f8 through f15 are saved registers (= non volatile)
@@ -1248,11 +1249,11 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
             gcmap = self._finish_gcmap
         else:
             gcmap = lltype.nullptr(jitframe.GCMAP)
-        self.load_gcmap(self.mc, r.r2, gcmap)
+        self.load_gcmap(self.mc, r.r9, gcmap)
 
-        self.mc.load_imm(r.r3, fail_descr_loc.getint())
-        self.mc.STG(r.r3, l.addr(ofs, r.SPP))
-        self.mc.STG(r.r2, l.addr(ofs2, r.SPP))
+        self.mc.load_imm(r.r10, fail_descr_loc.getint())
+        self.mc.STG(r.r9, l.addr(ofs2, r.SPP))
+        self.mc.STG(r.r10, l.addr(ofs, r.SPP))
 
         # exit function
         self._call_footer()
