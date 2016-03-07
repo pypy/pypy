@@ -170,14 +170,14 @@ class AppTestObject:
     def test_id_on_primitives(self):
         if self.cpython_apptest:
             skip("cpython behaves differently")
-        assert id(1) == (1 << 3) + 1
+        assert id(1) == (1 << 4) + 1
         class myint(int):
             pass
         assert id(myint(1)) != id(1)
 
         assert id(1.0) & 7 == 5
         assert id(-0.0) != id(0.0)
-        assert hex(id(2.0)) == '0x20000000000000005'
+        assert hex(id(2.0)) == '0x40000000000000005'
         assert id(0.0) == 5
 
     def test_id_on_strs(self):

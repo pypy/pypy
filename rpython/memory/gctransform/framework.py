@@ -1479,8 +1479,8 @@ class BaseFrameworkGCTransformer(GCTransformer):
                             resulttype=llmemory.Address)
         llops.genop('raw_memclear', [v_adr, v_totalsize])
 
-    def gcheader_initdata(self, defnode):
-        o = lltype.top_container(defnode.obj)
+    def gcheader_initdata(self, obj):
+        o = lltype.top_container(obj)
         needs_hash = self.get_prebuilt_hash(o) is not None
         hdr = self.gc_header_for(o, needs_hash)
         return hdr._obj

@@ -13,7 +13,8 @@ from pypy.interpreter.gateway import WrappedDefault, unwrap_spec
 from pypy.objspace.std import newformat
 from pypy.objspace.std.intobject import (
     HASH_BITS, HASH_MODULUS, W_AbstractIntObject, W_IntObject)
-from pypy.objspace.std.util import COMMUTATIVE_OPS
+from pypy.objspace.std.util import (
+    BINARY_OPS, CMP_OPS, COMMUTATIVE_OPS, IDTAG_LONG, IDTAG_SHIFT, wrap_parsestringerror)
 
 
 def delegate_other(func):

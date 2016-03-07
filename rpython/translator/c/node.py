@@ -546,7 +546,7 @@ class StructNode(ContainerNode):
         if needs_gcheader(T):
             gct = self.db.gctransformer
             if gct is not None:
-                self.gc_init = gct.gcheader_initdata(self)
+                self.gc_init = gct.gcheader_initdata(self.obj)
                 db.getcontainernode(self.gc_init)
             else:
                 self.gc_init = None
@@ -677,7 +677,7 @@ class ArrayNode(ContainerNode):
         if needs_gcheader(T):
             gct = self.db.gctransformer
             if gct is not None:
-                self.gc_init = gct.gcheader_initdata(self)
+                self.gc_init = gct.gcheader_initdata(self.obj)
                 db.getcontainernode(self.gc_init)
             else:
                 self.gc_init = None

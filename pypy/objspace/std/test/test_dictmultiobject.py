@@ -1324,6 +1324,9 @@ class BaseTestRDictImplementation:
             impl.setitem(x, x)
         assert type(impl.get_strategy()) is ObjectDictStrategy
 
+
+    setdefault_hash_count = 1
+
     def test_setdefault_fast(self):
         on_pypy = "__pypy__" in sys.builtin_module_names
         impl = self.impl
@@ -1331,11 +1334,11 @@ class BaseTestRDictImplementation:
         x = impl.setdefault(key, 1)
         assert x == 1
         if on_pypy and self.FakeString is FakeString:
-            assert key.hash_count == 1
+            assert key.hash_count == self.setdefault_hash_count
         x = impl.setdefault(key, 2)
         assert x == 1
         if on_pypy and self.FakeString is FakeString:
-            assert key.hash_count == 2
+            assert key.hash_count == self.setdefault_hash_count + 1
 
     def test_fallback_evil_key(self):
         class F(object):

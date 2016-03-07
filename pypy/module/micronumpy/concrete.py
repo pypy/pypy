@@ -298,7 +298,14 @@ class BaseConcreteArray(object):
         except IndexError:
             # not a single result
             chunks = self._prepare_slice_args(space, w_index)
-            return new_view(space, orig_arr, chunks)
+            copy = False
+            if isinstance(chunks[0], BooleanChunk):
+                # numpy compatibility
+                copy = True
+            w_ret = new_view(space, orig_arr, chunks)
+            if copy:
+                w_ret = w_ret.descr_copy(space, space.wrap(w_ret.get_order()))
+            return w_ret
 
     def descr_setitem(self, space, orig_arr, w_index, w_value):
         try:
