@@ -1,5 +1,6 @@
 from rpython.jit.backend.zarch import registers as r
 from rpython.jit.backend.zarch import locations as l
+from rpython.rlib import rgil
 from rpython.jit.metainterp.history import (INT, REF, FLOAT,
         TargetToken)
 from rpython.rlib.objectmodel import we_are_translated
@@ -122,10 +123,10 @@ class LiteralPool(object):
         if gcrootmap and gcrootmap.is_shadow_stack:
             self._ensure_value(gcrootmap.get_root_stack_top_addr(), asm)
         # endaddr of insert stack check
-        endaddr, lengthaddr, _ = self.cpu.insert_stack_check()
+        endaddr, lengthaddr, _ = asm.cpu.insert_stack_check()
         self._ensure_value(endaddr, asm)
         # fast gil
-        fastgil = rgil.gil_fetch_fastgil()
+        fastgil = rffi.cast(lltype.Signed, rgil.gil_fetch_fastgil())
         self._ensure_value(fastgil, asm)
         # TODO add more values that are loaded with load_imm
 
