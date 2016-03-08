@@ -1094,7 +1094,6 @@ def rebuild_from_resumedata(metainterp, storage, deadframe,
         f.setup_resume_at_op(pc)
         resumereader.consume_boxes(f.get_current_position_info(),
                                    f.registers_i, f.registers_r, f.registers_f)
-    metainterp.framestack.reverse()
     return resumereader.liveboxes, virtualizable_boxes, virtualref_boxes
 
 
@@ -1368,22 +1367,16 @@ def blackhole_from_resumedata(blackholeinterpbuilder, jitcodes,
     # by the positions in the numbering.  The first one we get must be
     # the bottom one, i.e. the last one in the chain, in order to make
     # the comment in BlackholeInterpreter.setposition() valid.
-    prevbh = None
-    firstbh = None
     curbh = None
     while not resumereader.done_reading():
-        curbh = blackholeinterpbuilder.acquire_interp()
-        if prevbh is not None:
-            prevbh.nextblackholeinterp = curbh
-        else:
-            firstbh = curbh
-        prevbh = curbh
+        nextbh = blackholeinterpbuilder.acquire_interp()
+        nextbh.nextblackholeinterp = curbh
+        curbh = nextbh
         jitcode_pos, pc = resumereader.read_jitcode_pos_pc()
         jitcode = jitcodes[jitcode_pos]
         curbh.setposition(jitcode, pc)
         resumereader.consume_one_section(curbh)
-    curbh.nextblackholeinterp = None
-    return firstbh
+    return curbh
 
 def force_from_resumedata(metainterp_sd, storage, deadframe, vinfo, ginfo):
     resumereader = ResumeDataDirectReader(metainterp_sd, storage, deadframe)

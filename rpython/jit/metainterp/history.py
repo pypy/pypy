@@ -657,6 +657,12 @@ class History(object):
     def length(self):
         return self.trace._count
 
+    def get_cut_position(self):
+        return len(self.trace._ops)
+
+    def cut(self, cut_at):
+        self.trace.cut_at(cut_at)
+
     def any_operation(self):
         return self.trace._count > 0
 

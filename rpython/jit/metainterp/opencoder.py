@@ -139,6 +139,9 @@ class Trace(object):
     def length(self):
         return len(self._ops)
 
+    def cut_at(self, end):
+        self._ops = self._ops[:end]
+
     def _encode(self, box):
         if isinstance(box, Const):
             if (isinstance(box, ConstInt) and

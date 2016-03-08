@@ -1918,7 +1918,7 @@ class MetaInterp(object):
 
     def retrace_needed(self, trace, exported_state):
         self.partial_trace = trace
-        self.retracing_from = len(self.history.operations) - 1
+        self.retracing_from = self.history.length()
         self.exported_state = exported_state
         self.heapcache.reset()
 
@@ -2245,7 +2245,7 @@ class MetaInterp(object):
                     jd_sd.warmstate.get_location_str(greenkey),
                     self.staticdata.logger_ops._make_log_operations(
                         self.box_names_memo),
-                    self.history.operations)
+                    self.history.trace)
             if self.aborted_tracing_jitdriver is not None:
                 jd_sd = self.aborted_tracing_jitdriver
                 greenkey = self.aborted_tracing_greenkey
@@ -2454,7 +2454,7 @@ class MetaInterp(object):
                 self.staticdata.log('cancelled, tracing more...')
 
         # Otherwise, no loop found so far, so continue tracing.
-        start = len(self.history.operations)
+        start = self.history.get_cut_position()
         self.current_merge_points.append((live_arg_boxes, start))
 
     def _unpack_boxes(self, boxes, start, stop):
@@ -2606,18 +2606,18 @@ class MetaInterp(object):
         if not target_jitcell_token:
             return
 
+        cut_at = self.history.get_cut_position()
         self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None,
                             descr=target_jitcell_token)
         self.history.ends_with_jump = True
         try:
             target_token = compile.compile_trace(self, self.resumekey)
         finally:
-            xxxx
+            self.history.cut(cut_at) # pop the jump
         if target_token is not None: # raise if it *worked* correctly
             assert isinstance(target_token, TargetToken)
             jitcell_token = target_token.targeting_jitcell_token
             self.raise_continue_running_normally(live_arg_boxes, jitcell_token)
-        xxxx # remove the jump op and continue tracing
 
     def compile_done_with_this_frame(self, exitbox):
         # temporarily put a JUMP to a pseudo-loop

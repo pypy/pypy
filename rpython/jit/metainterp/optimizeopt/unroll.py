@@ -253,10 +253,9 @@ class UnrollOptimizer(Optimization):
         else:
             debug_print("Retrace count reached, jumping to preamble")
             return self.jump_to_preamble(cell_token, jump_op, info)
-        xxx
-        exported_state = self.export_state(start_label,
-                                           operations[-1].getarglist(),
-                                           info.inputargs, box_names_memo)
+        exported_state = self.export_state(info.jump_op.getarglist(),
+                                           info.inputargs, runtime_boxes,
+                                           box_names_memo)
         exported_state.quasi_immutable_deps = self.optimizer.quasi_immutable_deps
         self.optimizer._clean_optimization_info(self.optimizer._newoperations)
         return exported_state, self.optimizer._newoperations
