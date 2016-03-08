@@ -54,6 +54,7 @@
 // It will cause problems for FreeBSD though!, because it turns off
 // the needed __BSD_VISIBLE.
 #ifdef __APPLE__
+#include <limits.h>
 #define _XOPEN_SOURCE 500
 #endif
 
@@ -144,7 +145,11 @@ intptr_t GetPC(ucontext_t *signal_ucontext) {
 #else
 intptr_t GetPC(ucontext_t *signal_ucontext) {
 #ifdef __APPLE__
+#if ((ULONG_MAX) == (UINT_MAX))
+  return (signal_ucontext->uc_mcontext->__ss.__eip);
+#else
   return (signal_ucontext->uc_mcontext->__ss.__rip);
+#endif
 #else
   return signal_ucontext->PC_FROM_UCONTEXT;   // defined in config.h
 #endif
