@@ -37,6 +37,7 @@ int pypy_main_function(int argc, char *argv[]) __attribute__((__noinline__));
 # include <src/thread.h>
 #endif
 
+RPY_EXTERN
 void rpython_startup_code(void)
 {
 #ifdef RPY_WITH_GIL
