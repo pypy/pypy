@@ -228,7 +228,7 @@ class UnrollOptimizer(Optimization):
                         inline_short_preamble, box_names_memo):
         self._check_no_forwarding([trace.inputargs])
         info, ops = self.optimizer.propagate_all_forward(trace.get_iter(),
-            call_pure_results)
+            call_pure_results, False)
         jump_op = info.jump_op
         cell_token = jump_op.getdescr()
         assert isinstance(cell_token, JitCellToken)
