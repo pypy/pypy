@@ -11,8 +11,8 @@ faster and memory dropping by about 30%.
 
 We also merged a major upgrade to our C-API layer (cpyext), simplifying the
 interaction between c-level objects and PyPy interpreter level objects. As a
-result, lxml  with its cython compiled component `passes all tests`_ on PyPy
-and the new cpyext is a lot faster than the previous one.
+result, lxml  (prerelease) with its cython compiled component
+`passes all tests`_ on PyPy. The new cpyext is also much faster.
 
 vmprof_ has been a go-to profiler for PyPy on linux for a few releases
 and we're happy to announce that thanks to commercial cooperation, vmprof
@@ -127,9 +127,6 @@ Other Highlights (since 4.0.1 released in November 2015)
 
   * Fix for corner case (likely shown by Krakatau) for consecutive guards with
     interdependencies
-
-  * Fix applevel bare class method comparisons which should fix pretty printing
-    in IPython
 
   * Issues reported with our previous release were resolved_ after reports from users on
     our issue tracker at https://bitbucket.org/pypy/pypy/issues or on IRC at
