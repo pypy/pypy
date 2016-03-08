@@ -1007,7 +1007,7 @@ class ResumeFromInterpDescr(ResumeDescr):
         metainterp_sd.stats.add_jitcell_token(jitcell_token)
 
 
-def compile_trace(metainterp, resumekey):
+def compile_trace(metainterp, resumekey, runtime_boxes):
     """Try to compile a new bridge leading from the beginning of the history
     to some existing place.
     """
@@ -1034,7 +1034,7 @@ def compile_trace(metainterp, resumekey):
     call_pure_results = metainterp.call_pure_results
 
     if metainterp.history.ends_with_jump:
-        data = BridgeCompileData(trace, inputargs,
+        data = BridgeCompileData(trace, runtime_boxes,
                                  call_pure_results=call_pure_results,
                                  enable_opts=enable_opts,
                                  inline_short_preamble=inline_short_preamble)

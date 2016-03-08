@@ -2611,7 +2611,8 @@ class MetaInterp(object):
                             descr=target_jitcell_token)
         self.history.ends_with_jump = True
         try:
-            target_token = compile.compile_trace(self, self.resumekey)
+            target_token = compile.compile_trace(self, self.resumekey,
+                live_arg_boxes[num_green_args:])
         finally:
             self.history.cut(cut_at) # pop the jump
         if target_token is not None: # raise if it *worked* correctly
@@ -2643,7 +2644,7 @@ class MetaInterp(object):
         # FIXME: can we call compile_trace?
         token = loop_tokens[0].finishdescr
         self.history.record(rop.FINISH, exits, None, descr=token)
-        target_token = compile.compile_trace(self, self.resumekey)
+        target_token = compile.compile_trace(self, self.resumekey, exits)
         if target_token is not token:
             compile.giveup()
 
