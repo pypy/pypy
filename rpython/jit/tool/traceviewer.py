@@ -103,9 +103,9 @@ class BasicBlock(object):
             self.last_guard = -1
         else:
             # guards can be out of order nowadays
-            groups = sorted(groups)
-            self.first_guard = guard_number(groups[0])
-            self.last_guard = guard_number(groups[-1])
+            groups = sorted(map(guard_number, groups))
+            self.first_guard = groups[0]
+            self.last_guard = groups[-1]
 
     content = property(get_content, set_content)
 
@@ -156,8 +156,7 @@ class Block(BasicBlock):
         dotgen.emit_edge(self.name(), self.right.name())
 
 def split_one_loop(real_loops, guard_s, guard_content, lineno, no, allloops):
-    for i in range(len(allloops) - 1, -1, -1):
-        loop = allloops[i]
+    for i, loop in enumerate(allloops):
         if no < loop.first_guard or no > loop.last_guard:
             continue
         content = loop.content
