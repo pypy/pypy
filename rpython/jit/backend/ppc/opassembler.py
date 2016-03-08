@@ -905,7 +905,7 @@ class FieldOpAssembler(object):
         jlt_location = self.mc.currpos()
         self.mc.trap()
 
-        self.mc.sradi(r.SCRATCH.value, length_loc.value, shift_by, 31)
+        self.mc.sradi(r.SCRATCH.value, length_loc.value, 0, shift_by)
         self.mc.mtctr(r.SCRATCH.value) # store the length in count register
 
         self.mc.li(r.SCRATCH.value, 0)
@@ -949,9 +949,9 @@ class FieldOpAssembler(object):
 
         self.mc.subi(ofs_loc.value, ofs_loc.value, 1)
 
-        loop_position = self.mc.currpos()
+        loop_location = self.mc.currpos()
         self.eza_stXu(r.SCRATCH.value, ofs_loc.value, 1, 1)
-        self.mc.bdnz(self.mc.currpos() - loop_location)
+        self.mc.bdnz(loop_location - self.mc.currpos())
 
         pmc = OverwritingBuilder(self.mc, jle_location, 1)
         pmc.ble(self.mc.currpos() - jle_location)    # !GT
