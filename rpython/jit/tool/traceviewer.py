@@ -156,7 +156,8 @@ class Block(BasicBlock):
         dotgen.emit_edge(self.name(), self.right.name())
 
 def split_one_loop(real_loops, guard_s, guard_content, lineno, no, allloops):
-    for i, loop in enumerate(allloops):
+    for i in range(len(allloops) - 1, -1, -1):
+        loop = allloops[i]
         if no < loop.first_guard or no > loop.last_guard:
             continue
         content = loop.content
