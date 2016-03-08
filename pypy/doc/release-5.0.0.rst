@@ -1,13 +1,13 @@
-==========
-PyPy 5.0.0
-==========
+========
+PyPy 5.0
+========
 
-We have released PyPy 5.0.0, about three months after PyPy 4.0.0. 
+We have released PyPy 5.0, about three months after PyPy 4.0.1.
 We encourage all users of PyPy to update to this version. Apart from the usual
 bug fixes, there is an ongoing effort to improve the warmup time and memory
 usage of JIT-related metadata. The exact effects depend vastly on the program
 you're running and can range from insignificant to warmup being up to 30%
-faster and memory dropping by about 30%. 
+faster and memory dropping by about 30%.
 
 We also merged a major upgrade to our C-API layer (cpyext), simplifying the
 interaction between c-level objects and PyPy interpreter level objects. As a
@@ -18,27 +18,27 @@ vmprof_ has been a go-to profiler for PyPy on linux for a few releases
 and we're happy to announce that thanks to commercial cooperation, vmprof
 now works on Linux, OS X and Windows on both PyPy and CPython.
 
-You can download the PyPy 5.0.0 release here:
+You can download the PyPy 5.0 release here:
 
     http://pypy.org/download.html
 
 We would like to thank our donors for the continued support of the PyPy
 project.
 
-We would also like to thank our contributors and 
+We would also like to thank our contributors and
 encourage new people to join the project. PyPy has many
 layers and we need help with all of them: `PyPy`_ and `RPython`_ documentation
-improvements, tweaking popular `modules`_ to run on pypy, or general `help`_ 
-with making RPython's JIT even better. 
+improvements, tweaking popular `modules`_ to run on pypy, or general `help`_
+with making RPython's JIT even better.
 
 CFFI
 ====
 
 While not applicable only to PyPy, `cffi`_ is arguably our most significant
-contribution to the python ecosystem. PyPy 5.0.0 ships with 
+contribution to the python ecosystem. PyPy 5.0 ships with
 `cffi-1.5.2`_ which now allows embedding PyPy (or cpython) in a C program.
 
-.. _`PyPy`: http://doc.pypy.org 
+.. _`PyPy`: http://doc.pypy.org
 .. _`RPython`: https://rpython.readthedocs.org
 .. _`cffi`: https://cffi.readthedocs.org
 .. _`cffi-1.5.2`: http://cffi.readthedocs.org/en/latest/whatsnew.html#v1-5-2
@@ -150,16 +150,40 @@ Other Highlights (since 4.0.1 released in November 2015)
   * Support partition() as an app-level function, together with a cffi wrapper
     in pypy/numpy, this now provides partial support for partition()
 
-* Performance improvements and refactorings:
+* Performance improvements:
 
-  * Refactor and improve exception analysis in the annotator
-
-  * Remove unnecessary special handling of space.wrap().
+  * Optimize global lookups
 
   * Improve the memory signature of numbering instances in the JIT. This should
     massively decrease the amount of memory consumed by the JIT, which is
     significant for most programs. Also compress the numberings using variable-
     size encoding
+
+  * Optimize string concatenation
+
+  * Use INT_LSHIFT instead of INT_MUL when possible
+
+  * Improve struct.unpack by casting directly from the underlying buffer.
+    Unpacking floats and doubles is about 15 times faster, and integer types
+    about 50% faster (on 64 bit integers). This was then subsequently
+    improved further in optimizeopt.py.
+
+  * Optimize two-tuple lookups in mapdict, which improves warmup of instance
+    variable access somewhat
+
+  * Reduce all guards from int_floordiv_ovf if one of the arguments is constant
+
+  * Identify permutations of attributes at instance creation, reducing the
+    number of bridges created
+
+  * Greatly improve re.sub() performance
+
+
+* Internal refactorings:
+
+  * Refactor and improve exception analysis in the annotator
+
+  * Remove unnecessary special handling of space.wrap().
 
   * Support list-resizing setslice operations in RPython
 
@@ -167,31 +191,18 @@ Other Highlights (since 4.0.1 released in November 2015)
 
   * Refactor bookkeeping (such a cool word - three double letters) in the
     annotater
-    
+
   * Refactor wrappers for OS functions from rtyper to rlib and simplify them
 
   * Simplify backend loading instructions to only use four variants
 
-  * Optimize string concatination
-
   * Simplify GIL handling in non-jitted code
-
-  * Use INT_LSHIFT instead of INT_MUL when possible
-
-  * Improve struct.unpack by casting directly from the underlying buffer. 
-    Unpacking floats and doubles is about 15 times faster, and integer types
-    about 50% faster (on 64 bit integers). This was then subsequently
-    improved further in optimizeopt.py.
 
   * Refactor naming in optimizeopt
 
   * Change GraphAnalyzer to use a more precise way to recognize external
     functions and fix null pointer handling, generally clean up external
     function handling
-
-  * Optimize global lookups
-
-  * Optimize two-tuple lookups in mapdict
 
   * Remove pure variants of ``getfield_gc_*`` operations from the JIT by
     determining purity while tracing
@@ -203,16 +214,9 @@ Other Highlights (since 4.0.1 released in November 2015)
   * Refactor rtyper debug code into python.rtyper.debug
 
   * Seperate structmember.h from Python.h Also enhance creating api functions
-    to specify which header file they appear in (previously only pypy_decl.h) 
-
-  * Reduce all guards from int_floordiv_ovf if one of the arguments is constant
+    to specify which header file they appear in (previously only pypy_decl.h)
 
   * Fix tokenizer to enforce universal newlines, needed for Python 3 support
-
-  * Identify permutations of attributes at instance creation, reducing the
-    number of bridges created
-
-  * Greatly improve re.sub() performance
 
 .. _resolved: http://doc.pypy.org/en/latest/whatsnew-5.0.0.html
 .. _`hypothesis`: http://hypothesis.readthedocs.org
