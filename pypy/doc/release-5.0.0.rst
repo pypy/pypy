@@ -15,8 +15,8 @@ result, lxml  (prerelease) with its cython compiled component
 `passes all tests`_ on PyPy. The new cpyext is also much faster.
 
 vmprof_ has been a go-to profiler for PyPy on linux for a few releases
-and we're happy to announce that thanks to commercial cooperation, vmprof
-now works on Linux, OS X and Windows on both PyPy and CPython.
+and we're happy to announce that thanks to the cooperation with jetbrains,
+vmprof now works on Linux, OS X and Windows on both PyPy and CPython.
 
 You can download the PyPy 5.0 release here:
 
