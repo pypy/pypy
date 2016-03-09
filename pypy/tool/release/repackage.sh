@@ -9,7 +9,7 @@ tagname=release-$maj.$min  # ==OR== release-$maj.$min.$rev
 # download source, assuming a tag for the release already exists, and repackage them.
 # The script should be run in an empty directory, i.e. /tmp/release_xxx
 
-for plat in linux linux64 linux-armhf-raspbian linux-armhf-raring linux-armel osx64 freebsd64
+for plat in linux linux64 linux-armhf-raspbian linux-armhf-raring linux-armel osx64
   do
     wget http://buildbot.pypy.org/nightly/$branchname/pypy-c-jit-latest-$plat.tar.bz2
     tar -xf pypy-c-jit-latest-$plat.tar.bz2
