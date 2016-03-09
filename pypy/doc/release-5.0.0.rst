@@ -128,6 +128,9 @@ Other Highlights (since 4.0.1 released in November 2015)
   * Fix for corner case (likely shown by Krakatau) for consecutive guards with
     interdependencies
 
+  * Fix applevel bare class method comparisons which should fix pretty printing
+    in IPython
+
   * Issues reported with our previous release were resolved_ after reports from users on
     our issue tracker at https://bitbucket.org/pypy/pypy/issues or on IRC at
     #pypy
