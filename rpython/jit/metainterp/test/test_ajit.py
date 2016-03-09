@@ -4377,3 +4377,30 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
             assert res == -1
         else:
             assert res == 4294967295
+
+    def test_issue2200_recursion(self):
+        # Reproduces issue #2200.  This test contains no recursion,
+        # but due to an unlikely combination of factors it ends up
+        # creating an RPython-level recursion, one per loop iteration.
+        # The recursion is: blackhole interp from the failing guard ->
+        # does the call to enter() as a normal call -> enter() runs
+        # can_enter_jit() as if we're interpreted -> we enter the JIT
+        # again from the start of the loop -> the guard fails again
+        # during the next iteration -> blackhole interp.  All arrows
+        # in the previous sentence are one or more levels of RPython
+        # function calls.
+        driver = JitDriver(greens=[], reds=["i"])
+        def enter(i):
+            driver.can_enter_jit(i=i)
+        def f():
+            set_param(None, 'trace_eagerness', 999999)
+            i = 0
+            while True:
+                driver.jit_merge_point(i=i)
+                i += 1
+                if i >= 300:
+                    return i
+                promote(i + 1)   # a failing guard
+                enter(i)
+
+        self.meta_interp(f, [])
