@@ -422,7 +422,7 @@ def str_segcount(space, w_obj, ref):
 @cpython_api([PyObject, Py_ssize_t, rffi.VOIDPP], lltype.Signed,
              header=None, error=-1)
 def str_getreadbuffer(space, w_str, segment, ref):
-    from pypy.module.cpyext.stringobject import PyString_AsString
+    from pypy.module.cpyext.bytesobject import PyString_AsString
     if segment != 0:
         raise OperationError(space.w_SystemError, space.wrap
                              ("accessing non-existent string segment"))
@@ -435,7 +435,7 @@ def str_getreadbuffer(space, w_str, segment, ref):
 @cpython_api([PyObject, Py_ssize_t, rffi.CCHARPP], lltype.Signed,
              header=None, error=-1)
 def str_getcharbuffer(space, w_str, segment, ref):
-    from pypy.module.cpyext.stringobject import PyString_AsString
+    from pypy.module.cpyext.bytesobject import PyString_AsString
     if segment != 0:
         raise OperationError(space.w_SystemError, space.wrap
                              ("accessing non-existent string segment"))
@@ -552,7 +552,7 @@ def type_attach(space, py_obj, w_type):
         w_typename = space.getattr(w_type, space.wrap('__name__'))
         heaptype = rffi.cast(PyHeapTypeObject, pto)
         heaptype.c_ht_name = make_ref(space, w_typename)
-        from pypy.module.cpyext.stringobject import PyString_AsString
+        from pypy.module.cpyext.bytesobject import PyString_AsString
         pto.c_tp_name = PyString_AsString(space, heaptype.c_ht_name)
     else:
         pto.c_tp_name = rffi.str2charp(w_type.name)

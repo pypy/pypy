@@ -97,22 +97,19 @@ def new_view(space, w_arr, chunks):
         # filter by axis dim
         filtr = chunks[dim]
         assert isinstance(filtr, BooleanChunk) 
+        # XXX this creates a new array, and fails in setitem
         w_arr = w_arr.getitem_filter(space, filtr.w_idx, axis=dim)
         arr = w_arr.implementation
         chunks[dim] = SliceChunk(space.newslice(space.wrap(0), 
-                                 space.wrap(-1), space.w_None))
+                                 space.w_None, space.w_None))
         r = calculate_slice_strides(space, arr.shape, arr.start,
                  arr.get_strides(), arr.get_backstrides(), chunks)
     else:
         r = calculate_slice_strides(space, arr.shape, arr.start,
                      arr.get_strides(), arr.get_backstrides(), chunks)
     shape, start, strides, backstrides = r
-    w_ret = W_NDimArray.new_slice(space, start, strides[:], backstrides[:],
+    return W_NDimArray.new_slice(space, start, strides[:], backstrides[:],
                                  shape[:], arr, w_arr)
-    if dim == 0:
-        # Do not return a view
-        return w_ret.descr_copy(space, space.wrap(w_ret.get_order()))
-    return w_ret
 
 @jit.unroll_safe
 def _extend_shape(old_shape, chunks):

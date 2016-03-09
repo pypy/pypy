@@ -68,9 +68,12 @@ class BaseTestPyPyC(object):
                 pipe.returncode,))
         if stderr.startswith('SKIP:'):
             py.test.skip(stderr)
-        if stderr.startswith('debug_alloc.h:'):   # lldebug builds
-            stderr = ''
+        #if stderr.startswith('debug_alloc.h:'):   # lldebug builds
+        #    stderr = ''
         #assert not stderr
+        if stderr:
+            print '*** stderr of the subprocess: ***'
+            print stderr
         #
         if discard_stdout_before_last_line:
             stdout = stdout.splitlines(True)[-1]
