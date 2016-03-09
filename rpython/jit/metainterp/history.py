@@ -753,7 +753,6 @@ class Stats(object):
     compiled_count = 0
     enter_count = 0
     aborted_count = 0
-    operations = None
 
     def __init__(self):
         self.loops = []
@@ -780,9 +779,7 @@ class Stats(object):
         self.jitcell_token_wrefs.append(weakref.ref(token))
 
     def set_history(self, history):
-        # XXX think about something
-        pass
-        #self.operations = history.operations
+        self.history = history
 
     def aborted(self):
         self.aborted_count += 1
@@ -819,7 +816,9 @@ class Stats(object):
 
     def check_history(self, expected=None, **check):
         insns = {}
-        for op in self.operations:
+        t = self.history.trace.get_iter()
+        while not t.done():
+            op = t.next()
             opname = op.getopname()
             insns[opname] = insns.get(opname, 0) + 1
         if expected is not None:
