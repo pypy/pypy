@@ -14,16 +14,7 @@ class State:
         self.w_modules = space.newdict(module=True)
         self.w_warnoptions = space.newlist([])
         self.w_argv = space.newlist([])
-
-        self.setinitialpath(space)
-
-    def setinitialpath(self, space):
-        from pypy.module.sys.initpath import compute_stdlib_path
-        # Initialize the default path
-        pypydir = os.path.dirname(os.path.abspath(pypy.__file__))
-        srcdir = os.path.dirname(pypydir)
-        path = compute_stdlib_path(self, srcdir)
-        self.w_path = space.newlist([space.wrap(p) for p in path])
+        self.w_path = space.newlist([])
 
 def get(space):
     return space.fromcache(State)
