@@ -3,7 +3,7 @@ from rpython.jit.backend.zarch.arch import (WORD,
         STD_FRAME_SIZE_IN_BYTES)
 from rpython.jit.backend.zarch.arch import THREADLOCAL_ADDR_OFFSET
 from rpython.jit.backend.zarch.helper.assembler import (gen_emit_cmp_op,
-        gen_emit_rr, gen_emit_shift, gen_emit_rr_rh_ri, gen_emit_div_mod)
+        gen_emit_rr_rp, gen_emit_shift, gen_emit_rr_rh_ri_rp, gen_emit_div_mod)
 from rpython.jit.backend.zarch.helper.regalloc import (check_imm,
         check_imm_value)
 from rpython.jit.metainterp.history import (ConstInt)
@@ -28,7 +28,7 @@ from rpython.rlib.objectmodel import we_are_translated
 class IntOpAssembler(object):
     _mixin_ = True
 
-    emit_int_add = gen_emit_rr_rh_ri('AGR', 'AGHI', 'AGFI')
+    emit_int_add = gen_emit_rr_rh_ri_rp('AGR', 'AGHI', 'AGFI', 'AG')
     emit_int_add_ovf = emit_int_add
 
     emit_nursery_ptr_increment = emit_int_add
@@ -36,25 +36,16 @@ class IntOpAssembler(object):
     def emit_int_sub(self, op, arglocs, regalloc):
         res, l0, l1 = arglocs
         self.mc.SGRK(res, l0, l1)
-        # POOL
-        #if l1.is_imm() and not l1.is_in_pool():
-        #    assert 0, "logical imm must reside in pool!"
-        #if l1.is_in_pool():
-        #    self.mc.SG(l0, l1)
-        #else:
-        #    self.mc.SGR(l0, l1)
 
     emit_int_sub_ovf = emit_int_sub
 
-    emit_int_mul = gen_emit_rr_rh_ri('MSGR', 'MGHI', 'MSGFI')
+    emit_int_mul = gen_emit_rr_rh_ri_rp('MSGR', 'MGHI', 'MSGFI', 'MSG')
     def emit_int_mul_ovf(self, op, arglocs, regalloc):
         lr, lq, l1 = arglocs
-        # POOL
-        # if l1.is_in_pool():
-        #     self.mc.LG(r.SCRATCH, l1)
-        #     l1 = r.SCRATCH
-        # elif
-        if l1.is_imm():
+        if l1.is_in_pool():
+            self.mc.LG(r.SCRATCH, l1)
+            l1 = r.SCRATCH
+        elif l1.is_imm():
             self.mc.LGFI(r.SCRATCH, l1)
             l1 = r.SCRATCH
         else:
@@ -169,11 +160,11 @@ class IntOpAssembler(object):
         omc.BRC(c.ANY, l.imm(label_end - jmp_neither_lqlr_overflow))
         omc.overwrite()
 
-    emit_int_floordiv = gen_emit_div_mod('DSGR')
-    emit_uint_floordiv = gen_emit_div_mod('DLGR')
+    emit_int_floordiv = gen_emit_div_mod('DSGR', 'DSG')
+    emit_uint_floordiv = gen_emit_div_mod('DLGR', 'DLG')
     # NOTE division sets one register with the modulo value, thus
     # the regalloc ensures the right register survives.
-    emit_int_mod = gen_emit_div_mod('DSGR')
+    emit_int_mod = gen_emit_div_mod('DSGR', 'DSG')
 
     def emit_int_invert(self, op, arglocs, regalloc):
         l0, = arglocs
@@ -213,9 +204,9 @@ class IntOpAssembler(object):
         self.mc.CGHI(l0, l.imm(0))
         self.flush_cc(c.NE, res)
 
-    emit_int_and = gen_emit_rr("NGR")
-    emit_int_or  = gen_emit_rr("OGR")
-    emit_int_xor = gen_emit_rr("XGR")
+    emit_int_and = gen_emit_rr_rp("NGR", "NG")
+    emit_int_or  = gen_emit_rr_rp("OGR", "OG")
+    emit_int_xor = gen_emit_rr_rp("XGR", "XG")
 
     emit_int_rshift  = gen_emit_shift("SRAG")
     emit_int_lshift  = gen_emit_shift("SLLG")
@@ -242,10 +233,10 @@ class IntOpAssembler(object):
 class FloatOpAssembler(object):
     _mixin_ = True
 
-    emit_float_add = gen_emit_rr('ADBR')
-    emit_float_sub = gen_emit_rr('SDBR')
-    emit_float_mul = gen_emit_rr('MDBR')
-    emit_float_truediv = gen_emit_rr('DDBR')
+    emit_float_add = gen_emit_rr_rp('ADBR', 'ADB')
+    emit_float_sub = gen_emit_rr_rp('SDBR', 'SDB')
+    emit_float_mul = gen_emit_rr_rp('MDBR', 'MDB')
+    emit_float_truediv = gen_emit_rr_rp('DDBR', 'DDB')
 
     # Support for NaNs: S390X sets condition code to 0x3 (unordered)
     # whenever any operand is nan.
@@ -1072,7 +1063,7 @@ class ForceOpAssembler(object):
         self._store_force_index(self._find_nearby_operation(regalloc, +1))
         # 'result_loc' is either r2, f0 or None
         self.call_assembler(op, argloc, vloc, result_loc, r.r2)
-        # POOL self.mc.LARL(r.POOL, l.halfword(self.pool.pool_start - self.mc.get_relative_pos()))
+        self.mc.LARL(r.POOL, l.halfword(self.pool.pool_start - self.mc.get_relative_pos()))
 
     emit_call_assembler_i = _genop_call_assembler
     emit_call_assembler_r = _genop_call_assembler

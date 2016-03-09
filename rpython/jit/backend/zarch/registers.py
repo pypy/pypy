@@ -7,7 +7,7 @@ fpregisters = [FloatRegisterLocation(i) for i in range(16)]
 [r0,r1,r2,r3,r4,r5,r6,r7,r8,
  r9,r10,r11,r12,r13,r14,r15] = registers
 
-MANAGED_REGS = [r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,r13] # keep this list sorted (asc)!
+MANAGED_REGS = [r2,r3,r4,r5,r6,r7,r8,r9,r10,r11] # keep this list sorted (asc)!
 MANAGED_REG_PAIRS = [(r2,r3), (r4,r5), (r6,r7), (r8,r9), (r10,r11)]
 VOLATILES = [r2,r3,r4,r5,r6]
 SP = r15
@@ -39,6 +39,7 @@ for _r in MANAGED_REGS:
 for _r in MANAGED_FP_REGS:
     ALL_REG_INDEXES[_r] = len(ALL_REG_INDEXES)
 # NOT used, but keeps JITFRAME_FIXED_SIZE even
+ALL_REG_INDEXES[f15] = len(ALL_REG_INDEXES)
 JITFRAME_FIXED_SIZE = len(ALL_REG_INDEXES)
 
 def odd_reg(r):

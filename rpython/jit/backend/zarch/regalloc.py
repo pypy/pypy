@@ -62,44 +62,24 @@ class FPRegisterManager(RegisterManager):
     assert set(save_around_call_regs).issubset(all_regs)
     pool = None
 
-    def convert_to_adr(self, c):
-        assert isinstance(c, ConstFloat)
-        adr = self.assembler.datablockwrapper.malloc_aligned(8, 8)
-        x = c.getfloatstorage()
-        rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), adr)[0] = x
-        return adr
-
-    def convert_to_imm(self, c):
-        adr = self.convert_to_adr(c)
-        return l.ConstFloatLoc(adr)
-
-    # POOL
-    #def convert_to_imm(self, c):
-    #    off = self.pool.get_offset(c)
-    #    return l.pool(off, float=True)
-
     def __init__(self, longevity, frame_manager=None, assembler=None):
         RegisterManager.__init__(self, longevity, frame_manager, assembler)
 
     def call_result_location(self, v):
         return r.FPR_RETURN
 
-    # POOL
-    # def place_in_pool(self, var):
-    #     offset = self.assembler.pool.get_offset(var)
-    #     return l.pool(offset, float=True)
+    def convert_to_imm(self, c):
+        return l.pool(self.assembler.pool.get_offset(c), float=True)
 
-    # POOL
-    #def ensure_reg_or_pool(self, box):
-    #    if isinstance(box, Const):
-    #        loc = self.get_scratch_reg()
-    #        immvalue = self.convert_to_int(box)
-    #        self.assembler.mc.load_imm(loc, immvalue)
-    #    else:
-    #        assert box in self.temp_boxes
-    #        loc = self.make_sure_var_in_reg(box,
-    #                forbidden_vars=self.temp_boxes)
-    #    return loc
+    def ensure_reg_or_pool(self, box):
+        if isinstance(box, Const):
+            offset = self.assembler.pool.get_offset(box)
+            return l.pool(offset, float=True)
+        else:
+            assert box in self.temp_boxes
+            loc = self.make_sure_var_in_reg(box,
+                    forbidden_vars=self.temp_boxes)
+        return loc
 
     def get_scratch_reg(self):
         box = TempVar()
@@ -109,21 +89,14 @@ class FPRegisterManager(RegisterManager):
 
     def ensure_reg(self, box):
         if isinstance(box, Const):
-            # POOL
-            #poolloc = self.place_in_pool(box)
-            #tmp = TempVar()
-            #reg = self.force_allocate_reg(tmp, self.temp_boxes)
-            #self.temp_boxes.append(tmp)
-            #assert poolloc.displace >= 0
-            #if poolloc.displace <= 2**12-1:
-            #    self.assembler.mc.LD(reg, poolloc)
-            #else:
-            #    self.assembler.mc.LDY(reg, poolloc)
-            loc = self.get_scratch_reg()
-            immadrvalue = self.convert_to_adr(box)
-            mc = self.assembler.mc
-            mc.load_imm(r.SCRATCH, immadrvalue)
-            mc.LD(loc, l.addr(0, r.SCRATCH))
+            offset = self.assembler.pool.get_offset(box)
+            poolloc = l.pool(offset, float=True)
+            reg = self.get_scratch_reg()
+            if poolloc.displace <= 2**11-1:
+                self.assembler.mc.LD(reg, poolloc)
+            else:
+                self.assembler.mc.LDY(reg, poolloc)
+            return reg
         else:
             assert box in self.temp_boxes
             loc = self.make_sure_var_in_reg(box,
@@ -159,32 +132,25 @@ class ZARCHRegisterManager(RegisterManager):
             assert isinstance(c, ConstPtr)
             return rffi.cast(lltype.Signed, c.value)
 
+    def ensure_reg_or_pool(self, box):
+        if isinstance(box, Const):
+            if self.assembler.pool.contains_box(box):
+                offset = self.assembler.pool.get_offset(box)
+                return l.pool(offset)
+            else:
+                return self.ensure_reg(box)
+        else:
+            assert box in self.temp_boxes
+            loc = self.make_sure_var_in_reg(box,
+                    forbidden_vars=self.temp_boxes)
+        return loc
+
     def convert_to_imm(self, c):
-        val = self.convert_to_int(c)
-        return l.imm(val)
+        if self.assembler.pool.contains_box(c):
+            return l.pool(self.assembler.pool.get_offset(c))
+        immvalue = self.convert_to_int(c)
+        return l.imm(immvalue)
 
-    # POOL
-    #def convert_to_imm(self, c):
-    #    off = self.pool.get_offset(c)
-    #    return l.pool(off)
-
-    #def ensure_reg_or_pool(self, box):
-    #    if isinstance(box, Const):
-    #        offset = self.assembler.pool.get_offset(box)
-    #        return l.pool(offset)
-    #    else:
-    #        assert box in self.temp_boxes
-    #        loc = self.make_sure_var_in_reg(box,
-    #                forbidden_vars=self.temp_boxes)
-    #    return loc
-
-    # POOL
-    #offset = self.assembler.pool.get_offset(box)
-    #poolloc = l.pool(offset)
-    #tmp = TempInt()
-    #reg = self.force_allocate_reg(tmp, forbidden_vars=self.temp_boxes)
-    #self.temp_boxes.append(tmp)
-    #self.assembler.mc.LG(reg, poolloc)
     def ensure_reg(self, box):
         if isinstance(box, Const):
             loc = self.get_scratch_reg()
@@ -388,10 +354,10 @@ class Regalloc(BaseRegalloc):
         self.rm = ZARCHRegisterManager(self.longevity,
                                      frame_manager = self.fm,
                                      assembler = self.assembler)
-        #self.rm.pool = self.assembler.pool
+        self.rm.pool = self.assembler.pool
         self.fprm = FPRegisterManager(self.longevity, frame_manager = self.fm,
                                       assembler = self.assembler)
-        #self.fprm.pool = self.assembler.pool
+        self.fprm.pool = self.assembler.pool
         return operations
 
     def prepare_loop(self, inputargs, operations, looptoken, allgcrefs):
@@ -607,12 +573,11 @@ class Regalloc(BaseRegalloc):
         else:
             return self.rm.call_result_location(v)
 
-    # POOL
-    #def ensure_reg_or_pool(self, box):
-    #    if box.type == FLOAT:
-    #        return self.fprm.ensure_reg_or_pool(box)
-    #    else:
-    #        return self.rm.ensure_reg_or_pool(box)
+    def ensure_reg_or_pool(self, box):
+        if box.type == FLOAT:
+            return self.fprm.ensure_reg_or_pool(box)
+        else:
+            return self.rm.ensure_reg_or_pool(box)
 
     def ensure_reg(self, box):
         if box.type == FLOAT:

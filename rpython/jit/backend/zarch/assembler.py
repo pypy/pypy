@@ -50,7 +50,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         self.gcrootmap_retaddr_forced = 0
         self.failure_recovery_code = [0, 0, 0, 0]
         self.wb_slowpath = [0,0,0,0,0]
-        # self.pool = None
+        self.pool = None
 
     def setup(self, looptoken):
         BaseAssembler.setup(self, looptoken)
@@ -58,7 +58,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         if we_are_translated():
             self.debug = False
         self.current_clt = looptoken.compiled_loop_token
-        # POOL self.pool = LiteralPool()
+        self.pool = LiteralPool()
         self.mc = InstrBuilder(None)
         self.pending_guard_tokens = []
         self.pending_guard_tokens_recovered = 0
@@ -76,7 +76,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         self.current_clt = None
         self._regalloc = None
         self.mc = None
-        # self.pool = None
+        self.pool = None
 
 
     def target_arglocs(self, looptoken):
@@ -350,8 +350,8 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
 
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap and gcrootmap.is_shadow_stack:
-            diff = mc.load_imm_plus(r.r5, gcrootmap.get_root_stack_top_addr())
-            mc.load(r.r5, r.r5, diff)
+            diff = mc.load_imm(r.r5, gcrootmap.get_root_stack_top_addr())
+            mc.load(r.r5, r.r5, 0)
             mc.store(r.r2, r.r5, -WORD)
 
         self._pop_core_regs_from_jitframe(mc, r.MANAGED_REGS)
@@ -636,7 +636,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         #
         operations = regalloc.prepare_loop(inputargs, operations,
                                            looptoken, clt.allgcrefs)
-        # POOL self.pool.pre_assemble(self, operations)
+        self.pool.pre_assemble(self, operations)
         entrypos = self.mc.get_relative_pos()
         self._call_header_with_stack_check()
         looppos = self.mc.get_relative_pos()
@@ -645,7 +645,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         self.update_frame_depth(frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)
         #
         size_excluding_failure_stuff = self.mc.get_relative_pos()
-        # POOL self.pool.post_assemble(self)
+        #self.pool.post_assemble(self)
         self.write_pending_failure_recoveries()
         full_size = self.mc.get_relative_pos()
         #
@@ -704,13 +704,13 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
                                              operations,
                                              self.current_clt.allgcrefs,
                                              self.current_clt.frame_info)
-        # POOL self.pool.pre_assemble(self, operations, bridge=True)
+        self.pool.pre_assemble(self, operations, bridge=True)
         startpos = self.mc.get_relative_pos()
-        # POOL self.mc.LARL(r.POOL, l.halfword(self.pool.pool_start - startpos))
+        self.mc.LARL(r.POOL, l.halfword(self.pool.pool_start - startpos))
         self._check_frame_depth(self.mc, regalloc.get_gcmap())
         frame_depth_no_fixed_size = self._assemble(regalloc, inputargs, operations)
         codeendpos = self.mc.get_relative_pos()
-        # POOL self.pool.post_assemble(self)
+        #self.pool.post_assemble(self)
         self.write_pending_failure_recoveries()
         fullsize = self.mc.get_relative_pos()
         #
@@ -735,7 +735,6 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         # 'faildescr.adr_jump_offset' is the address of an instruction that is a
         # conditional jump.  We must patch this conditional jump to go
         # to 'adr_new_target'.
-        # Updates the pool address
         mc = InstrBuilder()
         mc.b_abs(adr_new_target)
         mc.copy_to_raw_memory(faildescr.adr_jump_offset)
@@ -922,14 +921,17 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
                 return
             assert 0, "not supported location"
         elif prev_loc.is_in_pool():
+            if loc.is_core_reg():
+                self.mc.LG(loc, prev_loc)
+                return
             # move immediate value to fp register
             if loc.is_fp_reg():
-                self.mc.LD(loc, prev_loc)
+                self.mc.LDY(loc, prev_loc)
                 return
             # move immediate value to memory
             elif loc.is_stack():
                 offset = loc.value
-                self.mc.LD(r.FP_SCRATCH, prev_loc)
+                self.mc.LDY(r.FP_SCRATCH, prev_loc)
                 self.mc.STDY(r.FP_SCRATCH, l.addr(offset, r.SPP))
                 return
             assert 0, "not supported location"
@@ -976,9 +978,8 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         if gcrootmap:
             if gcrootmap.is_shadow_stack:
                 if shadowstack_reg is None:
-                    diff = mc.load_imm_plus(r.SPP,
-                                            gcrootmap.get_root_stack_top_addr())
-                    mc.load(r.SPP, r.SPP, diff)
+                    diff = mc.load_imm(r.SPP, gcrootmap.get_root_stack_top_addr())
+                    mc.load(r.SPP, r.SPP, 0)
                     shadowstack_reg = r.SPP
                 mc.load(r.SPP, shadowstack_reg, -WORD)
         wbdescr = self.cpu.gc_ll_descr.write_barrier_descr
@@ -1019,7 +1020,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         # Build a new stackframe of size STD_FRAME_SIZE_IN_BYTES
         fpoff = JIT_ENTER_EXTRA_STACK_SPACE
         self.mc.STMG(r.r6, r.r15, l.addr(-fpoff+6*WORD, r.SP))
-        # POOL self.mc.LARL(r.POOL, l.halfword(self.pool.pool_start - self.mc.get_relative_pos()))
+        self.mc.LARL(r.POOL, l.halfword(self.pool.pool_start - self.mc.get_relative_pos()))
         # f8 through f15 are saved registers (= non volatile)
         # TODO it would be good to detect if any float is used in the loop
         # and to skip this push/pop whenever no float operation occurs
@@ -1046,37 +1047,38 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
     def _call_header_shadowstack(self, gcrootmap):
         # we need to put one word into the shadowstack: the jitframe (SPP)
         # we saved all registers to the stack
-        RCS1 = r.r2
-        RCS2 = r.r3
-        RCS3 = r.r4
+        RCS1 = r.r3
+        RCS2 = r.r4
+        RCS3 = r.r5
         mc = self.mc
-        diff = mc.load_imm_plus(RCS1, gcrootmap.get_root_stack_top_addr())
-        mc.load(RCS2, RCS1, diff)  # ld RCS2, [rootstacktop]
+        mc.load_imm(RCS1, gcrootmap.get_root_stack_top_addr())
+        mc.load(RCS2, RCS1, 0)  # ld RCS2, [rootstacktop]
         #
         mc.LGR(RCS3, RCS2)
         mc.AGHI(RCS3, l.imm(WORD)) # add RCS3, RCS2, WORD
         mc.store(r.SPP, RCS2, 0)   # std SPP, RCS2
         #
-        mc.store(RCS3, RCS1, diff) # std RCS3, [rootstacktop]
+        mc.store(RCS3, RCS1, 0) # std RCS3, [rootstacktop]
 
     def _call_footer_shadowstack(self, gcrootmap):
         # r6 -> r15 can be used freely, they will be restored by 
         # _call_footer after this call
-        RCS1 = r.r9
-        RCS2 = r.r10
+        RCS1 = r.r8
+        RCS2 = r.r7
         mc = self.mc
-        diff = mc.load_imm_plus(RCS1, gcrootmap.get_root_stack_top_addr())
-        mc.load(RCS2, RCS1, diff)    # ld RCS2, [rootstacktop]
+        mc.load_imm(RCS1, gcrootmap.get_root_stack_top_addr())
+        mc.load(RCS2, RCS1, 0)    # ld RCS2, [rootstacktop]
         mc.AGHI(RCS2, l.imm(-WORD))  # sub RCS2, RCS2, WORD
-        mc.store(RCS2, RCS1, diff)   # std RCS2, [rootstacktop]
+        mc.store(RCS2, RCS1, 0)   # std RCS2, [rootstacktop]
 
     def _call_footer(self):
-        # the return value is the jitframe
-        self.mc.LGR(r.r2, r.SPP)
 
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap and gcrootmap.is_shadow_stack:
             self._call_footer_shadowstack(gcrootmap)
+
+        # the return value is the jitframe
+        self.mc.LGR(r.r2, r.SPP)
 
         size = STD_FRAME_SIZE_IN_BYTES
         # f8 through f15 are saved registers (= non volatile)
@@ -1180,11 +1182,9 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
     # ASSEMBLER EMISSION
 
     def emit_label(self, op, arglocs, regalloc):
-        pass
-        # POOL
-        #offset = self.pool.pool_start - self.mc.get_relative_pos()
+        offset = self.pool.pool_start - self.mc.get_relative_pos()
         # load the pool address at each label
-        #self.mc.LARL(r.POOL, l.halfword(offset))
+        self.mc.LARL(r.POOL, l.halfword(offset))
 
     def emit_jump(self, op, arglocs, regalloc):
         # The backend's logic assumes that the target code is in a piece of
@@ -1201,7 +1201,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         if descr in self.target_tokens_currently_compiling:
             # a label has a LARL instruction that does not need
             # to be executed, thus remove the first opcode
-            self.mc.b_offset(descr._ll_loop_code) # POOL + self.mc.LARL_byte_count)
+            self.mc.b_offset(descr._ll_loop_code + self.mc.LARL_byte_count)
         else:
             # POOL
             #offset = self.pool.get_descr_offset(descr) + \
@@ -1249,11 +1249,11 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
             gcmap = self._finish_gcmap
         else:
             gcmap = lltype.nullptr(jitframe.GCMAP)
-        self.load_gcmap(self.mc, r.r2, gcmap)
+        self.load_gcmap(self.mc, r.r9, gcmap)
 
-        self.mc.load_imm(r.r3, fail_descr_loc.getint())
-        self.mc.STG(r.r3, l.addr(ofs, r.SPP))
-        self.mc.STG(r.r2, l.addr(ofs2, r.SPP))
+        self.mc.load_imm(r.r10, fail_descr_loc.getint())
+        self.mc.STG(r.r9, l.addr(ofs2, r.SPP))
+        self.mc.STG(r.r10, l.addr(ofs, r.SPP))
 
         # exit function
         self._call_footer()

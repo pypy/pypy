@@ -26,8 +26,7 @@ def prepare_int_add(self, op):
     if check_imm32(a1):
         l1 = imm(a1.getint())
     else:
-        # POOL l1 = self.ensure_reg_or_pool(a1)
-        l1 = self.ensure_reg(a1)
+        l1 = self.ensure_reg_or_pool(a1)
     l0 = self.force_result_in_reg(op, a0)
     return [l0, l1]
 
@@ -39,7 +38,7 @@ def prepare_int_mul(self, op):
     if check_imm32(a1):
         l1 = imm(a1.getint())
     else:
-        l1 = self.ensure_reg(a1)
+        l1 = self.ensure_reg_or_pool(a1)
     l0 = self.force_result_in_reg(op, a0)
     return [l0, l1]
 
@@ -51,7 +50,7 @@ def prepare_int_mul_ovf(self, op):
     if check_imm32(a1):
         l1 = imm(a1.getint())
     else:
-        l1 = self.ensure_reg(a1)
+        l1 = self.ensure_reg_or_pool(a1)
     lr,lq = self.rm.ensure_even_odd_pair(a0, op, bind_first=False)
     return [lr, lq, l1]
 
@@ -61,7 +60,7 @@ def generate_div_mod(modulus):
         a1 = op.getarg(1)
         l1 = self.ensure_reg(a1)
         if isinstance(a0, Const):
-            loc = self.ensure_reg(a0)
+            loc = self.ensure_reg_or_pool(a0)
             lr,lq = self.rm.ensure_even_odd_pair(a0, op,
                                 bind_first=modulus, must_exist=False,
                                 move_regs=False)
@@ -78,7 +77,6 @@ def prepare_int_sub(self, op):
     a0 = op.getarg(0)
     a1 = op.getarg(1)
     # sub is not commotative, thus cannot swap operands
-    # POOL l1 = self.ensure_reg_or_pool(a1)
     l0 = self.ensure_reg(a0)
     l1 = self.ensure_reg(a1)
     res = self.force_allocate_reg(op)
