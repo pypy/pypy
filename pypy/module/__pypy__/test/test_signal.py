@@ -2,12 +2,6 @@ import sys
 
 from pypy.module.thread.test.support import GenericTestThread
 
-import os
-if os.uname()[4] == 's390x':
-    # TMP!!!
-    import py
-    py.test.skip("skip for now s390x")
-
 class AppTestMinimal:
     spaceconfig = dict(usemodules=['__pypy__'])
 
