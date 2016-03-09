@@ -642,17 +642,26 @@ def _list_all_operations(result, operations, omit_finish=True):
 
 class History(object):
     ends_with_jump = False
+    trace = None
 
     def __init__(self):
         self.descr_cache = {}
         self.descrs = {}
         self.consts = []
+        self._cache = []
 
     def set_inputargs(self, inpargs):
         from rpython.jit.metainterp.opencoder import Trace
 
         self.trace = Trace(inpargs)
         self.inputargs = inpargs
+        if self._cache:
+            # hack to record the ops *after* we know our inputargs
+            for op in self._cache:
+                newop = self.trace.record_op(op.getopnum(), op.getarglist(),
+                                             op.getdescr())
+                op.position = newop.position
+            self._cache = None
 
     def length(self):
         return self.trace._count
@@ -668,7 +677,11 @@ class History(object):
 
     @specialize.argtype(3)
     def record(self, opnum, argboxes, value, descr=None):
-        op = self.trace.record_op(opnum, argboxes, descr)
+        if self.trace is None:
+            op = ResOperation(opnum, argboxes, -1, descr)
+            self._cache.append(op)
+        else:
+            op = self.trace.record_op(opnum, argboxes, descr)
         if value is None:
             assert op.type == 'v'
         elif isinstance(value, bool):

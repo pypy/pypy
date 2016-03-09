@@ -303,8 +303,7 @@ class UnrollOptimizer(Optimization):
                 patchguardop = self.optimizer.patchguardop
                 for guard in extra_guards.extra_guards:
                     if isinstance(guard, GuardResOp):
-                        guard.rd_snapshot = patchguardop.rd_snapshot
-                        guard.rd_frame_info_list = patchguardop.rd_frame_info_list
+                        guard.rd_resume_position = patchguardop.rd_resume_position
                         guard.setdescr(compile.ResumeAtPositionDescr())
                     self.send_extra_operation(guard)
             except VirtualStatesCantMatch:
