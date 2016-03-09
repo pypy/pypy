@@ -167,22 +167,13 @@ to be got from them!):
 * `hg`
 
 
-Embedding PyPy and improving CFFI
----------------------------------
-
-PyPy has some basic :doc:`embedding infrastructure <embedding>`. The idea would be to improve
-upon that with cffi hacks that can automatically generate embeddable .so/.dll
-library
-
-
 Optimising cpyext (CPython C-API compatibility layer)
 -----------------------------------------------------
 
 A lot of work has gone into PyPy's implementation of CPython's C-API over
 the last years to let it reach a practical level of compatibility, so that
 C extensions for CPython work on PyPy without major rewrites. However,
-there are still many edges and corner cases where it misbehaves, and it has
-not received any substantial optimisation so far.
+there are still many edges and corner cases where it misbehaves.
 
 The objective of this project is to fix bugs in cpyext and to optimise
 several performance critical parts of it, such as the reference counting
