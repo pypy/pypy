@@ -338,7 +338,7 @@ def compile_retrace(metainterp, greenkey, start,
 
     end_label = ResOperation(rop.LABEL, inputargs[:],
                              descr=loop_jitcell_token)
-    cut_pos = history.get_trace_position()
+    #cut_pos = history.get_trace_position()
     history.record(rop.JUMP, jumpargs[:], None, descr=loop_jitcell_token)
     enable_opts = jitdriver_sd.warmstate.enable_opts
     call_pure_results = metainterp.call_pure_results

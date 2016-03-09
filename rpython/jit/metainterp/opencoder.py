@@ -63,12 +63,16 @@ class TraceIterator(object):
         if force_inputargs is not None:
             self.inputargs = [rop.inputarg_from_tp(arg.type) for
                               arg in force_inputargs]
+            self._inputargs = [None] * len(force_inputargs)
             for i, arg in enumerate(force_inputargs):
                 if arg.position >= 0:
                     self._cache[arg.position] = self.inputargs[i]
+                else:
+                    self._inputargs[-arg.position-1] = self.inputargs[i]
         else:
             self.inputargs = [rop.inputarg_from_tp(arg.type) for
                               arg in self.trace.inputargs]
+            self._inputargs = self.inputargs[:]
         self.start = start
         self.pos = start
         self._count = 0
@@ -76,7 +80,7 @@ class TraceIterator(object):
 
     def _get(self, i):
         if i < 0:
-            return self.inputargs[-i - 1]
+            return self._inputargs[-i - 1]
         res = self._cache[i]
         assert res is not None
         return res

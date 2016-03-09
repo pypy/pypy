@@ -454,6 +454,10 @@ class FakeMetaInterpStaticData(object):
         def log_loop(*args, **kwds):
             pass
 
+        @classmethod
+        def log_loop_from_trace(*args, **kwds):
+            pass
+
     class logger_ops:
         repr_of_resop = repr
 
