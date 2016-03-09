@@ -1523,10 +1523,11 @@ class MIFrame(object):
     @specialize.arg(1)
     def execute_varargs(self, opnum, argboxes, descr, exc, pure):
         self.metainterp.clear_exception()
+        patch_pos = self.metainterp.history.get_trace_position()
         op = self.metainterp.execute_and_record_varargs(opnum, argboxes,
                                                             descr=descr)
         if pure and not self.metainterp.last_exc_value and op:
-            op = self.metainterp.record_result_of_call_pure(op)
+            op = self.metainterp.record_result_of_call_pure(op, patch_pos)
             exc = exc and not isinstance(op, Const)
         if exc:
             if op is not None:
@@ -1918,7 +1919,7 @@ class MetaInterp(object):
 
     def retrace_needed(self, trace, exported_state):
         self.partial_trace = trace
-        self.retracing_from = self.history.length()
+        self.retracing_from = self.potential_retrace_position
         self.exported_state = exported_state
         self.heapcache.reset()
 
@@ -2435,7 +2436,7 @@ class MetaInterp(object):
                     break
             else:
                 if self.partial_trace:
-                    if  start != self.retracing_from:
+                    if start != self.retracing_from:
                         raise SwitchToBlackhole(Counters.ABORT_BAD_LOOP) # For now
                 # Found!  Compile it as a loop.
                 # raises in case it works -- which is the common case
@@ -2454,7 +2455,7 @@ class MetaInterp(object):
                 self.staticdata.log('cancelled, tracing more...')
 
         # Otherwise, no loop found so far, so continue tracing.
-        start = self.history.get_cut_position()
+        start = self.history.get_trace_position()
         self.current_merge_points.append((live_arg_boxes, start))
 
     def _unpack_boxes(self, boxes, start, stop):
@@ -2606,7 +2607,8 @@ class MetaInterp(object):
         if not target_jitcell_token:
             return
 
-        cut_at = self.history.get_cut_position()
+        cut_at = self.history.get_trace_position()
+        self.potential_retrace_position = cut_at
         self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None,
                             descr=target_jitcell_token)
         self.history.ends_with_jump = True
@@ -2981,7 +2983,7 @@ class MetaInterp(object):
         debug_stop("jit-abort-longest-function")
         return max_jdsd, max_key
 
-    def record_result_of_call_pure(self, op):
+    def record_result_of_call_pure(self, op, patch_pos):
         """ Patch a CALL into a CALL_PURE.
         """
         opnum = op.getopnum()
@@ -2993,15 +2995,16 @@ class MetaInterp(object):
         else:
             # all-constants: remove the CALL operation now and propagate a
             # constant result
-            self.history.operations.pop()
+            self.history.cut(patch_pos)
             return resbox_as_const
         # not all constants (so far): turn CALL into CALL_PURE, which might
         # be either removed later by optimizeopt or turned back into CALL.
         arg_consts = [executor.constant_from_op(a) for a in op.getarglist()]
         self.call_pure_results[arg_consts] = resbox_as_const
         opnum = OpHelpers.call_pure_for_descr(op.getdescr())
-        newop = op.copy_and_change(opnum, args=op.getarglist())
-        self.history.operations[-1] = newop
+        self.history.cut(patch_pos)
+        newop = self.history.record_nospec(opnum, op.getarglist(), op.getdescr())
+        newop.copy_value_from(op)
         return newop
 
     def direct_assembler_call(self, targetjitdriver_sd):

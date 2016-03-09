@@ -1470,8 +1470,9 @@ class rop(object):
     def can_malloc(self):
         return self.is_call() or self.is_malloc()
 
-    def is_same_as(self):
-        return self.opnum in (rop.SAME_AS_I, rop.SAME_AS_F, rop.SAME_AS_R)
+    @staticmethod
+    def is_same_as(opnum):
+        return opnum in (rop.SAME_AS_I, rop.SAME_AS_F, rop.SAME_AS_R)
 
     def is_getfield(self):
         return self.opnum in (rop.GETFIELD_GC_I, rop.GETFIELD_GC_F,

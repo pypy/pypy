@@ -657,8 +657,8 @@ class History(object):
     def length(self):
         return self.trace._count
 
-    def get_cut_position(self):
-        return len(self.trace._ops)
+    def get_trace_position(self):
+        return self.trace.cut_point()
 
     def cut(self, cut_at):
         self.trace.cut_at(cut_at)
@@ -686,11 +686,13 @@ class History(object):
             op.setref_base(value)
         return op
 
+    def record_nospec(self, opnum, argboxes, descr=None):
+        return self.trace.record_op(opnum, argboxes, descr)
+
     def record_default_val(self, opnum, argboxes, descr=None):
-        op = ResOperation(opnum, argboxes, descr)
-        assert op.is_same_as()
+        assert rop.is_same_as(opnum)
+        op = self.trace.record_op(opnum, argboxes, descr)
         op.copy_value_from(argboxes[0])
-        self.operations.append(op)
         return op
 
 

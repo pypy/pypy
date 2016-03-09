@@ -130,4 +130,18 @@ class TestOpencoder(object):
         loop2.inputargs = inpargs
         loop2.operations = l
         BaseTest.assert_equal(loop1, loop2)
-        print "success"
+
+    def test_cut_trace_from(self):
+        i0, i1, i2 = InputArgInt(), InputArgInt(), InputArgInt()
+        t = Trace([i0, i1, i2])
+        add1 = t.record_op(rop.INT_ADD, [i0, i1])
+        cut_point = t.cut_point()
+        add2 = t.record_op(rop.INT_ADD, [add1, i1])
+        t.record_op(rop.GUARD_TRUE, [add2])
+        resume.capture_resumedata([FakeFrame(3, JitCode(4), [add2, add1, i1])],
+            None, [], t)
+        t.record_op(rop.INT_SUB, [add2, add1])
+        t2 = t.cut_trace_from(cut_point, [add1, i1])
+        (i0, i1), l, iter = self.unpack(t2)
+        assert len(l) == 3
+        assert l[0].getarglist() == [i0, i1]

@@ -57,15 +57,22 @@ class SnapshotIterator(object):
         return size, self._next(), self._next()
 
 class TraceIterator(object):
-    def __init__(self, trace, end):
+    def __init__(self, trace, start, end, force_inputargs=None):
         self.trace = trace
-        self.inputargs = [rop.inputarg_from_tp(arg.type) for
-                          arg in self.trace.inputargs]
-        self.start = 0
-        self.pos = 0
+        self._cache = [None] * trace._count
+        if force_inputargs is not None:
+            self.inputargs = [rop.inputarg_from_tp(arg.type) for
+                              arg in force_inputargs]
+            for i, arg in enumerate(force_inputargs):
+                if arg.position >= 0:
+                    self._cache[arg.position] = self.inputargs[i]
+        else:
+            self.inputargs = [rop.inputarg_from_tp(arg.type) for
+                              arg in self.trace.inputargs]
+        self.start = start
+        self.pos = start
         self._count = 0
         self.end = end
-        self._cache = [None] * trace._count
 
     def _get(self, i):
         if i < 0:
@@ -126,7 +133,23 @@ class TraceIterator(object):
         self._count += 1
         return res
 
-class Trace(object):
+class BaseTrace(object):
+    pass
+
+class CutTrace(BaseTrace):
+    def __init__(self, trace, start, count, inputargs):
+        self.trace = trace
+        self.start = start
+        self.inputargs = inputargs
+        self.count = count
+
+    def get_iter(self):
+        iter = TraceIterator(self.trace, self.start, len(self.trace._ops),
+                             self.inputargs)
+        iter._count = self.count
+        return iter
+
+class Trace(BaseTrace):
     def __init__(self, inputargs):
         self._ops = []
         self._descrs = [None]
@@ -139,8 +162,15 @@ class Trace(object):
     def length(self):
         return len(self._ops)
 
+    def cut_point(self):
+        return len(self._ops), self._count
+
     def cut_at(self, end):
-        self._ops = self._ops[:end]
+        self._ops = self._ops[:end[0]]
+        self._count = end[1]
+
+    def cut_trace_from(self, (start, count), inputargs):
+        return CutTrace(self, start, count, inputargs)
 
     def _encode(self, box):
         if isinstance(box, Const):
@@ -237,7 +267,7 @@ class Trace(object):
         assert self._ops[resumedata_pos + 2] == pc
 
     def get_iter(self):
-        return TraceIterator(self, len(self._ops))
+        return TraceIterator(self, 0, len(self._ops))
 
     def _get_operations(self):
         """ NOT_RPYTHON

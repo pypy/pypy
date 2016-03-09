@@ -200,20 +200,15 @@ def record_loop_or_bridge(metainterp_sd, loop):
 # ____________________________________________________________
 
 
-def compile_simple_loop(metainterp, greenkey, start, trace, jumpargs,
-                        enable_opts):
-    xxxx
+def compile_simple_loop(metainterp, greenkey, trace, enable_opts):
     from rpython.jit.metainterp.optimizeopt import optimize_trace
 
     jitdriver_sd = metainterp.jitdriver_sd
     metainterp_sd = metainterp.staticdata
     jitcell_token = make_jitcell_token(jitdriver_sd)
-    label = ResOperation(rop.LABEL, inputargs[:], descr=jitcell_token)
-    jump_op = ResOperation(rop.JUMP, jumpargs[:], descr=jitcell_token)
     call_pure_results = metainterp.call_pure_results
-    data = SimpleCompileData(label, ops + [jump_op],
-                                 call_pure_results=call_pure_results,
-                                 enable_opts=enable_opts)
+    data = SimpleCompileData(trace, call_pure_results=call_pure_results,
+                             enable_opts=enable_opts)
     try:
         loop_info, ops = optimize_trace(metainterp_sd, jitdriver_sd,
                                         data, metainterp.box_names_memo)
@@ -234,7 +229,7 @@ def compile_simple_loop(metainterp, greenkey, start, trace, jumpargs,
         loop.check_consistency()
     jitcell_token.target_tokens = [target_token]
     send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, "loop",
-                         inputargs, metainterp.box_names_memo)
+                         loop_info.inputargs, metainterp.box_names_memo)
     record_loop_or_bridge(metainterp_sd, loop)
     return target_token
 
@@ -262,9 +257,8 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
     jitcell_token = make_jitcell_token(jitdriver_sd)
     history.record(rop.JUMP, jumpargs, None, descr=jitcell_token)
     if 'unroll' not in enable_opts or not metainterp.cpu.supports_guard_gc_type:
-        return compile_simple_loop(metainterp, greenkey, start, inputargs,
-                                   history.trace,
-                                   jumpargs, enable_opts)
+        return compile_simple_loop(metainterp, greenkey, history.trace,
+                                   enable_opts)
     call_pure_results = metainterp.call_pure_results
     preamble_data = LoopCompileData(history.trace, inputargs,
                                     call_pure_results=call_pure_results,
@@ -332,22 +326,22 @@ def compile_retrace(metainterp, greenkey, start,
     to the first operation.
     """
     from rpython.jit.metainterp.optimizeopt import optimize_trace
-    from rpython.jit.metainterp.optimizeopt.optimizer import BasicLoopInfo
 
-    history = metainterp.history
+    trace = metainterp.history.trace.cut_trace_from(start, inputargs)
     metainterp_sd = metainterp.staticdata
     jitdriver_sd = metainterp.jitdriver_sd
+    history = metainterp.history
 
     loop_jitcell_token = metainterp.get_procedure_token(greenkey)
     assert loop_jitcell_token
 
     end_label = ResOperation(rop.LABEL, inputargs[:],
                              descr=loop_jitcell_token)
-    jump_op = ResOperation(rop.JUMP, jumpargs[:], descr=loop_jitcell_token)
+    cut_pos = history.get_trace_position()
+    history.record(rop.JUMP, jumpargs[:], None, descr=loop_jitcell_token)
     enable_opts = jitdriver_sd.warmstate.enable_opts
-    ops = history.operations[start:]
     call_pure_results = metainterp.call_pure_results
-    loop_data = UnrolledLoopData(end_label, jump_op, ops, start_state,
+    loop_data = UnrolledLoopData(trace, loop_jitcell_token, start_state,
                                  call_pure_results=call_pure_results,
                                  enable_opts=enable_opts)
     try:
@@ -356,6 +350,7 @@ def compile_retrace(metainterp, greenkey, start,
                                              metainterp.box_names_memo)
     except InvalidLoop:
         # Fall back on jumping directly to preamble
+        xxxx
         jump_op = ResOperation(rop.JUMP, inputargs[:], descr=loop_jitcell_token)
         loop_data = UnrolledLoopData(end_label, jump_op, [jump_op], start_state,
                                      call_pure_results=call_pure_results,

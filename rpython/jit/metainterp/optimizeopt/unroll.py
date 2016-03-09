@@ -226,8 +226,9 @@ class UnrollOptimizer(Optimization):
 
     def optimize_bridge(self, trace, runtime_boxes, call_pure_results,
                         inline_short_preamble, box_names_memo):
+        trace = trace.get_iter()
         self._check_no_forwarding([trace.inputargs])
-        info, ops = self.optimizer.propagate_all_forward(trace.get_iter(),
+        info, ops = self.optimizer.propagate_all_forward(trace,
             call_pure_results, False)
         jump_op = info.jump_op
         cell_token = jump_op.getdescr()
