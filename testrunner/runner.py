@@ -259,7 +259,8 @@ def execute_tests(run_param, testdirs, logfile, out):
 
         if res[0] == 'start':
             started += 1
-            out.write("++ starting %s [%d started in total]\n" % (res[1],
+            now = time.strftime('%H:%M:%S')
+            out.write("++ %s starting %s [%d started in total]\n" % (now, res[1],
                                                                   started))
             continue
         
