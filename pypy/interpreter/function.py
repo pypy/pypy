@@ -13,6 +13,9 @@ from pypy.interpreter.eval import Code
 from pypy.interpreter.argument import Arguments
 from rpython.rlib import jit
 
+from rpython.rlib.rarithmetic import LONG_BIT
+from rpython.rlib.rbigint import rbigint
+
 
 funccallunrolling = unrolling_iterable(range(4))
 
@@ -556,6 +559,26 @@ class Method(W_Root):
             if not space.eq_w(self.w_instance, w_other.w_instance):
                 return space.w_False
         return space.eq(self.w_function, w_other.w_function)
+
+    def is_w(self, space, other):
+        if not isinstance(other, Method):
+            return False
+        return (self.w_instance is other.w_instance and
+                self.w_function is other.w_function and
+                self.w_class is other.w_class)
+
+    def immutable_unique_id(self, space):
+        from pypy.objspace.std.util import IDTAG_METHOD as tag
+        from pypy.objspace.std.util import IDTAG_SHIFT
+        if self.w_instance is not None:
+            id = space.bigint_w(space.id(self.w_instance))
+            id = id.lshift(LONG_BIT)
+        else:
+            id = rbigint.fromint(0)
+        id = id.or_(space.bigint_w(space.id(self.w_function)))
+        id = id.lshift(LONG_BIT).or_(space.bigint_w(space.id(self.w_class)))
+        id = id.lshift(IDTAG_SHIFT).int_or_(tag)
+        return space.newlong_from_rbigint(id)
 
     def descr_method_hash(self):
         space = self.space
