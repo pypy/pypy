@@ -433,6 +433,14 @@ class WarmEnterState(object):
                     bound_reached(hash, None, *args)
                 return
 
+            # Workaround for issue #2200, maybe temporary.  This is not
+            # a proper fix, but only a hack that should work well enough
+            # for PyPy's main jitdriver...  See test_issue2200_recursion
+            from rpython.jit.metainterp.blackhole import workaround2200
+            if workaround2200.active:
+                workaround2200.active = False
+                return
+
             # Here, we have found 'cell'.
             #
             if cell.flags & (JC_TRACING | JC_TEMPORARY):

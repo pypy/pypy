@@ -60,10 +60,10 @@ def enable(space, fileno, period):
     Must be smaller than 1.0
     """
     w_modules = space.sys.get('modules')
-    if space.contains_w(w_modules, space.wrap('_continuation')):
-        space.warn(space.wrap("Using _continuation/greenlet/stacklet together "
-                              "with vmprof will crash"),
-                   space.w_RuntimeWarning)
+    #if space.contains_w(w_modules, space.wrap('_continuation')):
+    #    space.warn(space.wrap("Using _continuation/greenlet/stacklet together "
+    #                          "with vmprof will crash"),
+    #               space.w_RuntimeWarning)
     try:
         rvmprof.enable(fileno, period)
     except rvmprof.VMProfError, e:
