@@ -2317,7 +2317,7 @@ class MetaInterp(object):
 
     def _compile_and_run_once(self, original_boxes):
         self.initialize_state_from_start(original_boxes)
-        self.current_merge_points = [(original_boxes, 0)]
+        self.current_merge_points = [(original_boxes, (0, 0))]
         num_green_args = self.jitdriver_sd.num_green_args
         original_greenkey = original_boxes[:num_green_args]
         self.resumekey = compile.ResumeFromInterpDescr(original_greenkey)

@@ -243,6 +243,7 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
     metainterp_sd = metainterp.staticdata
     jitdriver_sd = metainterp.jitdriver_sd
     history = metainterp.history
+    trace = history.trace
     warmstate = jitdriver_sd.warmstate
 
     enable_opts = jitdriver_sd.warmstate.enable_opts
@@ -252,15 +253,15 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
         enable_opts = enable_opts.copy()
         del enable_opts['unroll']
 
-    assert start == 0
-    #ops = history.operations[start:]
     jitcell_token = make_jitcell_token(jitdriver_sd)
     history.record(rop.JUMP, jumpargs, None, descr=jitcell_token)
+    if start != (0, 0):
+        trace = trace.cut_trace_from(start, inputargs)
     if 'unroll' not in enable_opts or not metainterp.cpu.supports_guard_gc_type:
-        return compile_simple_loop(metainterp, greenkey, history.trace,
+        return compile_simple_loop(metainterp, greenkey, trace,
                                    enable_opts)
     call_pure_results = metainterp.call_pure_results
-    preamble_data = LoopCompileData(history.trace, inputargs,
+    preamble_data = LoopCompileData(trace, inputargs,
                                     call_pure_results=call_pure_results,
                                     enable_opts=enable_opts)
     try:
@@ -275,7 +276,7 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
     start_descr = TargetToken(jitcell_token,
                               original_jitcell_token=jitcell_token)
     jitcell_token.target_tokens = [start_descr]
-    loop_data = UnrolledLoopData(history.trace, jitcell_token, start_state,
+    loop_data = UnrolledLoopData(trace, jitcell_token, start_state,
                                  call_pure_results=call_pure_results,
                                  enable_opts=enable_opts)
     try:
