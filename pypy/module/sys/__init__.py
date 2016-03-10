@@ -40,6 +40,7 @@ class Module(MixedModule):
         'pypy_find_stdlib'      : 'initpath.pypy_find_stdlib',
         'pypy_find_executable'  : 'initpath.pypy_find_executable',
         'pypy_resolvedirof'     : 'initpath.pypy_resolvedirof',
+        'pypy_initfsencoding'   : 'initpath.pypy_initfsencoding',
 
         '_getframe'             : 'vm._getframe',
         '_current_frames'       : 'currentframes._current_frames',
@@ -97,12 +98,7 @@ class Module(MixedModule):
 
     def startup(self, space):
         if space.config.translating:
-            if not we_are_translated():
-                # don't get the filesystemencoding at translation time
-                assert self.filesystemencoding is None
-            else:
-                from pypy.module.sys.interp_encoding import _getfilesystemencoding
-                self.filesystemencoding = _getfilesystemencoding(space)
+            assert self.filesystemencoding is None
 
         if not space.config.translating or we_are_translated():
             from pypy.module.sys import version
