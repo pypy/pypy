@@ -431,13 +431,13 @@ def patch_new_loop_to_load_virtualizable_fields(loop, jitdriver_sd, vable):
         box = inputargs[i]
         opnum = OpHelpers.getfield_for_descr(descr)
         emit_op(extra_ops,
-                ResOperation(opnum, [vable_box], descr))
+                ResOperation(opnum, [vable_box], descr=descr))
         box.set_forwarded(extra_ops[-1])
         i += 1
     arrayindex = 0
     for descr in vinfo.array_field_descrs:
         arraylen = vinfo.get_array_length(vable, arrayindex)
-        arrayop = ResOperation(rop.GETFIELD_GC_R, [vable_box], descr)
+        arrayop = ResOperation(rop.GETFIELD_GC_R, [vable_box], descr=descr)
         emit_op(extra_ops, arrayop)
         arraydescr = vinfo.array_descrs[arrayindex]
         assert i + arraylen <= len(inputargs)
@@ -1005,7 +1005,7 @@ class ResumeFromInterpDescr(ResumeDescr):
 
 def compile_trace(metainterp, resumekey, runtime_boxes):
     """Try to compile a new bridge leading from the beginning of the history
-    to some existing place.
+    to some existging place.
     """
 
     from rpython.jit.metainterp.optimizeopt import optimize_trace

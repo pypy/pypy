@@ -1,5 +1,10 @@
 
 """ Storage format:
+for each operation (inputargs numbered with negative numbers)
+<opnum> [size-if-unknown-arity] [<arg0> <arg1> ...] [descr] [potential snapshot]
+snapshot is as follows
+<total size of snapshot> <virtualizable size> <virtualizable boxes>
+<virtualref size> <virtualref boxes> [<size> <jitcode> <pc> <boxes...> ...]
 """
 
 from rpython.jit.metainterp.history import ConstInt, Const
@@ -56,6 +61,13 @@ class SnapshotIterator(object):
             size = self._next()
             assert size >= 0
         return size, self._next(), self._next()
+
+    def get_list_of_boxes(self):
+        size = self._next()
+        l = []
+        for i in range(size):
+            l.append(self.next())
+        return l
 
 class TraceIterator(object):
     def __init__(self, trace, start, end, force_inputargs=None):
@@ -250,6 +262,11 @@ class Trace(BaseTrace):
         for box in active_boxes:
             self._ops.append(self._encode(box)) # not tagged, as it must be boxes
         return pos
+
+    def record_list_of_boxes(self, boxes):
+        self._ops.append(len(boxes))
+        for box in boxes:
+            self._ops.append(self._encode(box))
 
     def get_patchable_position(self):
         p = len(self._ops)

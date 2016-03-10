@@ -87,6 +87,7 @@ def test_remove_consts_and_duplicates():
     c3 = ConstInt(3)
     boxes = [b1, b2, b1, c3]
     dup = {}
+    metainterp.history.set_inputargs([b1, b2])
     metainterp.remove_consts_and_duplicates(boxes, 4, dup)
     assert boxes[0] is b1
     assert boxes[1] is b2

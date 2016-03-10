@@ -31,6 +31,9 @@ class FakeLogger(object):
     def log_loop(self, inputargs, operations, number=0, type=None, ops_offset=None, name='', memo=None):
         pass
 
+    def log_loop_from_trace(self, *args, **kwds):
+        pass
+
     def repr_of_resop(self, op):
         return repr(op)
 
@@ -91,11 +94,13 @@ def test_compile_loop():
     metainterp.staticdata = staticdata
     metainterp.cpu = cpu
     metainterp.history = History()
-    metainterp.history.operations = loop.operations[:-1]
-    metainterp.history.inputargs = loop.inputargs[:]
+    metainterp.history.set_inputargs(loop.inputargs[:])
+    for op in loop.operations:
+        newop = metainterp.history.record_nospec(op.getopnum(), op.getarglist(), op.getdescr())
+        op.position = newop.position
     #
     greenkey = 'faked'
-    target_token = compile_loop(metainterp, greenkey, 0,
+    target_token = compile_loop(metainterp, greenkey, (0, 0),
                                 loop.inputargs,
                                 loop.operations[-1].getarglist(),
                                 None)

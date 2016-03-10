@@ -1619,8 +1619,8 @@ class MIFrame(object):
             self.metainterp.vrefs_after_residual_call()
             vablebox = None
             if assembler_call:
-                vablebox, resbox = self.metainterp.direct_assembler_call(resbox,
-                    assembler_call_jd, cut_pos)
+                vablebox, resbox = self.metainterp.direct_assembler_call(
+                    self.metainterp._last_op, assembler_call_jd, cut_pos)
             if resbox and resbox.type != 'v':
                 self.make_result_of_lastop(resbox)
             self.metainterp.vable_after_residual_call(funcbox)
@@ -1893,6 +1893,7 @@ class MetaInterp(object):
     cancel_count = 0
     exported_state = None
     last_exc_box = None
+    _last_op = None
 
     def __init__(self, staticdata, jitdriver_sd):
         self.staticdata = staticdata
@@ -1949,7 +1950,7 @@ class MetaInterp(object):
             self.current_call_id += 1
         if greenkey is not None and self.is_main_jitcode(jitcode):
             self.portal_trace_positions.append(
-                    (jitcode.jitdriver_sd, greenkey, len(self.history.operations)))
+                    (jitcode.jitdriver_sd, greenkey, self.history.get_trace_position()))
         if len(self.free_frames_list) > 0:
             f = self.free_frames_list.pop()
         else:
@@ -1976,7 +1977,7 @@ class MetaInterp(object):
             self.call_ids.pop()
         if frame.greenkey is not None and self.is_main_jitcode(jitcode):
             self.portal_trace_positions.append(
-                    (jitcode.jitdriver_sd, None, len(self.history.operations)))
+                    (jitcode.jitdriver_sd, None, self.history.get_trace_position()))
         # we save the freed MIFrames to avoid needing to re-create new
         # MIFrame objects all the time; they are a bit big, with their
         # 3*256 register entries.
@@ -2162,6 +2163,7 @@ class MetaInterp(object):
         profiler.count_ops(opnum, Counters.RECORDED_OPS)
         self.heapcache.invalidate_caches(opnum, descr, argboxes)
         op = self.history.record(opnum, argboxes, resvalue, descr)
+        self._last_op = op
         self.attach_debug_info(op)
         if op.type != 'v':
             return op
@@ -2962,7 +2964,7 @@ class MetaInterp(object):
             else:
                 jitdriver_sd, greenkey, startpos = start_stack.pop()
                 warmstate = jitdriver_sd.warmstate
-                size = pos - startpos
+                size = pos[0] - startpos[0]
                 if size > max_size:
                     if warmstate is not None:
                         r = warmstate.get_location_str(greenkey)
@@ -2982,8 +2984,7 @@ class MetaInterp(object):
                 max_jdsd = jitdriver_sd
                 max_key = key
         if self.portal_trace_positions: # tests
-            self.staticdata.logger_ops.log_abort_loop(self.history.inputargs,
-                                       self.history.operations,
+            self.staticdata.logger_ops.log_abort_loop(self.history.trace,
                                        self.box_names_memo)
         debug_stop("jit-abort-longest-function")
         return max_jdsd, max_key
@@ -3028,9 +3029,10 @@ class MetaInterp(object):
         opnum = OpHelpers.call_assembler_for_descr(op.getdescr())
         oldop = op
         op = self.history.record_nospec(opnum, args, descr=token)
-        op.copy_value_from(oldop)
         if opnum == rop.CALL_ASSEMBLER_N:
             op = None
+        else:
+            op.copy_value_from(oldop)
         #
         # To fix an obscure issue, make sure the vable stays alive
         # longer than the CALL_ASSEMBLER operation.  We do it by

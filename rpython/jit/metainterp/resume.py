@@ -136,18 +136,15 @@ def capture_resumedata(framestack, virtualizable_boxes, virtualref_boxes, t):
     else:
         virtualizable_boxes = []
     virtualref_boxes = virtualref_boxes[:]
+    pos = t.get_patchable_position()
+    t.record_list_of_boxes(virtualizable_boxes)
+    t.record_list_of_boxes(virtualref_boxes)
     if n >= 0:
         top = framestack[n]
-        pos = t.get_patchable_position()
         _ensure_parent_resumedata(framestack, n, t)
         t.record_snapshot(top.jitcode, top.pc,
                           top.get_list_of_active_boxes(False))
-        t.patch_position_to_current(pos)
-    else:
-        yyy
-        snapshot_storage.rd_frame_info_list = None
-        snapshot_storage.rd_snapshot = TopSnapshot(None, virtualref_boxes,
-                                                   virtualizable_boxes)
+    t.patch_position_to_current(pos)
     return result
 
 PENDINGFIELDSTRUCT = lltype.Struct('PendingField',
@@ -295,25 +292,16 @@ class ResumeDataLoopMemo(object):
         snapshot_iter = trace.get_snapshot_iter(position)
         state = NumberingState(snapshot_iter.length())
 
-        state.append(rffi.cast(rffi.SHORT, 0))
-        n = 0 # len(topsnapshot.boxes)
+        virtualizable_length = snapshot_iter._next()
+
+        state.append(rffi.cast(rffi.SHORT, virtualizable_length))
+        self._number_boxes(snapshot_iter, virtualizable_length, optimizer, state)
+
+        n = snapshot_iter._next()
         assert not (n & 1)
         state.append(rffi.cast(rffi.SHORT, n >> 1))
-        #
-        # XXX ignore vables and virtualrefs for now
-        #assert isinstance(topsnapshot, TopSnapshot)
-        #special_boxes_size = (1 + len(topsnapshot.vable_boxes) +
-        #                      1 + len(topsnapshot.boxes))
-        #assert state.position == special_boxes_size
 
-        #state.position = 0
-        #state.append(rffi.cast(rffi.SHORT, len(topsnapshot.vable_boxes)))
-        #self._number_boxes(topsnapshot.vable_boxes, optimizer, state)
-        #n = len(topsnapshot.boxes)
-        #assert not (n & 1)
-        #state.append(rffi.cast(rffi.SHORT, n >> 1))
-        #self._number_boxes(topsnapshot.boxes, optimizer, state)
-        #assert state.position == special_boxes_size
+        self._number_boxes(snapshot_iter, n, optimizer, state)
 
         while not snapshot_iter.done():
             size, jitcode_index, pc = snapshot_iter.get_size_jitcode_pc()

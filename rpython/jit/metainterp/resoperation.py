@@ -110,7 +110,7 @@ def VecOperation(opnum, args, baseop, count, descr=None):
     return VecOperationNew(opnum, args, datatype, bytesize, signed, count, descr)
 
 def VecOperationNew(opnum, args, datatype, bytesize, signed, count, descr=None):
-    op = ResOperation(opnum, args, descr)
+    op = ResOperation(opnum, args, descr=descr)
     vecinfo = VectorizationInfo(None)
     vecinfo.setinfo(datatype, bytesize, signed)
     vecinfo.count = count

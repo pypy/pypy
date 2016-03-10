@@ -15,11 +15,15 @@ class Logger(object):
     def log_loop_from_trace(self, trace, memo):
         if not have_debug_prints():
             return
+        inputargs, ops = self._unpack_trace(trace)
+        self.log_loop(inputargs, ops, memo=memo)
+
+    def _unpack_trace(self, trace):
         ops = []
         i = trace.get_iter()
         while not i.done():
             ops.append(i.next())
-        self.log_loop(i.inputargs, ops, memo=memo)
+        return i.inputargs, ops
 
     def log_loop(self, inputargs, operations, number=0, type=None,
                  ops_offset=None, name='', memo=None):
@@ -91,8 +95,11 @@ class Logger(object):
         debug_stop("jit-log-short-preamble")
         return logops
 
-    def log_abort_loop(self, inputargs, operations, memo=None):
+    def log_abort_loop(self, trace, memo=None):
         debug_start("jit-abort-log")
+        if not have_debug_prints():
+            return
+        inputargs, operations = self._unpack_trace(trace)
         logops = self._log_operations(inputargs, operations, ops_offset=None,
                                       memo=memo)
         debug_stop("jit-abort-log")

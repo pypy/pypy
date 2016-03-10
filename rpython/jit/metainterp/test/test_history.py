@@ -62,17 +62,6 @@ def test_float_nonnull():
     assert c5.nonnull()
     assert c6.nonnull()
 
-class TestHistoryEncoding(object):
-    def test_encode_basic(self):
-        history = History()
-        i0 = InputArgInt()
-        i1 = InputArgInt()
-        history.set_inputargs([i0, i1])
-        history.record(rop.INT_ADD, [i0, i1], 13)
-        rh = history.get_recorded_history()
-        op = rh.get_next_op()
-        assert op.getopnum() == rop.INT_ADD
-
 class TestZTranslated(StandaloneTests):
     def test_ztranslated_same_constant_float(self):
         def fn(args):

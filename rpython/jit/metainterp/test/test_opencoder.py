@@ -6,7 +6,7 @@ from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer
 from rpython.jit.metainterp import resume
 from rpython.jit.metainterp.test.strategies import lists_of_operations
 from rpython.jit.metainterp.optimizeopt.test.test_util import BaseTest
-from rpython.jit.metainterp.history import TreeLoop
+from rpython.jit.metainterp.history import TreeLoop, AbstractDescr
 from hypothesis import given
 
 class JitCode(object):
@@ -24,19 +24,19 @@ class FakeFrame(object):
     def get_list_of_active_boxes(self, flag):
         return self.boxes
 
-def unpack_snapshot(t, pos):
-    trace = t.trace
-    first = trace._ops[pos] # this is the size
-    pos += 1
-    boxes = []
-    while first > pos + 1:
-        snapshot_size = trace._ops[pos]
-        # 2 for jitcode and pc
-        pos += 1 + 2
-        boxes += [t._untag(trace._ops[i + pos]) for i in range(snapshot_size)]
-        pos += len(boxes)
-    return boxes
-
+def unpack_snapshot(t, op, pos):
+    op.framestack = []
+    si = t.get_snapshot_iter(op.rd_resume_position)
+    virtualizables = si.get_list_of_boxes()
+    vref_boxes = si.get_list_of_boxes()
+    while not si.done():
+        size, jitcode, pc = si.get_size_jitcode_pc()
+        boxes = []
+        for i in range(size):
+            boxes.append(si.next())
+        op.framestack.append(FakeFrame(JitCode(jitcode), pc, boxes))
+    op.virtualizables = virtualizables
+    op.vref_boxes = vref_boxes
 
 class TestOpencoder(object):
     def unpack(self, t):
@@ -45,14 +45,7 @@ class TestOpencoder(object):
         while not iter.done():
             op = iter.next()
             if op.is_guard():
-                op.framestack = []
-                si = iter.get_snapshot_iter(op.rd_resume_position)
-                while not si.done():
-                    size, jitcode, pc = si.get_size_jitcode_pc()
-                    boxes = []
-                    for i in range(size):
-                        boxes.append(si.next())
-                    op.framestack.append(FakeFrame(JitCode(jitcode), pc, boxes))
+                unpack_snapshot(iter, op, op.rd_resume_position)
             l.append(op)
         return iter.inputargs, l, iter
 
@@ -82,18 +75,17 @@ class TestOpencoder(object):
         resume.capture_resumedata(framestack, None, [], t)
         (i0, i1), l, iter = self.unpack(t)
         assert l[1].opnum == rop.GUARD_FALSE
-        boxes = unpack_snapshot(iter, l[1].rd_resume_position)
-        assert boxes == [i0, i1]
+        assert l[1].framestack[0].boxes == [i0, i1]
         t.record_op(rop.GUARD_FALSE, [add])
         resume.capture_resumedata([frame0, frame1], None, [], t)
         t.record_op(rop.INT_ADD, [add, add])
         (i0, i1), l, iter = self.unpack(t)
         assert l[1].opnum == rop.GUARD_FALSE
-        boxes = unpack_snapshot(iter, l[1].rd_resume_position)
-        assert boxes == [i0, i1]
+        assert l[1].framestack[0].boxes == [i0, i1]
         assert l[2].opnum == rop.GUARD_FALSE
-        boxes = unpack_snapshot(iter, l[2].rd_resume_position)
-        assert boxes == [i0, i1, i0, i0, l[0]]
+        fstack = l[2].framestack
+        assert fstack[0].boxes == [i0, i1]
+        assert fstack[1].boxes == [i0, i0, l[0]]
 
     def test_read_snapshot_interface(self):
         i0, i1, i2 = InputArgInt(), InputArgInt(), InputArgInt()
@@ -107,6 +99,8 @@ class TestOpencoder(object):
         (i0, i1, i2), l, iter = self.unpack(t)
         pos = l[0].rd_resume_position
         snapshot_iter = iter.get_snapshot_iter(pos)
+        assert snapshot_iter.get_list_of_boxes() == []
+        assert snapshot_iter.get_list_of_boxes() == []
         size, jc_index, pc = snapshot_iter.get_size_jitcode_pc()
         assert size == 2
         assert jc_index == 2
@@ -119,6 +113,8 @@ class TestOpencoder(object):
         assert [snapshot_iter.next() for i in range(2)] == [i2, i2]
         pos = l[1].rd_resume_position
         snapshot_iter = iter.get_snapshot_iter(pos)
+        assert snapshot_iter.get_list_of_boxes() == []
+        assert snapshot_iter.get_list_of_boxes() == []
         size, jc_index, pc = snapshot_iter.get_size_jitcode_pc()
         assert size == 2
         assert jc_index == 2
@@ -159,3 +155,17 @@ class TestOpencoder(object):
         (i0, i1), l, iter = self.unpack(t2)
         assert len(l) == 3
         assert l[0].getarglist() == [i0, i1]
+
+    def test_virtualizable_virtualref(self):
+        class SomeDescr(AbstractDescr):
+            pass
+
+        i0, i1, i2 = InputArgInt(), InputArgInt(), InputArgInt()
+        t = Trace([i0, i1, i2])
+        p0 = t.record_op(rop.NEW_WITH_VTABLE, [], descr=SomeDescr())
+        t.record_op(rop.GUARD_TRUE, [i0])
+        resume.capture_resumedata([], [i1, i2, p0], [p0, i1], t)
+        (i0, i1, i2), l, iter = self.unpack(t)
+        assert not l[1].framestack
+        assert l[1].virtualizables == [l[0], i1, i2]
+        assert l[1].vref_boxes == [l[0], i1]
