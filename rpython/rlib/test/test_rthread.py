@@ -150,6 +150,7 @@ class AbstractThreadTests(AbstractGCTestClass):
                 willing_to_wait_more -= 1
                 done = len(state.answers) == expected
 
+                print "waitting %d more iterations" % willing_to_wait_more
                 time.sleep(0.01)
 
             time.sleep(0.1)
