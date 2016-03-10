@@ -43,7 +43,17 @@ class TestOpencoder(object):
         iter = t.get_iter()
         l = []
         while not iter.done():
-            l.append(iter.next())
+            op = iter.next()
+            if op.is_guard():
+                op.framestack = []
+                si = iter.get_snapshot_iter(op.rd_resume_position)
+                while not si.done():
+                    size, jitcode, pc = si.get_size_jitcode_pc()
+                    boxes = []
+                    for i in range(size):
+                        boxes.append(si.next())
+                    op.framestack.append(FakeFrame(JitCode(jitcode), pc, boxes))
+            l.append(op)
         return iter.inputargs, l, iter
 
     def test_simple_iterator(self):
@@ -121,6 +131,10 @@ class TestOpencoder(object):
         t = Trace(inputargs)
         for op in ops:
             newop = t.record_op(op.getopnum(), op.getarglist())
+            newop.orig_op = op
+            if newop.is_guard():
+                resume.capture_resumedata(op.framestack,
+                    None, [], t)
             op.position = newop.position
         inpargs, l, iter = self.unpack(t)
         loop1 = TreeLoop("loop1")

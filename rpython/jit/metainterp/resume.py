@@ -200,14 +200,12 @@ TAG_CONST_OFFSET = 0
 class NumberingState(object):
     def __init__(self, size):
         self.liveboxes = {}
-        self.current = [rffi.cast(rffi.SHORT, 0)] * (size + 2)
-        self.position = 0
+        self.current = []
         self.n = 0
         self.v = 0
 
     def append(self, item):
-        self.current[self.position] = item
-        self.position += 1
+        self.current.append(item)
 
 class ResumeDataLoopMemo(object):
 
@@ -317,15 +315,13 @@ class ResumeDataLoopMemo(object):
         #self._number_boxes(topsnapshot.boxes, optimizer, state)
         #assert state.position == special_boxes_size
 
-        total = 2
         while not snapshot_iter.done():
             size, jitcode_index, pc = snapshot_iter.get_size_jitcode_pc()
-            total += 2 + size
             state.append(rffi.cast(rffi.SHORT, jitcode_index))
             state.append(rffi.cast(rffi.SHORT, pc))
             self._number_boxes(snapshot_iter, size, optimizer, state)
 
-        numb = resumecode.create_numbering(state.current, total)
+        numb = resumecode.create_numbering(state.current)
         return numb, state.liveboxes, state.v
         
     def forget_numberings(self):

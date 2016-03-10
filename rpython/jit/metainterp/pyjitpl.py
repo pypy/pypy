@@ -1581,6 +1581,7 @@ class MIFrame(object):
         effectinfo = descr.get_extra_info()
         if effectinfo.oopspecindex == effectinfo.OS_NOT_IN_TRACE:
             return self.metainterp.do_not_in_trace_call(allboxes, descr)
+        cut_pos = self.metainterp.history.get_trace_position()
 
         if (assembler_call or
                 effectinfo.check_forces_virtual_or_virtualizable()):
@@ -1618,8 +1619,8 @@ class MIFrame(object):
             self.metainterp.vrefs_after_residual_call()
             vablebox = None
             if assembler_call:
-                vablebox, resbox = self.metainterp.direct_assembler_call(
-                    assembler_call_jd)
+                vablebox, resbox = self.metainterp.direct_assembler_call(resbox,
+                    assembler_call_jd, cut_pos)
             if resbox and resbox.type != 'v':
                 self.make_result_of_lastop(resbox)
             self.metainterp.vable_after_residual_call(funcbox)
@@ -3007,11 +3008,11 @@ class MetaInterp(object):
         newop.copy_value_from(op)
         return newop
 
-    def direct_assembler_call(self, targetjitdriver_sd):
+    def direct_assembler_call(self, op, targetjitdriver_sd, cut_pos):
         """ Generate a direct call to assembler for portal entry point,
         patching the CALL_MAY_FORCE that occurred just now.
         """
-        op = self.history.operations.pop()
+        self.history.cut(cut_pos)
         assert op.is_call_may_force()
         num_green_args = targetjitdriver_sd.num_green_args
         arglist = op.getarglist()
@@ -3021,8 +3022,9 @@ class MetaInterp(object):
         warmrunnerstate = targetjitdriver_sd.warmstate
         token = warmrunnerstate.get_assembler_token(greenargs)
         opnum = OpHelpers.call_assembler_for_descr(op.getdescr())
-        op = op.copy_and_change(opnum, args=args, descr=token)
-        self.history.operations.append(op)
+        oldop = op
+        op = self.history.record_nospec(opnum, args, descr=token)
+        op.copy_value_from(oldop)
         if opnum == rop.CALL_ASSEMBLER_N:
             op = None
         #

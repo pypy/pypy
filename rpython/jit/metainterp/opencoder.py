@@ -47,6 +47,7 @@ class SnapshotIterator(object):
     def get_size_jitcode_pc(self):
         if self.save_pos >= 0:
             self.pos = self.save_pos
+            self.save_pos = -1
         size = self._next()
         if size < 0:
             self.save_pos = self.pos
