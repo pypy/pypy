@@ -2344,22 +2344,22 @@ class MetaInterp(object):
         if self.resumekey_original_loop_token is None:
             raise compile.giveup() # should be rare
         self.staticdata.try_to_free_some_loops()
-        self.initialize_state_from_guard_failure(key, deadframe)
+        inputargs = self.initialize_state_from_guard_failure(key, deadframe)
         try:
-            return self._handle_guard_failure(resumedescr, key, deadframe)
+            return self._handle_guard_failure(resumedescr, key, inputargs, deadframe)
         finally:
             self.resumekey_original_loop_token = None
             self.staticdata.profiler.end_tracing()
             debug_stop('jit-tracing')
 
-    def _handle_guard_failure(self, resumedescr, key, deadframe):
+    def _handle_guard_failure(self, resumedescr, key, inputargs, deadframe):
         self.current_merge_points = []
         self.resumekey = resumedescr
         self.seen_loop_header_for_jdindex = -1
         if isinstance(key, compile.ResumeAtPositionDescr):
             self.seen_loop_header_for_jdindex = self.jitdriver_sd.index
         try:
-            self.prepare_resume_from_failure(deadframe, resumedescr)
+            self.prepare_resume_from_failure(deadframe, inputargs, resumedescr)
             if self.resumekey_original_loop_token is None:   # very rare case
                 raise SwitchToBlackhole(Counters.ABORT_BRIDGE)
             self.interpret()
@@ -2502,7 +2502,7 @@ class MetaInterp(object):
             else: assert 0
         self.jitdriver_sd.warmstate.execute_assembler(loop_token, *args)
 
-    def prepare_resume_from_failure(self, deadframe, resumedescr):
+    def prepare_resume_from_failure(self, deadframe, inputargs, resumedescr):
         exception = self.cpu.grab_exc_value(deadframe)
         if (isinstance(resumedescr, compile.ResumeGuardExcDescr) or
             isinstance(resumedescr, compile.ResumeGuardCopiedExcDescr)):
@@ -2526,13 +2526,15 @@ class MetaInterp(object):
                     llmemory.cast_ptr_to_adr(exception_obj.typeptr))
             else:
                 exc_class = 0
-            i = len(self.history.operations)
+            assert self.history.trace is None
+            i = len(self.history._cache)
             op1 = self.history.record(rop.SAVE_EXC_CLASS, [], exc_class)
             op2 = self.history.record(rop.SAVE_EXCEPTION, [], exception)
-            assert op1 is self.history.operations[i]
-            assert op2 is self.history.operations[i + 1]
-            self.history.operations = [op1, op2] + self.history.operations[:i]
+            assert op1 is self.history._cache[i]
+            assert op2 is self.history._cache[i + 1]
+            self.history._cache = [op1, op2] + self.history._cache[:i]
             self.history.record(rop.RESTORE_EXCEPTION, [op1, op2], None)
+            self.history.set_inputargs(inputargs)
             if exception_obj:
                 self.execute_ll_raised(exception_obj)
             else:
@@ -2542,6 +2544,7 @@ class MetaInterp(object):
             except ChangeFrame:
                 pass
         else:
+            self.history.set_inputargs(inputargs)
             assert not exception
 
     def get_procedure_token(self, greenkey, with_compiled_targets=False):
@@ -2673,7 +2676,7 @@ class MetaInterp(object):
         sd = self.staticdata
         token = sd.loop_tokens_exit_frame_with_exception_ref[0].finishdescr
         self.history.record(rop.FINISH, [valuebox], None, descr=token)
-        target_token = compile.compile_trace(self, self.resumekey)
+        target_token = compile.compile_trace(self, self.resumekey, [valuebox])
         if target_token is not token:
             compile.giveup()
 
@@ -2715,7 +2718,7 @@ class MetaInterp(object):
             self.history = history.History()
             inputargs_and_holes = self.rebuild_state_after_failure(resumedescr,
                                                                    deadframe)
-            self.history.set_inputargs([box for box in inputargs_and_holes if box])
+            return [box for box in inputargs_and_holes if box]
         finally:
             rstack._stack_criticalcode_stop()
 
