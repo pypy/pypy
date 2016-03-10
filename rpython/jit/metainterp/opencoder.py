@@ -16,7 +16,7 @@ from rpython.rlib.objectmodel import we_are_translated
 TAGINT, TAGCONST, TAGBOX = range(3)
 TAGMASK = 0x3
 TAGSHIFT = 2
-MAXINT = 65536
+NUM_SMALL_INTS = 2 ** (16 - TAGSHIFT)
 
 class Sentinel(object):
     pass
@@ -195,7 +195,7 @@ class Trace(BaseTrace):
         if isinstance(box, Const):
             if (isinstance(box, ConstInt) and
                 isinstance(box.getint(), int) and # symbolics
-                0 <= box.getint() < MAXINT):
+                0 <= box.getint() < NUM_SMALL_INTS):
                 return tag(TAGINT, box.getint())
             else:
                 self._consts.append(box)
@@ -211,8 +211,11 @@ class Trace(BaseTrace):
         operations = self._ops
         pos = self._count
         operations.append(opnum)
-        if oparity[opnum] == -1:
+        expected_arity = oparity[opnum]
+        if expected_arity == -1:
             operations.append(len(argboxes))
+        else:
+            assert len(argboxes) == expected_arity
         operations.extend([self._encode(box) for box in argboxes])
         if opwithdescr[opnum]:
             if descr is None:
@@ -226,8 +229,11 @@ class Trace(BaseTrace):
         operations = self._ops
         pos = self._count
         operations.append(opnum)
-        if oparity[opnum] == -1:
+        expected_arity = oparity[opnum]
+        if expected_arity == -1:
             operations.append(len(tagged_args))
+        else:
+            assert len(argboxes) == expected_arity
         operations.extend(tagged_args)
         if tagged_descr != -1:
             operations.append(tagged_descr)
