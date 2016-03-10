@@ -200,7 +200,7 @@ def record_loop_or_bridge(metainterp_sd, loop):
 # ____________________________________________________________
 
 
-def compile_simple_loop(metainterp, greenkey, trace, enable_opts):
+def compile_simple_loop(metainterp, greenkey, trace, runtime_args, enable_opts):
     from rpython.jit.metainterp.optimizeopt import optimize_trace
 
     jitdriver_sd = metainterp.jitdriver_sd
@@ -229,7 +229,7 @@ def compile_simple_loop(metainterp, greenkey, trace, enable_opts):
         loop.check_consistency()
     jitcell_token.target_tokens = [target_token]
     send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, "loop",
-                         loop_info.inputargs, metainterp.box_names_memo)
+                         runtime_args, metainterp.box_names_memo)
     record_loop_or_bridge(metainterp_sd, loop)
     return target_token
 
@@ -258,7 +258,7 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
     if start != (0, 0):
         trace = trace.cut_trace_from(start, inputargs)
     if 'unroll' not in enable_opts or not metainterp.cpu.supports_guard_gc_type:
-        return compile_simple_loop(metainterp, greenkey, trace,
+        return compile_simple_loop(metainterp, greenkey, trace, jumpargs,
                                    enable_opts)
     call_pure_results = metainterp.call_pure_results
     preamble_data = LoopCompileData(trace, jumpargs,
