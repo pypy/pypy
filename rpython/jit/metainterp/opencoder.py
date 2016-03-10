@@ -226,6 +226,7 @@ class Trace(BaseTrace):
         return pos
 
     def _record_raw(self, opnum, tagged_args, tagged_descr=-1):
+        NOT_USED
         operations = self._ops
         pos = self._count
         operations.append(opnum)
@@ -260,6 +261,7 @@ class Trace(BaseTrace):
         return ResOperation(opnum, argboxes, pos, descr)
 
     def record_op_tag(self, opnum, tagged_args, descr=None):
+        NOT_USED
         return tag(TAGBOX, self._record_raw(opnum, tagged_args, descr))
 
     def record_snapshot(self, jitcode, pc, active_boxes):
