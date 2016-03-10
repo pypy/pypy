@@ -424,7 +424,7 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
         elif self.level == LEVEL_NONNULL:
             if other.level == LEVEL_UNKNOWN:
                 if runtime_box is not None and runtime_box.nonnull():
-                    op = ResOperation(rop.GUARD_NONNULL, [box], None)
+                    op = ResOperation(rop.GUARD_NONNULL, [box])
                     extra_guards.append(op)
                     return
                 else:

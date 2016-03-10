@@ -1387,7 +1387,7 @@ class MIFrame(object):
 
     @arguments()
     def opimpl_current_trace_length(self):
-        trace_length = len(self.metainterp.history.operations)
+        trace_length = self.metainterp.history.length()
         return ConstInt(trace_length)
 
     @arguments("box")
@@ -2618,6 +2618,7 @@ class MetaInterp(object):
                 live_arg_boxes[num_green_args:])
         finally:
             self.history.cut(cut_at) # pop the jump
+            self.history.ends_with_jump = False
         if target_token is not None: # raise if it *worked* correctly
             assert isinstance(target_token, TargetToken)
             jitcell_token = target_token.targeting_jitcell_token

@@ -274,6 +274,15 @@ class Trace(BaseTrace):
     def get_iter(self):
         return TraceIterator(self, 0, len(self._ops))
 
+    def unpack(self):
+        """ NOT_RPYTHON - really rpython, but only use for debugging
+        """
+        iter = self.get_iter()
+        ops = []
+        while not iter.done():
+            ops.append(iter.next())
+        return ops
+
     def _get_operations(self):
         """ NOT_RPYTHON
         """
