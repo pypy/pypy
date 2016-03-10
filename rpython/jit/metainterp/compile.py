@@ -261,7 +261,7 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
         return compile_simple_loop(metainterp, greenkey, trace,
                                    enable_opts)
     call_pure_results = metainterp.call_pure_results
-    preamble_data = LoopCompileData(trace, inputargs,
+    preamble_data = LoopCompileData(trace, jumpargs,
                                     call_pure_results=call_pure_results,
                                     enable_opts=enable_opts)
     try:
