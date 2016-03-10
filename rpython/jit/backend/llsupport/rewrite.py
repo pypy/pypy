@@ -361,8 +361,8 @@ class GcRewriterAssembler(object):
         # return True in cases where the operation and the following guard
         # should likely remain together.  Simplified version of
         # can_merge_with_next_guard() in llsupport/regalloc.py.
-        if not op.is_comparison():
-            return op.is_ovf()    # int_xxx_ovf() / guard_no_overflow()
+        if not rop.is_comparison(op.opnum):
+            return rop.is_ovf(op.opnum)    # int_xxx_ovf() / guard_no_overflow()
         if i + 1 >= len(operations):
             return False
         next_op = operations[i + 1]
@@ -614,8 +614,7 @@ class GcRewriterAssembler(object):
             args = [frame, arglist[jd.index_of_virtualizable]]
         else:
             args = [frame]
-        call_asm = ResOperation(op.getopnum(), args,
-                                op.getdescr())
+        call_asm = ResOperation(op.getopnum(), args, descr=op.getdescr())
         self.replace_op_with(self.get_box_replacement(op), call_asm)
         self.emit_op(call_asm)
 
@@ -673,7 +672,7 @@ class GcRewriterAssembler(object):
     def _gen_call_malloc_gc(self, args, v_result, descr):
         """Generate a CALL_MALLOC_GC with the given args."""
         self.emitting_an_operation_that_can_collect()
-        op = ResOperation(rop.CALL_MALLOC_GC, args, descr)
+        op = ResOperation(rop.CALL_MALLOC_GC, args, descr=descr)
         self.replace_op_with(v_result, op)
         self.emit_op(op)
         # In general, don't add v_result to write_barrier_applied:

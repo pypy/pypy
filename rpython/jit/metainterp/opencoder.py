@@ -9,7 +9,7 @@ snapshot is as follows
 
 from rpython.jit.metainterp.history import ConstInt, Const
 from rpython.jit.metainterp.resoperation import AbstractResOp, AbstractInputArg,\
-    ResOperation, oparity, rop, opwithdescr
+    ResOperation, oparity, rop, opwithdescr, GuardResOp
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.objectmodel import we_are_translated
 
@@ -19,6 +19,9 @@ TAGSHIFT = 2
 MAXINT = 65536
 
 class Sentinel(object):
+    pass
+
+class BaseTrace(object):
     pass
 
 class SnapshotIterator(object):
@@ -69,7 +72,7 @@ class SnapshotIterator(object):
             l.append(self.next())
         return l
 
-class TraceIterator(object):
+class TraceIterator(BaseTrace):
     def __init__(self, trace, start, end, force_inputargs=None):
         self.trace = trace
         self._cache = [None] * trace._count
@@ -78,10 +81,10 @@ class TraceIterator(object):
                               arg in force_inputargs]
             self._inputargs = [None] * len(trace.inputargs)
             for i, arg in enumerate(force_inputargs):
-                if arg.position >= 0:
-                    self._cache[arg.position] = self.inputargs[i]
+                if arg.get_position() >= 0:
+                    self._cache[arg.get_position()] = self.inputargs[i]
                 else:
-                    self._inputargs[-arg.position-1] = self.inputargs[i]
+                    self._inputargs[-arg.get_position()-1] = self.inputargs[i]
         else:
             self.inputargs = [rop.inputarg_from_tp(arg.type) for
                               arg in self.trace.inputargs]
@@ -115,7 +118,7 @@ class TraceIterator(object):
         elif tag == TAGCONST:
             return self.trace._consts[v]
         else:
-            yyyy
+            assert False
 
     def skip_resume_data(self):
         pos = self.pos
@@ -145,13 +148,11 @@ class TraceIterator(object):
             descr = None
         res = ResOperation(opnum, args, -1, descr=descr)
         if rop.is_guard(opnum):
+            assert isinstance(res, GuardResOp)
             res.rd_resume_position = self.skip_resume_data()
         self._cache[self._count] = res
         self._count += 1
         return res
-
-class BaseTrace(object):
-    pass
 
 class CutTrace(BaseTrace):
     def __init__(self, trace, start, count, inputargs):
@@ -172,6 +173,7 @@ class Trace(BaseTrace):
         self._descrs = [None]
         self._consts = [None]
         for i, inparg in enumerate(inputargs):
+            assert isinstance(inparg, AbstractInputArg)
             inparg.position = -i - 1
         self._count = 0
         self.inputargs = inputargs
@@ -199,9 +201,9 @@ class Trace(BaseTrace):
                 self._consts.append(box)
                 return tag(TAGCONST, len(self._consts) - 1)
         elif isinstance(box, AbstractResOp):
-            return tag(TAGBOX, box.position)
+            return tag(TAGBOX, box.get_position())
         elif isinstance(box, AbstractInputArg):
-            return tag(TAGBOX, box.position)
+            return tag(TAGBOX, box.get_position())
         else:
             assert False, "unreachable code"
 

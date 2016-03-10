@@ -232,11 +232,14 @@ class VectorizationInfo(AbstractValue):
 
 
 class AbstractResOpOrInputArg(AbstractValue):
-    _attrs_ = ('_forwarded',)
+    _attrs_ = ('_forwarded', 'position')
     _forwarded = None # either another resop or OptInfo
 
     def get_forwarded(self):
         return self._forwarded
+
+    def get_position(self):
+        return self.position
 
     def set_forwarded(self, forwarded_to):
         assert forwarded_to is not self
@@ -405,12 +408,11 @@ class AbstractResOp(AbstractResOpOrInputArg):
     def can_raise(self):
         return rop.can_raise(self.getopnum())
 
-    # XXX fix
-
     def is_foldable_guard(self):
-        return rop._GUARD_FOLDABLE_FIRST <= self.getopnum() <= rop._GUARD_FOLDABLE_LAST
+        return rop.is_foldable_guard(self.getopnun())
 
     def is_guard_exception(self):
+        return rop.is_guard_
         return (self.getopnum() == rop.GUARD_EXCEPTION or
                 self.getopnum() == rop.GUARD_NO_EXCEPTION)
 
@@ -450,41 +452,6 @@ class AbstractResOp(AbstractResOpOrInputArg):
                               rop.GETARRAYITEM_GC_R, rop.GETARRAYITEM_GC_PURE_I,
                               rop.GETARRAYITEM_GC_PURE_F,
                               rop.GETARRAYITEM_GC_PURE_R)
-
-    @staticmethod
-    def is_real_call(opnum):
-        return (opnum == rop.CALL_I or
-                opnum == rop.CALL_R or
-                opnum == rop.CALL_F or
-                opnum == rop.CALL_N)
-
-    def is_call_assembler(self):
-        opnum = self.opnum
-        return (opnum == rop.CALL_ASSEMBLER_I or
-                opnum == rop.CALL_ASSEMBLER_R or
-                opnum == rop.CALL_ASSEMBLER_N or
-                opnum == rop.CALL_ASSEMBLER_F)
-
-    def is_call_may_force(self):
-        opnum = self.opnum
-        return (opnum == rop.CALL_MAY_FORCE_I or
-                opnum == rop.CALL_MAY_FORCE_R or
-                opnum == rop.CALL_MAY_FORCE_N or
-                opnum == rop.CALL_MAY_FORCE_F)
-
-    def is_call_pure(self):
-        opnum = self.opnum
-        return (opnum == rop.CALL_PURE_I or
-                opnum == rop.CALL_PURE_R or
-                opnum == rop.CALL_PURE_N or
-                opnum == rop.CALL_PURE_F)
-
-    def is_call_release_gil(self):
-        opnum = self.opnum
-        # no R returning call_release_gil
-        return (opnum == rop.CALL_RELEASE_GIL_I or
-                opnum == rop.CALL_RELEASE_GIL_F or
-                opnum == rop.CALL_RELEASE_GIL_N)
 
     def is_vector_arithmetic(self):
         return rop._VEC_ARITHMETIC_FIRST <= self.getopnum() <= rop._VEC_ARITHMETIC_LAST
@@ -1492,8 +1459,8 @@ class rop(object):
                 opnum == rop.CALL_F or
                 opnum == rop.CALL_N)
 
-    def is_call_assembler(self):
-        opnum = self.opnum
+    @staticmethod
+    def is_call_assembler(opnum):
         return (opnum == rop.CALL_ASSEMBLER_I or
                 opnum == rop.CALL_ASSEMBLER_R or
                 opnum == rop.CALL_ASSEMBLER_N or
@@ -1513,8 +1480,8 @@ class rop(object):
                 opnum == rop.CALL_PURE_N or
                 opnum == rop.CALL_PURE_F)
 
-    def is_call_release_gil(self):
-        opnum = self.opnum
+    @staticmethod
+    def is_call_release_gil(opnum):
         # no R returning call_release_gil
         return (opnum == rop.CALL_RELEASE_GIL_I or
                 opnum == rop.CALL_RELEASE_GIL_F or
@@ -1578,6 +1545,26 @@ class rop(object):
                 opnum == rop.CALL_LOOPINVARIANT_R or
                 opnum == rop.CALL_LOOPINVARIANT_F or
                 opnum == rop.CALL_LOOPINVARIANT_N)
+
+    @staticmethod
+    def get_gc_load(tp):
+        if tp == 'i':
+            return rop.GC_LOAD_I
+        elif tp == 'f':
+            return rop.GC_LOAD_F
+        else:
+            assert tp == 'r'
+        return rop.GC_LOAD_R
+
+    @staticmethod
+    def get_gc_load_indexed(tp):
+        if tp == 'i':
+            return rop.GC_LOAD_INDEXED_I
+        elif tp == 'f':
+            return rop.GC_LOAD_INDEXED_F
+        else:
+            assert tp == 'r'
+            return rop.GC_LOAD_INDEXED_R
 
     @staticmethod
     def inputarg_from_tp(tp):

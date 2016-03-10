@@ -1616,7 +1616,7 @@ class MIFrame(object):
                     resbox = None
                 else:
                     assert False
-            self.metainterp.vrefs_after_residual_call()
+            self.metainterp.vrefs_after_residual_call(self.metainterp._last_op, cut_pos)
             vablebox = None
             if assembler_call:
                 vablebox, resbox = self.metainterp.direct_assembler_call(
@@ -1907,7 +1907,7 @@ class MetaInterp(object):
         self.last_exc_value = lltype.nullptr(rclass.OBJECT)
         self.forced_virtualizable = None
         self.partial_trace = None
-        self.retracing_from = -1
+        self.retracing_from = (-1, -1)
         self.call_pure_results = args_dict()
         self.heapcache = HeapCache()
 
@@ -2770,7 +2770,7 @@ class MetaInterp(object):
                                                   force_token],
                                 None, descr=vinfo.vable_token_descr)
 
-    def vrefs_after_residual_call(self):
+    def vrefs_after_residual_call(self, op, cut_pos):
         vrefinfo = self.staticdata.virtualref_info
         for i in range(0, len(self.virtualref_boxes), 2):
             vrefbox = self.virtualref_boxes[i+1]
@@ -2780,7 +2780,7 @@ class MetaInterp(object):
                 # during this CALL_MAY_FORCE.  Mark this fact by
                 # generating a VIRTUAL_REF_FINISH on it and replacing
                 # it by ConstPtr(NULL).
-                self.stop_tracking_virtualref(i)
+                self.stop_tracking_virtualref(i, op, cut_pos)
 
     def vable_after_residual_call(self, funcbox):
         vinfo = self.jitdriver_sd.virtualizable_info
@@ -2804,15 +2804,17 @@ class MetaInterp(object):
                 # have the eventual exception raised (this is normally done
                 # after the call to vable_after_residual_call()).
 
-    def stop_tracking_virtualref(self, i):
+    def stop_tracking_virtualref(self, i, op, cut_pos):
         virtualbox = self.virtualref_boxes[i]
         vrefbox = self.virtualref_boxes[i+1]
         # record VIRTUAL_REF_FINISH just before the current CALL_MAY_FORCE
-        call_may_force_op = self.history.operations.pop()
-        assert call_may_force_op.is_call_may_force()
-        self.history.record(rop.VIRTUAL_REF_FINISH,
+        self.history.cut(cut_pos) # pop the CALL
+        assert rop.is_call_may_force(op.getopnum())
+        self.history.record_nospec(rop.VIRTUAL_REF_FINISH,
                             [vrefbox, virtualbox], None)
-        self.history.operations.append(call_may_force_op)
+        newop = self.history.record_nospec(op.getopnum(), op.getarglist(),
+                                           op.getdescr())
+        op.position = newop.position
         # mark by replacing it with ConstPtr(NULL)
         self.virtualref_boxes[i+1] = self.cpu.ts.CONST_NULL
 
@@ -3018,7 +3020,7 @@ class MetaInterp(object):
         patching the CALL_MAY_FORCE that occurred just now.
         """
         self.history.cut(cut_pos)
-        assert op.is_call_may_force()
+        assert rop.is_call_may_force(op.getopnum())
         num_green_args = targetjitdriver_sd.num_green_args
         arglist = op.getarglist()
         greenargs = arglist[1:num_green_args+1]

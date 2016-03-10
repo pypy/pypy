@@ -348,7 +348,7 @@ class OptHeap(Optimization):
             opnum == rop.COPYUNICODECONTENT):    # no effect on GC struct/array
             return
         if op.is_call():
-            if op.is_call_assembler():
+            if rop.is_call_assembler(op.getopnum()):
                 self._seen_guard_not_invalidated = False
             else:
                 effectinfo = op.getdescr().get_extra_info()

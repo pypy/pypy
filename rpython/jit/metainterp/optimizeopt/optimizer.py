@@ -553,7 +553,7 @@ class Optimizer(Optimization):
 
     @specialize.argtype(0)
     def _emit_operation(self, op):
-        assert not op.is_call_pure()
+        assert not rop.is_call_pure(op.getopnum())
         orig_op = op
         op = self.get_box_replacement(op)
         if op.is_constant():
@@ -660,7 +660,7 @@ class Optimizer(Optimization):
         return self._really_emitted_operation
 
     def is_call_pure_pure_canraise(self, op):
-        if not op.is_call_pure():
+        if not rop.is_call_pure(op.getopnum()):
             return False
         effectinfo = op.getdescr().get_extra_info()
         if effectinfo.check_can_raise(ignore_memoryerror=True):

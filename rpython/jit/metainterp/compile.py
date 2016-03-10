@@ -351,6 +351,7 @@ def compile_retrace(metainterp, greenkey, start,
                                              metainterp.box_names_memo)
     except InvalidLoop:
         # Fall back on jumping directly to preamble
+        raise InvalidLoop
         xxxx
         jump_op = ResOperation(rop.JUMP, inputargs[:], descr=loop_jitcell_token)
         loop_data = UnrolledLoopData(end_label, jump_op, [jump_op], start_state,
