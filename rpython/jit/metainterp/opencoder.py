@@ -16,7 +16,8 @@ from rpython.rlib.objectmodel import we_are_translated
 TAGINT, TAGCONST, TAGBOX = range(3)
 TAGMASK = 0x3
 TAGSHIFT = 2
-NUM_SMALL_INTS = 2 ** (16 - TAGSHIFT)
+SMALL_INT_STOP  = 2 ** (15 - TAGSHIFT)
+SMALL_INT_START = -SMALL_INT_STOP
 
 class Sentinel(object):
     pass
@@ -195,7 +196,7 @@ class Trace(BaseTrace):
         if isinstance(box, Const):
             if (isinstance(box, ConstInt) and
                 isinstance(box.getint(), int) and # symbolics
-                0 <= box.getint() < NUM_SMALL_INTS):
+                SMALL_INT_START <= box.getint() < SMALL_INT_STOP):
                 return tag(TAGINT, box.getint())
             else:
                 self._consts.append(box)
@@ -310,16 +311,9 @@ class Trace(BaseTrace):
             ops.append(iter.next())
         return ops
 
-    def _get_operations(self):
-        """ NOT_RPYTHON
-        """
-        l = []
-        i = self.get_iter()
-        while not i.done():
-            l.append(i.next())
-        return l
-
 def tag(kind, pos):
+    #if not SMALL_INT_START <= pos < SMALL_INT_STOP:
+    #    raise some error
     return (pos << TAGSHIFT) | kind
 
 def untag(tagged):
