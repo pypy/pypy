@@ -605,7 +605,7 @@ class TestRunningAssembler(object):
 
         # ensure there is just on instruction for the 'best case'
         self.pushpop_jitframe(r.MANAGED_REGS)
-        assert stored == [(r.r2, r.r11), (r.r13,)]
+        assert stored == [(r.r2, r.r11)]
         assert stored == loaded
         stored = []
         loaded = []
