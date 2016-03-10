@@ -287,6 +287,7 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
         return None
 
     if ((warmstate.vec and jitdriver_sd.vec) or warmstate.vec_all):
+        assert False, "vectorization disabled"
         from rpython.jit.metainterp.optimizeopt.vector import optimize_vector
         loop_info, loop_ops = optimize_vector(metainterp_sd,
                                               jitdriver_sd, warmstate,

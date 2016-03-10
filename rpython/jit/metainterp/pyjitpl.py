@@ -2977,7 +2977,7 @@ class MetaInterp(object):
         if start_stack:
             jitdriver_sd, key, pos = start_stack[0]
             warmstate = jitdriver_sd.warmstate
-            size = len(self.history.operations) - pos
+            size = self.history.get_trace_position()[0] - pos[0]
             if size > max_size:
                 if warmstate is not None:
                     r = warmstate.get_location_str(key)
