@@ -12,15 +12,13 @@ from rpython.jit.metainterp.resoperation import AbstractResOp, AbstractInputArg,
     ResOperation, oparity, rop, opwithdescr, GuardResOp
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.objectmodel import we_are_translated
+from rpython.rtyper.lltypesystem import rffi, lltype
 
 TAGINT, TAGCONST, TAGBOX = range(3)
 TAGMASK = 0x3
 TAGSHIFT = 2
 SMALL_INT_STOP  = 2 ** (15 - TAGSHIFT)
 SMALL_INT_START = -SMALL_INT_STOP
-
-class Sentinel(object):
-    pass
 
 class BaseTrace(object):
     pass
@@ -41,7 +39,7 @@ class SnapshotIterator(object):
         return self.pos >= self.end
 
     def _next(self):
-        res = self.trace._ops[self.pos]
+        res = rffi.cast(lltype.Signed, self.trace._ops[self.pos])
         self.pos += 1
         return res
 
@@ -106,7 +104,7 @@ class TraceIterator(BaseTrace):
         return self.pos >= self.end
 
     def _next(self):
-        res = self.trace._ops[self.pos]
+        res = rffi.cast(lltype.Signed, self.trace._ops[self.pos])
         self.pos += 1
         return res
 
@@ -127,7 +125,7 @@ class TraceIterator(BaseTrace):
         return pos
 
     def get_snapshot_iter(self, pos):
-        end = self.trace._ops[pos]
+        end = rffi.cast(lltype.Signed, self.trace._ops[pos])
         return SnapshotIterator(self, pos + 1, end)
 
     def next(self):
@@ -163,14 +161,15 @@ class CutTrace(BaseTrace):
         self.count = count
 
     def get_iter(self):
-        iter = TraceIterator(self.trace, self.start, len(self.trace._ops),
+        iter = TraceIterator(self.trace, self.start, self.trace._pos,
                              self.inputargs)
         iter._count = self.count
         return iter
 
 class Trace(BaseTrace):
     def __init__(self, inputargs):
-        self._ops = []
+        self._ops = [rffi.cast(rffi.SHORT, -15)] * 30000
+        self._pos = 0
         self._descrs = [None]
         self._consts = [None]
         for i, inparg in enumerate(inputargs):
@@ -179,14 +178,18 @@ class Trace(BaseTrace):
         self._count = 0
         self.inputargs = inputargs
 
+    def append(self, v):
+        self._ops[self._pos] = rffi.cast(rffi.SHORT, v)
+        self._pos += 1
+
     def length(self):
-        return len(self._ops)
+        return self._pos
 
     def cut_point(self):
-        return len(self._ops), self._count
+        return self._pos, self._count
 
     def cut_at(self, end):
-        self._ops = self._ops[:end[0]]
+        self._pos = end[0]
         self._count = end[1]
 
     def cut_trace_from(self, (start, count), inputargs):
@@ -209,20 +212,20 @@ class Trace(BaseTrace):
             assert False, "unreachable code"
 
     def _record_op(self, opnum, argboxes, descr=None):
-        operations = self._ops
         pos = self._count
-        operations.append(opnum)
+        self.append(opnum)
         expected_arity = oparity[opnum]
         if expected_arity == -1:
-            operations.append(len(argboxes))
+            self.append(len(argboxes))
         else:
             assert len(argboxes) == expected_arity
-        operations.extend([self._encode(box) for box in argboxes])
+        for box in argboxes:
+            self.append(self._encode(box))
         if opwithdescr[opnum]:
             if descr is None:
-                operations.append(-1)
+                self.append(-1)
             else:
-                operations.append(self._encode_descr(descr))
+                self.append(self._encode_descr(descr))
         self._count += 1
         return pos
 
@@ -253,7 +256,7 @@ class Trace(BaseTrace):
 #        self._ops[index] = -newtag - 1
 
     def record_snapshot_link(self, pos):
-        self._ops.append(-pos - 1)
+        self.append(-pos - 1)
 
     def record_op(self, opnum, argboxes, descr=None):
         # return an ResOperation instance, ideally die in hell
@@ -266,41 +269,36 @@ class Trace(BaseTrace):
         return tag(TAGBOX, self._record_raw(opnum, tagged_args, descr))
 
     def record_snapshot(self, jitcode, pc, active_boxes):
-        pos = len(self._ops)
-        self._ops.append(len(active_boxes)) # unnecessary, can be read from
-        self._ops.append(jitcode.index)
-        self._ops.append(pc)
+        pos = self._pos
+        self.append(len(active_boxes)) # unnecessary, can be read from
+        self.append(jitcode.index)
+        self.append(pc)
         for box in active_boxes:
-            self._ops.append(self._encode(box)) # not tagged, as it must be boxes
+            self.append(self._encode(box)) # not tagged, as it must be boxes
         return pos
 
     def record_list_of_boxes(self, boxes):
-        self._ops.append(len(boxes))
+        self.append(len(boxes))
         for box in boxes:
-            self._ops.append(self._encode(box))
+            self.append(self._encode(box))
 
     def get_patchable_position(self):
-        p = len(self._ops)
-        if not we_are_translated():
-            self._ops.append(Sentinel())
-        else:
-            self._ops.append(-1)
+        p = self._pos
+        self.append(-1)
         return p
 
     def patch_position_to_current(self, p):
         prev = self._ops[p]
-        if we_are_translated():
-            assert prev == -1
-        else:
-            assert isinstance(prev, Sentinel)
-        self._ops[p] = len(self._ops)
+        assert prev == rffi.cast(rffi.SHORT, -1)
+        self._ops[p] = rffi.cast(rffi.SHORT, self._pos)
 
     def check_snapshot_jitcode_pc(self, jitcode, pc, resumedata_pos):
-        assert self._ops[resumedata_pos + 1] == jitcode.index
-        assert self._ops[resumedata_pos + 2] == pc
+        # XXX expensive?
+        assert self._ops[resumedata_pos + 1] == rffi.cast(rffi.SHORT, jitcode.index)
+        assert self._ops[resumedata_pos + 2] == rffi.cast(rffi.SHORT, pc)
 
     def get_iter(self):
-        return TraceIterator(self, 0, len(self._ops))
+        return TraceIterator(self, 0, self._pos)
 
     def unpack(self):
         iter = self.get_iter()

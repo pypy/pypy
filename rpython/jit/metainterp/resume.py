@@ -119,8 +119,9 @@ def _ensure_parent_resumedata(framestack, n, t):
     target = framestack[n]
     back = framestack[n - 1]
     if target.parent_resumedata_position != -1:
-        t.check_snapshot_jitcode_pc(back.jitcode, back.pc,
-            target.parent_resumedata_position)
+        if not we_are_translated():
+            t.check_snapshot_jitcode_pc(back.jitcode, back.pc,
+                target.parent_resumedata_position)
         t.record_snapshot_link(target.parent_resumedata_position)
         return
     pos = t.record_snapshot(back.jitcode, back.pc,
