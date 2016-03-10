@@ -287,7 +287,8 @@ class AppTestSelectWithPipes(_AppTestSelect):
             t = thread.start_new_thread(pollster.poll, ())
             try:
                 time.sleep(0.3)
-                for i in range(5): print '',  # to release GIL untranslated
+                # TODO restore print '', if this is not the reason
+                for i in range(5): print 'release gil select'  # to release GIL untranslated
                 # trigger ufds array reallocation
                 for fd in rfds:
                     pollster.unregister(fd)
@@ -327,6 +328,10 @@ class AppTestSelectWithSockets(_AppTestSelect):
     spaceconfig = {
         "usemodules": ["select", "_socket", "time", "thread"],
     }
+
+    import os
+    if os.uname()[4] == 's390x':
+        py.test.skip("build bot for s390x cannot open sockets")
 
     def w_make_server(self):
         import socket
