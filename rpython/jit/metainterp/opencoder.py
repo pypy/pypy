@@ -289,7 +289,7 @@ class Trace(BaseTrace):
 
     def patch_position_to_current(self, p):
         prev = self._ops[p]
-        assert prev == rffi.cast(rffi.SHORT, -1)
+        assert rffi.cast(lltype.Signed, prev) == -1
         self._ops[p] = rffi.cast(rffi.SHORT, self._pos)
 
     def check_snapshot_jitcode_pc(self, jitcode, pc, resumedata_pos):
