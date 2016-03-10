@@ -216,15 +216,16 @@ class CallBuilder(AbstractCallBuilder):
 
         # Equivalent of 'r13 = __sync_lock_test_and_set(&rpy_fastgil, 1);'
         self.mc.LGHI(r.SCRATCH, l.imm(1))
-        retry_label = self.mc.currpos()
         self.mc.LG(r.r13, l.addr(0, RFASTGILPTR))
+        retry_label = self.mc.currpos()
+        self.mc.LGR(r.r14, r.r13) 
         self.mc.CSG(r.r13, r.SCRATCH, l.addr(0, RFASTGILPTR))  # try to claim lock
-        self.mc.BRC(c.NE, l.imm(retry_label - self.mc.currpos())) # retry if failed
+        self.mc.BRC(c.LT, l.imm(retry_label - self.mc.currpos())) # retry if failed
 
         # CSG performs a serialization
         # zarch is sequential consistent!
 
-        self.mc.CGHI(r.r13, l.imm0)
+        self.mc.CGHI(r.r14, l.imm0)
         b1_location = self.mc.currpos()
         # boehm: patched with a BEQ: jump if r13 is zero
         # shadowstack: patched with BNE instead
@@ -246,8 +247,8 @@ class CallBuilder(AbstractCallBuilder):
 
             # revert the rpy_fastgil acquired above, so that the
             # general 'reacqgil_addr' below can acquire it again...
-            # (here, r13 is conveniently zero)
-            self.mc.STG(r.r13, l.addr(0, RFASTGILPTR))
+            # (here, r14 is conveniently zero)
+            self.mc.STG(r.r14, l.addr(0, RFASTGILPTR))
 
             pmc = OverwritingBuilder(self.mc, bne_location, 1)
             pmc.BRCL(c.NE, l.imm(self.mc.currpos() - bne_location))
