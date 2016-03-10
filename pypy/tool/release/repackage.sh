@@ -29,7 +29,7 @@ rm -rf pypy-$maj.$min.$rev-$plat
 # Do this after creating a tag, note the untarred directory is pypy-pypy-<hash>
 # so make sure there is not another one
 wget https://bitbucket.org/pypy/pypy/get/$tagname.tar.bz2
-tar -xf release-$maj.$min.$rev.tar.bz2
+tar -xf $tagname.tar.bz2
 mv pypy-pypy-* pypy-$maj.$min.$rev-src
 tar --owner=root --group=root --numeric-owner -cvjf pypy-$maj.$min.$rev-src.tar.bz2 pypy-$maj.$min.$rev-src
 zip -r pypy-$maj.$min.$rev-src.zip pypy-$maj.$min.$rev-src
