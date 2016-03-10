@@ -179,6 +179,9 @@ class Trace(BaseTrace):
         self.inputargs = inputargs
 
     def append(self, v):
+        if self._pos >= len(self._ops):
+            # grow by 2X
+            self._ops = self._ops + [rffi.cast(rffi.SHORT, -15)] * len(self._ops)
         self._ops[self._pos] = rffi.cast(rffi.SHORT, v)
         self._pos += 1
 
