@@ -35,9 +35,10 @@ tar --owner=root --group=root --numeric-owner -cvjf pypy-$maj.$min.$rev-src.tar.
 zip -r pypy-$maj.$min.$rev-src.zip pypy-$maj.$min.$rev-src
 rm -rf pypy-$maj.$min.$rev-src
 
-# Print out the md5, sha1
+# Print out the md5, sha1, sha256
 md5sum *.bz2 *.zip
 sha1sum *.bz2 *.zip
+sha256sum *.bz2 *.zip
 
 # Now upload all the bz2 and zip
 
