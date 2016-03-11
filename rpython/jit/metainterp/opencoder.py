@@ -181,6 +181,8 @@ class Trace(BaseTrace):
         self._snapshot_lgt = 0
         self._consts_bigint = 0
         self._consts_float = 0
+        self._sharings = 0
+        self._total_snapshots = 0
         self._consts_ptr = 0
         self._descrs = [None]
         self._refs = [lltype.nullptr(llmemory.GCREF.TO)]
@@ -212,6 +214,8 @@ class Trace(BaseTrace):
         debug_start("jit-trace-done")
         debug_print("trace length: " + str(self._pos))
         debug_print(" snapshots: " + str(self._snapshot_lgt))
+        debug_print("  sharings: " + str(self._sharings))
+        debug_print("  total snapshots: " + str(self._total_snapshots))
         debug_print(" bigint consts: " + str(self._consts_bigint) + " " + str(len(self._bigints)))
         debug_print(" float consts: " + str(self._consts_float) + " " + str(len(self._floats)))
         debug_print(" ref consts: " + str(self._consts_ptr) + " " + str(len(self._refs)))
@@ -324,6 +328,7 @@ class Trace(BaseTrace):
 #        self._ops[index] = -newtag - 1
 
     def record_snapshot_link(self, pos):
+        self._sharings += 1
         lower = pos & 0x7fff
         upper = pos >> 15
         self.append(-upper-1)
@@ -340,6 +345,7 @@ class Trace(BaseTrace):
         return tag(TAGBOX, self._record_raw(opnum, tagged_args, descr))
 
     def record_snapshot(self, jitcode, pc, active_boxes):
+        self._total_snapshots += 1
         pos = self._pos
         self.append(len(active_boxes)) # unnecessary, can be read from
         self.append(jitcode.index)
