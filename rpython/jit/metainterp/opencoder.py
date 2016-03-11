@@ -13,6 +13,7 @@ from rpython.jit.metainterp.resoperation import AbstractResOp, AbstractInputArg,
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rtyper.lltypesystem import rffi, lltype, llmemory
+from rpython.jit.metainterp.typesystem import llhelper
 
 TAGINT, TAGCONSTPTR, TAGCONSTOTHER, TAGBOX = range(4)
 TAGMASK = 0x3
@@ -177,9 +178,13 @@ class Trace(BaseTrace):
     def __init__(self, inputargs):
         self._ops = [rffi.cast(rffi.SHORT, -15)] * 30000
         self._pos = 0
+        self._snapshot_lgt = 0
+        self._consts_bigint = 0
+        self._consts_float = 0
+        self._consts_ptr = 0
         self._descrs = [None]
-        self._refs = []
-        self._refs_dict = {}
+        self._refs = [lltype.nullptr(llmemory.GCREF.TO)]
+        self._refs_dict = llhelper.new_ref_dict_3()
         self._bigints = []
         self._bigints_dict = {}
         self._floats = []
@@ -199,9 +204,18 @@ class Trace(BaseTrace):
         self._pos += 1
 
     def done(self):
+        from rpython.rlib.debug import debug_start, debug_stop, debug_print
+
         self._bigints_dict = {}
-        self._refs_dict = {}
+        self._refs_dict = llhelper.new_ref_dict_3()
         self._floats_dict = {}
+        debug_start("jit-trace-done")
+        debug_print("trace length: " + str(self._pos))
+        debug_print(" snapshots: " + str(self._snapshot_lgt))
+        debug_print(" bigint consts: " + str(self._consts_bigint) + " " + str(len(self._bigints)))
+        debug_print(" float consts: " + str(self._consts_float) + " " + str(len(self._floats)))
+        debug_print(" ref consts: " + str(self._consts_ptr) + " " + str(len(self._refs)))
+        debug_stop("jit-trace-done")
         return 0 # completely different than TraceIter.done, but we have to
         # share the base class
 
@@ -225,6 +239,7 @@ class Trace(BaseTrace):
                 SMALL_INT_START <= box.getint() < SMALL_INT_STOP):
                 return tag(TAGINT, box.getint())
             elif isinstance(box, ConstInt):
+                self._consts_bigint += 1
                 if not isinstance(box.getint(), int):
                     # symbolics, for tests, don't worry about caching
                     v = len(self._bigints) << 1
@@ -237,6 +252,7 @@ class Trace(BaseTrace):
                         self._bigints.append(box.getint())
                 return tag(TAGCONSTOTHER, v)
             elif isinstance(box, ConstFloat):
+                self._consts_float += 1
                 v = self._floats_dict.get(box.getfloat(), -1)
                 if v == -1:
                     v = (len(self._floats) << 1) | 1
@@ -244,7 +260,10 @@ class Trace(BaseTrace):
                     self._floats.append(box.getfloat())
                 return tag(TAGCONSTOTHER, v)
             else:
+                self._consts_ptr += 1
                 assert isinstance(box, ConstPtr)
+                if not box.getref_base():
+                    return tag(TAGCONSTPTR, 0)
                 addr = llmemory.cast_ptr_to_adr(box.getref_base())
                 v = self._refs_dict.get(addr, -1)
                 if v == -1:
@@ -341,6 +360,7 @@ class Trace(BaseTrace):
     def patch_position_to_current(self, p):
         prev = self._ops[p]
         assert rffi.cast(lltype.Signed, prev) == -1
+        self._snapshot_lgt += self._pos - p
         self._ops[p] = rffi.cast(rffi.SHORT, self._pos - p)
 
     def check_snapshot_jitcode_pc(self, jitcode, pc, resumedata_pos):

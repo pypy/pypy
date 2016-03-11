@@ -2265,6 +2265,7 @@ class MetaInterp(object):
         warmrunnerstate = self.jitdriver_sd.warmstate
         if self.history.length() > warmrunnerstate.trace_limit:
             jd_sd, greenkey_of_huge_function = self.find_biggest_function()
+            self.history.trace.done()
             self.staticdata.stats.record_aborted(greenkey_of_huge_function)
             self.portal_trace_positions = None
             if greenkey_of_huge_function is not None:
@@ -2566,6 +2567,8 @@ class MetaInterp(object):
                      try_disabling_unroll=False, exported_state=None):
         num_green_args = self.jitdriver_sd.num_green_args
         greenkey = original_boxes[:num_green_args]
+        import pdb
+        pdb.set_trace()
         self.history.trace.done()
         if not self.partial_trace:
             ptoken = self.get_procedure_token(greenkey)
