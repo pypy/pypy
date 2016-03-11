@@ -202,6 +202,8 @@ class Trace(BaseTrace):
         self._bigints_dict = {}
         self._refs_dict = {}
         self._floats_dict = {}
+        return 0 # completely different than TraceIter.done, but we have to
+        # share the base class
 
     def length(self):
         return self._pos
