@@ -862,6 +862,7 @@ if __name__ == '__main__':
     sys.pypy_find_executable = pypy_find_executable
     sys.pypy_find_stdlib = pypy_find_stdlib
     sys.pypy_resolvedirof = pypy_resolvedirof
+    sys.pypy_initfsencoding = lambda: None
     sys.cpython_path = sys.path[:]
 
     try:
