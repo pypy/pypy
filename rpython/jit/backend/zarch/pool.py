@@ -128,30 +128,3 @@ class LiteralPool(object):
         # fast gil
         fastgil = rffi.cast(lltype.Signed, rgil.gil_fetch_fastgil())
         self._ensure_value(fastgil, asm)
-        # TODO add more values that are loaded with load_imm
-
-    # XXX def post_assemble(self, asm):
-    # XXX     mc = asm.mc
-    # XXX     pending_guard_tokens = asm.pending_guard_tokens
-    # XXX     if self.size == 0:
-    # XXX         return
-    # XXX     for guard_token in pending_guard_tokens:
-    # XXX         descr = guard_token.faildescr
-    # XXX         offset = self.offset_descr[descr]
-    # XXX         assert isinstance(offset, int)
-    # XXX         assert offset >= 0
-    # XXX         assert guard_token._pool_offset != -1
-    # XXX         ptr = rffi.cast(lltype.Signed, guard_token.gcmap)
-    # XXX         self._overwrite_64(mc, offset + RECOVERY_GCMAP_POOL_OFFSET, ptr)
-
-    def _overwrite_64(self, mc, index, value):
-        index += self.pool_start
-
-        mc.overwrite(index,   chr(value >> 56 & 0xff))
-        mc.overwrite(index+1, chr(value >> 48 & 0xff))
-        mc.overwrite(index+2, chr(value >> 40 & 0xff))
-        mc.overwrite(index+3, chr(value >> 32 & 0xff))
-        mc.overwrite(index+4, chr(value >> 24 & 0xff))
-        mc.overwrite(index+5, chr(value >> 16 & 0xff))
-        mc.overwrite(index+6, chr(value >> 8 & 0xff))
-        mc.overwrite(index+7, chr(value & 0xff))

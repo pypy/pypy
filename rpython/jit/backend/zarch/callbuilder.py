@@ -203,7 +203,6 @@ class CallBuilder(AbstractCallBuilder):
         self.mc.XGR(r.SCRATCH, r.SCRATCH)
         # zarch is sequentially consistent
         self.mc.STG(r.SCRATCH, l.addr(0, RFASTGILPTR))
-        self.mc.BCR_rr(0xe, 0x0)
 
 
     def move_real_result_and_call_reacqgil_addr(self, fastgil):

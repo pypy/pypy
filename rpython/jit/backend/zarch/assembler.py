@@ -602,7 +602,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
 
     def patch_stack_checks(self, frame_depth):
         if frame_depth > 0x7fff:
-            raise JitFrameTooDeep     # XXX
+            raise JitFrameTooDeep
         for traps_pos, jmp_target in self.frame_depth_to_patch:
             pmc = OverwritingBuilder(self.mc, traps_pos, 3)
             # patch 3 instructions as shown above
@@ -1022,8 +1022,6 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         self.mc.STMG(r.r6, r.r15, l.addr(-fpoff+6*WORD, r.SP))
         self.mc.LARL(r.POOL, l.halfword(self.pool.pool_start - self.mc.get_relative_pos()))
         # f8 through f15 are saved registers (= non volatile)
-        # TODO it would be good to detect if any float is used in the loop
-        # and to skip this push/pop whenever no float operation occurs
         for i,reg in enumerate([r.f8, r.f9, r.f10, r.f11,
                                 r.f12, r.f13, r.f14, r.f15]):
             off = -fpoff + STD_FRAME_SIZE_IN_BYTES
@@ -1082,8 +1080,6 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
 
         size = STD_FRAME_SIZE_IN_BYTES
         # f8 through f15 are saved registers (= non volatile)
-        # TODO it would be good to detect if any float is used in the loop
-        # and to skip this push/pop whenever no float operation occurs
         for i,reg in enumerate([r.f8, r.f9, r.f10, r.f11,
                                 r.f12, r.f13, r.f14, r.f15]):
             self.mc.LD(reg, l.addr(size + size + i*8, r.SP))
@@ -1369,8 +1365,6 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
 
     SIZE2SCALE = dict([(1<<_i, _i) for _i in range(32)])
     def _multiply_by_constant(self, loc, multiply_by, scratch_loc):
-        # XXX should die together with _apply_scale() but can't because
-        # of emit_zero_array() and malloc_cond_varsize() at the moment
         assert loc.is_reg()
         if multiply_by == 1:
             return loc
