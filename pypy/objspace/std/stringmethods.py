@@ -609,12 +609,15 @@ class StringMethods(object):
     def descr_startswith(self, space, w_prefix, w_start=None, w_end=None):
         (value, start, end) = self._convert_idx_params(space, w_start, w_end)
         if space.isinstance_w(w_prefix, space.w_tuple):
-            for w_prefix in space.fixedview(w_prefix):
-                if self._startswith(space, value, w_prefix, start, end):
-                    return space.w_True
-            return space.w_False
+            return self._startswith_tuple(space, value, w_prefix, start, end)
         return space.newbool(self._startswith(space, value, w_prefix, start,
                                               end))
+
+    def _startswith_tuple(self, space, value, w_prefix, start, end):
+        for w_prefix in space.fixedview(w_prefix):
+            if self._startswith(space, value, w_prefix, start, end):
+                return space.w_True
+        return space.w_False
 
     def _startswith(self, space, value, w_prefix, start, end):
         prefix = self._op_val(space, w_prefix)
