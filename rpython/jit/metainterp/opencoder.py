@@ -7,14 +7,14 @@ snapshot is as follows
 <virtualref size> <virtualref boxes> [<size> <jitcode> <pc> <boxes...> ...]
 """
 
-from rpython.jit.metainterp.history import ConstInt, Const
+from rpython.jit.metainterp.history import ConstInt, Const, ConstFloat, ConstPtr
 from rpython.jit.metainterp.resoperation import AbstractResOp, AbstractInputArg,\
     ResOperation, oparity, rop, opwithdescr, GuardResOp
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.objectmodel import we_are_translated
-from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem import rffi, lltype, llmemory
 
-TAGINT, TAGCONST, TAGBOX = range(3)
+TAGINT, TAGCONSTPTR, TAGCONSTOTHER, TAGBOX = range(4)
 TAGMASK = 0x3
 TAGSHIFT = 2
 SMALL_INT_STOP  = 2 ** (15 - TAGSHIFT)
@@ -116,8 +116,13 @@ class TraceIterator(BaseTrace):
             return self._get(v)
         elif tag == TAGINT:
             return ConstInt(v)
-        elif tag == TAGCONST:
-            return self.trace._consts[v]
+        elif tag == TAGCONSTPTR:
+            return ConstPtr(self.trace._refs[v])
+        elif tag == TAGCONSTOTHER:
+            if v & 1:
+                return ConstFloat(self.trace._floats[v >> 1])
+            else:
+                return ConstInt(self.trace._bigints[v >> 1])
         else:
             assert False
 
@@ -173,7 +178,12 @@ class Trace(BaseTrace):
         self._ops = [rffi.cast(rffi.SHORT, -15)] * 30000
         self._pos = 0
         self._descrs = [None]
-        self._consts = [None]
+        self._refs = []
+        self._refs_dict = {}
+        self._bigints = []
+        self._bigints_dict = {}
+        self._floats = []
+        self._floats_dict = {}
         for i, inparg in enumerate(inputargs):
             assert isinstance(inparg, AbstractInputArg)
             inparg.position = -i - 1
@@ -187,6 +197,11 @@ class Trace(BaseTrace):
         assert MIN_SHORT < v < MAX_SHORT
         self._ops[self._pos] = rffi.cast(rffi.SHORT, v)
         self._pos += 1
+
+    def done(self):
+        self._bigints_dict = {}
+        self._refs_dict = {}
+        self._floats_dict = {}
 
     def length(self):
         return self._pos
@@ -207,9 +222,34 @@ class Trace(BaseTrace):
                 isinstance(box.getint(), int) and # symbolics
                 SMALL_INT_START <= box.getint() < SMALL_INT_STOP):
                 return tag(TAGINT, box.getint())
+            elif isinstance(box, ConstInt):
+                if not isinstance(box.getint(), int):
+                    # symbolics, for tests, don't worry about caching
+                    v = len(self._bigints) << 1
+                    self._bigints.append(box.getint())
+                else:
+                    v = self._bigints_dict.get(box.getint(), -1)
+                    if v == -1:
+                        v = len(self._bigints) << 1
+                        self._bigints_dict[box.getint()] = v
+                        self._bigints.append(box.getint())
+                return tag(TAGCONSTOTHER, v)
+            elif isinstance(box, ConstFloat):
+                v = self._floats_dict.get(box.getfloat(), -1)
+                if v == -1:
+                    v = (len(self._floats) << 1) | 1
+                    self._floats_dict[box.getfloat()] = v
+                    self._floats.append(box.getfloat())
+                return tag(TAGCONSTOTHER, v)
             else:
-                self._consts.append(box)
-                return tag(TAGCONST, len(self._consts) - 1)
+                assert isinstance(box, ConstPtr)
+                addr = llmemory.cast_ptr_to_adr(box.getref_base())
+                v = self._refs_dict.get(addr, -1)
+                if v == -1:
+                    v = len(self._refs)
+                    self._refs_dict[addr] = v
+                    self._refs.append(box.getref_base())
+                return tag(TAGCONSTPTR, v)
         elif isinstance(box, AbstractResOp):
             return tag(TAGBOX, box.get_position())
         elif isinstance(box, AbstractInputArg):

@@ -2566,6 +2566,7 @@ class MetaInterp(object):
                      try_disabling_unroll=False, exported_state=None):
         num_green_args = self.jitdriver_sd.num_green_args
         greenkey = original_boxes[:num_green_args]
+        self.history.trace.done()
         if not self.partial_trace:
             ptoken = self.get_procedure_token(greenkey)
             if ptoken is not None and ptoken.target_tokens is not None:
@@ -2618,6 +2619,7 @@ class MetaInterp(object):
         self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None,
                             descr=target_jitcell_token)
         self.history.ends_with_jump = True
+        self.history.trace.done()
         try:
             target_token = compile.compile_trace(self, self.resumekey,
                 live_arg_boxes[num_green_args:])

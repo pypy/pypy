@@ -205,7 +205,7 @@ class MissingValue(object):
 
 
 class Const(AbstractValue):
-    __slots__ = ()
+    __attrs__ = ()
 
     @staticmethod
     def _new(x):
