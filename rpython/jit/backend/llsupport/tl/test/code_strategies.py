@@ -4,6 +4,7 @@ from hypothesis.strategies import composite
 from rpython.jit.backend.llsupport.tl import code, interp, stack
 from hypothesis.searchstrategy.collections import TupleStrategy, ListStrategy
 import hypothesis.internal.conjecture.utils as cu
+from collections import namedtuple
 
 def get_strategy_for(typ):
     if typ == code.INT_TYP:
@@ -107,7 +108,7 @@ def bytecode_class(stack):
 @composite
 def bytecode(draw, max_stack_size=4096):
     # get a stack that is the same for one test run
-    run_stack = draw(st.shared(st.just(stack.Stack(0)), 'stack2'))
+    run_stack = draw(st.shared(st.just(stack.Stack(0)), 'stack'))
 
     # get a byte code class, only allow what is valid for the run_stack
     clazzes = filter(lambda clazz: clazz.filter_bytecode(run_stack), code.BC_CLASSES)
@@ -123,4 +124,52 @@ def bytecode(draw, max_stack_size=4096):
     interp.dispatch_once(STD_SPACE, 0, bytecode, consts, run_stack)
 
     return inst
+
+class DeterministicControlFlowSearchStrategy(SearchStrategy):
+    """ This is flow graph search space is limited to deterministic
+        control flow. This means the execution of this program MUST
+        terminate in at most `max_steps`.
+
+        max/min_steps: one step is one execution in the interpreter loop
+        max_byte_codes: the amount of bytecodes the final program has
+    """
+
+    def __init__(self, stack, min_steps=1, max_steps=2**16, max_byte_codes=5000):
+        SearchStrategy.__init__(self)
+
+        self.stack = stack
+        self.max_steps = float(max_steps)
+        self.min_steps = min_steps
+        self.max_byte_codes = max_byte_codes
+
+        # self.element_strategy = one_of_strategies(strategies)
+
+    def validate(self):
+        pass
+        #self.element_strategy.validate()
+
+    def do_draw(self, data):
+        bccf = code.ByteCodeControlFlow()
+        result = []
+        while True:
+            stopping_value = 1 - 1.0 / (1 + self.average_length)
+            data.start_example()
+            more = cu.biased_coin(data, stopping_value)
+            if not more:
+                data.stop_example()
+                if len(result) < self.min_size:
+                    continue
+                else:
+                    break
+            value = data.draw(self.element_strategy)
+            data.stop_example()
+            result.append(value)
+        return bccf
+
+@st.defines_strategy
+def control_flow_graph(draw, stack=None, blocks):
+    if stack is None:
+        # get a stack that is the same for one test run
+        stack = stack.Stack(0)
+    return DeterministicControlFlowSearchStrategy(stack)
 

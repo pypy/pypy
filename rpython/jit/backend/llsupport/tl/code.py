@@ -7,6 +7,10 @@ class ByteCode(object):
         ctx.append_byte(self.BYTE_CODE)
 
     @classmethod
+    def splits_control_flow(self):
+        return False
+
+    @classmethod
     def filter_bytecode(self, stack):
         """ filter this byte code if the stack does
             not contain the right values on the stack.
@@ -210,9 +214,46 @@ class AppendList(ByteCode):
     def __init__(self):
         pass
 
-def op_modifies_list(clazz):
-    """ NOT_RPYTHON """
-    return clazz in (DelList, InsertList)
+@requires_stack(INT_TYP)
+@leaves_on_stack()
+class CondJump(ByteCode):
+    BYTE_CODE = unique_code()
+
+    COND_EQ = 0
+    COND_LT = 1
+    COND_GT = 2
+    COND_LE = 3
+    COND_GE = 4
+    COND_ANY = 5
+
+    @requires_param(COND_TYP, INT_TYP)
+    def __init__(self, cond, offset):
+        self.cond = cond
+        self.offset = offset
+
+    def encode(self, ctx):
+        ctx.append_byte(self.BYTE_CODE)
+        ctx.append_byte(self.cond)
+        ctx.append_int(self.offset)
+
+    def splits_control_flow(self):
+        return True
+
+@requires_stack(LIST_TYP)
+@leaves_on_stack(LIST_TYP, INT_TYP)
+class LenList(ByteCode):
+    BYTE_CODE = unique_code()
+    def __init__(self):
+        pass
+
+
+#@requires_stack(INT_TYP) # TODO VAL_TYP)
+#@leaves_on_stack()
+#class ReturnFrame(ByteCode):
+#    BYTE_CODE = unique_code()
+#    def __init__(self):
+#        pass
+#
 
 BC_CLASSES = []
 BC_NUM_TO_CLASS = {}
@@ -223,47 +264,15 @@ for name, clazz in locals().items():
         assert clazz.BYTE_CODE not in BC_NUM_TO_CLASS
         BC_NUM_TO_CLASS[clazz.BYTE_CODE] = clazz
 
-# remove comment one by one!
+BC_CLASSES.remove(CondJump)
 
-#@requires_stack()
-#@leaves_on_stack(INT_TYP)
-#class CondJump(ByteCode):
-#    BYTE_CODE = unique_code()
-#
-#    COND_EQ = 0
-#    COND_LT = 1
-#    COND_GT = 2
-#    COND_LE = 3
-#    COND_GE = 4
-#
-#    @requires_param(COND_TYP)
-#    def __init__(self, cond):
-#        self.cond = cond
-#
-#    def encode(self, ctx):
-#        ctx.append_byte(self.BYTE_CODE)
-#        ctx.append_byte(self.cond)
-#
-#@requires_stack()
-#@leaves_on_stack()
-#class Jump(ByteCode):
-#    BYTE_CODE = unique_code()
-#    def __init__(self):
-#        pass
-#
+# control flow byte codes
+BC_CF_CLASSES = [CondJump]
 
-#@requires_stack(LIST_TYP)
-#@leaves_on_stack(LIST_TYP, INT_TYP)
-#class LenList(ByteCode):
-#    BYTE_CODE = unique_code()
-#    def __init__(self):
-#        pass
-#
-#
-#@requires_stack(INT_TYP) # TODO VAL_TYP)
-#@leaves_on_stack()
-#class ReturnFrame(ByteCode):
-#    BYTE_CODE = unique_code()
-#    def __init__(self):
-#        pass
-#
+class ByteCodeControlFlow(object):
+    # see the deterministic control flow search startegy in
+    # test/code_strategies.py for what steps & byte_codes mean
+    def __init__(self):
+        self.blocks = []
+        self.steps = 0
+        self.byte_codes = 0

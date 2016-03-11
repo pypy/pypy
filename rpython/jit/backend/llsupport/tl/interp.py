@@ -13,6 +13,9 @@ class W_ListObject(W_Root):
     def __init__(self, items):
         self.items = items
 
+    def size(self):
+        return len(self.items)
+
     def concat(self, space, w_lst):
         assert isinstance(w_lst, W_ListObject)
         return space.wrap(self.items + w_lst.items)
@@ -153,6 +156,22 @@ def dispatch_once(space, i, bytecode, consts, stack):
         w_lst = stack.peek(0)
         del w_lst.items[w_idx.value]
         # index error, just crash the machine!!
+    elif opcode == code.LenList.BYTE_CODE:
+        w_lst = stack.peek(0)
+        assert isinstance(w_lst, W_ListObject)
+        stack.append(space.wrap(w_lst.size()))
+    elif opcode == code.CondJump.BYTE_CODE:
+        cond = runpack('b', bytecode[i+1:i+2])
+        offset = runpack('i', bytecode[i+2:i+6])
+        w_int = stack.pop(0)
+        assert isinstance(w_lst, W_IntObject)
+        i += 5
+        if CondJump.should_jump(cond, w_int.value):
+            if offset < 0:
+                pass # TODO jit driver
+            # the new position is calculated at the end of
+            # this jump instruction!!
+            i += offset
     else:
         print("opcode %d is not implemented" % opcode)
         raise NotImplementedError

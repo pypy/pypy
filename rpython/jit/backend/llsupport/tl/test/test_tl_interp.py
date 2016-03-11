@@ -5,6 +5,8 @@ from rpython.jit.backend.llsupport.tl import code, interp
 from rpython.jit.backend.llsupport.tl.stack import Stack
 from rpython.jit.backend.llsupport.tl.test import code_strategies as st
 
+STD_SPACE = interp.Space()
+
 class TestByteCode(object):
     def test_load_str(self):
         c = code.Context()
@@ -28,7 +30,6 @@ class TestCodeStrategies(object):
 
     @given(data())
     def test_bytecode_class_generation(self, data):
-        space = interp.Space()
         stack = Stack(0)
         for i in range(10):
             clazz = data.draw(st.bytecode_class(stack))
@@ -36,13 +37,12 @@ class TestCodeStrategies(object):
 
     @given(data())
     def test_bytecode_class_generation_int(self, data):
-        space = interp.Space()
         stack = Stack(0)
-        stack.append(space.wrap(0))
+        stack.append(STD_SPACE.wrap(0))
         for i in range(10):
             clazz = data.draw(st.bytecode_class(stack))
             assert(clazz in self.DEFAULT_ACTION_CLASSES)
-        stack.append(space.wrap(0))
+        stack.append(STD_SPACE.wrap(0))
         for i in range(10):
             clazz = data.draw(st.bytecode_class(stack))
             assert(clazz in self.DEFAULT_ACTION_CLASSES + \
@@ -50,13 +50,12 @@ class TestCodeStrategies(object):
 
     @given(data())
     def test_bytecode_class_generation_str(self, data):
-        space = interp.Space()
         stack = Stack(0)
-        stack.append(space.wrap("hello"))
+        stack.append(STD_SPACE.wrap("hello"))
         for i in range(10):
             clazz = data.draw(st.bytecode_class(stack))
             assert(clazz in self.DEFAULT_ACTION_CLASSES)
-        stack.append(space.wrap("world"))
+        stack.append(STD_SPACE.wrap("world"))
         for i in range(10):
             clazz = data.draw(st.bytecode_class(stack))
             assert(clazz in self.DEFAULT_ACTION_CLASSES + \
@@ -64,20 +63,19 @@ class TestCodeStrategies(object):
 
     @given(data())
     def test_bytecode_class_generation_list(self, data):
-        space = interp.Space()
         stack = Stack(0)
-        stack.append(space.wrap([]))
-        stack.append(space.wrap(0))
+        stack.append(STD_SPACE.wrap([]))
+        stack.append(STD_SPACE.wrap(0))
         for i in range(10):
             clazz = data.draw(st.bytecode_class(stack))
             assert(clazz not in (code.InsertList, code.DelList))
-        stack.append(space.wrap([space.wrap(1)]))
-        stack.append(space.wrap(0))
+        stack.append(STD_SPACE.wrap([STD_SPACE.wrap(1)]))
+        stack.append(STD_SPACE.wrap(0))
         for i in range(10):
             clazz = data.draw(st.bytecode_class(stack))
             assert(clazz in self.DEFAULT_ACTION_CLASSES + \
                             (code.DelList, code.AppendList))
-        stack.append(space.wrap("haskell"))
+        stack.append(STD_SPACE.wrap("haskell"))
         for i in range(10):
             clazz = data.draw(st.bytecode_class(stack))
             assert(clazz in self.DEFAULT_ACTION_CLASSES + \
@@ -85,7 +83,6 @@ class TestCodeStrategies(object):
 
     @given(data())
     def test_empty_stack_no_list_op(self, data):
-        space = interp.Space()
         stack = Stack(0)
         for i in range(10):
             clazz = data.draw(st.bytecode_class(stack))
@@ -93,10 +90,26 @@ class TestCodeStrategies(object):
                                     code.AppendList, code.AddList,
                                     code.AddStr))
 
+    @given(data())
+    def test_control_flow_split(self, data):
+        stack = Stack(0)
+        cfg = data.draw(st.control_flow_graph(stack))
+        assert cfg.steps > 0
+        # assert that there is at least one block that ends with a cond. jump
+        assert any([isinstance(block[-1], CondJump) for block in cfg.blocks])
+
 class TestInterp(object):
 
     @given(st.basic_block(st.bytecode(), min_size=1))
     def test_execute_bytecode_block(self, bc_obj_list):
+        self.execute(bc_obj_list)
+
+    @given(st.control_flow_graph())
+    def test_execute_bytecode_block(self, cfg):
+        bc_obj_list = cfg.linearize()
+        self.execute(bc_obj_list)
+
+    def execute(self, bc_obj_list):
         bytecode, consts = code.Context().transform(bc_obj_list)
         space = interp.Space()
         pc = 0
