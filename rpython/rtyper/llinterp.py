@@ -14,9 +14,15 @@ from rpython.rlib.rarithmetic import (ovfcheck, is_valid_int, intmask,
     r_uint, r_longlong, r_ulonglong, r_longlonglong)
 from rpython.rtyper.lltypesystem import lltype, llmemory, lloperation, llheap
 from rpython.rtyper import rclass
+from rpython.tool.ansi_print import AnsiLogger
 
 
-log = py.log.Producer('llinterp')
+# by default this logger's output is disabled.
+# e.g. tests can then switch on logging to get more help
+# for failing tests
+log = AnsiLogger('llinterp')
+log.output_disabled = True
+
 
 class LLException(Exception):
     def __init__(self, *args):
@@ -1367,10 +1373,3 @@ class _address_of_local_var_accessor(object):
 class _address_of_thread_local(object):
     _TYPE = llmemory.Address
     is_fake_thread_local_addr = True
-
-
-# by default we route all logging messages to nothingness
-# e.g. tests can then switch on logging to get more help
-# for failing tests
-from rpython.tool.ansi_print import ansi_log
-py.log.setconsumer('llinterp', ansi_log)
