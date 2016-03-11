@@ -74,3 +74,11 @@ def test_unknown_method_names():
     assert output == [('[test:foo] Hello\n', ()),
                       ('[test:foo] World\n', ()),
                       ('[test:BAR] !\n', ())]
+
+def test_output_disabled():
+    log = ansi_print.AnsiLogger('test')
+    with FakeOutput() as output:
+        log('Hello')
+        log.output_disabled = True
+        log('World')
+    assert output == [('[test] Hello\n', ())]

@@ -22,9 +22,6 @@ import os
 import sys
 import ctypes.util
 
-from rpython.tool.ansi_print import ansi_log
-log = py.log.Producer("libffi")
-py.log.setconsumer("libffi", ansi_log)
 
 # maaaybe isinstance here would be better. Think
 _MSVC = platform.name == "msvc"

@@ -3,6 +3,7 @@ import sys
 
 from rpython.memory import gcwrapper
 from rpython.memory.test import snippet
+from rpython.rtyper import llinterp
 from rpython.rtyper.test.test_llinterp import get_interpreter
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem.lloperation import llop
@@ -15,11 +16,11 @@ from rpython.rlib.rarithmetic import LONG_BIT
 WORD = LONG_BIT // 8
 
 
-def stdout_ignore_ll_functions(msg):
-    strmsg = str(msg)
-    if "evaluating" in strmsg and "ll_" in strmsg:
-        return
-    print >>sys.stdout, strmsg
+## def stdout_ignore_ll_functions(msg):
+##     strmsg = str(msg)
+##     if "evaluating" in strmsg and "ll_" in strmsg:
+##         return
+##     print >>sys.stdout, strmsg
 
 
 class GCTest(object):
@@ -31,13 +32,11 @@ class GCTest(object):
     WREF_IS_INVALID_BEFORE_DEL_IS_CALLED = False
 
     def setup_class(cls):
-        cls._saved_logstate = py.log._getstate()
-        py.log.setconsumer("llinterp", py.log.STDOUT)
-        py.log.setconsumer("llinterp frame", stdout_ignore_ll_functions)
-        py.log.setconsumer("llinterp operation", None)
+        # switch on logging of interp to show more info on failing tests
+        llinterp.log.output_disabled = False
 
     def teardown_class(cls):
-        py.log._setstate(cls._saved_logstate)
+        llinterp.log.output_disabled = True
 
     def interpret(self, func, values, **kwds):
         interp, graph = get_interpreter(func, values, **kwds)

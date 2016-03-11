@@ -16,6 +16,8 @@ def _make_method(subname, colors):
     #
     def logger_method(self, text):
         global wrote_dot
+        if self.output_disabled:
+            return
         text = "[%s%s] %s" % (self.name, subname, text)
         if isatty():
             col = colors
@@ -30,6 +32,7 @@ def _make_method(subname, colors):
 
 
 class AnsiLogger(object):
+    output_disabled = False
 
     def __init__(self, name):
         self.name = name
@@ -43,6 +46,13 @@ class AnsiLogger(object):
     Error    = _make_method(':Error', (1, 31))
     info     = _make_method(':info', (35,))
     stub     = _make_method(':stub', (34,))
+
+    # some more methods used by sandlib
+    call      = _make_method(':call', (34,))
+    result    = _make_method(':result', (34,))
+    exception = _make_method(':exception', (34,)),
+    vpath     = _make_method(':vpath', (35,)),
+    timeout   = _make_method('', (1, 31)),
 
     # directly calling the logger writes "[name] text" with no particular color
     __call__ = _make_method('', ())
