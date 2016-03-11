@@ -2567,8 +2567,6 @@ class MetaInterp(object):
                      try_disabling_unroll=False, exported_state=None):
         num_green_args = self.jitdriver_sd.num_green_args
         greenkey = original_boxes[:num_green_args]
-        import pdb
-        pdb.set_trace()
         self.history.trace.done()
         if not self.partial_trace:
             ptoken = self.get_procedure_token(greenkey)
