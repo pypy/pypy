@@ -1,6 +1,6 @@
-import py, os
+import py, platform
 
 def pytest_collect_directory(path, parent):
-    if os.uname()[4] == 's390x':
+    if platform.machine() == 's390x':
         py.test.skip("zarch tests skipped")
 pytest_collect_file = pytest_collect_directory
