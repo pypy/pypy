@@ -2656,6 +2656,7 @@ class MetaInterp(object):
         # FIXME: can we call compile_trace?
         token = loop_tokens[0].finishdescr
         self.history.record(rop.FINISH, exits, None, descr=token)
+        self.history.trace.done()
         target_token = compile.compile_trace(self, self.resumekey, exits)
         if target_token is not token:
             compile.giveup()
@@ -2681,6 +2682,7 @@ class MetaInterp(object):
         sd = self.staticdata
         token = sd.loop_tokens_exit_frame_with_exception_ref[0].finishdescr
         self.history.record(rop.FINISH, [valuebox], None, descr=token)
+        self.history.trace.done()
         target_token = compile.compile_trace(self, self.resumekey, [valuebox])
         if target_token is not token:
             compile.giveup()
