@@ -9,9 +9,8 @@ import py
 
 _dirpath = os.path.dirname(__file__) or os.curdir
 
-from rpython.tool.ansi_print import ansi_log
-log = py.log.Producer("ctypes_config_cache")
-py.log.setconsumer("ctypes_config_cache", ansi_log)
+from rpython.tool.ansi_print import AnsiLogger
+log = AnsiLogger("ctypes_config_cache")
 
 
 def rebuild_one(name):
