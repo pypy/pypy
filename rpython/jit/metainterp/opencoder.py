@@ -215,7 +215,7 @@ class Trace(BaseTrace):
         debug_print(" bigint consts: " + str(self._consts_bigint) + " " + str(len(self._bigints)))
         debug_print(" float consts: " + str(self._consts_float) + " " + str(len(self._floats)))
         debug_print(" ref consts: " + str(self._consts_ptr) + " " + str(len(self._refs)))
-        debug_print(" descrs: " + len(self._descrs))
+        debug_print(" descrs: " + str(len(self._descrs)))
         debug_stop("jit-trace-done")
         return 0 # completely different than TraceIter.done, but we have to
         # share the base class
