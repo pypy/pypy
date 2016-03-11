@@ -19,6 +19,8 @@ TAGMASK = 0x3
 TAGSHIFT = 2
 SMALL_INT_STOP  = 2 ** (15 - TAGSHIFT)
 SMALL_INT_START = -SMALL_INT_STOP
+MIN_SHORT = -2**15 + 1
+MAX_SHORT = 2**15 - 1
 
 class BaseTrace(object):
     pass
@@ -121,11 +123,11 @@ class TraceIterator(BaseTrace):
 
     def skip_resume_data(self):
         pos = self.pos
-        self.pos = self._next()
+        self.pos += self._next()
         return pos
 
     def get_snapshot_iter(self, pos):
-        end = rffi.cast(lltype.Signed, self.trace._ops[pos])
+        end = rffi.cast(lltype.Signed, self.trace._ops[pos]) + pos
         return SnapshotIterator(self, pos + 1, end)
 
     def next(self):
@@ -182,6 +184,7 @@ class Trace(BaseTrace):
         if self._pos >= len(self._ops):
             # grow by 2X
             self._ops = self._ops + [rffi.cast(rffi.SHORT, -15)] * len(self._ops)
+        assert MIN_SHORT < v < MAX_SHORT
         self._ops[self._pos] = rffi.cast(rffi.SHORT, v)
         self._pos += 1
 
@@ -293,7 +296,7 @@ class Trace(BaseTrace):
     def patch_position_to_current(self, p):
         prev = self._ops[p]
         assert rffi.cast(lltype.Signed, prev) == -1
-        self._ops[p] = rffi.cast(rffi.SHORT, self._pos)
+        self._ops[p] = rffi.cast(rffi.SHORT, self._pos - p)
 
     def check_snapshot_jitcode_pc(self, jitcode, pc, resumedata_pos):
         # XXX expensive?
