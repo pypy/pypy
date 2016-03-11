@@ -265,7 +265,7 @@ class Trace(BaseTrace):
                 assert isinstance(box, ConstPtr)
                 if not box.getref_base():
                     return tag(TAGCONSTPTR, 0)
-                addr = llmemory.cast_ptr_to_adr(box.getref_base())
+                addr = box.getref_base()
                 v = self._refs_dict.get(addr, -1)
                 if v == -1:
                     v = len(self._refs)
