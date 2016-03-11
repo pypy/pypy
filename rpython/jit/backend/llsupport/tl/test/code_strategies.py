@@ -100,7 +100,8 @@ def basic_block(strategy, min_size=1, average_size=8, max_size=128):
 @st.defines_strategy
 def bytecode_class(stack):
     # get a byte code class, only allow what is valid for the run_stack
-    return st.sampled_from(code.BC_CLASSES).filter(lambda clazz: clazz.filter_bytecode(stack))
+    clazzes = filter(lambda clazz: clazz.filter_bytecode(stack), code.BC_CLASSES)
+    return st.sampled_from(clazzes)
 
 
 @composite
@@ -109,7 +110,8 @@ def bytecode(draw, max_stack_size=4096):
     run_stack = draw(st.shared(st.just(stack.Stack(0)), 'stack2'))
 
     # get a byte code class, only allow what is valid for the run_stack
-    clazz = draw(st.sampled_from(code.BC_CLASSES).filter(lambda clazz: clazz.filter_bytecode(run_stack)))
+    clazzes = filter(lambda clazz: clazz.filter_bytecode(run_stack), code.BC_CLASSES)
+    clazz = draw(st.sampled_from(clazzes))
 
     # create an instance of the chosen class
     pt = getattr(clazz.__init__, '_param_types', [])
