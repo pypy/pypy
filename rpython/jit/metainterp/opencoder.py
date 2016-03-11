@@ -59,8 +59,8 @@ class SnapshotIterator(object):
             self.save_pos = -1
         size = self._next()
         if size < 0:
-            self.save_pos = self.pos
-            self.pos = -size - 1
+            self.save_pos = self.pos + 1
+            self.pos = ((-size - 1) << 15) | (self._next())
             assert self.pos >= 0
             size = self._next()
             assert size >= 0
@@ -262,7 +262,10 @@ class Trace(BaseTrace):
 #        self._ops[index] = -newtag - 1
 
     def record_snapshot_link(self, pos):
-        self.append(-pos - 1)
+        lower = pos & 0x7fff
+        upper = pos >> 15
+        self.append(-upper-1)
+        self.append(lower)
 
     def record_op(self, opnum, argboxes, descr=None):
         # return an ResOperation instance, ideally die in hell

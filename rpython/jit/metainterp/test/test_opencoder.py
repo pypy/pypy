@@ -7,7 +7,7 @@ from rpython.jit.metainterp import resume
 from rpython.jit.metainterp.test.strategies import lists_of_operations
 from rpython.jit.metainterp.optimizeopt.test.test_util import BaseTest
 from rpython.jit.metainterp.history import TreeLoop, AbstractDescr
-from hypothesis import given
+from hypothesis import given, strategies
 
 class JitCode(object):
     def __init__(self, index):
@@ -140,6 +140,13 @@ class TestOpencoder(object):
         loop2.inputargs = inpargs
         loop2.operations = l
         BaseTest.assert_equal(loop1, loop2)
+
+    @given(strategies.integers(min_value=0, max_value=2**25))
+    def test_packing(self, i):
+        t = Trace([])
+        t.record_snapshot_link(i)
+        iter = t.get_iter()
+        assert (((-iter._next() - 1) << 15) | (iter._next())) == i
 
     def test_cut_trace_from(self):
         i0, i1, i2 = InputArgInt(), InputArgInt(), InputArgInt()
