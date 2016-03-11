@@ -21,10 +21,10 @@ PyCFunctionKwArgs = lltype.Ptr(lltype.FuncType([PyObject, PyObject, PyObject],
 
 PyMethodDef = cpython_struct(
     'PyMethodDef',
-    [('ml_name', rffi.CCHARP),
+    [('ml_name', rffi.CONST_CCHARP),
      ('ml_meth', PyCFunction_typedef),
      ('ml_flags', rffi.INT_real),
-     ('ml_doc', rffi.CCHARP),
+     ('ml_doc', rffi.CONST_CCHARP),
      ])
 
 PyCFunctionObjectStruct = cpython_struct(

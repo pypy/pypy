@@ -19,7 +19,7 @@ from pypy.module.cpyext.api import (
     Py_TPFLAGS_HAVE_GETCHARBUFFER, build_type_checkers, StaticObjectBuilder,
     PyObjectFields, Py_TPFLAGS_BASETYPE)
 from pypy.module.cpyext.methodobject import (
-    PyDescr_NewWrapper, PyCFunction_NewEx, PyCFunction_typedef)
+    PyDescr_NewWrapper, PyCFunction_NewEx, PyCFunction_typedef, PyMethodDef)
 from pypy.module.cpyext.modsupport import convert_method_defs
 from pypy.module.cpyext.pyobject import (
     PyObject, make_ref, create_ref, from_ref, get_typedescr, make_typedescr,
@@ -289,14 +289,13 @@ def get_new_method_def(space):
     state = space.fromcache(State)
     if state.new_method_def:
         return state.new_method_def
-    from pypy.module.cpyext.modsupport import PyMethodDef
     ptr = lltype.malloc(PyMethodDef, flavor="raw", zero=True,
                         immortal=True)
-    ptr.c_ml_name = rffi.str2charp("__new__")
+    ptr.c_ml_name = rffi.cast(rffi.CONST_CCHARP, rffi.str2charp("__new__"))
     lltype.render_immortal(ptr.c_ml_name)
     rffi.setintfield(ptr, 'c_ml_flags', METH_VARARGS | METH_KEYWORDS)
-    ptr.c_ml_doc = rffi.str2charp(
-        "T.__new__(S, ...) -> a new object with type S, a subtype of T")
+    ptr.c_ml_doc = rffi.cast(rffi.CONST_CCHARP, rffi.str2charp(
+        "T.__new__(S, ...) -> a new object with type S, a subtype of T"))
     lltype.render_immortal(ptr.c_ml_doc)
     state.new_method_def = ptr
     return ptr
