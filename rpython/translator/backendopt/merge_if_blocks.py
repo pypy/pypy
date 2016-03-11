@@ -1,7 +1,8 @@
 from rpython.flowspace.model import Constant, Variable, mkentrymap
-from rpython.translator.backendopt.support import log
+from rpython.tool.ansi_print import AnsiLogger
 
-log = log.mergeifblocks
+log = AnsiLogger("backendopt")
+
 
 def is_chain_block(block, first=False):
     if len(block.operations) == 0:
