@@ -52,10 +52,8 @@ class GCHypothesis(object):
         return res.returncode, res.out, res.err
 
     # cannot have a non empty stack, cannot pass stack to executable!
-    @given(st.bytecode(max_stack_size=0))
-    def test_execute_single_bytecode(self, program):
-        bc_obj, stack = program
-        assert stack.size() == 0
+    @given(st.bytecode())
+    def test_execute_single_bytecode(self, bc_obj):
         bytecode, consts = code.Context().transform([bc_obj])
         result, out, err = self.execute(bytecode, consts)
         if result != 0:
@@ -63,11 +61,8 @@ class GCHypothesis(object):
                             " stderr:\n%s\nstdout:\n%s\n") % (result, err, out))
 
     # cannot have a non empty stack, cannot pass stack to executable!
-    @given(lists(st.bytecode(max_stack_size=0), min_size=1, average_size=24))
-    def test_execute_bytecodes(self, args):
-        _, stack = args[0]
-        assert stack.size() == 0
-        bc_objs = [bc for bc, _ in args]
+    @given(st.basic_block(st.bytecode(), min_size=1, average_size=24))
+    def test_execute_basic_block(self, bc_objs):
         bytecode, consts = code.Context().transform(bc_objs)
         result, out, err = self.execute(bytecode, consts)
         if result != 0:

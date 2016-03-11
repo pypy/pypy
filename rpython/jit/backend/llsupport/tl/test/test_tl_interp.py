@@ -1,5 +1,5 @@
 import py
-from hypothesis import given
+from hypothesis import given, settings, Verbosity
 from hypothesis.strategies import lists, data
 from rpython.jit.backend.llsupport.tl import code, interp
 from rpython.jit.backend.llsupport.tl.stack import Stack
@@ -23,7 +23,6 @@ class TestByteCode(object):
         assert c.get_short(3) == 1
 
 class TestCodeStrategies(object):
-
     DEFAULT_ACTION_CLASSES = (code.CreateList, code.PutInt,
          code.LoadStr)
 
@@ -84,29 +83,25 @@ class TestCodeStrategies(object):
             assert(clazz in self.DEFAULT_ACTION_CLASSES + \
                             (code.InsertList, code.AppendList))
 
+    @given(data())
+    def test_empty_stack_no_list_op(self, data):
+        space = interp.Space()
+        stack = Stack(0)
+        for i in range(10):
+            clazz = data.draw(st.bytecode_class(stack))
+            assert not (clazz in (code.DelList, code.InsertList,
+                                    code.AppendList, code.AddList,
+                                    code.AddStr))
 
 class TestInterp(object):
-    @given(st.bytecode())
-    def test_consume_stack(self, args):
-        bc_obj, stack = args
-        bytecode, consts = code.Context().transform([bc_obj])
-        space = interp.Space()
-        i = interp.dispatch_once(space, 0, bytecode, consts, stack)
-        assert i == len(bytecode)
-        clazz = st.get_byte_code_class(ord(bytecode[0]))
-        assert stack.size() >= len(clazz._return_on_stack_types)
-        for i,type in enumerate(clazz._return_on_stack_types):
-            j = len(clazz._return_on_stack_types) - i - 1
-            assert stack.peek(j).is_of_type(type)
 
-    @given(lists(st.bytecode(max_stack_size=0), min_size=1))
-    def test_execute_bytecode_block(self, codes):
-        bc_obj_list = [bc for bc,stack in codes]
-        _, stack = codes[0]
+    @given(st.basic_block(st.bytecode(), min_size=1))
+    def test_execute_bytecode_block(self, bc_obj_list):
         bytecode, consts = code.Context().transform(bc_obj_list)
         space = interp.Space()
         pc = 0
         end = len(bytecode)
+        stack = Stack(0)
         while pc < end:
             pc = interp.dispatch_once(space, pc, bytecode, consts, stack)
         assert pc == len(bytecode)

@@ -1,22 +1,34 @@
-
 import struct
+
+from hypothesis.stateful import rule, precondition
 
 class ByteCode(object):
     def encode(self, ctx):
         ctx.append_byte(self.BYTE_CODE)
 
     @classmethod
-    def create_from(self, draw, get_strategy_for):
-        pt = getattr(self.__init__, '_param_types', [])
-        return self(*[draw(get_strategy_for(t)) for t in pt])
-
     def filter_bytecode(self, stack):
         """ filter this byte code if the stack does
             not contain the right values on the stack.
             This should only be used for values hypothesis
             cannot forsee (like list manipulation)
         """
-        return False
+        required_types = self._stack_types
+        if len(required_types) > stack.size():
+            # more needed types than available
+            return False
+        # each type should match the stack entry
+        for i in range(len(required_types)):
+            item = stack.peek(i)
+            j = len(required_types) - i - 1
+            rt = required_types[j]
+            if not item.is_of_type(rt):
+                return False
+        return True
+
+    def __repr__(self):
+        name = self.__class__.__name__
+        return name
 
 _c = 0
 
@@ -152,6 +164,7 @@ class CreateList(ByteCode):
     @requires_param(BYTE_TYP)
     def __init__(self, size=8):
         self.size = size
+
     def encode(self, ctx):
         ctx.append_byte(self.BYTE_CODE)
         ctx.append_short(self.size)
@@ -162,13 +175,16 @@ class InsertList(ByteCode):
     BYTE_CODE = unique_code()
     def __init__(self):
         pass
+    @classmethod
     def filter_bytecode(self, stack):
+        if not ByteCode.filter_bytecode.im_func(self, stack):
+            return False
         w_idx = stack.peek(1)
         w_list = stack.peek(2)
         if w_idx.value >= len(w_list.items) or \
            w_idx.value < 0:
-            return True
-        return False
+            return False
+        return True
 
 @requires_stack(LIST_TYP, IDX_TYP)
 @leaves_on_stack(LIST_TYP)
@@ -176,13 +192,16 @@ class DelList(ByteCode):
     BYTE_CODE = unique_code()
     def __init__(self):
         pass
+    @classmethod
     def filter_bytecode(self, stack):
+        if not ByteCode.filter_bytecode.im_func(self, stack):
+            return False
         w_idx = stack.peek(0)
         w_list = stack.peek(1)
         if w_idx.value >= len(w_list.items) or \
            w_idx.value < 0:
-            return True
-        return False
+            return False
+        return True
 
 @requires_stack(LIST_TYP, INT_TYP) # TODO VAL_TYP)
 @leaves_on_stack(LIST_TYP)
@@ -192,7 +211,17 @@ class AppendList(ByteCode):
         pass
 
 def op_modifies_list(clazz):
+    """ NOT_RPYTHON """
     return clazz in (DelList, InsertList)
+
+BC_CLASSES = []
+BC_NUM_TO_CLASS = {}
+
+for name, clazz in locals().items():
+    if hasattr(clazz, 'BYTE_CODE'):
+        BC_CLASSES.append(clazz)
+        assert clazz.BYTE_CODE not in BC_NUM_TO_CLASS
+        BC_NUM_TO_CLASS[clazz.BYTE_CODE] = clazz
 
 # remove comment one by one!
 

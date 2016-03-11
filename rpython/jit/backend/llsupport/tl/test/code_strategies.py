@@ -1,27 +1,24 @@
 from hypothesis import strategies as st
 from hypothesis.control import assume
-from hypothesis.strategies import defines_strategy, composite
+from hypothesis.strategies import composite
 from rpython.jit.backend.llsupport.tl import code, interp, stack
-from rpython.jit.backend.llsupport.tl.code import (all_types,
-        INT_TYP, STR_TYP, LIST_TYP, SHORT_TYP, BYTE_TYP,
-        COND_TYP, IDX_TYP)
-from hypothesis.searchstrategy.strategies import OneOfStrategy
-from hypothesis.searchstrategy.collections import TupleStrategy
+from hypothesis.searchstrategy.collections import TupleStrategy, ListStrategy
+import hypothesis.internal.conjecture.utils as cu
 
 def get_strategy_for(typ):
-    if typ == INT_TYP:
+    if typ == code.INT_TYP:
         return st.integers(min_value=-2**31, max_value=2**31-1)
-    elif typ == IDX_TYP:
+    elif typ == code.IDX_TYP:
         return st.integers(min_value=-2**31, max_value=2**31-1)
-    elif typ == SHORT_TYP:
+    elif typ == code.SHORT_TYP:
         return st.integers(min_value=-2**15, max_value=2**15-1)
-    elif typ == BYTE_TYP:
+    elif typ == code.BYTE_TYP:
         return st.integers(min_value=-2**7, max_value=2**7-1)
-    elif typ == COND_TYP:
+    elif typ == code.COND_TYP:
         return st.integers(min_value=0, max_value=4)
-    elif typ == STR_TYP:
+    elif typ == code.STR_TYP:
         return st.text().filter(lambda x: x is not None)
-    elif typ == LIST_TYP:
+    elif typ == code.LIST_TYP:
         # TODO recursive
         result = st.lists(elements=st.one_of(get_strategy_for('i')))
         return result.filter(lambda x: x is not None)
@@ -30,13 +27,10 @@ def get_strategy_for(typ):
 
 STD_SPACE = interp.Space()
 
-@defines_strategy
-def stack_entry(types=all_types):
+def stack_entry(types=code.all_types):
     return st.one_of(*[get_strategy_for(t) for t in types])
 
-@defines_strategy
-def runtime_stack(min_size=0, average_size=5, max_size=4096,
-          types=all_types):
+def runtime_stack(min_size=0, average_size=5, max_size=4096, types=code.all_types):
     if max_size == 0:
         return st.just(stack.Stack(0))
     stack_entries = st.lists(stack_entry(all_types), min_size=min_size,
@@ -45,62 +39,86 @@ def runtime_stack(min_size=0, average_size=5, max_size=4096,
     return stack_entries.map(lambda elems: \
                                 stack.Stack.from_items(STD_SPACE, elems))
 
-def byte_code_classes():
-    for name, clazz in code.__dict__.items():
-        if hasattr(clazz, 'BYTE_CODE'):
-            yield clazz
-
 def get_byte_code_class(num):
-    for clazz in byte_code_classes():
-        if clazz.BYTE_CODE == num:
-            return clazz
-    return None
+    return code.BC_NUM_TO_CLASS[num]
 
 def find_next(stack, type, off=0):
     i = off
     while i < stack.size():
-        if stack.peek(i).is_of_type(LIST_TYP):
+        if stack.peek(i).is_of_type(type):
             break
         i += 1
     else:
         return None
     return stack.peek(i)
 
-@defines_strategy
+class BasicBlockStrategy(ListStrategy):
+    """ Generates a list of values, but does not throw away elements.
+        See XXX """
+
+    def do_draw(self, data):
+        if self.max_size == self.min_size:
+            return [
+                data.draw(self.element_strategy)
+                for _ in range(self.min_size)
+            ]
+
+        stopping_value = 1 - 1.0 / (1 + self.average_length)
+        result = []
+        while True:
+            data.start_example()
+            more = cu.biased_coin(data, stopping_value)
+            value = data.draw(self.element_strategy)
+            data.stop_example()
+            if not more:
+                if len(result) < self.min_size:
+                    # XXX if not appended the resulting list will have
+                    # a bigger stack but a missing op code
+                    result.append(value)
+                    continue
+                else:
+                    break
+            result.append(value)
+        if self.max_size < float('inf'):
+            result = result[:self.max_size]
+        return result
+
+    def __repr__(self):
+        return (
+            'BasicBlockStrategy(%r, min_size=%r, average_size=%r, max_size=%r)'
+        ) % (
+            self.element_strategy, self.min_size, self.average_length,
+            self.max_size
+        )
+
+@st.defines_strategy
+def basic_block(strategy, min_size=1, average_size=8, max_size=128):
+    return BasicBlockStrategy([strategy], min_size=min_size,
+                              average_length=average_size,
+                              max_size=max_size)
+
+@st.defines_strategy
 def bytecode_class(stack):
-    def filter_using_stack(bytecode_class):
-        required_types = bytecode_class._stack_types
-        if len(required_types) > stack.size():
-            return False
-        for i in range(len(required_types)):
-            item = stack.peek(i)
-            j = len(required_types) - i - 1
-            rt = required_types[j]
-            if not item.is_of_type(rt):
-                return False
-        if code.op_modifies_list(bytecode_class):
-            w_list = find_next(stack, LIST_TYP)
-            if w_list is None or len(w_list.items) == 0:
-                # on an empty list we cannot insert or delete
-                return False
-        return True
-    clazzes = filter(filter_using_stack, byte_code_classes())
-    return st.sampled_from(clazzes)
+    # get a byte code class, only allow what is valid for the run_stack
+    return st.sampled_from(code.BC_CLASSES).filter(lambda clazz: clazz.filter_bytecode(stack))
+
 
 @composite
 def bytecode(draw, max_stack_size=4096):
     # get a stack that is the same for one test run
-    stack_strat = runtime_stack(max_size=max_stack_size)
-    run_stack = draw(st.shared(stack_strat, 'stack'))
+    run_stack = draw(st.shared(st.just(stack.Stack(0)), 'stack2'))
+
+    # get a byte code class, only allow what is valid for the run_stack
+    clazz = draw(st.sampled_from(code.BC_CLASSES).filter(lambda clazz: clazz.filter_bytecode(run_stack)))
+
+    # create an instance of the chosen class
+    pt = getattr(clazz.__init__, '_param_types', [])
+    args = [draw(get_strategy_for(t)) for t in pt]
+    inst = clazz(*args)
+
     # propagate the changes to the stack
-    orig_stack = run_stack.copy(values=True)
-    assert orig_stack is not run_stack
-
-    # get a byte code class
-    clazz = draw(bytecode_class(run_stack))
-    inst = clazz.create_from(draw, get_strategy_for)
-    assume(not inst.filter_bytecode(run_stack))
     bytecode, consts = code.Context().transform([inst])
-
     interp.dispatch_once(STD_SPACE, 0, bytecode, consts, run_stack)
-    return inst, orig_stack
+
+    return inst
+

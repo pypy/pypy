@@ -48,7 +48,9 @@ class Stack(object):
         if stackpos < 0:
             raise IndexError
         self.stackpos = stackpos     # always store a known-nonneg integer here
-        return self.stack[stackpos]
+        elem = self.stack[stackpos]
+        self.stack[stackpos] = None
+        return elem
 
     def pick(self, i):
         n = self.stackpos - i - 1
@@ -91,6 +93,6 @@ class Stack(object):
 
     def __repr__(self):
         """ NOT_RPYTHON """
-        entry_types = [e.TYPE for e in self.stack]
+        entry_types = [e.TYPE for e in self.stack[:self.stackpos]]
         return "Stack(%s)" % ','.join(entry_types)
 
