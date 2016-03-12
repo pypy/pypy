@@ -810,7 +810,7 @@ class AbstractResumeGuardDescr(ResumeDescr):
                                metainterp.box_names_memo)
 
     def make_a_counter_per_value(self, guard_value_op, index):
-        assert guard_value_op.getopnum() == rop.GUARD_VALUE
+        assert guard_value_op.getopnum() in (rop.GUARD_VALUE, rop.GUARD_COMPATIBLE)
         box = guard_value_op.getarg(0)
         if box.type == history.INT:
             ty = self.TY_INT
@@ -929,6 +929,11 @@ def invent_fail_descr_for_op(opnum, optimizer, copied_guard=False):
             resumedescr = ResumeGuardCopiedExcDescr()
         else:
             resumedescr = ResumeGuardExcDescr()
+    elif opnum == rop.GUARD_COMPATIBLE:
+        if copied_guard:
+            import pdb; pdb.set_trace()
+        else:
+            resumedescr = GuardCompatibleDescr()
     else:
         if copied_guard:
             resumedescr = ResumeGuardCopiedDescr()
@@ -1077,6 +1082,50 @@ def compile_trace(metainterp, resumekey):
     new_trace.inputargs = info.renamed_inputargs
     metainterp.retrace_needed(new_trace, info)
     return None
+
+class GuardCompatibleDescr(ResumeGuardDescr):
+    """ A descr for guard_compatible. All the conditions that a value should
+    fulfil need to be attached to this descr by optimizeopt. """
+
+    def __init__(self):
+        # XXX for now - in the end this would be in assembler
+        self._checked_ptrs = []
+        self._compatibility_conditions = None
+
+    def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
+        index = intmask(self.status >> self.ST_SHIFT)
+        typetag = intmask(self.status & self.ST_TYPE_MASK)
+        assert typetag == self.TY_REF # for now
+        refval = metainterp_sd.cpu.get_value_direct(deadframe, 'r', index)
+        if self.is_compatible(metainterp_sd.cpu, refval):
+            from rpython.jit.metainterp.blackhole import resume_in_blackhole
+            # next time it'll pass XXX use new cpu thingie here
+            self._checked_ptrs.append(history.newconst(refval))
+            resume_in_blackhole(metainterp_sd, jitdriver_sd, self, deadframe)
+        else:
+            # a real failure
+            return ResumeGuardDescr.handle_fail(self, deadframe, metainterp_sd, jitdriver_sd)
+
+    def fake_check_against_list(self, cpu, ref):
+        # XXX should be in assembler
+        const = history.newconst(ref)
+        if self._compatibility_conditions:
+            for i in range(len(self._checked_ptrs)):
+                if const.same_constant(self._checked_ptrs[i]):
+                    return True
+        return False
+
+    def is_compatible(self, cpu, ref):
+        const = history.newconst(ref)
+        if self._compatibility_conditions:
+            for i in range(len(self._checked_ptrs)):
+                if const.same_constant(self._checked_ptrs[i]):
+                    return True
+            if self._compatibility_conditions.check_compat(cpu, ref):
+                self._checked_ptrs.append(const)
+                return True
+            return False
+        return True # no conditions, everything works
 
 # ____________________________________________________________
 

@@ -1200,6 +1200,16 @@ class MIFrame(object):
     opimpl_float_guard_value = _opimpl_guard_value
 
     @arguments("box", "orgpc")
+    def opimpl_ref_guard_compatible(self, box, orgpc):
+        if isinstance(box, Const):
+            return box     # no promotion needed, already a Const
+        else:
+            promoted_box = executor.constant_from_op(box)
+            self.metainterp.generate_guard(rop.GUARD_COMPATIBLE, box, [promoted_box],
+                                           resumepc=orgpc)
+            # importantly, there is no replace_box here!
+
+    @arguments("box", "orgpc")
     def opimpl_guard_class(self, box, orgpc):
         clsbox = self.cls_of_box(box)
         if not self.metainterp.heapcache.is_class_known(box):

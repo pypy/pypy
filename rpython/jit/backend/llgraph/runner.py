@@ -50,7 +50,7 @@ class LLTrace(object):
         self.operations = []
         for op in operations:
             opnum = op.getopnum()
-            if opnum == rop.GUARD_VALUE:
+            if opnum == rop.GUARD_VALUE or opnum == rop.GUARD_COMPATIBLE:
                 # we don't care about the value 13 here, because we gonna
                 # fish it from the extra slot on frame anyway
                 op.getdescr().make_a_counter_per_value(op, 13)
@@ -1270,6 +1270,12 @@ class LLFrame(object):
     def execute_guard_not_invalidated(self, descr):
         if self.lltrace.invalid:
             self.fail_guard(descr)
+
+    def execute_guard_compatible(self, descr, arg1, arg2):
+        if arg1 != arg2:
+            if descr.fake_check_against_list(self.cpu, arg1):
+                return
+            self.fail_guard(descr, extra_value=arg1)
 
     def execute_int_add_ovf(self, _, x, y):
         try:
