@@ -20,36 +20,6 @@ from rpython.jit.metainterp import resumecode
 # because it needs to support optimize.py which encodes virtuals with
 # arbitrary cycles and also to compress the information
 
-class Snapshot(object):
-    __slots__ = ('prev', 'boxes')
-
-    def __init__(self, prev, boxes):
-        self.prev = prev
-        self.boxes = boxes
-
-class TopSnapshot(Snapshot):
-    __slots__ = ('vable_boxes',)
-
-    def __init__(self, prev, boxes, vable_boxes):
-        Snapshot.__init__(self, prev, boxes)
-        self.vable_boxes = vable_boxes
-
-def combine_uint(index1, index2):
-    assert 0 <= index1 < 65536
-    assert 0 <= index2 < 65536
-    return index1 << 16 | index2 # it's ok to return signed here,
-    # we need only 32bit, but 64 is ok for now
-
-def unpack_uint(packed):
-    return (packed >> 16) & 0xffff, packed & 0xffff
-
-class FrameInfo(object):
-    __slots__ = ('prev', 'packed_jitcode_pc')
-
-    def __init__(self, prev, jitcode_index, pc):
-        self.prev = prev
-        self.packed_jitcode_pc = combine_uint(jitcode_index, pc)
-
 class VectorInfo(object):
     """
         prev: the previous VectorInfo or None
@@ -112,21 +82,19 @@ class AccumInfo(VectorInfo):
                                               self.variable,
                                               self.location)
 
-def _ensure_parent_resumedata(framestack, n, t):
+def _ensure_parent_resumedata(framestack, n, t, snapshot):
     if n == 0:
         return
-    _ensure_parent_resumedata(framestack, n - 1, t)
     target = framestack[n]
     back = framestack[n - 1]
-    if target.parent_resumedata_position != -1:
-        if not we_are_translated():
-            t.check_snapshot_jitcode_pc(back.jitcode, back.pc,
-                target.parent_resumedata_position)
-        t.record_snapshot_link(target.parent_resumedata_position)
+    if target.parent_snapshot:
+        snapshot.prev = target.parent_snapshot
         return
-    pos = t.record_snapshot(back.jitcode, back.pc,
-                            back.get_list_of_active_boxes(True))
-    target.parent_resumedata_position = pos
+    s = t.create_snapshot(back.jitcode, back.pc,
+                          back.get_list_of_active_boxes(True))
+    snapshot.prev = s
+    _ensure_parent_resumedata(framestack, n - 1, t, s)
+    target.parent_snapshot = s
 
 def capture_resumedata(framestack, virtualizable_boxes, virtualref_boxes, t):
     n = len(framestack) - 1
@@ -137,15 +105,15 @@ def capture_resumedata(framestack, virtualizable_boxes, virtualref_boxes, t):
     else:
         virtualizable_boxes = []
     virtualref_boxes = virtualref_boxes[:]
-    pos = t.get_patchable_position()
-    t.record_list_of_boxes(virtualizable_boxes)
-    t.record_list_of_boxes(virtualref_boxes)
     if n >= 0:
         top = framestack[n]
-        _ensure_parent_resumedata(framestack, n, t)
-        t.record_snapshot(top.jitcode, top.pc,
-                          top.get_list_of_active_boxes(False))
-    t.patch_position_to_current(pos)
+        snapshot = t.create_top_snapshot(top.jitcode, top.pc,
+                    top.get_list_of_active_boxes(False), virtualizable_boxes,
+                    virtualref_boxes)
+        _ensure_parent_resumedata(framestack, n, t,snapshot)
+    else:
+        snapshot = t.create_empty_top_snapshot(
+            virtualizable_boxes, virtualref_boxes)
     return result
 
 PENDINGFIELDSTRUCT = lltype.Struct('PendingField',
@@ -198,12 +166,14 @@ TAG_CONST_OFFSET = 0
 class NumberingState(object):
     def __init__(self, size):
         self.liveboxes = {}
-        self.current = []
+        self.current = [0] * size
+        self._pos = 0
         self.n = 0
         self.v = 0
 
     def append(self, item):
-        self.current.append(item)
+        self.current[self._pos] = item
+        self._pos += 1
 
 class ResumeDataLoopMemo(object):
 
@@ -256,14 +226,14 @@ class ResumeDataLoopMemo(object):
 
     # env numbering
 
-    def _number_boxes(self, iter, length, optimizer, state):
+    def _number_boxes(self, iter, arr, optimizer, state):
         """ Number boxes from one snapshot
         """
         n = state.n
         v = state.v
         liveboxes = state.liveboxes
-        for i in range(length):
-            box = iter.next()
+        for item in arr:
+            box = iter.get(item)
             box = optimizer.get_box_replacement(box)
 
             if isinstance(box, Const):
@@ -291,24 +261,25 @@ class ResumeDataLoopMemo(object):
 
     def number(self, optimizer, position, trace):
         snapshot_iter = trace.get_snapshot_iter(position)
-        state = NumberingState(snapshot_iter.length())
+        state = NumberingState(snapshot_iter.size)
 
-        virtualizable_length = snapshot_iter._next()
+        arr = snapshot_iter.vable_array
 
-        state.append(rffi.cast(rffi.SHORT, virtualizable_length))
-        self._number_boxes(snapshot_iter, virtualizable_length, optimizer, state)
+        state.append(rffi.cast(rffi.SHORT, len(arr)))
+        self._number_boxes(snapshot_iter, arr, optimizer, state)
 
-        n = snapshot_iter._next()
+        arr = snapshot_iter.vref_array
+        n = len(arr)
         assert not (n & 1)
         state.append(rffi.cast(rffi.SHORT, n >> 1))
 
-        self._number_boxes(snapshot_iter, n, optimizer, state)
+        self._number_boxes(snapshot_iter, arr, optimizer, state)
 
-        while not snapshot_iter.done():
-            size, jitcode_index, pc = snapshot_iter.get_size_jitcode_pc()
+        for snapshot in snapshot_iter.framestack:
+            jitcode_index, pc = snapshot_iter.unpack_jitcode_pc(snapshot)
             state.append(rffi.cast(rffi.SHORT, jitcode_index))
             state.append(rffi.cast(rffi.SHORT, pc))
-            self._number_boxes(snapshot_iter, size, optimizer, state)
+            self._number_boxes(snapshot_iter, snapshot.box_array, optimizer, state)
 
         numb = resumecode.create_numbering(state.current)
         return numb, state.liveboxes, state.v
@@ -454,7 +425,7 @@ class ResumeDataVirtualAdder(VirtualVisitor):
         # make sure that nobody attached resume data to this guard yet
         assert not storage.rd_numb
         resume_position = self.guard_op.rd_resume_position
-        assert resume_position > 0
+        assert resume_position >= 0
         # count stack depth
         numb, liveboxes_from_env, v = self.memo.number(optimizer,
             resume_position, self.optimizer.trace)

@@ -19,7 +19,7 @@ class JitCode(object):
         self.index = index
 
 class Frame(object):
-    parent_resumedata_position = -1
+    parent_snapshot = None
 
     def __init__(self, jitcode, pc, boxes):
         self.jitcode = jitcode

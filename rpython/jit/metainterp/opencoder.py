@@ -27,52 +27,32 @@ class BaseTrace(object):
     pass
 
 class SnapshotIterator(object):
-    def __init__(self, main_iter, pos, end_pos):
-        self.trace = main_iter.trace
+    def __init__(self, main_iter, snapshot):
         self.main_iter = main_iter
-        self.end = end_pos
-        self.start = pos
-        self.pos = pos
-        self.save_pos = -1
+        # reverse the snapshots and store the vable, vref lists
+        assert isinstance(snapshot, TopSnapshot)
+        self.vable_array = snapshot.vable_array
+        self.vref_array = snapshot.vref_array
+        self.size = len(self.vable_array) + len(self.vref_array) + 2
+        jc_index, pc = unpack_uint(snapshot.packed_jitcode_pc)
+        self.framestack = []
+        if jc_index == 2**16-1:
+            return
+        while snapshot:
+            self.framestack.append(snapshot)
+            self.size += len(snapshot.box_array) + 2
+            snapshot = snapshot.prev
+        self.framestack.reverse()
 
-    def length(self):
-        return self.end - self.start
+    def get(self, index):
+        return self.main_iter._untag(index)
 
-    def done(self):
-        return self.pos >= self.end
+    def unpack_jitcode_pc(self, snapshot):
+        return unpack_uint(snapshot.packed_jitcode_pc)
 
-    def _next(self):
-        res = rffi.cast(lltype.Signed, self.trace._ops[self.pos])
-        self.pos += 1
-        return res
-
-    def next(self):
-        r = self.main_iter._untag(self._next())
-        assert r
-        return r
-
-    def read_boxes(self, size):
-        return [self.next() for i in range(size)]
-
-    def get_size_jitcode_pc(self):
-        if self.save_pos >= 0:
-            self.pos = self.save_pos
-            self.save_pos = -1
-        size = self._next()
-        if size < 0:
-            self.save_pos = self.pos + 1
-            self.pos = ((-size - 1) << 15) | (self._next())
-            assert self.pos >= 0
-            size = self._next()
-            assert size >= 0
-        return size, self._next(), self._next()
-
-    def get_list_of_boxes(self):
-        size = self._next()
-        l = []
-        for i in range(size):
-            l.append(self.next())
-        return l
+    def unpack_array(self, arr):
+        # NOT_RPYTHON
+        return [self.get(i) for i in arr]
 
 class TraceIterator(BaseTrace):
     def __init__(self, trace, start, end, force_inputargs=None):
@@ -127,14 +107,8 @@ class TraceIterator(BaseTrace):
         else:
             assert False
 
-    def skip_resume_data(self):
-        pos = self.pos
-        self.pos += self._next()
-        return pos
-
-    def get_snapshot_iter(self, pos):
-        end = rffi.cast(lltype.Signed, self.trace._ops[pos]) + pos
-        return SnapshotIterator(self, pos + 1, end)
+    def get_snapshot_iter(self, index):
+        return SnapshotIterator(self, self.trace._snapshots[index])
 
     def next(self):
         opnum = self._next()
@@ -147,7 +121,7 @@ class TraceIterator(BaseTrace):
             args.append(self._untag(self._next()))
         if opwithdescr[opnum]:
             descr_index = self._next()
-            if descr_index == -1:
+            if descr_index == -1 or rop.is_guard(opnum):
                 descr = None
             else:
                 descr = self.trace._descrs[descr_index]
@@ -156,7 +130,7 @@ class TraceIterator(BaseTrace):
         res = ResOperation(opnum, args, -1, descr=descr)
         if rop.is_guard(opnum):
             assert isinstance(res, GuardResOp)
-            res.rd_resume_position = self.skip_resume_data()
+            res.rd_resume_position = descr_index
         self._cache[self._count] = res
         self._count += 1
         return res
@@ -173,6 +147,30 @@ class CutTrace(BaseTrace):
                              self.inputargs)
         iter._count = self.count
         return iter
+
+def combine_uint(index1, index2):
+    assert 0 <= index1 < 65536
+    assert 0 <= index2 < 65536
+    return index1 << 16 | index2 # it's ok to return signed here,
+    # we need only 32bit, but 64 is ok for now
+
+def unpack_uint(packed):
+    return (packed >> 16) & 0xffff, packed & 0xffff
+
+class Snapshot(object):
+    _attrs_ = ('packed_jitcode_pc', 'box_array', 'prev')
+
+    prev = None
+
+    def __init__(self, packed_jitcode_pc, box_array):
+        self.packed_jitcode_pc = packed_jitcode_pc
+        self.box_array = box_array
+
+class TopSnapshot(Snapshot):
+    def __init__(self, packed_jitcode_pc, box_array, vable_array, vref_array):
+        Snapshot.__init__(self, packed_jitcode_pc, box_array)
+        self.vable_array = vable_array
+        self.vref_array = vref_array
 
 class Trace(BaseTrace):
     def __init__(self, inputargs):
@@ -191,6 +189,7 @@ class Trace(BaseTrace):
         self._bigints_dict = {}
         self._floats = []
         self._floats_dict = {}
+        self._snapshots = []
         for i, inparg in enumerate(inputargs):
             assert isinstance(inparg, AbstractInputArg)
             inparg.position = -i - 1
@@ -301,31 +300,11 @@ class Trace(BaseTrace):
         self._count += 1
         return pos
 
-    def _record_raw(self, opnum, tagged_args, tagged_descr=-1):
-        NOT_USED
-        operations = self._ops
-        pos = self._count
-        operations.append(opnum)
-        expected_arity = oparity[opnum]
-        if expected_arity == -1:
-            operations.append(len(tagged_args))
-        else:
-            assert len(argboxes) == expected_arity
-        operations.extend(tagged_args)
-        if tagged_descr != -1:
-            operations.append(tagged_descr)
-        self._count += 1
-        return pos        
-
     def _encode_descr(self, descr):
         # XXX provide a global cache for prebuilt descrs so we don't
         #     have to repeat them here        
         self._descrs.append(descr)
         return len(self._descrs) - 1
-
-#    def record_forwarding(self, op, newtag):
-#        index = op._pos
-#        self._ops[index] = -newtag - 1
 
     def record_snapshot_link(self, pos):
         self._sharings += 1
@@ -340,40 +319,35 @@ class Trace(BaseTrace):
         assert opnum >= 0
         return ResOperation(opnum, argboxes, pos, descr)
 
-    def record_op_tag(self, opnum, tagged_args, descr=None):
-        NOT_USED
-        return tag(TAGBOX, self._record_raw(opnum, tagged_args, descr))
+    def _list_of_boxes(self, boxes):
+        return [rffi.cast(rffi.SHORT, self._encode(box)) for box in boxes]
 
-    def record_snapshot(self, jitcode, pc, active_boxes):
-        self._total_snapshots += 1
-        pos = self._pos
-        self.append(len(active_boxes)) # unnecessary, can be read from
-        self.append(jitcode.index)
-        self.append(pc)
-        for box in active_boxes:
-            self.append(self._encode(box)) # not tagged, as it must be boxes
-        return pos
+    def create_top_snapshot(self, jitcode, pc, boxes, vable_boxes, vref_boxes):
+        array = self._list_of_boxes(boxes)
+        vable_array = self._list_of_boxes(vable_boxes)
+        vref_array = self._list_of_boxes(vref_boxes)
+        s = TopSnapshot(combine_uint(jitcode.index, pc), array, vable_array,
+                        vref_array)
+        assert rffi.cast(lltype.Signed, self._ops[self._pos - 1]) == -1
+        # guards have no descr
+        self._snapshots.append(s)
+        self._ops[self._pos - 1] = rffi.cast(rffi.SHORT, len(self._snapshots) - 1)
+        return s
 
-    def record_list_of_boxes(self, boxes):
-        self.append(len(boxes))
-        for box in boxes:
-            self.append(self._encode(box))
+    def create_empty_top_snapshot(self, vable_boxes, vref_boxes):
+        vable_array = self._list_of_boxes(vable_boxes)
+        vref_array = self._list_of_boxes(vref_boxes)
+        s = TopSnapshot(combine_uint(2**16 - 1, 0), [], vable_array,
+                        vref_array)
+        assert rffi.cast(lltype.Signed, self._ops[self._pos - 1]) == -1
+        # guards have no descr
+        self._snapshots.append(s)
+        self._ops[self._pos - 1] = rffi.cast(rffi.SHORT, len(self._snapshots) - 1)
+        return s
 
-    def get_patchable_position(self):
-        p = self._pos
-        self.append(-1)
-        return p
-
-    def patch_position_to_current(self, p):
-        prev = self._ops[p]
-        assert rffi.cast(lltype.Signed, prev) == -1
-        self._snapshot_lgt += self._pos - p
-        self._ops[p] = rffi.cast(rffi.SHORT, self._pos - p)
-
-    def check_snapshot_jitcode_pc(self, jitcode, pc, resumedata_pos):
-        # XXX expensive?
-        assert self._ops[resumedata_pos + 1] == rffi.cast(rffi.SHORT, jitcode.index)
-        assert self._ops[resumedata_pos + 2] == rffi.cast(rffi.SHORT, pc)
+    def create_snapshot(self, jitcode, pc, boxes):
+        array = self._list_of_boxes(boxes)
+        return Snapshot(combine_uint(jitcode.index, pc), array)
 
     def get_iter(self):
         return TraceIterator(self, 0, self._pos)

@@ -70,7 +70,7 @@ class MIFrame(object):
         self.copy_constants(self.registers_f, jitcode.constants_f, ConstFloat)
         self._result_argcode = 'v'
         # for resume.py operation
-        self.parent_resumedata_position = -1
+        self.parent_snapshot = None
         # counter for unrolling inlined loops
         self.unroll_iterations = 1
 
