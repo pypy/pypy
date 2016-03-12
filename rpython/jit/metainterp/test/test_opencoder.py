@@ -27,17 +27,12 @@ class FakeFrame(object):
 def unpack_snapshot(t, op, pos):
     op.framestack = []
     si = t.get_snapshot_iter(op.rd_resume_position)
-    virtualizables = si.get_virtualizables()
-    vref_boxes = si.get_vref_boxes()
-    while not si.done():
-        size, jitcode, pc = si.get_size_jitcode_pc()
-        if jitcode == 2**16 - 1:
-            break
-        boxes = []
-        for i in range(size):
-            boxes.append(si.next())
+    virtualizables = si.unpack_array(si.vable_array)
+    vref_boxes = si.unpack_array(si.vref_array)
+    for snapshot in si.framestack:
+        jitcode, pc = si.unpack_jitcode_pc(snapshot)
+        boxes = si.unpack_array(snapshot.box_array)
         op.framestack.append(FakeFrame(JitCode(jitcode), pc, boxes))
-    op.framestack.reverse()
     op.virtualizables = virtualizables
     op.vref_boxes = vref_boxes
 
@@ -102,27 +97,26 @@ class TestOpencoder(object):
         (i0, i1, i2), l, iter = self.unpack(t)
         pos = l[0].rd_resume_position
         snapshot_iter = iter.get_snapshot_iter(pos)
-        assert snapshot_iter.get_virtualizables() == []
-        assert snapshot_iter.get_vref_boxes() == []
-        size, jc_index, pc = snapshot_iter.get_size_jitcode_pc()
-        assert size == 2
+        assert snapshot_iter.vable_array == []
+        assert snapshot_iter.vref_array == []
+        framestack = snapshot_iter.framestack
+        jc_index, pc = snapshot_iter.unpack_jitcode_pc(framestack[1])
         assert jc_index == 4
         assert pc == 3
-        assert [snapshot_iter.next() for i in range(2)] == [i2, i2]
-        size, jc_index, pc = snapshot_iter.get_size_jitcode_pc()
-        assert size == 2
+        assert snapshot_iter.unpack_array(framestack[1].box_array) == [i2, i2]
+        jc_index, pc = snapshot_iter.unpack_jitcode_pc(framestack[0])
         assert jc_index == 2
         assert pc == 1
-        assert [snapshot_iter.next() for i in range(2)] == [i0, i1]
+        assert snapshot_iter.unpack_array(framestack[0].box_array) == [i0, i1]
         pos = l[1].rd_resume_position
         snapshot_iter = iter.get_snapshot_iter(pos)
-        assert snapshot_iter.get_virtualizables() == []
-        assert snapshot_iter.get_vref_boxes() == []
-        size, jc_index, pc = snapshot_iter.get_size_jitcode_pc()
-        assert size == 2
+        framestack = snapshot_iter.framestack
+        assert snapshot_iter.vable_array == []
+        assert snapshot_iter.vref_array == []
+        jc_index, pc = snapshot_iter.unpack_jitcode_pc(framestack[1])
         assert jc_index == 4
         assert pc == 3
-        assert [snapshot_iter.next() for i in range(2)] == [i2, i2]
+        assert snapshot_iter.unpack_array(framestack[1].box_array) == [i2, i2]
 
     @given(lists_of_operations())
     def test_random_snapshot(self, lst):
