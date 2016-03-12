@@ -240,8 +240,8 @@ def execute_tests(run_param, testdirs, logfile, out):
         s = 'setting'
         if os.environ.get('MAKEFLAGS'):
             s = 'overriding'
-        out.write("%s MAKEFLAGS to '-j1'\n" % s)
-        os.environ['MAKEFLAGS'] = '-j1'
+        out.write("%s MAKEFLAGS to ' ' (space)\n" % s)
+        os.environ['MAKEFLAGS'] = ' '
     failure = False
 
     for testname in testdirs:
