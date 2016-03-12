@@ -119,6 +119,7 @@ class TraceIterator(BaseTrace):
         args = []
         for i in range(argnum):
             args.append(self._untag(self._next()))
+        descr_index = -1
         if opwithdescr[opnum]:
             descr_index = self._next()
             if descr_index == -1 or rop.is_guard(opnum):
