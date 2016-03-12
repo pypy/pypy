@@ -1654,14 +1654,14 @@ class IncrementalMiniMarkGC(MovingGCBase):
             else:
                 self.nursery_objects_shadows.clear()
         #
+        # visit the P and O lists from rawrefcount, if enabled.
+        if self.rrc_enabled:
+            self.rrc_minor_collection_free()
+        #
         # Walk the list of young raw-malloced objects, and either free
         # them or make them old.
         if self.young_rawmalloced_objects:
             self.free_young_rawmalloced_objects()
-        #
-        # visit the P and O lists from rawrefcount, if enabled.
-        if self.rrc_enabled:
-            self.rrc_minor_collection_free()
         #
         # All live nursery objects are out of the nursery or pinned inside
         # the nursery.  Create nursery barriers to protect the pinned objects,
