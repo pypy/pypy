@@ -35,7 +35,8 @@ class AbstractInfo(AbstractValue):
 
 
 class PtrInfo(AbstractInfo):
-    _attrs_ = ()
+    _attrs_ = ('_compatibility_conditions', )
+    _compatibility_conditions = None
 
     def is_nonnull(self):
         return False
@@ -785,7 +786,7 @@ class ConstPtrInfo(PtrInfo):
                                         targetbox, CONST_0, offsetbox,
                                         lgt, mode)
 
-    
+
 class FloatConstInfo(AbstractInfo):
     def __init__(self, const):
         self._const = const

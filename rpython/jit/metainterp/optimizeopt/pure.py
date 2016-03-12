@@ -4,6 +4,7 @@ from rpython.jit.metainterp.resoperation import rop, OpHelpers, AbstractResOp,\
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.optimizeopt.shortpreamble import PreambleOp
 from rpython.jit.metainterp.optimize import SpeculativeError
+from rpython.jit.metainterp.compatible import CompatibilityCondition
 
 
 class RecentPureOps(object):
@@ -130,6 +131,25 @@ class OptPure(Optimization):
         return recentops
 
     def optimize_CALL_PURE_I(self, op):
+        # Step 0: check if first argument is subject of guard_compatible
+        # XXX maybe don't do this with absolutely *all* call_pure functions
+        # that have a guard_compatible ptr as first arg
+        if op.numargs() > 1:
+            arg1 = self.get_box_replacement(op.getarg(1))
+            if arg1.type == 'r':
+                info = self.getptrinfo(arg1)
+                ccond = info._compatibility_conditions
+                if info and ccond:
+                    # it's subject to guard_compatible
+                    copied_op = op.copy()
+                    copied_op.setarg(1, ccond.known_valid)
+                    result = self._can_optimize_call_pure(copied_op)
+                    if result is not None:
+                        self.make_constant(op, result)
+                        self.last_emitted_operation = REMOVED
+                        ccond.record_pure_call(copied_op, result)
+                        return
+
         # Step 1: check if all arguments are constant
         for arg in op.getarglist():
             self.optimizer.force_box(arg)
@@ -185,6 +205,29 @@ class OptPure(Optimization):
             self.last_emitted_operation = REMOVED
             return True
         return False
+
+    def optimize_GUARD_COMPATIBLE(self, op):
+        arg0 = self.get_box_replacement(op.getarg(0))
+        if arg0.is_constant():
+            # already subject of guard_value
+            return
+        assert arg0.type == 'r'
+        info = self.getptrinfo(arg0)
+        if info:
+            if info.is_virtual():
+                raise InvalidLoop("guard_compatible of a virtual")
+        else:
+            self.make_nonnull(arg0)
+            info = self.getptrinfo(arg0)
+        if info._compatibility_conditions:
+            # seen a previous guard_compatible
+            # check that it's the same previous constant
+            assert info._compatibility_conditions.known_valid.same_constant(op.getarg(1))
+            return
+        else:
+            info._compatibility_conditions = CompatibilityCondition(
+                op.getarg(1))
+            self.emit_operation(op)
 
     def optimize_GUARD_NO_EXCEPTION(self, op):
         if self.last_emitted_operation is REMOVED:
