@@ -941,6 +941,23 @@ def test_promote_2():
     assert block.operations[1].result is None
     assert block.exits[0].args == [v1]
 
+def test_guard_compatible():
+    S = lltype.GcStruct('S', ('x', lltype.Char)) # some ptr type
+    v1 = varoftype(lltype.Ptr(S))
+    v2 = varoftype(lltype.Ptr(S))
+    op = SpaceOperation('hint',
+                        [v1, Constant({'promote_compatible': True}, lltype.Void)],
+                        v2)
+    oplist = Transformer().rewrite_operation(op)
+    op0, op1, op2 = oplist
+    assert op0.opname == '-live-'
+    assert op0.args == []
+    assert op1.opname == 'ref_guard_compatible'
+    assert op1.args == [v1]
+    assert op1.result is None
+    assert op2 is None
+
+
 def test_jit_merge_point_1():
     class FakeJitDriverSD:
         index = 42

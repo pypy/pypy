@@ -591,6 +591,14 @@ class Transformer(object):
         if hints.get('force_no_const'):   # for tests only
             assert getkind(op.args[0].concretetype) == 'int'
             return SpaceOperation('int_same_as', [op.args[0]], op.result)
+        if hints.get('promote_compatible') and op.args[0].concretetype is not lltype.Void:
+            kind = getkind(op.args[0].concretetype)
+            assert kind == "ref" # for now
+            op0 = SpaceOperation('-live-', [], None)
+            op1 = SpaceOperation('%s_guard_compatible' % kind, [op.args[0]], None)
+            # the special return value None forces op.result to be considered
+            # equal to op.args[0]
+            return [op0, op1, None]
         log.WARNING('ignoring hint %r at %r' % (hints, self.graph))
 
     def _rewrite_raw_malloc(self, op, name, args):
