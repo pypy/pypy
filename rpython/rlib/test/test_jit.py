@@ -5,7 +5,7 @@ from rpython.annotator.model import UnionError
 from rpython.rlib.jit import (hint, we_are_jitted, JitDriver, elidable_promote,
     JitHintError, oopspec, isconstant, conditional_call,
     elidable, unroll_safe, dont_look_inside,
-    enter_portal_frame, leave_portal_frame)
+    enter_portal_frame, leave_portal_frame, elidable_compatible)
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rtyper.lltypesystem import lltype
@@ -142,6 +142,27 @@ class TestJIT(BaseRtypingTest):
             return g(x * 2)
         res = self.interpret(f, [2])
         assert res == 5
+
+    def test_elidable_promote(self):
+        class A(object):
+            pass
+        a1 = A()
+        a1.x = 1
+        a2 = A()
+        a2.x = 2
+        @elidable_compatible()
+        def g(a):
+            return a.x
+        def f(x):
+            if x == 1:
+                a = a1
+            else:
+                a = a2
+            return g(a)
+        res = self.interpret(f, [1])
+        assert res == 1
+        res = self.interpret(f, [4])
+        assert res == 2
 
     def test_elidable_promote_args(self):
         @elidable_promote(promote_args='0')

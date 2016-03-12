@@ -93,6 +93,8 @@ def hint(x, **kwds):
     * force_virtualizable - a performance hint to force the virtualizable early
                             (useful e.g. for python generators that are going
                             to be read later anyway)
+    * promote_compatible  - an internal hint used in the implementation of
+                            elidable_compatible
     """
     return x
 
@@ -125,6 +127,42 @@ def promote(x):
 
 def promote_string(x):
     return hint(x, promote_string=True)
+
+def elidable_compatible():
+    """ func must be a function of at least one argument. That first argument
+    must be pointer-like (XXX for now?) The behaviour of @elidable_compatible
+    is as follows:
+
+    it turns a call to func like this:
+    res = func(a1, *args)
+
+    into something that behaves similar to this:
+    promote(a1)
+    res = func(a1, *args)
+
+    However, the promote of a1 is not implemented with a guard_value. Instead,
+    it uses guard_compatible, which is less strict and causes less failures.
+    More precisely, executing the guard_compatible(x) will only fail if
+    func(x, *args) != func(a1, *args)
+
+    In this, a1 must not be None.
+
+    This works particularly well if func maps many different values a1 to a
+    single value res. If func is an injection, there is no reason to not simply
+    use a regular promote.
+
+    XXX what happens if the *args are not constant?
+    XXX we need a better name
+    """
+    def decorate(func):
+        elidable(func)
+        def wrapped_func(x, *args):
+            assert x is not None
+            x = hint(x, promote_compatible=True)
+            return func(x, *args)
+        return wrapped_func
+    return decorate
+
 
 def dont_look_inside(func):
     """ Make sure the JIT does not trace inside decorated function
