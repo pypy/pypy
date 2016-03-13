@@ -1074,7 +1074,7 @@ class W_Product(W_Root):
 
     def descr_reduce(self, space):
         if not self.stopped:
-            gears = [space.newtuple([gear]) for gear in self.gears]
+            gears = [space.newtuple(gear) for gear in self.gears]
             result_w = [
                 space.type(self),
                 space.newtuple(gears)
@@ -1087,7 +1087,7 @@ class W_Product(W_Root):
         else:
             result_w = [
                 space.type(self),
-                space.newtuple([])
+                space.newtuple([()])
             ]
         return space.newtuple(result_w)
 
