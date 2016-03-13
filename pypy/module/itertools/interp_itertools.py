@@ -1007,7 +1007,7 @@ W_Compress.typedef = TypeDef(
 class W_Product(W_Root):
     def __init__(self, space, args_w, w_repeat):
         self.gears = [
-            space.unpackiterable(arg_w) for arg_w in args_w
+            space.unpackiterable(arg_w)[:] for arg_w in args_w
         ] * space.int_w(w_repeat)
         #
         for gear in self.gears:
@@ -1087,7 +1087,7 @@ class W_Product(W_Root):
         else:
             result_w = [
                 space.type(self),
-                space.newtuple([()])
+                space.newtuple([space.newtuple([])])
             ]
         return space.newtuple(result_w)
 
