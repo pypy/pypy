@@ -49,11 +49,21 @@ class TestCompatible(BaseTestBasic, LLtypeMixin):
             (ConstInt(123), ConstPtr(self.myptr)): ConstInt(5),
             (ConstInt(124), ConstPtr(self.myptr)): ConstInt(7),
         }
-        ops = """
+        ops1 = """
         [p1]
         guard_compatible(p1, ConstPtr(myptr)) []
         i3 = call_pure_i(123, p1, descr=plaincalldescr)
         escape_n(i3)
+        i5 = call_pure_i(124, p1, descr=plaincalldescr)
+        escape_n(i5)
+        jump(ConstPtr(myptr))
+        """
+        ops2 = """
+        [p1]
+        guard_compatible(p1, ConstPtr(myptr)) []
+        i3 = call_pure_i(123, p1, descr=plaincalldescr)
+        escape_n(i3)
+        guard_compatible(p1, ConstPtr(myptr)) []
         i5 = call_pure_i(124, p1, descr=plaincalldescr)
         escape_n(i5)
         jump(ConstPtr(myptr))
@@ -65,9 +75,10 @@ class TestCompatible(BaseTestBasic, LLtypeMixin):
         escape_n(7)
         jump(ConstPtr(myptr))
         """
-        self.optimize_loop(ops, expected, call_pure_results=call_pure_results)
-        # whitebox-test the guard_compatible descr a bit
-        descr = self.loop.operations[1].getdescr()
-        assert descr._compatibility_conditions is not None
-        assert descr._compatibility_conditions.known_valid.same_constant(ConstPtr(self.myptr))
-        assert len(descr._compatibility_conditions.pure_call_conditions) == 2
+        for ops in [ops1, ops2]:
+            self.optimize_loop(ops, expected, call_pure_results=call_pure_results)
+            # whitebox-test the guard_compatible descr a bit
+            descr = self.loop.operations[1].getdescr()
+            assert descr._compatibility_conditions is not None
+            assert descr._compatibility_conditions.known_valid.same_constant(ConstPtr(self.myptr))
+            assert len(descr._compatibility_conditions.pure_call_conditions) == 2
