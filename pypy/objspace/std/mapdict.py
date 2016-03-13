@@ -36,11 +36,17 @@ class AbstractAttribute(object):
         assert isinstance(terminator, Terminator)
         self.terminator = terminator
 
+    @jit.elidable_compatible
+    def getclass_from_terminator(self):
+        # objects with different maps can have the same class
+        return self.terminator.w_cls
+
     def read(self, obj, name, index):
         attr = self.find_map_attr(name, index)
         if attr is None:
+            jit.promote(self)
             return self.terminator._read_terminator(obj, name, index)
-        if (
+        if ( # XXX in the guard_compatible world the following isconstant may never be true?
             jit.isconstant(attr.storageindex) and
             jit.isconstant(obj) and
             not attr.ever_mutated
@@ -56,6 +62,8 @@ class AbstractAttribute(object):
     def write(self, obj, name, index, w_value):
         attr = self.find_map_attr(name, index)
         if attr is None:
+            # adding an attribute needs to know all attributes, thus promote
+            jit.promote(self)
             return self.terminator._write_terminator(obj, name, index, w_value)
         if not attr.ever_mutated:
             attr.ever_mutated = True
@@ -65,7 +73,7 @@ class AbstractAttribute(object):
     def delete(self, obj, name, index):
         pass
 
-    @jit.elidable
+    @jit.elidable_compatible
     def find_map_attr(self, name, index):
         if (self.space.config.objspace.std.withmethodcache):
             return self._find_map_attr_cache(name, index)
@@ -476,18 +484,23 @@ class BaseMapdictObject:
 
     def _get_mapdict_map(self):
         return jit.promote(self.map)
+
+    def _get_mapdict_map_no_promote(self):
+        return self.map
+
     def _set_mapdict_map(self, map):
         self.map = map
     # _____________________________________________
     # objspace interface
 
     def getdictvalue(self, space, attrname):
-        return self._get_mapdict_map().read(self, attrname, DICT)
+        return self._get_mapdict_map_no_promote().read(self, attrname, DICT)
 
     def setdictvalue(self, space, attrname, w_value):
-        return self._get_mapdict_map().write(self, attrname, DICT, w_value)
+        return self._get_mapdict_map_no_promote().write(self, attrname, DICT, w_value)
 
     def deldictvalue(self, space, attrname):
+        # deleting needs to promote, we need the whole shape
         new_obj = self._get_mapdict_map().delete(self, attrname, DICT)
         if new_obj is None:
             return False
@@ -495,7 +508,7 @@ class BaseMapdictObject:
         return True
 
     def getdict(self, space):
-        w_dict = self._get_mapdict_map().read(self, "dict", SPECIAL)
+        w_dict = self._get_mapdict_map_no_promote().read(self, "dict", SPECIAL)
         if w_dict is not None:
             assert isinstance(w_dict, W_DictMultiObject)
             return w_dict
@@ -503,7 +516,7 @@ class BaseMapdictObject:
         strategy = space.fromcache(MapDictStrategy)
         storage = strategy.erase(self)
         w_dict = W_DictObject(space, strategy, storage)
-        flag = self._get_mapdict_map().write(self, "dict", SPECIAL, w_dict)
+        flag = self._get_mapdict_map_no_promote().write(self, "dict", SPECIAL, w_dict)
         assert flag
         return w_dict
 
@@ -519,11 +532,11 @@ class BaseMapdictObject:
         # shell that continues to delegate to 'self'.
         if type(w_olddict.get_strategy()) is MapDictStrategy:
             w_olddict.get_strategy().switch_to_object_strategy(w_olddict)
-        flag = self._get_mapdict_map().write(self, "dict", SPECIAL, w_dict)
+        flag = self._get_mapdict_map_no_promote().write(self, "dict", SPECIAL, w_dict)
         assert flag
 
     def getclass(self, space):
-        return self._get_mapdict_map().terminator.w_cls
+        return self._get_mapdict_map_no_promote().getclass_from_terminator()
 
     def setclass(self, space, w_cls):
         new_obj = self._get_mapdict_map().set_terminator(self, w_cls.terminator)
@@ -538,11 +551,11 @@ class BaseMapdictObject:
 
     def getslotvalue(self, slotindex):
         index = SLOTS_STARTING_FROM + slotindex
-        return self._get_mapdict_map().read(self, "slot", index)
+        return self._get_mapdict_map_no_promote().read(self, "slot", index)
 
     def setslotvalue(self, slotindex, w_value):
         index = SLOTS_STARTING_FROM + slotindex
-        self._get_mapdict_map().write(self, "slot", index, w_value)
+        self._get_mapdict_map_no_promote().write(self, "slot", index, w_value)
 
     def delslotvalue(self, slotindex):
         index = SLOTS_STARTING_FROM + slotindex
@@ -556,7 +569,7 @@ class BaseMapdictObject:
 
     def getweakref(self):
         from pypy.module._weakref.interp__weakref import WeakrefLifeline
-        lifeline = self._get_mapdict_map().read(self, "weakref", SPECIAL)
+        lifeline = self._get_mapdict_map_no_promote().read(self, "weakref", SPECIAL)
         if lifeline is None:
             return None
         assert isinstance(lifeline, WeakrefLifeline)
@@ -566,11 +579,11 @@ class BaseMapdictObject:
     def setweakref(self, space, weakreflifeline):
         from pypy.module._weakref.interp__weakref import WeakrefLifeline
         assert isinstance(weakreflifeline, WeakrefLifeline)
-        self._get_mapdict_map().write(self, "weakref", SPECIAL, weakreflifeline)
+        self._get_mapdict_map_no_promote().write(self, "weakref", SPECIAL, weakreflifeline)
     setweakref._cannot_really_call_random_things_ = True
 
     def delweakref(self):
-        self._get_mapdict_map().write(self, "weakref", SPECIAL, None)
+        self._get_mapdict_map_no_promote().write(self, "weakref", SPECIAL, None)
     delweakref._cannot_really_call_random_things_ = True
 
 class ObjectMixin(object):
