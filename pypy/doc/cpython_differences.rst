@@ -265,7 +265,7 @@ Consider the following snippet of code::
         return False
 
     def evil(y):
-        d = {x(): 1}
+        d = {X(): 1}
         X.__eq__ = __evil_eq__
         d[y] # might trigger a call to __eq__?
 
