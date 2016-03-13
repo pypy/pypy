@@ -56,12 +56,19 @@ class CompatibilityCondition(object):
         self.pure_call_conditions.append((op, res))
 
     def check_compat(self, cpu, ref):
+        from rpython.rlib.debug import debug_print, debug_start, debug_stop
         for op, correct_res in self.pure_call_conditions:
             calldescr = op.getdescr()
             # change exactly the first argument
             arglist = op.getarglist()
             arglist[1] = newconst(ref)
-            res = do_call(cpu, arglist, calldescr)
+            try:
+                res = do_call(cpu, arglist, calldescr)
+            except Exception:
+                debug_start("jit-guard-compatible")
+                debug_print("call to elidable_compatible function raised")
+                debug_stop("jit-guard-compatible")
+                return False
             if not res.same_constant(correct_res):
                 return False
         return True
