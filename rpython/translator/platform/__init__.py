@@ -5,8 +5,9 @@ import py, os, sys
 from rpython.tool.runsubprocess import run_subprocess as _run_subprocess
 from rpython.tool.udir import udir
 from rpython.tool.version import rpythonroot
+from rpython.tool.ansi_print import AnsiLogger
 
-log = py.log.Producer("platform")
+log = AnsiLogger("platform")
 
 
 class CompilationError(Exception):

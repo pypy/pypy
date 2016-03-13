@@ -28,13 +28,19 @@ class TestRawRefCount(BaseDirectGCTest):
         count2 = len(self.trigger)
         assert count2 - count1 == expected_trigger
 
-    def create_gcobj(self, intval, old=False, immortal=False):
+    def create_gcobj(self, intval, old=False, immortal=False, external=False):
         if immortal:
             p1 = lltype.malloc(S, immortal=True)
             p1.x = intval
             self.consider_constant(p1)
             return p1
-        p1 = self.malloc(S)
+        saved = self.gc.nonlarge_max
+        try:
+            if external:
+                self.gc.nonlarge_max = 1
+            p1 = self.malloc(S)
+        finally:
+            self.gc.nonlarge_max = saved
         p1.x = intval
         if old:
             self.stackroots.append(p1)
@@ -62,11 +68,12 @@ class TestRawRefCount(BaseDirectGCTest):
             self.gc.rawrefcount_create_link_pypy(gcref, rawaddr)
 
     def _rawrefcount_pair(self, intval, is_light=False, is_pyobj=False,
-                          create_old=False, create_immortal=False):
+                          create_old=False, create_immortal=False,
+                          force_external=False):
         self.trigger = []
         self.gc.rawrefcount_init(lambda: self.trigger.append(1))
         #
-        p1 = self.create_gcobj(intval, old=create_old, immortal=create_immortal)
+        p1 = self.create_gcobj(intval, old=create_old, immortal=create_immortal, external=force_external)
         r1 = self.create_rawobj(immortal=create_immortal)
         self.create_link(r1, p1, is_light=is_light, is_pyobj=is_pyobj)
         if is_light:
@@ -230,9 +237,10 @@ class TestRawRefCount(BaseDirectGCTest):
         self.gc.check_no_more_rawrefcount_state()
         lltype.free(r1, flavor='raw')
 
-    def test_pyobject_pypy_link_dies_on_minor_collection(self):
+    @py.test.mark.parametrize('external', [False, True])
+    def test_pyobject_pypy_link_dies_on_minor_collection(self, external):
         p1, r1, check_alive = (
-            self._rawrefcount_pair(42, is_pyobj=True))
+            self._rawrefcount_pair(42, is_pyobj=True, force_external=external))
         check_alive(0)
         r1.ob_refcnt += 1            # the pyobject is kept alive
         self._collect(major=False)
@@ -259,10 +267,12 @@ class TestRawRefCount(BaseDirectGCTest):
         self.gc.check_no_more_rawrefcount_state()
         lltype.free(r1, flavor='raw')
 
-    @py.test.mark.parametrize('old', [True, False])
-    def test_pyobject_survives_from_obj(self, old):
+    @py.test.mark.parametrize('old,external', [
+        (False, False), (True, False), (False, True)])
+    def test_pyobject_survives_from_obj(self, old, external):
         p1, r1, check_alive = (
-            self._rawrefcount_pair(42, is_pyobj=True, create_old=old))
+            self._rawrefcount_pair(42, is_pyobj=True, create_old=old,
+                                   force_external=external))
         check_alive(0)
         self.stackroots.append(p1)
         self._collect(major=False)

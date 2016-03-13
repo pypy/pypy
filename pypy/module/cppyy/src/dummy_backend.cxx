@@ -390,7 +390,7 @@ void cppyy_call_v(cppyy_method_t method, cppyy_object_t self, int nargs, void* a
         ((dummy::cppyy_test_data*)self)->destroy_arrays();
     } else if (idx == s_methods["cppyy_test_data::set_bool"]) {
         assert(self && nargs == 1);
-        ((dummy::cppyy_test_data*)self)->set_bool((bool)((CPPYY_G__value*)args)[0].obj.in);
+        ((dummy::cppyy_test_data*)self)->set_bool((bool)((CPPYY_G__value*)args)[0].obj.i);
     } else if (idx == s_methods["cppyy_test_data::set_char"]) {
         assert(self && nargs == 1);
         ((dummy::cppyy_test_data*)self)->set_char(((CPPYY_G__value*)args)[0].obj.ch);

@@ -210,6 +210,7 @@ appropriate measure but it's something)::
   Kristjan Valur Jonsson
   David Lievens
   Neil Blakey-Milner
+  Sergey Matyunin
   Lutz Paelike
   Lucio Torre
   Lars Wassermann
@@ -241,6 +242,7 @@ appropriate measure but it's something)::
   Aaron Tubbs
   Ben Darnell
   Roberto De Ioris
+  Logan Chien
   Juan Francisco Cantero Hurtado
   Ruochen Huang
   Jeong YunWon

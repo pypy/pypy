@@ -1224,8 +1224,9 @@ _oplist = [
     'SETINTERIORFIELD_GC/3d/n',
     'SETINTERIORFIELD_RAW/3d/n',    # right now, only used by tests
     'SETFIELD_GC/2d/n',
-    'ZERO_ARRAY/3d/n',  # only emitted by the rewrite, clears (part of) an array
-                        # [arraygcptr, firstindex, length], descr=ArrayDescr
+    'ZERO_ARRAY/5d/n',  # only emitted by the rewrite, clears (part of) an array
+                        # [arraygcptr, firstindex, length, scale_firstindex,
+                        #  scale_length], descr=ArrayDescr
     'SETFIELD_RAW/2d/n',
     'STRSETITEM/3/n',
     'UNICODESETITEM/3/n',

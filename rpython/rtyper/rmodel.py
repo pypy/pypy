@@ -454,13 +454,9 @@ class DummyValueBuilder(object):
 
 # logging/warning
 
-import py
-from rpython.tool.ansi_print import ansi_log
+from rpython.tool.ansi_print import AnsiLogger
 
-log = py.log.Producer("rtyper")
-py.log.setconsumer("rtyper", ansi_log)
-py.log.setconsumer("rtyper translating", None)
-py.log.setconsumer("rtyper debug", None)
+log = AnsiLogger("rtyper")
 
 def warning(msg):
     log.WARNING(msg)

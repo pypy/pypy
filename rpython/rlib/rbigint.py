@@ -296,7 +296,7 @@ class rbigint(object):
         if not s:
             return NULLRBIGINT
 
-        if byteorder != BYTEORDER:
+        if byteorder == 'big':
             msb = ord(s[0])
             itr = range(len(s)-1, -1, -1)
         else:
@@ -336,7 +336,7 @@ class rbigint(object):
         if not signed and self.sign == -1:
             raise InvalidSignednessError()
 
-        bswap = byteorder != BYTEORDER
+        bswap = byteorder == 'big'
         d = _widen_digit(0)
         j = 0
         imax = self.numdigits()

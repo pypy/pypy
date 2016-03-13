@@ -1,4 +1,4 @@
-
+import sys
 from pypy.module._rawffi.structure import size_alignment_pos
 from pypy.module._rawffi.interp_rawffi import TYPEMAP, letter2tp
 
@@ -63,4 +63,7 @@ def test_bitsizes_longlong():
          for (name, t, size) in fields])
     assert size == 8
     assert pos == [0, 0, 0]
-    assert bitsizes == [0x10000, 0x3e0001, 0x1003f]
+    if sys.byteorder == 'little':
+        assert bitsizes == [0x10000, 0x3e0001, 0x1003f]
+    else:
+        assert bitsizes == [0x1003f, 0x3e0001, 0x10000]

@@ -59,7 +59,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'RPython'
-copyright = u'2015, The PyPy Project'
+copyright = u'2016, The PyPy Project'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -121,7 +121,7 @@ pygments_style = 'sphinx'
 
 # The name for this set of Sphinx documents.  If None, it defaults to
 # "<project> v<release> documentation".
-#html_title = None
+html_title = 'RPython Documentation'
 
 # A shorter title for the navigation bar.  Default is the same as html_title.
 #html_short_title = None
