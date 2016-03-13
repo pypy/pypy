@@ -228,6 +228,7 @@ class OptPure(Optimization):
             info._compatibility_conditions = CompatibilityCondition(
                 op.getarg(1))
             self.emit_operation(op)
+            info.mark_last_guard(self.optimizer)
 
     def optimize_GUARD_NO_EXCEPTION(self, op):
         if self.last_emitted_operation is REMOVED:

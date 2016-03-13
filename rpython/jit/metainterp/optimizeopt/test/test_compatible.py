@@ -22,6 +22,14 @@ class TestCompatible(BaseTestBasic, LLtypeMixin):
         """
         self.optimize_loop(ops, expected)
 
+        ops = """
+        [p1]
+        guard_compatible(p1, ConstPtr(myptr)) []
+        guard_value(p1, ConstPtr(myptr)) []
+        jump(ConstPtr(myptr))
+        """
+        self.optimize_loop(ops, expected)
+
     def test_guard_compatible_after_guard_compatible(self):
         ops = """
         [p1]

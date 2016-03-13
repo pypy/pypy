@@ -416,6 +416,12 @@ class OptRewrite(Optimization):
                 r = self.optimizer.metainterp_sd.logger_ops.repr_of_resop(op)
                 raise InvalidLoop('A GUARD_VALUE (%s) was proven to '
                                   'always fail' % r)
+        if old_guard_op.getopnum() == rop.GUARD_COMPATIBLE:
+            if not old_guard_op.getarg(1).same_constant(op.getarg(1)):
+                r1 = self.optimizer.metainterp_sd.logger_ops.repr_of_resop(op)
+                r2 = self.optimizer.metainterp_sd.logger_ops.repr_of_resop(old_guard)
+                raise InvalidLoop('a GUARD_COMPATIBLE (%s) is inconsistent '
+                                  'with a GUARD_VALUE (%s)' % (r1, r2))
         descr = compile.ResumeGuardDescr()
         op = old_guard_op.copy_and_change(rop.GUARD_VALUE,
                          args = [old_guard_op.getarg(0), op.getarg(1)],
