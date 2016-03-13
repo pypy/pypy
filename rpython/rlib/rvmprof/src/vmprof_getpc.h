@@ -43,9 +43,6 @@
 
 #ifndef BASE_GETPC_H_
 #define BASE_GETPC_H_
-
-#include "vmprof_config.h"
-
 // On many linux systems, we may need _GNU_SOURCE to get access to
 // the defined constants that define the register we want to see (eg
 // REG_EIP).  Note this #define must come first!
@@ -57,6 +54,8 @@
 #include <limits.h>
 #define _XOPEN_SOURCE 500
 #endif
+
+#include "vmprof_config.h"
 
 #include <string.h>         // for memcmp
 #if defined(HAVE_SYS_UCONTEXT_H)

@@ -9,6 +9,8 @@
   #endif
 #elif defined(__arm__)
 #define PC_FROM_UCONTEXT uc_mcontext.arm_ip
+#elif defined(__linux) && defined(__i386) && defined(__GNUC__)
+#define PC_FROM_UCONTEXT uc_mcontext.gregs[REG_EIP]
 #else
 /* linux, gnuc */
 #define PC_FROM_UCONTEXT uc_mcontext.gregs[REG_RIP]
