@@ -607,6 +607,8 @@ class Optimizer(Optimization):
                 self._last_guard_op.getopnum() != rop.GUARD_NOT_FORCED):
             self._last_guard_op = None
         #
+        if opnum == rop.GUARD_COMPATIBLE: # XXX don't share that for now
+            self._last_guard_op = None
         if (self._last_guard_op and guard_op.getdescr() is None):
             self.metainterp_sd.profiler.count_ops(opnum,
                                             jitprof.Counters.OPT_GUARDS_SHARED)

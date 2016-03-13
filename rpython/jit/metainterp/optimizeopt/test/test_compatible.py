@@ -8,7 +8,7 @@ class TestCompatible(BaseTestBasic, LLtypeMixin):
 
     enable_opts = "intbounds:rewrite:virtualize:string:earlyforce:pure:heap"
 
-    def test_guard_compatible_after_guard_value(self):
+    def test_guard_compatible_and_guard_value(self):
         ops = """
         [p1]
         guard_value(p1, ConstPtr(myptr)) []
@@ -26,6 +26,22 @@ class TestCompatible(BaseTestBasic, LLtypeMixin):
         [p1]
         guard_compatible(p1, ConstPtr(myptr)) []
         guard_value(p1, ConstPtr(myptr)) []
+        jump(ConstPtr(myptr))
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_guard_compatible_and_guard_class(self):
+        ops = """
+        [p1]
+        guard_class(p1, ConstClass(node_vtable)) []
+        guard_compatible(p1, ConstPtr(myptr)) []
+        guard_class(p1, ConstClass(node_vtable)) []
+        jump(ConstPtr(myptr))
+        """
+        expected = """
+        [p1]
+        guard_class(p1, ConstClass(node_vtable)) []
+        guard_compatible(p1, ConstPtr(myptr)) []
         jump(ConstPtr(myptr))
         """
         self.optimize_loop(ops, expected)
