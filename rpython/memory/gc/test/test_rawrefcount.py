@@ -312,8 +312,14 @@ class RefcountSpace(GCSpace):
         r1.ob_pypy_link = 0
         return r1
 
-    def new_gcobj(self, intval):
-        p1 = self.malloc(S)
+    def new_gcobj(self, intval, external=False):
+        saved = self.gc.nonlarge_max
+        try:
+            if external:
+                self.gc.nonlarge_max = 1
+            p1 = self.malloc(S)
+        finally:
+            self.gc.nonlarge_max = saved
         p1.x = intval
         return p1
 
@@ -390,15 +396,15 @@ class StateMachine(GenericStateMachine):
         self.incref(r)
         self.rawobjs.append(r)
 
-    def add_gcobj(self):
-        p = self.space.new_gcobj(self.next_id)
+    def add_gcobj(self, external=False):
+        p = self.space.new_gcobj(self.next_id, external=external)
         self.space.stackroots.append(p)
         self.rootlinks.append(False)
         self.next_id += 1
         return p
 
-    def create_gcpartner(self, raw, is_light=False, is_pyobj=False):
-        p = self.space.new_gcobj(self.next_id)
+    def create_gcpartner(self, raw, is_light=False, is_pyobj=False, external=False):
+        p = self.space.new_gcobj(self.next_id, external=external)
         self.next_id += 1
         self.space.create_link(raw, p, is_light=is_light, is_pyobj=is_pyobj)
 
@@ -427,7 +433,7 @@ class StateMachine(GenericStateMachine):
             Action('major_collection', ()),
         ]
         valid_st.append(sampled_from(global_actions))
-        valid_st.append(builds(Action, just('add_gcobj'), tuples()))
+        valid_st.append(builds(Action, just('add_gcobj'), tuples(booleans())))
         if self.rawobjs:
             valid_st.append(builds(Action, just('incref'), tuples(
                 sampled_from(self.rawobjs))))
@@ -439,7 +445,7 @@ class StateMachine(GenericStateMachine):
         if candidates:
             st = builds(Action, just('create_gcpartner'), tuples(
                 sampled_from(candidates),
-                booleans(), booleans()))
+                booleans(), booleans(), booleans()))
             valid_st.append(st)
         candidates = self.get_linkable_gcobjs()
         if candidates:
