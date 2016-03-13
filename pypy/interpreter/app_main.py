@@ -769,6 +769,7 @@ def entry_point(executable, argv):
     # import os, which is used a bit everywhere in app_main, but only imported
     # *after* setup_bootstrap_path
     setup_bootstrap_path(executable)
+    sys.pypy_initfsencoding()
     try:
         cmdline = parse_command_line(argv)
     except CommandLineError as e:
@@ -861,8 +862,9 @@ if __name__ == '__main__':
     sys.pypy_find_executable = pypy_find_executable
     sys.pypy_find_stdlib = pypy_find_stdlib
     sys.pypy_resolvedirof = pypy_resolvedirof
+    sys.pypy_initfsencoding = lambda: None
     sys.cpython_path = sys.path[:]
-    
+
     try:
         sys.exit(int(entry_point(sys.argv[0], sys.argv[1:])))
     finally:
