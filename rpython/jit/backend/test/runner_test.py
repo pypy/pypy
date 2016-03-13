@@ -5,7 +5,7 @@ from rpython.jit.metainterp.history import (AbstractFailDescr,
                                          BasicFinalDescr,
                                          JitCellToken, TargetToken,
                                          ConstInt, ConstPtr,
-                                         ConstFloat, Const)
+                                         ConstFloat, Const, newconst)
 from rpython.jit.metainterp.resoperation import ResOperation, rop, InputArgInt,\
      InputArgFloat, opname, InputArgRef
 from rpython.jit.metainterp.typesystem import deref
@@ -189,6 +189,36 @@ class BaseBackendTest(Runner):
         assert fail.identifier == 2
         res = self.cpu.get_int_value(deadframe, 0)
         assert res == 10
+
+    def test_extend_guard_compatible(self):
+        t1_box, T1_box, d1 = self.alloc_instance(self.T)
+        t2_box, T2_box, d2 = self.alloc_instance(self.T)
+        t3_box, T3_box, d3 = self.alloc_instance(self.T)
+        faildescr1 = BasicFailDescr(1)
+        loop = parse("""
+        [p0]
+        guard_compatible(p0, ConstPtr(t1), descr=faildescr1) []
+        finish(p0, descr=fdescr)
+        """, namespace={'fdescr': BasicFinalDescr(2),
+                        'faildescr1': faildescr1,
+                        't1': t1_box._resref})
+        looptoken = JitCellToken()
+        self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+        deadframe = self.cpu.execute_token(looptoken,
+                                           t1_box._resref)
+        fail = self.cpu.get_latest_descr(deadframe)
+        assert fail.identifier == 2
+
+        deadframe = self.cpu.execute_token(looptoken,
+                                           t2_box._resref)
+        fail = self.cpu.get_latest_descr(deadframe)
+        assert fail.identifier == 1
+
+        self.cpu.grow_guard_compatible_switch(faildescr1, t2_box._resref)
+        deadframe = self.cpu.execute_token(looptoken,
+                                           t2_box._resref)
+        fail = self.cpu.get_latest_descr(deadframe)
+        assert fail.identifier == 2
 
     def test_compile_with_holes_in_fail_args(self):
         targettoken = TargetToken()

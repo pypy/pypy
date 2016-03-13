@@ -470,6 +470,12 @@ class LLGraphCPU(model.AbstractCPU):
         assert deadframe._saved_data is not None
         return deadframe._saved_data
 
+    def grow_guard_compatible_switch(self, descr, ref):
+        if not hasattr(descr, '_guard_compatible_llgraph_lst'):
+            descr._guard_compatible_llgraph_lst = []
+        descr._guard_compatible_llgraph_lst.append(ref)
+
+
     # ------------------------------------------------------------
 
     def calldescrof(self, FUNC, ARGS, RESULT, effect_info):
@@ -1273,8 +1279,11 @@ class LLFrame(object):
 
     def execute_guard_compatible(self, descr, arg1, arg2):
         if arg1 != arg2:
-            if descr.fake_check_against_list(self.cpu, arg1):
-                return
+            if hasattr(descr, '_guard_compatible_llgraph_lst'):
+                lst = descr._guard_compatible_llgraph_lst
+                for ref in lst:
+                    if ref == arg1:
+                        return
             self.fail_guard(descr, extra_value=arg1)
 
     def execute_int_add_ovf(self, _, x, y):
