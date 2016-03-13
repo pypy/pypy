@@ -81,7 +81,7 @@ class TestStandalone(StandaloneTests):
         #
         # verify that the executable re-export symbols, but not too many
         if sys.platform.startswith('linux') and not kwds.get('shared', False):
-            seen_main = False
+            seen = set()
             g = os.popen("objdump -T '%s'" % builder.executable_name, 'r')
             for line in g:
                 if not line.strip():
@@ -91,8 +91,8 @@ class TestStandalone(StandaloneTests):
                 name = line.split()[-1]
                 if name.startswith('__'):
                     continue
+                seen.add(name)
                 if name == 'main':
-                    seen_main = True
                     continue
                 if name == 'pypy_debug_file':     # ok to export this one
                     continue
@@ -104,7 +104,9 @@ class TestStandalone(StandaloneTests):
                         "declaration of this C function or global variable"
                         % (name,))
             g.close()
-            assert seen_main, "did not see 'main' exported"
+            # list of symbols that we *want* to be exported:
+            for name in ['main', 'pypy_debug_file', 'rpython_startup_code']:
+                assert name in seen, "did not see '%r' exported" % name
         #
         return t, builder
 
@@ -123,9 +125,9 @@ class TestStandalone(StandaloneTests):
 
         # Verify that the generated C files have sane names:
         gen_c_files = [str(f) for f in cbuilder.extrafiles]
-        for expfile in ('rpython_rlib_rposix.c',
-                        'rpython_rtyper_lltypesystem_rstr.c',
-                        'rpython_translator_c_test_test_standalone.c'):
+        for expfile in ('rpython_rlib.c',
+                        'rpython_rtyper_lltypesystem.c',
+                        'rpython_translator_c_test.c'):
             assert cbuilder.targetdir.join(expfile) in gen_c_files
 
     def test_print(self):
