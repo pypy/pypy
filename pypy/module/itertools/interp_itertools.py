@@ -268,6 +268,10 @@ W_DropWhile.typedef = TypeDef(
 
 class W_FilterFalse(W_Filter):
     reverse = True
+    def descr_reduce(self, space):
+        args_w = [space.w_None if self.no_predicate else self.w_predicate,
+                  self.iterable]
+        return space.newtuple([space.type(self), space.newtuple(args_w)])
 
 def W_FilterFalse___new__(space, w_subtype, w_predicate, w_iterable):
     r = space.allocate_instance(W_FilterFalse, w_subtype)
@@ -279,6 +283,7 @@ W_FilterFalse.typedef = TypeDef(
         __new__  = interp2app(W_FilterFalse___new__),
         __iter__ = interp2app(W_FilterFalse.iter_w),
         __next__ = interp2app(W_FilterFalse.next_w),
+        __reduce__ = interp2app(W_FilterFalse.descr_reduce),
         __doc__  = """Make an iterator that filters elements from iterable returning
     only those for which the predicate is False.  If predicate is
     None, return the items that are false.
@@ -871,6 +876,25 @@ class W_GroupBy(W_Root):
                     self.lookahead = True
                     self.new_group = True #new group
                     raise StopIteration
+    def descr_reduce(self, space):
+        if self.started:
+            return space.newtuple([
+                space.type(self),
+                space.newtuple([
+                    self.w_iterable,
+                    self.w_fun]),
+                space.newtuple([
+                    self.w_key,
+                    self.w_lookahead,
+                    self.w_key])
+                ])
+        else:
+            return space.newtuple([
+                space.type(self),
+                space.newtuple([
+                    self.w_iterable,
+                    self.w_fun])])
+
 
 def W_GroupBy___new__(space, w_subtype, w_iterable, w_key=None):
     r = space.allocate_instance(W_GroupBy, w_subtype)
@@ -882,6 +906,7 @@ W_GroupBy.typedef = TypeDef(
         __new__  = interp2app(W_GroupBy___new__),
         __iter__ = interp2app(W_GroupBy.iter_w),
         __next__ = interp2app(W_GroupBy.next_w),
+        __reduce__ = interp2app(W_GroupBy.descr_reduce),
         __doc__  = """Make an iterator that returns consecutive keys and groups from the
     iterable. The key is a function computing a key value for each
     element. If not specified or is None, key defaults to an identity
@@ -988,15 +1013,19 @@ class W_Product(W_Root):
         for gear in self.gears:
             if len(gear) == 0:
                 self.lst = None
+                self.stopped = True
                 break
         else:
             self.indices = [0] * len(self.gears)
+            self.previous_indices = []
             self.lst = [gear[0] for gear in self.gears]
+            self.stopped = False
 
     def _rotate_previous_gears(self):
         lst = self.lst
         x = len(self.gears) - 1
         lst[x] = self.gears[x][0]
+        self.previous_indices = self.indices[:]
         self.indices[x] = 0
         x -= 1
         # the outer loop runs as long as a we have a carry
@@ -1025,6 +1054,7 @@ class W_Product(W_Root):
             if index < len(gear):
                 # no carry: done
                 lst[x] = gear[index]
+                self.previous_indices = self.indices[:]
                 self.indices[x] = index
             else:
                 self._rotate_previous_gears()
@@ -1036,11 +1066,30 @@ class W_Product(W_Root):
 
     def next_w(self, space):
         if self.lst is None:
+            self.stopped = True
             raise OperationError(space.w_StopIteration, space.w_None)
         w_result = space.newtuple(self.lst[:])
         self.fill_next_result()
         return w_result
 
+    def descr_reduce(self, space):
+        if not self.stopped:
+            gears = [space.newtuple([gear]) for gear in self.gears]
+            result_w = [
+                space.type(self),
+                space.newtuple(gears)
+                #space.newtuple([space.newtuple(gear) for gear in self.gears])
+            ]
+            if self.previous_indices:
+                result_w = result_w + [
+                    space.newtuple([
+                        space.wrap(index) for index in self.previous_indices])]
+        else:
+            result_w = [
+                space.type(self),
+                space.newtuple([])
+            ]
+        return space.newtuple(result_w)
 
 def W_Product__new__(space, w_subtype, __args__):
     arguments_w, kwds_w = __args__.unpack()
@@ -1062,6 +1111,7 @@ W_Product.typedef = TypeDef(
     __new__ = interp2app(W_Product__new__),
     __iter__ = interp2app(W_Product.iter_w),
     __next__ = interp2app(W_Product.next_w),
+    __reduce__ = interp2app(W_Product.descr_reduce),
     __doc__ = """
    Cartesian product of input iterables.
 
@@ -1221,6 +1271,23 @@ class W_CombinationsWithReplacement(W_Combinations):
     def max_index(self, j):
         return self.indices[j - 1]
 
+    def descr_reduce(self, space):
+        if self.stopped:
+            pool_w = []
+        else:
+            pool_w = self.pool_w
+        result_w = [
+            space.type(self),
+            space.newtuple([
+                space.newtuple(pool_w), space.wrap(self.r)
+            ])]
+        if self.last_result_w is not None and not self.stopped:
+            # we must pickle the indices and use them for setstate
+            result_w = result_w + [
+                space.newtuple([
+                    space.wrap(index) for index in self.indices])]
+        return space.newtuple(result_w)
+
 @unwrap_spec(r=int)
 def W_CombinationsWithReplacement__new__(space, w_subtype, w_iterable, r):
     pool_w = space.fixedview(w_iterable)
@@ -1237,6 +1304,7 @@ W_CombinationsWithReplacement.typedef = TypeDef(
     __new__ = interp2app(W_CombinationsWithReplacement__new__),
     __iter__ = interp2app(W_CombinationsWithReplacement.descr__iter__),
     __next__ = interp2app(W_CombinationsWithReplacement.descr_next),
+    __reduce__ = interp2app(W_CombinationsWithReplacement.descr_reduce),
     __doc__ = """\
 combinations_with_replacement(iterable, r) --> combinations_with_replacement object
 
