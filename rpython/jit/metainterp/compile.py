@@ -1089,7 +1089,6 @@ class GuardCompatibleDescr(ResumeGuardDescr):
 
     def __init__(self):
         # XXX for now - in the end this would be in assembler
-        self._checked_ptrs = []
         self._compatibility_conditions = None
 
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
@@ -1099,30 +1098,16 @@ class GuardCompatibleDescr(ResumeGuardDescr):
         refval = metainterp_sd.cpu.get_value_direct(deadframe, 'r', index)
         if self.is_compatible(metainterp_sd.cpu, refval):
             from rpython.jit.metainterp.blackhole import resume_in_blackhole
-            # next time it'll pass XXX use new cpu thingie here
-            self._checked_ptrs.append(history.newconst(refval))
             resume_in_blackhole(metainterp_sd, jitdriver_sd, self, deadframe)
         else:
             # a real failure
             return ResumeGuardDescr.handle_fail(self, deadframe, metainterp_sd, jitdriver_sd)
 
-    def fake_check_against_list(self, cpu, ref):
-        # XXX should be in assembler
-        const = history.newconst(ref)
-        if self._compatibility_conditions:
-            for i in range(len(self._checked_ptrs)):
-                if const.same_constant(self._checked_ptrs[i]):
-                    return True
-        return False
-
     def is_compatible(self, cpu, ref):
         const = history.newconst(ref)
         if self._compatibility_conditions:
-            for i in range(len(self._checked_ptrs)):
-                if const.same_constant(self._checked_ptrs[i]):
-                    return True
             if self._compatibility_conditions.check_compat(cpu, ref):
-                self._checked_ptrs.append(const)
+                cpu.grow_guard_compatible_switch(self, ref)
                 return True
             return False
         return True # no conditions, everything works
