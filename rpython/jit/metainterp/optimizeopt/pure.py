@@ -3,7 +3,7 @@ from rpython.jit.metainterp.resoperation import rop, OpHelpers, AbstractResOp,\
      ResOperation
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.optimizeopt.shortpreamble import PreambleOp
-from rpython.jit.metainterp.optimize import SpeculativeError
+from rpython.jit.metainterp.optimize import SpeculativeError, InvalidLoop
 from rpython.jit.metainterp.compatible import CompatibilityCondition
 
 
