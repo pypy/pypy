@@ -930,10 +930,8 @@ def invent_fail_descr_for_op(opnum, optimizer, copied_guard=False):
         else:
             resumedescr = ResumeGuardExcDescr()
     elif opnum == rop.GUARD_COMPATIBLE:
-        if copied_guard:
-            import pdb; pdb.set_trace()
-        else:
-            resumedescr = GuardCompatibleDescr()
+        assert not copied_guard # XXX for now?
+        resumedescr = GuardCompatibleDescr()
     else:
         if copied_guard:
             resumedescr = ResumeGuardCopiedDescr()
@@ -1088,7 +1086,6 @@ class GuardCompatibleDescr(ResumeGuardDescr):
     fulfil need to be attached to this descr by optimizeopt. """
 
     def __init__(self):
-        # XXX for now - in the end this would be in assembler
         self._compatibility_conditions = None
 
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
