@@ -138,17 +138,18 @@ class OptPure(Optimization):
             arg1 = self.get_box_replacement(op.getarg(1))
             if arg1.type == 'r':
                 info = self.getptrinfo(arg1)
-                ccond = info._compatibility_conditions
-                if info and ccond:
-                    # it's subject to guard_compatible
-                    copied_op = op.copy()
-                    copied_op.setarg(1, ccond.known_valid)
-                    result = self._can_optimize_call_pure(copied_op)
-                    if result is not None:
-                        self.make_constant(op, result)
-                        self.last_emitted_operation = REMOVED
-                        ccond.record_pure_call(copied_op, result)
-                        return
+                if info:
+                    ccond = info._compatibility_conditions
+                    if ccond:
+                        # it's subject to guard_compatible
+                        copied_op = op.copy()
+                        copied_op.setarg(1, ccond.known_valid)
+                        result = self._can_optimize_call_pure(copied_op)
+                        if result is not None:
+                            self.make_constant(op, result)
+                            self.last_emitted_operation = REMOVED
+                            ccond.record_pure_call(copied_op, result)
+                            return
 
         # Step 1: check if all arguments are constant
         for arg in op.getarglist():
