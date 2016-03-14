@@ -18,3 +18,8 @@ Replace py.log with something simpler, which should speed up logging
 .. branch: where_1_arg
 
 Implemented numpy.where for 1 argument (thanks sergem)
+
+.. branch: fix_indexing_by_numpy_int
+
+Implement yet another strange numpy indexing compatibility; indexing by a scalar 
+returns a scalar
