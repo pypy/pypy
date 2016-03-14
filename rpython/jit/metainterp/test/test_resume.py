@@ -8,9 +8,9 @@ from rpython.jit.metainterp.resume import ResumeDataVirtualAdder,\
      tagged_list_eq, AbstractVirtualInfo, TAGCONST, NULLREF,\
      ResumeDataDirectReader, TAGINT, REF, VirtualInfo, VStructInfo,\
      VArrayInfoNotClear, VStrPlainInfo, VStrConcatInfo, VStrSliceInfo,\
-     VUniPlainInfo, VUniConcatInfo, VUniSliceInfo, Snapshot, FrameInfo,\
+     VUniPlainInfo, VUniConcatInfo, VUniSliceInfo,\
      capture_resumedata, ResumeDataLoopMemo, UNASSIGNEDVIRTUAL, INT,\
-     annlowlevel, PENDINGFIELDSP, unpack_uint, TAG_CONST_OFFSET, TopSnapshot
+     annlowlevel, PENDINGFIELDSP, TAG_CONST_OFFSET
 from rpython.jit.metainterp.resumecode import unpack_numbering,\
      create_numbering, NULL_NUMBER
 from rpython.jit.metainterp.opencoder import Trace

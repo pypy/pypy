@@ -672,12 +672,13 @@ class History(object):
         self.trace = Trace(inpargs)
         self.inputargs = inpargs
         if self._cache:
-            xxx
             # hack to record the ops *after* we know our inputargs
             for op in self._cache:
                 newop = self.trace.record_op(op.getopnum(), op.getarglist(),
                                              op.getdescr())
                 op.position = newop.position
+                if op.type != 'v':
+                    newop.copy_value_from(op)
             self._cache = None
 
     def length(self):
@@ -692,29 +693,38 @@ class History(object):
     def any_operation(self):
         return self.trace._count > 0
 
+    @specialize.argtype(2)
+    def set_op_value(self, op, value):
+        if value is None:
+            return        
+        elif isinstance(value, bool):
+            op.setint(int(value))
+        elif lltype.typeOf(value) == lltype.Signed:
+            op.setint(value)
+        elif lltype.typeOf(value) is longlong.FLOATSTORAGE:
+            op.setfloatstorage(value)
+        else:
+            assert lltype.typeOf(value) == llmemory.GCREF
+            op.setref_base(value)
+
     @specialize.argtype(3)
     def record(self, opnum, argboxes, value, descr=None):
         if self.trace is None:
-            xxx
             op = ResOperation(opnum, argboxes, -1, descr)
             self._cache.append(op)
         else:
             pos = self.trace._record_op(opnum, argboxes, descr)
-        if value is None:
-            op = FrontendOp(pos)
-        elif isinstance(value, bool):
-            op = IntFrontendOp(pos)
-            op.setint(int(value))
-        elif lltype.typeOf(value) == lltype.Signed:
-            op = IntFrontendOp(pos)
-            op.setint(value)
-        elif lltype.typeOf(value) is longlong.FLOATSTORAGE:
-            op = FloatFrontendOp(pos)
-            op.setfloatstorage(value)
-        else:
-            op = RefFrontendOp(pos)
-            assert lltype.typeOf(value) == llmemory.GCREF
-            op.setref_base(value)
+            if value is None:
+                op = FrontendOp(pos)
+            elif isinstance(value, bool):
+                op = IntFrontendOp(pos)
+            elif lltype.typeOf(value) == lltype.Signed:
+                op = IntFrontendOp(pos)
+            elif lltype.typeOf(value) is longlong.FLOATSTORAGE:
+                op = FloatFrontendOp(pos)
+            else:
+                op = RefFrontendOp(pos)
+        self.set_op_value(op, value)
         return op
 
     def record_nospec(self, opnum, argboxes, descr=None):
@@ -772,13 +782,14 @@ class Stats(object):
     enter_count = 0
     aborted_count = 0
 
-    def __init__(self):
+    def __init__(self, metainterp_sd):
         self.loops = []
         self.locations = []
         self.aborted_keys = []
         self.invalidated_token_numbers = set()    # <- not RPython
         self.jitcell_token_wrefs = []
         self.jitcell_dicts = []                   # <- not RPython
+        self.metainterp_sd = metainterp_sd
 
     def clear(self):
         del self.loops[:]
@@ -834,7 +845,7 @@ class Stats(object):
 
     def check_history(self, expected=None, **check):
         insns = {}
-        t = self.history.trace.get_iter()
+        t = self.history.trace.get_iter(self.metainterp_sd)
         while not t.done():
             op = t.next()
             opname = op.getopname()

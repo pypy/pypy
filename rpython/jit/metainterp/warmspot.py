@@ -464,7 +464,7 @@ class WarmRunnerDesc(object):
         if no_stats:
             stats = history.NoStats()
         else:
-            stats = history.Stats()
+            stats = history.Stats(None)
         self.stats = stats
         if translate_support_code:
             self.annhelper = MixLevelHelperAnnotator(self.translator.rtyper)
@@ -483,6 +483,7 @@ class WarmRunnerDesc(object):
                                                   self.opt,
                                                   ProfilerClass=ProfilerClass,
                                                   warmrunnerdesc=self)
+        self.stats.metainterp_sd = self.metainterp_sd
 
     def make_virtualizable_infos(self):
         vinfos = {}

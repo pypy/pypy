@@ -59,7 +59,7 @@ class FakeMetaInterpStaticData(object):
     logger_ops = FakeLogger()
     config = get_combined_translation_config(translating=True)
 
-    stats = Stats()
+    stats = Stats(None)
     profiler = jitprof.EmptyProfiler()
     warmrunnerdesc = None
     def log(self, msg, event_kind=None):

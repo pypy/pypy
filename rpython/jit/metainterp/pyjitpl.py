@@ -1527,7 +1527,8 @@ class MIFrame(object):
         op = self.metainterp.execute_and_record_varargs(opnum, argboxes,
                                                             descr=descr)
         if pure and not self.metainterp.last_exc_value and op:
-            op = self.metainterp.record_result_of_call_pure(op, patch_pos)
+            op = self.metainterp.record_result_of_call_pure(op, argboxes, descr,
+                patch_pos)
             exc = exc and not isinstance(op, Const)
         if exc:
             if op is not None:
@@ -1620,7 +1621,7 @@ class MIFrame(object):
             vablebox = None
             if assembler_call:
                 vablebox, resbox = self.metainterp.direct_assembler_call(
-                    self.metainterp._last_op, assembler_call_jd, cut_pos)
+                    self.metainterp._last_op, allboxes, descr, assembler_call_jd, cut_pos)
             if resbox and resbox.type != 'v':
                 self.make_result_of_lastop(resbox)
             self.metainterp.vable_after_residual_call(funcbox)
@@ -2063,12 +2064,11 @@ class MetaInterp(object):
                                            lltype.nullptr(llmemory.GCREF.TO))
         else:
             guard_op = self.history.record(opnum, moreargs, None)            
-        assert isinstance(guard_op, GuardResOp)
         self.capture_resumedata(resumepc)
         # ^^^ records extra to history
         self.staticdata.profiler.count_ops(opnum, Counters.GUARDS)
         # count
-        self.attach_debug_info(guard_op)
+        #self.attach_debug_info(guard_op)
         return guard_op
 
     def capture_resumedata(self, resumepc=-1):
@@ -2997,14 +2997,12 @@ class MetaInterp(object):
         debug_stop("jit-abort-longest-function")
         return max_jdsd, max_key
 
-    def record_result_of_call_pure(self, op, patch_pos):
+    def record_result_of_call_pure(self, op, argboxes, descr, patch_pos):
         """ Patch a CALL into a CALL_PURE.
         """
-        opnum = op.getopnum()
-        assert opnum in [rop.CALL_R, rop.CALL_N, rop.CALL_I, rop.CALL_F]
         resbox_as_const = executor.constant_from_op(op)
-        for i in range(op.numargs()):
-            if not isinstance(op.getarg(i), Const):
+        for argbox in argboxes:
+            if not isinstance(argbox, Const):
                 break
         else:
             # all-constants: remove the CALL operation now and propagate a
@@ -3013,28 +3011,26 @@ class MetaInterp(object):
             return resbox_as_const
         # not all constants (so far): turn CALL into CALL_PURE, which might
         # be either removed later by optimizeopt or turned back into CALL.
-        arg_consts = [executor.constant_from_op(a) for a in op.getarglist()]
+        arg_consts = [executor.constant_from_op(a) for a in argboxes]
         self.call_pure_results[arg_consts] = resbox_as_const
-        opnum = OpHelpers.call_pure_for_descr(op.getdescr())
+        opnum = OpHelpers.call_pure_for_descr(descr)
         self.history.cut(patch_pos)
-        newop = self.history.record_nospec(opnum, op.getarglist(), op.getdescr())
+        newop = self.history.record_nospec(opnum, argboxes, descr)
         newop.copy_value_from(op)
         return newop
 
-    def direct_assembler_call(self, op, targetjitdriver_sd, cut_pos):
+    def direct_assembler_call(self, op, arglist, descr, targetjitdriver_sd, cut_pos):
         """ Generate a direct call to assembler for portal entry point,
         patching the CALL_MAY_FORCE that occurred just now.
         """
         self.history.cut(cut_pos)
-        assert rop.is_call_may_force(op.getopnum())
         num_green_args = targetjitdriver_sd.num_green_args
-        arglist = op.getarglist()
         greenargs = arglist[1:num_green_args+1]
         args = arglist[num_green_args+1:]
         assert len(args) == targetjitdriver_sd.num_red_args
         warmrunnerstate = targetjitdriver_sd.warmstate
         token = warmrunnerstate.get_assembler_token(greenargs)
-        opnum = OpHelpers.call_assembler_for_descr(op.getdescr())
+        opnum = OpHelpers.call_assembler_for_descr(descr)
         oldop = op
         op = self.history.record_nospec(opnum, args, descr=token)
         if opnum == rop.CALL_ASSEMBLER_N:
