@@ -1,4 +1,5 @@
 from rpython.jit.metainterp.history import newconst
+from rpython.jit.codewriter import longlong
 
 def do_call(cpu, argboxes, descr):
     from rpython.jit.metainterp.history import INT, REF, FLOAT, VOID

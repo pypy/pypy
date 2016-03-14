@@ -419,7 +419,7 @@ class OptRewrite(Optimization):
         if old_guard_op.getopnum() == rop.GUARD_COMPATIBLE:
             if not old_guard_op.getarg(1).same_constant(op.getarg(1)):
                 r1 = self.optimizer.metainterp_sd.logger_ops.repr_of_resop(op)
-                r2 = self.optimizer.metainterp_sd.logger_ops.repr_of_resop(old_guard)
+                r2 = self.optimizer.metainterp_sd.logger_ops.repr_of_resop(old_guard_op)
                 raise InvalidLoop('a GUARD_COMPATIBLE (%s) is inconsistent '
                                   'with a GUARD_VALUE (%s)' % (r1, r2))
         descr = compile.ResumeGuardDescr()
