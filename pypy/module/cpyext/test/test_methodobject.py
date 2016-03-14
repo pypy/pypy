@@ -103,7 +103,7 @@ class TestPyCMethodObject(BaseApiTest):
         c_func = ApiFunction([PyObject, PyObject], PyObject, func)
         func.api_func = c_func
         ml = lltype.malloc(PyMethodDef, flavor='raw', zero=True)
-        namebuf = rffi.str2charp('func')
+        namebuf = rffi.cast(rffi.CONST_CCHARP, rffi.str2charp('func'))
         ml.c_ml_name = namebuf
         ml.c_ml_meth = rffi.cast(PyCFunction_typedef,
                                  c_func.get_llhelper(space))

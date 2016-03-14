@@ -1,5 +1,5 @@
 import py
-
+import sys
 from pypy.module.pypyjit.test_pypy_c.test_00_model import BaseTestPyPyC
 from rpython.rlib.rawstorage import misaligned_is_fine
 
@@ -99,6 +99,10 @@ class TestMicroNumPy(BaseTestPyPyC):
         assert log.result is False
         assert len(log.loops) == 1
         loop = log._filter(log.loops[0])
+        if sys.byteorder == 'big':
+            bit = ord('>')
+        else:
+            bit = ord('<')
         assert loop.match("""
             guard_class(p1, #, descr=...)
             p4 = getfield_gc_r(p1, descr=<FieldP pypy.module.micronumpy.iterators.ArrayIter.inst_array \d+ pure>)
@@ -109,7 +113,7 @@ class TestMicroNumPy(BaseTestPyPyC):
             i9 = getfield_gc_i(p4, descr=<FieldU pypy.module.micronumpy.concrete.BaseConcreteArray.inst_storage \d+ pure>)
             i10 = getfield_gc_i(p6, descr=<FieldU pypy.module.micronumpy.descriptor.W_Dtype.inst_byteorder \d+ pure>)
             i12 = int_eq(i10, 61)
-            i14 = int_eq(i10, 60)
+            i14 = int_eq(i10, %d)
             i15 = int_or(i12, i14)
             f16 = raw_load_f(i9, i5, descr=<ArrayF \d+>)
             guard_true(i15, descr=...)
@@ -142,7 +146,7 @@ class TestMicroNumPy(BaseTestPyPyC):
             setfield_gc(p34, i30, descr=<FieldS pypy.module.micronumpy.iterators.IterState.inst_offset \d+>)
             }}}
             jump(..., descr=...)
-        """)
+        """ % (bit,))
 
     def test_reduce_logical_and(self):
         def main():

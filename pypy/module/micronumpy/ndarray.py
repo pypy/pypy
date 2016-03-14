@@ -267,6 +267,11 @@ class __extend__(W_NDimArray):
                         "interpreted as a valid boolean index")
         elif isinstance(w_idx, boxes.W_GenericBox):
             w_ret = self.getitem_array_int(space, w_idx)
+
+            if isinstance(w_idx, boxes.W_IntegerBox):
+                # if w_idx is integer then getitem_array_int must contain a single value and we must return it.
+                # Get 0-th element of the w_ret.
+                w_ret = w_ret.implementation.descr_getitem(space, self, space.wrap(0))
         else:
             try:
                 w_ret = self.implementation.descr_getitem(space, self, w_idx)

@@ -695,11 +695,15 @@ class UsingFrameworkTest(object):
             p_a2 = rffi.cast(rffi.VOIDPP, ll_args[1])[0]
             a1 = rffi.cast(rffi.SIGNEDP, p_a1)[0]
             a2 = rffi.cast(rffi.SIGNEDP, p_a2)[0]
-            res = rffi.cast(rffi.INTP, ll_res)
+            # related to libffi issue on s390x, we MUST
+            # overwrite the full ffi result which is 64 bit
+            # if not, this leaves garbage in the return value
+            # and qsort does not sort correctly
+            res = rffi.cast(rffi.SIGNEDP, ll_res)
             if a1 > a2:
-                res[0] = rffi.cast(rffi.INT, 1)
+                res[0] = 1
             else:
-                res[0] = rffi.cast(rffi.INT, -1)
+                res[0] = -1
 
         def f():
             libc = CDLL(get_libc_name())
@@ -707,7 +711,7 @@ class UsingFrameworkTest(object):
                                               ffi_size_t, ffi_type_pointer],
                                     ffi_type_void)
 
-            ptr = CallbackFuncPtr([ffi_type_pointer, ffi_type_pointer],
+            ptr = CallbackFuncPtr([ffi_type_pointer, ffi_type_pointer, ffi_type_pointer],
                                   ffi_type_sint, callback)
 
             TP = rffi.CArray(lltype.Signed)

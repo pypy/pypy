@@ -6,11 +6,13 @@ import struct
 
 class TestRStruct(BaseRtypingTest):
     def test_unpack(self):
+        import sys
         pad = '\x00' * (LONG_BIT//8-1)    # 3 or 7 null bytes
         def fn():
             return runpack('sll', 'a'+pad+'\x03'+pad+'\x04'+pad)[1]
-        assert fn() == 3
-        assert self.interpret(fn, []) == 3
+        result = 3 if sys.byteorder == 'little' else 3 << (LONG_BIT-8)
+        assert fn() == result
+        assert self.interpret(fn, []) == result
 
     def test_unpack_2(self):
         data = struct.pack('iiii', 0, 1, 2, 4)

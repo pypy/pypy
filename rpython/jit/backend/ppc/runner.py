@@ -1,4 +1,3 @@
-import py
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.llinterp import LLInterpreter
 from rpython.rlib import rgc
@@ -9,9 +8,6 @@ from rpython.jit.backend.ppc.arch import WORD
 from rpython.jit.backend.ppc.codebuilder import PPCBuilder
 from rpython.jit.backend.ppc import register as r
 
-from rpython.tool.ansi_print import ansi_log
-log = py.log.Producer('jitbackend')
-py.log.setconsumer('jitbackend', ansi_log)
 
 class PPC_CPU(AbstractLLCPU):
 
