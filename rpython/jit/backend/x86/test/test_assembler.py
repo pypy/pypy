@@ -43,9 +43,14 @@ class TestRegallocPushPop(object):
     def do_test(self, callback):
         from rpython.jit.backend.x86.regalloc import X86FrameManager
         from rpython.jit.backend.x86.regalloc import X86XMMRegisterManager
+        class FakeCompiledLoopToken:
+            asmmemmgr_blocks = None
+            def get_asmmemmgr_blocks(self):
+                if self.asmmemmgr_blocks is None:
+                    self.asmmemmgr_blocks = []
+                return self.asmmemmgr_blocks
         class FakeToken:
-            class compiled_loop_token:
-                asmmemmgr_blocks = None
+            compiled_loop_token = FakeCompiledLoopToken()
         cpu = ACTUAL_CPU(None, None)
         cpu.setup()
         if cpu.HAS_CODEMAP:
