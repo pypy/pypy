@@ -471,6 +471,7 @@ class LLGraphCPU(model.AbstractCPU):
         return deadframe._saved_data
 
     def grow_guard_compatible_switch(self, compiled_loop_token, descr, ref):
+        assert isinstance(compiled_loop_token, model.CompiledLoopToken)
         if not hasattr(descr, '_guard_compatible_llgraph_lst'):
             descr._guard_compatible_llgraph_lst = []
         descr._guard_compatible_llgraph_lst.append(ref)
