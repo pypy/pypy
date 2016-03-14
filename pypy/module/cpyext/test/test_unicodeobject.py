@@ -89,6 +89,22 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
         res = module.test_hash(u"xyz")
         assert res == hash(u'xyz')
 
+    def test_default_encoded_string(self):
+        module = self.import_extension('foo', [
+            ("test_default_encoded_string", "METH_O",
+             '''
+                PyObject* result = _PyUnicode_AsDefaultEncodedString(args, "replace");
+                Py_INCREF(result);
+                return result;
+             '''
+             ),
+            ])
+        res = module.test_default_encoded_string(u"xyz")
+        assert isinstance(res, str)
+        assert res == 'xyz'
+        res = module.test_default_encoded_string(u"caf\xe9")
+        assert isinstance(res, str)
+        assert res == 'caf?'
 
 class TestUnicode(BaseApiTest):
     def test_unicodeobject(self, space, api):

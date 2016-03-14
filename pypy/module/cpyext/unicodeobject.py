@@ -375,8 +375,15 @@ def PyUnicode_FromWideChar(space, wchar_p, length):
     return PyUnicode_FromUnicode(space, wchar_p, length)
 
 @cpython_api([PyObject, CONST_STRING], PyObject)
-def _PyUnicode_AsDefaultEncodedString(space, w_unicode, errors):
-    return PyUnicode_AsEncodedString(space, w_unicode, lltype.nullptr(rffi.CCHARP.TO), errors)
+def _PyUnicode_AsDefaultEncodedString(space, ref, errors):
+    # Returns a borrowed reference.
+    py_uni = rffi.cast(PyUnicodeObject, ref)
+    if not py_uni.c_defenc:
+        py_uni.c_defenc = make_ref(
+            space, PyUnicode_AsEncodedString(
+                space, ref,
+                lltype.nullptr(rffi.CCHARP.TO), errors))
+    return py_uni.c_defenc
 
 @cpython_api([CONST_STRING, Py_ssize_t, CONST_STRING, CONST_STRING], PyObject)
 def PyUnicode_Decode(space, s, size, encoding, errors):
