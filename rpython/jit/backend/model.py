@@ -158,7 +158,8 @@ class AbstractCPU(object):
         """
         pass
 
-    def grow_guard_compatible_switch(self, looptoken, guarddescr, gcref):
+    def grow_guard_compatible_switch(self, compiled_loop_token,
+                                     guarddescr, gcref):
         """ This method is called to add another case to a guard_compatible.
         guard_compatible starts like a guard_value, but can grow to check more
         cases. The guard should only fail if the argument is unequal to all the
@@ -307,6 +308,11 @@ class CompiledLoopToken(object):
         debug_start("jit-mem-looptoken-alloc")
         debug_print("allocating Loop #", self.number)
         debug_stop("jit-mem-looptoken-alloc")
+
+    def get_asmmemmgr_blocks(self):
+        if self.asmmemmgr_blocks is None:
+            self.asmmemmgr_blocks = []
+        return self.asmmemmgr_blocks
 
     def compiling_a_bridge(self):
         self.cpu.tracker.total_compiled_bridges += 1

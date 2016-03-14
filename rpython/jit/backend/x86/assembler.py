@@ -774,12 +774,9 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         mc.writeimm32(allocated_depth)
         mc.copy_to_raw_memory(adr)
 
-    @staticmethod
-    def get_asmmemmgr_blocks(looptoken):
+    def get_asmmemmgr_blocks(self, looptoken):
         clt = looptoken.compiled_loop_token
-        if clt.asmmemmgr_blocks is None:
-            clt.asmmemmgr_blocks = []
-        return clt.asmmemmgr_blocks
+        return clt.get_asmmemmgr_blocks()
 
     def materialize_loop(self, looptoken):
         self.datablockwrapper.done()      # finish using cpu.asmmemmgr

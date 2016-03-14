@@ -122,8 +122,9 @@ class AbstractX86CPU(AbstractLLCPU):
             l[i].counter = ll_s.i
         return l
 
-    def grow_guard_compatible_switch(self, looptoken, guarddescr, gcref):
-        guard_compat.grow_switch(self, looptoken, guarddescr, gcref)
+    def grow_guard_compatible_switch(self, compiled_loop_token,
+                                     guarddescr, gcref):
+        guard_compat.grow_switch(self, compiled_loop_token, guarddescr, gcref)
 
 
 class CPU386(AbstractX86CPU):

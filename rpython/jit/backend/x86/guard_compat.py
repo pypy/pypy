@@ -61,9 +61,7 @@ def patch_guard_compatible(rawstart, tok):
     descr._backend_compatinfo = rawstart + tok.pos_compatinfo_offset
 
 
-def grow_switch(cpu, looptoken, guarddescr, gcref):
-    from rpython.jit.backend.x86.assembler import Assembler386
-
+def grow_switch(cpu, compiled_loop_token, guarddescr, gcref):
     # XXX is it ok to force gcref to be non-movable?
     if not rgc._make_sure_does_not_move(gcref):
         raise AssertionError("oops")
@@ -79,7 +77,7 @@ def grow_switch(cpu, looptoken, guarddescr, gcref):
     while compatinfo[length - 1] != -1:
         length += 1
 
-    allblocks = Assembler386.get_asmmemmgr_blocks(looptoken)
+    allblocks = compiled_loop_token.get_asmmemmgr_blocks()
     datablockwrapper = MachineDataBlockWrapper(cpu.asmmemmgr, allblocks)
     newcompatinfoaddr = datablockwrapper.malloc_aligned(
         (length + 1) * WORD, alignment=WORD)
