@@ -36,7 +36,7 @@ class AbstractAttribute(object):
         assert isinstance(terminator, Terminator)
         self.terminator = terminator
 
-    @jit.elidable_compatible
+    @jit.elidable_compatible()
     def getclass_from_terminator(self):
         # objects with different maps can have the same class
         return self.terminator.w_cls
@@ -73,7 +73,7 @@ class AbstractAttribute(object):
     def delete(self, obj, name, index):
         pass
 
-    @jit.elidable_compatible
+    @jit.elidable_compatible()
     def find_map_attr(self, name, index):
         if (self.space.config.objspace.std.withmethodcache):
             return self._find_map_attr_cache(name, index)
