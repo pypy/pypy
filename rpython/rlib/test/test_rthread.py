@@ -5,6 +5,7 @@ from rpython.rlib import objectmodel
 from rpython.translator.c.test.test_boehm import AbstractGCTestClass
 from rpython.rtyper.lltypesystem import lltype, rffi
 import py
+import platform
 
 def test_lock():
     l = allocate_lock()
@@ -92,6 +93,8 @@ class AbstractThreadTests(AbstractGCTestClass):
         res = fn()
         assert res == 42
 
+    @py.test.mark.xfail(platform.machine() == 's390x',
+                        reason='may fail this test under heavy load')
     def test_gc_locking(self):
         import time
         from rpython.rlib.debug import ll_assert
