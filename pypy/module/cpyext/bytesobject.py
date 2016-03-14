@@ -145,7 +145,7 @@ def PyString_AsString(space, ref):
         from pypy.module.cpyext.unicodeobject import (
             PyUnicode_Check, _PyUnicode_AsDefaultEncodedString)
         if PyUnicode_Check(space, ref):
-            ref = _PyUnicode_AsDefaultEncodedString(space, ref, None)
+            ref = _PyUnicode_AsDefaultEncodedString(space, ref, rffi.str2charp(""))
         else:
             raise oefmt(space.w_TypeError,
                         "expected string or Unicode object, %T found",
@@ -164,7 +164,7 @@ def PyString_AsStringAndSize(space, ref, buffer, length):
         from pypy.module.cpyext.unicodeobject import (
             PyUnicode_Check, _PyUnicode_AsDefaultEncodedString)
         if PyUnicode_Check(space, ref):
-            ref = _PyUnicode_AsDefaultEncodedString(space, ref, None)
+            ref = _PyUnicode_AsDefaultEncodedString(space, ref, rffi.str2charp(""))
         else:
             raise oefmt(space.w_TypeError,
                         "expected string or Unicode object, %T found",
