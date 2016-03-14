@@ -122,7 +122,7 @@ class XxxAbstractValue(object):
         return None
 
 class AbstractDescr(AbstractValue):
-    __slots__ = ()
+    __slots__ = ('descr_index',)
     llopaque = True
     descr_index = -1
 
