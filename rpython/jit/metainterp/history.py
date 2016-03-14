@@ -7,7 +7,7 @@ from rpython.rlib.rarithmetic import r_int64, is_valid_int
 from rpython.conftest import option
 
 from rpython.jit.metainterp.resoperation import ResOperation, rop,\
-    AbstractValue, oparity
+    AbstractValue, oparity, AbstractResOp, IntOp, RefOp, FloatOp
 from rpython.jit.codewriter import heaptracker, longlong
 import weakref
 
@@ -640,6 +640,21 @@ def _list_all_operations(result, operations, omit_finish=True):
 # ____________________________________________________________
 
 
+class FrontendOp(AbstractResOp):
+    type = 'v'
+    _attrs_ = ('position',)
+
+    def __init__(self, pos):
+        self.position = pos
+
+class IntFrontendOp(IntOp, FrontendOp):
+    _attrs_ = ('position', '_resint')
+
+class FloatFrontendOp(FloatOp, FrontendOp):
+    _attrs_ = ('position', '_resfloat')
+
+class RefFrontendOp(RefOp, FrontendOp):
+    _attrs_ = ('position', '_resref')
 
 class History(object):
     ends_with_jump = False
@@ -657,6 +672,7 @@ class History(object):
         self.trace = Trace(inpargs)
         self.inputargs = inpargs
         if self._cache:
+            xxx
             # hack to record the ops *after* we know our inputargs
             for op in self._cache:
                 newop = self.trace.record_op(op.getopnum(), op.getarglist(),
@@ -679,24 +695,25 @@ class History(object):
     @specialize.argtype(3)
     def record(self, opnum, argboxes, value, descr=None):
         if self.trace is None:
+            xxx
             op = ResOperation(opnum, argboxes, -1, descr)
             self._cache.append(op)
         else:
-            op = self.trace.record_op(opnum, argboxes, descr)
+            pos = self.trace._record_op(opnum, argboxes, descr)
         if value is None:
-            assert op.type == 'v'
+            op = FrontendOp(pos)
         elif isinstance(value, bool):
-            assert op.type == 'i'
+            op = IntFrontendOp(pos)
             op.setint(int(value))
         elif lltype.typeOf(value) == lltype.Signed:
-            assert op.type == 'i'
+            op = IntFrontendOp(pos)
             op.setint(value)
         elif lltype.typeOf(value) is longlong.FLOATSTORAGE:
-            assert op.type == 'f'
+            op = FloatFrontendOp(pos)
             op.setfloatstorage(value)
         else:
+            op = RefFrontendOp(pos)
             assert lltype.typeOf(value) == llmemory.GCREF
-            assert op.type == 'r'
             op.setref_base(value)
         return op
 

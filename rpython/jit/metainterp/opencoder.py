@@ -9,7 +9,7 @@ snapshot is as follows
 
 from rpython.jit.metainterp.history import ConstInt, Const, ConstFloat, ConstPtr
 from rpython.jit.metainterp.resoperation import AbstractResOp, AbstractInputArg,\
-    ResOperation, oparity, rop, opwithdescr, GuardResOp
+    ResOperation, oparity, rop, opwithdescr, GuardResOp, IntOp, FloatOp, RefOp
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rtyper.lltypesystem import rffi, lltype, llmemory
@@ -347,7 +347,7 @@ class Trace(BaseTrace):
         vref_array = self._list_of_boxes(vref_boxes)
         s = TopSnapshot(combine_uint(2**16 - 1, 0), [], vable_array,
                         vref_array)
-        assert rffi.cast(lltype.Signed, self._ops[self._pos - 1]) == -1
+        assert rffi.cast(lltype.Signed, self._ops[self._pos - 1]) == 0
         # guards have no descr
         self._snapshots.append(s)
         self._ops[self._pos - 1] = rffi.cast(rffi.SHORT, len(self._snapshots) - 1)
