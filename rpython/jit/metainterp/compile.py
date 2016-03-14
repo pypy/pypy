@@ -1095,6 +1095,8 @@ class GuardCompatibleDescr(ResumeGuardDescr):
         refval = metainterp_sd.cpu.get_value_direct(deadframe, 'r', index)
         if self.is_compatible(metainterp_sd.cpu, refval):
             from rpython.jit.metainterp.blackhole import resume_in_blackhole
+            metainterp_sd.cpu.grow_guard_compatible_switch(
+                self, self.rd_loop_token, refval)
             resume_in_blackhole(metainterp_sd, jitdriver_sd, self, deadframe)
         else:
             # a real failure
@@ -1104,7 +1106,6 @@ class GuardCompatibleDescr(ResumeGuardDescr):
         const = history.newconst(ref)
         if self._compatibility_conditions:
             if self._compatibility_conditions.check_compat(cpu, ref):
-                cpu.grow_guard_compatible_switch(self, ref)
                 return True
             return False
         return True # no conditions, everything works
