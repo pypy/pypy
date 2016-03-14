@@ -1595,11 +1595,14 @@ class MIFrame(object):
             self.metainterp.vable_and_vrefs_before_residual_call()
             tp = descr.get_normalized_result_type()
             resbox = NOT_HANDLED
+            opnum = -1
             if effectinfo.oopspecindex == effectinfo.OS_LIBFFI_CALL:
+                opnum = rop.call_may_force_for_descr(descr)
                 resbox = self.metainterp.direct_libffi_call(allboxes, descr,
                                                             tp)
             if resbox is NOT_HANDLED:
                 if effectinfo.is_call_release_gil():
+                    opnum = rop.call_release_gil_for_descr(descr)
                     resbox = self.metainterp.direct_call_release_gil(allboxes,
                                                                 descr, tp)
                 elif tp == 'i':
@@ -1617,7 +1620,10 @@ class MIFrame(object):
                     resbox = None
                 else:
                     assert False
-            self.metainterp.vrefs_after_residual_call(self.metainterp._last_op, cut_pos)
+                if opnum == -1:
+                    opnum = rop.call_may_force_for_descr(descr)
+            self.metainterp.vrefs_after_residual_call(self.metainterp._last_op,
+                opnum, allboxes, descr, cut_pos)
             vablebox = None
             if assembler_call:
                 vablebox, resbox = self.metainterp.direct_assembler_call(
@@ -2776,7 +2782,7 @@ class MetaInterp(object):
                                                   force_token],
                                 None, descr=vinfo.vable_token_descr)
 
-    def vrefs_after_residual_call(self, op, cut_pos):
+    def vrefs_after_residual_call(self, op, opnum, arglist, descr, cut_pos):
         vrefinfo = self.staticdata.virtualref_info
         for i in range(0, len(self.virtualref_boxes), 2):
             vrefbox = self.virtualref_boxes[i+1]
@@ -2786,7 +2792,7 @@ class MetaInterp(object):
                 # during this CALL_MAY_FORCE.  Mark this fact by
                 # generating a VIRTUAL_REF_FINISH on it and replacing
                 # it by ConstPtr(NULL).
-                self.stop_tracking_virtualref(i, op, cut_pos)
+                self.stop_tracking_virtualref(i, op, opnum, arglist, descr, cut_pos)
 
     def vable_after_residual_call(self, funcbox):
         vinfo = self.jitdriver_sd.virtualizable_info
@@ -2810,16 +2816,14 @@ class MetaInterp(object):
                 # have the eventual exception raised (this is normally done
                 # after the call to vable_after_residual_call()).
 
-    def stop_tracking_virtualref(self, i, op, cut_pos):
+    def stop_tracking_virtualref(self, i, op, opnum, arglist, descr, cut_pos):
         virtualbox = self.virtualref_boxes[i]
         vrefbox = self.virtualref_boxes[i+1]
         # record VIRTUAL_REF_FINISH just before the current CALL_MAY_FORCE
         self.history.cut(cut_pos) # pop the CALL
-        assert rop.is_call_may_force(op.getopnum())
         self.history.record_nospec(rop.VIRTUAL_REF_FINISH,
                             [vrefbox, virtualbox], None)
-        newop = self.history.record_nospec(op.getopnum(), op.getarglist(),
-                                           op.getdescr())
+        newop = self.history.record_nospec(opnum, arglist, descr)
         op.position = newop.position
         # mark by replacing it with ConstPtr(NULL)
         self.virtualref_boxes[i+1] = self.cpu.ts.CONST_NULL
