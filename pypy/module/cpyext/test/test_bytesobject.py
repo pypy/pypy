@@ -91,13 +91,15 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
 
     def test_string_tp_alloc(self):
         module = self.import_extension('foo', [
-            ("getstring", "METH_NOARGS",
+            ("tpalloc", "METH_NOARGS",
              """
                 PyObject *base;
                 PyTypeObject * type;
                 PyStringObject *obj;
                 char * p_str;
                 base = PyString_FromString("test");
+                if (((PyStringObject*)base)->buffer == NULL)
+                    return PyLong_FromLong(-2);
                 type = base->ob_type;
                 if (type->tp_itemsize != 1)
                     return PyLong_FromLong(type->tp_itemsize);
@@ -109,7 +111,7 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
                 return (PyObject*)obj;
              """),
             ])
-        s = module.getstring()
+        s = module.tpalloc()
         assert s == 'works\x00\x00\x00\x00\x00'
 
     def test_AsString(self):
@@ -262,14 +264,14 @@ class TestString(BaseApiTest):
         ar[0] = rffi.cast(PyObject, py_str)
         api._PyString_Resize(ar, 3)
         py_str = rffi.cast(PyStringObject, ar[0])
-        assert py_str.c_size == 3
+        assert py_str.c_ob_size == 3
         assert py_str.c_buffer[1] == 'b'
         assert py_str.c_buffer[3] == '\x00'
         # the same for growing
         ar[0] = rffi.cast(PyObject, py_str)
         api._PyString_Resize(ar, 10)
         py_str = rffi.cast(PyStringObject, ar[0])
-        assert py_str.c_size == 10
+        assert py_str.c_ob_size == 10
         assert py_str.c_buffer[1] == 'b'
         assert py_str.c_buffer[10] == '\x00'
         Py_DecRef(space, ar[0])

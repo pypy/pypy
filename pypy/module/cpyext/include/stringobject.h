@@ -38,15 +38,15 @@ functions should be applied to nil objects.
 
 
 typedef struct {
-    PyObject_HEAD
+    PyObject_VAR_HEAD
     long ob_shash;
     int ob_sstate;
-    char * buffer;
-    Py_ssize_t size;
+    char * buffer; /* change the name from cpython so all non-api c access is thwarted */
 
-    /* Invariants:
-     *     ob_sval contains space for 'ob_size+1' elements.
-     *     ob_sval[ob_size] == 0.
+    /* Invariants 
+     * (not relevant in PyPy, all stringobjects are backed by a pypy object)
+     *     buffer contains space for 'ob_size+1' elements.
+     *     buffer[ob_size] == 0.
      *     ob_shash is the hash of the string or -1 if not computed yet.
      *     ob_sstate != 0 iff the string object is in stringobject.c's
      *       'interned' dictionary; in this case the two references
