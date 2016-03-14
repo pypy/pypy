@@ -1294,6 +1294,19 @@ class rop(object):
         return rop.CALL_MAY_FORCE_N
 
     @staticmethod
+    def call_release_gil_for_descr(descr):
+        tp = descr.get_normalized_result_type()
+        if tp == 'i':
+            return rop.CALL_RELEASE_GIL_I
+        # no such thing
+        #elif tp == 'r':
+        #    return rop.CALL_RELEASE_GIL_R
+        elif tp == 'f':
+            return rop.CALL_RELEASE_GIL_F
+        assert tp == 'v'
+        return rop.CALL_RELEASE_GIL_N
+
+    @staticmethod
     def call_assembler_for_descr(descr):
         tp = descr.get_normalized_result_type()
         if tp == 'i':
