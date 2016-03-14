@@ -139,7 +139,6 @@ def get_or_build_checker(assembler, regnum):
     # found!  update the assembler by writing the value at 'small_ofs'
     # bytes before our return address.  This should overwrite the const in
     # 'MOV_ri64(r11, const)', first instruction of the guard_compatible.
-    mc.INT3()
     mc.MOV_rs(X86_64_SCRATCH_REG.value, WORD)
     mc.MOV_rm(X86_64_SCRATCH_REG.value, (X86_64_SCRATCH_REG.value, 0))
     mc.ADD_rs(X86_64_SCRATCH_REG.value, 0)
