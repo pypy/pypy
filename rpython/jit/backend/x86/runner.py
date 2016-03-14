@@ -122,6 +122,9 @@ class AbstractX86CPU(AbstractLLCPU):
             l[i].counter = ll_s.i
         return l
 
+    def grow_guard_compatible_switch(self, guarddescr, gcref):
+        pass#xxx
+
 
 class CPU386(AbstractX86CPU):
     backend_name = 'x86'

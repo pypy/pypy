@@ -215,10 +215,11 @@ class BaseBackendTest(Runner):
         assert fail.identifier == 1
 
         self.cpu.grow_guard_compatible_switch(faildescr1, t2_box._resref)
-        deadframe = self.cpu.execute_token(looptoken,
-                                           t2_box._resref)
-        fail = self.cpu.get_latest_descr(deadframe)
-        assert fail.identifier == 2
+        for retry in range(2):
+            deadframe = self.cpu.execute_token(looptoken,
+                                               t2_box._resref)
+            fail = self.cpu.get_latest_descr(deadframe)
+            assert fail.identifier == 2
 
     def test_compile_with_holes_in_fail_args(self):
         targettoken = TargetToken()

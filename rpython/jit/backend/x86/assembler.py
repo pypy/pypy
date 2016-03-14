@@ -33,7 +33,7 @@ from rpython.jit.backend.x86 import rx86, codebuf, callbuilder
 from rpython.jit.backend.x86.vector_ext import VectorAssemblerMixin
 from rpython.jit.backend.x86.callbuilder import follow_jump
 from rpython.jit.metainterp.resoperation import rop
-from rpython.jit.backend.x86 import support
+from rpython.jit.backend.x86 import support, guard_compat
 from rpython.rlib.debug import debug_print, debug_start, debug_stop
 from rpython.rlib import rgc
 from rpython.jit.codewriter.effectinfo import EffectInfo
@@ -69,6 +69,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
 
     def setup_once(self):
         BaseAssembler.setup_once(self)
+        guard_compat.setup_once(self)
         if self.cpu.supports_floats:
             support.ensure_sse2_floats()
             self._build_float_constants()
@@ -1726,10 +1727,15 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         self.implement_guard(guard_token)
 
     def genop_guard_guard_compatible(self, guard_op, guard_token, locs, ign):
-        assert guard_op.getarg(0).type == REF # XXX for now?
-        self.mc.CMP(locs[0], locs[1])
-        self.guard_success_cc = rx86.Conditions['E']
-        self.implement_guard(guard_token)
+        assert guard_op.getarg(0).type == REF    # only supported case for now
+        assert guard_op.getarg(1).type == REF
+        loc_reg, loc_imm = locs
+        assert isinstance(loc_reg, RegLoc)
+        assert isinstance(loc_imm, ImmedLoc)
+        if IS_X86_32:
+            XXX
+        guard_compat.generate_guard_compatible(self, guard_token,
+                                               loc_reg, loc_imm.value)
 
     def _cmp_guard_class(self, locs):
         loc_ptr = locs[0]
