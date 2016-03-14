@@ -75,6 +75,12 @@ def grow_switch(cpu, compiled_loop_token, guarddescr, gcref):
         raise AssertionError("oops")
     new_value = rffi.cast(lltype.Signed, gcref)
 
+    # XXX related to the above: for now we keep alive the gcrefs forever
+    # in the compiled_loop_token
+    if compiled_loop_token._keepalive_extra is None:
+        compiled_loop_token._keepalive_extra = []
+    compiled_loop_token._keepalive_extra.append(gcref)
+
     if not we_are_translated() and isinstance(guarddescr, BasicFailDescr):
         pass    # for tests
     else:
