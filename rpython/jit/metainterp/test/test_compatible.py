@@ -15,8 +15,15 @@ class TestCompatible(LLJitMixin):
         p3 = lltype.malloc(S)
         p3.x = 6
         driver = jit.JitDriver(greens = [], reds = ['n', 'x'])
+
+        class A(object):
+            pass
+
+        c = A()
+        c.count = 0
         @jit.elidable_compatible()
         def g(s):
+            c.count += 1
             return s.x
 
         def f(n, x):
@@ -29,8 +36,11 @@ class TestCompatible(LLJitMixin):
             f(100, p1)
             f(100, p2)
             f(100, p3)
+            return c.count
 
-        self.meta_interp(main, [])
+        x = self.meta_interp(main, [])
+
+        assert x < 25
         # XXX check number of bridges
 
     def test_exception(self):
