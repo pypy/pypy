@@ -55,8 +55,10 @@ class SnapshotIterator(object):
         return [self.get(i) for i in arr]
 
 class TraceIterator(BaseTrace):
-    def __init__(self, trace, start, end, force_inputargs=None):
+    def __init__(self, trace, start, end, force_inputargs=None,
+                 metainterp_sd=None):
         self.trace = trace
+        self.metainterp_sd = metainterp_sd
         self._cache = [None] * trace._count
         if force_inputargs is not None:
             self.inputargs = [rop.inputarg_from_tp(arg.type) for
@@ -122,10 +124,13 @@ class TraceIterator(BaseTrace):
         descr_index = -1
         if opwithdescr[opnum]:
             descr_index = self._next()
-            if descr_index == -1 or rop.is_guard(opnum):
+            if descr_index == 0 or rop.is_guard(opnum):
                 descr = None
             else:
-                descr = self.trace._descrs[descr_index]
+                if descr_index < 0:
+                    descr = self.metainterp_sd.all_descrs[-descr_index-1]
+                else:
+                    descr = self.trace._descrs[descr_index]
         else:
             descr = None
         res = ResOperation(opnum, args, -1, descr=descr)
@@ -143,9 +148,9 @@ class CutTrace(BaseTrace):
         self.inputargs = inputargs
         self.count = count
 
-    def get_iter(self):
+    def get_iter(self, metainterp_sd=None):
         iter = TraceIterator(self.trace, self.start, self.trace._pos,
-                             self.inputargs)
+                             self.inputargs, metainterp_sd=metainterp_sd)
         iter._count = self.count
         return iter
 
@@ -295,15 +300,15 @@ class Trace(BaseTrace):
             self.append(self._encode(box))
         if opwithdescr[opnum]:
             if descr is None:
-                self.append(-1)
+                self.append(0)
             else:
                 self.append(self._encode_descr(descr))
         self._count += 1
         return pos
 
     def _encode_descr(self, descr):
-        # XXX provide a global cache for prebuilt descrs so we don't
-        #     have to repeat them here        
+        if descr.descr_index != -1:
+            return -descr.descr_index-1
         self._descrs.append(descr)
         return len(self._descrs) - 1
 
@@ -324,18 +329,20 @@ class Trace(BaseTrace):
         return [rffi.cast(rffi.SHORT, self._encode(box)) for box in boxes]
 
     def create_top_snapshot(self, jitcode, pc, boxes, vable_boxes, vref_boxes):
+        self._total_snapshots += 1
         array = self._list_of_boxes(boxes)
         vable_array = self._list_of_boxes(vable_boxes)
         vref_array = self._list_of_boxes(vref_boxes)
         s = TopSnapshot(combine_uint(jitcode.index, pc), array, vable_array,
                         vref_array)
-        assert rffi.cast(lltype.Signed, self._ops[self._pos - 1]) == -1
+        assert rffi.cast(lltype.Signed, self._ops[self._pos - 1]) == 0
         # guards have no descr
         self._snapshots.append(s)
         self._ops[self._pos - 1] = rffi.cast(rffi.SHORT, len(self._snapshots) - 1)
         return s
 
     def create_empty_top_snapshot(self, vable_boxes, vref_boxes):
+        self._total_snapshots += 1
         vable_array = self._list_of_boxes(vable_boxes)
         vref_array = self._list_of_boxes(vref_boxes)
         s = TopSnapshot(combine_uint(2**16 - 1, 0), [], vable_array,
@@ -347,11 +354,13 @@ class Trace(BaseTrace):
         return s
 
     def create_snapshot(self, jitcode, pc, boxes):
+        self._total_snapshots += 1
         array = self._list_of_boxes(boxes)
         return Snapshot(combine_uint(jitcode.index, pc), array)
 
-    def get_iter(self):
-        return TraceIterator(self, 0, self._pos)
+    def get_iter(self, metainterp_sd=None):
+        assert metainterp_sd
+        return TraceIterator(self, 0, self._pos, metainterp_sd=metainterp_sd)
 
     def unpack(self):
         iter = self.get_iter()

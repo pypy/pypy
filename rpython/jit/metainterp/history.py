@@ -124,6 +124,7 @@ class XxxAbstractValue(object):
 class AbstractDescr(AbstractValue):
     __slots__ = ()
     llopaque = True
+    descr_index = -1
 
     def repr_of_descr(self):
         return '%r' % (self,)

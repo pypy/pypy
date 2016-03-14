@@ -472,6 +472,13 @@ class LLGraphCPU(model.AbstractCPU):
 
     # ------------------------------------------------------------
 
+    def setup_descrs(self):
+        all_descrs = []
+        for k, v in self.descrs.iteritems():
+            v.descr_index = len(all_descrs)
+            all_descrs.append(v)
+        return all_descrs
+
     def calldescrof(self, FUNC, ARGS, RESULT, effect_info):
         key = ('call', getkind(RESULT),
                tuple([getkind(A) for A in ARGS]),

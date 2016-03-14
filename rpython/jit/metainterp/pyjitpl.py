@@ -1804,6 +1804,7 @@ class MetaInterpStaticData(object):
         self.cpu.propagate_exception_descr = exc_descr
         #
         self.globaldata = MetaInterpGlobalData(self)
+        self.all_descrs = self.cpu.setup_descrs()
 
     def _setup_once(self):
         """Runtime setup needed by the various components of the JIT."""

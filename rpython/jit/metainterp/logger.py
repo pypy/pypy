@@ -20,7 +20,7 @@ class Logger(object):
 
     def _unpack_trace(self, trace):
         ops = []
-        i = trace.get_iter()
+        i = trace.get_iter(self.metainterp_sd)
         while not i.done():
             ops.append(i.next())
         return i.inputargs, ops

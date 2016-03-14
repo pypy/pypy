@@ -75,7 +75,7 @@ class SimpleCompileData(CompileData):
 
         #assert not unroll
         opt = Optimizer(metainterp_sd, jitdriver_sd, optimizations)
-        return opt.propagate_all_forward(self.trace.get_iter(),
+        return opt.propagate_all_forward(self.trace.get_iter(metainterp_sd),
             self.call_pure_results)
 
 class BridgeCompileData(CompileData):
