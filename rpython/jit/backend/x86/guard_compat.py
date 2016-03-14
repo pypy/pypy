@@ -1,9 +1,9 @@
 from rpython.rlib import rgc
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.jit.backend.x86.arch import WORD
+from rpython.jit.backend.x86.arch import WORD, IS_X86_32, IS_X86_64
 from rpython.jit.backend.x86 import rx86, codebuf
-from rpython.jit.backend.x86.regloc import X86_64_SCRATCH_REG, imm
+from rpython.jit.backend.x86.regloc import X86_64_SCRATCH_REG, imm, eax, edx
 from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from rpython.jit.metainterp.compile import GuardCompatibleDescr
 from rpython.jit.metainterp.history import BasicFailDescr
@@ -18,9 +18,13 @@ from rpython.jit.metainterp.history import BasicFailDescr
 def generate_guard_compatible(assembler, guard_token, loc_reg, initial_value):
     # fast-path check
     mc = assembler.mc
-    mc.MOV_ri64(X86_64_SCRATCH_REG.value, initial_value)
-    rel_pos_compatible_imm = mc.get_relative_pos()
-    mc.CMP_rr(loc_reg.value, X86_64_SCRATCH_REG.value)
+    if IS_X86_64:
+        mc.MOV_ri64(X86_64_SCRATCH_REG.value, initial_value)
+        rel_pos_compatible_imm = mc.get_relative_pos()
+        mc.CMP_rr(loc_reg.value, X86_64_SCRATCH_REG.value)
+    elif IS_X86_32:
+        mc.CMP_ri32(loc_reg.value, initial_value)
+        rel_pos_compatible_imm = mc.get_relative_pos()
     mc.J_il8(rx86.Conditions['E'], 0)
     je_location = mc.get_relative_pos()
 
@@ -34,9 +38,13 @@ def generate_guard_compatible(assembler, guard_token, loc_reg, initial_value):
     compatinfo[1] = initial_value
     compatinfo[2] = -1
 
-    mc.MOV_ri64(X86_64_SCRATCH_REG.value, compatinfoaddr)  # patchable
-    guard_token.pos_compatinfo_offset = mc.get_relative_pos() - WORD
-    mc.PUSH_r(X86_64_SCRATCH_REG.value)
+    if IS_X86_64:
+        mc.MOV_ri64(X86_64_SCRATCH_REG.value, compatinfoaddr)  # patchable
+        guard_token.pos_compatinfo_offset = mc.get_relative_pos() - WORD
+        mc.PUSH_r(X86_64_SCRATCH_REG.value)
+    elif IS_X86_32:
+        mc.PUSH_i32(compatinfoaddr)   # patchable
+        guard_token.pos_compatinfo_offset = mc.get_relative_pos() - WORD
     mc.CALL(imm(checker))
     mc.stack_frame_size_delta(-WORD)
 
@@ -113,21 +121,36 @@ def get_or_build_checker(assembler, regnum):
 
     mc = codebuf.MachineCodeBlockWrapper()
 
-    mc.MOV_rs(X86_64_SCRATCH_REG.value, WORD)
+    if IS_X86_64:
+        tmp = X86_64_SCRATCH_REG.value
+        stack_ret = 0
+        stack_arg = WORD
+    elif IS_X86_32:
+        if regnum != eax.value:
+            tmp = eax.value
+        else:
+            tmp = edx.value
+        mc.PUSH_r(tmp)
+        stack_ret = WORD
+        stack_arg = 2 * WORD
+
+    mc.MOV_rs(tmp, stack_arg)
 
     pos = mc.get_relative_pos()
-    mc.CMP_mr((X86_64_SCRATCH_REG.value, WORD), regnum)
+    mc.CMP_mr((tmp, WORD), regnum)
     mc.J_il8(rx86.Conditions['E'], 0)    # patched below
     je_location = mc.get_relative_pos()
-    mc.CMP_mi((X86_64_SCRATCH_REG.value, WORD), -1)
-    mc.LEA_rm(X86_64_SCRATCH_REG.value, (X86_64_SCRATCH_REG.value, WORD))
+    mc.CMP_mi((tmp, WORD), -1)
+    mc.LEA_rm(tmp, (tmp, WORD))
     mc.J_il8(rx86.Conditions['NE'], pos - (mc.get_relative_pos() + 2))
 
     # not found!  The condition code is already 'Zero', which we return
     # to mean 'not found'.
+    if IS_X86_32:
+        mc.POP_r(tmp)
     mc.RET16_i(WORD)
 
-    mc.force_frame_size(WORD)
+    mc.force_frame_size(8)   # one word on X86_64, two words on X86_32
 
     # patch the JE above
     offset = mc.get_relative_pos() - je_location
@@ -137,13 +160,15 @@ def get_or_build_checker(assembler, regnum):
     # found!  update the assembler by writing the value at 'small_ofs'
     # bytes before our return address.  This should overwrite the const in
     # 'MOV_ri64(r11, const)', first instruction of the guard_compatible.
-    mc.MOV_rs(X86_64_SCRATCH_REG.value, WORD)
-    mc.MOV_rm(X86_64_SCRATCH_REG.value, (X86_64_SCRATCH_REG.value, 0))
-    mc.ADD_rs(X86_64_SCRATCH_REG.value, 0)
-    mc.MOV_mr((X86_64_SCRATCH_REG.value, -WORD), regnum)
+    mc.MOV_rs(tmp, stack_arg)
+    mc.MOV_rm(tmp, (tmp, 0))
+    mc.ADD_rs(tmp, stack_ret)
+    mc.MOV_mr((tmp, -WORD), regnum)
 
     # the condition codes say 'Not Zero', as a result of the ADD above.
     # Return this condition code to mean 'found'.
+    if IS_X86_32:
+        mc.POP_r(tmp)
     mc.RET16_i(WORD)
 
     addr = mc.materialize(assembler.cpu, [])

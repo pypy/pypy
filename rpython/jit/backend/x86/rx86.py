@@ -404,7 +404,7 @@ def common_modes(group):
     INSN_bi._always_inline_ = True      # try to constant-fold single_byte()
 
     return (INSN_ri, INSN_rr, INSN_rb, INSN_bi, INSN_br, INSN_rm, INSN_rj,
-            INSN_ji8, INSN_mi8, INSN_rs)
+            INSN_ji8, INSN_mi8, INSN_rs, INSN_ri32)
 
 def select_8_or_32_bit_immed(insn_8, insn_32):
     def INSN(*args):
@@ -506,13 +506,13 @@ class AbstractX86CodeBuilder(object):
     INC_m = insn(rex_w, '\xFF', orbyte(0), mem_reg_plus_const(1))
     INC_j = insn(rex_w, '\xFF', orbyte(0), abs_(1))
 
-    AD1_ri,ADD_rr,ADD_rb,_,_,ADD_rm,ADD_rj,_,_,ADD_rs = common_modes(0)
-    OR_ri, OR_rr, OR_rb, _,_,OR_rm, OR_rj, _,_,_ = common_modes(1)
-    AND_ri,AND_rr,AND_rb,_,_,AND_rm,AND_rj,_,_,_ = common_modes(4)
-    SU1_ri,SUB_rr,SUB_rb,_,_,SUB_rm,SUB_rj,SUB_ji8,SUB_mi8,_ = common_modes(5)
-    SBB_ri,SBB_rr,SBB_rb,_,_,SBB_rm,SBB_rj,_,_,_ = common_modes(3)
-    XOR_ri,XOR_rr,XOR_rb,_,_,XOR_rm,XOR_rj,_,_,_ = common_modes(6)
-    CMP_ri,CMP_rr,CMP_rb,CMP_bi,CMP_br,CMP_rm,CMP_rj,_,_,_ = common_modes(7)
+    AD1_ri,ADD_rr,ADD_rb,_,_,ADD_rm,ADD_rj,_,_,ADD_rs, _ = common_modes(0)
+    OR_ri, OR_rr, OR_rb, _,_,OR_rm, OR_rj, _,_,_,_ = common_modes(1)
+    AND_ri,AND_rr,AND_rb,_,_,AND_rm,AND_rj,_,_,_,_ = common_modes(4)
+    SU1_ri,SUB_rr,SUB_rb,_,_,SUB_rm,SUB_rj,SUB_ji8,SUB_mi8,_,_ = common_modes(5)
+    SBB_ri,SBB_rr,SBB_rb,_,_,SBB_rm,SBB_rj,_,_,_,_ = common_modes(3)
+    XOR_ri,XOR_rr,XOR_rb,_,_,XOR_rm,XOR_rj,_,_,_,_ = common_modes(6)
+    CMP_ri,CMP_rr,CMP_rb,CMP_bi,CMP_br,CMP_rm,CMP_rj,_,_,_,CMP_ri32 = common_modes(7)
 
     def ADD_ri(self, reg, immed):
         self.AD1_ri(reg, immed)
@@ -607,6 +607,10 @@ class AbstractX86CodeBuilder(object):
             self.PUS1_i8(immed)
         else:
             self.PUS1_i32(immed)
+        self.stack_frame_size_delta(+self.WORD)
+
+    def PUSH_i32(self, immed):
+        self.PUS1_i32(immed)
         self.stack_frame_size_delta(+self.WORD)
 
     PO1_r = insn(rex_nw, register(1), '\x58')

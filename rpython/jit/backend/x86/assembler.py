@@ -1732,8 +1732,6 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         loc_reg, loc_imm = locs
         assert isinstance(loc_reg, RegLoc)
         assert isinstance(loc_imm, ImmedLoc)
-        if IS_X86_32:
-            XXX
         guard_compat.generate_guard_compatible(self, guard_token,
                                                loc_reg, loc_imm.value)
 
