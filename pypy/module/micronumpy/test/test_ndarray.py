@@ -3397,21 +3397,20 @@ class AppTestMultiDim(BaseNumpyAppTest):
         a.itemset(1, 2, 100)
         assert a[1, 2] == 100
 
-    def test_index_int64(self):
+    def test_index_int(self):
         import numpy as np
-        res = np.array([10, 20, 30])[np.int64(1)]
-
+        a = np.array([10, 20, 30])
+        res = a[np.int64(1)]
         assert isinstance(res, np.int64)
-        assert not isinstance(res, np.ndarray)
         assert res == 20
-
-    def test_index_int32(self):
-        import numpy as np
-        res = np.array([10, 20, 30])[np.int32(0)]
-
+        res = a[np.int32(0)]
         assert isinstance(res, np.int64)
-        assert not isinstance(res, np.ndarray)
         assert res == 10
+
+        b = a.astype(float)
+        res = b[np.int64(1)]
+        assert res == 20.0
+        assert isinstance(res, np.float64)
 
     def test_index(self):
         import numpy as np
