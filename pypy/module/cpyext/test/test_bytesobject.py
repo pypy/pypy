@@ -98,21 +98,22 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
                 PyStringObject *obj;
                 char * p_str;
                 base = PyString_FromString("test");
-                if (((PyStringObject*)base)->buffer == NULL)
-                    return PyLong_FromLong(-2);
+                if (PyString_GET_SIZE(base) != 4)
+                    return PyLong_FromLong(-PyString_GET_SIZE(base));
                 type = base->ob_type;
                 if (type->tp_itemsize != 1)
                     return PyLong_FromLong(type->tp_itemsize);
                 obj = (PyStringObject*)type->tp_alloc(type, 10);
-                if (PyString_GET_SIZE(obj) == 0)
-                    return PyLong_FromLong(-1);
-                memcpy(PyString_AS_STRING(obj), "works", 6);
+                if (PyString_GET_SIZE(obj) != 10)
+                    return PyLong_FromLong(PyString_GET_SIZE(obj));
+                /* cannot work, there is only RO access
+                memcpy(PyString_AS_STRING(obj), "works", 6); */
                 Py_INCREF(obj);
                 return (PyObject*)obj;
              """),
             ])
         s = module.tpalloc()
-        assert s == 'works\x00\x00\x00\x00\x00'
+        assert s == '\x00' * 10
 
     def test_AsString(self):
         module = self.import_extension('foo', [

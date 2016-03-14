@@ -134,6 +134,9 @@ def string_realize(space, py_obj):
     be modified after this call.
     """
     py_str = rffi.cast(PyStringObject, py_obj)
+    if not py_str.c_buffer:
+        py_str.c_buffer = lltype.malloc(rffi.CCHARP.TO, py_str.c_ob_size + 1,
+                                    flavor='raw', zero=True)
     s = rffi.charpsize2str(py_str.c_buffer, py_str.c_ob_size)
     w_obj = space.wrap(s)
     py_str.c_ob_shash = space.hash_w(w_obj)
