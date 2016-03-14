@@ -483,6 +483,13 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         y = self.loc(op.getarg(1))
         self.perform_guard(op, [x, y], None)
 
+    def consider_guard_compatible(self, op):
+        x = self.make_sure_var_in_reg(op.getarg(0))
+        loc = self.assembler.cpu.all_reg_indexes[x.value]
+        op.getdescr().make_a_counter_per_value(op, loc)
+        y = self.loc(op.getarg(1))
+        self.perform_guard(op, [x, y], None)
+
     def consider_guard_class(self, op):
         assert not isinstance(op.getarg(0), Const)
         x = self.rm.make_sure_var_in_reg(op.getarg(0))

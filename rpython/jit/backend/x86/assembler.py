@@ -1725,6 +1725,12 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         self.guard_success_cc = rx86.Conditions['E']
         self.implement_guard(guard_token)
 
+    def genop_guard_guard_compatible(self, guard_op, guard_token, locs, ign):
+        assert guard_op.getarg(0).type == REF # XXX for now?
+        self.mc.CMP(locs[0], locs[1])
+        self.guard_success_cc = rx86.Conditions['E']
+        self.implement_guard(guard_token)
+
     def _cmp_guard_class(self, locs):
         loc_ptr = locs[0]
         loc_classptr = locs[1]
