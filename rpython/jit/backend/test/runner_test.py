@@ -191,9 +191,10 @@ class BaseBackendTest(Runner):
         assert res == 10
 
     def test_extend_guard_compatible(self):
+        import weakref, gc
+
         t1_box, T1_box, d1 = self.alloc_instance(self.T)
         t2_box, T2_box, d2 = self.alloc_instance(self.T)
-        t3_box, T3_box, d3 = self.alloc_instance(self.T)
         faildescr1 = BasicFailDescr(1)
         loop = parse("""
         [p0]
@@ -221,6 +222,11 @@ class BaseBackendTest(Runner):
                                                t2_box._resref)
             fail = self.cpu.get_latest_descr(deadframe)
             assert fail.identifier == 2
+
+        wr = weakref.ref(t2_box.getref_base())
+        del t2_box, T2_box, d2
+        gc.collect(); gc.collect()
+        assert wr() is not None    # kept alive by grow_guard_compatible_switch
 
     def test_compile_with_holes_in_fail_args(self):
         targettoken = TargetToken()
