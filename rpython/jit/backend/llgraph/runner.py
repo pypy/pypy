@@ -470,7 +470,7 @@ class LLGraphCPU(model.AbstractCPU):
         assert deadframe._saved_data is not None
         return deadframe._saved_data
 
-    def grow_guard_compatible_switch(self, descr, ref):
+    def grow_guard_compatible_switch(self, looptoken, descr, ref):
         if not hasattr(descr, '_guard_compatible_llgraph_lst'):
             descr._guard_compatible_llgraph_lst = []
         descr._guard_compatible_llgraph_lst.append(ref)

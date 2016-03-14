@@ -687,6 +687,8 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
                 mc = codebuf.MachineCodeBlockWrapper()
                 mc.writeimm32(relative_target)
                 mc.copy_to_raw_memory(addr)
+                if tok.guard_compatible():
+                    guard_compat.patch_guard_compatible(rawstart, tok)
             else:
                 # GUARD_NOT_INVALIDATED, record an entry in
                 # clt.invalidate_positions of the form:
@@ -772,7 +774,8 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         mc.writeimm32(allocated_depth)
         mc.copy_to_raw_memory(adr)
 
-    def get_asmmemmgr_blocks(self, looptoken):
+    @staticmethod
+    def get_asmmemmgr_blocks(looptoken):
         clt = looptoken.compiled_loop_token
         if clt.asmmemmgr_blocks is None:
             clt.asmmemmgr_blocks = []

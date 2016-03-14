@@ -36,6 +36,9 @@ class GuardToken(object):
     def guard_not_invalidated(self):
         return self.guard_opnum == rop.GUARD_NOT_INVALIDATED
 
+    def guard_compatible(self):
+        return self.guard_opnum == rop.GUARD_COMPATIBLE
+
     def must_save_exception(self):
         guard_opnum = self.guard_opnum
         return (guard_opnum == rop.GUARD_EXCEPTION or
