@@ -41,11 +41,14 @@ class AbstractAttribute(object):
         # objects with different maps can have the same class
         return self.terminator.w_cls
 
+    @jit.elidable_compatible()
+    def _get_terminator(self):
+        return self.terminator
+
     def read(self, obj, name, index):
         attr = self.find_map_attr(name, index)
         if attr is None:
-            jit.promote(self)
-            return self.terminator._read_terminator(obj, name, index)
+            return self._get_terminator()._read_terminator(obj, name, index)
         if ( # XXX in the guard_compatible world the following isconstant may never be true?
             jit.isconstant(attr.storageindex) and
             jit.isconstant(obj) and
@@ -62,9 +65,7 @@ class AbstractAttribute(object):
     def write(self, obj, name, index, w_value):
         attr = self.find_map_attr(name, index)
         if attr is None:
-            # adding an attribute needs to know all attributes, thus promote
-            jit.promote(self)
-            return self.terminator._write_terminator(obj, name, index, w_value)
+            return self._get_terminator()._write_terminator(obj, name, index, w_value)
         if not attr.ever_mutated:
             attr.ever_mutated = True
         obj._mapdict_write_storage(attr.storageindex, w_value)
