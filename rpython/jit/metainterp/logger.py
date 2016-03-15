@@ -187,7 +187,10 @@ class LogOperations(object):
             s = s.replace(',', '.') # we use comma for argument splitting
             s2 = ''
             for box in args[1:]:
-                s2 += ', %d' % box.getint()
+                if isinstance(box, ConstInt):
+                    s2 += ', %d' % box.getint()
+                else:
+                    s2 += ', box'
             return "jit_debug('%s'%s)" % (s, s2)
         if ops_offset is None:
             offset = -1

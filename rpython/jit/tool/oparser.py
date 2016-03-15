@@ -252,7 +252,7 @@ class OpParser(object):
         return opnum, args, descr, fail_args
 
     def create_op(self, opnum, args, res, descr, fail_args):
-        res = ResOperation(opnum, args, -1, descr)
+        res = ResOperation(opnum, args, descr)
         if fail_args is not None:
             res.setfailargs(fail_args)
         if self._postproces:

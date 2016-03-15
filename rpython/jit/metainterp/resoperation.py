@@ -329,10 +329,7 @@ class AbstractResOp(AbstractResOpOrInputArg):
             descr = self.getdescr()
         if descr is DONT_CHANGE:
             descr = None
-        newop = ResOperation(opnum, args, descr)
-        if self.type != 'v':
-            newop.copy_value_from(self)
-        return newop
+        return ResOperation(opnum, args, descr)
 
     def repr(self, memo, graytext=False):
         # RPython-friendly version
@@ -1720,14 +1717,6 @@ def create_class_for_op(name, opnum, arity, withdescr, result_type):
         baseclass = PlainResOp
 
     mixins = [arity2mixin.get(arity, N_aryOp)]
-    if result_type == 'i':
-        mixins.append(IntOp)
-    elif result_type == 'f':
-        mixins.append(FloatOp)
-    elif result_type == 'r':
-        mixins.append(RefOp)
-    else:
-        assert result_type == 'n'
     if name in _cast_ops:
         if "INT_SIGNEXT" in name:
             mixins.append(SignExtOp)
@@ -1736,7 +1725,11 @@ def create_class_for_op(name, opnum, arity, withdescr, result_type):
     cls_name = '%s_OP' % name
     bases = (get_base_class(tuple(mixins), baseclass),)
     dic = {'opnum': opnum}
-    return type(cls_name, bases, dic)
+    res = type(cls_name, bases, dic)
+    if result_type == 'n':
+        result_type = 'v' # why?
+    res.type = result_type
+    return res
 
 setup(__name__ == '__main__')   # print out the table when run directly
 del _oplist
