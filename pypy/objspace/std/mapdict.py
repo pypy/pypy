@@ -229,6 +229,9 @@ class AbstractAttribute(object):
             jit.isconstant(name) and
             jit.isconstant(index))
     def _reorder_and_add(self, obj, name, index, w_value):
+        # XXX it might be worth it to change reordering such that instances of
+        # different classes end up with the same order of attributes.
+
         # the idea is as follows: the subtrees of any map are ordered by
         # insertion.  the invariant is that subtrees that are inserted later
         # must not contain the name of the attribute of any earlier inserted
