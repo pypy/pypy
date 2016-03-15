@@ -129,7 +129,7 @@ class AbstractAttribute(object):
     def length(self):
         raise NotImplementedError("abstract base class")
 
-    @jit.guard_compatible()
+    @jit.elidable_compatible()
     def _length_larger_than(self, n):
         return self.length() > n
 
