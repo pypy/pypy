@@ -29,7 +29,7 @@ class Module(W_Root):
                           space.w_None)
         self.startup_called = False
 
-    def _cleanup_(self):
+    def cleanup(self):
         """Called by the annotator on prebuilt Module instances.
         We don't have many such modules, but for the ones that
         show up, remove their __file__ rather than translate it

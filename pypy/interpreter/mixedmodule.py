@@ -123,7 +123,7 @@ class MixedModule(Module):
             self.save_module_content_for_future_reload()
         return self.w_dict
 
-    def _cleanup_(self):
+    def cleanup(self):
         self.getdict(self.space)
         self.w_initialdict = None
         self.startup_called = False

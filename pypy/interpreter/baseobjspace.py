@@ -633,6 +633,8 @@ class ObjSpace(object):
         self.getbuiltinmodule('__builtin__')
         for mod in self.builtin_modules.values():
             mod.setup_after_space_initialization()
+        for mod in self.builtin_modules.values():
+            mod.cleanup()
 
     def initialize(self):
         """NOT_RPYTHON: Abstract method that should put some minimal
