@@ -90,8 +90,7 @@ def _ensure_parent_resumedata(framestack, n, t, snapshot):
     if target.parent_snapshot:
         snapshot.prev = target.parent_snapshot
         return
-    s = t.create_snapshot(back.jitcode, back.pc,
-                          back.get_list_of_active_boxes(True))
+    s = t.create_snapshot(back.jitcode, back.pc, back, True)
     snapshot.prev = s
     _ensure_parent_resumedata(framestack, n - 1, t, s)
     target.parent_snapshot = s
@@ -108,7 +107,7 @@ def capture_resumedata(framestack, virtualizable_boxes, virtualref_boxes, t):
     if n >= 0:
         top = framestack[n]
         snapshot = t.create_top_snapshot(top.jitcode, top.pc,
-                    top.get_list_of_active_boxes(False), virtualizable_boxes,
+                    top, False, virtualizable_boxes,
                     virtualref_boxes)
         _ensure_parent_resumedata(framestack, n, t,snapshot)
     else:

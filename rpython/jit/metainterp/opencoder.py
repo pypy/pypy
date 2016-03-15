@@ -325,9 +325,12 @@ class Trace(BaseTrace):
             array[i] = self._encode(boxes[i])
         return array
 
-    def create_top_snapshot(self, jitcode, pc, boxes, vable_boxes, vref_boxes):
+    def new_array(self, lgt):
+        return [rffi.cast(rffi.SHORT, 0)] * lgt
+
+    def create_top_snapshot(self, jitcode, pc, frame, flag, vable_boxes, vref_boxes):
         self._total_snapshots += 1
-        array = self._list_of_boxes(boxes)
+        array = frame.get_list_of_active_boxes(flag, self.new_array, self._encode)
         vable_array = self._list_of_boxes(vable_boxes)
         vref_array = self._list_of_boxes(vref_boxes)
         s = TopSnapshot(combine_uint(jitcode.index, pc), array, vable_array,
@@ -350,9 +353,9 @@ class Trace(BaseTrace):
         self._ops[self._pos - 1] = rffi.cast(rffi.SHORT, len(self._snapshots) - 1)
         return s
 
-    def create_snapshot(self, jitcode, pc, boxes):
+    def create_snapshot(self, jitcode, pc, frame, flag):
         self._total_snapshots += 1
-        array = self._list_of_boxes(boxes)
+        array = frame.get_list_of_active_boxes(flag, self.new_array, self._encode)
         return Snapshot(combine_uint(jitcode.index, pc), array)
 
     def get_iter(self, metainterp_sd=None):
