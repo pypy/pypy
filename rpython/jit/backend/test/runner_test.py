@@ -217,7 +217,7 @@ class BaseBackendTest(Runner):
 
         self.cpu.grow_guard_compatible_switch(looptoken.compiled_loop_token,
                                               faildescr1, t2_box._resref)
-        for retry in range(2):
+        for retry in range(5):
             deadframe = self.cpu.execute_token(looptoken,
                                                t2_box._resref)
             fail = self.cpu.get_latest_descr(deadframe)

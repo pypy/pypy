@@ -15,6 +15,22 @@ from rpython.jit.metainterp.history import BasicFailDescr
 # the guard, ending in -1.
 
 
+# --tweakable parameters (you get the effect closest to before we had
+# guard-compat by setting GROW_POSITION to 1 and UPDATE_ASM to 0)--
+
+# where grow_switch puts the new value:
+#   0 = at the beginning of the list
+#   1 = at position N-1, just before the initial value which stays last
+#   2 = at the end
+GROW_POSITION = 2
+
+# when guard_compatible's slow path is called and finds a value, when
+# should we update the machine code to make this value the fast-path?
+#   0 = never
+#   another value = after about this many calls to the slow-path
+UPDATE_ASM = 1291
+
+
 def generate_guard_compatible(assembler, guard_token, loc_reg, initial_value):
     # fast-path check
     mc = assembler.mc
@@ -49,9 +65,10 @@ def generate_guard_compatible(assembler, guard_token, loc_reg, initial_value):
     mc.stack_frame_size_delta(-WORD)
 
     small_ofs = rel_pos_compatible_imm - mc.get_relative_pos()
-    compatinfo[0] = small_ofs
+    assert -128 <= small_ofs < 128
+    compatinfo[0] = small_ofs & 0xFF
 
-    assembler.guard_success_cc = rx86.Conditions['NZ']
+    assembler.guard_success_cc = rx86.Conditions['Z']
     assembler.implement_guard(guard_token)
     #
     # patch the JE above
@@ -99,10 +116,22 @@ def grow_switch(cpu, compiled_loop_token, guarddescr, gcref):
 
     newcompatinfo = rffi.cast(rffi.SIGNEDP, newcompatinfoaddr)
     newcompatinfo[0] = compatinfo[0]
-    newcompatinfo[1] = new_value
 
-    for i in range(1, length):
-        newcompatinfo[i + 1] = compatinfo[i]
+    if GROW_POSITION == 0:
+        newcompatinfo[1] = new_value
+        for i in range(1, length):
+            newcompatinfo[i + 1] = compatinfo[i]
+    elif GROW_POSITION == 1:
+        for i in range(1, length - 2):
+            newcompatinfo[i] = compatinfo[i]
+        newcompatinfo[length - 2] = new_value
+        newcompatinfo[length - 1] = compatinfo[length - 2]
+        newcompatinfo[length] = -1    # == compatinfo[length - 1]
+    else:
+        for i in range(1, length - 1):
+            newcompatinfo[i] = compatinfo[i]
+        newcompatinfo[length - 1] = new_value
+        newcompatinfo[length] = -1    # == compatinfo[length - 1]
 
     # the old 'compatinfo' is not used any more, but will only be freed
     # when the looptoken is freed
@@ -116,6 +145,36 @@ def setup_once(assembler):
     nb_registers = WORD * 2
     assembler._guard_compat_checkers = [0] * nb_registers
 
+
+def _build_inner_loop(mc, regnum, tmp, immediate_return):
+    pos = mc.get_relative_pos()
+    mc.CMP_mr((tmp, WORD), regnum)
+    mc.J_il8(rx86.Conditions['E'], 0)    # patched below
+    je_location = mc.get_relative_pos()
+    mc.CMP_mi((tmp, WORD), -1)
+    mc.LEA_rm(tmp, (tmp, WORD))
+    mc.J_il8(rx86.Conditions['NE'], pos - (mc.get_relative_pos() + 2))
+    #
+    # not found!  Return the condition code 'Not Zero' to mean 'not found'.
+    mc.OR_rr(tmp, tmp)
+    #
+    # if 'immediate_return', patch the JE above to jump here.  When we
+    # follow that path, we get condition code 'Zero', which means 'found'.
+    if immediate_return:
+        offset = mc.get_relative_pos() - je_location
+        assert 0 < offset <= 127
+        mc.overwrite(je_location-1, chr(offset))
+    #
+    if IS_X86_32:
+        mc.POP_r(tmp)
+    mc.RET16_i(WORD)
+    mc.force_frame_size(8)   # one word on X86_64, two words on X86_32
+    #
+    # if not 'immediate_return', patch the JE above to jump here.
+    if not immediate_return:
+        offset = mc.get_relative_pos() - je_location
+        assert 0 < offset <= 127
+        mc.overwrite(je_location-1, chr(offset))
 
 def get_or_build_checker(assembler, regnum):
     """Returns a piece of assembler that checks if the value is in
@@ -142,40 +201,43 @@ def get_or_build_checker(assembler, regnum):
 
     mc.MOV_rs(tmp, stack_arg)
 
-    pos = mc.get_relative_pos()
-    mc.CMP_mr((tmp, WORD), regnum)
-    mc.J_il8(rx86.Conditions['E'], 0)    # patched below
-    je_location = mc.get_relative_pos()
-    mc.CMP_mi((tmp, WORD), -1)
-    mc.LEA_rm(tmp, (tmp, WORD))
-    mc.J_il8(rx86.Conditions['NE'], pos - (mc.get_relative_pos() + 2))
+    if UPDATE_ASM > 0:
+        CONST_TO_ADD = int((1 << 24) / (UPDATE_ASM + 0.3))
+        if CONST_TO_ADD >= (1 << 23):
+            CONST_TO_ADD = (1 << 23) - 1
+        if CONST_TO_ADD < 1:
+            CONST_TO_ADD = 1
+        CONST_TO_ADD <<= 8
+        #
+        mc.ADD32_mi32((tmp, 0), CONST_TO_ADD)
+        mc.J_il8(rx86.Conditions['C'], 0)    # patched below
+        jc_location = mc.get_relative_pos()
+    else:
+        jc_location = -1
 
-    # not found!  The condition code is already 'Zero', which we return
-    # to mean 'not found'.
-    if IS_X86_32:
-        mc.POP_r(tmp)
-    mc.RET16_i(WORD)
+    _build_inner_loop(mc, regnum, tmp, immediate_return=True)
 
-    mc.force_frame_size(8)   # one word on X86_64, two words on X86_32
-
-    # patch the JE above
-    offset = mc.get_relative_pos() - je_location
-    assert 0 < offset <= 127
-    mc.overwrite(je_location-1, chr(offset))
-
-    # found!  update the assembler by writing the value at 'small_ofs'
-    # bytes before our return address.  This should overwrite the const in
-    # 'MOV_ri64(r11, const)', first instruction of the guard_compatible.
-    mc.MOV_rs(tmp, stack_arg)
-    mc.MOV_rm(tmp, (tmp, 0))
-    mc.ADD_rs(tmp, stack_ret)
-    mc.MOV_mr((tmp, -WORD), regnum)
-
-    # the condition codes say 'Not Zero', as a result of the ADD above.
-    # Return this condition code to mean 'found'.
-    if IS_X86_32:
-        mc.POP_r(tmp)
-    mc.RET16_i(WORD)
+    if jc_location != -1:
+        # patch the JC above
+        offset = mc.get_relative_pos() - jc_location
+        assert 0 < offset <= 127
+        mc.overwrite(jc_location-1, chr(offset))
+        #
+        _build_inner_loop(mc, regnum, tmp, immediate_return=False)
+        #
+        # found!  update the assembler by writing the value at 'small_ofs'
+        # bytes before our return address.  This should overwrite the const in
+        # 'MOV_ri64(r11, const)', first instruction of the guard_compatible.
+        mc.MOV_rs(tmp, stack_arg)
+        mc.MOVSX8_rm(tmp, (tmp, 0))
+        mc.ADD_rs(tmp, stack_ret)
+        mc.MOV_mr((tmp, -WORD), regnum)
+        #
+        # Return condition code 'Zero' to mean 'found'.
+        mc.CMP_rr(regnum, regnum)
+        if IS_X86_32:
+            mc.POP_r(tmp)
+        mc.RET16_i(WORD)
 
     addr = mc.materialize(assembler.cpu, [])
     assembler._guard_compat_checkers[regnum] = addr

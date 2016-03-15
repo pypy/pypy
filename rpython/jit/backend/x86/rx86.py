@@ -514,6 +514,8 @@ class AbstractX86CodeBuilder(object):
     XOR_ri,XOR_rr,XOR_rb,_,_,XOR_rm,XOR_rj,_,_,_,_ = common_modes(6)
     CMP_ri,CMP_rr,CMP_rb,CMP_bi,CMP_br,CMP_rm,CMP_rj,_,_,_,CMP_ri32 = common_modes(7)
 
+    ADD32_mi32 = insn(rex_nw, '\x81', mem_reg_plus_const(1), immediate(2))
+
     def ADD_ri(self, reg, immed):
         self.AD1_ri(reg, immed)
         if reg == R.esp:
