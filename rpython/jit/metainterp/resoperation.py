@@ -98,7 +98,6 @@ def ResOperation(opnum, args, position=-1, descr=None):
 
 def VecOperation(opnum, args, baseop, count, descr=None):
     vecinfo = baseop.get_forwarded()
-    assert vecinfo is not None
     assert isinstance(vecinfo, VectorizationInfo)
     datatype = vecinfo.datatype
     bytesize = vecinfo.bytesize
@@ -232,14 +231,11 @@ class VectorizationInfo(AbstractValue):
 
 
 class AbstractResOpOrInputArg(AbstractValue):
-    _attrs_ = ('_forwarded', 'position')
+    _attrs_ = ('_forwarded',)
     _forwarded = None # either another resop or OptInfo
 
     def get_forwarded(self):
         return self._forwarded
-
-    def get_position(self):
-        return self.position
 
     def set_forwarded(self, forwarded_to):
         assert forwarded_to is not self
@@ -779,6 +775,7 @@ class SignExtOp(object):
 
 
 class AbstractInputArg(AbstractResOpOrInputArg):
+    _attrs_ = ('_forwarded', 'position')
 
     def repr(self, memo):
         try:
@@ -788,6 +785,9 @@ class AbstractInputArg(AbstractResOpOrInputArg):
             memo[self] = num
         return self.type + str(num)
 
+    def get_position(self):
+        return self.position
+
     def __repr__(self):
         return self.repr(self._repr_memo)
 
@@ -795,24 +795,28 @@ class AbstractInputArg(AbstractResOpOrInputArg):
         return True
 
 class InputArgInt(IntOp, AbstractInputArg):
+    datatype = 'i'
+    bytesize = INT_WORD
+    signed = True
+
     def __init__(self, intval=0):
         self.setint(intval)
-        self.datatype = 'i'
-        self.bytesize = INT_WORD
-        self.signed = True
 
 class InputArgFloat(FloatOp, AbstractInputArg):
+    datatype = 'f'
+    bytesize = FLOAT_WORD
+    signed = True
+
     def __init__(self, f=longlong.ZEROF):
         self.setfloatstorage(f)
-        self.datatype = 'f'
-        self.bytesize = FLOAT_WORD
-        self.signed = True
 
     @staticmethod
     def fromfloat(x):
         return InputArgFloat(longlong.getfloatstorage(x))
 
 class InputArgRef(RefOp, AbstractInputArg):
+    datatype = 'r'
+
     def __init__(self, r=lltype.nullptr(llmemory.GCREF.TO)):
         self.setref_base(r)
         self.datatype = 'r'
