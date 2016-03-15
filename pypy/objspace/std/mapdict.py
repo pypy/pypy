@@ -46,29 +46,27 @@ class AbstractAttribute(object):
         return self.terminator
 
     def read(self, obj, name, index):
-        attr = self.find_map_attr(name, index)
-        if attr is None:
+        storageindex = self.find_map_storageindex(name, index)
+        if storageindex == -1:
             return self._get_terminator()._read_terminator(obj, name, index)
-        if ( # XXX in the guard_compatible world the following isconstant may never be true?
-            jit.isconstant(attr.storageindex) and
-            jit.isconstant(obj) and
-            not attr.ever_mutated
-        ):
-            return self._pure_mapdict_read_storage(obj, attr.storageindex)
-        else:
-            return obj._mapdict_read_storage(attr.storageindex)
+        #if ( # XXX in the guard_compatible world the following isconstant may never be true?
+        #    jit.isconstant(attr.storageindex) and
+        #    jit.isconstant(obj) and
+        #    not attr.ever_mutated
+        #):
+        #    return self._pure_mapdict_read_storage(obj, attr.storageindex)
+        #else:
+        return obj._mapdict_read_storage(storageindex)
 
     @jit.elidable
     def _pure_mapdict_read_storage(self, obj, storageindex):
         return obj._mapdict_read_storage(storageindex)
 
     def write(self, obj, name, index, w_value):
-        attr = self.find_map_attr(name, index)
-        if attr is None:
+        storageindex = self.find_map_storageindex(name, index)
+        if storageindex == -1:
             return self._get_terminator()._write_terminator(obj, name, index, w_value)
-        if not attr.ever_mutated:
-            attr.ever_mutated = True
-        obj._mapdict_write_storage(attr.storageindex, w_value)
+        obj._mapdict_write_storage(storageindex, w_value)
         return True
 
     def delete(self, obj, name, index):
@@ -79,6 +77,13 @@ class AbstractAttribute(object):
         if (self.space.config.objspace.std.withmethodcache):
             return self._find_map_attr_cache(name, index)
         return self._find_map_attr(name, index)
+
+    @jit.elidable_compatible()
+    def find_map_storageindex(self, name, index):
+        attr = self.find_map_attr(name, index)
+        if attr is None:
+            return -1
+        return attr.storageindex
 
     @jit.dont_look_inside
     def _find_map_attr_cache(self, name, index):
@@ -389,7 +394,7 @@ class PlainAttribute(AbstractAttribute):
         self.storageindex = back.length()
         self.back = back
         self._size_estimate = self.length() * NUM_DIGITS_POW2
-        self.ever_mutated = False
+        #self.ever_mutated = False # XXX XXX XXX immutability is disabled for now
         self.order = len(back.cache_attrs) if back.cache_attrs else 0
 
     def _copy_attr(self, obj, new_obj):
@@ -399,8 +404,8 @@ class PlainAttribute(AbstractAttribute):
     def delete(self, obj, name, index):
         if index == self.index and name == self.name:
             # ok, attribute is deleted
-            if not self.ever_mutated:
-                self.ever_mutated = True
+            #if not self.ever_mutated:
+            #    self.ever_mutated = True
             return self.back.copy(obj)
         new_obj = self.back.delete(obj, name, index)
         if new_obj is not None:
