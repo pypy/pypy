@@ -130,8 +130,7 @@ def lookup_codec(space, encoding):
     Looks up a codec tuple in the Python codec registry and returns
     a tuple of functions.
     """
-    assert not (space.config.translating and not we_are_translated()), \
-        "lookup_codec() should not be called during translation"
+    assert space._is_runtime
     state = space.fromcache(CodecState)
     normalized_encoding = encoding.replace(" ", "-").lower()
     w_result = state.get_codec_from_cache(normalized_encoding)

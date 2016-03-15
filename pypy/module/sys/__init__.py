@@ -103,7 +103,7 @@ class Module(MixedModule):
     }
 
     def startup(self, space):
-        if space.config.translating and not we_are_translated():
+        if not space._is_runtime:
             # don't get the filesystemencoding at translation time
             assert self.filesystemencoding is None
 

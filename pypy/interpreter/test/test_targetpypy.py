@@ -9,6 +9,7 @@ class TestTargetPyPy(object):
         entry_point(['pypy-c' , '-S', '-c', 'print 3'])
 
 def test_execute_source(space):
+    space._is_runtime = True
     _, d = create_entry_point(space, None)
     execute_source = d['pypy_execute_source']
     lls = rffi.str2charp("import sys; sys.modules['xyz'] = 3")

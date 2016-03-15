@@ -42,7 +42,7 @@ cmdline_optiondescr = OptionDescription("interactive", "the options of pyinterac
     StrOption("warn",
               "warning control (arg is action:message:category:module:lineno)",
               default=None, cmdline="-W"),
- 
+
     ])
 
 pypy_init = gateway.applevel('''
@@ -118,7 +118,7 @@ def main_(argv=None):
     # set warning control options (if any)
     warn_arg = interactiveconfig.warn
     if warn_arg is not None:
-        space.appexec([space.wrap(warn_arg)], """(arg): 
+        space.appexec([space.wrap(warn_arg)], """(arg):
         import sys
         sys.warnoptions.append(arg)""")
 
@@ -167,6 +167,7 @@ def main_(argv=None):
 
     try:
         def do_start():
+            space._is_runtime = True
             space.startup()
             pypy_init(space, space.wrap(not interactiveconfig.no_site_import))
         if main.run_toplevel(space, do_start,
@@ -200,6 +201,6 @@ def main_(argv=None):
 
 if __name__ == '__main__':
     if hasattr(sys, 'setrecursionlimit'):
-        # for running "python -i pyinteractive.py -Si -- py.py -Si" 
+        # for running "python -i pyinteractive.py -Si -- py.py -Si"
         sys.setrecursionlimit(3000)
     sys.exit(main_(sys.argv))

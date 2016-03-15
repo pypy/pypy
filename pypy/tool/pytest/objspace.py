@@ -29,6 +29,7 @@ def maketestobjspace(config=None):
     if config is None:
         config = make_config(option)
     space = make_objspace(config)
+    space._is_runtime = True
     space.startup() # Initialize all builtin modules
     space.setitem(space.builtin.w_dict, space.wrap('AssertionError'),
                   appsupport.build_pytest_assertion(space))

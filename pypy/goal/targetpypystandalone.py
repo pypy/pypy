@@ -292,7 +292,7 @@ class PyPyTarget(object):
             self.hack_for_cffi_modules(driver)
 
         return self.get_entry_point(config)
-    
+
     def hack_for_cffi_modules(self, driver):
         # HACKHACKHACK
         # ugly hack to modify target goal from compile_* to build_cffi_imports
@@ -319,7 +319,7 @@ class PyPyTarget(object):
             while not basedir.join('include').exists():
                 _basedir = basedir.dirpath()
                 if _basedir == basedir:
-                    raise ValueError('interpreter %s not inside pypy repo', 
+                    raise ValueError('interpreter %s not inside pypy repo',
                                      str(exename))
                 basedir = _basedir
             modules = self.config.objspace.usemodules.getpaths()
@@ -350,6 +350,7 @@ class PyPyTarget(object):
         app = gateway.applevel(open(filename).read(), 'app_main.py', 'app_main')
         app.hidden_applevel = False
         w_dict = app.getwdict(space)
+        space._is_runtime = True
         entry_point, _ = create_entry_point(space, w_dict)
 
         return entry_point, None, PyPyAnnotatorPolicy()

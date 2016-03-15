@@ -374,6 +374,7 @@ class ObjSpace(object):
 
     def __init__(self, config=None):
         "NOT_RPYTHON: Basic initialization of objects."
+        self._is_runtime = False
         self.fromcache = InternalSpaceCache(self).getorbuild
         self.threadlocals = ThreadLocals()
         # set recursion limit
@@ -391,7 +392,7 @@ class ObjSpace(object):
         self.check_signal_action = None   # changed by the signal module
         self.user_del_action = UserDelAction(self)
         self._code_of_sys_exc_info = None
-        
+
         # can be overridden to a subclass
         self.initialize()
 
@@ -643,21 +644,14 @@ class ObjSpace(object):
         # you should not see frames while you translate
         # so we make sure that the threadlocals never *have* an
         # ExecutionContext during translation.
-        if not we_are_translated():
-            if self.config.translating:
-                assert self.threadlocals.get_ec() is None, (
-                    "threadlocals got an ExecutionContext during translation!")
-                try:
-                    return self._ec_during_translation
-                except AttributeError:
-                    ec = self.createexecutioncontext()
-                    self._ec_during_translation = ec
-                    return ec
-            else:
-                ec = self.threadlocals.get_ec()
-                if ec is None:
-                    self.threadlocals.enter_thread(self)
-                    ec = self.threadlocals.get_ec()
+        if not self._is_runtime:
+            assert self.threadlocals.get_ec() is None, (
+                "threadlocals got an ExecutionContext during translation!")
+            try:
+                return self._ec_during_translation
+            except AttributeError:
+                ec = self.createexecutioncontext()
+                self._ec_during_translation = ec
                 return ec
         else:
             # translated case follows.  self.threadlocals is either from
@@ -693,13 +687,11 @@ class ObjSpace(object):
         """Return an interp-level Lock object if threads are enabled,
         and a dummy object if they are not."""
         from rpython.rlib import rthread
+        # There is no threading at objspace configuration time
+        if not self._is_runtime:
+            raise CannotHaveLock()
         if not self.config.objspace.usemodules.thread:
             return rthread.dummy_lock
-        # hack: we can't have prebuilt locks if we're translating.
-        # In this special situation we should just not lock at all
-        # (translation is not multithreaded anyway).
-        if not we_are_translated() and self.config.translating:
-            raise CannotHaveLock()
         try:
             return rthread.allocate_lock()
         except rthread.error:
