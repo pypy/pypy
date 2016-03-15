@@ -1,6 +1,6 @@
 
 from rpython.jit.metainterp.opencoder import Trace, untag, TAGINT, TAGBOX
-from rpython.jit.metainterp.resoperation import rop, InputArgInt
+from rpython.jit.metainterp.resoperation import rop, InputArgInt, AbstractResOp
 from rpython.jit.metainterp.history import ConstInt
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer
 from rpython.jit.metainterp import resume
@@ -15,6 +15,13 @@ class JitCode(object):
 
 class metainterp_sd(object):
     pass
+
+class FakeOp(AbstractResOp):
+    def __init__(self, pos):
+        self.pos = pos
+
+    def get_position(self):
+        return self.pos
 
 class FakeFrame(object):
     parent_snapshot = None
@@ -53,7 +60,7 @@ class TestOpencoder(object):
     def test_simple_iterator(self):
         i0, i1 = InputArgInt(), InputArgInt()
         t = Trace([i0, i1])
-        add = t.record_op(rop.INT_ADD, [i0, i1])
+        add = FakeOp(t.record_op(rop.INT_ADD, [i0, i1]))
         t.record_op(rop.INT_ADD, [add, ConstInt(1)])
         (i0, i1), l, _ = self.unpack(t)
         assert len(l) == 2
@@ -67,7 +74,7 @@ class TestOpencoder(object):
     def test_rd_snapshot(self):
         i0, i1 = InputArgInt(), InputArgInt()
         t = Trace([i0, i1])
-        add = t.record_op(rop.INT_ADD, [i0, i1])
+        add = FakeOp(t.record_op(rop.INT_ADD, [i0, i1]))
         t.record_op(rop.GUARD_FALSE, [add])
         # now we write rd_snapshot and friends
         frame0 = FakeFrame(1, JitCode(2), [i0, i1])
@@ -126,12 +133,12 @@ class TestOpencoder(object):
         inputargs, ops = lst
         t = Trace(inputargs)
         for op in ops:
-            newop = t.record_op(op.getopnum(), op.getarglist())
+            newop = FakeOp(t.record_op(op.getopnum(), op.getarglist()))
             newop.orig_op = op
             if newop.is_guard():
                 resume.capture_resumedata(op.framestack,
                     None, [], t)
-            op.position = newop.position
+            op.position = newop.get_position()
         inpargs, l, iter = self.unpack(t)
         loop1 = TreeLoop("loop1")
         loop1.inputargs = inputargs

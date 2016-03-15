@@ -133,7 +133,7 @@ class TraceIterator(BaseTrace):
                     descr = self.trace._descrs[descr_index]
         else:
             descr = None
-        res = ResOperation(opnum, args, -1, descr=descr)
+        res = ResOperation(opnum, args, descr=descr)
         if rop.is_guard(opnum):
             assert isinstance(res, GuardResOp)
             res.rd_resume_position = descr_index
@@ -288,7 +288,7 @@ class Trace(BaseTrace):
         else:
             assert False, "unreachable code"
 
-    def _record_op(self, opnum, argboxes, descr=None):
+    def record_op(self, opnum, argboxes, descr=None):
         pos = self._count
         self.append(opnum)
         expected_arity = oparity[opnum]
@@ -318,12 +318,6 @@ class Trace(BaseTrace):
         upper = pos >> 15
         self.append(-upper-1)
         self.append(lower)
-
-    def record_op(self, opnum, argboxes, descr=None):
-        # return an ResOperation instance, ideally die in hell
-        pos = self._record_op(opnum, argboxes, descr)
-        assert opnum >= 0
-        return ResOperation(opnum, argboxes, pos, descr)
 
     def _list_of_boxes(self, boxes):
         array = [rffi.cast(rffi.SHORT, 0)] * len(boxes)

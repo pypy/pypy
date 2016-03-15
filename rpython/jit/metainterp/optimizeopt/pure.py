@@ -206,7 +206,7 @@ class OptPure(Optimization):
     def pure_from_args(self, opnum, args, op, descr=None):
         newop = ResOperation(opnum,
                              [self.get_box_replacement(arg) for arg in args],
-                             -1, descr=descr)
+                             descr=descr)
         newop.set_forwarded(op)
         self.pure(opnum, newop)
 

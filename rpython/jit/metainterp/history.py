@@ -7,7 +7,8 @@ from rpython.rlib.rarithmetic import r_int64, is_valid_int
 from rpython.conftest import option
 
 from rpython.jit.metainterp.resoperation import ResOperation, rop,\
-    AbstractValue, oparity, AbstractResOp, IntOp, RefOp, FloatOp
+    AbstractValue, oparity, AbstractResOp, IntOp, RefOp, FloatOp,\
+    opclasses
 from rpython.jit.codewriter import heaptracker, longlong
 import weakref
 
@@ -647,14 +648,26 @@ class FrontendOp(AbstractResOp):
     def __init__(self, pos):
         self.position = pos
 
+    def get_position(self):
+        return self.position
+
 class IntFrontendOp(IntOp, FrontendOp):
     _attrs_ = ('position', '_resint')
+
+    def copy_value_from(self, other):
+        self._resint = other.getint()
 
 class FloatFrontendOp(FloatOp, FrontendOp):
     _attrs_ = ('position', '_resfloat')
 
+    def copy_value_from(self, other):
+        self._resfloat = other.getfloatstorage()
+
 class RefFrontendOp(RefOp, FrontendOp):
     _attrs_ = ('position', '_resref')
+
+    def copy_value_from(self, other):
+        self._resref = other.getref_base()
 
 class History(object):
     ends_with_jump = False
@@ -673,12 +686,9 @@ class History(object):
         self.inputargs = inpargs
         if self._cache:
             # hack to record the ops *after* we know our inputargs
-            for op in self._cache:
-                newop = self.trace.record_op(op.getopnum(), op.getarglist(),
-                                             op.getdescr())
-                op.position = newop.position
-                if op.type != 'v':
-                    newop.copy_value_from(op)
+            for (opnum, argboxes, op, descr) in self._cache:
+                pos = self.trace.record_op(opnum, argboxes, descr)
+                op.position = pos
             self._cache = None
 
     def length(self):
@@ -710,29 +720,39 @@ class History(object):
     @specialize.argtype(3)
     def record(self, opnum, argboxes, value, descr=None):
         if self.trace is None:
-            op = ResOperation(opnum, argboxes, -1, descr)
-            self._cache.append(op)
+            pos = -1
         else:
-            pos = self.trace._record_op(opnum, argboxes, descr)
-            if value is None:
-                op = FrontendOp(pos)
-            elif isinstance(value, bool):
-                op = IntFrontendOp(pos)
-            elif lltype.typeOf(value) == lltype.Signed:
-                op = IntFrontendOp(pos)
-            elif lltype.typeOf(value) is longlong.FLOATSTORAGE:
-                op = FloatFrontendOp(pos)
-            else:
-                op = RefFrontendOp(pos)
+            pos = self.trace.record_op(opnum, argboxes, descr)
+        if value is None:
+            op = FrontendOp(pos)
+        elif isinstance(value, bool):
+            op = IntFrontendOp(pos)
+        elif lltype.typeOf(value) == lltype.Signed:
+            op = IntFrontendOp(pos)
+        elif lltype.typeOf(value) is longlong.FLOATSTORAGE:
+            op = FloatFrontendOp(pos)
+        else:
+            op = RefFrontendOp(pos)
+        if self.trace is None:
+            self._cache.append((opnum, argboxes, op, descr))
         self.set_op_value(op, value)
         return op
 
     def record_nospec(self, opnum, argboxes, descr=None):
-        return self.trace.record_op(opnum, argboxes, descr)
+        tp = opclasses[opnum].type
+        pos = self.trace.record_op(opnum, argboxes, descr)
+        if tp == 'v':
+            return FrontendOp(pos)
+        elif tp == 'i':
+            return IntFrontendOp(pos)
+        elif tp == 'f':
+            return FloatFrontendOp(pos)
+        assert tp == 'r'
+        return RefFrontendOp(pos)
 
     def record_default_val(self, opnum, argboxes, descr=None):
         assert rop.is_same_as(opnum)
-        op = self.trace.record_op(opnum, argboxes, descr)
+        op = self.record_nospec(opnum, argboxes, descr)
         op.copy_value_from(argboxes[0])
         return op
 

@@ -81,12 +81,10 @@ class AbstractValue(object):
         return False
 
 
-def ResOperation(opnum, args, position=-1, descr=None):
+def ResOperation(opnum, args, descr=None):
     cls = opclasses[opnum]
     op = cls()
     op.initarglist(args)
-    assert isinstance(position, int)
-    op.position = position
     if descr is not None:
         assert isinstance(op, ResOpWithDescr)
         if opnum == rop.FINISH:
@@ -331,7 +329,7 @@ class AbstractResOp(AbstractResOpOrInputArg):
             descr = self.getdescr()
         if descr is DONT_CHANGE:
             descr = None
-        newop = ResOperation(opnum, args, -1, descr)
+        newop = ResOperation(opnum, args, descr)
         if self.type != 'v':
             newop.copy_value_from(self)
         return newop

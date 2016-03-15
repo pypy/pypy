@@ -2540,9 +2540,7 @@ class MetaInterp(object):
             i = len(self.history._cache)
             op1 = self.history.record(rop.SAVE_EXC_CLASS, [], exc_class)
             op2 = self.history.record(rop.SAVE_EXCEPTION, [], exception)
-            assert op1 is self.history._cache[i]
-            assert op2 is self.history._cache[i + 1]
-            self.history._cache = [op1, op2] + self.history._cache[:i]
+            self.history._cache = self.history._cache[i:] + self.history._cache[:i]
             self.history.record(rop.RESTORE_EXCEPTION, [op1, op2], None)
             self.history.set_inputargs(inputargs)
             if exception_obj:
