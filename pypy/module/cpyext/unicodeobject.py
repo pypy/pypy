@@ -30,7 +30,6 @@ cpython_struct("PyUnicodeObject", PyUnicodeObjectFields, PyUnicodeObjectStruct)
 def init_unicodeobject(space):
     make_typedescr(space.w_unicode.layout.typedef,
                    basestruct=PyUnicodeObject.TO,
-                   alloc = unicode_alloc,
                    attach=unicode_attach,
                    dealloc=unicode_dealloc,
                    realize=unicode_realize)
@@ -48,6 +47,7 @@ def unicode_alloc(space, w_type, length):
     '''
     see comments with string_alloc in stringobject.py
     '''
+    XXX
     from pypy.module.cpyext.typeobjectdefs import PyTypeObjectPtr
     pytype = as_pyobj(space, w_type)
     pytype = rffi.cast(PyTypeObjectPtr, pytype)

@@ -53,8 +53,8 @@ from pypy.module.cpyext.pyobject import (
 PyStringObjectStruct = lltype.ForwardReference()
 PyStringObject = lltype.Ptr(PyStringObjectStruct)
 PyStringObjectFields = PyObjectFields + \
-    (("ob_shash", rffi.LONG), ("ob_sstate", rffi.INT), 
-     ("buffer", rffi.CCHARP), ("ob_size", Py_ssize_t))
+    (("ob_size", Py_ssize_t), ("ob_shash", rffi.LONG),
+     ("ob_sstate", rffi.INT), ("buffer", rffi.CCHARP))
 cpython_struct("PyStringObject", PyStringObjectFields, PyStringObjectStruct)
 
 @bootstrap_function
