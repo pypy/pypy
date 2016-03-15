@@ -13,6 +13,9 @@ class JitCode(object):
     def __init__(self, index):
         self.index = index
 
+class metainterp_sd(object):
+    pass
+
 class FakeFrame(object):
     parent_snapshot = None
 
@@ -38,7 +41,7 @@ def unpack_snapshot(t, op, pos):
 
 class TestOpencoder(object):
     def unpack(self, t):
-        iter = t.get_iter()
+        iter = t.get_iter(metainterp_sd)
         l = []
         while not iter.done():
             op = iter.next()
@@ -142,7 +145,7 @@ class TestOpencoder(object):
     def test_packing(self, i):
         t = Trace([])
         t.record_snapshot_link(i)
-        iter = t.get_iter()
+        iter = t.get_iter(metainterp_sd)
         assert (((-iter._next() - 1) << 15) | (iter._next())) == i
 
     def test_cut_trace_from(self):

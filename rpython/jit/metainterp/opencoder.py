@@ -249,37 +249,36 @@ class Trace(BaseTrace):
                 SMALL_INT_START <= box.getint() < SMALL_INT_STOP):
                 return tag(TAGINT, box.getint())
             elif isinstance(box, ConstInt):
-                self._consts_bigint += 1
-                if not isinstance(box.getint(), int):
-                    # symbolics, for tests, don't worry about caching
-                    v = len(self._bigints) << 1
-                    self._bigints.append(box.getint())
-                else:
-                    v = self._bigints_dict.get(box.getint(), -1)
-                    if v == -1:
-                        v = len(self._bigints) << 1
-                        self._bigints_dict[box.getint()] = v
-                        self._bigints.append(box.getint())
+                #self._consts_bigint += 1
+                #if not isinstance(box.getint(), int):
+                #    # symbolics, for tests, don't worry about caching
+                #    v = len(self._bigints) << 1
+                #    self._bigints.append(box.getint())
+                #else:
+                #    v = self._bigints_dict.get(box.getint(), -1)
+                #    if v == -1:
+                v = len(self._bigints) << 1
+                #        self._bigints_dict[box.getint()] = v
+                self._bigints.append(box.getint())
                 return tag(TAGCONSTOTHER, v)
             elif isinstance(box, ConstFloat):
                 self._consts_float += 1
-                v = self._floats_dict.get(box.getfloat(), -1)
-                if v == -1:
-                    v = (len(self._floats) << 1) | 1
-                    self._floats_dict[box.getfloat()] = v
-                    self._floats.append(box.getfloat())
+                #v = self._floats_dict.get(box.getfloat(), -1)
+                #if v == -1:
+                v = (len(self._floats) << 1) | 1
+                #self._floats_dict[box.getfloat()] = v
+                self._floats.append(box.getfloat())
                 return tag(TAGCONSTOTHER, v)
             else:
                 self._consts_ptr += 1
                 assert isinstance(box, ConstPtr)
                 if not box.getref_base():
                     return tag(TAGCONSTPTR, 0)
-                addr = box.getref_base()
-                v = self._refs_dict.get(addr, -1)
-                if v == -1:
-                    v = len(self._refs)
-                    self._refs_dict[addr] = v
-                    self._refs.append(box.getref_base())
+                #v = self._refs_dict.get(addr, -1)
+                #if v == -1:
+                #    v = len(self._refs)
+                #    self._refs_dict[addr] = v
+                self._refs.append(box.getref_base())
                 return tag(TAGCONSTPTR, v)
         elif isinstance(box, AbstractResOp):
             return tag(TAGBOX, box.get_position())
