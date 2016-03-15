@@ -101,16 +101,18 @@ class TestCodeStrategies(object):
 class TestInterp(object):
 
     @given(st.basic_block(st.bytecode(), min_size=1))
-    def test_execute_bytecode_block(self, bc_obj_list):
-        self.execute(bc_obj_list)
+    def test_execute_block(self, bc_obj_list):
+        bytecode, consts = code.Context().transform(bc_obj_list)
+        self.execute(bytecode, consts)
 
     @given(st.control_flow_graph())
-    def test_execute_bytecode_block(self, cfg):
-        bc_obj_list = cfg.linearize()
-        self.execute(bc_obj_list)
+    @settings(perform_health_check=False, min_satisfying_examples=1000)
+    def test_execute_cfg(self, cfg):
+        print("execute_cfg: cfg with steps:", cfg.interp_steps())
+        bytecode, consts = cfg.linearize()
+        self.execute(bytecode, consts)
 
-    def execute(self, bc_obj_list):
-        bytecode, consts = code.Context().transform(bc_obj_list)
+    def execute(self, bytecode, consts):
         space = interp.Space()
         pc = 0
         end = len(bytecode)

@@ -161,17 +161,19 @@ def dispatch_once(space, i, bytecode, consts, stack):
         assert isinstance(w_lst, W_ListObject)
         stack.append(space.wrap(w_lst.size()))
     elif opcode == code.CondJump.BYTE_CODE:
+        assert i >= 0
         cond = runpack('b', bytecode[i+1:i+2])
         offset = runpack('i', bytecode[i+2:i+6])
-        w_int = stack.pop(0)
-        assert isinstance(w_lst, W_IntObject)
+        w_int = stack.pop()
+        assert isinstance(w_int, W_IntObject)
         i += 5
-        if CondJump.should_jump(cond, w_int.value):
+        if code.CondJump.should_jump(cond, w_int.value):
             if offset < 0:
                 pass # TODO jit driver
             # the new position is calculated at the end of
             # this jump instruction!!
             i += offset
+            assert i >= 0
     else:
         print("opcode %d is not implemented" % opcode)
         raise NotImplementedError

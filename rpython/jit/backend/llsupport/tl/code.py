@@ -92,6 +92,12 @@ class Context(object):
             code.append(struct.pack(typ, nmr))
         return ''.join(code)
 
+    def transform_blocks(self, blocks):
+        for block in blocks:
+            for code_obj in block.opcodes:
+                code_obj.encode(self)
+        return self.to_string(), self.consts
+
     def transform(self, code_objs):
         for code_obj in code_objs:
             code_obj.encode(self)
@@ -239,6 +245,14 @@ class CondJump(ByteCode):
     def splits_control_flow(self):
         return True
 
+    @staticmethod
+    def should_jump(cond, value):
+        # TODO
+        if value == 0 and cond == 0:
+            return True
+        return False
+
+
 @requires_stack(LIST_TYP)
 @leaves_on_stack(LIST_TYP, INT_TYP)
 class LenList(ByteCode):
@@ -269,6 +283,15 @@ BC_CLASSES.remove(CondJump)
 # control flow byte codes
 BC_CF_CLASSES = [CondJump]
 
+class ByteCodeBlock(object):
+    def __init__(self, stack):
+        self.init_stack = stack.copy()
+        self.exit_stack = None
+        self.opcodes = []
+
+    def interp_steps(self):
+        return len(self.opcodes)
+
 class ByteCodeControlFlow(object):
     # see the deterministic control flow search startegy in
     # test/code_strategies.py for what steps & byte_codes mean
@@ -276,3 +299,35 @@ class ByteCodeControlFlow(object):
         self.blocks = []
         self.steps = 0
         self.byte_codes = 0
+
+    def interp_steps(self):
+        """ how many steps does the interpreter perform to
+            reach the end of the current control flow?
+        """
+        return self.steps
+
+    def linearize(self):
+        from rpython.jit.backend.llsupport.tl import code
+        ctx = code.Context()
+        bytecode, consts = ctx.transform_blocks(self.blocks)
+        return bytecode, consts
+
+    def generate_block(self, data, last_block, strat):
+        if last_block:
+            stack = last_block.init_stack
+        else:
+            from rpython.jit.backend.llsupport.tl.stack import Stack
+            stack = Stack(0)
+
+        bcb = ByteCodeBlock(stack)
+        opcodes = data.draw(strat.draw_from(stack, self))
+        if not opcodes:
+            return None
+        bcb.exit_stack = stack.copy()
+        bcb.opcodes = opcodes
+        self.steps += bcb.interp_steps()
+        self.byte_codes += len(opcodes)
+        self.blocks.append(bcb)
+        return bcb
+
+

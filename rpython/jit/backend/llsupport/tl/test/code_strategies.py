@@ -2,7 +2,9 @@ from hypothesis import strategies as st
 from hypothesis.control import assume
 from hypothesis.strategies import composite
 from rpython.jit.backend.llsupport.tl import code, interp, stack
+from rpython.jit.backend.llsupport.tl.stack import Stack
 from hypothesis.searchstrategy.collections import TupleStrategy, ListStrategy
+from hypothesis.searchstrategy.strategies import SearchStrategy, one_of_strategies
 import hypothesis.internal.conjecture.utils as cu
 from collections import namedtuple
 
@@ -33,12 +35,12 @@ def stack_entry(types=code.all_types):
 
 def runtime_stack(min_size=0, average_size=5, max_size=4096, types=code.all_types):
     if max_size == 0:
-        return st.just(stack.Stack(0))
+        return st.just(Stack(0))
     stack_entries = st.lists(stack_entry(all_types), min_size=min_size,
                              average_size=average_size,
                              max_size=max_size)
     return stack_entries.map(lambda elems: \
-                                stack.Stack.from_items(STD_SPACE, elems))
+                                Stack.from_items(STD_SPACE, elems))
 
 def get_byte_code_class(num):
     return code.BC_NUM_TO_CLASS[num]
@@ -63,7 +65,6 @@ class BasicBlockStrategy(ListStrategy):
                 data.draw(self.element_strategy)
                 for _ in range(self.min_size)
             ]
-
         stopping_value = 1 - 1.0 / (1 + self.average_length)
         result = []
         while True:
@@ -94,9 +95,12 @@ class BasicBlockStrategy(ListStrategy):
 
 @st.defines_strategy
 def basic_block(strategy, min_size=1, average_size=8, max_size=128):
+    assert max_size >= 1
+    if average_size < max_size:
+        average_size = max_size//2
     return BasicBlockStrategy([strategy], min_size=min_size,
                               average_length=average_size,
-                              max_size=max_size)
+                              max_size=int(max_size))
 
 @st.defines_strategy
 def bytecode_class(stack):
@@ -106,9 +110,10 @@ def bytecode_class(stack):
 
 
 @composite
-def bytecode(draw, max_stack_size=4096):
+def bytecode(draw, run_stack=None):
     # get a stack that is the same for one test run
-    run_stack = draw(st.shared(st.just(stack.Stack(0)), 'stack'))
+    if run_stack is None:
+        run_stack = draw(st.shared(st.just(Stack(0)), 'stack'))
 
     # get a byte code class, only allow what is valid for the run_stack
     clazzes = filter(lambda clazz: clazz.filter_bytecode(run_stack), code.BC_CLASSES)
@@ -134,42 +139,52 @@ class DeterministicControlFlowSearchStrategy(SearchStrategy):
         max_byte_codes: the amount of bytecodes the final program has
     """
 
-    def __init__(self, stack, min_steps=1, max_steps=2**16, max_byte_codes=5000):
+    def __init__(self, stack, min_steps=1, max_steps=2**16, max_byte_codes=4000):
         SearchStrategy.__init__(self)
 
         self.stack = stack
         self.max_steps = float(max_steps)
         self.min_steps = min_steps
+        self.average_steps = (self.max_steps - self.min_steps) / 2.0
         self.max_byte_codes = max_byte_codes
-
-        # self.element_strategy = one_of_strategies(strategies)
 
     def validate(self):
         pass
         #self.element_strategy.validate()
 
+    def draw_from(self, stack, bccf):
+        left = int(self.max_steps - bccf.interp_steps())
+        if left <= 0:
+            return st.just(None)
+        if left > 32:
+            left = 32
+        # either draw a normal basic block
+        strats = [basic_block(bytecode(stack), max_size=left)]
+        # or draw a loop
+        #strats.append(deterministic_loop(bytecode(stack)))
+        # or draw a conditional
+        #strats.append(conditional(bytecode(stack)))
+        return one_of_strategies(strats)
+
     def do_draw(self, data):
         bccf = code.ByteCodeControlFlow()
-        result = []
+        last_block = None
+        stopping_value = 1 - 1.0 / (1 + self.average_steps)
         while True:
-            stopping_value = 1 - 1.0 / (1 + self.average_length)
             data.start_example()
+            block = bccf.generate_block(data, last_block, self)
+            data.stop_example()
+            if block is None:
+                break # enough is enough!
             more = cu.biased_coin(data, stopping_value)
             if not more:
-                data.stop_example()
-                if len(result) < self.min_size:
-                    continue
-                else:
-                    break
-            value = data.draw(self.element_strategy)
-            data.stop_example()
-            result.append(value)
+                break
         return bccf
 
 @st.defines_strategy
-def control_flow_graph(draw, stack=None, blocks):
+def control_flow_graph(stack=None):
     if stack is None:
         # get a stack that is the same for one test run
-        stack = stack.Stack(0)
+        stack = Stack(0)
     return DeterministicControlFlowSearchStrategy(stack)
 

@@ -1,5 +1,5 @@
 import py
-from hypothesis import given
+from hypothesis import given, settings
 from hypothesis.strategies import lists
 from rpython.tool.udir import udir
 from rpython.jit.metainterp.optimize import SpeculativeError
@@ -64,6 +64,16 @@ class GCHypothesis(object):
     @given(st.basic_block(st.bytecode(), min_size=1, average_size=24))
     def test_execute_basic_block(self, bc_objs):
         bytecode, consts = code.Context().transform(bc_objs)
+        result, out, err = self.execute(bytecode, consts)
+        if result != 0:
+            raise Exception(("could not run program. returned %d"
+                            " stderr:\n%s\nstdout:\n%s\n") % (result, err, out))
+
+    @given(st.control_flow_graph())
+    @settings(perform_health_check=False, min_satisfying_examples=1000)
+    def test_execute_cfg(self, cfg):
+        print "execute_cfg: cfg with steps:", cfg.interp_steps()
+        bytecode, consts = cfg.linearize()
         result, out, err = self.execute(bytecode, consts)
         if result != 0:
             raise Exception(("could not run program. returned %d"
