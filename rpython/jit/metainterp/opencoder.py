@@ -276,7 +276,7 @@ class Trace(BaseTrace):
                     return tag(TAGCONSTPTR, 0)
                 #v = self._refs_dict.get(addr, -1)
                 #if v == -1:
-                #    v = len(self._refs)
+                v = len(self._refs)
                 #    self._refs_dict[addr] = v
                 self._refs.append(box.getref_base())
                 return tag(TAGCONSTPTR, v)
