@@ -558,7 +558,7 @@ class TestX86(LLtypeBackendTest):
             assert self.cpu.get_int_value(deadframe, 3) == 42
 
     @given(strategies.integers(min_value=0, max_value=2),
-           strategies.integers(min_value=0),
+           strategies.integers(min_value=0, max_value=15),
            strategies.lists(strategies.integers()))
     def test_guard_compatible_extra(self, grow_position, update_asm, lst):
         from rpython.jit.backend.x86 import guard_compat
