@@ -46,7 +46,7 @@ class BaseCpyTypedescr(object):
             size = pytype.c_tp_basicsize
         else:
             size = rffi.sizeof(self.basestruct)
-        if itemcount:
+        if itemcount and w_type is not space.w_str:
             size += itemcount * pytype.c_tp_itemsize
         assert size >= rffi.sizeof(PyObject.TO)
         buf = lltype.malloc(rffi.VOIDP.TO, size,
