@@ -129,6 +129,10 @@ class AbstractAttribute(object):
     def length(self):
         raise NotImplementedError("abstract base class")
 
+    @jit.guard_compatible()
+    def _length_larger_than(self, n):
+        return self.length() > n
+
     def get_terminator(self):
         return self.terminator
 
@@ -659,7 +663,7 @@ def _make_subclass_size_n(supercls, n):
             self.map = map
 
         def _has_storage_list(self):
-            return self.map.length() > n
+            return self.map._length_larger_than(n)
 
         def _mapdict_get_storage_list(self):
             erased = getattr(self, valnmin1)
