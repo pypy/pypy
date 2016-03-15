@@ -3439,7 +3439,7 @@ class AppTestMultiDim(BaseNumpyAppTest):
 
     def test_index_int(self):
         import numpy as np
-        a = np.array([10, 20, 30])
+        a = np.array([10, 20, 30], dtype='int64')
         res = a[np.int64(1)]
         assert isinstance(res, np.int64)
         assert res == 20
