@@ -635,7 +635,18 @@ class OptHeap(Optimization):
         # registered.
         structvalue = self.ensure_ptr_info_arg0(op)
         if not structvalue.is_constant():
-            self._remove_guard_not_invalidated = True
+            ccond = structvalue._compatibility_conditions
+            if ccond:
+                # the object is subject to a guard_compatible. We cannot remove
+                # the getfield_gc on the object, since it's not constant.
+                # However, if the quasi-immutable field is passed to a pure
+                # function call, we can treat it as constant then
+                ccond.register_quasi_immut_field(op)
+                # don't remove the guard_not_invalidated, the guard_compatible
+                # needs it
+                self._remove_guard_not_invalidated = False
+            else:
+                self._remove_guard_not_invalidated = True
             return    # not a constant at all; ignore QUASIIMMUT_FIELD
         #
         from rpython.jit.metainterp.quasiimmut import QuasiImmutDescr
@@ -648,9 +659,7 @@ class OptHeap(Optimization):
                 self.get_box_replacement(op.getarg(0))):
             raise InvalidLoop('quasi immutable field changed during tracing')
         # record as an out-of-line guard
-        if self.optimizer.quasi_immutable_deps is None:
-            self.optimizer.quasi_immutable_deps = {}
-        self.optimizer.quasi_immutable_deps[qmutdescr.qmut] = None
+        self.optimizer.record_quasi_immutable_dep(qmutdescr.qmut)
         self._remove_guard_not_invalidated = False
 
     def optimize_GUARD_NOT_INVALIDATED(self, op):

@@ -129,6 +129,9 @@ class QuasiImmutDescr(AbstractDescr):
 
     def get_current_constant_fieldvalue(self):
         struct = self.struct
+        return self._get_fieldvalue(struct)
+
+    def _get_fieldvalue(self, struct):
         fielddescr = self.fielddescr
         if self.fielddescr.is_pointer_field():
             return ConstPtr(self.cpu.bh_getfield_gc_r(struct, fielddescr))

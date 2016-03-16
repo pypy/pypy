@@ -268,6 +268,11 @@ class Optimizer(Optimization):
         self.set_optimizations(optimizations)
         self.setup()
 
+    def record_quasi_immutable_dep(self, qmut):
+        if self.quasi_immutable_deps is None:
+            self.quasi_immutable_deps = {}
+        self.quasi_immutable_deps[qmut] = None
+
     def init_inparg_dict_from(self, lst):
         self.inparg_dict = {}
         for box in lst:
@@ -457,10 +462,13 @@ class Optimizer(Optimization):
         if arg0.is_constant():
             return info.ConstPtrInfo(arg0)
         opinfo = arg0.get_forwarded()
+        ccond = None
         if isinstance(opinfo, info.AbstractVirtualPtrInfo):
             return opinfo
         elif opinfo is not None:
             last_guard_pos = opinfo.get_last_guard_pos()
+            if isinstance(opinfo, info.PtrInfo):
+                ccond = opinfo._compatibility_conditions
         else:
             last_guard_pos = -1
         assert opinfo is None or opinfo.__class__ is info.NonNullPtrInfo
@@ -473,6 +481,7 @@ class Optimizer(Optimization):
             else:
                 opinfo = info.StructPtrInfo(parent_descr)
             opinfo.init_fields(parent_descr, descr.get_index())
+            opinfo._compatibility_conditions = ccond
         elif (op.is_getarrayitem() or op.getopnum() == rop.SETARRAYITEM_GC or
               op.getopnum() == rop.ARRAYLEN_GC):
             opinfo = info.ArrayPtrInfo(op.getdescr())

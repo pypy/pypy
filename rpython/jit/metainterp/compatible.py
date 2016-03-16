@@ -1,5 +1,6 @@
 from rpython.jit.metainterp.history import newconst
 from rpython.jit.codewriter import longlong
+from rpython.jit.metainterp.resoperation import rop
 
 def do_call(cpu, argboxes, descr):
     from rpython.jit.metainterp.history import INT, REF, FLOAT, VOID
@@ -51,25 +52,122 @@ class CompatibilityCondition(object):
     """ A collections of conditions that an object needs to fulfil. """
     def __init__(self, ptr):
         self.known_valid = ptr
-        self.pure_call_conditions = []
+        self.conditions = []
+        self.last_quasi_immut_field_op = None
 
-    def record_pure_call(self, op, res):
-        self.pure_call_conditions.append((op, res))
+    def record_condition(self, cond, res, optimizer):
+        cond.activate(res, optimizer)
+        self.conditions.append(cond)
 
-    def check_compat(self, cpu, ref):
-        from rpython.rlib.debug import debug_print, debug_start, debug_stop
-        for op, correct_res in self.pure_call_conditions:
-            calldescr = op.getdescr()
-            # change exactly the first argument
-            arglist = op.getarglist()
-            arglist[1] = newconst(ref)
-            try:
-                res = do_call(cpu, arglist, calldescr)
-            except Exception:
-                debug_start("jit-guard-compatible")
-                debug_print("call to elidable_compatible function raised")
-                debug_stop("jit-guard-compatible")
+    def register_quasi_immut_field(self, op):
+        self.last_quasi_immut_field_op = op
+
+    def check_compat(self, cpu, ref, loop_token):
+        for cond in self.conditions:
+            if not cond.check(cpu, ref):
                 return False
-            if not res.same_constant(correct_res):
-                return False
+        # need to tell all conditions, in case a quasi-immut needs to be registered
+        for cond in self.conditions:
+            cond.activate_secondary(ref, loop_token)
         return True
+
+    def prepare_const_arg_call(self, op):
+        from rpython.jit.metainterp.quasiimmut import QuasiImmutDescr
+        copied_op = op.copy()
+        copied_op.setarg(1, self.known_valid)
+        if op.numargs() == 2:
+            return copied_op, PureCallCondition(op)
+        arg2 = copied_op.getarg(2)
+        # really simple-minded pattern matching
+        # the order of things is like this:
+        # GUARD_COMPATIBLE(x)
+        # QUASIIMMUT_FIELD(x)
+        # y = GETFIELD_GC(x, f)
+        # z = CALL_PURE(x, y, ...)
+        # we want to discover this (and so far precisely this) situation and
+        # make it possible for the GUARD_COMPATIBLE to still remove the call,
+        # even though the second argument is not constant
+        if arg2.getopnum() != rop.GETFIELD_GC_R:
+            return None, None
+        if not self.last_quasi_immut_field_op:
+            return None, None
+        qmutdescr = self.last_quasi_immut_field_op.getdescr()
+        assert isinstance(qmutdescr, QuasiImmutDescr)
+        fielddescr = qmutdescr.fielddescr # XXX
+        same_arg = self.last_quasi_immut_field_op.getarg(0) is arg2.getarg(0)
+        if arg2.getdescr() is not fielddescr or not same_arg:
+            return None, None
+        if not qmutdescr.is_still_valid_for(self.known_valid):
+            return None, None
+        copied_op.setarg(2, qmutdescr.constantfieldbox)
+        self.last_quasi_immut_field_op = None
+        return copied_op, QuasiimmutGetfieldAndPureCallCondition(op, qmutdescr)
+
+class Condition(object):
+    def check(self, cpu, ref):
+        raise NotImplementedError
+
+    def activate(self, ref, optimizer):
+        self.res = ref
+
+    def activate_secondary(self, ref, loop_token):
+        pass
+
+
+class PureCallCondition(Condition):
+    def __init__(self, op):
+        self.op = op
+
+    def check(self, cpu, ref):
+        from rpython.rlib.debug import debug_print, debug_start, debug_stop
+        calldescr = self.op.getdescr()
+        # change exactly the first argument
+        arglist = self.op.getarglist()
+        arglist[1] = newconst(ref)
+        try:
+            res = do_call(cpu, arglist, calldescr)
+        except Exception:
+            debug_start("jit-guard-compatible")
+            debug_print("call to elidable_compatible function raised")
+            debug_stop("jit-guard-compatible")
+            return False
+        if not res.same_constant(self.res):
+            return False
+        return True
+
+
+class QuasiimmutGetfieldAndPureCallCondition(PureCallCondition):
+    def __init__(self, op, qmutdescr):
+        self.op = op
+        self.qmutdescr = qmutdescr
+
+    def activate(self, ref, optimizer):
+        # record the quasi-immutable
+        optimizer.record_quasi_immutable_dep(self.qmutdescr.qmut)
+        Condition.activate(self, ref, optimizer)
+
+    def activate_secondary(self, ref, loop_token):
+        from rpython.jit.metainterp.quasiimmut import get_current_qmut_instance
+        # need to register the loop for invalidation as well!
+        qmut = get_current_qmut_instance(loop_token.cpu, ref,
+                                         self.qmutdescr.mutatefielddescr)
+        qmut.register_loop_token(loop_token.loop_token_wref)
+
+    def check(self, cpu, ref):
+        from rpython.rlib.debug import debug_print, debug_start, debug_stop
+        calldescr = self.op.getdescr()
+        # change exactly the first argument
+        arglist = self.op.getarglist()
+        arglist[1] = newconst(ref)
+        arglist[2] = self.qmutdescr._get_fieldvalue(ref)
+        try:
+            res = do_call(cpu, arglist, calldescr)
+        except Exception:
+            debug_start("jit-guard-compatible")
+            debug_print("call to elidable_compatible function raised")
+            debug_stop("jit-guard-compatible")
+            return False
+        if not res.same_constant(self.res):
+            return False
+        return True
+
