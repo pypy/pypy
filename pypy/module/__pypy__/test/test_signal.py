@@ -57,10 +57,10 @@ class AppTestThreadSignal(GenericTestThread):
                 interrupted = []
                 print('--- start ---')
                 _thread.start_new_thread(subthread, ())
-                for j in range(100):
+                for j in range(30):
                     if len(done): break
                     print('.')
-                    time.sleep(0)
+                    time.sleep(0.25)
                 print('main thread loop done')
                 assert len(done) == 1
                 assert len(interrupted) == 1
