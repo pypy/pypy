@@ -24,7 +24,7 @@ typedef struct prof_stacktrace_s {
     char padding[sizeof(long) - 1];
     char marker;
     long count, depth;
-    void *stack[];
+    intptr_t stack[];
 } prof_stacktrace_s;
 
 
