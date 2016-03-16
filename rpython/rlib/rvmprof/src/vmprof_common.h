@@ -31,7 +31,7 @@ typedef struct prof_stacktrace_s {
 RPY_EXTERN
 char *vmprof_init(int fd, double interval, char *interp_name)
 {
-    if (interval < 1e-6 || interval >= 1.0)
+    if (!(interval >= 1e-6 && interval < 1.0))   /* also if it is NaN */
         return "bad value for 'interval'";
     prepare_interval_usec = (int)(interval * 1000000.0);
 
