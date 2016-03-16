@@ -3,7 +3,7 @@ import py
 import sys, os
 from pypy.module.thread.test.support import GenericTestThread
 from rpython.translator.c.test.test_genc import compile
-import platform
+from platform import machine
 
 
 class AppTestLock(GenericTestThread):
@@ -64,8 +64,7 @@ class AppTestLock(GenericTestThread):
         else:
             assert self.runappdirect, "missing lock._py3k_acquire()"
 
-    @py.test.mark.xfail(platform.machine() == 's390x',
-                        reason='may fail this test under heavy load')
+    @py.test.mark.xfail(machine()=='s390x', reason='may fail under heavy load')
     def test_ping_pong(self):
         # The purpose of this test is that doing a large number of ping-pongs
         # between two threads, using locks, should complete in a reasonable
