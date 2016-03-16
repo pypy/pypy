@@ -1734,16 +1734,25 @@ class ObjSpace(object):
 
 class AppExecCache(SpaceCache):
     def build(cache, source):
-        """ NOT_RPYTHON """
         space = cache.space
-        # XXX will change once we have our own compiler
-        import py
-        source = source.lstrip()
-        assert source.startswith('('), "incorrect header in:\n%s" % (source,)
-        source = py.code.Source("def anonymous%s\n" % source)
-        w_glob = space.newdict(module=True)
-        space.exec_(str(source), w_glob, w_glob)
-        return space.getitem(w_glob, space.wrap('anonymous'))
+        return appexec_compile(space, source)
+
+def appexec_compile(space, source):
+    """ NOT_RPYTHON """
+    import py
+    from pypy.interpreter.function import Function
+    source = source.lstrip()
+    assert source.startswith('('), "incorrect header in:\n%s" % (source,)
+    source = py.code.Source("def anonymous%s\n" % source)
+    source = str(source)
+    compiler = space.createcompiler()
+    w_decl = compiler.compile(source, '?', mode='exec', flags=0)
+    w_glob = space.newdict(module=True)
+    space.setitem(w_glob, space.wrap('__builtins__'),
+                  space.wrap(space.builtin))
+    func_code = w_decl.co_consts_w[0]  # hack
+    fn = Function(space, func_code, w_glob, 0)
+    return fn
 
 
 # Table describing the regular part of the interface of object spaces,
