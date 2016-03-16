@@ -266,6 +266,8 @@ class Trace(BaseTrace):
                 v = self._floats_dict.get(box.getfloat(), -1)
                 if v == -1:
                     v = (len(self._floats) << 1) | 1
+                    # XXX the next line is bogus, can't use a float as
+                    # dict key.  Must convert it first to a longlong
                     self._floats_dict[box.getfloat()] = v
                     self._floats.append(box.getfloat())
                 return tag(TAGCONSTOTHER, v)
