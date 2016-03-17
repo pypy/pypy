@@ -32,7 +32,7 @@ def test_flags(ref_frontend_op, flags):
 
 class CacheEntry(object):
     def __init__(self, heapcache):
-        # both are {from_value: to_value} dicts
+        # both are {from_ref_box: to_field_box} dicts
         # the first is for boxes where we did not see the allocation, the
         # second for anything else. the reason that distinction makes sense is
         # because if we saw the allocation, we know it cannot alias with
@@ -72,9 +72,9 @@ class CacheEntry(object):
         self._invalidate_unescaped(self.cache_seen_allocation)
 
     def _invalidate_unescaped(self, d):
-        for value in d.keys():
-            if not value.is_unescaped:
-                del d[value]
+        for ref_box in d.keys():
+            if not self.heapcache._check_flag(ref_box, HF_IS_UNESCAPED):
+                del d[ref_box]
 
 
 class FieldUpdater(object):

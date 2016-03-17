@@ -314,6 +314,9 @@ class TestHeapCache(object):
 
     def test_invalidate_cache(self):
         h = HeapCache()
+        box1 = RefFrontendOp(1)
+        box2 = RefFrontendOp(2)
+        box4 = RefFrontendOp(4)
         h.setfield(box1, box2, descr1)
         h.setarrayitem(box1, index1, box2, descr1)
         h.setarrayitem(box1, index2, box4, descr1)
