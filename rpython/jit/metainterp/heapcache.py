@@ -86,31 +86,13 @@ class HeapCache(object):
         self.reset()
 
     def reset(self):
-        # maps boxes to values
+        # maps boxes to HeapCacheValue
         self.values = {}
-        # store the boxes that contain newly allocated objects, this maps the
-        # boxes to a bool, the bool indicates whether or not the object has
-        # escaped the trace or not (True means the box never escaped, False
-        # means it did escape), its presences in the mapping shows that it was
-        # allocated inside the trace
-        #if trace_branch:
-            #self.new_boxes = {}
-        #    pass
-        #else:
-            #for box in self.new_boxes:
-            #    self.new_boxes[box] = False
-        #    pass
-        #if reset_virtuals:
-        #    self.likely_virtuals = {}      # only for jit.isvirtual()
-        # Tracks which boxes should be marked as escaped when the key box
-        # escapes.
-        #self.dependencies = {}
-
         # heap cache
         # maps descrs to CacheEntry
         self.heap_cache = {}
         # heap array cache
-        # maps descrs to {index: {from_value: to_value}} dicts
+        # maps descrs to {index: CacheEntry} dicts
         self.heap_array_cache = {}
 
     def reset_keep_likely_virtuals(self):
