@@ -60,15 +60,17 @@ arraycopydescr1 = FakeCallDescr(FakeEffectinfo.EF_CANNOT_RAISE, FakeEffectinfo.O
 class TestHeapCache(object):
     def test_known_class_box(self):
         h = HeapCache()
-        assert not h.is_class_known(1)
-        assert not h.is_class_known(2)
-        h.class_now_known(1)
-        assert h.is_class_known(1)
-        assert not h.is_class_known(2)
+        box1 = RefFrontendOp(1)
+        box2 = RefFrontendOp(2)
+        assert not h.is_class_known(box1)
+        assert not h.is_class_known(box2)
+        h.class_now_known(box1)
+        assert h.is_class_known(box1)
+        assert not h.is_class_known(box2)
 
         h.reset()
-        assert not h.is_class_known(1)
-        assert not h.is_class_known(2)
+        assert not h.is_class_known(box1)
+        assert not h.is_class_known(box2)
 
     def test_known_nullity(self):
         h = HeapCache()

@@ -6,6 +6,7 @@ from rpython.rlib.objectmodel import always_inline
 
 # RefFrontendOp._heapc_flags:
 HF_LIKELY_VIRTUAL = 0x01
+HF_KNOWN_CLASS    = 0x02
 
 @always_inline
 def add_flags(ref_frontend_op, flags):
@@ -22,7 +23,7 @@ def remove_flags(ref_frontend_op, flags):
 @always_inline
 def test_flags(ref_frontend_op, flags):
     f = r_uint(ref_frontend_op._heapc_flags)
-    return bool(f & flags)
+    return bool(f & r_uint(flags))
 
 
 class HeapCacheValue(object):
@@ -31,7 +32,6 @@ class HeapCacheValue(object):
         self.reset_keep_likely_virtual()
 
     def reset_keep_likely_virtual(self):
-        self.known_class = False
         self.known_nullity = False
         # did we see the allocation during tracing?
         self.seen_allocation = False
@@ -106,10 +106,27 @@ class FieldUpdater(object):
 
 class HeapCache(object):
     def __init__(self):
+        # Works with flags stored on RefFrontendOp._heapc_flags.
+        # There are two ways to do a global resetting of these flags:
+        # reset() and reset_keep_likely_virtual().  The basic idea is
+        # to use a version number in each RefFrontendOp, and in order
+        # to reset the flags globally, we increment the global version
+        # number in this class.  Then when we read '_heapc_flags' we
+        # also check if the associated '_heapc_version' is up-to-date
+        # or not.  More precisely, we have two global version numbers
+        # here: 'head_version' and 'likely_virtual_version'.  Normally
+        # we use 'head_version'.  For is_likely_virtual() though, we
+        # use the other, older version number.
+        self.head_version = r_uint(0)
+        self.likely_virtual_version = r_uint(0)
         self.reset()
-        self.version = r_uint32(1)
 
     def reset(self):
+        # Global reset of all flags.  Update both version numbers so
+        # that any access to '_heapc_flags' will be marked as outdated.
+        self.head_version += 1
+        self.likely_virtual_version = self.head_version
+        #
         # maps boxes to HeapCacheValue
         self.values = {}
         # heap cache
@@ -120,10 +137,32 @@ class HeapCache(object):
         self.heap_array_cache = {}
 
     def reset_keep_likely_virtuals(self):
+        # Update only 'head_version', but 'likely_virtual_version' remains
+        # at its older value.
+        self.head_version += 1
+        #
         for value in self.values.itervalues():
             value.reset_keep_likely_virtual()
         self.heap_cache = {}
         self.heap_array_cache = {}
+
+    @always_inline
+    def test_head_version(self, ref_frontend_op):
+        return r_uint(ref_frontend_op._heapc_version) == self.head_version
+
+    @always_inline
+    def test_likely_virtual_version(self, ref_frontend_op):
+        return (r_uint(ref_frontend_op._heapc_version) ==
+                self.likely_virtual_version)
+
+    def update_version(self, ref_frontend_op):
+        if not self.test_head_version(ref_frontend_op):
+            f = 0
+            if (self.test_likely_virtual_version(ref_frontend_op) and
+                test_flags(ref_frontend_op, HF_LIKELY_VIRTUAL)):
+                f |= HF_LIKELY_VIRTUAL
+            ref_frontend_op._heapc_flags = r_uint32(f)
+            ref_frontend_op._heapc_version = r_uint32(self.head_version)
 
     def getvalue(self, box, create=True):
         value = self.values.get(box, None)
@@ -291,13 +330,14 @@ class HeapCache(object):
         self.reset_keep_likely_virtuals()
 
     def is_class_known(self, box):
-        value = self.getvalue(box, create=False)
-        if value:
-            return value.known_class
-        return False
+        return (isinstance(box, RefFrontendOp) and
+                    self.test_head_version(box) and
+                    test_flags(box, HF_KNOWN_CLASS))
 
     def class_now_known(self, box):
-        self.getvalue(box).known_class = True
+        assert isinstance(box, RefFrontendOp)
+        self.update_version(box)
+        add_flags(box, HF_KNOWN_CLASS)
 
     def is_nullity_known(self, box):
         value = self.getvalue(box, create=False)
@@ -325,10 +365,12 @@ class HeapCache(object):
 
     def is_likely_virtual(self, box):
         return (isinstance(box, RefFrontendOp) and
-                    test_flags(box, HF_LIKELY_VIRTUAL))
+                self.test_likely_virtual_version(box) and
+                test_flags(box, HF_LIKELY_VIRTUAL))
 
     def new(self, box):
         assert isinstance(box, RefFrontendOp)
+        self.update_version(box)
         add_flags(box, HF_LIKELY_VIRTUAL)
         value = self.getvalue(box)
         value.is_unescaped = True
