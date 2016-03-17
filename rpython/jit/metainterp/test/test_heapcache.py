@@ -1,6 +1,7 @@
 from rpython.jit.metainterp.heapcache import HeapCache
 from rpython.jit.metainterp.resoperation import rop, InputArgInt
 from rpython.jit.metainterp.history import ConstInt, BasicFailDescr
+from rpython.jit.metainterp.history import RefFrontendOp
 
 box1 = "box1"
 box2 = "box2"
@@ -624,6 +625,7 @@ class TestHeapCache(object):
 
     def test_is_likely_virtual(self):
         h = HeapCache()
+        box1 = RefFrontendOp(1)
         h.new(box1)
         assert h.is_unescaped(box1)
         assert h.is_likely_virtual(box1)

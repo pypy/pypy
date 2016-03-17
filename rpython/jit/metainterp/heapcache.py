@@ -1,10 +1,33 @@
-from rpython.jit.metainterp.history import ConstInt
+from rpython.jit.metainterp.history import ConstInt, RefFrontendOp
 from rpython.jit.metainterp.resoperation import rop, OpHelpers
+from rpython.rlib.rarithmetic import r_uint32, r_uint
+from rpython.rlib.objectmodel import always_inline
+
+
+# RefFrontendOp._heapc_flags:
+HF_LIKELY_VIRTUAL = 0x01
+
+@always_inline
+def add_flags(ref_frontend_op, flags):
+    f = r_uint(ref_frontend_op._heapc_flags)
+    f |= r_uint(flags)
+    ref_frontend_op._heapc_flags = r_uint32(f)
+
+@always_inline
+def remove_flags(ref_frontend_op, flags):
+    f = r_uint(ref_frontend_op._heapc_flags)
+    f &= r_uint(~flags)
+    ref_frontend_op._heapc_flags = r_uint32(f)
+
+@always_inline
+def test_flags(ref_frontend_op, flags):
+    f = r_uint(ref_frontend_op._heapc_flags)
+    return bool(f & flags)
+
 
 class HeapCacheValue(object):
     def __init__(self, box):
         self.box = box
-        self.likely_virtual = False
         self.reset_keep_likely_virtual()
 
     def reset_keep_likely_virtual(self):
@@ -84,6 +107,7 @@ class FieldUpdater(object):
 class HeapCache(object):
     def __init__(self):
         self.reset()
+        self.version = r_uint32(1)
 
     def reset(self):
         # maps boxes to HeapCacheValue
@@ -158,14 +182,13 @@ class HeapCache(object):
                 self._escape_box(box)
 
     def _escape_box(self, box):
+        if isinstance(box, RefFrontendOp):
+            remove_flags(box, HF_LIKELY_VIRTUAL)
+        #
         value = self.getvalue(box, create=False)
         if not value:
             return
-        self._escape(value)
-
-    def _escape(self, value):
         value.is_unescaped = False
-        value.likely_virtual = False
         deps = value.dependencies
         value.dependencies = None
         if deps is not None:
@@ -301,15 +324,14 @@ class HeapCache(object):
         return False
 
     def is_likely_virtual(self, box):
-        value = self.getvalue(box, create=False)
-        if value:
-            return value.likely_virtual
-        return False
+        return (isinstance(box, RefFrontendOp) and
+                    test_flags(box, HF_LIKELY_VIRTUAL))
 
     def new(self, box):
+        assert isinstance(box, RefFrontendOp)
+        add_flags(box, HF_LIKELY_VIRTUAL)
         value = self.getvalue(box)
         value.is_unescaped = True
-        value.likely_virtual = True
         value.seen_allocation = True
 
     def new_array(self, box, lengthbox):

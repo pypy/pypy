@@ -2,7 +2,7 @@ from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rlib.objectmodel import we_are_translated, Symbolic
 from rpython.rlib.objectmodel import compute_unique_id, specialize
-from rpython.rlib.rarithmetic import r_int64, is_valid_int
+from rpython.rlib.rarithmetic import r_uint32, r_int64, is_valid_int
 
 from rpython.conftest import option
 
@@ -664,7 +664,10 @@ class FloatFrontendOp(FloatOp, FrontendOp):
         self._resfloat = other.getfloatstorage()
 
 class RefFrontendOp(RefOp, FrontendOp):
-    _attrs_ = ('position', '_resref')
+    _attrs_ = ('position', '_resref', '_heapc_flags', '_heapc_version')
+
+    _heapc_flags = r_uint32(0)
+    _heapc_version = r_uint32(0)
 
     def copy_value_from(self, other):
         self._resref = other.getref_base()
