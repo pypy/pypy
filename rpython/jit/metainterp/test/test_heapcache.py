@@ -639,3 +639,29 @@ class TestHeapCache(object):
         h._escape_box(box1)
         assert not h.is_unescaped(box1)
         assert not h.is_likely_virtual(box1)
+
+    def test_is_likely_virtual_2(self):
+        h = HeapCache()
+        box1 = RefFrontendOp(1)
+        h.new(box1)
+        assert h.is_unescaped(box1)
+        assert h.is_likely_virtual(box1)
+        h.reset_keep_likely_virtuals()
+        assert not h.is_unescaped(box1)
+        assert h.is_likely_virtual(box1)
+        h.reset()     # reset everything
+        assert not h.is_unescaped(box1)
+        assert not h.is_likely_virtual(box1)
+
+    def test_is_likely_virtual_3(self):
+        h = HeapCache()
+        box1 = RefFrontendOp(1)
+        h.new(box1)
+        assert h.is_unescaped(box1)
+        assert h.is_likely_virtual(box1)
+        h.reset_keep_likely_virtuals()
+        assert not h.is_unescaped(box1)
+        assert h.is_likely_virtual(box1)
+        h.class_now_known(box1)     # interaction of the two families of flags
+        assert not h.is_unescaped(box1)
+        assert h.is_likely_virtual(box1)

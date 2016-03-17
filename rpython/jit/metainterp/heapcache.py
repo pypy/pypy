@@ -152,7 +152,7 @@ class HeapCache(object):
 
     @always_inline
     def test_likely_virtual_version(self, ref_frontend_op):
-        return (r_uint(ref_frontend_op._heapc_version) ==
+        return (r_uint(ref_frontend_op._heapc_version) >=
                 self.likely_virtual_version)
 
     def update_version(self, ref_frontend_op):
