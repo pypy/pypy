@@ -466,6 +466,13 @@ class TestHeapCache(object):
 
     def test_ll_arraycopy(self):
         h = HeapCache()
+        box1 = RefFrontendOp(1)
+        box2 = RefFrontendOp(2)
+        box3 = RefFrontendOp(3)
+        box4 = RefFrontendOp(4)
+        box5 = RefFrontendOp(5)
+        lengthbox1 = IntFrontendOp(11)
+        lengthbox2 = IntFrontendOp(12)
         h.new_array(box1, lengthbox1)
         h.setarrayitem(box1, index1, box2, descr1)
         h.new_array(box2, lengthbox1)
@@ -494,6 +501,10 @@ class TestHeapCache(object):
 
     def test_ll_arraycopy_differing_descrs(self):
         h = HeapCache()
+        box1 = RefFrontendOp(1)
+        box2 = RefFrontendOp(2)
+        box3 = RefFrontendOp(3)
+        lengthbox2 = IntFrontendOp(12)
         h.setarrayitem(box1, index1, box2, descr2)
         assert h.getarrayitem(box1, index1, descr2) is box2
         h.new_array(box2, lengthbox2)
@@ -506,6 +517,9 @@ class TestHeapCache(object):
 
     def test_ll_arraycopy_differing_descrs_nonconst_index(self):
         h = HeapCache()
+        box1 = RefFrontendOp(1)
+        box2 = RefFrontendOp(2)
+        box3 = RefFrontendOp(3)
         h.setarrayitem(box1, index1, box2, descr2)
         assert h.getarrayitem(box1, index1, descr2) is box2
         h.invalidate_caches(
@@ -517,6 +531,9 @@ class TestHeapCache(object):
 
     def test_ll_arraycopy_result_propogated(self):
         h = HeapCache()
+        box1 = RefFrontendOp(1)
+        box2 = RefFrontendOp(2)
+        box3 = RefFrontendOp(3)
         h.setarrayitem(box1, index1, box2, descr1)
         h.invalidate_caches(
             rop.CALL_N,
@@ -527,6 +544,11 @@ class TestHeapCache(object):
 
     def test_ll_arraycopy_dest_new(self):
         h = HeapCache()
+        box1 = RefFrontendOp(1)
+        box2 = RefFrontendOp(2)
+        box3 = RefFrontendOp(3)
+        box4 = RefFrontendOp(4)
+        lengthbox1 = IntFrontendOp(11)
         h.new_array(box1, lengthbox1)
         h.setarrayitem(box3, index1, box4, descr1)
         h.invalidate_caches(
@@ -537,6 +559,10 @@ class TestHeapCache(object):
 
     def test_ll_arraycopy_doesnt_escape_arrays(self):
         h = HeapCache()
+        box1 = RefFrontendOp(1)
+        box2 = RefFrontendOp(2)
+        lengthbox1 = IntFrontendOp(11)
+        lengthbox2 = IntFrontendOp(12)
         h.new_array(box1, lengthbox1)
         h.new_array(box2, lengthbox2)
         h.invalidate_caches(

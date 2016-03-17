@@ -131,8 +131,6 @@ class HeapCache(object):
         self.head_version += _HF_VERSION_INC
         self.likely_virtual_version = self.head_version
         #
-        # maps boxes to HeapCacheValue
-        self.values = {}
         # heap cache
         # maps descrs to CacheEntry
         self.heap_cache = {}
@@ -145,9 +143,6 @@ class HeapCache(object):
         # at its older value.
         assert self.head_version < _HF_VERSION_MAX
         self.head_version += _HF_VERSION_INC
-        #
-        for value in self.values.itervalues():
-            value.reset_keep_likely_virtual()
         self.heap_cache = {}
         self.heap_array_cache = {}
 
@@ -218,15 +213,15 @@ class HeapCache(object):
     def _escape_box(self, box):
         if isinstance(box, RefFrontendOp):
             remove_flags(box, HF_LIKELY_VIRTUAL | HF_IS_UNESCAPED)
-        #
-        value = self.getvalue(box, create=False)
-        if not value:
-            return
-        deps = value.dependencies
-        value.dependencies = None
-        if deps is not None:
-            for dep in deps:
-                self._escape(dep)
+            deps = self._get_deps(box)
+            if deps is not None and len(deps) > 1:
+                # 'deps[0]' is abused to store the array length, keep it
+                if deps[0] is None:
+                    box._heapc_deps = None
+                else:
+                    box._heapc_deps = [deps[0]]
+                for i in range(1, len(deps)):
+                    self._escape(deps[i])
 
     def clear_caches(self, opnum, descr, argboxes):
         if (opnum == rop.SETFIELD_GC or
@@ -279,7 +274,8 @@ class HeapCache(object):
         self.reset_keep_likely_virtuals()
 
     def _clear_caches_arraycopy(self, opnum, desrc, argboxes, effectinfo):
-        seen_allocation_of_target = self.getvalue(argboxes[2]).seen_allocation
+        seen_allocation_of_target = self._check_flag(
+                                            argboxes[2], HF_SEEN_ALLOCATION)
         if (
             isinstance(argboxes[3], ConstInt) and
             isinstance(argboxes[4], ConstInt) and

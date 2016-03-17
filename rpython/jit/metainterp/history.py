@@ -664,7 +664,7 @@ class FrontendOp(AbstractResOp):
         self.position_and_flags |= FO_REPLACED_WITH_CONST
 
     def __repr__(self):
-        return '%s(%s)' % (self.__class__.__name__, self.position)
+        return '%s(0x%x)' % (self.__class__.__name__, self.position_and_flags)
 
 class IntFrontendOp(IntOp, FrontendOp):
     _attrs_ = ('position_and_flags', '_resint')
