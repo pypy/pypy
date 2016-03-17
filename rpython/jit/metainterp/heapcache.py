@@ -90,7 +90,7 @@ class CacheEntry(object):
 
     def _invalidate_unescaped(self, d):
         for ref_box in d.keys():
-            if not self.heapcache._check_flag(ref_box, HF_IS_UNESCAPED):
+            if not self.heapcache.is_unescaped(ref_box):
                 del d[ref_box]
 
 
@@ -168,15 +168,11 @@ class HeapCache(object):
         self.clear_caches(opnum, descr, argboxes)
 
     def _escape_from_write(self, box, fieldbox):
-        value = self.getvalue(box, create=False)
-        fieldvalue = self.getvalue(fieldbox, create=False)
-        if (value is not None and value.is_unescaped and
-                fieldvalue is not None and fieldvalue.is_unescaped):
-            if value.dependencies is None:
-                value.dependencies = []
-            value.dependencies.append(fieldvalue)
-        elif fieldvalue is not None:
-            self._escape(fieldvalue)
+        if self.is_unescaped(box) and self.is_unescaped(fieldbox):
+            deps = self._get_deps(box)
+            deps.append(fieldbox)
+        elif fieldbox is not None:
+            self._escape_box(fieldbox)
 
     def mark_escaped(self, opnum, descr, argboxes):
         if opnum == rop.SETFIELD_GC:
@@ -213,15 +209,18 @@ class HeapCache(object):
     def _escape_box(self, box):
         if isinstance(box, RefFrontendOp):
             remove_flags(box, HF_LIKELY_VIRTUAL | HF_IS_UNESCAPED)
-            deps = self._get_deps(box)
-            if deps is not None and len(deps) > 1:
-                # 'deps[0]' is abused to store the array length, keep it
-                if deps[0] is None:
+            deps = box._heapc_deps
+            if deps is not None:
+                if not self.test_head_version(box):
                     box._heapc_deps = None
                 else:
-                    box._heapc_deps = [deps[0]]
-                for i in range(1, len(deps)):
-                    self._escape(deps[i])
+                    # 'deps[0]' is abused to store the array length, keep it
+                    if deps[0] is None:
+                        box._heapc_deps = None
+                    else:
+                        box._heapc_deps = [deps[0]]
+                    for i in range(1, len(deps)):
+                        self._escape_box(deps[i])
 
     def clear_caches(self, opnum, descr, argboxes):
         if (opnum == rop.SETFIELD_GC or

@@ -582,6 +582,8 @@ class TestHeapCache(object):
 
     def test_unescaped(self):
         h = HeapCache()
+        box1 = RefFrontendOp(1)
+        box2 = RefFrontendOp(2)
         assert not h.is_unescaped(box1)
         h.new(box2)
         assert h.is_unescaped(box2)
@@ -592,6 +594,9 @@ class TestHeapCache(object):
 
     def test_unescaped_testing(self):
         h = HeapCache()
+        box1 = RefFrontendOp(1)
+        box2 = RefFrontendOp(2)
+        box3 = RefFrontendOp(3)
         h.new(box1)
         h.new(box2)
         assert h.is_unescaped(box1)
@@ -610,6 +615,8 @@ class TestHeapCache(object):
 
     def test_ops_dont_escape(self):
         h = HeapCache()
+        box1 = RefFrontendOp(1)
+        box2 = RefFrontendOp(2)
         h.new(box1)
         h.new(box2)
         assert h.is_unescaped(box1)
@@ -623,6 +630,9 @@ class TestHeapCache(object):
 
     def test_circular_virtuals(self):
         h = HeapCache()
+        box1 = RefFrontendOp(1)
+        box2 = RefFrontendOp(2)
+        box3 = RefFrontendOp(3)
         h.new(box1)
         h.new(box2)
         h.invalidate_caches(rop.SETFIELD_GC, None, [box1, box2])
@@ -631,6 +641,10 @@ class TestHeapCache(object):
 
     def test_unescaped_array(self):
         h = HeapCache()
+        box1 = RefFrontendOp(1)
+        box2 = RefFrontendOp(2)
+        lengthbox1 = IntFrontendOp(11)
+        lengthbox2 = IntFrontendOp(12)
         h.new_array(box1, lengthbox1)
         assert h.is_unescaped(box1)
         h.invalidate_caches(rop.SETARRAYITEM_GC, None, [box1, index1, box2])
@@ -654,6 +668,8 @@ class TestHeapCache(object):
 
     def test_call_doesnt_invalidate_unescaped_boxes(self):
         h = HeapCache()
+        box1 = RefFrontendOp(1)
+        box2 = RefFrontendOp(2)
         h.new(box1)
         assert h.is_unescaped(box1)
         h.setfield(box1, box2, descr1)
@@ -665,6 +681,9 @@ class TestHeapCache(object):
 
     def test_call_doesnt_invalidate_unescaped_array_boxes(self):
         h = HeapCache()
+        box1 = RefFrontendOp(1)
+        box3 = RefFrontendOp(3)
+        lengthbox1 = IntFrontendOp(11)
         h.new_array(box1, lengthbox1)
         assert h.is_unescaped(box1)
         h.setarrayitem(box1, index1, box3, descr1)
