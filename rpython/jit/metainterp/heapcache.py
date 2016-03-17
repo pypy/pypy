@@ -9,7 +9,8 @@ HF_LIKELY_VIRTUAL  = 0x01
 HF_KNOWN_CLASS     = 0x02
 HF_KNOWN_NULLITY   = 0x04
 HF_SEEN_ALLOCATION = 0x08   # did we see the allocation during tracing?
-HF_NONSTD_VABLE    = 0x10
+HF_IS_UNESCAPED    = 0x10
+HF_NONSTD_VABLE    = 0x20
 
 @always_inline
 def add_flags(ref_frontend_op, flags):
@@ -35,7 +36,6 @@ class HeapCacheValue(object):
         self.reset_keep_likely_virtual()
 
     def reset_keep_likely_virtual(self):
-        self.is_unescaped = False
         self.length = None
         self.dependencies = None
 
@@ -221,12 +221,11 @@ class HeapCache(object):
 
     def _escape_box(self, box):
         if isinstance(box, RefFrontendOp):
-            remove_flags(box, HF_LIKELY_VIRTUAL)
+            remove_flags(box, HF_LIKELY_VIRTUAL | HF_IS_UNESCAPED)
         #
         value = self.getvalue(box, create=False)
         if not value:
             return
-        value.is_unescaped = False
         deps = value.dependencies
         value.dependencies = None
         if deps is not None:
@@ -357,12 +356,10 @@ class HeapCache(object):
         self._set_flag(box, HF_NONSTD_VABLE)
 
     def is_unescaped(self, box):
-        value = self.getvalue(box, create=False)
-        if value:
-            return value.is_unescaped
-        return False
+        return self._check_flag(box, HF_IS_UNESCAPED)
 
     def is_likely_virtual(self, box):
+        # note: this is different from _check_flag()
         return (isinstance(box, RefFrontendOp) and
                 self.test_likely_virtual_version(box) and
                 test_flags(box, HF_LIKELY_VIRTUAL))
@@ -370,9 +367,7 @@ class HeapCache(object):
     def new(self, box):
         assert isinstance(box, RefFrontendOp)
         self.update_version(box)
-        add_flags(box, HF_LIKELY_VIRTUAL | HF_SEEN_ALLOCATION)
-        value = self.getvalue(box)
-        value.is_unescaped = True
+        add_flags(box, HF_LIKELY_VIRTUAL | HF_SEEN_ALLOCATION | HF_IS_UNESCAPED)
 
     def new_array(self, box, lengthbox):
         self.new(box)
@@ -405,17 +400,12 @@ class HeapCache(object):
     def getarrayitem(self, box, indexbox, descr):
         if not isinstance(indexbox, ConstInt):
             return None
-        value = self.getvalue(box, create=False)
-        if value is None:
-            return None
         index = indexbox.getint()
         cache = self.heap_array_cache.get(descr, None)
         if cache:
             indexcache = cache.get(index, None)
             if indexcache is not None:
-                resvalue = indexcache.read(value)
-                if resvalue:
-                    return resvalue.box
+                return indexcache.read(box)
         return None
 
     def _get_or_make_array_cache_entry(self, indexbox, descr):
@@ -431,10 +421,9 @@ class HeapCache(object):
 
     def getarrayitem_now_known(self, box, indexbox, fieldbox, descr):
         value = self.getvalue(box)
-        fieldvalue = self.getvalue(fieldbox)
         indexcache = self._get_or_make_array_cache_entry(indexbox, descr)
         if indexcache:
-            indexcache.read_now_known(value, fieldvalue)
+            indexcache.read_now_known(box, fieldbox)
 
     def setarrayitem(self, box, indexbox, fieldbox, descr):
         if not isinstance(indexbox, ConstInt):
@@ -442,11 +431,9 @@ class HeapCache(object):
             if cache is not None:
                 cache.clear()
             return
-        value = self.getvalue(box)
-        fieldvalue = self.getvalue(fieldbox)
         indexcache = self._get_or_make_array_cache_entry(indexbox, descr)
         if indexcache:
-            indexcache.do_write_with_aliasing(value, fieldvalue)
+            indexcache.do_write_with_aliasing(box, fieldbox)
 
     def arraylen(self, box):
         value = self.getvalue(box, create=False)

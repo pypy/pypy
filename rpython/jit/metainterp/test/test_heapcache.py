@@ -124,6 +124,10 @@ class TestHeapCache(object):
 
     def test_heapcache_read_fields_multiple(self):
         h = HeapCache()
+        box1 = RefFrontendOp(1)
+        box2 = RefFrontendOp(2)
+        box3 = RefFrontendOp(3)
+        box4 = RefFrontendOp(4)
         h.getfield_now_known(box1, descr1, box2)
         h.getfield_now_known(box3, descr1, box4)
         assert h.getfield(box1, descr1) is box2
@@ -139,6 +143,10 @@ class TestHeapCache(object):
 
     def test_heapcache_write_fields_multiple(self):
         h = HeapCache()
+        box1 = RefFrontendOp(1)
+        box2 = RefFrontendOp(2)
+        box3 = RefFrontendOp(3)
+        box4 = RefFrontendOp(4)
         h.setfield(box1, box2, descr1)
         assert h.getfield(box1, descr1) is box2
         h.setfield(box3, box4, descr1)
@@ -146,6 +154,10 @@ class TestHeapCache(object):
         assert h.getfield(box1, descr1) is None # box1 and box3 can alias
 
         h = HeapCache()
+        box1 = RefFrontendOp(1)
+        box2 = RefFrontendOp(2)
+        box3 = RefFrontendOp(3)
+        box4 = RefFrontendOp(4)
         h.new(box1)
         h.setfield(box1, box2, descr1)
         assert h.getfield(box1, descr1) is box2
@@ -154,6 +166,10 @@ class TestHeapCache(object):
         assert h.getfield(box1, descr1) is None # box1 and box3 can alias
 
         h = HeapCache()
+        box1 = RefFrontendOp(1)
+        box2 = RefFrontendOp(2)
+        box3 = RefFrontendOp(3)
+        box4 = RefFrontendOp(4)
         h.new(box1)
         h.new(box3)
         h.setfield(box1, box2, descr1)
@@ -167,6 +183,10 @@ class TestHeapCache(object):
 
     def test_heapcache_arrays(self):
         h = HeapCache()
+        box1 = RefFrontendOp(1)
+        box2 = RefFrontendOp(2)
+        box3 = RefFrontendOp(3)
+        box4 = RefFrontendOp(4)
         assert h.getarrayitem(box1, index1, descr1) is None
         assert h.getarrayitem(box1, index1, descr2) is None
         assert h.getarrayitem(box1, index2, descr1) is None
@@ -209,6 +229,10 @@ class TestHeapCache(object):
 
     def test_heapcache_array_nonconst_index(self):
         h = HeapCache()
+        box1 = RefFrontendOp(1)
+        box2 = RefFrontendOp(2)
+        box3 = RefFrontendOp(3)
+        box4 = RefFrontendOp(4)
         h.setarrayitem(box1, index1, box2, descr1)
         h.setarrayitem(box1, index2, box4, descr1)
         assert h.getarrayitem(box1, index1, descr1) is box2
@@ -219,6 +243,10 @@ class TestHeapCache(object):
 
     def test_heapcache_read_fields_multiple_array(self):
         h = HeapCache()
+        box1 = RefFrontendOp(1)
+        box2 = RefFrontendOp(2)
+        box3 = RefFrontendOp(3)
+        box4 = RefFrontendOp(4)
         h.getarrayitem_now_known(box1, index1, box2, descr1)
         h.getarrayitem_now_known(box3, index1, box4, descr1)
         assert h.getarrayitem(box1, index1, descr1) is box2
@@ -234,6 +262,10 @@ class TestHeapCache(object):
 
     def test_heapcache_write_fields_multiple_array(self):
         h = HeapCache()
+        box1 = RefFrontendOp(1)
+        box2 = RefFrontendOp(2)
+        box3 = RefFrontendOp(3)
+        box4 = RefFrontendOp(4)
         h.setarrayitem(box1, index1, box2, descr1)
         assert h.getarrayitem(box1, index1, descr1) is box2
         h.setarrayitem(box3, index1, box4, descr1)
@@ -241,6 +273,10 @@ class TestHeapCache(object):
         assert h.getarrayitem(box1, index1, descr1) is None # box1 and box3 can alias
 
         h = HeapCache()
+        box1 = RefFrontendOp(1)
+        box2 = RefFrontendOp(2)
+        box3 = RefFrontendOp(3)
+        box4 = RefFrontendOp(4)
         h.new(box1)
         h.setarrayitem(box1, index1, box2, descr1)
         assert h.getarrayitem(box1, index1, descr1) is box2
@@ -249,6 +285,10 @@ class TestHeapCache(object):
         assert h.getarrayitem(box1, index1, descr1) is None # box1 and box3 can alias
 
         h = HeapCache()
+        box1 = RefFrontendOp(1)
+        box2 = RefFrontendOp(2)
+        box3 = RefFrontendOp(3)
+        box4 = RefFrontendOp(4)
         h.new(box1)
         h.new(box3)
         h.setarrayitem(box1, index1, box2, descr1)
@@ -262,6 +302,8 @@ class TestHeapCache(object):
 
     def test_length_cache(self):
         h = HeapCache()
+        box1 = RefFrontendOp(1)
+        box2 = RefFrontendOp(2)
         h.new_array(box1, lengthbox1)
         assert h.arraylen(box1) is lengthbox1
 
