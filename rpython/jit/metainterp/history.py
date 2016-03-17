@@ -2,7 +2,8 @@ from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rlib.objectmodel import we_are_translated, Symbolic
 from rpython.rlib.objectmodel import compute_unique_id, specialize
-from rpython.rlib.rarithmetic import r_uint32, r_int64, is_valid_int
+from rpython.rlib.rarithmetic import r_int64, is_valid_int
+from rpython.rlib.rarithmetic import LONG_BIT, intmask, r_uint
 
 from rpython.conftest import option
 
@@ -641,41 +642,65 @@ def _list_all_operations(result, operations, omit_finish=True):
 # ____________________________________________________________
 
 
+FO_POSITION_MASK       = r_uint(0x7FFFFFFF)
+FO_REPLACED_WITH_CONST = r_uint(0x80000000)
+
+
 class FrontendOp(AbstractResOp):
     type = 'v'
-    _attrs_ = ('position',)
+    _attrs_ = ('position_and_flags',)
 
     def __init__(self, pos):
-        self.position = pos
+        assert pos >= 0
+        self.position_and_flags = r_uint(pos)
 
     def get_position(self):
-        return self.position
+        return intmask(self.position_and_flags & FO_POSITION_MASK)
+
+    def is_replaced_with_const(self):
+        return bool(self.position_and_flags & FO_REPLACED_WITH_CONST)
+
+    def set_replaced_with_const(self):
+        self.position_and_flags |= FO_REPLACED_WITH_CONST
 
     def __repr__(self):
         return '%s(%s)' % (self.__class__.__name__, self.position)
 
 class IntFrontendOp(IntOp, FrontendOp):
-    _attrs_ = ('position', '_resint')
+    _attrs_ = ('position_and_flags', '_resint')
 
     def copy_value_from(self, other):
         self._resint = other.getint()
 
 class FloatFrontendOp(FloatOp, FrontendOp):
-    _attrs_ = ('position', '_resfloat')
+    _attrs_ = ('position_and_flags', '_resfloat')
 
     def copy_value_from(self, other):
         self._resfloat = other.getfloatstorage()
 
 class RefFrontendOp(RefOp, FrontendOp):
-    _attrs_ = ('position', '_resref',
-               '_heapc_flags', '_heapc_version', '_heapc_deps')
-
-    _heapc_flags = r_uint32(0)
-    _heapc_version = r_uint32(0)
+    _attrs_ = ('position_and_flags', '_resref', '_heapc_deps')
+    if LONG_BIT == 32:
+        _attrs_ += ('_heapc_flags',)   # on 64 bit, this gets stored into the
+        _heapc_flags = r_uint(0)       # high 32 bits of 'position_and_flags'
     _heapc_deps = None
 
     def copy_value_from(self, other):
         self._resref = other.getref_base()
+
+    if LONG_BIT == 32:
+        def _get_heapc_flags(self):
+            return self._heapc_flags
+        def _set_heapc_flags(self, value):
+            self._heapc_flags = value
+    else:
+        def _get_heapc_flags(self):
+            return self.position_and_flags >> 32
+        def _set_heapc_flags(self, value):
+            self.position_and_flags = (
+                (self.position_and_flags & 0xFFFFFFFF) |
+                (value << 32))
+
 
 class History(object):
     ends_with_jump = False

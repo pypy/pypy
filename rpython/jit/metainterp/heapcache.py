@@ -1,5 +1,8 @@
-from rpython.jit.metainterp.history import ConstInt, RefFrontendOp
+from rpython.jit.metainterp.history import Const, ConstInt
+from rpython.jit.metainterp.history import FrontendOp, RefFrontendOp
+from rpython.jit.metainterp.history import FO_REPLACED_WITH_CONST
 from rpython.jit.metainterp.resoperation import rop, OpHelpers
+from rpython.jit.metainterp.executor import constant_from_op
 from rpython.rlib.rarithmetic import r_uint32, r_uint
 from rpython.rlib.objectmodel import always_inline
 
@@ -12,22 +15,31 @@ HF_SEEN_ALLOCATION = 0x08   # did we see the allocation during tracing?
 HF_IS_UNESCAPED    = 0x10
 HF_NONSTD_VABLE    = 0x20
 
+_HF_VERSION_INC    = 0x40   # must be last
+_HF_VERSION_MAX    = r_uint(2 ** 32 - _HF_VERSION_INC)
+
 @always_inline
 def add_flags(ref_frontend_op, flags):
-    f = r_uint(ref_frontend_op._heapc_flags)
+    f = ref_frontend_op._get_heapc_flags()
     f |= r_uint(flags)
-    ref_frontend_op._heapc_flags = r_uint32(f)
+    ref_frontend_op._set_heapc_flags(f)
 
 @always_inline
 def remove_flags(ref_frontend_op, flags):
-    f = r_uint(ref_frontend_op._heapc_flags)
+    f = ref_frontend_op._get_heapc_flags()
     f &= r_uint(~flags)
-    ref_frontend_op._heapc_flags = r_uint32(f)
+    ref_frontend_op._set_heapc_flags(f)
 
 @always_inline
 def test_flags(ref_frontend_op, flags):
-    f = r_uint(ref_frontend_op._heapc_flags)
+    f = ref_frontend_op._get_heapc_flags()
     return bool(f & r_uint(flags))
+
+def maybe_replace_with_const(box):
+    if box.is_replaced_with_const():
+        return constant_from_op(box)
+    else:
+        return box
 
 
 class CacheEntry(object):
@@ -62,7 +74,12 @@ class CacheEntry(object):
         self._getdict(seen_alloc)[ref_box] = fieldbox
 
     def read(self, ref_box):
-        return self._getdict(self._seen_alloc(ref_box)).get(ref_box, None)
+        dict = self._getdict(self._seen_alloc(ref_box))
+        try:
+            res_box = dict[ref_box]
+        except KeyError:
+            return None
+        return maybe_replace_with_const(res_box)
 
     def read_now_known(self, ref_box, fieldbox):
         self._getdict(self._seen_alloc(ref_box))[ref_box] = fieldbox
@@ -98,7 +115,7 @@ class HeapCache(object):
         # to use a version number in each RefFrontendOp, and in order
         # to reset the flags globally, we increment the global version
         # number in this class.  Then when we read '_heapc_flags' we
-        # also check if the associated '_heapc_version' is up-to-date
+        # also check if the associated version number is up-to-date
         # or not.  More precisely, we have two global version numbers
         # here: 'head_version' and 'likely_virtual_version'.  Normally
         # we use 'head_version'.  For is_likely_virtual() though, we
@@ -110,7 +127,8 @@ class HeapCache(object):
     def reset(self):
         # Global reset of all flags.  Update both version numbers so
         # that any access to '_heapc_flags' will be marked as outdated.
-        self.head_version += 1
+        assert self.head_version < _HF_VERSION_MAX
+        self.head_version += _HF_VERSION_INC
         self.likely_virtual_version = self.head_version
         #
         # maps boxes to HeapCacheValue
@@ -125,7 +143,8 @@ class HeapCache(object):
     def reset_keep_likely_virtuals(self):
         # Update only 'head_version', but 'likely_virtual_version' remains
         # at its older value.
-        self.head_version += 1
+        assert self.head_version < _HF_VERSION_MAX
+        self.head_version += _HF_VERSION_INC
         #
         for value in self.values.itervalues():
             value.reset_keep_likely_virtual()
@@ -134,31 +153,20 @@ class HeapCache(object):
 
     @always_inline
     def test_head_version(self, ref_frontend_op):
-        return r_uint(ref_frontend_op._heapc_version) == self.head_version
+        return ref_frontend_op._get_heapc_flags() >= self.head_version
 
     @always_inline
     def test_likely_virtual_version(self, ref_frontend_op):
-        return (r_uint(ref_frontend_op._heapc_version) >=
-                self.likely_virtual_version)
+        return ref_frontend_op._get_heapc_flags() >= self.likely_virtual_version
 
     def update_version(self, ref_frontend_op):
         if not self.test_head_version(ref_frontend_op):
-            f = 0
+            f = self.head_version
             if (self.test_likely_virtual_version(ref_frontend_op) and
                 test_flags(ref_frontend_op, HF_LIKELY_VIRTUAL)):
                 f |= HF_LIKELY_VIRTUAL
-            ref_frontend_op._heapc_flags = r_uint32(f)
-            ref_frontend_op._heapc_version = r_uint32(self.head_version)
+            ref_frontend_op._set_heapc_flags(f)
             ref_frontend_op._heapc_deps = None
-
-    def getvalue(self, box, create=True):
-        value = self.values.get(box, None)
-        if not value and create:
-            value = self.values[box] = HeapCacheValue(box)
-        return value
-
-    def getvalues(self, boxes):
-        return [self.getvalue(box) for box in boxes]
 
     def invalidate_caches(self, opnum, descr, argboxes):
         self.mark_escaped(opnum, descr, argboxes)
@@ -434,7 +442,9 @@ class HeapCache(object):
         if (isinstance(box, RefFrontendOp) and
             self.test_head_version(box) and
             box._heapc_deps is not None):
-            return box._heapc_deps[0]
+            res_box = box._heapc_deps[0]
+            if res_box is not None:
+                return maybe_replace_with_const(res_box)
         return None
 
     def arraylen_now_known(self, box, lengthbox):
@@ -446,8 +456,7 @@ class HeapCache(object):
         deps[0] = lengthbox
 
     def replace_box(self, oldbox, newbox):
-        value = self.getvalue(oldbox, create=False)
-        if value is None:
-            return
-        value.box = newbox
-        self.values[newbox] = value
+        # here, only for replacing a box with a const
+        if isinstance(oldbox, FrontendOp) and isinstance(newbox, Const):
+            assert newbox.same_constant(constant_from_op(oldbox))
+            oldbox.set_replaced_with_const()

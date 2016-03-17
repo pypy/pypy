@@ -1,11 +1,9 @@
+import py
 from rpython.jit.metainterp.heapcache import HeapCache
 from rpython.jit.metainterp.resoperation import rop, InputArgInt
-from rpython.jit.metainterp.history import ConstInt, BasicFailDescr
-from rpython.jit.metainterp.history import RefFrontendOp
+from rpython.jit.metainterp.history import ConstInt, ConstPtr, BasicFailDescr
+from rpython.jit.metainterp.history import IntFrontendOp, RefFrontendOp
 
-lengthbox1 = object()
-lengthbox2 = object()
-lengthbox3 = object()
 descr1 = object()
 descr2 = object()
 descr3 = object()
@@ -304,6 +302,8 @@ class TestHeapCache(object):
         h = HeapCache()
         box1 = RefFrontendOp(1)
         box2 = RefFrontendOp(2)
+        lengthbox1 = IntFrontendOp(11)
+        lengthbox2 = IntFrontendOp(12)
         h.new_array(box1, lengthbox1)
         assert h.arraylen(box1) is lengthbox1
 
@@ -348,8 +348,13 @@ class TestHeapCache(object):
         assert h.getarrayitem(box1, index1, descr1) is None
         assert h.getarrayitem(box1, index2, descr1) is None
 
-    def test_replace_box(self):
+    def test_replace_box_with_box(self):
+        py.test.skip("replacing a box with another box: not supported any more")
         h = HeapCache()
+        box1 = RefFrontendOp(1)
+        box2 = RefFrontendOp(2)
+        box3 = RefFrontendOp(3)
+        box4 = RefFrontendOp(4)
         h.setfield(box1, box2, descr1)
         h.setfield(box1, box3, descr2)
         h.setfield(box2, box3, descr3)
@@ -360,16 +365,22 @@ class TestHeapCache(object):
         h.setfield(box4, box3, descr1)
         assert h.getfield(box4, descr1) is box3
 
+    def test_replace_box_with_const(self):
         h = HeapCache()
+        box1 = RefFrontendOp(1)
+        box2 = RefFrontendOp(2)
+        box3 = RefFrontendOp(3)
+        c_box3 = ConstPtr(ConstPtr.value)
         h.setfield(box1, box2, descr1)
         h.setfield(box1, box3, descr2)
         h.setfield(box2, box3, descr3)
-        h.replace_box(box3, box4)
+        h.replace_box(box3, c_box3)
         assert h.getfield(box1, descr1) is box2
-        assert h.getfield(box1, descr2) is box4
-        assert h.getfield(box2, descr3) is box4
+        assert c_box3.same_constant(h.getfield(box1, descr2))
+        assert c_box3.same_constant(h.getfield(box2, descr3))
 
     def test_replace_box_twice(self):
+        py.test.skip("replacing a box with another box: not supported any more")
         h = HeapCache()
         h.setfield(box1, box2, descr1)
         h.setfield(box1, box3, descr2)
@@ -393,6 +404,7 @@ class TestHeapCache(object):
         assert h.getfield(box2, descr3) is box5
 
     def test_replace_box_array(self):
+        py.test.skip("replacing a box with another box: not supported any more")
         h = HeapCache()
         h.setarrayitem(box1, index1, box2, descr1)
         h.setarrayitem(box1, index1, box3, descr2)
@@ -412,6 +424,7 @@ class TestHeapCache(object):
         assert h.arraylen(box4) is lengthbox2
 
     def test_replace_box_array_twice(self):
+        py.test.skip("replacing a box with another box: not supported any more")
         h = HeapCache()
         h.setarrayitem(box1, index1, box2, descr1)
         h.setarrayitem(box1, index1, box3, descr2)
@@ -431,6 +444,25 @@ class TestHeapCache(object):
         h.replace_box(lengthbox1, lengthbox2)
         h.replace_box(lengthbox2, lengthbox3)
         assert h.arraylen(box4) is lengthbox3
+
+    def test_replace_box_with_const_in_array(self):
+        h = HeapCache()
+        box1 = RefFrontendOp(1)
+        lengthbox2 = IntFrontendOp(2)
+        lengthbox2.setint(10)
+        h.arraylen_now_known(box1, lengthbox2)
+        assert h.arraylen(box1) is lengthbox2
+        c10 = ConstInt(10)
+        h.replace_box(lengthbox2, c10)
+        assert c10.same_constant(h.arraylen(box1))
+
+        box2 = IntFrontendOp(2)
+        box2.setint(12)
+        h.setarrayitem(box1, index2, box2, descr1)
+        assert h.getarrayitem(box1, index2, descr1) is box2
+        c12 = ConstInt(12)
+        h.replace_box(box2, c12)
+        assert c12.same_constant(h.getarrayitem(box1, index2, descr1))
 
     def test_ll_arraycopy(self):
         h = HeapCache()
