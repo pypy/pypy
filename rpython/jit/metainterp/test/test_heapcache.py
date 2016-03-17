@@ -695,6 +695,8 @@ class TestHeapCache(object):
 
     def test_bug_missing_ignored_operations(self):
         h = HeapCache()
+        box1 = RefFrontendOp(1)
+        box2 = RefFrontendOp(2)
         h.new(box1)
         h.new(box2)
         h.setfield(box1, box2, descr1)
@@ -717,6 +719,8 @@ class TestHeapCache(object):
         # calling some residual code that changes the values on box3: then
         # the content of box2 is still cached at the old value.
         h = HeapCache()
+        box1 = RefFrontendOp(1)
+        box2 = RefFrontendOp(2)
         h.new(box1)
         h.new(box2)
         h.setfield(box1, box2, descr1)
@@ -729,6 +733,8 @@ class TestHeapCache(object):
 
     def test_bug_heap_cache_is_cleared_but_not_is_unescaped_2(self):
         h = HeapCache()
+        box1 = RefFrontendOp(1)
+        box2 = RefFrontendOp(2)
         h.new(box1)
         h.new(box2)
         h.setfield(box1, box2, descr1)
