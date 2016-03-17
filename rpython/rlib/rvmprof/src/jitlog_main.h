@@ -113,10 +113,11 @@ void jitlog_write_marked(int tag, char * text, int length)
 
     char header[5];
     header[0] = tag;
-    header[1] = (length >> 24) & 0xff;
-    header[2] = (length >> 16) & 0xff;
-    header[3] = (length >> 8) & 0xff;
-    header[4] = length & 0xff;
+    // little endian 32 bit singed int
+    header[1] = length & 0xff;
+    header[2] = (length >> 8) & 0xff;
+    header[3] = (length >> 16) & 0xff;
+    header[4] = (length >> 24) & 0xff;
     write(jitlog_fd, (const char*)&header, 5);
     write(jitlog_fd, text, length);
 }

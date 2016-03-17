@@ -533,7 +533,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         looptoken._ll_function_addr = rawstart
         if logger:
             logger.log_trace(logger.MARK_ASM, inputargs, operations,
-                             ops_offset=ops_offset)
+                             ops_offset=ops_offset, self.mc)
 
         self.fixup_target_tokens(rawstart)
         self.teardown()
@@ -587,7 +587,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         frame_depth = max(self.current_clt.frame_info.jfi_frame_depth,
                           frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)
         if logger:
-            logger.log_trace(logger.MARK_ASM, inputargs, operations,
+            logger.log_trace(logger.MARK_TRACE_ASM, inputargs, operations,
                               faildescr=faildescr, ops_offset=ops_offset)
         self.fixup_target_tokens(rawstart)
         self.update_frame_depth(frame_depth)
