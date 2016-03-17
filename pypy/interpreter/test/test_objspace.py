@@ -352,6 +352,37 @@ class TestObjSpace:
                         else:
                             assert w_res is space.w_False
 
+    def test_isabstract(self, space):
+        w_A = space.appexec([], """():
+            class A:
+               def f(): pass
+               f.__isabstractmethod__ = True
+
+               def g(): pass
+               g.__isabstractmethod__ = True
+               g = classmethod(g)
+
+               def h(): pass
+               h.__isabstractmethod__ = True
+               h = staticmethod(h)
+            return A""")
+        w_B = space.appexec([], """():
+            class B:
+               def f(): pass
+
+               @classmethod
+               def g(): pass
+
+               @staticmethod
+               def h(): pass
+            return B""")
+        assert space.isabstractmethod_w(space.getattr(w_A, space.wrap('f')))
+        assert space.isabstractmethod_w(space.getattr(w_A, space.wrap('g')))
+        assert space.isabstractmethod_w(space.getattr(w_A, space.wrap('h')))
+        assert not space.isabstractmethod_w(space.getattr(w_B, space.wrap('f')))
+        assert not space.isabstractmethod_w(space.getattr(w_B, space.wrap('g')))
+        assert not space.isabstractmethod_w(space.getattr(w_B, space.wrap('h')))
+
 class TestModuleMinimal: 
     def test_sys_exists(self):
         assert self.space.sys

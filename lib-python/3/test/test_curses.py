@@ -252,6 +252,26 @@ def test_userptr_without_set(stdscr):
     except curses.panel.error:
         pass
 
+def test_userptr_memory_leak(stdscr):
+    w = curses.newwin(10, 10)
+    p = curses.panel.new_panel(w)
+    obj = object()
+    nrefs = sys.getrefcount(obj)
+    for i in range(100):
+        p.set_userptr(obj)
+
+    p.set_userptr(None)
+    if sys.getrefcount(obj) != nrefs:
+        raise RuntimeError("set_userptr leaked references")
+
+def test_userptr_segfault(stdscr):
+    panel = curses.panel.new_panel(stdscr)
+    class A:
+        def __del__(self):
+            panel.set_userptr(None)
+    panel.set_userptr(A())
+    panel.set_userptr(None)
+
 def test_resize_term(stdscr):
     if hasattr(curses, 'resizeterm'):
         lines, cols = curses.LINES, curses.COLS
@@ -264,10 +284,52 @@ def test_issue6243(stdscr):
     curses.ungetch(1025)
     stdscr.getkey()
 
+def test_unget_wch(stdscr):
+    if not hasattr(curses, 'unget_wch'):
+        return
+    encoding = stdscr.encoding
+    for ch in ('a', '\xe9', '\u20ac', '\U0010FFFF'):
+        try:
+            ch.encode(encoding)
+        except UnicodeEncodeError:
+            continue
+        try:
+            curses.unget_wch(ch)
+        except Exception as err:
+            raise Exception("unget_wch(%a) failed with encoding %s: %s"
+                            % (ch, stdscr.encoding, err))
+        read = stdscr.get_wch()
+        if read != ch:
+            raise AssertionError("%r != %r" % (read, ch))
+
+        code = ord(ch)
+        curses.unget_wch(code)
+        read = stdscr.get_wch()
+        if read != ch:
+            raise AssertionError("%r != %r" % (read, ch))
+
 def test_issue10570():
     b = curses.tparm(curses.tigetstr("cup"), 5, 3)
     assert type(b) is bytes
     curses.putp(b)
+
+def test_encoding(stdscr):
+    import codecs
+    encoding = stdscr.encoding
+    codecs.lookup(encoding)
+    try:
+        stdscr.encoding = 10
+    except TypeError:
+        pass
+    else:
+        raise AssertionError("TypeError not raised")
+    stdscr.encoding = encoding
+    try:
+        del stdscr.encoding
+    except TypeError:
+        pass
+    else:
+        raise AssertionError("TypeError not raised")
 
 def main(stdscr):
     curses.savetty()
@@ -275,18 +337,22 @@ def main(stdscr):
         module_funcs(stdscr)
         window_funcs(stdscr)
         test_userptr_without_set(stdscr)
+        test_userptr_memory_leak(stdscr)
+        test_userptr_segfault(stdscr)
         test_resize_term(stdscr)
         test_issue6243(stdscr)
+        test_unget_wch(stdscr)
         test_issue10570()
+        test_encoding(stdscr)
     finally:
         curses.resetty()
 
 def test_main():
-    if not sys.stdout.isatty():
-        raise unittest.SkipTest("sys.stdout is not a tty")
+    if not sys.__stdout__.isatty():
+        raise unittest.SkipTest("sys.__stdout__ is not a tty")
     # testing setupterm() inside initscr/endwin
     # causes terminal breakage
-    curses.setupterm(fd=sys.stdout.fileno())
+    curses.setupterm(fd=sys.__stdout__.fileno())
     try:
         stdscr = curses.initscr()
         main(stdscr)

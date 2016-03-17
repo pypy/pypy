@@ -51,7 +51,7 @@ class TestImporter:
 
     def __init__(self, path=test_path):
         if path != test_path:
-            # if out class is on sys.path_hooks, we must raise
+            # if our class is on sys.path_hooks, we must raise
             # ImportError for any path item that we can't handle.
             raise ImportError
         self.path = path
@@ -215,7 +215,7 @@ class ImportHooksTestCase(ImportHooksBaseTestCase):
         self.doTestImports(i)
 
     def testPathHook(self):
-        sys.path_hooks.append(PathImporter)
+        sys.path_hooks.insert(0, PathImporter)
         sys.path.append(test_path)
         self.doTestImports()
 
@@ -228,8 +228,10 @@ class ImportHooksTestCase(ImportHooksBaseTestCase):
     def testImpWrapper(self):
         i = ImpWrapper()
         sys.meta_path.append(i)
-        sys.path_hooks.append(ImpWrapper)
-        mnames = ("colorsys", "urllib.parse", "distutils.core")
+        sys.path_hooks.insert(0, ImpWrapper)
+        mnames = (
+            "colorsys", "urllib.parse", "distutils.core", "sys",
+        )
         for mname in mnames:
             parent = mname.split(".")[0]
             for n in list(sys.modules):
@@ -237,7 +239,8 @@ class ImportHooksTestCase(ImportHooksBaseTestCase):
                     del sys.modules[n]
         for mname in mnames:
             m = __import__(mname, globals(), locals(), ["__dummy__"])
-            m.__loader__  # to make sure we actually handled the import
+            # to make sure we actually handled the import
+            self.assertTrue(hasattr(m, "__loader__"))
 
 
 def test_main():

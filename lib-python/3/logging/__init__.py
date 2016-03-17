@@ -1,4 +1,4 @@
-# Copyright 2001-2012 by Vinay Sajip. All Rights Reserved.
+# Copyright 2001-2013 by Vinay Sajip. All Rights Reserved.
 #
 # Permission to use, copy, modify, and distribute this software and its
 # documentation for any purpose and without fee is hereby granted,
@@ -18,7 +18,7 @@
 Logging package for Python. Based on PEP 282 and comments thereto in
 comp.lang.python.
 
-Copyright (C) 2001-2012 Vinay Sajip. All Rights Reserved.
+Copyright (C) 2001-2013 Vinay Sajip. All Rights Reserved.
 
 To use, simply 'import logging' and log away!
 """
@@ -36,15 +36,9 @@ __all__ = ['BASIC_FORMAT', 'BufferingFormatter', 'CRITICAL', 'DEBUG', 'ERROR',
            'getLogRecordFactory', 'setLogRecordFactory', 'lastResort']
 
 try:
-    import codecs
-except ImportError:
-    codecs = None
-
-try:
-    import _thread as thread
     import threading
-except ImportError:
-    thread = None
+except ImportError: #pragma: no cover
+    threading = None
 
 __author__  = "Vinay Sajip <vinay_sajip@red-dove.com>"
 __status__  = "production"
@@ -65,16 +59,16 @@ else:
     _srcfile = __file__
 _srcfile = os.path.normcase(_srcfile)
 
-# next bit filched from 1.5.2's inspect.py
-def currentframe():
-    """Return the frame object for the caller's stack frame."""
-    try:
-        raise Exception
-    except:
-        return sys.exc_info()[2].tb_frame.f_back
 
-if hasattr(sys, '_getframe'): currentframe = lambda: sys._getframe(3)
-# done filching
+if hasattr(sys, '_getframe'):
+    currentframe = lambda: sys._getframe(3)
+else: #pragma: no cover
+    def currentframe():
+        """Return the frame object for the caller's stack frame."""
+        try:
+            raise Exception
+        except:
+            return sys.exc_info()[2].tb_frame.f_back
 
 # _srcfile is only used in conjunction with sys._getframe().
 # To provide compatibility with older versions of Python, set _srcfile
@@ -92,22 +86,22 @@ _startTime = time.time()
 #raiseExceptions is used to see if exceptions during handling should be
 #propagated
 #
-raiseExceptions = 1
+raiseExceptions = True
 
 #
 # If you don't want threading information in the log, set this to zero
 #
-logThreads = 1
+logThreads = True
 
 #
 # If you don't want multiprocessing information in the log, set this to zero
 #
-logMultiprocessing = 1
+logMultiprocessing = True
 
 #
 # If you don't want process information in the log, set this to zero
 #
-logProcesses = 1
+logProcesses = True
 
 #---------------------------------------------------------------------------
 #   Level related stuff
@@ -208,9 +202,9 @@ def _checkLevel(level):
 #the lock would already have been acquired - so we need an RLock.
 #The same argument applies to Loggers and Manager.loggerDict.
 #
-if thread:
+if threading:
     _lock = threading.RLock()
-else:
+else: #pragma: no cover
     _lock = None
 
 
@@ -263,7 +257,7 @@ class LogRecord(object):
         # during formatting, we test to see if the arg is present using
         # 'if self.args:'. If the event being logged is e.g. 'Value is %d'
         # and if the passed arg fails 'if self.args:' then no formatting
-        # is done. For example, logger.warn('Value is %d', 0) would log
+        # is done. For example, logger.warning('Value is %d', 0) would log
         # 'Value is %d' instead of 'Value is 0'.
         # For the use case of passing a dictionary, this should not be a
         # problem.
@@ -287,13 +281,13 @@ class LogRecord(object):
         self.created = ct
         self.msecs = (ct - int(ct)) * 1000
         self.relativeCreated = (self.created - _startTime) * 1000
-        if logThreads and thread:
-            self.thread = thread.get_ident()
+        if logThreads and threading:
+            self.thread = threading.get_ident()
             self.threadName = threading.current_thread().name
-        else:
+        else: # pragma: no cover
             self.thread = None
             self.threadName = None
-        if not logMultiprocessing:
+        if not logMultiprocessing: # pragma: no cover
             self.processName = None
         else:
             self.processName = 'MainProcess'
@@ -305,7 +299,7 @@ class LogRecord(object):
                 # for an example
                 try:
                     self.processName = mp.current_process().name
-                except Exception:
+                except Exception: #pragma: no cover
                     pass
         if logProcesses and hasattr(os, 'getpid'):
             self.process = os.getpid()
@@ -405,10 +399,12 @@ class StringTemplateStyle(PercentStyle):
     def format(self, record):
         return self._tpl.substitute(**record.__dict__)
 
+BASIC_FORMAT = "%(levelname)s:%(name)s:%(message)s"
+
 _STYLES = {
-    '%': PercentStyle,
-    '{': StrFormatStyle,
-    '$': StringTemplateStyle
+    '%': (PercentStyle, BASIC_FORMAT),
+    '{': (StrFormatStyle, '{levelname}:{name}:{message}'),
+    '$': (StringTemplateStyle, '${levelname}:${name}:${message}'),
 }
 
 class Formatter(object):
@@ -473,9 +469,12 @@ class Formatter(object):
         if style not in _STYLES:
             raise ValueError('Style must be one of: %s' % ','.join(
                              _STYLES.keys()))
-        self._style = _STYLES[style](fmt)
+        self._style = _STYLES[style][0](fmt)
         self._fmt = self._style._fmt
         self.datefmt = datefmt
+
+    default_time_format = '%Y-%m-%d %H:%M:%S'
+    default_msec_format = '%s,%03d'
 
     def formatTime(self, record, datefmt=None):
         """
@@ -499,8 +498,8 @@ class Formatter(object):
         if datefmt:
             s = time.strftime(datefmt, ct)
         else:
-            t = time.strftime("%Y-%m-%d %H:%M:%S", ct)
-            s = "%s,%03d" % (t, record.msecs) # the use of % here is internal
+            t = time.strftime(self.default_time_format, ct)
+            s = self.default_msec_format % (t, record.msecs)
         return s
 
     def formatException(self, ei):
@@ -653,11 +652,11 @@ class Filter(object):
         yes. If deemed appropriate, the record may be modified in-place.
         """
         if self.nlen == 0:
-            return 1
+            return True
         elif self.name == record.name:
-            return 1
+            return True
         elif record.name.find(self.name, 0, self.nlen) != 0:
-            return 0
+            return False
         return (record.name[self.nlen] == ".")
 
 class Filterer(object):
@@ -697,14 +696,14 @@ class Filterer(object):
 
            Allow filters to be just callables.
         """
-        rv = 1
+        rv = True
         for f in self.filters:
             if hasattr(f, 'filter'):
                 result = f.filter(record)
             else:
                 result = f(record) # assume callable - will raise if not
             if not result:
-                rv = 0
+                rv = False
                 break
         return rv
 
@@ -783,9 +782,9 @@ class Handler(Filterer):
         """
         Acquire a thread lock for serializing access to the underlying I/O.
         """
-        if thread:
+        if threading:
             self.lock = threading.RLock()
-        else:
+        else: #pragma: no cover
             self.lock = None
 
     def acquire(self):
@@ -804,7 +803,7 @@ class Handler(Filterer):
 
     def setLevel(self, level):
         """
-        Set the logging level of this handler.
+        Set the logging level of this handler.  level must be an int or a str.
         """
         self.level = _checkLevel(level)
 
@@ -900,7 +899,7 @@ class Handler(Filterer):
                                           None, sys.stderr)
                 sys.stderr.write('Logged from file %s, line %s\n' % (
                                  record.filename, record.lineno))
-            except IOError:
+            except IOError: #pragma: no cover
                 pass    # see issue 5971
             finally:
                 del ei
@@ -953,7 +952,7 @@ class StreamHandler(Handler):
             stream.write(msg)
             stream.write(self.terminator)
             self.flush()
-        except (KeyboardInterrupt, SystemExit):
+        except (KeyboardInterrupt, SystemExit): #pragma: no cover
             raise
         except:
             self.handleError(record)
@@ -962,17 +961,16 @@ class FileHandler(StreamHandler):
     """
     A handler class which writes formatted logging records to disk files.
     """
-    def __init__(self, filename, mode='a', encoding=None, delay=0):
+    def __init__(self, filename, mode='a', encoding=None, delay=False):
         """
         Open the specified file and use it as the stream for logging.
         """
         #keep the absolute path, otherwise derived classes which use this
         #may come a cropper when the current directory changes
-        if codecs is None:
-            encoding = None
         self.baseFilename = os.path.abspath(filename)
         self.mode = mode
         self.encoding = encoding
+        self.delay = delay
         if delay:
             #We don't open the stream, but we still need to call the
             #Handler constructor to set level, formatter, lock etc.
@@ -991,8 +989,10 @@ class FileHandler(StreamHandler):
                 self.flush()
                 if hasattr(self.stream, "close"):
                     self.stream.close()
-                StreamHandler.close(self)
                 self.stream = None
+            # Issue #19523: call unconditionally to
+            # prevent a handler leak when delay is set
+            StreamHandler.close(self)
         finally:
             self.release()
 
@@ -1001,11 +1001,7 @@ class FileHandler(StreamHandler):
         Open the current base file with the (original) mode and encoding.
         Return the resulting stream.
         """
-        if self.encoding is None:
-            stream = open(self.baseFilename, self.mode)
-        else:
-            stream = codecs.open(self.baseFilename, self.mode, self.encoding)
-        return stream
+        return open(self.baseFilename, self.mode, encoding=self.encoding)
 
     def emit(self, record):
         """
@@ -1217,13 +1213,13 @@ class Logger(Filterer):
         self.name = name
         self.level = _checkLevel(level)
         self.parent = None
-        self.propagate = 1
+        self.propagate = True
         self.handlers = []
-        self.disabled = 0
+        self.disabled = False
 
     def setLevel(self, level):
         """
-        Set the logging level of this logger.
+        Set the logging level of this logger.  level must be an int or a str.
         """
         self.level = _checkLevel(level)
 
@@ -1263,7 +1259,10 @@ class Logger(Filterer):
         if self.isEnabledFor(WARNING):
             self._log(WARNING, msg, args, **kwargs)
 
-    warn = warning
+    def warn(self, msg, *args, **kwargs):
+        warnings.warn("The 'warn' method is deprecated, "
+            "use 'warning' instead", DeprecationWarning, 2)
+        self.warning(msg, *args, **kwargs)
 
     def error(self, msg, *args, **kwargs):
         """
@@ -1372,9 +1371,9 @@ class Logger(Filterer):
             #IronPython can use logging.
             try:
                 fn, lno, func, sinfo = self.findCaller(stack_info)
-            except ValueError:
+            except ValueError: # pragma: no cover
                 fn, lno, func = "(unknown file)", 0, "(unknown function)"
-        else:
+        else: # pragma: no cover
             fn, lno, func = "(unknown file)", 0, "(unknown function)"
         if exc_info:
             if not isinstance(exc_info, tuple):
@@ -1486,7 +1485,7 @@ class Logger(Filterer):
         Is this logger enabled for level 'level'?
         """
         if self.manager.disable >= level:
-            return 0
+            return False
         return level >= self.getEffectiveLevel()
 
     def getChild(self, suffix):
@@ -1576,7 +1575,10 @@ class LoggerAdapter(object):
         """
         self.log(WARNING, msg, *args, **kwargs)
 
-    warn = warning
+    def warn(self, msg, *args, **kwargs):
+        warnings.warn("The 'warn' method is deprecated, "
+            "use 'warning' instead", DeprecationWarning, 2)
+        self.warning(msg, *args, **kwargs)
 
     def error(self, msg, *args, **kwargs):
         """
@@ -1588,7 +1590,7 @@ class LoggerAdapter(object):
         """
         Delegate an exception call to the underlying logger.
         """
-        kwargs["exc_info"] = 1
+        kwargs["exc_info"] = True
         self.log(ERROR, msg, *args, **kwargs)
 
     def critical(self, msg, *args, **kwargs):
@@ -1640,8 +1642,6 @@ Logger.manager = Manager(Logger.root)
 # Configuration classes and functions
 #---------------------------------------------------------------------------
 
-BASIC_FORMAT = "%(levelname)s:%(name)s:%(message)s"
-
 def basicConfig(**kwargs):
     """
     Do basic configuration for the logging system.
@@ -1671,6 +1671,10 @@ def basicConfig(**kwargs):
     stream    Use the specified stream to initialize the StreamHandler. Note
               that this argument is incompatible with 'filename' - if both
               are present, 'stream' is ignored.
+    handlers  If specified, this should be an iterable of already created
+              handlers, which will be added to the root handler. Any handler
+              in the list which does not have a formatter assigned will be
+              assigned the formatter created in this function.
 
     Note that you could specify a stream created using open(filename, mode)
     rather than passing the filename and mode in. However, it should be
@@ -1678,33 +1682,53 @@ def basicConfig(**kwargs):
     using sys.stdout or sys.stderr), whereas FileHandler closes its stream
     when the handler is closed.
 
-    .. versionchanged: 3.2
+    .. versionchanged:: 3.2
        Added the ``style`` parameter.
+
+    .. versionchanged:: 3.3
+       Added the ``handlers`` parameter. A ``ValueError`` is now thrown for
+       incompatible arguments (e.g. ``handlers`` specified together with
+       ``filename``/``filemode``, or ``filename``/``filemode`` specified
+       together with ``stream``, or ``handlers`` specified together with
+       ``stream``.
     """
     # Add thread safety in case someone mistakenly calls
     # basicConfig() from multiple threads
     _acquireLock()
     try:
         if len(root.handlers) == 0:
-            filename = kwargs.pop("filename", None)
-            if filename:
-                mode = kwargs.pop("filemode", 'a')
-                hdlr = FileHandler(filename, mode)
+            handlers = kwargs.get("handlers")
+            if handlers is None:
+                if "stream" in kwargs and "filename" in kwargs:
+                    raise ValueError("'stream' and 'filename' should not be "
+                                     "specified together")
             else:
-                stream = kwargs.pop("stream", None)
-                hdlr = StreamHandler(stream)
-            fs = kwargs.pop("format", BASIC_FORMAT)
-            dfs = kwargs.pop("datefmt", None)
-            style = kwargs.pop("style", '%')
+                if "stream" in kwargs or "filename" in kwargs:
+                    raise ValueError("'stream' or 'filename' should not be "
+                                     "specified together with 'handlers'")
+            if handlers is None:
+                filename = kwargs.get("filename")
+                if filename:
+                    mode = kwargs.get("filemode", 'a')
+                    h = FileHandler(filename, mode)
+                else:
+                    stream = kwargs.get("stream")
+                    h = StreamHandler(stream)
+                handlers = [h]
+            dfs = kwargs.get("datefmt", None)
+            style = kwargs.get("style", '%')
+            if style not in _STYLES:
+                raise ValueError('Style must be one of: %s' % ','.join(
+                                 _STYLES.keys()))
+            fs = kwargs.get("format", _STYLES[style][1])
             fmt = Formatter(fs, dfs, style)
-            hdlr.setFormatter(fmt)
-            root.addHandler(hdlr)
-            level = kwargs.pop("level", None)
+            for h in handlers:
+                if h.formatter is None:
+                    h.setFormatter(fmt)
+                root.addHandler(h)
+            level = kwargs.get("level")
             if level is not None:
                 root.setLevel(level)
-            if kwargs:
-                s = ', '.join(kwargs.keys())
-                raise ValueError('Unexpected in keyword arguments: %s' % s)
     finally:
         _releaseLock()
 
@@ -1765,7 +1789,10 @@ def warning(msg, *args, **kwargs):
         basicConfig()
     root.warning(msg, *args, **kwargs)
 
-warn = warning
+def warn(msg, *args, **kwargs):
+    warnings.warn("The 'warn' function is deprecated, "
+        "use 'warning' instead", DeprecationWarning, 2)
+    warning(msg, *args, **kwargs)
 
 def info(msg, *args, **kwargs):
     """
@@ -1850,10 +1877,10 @@ class NullHandler(Handler):
     package.
     """
     def handle(self, record):
-        pass
+        """Stub."""
 
     def emit(self, record):
-        pass
+        """Stub."""
 
     def createLock(self):
         self.lock = None

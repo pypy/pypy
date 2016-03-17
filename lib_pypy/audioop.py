@@ -504,6 +504,25 @@ def _put_lin_sample(result, size, i, sample):
         sample <<= 16
     _put_sample(result, size, i, sample)
 
+
+def _get_lin_samples(cp, size):
+    for sample in _get_samples(cp, size):
+        if size == 1:
+            yield sample << 8
+        elif size == 2:
+            yield sample
+        elif size == 4:
+            yield sample >> 16
+
+def _put_lin_sample(result, size, i, sample):
+    if size == 1:
+        sample >>= 8
+    elif size == 2:
+        pass
+    elif size == 4:
+        sample <<= 16
+    _put_sample(result, size, i, sample)
+
 def lin2ulaw(cp, size):
     _check_params(len(cp), size)
     rv = ffi.new("unsigned char[]", _sample_count(cp, size))
@@ -517,7 +536,7 @@ def ulaw2lin(cp, size):
     rv = ffi.new("unsigned char[]", len(cp) * size)
     result = ffi.buffer(rv)
     for i, value in enumerate(cp):
-        sample = lib.st_ulaw2linear16(ord(value))
+        sample = lib.st_ulaw2linear16(value)
         _put_lin_sample(result, size, i, sample)
     return result[:]
 
@@ -535,7 +554,7 @@ def alaw2lin(cp, size):
     rv = ffi.new("unsigned char[]", len(cp) * size)
     result = ffi.buffer(rv)
     for i, value in enumerate(cp):
-        sample = lib.st_alaw2linear16(ord(value))
+        sample = lib.st_alaw2linear16(value)
         _put_lin_sample(result, size, i, sample)
     return result[:]
 

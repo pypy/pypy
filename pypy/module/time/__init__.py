@@ -1,5 +1,6 @@
 
 from pypy.interpreter.mixedmodule import MixedModule
+from .interp_time import CLOCK_CONSTANTS, HAS_CLOCK_GETTIME, cConfig
 import os
 
 _WIN = os.name == "nt"
@@ -17,10 +18,23 @@ class Module(MixedModule):
         'mktime': 'interp_time.mktime',
         'strftime': 'interp_time.strftime',
         'sleep' : 'interp_time.sleep',
+        '_STRUCT_TM_ITEMS': 'space.wrap(interp_time._STRUCT_TM_ITEMS)',
+        'monotonic': 'interp_time.monotonic',
+        'perf_counter': 'interp_time.perf_counter',
+        'process_time': 'interp_time.process_time',
     }
 
+    if HAS_CLOCK_GETTIME:
+        interpleveldefs['clock_gettime'] = 'interp_time.clock_gettime'
+        interpleveldefs['clock_settime'] = 'interp_time.clock_settime'
+        interpleveldefs['clock_getres'] = 'interp_time.clock_getres'
     if os.name == "posix":
         interpleveldefs['tzset'] = 'interp_time.tzset'
+
+    for constant in CLOCK_CONSTANTS:
+        value = getattr(cConfig, constant)
+        if value is not None:
+            interpleveldefs[constant] = 'space.wrap(interp_time.cConfig.%s)' % constant
 
     appleveldefs = {
         'struct_time': 'app_time.struct_time',
@@ -38,5 +52,4 @@ class Module(MixedModule):
         from pypy.module.time import interp_time
 
         interp_time._init_timezone(space)
-        interp_time._init_accept2dyear(space)
 

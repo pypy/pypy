@@ -39,9 +39,10 @@ class Function(W_Root):
                           'w_kw_defs?']
 
     def __init__(self, space, code, w_globals=None, defs_w=[], w_kw_defs=None,
-                 closure=None, w_ann=None, forcename=None):
+                 closure=None, w_ann=None, forcename=None, qualname=None):
         self.space = space
         self.name = forcename or code.co_name
+        self.qualname = qualname or self.name.decode('utf-8')
         self.w_doc = None   # lazily read from code.getdocstring()
         self.code = code       # Code instance
         self.w_func_globals = w_globals  # the globals dictionary
@@ -249,8 +250,7 @@ class Function(W_Root):
         return self.call_args(__args__)
 
     def descr_function_repr(self):
-        return self.getrepr(self.space, u'function %s' %
-                            (self.name.decode('utf-8'),))
+        return self.getrepr(self.space, u'function %s' % self.qualname)
 
     # delicate
     _all = {'': None}
@@ -309,6 +309,7 @@ class Function(W_Root):
         tup_base = []
         tup_state = [
             w(self.name),
+            w(self.qualname),
             w_doc,
             w(self.code),
             w_func_globals,
@@ -322,8 +323,8 @@ class Function(W_Root):
     def descr_function__setstate__(self, space, w_args):
         args_w = space.unpackiterable(w_args)
         try:
-            (w_name, w_doc, w_code, w_func_globals, w_closure, w_defs,
-             w_func_dict, w_module) = args_w
+            (w_name, w_qualname, w_doc, w_code, w_func_globals, w_closure,
+             w_defs, w_func_dict, w_module) = args_w
         except ValueError:
             # wrong args
             raise OperationError(space.w_ValueError,
@@ -331,6 +332,7 @@ class Function(W_Root):
 
         self.space = space
         self.name = space.str_w(w_name)
+        self.qualname = space.str_w(w_qualname).decode("utf-8")
         self.code = space.interp_w(Code, w_code)
         if not space.is_w(w_closure, space.w_None):
             from pypy.interpreter.nestedscope import Cell
@@ -403,6 +405,19 @@ class Function(W_Root):
         else:
             raise OperationError(space.w_TypeError,
                 space.wrap("__name__ must be set to a string object"))
+
+    def fget_func_qualname(self, space):
+        return space.wrap(self.qualname)
+
+    def fset_func_qualname(self, space, w_name):
+        try:
+            self.qualname = space.unicode_w(w_name)
+        except OperationError, e:
+            if e.match(space, space.w_TypeError):
+                raise OperationError(space.w_TypeError,
+                                     space.wrap("__qualname__ must be set "
+                                                "to a string object"))
+            raise
 
     def fdel_func_doc(self, space):
         self.w_doc = space.w_None
@@ -592,6 +607,9 @@ class StaticMethod(W_Root):
         instance.__init__(w_function)
         return space.wrap(instance)
 
+    def descr_isabstract(self, space):
+        return space.newbool(space.isabstractmethod_w(self.w_function))
+
 
 class ClassMethod(W_Root):
     """The classmethod objects."""
@@ -609,6 +627,10 @@ class ClassMethod(W_Root):
         instance = space.allocate_instance(ClassMethod, w_subtype)
         instance.__init__(w_function)
         return space.wrap(instance)
+
+    def descr_isabstract(self, space):
+        return space.newbool(space.isabstractmethod_w(self.w_function))
+
 
 class FunctionWithFixedCode(Function):
     can_change_code = False

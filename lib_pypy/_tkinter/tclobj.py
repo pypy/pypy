@@ -1,4 +1,4 @@
-# TclObject, conversions with Python objects
+# Tcl_Obj, conversions with Python objects
 
 from .tklib_cffi import ffi as tkffi, lib as tklib
 import binascii
@@ -35,7 +35,7 @@ def FromTclString(s):
     except UnicodeDecodeError:
         # Tcl encodes null character as \xc0\x80
         try:
-            return s.replace('\xc0\x80', '\x00').decode('utf-8')
+            return s.replace(b'\xc0\x80', b'\x00').decode('utf-8')
         except UnicodeDecodeError:
             pass
     return s
@@ -129,7 +129,7 @@ def FromObj(app, value):
         buf = tkffi.buffer(tkffi.cast("char*", buf), length*2)[:]
         return buf.decode('utf-16')
 
-    return TclObject(value)
+    return Tcl_Obj(value)
 
 def AsObj(value):
     if isinstance(value, bytes):
@@ -161,13 +161,13 @@ def AsObj(value):
         buf = tkffi.new("char[]", encoded)
         inbuf = tkffi.cast("Tcl_UniChar*", buf)
         return tklib.Tcl_NewUnicodeObj(buf, len(encoded)//2)
-    if isinstance(value, TclObject):
+    if isinstance(value, Tcl_Obj):
         tklib.Tcl_IncrRefCount(value._value)
         return value._value
 
     return AsObj(str(value))
 
-class TclObject(object):
+class Tcl_Obj(object):
     def __new__(cls, value):
         self = object.__new__(cls)
         tklib.Tcl_IncrRefCount(value)
@@ -188,7 +188,7 @@ class TclObject(object):
             self.typename, tkffi.cast("intptr_t", self._value))
 
     def __eq__(self, other):
-        if not isinstance(other, TclObject):
+        if not isinstance(other, Tcl_Obj):
             return NotImplemented
         return self._value == other._value
 

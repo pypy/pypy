@@ -464,6 +464,10 @@ def build_exported_objects():
     # PyExc_NameError, PyExc_MemoryError, PyExc_RuntimeError,
     # PyExc_UnicodeEncodeError, PyExc_UnicodeDecodeError, ...
     for exc_name in exceptions.Module.interpleveldefs.keys():
+        if exc_name in ('EnvironmentError', 'IOError'):
+            # FIXME: aliases of OSError cause a clash of names via
+            # export_struct
+            continue
         GLOBALS['PyExc_' + exc_name] = (
             'PyTypeObject*',
             'space.gettypeobject(interp_exceptions.W_%s.typedef)'% (exc_name, ))

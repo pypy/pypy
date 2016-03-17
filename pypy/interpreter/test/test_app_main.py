@@ -37,21 +37,11 @@ def getscript(source):
 def getscript_pyc(space, source):
     p = _get_next_path()
     p.write(str(py.code.Source(source)))
-    w_dir = space.wrap(str(p.dirpath()))
-    w_modname = space.wrap(p.purebasename)
-    space.appexec([w_dir, w_modname], """(dir, modname):
-        import sys
-        d = sys.modules.copy()
-        sys.path.insert(0, dir)
-        __import__(modname)
-        sys.path.pop(0)
-        for key in list(sys.modules.keys()):
-            if key not in d:
-                del sys.modules[key]
-    """)
+    subprocess.check_call([python3, "-c", "import " + p.purebasename],
+                          env={'PYTHONPATH': str(p.dirpath())})
     # the .pyc file should have been created above
     pycache = p.dirpath('__pycache__')
-    pycs = pycache.listdir(p.basename + '*.pyc')
+    pycs = pycache.listdir(p.purebasename + '*.pyc')
     assert len(pycs) == 1
     return str(pycs[0])
 
@@ -926,7 +916,7 @@ class TestNonInteractive:
         p = getscript_pyc(self.space, "print(6*7)\n")
         assert os.path.isfile(p) and p.endswith('.pyc')
         data = self.run(p)
-        assert data == 'in _run_compiled_module\n'
+        assert data == '42\n'
 
     def test_main_in_dir_commandline_argument(self):
         if not hasattr(runpy, '_run_module_as_main'):

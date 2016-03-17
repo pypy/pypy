@@ -8,7 +8,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import (
     interp2app, interpindirect2app, unwrap_spec)
-from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.typedef import TypeDef, interp_attrproperty_w
 from rpython.rlib import jit, rarithmetic
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import r_uint, intmask
@@ -207,6 +207,7 @@ class W_Enumerate(W_Root):
         self.index = start
         self.w_index = w_start
 
+    @staticmethod
     def descr___new__(space, w_subtype, w_iterable, w_start=None):
         from pypy.objspace.std.listobject import W_ListObject
 
@@ -267,15 +268,11 @@ class W_Enumerate(W_Root):
         return space.newtuple([w_index, w_item])
 
     def descr___reduce__(self, space):
-        from pypy.interpreter.mixedmodule import MixedModule
-        w_mod    = space.getbuiltinmodule('_pickle_support')
-        mod      = space.interp_w(MixedModule, w_mod)
-        w_new_inst = mod.get('enumerate_new')
         w_index = self.w_index
         if w_index is None:
             w_index = space.wrap(self.index)
-        w_info = space.newtuple([self.w_iter_or_list, w_index])
-        return space.newtuple([w_new_inst, w_info])
+        return space.newtuple([space.type(self),
+                               space.newtuple([self.w_iter_or_list, w_index])])
 
 # exported through _pickle_support
 def _make_enumerate(space, w_iter_or_list, w_index):
@@ -287,29 +284,32 @@ def _make_enumerate(space, w_iter_or_list, w_index):
     return space.wrap(W_Enumerate(w_iter_or_list, index, w_index))
 
 W_Enumerate.typedef = TypeDef("enumerate",
-    __new__=interp2app(W_Enumerate.descr___new__.im_func),
+    __new__=interp2app(W_Enumerate.descr___new__),
     __iter__=interp2app(W_Enumerate.descr___iter__),
     __next__=interp2app(W_Enumerate.descr_next),
     __reduce__=interp2app(W_Enumerate.descr___reduce__),
 )
 
 
-def reversed(space, w_sequence):
-    """Return a iterator that yields items of sequence in reverse."""
-    w_reversed_descr = space.lookup(w_sequence, "__reversed__")
-    if w_reversed_descr is not None:
-        w_reversed = space.get(w_reversed_descr, w_sequence)
-        return space.call_function(w_reversed)
-    return space.wrap(W_ReversedIterator(space, w_sequence))
-
-
 class W_ReversedIterator(W_Root):
+    """reverse iterator over values of the sequence."""
+
     def __init__(self, space, w_sequence):
         self.remaining = space.len_w(w_sequence) - 1
         if space.lookup(w_sequence, "__getitem__") is None:
             msg = "reversed() argument must be a sequence"
             raise OperationError(space.w_TypeError, space.wrap(msg))
         self.w_sequence = w_sequence
+
+    @staticmethod
+    def descr___new__2(space, w_subtype, w_sequence):
+        w_reversed_descr = space.lookup(w_sequence, "__reversed__")
+        if w_reversed_descr is not None:
+            w_reversed = space.get(w_reversed_descr, w_sequence)
+            return space.call_function(w_reversed)
+        self = space.allocate_instance(W_ReversedIterator, w_subtype)
+        self.__init__(space, w_sequence)
+        return space.wrap(self)
 
     def descr___iter__(self, space):
         return space.wrap(self)
@@ -334,30 +334,33 @@ class W_ReversedIterator(W_Root):
         raise OperationError(space.w_StopIteration, space.w_None)
 
     def descr___reduce__(self, space):
-        from pypy.interpreter.mixedmodule import MixedModule
-        w_mod    = space.getbuiltinmodule('_pickle_support')
-        mod      = space.interp_w(MixedModule, w_mod)
-        w_new_inst = mod.get('reversed_new')
-        info_w = [self.w_sequence, space.wrap(self.remaining)]
-        w_info = space.newtuple(info_w)
-        return space.newtuple([w_new_inst, w_info])
+        if self.w_sequence:
+            w_state = space.wrap(self.remaining)
+            return space.newtuple([
+                space.type(self),
+                space.newtuple([self.w_sequence]),
+                w_state])
+        else:
+            return space.newtuple([
+                space.type(self),
+                space.newtuple([])])
+
+    def descr___setstate__(self, space, w_state):
+        self.remaining = space.int_w(w_state)
+        n = space.len_w(self.w_sequence)
+        if self.remaining < -1:
+            self.remaining = -1
+        elif self.remaining > n - 1:
+            self.remaining = n - 1
 
 W_ReversedIterator.typedef = TypeDef("reversed",
+    __new__         = interp2app(W_ReversedIterator.descr___new__2),
     __iter__        = interp2app(W_ReversedIterator.descr___iter__),
     __length_hint__ = interp2app(W_ReversedIterator.descr_length),
     __next__        = interp2app(W_ReversedIterator.descr_next),
     __reduce__      = interp2app(W_ReversedIterator.descr___reduce__),
+    __setstate__      = interp2app(W_ReversedIterator.descr___setstate__),
 )
-W_ReversedIterator.typedef.acceptable_as_base_class = False
-
-# exported through _pickle_support
-def _make_reversed(space, w_seq, w_remaining):
-    w_type = space.gettypeobject(W_ReversedIterator.typedef)
-    iterator = space.allocate_instance(W_ReversedIterator, w_type)
-    iterator.w_sequence = w_seq
-    iterator.remaining = space.int_w(w_remaining)
-    return space.wrap(iterator)
-
 
 
 class W_Range(W_Root):
@@ -516,6 +519,31 @@ class W_Range(W_Root):
         w_index = space.sub(w_item, self.w_start)
         return space.floordiv(w_index, self.w_step)
 
+    def descr_eq(self, space, w_other):
+        # Compare two range objects.
+        if space.is_w(self, w_other):
+            return space.w_True
+        if not isinstance(w_other, W_Range):
+            return space.w_NotImplemented
+        if not space.eq_w(self.w_length, w_other.w_length):
+            return space.w_False
+        if space.eq_w(self.w_length, space.wrap(0)):
+            return space.w_True
+        if not space.eq_w(self.w_start, w_other.w_start):
+            return space.w_False
+        if space.eq_w(self.w_length, space.wrap(1)):
+            return space.w_True
+        return space.eq(self.w_step, w_other.w_step)
+
+    def descr_hash(self, space):
+        if space.eq_w(self.w_length, space.wrap(0)):
+            w_tup = space.newtuple([self.w_length, space.w_None, space.w_None])
+        elif space.eq_w(self.w_length, space.wrap(1)):
+            w_tup = space.newtuple([self.w_length, self.w_start, space.w_None])
+        else:
+            w_tup = space.newtuple([self.w_length, self.w_start, self.w_step])
+        return space.hash(w_tup)
+
 
 W_Range.typedef = TypeDef("range",
     __new__          = interp2app(W_Range.descr_new.im_func),
@@ -526,8 +554,13 @@ W_Range.typedef = TypeDef("range",
     __reversed__     = interp2app(W_Range.descr_reversed),
     __reduce__       = interp2app(W_Range.descr_reduce),
     __contains__     = interp2app(W_Range.descr_contains),
+    __eq__           = interp2app(W_Range.descr_eq),
+    __hash__         = interp2app(W_Range.descr_hash),
     count            = interp2app(W_Range.descr_count),
     index            = interp2app(W_Range.descr_index),
+    start            = interp_attrproperty_w('w_start', cls=W_Range),
+    stop             = interp_attrproperty_w('w_stop', cls=W_Range),
+    step             = interp_attrproperty_w('w_step', cls=W_Range),
 )
 W_Range.typedef.acceptable_as_base_class = False
 
@@ -690,6 +723,12 @@ class W_Map(W_Root):
         # the loop is out of the way of the JIT
         return [self.space.next(w_elem) for w_elem in self.iterators_w]
 
+    def descr_reduce(self, space):
+        w_map = space.getattr(space.getbuiltinmodule('builtins'),
+                space.wrap('map'))
+        args_w = [self.w_fun] + self.iterators_w
+        return space.newtuple([w_map, space.newtuple(args_w)])
+
 
 def W_Map___new__(space, w_subtype, w_fun, args_w):
     if len(args_w) == 0:
@@ -704,6 +743,7 @@ W_Map.typedef = TypeDef(
         __new__  = interp2app(W_Map___new__),
         __iter__ = interp2app(W_Map.iter_w),
         __next__ = interp2app(W_Map.next_w),
+        __reduce__ = interp2app(W_Map.descr_reduce),
         __doc__ = """\ 
 Make an iterator that computes the function using arguments from
 each of the iterables.  Stops when the shortest iterable is exhausted.""")
@@ -734,6 +774,13 @@ class W_Filter(W_Root):
             if pred ^ self.reverse:
                 return w_obj
 
+    def descr_reduce(self, space):
+        w_filter = space.getattr(space.getbuiltinmodule('builtins'),
+                space.wrap('filter'))
+        args_w = [space.w_None if self.no_predicate else self.w_predicate,
+                  self.iterable]
+        return space.newtuple([w_filter, space.newtuple(args_w)])
+
 
 def W_Filter___new__(space, w_subtype, w_predicate, w_iterable):
     r = space.allocate_instance(W_Filter, w_subtype)
@@ -745,6 +792,7 @@ W_Filter.typedef = TypeDef(
         __new__  = interp2app(W_Filter___new__),
         __iter__ = interp2app(W_Filter.iter_w),
         __next__ = interp2app(W_Filter.next_w),
+        __reduce__ = interp2app(W_Filter.descr_reduce),
         __doc__  = """\
 Return an iterator yielding those items of iterable for which function(item)
 is true. If function is None, return the items that are true.""")
@@ -761,6 +809,12 @@ class W_Zip(W_Map):
             raise OperationError(self.space.w_StopIteration, self.space.w_None)
         return W_Map.next_w(self)
 
+    def descr_reduce(self, space):
+        w_zip = space.getattr(space.getbuiltinmodule('builtins'),
+                space.wrap('zip'))
+        return space.newtuple([w_zip, space.newtuple(self.iterators_w)])
+
+
 def W_Zip___new__(space, w_subtype, args_w):
     r = space.allocate_instance(W_Zip, w_subtype)
     r.__init__(space, None, args_w)
@@ -771,6 +825,7 @@ W_Zip.typedef = TypeDef(
         __new__  = interp2app(W_Zip___new__),
         __iter__ = interp2app(W_Zip.iter_w),
         __next__ = interp2app(W_Zip.next_w),
+        __reduce__ = interp2app(W_Zip.descr_reduce),
         __doc__  = """\
 Return a zip object whose .__next__() method returns a tuple where
 the i-th element comes from the i-th iterable argument.  The .__next__()

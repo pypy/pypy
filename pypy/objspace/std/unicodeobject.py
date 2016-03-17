@@ -106,7 +106,7 @@ class W_UnicodeObject(W_Root):
         return True
 
     @staticmethod
-    def _op_val(space, w_other):
+    def _op_val(space, w_other, allow_char=False):
         if isinstance(w_other, W_UnicodeObject):
             return w_other._value
         raise oefmt(space.w_TypeError,
@@ -155,13 +155,16 @@ class W_UnicodeObject(W_Root):
         return unicodedb.islinebreak(ord(ch))
 
     def _upper(self, ch):
-        return unichr(unicodedb.toupper(ord(ch)))
+        return u''.join([unichr(x) for x in
+                         unicodedb.toupper_full(ord(ch))])
 
     def _lower(self, ch):
-        return unichr(unicodedb.tolower(ord(ch)))
+        return u''.join([unichr(x) for x in
+                         unicodedb.tolower_full(ord(ch))])
 
     def _title(self, ch):
-        return unichr(unicodedb.totitle(ord(ch)))
+        return u''.join([unichr(x) for x in
+                         unicodedb.totitle_full(ord(ch))])
 
     def _newlist_unwrapped(self, space, lst):
         return space.newlist_unicode(lst)
@@ -487,27 +490,36 @@ def _get_encoding_and_errors(space, w_encoding, w_errors):
 
 
 def encode_object(space, w_object, encoding, errors):
-    if encoding is None:
-        # Get the encoder functions as a wrapped object.
-        # This lookup is cached.
-        w_encoder = space.sys.get_w_default_encoder()
-    else:
-        if errors is None or errors == 'strict':
-            try:
-                if encoding == 'ascii':
-                    u = space.unicode_w(w_object)
-                    eh = unicodehelper.rpy_encode_error_handler()
-                    return space.wrapbytes(unicode_encode_ascii(
-                            u, len(u), None, errorhandler=eh))
-                if encoding == 'utf-8':
-                    u = space.unicode_w(w_object)
-                    eh = unicodehelper.rpy_encode_error_handler()
-                    return space.wrapbytes(unicode_encode_utf_8(
-                            u, len(u), None, errorhandler=eh))
-            except unicodehelper.RUnicodeEncodeError, ue:
-                raise wrap_encode_error(space, ue)
-        from pypy.module._codecs.interp_codecs import lookup_codec
-        w_encoder = space.getitem(lookup_codec(space, encoding), space.wrap(0))
+    if errors is None or errors == 'strict':
+        try:
+            if encoding is None or encoding == 'utf-8':
+                u = space.unicode_w(w_object)
+                eh = unicodehelper.encode_error_handler(space)
+                return space.wrapbytes(unicode_encode_utf_8(
+                        u, len(u), errors, errorhandler=eh))
+            elif encoding == 'ascii':
+                u = space.unicode_w(w_object)
+                eh = unicodehelper.encode_error_handler(space)
+                return space.wrapbytes(unicode_encode_ascii(
+                        u, len(u), errors, errorhandler=eh))
+        except unicodehelper.RUnicodeEncodeError, ue:
+            raise wrap_encode_error(space, ue)
+
+    from pypy.module._codecs.interp_codecs import lookup_codec
+    codec_info = lookup_codec(space, encoding)
+    try:
+        is_text_encoding = space.is_true(
+                space.getattr(codec_info, space.wrap('_is_text_encoding')))
+    except OperationError as e:
+        if e.match(space, space.w_AttributeError):
+            is_text_encoding = True
+        else:
+            raise
+    if not is_text_encoding:
+        raise oefmt(space.w_LookupError,
+                    "'%s' is not a text encoding; "
+                    "use codecs.encode() to handle arbitrary codecs", encoding)
+    w_encoder = space.getitem(codec_info, space.wrap(0))
     if errors is None:
         w_errors = space.wrap('strict')
     else:
@@ -550,13 +562,32 @@ def decode_object(space, w_obj, encoding, errors):
             eh = unicodehelper.decode_error_handler(space)
             return space.wrap(str_decode_utf_8(
                     s, len(s), None, final=True, errorhandler=eh)[0])
-    w_codecs = space.getbuiltinmodule("_codecs")
-    w_decode = space.getattr(w_codecs, space.wrap("decode"))
+
+    from pypy.module._codecs.interp_codecs import lookup_codec
+    codec_info = lookup_codec(space, encoding)
+    try:
+        is_text_encoding = space.is_true(
+                space.getattr(codec_info, space.wrap('_is_text_encoding')))
+    except OperationError as e:
+        if e.match(space, space.w_AttributeError):
+            is_text_encoding = True
+        else:
+            raise
+    if not is_text_encoding:
+        raise oefmt(space.w_LookupError,
+                    "'%s' is not a text encoding; "
+                    "use codecs.decode() to handle arbitrary codecs", encoding)
+    w_decoder = space.getitem(codec_info, space.wrap(1))
     if errors is None:
-        w_retval = space.call_function(w_decode, w_obj, space.wrap(encoding))
+        w_errors = space.wrap('strict')
     else:
-        w_retval = space.call_function(w_decode, w_obj, space.wrap(encoding),
-                                       space.wrap(errors))
+        w_errors = space.wrap(errors)
+    w_restuple = space.call_function(w_decoder, w_obj, w_errors)
+    w_retval = space.getitem(w_restuple, space.wrap(0))
+    if not space.isinstance_w(w_retval, space.w_unicode):
+        raise oefmt(space.w_TypeError,
+                    "decoder did not return a bytes object (type '%T')",
+                    w_retval)
     return w_retval
 
 
@@ -1190,7 +1221,7 @@ def unicode_to_decimal_w(space, w_unistr):
             except KeyError:
                 pass
         result[i] = unichr(uchr)
-    return unicodehelper.encode_utf8(space, u''.join(result))
+    return unicodehelper.encode_utf8(space, u''.join(result), allow_surrogates=True)
 
 
 _repr_function, _ = make_unicode_escape_function(

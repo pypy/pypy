@@ -62,8 +62,15 @@ class FileDecoder(object):
         return self.space.fsdecode_w(self.w_obj)
 
 @specialize.memo()
-def dispatch_filename(func, tag=0):
+def make_dispatch_function(func, tag, allow_fd_fn=None):
     def dispatch(space, w_fname, *args):
+        if allow_fd_fn is not None:
+            try:
+                fd = space.c_int_w(w_fname)
+            except OperationError:
+                pass
+            else:
+                return allow_fd_fn(fd, *args)
         if space.isinstance_w(w_fname, space.w_unicode):
             fname = FileEncoder(space, w_fname)
             return func(fname, *args)
@@ -71,6 +78,10 @@ def dispatch_filename(func, tag=0):
             fname = space.bytes0_w(w_fname)
             return func(fname, *args)
     return dispatch
+
+@specialize.arg(0, 1)
+def dispatch_filename(func, tag=0, allow_fd_fn=None):
+    return make_dispatch_function(func, tag, allow_fd_fn)
 
 @specialize.memo()
 def dispatch_filename_2(func):
@@ -164,7 +175,7 @@ def closerange(fd_low, fd_high):
 
 @unwrap_spec(fd=c_int, length=r_longlong)
 def ftruncate(space, fd, length):
-    """Truncate a file to a specified length."""
+    """Truncate a file (by file descriptor) to a specified length."""
     try:
         os.ftruncate(fd, length)
     except IOError, e:
@@ -177,6 +188,25 @@ def ftruncate(space, fd, length):
         raise AssertionError
     except OSError, e:
         raise wrap_oserror(space, e)
+
+def truncate(space, w_path, w_length):
+    """Truncate a file to a specified length."""
+    allocated_fd = False
+    fd = -1
+    try:
+        if space.isinstance_w(w_path, space.w_int):
+            w_fd = w_path
+        else:
+            w_fd = open(space, w_path, os.O_RDWR | os.O_CREAT)
+            allocated_fd = True
+
+        fd = space.c_filedescriptor_w(w_fd)
+        length = space.int_w(w_length)
+        return ftruncate(space, fd, length)
+
+    finally:
+        if allocated_fd and fd != -1:
+            close(space, fd)
 
 def fsync(space, w_fd):
     """Force write of file with filedescriptor to disk."""
@@ -283,7 +313,8 @@ with (at least) the following attributes:
 """
 
     try:
-        st = dispatch_filename(rposix_stat.stat)(space, w_path)
+        st = dispatch_filename(rposix_stat.stat, 0,
+                               allow_fd_fn=rposix_stat.fstat)(space, w_path)
     except OSError, e:
         raise wrap_oserror2(space, e, w_path)
     else:
@@ -628,6 +659,13 @@ def rename(space, w_old, w_new):
     except OSError, e:
         raise wrap_oserror(space, e)
 
+def replace(space, w_old, w_new):
+    "Replace a file or directory, overwriting the destination."
+    try:
+        dispatch_filename_2(rposix.replace)(space, w_old, w_new)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+
 @unwrap_spec(mode=c_int)
 def mkfifo(space, w_filename, mode=0666):
     """Create a FIFO (a POSIX named pipe)."""
@@ -693,8 +731,9 @@ def link(space, src, dst):
     except OSError, e:
         raise wrap_oserror(space, e)
 
-def symlink(space, w_src, w_dst):
+def symlink(space, w_src, w_dst, w_target_is_directory=None):
     "Create a symbolic link pointing to src named dst."
+    # TODO: target_is_directory has a meaning on Windows
     try:
         dispatch_filename_2(rposix.symlink)(space, w_src, w_dst)
     except OSError, e:
@@ -908,7 +947,10 @@ def uname(space):
         raise wrap_oserror(space, e)
     l_w = [space.fsdecode(space.wrapbytes(i))
            for i in [r[0], r[1], r[2], r[3], r[4]]]
-    return space.newtuple(l_w)
+    w_tuple = space.newtuple(l_w)
+    w_uname_result = space.getattr(space.getbuiltinmodule(os.name),
+                                   space.wrap('uname_result'))
+    return space.call_function(w_uname_result, w_tuple)
 
 def getuid(space):
     """ getuid() -> uid
@@ -1415,3 +1457,14 @@ if _WIN32:
         except OSError as e:
             raise wrap_oserror2(space, e, w_path)
         return space.wrap(result)
+
+have_functions = []
+for name in """FCHDIR FCHMOD FCHMODAT FCHOWN FCHOWNAT FEXECVE FDOPENDIR
+               FPATHCONF FSTATAT FSTATVFS FTRUNCATE FUTIMENS FUTIMES
+               FUTIMESAT LINKAT LCHFLAGS LCHMOD LCHOWN LSTAT LUTIMES
+               MKDIRAT MKFIFOAT MKNODAT OPENAT READLINKAT RENAMEAT 
+               SYMLINKAT UNLINKAT UTIMENSAT""".split():
+    if getattr(rposix, "HAVE_%s" % name):
+        have_functions.append("HAVE_%s" % name)
+if _WIN32:
+    have_functions.append("HAVE_MS_WINDOWS")

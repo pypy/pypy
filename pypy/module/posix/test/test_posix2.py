@@ -17,7 +17,7 @@ def setup_module(mod):
     usemodules = ['binascii', 'posix', 'signal', 'struct', 'time']
     # py3k os.open uses subprocess, requiring the following per platform
     if os.name != 'nt':
-        usemodules += ['fcntl', 'select']
+        usemodules += ['fcntl', 'select', '_posixsubprocess']
     else:
         usemodules += ['_rawffi', 'thread']
     mod.space = gettestobjspace(usemodules=usemodules)
@@ -115,6 +115,7 @@ class AppTestPosix:
         s = posix.read(fd, 1)
         assert s == b'i'
         st = posix.fstat(fd)
+        assert st == posix.stat(fd)
         posix.close(fd2)
         posix.close(fd)
 
@@ -572,6 +573,8 @@ class AppTestPosix:
             for i in res:
                 assert isinstance(i, str)
             assert isinstance(res, tuple)
+            assert res == (res.sysname, res.nodename,
+                           res.release, res.version, res.machine)
 
     if hasattr(os, 'getuid'):
         def test_os_getuid(self):
@@ -981,6 +984,34 @@ class AppTestPosix:
                 data = f.read()
                 assert data == "who cares?"
 
+    if hasattr(os, 'ftruncate'):
+        def test_truncate(self):
+            posix = self.posix
+            dest = self.path
+
+            def mkfile(dest, size=4):
+                with open(dest, 'wb') as f:
+                    f.write(b'd' * size)
+
+            # Check invalid inputs
+            mkfile(dest)
+            raises(OSError, posix.truncate, dest, -1)
+            with open(dest, 'rb') as f:  # f is read-only so cannot be truncated
+                raises(OSError, posix.truncate, f.fileno(), 1)
+            raises(TypeError, posix.truncate, dest, None)
+            raises(TypeError, posix.truncate, None, None)
+
+            # Truncate via file descriptor
+            mkfile(dest)
+            with open(dest, 'wb') as f:
+                posix.truncate(f.fileno(), 1)
+            assert 1 == posix.stat(dest).st_size
+
+            # Truncate via filename
+            mkfile(dest)
+            posix.truncate(dest, 1)
+            assert 1 == posix.stat(dest).st_size
+
     try:
         os.getlogin()
     except (AttributeError, OSError):
@@ -1064,6 +1095,13 @@ class AppTestPosix:
             except NotImplementedError:
                 skip("_getfinalpathname not supported on this platform")
             assert os.path.exists(result)
+
+    def test_rtld_constants(self):
+        # check presence of major RTLD_* constants
+        self.posix.RTLD_LAZY
+        self.posix.RTLD_NOW
+        self.posix.RTLD_GLOBAL
+        self.posix.RTLD_LOCAL
 
 
 class AppTestEnvironment(object):
@@ -1219,3 +1257,18 @@ class TestPexpect(object):
         f.write(source)
         child = self.spawn([str(f)])
         child.expect('ok!')
+
+
+class AppTestFdVariants:
+    # Tests variant functions which also accept file descriptors,
+    # dir_fd and follow_symlinks.
+    def test_have_functions(self):
+        import os
+        assert os.stat in os.supports_fd  # fstat() is supported everywhere
+        if os.name != 'nt':
+            assert os.chdir in os.supports_fd  # fchdir()
+        else:
+            assert os.chdir not in os.supports_fd
+        if os.name == 'posix':
+            assert os.open in os.supports_dir_fd  # openat()
+

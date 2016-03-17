@@ -2,13 +2,14 @@
 
 from .tklib_cffi import ffi as tkffi, lib as tklib
 from . import TclError
-from .tclobj import (TclObject, FromObj, FromTclString, AsObj, TypeCache,
+from .tclobj import (Tcl_Obj, FromObj, FromTclString, AsObj, TypeCache,
                      FromBignumObj, FromWideIntObj)
 
 import contextlib
 import sys
 import threading
 import time
+import warnings
 
 
 class _DummyLock(object):
@@ -24,11 +25,13 @@ class _DummyLock(object):
 
 
 def varname_converter(input):
-    if isinstance(input, TclObject):
-        return input.string
-    if '\0' in input:
+    if isinstance(input, Tcl_Obj):
+        input = input.string
+    if isinstance(input, str):
+        input = input.encode('utf-8')
+    if b'\0' in input:
         raise ValueError("NUL character in string")
-    return input.encode('utf-8')
+    return input
 
 
 def Tcl_AppInit(app):
@@ -330,7 +333,7 @@ class TkApp(object):
             if res == tklib.TCL_ERROR:
                 self.raiseTclError()
             result = tkffi.string(tklib.Tcl_GetStringResult(self.interp))
-            return result.decode('utf-8')
+            return FromTclString(result)
 
     def evalfile(self, filename):
         self._check_tcl_appartment()
@@ -339,10 +342,10 @@ class TkApp(object):
             if res == tklib.TCL_ERROR:
                 self.raiseTclError()
             result = tkffi.string(tklib.Tcl_GetStringResult(self.interp))
-            return result.decode('utf-8')
+            return FromTclString(result)
 
     def split(self, arg):
-        if isinstance(arg, TclObject):
+        if isinstance(arg, Tcl_Obj):
             objc = tkffi.new("int*")
             objv = tkffi.new("Tcl_Obj***")
             status = tklib.Tcl_ListObjGetElements(self.interp, arg._value, objc, objv)
@@ -358,10 +361,12 @@ class TkApp(object):
             return tuple(result)
         elif isinstance(arg, tuple):
             return self._splitObj(arg)
+        if isinstance(arg, str):
+            arg = arg.encode('utf-8')
         return self._split(arg)
 
     def splitlist(self, arg):
-        if isinstance(arg, TclObject):
+        if isinstance(arg, Tcl_Obj):
             objc = tkffi.new("int*")
             objv = tkffi.new("Tcl_Obj***")
             status = tklib.Tcl_ListObjGetElements(self.interp, arg._value, objc, objv)
@@ -382,7 +387,7 @@ class TkApp(object):
         if res == tklib.TCL_ERROR:
             self.raiseTclError()
 
-        result = tuple(tkffi.string(argv[0][i]).decode('utf-8')
+        result = tuple(FromTclString(tkffi.string(argv[0][i]))
                        for i in range(argc[0]))
         tklib.Tcl_Free(argv[0])
         return result
@@ -406,6 +411,16 @@ class TkApp(object):
                 result[i] = newelem
             if result is not None:
                 return tuple(result)
+        elif isinstance(arg, str):
+            argc = tkffi.new("int*")
+            argv = tkffi.new("char***")
+            list_ = arg.encode('utf-8')
+            res = tklib.Tcl_SplitList(tkffi.NULL, list_, argc, argv)
+            if res != tklib.TCL_OK:
+                return arg
+            tklib.Tcl_Free(argv[0])
+            if argc[0] > 1:
+                return self._split(list_)
         elif isinstance(arg, bytes):
             argc = tkffi.new("int*")
             argv = tkffi.new("char***")
@@ -426,18 +441,44 @@ class TkApp(object):
             # Not a list.
             # Could be a quoted string containing funnies, e.g. {"}.
             # Return the string itself.
-            return arg.decode('utf-8')
+            return FromTclString(arg)
 
         try:
             if argc[0] == 0:
                 return ""
             elif argc[0] == 1:
-                return tkffi.string(argv[0][0])
+                return FromTclString(tkffi.string(argv[0][0]))
             else:
                 return tuple(self._split(argv[0][i])
                              for i in range(argc[0]))
         finally:
             tklib.Tcl_Free(argv[0])
+
+    def merge(self, *args):
+        warnings.warn("merge is deprecated and will be removed in 3.4",
+                      DeprecationWarning)
+        s = self._merge(args)
+        return s.decode('utf-8')
+
+    def _merge(self, args):
+        argv = []
+        for arg in args:
+            if isinstance(arg, tuple):
+                argv.append(self._merge(arg))
+            elif arg is None:
+                break
+            elif isinstance(arg, bytes):
+                argv.append(arg)
+            else:
+                argv.append(str(arg).encode('utf-8'))
+        argv_array = [tkffi.new("char[]", arg) for arg in argv]
+        res = tklib.Tcl_Merge(len(argv), argv_array)
+        if not res:
+            raise TclError("merge failed")
+        try:
+            return tkffi.string(res)
+        finally:
+            tklib.Tcl_Free(res)
 
     def getboolean(self, s):
         if isinstance(s, int):
@@ -478,9 +519,9 @@ class TkApp(object):
     def getdouble(self, s):
         if isinstance(s, float):
             return s
-        s = s.encode('utf-8')
-        if b'\x00' in s:
+        if '\x00' in s:
             raise TypeError
+        s = s.encode('utf-8')
         v = tkffi.new("double*")
         res = tklib.Tcl_GetDouble(self.interp, s, v)
         if res == tklib.TCL_ERROR:
@@ -488,8 +529,9 @@ class TkApp(object):
         return v[0]
 
     def exprboolean(self, s):
-        if b'\x00' in s:
+        if '\x00' in s:
             raise TypeError
+        s = s.encode('utf-8')
         v = tkffi.new("int*")
         res = tklib.Tcl_ExprBoolean(self.interp, s, v)
         if res == tklib.TCL_ERROR:
@@ -497,8 +539,9 @@ class TkApp(object):
         return v[0]
 
     def exprlong(self, s):
-        if b'\x00' in s:
+        if '\x00' in s:
             raise TypeError
+        s = s.encode('utf-8')
         v = tkffi.new("long*")
         res = tklib.Tcl_ExprLong(self.interp, s, v)
         if res == tklib.TCL_ERROR:
@@ -506,8 +549,9 @@ class TkApp(object):
         return v[0]
 
     def exprdouble(self, s):
-        if b'\x00' in s:
+        if '\x00' in s:
             raise TypeError
+        s = s.encode('utf-8')
         v = tkffi.new("double*")
         res = tklib.Tcl_ExprDouble(self.interp, s, v)
         if res == tklib.TCL_ERROR:
@@ -515,12 +559,14 @@ class TkApp(object):
         return v[0]
 
     def exprstring(self, s):
-        if b'\x00' in s:
+        if '\x00' in s:
             raise TypeError
+        s = s.encode('utf-8')
         res = tklib.Tcl_ExprString(self.interp, s)
         if res == tklib.TCL_ERROR:
             self.raiseTclError()
-        return tkffi.string(tklib.Tcl_GetStringResult(self.interp))
+        return FromTclString(tkffi.string(
+            tklib.Tcl_GetStringResult(self.interp)))
 
     def mainloop(self, threshold):
         self._check_tcl_appartment()

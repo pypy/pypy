@@ -41,7 +41,7 @@ def teardown_module(mod):
     interp_bz2.SMALLCHUNK = mod.OLD_SMALLCHUNK
 
 class AppTestBZ2Compressor(CheckAllocation):
-    spaceconfig = dict(usemodules=('bz2',))
+    spaceconfig = dict(usemodules=('bz2', 'time', 'struct'))
 
     def setup_class(cls):
         cls.w_TEXT = cls.space.wrapbytes(TEXT)
@@ -53,6 +53,8 @@ class AppTestBZ2Compressor(CheckAllocation):
                 return space.wrapbytes(decompress(cls, data))
             cls.w_decompress = cls.space.wrap(gateway.interp2app(decompress_w))
         cls.w_HUGE_OK = cls.space.wrap(HUGE_OK)
+
+        cls.space.appexec([], """(): import warnings""")  # Work around a recursion limit
 
     def test_creation(self):
         from bz2 import BZ2Compressor
@@ -106,14 +108,23 @@ class AppTestBZ2Compressor(CheckAllocation):
         data += bz2c.flush()
         assert self.decompress(data) == self.TEXT
 
+    def test_compressor_pickle_error(self):
+        from bz2 import BZ2Compressor
+        import pickle
+
+        exc = raises(TypeError, pickle.dumps, BZ2Compressor())
+        assert exc.value.args[0] == "cannot serialize '_bz2.BZ2Compressor' object"
+
 
 class AppTestBZ2Decompressor(CheckAllocation):
-    spaceconfig = dict(usemodules=('bz2',))
+    spaceconfig = dict(usemodules=('bz2', 'time', 'struct'))
 
     def setup_class(cls):
         cls.w_TEXT = cls.space.wrapbytes(TEXT)
         cls.w_DATA = cls.space.wrapbytes(DATA)
         cls.w_BUGGY_DATA = cls.space.wrapbytes(BUGGY_DATA)
+
+        cls.space.appexec([], """(): import warnings""")  # Work around a recursion limit
 
     def test_creation(self):
         from bz2 import BZ2Decompressor
@@ -182,9 +193,16 @@ class AppTestBZ2Decompressor(CheckAllocation):
         assert decompressed_data == b''
         raises(IOError, bz2d.decompress, self.BUGGY_DATA)
 
+    def test_decompressor_pickle_error(self):
+        from bz2 import BZ2Decompressor
+        import pickle
+
+        exc = raises(TypeError, pickle.dumps, BZ2Decompressor())
+        assert exc.value.args[0] == "cannot serialize '_bz2.BZ2Decompressor' object"
+
 
 class AppTestBZ2ModuleFunctions(CheckAllocation):
-    spaceconfig = dict(usemodules=('bz2',))
+    spaceconfig = dict(usemodules=('bz2', 'time'))
 
     def setup_class(cls):
         cls.w_TEXT = cls.space.wrapbytes(TEXT)

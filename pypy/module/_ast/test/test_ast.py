@@ -359,11 +359,12 @@ from __future__ import generators""")
     def test_issue793(self):
         import _ast as ast
         body = ast.Module([
-            ast.TryExcept([ast.Pass(lineno=2, col_offset=4)],
+            ast.Try([ast.Pass(lineno=2, col_offset=4)],
                 [ast.ExceptHandler(ast.Name('Exception', ast.Load(),
                                             lineno=3, col_offset=0),
-                                   None, [], lineno=4, col_offset=0)],
-                [], lineno=1, col_offset=0)
+                                   None, [ast.Pass(lineno=4, col_offset=0)],
+                                   lineno=4, col_offset=0)],
+                [], [], lineno=1, col_offset=0)
         ])
         exec(compile(body, '<string>', 'exec'))
 
@@ -446,3 +447,34 @@ from __future__ import generators""")
         import ast
         code = ast.Expression(lineno=1, col_offset=1, body=ast.ListComp(lineno=1, col_offset=1, elt=ast.Call(lineno=1, col_offset=1, func=ast.Name(lineno=1, col_offset=1, id='str', ctx=ast.Load(lineno=1, col_offset=1)), args=[ast.Name(lineno=1, col_offset=1, id='x', ctx=ast.Load(lineno=1, col_offset=1))], keywords=[]), generators=[ast.comprehension(lineno=1, col_offset=1, target=ast.Name(lineno=1, col_offset=1, id='x', ctx=ast.Store(lineno=1, col_offset=1)), iter=ast.List(lineno=1, col_offset=1, elts=[ast.Num(lineno=1, col_offset=1, n=23)], ctx=ast.Load(lineno=1, col_offset=1, )), ifs=[])]))
         compile(code, '<template>', 'eval')
+
+    def test_empty_yield_from(self):
+        # Issue 16546: yield from value is not optional.
+        import ast
+        empty_yield_from = ast.parse("def f():\n yield from g()")
+        empty_yield_from.body[0].body[0].value.value = None
+        exc = raises(ValueError, compile, empty_yield_from, "<test>", "exec")
+        assert "field value is required" in str(exc.value)
+
+    def test_compare(self):
+        import ast
+        
+        def _mod(mod, msg=None, mode="exec", exc=ValueError):
+            mod.lineno = mod.col_offset = 0
+            ast.fix_missing_locations(mod)
+            exc = raises(exc, compile, mod, "<test>", mode)
+            if msg is not None:
+                assert msg in str(exc.value)
+        def _expr(node, msg=None, exc=ValueError):
+            mod = ast.Module([ast.Expr(node)])
+            _mod(mod, msg, exc=exc)
+        left = ast.Name("x", ast.Load())
+        comp = ast.Compare(left, [ast.In()], [])
+        _expr(comp, "no comparators")
+        comp = ast.Compare(left, [ast.In()], [ast.Num(4), ast.Num(5)])
+        _expr(comp, "different number of comparators and operands")
+        comp = ast.Compare(ast.Num("blah"), [ast.In()], [left])
+        _expr(comp, "non-numeric", exc=TypeError)
+        comp = ast.Compare(left, [ast.In()], [ast.Num("blah")])
+        _expr(comp, "non-numeric", exc=TypeError)
+

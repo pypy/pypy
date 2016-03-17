@@ -11,15 +11,15 @@ from pypy.module.test_lib_pypy.support import import_lib_pypy
 class AppTestOsWait:
 
     spaceconfig = dict(usemodules=('_rawffi', 'fcntl', 'itertools', 'select',
-                                   'signal'))
+                                   'signal', '_posixsubprocess'))
 
     def setup_class(cls):
         if not hasattr(os, "fork"):
             py.test.skip("Need fork() to test wait3/wait4()")
         rebuild.rebuild_one('resource.ctc.py')
+        cls.space.appexec([], "(): import ctypes")
         cls.w__pypy_wait = import_lib_pypy(
-            cls.space, '_pypy_wait',
-            '_pypy_wait not supported on this platform')
+            cls.space, '_pypy_wait')
 
     def test_os_wait3(self):
         import os

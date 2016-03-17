@@ -25,6 +25,15 @@ class Module(MixedModule):
         for name in ['ITIMER_REAL', 'ITIMER_VIRTUAL', 'ITIMER_PROF']:
             interpleveldefs[name] = 'space.wrap(interp_signal.%s)' % (name,)
 
+    if os.name == 'posix':
+        interpleveldefs['sigwait'] = 'interp_signal.sigwait'
+        interpleveldefs['sigpending'] = 'interp_signal.sigpending'
+        interpleveldefs['pthread_kill'] = 'interp_signal.pthread_kill'
+        interpleveldefs['pthread_sigmask'] = 'interp_signal.pthread_sigmask'
+        interpleveldefs['SIG_BLOCK'] = 'space.wrap(interp_signal.SIG_BLOCK)'
+        interpleveldefs['SIG_UNBLOCK'] = 'space.wrap(interp_signal.SIG_UNBLOCK)'
+        interpleveldefs['SIG_SETMASK'] = 'space.wrap(interp_signal.SIG_SETMASK)'
+
     appleveldefs = {
     }
 

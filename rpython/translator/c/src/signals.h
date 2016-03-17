@@ -15,7 +15,7 @@ void pypysig_setflag(int signum); /* signal will set a flag which can be
 RPY_EXTERN
 void pypysig_reinstall(int signum);
 RPY_EXTERN
-int pypysig_set_wakeup_fd(int fd);
+int pypysig_set_wakeup_fd(int fd, int with_nul_byte);
 
 /* utility to poll for signals that arrived */
 RPY_EXTERN

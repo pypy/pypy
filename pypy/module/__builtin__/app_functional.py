@@ -37,6 +37,10 @@ of parameter 'start' (which defaults to 0).  When the sequence is
 empty, returns start."""
     if isinstance(start, str):
         raise TypeError("sum() can't sum strings [use ''.join(seq) instead]")
+    if isinstance(start, bytes):
+        raise TypeError("sum() can't sum bytes [use b''.join(seq) instead]")
+    if isinstance(start, bytearray):
+        raise TypeError("sum() can't sum bytearray [use b''.join(seq) instead]")
     last = start
     for x in sequence:
         # Very intentionally *not* +=, that would have different semantics if

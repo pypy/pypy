@@ -1,17 +1,20 @@
 from rpython.rtyper.tool import rffi_platform as platform
 from rpython.rtyper.lltypesystem import rffi
-from pypy.interpreter.error import OperationError, oefmt, strerror as _strerror
+from pypy.interpreter.error import OperationError, oefmt, strerror as _strerror, exception_from_saved_errno
 from pypy.interpreter.gateway import unwrap_spec
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.rtime import win_perf_counter
 from rpython.rlib import rposix, rtime
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
+import math
 import os
 import sys
 import time as pytime
 
 _POSIX = os.name == "posix"
 _WIN = os.name == "nt"
+_MACOSX = sys.platform == "darwin"
 _CYGWIN = sys.platform == "cygwin"
 
 _time_zones = []
@@ -104,6 +107,8 @@ if _WIN:
 _includes = ["time.h"]
 if _POSIX:
     _includes.append('sys/time.h')
+if _MACOSX:
+    _includes.append('mach/mach_time.h')
 
 class CConfig:
     _compilation_info_ = ExternalCompilationInfo(
@@ -112,6 +117,15 @@ class CConfig:
     CLOCKS_PER_SEC = platform.ConstantInteger("CLOCKS_PER_SEC")
     clock_t = platform.SimpleType("clock_t", rffi.ULONG)
     has_gettimeofday = platform.Has('gettimeofday')
+    has_clock_gettime = platform.Has('clock_gettime')
+    CLOCK_PROF = platform.DefinedConstantInteger('CLOCK_PROF')
+
+CLOCK_CONSTANTS = ['CLOCK_HIGHRES', 'CLOCK_MONOTONIC', 'CLOCK_MONOTONIC_RAW',
+                   'CLOCK_PROCESS_CPUTIME_ID', 'CLOCK_REALTIME',
+                   'CLOCK_THREAD_CPUTIME_ID']
+
+for constant in CLOCK_CONSTANTS:
+    setattr(CConfig, constant, platform.DefinedConstantInteger(constant))
 
 if _POSIX:
     calling_conv = 'c'
@@ -135,6 +149,15 @@ elif _WIN:
         ("tm_min", rffi.INT), ("tm_hour", rffi.INT), ("tm_mday", rffi.INT),
         ("tm_mon", rffi.INT), ("tm_year", rffi.INT), ("tm_wday", rffi.INT),
         ("tm_yday", rffi.INT), ("tm_isdst", rffi.INT)])
+
+if _MACOSX:
+    CConfig.TIMEBASE_INFO = platform.Struct("struct mach_timebase_info", [
+        ("numer", rffi.UINT),
+        ("denom", rffi.UINT),
+    ])
+
+# XXX: optionally support the 2 additional tz fields
+_STRUCT_TM_ITEMS = 9
 
 class cConfig:
     pass
@@ -161,6 +184,7 @@ if _POSIX:
     timeval = cConfig.timeval
 
 CLOCKS_PER_SEC = cConfig.CLOCKS_PER_SEC
+HAS_CLOCK_GETTIME = cConfig.has_clock_gettime
 clock_t = cConfig.clock_t
 tm = cConfig.tm
 glob_buf = lltype.malloc(tm, flavor='raw', zero=True, immortal=True)
@@ -174,6 +198,14 @@ c_gmtime = external('gmtime', [rffi.TIME_TP], TM_P,
 c_mktime = external('mktime', [TM_P], rffi.TIME_T)
 c_localtime = external('localtime', [rffi.TIME_TP], TM_P,
                        save_err=rffi.RFFI_SAVE_ERRNO)
+if HAS_CLOCK_GETTIME:
+    from rpython.rlib.rtime import TIMESPEC, c_clock_gettime
+    c_clock_settime = external('clock_settime',
+                               [lltype.Signed, lltype.Ptr(TIMESPEC)], rffi.INT,
+                               save_err=rffi.RFFI_SAVE_ERRNO)
+    c_clock_getres = external('clock_getres',
+                              [lltype.Signed, lltype.Ptr(TIMESPEC)], rffi.INT,
+                              save_err=rffi.RFFI_SAVE_ERRNO)
 if _POSIX:
     c_tzset = external('tzset', [], lltype.Void)
 if _WIN:
@@ -201,13 +233,6 @@ if _WIN:
 
 c_strftime = external('strftime', [rffi.CCHARP, rffi.SIZE_T, rffi.CCHARP, TM_P],
                       rffi.SIZE_T)
-
-def _init_accept2dyear(space):
-    if os.environ.get("PYTHONY2K"):
-        accept2dyear = 0
-    else:
-        accept2dyear = 1
-    _set_module_object(space, "accept2dyear", space.wrap(accept2dyear))
 
 def _init_timezone(space):
     timezone = daylight = altzone = 0
@@ -312,8 +337,8 @@ if sys.platform != 'win32':
     @unwrap_spec(secs=float)
     def sleep(space, secs):
         if secs < 0:
-            raise OperationError(space.w_IOError,
-                                 space.wrap("Invalid argument: negative time in sleep"))
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("sleep length must be non-negative"))
         rtime.sleep(secs)
 else:
     from rpython.rlib import rwin32
@@ -335,8 +360,8 @@ else:
     @unwrap_spec(secs=float)
     def sleep(space, secs):
         if secs < 0:
-            raise OperationError(space.w_IOError,
-                                 space.wrap("Invalid argument: negative time in sleep"))
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("sleep length must be non-negative"))
         # as decreed by Guido, only the main thread can be
         # interrupted.
         main_thread = space.fromcache(State).main_thread
@@ -371,7 +396,7 @@ def _get_inttime(space, w_seconds):
     # input doesn't fit in a time_t; call it an error.
     diff = seconds - rffi.cast(lltype.Float, t)
     if diff <= -1.0 or diff >= 1.0:
-        raise OperationError(space.w_ValueError,
+        raise OperationError(space.w_OverflowError,
                       space.wrap("timestamp out of range for platform time_t"))
     return t
 
@@ -438,21 +463,6 @@ def _gettmarg(space, w_tup, allowNone=True):
             # actually never happens, but makes annotator happy
             glob_buf.c_tm_zone = lltype.nullptr(rffi.CCHARP.TO)
             rffi.setintfield(glob_buf, 'c_tm_gmtoff', 0)
-
-    if y < 1000:
-        w_accept2dyear = _get_module_object(space, "accept2dyear")
-        accept2dyear = space.is_true(w_accept2dyear)
-
-        if accept2dyear:
-            if 69 <= y <= 99:
-                y += 1900
-            elif 0 <= y <= 68:
-                y += 2000
-            else:
-                raise OperationError(space.w_ValueError,
-                                     space.wrap("year out of range"))
-            space.warn(space.wrap("Century info guessed for a 2-digit year."),
-                       space.w_DeprecationWarning)
 
     # tm_wday does not need checking of its upper-bound since taking "%
     #  7" in _gettmarg() automatically restricts the range.
@@ -613,6 +623,38 @@ def mktime(space, w_tup):
 
     return space.wrap(float(tt))
 
+if HAS_CLOCK_GETTIME:
+    def _timespec_to_seconds(timespec):
+        return int(timespec.c_tv_sec) + int(timespec.c_tv_nsec) * 1e-9
+
+    @unwrap_spec(clk_id='c_int')
+    def clock_gettime(space, clk_id):
+        with lltype.scoped_alloc(TIMESPEC) as timespec:
+            ret = c_clock_gettime(clk_id, timespec)
+            if ret != 0:
+                raise exception_from_saved_errno(space, space.w_OSError)
+            secs = _timespec_to_seconds(timespec)
+        return space.wrap(secs)
+
+    @unwrap_spec(clk_id='c_int', secs=float)
+    def clock_settime(space, clk_id, secs):
+        with lltype.scoped_alloc(TIMESPEC) as timespec:
+            frac = math.fmod(secs, 1.0)
+            rffi.setintfield(timespec, 'c_tv_sec', int(secs))
+            rffi.setintfield(timespec, 'c_tv_nsec', int(frac * 1e9))
+            ret = c_clock_settime(clk_id, timespec)
+            if ret != 0:
+                raise exception_from_saved_errno(space, space.w_OSError)
+
+    @unwrap_spec(clk_id='c_int')
+    def clock_getres(space, clk_id):
+        with lltype.scoped_alloc(TIMESPEC) as timespec:
+            ret = c_clock_getres(clk_id, timespec)
+            if ret != 0:
+                raise exception_from_saved_errno(space, space.w_OSError)
+            secs = _timespec_to_seconds(timespec)
+        return space.wrap(secs)
+
 if _POSIX:
     def tzset(space):
         """tzset()
@@ -681,3 +723,101 @@ def strftime(space, format, w_tup=None):
         finally:
             lltype.free(outbuf, flavor='raw')
         i += i
+
+
+if _WIN:
+    # untested so far
+    _GetTickCount64 = rwin32.winexternal('GetTickCount64', [], rffi.ULONGLONG)
+
+    def monotonic(space):
+        return space.wrap(_GetTickCount64() * 1e-3)
+
+elif _MACOSX:
+    c_mach_timebase_info = external('mach_timebase_info',
+                                    [lltype.Ptr(cConfig.TIMEBASE_INFO)],
+                                    lltype.Void)
+    c_mach_absolute_time = external('mach_absolute_time', [], rffi.ULONGLONG)
+
+    timebase_info = lltype.malloc(cConfig.TIMEBASE_INFO, flavor='raw',
+                                  zero=True, immortal=True)
+
+    def monotonic(space):
+        if rffi.getintfield(timebase_info, 'c_denom') == 0:
+            c_mach_timebase_info(timebase_info)
+        time = rffi.cast(lltype.Signed, c_mach_absolute_time())
+        numer = rffi.getintfield(timebase_info, 'c_numer')
+        denom = rffi.getintfield(timebase_info, 'c_denom')
+        nanosecs = time * numer / denom
+        secs = nanosecs / 10**9
+        rest = nanosecs % 10**9
+        return space.wrap(float(secs) + float(rest) * 1e-9)
+
+else:
+    assert _POSIX
+    if cConfig.CLOCK_HIGHRES is not None:
+        def monotonic(space):
+            return clock_gettime(space, cConfig.CLOCK_HIGHRES)
+    else:
+        def monotonic(space):
+            return clock_gettime(space, cConfig.CLOCK_MONOTONIC)
+
+
+if _WIN:
+    def perf_counter(space):
+        return space.wrap(win_perf_counter())
+
+else:
+    def perf_counter(space):
+        return monotonic(space)
+
+
+if _WIN:
+    # untested so far
+    def process_time(space):
+        process_times = _time.GetProcessTimes(handle)
+        return (process_times['UserTime'] + process_times['KernelTime']) * 1e-7
+
+        from rpython.rlib.rposix import GetCurrentProcess, GetProcessTimes
+        current_process = GetCurrentProcess()
+        with lltype.scoped_alloc(rwin32.FILETIME) as creation_time, \
+             lltype.scoped_alloc(rwin32.FILETIME) as exit_time, \
+             lltype.scoped_alloc(rwin32.FILETIME) as kernel_time, \
+             lltype.scoped_alloc(rwin32.FILETIME) as user_time:
+            GetProcessTimes(current_process, creation_time, exit_time,
+                            kernel_time, user_time)
+            kernel_time2 = (kernel_time.dwLowDateTime |
+                            kernel_time.dwHighDateTime << 32)
+            user_time2 = (user_time.dwLowDateTime |
+                          user_time.dwHighDateTime << 32)
+        return space.wrap((float(kernel_time2) + float(user_time2)) * 1e-7)
+
+else:
+    have_times = hasattr(rposix, 'c_times')
+
+    def process_time(space):
+        if HAS_CLOCK_GETTIME and (
+                cConfig.CLOCK_PROF is not None or
+                cConfig.CLOCK_PROCESS_CPUTIME_ID is not None):
+            if cConfig.CLOCK_PROF is not None:
+                clk_id = cConfig.CLOCK_PROF
+            else:
+                clk_id = cConfig.CLOCK_PROCESS_CPUTIME_ID
+            with lltype.scoped_alloc(TIMESPEC) as timespec:
+                ret = c_clock_gettime(clk_id, timespec)
+                if ret == 0:
+                    return space.wrap(_timespec_to_seconds(timespec))
+        if True: # XXX available except if it isn't?
+            from rpython.rlib.rtime import (c_getrusage, RUSAGE, RUSAGE_SELF,
+                                            decode_timeval)
+            with lltype.scoped_alloc(RUSAGE) as rusage:
+                ret = c_getrusage(RUSAGE_SELF, rusage)
+                if ret == 0:
+                    return space.wrap(decode_timeval(rusage.c_ru_utime) +
+                                      decode_timeval(rusage.c_ru_stime))
+        if have_times:
+            with lltype.scoped_alloc(rposix.TMS) as tms:
+                ret = rposix.c_times(tms)
+                if rffi.cast(lltype.Signed, ret) != -1:
+                    cpu_time = float(tms.c_tms_utime + tms.c_tms_stime)
+                    return space.wrap(cpu_time / rposix.CLOCK_TICKS_PER_SECOND)
+        return clock(space)

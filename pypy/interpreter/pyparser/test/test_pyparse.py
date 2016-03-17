@@ -159,6 +159,15 @@ if 1:
         self.parse("u''''''")
         self.parse("U''''''")
 
+    def test_bad_single_statement(self):
+        py.test.raises(SyntaxError, self.parse, '1\n2', "single")
+        py.test.raises(SyntaxError, self.parse, 'a = 13\nb = 187', "single")
+        py.test.raises(SyntaxError, self.parse, 'del x\ndel y', "single")
+        py.test.raises(SyntaxError, self.parse, 'f()\ng()', "single")
+        py.test.raises(SyntaxError, self.parse, 'f()\n# blah\nblah()', "single")
+        py.test.raises(SyntaxError, self.parse, 'f()\nxy # blah\nblah()', "single")
+        py.test.raises(SyntaxError, self.parse, 'x = 5 # comment\nx = 6\n', "single")
+
 
 class TestPythonParserWithSpace:
 

@@ -1,7 +1,8 @@
-from test.support import run_unittest, unload
+from test.support import run_unittest, unload, check_warnings
 import unittest
 import sys
 import imp
+import importlib
 import pkgutil
 import os
 import os.path
@@ -9,7 +10,11 @@ import tempfile
 import shutil
 import zipfile
 
-
+# Note: pkgutil.walk_packages is currently tested in test_runpy. This is
+# a hack to get a major issue resolved for 3.3b2. Longer term, it should
+# be moved back here, perhaps by factoring out the helper code for
+# creating interesting package layouts to a separate module.
+# Issue #15348 declares this is indeed a dodgy hack ;)
 
 class PkgutilTests(unittest.TestCase):
 
@@ -138,10 +143,11 @@ class PkgutilPEP302Tests(unittest.TestCase):
         del sys.modules['foo']
 
 
+# These tests, especially the setup and cleanup, are hideous. They
+# need to be cleaned up once issue 14715 is addressed.
 class ExtendPathTests(unittest.TestCase):
     def create_init(self, pkgname):
         dirname = tempfile.mkdtemp()
-        self.addCleanup(shutil.rmtree, dirname)
         sys.path.insert(0, dirname)
 
         pkgdir = os.path.join(dirname, pkgname)
@@ -156,22 +162,12 @@ class ExtendPathTests(unittest.TestCase):
         with open(module_name, 'w') as fl:
             print('value={}'.format(value), file=fl)
 
-    def setUp(self):
-        # Create 2 directories on sys.path
-        self.pkgname = 'foo'
-        self.dirname_0 = self.create_init(self.pkgname)
-        self.dirname_1 = self.create_init(self.pkgname)
-
-    def tearDown(self):
-        del sys.path[0]
-        del sys.path[0]
-        del sys.modules['foo']
-        del sys.modules['foo.bar']
-        del sys.modules['foo.baz']
-
     def test_simple(self):
-        self.create_submodule(self.dirname_0, self.pkgname, 'bar', 0)
-        self.create_submodule(self.dirname_1, self.pkgname, 'baz', 1)
+        pkgname = 'foo'
+        dirname_0 = self.create_init(pkgname)
+        dirname_1 = self.create_init(pkgname)
+        self.create_submodule(dirname_0, pkgname, 'bar', 0)
+        self.create_submodule(dirname_1, pkgname, 'baz', 1)
         import foo.bar
         import foo.baz
         # Ensure we read the expected values
@@ -180,8 +176,83 @@ class ExtendPathTests(unittest.TestCase):
 
         # Ensure the path is set up correctly
         self.assertEqual(sorted(foo.__path__),
-                         sorted([os.path.join(self.dirname_0, self.pkgname),
-                                 os.path.join(self.dirname_1, self.pkgname)]))
+                         sorted([os.path.join(dirname_0, pkgname),
+                                 os.path.join(dirname_1, pkgname)]))
+
+        # Cleanup
+        shutil.rmtree(dirname_0)
+        shutil.rmtree(dirname_1)
+        del sys.path[0]
+        del sys.path[0]
+        del sys.modules['foo']
+        del sys.modules['foo.bar']
+        del sys.modules['foo.baz']
+
+
+    # Another awful testing hack to be cleaned up once the test_runpy
+    # helpers are factored out to a common location
+    def test_iter_importers(self):
+        iter_importers = pkgutil.iter_importers
+        get_importer = pkgutil.get_importer
+
+        pkgname = 'spam'
+        modname = 'eggs'
+        dirname = self.create_init(pkgname)
+        pathitem = os.path.join(dirname, pkgname)
+        fullname = '{}.{}'.format(pkgname, modname)
+        try:
+            self.create_submodule(dirname, pkgname, modname, 0)
+
+            importlib.import_module(fullname)
+
+            importers = list(iter_importers(fullname))
+            expected_importer = get_importer(pathitem)
+            for finder in importers:
+                self.assertIsInstance(finder, importlib.machinery.FileFinder)
+                self.assertEqual(finder, expected_importer)
+                self.assertIsInstance(finder.find_module(fullname),
+                                      importlib.machinery.SourceFileLoader)
+                self.assertIsNone(finder.find_module(pkgname))
+
+            with self.assertRaises(ImportError):
+                list(iter_importers('invalid.module'))
+
+            with self.assertRaises(ImportError):
+                list(iter_importers('.spam'))
+        finally:
+            shutil.rmtree(dirname)
+            del sys.path[0]
+            del sys.modules['spam']
+            del sys.modules['spam.eggs']
+
+
+    def test_mixed_namespace(self):
+        pkgname = 'foo'
+        dirname_0 = self.create_init(pkgname)
+        dirname_1 = self.create_init(pkgname)
+        self.create_submodule(dirname_0, pkgname, 'bar', 0)
+        # Turn this into a PEP 420 namespace package
+        os.unlink(os.path.join(dirname_0, pkgname, '__init__.py'))
+        self.create_submodule(dirname_1, pkgname, 'baz', 1)
+        import foo.bar
+        import foo.baz
+        # Ensure we read the expected values
+        self.assertEqual(foo.bar.value, 0)
+        self.assertEqual(foo.baz.value, 1)
+
+        # Ensure the path is set up correctly
+        self.assertEqual(sorted(foo.__path__),
+                         sorted([os.path.join(dirname_0, pkgname),
+                                 os.path.join(dirname_1, pkgname)]))
+
+        # Cleanup
+        shutil.rmtree(dirname_0)
+        shutil.rmtree(dirname_1)
+        del sys.path[0]
+        del sys.path[0]
+        del sys.modules['foo']
+        del sys.modules['foo.bar']
+        del sys.modules['foo.baz']
 
     # XXX: test .pkg files
 
@@ -227,12 +298,52 @@ class NestedNamespacePackageTest(unittest.TestCase):
         self.assertEqual(d, 2)
 
 
+class ImportlibMigrationTests(unittest.TestCase):
+    # With full PEP 302 support in the standard import machinery, the
+    # PEP 302 emulation in this module is in the process of being
+    # deprecated in favour of importlib proper
+
+    def check_deprecated(self):
+        return check_warnings(
+            ("This emulation is deprecated, use 'importlib' instead",
+             DeprecationWarning))
+
+    def test_importer_deprecated(self):
+        with self.check_deprecated():
+            x = pkgutil.ImpImporter("")
+
+    def test_loader_deprecated(self):
+        with self.check_deprecated():
+            x = pkgutil.ImpLoader("", "", "", "")
+
+    def test_get_loader_avoids_emulation(self):
+        with check_warnings() as w:
+            self.assertIsNotNone(pkgutil.get_loader("sys"))
+            self.assertIsNotNone(pkgutil.get_loader("os"))
+            self.assertIsNotNone(pkgutil.get_loader("test.support"))
+            self.assertEqual(len(w.warnings), 0)
+
+    def test_get_importer_avoids_emulation(self):
+        # We use an illegal path so *none* of the path hooks should fire
+        with check_warnings() as w:
+            self.assertIsNone(pkgutil.get_importer("*??"))
+            self.assertEqual(len(w.warnings), 0)
+
+    def test_iter_importers_avoids_emulation(self):
+        with check_warnings() as w:
+            for importer in pkgutil.iter_importers(): pass
+            self.assertEqual(len(w.warnings), 0)
+
+
 def test_main():
     run_unittest(PkgutilTests, PkgutilPEP302Tests, ExtendPathTests,
-                 NestedNamespacePackageTest)
+                 NestedNamespacePackageTest, ImportlibMigrationTests)
     # this is necessary if test is run repeated (like when finding leaks)
     import zipimport
+    import importlib
     zipimport._zip_directory_cache.clear()
+    importlib.invalidate_caches()
+
 
 if __name__ == '__main__':
     test_main()

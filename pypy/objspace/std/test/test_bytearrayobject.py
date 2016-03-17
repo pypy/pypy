@@ -169,6 +169,7 @@ class AppTestBytesArray:
         assert bytearray(b'hello').count(b'l') == 2
         assert bytearray(b'hello').count(bytearray(b'l')) == 2
         assert bytearray(b'hello').count(memoryview(b'l')) == 2
+        assert bytearray(b'hello').count(ord('l')) == 2
 
         assert bytearray(b'hello').index(b'e') == 1
         assert bytearray(b'hello').rindex(b'l') == 3
@@ -177,12 +178,10 @@ class AppTestBytesArray:
         assert bytearray(b'hello').find(b'l', -2) == 3
         assert bytearray(b'hello').rfind(b'l') == 3
 
-
-        # these checks used to not raise in pypy but they should
-        raises(TypeError, bytearray(b'hello').index, ord('e'))
-        raises(TypeError, bytearray(b'hello').rindex, ord('e'))
-        raises(TypeError, bytearray(b'hello').find, ord('e'))
-        raises(TypeError, bytearray(b'hello').rfind, ord('e'))
+        assert bytearray(b'hello').index(ord('e')) == 1
+        assert bytearray(b'hello').rindex(ord('l')) == 3
+        assert bytearray(b'hello').find(ord('e')) == 1
+        assert bytearray(b'hello').rfind(ord('l')) == 3
 
         assert bytearray(b'hello').startswith(b'he')
         assert bytearray(b'hello').startswith(bytearray(b'he'))
@@ -332,6 +331,13 @@ class AppTestBytesArray:
         b.remove(Indexable())
         assert b == b''
 
+    def test_clear(self):
+        b = bytearray(b'hello')
+        b2 = b.copy()
+        b.clear()
+        assert b == bytearray()
+        assert b2 == bytearray(b'hello')
+
     def test_reverse(self):
         b = bytearray(b'hello')
         b.reverse()
@@ -364,7 +370,7 @@ class AppTestBytesArray:
         def check(a, b, expected):
             result = a + b
             assert result == expected
-            assert isinstance(result, bytearray)
+            assert isinstance(result, type(a))
 
         check(b1, b2, b"abcdef")
         check(b1, b"def", b"abcdef")
@@ -462,8 +468,8 @@ class AppTestBytesArray:
     def test_buffer(self):
         b = bytearray(b'abcdefghi')
         buf = memoryview(b)
-        assert buf[2] == b'c'
-        buf[3] = b'D'
+        assert buf[2] == ord('c')
+        buf[3] = ord('D')
         assert b == b'abcDefghi'
         buf[4:6] = b'EF'
         assert b == b'abcDEFghi'

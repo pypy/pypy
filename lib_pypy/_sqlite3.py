@@ -29,7 +29,8 @@ import datetime
 import string
 import sys
 import weakref
-from threading import _get_ident as _thread_get_ident
+import threading
+
 try:
     from __pypy__ import newlist_hint
 except ImportError:
@@ -226,7 +227,7 @@ class Connection(object):
         self.__aggregate_instances = {}
         self.__collations = {}
         if check_same_thread:
-            self.__thread_ident = _thread_get_ident()
+            self.__thread_ident = threading.get_ident()
 
         self.Error = Error
         self.Warning = Warning
@@ -277,7 +278,7 @@ class Connection(object):
 
     def _check_thread(self):
         try:
-            if self.__thread_ident == _thread_get_ident():
+            if self.__thread_ident == threading.get_ident():
                 return
         except AttributeError:
             pass
@@ -285,7 +286,7 @@ class Connection(object):
             raise ProgrammingError(
                 "SQLite objects created in a thread can only be used in that "
                 "same thread. The object was created in thread id %d and this "
-                "is thread id %d" % (self.__thread_ident, _thread_get_ident()))
+                "is thread id %d" % (self.__thread_ident, threading.get_ident()))
 
     def _check_thread_wrap(func):
         @wraps(func)
@@ -622,6 +623,22 @@ class Connection(object):
                 self.__func_cache[callable] = progress_handler
         _lib.sqlite3_progress_handler(self._db, nsteps, progress_handler,
                                       _ffi.NULL)
+
+    @_check_thread_wrap
+    @_check_closed_wrap
+    def set_trace_callback(self, callable):
+        if callable is None:
+            trace_callback = _ffi.NULL
+        else:
+            try:
+                trace_callback = self.__func_cache[callable]
+            except KeyError:
+                @_ffi.callback("void(void*, const char*)")
+                def trace_callback(userdata, statement):
+                    stmt = _ffi.string(statement).decode('utf-8')
+                    callable(stmt)
+                self.__func_cache[callable] = trace_callback
+        _lib.sqlite3_trace(self._db, trace_callback, _ffi.NULL)
 
     if sys.version_info[0] >= 3:
         def __get_in_transaction(self):

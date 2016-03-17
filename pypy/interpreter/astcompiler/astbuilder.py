@@ -399,20 +399,15 @@ class ASTBuilder(object):
             else:
                 otherwise = self.handle_suite(try_node.children[-1])
                 except_count -= 1
+        handlers = []
         if except_count:
-            handlers = []
             for i in range(except_count):
                 base_offset = i * 3
                 exc = try_node.children[3 + base_offset]
                 except_body = try_node.children[5 + base_offset]
                 handlers.append(self.handle_except_clause(exc, except_body))
-            except_ast = ast.TryExcept(body, handlers, otherwise,
-                                       try_node.lineno, try_node.column)
-            if finally_suite is None:
-                return except_ast
-            body = [except_ast]
-        return ast.TryFinally(body, finally_suite, try_node.lineno,
-                              try_node.column)
+        return ast.Try(body, handlers, otherwise, finally_suite,
+                       try_node.lineno, try_node.column)
 
     def handle_with_stmt(self, with_node):
         body = self.handle_suite(with_node.children[-1])
@@ -432,6 +427,21 @@ class ASTBuilder(object):
                 break
             body = [wi]
         return wi
+
+    def handle_with_item(self, item_node):
+        test = self.handle_expr(item_node.children[0])
+        if len(item_node.children) == 3:
+            target = self.handle_expr(item_node.children[2])
+            self.set_context(target, ast.Store)
+        else:
+            target = None
+        return ast.withitem(test, target)
+
+    def handle_with_stmt(self, with_node):
+        body = self.handle_suite(with_node.children[-1])
+        items = [self.handle_with_item(with_node.children[i])
+                 for i in range(1, len(with_node.children)-2, 2)]
+        return ast.With(items, body, with_node.lineno, with_node.column)
 
     def handle_classdef(self, classdef_node, decorators=None):
         name_node = classdef_node.children[1]
@@ -811,11 +821,19 @@ class ASTBuilder(object):
                     continue
                 return self.handle_binop(expr_node)
             elif expr_node_type == syms.yield_expr:
-                if len(expr_node.children) == 2:
-                    exp = self.handle_testlist(expr_node.children[1])
+                is_from = False
+                if len(expr_node.children) > 1:
+                    arg_node = expr_node.children[1]  # yield arg
+                    if len(arg_node.children) == 2:
+                        is_from = True
+                        expr = self.handle_expr(arg_node.children[1])
+                    else:
+                        expr = self.handle_testlist(arg_node.children[0])
                 else:
-                    exp = None
-                return ast.Yield(exp, expr_node.lineno, expr_node.column)
+                    expr = None
+                if is_from:
+                    return ast.YieldFrom(expr, expr_node.lineno, expr_node.column)
+                return ast.Yield(expr, expr_node.lineno, expr_node.column)
             elif expr_node_type == syms.factor:
                 if len(expr_node.children) == 1:
                     expr_node = expr_node.children[0]

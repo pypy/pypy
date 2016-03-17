@@ -5,11 +5,11 @@ class AppTestMemoryView:
         v = memoryview(b"abc")
         assert v.tobytes() == b"abc"
         assert len(v) == 3
-        assert v[0] == b'a'
-        assert list(v) == [b'a', b'b', b'c']
+        assert v[0] == ord('a')
+        assert list(v) == [97, 98, 99]
         assert v.tolist() == [97, 98, 99]
-        assert v[1] == b"b"
-        assert v[-1] == b"c"
+        assert v[1] == ord("b")
+        assert v[-1] == ord("c")
         exc = raises(TypeError, "v[1] = b'x'")
         assert str(exc.value) == "cannot modify read-only memory"
         assert v.readonly is True
@@ -23,15 +23,15 @@ class AppTestMemoryView:
         data = bytearray(b'abcefg')
         v = memoryview(data)
         assert v.readonly is False
-        v[0] = b'z'
+        v[0] = ord('z')
         assert data == bytearray(eval("b'zbcefg'"))
         v[1:4] = b'123'
         assert data == bytearray(eval("b'z123fg'"))
         v[0:3] = v[2:5]
         assert data == bytearray(eval("b'23f3fg'"))
-        exc = raises(ValueError, "v[2] = b'spam'")
+        exc = raises(ValueError, "v[2:3] = b'spam'")
         assert str(exc.value) == "cannot modify size of memoryview object"
-        exc = raises(NotImplementedError, "v[0:2:2] = 'spam'")
+        exc = raises(NotImplementedError, "v[0:2:2] = b'spam'")
         assert str(exc.value) == ""
 
     def test_memoryview_attrs(self):
@@ -44,7 +44,7 @@ class AppTestMemoryView:
 
     def test_suboffsets(self):
         v = memoryview(b"a"*100)
-        assert v.suboffsets == None
+        assert v.suboffsets == ()
 
     def test_compare(self):
         assert memoryview(b"abc") == b"abc"
@@ -85,7 +85,12 @@ class AppTestMemoryView:
         assert repr(memoryview(b'hello')).startswith('<memory at 0x')
 
     def test_hash(self):
-        raises(TypeError, "hash(memoryview(b'hello'))")
+        assert hash(memoryview(b'hello')) == hash(b'hello')
+
+    def test_weakref(self):
+        import weakref
+        m = memoryview(b'hello')
+        weakref.ref(m)
 
     def test_getitem_only_ints(self):
         class MyInt(object):
@@ -135,9 +140,9 @@ class AppTestMemoryView:
         assert m.itemsize == 4
         assert len(m) == 10
         assert len(m.tobytes()) == 40
-        assert m[0] == b'\x00\x00\x00\x00'
-        m[0] = b'\x00\x00\x00\x01'
-        assert m[0] == b'\x00\x00\x00\x01'
+        assert m[0] == 0
+        m[0] = 1
+        assert m[0] == 1
 
     def test_int_array_slice(self):
         import array
@@ -147,10 +152,10 @@ class AppTestMemoryView:
         assert slice.itemsize == 4
         assert len(slice) == 6
         assert len(slice.tobytes()) == 24
-        assert slice[0] in (b'\x00\x00\x00\x02', b'\x02\x00\x00\x00')
-        slice[0] = b'\x00\x00\x00\x01'
-        assert slice[0] == b'\x00\x00\x00\x01'
-        assert m[2] == b'\x00\x00\x00\x01'
+        assert slice[0] == 2
+        slice[0] = 1
+        assert slice[0] == 1
+        assert m[2] == 1
 
     def test_pypy_raw_address_base(self):
         raises(ValueError, memoryview(b"foobar")._pypy_raw_address)

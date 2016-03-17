@@ -361,8 +361,7 @@ class TestSymbolTable:
             assert exc.msg == "'yield' outside function"
         for input in ("yield\n    return x", "return x\n    yield"):
             input = "def f():\n    " + input
-            exc = py.test.raises(SyntaxError, self.func_scope, input).value
-            assert exc.msg == "'return' with argument inside generator"
+            scp = self.func_scope(input)
         scp = self.func_scope("def f():\n    return\n    yield x")
 
     def test_yield_inside_try(self):
@@ -392,9 +391,6 @@ class TestSymbolTable:
     def test_tmpnames(self):
         scp = self.mod_scope("with x: pass")
         assert scp.lookup("_[1]") == symtable.SCOPE_LOCAL
-        scp = self.mod_scope("with x as y: pass")
-        assert scp.lookup("_[1]") == symtable.SCOPE_LOCAL
-        assert scp.lookup("_[2]") == symtable.SCOPE_LOCAL
 
     def test_issue13343(self):
         scp = self.mod_scope("lambda *, k1=x, k2: None")

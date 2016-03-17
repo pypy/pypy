@@ -70,7 +70,7 @@ class Module(MixedModule):
         'zip'           : 'functional.W_Zip',
         'min'           : 'functional.min',
         'max'           : 'functional.max',
-        'reversed'      : 'functional.reversed',
+        'reversed'      : 'functional.W_ReversedIterator',
         'super'         : 'descriptor.W_Super',
         'staticmethod'  : 'descriptor.StaticMethod',
         'classmethod'   : 'descriptor.ClassMethod',

@@ -115,3 +115,10 @@ class AppTestClass:
             def get_class(self):
                 return __class__
         assert C().get_class()
+
+    def test_qualname(self):
+        class C:
+            class D:
+                pass
+        assert C.__qualname__ == 'test_qualname.<locals>.C'
+        assert C.D.__qualname__ == 'test_qualname.<locals>.C.D'

@@ -16,7 +16,7 @@ cellvars: ('x',)
 freevars: ()
 nlocals: 2
 flags: 3
-consts: ('None', '<code object g>')
+consts: ('None', '<code object g>', "'f.<locals>.g'")
 
 >>> dump(f(4).__code__)
 name: g
@@ -104,11 +104,7 @@ consts: ('None',)
 
 import unittest
 import weakref
-try:
-    import _testcapi
-except ImportError:
-    _testcapi = None
-from test import support
+from test.support import run_doctest, run_unittest, cpython_only, gc_collect
 
 
 def consts(t):
@@ -130,8 +126,9 @@ def dump(co):
 
 class CodeTest(unittest.TestCase):
 
-    @unittest.skipUnless(_testcapi, 'Requires _testcapi')
+    @cpython_only
     def test_newempty(self):
+        import _testcapi
         co = _testcapi.code_newempty("filename", "funcname", 15)
         self.assertEqual(co.co_filename, "filename")
         self.assertEqual(co.co_name, "funcname")
@@ -159,13 +156,12 @@ class CodeWeakRefTest(unittest.TestCase):
         coderef = weakref.ref(f.__code__, callback)
         self.assertTrue(bool(coderef()))
         del f
-        support.gc_collect()
+        gc_collect()
         self.assertFalse(bool(coderef()))
         self.assertTrue(self.called)
 
 
 def test_main(verbose=None):
-    from test.support import run_doctest, run_unittest
     from test import test_code
     run_doctest(test_code, verbose)
     run_unittest(CodeTest, CodeWeakRefTest)

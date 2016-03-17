@@ -324,7 +324,8 @@ def compress(stream, data, flush=Z_NO_FLUSH):
     return data
 
 
-def decompress(stream, data, flush=Z_SYNC_FLUSH, max_length=sys.maxint):
+def decompress(stream, data, flush=Z_SYNC_FLUSH, max_length=sys.maxint,
+               zdict=None):
     """
     Feed more data into an inflate stream.  Returns a tuple (string,
     finished, unused_data_length).  The string contains (a part of) the
@@ -350,7 +351,7 @@ def decompress(stream, data, flush=Z_SYNC_FLUSH, max_length=sys.maxint):
         should_finish = False
     while_doing = "while decompressing data"
     data, err, avail_in = _operate(stream, data, flush, max_length, _inflate,
-                                   while_doing)
+                                   while_doing, zdict=zdict)
     if should_finish:
         # detect incomplete input
         rffi.setintfield(stream, 'c_avail_in', 0)
@@ -361,7 +362,7 @@ def decompress(stream, data, flush=Z_SYNC_FLUSH, max_length=sys.maxint):
     return data, finished, avail_in
 
 
-def _operate(stream, data, flush, max_length, cfunc, while_doing):
+def _operate(stream, data, flush, max_length, cfunc, while_doing, zdict=None):
     """Common code for compress() and decompress().
     """
     # Prepare the input buffer for the stream
@@ -388,6 +389,10 @@ def _operate(stream, data, flush, max_length, cfunc, while_doing):
                 max_length -= bufsize
                 rffi.setintfield(stream, 'c_avail_out', bufsize)
                 err = cfunc(stream, flush)
+                if err == Z_NEED_DICT and zdict is not None:
+                    inflateSetDictionary(stream, zdict)
+                    # repeat the call to inflate
+                    err = cfunc(stream, flush)
                 if err == Z_OK or err == Z_STREAM_END:
                     # accumulate data into 'result'
                     avail_out = rffi.cast(lltype.Signed, stream.c_avail_out)

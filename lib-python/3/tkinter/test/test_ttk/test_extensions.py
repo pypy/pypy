@@ -2,7 +2,7 @@ import sys
 import unittest
 import tkinter
 from tkinter import ttk
-from test.support import requires, run_unittest
+from test.support import requires, run_unittest, gc_collect
 
 import tkinter.test.support as support
 
@@ -22,6 +22,7 @@ class LabeledScaleTest(unittest.TestCase):
         x = ttk.LabeledScale()
         var = x._variable._name
         x.destroy()
+        gc_collect()
         self.assertRaises(tkinter.TclError, x.tk.globalgetvar, var)
 
         # manually created variable
@@ -29,8 +30,12 @@ class LabeledScaleTest(unittest.TestCase):
         name = myvar._name
         x = ttk.LabeledScale(variable=myvar)
         x.destroy()
-        self.assertEqual(x.tk.globalgetvar(name), myvar.get())
+        if x.tk.wantobjects():
+            self.assertEqual(x.tk.globalgetvar(name), myvar.get())
+        else:
+            self.assertEqual(float(x.tk.globalgetvar(name)), myvar.get())
         del myvar
+        gc_collect()
         self.assertRaises(tkinter.TclError, x.tk.globalgetvar, name)
 
         # checking that the tracing callback is properly removed
@@ -45,7 +50,7 @@ class LabeledScaleTest(unittest.TestCase):
         # it tries calling instance attributes not yet defined.
         ttk.LabeledScale(variable=myvar)
         if hasattr(sys, 'last_type'):
-            self.assertFalse(sys.last_type == tkinter.TclError)
+            self.assertNotEqual(sys.last_type, tkinter.TclError)
 
 
     def test_initialization(self):
@@ -59,8 +64,10 @@ class LabeledScaleTest(unittest.TestCase):
         x.destroy()
 
         # variable initialization/passing
-        passed_expected = ((2.5, 2), ('0', 0), (0, 0), (10, 10),
+        passed_expected = (('0', 0), (0, 0), (10, 10),
             (-1, -1), (sys.maxsize + 1, sys.maxsize + 1))
+        if x.tk.wantobjects():
+            passed_expected += ((2.5, 2),)
         for pair in passed_expected:
             x = ttk.LabeledScale(from_=pair[0])
             self.assertEqual(x.value, pair[1])
@@ -120,14 +127,14 @@ class LabeledScaleTest(unittest.TestCase):
         # at the same time this shouldn't affect test outcome
         lscale.update()
         curr_xcoord = lscale.scale.coords()[0]
-        self.assertTrue(prev_xcoord != curr_xcoord)
+        self.assertNotEqual(prev_xcoord, curr_xcoord)
         # the label widget should have been repositioned too
         linfo_2 = lscale.label.place_info()
-        self.assertEqual(lscale.label['text'], 0)
+        self.assertEqual(lscale.label['text'], 0 if lscale.tk.wantobjects() else '0')
         self.assertEqual(curr_xcoord, int(linfo_2['x']))
         # change the range back
         lscale.scale.configure(from_=0, to=10)
-        self.assertTrue(prev_xcoord != curr_xcoord)
+        self.assertNotEqual(prev_xcoord, curr_xcoord)
         self.assertEqual(prev_xcoord, int(linfo_1['x']))
 
         lscale.destroy()
@@ -145,15 +152,20 @@ class LabeledScaleTest(unittest.TestCase):
         # The following update is needed since the test doesn't use mainloop,
         # at the same time this shouldn't affect test outcome
         x.update()
-        self.assertEqual(x.label['text'], newval)
-        self.assertTrue(x.scale.coords()[0] > curr_xcoord)
+        self.assertEqual(x.label['text'],
+                         newval if x.tk.wantobjects() else str(newval))
+        self.assertGreater(x.scale.coords()[0], curr_xcoord)
         self.assertEqual(x.scale.coords()[0],
             int(x.label.place_info()['x']))
 
         # value outside range
-        x.value = x.scale['to'] + 1 # no changes shouldn't happen
+        if x.tk.wantobjects():
+            conv = lambda x: x
+        else:
+            conv = int
+        x.value = conv(x.scale['to']) + 1 # no changes shouldn't happen
         x.update()
-        self.assertEqual(x.label['text'], newval)
+        self.assertEqual(conv(x.label['text']), newval)
         self.assertEqual(x.scale.coords()[0],
             int(x.label.place_info()['x']))
 
@@ -163,6 +175,7 @@ class LabeledScaleTest(unittest.TestCase):
     def test_resize(self):
         x = ttk.LabeledScale()
         x.pack(expand=True, fill='both')
+        gc_collect()
         x.wait_visibility()
         x.update()
 
@@ -199,6 +212,7 @@ class OptionMenuTest(unittest.TestCase):
         optmenu.destroy()
         self.assertEqual(optmenu.tk.globalgetvar(name), var.get())
         del var
+        gc_collect()
         self.assertRaises(tkinter.TclError, optmenu.tk.globalgetvar, name)
 
 
@@ -238,12 +252,13 @@ class OptionMenuTest(unittest.TestCase):
             if last == curr:
                 # no more menu entries
                 break
-            self.assertFalse(curr == default)
+            self.assertNotEqual(curr, default)
             i += 1
         self.assertEqual(i, len(items))
 
         # check that variable is updated correctly
         optmenu.pack()
+        gc_collect()
         optmenu.wait_visibility()
         optmenu['menu'].invoke(0)
         self.assertEqual(optmenu._variable.get(), items[0])

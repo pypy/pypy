@@ -52,7 +52,7 @@ def w_array(space, w_cls, typecode, __args__):
                         a.descr_frombytes(space, buf)
             break
     else:
-        msg = 'bad typecode (must be b, B, u, h, H, i, I, l, L, f or d)'
+        msg = 'bad typecode (must be b, B, u, h, H, i, I, l, L, q, Q, f or d)'
         raise OperationError(space.w_ValueError, space.wrap(msg))
 
     return a
@@ -587,7 +587,7 @@ class TypeCode(object):
         self.itemtype = itemtype
         self.bytes = rffi.sizeof(itemtype)
         self.arraytype = lltype.Array(itemtype, hints={'nolength': True})
-        self.unwrap = unwrap
+        self.unwrap, _, self.convert = unwrap.partition('.')
         self.signed = signed
         self.canoverflow = canoverflow
         self.w_class = None
@@ -618,10 +618,9 @@ types = {
     'i': TypeCode(rffi.INT,           'int_w', True, True),
     'I': TypeCode(rffi.UINT,          'int_w', True),
     'l': TypeCode(rffi.LONG,          'int_w', True, True),
-    'L': TypeCode(rffi.ULONG,         'bigint_w'),  # Overflow handled by
-                                                    # rbigint.touint() which
-                                                    # corresponds to the
-                                                    # C-type unsigned long
+    'L': TypeCode(rffi.ULONG,         'bigint_w.touint'),
+    'q': TypeCode(rffi.LONGLONG,      'bigint_w.tolonglong', True, True),
+    'Q': TypeCode(rffi.ULONGLONG,     'bigint_w.toulonglong', True),
     'f': TypeCode(lltype.SingleFloat, 'float_w', method='__float__'),
     'd': TypeCode(lltype.Float,       'float_w', method='__float__'),
     }
@@ -701,9 +700,9 @@ def make_array(mytype):
                                     "array item must be " + mytype.unwrap[:-2])
                 else:
                     raise
-            if mytype.unwrap == 'bigint_w':
+            if mytype.convert:
                 try:
-                    item = item.touint()
+                    item = getattr(item, mytype.convert)()
                 except (ValueError, OverflowError):
                     msg = 'unsigned %d-byte integer out of range' % \
                           mytype.bytes

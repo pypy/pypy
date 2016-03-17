@@ -11,7 +11,7 @@ from pypy.objspace.std.dictmultiobject import (
 
 
 def _wrapkey(space, key):
-    return space.wrap(key.decode('utf-8'))
+    return space.new_interned_str(key)
 
 
 class EmptyKwargsDictStrategy(EmptyDictStrategy):

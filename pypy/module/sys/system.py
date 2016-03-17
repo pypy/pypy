@@ -1,4 +1,7 @@
 """Information about the current system."""
+import sys
+import os
+
 from pypy.objspace.std.complexobject import HASH_IMAG
 from pypy.objspace.std.floatobject import HASH_INF, HASH_NAN
 from pypy.objspace.std.intobject import HASH_MODULUS
@@ -6,6 +9,7 @@ from pypy.interpreter import gateway
 from rpython.rlib import rbigint, rfloat
 from rpython.rtyper.lltypesystem import lltype, rffi
 
+PLATFORM = 'linux' if sys.platform.startswith('linux') else sys.platform
 
 app = gateway.applevel("""
 "NOT_RPYTHON"
@@ -34,6 +38,11 @@ class hash_info(metaclass=structseqtype):
     inf = structseqfield(2)
     nan = structseqfield(3)
     imag = structseqfield(4)
+
+class thread_info(metaclass=structseqtype):
+    name = structseqfield(0)
+    lock = structseqfield(1)
+    version = structseqfield(2)
 """)
 
 
@@ -77,3 +86,25 @@ def get_hash_info(space):
 
 def get_float_repr_style(space):
     return space.wrap("short")
+
+def get_thread_info(space):
+    if not space.config.objspace.usemodules.thread:
+        return None
+    from rpython.rlib import rthread
+    if rthread.RPYTHREAD_NAME == "pthread":
+        w_lock = space.wrap("semaphore" if rthread.USE_SEMAPHORES
+                            else "mutex+cond")
+        if rthread.CS_GNU_LIBPTHREAD_VERSION is not None:
+            w_version = space.wrap(
+                os.confstr(rthread.CS_GNU_LIBPTHREAD_VERSION))
+        else:
+            w_version = space.w_None
+    else:
+        w_lock = space.w_None
+        w_version = space.w_None
+    info_w = [
+        space.wrap(rthread.RPYTHREAD_NAME),
+        w_lock, w_version,
+    ]
+    w_thread_info = app.wget(space, "thread_info")
+    return space.call_function(w_thread_info, space.newtuple(info_w))

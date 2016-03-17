@@ -2,14 +2,14 @@
 
 import sys
 import os
+import io
 import errno
 import unittest
 from array import array
 from weakref import proxy
 from functools import wraps
-import _testcapi
 
-from test.support import TESTFN, check_warnings, run_unittest, make_bad_fd
+from test.support import TESTFN, check_warnings, run_unittest, make_bad_fd, cpython_only
 from test.support import gc_collect
 from collections import UserList
 
@@ -309,7 +309,7 @@ class OtherFileTests(unittest.TestCase):
         finally:
             os.unlink(TESTFN)
 
-    def testModeStrings(self):
+    def testInvalidModeStrings(self):
         # check invalid mode strings
         for mode in ("", "aU", "wU+", "rw", "rt"):
             try:
@@ -319,6 +319,21 @@ class OtherFileTests(unittest.TestCase):
             else:
                 f.close()
                 self.fail('%r is an invalid file mode' % mode)
+
+    def testModeStrings(self):
+        # test that the mode attribute is correct for various mode strings
+        # given as init args
+        try:
+            for modes in [('w', 'wb'), ('wb', 'wb'), ('wb+', 'rb+'),
+                          ('w+b', 'rb+'), ('a', 'ab'), ('ab', 'ab'),
+                          ('ab+', 'ab+'), ('a+b', 'ab+'), ('r', 'rb'),
+                          ('rb', 'rb'), ('rb+', 'rb+'), ('r+b', 'rb+')]:
+                # read modes are last so that TESTFN will exist first
+                with _FileIO(TESTFN, modes[0]) as f:
+                    self.assertEqual(f.mode, modes[1])
+        finally:
+            if os.path.exists(TESTFN):
+                os.unlink(TESTFN)
 
     def testUnicodeOpen(self):
         # verify repr works for unicode too
@@ -331,8 +346,7 @@ class OtherFileTests(unittest.TestCase):
         try:
             fn = TESTFN.encode("ascii")
         except UnicodeEncodeError:
-            # Skip test
-            return
+            self.skipTest('could not encode %r to ascii' % TESTFN)
         f = _FileIO(fn, "w")
         try:
             f.write(b"abc")
@@ -353,7 +367,11 @@ class OtherFileTests(unittest.TestCase):
         if sys.platform == 'win32':
             import msvcrt
             self.assertRaises(IOError, msvcrt.get_osfhandle, make_bad_fd())
+
+    @cpython_only
+    def testInvalidFd_overflow(self):
         # Issue 15989
+        import _testcapi
         self.assertRaises(TypeError, _FileIO, _testcapi.INT_MAX + 1)
         self.assertRaises(TypeError, _FileIO, _testcapi.INT_MIN - 1)
 
@@ -379,10 +397,10 @@ class OtherFileTests(unittest.TestCase):
         self.assertEqual(f.tell(), 10)
         f.truncate(5)
         self.assertEqual(f.tell(), 10)
-        self.assertEqual(f.seek(0, os.SEEK_END), 5)
+        self.assertEqual(f.seek(0, io.SEEK_END), 5)
         f.truncate(15)
         self.assertEqual(f.tell(), 5)
-        self.assertEqual(f.seek(0, os.SEEK_END), 15)
+        self.assertEqual(f.seek(0, io.SEEK_END), 15)
         f.close()
 
     def testTruncateOnWindows(self):

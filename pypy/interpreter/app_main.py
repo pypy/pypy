@@ -43,9 +43,10 @@ PYPYLOG: If set to a non-empty value, enable logging.
 """
 
 try:
-    from __pypy__ import hidden_applevel
+    from __pypy__ import hidden_applevel, StdErrPrinter
 except ImportError:
     hidden_applevel = lambda f: f
+    StdErrPrinter = None
 try:
     from _ast import PyCF_ACCEPT_NULL_BYTES
 except ImportError:
@@ -266,16 +267,10 @@ def initstdio(encoding=None, unbuffered=False):
     if hasattr(sys, 'stdin'):
         return # already initialized
 
-    # Hack to avoid recursion issues during bootstrapping: pre-import
-    # the utf-8 and latin-1 codecs
-    encerr = None
-    try:
-        import encodings.utf_8
-        import encodings.latin_1
-    except ImportError as e:
-        encerr = e
+    if StdErrPrinter is not None:
+        sys.stderr = sys.__stderr__ = StdErrPrinter(2)
 
-    try:
+    if 1:  # keep indentation
         if encoding and ':' in encoding:
             encoding, errors = encoding.split(':', 1)
         else:
@@ -289,17 +284,11 @@ def initstdio(encoding=None, unbuffered=False):
         try:
             sys.stdin = sys.__stdin__ = create_stdio(
                 0, False, "<stdin>", encoding, errors, unbuffered)
-        except OSError as e:
-            if e.errno != errno.EISDIR:
-                raise
+        except IsADirectoryError:
             import os
             print("Python error: <stdin> is a directory, cannot continue",
                   file=sys.stderr)
             os._exit(1)
-    finally:
-        if encerr:
-            display_exception(encerr)
-            del encerr
 
 def create_stdio(fd, writing, name, encoding, errors, unbuffered):
     import io
@@ -329,7 +318,6 @@ def create_stdio(fd, writing, name, encoding, errors, unbuffered):
 # Order is significant!
 sys_flags = (
     "debug",
-    "division_warning",
     "inspect",
     "interactive",
     "optimize",
@@ -680,24 +668,31 @@ def run_command_line(interactive,
             # assume it's a pyc file only if its name says so.
             # CPython goes to great lengths to detect other cases
             # of pyc file format, but I think it's ok not to care.
-            import imp
+            try:
+                from _frozen_importlib import SourcelessFileLoader
+            except ImportError:
+                from _frozen_importlib_external import SourcelessFileLoader
             if IS_WINDOWS:
                 filename = filename.lower()
             if filename.endswith('.pyc') or filename.endswith('.pyo'):
-                args = (imp._run_compiled_module, '__main__',
-                        sys.argv[0], None, mainmodule, False)
+                loader = SourcelessFileLoader('__main__', filename)
+                args = (loader.load_module, loader.name)
             else:
-                # maybe it's the name of a directory or a zip file
                 filename = sys.argv[0]
-                importer = imp._getimporter(filename)
-                if not isinstance(importer, imp.NullImporter):
-                    # yes.  put the filename in sys.path[0] and import
+                for hook in sys.path_hooks:
+                    try:
+                        importer = hook(filename)
+                    except ImportError:
+                        continue
+                    # It's the name of a directory or a zip file.
+                    # put the filename in sys.path[0] and import
                     # the module __main__
                     import runpy
                     sys.path.insert(0, filename)
                     args = (runpy._run_module_as_main, '__main__', False)
+                    break
                 else:
-                    # no.  That's the normal path, "pypy stuff.py".
+                    # That's the normal path, "pypy stuff.py".
                     @hidden_applevel
                     def execfile(filename, namespace):
                         with open(filename, 'rb') as f:
@@ -774,6 +769,7 @@ def entry_point(executable, argv):
     # import os, which is used a bit everywhere in app_main, but only imported
     # *after* setup_bootstrap_path
     setup_bootstrap_path(executable)
+    sys.pypy_initfsencoding()
     try:
         cmdline = parse_command_line(argv)
     except CommandLineError as e:
@@ -836,28 +832,6 @@ if __name__ == '__main__':
         import os
         return os.path.abspath(os.path.join(s, '..'))
 
-
-    # add an emulator for these pypy-only or 2.7-only functions
-    # (for test_pyc_commandline_argument)
-    import imp, runpy
-    def _run_compiled_module(modulename, filename, file, module, write_paths):
-        import os
-        assert modulename == '__main__'
-        assert os.path.isfile(filename)
-        assert filename.endswith('.pyc')
-        assert file is None
-        assert module.__name__ == '__main__'
-        print('in _run_compiled_module')
-    def _getimporter(path):
-        import os, imp
-        if os.path.isdir(path):
-            return None
-        else:
-            return imp.NullImporter(path)
-
-    imp._run_compiled_module = _run_compiled_module
-    imp._getimporter = _getimporter
-
     import os
     reset = []
     if 'PYTHONINSPECT_' in os.environ:
@@ -869,9 +843,14 @@ if __name__ == '__main__':
     del os # make sure that os is not available globally, because this is what
            # happens in "real life" outside the tests
 
+    # when run as __main__, this module is often executed by a Python
+    # interpreter that have a different list of builtin modules.
+    # Make some tests happy by loading them before we clobber sys.path
+    import runpy
     if 'time' not in sys.builtin_module_names:
-        # make some tests happy by loading this before we clobber sys.path
         import time; del time
+    if 'operator' not in sys.builtin_module_names:
+        import operator; del operator
 
     # no one should change to which lists sys.argv and sys.path are bound
     old_argv = sys.argv
@@ -883,8 +862,9 @@ if __name__ == '__main__':
     sys.pypy_find_executable = pypy_find_executable
     sys.pypy_find_stdlib = pypy_find_stdlib
     sys.pypy_resolvedirof = pypy_resolvedirof
+    sys.pypy_initfsencoding = lambda: None
     sys.cpython_path = sys.path[:]
-    
+
     try:
         sys.exit(int(entry_point(sys.argv[0], sys.argv[1:])))
     finally:

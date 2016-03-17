@@ -214,7 +214,7 @@ class AppTestSignal:
             cannot_read()
             posix.kill(posix.getpid(), signal.SIGINT)
             res = posix.read(fd_read, 1)
-            assert res == b'\x00'
+            assert res == bytes([signal.SIGINT])
             cannot_read()
         finally:
             old_wakeup = signal.set_wakeup_fd(old_wakeup)
@@ -319,3 +319,43 @@ class AppTestItimer:
         import signal
 
         raises(signal.ItimerError, signal.setitimer, -1, 0)
+
+class AppTestPThread:
+    spaceconfig = dict(usemodules=['signal', 'thread', 'time'])
+
+    def test_pthread_kill(self):
+        import signal
+        import _thread
+        signum = signal.SIGUSR1
+        def handler(signum, frame):
+            1/0
+        signal.signal(signum, handler)
+        tid = _thread.get_ident()
+        raises(ZeroDivisionError, signal.pthread_kill, tid, signum)
+        
+    def test_sigwait(self):
+        import signal
+        def handler(signum, frame):
+            1/0
+        signal.signal(signal.SIGALRM, handler)
+        signal.alarm(1)
+        received = signal.sigwait([signal.SIGALRM])
+        assert received == signal.SIGALRM
+        
+    def test_sigmask(self):
+        import signal, posix
+        signum1 = signal.SIGUSR1
+        signum2 = signal.SIGUSR2
+
+        def handler(signum, frame):
+            pass
+        signal.signal(signum1, handler)
+        signal.signal(signum2, handler)
+
+        signal.pthread_sigmask(signal.SIG_BLOCK, (signum1, signum2))
+        posix.kill(posix.getpid(), signum1)
+        posix.kill(posix.getpid(), signum2)
+        assert signal.sigpending() == set((signum1, signum2))
+        # Unblocking the 2 signals calls the C signal handler twice
+        signal.pthread_sigmask(signal.SIG_UNBLOCK, (signum1, signum2))
+        assert signal.sigpending() == set()

@@ -7,7 +7,7 @@ _WIN = sys.platform == 'win32'
 
 class Module(MixedModule):
     """Sys Builtin Module. """
-    _immutable_fields_ = ["defaultencoding?", "debug?"]
+    _immutable_fields_ = ["defaultencoding", "debug?"]
 
     def __init__(self, space, w_name):
         """NOT_RPYTHON""" # because parent __init__ isn't
@@ -15,7 +15,6 @@ class Module(MixedModule):
             del self.__class__.interpleveldefs['pypy_getudir']
         super(Module, self).__init__(space, w_name)
         self.recursionlimit = 100
-        self.w_default_encoder = None
         self.defaultencoding = "utf-8"
         self.filesystemencoding = None
         self.debug = True
@@ -24,7 +23,7 @@ class Module(MixedModule):
         '__name__'              : '(space.wrap("sys"))',
         '__doc__'               : '(space.wrap("PyPy sys module"))',
 
-        'platform'              : 'space.wrap(sys.platform)',
+        'platform'              : 'space.wrap(system.PLATFORM)',
         'maxsize'               : 'space.wrap(sys.maxint)',
         'byteorder'             : 'space.wrap(sys.byteorder)',
         'maxunicode'            : 'space.wrap(vm.MAXUNICODE)',
@@ -41,6 +40,7 @@ class Module(MixedModule):
         'pypy_find_stdlib'      : 'initpath.pypy_find_stdlib',
         'pypy_find_executable'  : 'initpath.pypy_find_executable',
         'pypy_resolvedirof'     : 'initpath.pypy_resolvedirof',
+        'pypy_initfsencoding'   : 'initpath.pypy_initfsencoding',
 
         '_getframe'             : 'vm._getframe',
         '_current_frames'       : 'currentframes._current_frames',
@@ -78,7 +78,7 @@ class Module(MixedModule):
         'float_info'            : 'system.get_float_info(space)',
         'int_info'              : 'system.get_int_info(space)',
         'hash_info'             : 'system.get_hash_info(space)',
-        'float_repr_style'      : 'system.get_float_repr_style(space)'
+        'float_repr_style'      : 'system.get_float_repr_style(space)',
         }
 
     if sys.platform == 'win32':
@@ -93,14 +93,14 @@ class Module(MixedModule):
         'copyright'             : 'app.copyright_str',
         'flags'                 : 'app.null_sysflags',
         '_xoptions'             : 'app.null__xoptions',
+        'implementation'        : 'app.implementation',
     }
 
     def startup(self, space):
-        if space.config.translating and not we_are_translated():
-            # don't get the filesystemencoding at translation time
+        if space.config.translating:
             assert self.filesystemencoding is None
 
-        else:
+        if not space.config.translating or we_are_translated():
             from pypy.module.sys import version
             space.setitem(self.w_dict, space.wrap("version"),
                           space.wrap(version.get_version(space)))
@@ -108,6 +108,18 @@ class Module(MixedModule):
                 from pypy.module.sys import vm
                 w_handle = vm.get_dllhandle(space)
                 space.setitem(self.w_dict, space.wrap("dllhandle"), w_handle)
+
+        from pypy.module.sys import system
+        thread_info = system.get_thread_info(space)
+        if thread_info is not None:
+            space.setitem(self.w_dict, space.wrap('thread_info'), thread_info)
+
+    def setup_after_space_initialization(self):
+        space = self.space
+
+        if not space.config.translating:
+            from pypy.module.sys.interp_encoding import _getfilesystemencoding
+            self.filesystemencoding = _getfilesystemencoding(space)
 
         if not space.config.translating:
             # Install standard streams for tests that don't call app_main.
@@ -188,16 +200,6 @@ class Module(MixedModule):
             else:
                 return space.wrap(operror.get_traceback())
         return None
-
-    def get_w_default_encoder(self):
-        if self.w_default_encoder is not None:
-            # XXX is this level of caching ok?  CPython has some shortcuts
-            # for common encodings, but as far as I can see it has no general
-            # cache.
-            return self.w_default_encoder
-        else:
-            from pypy.module.sys.interp_encoding import get_w_default_encoder
-            return get_w_default_encoder(self.space)
 
     def get_flag(self, name):
         space = self.space

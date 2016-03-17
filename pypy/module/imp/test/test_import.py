@@ -17,6 +17,30 @@ from pypy.module.imp import importing
 
 from pypy import conftest
 
+
+def _read_n(stream, n):
+    buf = ''
+    while len(buf) < n:
+        data = stream.read(n - len(buf))
+        if not data:
+            raise streamio.StreamError("end of file")
+        buf += data
+    return buf
+
+def _r_long(stream):
+    s = _read_n(stream, 4)
+    return importing._get_long(s)
+
+def _w_long(stream, x):
+    a = x & 0xff
+    x >>= 8
+    b = x & 0xff
+    x >>= 8
+    c = x & 0xff
+    x >>= 8
+    d = x & 0xff
+    stream.write(chr(a) + chr(b) + chr(c) + chr(d))
+
 def setuppkg(pkgname, **entries):
     p = udir.join('impsubdir')
     if pkgname:
@@ -44,7 +68,7 @@ def setup_directory_structure(cls):
                     _md5 = "hello_world = 42\n",
                     gc = "should_never_be_seen = 42\n",
                     )
-    root.ensure("notapackage", dir=1)    # empty, no __init__.py
+    root.ensure("packagenamespace", dir=1)    # empty, no __init__.py
     setuppkg("pkg",
              a          = "imamodule = 1\ninpackage = 1",
              b          = "imamodule = 1\ninpackage = 1",
@@ -88,11 +112,6 @@ def setup_directory_structure(cls):
              __init__ = "import a",
              a        = "imamodule = 1\ninpackage = 1",
              )
-    setuppkg("pkg_substituting",
-             __init__ = "import sys, pkg_substituted\n"
-                        "print('TOTO', __name__)\n"
-                        "sys.modules[__name__] = pkg_substituted")
-    setuppkg("pkg_substituted", mod='')
     setuppkg("evil_pkg",
              evil = "import sys\n"
                       "from evil_pkg import good\n"
@@ -141,32 +160,6 @@ def setup_directory_structure(cls):
         cls.w_special_char = space.wrap(special_char.decode(fsenc))
     else:
         cls.w_special_char = space.w_None
-
-    # create compiled/x.py and a corresponding pyc file
-    p = setuppkg("compiled", x = "x = 84")
-    if conftest.option.runappdirect:
-        import marshal, stat, struct, os, imp
-        code = py.code.Source(p.join("x.py").read()).compile()
-        s3 = marshal.dumps(code)
-        s2 = struct.pack("i", os.stat(str(p.join("x.py")))[stat.ST_MTIME])
-        p.join("x.pyc").write(imp.get_magic() + s2 + s3, mode='wb')
-    else:
-        w = space.wrap
-        w_modname = w("compiled.x")
-        filename = str(p.join("x.py"))
-        pycname = importing.make_compiled_pathname("x.py")
-        stream = streamio.open_file_as_stream(filename, "r")
-        try:
-            importing.load_source_module(
-                space, w_modname, w(importing.Module(space, w_modname)),
-                filename, stream.readall(),
-                stream.try_to_find_file_descriptor())
-        finally:
-            stream.close()
-        if not space.config.translation.sandbox:
-            # also create a lone .pyc file
-            p.join('lone.pyc').write(p.join(pycname).read(mode='rb'),
-                                     mode='wb')
 
     # create a .pyw file
     p = setuppkg("windows", x = "x = 78")
@@ -219,39 +212,18 @@ class AppTestImport(BaseImportTest):
         #XXX Compile class
 
     def teardown_class(cls):
+        return
         _teardown(cls.space, cls.w_saved_modules)
 
     def w_exec_(self, cmd, ns):
         exec(cmd, ns)
 
-    def test_file_and_cached(self):
-        import compiled.x
-        assert "__pycache__" not in compiled.x.__file__
-        assert compiled.x.__file__.endswith(".py")
-        assert "__pycache__" in compiled.x.__cached__
-        assert compiled.x.__cached__.endswith(".pyc")
-
     def test_set_sys_modules_during_import(self):
         from evil_pkg import evil
         assert evil.a == 42
 
-    def test_import_bare_dir_fails(self):
-        def imp():
-            import notapackage
-        raises(ImportError, imp)
-
-    def test_import_bare_dir_warns(self):
-        def imp():
-            import notapackage
-
-        import _warnings
-        def simplefilter(action, category):
-            _warnings.filters.insert(0, (action, None, category, None, 0))
-        simplefilter('error', ImportWarning)
-        try:
-            raises(ImportWarning, imp)
-        finally:
-            simplefilter('default', ImportWarning)
+    def test_import_namespace_package(self):
+        import packagenamespace
 
     def test_import_sys(self):
         import sys
@@ -295,7 +267,7 @@ class AppTestImport(BaseImportTest):
         filename = pkg.a.__file__
         assert filename.endswith('.py')
         exc = raises(ImportError, __import__, filename[:-3])
-        assert exc.value.args[0] == "Import by filename is not supported."
+        assert exc.value.args[0].startswith("No module named ")
 
     def test_import_badcase(self):
         def missing(name):
@@ -398,21 +370,12 @@ class AppTestImport(BaseImportTest):
         o = __import__('sys', [], [], ['']) # CPython accepts this
         assert sys == o
 
-    def test_substituting_import(self):
-        from pkg_substituting import mod
-        assert mod.__name__ =='pkg_substituting.mod'
-
     def test_proper_failure_on_killed__path__(self):
         import pkg.pkg2.a
         del pkg.pkg2.__path__
         def imp_b():
             import pkg.pkg2.b
         raises(ImportError,imp_b)
-
-    def test_pyc(self):
-        import sys
-        import compiled.x
-        assert compiled.x == sys.modules.get('compiled.x')
 
     @pytest.mark.skipif("sys.platform != 'win32'")
     def test_pyw(self):
@@ -464,19 +427,19 @@ class AppTestImport(BaseImportTest):
         def imp():
             from pkg import relative_f
         exc = raises(ImportError, imp)
-        assert exc.value.args[0] == "No module named pkg.imp"
+        assert exc.value.args[0] == "No module named 'pkg.imp'"
 
     def test_no_relative_import_bug(self):
         def imp():
             from pkg import relative_g
         exc = raises(ImportError, imp)
-        assert exc.value.args[0] == "No module named pkg.imp"
+        assert exc.value.args[0] == "No module named 'pkg.imp'"
 
     def test_import_msg(self):
         def imp():
             import pkg.i_am_not_here.neither_am_i
         exc = raises(ImportError, imp)
-        assert exc.value.args[0] == "No module named pkg.i_am_not_here"
+        assert exc.value.args[0] == "No module named 'pkg.i_am_not_here'"
 
     def test_future_relative_import_level_1(self):
         from pkg import relative_c
@@ -502,14 +465,14 @@ class AppTestImport(BaseImportTest):
                     print('__name__ =', __name__)
                     from .struct import inpackage
         """, ns)
-        raises(ValueError, ns['imp'])
+        raises(SystemError, ns['imp'])
 
     def test_future_relative_import_error_when_in_non_package2(self):
         ns = {'__name__': __name__}
         exec("""def imp():
                     from .. import inpackage
         """, ns)
-        raises(ValueError, ns['imp'])
+        raises(SystemError, ns['imp'])
 
     def test_relative_import_with___name__(self):
         import sys
@@ -531,6 +494,7 @@ class AppTestImport(BaseImportTest):
         import imp
         pkg = imp.new_module('newpkg')
         sys.modules['newpkg'] = pkg
+        sys.modules['newpkg.foo'] = imp.new_module('newpkg.foo')
         mydict = {'__name__': 'newpkg.foo', '__path__': '/some/path'}
         res = __import__('', mydict, None, ['bar'], 2)
         assert res is pkg
@@ -567,7 +531,7 @@ class AppTestImport(BaseImportTest):
         # Check relative fails when __package__ set to a non-string
         ns = dict(__package__=object())
         check_absolute()
-        raises(ValueError, check_relative)
+        raises(TypeError, check_relative)
 
     def test_import_function(self):
         # More tests for __import__
@@ -704,7 +668,7 @@ class AppTestImport(BaseImportTest):
     def test_del_from_sys_modules(self):
         try:
             import del_sys_module
-        except ImportError:
+        except KeyError:
             pass    # ok
         else:
             assert False, 'should not work'
@@ -764,6 +728,7 @@ class AppTestImport(BaseImportTest):
             sys.modules.pop('_md5', None)
 
     def test_invalid_pathname(self):
+        skip("This test fails on CPython 3.3, but passes on CPython 3.4+")
         import imp
         import pkg
         import os
@@ -880,45 +845,6 @@ def _testfilesource(source="x=42"):
 class TestPycStuff:
     # ___________________ .pyc related stuff _________________
 
-    def test_check_compiled_module(self):
-        space = self.space
-        mtime = 12345
-        cpathname = _testfile(space, importing.get_pyc_magic(space), mtime)
-        ret = importing.check_compiled_module(space,
-                                              cpathname,
-                                              mtime)
-        assert ret is not None
-        ret.close()
-
-        # check for wrong mtime
-        ret = importing.check_compiled_module(space,
-                                              cpathname,
-                                              mtime+1)
-        assert ret is None
-
-        # also check with expected mtime==0 (nothing special any more about 0)
-        ret = importing.check_compiled_module(space,
-                                              cpathname,
-                                              0)
-        assert ret is None
-        os.remove(cpathname)
-
-        # check for wrong version
-        cpathname = _testfile(space, importing.get_pyc_magic(space)+1, mtime)
-        ret = importing.check_compiled_module(space,
-                                              cpathname,
-                                              mtime)
-        assert ret is None
-
-        # check for empty .pyc file
-        f = open(cpathname, 'wb')
-        f.close()
-        ret = importing.check_compiled_module(space,
-                                              cpathname,
-                                              mtime)
-        assert ret is None
-        os.remove(cpathname)
-
     def test_read_compiled_module(self):
         space = self.space
         mtime = 12345
@@ -948,8 +874,8 @@ class TestPycStuff:
         stream = streamio.open_file_as_stream(cpathname, "rb")
         try:
             w_mod = space.wrap(Module(space, w_modulename))
-            magic = importing._r_long(stream)
-            timestamp = importing._r_long(stream)
+            magic = _r_long(stream)
+            timestamp = _r_long(stream)
             w_ret = importing.load_compiled_module(space,
                                                    w_modulename,
                                                    w_mod,
@@ -973,8 +899,8 @@ class TestPycStuff:
         stream = streamio.open_file_as_stream(cpathname, "rb")
         try:
             w_mod = space.wrap(Module(space, w_modulename))
-            magic = importing._r_long(stream)
-            timestamp = importing._r_long(stream)
+            magic = _r_long(stream)
+            timestamp = _r_long(stream)
             w_ret = importing.load_compiled_module(space,
                                                    w_modulename,
                                                    w_mod,
@@ -1009,171 +935,21 @@ class TestPycStuff:
         pathname = str(udir.join('test.dat'))
         stream = streamio.open_file_as_stream(pathname, "wb")
         try:
-            importing._w_long(stream, 42)
-            importing._w_long(stream, 12312)
-            importing._w_long(stream, 128397198)
+            _w_long(stream, 42)
+            _w_long(stream, 12312)
+            _w_long(stream, 128397198)
         finally:
             stream.close()
         stream = streamio.open_file_as_stream(pathname, "rb")
         try:
-            res = importing._r_long(stream)
+            res = _r_long(stream)
             assert res == 42
-            res = importing._r_long(stream)
+            res = _r_long(stream)
             assert res == 12312
-            res = importing._r_long(stream)
+            res = _r_long(stream)
             assert res == 128397198
         finally:
             stream.close()
-
-    def test_load_source_module(self):
-        space = self.space
-        w_modulename = space.wrap('somemodule')
-        w_mod = space.wrap(Module(space, w_modulename))
-        pathname = _testfilesource()
-        stream = streamio.open_file_as_stream(pathname, "r")
-        try:
-            w_ret = importing.load_source_module(
-                space, w_modulename, w_mod,
-                pathname, stream.readall(),
-                stream.try_to_find_file_descriptor())
-        finally:
-            stream.close()
-        assert w_mod is w_ret
-        w_ret = space.getattr(w_mod, space.wrap('x'))
-        ret = space.int_w(w_ret)
-        assert ret == 42
-
-        cpathname = udir.join('test.pyc')
-        assert cpathname.check()
-        cpathname.remove()
-
-    def test_load_source_module_nowrite(self):
-        space = self.space
-        w_modulename = space.wrap('somemodule')
-        w_mod = space.wrap(Module(space, w_modulename))
-        pathname = _testfilesource()
-        stream = streamio.open_file_as_stream(pathname, "r")
-        try:
-            w_ret = importing.load_source_module(
-                space, w_modulename, w_mod,
-                pathname, stream.readall(),
-                stream.try_to_find_file_descriptor(),
-                write_pyc=False)
-        finally:
-            stream.close()
-        cpathname = udir.join('test.pyc')
-        assert not cpathname.check()
-
-    def test_load_source_module_dont_write_bytecode(self):
-        space = self.space
-        w_modulename = space.wrap('somemodule')
-        w_mod = space.wrap(Module(space, w_modulename))
-        pathname = _testfilesource()
-        stream = streamio.open_file_as_stream(pathname, "r")
-        try:
-            space.setattr(space.sys, space.wrap('dont_write_bytecode'),
-                          space.w_True)
-            w_ret = importing.load_source_module(
-                space, w_modulename, w_mod,
-                pathname, stream.readall(),
-                stream.try_to_find_file_descriptor())
-        finally:
-            space.setattr(space.sys, space.wrap('dont_write_bytecode'),
-                          space.w_False)
-            stream.close()
-        cpathname = udir.join('test.pyc')
-        assert not cpathname.check()
-
-    def test_load_source_module_syntaxerror(self):
-        # No .pyc file on SyntaxError
-        space = self.space
-        w_modulename = space.wrap('somemodule')
-        w_mod = space.wrap(Module(space, w_modulename))
-        pathname = _testfilesource(source="<Syntax Error>")
-        stream = streamio.open_file_as_stream(pathname, "r")
-        try:
-            w_ret = importing.load_source_module(
-                space, w_modulename, w_mod,
-                pathname, stream.readall(),
-                stream.try_to_find_file_descriptor())
-        except OperationError:
-            # OperationError("Syntax Error")
-            pass
-        stream.close()
-
-        cpathname = udir.join('test.pyc')
-        assert not cpathname.check()
-        
-    def test_load_source_module_importerror(self):
-        # the .pyc file is created before executing the module
-        space = self.space
-        w_modulename = space.wrap('somemodule')
-        w_mod = space.wrap(Module(space, w_modulename))
-        pathname = _testfilesource(source="a = unknown_name")
-        stream = streamio.open_file_as_stream(pathname, "r")
-        try:
-            w_ret = importing.load_source_module(
-                space, w_modulename, w_mod,
-                pathname, stream.readall(),
-                stream.try_to_find_file_descriptor())
-        except OperationError:
-            # OperationError("NameError", "global name 'unknown_name' is not defined")
-            pass
-        stream.close()
-
-        # And the .pyc has been generated
-        cpathname = udir.join(importing.make_compiled_pathname('test.py'))
-        assert cpathname.check()
-
-    def test_write_compiled_module(self):
-        space = self.space
-        pathname = _testfilesource()
-        os.chmod(pathname, 0777)
-        stream = streamio.open_file_as_stream(pathname, "r")
-        try:
-            w_ret = importing.parse_source_module(space,
-                                                  pathname,
-                                                  stream.readall())
-        finally:
-            stream.close()
-        pycode = w_ret
-        assert type(pycode) is PyCode
-
-        cpathname = str(udir.join('cpathname.pyc'))
-        mode = 0777
-        mtime = 12345
-        importing.write_compiled_module(space,
-                                        pycode,
-                                        cpathname,
-                                        mode,
-                                        mtime)
-
-        # check
-        ret = importing.check_compiled_module(space,
-                                              cpathname,
-                                              mtime)
-        assert ret is not None
-        ret.close()
-
-        # Check that the executable bit was removed
-        assert os.stat(cpathname).st_mode & 0111 == 0
-
-        # read compiled module
-        stream = streamio.open_file_as_stream(cpathname, "rb")
-        try:
-            stream.seek(8, 0)
-            w_code = importing.read_compiled_module(space, cpathname,
-                                                    stream.readall())
-            pycode = w_code
-        finally:
-            stream.close()
-
-        # check value of load
-        w_dic = space.newdict()
-        pycode.exec_code(space, w_dic, w_dic)
-        w_ret = space.getitem(w_dic, space.wrap('x'))
-        ret = space.int_w(w_ret)
-        assert ret == 42
 
     def test_pyc_magic_changes(self):
         py.test.skip("For now, PyPy generates only one kind of .pyc files")
@@ -1197,8 +973,8 @@ class TestPycStuff:
                 stream = streamio.open_file_as_stream(cpathname, "rb")
                 try:
                     w_mod = space2.wrap(Module(space2, w_modulename))
-                    magic = importing._r_long(stream)
-                    timestamp = importing._r_long(stream)
+                    magic = _r_long(stream)
+                    timestamp = _r_long(stream)
                     space2.raises_w(space2.w_ImportError,
                                     importing.load_compiled_module,
                                     space2,
@@ -1276,7 +1052,7 @@ class AppTestImportHooks(object):
         import sys, math
         del sys.modules["math"]
 
-        sys.meta_path.append(Importer())
+        sys.meta_path.insert(0, Importer())
         try:
             import math
             assert len(tried_imports) == 1
@@ -1286,7 +1062,7 @@ class AppTestImportHooks(object):
             else:
                 assert tried_imports[0][0] == "math"
         finally:
-            sys.meta_path.pop()
+            sys.meta_path.pop(0)
 
     def test_meta_path_block(self):
         class ImportBlocker(object):
@@ -1305,7 +1081,7 @@ class AppTestImportHooks(object):
         if modname in sys.modules:
             mod = sys.modules
             del sys.modules[modname]
-        sys.meta_path.append(ImportBlocker(modname))
+        sys.meta_path.insert(0, ImportBlocker(modname))
         try:
             raises(ImportError, __import__, modname)
             # the imp module doesn't use meta_path, and is not blocked
@@ -1313,7 +1089,7 @@ class AppTestImportHooks(object):
             file, filename, stuff = imp.find_module(modname)
             imp.load_module(modname, file, filename, stuff)
         finally:
-            sys.meta_path.pop()
+            sys.meta_path.pop(0)
             if mod:
                 sys.modules[modname] = mod
 
@@ -1341,8 +1117,7 @@ class AppTestImportHooks(object):
                 import b
             except ImportError:
                 pass
-            assert isinstance(sys.path_importer_cache['yyy'],
-                              imp.NullImporter)
+            assert sys.path_importer_cache['yyy'] is None
         finally:
             sys.path.pop(0)
             sys.path.pop(0)
@@ -1468,50 +1243,6 @@ class AppTestImportHooks(object):
             sys.meta_path.pop()
 
 
-class AppTestPyPyExtension(object):
-    spaceconfig = dict(usemodules=['imp', 'zipimport', '__pypy__'])
-
-    def setup_class(cls):
-        cls.w_udir = cls.space.wrap(str(udir))
-
-    def test_run_compiled_module(self):
-        # XXX minimal test only
-        import imp, types
-        module = types.ModuleType('foobar')
-        raises(IOError, imp._run_compiled_module,
-               'foobar', 'this_file_does_not_exist', None, module)
-
-    def test_getimporter(self):
-        import imp, os
-        # an existing directory
-        importer = imp._getimporter(self.udir)
-        assert importer is None
-        # an existing file
-        path = os.path.join(self.udir, 'test_getimporter')
-        open(path, 'w').close()
-        importer = imp._getimporter(path)
-        assert isinstance(importer, imp.NullImporter)
-        # a non-existing path
-        path = os.path.join(self.udir, 'does_not_exist_at_all')
-        importer = imp._getimporter(path)
-        assert isinstance(importer, imp.NullImporter)
-        # a mostly-empty zip file
-        path = os.path.join(self.udir, 'test_getimporter.zip')
-        f = open(path, 'wb')
-        f.write(b'PK\x03\x04\n\x00\x00\x00\x00\x00P\x9eN>\x00\x00\x00\x00\x00'
-                b'\x00\x00\x00\x00\x00\x00\x00\x05\x00\x15\x00emptyUT\t\x00'
-                b'\x03wyYMwyYMUx\x04\x00\xf4\x01d\x00PK\x01\x02\x17\x03\n\x00'
-                b'\x00\x00\x00\x00P\x9eN>\x00\x00\x00\x00\x00\x00\x00\x00\x00'
-                b'\x00\x00\x00\x05\x00\r\x00\x00\x00\x00\x00\x00\x00\x00\x00'
-                b'\xa4\x81\x00\x00\x00\x00emptyUT\x05\x00\x03wyYMUx\x00\x00PK'
-                b'\x05\x06\x00\x00\x00\x00\x01\x00\x01\x00@\x00\x00\x008\x00'
-                b'\x00\x00\x00\x00')
-        f.close()
-        importer = imp._getimporter(path)
-        import zipimport
-        assert isinstance(importer, zipimport.zipimporter)
-
-
 class AppTestWriteBytecode(object):
     spaceconfig = {
         "translation.sandbox": False
@@ -1557,24 +1288,6 @@ class AppTestWriteBytecodeSandbox(AppTestWriteBytecode):
     spaceconfig = {
         "translation.sandbox": True
     }
-
-
-class AppTestNoLonePycFile(object):
-    def setup_class(cls):
-        cls.saved_modules = _setup(cls)
-
-    def teardown_class(cls):
-        _teardown(cls.space, cls.saved_modules)
-
-    def test_import_possibly_from_pyc(self):
-        from compiled import x
-        assert x.__file__.endswith('.py')
-        try:
-            from compiled import lone
-        except ImportError:
-            pass
-        else:
-            assert lone.__cached__.endswith('.pyc')
 
 
 class AppTestMultithreadedImp(object):

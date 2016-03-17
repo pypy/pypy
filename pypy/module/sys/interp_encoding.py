@@ -7,17 +7,6 @@ def getdefaultencoding(space):
 implementation."""
     return space.wrap(space.sys.defaultencoding)
 
-def get_w_default_encoder(space):
-    assert not (space.config.translating and not we_are_translated()), \
-        "get_w_default_encoder() should not be called during translation"
-    w_encoding = space.wrap(space.sys.defaultencoding)
-    mod = space.getbuiltinmodule("_codecs")
-    w_lookup = space.getattr(mod, space.wrap("lookup"))
-    w_functuple = space.call_function(w_lookup, w_encoding)
-    w_encoder = space.getitem(w_functuple, space.wrap(0))
-    space.sys.w_default_encoder = w_encoder    # cache it
-    return w_encoder
-
 if sys.platform == "win32":
     base_encoding = "mbcs"
 elif sys.platform == "darwin":
@@ -57,5 +46,5 @@ def getfilesystemencoding(space):
     operating system filenames.
     """
     if space.sys.filesystemencoding is None:
-        space.sys.filesystemencoding = _getfilesystemencoding(space)
+        return space.wrap(base_encoding)
     return space.wrap(space.sys.filesystemencoding)

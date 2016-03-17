@@ -1,6 +1,8 @@
 import unittest
 from test import support
-from _testcapi import getargs_keywords
+# Skip this test if the _testcapi module isn't available.
+support.import_module('_testcapi')
+from _testcapi import getargs_keywords, getargs_keyword_only
 
 """
 > How about the following counterproposal. This also changes some of
@@ -50,12 +52,33 @@ class Int:
     def __int__(self):
         return 99
 
+class IntSubclass(int):
+    def __int__(self):
+        return 99
+
+class BadInt:
+    def __int__(self):
+        return 1.0
+
+class BadInt2:
+    def __int__(self):
+        return True
+
+class BadInt3(int):
+    def __int__(self):
+        return True
+
+
 class Unsigned_TestCase(unittest.TestCase):
     def test_b(self):
         from _testcapi import getargs_b
         # b returns 'unsigned char', and does range checking (0 ... UCHAR_MAX)
         self.assertRaises(TypeError, getargs_b, 3.14)
         self.assertEqual(99, getargs_b(Int()))
+        self.assertEqual(0, getargs_b(IntSubclass()))
+        self.assertRaises(TypeError, getargs_b, BadInt())
+        self.assertEqual(1, getargs_b(BadInt2()))
+        self.assertEqual(0, getargs_b(BadInt3()))
 
         self.assertRaises(OverflowError, getargs_b, -1)
         self.assertEqual(0, getargs_b(0))
@@ -70,6 +93,10 @@ class Unsigned_TestCase(unittest.TestCase):
         # B returns 'unsigned char', no range checking
         self.assertRaises(TypeError, getargs_B, 3.14)
         self.assertEqual(99, getargs_B(Int()))
+        self.assertEqual(0, getargs_B(IntSubclass()))
+        self.assertRaises(TypeError, getargs_B, BadInt())
+        self.assertEqual(1, getargs_B(BadInt2()))
+        self.assertEqual(0, getargs_B(BadInt3()))
 
         self.assertEqual(UCHAR_MAX, getargs_B(-1))
         self.assertEqual(0, getargs_B(0))
@@ -84,6 +111,10 @@ class Unsigned_TestCase(unittest.TestCase):
         # H returns 'unsigned short', no range checking
         self.assertRaises(TypeError, getargs_H, 3.14)
         self.assertEqual(99, getargs_H(Int()))
+        self.assertEqual(0, getargs_H(IntSubclass()))
+        self.assertRaises(TypeError, getargs_H, BadInt())
+        self.assertEqual(1, getargs_H(BadInt2()))
+        self.assertEqual(0, getargs_H(BadInt3()))
 
         self.assertEqual(USHRT_MAX, getargs_H(-1))
         self.assertEqual(0, getargs_H(0))
@@ -99,6 +130,10 @@ class Unsigned_TestCase(unittest.TestCase):
         # I returns 'unsigned int', no range checking
         self.assertRaises(TypeError, getargs_I, 3.14)
         self.assertEqual(99, getargs_I(Int()))
+        self.assertEqual(0, getargs_I(IntSubclass()))
+        self.assertRaises(TypeError, getargs_I, BadInt())
+        self.assertEqual(1, getargs_I(BadInt2()))
+        self.assertEqual(0, getargs_I(BadInt3()))
 
         self.assertEqual(UINT_MAX, getargs_I(-1))
         self.assertEqual(0, getargs_I(0))
@@ -115,6 +150,10 @@ class Unsigned_TestCase(unittest.TestCase):
         # it does not accept float, or instances with __int__
         self.assertRaises(TypeError, getargs_k, 3.14)
         self.assertRaises(TypeError, getargs_k, Int())
+        self.assertEqual(0, getargs_k(IntSubclass()))
+        self.assertRaises(TypeError, getargs_k, BadInt())
+        self.assertRaises(TypeError, getargs_k, BadInt2())
+        self.assertEqual(0, getargs_k(BadInt3()))
 
         self.assertEqual(ULONG_MAX, getargs_k(-1))
         self.assertEqual(0, getargs_k(0))
@@ -131,6 +170,10 @@ class Signed_TestCase(unittest.TestCase):
         # h returns 'short', and does range checking (SHRT_MIN ... SHRT_MAX)
         self.assertRaises(TypeError, getargs_h, 3.14)
         self.assertEqual(99, getargs_h(Int()))
+        self.assertEqual(0, getargs_h(IntSubclass()))
+        self.assertRaises(TypeError, getargs_h, BadInt())
+        self.assertEqual(1, getargs_h(BadInt2()))
+        self.assertEqual(0, getargs_h(BadInt3()))
 
         self.assertRaises(OverflowError, getargs_h, SHRT_MIN-1)
         self.assertEqual(SHRT_MIN, getargs_h(SHRT_MIN))
@@ -145,6 +188,10 @@ class Signed_TestCase(unittest.TestCase):
         # i returns 'int', and does range checking (INT_MIN ... INT_MAX)
         self.assertRaises(TypeError, getargs_i, 3.14)
         self.assertEqual(99, getargs_i(Int()))
+        self.assertEqual(0, getargs_i(IntSubclass()))
+        self.assertRaises(TypeError, getargs_i, BadInt())
+        self.assertEqual(1, getargs_i(BadInt2()))
+        self.assertEqual(0, getargs_i(BadInt3()))
 
         self.assertRaises(OverflowError, getargs_i, INT_MIN-1)
         self.assertEqual(INT_MIN, getargs_i(INT_MIN))
@@ -159,6 +206,10 @@ class Signed_TestCase(unittest.TestCase):
         # l returns 'long', and does range checking (LONG_MIN ... LONG_MAX)
         self.assertRaises(TypeError, getargs_l, 3.14)
         self.assertEqual(99, getargs_l(Int()))
+        self.assertEqual(0, getargs_l(IntSubclass()))
+        self.assertRaises(TypeError, getargs_l, BadInt())
+        self.assertEqual(1, getargs_l(BadInt2()))
+        self.assertEqual(0, getargs_l(BadInt3()))
 
         self.assertRaises(OverflowError, getargs_l, LONG_MIN-1)
         self.assertEqual(LONG_MIN, getargs_l(LONG_MIN))
@@ -174,6 +225,10 @@ class Signed_TestCase(unittest.TestCase):
         # (PY_SSIZE_T_MIN ... PY_SSIZE_T_MAX)
         self.assertRaises(TypeError, getargs_n, 3.14)
         self.assertRaises(TypeError, getargs_n, Int())
+        self.assertEqual(0, getargs_n(IntSubclass()))
+        self.assertRaises(TypeError, getargs_n, BadInt())
+        self.assertRaises(TypeError, getargs_n, BadInt2())
+        self.assertEqual(0, getargs_n(BadInt3()))
 
         self.assertRaises(OverflowError, getargs_n, PY_SSIZE_T_MIN-1)
         self.assertEqual(PY_SSIZE_T_MIN, getargs_n(PY_SSIZE_T_MIN))
@@ -192,6 +247,10 @@ class LongLong_TestCase(unittest.TestCase):
         self.assertRaises(TypeError, getargs_L, 3.14)
         self.assertRaises(TypeError, getargs_L, "Hello")
         self.assertEqual(99, getargs_L(Int()))
+        self.assertEqual(0, getargs_L(IntSubclass()))
+        self.assertRaises(TypeError, getargs_L, BadInt())
+        self.assertEqual(1, getargs_L(BadInt2()))
+        self.assertEqual(0, getargs_L(BadInt3()))
 
         self.assertRaises(OverflowError, getargs_L, LLONG_MIN-1)
         self.assertEqual(LLONG_MIN, getargs_L(LLONG_MIN))
@@ -206,6 +265,11 @@ class LongLong_TestCase(unittest.TestCase):
         # K return 'unsigned long long', no range checking
         self.assertRaises(TypeError, getargs_K, 3.14)
         self.assertRaises(TypeError, getargs_K, Int())
+        self.assertEqual(0, getargs_K(IntSubclass()))
+        self.assertRaises(TypeError, getargs_K, BadInt())
+        self.assertRaises(TypeError, getargs_K, BadInt2())
+        self.assertEqual(0, getargs_K(BadInt3()))
+
         self.assertEqual(ULLONG_MAX, getargs_K(ULLONG_MAX))
         self.assertEqual(0, getargs_K(0))
         self.assertEqual(0, getargs_K(ULLONG_MAX+1))
@@ -213,6 +277,36 @@ class LongLong_TestCase(unittest.TestCase):
         self.assertEqual(42, getargs_K(42))
 
         self.assertEqual(VERY_LARGE & ULLONG_MAX, getargs_K(VERY_LARGE))
+
+class Paradox:
+    "This statement is false."
+    def __bool__(self):
+        raise NotImplementedError
+
+class Boolean_TestCase(unittest.TestCase):
+    def test_p(self):
+        from _testcapi import getargs_p
+        self.assertEqual(0, getargs_p(False))
+        self.assertEqual(0, getargs_p(None))
+        self.assertEqual(0, getargs_p(0))
+        self.assertEqual(0, getargs_p(0.0))
+        self.assertEqual(0, getargs_p(0j))
+        self.assertEqual(0, getargs_p(''))
+        self.assertEqual(0, getargs_p(()))
+        self.assertEqual(0, getargs_p([]))
+        self.assertEqual(0, getargs_p({}))
+
+        self.assertEqual(1, getargs_p(True))
+        self.assertEqual(1, getargs_p(1))
+        self.assertEqual(1, getargs_p(1.0))
+        self.assertEqual(1, getargs_p(1j))
+        self.assertEqual(1, getargs_p('x'))
+        self.assertEqual(1, getargs_p((1,)))
+        self.assertEqual(1, getargs_p([1]))
+        self.assertEqual(1, getargs_p({1:2}))
+        self.assertEqual(1, getargs_p(unittest.TestCase))
+
+        self.assertRaises(NotImplementedError, getargs_p, Paradox())
 
 
 class Tuple_TestCase(unittest.TestCase):
@@ -293,7 +387,87 @@ class Keywords_TestCase(unittest.TestCase):
         else:
             self.fail('TypeError should have been raised')
 
+class KeywordOnly_TestCase(unittest.TestCase):
+    def test_positional_args(self):
+        # using all possible positional args
+        self.assertEqual(
+            getargs_keyword_only(1, 2),
+            (1, 2, -1)
+            )
+
+    def test_mixed_args(self):
+        # positional and keyword args
+        self.assertEqual(
+            getargs_keyword_only(1, 2, keyword_only=3),
+            (1, 2, 3)
+            )
+
+    def test_keyword_args(self):
+        # all keywords
+        self.assertEqual(
+            getargs_keyword_only(required=1, optional=2, keyword_only=3),
+            (1, 2, 3)
+            )
+
+    def test_optional_args(self):
+        # missing optional keyword args, skipping tuples
+        self.assertEqual(
+            getargs_keyword_only(required=1, optional=2),
+            (1, 2, -1)
+            )
+        self.assertEqual(
+            getargs_keyword_only(required=1, keyword_only=3),
+            (1, -1, 3)
+            )
+
+    def test_required_args(self):
+        self.assertEqual(
+            getargs_keyword_only(1),
+            (1, -1, -1)
+            )
+        self.assertEqual(
+            getargs_keyword_only(required=1),
+            (1, -1, -1)
+            )
+        # required arg missing
+        with self.assertRaisesRegex(TypeError,
+            "Required argument 'required' \(pos 1\) not found"):
+            getargs_keyword_only(optional=2)
+
+        with self.assertRaisesRegex(TypeError,
+            "Required argument 'required' \(pos 1\) not found"):
+            getargs_keyword_only(keyword_only=3)
+
+    def test_too_many_args(self):
+        with self.assertRaisesRegex(TypeError,
+            "Function takes at most 2 positional arguments \(3 given\)"):
+            getargs_keyword_only(1, 2, 3)
+
+        with self.assertRaisesRegex(TypeError,
+            "function takes at most 3 arguments \(4 given\)"):
+            getargs_keyword_only(1, 2, 3, keyword_only=5)
+
+    def test_invalid_keyword(self):
+        # extraneous keyword arg
+        with self.assertRaisesRegex(TypeError,
+            "'monster' is an invalid keyword argument for this function"):
+            getargs_keyword_only(1, 2, monster=666)
+
+    def test_surrogate_keyword(self):
+        with self.assertRaisesRegex(TypeError,
+            "'\udc80' is an invalid keyword argument for this function"):
+            getargs_keyword_only(1, 2, **{'\uDC80': 10})
+
 class Bytes_TestCase(unittest.TestCase):
+    def test_c(self):
+        from _testcapi import getargs_c
+        self.assertRaises(TypeError, getargs_c, b'abc')  # len > 1
+        self.assertEqual(getargs_c(b'a'), b'a')
+        self.assertEqual(getargs_c(bytearray(b'a')), b'a')
+        self.assertRaises(TypeError, getargs_c, memoryview(b'a'))
+        self.assertRaises(TypeError, getargs_c, 's')
+        self.assertRaises(TypeError, getargs_c, None)
+
     def test_s(self):
         from _testcapi import getargs_s
         self.assertEqual(getargs_s('abc\xe9'), b'abc\xc3\xa9')
@@ -430,8 +604,10 @@ def test_main():
     tests = [
         Signed_TestCase,
         Unsigned_TestCase,
+        Boolean_TestCase,
         Tuple_TestCase,
         Keywords_TestCase,
+        KeywordOnly_TestCase,
         Bytes_TestCase,
         Unicode_TestCase,
     ]

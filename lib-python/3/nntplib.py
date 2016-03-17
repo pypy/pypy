@@ -85,6 +85,13 @@ __all__ = ["NNTP",
            "decode_header",
            ]
 
+# maximal line length when calling readline(). This is to prevent
+# reading arbitrary lenght lines. RFC 3977 limits NNTP line length to
+# 512 characters, including CRLF. We have selected 2048 just to be on
+# the safe side.
+_MAXLINE = 2048
+
+
 # Exceptions raised when an error or invalid response is received
 class NNTPError(Exception):
     """Base class for all nntplib exceptions"""
@@ -166,7 +173,7 @@ def decode_header(header_str):
             parts.append(v.decode(enc or 'ascii'))
         else:
             parts.append(v)
-    return ' '.join(parts)
+    return ''.join(parts)
 
 def _parse_overview_fmt(lines):
     """Parse a list of string representing the response to LIST OVERVIEW.FMT
@@ -351,6 +358,20 @@ class _NNTPBase:
         # Log in and encryption setup order is left to subclasses.
         self.authenticated = False
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        is_connected = lambda: hasattr(self, "file")
+        if is_connected():
+            try:
+                self.quit()
+            except (socket.error, EOFError):
+                pass
+            finally:
+                if is_connected():
+                    self._close()
+
     def getwelcome(self):
         """Get the welcome message from the server
         (this is read and squirreled away by __init__()).
@@ -410,7 +431,9 @@ class _NNTPBase:
         """Internal: return one line from the server, stripping _CRLF.
         Raise EOFError if the connection is closed.
         Returns a bytes object."""
-        line = self.file.readline()
+        line = self.file.readline(_MAXLINE +1)
+        if len(line) > _MAXLINE:
+            raise NNTPDataError('line too long')
         if self.debugging > 1:
             print('*get*', repr(line))
         if not line: raise EOFError
@@ -819,7 +842,7 @@ class _NNTPBase:
         - list: list of (name,title) strings"""
         warnings.warn("The XGTITLE extension is not actively used, "
                       "use descriptions() instead",
-                      PendingDeprecationWarning, 2)
+                      DeprecationWarning, 2)
         line_pat = re.compile('^([^ \t]+)[ \t]+(.*)$')
         resp, raw_lines = self._longcmdstring('XGTITLE ' + group, file)
         lines = []
@@ -837,7 +860,7 @@ class _NNTPBase:
         path: directory path to article
         """
         warnings.warn("The XPATH extension is not actively used",
-                      PendingDeprecationWarning, 2)
+                      DeprecationWarning, 2)
 
         resp = self._shortcmd('XPATH {0}'.format(id))
         if not resp.startswith('223'):

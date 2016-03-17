@@ -372,8 +372,6 @@ class __extend__(pyframe.PyFrame):
                 self.SETUP_WITH(oparg, next_instr)
             elif opcode == opcodedesc.SET_ADD.index:
                 self.SET_ADD(oparg, next_instr)
-            elif opcode == opcodedesc.STOP_CODE.index:
-                self.STOP_CODE(oparg, next_instr)
             elif opcode == opcodedesc.STORE_ATTR.index:
                 self.STORE_ATTR(oparg, next_instr)
             elif opcode == opcodedesc.STORE_DEREF.index:
@@ -406,6 +404,8 @@ class __extend__(pyframe.PyFrame):
                 self.WITH_CLEANUP(oparg, next_instr)
             elif opcode == opcodedesc.YIELD_VALUE.index:
                 self.YIELD_VALUE(oparg, next_instr)
+            elif opcode == opcodedesc.YIELD_FROM.index:
+                self.YIELD_FROM(oparg, next_instr)
             else:
                 self.MISSING_OPCODE(oparg, next_instr)
 
@@ -1017,6 +1017,34 @@ class __extend__(pyframe.PyFrame):
     def YIELD_VALUE(self, oparg, next_instr):
         raise Yield
 
+    def YIELD_FROM(self, oparg, next_instr):
+        space = self.space
+        w_value = self.popvalue()
+        w_gen = self.peekvalue()
+        try:
+            if space.is_none(w_value):
+                w_retval = space.next(w_gen)
+            else:
+                w_retval = space.call_method(w_gen, "send", w_value)
+        except OperationError as e:
+            if not e.match(space, space.w_StopIteration):
+                raise
+            self.popvalue()  # Remove iter from stack
+            e.normalize_exception(space)
+            try:
+                w_value = space.getattr(e.get_w_value(space), space.wrap("value"))
+            except OperationError as e:
+                if not e.match(space, space.w_AttributeError):
+                    raise
+                w_value = space.w_None
+            self.pushvalue(w_value)
+        else:
+            # iter remains on stack, w_retval is value to be yielded.
+            self.pushvalue(w_retval)
+            # and repeat...
+            self.last_instr = self.last_instr - 1
+            raise Yield
+
     def jump_absolute(self, jumpto, ec):
         # this function is overridden by pypy.module.pypyjit.interp_jit
         check_nonneg(jumpto)
@@ -1199,6 +1227,8 @@ class __extend__(pyframe.PyFrame):
     @jit.unroll_safe
     def _make_function(self, oparg, freevars=None):
         space = self.space
+        w_qualname = self.popvalue()
+        qualname = self.space.unicode_w(w_qualname)
         w_codeobj = self.popvalue()
         codeobj = self.space.interp_w(PyCode, w_codeobj)
         if freevars is not None:
@@ -1222,7 +1252,7 @@ class __extend__(pyframe.PyFrame):
                 w_def = self.popvalue()
                 space.setitem(w_kw_defs, w_def, w_name)
         fn = function.Function(space, codeobj, self.get_w_globals(), defaultarguments,
-                               w_kw_defs, freevars, w_ann)
+                               w_kw_defs, freevars, w_ann, qualname=qualname)
         self.pushvalue(space.wrap(fn))
 
     def MAKE_FUNCTION(self, oparg, next_instr):
@@ -1230,7 +1260,7 @@ class __extend__(pyframe.PyFrame):
 
     @jit.unroll_safe
     def MAKE_CLOSURE(self, oparg, next_instr):
-        w_freevarstuple = self.peekvalue(1)
+        w_freevarstuple = self.peekvalue(2)
         freevars = [self.space.interp_w(Cell, cell)
                     for cell in self.space.fixedview(w_freevarstuple)]
         self._make_function(oparg, freevars)
@@ -1276,8 +1306,6 @@ class __extend__(pyframe.PyFrame):
         name = self.pycode.co_name
         raise BytecodeCorruption("unknown opcode, ofs=%d, code=%d, name=%s" %
                                  (ofs, ord(c), name) )
-
-    STOP_CODE = MISSING_OPCODE
 
     def BUILD_MAP(self, itemcount, next_instr):
         w_dict = self.space.newdict()

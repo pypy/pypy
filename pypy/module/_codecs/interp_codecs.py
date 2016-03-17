@@ -162,9 +162,16 @@ def lookup_codec(space, encoding):
 def _lookup_codec_loop(space, encoding, normalized_encoding):
     state = space.fromcache(CodecState)
     if state.codec_need_encodings:
+        # registers new codecs.
+        # This import uses the "builtin" import method, and is needed
+        # to bootstrap the full importlib module.
         w_import = space.getattr(space.builtin, space.wrap("__import__"))
-        # registers new codecs
         space.call_function(w_import, space.wrap("encodings"))
+        from pypy.module.sys.interp_encoding import base_encoding
+        # May be 'utf-8'
+        normalized_base = base_encoding.replace("-", "_").lower()
+        space.call_function(w_import, space.wrap("encodings." +
+                                                 normalized_base))
         state.codec_need_encodings = False
         if len(state.codec_search_path) == 0:
             raise OperationError(
@@ -508,7 +515,7 @@ def make_decoder_wrapper(name):
     wrap_decoder.func_name = rname
     globals()[name] = wrap_decoder
 
-for encoders in [
+for encoder in [
          "ascii_encode",
          "latin_1_encode",
          "utf_7_encode",
@@ -520,11 +527,10 @@ for encoders in [
          "utf_32_le_encode",
          "unicode_escape_encode",
          "raw_unicode_escape_encode",
-         "unicode_internal_encode",
         ]:
-    make_encoder_wrapper(encoders)
+    make_encoder_wrapper(encoder)
 
-for decoders in [
+for decoder in [
          "ascii_decode",
          "latin_1_decode",
          "utf_7_decode",
@@ -535,7 +541,7 @@ for decoders in [
          "utf_32_be_decode",
          "utf_32_le_decode",
          ]:
-    make_decoder_wrapper(decoders)
+    make_decoder_wrapper(decoder)
 
 if hasattr(runicode, 'str_decode_mbcs'):
     # mbcs functions are not regular, because we have to pass
@@ -806,6 +812,8 @@ def raw_unicode_escape_decode(space, w_string, errors="strict", w_final=None):
 
 @unwrap_spec(errors='str_or_None')
 def unicode_internal_decode(space, w_string, errors="strict"):
+    space.warn(space.wrap("unicode_internal codec has been deprecated"),
+               space.w_DeprecationWarning)
     if errors is None:
         errors = 'strict'
     # special case for this codec: unicodes are returned as is
@@ -823,6 +831,23 @@ def unicode_internal_decode(space, w_string, errors="strict"):
         string, len(string), errors,
         final, state.decode_error_handler)
     return space.newtuple([space.wrap(result), space.wrap(consumed)])
+
+@unwrap_spec(errors='str_or_None')
+def unicode_internal_encode(space, w_uni, errors="strict"):
+    space.warn(space.wrap("unicode_internal codec has been deprecated"),
+               space.w_DeprecationWarning)
+    if errors is None:
+        errors = 'strict'
+    if space.isinstance_w(w_uni, space.w_unicode):
+        uni = space.unicode_w(w_uni)
+        state = space.fromcache(CodecState)
+        result = runicode.unicode_encode_unicode_internal(
+            uni, len(uni), errors, state.encode_error_handler)
+        return space.newtuple([space.wrapbytes(result), space.wrap(len(uni))])
+    else:
+        # special case for this codec: bytes are returned as is
+        string = space.readbuf_w(w_uni).as_str()
+        return space.newtuple([space.wrapbytes(string), space.wrap(len(string))])
 
 # ____________________________________________________________
 # support for the "string escape" translation

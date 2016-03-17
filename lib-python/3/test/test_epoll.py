@@ -46,7 +46,6 @@ class TestEPoll(unittest.TestCase):
         self.serverSocket.listen(1)
         self.connections = [self.serverSocket]
 
-
     def tearDown(self):
         for skt in self.connections:
             skt.close()
@@ -75,6 +74,9 @@ class TestEPoll(unittest.TestCase):
         ep.close()
         self.assertTrue(ep.closed)
         self.assertRaises(ValueError, ep.fileno)
+        if hasattr(select, "EPOLL_CLOEXEC"):
+            select.epoll(select.EPOLL_CLOEXEC).close()
+            self.assertRaises(OSError, select.epoll, flags=12356)
 
     def test_badcreate(self):
         self.assertRaises(TypeError, select.epoll, 1, 2, 3)
@@ -214,6 +216,7 @@ class TestEPoll(unittest.TestCase):
 
         server.close()
         ep.unregister(fd)
+
 
 def test_main():
     support.run_unittest(TestEPoll)

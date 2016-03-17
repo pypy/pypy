@@ -14,7 +14,7 @@ class TclError(Exception):
 from .tklib_cffi import ffi as tkffi, lib as tklib
 
 from .app import TkApp
-from .tclobj import TclObject as Tcl_Obj
+from .tclobj import Tcl_Obj
 
 TK_VERSION = tkffi.string(tklib.get_tk_version()).decode('utf-8')
 TCL_VERSION = tkffi.string(tklib.get_tcl_version()).decode('utf-8')

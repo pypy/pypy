@@ -411,3 +411,44 @@ class AppTestBuiltinApp:
         assert x.y == 42
         del x.x
         assert x.z == 42
+
+    def test_abstract_property(self):
+        def foo(self): pass
+        foo.__isabstractmethod__ = True
+        foo = property(foo)
+        assert foo.__isabstractmethod__ is True
+
+    def test___class___variable(self):
+        class X:
+            def f(self):
+                return __class__
+        assert X().f() is X
+
+        class X:
+            @classmethod
+            def f(cls):
+                return __class__
+        assert X.f() is X
+
+        class X:
+            @staticmethod
+            def f():
+                return __class__
+        assert X.f() is X
+
+    def test_obscure_super_errors(self):
+        """
+        def f():
+            super()
+        raises(RuntimeError, f)
+        def f(x):
+            del x
+            super()
+        raises(RuntimeError, f, None)
+        class X:
+            def f(x):
+                nonlocal __class__
+                del __class__
+                super()
+        raises(RuntimeError, X().f)
+        """

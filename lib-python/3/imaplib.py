@@ -23,6 +23,7 @@ Public functions:       Internaldate2tuple
 __version__ = "2.58"
 
 import binascii, errno, random, re, socket, subprocess, sys, time, calendar
+from datetime import datetime, timezone, timedelta
 from io import DEFAULT_BUFFER_SIZE
 
 try:
@@ -41,6 +42,15 @@ Debug = 0
 IMAP4_PORT = 143
 IMAP4_SSL_PORT = 993
 AllowedVersions = ('IMAP4REV1', 'IMAP4')        # Most recent first
+
+# Maximal line length when calling readline(). This is to prevent
+# reading arbitrary length lines. RFC 3501 and 2060 (IMAP 4rev1)
+# don't specify a line length. RFC 2683 however suggests limiting client
+# command lines to 1000 octets and server command lines to 8000 octets.
+# We have selected 10000 for some extra margin and since that is supposedly
+# also what UW and Panda IMAP does.
+_MAXLINE = 10000
+
 
 #       Commands
 
@@ -250,20 +260,15 @@ class IMAP4:
 
     def read(self, size):
         """Read 'size' bytes from remote."""
-        chunks = []
-        read = 0
-        while read < size:
-            data = self.file.read(min(size-read, 4096))
-            if not data:
-                break
-            read += len(data)
-            chunks.append(data)
-        return b''.join(chunks)
+        return self.file.read(size)
 
 
     def readline(self):
         """Read line from remote."""
-        return self.file.readline()
+        line = self.file.readline(_MAXLINE + 1)
+        if len(line) > _MAXLINE:
+            raise self.error("got more than %d bytes" % _MAXLINE)
+        return line
 
 
     def send(self, data):
@@ -1058,6 +1063,11 @@ class IMAP4:
                 del self.tagged_commands[tag]
                 return result
 
+            # If we've seen a BYE at this point, the socket will be
+            # closed, so report the BYE now.
+
+            self._check_bye()
+
             # Some have reported "unexpected response" exceptions.
             # Note that ignoring them here causes loops.
             # Instead, send me details of the unexpected response and
@@ -1180,25 +1190,40 @@ if HAVE_SSL:
 
         """IMAP4 client class over SSL connection
 
-        Instantiate with: IMAP4_SSL([host[, port[, keyfile[, certfile]]]])
+        Instantiate with: IMAP4_SSL([host[, port[, keyfile[, certfile[, ssl_context]]]]])
 
                 host - host's name (default: localhost);
-                port - port number (default: standard IMAP4 SSL port).
+                port - port number (default: standard IMAP4 SSL port);
                 keyfile - PEM formatted file that contains your private key (default: None);
                 certfile - PEM formatted certificate chain file (default: None);
+                ssl_context - a SSLContext object that contains your certificate chain
+                              and private key (default: None)
+                Note: if ssl_context is provided, then parameters keyfile or
+                certfile should not be set otherwise ValueError is raised.
 
         for more documentation see the docstring of the parent class IMAP4.
         """
 
 
-        def __init__(self, host = '', port = IMAP4_SSL_PORT, keyfile = None, certfile = None):
+        def __init__(self, host='', port=IMAP4_SSL_PORT, keyfile=None, certfile=None, ssl_context=None):
+            if ssl_context is not None and keyfile is not None:
+                raise ValueError("ssl_context and keyfile arguments are mutually "
+                                 "exclusive")
+            if ssl_context is not None and certfile is not None:
+                raise ValueError("ssl_context and certfile arguments are mutually "
+                                 "exclusive")
+
             self.keyfile = keyfile
             self.certfile = certfile
+            self.ssl_context = ssl_context
             IMAP4.__init__(self, host, port)
 
         def _create_socket(self):
             sock = IMAP4._create_socket(self)
-            return ssl.wrap_socket(sock, self.keyfile, self.certfile)
+            if self.ssl_context:
+                return self.ssl_context.wrap_socket(sock)
+            else:
+                return ssl.wrap_socket(sock, self.keyfile, self.certfile)
 
         def open(self, host='', port=IMAP4_SSL_PORT):
             """Setup connection to remote server on "host:port".
@@ -1312,10 +1337,8 @@ class _Authenticator:
             return b''
         return binascii.a2b_base64(inp)
 
-
-
-Mon2num = {b'Jan': 1, b'Feb': 2, b'Mar': 3, b'Apr': 4, b'May': 5, b'Jun': 6,
-           b'Jul': 7, b'Aug': 8, b'Sep': 9, b'Oct': 10, b'Nov': 11, b'Dec': 12}
+Months = ' Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec'.split(' ')
+Mon2num = {s.encode():n+1 for n, s in enumerate(Months[1:])}
 
 def Internaldate2tuple(resp):
     """Parse an IMAP4 INTERNALDATE string.
@@ -1383,28 +1406,37 @@ def Time2Internaldate(date_time):
     Return string in form: '"DD-Mmm-YYYY HH:MM:SS +HHMM"'.  The
     date_time argument can be a number (int or float) representing
     seconds since epoch (as returned by time.time()), a 9-tuple
-    representing local time (as returned by time.localtime()), or a
+    representing local time, an instance of time.struct_time (as
+    returned by time.localtime()), an aware datetime instance or a
     double-quoted string.  In the last case, it is assumed to already
     be in the correct format.
     """
-
     if isinstance(date_time, (int, float)):
-        tt = time.localtime(date_time)
-    elif isinstance(date_time, (tuple, time.struct_time)):
-        tt = date_time
+        dt = datetime.fromtimestamp(date_time,
+                                    timezone.utc).astimezone()
+    elif isinstance(date_time, tuple):
+        try:
+            gmtoff = date_time.tm_gmtoff
+        except AttributeError:
+            if time.daylight:
+                dst = date_time[8]
+                if dst == -1:
+                    dst = time.localtime(time.mktime(date_time))[8]
+                gmtoff = -(time.timezone, time.altzone)[dst]
+            else:
+                gmtoff = -time.timezone
+        delta = timedelta(seconds=gmtoff)
+        dt = datetime(*date_time[:6], tzinfo=timezone(delta))
+    elif isinstance(date_time, datetime):
+        if date_time.tzinfo is None:
+            raise ValueError("date_time must be aware")
+        dt = date_time
     elif isinstance(date_time, str) and (date_time[0],date_time[-1]) == ('"','"'):
         return date_time        # Assume in correct format
     else:
         raise ValueError("date_time not of a known type")
-
-    dt = time.strftime("%d-%b-%Y %H:%M:%S", tt)
-    if dt[0] == '0':
-        dt = ' ' + dt[1:]
-    if time.daylight and tt[-1]:
-        zone = -time.altzone
-    else:
-        zone = -time.timezone
-    return '"' + dt + " %+03d%02d" % divmod(zone//60, 60) + '"'
+    fmt = '"%d-{}-%Y %H:%M:%S %z"'.format(Months[dt.month])
+    return dt.strftime(fmt)
 
 
 

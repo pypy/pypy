@@ -36,6 +36,7 @@ class GeneralTests(TestCase):
 
     def tearDown(self):
         self.thread.join()
+        del self.thread  # Clear out any dangling Thread objects.
 
     def testBasic(self):
         # connects
@@ -72,6 +73,14 @@ class GeneralTests(TestCase):
         telnet = telnetlib.Telnet()
         telnet.open(HOST, self.port, timeout=30)
         self.assertEqual(telnet.sock.gettimeout(), 30)
+        telnet.sock.close()
+
+    def testGetters(self):
+        # Test telnet getter methods
+        telnet = telnetlib.Telnet(HOST, self.port, timeout=30)
+        t_sock = telnet.sock
+        self.assertEqual(telnet.get_socket(), t_sock)
+        self.assertEqual(telnet.fileno(), t_sock.fileno())
         telnet.sock.close()
 
 class SocketStub(object):

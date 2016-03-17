@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import py
 from pypy.interpreter.argument import (Arguments, ArgErr, ArgErrUnknownKwds,
-        ArgErrMultipleValues, ArgErrCount)
+        ArgErrMultipleValues, ArgErrMissing, ArgErrTooMany)
 from pypy.interpreter.signature import Signature
 from pypy.interpreter.error import OperationError
 
@@ -575,51 +575,54 @@ class TestArgumentsNormal(object):
 
 class TestErrorHandling(object):
     def test_missing_args(self):
-        # got_nargs, nkwds, expected_nargs, has_vararg, has_kwarg,
-        # defaults_w, missing_args
-        sig = Signature([], None, None)
-        err = ArgErrCount(1, 0, sig, None, None, 0)
+        err = ArgErrMissing(['a'], True)
         s = err.getmsg()
-        assert s == "takes no arguments (1 given)"
+        assert s == "missing 1 required positional argument: 'a'"
 
-        sig = Signature(['a'], None, None)
-        err = ArgErrCount(0, 0, sig, [], None, 1)
+        err = ArgErrMissing(['a', 'b'], True)
         s = err.getmsg()
-        assert s == "takes exactly 1 argument (0 given)"
+        assert s == "missing 2 required positional arguments: 'a' and 'b'"
 
-        sig = Signature(['a', 'b'], None, None)
-        err = ArgErrCount(3, 0, sig, [], None, 0)
+        err = ArgErrMissing(['a', 'b', 'c'], True)
         s = err.getmsg()
-        assert s == "takes exactly 2 arguments (3 given)"
-        err = ArgErrCount(3, 0, sig, ['a'], None, 0)
-        s = err.getmsg()
-        assert s == "takes at most 2 arguments (3 given)"
+        assert s == "missing 3 required positional arguments: 'a', 'b', and 'c'"
 
-        sig = Signature(['a', 'b'], '*', None)
-        err = ArgErrCount(1, 0, sig, [], None, 1)
+        err = ArgErrMissing(['a'], False)
         s = err.getmsg()
-        assert s == "takes at least 2 arguments (1 given)"
-        err = ArgErrCount(0, 1, sig, ['a'], None, 1)
-        s = err.getmsg()
-        assert s == "takes at least 1 non-keyword argument (0 given)"
+        assert s == "missing 1 required keyword-only argument: 'a'"
 
-        sig = Signature(['a'], None, '**')
-        err = ArgErrCount(2, 1, sig, [], None, 0)
+    def test_too_many(self):
+        err = ArgErrTooMany(0, 0, 1, 0)
         s = err.getmsg()
-        assert s == "takes exactly 1 non-keyword argument (2 given)"
-        err = ArgErrCount(0, 1, sig, [], None, 1)
-        s = err.getmsg()
-        assert s == "takes exactly 1 non-keyword argument (0 given)"
+        assert s == "takes 0 positional arguments but 1 was given"
 
-        sig = Signature(['a'], '*', '**')
-        err = ArgErrCount(0, 1, sig, [], None, 1)
+        err = ArgErrTooMany(0, 0, 2, 0)
         s = err.getmsg()
-        assert s == "takes at least 1 non-keyword argument (0 given)"
+        assert s == "takes 0 positional arguments but 2 were given"
 
-        sig = Signature(['a'], None, '**')
-        err = ArgErrCount(2, 1, sig, ['a'], None, 0)
+        err = ArgErrTooMany(1, 0, 2, 0)
         s = err.getmsg()
-        assert s == "takes at most 1 non-keyword argument (2 given)"
+        assert s == "takes 1 positional argument but 2 were given"
+
+        err = ArgErrTooMany(2, 0, 3, 0)
+        s = err.getmsg()
+        assert s == "takes 2 positional arguments but 3 were given"
+
+        err = ArgErrTooMany(2, 1, 3, 0)
+        s = err.getmsg()
+        assert s == "takes from 1 to 2 positional arguments but 3 were given"
+
+        err = ArgErrTooMany(0, 0, 1, 1)
+        s = err.getmsg()
+        assert s == "takes 0 positional arguments but 1 positional argument (and 1 keyword-only argument) were given"
+
+        err = ArgErrTooMany(0, 0, 2, 1)
+        s = err.getmsg()
+        assert s == "takes 0 positional arguments but 2 positional arguments (and 1 keyword-only argument) were given"
+
+        err = ArgErrTooMany(0, 0, 1, 2)
+        s = err.getmsg()
+        assert s == "takes 0 positional arguments but 1 positional argument (and 2 keyword-only arguments) were given"
 
     def test_bad_type_for_star(self):
         space = self.space
@@ -665,28 +668,36 @@ class TestErrorHandling(object):
     def test_multiple_values(self):
         err = ArgErrMultipleValues('bla')
         s = err.getmsg()
-        assert s == "got multiple values for keyword argument 'bla'"
+        assert s == "got multiple values for argument 'bla'"
 
 class AppTestArgument:
     def test_error_message(self):
         exc = raises(TypeError, (lambda a, b=2: 0), b=3)
-        assert str(exc.value) == "<lambda>() takes at least 1 non-keyword argument (0 given)"
+        assert str(exc.value) == "<lambda>() missing 1 required positional argument: 'a'"
         exc = raises(TypeError, (lambda: 0), b=3)
-        assert str(exc.value) == "<lambda>() takes no arguments (1 given)"
+        assert str(exc.value) == "<lambda>() got an unexpected keyword argument 'b'"
         exc = raises(TypeError, (lambda a, b: 0), 1, 2, 3, a=1)
-        assert str(exc.value) == "<lambda>() takes exactly 2 arguments (4 given)"
+        assert str(exc.value) == "<lambda>() takes 2 positional arguments but 3 were given"
         exc = raises(TypeError, (lambda a, b=1: 0), 1, 2, 3, a=1)
-        assert str(exc.value) == "<lambda>() takes at most 2 non-keyword arguments (3 given)"
+        assert str(exc.value) == "<lambda>() takes from 1 to 2 positional arguments but 3 were given"
+        exc = raises(TypeError, (lambda a, **kw: 0), 1, 2, 3)
+        assert str(exc.value) == "<lambda>() takes 1 positional argument but 3 were given"
         exc = raises(TypeError, (lambda a, b=1, **kw: 0), 1, 2, 3)
-        assert str(exc.value) == "<lambda>() takes at most 2 non-keyword arguments (3 given)"
+        assert str(exc.value) == "<lambda>() takes from 1 to 2 positional arguments but 3 were given"
         exc = raises(TypeError, (lambda a, b, c=3, **kw: 0), 1)
-        assert str(exc.value) == "<lambda>() takes at least 2 arguments (1 given)"
+        assert str(exc.value) == "<lambda>() missing 1 required positional argument: 'b'"
         exc = raises(TypeError, (lambda a, b, **kw: 0), 1)
-        assert str(exc.value) == "<lambda>() takes exactly 2 non-keyword arguments (1 given)"
+        assert str(exc.value) == "<lambda>() missing 1 required positional argument: 'b'"
         exc = raises(TypeError, (lambda a, b, c=3, **kw: 0), a=1)
-        assert str(exc.value) == "<lambda>() takes at least 2 non-keyword arguments (0 given)"
+        assert str(exc.value) == "<lambda>() missing 1 required positional argument: 'b'"
         exc = raises(TypeError, (lambda a, b, **kw: 0), a=1)
-        assert str(exc.value) == "<lambda>() takes exactly 2 non-keyword arguments (0 given)"
+        assert str(exc.value) == "<lambda>() missing 1 required positional argument: 'b'"
+        exc = raises(TypeError, '(lambda *, a: 0)()')
+        assert str(exc.value) == "<lambda>() missing 1 required keyword-only argument: 'a'"
+        exc = raises(TypeError, '(lambda *, a=1, b: 0)(a=1)')
+        assert str(exc.value) == "<lambda>() missing 1 required keyword-only argument: 'b'"
+        exc = raises(TypeError, '(lambda *, kw: 0)(1, kw=3)')
+        assert str(exc.value) == "<lambda>() takes 0 positional arguments but 1 positional argument (and 1 keyword-only argument) were given"
 
     def test_unicode_keywords(self):
         """

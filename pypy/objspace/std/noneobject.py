@@ -7,6 +7,11 @@ class W_NoneObject(W_Root):
     def unwrap(w_self, space):
         return None
 
+    @staticmethod
+    def descr_new(space, w_type):
+        """T.__new__(S, ...) -> a new object with type S, a subtype of T"""
+        return space.w_None
+
     def descr_bool(self, space):
         return space.w_False
 
@@ -17,6 +22,7 @@ class W_NoneObject(W_Root):
 W_NoneObject.w_None = W_NoneObject()
 
 W_NoneObject.typedef = TypeDef("NoneType",
+    __new__ = interp2app(W_NoneObject.descr_new),
     __bool__ = interp2app(W_NoneObject.descr_bool),
     __repr__ = interp2app(W_NoneObject.descr_repr),
 )

@@ -1,7 +1,8 @@
 import py
+import pytest
 
 
-class AppTestItertools: 
+class AppTestItertools:
     spaceconfig = dict(usemodules=['itertools'])
 
     def test_count(self):
@@ -303,11 +304,11 @@ class AppTestItertools:
 
     def test_chain(self):
         import itertools
-        
+
         it = itertools.chain()
         raises(StopIteration, next, it)
         raises(StopIteration, next, it)
-        
+
         it = itertools.chain([1, 2, 3])
         for x in [1, 2, 3]:
             assert next(it) == x
@@ -327,7 +328,7 @@ class AppTestItertools:
 
         it = itertools.cycle([])
         raises(StopIteration, next, it)
-        
+
         it = itertools.cycle([1, 2, 3])
         for x in [1, 2, 3, 1, 2, 3, 1, 2, 3]:
             assert next(it) == x
@@ -383,7 +384,7 @@ class AppTestItertools:
 
     def test_tee_wrongargs(self):
         import itertools
-        
+
         raises(TypeError, itertools.tee, 0)
         raises(ValueError, itertools.tee, [], -1)
         raises(TypeError, itertools.tee, [], None)
@@ -421,7 +422,7 @@ class AppTestItertools:
 
     def test_groupby(self):
         import itertools
-        
+
         it = itertools.groupby([])
         raises(StopIteration, next, it)
 
@@ -498,7 +499,7 @@ class AppTestItertools:
             assert next(g) is x
             raises(StopIteration, next, g)
         raises(StopIteration, next, it)
-        
+
         # Grouping is based on key equality
         class AlwaysEqual(object):
             def __eq__(self, other):
@@ -521,7 +522,7 @@ class AppTestItertools:
 
     def test_iterables(self):
         import itertools
-    
+
         iterables = [
             itertools.chain(),
             itertools.count(),
@@ -536,7 +537,7 @@ class AppTestItertools:
             itertools.tee([])[0],
             itertools.tee([])[1],
             ]
-    
+
         for it in iterables:
             assert hasattr(it, '__iter__')
             assert iter(it) is it
@@ -545,7 +546,7 @@ class AppTestItertools:
 
     def test_docstrings(self):
         import itertools
-        
+
         assert itertools.__doc__
         methods = [
             itertools.chain,
@@ -841,12 +842,6 @@ class AppTestItertools27:
         "usemodules": ['itertools', 'struct', 'binascii'],
     }
 
-    def setup_class(cls):
-        if cls.space.is_true(cls.space.appexec([], """():
-            import sys; return sys.version_info < (2, 7)
-            """)):
-            py.test.skip("Requires Python 2.7")
-
     def test_compress(self):
         import itertools
         it = itertools.compress(['a', 'b', 'c'], [0, 1, 0])
@@ -980,6 +975,47 @@ class AppTestItertools27:
         islice = itertools.islice(myiter, 5, 8)
         raises(StopIteration, islice.__next__)
 
+    def test_combinations_pickle(self):
+        from itertools import combinations
+        import pickle
+        for op in (lambda a:a, lambda a:pickle.loads(pickle.dumps(a))):
+            assert list(op(combinations('abc', 32))) == []     # r > n
+            assert list(op(combinations('ABCD', 2))) == [
+                ('A','B'), ('A','C'), ('A','D'), ('B','C'), ('B','D'), ('C','D')]
+            testIntermediate = combinations('ABCD', 2)
+            next(testIntermediate)
+            assert list(op(testIntermediate)) == [
+                ('A','C'), ('A','D'), ('B','C'), ('B','D'), ('C','D')]
+
+            assert list(op(combinations(range(4), 3))) == [
+                (0,1,2), (0,1,3), (0,2,3), (1,2,3)]
+            testIntermediate = combinations(range(4), 3)
+            next(testIntermediate)
+            assert list(op(testIntermediate)) == [
+                (0,1,3), (0,2,3), (1,2,3)]
+
+    def test_islice_pickle(self):
+        import itertools, pickle
+        it = itertools.islice(range(100), 10, 20, 3)
+        assert list(pickle.loads(pickle.dumps(it))) == list(range(100)[10:20:3])
+
+    def test_cycle_pickle(self):
+        import itertools, pickle
+        c = itertools.cycle('abc')
+        next(c)
+        assert list(itertools.islice(
+            pickle.loads(pickle.dumps(c)), 10)) == list('bcabcabcab')
+
+    def test_takewhile_pickle(self):
+        data = [1, 2, 3, 0, 4, 5, 6]
+        import itertools, pickle
+        t = itertools.takewhile(bool, data)
+        next(t)
+        assert list(pickle.loads(pickle.dumps(t))) == [2, 3]
+        t = itertools.dropwhile(bool, data)
+        next(t)
+        assert list(pickle.loads(pickle.dumps(t))) == [4, 5, 6]
+
 
 class AppTestItertools32:
     spaceconfig = dict(usemodules=['itertools'])
@@ -991,7 +1027,42 @@ class AppTestItertools32:
             py.test.skip("Requires Python 3.2")
 
     def test_accumulate(self):
+        """copied from ./lib-python/3/test/test_itertools.py"""
         from itertools import accumulate
+        from decimal import Decimal
+        from fractions import Fraction
+        import operator
         expected = [0, 1, 3, 6, 10, 15, 21, 28, 36, 45]
+        # one positional arg
         assert list(accumulate(range(10))) == expected
+        # kw arg
         assert list(accumulate(iterable=range(10))) == expected
+        # multiple types
+        for typ in int, complex, Decimal, Fraction:
+            assert list(accumulate(map(typ, range(10)))) == list(map(typ, expected))
+        assert list(accumulate('abc')) == ['a', 'ab', 'abc']   # works with non-numeric
+        assert list(accumulate([])) == []                  # empty iterable
+        assert list(accumulate([7])) == [7]                # iterable of length one
+        raises(TypeError, accumulate, range(10), 5, 6)     # too many args
+        raises(TypeError, accumulate)                      # too few args
+        raises(TypeError, accumulate, x=range(10))         # unexpected kwd arg
+        raises(TypeError, list, accumulate([1, "a"]))      # args that don't add
+
+        s = [2, 8, 9, 5, 7, 0, 3, 4, 1, 6]
+        assert list(accumulate(s, min)) == [2, 2, 2, 2, 2, 0, 0, 0, 0, 0]
+        assert list(accumulate(s, max)) == [2, 8, 9, 9, 9, 9, 9, 9, 9, 9]
+        assert list(accumulate(s, operator.mul)) == [2, 16, 144, 720, 5040, 0, 0, 0, 0, 0]
+        raises(TypeError, list, accumulate(s, chr))        # unary-operation
+        raises(TypeError, list, accumulate(s, lambda x,y,z: None))  # ternary
+
+        it = iter([10, 50, 150])
+        a = accumulate(it)
+        assert a.__reduce__() == (accumulate, (it, None), None)
+        next(a)
+        next(a)
+        assert a.__reduce__() == (accumulate, (it, None), 60)
+
+        it = iter([10, 50, 150])
+        a = accumulate(it)
+        a.__setstate__(20)
+        assert a.__reduce__() == (accumulate, (it, None), 20)

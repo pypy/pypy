@@ -4,7 +4,7 @@ PyCode instances have the same co_xxx arguments as CPython code objects.
 The bytecode interpreter itself is implemented by the PyFrame class.
 """
 
-import dis, imp, struct, types, new, sys, os
+import imp, struct, types, new, sys, os
 
 from pypy.interpreter import eval
 from pypy.interpreter.signature import Signature
@@ -13,6 +13,7 @@ from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.astcompiler.consts import (
     CO_OPTIMIZED, CO_NEWLOCALS, CO_VARARGS, CO_VARKEYWORDS, CO_NESTED,
     CO_GENERATOR, CO_KILL_DOCSTRING, CO_YIELD_INSIDE_TRY)
+from pypy.tool import dis3
 from pypy.tool.stdlib_opcode import opcodedesc, HAVE_ARGUMENT
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.objectmodel import compute_hash, we_are_translated
@@ -35,7 +36,7 @@ cpython_magic, = struct.unpack("<i", imp.get_magic())   # host magic number
 # different value for the highest 16 bits. Bump pypy_incremental_magic every
 # time you make pyc files incompatible
 
-pypy_incremental_magic = 48 # bump it by 16
+pypy_incremental_magic = 64 # bump it by 16
 assert pypy_incremental_magic % 16 == 0
 assert pypy_incremental_magic < 3000 # the magic number of Python 3. There are
                                      # no known magic numbers below this value
@@ -63,7 +64,10 @@ def cpython_code_signature(code):
         argcount += 1
     else:
         varargname = None
-    kwargname = varnames[argcount] if code.co_flags & CO_VARKEYWORDS else None
+    if code.co_flags & CO_VARKEYWORDS:
+        kwargname = code.co_varnames[argcount + kwonlyargcount]
+    else:
+        kwargname = None
     return Signature(argnames, varargname, kwargname, kwonlyargs)
 
 class CodeHookCache(object):
@@ -287,33 +291,6 @@ class PyCode(eval.Code):
             if isinstance(w_co, PyCode):
                 w_co.remove_docstrings(space)
 
-    def _to_code(self):
-        """For debugging only."""
-        consts = [None] * len(self.co_consts_w)
-        num = 0
-        for w in self.co_consts_w:
-            if isinstance(w, PyCode):
-                consts[num] = w._to_code()
-            else:
-                consts[num] = self.space.unwrap(w)
-            num += 1
-        assert self.co_kwonlyargcount == 0, 'kwonlyargcount is py3k only, cannot turn this code object into a Python2 one'
-        return new.code(self.co_argcount,
-                        #self.co_kwonlyargcount, # this does not exists in python2
-                        self.co_nlocals,
-                        self.co_stacksize,
-                        self.co_flags,
-                        self.co_code,
-                        tuple(consts),
-                        tuple(self.co_names),
-                        tuple(self.co_varnames),
-                        self.co_filename,
-                        self.co_name,
-                        self.co_firstlineno,
-                        self.co_lnotab,
-                        tuple(self.co_freevars),
-                        tuple(self.co_cellvars))
-
     def exec_host_bytecode(self, w_globals, w_locals):
         if sys.version_info < (2, 7):
             raise Exception("PyPy no longer supports Python 2.6 or lower")
@@ -322,11 +299,11 @@ class PyCode(eval.Code):
         return frame.run()
 
     def dump(self):
-        """A dis.dis() dump of the code object."""
-        print 'WARNING: dumping a py3k bytecode using python2 opmap, the result might be inaccurate or wrong'
-        print
-        co = self._to_code()
-        dis.dis(co)
+        """NOT_RPYTHON: A dis.dis() dump of the code object."""
+        if not hasattr(self, 'co_consts'):
+            self.co_consts = [w if isinstance(w, PyCode) else self.space.unwrap(w)
+                              for w in self.co_consts_w]
+        dis3.dis(self)
 
     def fget_co_consts(self, space):
         return space.newtuple(self.co_consts_w)

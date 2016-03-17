@@ -152,18 +152,18 @@ class BaseStringFormatTests:
         msg = "object.__format__ with a non-empty format string is deprecated",
         with warnings.catch_warnings(record=True) as log:
             # This is ok because warnings.catch_warnings resets the filters
-            warnings.simplefilter("always", PendingDeprecationWarning)
+            warnings.simplefilter("always", DeprecationWarning)
             assert self.s("{0:^10}").format(E("data")) == " E(data)  "
             assert log[0].message.args == msg
-            assert type(log[0].message) is PendingDeprecationWarning
+            assert type(log[0].message) is DeprecationWarning
 
             assert self.s("{0:^10s}").format(E("data")) == " E(data)  "
             assert log[1].message.args == msg
-            assert type(log[1].message) is PendingDeprecationWarning
+            assert type(log[1].message) is DeprecationWarning
 
             assert self.s("{0:>15s}").format(G("data")) == " string is data"
             assert log[2].message.args == msg
-            assert type(log[2].message) is PendingDeprecationWarning
+            assert type(log[2].message) is DeprecationWarning
         assert len(log) == 3
 
     def test_bogus_cases(self):

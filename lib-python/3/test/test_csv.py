@@ -199,6 +199,17 @@ class Test_Csv(unittest.TestCase):
             fileobj.seek(0)
             self.assertEqual(fileobj.read(), "a,b\r\nc,d\r\n")
 
+    @support.cpython_only
+    def test_writerows_legacy_strings(self):
+        import _testcapi
+
+        c = _testcapi.unicode_legacy_string('a')
+        with TemporaryFile("w+", newline='') as fileobj:
+            writer = csv.writer(fileobj)
+            writer.writerows([[c]])
+            fileobj.seek(0)
+            self.assertEqual(fileobj.read(), "a\r\n")
+
     def _read_test(self, input, expect, **kwargs):
         reader = csv.reader(input, **kwargs)
         result = list(reader)
@@ -562,6 +573,18 @@ class TestDictFields(unittest.TestCase):
         fileobj = StringIO()
         self.assertRaises(TypeError, csv.DictWriter, fileobj)
 
+    def test_write_fields_not_in_fieldnames(self):
+        with TemporaryFile("w+", newline='') as fileobj:
+            writer = csv.DictWriter(fileobj, fieldnames = ["f1", "f2", "f3"])
+            # Of special note is the non-string key (issue 19449)
+            with self.assertRaises(ValueError) as cx:
+                writer.writerow({"f4": 10, "f2": "spam", 1: "abc"})
+            exception = str(cx.exception)
+            self.assertIn("fieldnames", exception)
+            self.assertIn("'f4'", exception)
+            self.assertNotIn("'f2'", exception)
+            self.assertIn("1", exception)
+
     def test_read_dict_fields(self):
         with TemporaryFile("w+") as fileobj:
             fileobj.write("1,2,abc\r\n")
@@ -727,6 +750,7 @@ class TestDialectValidity(unittest.TestCase):
             lineterminator = '\r\n'
             quoting = csv.QUOTE_NONE
         d = mydialect()
+        self.assertEqual(d.quoting, csv.QUOTE_NONE)
 
         mydialect.quoting = None
         self.assertRaises(csv.Error, mydialect)
@@ -735,12 +759,22 @@ class TestDialectValidity(unittest.TestCase):
         mydialect.quoting = csv.QUOTE_ALL
         mydialect.quotechar = '"'
         d = mydialect()
+        self.assertEqual(d.quoting, csv.QUOTE_ALL)
+        self.assertEqual(d.quotechar, '"')
+        self.assertTrue(d.doublequote)
 
         mydialect.quotechar = "''"
-        self.assertRaises(csv.Error, mydialect)
+        with self.assertRaises(csv.Error) as cm:
+            mydialect()
+        # NOTE: Patched exception message since cpython uses bad grammar (cpython issue22076)
+        self.assertEqual(str(cm.exception),
+                         '"quotechar" must be a 1-character string')
 
         mydialect.quotechar = 4
-        self.assertRaises(csv.Error, mydialect)
+        with self.assertRaises(csv.Error) as cm:
+            mydialect()
+        self.assertEqual(str(cm.exception),
+                         '"quotechar" must be string, not int')
 
     def test_delimiter(self):
         class mydialect(csv.Dialect):
@@ -751,12 +785,33 @@ class TestDialectValidity(unittest.TestCase):
             lineterminator = '\r\n'
             quoting = csv.QUOTE_NONE
         d = mydialect()
+        self.assertEqual(d.delimiter, ";")
 
         mydialect.delimiter = ":::"
-        self.assertRaises(csv.Error, mydialect)
+        with self.assertRaises(csv.Error) as cm:
+            mydialect()
+        # NOTE: Patched exception message since cpython uses bad grammar (cpython issue22076)
+        self.assertEqual(str(cm.exception),
+                         '"delimiter" must be a 1-character string')
+
+        mydialect.delimiter = ""
+        with self.assertRaises(csv.Error) as cm:
+            mydialect()
+        # NOTE: Patched exception message since cpython uses bad grammar (cpython issue22076)
+        self.assertEqual(str(cm.exception),
+                         '"delimiter" must be a 1-character string')
+
+        mydialect.delimiter = b","
+        with self.assertRaises(csv.Error) as cm:
+            mydialect()
+        self.assertEqual(str(cm.exception),
+                         '"delimiter" must be string, not bytes')
 
         mydialect.delimiter = 4
-        self.assertRaises(csv.Error, mydialect)
+        with self.assertRaises(csv.Error) as cm:
+            mydialect()
+        self.assertEqual(str(cm.exception),
+                         '"delimiter" must be string, not int')
 
     def test_lineterminator(self):
         class mydialect(csv.Dialect):
@@ -767,12 +822,30 @@ class TestDialectValidity(unittest.TestCase):
             lineterminator = '\r\n'
             quoting = csv.QUOTE_NONE
         d = mydialect()
+        self.assertEqual(d.lineterminator, '\r\n')
 
         mydialect.lineterminator = ":::"
         d = mydialect()
+        self.assertEqual(d.lineterminator, ":::")
 
         mydialect.lineterminator = 4
-        self.assertRaises(csv.Error, mydialect)
+        with self.assertRaises(csv.Error) as cm:
+            mydialect()
+        self.assertEqual(str(cm.exception),
+                         '"lineterminator" must be a string')
+
+    def test_invalid_chars(self):
+        def create_invalid(field_name, value):
+            class mydialect(csv.Dialect):
+                pass
+            setattr(mydialect, field_name, value)
+            d = mydialect()
+
+        for field_name in ("delimiter", "escapechar", "quotechar"):
+            self.assertRaises(csv.Error, create_invalid, field_name, "")
+            self.assertRaises(csv.Error, create_invalid, field_name, "abc")
+            self.assertRaises(csv.Error, create_invalid, field_name, b'x')
+            self.assertRaises(csv.Error, create_invalid, field_name, 5)
 
 
 class TestSniffer(unittest.TestCase):
@@ -788,7 +861,7 @@ Stonecutters Seafood and Chop House, Lemont, IL, 12/19/02, Week Back
 'Tommy''s Place':'Blue Island':'IL':'12/28/02':'Blue Sunday/White Crow'
 'Stonecutters ''Seafood'' and Chop House':'Lemont':'IL':'12/19/02':'Week Back'
 """
-    header = '''\
+    header1 = '''\
 "venue","city","state","date","performers"
 '''
     sample3 = '''\
@@ -807,10 +880,35 @@ Stonecutters Seafood and Chop House, Lemont, IL, 12/19/02, Week Back
     sample6 = "a|b|c\r\nd|e|f\r\n"
     sample7 = "'a'|'b'|'c'\r\n'd'|e|f\r\n"
 
+# Issue 18155: Use a delimiter that is a special char to regex:
+
+    header2 = '''\
+"venue"+"city"+"state"+"date"+"performers"
+'''
+    sample8 = """\
+Harry's+ Arlington Heights+ IL+ 2/1/03+ Kimi Hayes
+Shark City+ Glendale Heights+ IL+ 12/28/02+ Prezence
+Tommy's Place+ Blue Island+ IL+ 12/28/02+ Blue Sunday/White Crow
+Stonecutters Seafood and Chop House+ Lemont+ IL+ 12/19/02+ Week Back
+"""
+    sample9 = """\
+'Harry''s'+ Arlington Heights'+ 'IL'+ '2/1/03'+ 'Kimi Hayes'
+'Shark City'+ Glendale Heights'+' IL'+ '12/28/02'+ 'Prezence'
+'Tommy''s Place'+ Blue Island'+ 'IL'+ '12/28/02'+ 'Blue Sunday/White Crow'
+'Stonecutters ''Seafood'' and Chop House'+ 'Lemont'+ 'IL'+ '12/19/02'+ 'Week Back'
+"""
+
     def test_has_header(self):
         sniffer = csv.Sniffer()
         self.assertEqual(sniffer.has_header(self.sample1), False)
-        self.assertEqual(sniffer.has_header(self.header+self.sample1), True)
+        self.assertEqual(sniffer.has_header(self.header1 + self.sample1),
+                         True)
+
+    def test_has_header_regex_special_delimiter(self):
+        sniffer = csv.Sniffer()
+        self.assertEqual(sniffer.has_header(self.sample8), False)
+        self.assertEqual(sniffer.has_header(self.header2 + self.sample8),
+                         True)
 
     def test_sniff(self):
         sniffer = csv.Sniffer()
@@ -844,86 +942,96 @@ Stonecutters Seafood and Chop House, Lemont, IL, 12/19/02, Week Back
         dialect = sniffer.sniff(self.sample7)
         self.assertEqual(dialect.delimiter, "|")
         self.assertEqual(dialect.quotechar, "'")
+        dialect = sniffer.sniff(self.sample8)
+        self.assertEqual(dialect.delimiter, '+')
+        dialect = sniffer.sniff(self.sample9)
+        self.assertEqual(dialect.delimiter, '+')
+        self.assertEqual(dialect.quotechar, "'")
 
     def test_doublequote(self):
         sniffer = csv.Sniffer()
-        dialect = sniffer.sniff(self.header)
+        dialect = sniffer.sniff(self.header1)
+        self.assertFalse(dialect.doublequote)
+        dialect = sniffer.sniff(self.header2)
         self.assertFalse(dialect.doublequote)
         dialect = sniffer.sniff(self.sample2)
         self.assertTrue(dialect.doublequote)
+        dialect = sniffer.sniff(self.sample8)
+        self.assertFalse(dialect.doublequote)
+        dialect = sniffer.sniff(self.sample9)
+        self.assertTrue(dialect.doublequote)
 
-if not hasattr(sys, "gettotalrefcount"):
-    if support.verbose: print("*** skipping leakage tests ***")
-else:
-    class NUL:
-        def write(s, *args):
-            pass
-        writelines = write
+class NUL:
+    def write(s, *args):
+        pass
+    writelines = write
 
-    class TestLeaks(unittest.TestCase):
-        def test_create_read(self):
-            delta = 0
-            lastrc = sys.gettotalrefcount()
-            for i in range(20):
-                gc.collect()
-                self.assertEqual(gc.garbage, [])
-                rc = sys.gettotalrefcount()
-                csv.reader(["a,b,c\r\n"])
-                csv.reader(["a,b,c\r\n"])
-                csv.reader(["a,b,c\r\n"])
-                delta = rc-lastrc
-                lastrc = rc
-            # if csv.reader() leaks, last delta should be 3 or more
-            self.assertEqual(delta < 3, True)
+@unittest.skipUnless(hasattr(sys, "gettotalrefcount"),
+                     'requires sys.gettotalrefcount()')
+class TestLeaks(unittest.TestCase):
+    def test_create_read(self):
+        delta = 0
+        lastrc = sys.gettotalrefcount()
+        for i in range(20):
+            gc.collect()
+            self.assertEqual(gc.garbage, [])
+            rc = sys.gettotalrefcount()
+            csv.reader(["a,b,c\r\n"])
+            csv.reader(["a,b,c\r\n"])
+            csv.reader(["a,b,c\r\n"])
+            delta = rc-lastrc
+            lastrc = rc
+        # if csv.reader() leaks, last delta should be 3 or more
+        self.assertEqual(delta < 3, True)
 
-        def test_create_write(self):
-            delta = 0
-            lastrc = sys.gettotalrefcount()
-            s = NUL()
-            for i in range(20):
-                gc.collect()
-                self.assertEqual(gc.garbage, [])
-                rc = sys.gettotalrefcount()
-                csv.writer(s)
-                csv.writer(s)
-                csv.writer(s)
-                delta = rc-lastrc
-                lastrc = rc
-            # if csv.writer() leaks, last delta should be 3 or more
-            self.assertEqual(delta < 3, True)
+    def test_create_write(self):
+        delta = 0
+        lastrc = sys.gettotalrefcount()
+        s = NUL()
+        for i in range(20):
+            gc.collect()
+            self.assertEqual(gc.garbage, [])
+            rc = sys.gettotalrefcount()
+            csv.writer(s)
+            csv.writer(s)
+            csv.writer(s)
+            delta = rc-lastrc
+            lastrc = rc
+        # if csv.writer() leaks, last delta should be 3 or more
+        self.assertEqual(delta < 3, True)
 
-        def test_read(self):
-            delta = 0
-            rows = ["a,b,c\r\n"]*5
-            lastrc = sys.gettotalrefcount()
-            for i in range(20):
-                gc.collect()
-                self.assertEqual(gc.garbage, [])
-                rc = sys.gettotalrefcount()
-                rdr = csv.reader(rows)
-                for row in rdr:
-                    pass
-                delta = rc-lastrc
-                lastrc = rc
-            # if reader leaks during read, delta should be 5 or more
-            self.assertEqual(delta < 5, True)
+    def test_read(self):
+        delta = 0
+        rows = ["a,b,c\r\n"]*5
+        lastrc = sys.gettotalrefcount()
+        for i in range(20):
+            gc.collect()
+            self.assertEqual(gc.garbage, [])
+            rc = sys.gettotalrefcount()
+            rdr = csv.reader(rows)
+            for row in rdr:
+                pass
+            delta = rc-lastrc
+            lastrc = rc
+        # if reader leaks during read, delta should be 5 or more
+        self.assertEqual(delta < 5, True)
 
-        def test_write(self):
-            delta = 0
-            rows = [[1,2,3]]*5
-            s = NUL()
-            lastrc = sys.gettotalrefcount()
-            for i in range(20):
-                gc.collect()
-                self.assertEqual(gc.garbage, [])
-                rc = sys.gettotalrefcount()
-                writer = csv.writer(s)
-                for row in rows:
-                    writer.writerow(row)
-                delta = rc-lastrc
-                lastrc = rc
-            # if writer leaks during write, last delta should be 5 or more
-            self.assertEqual(delta < 5, True)
+    def test_write(self):
+        delta = 0
+        rows = [[1,2,3]]*5
+        s = NUL()
+        lastrc = sys.gettotalrefcount()
+        for i in range(20):
+            gc.collect()
+            self.assertEqual(gc.garbage, [])
+            rc = sys.gettotalrefcount()
+            writer = csv.writer(s)
+            for row in rows:
+                writer.writerow(row)
+            delta = rc-lastrc
+            lastrc = rc
+        # if writer leaks during write, last delta should be 5 or more
+        self.assertEqual(delta < 5, True)
 
 class TestUnicode(unittest.TestCase):
 

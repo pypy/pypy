@@ -123,6 +123,8 @@ class sha:
     def __init__(self):
         "Initialisation."
 
+        self.name = 'sha'
+
         # Initial message length in bits(!).
         self.length = 0
         self.count = [0, 0]
@@ -349,6 +351,7 @@ def sha1(arg=None):
     """
 
     crypto = sha()
+    crypto.name = 'sha1'
     if arg:
         crypto.update(arg)
 

@@ -18,6 +18,8 @@ PyMODINIT_FUNC
     PyObject *module, *othermodule;
     module = PyModule_Create(&moduledef);
     othermodule = PyImport_ImportModule("apple.banana");
+    if (!othermodule)
+        return NULL;
     Py_DECREF(othermodule);
     return module;
 }

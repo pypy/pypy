@@ -33,11 +33,26 @@ BaseException
       +-- AssertionError
       +-- AttributeError
       +-- BufferError
-      +-- EnvironmentError
-      |    +-- IOError
-      |    +-- OSError
-      |         +-- WindowsError (Windows)
-      |         +-- VMSError (VMS)
+      +-- OSError
+      |    = EnvironmentError
+      |    = IOError
+      |    = WindowsError (Windows)
+      |    = VMSError (VMS)
+      |    +-- BlockingIOError
+      |    +-- ChildProcessError
+      |    +-- ConnectionError
+      |    |    +-- BrokenPipeError
+      |    |    +-- ConnectionAbortedError
+      |    |    +-- ConnectionRefusedError
+      |    |    +-- ConnectionResetError
+      |    +-- FileExistsError
+      |    +-- FileNotFoundError
+      |    +-- InterruptedError
+      |    +-- IsADirectoryError
+      |    +-- NotADirectoryError
+      |    +-- PermissionError
+      |    +-- ProcessLookupError
+      |    +-- TimeoutError
       +-- EOFError
       +-- ImportError
       +-- LookupError
@@ -71,12 +86,13 @@ BaseException
            +-- BytesWarning
            +-- ResourceWarning
 """
-
+import errno
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.typedef import (TypeDef, GetSetProperty, descr_get_dict,
-    descr_set_dict, descr_del_dict)
-from pypy.interpreter.gateway import interp2app
-from pypy.interpreter.error import OperationError, setup_context
+from pypy.interpreter.typedef import (
+    TypeDef, GetSetProperty, interp_attrproperty,
+    descr_get_dict, descr_set_dict, descr_del_dict)
+from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.error import OperationError, oefmt, setup_context
 from pypy.interpreter.pytraceback import PyTraceback, check_traceback
 from rpython.rlib import rwin32
 
@@ -97,6 +113,7 @@ class W_BaseException(W_Root):
     w_cause = None
     w_context = None
     w_traceback = None
+    suppress_context = False
 
     def __init__(self, space):
         pass
@@ -138,6 +155,10 @@ class W_BaseException(W_Root):
         clsname = self.getclass(space).getname(space)
         return space.wrap(clsname + args_repr)
 
+    def __repr__(self):
+        """representation for debugging purposes"""
+        return '%s(%s)' % (self.__class__.__name__, self.args_w)
+
     def descr_getargs(self, space):
         return space.newtuple(self.args_w)
 
@@ -148,12 +169,14 @@ class W_BaseException(W_Root):
         return self.w_cause
 
     def descr_setcause(self, space, w_newcause):
-        if not (space.is_w(w_newcause, space.w_None) or
-                space.exception_is_valid_class_w(space.type(w_newcause))):
+        if space.is_w(w_newcause, space.w_None):
+            w_newcause = None
+        elif not space.exception_is_valid_class_w(space.type(w_newcause)):
             raise OperationError(space.w_TypeError, space.wrap(
                     "exception cause must be None or "
                     "derive from BaseException"))
         self.w_cause = w_newcause
+        self.suppress_context = True
 
     def descr_getcontext(self, space):
         w_context = self.w_context
@@ -192,6 +215,12 @@ class W_BaseException(W_Root):
             # tb escapes to app level (see OperationError.get_traceback)
             tb.frame.mark_as_escaped()
         return tb
+
+    def descr_getsuppresscontext(self, space):
+        return space.wrap(self.suppress_context)
+
+    def descr_setsuppresscontext(self, space, w_value):
+        self.suppress_context = space.bool_w(w_value)
 
     def descr_settraceback(self, space, w_newtraceback):
         msg = '__traceback__ must be a traceback or None'
@@ -254,6 +283,9 @@ W_BaseException.typedef = TypeDef(
                                W_BaseException.descr_setcause),
     __context__ = GetSetProperty(W_BaseException.descr_getcontext,
                                  W_BaseException.descr_setcontext),
+    __suppress_context__  = GetSetProperty(
+        W_BaseException.descr_getsuppresscontext,
+        W_BaseException.descr_setsuppresscontext),
     __traceback__ = GetSetProperty(W_BaseException.descr_gettraceback,
                                    W_BaseException.descr_settraceback),
 )
@@ -295,8 +327,34 @@ W_BufferError = _new_exception('BufferError', W_Exception,
 W_ValueError = _new_exception('ValueError', W_Exception,
                          """Inappropriate argument value (of correct type).""")
 
-W_ImportError = _new_exception('ImportError', W_Exception,
-                  """Import can't find module, or can't find name in module.""")
+
+class W_ImportError(W_Exception):
+    """Import can't find module, or can't find name in module."""
+    w_name = None
+    w_path = None
+
+    def descr_init(self, space, __args__):
+        args_w, kw_w = __args__.unpack()
+        self.w_name = kw_w.pop('name', space.w_None)
+        self.w_path = kw_w.pop('path', space.w_None)
+        if kw_w:
+            raise OperationError(space.w_TypeError, space.wrap(
+                    # CPython displays this, but it's not quite right.
+                    "ImportError does not take keyword arguments"))
+        W_Exception.descr_init(self, space, args_w)
+
+
+W_ImportError.typedef = TypeDef(
+    'ImportError',
+    W_Exception.typedef,
+    __doc__ = W_ImportError.__doc__,
+    __module__ = 'builtins',
+    __new__ = _new(W_ImportError),
+    __init__ = interp2app(W_ImportError.descr_init),
+    name = readwrite_attrproperty_w('w_name', W_ImportError),
+    path = readwrite_attrproperty_w('w_path', W_ImportError),
+)
+
 
 W_RuntimeError = _new_exception('RuntimeError', W_Exception,
                      """Unspecified run-time error.""")
@@ -368,8 +426,28 @@ W_KeyError = _new_exception('KeyError', W_LookupError,
                             """Mapping key not found.""",
                             __str__ = key_error_str)
 
-W_StopIteration = _new_exception('StopIteration', W_Exception,
-                                 """Signal the end from iterator.__next__().""")
+
+class W_StopIteration(W_Exception):
+    """Signal the end from iterator.__next__()."""
+    def __init__(self, space):
+        self.w_value = space.w_None
+        W_Exception.__init__(self, space)
+
+    def descr_init(self, space, args_w):
+        if len(args_w) > 0:
+            self.w_value = args_w[0]
+        W_Exception.descr_init(self, space, args_w)
+
+W_StopIteration.typedef = TypeDef(
+    'StopIteration',
+    W_Exception.typedef,
+    __doc__ = W_StopIteration.__doc__,
+    __module__ = 'builtins',
+    __new__ = _new(W_StopIteration),
+    __init__ = interp2app(W_StopIteration.descr_init),
+    value = readwrite_attrproperty_w('w_value', W_StopIteration),
+)
+
 
 W_Warning = _new_exception('Warning', W_Exception,
                            """Base class for warning categories.""")
@@ -378,23 +456,110 @@ W_PendingDeprecationWarning = _new_exception('PendingDeprecationWarning',
                                              W_Warning,
        """Base class for warnings about features which will be deprecated in the future.""")
 
-class W_EnvironmentError(W_Exception):
-    """Base class for I/O related errors."""
+class W_OSError(W_Exception):
+    """OS system call failed."""
 
     def __init__(self, space):
         self.w_errno = space.w_None
         self.w_strerror = space.w_None
         self.w_filename = space.w_None
+        self.written = -1  # only for BlockingIOError.
         W_BaseException.__init__(self, space)
 
-    def descr_init(self, space, args_w):
-        W_BaseException.descr_init(self, space, args_w)
+    @staticmethod
+    def _use_init(space, w_subtype):
+        # When __init__ is defined in a OSError subclass, we want any
+        # extraneous argument to __new__ to be ignored.  The only reasonable
+        # solution, given __new__ takes a variable number of arguments,
+        # is to defer arg parsing and initialization to __init__.
+        #
+        # But when __new__ is overriden as well, it should call our __new__
+        # with the right arguments.
+        #
+        # (see http://bugs.python.org/issue12555#msg148829 )
+        if space.is_w(w_subtype, space.w_OSError):
+            return False
+        if ((space.getattr(w_subtype, space.wrap('__init__')) !=
+             space.getattr(space.w_OSError, space.wrap('__init__'))) and
+            (space.getattr(w_subtype, space.wrap('__new__')) ==
+             space.getattr(space.w_OSError, space.wrap('__new__')))):
+            return True
+        return False
+
+    @staticmethod
+    def _parse_init_args(space, args_w):
         if 2 <= len(args_w) <= 3:
-            self.w_errno = args_w[0]
-            self.w_strerror = args_w[1]
-        if len(args_w) == 3:
-            self.w_filename = args_w[2]
-            self.args_w = [args_w[0], args_w[1]]
+            w_errno = args_w[0]
+            w_strerror = args_w[1]
+            if len(args_w) == 3:
+                w_filename = args_w[2]
+            else:
+                w_filename = None
+            return w_errno, w_strerror, w_filename
+        return None, None, None
+
+    @staticmethod
+    def descr_new(space, w_subtype, __args__):
+        args_w, kwds_w = __args__.unpack()
+        w_errno = None
+        w_strerror = None
+        w_filename = None
+        if not W_OSError._use_init(space, w_subtype):
+            if kwds_w:
+                raise oefmt(space.w_TypeError,
+                            "OSError does not take keyword arguments")
+            (w_errno, w_strerror, w_filename,
+             ) = W_OSError._parse_init_args(space, args_w)
+        if (not space.is_none(w_errno) and
+            space.is_w(w_subtype, space.gettypeobject(W_OSError.typedef))):
+            try:
+                errno = space.int_w(w_errno)
+            except OperationError:
+                pass
+            else:
+                try:
+                    subclass = ERRNO_MAP[errno]
+                except KeyError:
+                    pass
+                else:
+                    w_subtype = space.gettypeobject(subclass.typedef)
+        exc = space.allocate_instance(W_OSError, w_subtype)
+        W_OSError.__init__(exc, space)
+        if not W_OSError._use_init(space, w_subtype):
+            exc._init_error(space, args_w, w_errno, w_strerror, w_filename)
+        return space.wrap(exc)
+
+    def descr_init(self, space, __args__):
+        args_w, kwds_w = __args__.unpack()
+        if not W_OSError._use_init(space, space.type(self)):
+            # Everything already done in OSError_new
+            return
+        if kwds_w:
+            raise oefmt(space.w_TypeError,
+                        "OSError does not take keyword arguments")
+        (w_errno, w_strerror, w_filename
+         ) = W_OSError._parse_init_args(space, args_w)
+        self._init_error(space, args_w, w_errno, w_strerror, w_filename)
+
+    def _init_error(self, space, args_w, w_errno, w_strerror, w_filename):
+        W_BaseException.descr_init(self, space, args_w)
+        if w_errno:
+            self.w_errno = w_errno
+        if w_strerror:
+            self.w_strerror = w_strerror
+
+        if not space.is_none(w_filename):
+            if space.isinstance_w(
+                    self, space.gettypeobject(W_BlockingIOError.typedef)):
+                try:
+                    self.written = space.int_w(w_filename)
+                except OperationError:
+                    self.w_filename = w_filename
+            else:
+                self.w_filename = w_filename
+                # filename is removed from the args tuple (for compatibility
+                # purposes, see test_exceptions.py)
+                self.args_w = [w_errno, w_strerror]
 
     # since we rebind args_w, we need special reduce, grump
     def descr_reduce(self, space):
@@ -423,21 +588,29 @@ class W_EnvironmentError(W_Exception):
             ))
         return W_BaseException.descr_str(self, space)
 
-W_EnvironmentError.typedef = TypeDef(
-    'EnvironmentError',
-    W_Exception.typedef,
-    __doc__ = W_EnvironmentError.__doc__,
-    __new__ = _new(W_EnvironmentError),
-    __reduce__ = interp2app(W_EnvironmentError.descr_reduce),
-    __init__ = interp2app(W_EnvironmentError.descr_init),
-    __str__ = interp2app(W_EnvironmentError.descr_str),
-    errno    = readwrite_attrproperty_w('w_errno',    W_EnvironmentError),
-    strerror = readwrite_attrproperty_w('w_strerror', W_EnvironmentError),
-    filename = readwrite_attrproperty_w('w_filename', W_EnvironmentError),
-    )
+    def descr_get_written(self, space):
+        if self.written == -1:
+            raise OperationError(space.w_AttributeError,
+                                 space.wrap("characters_written"))
+        return space.wrap(self.written)
 
-W_OSError = _new_exception('OSError', W_EnvironmentError,
-                           """OS system call failed.""")
+    def descr_set_written(self, space, w_written):
+        self.written = space.int_w(w_written)
+
+W_OSError.typedef = TypeDef(
+    'OSError',
+    W_Exception.typedef,
+    __doc__ = W_OSError.__doc__,
+    __new__ = interp2app(W_OSError.descr_new),
+    __reduce__ = interp2app(W_OSError.descr_reduce),
+    __init__ = interp2app(W_OSError.descr_init),
+    __str__ = interp2app(W_OSError.descr_str),
+    errno    = readwrite_attrproperty_w('w_errno',    W_OSError),
+    strerror = readwrite_attrproperty_w('w_strerror', W_OSError),
+    filename = readwrite_attrproperty_w('w_filename', W_OSError),
+    characters_written = GetSetProperty(W_OSError.descr_get_written,
+                                        W_OSError.descr_set_written),
+    )
 
 class W_WindowsError(W_OSError):
     """MS-Windows OS system call failed."""
@@ -446,10 +619,10 @@ class W_WindowsError(W_OSError):
         self.w_winerror = space.w_None
         W_OSError.__init__(self, space)
 
-    def descr_init(self, space, args_w):
+    def descr_init(self, space, __args__):
         # Set errno to the POSIX errno, and winerror to the Win32
         # error code.
-        W_OSError.descr_init(self, space, args_w)
+        W_OSError.descr_init(self, space, __args__)
         try:
             errno = space.int_w(self.w_errno)
         except OperationError:
@@ -491,6 +664,38 @@ W_WindowsError.typedef = TypeDef(
     winerror = readwrite_attrproperty_w('w_winerror', W_WindowsError),
     )
 
+W_BlockingIOError = _new_exception(
+    "BlockingIOError", W_OSError, "I/O operation would block")
+W_ConnectionError = _new_exception(
+    "ConnectionError", W_OSError, "Connection error.")
+W_ChildProcessError = _new_exception(
+    "ChildProcessError", W_OSError, "Child process error.")
+W_BrokenPipeError = _new_exception(
+    "BrokenPipeError", W_ConnectionError, "Broken pipe.")
+W_ConnectionAbortedError = _new_exception(
+    "ConnectionAbortedError", W_ConnectionError, "Connection aborted.")
+W_ConnectionRefusedError = _new_exception(
+    "ConnectionRefusedError", W_ConnectionError, "Connection refused.")
+W_ConnectionResetError = _new_exception(
+    "ConnectionResetError", W_ConnectionError, "Connection reset.")
+W_FileExistsError = _new_exception(
+    "FileExistsError", W_OSError, "File already exists.")
+W_FileNotFoundError = _new_exception(
+    "FileNotFoundError", W_OSError, "File not found.")
+W_IsADirectoryError = _new_exception(
+    "IsADirectoryError", W_OSError, "Operation doesn't work on directories.")
+W_NotADirectoryError = _new_exception(
+    "NotADirectoryError", W_OSError, "Operation only works on directories.")
+W_InterruptedError = _new_exception(
+    "InterruptedError", W_OSError, "Interrupted by signal.")
+W_PermissionError = _new_exception(
+    "PermissionError", W_OSError, "Not enough permissions.")
+W_ProcessLookupError = _new_exception(
+    "ProcessLookupError", W_OSError, "Process not found.")
+W_TimeoutError = _new_exception(
+    "TimeoutError", W_OSError, "Timeout expired.")
+
+
 W_BytesWarning = _new_exception('BytesWarning', W_Warning,
                                 """Mixing bytes and unicode""")
 
@@ -511,9 +716,6 @@ W_ReferenceError = _new_exception('ReferenceError', W_Exception,
 
 W_NameError = _new_exception('NameError', W_Exception,
                              """Name not found globally.""")
-
-W_IOError = _new_exception('IOError', W_EnvironmentError,
-                           """I/O operation failed.""")
 
 
 class W_SyntaxError(W_Exception):
@@ -800,3 +1002,25 @@ W_UnicodeEncodeError.typedef = TypeDef(
     end    = readwrite_attrproperty_w('w_end', W_UnicodeEncodeError),
     reason = readwrite_attrproperty_w('w_reason', W_UnicodeEncodeError),
 )
+
+ERRNO_MAP = {
+    errno.EAGAIN: W_BlockingIOError,
+    errno.EALREADY: W_BlockingIOError,
+    errno.EINPROGRESS: W_BlockingIOError,
+    errno.EWOULDBLOCK: W_BlockingIOError,
+    errno.EPIPE: W_BrokenPipeError,
+    errno.ESHUTDOWN: W_BrokenPipeError,
+    errno.ECHILD: W_ChildProcessError,
+    errno.ECONNABORTED: W_ConnectionAbortedError,
+    errno.ECONNREFUSED: W_ConnectionRefusedError,
+    errno.ECONNRESET: W_ConnectionResetError,
+    errno.EEXIST: W_FileExistsError,
+    errno.ENOENT: W_FileNotFoundError,
+    errno.EISDIR: W_IsADirectoryError,
+    errno.ENOTDIR: W_NotADirectoryError,
+    errno.EINTR: W_InterruptedError,
+    errno.EACCES: W_PermissionError,
+    errno.EPERM: W_PermissionError,
+    errno.ESRCH: W_ProcessLookupError,
+    errno.ETIMEDOUT: W_TimeoutError,
+}

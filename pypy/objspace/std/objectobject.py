@@ -199,7 +199,7 @@ def descr___format__(space, w_obj, w_format_spec):
         raise OperationError(space.w_TypeError, space.wrap(msg))
     if space.len_w(w_format_spec) > 0:
         msg = "object.__format__ with a non-empty format string is deprecated"
-        space.warn(space.wrap(msg), space.w_PendingDeprecationWarning)
+        space.warn(space.wrap(msg), space.w_DeprecationWarning)
     return space.format(w_as_str, w_format_spec)
 
 def descr__eq__(space, w_self, w_other):
@@ -215,6 +215,9 @@ def descr__ne__(space, w_self, w_other):
 def descr_richcompare(space, w_self, w_other):
     return space.w_NotImplemented
 
+def descr__dir__(space, w_obj):
+    from pypy.objspace.std.util import _objectdir
+    return space.call_function(space.w_list, _objectdir(space, w_obj))
 
 W_ObjectObject.typedef = TypeDef("object",
     __doc__ = "The most base type",
@@ -234,6 +237,7 @@ W_ObjectObject.typedef = TypeDef("object",
     __reduce__ = interp2app(descr__reduce__),
     __reduce_ex__ = interp2app(descr__reduce_ex__),
     __format__ = interp2app(descr___format__),
+    __dir__ = interp2app(descr__dir__),
 
     __eq__ = interp2app(descr__eq__),
     __ne__ = interp2app(descr__ne__),

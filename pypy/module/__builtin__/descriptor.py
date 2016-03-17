@@ -2,8 +2,8 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.function import StaticMethod, ClassMethod
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
-from pypy.interpreter.typedef import (TypeDef, interp_attrproperty_w,
-    generic_new_descr)
+from pypy.interpreter.typedef import (
+    TypeDef, interp_attrproperty_w, generic_new_descr, GetSetProperty)
 from pypy.objspace.descroperation import object_getattribute
 
 
@@ -56,14 +56,14 @@ def descr_new_super(space, w_subtype, w_starttype=None, w_obj_or_type=None):
         frame = ec.gettopframe()
         code = frame.pycode
         if not code:
-            raise OperationError(space.w_SystemError, space.wrap(
+            raise OperationError(space.w_RuntimeError, space.wrap(
                     "super(): no code object"))
         if code.co_argcount == 0:
-            raise OperationError(space.w_SystemError, space.wrap(
+            raise OperationError(space.w_RuntimeError, space.wrap(
                     "super(): no arguments"))
         w_obj = frame.locals_cells_stack_w[0]
         if not w_obj:
-            raise OperationError(space.w_SystemError, space.wrap(
+            raise OperationError(space.w_RuntimeError, space.wrap(
                     "super(): arg[0] deleted"))
         index = 0
         for name in code.co_freevars:
@@ -71,11 +71,15 @@ def descr_new_super(space, w_subtype, w_starttype=None, w_obj_or_type=None):
                 break
             index += 1
         else:
-            raise OperationError(space.w_SystemError, space.wrap(
+            raise OperationError(space.w_RuntimeError, space.wrap(
                     "super(): __class__ cell not found"))
         # a kind of LOAD_DEREF
         cell = frame._getcell(len(code.co_cellvars) + index)
-        w_starttype = cell.get()
+        try:
+            w_starttype = cell.get()
+        except ValueError:
+            raise OperationError(space.w_RuntimeError, space.wrap(
+                    "super(): empty __class__ cell"))
         w_obj_or_type = w_obj
 
     if space.is_none(w_obj_or_type):
@@ -196,6 +200,11 @@ class W_Property(W_Root):
         w_type = self.getclass(space)
         return space.call_function(w_type, w_getter, w_setter, w_deleter, w_doc)
 
+    def descr_isabstract(self, space):
+        return space.newbool(space.isabstractmethod_w(self.w_fget) or
+                             space.isabstractmethod_w(self.w_fset) or
+                             space.isabstractmethod_w(self.w_fdel))
+
 W_Property.typedef = TypeDef(
     'property',
     __doc__ = '''property(fget=None, fset=None, fdel=None, doc=None) -> property attribute
@@ -213,6 +222,7 @@ class C(object):
     __get__ = interp2app(W_Property.get),
     __set__ = interp2app(W_Property.set),
     __delete__ = interp2app(W_Property.delete),
+    __isabstractmethod__ = GetSetProperty(W_Property.descr_isabstract),
     fdel = interp_attrproperty_w('w_fdel', W_Property),
     fget = interp_attrproperty_w('w_fget', W_Property),
     fset = interp_attrproperty_w('w_fset', W_Property),

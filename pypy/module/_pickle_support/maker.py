@@ -98,15 +98,6 @@ def builtin_function(space, identifier):
                                         identifier))
 
 
-def enumerate_new(space, w_iter, w_index):
-    from pypy.module.__builtin__.functional import _make_enumerate
-    return _make_enumerate(space, w_iter, w_index)
-
-def reversed_new(space, w_seq, w_remaining):
-    from pypy.module.__builtin__.functional import _make_reversed
-    return _make_reversed(space, w_seq, w_remaining)
-
-
 # ___________________________________________________________________
 # Helper functions for internal use
 

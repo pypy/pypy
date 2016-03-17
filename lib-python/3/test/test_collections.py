@@ -1,6 +1,7 @@
 """Unit tests for collections.py."""
 
 import unittest, doctest, operator
+from test.support import TESTFN, forget, unlink
 import inspect
 from test import support
 from collections import namedtuple, Counter, OrderedDict, _count_elements
@@ -10,20 +11,19 @@ from random import randrange, shuffle
 import keyword
 import re
 import sys
-from collections import _ChainMap
-from collections import Hashable, Iterable, Iterator
-from collections import Sized, Container, Callable
-from collections import Set, MutableSet
-from collections import Mapping, MutableMapping, KeysView, ItemsView, UserDict
-from collections import Sequence, MutableSequence
-from collections import ByteString
+from collections import UserDict
+from collections import ChainMap
+from collections.abc import Hashable, Iterable, Iterator
+from collections.abc import Sized, Container, Callable
+from collections.abc import Set, MutableSet
+from collections.abc import Mapping, MutableMapping, KeysView, ItemsView
+from collections.abc import Sequence, MutableSequence
+from collections.abc import ByteString
 
 
 ################################################################################
-### _ChainMap (helper class for configparser)
+### ChainMap (helper class for configparser and the string module)
 ################################################################################
-
-ChainMap = _ChainMap  # rename to keep test code in sync with 3.3 version
 
 class TestChainMap(unittest.TestCase):
 
@@ -128,6 +128,7 @@ class TestNamedTuple(unittest.TestCase):
         self.assertEqual(Point.__module__, __name__)
         self.assertEqual(Point.__getitem__, tuple.__getitem__)
         self.assertEqual(Point._fields, ('x', 'y'))
+        self.assertIn('class Point(tuple)', Point._source)
 
         self.assertRaises(ValueError, namedtuple, 'abc%', 'efg ghi')       # type has non-alpha char
         self.assertRaises(ValueError, namedtuple, 'class', 'efg ghi')      # type has keyword
@@ -327,6 +328,17 @@ class TestNamedTuple(unittest.TestCase):
         class B(A):
             pass
         self.assertEqual(repr(B(1)), 'B(x=1)')
+
+    def test_source(self):
+        # verify that _source can be run through exec()
+        tmp = namedtuple('NTColor', 'red green blue')
+        globals().pop('NTColor', None)          # remove artifacts from other tests
+        exec(tmp._source, globals())
+        self.assertIn('NTColor', globals())
+        c = NTColor(10, 20, 30)
+        self.assertEqual((c.red, c.green, c.blue), (10, 20, 30))
+        self.assertEqual(NTColor._fields, ('red', 'green', 'blue'))
+        globals().pop('NTColor', None)          # clean-up after this test
 
 
 ################################################################################
@@ -768,10 +780,66 @@ class TestCollectionABCs(ABCTestCase):
         self.validate_abstract_methods(MutableSequence, '__contains__', '__iter__',
             '__len__', '__getitem__', '__setitem__', '__delitem__', 'insert')
 
+    def test_MutableSequence_mixins(self):
+        # Test the mixins of MutableSequence by creating a miminal concrete
+        # class inherited from it.
+        class MutableSequenceSubclass(MutableSequence):
+            def __init__(self):
+                self.lst = []
+
+            def __setitem__(self, index, value):
+                self.lst[index] = value
+
+            def __getitem__(self, index):
+                return self.lst[index]
+
+            def __len__(self):
+                return len(self.lst)
+
+            def __delitem__(self, index):
+                del self.lst[index]
+
+            def insert(self, index, value):
+                self.lst.insert(index, value)
+
+        mss = MutableSequenceSubclass()
+        mss.append(0)
+        mss.extend((1, 2, 3, 4))
+        self.assertEqual(len(mss), 5)
+        self.assertEqual(mss[3], 3)
+        mss.reverse()
+        self.assertEqual(mss[3], 1)
+        mss.pop()
+        self.assertEqual(len(mss), 4)
+        mss.remove(3)
+        self.assertEqual(len(mss), 3)
+        mss += (10, 20, 30)
+        self.assertEqual(len(mss), 6)
+        self.assertEqual(mss[-1], 30)
+        mss.clear()
+        self.assertEqual(len(mss), 0)
 
 ################################################################################
 ### Counter
 ################################################################################
+
+class CounterSubclassWithSetItem(Counter):
+    # Test a counter subclass that overrides __setitem__
+    def __init__(self, *args, **kwds):
+        self.called = False
+        Counter.__init__(self, *args, **kwds)
+    def __setitem__(self, key, value):
+        self.called = True
+        Counter.__setitem__(self, key, value)
+
+class CounterSubclassWithGet(Counter):
+    # Test a counter subclass that overrides get()
+    def __init__(self, *args, **kwds):
+        self.called = False
+        Counter.__init__(self, *args, **kwds)
+    def get(self, key, default):
+        self.called = True
+        return Counter.get(self, key, default)
 
 class TestCounter(unittest.TestCase):
 
@@ -921,6 +989,27 @@ class TestCounter(unittest.TestCase):
                 set_result = setop(set(p.elements()), set(q.elements()))
                 self.assertEqual(counter_result, dict.fromkeys(set_result, 1))
 
+    def test_inplace_operations(self):
+        elements = 'abcd'
+        for i in range(1000):
+            # test random pairs of multisets
+            p = Counter(dict((elem, randrange(-2,4)) for elem in elements))
+            p.update(e=1, f=-1, g=0)
+            q = Counter(dict((elem, randrange(-2,4)) for elem in elements))
+            q.update(h=1, i=-1, j=0)
+            for inplace_op, regular_op in [
+                (Counter.__iadd__, Counter.__add__),
+                (Counter.__isub__, Counter.__sub__),
+                (Counter.__ior__, Counter.__or__),
+                (Counter.__iand__, Counter.__and__),
+            ]:
+                c = p.copy()
+                c_id = id(c)
+                regular_result = regular_op(c, q)
+                inplace_result = inplace_op(c, q)
+                self.assertEqual(inplace_result, regular_result)
+                self.assertEqual(id(inplace_result), c_id)
+
     def test_subtract(self):
         c = Counter(a=-5, b=0, c=5, d=10, e=15,g=40)
         c.subtract(a=1, b=2, c=-3, d=10, e=20, f=30, h=-50)
@@ -931,6 +1020,11 @@ class TestCounter(unittest.TestCase):
         c = Counter('aaabbcd')
         c.subtract('aaaabbcce')
         self.assertEqual(c, Counter(a=-1, b=0, c=-1, d=1, e=-1))
+
+    def test_unary(self):
+        c = Counter(a=-5, b=0, c=5, d=10, e=15,g=40)
+        self.assertEqual(dict(+c), dict(c=5, d=10, e=15, g=40))
+        self.assertEqual(dict(-c), dict(a=5))
 
     def test_repr_nonsortable(self):
         c = Counter(a=2, b=None)
@@ -950,6 +1044,12 @@ class TestCounter(unittest.TestCase):
         _count_elements(m, elems)
         self.assertEqual(m,
              OrderedDict([('a', 5), ('b', 2), ('r', 2), ('c', 1), ('d', 1)]))
+
+        # test fidelity to the pure python version
+        c = CounterSubclassWithSetItem('abracadabra')
+        self.assertTrue(c.called)
+        c = CounterSubclassWithGet('abracadabra')
+        self.assertTrue(c.called)
 
 
 ################################################################################

@@ -19,7 +19,7 @@ def gethostname(space):
         res = rsocket.gethostname()
     except SocketError, e:
         raise converted_error(space, e)
-    return space.wrap(res)
+    return space.fsdecode(space.wrapbytes(res))
 
 @unwrap_spec(host=str)
 def gethostbyname(space, host):

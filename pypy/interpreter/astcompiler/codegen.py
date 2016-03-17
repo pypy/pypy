@@ -177,7 +177,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
     across the AST tree generating bytecode as needed.
     """
 
-    def __init__(self, space, name, tree, lineno, symbols, compile_info):
+    def __init__(self, space, name, tree, lineno, symbols, compile_info,
+                 qualname):
         self.scope = symbols.find_scope(tree)
         assemble.PythonCodeMaker.__init__(self, space, name, lineno,
                                           self.scope, compile_info)
@@ -185,6 +186,10 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.frame_blocks = []
         self.interactive = False
         self.temporary_name_counter = 1
+        if isinstance(self.scope, symtable.FunctionScope):
+            self.qualname = qualname + '.<locals>'
+        else:
+            self.qualname = qualname
         self._compile(tree)
 
     def _compile(self, tree):
@@ -203,9 +208,13 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def sub_scope(self, kind, name, node, lineno):
         """Convenience function for compiling a sub scope."""
+        if self.qualname:
+            qualname = '%s.%s' % (self.qualname, name)
+        else:
+            qualname = name
         generator = kind(self.space, name, node, lineno, self.symbols,
-                         self.compile_info)
-        return generator.assemble()
+                         self.compile_info, qualname)
+        return generator.assemble(), qualname
 
     def push_frame_block(self, kind, block):
         self.frame_blocks.append((kind, block))
@@ -244,11 +253,25 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op_arg(op, self.add_name(container, identifier))
 
     def possible_docstring(self, node):
-        if isinstance(node, ast.Expr):
+        if isinstance(node, ast.Expr) and self.compile_info.optimize < 2:
             expr_value = node.value
             if isinstance(expr_value, ast.Str):
                 return expr_value
         return None
+
+    def ensure_docstring_constant(self, body):
+        # If there's a docstring, store it as the first constant.
+        if body:
+            doc_expr = self.possible_docstring(body[0])
+        else:
+            doc_expr = None
+        if doc_expr is not None:
+            self.add_const(doc_expr.s)
+            self.scope.doc_removable = True
+            return True
+        else:
+            self.add_const(self.space.w_None)
+            return False
 
     def _get_code_flags(self):
         # Default for everything but module scopes.
@@ -282,9 +305,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.add_none_to_final_return = False
         mod.body.walkabout(self)
 
-    def _make_function(self, code, num_defaults=0):
+    def _make_function(self, code, num_defaults=0, qualname=None):
         """Emit the opcodes to turn a code object into a function."""
-        code_index = self.add_const(code)
+        w_qualname = self.space.wrap((qualname or code.co_name).decode('utf-8'))
         if code.co_freevars:
             # Load cell and free vars to pass on.
             for free in code.co_freevars:
@@ -295,10 +318,12 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                     index = self.free_vars[free]
                 self.emit_op_arg(ops.LOAD_CLOSURE, index)
             self.emit_op_arg(ops.BUILD_TUPLE, len(code.co_freevars))
-            self.emit_op_arg(ops.LOAD_CONST, code_index)
+            self.load_const(code)
+            self.load_const(w_qualname)
             self.emit_op_arg(ops.MAKE_CLOSURE, num_defaults)
         else:
-            self.emit_op_arg(ops.LOAD_CONST, code_index)
+            self.load_const(code)
+            self.load_const(w_qualname)
             self.emit_op_arg(ops.MAKE_FUNCTION, num_defaults)
 
     def _visit_kwonlydefaults(self, args):
@@ -359,9 +384,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         oparg = num_defaults
         oparg |= kw_default_count << 8
         oparg |= num_annotations << 16
-        code = self.sub_scope(FunctionCodeGenerator, func.name, func,
-                              func.lineno)
-        self._make_function(code, oparg)
+        code, qualname = self.sub_scope(FunctionCodeGenerator, func.name, func,
+                                        func.lineno)
+        self._make_function(code, oparg, qualname=qualname)
         # Apply decorators.
         if func.decorator_list:
             for i in range(len(func.decorator_list)):
@@ -377,20 +402,22 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             kw_default_count = self._visit_kwonlydefaults(args)
         self.visit_sequence(args.defaults)
         default_count = len(args.defaults) if args.defaults is not None else 0
-        code = self.sub_scope(LambdaCodeGenerator, "<lambda>", lam, lam.lineno)
+        code, qualname = self.sub_scope(
+            LambdaCodeGenerator, "<lambda>", lam, lam.lineno)
         oparg = default_count
         oparg |= kw_default_count << 8
-        self._make_function(code, oparg)
+        self._make_function(code, oparg, qualname=qualname)
 
     def visit_ClassDef(self, cls):
         self.update_position(cls.lineno, True)
         self.visit_sequence(cls.decorator_list)
         # 1. compile the class body into a code object
-        code = self.sub_scope(ClassCodeGenerator, cls.name, cls, cls.lineno)
+        code, qualname = self.sub_scope(
+            ClassCodeGenerator, cls.name, cls, cls.lineno)
         # 2. load the 'build_class' function
         self.emit_op(ops.LOAD_BUILD_CLASS)
         # 3. load a function (or closure) made from the code object
-        self._make_function(code, 0)
+        self._make_function(code, qualname=qualname)
         # 4. load class name
         self.load_const(self.space.wrap(cls.name.decode('utf-8')))
         # 5. generate the rest of the code for the call
@@ -435,9 +462,12 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.error("illegal expression for augmented assignment", assign)
 
     def visit_Assert(self, asrt):
+        if self.compile_info.optimize >= 1:
+            return
         self.update_position(asrt.lineno)
         end = self.new_block()
-        self.emit_jump(ops.JUMP_IF_NOT_DEBUG, end)
+        if self.compile_info.optimize != 0:
+            self.emit_jump(ops.JUMP_IF_NOT_DEBUG, end)
         asrt.test.accept_jump_if(self, True, end)
         self.emit_op_name(ops.LOAD_GLOBAL, self.names, "AssertionError")
         if asrt.msg:
@@ -569,20 +599,20 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.visit_sequence(wh.orelse)
             self.use_next_block(end)
 
-    def visit_TryExcept(self, te):
-        self.update_position(te.lineno, True)
+    def _visit_try_except(self, tr):
+        self.update_position(tr.lineno, True)
         exc = self.new_block()
         otherwise = self.new_block()
         end = self.new_block()
         self.emit_jump(ops.SETUP_EXCEPT, exc)
         body = self.use_next_block()
         self.push_frame_block(F_BLOCK_EXCEPT, body)
-        self.visit_sequence(te.body)
+        self.visit_sequence(tr.body)
         self.emit_op(ops.POP_BLOCK)
         self.pop_frame_block(F_BLOCK_EXCEPT, body)
         self.emit_jump(ops.JUMP_FORWARD, otherwise)
         self.use_next_block(exc)
-        for handler in te.handlers:
+        for handler in tr.handlers:
             assert isinstance(handler, ast.ExceptHandler)
             self.update_position(handler.lineno, True)
             next_except = self.new_block()
@@ -641,25 +671,34 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op(ops.END_FINALLY)   # this END_FINALLY will always re-raise
         self.is_dead_code()
         self.use_next_block(otherwise)
-        self.visit_sequence(te.orelse)
+        self.visit_sequence(tr.orelse)
         self.use_next_block(end)
 
-    def visit_TryFinally(self, tf):
-        self.update_position(tf.lineno, True)
+    def _visit_try_finally(self, tr):
+        self.update_position(tr.lineno, True)
         end = self.new_block()
         self.emit_jump(ops.SETUP_FINALLY, end)
         body = self.use_next_block()
         self.push_frame_block(F_BLOCK_FINALLY, body)
-        self.visit_sequence(tf.body)
+        if tr.handlers:
+            self._visit_try_except(tr)
+        else:
+            self.visit_sequence(tr.body)
         self.emit_op(ops.POP_BLOCK)
         self.pop_frame_block(F_BLOCK_FINALLY, body)
         # Indicates there was no exception.
         self.load_const(self.space.w_None)
         self.use_next_block(end)
         self.push_frame_block(F_BLOCK_FINALLY_END, end)
-        self.visit_sequence(tf.finalbody)
+        self.visit_sequence(tr.finalbody)
         self.emit_op(ops.END_FINALLY)
         self.pop_frame_block(F_BLOCK_FINALLY_END, end)
+
+    def visit_Try(self, tr):
+        if tr.finalbody:
+            return self._visit_try_finally(tr)
+        else:
+            return self._visit_try_except(tr)
 
     def _import_as(self, alias):
         source_name = alias.name
@@ -803,17 +842,24 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def visit_With(self, wih):
         self.update_position(wih.lineno, True)
+        self.handle_withitem(wih, 0)
+
+    def handle_withitem(self, wih, pos):
         body_block = self.new_block()
         cleanup = self.new_block()
-        wih.context_expr.walkabout(self)
+        witem = wih.items[pos]
+        witem.context_expr.walkabout(self)
         self.emit_jump(ops.SETUP_WITH, cleanup)
         self.use_next_block(body_block)
         self.push_frame_block(F_BLOCK_FINALLY, body_block)
-        if wih.optional_vars:
-            wih.optional_vars.walkabout(self)
+        if witem.optional_vars:
+            witem.optional_vars.walkabout(self)
         else:
             self.emit_op(ops.POP_TOP)
-        self.visit_sequence(wih.body)
+        if pos == len(wih.items) - 1:
+            self.visit_sequence(wih.body)
+        else:
+            self.handle_withitem(wih, pos + 1)
         self.emit_op(ops.POP_BLOCK)
         self.pop_frame_block(F_BLOCK_FINALLY, body_block)
         self.load_const(self.space.w_None)
@@ -862,6 +908,13 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         else:
             self.load_const(self.space.w_None)
         self.emit_op(ops.YIELD_VALUE)
+
+    def visit_YieldFrom(self, yfr):
+        self.update_position(yfr.lineno)
+        yfr.value.walkabout(self)
+        self.emit_op(ops.GET_ITER)
+        self.load_const(self.space.w_None)
+        self.emit_op(ops.YIELD_FROM)
 
     def visit_Num(self, num):
         self.update_position(num.lineno)
@@ -1122,9 +1175,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.use_next_block(anchor)
 
     def _compile_comprehension(self, node, name, sub_scope):
-        code = self.sub_scope(sub_scope, name, node, node.lineno)
+        code, qualname = self.sub_scope(sub_scope, name, node, node.lineno)
         self.update_position(node.lineno)
-        self._make_function(code)
+        self._make_function(code, qualname=qualname)
         first_comp = node.get_generators()[0]
         assert isinstance(first_comp, ast.comprehension)
         first_comp.iter.walkabout(self)
@@ -1217,7 +1270,7 @@ class TopLevelCodeGenerator(PythonCodeGenerator):
 
     def __init__(self, space, tree, symbols, compile_info):
         PythonCodeGenerator.__init__(self, space, "<module>", tree, -1,
-                                     symbols, compile_info)
+                                     symbols, compile_info, qualname=None)
 
     def _compile(self, tree):
         tree.walkabout(self)
@@ -1260,18 +1313,8 @@ class FunctionCodeGenerator(AbstractFunctionCodeGenerator):
 
     def _compile(self, func):
         assert isinstance(func, ast.FunctionDef)
-        # If there's a docstring, store it as the first constant.
-        if func.body:
-            doc_expr = self.possible_docstring(func.body[0])
-        else:
-            doc_expr = None
-        if doc_expr is not None:
-            self.add_const(doc_expr.s)
-            self.scope.doc_removable = True
-            start = 1
-        else:
-            self.add_const(self.space.w_None)
-            start = 0
+        has_docstring = self.ensure_docstring_constant(func.body)
+        start = 1 if has_docstring else 0
         args = func.args
         assert isinstance(args, ast.arguments)
         if args.args:
@@ -1326,6 +1369,7 @@ class ClassCodeGenerator(PythonCodeGenerator):
 
     def _compile(self, cls):
         assert isinstance(cls, ast.ClassDef)
+        self.ensure_docstring_constant(cls.body)
         self.lineno = self.first_lineno
         self.argcount = 1
         # load the first argument (__locals__) ...
@@ -1336,6 +1380,10 @@ class ClassCodeGenerator(PythonCodeGenerator):
         self.name_op("__name__", ast.Load)
         # ... and store it as __module__
         self.name_op("__module__", ast.Store)
+        # store the qualname
+        w_qualname = self.space.wrap(self.qualname.decode("utf-8"))
+        self.load_const(w_qualname)
+        self.name_op("__qualname__", ast.Store)
         # compile the body proper
         self._handle_body(cls.body)
         # return the (empty) __class__ cell

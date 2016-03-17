@@ -2,6 +2,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import unwrap_spec
 from rpython.rlib.rstring import StringBuilder
 from pypy.module.binascii.interp_binascii import raise_Error, raise_Incomplete
+from pypy.module.binascii.interp_binascii import AsciiBufferUnwrapper
 from rpython.rlib.rarithmetic import ovfcheck
 
 # ____________________________________________________________
@@ -62,7 +63,7 @@ table_a2b_hqx = [
 ]
 table_a2b_hqx = ''.join(map(chr, table_a2b_hqx))
 
-@unwrap_spec(ascii='bufferstr')
+@unwrap_spec(ascii=AsciiBufferUnwrapper)
 def a2b_hqx(space, ascii):
     """Decode .hqx coding.  Returns (bin, done)."""
 

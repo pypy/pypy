@@ -217,7 +217,7 @@ class AppTestUnicodeString:
         # check that titlecased chars are lowered correctly
         # \u1ffc is the titlecased char
         assert ('\u1ff3\u1ff3\u1ffc\u1ffc'.capitalize() ==
-                '\u1ffc\u1ff3\u1ff3\u1ff3')
+                '\u03a9\u0399\u1ff3\u1ff3\u1ff3')
         # check with cased non-letter chars
         assert ('\u24c5\u24ce\u24c9\u24bd\u24c4\u24c3'.capitalize() ==
                 '\u24c5\u24e8\u24e3\u24d7\u24de\u24dd')
@@ -729,7 +729,7 @@ class AppTestUnicodeString:
         assert 'ababa'.count('aba') == 1
 
     def test_swapcase(self):
-        assert '\xe4\xc4\xdf'.swapcase() == '\xc4\xe4\xdf'
+        assert '\xe4\xc4\xdf'.swapcase() == '\xc4\xe4SS'
 
     def test_call_special_methods(self):
         # xxx not completely clear if these are implementation details or not

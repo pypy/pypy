@@ -784,6 +784,7 @@ Module.typedef = TypeDef("module",
     __new__ = interp2app(Module.descr_module__new__.im_func),
     __init__ = interp2app(Module.descr_module__init__),
     __repr__ = interp2app(Module.descr_module__repr__),
+    __dir__ = interp2app(Module.descr_module__dir__),
     __reduce__ = interp2app(Module.descr__reduce__),
     __dict__ = GetSetProperty(descr_get_dict, cls=Module), # module dictionaries are readonly attributes
     __doc__ = 'module(name[, doc])\n\nCreate a module object.\nThe name must be a string; the optional doc argument can have any type.'
@@ -812,6 +813,8 @@ getset_func_code = GetSetProperty(Function.fget_func_code,
                                   Function.fset_func_code)
 getset_func_name = GetSetProperty(Function.fget_func_name,
                                   Function.fset_func_name)
+getset_func_qualname = GetSetProperty(Function.fget_func_qualname,
+                                      Function.fset_func_qualname)
 getset_func_annotations = GetSetProperty(Function.fget_func_annotations,
                                         Function.fset_func_annotations,
                                         Function.fdel_func_annotations)
@@ -829,6 +832,7 @@ Function.typedef = TypeDef("function",
     __code__ = getset_func_code,
     __doc__ = getset_func_doc,
     __name__ = getset_func_name,
+    __qualname__ = getset_func_qualname,
     __dict__ = getset_func_dict,
     __defaults__ = getset_func_defaults,
     __kwdefaults__ = getset_func_kwdefaults,
@@ -877,6 +881,7 @@ It can be called either on the class (e.g. C.f()) or on an instance
     __get__ = interp2app(StaticMethod.descr_staticmethod_get),
     __new__ = interp2app(StaticMethod.descr_staticmethod__new__.im_func),
     __func__= interp_attrproperty_w('w_function', cls=StaticMethod),
+    __isabstractmethod__ = GetSetProperty(StaticMethod.descr_isabstract),
     )
 
 ClassMethod.typedef = TypeDef(
@@ -884,6 +889,7 @@ ClassMethod.typedef = TypeDef(
     __new__ = interp2app(ClassMethod.descr_classmethod__new__.im_func),
     __get__ = interp2app(ClassMethod.descr_classmethod_get),
     __func__= interp_attrproperty_w('w_function', cls=ClassMethod),
+    __isabstractmethod__ = GetSetProperty(ClassMethod.descr_isabstract),
     __doc__ = """classmethod(function) -> class method
 
 Convert a function to be a class method.
@@ -917,6 +923,7 @@ BuiltinFunction.typedef.acceptable_as_base_class = False
 PyTraceback.typedef = TypeDef("traceback",
     __reduce__ = interp2app(PyTraceback.descr__reduce__),
     __setstate__ = interp2app(PyTraceback.descr__setstate__),
+    __dir__ = interp2app(PyTraceback.descr__dir__),
     tb_frame = interp_attrproperty('frame', cls=PyTraceback),
     tb_lasti = interp_attrproperty('lasti', cls=PyTraceback),
     tb_lineno = GetSetProperty(PyTraceback.descr_tb_lineno),
@@ -959,14 +966,16 @@ Cell.typedef = TypeDef("cell",
 assert not Cell.typedef.acceptable_as_base_class  # no __new__
 
 Ellipsis.typedef = TypeDef("Ellipsis",
+    __new__ = interp2app(Ellipsis.descr_new_ellipsis),
     __repr__ = interp2app(Ellipsis.descr__repr__),
 )
-assert not Ellipsis.typedef.acceptable_as_base_class  # no __new__
+Ellipsis.typedef.acceptable_as_base_class = False
 
 NotImplemented.typedef = TypeDef("NotImplemented",
+    __new__ = interp2app(NotImplemented.descr_new_notimplemented),
     __repr__ = interp2app(NotImplemented.descr__repr__),
 )
-assert not NotImplemented.typedef.acceptable_as_base_class  # no __new__
+NotImplemented.typedef.acceptable_as_base_class = False
 
 SuspendedUnroller.typedef = TypeDef("SuspendedUnroller")
 SuspendedUnroller.typedef.acceptable_as_base_class = False

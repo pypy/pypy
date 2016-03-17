@@ -228,8 +228,8 @@ class PlistWriter(DumbXMLWriter):
     def writeData(self, data):
         self.beginElement("data")
         self.indentLevel -= 1
-        maxlinelength = 76 - len(self.indent.replace(b"\t", b" " * 8) *
-                                 self.indentLevel)
+        maxlinelength = max(16, 76 - len(self.indent.replace(b"\t", b" " * 8) *
+                                 self.indentLevel))
         for line in data.asBase64(maxlinelength).split(b"\n"):
             if line:
                 self.writeln(line)
@@ -237,20 +237,26 @@ class PlistWriter(DumbXMLWriter):
         self.endElement("data")
 
     def writeDict(self, d):
-        self.beginElement("dict")
-        items = sorted(d.items())
-        for key, value in items:
-            if not isinstance(key, str):
-                raise TypeError("keys must be strings")
-            self.simpleElement("key", key)
-            self.writeValue(value)
-        self.endElement("dict")
+        if d:
+            self.beginElement("dict")
+            items = sorted(d.items())
+            for key, value in items:
+                if not isinstance(key, str):
+                    raise TypeError("keys must be strings")
+                self.simpleElement("key", key)
+                self.writeValue(value)
+            self.endElement("dict")
+        else:
+            self.simpleElement("dict")
 
     def writeArray(self, array):
-        self.beginElement("array")
-        for value in array:
-            self.writeValue(value)
-        self.endElement("array")
+        if array:
+            self.beginElement("array")
+            for value in array:
+                self.writeValue(value)
+            self.endElement("array")
+        else:
+            self.simpleElement("array")
 
 
 class _InternalDict(dict):
@@ -266,13 +272,13 @@ class _InternalDict(dict):
             raise AttributeError(attr)
         from warnings import warn
         warn("Attribute access from plist dicts is deprecated, use d[key] "
-             "notation instead", PendingDeprecationWarning, 2)
+             "notation instead", DeprecationWarning, 2)
         return value
 
     def __setattr__(self, attr, value):
         from warnings import warn
         warn("Attribute access from plist dicts is deprecated, use d[key] "
-             "notation instead", PendingDeprecationWarning, 2)
+             "notation instead", DeprecationWarning, 2)
         self[attr] = value
 
     def __delattr__(self, attr):
@@ -282,14 +288,14 @@ class _InternalDict(dict):
             raise AttributeError(attr)
         from warnings import warn
         warn("Attribute access from plist dicts is deprecated, use d[key] "
-             "notation instead", PendingDeprecationWarning, 2)
+             "notation instead", DeprecationWarning, 2)
 
 class Dict(_InternalDict):
 
     def __init__(self, **kwargs):
         from warnings import warn
         warn("The plistlib.Dict class is deprecated, use builtin dict instead",
-             PendingDeprecationWarning, 2)
+             DeprecationWarning, 2)
         super().__init__(**kwargs)
 
 
@@ -302,7 +308,7 @@ class Plist(_InternalDict):
     def __init__(self, **kwargs):
         from warnings import warn
         warn("The Plist class is deprecated, use the readPlist() and "
-             "writePlist() functions instead", PendingDeprecationWarning, 2)
+             "writePlist() functions instead", DeprecationWarning, 2)
         super().__init__(**kwargs)
 
     def fromFile(cls, pathOrFile):

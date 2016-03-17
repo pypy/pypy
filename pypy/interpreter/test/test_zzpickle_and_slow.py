@@ -394,8 +394,10 @@ class AppTestInterpObjectPickling:
         import pickle
         tdict = {'2':2, '3':3, '5':5}
         diter  = iter(tdict)
-        next(diter)
-        raises(TypeError, pickle.dumps, diter)
+        seen = next(diter)
+        pckl = pickle.dumps(diter)
+        result = pickle.loads(pckl)
+        assert set(result) == (set('235') - set([seen]))
 
     def test_pickle_reversed(self):
         import pickle

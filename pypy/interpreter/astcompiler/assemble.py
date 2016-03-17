@@ -542,7 +542,6 @@ def _list_from_dict(d, offset=0):
 
 _static_opcode_stack_effects = {
     ops.NOP: 0,
-    ops.STOP_CODE: 0,
 
     ops.POP_TOP: -1,
     ops.ROT_TWO: 0,
@@ -612,6 +611,7 @@ _static_opcode_stack_effects = {
 
     ops.RETURN_VALUE: -1,
     ops.YIELD_VALUE: 0,
+    ops.YIELD_FROM: -1,
     ops.BUILD_MAP: 1,
     ops.COMPARE_OP: -1,
 
@@ -673,10 +673,10 @@ def _compute_BUILD_SET(arg):
     return 1 - arg
 
 def _compute_MAKE_CLOSURE(arg):
-    return -1 - _num_args(arg) - ((arg >> 16) & 0xFFFF)
+    return -2 - _num_args(arg) - ((arg >> 16) & 0xFFFF)
 
 def _compute_MAKE_FUNCTION(arg):
-    return -_num_args(arg) - ((arg >> 16) & 0xFFFF)
+    return -1 - _num_args(arg) - ((arg >> 16) & 0xFFFF)
 
 def _compute_BUILD_SLICE(arg):
     if arg == 3:

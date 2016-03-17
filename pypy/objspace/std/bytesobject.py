@@ -431,7 +431,11 @@ class W_BytesObject(W_AbstractBytesObject):
         return True
 
     @staticmethod
-    def _op_val(space, w_other):
+    def _op_val(space, w_other, allow_char=False):
+        # Some functions (contains, find) allow a number to specify a
+        # single char.
+        if allow_char and space.isinstance_w(w_other, space.w_int):
+            return StringMethods._single_char(space, w_other)
         try:
             return space.bytes_w(w_other)
         except OperationError, e:
@@ -588,11 +592,6 @@ class W_BytesObject(W_AbstractBytesObject):
 
     _StringMethods_descr_add = descr_add
     def descr_add(self, space, w_other):
-        if space.isinstance_w(w_other, space.w_bytearray):
-            # XXX: eliminate double-copy
-            from .bytearrayobject import W_BytearrayObject, _make_data
-            self_as_bytearray = W_BytearrayObject(_make_data(self._value))
-            return space.add(self_as_bytearray, w_other)
         if space.config.objspace.std.withstrbuf:
             from pypy.objspace.std.strbufobject import W_StringBufferObject
             try:
@@ -606,23 +605,6 @@ class W_BytesObject(W_AbstractBytesObject):
             builder.append(other)
             return W_StringBufferObject(builder)
         return self._StringMethods_descr_add(space, w_other)
-
-    _StringMethods_descr_contains = descr_contains
-    def descr_contains(self, space, w_sub):
-        if space.isinstance_w(w_sub, space.w_int):
-            try:
-                char = space.int_w(w_sub)
-            except OperationError as e:
-                if e.match(space, space.w_OverflowError):
-                    char = 256 # arbitrary value which will trigger the ValueError
-                               # condition below
-                else:
-                    raise
-            if not 0 <= char < 256:
-                raise oefmt(space.w_ValueError,
-                            "character must be in range(256)")
-            return space.newbool(self._value.find(chr(char)) >= 0)
-        return self._StringMethods_descr_contains(space, w_sub)
 
     _StringMethods_descr_join = descr_join
     def descr_join(self, space, w_list):
@@ -701,6 +683,14 @@ def newbytesdata_w(space, w_source, encoding, errors):
             raise OperationError(space.w_TypeError, space.wrap(
                     "encoding or errors without string argument"))
         return []
+    # Some object with __bytes__ special method
+    w_bytes_method = space.lookup(w_source, "__bytes__")
+    if w_bytes_method is not None:
+        w_bytes = space.get_and_call_function(w_bytes_method, w_source)
+        if not space.isinstance_w(w_bytes, space.w_bytes):
+            raise oefmt(space.w_TypeError,
+                        "__bytes__ returned non-bytes (type '%T')", w_bytes)
+        return [c for c in space.bytes_w(w_bytes)]
     # Is it an integer?
     # Note that we're calling space.getindex_w() instead of space.int_w().
     try:
@@ -725,7 +715,7 @@ def newbytesdata_w(space, w_source, encoding, errors):
         w_source = encode_object(space, w_source, encoding, errors)
         # and continue with the encoded string
 
-    return makebytesdata_w(space, w_source)
+    return _convert_from_buffer_or_iterable(space, w_source)
 
 def makebytesdata_w(space, w_source):
     w_bytes_method = space.lookup(w_source, "__bytes__")
@@ -735,7 +725,9 @@ def makebytesdata_w(space, w_source):
             raise oefmt(space.w_TypeError,
                         "__bytes__ returned non-bytes (type '%T')", w_bytes)
         return [c for c in space.bytes_w(w_bytes)]
+    return _convert_from_buffer_or_iterable(space, w_source)
 
+def _convert_from_buffer_or_iterable(space, w_source):
     # String-like argument
     try:
         buf = space.buffer_w(w_source, space.BUF_FULL_RO)

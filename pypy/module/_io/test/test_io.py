@@ -56,7 +56,7 @@ class AppTestIoModule:
         import _io
         try:
             raise _io.BlockingIOError(42, "test blocking", 123)
-        except IOError as e:
+        except OSError as e:
             assert isinstance(e, _io.BlockingIOError)
             assert e.errno == 42
             assert e.strerror == "test blocking"
@@ -229,6 +229,16 @@ class AppTestOpen:
                 assert g.name == f.fileno()
                 assert g.raw.name == f.fileno()
 
+    def test_opener(self):
+        import _io, os
+        with _io.open(self.tmpfile, "w") as f:
+            f.write("egg\n")
+        fd = os.open(self.tmpfile, os.O_RDONLY)
+        def opener(path, flags):
+            return fd
+        with _io.open("non-existent", "r", opener=opener) as f:
+            assert f.read() == "egg\n"
+
     def test_seek_and_tell(self):
         import _io
 
@@ -381,8 +391,8 @@ class AppTestOpen:
 
     def test_mod(self):
         import _io
-        typemods = dict((t, t.__module__) for t in vars(_io).values()
-                        if isinstance(t, type))
+        typemods = dict((t, t.__module__) for name, t in vars(_io).items()
+                        if isinstance(t, type) and name != '__loader__')
         for t, mod in typemods.items():
             if t is _io.BlockingIOError:
                 assert mod == 'builtins'
@@ -429,6 +439,17 @@ class AppTestOpen:
             f.seek(1, 0)
             f.read(buffer_size * 2)
             assert f.tell() == 1 + buffer_size * 2
+
+    def test_open_exclusive(self):
+        # XXX: should raise FileExistsError
+        FileExistsError = OSError
+
+        import _io
+        filename = self.tmpfile + '_x2'
+        raises(ValueError, _io.open, filename, 'xw')
+        with _io.open(filename, 'x') as f:
+            assert f.mode == 'x'
+        raises(FileExistsError, _io.open, filename, 'x')
 
 
 class AppTestIoAferClose:

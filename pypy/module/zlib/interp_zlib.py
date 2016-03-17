@@ -1,7 +1,7 @@
 import sys
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.typedef import TypeDef, interp_attrproperty_bytes
+from pypy.interpreter.typedef import TypeDef, interp_attrproperty_bytes, interp_attrproperty
 from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.rlib.objectmodel import keepalive_until_here
@@ -117,11 +117,14 @@ class Compress(ZLibObject):
                  method=rzlib.Z_DEFLATED,             # \
                  wbits=rzlib.MAX_WBITS,               #  \   undocumented
                  memLevel=rzlib.DEF_MEM_LEVEL,        #  /    parameters
-                 strategy=rzlib.Z_DEFAULT_STRATEGY):  # /
+                 strategy=rzlib.Z_DEFAULT_STRATEGY,   # /
+                 zdict=None):
         ZLibObject.__init__(self, space)
         try:
             self.stream = rzlib.deflateInit(level, method, wbits,
                                             memLevel, strategy)
+            if zdict is not None:
+                rzlib.deflateSetDictionary(self.stream, zdict)
         except rzlib.RZlibError, e:
             raise zlib_error(space, e.msg)
         except ValueError:
@@ -192,14 +195,19 @@ def Compress___new__(space, w_subtype, level=rzlib.Z_DEFAULT_COMPRESSION,
                      method=rzlib.Z_DEFLATED,             # \
                      wbits=rzlib.MAX_WBITS,               #  \   undocumented
                      memLevel=rzlib.DEF_MEM_LEVEL,        #  /    parameters
-                     strategy=rzlib.Z_DEFAULT_STRATEGY):  # /
+                     strategy=rzlib.Z_DEFAULT_STRATEGY,   # /
+                     w_zdict=None):
     """
     Create a new z_stream and call its initializer.
     """
+    if space.is_none(w_zdict):
+        zdict = None
+    else:
+        zdict = space.bufferstr_w(w_zdict)
     stream = space.allocate_instance(Compress, w_subtype)
     stream = space.interp_w(Compress, stream)
     Compress.__init__(stream, space, level,
-                      method, wbits, memLevel, strategy)
+                      method, wbits, memLevel, strategy, zdict)
     return space.wrap(stream)
 
 
@@ -219,7 +227,7 @@ class Decompress(ZLibObject):
     Wrapper around zlib's z_stream structure which provides convenient
     decompression functionality.
     """
-    def __init__(self, space, wbits=rzlib.MAX_WBITS):
+    def __init__(self, space, wbits=rzlib.MAX_WBITS, zdict=None):
         """
         Initialize a new decompression object.
 
@@ -231,6 +239,7 @@ class Decompress(ZLibObject):
         ZLibObject.__init__(self, space)
         self.unused_data = ''
         self.unconsumed_tail = ''
+        self.eof = False
         try:
             self.stream = rzlib.inflateInit(wbits)
         except rzlib.RZlibError, e:
@@ -238,6 +247,7 @@ class Decompress(ZLibObject):
         except ValueError:
             raise OperationError(space.w_ValueError,
                                  space.wrap("Invalid initialization option"))
+        self.zdict = zdict
 
     def __del__(self):
         """Automatically free the resources used by the stream."""
@@ -273,13 +283,16 @@ class Decompress(ZLibObject):
         try:
             self.lock()
             try:
-                result = rzlib.decompress(self.stream, data, max_length=max_length)
+                result = rzlib.decompress(self.stream, data,
+                                          max_length=max_length,
+                                          zdict=self.zdict)
             finally:
                 self.unlock()
         except rzlib.RZlibError, e:
             raise zlib_error(space, e.msg)
 
         string, finished, unused_len = result
+        self.eof = finished
         self._save_unconsumed_input(data, finished, unused_len)
         return space.wrapbytes(string)
 
@@ -298,7 +311,8 @@ class Decompress(ZLibObject):
         try:
             self.lock()
             try:
-                result = rzlib.decompress(self.stream, data, rzlib.Z_FINISH)
+                result = rzlib.decompress(self.stream, data, rzlib.Z_FINISH,
+                                          zdict=self.zdict)
             finally:
                 self.unlock()
         except rzlib.RZlibError:
@@ -310,13 +324,17 @@ class Decompress(ZLibObject):
 
 
 @unwrap_spec(wbits=int)
-def Decompress___new__(space, w_subtype, wbits=rzlib.MAX_WBITS):
+def Decompress___new__(space, w_subtype, wbits=rzlib.MAX_WBITS, w_zdict=None):
     """
     Create a new Decompress and call its initializer.
     """
+    if space.is_none(w_zdict):
+        zdict = None
+    else:
+        zdict = space.bufferstr_w(w_zdict)
     stream = space.allocate_instance(Decompress, w_subtype)
     stream = space.interp_w(Decompress, stream)
-    Decompress.__init__(stream, space, wbits)
+    Decompress.__init__(stream, space, wbits, zdict)
     return space.wrap(stream)
 
 
@@ -327,6 +345,7 @@ Decompress.typedef = TypeDef(
     flush = interp2app(Decompress.flush),
     unused_data = interp_attrproperty_bytes('unused_data', Decompress),
     unconsumed_tail = interp_attrproperty_bytes('unconsumed_tail', Decompress),
+    eof = interp_attrproperty('eof', Decompress),
     __doc__ = """decompressobj([wbits]) -- Return a decompressor object.
 
 Optional arg wbits is the window buffer size.

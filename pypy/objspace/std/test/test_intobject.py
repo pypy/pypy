@@ -417,11 +417,11 @@ class AppTestInt:
                 return None
         inst = a()
         raises(TypeError, int, inst)
-        assert inst.ar == True 
+        assert inst.ar == True
 
         class b(object):
-            pass 
-        raises((AttributeError,TypeError), int, b()) 
+            pass
+        raises((AttributeError,TypeError), int, b())
 
     def test_special_long(self):
         class a(object):
@@ -511,6 +511,11 @@ class AppTestInt:
                 assert repr(value) in str(e)
             else:
                 assert False, value
+
+    def test_int_error_msg_surrogate(self):
+        value = u'123\ud800'
+        e = raises(ValueError, int, value)
+        assert str(e.value) == "invalid literal for int() with base 10: %r" % value
 
     def test_fake_int_as_base(self):
         class MyInt(object):

@@ -259,13 +259,33 @@ class AppTestUnicodeLiterals:
 x = 'u'
 y = r'u'
 b = b'u'
-c = br'u'"""
+c = br'u'
+d = rb'u'
+"""
         ns = {}
         exec(s, ns)
         assert isinstance(ns["x"], str)
         assert isinstance(ns["y"], str)
         assert isinstance(ns["b"], bytes)
         assert isinstance(ns["c"], bytes)
+        assert isinstance(ns["d"], bytes)
+
+    def test_triple_quotes(self):
+        s = '''
+x = """u"""
+y = r"""u"""
+b = b"""u"""
+c = br"""u"""
+d = rb"""u"""
+'''
+
+        ns = {}
+        exec(s, ns)
+        assert isinstance(ns["x"], str)
+        assert isinstance(ns["y"], str)
+        assert isinstance(ns["b"], bytes)
+        assert isinstance(ns["c"], bytes)
+        assert isinstance(ns["d"], bytes)
 
 
 class AppTestComprehensions:

@@ -1,19 +1,12 @@
-"""Tests for 'site'.
-
-Tests assume the initial paths in sys.path once the interpreter has begun
-executing have not been removed.
-
-"""
 import unittest
 import sys
 import os
 import subprocess
 import shutil
-from copy import copy, deepcopy
+from copy import copy
 
-from test.support import (run_unittest, TESTFN, unlink, get_attribute,
-                          captured_stdout, skip_unless_symlink,
-                          impl_detail, import_module)
+from test.support import (run_unittest, TESTFN, unlink,
+                          captured_stdout, skip_unless_symlink)
 
 import sysconfig
 from sysconfig import (get_paths, get_platform, get_config_vars,
@@ -25,7 +18,6 @@ import _osx_support
 class TestSysConfig(unittest.TestCase):
 
     def setUp(self):
-        """Make a copy of sys.path"""
         super(TestSysConfig, self).setUp()
         self.sys_path = sys.path[:]
         # patching os.uname
@@ -34,7 +26,7 @@ class TestSysConfig(unittest.TestCase):
             self._uname = os.uname()
         else:
             self.uname = None
-            self._uname = None
+            self._set_uname(('',)*5)
         os.uname = self._get_uname
         # saving the environment
         self.name = os.name
@@ -44,11 +36,16 @@ class TestSysConfig(unittest.TestCase):
         self.join = os.path.join
         self.isabs = os.path.isabs
         self.splitdrive = os.path.splitdrive
-        self._config_vars = copy(sysconfig._CONFIG_VARS)
-        self.old_environ = deepcopy(os.environ)
+        self._config_vars = sysconfig._CONFIG_VARS, copy(sysconfig._CONFIG_VARS)
+        self._added_envvars = []
+        self._changed_envvars = []
+        for var in ('MACOSX_DEPLOYMENT_TARGET', 'PATH'):
+            if var in os.environ:
+                self._changed_envvars.append((var, os.environ[var]))
+            else:
+                self._added_envvars.append(var)
 
     def tearDown(self):
-        """Restore sys.path"""
         sys.path[:] = self.sys_path
         self._cleanup_testfn()
         if self.uname is not None:
@@ -62,19 +59,18 @@ class TestSysConfig(unittest.TestCase):
         os.path.join = self.join
         os.path.isabs = self.isabs
         os.path.splitdrive = self.splitdrive
-        sysconfig._CONFIG_VARS = copy(self._config_vars)
-        for key, value in self.old_environ.items():
-            if os.environ.get(key) != value:
-                os.environ[key] = value
-
-        for key in list(os.environ.keys()):
-            if key not in self.old_environ:
-                del os.environ[key]
+        sysconfig._CONFIG_VARS = self._config_vars[0]
+        sysconfig._CONFIG_VARS.clear()
+        sysconfig._CONFIG_VARS.update(self._config_vars[1])
+        for var, value in self._changed_envvars:
+            os.environ[var] = value
+        for var in self._added_envvars:
+            os.environ.pop(var, None)
 
         super(TestSysConfig, self).tearDown()
 
     def _set_uname(self, uname):
-        self._uname = uname
+        self._uname = os.uname_result(uname)
 
     def _get_uname(self):
         return self._uname
@@ -93,21 +89,19 @@ class TestSysConfig(unittest.TestCase):
         scheme = get_paths()
         default_scheme = _get_default_scheme()
         wanted = _expand_vars(default_scheme, None)
-        wanted = list(wanted.items())
-        wanted.sort()
-        scheme = list(scheme.items())
-        scheme.sort()
+        wanted = sorted(wanted.items())
+        scheme = sorted(scheme.items())
         self.assertEqual(scheme, wanted)
 
     def test_get_path(self):
-        # xxx make real tests here
+        # XXX make real tests here
         for scheme in _INSTALL_SCHEMES:
             for name in _INSTALL_SCHEMES[scheme]:
                 res = get_path(name, scheme)
 
     def test_get_config_vars(self):
         cvars = get_config_vars()
-        self.assertTrue(isinstance(cvars, dict))
+        self.assertIsInstance(cvars, dict)
         self.assertTrue(cvars)
 
     def test_get_platform(self):
@@ -237,14 +231,11 @@ class TestSysConfig(unittest.TestCase):
 
     def test_get_config_h_filename(self):
         config_h = sysconfig.get_config_h_filename()
-        # import_module skips the test when the CPython C Extension API
-        # appears to not be supported
-        self.assertTrue(os.path.isfile(config_h) or
-                        not import_module('_testcapi'), config_h)
+        self.assertTrue(os.path.isfile(config_h), config_h)
 
     def test_get_scheme_names(self):
         wanted = ('nt', 'nt_user', 'os2', 'os2_home', 'osx_framework_user',
-                  'posix_home', 'posix_prefix', 'posix_user', 'pypy')
+                  'posix_home', 'posix_prefix', 'posix_user')
         self.assertEqual(get_scheme_names(), wanted)
 
     @skip_unless_symlink
@@ -252,8 +243,8 @@ class TestSysConfig(unittest.TestCase):
         # On Windows, the EXE needs to know where pythonXY.dll is at so we have
         # to add the directory to the path.
         if sys.platform == "win32":
-            os.environ["Path"] = "{};{}".format(
-                os.path.dirname(sys.executable), os.environ["Path"])
+            os.environ["PATH"] = "{};{}".format(
+                os.path.dirname(sys.executable), os.environ["PATH"])
 
         # Issue 7880
         def get(python):
@@ -270,14 +261,26 @@ class TestSysConfig(unittest.TestCase):
             unlink(link)
 
     def test_user_similar(self):
-        # Issue 8759 : make sure the posix scheme for the users
+        # Issue #8759: make sure the posix scheme for the users
         # is similar to the global posix_prefix one
         base = get_config_var('base')
         user = get_config_var('userbase')
+        # the global scheme mirrors the distinction between prefix and
+        # exec-prefix but not the user scheme, so we have to adapt the paths
+        # before comparing (issue #9100)
+        adapt = sys.base_prefix != sys.base_exec_prefix
         for name in ('stdlib', 'platstdlib', 'purelib', 'platlib'):
             global_path = get_path(name, 'posix_prefix')
+            if adapt:
+                global_path = global_path.replace(sys.exec_prefix, sys.base_prefix)
+                base = base.replace(sys.exec_prefix, sys.base_prefix)
+            elif sys.base_prefix != sys.prefix:
+                # virtual environment? Likewise, we have to adapt the paths
+                # before comparing
+                global_path = global_path.replace(sys.base_prefix, sys.prefix)
+                base = base.replace(sys.base_prefix, sys.prefix)
             user_path = get_path(name, 'posix_user')
-            self.assertEqual(user_path, global_path.replace(base, user))
+            self.assertEqual(user_path, global_path.replace(base, user, 1))
 
     def test_main(self):
         # just making sure _main() runs and returns things in the stdout
@@ -286,13 +289,11 @@ class TestSysConfig(unittest.TestCase):
         self.assertTrue(len(output.getvalue().split('\n')) > 0)
 
     @unittest.skipIf(sys.platform == "win32", "Does not apply to Windows")
-    @impl_detail("PyPy lacks LDFLAGS/LDSHARED config vars", pypy=False)
     def test_ldshared_value(self):
         ldflags = sysconfig.get_config_var('LDFLAGS')
         ldshared = sysconfig.get_config_var('LDSHARED')
 
         self.assertIn(ldflags, ldshared)
-
 
     @unittest.skipUnless(sys.platform == "darwin", "test only relevant on MacOSX")
     def test_platform_in_subprocess(self):
@@ -319,31 +320,62 @@ class TestSysConfig(unittest.TestCase):
         self.assertEqual(status, 0)
         self.assertEqual(my_platform, test_platform)
 
-
         # Test with MACOSX_DEPLOYMENT_TARGET in the environment, and
         # using a value that is unlikely to be the default one.
         env = os.environ.copy()
         env['MACOSX_DEPLOYMENT_TARGET'] = '10.1'
 
-        p = subprocess.Popen([
-                sys.executable, '-c',
-                'import sysconfig; print(sysconfig.get_platform())',
-            ],
-            stdout=subprocess.PIPE,
-            stderr=open('/dev/null'),
-            env=env)
-        test_platform = p.communicate()[0].strip()
-        test_platform = test_platform.decode('utf-8')
-        status = p.wait()
+        with open('/dev/null') as dev_null:
+            p = subprocess.Popen([
+                    sys.executable, '-c',
+                    'import sysconfig; print(sysconfig.get_platform())',
+                ],
+                stdout=subprocess.PIPE,
+                stderr=dev_null,
+                env=env)
+            test_platform = p.communicate()[0].strip()
+            test_platform = test_platform.decode('utf-8')
+            status = p.wait()
 
-        self.assertEqual(status, 0)
-        self.assertEqual(my_platform, test_platform)
+            self.assertEqual(status, 0)
+            self.assertEqual(my_platform, test_platform)
+
+    def test_srcdir(self):
+        # See Issues #15322, #15364.
+        srcdir = sysconfig.get_config_var('srcdir')
+
+        self.assertTrue(os.path.isabs(srcdir), srcdir)
+        self.assertTrue(os.path.isdir(srcdir), srcdir)
+
+        if sysconfig._PYTHON_BUILD:
+            # The python executable has not been installed so srcdir
+            # should be a full source checkout.
+            Python_h = os.path.join(srcdir, 'Include', 'Python.h')
+            self.assertTrue(os.path.exists(Python_h), Python_h)
+            self.assertTrue(sysconfig._is_python_source_dir(srcdir))
+        elif os.name == 'posix':
+            makefile_dir = os.path.dirname(sysconfig.get_makefile_filename())
+            # Issue #19340: srcdir has been realpath'ed already
+            makefile_dir = os.path.realpath(makefile_dir)
+            self.assertEqual(makefile_dir, srcdir)
+
+    def test_srcdir_independent_of_cwd(self):
+        # srcdir should be independent of the current working directory
+        # See Issues #15322, #15364.
+        srcdir = sysconfig.get_config_var('srcdir')
+        cwd = os.getcwd()
+        try:
+            os.chdir('..')
+            srcdir2 = sysconfig.get_config_var('srcdir')
+        finally:
+            os.chdir(cwd)
+        self.assertEqual(srcdir, srcdir2)
 
 
 class MakefileTests(unittest.TestCase):
+
     @unittest.skipIf(sys.platform.startswith('win'),
                      'Test is not Windows compatible')
-    @impl_detail("PyPy lacks sysconfig.get_makefile_filename", pypy=False)
     def test_get_makefile_filename(self):
         makefile = sysconfig.get_makefile_filename()
         self.assertTrue(os.path.isfile(makefile), makefile)

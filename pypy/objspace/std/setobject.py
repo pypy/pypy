@@ -1523,10 +1523,23 @@ class W_SetIterObject(W_Root):
             return w_key
         raise OperationError(space.w_StopIteration, space.w_None)
 
+    def descr_reduce(self, space):
+        # copy the iterator state
+        w_set = self.iterimplementation.setimplementation
+        w_clone = W_SetIterObject(space, w_set.iter())
+        # spool until we have the same pos
+        for x in xrange(self.iterimplementation.pos):
+            w_clone.descr_next(space)
+        w_res = space.call_function(space.w_list, w_clone)
+        w_iter = space.builtin.get('iter')
+        return space.newtuple([w_iter, space.newtuple([w_res])])
+
+
 W_SetIterObject.typedef = TypeDef("setiterator",
     __length_hint__ = gateway.interp2app(W_SetIterObject.descr_length_hint),
     __iter__ = gateway.interp2app(W_SetIterObject.descr_iter),
-    __next__ = gateway.interp2app(W_SetIterObject.descr_next)
+    __next__ = gateway.interp2app(W_SetIterObject.descr_next),
+    __reduce__ = gateway.interp2app(W_SetIterObject.descr_reduce),
     )
 setiter_typedef = W_SetIterObject.typedef
 

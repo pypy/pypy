@@ -12,7 +12,7 @@ class AppTestLock(GenericTestThread):
         lock = _thread.allocate_lock()
         assert type(lock) is _thread.LockType
         assert lock.locked() is False
-        raises(_thread.error, lock.release)
+        raises(RuntimeError, lock.release)
         assert lock.locked() is False
         r = lock.acquire()
         assert r is True
@@ -21,7 +21,7 @@ class AppTestLock(GenericTestThread):
         assert lock.locked() is True
         lock.release()
         assert lock.locked() is False
-        raises(_thread.error, lock.release)
+        raises(RuntimeError, lock.release)
         assert lock.locked() is False
         feedback = []
         lock.acquire()
@@ -140,6 +140,7 @@ class AppTestRLock(GenericTestThread):
     def test_release_save(self):
         import _thread
         lock = _thread.RLock()
+        raises(RuntimeError, lock._release_save)
         lock.acquire()
         state = lock._release_save()
         lock._acquire_restore(state)

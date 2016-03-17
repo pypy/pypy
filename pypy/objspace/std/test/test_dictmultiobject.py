@@ -618,6 +618,10 @@ class AppTest_DictObject:
     def test_bytes_keys(self):
         assert isinstance(list({b'a': 1})[0], bytes)
 
+    def test_interned_keywords(self):
+        assert list(dict(abcdef=1))[0] is 'abcdef'
+
+
 class AppTest_DictMultiObject(AppTest_DictObject):
 
     def test_emptydict_unhashable(self):
@@ -954,6 +958,18 @@ class AppTestDictViews:
         helper(lambda x: x.keys())
         helper(lambda x: x.items())
 
+    def test_pickle(self):
+        d = {1: 1, 2: 2, 3: 3}
+        it = iter(d)
+        first = next(it)
+        reduced = it.__reduce__()
+        rebuild, args = reduced
+        new = rebuild(*args)
+        items = set(new)
+        assert len(items) == 2
+        items.add(first)
+        assert items == set(d)        
+
 class AppTestStrategies(object):
     def setup_class(cls):
         if cls.runappdirect:
@@ -1117,6 +1133,9 @@ class FakeSpace:
 
     def wrapbytes(self, obj):
         return obj
+
+    def new_interned_str(self, s):
+        return s.decode('utf-8')
 
     def isinstance_w(self, obj, klass):
         return isinstance(obj, klass)

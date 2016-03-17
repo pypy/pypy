@@ -4,6 +4,7 @@ from rpython.rlib.streamio import StreamErrors
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.module import Module
 from pypy.interpreter.gateway import unwrap_spec
+from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.pyparser import pyparse
 from pypy.objspace.std import unicodeobject
 from pypy.module._io.interp_iobase import W_IOBase
@@ -22,6 +23,12 @@ def get_suffixes(space):
         space.newtuple([w('.py'), w('U'), w(importing.PY_SOURCE)]),
         space.newtuple([w('.pyc'), w('rb'), w(importing.PY_COMPILED)]),
         ])
+    return space.newlist(suffixes_w)
+
+def extension_suffixes(space):
+    suffixes_w = []
+    if space.config.objspace.usemodules.cpyext:
+        suffixes_w.append(space.wrap(importing.get_so_extension(space)))
     return space.newlist(suffixes_w)
 
 def get_magic(space):
@@ -56,114 +63,18 @@ def get_file(space, w_file, filename, filemode):
         fd = space.int_w(space.call_method(w_iobase, 'fileno'))
         return streamio.fdopen_as_stream(fd, filemode)
 
-def find_module(space, w_name, w_path=None):
-    name = space.fsencode_w(w_name)
-    if space.is_none(w_path):
-        w_path = None
-
-    find_info = importing.find_module(
-        space, name, w_name, name, w_path, use_loader=False)
-    if not find_info:
-        raise oefmt(space.w_ImportError, "No module named %s", name)
-
-    w_filename = space.fsdecode(space.wrapbytes(find_info.filename))
-    stream = find_info.stream
-
-    if stream is not None:
-        encoding = None
-        if find_info.modtype == importing.PY_SOURCE:
-            # try to find the declared encoding
-            top = stream.readline()
-            top += stream.readline()
-            stream.seek(0, 0) # reset position
-            stream.flush()
-            encoding = pyparse._check_for_encoding(top)
-            if encoding is None:
-                encoding = unicodeobject.getdefaultencoding(space)
-        #
-        # in python2, both CPython and PyPy pass the filename to
-        # open(). However, CPython 3 just passes the fd, so the returned file
-        # object doesn't have a name attached. We do the same in PyPy, because
-        # there is no easy way to attach the filename -- too bad
-        fd = stream.try_to_find_file_descriptor()
-        try:
-            w_fileobj = interp_io.open(space, space.wrap(fd),
-                                       find_info.filemode, encoding=encoding)
-        except OperationError as e:
-            if e.match(space, space.w_LookupError):
-                raise OperationError(space.w_SyntaxError,
-                                     space.str(e.get_w_value(space)))
-            raise
-    else:
-        w_fileobj = space.w_None
-    w_import_info = space.newtuple(
-        [space.wrap(find_info.suffix),
-         space.wrap(find_info.filemode),
-         space.wrap(find_info.modtype)])
-    return space.newtuple([w_fileobj, w_filename, w_import_info])
-
-def load_module(space, w_name, w_file, w_filename, w_info):
-    w_suffix, w_filemode, w_modtype = space.unpackiterable(w_info, 3)
-
-    filename = space.fsencode_w(w_filename)
-    filemode = space.str_w(w_filemode)
-    if space.is_w(w_file, space.w_None):
-        stream = None
-    else:
-        stream = get_file(space, w_file, filename, filemode)
-
-    find_info = importing.FindInfo(
-        space.int_w(w_modtype),
-        filename,
-        stream,
-        space.str_w(w_suffix),
-        filemode)
-    return importing.load_module(
-        space, w_name, find_info, reuse=True)
-
-def load_source(space, w_modulename, w_filename, w_file=None):
-    filename = space.fsencode_w(w_filename)
-
-    stream = get_file(space, w_file, filename, 'U')
-
-    w_mod = space.wrap(Module(space, w_modulename))
-    importing._prepare_module(space, w_mod, filename, None)
-
-    importing.load_source_module(
-        space, w_modulename, w_mod,
-        filename, stream.readall(), stream.try_to_find_file_descriptor())
-    if space.is_none(w_file):
-        stream.close()
-    return w_mod
-
-@unwrap_spec(filename='fsencode', write_paths=bool)
-def _run_compiled_module(space, w_modulename, filename, w_file, w_module,
-                         write_paths=True):
-    # the function 'imp._run_compiled_module' is a pypy-only extension
-    stream = get_file(space, w_file, filename, 'rb')
-
-    magic = importing._r_long(stream)
-    timestamp = importing._r_long(stream)
-
-    importing.load_compiled_module(
-        space, w_modulename, w_module, filename, magic, timestamp,
-        stream.readall(), write_paths)
-    if space.is_none(w_file):
-        stream.close()
-
-@unwrap_spec(filename='fsencode')
-def load_compiled(space, w_modulename, filename, w_file=None):
-    w_mod = space.wrap(Module(space, w_modulename))
-    importing._prepare_module(space, w_mod, filename, None)
-    _run_compiled_module(space, w_modulename, filename, w_file, w_mod)
-    return w_mod
-
 @unwrap_spec(filename='fsencode')
 def load_dynamic(space, w_modulename, filename, w_file=None):
     if not importing.has_so_extension(space):
         raise OperationError(space.w_ImportError, space.wrap(
             "Not implemented"))
-    importing.load_c_extension(space, filename, space.str_w(w_modulename))
+
+    # the next line is mandatory to init cpyext
+    space.getbuiltinmodule("cpyext")
+
+    from pypy.module.cpyext.api import load_extension_module
+    load_extension_module(space, filename, space.str_w(w_modulename))
+
     return importing.check_sys_modules(space, w_modulename)
 
 def new_module(space, w_name):
@@ -173,11 +84,13 @@ def init_builtin(space, w_name):
     name = space.str0_w(w_name)
     if name not in space.builtin_modules:
         return
-    if space.finditem(space.sys.get('modules'), w_name) is not None:
-        raise OperationError(
-            space.w_ImportError,
-            space.wrap("cannot initialize a built-in module twice in PyPy"))
-    return space.getbuiltinmodule(name)
+    # force_init is needed to make reload actually reload instead of just
+    # using the already-present module in sys.modules.
+
+    # If the module is already in sys.modules, it must be a reload, so
+    # we want to reuse (and reinitialize) the existing module object
+    reuse = space.finditem(space.sys.get('modules'), w_name) is not None
+    return space.getbuiltinmodule(name, force_init=True, reuse=reuse)
 
 def init_frozen(space, w_name):
     return None
@@ -192,6 +105,14 @@ def is_builtin(space, w_name):
 
 def is_frozen(space, w_name):
     return space.w_False
+
+def get_frozen_object(space, w_name):
+    raise oefmt(space.w_ImportError,
+                "No such frozen object named %R", w_name)
+
+def is_frozen_package(space, w_name):
+    raise oefmt(space.w_ImportError,
+                "No such frozen object named %R", w_name)
 
 #__________________________________________________________________
 
@@ -240,3 +161,10 @@ def source_from_cache(space, pathname):
         raise oefmt(space.w_ValueError,
                     "Not a PEP 3147 pyc path: %s", pathname)
     return space.fsdecode(space.wrapbytes(sourcename))
+
+@unwrap_spec(pathname='fsencode')
+def fix_co_filename(space, w_code, pathname):
+    code_w = space.interp_w(PyCode, w_code)
+    importing.update_code_filenames(space, code_w, pathname)
+
+

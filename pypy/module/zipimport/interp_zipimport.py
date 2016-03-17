@@ -146,7 +146,7 @@ class W_ZipImporter(W_Root):
 
     def import_py_file(self, space, modname, filename, buf, pkgpath):
         w = space.wrap
-        w_mod = w(Module(space, w(modname)))
+        w_mod = w(Module(space, space.wrap_fsdecoded(modname)))
         real_name = self.filename + os.path.sep + self.corr_zname(filename)
         space.setattr(w_mod, w('__loader__'), space.wrap(self))
         importing._prepare_module(space, w_mod, real_name, pkgpath)
@@ -313,8 +313,8 @@ class W_ZipImporter(W_Root):
                         space, co_filename, source)
                 return space.wrap(code_w)
         raise oefmt(get_error(space),
-                    "Cannot find source or code for %s in %s",
-                    filename, self.name)
+                    "Cannot find source or code for %s in %R",
+                    filename, space.wrap_fsdecoded(self.name))
 
     @unwrap_spec(fullname='str0')
     def get_source(self, space, fullname):
@@ -334,17 +334,19 @@ class W_ZipImporter(W_Root):
             # We have the module, but no source.
             return space.w_None
         raise oefmt(get_error(space),
-                    "Cannot find source for %s in %s", filename, self.name)
+                    "Cannot find source for %s in %R", filename,
+                    space.wrap_fsdecoded(self.name))
 
     @unwrap_spec(fullname='str0')
     def get_filename(self, space, fullname):
         filename = self.make_filename(fullname)
         for _, is_package, ext in ENUMERATE_EXTS:
             if self.have_modulefile(space, filename + ext):
-                return space.wrap(self.filename + os.path.sep +
-                                  self.corr_zname(filename + ext))
+                return space.wrap_fsdecoded(self.filename + os.path.sep +
+                                            self.corr_zname(filename + ext))
         raise oefmt(get_error(space),
-                    "Cannot find module %s in %s", filename, self.name)
+                    "Cannot find module %s in %R", filename,
+                    space.wrap_fsdecoded(self.name))
 
     @unwrap_spec(fullname='str0')
     def is_package(self, space, fullname):
@@ -353,14 +355,15 @@ class W_ZipImporter(W_Root):
             if self.have_modulefile(space, filename + ext):
                 return space.wrap(is_package)
         raise oefmt(get_error(space),
-                    "Cannot find module %s in %s", filename, self.name)
+                    "Cannot find module %s in %R", filename,
+                    space.wrap_fsdecoded(self.name))
 
     def getarchive(self, space):
         space = self.space
-        return space.wrap(self.filename)
+        return space.wrap_fsdecoded(self.filename)
 
-@unwrap_spec(name='fsencode')
-def descr_new_zipimporter(space, w_type, name):
+def descr_new_zipimporter(space, w_type, w_name):
+    name = space.fsencode_w(w_name)
     ok = False
     parts_ends = [i for i in range(0, len(name))
                     if name[i] == os.path.sep or name[i] == ZIPSEP]
@@ -373,13 +376,13 @@ def descr_new_zipimporter(space, w_type, name):
         try:
             s = os.stat(filename)
         except OSError:
-            raise oefmt(get_error(space), "Cannot find name %s", filename)
+            raise oefmt(get_error(space), "Cannot find name %R", w_name)
         if not stat.S_ISDIR(s.st_mode):
             ok = True
             break
     if not ok:
-        raise oefmt(get_error(space), "Did not find %s to be a valid zippath",
-                    name)
+        raise oefmt(get_error(space), "Did not find %R to be a valid zippath",
+                    w_name)
     try:
         w_result = zip_cache.get(filename)
         if w_result is None:
@@ -391,7 +394,8 @@ def descr_new_zipimporter(space, w_type, name):
     try:
         zip_file = RZipFile(filename, 'r')
     except (BadZipfile, OSError):
-        raise oefmt(get_error(space), "%s seems not to be a zipfile", filename)
+        raise oefmt(get_error(space), "%R seems not to be a zipfile",
+                    space.wrap_fsdecoded(filename))
     except RZlibError, e:
         # in this case, CPython raises the direct exception coming
         # from the zlib module: let's to the same

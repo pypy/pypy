@@ -16,7 +16,7 @@ all_modules = [p.basename for p in modulepath.listdir()
 
 essential_modules = set([
     "exceptions", "_io", "sys", "builtins", "posix", "_warnings",
-    "itertools"
+    "itertools", "_frozen_importlib",
 ])
 
 default_modules = essential_modules.copy()
@@ -38,6 +38,7 @@ working_modules.update([
     "binascii", "_multiprocessing", '_warnings', "_collections",
     "_multibytecodec", "_continuation", "_cffi_backend",
     "_csv", "_pypyjson", "_posixsubprocess", # "cppyy", "micronumpy"
+    "faulthandler",
 ])
 
 from rpython.jit.backend import detect_cpu
@@ -118,6 +119,7 @@ module_import_dependencies = {
     "_minimal_curses": ["pypy.module._minimal_curses.fficurses"],
     "_continuation": ["rpython.rlib.rstacklet"],
     "_vmprof" : ["pypy.module._vmprof.interp_vmprof"],
+    "_lzma"     : ["pypy.module._lzma.interp_lzma"],
     }
 
 def get_module_validator(modname):

@@ -1,5 +1,6 @@
 import os, sys, imp
 import tempfile, binascii
+import importlib.machinery
 
 
 def get_hashed_dir(cfile):
@@ -29,9 +30,8 @@ def get_hashed_dir(cfile):
 
 
 def _get_c_extension_suffix():
-    for ext, mod, typ in imp.get_suffixes():
-        if typ == imp.C_EXTENSION:
-            return ext
+    suffixes = importlib.machinery.EXTENSION_SUFFIXES
+    return suffixes[0] if suffixes else None
 
 
 def compile_shared(csource, modulename, output_dir=None):

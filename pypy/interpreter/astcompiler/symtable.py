@@ -246,18 +246,12 @@ class FunctionScope(Scope):
         return Scope.note_symbol(self, identifier, role)
 
     def note_yield(self, yield_node):
-        if self.return_with_value:
-            raise SyntaxError("'return' with argument inside generator",
-                              self.ret.lineno, self.ret.col_offset)
         self.is_generator = True
         if self._in_try_body_depth > 0:
             self.has_yield_inside_try = True
 
     def note_return(self, ret):
         if ret.value:
-            if self.is_generator:
-                raise SyntaxError("'return' with argument inside generator",
-                                  ret.lineno, ret.col_offset)
             self.return_with_value = True
             self.ret = ret
 
@@ -433,8 +427,15 @@ class SymtableBuilder(ast.GenericASTVisitor):
         self.scope.note_yield(yie)
         ast.GenericASTVisitor.visit_Yield(self, yie)
 
+    def visit_YieldFrom(self, yfr):
+        self.scope.note_yield(yfr)
+        ast.GenericASTVisitor.visit_YieldFrom(self, yfr)
+
     def visit_Global(self, glob):
         for name in glob.names:
+            if isinstance(self.scope, ClassScope) and name == '__class__':
+                raise SyntaxError("cannot make __class__ global",
+                                  glob.lineno, glob.col_offset)
             old_role = self.scope.lookup_role(name)
             if old_role & (SYM_USED | SYM_ASSIGNED):
                 if old_role & SYM_ASSIGNED:
@@ -501,14 +502,15 @@ class SymtableBuilder(ast.GenericASTVisitor):
 
     def visit_With(self, wih):
         self.scope.new_temporary_name()
-        if wih.optional_vars:
-            self.scope.new_temporary_name()
-        wih.context_expr.walkabout(self)
-        if wih.optional_vars:
-            wih.optional_vars.walkabout(self)
+        self.visit_sequence(wih.items)
         self.scope.note_try_start(wih)
         self.visit_sequence(wih.body)
         self.scope.note_try_end(wih)
+
+    def visit_withitem(self, witem):
+        witem.context_expr.walkabout(self)
+        if witem.optional_vars:
+            witem.optional_vars.walkabout(self)
 
     def visit_arguments(self, arguments):
         scope = self.scope
@@ -555,15 +557,10 @@ class SymtableBuilder(ast.GenericASTVisitor):
             role = SYM_ASSIGNED
         self.note_symbol(name.id, role)
 
-    def visit_TryExcept(self, node):
+    def visit_Try(self, node):
         self.scope.note_try_start(node)
         self.visit_sequence(node.body)
         self.scope.note_try_end(node)
         self.visit_sequence(node.handlers)
         self.visit_sequence(node.orelse)
-
-    def visit_TryFinally(self, node):
-        self.scope.note_try_start(node)
-        self.visit_sequence(node.body)
-        self.scope.note_try_end(node)
         self.visit_sequence(node.finalbody)

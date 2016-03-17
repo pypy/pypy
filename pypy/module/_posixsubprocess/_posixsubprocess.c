@@ -68,7 +68,7 @@ _pos_int_from_ascii(char *name)
  * that properly supports /dev/fd.
  */
 static int
-_is_fdescfs_mounted_on_dev_fd()
+_is_fdescfs_mounted_on_dev_fd(void)
 {
     struct stat dev_stat;
     struct stat dev_fd_stat;
@@ -143,17 +143,11 @@ _close_fds_by_brute_force(int start_fd, int end_fd, long *py_fds_to_keep,
  * This structure is very old and stable: It will not change unless the kernel
  * chooses to break compatibility with all existing binaries.  Highly Unlikely.
  */
-struct linux_dirent {
-#if defined(__x86_64__) && defined(__ILP32__)
-   /* Support the wacky x32 ABI (fake 32-bit userspace speaking to x86_64
-    * kernel interfaces) - https://sites.google.com/site/x32abi/ */
+struct linux_dirent64 {
    unsigned long long d_ino;
-   unsigned long long d_off;
-#else
-   unsigned long  d_ino;        /* Inode number */
-   unsigned long  d_off;        /* Offset to next linux_dirent */
-#endif
+   long long d_off;
    unsigned short d_reclen;     /* Length of this linux_dirent */
+   unsigned char  d_type;
    char           d_name[256];  /* Filename (null-terminated) */
 };
 
@@ -197,16 +191,16 @@ _close_open_fd_range_safe(int start_fd, int end_fd, long *py_fds_to_keep,
 				  num_fds_to_keep);
         return;
     } else {
-        char buffer[sizeof(struct linux_dirent)];
+        char buffer[sizeof(struct linux_dirent64)];
         int bytes;
-        while ((bytes = syscall(SYS_getdents, fd_dir_fd,
-                                (struct linux_dirent *)buffer,
+        while ((bytes = syscall(SYS_getdents64, fd_dir_fd,
+                                (struct linux_dirent64 *)buffer,
                                 sizeof(buffer))) > 0) {
-            struct linux_dirent *entry;
+            struct linux_dirent64 *entry;
             int offset;
             for (offset = 0; offset < bytes; offset += entry->d_reclen) {
                 int fd;
-                entry = (struct linux_dirent *)(buffer + offset);
+                entry = (struct linux_dirent64 *)(buffer + offset);
                 if ((fd = _pos_int_from_ascii(entry->d_name)) < 0)
                     continue;  /* Not a number. */
                 if (fd != fd_dir_fd && fd >= start_fd && fd < end_fd &&
@@ -300,6 +294,7 @@ _close_open_fd_range_maybe_unsafe(int start_fd, int end_fd,
 
 #endif  /* else NOT (defined(__linux__) && defined(HAVE_SYS_SYSCALL_H)) */
 
+
 /*
  * This function is code executed in the child process immediately after fork
  * to set things up and call exec().
@@ -390,17 +385,6 @@ pypy_subprocess_child_exec(
         POSIX_CALL(close(errwrite));
     }
 
-    if (close_fds) {
-        int local_max_fd = max_fd;
-#if defined(__NetBSD__)
-        local_max_fd = fcntl(0, F_MAXFD);
-        if (local_max_fd < 0)
-            local_max_fd = max_fd;
-#endif
-        /* TODO HP-UX could use pstat_getproc() if anyone cares about it. */
-        _close_open_fd_range(3, local_max_fd, py_fds_to_keep, num_fds_to_keep);
-    }
-
     if (cwd)
         POSIX_CALL(chdir(cwd));
 
@@ -427,6 +411,18 @@ pypy_subprocess_child_exec(
             errno = 0;  /* We don't want to report an OSError. */
             goto error;
         }
+    }
+
+    /* close FDs after executing preexec_fn, which might open FDs */
+    if (close_fds) {
+        int local_max_fd = max_fd;
+#if defined(__NetBSD__)
+        local_max_fd = fcntl(0, F_MAXFD);
+        if (local_max_fd < 0)
+            local_max_fd = max_fd;
+#endif
+        /* TODO HP-UX could use pstat_getproc() if anyone cares about it. */
+        _close_open_fd_range(3, local_max_fd, py_fds_to_keep, num_fds_to_keep);
     }
 
     /* This loop matches the Lib/os.py _execvpe()'s PATH search when */
@@ -479,20 +475,18 @@ error:
 int
 pypy_subprocess_cloexec_pipe(int *fds)
 {
-    int res;
+    int res, saved_errno;
+    long oldflags;
 #ifdef HAVE_PIPE2
     Py_BEGIN_ALLOW_THREADS
     res = pipe2(fds, O_CLOEXEC);
     Py_END_ALLOW_THREADS
     if (res != 0 && errno == ENOSYS)
     {
-        {
 #endif
         /* We hold the GIL which offers some protection from other code calling
          * fork() before the CLOEXEC flags have been set but we can't guarantee
          * anything without pipe2(). */
-        long oldflags;
-
         res = pipe(fds);
 
         if (res == 0) {
@@ -509,9 +503,47 @@ pypy_subprocess_cloexec_pipe(int *fds)
         if (res == 0)
             res = fcntl(fds[1], F_SETFD, oldflags | FD_CLOEXEC);
 #ifdef HAVE_PIPE2
-        }
     }
 #endif
+    if (res == 0 && fds[1] < 3) {
+        /* We always want the write end of the pipe to avoid fds 0, 1 and 2
+         * as our child may claim those for stdio connections. */
+        int write_fd = fds[1];
+        int fds_to_close[3] = {-1, -1, -1};
+        int fds_to_close_idx = 0;
+#ifdef F_DUPFD_CLOEXEC
+        fds_to_close[fds_to_close_idx++] = write_fd;
+        write_fd = fcntl(write_fd, F_DUPFD_CLOEXEC, 3);
+        if (write_fd < 0)  /* We don't support F_DUPFD_CLOEXEC / other error */
+#endif
+        {
+            /* Use dup a few times until we get a desirable fd. */
+            for (; fds_to_close_idx < 3; ++fds_to_close_idx) {
+                fds_to_close[fds_to_close_idx] = write_fd;
+                write_fd = dup(write_fd);
+                if (write_fd >= 3)
+                    break;
+                /* We may dup a few extra times if it returns an error but
+                 * that is okay.  Repeat calls should return the same error. */
+            }
+            if (write_fd < 0) res = write_fd;
+            if (res == 0) {
+                oldflags = fcntl(write_fd, F_GETFD, 0);
+                if (oldflags < 0) res = oldflags;
+                if (res == 0)
+                    res = fcntl(write_fd, F_SETFD, oldflags | FD_CLOEXEC);
+            }
+        }
+        saved_errno = errno;
+        /* Close fds we tried for the write end that were too low. */
+        for (fds_to_close_idx=0; fds_to_close_idx < 3; ++fds_to_close_idx) {
+            int temp_fd = fds_to_close[fds_to_close_idx];
+            while (temp_fd >= 0 && close(temp_fd) < 0 && errno == EINTR);
+        }
+        errno = saved_errno;  /* report dup or fcntl errors, not close. */
+        fds[1] = write_fd;
+    }  /* end if write fd was too small */
+
     if (res != 0)
 	return res;
     return 0;

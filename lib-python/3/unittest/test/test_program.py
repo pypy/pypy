@@ -131,23 +131,6 @@ class TestCommandLineArgs(unittest.TestCase):
         FakeRunner.test = None
         FakeRunner.raiseError = False
 
-    def testHelpAndUnknown(self):
-        program = self.program
-        def usageExit(msg=None):
-            program.msg = msg
-            program.exit = True
-        program.usageExit = usageExit
-
-        for opt in '-h', '-H', '--help':
-            program.exit = False
-            program.parseArgs([None, opt])
-            self.assertTrue(program.exit)
-            self.assertIsNone(program.msg)
-
-        program.parseArgs([None, '-$'])
-        self.assertTrue(program.exit)
-        self.assertIsNotNone(program.msg)
-
     def testVerbosity(self):
         program = self.program
 
@@ -347,7 +330,7 @@ class TestCommandLineArgs(unittest.TestCase):
         self.assertEqual(program.testNames, argv[1:])
 
         # it may be better to use platform specific functions to normalise paths
-        # rather than accepting '.PY' and '\' as file seprator on Linux / Mac
+        # rather than accepting '.PY' and '\' as file separator on Linux / Mac
         # it would also be better to check that a filename is a valid module
         # identifier (we have a regex for this in loader.py)
         # for invalid filenames should we raise a useful error rather than

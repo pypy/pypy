@@ -2,7 +2,7 @@ import unittest
 import shelve
 import glob
 from test import support
-from collections import MutableMapping
+from collections.abc import MutableMapping
 from test.test_dbm import dbm_iterator
 
 def L1(s):
@@ -129,8 +129,8 @@ class TestCase(unittest.TestCase):
         shelve.Shelf(d)[key] = [1]
         self.assertIn(key.encode('utf-8'), d)
         # but a different one can be given
-        shelve.Shelf(d, keyencoding='latin1')[key] = [1]
-        self.assertIn(key.encode('latin1'), d)
+        shelve.Shelf(d, keyencoding='latin-1')[key] = [1]
+        self.assertIn(key.encode('latin-1'), d)
         # with all consequences
         s = shelve.Shelf(d, keyencoding='ascii')
         self.assertRaises(UnicodeEncodeError, s.__setitem__, key, [1])

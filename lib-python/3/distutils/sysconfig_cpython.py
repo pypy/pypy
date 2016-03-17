@@ -18,11 +18,17 @@ from .errors import DistutilsPlatformError
 # These are needed in a couple of spots, so just compute them once.
 PREFIX = os.path.normpath(sys.prefix)
 EXEC_PREFIX = os.path.normpath(sys.exec_prefix)
+BASE_PREFIX = os.path.normpath(sys.base_prefix)
+BASE_EXEC_PREFIX = os.path.normpath(sys.base_exec_prefix)
 
 # Path to the base directory of the project. On Windows the binary may
 # live in project/PCBuild9.  If we're dealing with an x64 Windows build,
 # it'll live in project/PCbuild/amd64.
-project_base = os.path.dirname(os.path.abspath(sys.executable))
+# set for cross builds
+if "_PYTHON_PROJECT_BASE" in os.environ:
+    project_base = os.path.abspath(os.environ["_PYTHON_PROJECT_BASE"])
+else:
+    project_base = os.path.dirname(os.path.abspath(sys.executable))
 if os.name == "nt" and "pcbuild" in project_base[-8:].lower():
     project_base = os.path.abspath(os.path.join(project_base, os.path.pardir))
 # PC/VS7.1
@@ -39,11 +45,21 @@ if os.name == "nt" and "\\pcbuild\\amd64" in project_base[-14:].lower():
 # different (hard-wired) directories.
 # Setup.local is available for Makefile builds including VPATH builds,
 # Setup.dist is available on Windows
-def _python_build():
+def _is_python_source_dir(d):
     for fn in ("Setup.dist", "Setup.local"):
-        if os.path.isfile(os.path.join(project_base, "Modules", fn)):
+        if os.path.isfile(os.path.join(d, "Modules", fn)):
             return True
     return False
+_sys_home = getattr(sys, '_home', None)
+if _sys_home and os.name == 'nt' and \
+    _sys_home.lower().endswith(('pcbuild', 'pcbuild\\amd64')):
+    _sys_home = os.path.dirname(_sys_home)
+    if _sys_home.endswith('pcbuild'):   # must be amd64
+        _sys_home = os.path.dirname(_sys_home)
+def _python_build():
+    if _sys_home:
+        return _is_python_source_dir(_sys_home)
+    return _is_python_source_dir(project_base)
 python_build = _python_build()
 
 # Calculate the build qualifier flags if they are defined.  Adding the flags
@@ -74,11 +90,11 @@ def get_python_inc(plat_specific=0, prefix=None):
     otherwise, this is the path to platform-specific header files
     (namely pyconfig.h).
 
-    If 'prefix' is supplied, use it instead of sys.prefix or
-    sys.exec_prefix -- i.e., ignore 'plat_specific'.
+    If 'prefix' is supplied, use it instead of sys.base_prefix or
+    sys.base_exec_prefix -- i.e., ignore 'plat_specific'.
     """
     if prefix is None:
-        prefix = plat_specific and EXEC_PREFIX or PREFIX
+        prefix = plat_specific and BASE_EXEC_PREFIX or BASE_PREFIX
     if os.name == "posix":
         if python_build:
             # Assume the executable is in the build directory.  The
@@ -86,12 +102,14 @@ def get_python_inc(plat_specific=0, prefix=None):
             # the build directory may not be the source directory, we
             # must use "srcdir" from the makefile to find the "Include"
             # directory.
-            base = os.path.dirname(os.path.abspath(sys.executable))
+            base = _sys_home or project_base
             if plat_specific:
                 return base
+            if _sys_home:
+                incdir = os.path.join(_sys_home, get_config_var('AST_H_DIR'))
             else:
                 incdir = os.path.join(get_config_var('srcdir'), 'Include')
-                return os.path.normpath(incdir)
+            return os.path.normpath(incdir)
         python_dir = 'python' + get_python_version() + build_flags
         return os.path.join(prefix, "include", python_dir)
     elif os.name == "nt":
@@ -115,11 +133,14 @@ def get_python_lib(plat_specific=0, standard_lib=0, prefix=None):
     containing standard Python library modules; otherwise, return the
     directory for site-specific modules.
 
-    If 'prefix' is supplied, use it instead of sys.prefix or
-    sys.exec_prefix -- i.e., ignore 'plat_specific'.
+    If 'prefix' is supplied, use it instead of sys.base_prefix or
+    sys.base_exec_prefix -- i.e., ignore 'plat_specific'.
     """
     if prefix is None:
-        prefix = plat_specific and EXEC_PREFIX or PREFIX
+        if standard_lib:
+            prefix = plat_specific and BASE_EXEC_PREFIX or BASE_PREFIX
+        else:
+            prefix = plat_specific and EXEC_PREFIX or PREFIX
 
     if os.name == "posix":
         libpython = os.path.join(prefix,
@@ -174,9 +195,15 @@ def customize_compiler(compiler):
             get_config_vars('CC', 'CXX', 'OPT', 'CFLAGS',
                             'CCSHARED', 'LDSHARED', 'SHLIB_SUFFIX', 'AR', 'ARFLAGS')
 
-        newcc = None
         if 'CC' in os.environ:
-            cc = os.environ['CC']
+            newcc = os.environ['CC']
+            if (sys.platform == 'darwin'
+                    and 'LDSHARED' not in os.environ
+                    and ldshared.startswith(cc)):
+                # On OS X, if CC is overridden, use that as the default
+                #       command for LDSHARED as well
+                ldshared = newcc + ldshared[len(cc):]
+            cc = newcc
         if 'CXX' in os.environ:
             cxx = os.environ['CXX']
         if 'LDSHARED' in os.environ:
@@ -218,9 +245,9 @@ def get_config_h_filename():
     """Return full pathname of installed pyconfig.h file."""
     if python_build:
         if os.name == "nt":
-            inc_dir = os.path.join(project_base, "PC")
+            inc_dir = os.path.join(_sys_home or project_base, "PC")
         else:
-            inc_dir = project_base
+            inc_dir = _sys_home or project_base
     else:
         inc_dir = get_python_inc(plat_specific=1)
     if get_python_version() < '2.2':
@@ -234,7 +261,7 @@ def get_config_h_filename():
 def get_makefile_filename():
     """Return full pathname of installed Makefile from the Python build."""
     if python_build:
-        return os.path.join(os.path.dirname(sys.executable), "Makefile")
+        return os.path.join(_sys_home or project_base, "Makefile")
     lib_dir = get_python_lib(plat_specific=0, standard_lib=1)
     config_file = 'config-{}{}'.format(get_python_version(), build_flags)
     return os.path.join(lib_dir, config_file, 'Makefile')
@@ -498,7 +525,7 @@ def get_config_vars(*args):
     variables relevant for the current platform.  Generally this includes
     everything needed to build extensions and install both pure modules and
     extensions.  On Unix, this means every variable defined in Python's
-    installed Makefile; on Windows and Mac OS it's a much smaller set.
+    installed Makefile; on Windows it's a much smaller set.
 
     With arguments, return a list of values that result from looking up
     each argument in the configuration variable dictionary.
@@ -517,12 +544,29 @@ def get_config_vars(*args):
         _config_vars['prefix'] = PREFIX
         _config_vars['exec_prefix'] = EXEC_PREFIX
 
+        # Always convert srcdir to an absolute path
+        srcdir = _config_vars.get('srcdir', project_base)
+        if os.name == 'posix':
+            if python_build:
+                # If srcdir is a relative path (typically '.' or '..')
+                # then it should be interpreted relative to the directory
+                # containing Makefile.
+                base = os.path.dirname(get_makefile_filename())
+                srcdir = os.path.join(base, srcdir)
+            else:
+                # srcdir is not meaningful since the installation is
+                # spread about the filesystem.  We choose the
+                # directory containing the Makefile since we know it
+                # exists.
+                srcdir = os.path.dirname(get_makefile_filename())
+        _config_vars['srcdir'] = os.path.abspath(os.path.normpath(srcdir))
+
         # Convert srcdir into an absolute path if it appears necessary.
         # Normally it is relative to the build directory.  However, during
         # testing, for example, we might be running a non-installed python
         # from a different directory.
         if python_build and os.name == "posix":
-            base = os.path.dirname(os.path.abspath(sys.executable))
+            base = project_base
             if (not os.path.isabs(_config_vars['srcdir']) and
                 base != os.getcwd()):
                 # srcdir is relative and we are not in the same directory

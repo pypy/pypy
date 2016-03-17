@@ -40,9 +40,7 @@ class AppTestMMap:
             assert isinstance(mmap.PROT_READ, int)
             assert isinstance(mmap.PROT_WRITE, int)
 
-        assert 'mmap.error' in str(mmap.error)
-        assert mmap.error is not EnvironmentError
-        assert issubclass(mmap.error, EnvironmentError)
+        assert mmap.error is OSError
 
     def test_args(self):
         from mmap import mmap
@@ -546,7 +544,7 @@ class AppTestMMap:
         b = memoryview(m)
         assert len(b) == 6
         assert b.readonly is False
-        assert b[3] == b"b"
+        assert b[3] == ord(b"b")
         assert b[:] == b"foobar"
         del b  # For CPython: "exported pointers exist"
         m.close()
@@ -836,3 +834,12 @@ class AppTestMMap:
                 assert str(e) == "cannot mmap an empty file"
             except BaseException as e:
                 assert False, "unexpected exception: " + str(e)
+
+    def test_read_all(self):
+        from mmap import mmap
+        f = open(self.tmpname + "f", "wb+")
+        f.write(b"foobar")
+        f.flush()
+
+        m = mmap(f.fileno(), 6)
+        assert m.read(None) == b"foobar"

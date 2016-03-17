@@ -71,7 +71,7 @@ def print_tb(tb, limit=None, file=None):
         n = n+1
 
 def format_tb(tb, limit=None):
-    """A shorthand for 'format_list(extract_stack(f, limit))."""
+    """A shorthand for 'format_list(extract_tb(tb, limit))'."""
     return format_list(extract_tb(tb, limit))
 
 def extract_tb(tb, limit=None):
@@ -119,15 +119,16 @@ def _iter_chain(exc, custom_tb=None, seen=None):
         seen = set()
     seen.add(exc)
     its = []
+    context = exc.__context__
     cause = exc.__cause__
     if cause is not None and cause not in seen:
-        its.append(_iter_chain(cause, None, seen))
+        its.append(_iter_chain(cause, False, seen))
         its.append([(_cause_message, None)])
-    else:
-        context = exc.__context__
-        if context is not None and context not in seen:
-            its.append(_iter_chain(context, None, seen))
-            its.append([(_context_message, None)])
+    elif (context is not None and
+          not exc.__suppress_context__ and
+          context not in seen):
+        its.append(_iter_chain(context, None, seen))
+        its.append([(_context_message, None)])
     its.append([(exc, custom_tb or exc.__traceback__)])
     # itertools.chain is in an extension module and may be unavailable
     for it in its:
@@ -226,11 +227,12 @@ def format_exception_only(etype, value):
     if badline is not None:
         lines.append('    %s\n' % badline.strip())
         if offset is not None:
-            caretspace = badline.rstrip('\n')[:offset].lstrip()
+            caretspace = badline.rstrip('\n')
+            offset = min(len(caretspace), offset) - 1
+            caretspace = caretspace[:offset].lstrip()
             # non-space whitespace (likes tabs) must be kept for alignment
             caretspace = ((c.isspace() and c or ' ') for c in caretspace)
-            # only three spaces to account for offset1 == pos 0
-            lines.append('   %s^\n' % ''.join(caretspace))
+            lines.append('    %s^\n' % ''.join(caretspace))
     msg = value.msg or "<no detail available>"
     lines.append("%s: %s\n" % (stype, msg))
     return lines

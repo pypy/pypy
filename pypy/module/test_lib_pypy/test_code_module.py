@@ -21,7 +21,7 @@ class AppTestCodeModule:
 
     def test_cause_tb(self):
         interp = self.get_interp()
-        interp.runsource('raise IOError from OSError')
+        interp.runsource('raise TypeError from OSError')
         result = interp.out.getvalue()
         expected_header = """OSError
 
@@ -30,7 +30,7 @@ The above exception was the direct cause of the following exception:
 Traceback (most recent call last):
 """
         assert expected_header in result
-        assert result.endswith("IOError\n")
+        assert result.endswith("TypeError\n")
 
     def test_context_tb(self):
         interp = self.get_interp()
@@ -47,3 +47,17 @@ Traceback (most recent call last):
 """
         assert expected_header in result
         assert result.endswith("NameError: name '_diana_' is not defined\n")
+
+    def test_excepthook(self):
+        interp = self.get_interp()
+        interp.runsource("import sys")
+        interp.runsource("""
+def ignore_failure(type, value, traceback):
+    pass
+""")
+        interp.runsource("sys.excepthook = ignore_failure")
+        interp.runsource("raise TypeError('Invalid Type')")
+        result = interp.out.getvalue()
+        # Since we have a custom excepthook, the write() method should not
+        # be called, so out should never have been written to.
+        assert result == ""

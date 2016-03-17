@@ -12,7 +12,6 @@ from rpython.tool.sourcetools import func_renamer
 from pypy.module._io.interp_iobase import (
     W_IOBase, DEFAULT_BUFFER_SIZE, convert_size, trap_eintr,
     check_readable_w, check_writable_w, check_seekable_w)
-from pypy.module._io.interp_io import W_BlockingIOError
 from rpython.rlib import rthread
 
 STATE_ZERO, STATE_OK, STATE_DETACHED = range(3)
@@ -25,13 +24,12 @@ def make_write_blocking_error(space, written):
     # In that case what we get is a potentially nonsense errno.  But
     # we'll use get_saved_errno() anyway, and hope (like CPython does)
     # that we're getting a reasonable value at this point.
-    w_type = space.gettypeobject(W_BlockingIOError.typedef)
     w_value = space.call_function(
-        w_type,
+        space.w_BlockingIOError,
         space.wrap(rposix.get_saved_errno()),
         space.wrap("write could not complete without blocking"),
         space.wrap(written))
-    return OperationError(w_type, w_value)
+    return OperationError(space.w_BlockingIOError, w_value)
 
 
 class TryLock(object):
@@ -85,12 +83,13 @@ class W_BufferedIOBase(W_IOBase):
             raise OperationError(space.w_TypeError, space.wrap(
                 "read() should return bytes"))
         data = space.bytes_w(w_data)
+        if len(data) > length:
+            raise oefmt(space.w_ValueError,
+                        "read() returned too much data: "
+                        "%d bytes requested, %d returned",
+                        length, len(data))
         rwbuffer.setslice(0, data)
         return space.wrap(len(data))
-
-    def _complain_about_max_buffer_size(self, space):
-        space.warn(space.wrap("max_buffer_size is deprecated"),
-                   space.w_DeprecationWarning)
 
 W_BufferedIOBase.typedef = TypeDef(
     '_io._BufferedIOBase', W_IOBase.typedef,
@@ -306,11 +305,22 @@ class BufferedMixin:
         with self.lock:
             if self._closed(space):
                 return
+        w_flush_exception = None
         try:
             space.call_method(self, "flush")
+        except OperationError as e:
+            w_flush_exception = e.get_w_value(space)
+            raise
         finally:
             with self.lock:
-                space.call_method(self.w_raw, "close")
+                try:
+                    space.call_method(self.w_raw, "close")
+                except OperationError as e:
+                    if w_flush_exception:
+                        space.setattr(e.get_w_value(space),
+                                      space.wrap('__context__'),
+                                      w_flush_exception)
+                    raise
 
     def _dealloc_warn_w(self, space, w_source):
         space.call_method(self.w_raw, "_dealloc_warn", w_source)
@@ -733,11 +743,8 @@ class BufferedMixin:
             try:
                 self._writer_flush_unlocked(space)
             except OperationError, e:
-                if not e.match(space, space.gettypeobject(
-                    W_BlockingIOError.typedef)):
+                if not e.match(space, space.w_BlockingIOError):
                     raise
-                w_exc = e.get_w_value(space)
-                assert isinstance(w_exc, W_BlockingIOError)
                 if self.readable:
                     self._reader_reset_buf()
                 # Make some place by shifting the buffer
@@ -877,11 +884,8 @@ W_BufferedReader.typedef = TypeDef(
 )
 
 class W_BufferedWriter(BufferedMixin, W_BufferedIOBase):
-    @unwrap_spec(buffer_size=int, max_buffer_size=int)
-    def descr_init(self, space, w_raw, buffer_size=DEFAULT_BUFFER_SIZE,
-                   max_buffer_size=-234):
-        if max_buffer_size != -234:
-            self._complain_about_max_buffer_size(space)
+    @unwrap_spec(buffer_size=int)
+    def descr_init(self, space, w_raw, buffer_size=DEFAULT_BUFFER_SIZE):
         self.state = STATE_ZERO
         check_writable_w(space, w_raw)
 
@@ -943,12 +947,10 @@ class W_BufferedRWPair(W_BufferedIOBase):
     w_reader = None
     w_writer = None
 
-    @unwrap_spec(buffer_size=int, max_buffer_size=int)
+    @unwrap_spec(buffer_size=int)
     def descr_init(self, space, w_reader, w_writer, 
-                   buffer_size=DEFAULT_BUFFER_SIZE, max_buffer_size=-234):
+                   buffer_size=DEFAULT_BUFFER_SIZE):
         try:
-            if max_buffer_size != -234:
-                self._complain_about_max_buffer_size(space)
             self.w_reader = W_BufferedReader(space)
             self.w_reader.descr_init(space, w_reader, buffer_size)
             self.w_writer = W_BufferedWriter(space)
@@ -1018,12 +1020,8 @@ W_BufferedRWPair.typedef = TypeDef(
 )
 
 class W_BufferedRandom(BufferedMixin, W_BufferedIOBase):
-    @unwrap_spec(buffer_size=int, max_buffer_size=int)
-    def descr_init(self, space, w_raw, buffer_size=DEFAULT_BUFFER_SIZE,
-                   max_buffer_size=-234):
-        if max_buffer_size != -234:
-            self._complain_about_max_buffer_size(space)
-
+    @unwrap_spec(buffer_size=int)
+    def descr_init(self, space, w_raw, buffer_size=DEFAULT_BUFFER_SIZE):
         self.state = STATE_ZERO
         check_readable_w(space, w_raw)
         check_writable_w(space, w_raw)

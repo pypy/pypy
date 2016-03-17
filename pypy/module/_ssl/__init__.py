@@ -13,12 +13,12 @@ class Module(MixedModule):
         'nid2obj': 'interp_ssl.nid2obj',
         'get_default_verify_paths': 'interp_ssl.get_default_verify_paths',
 
-        'SSLError': "interp_ssl.get_exception_class(space, 'w_sslerror')",
-        'SSLZeroReturnError': "interp_ssl.get_exception_class(space, 'w_sslzeroreturnerror')",
-        'SSLWantReadError': "interp_ssl.get_exception_class(space, 'w_sslwantreaderror')",
-        'SSLWantWriteError': "interp_ssl.get_exception_class(space, 'w_sslwantwriteerror')",
-        'SSLSyscallError': "interp_ssl.get_exception_class(space, 'w_sslsyscallerror')",
-        'SSLEOFError': "interp_ssl.get_exception_class(space, 'w_ssleoferror')",
+        'SSLError': 'interp_ssl.get_error(space).w_error',
+        'SSLZeroReturnError': 'interp_ssl.get_error(space).w_ZeroReturnError',
+        'SSLWantReadError': 'interp_ssl.get_error(space).w_WantReadError',
+        'SSLWantWriteError': 'interp_ssl.get_error(space).w_WantWriteError',
+        'SSLEOFError': 'interp_ssl.get_error(space).w_EOFError',
+        'SSLSyscallError': 'interp_ssl.get_error(space).w_SyscallError',
 
         '_SSLSocket': 'interp_ssl.SSLSocket',
         '_SSLContext': 'interp_ssl.SSLContext',
@@ -43,6 +43,8 @@ class Module(MixedModule):
 
         if HAVE_OPENSSL_RAND:
             Module.interpleveldefs['RAND_add'] = "interp_ssl.RAND_add"
+            Module.interpleveldefs['RAND_bytes'] = "interp_ssl.RAND_bytes"
+            Module.interpleveldefs['RAND_pseudo_bytes'] = "interp_ssl.RAND_pseudo_bytes"
             Module.interpleveldefs['RAND_status'] = "interp_ssl.RAND_status"
             Module.interpleveldefs['RAND_egd'] = "interp_ssl.RAND_egd"
 

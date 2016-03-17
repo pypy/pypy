@@ -2,18 +2,50 @@ from rpython.rlib import rerased
 from rpython.rlib.objectmodel import iteritems_with_hash
 
 from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.typedef import TypeDef
 from pypy.objspace.std.dictmultiobject import (
-    DictStrategy, create_iterator_classes)
+    DictStrategy, W_DictObject, create_iterator_classes)
 from pypy.objspace.std.typeobject import unwrap_cell
 
 
+class W_DictProxyObject(W_DictObject):
+    @staticmethod
+    def descr_new(space, w_type, w_mapping):
+        if (not space.lookup(w_mapping, "__getitem__") or
+            space.isinstance_w(w_mapping, space.w_list) or
+            space.isinstance_w(w_mapping, space.w_tuple)):
+            raise oefmt(space.w_TypeError,
+                        "mappingproxy() argument must be a mapping, not %T", w_mapping)
+        strategy = space.fromcache(MappingProxyStrategy)
+        storage = strategy.erase(w_mapping)
+        w_obj = space.allocate_instance(W_DictProxyObject, w_type)
+        W_DictProxyObject.__init__(w_obj, space, strategy, storage)
+        return w_obj
+
+    def descr_init(self, space, __args__):
+        pass
+
+    def descr_repr(self, space):
+        return space.wrap(u"mappingproxy(%s)" % (
+            space.unicode_w(W_DictObject.descr_repr(self, space))))
+
+W_DictProxyObject.typedef = TypeDef(
+    "mappingproxy", W_DictObject.typedef,
+    __new__ = interp2app(W_DictProxyObject.descr_new),
+    __init__ = interp2app(W_DictProxyObject.descr_init),
+    __repr__ = interp2app(W_DictProxyObject.descr_repr),
+)
+
+
 class DictProxyStrategy(DictStrategy):
+    """Exposes a W_TypeObject.dict_w at app-level.
+
+    Uses getdictvalue() and setdictvalue() to access items.
+    """
     erase, unerase = rerased.new_erasing_pair("dictproxy")
     erase = staticmethod(erase)
     unerase = staticmethod(unerase)
-
-    def __init__(w_self, space):
-        DictStrategy.__init__(w_self, space)
 
     def getitem(self, w_dict, w_key):
         space = self.space
@@ -110,3 +142,70 @@ def _wrapkey(space, key):
     return space.wrap(key.decode('utf-8'))
 
 create_iterator_classes(DictProxyStrategy)
+
+
+class MappingProxyStrategy(DictStrategy):
+    """Wraps an applevel mapping in a read-only dictionary."""
+    erase, unerase = rerased.new_erasing_pair("mappingproxy")
+    erase = staticmethod(erase)
+    unerase = staticmethod(unerase)
+
+    def getitem(self, w_dict, w_key):
+        try:
+            return self.space.getitem(self.unerase(w_dict.dstorage), w_key)
+        except OperationError, e:
+            if not e.match(self.space, self.space.w_KeyError):
+                raise
+            return None
+
+    def setitem(self, w_dict, w_key, w_value):
+        raise oefmt(self.space.w_TypeError,
+                    "'%T' object does not support item assignment", w_dict)
+
+    def delitem(self, w_dict, w_key):
+        raise oefmt(self.space.w_TypeError,
+                    "'%T' object does not support item deletion", w_dict)
+
+    def length(self, w_dict):
+        return self.space.len_w(self.unerase(w_dict.dstorage))
+
+    def getiterkeys(self, w_dict):
+        return self.space.iter(
+            self.space.call_method(self.unerase(w_dict.dstorage), "keys"))
+
+    def getitervalues(self, w_dict):
+        return self.space.iter(
+            self.space.call_method(self.unerase(w_dict.dstorage), "values"))
+
+    def getiteritems_with_hash(self, w_dict):
+        return self.space.iter(
+            self.space.call_method(self.unerase(w_dict.dstorage), "items"))
+
+    @staticmethod
+    def override_next_key(iterkeys):
+        w_keys = iterkeys.iterator
+        return iterkeys.space.next(w_keys)
+
+    @staticmethod
+    def override_next_value(itervalues):
+        w_values = itervalues.iterator
+        return itervalues.space.next(w_values)
+
+    @staticmethod
+    def override_next_item(iteritems):
+        w_items = iteritems.iterator
+        w_item = iteritems.space.next(w_items)
+        w_key, w_value = iteritems.space.unpackiterable(w_item, 2)
+        return w_key, w_value
+
+    def clear(self, w_dict):
+        raise oefmt(self.space.w_AttributeError, "clear")
+
+    def copy(self, w_dict):
+        return self.space.call_method(self.unerase(w_dict.dstorage), "copy")
+
+create_iterator_classes(
+    MappingProxyStrategy,
+    override_next_key=MappingProxyStrategy.override_next_key,
+    override_next_value=MappingProxyStrategy.override_next_value,
+    override_next_item=MappingProxyStrategy.override_next_item)

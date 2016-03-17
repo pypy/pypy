@@ -182,7 +182,7 @@ def build_pytest_assertion(space):
             try:
                 source = runner.statement
                 source = str(source).strip()
-            except py.error.ENOENT:
+            except (py.error.ENOENT, SyntaxError):
                 source = None
             from pypy import conftest
             if source and py.test.config._assertstate.mode != "off":

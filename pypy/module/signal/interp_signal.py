@@ -5,14 +5,14 @@ import sys
 import os
 import errno
 
-from pypy.interpreter.error import OperationError, exception_from_saved_errno
+from pypy.interpreter.error import OperationError, oefmt, exception_from_saved_errno
 from pypy.interpreter.executioncontext import (AsyncAction, AbstractActionFlag,
     PeriodicAsyncAction)
 from pypy.interpreter.gateway import unwrap_spec
 
 from rpython.rlib import jit, rposix, rgc
 from rpython.rlib.objectmodel import we_are_translated
-from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.rarithmetic import intmask, widen
 from rpython.rlib.rsignal import *
 from rpython.rtyper.lltypesystem import lltype, rffi
 
@@ -238,7 +238,7 @@ def signal(space, signum, w_handler):
 @jit.dont_look_inside
 @unwrap_spec(fd=int)
 def set_wakeup_fd(space, fd):
-    """Sets the fd to be written to (with '\0') when a signal
+    """Sets the fd to be written to (with the signal number) when a signal
     comes in.  Returns the old fd.  A library can use this to
     wakeup select or poll.  The previous fd is returned.
 
@@ -255,7 +255,7 @@ def set_wakeup_fd(space, fd):
         except OSError, e:
             if e.errno == errno.EBADF:
                 raise OperationError(space.w_ValueError, space.wrap("invalid fd"))
-    old_fd = pypysig_set_wakeup_fd(fd)
+    old_fd = pypysig_set_wakeup_fd(fd, False)
     return space.wrap(intmask(old_fd))
 
 
@@ -334,3 +334,75 @@ def getitimer(space, which):
         c_getitimer(which, old)
 
         return itimer_retval(space, old[0])
+
+
+@unwrap_spec(tid=int, signum=int)
+def pthread_kill(space, tid, signum):
+    "Send a signal to a thread."
+    ret = c_pthread_kill(tid, signum)
+    if widen(ret) < 0:
+        raise exception_from_saved_errno(space, space.w_OSError)
+    # the signal may have been send to the current thread
+    space.getexecutioncontext().checksignals()
+
+
+class SignalMask(object):
+    def __init__(self, space, w_signals):
+        self.space = space
+        self.w_signals = w_signals
+
+    def __enter__(self):
+        space = self.space
+        self.mask = lltype.malloc(c_sigset_t.TO, flavor='raw')
+        c_sigemptyset(self.mask)
+        for w_signum in space.unpackiterable(self.w_signals):
+            signum = space.int_w(w_signum)
+            check_signum_in_range(space, signum)
+            err = c_sigaddset(self.mask, signum)
+            if err:
+                raise oefmt(space.w_ValueError,
+                            "signal number %d out of range", signum)
+        return self.mask
+
+    def __exit__(self, *args):
+        lltype.free(self.mask, flavor='raw')
+
+def _sigset_to_signals(space, mask):
+    signals_w = []
+    for sig in range(1, NSIG):
+        if c_sigismember(mask, sig) != 1:
+            continue
+        # Handle the case where it is a member by adding the signal to
+        # the result list.  Ignore the other cases because they mean
+        # the signal isn't a member of the mask or the signal was
+        # invalid, and an invalid signal must have been our fault in
+        # constructing the loop boundaries.
+        signals_w.append(space.wrap(sig))
+    return space.call_function(space.w_set, space.newtuple(signals_w))
+
+def sigwait(space, w_signals):
+    with SignalMask(space, w_signals) as sigset:
+        with lltype.scoped_alloc(rffi.INTP.TO, 1) as signum_ptr:
+            ret = c_sigwait(sigset, signum_ptr)
+            if ret != 0:
+                raise exception_from_saved_errno(space, space.w_OSError)
+            signum = signum_ptr[0]
+    return space.wrap(signum)
+
+def sigpending(space):
+    with lltype.scoped_alloc(c_sigset_t.TO) as mask:
+        ret = c_sigpending(mask)
+        if ret != 0:
+            raise exception_from_saved_errno(space, space.w_OSError)
+        return _sigset_to_signals(space, mask)
+
+@unwrap_spec(how=int)
+def pthread_sigmask(space, how, w_signals):
+    with SignalMask(space, w_signals) as sigset:
+        with lltype.scoped_alloc(c_sigset_t.TO) as previous:
+            ret = c_pthread_sigmask(how, sigset, previous)
+            if ret != 0:
+                raise exception_from_saved_errno(space, space.w_OSError)
+            # if signals was unblocked, signal handlers have been called
+            space.getexecutioncontext().checksignals()
+            return _sigset_to_signals(space, previous)

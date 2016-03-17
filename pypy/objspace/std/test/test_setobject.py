@@ -1068,3 +1068,16 @@ class AppTestAppSetTest:
            raise ValueError
            yield 1
         raises(ValueError, set, f())
+
+    def test_pickle(self):
+        d = {1, 2, 3}
+        it = iter(d)
+        first = next(it)
+        reduced = it.__reduce__()
+        rebuild, args = reduced
+        assert rebuild is iter
+        new = rebuild(*args)
+        items = set(new)
+        assert len(items) == 2
+        items.add(first)
+        assert items == set(d)        

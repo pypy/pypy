@@ -408,6 +408,25 @@ class AppTestRaiseContext:
         except:
             func()
 
+    def testCauseSyntax(self):
+        """
+        try:
+            try:
+                try:
+                    raise TypeError
+                except Exception:
+                    raise ValueError from None
+            except ValueError as exc:
+                assert exc.__cause__ is None
+                assert exc.__suppress_context__ is True
+                exc.__suppress_context__ = False
+                raise exc
+        except ValueError as exc:
+            e = exc
+        assert e.__cause__ is None
+        assert e.__suppress_context__ is False
+        assert isinstance(e.__context__, TypeError)
+        """
 
 class AppTestTraceback:
 

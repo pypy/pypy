@@ -307,6 +307,7 @@ class AppTestBytesObject:
         assert b'aaa'.count(b'a', 0, -1) == 2
         assert b'aaa'.count(b'a', 0, -10) == 0
         assert b'ababa'.count(b'aba') == 1
+        assert b'ababa'.count(ord('a')) == 3
 
     def test_startswith(self):
         assert b'ab'.startswith(b'ab') is True
@@ -706,6 +707,10 @@ class AppTestBytesObject:
         assert 'hello'.encode() == b'hello'
         assert type('hello'.encode()) is bytes
 
+    def test_non_text_encoding(self):
+        raises(LookupError, b'hello'.decode, 'base64')
+        raises(LookupError, 'hello'.encode, 'base64')
+
     def test_hash(self):
         # check that we have the same hash as CPython for at least 31 bits
         # (but don't go checking CPython's special case -1)
@@ -718,7 +723,7 @@ class AppTestBytesObject:
         x += b"llo"
         b = memoryview(x)
         assert len(b) == 5
-        assert b[-1] == b"o"
+        assert b[-1] == ord("o")
         assert b[:] == b"hello"
         assert b[1:0] == b""
         raises(TypeError, "b[3] = 'x'")
@@ -755,6 +760,14 @@ class AppTestBytesObject:
             def __int__(self):
                 return 3
         raises(TypeError, bytes, WithInt())
+
+    def test_fromobject___bytes__(self):
+        class WithIndex:
+            def __bytes__(self):
+                return b'a'
+            def __index__(self):
+                return 3
+        assert bytes(WithIndex()) == b'a'
 
     def test_getnewargs(self):
         assert  b"foo".__getnewargs__() == (b"foo",)
@@ -845,6 +858,13 @@ class AppTestBytesObject:
             assert not b.endswith((bb, bb))
             assert bytes.maketrans(bb, bb)
             assert bytearray.maketrans(bb, bb)
+
+    def test_constructor_dont_convert_int(self):
+        class A(object):
+            def __int__(self):
+                return 42
+        raises(TypeError, bytes, A())
+
 
 class AppTestPrebuilt(AppTestBytesObject):
     spaceconfig = {"objspace.std.withprebuiltchar": True}

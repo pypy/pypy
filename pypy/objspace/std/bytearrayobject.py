@@ -66,7 +66,16 @@ class W_BytearrayObject(W_Root):
         return False
 
     @staticmethod
-    def _op_val(space, w_other):
+    def _op_val(space, w_other, allow_char=False):
+        # Some functions (contains, find) allow a number to specify a
+        # single char.
+        if allow_char and space.isinstance_w(w_other, space.w_int):
+            return StringMethods._single_char(space, w_other)
+        try:
+            return space.bytes_w(w_other)
+        except OperationError, e:
+            if not e.match(space, space.w_TypeError):
+                raise
         return space.buffer_w(w_other, space.BUF_SIMPLE).as_str()
 
     def _chr(self, char):
@@ -394,14 +403,6 @@ class W_BytearrayObject(W_Root):
         except ValueError:
             raise oefmt(space.w_ValueError, "value not found in bytearray")
 
-    _StringMethods_descr_contains = descr_contains
-    def descr_contains(self, space, w_sub):
-        if space.isinstance_w(w_sub, space.w_int):
-            char = space.int_w(w_sub)
-            return _descr_contains_bytearray(self.data, space, char)
-
-        return self._StringMethods_descr_contains(space, w_sub)
-
     def descr_add(self, space, w_other):
         if isinstance(w_other, W_BytearrayObject):
             return self._new(self.data + w_other.data)
@@ -424,6 +425,11 @@ class W_BytearrayObject(W_Root):
     def descr_reverse(self, space):
         self.data.reverse()
 
+    def descr_clear(self, space):
+        self.data = []
+
+    def descr_copy(self, space):
+        return self._new(self.data[:])
 
 
 # ____________________________________________________________
@@ -431,15 +437,6 @@ class W_BytearrayObject(W_Root):
 
 def _make_data(s):
     return [s[i] for i in range(len(s))]
-
-
-def _descr_contains_bytearray(data, space, char):
-    if not 0 <= char < 256:
-        raise oefmt(space.w_ValueError, "byte must be in range(0, 256)")
-    for c in data:
-        if ord(c) == char:
-            return space.w_True
-    return space.w_False
 
 # ____________________________________________________________
 
@@ -600,6 +597,18 @@ class BytearrayDocstrings:
 
         Return B centered in a string of length width.  Padding is
         done using the specified fill character (default is a space).
+        """
+
+    def clear():
+        """B.clear() -> None
+
+        Remove all items from B.
+        """
+
+    def copy():
+        """B.copy() -> bytearray
+
+        Return a copy of B.
         """
 
     def count():
@@ -1053,6 +1062,10 @@ W_BytearrayObject.typedef = TypeDef(
                         doc=BytearrayDocstrings.remove.__doc__),
     reverse = interp2app(W_BytearrayObject.descr_reverse,
                          doc=BytearrayDocstrings.reverse.__doc__),
+    clear = interp2app(W_BytearrayObject.descr_clear,
+                       doc=BytearrayDocstrings.clear.__doc__),
+    copy = interp2app(W_BytearrayObject.descr_copy,
+                         doc=BytearrayDocstrings.copy.__doc__),
 )
 W_BytearrayObject.typedef.flag_sequence_bug_compat = True
 

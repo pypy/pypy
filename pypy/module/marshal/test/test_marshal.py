@@ -211,6 +211,18 @@ class AppTestMarshal:
         raises(EOFError, marshal.loads, b'<test>')
         raises((MemoryError, ValueError), marshal.loads, b'(test)')
 
+    def test_bad_reader(self):
+        import marshal, io
+        class BadReader(io.BytesIO):
+            def read(self, n=-1):
+                b = super().read(n)
+                if n is not None and n > 4:
+                    b += b' ' * 10**6
+                return b
+        for value in (1.0, 1j, b'0123456789', '0123456789'):
+            raises(ValueError, marshal.load,
+                   BadReader(marshal.dumps(value)))
+
 
 class AppTestSmallLong(AppTestMarshal):
     spaceconfig = AppTestMarshal.spaceconfig.copy()

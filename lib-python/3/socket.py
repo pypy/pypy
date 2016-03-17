@@ -12,6 +12,7 @@ Functions:
 socket() -- create a new socket object
 socketpair() -- create a pair of new socket objects [*]
 fromfd() -- create a socket object from an open file descriptor [*]
+fromshare() -- create a socket object from data received from socket.share() [*]
 gethostname() -- return the current hostname
 gethostbyname() -- map a hostname to its IP number
 gethostbyaddr() -- map an IP number or hostname to DNS info
@@ -53,7 +54,6 @@ try:
 except ImportError:
     errno = None
 EBADF = getattr(errno, 'EBADF', 9)
-EINTR = getattr(errno, 'EINTR', 4)
 EAGAIN = getattr(errno, 'EAGAIN', 11)
 EWOULDBLOCK = getattr(errno, 'EWOULDBLOCK', 11)
 
@@ -111,6 +111,9 @@ class socket(_socket.socket):
                                 getattr(self, '_closed', False) and " [closed] " or "",
                                 s[7:])
         return s
+
+    def __getstate__(self):
+        raise TypeError("Cannot serialize socket object")
 
     def dup(self):
         """dup() -> socket object
@@ -207,7 +210,6 @@ class socket(_socket.socket):
         self._closed = True
         return super().detach()
 
-
 def fromfd(fd, family, type, proto=0):
     """ fromfd(fd, family, type[, proto]) -> socket object
 
@@ -217,6 +219,14 @@ def fromfd(fd, family, type, proto=0):
     nfd = dup(fd)
     return socket(family, type, proto, nfd)
 
+if hasattr(_socket.socket, "share"):
+    def fromshare(info):
+        """ fromshare(info) -> socket object
+
+        Create a socket object from a the bytes object returned by
+        socket.share(pid).
+        """
+        return socket(0, 0, 0, info)
 
 if hasattr(_socket, "socketpair"):
 
@@ -288,11 +298,10 @@ class SocketIO(io.RawIOBase):
             except timeout:
                 self._timeout_occurred = True
                 raise
+            except InterruptedError:
+                continue
             except error as e:
-                n = e.args[0]
-                if n == EINTR:
-                    continue
-                if n in _blocking_errnos:
+                if e.args[0] in _blocking_errnos:
                     return None
                 raise
 

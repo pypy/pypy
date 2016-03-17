@@ -148,7 +148,7 @@ class W_TakeWhile(W_Root):
     def __init__(self, space, w_predicate, w_iterable):
         self.space = space
         self.w_predicate = w_predicate
-        self.iterable = space.iter(w_iterable)
+        self.w_iterable = space.iter(w_iterable)
         self.stopped = False
 
     def iter_w(self):
@@ -158,13 +158,23 @@ class W_TakeWhile(W_Root):
         if self.stopped:
             raise OperationError(self.space.w_StopIteration, self.space.w_None)
 
-        w_obj = self.space.next(self.iterable)  # may raise a w_StopIteration
+        w_obj = self.space.next(self.w_iterable)  # may raise a w_StopIteration
         w_bool = self.space.call_function(self.w_predicate, w_obj)
         if not self.space.is_true(w_bool):
             self.stopped = True
             raise OperationError(self.space.w_StopIteration, self.space.w_None)
 
         return w_obj
+
+    def descr_reduce(self, space):
+        return space.newtuple([
+            space.type(self),
+            space.newtuple([self.w_predicate, self.w_iterable]),
+            space.wrap(self.stopped)
+        ])
+
+    def descr_setstate(self, space, w_state):
+        self.stopped = space.bool_w(w_state)
 
 def W_TakeWhile___new__(space, w_subtype, w_predicate, w_iterable):
     r = space.allocate_instance(W_TakeWhile, w_subtype)
@@ -177,6 +187,8 @@ W_TakeWhile.typedef = TypeDef(
         __new__  = interp2app(W_TakeWhile___new__),
         __iter__ = interp2app(W_TakeWhile.iter_w),
         __next__ = interp2app(W_TakeWhile.next_w),
+        __reduce__ = interp2app(W_TakeWhile.descr_reduce),
+        __setstate__ = interp2app(W_TakeWhile.descr_setstate),
         __doc__  = """Make an iterator that returns elements from the iterable as
     long as the predicate is true.
 
@@ -195,7 +207,7 @@ class W_DropWhile(W_Root):
     def __init__(self, space, w_predicate, w_iterable):
         self.space = space
         self.w_predicate = w_predicate
-        self.iterable = space.iter(w_iterable)
+        self.w_iterable = space.iter(w_iterable)
         self.started = False
 
     def iter_w(self):
@@ -203,16 +215,26 @@ class W_DropWhile(W_Root):
 
     def next_w(self):
         if self.started:
-            w_obj = self.space.next(self.iterable)  # may raise w_StopIteration
+            w_obj = self.space.next(self.w_iterable)  # may raise w_StopIter
         else:
             while True:
-                w_obj = self.space.next(self.iterable)  # may raise w_StopIter
+                w_obj = self.space.next(self.w_iterable)  # may raise w_StopIter
                 w_bool = self.space.call_function(self.w_predicate, w_obj)
                 if not self.space.is_true(w_bool):
                     self.started = True
                     break
 
         return w_obj
+
+    def descr_reduce(self, space):
+        return space.newtuple([
+            space.type(self),
+            space.newtuple([self.w_predicate, self.w_iterable]),
+            space.wrap(self.started)
+        ])
+
+    def descr_setstate(self, space, w_state):
+        self.started = space.bool_w(w_state)
 
 def W_DropWhile___new__(space, w_subtype, w_predicate, w_iterable):
     r = space.allocate_instance(W_DropWhile, w_subtype)
@@ -225,6 +247,8 @@ W_DropWhile.typedef = TypeDef(
         __new__  = interp2app(W_DropWhile___new__),
         __iter__ = interp2app(W_DropWhile.iter_w),
         __next__ = interp2app(W_DropWhile.next_w),
+        __reduce__ = interp2app(W_DropWhile.descr_reduce),
+        __setstate__ = interp2app(W_DropWhile.descr_setstate),
         __doc__  = """Make an iterator that drops elements from the iterable as long
     as the predicate is true; afterwards, returns every
     element. Note, the iterator does not produce any output until the
@@ -251,7 +275,7 @@ def W_FilterFalse___new__(space, w_subtype, w_predicate, w_iterable):
     return space.wrap(r)
 
 W_FilterFalse.typedef = TypeDef(
-        'itertools.ifilterfalse',
+        'itertools.filterfalse',
         __new__  = interp2app(W_FilterFalse___new__),
         __iter__ = interp2app(W_FilterFalse.iter_w),
         __next__ = interp2app(W_FilterFalse.next_w),
@@ -380,6 +404,15 @@ class W_ISlice(W_Root):
             if num <= 0:
                 break
 
+    def descr_reduce(self, space):
+        return space.newtuple([
+            space.type(self),
+            space.newtuple([self.iterable,
+                            space.wrap(self.start),
+                            space.wrap(self.stop),
+                            space.wrap(self.ignore + 1)]),
+        ])
+
 def W_ISlice___new__(space, w_subtype, w_iterable, w_startstop, args_w):
     r = space.allocate_instance(W_ISlice, w_subtype)
     r.__init__(space, w_iterable, w_startstop, args_w)
@@ -390,6 +423,7 @@ W_ISlice.typedef = TypeDef(
         __new__  = interp2app(W_ISlice___new__),
         __iter__ = interp2app(W_ISlice.iter_w),
         __next__ = interp2app(W_ISlice.next_w),
+        __reduce__ = interp2app(W_ISlice.descr_reduce),
         __doc__  = """Make an iterator that returns selected elements from the
     iterable.  If start is non-zero, then elements from the iterable
     are skipped until start is reached. Afterward, elements are
@@ -575,6 +609,24 @@ class W_Cycle(W_Root):
                 self.saved_w.append(w_obj)
         return w_obj
 
+    def descr_reduce(self, space):
+        return space.newtuple([
+            space.type(self),
+            space.newtuple([self.w_iterable]),
+            space.newtuple([
+                space.newlist(self.saved_w),
+                space.wrap(self.index),
+                space.wrap(self.exhausted),
+            ]),
+        ])
+
+    def descr_setstate(self, space, w_state):
+        w_saved, w_index, w_exhausted = space.unpackiterable(w_state, 3)
+        self.saved_w = space.unpackiterable(w_saved)
+        self.index = space.int_w(w_index)
+        self.exhausted = space.bool_w(w_exhausted)
+
+
 def W_Cycle___new__(space, w_subtype, w_iterable):
     r = space.allocate_instance(W_Cycle, w_subtype)
     r.__init__(space, w_iterable)
@@ -585,6 +637,8 @@ W_Cycle.typedef = TypeDef(
         __new__  = interp2app(W_Cycle___new__),
         __iter__ = interp2app(W_Cycle.iter_w),
         __next__ = interp2app(W_Cycle.next_w),
+        __reduce__ = interp2app(W_Cycle.descr_reduce),
+        __setstate__ = interp2app(W_Cycle.descr_setstate),
         __doc__  = """Make an iterator returning elements from the iterable and
     saving a copy of each. When the iterable is exhausted, return
     elements from the saved copy. Repeats indefinitely.
@@ -895,6 +949,12 @@ class W_Compress(W_Root):
             if self.space.is_true(w_next_selector):
                 return w_next_item
 
+    def descr_reduce(self, space):
+        return space.newtuple([
+            space.type(self),
+            space.newtuple([self.w_data, self.w_selectors])
+        ])
+
 
 def W_Compress__new__(space, w_subtype, w_data, w_selectors):
     r = space.allocate_instance(W_Compress, w_subtype)
@@ -906,6 +966,7 @@ W_Compress.typedef = TypeDef(
     __new__ = interp2app(W_Compress__new__),
     __iter__ = interp2app(W_Compress.iter_w),
     __next__ = interp2app(W_Compress.next_w),
+    __reduce__ = interp2app(W_Compress.descr_reduce),
     __doc__ = """Make an iterator that filters elements from *data* returning
    only those that have a corresponding element in *selectors* that evaluates to
    ``True``.  Stops when either the *data* or *selectors* iterables has been
@@ -1088,6 +1149,41 @@ class W_Combinations(W_Root):
         self.last_result_w = result_w
         return space.newtuple(result_w)
 
+    def descr_reduce(self, space):
+        if self.stopped:
+            pool_w = []
+        else:
+            pool_w = self.pool_w
+        result_w = [
+            space.type(self),
+            space.newtuple([
+                space.newtuple(pool_w), space.wrap(self.r)
+            ])]
+        if self.last_result_w is not None and not self.stopped:
+            # we must pickle the indices and use them for setstate
+            result_w = result_w + [
+                space.newtuple([
+                    space.wrap(index) for index in self.indices])]
+        return space.newtuple(result_w)
+
+    def descr_setstate(self, space, w_state):
+        indices_w = space.fixedview(w_state)
+        if len(indices_w) != self.r:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "invalid arguments"))
+        for i in range(self.r):
+            index = space.int_w(indices_w[i])
+            max = self.get_maximum(i)
+            # clamp the index (beware of negative max)
+            if index > max:
+                index = max
+            if index < 0:
+                index = 0
+            self.indices.append(index)
+        self.last_result_w = [
+            self.pool_w[self.indices[i]]
+            for i in range(self.r)]
+
 @unwrap_spec(r=int)
 def W_Combinations__new__(space, w_subtype, w_iterable, r):
     pool_w = space.fixedview(w_iterable)
@@ -1095,7 +1191,7 @@ def W_Combinations__new__(space, w_subtype, w_iterable, r):
         raise OperationError(space.w_ValueError,
             space.wrap("r must be non-negative")
         )
-    indices = range(len(pool_w))
+    indices = range(r)
     res = space.allocate_instance(W_Combinations, w_subtype)
     res.__init__(space, pool_w, indices, r)
     return space.wrap(res)
@@ -1104,6 +1200,8 @@ W_Combinations.typedef = TypeDef("itertools.combinations",
     __new__ = interp2app(W_Combinations__new__),
     __iter__ = interp2app(W_Combinations.descr__iter__),
     __next__ = interp2app(W_Combinations.descr_next),
+    __reduce__ = interp2app(W_Combinations.descr_reduce),
+    __setstate__ = interp2app(W_Combinations.descr_setstate),
     __doc__ = """\
 combinations(iterable, r) --> combinations object
 
@@ -1214,9 +1312,10 @@ permutations(range(3), 2) --> (0,1), (0,2), (1,0), (1,2), (2,0), (2,1)""",
 
 
 class W_Accumulate(W_Root):
-    def __init__(self, space, w_iterable):
+    def __init__(self, space, w_iterable, w_func=None):
         self.space = space
         self.w_iterable = w_iterable
+        self.w_func = w_func
         self.w_total = None
 
     def iter_w(self):
@@ -1228,18 +1327,33 @@ class W_Accumulate(W_Root):
             self.w_total = w_value
             return w_value
 
-        self.w_total = self.space.add(self.w_total, w_value)
+        if self.w_func is None:
+            self.w_total = self.space.add(self.w_total, w_value)
+        else:
+            self.w_total = self.space.call_function(self.w_func, self.w_total, w_value)
         return self.w_total
 
-def W_Accumulate__new__(space, w_subtype, w_iterable):
+    def reduce_w(self):
+        space = self.space
+        w_total = space.w_None if self.w_total is None else self.w_total
+        w_func = space.w_None if self.w_func is None else self.w_func
+        return space.newtuple([space.gettypefor(W_Accumulate),
+                               space.newtuple([self.w_iterable, w_func]), w_total])
+
+    def setstate_w(self, w_total):
+        self.w_total = w_total
+
+def W_Accumulate__new__(space, w_subtype, w_iterable, w_func=None):
     r = space.allocate_instance(W_Accumulate, w_subtype)
-    r.__init__(space, space.iter(w_iterable))
+    r.__init__(space, space.iter(w_iterable), w_func)
     return space.wrap(r)
 
 W_Accumulate.typedef = TypeDef("itertools.accumulate",
     __new__  = interp2app(W_Accumulate__new__),
     __iter__ = interp2app(W_Accumulate.iter_w),
     __next__ = interp2app(W_Accumulate.next_w),
+    __reduce__ = interp2app(W_Accumulate.reduce_w),
+    __setstate__ = interp2app(W_Accumulate.setstate_w),
     __doc__  = """\
 "accumulate(iterable) --> accumulate object
 

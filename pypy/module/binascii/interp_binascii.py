@@ -1,4 +1,5 @@
 from pypy.interpreter.error import OperationError
+from pypy.interpreter.gateway import Unwrapper
 
 class Cache:
     def __init__(self, space):
@@ -13,3 +14,11 @@ def raise_Error(space, msg):
 def raise_Incomplete(space, msg):
     w_error = space.fromcache(Cache).w_incomplete
     raise OperationError(w_error, space.wrap(msg))
+
+# a2b functions accept bytes and buffers, but also ASCII strings.
+class AsciiBufferUnwrapper(Unwrapper):
+    def unwrap(self, space, w_value):
+        if space.isinstance_w(w_value, space.w_unicode):
+            w_value = space.call_method(w_value, "encode", space.wrap("ascii"))
+        return space.bufferstr_w(w_value)
+

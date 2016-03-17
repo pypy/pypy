@@ -201,6 +201,19 @@ def PyUnicode_GET_SIZE(space, w_obj):
     assert isinstance(w_obj, unicodeobject.W_UnicodeObject)
     return space.len_w(w_obj)
 
+@cpython_api([PyObject], Py_ssize_t, error=CANNOT_FAIL)
+def PyUnicode_GET_LENGTH(space, w_obj):
+    """Return the length of the Unicode string, in code points.
+    o has to be a Unicode object in the "canonical" representation
+    (not checked)."""
+    assert isinstance(w_obj, unicodeobject.W_UnicodeObject)
+    return space.len_w(w_obj)
+
+@cpython_api([PyObject], rffi.INT, error=CANNOT_FAIL)
+def PyUnicode_IS_READY(space, w_obj):
+    # PyPy is always ready.
+    return space.w_True
+
 @cpython_api([PyObject], rffi.CWCHARP, error=CANNOT_FAIL)
 def PyUnicode_AS_UNICODE(space, ref):
     """Return a pointer to the internal Py_UNICODE buffer of the object.  ref

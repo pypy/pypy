@@ -12,6 +12,7 @@ from rpython.rlib.objectmodel import we_are_translated
 
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.module.sys.state import get as get_state
+from pypy.module.sys.interp_encoding import _getfilesystemencoding
 
 PLATFORM = sys.platform
 _MACOSX = sys.platform == 'darwin'
@@ -162,7 +163,12 @@ def pypy_find_stdlib(space, executable):
     w_prefix = _w_fsdecode(space, prefix)
     space.setitem(space.sys.w_dict, space.wrap('prefix'), w_prefix)
     space.setitem(space.sys.w_dict, space.wrap('exec_prefix'), w_prefix)
+    space.setitem(space.sys.w_dict, space.wrap('base_prefix'), w_prefix)
+    space.setitem(space.sys.w_dict, space.wrap('base_exec_prefix'), w_prefix)
     return space.newlist([_w_fsdecode(space, p) for p in path])
+
+def pypy_initfsencoding(space):
+    space.sys.filesystemencoding = _getfilesystemencoding(space)
 
 
 def _w_fsdecode(space, b):

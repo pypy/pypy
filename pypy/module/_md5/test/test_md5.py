@@ -21,6 +21,12 @@ class AppTestMD5(object):
         """)
 
 
+    def test_name(self):
+        """
+        md5.name should be 'md5'.
+        """
+        assert self.md5.md5().name == 'md5'
+
     def test_digest_size(self):
         """
         md5.digest_size should be 16.

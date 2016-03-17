@@ -4,6 +4,7 @@ import pickle
 import re
 import sys
 import warnings
+import weakref
 import inspect
 
 from copy import deepcopy
@@ -306,7 +307,7 @@ class Test_TestCase(unittest.TestCase, TestEquality, TestHashing):
             def test(self):
                 pass
 
-        self.assertTrue(Foo('test').failureException is AssertionError)
+        self.assertIs(Foo('test').failureException, AssertionError)
 
     # "This class attribute gives the exception raised by the test() method.
     # If a test framework needs to use a specialized exception, possibly to
@@ -324,7 +325,7 @@ class Test_TestCase(unittest.TestCase, TestEquality, TestHashing):
 
             failureException = RuntimeError
 
-        self.assertTrue(Foo('test').failureException is RuntimeError)
+        self.assertIs(Foo('test').failureException, RuntimeError)
 
 
         Foo('test').run(result)
@@ -347,7 +348,7 @@ class Test_TestCase(unittest.TestCase, TestEquality, TestHashing):
 
             failureException = RuntimeError
 
-        self.assertTrue(Foo('test').failureException is RuntimeError)
+        self.assertIs(Foo('test').failureException, RuntimeError)
 
 
         Foo('test').run(result)
@@ -386,26 +387,61 @@ class Test_TestCase(unittest.TestCase, TestEquality, TestHashing):
         self.assertIsInstance(Foo().id(), str)
 
 
-    # "If result is omitted or None, a temporary result object is created
-    # and used, but is not made available to the caller. As TestCase owns the
+    # "If result is omitted or None, a temporary result object is created,
+    # used, and is made available to the caller. As TestCase owns the
     # temporary result startTestRun and stopTestRun are called.
 
     def test_run__uses_defaultTestResult(self):
         events = []
+        defaultResult = LoggingResult(events)
 
         class Foo(unittest.TestCase):
             def test(self):
                 events.append('test')
 
             def defaultTestResult(self):
-                return LoggingResult(events)
+                return defaultResult
 
         # Make run() find a result object on its own
-        Foo('test').run()
+        result = Foo('test').run()
 
+        self.assertIs(result, defaultResult)
         expected = ['startTestRun', 'startTest', 'test', 'addSuccess',
             'stopTest', 'stopTestRun']
         self.assertEqual(events, expected)
+
+
+    # "The result object is returned to run's caller"
+    def test_run__returns_given_result(self):
+
+        class Foo(unittest.TestCase):
+            def test(self):
+                pass
+
+        result = unittest.TestResult()
+
+        retval = Foo('test').run(result)
+        self.assertIs(retval, result)
+
+
+    # "The same effect [as method run] may be had by simply calling the
+    # TestCase instance."
+    def test_call__invoking_an_instance_delegates_to_run(self):
+        resultIn = unittest.TestResult()
+        resultOut = unittest.TestResult()
+
+        class Foo(unittest.TestCase):
+            def test(self):
+                pass
+
+            def run(self, result):
+                self.assertIs(result, resultIn)
+                return resultOut
+
+        retval = Foo('test')(resultIn)
+
+        self.assertIs(retval, resultOut)
+
 
     def testShortDescriptionWithoutDocstring(self):
         self.assertIsNone(self.shortDescription())
@@ -624,7 +660,7 @@ class Test_TestCase(unittest.TestCase, TestEquality, TestHashing):
             msg = e.args[0]
         else:
             self.fail('assertSequenceEqual did not fail.')
-        self.assertTrue(len(msg) < len(diff))
+        self.assertLess(len(msg), len(diff))
         self.assertIn(omitted, msg)
 
         self.maxDiff = len(diff) * 2
@@ -634,7 +670,7 @@ class Test_TestCase(unittest.TestCase, TestEquality, TestHashing):
             msg = e.args[0]
         else:
             self.fail('assertSequenceEqual did not fail.')
-        self.assertTrue(len(msg) > len(diff))
+        self.assertGreater(len(msg), len(diff))
         self.assertNotIn(omitted, msg)
 
         self.maxDiff = None
@@ -644,7 +680,7 @@ class Test_TestCase(unittest.TestCase, TestEquality, TestHashing):
             msg = e.args[0]
         else:
             self.fail('assertSequenceEqual did not fail.')
-        self.assertTrue(len(msg) > len(diff))
+        self.assertGreater(len(msg), len(diff))
         self.assertNotIn(omitted, msg)
 
     def testTruncateMessage(self):
@@ -1018,7 +1054,7 @@ test case
                 self.assertWarns(DeprecationWarning, _runtime_warn)
 
     def testAssertWarnsContext(self):
-        # Believe it or not, it is preferrable to duplicate all tests above,
+        # Believe it or not, it is preferable to duplicate all tests above,
         # to make sure the __warningregistry__ $@ is circumvented correctly.
         def _runtime_warn():
             warnings.warn("foo", RuntimeWarning)
@@ -1140,7 +1176,6 @@ test case
             (self.assert_, (True,)),
             (self.failUnlessRaises, (TypeError, lambda _: 3.14 + 'spam')),
             (self.failIf, (False,)),
-            (self.assertSameElements, ([1, 1, 2, 3], [1, 2, 3])),
             (self.assertDictContainsSubset, (dict(a=1, b=2), dict(a=1, b=2, c=3))),
             (self.assertRaisesRegexp, (KeyError, 'foo', lambda: {}['foo'])),
             (self.assertRegexpMatches, ('bar', 'bar')),
@@ -1149,18 +1184,20 @@ test case
             with self.assertWarns(DeprecationWarning):
                 meth(*args)
 
-    def testDeprecatedFailMethods(self):
-        """Test that the deprecated fail* methods get removed in 3.3"""
+    # disable this test for now. When the version where the fail* methods will
+    # be removed is decided, re-enable it and update the version
+    def _testDeprecatedFailMethods(self):
+        """Test that the deprecated fail* methods get removed in 3.x"""
         if sys.version_info[:2] < (3, 3):
             return
         deprecated_names = [
             'failIfEqual', 'failUnlessEqual', 'failUnlessAlmostEqual',
             'failIfAlmostEqual', 'failUnless', 'failUnlessRaises', 'failIf',
-            'assertSameElements', 'assertDictContainsSubset',
+            'assertDictContainsSubset',
         ]
         for deprecated_name in deprecated_names:
             with self.assertRaises(AttributeError):
-                getattr(self, deprecated_name)  # remove these in 3.3
+                getattr(self, deprecated_name)  # remove these in 3.x
 
     def testDeepcopy(self):
         # Issue: 5660
@@ -1268,3 +1305,11 @@ test case
             klass('test_something').run(result)
             self.assertEqual(len(result.errors), 1)
             self.assertEqual(result.testsRun, 1)
+
+    @support.cpython_only
+    def testNoCycles(self):
+        case = unittest.TestCase()
+        wr = weakref.ref(case)
+        with support.disable_gc():
+            del case
+            self.assertFalse(wr())

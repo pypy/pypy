@@ -1,11 +1,11 @@
-#!/usr/bin/env python3
-
 from test import support
 import array
+import io
 import marshal
 import sys
 import unittest
 import os
+import types
 
 class HelperMixin:
     def helper(self, sample, *extra):
@@ -113,6 +113,22 @@ class CodeTestCase(unittest.TestCase):
         count = 5000    # more than MAX_MARSHAL_STACK_DEPTH
         codes = (ExceptionTestCase.test_exceptions.__code__,) * count
         marshal.loads(marshal.dumps(codes))
+
+    def test_different_filenames(self):
+        co1 = compile("x", "f1", "exec")
+        co2 = compile("y", "f2", "exec")
+        co1, co2 = marshal.loads(marshal.dumps((co1, co2)))
+        self.assertEqual(co1.co_filename, "f1")
+        self.assertEqual(co2.co_filename, "f2")
+
+    @support.cpython_only
+    def test_same_filename_used(self):
+        s = """def f(): pass\ndef g(): pass"""
+        co = compile(s, "myfile", "exec")
+        co = marshal.loads(marshal.dumps(co))
+        for obj in co.co_consts:
+            if isinstance(obj, types.CodeType):
+                self.assertIs(co.co_filename, obj.co_filename)
 
 class ContainerTestCase(unittest.TestCase, HelperMixin):
     d = {'astring': 'foo@bar.baz.spam',
@@ -263,9 +279,23 @@ class BugsTestCase(unittest.TestCase):
         unicode_string = 'T'
         self.assertRaises(TypeError, marshal.loads, unicode_string)
 
+    def test_bad_reader(self):
+        class BadReader(io.BytesIO):
+            def read(self, n=-1):
+                b = super().read(n)
+                if n is not None and n > 4:
+                    b += b' ' * 10**6
+                return b
+        for value in (1.0, 1j, b'0123456789', '0123456789'):
+            self.assertRaises(ValueError, marshal.load,
+                              BadReader(marshal.dumps(value)))
+
 LARGE_SIZE = 2**31
-character_size = 4 if sys.maxunicode > 0xFFFF else 2
 pointer_size = 8 if sys.maxsize > 0xFFFFFFFF else 4
+if support.check_impl_detail(pypy=False):
+    sizeof_large_size = sys.getsizeof(LARGE_SIZE-1)
+else:
+    sizeof_large_size = 32  # Some value for PyPy
 
 class NullWriter:
     def write(self, s):
@@ -276,35 +306,35 @@ class LargeValuesTestCase(unittest.TestCase):
     def check_unmarshallable(self, data):
         self.assertRaises(ValueError, marshal.dump, data, NullWriter())
 
-    @support.bigmemtest(size=LARGE_SIZE, memuse=1, dry_run=False)
+    @support.bigmemtest(size=LARGE_SIZE, memuse=2, dry_run=False)
     def test_bytes(self, size):
         self.check_unmarshallable(b'x' * size)
 
-    @support.bigmemtest(size=LARGE_SIZE, memuse=character_size, dry_run=False)
+    @support.bigmemtest(size=LARGE_SIZE, memuse=2, dry_run=False)
     def test_str(self, size):
         self.check_unmarshallable('x' * size)
 
-    @support.bigmemtest(size=LARGE_SIZE, memuse=pointer_size, dry_run=False)
+    @support.bigmemtest(size=LARGE_SIZE, memuse=pointer_size + 1, dry_run=False)
     def test_tuple(self, size):
         self.check_unmarshallable((None,) * size)
 
-    @support.bigmemtest(size=LARGE_SIZE, memuse=pointer_size, dry_run=False)
+    @support.bigmemtest(size=LARGE_SIZE, memuse=pointer_size + 1, dry_run=False)
     def test_list(self, size):
         self.check_unmarshallable([None] * size)
 
     @support.bigmemtest(size=LARGE_SIZE,
-            memuse=pointer_size*12,  # + sys.getsizeof(LARGE_SIZE-1),
+            memuse=pointer_size*12 + sizeof_large_size,
             dry_run=False)
     def test_set(self, size):
         self.check_unmarshallable(set(range(size)))
 
     @support.bigmemtest(size=LARGE_SIZE,
-            memuse=pointer_size*12,  # + sys.getsizeof(LARGE_SIZE-1),
+            memuse=pointer_size*12 + sizeof_large_size,
             dry_run=False)
     def test_frozenset(self, size):
         self.check_unmarshallable(frozenset(range(size)))
 
-    @support.bigmemtest(size=LARGE_SIZE, memuse=1, dry_run=False)
+    @support.bigmemtest(size=LARGE_SIZE, memuse=2, dry_run=False)
     def test_bytearray(self, size):
         self.check_unmarshallable(bytearray(size))
 

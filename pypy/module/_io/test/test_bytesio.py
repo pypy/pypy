@@ -124,7 +124,7 @@ class AppTestBytesIO:
         memio.seek(5)
         buf = memio.getbuffer()
         assert bytes(buf) == b"1234567890"
-        assert buf[5] == b"6"
+        assert buf[5] == ord(b"6")
         # Mutating the buffer updates the BytesIO
         buf[3:6] = b"abc"
         assert bytes(buf) == b"123abc7890"

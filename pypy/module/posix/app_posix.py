@@ -79,6 +79,19 @@ class statvfs_result(metaclass=structseqtype):
     f_flag = structseqfield(8)
     f_namemax = structseqfield(9)
 
+
+class uname_result(metaclass=structseqtype):
+
+    name = osname + ".uname_result"
+
+    sysname  = structseqfield(0, "operating system name")
+    nodename = structseqfield(1, "name of machine on network "
+                              "(implementation-defined")
+    release  = structseqfield(2, "operating system release")
+    version  = structseqfield(3, "operating system version")
+    machine  = structseqfield(4, "hardware identifier")
+
+
 if osname == 'posix':
     # POSIX: we want to check the file descriptor when fdopen() is called,
     # not later when we read or write data.  So we call fstat(), letting

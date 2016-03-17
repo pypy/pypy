@@ -236,6 +236,7 @@ class sha512(object):
     block_size = SHA_BLOCKSIZE
 
     def __init__(self, s=None):
+        self.name = 'sha512'
         self._sha = sha_init()
         if s:
             sha_update(self._sha, s)
@@ -258,6 +259,7 @@ class sha384(sha512):
     digest_size = digestsize = 48
 
     def __init__(self, s=None):
+        self.name = 'sha384'
         self._sha = sha384_init()
         if s:
             sha_update(self._sha, s)
@@ -270,7 +272,7 @@ class sha384(sha512):
 def test():
     import _sha512
 
-    a_str = "just a test string"
+    a_str = b"just a test string"
 
     assert _sha512.sha512().hexdigest() == sha512().hexdigest()
     assert _sha512.sha512(a_str).hexdigest() == sha512(a_str).hexdigest()

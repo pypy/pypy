@@ -21,6 +21,17 @@ class AppTestFunctionIntrospection:
         assert f.__name__ == 'f'
         assert f.__module__ == 'mymodulename'
 
+    def test_qualname(self):
+        def f():
+            def g():
+                pass
+            return g
+        assert f.__qualname__ == 'test_qualname.<locals>.f'
+        assert f().__qualname__ == 'test_qualname.<locals>.f.<locals>.g'
+        f.__qualname__ = 'qualname'
+        assert f.__qualname__ == 'qualname'
+        raises(TypeError, "f.__qualname__ = b'name'")
+
     def test_annotations(self):
         def f(): pass
         ann = f.__annotations__
@@ -142,7 +153,8 @@ class AppTestFunctionIntrospection:
         """
         def 日本():
             pass
-        assert repr(日本).startswith('<function 日本 at ')
+        assert repr(日本).startswith(
+            '<function test_func_nonascii.<locals>.日本 at ')
         assert 日本.__name__ == '日本'
         """
 
@@ -333,7 +345,7 @@ class AppTestFunction:
         except TypeError as e:
             msg = str(e)
             msg = msg.replace('one', '1') # CPython puts 'one', PyPy '1'
-            assert "len() takes exactly 1 argument (0 given)" in msg
+            assert "len() missing 1 required positional argument: 'obj'" in msg
         else:
             assert 0, "did not raise"
 
@@ -342,7 +354,7 @@ class AppTestFunction:
         except TypeError as e:
             msg = str(e)
             msg = msg.replace('one', '1') # CPython puts 'one', PyPy '1'
-            assert "len() takes exactly 1 argument (2 given)" in msg
+            assert "len() takes 1 positional argument but 2 were given" in msg
         else:
             assert 0, "did not raise"
 

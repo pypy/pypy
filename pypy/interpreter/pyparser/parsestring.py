@@ -33,10 +33,21 @@ def parsestr(space, encoding, s):
         ps += 1
         quote = s[ps]
         saw_u = True
-    if not saw_u and quote == 'r' or quote == 'R':
+    elif quote == 'r' or quote == 'R':
         ps += 1
         quote = s[ps]
         rawmode = True
+
+    if not saw_u:
+        if quote == 'r' or quote == 'R':
+            ps += 1
+            quote = s[ps]
+            rawmode = True
+        elif quote == 'b' or quote == 'B':
+            ps += 1
+            quote = s[ps]
+            unicode_literal = False
+
     if quote != "'" and quote != '"':
         raise_app_valueerror(space,
                              'Internal error: parser passed unquoted literal')

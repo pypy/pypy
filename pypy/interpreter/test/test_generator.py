@@ -315,6 +315,57 @@ res = f()
         except NameError:
             pass
 
+    def test_yield_return(self):
+        """
+        def f():
+            yield 1
+            return 2
+        g = f()
+        assert next(g) == 1
+        try:
+            next(g)
+        except StopIteration as e:
+            assert e.value == 2
+        else:
+            assert False, 'Expected StopIteration'
+            """
+
+    def test_yield_from_return(self):
+        """
+        def f1():
+            result = yield from f2()
+            return result
+        def f2():
+            yield 1
+            return 2
+        g = f1()
+        assert next(g) == 1
+        try:
+            next(g)
+        except StopIteration as e:
+            assert e.value == 2
+        else:
+            assert False, 'Expected StopIteration'
+            """
+
+    def test_yield_from_return_tuple(self):
+        """
+        def f1():
+            result = yield from f2()
+            return result
+        def f2():
+            yield 1
+            return (1, 2)
+        g = f1()
+        assert next(g) == 1
+        try:
+            next(g)
+        except StopIteration as e:
+            assert e.value == (1, 2)
+        else:
+            assert False, 'Expected StopIteration'
+            """
+
 
 def test_should_not_inline(space):
     from pypy.interpreter.generator import should_not_inline
@@ -331,3 +382,267 @@ def test_should_not_inline(space):
         return g.__code__
     ''')
     assert should_not_inline(w_co) == True
+
+class AppTestYieldFrom:
+    def test_delegating_close(self):
+        """
+        Test delegating 'close'
+        """
+        trace = []
+        d = dict(trace=trace)
+        exec('''if 1:
+        def g1():
+            try:
+                trace.append("Starting g1")
+                yield "g1 ham"
+                yield from g2()
+                yield "g1 eggs"
+            finally:
+                trace.append("Finishing g1")
+        def g2():
+            try:
+                trace.append("Starting g2")
+                yield "g2 spam"
+                yield "g2 more spam"
+            finally:
+                trace.append("Finishing g2")
+        ''', d)
+        g1, g2 = d['g1'], d['g2']
+        g = g1()
+        for i in range(2):
+            x = next(g)
+            trace.append("Yielded %s" % (x,))
+        g.close()
+        assert trace == [
+            "Starting g1",
+            "Yielded g1 ham",
+            "Starting g2",
+            "Yielded g2 spam",
+            "Finishing g2",
+            "Finishing g1"
+        ]
+
+    def test_handing_exception_while_delegating_close(self):
+        """
+        Test handling exception while delegating 'close'
+        """
+        trace = []
+        d = dict(trace=trace)
+        exec('''if 1:
+        def g1():
+            try:
+                trace.append("Starting g1")
+                yield "g1 ham"
+                yield from g2()
+                yield "g1 eggs"
+            finally:
+                trace.append("Finishing g1")
+        def g2():
+            try:
+                trace.append("Starting g2")
+                yield "g2 spam"
+                yield "g2 more spam"
+            finally:
+                trace.append("Finishing g2")
+                raise ValueError("nybbles have exploded with delight")
+        ''', d)
+        g1, g2 = d['g1'], d['g2']
+        g = g1()
+        for i in range(2):
+            x = next(g)
+            trace.append("Yielded %s" % (x,))
+        exc = raises(ValueError, g.close)
+        assert exc.value.args[0] == "nybbles have exploded with delight"
+        assert isinstance(exc.value.__context__, GeneratorExit)
+        assert trace == [
+            "Starting g1",
+            "Yielded g1 ham",
+            "Starting g2",
+            "Yielded g2 spam",
+            "Finishing g2",
+            "Finishing g1",
+        ]
+
+    def test_delegating_throw(self):
+        """
+        Test delegating 'throw'
+        """
+        trace = []
+        d = dict(trace=trace)
+        exec('''if 1:
+        def g1():
+            try:
+                trace.append("Starting g1")
+                yield "g1 ham"
+                yield from g2()
+                yield "g1 eggs"
+            finally:
+                trace.append("Finishing g1")
+        def g2():
+            try:
+                trace.append("Starting g2")
+                yield "g2 spam"
+                yield "g2 more spam"
+            finally:
+                trace.append("Finishing g2")
+        ''', d)
+        g1, g2 = d['g1'], d['g2']
+        g = g1()
+        for i in range(2):
+            x = next(g)
+            trace.append("Yielded %s" % (x,))
+        e = ValueError("tomato ejected")
+        exc = raises(ValueError, g.throw, e)
+        assert exc.value.args[0] == "tomato ejected"
+        assert trace == [
+            "Starting g1",
+            "Yielded g1 ham",
+            "Starting g2",
+            "Yielded g2 spam",
+            "Finishing g2",
+            "Finishing g1",
+        ]
+
+    def test_delegating_throw_to_non_generator(self):
+        """
+        Test delegating 'throw' to non-generator
+        """
+        trace = []
+        d = dict(trace=trace)
+        exec('''if 1:
+        def g():
+            try:
+                trace.append("Starting g")
+                yield from range(10)
+            finally:
+                trace.append("Finishing g")
+        ''', d)
+        g = d['g']
+        gi = g()
+        for i in range(5):
+            x = next(gi)
+            trace.append("Yielded %s" % (x,))
+        exc = raises(ValueError, gi.throw, ValueError("tomato ejected"))
+        assert exc.value.args[0] == "tomato ejected"
+        assert trace == [
+            "Starting g",
+            "Yielded 0",
+            "Yielded 1",
+            "Yielded 2",
+            "Yielded 3",
+            "Yielded 4",
+            "Finishing g",
+        ]
+
+    def test_broken_getattr_handling(self):
+        """
+        Test subiterator with a broken getattr implementation
+        """
+        class Broken:
+            def __iter__(self):
+                return self
+            def __next__(self):
+                return 1
+            def __getattr__(self, attr):
+                1/0
+
+        d = dict(Broken=Broken)
+        exec('''if 1:
+        def g():
+            yield from Broken()
+        ''', d)
+        g = d['g']
+
+        gi = g()
+        assert next(gi) == 1
+        raises(ZeroDivisionError, gi.send, 1)
+
+        gi = g()
+        assert next(gi) == 1
+        raises(ZeroDivisionError, gi.throw, RuntimeError)
+
+        gi = g()
+        assert next(gi) == 1
+        import io, sys
+        sys.stderr = io.StringIO()
+        gi.close()
+        assert 'ZeroDivisionError' in sys.stderr.getvalue()
+    
+    def test_returning_value_from_delegated_throw(self):
+        """
+        Test returning value from delegated 'throw'
+        """
+        trace = []
+        class LunchError(Exception):
+            pass
+        d = dict(trace=trace, LunchError=LunchError)
+        exec('''if 1:
+        def g1():
+            try:
+                trace.append("Starting g1")
+                yield "g1 ham"
+                yield from g2()
+                yield "g1 eggs"
+            finally:
+                trace.append("Finishing g1")
+        def g2():
+            try:
+                trace.append("Starting g2")
+                yield "g2 spam"
+                yield "g2 more spam"
+            except LunchError:
+                trace.append("Caught LunchError in g2")
+                yield "g2 lunch saved"
+                yield "g2 yet more spam"
+        ''', d)
+        g1, g2 = d['g1'], d['g2']
+        g = g1()
+        for i in range(2):
+            x = next(g)
+            trace.append("Yielded %s" % (x,))
+        e = LunchError("tomato ejected")
+        g.throw(e)
+        for x in g:
+            trace.append("Yielded %s" % (x,))
+        assert trace == [
+            "Starting g1",
+            "Yielded g1 ham",
+            "Starting g2",
+            "Yielded g2 spam",
+            "Caught LunchError in g2",
+            "Yielded g2 yet more spam",
+            "Yielded g1 eggs",
+            "Finishing g1",
+        ]
+
+    def test_catching_exception_from_subgen_and_returning(self):
+        """
+        Test catching an exception thrown into a
+        subgenerator and returning a value
+        """
+        trace = []
+        d = dict(trace=trace)
+        exec('''if 1:
+        def inner():
+            try:
+                yield 1
+            except ValueError:
+                trace.append("inner caught ValueError")
+            return 2
+
+        def outer():
+            v = yield from inner()
+            trace.append("inner returned %r to outer" % v)
+            yield v
+        ''', d)
+        inner, outer = d['inner'], d['outer']
+        g = outer()
+        trace.append(next(g))
+        trace.append(g.throw(ValueError))
+        assert trace == [
+            1,
+            "inner caught ValueError",
+            "inner returned 2 to outer",
+            2,
+        ]
+

@@ -1,16 +1,11 @@
 """Test cases for traceback module"""
 
-try:
-    import _testcapi
-except ImportError:
-    _testcapi = None
 from io import StringIO
 import sys
 import unittest
 import re
 from test.support import run_unittest, Error, captured_output
-from test.support import TESTFN, unlink
-from test.support import check_impl_detail
+from test.support import TESTFN, unlink, cpython_only
 
 import traceback
 
@@ -36,6 +31,12 @@ class SyntaxTracebackCases(unittest.TestCase):
     def syntax_error_bad_indentation(self):
         compile("def spam():\n  print(1)\n print(2)", "?", "exec")
 
+    def syntax_error_with_caret_non_ascii(self):
+        compile('Python = "\u1e54\xfd\u0163\u0125\xf2\xf1" +', "?", "exec")
+
+    def syntax_error_bad_indentation2(self):
+        compile(" print(2)", "?", "exec")
+
     def test_caret(self):
         err = self.get_exception_format(self.syntax_error_with_caret,
                                         SyntaxError)
@@ -47,8 +48,14 @@ class SyntaxTracebackCases(unittest.TestCase):
         err = self.get_exception_format(self.syntax_error_with_caret_2,
                                         SyntaxError)
         self.assertIn("^", err[2]) # third line has caret
-        self.assertTrue(err[2].count('\n') == 1) # and no additional newline
-        self.assertTrue(err[1].find("+") == err[2].find("^")) # in the right place
+        self.assertEqual(err[2].count('\n'), 1)   # and no additional newline
+        self.assertEqual(err[1].find("+"), err[2].find("^"))  # in the right place
+
+        err = self.get_exception_format(self.syntax_error_with_caret_non_ascii,
+                                        SyntaxError)
+        self.assertIn("^", err[2]) # third line has caret
+        self.assertEqual(err[2].count('\n'), 1)   # and no additional newline
+        self.assertEqual(err[1].find("+"), err[2].find("^"))  # in the right place
 
     def test_nocaret(self):
         exc = SyntaxError("error", ("x.py", 23, None, "bad syntax"))
@@ -56,16 +63,21 @@ class SyntaxTracebackCases(unittest.TestCase):
         self.assertEqual(len(err), 3)
         self.assertEqual(err[1].strip(), "bad syntax")
 
+    @cpython_only
     def test_bad_indentation(self):
         err = self.get_exception_format(self.syntax_error_bad_indentation,
                                         IndentationError)
         self.assertEqual(len(err), 4)
         self.assertEqual(err[1].strip(), "print(2)")
-        if check_impl_detail():
-            # on CPython, there is a "^" at the end of the line on PyPy,
-            # there is a "^" too, but at the start, more logically
-            self.assertIn("^", err[2])
-            self.assertEqual(err[1].find(")"), err[2].find("^"))
+        self.assertIn("^", err[2])
+        self.assertEqual(err[1].find(")"), err[2].find("^"))
+
+        err = self.get_exception_format(self.syntax_error_bad_indentation2,
+                                        IndentationError)
+        self.assertEqual(len(err), 4)
+        self.assertEqual(err[1].strip(), "print(2)")
+        self.assertIn("^", err[2])
+        self.assertEqual(err[1].find("p"), err[2].find("^"))
 
     def test_base_exception(self):
         # Test that exceptions derived from BaseException are formatted right
@@ -153,12 +165,17 @@ class SyntaxTracebackCases(unittest.TestCase):
                     text, charset, 4)
             do_test("#!shebang\n# coding: {0}\n".format(charset),
                     text, charset, 5)
+            do_test(" \t\f\n# coding: {0}\n".format(charset),
+                    text, charset, 5)
+        # Issue #18960: coding spec should has no effect
+        do_test("0\n# coding: GBK\n", "h\xe9 ho", 'utf-8', 5)
 
 
 class TracebackFormatTests(unittest.TestCase):
 
-    @unittest.skipUnless(_testcapi, 'Requires _testcapi')
+    @cpython_only
     def test_traceback_format(self):
+        from _testcapi import traceback_print
         try:
             raise KeyError('blah')
         except KeyError:
@@ -166,7 +183,7 @@ class TracebackFormatTests(unittest.TestCase):
             traceback_fmt = 'Traceback (most recent call last):\n' + \
                             ''.join(traceback.format_tb(tb))
             file_ = StringIO()
-            _testcapi.traceback_print(tb, file_)
+            traceback_print(tb, file_)
             python_fmt  = file_.getvalue()
         else:
             raise Error("unable to create test traceback string")
@@ -254,6 +271,21 @@ class BaseExceptionReportingTests:
         self.check_zero_div(blocks[0])
         self.assertIn('inner_raise() # Marker', blocks[2])
 
+    def test_context_suppression(self):
+        try:
+            try:
+                raise Exception
+            except:
+                raise ZeroDivisionError from None
+        except ZeroDivisionError as _:
+            e = _
+        lines = self.get_report(e).splitlines()
+        self.assertEqual(len(lines), 4)
+        self.assertTrue(lines[0].startswith('Traceback'))
+        self.assertTrue(lines[1].startswith('  File'))
+        self.assertIn('ZeroDivisionError from None', lines[2])
+        self.assertTrue(lines[3].startswith('ZeroDivisionError'))
+
     def test_cause_and_context(self):
         # When both a cause and a context are set, only the cause should be
         # displayed and the context should be muted.
@@ -330,11 +362,12 @@ class CExcReportingTests(BaseExceptionReportingTests, unittest.TestCase):
     # This checks built-in reporting by the interpreter.
     #
 
-    @unittest.skipUnless(_testcapi, 'Requires _testcapi')
+    @cpython_only
     def get_report(self, e):
+        from _testcapi import exception_print
         e = self.get_exception(e)
         with captured_output("stderr") as s:
-            _testcapi.exception_print(e)
+            exception_print(e)
         return s.getvalue()
 
 

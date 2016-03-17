@@ -4,32 +4,7 @@
 # multiprocessing/synchronize.py
 #
 # Copyright (c) 2006-2008, R Oudkerk
-# All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions
-# are met:
-#
-# 1. Redistributions of source code must retain the above copyright
-#    notice, this list of conditions and the following disclaimer.
-# 2. Redistributions in binary form must reproduce the above copyright
-#    notice, this list of conditions and the following disclaimer in the
-#    documentation and/or other materials provided with the distribution.
-# 3. Neither the name of author nor the names of any contributors may be
-#    used to endorse or promote products derived from this software
-#    without specific prior written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS "AS IS" AND
-# ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-# ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
-# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
-# OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
-# OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
-# SUCH DAMAGE.
+# Licensed to PSF under a Contributor Agreement.
 #
 
 __all__ = [
@@ -37,15 +12,13 @@ __all__ = [
     ]
 
 import threading
-import os
 import sys
-
-from time import time as _time, sleep as _sleep
 
 import _multiprocessing
 from multiprocessing.process import current_process
-from multiprocessing.util import Finalize, register_after_fork, debug
+from multiprocessing.util import register_after_fork, debug
 from multiprocessing.forking import assert_spawning, Popen
+from time import time as _time
 
 # Try to import the mp.synchronize module cleanly, if it fails
 # raise ImportError for platforms lacking a working sem_open implementation.
@@ -226,7 +199,7 @@ class Condition(object):
             num_waiters = (self._sleeping_count._semlock._get_value() -
                            self._woken_count._semlock._get_value())
         except Exception:
-            num_waiters = 'unkown'
+            num_waiters = 'unknown'
         return '<Condition(%s, %s)>' % (self._lock, num_waiters)
 
     def wait(self, timeout=None):
@@ -243,7 +216,7 @@ class Condition(object):
 
         try:
             # wait for notification or timeout
-            ret = self._wait_semaphore.acquire(True, timeout)
+            return self._wait_semaphore.acquire(True, timeout)
         finally:
             # indicate that this thread has woken
             self._woken_count.release()
@@ -251,7 +224,6 @@ class Condition(object):
             # reacquire lock
             for i in range(count):
                 self._lock.acquire()
-            return ret
 
     def notify(self):
         assert self._lock._semlock._is_mine(), 'lock is not owned'
@@ -292,6 +264,24 @@ class Condition(object):
             # rezero wait_semaphore in case some timeouts just happened
             while self._wait_semaphore.acquire(False):
                 pass
+
+    def wait_for(self, predicate, timeout=None):
+        result = predicate()
+        if result:
+            return result
+        if timeout is not None:
+            endtime = _time() + timeout
+        else:
+            endtime = None
+            waittime = None
+        while not result:
+            if endtime is not None:
+                waittime = endtime - _time()
+                if waittime <= 0:
+                    break
+            self.wait(waittime)
+            result = predicate()
+        return result
 
 #
 # Event
@@ -343,3 +333,43 @@ class Event(object):
             return False
         finally:
             self._cond.release()
+
+#
+# Barrier
+#
+
+class Barrier(threading.Barrier):
+
+    def __init__(self, parties, action=None, timeout=None):
+        import struct
+        from multiprocessing.heap import BufferWrapper
+        wrapper = BufferWrapper(struct.calcsize('i') * 2)
+        cond = Condition()
+        self.__setstate__((parties, action, timeout, cond, wrapper))
+        self._state = 0
+        self._count = 0
+
+    def __setstate__(self, state):
+        (self._parties, self._action, self._timeout,
+         self._cond, self._wrapper) = state
+        self._array = self._wrapper.create_memoryview().cast('i')
+
+    def __getstate__(self):
+        return (self._parties, self._action, self._timeout,
+                self._cond, self._wrapper)
+
+    @property
+    def _state(self):
+        return self._array[0]
+
+    @_state.setter
+    def _state(self, value):
+        self._array[0] = value
+
+    @property
+    def _count(self):
+        return self._array[1]
+
+    @_count.setter
+    def _count(self, value):
+        self._array[1] = value

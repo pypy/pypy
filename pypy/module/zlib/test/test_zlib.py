@@ -2,10 +2,13 @@
 Tests for the zlib module.
 """
 
+import py
+import pypy
+
 try:
     import zlib
 except ImportError:
-    import py; py.test.skip("no zlib module on this host Python")
+    py.test.skip("no zlib module on this host Python")
 
 
 class AppTestZlib(object):
@@ -22,6 +25,9 @@ class AppTestZlib(object):
         expanded = b'some bytes which will be compressed'
         cls.w_expanded = cls.space.wrapbytes(expanded)
         cls.w_compressed = cls.space.wrapbytes(zlib.compress(expanded))
+        cls.w_LICENSE = cls.space.wrapbytes(
+            py.path.local(pypy.__file__).dirpath().dirpath()
+            .join('LICENSE').read())
 
     def test_error(self):
         """
@@ -166,6 +172,28 @@ class AppTestZlib(object):
         dco = zlib.decompressobj()
         assert dco.flush() == b""
 
+    def test_decompress_eof(self):
+        import zlib
+        x = b'x\x9cK\xcb\xcf\x07\x00\x02\x82\x01E'  # 'foo'
+        dco = zlib.decompressobj()
+        assert dco.eof == False
+        dco.decompress(x[:-5])
+        assert dco.eof == False
+        dco.decompress(x[-5:])
+        assert dco.eof == True
+        dco.flush()
+        assert dco.eof == True
+
+    def test_decompress_eof_incomplete_stream(self):
+        import zlib
+        x = b'x\x9cK\xcb\xcf\x07\x00\x02\x82\x01E'  # 'foo'
+        dco = zlib.decompressobj()
+        assert dco.eof == False
+        dco.decompress(x[:-5])
+        assert dco.eof == False
+        dco.flush()
+        assert dco.eof == False
+
     def test_decompress_incomplete_stream(self):
         import zlib
         # This is 'foo', deflated
@@ -253,3 +281,35 @@ class AppTestZlib(object):
         assert dco.flush(1) == input1[1:]
         assert dco.unused_data == b''
         assert dco.unconsumed_tail == b''
+
+    def test_dictionary(self):
+        l = self.LICENSE
+        # Build a simulated dictionary out of the words in LICENSE.
+        words = l.split()
+        zdict = b''.join(set(words))
+        # Use it to compress LICENSE.
+        co = self.zlib.compressobj(zdict=zdict)
+        cd = co.compress(l) + co.flush()
+        # Verify that it will decompress with the dictionary.
+        dco = self.zlib.decompressobj(zdict=zdict)
+        assert dco.decompress(cd) + dco.flush() == l
+        # Verify that it fails when not given the dictionary.
+        dco = self.zlib.decompressobj()
+        raises(self.zlib.error, dco.decompress, cd)
+
+    def test_dictionary_streaming(self):
+        # This simulates the reuse of a compressor object for compressing
+        # several separate data streams.
+        co = self.zlib.compressobj(zdict=self.LICENSE)
+        do = self.zlib.decompressobj(zdict=self.LICENSE)
+        piece = self.LICENSE[1000:1500]
+        d0 = co.compress(piece) + co.flush(self.zlib.Z_SYNC_FLUSH)
+        d1 = co.compress(piece[100:]) + co.flush(self.zlib.Z_SYNC_FLUSH)
+        d2 = co.compress(piece[:-100]) + co.flush(self.zlib.Z_SYNC_FLUSH)
+        assert do.decompress(d0) == piece
+        do.decompress(d1) == piece[100:]
+        do.decompress(d2) == piece[:-100]
+
+    def test_version(self):
+        zlib = self.zlib
+        assert zlib.ZLIB_VERSION[0] == zlib.ZLIB_RUNTIME_VERSION[0]

@@ -395,6 +395,9 @@ class AppTestTypeObject:
         class D(B, C):    # assert does not raise TypeError
             pass
 
+    def test_method_qualname(self):
+        assert dict.copy.__qualname__ == 'dict.copy'
+
     def test_builtin_add(self):
         x = 5
         assert x.__add__(6) == 11
@@ -675,7 +678,7 @@ class AppTestTypeObject:
         globals()['__name__'] = 'a'
         class A(object):
             pass
-        assert repr(A) == "<class 'a.A'>"
+        assert repr(A) == "<class 'a.test_repr.<locals>.A'>"
         A.__module__ = 123
         assert repr(A) == "<class 'A'>"
         assert repr(type(type)) == "<class 'type'>" 
@@ -715,6 +718,25 @@ class AppTestTypeObject:
             pass
         raises(TypeError, "class D(A, C): pass")
 
+    def test_dir(self):
+        class A(object):
+            a_var = None
+            def a_meth(self):
+                pass
+
+        class C(A):
+            c_var = None
+            def c_meth(self):
+                pass
+
+        C_items = dir(C)
+        assert C_items != C.__dir__(C)  # as in cpython
+
+        assert 'a_var' in C_items
+        assert 'c_var' in C_items
+        assert 'a_meth' in C_items
+        assert 'c_meth' in C_items
+
     def test_data_descriptor_without_get(self):
         """
         class Descr(object):
@@ -741,7 +763,7 @@ class AppTestTypeObject:
         class C(metaclass=T):
             pass
         assert d
-        assert sorted(d[0].keys()) == ['__dict__', '__doc__', '__module__', '__weakref__']
+        assert sorted(d[0].keys()) == ['__dict__', '__doc__', '__module__', '__qualname__', '__weakref__']
         d = []
         class T(type):
             def mro(cls):

@@ -3,6 +3,7 @@ from pypy.interpreter.pyparser import future, parser, pytokenizer, pygram, error
 from pypy.interpreter.astcompiler import consts
 from rpython.rlib import rstring
 
+
 def recode_to_utf8(space, bytes, encoding):
     if encoding == 'utf-8':
         return bytes
@@ -67,15 +68,21 @@ class CompileInfo(object):
       import.
     * hidden_applevel: Will this code unit and sub units be hidden at the
       applevel?
+    * optimize: optimization level:
+        -1 = same as interpreter,
+         0 = no optmiziation,
+         1 = remove asserts,
+         2 = remove docstrings.
     """
 
     def __init__(self, filename, mode="exec", flags=0, future_pos=(0, 0),
-                 hidden_applevel=False):
+                 hidden_applevel=False, optimize=-1):
         rstring.check_str0(filename)
         self.filename = filename
         self.mode = mode
         self.encoding = None
         self.flags = flags
+        self.optimize = optimize
         self.last_future_import = future_pos
         self.hidden_applevel = hidden_applevel
 
@@ -160,10 +167,30 @@ class PythonParser(parser.Parser):
                 compile_info.last_future_import = last_future_import
                 compile_info.flags |= newflags
                 self.grammar = pygram.python_grammar
+                tokens_stream = iter(tokens)
 
-                for tp, value, lineno, column, line in tokens:
+                for tp, value, lineno, column, line in tokens_stream:
                     if self.add_token(tp, value, lineno, column, line):
                         break
+
+                if compile_info.mode == 'single':
+                    for tp, value, lineno, column, line in tokens_stream:
+                        if tp == pygram.tokens.ENDMARKER:
+                            break
+                        if tp == pygram.tokens.NEWLINE:
+                            continue
+
+                        if tp == pygram.tokens.COMMENT:
+                            for tp, _, _, _, _ in tokens_stream:
+                                if tp == pygram.tokens.NEWLINE:
+                                    break
+                        else:
+                            new_err = error.SyntaxError
+                            msg = ("multiple statements found while "
+                                   "compiling a single statement")
+                            raise new_err(msg, lineno, column,
+                                          line, compile_info.filename)
+
             except error.TokenError, e:
                 e.filename = compile_info.filename
                 raise

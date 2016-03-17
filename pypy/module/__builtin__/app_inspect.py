@@ -41,48 +41,12 @@ def dir(*args):
     if len(args) == 0:
         return sorted(_caller_locals().keys()) # 2 stackframes away
 
-    import types
     obj = args[0]
-    dir_meth = lookup_special(obj, "__dir__")
+    dir_meth = lookup_special(obj, '__dir__')
     if dir_meth is not None:
-        names = dir_meth()
-        if not isinstance(names, list):
-            raise TypeError("__dir__() must return a list, not %r" % (
-                type(names),))
-        names.sort()
-        return names
-    elif isinstance(obj, types.ModuleType):
-        try:
-            return sorted(obj.__dict__)
-        except AttributeError:
-            return []
-    elif isinstance(obj, type):
-        # Don't look at __class__, as metaclass methods would be confusing.
-        return sorted(_classdir(obj))
-    else:
-        names = set()
-        ns = getattr(obj, '__dict__', None)
-        if isinstance(ns, dict):
-            names.update(ns)
-        klass = getattr(obj, '__class__', None)
-        if klass is not None:
-            names.update(_classdir(klass))
-        return sorted(names)
-
-def _classdir(klass):
-    """Return a set of the accessible attributes of class/type klass.
-
-    This includes all attributes of klass and all of the base classes
-    recursively.
-    """
-    names = set()
-    ns = getattr(klass, '__dict__', None)
-    if ns is not None:
-        names.update(ns)
-    bases = getattr(klass, '__bases__', None)
-    if bases is not None:
-        # Note that since we are only interested in the keys, the order
-        # we merge classes is unimportant
-        for base in bases:
-            names.update(_classdir(base))
-    return names
+        # obscure: lookup_special won't bind None.__dir__!
+        result = dir_meth(obj) if obj is None else dir_meth()
+        # Will throw TypeError if not iterable
+        return sorted(result)
+    # we should never reach here since object.__dir__ exists
+    return []

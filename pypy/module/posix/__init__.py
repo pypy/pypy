@@ -1,5 +1,6 @@
 from pypy.interpreter.mixedmodule import MixedModule
 from rpython.rlib import rposix
+from rpython.rlib import rdynload
 
 import os
 exec 'import %s as posix' % os.name
@@ -16,6 +17,7 @@ corresponding Unix manual entries for more information on calls."""
         'error': 'app_posix.error',
         'stat_result': 'app_posix.stat_result',
         'statvfs_result': 'app_posix.statvfs_result',
+        'uname_result': 'app_posix.uname_result',
         'urandom': 'app_posix.urandom',
     }
     if os.name == 'nt':
@@ -63,6 +65,7 @@ corresponding Unix manual entries for more information on calls."""
         'pipe': 'interp_posix.pipe',
         'chmod': 'interp_posix.chmod',
         'rename': 'interp_posix.rename',
+        'replace': 'interp_posix.replace',
         'umask': 'interp_posix.umask',
         '_exit': 'interp_posix._exit',
         'utime': 'interp_posix.utime',
@@ -83,6 +86,7 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['fchmod'] = 'interp_posix.fchmod'
     if hasattr(os, 'ftruncate'):
         interpleveldefs['ftruncate'] = 'interp_posix.ftruncate'
+        interpleveldefs['truncate'] = 'interp_posix.truncate'
     if hasattr(os, 'fsync'):
         interpleveldefs['fsync'] = 'interp_posix.fsync'
     if hasattr(os, 'fdatasync'):
@@ -175,6 +179,17 @@ corresponding Unix manual entries for more information on calls."""
     for name in rposix.WAIT_MACROS:
         if hasattr(os, name):
             interpleveldefs[name] = 'interp_posix.' + name
+
+    for _name in ["RTLD_LAZY", "RTLD_NOW", "RTLD_GLOBAL", "RTLD_LOCAL",
+                  "RTLD_NODELETE", "RTLD_NOLOAD", "RTLD_DEEPBIND"]:
+        if getattr(rdynload.cConfig, _name) is not None:
+            interpleveldefs[_name] = 'space.wrap(%d)' % (
+                getattr(rdynload.cConfig, _name),)
+
+    # os.py uses this list to build os.supports_dir_fd() and os.supports_fd().
+    # Fill with e.g. HAVE_FCHDIR, when os.chdir() supports file descriptors.
+    interpleveldefs['_have_functions'] = (
+        'space.newlist([space.wrap(x) for x in interp_posix.have_functions])')
 
     def startup(self, space):
         from pypy.module.posix import interp_posix

@@ -1,8 +1,10 @@
-import sys
+import importlib
+import importlib.abc
 import os
+from platform import python_version
 import re
 import string
-import imp
+import sys
 from tkinter import *
 import tkinter.simpledialog as tkSimpleDialog
 import tkinter.messagebox as tkMessageBox
@@ -27,41 +29,12 @@ def _sphinx_version():
     "Format sys.version_info to produce the Sphinx version string used to install the chm docs"
     major, minor, micro, level, serial = sys.version_info
     release = '%s%s' % (major, minor)
-    if micro:
-        release += '%s' % (micro,)
+    release += '%s' % (micro,)
     if level == 'candidate':
         release += 'rc%s' % (serial,)
     elif level != 'final':
         release += '%s%s' % (level[0], serial)
     return release
-
-def _find_module(fullname, path=None):
-    """Version of imp.find_module() that handles hierarchical module names"""
-
-    file = None
-    for tgt in fullname.split('.'):
-        if file is not None:
-            file.close()            # close intermediate files
-        (file, filename, descr) = imp.find_module(tgt, path)
-        if descr[2] == imp.PY_SOURCE:
-            break                   # find but not load the source file
-        module = imp.load_module(tgt, file, filename, descr)
-        try:
-            path = module.__path__
-        except AttributeError:
-            raise ImportError('No source for module ' + module.__name__)
-    if descr[2] != imp.PY_SOURCE:
-        # If all of the above fails and didn't raise an exception,fallback
-        # to a straight import which can find __init__.py in a package.
-        m = __import__(fullname)
-        try:
-            filename = m.__file__
-        except AttributeError:
-            pass
-        else:
-            file = None
-            descr = os.path.splitext(filename)[1], None, imp.PY_SOURCE
-    return file, filename, descr
 
 
 class HelpDialog(object):
@@ -120,7 +93,7 @@ class EditorWindow(object):
 
     def __init__(self, flist=None, filename=None, key=None, root=None):
         if EditorWindow.help_url is None:
-            dochome =  os.path.join(sys.prefix, 'Doc', 'index.html')
+            dochome =  os.path.join(sys.base_prefix, 'Doc', 'index.html')
             if sys.platform.count('linux'):
                 # look for html docs in a couple of standard places
                 pyver = 'python-docs-' + '%s.%s.%s' % sys.version_info[:3]
@@ -131,13 +104,13 @@ class EditorWindow(object):
                     dochome = os.path.join(basepath, pyver,
                                            'Doc', 'index.html')
             elif sys.platform[:3] == 'win':
-                chmfile = os.path.join(sys.prefix, 'Doc',
+                chmfile = os.path.join(sys.base_prefix, 'Doc',
                                        'Python%s.chm' % _sphinx_version())
                 if os.path.isfile(chmfile):
                     dochome = chmfile
             elif macosxSupport.runningAsOSXApp():
                 # documentation is stored inside the python framework
-                dochome = os.path.join(sys.prefix,
+                dochome = os.path.join(sys.base_prefix,
                         'Resources/English.lproj/Documentation/index.html')
             dochome = os.path.normpath(dochome)
             if os.path.isfile(dochome):
@@ -316,11 +289,10 @@ class EditorWindow(object):
                     self.good_load = True
                     is_py_src = self.ispythonsource(filename)
                     self.set_indentation_params(is_py_src)
-                    if is_py_src:
-                        self.color = color = self.ColorDelegator()
-                        per.insertfilter(color)
             else:
                 io.set_filename(filename)
+                self.good_load = True
+
         self.ResetColorizer()
         self.saved_change_hook()
         self.update_recent_files_list()
@@ -340,6 +312,36 @@ class EditorWindow(object):
         self.askyesno = tkMessageBox.askyesno
         self.askinteger = tkSimpleDialog.askinteger
         self.showerror = tkMessageBox.showerror
+
+        self._highlight_workaround()  # Fix selection tags on Windows
+
+    def _highlight_workaround(self):
+        # On Windows, Tk removes painting of the selection
+        # tags which is different behavior than on Linux and Mac.
+        # See issue14146 for more information.
+        if not sys.platform.startswith('win'):
+            return
+
+        text = self.text
+        text.event_add("<<Highlight-FocusOut>>", "<FocusOut>")
+        text.event_add("<<Highlight-FocusIn>>", "<FocusIn>")
+        def highlight_fix(focus):
+            sel_range = text.tag_ranges("sel")
+            if sel_range:
+                if focus == 'out':
+                    HILITE_CONFIG = idleConf.GetHighlight(
+                            idleConf.CurrentTheme(), 'hilite')
+                    text.tag_config("sel_fix", HILITE_CONFIG)
+                    text.tag_raise("sel_fix")
+                    text.tag_add("sel_fix", *sel_range)
+                elif focus == 'in':
+                    text.tag_remove("sel_fix", "1.0", "end")
+
+        text.bind("<<Highlight-FocusOut>>",
+                lambda ev: highlight_fix("out"))
+        text.bind("<<Highlight-FocusIn>>",
+                lambda ev: highlight_fix("in"))
+
 
     def _filename_to_unicode(self, filename):
         """convert filename to unicode in order to display it in Tk"""
@@ -434,7 +436,6 @@ class EditorWindow(object):
     ]
 
     if macosxSupport.runningAsOSXApp():
-        del menu_specs[-3]
         menu_specs[-2] = ("windows", "_Window")
 
 
@@ -479,7 +480,12 @@ class EditorWindow(object):
         if iswin:
             self.text.config(cursor="arrow")
 
-        for label, eventname, verify_state in self.rmenu_specs:
+        for item in self.rmenu_specs:
+            try:
+                label, eventname, verify_state = item
+            except ValueError: # see issue1207589
+                continue
+
             if verify_state is None:
                 continue
             state = getattr(self, verify_state)()
@@ -497,7 +503,8 @@ class EditorWindow(object):
 
     def make_rmenu(self):
         rmenu = Menu(self.text, tearoff=0)
-        for label, eventname, _ in self.rmenu_specs:
+        for item in self.rmenu_specs:
+            label, eventname = item[0], item[1]
             if label is not None:
                 def command(text=self.text, eventname=eventname):
                     text.event_generate(eventname)
@@ -653,20 +660,29 @@ class EditorWindow(object):
             return
         # XXX Ought to insert current file's directory in front of path
         try:
-            (f, file, (suffix, mode, type)) = _find_module(name)
-        except (NameError, ImportError) as msg:
+            loader = importlib.find_loader(name)
+        except (ValueError, ImportError) as msg:
             tkMessageBox.showerror("Import error", str(msg), parent=self.text)
             return
-        if type != imp.PY_SOURCE:
-            tkMessageBox.showerror("Unsupported type",
-                "%s is not a source module" % name, parent=self.text)
+        if loader is None:
+            tkMessageBox.showerror("Import error", "module not found",
+                                   parent=self.text)
             return
-        if f:
-            f.close()
+        if not isinstance(loader, importlib.abc.SourceLoader):
+            tkMessageBox.showerror("Import error", "not a source-based module",
+                                   parent=self.text)
+            return
+        try:
+            file_path = loader.get_filename(name)
+        except AttributeError:
+            tkMessageBox.showerror("Import error",
+                                   "loader does not support get_filename",
+                                   parent=self.text)
+            return
         if self.flist:
-            self.flist.open(file)
+            self.flist.open(file_path)
         else:
-            self.io.loadfile(file)
+            self.io.loadfile(file_path)
 
     def open_class_browser(self, event=None):
         filename = self.io.filename
@@ -806,7 +822,11 @@ class EditorWindow(object):
                     menuEventDict[menu[0]][prepstr(item[0])[1]] = item[1]
         for menubarItem in self.menudict:
             menu = self.menudict[menubarItem]
-            end = menu.index(END) + 1
+            end = menu.index(END)
+            if end is None:
+                # Skip empty menus
+                continue
+            end += 1
             for index in range(0, end):
                 if menu.type(index) == 'command':
                     accel = menu.entrycget(index, 'accelerator')
@@ -863,12 +883,9 @@ class EditorWindow(object):
         "Load and update the recent files list and menus"
         rf_list = []
         if os.path.exists(self.recent_files_path):
-            rf_list_file = open(self.recent_files_path,'r',
-                                encoding='utf_8', errors='replace')
-            try:
+            with open(self.recent_files_path, 'r',
+                      encoding='utf_8', errors='replace') as rf_list_file:
                 rf_list = rf_list_file.readlines()
-            finally:
-                rf_list_file.close()
         if new_file:
             new_file = os.path.abspath(new_file) + '\n'
             if new_file in rf_list:
@@ -886,7 +903,7 @@ class EditorWindow(object):
             with open(self.recent_files_path, 'w',
                         encoding='utf_8', errors='replace') as rf_file:
                 rf_file.writelines(rf_list)
-        except IOError as err:
+        except OSError as err:
             if not getattr(self.root, "recentfilelist_error_displayed", False):
                 self.root.recentfilelist_error_displayed = True
                 tkMessageBox.showerror(title='IDLE Error',
@@ -939,11 +956,14 @@ class EditorWindow(object):
         self.undo.reset_undo()
 
     def short_title(self):
+        pyversion = "Python " + python_version() + ": "
         filename = self.io.filename
         if filename:
             filename = os.path.basename(filename)
+        else:
+            filename = "Untitled"
         # return unicode string to display non-ASCII chars correctly
-        return self._filename_to_unicode(filename)
+        return pyversion + self._filename_to_unicode(filename)
 
     def long_title(self):
         # return unicode string to display non-ASCII chars correctly
@@ -1041,7 +1061,10 @@ class EditorWindow(object):
 
     def load_extension(self, name):
         try:
-            mod = __import__(name, globals(), locals(), [])
+            try:
+                mod = importlib.import_module('.' + name, package=__package__)
+            except ImportError:
+                mod = importlib.import_module(name)
         except ImportError:
             print("\nFailed to import extension: ", name)
             raise
@@ -1430,6 +1453,7 @@ class EditorWindow(object):
     def tabify_region_event(self, event):
         head, tail, chars, lines = self.get_region()
         tabwidth = self._asktabwidth()
+        if tabwidth is None: return
         for pos in range(len(lines)):
             line = lines[pos]
             if line:
@@ -1441,6 +1465,7 @@ class EditorWindow(object):
     def untabify_region_event(self, event):
         head, tail, chars, lines = self.get_region()
         tabwidth = self._asktabwidth()
+        if tabwidth is None: return
         for pos in range(len(lines)):
             lines[pos] = lines[pos].expandtabs(tabwidth)
         self.set_region(head, tail, chars, lines)
@@ -1534,7 +1559,7 @@ class EditorWindow(object):
             parent=self.text,
             initialvalue=self.indentwidth,
             minvalue=2,
-            maxvalue=16) or self.tabwidth
+            maxvalue=16)
 
     # Guess indentwidth from text content.
     # Return guessed indentwidth.  This should not be believed unless

@@ -235,6 +235,18 @@ class AppTestFileIO:
         assert not closed[0]  # flush() called before file closed
         os.close(fd)
 
+    def test_open_exclusive(self):
+        # XXX: should raise FileExistsError
+        FileExistsError = OSError
+
+        import _io
+        filename = self.tmpfile + '_x1'
+        raises(ValueError, _io.FileIO, filename, 'xw')
+        with _io.FileIO(filename, 'x') as f:
+            assert f.mode == 'xb'
+        raises(FileExistsError, _io.FileIO, filename, 'x')
+
+
 def test_flush_at_exit():
     from pypy import conftest
     from pypy.tool.option import make_config, make_objspace

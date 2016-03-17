@@ -1504,16 +1504,6 @@ def PyCallIter_Check(space, op):
 
 
 
-@cpython_api([PyObject], rffi.SIZE_T, error=-1)
-def PyLong_AsSize_t(space, pylong):
-    """Return a C size_t representation of of pylong.  pylong must be
-    an instance of PyLongObject.
-    
-    Raise OverflowError if the value of pylong is out of range for a
-    size_t."""
-    raise NotImplementedError
-
-
 @cpython_api([PyObject, rffi.CCHARP], rffi.INT_real, error=-1)
 def PyMapping_DelItemString(space, o, key):
     """Remove the mapping for object key from the object o. Return -1 on

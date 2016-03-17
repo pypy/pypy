@@ -24,7 +24,7 @@ def generate_function_code(expr, space):
     function_ast = ast.body[0]
     symbols = symtable.SymtableBuilder(space, ast, info)
     generator = codegen.FunctionCodeGenerator(
-        space, 'function', function_ast, 1, symbols, info)
+        space, 'function', function_ast, 1, symbols, info, qualname='function')
     blocks = generator.first_block.post_order()
     generator._resolve_block_targets(blocks)
     return generator, blocks
@@ -347,7 +347,7 @@ class TestCompiler:
                 A().m()
             except ImportError as e:
                 msg = str(e)
-            ''', "msg", "No module named __foo__")
+            ''', "msg", "No module named '__foo__'")
 
     def test_if_stmts(self):
         yield self.st, "a = 42\nif a > 10: a += 2", "a", 44
@@ -1092,6 +1092,24 @@ class TestCompiler:
     def test_list_compr_or(self):
         yield self.st, 'x = list(d for d in [1] or [])', 'x', [1]
         yield self.st, 'y = [d for d in [1] or []]', 'y', [1]
+
+    def test_yield_from(self):
+        test = """if 1:
+        def f():
+            yield from range(3)
+        def g():
+            return list(f())
+        """
+        yield self.st, test, "g()", range(3)
+
+    def test__class__global(self):
+        source = """if 1:
+        class X:
+           global __class__
+           def f(self):
+               super()
+        """
+        py.test.raises(SyntaxError, self.simple_test, source, None, None)
 
 
 class AppTestCompiler:

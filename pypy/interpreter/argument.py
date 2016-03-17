@@ -4,6 +4,7 @@ Arguments objects.
 from rpython.rlib.debug import make_sure_not_resized
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import enforceargs
+from rpython.rlib.rstring import StringBuilder
 
 from pypy.interpreter.error import OperationError, oefmt
 
@@ -210,7 +211,13 @@ class Arguments(object):
             loc = co_argcount + co_kwonlyargcount
             scope_w[loc] = self.space.newtuple(starargs_w)
         elif avail > co_argcount:
-            raise ArgErrCount(avail, num_kwds, signature, defaults_w, w_kw_defs, 0)
+            kwonly_given = 0
+            for i in range(co_argcount, co_argcount + co_kwonlyargcount):
+                if scope_w[i] is None:
+                    kwonly_given += 1
+            raise ArgErrTooMany(signature.num_argnames(),
+                                0 if defaults_w is None else len(defaults_w),
+                                avail, kwonly_given)
 
         # if a **kwargs argument is needed, create the dict
         w_kwds = None
@@ -243,16 +250,13 @@ class Arguments(object):
                             self.space, keywords, keywords_w, w_kwds,
                             kwds_mapping, self.keyword_names_w, self._jit_few_keywords)
                 else:
-                    if co_argcount == 0:
-                        raise ArgErrCount(avail, num_kwds, signature, defaults_w,
-                                          w_kw_defs, 0)
-                    
                     raise ArgErrUnknownKwds(self.space, num_remainingkwds, keywords,
                                             kwds_mapping, self.keyword_names_w)
 
         # check for missing arguments and fill them from the kwds,
         # or with defaults, if available
-        missing = 0
+        missing_positional = []
+        missing_kwonly = []
         if input_argcount < co_argcount + co_kwonlyargcount:
             def_first = co_argcount - (0 if defaults_w is None else len(defaults_w))
             j = 0
@@ -273,25 +277,26 @@ class Arguments(object):
                 if defnum >= 0:
                     scope_w[i] = defaults_w[defnum]
                 else:
-                    missing += 1
+                    missing_positional.append(signature.argnames[i])
 
             # finally, fill kwonly arguments with w_kw_defs (if needed)
             for i in range(co_argcount, co_argcount + co_kwonlyargcount):
                 if scope_w[i] is not None:
                     continue
-                elif w_kw_defs is None:
-                    missing += 1
-                    continue
                 name = signature.kwonlyargnames[i - co_argcount]
+                if w_kw_defs is None:
+                    missing_kwonly.append(name)
+                    continue
                 w_def = self.space.finditem_str(w_kw_defs, name)
                 if w_def is not None:
                     scope_w[i] = w_def
                 else:
-                    missing += 1
+                    missing_kwonly.append(name)
 
-        if missing:
-            raise ArgErrCount(avail, num_kwds, signature,
-                              defaults_w, w_kw_defs, missing)
+        if missing_positional:
+            raise ArgErrMissing(missing_positional, True)
+        if missing_kwonly:
+            raise ArgErrMissing(missing_kwonly, False)
 
 
     def parse_into_scope(self, w_firstarg,
@@ -461,52 +466,60 @@ class ArgErr(Exception):
     def getmsg(self):
         raise NotImplementedError
 
-class ArgErrCount(ArgErr):
 
-    def __init__(self, got_nargs, nkwds, signature,
-                 defaults_w, w_kw_defs, missing_args):
-        self.signature = signature
-        self.num_defaults = 0 if defaults_w is None else len(defaults_w)
-        self.missing_args = missing_args
-        self.num_args = got_nargs
-        self.num_kwds = nkwds
+class ArgErrMissing(ArgErr):
+    def __init__(self, missing, positional):
+        self.missing = missing
+        self.positional = positional  # keyword-only otherwise
 
     def getmsg(self):
-        n = self.signature.num_argnames()
-        if n == 0:
-            msg = "takes no arguments (%d given)" % (
-                self.num_args + self.num_kwds)
-        else:
-            defcount = self.num_defaults
-            has_kwarg = self.signature.has_kwarg()
-            num_args = self.num_args
-            num_kwds = self.num_kwds
-            if defcount == 0 and not self.signature.has_vararg():
-                msg1 = "exactly"
-                if not has_kwarg:
-                    num_args += num_kwds
-                    num_kwds = 0
-            elif not self.missing_args:
-                msg1 = "at most"
+        arguments_str = StringBuilder()
+        for i, arg in enumerate(self.missing):
+            if i == 0:
+                pass
+            elif i == len(self.missing) - 1:
+                if len(self.missing) == 2:
+                    arguments_str.append(" and ")
+                else:
+                    arguments_str.append(", and ")
             else:
-                msg1 = "at least"
-                has_kwarg = False
-                n -= defcount
-            if n == 1:
-                plural = ""
-            else:
-                plural = "s"
-            if has_kwarg or num_kwds > 0:
-                msg2 = " non-keyword"
-            else:
-                msg2 = ""
-            msg = "takes %s %d%s argument%s (%d given)" % (
-                msg1,
-                n,
-                msg2,
-                plural,
-                num_args)
+                arguments_str.append(", ")
+            arguments_str.append("'%s'" % arg)
+        msg = "missing %s required %s argument%s: %s" % (
+            len(self.missing),
+            "positional" if self.positional else "keyword-only",
+            "s" if len(self.missing) != 1 else "",
+            arguments_str.build())
         return msg
+
+
+class ArgErrTooMany(ArgErr):
+    def __init__(self, num_args, num_defaults, given, kwonly_given):
+        self.num_args = num_args
+        self.num_defaults = num_defaults
+        self.given = given
+        self.kwonly_given = kwonly_given
+
+    def getmsg(self):
+        num_args = self.num_args
+        num_defaults = self.num_defaults
+        if num_defaults:
+            takes_str = "from %d to %d positional arguments" % (
+                num_args - num_defaults, num_args)
+        else:
+            takes_str = "%d positional argument%s" % (
+                num_args, "s" if num_args != 1 else "")
+        if self.kwonly_given:
+            given_str = ("%s positional argument%s "
+                         "(and %s keyword-only argument%s) were") % (
+                self.given, "s" if self.given != 1 else "",
+                self.kwonly_given, "s" if self.kwonly_given != 1 else "")
+        else:
+            given_str = "%s %s" % (
+                self.given, "were" if self.given != 1 else "was")
+        msg = "takes %s but %s given" % (takes_str, given_str)
+        return msg
+
 
 class ArgErrMultipleValues(ArgErr):
 
@@ -514,8 +527,7 @@ class ArgErrMultipleValues(ArgErr):
         self.argname = argname
 
     def getmsg(self):
-        msg = "got multiple values for keyword argument '%s'" % (
-            self.argname)
+        msg = "got multiple values for argument '%s'" % self.argname
         return msg
 
 

@@ -108,7 +108,10 @@ def addr_from_object(family, fd, space, w_address):
         flowinfo = make_unsigned_flowinfo(space, flowinfo)
         return rsocket.INET6Address(host, port, flowinfo, scope_id)
     if rsocket.HAS_AF_UNIX and family == rsocket.AF_UNIX:
-        return rsocket.UNIXAddress(space.str_w(w_address))
+        # Not using space.fsencode_w since Linux allows embedded NULs.
+        if space.isinstance_w(w_address, space.w_unicode):
+            w_address = space.fsencode(w_address)
+        return rsocket.UNIXAddress(space.bytes_w(w_address))
     if rsocket.HAS_AF_NETLINK and family == rsocket.AF_NETLINK:
         w_pid, w_groups = space.unpackiterable(w_address, 2)
         return rsocket.NETLINKAddress(space.uint_w(w_pid), space.uint_w(w_groups))
@@ -659,8 +662,7 @@ def close_all_sockets(space):
 
 class SocketAPI:
     def __init__(self, space):
-        self.w_error = space.new_exception_class(
-            "_socket.error", space.w_IOError)
+        self.w_error = space.w_OSError
         self.w_herror = space.new_exception_class(
             "_socket.herror", self.w_error)
         self.w_gaierror = space.new_exception_class(

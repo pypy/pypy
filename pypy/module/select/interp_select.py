@@ -1,19 +1,16 @@
 import errno
 
 from rpython.rlib import _rsocket_rffi as _c, rpoll
+from rpython.rlib.rarithmetic import USHRT_MAX
 from rpython.rtyper.lltypesystem import lltype, rffi
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
-from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
+from pypy.interpreter.gateway import (
+    Unwrapper, WrappedDefault, interp2app, unwrap_spec)
 from pypy.interpreter.typedef import TypeDef
 
 defaultevents = rpoll.POLLIN | rpoll.POLLOUT | rpoll.POLLPRI
-
-
-class Cache:
-    def __init__(self, space):
-        self.w_error = space.new_exception_class("select.error")
 
 
 def poll(space):
@@ -70,9 +67,8 @@ class Poll(W_Root):
         try:
             retval = rpoll.poll(self.fddict, timeout)
         except rpoll.PollError, e:
-            w_errortype = space.fromcache(Cache).w_error
             message = e.get_msg()
-            raise OperationError(w_errortype,
+            raise OperationError(space.w_OSError,
                                  space.newtuple([space.wrap(e.errno),
                                                  space.wrap(message)]))
         finally:
@@ -131,8 +127,7 @@ def _call_select(space, iwtd_w, owtd_w, ewtd_w,
     if res < 0:
         errno = _c.geterrno()
         msg = _c.socket_strerror_str(errno)
-        w_errortype = space.fromcache(Cache).w_error
-        raise OperationError(w_errortype, space.newtuple([
+        raise OperationError(space.w_OSError, space.newtuple([
             space.wrap(errno), space.wrap(msg)]))
 
     resin_w = []
@@ -181,6 +176,8 @@ On Windows, only sockets are supported; on Unix, all file descriptors.
         timeout = -1.0
     else:
         timeout = space.float_w(w_timeout)
+        if timeout < 0.0:
+            raise oefmt(space.w_ValueError, "timeout must be non-negative")
 
     ll_inl = lltype.nullptr(_c.fd_set.TO)
     ll_outl = lltype.nullptr(_c.fd_set.TO)

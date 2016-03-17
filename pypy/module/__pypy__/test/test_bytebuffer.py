@@ -5,15 +5,13 @@ class AppTest(object):
         from __pypy__ import bytebuffer
         b = bytebuffer(12)
         assert len(b) == 12
-        b[3] = b'!'
-        b[5] = b'?'
+        b[3] = ord(b'!')
+        b[5] = ord(b'?')
         assert b[2:7] == b'\x00!\x00?\x00'
         b[9:] = b'+-*'
-        assert b[-1] == b'*'
-        assert b[-2] == b'-'
-        assert b[-3] == b'+'
-        exc = raises(ValueError, "b[3] = b'abc'")
-        assert str(exc.value) == "cannot modify size of memoryview object"
+        assert b[-1] == ord(b'*')
+        assert b[-2] == ord(b'-')
+        assert b[-3] == ord(b'+')
         exc = raises(ValueError, "b[3:5] = b'abc'")
         assert str(exc.value) == "cannot modify size of memoryview object"
         raises(NotImplementedError, "b[3:7:2] = b'abc'")

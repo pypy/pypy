@@ -48,6 +48,16 @@ class AppTestSSL:
         raises(TypeError, _ssl.RAND_add, "xyz", "zyx")
         _ssl.RAND_add("xyz", 1.2345)
 
+    def test_RAND_bytes(self):
+        import _ssl
+        b = _ssl.RAND_bytes(3)
+        assert type(b) is bytes
+        assert len(b) == 3
+        b, ok = _ssl.RAND_pseudo_bytes(3)
+        assert type(b) is bytes
+        assert len(b) == 3
+        assert ok is True or ok is False
+
     def test_RAND_status(self):
         import _ssl
         if not hasattr(_ssl, "RAND_status"):
@@ -241,7 +251,7 @@ class AppTestConnectedSSL:
         if not _ssl.HAS_NPN:
             skip("NPN requires OpenSSL 1.0.1 or greater")
 
-        ctx = _ssl._SSLContext(_ssl.PROTOCOL_TLSv1)
+        ctx = _ssl._SSLContext()
         ctx._set_npn_protocols(b'\x08http/1.1\x06spdy/2')
         ss = ctx._wrap_socket(self.s, True,
                               server_hostname="svn.python.org")
@@ -252,6 +262,7 @@ class AppTestConnectedSSL:
         import ssl, sys, gc
         ss = ssl.wrap_socket(self.s)
         ss.do_handshake()
+        assert isinstance(ss.get_channel_binding(), bytes)
         assert isinstance(ss._sslobj.tls_unique_cb(), bytes)
         self.s.close()
         del ss; gc.collect()
@@ -260,6 +271,7 @@ class AppTestConnectedSSL:
         import ssl, sys, gc
         ss = ssl.wrap_socket(self.s)
         ss.do_handshake()
+        assert ss.compression() in [None, 'ZLIB', 'RLE']
         assert ss._sslobj.compression() in [None, 'ZLIB', 'RLE']
         self.s.close()
         del ss; gc.collect()
@@ -351,6 +363,7 @@ class AppTestContext:
 
     def test_get_ca_certs(self):
         import _ssl
+
         ctx = _ssl._SSLContext(_ssl.PROTOCOL_TLSv1)
         ctx.load_verify_locations(self.keycert)
         assert ctx.get_ca_certs() == []
@@ -408,7 +421,8 @@ class AppTestContext:
 
 
 class AppTestSSLError:
-    spaceconfig = dict(usemodules=('_ssl', '_socket', 'thread'))
+    spaceconfig = dict(usemodules=('_ssl', '_socket', 'binascii', 'thread',
+                                   'struct'))
 
     def setup_class(cls):
         tmpfile = udir / "tmpfile.pem"
@@ -416,8 +430,8 @@ class AppTestSSLError:
         cls.w_keycert = cls.space.wrap(str(tmpfile))
 
     def test_str(self):
-        # The str() of a SSLError doesn't include the errno
         import _ssl
+        # The str() of a SSLError doesn't include the errno
         e = _ssl.SSLError(1, "foo")
         assert str(e) == "foo"
         assert e.errno == 1
@@ -435,6 +449,25 @@ class AppTestSSLError:
         assert exc.value.reason == 'NO_START_LINE'
         s = str(exc.value)
         assert s.startswith("[PEM: NO_START_LINE] no start line")
+
+    def test_subclass(self):
+        import ssl
+        import socket
+        # Check that the appropriate SSLError subclass is raised
+        # (this only tests one of them)
+        ctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
+        with socket.socket() as s:
+            s.bind(("127.0.0.1", 0))
+            s.listen(5)
+            c = socket.socket()
+            c.connect(s.getsockname())
+            c.setblocking(False)
+            with ctx.wrap_socket(c, False, do_handshake_on_connect=False) as c:
+                exc = raises(ssl.SSLWantReadError, c.do_handshake)
+                assert str(exc.value).startswith("The operation did not complete (read)"), s
+                # For compatibility
+                assert exc.value.errno == ssl.SSL_ERROR_WANT_READ
+
 
 SSL_CERTIFICATE = """
 -----BEGIN CERTIFICATE-----

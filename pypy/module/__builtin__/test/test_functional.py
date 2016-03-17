@@ -455,9 +455,67 @@ class AppTestRange:
         x = range(0, -M, 1 - M)
         assert repr(x) == 'range(0, %s, %s)' % (-M, 1 - M), repr(x)
 
+    def test_range_attributes(self):
+        rangeobj = range(3, 4, 5)
+        assert rangeobj.start == 3
+        assert rangeobj.stop == 4
+        assert rangeobj.step == 5
+
+        raises(AttributeError, "rangeobj.start = 0")
+        raises(AttributeError, "rangeobj.stop = 10")
+        raises(AttributeError, "rangeobj.step = 1")
+        raises(AttributeError, "del rangeobj.start")
+        raises(AttributeError, "del rangeobj.stop")
+        raises(AttributeError, "del rangeobj.step")
+
+    def test_comparison(self):
+        test_ranges = [range(0), range(0, -1), range(1, 1, 3),
+                       range(1), range(5, 6), range(5, 6, 2),
+                       range(5, 7, 2), range(2), range(0, 4, 2),
+                       range(0, 5, 2), range(0, 6, 2)]
+        test_tuples = list(map(tuple, test_ranges))
+
+        # Check that equality of ranges matches equality of the corresponding
+        # tuples for each pair from the test lists above.
+        ranges_eq = [a == b for a in test_ranges for b in test_ranges]
+        tuples_eq = [a == b for a in test_tuples for b in test_tuples]
+        assert ranges_eq == tuples_eq
+
+        # Check that != correctly gives the logical negation of ==
+        ranges_ne = [a != b for a in test_ranges for b in test_ranges]
+        assert ranges_ne == [not x for x in ranges_eq]
+
+        # Equal ranges should have equal hashes.
+        for a in test_ranges:
+            for b in test_ranges:
+                if a == b:
+                    assert hash(a) == hash(b)
+
+        # Ranges are unequal to other types (even sequence types)
+        assert (range(0) == ()) is False
+        assert (() == range(0)) is False
+        assert (range(2) == [0, 1]) is False
+
+        # Huge integers aren't a problem.
+        assert range(0, 2**100 - 1, 2) == range(0, 2**100, 2)
+        assert hash(range(0, 2**100 - 1, 2)) == hash(range(0, 2**100, 2))
+        assert range(0, 2**100, 2) != range(0, 2**100 + 1, 2)
+        assert (range(2**200, 2**201 - 2**99, 2**100) ==
+                range(2**200, 2**201, 2**100))
+        assert (hash(range(2**200, 2**201 - 2**99, 2**100)) ==
+                hash(range(2**200, 2**201, 2**100)))
+        assert (range(2**200, 2**201, 2**100) !=
+                range(2**200, 2**201 + 1, 2**100))
+
+        # Order comparisons are not implemented for ranges.
+        raises(TypeError, "range(0) < range(0)")
+        raises(TypeError, "range(0) > range(0)")
+        raises(TypeError, "range(0) <= range(0)")
+        raises(TypeError, "range(0) >= range(0)")
 
 class AppTestReversed:
     def test_reversed(self):
+        assert isinstance(reversed, type)
         r = reversed("hello")
         assert iter(r) is r
         assert r.__next__() == "o"

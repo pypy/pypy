@@ -1,7 +1,7 @@
 from pypy.interpreter.error import OperationError, wrap_oserror
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
-from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from rpython.rlib import rmmap, rarithmetic
 from rpython.rlib.buffer import Buffer
 from rpython.rlib.rmmap import RValueError, RTypeError, RMMapError
@@ -41,9 +41,13 @@ class W_MMap(W_Root):
         self.check_valid()
         return self.space.wrapbytes(self.mmap.readline())
 
-    @unwrap_spec(num=int)
-    def read(self, num=-1):
+    @unwrap_spec(w_num=WrappedDefault(None))
+    def read(self, w_num):
         self.check_valid()
+        if self.space.is_none(w_num):
+            num = -1
+        else:
+            num = self.space.int_w(w_num)
         return self.space.wrapbytes(self.mmap.read(num))
 
     def find(self, w_tofind, w_start=None, w_end=None):
@@ -289,10 +293,6 @@ ACCESS_READ  = rmmap.ACCESS_READ
 ACCESS_WRITE = rmmap.ACCESS_WRITE
 ACCESS_COPY  = rmmap.ACCESS_COPY
 
-class Cache:
-    def __init__(self, space):
-        self.w_error = space.new_exception_class("mmap.error",
-                                                 space.w_EnvironmentError)
 
 def mmap_error(space, e):
     if isinstance(e, RValueError):
@@ -302,8 +302,7 @@ def mmap_error(space, e):
         return OperationError(space.w_TypeError,
                               space.wrap(e.message))
     elif isinstance(e, OSError):
-        w_error = space.fromcache(Cache).w_error
-        return wrap_oserror(space, e, w_exception_class=w_error)
+        return wrap_oserror(space, e)
     else:
         # bogus 'e'?
         return OperationError(space.w_SystemError, space.wrap('%s' % e))

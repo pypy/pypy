@@ -52,6 +52,7 @@ W_MD5.typedef = TypeDef(
     copy      = interp2app(W_MD5.copy_w),
     digest_size = 16,
     block_size = 64,
+    name      = 'md5',
     __doc__   = """md5(arg) -> return new md5 object.
 
 If arg is present, the method call update(arg) is made.""")

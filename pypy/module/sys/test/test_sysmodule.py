@@ -32,7 +32,7 @@ def test_stdout_flush_at_shutdown(space):
         w_sys.flush_std_files(space)
 
         msg = space.bytes_w(space.call_function(w_read))
-        assert 'Exception IOError' in msg
+        assert 'Exception OSError' in msg
     finally:
         space.setattr(w_sys, space.wrap('stdout'), w_sys.get('__stdout__'))
         space.setattr(w_sys, space.wrap('stderr'), w_sys.get('__stderr__'))
@@ -50,6 +50,9 @@ def test_stdio_missing_at_shutdown(space):
         space.setattr(w_sys, space.wrap('stderr'), w_sys.get('__stderr__'))
 
 class AppTestAppSysTests:
+    spaceconfig = {
+        "usemodules": ["thread"],
+    }
 
     def setup_class(cls):
         cls.w_appdirect = cls.space.wrap(cls.runappdirect)
@@ -198,6 +201,27 @@ class AppTestAppSysTests:
         assert isinstance(li.inf, int)
         assert isinstance(li.nan, int)
         assert isinstance(li.imag, int)
+
+    def test_sys_exit(self):
+        import sys
+        exc = raises(SystemExit, sys.exit)
+        assert exc.value.code is None
+
+        exc = raises(SystemExit, sys.exit, 0)
+        assert exc.value.code == 0
+
+        exc = raises(SystemExit, sys.exit, 1)
+        assert exc.value.code == 1
+
+        exc = raises(SystemExit, sys.exit, (1, 2, 3))
+        assert exc.value.code == (1, 2, 3)
+
+    def test_sys_thread_info(self):
+        import sys
+        info = sys.thread_info
+        assert isinstance(info.name, str)
+        assert isinstance(info.lock, (str, type(None)))
+        assert isinstance(info.version, (str, type(None)))
 
 
 class AppTestSysModulePortedFromCPython:
@@ -526,6 +550,42 @@ class AppTestSysModulePortedFromCPython:
         assert isinstance(vi[2], int)
         assert vi[3] in ("alpha", "beta", "candidate", "final")
         assert isinstance(vi[4], int)
+
+    def test_implementation(self):
+        import sys
+        assert sys.implementation.name == 'pypy'
+
+        # This test applies to all implementations equally.
+        levels = {'alpha': 0xA, 'beta': 0xB, 'candidate': 0xC, 'final': 0xF}
+
+        assert sys.implementation.version
+        assert sys.implementation.hexversion
+        assert sys.implementation.cache_tag
+
+        version = sys.implementation.version
+        assert version[:2] == (version.major, version.minor)
+
+        hexversion = (version.major << 24 | version.minor << 16 |
+                      version.micro << 8 | levels[version.releaselevel] << 4 |
+                      version.serial << 0)
+        assert sys.implementation.hexversion == hexversion
+
+        # PEP 421 requires that .name be lower case.
+        assert sys.implementation.name == sys.implementation.name.lower()
+
+        ns1 = type(sys.implementation)(x=1, y=2, w=3)
+        assert repr(ns1) == "namespace(w=3, x=1, y=2)"
+
+    def test_simplenamespace(self):
+        import sys
+        SimpleNamespace = type(sys.implementation)
+        ns = SimpleNamespace(x=1, y=2, w=3)
+        #
+        ns.z = 4
+        assert ns.__dict__ == dict(x=1, y=2, w=3, z=4)
+        #
+        raises(AttributeError, "del ns.spam")
+        del ns.y
 
     def test_reload_doesnt_override_sys_executable(self):
         import sys

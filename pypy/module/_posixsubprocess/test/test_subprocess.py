@@ -1,7 +1,8 @@
 from os.path import dirname
 
 class AppTestSubprocess:
-    spaceconfig = dict(usemodules=('_posixsubprocess', 'signal', 'fcntl', 'select', 'struct'))
+    spaceconfig = dict(usemodules=('_posixsubprocess', 'signal',
+                                   'fcntl', 'select', 'time', 'struct'))
     # XXX write more tests
 
     def setup_class(cls):
@@ -17,6 +18,7 @@ class AppTestSubprocess:
         os.close(fd2)
 
     def test_close_fds_true(self):
+        import traceback  # Work around a recursion limit
         import subprocess
         import os.path
         import os
@@ -43,6 +45,7 @@ class AppTestSubprocess:
         # For code coverage of calling setsid().  We don't care if we get an
         # EPERM error from it depending on the test execution environment, that
         # still indicates that it was called.
+        import traceback  # Work around a recursion limit
         import subprocess
         import os
         try:

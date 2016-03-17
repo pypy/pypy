@@ -18,7 +18,7 @@ class AppTestThread(AppTestCpythonExtensionBase):
         results = []
         def some_thread():
             res = module.get_thread_ident()
-            results.append((res, threading._get_ident()))
+            results.append((res, threading.get_ident()))
 
         some_thread()
         assert results[0][0] == results[0][1]

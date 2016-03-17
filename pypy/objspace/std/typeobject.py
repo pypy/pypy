@@ -1,7 +1,8 @@
 from pypy.interpreter import gateway
 from pypy.interpreter.baseobjspace import W_Root, SpaceCache
 from pypy.interpreter.error import oefmt, OperationError
-from pypy.interpreter.function import Function, StaticMethod
+from pypy.interpreter.function import (
+    Function, StaticMethod, ClassMethod, FunctionWithFixedCode)
 from pypy.interpreter.typedef import weakref_descr, GetSetProperty,\
      descr_get_dict, dict_descr, Member, TypeDef
 from pypy.interpreter.astcompiler.misc import mangle
@@ -151,6 +152,7 @@ class W_TypeObject(W_Root):
                  overridetypedef=None, force_new_layout=False):
         w_self.space = space
         w_self.name = name
+        w_self.qualname = None
         w_self.bases_w = bases_w
         w_self.dict_w = dict_w
         w_self.hasdict = False
@@ -500,12 +502,12 @@ class W_TypeObject(W_Root):
 
     def getdict(w_self, space): # returning a dict-proxy!
         from pypy.objspace.std.dictproxyobject import DictProxyStrategy
-        from pypy.objspace.std.dictmultiobject import W_DictObject
+        from pypy.objspace.std.dictproxyobject import W_DictProxyObject
         if w_self.lazyloaders:
             w_self._cleanup_()    # force un-lazification
         strategy = space.fromcache(DictProxyStrategy)
         storage = strategy.erase(w_self)
-        return W_DictObject(space, strategy, storage)
+        return W_DictProxyObject(space, strategy, storage)
 
     def is_heaptype(w_self):
         return w_self.flag_heaptype
@@ -552,6 +554,9 @@ class W_TypeObject(W_Root):
             else:
                 result = self.name
         return result.decode('utf-8')
+
+    def getqualname(self, space):
+        return self.qualname or self.getname(space)
 
     def add_subclass(w_self, w_subclass):
         space = w_self.space
@@ -641,7 +646,7 @@ class W_TypeObject(W_Root):
         else:
             mod = space.unicode_w(w_mod)
         if mod is not None and mod != u'builtins':
-            return space.wrap(u"<class '%s.%s'>" % (mod, self.getname(space)))
+            return space.wrap(u"<class '%s.%s'>" % (mod, self.getqualname(space)))
         else:
             return space.wrap(u"<class '%s'>" % (self.name.decode('utf-8')))
 
@@ -752,6 +757,16 @@ def descr_set__name__(space, w_type, w_value):
         raise oefmt(space.w_ValueError, "__name__ must not contain null bytes")
     w_type.name = name
 
+def descr_get__qualname__(space, w_type):
+    w_type = _check(space, w_type)
+    return space.wrap(w_type.getqualname(space))
+
+def descr_set__qualname__(space, w_type, w_value):
+    w_type = _check(space, w_type)
+    if not w_type.is_heaptype():
+        raise oefmt(space.w_TypeError, "can't set %N.__qualname__", w_type)
+    w_type.qualname = space.unicode_w(w_value)
+
 def descr_get__mro__(space, w_type):
     w_type = _check(space, w_type)
     return space.newtuple(w_type.mro_w)
@@ -850,6 +865,10 @@ type(name, bases, dict) -> a new type""")
     else:
         return space.get(w_result, space.w_None, w_type)
 
+def descr__dir(space, w_type):
+    from pypy.objspace.std.util import _classdir
+    return space.call_function(space.w_list, _classdir(space, w_type))
+
 def descr__flags(space, w_type):
     from copy_reg import _HEAPTYPE
     _CPYTYPE = 1 # used for non-heap types defined in C
@@ -916,11 +935,13 @@ def type_isinstance(w_obj, space, w_inst):
 W_TypeObject.typedef = TypeDef("type",
     __new__ = gateway.interp2app(descr__new__),
     __name__ = GetSetProperty(descr_get__name__, descr_set__name__),
+    __qualname__ = GetSetProperty(descr_get__qualname__, descr_set__qualname__),
     __bases__ = GetSetProperty(descr_get__bases__, descr_set__bases__),
     __base__ = GetSetProperty(descr__base),
     __mro__ = GetSetProperty(descr_get__mro__),
     __dict__ = GetSetProperty(descr_get_dict),
     __doc__ = GetSetProperty(descr__doc),
+    __dir__ = gateway.interp2app(descr__dir),
     mro = gateway.interp2app(descr_mro),
     __flags__ = GetSetProperty(descr__flags),
     __module__ = GetSetProperty(descr_get__module, descr_set__module),
@@ -1091,6 +1112,9 @@ def setup_user_defined_type(w_self, force_new_layout):
     hasoldstylebase = copy_flags_from_bases(w_self, w_bestbase)
     layout = create_all_slots(w_self, hasoldstylebase, w_bestbase,
                               force_new_layout)
+
+    if '__qualname__' in w_self.dict_w:
+        w_self.qualname = w_self.space.unicode_w(w_self.dict_w['__qualname__'])
 
     ensure_common_attributes(w_self)
     return layout
@@ -1282,8 +1306,19 @@ class TypeCache(SpaceCache):
             overridetypedef = typedef
         w_type = W_TypeObject(space, typedef.name, bases_w, dict_w,
                               overridetypedef=overridetypedef)
+
         if typedef is not overridetypedef:
             w_type.w_doc = space.wrap(typedef.doc)
+        else:
+            # Set the __qualname__ of member functions
+            for name in rawdict:
+                w_obj = dict_w[name]
+                if isinstance(w_obj, ClassMethod):
+                    w_obj = w_obj.w_function
+                if isinstance(w_obj, FunctionWithFixedCode):
+                    qualname = w_type.getqualname(space) + '.' + name
+                    w_obj.fset_func_qualname(space, space.wrap(qualname))
+
         if hasattr(typedef, 'flag_sequence_bug_compat'):
             w_type.flag_sequence_bug_compat = typedef.flag_sequence_bug_compat
         w_type.lazyloaders = lazyloaders

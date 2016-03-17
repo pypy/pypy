@@ -213,7 +213,10 @@ class OperationError(Exception):
                     w_type = self._exception_getclass(space, w_value)
             if self.w_cause:
                 # ensure w_cause is of a valid type
-                self._exception_getclass(space, self.w_cause, "exception causes")
+                if space.is_none(self.w_cause):
+                    pass
+                else:
+                    self._exception_getclass(space, self.w_cause, "exception causes")
                 space.setattr(w_value, space.wrap("__cause__"), self.w_cause)
             if self._application_traceback:
                 from pypy.interpreter.pytraceback import PyTraceback
@@ -322,6 +325,15 @@ class OperationError(Exception):
         """
         self._application_traceback = traceback
 
+    def remove_traceback_module_frames(self, module_name):
+        from pypy.interpreter.pytraceback import PyTraceback
+        tb = self._application_traceback
+        while tb is not None and isinstance(tb, PyTraceback):
+            if tb.frame.pycode.co_filename != module_name:
+                break
+            tb = tb.next
+        self._application_traceback = tb
+
     def record_context(self, space, frame):
         """Record a __context__ for this exception from the current
         frame if one exists.
@@ -338,8 +350,9 @@ class OperationError(Exception):
             self.normalize_exception(space)
             w_value = self.get_w_value(space)
             w_last = last_exception.get_w_value(space)
-            w_context = setup_context(space, w_value, w_last, lazy=True)
-            space.setattr(w_value, space.wrap('__context__'), w_context)
+            if not space.is_w(w_value, w_last):
+                w_context = setup_context(space, w_value, w_last, lazy=True)
+                space.setattr(w_value, space.wrap('__context__'), w_context)
 
 
 def setup_context(space, w_exc, w_last, lazy=False):
@@ -455,11 +468,8 @@ class OpErrFmtNoArgs(OperationError):
         self._value = value
         self.setup(w_type)
 
-    def get_w_value(self, space):
-        w_value = self._w_value
-        if w_value is None:
-            self._w_value = w_value = space.wrap(self._value)
-        return w_value
+    def _compute_value(self, space):
+        return self._value.decode('utf-8')
 
 @specialize.memo()
 def get_operr_class(valuefmt):

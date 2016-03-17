@@ -9,7 +9,7 @@ from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from rpython.rlib.rarithmetic import r_longlong
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.runicode import MAXUNICODE
-from rpython.rlib.unicodedata import unicodedb_6_0_0, unicodedb_3_2_0
+from rpython.rlib.unicodedata import unicodedb_6_2_0, unicodedb_3_2_0
 from rpython.rlib.runicode import code_to_unichr, ord_accepts_surrogate
 import sys
 
@@ -75,7 +75,8 @@ else:
 
 class UCD(W_Root):
     def __init__(self, unicodedb):
-        self._lookup = unicodedb.lookup
+        self._lookup = unicodedb.lookup_with_alias
+        self._lookup_named_sequence = unicodedb.lookup_named_sequence
         self._name = unicodedb.name
         self._decimal = unicodedb.decimal
         self._digit = unicodedb.digit
@@ -104,10 +105,17 @@ class UCD(W_Root):
     @unwrap_spec(name=str)
     def lookup(self, space, name):
         try:
-            code = self._lookup(name.upper())
+            code = self._lookup(name.upper(), with_named_sequence=True)
         except KeyError:
             msg = space.mod(space.wrap("undefined character name '%s'"), space.wrap(name))
             raise OperationError(space.w_KeyError, msg)
+
+        # The code may be a named sequence
+        sequence = self._lookup_named_sequence(code)
+        if sequence is not None:
+            # named sequences only contain UCS2 codes, no surrogates &co.
+            return space.wrap(sequence)
+
         return space.wrap(code_to_unichr(code))
 
     def name(self, space, w_unichr, w_default=None):
@@ -324,5 +332,5 @@ UCD.typedef = TypeDef("unicodedata.UCD",
                       **methods)
 
 ucd_3_2_0 = UCD(unicodedb_3_2_0)
-ucd_6_0_0 = UCD(unicodedb_6_0_0)
-ucd = ucd_6_0_0
+ucd_6_2_0 = UCD(unicodedb_6_2_0)
+ucd = ucd_6_2_0

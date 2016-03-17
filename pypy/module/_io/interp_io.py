@@ -4,7 +4,6 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import (
     TypeDef, interp_attrproperty, generic_new_descr)
-from pypy.module.exceptions.interp_exceptions import W_IOError
 from pypy.module._io.interp_fileio import W_FileIO
 from pypy.module._io.interp_textio import W_TextIOWrapper
 from rpython.rlib.rposix_stat import STAT_FIELD_TYPES
@@ -18,32 +17,13 @@ class Cache:
             "io.UnsupportedOperation",
             space.newtuple([space.w_ValueError, space.w_IOError]))
 
-class W_BlockingIOError(W_IOError):
-    def __init__(self, space):
-        W_IOError.__init__(self, space)
-        self.written = 0
-
-    @unwrap_spec(written=int)
-    def descr_init(self, space, w_errno, w_strerror, written=0):
-        W_IOError.descr_init(self, space, [w_errno, w_strerror])
-        self.written = written
-
-W_BlockingIOError.typedef = TypeDef(
-    'BlockingIOError', W_IOError.typedef,
-    __doc__ = ("Exception raised when I/O would block on a non-blocking "
-               "I/O stream"),
-    __new__  = generic_new_descr(W_BlockingIOError),
-    __init__ = interp2app(W_BlockingIOError.descr_init),
-    characters_written = interp_attrproperty('written', W_BlockingIOError),
-    )
-
 DEFAULT_BUFFER_SIZE = 8 * 1024
 
 @unwrap_spec(mode=str, buffering=int,
              encoding="str_or_None", errors="str_or_None",
              newline="str_or_None", closefd=bool)
 def open(space, w_file, mode="r", buffering=-1, encoding=None, errors=None,
-    newline=None, closefd=True):
+         newline=None, closefd=True, w_opener=None):
     from pypy.module._io.interp_bufferedio import (W_BufferedRandom,
         W_BufferedWriter, W_BufferedReader)
 
@@ -52,7 +32,7 @@ def open(space, w_file, mode="r", buffering=-1, encoding=None, errors=None,
             space.isinstance_w(w_file, space.w_int)):
         raise oefmt(space.w_TypeError, "invalid file: %R", w_file)
 
-    reading = writing = appending = updating = text = binary = universal = False
+    reading = writing = creating = appending = updating = text = binary = universal = False
 
     uniq_mode = {}
     for flag in mode:
@@ -64,6 +44,8 @@ def open(space, w_file, mode="r", buffering=-1, encoding=None, errors=None,
             reading = True
         elif flag == "w":
             writing = True
+        elif flag == "x":
+            creating = True
         elif flag == "a":
             appending = True
         elif flag == "+":
@@ -83,6 +65,8 @@ def open(space, w_file, mode="r", buffering=-1, encoding=None, errors=None,
         rawmode += "r"
     if writing:
         rawmode += "w"
+    if creating:
+        rawmode += "x"
     if appending:
         rawmode += "a"
     if updating:
@@ -96,9 +80,9 @@ def open(space, w_file, mode="r", buffering=-1, encoding=None, errors=None,
         raise OperationError(space.w_ValueError,
             space.wrap("can't have text and binary mode at once")
         )
-    if reading + writing + appending > 1:
+    if reading + writing + creating + appending > 1:
         raise OperationError(space.w_ValueError,
-            space.wrap("must have exactly one of read/write/append mode")
+            space.wrap("must have exactly one of read/write/create/append mode")
         )
     if binary and encoding is not None:
         raise OperationError(space.w_ValueError,
@@ -109,8 +93,8 @@ def open(space, w_file, mode="r", buffering=-1, encoding=None, errors=None,
             space.wrap("binary mode doesn't take a newline argument")
         )
     w_raw = space.call_function(
-        space.gettypefor(W_FileIO), w_file, space.wrap(rawmode), space.wrap(closefd)
-    )
+        space.gettypefor(W_FileIO), w_file, space.wrap(rawmode),
+        space.wrap(closefd), w_opener)
 
     isatty = space.is_true(space.call_method(w_raw, "isatty"))
     line_buffering = buffering == 1 or (buffering < 0 and isatty)
@@ -145,7 +129,7 @@ def open(space, w_file, mode="r", buffering=-1, encoding=None, errors=None,
 
     if updating:
         buffer_cls = W_BufferedRandom
-    elif writing or appending:
+    elif writing or creating or appending:
         buffer_cls = W_BufferedWriter
     elif reading:
         buffer_cls = W_BufferedReader

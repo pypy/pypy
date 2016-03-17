@@ -56,6 +56,21 @@ class StringMethods(object):
     def _multi_chr(self, c):
         return c
 
+    @staticmethod
+    def _single_char(space, w_sub):
+        try:
+            char = space.int_w(w_sub)
+        except OperationError as e:
+            if e.match(space, space.w_OverflowError):
+                char = 256 # arbitrary value which will trigger the ValueError
+                # condition below
+            else:
+                raise
+        if not 0 <= char < 256:
+            raise oefmt(space.w_ValueError,
+                        "byte must be in range(0, 256)")
+        return chr(char)
+
     def descr_len(self, space):
         return space.wrap(self._len())
 
@@ -64,18 +79,11 @@ class StringMethods(object):
 
     def descr_contains(self, space, w_sub):
         value = self._val(space)
+        other = self._op_val(space, w_sub, allow_char=True)
         if self._use_rstr_ops(space, w_sub):
-            other = self._op_val(space, w_sub)
-            return space.newbool(value.find(other) >= 0)
-
-        from pypy.objspace.std.bytesobject import W_BytesObject
-        if isinstance(w_sub, W_BytesObject):
-            other = self._op_val(space, w_sub)
-            res = find(value, other, 0, len(value))
+            res = value.find(other)
         else:
-            buffer = _get_buffer(space, w_sub)
-            res = find(value, buffer, 0, len(value))
-
+            res = find(value, other, 0, len(value))
         return space.newbool(res >= 0)
 
     def descr_add(self, space, w_other):
@@ -168,21 +176,12 @@ class StringMethods(object):
     def descr_count(self, space, w_sub, w_start=None, w_end=None):
         value, start, end = self._convert_idx_params(space, w_start, w_end)
 
+        sub = self._op_val(space, w_sub, allow_char=True)
         if self._use_rstr_ops(space, w_sub):
-            return space.newint(value.count(self._op_val(space, w_sub), start,
-                                            end))
-
-        from pypy.objspace.std.bytearrayobject import W_BytearrayObject
-        from pypy.objspace.std.bytesobject import W_BytesObject
-        if isinstance(w_sub, W_BytearrayObject):
-            res = count(value, w_sub.data, start, end)
-        elif isinstance(w_sub, W_BytesObject):
-            res = count(value, w_sub._value, start, end)
+            return space.newint(value.count(sub, start, end))
         else:
-            buffer = _get_buffer(space, w_sub)
-            res = count(value, buffer, start, end)
-
-        return space.wrap(max(res, 0))
+            res = count(value, sub, start, end)
+            return space.wrap(max(res, 0))
 
     def descr_decode(self, space, w_encoding=None, w_errors=None):
         from pypy.objspace.std.unicodeobject import (
@@ -244,55 +243,31 @@ class StringMethods(object):
     def descr_find(self, space, w_sub, w_start=None, w_end=None):
         (value, start, end) = self._convert_idx_params(space, w_start, w_end)
 
+        sub = self._op_val(space, w_sub, allow_char=True)
         if self._use_rstr_ops(space, w_sub):
-            res = value.find(self._op_val(space, w_sub), start, end)
-            return space.wrap(res)
-
-        from pypy.objspace.std.bytearrayobject import W_BytearrayObject
-        from pypy.objspace.std.bytesobject import W_BytesObject
-        if isinstance(w_sub, W_BytearrayObject):
-            res = find(value, w_sub.data, start, end)
-        elif isinstance(w_sub, W_BytesObject):
-            res = find(value, w_sub._value, start, end)
+            res = value.find(sub, start, end)
         else:
-            buffer = _get_buffer(space, w_sub)
-            res = find(value, buffer, start, end)
-
+            res = find(value, sub, start, end)
         return space.wrap(res)
 
     def descr_rfind(self, space, w_sub, w_start=None, w_end=None):
         (value, start, end) = self._convert_idx_params(space, w_start, w_end)
 
+        sub = self._op_val(space, w_sub, allow_char=True)
         if self._use_rstr_ops(space, w_sub):
-            res = value.rfind(self._op_val(space, w_sub), start, end)
-            return space.wrap(res)
-
-        from pypy.objspace.std.bytearrayobject import W_BytearrayObject
-        from pypy.objspace.std.bytesobject import W_BytesObject
-        if isinstance(w_sub, W_BytearrayObject):
-            res = rfind(value, w_sub.data, start, end)
-        elif isinstance(w_sub, W_BytesObject):
-            res = rfind(value, w_sub._value, start, end)
+            res = value.rfind(sub, start, end)
         else:
-            buffer = _get_buffer(space, w_sub)
-            res = rfind(value, buffer, start, end)
-
+            res = rfind(value, sub, start, end)
         return space.wrap(res)
 
     def descr_index(self, space, w_sub, w_start=None, w_end=None):
         (value, start, end) = self._convert_idx_params(space, w_start, w_end)
 
-        from pypy.objspace.std.bytearrayobject import W_BytearrayObject
-        from pypy.objspace.std.bytesobject import W_BytesObject
+        sub = self._op_val(space, w_sub, allow_char=True)
         if self._use_rstr_ops(space, w_sub):
-            res = value.find(self._op_val(space, w_sub), start, end)
-        elif isinstance(w_sub, W_BytearrayObject):
-            res = find(value, w_sub.data, start, end)
-        elif isinstance(w_sub, W_BytesObject):
-            res = find(value, w_sub._value, start, end)
+            res = value.find(sub, start, end)
         else:
-            buffer = _get_buffer(space, w_sub)
-            res = find(value, buffer, start, end)
+            res = find(value, sub, start, end)
 
         if res < 0:
             raise oefmt(space.w_ValueError,
@@ -304,15 +279,11 @@ class StringMethods(object):
 
         from pypy.objspace.std.bytearrayobject import W_BytearrayObject
         from pypy.objspace.std.bytesobject import W_BytesObject
+        sub = self._op_val(space, w_sub, allow_char=True)
         if self._use_rstr_ops(space, w_sub):
-            res = value.rfind(self._op_val(space, w_sub), start, end)
-        elif isinstance(w_sub, W_BytearrayObject):
-            res = rfind(value, w_sub.data, start, end)
-        elif isinstance(w_sub, W_BytesObject):
-            res = rfind(value, w_sub._value, start, end)
+            res = value.rfind(sub, start, end)
         else:
-            buffer = _get_buffer(space, w_sub)
-            res = rfind(value, buffer, start, end)
+            res = rfind(value, sub, start, end)
 
         if res < 0:
             raise oefmt(space.w_ValueError,

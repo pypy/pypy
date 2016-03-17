@@ -5,6 +5,7 @@ The 'sys' module.
 
 from _structseq import structseqtype, structseqfield
 import sys
+import _imp
 
 def excepthook(exctype, value, traceback):
     """Handle an exception by displaying it with a traceback on sys.stderr."""
@@ -93,18 +94,41 @@ class sysflags(metaclass=structseqtype):
     name = "sys.flags"
 
     debug = structseqfield(0)
-    division_warning = structseqfield(1)
-    inspect = structseqfield(2)
-    interactive = structseqfield(3)
-    optimize = structseqfield(4)
-    dont_write_bytecode = structseqfield(5)
-    no_user_site = structseqfield(6)
-    no_site = structseqfield(7)
-    ignore_environment = structseqfield(8)
-    verbose = structseqfield(9)
-    bytes_warning = structseqfield(10)
-    quiet = structseqfield(11)
-    hash_randomization = structseqfield(12)
+    inspect = structseqfield(1)
+    interactive = structseqfield(2)
+    optimize = structseqfield(3)
+    dont_write_bytecode = structseqfield(4)
+    no_user_site = structseqfield(5)
+    no_site = structseqfield(6)
+    ignore_environment = structseqfield(7)
+    verbose = structseqfield(8)
+    bytes_warning = structseqfield(9)
+    quiet = structseqfield(10)
+    hash_randomization = structseqfield(11)
 
-null_sysflags = sysflags((0,)*13)
+null_sysflags = sysflags((0,)*12)
 null__xoptions = {}
+
+
+class SimpleNamespace:
+    def __init__(self, **kwargs):
+        self.__dict__.update(kwargs)
+
+    def __repr__(self, recurse=set()):
+        ident = id(self)
+        if ident in recurse:
+            return "namespace(...)"
+        recurse.add(ident)
+        try:
+            pairs = ('%s=%r' % item for item in sorted(self.__dict__.items()))
+            return "namespace(%s)" % ', '.join(pairs)
+        finally:
+            recurse.remove(ident)
+
+
+implementation = SimpleNamespace(
+    name='pypy',
+    version=sys.version_info,
+    hexversion=sys.hexversion,
+    cache_tag=_imp.get_tag(),
+    )

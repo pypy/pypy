@@ -151,6 +151,9 @@ def makePyPseudoDFA ():
     def makeStrPrefix ():
         return group(states,
                      chain(states,
+                           maybe(states, groupStr(states, "rR")),
+                           maybe(states, groupStr(states, "bB"))),
+                     chain(states,
                            maybe(states, groupStr(states, "bB")),
                            maybe(states, groupStr(states, "rR"))),
                      maybe(states, groupStr(states, "uU")))
@@ -254,20 +257,10 @@ def makePyEndDFAMap ():
                               any(states, notGroupStr(states, '"\\')))),
                     chainStr(states, '"""'))
     double3DFA = NonGreedyDFA(*nfaToDfa(states, *double3))
-    map = {"'" : singleDFA,
-           '"' : doubleDFA,
-           "r" : None,
-           "R" : None,
-           "u" : None,
-           "U" : None,
-           "b" : None,
-           "B" : None}
-    for uniPrefix in ("", "u", "U", "b", "B", ):
-        for rawPrefix in ("", "r", "R"):
-            prefix = uniPrefix + rawPrefix
-            map[prefix + "'''"] = single3DFA
-            map[prefix + '"""'] = double3DFA
-    return map
+    return {"'" : singleDFA,
+            '"' : doubleDFA,
+            "'''": single3DFA,
+            '"""': double3DFA}
 
 # ______________________________________________________________________
 

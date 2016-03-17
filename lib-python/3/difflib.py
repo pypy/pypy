@@ -1,5 +1,3 @@
-#! /usr/bin/env python3
-
 """
 Module difflib -- helpers for computing deltas between objects.
 
@@ -204,7 +202,7 @@ class SequenceMatcher:
         #      returning true iff the element is "junk" -- this has
         #      subtle but helpful effects on the algorithm, which I'll
         #      get around to writing up someday <0.9 wink>.
-        #      DON'T USE!  Only __chain_b uses this.  Use isbjunk.
+        #      DON'T USE!  Only __chain_b uses this.  Use "in self.bjunk".
         # bjunk
         #      the items in b for which isjunk is True.
         # bpopular
@@ -287,7 +285,6 @@ class SequenceMatcher:
     # when self.isjunk is defined, junk elements don't show up in this
     # map at all, which stops the central find_longest_match method
     # from starting any matching block at a junk element ...
-    # also creates the fast isbjunk function ...
     # b2j also does not contain entries for "popular" elements, meaning
     # elements that account for more than 1 + 1% of the total elements, and
     # when the sequence is reasonably large (>= 200 elements); this can
@@ -590,7 +587,7 @@ class SequenceMatcher:
     def get_grouped_opcodes(self, n=3):
         """ Isolate change clusters by eliminating ranges with no changes.
 
-        Return a generator of groups with upto n lines of context.
+        Return a generator of groups with up to n lines of context.
         Each group is in the same format as returned by get_opcodes().
 
         >>> from pprint import pprint
@@ -800,7 +797,7 @@ class Differ:
     ...   2. Explicit is better than implicit.
     ...   3. Simple is better than complex.
     ...   4. Complex is better than complicated.
-    ... '''.splitlines(1)
+    ... '''.splitlines(keepends=True)
     >>> len(text1)
     4
     >>> text1[0][-1]
@@ -809,7 +806,7 @@ class Differ:
     ...   3.   Simple is better than complex.
     ...   4. Complicated is better than complex.
     ...   5. Flat is better than nested.
-    ... '''.splitlines(1)
+    ... '''.splitlines(keepends=True)
 
     Next we instantiate a Differ object:
 
@@ -896,8 +893,8 @@ class Differ:
 
         Example:
 
-        >>> print(''.join(Differ().compare('one\ntwo\nthree\n'.splitlines(1),
-        ...                                'ore\ntree\nemu\n'.splitlines(1))),
+        >>> print(''.join(Differ().compare('one\ntwo\nthree\n'.splitlines(True),
+        ...                                'ore\ntree\nemu\n'.splitlines(True))),
         ...       end="")
         - one
         ?  ^
@@ -1269,8 +1266,8 @@ def context_diff(a, b, fromfile='', tofile='',
 
     Example:
 
-    >>> print(''.join(context_diff('one\ntwo\nthree\nfour\n'.splitlines(1),
-    ...       'zero\none\ntree\nfour\n'.splitlines(1), 'Original', 'Current')),
+    >>> print(''.join(context_diff('one\ntwo\nthree\nfour\n'.splitlines(True),
+    ...       'zero\none\ntree\nfour\n'.splitlines(True), 'Original', 'Current')),
     ...       end="")
     *** Original
     --- Current
@@ -1339,8 +1336,8 @@ def ndiff(a, b, linejunk=None, charjunk=IS_CHARACTER_JUNK):
 
     Example:
 
-    >>> diff = ndiff('one\ntwo\nthree\n'.splitlines(1),
-    ...              'ore\ntree\nemu\n'.splitlines(1))
+    >>> diff = ndiff('one\ntwo\nthree\n'.splitlines(keepends=True),
+    ...              'ore\ntree\nemu\n'.splitlines(keepends=True))
     >>> print(''.join(diff), end="")
     - one
     ?  ^
@@ -1366,7 +1363,7 @@ def _mdiff(fromlines, tolines, context=None, linejunk=None,
     linejunk -- passed on to ndiff (see ndiff documentation)
     charjunk -- passed on to ndiff (see ndiff documentation)
 
-    This function returns an interator which returns a tuple:
+    This function returns an iterator which returns a tuple:
     (from line tuple, to line tuple, boolean flag)
 
     from/to line tuple -- (line num, line text)
@@ -1968,7 +1965,7 @@ class HtmlDiff(object):
         self._make_prefix()
 
         # change tabs to spaces before it gets more difficult after we insert
-        # markkup
+        # markup
         fromlines,tolines = self._tab_newline_replace(fromlines,tolines)
 
         # create diffs iterator which generates side by side from/to data
@@ -2034,8 +2031,8 @@ def restore(delta, which):
 
     Examples:
 
-    >>> diff = ndiff('one\ntwo\nthree\n'.splitlines(1),
-    ...              'ore\ntree\nemu\n'.splitlines(1))
+    >>> diff = ndiff('one\ntwo\nthree\n'.splitlines(keepends=True),
+    ...              'ore\ntree\nemu\n'.splitlines(keepends=True))
     >>> diff = list(diff)
     >>> print(''.join(restore(diff, 1)), end="")
     one

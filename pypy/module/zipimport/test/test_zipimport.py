@@ -1,3 +1,4 @@
+# -*- encoding: utf-8 -*-
 import inspect
 import os
 import time
@@ -345,6 +346,48 @@ def get_file():
         import sys
         import zipimport
         assert sys.path_hooks.count(zipimport.zipimporter) == 1
+
+    def w__make_unicode_filename(self):
+        import os
+        head, tail = os.path.split(self.zipfile)
+        self.zipfile = head + os.path.sep + tail[:4] + '_ä' + tail[4:]
+
+    def test_unicode_filename_notfound(self):
+        import zipimport
+        raises(zipimport.ZipImportError,
+               zipimport.zipimporter, 'caf\xe9')
+
+    def test_unicode_filename_invalid_zippath(self):
+        import zipimport
+        import os
+        self._make_unicode_filename()
+        os.mkdir(self.zipfile)
+        raises(zipimport.ZipImportError,
+               zipimport.zipimporter, self.zipfile)
+
+    def test_unicode_filename_invalid_zip(self):
+        import zipimport
+        self._make_unicode_filename()
+        open(self.zipfile, 'wb').write(b'invalid zip')
+        raises(zipimport.ZipImportError,
+               zipimport.zipimporter, self.zipfile)
+
+    def test_unicode_filename_existing(self):
+        import zipimport
+        self._make_unicode_filename()
+        self.writefile('ä.py', '3')
+        z = zipimport.zipimporter(self.zipfile)
+        assert not z.is_package('ä')
+        raises(ImportError, z.is_package, 'xx')
+        assert z.get_source('ä') == '3'
+        raises(ImportError, z.get_source, 'xx')
+        assert z.get_code('ä')
+        raises(ImportError, z.get_code, 'xx')
+        mod = z.load_module('ä')
+        assert z.get_filename('ä') == mod.__file__
+        raises(ImportError, z.load_module, 'xx')
+        raises(ImportError, z.get_filename, 'xx')
+        assert z.archive == self.zipfile
 
     def test_co_filename(self):
         self.writefile('mymodule.py', """

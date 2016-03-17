@@ -213,7 +213,7 @@ class AppTestExc(object):
         le.xyz = (1, 2)
         assert le.__reduce__() == (LookupError, (1, 2, "a"), {"xyz": (1, 2)})
         ee = EnvironmentError(1, 2, "a")
-        assert ee.__reduce__() == (EnvironmentError, (1, 2, "a"))
+        assert ee.__reduce__() == (PermissionError, (1, 2, "a"))
 
     def test_setstate(self):
         fw = FutureWarning()
@@ -284,3 +284,94 @@ class AppTestExc(object):
             pass
         assert '日本2' in repr(日本2)
         """
+
+    def test_stopiteration(self):
+        assert StopIteration().value is None
+        assert StopIteration(42).value == 42
+        assert StopIteration(42, 5).value == 42
+
+    def test_importerror(self):
+        assert ImportError("message").name is None
+        assert ImportError("message").path is None
+        assert ImportError("message", name="x").name == "x"
+        assert ImportError("message", path="y").path == "y"
+        raises(TypeError, ImportError, invalid="z")
+
+    def test_blockingioerror(self):
+        args = ("a", "b", "c", "d", "e")
+        for n in range(6):
+            e = BlockingIOError(*args[:n])
+            raises(AttributeError, getattr, e, 'characters_written')
+        e = BlockingIOError("a", "b", 3)
+        assert e.characters_written == 3
+        e.characters_written = 5
+        assert e.characters_written == 5
+
+    def test_errno_mapping(self):
+        # The OSError constructor maps errnos to subclasses
+        map_lines = """
+        +-- BlockingIOError        EAGAIN, EALREADY, EWOULDBLOCK, EINPROGRESS
+        +-- ChildProcessError                                          ECHILD
+        +-- ConnectionError
+            +-- BrokenPipeError                              EPIPE, ESHUTDOWN
+            +-- ConnectionAbortedError                           ECONNABORTED
+            +-- ConnectionRefusedError                           ECONNREFUSED
+            +-- ConnectionResetError                               ECONNRESET
+        +-- FileExistsError                                            EEXIST
+        +-- FileNotFoundError                                          ENOENT
+        +-- InterruptedError                                            EINTR
+        +-- IsADirectoryError                                          EISDIR
+        +-- NotADirectoryError                                        ENOTDIR
+        +-- PermissionError                                     EACCES, EPERM
+        +-- ProcessLookupError                                          ESRCH
+        +-- TimeoutError                                            ETIMEDOUT
+        """
+        import errno, builtins
+        map = {}
+        for line in map_lines.splitlines():
+            line = line.strip('+- ')
+            if not line:
+                continue
+            excname, _, errnames = line.partition(' ')
+            for errname in filter(None, errnames.strip().split(', ')):
+                map[getattr(errno, errname)] = getattr(builtins, excname)
+        e = OSError(errno.EEXIST, "Bad file descriptor")
+        assert type(e) is FileExistsError
+        # Exhaustive testing
+        for errcode, exc in map.items():
+            e = OSError(errcode, "Some message")
+            assert type(e) is exc
+        othercodes = set(errno.errorcode) - set(map)
+        for errcode in othercodes:
+            e = OSError(errcode, "Some message")
+            assert type(e) is OSError
+
+    def test_oserror_init_overriden(self):
+        class SubOSErrorWithInit(OSError):
+            def __init__(self, message, bar):
+                self.bar = bar
+                super().__init__(message)
+
+        e = SubOSErrorWithInit("some message", "baz")
+        assert e.bar == "baz"
+        assert e.args == ("some message",)
+
+        e = SubOSErrorWithInit("some message", bar="baz")
+        assert e.bar == "baz"
+        assert e.args == ("some message",)
+
+    def test_oserror_new_overriden(self):
+        class SubOSErrorWithNew(OSError):
+            def __new__(cls, message, baz):
+                self = super().__new__(cls, message)
+                self.baz = baz
+                return self
+
+        e = SubOSErrorWithNew("some message", "baz")
+        assert e.baz == "baz"
+        assert e.args == ("some message",)
+
+        e = SubOSErrorWithNew("some message", baz="baz")
+        assert e.baz == "baz"
+        assert e.args == ("some message",)
+

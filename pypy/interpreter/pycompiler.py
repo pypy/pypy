@@ -6,7 +6,7 @@ Compiler instances are stored into 'space.getexecutioncontext().compiler'.
 from pypy.interpreter import pycode
 from pypy.interpreter.pyparser import future, pyparse, error as parseerror
 from pypy.interpreter.astcompiler import (astbuilder, codegen, consts, misc,
-                                          optimize, ast)
+                                          optimize, ast, validate)
 from pypy.interpreter.error import OperationError
 
 
@@ -106,7 +106,7 @@ class PythonAstCompiler(PyCodeCompiler):
         self.additional_rules = {}
         self.compiler_flags = self.future_flags.allowed_flags
 
-    def compile_ast(self, node, filename, mode, flags):
+    def compile_ast(self, node, filename, mode, flags, optimize=-1):
         if mode == 'eval':
             check = isinstance(node, ast.Expression)
         elif mode == 'exec':
@@ -123,7 +123,8 @@ class PythonAstCompiler(PyCodeCompiler):
         f_flags, f_lineno, f_col = fut
         future_pos = f_lineno, f_col
         flags |= f_flags
-        info = pyparse.CompileInfo(filename, mode, flags, future_pos)
+        info = pyparse.CompileInfo(filename, mode, flags, future_pos,
+                optimize=optimize)
         return self._compile_ast(node, info)
 
     def _compile_ast(self, node, info):
@@ -135,6 +136,13 @@ class PythonAstCompiler(PyCodeCompiler):
             raise OperationError(space.w_SyntaxError,
                                  e.wrap_info(space))
         return code
+
+    def validate_ast(self, node):
+        try:
+            validate.validate_ast(self.space, node)
+        except validate.ValidationError as e:
+            raise OperationError(self.space.w_ValueError,
+                                 self.space.wrap(e.message))
 
     def compile_to_ast(self, source, filename, mode, flags):
         info = pyparse.CompileInfo(filename, mode, flags)
@@ -156,8 +164,9 @@ class PythonAstCompiler(PyCodeCompiler):
                                  e.wrap_info(space))
         return mod
 
-    def compile(self, source, filename, mode, flags, hidden_applevel=False):
+    def compile(self, source, filename, mode, flags, hidden_applevel=False,
+            optimize=-1):
         info = pyparse.CompileInfo(filename, mode, flags,
-                                   hidden_applevel=hidden_applevel)
+                hidden_applevel=hidden_applevel, optimize=optimize)
         mod = self._compile_to_ast(source, info)
         return self._compile_ast(mod, info)

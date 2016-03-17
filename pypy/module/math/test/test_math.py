@@ -154,6 +154,19 @@ class AppTestMath:
         raises(ValueError, math.log1p, -1)
         raises(ValueError, math.log1p, -100)
 
+    def test_log2(self):
+        import math
+        self.ftest(math.log2(0.125), -3)
+        self.ftest(math.log2(0.5), -1)
+        self.ftest(math.log2(4), 2)
+
+    def test_log10(self):
+        import math
+        self.ftest(math.log10(0.1), -1)
+        self.ftest(math.log10(10), 1)
+        self.ftest(math.log10(100), 2)
+        self.ftest(math.log10(0.01), -2)
+
     def test_acosh(self):
         import math
         self.ftest(math.acosh(1), 0)

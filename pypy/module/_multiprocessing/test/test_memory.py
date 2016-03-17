@@ -3,10 +3,8 @@ import sys
 class AppTestMemory:
     spaceconfig = dict(usemodules=('_multiprocessing', 'mmap',
                                    '_rawffi',
-                                   'signal', 'select',
-                                   'binascii'))
-    if sys.platform != 'win32':
-        spaceconfig['usemodules'] += ('fcntl',)
+                                   'signal', 'select', 'fcntl',
+                                   'binascii', '_posixsubprocess'))
 
     def test_address_of(self):
         import _multiprocessing

@@ -27,7 +27,7 @@ USE_ZIPFILE_MODULE = sys.platform == 'win32'
 STDLIB_VER = "3"
 
 # XXX: don't hardcode the version
-POSIX_EXE = 'pypy3.2'
+POSIX_EXE = 'pypy3.3'
 
 from pypy.tool.build_cffi_imports import (create_cffi_import_libraries, 
         MissingDependenciesError, cffi_build_scripts)

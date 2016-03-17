@@ -1,5 +1,8 @@
 import unittest
-from test.support import check_syntax_error, run_unittest, gc_collect
+import weakref
+
+from test.support import (
+    check_syntax_error, cpython_only, run_unittest, gc_collect)
 
 
 class ScopeTests(unittest.TestCase):
@@ -419,8 +422,8 @@ class ScopeTests(unittest.TestCase):
 
         for i in range(100):
             f1()
-        gc_collect()
 
+        gc_collect()
         self.assertEqual(Foo.count, 0)
 
     def testClassAndGlobal(self):
@@ -497,23 +500,22 @@ class ScopeTests(unittest.TestCase):
         self.assertNotIn("x", varnames)
         self.assertIn("y", varnames)
 
+    @cpython_only
     def testLocalsClass_WithTrace(self):
         # Issue23728: after the trace function returns, the locals()
         # dictionary is used to update all variables, this used to
         # include free variables. But in class statements, free
         # variables are not inserted...
         import sys
+        self.addCleanup(sys.settrace, sys.gettrace())
         sys.settrace(lambda a,b,c:None)
-        try:
-            x = 12
+        x = 12
 
-            class C:
-                def f(self):
-                    return x
+        class C:
+            def f(self):
+                return x
 
-            self.assertEqual(x, 12) # Used to raise UnboundLocalError
-        finally:
-            sys.settrace(None)
+        self.assertEqual(x, 12) # Used to raise UnboundLocalError
 
     def testBoundAndFree(self):
         # var is bound and free in class
@@ -528,6 +530,7 @@ class ScopeTests(unittest.TestCase):
         inst = f(3)()
         self.assertEqual(inst.a, inst.m())
 
+    @cpython_only
     def testInteractionWithTraceFunc(self):
 
         import sys
@@ -544,6 +547,7 @@ class ScopeTests(unittest.TestCase):
         class TestClass:
             pass
 
+        self.addCleanup(sys.settrace, sys.gettrace())
         sys.settrace(tracer)
         adaptgetter("foo", TestClass, (1, ""))
         sys.settrace(None)
@@ -713,6 +717,37 @@ class ScopeTests(unittest.TestCase):
         def b():
             global a
 
+    @cpython_only
+    def testCellLeak(self):
+        # Issue 17927.
+        #
+        # The issue was that if self was part of a cycle involving the
+        # frame of a method call, *and* the method contained a nested
+        # function referencing self, thereby forcing 'self' into a
+        # cell, setting self to None would not be enough to break the
+        # frame -- the frame had another reference to the instance,
+        # which could not be cleared by the code running in the frame
+        # (though it will be cleared when the frame is collected).
+        # Without the lambda, setting self to None is enough to break
+        # the cycle.
+        class Tester:
+            def dig(self):
+                if 0:
+                    lambda: self
+                try:
+                    1/0
+                except Exception as exc:
+                    self.exc = exc
+                self = None  # Break the cycle
+        tester = Tester()
+        tester.dig()
+        ref = weakref.ref(tester)
+        del tester
+        self.assertIsNone(ref())
+
+    def test__Class__Global(self):
+        s = "class X:\n    global __class__\n    def f(self): super()"
+        self.assertRaises(SyntaxError, exec, s)
 
 
 def test_main():

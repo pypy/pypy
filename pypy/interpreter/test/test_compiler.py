@@ -268,10 +268,7 @@ class TestPythonAstCompiler:
 
     def test_return_in_generator(self):
         code = 'def f():\n return None\n yield 19\n'
-        e = py.test.raises(OperationError, self.compiler.compile, code, '', 'single', 0)
-        ex = e.value
-        ex.normalize_exception(self.space)
-        assert ex.match(self.space, self.space.w_SyntaxError)
+        self.compiler.compile(code, '', 'single', 0)
 
     def test_yield_in_finally(self):
         code ='def f():\n try:\n  yield 19\n finally:\n  pass\n'
@@ -729,6 +726,27 @@ with somtehing as stuff:
         else:
             py.test.fail("Did not raise")
 
+    def test_signature_kwargname(self):
+        from pypy.interpreter.pycode import cpython_code_signature
+        from pypy.interpreter.signature import Signature
+
+        def find_func(code):
+            for w_const in code.co_consts_w:
+                if isinstance(w_const, PyCode):
+                    return w_const
+
+        snippet = 'def f(a, b, m=1, n=2, **kwargs): pass'
+        containing_co = self.compiler.compile(snippet, '<string>', 'single', 0)
+        co = find_func(containing_co)
+        sig = cpython_code_signature(co)
+        assert sig == Signature(['a', 'b', 'm', 'n'], None, 'kwargs', [])
+
+        snippet = 'def f(a, b, *, m=1, n=2, **kwargs): pass'
+        containing_co = self.compiler.compile(snippet, '<string>', 'single', 0)
+        co = find_func(containing_co)
+        sig = cpython_code_signature(co)
+        assert sig == Signature(['a', 'b'], None, 'kwargs', ['m', 'n'])
+
 
 class AppTestCompiler:
 
@@ -832,7 +850,8 @@ class AppTestCompiler:
         assert getattr(T, '\u03bc') == 2
         assert getattr(T, '\u87d2') == 3
         #assert getattr(T, 'x\U000E0100') == 4
-        expected = ("['__dict__', '__doc__', '__module__', '__weakref__', "
+        expected = ("['__dict__', '__doc__', '__module__', "
+                    "'__qualname__', '__weakref__', "
         #            "x󠄀", "'ä', 'μ', '蟒']")
                     "'ä', 'μ', '蟒']")
         assert expected in str(sorted(T.__dict__.keys()))
@@ -889,6 +908,15 @@ class AppTestCompiler:
             assert co1 == co2
             # the code object's filename comes from the second compilation step
             assert co2.co_filename == '%s3' % fname
+
+    def test_invalid_ast(self):
+        import _ast
+        delete = _ast.Delete([])
+        delete.lineno = 0
+        delete.col_offset = 0
+        mod = _ast.Module([delete])
+        exc = raises(ValueError, compile, mod, 'filename', 'exec')
+        assert str(exc.value) == "empty targets on Delete"
 
 
 

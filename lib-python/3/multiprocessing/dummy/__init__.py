@@ -35,7 +35,7 @@
 __all__ = [
     'Process', 'current_process', 'active_children', 'freeze_support',
     'Lock', 'RLock', 'Semaphore', 'BoundedSemaphore', 'Condition',
-    'Event', 'Queue', 'Manager', 'Pipe', 'Pool', 'JoinableQueue'
+    'Event', 'Barrier', 'Queue', 'Manager', 'Pipe', 'Pool', 'JoinableQueue'
     ]
 
 #
@@ -46,12 +46,10 @@ import threading
 import sys
 import weakref
 import array
-import itertools
 
-from multiprocessing import TimeoutError, cpu_count
 from multiprocessing.dummy.connection import Pipe
 from threading import Lock, RLock, Semaphore, BoundedSemaphore
-from threading import Event
+from threading import Event, Condition, Barrier
 from queue import Queue
 
 #
@@ -80,17 +78,6 @@ class DummyProcess(threading.Thread):
             return 0
         else:
             return None
-
-#
-#
-#
-
-class Condition(threading._Condition):
-    # XXX
-    if sys.version_info < (3, 0):
-        notify_all = threading._Condition.notify_all.__func__
-    else:
-        notify_all = threading._Condition.notify_all
 
 #
 #
