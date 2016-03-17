@@ -22,7 +22,8 @@ from pypy.module.micronumpy.converters import (
 from pypy.module.micronumpy.flagsobj import W_FlagsObject
 from pypy.module.micronumpy.strides import (
     get_shape_from_iterable, shape_agreement, shape_agreement_multiple,
-    is_c_contiguous, is_f_contiguous, calc_strides, new_view)
+    is_c_contiguous, is_f_contiguous, calc_strides, new_view, BooleanChunk,
+    SliceChunk)
 from pypy.module.micronumpy.casting import can_cast_array
 from pypy.module.micronumpy.descriptor import get_dtype_cache
 
@@ -204,7 +205,13 @@ class __extend__(W_NDimArray):
         if iter_shape is None:
             # w_index is a list of slices, return a view
             chunks = self.implementation._prepare_slice_args(space, w_index)
-            return new_view(space, self, chunks)
+            copy = False
+            if isinstance(chunks[0], BooleanChunk):
+                copy = True
+            w_ret = new_view(space, self, chunks)
+            if copy:
+                w_ret = w_ret.descr_copy(space, space.wrap(w_ret.get_order()))
+            return w_ret
         shape = res_shape + self.get_shape()[len(indexes):]
         w_res = W_NDimArray.from_shape(space, shape, self.get_dtype(),
                                        self.get_order(), w_instance=self)
@@ -220,8 +227,24 @@ class __extend__(W_NDimArray):
         if iter_shape is None:
             # w_index is a list of slices
             chunks = self.implementation._prepare_slice_args(space, w_index)
-            view = new_view(space, self, chunks)
-            view.implementation.setslice(space, val_arr)
+            dim = -1
+            view = self
+            for i, c in enumerate(chunks):
+                if isinstance(c, BooleanChunk):
+                    dim = i
+                    idx = c.w_idx
+                    chunks.pop(i)
+                    chunks.insert(0, SliceChunk(space.newslice(space.wrap(0), 
+                                 space.w_None, space.w_None)))
+                    break
+            if dim > 0:
+                view = self.implementation.swapaxes(space, self, 0, dim) 
+            if dim >= 0:
+                view = new_view(space, self, chunks)
+                view.setitem_filter(space, idx, val_arr)
+            else:
+                view = new_view(space, self, chunks)
+                view.implementation.setslice(space, val_arr)
             return
         if support.product(iter_shape) == 0:
             return
@@ -244,6 +267,11 @@ class __extend__(W_NDimArray):
                         "interpreted as a valid boolean index")
         elif isinstance(w_idx, boxes.W_GenericBox):
             w_ret = self.getitem_array_int(space, w_idx)
+
+            if isinstance(w_idx, boxes.W_IntegerBox):
+                # if w_idx is integer then getitem_array_int must contain a single value and we must return it.
+                # Get 0-th element of the w_ret.
+                w_ret = w_ret.implementation.descr_getitem(space, self, space.wrap(0))
         else:
             try:
                 w_ret = self.implementation.descr_getitem(space, self, w_idx)
@@ -534,8 +562,12 @@ class __extend__(W_NDimArray):
             return self.get_scalar_value().item(space)
         l_w = []
         for i in range(self.get_shape()[0]):
-            l_w.append(space.call_method(self.descr_getitem(space,
-                                         space.wrap(i)), "tolist"))
+            item_w = self.descr_getitem(space, space.wrap(i))
+            if (isinstance(item_w, W_NDimArray) or 
+                    isinstance(item_w, boxes.W_GenericBox)):
+                l_w.append(space.call_method(item_w, "tolist"))
+            else:
+                l_w.append(item_w)
         return space.newlist(l_w)
 
     def descr_ravel(self, space, w_order=None):
@@ -910,6 +942,10 @@ class __extend__(W_NDimArray):
         if self.is_scalar():
             return
         return self.implementation.sort(space, w_axis, w_order)
+
+    def descr_partition(self, space, __args__):
+        return get_appbridge_cache(space).call_method(
+            space, 'numpy.core._partition_use', 'partition', __args__.prepend(self))
 
     def descr_squeeze(self, space, w_axis=None):
         cur_shape = self.get_shape()
@@ -1635,6 +1671,7 @@ W_NDimArray.typedef = TypeDef("numpy.ndarray",
 
     argsort  = interp2app(W_NDimArray.descr_argsort),
     sort  = interp2app(W_NDimArray.descr_sort),
+    partition  = interp2app(W_NDimArray.descr_partition),
     astype   = interp2app(W_NDimArray.descr_astype),
     base     = GetSetProperty(W_NDimArray.descr_get_base),
     byteswap = interp2app(W_NDimArray.descr_byteswap),

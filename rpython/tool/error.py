@@ -8,11 +8,7 @@ import py
 
 from rpython.flowspace.model import Variable
 from rpython.rlib import jit
-from rpython.tool.ansi_print import ansi_log
 
-
-log = py.log.Producer("error")
-py.log.setconsumer("error", ansi_log)
 
 SHOW_TRACEBACK = False
 SHOW_ANNOTATIONS = True

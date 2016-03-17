@@ -71,8 +71,8 @@ def where(space, w_arr, w_x=None, w_y=None):
     """
     if space.is_none(w_y):
         if space.is_none(w_x):
-            raise OperationError(space.w_NotImplementedError, space.wrap(
-                "1-arg where unsupported right now"))
+            arr = convert_to_array(space, w_arr)
+            return arr.descr_nonzero(space)
         raise OperationError(space.w_ValueError, space.wrap(
             "Where should be called with either 1 or 3 arguments"))
     if space.is_none(w_x):

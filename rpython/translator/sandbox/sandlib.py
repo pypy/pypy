@@ -15,21 +15,8 @@ WIN32 = os.name == "nt"
 
 def create_log():
     """Make and return a log for the sandbox to use, if needed."""
-    # These imports are local to avoid importing pypy if we don't need to.
-    from rpython.tool.ansi_print import AnsiLog
-
-    class MyAnsiLog(AnsiLog):
-        KW_TO_COLOR = {
-            'call': ((34,), False),
-            'result': ((34,), False),
-            'exception': ((34,), False),
-            'vpath': ((35,), False),
-            'timeout': ((1, 31), True),
-            }
-
-    log = py.log.Producer("sandlib")
-    py.log.setconsumer("sandlib", MyAnsiLog())
-    return log
+    from rpython.tool.ansi_print import AnsiLogger
+    return AnsiLogger("sandlib")
 
 # Note: we use lib_pypy/marshal.py instead of the built-in marshal
 # for two reasons.  The built-in module could be made to segfault
@@ -539,6 +526,9 @@ class VirtualizedSandboxedProc(SandboxedProc):
     def do_ll_os__ll_os_listdir(self, vpathname):
         node = self.get_node(vpathname)
         return node.keys()
+
+    def do_ll_os__ll_os_unlink(self, vpathname):
+        raise OSError(errno.EPERM, "write access denied")
 
     def do_ll_os__ll_os_getuid(self):
         return UID

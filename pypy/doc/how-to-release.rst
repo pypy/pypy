@@ -76,5 +76,4 @@ Release Steps
 
 * add a tag on the pypy/jitviewer repo that corresponds to pypy release
 * add a tag on the codespeed web site that corresponds to pypy release
-* update the version number in {rpython,pypy}/doc/conf.py.
 * revise versioning at https://readthedocs.org/projects/pypy

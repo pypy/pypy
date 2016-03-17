@@ -9,7 +9,7 @@ Taken from http://twistedmatrix.com/trac/browser/sandbox/exarkun/force-builds.py
 modified by PyPy team
 """
 
-import os, sys, urllib
+import os, sys, urllib, subprocess
 
 from twisted.internet import reactor, defer
 from twisted.python import log
@@ -83,4 +83,9 @@ if __name__ == '__main__':
     (options, args) = parser.parse_args()
     if  not options.branch:
         parser.error("branch option required")
+    try:
+        subprocess.check_call(['hg','id','-r', options.branch])
+    except subprocess.CalledProcessError:
+        print 'branch',  options.branch, 'could not be found in local repository'
+        sys.exit(-1) 
     main(options.branch, options.server, user=options.user)

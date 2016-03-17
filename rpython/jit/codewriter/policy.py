@@ -1,10 +1,8 @@
 from rpython.jit.metainterp import history
 from rpython.tool.udir import udir
+from rpython.tool.ansi_print import AnsiLogger
 
-import py
-from rpython.tool.ansi_print import ansi_log
-log = py.log.Producer('jitcodewriter')
-py.log.setconsumer('jitcodewriter', ansi_log)
+log = AnsiLogger('jitcodewriter')
 
 
 class JitPolicy(object):

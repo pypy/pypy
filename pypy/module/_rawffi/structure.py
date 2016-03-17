@@ -18,6 +18,9 @@ from rpython.rlib import clibffi, rgc
 from rpython.rlib.rarithmetic import intmask, signedtype, r_uint, \
     r_ulonglong
 from rpython.rtyper.lltypesystem import lltype, rffi
+import sys
+
+IS_BIG_ENDIAN = sys.byteorder == 'big'
 
 
 
@@ -114,20 +117,32 @@ def size_alignment_pos(fields, is_union=False, pack=0):
                 size += intmask(fieldsize)
                 bitsizes.append(fieldsize)
             elif field_type == NEW_BITFIELD:
-                bitsizes.append((bitsize << 16) + bitoffset)
+                if IS_BIG_ENDIAN:
+                    off = last_size - bitoffset - bitsize
+                else:
+                    off = bitoffset
+                bitsizes.append((bitsize << 16) + off)
                 bitoffset = bitsize
                 size = round_up(size, fieldalignment)
                 pos.append(size)
                 size += fieldsize
             elif field_type == CONT_BITFIELD:
-                bitsizes.append((bitsize << 16) + bitoffset)
+                if IS_BIG_ENDIAN:
+                    off = last_size - bitoffset - bitsize
+                else:
+                    off = bitoffset
+                bitsizes.append((bitsize << 16) + off)
                 bitoffset += bitsize
                 # offset is already updated for the NEXT field
                 pos.append(size - fieldsize)
             elif field_type == EXPAND_BITFIELD:
                 size += fieldsize - last_size / 8
                 last_size = fieldsize * 8
-                bitsizes.append((bitsize << 16) + bitoffset)
+                if IS_BIG_ENDIAN:
+                    off = last_size - bitoffset - bitsize
+                else:
+                    off = bitoffset
+                bitsizes.append((bitsize << 16) + off)
                 bitoffset += bitsize
                 # offset is already updated for the NEXT field
                 pos.append(size - fieldsize)

@@ -10,10 +10,6 @@ from rpython.jit.backend.x86 import regloc
 
 import sys
 
-from rpython.tool.ansi_print import ansi_log
-log = py.log.Producer('jitbackend')
-py.log.setconsumer('jitbackend', ansi_log)
-
 
 class AbstractX86CPU(AbstractLLCPU):
     debug = True

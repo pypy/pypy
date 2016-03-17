@@ -16,7 +16,7 @@ from pypy.interpreter.typedef import TypeDef
 from pypy.objspace.std import newformat
 from pypy.objspace.std.intobject import W_AbstractIntObject
 from pypy.objspace.std.util import (
-    BINARY_OPS, CMP_OPS, COMMUTATIVE_OPS, IDTAG_LONG, wrap_parsestringerror)
+    BINARY_OPS, CMP_OPS, COMMUTATIVE_OPS, IDTAG_LONG, IDTAG_SHIFT, wrap_parsestringerror)
 
 
 def delegate_other(func):
@@ -45,7 +45,7 @@ class W_AbstractLongObject(W_Root):
         if self.user_overridden_class:
             return None
         b = space.bigint_w(self)
-        b = b.lshift(3).int_or_(IDTAG_LONG)
+        b = b.lshift(IDTAG_SHIFT).int_or_(IDTAG_LONG)
         return space.newlong_from_rbigint(b)
 
     def unwrap(self, space):
