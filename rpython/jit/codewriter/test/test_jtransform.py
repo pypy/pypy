@@ -1024,7 +1024,8 @@ def test_getfield_gc_greenfield():
     v1 = varoftype(lltype.Ptr(S))
     v2 = varoftype(lltype.Char)
     op = SpaceOperation('getfield', [v1, Constant('x', lltype.Void)], v2)
-    op1 = Transformer(FakeCPU(), FakeCC()).rewrite_operation(op)
+    op0, op1 = Transformer(FakeCPU(), FakeCC()).rewrite_operation(op)
+    assert op0.opname == '-live-'
     assert op1.opname == 'getfield_gc_i_greenfield'
     assert op1.args == [v1, ('fielddescr', S, 'x')]
     assert op1.result == v2
