@@ -651,6 +651,9 @@ class FrontendOp(AbstractResOp):
     def get_position(self):
         return self.position
 
+    def __repr__(self):
+        return '%s(%s)' % (self.__class__.__name__, self.position)
+
 class IntFrontendOp(IntOp, FrontendOp):
     _attrs_ = ('position', '_resint')
 

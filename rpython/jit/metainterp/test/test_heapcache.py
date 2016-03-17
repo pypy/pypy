@@ -3,11 +3,6 @@ from rpython.jit.metainterp.resoperation import rop, InputArgInt
 from rpython.jit.metainterp.history import ConstInt, BasicFailDescr
 from rpython.jit.metainterp.history import RefFrontendOp
 
-box1 = "box1"
-box2 = "box2"
-box3 = "box3"
-box4 = "box4"
-box5 = "box5"
 lengthbox1 = object()
 lengthbox2 = object()
 lengthbox3 = object()
@@ -89,18 +84,23 @@ class TestHeapCache(object):
 
     def test_nonstandard_virtualizable(self):
         h = HeapCache()
-        assert not h.is_nonstandard_virtualizable(1)
-        assert not h.is_nonstandard_virtualizable(2)
-        h.nonstandard_virtualizables_now_known(1)
-        assert h.is_nonstandard_virtualizable(1)
-        assert not h.is_nonstandard_virtualizable(2)
+        box1 = RefFrontendOp(1)
+        box2 = RefFrontendOp(2)
+        assert not h.is_nonstandard_virtualizable(box1)
+        assert not h.is_nonstandard_virtualizable(box2)
+        h.nonstandard_virtualizables_now_known(box1)
+        assert h.is_nonstandard_virtualizable(box1)
+        assert not h.is_nonstandard_virtualizable(box2)
 
         h.reset()
-        assert not h.is_nonstandard_virtualizable(1)
-        assert not h.is_nonstandard_virtualizable(2)
+        assert not h.is_nonstandard_virtualizable(box1)
+        assert not h.is_nonstandard_virtualizable(box2)
 
     def test_heapcache_fields(self):
         h = HeapCache()
+        box1 = RefFrontendOp(1)
+        box2 = RefFrontendOp(2)
+        box3 = RefFrontendOp(3)
         assert h.getfield(box1, descr1) is None
         assert h.getfield(box1, descr2) is None
         h.setfield(box1, box2, descr1)

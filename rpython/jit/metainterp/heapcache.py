@@ -5,9 +5,11 @@ from rpython.rlib.objectmodel import always_inline
 
 
 # RefFrontendOp._heapc_flags:
-HF_LIKELY_VIRTUAL = 0x01
-HF_KNOWN_CLASS    = 0x02
-HF_KNOWN_NULLITY  = 0x04
+HF_LIKELY_VIRTUAL  = 0x01
+HF_KNOWN_CLASS     = 0x02
+HF_KNOWN_NULLITY   = 0x04
+HF_SEEN_ALLOCATION = 0x08   # did we see the allocation during tracing?
+HF_NONSTD_VABLE    = 0x10
 
 @always_inline
 def add_flags(ref_frontend_op, flags):
@@ -33,10 +35,7 @@ class HeapCacheValue(object):
         self.reset_keep_likely_virtual()
 
     def reset_keep_likely_virtual(self):
-        # did we see the allocation during tracing?
-        self.seen_allocation = False
         self.is_unescaped = False
-        self.nonstandard_virtualizable = False
         self.length = None
         self.dependencies = None
 
@@ -45,12 +44,13 @@ class HeapCacheValue(object):
 
 
 class CacheEntry(object):
-    def __init__(self):
+    def __init__(self, heapcache):
         # both are {from_value: to_value} dicts
         # the first is for boxes where we did not see the allocation, the
         # second for anything else. the reason that distinction makes sense is
         # because if we saw the allocation, we know it cannot alias with
         # anything else where we saw the allocation.
+        self.heapcache = heapcache
         self.cache_anything = {}
         self.cache_seen_allocation = {}
 
@@ -59,21 +59,26 @@ class CacheEntry(object):
             self.cache_seen_allocation.clear()
         self.cache_anything.clear()
 
-    def _getdict(self, value):
-        if value.seen_allocation:
+    def _seen_alloc(self, ref_box):
+        assert isinstance(ref_box, RefFrontendOp)
+        return self.heapcache._check_flag(ref_box, HF_SEEN_ALLOCATION)
+
+    def _getdict(self, seen_alloc):
+        if seen_alloc:
             return self.cache_seen_allocation
         else:
             return self.cache_anything
 
-    def do_write_with_aliasing(self, value, fieldvalue):
-        self._clear_cache_on_write(value.seen_allocation)
-        self._getdict(value)[value] = fieldvalue
+    def do_write_with_aliasing(self, ref_box, fieldbox):
+        seen_alloc = self._seen_alloc(ref_box)
+        self._clear_cache_on_write(seen_alloc)
+        self._getdict(seen_alloc)[ref_box] = fieldbox
 
-    def read(self, value):
-        return self._getdict(value).get(value, None)
+    def read(self, ref_box):
+        return self._getdict(self._seen_alloc(ref_box)).get(ref_box, None)
 
-    def read_now_known(self, value, fieldvalue):
-        self._getdict(value)[value] = fieldvalue
+    def read_now_known(self, ref_box, fieldbox):
+        self._getdict(self._seen_alloc(ref_box))[ref_box] = fieldbox
 
     def invalidate_unescaped(self):
         self._invalidate_unescaped(self.cache_anything)
@@ -86,22 +91,16 @@ class CacheEntry(object):
 
 
 class FieldUpdater(object):
-    def __init__(self, heapcache, value, cache, fieldvalue):
-        self.heapcache = heapcache
-        self.value = value
+    def __init__(self, ref_box, cache, fieldbox):
+        self.ref_box = ref_box
         self.cache = cache
-        if fieldvalue is not None:
-            self.currfieldbox = fieldvalue.box
-        else:
-            self.currfieldbox = None
+        self.currfieldbox = fieldbox     # <= read directly from pyjitpl.py
 
     def getfield_now_known(self, fieldbox):
-        fieldvalue = self.heapcache.getvalue(fieldbox)
-        self.cache.read_now_known(self.value, fieldvalue)
+        self.cache.read_now_known(self.ref_box, fieldbox)
 
     def setfield(self, fieldbox):
-        fieldvalue = self.heapcache.getvalue(fieldbox)
-        self.cache.do_write_with_aliasing(self.value, fieldvalue)
+        self.cache.do_write_with_aliasing(self.ref_box, fieldbox)
 
 
 class HeapCache(object):
@@ -329,34 +328,33 @@ class HeapCache(object):
             return
         self.reset_keep_likely_virtuals()
 
-    def is_class_known(self, box):
+    def _check_flag(self, box, flag):
         return (isinstance(box, RefFrontendOp) and
                     self.test_head_version(box) and
-                    test_flags(box, HF_KNOWN_CLASS))
+                    test_flags(box, flag))
+
+    def _set_flag(self, box, flag):
+        assert isinstance(box, RefFrontendOp)
+        self.update_version(box)
+        add_flags(box, flag)
+
+    def is_class_known(self, box):
+        return self._check_flag(box, HF_KNOWN_CLASS)
 
     def class_now_known(self, box):
-        assert isinstance(box, RefFrontendOp)
-        self.update_version(box)
-        add_flags(box, HF_KNOWN_CLASS)
+        self._set_flag(box, HF_KNOWN_CLASS)
 
     def is_nullity_known(self, box):
-        return (isinstance(box, RefFrontendOp) and
-                    self.test_head_version(box) and
-                    test_flags(box, HF_KNOWN_NULLITY))
+        return self._check_flag(box, HF_KNOWN_NULLITY)
 
     def nullity_now_known(self, box):
-        assert isinstance(box, RefFrontendOp)
-        self.update_version(box)
-        add_flags(box, HF_KNOWN_NULLITY)
+        self._set_flag(box, HF_KNOWN_NULLITY)
 
     def is_nonstandard_virtualizable(self, box):
-        value = self.getvalue(box, create=False)
-        if value:
-            return value.nonstandard_virtualizable
-        return False
+        return self._check_flag(box, HF_NONSTD_VABLE)
 
     def nonstandard_virtualizables_now_known(self, box):
-        self.getvalue(box).nonstandard_virtualizable = True
+        self._set_flag(box, HF_NONSTD_VABLE)
 
     def is_unescaped(self, box):
         value = self.getvalue(box, create=False)
@@ -372,34 +370,29 @@ class HeapCache(object):
     def new(self, box):
         assert isinstance(box, RefFrontendOp)
         self.update_version(box)
-        add_flags(box, HF_LIKELY_VIRTUAL)
+        add_flags(box, HF_LIKELY_VIRTUAL | HF_SEEN_ALLOCATION)
         value = self.getvalue(box)
         value.is_unescaped = True
-        value.seen_allocation = True
 
     def new_array(self, box, lengthbox):
         self.new(box)
         self.arraylen_now_known(box, lengthbox)
 
     def getfield(self, box, descr):
-        value = self.getvalue(box, create=False)
-        if value:
-            cache = self.heap_cache.get(descr, None)
-            if cache:
-                tovalue = cache.read(value)
-                if tovalue:
-                    return tovalue.box
+        cache = self.heap_cache.get(descr, None)
+        if cache:
+            return cache.read(box)
         return None
 
     def get_field_updater(self, box, descr):
-        value = self.getvalue(box)
+        assert isinstance(box, RefFrontendOp)
         cache = self.heap_cache.get(descr, None)
         if cache is None:
-            cache = self.heap_cache[descr] = CacheEntry()
-            fieldvalue = None
+            cache = self.heap_cache[descr] = CacheEntry(self)
+            fieldbox = None
         else:
-            fieldvalue = cache.read(value)
-        return FieldUpdater(self, value, cache, fieldvalue)
+            fieldbox = cache.read(box)
+        return FieldUpdater(box, cache, fieldbox)
 
     def getfield_now_known(self, box, descr, fieldbox):
         upd = self.get_field_updater(box, descr)
@@ -432,7 +425,7 @@ class HeapCache(object):
         cache = self.heap_array_cache.setdefault(descr, {})
         indexcache = cache.get(index, None)
         if indexcache is None:
-            cache[index] = indexcache = CacheEntry()
+            cache[index] = indexcache = CacheEntry(self)
         return indexcache
 
 
