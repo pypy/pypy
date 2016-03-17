@@ -667,10 +667,12 @@ class FloatFrontendOp(FloatOp, FrontendOp):
         self._resfloat = other.getfloatstorage()
 
 class RefFrontendOp(RefOp, FrontendOp):
-    _attrs_ = ('position', '_resref', '_heapc_flags', '_heapc_version')
+    _attrs_ = ('position', '_resref',
+               '_heapc_flags', '_heapc_version', '_heapc_deps')
 
     _heapc_flags = r_uint32(0)
     _heapc_version = r_uint32(0)
+    _heapc_deps = None
 
     def copy_value_from(self, other):
         self._resref = other.getref_base()

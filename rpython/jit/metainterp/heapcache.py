@@ -30,19 +30,6 @@ def test_flags(ref_frontend_op, flags):
     return bool(f & r_uint(flags))
 
 
-class HeapCacheValue(object):
-    def __init__(self, box):
-        self.box = box
-        self.reset_keep_likely_virtual()
-
-    def reset_keep_likely_virtual(self):
-        self.length = None
-        self.dependencies = None
-
-    def __repr__(self):
-        return 'HeapCacheValue(%s)' % (self.box, )
-
-
 class CacheEntry(object):
     def __init__(self, heapcache):
         # both are {from_value: to_value} dicts
@@ -162,6 +149,7 @@ class HeapCache(object):
                 f |= HF_LIKELY_VIRTUAL
             ref_frontend_op._heapc_flags = r_uint32(f)
             ref_frontend_op._heapc_version = r_uint32(self.head_version)
+            ref_frontend_op._heapc_deps = None
 
     def getvalue(self, box, create=True):
         value = self.values.get(box, None)
@@ -327,6 +315,14 @@ class HeapCache(object):
             return
         self.reset_keep_likely_virtuals()
 
+    def _get_deps(self, box):
+        if not isinstance(box, RefFrontendOp):
+            return None
+        self.update_version(box)
+        if box._heapc_deps is None:
+            box._heapc_deps = [None]
+        return box._heapc_deps
+
     def _check_flag(self, box, flag):
         return (isinstance(box, RefFrontendOp) and
                     self.test_head_version(box) and
@@ -420,7 +416,6 @@ class HeapCache(object):
 
 
     def getarrayitem_now_known(self, box, indexbox, fieldbox, descr):
-        value = self.getvalue(box)
         indexcache = self._get_or_make_array_cache_entry(indexbox, descr)
         if indexcache:
             indexcache.read_now_known(box, fieldbox)
@@ -436,14 +431,19 @@ class HeapCache(object):
             indexcache.do_write_with_aliasing(box, fieldbox)
 
     def arraylen(self, box):
-        value = self.getvalue(box, create=False)
-        if value and value.length:
-            return value.length.box
+        if (isinstance(box, RefFrontendOp) and
+            self.test_head_version(box) and
+            box._heapc_deps is not None):
+            return box._heapc_deps[0]
         return None
 
     def arraylen_now_known(self, box, lengthbox):
-        value = self.getvalue(box)
-        value.length = self.getvalue(lengthbox)
+        # we store in '_heapc_deps' a list of boxes: the *first* box is
+        # the known length or None, and the remaining boxes are the
+        # regular dependencies.
+        deps = self._get_deps(box)
+        assert deps is not None
+        deps[0] = lengthbox
 
     def replace_box(self, oldbox, newbox):
         value = self.getvalue(oldbox, create=False)
