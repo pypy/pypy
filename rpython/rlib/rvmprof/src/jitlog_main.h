@@ -29,14 +29,13 @@ void jitlog_try_init_using_env(void) {
         }
         if (!colon) {
             /* JITLOG=+filename (or just 'filename') --- profiling version */
-            debug_profile = 1;
-            pypy_setup_profiling();
+            //pypy_setup_profiling();
         } else {
             /* JITLOG=prefix:filename --- conditional logging */
             int n = colon - filename;
             jitlog_prefix = malloc(n + 1);
             memcpy(jitlog_prefix, filename, n);
-            debug_prefix[n] = '\0';
+            //debug_prefix[n] = '\0';
             filename = colon + 1;
         }
         escape = strstr(filename, "%d");
@@ -55,7 +54,7 @@ void jitlog_try_init_using_env(void) {
         if (strcmp(filename, "-") != 0) {
             // mode is 775
             mode_t mode = S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH;
-            jitlog_fd = open(filename, O_WRONLY | O_CREATE, mode);
+            jitlog_fd = open(filename, O_WRONLY | O_CREAT, mode);
         }
 
         if (escape) {
@@ -70,7 +69,7 @@ void jitlog_try_init_using_env(void) {
       }
     }
     if (!jitlog_fd) {
-        jitlog_fd = stderr;
+        jitlog_fd = 2;
         // TODO
         //if (isatty(2))
         //  {
@@ -84,7 +83,7 @@ void jitlog_try_init_using_env(void) {
 }
 
 RPY_EXTERN
-char *jitlog_init(int fd, char * prefix)
+char *jitlog_init(int fd, const char * prefix)
 {
     jitlog_fd = fd;
     jitlog_prefix = strdup(prefix);
@@ -92,15 +91,32 @@ char *jitlog_init(int fd, char * prefix)
 }
 
 RPY_EXTERN
-void jitlog_close(int close_fd)
+void jitlog_teardown()
 {
+    jitlog_ready = 0;
     if (jitlog_fd == -1) {
         return;
     }
-    if (close_fd) {
-        close(jitlog_fd);
-    }
+    // close the jitlog file descriptor
+    close(jitlog_fd);
     jitlog_fd = -1;
-    free(jitlog_prefix);
+    // free the prefix
+    if (jitlog_prefix != NULL) {
+        free(jitlog_prefix);
+    }
 }
 
+RPY_EXTERN
+void jitlog_write_marked(int tag, char * text, int length)
+{
+    if (!jitlog_ready) { return; }
+
+    char header[5];
+    header[0] = tag;
+    header[1] = (length >> 24) & 0xff;
+    header[2] = (length >> 16) & 0xff;
+    header[3] = (length >> 8) & 0xff;
+    header[4] = length & 0xff;
+    write(jitlog_fd, (const char*)&header, 5);
+    write(jitlog_fd, text, length);
+}

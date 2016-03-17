@@ -56,12 +56,18 @@ def setup():
                                             compilation_info=eci,
                                             _nowrapper=True)
 
-    jitlog_init = rffi.llexternal("jitlog_init", [rffi.INT, rffi.CHARP],
-                                  rffi.CHARP, compilation_info=eci,
-                                  save_err=rffi.RFFI_SAVE_ERRNO)
-    jitlog_init = rffi.llexternal("jitlog_write_marker", [rffi.INT, rffi.CHARP],
-                                  rffi.CHARP, compilation_info=eci,
-                                  save_err=rffi.RFFI_SAVE_ERRNO)
+    # jit log functions
+    jitlog_init = rffi.llexternal("jitlog_init", [rffi.INT, rffi.CCHARP],
+                                  rffi.CCHARP, compilation_info=eci)
+    jitlog_try_init_using_env = rffi.llexternal("jitlog_try_init_using_env",
+                                  [], lltype.Void, compilation_info=eci)
+    jitlog_write_marked = rffi.llexternal("jitlog_write_marked",
+                                  [rffi.INT, rffi.CCHARP, rffi.INT],
+                                  lltype.Void, compilation_info=eci)
+    jitlog_filter = rffi.llexternal("jitlog_filter", [rffi.INT], rffi.INT,
+                                    compilation_info=eci)
+    jitlog_teardown = rffi.llexternal("jitlog_teardown", [], lltype.Void,
+                                      compilation_info=eci)
 
     return CInterface(locals())
 

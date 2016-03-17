@@ -1,13 +1,17 @@
 from rpython.rlib.rvmprof.rvmprof import cintf
+from rpython.jit.metainterp import resoperation as resoperations
+import struct
 
 class VMProfJitLogger(object):
 
-    MARK_BLOCK_ASM = 0x10
+    MARK_TRACED = 0x10
+    MARK_ASM = 0x11
 
-    MARK_INPUT_ARGS = 0x11
-    MARK_RESOP = 0x12
+    MARK_INPUT_ARGS = 0x12
+    MARK_RESOP = 0x13
 
-    MARK_RESOP_META = 0x13
+    MARK_RESOP_META = 0x14
+    MARK_RESOP = 0x15
 
     def __init__(self):
         self.cintf = cintf.setup()
@@ -16,31 +20,31 @@ class VMProfJitLogger(object):
         self.cintf.jitlog_try_init_using_env()
         if self.cintf.jitlog_filter(0x0):
             return
-        self.cintf.jitlog_write_marker(MARK_RESOP_META);
-        count = len(resoperation.opname)
-        self.cintf.jitlog_write_int(count)
-        for opnum, opname in resoperation.opname.items():
-            self.cintf.write_marker(opnum)
-            self.cintf.write_string(opname)
+        count = len(resoperations.opname)
+        mark = VMProfJitLogger.MARK_RESOP_META
+        for opnum, opname in resoperations.opname.items():
+            line = struct.pack(">h", opnum) + opname.lower()
+            self.write_marked(mark, line)
+
+    def teardown(self):
+        self.cintf.jitlog_teardown()
+
+    def write_marked(self, mark, line):
+        self.cintf.jitlog_write_marked(mark, line, len(line))
 
     def log_trace(self, tag, args, ops,
                   faildescr=None, ops_offset={}):
         if self.cintf.jitlog_filter(tag):
             return
         assert isinstance(tag, int)
-        self.cintf.jitlog_write_marker(tag);
 
         # input args
-        self.cintf.jitlog_write_marker(MARK_INPUT_ARGS);
         str_args = [arg.repr_short(arg._repr_memo) for arg in args]
-        self.cintf.jitlog_write_string(','.join(str_args))
+        self.write_marked(self.MARK_INPUT_ARGS, ','.join(str_args))
 
-        self.cintf.jitlog_write_int(len(ops))
         for i,op in enumerate(ops):
-            self.cintf.jitlog_write_marker(MARK_RESOP)
-            self.cintf.jitlog_write_marker(op.getopnum())
             str_args = [arg.repr_short(arg._repr_memo) for arg in op.getarglist()]
             descr = op.getdescr()
             if descr:
                 str_args += ['descr='+descr]
-            self.cintf.jitlog_write_string(','.join(str_args))
+            self.write_marked(self.MARK_RESOP, ','.join(args))
