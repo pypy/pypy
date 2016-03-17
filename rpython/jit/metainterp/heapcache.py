@@ -7,6 +7,7 @@ from rpython.rlib.objectmodel import always_inline
 # RefFrontendOp._heapc_flags:
 HF_LIKELY_VIRTUAL = 0x01
 HF_KNOWN_CLASS    = 0x02
+HF_KNOWN_NULLITY  = 0x04
 
 @always_inline
 def add_flags(ref_frontend_op, flags):
@@ -32,7 +33,6 @@ class HeapCacheValue(object):
         self.reset_keep_likely_virtual()
 
     def reset_keep_likely_virtual(self):
-        self.known_nullity = False
         # did we see the allocation during tracing?
         self.seen_allocation = False
         self.is_unescaped = False
@@ -340,13 +340,14 @@ class HeapCache(object):
         add_flags(box, HF_KNOWN_CLASS)
 
     def is_nullity_known(self, box):
-        value = self.getvalue(box, create=False)
-        if value:
-            return value.known_nullity
-        return False
+        return (isinstance(box, RefFrontendOp) and
+                    self.test_head_version(box) and
+                    test_flags(box, HF_KNOWN_NULLITY))
 
     def nullity_now_known(self, box):
-        self.getvalue(box).known_nullity = True
+        assert isinstance(box, RefFrontendOp)
+        self.update_version(box)
+        add_flags(box, HF_KNOWN_NULLITY)
 
     def is_nonstandard_virtualizable(self, box):
         value = self.getvalue(box, create=False)
