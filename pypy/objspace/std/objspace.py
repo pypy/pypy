@@ -324,6 +324,9 @@ class StdObjSpace(ObjSpace):
         return w_obj.getclass(self)
 
     def lookup(self, w_obj, name):
+        if self.config.objspace.std.withmapdict:
+            from pypy.objspace.std.mapdict import mapdict_lookup
+            return mapdict_lookup(self, w_obj, name)
         w_type = self.type(w_obj)
         return w_type.lookup(name)
     lookup._annspecialcase_ = 'specialize:lookup'

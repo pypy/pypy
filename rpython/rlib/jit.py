@@ -128,7 +128,7 @@ def promote(x):
 def promote_string(x):
     return hint(x, promote_string=True)
 
-def elidable_compatible():
+def elidable_compatible(quasi_immut_field_name_for_second_arg=None):
     """ func must be a function of at least one argument. That first argument
     must be pointer-like (XXX for now?) The behaviour of @elidable_compatible
     is as follows:
@@ -151,14 +151,16 @@ def elidable_compatible():
     single value res. If func is an injection, there is no reason to not simply
     use a regular promote.
 
-    XXX what happens if the *args are not constant?
     XXX we need a better name
+    XXX document quasi_immut_field_name_for_second_arg
     """
     def decorate(func):
         elidable(func)
         def wrapped_func(x, *args):
             assert x is not None
             x = hint(x, promote_compatible=True)
+            if quasi_immut_field_name_for_second_arg is not None:
+                return func(x, getattr(x, quasi_immut_field_name_for_second_arg), *args)
             return func(x, *args)
         return wrapped_func
     return decorate

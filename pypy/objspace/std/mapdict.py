@@ -2,6 +2,7 @@ import weakref, sys
 
 from rpython.rlib import jit, objectmodel, debug, rerased
 from rpython.rlib.rarithmetic import intmask, r_uint
+from rpython.rlib.jit import we_are_jitted
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.objspace.std.dictmultiobject import (
@@ -304,6 +305,36 @@ class AbstractAttribute(object):
 
     def __repr__(self):
         return "<%s>" % (self.__class__.__name__,)
+
+    # ____________________________________________________________
+    # a few things that also interact with the type
+    # the important idea is: don't read self.terminator.w_cls outside of an
+    # elidable_compatible function
+
+    @jit.elidable_compatible(quasi_immut_field_name_for_second_arg="version")
+    def _type_safe_to_do_getattr(self, version):
+        # it's safe if the version is not None and the type does not define its
+        # own __getattribute__
+        if version is None:
+            return False
+        w_type = self.terminator.w_cls
+        return w_type.has_object_getattribute()
+
+    def _type_lookup(self, name):
+        if not self._type_safe_to_do_getattr():
+            return self.getclass_from_terminator().lookup(name)
+        w_descr = self._type_lookup_pure(name)
+        if isinstance(w_descr, MutableCell):
+            w_descr = w_descr.unwrap_cell(self.space)
+        return w_descr
+
+    @jit.elidable_compatible(quasi_immut_field_name_for_second_arg="version")
+    def _type_lookup_pure(self, version, name):
+        assert version is not None
+        w_type = self.terminator.w_cls
+        w_res = w_type._pure_lookup_where_with_method_cache(
+            name, w_cls.version_tag())
+        return w_res
 
 
 class Terminator(AbstractAttribute):
@@ -1097,3 +1128,16 @@ def LOOKUP_METHOD_mapdict_fill_cache_method(space, pycode, name, nameindex,
 # XXX fix me: if a function contains a loop with both LOAD_ATTR and
 # XXX LOOKUP_METHOD on the same attribute name, it keeps trashing and
 # XXX rebuilding the cache
+
+
+# ____________________________________________________________
+# various functions that replace objspace implementations
+
+def mapdict_lookup(space, w_obj, name):
+    if we_are_jitted():
+        map = w_obj._get_mapdict_map_no_promote()
+        if map is not None:
+            return map._type_lookup(name)
+    w_type = space.type(w_obj)
+    return w_type.lookup(name)
+
