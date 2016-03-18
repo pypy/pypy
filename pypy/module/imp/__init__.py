@@ -51,11 +51,3 @@ class Module(MixedModule):
         add_fork_hook('before', interp_imp.acquire_lock)
         add_fork_hook('parent', interp_imp.release_lock)
         add_fork_hook('child', interp_imp.reinit_lock)
-
-    def setup_after_space_initialization(self):
-        # Install importlib as __import__
-        self.space.appexec([], '''():
-            import importlib._bootstrap, sys, _imp
-            sys.path_importer_cache.clear()
-            importlib._bootstrap._install(sys, _imp)
-            ''')
