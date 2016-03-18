@@ -75,7 +75,7 @@ def wrap(cpu, value, in_const_box=False):
             if in_const_box:
                 return history.ConstPtr(value)
             else:
-                return resoperation.InputArgRef(value)
+                return history.RefFrontendOp(xxx)
         else:
             adr = llmemory.cast_ptr_to_adr(value)
             value = heaptracker.adr2int(adr)

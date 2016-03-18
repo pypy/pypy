@@ -75,54 +75,6 @@ def repr_rpython(box, typechars):
                         ) #compute_unique_id(box))
 
 
-class XxxAbstractValue(object):
-    __slots__ = ()
-
-    def getint(self):
-        raise NotImplementedError
-
-    def getfloatstorage(self):
-        raise NotImplementedError
-
-    def getfloat(self):
-        return longlong.getrealfloat(self.getfloatstorage())
-
-    def getref_base(self):
-        raise NotImplementedError
-
-    def getref(self, TYPE):
-        raise NotImplementedError
-    getref._annspecialcase_ = 'specialize:arg(1)'
-
-    def constbox(self):
-        raise NotImplementedError
-
-    def getaddr(self):
-        "Only for raw addresses (BoxInt & ConstInt), not for GC addresses"
-        raise NotImplementedError
-
-    def sort_key(self):
-        raise NotImplementedError
-
-    def nonnull(self):
-        raise NotImplementedError
-
-    def repr_rpython(self):
-        return '%s' % self
-
-    def _get_str(self):
-        raise NotImplementedError
-
-    def same_box(self, other):
-        return self is other
-
-    def same_shape(self, other):
-        # only structured containers can compare their shape (vector box)
-        return True
-
-    def getaccum(self):
-        return None
-
 class AbstractDescr(AbstractValue):
     __slots__ = ('descr_index',)
     llopaque = True
@@ -656,6 +608,10 @@ class FrontendOp(AbstractResOp):
 
     def get_position(self):
         return intmask(self.position_and_flags & FO_POSITION_MASK)
+
+    def set_position(self, new_pos):
+        flags = self.position_and_flags & (~FO_POSITION_MASK)
+        self.position_and_flags = flags | r_uint(new_pos)
 
     def is_replaced_with_const(self):
         return bool(self.position_and_flags & FO_REPLACED_WITH_CONST)
