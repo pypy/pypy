@@ -642,8 +642,8 @@ def _list_all_operations(result, operations, omit_finish=True):
 # ____________________________________________________________
 
 
-FO_POSITION_MASK       = r_uint(0x7FFFFFFF)
-FO_REPLACED_WITH_CONST = r_uint(0x80000000)
+FO_REPLACED_WITH_CONST = r_uint(1)
+FO_POSITION_SHIFT      = 1
 
 
 class FrontendOp(AbstractResOp):
@@ -651,11 +651,10 @@ class FrontendOp(AbstractResOp):
     _attrs_ = ('position_and_flags',)
 
     def __init__(self, pos):
-        assert pos >= 0
-        self.position_and_flags = r_uint(pos)
+        self.position_and_flags = r_uint(pos << FO_POSITION_SHIFT)
 
     def get_position(self):
-        return intmask(self.position_and_flags & FO_POSITION_MASK)
+        return intmask(r_uint32(self.position_and_flags)) >> FO_POSITION_SHIFT
 
     def is_replaced_with_const(self):
         return bool(self.position_and_flags & FO_REPLACED_WITH_CONST)

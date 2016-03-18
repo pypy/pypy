@@ -1,6 +1,5 @@
 from rpython.jit.metainterp.history import Const, ConstInt
 from rpython.jit.metainterp.history import FrontendOp, RefFrontendOp
-from rpython.jit.metainterp.history import FO_REPLACED_WITH_CONST
 from rpython.jit.metainterp.resoperation import rop, OpHelpers
 from rpython.jit.metainterp.executor import constant_from_op
 from rpython.rlib.rarithmetic import r_uint32, r_uint
