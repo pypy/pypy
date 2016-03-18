@@ -327,7 +327,7 @@ class PyPyTarget(object):
             # XXX possibly adapt options using modules
             failures = create_cffi_import_libraries(exename, options, basedir)
             # if failures, they were already printed
-            print  >> sys.stderr, str(exename),'successfully built, but errors while building the above modules will be ignored'
+            print  >> sys.stderr, str(exename),'successfully built (errors, if any, while building the above modules are ignored)'
         driver.task_build_cffi_imports = types.MethodType(task_build_cffi_imports, driver)
         driver.tasks['build_cffi_imports'] = driver.task_build_cffi_imports, [compile_goal]
         driver.default_goal = 'build_cffi_imports'
