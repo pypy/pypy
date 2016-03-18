@@ -217,7 +217,7 @@ class W_TypeObject(W_Root):
 
         if (space.config.objspace.std.withtypeversion
             and w_self._version_tag is not None):
-            w_self._version_tag = VersionTag()
+            w_self._set_version_tag(VersionTag())
 
         subclasses_w = w_self.get_subclasses()
         for w_subclass in subclasses_w:
@@ -233,6 +233,11 @@ class W_TypeObject(W_Root):
     @elidable_promote()
     def _pure_version_tag(w_self):
         return w_self._version_tag
+
+    def _set_version_tag(self, version_tag):
+        self._version_tag = version_tag
+        if self.space.config.objspace.std.withmapdict:
+            self.terminator.mutated_w_cls_version(version_tag)
 
     def getattribute_if_not_from_object(w_self):
         """ this method returns the applevel __getattribute__ if that is not
@@ -837,10 +842,10 @@ def descr_set__bases__(space, w_type, w_value):
         w_type.version_tag() is not None and
         not is_mro_purely_of_types(w_type.mro_w)):
         # Disable method cache if the hierarchy isn't pure.
-        w_type._version_tag = None
+        w_type._set_version_tag(None)
         for w_subclass in w_type.get_subclasses():
             if isinstance(w_subclass, W_TypeObject):
-                w_subclass._version_tag = None
+                w_subclass._set_version_tag(None)
 
 def descr__base(space, w_type):
     w_type = _check(space, w_type)

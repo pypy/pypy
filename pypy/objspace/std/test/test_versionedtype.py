@@ -260,6 +260,68 @@ class TestVersionedType(test_typeobject.TestTypeObject):
         assert space.float_w(cell.w_value) == 2.2
 
 
+class TestVersionedTypeMapDict(test_typeobject.TestTypeObject):
+    spaceconfig = {"objspace.std.withtypeversion": True,
+                   "objspace.std.withmapdict": True}
+
+    def get_three_classes_and_instances(self):
+        space = self.space
+        w_types = space.appexec([], """():
+            class A(object):
+                def f(self): pass
+            class B(A):
+                pass
+            class X:
+                pass
+            class Y(object):
+                pass
+            class C(Y, X):
+                pass
+            a = A()
+            a.x = 1
+            b = B()
+            b.x = 1
+            c = C()
+            c.x = 1
+            c.y = 2
+            return A, B, C, a, b, c
+        """)
+        return space.unpackiterable(w_types)
+
+    def test_update_map_version_too(self):
+        space = self.space
+        w_A, w_B, w_C, a, b, c = self.get_three_classes_and_instances()
+        def get_versions(cls, *maps):
+            result = [cls.version_tag(), cls.terminator.version,
+                      cls.terminator.devolved_dict_terminator.version]
+            result += [m.version for m in maps]
+            return result
+        def all_different(v1s, v2s):
+            for v1, v2 in zip(v1s, v2s):
+                assert v1 is not v2
+        aversions = get_versions(w_A, a.map)
+        bversions = get_versions(w_B, b.map)
+
+        assert w_C.version_tag() is None
+        assert w_C.terminator.version is None
+        assert c.map.version is None
+        # all versions are different
+        assert len(set(aversions)) == len(aversions)
+        assert len(set(bversions)) == len(bversions)
+
+        space.setattr(w_B, space.wrap("a"), space.wrap(1))
+        assert get_versions(w_A, a.map) == aversions
+        all_different(get_versions(w_B, b.map), bversions)
+        bversions = get_versions(w_B, b.map)
+
+        space.setattr(w_A, space.wrap("f"), space.wrap(5))
+        all_different(get_versions(w_A, a.map), aversions)
+        all_different(get_versions(w_B, b.map), bversions)
+
+        space.delattr(w_A, space.wrap("f"))
+        all_different(get_versions(w_A, a.map), aversions)
+        all_different(get_versions(w_B, b.map), bversions)
+
 
 class AppTestVersionedType(test_typeobject.AppTestTypeObject):
     spaceconfig = {"objspace.std.withtypeversion": True}

@@ -17,6 +17,7 @@ space.config = Config
 class Class(object):
     def __init__(self, hasdict=True):
         self.hasdict = True
+        self._version_tag = None
         if hasdict:
             self.terminator = DictTerminator(space, self)
         else:
@@ -34,7 +35,7 @@ class Object(Object):
         hasdict = False
 
 def test_plain_attribute():
-    w_cls = "class"
+    w_cls = Class()
     aa = PlainAttribute("b", DICT,
                         PlainAttribute("a", DICT,
                                        Terminator(space, w_cls)))
@@ -62,14 +63,14 @@ def test_plain_attribute():
     assert aa.get_terminator() is aa.back.back
 
 def test_huge_chain():
-    current = Terminator(space, "cls")
+    current = Terminator(space, Class())
     for i in range(20000):
         current = PlainAttribute(str(i), DICT, current)
     assert current.find_map_attr("0", DICT).storageindex == 0
 
 
 def test_search():
-    aa = PlainAttribute("b", DICT, PlainAttribute("a", DICT, Terminator(None, None)))
+    aa = PlainAttribute("b", DICT, PlainAttribute("a", DICT, Terminator(None, Class())))
     assert aa.search(DICT) is aa
     assert aa.search(SLOTS_STARTING_FROM) is None
     assert aa.search(SPECIAL) is None
@@ -1208,6 +1209,7 @@ class AppTestWithMapDictAndCounters(object):
         A.a = A.d
         got = x.a
         assert got == 'd'
+
 
 class AppTestGlobalCaching(AppTestWithMapDict):
     spaceconfig = {"objspace.std.withmethodcachecounter": True,

@@ -26,8 +26,11 @@ NUM_DIGITS_POW2 = 1 << NUM_DIGITS
 # we want to propagate knowledge that the result cannot be negative
 
 
+class Version(object):
+    pass
+
 class AbstractAttribute(object):
-    _immutable_fields_ = ['terminator']
+    _immutable_fields_ = ['terminator', 'version?']
     cache_attrs = None
     _size_estimate = 0
 
@@ -35,6 +38,12 @@ class AbstractAttribute(object):
         self.space = space
         assert isinstance(terminator, Terminator)
         self.terminator = terminator
+        # the maps have their own versions, if the terminator version is not
+        # None
+        if terminator.version is not None:
+            self.version = Version()
+        else:
+            self.version = None
 
     @jit.elidable_compatible()
     def getclass_from_terminator(self):
@@ -159,6 +168,9 @@ class AbstractAttribute(object):
         attr = cache.get((name, index), None)
         if attr is None:
             attr = PlainAttribute(name, index, self)
+            if self.terminator.all_children is None:
+                self.terminator.all_children = []
+            self.terminator.all_children.append(attr)
             cache[name, index] = attr
         return attr
 
@@ -295,11 +307,28 @@ class AbstractAttribute(object):
 
 
 class Terminator(AbstractAttribute):
-    _immutable_fields_ = ['w_cls']
+    _immutable_fields_ = ['w_cls', 'version?']
 
     def __init__(self, space, w_cls):
+        if w_cls._version_tag is None:
+            self.version = None
+        else:
+            self.version = Version()
         AbstractAttribute.__init__(self, space, self)
         self.w_cls = w_cls
+        self.all_children = None
+
+    def mutated_w_cls_version(self, version):
+        if version is None:
+            self.version = None
+        else:
+            self.version = Version()
+        if self.all_children is not None:
+            for map in self.all_children:
+                if version is None:
+                    map.version = None
+                else:
+                    map.version = Version()
 
     def _read_terminator(self, obj, name, index):
         return None
@@ -334,6 +363,10 @@ class DictTerminator(Terminator):
     def __init__(self, space, w_cls):
         Terminator.__init__(self, space, w_cls)
         self.devolved_dict_terminator = DevolvedDictTerminator(space, w_cls)
+
+    def mutated_w_cls_version(self, version):
+        self.devolved_dict_terminator.mutated_w_cls_version(version)
+        Terminator.mutated_w_cls_version(self, version)
 
     def materialize_r_dict(self, space, obj, dict_w):
         result = Object()
