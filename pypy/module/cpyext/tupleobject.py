@@ -59,7 +59,8 @@ def new_empty_tuple(space, length):
     py_tup = rffi.cast(PyTupleObject, py_obj)
 
     py_tup.c_ob_item = lltype.malloc(ObjectItems, length,
-                                     flavor='raw', zero=True)
+                                     flavor='raw', zero=True,
+                                     add_memory_pressure=True)
     py_tup.c_ob_size = length
     return py_tup
 
@@ -70,7 +71,8 @@ def tuple_attach(space, py_obj, w_obj):
     """
     items_w = space.fixedview(w_obj)
     l = len(items_w)
-    p = lltype.malloc(ObjectItems, l, flavor='raw')
+    p = lltype.malloc(ObjectItems, l, flavor='raw',
+                      add_memory_pressure=True)
     i = 0
     try:
         while i < l:
@@ -177,7 +179,8 @@ def _PyTuple_Resize(space, p_ref, newsize):
     ref = rffi.cast(PyTupleObject, ref)
     oldsize = ref.c_ob_size
     oldp = ref.c_ob_item
-    newp = lltype.malloc(ObjectItems, newsize, zero=True, flavor='raw')
+    newp = lltype.malloc(ObjectItems, newsize, zero=True, flavor='raw',
+                         add_memory_pressure=True)
     try:
         if oldsize < newsize:
             to_cp = oldsize
