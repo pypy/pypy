@@ -338,7 +338,7 @@ class AbstractAttribute(object):
 
 
 class Terminator(AbstractAttribute):
-    _immutable_fields_ = ['w_cls', 'version?']
+    _immutable_fields_ = ['w_cls']
 
     def __init__(self, space, w_cls):
         if w_cls is None or w_cls._version_tag is None:
