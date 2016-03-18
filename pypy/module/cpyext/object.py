@@ -297,7 +297,7 @@ def PyObject_RichCompareBool(space, ref1, ref2, opid):
 
 @cpython_api([PyObject], PyObject)
 def PyObject_SelfIter(space, ref):
-    """Undocumented function, this is wat CPython does."""
+    """Undocumented function, this is what CPython does."""
     Py_IncRef(space, ref)
     return ref
 

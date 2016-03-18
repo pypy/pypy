@@ -2,7 +2,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     cpython_api, cpython_struct, bootstrap_function, build_type_checkers,
-    PyObjectFields, Py_ssize_t, CONST_STRING, CANNOT_FAIL)
+    PyObjectFields, PyVarObjectFields, Py_ssize_t, CONST_STRING, CANNOT_FAIL)
 from pypy.module.cpyext.pyerrors import PyErr_BadArgument
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, Py_DecRef, make_ref, from_ref, track_reference,
@@ -52,9 +52,8 @@ from pypy.module.cpyext.pyobject import (
 
 PyStringObjectStruct = lltype.ForwardReference()
 PyStringObject = lltype.Ptr(PyStringObjectStruct)
-PyStringObjectFields = PyObjectFields + \
-    (("ob_size", Py_ssize_t), ("ob_shash", rffi.LONG),
-     ("ob_sstate", rffi.INT), ("buffer", rffi.CCHARP))
+PyStringObjectFields = PyVarObjectFields + \
+    (("ob_shash", rffi.LONG), ("ob_sstate", rffi.INT), ("buffer", rffi.CCHARP))
 cpython_struct("PyStringObject", PyStringObjectFields, PyStringObjectStruct)
 
 @bootstrap_function
