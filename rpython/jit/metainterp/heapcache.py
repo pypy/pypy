@@ -155,6 +155,9 @@ class HeapCache(object):
         return ref_frontend_op._get_heapc_flags() >= self.likely_virtual_version
 
     def update_version(self, ref_frontend_op):
+        """Ensure the version of 'ref_frontend_op' is current.  If not,
+        it will update 'ref_frontend_op' (removing most flags currently set).
+        """
         if not self.test_head_version(ref_frontend_op):
             f = self.head_version
             if (self.test_likely_virtual_version(ref_frontend_op) and
