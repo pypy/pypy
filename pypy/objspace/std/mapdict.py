@@ -310,7 +310,7 @@ class Terminator(AbstractAttribute):
     _immutable_fields_ = ['w_cls', 'version?']
 
     def __init__(self, space, w_cls):
-        if w_cls._version_tag is None:
+        if w_cls is None or w_cls._version_tag is None:
             self.version = None
         else:
             self.version = Version()
@@ -961,7 +961,7 @@ class MapDictIteratorItems(BaseItemIterator):
 # Magic caching
 
 class CacheEntry(object):
-    version_tag = None
+    mapversion = None
     storageindex = 0
     w_method = None # for callmethod
     success_counter = 0
@@ -973,35 +973,33 @@ class CacheEntry(object):
 
     @jit.dont_look_inside
     def is_valid_for_map(self, map):
-        # note that 'map' can be None here
-        mymap = self.map_wref()
-        if mymap is not None and mymap is map:
-            version_tag = map.terminator.w_cls.version_tag()
-            if version_tag is self.version_tag:
-                # everything matches, it's incredibly fast
-                if map.space.config.objspace.std.withmethodcachecounter:
-                    self.success_counter += 1
-                return True
+        # since map.version can be None, self.mapversion must never be
+        # thus the INVALID_CACHE_ENTRY has a fake but non-None Version()
+        if map is not None and self.mapversion is map.version:
+            # everything matches, it's incredibly fast
+            if map.space.config.objspace.std.withmethodcachecounter:
+                self.success_counter += 1
+            return True
         return False
 
 _invalid_cache_entry_map = objectmodel.instantiate(AbstractAttribute)
 _invalid_cache_entry_map.terminator = None
 INVALID_CACHE_ENTRY = CacheEntry()
-INVALID_CACHE_ENTRY.map_wref = weakref.ref(_invalid_cache_entry_map)
-                                 # different from any real map ^^^
+INVALID_CACHE_ENTRY.mapversion = Version()
+# different from any real map's version ^^^
 
 def init_mapdict_cache(pycode):
     num_entries = len(pycode.co_names_w)
     pycode._mapdict_caches = [INVALID_CACHE_ENTRY] * num_entries
 
 @jit.dont_look_inside
-def _fill_cache(pycode, nameindex, map, version_tag, storageindex, w_method=None):
+def _fill_cache(pycode, nameindex, mapversion, storageindex, w_method=None):
+    assert isinstance(mapversion, Version)
     entry = pycode._mapdict_caches[nameindex]
     if entry is INVALID_CACHE_ENTRY:
         entry = CacheEntry()
         pycode._mapdict_caches[nameindex] = entry
-    entry.map_wref = weakref.ref(map)
-    entry.version_tag = version_tag
+    entry.mapversion = mapversion
     entry.storageindex = storageindex
     entry.w_method = w_method
     if pycode.space.config.objspace.std.withmethodcachecounter:
@@ -1026,8 +1024,10 @@ def LOAD_ATTR_slowpath(pycode, w_obj, nameindex, map):
         w_descr = w_type.getattribute_if_not_from_object()
         if w_descr is not None:
             return space._handle_getattribute(w_descr, w_obj, w_name)
-        version_tag = w_type.version_tag()
-        if version_tag is not None:
+        mapversion = map.version
+        if mapversion is not None:
+            version_tag = w_type.version_tag()
+            assert version_tag is not None
             name = space.str_w(w_name)
             # We need to care for obscure cases in which the w_descr is
             # a MutableCell, which may change without changing the version_tag
@@ -1059,7 +1059,7 @@ def LOAD_ATTR_slowpath(pycode, w_obj, nameindex, map):
                 if attr is not None:
                     # Note that if map.terminator is a DevolvedDictTerminator,
                     # map.find_map_attr will always return None if index==DICT.
-                    _fill_cache(pycode, nameindex, map, version_tag, attr.storageindex)
+                    _fill_cache(pycode, nameindex, mapversion, attr.storageindex)
                     return w_obj._mapdict_read_storage(attr.storageindex)
     if space.config.objspace.std.withmethodcachecounter:
         INVALID_CACHE_ENTRY.failure_counter += 1
@@ -1094,7 +1094,7 @@ def LOOKUP_METHOD_mapdict_fill_cache_method(space, pycode, name, nameindex,
         name, version_tag)
     if w_method is None or isinstance(w_method, MutableCell):
         return
-    _fill_cache(pycode, nameindex, map, version_tag, -1, w_method)
+    _fill_cache(pycode, nameindex, map.version, -1, w_method)
 
 # XXX fix me: if a function contains a loop with both LOAD_ATTR and
 # XXX LOOKUP_METHOD on the same attribute name, it keeps trashing and
