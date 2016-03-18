@@ -594,8 +594,8 @@ def _list_all_operations(result, operations, omit_finish=True):
 # ____________________________________________________________
 
 
-FO_POSITION_MASK       = r_uint(0x7FFFFFFF)
-FO_REPLACED_WITH_CONST = r_uint(0x80000000)
+FO_REPLACED_WITH_CONST = r_uint(1)
+FO_POSITION_SHIFT      = 1
 
 
 class FrontendOp(AbstractResOp):
@@ -603,11 +603,15 @@ class FrontendOp(AbstractResOp):
     _attrs_ = ('position_and_flags',)
 
     def __init__(self, pos):
-        assert pos >= 0
-        self.position_and_flags = r_uint(pos)
+        # p is the 32-bit position shifted left by one (might be negative,
+        # but casted to the 32-bit UINT type)
+        p = rffi.cast(rffi.UINT, pos << FO_POSITION_SHIFT)
+        self.position_and_flags = r_uint(p)    # zero-extended to a full word
 
     def get_position(self):
-        return intmask(self.position_and_flags & FO_POSITION_MASK)
+        # p is the signed 32-bit position, from self.position_and_flags
+        p = rffi.cast(rffi.INT, self.position_and_flags)
+        return intmask(p) >> FO_POSITION_SHIFT
 
     def set_position(self, new_pos):
         flags = self.position_and_flags & (~FO_POSITION_MASK)

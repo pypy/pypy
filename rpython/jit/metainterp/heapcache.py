@@ -1,6 +1,5 @@
 from rpython.jit.metainterp.history import Const, ConstInt
 from rpython.jit.metainterp.history import FrontendOp, RefFrontendOp
-from rpython.jit.metainterp.history import FO_REPLACED_WITH_CONST
 from rpython.jit.metainterp.resoperation import rop, OpHelpers
 from rpython.jit.metainterp.executor import constant_from_op
 from rpython.rlib.rarithmetic import r_uint32, r_uint
@@ -155,6 +154,9 @@ class HeapCache(object):
         return ref_frontend_op._get_heapc_flags() >= self.likely_virtual_version
 
     def update_version(self, ref_frontend_op):
+        """Ensure the version of 'ref_frontend_op' is current.  If not,
+        it will update 'ref_frontend_op' (removing most flags currently set).
+        """
         if not self.test_head_version(ref_frontend_op):
             f = self.head_version
             if (self.test_likely_virtual_version(ref_frontend_op) and
