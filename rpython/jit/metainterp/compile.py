@@ -480,22 +480,28 @@ def propagate_original_jitcell_token(trace):
 
 def do_compile_loop(jd_id, unique_id, metainterp_sd, inputargs, operations,
                     looptoken, log=True, name='', memo=None):
+    mark = VMProfJitLogger.MARK_TRACE_OPT
+    metainterp_sd.jitlog.log_trace(mark, inputargs, operations)
+    # TODO remove old
     metainterp_sd.logger_ops.log_loop(inputargs, operations, -2,
                                       'compiling', None, name, memo)
     return metainterp_sd.cpu.compile_loop(inputargs,
                                           operations, looptoken,
                                           jd_id=jd_id, unique_id=unique_id,
                                           log=log, name=name,
-                                          logger=metainterp_sd.logger_ops)
+                                          logger=metainterp_sd.jitlog)
 
 def do_compile_bridge(metainterp_sd, faildescr, inputargs, operations,
                       original_loop_token, log=True, memo=None):
+    mark = VMProfJitLogger.MARK_TRACE_OPT
+    metainterp_sd.jitlog.log_trace(mark, inputargs, operations, faildescr=faildescr)
+    # TODO remove old
     metainterp_sd.logger_ops.log_bridge(inputargs, operations, "compiling",
                                         memo=memo)
     assert isinstance(faildescr, AbstractFailDescr)
     return metainterp_sd.cpu.compile_bridge(faildescr, inputargs, operations,
                                             original_loop_token, log=log,
-                                            logger=metainterp_sd.logger_ops)
+                                            logger=metainterp_sd.jitlog)
 
 def forget_optimization_info(lst, reset_values=False):
     for item in lst:

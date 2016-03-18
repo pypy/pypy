@@ -19,18 +19,24 @@ class JitLogMarshall(object):
 
 class VMProfJitLogger(JitLogMarshall):
 
-    MARK_TRACED = 0x10
 
-    MARK_INPUT_ARGS = 0x12
+    MARK_INPUT_ARGS = 0x10
+    MARK_RESOP_META = 0x11
+    MARK_RESOP = 0x12
+    MARK_RESOP_DESCR = 0x13
+    MARK_ASM_ADDR = 0x14
+    MARK_ASM = 0x15
 
-    MARK_RESOP_META = 0x13
-    MARK_RESOP = 0x14
-    MARK_RESOP_DESCR = 0x15
-    MARK_ASM_ADDR = 0x16
-    MARK_ASM = 0x17
-
-    # the ones as parameter to log_trace
+    # which type of trace is logged after this
+    # the trace as it is recorded by the tracer
+    MARK_TRACE = 0x16
+    # the trace that has passed the optimizer
+    MARK_TRACE_OPT = 0x17
+    # the trace assembled to machine code (after rewritten)
     MARK_TRACE_ASM = 0x18
+
+    # the machine code was patched (e.g. guard)
+    MARK_ASM_PATCH = 0x19
 
     def __init__(self):
         self.cintf = cintf.setup()
@@ -70,8 +76,11 @@ class VMProfJitLogger(JitLogMarshall):
 
         # assembler address (to not duplicate it in write_code_dump)
         if mc is not None:
-            lendian_addr = struct.pack('<l', mc.absolute_addr())
-            self.write_marked(self.MARK_ASM_ADDR, lendian_addr)
+            absaddr = mc.absolute_addr()
+            rel = mc.get_relative_pos()
+            # packs <start addr> <end addr> as two unsigend longs
+            lendian_addrs = struct.pack('<LL', absaddr, absaddr + rel)
+            self.write_marked(self.MARK_ASM_ADDR, lendian_addrs)
 
         for i,op in enumerate(ops):
             mark, line = self.encode(op)

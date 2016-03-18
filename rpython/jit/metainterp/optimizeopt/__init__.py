@@ -7,6 +7,7 @@ from rpython.jit.metainterp.optimizeopt.vstring import OptString
 from rpython.jit.metainterp.optimizeopt.simplify import OptSimplify
 from rpython.jit.metainterp.optimizeopt.pure import OptPure
 from rpython.jit.metainterp.optimizeopt.earlyforce import OptEarlyForce
+from rpython.jit.metainterp.jitlog import VMProfJitLogger
 from rpython.rlib.jit import PARAMETERS, ENABLE_ALL_OPTS
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
@@ -54,6 +55,9 @@ def optimize_trace(metainterp_sd, jitdriver_sd, compile_data, memo=None):
     debug_start("jit-optimize")
     inputargs = compile_data.start_label.getarglist()
     try:
+        mark = VMProfJitLogger.MARK_TRACE
+        metainterp_sd.jitlog.log_trace(mark, inputargs, compile_data.operations)
+        #
         metainterp_sd.logger_noopt.log_loop(inputargs,
                                             compile_data.operations,
                                             memo=memo)
