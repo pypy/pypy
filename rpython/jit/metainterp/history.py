@@ -651,10 +651,15 @@ class FrontendOp(AbstractResOp):
     _attrs_ = ('position_and_flags',)
 
     def __init__(self, pos):
-        self.position_and_flags = r_uint(pos << FO_POSITION_SHIFT)
+        # p is the 32-bit position shifted left by one (might be negative,
+        # but casted to the 32-bit UINT type)
+        p = rffi.cast(rffi.UINT, pos << FO_POSITION_SHIFT)
+        self.position_and_flags = r_uint(p)    # zero-extended to a full word
 
     def get_position(self):
-        return intmask(r_uint32(self.position_and_flags)) >> FO_POSITION_SHIFT
+        # p is the signed 32-bit position, from self.position_and_flags
+        p = rffi.cast(rffi.INT, self.position_and_flags)
+        return intmask(p) >> FO_POSITION_SHIFT
 
     def is_replaced_with_const(self):
         return bool(self.position_and_flags & FO_REPLACED_WITH_CONST)
