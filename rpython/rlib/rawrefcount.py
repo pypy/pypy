@@ -136,6 +136,7 @@ def _collect(track_allocation=True):
                 ob.c_ob_refcnt -= REFCNT_FROM_PYPY
                 ob.c_ob_pypy_link = 0
                 if ob.c_ob_refcnt == 0:
+                    ob.c_ob_refcnt = 1
                     _d_list.append(ob)
             return None
 
