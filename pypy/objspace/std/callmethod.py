@@ -41,10 +41,19 @@ def LOOKUP_METHOD(f, nameindex, *ignored):
     w_name = f.getname_w(nameindex)
     w_value = None
 
-    w_type = space.type(w_obj)
-    if w_type.has_object_getattribute():
+    safe = False
+    if space.config.objspace.std.withmapdict and jit.we_are_jitted():
+        # compute safeness without reading the type
+        map = w_obj._get_mapdict_map_no_promote()
+        if map is not None and map._type_safe_to_do_getattr():
+            safe = True
+    else:
+        w_type = space.type(w_obj)
+        safe = w_type.has_object_getattribute()
+
+    if safe:
         name = space.str_w(w_name)
-        w_descr = w_type.lookup(name)
+        w_descr = space.lookup(w_obj, name)
         if w_descr is None:
             # this handles directly the common case
             #   module.function(args..)
@@ -62,6 +71,7 @@ def LOOKUP_METHOD(f, nameindex, *ignored):
                     if (space.config.objspace.std.withmapdict and
                             not jit.we_are_jitted()):
                         # let mapdict cache stuff
+                        w_type = space.type(w_obj)
                         LOOKUP_METHOD_mapdict_fill_cache_method(
                             space, f.getcode(), name, nameindex, w_obj, w_type)
                     return
@@ -113,8 +123,17 @@ def call_method_opt(space, w_obj, methname, *arg_w):
     """An optimized version of space.call_method()
     based on the same principle as above.
     """
-    w_type = space.type(w_obj)
-    if w_type.has_object_getattribute():
+    safe = False
+    if space.config.objspace.std.withmapdict:
+        # compute safeness without reading the type
+        map = w_obj._get_mapdict_map_no_promote()
+        if map is not None and map._type_safe_to_do_getattr():
+            import pdb; pdb.set_trace()
+            safe = True
+    else:
+        w_type = space.type(w_obj)
+        safe = w_type.has_object_getattribute()
+    if safe:
         w_descr = space.lookup(w_obj, methname)
         typ = type(w_descr)
         if typ is function.Function or typ is function.FunctionWithFixedCode:

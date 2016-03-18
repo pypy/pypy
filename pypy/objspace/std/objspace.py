@@ -530,15 +530,23 @@ class StdObjSpace(ObjSpace):
             return self._DescrOperation_getattr(w_obj, w_name)
         # an optional shortcut for performance
 
-        w_type = self.type(w_obj)
-        w_descr = w_type.getattribute_if_not_from_object()
-        if w_descr is not None:
-            return self._handle_getattribute(w_descr, w_obj, w_name)
+        safe = False
+        if self.config.objspace.std.withmapdict and jit.we_are_jitted():
+            # compute safeness without reading the type
+            map = w_obj._get_mapdict_map_no_promote()
+            if map is not None and map._type_safe_to_do_getattr():
+                safe = True
+
+        if not safe:
+            w_type = self.type(w_obj)
+            w_descr = w_type.getattribute_if_not_from_object()
+            if w_descr is not None:
+                return self._handle_getattribute(w_descr, w_obj, w_name)
 
         # fast path: XXX this is duplicating most of the logic
         # from the default __getattribute__ and the getattr() method...
         name = self.str_w(w_name)
-        w_descr = w_type.lookup(name)
+        w_descr = self.lookup(w_obj, name)
         e = None
         if w_descr is not None:
             w_get = None
@@ -554,6 +562,7 @@ class StdObjSpace(ObjSpace):
             if w_get is not None:
                 # __get__ is allowed to raise an AttributeError to trigger
                 # use of __getattr__.
+                w_type = self.type(w_obj)
                 try:
                     return self.get_and_call_function(w_get, w_descr, w_obj,
                                                       w_type)

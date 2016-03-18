@@ -333,7 +333,7 @@ class AbstractAttribute(object):
         assert version is not None
         w_type = self.terminator.w_cls
         w_res = w_type._pure_lookup_where_with_method_cache(
-            name, w_cls.version_tag())
+            name, w_type.version_tag())[1]
         return w_res
 
 
