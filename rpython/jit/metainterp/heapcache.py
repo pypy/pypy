@@ -35,7 +35,7 @@ def test_flags(ref_frontend_op, flags):
     return bool(f & r_uint(flags))
 
 def maybe_replace_with_const(box):
-    if box.is_replaced_with_const():
+    if not isinstance(box, Const) and box.is_replaced_with_const():
         return constant_from_op(box)
     else:
         return box
@@ -58,7 +58,8 @@ class CacheEntry(object):
         self.cache_anything.clear()
 
     def _seen_alloc(self, ref_box):
-        assert isinstance(ref_box, RefFrontendOp)
+        if not isinstance(ref_box, RefFrontendOp):
+            return False
         return self.heapcache._check_flag(ref_box, HF_SEEN_ALLOCATION)
 
     def _getdict(self, seen_alloc):
@@ -104,6 +105,18 @@ class FieldUpdater(object):
 
     def setfield(self, fieldbox):
         self.cache.do_write_with_aliasing(self.ref_box, fieldbox)
+
+class DummyFieldUpdater(FieldUpdater):
+    def __init__(self):
+        self.currfieldbox = None
+
+    def getfield_now_known(self, fieldbox):
+        pass
+
+    def setfield(self, fieldbox):
+        pass
+
+dummy_field_updater = DummyFieldUpdater()
 
 
 class HeapCache(object):
@@ -342,12 +355,18 @@ class HeapCache(object):
         return self._check_flag(box, HF_KNOWN_CLASS)
 
     def class_now_known(self, box):
+        if isinstance(box, Const):
+            return
         self._set_flag(box, HF_KNOWN_CLASS)
 
     def is_nullity_known(self, box):
+        if isinstance(box, Const):
+            return bool(box.getref_base())
         return self._check_flag(box, HF_KNOWN_NULLITY)
 
     def nullity_now_known(self, box):
+        if isinstance(box, Const):
+            return
         self._set_flag(box, HF_KNOWN_NULLITY)
 
     def is_nonstandard_virtualizable(self, box):
@@ -381,7 +400,8 @@ class HeapCache(object):
         return None
 
     def get_field_updater(self, box, descr):
-        assert isinstance(box, RefFrontendOp)
+        if not isinstance(box, RefFrontendOp):
+            return dummy_field_updater
         cache = self.heap_cache.get(descr, None)
         if cache is None:
             cache = self.heap_cache[descr] = CacheEntry(self)
@@ -448,6 +468,8 @@ class HeapCache(object):
         # we store in '_heapc_deps' a list of boxes: the *first* box is
         # the known length or None, and the remaining boxes are the
         # regular dependencies.
+        if isinstance(box, Const):
+            return
         deps = self._get_deps(box)
         assert deps is not None
         deps[0] = lengthbox

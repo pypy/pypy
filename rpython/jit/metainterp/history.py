@@ -695,7 +695,7 @@ class History(object):
         self.trace.cut_at(cut_at)
 
     def any_operation(self):
-        return self.trace._count > 0
+        return self.trace._count > self.trace._start
 
     @specialize.argtype(2)
     def set_op_value(self, op, value):
