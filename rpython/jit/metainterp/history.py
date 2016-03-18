@@ -614,8 +614,9 @@ class FrontendOp(AbstractResOp):
         return intmask(p) >> FO_POSITION_SHIFT
 
     def set_position(self, new_pos):
-        flags = self.position_and_flags & (~FO_POSITION_MASK)
-        self.position_and_flags = flags | r_uint(new_pos)
+        self.__init__(new_pos)
+        #flags = self.position_and_flags & (~FO_POSITION_MASK)
+        #self.position_and_flags = flags | r_uint(new_pos)
 
     def is_replaced_with_const(self):
         return bool(self.position_and_flags & FO_REPLACED_WITH_CONST)
