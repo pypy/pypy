@@ -128,7 +128,6 @@ def call_method_opt(space, w_obj, methname, *arg_w):
         # compute safeness without reading the type
         map = w_obj._get_mapdict_map_no_promote()
         if map is not None and map._type_safe_to_do_getattr():
-            import pdb; pdb.set_trace()
             safe = True
     else:
         w_type = space.type(w_obj)
