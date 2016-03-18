@@ -70,6 +70,8 @@ import os
 import re
 import builtins
 
+is_pypy = '__pypy__' in sys.builtin_module_names
+
 # Prefixes for site-packages; add additional prefixes like /usr/local here
 PREFIXES = [sys.prefix, sys.exec_prefix]
 # Enable per user site-packages directory
@@ -302,6 +304,10 @@ def getsitepackages(prefixes=None):
 
         if sys.platform in ('os2emx', 'riscos'):
             sitepackages.append(os.path.join(prefix, "Lib", "site-packages"))
+        elif is_pypy:
+            from distutils.sysconfig import get_python_lib
+            sitepackages.append(get_python_lib(standard_lib=False,
+                                               prefix=prefix))
         elif os.sep == '/':
             sitepackages.append(os.path.join(prefix, "lib",
                                         "python" + sys.version[:3],
@@ -440,21 +446,27 @@ class _Printer(object):
 
 def setcopyright():
     """Set 'copyright' and 'credits' in builtins"""
-    builtins.copyright = _Printer("copyright", sys.copyright)
-    if sys.platform[:4] == 'java':
-        builtins.credits = _Printer(
-            "credits",
-            "Jython is maintained by the Jython developers (www.jython.org).")
+    licenseargs = None
+    if is_pypy:
+        credits = "PyPy is maintained by the PyPy developers: http://pypy.org/"
+        license = "See https://bitbucket.org/pypy/pypy/src/default/LICENSE"
+        licenseargs = (license,)
+    elif sys.platform[:4] == 'java':
+        credits = ("Jython is maintained by the Jython developers "
+                   "(www.jython.org).")
     else:
-        builtins.credits = _Printer("credits", """\
+        credits = """\
     Thanks to CWI, CNRI, BeOpen.com, Zope Corporation and a cast of thousands
-    for supporting Python development.  See www.python.org for more information.""")
-    here = os.path.dirname(os.__file__)
-    builtins.license = _Printer(
-        "license",
-        "See http://www.python.org/download/releases/%.5s/license/" % sys.version,
-        ["LICENSE.txt", "LICENSE"],
-        [os.path.join(here, os.pardir), here, os.curdir])
+    for supporting Python development.  See www.python.org for more information."""
+    if licenseargs is None:
+        here = os.path.dirname(os.__file__)
+        license = "See http://www.python.org/download/releases/%.5s/license/" % sys.version,
+        licenseargs = (license, ["LICENSE.txt", "LICENSE"],
+                       [os.path.join(here, os.pardir), here, os.curdir])
+
+    builtins.copyright = _Printer("copyright", sys.copyright)
+    builtins.credits = _Printer("credits", credits)
+    builtins.license = _Printer("license", *licenseargs)
 
 
 class _Helper(object):
