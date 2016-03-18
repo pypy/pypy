@@ -122,6 +122,7 @@ class AppTestGetargs(AppTestCpythonExtensionBase):
             PyBuffer_Release(&buf);
             return result;
             ''')
+        assert 'foo\0bar\0baz' == pybuffer(bytearray('foo\0bar\0baz'))
         assert 'foo\0bar\0baz' == pybuffer('foo\0bar\0baz')
 
 
