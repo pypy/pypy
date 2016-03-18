@@ -982,8 +982,6 @@ class CacheEntry(object):
             return True
         return False
 
-_invalid_cache_entry_map = objectmodel.instantiate(AbstractAttribute)
-_invalid_cache_entry_map.terminator = None
 INVALID_CACHE_ENTRY = CacheEntry()
 INVALID_CACHE_ENTRY.mapversion = Version()
 # different from any real map's version ^^^
