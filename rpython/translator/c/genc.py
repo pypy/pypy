@@ -855,7 +855,7 @@ def gen_source(database, modulename, targetdir,
 
     if 'RPY_SANDBOXED' in defines:
         from rpython.translator.sandboxlib.rsandbox import add_sandbox_files
-        eci = add_sandbox_files(database.translator, eci)
+        eci = add_sandbox_files(database, eci)
 
     eci = add_extra_files(eci)
     eci = eci.convert_sources_to_files()
