@@ -2822,7 +2822,7 @@ class MetaInterp(object):
         self.history.record_nospec(rop.VIRTUAL_REF_FINISH,
                             [vrefbox, virtualbox], None)
         newop = self.history.record_nospec(opnum, arglist, descr)
-        op.position = newop.position
+        op.set_position(newop.get_position())
         # mark by replacing it with ConstPtr(NULL)
         self.virtualref_boxes[i+1] = self.cpu.ts.CONST_NULL
 

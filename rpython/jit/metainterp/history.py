@@ -715,7 +715,7 @@ class History(object):
     @specialize.argtype(3)
     def record(self, opnum, argboxes, value, descr=None):
         if self.trace is None:
-            pos = -1
+            pos = 2**14 - 1
         else:
             pos = self.trace.record_op(opnum, argboxes, descr)
         if value is None:
