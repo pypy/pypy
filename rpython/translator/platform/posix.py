@@ -121,7 +121,9 @@ class BasePosix(Platform):
 
         if shared:
             libname = exe_name.new(ext='').basename
-            target_name = 'lib' + exe_name.new(ext=self.so_ext).basename
+            if sandboxlib:
+                libname += '-sandbox'
+            target_name = 'lib%s.%s' % (libname, self.so_ext)
         else:
             target_name = exe_name.basename
 
@@ -201,9 +203,10 @@ class BasePosix(Platform):
         for rule in rules:
             m.rule(*rule)
 
-        if shared and not sandboxlib:
-            m.definition('SHARED_IMPORT_LIB', libname),
+        if shared:
+            m.definition('SHARED_IMPORT_LIB', libname)
             m.definition('PYPY_MAIN_FUNCTION', "pypy_main_startup")
+        if shared and not sandboxlib:
             m.rule('main.c', '',
                    'echo "'
                    'int $(PYPY_MAIN_FUNCTION)(int, char*[]); '

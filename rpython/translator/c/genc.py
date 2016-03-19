@@ -853,6 +853,10 @@ def gen_source(database, modulename, targetdir,
         print >>fi, "#define PYPY_INSTRUMENT_NCOUNTER %d" % n
         fi.close()
 
+    if 'RPY_SANDBOXED' in defines:
+        from rpython.translator.sandboxlib.rsandbox import add_sandbox_files
+        eci = add_sandbox_files(database.translator, eci)
+
     eci = add_extra_files(eci)
     eci = eci.convert_sources_to_files()
     return eci, filename, sg.getextrafiles(), headers_to_precompile

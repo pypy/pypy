@@ -584,7 +584,8 @@ class RPythonTyper(object):
             else:
                 args_s = [v.annotation for v in graph.getargs()]
                 s_result = graph.getreturnvar().annotation
-                sandboxed = make_sandbox_trampoline(name, args_s, s_result)
+                sandboxed = make_sandbox_trampoline(self.annotator.translator,
+                                                    name, args_s, s_result)
                 return self.getannmixlevel().delayedfunction(
                         sandboxed, args_s, s_result)
 

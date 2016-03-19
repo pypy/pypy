@@ -109,6 +109,7 @@ translation_optiondescription = OptionDescription(
     BoolOption("sandboxlib", "Produce a fully-sandboxed library",
                default=False, cmdline="--sandboxlib",
                requires=[("translation.thread", False),
+                         ("translation.continuation", False),
                          ("translation.shared", True)],
                suggests=[("translation.gc", "minimark"),
                          ("translation.gcrootfinder", "shadowstack")]),

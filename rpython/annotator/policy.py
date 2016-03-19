@@ -90,6 +90,7 @@ class AnnotatorPolicy(object):
                     s_result = s_func.s_result
                     from rpython.translator.sandboxlib.rsandbox import make_sandbox_trampoline
                     sandbox_trampoline = make_sandbox_trampoline(
+                        annotator.translator,
                         s_func.name, params_s, s_result)
                     sandbox_trampoline._signature_ = [SomeTuple(items=params_s)], s_result
                     bk.emulate_pbc_call(key, bk.immutablevalue(sandbox_trampoline), params_s)
