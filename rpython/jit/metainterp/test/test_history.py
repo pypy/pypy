@@ -67,6 +67,8 @@ def test_frontendop():
     assert f.get_position() == 42
     f = FrontendOp(-56)
     assert f.get_position() == -56
+    f.set_position(6519)
+    assert f.get_position() == 6519
 
 class TestZTranslated(StandaloneTests):
     def test_ztranslated_same_constant_float(self):

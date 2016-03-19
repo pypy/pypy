@@ -596,6 +596,7 @@ def _list_all_operations(result, operations, omit_finish=True):
 
 FO_REPLACED_WITH_CONST = r_uint(1)
 FO_POSITION_SHIFT      = 1
+FO_POSITION_MASK       = r_uint(0xFFFFFFFE)
 
 
 class FrontendOp(AbstractResOp):
@@ -615,7 +616,7 @@ class FrontendOp(AbstractResOp):
 
     def set_position(self, new_pos):
         assert new_pos >= 0
-        self.position_and_flags &= ~0xFFFFFFFE
+        self.position_and_flags &= ~FO_POSITION_MASK
         self.position_and_flags |= r_uint(new_pos << FO_POSITION_SHIFT)
 
     def is_replaced_with_const(self):
