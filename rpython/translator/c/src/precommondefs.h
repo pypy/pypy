@@ -61,14 +61,24 @@
    a bug; please report or fix it.
 */
 #ifdef __GNUC__
-#  define RPY_EXPORTED extern __attribute__((visibility("default")))
-#  define _RPY_HIDDEN  __attribute__((visibility("hidden")))
+#  define _RPY_EXPORTED1  extern __attribute__((visibility("default")))
+#  define _RPY_HIDDEN     __attribute__((visibility("hidden")))
 #else
-#  define RPY_EXPORTED extern __declspec(dllexport)
-#  define _RPY_HIDDEN  /* nothing */
+#  define _RPY_EXPORTED1  extern __declspec(dllexport)
+#  define _RPY_HIDDEN     /* nothing */
 #endif
 #ifndef RPY_EXTERN
 #  define RPY_EXTERN   extern _RPY_HIDDEN
+#endif
+
+/* With --sandboxlib, don't export any of the standard functions.  
+   We will instead export a different set of functions, using 
+   the RPY_SANDBOX_EXPORTED macro. */
+#ifdef RPY_SANDBOXED
+#  define RPY_EXPORTED   extern _RPY_HIDDEN
+#  define RPY_SANDBOX_EXPORTED  _RPY_EXPORTED1
+#else
+#  define RPY_EXPORTED   _RPY_EXPORTED1
 #endif
 
 

@@ -95,7 +95,7 @@ class ExtFuncEntry(ExtRegistryEntry):
     def compute_annotation(self):
         s_result = SomeExternalFunction(
             self.name, self.signature_args, self.signature_result)
-        if (self.bookkeeper.annotator.translator.config.translation.sandbox
+        if (self.bookkeeper.annotator.translator.config.translation.sandboxlib
                 and not self.safe_not_sandboxed):
             s_result.needs_sandboxing = True
         return s_result
@@ -110,7 +110,7 @@ def register_external(function, args, result=None, export_name=None,
     export_name: the name of the function as it will be seen by the backends
     llimpl: optional; if provided, this RPython function is called instead of the target function
     llfakeimpl: optional; if provided, called by the llinterpreter
-    sandboxsafe: use True if the function performs no I/O (safe for --sandbox)
+    sandboxsafe: use True if the function performs no I/O (safe for --sandboxlib)
     """
 
     if export_name is None:

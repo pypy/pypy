@@ -99,7 +99,8 @@ class BasePosix(Platform):
 
     def gen_makefile(self, cfiles, eci, exe_name=None, path=None,
                      shared=False, headers_to_precompile=[],
-                     no_precompile_cfiles = [], icon=None):
+                     no_precompile_cfiles = [], icon=None,
+                     sandboxlib=False):
         cfiles = self._all_cfiles(cfiles, eci)
 
         if path is None:
@@ -133,6 +134,11 @@ class BasePosix(Platform):
         m.exe_name = path.join(exe_name.basename)
         m.eci = eci
 
+        default_target = exe_name.basename
+        if sandboxlib:
+            assert shared
+            default_target = target_name
+
         def rpyrel(fpath):
             lpath = py.path.local(fpath)
             rel = lpath.relto(rpypath)
@@ -165,7 +171,7 @@ class BasePosix(Platform):
         definitions = [
             ('RPYDIR', '"%s"' % rpydir),
             ('TARGET', target_name),
-            ('DEFAULT_TARGET', exe_name.basename),
+            ('DEFAULT_TARGET', default_target),
             ('SOURCES', rel_cfiles),
             ('OBJECTS', rel_ofiles),
             ('LIBS', self._libs(eci.libraries) + list(self.extra_libs)),
@@ -195,7 +201,7 @@ class BasePosix(Platform):
         for rule in rules:
             m.rule(*rule)
 
-        if shared:
+        if shared and not sandboxlib:
             m.definition('SHARED_IMPORT_LIB', libname),
             m.definition('PYPY_MAIN_FUNCTION', "pypy_main_startup")
             m.rule('main.c', '',

@@ -917,7 +917,7 @@ def new_funcnode(db, T, obj, forcename=None):
     if db.sandbox:
         if (getattr(obj, 'external', None) is not None and
                 not obj._safe_not_sandboxed):
-            from rpython.translator.sandbox import rsandbox
+            from rpython.translator.sandboxlib import rsandbox
             obj.__dict__['graph'] = rsandbox.get_sandbox_stub(
                 obj, db.translator.rtyper)
             obj.__dict__.pop('_safe_not_sandboxed', None)

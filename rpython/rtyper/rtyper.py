@@ -29,7 +29,6 @@ from rpython.rtyper import rclass
 from rpython.rtyper.rclass import RootClassRepr
 from rpython.tool.pairtype import pair
 from rpython.translator.unsimplify import insert_empty_block
-from rpython.translator.sandbox.rsandbox import make_sandbox_trampoline
 
 
 class RTyperBackend(object):
@@ -575,7 +574,9 @@ class RPythonTyper(object):
     def getcallable(self, graph):
         def getconcretetype(v):
             return self.bindingrepr(v).lowleveltype
-        if self.annotator.translator.config.translation.sandbox:
+        if self.annotator.translator.config.translation.sandboxlib:
+            from rpython.translator.sandboxlib.rsandbox import (
+                make_sandbox_trampoline)   # don't import this globally
             try:
                 name = graph.func._sandbox_external_name
             except AttributeError:

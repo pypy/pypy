@@ -131,7 +131,7 @@ class CBuilder(object):
                               gcpolicyclass=gcpolicyclass,
                               exctransformer=exctransformer,
                               thread_enabled=self.config.translation.thread,
-                              sandbox=self.config.translation.sandbox)
+                              sandbox=self.config.translation.sandboxlib)
         self.db = db
 
         # give the gc a chance to register interest in the start-up functions it
@@ -211,7 +211,7 @@ class CBuilder(object):
         defines = defines.copy()
         if self.config.translation.countmallocs:
             defines['COUNT_OP_MALLOCS'] = 1
-        if self.config.translation.sandbox:
+        if self.config.translation.sandboxlib:
             defines['RPY_SANDBOXED'] = 1
         if CBuilder.have___thread is None:
             CBuilder.have___thread = self.translator.platform.check___thread()
@@ -380,7 +380,8 @@ class CStandaloneBuilder(CBuilder):
             headers_to_precompile=headers_to_precompile,
             no_precompile_cfiles = module_files,
             shared=self.config.translation.shared,
-            icon=self.config.translation.icon)
+            icon=self.config.translation.icon,
+            sandboxlib=self.config.translation.sandboxlib)
 
         if self.has_profopt():
             profopt = self.config.translation.profopt
