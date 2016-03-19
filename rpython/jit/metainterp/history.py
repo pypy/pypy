@@ -681,7 +681,7 @@ class History(object):
             # hack to record the ops *after* we know our inputargs
             for (opnum, argboxes, op, descr) in self._cache:
                 pos = self.trace.record_op(opnum, argboxes, descr)
-                op.position = pos
+                op.set_position(pos)
             self._cache = None
 
     def length(self):

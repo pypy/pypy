@@ -280,8 +280,7 @@ class Trace(BaseTrace):
                     self._refs.append(box.getref_base())
                 return tag(TAGCONSTPTR, v)
         elif isinstance(box, AbstractResOp):
-            return tag(TAGBOX, box.get_position())
-        elif isinstance(box, AbstractInputArg):
+            assert box.get_position() >= 0
             return tag(TAGBOX, box.get_position())
         else:
             assert False, "unreachable code"
