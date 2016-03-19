@@ -9,6 +9,11 @@ at pypy.org/download.html
 
 .. _`lxml 3.6.0`: https://pypi.python.org/pypi/lxml/3.6.0
 .. _`crash on large files`: https://bitbucket.org/pypy/pypy/issues/2260
+
+The changes with PyPy 5.0 are only two bug fixes: one in cpyext, which
+fixes notably (but not only) lxml, and another for a corner case of the
+JIT.
+
 What is PyPy?
 =============
 
