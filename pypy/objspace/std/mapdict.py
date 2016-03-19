@@ -55,10 +55,20 @@ class AbstractAttribute(object):
     def _get_terminator(self):
         return self.terminator
 
+    @jit.elidable_compatible()
+    def _get_terminator_if_devolved(self):
+        if isinstance(self.terminator, DevolvedDictTerminator):
+            return self.terminator
+        return None
+
     def read(self, obj, name, index):
         storageindex = self.find_map_storageindex(name, index)
         if storageindex == -1:
-            return self._get_terminator()._read_terminator(obj, name, index)
+            # XXX can improve the devolved case
+            terminator = self._get_terminator_if_devolved()
+            if terminator is not None:
+                return terminator._read_terminator(obj, name, index)
+            return None
         #if ( # XXX in the guard_compatible world the following isconstant may never be true?
         #    jit.isconstant(attr.storageindex) and
         #    jit.isconstant(obj) and
