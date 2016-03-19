@@ -84,13 +84,6 @@ def create_entry_point(space, w_dict):
     from rpython.rlib.entrypoint import entrypoint_highlevel
     from rpython.rtyper.lltypesystem import rffi, lltype
 
-    w_pathsetter = space.appexec([], """():
-    def f(path):
-        import sys
-        sys.path[:] = path
-    return f
-    """)
-
     @entrypoint_highlevel('main', [rffi.CCHARP, rffi.INT],
                           c_name='pypy_setup_home')
     def pypy_setup_home(ll_home, verbose):
@@ -109,7 +102,10 @@ def create_entry_point(space, w_dict):
                       " not found in '%s' or in any parent directory" % home1)
             return rffi.cast(rffi.INT, 1)
         space.startup()
-        space.call_function(w_pathsetter, w_path)
+        space.appexec([w_path], """(path):
+            import sys
+            sys.path[:] = path
+        """)
         # import site
         try:
             space.setattr(space.getbuiltinmodule('sys'),
@@ -149,6 +145,9 @@ def create_entry_point(space, w_dict):
             return
         os_thread.setup_threads(space)
         os_thread.bootstrapper.acquire(space, None, None)
+        # XXX this doesn't really work.  Don't use os.fork(), and
+        # if your embedder program uses fork(), don't use any PyPy
+        # code in the fork
         rthread.gc_thread_start()
         os_thread.bootstrapper.nbthreads += 1
         os_thread.bootstrapper.release()
@@ -240,6 +239,9 @@ class PyPyTarget(object):
                 raise Exception("Cannot use the --output option with PyPy "
                                 "when --shared is on (it is by default). "
                                 "See issue #1971.")
+        if sys.platform == 'win32':
+            config.translation.libname = '..\\..\\libs\\python27.lib'
+            thisdir.join('..', '..', 'libs').ensure(dir=1)
 
         if config.translation.thread:
             config.objspace.usemodules.thread = True
@@ -275,7 +277,6 @@ class PyPyTarget(object):
 
         if config.translation.sandbox:
             config.objspace.lonepycfiles = False
-            config.objspace.usepycfiles = False
 
         config.translating = True
 
@@ -326,7 +327,7 @@ class PyPyTarget(object):
             # XXX possibly adapt options using modules
             failures = create_cffi_import_libraries(exename, options, basedir)
             # if failures, they were already printed
-            print  >> sys.stderr, str(exename),'successfully built, but errors while building the above modules will be ignored'
+            print  >> sys.stderr, str(exename),'successfully built (errors, if any, while building the above modules are ignored)'
         driver.task_build_cffi_imports = types.MethodType(task_build_cffi_imports, driver)
         driver.tasks['build_cffi_imports'] = driver.task_build_cffi_imports, [compile_goal]
         driver.default_goal = 'build_cffi_imports'

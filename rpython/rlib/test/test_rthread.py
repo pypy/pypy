@@ -1,9 +1,11 @@
 import gc, time
 from rpython.rlib.rthread import *
 from rpython.rlib.rarithmetic import r_longlong
+from rpython.rlib import objectmodel
 from rpython.translator.c.test.test_boehm import AbstractGCTestClass
 from rpython.rtyper.lltypesystem import lltype, rffi
 import py
+import platform
 
 def test_lock():
     l = allocate_lock()
@@ -91,6 +93,8 @@ class AbstractThreadTests(AbstractGCTestClass):
         res = fn()
         assert res == 42
 
+    @py.test.mark.xfail(platform.machine() == 's390x',
+                        reason='may fail this test under heavy load')
     def test_gc_locking(self):
         import time
         from rpython.rlib.debug import ll_assert
@@ -149,6 +153,7 @@ class AbstractThreadTests(AbstractGCTestClass):
                 willing_to_wait_more -= 1
                 done = len(state.answers) == expected
 
+                print "waitting %d more iterations" % willing_to_wait_more
                 time.sleep(0.01)
 
             time.sleep(0.1)
@@ -240,3 +245,60 @@ class TestUsingBoehm(AbstractThreadTests):
 
 class TestUsingFramework(AbstractThreadTests):
     gcpolicy = 'minimark'
+
+    def test_tlref_keepalive(self, no__thread=True):
+        import weakref
+        from rpython.config.translationoption import SUPPORT__THREAD
+
+        if not (SUPPORT__THREAD or no__thread):
+            py.test.skip("no __thread support here")
+
+        class FooBar(object):
+            pass
+        t = ThreadLocalReference(FooBar)
+
+        def tset():
+            x1 = FooBar()
+            t.set(x1)
+            return weakref.ref(x1)
+        tset._dont_inline_ = True
+
+        class WrFromThread:
+            pass
+        wr_from_thread = WrFromThread()
+
+        def f():
+            config = objectmodel.fetch_translated_config()
+            assert t.automatic_keepalive(config) is True
+            wr = tset()
+            import gc; gc.collect()   # 'x1' should not be collected
+            x2 = t.get()
+            assert x2 is not None
+            assert wr() is not None
+            assert wr() is x2
+            return wr
+
+        def thread_entry_point():
+            wr = f()
+            wr_from_thread.wr = wr
+            wr_from_thread.seen = True
+
+        def main():
+            wr_from_thread.seen = False
+            start_new_thread(thread_entry_point, ())
+            wr1 = f()
+            time.sleep(0.5)
+            assert wr_from_thread.seen is True
+            wr2 = wr_from_thread.wr
+            import gc; gc.collect()      # wr2() should be collected here
+            assert wr1() is not None     # this thread, still running
+            assert wr2() is None         # other thread, not running any more
+            return 42
+
+        extra_options = {'no__thread': no__thread, 'shared': True}
+        fn = self.getcompiled(main, [], extra_options=extra_options)
+        res = fn()
+        assert res == 42
+
+    def test_tlref_keepalive__thread(self):
+        self.test_tlref_keepalive(no__thread=False)

@@ -192,6 +192,8 @@ translation_optiondescription = OptionDescription(
                "If true, makes an lldebug0 build", default=False,
                cmdline="--lldebug0"),
     StrOption("icon", "Path to the (Windows) icon to use for the executable"),
+    StrOption("libname",
+              "Windows: name and possibly location of the lib file to create"),
 
     OptionDescription("backendopt", "Backend Optimization Options", [
         # control inlining

@@ -487,6 +487,7 @@ NULL_GCREF = lltype.nullptr(llmemory.GCREF.TO)
 class _GcRef(object):
     # implementation-specific: there should not be any after translation
     __slots__ = ['_x', '_handle']
+    _TYPE = llmemory.GCREF
     def __init__(self, x):
         self._x = x
     def __hash__(self):

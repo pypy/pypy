@@ -126,8 +126,10 @@ class CBuilder(object):
             if not self.standalone:
                 raise NotImplementedError("--gcrootfinder=asmgcc requires standalone")
 
+        exctransformer = translator.getexceptiontransformer()
         db = LowLevelDatabase(translator, standalone=self.standalone,
                               gcpolicyclass=gcpolicyclass,
+                              exctransformer=exctransformer,
                               thread_enabled=self.config.translation.thread,
                               sandbox=self.config.translation.sandbox)
         self.db = db
@@ -193,22 +195,8 @@ class CBuilder(object):
     DEBUG_DEFINES = {'RPY_ASSERT': 1,
                      'RPY_LL_ASSERT': 1}
 
-    def generate_graphs_for_llinterp(self, db=None):
-        # prepare the graphs as when the source is generated, but without
-        # actually generating the source.
-        if db is None:
-            db = self.build_database()
-        graphs = db.all_graphs()
-        db.gctransformer.prepare_inline_helpers(graphs)
-        for node in db.containerlist:
-            if hasattr(node, 'funcgens'):
-                for funcgen in node.funcgens:
-                    funcgen.patch_graph(copy_graph=False)
-        return db
-
     def generate_source(self, db=None, defines={}, exe_name=None):
         assert self.c_source_filename is None
-
         if db is None:
             db = self.build_database()
         pf = self.getentrypointptr()
@@ -559,6 +547,11 @@ class SourceGenerator:
                         relpypath = localpath.relto(pypkgpath.dirname)
                         assert relpypath, ("%r should be relative to %r" %
                             (localpath, pypkgpath.dirname))
+                        if len(relpypath.split(os.path.sep)) > 2:
+                            # pypy detail to agregate the c files by directory,
+                            # since the enormous number of files was causing
+                            # memory issues linking on win32
+                            return os.path.split(relpypath)[0] + '.c'
                         return relpypath.replace('.py', '.c')
             return None
         if hasattr(node.obj, 'graph'):
@@ -733,6 +726,9 @@ def gen_threadlocal_structdef(f, database):
     print >> f, 'struct pypy_threadlocal_s {'
     print >> f, '\tint ready;'
     print >> f, '\tchar *stack_end;'
+    print >> f, '\tstruct pypy_threadlocal_s *prev, *next;'
+    # note: if the four fixed fields above are changed, you need
+    # to adapt threadlocal.c's linkedlist_head declaration too
     for field in fields:
         typename = database.gettype(field.FIELDTYPE)
         print >> f, '\t%s;' % cdecl(typename, field.fieldname)
@@ -843,7 +839,6 @@ def gen_source(database, modulename, targetdir,
     #
     sg = SourceGenerator(database)
     sg.set_strategy(targetdir, split)
-    database.prepare_inline_helpers()
     sg.gen_readable_parts_of_source(f)
     headers_to_precompile = sg.headers_to_precompile[:]
     headers_to_precompile.insert(0, incfilename)

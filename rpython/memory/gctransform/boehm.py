@@ -74,7 +74,7 @@ class BoehmGCTransformer(GCTransformer):
 
     def gct_fv_gc_malloc_varsize(self, hop, flags, TYPE, v_length, c_const_size, c_item_size,
                                                                    c_offset_to_length):
-        # XXX same behavior for zero=True: in theory that's wrong        
+        # XXX same behavior for zero=True: in theory that's wrong
         if c_offset_to_length is None:
             v_raw = hop.genop("direct_call",
                                [self.malloc_varsize_no_length_ptr, v_length,
@@ -155,6 +155,11 @@ class BoehmGCTransformer(GCTransformer):
         v_int = hop.genop('cast_ptr_to_int', [hop.spaceop.args[0]],
                           resulttype = lltype.Signed)
         hop.genop('int_invert', [v_int], resultvar=hop.spaceop.result)
+
+    def gcheader_initdata(self, obj):
+        hdr = lltype.malloc(self.HDR, immortal=True)
+        hdr.hash = lltype.identityhash_nocache(obj._as_ptr())
+        return hdr._obj
 
 
 ########## weakrefs ##########

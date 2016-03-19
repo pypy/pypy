@@ -7,7 +7,7 @@ from pypy.interpreter.typedef import weakref_descr, GetSetProperty,\
 from pypy.interpreter.astcompiler.misc import mangle
 
 from rpython.rlib.jit import (promote, elidable_promote, we_are_jitted,
-     promote_string, elidable, dont_look_inside, unroll_safe)
+     elidable, dont_look_inside, unroll_safe)
 from rpython.rlib.objectmodel import current_object_addr_as_int, compute_hash
 from rpython.rlib.rarithmetic import intmask, r_uint
 
@@ -87,6 +87,29 @@ class MethodCache(object):
         for i in range(len(self.lookup_where)):
             self.lookup_where[i] = None_None
 
+
+class Layout(object):
+    """A Layout is attached to every W_TypeObject to represent the
+    layout of instances.  Some W_TypeObjects share the same layout.
+    If a W_TypeObject is a base of another, then the layout of
+    the first is either the same or a parent layout of the second.
+    The Layouts have single inheritance, unlike W_TypeObjects.
+    """
+    _immutable_ = True
+
+    def __init__(self, typedef, nslots, base_layout=None):
+        self.typedef = typedef
+        self.nslots = nslots
+        self.base_layout = base_layout
+
+    def issublayout(self, parent):
+        while self is not parent:
+            self = self.base_layout
+            if self is None:
+                return False
+        return True
+
+
 # possible values of compares_by_identity_status
 UNKNOWN = 0
 COMPARES_BY_IDENTITY = 1
@@ -106,8 +129,7 @@ class W_TypeObject(W_Root):
                           'needsdel',
                           'weakrefable',
                           'hasdict',
-                          'nslots',
-                          'instancetypedef',
+                          'layout',
                           'terminator',
                           '_version_tag?',
                           'name?',
@@ -126,12 +148,11 @@ class W_TypeObject(W_Root):
 
     @dont_look_inside
     def __init__(w_self, space, name, bases_w, dict_w,
-                 overridetypedef=None):
+                 overridetypedef=None, force_new_layout=False):
         w_self.space = space
         w_self.name = name
         w_self.bases_w = bases_w
         w_self.dict_w = dict_w
-        w_self.nslots = 0
         w_self.hasdict = False
         w_self.needsdel = False
         w_self.weakrefable = False
@@ -141,13 +162,13 @@ class W_TypeObject(W_Root):
         w_self.flag_cpytype = False
         w_self.flag_abstract = False
         w_self.flag_sequence_bug_compat = False
-        w_self.instancetypedef = overridetypedef
 
         if overridetypedef is not None:
-            setup_builtin_type(w_self)
+            assert not force_new_layout
+            layout = setup_builtin_type(w_self, overridetypedef)
         else:
-            setup_user_defined_type(w_self)
-        w_self.w_same_layout_as = get_parent_layout(w_self)
+            layout = setup_user_defined_type(w_self, force_new_layout)
+        w_self.layout = layout
 
         if space.config.objspace.std.withtypeversion:
             if not is_mro_purely_of_types(w_self.mro_w):
@@ -163,6 +184,10 @@ class W_TypeObject(W_Root):
                 w_self.terminator = DictTerminator(space, w_self)
             else:
                 w_self.terminator = NoDictTerminator(space, w_self)
+
+    def __repr__(self):
+        "NOT_RPYTHON"
+        return '<W_TypeObject %r at 0x%x>' % (self.name, id(self))
 
     def mutated(w_self, key):
         """
@@ -264,8 +289,8 @@ class W_TypeObject(W_Root):
 
     # compute a tuple that fully describes the instance layout
     def get_full_instance_layout(w_self):
-        w_layout = w_self.w_same_layout_as or w_self
-        return (w_layout, w_self.hasdict, w_self.needsdel, w_self.weakrefable)
+        layout = w_self.layout
+        return (layout, w_self.hasdict, w_self.needsdel, w_self.weakrefable)
 
     def compute_default_mro(w_self):
         return compute_C3_mro(w_self.space, w_self)
@@ -402,7 +427,6 @@ class W_TypeObject(W_Root):
         if version_tag is None:
             tup = w_self._lookup_where(name)
             return tup
-        name = promote_string(name)
         tup_w = w_self._pure_lookup_where_with_method_cache(name, version_tag)
         w_class, w_value = tup_w
         if (space.config.objspace.std.withtypeversion and
@@ -463,7 +487,7 @@ class W_TypeObject(W_Root):
             raise oefmt(space.w_TypeError,
                         "%N.__new__(%N): %N is not a subtype of %N",
                         w_self, w_subtype, w_subtype, w_self)
-        if w_self.instancetypedef is not w_subtype.instancetypedef:
+        if w_self.layout.typedef is not w_subtype.layout.typedef:
             raise oefmt(space.w_TypeError,
                         "%N.__new__(%N) is not safe, use %N.__new__()",
                         w_self, w_subtype, w_subtype)
@@ -478,12 +502,12 @@ class W_TypeObject(W_Root):
 
     def getdict(w_self, space): # returning a dict-proxy!
         from pypy.objspace.std.dictproxyobject import DictProxyStrategy
-        from pypy.objspace.std.dictmultiobject import W_DictMultiObject
+        from pypy.objspace.std.dictmultiobject import W_DictObject
         if w_self.lazyloaders:
             w_self._cleanup_()    # force un-lazification
         strategy = space.fromcache(DictProxyStrategy)
         storage = strategy.erase(w_self)
-        return W_DictMultiObject(space, strategy, storage)
+        return W_DictObject(space, strategy, storage)
 
     def is_heaptype(w_self):
         return w_self.flag_heaptype
@@ -817,11 +841,10 @@ def descr_set__bases__(space, w_type, w_value):
         for w_subclass in w_type.get_subclasses():
             if isinstance(w_subclass, W_TypeObject):
                 w_subclass._version_tag = None
-    assert w_type.w_same_layout_as is get_parent_layout(w_type)  # invariant
 
 def descr__base(space, w_type):
     w_type = _check(space, w_type)
-    return find_best_base(space, w_type.bases_w)
+    return find_best_base(w_type.bases_w)
 
 def descr__doc(space, w_type):
     if space.is_w(w_type, space.w_type):
@@ -924,48 +947,7 @@ W_TypeObject.typedef = TypeDef("type",
 # ____________________________________________________________
 # Initialization of type objects
 
-def get_parent_layout(w_type):
-    """Compute the most parent class of 'w_type' whose layout
-       is the same as 'w_type', or None if all parents of 'w_type'
-       have a different layout than 'w_type'.
-    """
-    w_starttype = w_type
-    while len(w_type.bases_w) > 0:
-        w_bestbase = find_best_base(w_type.space, w_type.bases_w)
-        if w_type.instancetypedef is not w_bestbase.instancetypedef:
-            break
-        if w_type.nslots != w_bestbase.nslots:
-            break
-        w_type = w_bestbase
-    if w_type is not w_starttype:
-        return w_type
-    else:
-        return None
-
-def issublayout(w_layout1, w_layout2):
-    space = w_layout2.space
-    while w_layout1 is not w_layout2:
-        w_layout1 = find_best_base(space, w_layout1.bases_w)
-        if w_layout1 is None:
-            return False
-        w_layout1 = w_layout1.w_same_layout_as or w_layout1
-    return True
-
-@unroll_safe
-def issubtypedef(a, b):
-    from pypy.objspace.std.objectobject import W_ObjectObject
-    if b is W_ObjectObject.typedef:
-        return True
-    if a is None:
-        return False
-    if a is b:
-        return True
-    for a1 in a.bases:
-        if issubtypedef(a1, b):
-            return True
-    return False
-
-def find_best_base(space, bases_w):
+def find_best_base(bases_w):
     """The best base is one of the bases in the given list: the one
        whose layout a new type should use as a starting point.
     """
@@ -976,14 +958,10 @@ def find_best_base(space, bases_w):
         if w_bestbase is None:
             w_bestbase = w_candidate   # for now
             continue
-        candtypedef = w_candidate.instancetypedef
-        besttypedef = w_bestbase.instancetypedef
-        if candtypedef is besttypedef:
-            # two candidates with the same typedef are equivalent unless
-            # one has extra slots over the other
-            if w_candidate.nslots > w_bestbase.nslots:
-                w_bestbase = w_candidate
-        elif issubtypedef(candtypedef, besttypedef):
+        cand_layout = w_candidate.layout
+        best_layout = w_bestbase.layout
+        if (cand_layout is not best_layout and
+            cand_layout.issublayout(best_layout)):
             w_bestbase = w_candidate
     return w_bestbase
 
@@ -992,20 +970,21 @@ def check_and_find_best_base(space, bases_w):
        whose layout a new type should use as a starting point.
        This version checks that bases_w is an acceptable tuple of bases.
     """
-    w_bestbase = find_best_base(space, bases_w)
+    w_bestbase = find_best_base(bases_w)
     if w_bestbase is None:
         raise oefmt(space.w_TypeError,
                     "a new-style class can't have only classic bases")
-    if not w_bestbase.instancetypedef.acceptable_as_base_class:
+    if not w_bestbase.layout.typedef.acceptable_as_base_class:
         raise oefmt(space.w_TypeError,
                     "type '%N' is not an acceptable base class", w_bestbase)
 
-    # check that all other bases' layouts are superclasses of the bestbase
-    w_bestlayout = w_bestbase.w_same_layout_as or w_bestbase
+    # check that all other bases' layouts are "super-layouts" of the
+    # bestbase's layout
+    best_layout = w_bestbase.layout
     for w_base in bases_w:
         if isinstance(w_base, W_TypeObject):
-            w_layout = w_base.w_same_layout_as or w_base
-            if not issublayout(w_bestlayout, w_layout):
+            layout = w_base.layout
+            if not best_layout.issublayout(layout):
                 raise oefmt(space.w_TypeError,
                             "instance layout conflicts in multiple inheritance")
     return w_bestbase
@@ -1019,10 +998,11 @@ def copy_flags_from_bases(w_self, w_bestbase):
         w_self.hasdict = w_self.hasdict or w_base.hasdict
         w_self.needsdel = w_self.needsdel or w_base.needsdel
         w_self.weakrefable = w_self.weakrefable or w_base.weakrefable
-    w_self.nslots = w_bestbase.nslots
     return hasoldstylebase
 
-def create_all_slots(w_self, hasoldstylebase, w_bestbase):
+def create_all_slots(w_self, hasoldstylebase, w_bestbase, force_new_layout):
+    base_layout = w_bestbase.layout
+    index_next_extra_slot = base_layout.nslots
     space = w_self.space
     dict_w = w_self.dict_w
     if '__slots__' not in dict_w:
@@ -1050,7 +1030,8 @@ def create_all_slots(w_self, hasoldstylebase, w_bestbase):
                                 "__weakref__ slot disallowed: we already got one")
                 wantweakref = True
             else:
-                create_slot(w_self, slot_name)
+                index_next_extra_slot = create_slot(w_self, slot_name,
+                                                    index_next_extra_slot)
     wantdict = wantdict or hasoldstylebase
     if wantdict:
         create_dict_slot(w_self)
@@ -1058,8 +1039,14 @@ def create_all_slots(w_self, hasoldstylebase, w_bestbase):
         create_weakref_slot(w_self)
     if '__del__' in dict_w:
         w_self.needsdel = True
+    #
+    if index_next_extra_slot == base_layout.nslots and not force_new_layout:
+        return base_layout
+    else:
+        return Layout(base_layout.typedef, index_next_extra_slot,
+                      base_layout=base_layout)
 
-def create_slot(w_self, slot_name):
+def create_slot(w_self, slot_name, index_next_extra_slot):
     space = w_self.space
     if not valid_slot_name(slot_name):
         raise oefmt(space.w_TypeError, "__slots__ must be identifiers")
@@ -1069,9 +1056,10 @@ def create_slot(w_self, slot_name):
         # Force interning of slot names.
         slot_name = space.str_w(space.new_interned_str(slot_name))
         # in cpython it is ignored less, but we probably don't care
-        member = Member(w_self.nslots, slot_name, w_self)
+        member = Member(index_next_extra_slot, slot_name, w_self)
+        index_next_extra_slot += 1
         w_self.dict_w[slot_name] = space.wrap(member)
-        w_self.nslots += 1
+    return index_next_extra_slot
 
 def create_dict_slot(w_self):
     if not w_self.hasdict:
@@ -1093,11 +1081,10 @@ def valid_slot_name(slot_name):
             return False
     return True
 
-def setup_user_defined_type(w_self):
+def setup_user_defined_type(w_self, force_new_layout):
     if len(w_self.bases_w) == 0:
         w_self.bases_w = [w_self.space.w_object]
     w_bestbase = check_and_find_best_base(w_self.space, w_self.bases_w)
-    w_self.instancetypedef = w_bestbase.instancetypedef
     w_self.flag_heaptype = True
     for w_base in w_self.bases_w:
         if not isinstance(w_base, W_TypeObject):
@@ -1106,16 +1093,29 @@ def setup_user_defined_type(w_self):
         w_self.flag_abstract |= w_base.flag_abstract
 
     hasoldstylebase = copy_flags_from_bases(w_self, w_bestbase)
-    create_all_slots(w_self, hasoldstylebase, w_bestbase)
+    layout = create_all_slots(w_self, hasoldstylebase, w_bestbase,
+                              force_new_layout)
 
     ensure_common_attributes(w_self)
+    return layout
 
-def setup_builtin_type(w_self):
-    w_self.hasdict = w_self.instancetypedef.hasdict
-    w_self.weakrefable = w_self.instancetypedef.weakrefable
-    w_self.w_doc = w_self.space.wrap(w_self.instancetypedef.doc)
+def setup_builtin_type(w_self, instancetypedef):
+    w_self.hasdict = instancetypedef.hasdict
+    w_self.weakrefable = instancetypedef.weakrefable
+    w_self.w_doc = w_self.space.wrap(instancetypedef.doc)
     ensure_common_attributes(w_self)
-    w_self.flag_heaptype = w_self.instancetypedef.heaptype
+    w_self.flag_heaptype = instancetypedef.heaptype
+    #
+    # usually 'instancetypedef' is new, i.e. not seen in any base,
+    # but not always (see Exception class)
+    w_bestbase = find_best_base(w_self.bases_w)
+    if w_bestbase is None:
+        parent_layout = None
+    else:
+        parent_layout = w_bestbase.layout
+        if parent_layout.typedef is instancetypedef:
+            return parent_layout
+    return Layout(instancetypedef, 0, base_layout=parent_layout)
 
 def ensure_common_attributes(w_self):
     ensure_static_new(w_self)
@@ -1139,7 +1139,7 @@ def ensure_module_attr(w_self):
         space = w_self.space
         caller = space.getexecutioncontext().gettopframe_nohidden()
         if caller is not None:
-            w_globals = caller.w_globals
+            w_globals = caller.get_w_globals()
             w_name = space.finditem(w_globals, space.wrap('__name__'))
             if w_name is not None:
                 w_self.dict_w['__module__'] = w_name

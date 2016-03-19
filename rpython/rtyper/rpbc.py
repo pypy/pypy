@@ -7,7 +7,7 @@ from rpython.annotator.description import (
 from rpython.annotator.classdesc import ClassDesc
 from rpython.flowspace.model import Constant
 from rpython.annotator.argument import simple_args
-from rpython.rlib.debug import ll_assert
+from rpython.rtyper.debug import ll_assert
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper import rclass, callparse
 from rpython.rtyper.rclass import CLASSTYPE, OBJECT_VTABLE, OBJECTPTR

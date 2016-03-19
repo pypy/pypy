@@ -284,7 +284,7 @@ isvirtual._annspecialcase_ = "specialize:call_location"
 def loop_unrolling_heuristic(lst, size, cutoff=2):
     """ In which cases iterating over items of lst can be unrolled
     """
-    return isvirtual(lst) or (isconstant(size) and size <= cutoff)
+    return size == 0 or isvirtual(lst) or (isconstant(size) and size <= cutoff)
 
 class Entry(ExtRegistryEntry):
     _about_ = hint
@@ -623,6 +623,8 @@ class JitDriver(object):
             raise AttributeError("no 'greens' or 'reds' supplied")
         if virtualizables is not None:
             self.virtualizables = virtualizables
+        if get_unique_id is not None:
+            assert is_recursive, "get_unique_id and is_recursive must be specified at the same time"
         for v in self.virtualizables:
             assert v in self.reds
         # if reds are automatic, they won't be passed to jit_merge_point, so
@@ -1057,6 +1059,14 @@ class JitHookInterface(object):
     of JIT running like JIT loops compiled, aborts etc.
     An instance of this class will be available as policy.jithookiface.
     """
+    # WARNING: You should make a single prebuilt instance of a subclass
+    # of this class.  You can, before translation, initialize some
+    # attributes on this instance, and then read or change these
+    # attributes inside the methods of the subclass.  But this prebuilt
+    # instance *must not* be seen during the normal annotation/rtyping
+    # of the program!  A line like ``pypy_hooks.foo = ...`` must not
+    # appear inside your interpreter's RPython code.
+
     def on_abort(self, reason, jitdriver, greenkey, greenkey_repr, logops, operations):
         """ A hook called each time a loop is aborted with jitdriver and
         greenkey where it started, reason is a string why it got aborted
@@ -1115,7 +1125,7 @@ def ll_record_exact_class(ll_value, ll_cls):
     from rpython.rtyper.lltypesystem.lloperation import llop
     from rpython.rtyper.lltypesystem import lltype
     from rpython.rtyper.rclass import ll_type
-    ll_assert(ll_value == lltype.nullptr(lltype.typeOf(ll_value).TO), "record_exact_class called with None argument")
+    ll_assert(ll_value != lltype.nullptr(lltype.typeOf(ll_value).TO), "record_exact_class called with None argument")
     ll_assert(ll_type(ll_value) is ll_cls, "record_exact_class called with invalid arguments")
     llop.jit_record_exact_class(lltype.Void, ll_value, ll_cls)
 
@@ -1165,6 +1175,24 @@ class ConditionalCallEntry(ExtRegistryEntry):
                                                     hop.args_s[2:], hop.spaceop)
         hop.exception_is_here()
         return hop.genop('jit_conditional_call', args_v)
+
+def enter_portal_frame(unique_id):
+    """call this when starting to interpret a function. calling this is not
+    necessary for almost all interpreters. The only exception is stackless
+    interpreters where the portal never calls itself.
+    """
+    from rpython.rtyper.lltypesystem import lltype
+    from rpython.rtyper.lltypesystem.lloperation import llop
+    llop.jit_enter_portal_frame(lltype.Void, unique_id)
+
+def leave_portal_frame():
+    """call this after the end of executing a function. calling this is not
+    necessary for almost all interpreters. The only exception is stackless
+    interpreters where the portal never calls itself.
+    """
+    from rpython.rtyper.lltypesystem import lltype
+    from rpython.rtyper.lltypesystem.lloperation import llop
+    llop.jit_leave_portal_frame(lltype.Void)
 
 class Counters(object):
     counters="""

@@ -196,6 +196,10 @@ class FakeSpace(ObjSpace):
     def newfloat(self, f):
         return self.float(f)
 
+    def newslice(self, start, stop, step):
+        return SliceObject(self.int_w(start), self.int_w(stop),
+                           self.int_w(step))
+
     def le(self, w_obj1, w_obj2):
         assert isinstance(w_obj1, boxes.W_GenericBox)
         assert isinstance(w_obj2, boxes.W_GenericBox)

@@ -942,7 +942,7 @@ class AbstractUnwrappedSetStrategy(object):
             return False
         if w_set.length() == 0:
             return True
-        # it's possible to have 0-lenght strategy that's not empty
+        # it's possible to have 0-length strategy that's not empty
         if w_set.strategy is w_other.strategy:
             return self._issubset_unwrapped(w_set, w_other)
         if not self.may_contain_equal_elements(w_other.strategy):
@@ -1076,7 +1076,7 @@ class AbstractUnwrappedSetStrategy(object):
         if self is w_other.strategy:
             strategy = self
             if w_set.length() > w_other.length():
-                # swap operants
+                # swap operands
                 storage = self._intersect_unwrapped(w_other, w_set)
             else:
                 storage = self._intersect_unwrapped(w_set, w_other)
@@ -1086,7 +1086,7 @@ class AbstractUnwrappedSetStrategy(object):
         else:
             strategy = self.space.fromcache(ObjectSetStrategy)
             if w_set.length() > w_other.length():
-                # swap operants
+                # swap operands
                 storage = w_other.strategy._intersect_wrapped(w_other, w_set)
             else:
                 storage = self._intersect_wrapped(w_set, w_other)

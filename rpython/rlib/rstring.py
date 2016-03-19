@@ -485,6 +485,24 @@ class NumberStringParser:
         else:
             return -1
 
+    def prev_digit(self):
+        # After exhausting all n digits in next_digit(), you can walk them
+        # again in reverse order by calling prev_digit() exactly n times
+        i = self.i - 1
+        assert i >= 0
+        self.i = i
+        c = self.s[i]
+        digit = ord(c)
+        if '0' <= c <= '9':
+            digit -= ord('0')
+        elif 'A' <= c <= 'Z':
+            digit = (digit - ord('A')) + 10
+        elif 'a' <= c <= 'z':
+            digit = (digit - ord('a')) + 10
+        else:
+            raise AssertionError
+        return digit
+
 # -------------- public API ---------------------------------
 
 INIT_SIZE = 100 # XXX tweak

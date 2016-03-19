@@ -275,8 +275,6 @@ class CDefinedIntSymbolic(Symbolic):
         return lltype.Signed
 
 malloc_zero_filled = CDefinedIntSymbolic('MALLOC_ZERO_FILLED', default=0)
-running_on_llinterp = CDefinedIntSymbolic('RUNNING_ON_LLINTERP', default=1)
-# running_on_llinterp is meant to have the value 0 in all backends
 
 # ____________________________________________________________
 
@@ -334,6 +332,25 @@ class Entry(ExtRegistryEntry):
 def int_to_bytearray(i):
     # XXX this can be made more efficient in the future
     return bytearray(str(i))
+
+def fetch_translated_config():
+    """Returns the config that is current when translating.
+    Returns None if not translated.
+    """
+    return None
+
+class Entry(ExtRegistryEntry):
+    _about_ = fetch_translated_config
+
+    def compute_result_annotation(self):
+        config = self.bookkeeper.annotator.translator.config
+        return self.bookkeeper.immutablevalue(config)
+
+    def specialize_call(self, hop):
+        from rpython.rtyper.lltypesystem import lltype
+        translator = hop.rtyper.annotator.translator
+        hop.exception_cannot_occur()
+        return hop.inputconst(lltype.Void, translator.config)
 
 # ____________________________________________________________
 

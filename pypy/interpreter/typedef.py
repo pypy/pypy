@@ -156,20 +156,6 @@ def get_unique_interplevel_subclass(config, cls, hasdict, wants_slots,
 get_unique_interplevel_subclass._annspecialcase_ = "specialize:memo"
 _subclass_cache = {}
 
-def enum_interplevel_subclasses(config, cls):
-    """Return a list of all the extra interp-level subclasses of 'cls' that
-    can be built by get_unique_interplevel_subclass()."""
-    result = []
-    for flag1 in (False, True):
-        for flag2 in (False, True):
-            for flag3 in (False, True):
-                for flag4 in (False, True):
-                    result.append(get_unique_interplevel_subclass(
-                        config, cls, flag1, flag2, flag3, flag4))
-    result = dict.fromkeys(result)
-    assert len(result) <= 6
-    return result.keys()
-
 def _getusercls(config, cls, wants_dict, wants_slots, wants_del, weakrefable):
     typedef = cls.typedef
     if wants_dict and typedef.hasdict:
@@ -262,7 +248,7 @@ def _builduserclswithfeature(config, supercls, *features):
             def user_setup(self, space, w_subtype):
                 self.space = space
                 self.w__class__ = w_subtype
-                self.user_setup_slots(w_subtype.nslots)
+                self.user_setup_slots(w_subtype.layout.nslots)
 
             def user_setup_slots(self, nslots):
                 assert nslots == 0
@@ -772,7 +758,7 @@ PyFrame.typedef = TypeDef('frame',
     f_restricted = GetSetProperty(PyFrame.fget_f_restricted),
     f_code = GetSetProperty(PyFrame.fget_code),
     f_locals = GetSetProperty(PyFrame.fget_getdictscope),
-    f_globals = interp_attrproperty_w('w_globals', cls=PyFrame),
+    f_globals = GetSetProperty(PyFrame.fget_w_globals),
 )
 assert not PyFrame.typedef.acceptable_as_base_class  # no __new__
 

@@ -35,15 +35,11 @@ class CollectAnalyzer(graphanalyze.BoolGraphAnalyzer):
                 return True
         return graphanalyze.BoolGraphAnalyzer.analyze_direct_call(self, graph,
                                                                   seen)
-    def analyze_external_call(self, op, seen=None):
-        try:
-            funcobj = op.args[0].value._obj
-        except lltype.DelayedPointer:
+    def analyze_external_call(self, funcobj, seen=None):
+        if funcobj.random_effects_on_gcobjs:
             return True
-        if getattr(funcobj, 'random_effects_on_gcobjs', False):
-            return True
-        return graphanalyze.BoolGraphAnalyzer.analyze_external_call(self, op,
-                                                                    seen)
+        return graphanalyze.BoolGraphAnalyzer.analyze_external_call(
+            self, funcobj, seen)
     def analyze_simple_operation(self, op, graphinfo):
         if op.opname in ('malloc', 'malloc_varsize'):
             flags = op.args[1].value
@@ -157,6 +153,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
         else:
             # for regular translation: pick the GC from the config
             GCClass, GC_PARAMS = choose_gc_from_config(translator.config)
+            self.GCClass = GCClass
 
         if hasattr(translator, '_jit2gc'):
             self.layoutbuilder = translator._jit2gc['layoutbuilder']
@@ -292,7 +289,6 @@ class BaseFrameworkGCTransformer(GCTransformer):
 
         s_gcref = SomePtr(llmemory.GCREF)
         gcdata = self.gcdata
-        translator = self.translator
         #use the GC flag to find which malloc method to use
         #malloc_zero_filled == Ture -> malloc_fixedsize/varsize_clear
         #malloc_zero_filled == Flase -> malloc_fixedsize/varsize
@@ -326,7 +322,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
                     GCClass.malloc_varsize.im_func,
                     [s_gc, s_typeid16]
                     + [annmodel.SomeInteger(nonneg=True) for i in range(4)], s_gcref)
-        
+
         self.collect_ptr = getfn(GCClass.collect.im_func,
             [s_gc, annmodel.SomeInteger()], annmodel.s_None)
         self.can_move_ptr = getfn(GCClass.can_move.im_func,
@@ -486,6 +482,29 @@ class BaseFrameworkGCTransformer(GCTransformer):
                                            [s_gc,
                                             annmodel.SomeInteger(nonneg=True)],
                                            annmodel.s_None)
+
+        if hasattr(GCClass, 'rawrefcount_init'):
+            self.rawrefcount_init_ptr = getfn(
+                GCClass.rawrefcount_init,
+                [s_gc, SomePtr(GCClass.RAWREFCOUNT_DEALLOC_TRIGGER)],
+                annmodel.s_None)
+            self.rawrefcount_create_link_pypy_ptr = getfn(
+                GCClass.rawrefcount_create_link_pypy,
+                [s_gc, s_gcref, SomeAddress()],
+                annmodel.s_None)
+            self.rawrefcount_create_link_pyobj_ptr = getfn(
+                GCClass.rawrefcount_create_link_pyobj,
+                [s_gc, s_gcref, SomeAddress()],
+                annmodel.s_None)
+            self.rawrefcount_from_obj_ptr = getfn(
+                GCClass.rawrefcount_from_obj, [s_gc, s_gcref], SomeAddress(),
+                inline = True)
+            self.rawrefcount_to_obj_ptr = getfn(
+                GCClass.rawrefcount_to_obj, [s_gc, SomeAddress()], s_gcref,
+                inline = True)
+            self.rawrefcount_next_dead_ptr = getfn(
+                GCClass.rawrefcount_next_dead, [s_gc], SomeAddress(),
+                inline = True)
 
         if GCClass.can_usually_pin_objects:
             self.pin_ptr = getfn(GCClass.pin,
@@ -1232,6 +1251,50 @@ class BaseFrameworkGCTransformer(GCTransformer):
                   resultvar=hop.spaceop.result)
         self.pop_roots(hop, livevars)
 
+    def gct_gc_rawrefcount_init(self, hop):
+        [v_fnptr] = hop.spaceop.args
+        assert v_fnptr.concretetype == self.GCClass.RAWREFCOUNT_DEALLOC_TRIGGER
+        hop.genop("direct_call",
+                  [self.rawrefcount_init_ptr, self.c_const_gc, v_fnptr])
+
+    def gct_gc_rawrefcount_create_link_pypy(self, hop):
+        [v_gcobj, v_pyobject] = hop.spaceop.args
+        assert v_gcobj.concretetype == llmemory.GCREF
+        assert v_pyobject.concretetype == llmemory.Address
+        hop.genop("direct_call",
+                  [self.rawrefcount_create_link_pypy_ptr, self.c_const_gc,
+                   v_gcobj, v_pyobject])
+
+    def gct_gc_rawrefcount_create_link_pyobj(self, hop):
+        [v_gcobj, v_pyobject] = hop.spaceop.args
+        assert v_gcobj.concretetype == llmemory.GCREF
+        assert v_pyobject.concretetype == llmemory.Address
+        hop.genop("direct_call",
+                  [self.rawrefcount_create_link_pyobj_ptr, self.c_const_gc,
+                   v_gcobj, v_pyobject])
+
+    def gct_gc_rawrefcount_from_obj(self, hop):
+        [v_gcobj] = hop.spaceop.args
+        assert v_gcobj.concretetype == llmemory.GCREF
+        assert hop.spaceop.result.concretetype == llmemory.Address
+        hop.genop("direct_call",
+                  [self.rawrefcount_from_obj_ptr, self.c_const_gc, v_gcobj],
+                  resultvar=hop.spaceop.result)
+
+    def gct_gc_rawrefcount_to_obj(self, hop):
+        [v_pyobject] = hop.spaceop.args
+        assert v_pyobject.concretetype == llmemory.Address
+        assert hop.spaceop.result.concretetype == llmemory.GCREF
+        hop.genop("direct_call",
+                  [self.rawrefcount_to_obj_ptr, self.c_const_gc, v_pyobject],
+                  resultvar=hop.spaceop.result)
+
+    def gct_gc_rawrefcount_next_dead(self, hop):
+        assert hop.spaceop.result.concretetype == llmemory.Address
+        hop.genop("direct_call",
+                  [self.rawrefcount_next_dead_ptr, self.c_const_gc],
+                  resultvar=hop.spaceop.result)
+
     def _set_into_gc_array_part(self, op):
         if op.opname == 'setarrayitem':
             return op.args[1]
@@ -1389,7 +1452,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
                                 [v] + previous_steps + [c_name, c_null])
                     else:
                         llops.genop('bare_setfield', [v, c_name, c_null])
-         
+
             return
         elif isinstance(TYPE, lltype.Array):
             ITEM = TYPE.OF
@@ -1415,6 +1478,25 @@ class BaseFrameworkGCTransformer(GCTransformer):
         v_adr = llops.genop('adr_add', [v_a, c_fixedofs],
                             resulttype=llmemory.Address)
         llops.genop('raw_memclear', [v_adr, v_totalsize])
+
+    def gcheader_initdata(self, obj):
+        o = lltype.top_container(obj)
+        needs_hash = self.get_prebuilt_hash(o) is not None
+        hdr = self.gc_header_for(o, needs_hash)
+        return hdr._obj
+
+    def get_prebuilt_hash(self, obj):
+        # for prebuilt objects that need to have their hash stored and
+        # restored.  Note that only structures that are StructNodes all
+        # the way have their hash stored (and not e.g. structs with var-
+        # sized arrays at the end).  'obj' must be the top_container.
+        TYPE = lltype.typeOf(obj)
+        if not isinstance(TYPE, lltype.GcStruct):
+            return None
+        if TYPE._is_varsize():
+            return None
+        return getattr(obj, '_hash_cache_', None)
+
 
 
 class TransformerLayoutBuilder(gctypelayout.TypeLayoutBuilder):

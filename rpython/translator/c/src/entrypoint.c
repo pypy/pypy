@@ -37,6 +37,25 @@ int pypy_main_function(int argc, char *argv[]) __attribute__((__noinline__));
 # include <src/thread.h>
 #endif
 
+RPY_EXPORTED
+void rpython_startup_code(void)
+{
+#ifdef RPY_WITH_GIL
+    RPyGilAcquire();
+#endif
+#ifdef PYPY_USE_ASMGCC
+    pypy_g_rpython_rtyper_lltypesystem_rffi_StackCounter.sc_inst_stacks_counter++;
+#endif
+    pypy_asm_stack_bottom();
+    RPython_StartupCode();
+#ifdef PYPY_USE_ASMGCC
+    pypy_g_rpython_rtyper_lltypesystem_rffi_StackCounter.sc_inst_stacks_counter--;
+#endif
+#ifdef RPY_WITH_GIL
+    RPyGilRelease();
+#endif
+}
+
 
 RPY_EXTERN
 int pypy_main_function(int argc, char *argv[])

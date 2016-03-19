@@ -1,5 +1,20 @@
-Making a PyPy Release
-=====================
+The PyPy Release Process
+========================
+
+Release Policy
+++++++++++++++
+
+We try to create a stable release a few times a year. These are released on
+a branch named like release-2.x or release-4.x, and each release is tagged,
+for instance release-4.0.1. 
+
+After release, inevitably there are bug fixes. It is the responsibility of
+the commiter who fixes a bug to make sure this fix is on the release branch,
+so that we can then create a tagged bug-fix release, which will hopefully
+happen more often than stable releases.
+
+How to Create a PyPy Release
+++++++++++++++++++++++++++++
 
 Overview
 --------
@@ -61,5 +76,4 @@ Release Steps
 
 * add a tag on the pypy/jitviewer repo that corresponds to pypy release
 * add a tag on the codespeed web site that corresponds to pypy release
-* update the version number in {rpython,pypy}/doc/conf.py.
 * revise versioning at https://readthedocs.org/projects/pypy

@@ -20,7 +20,7 @@ def descr_classobj_new(space, w_subtype, w_name, w_bases, w_dict):
     if not space.isinstance_w(w_dict, space.w_dict):
         raise_type_err(space, 'bases', 'tuple', w_bases)
 
-    if not space.is_true(space.contains(w_dict, space.wrap("__doc__"))):
+    if not space.contains_w(w_dict, space.wrap("__doc__")):
         space.setitem(w_dict, space.wrap("__doc__"), space.w_None)
 
     # XXX missing: lengthy and obscure logic about "__module__"

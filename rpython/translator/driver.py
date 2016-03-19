@@ -14,9 +14,9 @@ from rpython.rlib.entrypoint import secondary_entrypoints,\
      annotated_jit_entrypoints
 
 import py
-from rpython.tool.ansi_print import ansi_log
-log = py.log.Producer("translation")
-py.log.setconsumer("translation", ansi_log)
+from rpython.tool.ansi_print import AnsiLogger
+
+log = AnsiLogger("translation")
 
 
 def taskdef(deps, title, new_state=None, expected_states=[],
@@ -203,9 +203,8 @@ class TranslationDriver(SimpleTaskEngine):
                 try:
                     points = secondary_entrypoints[key]
                 except KeyError:
-                    raise KeyError(
-                        "Entrypoints not found. I only know the keys %r." %
-                        (", ".join(secondary_entrypoints.keys()), ))
+                    raise KeyError("Entrypoint %r not found (not in %r)" %
+                                   (key, secondary_entrypoints.keys()))
                 self.secondary_entrypoints.extend(points)
 
         self.translator.driver_instrument_result = self.instrument_result
@@ -488,13 +487,14 @@ class TranslationDriver(SimpleTaskEngine):
                     exe = py.path.local(exename)
                     exename = exe.new(purebasename=exe.purebasename + 'w')
                     shutil_copy(str(exename), str(newexename))
-                    # the import library is named python27.lib, according
-                    # to the pragma in pyconfig.h
-                    libname = str(newsoname.dirpath().join('python27.lib'))
+                    # for pypy, the import library is renamed and moved to
+                    # libs/python27.lib, according to the pragma in pyconfig.h
+                    libname = self.config.translation.libname
+                    libname = libname or soname.new(ext='lib').basename
+                    libname = str(newsoname.dirpath().join(libname))
                     shutil.copyfile(str(soname.new(ext='lib')), libname)
                     self.log.info("copied: %s" % (libname,))
-                    # XXX TODO : replace the nonsense above with
-                    # ext_to_copy = ['lib', 'pdb']
+                    # the pdb file goes in the same place as pypy(w).exe
                     ext_to_copy = ['pdb',]
                     for ext in ext_to_copy:
                         name = soname.new(ext=ext)
@@ -524,7 +524,6 @@ class TranslationDriver(SimpleTaskEngine):
     @taskdef([STACKCHECKINSERTION, '?'+BACKENDOPT, RTYPE], "LLInterpreting")
     def task_llinterpret_lltype(self):
         from rpython.rtyper.llinterp import LLInterpreter
-        py.log.setconsumer("llinterp operation", None)
 
         translator = self.translator
         interp = LLInterpreter(translator.rtyper)
@@ -534,7 +533,7 @@ class TranslationDriver(SimpleTaskEngine):
                               self.extra.get('get_llinterp_args',
                                              lambda: [])())
 
-        log.llinterpret.event("result -> %s" % v)
+        log.llinterpret("result -> %s" % v)
 
     def proceed(self, goals):
         if not goals:

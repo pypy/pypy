@@ -24,7 +24,7 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
                  if(PyUnicode_GetSize(s) == 11) {
                      result = 1;
                  }
-                 if(s->ob_type->tp_basicsize != sizeof(void*)*4)
+                 if(s->ob_type->tp_basicsize != sizeof(void*)*5)
                      result = 0;
                  Py_DECREF(s);
                  return PyBool_FromLong(result);
@@ -386,11 +386,11 @@ class TestUnicode(BaseApiTest):
                 lltype.free(pendian, flavor='raw')
 
         test("\x61\x00\x62\x00\x63\x00\x64\x00", -1)
-
-        test("\x61\x00\x62\x00\x63\x00\x64\x00", None)
-
+        if sys.byteorder == 'big':
+            test("\x00\x61\x00\x62\x00\x63\x00\x64", None)
+        else:
+            test("\x61\x00\x62\x00\x63\x00\x64\x00", None)
         test("\x00\x61\x00\x62\x00\x63\x00\x64", 1)
-
         test("\xFE\xFF\x00\x61\x00\x62\x00\x63\x00\x64", 0, 1)
         test("\xFF\xFE\x61\x00\x62\x00\x63\x00\x64\x00", 0, -1)
 
@@ -423,7 +423,10 @@ class TestUnicode(BaseApiTest):
 
         test("\x61\x00\x00\x00\x62\x00\x00\x00", -1)
 
-        test("\x61\x00\x00\x00\x62\x00\x00\x00", None)
+        if sys.byteorder == 'big':
+            test("\x00\x00\x00\x61\x00\x00\x00\x62", None)
+        else:
+            test("\x61\x00\x00\x00\x62\x00\x00\x00", None)
 
         test("\x00\x00\x00\x61\x00\x00\x00\x62", 1)
 

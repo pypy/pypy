@@ -2,7 +2,7 @@ from __future__ import with_statement
 import py
 import sys
 from rpython.rtyper.lltypesystem.lltype import typeOf, Void, malloc, free
-from rpython.rtyper.llinterp import LLInterpreter, LLException
+from rpython.rtyper.llinterp import LLInterpreter, LLException, log
 from rpython.rtyper.rmodel import inputconst
 from rpython.rtyper.annlowlevel import hlstr, llhelper
 from rpython.rtyper.exceptiondata import UnknownException
@@ -13,16 +13,13 @@ from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.rlib.rarithmetic import r_uint, ovfcheck
 from rpython.tool import leakfinder
 from rpython.conftest import option
-
+from rpython.rtyper.rtyper import llinterp_backend
 
 # switch on logging of interp to show more info on failing tests
-
 def setup_module(mod):
-    mod.logstate = py.log._getstate()
-    py.log.setconsumer("llinterp", py.log.STDOUT)
-
+    log.output_disabled = False
 def teardown_module(mod):
-    py.log._setstate(mod.logstate)
+    log.output_disabled = True
 
 
 def gengraph(func, argtypes=[], viewbefore='auto', policy=None,
@@ -39,6 +36,7 @@ def gengraph(func, argtypes=[], viewbefore='auto', policy=None,
         t.view()
     global typer # we need it for find_exception
     typer = t.buildrtyper()
+    typer.backend = llinterp_backend
     typer.specialize()
     #t.view()
     t.checkgraphs()

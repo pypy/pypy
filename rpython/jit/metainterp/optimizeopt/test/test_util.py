@@ -1,4 +1,4 @@
-import py, random
+import py, random, string
 
 from rpython.rlib.debug import debug_print
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
@@ -122,7 +122,14 @@ class LLtypeMixin(object):
                             ('value', lltype.Signed),
                             ('next', lltype.Ptr(NODE3)),
                             hints={'immutable': True}))
-    
+
+    big_fields = [('big' + i, lltype.Signed) for i in string.ascii_lowercase]
+    BIG = lltype.GcForwardReference()
+    BIG.become(lltype.GcStruct('BIG', *big_fields, hints={'immutable': True}))
+
+    for field, _ in big_fields:
+        locals()[field + 'descr'] = cpu.fielddescrof(BIG, field)
+
     node = lltype.malloc(NODE)
     node.value = 5
     node.next = node
@@ -133,16 +140,25 @@ class LLtypeMixin(object):
     node2.parent.parent.typeptr = node_vtable2
     node2addr = lltype.cast_opaque_ptr(llmemory.GCREF, node2)
     myptr = lltype.cast_opaque_ptr(llmemory.GCREF, node)
-    mynode2 = lltype.malloc(NODE)
+    mynodeb = lltype.malloc(NODE)
     myarray = lltype.cast_opaque_ptr(llmemory.GCREF, lltype.malloc(lltype.GcArray(lltype.Signed), 13, zero=True))
-    mynode2.parent.typeptr = node_vtable
-    myptr2 = lltype.cast_opaque_ptr(llmemory.GCREF, mynode2)
-    mynode3 = lltype.malloc(NODE2)
-    mynode3.parent.parent.typeptr = node_vtable2
+    mynodeb.parent.typeptr = node_vtable
+    myptrb = lltype.cast_opaque_ptr(llmemory.GCREF, mynodeb)
+    myptr2 = lltype.malloc(NODE2)
+    myptr2.parent.parent.typeptr = node_vtable2
+    myptr2 = lltype.cast_opaque_ptr(llmemory.GCREF, myptr2)
+    nullptr = lltype.nullptr(llmemory.GCREF.TO)
+
+    mynode3 = lltype.malloc(NODE3)
+    mynode3.parent.typeptr = node_vtable3
+    mynode3.value = 7
+    mynode3.next = mynode3
     myptr3 = lltype.cast_opaque_ptr(llmemory.GCREF, mynode3)   # a NODE2
     mynode4 = lltype.malloc(NODE3)
     mynode4.parent.typeptr = node_vtable3
     myptr4 = lltype.cast_opaque_ptr(llmemory.GCREF, mynode4)   # a NODE3
+
+
     nullptr = lltype.nullptr(llmemory.GCREF.TO)
     #nodebox2 = InputArgRef(lltype.cast_opaque_ptr(llmemory.GCREF, node2))
     nodesize = cpu.sizeof(NODE, node_vtable)
@@ -203,7 +219,6 @@ class LLtypeMixin(object):
     arraydescr = cpu.arraydescrof(lltype.GcArray(lltype.Signed))
     int32arraydescr = cpu.arraydescrof(lltype.GcArray(rffi.INT))
     int16arraydescr = cpu.arraydescrof(lltype.GcArray(rffi.SHORT))
-    floatarraydescr = cpu.arraydescrof(lltype.GcArray(lltype.Float))
     float32arraydescr = cpu.arraydescrof(lltype.GcArray(lltype.SingleFloat))
     arraydescr_tid = arraydescr.get_type_id()
     array = lltype.malloc(lltype.GcArray(lltype.Signed), 15, zero=True)
@@ -212,6 +227,12 @@ class LLtypeMixin(object):
     array2ref = lltype.cast_opaque_ptr(llmemory.GCREF, array2)
     gcarraydescr = cpu.arraydescrof(lltype.GcArray(llmemory.GCREF))
     gcarraydescr_tid = gcarraydescr.get_type_id()
+    floatarraydescr = cpu.arraydescrof(lltype.GcArray(lltype.Float))
+
+    arrayimmutdescr = cpu.arraydescrof(lltype.GcArray(lltype.Signed, hints={"immutable": True}))
+    immutarray = lltype.cast_opaque_ptr(llmemory.GCREF, lltype.malloc(arrayimmutdescr.A, 13, zero=True))
+    gcarrayimmutdescr = cpu.arraydescrof(lltype.GcArray(llmemory.GCREF, hints={"immutable": True}))
+    floatarrayimmutdescr = cpu.arraydescrof(lltype.GcArray(lltype.Float, hints={"immutable": True}))
 
     # a GcStruct not inheriting from OBJECT
     tpl = lltype.malloc(S, zero=True)
@@ -244,7 +265,7 @@ class LLtypeMixin(object):
     tsize = cpu.sizeof(T, None)
     cdescr = cpu.fielddescrof(T, 'c')
     ddescr = cpu.fielddescrof(T, 'd')
-    arraydescr3 = cpu.arraydescrof(lltype.GcArray(lltype.Ptr(NODE)))
+    arraydescr3 = cpu.arraydescrof(lltype.GcArray(lltype.Ptr(NODE3)))
 
     U = lltype.GcStruct('U',
                         ('parent', OBJECT),
@@ -485,14 +506,15 @@ class BaseTest(object):
             index = 0
 
         if op.is_guard():
-            op.rd_snapshot = resume.Snapshot(None, op.getfailargs())
+            op.rd_snapshot = resume.TopSnapshot(
+                resume.Snapshot(None, op.getfailargs()), [], [])
             op.rd_frame_info_list = resume.FrameInfo(None, FakeJitCode(), 11)
 
     def add_guard_future_condition(self, res):
         # invent a GUARD_FUTURE_CONDITION to not have to change all tests
         if res.operations[-1].getopnum() == rop.JUMP:
             guard = ResOperation(rop.GUARD_FUTURE_CONDITION, [], None)
-            guard.rd_snapshot = resume.Snapshot(None, [])
+            guard.rd_snapshot = resume.TopSnapshot(None, [], [])
             res.operations.insert(-1, guard)
 
     def assert_equal(self, optimized, expected, text_right=None):

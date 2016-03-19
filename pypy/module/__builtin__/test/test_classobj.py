@@ -452,7 +452,6 @@ class AppTestOldstyle(object):
         assert a + 1 == 2
         assert a + 1.1 == 2
 
-
     def test_binaryop_calls_coerce_always(self):
         l = []
         class A:
@@ -1076,6 +1075,16 @@ class AppTestOldstyle(object):
         assert (D() >  A()) == 'D:A.gt'
         assert (D() >= A()) == 'D:A.ge'
 
+    def test_override___int__(self):
+        class F(float):
+            def __int__(self):
+                return 666
+        f = F(-12.3)
+        assert int(f) == 666
+        # on cpython, this calls float_trunc() in floatobject.c
+        # which ends up calling PyFloat_AS_DOUBLE((PyFloatObject*) f)
+        assert float.__int__(f) == -12
+
 
 class AppTestOldStyleClassBytesDict(object):
     def setup_class(cls):
@@ -1084,7 +1093,7 @@ class AppTestOldStyleClassBytesDict(object):
         def is_strdict(space, w_class):
             from pypy.objspace.std.dictmultiobject import BytesDictStrategy
             w_d = w_class.getdict(space)
-            return space.wrap(isinstance(w_d.strategy, BytesDictStrategy))
+            return space.wrap(isinstance(w_d.get_strategy(), BytesDictStrategy))
 
         cls.w_is_strdict = cls.space.wrap(gateway.interp2app(is_strdict))
 

@@ -374,6 +374,11 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
             ("test_type", "METH_O",
              '''
+                 /* "args->ob_type" is a strange way to get at 'type',
+                    which should have a different tp_getattro/tp_setattro
+                    than its tp_base, which is 'object'.
+                  */
+                  
                  if (!args->ob_type->tp_setattro)
                  {
                      PyErr_SetString(PyExc_ValueError, "missing tp_setattro");
@@ -382,8 +387,12 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                  if (args->ob_type->tp_setattro ==
                      args->ob_type->tp_base->tp_setattro)
                  {
-                     PyErr_SetString(PyExc_ValueError, "recursive tp_setattro");
-                     return NULL;
+                     /* Note that unlike CPython, in PyPy 'type.tp_setattro'
+                        is the same function as 'object.tp_setattro'.  This
+                        test used to check that it was not, but that was an
+                        artifact of the bootstrap logic only---in the final
+                        C sources I checked and they are indeed the same.
+                        So we ignore this problem here. */
                  }
                  if (!args->ob_type->tp_getattro)
                  {
@@ -414,15 +423,26 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                      return NULL;
                  }
                  PyObject *name = PyString_FromString("attr1");
-                 PyIntObject *attr1 = obj->ob_type->tp_getattro(obj, name);
-                 if (attr1->ob_ival != value->ob_ival)
+                 PyIntObject *attr = obj->ob_type->tp_getattro(obj, name);
+                 if (attr->ob_ival != value->ob_ival)
                  {
                      PyErr_SetString(PyExc_ValueError,
                                      "tp_getattro returned wrong value");
                      return NULL;
                  }
                  Py_DECREF(name);
-                 Py_DECREF(attr1);
+                 Py_DECREF(attr);
+                 name = PyString_FromString("attr2");
+                 attr = obj->ob_type->tp_getattro(obj, name);
+                 if (attr == NULL && PyErr_ExceptionMatches(PyExc_AttributeError))
+                 {
+                     PyErr_Clear();
+                 } else {
+                     PyErr_SetString(PyExc_ValueError,
+                                     "tp_getattro should have raised");
+                     return NULL;
+                 }
+                 Py_DECREF(name);
                  Py_RETURN_TRUE;
              '''
              )
@@ -586,7 +606,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 long intval;
                 PyObject *name;
 
-                if (!PyArg_ParseTuple(args, "i", &intval))
+                if (!PyArg_ParseTuple(args, "l", &intval))
                     return NULL;
 
                 IntLike_Type.tp_as_number = &intlike_as_number;
@@ -637,7 +657,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 IntLikeObject *intObj;
                 long intval;
 
-                if (!PyArg_ParseTuple(args, "i", &intval))
+                if (!PyArg_ParseTuple(args, "l", &intval))
                     return NULL;
 
                 IntLike_Type.tp_as_number = &intlike_as_number;
@@ -657,7 +677,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 IntLikeObjectNoOp *intObjNoOp;
                 long intval;
 
-                if (!PyArg_ParseTuple(args, "i", &intval))
+                if (!PyArg_ParseTuple(args, "l", &intval))
                     return NULL;
 
                 IntLike_Type_NoOp.tp_flags |= Py_TPFLAGS_CHECKTYPES;
@@ -724,3 +744,25 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         module = self.import_module(name='foo3')
         print('calling module.Type()...')
         module.Type("X", (object,), {})
+
+    def test_app_subclass_of_c_type(self):
+        module = self.import_module(name='foo')
+        size = module.size_of_instances(module.fooType)
+        class f1(object):
+            pass
+        class f2(module.fooType):
+            pass
+        class bar(f1, f2):
+            pass
+        assert bar.__base__ is f2
+        assert module.size_of_instances(bar) == size
+
+    def test_app_cant_subclass_two_types(self):
+        module = self.import_module(name='foo')
+        try:
+            class bar(module.fooType, module.Property):
+                pass
+        except TypeError as e:
+            assert str(e) == 'instance layout conflicts in multiple inheritance'
+        else:
+            raise AssertionError("did not get TypeError!")

@@ -1719,3 +1719,10 @@ class TestNewFFI1:
         exec("from _test_import_from_lib.lib import *", d)
         assert (set(key for key in d if not key.startswith('_')) ==
                 set(['myfunc', 'MYFOO']))
+        #
+        # also test "import *" on the module itself, which should be
+        # equivalent to "import ffi, lib"
+        d = {}
+        exec("from _test_import_from_lib import *", d)
+        assert (sorted([x for x in d.keys() if not x.startswith('__')]) ==
+                ['ffi', 'lib'])

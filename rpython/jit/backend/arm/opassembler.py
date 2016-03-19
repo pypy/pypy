@@ -1143,35 +1143,42 @@ class ResOpAssembler(BaseAssembler):
     def emit_op_zero_array(self, op, arglocs, regalloc, fcond):
         from rpython.jit.backend.llsupport.descr import unpack_arraydescr
         assert len(arglocs) == 0
-        length_box = op.getarg(2)
-        if isinstance(length_box, ConstInt) and length_box.getint() == 0:
+        size_box = op.getarg(2)
+        if isinstance(size_box, ConstInt) and size_box.getint() == 0:
             return fcond     # nothing to do
         itemsize, baseofs, _ = unpack_arraydescr(op.getdescr())
         args = op.getarglist()
+        #
+        # ZERO_ARRAY(base_loc, start, size, 1, 1)
+        # 'start' and 'size' are both expressed in bytes,
+        # and the two scaling arguments should always be ConstInt(1) on ARM.
+        assert args[3].getint() == 1
+        assert args[4].getint() == 1
+        #
         base_loc = regalloc.rm.make_sure_var_in_reg(args[0], args)
-        sibox = args[1]
-        if isinstance(sibox, ConstInt):
-            startindex_loc = None
-            startindex = sibox.getint()
-            assert startindex >= 0
+        startbyte_box = args[1]
+        if isinstance(startbyte_box, ConstInt):
+            startbyte_loc = None
+            startbyte = startbyte_box.getint()
+            assert startbyte >= 0
         else:
-            startindex_loc = regalloc.rm.make_sure_var_in_reg(sibox, args)
-            startindex = -1
+            startbyte_loc = regalloc.rm.make_sure_var_in_reg(startbyte_box,
+                                                             args)
+            startbyte = -1
 
-        # base_loc and startindex_loc are in two regs here (or they are
-        # immediates).  Compute the dstaddr_loc, which is the raw
+        # base_loc and startbyte_loc are in two regs here (or startbyte_loc
+        # is an immediate).  Compute the dstaddr_loc, which is the raw
         # address that we will pass as first argument to memset().
         # It can be in the same register as either one, but not in
         # args[2], because we're still needing the latter.
         dstaddr_box = TempVar()
         dstaddr_loc = regalloc.rm.force_allocate_reg(dstaddr_box, [args[2]])
-        if startindex >= 0:    # a constant
-            ofs = baseofs + startindex * itemsize
+        if startbyte >= 0:    # a constant
+            ofs = baseofs + startbyte
             reg = base_loc.value
         else:
-            self.mc.gen_load_int(r.ip.value, itemsize)
-            self.mc.MLA(dstaddr_loc.value, r.ip.value,
-                        startindex_loc.value, base_loc.value)
+            self.mc.ADD_rr(dstaddr_loc.value,
+                           base_loc.value, startbyte_loc.value)
             ofs = baseofs
             reg = dstaddr_loc.value
         if check_imm_arg(ofs):
@@ -1180,20 +1187,27 @@ class ResOpAssembler(BaseAssembler):
             self.mc.gen_load_int(r.ip.value, ofs)
             self.mc.ADD_rr(dstaddr_loc.value, reg, r.ip.value)
 
-        if (isinstance(length_box, ConstInt) and
-                length_box.getint() <= 14 and     # same limit as GCC
-                itemsize in (4, 2, 1)):
+        # We use STRB, STRH or STR based on whether we know the array
+        # item size is a multiple of 1, 2 or 4.
+        if   itemsize & 1: itemsize = 1
+        elif itemsize & 2: itemsize = 2
+        else:              itemsize = 4
+        limit = itemsize
+        next_group = -1
+        if itemsize < 4 and startbyte >= 0:
+            # we optimize STRB/STRH into STR, but this needs care:
+            # it only works if startindex_loc is a constant, otherwise
+            # we'd be doing unaligned accesses.
+            next_group = (-startbyte) & 3
+            limit = 4
+
+        if (isinstance(size_box, ConstInt) and
+                size_box.getint() <= 14 * limit):     # same limit as GCC
             # Inline a series of STR operations, starting at 'dstaddr_loc'.
-            next_group = -1
-            if itemsize < 4 and startindex >= 0:
-                # we optimize STRB/STRH into STR, but this needs care:
-                # it only works if startindex_loc is a constant, otherwise
-                # we'd be doing unaligned accesses.
-                next_group = (-startindex * itemsize) & 3
             #
             self.mc.gen_load_int(r.ip.value, 0)
             i = 0
-            total_size = length_box.getint() * itemsize
+            total_size = size_box.getint()
             while i < total_size:
                 sz = itemsize
                 if i == next_group:
@@ -1209,29 +1223,18 @@ class ResOpAssembler(BaseAssembler):
                 i += sz
 
         else:
-            if isinstance(length_box, ConstInt):
-                length_loc = imm(length_box.getint() * itemsize)
+            if isinstance(size_box, ConstInt):
+                size_loc = imm(size_box.getint())
             else:
-                # load length_loc in a register different than dstaddr_loc
-                length_loc = regalloc.rm.make_sure_var_in_reg(length_box,
-                                                              [dstaddr_box])
-                if itemsize > 1:
-                    # we need a register that is different from dstaddr_loc,
-                    # but which can be identical to length_loc (as usual,
-                    # only if the length_box is not used by future operations)
-                    bytes_box = TempVar()
-                    bytes_loc = regalloc.rm.force_allocate_reg(bytes_box,
-                                                               [dstaddr_box])
-                    self.mc.gen_load_int(r.ip.value, itemsize)
-                    self.mc.MUL(bytes_loc.value, r.ip.value, length_loc.value)
-                    length_box = bytes_box
-                    length_loc = bytes_loc
+                # load size_loc in a register different than dstaddr_loc
+                size_loc = regalloc.rm.make_sure_var_in_reg(size_box,
+                                                            [dstaddr_box])
             #
             # call memset()
             regalloc.before_call()
             self.simple_call_no_collect(imm(self.memset_addr),
-                                        [dstaddr_loc, imm(0), length_loc])
-            regalloc.rm.possibly_free_var(length_box)
+                                        [dstaddr_loc, imm(0), size_loc])
+            regalloc.rm.possibly_free_var(size_box)
         regalloc.rm.possibly_free_var(dstaddr_box)
         return fcond
 

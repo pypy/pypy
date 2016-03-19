@@ -9,7 +9,7 @@ from rpython.jit.backend.x86.regloc import (FrameLoc, RegLoc, ConstFloatLoc,
     ebp, r8, r9, r10, r11, r12, r13, r14, r15, xmm0, xmm1, xmm2, xmm3, xmm4,
     xmm5, xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14,
     X86_64_SCRATCH_REG, X86_64_XMM_SCRATCH_REG, AddressLoc)
-from rpython.jit.backend.llsupport.regalloc import (get_scale, valid_addressing_size)
+from rpython.jit.backend.llsupport.regalloc import get_scale
 from rpython.jit.metainterp.resoperation import (rop, ResOperation,
         VectorOp, VectorGuardOp)
 from rpython.rlib.objectmodel import we_are_translated

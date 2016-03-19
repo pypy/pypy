@@ -417,6 +417,7 @@ LL_OPERATIONS = {
     'raw_load':             LLOp(sideeffects=False, canrun=True),
     'raw_store':            LLOp(canrun=True),
     'bare_raw_store':       LLOp(),
+    'gc_load_indexed':      LLOp(sideeffects=False, canrun=True),
     'stack_malloc':         LLOp(), # mmh
     'track_alloc_start':    LLOp(),
     'track_alloc_stop':     LLOp(),
@@ -452,6 +453,8 @@ LL_OPERATIONS = {
     'jit_record_exact_class'  : LLOp(canrun=True),
     'jit_ffi_save_result':  LLOp(canrun=True),
     'jit_conditional_call': LLOp(),
+    'jit_enter_portal_frame': LLOp(canrun=True),
+    'jit_leave_portal_frame': LLOp(canrun=True),
     'get_exception_addr':   LLOp(),
     'get_exc_value_addr':   LLOp(),
     'do_malloc_fixedsize':LLOp(canmallocgc=True),
@@ -502,6 +505,12 @@ LL_OPERATIONS = {
     'gc_gcflag_extra'     : LLOp(),
     'gc_add_memory_pressure': LLOp(),
 
+    'gc_rawrefcount_init':              LLOp(),
+    'gc_rawrefcount_create_link_pypy':  LLOp(),
+    'gc_rawrefcount_create_link_pyobj': LLOp(),
+    'gc_rawrefcount_from_obj':          LLOp(sideeffects=False),
+    'gc_rawrefcount_to_obj':            LLOp(sideeffects=False),
+
     # ------- JIT & GC interaction, only for some GCs ----------
 
     'gc_adr_of_nursery_free' : LLOp(),
@@ -544,8 +553,11 @@ LL_OPERATIONS = {
     'getslice':             LLOp(canraise=(Exception,)),
     'check_and_clear_exc':  LLOp(),
 
-    'threadlocalref_addr':  LLOp(sideeffects=False),  # get (or make) addr of tl
+    'threadlocalref_addr':  LLOp(),                   # get (or make) addr of tl
     'threadlocalref_get':   LLOp(sideeffects=False),  # read field (no check)
+    'threadlocalref_acquire':  LLOp(),                # lock for enum
+    'threadlocalref_release':  LLOp(),                # lock for enum
+    'threadlocalref_enum':  LLOp(sideeffects=False),  # enum all threadlocalrefs
 
     # __________ debugging __________
     'debug_view':           LLOp(),

@@ -14,9 +14,15 @@ from rpython.rlib.rarithmetic import (ovfcheck, is_valid_int, intmask,
     r_uint, r_longlong, r_ulonglong, r_longlonglong)
 from rpython.rtyper.lltypesystem import lltype, llmemory, lloperation, llheap
 from rpython.rtyper import rclass
+from rpython.tool.ansi_print import AnsiLogger
 
 
-log = py.log.Producer('llinterp')
+# by default this logger's output is disabled.
+# e.g. tests can then switch on logging to get more help
+# for failing tests
+log = AnsiLogger('llinterp')
+log.output_disabled = True
+
 
 class LLException(Exception):
     def __init__(self, *args):
@@ -925,6 +931,21 @@ class LLFrame(object):
     def op_gc_gcflag_extra(self, subopnum, *args):
         return self.heap.gcflag_extra(subopnum, *args)
 
+    def op_gc_rawrefcount_init(self, *args):
+        raise NotImplementedError("gc_rawrefcount_init")
+
+    def op_gc_rawrefcount_to_obj(self, *args):
+        raise NotImplementedError("gc_rawrefcount_to_obj")
+
+    def op_gc_rawrefcount_from_obj(self, *args):
+        raise NotImplementedError("gc_rawrefcount_from_obj")
+
+    def op_gc_rawrefcount_create_link_pyobj(self, *args):
+        raise NotImplementedError("gc_rawrefcount_create_link_pyobj")
+
+    def op_gc_rawrefcount_create_link_pypy(self, *args):
+        raise NotImplementedError("gc_rawrefcount_create_link_pypy")
+
     def op_do_malloc_fixedsize(self):
         raise NotImplementedError("do_malloc_fixedsize")
     def op_do_malloc_fixedsize_clear(self):
@@ -949,6 +970,13 @@ class LLFrame(object):
     def op_threadlocalref_get(self, RESTYPE, offset):
         return self.op_raw_load(RESTYPE, _address_of_thread_local(), offset)
     op_threadlocalref_get.need_result_type = True
+
+    def op_threadlocalref_acquire(self, prev):
+        raise NotImplementedError
+    def op_threadlocalref_release(self, prev):
+        raise NotImplementedError
+    def op_threadlocalref_enum(self, prev):
+        raise NotImplementedError
 
     # __________________________________________________________
     # operations on addresses
@@ -1345,10 +1373,3 @@ class _address_of_local_var_accessor(object):
 class _address_of_thread_local(object):
     _TYPE = llmemory.Address
     is_fake_thread_local_addr = True
-
-
-# by default we route all logging messages to nothingness
-# e.g. tests can then switch on logging to get more help
-# for failing tests
-from rpython.tool.ansi_print import ansi_log
-py.log.setconsumer('llinterp', ansi_log)

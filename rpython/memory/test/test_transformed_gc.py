@@ -14,6 +14,7 @@ from rpython.rlib import rgc
 from rpython.conftest import option
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rarithmetic import LONG_BIT
+from rpython.rtyper.rtyper import llinterp_backend
 
 
 WORD = LONG_BIT // 8
@@ -29,9 +30,11 @@ def rtype(func, inputtypes, specialize=True, gcname='ref',
     t.config.set(**extraconfigopts)
     ann = t.buildannotator()
     ann.build_types(func, inputtypes)
+    rtyper = t.buildrtyper()
+    rtyper.backend = llinterp_backend
 
     if specialize:
-        t.buildrtyper().specialize()
+        rtyper.specialize()
     if backendopt:
         from rpython.translator.backendopt.all import backend_optimizations
         backend_optimizations(t)
@@ -110,7 +113,7 @@ class GCTest(object):
 
         cbuild = CStandaloneBuilder(t, entrypoint, config=t.config,
                                     gcpolicy=cls.gcpolicy)
-        db = cbuild.generate_graphs_for_llinterp()
+        db = cbuild.build_database()
         entrypointptr = cbuild.getentrypointptr()
         entrygraph = entrypointptr._obj.graph
         if option.view:
@@ -1071,7 +1074,7 @@ class TestGenerationGC(GenericMovingGCTests):
     def test_adr_of_nursery(self):
         run = self.runner("adr_of_nursery")
         res = run([])
-    
+
 
 class TestGenerationalNoFullCollectGC(GCTest):
     # test that nursery is doing its job and that no full collection
@@ -1131,7 +1134,7 @@ class TestHybridGC(TestGenerationGC):
                          'large_object': 8*WORD,
                          'translated_to_c': False}
             root_stack_depth = 200
-    
+
     def define_ref_from_rawmalloced_to_regular(cls):
         import gc
         S = lltype.GcStruct('S', ('x', lltype.Signed))
@@ -1182,7 +1185,7 @@ class TestHybridGC(TestGenerationGC):
         run = self.runner("write_barrier_direct")
         res = run([])
         assert res == 42
-    
+
 class TestMiniMarkGC(TestHybridGC):
     gcname = "minimark"
     GC_CAN_TEST_ID = True
@@ -1199,7 +1202,7 @@ class TestMiniMarkGC(TestHybridGC):
                          'translated_to_c': False,
                          }
             root_stack_depth = 200
-    
+
     def define_no_clean_setarrayitems(cls):
         # The optimization find_clean_setarrayitems() in
         # gctransformer/framework.py does not work with card marking.
@@ -1224,7 +1227,7 @@ class TestMiniMarkGC(TestHybridGC):
         run = self.runner("no_clean_setarrayitems")
         res = run([])
         assert res == 123
-    
+
     def define_nursery_hash_base(cls):
         class A:
             pass
@@ -1283,19 +1286,19 @@ class TestIncrementalMiniMarkGC(TestMiniMarkGC):
                          'translated_to_c': False,
                          }
             root_stack_depth = 200
-    
+
     def define_malloc_array_of_gcptr(self):
         S = lltype.GcStruct('S', ('x', lltype.Signed))
         A = lltype.GcArray(lltype.Ptr(S))
         def f():
             lst = lltype.malloc(A, 5)
-            return (lst[0] == lltype.nullptr(S) 
+            return (lst[0] == lltype.nullptr(S)
                     and lst[1] == lltype.nullptr(S)
                     and lst[2] == lltype.nullptr(S)
                     and lst[3] == lltype.nullptr(S)
                     and lst[4] == lltype.nullptr(S))
         return f
-    
+
     def test_malloc_array_of_gcptr(self):
         run = self.runner('malloc_array_of_gcptr')
         res = run([])
@@ -1376,7 +1379,7 @@ class TaggedPointerGCTests(GCTest):
     def define_gettypeid(cls):
         class A(object):
             pass
-        
+
         def fn():
             a = A()
             return rgc.get_typeid(a)

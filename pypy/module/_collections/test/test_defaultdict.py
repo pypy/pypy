@@ -14,6 +14,12 @@ class AppTestBasic:
         d[5].append(44)
         assert l == [42, 43] and l2 == [44]
 
+    def test_module(self):
+        from _collections import defaultdict
+        assert repr(defaultdict) in (
+            "<class 'collections.defaultdict'>",   # on PyPy
+            "<type 'collections.defaultdict'>")    # on CPython
+
     def test_keyerror_without_factory(self):
         from _collections import defaultdict
         for d1 in [defaultdict(), defaultdict(None)]:
