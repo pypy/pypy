@@ -987,7 +987,7 @@ class AppTestPosix:
     if hasattr(os, 'ftruncate'):
         def test_truncate(self):
             posix = self.posix
-            dest = self.path
+            dest = self.path2
 
             def mkfile(dest, size=4):
                 with open(dest, 'wb') as f:
