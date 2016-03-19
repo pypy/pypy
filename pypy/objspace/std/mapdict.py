@@ -144,14 +144,6 @@ class AbstractAttribute(object):
             cache[name, index] = attr
         return attr
 
-    @jit.elidable
-    def _get_cache_attr(self, name, index):
-        key = name, index
-        # this method is not actually elidable, but it's fine anyway
-        if self.cache_attrs is not None:
-            return self.cache_attrs.get(key, None)
-        return None
-
     def add_attr(self, obj, name, index, w_value):
         self._reorder_and_add(obj, name, index, w_value)
         if not jit.we_are_jitted():

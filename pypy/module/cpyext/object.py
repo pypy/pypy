@@ -21,7 +21,8 @@ PyBUF_WRITABLE = 0x0001
 @cpython_api([Py_ssize_t], rffi.VOIDP)
 def PyObject_MALLOC(space, size):
     return lltype.malloc(rffi.VOIDP.TO, size,
-                         flavor='raw', zero=True)
+                         flavor='raw', zero=True,
+                         add_memory_pressure=True)
 
 @cpython_api([rffi.VOIDP], lltype.Void)
 def PyObject_FREE(space, ptr):

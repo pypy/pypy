@@ -1,19 +1,7 @@
 
 import py
 import random
-try:
-    from itertools import product
-except ImportError:
-    # Python 2.5, this is taken from the CPython docs, but simplified.
-    def product(*args):
-        # product('ABCD', 'xy') --> Ax Ay Bx By Cx Cy Dx Dy
-        # product(range(2), repeat=3) --> 000 001 010 011 100 101 110 111
-        pools = map(tuple, args)
-        result = [[]]
-        for pool in pools:
-            result = [x+[y] for x in result for y in pool]
-        for prod in result:
-            yield tuple(prod)
+from itertools import product
 
 from rpython.flowspace.model import FunctionGraph, Block, Link, c_last_exception
 from rpython.flowspace.model import SpaceOperation, Variable, Constant
@@ -1024,7 +1012,8 @@ def test_getfield_gc_greenfield():
     v1 = varoftype(lltype.Ptr(S))
     v2 = varoftype(lltype.Char)
     op = SpaceOperation('getfield', [v1, Constant('x', lltype.Void)], v2)
-    op1 = Transformer(FakeCPU(), FakeCC()).rewrite_operation(op)
+    op0, op1 = Transformer(FakeCPU(), FakeCC()).rewrite_operation(op)
+    assert op0.opname == '-live-'
     assert op1.opname == 'getfield_gc_i_greenfield'
     assert op1.args == [v1, ('fielddescr', S, 'x')]
     assert op1.result == v2

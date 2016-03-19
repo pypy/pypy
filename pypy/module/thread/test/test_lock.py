@@ -3,6 +3,7 @@ import py
 import sys, os
 from pypy.module.thread.test.support import GenericTestThread
 from rpython.translator.c.test.test_genc import compile
+from platform import machine
 
 
 class AppTestLock(GenericTestThread):
@@ -60,6 +61,7 @@ class AppTestLock(GenericTestThread):
         assert lock.acquire(False) is False
         assert lock.acquire(True, timeout=.1) is False
 
+    @py.test.mark.xfail(machine()=='s390x', reason='may fail under heavy load')
     def test_ping_pong(self):
         # The purpose of this test is that doing a large number of ping-pongs
         # between two threads, using locks, should complete in a reasonable

@@ -704,7 +704,6 @@ class AppTestFfi:
         def compare(a, b):
             a1 = _rawffi.Array('i').fromaddress(_rawffi.Array('P').fromaddress(a, 1)[0], 1)
             a2 = _rawffi.Array('i').fromaddress(_rawffi.Array('P').fromaddress(b, 1)[0], 1)
-            print("comparing", a1[0], "with", a2[0])
             if a1[0] not in [1,2,3,4] or a2[0] not in [1,2,3,4]:
                 bogus_args.append((a1[0], a2[0]))
             if a1[0] > a2[0]:
@@ -715,7 +714,7 @@ class AppTestFfi:
         a2[0] = len(ll_to_sort)
         a3 = _rawffi.Array('l')(1)
         a3[0] = struct.calcsize('i')
-        cb = _rawffi.CallbackPtr(compare, ['P', 'P'], 'i')
+        cb = _rawffi.CallbackPtr(compare, ['P', 'P'], 'l')
         a4 = cb.byptr()
         qsort(a1, a2, a3, a4)
         res = [ll_to_sort[i] for i in range(len(ll_to_sort))]
@@ -895,7 +894,10 @@ class AppTestFfi:
         b = _rawffi.Array('c').fromaddress(a.buffer, 38)
         if sys.maxunicode > 65535:
             # UCS4 build
-            assert b[0:5] == b'x\x00\x00\x00y'
+            if sys.byteorder == 'big':
+                assert b[0:8] == b'\x00\x00\x00x\x00\x00\x00y'
+            else:
+                assert b[0:5] == b'x\x00\x00\x00y'
         else:
             # UCS2 build
             assert b[0:2] == b'x\x00y'

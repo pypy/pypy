@@ -3,7 +3,7 @@ from __future__ import absolute_import
 import types
 from collections import defaultdict
 
-from rpython.tool.ansi_print import ansi_log
+from rpython.tool.ansi_print import AnsiLogger
 from rpython.tool.pairtype import pair
 from rpython.tool.error import (format_blocked_annotation_error,
                              gather_error, source_lines)
@@ -15,9 +15,7 @@ from rpython.annotator.model import (
 from rpython.annotator.bookkeeper import Bookkeeper
 from rpython.rtyper.normalizecalls import perform_normalizations
 
-import py
-log = py.log.Producer("annrpython")
-py.log.setconsumer("annrpython", ansi_log)
+log = AnsiLogger("annrpython")
 
 
 class RPythonAnnotator(object):

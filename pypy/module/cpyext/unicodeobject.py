@@ -55,7 +55,8 @@ def new_empty_unicode(space, length):
     buflen = length + 1
     py_uni.c_size = length
     py_uni.c_buffer = lltype.malloc(rffi.CWCHARP.TO, buflen,
-                                    flavor='raw', zero=True)
+                                    flavor='raw', zero=True,
+                                    add_memory_pressure=True)
     return py_uni
 
 def unicode_attach(space, py_obj, w_obj):

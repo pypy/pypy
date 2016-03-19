@@ -75,9 +75,9 @@ class AppTestVMProf(object):
 
     def test_enable_ovf(self):
         import _vmprof
-        raises(_vmprof.VMProfError, _vmprof.enable, 999, 0)
-        raises(_vmprof.VMProfError, _vmprof.enable, 999, -2.5)
-        raises(_vmprof.VMProfError, _vmprof.enable, 999, 1e300)
-        raises(_vmprof.VMProfError, _vmprof.enable, 999, 1e300 * 1e300)
+        raises(_vmprof.VMProfError, _vmprof.enable, 2, 0)
+        raises(_vmprof.VMProfError, _vmprof.enable, 2, -2.5)
+        raises(_vmprof.VMProfError, _vmprof.enable, 2, 1e300)
+        raises(_vmprof.VMProfError, _vmprof.enable, 2, 1e300 * 1e300)
         NaN = (1e300*1e300) / (1e300*1e300)
-        raises(_vmprof.VMProfError, _vmprof.enable, 999, NaN)
+        raises(_vmprof.VMProfError, _vmprof.enable, 2, NaN)

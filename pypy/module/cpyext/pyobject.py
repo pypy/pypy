@@ -50,7 +50,8 @@ class BaseCpyTypedescr(object):
             size += itemcount * pytype.c_tp_itemsize
         assert size >= rffi.sizeof(PyObject.TO)
         buf = lltype.malloc(rffi.VOIDP.TO, size,
-                            flavor='raw', zero=True)
+                            flavor='raw', zero=True,
+                            add_memory_pressure=True)
         pyobj = rffi.cast(PyObject, buf)
         pyobj.c_ob_refcnt = 1
         pyobj.c_ob_type = pytype

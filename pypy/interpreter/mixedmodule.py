@@ -3,7 +3,7 @@ from pypy.interpreter.function import Function, BuiltinFunction
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import W_Root
-import os, sys
+import sys
 
 class MixedModule(Module):
     applevel_name = None
@@ -74,6 +74,7 @@ class MixedModule(Module):
                 if not self.space.contains_w(self.w_initialdict, w_key):
                     self.space.setitem(self.w_initialdict, w_key, w_value)
 
+    @classmethod
     def get_applevel_name(cls):
         """ NOT_RPYTHON """
         if cls.applevel_name is not None:
@@ -81,7 +82,6 @@ class MixedModule(Module):
         else:
             pkgroot = cls.__module__
             return pkgroot.split('.')[-1]
-    get_applevel_name = classmethod(get_applevel_name)
 
     def get(self, name):
         space = self.space
@@ -123,7 +123,7 @@ class MixedModule(Module):
             # be normal Functions to get the correct binding behaviour
             func = w_value
             if (isinstance(func, Function) and
-                type(func) is not BuiltinFunction):
+                    type(func) is not BuiltinFunction):
                 try:
                     bltin = func._builtinversion_
                 except AttributeError:
@@ -134,7 +134,6 @@ class MixedModule(Module):
                 w_value = space.wrap(bltin)
             space.setitem(self.w_dict, w_name, w_value)
             return w_value
-
 
     def getdict(self, space):
         if self.lazy:
@@ -151,6 +150,7 @@ class MixedModule(Module):
         self.startup_called = False
         self._frozen = True
 
+    @classmethod
     def buildloaders(cls):
         """ NOT_RPYTHON """
         if not hasattr(cls, 'loaders'):
@@ -169,8 +169,6 @@ class MixedModule(Module):
             if '__doc__' not in loaders:
                 loaders['__doc__'] = cls.get__doc__
 
-    buildloaders = classmethod(buildloaders)
-
     def extra_interpdef(self, name, spec):
         cls = self.__class__
         pkgroot = cls.__module__
@@ -179,21 +177,21 @@ class MixedModule(Module):
         w_obj = loader(space)
         space.setattr(space.wrap(self), space.wrap(name), w_obj)
 
+    @classmethod
     def get__doc__(cls, space):
         return space.wrap(cls.__doc__)
-    get__doc__ = classmethod(get__doc__)
 
 
 def getinterpevalloader(pkgroot, spec):
     """ NOT_RPYTHON """
     def ifileloader(space):
-        d = {'space' : space}
+        d = {'space': space}
         # EVIL HACK (but it works, and this is not RPython :-)
         while 1:
             try:
                 value = eval(spec, d)
             except NameError, ex:
-                name = ex.args[0].split("'")[1] # super-Evil
+                name = ex.args[0].split("'")[1]  # super-Evil
                 if name in d:
                     raise   # propagate the NameError
                 try:

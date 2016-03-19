@@ -91,6 +91,8 @@ class TestRegallocGcIntegration(BaseTestRegalloc):
             assert nos == [0, 1, 47]
         elif self.cpu.backend_name.startswith('ppc64'):
             assert nos == [0, 1, 33]
+        elif self.cpu.backend_name.startswith('zarch'):
+            assert nos == [0, 1, 29]
         else:
             raise Exception("write the data here")
         assert frame.jf_frame[nos[0]]
@@ -313,7 +315,9 @@ class TestMallocFastpath(BaseTestRegalloc):
                                   'strdescr': arraydescr})
         # check the returned pointers
         gc_ll_descr = self.cpu.gc_ll_descr
-        assert gc_ll_descr.calls == [(8, 15, 10), (5, 15, 3), ('str', 3)]
+        assert gc_ll_descr.calls == [(8, 15, 10),
+                                     (5, 15, 3),
+                                     ('str', 3)]
         # one fit, one was too large, one was not fitting
 
     def test_malloc_slowpath(self):
@@ -641,11 +645,13 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
             gcmap = unpack_gcmap(frame)
             if self.cpu.backend_name.startswith('ppc64'):
                 assert gcmap == [30, 31, 32]
+            elif self.cpu.backend_name.startswith('zarch'):
+                # 10 gpr, 14 fpr -> 25 is the first slot
+                assert gcmap == [26, 27, 28]
             elif self.cpu.IS_64_BIT:
                 assert gcmap == [28, 29, 30]
             elif self.cpu.backend_name.startswith('arm'):
                 assert gcmap == [44, 45, 46]
-                pass
             else:
                 assert gcmap == [22, 23, 24]
             for item, s in zip(gcmap, new_items):

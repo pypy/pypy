@@ -2,7 +2,6 @@ import sys
 
 from pypy.module.thread.test.support import GenericTestThread
 
-
 class AppTestMinimal:
     spaceconfig = dict(usemodules=['__pypy__'])
 

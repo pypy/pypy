@@ -137,6 +137,8 @@ def get_L2cache_linux2():
         return get_L2cache_linux2_cpuinfo()
     if arch in ('alpha', 'ppc'):
         return get_L2cache_linux2_cpuinfo(label='L2 cache')
+    if arch in ('s390x'):
+        return get_L2cache_linux2_cpuinfo_s390x()
     if arch == 'ia64':
         return get_L2cache_linux2_ia64()
     if arch in ('parisc', 'parisc64'):
@@ -181,6 +183,67 @@ def get_L2cache_linux2_cpuinfo(filename="/proc/cpuinfo", label='cache size'):
             # *** data[start:linepos] == ": 2048 KB\n"
             start = _skipspace(data, start + 1)
             # *** data[start:linepos] == "2048 KB\n"
+            end = start
+            while '0' <= data[end] <= '9':
+                end += 1
+            # *** data[start:end] == "2048"
+            if start == end:
+                continue
+            number = int(data[start:end])
+            # *** data[end:linepos] == " KB\n"
+            end = _skipspace(data, end)
+            if data[end] not in ('K', 'k'):    # assume kilobytes for now
+                continue
+            number = number * 1024
+            # for now we look for the smallest of the L2 caches of the CPUs
+            if number < L2cache:
+                L2cache = number
+
+    debug_print("L2cache =", L2cache)
+    debug_stop("gc-hardware")
+
+    if L2cache < sys.maxint:
+        return L2cache
+    else:
+        # Print a top-level warning even in non-debug builds
+        llop.debug_print(lltype.Void,
+            "Warning: cannot find your CPU L2 cache size in /proc/cpuinfo")
+        return -1
+
+def get_L2cache_linux2_cpuinfo_s390x(filename="/proc/cpuinfo", label='cache3'):
+    debug_start("gc-hardware")
+    L2cache = sys.maxint
+    try:
+        fd = os.open(filename, os.O_RDONLY, 0644)
+        try:
+            data = []
+            while True:
+                buf = os.read(fd, 4096)
+                if not buf:
+                    break
+                data.append(buf)
+        finally:
+            os.close(fd)
+    except OSError:
+        pass
+    else:
+        data = ''.join(data)
+        linepos = 0
+        while True:
+            start = _findend(data, '\n' + label, linepos)
+            if start < 0:
+                break    # done
+            linepos = _findend(data, '\n', start)
+            if linepos < 0:
+                break    # no end-of-line??
+            # *** data[start:linepos] == "   : level=2 type=Instruction scope=Private size=2048K ..."
+            start = _skipspace(data, start)
+            if data[start] != ':':
+                continue
+            # *** data[start:linepos] == ": level=2 type=Instruction scope=Private size=2048K ..."
+            start = _skipspace(data, start + 1)
+            # *** data[start:linepos] == "level=2 type=Instruction scope=Private size=2048K ..."
+            start += 44
             end = start
             while '0' <= data[end] <= '9':
                 end += 1

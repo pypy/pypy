@@ -356,10 +356,11 @@ class W_CTypePointer(W_CTypePtrBase):
 # ____________________________________________________________
 
 
-rffi_fdopen = rffi.llexternal("fdopen", [rffi.INT, rffi.CCHARP], rffi.CCHARP,
+FILEP = rffi.COpaquePtr("FILE")
+rffi_fdopen = rffi.llexternal("fdopen", [rffi.INT, rffi.CCHARP], FILEP,
                               save_err=rffi.RFFI_SAVE_ERRNO)
-rffi_setbuf = rffi.llexternal("setbuf", [rffi.CCHARP, rffi.CCHARP], lltype.Void)
-rffi_fclose = rffi.llexternal("fclose", [rffi.CCHARP], rffi.INT)
+rffi_setbuf = rffi.llexternal("setbuf", [FILEP, rffi.CCHARP], lltype.Void)
+rffi_fclose = rffi.llexternal("fclose", [FILEP], rffi.INT)
 
 class CffiFileObj(object):
     _immutable_ = True
@@ -389,4 +390,4 @@ def prepare_file_argument(space, w_fileobj):
             w_fileobj.cffi_fileobj = CffiFileObj(fd, mode)
         except OSError, e:
             raise wrap_oserror(space, e)
-    return w_fileobj.cffi_fileobj.llf
+    return rffi.cast(rffi.CCHARP, fileobj.cffi_fileobj.llf)

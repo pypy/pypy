@@ -1059,6 +1059,14 @@ class JitHookInterface(object):
     of JIT running like JIT loops compiled, aborts etc.
     An instance of this class will be available as policy.jithookiface.
     """
+    # WARNING: You should make a single prebuilt instance of a subclass
+    # of this class.  You can, before translation, initialize some
+    # attributes on this instance, and then read or change these
+    # attributes inside the methods of the subclass.  But this prebuilt
+    # instance *must not* be seen during the normal annotation/rtyping
+    # of the program!  A line like ``pypy_hooks.foo = ...`` must not
+    # appear inside your interpreter's RPython code.
+
     def on_abort(self, reason, jitdriver, greenkey, greenkey_repr, logops, operations):
         """ A hook called each time a loop is aborted with jitdriver and
         greenkey where it started, reason is a string why it got aborted
