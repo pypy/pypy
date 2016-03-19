@@ -313,12 +313,14 @@ class AbstractAttribute(object):
 
     @jit.elidable_compatible(quasi_immut_field_name_for_second_arg="version")
     def _type_safe_to_do_getattr(self, version):
+        from pypy.objspace.descroperation import object_getattribute
         # it's safe if the version is not None and the type does not define its
         # own __getattribute__
         if version is None:
             return False
         w_type = self.terminator.w_cls
-        return w_type.has_object_getattribute()
+        w_descr = self._type_lookup_pure('__getattribute__')
+        return w_descr is object_getattribute(self.space)
 
     def _type_lookup(self, name):
         if not self._type_safe_to_do_getattr():
