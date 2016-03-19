@@ -3,6 +3,7 @@ from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rlib.objectmodel import we_are_translated, Symbolic
 from rpython.rlib.objectmodel import compute_unique_id, specialize
 from rpython.rlib.rarithmetic import r_int64, is_valid_int
+from rpython.rlib.rarithmetic import LONG_BIT, intmask, r_uint
 
 from rpython.conftest import option
 
@@ -73,54 +74,6 @@ def repr_rpython(box, typechars):
     return '%s/%s' % (box._get_hash_(), typechars,
                         ) #compute_unique_id(box))
 
-
-class XxxAbstractValue(object):
-    __slots__ = ()
-
-    def getint(self):
-        raise NotImplementedError
-
-    def getfloatstorage(self):
-        raise NotImplementedError
-
-    def getfloat(self):
-        return longlong.getrealfloat(self.getfloatstorage())
-
-    def getref_base(self):
-        raise NotImplementedError
-
-    def getref(self, TYPE):
-        raise NotImplementedError
-    getref._annspecialcase_ = 'specialize:arg(1)'
-
-    def constbox(self):
-        raise NotImplementedError
-
-    def getaddr(self):
-        "Only for raw addresses (BoxInt & ConstInt), not for GC addresses"
-        raise NotImplementedError
-
-    def sort_key(self):
-        raise NotImplementedError
-
-    def nonnull(self):
-        raise NotImplementedError
-
-    def repr_rpython(self):
-        return '%s' % self
-
-    def _get_str(self):
-        raise NotImplementedError
-
-    def same_box(self, other):
-        return self is other
-
-    def same_shape(self, other):
-        # only structured containers can compare their shape (vector box)
-        return True
-
-    def getaccum(self):
-        return None
 
 class AbstractDescr(AbstractValue):
     __slots__ = ('descr_index',)
@@ -641,33 +594,75 @@ def _list_all_operations(result, operations, omit_finish=True):
 # ____________________________________________________________
 
 
+FO_REPLACED_WITH_CONST = r_uint(1)
+FO_POSITION_SHIFT      = 1
+FO_POSITION_MASK       = r_uint(0xFFFFFFFE)
+
+
 class FrontendOp(AbstractResOp):
     type = 'v'
-    _attrs_ = ('position',)
+    _attrs_ = ('position_and_flags',)
 
     def __init__(self, pos):
-        self.position = pos
+        # p is the 32-bit position shifted left by one (might be negative,
+        # but casted to the 32-bit UINT type)
+        p = rffi.cast(rffi.UINT, pos << FO_POSITION_SHIFT)
+        self.position_and_flags = r_uint(p)    # zero-extended to a full word
 
     def get_position(self):
-        return self.position
+        # p is the signed 32-bit position, from self.position_and_flags
+        p = rffi.cast(rffi.INT, self.position_and_flags)
+        return intmask(p) >> FO_POSITION_SHIFT
+
+    def set_position(self, new_pos):
+        assert new_pos >= 0
+        self.position_and_flags &= ~FO_POSITION_MASK
+        self.position_and_flags |= r_uint(new_pos << FO_POSITION_SHIFT)
+
+    def is_replaced_with_const(self):
+        return bool(self.position_and_flags & FO_REPLACED_WITH_CONST)
+
+    def set_replaced_with_const(self):
+        self.position_and_flags |= FO_REPLACED_WITH_CONST
+
+    def __repr__(self):
+        return '%s(0x%x)' % (self.__class__.__name__, self.position_and_flags)
 
 class IntFrontendOp(IntOp, FrontendOp):
-    _attrs_ = ('position', '_resint')
+    _attrs_ = ('position_and_flags', '_resint')
 
     def copy_value_from(self, other):
         self._resint = other.getint()
 
 class FloatFrontendOp(FloatOp, FrontendOp):
-    _attrs_ = ('position', '_resfloat')
+    _attrs_ = ('position_and_flags', '_resfloat')
 
     def copy_value_from(self, other):
         self._resfloat = other.getfloatstorage()
 
 class RefFrontendOp(RefOp, FrontendOp):
-    _attrs_ = ('position', '_resref')
+    _attrs_ = ('position_and_flags', '_resref', '_heapc_deps')
+    if LONG_BIT == 32:
+        _attrs_ += ('_heapc_flags',)   # on 64 bit, this gets stored into the
+        _heapc_flags = r_uint(0)       # high 32 bits of 'position_and_flags'
+    _heapc_deps = None
 
     def copy_value_from(self, other):
         self._resref = other.getref_base()
+
+    if LONG_BIT == 32:
+        def _get_heapc_flags(self):
+            return self._heapc_flags
+        def _set_heapc_flags(self, value):
+            self._heapc_flags = value
+    else:
+        def _get_heapc_flags(self):
+            return self.position_and_flags >> 32
+        def _set_heapc_flags(self, value):
+            self.position_and_flags = (
+                (self.position_and_flags & 0xFFFFFFFF) |
+                (value << 32))
+
 
 class History(object):
     ends_with_jump = False
@@ -688,7 +683,7 @@ class History(object):
             # hack to record the ops *after* we know our inputargs
             for (opnum, argboxes, op, descr) in self._cache:
                 pos = self.trace.record_op(opnum, argboxes, descr)
-                op.position = pos
+                op.set_position(pos)
             self._cache = None
 
     def length(self):
@@ -701,7 +696,7 @@ class History(object):
         self.trace.cut_at(cut_at)
 
     def any_operation(self):
-        return self.trace._count > 0
+        return self.trace._count > self.trace._start
 
     @specialize.argtype(2)
     def set_op_value(self, op, value):
@@ -720,7 +715,7 @@ class History(object):
     @specialize.argtype(3)
     def record(self, opnum, argboxes, value, descr=None):
         if self.trace is None:
-            pos = -1
+            pos = 2**14 - 1
         else:
             pos = self.trace.record_op(opnum, argboxes, descr)
         if value is None:

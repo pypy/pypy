@@ -455,7 +455,7 @@ class LLGraphCPU(model.AbstractCPU):
                 if box is not frame.current_op:
                     value = frame.env[box]
                 else:
-                    value = box.getvalue()    # 0 or 0.0 or NULL
+                    value = 0 # box.getvalue()    # 0 or 0.0 or NULL
             else:
                 value = None
             values.append(value)

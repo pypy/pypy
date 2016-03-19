@@ -10,7 +10,7 @@ snapshot is as follows
 from rpython.jit.metainterp.history import ConstInt, Const, ConstFloat, ConstPtr
 from rpython.jit.metainterp.resoperation import AbstractResOp, AbstractInputArg,\
     ResOperation, oparity, rop, opwithdescr, GuardResOp, IntOp, FloatOp, RefOp
-from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rtyper.lltypesystem import rffi, lltype, llmemory
 from rpython.jit.metainterp.typesystem import llhelper
@@ -63,24 +63,19 @@ class TraceIterator(BaseTrace):
         if force_inputargs is not None:
             self.inputargs = [rop.inputarg_from_tp(arg.type) for
                               arg in force_inputargs]
-            self._inputargs = [None] * len(trace.inputargs)
             for i, arg in enumerate(force_inputargs):
-                if arg.get_position() >= 0:
-                    self._cache[arg.get_position()] = self.inputargs[i]
-                else:
-                    self._inputargs[-arg.get_position()-1] = self.inputargs[i]
+                self._cache[arg.get_position()] = self.inputargs[i]
         else:
             self.inputargs = [rop.inputarg_from_tp(arg.type) for
                               arg in self.trace.inputargs]
-            self._inputargs = self.inputargs[:]
+            for i, arg in enumerate(self.inputargs):
+               self._cache[i] = arg
         self.start = start
         self.pos = start
-        self._count = 0
+        self._count = start
         self.end = end
 
     def _get(self, i):
-        if i < 0:
-            return self._inputargs[-i - 1]
         res = self._cache[i]
         assert res is not None
         return res
@@ -197,9 +192,10 @@ class Trace(BaseTrace):
         self._floats_dict = {}
         self._snapshots = []
         for i, inparg in enumerate(inputargs):
-            assert isinstance(inparg, AbstractInputArg)
-            inparg.position = -i - 1
-        self._count = 0
+            inparg.set_position(i)
+        self._count = len(inputargs)
+        self._start = len(inputargs)
+        self._pos = self._start
         self.inputargs = inputargs
 
     def append(self, v):
@@ -284,8 +280,7 @@ class Trace(BaseTrace):
                     self._refs.append(box.getref_base())
                 return tag(TAGCONSTPTR, v)
         elif isinstance(box, AbstractResOp):
-            return tag(TAGBOX, box.get_position())
-        elif isinstance(box, AbstractInputArg):
+            assert box.get_position() >= 0
             return tag(TAGBOX, box.get_position())
         else:
             assert False, "unreachable code"
@@ -362,7 +357,7 @@ class Trace(BaseTrace):
 
     def get_iter(self, metainterp_sd=None):
         assert metainterp_sd
-        return TraceIterator(self, 0, self._pos, metainterp_sd=metainterp_sd)
+        return TraceIterator(self, self._start, self._pos, metainterp_sd=metainterp_sd)
 
     def unpack(self):
         iter = self.get_iter()

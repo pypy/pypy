@@ -1,9 +1,9 @@
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp import jitprof
 from rpython.jit.metainterp.history import (Const, ConstInt, getkind,
-    INT, REF, FLOAT, AbstractDescr)
-from rpython.jit.metainterp.resoperation import rop, InputArgInt,\
-     InputArgFloat, InputArgRef
+    INT, REF, FLOAT, AbstractDescr, IntFrontendOp, RefFrontendOp,
+    FloatFrontendOp)
+from rpython.jit.metainterp.resoperation import rop
 from rpython.rlib import rarithmetic, rstack
 from rpython.rlib.objectmodel import (we_are_translated, specialize,
         compute_unique_id)
@@ -1264,11 +1264,14 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
             num += len(self.liveboxes)
             assert num >= 0
         if kind == INT:
-            box = InputArgInt(self.cpu.get_int_value(self.deadframe, num))
+            box = IntFrontendOp(0)
+            box.setint(self.cpu.get_int_value(self.deadframe, num))
         elif kind == REF:
-            box = InputArgRef(self.cpu.get_ref_value(self.deadframe, num))
+            box = RefFrontendOp(0)
+            box.setref_base(self.cpu.get_ref_value(self.deadframe, num))
         elif kind == FLOAT:
-            box = InputArgFloat(self.cpu.get_float_value(self.deadframe, num))
+            box = FloatFrontendOp(0)
+            box.setfloatstorage(self.cpu.get_float_value(self.deadframe, num))
         else:
             assert 0, "bad kind: %d" % ord(kind)
         self.liveboxes[num] = box
