@@ -153,3 +153,29 @@ class TestCompatible(LLJitMixin):
         assert x < 30
         # XXX check number of bridges
 
+
+    def test_dont_record_repeated_guard_compatible(self):
+        class A:
+            pass
+        class B(A):
+            pass
+        @jit.elidable_compatible()
+        def extern(x):
+            return isinstance(x, A)
+        @jit.dont_look_inside
+        def pick(n):
+            if n:
+                x = a
+            else:
+                x = b
+            return x
+        a = A()
+        b = B()
+        def fn(n):
+            x = pick(n)
+            return extern(x) + extern(x) + extern(x)
+
+        res = self.interp_operations(fn, [1])
+        assert res == 3
+        self.check_operations_history(guard_compatible=1)
+

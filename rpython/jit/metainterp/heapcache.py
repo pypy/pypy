@@ -9,6 +9,7 @@ class HeapCacheValue(object):
 
     def reset_keep_likely_virtual(self):
         self.known_class = False
+        self.guard_compatible = False
         self.known_nullity = False
         # did we see the allocation during tracing?
         self.seen_allocation = False
@@ -302,6 +303,15 @@ class HeapCache(object):
 
     def nullity_now_known(self, box):
         self.getvalue(box).known_nullity = True
+
+    def have_guard_compatible(self, box):
+        value = self.getvalue(box, create=False)
+        if value:
+            return value.guard_compatible
+        return False
+
+    def have_guard_compatible_now(self, box):
+        self.getvalue(box).guard_compatible = True
 
     def is_nonstandard_virtualizable(self, box):
         value = self.getvalue(box, create=False)

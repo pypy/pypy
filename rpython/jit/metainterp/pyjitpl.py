@@ -1202,11 +1202,12 @@ class MIFrame(object):
     @arguments("box", "orgpc")
     def opimpl_ref_guard_compatible(self, box, orgpc):
         if isinstance(box, Const):
-            return box     # no promotion needed, already a Const
-        else:
+            return # no guard needed, already a Const
+        elif not self.metainterp.heapcache.have_guard_compatible(box):
             promoted_box = executor.constant_from_op(box)
             self.metainterp.generate_guard(rop.GUARD_COMPATIBLE, box, [promoted_box],
                                            resumepc=orgpc)
+            self.metainterp.heapcache.have_guard_compatible_now(box)
             # importantly, there is no replace_box here!
 
     @arguments("box", "orgpc")
