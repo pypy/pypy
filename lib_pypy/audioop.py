@@ -553,9 +553,14 @@ def lin2adpcm(cp, size, state):
 def adpcm2lin(cp, size, state):
     _check_size(size)
     if state is None:
-        state = (0, 0)
+        valpred = 0
+        index = 0
+    else:
+        valpred, index = state
+        # XXX: len(stepsizeTable) = 89
+        if valpred >= 0x8000 or valpred < -0x8000 or index >= 89:
+            raise ValueError("bad state")
     rv = ffi.new("unsigned char[]", len(cp) * size * 2)
-    state_ptr = ffi.new("int[]", state)
+    state_ptr = ffi.new("int[]", [valpred, index])
     lib.adcpm2lin(rv, cp, len(cp), size, state_ptr)
     return ffi.buffer(rv)[:], tuple(state_ptr)
-
