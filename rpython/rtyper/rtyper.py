@@ -574,8 +574,8 @@ class RPythonTyper(object):
     def getcallable(self, graph):
         def getconcretetype(v):
             return self.bindingrepr(v).lowleveltype
-        if self.annotator.translator.config.translation.sandboxlib:
-            from rpython.translator.sandboxlib.rsandbox import (
+        if self.annotator.translator.config.translation.rsandbox:
+            from rpython.translator.rsandbox.rsandbox import (
                 make_sandbox_trampoline)   # don't import this globally
             try:
                 name = graph.func._sandbox_external_name

@@ -914,10 +914,10 @@ class ExternalFuncNode(FuncNodeBase):
 
 def new_funcnode(db, T, obj, forcename=None):
     from rpython.rtyper.rtyper import llinterp_backend
-    if db.sandbox:
+    if db.rsandbox:
         if (getattr(obj, 'external', None) is not None and
                 not obj._safe_not_sandboxed):
-            from rpython.translator.sandboxlib import rsandbox
+            from rpython.translator.rsandbox import rsandbox
             obj.__dict__['graph'] = rsandbox.get_sandbox_stub(
                 obj, db.translator.rtyper)
             obj.__dict__.pop('_safe_not_sandboxed', None)
@@ -930,7 +930,7 @@ def new_funcnode(db, T, obj, forcename=None):
         return FuncNode(db, T, obj, name)
     elif getattr(obj, 'external', None) is not None:
         assert obj.external == 'C'
-        if db.sandbox:
+        if db.rsandbox:
             assert obj._safe_not_sandboxed
         return ExternalFuncNode(db, T, obj, name)
     elif hasattr(obj._callable, "c_name"):

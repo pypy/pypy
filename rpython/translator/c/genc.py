@@ -131,7 +131,7 @@ class CBuilder(object):
                               gcpolicyclass=gcpolicyclass,
                               exctransformer=exctransformer,
                               thread_enabled=self.config.translation.thread,
-                              sandbox=self.config.translation.sandboxlib)
+                              rsandbox=self.config.translation.rsandbox)
         self.db = db
 
         # give the gc a chance to register interest in the start-up functions it
@@ -211,7 +211,7 @@ class CBuilder(object):
         defines = defines.copy()
         if self.config.translation.countmallocs:
             defines['COUNT_OP_MALLOCS'] = 1
-        if self.config.translation.sandboxlib:
+        if self.config.translation.rsandbox:
             defines['RPY_SANDBOXED'] = 1
         if CBuilder.have___thread is None:
             CBuilder.have___thread = self.translator.platform.check___thread()
@@ -381,7 +381,7 @@ class CStandaloneBuilder(CBuilder):
             no_precompile_cfiles = module_files,
             shared=self.config.translation.shared,
             icon=self.config.translation.icon,
-            sandboxlib=self.config.translation.sandboxlib)
+            rsandbox=self.config.translation.rsandbox)
 
         if self.has_profopt():
             profopt = self.config.translation.profopt
@@ -854,7 +854,7 @@ def gen_source(database, modulename, targetdir,
         fi.close()
 
     if 'RPY_SANDBOXED' in defines:
-        from rpython.translator.sandboxlib.rsandbox import add_sandbox_files
+        from rpython.translator.rsandbox.rsandbox import add_sandbox_files
         eci = add_sandbox_files(database, eci)
 
     eci = add_extra_files(eci)

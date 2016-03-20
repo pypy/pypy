@@ -100,7 +100,7 @@ class BasePosix(Platform):
     def gen_makefile(self, cfiles, eci, exe_name=None, path=None,
                      shared=False, headers_to_precompile=[],
                      no_precompile_cfiles = [], icon=None,
-                     sandboxlib=False):
+                     rsandbox=False):
         cfiles = self._all_cfiles(cfiles, eci)
 
         if path is None:
@@ -121,8 +121,8 @@ class BasePosix(Platform):
 
         if shared:
             libname = exe_name.new(ext='').basename
-            if sandboxlib:
-                libname += '-sandbox'
+            if rsandbox:
+                libname += '-rsandbox'
             target_name = 'lib%s.%s' % (libname, self.so_ext)
         else:
             target_name = exe_name.basename
@@ -137,7 +137,7 @@ class BasePosix(Platform):
         m.eci = eci
 
         default_target = exe_name.basename
-        if sandboxlib:
+        if rsandbox:
             assert shared
             default_target = target_name
 
@@ -206,7 +206,7 @@ class BasePosix(Platform):
         if shared:
             m.definition('SHARED_IMPORT_LIB', libname)
             m.definition('PYPY_MAIN_FUNCTION', "pypy_main_startup")
-        if shared and not sandboxlib:
+        if shared and not rsandbox:
             m.rule('main.c', '',
                    'echo "'
                    'int $(PYPY_MAIN_FUNCTION)(int, char*[]); '

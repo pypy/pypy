@@ -106,8 +106,8 @@ translation_optiondescription = OptionDescription(
     # other noticeable options
     BoolOption("thread", "enable use of threading primitives",
                default=False, cmdline="--thread"),
-    BoolOption("sandboxlib", "Produce a fully-sandboxed library",
-               default=False, cmdline="--sandboxlib",
+    BoolOption("rsandbox", "Produce a fully-sandboxed library",
+               default=False, cmdline="--rsandbox",
                requires=[("translation.thread", False),
                          ("translation.continuation", False),
                          ("translation.shared", True)],

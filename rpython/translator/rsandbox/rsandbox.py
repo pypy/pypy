@@ -95,7 +95,7 @@ def add_sandbox_files(database, eci):
     from rpython.translator.c.support import cdecl
 
     c_header = ['#include "common_header.h"\n']
-    c_source = ['#include "sandboxlib.h"\n']
+    c_source = ['#include "rsandbox.h"\n']
     fnnames = database.translator._sandboxlib_fnnames[0]
     for fnname in sorted(fnnames):
         sandboxfunc = fnnames[fnname]

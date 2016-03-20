@@ -31,10 +31,10 @@ class LowLevelDatabase(object):
                  gcpolicyclass=None,
                  exctransformer=None,
                  thread_enabled=False,
-                 sandbox=False):
+                 rsandbox=False):
         self.translator = translator
         self.standalone = standalone
-        self.sandbox    = sandbox
+        self.rsandbox   = rsandbox
         if gcpolicyclass is None:
             gcpolicyclass = gc.RefcountingGcPolicy
         self.gcpolicy = gcpolicyclass(self, thread_enabled)

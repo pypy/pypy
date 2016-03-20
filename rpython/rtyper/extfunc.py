@@ -95,7 +95,7 @@ class ExtFuncEntry(ExtRegistryEntry):
     def compute_annotation(self):
         s_result = SomeExternalFunction(
             self.name, self.signature_args, self.signature_result)
-        if (self.bookkeeper.annotator.translator.config.translation.sandboxlib
+        if (self.bookkeeper.annotator.translator.config.translation.rsandbox
                 and not self.safe_not_sandboxed):
             s_result.needs_sandboxing = True
         return s_result

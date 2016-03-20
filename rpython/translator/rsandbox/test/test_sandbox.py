@@ -3,7 +3,7 @@ from rpython.translator.interactive import Translation
 
 
 def compile(entry_point):
-    t = Translation(entry_point, backend='c', sandboxlib=True)
+    t = Translation(entry_point, backend='c', rsandbox=True)
     return str(t.compile())
 
 

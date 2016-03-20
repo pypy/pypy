@@ -300,7 +300,7 @@ def register_replacement_for(replaced_function, sandboxed_name=None):
             def compute_annotation(self):
                 if sandboxed_name:
                     config = self.bookkeeper.annotator.translator.config
-                    if config.translation.sandboxlib:
+                    if config.translation.rsandbox:
                         func._sandbox_external_name = sandboxed_name
                         func._dont_inline_ = True
                 return self.bookkeeper.immutablevalue(func)

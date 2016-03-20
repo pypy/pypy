@@ -88,7 +88,7 @@ class AnnotatorPolicy(object):
                 if key not in bk.emulated_pbc_calls:
                     params_s = s_func.args_s
                     s_result = s_func.s_result
-                    from rpython.translator.sandboxlib.rsandbox import make_sandbox_trampoline
+                    from rpython.translator.rsandbox.rsandbox import make_sandbox_trampoline
                     sandbox_trampoline = make_sandbox_trampoline(
                         annotator.translator,
                         s_func.name, params_s, s_result)
