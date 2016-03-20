@@ -90,19 +90,15 @@ class ExternalFunctionRepr(Repr):
 
 
 class ExtFuncEntry(ExtRegistryEntry):
-    safe_not_sandboxed = False
 
     def compute_annotation(self):
         s_result = SomeExternalFunction(
             self.name, self.signature_args, self.signature_result)
-        if (self.bookkeeper.annotator.translator.config.translation.rsandbox
-                and not self.safe_not_sandboxed):
-            s_result.needs_sandboxing = True
         return s_result
 
 
 def register_external(function, args, result=None, export_name=None,
-                       llimpl=None, llfakeimpl=None, sandboxsafe=False):
+                       llimpl=None, llfakeimpl=None, sandboxsafe=None):
     """
     function: the RPython function that will be rendered as an external function (e.g.: math.floor)
     args: a list containing the annotation of the arguments
@@ -110,7 +106,7 @@ def register_external(function, args, result=None, export_name=None,
     export_name: the name of the function as it will be seen by the backends
     llimpl: optional; if provided, this RPython function is called instead of the target function
     llfakeimpl: optional; if provided, called by the llinterpreter
-    sandboxsafe: use True if the function performs no I/O (safe for --sandboxlib)
+    sandboxsafe: IGNORED at this level
     """
 
     if export_name is None:
@@ -120,7 +116,6 @@ def register_external(function, args, result=None, export_name=None,
 
     class FunEntry(ExtFuncEntry):
         _about_ = function
-        safe_not_sandboxed = sandboxsafe
         signature_args = params_s
         signature_result = s_result
         name = export_name

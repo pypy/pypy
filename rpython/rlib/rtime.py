@@ -91,9 +91,7 @@ def replace_time_function(name):
     func = getattr(pytime, name, None)
     if func is None:
         return lambda f: f
-    return register_replacement_for(
-        func,
-        sandboxed_name='ll_time.ll_time_%s' % name)
+    return register_replacement_for(func)
 
 config = rffi_platform.configure(CConfig)
 globals().update(config)

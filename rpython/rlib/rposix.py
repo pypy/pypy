@@ -346,9 +346,7 @@ def replace_os_function(name):
     func = getattr(os, name, None)
     if func is None:
         return lambda f: f
-    return register_replacement_for(
-        func,
-        sandboxed_name='ll_os.ll_os_%s' % name)
+    return register_replacement_for(func)
 
 @specialize.arg(0)
 def handle_posix_error(name, result):

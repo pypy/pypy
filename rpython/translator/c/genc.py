@@ -742,6 +742,8 @@ def gen_forwarddecl(f, database):
     print >> f
     print >> f, "#ifndef _PYPY_FORWARDDECL_H"
     print >> f, "#define _PYPY_FORWARDDECL_H"
+    if database.rsandbox:
+        print >> f, '#include "rsandbox.h"'
     for node in database.globalcontainers():
         for line in node.forward_declaration():
             print >> f, line
@@ -853,9 +855,9 @@ def gen_source(database, modulename, targetdir,
         print >>fi, "#define PYPY_INSTRUMENT_NCOUNTER %d" % n
         fi.close()
 
-    if 'RPY_SANDBOXED' in defines:
+    if database.rsandbox:
         from rpython.translator.rsandbox.rsandbox import add_sandbox_files
-        eci = add_sandbox_files(database, eci)
+        eci = add_sandbox_files(database, eci, targetdir)
 
     eci = add_extra_files(eci)
     eci = eci.convert_sources_to_files()
