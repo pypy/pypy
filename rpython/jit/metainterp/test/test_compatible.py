@@ -22,7 +22,7 @@ class TestCompatible(LLJitMixin):
         c = A()
         c.count = 0
         @jit.elidable_compatible()
-        def g(s):
+        def g(s, ignored):
             c.count += 1
             return s.x
 
@@ -30,9 +30,10 @@ class TestCompatible(LLJitMixin):
             while n > 0:
                 driver.can_enter_jit(n=n, x=x)
                 driver.jit_merge_point(n=n, x=x)
-                n -= g(x)
+                n -= g(x, 7)
 
         def main():
+            g(p1, 9) # make annotator not make argument constant
             f(100, p1)
             f(100, p2)
             f(100, p3)

@@ -78,6 +78,10 @@ class CompatibilityCondition(object):
         if op.numargs() == 2:
             return copied_op, PureCallCondition(op)
         arg2 = copied_op.getarg(2)
+        if arg2.is_constant():
+            # already a constant, can just use PureCallCondition
+            return copied_op, PureCallCondition(op)
+
         # really simple-minded pattern matching
         # the order of things is like this:
         # GUARD_COMPATIBLE(x)

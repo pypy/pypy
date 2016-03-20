@@ -1095,13 +1095,11 @@ class GuardCompatibleDescr(ResumeGuardDescr):
         assert typetag == self.TY_REF # for now
         refval = metainterp_sd.cpu.get_value_direct(deadframe, 'r', index)
         if self.is_compatible(metainterp_sd.cpu, refval):
-            print "~~~~~~~~~~~~~~~~~~~ compatible! growing switch", self
             from rpython.jit.metainterp.blackhole import resume_in_blackhole
             metainterp_sd.cpu.grow_guard_compatible_switch(
                 self.rd_loop_token, self, refval)
             resume_in_blackhole(metainterp_sd, jitdriver_sd, self, deadframe)
         else:
-            print "~~~~~~~~~~~~~~~~~~~ not compatible!", self
             # a real failure
             return ResumeGuardDescr.handle_fail(self, deadframe, metainterp_sd, jitdriver_sd)
 
