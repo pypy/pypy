@@ -129,16 +129,16 @@ class QuasiImmutDescr(AbstractDescr):
 
     def get_current_constant_fieldvalue(self):
         struct = self.struct
-        return self._get_fieldvalue(struct)
+        return self._get_fieldvalue(self.fielddescr, struct, self.cpu)
 
-    def _get_fieldvalue(self, struct):
-        fielddescr = self.fielddescr
-        if self.fielddescr.is_pointer_field():
-            return ConstPtr(self.cpu.bh_getfield_gc_r(struct, fielddescr))
-        elif self.fielddescr.is_float_field():
-            return ConstFloat(self.cpu.bh_getfield_gc_f(struct, fielddescr))
+    @staticmethod
+    def _get_fieldvalue(fielddescr, struct, cpu):
+        if fielddescr.is_pointer_field():
+            return ConstPtr(cpu.bh_getfield_gc_r(struct, fielddescr))
+        elif fielddescr.is_float_field():
+            return ConstFloat(cpu.bh_getfield_gc_f(struct, fielddescr))
         else:
-            return ConstInt(self.cpu.bh_getfield_gc_i(struct, fielddescr))
+            return ConstInt(cpu.bh_getfield_gc_i(struct, fielddescr))
 
     def is_still_valid_for(self, structconst):
         assert self.struct

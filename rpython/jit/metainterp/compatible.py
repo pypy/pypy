@@ -157,6 +157,8 @@ class PureCallCondition(Condition):
             return False
         if not self.res.same_constant(res):
             return False
+        if self.descr is not other.descr:
+            return False
         assert self.args[1] is other.args[1] is None
         for i in range(len(self.args)):
             if i == 1:
@@ -168,28 +170,36 @@ class PureCallCondition(Condition):
 
 class QuasiimmutGetfieldAndPureCallCondition(PureCallCondition):
     def __init__(self, op, qmutdescr):
-        self.op = op
-        self.qmutdescr = qmutdescr
+        args = op.getarglist()[:]
+        args[1] = None
+        args[2] = None
+        self.args = args
+        self.descr = op.getdescr()
+        self.qmut = qmutdescr.qmut
+        self.mutatefielddescr = qmutdescr.mutatefielddescr
+        self.fielddescr = qmutdescr.fielddescr
 
     def activate(self, ref, optimizer):
         # record the quasi-immutable
-        optimizer.record_quasi_immutable_dep(self.qmutdescr.qmut)
+        optimizer.record_quasi_immutable_dep(self.qmut)
+        # XXX can set self.qmut to None here?
         Condition.activate(self, ref, optimizer)
 
     def activate_secondary(self, ref, loop_token):
         from rpython.jit.metainterp.quasiimmut import get_current_qmut_instance
         # need to register the loop for invalidation as well!
         qmut = get_current_qmut_instance(loop_token.cpu, ref,
-                                         self.qmutdescr.mutatefielddescr)
+                                         self.mutatefielddescr)
         qmut.register_loop_token(loop_token.loop_token_wref)
 
     def check(self, cpu, ref):
         from rpython.rlib.debug import debug_print, debug_start, debug_stop
-        calldescr = self.op.getdescr()
+        from rpython.jit.metainterp.quasiimmut import QuasiImmutDescr
+        calldescr = self.descr
         # change exactly the first argument
-        arglist = self.op.getarglist()
+        arglist = self.args
         arglist[1] = newconst(ref)
-        arglist[2] = self.qmutdescr._get_fieldvalue(ref)
+        arglist[2] = QuasiImmutDescr._get_fieldvalue(self.fielddescr, ref, cpu)
         try:
             res = do_call(cpu, arglist, calldescr)
         except Exception:
@@ -197,7 +207,30 @@ class QuasiimmutGetfieldAndPureCallCondition(PureCallCondition):
             debug_print("call to elidable_compatible function raised")
             debug_stop("jit-guard-compatible")
             return False
+        finally:
+            arglist[1] = arglist[2] = None
         if not res.same_constant(self.res):
             return False
         return True
 
+    def same_cond(self, other, res):
+        if type(other) != QuasiimmutGetfieldAndPureCallCondition:
+            return False
+        if len(self.args) != len(other.args):
+            return False
+        if not self.res.same_constant(res):
+            return False
+        if self.descr is not other.descr:
+            return False
+        if self.fielddescr is not other.fielddescr:
+            return False
+        if self.mutatefielddescr is not other.mutatefielddescr:
+            return False
+        assert self.args[1] is other.args[1] is None
+        assert self.args[2] is other.args[2] is None
+        for i in range(len(self.args)):
+            if i == 1 or i == 2:
+                continue
+            if not self.args[i].same_constant(other.args[i]):
+                return False
+        return True
