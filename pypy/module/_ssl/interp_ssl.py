@@ -1288,6 +1288,8 @@ class _SSLContext(W_Root):
         options = SSL_OP_ALL & ~SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS
         if protocol != PY_SSL_VERSION_SSL2:
             options |= SSL_OP_NO_SSLv2
+        if protocol != PY_SSL_VERSION_SSL3:
+            options |= SSL_OP_NO_SSLv3
         libssl_SSL_CTX_set_options(ctx, options)
 
         if not OPENSSL_NO_ECDH:
