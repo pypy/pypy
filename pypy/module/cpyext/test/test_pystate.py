@@ -48,7 +48,7 @@ class AppTestThreads(AppTestCpythonExtensionBase):
 
     def test_basic_threadstate_dance(self):
         if self.runappdirect:
-            py.test.xfail('segfault')
+            py.test.xfail('segfault: PyThreadState_Get: no current thread')
         module = self.import_extension('foo', [
                 ("dance", "METH_NOARGS",
                  """
@@ -113,6 +113,127 @@ class AppTestThreads(AppTestCpythonExtensionBase):
                                   """),
                 ])
 
+class AppTestState(AppTestCpythonExtensionBase):
+
+    def test_frame_tstate_tracing(self):
+        import sys, threading
+        module = self.import_extension('foo', [
+            ("call_in_temporary_c_thread", "METH_O",
+             """
+                PyObject *res = NULL;
+                test_c_thread_t test_c_thread;
+                long thread;
+
+                PyEval_InitThreads();
+
+                test_c_thread.start_event = PyThread_allocate_lock();
+                test_c_thread.exit_event = PyThread_allocate_lock();
+                test_c_thread.callback = NULL;
+                if (!test_c_thread.start_event || !test_c_thread.exit_event) {
+                    PyErr_SetString(PyExc_RuntimeError, "could not allocate lock");
+                    goto exit;
+                }
+
+                Py_INCREF(args);
+                test_c_thread.callback = args;
+
+                PyThread_acquire_lock(test_c_thread.start_event, 1);
+                PyThread_acquire_lock(test_c_thread.exit_event, 1);
+
+                thread = PyThread_start_new_thread(temporary_c_thread, &test_c_thread);
+                if (thread == -1) {
+                    PyErr_SetString(PyExc_RuntimeError, "unable to start the thread");
+                    PyThread_release_lock(test_c_thread.start_event);
+                    PyThread_release_lock(test_c_thread.exit_event);
+                    goto exit;
+                }
+
+                PyThread_acquire_lock(test_c_thread.start_event, 1);
+                PyThread_release_lock(test_c_thread.start_event);
+
+                Py_BEGIN_ALLOW_THREADS
+                    PyThread_acquire_lock(test_c_thread.exit_event, 1);
+                    PyThread_release_lock(test_c_thread.exit_event);
+                Py_END_ALLOW_THREADS
+
+                Py_INCREF(Py_None);
+                res = Py_None;
+
+            exit:
+                Py_CLEAR(test_c_thread.callback);
+                if (test_c_thread.start_event)
+                    PyThread_free_lock(test_c_thread.start_event);
+                if (test_c_thread.exit_event)
+                    PyThread_free_lock(test_c_thread.exit_event);
+                return res;
+            """), ], prologue = """
+            #include "pythread.h"
+            typedef struct {
+                PyThread_type_lock start_event;
+                PyThread_type_lock exit_event;
+                PyObject *callback;
+            } test_c_thread_t;
+
+            static void
+            temporary_c_thread(void *data)
+            {
+                test_c_thread_t *test_c_thread = data;
+                PyGILState_STATE state;
+                PyObject *res;
+
+                PyThread_release_lock(test_c_thread->start_event);
+
+                /* Allocate a Python thread state for this thread */
+                state = PyGILState_Ensure();
+
+                res = PyObject_CallFunction(test_c_thread->callback, "", NULL);
+                Py_CLEAR(test_c_thread->callback);
+
+                if (res == NULL) {
+                    PyErr_Print();
+                }
+                else {
+                    Py_DECREF(res);
+                }
+
+                /* Destroy the Python thread state for this thread */
+                PyGILState_Release(state);
+
+                PyThread_release_lock(test_c_thread->exit_event);
+
+                /*PyThread_exit_thread(); NOP (on linux) and not implememnted */
+            };
+            """)
+        def noop_trace(frame, event, arg):
+            # no operation
+            return noop_trace
+
+        def generator():
+            while 1:
+                yield "genereator"
+
+        def callback():
+            if callback.gen is None:
+                callback.gen = generator()
+            return next(callback.gen)
+        callback.gen = None
+
+        old_trace = sys.gettrace()
+        sys.settrace(noop_trace)
+        try:
+            # Install a trace function
+            threading.settrace(noop_trace)
+
+            # Create a generator in a C thread which exits after the call
+            module.call_in_temporary_c_thread(callback)
+
+            # Call the generator in a different Python thread, check that the
+            # generator didn't keep a reference to the destroyed thread state
+            for test in range(3):
+                # The trace function is still called here
+                callback()
+        finally:
+            sys.settrace(old_trace)
 
 
 class TestInterpreterState(BaseApiTest):
