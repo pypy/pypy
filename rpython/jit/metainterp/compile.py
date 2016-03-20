@@ -1088,20 +1088,26 @@ class GuardCompatibleDescr(ResumeGuardDescr):
     def __init__(self):
         # XXX think about what is being kept alive here
         self._compatibility_conditions = None
+        self.failarg_index = -1
+        self._prev_guard_compatible_descr = None
 
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         index = intmask(self.status >> self.ST_SHIFT)
         typetag = intmask(self.status & self.ST_TYPE_MASK)
         assert typetag == self.TY_REF # for now
         refval = metainterp_sd.cpu.get_value_direct(deadframe, 'r', index)
-        if self.is_compatible(metainterp_sd.cpu, refval):
-            from rpython.jit.metainterp.blackhole import resume_in_blackhole
-            metainterp_sd.cpu.grow_guard_compatible_switch(
-                self.rd_loop_token, self, refval)
-            resume_in_blackhole(metainterp_sd, jitdriver_sd, self, deadframe)
-        else:
-            # a real failure
-            return ResumeGuardDescr.handle_fail(self, deadframe, metainterp_sd, jitdriver_sd)
+        curr = self
+        while curr:
+            if curr.is_compatible(metainterp_sd.cpu, refval):
+                from rpython.jit.metainterp.blackhole import resume_in_blackhole
+                metainterp_sd.cpu.grow_guard_compatible_switch(
+                    curr.rd_loop_token, curr, refval)
+                resume_in_blackhole(metainterp_sd, jitdriver_sd, self, deadframe)
+                return
+            # try previous guards, maybe one of them would have matched
+            curr = curr._prev_guard_compatible_descr
+        # a real failure
+        return ResumeGuardDescr.handle_fail(self, deadframe, metainterp_sd, jitdriver_sd)
 
     def is_compatible(self, cpu, ref):
         const = history.newconst(ref)
@@ -1111,6 +1117,27 @@ class GuardCompatibleDescr(ResumeGuardDescr):
                 return True
             return False
         return True # no conditions, everything works
+
+    def compile_and_attach(self, metainterp, new_loop, orig_inputargs):
+        # if new_loop starts with another guard_compatible on the same argument
+        # (which is most of the time) we have to connect the new guard's descr
+        # to this descr
+        assert self.failarg_index != -1
+        arg = new_loop.inputargs[self.failarg_index]
+        firstop = new_loop.operations[0]
+        if (firstop.getopnum() == rop.GUARD_COMPATIBLE and
+                firstop.getarg(0) is arg):
+            # a guard_compatible about the same box
+            newdescr = firstop.getdescr()
+            assert isinstance(newdescr, GuardCompatibleDescr)
+            newdescr._prev_guard_compatible_descr = self
+        ResumeGuardDescr.compile_and_attach(
+            self, metainterp, new_loop, orig_inputargs)
+
+    def make_a_counter_per_value(self, guard_value_op, index):
+        self.failarg_index = guard_value_op.getfailargs().index(
+                guard_value_op.getarg(0))
+        ResumeGuardDescr.make_a_counter_per_value(self, guard_value_op, index)
 
 # ____________________________________________________________
 

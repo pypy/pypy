@@ -126,7 +126,7 @@ class PureCallCondition(Condition):
         return True
 
     def same_cond(self, other, res):
-        if type(other) != PureCallCondition:
+        if type(other) is not PureCallCondition:
             return False
         if len(self.args) != len(other.args):
             return False
@@ -189,7 +189,7 @@ class QuasiimmutGetfieldAndPureCallCondition(PureCallCondition):
         return True
 
     def same_cond(self, other, res):
-        if type(other) != QuasiimmutGetfieldAndPureCallCondition:
+        if type(other) is not QuasiimmutGetfieldAndPureCallCondition:
             return False
         if len(self.args) != len(other.args):
             return False

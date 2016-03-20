@@ -42,7 +42,8 @@ class TestCompatible(LLJitMixin):
         x = self.meta_interp(main, [])
 
         assert x < 25
-        # XXX check number of bridges
+        # trace, two bridges, a finish bridge
+        self.check_trace_count(4)
 
     def test_exception(self):
         S = lltype.GcStruct('S', ('x', lltype.Signed))
@@ -178,4 +179,46 @@ class TestCompatible(LLJitMixin):
         res = self.interp_operations(fn, [1])
         assert res == 3
         self.check_operations_history(guard_compatible=1)
+
+
+    def test_too_many_bridges(self):
+        S = lltype.GcStruct('S', ('x', lltype.Signed))
+        p1 = lltype.malloc(S)
+        p1.x = 5
+
+        p2 = lltype.malloc(S)
+        p2.x = 5
+
+        p3 = lltype.malloc(S)
+        p3.x = 6
+        driver = jit.JitDriver(greens = [], reds = ['n', 'x'])
+
+        class A(object):
+            pass
+
+        c = A()
+        c.count = 0
+        @jit.elidable_compatible()
+        def g(s, ignored):
+            c.count += 1
+            return s.x
+
+        def f(n, x):
+            while n > 0:
+                driver.can_enter_jit(n=n, x=x)
+                driver.jit_merge_point(n=n, x=x)
+                n -= g(x, 7)
+
+        def main():
+            g(p1, 9) # make annotator not make argument constant
+            f(100, p1)
+            f(100, p3) # not compatible, so make a bridge
+            f(100, p2) # compatible with loop again, too bad
+            return c.count
+
+        x = self.meta_interp(main, [])
+
+        assert x < 30
+        # trace, two bridges, a finish bridge
+        self.check_trace_count(4)
 
