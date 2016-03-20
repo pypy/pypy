@@ -15,9 +15,7 @@ from rpython.jit.codewriter import longlong
 
 # ____________________________________________________________
 
-@specialize.arg(4)
-def _do_call(cpu, metainterp, argboxes, descr, rettype):
-    assert metainterp is not None
+def _separate_call_arguments(argboxes):
     # count the number of arguments of the different types
     count_i = count_r = count_f = 0
     for i in range(1, len(argboxes)):
@@ -45,6 +43,13 @@ def _do_call(cpu, metainterp, argboxes, descr, rettype):
         elif box.type == FLOAT:
             args_f[count_f] = box.getfloatstorage()
             count_f += 1
+    return args_i, args_r, args_f
+
+
+@specialize.arg(4)
+def _do_call(cpu, metainterp, argboxes, descr, rettype):
+    assert metainterp is not None
+    args_i, args_r, args_f = _separate_call_arguments(argboxes)
     # get the function address as an integer
     func = argboxes[0].getint()
     # do the call using the correct function from the cpu

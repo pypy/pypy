@@ -5,35 +5,10 @@ from rpython.jit.metainterp.resoperation import rop
 def do_call(cpu, argboxes, descr):
     from rpython.jit.metainterp.history import INT, REF, FLOAT, VOID
     from rpython.jit.metainterp.blackhole import NULL
-    # XXX XXX almost copy from executor.py
+    from rpython.jit.metainterp.executor import _separate_call_arguments
     rettype = descr.get_result_type()
     # count the number of arguments of the different types
-    count_i = count_r = count_f = 0
-    for i in range(1, len(argboxes)):
-        type = argboxes[i].type
-        if   type == INT:   count_i += 1
-        elif type == REF:   count_r += 1
-        elif type == FLOAT: count_f += 1
-    # allocate lists for each type that has at least one argument
-    if count_i: args_i = [0] * count_i
-    else:       args_i = None
-    if count_r: args_r = [NULL] * count_r
-    else:       args_r = None
-    if count_f: args_f = [longlong.ZEROF] * count_f
-    else:       args_f = None
-    # fill in the lists
-    count_i = count_r = count_f = 0
-    for i in range(1, len(argboxes)):
-        box = argboxes[i]
-        if   box.type == INT:
-            args_i[count_i] = box.getint()
-            count_i += 1
-        elif box.type == REF:
-            args_r[count_r] = box.getref_base()
-            count_r += 1
-        elif box.type == FLOAT:
-            args_f[count_f] = box.getfloatstorage()
-            count_f += 1
+    args_i, args_r, args_f = _separate_call_arguments(argboxes)
     # get the function address as an integer
     func = argboxes[0].getint()
     # do the call using the correct function from the cpu
