@@ -1,8 +1,10 @@
+import pytest
 from rpython.jit.metainterp.optimizeopt.test.test_util import (
     LLtypeMixin)
 from rpython.jit.metainterp.optimizeopt.test.test_optimizebasic import (
     BaseTestBasic)
 from rpython.jit.metainterp.history import ConstInt, ConstPtr
+from rpython.jit.metainterp.optimize import InvalidLoop
 
 class TestCompatible(BaseTestBasic, LLtypeMixin):
 
@@ -59,6 +61,15 @@ class TestCompatible(BaseTestBasic, LLtypeMixin):
         jump(ConstPtr(myptr))
         """
         self.optimize_loop(ops, expected)
+
+    def test_guard_compatible_inconsistent(self):
+        ops = """
+        [p1]
+        guard_compatible(p1, ConstPtr(myptr)) []
+        guard_compatible(p1, ConstPtr(myptrb)) []
+        jump(ConstPtr(myptr))
+        """
+        pytest.raises(InvalidLoop, self.optimize_loop, ops, ops)
 
     def test_guard_compatible_call_pure(self):
         call_pure_results = {

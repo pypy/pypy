@@ -220,10 +220,15 @@ class OptPure(Optimization):
         else:
             self.make_nonnull(arg0)
             info = self.getptrinfo(arg0)
-        if info._compatibility_conditions:
+        ccond = info._compatibility_conditions
+        if ccond:
             # seen a previous guard_compatible
             # check that it's the same previous constant
-            assert info._compatibility_conditions.known_valid.same_constant(op.getarg(1))
+            if not ccond.known_valid.same_constant(op.getarg(1)):
+                r = self.optimizer.metainterp_sd.logger_ops.repr_of_resop(
+                    op)
+                raise InvalidLoop('A GUARD_VALUE (%s) '
+                                  'was proven to always fail' % r)
             return
         else:
             info._compatibility_conditions = CompatibilityCondition(
