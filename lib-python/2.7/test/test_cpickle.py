@@ -166,7 +166,9 @@ class cPickleFastPicklerTests(AbstractPickleTests):
 for name in dir(AbstractPickleTests):
     if name.startswith('test_recursive_'):
         func = getattr(AbstractPickleTests, name)
-        if '_subclass' in name and '_and_inst' not in name:
+        if (test_support.check_impl_detail(pypy=True) or
+            '_subclass' in name and '_and_inst' not in name):
+            # PyPy's cPickle matches pure python pickle's behavior here
             assert_args = RuntimeError, 'maximum recursion depth exceeded'
         else:
             assert_args = ValueError, "can't pickle cyclic objects"
