@@ -3437,6 +3437,21 @@ class AppTestMultiDim(BaseNumpyAppTest):
         a.itemset(1, 2, 100)
         assert a[1, 2] == 100
 
+    def test_index_int(self):
+        import numpy as np
+        a = np.array([10, 20, 30], dtype='int64')
+        res = a[np.int64(1)]
+        assert isinstance(res, np.int64)
+        assert res == 20
+        res = a[np.int32(0)]
+        assert isinstance(res, np.int64)
+        assert res == 10
+
+        b = a.astype(float)
+        res = b[np.int64(1)]
+        assert res == 20.0
+        assert isinstance(res, np.float64)
+
     def test_index(self):
         import numpy as np
         a = np.array([1], np.uint16)
@@ -3447,6 +3462,7 @@ class AppTestMultiDim(BaseNumpyAppTest):
             exc = raises(TypeError, a.__index__)
             assert exc.value.message == 'only integer arrays with one element ' \
                                         'can be converted to an index'
+
 
     def test_int_array_index(self):
         from numpy import array
