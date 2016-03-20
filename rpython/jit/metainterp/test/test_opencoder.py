@@ -13,6 +13,9 @@ class JitCode(object):
     def __init__(self, index):
         self.index = index
 
+class SomeDescr(AbstractDescr):
+    pass
+
 class metainterp_sd(object):
     pass
 
@@ -175,9 +178,6 @@ class TestOpencoder(object):
         assert l[0].getarglist() == [i0, i1]
 
     def test_virtualizable_virtualref(self):
-        class SomeDescr(AbstractDescr):
-            pass
-
         i0, i1, i2 = IntFrontendOp(0), IntFrontendOp(0), IntFrontendOp(0)
         t = Trace([i0, i1, i2])
         p0 = FakeOp(t.record_op(rop.NEW_WITH_VTABLE, [], descr=SomeDescr()))
@@ -187,3 +187,11 @@ class TestOpencoder(object):
         assert not l[1].framestack
         assert l[1].virtualizables == [l[0], i1, i2]
         assert l[1].vref_boxes == [l[0], i1]
+
+    def test_liveranges(self):
+        i0, i1, i2 = IntFrontendOp(0), IntFrontendOp(0), IntFrontendOp(0)
+        t = Trace([i0, i1, i2])
+        p0 = FakeOp(t.record_op(rop.NEW_WITH_VTABLE, [], descr=SomeDescr()))
+        t.record_op(rop.GUARD_TRUE, [i0])
+        resume.capture_resumedata([], [i1, i2, p0], [p0, i1], t)
+        assert t.get_live_ranges(metainterp_sd) == [4, 4, 4, 4, 0]

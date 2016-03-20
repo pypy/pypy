@@ -9,7 +9,8 @@ snapshot is as follows
 
 from rpython.jit.metainterp.history import ConstInt, Const, ConstFloat, ConstPtr
 from rpython.jit.metainterp.resoperation import AbstractResOp, AbstractInputArg,\
-    ResOperation, oparity, rop, opwithdescr, GuardResOp, IntOp, FloatOp, RefOp
+    ResOperation, oparity, rop, opwithdescr, GuardResOp, IntOp, FloatOp, RefOp,\
+    opclasses
 from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rtyper.lltypesystem import rffi, lltype, llmemory
@@ -46,6 +47,20 @@ class SnapshotIterator(object):
 
     def get(self, index):
         return self.main_iter._untag(index)
+
+    def _update_liverange(self, item, index, liveranges):
+        tag, v = untag(item)
+        if tag == TAGBOX:
+            liveranges[v] = index
+
+    def update_liveranges(self, index, liveranges):
+        for item in self.vable_array:
+            self._update_liverange(item, index, liveranges)
+        for item in self.vref_array:
+            self._update_liverange(item, index, liveranges)
+        for frame in self.framestack:
+            for item in frame.box_array:
+                self._update_liverange(item, index, liveranges)
 
     def unpack_jitcode_pc(self, snapshot):
         return unpack_uint(snapshot.packed_jitcode_pc)
@@ -107,6 +122,26 @@ class TraceIterator(BaseTrace):
     def get_snapshot_iter(self, index):
         return SnapshotIterator(self, self.trace._snapshots[index])
 
+    def next_element_update_live_range(self, index, liveranges):
+        opnum = self._next()
+        if oparity[opnum] == -1:
+            argnum = self._next()
+        else:
+            argnum = oparity[opnum]
+        for i in range(argnum):
+            tagged = self._next()
+            tag, v = untag(tagged)
+            if tag == TAGBOX:
+                liveranges[v] = index
+        if opclasses[opnum].type != 'v':
+            liveranges[index] = index
+        if opwithdescr[opnum]:
+            descr_index = self._next()
+        if rop.is_guard(opnum):
+            self.get_snapshot_iter(descr_index).update_liveranges(
+                index, liveranges)
+        return index + 1
+
     def next(self):
         opnum = self._next()
         if oparity[opnum] == -1:
@@ -132,7 +167,8 @@ class TraceIterator(BaseTrace):
         if rop.is_guard(opnum):
             assert isinstance(res, GuardResOp)
             res.rd_resume_position = descr_index
-        self._cache[self._count] = res
+        if res.type != 'v':
+            self._cache[self._count] = res
         self._count += 1
         return res
 
@@ -358,6 +394,14 @@ class Trace(BaseTrace):
     def get_iter(self, metainterp_sd=None):
         assert metainterp_sd
         return TraceIterator(self, self._start, self._pos, metainterp_sd=metainterp_sd)
+
+    def get_live_ranges(self, metainterp_sd):
+        t = self.get_iter(metainterp_sd)
+        liveranges = [0] * self._count
+        index = t._count
+        while not t.done():
+            index = t.next_element_update_live_range(index, liveranges)
+        return liveranges
 
     def unpack(self):
         iter = self.get_iter()
