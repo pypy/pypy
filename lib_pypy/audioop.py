@@ -23,6 +23,18 @@ def _check_params(length, size):
         raise error("not a whole number of frames")
 
 
+def _check_state(state):
+    if state is None:
+        valpred = 0
+        index = 0
+    else:
+        valpred, index = state
+        # XXX: len(stepsizeTable) = 89
+        if valpred >= 0x8000 or valpred < -0x8000 or index >= 89:
+            raise ValueError("bad state")
+    return (valpred, index)
+
+
 def _sample_count(cp, size):
     return len(cp) // size
 
@@ -485,7 +497,6 @@ def ratecv(cp, size, nchannels, inrate, outrate, state, weightA=1, weightB=0):
     return (result, (d, tuple(samps)))
 
 
-
 def _get_lin_samples(cp, size):
     for sample in _get_samples(cp, size):
         if size == 1:
@@ -495,6 +506,7 @@ def _get_lin_samples(cp, size):
         elif size == 4:
             yield sample >> 16
 
+
 def _put_lin_sample(result, size, i, sample):
     if size == 1:
         sample >>= 8
@@ -503,6 +515,7 @@ def _put_lin_sample(result, size, i, sample):
     elif size == 4:
         sample <<= 16
     _put_sample(result, size, i, sample)
+
 
 def lin2ulaw(cp, size):
     _check_params(len(cp), size)
@@ -542,8 +555,7 @@ def alaw2lin(cp, size):
 
 def lin2adpcm(cp, size, state):
     _check_params(len(cp), size)
-    if state is None:
-        state = (0, 0)
+    state = _check_state(state)
     rv = ffi.new("unsigned char[]", len(cp) // size // 2)
     state_ptr = ffi.new("int[]", state)
     lib.lin2adcpm(rv, cp, len(cp), size, state_ptr)
@@ -552,15 +564,8 @@ def lin2adpcm(cp, size, state):
 
 def adpcm2lin(cp, size, state):
     _check_size(size)
-    if state is None:
-        valpred = 0
-        index = 0
-    else:
-        valpred, index = state
-        # XXX: len(stepsizeTable) = 89
-        if valpred >= 0x8000 or valpred < -0x8000 or index >= 89:
-            raise ValueError("bad state")
+    state = _check_state(state)
     rv = ffi.new("unsigned char[]", len(cp) * size * 2)
-    state_ptr = ffi.new("int[]", [valpred, index])
+    state_ptr = ffi.new("int[]", state)
     lib.adcpm2lin(rv, cp, len(cp), size, state_ptr)
     return ffi.buffer(rv)[:], tuple(state_ptr)
