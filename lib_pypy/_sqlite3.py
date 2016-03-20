@@ -1155,6 +1155,8 @@ class Statement(object):
 
 class Row(object):
     def __init__(self, cursor, values):
+        if not isinstance(cursor, Cursor):
+            raise TypeError("instance of cursor required for first argument")
         self.description = cursor.description
         self.values = values
 
