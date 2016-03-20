@@ -23,7 +23,7 @@ for name in ll_math.unary_math_functions:
         f = getattr(rfloat, name)
     register_external(f, [float], float,
                       export_name="ll_math.ll_math_%s" % name,
-                       sandboxsafe=True, llimpl=llimpl)
+                      llimpl=llimpl)
 
 _register = [  # (module, [(method name, arg types, return type), ...], ...)
     (rfloat, [
@@ -54,5 +54,4 @@ for module, methods in _register:
         method_name = 'll_math_%s' % name
         register_external(getattr(module, name), arg_types, return_type,
                           export_name='ll_math.%s' % method_name,
-                          sandboxsafe=True,
                           llimpl=getattr(ll_math, method_name))

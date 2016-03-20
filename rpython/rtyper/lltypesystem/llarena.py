@@ -495,13 +495,11 @@ llimpl_arena_malloc._always_inline_ = True
 register_external(arena_malloc, [int, int], llmemory.Address,
                   'll_arena.arena_malloc',
                   llimpl=llimpl_arena_malloc,
-                  llfakeimpl=arena_malloc,
-                  sandboxsafe=True)
+                  llfakeimpl=arena_malloc)
 
 register_external(arena_free, [llmemory.Address], None, 'll_arena.arena_free',
                   llimpl=llimpl_free,
-                  llfakeimpl=arena_free,
-                  sandboxsafe=True)
+                  llfakeimpl=arena_free)
 
 def llimpl_arena_reset(arena_addr, size, zero):
     if zero:
@@ -515,38 +513,34 @@ llimpl_arena_reset._always_inline_ = True
 register_external(arena_reset, [llmemory.Address, int, int], None,
                   'll_arena.arena_reset',
                   llimpl=llimpl_arena_reset,
-                  llfakeimpl=arena_reset,
-                  sandboxsafe=True)
+                  llfakeimpl=arena_reset)
 
 def llimpl_arena_reserve(addr, size):
     pass
 register_external(arena_reserve, [llmemory.Address, int], None,
                   'll_arena.arena_reserve',
                   llimpl=llimpl_arena_reserve,
-                  llfakeimpl=arena_reserve,
-                  sandboxsafe=True)
+                  llfakeimpl=arena_reserve)
 
 def llimpl_arena_shrink_obj(addr, newsize):
     pass
 register_external(arena_shrink_obj, [llmemory.Address, int], None,
                   'll_arena.arena_shrink_obj',
                   llimpl=llimpl_arena_shrink_obj,
-                  llfakeimpl=arena_shrink_obj,
-                  sandboxsafe=True)
+                  llfakeimpl=arena_shrink_obj)
 
 def llimpl_round_up_for_allocation(size, minsize):
     return (max(size, minsize) + (MEMORY_ALIGNMENT-1)) & ~(MEMORY_ALIGNMENT-1)
 register_external(_round_up_for_allocation, [int, int], int,
                   'll_arena.round_up_for_allocation',
                   llimpl=llimpl_round_up_for_allocation,
-                  llfakeimpl=round_up_for_allocation,
-                  sandboxsafe=True)
+                  llfakeimpl=round_up_for_allocation)
 
 def llimpl_arena_new_view(addr):
     return addr
 register_external(arena_new_view, [llmemory.Address], llmemory.Address,
                   'll_arena.arena_new_view', llimpl=llimpl_arena_new_view,
-                  llfakeimpl=arena_new_view, sandboxsafe=True)
+                  llfakeimpl=arena_new_view)
 
 def llimpl_arena_protect(addr, size, inaccessible):
     if has_protect:
@@ -561,12 +555,11 @@ def llimpl_arena_protect(addr, size, inaccessible):
 register_external(arena_protect, [llmemory.Address, lltype.Signed,
                                   lltype.Bool], lltype.Void,
                   'll_arena.arena_protect', llimpl=llimpl_arena_protect,
-                  llfakeimpl=arena_protect, sandboxsafe=True)
+                  llfakeimpl=arena_protect)
 
 def llimpl_getfakearenaaddress(addr):
     return addr
 register_external(getfakearenaaddress, [llmemory.Address], llmemory.Address,
                   'll_arena.getfakearenaaddress',
                   llimpl=llimpl_getfakearenaaddress,
-                  llfakeimpl=getfakearenaaddress,
-                  sandboxsafe=True)
+                  llfakeimpl=getfakearenaaddress)

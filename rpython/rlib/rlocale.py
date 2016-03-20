@@ -178,8 +178,7 @@ def numeric_formatting_impl():
     return decimal_point, thousands_sep, grouping
 
 register_external(numeric_formatting, [], (str, str, str),
-                  llimpl=numeric_formatting_impl,
-                  sandboxsafe=True)
+                  llimpl=numeric_formatting_impl)
 
 
 _setlocale = external('setlocale', [rffi.INT, rffi.CCHARP], rffi.CCHARP)

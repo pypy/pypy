@@ -98,7 +98,7 @@ class ExtFuncEntry(ExtRegistryEntry):
 
 
 def register_external(function, args, result=None, export_name=None,
-                       llimpl=None, llfakeimpl=None, sandboxsafe=None):
+                       llimpl=None, llfakeimpl=None):
     """
     function: the RPython function that will be rendered as an external function (e.g.: math.floor)
     args: a list containing the annotation of the arguments
@@ -106,7 +106,6 @@ def register_external(function, args, result=None, export_name=None,
     export_name: the name of the function as it will be seen by the backends
     llimpl: optional; if provided, this RPython function is called instead of the target function
     llfakeimpl: optional; if provided, called by the llinterpreter
-    sandboxsafe: IGNORED at this level
     """
 
     if export_name is None:
