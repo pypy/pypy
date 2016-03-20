@@ -239,10 +239,8 @@ class W_ArrayBase(W_Root):
         values,as if it had been read from a file using the fromfile() method).
         """
         if self is w_s:
-            raise OperationError(
-                self.space.w_ValueError,
-                self.space.wrap("array.fromstring(x): x cannot be self")
-            )
+            raise oefmt(space.w_ValueError,
+                        "array.fromstring(x): x cannot be self")
         s = space.getarg_w('s#', w_s)
         if len(s) % self.itemsize != 0:
             msg = 'string length not a multiple of item size'
