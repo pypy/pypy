@@ -108,4 +108,4 @@ class TestCompatible(BaseTestBasic, LLtypeMixin):
             descr = self.loop.operations[1].getdescr()
             assert descr._compatibility_conditions is not None
             assert descr._compatibility_conditions.known_valid.same_constant(ConstPtr(self.myptr))
-            assert len(descr._compatibility_conditions.pure_call_conditions) == 2
+            assert len(descr._compatibility_conditions.conditions) == 2
