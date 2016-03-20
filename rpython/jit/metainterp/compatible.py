@@ -56,6 +56,9 @@ class CompatibilityCondition(object):
         self.last_quasi_immut_field_op = None
 
     def record_condition(self, cond, res, optimizer):
+        for oldcond in self.conditions:
+            if oldcond.same_cond(cond, res):
+                return
         cond.activate(res, optimizer)
         self.conditions.append(cond)
 
@@ -117,16 +120,22 @@ class Condition(object):
     def activate_secondary(self, ref, loop_token):
         pass
 
+    def same_cond(self, other, res):
+        return False
+
 
 class PureCallCondition(Condition):
     def __init__(self, op):
-        self.op = op
+        args = op.getarglist()[:]
+        args[1] = None
+        self.args = args
+        self.descr = op.getdescr()
 
     def check(self, cpu, ref):
         from rpython.rlib.debug import debug_print, debug_start, debug_stop
-        calldescr = self.op.getdescr()
+        calldescr = self.descr
         # change exactly the first argument
-        arglist = self.op.getarglist()
+        arglist = self.args
         arglist[1] = newconst(ref)
         try:
             res = do_call(cpu, arglist, calldescr)
@@ -135,8 +144,25 @@ class PureCallCondition(Condition):
             debug_print("call to elidable_compatible function raised")
             debug_stop("jit-guard-compatible")
             return False
+        finally:
+            arglist[1] = None
         if not res.same_constant(self.res):
             return False
+        return True
+
+    def same_cond(self, other, res):
+        if type(other) != PureCallCondition:
+            return False
+        if len(self.args) != len(other.args):
+            return False
+        if not self.res.same_constant(res):
+            return False
+        assert self.args[1] is other.args[1] is None
+        for i in range(len(self.args)):
+            if i == 1:
+                continue
+            if not self.args[i].same_constant(other.args[i]):
+                return False
         return True
 
 

@@ -109,3 +109,35 @@ class TestCompatible(BaseTestBasic, LLtypeMixin):
             assert descr._compatibility_conditions is not None
             assert descr._compatibility_conditions.known_valid.same_constant(ConstPtr(self.myptr))
             assert len(descr._compatibility_conditions.conditions) == 2
+
+    def test_deduplicate_conditions(self):
+        call_pure_results = {
+            (ConstInt(123), ConstPtr(self.myptr)): ConstInt(5),
+        }
+        ops = """
+        [p1]
+        guard_compatible(p1, ConstPtr(myptr)) []
+        i3 = call_pure_i(123, p1, descr=plaincalldescr)
+        i4 = call_pure_i(123, p1, descr=plaincalldescr)
+        i5 = call_pure_i(123, p1, descr=plaincalldescr)
+        i6 = call_pure_i(123, p1, descr=plaincalldescr)
+        escape_n(i3)
+        escape_n(i4)
+        escape_n(i5)
+        escape_n(i6)
+        jump(ConstPtr(myptr))
+        """
+        expected = """
+        [p1]
+        guard_compatible(p1, ConstPtr(myptr)) []
+        escape_n(5)
+        escape_n(5)
+        escape_n(5)
+        escape_n(5)
+        jump(ConstPtr(myptr))
+        """
+        self.optimize_loop(ops, expected, call_pure_results=call_pure_results)
+        descr = self.loop.operations[1].getdescr()
+        assert descr._compatibility_conditions is not None
+        assert descr._compatibility_conditions.known_valid.same_constant(ConstPtr(self.myptr))
+        assert len(descr._compatibility_conditions.conditions) == 1
