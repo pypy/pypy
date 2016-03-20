@@ -94,7 +94,7 @@ class CompatibilityCondition(object):
         # we want to discover this (and so far precisely this) situation and
         # make it possible for the GUARD_COMPATIBLE to still remove the call,
         # even though the second argument is not constant
-        if arg2.getopnum() != rop.GETFIELD_GC_R:
+        if arg2.getopnum() not in (rop.GETFIELD_GC_R, rop.GETFIELD_GC_I, rop.GETFIELD_GC_F):
             return None, None
         if not self.last_quasi_immut_field_op:
             return None, None

@@ -141,3 +141,28 @@ class TestCompatible(BaseTestBasic, LLtypeMixin):
         assert descr._compatibility_conditions is not None
         assert descr._compatibility_conditions.known_valid.same_constant(ConstPtr(self.myptr))
         assert len(descr._compatibility_conditions.conditions) == 1
+
+    def test_quasiimmut(self):
+        ops = """
+        [p1]
+        guard_compatible(p1, ConstPtr(quasiptr)) []
+        quasiimmut_field(p1, descr=quasiimmutdescr)
+        guard_not_invalidated() []
+        i0 = getfield_gc_i(p1, descr=quasifielddescr)
+        i1 = call_pure_i(123, p1, i0, descr=nonwritedescr)
+        escape_n(i1)
+        jump(p1)
+        """
+        expected = """
+        [p1]
+        guard_compatible(p1, ConstPtr(quasiptr)) []
+        guard_not_invalidated() []
+        i0 = getfield_gc_i(p1, descr=quasifielddescr) # will be removed by the backend
+        escape_n(5)
+        jump(p1)
+        """
+        call_pure_results = {
+            (ConstInt(123), ConstPtr(self.quasiptr), ConstInt(-4247)): ConstInt(5),
+        }
+        self.optimize_loop(ops, expected, call_pure_results)
+
