@@ -178,7 +178,8 @@ class LogTrace(object):
             end_offset = ops_offset[op2]
 
         dump = self.mc.copy_core_dump(self.mc.absolute_addr(), start_offset)
-        self.logger.write_marked(MARK_ASM, dump)
+        offset = self.logger.encode_le_16bit(start_offset)
+        self.logger.write_marked(MARK_ASM, offset + dump)
 
     def var_to_str(self, arg):
         try:
