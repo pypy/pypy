@@ -134,6 +134,7 @@ binary_folders = {
     ast.BitOr : _binary_fold("or_"),
     ast.BitXor : _binary_fold("xor"),
     ast.BitAnd : _binary_fold("and_"),
+    ast.MatMul : _binary_fold("matmul"),
 }
 unrolling_binary_folders = unrolling_iterable(binary_folders.items())
 

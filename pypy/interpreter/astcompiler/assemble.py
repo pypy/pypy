@@ -567,6 +567,7 @@ _static_opcode_stack_effects = {
     ops.BINARY_SUBSCR: -1,
     ops.BINARY_FLOOR_DIVIDE: -1,
     ops.BINARY_TRUE_DIVIDE: -1,
+    ops.BINARY_MAT_MUL: -1,
     ops.BINARY_LSHIFT: -1,
     ops.BINARY_RSHIFT: -1,
     ops.BINARY_AND: -1,
