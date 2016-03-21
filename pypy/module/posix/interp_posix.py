@@ -7,8 +7,8 @@ from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import r_longlong, intmask
 from rpython.rlib.unroll import unrolling_iterable
 
-from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
-from pypy.interpreter.error import (OperationError, wrap_oserror,
+from pypy.interpreter.gateway import unwrap_spec, WrappedDefault, Unwrapper
+from pypy.interpreter.error import (OperationError, wrap_oserror, oefmt,
                                     wrap_oserror2, strerror as _strerror)
 from pypy.interpreter.executioncontext import ExecutionContext
 
@@ -31,7 +31,7 @@ if sys.maxint == 2147483647:
         pass
 else:
     def check_uid_range(space, num):
-        if num < -(1<<31) or num >= (1<<32):
+        if num < -(1 << 31) or num >= (1 << 32):
             raise OperationError(space.w_OverflowError,
                                  space.wrap("integer out of range"))
 
@@ -104,8 +104,31 @@ def dispatch_filename_2(func):
                 return func(fname1, fname2, *args)
     return dispatch
 
-@unwrap_spec(flag=c_int, mode=c_int)
-def open(space, w_fname, flag, mode=0777):
+DEFAULT_DIR_FD = -100
+DIR_FD_AVAILABLE = False
+
+def _unwrap_fd(space, w_value):
+    if space.is_none(w_value):
+        return DEFAULT_DIR_FD
+    else:
+        return space.c_int_w(w_value)
+
+
+class DirFD(Unwrapper):
+    def unwrap(self, space, w_value):
+        dir_fd = _unwrap_fd(space, w_value)
+        if dir_fd == DEFAULT_DIR_FD:
+            return dir_fd
+        elif not DIR_FD_AVAILABLE:
+            raise oefmt(
+                space.w_NotImplementedError,
+                "dir_fd unavailable on this platform")
+        else:
+            return dir_fd
+
+
+@unwrap_spec(flag=c_int, mode=c_int, dir_fd=DirFD)
+def open(space, w_fname, flag, mode=0777, dir_fd=DEFAULT_DIR_FD):
     """open(path, flags, mode=0o777, *, dir_fd=None)
 
 Open a file for low level IO.  Returns a file handle (integer).
@@ -288,7 +311,8 @@ def build_statvfs_result(space, st):
     for i, (name, _) in STATVFS_FIELDS:
         vals_w[i] = space.wrap(getattr(st, name))
     w_tuple = space.newtuple(vals_w)
-    w_statvfs_result = space.getattr(space.getbuiltinmodule(os.name), space.wrap('statvfs_result'))
+    w_statvfs_result = space.getattr(
+        space.getbuiltinmodule(os.name), space.wrap('statvfs_result'))
     return space.call_function(w_statvfs_result, w_tuple)
 
 
@@ -303,7 +327,8 @@ file descriptor."""
     else:
         return build_stat_result(space, st)
 
-def stat(space, w_path):
+@unwrap_spec(dir_fd=DirFD)
+def stat(space, w_path, dir_fd=DEFAULT_DIR_FD):
     """stat(path, *, dir_fd=None, follow_symlinks=True) -> stat result
 
 Perform a stat system call on the given path.
@@ -327,7 +352,8 @@ It is an error to use dir_fd or follow_symlinks when specifying path as
     else:
         return build_stat_result(space, st)
 
-def lstat(space, w_path):
+@unwrap_spec(dir_fd=DirFD)
+def lstat(space, w_path, dir_fd=DEFAULT_DIR_FD):
     """lstat(path, *, dir_fd=None) -> stat result
 
 Like stat(), but do not follow symbolic links.
@@ -405,8 +431,8 @@ def dup2(space, old_fd, new_fd):
     except OSError, e:
         raise wrap_oserror(space, e)
 
-@unwrap_spec(mode=c_int)
-def access(space, w_path, mode):
+@unwrap_spec(mode=c_int, dir_fd=DirFD)
+def access(space, w_path, mode, dir_fd=DEFAULT_DIR_FD):
     """access(path, mode, *, dir_fd=None, effective_ids=False, follow_symlinks=True)
 
 Use the real uid/gid to test for access to a path.  Returns True if granted,
@@ -463,7 +489,8 @@ def system(space, cmd):
     else:
         return space.wrap(rc)
 
-def unlink(space, w_path):
+@unwrap_spec(dir_fd=DirFD)
+def unlink(space, w_path, dir_fd=DEFAULT_DIR_FD):
     """unlink(path, *, dir_fd=None)
 
 Remove a file (same as remove()).
@@ -477,7 +504,8 @@ dir_fd may not be implemented on your platform.
     except OSError, e:
         raise wrap_oserror2(space, e, w_path)
 
-def remove(space, w_path):
+@unwrap_spec(dir_fd=DirFD)
+def remove(space, w_path, dir_fd=DEFAULT_DIR_FD):
     """remove(path, *, dir_fd=None)
 
 Remove a file (same as unlink()).
@@ -537,8 +565,8 @@ def chdir(space, w_path):
     except OSError, e:
         raise wrap_oserror2(space, e, w_path)
 
-@unwrap_spec(mode=c_int)
-def mkdir(space, w_path, mode=0o777):
+@unwrap_spec(mode=c_int, dir_fd=DirFD)
+def mkdir(space, w_path, mode=0o777, dir_fd=DEFAULT_DIR_FD):
     """mkdir(path, mode=0o777, *, dir_fd=None)
 
 Create a directory.
@@ -554,7 +582,8 @@ The mode argument is ignored on Windows."""
     except OSError, e:
         raise wrap_oserror2(space, e, w_path)
 
-def rmdir(space, w_path):
+@unwrap_spec(dir_fd=DirFD)
+def rmdir(space, w_path, dir_fd=DEFAULT_DIR_FD):
     """rmdir(path, *, dir_fd=None)
 
 Remove a directory.
@@ -598,9 +627,11 @@ class State:
         self.space = space
         self.w_environ = space.newdict()
         self.random_context = rurandom.init_urandom()
+
     def startup(self, space):
         space.call_method(self.w_environ, 'clear')
         _convertenviron(space, self.w_environ)
+
     def _freeze_(self):
         # don't capture the environment in the translated pypy
         self.space.call_method(self.w_environ, 'clear')
@@ -694,8 +725,8 @@ def pipe(space):
         raise wrap_oserror(space, e)
     return space.newtuple([space.wrap(fd1), space.wrap(fd2)])
 
-@unwrap_spec(mode=c_int)
-def chmod(space, w_path, mode):
+@unwrap_spec(mode=c_int, dir_fd=DirFD)
+def chmod(space, w_path, mode, dir_fd=DEFAULT_DIR_FD):
     """chmod(path, mode, *, dir_fd=None, follow_symlinks=True)
 
 Change the access permissions of a file.
@@ -727,7 +758,8 @@ descriptor fd."""
     except OSError, e:
         raise wrap_oserror(space, e)
 
-def rename(space, w_old, w_new):
+@unwrap_spec(src_dir_fd=DirFD, dst_dir_fd=DirFD)
+def rename(space, w_old, w_new, src_dir_fd=DEFAULT_DIR_FD, dst_dir_fd=DEFAULT_DIR_FD):
     """rename(src, dst, *, src_dir_fd=None, dst_dir_fd=None)
 
 Rename a file or directory.
@@ -742,7 +774,8 @@ src_dir_fd and dst_dir_fd, may not be implemented on your platform.
     except OSError, e:
         raise wrap_oserror(space, e)
 
-def replace(space, w_old, w_new):
+@unwrap_spec(src_dir_fd=DirFD, dst_dir_fd=DirFD)
+def replace(space, w_old, w_new, src_dir_fd=DEFAULT_DIR_FD, dst_dir_fd=DEFAULT_DIR_FD):
     """replace(src, dst, *, src_dir_fd=None, dst_dir_fd=None)
 
 Rename a file or directory, overwriting the destination.
@@ -757,8 +790,8 @@ src_dir_fd and dst_dir_fd, may not be implemented on your platform.
     except OSError, e:
         raise wrap_oserror(space, e)
 
-@unwrap_spec(mode=c_int)
-def mkfifo(space, w_filename, mode=0666):
+@unwrap_spec(mode=c_int, dir_fd=DirFD)
+def mkfifo(space, w_filename, mode=0666, dir_fd=DEFAULT_DIR_FD):
     """mkfifo(path, mode=0o666, *, dir_fd=None)
 
 Create a FIFO (a POSIX named pipe).
@@ -772,8 +805,8 @@ dir_fd may not be implemented on your platform.
     except OSError, e:
         raise wrap_oserror2(space, e, w_filename)
 
-@unwrap_spec(mode=c_int, device=c_int)
-def mknod(space, w_filename, mode=0600, device=0):
+@unwrap_spec(mode=c_int, device=c_int, dir_fd=DirFD)
+def mknod(space, w_filename, mode=0600, device=0, dir_fd=DEFAULT_DIR_FD):
     """mknod(filename, mode=0o600, device=0, *, dir_fd=None)
 
 Create a filesystem node (file, device special file or named pipe)
@@ -828,8 +861,10 @@ in the hardest way possible on the hosting operating system."""
     import signal
     rposix.kill(os.getpid(), signal.SIGABRT)
 
-@unwrap_spec(src='fsencode', dst='fsencode')
-def link(space, src, dst):
+@unwrap_spec(
+    src='fsencode', dst='fsencode',
+    src_dir_fd=DirFD, dst_dir_fd=DirFD)
+def link(space, src, dst, src_dir_fd=DEFAULT_DIR_FD, dst_dir_fd=DEFAULT_DIR_FD):
     """link(src, dst, *, src_dir_fd=None, dst_dir_fd=None, follow_symlinks=True)
 
 Create a hard link to a file.
@@ -848,7 +883,9 @@ src_dir_fd, dst_dir_fd, and follow_symlinks may not be implemented on your
     except OSError, e:
         raise wrap_oserror(space, e)
 
-def symlink(space, w_src, w_dst, w_target_is_directory=None):
+
+@unwrap_spec(dir_fd=DirFD)
+def symlink(space, w_src, w_dst, w_target_is_directory=None, dir_fd=DEFAULT_DIR_FD):
     """symlink(src, dst, target_is_directory=False, *, dir_fd=None)
 
 Create a symbolic link pointing to src named dst.
@@ -867,7 +904,9 @@ dir_fd may not be implemented on your platform.
     except OSError, e:
         raise wrap_oserror(space, e)
 
-def readlink(space, w_path):
+
+@unwrap_spec(dir_fd=DirFD)
+def readlink(space, w_path, dir_fd=DEFAULT_DIR_FD):
     """readlink(path, *, dir_fd=None) -> path
 
 Return a string representing the path to which the symbolic link points.
@@ -1043,7 +1082,8 @@ def spawnve(space, mode, path, w_args, w_env):
         raise wrap_oserror(space, e)
     return space.wrap(ret)
 
-def utime(space, w_path, w_tuple):
+@unwrap_spec(dir_fd=DirFD)
+def utime(space, w_path, w_tuple, dir_fd=DEFAULT_DIR_FD):
     """utime(path, times=None, *, ns=None, dir_fd=None, follow_symlinks=True)
 
 Set the access and modified time of path.
@@ -1481,8 +1521,8 @@ def confstr(space, w_name):
         raise wrap_oserror(space, e)
     return space.wrap(res)
 
-@unwrap_spec(path='fsencode', uid=c_uid_t, gid=c_gid_t)
-def chown(space, path, uid, gid):
+@unwrap_spec(path='fsencode', uid=c_uid_t, gid=c_gid_t, dir_fd=DirFD)
+def chown(space, path, uid, gid, dir_fd=DEFAULT_DIR_FD):
     """chown(path, uid, gid, *, dir_fd=None, follow_symlinks=True)
 
 Change the owner and group id of path to the numeric uid and gid.
