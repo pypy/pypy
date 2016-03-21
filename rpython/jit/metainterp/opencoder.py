@@ -91,7 +91,7 @@ class TraceIterator(BaseTrace):
         self.start_index = start
         self.end = end
 
-    def get_dead_ranges(self):
+    def get_dead_ranges(self, metainterp_sd=None):
         return self.trace.get_dead_ranges(self.metainterp_sd)
 
     def kill_cache_at(self, pos):
@@ -414,7 +414,7 @@ class Trace(BaseTrace):
             index = t.next_element_update_live_range(index, liveranges)
         return liveranges
 
-    def get_dead_ranges(self, metainterp_sd):
+    def get_dead_ranges(self, metainterp_sd=None):
         """ Same as get_live_ranges, but returns a list of "dying" indexes,
         such as for each index x, the number found there is for sure dead
         before x
