@@ -66,6 +66,13 @@ class Unwrapper(object):
         """NOT_RPYTHON"""
         raise NotImplementedError
 
+def kwonly(arg_unwrapper):
+    """Mark argument as keyword-only.
+
+    XXX: has no actual effect for now.
+    """
+    return arg_unwrapper
+
 
 class UnwrapSpecRecipe(object):
     "NOT_RPYTHON"

@@ -7,9 +7,10 @@ from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import r_longlong, intmask
 from rpython.rlib.unroll import unrolling_iterable
 
-from pypy.interpreter.gateway import unwrap_spec, WrappedDefault, Unwrapper
-from pypy.interpreter.error import (OperationError, wrap_oserror, oefmt,
-                                    wrap_oserror2, strerror as _strerror)
+from pypy.interpreter.gateway import (
+    unwrap_spec, WrappedDefault, Unwrapper, kwonly)
+from pypy.interpreter.error import (
+    OperationError, wrap_oserror, oefmt, wrap_oserror2, strerror as _strerror)
 from pypy.interpreter.executioncontext import ExecutionContext
 
 
@@ -327,8 +328,8 @@ file descriptor."""
     else:
         return build_stat_result(space, st)
 
-@unwrap_spec(dir_fd=DirFD)
-def stat(space, w_path, dir_fd=DEFAULT_DIR_FD):
+@unwrap_spec(dir_fd=DirFD, follow_symlinks=kwonly(bool))
+def stat(space, w_path, dir_fd=DEFAULT_DIR_FD, follow_symlinks=True):
     """stat(path, *, dir_fd=None, follow_symlinks=True) -> stat result
 
 Perform a stat system call on the given path.
@@ -431,9 +432,12 @@ def dup2(space, old_fd, new_fd):
     except OSError, e:
         raise wrap_oserror(space, e)
 
-@unwrap_spec(mode=c_int, dir_fd=DirFD)
-def access(space, w_path, mode, dir_fd=DEFAULT_DIR_FD):
-    """access(path, mode, *, dir_fd=None, effective_ids=False, follow_symlinks=True)
+@unwrap_spec(mode=c_int,
+    dir_fd=DirFD, effective_ids=kwonly(bool), follow_symlinks=kwonly(bool))
+def access(space, w_path, mode,
+        dir_fd=DEFAULT_DIR_FD, effective_ids=True, follow_symlinks=True):
+    """\
+access(path, mode, *, dir_fd=None, effective_ids=False, follow_symlinks=True)
 
 Use the real uid/gid to test for access to a path.  Returns True if granted,
 False otherwise.
@@ -725,8 +729,8 @@ def pipe(space):
         raise wrap_oserror(space, e)
     return space.newtuple([space.wrap(fd1), space.wrap(fd2)])
 
-@unwrap_spec(mode=c_int, dir_fd=DirFD)
-def chmod(space, w_path, mode, dir_fd=DEFAULT_DIR_FD):
+@unwrap_spec(mode=c_int, dir_fd=DirFD, follow_symlinks=kwonly(bool))
+def chmod(space, w_path, mode, dir_fd=DEFAULT_DIR_FD, follow_symlinks=True):
     """chmod(path, mode, *, dir_fd=None, follow_symlinks=True)
 
 Change the access permissions of a file.
@@ -759,7 +763,8 @@ descriptor fd."""
         raise wrap_oserror(space, e)
 
 @unwrap_spec(src_dir_fd=DirFD, dst_dir_fd=DirFD)
-def rename(space, w_old, w_new, src_dir_fd=DEFAULT_DIR_FD, dst_dir_fd=DEFAULT_DIR_FD):
+def rename(space, w_old, w_new,
+        src_dir_fd=DEFAULT_DIR_FD, dst_dir_fd=DEFAULT_DIR_FD):
     """rename(src, dst, *, src_dir_fd=None, dst_dir_fd=None)
 
 Rename a file or directory.
@@ -775,7 +780,8 @@ src_dir_fd and dst_dir_fd, may not be implemented on your platform.
         raise wrap_oserror(space, e)
 
 @unwrap_spec(src_dir_fd=DirFD, dst_dir_fd=DirFD)
-def replace(space, w_old, w_new, src_dir_fd=DEFAULT_DIR_FD, dst_dir_fd=DEFAULT_DIR_FD):
+def replace(space, w_old, w_new,
+        src_dir_fd=DEFAULT_DIR_FD, dst_dir_fd=DEFAULT_DIR_FD):
     """replace(src, dst, *, src_dir_fd=None, dst_dir_fd=None)
 
 Rename a file or directory, overwriting the destination.
@@ -863,9 +869,13 @@ in the hardest way possible on the hosting operating system."""
 
 @unwrap_spec(
     src='fsencode', dst='fsencode',
-    src_dir_fd=DirFD, dst_dir_fd=DirFD)
-def link(space, src, dst, src_dir_fd=DEFAULT_DIR_FD, dst_dir_fd=DEFAULT_DIR_FD):
-    """link(src, dst, *, src_dir_fd=None, dst_dir_fd=None, follow_symlinks=True)
+    src_dir_fd=DirFD, dst_dir_fd=DirFD, follow_symlinks=kwonly(bool))
+def link(
+        space, src, dst,
+        src_dir_fd=DEFAULT_DIR_FD, dst_dir_fd=DEFAULT_DIR_FD,
+        follow_symlinks=True):
+    """\
+link(src, dst, *, src_dir_fd=None, dst_dir_fd=None, follow_symlinks=True)
 
 Create a hard link to a file.
 
@@ -885,7 +895,8 @@ src_dir_fd, dst_dir_fd, and follow_symlinks may not be implemented on your
 
 
 @unwrap_spec(dir_fd=DirFD)
-def symlink(space, w_src, w_dst, w_target_is_directory=None, dir_fd=DEFAULT_DIR_FD):
+def symlink(space, w_src, w_dst, w_target_is_directory=None,
+        dir_fd=DEFAULT_DIR_FD):
     """symlink(src, dst, target_is_directory=False, *, dir_fd=None)
 
 Create a symbolic link pointing to src named dst.
@@ -1082,8 +1093,8 @@ def spawnve(space, mode, path, w_args, w_env):
         raise wrap_oserror(space, e)
     return space.wrap(ret)
 
-@unwrap_spec(dir_fd=DirFD)
-def utime(space, w_path, w_tuple, dir_fd=DEFAULT_DIR_FD):
+@unwrap_spec(dir_fd=DirFD, follow_symlinks=kwonly(bool))
+def utime(space, w_path, w_tuple, dir_fd=DEFAULT_DIR_FD, follow_symlinks=True):
     """utime(path, times=None, *, ns=None, dir_fd=None, follow_symlinks=True)
 
 Set the access and modified time of path.
@@ -1521,8 +1532,10 @@ def confstr(space, w_name):
         raise wrap_oserror(space, e)
     return space.wrap(res)
 
-@unwrap_spec(path='fsencode', uid=c_uid_t, gid=c_gid_t, dir_fd=DirFD)
-def chown(space, path, uid, gid, dir_fd=DEFAULT_DIR_FD):
+@unwrap_spec(
+    path='fsencode', uid=c_uid_t, gid=c_gid_t,
+    dir_fd=DirFD, follow_symlinks=kwonly(bool))
+def chown(space, path, uid, gid, dir_fd=DEFAULT_DIR_FD, follow_symlinks=True):
     """chown(path, uid, gid, *, dir_fd=None, follow_symlinks=True)
 
 Change the owner and group id of path to the numeric uid and gid.
