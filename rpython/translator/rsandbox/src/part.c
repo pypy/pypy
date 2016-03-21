@@ -1,4 +1,8 @@
-/*** translator/rsandbox/default.h ***/
+/*** rpython/translator/rsandbox/src/part.c ***/
+
+#include "common_header.h"
+#include "rsandbox.h"
+#include <stdlib.h>
 
 
 /* This is called by most default implementations of 'rsandbox_*' */

@@ -24,50 +24,21 @@ def register_rsandbox_func(database, ll_func, fnname):
         assert lltype.typeOf(ll_func) == FUNC, (
             "seen two sandboxed functions called %r with different "
             "signatures:\n  %r\n  %r" % (fnname, FUNC, lltype.typeOf(ll_func)))
-    return 'rsandbox_' + fnname
+    return 'rsandbox_fnptr_' + fnname
 
 
 def add_sandbox_files(database, eci, targetdir):
-    c_header = ['''
-#ifndef _RSANDBOX_H_
-#define _RSANDBOX_H_
+    c_part_header = py.path.local(__file__).join('..', 'src', 'part.h').read()
+    c_part_source = py.path.local(__file__).join('..', 'src', 'part.c').read()
+    c_header = [c_part_header]
+    c_source = [c_part_source]
 
-#ifndef RPY_SANDBOX_EXPORTED
-/* Common definitions when including this file from an external C project */
-
-#include <stdlib.h>
-#include <sys/utsname.h>
-
-#define RPY_SANDBOX_EXPORTED  extern
-
-typedef long Signed;
-typedef unsigned long Unsigned;
-
-#endif
-
-/* The list of 'rsandbox_*' function pointers is automatically
-   generated.  Most of these function pointers are initialized to
-   point to a function that aborts the sandboxed execution.  The
-   sandboxed program cannot, by default, use any of them.  A few
-   exceptions are provided, where the default implementation returns a
-   safe default; for example rsandbox_getenv().
-*/
-''']
-    c_source = ['''
-#include "common_header.h"
-#include "rsandbox.h"
-#include <stdlib.h>
-
-''']
-
-    default_h = py.path.local(__file__).join('..', 'default.h').read()
-    c_source.append(default_h)
-    present = set(re.findall(r'\brsand_def_([a-zA-Z0-9_]+)[(]', default_h))
+    present = set(re.findall(r'\brsand_def_([a-zA-Z0-9_]+)[(]', c_part_source))
 
     fnnames = database._sandboxlib_fnnames
     for fnname in sorted(fnnames):
         FUNC = fnnames[fnname]
-        rsandboxname = 'rsandbox_' + fnname
+        rsandboxname = 'rsandbox_fnptr_' + fnname
 
         vardecl = cdecl(database.gettype(lltype.Ptr(FUNC)), rsandboxname)
         c_header.append('RPY_SANDBOX_EXPORTED %s;\n' % (vardecl,))
