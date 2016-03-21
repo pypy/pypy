@@ -54,6 +54,15 @@ def PyEval_ThreadsInitialized(space):
         return 0
     return 1
 
+thread_func = lltype.Ptr(lltype.FuncType([rffi.VOIDP], lltype.Void))
+@cpython_api([thread_func, rffi.VOIDP], rffi.INT_real, error=-1)
+def PyThread_start_new_thread(space, func, arg):
+    from pypy.module.thread import os_thread
+    w_args = space.newtuple([arg])
+    XXX # How to wrap func as a space.callable ?
+    os_thread.start_new_thread(space, func, w_args)
+    return 0
+
 # XXX: might be generally useful
 def encapsulator(T, flavor='raw', dealloc=None):
     class MemoryCapsule(object):

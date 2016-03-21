@@ -429,7 +429,7 @@ SYMBOLS_C = [
     'PyThread_acquire_lock', 'PyThread_release_lock',
     'PyThread_create_key', 'PyThread_delete_key', 'PyThread_set_key_value',
     'PyThread_get_key_value', 'PyThread_delete_key_value',
-    'PyThread_ReInitTLS',
+    'PyThread_ReInitTLS', 'PyThread_init_thread',
 
     'PyStructSequence_InitType', 'PyStructSequence_New',
     'PyStructSequence_UnnamedField',
