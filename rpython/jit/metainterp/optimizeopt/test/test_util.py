@@ -557,9 +557,21 @@ class BaseTest(object):
             call_pure_results[list(k)] = v
         return call_pure_results
 
+    def pick_cls(self, inp):
+        if inp.type == 'i':
+            return history.IntFrontendOp
+        elif inp.type == 'r':
+            xxx
+        else:
+            assert inp.type == 'f'
+            xxx
+
     def convert_loop_to_packed(self, loop, skip_last=False):
+        XXX # rewrite
         from rpython.jit.metainterp.opencoder import Trace
-        trace = Trace(loop.inputargs)
+        inputargs = [self.pick_cls(inparg)(i) for i, inparg in
+                     enumerate(loop.inputargs)]
+        trace = Trace(inputargs)
         ops = loop.operations
         if skip_last:
             ops = ops[:-1]
@@ -635,7 +647,7 @@ class FakeDescr(compile.ResumeGuardDescr):
 def convert_old_style_to_targets(loop, jump):
     newloop = TreeLoop(loop.name)
     newloop.inputargs = loop.inputargs
-    newloop.operations = [ResOperation(rop.LABEL, loop.inputargs, -1, descr=FakeDescr())] + \
+    newloop.operations = [ResOperation(rop.LABEL, loop.inputargs, descr=FakeDescr())] + \
                       loop.operations
     if not jump:
         assert newloop.operations[-1].getopnum() == rop.JUMP

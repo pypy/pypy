@@ -88,7 +88,15 @@ class TraceIterator(BaseTrace):
         self.start = start
         self.pos = start
         self._count = start
+        self.start_index = start
         self.end = end
+
+    def get_dead_ranges(self):
+        return self.trace.get_dead_ranges(self.metainterp_sd)
+
+    def kill_cache_at(self, pos):
+        if pos:
+            self._cache[pos] = None
 
     def _get(self, i):
         res = self._cache[i]
@@ -183,6 +191,7 @@ class CutTrace(BaseTrace):
         iter = TraceIterator(self.trace, self.start, self.trace._pos,
                              self.inputargs, metainterp_sd=metainterp_sd)
         iter._count = self.count
+        iter.start_index = self.count
         return iter
 
 def combine_uint(index1, index2):
@@ -210,6 +219,8 @@ class TopSnapshot(Snapshot):
         self.vref_array = vref_array
 
 class Trace(BaseTrace):
+    _deadranges = (-1, -1)
+
     def __init__(self, inputargs):
         self._ops = [rffi.cast(rffi.SHORT, -15)] * 30000
         self._pos = 0
@@ -403,12 +414,37 @@ class Trace(BaseTrace):
             index = t.next_element_update_live_range(index, liveranges)
         return liveranges
 
-    def unpack(self):
-        iter = self.get_iter()
+    def get_dead_ranges(self, metainterp_sd):
+        """ Same as get_live_ranges, but returns a list of "dying" indexes,
+        such as for each index x, the number found there is for sure dead
+        before x
+        """
+        def insert(ranges, pos, v):
+            # XXX skiplist
+            while ranges[pos]:
+                pos += 1
+                if pos == len(ranges):
+                    return
+            ranges[pos] = v
+
+        if self._deadranges != (-1, -1):
+            if self._deadranges[0] == self._count:
+                return self._deadranges[1]
+        liveranges = self.get_live_ranges(metainterp_sd)
+        deadranges = [0] * (self._count + 1)
+        for i in range(self._start, len(liveranges)):
+            elem = liveranges[i]
+            if elem:
+                insert(deadranges, elem + 1, i)
+        self._deadranges = (self._count, deadranges)
+        return deadranges
+
+    def unpack(self, metainterp_sd):
+        iter = self.get_iter(metainterp_sd)
         ops = []
         while not iter.done():
             ops.append(iter.next())
-        return ops
+        return iter.inputargs, ops
 
 def tag(kind, pos):
     #if not SMALL_INT_START <= pos < SMALL_INT_STOP:

@@ -507,6 +507,7 @@ class Optimizer(Optimization):
 
     def propagate_all_forward(self, trace, call_pure_results=None, flush=True):
         self.trace = trace
+        deadranges = trace.get_dead_ranges()
         self.call_pure_results = call_pure_results
         last_op = None
         i = 0
@@ -517,6 +518,7 @@ class Optimizer(Optimization):
                 last_op = op
                 break
             self.first_optimization.propagate_forward(op)
+            trace.kill_cache_at(deadranges[i + trace.start_index])
             i += 1
         # accumulate counters
         if flush:
