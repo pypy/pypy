@@ -145,9 +145,9 @@ class TraceIterator(BaseTrace):
             liveranges[index] = index
         if opwithdescr[opnum]:
             descr_index = self._next()
-        if rop.is_guard(opnum):
-            self.get_snapshot_iter(descr_index).update_liveranges(
-                index, liveranges)
+            if rop.is_guard(opnum):
+                self.get_snapshot_iter(descr_index).update_liveranges(
+                    index, liveranges)
         return index + 1
 
     def next(self):
