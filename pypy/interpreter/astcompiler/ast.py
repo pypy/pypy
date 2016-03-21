@@ -3046,6 +3046,7 @@ BitOr = 9
 BitXor = 10
 BitAnd = 11
 FloorDiv = 12
+MatMult = 13
 
 operator_to_class = [
     _Add,
