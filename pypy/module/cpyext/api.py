@@ -841,7 +841,7 @@ def build_bridge(space):
             ob = rawrefcount.next_dead(PyObject)
             if not ob:
                 break
-            print ob
+            print 'deallocating PyObject', ob
             _Py_Dealloc(space, ob)
         print 'dealloc_trigger DONE'
         return "RETRY"
