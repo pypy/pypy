@@ -17,6 +17,7 @@ from rpython.jit.metainterp import history, jitexc
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.resume import (PENDINGFIELDSP,
         ResumeDataDirectReader, AccumInfo)
+from rpython.jit.metainterp.jitlog import MARK_TRACE_OPT
 from rpython.jit.metainterp.resumecode import NUMBERING
 from rpython.jit.codewriter import heaptracker, longlong
 
@@ -480,8 +481,7 @@ def propagate_original_jitcell_token(trace):
 
 def do_compile_loop(jd_id, unique_id, metainterp_sd, inputargs, operations,
                     looptoken, log=True, name='', memo=None):
-    mark = VMProfJitLogger.MARK_TRACE_OPT
-    metainterp_sd.jitlog.log_trace(mark, inputargs, operations)
+    metainterp_sd.jitlog.log_trace(MARK_TRACE_OPT, inputargs, operations)
     # TODO remove old
     metainterp_sd.logger_ops.log_loop(inputargs, operations, -2,
                                       'compiling', None, name, memo)
@@ -493,8 +493,8 @@ def do_compile_loop(jd_id, unique_id, metainterp_sd, inputargs, operations,
 
 def do_compile_bridge(metainterp_sd, faildescr, inputargs, operations,
                       original_loop_token, log=True, memo=None):
-    mark = VMProfJitLogger.MARK_TRACE_OPT
-    metainterp_sd.jitlog.log_trace(mark, inputargs, operations, faildescr=faildescr)
+    metainterp_sd.jitlog.log_trace(MARK_TRACE_OPT, inputargs, operations,
+                                   faildescr=faildescr)
     # TODO remove old
     metainterp_sd.logger_ops.log_bridge(inputargs, operations, "compiling",
                                         memo=memo)
