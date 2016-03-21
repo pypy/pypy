@@ -1,4 +1,4 @@
-import py
+import py, pytest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from rpython.rtyper.lltypesystem.lltype import nullptr
@@ -26,6 +26,29 @@ class AppTestThreads(AppTestCpythonExtensionBase):
         # Should compile at least
         module.test()
 
+    @pytest.mark.xfail(reason='hangs at rgil.acquire', run=False)
+    def test_gilstate(self):
+        module = self.import_extension('foo', [
+            ("double_ensure", "METH_O",
+             '''
+                PyGILState_STATE state0, state1;
+                int val = PyLong_AsLong(args);
+                PyEval_InitThreads();
+                state0 = PyGILState_Ensure(); /* hangs here */
+                if (val != 0)
+                { 
+                    state1 = PyGILState_Ensure();
+                    PyGILState_Release(state1);
+                }
+                PyGILState_Release(state0);
+                Py_RETURN_NONE;
+             '''),
+            ])
+        module.double_ensure(0)
+        print '0 ok'
+        module.double_ensure(1)
+        print '1 ok'
+
 
     def test_thread_state_get(self):
         module = self.import_extension('foo', [
@@ -48,18 +71,20 @@ class AppTestThreads(AppTestCpythonExtensionBase):
 
     def test_basic_threadstate_dance(self):
         if self.runappdirect:
-            py.test.xfail('segfault: PyThreadState_Get: no current thread')
+            py.test.xfail('segfault: on cpython cannot Get() a NULL tstate')
         module = self.import_extension('foo', [
                 ("dance", "METH_NOARGS",
                  """
                      PyThreadState *old_tstate, *new_tstate;
+
+                     PyEval_InitThreads();
 
                      old_tstate = PyThreadState_Swap(NULL);
                      if (old_tstate == NULL) {
                          return PyLong_FromLong(0);
                      }
 
-                     new_tstate = PyThreadState_Get();
+                     new_tstate = PyThreadState_Get(); /* fails on cpython */
                      if (new_tstate != NULL) {
                          return PyLong_FromLong(1);
                      }
