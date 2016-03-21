@@ -1,6 +1,8 @@
 from rpython.rlib.rvmprof.rvmprof import cintf
 from rpython.jit.metainterp import resoperation as resoperations
-from struct import pack
+from rpython.jit.metainterp.history import ConstInt, ConstFloat
+import sys
+import weakref
 
 MARK_INPUT_ARGS = 0x10
 MARK_RESOP_META = 0x11
@@ -20,10 +22,34 @@ MARK_TRACE_ASM = 0x18
 # the machine code was patched (e.g. guard)
 MARK_ASM_PATCH = 0x19
 
+IS_32_BIT = sys.maxint == 2**31-1
+
+# why is there no rlib/rstruct/pack.py?
+def encode_le_16bit(val):
+    return chr((val >> 0) & 0xff) + chr((val >> 8) & 0xff)
+def encode_le_32bit(val):
+    return ''.join([chr((val >> 0) & 0xff),
+           chr((val >> 8) & 0xff),
+           chr((val >> 16) & 0xff),
+           chr((val >> 24) & 0xff)])
+def encode_le_addr(val):
+    if IS_32_BIT:
+        return encode_be_32bit(val)
+    else:
+        return ''.join([chr((val >> 0) & 0xff),
+                chr((val >> 8) & 0xff),
+                chr((val >> 16) & 0xff),
+                chr((val >> 24) & 0xff),
+                chr((val >> 32) & 0xff),
+                chr((val >> 40) & 0xff),
+                chr((val >> 48) & 0xff),
+                chr((val >> 56)& 0xff)])
+
 class VMProfJitLogger(object):
 
     def __init__(self):
         self.cintf = cintf.setup()
+        self.memo = {}
 
     def setup_once(self):
         self.cintf.jitlog_try_init_using_env()
@@ -32,7 +58,7 @@ class VMProfJitLogger(object):
         count = len(resoperations.opname)
         mark = MARK_RESOP_META
         for opnum, opname in resoperations.opname.items():
-            line = pack("<h", opnum) + opname.lower()
+            line = encode_le_16bit(opnum) + opname.lower()
             self.write_marked(mark, line)
 
     def teardown(self):
@@ -42,9 +68,10 @@ class VMProfJitLogger(object):
         self.cintf.jitlog_write_marked(mark, line, len(line))
 
     def encode(self, op):
-        str_args = [arg.repr_short(arg._repr_memo) for arg in op.getarglist()]
+        str_args = [self.var_to_str(arg) for arg in op.getarglist()]
         descr = op.getdescr()
-        line = pack('<i', op.getopnum()) + ','.join(str_args)
+        le_len = encode_le_32bit(op.getopnum())
+        line = le_len + ','.join(str_args)
         if descr:
             line += "|" + str(descr)
             return MARK_RESOP_DESCR, line
@@ -65,7 +92,7 @@ class VMProfJitLogger(object):
             self.write_marked(tag, 'bridge')
 
         # input args
-        str_args = [arg.repr_short(arg._repr_memo) for arg in args]
+        str_args = [self.var_to_str(arg) for arg in args]
         self.write_marked(MARK_INPUT_ARGS, ','.join(str_args))
 
         # assembler address (to not duplicate it in write_code_dump)
@@ -73,15 +100,18 @@ class VMProfJitLogger(object):
             absaddr = mc.absolute_addr()
             rel = mc.get_relative_pos()
             # packs <start addr> <end addr> as two unsigend longs
-            lendian_addrs = pack('<LL', absaddr, absaddr + rel)
-            self.write_marked(MARK_ASM_ADDR, lendian_addrs)
-
+            le_addr1 = encode_le_addr(absaddr)
+            le_addr2 = encode_le_addr(absaddr + rel)
+            self.write_marked(MARK_ASM_ADDR, le_addr1 + le_addr2)
         for i,op in enumerate(ops):
             mark, line = self.encode(op)
             self.write_marked(mark, line)
             self.write_core_dump(ops, i, op, ops_offset, mc)
 
+        self.memo = {}
+
     def write_core_dump(self, operations, i, op, ops_offset, mc):
+        return
         if mc is None:
             return
 
@@ -115,4 +145,36 @@ class VMProfJitLogger(object):
         dump = mc.copy_core_dump(mc.absolute_addr(), start_offset)
         self.write_marked(MARK_ASM, dump)
 
+    def var_to_str(self, arg):
+        try:
+            mv = self.memo[arg]
+        except KeyError:
+            mv = len(self.memo)
+            self.memo[arg] = mv
+        # TODO
+        #if isinstance(arg, ConstInt):
+        #    if int_could_be_an_address(arg.value):
+        #        addr = arg.getaddr()
+        #        name = self.metainterp_sd.get_name_from_address(addr)
+        #        if name:
+        #            return 'ConstClass(' + name + ')'
+        #    return str(arg.value)
+        #elif isinstance(arg, self.ts.ConstRef):
+        #    if arg.value:
+        #        return 'ConstPtr(ptr' + str(mv) + ')'
+        #    return 'ConstPtr(null)'
+        if isinstance(arg, ConstFloat):
+            return str(arg.getfloat())
+        elif arg is None:
+            return 'None'
+        elif arg.is_vector():
+            return 'v' + str(mv)
+        elif arg.type == 'i':
+            return 'i' + str(mv)
+        elif arg.type == 'r':
+            return 'p' + str(mv)
+        elif arg.type == 'f':
+            return 'f' + str(mv)
+        else:
+            return '?'
 
