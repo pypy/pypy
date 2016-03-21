@@ -20,17 +20,6 @@ from pypy.module.sys.version import PYPY_VERSION
 
 _WIN32 = sys.platform == 'win32'
 
-SEARCH_ERROR = 0
-PY_SOURCE = 1
-PY_COMPILED = 2
-C_EXTENSION = 3
-# PY_RESOURCE = 4
-PKG_DIRECTORY = 5
-C_BUILTIN = 6
-PY_FROZEN = 7
-# PY_CODERESOURCE = 8
-IMP_HOOK = 9
-
 SO = '.pyd' if _WIN32 else '.so'
 PREFIX = 'pypy3-'
 DEFAULT_SOABI = '%s%d%d' % ((PREFIX,) + PYPY_VERSION[:2])
@@ -103,40 +92,6 @@ class _WIN32Path(object):
 
     def as_unicode(self):
         return self.path
-
-class W_NullImporter(W_Root):
-    def __init__(self, space):
-        pass
-
-    def descr_init(self, space, w_path):
-        self._descr_init(space, w_path, _WIN32)
-
-    @specialize.arg(3)
-    def _descr_init(self, space, w_path, win32):
-        path = space.unicode0_w(w_path) if win32 else space.fsencode_w(w_path)
-        if not path:
-            raise OperationError(space.w_ImportError, space.wrap(
-                "empty pathname"))
-
-        # Directory should not exist
-        try:
-            st = rposix_stat.stat(_WIN32Path(path) if win32 else path)
-        except OSError:
-            pass
-        else:
-            if stat.S_ISDIR(st.st_mode):
-                raise OperationError(space.w_ImportError, space.wrap(
-                    "existing directory"))
-
-    def find_module_w(self, space, __args__):
-        return space.wrap(None)
-
-W_NullImporter.typedef = TypeDef(
-    'imp.NullImporter',
-    __new__=generic_new_descr(W_NullImporter),
-    __init__=interp2app(W_NullImporter.descr_init),
-    find_module=interp2app(W_NullImporter.find_module_w),
-    )
 
 def _prepare_module(space, w_mod, filename, pkgdir):
     w = space.wrap
