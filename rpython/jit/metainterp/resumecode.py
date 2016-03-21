@@ -67,6 +67,7 @@ def numb_next_item(numb, index):
         value = -1 - value
     value >>= 1
     return value, index
+numb_next_item._always_inline_ = True
 
 def numb_next_n_items(numb, size, index):
     for i in range(size):

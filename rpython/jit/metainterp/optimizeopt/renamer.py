@@ -1,5 +1,4 @@
 from rpython.jit.metainterp import resoperation
-from rpython.jit.metainterp.resume import Snapshot
 
 class Renamer(object):
     def __init__(self):

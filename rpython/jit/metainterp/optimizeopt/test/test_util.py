@@ -497,18 +497,6 @@ def _sortboxes(boxes):
 
 final_descr = history.BasicFinalDescr()
 
-class FakeFrame(object):
-    pc = 100
-
-    class jitcode:
-        index = 200
-
-    def __init__(self, boxes):
-        self.boxes = boxes
-
-    def get_list_of_active_boxes(self, flag):
-        return self.boxes
-
 class BaseTest(object):
 
     def parse(self, s, boxkinds=None, want_fail_descr=True, postprocess=None):
@@ -561,29 +549,44 @@ class BaseTest(object):
         if inp.type == 'i':
             return history.IntFrontendOp
         elif inp.type == 'r':
-            xxx
+            return history.RefFrontendOp
         else:
             assert inp.type == 'f'
-            xxx
+            return history.FloatFrontendOp
 
     def convert_loop_to_packed(self, loop, skip_last=False):
-        XXX # rewrite
         from rpython.jit.metainterp.opencoder import Trace
+        from rpython.jit.metainterp.test.test_opencoder import FakeFrame
+
+        def get(a):
+            if isinstance(a, history.Const):
+                return a
+            return mapping[a]
+
+        class jitcode:
+            index = 200
+
         inputargs = [self.pick_cls(inparg)(i) for i, inparg in
                      enumerate(loop.inputargs)]
+        mapping = {}
+        for one, two in zip(loop.inputargs, inputargs):
+            mapping[one] = two
         trace = Trace(inputargs)
         ops = loop.operations
         if skip_last:
             ops = ops[:-1]
         for op in ops:
-            newop = trace.record_op(op.getopnum(), op.getarglist(), op.getdescr())
+            newpos = trace.record_op(op.getopnum(), [get(arg) for arg in 
+                op.getarglist()], op.getdescr())
             if rop.is_guard(op.getopnum()):
                 failargs = []
                 if op.getfailargs():
-                    failargs = op.getfailargs()
-                frame = FakeFrame(failargs)
+                    failargs = [get(arg) for arg in op.getfailargs()]
+                frame = FakeFrame(100, jitcode, failargs)
                 resume.capture_resumedata([frame], None, [], trace)
-            op.position = newop.position
+            if op.type != 'v':
+                newop = self.pick_cls(op)(newpos)
+                mapping[op] = newop
         return trace
 
     def unroll_and_optimize(self, loop, call_pure_results=None,

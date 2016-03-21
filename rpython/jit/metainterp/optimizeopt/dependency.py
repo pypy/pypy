@@ -3,7 +3,6 @@ import py
 from rpython.jit.metainterp import compile
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.resoperation import (rop, GuardResOp, ResOperation)
-from rpython.jit.metainterp.resume import Snapshot
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.history import (ConstPtr, ConstInt,Const,
         AbstractValue, AbstractFailDescr)
