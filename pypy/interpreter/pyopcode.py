@@ -228,8 +228,8 @@ class __extend__(pyframe.PyFrame):
                 self.BINARY_AND(oparg, next_instr)
             elif opcode == opcodedesc.BINARY_FLOOR_DIVIDE.index:
                 self.BINARY_FLOOR_DIVIDE(oparg, next_instr)
-            elif opcode == opcodedesc.BINARY_MAT_MUL.index:
-                self.BINARY_MAT_MUL(oparg, next_instr)
+            elif opcode == opcodedesc.BINARY_MATRIX_MULTIPLY.index:
+                self.BINARY_MATRIX_MULTIPLY(oparg, next_instr)
             elif opcode == opcodedesc.BINARY_LSHIFT.index:
                 self.BINARY_LSHIFT(oparg, next_instr)
             elif opcode == opcodedesc.BINARY_MODULO.index:
@@ -572,7 +572,7 @@ class __extend__(pyframe.PyFrame):
     BINARY_MULTIPLY = binaryoperation("mul")
     BINARY_TRUE_DIVIDE  = binaryoperation("truediv")
     BINARY_FLOOR_DIVIDE = binaryoperation("floordiv")
-    BINARY_MAT_MUL = binaryoperation("matmul")
+    BINARY_MATRIX_MULTIPLY = binaryoperation("matmul")
     BINARY_DIVIDE       = binaryoperation("div")
     # XXX BINARY_DIVIDE must fall back to BINARY_TRUE_DIVIDE with -Qnew
     BINARY_MODULO       = binaryoperation("mod")
