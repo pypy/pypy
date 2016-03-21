@@ -55,12 +55,12 @@ def PyEval_ThreadsInitialized(space):
     return 1
 
 thread_func = lltype.Ptr(lltype.FuncType([rffi.VOIDP], lltype.Void))
-@cpython_api([thread_func, rffi.VOIDP], rffi.INT_real, error=-1)
+@cpython_api([thread_func, rffi.VOIDP], rffi.INT_real, error=-1, gil='release')
 def PyThread_start_new_thread(space, func, arg):
     from pypy.module.thread import os_thread
-    w_args = space.newtuple([arg])
-    XXX # How to wrap func as a space.callable ?
-    os_thread.start_new_thread(space, func, w_args)
+    w_args = space.newtuple([space.wrap(rffi.cast(lltype.Signed, arg)),])
+    w_func = os_thread.W_WrapThreadFunc(func)
+    os_thread.start_new_thread(space, w_func, w_args)
     return 0
 
 # XXX: might be generally useful

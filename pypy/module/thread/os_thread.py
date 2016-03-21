@@ -6,7 +6,9 @@ import os
 from rpython.rlib import rthread
 from pypy.module.thread.error import wrap_thread_error
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.interpreter.gateway import unwrap_spec, Arguments
+from pypy.interpreter.gateway import unwrap_spec, Arguments, interp2app
+from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.typedef import TypeDef
 
 # Here are the steps performed to start a new thread:
 #
@@ -161,6 +163,24 @@ def reinit_threads(space):
     if w_threading is not None:
         space.call_method(w_threading, "_after_fork")
 
+class W_WrapThreadFunc(W_Root):
+    ''' Wrap a cpyext.pystate.thread_func, which
+        has the signature void func(void *)
+    '''
+    def __init__(self, func):
+        self.func = func
+
+    def descr_call(self, space, w_arg):
+        from rpython.rtyper.lltypesystem import rffi
+        try:
+            arg = rffi.cast(rffi.VOIDP, space.int_w(w_arg))
+            self.func(arg)
+        except Exception as e:
+            import pdb;pdb.set_trace()
+
+W_WrapThreadFunc.typedef = TypeDef("hiddenclass",
+    __call__ = interp2app(W_WrapThreadFunc.descr_call),
+)
 
 def start_new_thread(space, w_callable, w_args, w_kwargs=None):
     """Start a new thread and return its identifier.  The thread will call the
