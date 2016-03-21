@@ -219,7 +219,7 @@ class TopSnapshot(Snapshot):
         self.vref_array = vref_array
 
 class Trace(BaseTrace):
-    _deadranges = (-1, -1)
+    _deadranges = (-1, None)
 
     def __init__(self, inputargs):
         self._ops = [rffi.cast(rffi.SHORT, -15)] * 30000
@@ -427,7 +427,7 @@ class Trace(BaseTrace):
                     return
             ranges[pos] = v
 
-        if self._deadranges != (-1, -1):
+        if self._deadranges != (-1, None):
             if self._deadranges[0] == self._count:
                 return self._deadranges[1]
         liveranges = self.get_live_ranges(metainterp_sd)
