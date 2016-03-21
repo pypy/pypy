@@ -9,7 +9,7 @@ class PythonGrammar(parser.Grammar):
 
 def _get_python_grammar():
     here = os.path.dirname(__file__)
-    fp = open(os.path.join(here, "data", "Grammar3.3"))
+    fp = open(os.path.join(here, "data", "Grammar3.5"))
     try:
         gram_source = fp.read()
     finally:
