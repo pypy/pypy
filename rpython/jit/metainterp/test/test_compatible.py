@@ -222,3 +222,57 @@ class TestCompatible(LLJitMixin):
         # trace, two bridges, a finish bridge
         self.check_trace_count(4)
 
+
+    def test_order_of_chained_guards(self):
+        class Obj(object):
+            def __init__(self):
+                self.m = Map()
+        class Map(object):
+            pass
+
+        p1 = Obj()
+        p1.m.x = 5
+        p1.m.y = 5
+
+        p2 = Obj()
+        p2.m.x = 5
+        p2.m.y = 5
+
+        p3 = Obj()
+        p3.m.x = 5
+        p3.m.y = 6
+        driver = jit.JitDriver(greens = [], reds = ['n', 'x'])
+
+        class A(object):
+            pass
+
+        c = A()
+        c.count = 0
+        @jit.elidable_compatible()
+        def check1(m, ignored):
+            c.count += 1
+            return m.x
+
+        @jit.elidable_compatible()
+        def check2(m, ignored):
+            c.count += 1
+            return m.y
+
+        def f(n, x):
+            while n > 0:
+                driver.can_enter_jit(n=n, x=x)
+                driver.jit_merge_point(n=n, x=x)
+                n -= check1(x.m, 7) + check2(x.m, 7)
+
+        def main():
+            check1(p1.m, 9) # make annotator not make argument constant
+            f(100, p1)
+            f(100, p3) # not compatible, so make a bridge
+            f(100, p2) # compatible with loop again, too bad
+            return c.count
+
+        x = self.meta_interp(main, [])
+
+        # trace, two bridges, a finish bridge
+        self.check_trace_count(4)
+        assert x < 50

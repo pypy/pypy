@@ -1089,23 +1089,26 @@ class GuardCompatibleDescr(ResumeGuardDescr):
         # XXX think about what is being kept alive here
         self._compatibility_conditions = None
         self.failarg_index = -1
-        self._prev_guard_compatible_descr = None
+        # list of descrs about the same variable, potentially shared with
+        # subsequent guards in bridges
+        self.guard_descrs_list = [self]
 
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         index = intmask(self.status >> self.ST_SHIFT)
         typetag = intmask(self.status & self.ST_TYPE_MASK)
         assert typetag == self.TY_REF # for now
         refval = metainterp_sd.cpu.get_value_direct(deadframe, 'r', index)
-        curr = self
-        while curr:
+        if not we_are_translated():
+            assert self in self.guard_descrs_list
+        # need to do the checking oldest to newest, to check the most specific
+        # condition first
+        for curr in self.guard_descrs_list:
             if curr.is_compatible(metainterp_sd.cpu, refval):
                 from rpython.jit.metainterp.blackhole import resume_in_blackhole
                 metainterp_sd.cpu.grow_guard_compatible_switch(
                     curr.rd_loop_token, curr, refval)
                 resume_in_blackhole(metainterp_sd, jitdriver_sd, self, deadframe)
                 return
-            # try previous guards, maybe one of them would have matched
-            curr = curr._prev_guard_compatible_descr
         # a real failure
         return ResumeGuardDescr.handle_fail(self, deadframe, metainterp_sd, jitdriver_sd)
 
@@ -1130,7 +1133,8 @@ class GuardCompatibleDescr(ResumeGuardDescr):
             # a guard_compatible about the same box
             newdescr = firstop.getdescr()
             assert isinstance(newdescr, GuardCompatibleDescr)
-            newdescr._prev_guard_compatible_descr = self
+            newdescr.guard_descrs_list = self.guard_descrs_list
+            self.guard_descrs_list.append(newdescr)
         ResumeGuardDescr.compile_and_attach(
             self, metainterp, new_loop, orig_inputargs)
 
