@@ -115,7 +115,7 @@ class Condition(object):
         if isinstance(arg, ConstInt):
             return str(arg.value)
         elif isinstance(arg, ConstPtr):
-            return "<some const ptr>
+            return "<some const ptr>"
         elif isinstance(arg, ConstFloat):
             return str(arg.getfloat())
 
