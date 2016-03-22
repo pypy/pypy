@@ -81,7 +81,9 @@ class VecTestHelper(DependencyBaseTest):
     jitdriver_sd = FakeJitDriverStaticData()
 
     def assert_vectorize(self, loop, expected_loop, call_pure_results=None):
-        trace = convert_loop_to_trace(loop)
+        jump = ResOperation(rop.LABEL, loop.jump.getarglist(), loop.jump.getdescr())
+        trace = Trace(loop.label, jump, loop.operations)
+        trace = self.convert_loop_to_packed(loop)
         compile_data = compile.LoopCompileData(trace, loop.jump.getarglist())
         state = self._do_optimize_loop(compile_data)
         loop.label = state[0].label_op
