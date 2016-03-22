@@ -268,6 +268,9 @@ class ApiFunction:
         argnames, varargname, kwargname = pycode.cpython_code_signature(callable.func_code)
 
         assert argnames[0] == 'space'
+        if gil == 'pygilstate_ensure':
+            assert argnames[-1] == 'previous_state'
+            del argnames[-1]
         self.argnames = argnames[1:]
         assert len(self.argnames) == len(self.argtypes)
         self.gil = gil
@@ -678,9 +681,9 @@ def make_wrapper(space, callable, gil=None):
     assert (gil is None or gil_acquire or gil_release
             or pygilstate_ensure or pygilstate_release)
     deadlock_error = ("GIL deadlock detected when a CPython C extension "
-                      "module calls back %r" % (callable.__name__,))
+                      "module calls %r" % (callable.__name__,))
     no_gil_error = ("GIL not held when a CPython C extension "
-                    "module calls back %r" % (callable.__name__,))
+                    "module calls %r" % (callable.__name__,))
 
     @specialize.ll()
     def wrapper(*args):
@@ -717,7 +720,8 @@ def make_wrapper(space, callable, gil=None):
         try:
             if not we_are_translated() and DEBUG_WRAPPER:
                 print >>sys.stderr, callable,
-            assert len(args) == len(callable.api_func.argtypes)
+            assert len(args) == (len(callable.api_func.argtypes) +
+                                 pygilstate_ensure)
             for i, (typ, is_wrapped) in argtypes_enum_ui:
                 arg = args[i]
                 if is_PyObject(typ) and is_wrapped:
@@ -726,6 +730,8 @@ def make_wrapper(space, callable, gil=None):
                 else:
                     arg_conv = arg
                 boxed_args += (arg_conv, )
+            if pygilstate_ensure:
+                boxed_args += (args[-1], )
             state = space.fromcache(State)
             try:
                 result = callable(space, *boxed_args)
