@@ -217,7 +217,7 @@ def compile_simple_loop(metainterp, greenkey, trace, runtime_args, enable_opts,
         loop_info, ops = optimize_trace(metainterp_sd, jitdriver_sd,
                                         data, metainterp.box_names_memo)
     except InvalidLoop:
-        history.cut(cut_at)
+        trace.cut_at(cut_at)
         return None
     loop = create_empty_loop(metainterp)
     loop.original_jitcell_token = jitcell_token
