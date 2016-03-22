@@ -60,9 +60,8 @@ class TestFile(BaseApiTest):
                 w_file = api.PyFile_FromString(filename, mode)
         assert space.str_w(api.PyFile_Name(w_file)) == name
 
-    @pytest.mark.xfail
     def test_file_fromfile(self, space, api):
-        api.PyFile_Fromfile()
+        api.PyFile_FromFile()
 
     @pytest.mark.xfail
     def test_file_setbufsize(self, space, api):

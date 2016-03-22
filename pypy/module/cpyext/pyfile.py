@@ -45,6 +45,15 @@ def PyFile_FromString(space, filename, mode):
     w_mode = space.wrap(rffi.charp2str(mode))
     return space.call_method(space.builtin, 'file', w_filename, w_mode)
 
+@cpython_api([PyObject], FILEP, error=CANNOT_FAIL)
+def PyFile_AsFile(space, w_p):
+    """Return the file object associated with p as a FILE*.
+    
+    If the caller will ever use the returned FILE* object while
+    the GIL is released it must also call the PyFile_IncUseCount() and
+    PyFile_DecUseCount() functions as appropriate."""
+    raise NotImplementedError
+
 @cpython_api([FILEP, CONST_STRING, CONST_STRING, rffi.VOIDP], PyObject)
 def PyFile_FromFile(space, fp, name, mode, close):
     """Create a new PyFileObject from the already-open standard C file
