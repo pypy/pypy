@@ -683,7 +683,7 @@ def compute_vars_longevity(inputargs, operations):
     for i in range(len(operations)-1, -1, -1):
         op = operations[i]
         if op.type != 'v':
-            if op not in last_used and op.has_no_side_effect():
+            if op not in last_used and rop.has_no_side_effect(op.opnum):
                 continue
         opnum = op.getopnum()
         for j in range(op.numargs()):
