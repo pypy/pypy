@@ -26,7 +26,6 @@ class AppTestThreads(AppTestCpythonExtensionBase):
         # Should compile at least
         module.test()
 
-    @pytest.mark.xfail(reason='hangs at rgil.acquire', run=False)
     def test_gilstate(self):
         module = self.import_extension('foo', [
             ("double_ensure", "METH_O",
