@@ -12,7 +12,7 @@ from rpython.jit.metainterp.history import (TreeLoop, AbstractDescr,
 from rpython.jit.metainterp.optimizeopt.util import sort_descrs, equaloplists
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.logger import LogOperations
-from rpython.jit.tool.oparser import OpParser, pure_parse
+from rpython.jit.tool.oparser import OpParser, pure_parse, convert_loop_to_trace
 from rpython.jit.metainterp.quasiimmut import QuasiImmutDescr
 from rpython.jit.metainterp import compile, resume, history
 from rpython.jit.metainterp.jitprof import EmptyProfiler
@@ -545,50 +545,6 @@ class BaseTest(object):
             call_pure_results[list(k)] = v
         return call_pure_results
 
-    def pick_cls(self, inp):
-        if inp.type == 'i':
-            return history.IntFrontendOp
-        elif inp.type == 'r':
-            return history.RefFrontendOp
-        else:
-            assert inp.type == 'f'
-            return history.FloatFrontendOp
-
-    def convert_loop_to_packed(self, loop, skip_last=False):
-        from rpython.jit.metainterp.opencoder import Trace
-        from rpython.jit.metainterp.test.test_opencoder import FakeFrame
-
-        def get(a):
-            if isinstance(a, history.Const):
-                return a
-            return mapping[a]
-
-        class jitcode:
-            index = 200
-
-        inputargs = [self.pick_cls(inparg)(i) for i, inparg in
-                     enumerate(loop.inputargs)]
-        mapping = {}
-        for one, two in zip(loop.inputargs, inputargs):
-            mapping[one] = two
-        trace = Trace(inputargs)
-        ops = loop.operations
-        if skip_last:
-            ops = ops[:-1]
-        for op in ops:
-            newpos = trace.record_op(op.getopnum(), [get(arg) for arg in 
-                op.getarglist()], op.getdescr())
-            if rop.is_guard(op.getopnum()):
-                failargs = []
-                if op.getfailargs():
-                    failargs = [get(arg) for arg in op.getfailargs()]
-                frame = FakeFrame(100, jitcode, failargs)
-                resume.capture_resumedata([frame], None, [], trace)
-            if op.type != 'v':
-                newop = self.pick_cls(op)(newpos)
-                mapping[op] = newop
-        return trace
-
     def unroll_and_optimize(self, loop, call_pure_results=None,
                             jump_values=None):
         self.add_guard_future_condition(loop)
@@ -601,7 +557,7 @@ class BaseTest(object):
         #                           descr=jump_op.getdescr())
         #end_label = jump_op.copy_and_change(opnum=rop.LABEL)
         call_pure_results = self._convert_call_pure_results(call_pure_results)
-        t = self.convert_loop_to_packed(loop)
+        t = convert_loop_to_trace(loop)
         preamble_data = compile.LoopCompileData(t, runtime_boxes,
                                                 call_pure_results)
         start_state, preamble_ops = self._do_optimize_loop(preamble_data)

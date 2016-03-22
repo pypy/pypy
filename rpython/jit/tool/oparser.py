@@ -413,6 +413,54 @@ def parse(input, cpu=None, namespace=None,
     return OpParser(input, cpu, namespace, boxkinds,
                     invent_fail_descr, nonstrict, postprocess).parse()
 
+def pick_cls(inp):
+    from rpython.jit.metainterp import history
+
+    if inp.type == 'i':
+        return history.IntFrontendOp
+    elif inp.type == 'r':
+        return history.RefFrontendOp
+    else:
+        assert inp.type == 'f'
+        return history.FloatFrontendOp
+
+def convert_loop_to_trace(loop, skip_last=False):
+    from rpython.jit.metainterp.opencoder import Trace
+    from rpython.jit.metainterp.test.test_opencoder import FakeFrame
+    from rpython.jit.metainterp import history, resume
+
+    def get(a):
+        if isinstance(a, history.Const):
+            return a
+        return mapping[a]
+
+    class jitcode:
+        index = 200
+
+    inputargs = [pick_cls(inparg)(i) for i, inparg in
+                 enumerate(loop.inputargs)]
+    mapping = {}
+    for one, two in zip(loop.inputargs, inputargs):
+        mapping[one] = two
+    trace = Trace(inputargs)
+    ops = loop.operations
+    if skip_last:
+        ops = ops[:-1]
+    for op in ops:
+        newpos = trace.record_op(op.getopnum(), [get(arg) for arg in 
+            op.getarglist()], op.getdescr())
+        if rop.is_guard(op.getopnum()):
+            failargs = []
+            if op.getfailargs():
+                failargs = [get(arg) for arg in op.getfailargs()]
+            frame = FakeFrame(100, jitcode, failargs)
+            resume.capture_resumedata([frame], None, [], trace)
+        if op.type != 'v':
+            newop = pick_cls(op)(newpos)
+            mapping[op] = newop
+    trace._mapping = mapping # for tests
+    return trace
+
 def pure_parse(*args, **kwds):
     kwds['invent_fail_descr'] = None
     return parse(*args, **kwds)
