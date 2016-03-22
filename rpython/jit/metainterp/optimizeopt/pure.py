@@ -142,7 +142,8 @@ class OptPure(Optimization):
                     ccond = info._compatibility_conditions
                     if ccond:
                         # it's subject to guard_compatible
-                        copied_op, cond = ccond.prepare_const_arg_call(op)
+                        copied_op, cond = ccond.prepare_const_arg_call(
+                                op, self.optimizer)
                         if copied_op:
                             result = self._can_optimize_call_pure(copied_op)
                             if result is not None:

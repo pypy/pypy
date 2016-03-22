@@ -1139,6 +1139,11 @@ class GuardCompatibleDescr(ResumeGuardDescr):
                 guard_value_op.getarg(0))
         ResumeGuardDescr.make_a_counter_per_value(self, guard_value_op, index)
 
+    def repr_of_conditions(self, argrepr="?"):
+        if self._compatibility_conditions:
+            return self._compatibility_conditions.repr_of_conditions(argrepr)
+        return ''
+
 # ____________________________________________________________
 
 memory_error = MemoryError()

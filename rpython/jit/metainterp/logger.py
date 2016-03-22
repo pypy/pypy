@@ -181,7 +181,8 @@ class LogOperations(object):
             s_offset = ""
         else:
             s_offset = "+%d: " % offset
-        args = ", ".join([self.repr_of_arg(op.getarg(i)) for i in range(op.numargs())])
+        argreprs = [self.repr_of_arg(op.getarg(i)) for i in range(op.numargs())]
+        args = ", ".join(argreprs)
 
         if op.type != 'v':
             res = self.repr_of_arg(op) + " = "
@@ -204,6 +205,17 @@ class LogOperations(object):
                                           for arg in op.getfailargs()]) + ']'
         else:
             fail_args = ''
+        if op.getopnum() == rop.GUARD_COMPATIBLE and op.getdescr() is not None:
+            from rpython.jit.metainterp.compile import GuardCompatibleDescr
+            descr = op.getdescr()
+            assert isinstance(descr, GuardCompatibleDescr)
+            conditions = descr.repr_of_conditions(argreprs[0])
+            if conditions:
+                # make fake jit-debug ops to print
+                conditions = conditions.split("\n")
+                for i in range(len(conditions)):
+                    conditions[i] = "jit_debug('%s')" % (conditions[i], )
+                fail_args += "\n" + "\n".join(conditions)
         return s_offset + res + op.getopname() + '(' + args + ')' + fail_args
 
 

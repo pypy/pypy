@@ -49,16 +49,16 @@ class CompatibilityCondition(object):
             cond.activate_secondary(ref, loop_token)
         return True
 
-    def prepare_const_arg_call(self, op):
+    def prepare_const_arg_call(self, op, optimizer):
         from rpython.jit.metainterp.quasiimmut import QuasiImmutDescr
         copied_op = op.copy()
         copied_op.setarg(1, self.known_valid)
         if op.numargs() == 2:
-            return copied_op, PureCallCondition(op)
+            return copied_op, PureCallCondition(op, optimizer.metainterp_sd)
         arg2 = copied_op.getarg(2)
         if arg2.is_constant():
             # already a constant, can just use PureCallCondition
-            return copied_op, PureCallCondition(op)
+            return copied_op, PureCallCondition(op, optimizer.metainterp_sd)
 
         # really simple-minded pattern matching
         # the order of things is like this:
@@ -83,9 +83,17 @@ class CompatibilityCondition(object):
             return None, None
         copied_op.setarg(2, qmutdescr.constantfieldbox)
         self.last_quasi_immut_field_op = None
-        return copied_op, QuasiimmutGetfieldAndPureCallCondition(op, qmutdescr)
+        return copied_op, QuasiimmutGetfieldAndPureCallCondition(
+                op, qmutdescr, optimizer.metainterp_sd)
+
+    def repr_of_conditions(self, argrepr="?"):
+        return "\n".join([cond.repr(argrepr) for cond in self.conditions])
+
 
 class Condition(object):
+    def __init__(self, metainterp_sd):
+        self.metainterp_sd = metainterp_sd
+
     def check(self, cpu, ref):
         raise NotImplementedError
 
@@ -98,9 +106,22 @@ class Condition(object):
     def same_cond(self, other, res):
         return False
 
+    def repr(self):
+        return ""
+
+    @staticmethod
+    def _repr_const(arg):
+        from rpython.jit.metainterp.history import ConstInt, ConstFloat, ConstPtr
+        if isinstance(arg, ConstInt):
+            return str(arg.value)
+        elif isinstance(arg, ConstPtr):
+            return arg._getrepr_()
+        elif isinstance(arg, ConstFloat):
+            return str(arg.getfloat())
 
 class PureCallCondition(Condition):
-    def __init__(self, op):
+    def __init__(self, op, metainterp_sd):
+        Condition.__init__(self, metainterp_sd)
         args = op.getarglist()[:]
         args[1] = None
         self.args = args
@@ -142,9 +163,22 @@ class PureCallCondition(Condition):
                 return False
         return True
 
+    def repr(self, argrepr="?"):
+        addr = self.args[0].getaddr()
+        funcname = self.metainterp_sd.get_name_from_address(addr)
+        if not funcname:
+            funcname = hex(self.args[0].getint())
+        result = self._repr_const(self.res)
+        if len(self.args) == 2:
+            extra = ''
+        else:
+            extra = ', ' + ', '.join([self._repr_const(arg) for arg in self.args[2:]])
+        return "compatible if %s == %s(%s%s)" % (result, funcname, argrepr, extra)
+
 
 class QuasiimmutGetfieldAndPureCallCondition(PureCallCondition):
-    def __init__(self, op, qmutdescr):
+    def __init__(self, op, qmutdescr, metainterp_sd):
+        Condition.__init__(self, metainterp_sd)
         args = op.getarglist()[:]
         args[1] = None
         args[2] = None
@@ -209,3 +243,15 @@ class QuasiimmutGetfieldAndPureCallCondition(PureCallCondition):
             if not self.args[i].same_constant(other.args[i]):
                 return False
         return True
+
+    def repr(self, argrepr="?"):
+        addr = self.args[0].getaddr()
+        funcname = self.metainterp_sd.get_name_from_address(addr)
+        result = self._repr_const(self.res)
+        if len(self.args) == 3:
+            extra = ''
+        else:
+            extra = ', ' + ', '.join([self._repr_const(arg) for arg in self.args[3:]])
+        attrname = self.fielddescr.repr_of_descr()
+        return "compatible if %s == %s(%s, %s.%s%s)" % (
+                result, funcname, argrepr, argrepr, attrname, extra)
