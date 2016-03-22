@@ -7,7 +7,7 @@ from pypy.module.cpyext.api import (
     cpython_api, generic_cpy_call, PyObject, Py_ssize_t, Py_TPFLAGS_CHECKTYPES,
     mangle_name, pypy_decl)
 from pypy.module.cpyext.typeobjectdefs import (
-    unaryfunc, wrapperfunc, ternaryfunc, PyTypeObjectPtr, binaryfunc,
+    unaryfunc, wrapperfunc, ternaryfunc, PyTypeObjectPtr, binaryfunc, ternaryfunc,
     getattrfunc, getattrofunc, setattrofunc, lenfunc, ssizeargfunc, inquiry,
     ssizessizeargfunc, ssizeobjargproc, iternextfunc, initproc, richcmpfunc,
     cmpfunc, hashfunc, descrgetfunc, descrsetfunc, objobjproc, objobjargproc,
@@ -42,6 +42,17 @@ def check_num_args(space, w_ob, n):
     raise oefmt(space.w_TypeError,
                 "expected %d arguments, got %d",
                 n, space.len_w(w_ob))
+
+def check_num_argsv(space, w_ob, low, high):
+    from pypy.module.cpyext.tupleobject import PyTuple_CheckExact
+    if not PyTuple_CheckExact(space, w_ob):
+        raise OperationError(space.w_SystemError,
+            space.wrap("PyArg_UnpackTuple() argument list is not a tuple"))
+    if low <=space.len_w(w_ob) <= high:
+        return
+    raise oefmt(space.w_TypeError,
+                "expected %d-%d arguments, got %d",
+                low, high, space.len_w(w_ob))
 
 def wrap_init(space, w_self, w_args, func, w_kwargs):
     func_init = rffi.cast(initproc, func)
@@ -84,6 +95,33 @@ def wrap_binaryfunc_r(space, w_self, w_args, func):
         return space.w_NotImplemented
     Py_DecRef(space, ref)
     return generic_cpy_call(space, func_binary, args_w[0], w_self)
+
+def wrap_ternaryfunc(space, w_self, w_args, func):
+    # The third argument is optional
+    func_ternary = rffi.cast(ternaryfunc, func)
+    check_num_argsv(space, w_args, 1, 2)
+    args_w = space.fixedview(w_args)
+    arg3 = space.w_None
+    if len(args_w) > 1:
+        arg3 = args_w[1] 
+    return generic_cpy_call(space, func_ternary, w_self, args_w[0], arg3)
+
+def wrap_ternaryfunc_r(space, w_self, w_args, func):
+    # The third argument is optional
+    func_ternary = rffi.cast(ternaryfunc, func)
+    check_num_argsv(space, w_args, 1, 2)
+    args_w = space.fixedview(w_args)
+    ref = make_ref(space, w_self)
+    if (not ref.c_ob_type.c_tp_flags & Py_TPFLAGS_CHECKTYPES and
+        not space.is_true(space.issubtype(space.type(args_w[0]),
+                                         space.type(w_self)))):
+        return space.w_NotImplemented
+    Py_DecRef(space, ref)
+    arg3 = space.w_None
+    if len(args_w) > 1:
+        arg3 = args_w[1] 
+    return generic_cpy_call(space, func_ternary, args_w[0], w_self, arg3)
+
 
 def wrap_inquirypred(space, w_self, w_args, func):
     func_inquiry = rffi.cast(inquiry, func)

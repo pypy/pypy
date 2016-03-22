@@ -775,7 +775,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         raises(SystemError, bool, module.newInt(-1))
         raises(ValueError, bool, module.newInt(-42))
 
-    def test_binaryfunc(self):
+    def test_mathfunc(self):
         module = self.import_extension('foo', [
             ("newInt", "METH_VARARGS",
              """
@@ -788,6 +788,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 IntLike_Type.tp_as_number = &intlike_as_number;
                 IntLike_Type.tp_flags |= Py_TPFLAGS_DEFAULT | Py_TPFLAGS_CHECKTYPES;
                 intlike_as_number.nb_add = intlike_nb_add;
+                intlike_as_number.nb_power = intlike_nb_pow;
                 if (PyType_Ready(&IntLike_Type) < 0) return NULL;
                 intObj = PyObject_New(IntLikeObject, &IntLike_Type);
                 if (!intObj) {
@@ -814,8 +815,9 @@ class AppTestSlots(AppTestCpythonExtensionBase):
 
                 intObjNoOp->ival = intval;
                 return (PyObject *)intObjNoOp;
-             """)],
+             """)], prologue=
             """
+            #include <math.h>
             typedef struct
             {
                 PyObject_HEAD
@@ -834,6 +836,19 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 val2 = ((IntLikeObject *)(other))->ival;
                 return PyInt_FromLong(val1+val2);
             }
+
+            static PyObject *
+            intlike_nb_pow(PyObject *self, PyObject *other, PyObject * z)
+            {
+                long val2, val1 = ((IntLikeObject *)(self))->ival;
+                if (PyInt_Check(other)) {
+                  long val2 = PyInt_AsLong(other);
+                  return PyInt_FromLong(val1+val2);
+                }
+
+                val2 = ((IntLikeObject *)(other))->ival;
+                return PyInt_FromLong((int)pow(val1,val2));
+             }
 
             PyTypeObject IntLike_Type = {
                 PyObject_HEAD_INIT(0)
@@ -863,6 +878,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         assert (a + b) == 3
         assert (b + c) == 5
         assert (d + a) == 5
+        assert pow(d,b) == 16
 
     def test_tp_new_in_subclass_of_type(self):
         module = self.import_module(name='foo3')
