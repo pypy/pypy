@@ -57,7 +57,7 @@ class VMProfJitLogger(object):
         return LogTrace(tag, memo, metainterp_sd, mc, self)
 
     def log_patch_guard(self, addr, target_addr):
-        if self.cintf.jitlog_filter(tag):
+        if self.cintf.jitlog_filter(MARK_ASM_PATCH):
             return
         le_addr_write = self.encode_le_addr(addr)
         le_len = self.encode_le_32bit(8)
@@ -116,8 +116,8 @@ class LogTrace(object):
             absaddr = self.mc.absolute_addr()
             rel = self.mc.get_relative_pos()
             # packs <start addr> <end addr> as two unsigend longs
-            le_addr1 = self.encode_le_addr(absaddr)
-            le_addr2 = self.encode_le_addr(absaddr + rel)
+            le_addr1 = self.logger.encode_le_addr(absaddr)
+            le_addr2 = self.logger.encode_le_addr(absaddr + rel)
             log.write_marked(MARK_ASM_ADDR, le_addr1 + le_addr2)
         for i,op in enumerate(ops):
             mark, line = self.encode_op(op)
