@@ -275,6 +275,7 @@ class W_AbstractIntObject(W_Root):
     descr_add, descr_radd = _abstract_binop('add')
     descr_sub, descr_rsub = _abstract_binop('sub')
     descr_mul, descr_rmul = _abstract_binop('mul')
+    descr_matmul, descr_rmatmul = _abstract_binop('matmul')
 
     descr_and, descr_rand = _abstract_binop('and')
     descr_or, descr_ror = _abstract_binop('or')
