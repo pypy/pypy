@@ -402,15 +402,6 @@ class AbstractResOp(AbstractResOpOrInputArg):
     def is_foldable_guard(self):
         return rop.is_foldable_guard(self.getopnun())
 
-    def is_guard_exception(self):
-        return rop.is_guard_
-        return (self.getopnum() == rop.GUARD_EXCEPTION or
-                self.getopnum() == rop.GUARD_NO_EXCEPTION)
-
-    def is_guard_overflow(self):
-        return (self.getopnum() == rop.GUARD_OVERFLOW or
-                self.getopnum() == rop.GUARD_NO_OVERFLOW)
-
     def is_jit_debug(self):
         return rop._JIT_DEBUG_FIRST <= self.getopnum() <= rop._JIT_DEBUG_LAST
 
