@@ -170,7 +170,8 @@ class ResOpGen(object):
         while True:
             op = operations[opindex]
             op_repr = op.repr(self.memo, graytext=True)
-            if op.getopnum() == rop.DEBUG_MERGE_POINT:
+            if (op.getopnum() == rop.DEBUG_MERGE_POINT and
+                    self.metainterp_sd is not None):
                 jd_sd = self.metainterp_sd.jitdrivers_sd[op.getarg(0).getint()]
                 if jd_sd._get_printable_location_ptr:
                     s = jd_sd.warmstate.get_location_str(op.getarglist()[3:])
