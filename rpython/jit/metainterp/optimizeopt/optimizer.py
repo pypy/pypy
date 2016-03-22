@@ -561,6 +561,7 @@ class Optimizer(Optimization):
         if op.is_constant():
             return # can happen e.g. if we postpone the operation that becomes
             # constant
+        # XXX kill
         op = self.replace_op_with(op, op.getopnum())
         for i in range(op.numargs()):
             arg = self.force_box(op.getarg(i))

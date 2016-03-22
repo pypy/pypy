@@ -187,6 +187,10 @@ class CutTrace(BaseTrace):
         self.inputargs = inputargs
         self.count = count
 
+    def cut_at(self, cut):
+        assert cut[1] > self.count
+        self.trace.cut_at(cut)
+
     def get_iter(self, metainterp_sd=None):
         iter = TraceIterator(self.trace, self.start, self.trace._pos,
                              self.inputargs, metainterp_sd=metainterp_sd)
