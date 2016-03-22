@@ -139,6 +139,44 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
             ])
         module.getstring()
 
+    def test_py_string_as_string_Unicode(self):
+        module = self.import_extension('foo', [
+            ("getstring_unicode", "METH_NOARGS",
+             """
+                 Py_UNICODE chars[] = {'t', 'e', 's', 't'};
+                 PyObject* u1 = PyUnicode_FromUnicode(chars, 4);
+                 char *buf;
+                 buf = PyString_AsString(u1);
+                 if (buf == NULL)
+                     return NULL;
+                 if (buf[3] != 't') {
+                     PyErr_SetString(PyExc_AssertionError, "Bad conversion");
+                     return NULL;
+                 }
+                 Py_DECREF(u1);
+                 Py_INCREF(Py_None);
+                 return Py_None;
+             """),
+            ("getstringandsize_unicode", "METH_NOARGS",
+             """
+                 Py_UNICODE chars[] = {'t', 'e', 's', 't'};
+                 PyObject* u1 = PyUnicode_FromUnicode(chars, 4);
+                 char *buf;
+                 Py_ssize_t len;
+                 if (PyString_AsStringAndSize(u1, &buf, &len) < 0)
+                     return NULL;
+                 if (len != 4) {
+                     PyErr_SetString(PyExc_AssertionError, "Bad Length");
+                     return NULL;
+                 }
+                 Py_DECREF(u1);
+                 Py_INCREF(Py_None);
+                 return Py_None;
+             """),
+            ])
+        module.getstring_unicode()
+        module.getstringandsize_unicode()
+
     def test_format_v(self):
         module = self.import_extension('foo', [
             ("test_string_format_v", "METH_VARARGS",

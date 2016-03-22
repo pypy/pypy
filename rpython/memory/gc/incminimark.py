@@ -2929,10 +2929,19 @@ class IncrementalMiniMarkGC(MovingGCBase):
             ll_assert(rc < int(REFCNT_FROM_PYPY_LIGHT * 0.99),
                       "refcount underflow from REFCNT_FROM_PYPY_LIGHT?")
             rc -= REFCNT_FROM_PYPY
-            self._pyobj(pyobject).ob_refcnt = rc
             self._pyobj(pyobject).ob_pypy_link = 0
             if rc == 0:
                 self.rrc_dealloc_pending.append(pyobject)
+                # an object with refcnt == 0 cannot stay around waiting
+                # for its deallocator to be called.  Some code (lxml)
+                # expects that tp_dealloc is called immediately when
+                # the refcnt drops to 0.  If it isn't, we get some
+                # uncleared raw pointer that can still be used to access
+                # the object; but (PyObject *)raw_pointer is then bogus
+                # because after a Py_INCREF()/Py_DECREF() on it, its
+                # tp_dealloc is also called!
+                rc = 1
+            self._pyobj(pyobject).ob_refcnt = rc
     _rrc_free._always_inline_ = True
 
     def rrc_major_collection_trace(self):

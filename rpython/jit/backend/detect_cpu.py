@@ -66,6 +66,7 @@ def detect_model_from_host_platform():
             'x86_64': MODEL_X86,
             'amd64': MODEL_X86,    # freebsd
             'AMD64': MODEL_X86,    # win64
+            'armv8l': MODEL_ARM,   # 32-bit ARMv8
             'armv7l': MODEL_ARM,
             'armv6l': MODEL_ARM,
             'arm': MODEL_ARM,      # freebsd

@@ -421,7 +421,8 @@ def type_alloc(space, w_metatype):
             Py_DecRef(space, w_metatype)
 
     heaptype = lltype.malloc(PyHeapTypeObject.TO,
-                             flavor='raw', zero=True)
+                             flavor='raw', zero=True,
+                             add_memory_pressure=True)
     pto = heaptype.c_ht_type
     pto.c_ob_refcnt = 1
     pto.c_ob_type = metatype

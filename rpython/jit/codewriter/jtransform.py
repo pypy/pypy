@@ -784,11 +784,13 @@ class Transformer(object):
             return []
         # check for _immutable_fields_ hints
         immut = v_inst.concretetype.TO._immutable_field(c_fieldname.value)
+        need_live = False
         if immut:
             if (self.callcontrol is not None and
                 self.callcontrol.could_be_green_field(v_inst.concretetype.TO,
                                                       c_fieldname.value)):
                 pure = '_greenfield'
+                need_live = True
             else:
                 pure = '_pure'
         else:
@@ -815,10 +817,12 @@ class Transformer(object):
             descr1 = self.cpu.fielddescrof(
                 v_inst.concretetype.TO,
                 quasiimmut.get_mutate_field_name(c_fieldname.value))
-            op1 = [SpaceOperation('-live-', [], None),
+            return [SpaceOperation('-live-', [], None),
                    SpaceOperation('record_quasiimmut_field',
                                   [v_inst, descr, descr1], None),
                    op1]
+        if need_live:
+            return [SpaceOperation('-live-', [], None), op1]
         return op1
 
     def rewrite_op_setfield(self, op, override_type=None):

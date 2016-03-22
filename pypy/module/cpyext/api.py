@@ -833,14 +833,14 @@ def build_bridge(space):
     modulename = py.path.local(eci.libraries[-1])
 
     def dealloc_trigger():
-        from pypy.module.cpyext.pyobject import _Py_Dealloc
+        from pypy.module.cpyext.pyobject import decref
         print 'dealloc_trigger...'
         while True:
             ob = rawrefcount.next_dead(PyObject)
             if not ob:
                 break
             print ob
-            _Py_Dealloc(space, ob)
+            decref(space, ob)
         print 'dealloc_trigger DONE'
         return "RETRY"
     rawrefcount.init(dealloc_trigger)
