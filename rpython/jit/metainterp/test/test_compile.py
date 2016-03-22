@@ -116,7 +116,6 @@ def test_compile_loop():
 
 
 def test_compile_tmp_callback():
-    from rpython.jit.codewriter import heaptracker
     from rpython.jit.backend.llgraph import runner
     from rpython.rtyper.lltypesystem import lltype, llmemory
     from rpython.rtyper.annlowlevel import llhelper

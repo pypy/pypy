@@ -155,13 +155,6 @@ class TestOpencoder(object):
         loop2.operations = l
         BaseTest.assert_equal(loop1, loop2)
 
-    @given(strategies.integers(min_value=0, max_value=2**25))
-    def test_packing(self, i):
-        t = Trace([])
-        t.record_snapshot_link(i)
-        iter = t.get_iter(metainterp_sd)
-        assert (((-iter._next() - 1) << 15) | (iter._next())) == i
-
     def test_cut_trace_from(self):
         i0, i1, i2 = IntFrontendOp(0), IntFrontendOp(0), IntFrontendOp(0)
         t = Trace([i0, i1, i2])

@@ -224,10 +224,8 @@ class Trace(BaseTrace):
     def __init__(self, inputargs):
         self._ops = [rffi.cast(rffi.SHORT, -15)] * 30000
         self._pos = 0
-        self._snapshot_lgt = 0
         self._consts_bigint = 0
         self._consts_float = 0
-        self._sharings = 0
         self._total_snapshots = 0
         self._consts_ptr = 0
         self._descrs = [None]
@@ -261,9 +259,7 @@ class Trace(BaseTrace):
         self._floats_dict = {}
         debug_start("jit-trace-done")
         debug_print("trace length: " + str(self._pos))
-        debug_print(" snapshots: " + str(self._snapshot_lgt))
-        debug_print("  sharings: " + str(self._sharings))
-        debug_print("  total snapshots: " + str(self._total_snapshots))
+        debug_print(" total snapshots: " + str(self._total_snapshots))
         debug_print(" bigint consts: " + str(self._consts_bigint) + " " + str(len(self._bigints)))
         debug_print(" float consts: " + str(self._consts_float) + " " + str(len(self._floats)))
         debug_print(" ref consts: " + str(self._consts_ptr) + " " + str(len(self._refs)))
@@ -355,13 +351,6 @@ class Trace(BaseTrace):
             return -descr.descr_index-1
         self._descrs.append(descr)
         return len(self._descrs) - 1
-
-    def record_snapshot_link(self, pos):
-        self._sharings += 1
-        lower = pos & 0x7fff
-        upper = pos >> 15
-        self.append(-upper-1)
-        self.append(lower)
 
     def _list_of_boxes(self, boxes):
         array = [rffi.cast(rffi.SHORT, 0)] * len(boxes)
