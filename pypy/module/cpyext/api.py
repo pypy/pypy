@@ -192,6 +192,58 @@ CANNOT_FAIL = CannotFail()
 # exceptions generate a OperationError(w_SystemError); and the funtion returns
 # the error value specifed in the API.
 #
+# Handling of the GIL
+# -------------------
+#
+# We add a global variable that contains a thread id.  Invariant: this
+# variable always contain 0 when the PyPy GIL is released.  It should
+# also contain 0 when regular RPython code executes.  In
+# non-cpyext-related code, it will thus always be 0.
+# 
+# **make_generic_cpy_call():** RPython to C, with the GIL held.  Before
+# the call, must assert that the global variable is 0 and set the
+# current thread identifier into the global variable.  After the call,
+# assert that the global variable still contains the current thread id,
+# and reset it to 0.
+# 
+# **make_wrapper():** C to RPython; by default assume that the GIL is
+# held, but accepts gil="acquire", "release", "around",
+# "pygilstate_ensure", "pygilstate_release".
+# 
+# When a wrapper() is called:
+# 
+# * "acquire": assert that the GIL is not currently held, i.e. the
+#   global variable does not contain the current thread id (otherwise,
+#   deadlock!).  Acquire the PyPy GIL.  After we acquired it, assert
+#   that the global variable is 0 (it must be 0 according to the
+#   invariant that it was 0 immediately before we acquired the GIL,
+#   because the GIL was released at that point).
+# 
+# * gil=None: we hold the GIL already.  Assert that the current thread
+#   identifier is in the global variable, and replace it with 0.
+# 
+# * "pygilstate_ensure": if the global variable contains the current
+#   thread id, replace it with 0 and set the extra arg to 0.  Otherwise,
+#   do the "acquire" and set the extra arg to 1.  Then we'll call
+#   pystate.py:PyGILState_Ensure() with this extra arg, which will do
+#   the rest of the logic.
+# 
+# When a wrapper() returns, first assert that the global variable is
+# still 0, and then:
+# 
+# * "release": release the PyPy GIL.  The global variable was 0 up to
+#   and including at the point where we released the GIL, but afterwards
+#   it is possible that the GIL is acquired by a different thread very
+#   quickly.
+# 
+# * gil=None: we keep holding the GIL.  Set the current thread
+#   identifier into the global variable.
+# 
+# * "pygilstate_release": if the argument is PyGILState_UNLOCKED,
+#   release the PyPy GIL; otherwise, set the current thread identifier
+#   into the global variable.  The rest of the logic of
+#   PyGILState_Release() should be done before, in pystate.py.
+
 
 cpyext_namespace = NameManager('cpyext_')
 
