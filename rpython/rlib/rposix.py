@@ -22,21 +22,6 @@ if _WIN32:
     from rpython.rlib import rwin32
     from rpython.rlib.rwin32file import make_win32_traits
 
-class CConfig:
-    _compilation_info_ = ExternalCompilationInfo(
-        includes=['sys/stat.h',
-                  'unistd.h',
-                  'fcntl.h'],
-    )
-    for _name in """fchdir fchmod fchmodat fchown fchownat fexecve fdopendir
-                    fpathconf fstat fstatat fstatvfs ftruncate futimens futimes
-                    futimesat linkat lchflags lchmod lchown lstat lutimes
-                    mkdirat mkfifoat mknodat openat readlinkat renameat
-                    symlinkat unlinkat utimensat""".split():
-        locals()['HAVE_%s' % _name.upper()] = rffi_platform.Has(_name)
-cConfig = rffi_platform.configure(CConfig)
-globals().update(cConfig)
-
 
 class CConstantErrno(CConstant):
     # these accessors are used when calling get_errno() or set_errno()
@@ -1739,3 +1724,64 @@ class EnvironExtRegistry(ControllerEntryForPrebuilt):
     def getcontroller(self):
         from rpython.rlib.rposix_environ import OsEnvironController
         return OsEnvironController()
+
+
+# ____________________________________________________________
+# Support for f... and ...at families of POSIX functions
+
+class CConfig:
+    _compilation_info_ = ExternalCompilationInfo(
+        includes=['sys/stat.h',
+                  'unistd.h',
+                  'fcntl.h'],
+    )
+    AT_FDCWD = rffi_platform.DefinedConstantInteger('AT_FDCWD')
+    AT_SYMLINK_NOFOLLOW = rffi_platform.DefinedConstantInteger('AT_SYMLINK_NOFOLLOW')
+    AT_EACCESS = rffi_platform.DefinedConstantInteger('AT_EACCESS')
+
+    for _name in """faccessat fchdir fchmod fchmodat fchown fchownat fexecve
+            fdopendir fpathconf fstat fstatat fstatvfs ftruncate
+            futimens futimes futimesat linkat chflags lchflags lchmod lchown
+            lstat lutimes mkdirat mkfifoat mknodat openat readlinkat renameat
+            symlinkat unlinkat utimensat""".split():
+        locals()['HAVE_%s' % _name.upper()] = rffi_platform.Has(_name)
+cConfig = rffi_platform.configure(CConfig)
+globals().update(cConfig)
+
+if HAVE_FACCESSAT:
+    c_faccessat = external('faccessat',
+        [rffi.INT, rffi.CCHARP, rffi.INT, rffi.INT], rffi.INT)
+
+    def faccessat(pathname, mode, dir_fd=AT_FDCWD,
+            effective_ids=False, follow_symlinks=True):
+        """Thin wrapper around faccessat(2) with an interface simlar to
+        Python3's os.access().
+        """
+        flags = 0
+        if not follow_symlinks:
+            flags |= AT_SYMLINK_NOFOLLOW
+        if effective_ids:
+            flags |= AT_EACCESS
+        error = c_faccessat(dir_fd, pathname, mode, flags)
+        return error == 0
+
+if HAVE_LINKAT:
+    c_linkat = external('linkat',
+        [rffi.INT, rffi.CCHARP, rffi.INT, rffi.CCHARP, rffi.INT], rffi.INT)
+
+    def linkat(src, dst, src_dir_fd=AT_FDCWD, dst_dir_fd=AT_FDCWD, follow_symlinks=True):
+        """Thin wrapper around linkat(2) with an interface similar to
+        Python3's os.link()
+        """
+        if follow_symlinks:
+            flag = 0
+        else:
+            flag = AT_SYMLINK_NOFOLLOW
+        error = c_linkat(src_dir_fd, src, dst_dir_fd, dst, flag)
+        handle_posix_error('linkat', error)
+
+if HAVE_FUTIMENS:
+    pass
+
+if HAVE_UTIMENSAT:
+    pass
