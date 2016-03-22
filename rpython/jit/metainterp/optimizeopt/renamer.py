@@ -17,7 +17,7 @@ class Renamer(object):
 
         if op.is_guard():
             assert isinstance(op, resoperation.GuardResOp)
-            op.rd_snapshot = self.rename_rd_snapshot(op.rd_snapshot, clone=True)
+            # TODO op.rd_snapshot = self.rename_rd_snapshot(op.rd_snapshot, clone=True)
             failargs = self.rename_failargs(op, clone=True)
             op.setfailargs(failargs)
 
