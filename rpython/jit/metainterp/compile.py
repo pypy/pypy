@@ -347,6 +347,7 @@ def compile_retrace(metainterp, greenkey, start,
     end_label = ResOperation(rop.LABEL, inputargs[:],
                              descr=loop_jitcell_token)
     #cut_pos = history.get_trace_position()
+    cut = history.get_trace_position()
     history.record(rop.JUMP, jumpargs[:], None, descr=loop_jitcell_token)
     enable_opts = jitdriver_sd.warmstate.enable_opts
     call_pure_results = metainterp.call_pure_results
@@ -359,9 +360,9 @@ def compile_retrace(metainterp, greenkey, start,
                                              metainterp.box_names_memo)
     except InvalidLoop:
         # Fall back on jumping directly to preamble
-        xxxx
-        jump_op = ResOperation(rop.JUMP, inputargs[:], descr=loop_jitcell_token)
-        loop_data = UnrolledLoopData(end_label, jump_op, [jump_op], start_state,
+        history.cut(cut)
+        history.record(rop.JUMP, jumpargs[:], None, descr=loop_jitcell_token)
+        loop_data = UnrolledLoopData(trace, loop_jitcell_token, start_state,
                                      call_pure_results=call_pure_results,
                                      enable_opts=enable_opts,
                                      inline_short_preamble=False)
@@ -370,6 +371,7 @@ def compile_retrace(metainterp, greenkey, start,
                                                  loop_data,
                                                  metainterp.box_names_memo)
         except InvalidLoop:
+            history.cut(cut)
             return None
 
     label_token = loop_info.label_op.getdescr()
