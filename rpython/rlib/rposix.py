@@ -1877,7 +1877,7 @@ if HAVE_OPENAT:
 
     @enforceargs(s_Str0, int, int, int, typecheck=False)
     def openat(path, flags, mode, dir_fd=AT_FDCWD):
-        fd = c_openat(path, flags, mode, dir_fd)
+        fd = c_openat(dir_fd, path, flags, mode)
         return handle_posix_error('open', fd)
 
 if HAVE_MKFIFOAT:
