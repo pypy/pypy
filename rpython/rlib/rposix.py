@@ -1738,6 +1738,9 @@ class CConfig:
     AT_FDCWD = rffi_platform.DefinedConstantInteger('AT_FDCWD')
     AT_SYMLINK_NOFOLLOW = rffi_platform.DefinedConstantInteger('AT_SYMLINK_NOFOLLOW')
     AT_EACCESS = rffi_platform.DefinedConstantInteger('AT_EACCESS')
+    TIMESPEC = rffi_platform.Struct('struct timespec', [
+        ('tv_sec', rffi.TIME_T),
+        ('tv_nsec', rffi.LONG)])
 
     for _name in """faccessat fchdir fchmod fchmodat fchown fchownat fexecve
             fdopendir fpathconf fstat fstatat fstatvfs ftruncate
@@ -1747,6 +1750,7 @@ class CConfig:
         locals()['HAVE_%s' % _name.upper()] = rffi_platform.Has(_name)
 cConfig = rffi_platform.configure(CConfig)
 globals().update(cConfig)
+TIMESPEC2P = rffi.CArrayPtr(TIMESPEC)
 
 if HAVE_FACCESSAT:
     c_faccessat = external('faccessat',
@@ -1769,7 +1773,8 @@ if HAVE_LINKAT:
     c_linkat = external('linkat',
         [rffi.INT, rffi.CCHARP, rffi.INT, rffi.CCHARP, rffi.INT], rffi.INT)
 
-    def linkat(src, dst, src_dir_fd=AT_FDCWD, dst_dir_fd=AT_FDCWD, follow_symlinks=True):
+    def linkat(src, dst, src_dir_fd=AT_FDCWD, dst_dir_fd=AT_FDCWD,
+            follow_symlinks=True):
         """Thin wrapper around linkat(2) with an interface similar to
         Python3's os.link()
         """
@@ -1781,7 +1786,30 @@ if HAVE_LINKAT:
         handle_posix_error('linkat', error)
 
 if HAVE_FUTIMENS:
-    pass
+    c_futimens = external('futimens', [rffi.INT, TIMESPEC2P], rffi.INT)
+
+    def futimens(fd, atime, atime_ns, mtime, mtime_ns):
+        l_times = lltype.malloc(TIMESPEC, 2, flavor='raw')
+        rffi.setintfield(l_times[0], 'c_tv_sec', atime)
+        rffi.setintfield(l_times[0], 'c_tv_nsec', atime_ns)
+        rffi.setintfield(l_times[1], 'c_tv_sec', mtime)
+        rffi.setintfield(l_times[1], 'c_tv_nsec', mtime_ns)
+        error = c_futimens(fd, l_times)
+        handle_posix_error('futimens', error)
 
 if HAVE_UTIMENSAT:
-    pass
+    c_utimensat = external('utimensat', [rffi.INT, TIMESPEC2P], rffi.INT)
+
+    def utimensat(pathname, atime, atime_ns, mtime, mtime_ns,
+            dir_fd=AT_FDCWD, follow_symlinks=True):
+        l_times = lltype.malloc(TIMESPEC, 2, flavor='raw')
+        rffi.setintfield(l_times[0], 'c_tv_sec', atime)
+        rffi.setintfield(l_times[0], 'c_tv_nsec', atime_ns)
+        rffi.setintfield(l_times[1], 'c_tv_sec', mtime)
+        rffi.setintfield(l_times[1], 'c_tv_nsec', mtime_ns)
+        if follow_symlinks:
+            flag = 0
+        else:
+            flag = AT_SYMLINK_NOFOLLOW
+        error = c_futimens(dir_fd, pathname, l_times, flag)
+        handle_posix_error('utimensat', error)
