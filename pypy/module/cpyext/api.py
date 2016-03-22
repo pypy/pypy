@@ -37,6 +37,8 @@ from py.builtin import BaseException
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib import rawrefcount
+from rpython.rlib import rthread
+from rpython.rlib.debug import fatalerror_notb
 
 DEBUG_WRAPPER = True
 
@@ -195,10 +197,10 @@ CANNOT_FAIL = CannotFail()
 # Handling of the GIL
 # -------------------
 #
-# We add a global variable that contains a thread id.  Invariant: this
-# variable always contain 0 when the PyPy GIL is released.  It should
-# also contain 0 when regular RPython code executes.  In
-# non-cpyext-related code, it will thus always be 0.
+# We add a global variable 'cpyext_glob_tid' that contains a thread
+# id.  Invariant: this variable always contain 0 when the PyPy GIL is
+# released.  It should also contain 0 when regular RPython code
+# executes.  In non-cpyext-related code, it will thus always be 0.
 # 
 # **make_generic_cpy_call():** RPython to C, with the GIL held.  Before
 # the call, must assert that the global variable is 0 and set the
@@ -243,6 +245,9 @@ CANNOT_FAIL = CannotFail()
 #   release the PyPy GIL; otherwise, set the current thread identifier
 #   into the global variable.  The rest of the logic of
 #   PyGILState_Release() should be done before, in pystate.py.
+
+cpyext_glob_tid_ptr = lltype.malloc(rffi.CArray(lltype.Signed), 1,
+                                    flavor='raw', immortal=True, zero=True)
 
 
 cpyext_namespace = NameManager('cpyext_')
@@ -668,7 +673,14 @@ def make_wrapper(space, callable, gil=None):
     fatal_value = callable.api_func.restype._defl()
     gil_acquire = (gil == "acquire" or gil == "around")
     gil_release = (gil == "release" or gil == "around")
-    assert gil is None or gil_acquire or gil_release
+    pygilstate_ensure = (gil == "pygilstate_ensure")
+    pygilstate_release = (gil == "pygilstate_release")
+    assert (gil is None or gil_acquire or gil_release
+            or pygilstate_ensure or pygilstate_release)
+    deadlock_error = ("GIL deadlock detected when a CPython C extension "
+                      "module calls back %r" % (callable.__name__,))
+    no_gil_error = ("GIL not held when a CPython C extension "
+                    "module calls back %r" % (callable.__name__,))
 
     @specialize.ll()
     def wrapper(*args):
@@ -676,8 +688,27 @@ def make_wrapper(space, callable, gil=None):
         from pypy.module.cpyext.pyobject import as_pyobj
         # we hope that malloc removal removes the newtuple() that is
         # inserted exactly here by the varargs specializer
+
+        # see "Handling of the GIL" above (careful, we don't have the GIL here)
+        tid = rthread.get_or_make_ident()
         if gil_acquire:
+            if cpyext_glob_tid_ptr[0] == tid:
+                fatalerror_notb(deadlock_error)
             rgil.acquire()
+            assert cpyext_glob_tid_ptr[0] == 0
+        elif pygilstate_ensure:
+            from pypy.module.cpyext import pystate
+            if cpyext_glob_tid_ptr[0] == tid:
+                cpyext_glob_tid_ptr[0] = 0
+                args += (pystate.PyGILState_LOCKED,)
+            else:
+                rgil.acquire()
+                args += (pystate.PyGILState_UNLOCKED,)
+        else:
+            if cpyext_glob_tid_ptr[0] != tid:
+                fatalerror_notb(no_gil_error)
+            cpyext_glob_tid_ptr[0] = 0
+
         rffi.stackcounter.stacks_counter += 1
         llop.gc_stack_bottom(lltype.Void)   # marker for trackgcroot.py
         retval = fatal_value
@@ -754,8 +785,20 @@ def make_wrapper(space, callable, gil=None):
                 pypy_debug_catch_fatal_exception()
                 assert False
         rffi.stackcounter.stacks_counter -= 1
-        if gil_release:
+
+        # see "Handling of the GIL" above
+        assert cpyext_glob_tid_ptr[0] == 0
+        if pygilstate_release:
+            from pypy.module.cpyext import pystate
+            arg = rffi.cast(lltype.Signed, args[-1])
+            unlock = (arg == pystate.PyGILState_UNLOCKED)
+        else:
+            unlock = gil_release
+        if unlock:
             rgil.release()
+        else:
+            cpyext_glob_tid_ptr[0] = tid
+
         return retval
     callable._always_inline_ = 'try'
     wrapper.__name__ = "wrapper for %r" % (callable, )
@@ -1401,10 +1444,17 @@ def make_generic_cpy_call(FT, expect_null):
                     arg = as_pyobj(space, arg)
             boxed_args += (arg,)
 
+        # see "Handling of the GIL" above
+        tid = rthread.get_ident()
+        assert cpyext_glob_tid_ptr[0] == 0
+        cpyext_glob_tid_ptr[0] = tid
+
         try:
             # Call the function
             result = call_external_function(func, *boxed_args)
         finally:
+            assert cpyext_glob_tid_ptr[0] == tid
+            cpyext_glob_tid_ptr[0] = 0
             keepalive_until_here(*keepalives)
 
         if is_PyObject(RESULT_TYPE):
