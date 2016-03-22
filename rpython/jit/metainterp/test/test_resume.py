@@ -13,16 +13,16 @@ from rpython.jit.metainterp.resume import ResumeDataVirtualAdder,\
      annlowlevel, PENDINGFIELDSP, TAG_CONST_OFFSET
 from rpython.jit.metainterp.resumecode import unpack_numbering,\
      create_numbering, NULL_NUMBER
-from rpython.jit.metainterp.opencoder import Trace
+from rpython.jit.metainterp.opencoder import Trace, Snapshot, TopSnapshot
 
 from rpython.jit.metainterp.optimizeopt import info
 from rpython.jit.metainterp.history import ConstInt, Const, AbstractDescr
-from rpython.jit.metainterp.history import ConstPtr, ConstFloat
+from rpython.jit.metainterp.history import ConstPtr, ConstFloat,\
+     IntFrontendOp, RefFrontendOp
 from rpython.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin
 from rpython.jit.metainterp import executor
 from rpython.jit.codewriter import heaptracker, longlong
-from rpython.jit.metainterp.resoperation import ResOperation, InputArgInt,\
-     InputArgRef, rop
+from rpython.jit.metainterp.resoperation import ResOperation, rop
 from rpython.jit.metainterp.test.strategies import boxlists
 from rpython.rlib.debug import debug_start, debug_stop, debug_print,\
      have_debug_prints
@@ -523,87 +523,10 @@ class FakeFrame(object):
     def __repr__(self):
         return "<FF %s %s %s>" % (self.jitcode, self.pc, self._env)
 
-def test_Snapshot_create():
-    l = ['b0', 'b1']
-    snap = Snapshot(None, l)
-    assert snap.prev is None
-    assert snap.boxes is l
-
-    l1 = ['b3']
-    snap1 = Snapshot(snap, l1)
-    assert snap1.prev is snap
-    assert snap1.boxes is l1
-
 class FakeJitCode(object):
     def __init__(self, name, index):
         self.name = name
         self.index = index
-
-def test_capture_resumedata():
-    b1, b2, b3 = [InputArgInt(), InputArgRef(), InputArgInt()]
-    c1, c2, c3 = [ConstInt(1), ConstInt(2), ConstInt(3)]
-    fs = [FakeFrame(FakeJitCode("code0", 13), 0, b1, c1, b2)]
-
-    t = Trace([b1, b2, b3])
-    pos = capture_resumedata(fs, None, [], t)
-
-    assert fs[0].parent_resume_position == -1
-    s = t.get_iter().get_snapshot_iter(pos)
-
-    size, jitcode, pc = s.get_size_jitcode_pc()
-    assert jitcode == 13
-    boxes = s.read_boxes(size)
-    assert boxes == fs[0]._env
-
-    storage = Storage()
-    fs = [FakeFrame(FakeJitCode("code0", 0), 0, b1, c1, b2),
-          FakeFrame(FakeJitCode("code1", 1), 3, b3, c2, b1),
-          FakeFrame(FakeJitCode("code2", 2), 9, c3, b2)]
-    t = Trace([b1, b2, b3])
-    pos = capture_resumedata(fs, None, [], t)
-
-    assert fs[2].parent_resume_position != -1
-    s = t.get_iter().get_snapshot_iter(pos)
-    size, jitcode, pc = s.get_size_jitcode_pc()
-    assert (jitcode, pc) == (2, 9)
-
-    xxx
-    assert storage.rd_snapshot.boxes == []    # for virtualrefs
-    snapshot = storage.rd_snapshot.prev
-    assert snapshot.prev is fs[2].parent_resumedata_snapshot
-    assert snapshot.boxes == fs[2]._env
-
-    frame_info_list = frame_info_list.prev
-    assert frame_info_list.prev is fs[1].parent_resumedata_frame_info_list
-    assert unpack_uint(frame_info_list.packed_jitcode_pc) == (1, 3)
-    snapshot = snapshot.prev
-    assert snapshot.prev is fs[1].parent_resumedata_snapshot
-    assert snapshot.boxes == fs[1]._env
-
-    frame_info_list = frame_info_list.prev
-    assert frame_info_list.prev is None
-    assert unpack_uint(frame_info_list.packed_jitcode_pc) == (0, 0)
-    snapshot = snapshot.prev
-    assert snapshot.prev is None
-    assert snapshot.boxes == fs[0]._env
-
-    fs[2]._env = [b3, b2]
-    fs[2].pc = 15
-    vbs = [b1, b2]
-    vrs = [b3]
-    capture_resumedata(fs, vbs, vrs, storage)
-
-    frame_info_list = storage.rd_frame_info_list
-    assert frame_info_list.prev is fs[2].parent_resumedata_frame_info_list
-    assert unpack_uint(frame_info_list.packed_jitcode_pc) == (2, 15)
-    
-    snapshot = storage.rd_snapshot
-    assert snapshot.boxes == vrs
-    assert snapshot.vable_boxes == [b2, b1]
-
-    snapshot = snapshot.prev
-    assert snapshot.prev is fs[2].parent_resumedata_snapshot
-    assert snapshot.boxes == fs[2]._env
 
 class FakeMetaInterpStaticData:
     cpu = LLtypeMixin.cpu
@@ -886,12 +809,12 @@ def test_ResumeDataLoopMemo_other():
     assert memo.consts[index - TAG_CONST_OFFSET] is const
 
 def test_ResumeDataLoopMemo_number():
-    b1, b2, b3, b4, b5 = [InputArgInt(), InputArgInt(), InputArgInt(),
-                          InputArgRef(), InputArgRef()]
+    b1, b2, b3, b4, b5 = [IntFrontendOp(0), IntFrontendOp(1), IntFrontendOp(2),
+                          RefFrontendOp(3), RefFrontendOp(4)]
     c1, c2, c3, c4 = [ConstInt(1), ConstInt(2), ConstInt(3), ConstInt(4)]    
 
     env = [b1, c1, b2, b1, c2]
-    snap = Snapshot(None, env)
+    snap = Snapshot(0, env)
     env1 = [c3, b3, b1, c1]
     snap1 = TopSnapshot(snap, env1, [])
     env2 = [c3, b3, b1, c3]

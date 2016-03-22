@@ -53,7 +53,8 @@ def optimize_trace(metainterp_sd, jitdriver_sd, compile_data, memo=None):
     """
     debug_start("jit-optimize")
     try:
-        metainterp_sd.logger_noopt.log_loop_from_trace(compile_data.trace, memo=memo)
+        if compile_data.log_noopt:
+            metainterp_sd.logger_noopt.log_loop_from_trace(compile_data.trace, memo=memo)
         if memo is None:
             memo = {}
         compile_data.box_names_memo = memo

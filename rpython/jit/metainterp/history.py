@@ -687,7 +687,7 @@ class History(object):
             self._cache = None
 
     def length(self):
-        return self.trace._count
+        return self.trace._count - len(self.trace.inputargs)
 
     def get_trace_position(self):
         return self.trace.cut_point()

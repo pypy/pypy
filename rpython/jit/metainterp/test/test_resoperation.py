@@ -52,7 +52,7 @@ def test_mixins_in_common_base():
     assert len(INT_ADD.__bases__) == 1
     BinaryPlainResOp = INT_ADD.__bases__[0]
     assert BinaryPlainResOp.__name__ == 'BinaryPlainResOp'
-    assert BinaryPlainResOp.__bases__ == (rop.BinaryOp, rop.IntOp, rop.PlainResOp)
+    assert BinaryPlainResOp.__bases__ == (rop.BinaryOp, rop.PlainResOp)
     INT_SUB = rop.opclasses[rop.rop.INT_SUB]
     assert INT_SUB.__bases__[0] is BinaryPlainResOp
 

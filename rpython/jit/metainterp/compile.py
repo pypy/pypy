@@ -27,6 +27,7 @@ def giveup():
 
 class CompileData(object):
     memo = None
+    log_noopt = True
     
     def forget_optimization_info(self):
         for arg in self.trace.inputargs:
@@ -103,6 +104,8 @@ class UnrolledLoopData(CompileData):
     """ This represents label() ops jump with extra info that's from the
     run of LoopCompileData. Jump goes to the same label
     """
+    log_noopt = False
+
     def __init__(self, trace, celltoken, state,
                  call_pure_results=None, enable_opts=None,
                  inline_short_preamble=True):
@@ -200,7 +203,8 @@ def record_loop_or_bridge(metainterp_sd, loop):
 # ____________________________________________________________
 
 
-def compile_simple_loop(metainterp, greenkey, trace, runtime_args, enable_opts):
+def compile_simple_loop(metainterp, greenkey, trace, runtime_args, enable_opts,
+                        cut_at):
     from rpython.jit.metainterp.optimizeopt import optimize_trace
 
     jitdriver_sd = metainterp.jitdriver_sd
@@ -213,6 +217,7 @@ def compile_simple_loop(metainterp, greenkey, trace, runtime_args, enable_opts):
         loop_info, ops = optimize_trace(metainterp_sd, jitdriver_sd,
                                         data, metainterp.box_names_memo)
     except InvalidLoop:
+        history.cut(cut_at)
         return None
     loop = create_empty_loop(metainterp)
     loop.original_jitcell_token = jitcell_token
@@ -254,12 +259,13 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
         del enable_opts['unroll']
 
     jitcell_token = make_jitcell_token(jitdriver_sd)
+    cut_at = history.get_trace_position()
     history.record(rop.JUMP, jumpargs, None, descr=jitcell_token)
     if start != (0, 0):
         trace = trace.cut_trace_from(start, inputargs)
     if 'unroll' not in enable_opts or not metainterp.cpu.supports_guard_gc_type:
         return compile_simple_loop(metainterp, greenkey, trace, jumpargs,
-                                   enable_opts)
+                                   enable_opts, cut_at)
     call_pure_results = metainterp.call_pure_results
     preamble_data = LoopCompileData(trace, jumpargs,
                                     call_pure_results=call_pure_results,
@@ -269,6 +275,7 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
                                                    preamble_data,
                                                    metainterp.box_names_memo)
     except InvalidLoop:
+        history.cut(cut_at)
         return None
 
     metainterp_sd = metainterp.staticdata
@@ -284,6 +291,7 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
                                              loop_data,
                                              metainterp.box_names_memo)
     except InvalidLoop:
+        history.cut(cut_at)
         return None
 
     if ((warmstate.vec and jitdriver_sd.vec) or warmstate.vec_all):
@@ -352,7 +360,6 @@ def compile_retrace(metainterp, greenkey, start,
                                              metainterp.box_names_memo)
     except InvalidLoop:
         # Fall back on jumping directly to preamble
-        raise InvalidLoop
         xxxx
         jump_op = ResOperation(rop.JUMP, inputargs[:], descr=loop_jitcell_token)
         loop_data = UnrolledLoopData(end_label, jump_op, [jump_op], start_state,
