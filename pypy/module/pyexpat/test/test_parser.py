@@ -20,6 +20,15 @@ class AppTestPyexpat:
 
         pyexpat.ExpatError("error")
 
+    def test_attributes(self):
+        import pyexpat
+        p = pyexpat.ParserCreate()
+        assert p.buffer_text is False
+        assert p.namespace_prefixes is False
+        assert p.returns_unicode is True
+        assert p.ordered_attributes is False
+        assert p.specified_attributes is False
+
     def test_version(self):
         import pyexpat
         assert isinstance(pyexpat.__version__, str)

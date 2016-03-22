@@ -429,6 +429,7 @@ class W_XMLParserType(W_Root):
         self.returns_unicode = True
         self.ordered_attributes = False
         self.specified_attributes = False
+        self.ns_prefixes = False
 
         self.handlers = [None] * NB_HANDLERS
 
@@ -620,12 +621,12 @@ getting the advantage of providing document type information to the parser.
 
 
     def get_namespace_prefixes(self, space):
-        raise OperationError(space.w_AttributeError,
-            space.wrap("not implemented: reading namespace_prefixes"))
+        return space.wrap(self.ns_prefixes)
 
     @unwrap_spec(value=int)
     def set_namespace_prefixes(self, space, value):
-        XML_SetReturnNSTriplet(self.itself, bool(value))
+        self.ns_prefixes = bool(value)
+        XML_SetReturnNSTriplet(self.itself, self.ns_prefixes)
 
     # Parse methods
 
