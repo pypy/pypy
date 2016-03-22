@@ -3,6 +3,7 @@ from pypy.module.cpyext.api import (
 from pypy.module.cpyext.pyobject import PyObject, Py_DecRef, make_ref, from_ref
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib import rthread
+from rpython.rlib.objectmodel import we_are_translated
 
 PyInterpreterStateStruct = lltype.ForwardReference()
 PyInterpreterState = lltype.Ptr(PyInterpreterStateStruct)
@@ -53,15 +54,6 @@ def PyEval_ThreadsInitialized(space):
     if not space.config.translation.thread:
         return 0
     return 1
-
-thread_func = lltype.Ptr(lltype.FuncType([rffi.VOIDP], lltype.Void))
-@cpython_api([thread_func, rffi.VOIDP], rffi.INT_real, error=-1, gil='release')
-def PyThread_start_new_thread(space, func, arg):
-    from pypy.module.thread import os_thread
-    w_args = space.newtuple([space.wrap(rffi.cast(lltype.Signed, arg)),])
-    w_func = os_thread.W_WrapThreadFunc(func)
-    os_thread.start_new_thread(space, w_func, w_args)
-    return 0
 
 # XXX: might be generally useful
 def encapsulator(T, flavor='raw', dealloc=None):
@@ -209,6 +201,23 @@ PyGILState_UNLOCKED = 1
 
 ExecutionContext.cpyext_gilstate_counter_noleave = 0
 
+def _workaround_cpython_untranslated(space):
+    # Workaround when not translated.  The problem is that
+    # space.threadlocals.get_ec() is based on "thread._local", but
+    # CPython will clear a "thread._local" as soon as CPython's
+    # PyThreadState goes away.  This occurs even if we're in a thread
+    # created from C and we're going to call some more Python code
+    # from this thread.  This case shows up in
+    # test_pystate.test_frame_tstate_tracing.
+    def get_possibly_deleted_ec():
+        ec1 = space.threadlocals.raw_thread_local.get()
+        ec2 = space.threadlocals._valuedict.get(rthread.get_ident(), None)
+        if ec1 is None and ec2 is not None:
+            space.threadlocals.raw_thread_local.set(ec2)
+        return space.threadlocals.__class__.get_ec(space.threadlocals)
+    space.threadlocals.get_ec = get_possibly_deleted_ec
+
+
 @cpython_api([], PyGILState_STATE, error=CANNOT_FAIL, gil="pygilstate_ensure")
 def PyGILState_Ensure(space, previous_state):
     # The argument 'previous_state' is not part of the API; it is inserted
@@ -228,6 +237,8 @@ def PyGILState_Ensure(space, previous_state):
         # PyPy code below.
         assert previous_state == PyGILState_UNLOCKED
         assert ec.cpyext_gilstate_counter_noleave == 0
+        if not we_are_translated():
+            _workaround_cpython_untranslated(space)
     #
     return rffi.cast(PyGILState_STATE, previous_state)
 

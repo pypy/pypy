@@ -64,6 +64,13 @@ PyThread_release_lock(PyThread_type_lock lock)
     RPyThreadReleaseLock((struct RPyOpaque_ThreadLock*)lock);
 }
 
+long
+PyThread_start_new_thread(void (*func)(void *), void *arg)
+{
+    PyThread_init_thread();
+    return RPyThreadStartEx(func, arg);
+}
+
 
 /* ------------------------------------------------------------------------
 Per-thread data ("key") support.
