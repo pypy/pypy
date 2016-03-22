@@ -89,6 +89,7 @@ for name, spacemeth in [
     ('Xor', 'xor'),
     ('Or', 'or_'),
     ('Divmod', 'divmod'),
+    ('MatrixMultiply', 'matmul')
     ]:
     make_numbermethod(name, spacemeth)
     if name != 'Divmod':

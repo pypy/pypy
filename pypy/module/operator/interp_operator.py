@@ -143,6 +143,10 @@ def xor(space, w_a, w_b):
     'xor(a, b) -- Same as a ^ b.'
     return space.xor(w_a, w_b)
 
+def matmul(space, w_a, w_b):
+    'matmul(a, b) -- Same as a @ b.'
+    return space.matmul(w_a, w_b)
+
 # in-place operations
 
 def iadd(space, w_obj1, w_obj2):
