@@ -111,7 +111,7 @@ class VectorLoop(object):
         loop.prefix_label = prefix_label
         return loop
 
-def optimize_vector(metainterp_sd, jitdriver_sd, warmstate,
+def optimize_vector(trace, metainterp_sd, jitdriver_sd, warmstate,
                     loop_info, loop_ops, jitcell_token=None):
     """ Enter the world of SIMD. Bails if it cannot transform the trace. """
     user_code = not jitdriver_sd.vec and warmstate.vec_all
@@ -190,7 +190,7 @@ def user_loop_bail_fast_path(loop, warmstate):
 
         if warmstate.vec_ratio > 0.0:
             # blacklist
-            if op.is_call() or op.is_call_assembler():
+            if op.is_call() or rop.is_call_assembler(op):
                 return True
 
         if op.is_guard():

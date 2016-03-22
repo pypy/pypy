@@ -498,7 +498,7 @@ def prepare_fail_arguments(state, pack, left, vecop):
             newarg = unpack_from_vector(state, newarg, 0, 1)
         args[i] = newarg
     vecop.setfailargs(args)
-    vecop.rd_snapshot = left.rd_snapshot
+    # TODO vecop.rd_snapshot = left.rd_snapshot
 
 @always_inline
 def crop_vector(state, oprestrict, restrict, pack, args, i):
