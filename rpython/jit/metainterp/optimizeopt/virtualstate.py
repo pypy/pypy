@@ -157,9 +157,11 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
                 raise VirtualStatesCantMatch("field descrs don't match")
             if runtime_box is not None and opinfo is not None:
                 fieldbox = opinfo._fields[self.fielddescrs[i].get_index()]
-                # must be there
-                fieldbox_runtime = state.get_runtime_field(runtime_box,
+                if fieldbox is not None:
+                    fieldbox_runtime = state.get_runtime_field(runtime_box,
                                                            self.fielddescrs[i])
+                else:
+                    fieldbox_runtime = None
             else:
                 fieldbox = None
                 fieldbox_runtime = None
