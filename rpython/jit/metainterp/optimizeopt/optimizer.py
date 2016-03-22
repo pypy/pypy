@@ -464,8 +464,9 @@ class Optimizer(Optimization):
         else:
             last_guard_pos = -1
         assert opinfo is None or opinfo.__class__ is info.NonNullPtrInfo
-        if (op.is_getfield() or op.getopnum() == rop.SETFIELD_GC or
-            op.getopnum() == rop.QUASIIMMUT_FIELD):
+        opnum = op.opnum
+        if (rop.is_getfield(opnum) or opnum == rop.SETFIELD_GC or
+            opnum == rop.QUASIIMMUT_FIELD):
             descr = op.getdescr()
             parent_descr = descr.get_parent_descr()
             if parent_descr.is_object():
@@ -473,14 +474,14 @@ class Optimizer(Optimization):
             else:
                 opinfo = info.StructPtrInfo(parent_descr)
             opinfo.init_fields(parent_descr, descr.get_index())
-        elif (op.is_getarrayitem() or op.getopnum() == rop.SETARRAYITEM_GC or
-              op.getopnum() == rop.ARRAYLEN_GC):
+        elif (rop.is_getarrayitem(opnum) or opnum == rop.SETARRAYITEM_GC or
+              opnum == rop.ARRAYLEN_GC):
             opinfo = info.ArrayPtrInfo(op.getdescr())
-        elif op.getopnum() in (rop.GUARD_CLASS, rop.GUARD_NONNULL_CLASS):
+        elif opnum in (rop.GUARD_CLASS, rop.GUARD_NONNULL_CLASS):
             opinfo = info.InstancePtrInfo()
-        elif op.getopnum() in (rop.STRLEN,):
+        elif opnum in (rop.STRLEN,):
             opinfo = vstring.StrPtrInfo(vstring.mode_string)            
-        elif op.getopnum() in (rop.UNICODELEN,):
+        elif opnum in (rop.UNICODELEN,):
             opinfo = vstring.StrPtrInfo(vstring.mode_unicode)
         else:
             assert False, "operations %s unsupported" % op
@@ -542,7 +543,7 @@ class Optimizer(Optimization):
         dispatch_opt(self, op)
 
     def emit_operation(self, op):
-        if op.returns_bool_result():
+        if rop.returns_bool_result(op.opnum):
             self.getintbound(op).make_bool()
         self._emit_operation(op)
         op = self.get_box_replacement(op)
@@ -561,8 +562,8 @@ class Optimizer(Optimization):
         if op.is_constant():
             return # can happen e.g. if we postpone the operation that becomes
             # constant
-        # XXX kill
-        op = self.replace_op_with(op, op.getopnum())
+        # XXX kill, requires thinking
+        op = self.replace_op_with(op, op.opnum)
         for i in range(op.numargs()):
             arg = self.force_box(op.getarg(i))
             op.setarg(i, arg)
@@ -580,8 +581,10 @@ class Optimizer(Optimization):
                 op = self.emit_guard_operation(op, pendingfields)
         elif op.can_raise():
             self.exception_might_have_happened = True
-        if ((op.has_no_side_effect() or op.is_guard() or op.is_jit_debug() or
-             op.is_ovf()) and not self.is_call_pure_pure_canraise(op)):
+        opnum = op.opnum
+        if ((rop.has_no_side_effect(opnum) or rop.is_guard(opnum) or
+             rop.is_jit_debug(opnum) or
+             rop.is_ovf(opnum)) and not self.is_call_pure_pure_canraise(op)):
             pass
         else:
             self._last_guard_op = None

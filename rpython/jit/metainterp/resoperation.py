@@ -205,7 +205,7 @@ class VectorizationInfo(AbstractValue):
                             type = vecinfo.datatype
                             signed = vecinfo.signed
                             bytesize = vecinfo.bytesize
-            if op.returns_bool_result():
+            if rop.returns_bool_result(op.opnum):
                 type = 'i'
             self.setinfo(type, bytesize, signed)
 
@@ -402,58 +402,10 @@ class AbstractResOp(AbstractResOpOrInputArg):
     def is_foldable_guard(self):
         return rop.is_foldable_guard(self.getopnun())
 
-    def is_guard_exception(self):
-        return rop.is_guard_
-        return (self.getopnum() == rop.GUARD_EXCEPTION or
-                self.getopnum() == rop.GUARD_NO_EXCEPTION)
-
-    def is_guard_overflow(self):
-        return (self.getopnum() == rop.GUARD_OVERFLOW or
-                self.getopnum() == rop.GUARD_NO_OVERFLOW)
-
-    def is_jit_debug(self):
-        return rop._JIT_DEBUG_FIRST <= self.getopnum() <= rop._JIT_DEBUG_LAST
-
-    def is_always_pure(self):
-        # Tells whether an operation is pure based solely on the opcode.
-        # Other operations (e.g. getfield ops) may be pure in some cases are well.
-        return rop._ALWAYS_PURE_FIRST <= self.getopnum() <= rop._ALWAYS_PURE_LAST
-
-    def has_no_side_effect(self):
-        return rop._NOSIDEEFFECT_FIRST <= self.getopnum() <= rop._NOSIDEEFFECT_LAST
-
-    def is_malloc(self):
-        # a slightly different meaning from can_malloc
-        return rop._MALLOC_FIRST <= self.getopnum() <= rop._MALLOC_LAST
-
-    def can_malloc(self):
-        return self.is_call() or self.is_malloc()
-
-    def is_call(self):
-        return rop._CALL_FIRST <= self.getopnum() <= rop._CALL_LAST
-
-    def is_same_as(self):
-        return self.opnum in (rop.SAME_AS_I, rop.SAME_AS_F, rop.SAME_AS_R)
-
-    def is_getfield(self):
-        return self.opnum in (rop.GETFIELD_GC_I, rop.GETFIELD_GC_F, rop.GETFIELD_GC_R)
-
-    def is_getarrayitem(self):
-        return self.opnum in (rop.GETARRAYITEM_GC_I, rop.GETARRAYITEM_GC_F,
-                              rop.GETARRAYITEM_GC_R, rop.GETARRAYITEM_GC_PURE_I,
-                              rop.GETARRAYITEM_GC_PURE_F,
-                              rop.GETARRAYITEM_GC_PURE_R)
-
-    def is_vector_arithmetic(self):
-        return rop._VEC_ARITHMETIC_FIRST <= self.getopnum() <= rop._VEC_ARITHMETIC_LAST
-
-    def is_raw_array_access(self):
-        return self.is_raw_load() or self.is_raw_store()
-
     def is_primitive_array_access(self):
         """ Indicates that this operations loads/stores a
         primitive type (int,float) """
-        if self.is_primitive_load() or self.is_primitive_store():
+        if rop.is_primitive_load(self.opnum) or rop.is_primitive_store(self.opnum):
             descr = self.getdescr()
             if not we_are_translated():
                 from rpython.jit.backend.llgraph.runner import _getdescr
@@ -461,24 +413,6 @@ class AbstractResOp(AbstractResOpOrInputArg):
             if descr and descr.is_array_of_primitives():
                 return True
         return False
-
-    def is_primitive_load(self):
-        return rop._RAW_LOAD_FIRST < self.getopnum() < rop._RAW_LOAD_LAST
-
-    def is_primitive_store(self):
-        return rop._RAW_STORE_FIRST < self.getopnum() < rop._RAW_STORE_LAST
-
-    def is_final(self):
-        return rop._FINAL_FIRST <= self.getopnum() <= rop._FINAL_LAST
-
-    def returns_bool_result(self):
-        return self._cls_has_bool_result
-
-    #def forget_value(self): -- in the base class, AbstractResOpOrInputArg
-    #    pass
-
-    def is_label(self):
-        return self.getopnum() == rop.LABEL
 
     def is_vector(self):
         return False
@@ -1442,27 +1376,30 @@ class rop(object):
     def can_raise(opnum):
         return rop._CANRAISE_FIRST <= opnum <= rop._CANRAISE_LAST
 
-    def is_malloc(self):
+    @staticmethod
+    def is_malloc(opnum):
         # a slightly different meaning from can_malloc
-        return rop._MALLOC_FIRST <= self.getopnum() <= rop._MALLOC_LAST
+        return rop._MALLOC_FIRST <= opnum <= rop._MALLOC_LAST
 
-    def can_malloc(self):
-        return self.is_call() or self.is_malloc()
+    @staticmethod
+    def can_malloc(opnum):
+        return rop.is_call(opnum) or rop.is_malloc(opnum)
 
     @staticmethod
     def is_same_as(opnum):
         return opnum in (rop.SAME_AS_I, rop.SAME_AS_F, rop.SAME_AS_R)
 
-    def is_getfield(self):
-        return self.opnum in (rop.GETFIELD_GC_I, rop.GETFIELD_GC_F,
-                              rop.GETFIELD_GC_R, rop.GETFIELD_GC_PURE_I,
-                              rop.GETFIELD_GC_PURE_R, rop.GETFIELD_GC_PURE_F)
+    @staticmethod
+    def is_getfield(opnum):
+        return opnum in (rop.GETFIELD_GC_I, rop.GETFIELD_GC_F,
+                              rop.GETFIELD_GC_R)
 
-    def is_getarrayitem(self):
-        return self.opnum in (rop.GETARRAYITEM_GC_I, rop.GETARRAYITEM_GC_F,
-                              rop.GETARRAYITEM_GC_R, rop.GETARRAYITEM_GC_PURE_I,
-                              rop.GETARRAYITEM_GC_PURE_F,
-                              rop.GETARRAYITEM_GC_PURE_R)
+    @staticmethod
+    def is_getarrayitem(opnum):
+        return opnum in (rop.GETARRAYITEM_GC_I, rop.GETARRAYITEM_GC_F,
+                         rop.GETARRAYITEM_GC_R, rop.GETARRAYITEM_GC_PURE_I,
+                         rop.GETARRAYITEM_GC_PURE_F,
+                         rop.GETARRAYITEM_GC_PURE_R)
 
     @staticmethod
     def is_real_call(opnum):
@@ -1503,42 +1440,33 @@ class rop(object):
     def is_ovf(opnum):
         return rop._OVF_FIRST <= opnum <= rop._OVF_LAST
 
-    def is_vector_arithmetic(self):
-        return rop._VEC_ARITHMETIC_FIRST <= self.getopnum() <= rop._VEC_ARITHMETIC_LAST
+    @staticmethod
+    def is_vector_arithmetic(opnum):
+        return rop._VEC_ARITHMETIC_FIRST <= opnum <= rop._VEC_ARITHMETIC_LAST
 
-    def is_raw_array_access(self):
-        return self.is_raw_load() or self.is_raw_store()
+    @staticmethod
+    def is_raw_array_access(opnum):
+        return rop.is_raw_load(opnum) or rop.is_raw_store(opnum)
 
-    def is_primitive_array_access(self):
-        """ Indicates that this operations loads/stores a
-        primitive type (int,float) """
-        if self.is_primitive_load() or self.is_primitive_store():
-            descr = self.getdescr()
-            if not we_are_translated():
-                from rpython.jit.backend.llgraph.runner import _getdescr
-                descr = _getdescr(self)
-            if descr and descr.is_array_of_primitives():
-                return True
-        return False
+    @staticmethod
+    def is_primitive_load(opnum):
+        return rop._RAW_LOAD_FIRST < opnum < rop._RAW_LOAD_LAST
 
-    def is_primitive_load(self):
-        return rop._RAW_LOAD_FIRST < self.getopnum() < rop._RAW_LOAD_LAST
+    @staticmethod
+    def is_primitive_store(opnum):
+        return rop._RAW_STORE_FIRST < opnum < rop._RAW_STORE_LAST
 
-    def is_primitive_store(self):
-        return rop._RAW_STORE_FIRST < self.getopnum() < rop._RAW_STORE_LAST
-
-    def is_final(self):
-        return rop._FINAL_FIRST <= self.getopnum() <= rop._FINAL_LAST
+    @staticmethod
+    def is_final(opnum):
+        return rop._FINAL_FIRST <= opnum <= rop._FINAL_LAST
 
     @staticmethod
     def returns_bool_result(opnum):
         return opclasses[opnum]._cls_has_bool_result
 
-    #def forget_value(self): -- in the base class, AbstractResOpOrInputArg
-    #    pass
-
-    def is_label(self):
-        return self.getopnum() == rop.LABEL
+    @staticmethod
+    def is_label(opnum):
+        return opnum == rop.LABEL
 
     @staticmethod
     def is_call(opnum):

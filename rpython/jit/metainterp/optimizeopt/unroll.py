@@ -391,7 +391,7 @@ class UnrollOptimizer(Optimization):
                 for box in self._map_args(mapping, short_jump_args)]
 
     def _expand_info(self, arg, infos):
-        if isinstance(arg, AbstractResOp) and arg.is_same_as():
+        if isinstance(arg, AbstractResOp) and rop.is_same_as(arg.opnum):
             info = self.optimizer.getinfo(arg.getarg(0))
         else:
             info = self.optimizer.getinfo(arg)
