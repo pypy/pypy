@@ -572,10 +572,10 @@ class __extend__(pyframe.PyFrame):
     BINARY_MULTIPLY = binaryoperation("mul")
     BINARY_TRUE_DIVIDE  = binaryoperation("truediv")
     BINARY_FLOOR_DIVIDE = binaryoperation("floordiv")
-    BINARY_MATRIX_MULTIPLY = binaryoperation("matmul")
     BINARY_DIVIDE       = binaryoperation("div")
     # XXX BINARY_DIVIDE must fall back to BINARY_TRUE_DIVIDE with -Qnew
     BINARY_MODULO       = binaryoperation("mod")
+    BINARY_MATRIX_MULTIPLY = binaryoperation("matmul")
     BINARY_ADD      = binaryoperation("add")
     BINARY_SUBTRACT = binaryoperation("sub")
     BINARY_SUBSCR   = binaryoperation("getitem")
@@ -598,6 +598,7 @@ class __extend__(pyframe.PyFrame):
     INPLACE_DIVIDE       = binaryoperation("inplace_div")
     # XXX INPLACE_DIVIDE must fall back to INPLACE_TRUE_DIVIDE with -Qnew
     INPLACE_MODULO       = binaryoperation("inplace_mod")
+    INPLACE_MATRIX_MULTIPLY = binaryoperation("inplace_matmul")
     INPLACE_ADD      = binaryoperation("inplace_add")
     INPLACE_SUBTRACT = binaryoperation("inplace_sub")
     INPLACE_LSHIFT   = binaryoperation("inplace_lshift")

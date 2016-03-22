@@ -581,6 +581,7 @@ _static_opcode_stack_effects = {
     ops.INPLACE_MULTIPLY: -1,
     ops.INPLACE_MODULO: -1,
     ops.INPLACE_POWER: -1,
+    ops.INPLACE_MATRIX_MULTIPLY: -1,
     ops.INPLACE_LSHIFT: -1,
     ops.INPLACE_RSHIFT: -1,
     ops.INPLACE_AND: -1,

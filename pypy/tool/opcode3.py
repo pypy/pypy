@@ -5,6 +5,7 @@ operate on bytecodes (e.g. peephole optimizers).
 "Backported" from Python 3 to Python 2 land - an excact copy of lib-python/3/opcode.py
 """
 
+
 __all__ = ["cmp_op", "hasconst", "hasname", "hasjrel", "hasjabs",
            "haslocal", "hascompare", "hasfree", "opname", "opmap",
            "HAVE_ARGUMENT", "EXTENDED_ARG", "hasnargs"]

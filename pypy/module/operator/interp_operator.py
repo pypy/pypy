@@ -197,6 +197,10 @@ def ixor(space, w_a, w_b):
     'ixor(a, b) -- Same as a ^= b.'
     return space.inplace_xor(w_a, w_b)
 
+def imatmul(space, w_a, w_b):
+    'imatmul(a, b) -- Same as a @= b.'
+    return space.inplace_matmul(w_a, w_b)
+
 def iconcat(space, w_obj1, w_obj2):
     'iconcat(a, b) -- Same as a += b, for a and b sequences.'
     if (space.lookup(w_obj1, '__getitem__') is None or
