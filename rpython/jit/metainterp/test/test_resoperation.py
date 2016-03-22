@@ -74,13 +74,9 @@ def test_instantiate():
     #assert re.match("guard_no_exception\(descr=<.+>\)$", repr(op))
 
 def test_can_malloc():
-    a = ConstInt(1)
-    b = ConstInt(2)
-    mydescr = AbstractDescr()
-    assert rop.ResOperation(rop.rop.NEW, []).can_malloc()
-    call = rop.ResOperation(rop.rop.CALL_N, [a, b], descr=mydescr)
-    assert call.can_malloc()
-    assert not rop.ResOperation(rop.rop.INT_ADD, [a, b]).can_malloc()
+    assert rop.rop.can_malloc(rop.rop.NEW)
+    assert rop.rop.can_malloc(rop.rop.CALL_N)
+    assert not rop.rop.can_malloc(rop.rop.INT_ADD)
 
 def test_get_deep_immutable_oplist():
     a = ConstInt(1)

@@ -103,7 +103,7 @@ class GcRewriterAssembler(object):
                     orig_op.set_forwarded(op)
                     replaced = True
                 op.setarg(i, arg)
-        if op.is_guard():
+        if rop.is_guard(op.opnum):
             if not replaced:
                 op = op.copy_and_change(op.getopnum())
                 orig_op.set_forwarded(op)
@@ -203,7 +203,7 @@ class GcRewriterAssembler(object):
     def transform_to_gc_load(self, op):
         NOT_SIGNED = 0
         CINT_ZERO = ConstInt(0)
-        if op.is_getarrayitem() or \
+        if rop.is_getarrayitem(op.opnum) or \
            op.getopnum() in (rop.GETARRAYITEM_RAW_I,
                              rop.GETARRAYITEM_RAW_F):
             self.handle_getarrayitem(op)
@@ -315,13 +315,13 @@ class GcRewriterAssembler(object):
             if self.transform_to_gc_load(op):
                 continue
             # ---------- turn NEWxxx into CALL_MALLOC_xxx ----------
-            if op.is_malloc():
+            if rop.is_malloc(op.opnum):
                 self.handle_malloc_operation(op)
                 continue
-            if (op.is_guard() or
+            if (rop.is_guard(op.opnum) or
                     self.could_merge_with_next_guard(op, i, operations)):
                 self.emit_pending_zeros()
-            elif op.can_malloc():
+            elif rop.can_malloc(op.opnum):
                 self.emitting_an_operation_that_can_collect()
             elif op.getopnum() == rop.LABEL:
                 self.emitting_an_operation_that_can_collect()
