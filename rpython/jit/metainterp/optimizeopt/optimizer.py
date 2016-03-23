@@ -22,7 +22,7 @@ llhelper.CONST_NULLREF = llhelper.CONST_NULL
 REMOVED = AbstractResOp()
 
 class LoopInfo(object):
-    pass
+    label_op = None
 
 class BasicLoopInfo(LoopInfo):
     def __init__(self, inputargs, quasi_immutable_deps, jump_op):

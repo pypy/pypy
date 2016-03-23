@@ -345,9 +345,6 @@ def compile_retrace(metainterp, greenkey, start,
     loop_jitcell_token = metainterp.get_procedure_token(greenkey)
     assert loop_jitcell_token
 
-    end_label = ResOperation(rop.LABEL, inputargs[:],
-                             descr=loop_jitcell_token)
-    #cut_pos = history.get_trace_position()
     cut = history.get_trace_position()
     history.record(rop.JUMP, jumpargs[:], None, descr=loop_jitcell_token)
     enable_opts = jitdriver_sd.warmstate.enable_opts
@@ -375,7 +372,10 @@ def compile_retrace(metainterp, greenkey, start,
             history.cut(cut)
             return None
 
-    label_token = loop_info.label_op.getdescr()
+    label_op = loop_info.label_op
+    if label_op is None:
+        assert False, "unreachable code" # hint for some strange tests
+    label_token = label_op.getdescr()
     assert isinstance(label_token, TargetToken)
     if label_token.short_preamble:
         metainterp_sd.logger_ops.log_short_preamble([],
