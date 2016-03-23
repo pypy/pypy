@@ -716,30 +716,31 @@ class VRefTests(object):
         class PyFrame(object):
             pass
 
-        def dispatch(ec, frame, n, i):
+        def dispatch(ec, frame, n):
+            i = 0
             while True:
                 myjitdriver.jit_merge_point(n=n, ec=ec, frame=frame, i=i)
                 i += 1
                 if n == 1:
-                    execute_frame(ec, 2, 0)
+                    execute_frame(ec, 2)
                     if i >= 10:
                         break
                 elif n == 2:
-                    execute_frame(ec, 3, i)
+                    execute_frame(ec, 3)
                     if i == 2:
                         break
                 elif n == 3:
                     break
 
-        def execute_frame(ec, n, i):
+        def execute_frame(ec, n):
             frame = PyFrame()
             ec.enter(frame)
-            dispatch(ec, frame, n, i)
+            dispatch(ec, frame, n)
             ec.leave(frame)
             return n
 
         def entry_point():
-            return execute_frame(ExecutionContext(), 1, 0)
+            return execute_frame(ExecutionContext(), 1)
 
         assert entry_point() == 1
         self.meta_interp(entry_point, [], inline=True)
