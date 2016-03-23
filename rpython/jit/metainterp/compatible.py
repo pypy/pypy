@@ -109,15 +109,18 @@ class Condition(object):
     def repr(self):
         return ""
 
-    @staticmethod
-    def _repr_const(arg):
+    def _repr_const(self, arg):
         from rpython.jit.metainterp.history import ConstInt, ConstFloat, ConstPtr
         if isinstance(arg, ConstInt):
             return str(arg.value)
         elif isinstance(arg, ConstPtr):
-            return "<some const ptr>"
+            if arg.value:
+                return "<some const ptr>"
+            else:
+                return "None"
         elif isinstance(arg, ConstFloat):
             return str(arg.getfloat())
+        return "<huh?>"
 
 class PureCallCondition(Condition):
     def __init__(self, op, metainterp_sd):

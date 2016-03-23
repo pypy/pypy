@@ -30,10 +30,10 @@ class TestCompatible(LLJitMixin):
             while n > 0:
                 driver.can_enter_jit(n=n, x=x)
                 driver.jit_merge_point(n=n, x=x)
-                n -= g(x, 7)
+                n -= g(x, "abc")
 
         def main():
-            g(p1, 9) # make annotator not make argument constant
+            g(p1, "def") # make annotator not make argument constant
             f(100, p1)
             f(100, p2)
             f(100, p3)
