@@ -1,10 +1,9 @@
 
 """ Storage format:
 for each operation (inputargs numbered with negative numbers)
-<opnum> [size-if-unknown-arity] [<arg0> <arg1> ...] [descr] [potential snapshot]
-snapshot is as follows
-<total size of snapshot> <virtualizable size> <virtualizable boxes>
-<virtualref size> <virtualref boxes> [<size> <jitcode> <pc> <boxes...> ...]
+<opnum> [size-if-unknown-arity] [<arg0> <arg1> ...] [descr-or-snapshot-index]
+
+Snapshot index for guards points to snapshot stored in _snapshots of trace
 """
 
 from rpython.jit.metainterp.history import ConstInt, Const, ConstFloat, ConstPtr
@@ -23,6 +22,9 @@ SMALL_INT_STOP  = 2 ** (15 - TAGSHIFT)
 SMALL_INT_START = -SMALL_INT_STOP
 MIN_SHORT = -2**15 + 1
 MAX_SHORT = 2**15 - 1
+
+class TagOverflow(Exception):
+    pass
 
 class BaseTrace(object):
     pass
@@ -76,6 +78,8 @@ class TraceIterator(BaseTrace):
         self.metainterp_sd = metainterp_sd
         self._cache = [None] * trace._count
         if force_inputargs is not None:
+            # the trace here is cut and we're working from
+            # inputargs that are in the middle, shuffle stuff around a bit
             self.inputargs = [rop.inputarg_from_tp(arg.type) for
                               arg in force_inputargs]
             for i, arg in enumerate(force_inputargs):
@@ -251,7 +255,8 @@ class Trace(BaseTrace):
         if self._pos >= len(self._ops):
             # grow by 2X
             self._ops = self._ops + [rffi.cast(rffi.SHORT, -15)] * len(self._ops)
-        assert MIN_SHORT < v < MAX_SHORT
+        if not MIN_SHORT < v < MAX_SHORT:
+            raise TagOverflow
         self._ops[self._pos] = rffi.cast(rffi.SHORT, v)
         self._pos += 1
 
@@ -305,14 +310,10 @@ class Trace(BaseTrace):
                         self._bigints.append(box.getint())
                 return tag(TAGCONSTOTHER, v)
             elif isinstance(box, ConstFloat):
+                # don't intern float constants
                 self._consts_float += 1
-                v = self._floats_dict.get(box.getfloat(), -1)
-                if v == -1:
-                    v = (len(self._floats) << 1) | 1
-                    # XXX the next line is bogus, can't use a float as
-                    # dict key.  Must convert it first to a longlong
-                    self._floats_dict[box.getfloat()] = v
-                    self._floats.append(box.getfloat())
+                v = (len(self._floats) << 1) | 1
+                self._floats.append(box.getfloat())
                 return tag(TAGCONSTOTHER, v)
             else:
                 self._consts_ptr += 1
@@ -343,6 +344,8 @@ class Trace(BaseTrace):
         for box in argboxes:
             self.append(self._encode(box))
         if opwithdescr[opnum]:
+            # note that for guards we always store 0 which is later
+            # patched during capture_resumedata
             if descr is None:
                 self.append(0)
             else:
