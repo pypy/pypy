@@ -105,6 +105,7 @@ def dispatch_filename_2(func):
                 return func(fname1, fname2, *args)
     return dispatch
 
+
 if hasattr(rposix, 'AT_FDCWD'):
     DEFAULT_DIR_FD = rposix.AT_FDCWD
 else:
@@ -117,21 +118,25 @@ def _unwrap_fd(space, w_value):
     else:
         return space.c_int_w(w_value)
 
+class _DirFD(Unwrapper):
+    def unwrap(self, space, w_value):
+        return _unwrap_fd(space, w_value)
 
-class DirFD(Unwrapper):
+class _DirFD_Unavailable(Unwrapper):
     def unwrap(self, space, w_value):
         dir_fd = _unwrap_fd(space, w_value)
         if dir_fd == DEFAULT_DIR_FD:
             return dir_fd
-        elif not DIR_FD_AVAILABLE:
+        else:
             raise oefmt(
                 space.w_NotImplementedError,
                 "dir_fd unavailable on this platform")
-        else:
-            return dir_fd
+
+def DirFD(available=False):
+    return _DirFD if available else _DirFD_Unavailable
 
 
-@unwrap_spec(flags=c_int, mode=c_int, dir_fd=DirFD)
+@unwrap_spec(flags=c_int, mode=c_int, dir_fd=DirFD(rposix.HAVE_OPENAT))
 def open(space, w_path, flags, mode=0777, dir_fd=DEFAULT_DIR_FD):
     """open(path, flags, mode=0o777, *, dir_fd=None)
 
@@ -334,7 +339,7 @@ file descriptor."""
     else:
         return build_stat_result(space, st)
 
-@unwrap_spec(dir_fd=DirFD, follow_symlinks=kwonly(bool))
+@unwrap_spec(dir_fd=DirFD(available=False), follow_symlinks=kwonly(bool))
 def stat(space, w_path, dir_fd=DEFAULT_DIR_FD, follow_symlinks=True):
     """stat(path, *, dir_fd=None, follow_symlinks=True) -> stat result
 
@@ -359,7 +364,7 @@ It is an error to use dir_fd or follow_symlinks when specifying path as
     else:
         return build_stat_result(space, st)
 
-@unwrap_spec(dir_fd=DirFD)
+@unwrap_spec(dir_fd=DirFD(available=False))
 def lstat(space, w_path, dir_fd=DEFAULT_DIR_FD):
     """lstat(path, *, dir_fd=None) -> stat result
 
@@ -439,7 +444,7 @@ def dup2(space, old_fd, new_fd):
         raise wrap_oserror(space, e)
 
 @unwrap_spec(mode=c_int,
-    dir_fd=DirFD, effective_ids=kwonly(bool), follow_symlinks=kwonly(bool))
+    dir_fd=DirFD(available=False), effective_ids=kwonly(bool), follow_symlinks=kwonly(bool))
 def access(space, w_path, mode,
         dir_fd=DEFAULT_DIR_FD, effective_ids=True, follow_symlinks=True):
     """\
@@ -499,7 +504,7 @@ def system(space, cmd):
     else:
         return space.wrap(rc)
 
-@unwrap_spec(dir_fd=DirFD)
+@unwrap_spec(dir_fd=DirFD(rposix.HAVE_UNLINKAT))
 def unlink(space, w_path, dir_fd=DEFAULT_DIR_FD):
     """unlink(path, *, dir_fd=None)
 
@@ -518,7 +523,7 @@ dir_fd may not be implemented on your platform.
     except OSError as e:
         raise wrap_oserror2(space, e, w_path)
 
-@unwrap_spec(dir_fd=DirFD)
+@unwrap_spec(dir_fd=DirFD(rposix.HAVE_UNLINKAT))
 def remove(space, w_path, dir_fd=DEFAULT_DIR_FD):
     """remove(path, *, dir_fd=None)
 
@@ -583,7 +588,7 @@ def chdir(space, w_path):
     except OSError, e:
         raise wrap_oserror2(space, e, w_path)
 
-@unwrap_spec(mode=c_int, dir_fd=DirFD)
+@unwrap_spec(mode=c_int, dir_fd=DirFD(rposix.HAVE_MKDIRAT))
 def mkdir(space, w_path, mode=0o777, dir_fd=DEFAULT_DIR_FD):
     """mkdir(path, mode=0o777, *, dir_fd=None)
 
@@ -604,7 +609,7 @@ The mode argument is ignored on Windows."""
     except OSError as e:
         raise wrap_oserror2(space, e, w_path)
 
-@unwrap_spec(dir_fd=DirFD)
+@unwrap_spec(dir_fd=DirFD(rposix.HAVE_UNLINKAT))
 def rmdir(space, w_path, dir_fd=DEFAULT_DIR_FD):
     """rmdir(path, *, dir_fd=None)
 
@@ -751,7 +756,7 @@ def pipe(space):
         raise wrap_oserror(space, e)
     return space.newtuple([space.wrap(fd1), space.wrap(fd2)])
 
-@unwrap_spec(mode=c_int, dir_fd=DirFD, follow_symlinks=kwonly(bool))
+@unwrap_spec(mode=c_int, dir_fd=DirFD(available=False), follow_symlinks=kwonly(bool))
 def chmod(space, w_path, mode, dir_fd=DEFAULT_DIR_FD, follow_symlinks=True):
     """chmod(path, mode, *, dir_fd=None, follow_symlinks=True)
 
@@ -784,7 +789,7 @@ descriptor fd."""
     except OSError, e:
         raise wrap_oserror(space, e)
 
-@unwrap_spec(src_dir_fd=DirFD, dst_dir_fd=DirFD)
+@unwrap_spec(src_dir_fd=DirFD(available=False), dst_dir_fd=DirFD(available=False))
 def rename(space, w_old, w_new,
         src_dir_fd=DEFAULT_DIR_FD, dst_dir_fd=DEFAULT_DIR_FD):
     """rename(src, dst, *, src_dir_fd=None, dst_dir_fd=None)
@@ -801,7 +806,7 @@ src_dir_fd and dst_dir_fd, may not be implemented on your platform.
     except OSError, e:
         raise wrap_oserror(space, e)
 
-@unwrap_spec(src_dir_fd=DirFD, dst_dir_fd=DirFD)
+@unwrap_spec(src_dir_fd=DirFD(available=False), dst_dir_fd=DirFD(available=False))
 def replace(space, w_old, w_new,
         src_dir_fd=DEFAULT_DIR_FD, dst_dir_fd=DEFAULT_DIR_FD):
     """replace(src, dst, *, src_dir_fd=None, dst_dir_fd=None)
@@ -818,7 +823,7 @@ src_dir_fd and dst_dir_fd, may not be implemented on your platform.
     except OSError, e:
         raise wrap_oserror(space, e)
 
-@unwrap_spec(mode=c_int, dir_fd=DirFD)
+@unwrap_spec(mode=c_int, dir_fd=DirFD(rposix.HAVE_MKFIFOAT))
 def mkfifo(space, w_path, mode=0666, dir_fd=DEFAULT_DIR_FD):
     """mkfifo(path, mode=0o666, *, dir_fd=None)
 
@@ -837,7 +842,7 @@ dir_fd may not be implemented on your platform.
     except OSError as e:
         raise wrap_oserror2(space, e, w_path)
 
-@unwrap_spec(mode=c_int, device=c_int, dir_fd=DirFD)
+@unwrap_spec(mode=c_int, device=c_int, dir_fd=DirFD(rposix.HAVE_MKNODAT))
 def mknod(space, w_filename, mode=0600, device=0, dir_fd=DEFAULT_DIR_FD):
     """mknod(filename, mode=0o600, device=0, *, dir_fd=None)
 
@@ -899,7 +904,8 @@ in the hardest way possible on the hosting operating system."""
 
 @unwrap_spec(
     src='fsencode', dst='fsencode',
-    src_dir_fd=DirFD, dst_dir_fd=DirFD, follow_symlinks=kwonly(bool))
+    src_dir_fd=DirFD(available=False), dst_dir_fd=DirFD(available=False),
+    follow_symlinks=kwonly(bool))
 def link(
         space, src, dst,
         src_dir_fd=DEFAULT_DIR_FD, dst_dir_fd=DEFAULT_DIR_FD,
@@ -924,7 +930,7 @@ src_dir_fd, dst_dir_fd, and follow_symlinks may not be implemented on your
         raise wrap_oserror(space, e)
 
 
-@unwrap_spec(dir_fd=DirFD)
+@unwrap_spec(dir_fd=DirFD(rposix.HAVE_SYMLINKAT))
 def symlink(space, w_src, w_dst, w_target_is_directory=None,
         dir_fd=DEFAULT_DIR_FD):
     """symlink(src, dst, target_is_directory=False, *, dir_fd=None)
@@ -951,7 +957,7 @@ dir_fd may not be implemented on your platform.
         raise wrap_oserror(space, e)
 
 
-@unwrap_spec(dir_fd=DirFD)
+@unwrap_spec(dir_fd=DirFD(rposix.HAVE_READLINKAT))
 def readlink(space, w_path, dir_fd=DEFAULT_DIR_FD):
     """readlink(path, *, dir_fd=None) -> path
 
@@ -1131,7 +1137,7 @@ def spawnve(space, mode, path, w_args, w_env):
         raise wrap_oserror(space, e)
     return space.wrap(ret)
 
-@unwrap_spec(dir_fd=DirFD, follow_symlinks=kwonly(bool))
+@unwrap_spec(dir_fd=DirFD(available=False), follow_symlinks=kwonly(bool))
 def utime(space, w_path, w_tuple, dir_fd=DEFAULT_DIR_FD, follow_symlinks=True):
     """utime(path, times=None, *, ns=None, dir_fd=None, follow_symlinks=True)
 
@@ -1572,7 +1578,7 @@ def confstr(space, w_name):
 
 @unwrap_spec(
     path='fsencode', uid=c_uid_t, gid=c_gid_t,
-    dir_fd=DirFD, follow_symlinks=kwonly(bool))
+    dir_fd=DirFD(available=False), follow_symlinks=kwonly(bool))
 def chown(space, path, uid, gid, dir_fd=DEFAULT_DIR_FD, follow_symlinks=True):
     """chown(path, uid, gid, *, dir_fd=None, follow_symlinks=True)
 
