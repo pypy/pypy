@@ -3,8 +3,9 @@
 
 PyObject* foo3type_tp_new(PyTypeObject* metatype, PyObject* args, PyObject* kwds)
 {
+    PyObject* newType;
     printf("in foo3type_tp_new, preprocessing...\n");
-    PyObject* newType = PyType_Type.tp_new(metatype, args, kwds);
+    newType = PyType_Type.tp_new(metatype, args, kwds);
     printf("in foo3type_tp_new, postprocessing...\n");
     return newType;
 }
@@ -62,8 +63,6 @@ static PyMethodDef sbkMethods[] = {{NULL, NULL, 0, NULL}};
 /* Initialize this module. */
 #ifdef __GNUC__
 extern __attribute__((visibility("default")))
-#else
-extern __declspec(dllexport)
 #endif
 
 PyMODINIT_FUNC

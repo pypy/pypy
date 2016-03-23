@@ -25,14 +25,15 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
              """
                  PyObject* s = PyString_FromString("Hello world");
                  int result = 0;
+                 size_t expected_size;
 
                  if(PyString_Size(s) == 11) {
                      result = 1;
                  }
                  #ifdef PYPY_VERSION
-                    size_t expected_size = sizeof(void*)*7;
+                    expected_size = sizeof(void*)*7;
                  #else
-                    size_t expected_size = 37;
+                    expected_size = 37;
                  #endif
                  if(s->ob_type->tp_basicsize != expected_size)
                  {
