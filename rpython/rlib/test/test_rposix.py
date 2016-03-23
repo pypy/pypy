@@ -497,6 +497,17 @@ class TestPosixAscii(BasePosixUnicodeOrAscii):
             os.close(dirfd)
         assert not os.path.exists(self.ufilename)
 
+    def test_utimensat(self):
+        def f(dirfd):
+            return rposix.utimensat('test_open_ascii',
+                0, rposix.UTIME_NOW, 0, rposix.UTIME_NOW, dir_fd=dirfd)
+
+        dirfd = os.open(os.path.dirname(self.ufilename), os.O_RDONLY)
+        try:
+            interpret(f, [dirfd])  # does not crash
+        finally:
+            os.close(dirfd)
+
 
 class TestPosixUnicode(BasePosixUnicodeOrAscii):
     def _get_filename(self):

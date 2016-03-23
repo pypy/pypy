@@ -1739,6 +1739,8 @@ class CConfig:
     AT_SYMLINK_NOFOLLOW = rffi_platform.DefinedConstantInteger('AT_SYMLINK_NOFOLLOW')
     AT_EACCESS = rffi_platform.DefinedConstantInteger('AT_EACCESS')
     AT_REMOVEDIR = rffi_platform.DefinedConstantInteger('AT_REMOVEDIR')
+    UTIME_NOW = rffi_platform.DefinedConstantInteger('UTIME_NOW')
+    UTIME_OMIT = rffi_platform.DefinedConstantInteger('UTIME_OMIT')
     TIMESPEC = rffi_platform.Struct('struct timespec', [
         ('tv_sec', rffi.TIME_T),
         ('tv_nsec', rffi.LONG)])
@@ -1790,20 +1792,30 @@ if HAVE_FUTIMENS:
     c_futimens = external('futimens', [rffi.INT, TIMESPEC2P], rffi.INT)
 
     def futimens(fd, atime, atime_ns, mtime, mtime_ns):
-        l_times = lltype.malloc(TIMESPEC, 2, flavor='raw')
+        l_times = lltype.malloc(TIMESPEC2P.TO, 2, flavor='raw')
         rffi.setintfield(l_times[0], 'c_tv_sec', atime)
         rffi.setintfield(l_times[0], 'c_tv_nsec', atime_ns)
         rffi.setintfield(l_times[1], 'c_tv_sec', mtime)
         rffi.setintfield(l_times[1], 'c_tv_nsec', mtime_ns)
         error = c_futimens(fd, l_times)
+        lltype.free(l_times, flavor='raw')
         handle_posix_error('futimens', error)
 
 if HAVE_UTIMENSAT:
-    c_utimensat = external('utimensat', [rffi.INT, TIMESPEC2P], rffi.INT)
+    c_utimensat = external('utimensat',
+        [rffi.INT, rffi.CCHARP, TIMESPEC2P, rffi.INT], rffi.INT)
 
     def utimensat(pathname, atime, atime_ns, mtime, mtime_ns,
             dir_fd=AT_FDCWD, follow_symlinks=True):
-        l_times = lltype.malloc(TIMESPEC, 2, flavor='raw')
+        """Wrapper around utimensat(2)
+
+        To set access time to the current time, pass atime_ns=UTIME_NOW,
+        atime is then ignored.
+
+        To set modification time to the current time, pass mtime_ns=UTIME_NOW,
+        mtime is then ignored.
+        """
+        l_times = lltype.malloc(TIMESPEC2P.TO, 2, flavor='raw')
         rffi.setintfield(l_times[0], 'c_tv_sec', atime)
         rffi.setintfield(l_times[0], 'c_tv_nsec', atime_ns)
         rffi.setintfield(l_times[1], 'c_tv_sec', mtime)
@@ -1812,7 +1824,8 @@ if HAVE_UTIMENSAT:
             flag = 0
         else:
             flag = AT_SYMLINK_NOFOLLOW
-        error = c_futimens(dir_fd, pathname, l_times, flag)
+        error = c_utimensat(dir_fd, pathname, l_times, flag)
+        lltype.free(l_times, flavor='raw')
         handle_posix_error('utimensat', error)
 
 if HAVE_MKDIRAT:
