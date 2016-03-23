@@ -136,6 +136,11 @@ class _DirFD_Unavailable(Unwrapper):
 def DirFD(available=False):
     return _DirFD if available else _DirFD_Unavailable
 
+@specialize.arg(1, 2)
+def argument_unavailable(space, funcname, arg):
+    return oefmt(
+            space.w_NotImplementedError,
+            "%s: %s unavailable on this platform" % (funcname, arg))
 
 @unwrap_spec(flags=c_int, mode=c_int, dir_fd=DirFD(rposix.HAVE_OPENAT))
 def open(space, w_path, flags, mode=0777, dir_fd=DEFAULT_DIR_FD):
@@ -445,7 +450,7 @@ def dup2(space, old_fd, new_fd):
         raise wrap_oserror(space, e)
 
 @unwrap_spec(mode=c_int,
-    dir_fd=DirFD(available=False), effective_ids=kwonly(bool), follow_symlinks=kwonly(bool))
+    dir_fd=DirFD(rposix.HAVE_FACCESSAT), effective_ids=kwonly(bool), follow_symlinks=kwonly(bool))
 def access(space, w_path, mode,
         dir_fd=DEFAULT_DIR_FD, effective_ids=True, follow_symlinks=True):
     """\
@@ -470,9 +475,20 @@ Note that most operations will use the effective uid/gid, therefore this
   has the specified access to the path.
 The mode argument can be F_OK to test existence, or the inclusive-OR
   of R_OK, W_OK, and X_OK."""
+    if not rposix.HAVE_FACCESSAT:
+        if not follow_symlinks:
+            raise argument_unavailable("access", "follow_symlinks")
+        if effective_ids:
+            raise argument_unavailable("access", "effective_ids")
+
     try:
-        ok = dispatch_filename(rposix.access)(space, w_path, mode)
-    except OSError, e:
+        if dir_fd == DEFAULT_DIR_FD and follow_symlinks and not effective_ids:
+            ok = dispatch_filename(rposix.access)(space, w_path, mode)
+        else:
+            path = space.fsencode_w(w_path)
+            ok = rposix.faccessat(path, mode,
+                dir_fd, effective_ids, follow_symlinks)
+    except OSError as e:
         raise wrap_oserror2(space, e, w_path)
     else:
         return space.wrap(ok)
@@ -1181,9 +1197,7 @@ dir_fd and follow_symlinks may not be available on your platform.
             raise wrap_oserror2(space, e, w_path)
 
     if not follow_symlinks:
-        raise oefmt(
-            space.w_NotImplementedError,
-            "follow_symlinks unavailable on this platform")
+        raise argument_unavailable("utime", "follow_symlinks")
 
     if not space.is_w(w_ns, space.w_None):
         raise oefmt(space.w_NotImplementedError,
