@@ -697,6 +697,58 @@ class VRefTests(object):
             'force_token': 2, 'setfield_gc': 1
         })
 
+    def test_vref_like_pypy(self):
+        myjitdriver = JitDriver(greens=['n'], reds=['i', 'k', 'ec', 'frame'])
+
+        class ExecutionContext(object):
+            topframeref = vref_None
+
+            def enter(self, frame):
+                frame.f_backref = self.topframeref
+                self.topframeref = virtual_ref(frame)
+
+            def leave(self, frame):
+                frame_vref = self.topframeref
+                self.topframeref = frame.f_backref
+                f_back = frame.f_backref()
+                if f_back:
+                    f_back.escaped = True
+                frame_vref()
+                virtual_ref_finish(frame_vref, frame)
+
+        class PyFrame(object):
+            escaped = False
+
+        def dispatch(ec, frame, n, i):
+            k = i
+            while True:
+                myjitdriver.jit_merge_point(n=n, ec=ec, frame=frame, i=i, k=k)
+                i += 1
+                if n == 1:
+                    execute_frame(ec, 2, i)
+                    if i >= 10:
+                        break
+                elif n == 2:
+                    execute_frame(ec, 3, i)
+                    if i >= k + 3:
+                        break
+                elif n == 3:
+                    if i % 3 == 0:
+                        break
+
+        def execute_frame(ec, n, i):
+            frame = PyFrame()
+            ec.enter(frame)
+            dispatch(ec, frame, n, i)
+            ec.leave(frame)
+            return n
+
+        def entry_point():
+            return execute_frame(ExecutionContext(), 1, 0)
+
+        assert entry_point() == 1
+        self.meta_interp(entry_point, [], inline=True)
+
 
 class TestLLtype(VRefTests, LLJitMixin):
     pass
