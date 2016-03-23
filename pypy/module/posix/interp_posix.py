@@ -1,5 +1,6 @@
 import os
 import sys
+from math import modf
 
 from rpython.rlib import rposix, rposix_stat
 from rpython.rlib import objectmodel, rurandom
@@ -1137,8 +1138,10 @@ def spawnve(space, mode, path, w_args, w_env):
         raise wrap_oserror(space, e)
     return space.wrap(ret)
 
-@unwrap_spec(dir_fd=DirFD(available=False), follow_symlinks=kwonly(bool))
-def utime(space, w_path, w_tuple, dir_fd=DEFAULT_DIR_FD, follow_symlinks=True):
+
+@unwrap_spec(w_ns=kwonly(WrappedDefault(None)),
+    dir_fd=DirFD(rposix.HAVE_UTIMENSAT), follow_symlinks=kwonly(bool))
+def utime(space, w_path, w_times, w_ns, dir_fd=DEFAULT_DIR_FD, follow_symlinks=True):
     """utime(path, times=None, *, ns=None, dir_fd=None, follow_symlinks=True)
 
 Set the access and modified time of path.
@@ -1164,7 +1167,28 @@ It is an error to use dir_fd or follow_symlinks when specifying path
   as an open file descriptor.
 dir_fd and follow_symlinks may not be available on your platform.
   If they are unavailable, using them will raise a NotImplementedError."""
-    if space.is_w(w_tuple, space.w_None):
+    if (not space.is_w(w_times, space.w_None) and
+            not space.is_w(w_ns, space.w_None)):
+        raise oefmt(space.w_ValueError,
+            "utime: you may specify either 'times' or 'ns' but not both")
+
+    if rposix.HAVE_UTIMENSAT:
+        path = space.fsencode_w(w_path)
+        try:
+            _utimensat(space, path, w_times, w_ns, dir_fd, follow_symlinks)
+            return
+        except OSError, e:
+            raise wrap_oserror2(space, e, w_path)
+
+    if not follow_symlinks:
+        raise oefmt(
+            space.w_NotImplementedError,
+            "follow_symlinks unavailable on this platform")
+
+    if not space.is_w(w_ns, space.w_None):
+        raise oefmt(space.w_NotImplementedError,
+            "utime: 'ns' unsupported on this platform on PyPy")
+    if space.is_w(w_times, space.w_None):
         try:
             dispatch_filename(rposix.utime, 1)(space, w_path, None)
             return
@@ -1172,7 +1196,7 @@ dir_fd and follow_symlinks may not be available on your platform.
             raise wrap_oserror2(space, e, w_path)
     try:
         msg = "utime() arg 2 must be a tuple (atime, mtime) or None"
-        args_w = space.fixedview(w_tuple)
+        args_w = space.fixedview(w_times)
         if len(args_w) != 2:
             raise OperationError(space.w_TypeError, space.wrap(msg))
         actime = space.float_w(args_w[0], allow_conversion=False)
@@ -1184,6 +1208,51 @@ dir_fd and follow_symlinks may not be available on your platform.
         if not e.match(space, space.w_TypeError):
             raise
         raise OperationError(space.w_TypeError, space.wrap(msg))
+
+
+def _utimensat(space, path, w_times, w_ns, dir_fd, follow_symlinks):
+    if space.is_w(w_times, space.w_None) and space.is_w(w_ns, space.w_None):
+        atime_s = mtime_s = 0
+        atime_ns = mtime_ns = rposix.UTIME_NOW
+    elif not space.is_w(w_times, space.w_None):
+        times_w = space.fixedview(w_times)
+        if len(times_w) != 2:
+            raise oefmt(space.w_TypeError,
+                "utime: 'ns' must be a tuple of two ints")
+        atime_s, atime_ns = convert_seconds(space, times_w[0])
+        mtime_s, mtime_ns = convert_seconds(space, times_w[1])
+    else:
+        args_w = space.fixedview(w_ns)
+        if len(args_w) != 2:
+            raise oefmt(space.w_TypeError,
+                "utime: 'ns' must be a tuple of two ints")
+        atime_s, atime_ns = convert_ns(space, args_w[0])
+        mtime_s, mtime_ns = convert_ns(space, args_w[1])
+
+    rposix.utimensat(
+        path, atime_s, atime_ns, mtime_s, mtime_ns,
+        dir_fd=dir_fd, follow_symlinks=follow_symlinks)
+
+def convert_seconds(space, w_time):
+    if space.isinstance_w(w_time, space.w_float):
+        time = space.float_w(w_time)
+        intpart, floatpart = modf(time)
+        if floatpart < 0:
+            floatpart += 1.
+            intpart -= 1.
+        return int(intpart), int(floatpart*1e9)
+    else:
+        time = space.int_w(w_time)
+        return time, 0
+
+def convert_ns(space, w_ns_time):
+    w_billion = space.wrap(1000000000)
+    w_res = space.divmod(w_ns_time, w_billion)
+    res_w = space.fixedview(w_res)
+    time_int = space.int_w(res_w[0])
+    time_frac = space.int_w(res_w[1])
+    return time_int, time_frac
+
 
 def uname(space):
     """ uname() -> (sysname, nodename, release, version, machine)
