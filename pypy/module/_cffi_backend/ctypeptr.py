@@ -390,4 +390,4 @@ def prepare_file_argument(space, w_fileobj):
             w_fileobj.cffi_fileobj = CffiFileObj(fd, mode)
         except OSError, e:
             raise wrap_oserror(space, e)
-    return rffi.cast(rffi.CCHARP, fileobj.cffi_fileobj.llf)
+    return rffi.cast(rffi.CCHARP, w_fileobj.cffi_fileobj.llf)

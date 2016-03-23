@@ -1,4 +1,4 @@
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     cpython_api, cpython_struct, bootstrap_function, build_type_checkers,
@@ -134,8 +134,8 @@ def PyBytes_AsString(space, ref):
     if from_ref(space, rffi.cast(PyObject, ref.c_ob_type)) is space.w_str:
         pass    # typecheck returned "ok" without forcing 'ref' at all
     elif not PyBytes_Check(space, ref):   # otherwise, use the alternate way
-        raise OperationError(space.w_TypeError, space.wrap(
-            "PyBytes_AsString only support strings"))
+        raise oefmt(space.w_TypeError,
+            "expected bytes, %T found", from_ref(space, ref))
     ref_str = rffi.cast(PyBytesObject, ref)
     if not ref_str.c_buffer:
         # copy string buffer
@@ -147,8 +147,8 @@ def PyBytes_AsString(space, ref):
 @cpython_api([PyObject, rffi.CCHARPP, rffi.CArrayPtr(Py_ssize_t)], rffi.INT_real, error=-1)
 def PyBytes_AsStringAndSize(space, ref, buffer, length):
     if not PyBytes_Check(space, ref):
-        raise OperationError(space.w_TypeError, space.wrap(
-            "PyBytes_AsStringAndSize only support strings"))
+        raise oefmt(space.w_TypeError,
+            "expected bytes, %T found", from_ref(space, ref))
     ref_str = rffi.cast(PyBytesObject, ref)
     if not ref_str.c_buffer:
         # copy string buffer

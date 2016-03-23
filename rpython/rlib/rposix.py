@@ -22,21 +22,6 @@ if _WIN32:
     from rpython.rlib import rwin32
     from rpython.rlib.rwin32file import make_win32_traits
 
-class CConfig:
-    _compilation_info_ = ExternalCompilationInfo(
-        includes=['sys/stat.h',
-                  'unistd.h',
-                  'fcntl.h'],
-    )
-    for _name in """fchdir fchmod fchmodat fchown fchownat fexecve fdopendir
-                    fpathconf fstat fstatat fstatvfs ftruncate futimens futimes
-                    futimesat linkat lchflags lchmod lchown lstat lutimes
-                    mkdirat mkfifoat mknodat openat readlinkat renameat
-                    symlinkat unlinkat utimensat""".split():
-        locals()['HAVE_%s' % _name.upper()] = rffi_platform.Has(_name)
-cConfig = rffi_platform.configure(CConfig)
-globals().update(cConfig)
-
 
 class CConstantErrno(CConstant):
     # these accessors are used when calling get_errno() or set_errno()
@@ -1739,3 +1724,176 @@ class EnvironExtRegistry(ControllerEntryForPrebuilt):
     def getcontroller(self):
         from rpython.rlib.rposix_environ import OsEnvironController
         return OsEnvironController()
+
+
+# ____________________________________________________________
+# Support for f... and ...at families of POSIX functions
+
+class CConfig:
+    _compilation_info_ = ExternalCompilationInfo(
+        includes=['sys/stat.h',
+                  'unistd.h',
+                  'fcntl.h'],
+    )
+    AT_FDCWD = rffi_platform.DefinedConstantInteger('AT_FDCWD')
+    AT_SYMLINK_NOFOLLOW = rffi_platform.DefinedConstantInteger('AT_SYMLINK_NOFOLLOW')
+    AT_EACCESS = rffi_platform.DefinedConstantInteger('AT_EACCESS')
+    AT_REMOVEDIR = rffi_platform.DefinedConstantInteger('AT_REMOVEDIR')
+    TIMESPEC = rffi_platform.Struct('struct timespec', [
+        ('tv_sec', rffi.TIME_T),
+        ('tv_nsec', rffi.LONG)])
+
+    for _name in """faccessat fchdir fchmod fchmodat fchown fchownat fexecve
+            fdopendir fpathconf fstat fstatat fstatvfs ftruncate
+            futimens futimes futimesat linkat chflags lchflags lchmod lchown
+            lstat lutimes mkdirat mkfifoat mknodat openat readlinkat renameat
+            symlinkat unlinkat utimensat""".split():
+        locals()['HAVE_%s' % _name.upper()] = rffi_platform.Has(_name)
+cConfig = rffi_platform.configure(CConfig)
+globals().update(cConfig)
+TIMESPEC2P = rffi.CArrayPtr(TIMESPEC)
+
+if HAVE_FACCESSAT:
+    c_faccessat = external('faccessat',
+        [rffi.INT, rffi.CCHARP, rffi.INT, rffi.INT], rffi.INT)
+
+    def faccessat(pathname, mode, dir_fd=AT_FDCWD,
+            effective_ids=False, follow_symlinks=True):
+        """Thin wrapper around faccessat(2) with an interface simlar to
+        Python3's os.access().
+        """
+        flags = 0
+        if not follow_symlinks:
+            flags |= AT_SYMLINK_NOFOLLOW
+        if effective_ids:
+            flags |= AT_EACCESS
+        error = c_faccessat(dir_fd, pathname, mode, flags)
+        return error == 0
+
+if HAVE_LINKAT:
+    c_linkat = external('linkat',
+        [rffi.INT, rffi.CCHARP, rffi.INT, rffi.CCHARP, rffi.INT], rffi.INT)
+
+    def linkat(src, dst, src_dir_fd=AT_FDCWD, dst_dir_fd=AT_FDCWD,
+            follow_symlinks=True):
+        """Thin wrapper around linkat(2) with an interface similar to
+        Python3's os.link()
+        """
+        if follow_symlinks:
+            flag = 0
+        else:
+            flag = AT_SYMLINK_NOFOLLOW
+        error = c_linkat(src_dir_fd, src, dst_dir_fd, dst, flag)
+        handle_posix_error('linkat', error)
+
+if HAVE_FUTIMENS:
+    c_futimens = external('futimens', [rffi.INT, TIMESPEC2P], rffi.INT)
+
+    def futimens(fd, atime, atime_ns, mtime, mtime_ns):
+        l_times = lltype.malloc(TIMESPEC, 2, flavor='raw')
+        rffi.setintfield(l_times[0], 'c_tv_sec', atime)
+        rffi.setintfield(l_times[0], 'c_tv_nsec', atime_ns)
+        rffi.setintfield(l_times[1], 'c_tv_sec', mtime)
+        rffi.setintfield(l_times[1], 'c_tv_nsec', mtime_ns)
+        error = c_futimens(fd, l_times)
+        handle_posix_error('futimens', error)
+
+if HAVE_UTIMENSAT:
+    c_utimensat = external('utimensat', [rffi.INT, TIMESPEC2P], rffi.INT)
+
+    def utimensat(pathname, atime, atime_ns, mtime, mtime_ns,
+            dir_fd=AT_FDCWD, follow_symlinks=True):
+        l_times = lltype.malloc(TIMESPEC, 2, flavor='raw')
+        rffi.setintfield(l_times[0], 'c_tv_sec', atime)
+        rffi.setintfield(l_times[0], 'c_tv_nsec', atime_ns)
+        rffi.setintfield(l_times[1], 'c_tv_sec', mtime)
+        rffi.setintfield(l_times[1], 'c_tv_nsec', mtime_ns)
+        if follow_symlinks:
+            flag = 0
+        else:
+            flag = AT_SYMLINK_NOFOLLOW
+        error = c_futimens(dir_fd, pathname, l_times, flag)
+        handle_posix_error('utimensat', error)
+
+if HAVE_MKDIRAT:
+    c_mkdirat = external('mkdirat',
+        [rffi.INT, rffi.CCHARP, rffi.INT], rffi.INT,
+        save_err=rffi.RFFI_SAVE_ERRNO)
+
+    def mkdirat(pathname, mode, dir_fd=AT_FDCWD):
+        error = c_mkdirat(dir_fd, pathname, mode)
+        handle_posix_error('mkdirat', error)
+
+if HAVE_UNLINKAT:
+    c_unlinkat = external('unlinkat',
+        [rffi.INT, rffi.CCHARP, rffi.INT], rffi.INT,
+        save_err=rffi.RFFI_SAVE_ERRNO)
+
+    def unlinkat(pathname, dir_fd=AT_FDCWD, removedir=False):
+        flag = AT_REMOVEDIR if removedir else 0
+        error = c_unlinkat(dir_fd, pathname, flag)
+        handle_posix_error('unlinkat', error)
+
+if HAVE_READLINKAT:
+    c_readlinkat = external(
+        'readlinkat',
+        [rffi.INT, rffi.CCHARP, rffi.CCHARP, rffi.SIZE_T], rffi.SSIZE_T,
+        save_err=rffi.RFFI_SAVE_ERRNO)
+
+    def readlinkat(pathname, dir_fd=AT_FDCWD):
+        pathname = _as_bytes0(pathname)
+        bufsize = 1023
+        while True:
+            buf = lltype.malloc(rffi.CCHARP.TO, bufsize, flavor='raw')
+            res = widen(c_readlinkat(dir_fd, pathname, buf, bufsize))
+            if res < 0:
+                lltype.free(buf, flavor='raw')
+                error = get_saved_errno()    # failed
+                raise OSError(error, "readlinkat failed")
+            elif res < bufsize:
+                break                       # ok
+            else:
+                # buf too small, try again with a larger buffer
+                lltype.free(buf, flavor='raw')
+                bufsize *= 4
+        # convert the result to a string
+        result = rffi.charp2strn(buf, res)
+        lltype.free(buf, flavor='raw')
+        return result
+
+if HAVE_SYMLINKAT:
+    c_symlinkat = external('symlinkat',
+        [rffi.CCHARP, rffi.CCHARP, rffi.INT], rffi.INT,
+        save_err=rffi.RFFI_SAVE_ERRNO)
+
+    def symlinkat(src, dst, dir_fd=AT_FDCWD):
+        error = c_symlinkat(src, dst, dir_fd)
+        handle_posix_error('symlinkat', error)
+
+if HAVE_OPENAT:
+    c_openat = external('openat',
+        [rffi.INT, rffi.CCHARP, rffi.INT, rffi.MODE_T], rffi.INT,
+        save_err=rffi.RFFI_SAVE_ERRNO)
+
+    @enforceargs(s_Str0, int, int, int, typecheck=False)
+    def openat(path, flags, mode, dir_fd=AT_FDCWD):
+        fd = c_openat(dir_fd, path, flags, mode)
+        return handle_posix_error('open', fd)
+
+if HAVE_MKFIFOAT:
+    c_mkfifoat = external('mkfifoat',
+        [rffi.INT, rffi.CCHARP, rffi.MODE_T], rffi.INT,
+        save_err=rffi.RFFI_SAVE_ERRNO)
+
+    def mkfifoat(path, mode, dir_fd=AT_FDCWD):
+        error = c_mkfifoat(dir_fd, path, mode)
+        handle_posix_error('mkfifoat', error)
+
+if HAVE_MKNODAT:
+    c_mknodat = external('mknodat',
+        [rffi.INT, rffi.CCHARP, rffi.MODE_T, rffi.INT], rffi.INT,
+        save_err=rffi.RFFI_SAVE_ERRNO)
+
+    def mknodat(path, mode, device, dir_fd=AT_FDCWD):
+        error = c_mknodat(dir_fd, path, mode, device)
+        handle_posix_error('mknodat', error)

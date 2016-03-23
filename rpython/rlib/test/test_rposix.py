@@ -7,6 +7,10 @@ import os, sys
 import errno
 import py
 
+def rposix_requires(funcname):
+    return py.test.mark.skipif(not hasattr(rposix, funcname),
+        reason="Requires rposix.%s()" % funcname)
+
 class TestPosixFunction:
     def test_access(self):
         filename = str(udir.join('test_access.txt'))
@@ -99,10 +103,24 @@ class TestPosixFunction:
     def test_mkdir(self):
         filename = str(udir.join('test_mkdir.dir'))
         rposix.mkdir(filename, 0)
-        exc = py.test.raises(OSError, rposix.mkdir, filename, 0)
-        assert exc.value.errno == errno.EEXIST
+        with py.test.raises(OSError) as excinfo:
+            rposix.mkdir(filename, 0)
+        assert excinfo.value.errno == errno.EEXIST
         if sys.platform == 'win32':
             assert exc.type is WindowsError
+
+    @rposix_requires('mkdirat')
+    def test_mkdirat(self):
+        relpath = 'test_mkdirat.dir'
+        filename = str(udir.join(relpath))
+        dirfd = os.open(os.path.dirname(filename), os.O_RDONLY)
+        try:
+            rposix.mkdirat(relpath, 0, dir_fd=dirfd)
+            with py.test.raises(OSError) as excinfo:
+                rposix.mkdirat(relpath, 0, dir_fd=dirfd)
+            assert excinfo.value.errno == errno.EEXIST
+        finally:
+            os.close(dirfd)
 
     def test_strerror(self):
         assert rposix.strerror(2) == os.strerror(2)
@@ -447,6 +465,38 @@ class BasePosixUnicodeOrAscii:
 class TestPosixAscii(BasePosixUnicodeOrAscii):
     def _get_filename(self):
         return str(udir.join('test_open_ascii'))
+
+    @rposix_requires('openat')
+    def test_openat(self):
+        def f(dirfd):
+            try:
+                fd = rposix.openat('test_open_ascii', os.O_RDONLY, 0777, dirfd)
+                try:
+                    text = os.read(fd, 50)
+                    return text
+                finally:
+                    os.close(fd)
+            except OSError:
+                return ''
+
+        dirfd = os.open(os.path.dirname(self.ufilename), os.O_RDONLY)
+        try:
+            assert ll_to_string(interpret(f, [dirfd])) == "test"
+        finally:
+            os.close(dirfd)
+
+    @rposix_requires('unlinkat')
+    def test_unlinkat(self):
+        def f(dirfd):
+            return rposix.unlinkat('test_open_ascii', dir_fd=dirfd)
+
+        dirfd = os.open(os.path.dirname(self.ufilename), os.O_RDONLY)
+        try:
+            interpret(f, [dirfd])
+        finally:
+            os.close(dirfd)
+        assert not os.path.exists(self.ufilename)
+
 
 class TestPosixUnicode(BasePosixUnicodeOrAscii):
     def _get_filename(self):
