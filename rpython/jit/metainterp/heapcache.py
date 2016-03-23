@@ -5,6 +5,11 @@ from rpython.jit.metainterp.executor import constant_from_op
 from rpython.rlib.rarithmetic import r_uint32, r_uint
 from rpython.rlib.objectmodel import always_inline
 
+""" A big note: we don't do heap caches on Consts, because it used
+to be done with the identity of the Const instance. This gives very wonky
+results at best, so we decided to not do it at all. Can be fixed with
+interning of Consts (already done on trace anyway)
+"""
 
 # RefFrontendOp._heapc_flags:
 HF_LIKELY_VIRTUAL  = 0x01

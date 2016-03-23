@@ -74,9 +74,14 @@ class TestLLtype(LLJitMixin):
     def test_heap_caching_while_tracing(self):
         class A:
             pass
-        a1 = A()
-        a2 = A()
+
+        @jit.dont_look_inside
+        def get():
+            return A()
+
         def fn(n):
+            a1 = get()
+            a2 = get()
             if n > 0:
                 a = a1
             else:
@@ -91,6 +96,8 @@ class TestLLtype(LLJitMixin):
         self.check_operations_history(getfield_gc_i=0)
 
         def fn(n, ca, cb):
+            a1 = get()
+            a2 = get()
             a1.x = n
             a2.x = n
             a = a1
