@@ -568,7 +568,13 @@ if 1:
             fn = os.path.join(tmpd, "bad.py")
             with open(fn, "wb") as fp:
                 fp.write(src)
-            rc, out, err = script_helper.assert_python_failure(fn)
+            try:
+                rc, out, err = script_helper.assert_python_failure(fn)
+            except AssertionError:
+                if check_impl_detail(pypy=True):
+                    # as long as we don't crash
+                    return
+                raise
         finally:
             test_support.rmtree(tmpd)
         self.assertIn(b"Non-ASCII", err)
