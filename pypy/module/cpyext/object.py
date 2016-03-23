@@ -18,7 +18,8 @@ import pypy.module.__builtin__.operation as operation
 def PyObject_Malloc(space, size):
     # returns non-zero-initialized memory, like CPython
     return lltype.malloc(rffi.VOIDP.TO, size,
-                         flavor='raw')
+                         flavor='raw',
+                         add_memory_pressure=True)
 
 @cpython_api([rffi.VOIDP], lltype.Void)
 def PyObject_Free(space, ptr):

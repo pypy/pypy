@@ -1012,7 +1012,8 @@ def test_getfield_gc_greenfield():
     v1 = varoftype(lltype.Ptr(S))
     v2 = varoftype(lltype.Char)
     op = SpaceOperation('getfield', [v1, Constant('x', lltype.Void)], v2)
-    op1 = Transformer(FakeCPU(), FakeCC()).rewrite_operation(op)
+    op0, op1 = Transformer(FakeCPU(), FakeCC()).rewrite_operation(op)
+    assert op0.opname == '-live-'
     assert op1.opname == 'getfield_gc_i_greenfield'
     assert op1.args == [v1, ('fielddescr', S, 'x')]
     assert op1.result == v2
@@ -1314,6 +1315,21 @@ def test_no_gcstruct_nesting_outside_of_OBJECT():
                         varoftype(lltype.Signed))
     tr = Transformer(None, None)
     py.test.raises(NotImplementedError, tr.rewrite_operation, op)
+
+def test_no_fixedsizearray():
+    A = lltype.FixedSizeArray(lltype.Signed, 5)
+    v_x = varoftype(lltype.Ptr(A))
+    op = SpaceOperation('getarrayitem', [v_x, Constant(0, lltype.Signed)],
+                        varoftype(lltype.Signed))
+    tr = Transformer(None, None)
+    tr.graph = 'demo'
+    py.test.raises(NotImplementedError, tr.rewrite_operation, op)
+    op = SpaceOperation('setarrayitem', [v_x, Constant(0, lltype.Signed),
+                                              Constant(42, lltype.Signed)],
+                        varoftype(lltype.Void))
+    e = py.test.raises(NotImplementedError, tr.rewrite_operation, op)
+    assert str(e.value) == (
+        "'demo' uses %r, which is not supported by the JIT codewriter" % (A,))
 
 def _test_threadlocalref_get(loop_inv):
     from rpython.rlib.rthread import ThreadLocalField

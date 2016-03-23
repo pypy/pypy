@@ -80,7 +80,8 @@ def new_empty_str(space, length):
     buflen = length + 1
     py_str.c_ob_size = length
     py_str.c_buffer = lltype.malloc(rffi.CCHARP.TO, buflen,
-                                    flavor='raw', zero=True)
+                                    flavor='raw', zero=True,
+                                    add_memory_pressure=True)
     py_str.c_ob_sstate = rffi.cast(rffi.INT, 0) # SSTATE_NOT_INTERNED
     return py_str
 

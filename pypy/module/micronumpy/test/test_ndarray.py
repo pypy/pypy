@@ -2960,6 +2960,36 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert (a.transpose() == b).all()
         assert (a.transpose(None) == b).all()
 
+    def test_transpose_arg_tuple(self):
+        import numpy as np
+        a = np.arange(24).reshape(2, 3, 4)
+        transpose_args = a.transpose(1, 2, 0)
+
+        transpose_test = a.transpose((1, 2, 0))
+
+        assert transpose_test.shape == (3, 4, 2)
+        assert (transpose_args == transpose_test).all()
+
+    def test_transpose_arg_list(self):
+        import numpy as np
+        a = np.arange(24).reshape(2, 3, 4)
+        transpose_args = a.transpose(1, 2, 0)
+
+        transpose_test = a.transpose([1, 2, 0])
+
+        assert transpose_test.shape == (3, 4, 2)
+        assert (transpose_args == transpose_test).all()
+
+    def test_transpose_arg_array(self):
+        import numpy as np
+        a = np.arange(24).reshape(2, 3, 4)
+        transpose_args = a.transpose(1, 2, 0)
+
+        transpose_test = a.transpose(np.array([1, 2, 0]))
+
+        assert transpose_test.shape == (3, 4, 2)
+        assert (transpose_args == transpose_test).all()
+
     def test_transpose_error(self):
         import numpy as np
         a = np.arange(24).reshape(2, 3, 4)
@@ -2967,6 +2997,11 @@ class AppTestMultiDim(BaseNumpyAppTest):
         raises(ValueError, a.transpose, 1, 0, 3)
         raises(ValueError, a.transpose, 1, 0, 1)
         raises(TypeError, a.transpose, 1, 0, '2')
+
+    def test_transpose_unexpected_argument(self):
+        import numpy as np
+        a = np.array([[1, 2], [3, 4], [5, 6]])
+        raises(TypeError, 'a.transpose(axes=(1,2,0))')
 
     def test_flatiter(self):
         from numpy import array, flatiter, arange, zeros
@@ -3439,7 +3474,7 @@ class AppTestMultiDim(BaseNumpyAppTest):
 
     def test_index_int(self):
         import numpy as np
-        a = np.array([10, 20, 30])
+        a = np.array([10, 20, 30], dtype='int64')
         res = a[np.int64(1)]
         assert isinstance(res, np.int64)
         assert res == 20

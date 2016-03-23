@@ -75,7 +75,6 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
         assert len(s) == 4
         assert s == u'a\xe9\x00c'
 
-
     def test_hash(self):
         module = self.import_extension('foo', [
             ("test_hash", "METH_VARARGS",

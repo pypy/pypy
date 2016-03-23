@@ -23,3 +23,7 @@ Implemented numpy.where for 1 argument (thanks sergem)
 
 Implement yet another strange numpy indexing compatibility; indexing by a scalar 
 returns a scalar
+
+.. branch: fix_transpose_for_list_v3
+
+Allow arguments to transpose to be sequences
