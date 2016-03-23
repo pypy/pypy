@@ -105,7 +105,10 @@ def dispatch_filename_2(func):
                 return func(fname1, fname2, *args)
     return dispatch
 
-DEFAULT_DIR_FD = -100
+if hasattr(rposix, 'AT_FDCWD'):
+    DEFAULT_DIR_FD = rposix.AT_FDCWD
+else:
+    DEFAULT_DIR_FD = -100
 DIR_FD_AVAILABLE = False
 
 def _unwrap_fd(space, w_value):
@@ -128,8 +131,8 @@ class DirFD(Unwrapper):
             return dir_fd
 
 
-@unwrap_spec(flag=c_int, mode=c_int, dir_fd=DirFD)
-def open(space, w_fname, flag, mode=0777, dir_fd=DEFAULT_DIR_FD):
+@unwrap_spec(flags=c_int, mode=c_int, dir_fd=DirFD)
+def open(space, w_path, flags, mode=0777, dir_fd=DEFAULT_DIR_FD):
     """open(path, flags, mode=0o777, *, dir_fd=None)
 
 Open a file for low level IO.  Returns a file handle (integer).
@@ -139,10 +142,13 @@ If dir_fd is not None, it should be a file descriptor open to a directory,
 dir_fd may not be implemented on your platform.
   If it is unavailable, using it will raise a NotImplementedError."""
     try:
-        fd = dispatch_filename(rposix.open)(
-            space, w_fname, flag, mode)
-    except OSError, e:
-        raise wrap_oserror2(space, e, w_fname)
+        if dir_fd == DEFAULT_DIR_FD:
+            fd = dispatch_filename(rposix.open)(space, w_path, flags, mode)
+        else:
+            path = space.fsencode_w(w_path)
+            fd = rposix.openat(path, flags, mode, dir_fd)
+    except OSError as e:
+        raise wrap_oserror2(space, e, w_path)
     return space.wrap(fd)
 
 @unwrap_spec(fd=c_int, pos=r_longlong, how=c_int)
@@ -504,8 +510,12 @@ If dir_fd is not None, it should be a file descriptor open to a directory,
 dir_fd may not be implemented on your platform.
   If it is unavailable, using it will raise a NotImplementedError."""
     try:
-        dispatch_filename(rposix.unlink)(space, w_path)
-    except OSError, e:
+        if dir_fd == DEFAULT_DIR_FD:
+            dispatch_filename(rposix.unlink)(space, w_path)
+        else:
+            path = space.fsencode_w(w_path)
+            rposix.unlinkat(path, dir_fd, removedir=False)
+    except OSError as e:
         raise wrap_oserror2(space, e, w_path)
 
 @unwrap_spec(dir_fd=DirFD)
@@ -519,8 +529,12 @@ If dir_fd is not None, it should be a file descriptor open to a directory,
 dir_fd may not be implemented on your platform.
   If it is unavailable, using it will raise a NotImplementedError."""
     try:
-        dispatch_filename(rposix.unlink)(space, w_path)
-    except OSError, e:
+        if dir_fd == DEFAULT_DIR_FD:
+            dispatch_filename(rposix.unlink)(space, w_path)
+        else:
+            path = space.fsencode_w(w_path)
+            rposix.unlinkat(path, dir_fd, removedir=False)
+    except OSError as e:
         raise wrap_oserror2(space, e, w_path)
 
 def _getfullpathname(space, w_path):
@@ -582,8 +596,12 @@ dir_fd may not be implemented on your platform.
 
 The mode argument is ignored on Windows."""
     try:
-        dispatch_filename(rposix.mkdir)(space, w_path, mode)
-    except OSError, e:
+        if dir_fd == DEFAULT_DIR_FD:
+            dispatch_filename(rposix.mkdir)(space, w_path, mode)
+        else:
+            path = space.fsencode_w(w_path)
+            rposix.mkdirat(path, mode, dir_fd)
+    except OSError as e:
         raise wrap_oserror2(space, e, w_path)
 
 @unwrap_spec(dir_fd=DirFD)
@@ -597,8 +615,12 @@ If dir_fd is not None, it should be a file descriptor open to a directory,
 dir_fd may not be implemented on your platform.
   If it is unavailable, using it will raise a NotImplementedError."""
     try:
-        dispatch_filename(rposix.rmdir)(space, w_path)
-    except OSError, e:
+        if dir_fd == DEFAULT_DIR_FD:
+            dispatch_filename(rposix.rmdir)(space, w_path)
+        else:
+            path = space.fsencode_w(w_path)
+            rposix.unlinkat(path, dir_fd, removedir=True)
+    except OSError as e:
         raise wrap_oserror2(space, e, w_path)
 
 @unwrap_spec(errno=c_int)
@@ -797,7 +819,7 @@ src_dir_fd and dst_dir_fd, may not be implemented on your platform.
         raise wrap_oserror(space, e)
 
 @unwrap_spec(mode=c_int, dir_fd=DirFD)
-def mkfifo(space, w_filename, mode=0666, dir_fd=DEFAULT_DIR_FD):
+def mkfifo(space, w_path, mode=0666, dir_fd=DEFAULT_DIR_FD):
     """mkfifo(path, mode=0o666, *, dir_fd=None)
 
 Create a FIFO (a POSIX named pipe).
@@ -807,9 +829,13 @@ If dir_fd is not None, it should be a file descriptor open to a directory,
 dir_fd may not be implemented on your platform.
   If it is unavailable, using it will raise a NotImplementedError."""
     try:
-        dispatch_filename(rposix.mkfifo)(space, w_filename, mode)
-    except OSError, e:
-        raise wrap_oserror2(space, e, w_filename)
+        if dir_fd == DEFAULT_DIR_FD:
+            dispatch_filename(rposix.mkfifo)(space, w_path, mode)
+        else:
+            path = space.fsencode_w(w_path)
+            rposix.mkfifoat(path, mode, dir_fd)
+    except OSError as e:
+        raise wrap_oserror2(space, e, w_path)
 
 @unwrap_spec(mode=c_int, device=c_int, dir_fd=DirFD)
 def mknod(space, w_filename, mode=0600, device=0, dir_fd=DEFAULT_DIR_FD):
@@ -827,8 +853,12 @@ If dir_fd is not None, it should be a file descriptor open to a directory,
 dir_fd may not be implemented on your platform.
   If it is unavailable, using it will raise a NotImplementedError."""
     try:
-        dispatch_filename(rposix.mknod)(space, w_filename, mode, device)
-    except OSError, e:
+        if dir_fd == DEFAULT_DIR_FD:
+            dispatch_filename(rposix.mknod)(space, w_filename, mode, device)
+        else:
+            fname = space.fsencode_w(w_filename)
+            rposix.mknodat(fname, mode, device, dir_fd)
+    except OSError as e:
         raise wrap_oserror2(space, e, w_filename)
 
 @unwrap_spec(mask=c_int)
@@ -911,8 +941,13 @@ If dir_fd is not None, it should be a file descriptor open to a directory,
 dir_fd may not be implemented on your platform.
   If it is unavailable, using it will raise a NotImplementedError."""
     try:
-        dispatch_filename_2(rposix.symlink)(space, w_src, w_dst)
-    except OSError, e:
+        if dir_fd == DEFAULT_DIR_FD:
+            dispatch_filename_2(rposix.symlink)(space, w_src, w_dst)
+        else:
+            src = space.fsencode_w(w_src)
+            dst = space.fsencode_w(w_dst)
+            rposix.symlinkat(src, dst, dir_fd)
+    except OSError as e:
         raise wrap_oserror(space, e)
 
 
@@ -932,7 +967,10 @@ dir_fd may not be implemented on your platform.
     else:
         path = space.bytes0_w(w_path)
     try:
-        result = os.readlink(path)
+        if dir_fd == DEFAULT_DIR_FD:
+            result = rposix.readlink(path)
+        else:
+            result = rposix.readlinkat(path, dir_fd)
     except OSError, e:
         raise wrap_oserror2(space, e, w_path)
     w_result = space.wrapbytes(result)
