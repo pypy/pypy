@@ -1218,7 +1218,7 @@ def _utimensat(space, path, w_times, w_ns, dir_fd, follow_symlinks):
         times_w = space.fixedview(w_times)
         if len(times_w) != 2:
             raise oefmt(space.w_TypeError,
-                "utime: 'ns' must be a tuple of two ints")
+                "utime: 'times' must be either a tuple of two ints or None")
         atime_s, atime_ns = convert_seconds(space, times_w[0])
         mtime_s, mtime_ns = convert_seconds(space, times_w[1])
     else:
