@@ -148,13 +148,12 @@ def time():
 
 if _WIN32:
     # hacking to avoid LARGE_INTEGER which is a union...
-    A = lltype.FixedSizeArray(lltype.SignedLongLong, 1)
     QueryPerformanceCounter = external(
-        'QueryPerformanceCounter', [lltype.Ptr(A)], lltype.Void,
-        releasegil=False)
+        'QueryPerformanceCounter', [rffi.CArrayPtr(lltype.SignedLongLong)],
+         lltype.Void, releasegil=False)
     QueryPerformanceFrequency = external(
-        'QueryPerformanceFrequency', [lltype.Ptr(A)], rffi.INT,
-        releasegil=False)
+        'QueryPerformanceFrequency', [rffi.CArrayPtr(lltype.SignedLongLong)], 
+        rffi.INT, releasegil=False)
     class State(object):
         divisor = 0.0
         counter_start = 0
@@ -178,15 +177,14 @@ if need_rusage:
                            releasegil=False)
 
 def win_perf_counter():
-    a = lltype.malloc(A, flavor='raw')
-    if state.divisor == 0.0:
+    with lltype.scoped_alloc(rffi.CArray(rffi.lltype.SignedLongLong), 1) as a:
+        if state.divisor == 0.0:
+            QueryPerformanceCounter(a)
+            state.counter_start = a[0]
+            QueryPerformanceFrequency(a)
+            state.divisor = float(a[0])
         QueryPerformanceCounter(a)
-        state.counter_start = a[0]
-        QueryPerformanceFrequency(a)
-        state.divisor = float(a[0])
-    QueryPerformanceCounter(a)
-    diff = a[0] - state.counter_start
-    lltype.free(a, flavor='raw')
+        diff = a[0] - state.counter_start
     return float(diff) / state.divisor
 
 @replace_time_function('clock')
