@@ -12,7 +12,7 @@ from rpython.jit.metainterp.resoperation import rop, ResOperation, InputArgInt,\
      OpHelpers, InputArgRef
 from rpython.jit.metainterp.resumecode import unpack_numbering
 from rpython.rlib.rarithmetic import LONG_BIT
-from rpython.jit.tool.oparser import parse
+from rpython.jit.tool.oparser import parse, convert_loop_to_trace
 
 # ____________________________________________________________
 
@@ -29,7 +29,7 @@ class BaseTestBasic(BaseTest):
         exp = parse(optops, namespace=self.namespace.copy())
         expected = convert_old_style_to_targets(exp, jump=True)
         call_pure_results = self._convert_call_pure_results(call_pure_results)
-        trace = self.convert_loop_to_packed(loop)
+        trace = convert_loop_to_trace(loop)
         compile_data = compile.SimpleCompileData(trace,
                                                  call_pure_results)
         info, ops = self._do_optimize_loop(compile_data)
@@ -2029,8 +2029,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
             if varname not in virtuals:
                 if strict:
                     assert box.same_box(oparse.getvar(varname))
-                else:
-                    assert box.getvalue() == oparse.getvar(varname).getvalue()
             else:
                 tag, resolved, fieldstext = virtuals[varname]
                 if tag[0] == 'virtual':

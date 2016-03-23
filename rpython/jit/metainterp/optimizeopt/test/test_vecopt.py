@@ -23,7 +23,7 @@ from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.jit.metainterp.optimizeopt.version import LoopVersionInfo
 from rpython.jit.backend.llsupport.descr import ArrayDescr
 from rpython.jit.metainterp.optimizeopt.dependency import Node, DependencyGraph
-from rpython.jit.tool.oparser import OpParser
+from rpython.jit.tool.oparser import OpParser, convert_loop_to_trace
 from rpython.jit.backend.detect_cpu import getcpuclass
 
 CPU = getcpuclass()
@@ -81,8 +81,8 @@ class VecTestHelper(DependencyBaseTest):
     jitdriver_sd = FakeJitDriverStaticData()
 
     def assert_vectorize(self, loop, expected_loop, call_pure_results=None):
-        jump = ResOperation(rop.LABEL, loop.jump.getarglist(), loop.jump.getdescr())
-        compile_data = compile.LoopCompileData(loop.label, jump, loop.operations)
+        trace = convert_loop_to_trace(loop)
+        compile_data = compile.LoopCompileData(trace, loop.jump.getarglist())
         state = self._do_optimize_loop(compile_data)
         loop.label = state[0].label_op
         loop.opererations = state[1]

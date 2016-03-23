@@ -55,11 +55,11 @@ def test_equaloplists():
     loop2 = pure_parse(ops, namespace=namespace)
     loop3 = pure_parse(ops.replace("i2 = int_add", "i2 = int_sub"),
                        namespace=namespace)
-    assert equaloplists(loop1._get_operations(), loop2._get_operations(),
+    assert equaloplists(loop1.operations, loop2.operations,
                         remap=make_remap(loop1.inputargs,
                                          loop2.inputargs))
     py.test.raises(AssertionError,
-                   "equaloplists(loop1._get_operations(), loop3._get_operations(),"
+                   "equaloplists(loop1.operations, loop3.operations,"
                    "remap=make_remap(loop1.inputargs, loop3.inputargs))")
 
 def test_equaloplists_fail_args():
@@ -509,7 +509,6 @@ class BaseTest(object):
         # invent a GUARD_FUTURE_CONDITION to not have to change all tests
         if res.operations[-1].getopnum() == rop.JUMP:
             guard = ResOperation(rop.GUARD_FUTURE_CONDITION, [])
-            guard.rd_snapshot = resume.TopSnapshot(None, [], [])
             res.operations.insert(-1, guard)
 
     @staticmethod
@@ -544,6 +543,24 @@ class BaseTest(object):
         for k, v in d.items():
             call_pure_results[list(k)] = v
         return call_pure_results
+
+    def convert_values(self, inpargs, values):
+        from rpython.jit.metainterp.history import IntFrontendOp, RefFrontendOp
+        if values:
+            r = []
+            for arg, v in zip(inpargs, values):
+                if arg.type == 'i':
+                    n = IntFrontendOp(0)
+                    if v is not None:
+                        n.setint(v)
+                else:
+                    n = RefFrontendOp(0)
+                    if v is not None:
+                        n.setref_base(v)
+                    assert arg.type == 'r'
+                r.append(n)
+            return r
+        return inpargs
 
     def unroll_and_optimize(self, loop, call_pure_results=None,
                             jump_values=None):

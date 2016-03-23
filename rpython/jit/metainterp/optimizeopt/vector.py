@@ -660,7 +660,7 @@ class PackSet(object):
                 #
                 if origin_pack is None:
                     op = lnode.getoperation()
-                    if op.is_primitive_load():
+                    if rop.is_primitive_load(op.opnum):
                         return Pair(lnode, rnode)
                     else:
                         return Pair(lnode, rnode)

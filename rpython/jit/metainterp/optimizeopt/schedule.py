@@ -312,7 +312,7 @@ class GuardRestrict(OpRestrict):
 
 class LoadRestrict(OpRestrict):
     def opcount_filling_vector_register(self, op, vec_reg_size):
-        assert op.is_primitive_load()
+        assert rop.is_primitive_load(op.opnum)
         descr = op.getdescr()
         return vec_reg_size // descr.get_item_size_in_bytes()
 
@@ -332,7 +332,7 @@ class StoreRestrict(OpRestrict):
         return descr.get_item_size_in_bytes()
 
     def opcount_filling_vector_register(self, op, vec_reg_size):
-        assert op.is_primitive_store()
+        assert rop.is_primitive_store(op.opnum)
         descr = op.getdescr()
         return vec_reg_size // descr.get_item_size_in_bytes()
 
@@ -921,7 +921,7 @@ class Pack(object):
         """
         left = self.leftmost()
         if left.returns_void():
-            if left.is_primitive_store():
+            if rop.is_primitive_store(left.opnum):
                 # make this case more general if it turns out this is
                 # not the only case where packs need to be trashed
                 descr = left.getdescr()
