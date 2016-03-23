@@ -698,7 +698,7 @@ class VRefTests(object):
         })
 
     def test_vref_like_pypy(self):
-        myjitdriver = JitDriver(greens=['n'], reds=['i', 'k', 'ec', 'frame'])
+        myjitdriver = JitDriver(greens=['n'], reds=['i', 'ec', 'frame'])
 
         class ExecutionContext(object):
             topframeref = vref_None
@@ -710,31 +710,26 @@ class VRefTests(object):
             def leave(self, frame):
                 frame_vref = self.topframeref
                 self.topframeref = frame.f_backref
-                f_back = frame.f_backref()
-                if f_back:
-                    f_back.escaped = True
-                frame_vref()
+                frame.f_backref()
                 virtual_ref_finish(frame_vref, frame)
 
         class PyFrame(object):
-            escaped = False
+            pass
 
         def dispatch(ec, frame, n, i):
-            k = i
             while True:
-                myjitdriver.jit_merge_point(n=n, ec=ec, frame=frame, i=i, k=k)
+                myjitdriver.jit_merge_point(n=n, ec=ec, frame=frame, i=i)
                 i += 1
                 if n == 1:
-                    execute_frame(ec, 2, i)
+                    execute_frame(ec, 2, 0)
                     if i >= 10:
                         break
                 elif n == 2:
                     execute_frame(ec, 3, i)
-                    if i >= k + 3:
+                    if i == 2:
                         break
                 elif n == 3:
-                    if i % 3 == 0:
-                        break
+                    break
 
         def execute_frame(ec, n, i):
             frame = PyFrame()
