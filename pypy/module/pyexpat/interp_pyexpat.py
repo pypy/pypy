@@ -623,9 +623,8 @@ getting the advantage of providing document type information to the parser.
     def get_namespace_prefixes(self, space):
         return space.wrap(self.ns_prefixes)
 
-    @unwrap_spec(value=int)
-    def set_namespace_prefixes(self, space, value):
-        self.ns_prefixes = bool(value)
+    def set_namespace_prefixes(self, space, w_value):
+        self.ns_prefixes = space.bool_w(w_value)
         XML_SetReturnNSTriplet(self.itself, self.ns_prefixes)
 
     # Parse methods
