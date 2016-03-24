@@ -2790,8 +2790,8 @@ class MetaInterp(object):
                 # during this CALL_MAY_FORCE.  Mark this fact by
                 # generating a VIRTUAL_REF_FINISH on it and replacing
                 # it by ConstPtr(NULL).
-                return self.stop_tracking_virtualref(i, op, opnum, arglist,
-                                                     descr, cut_pos)
+                cut_pos = self.stop_tracking_virtualref(i, op, opnum, arglist,
+                                                        descr, cut_pos)
         return cut_pos
 
     def vable_after_residual_call(self, funcbox):
