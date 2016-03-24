@@ -508,6 +508,16 @@ class TestPosixAscii(BasePosixUnicodeOrAscii):
         finally:
             os.close(dirfd)
 
+    def test_fchmodat(self):
+        def f(dirfd):
+            return rposix.fchmodat('test_open_ascii', 0777, dirfd)
+
+        dirfd = os.open(os.path.dirname(self.ufilename), os.O_RDONLY)
+        try:
+            interpret(f, [dirfd])  # does not crash
+        finally:
+            os.close(dirfd)
+
 
 class TestPosixUnicode(BasePosixUnicodeOrAscii):
     def _get_filename(self):
