@@ -144,7 +144,8 @@ class AbstractVirtualPtrInfo(NonNullPtrInfo):
             op.set_forwarded(None)
             optforce.emit_operation(op)
             newop = optforce.getlastop()
-            op.set_forwarded(newop)
+            if newop is not op:
+                op.set_forwarded(newop)
             newop.set_forwarded(self)
             descr = self.descr
             self._is_virtual = False

@@ -563,7 +563,7 @@ class Optimizer(Optimization):
             return # can happen e.g. if we postpone the operation that becomes
             # constant
         # XXX kill, requires thinking
-        op = self.replace_op_with(op, op.opnum)
+        #op = self.replace_op_with(op, op.opnum)
         for i in range(op.numargs()):
             arg = self.force_box(op.getarg(i))
             op.setarg(i, arg)
@@ -592,7 +592,7 @@ class Optimizer(Optimization):
         self._newoperations.append(op)
 
     def emit_guard_operation(self, op, pendingfields):
-        guard_op = self.replace_op_with(op, op.getopnum())
+        guard_op = op # self.replace_op_with(op, op.getopnum())
         opnum = guard_op.getopnum()
         # If guard_(no)_exception is merged with another previous guard, then
         # it *should* be in "some_call;guard_not_forced;guard_(no)_exception".
