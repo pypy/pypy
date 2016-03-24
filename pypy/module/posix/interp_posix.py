@@ -1250,11 +1250,11 @@ def _utimensat(space, path, w_times, w_ns, dir_fd, follow_symlinks):
 def convert_seconds(space, w_time):
     if space.isinstance_w(w_time, space.w_float):
         time = space.float_w(w_time)
-        intpart, floatpart = modf(time)
-        if floatpart < 0:
-            floatpart += 1.
+        fracpart, intpart = modf(time)
+        if fracpart < 0:
+            fracpart += 1.
             intpart -= 1.
-        return int(intpart), int(floatpart*1e9)
+        return int(intpart), int(fracpart*1e9)
     else:
         time = space.int_w(w_time)
         return time, 0
