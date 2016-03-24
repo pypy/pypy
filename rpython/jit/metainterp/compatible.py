@@ -1,3 +1,4 @@
+from rpython.rlib.objectmodel import we_are_translated
 from rpython.jit.metainterp.history import newconst
 from rpython.jit.codewriter import longlong
 from rpython.jit.metainterp.resoperation import rop
@@ -111,10 +112,19 @@ class Condition(object):
 
     def _repr_const(self, arg):
         from rpython.jit.metainterp.history import ConstInt, ConstFloat, ConstPtr
+        from rpython.rtyper.annlowlevel import llstr, hlstr
+        from rpython.rtyper.lltypesystem import llmemory, rstr, rffi, lltype
+
         if isinstance(arg, ConstInt):
             return str(arg.value)
         elif isinstance(arg, ConstPtr):
             if arg.value:
+                # through all the layers and back
+                if we_are_translated():
+                    tid = self.metainterp_sd.cpu.get_actual_typeid(arg.getref_base())
+                    sid = self.metainterp_sd.cpu.get_actual_typeid(rffi.cast(llmemory.GCREF, llstr("abc")))
+                    if sid == tid:
+                        return hlstr(rffi.cast(lltype.Ptr(rstr.STR), arg.getref_base()))
                 return "<some const ptr>"
             else:
                 return "None"
