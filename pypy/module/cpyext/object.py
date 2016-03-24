@@ -21,6 +21,15 @@ def PyObject_Malloc(space, size):
                          flavor='raw',
                          add_memory_pressure=True)
 
+@cpython_api([rffi.VOIDP, Py_ssize_t], rffi.VOIDP)
+def PyObject_Realloc(space, ptr, size):
+    if not lltype.cast_ptr_to_int(ptr):
+        return lltype.malloc(rffi.VOIDP.TO, size,
+                         flavor='raw',
+                         add_memory_pressure=True)
+    # XXX FIXME
+    return lltype.nullptr(rffi.CCHARP.TO)
+
 @cpython_api([rffi.VOIDP], lltype.Void)
 def PyObject_Free(space, ptr):
     lltype.free(ptr, flavor='raw')

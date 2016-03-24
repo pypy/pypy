@@ -106,6 +106,7 @@ def compile_extension_module_applevel(space, modname, include_dirs=[], **kwds):
     """
     if sys.platform == 'win32':
         kwds["compile_extra"] = ["/we4013"]
+        kwds["link_extra"] = ["/LIBPATH:" + os.path.join(sys.exec_prefix, 'libs')]
     elif sys.platform == 'darwin':
         pass
     elif sys.platform.startswith('linux'):

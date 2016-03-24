@@ -231,6 +231,24 @@ class AppTestObject(AppTestCpythonExtensionBase):
         assert type(x) is int
         assert x == -424344
 
+    def test_object_realloc(self):
+        module = self.import_extension('foo', [
+            ("realloctest", "METH_NOARGS",
+             """
+                 PyObject * ret;
+                 char *copy, *orig = PyObject_MALLOC(12);
+                 memcpy(orig, "hello world", 12);
+                 copy = PyObject_REALLOC(orig, 15);
+                 if (copy == NULL)
+                     Py_RETURN_NONE;
+                 ret = PyString_FromString(copy, 12);
+                 PyObject_Free(orig);
+                 PyObject_Free(copy);
+                 return ret;  
+             """)])
+        x = module.realloctest()
+        assert x == 'hello world'
+
     def test_TypeCheck(self):
         module = self.import_extension('foo', [
             ("typecheck", "METH_VARARGS",
