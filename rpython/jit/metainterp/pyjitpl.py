@@ -1622,8 +1622,8 @@ class MIFrame(object):
                     assert False
                 if opnum == -1:
                     opnum = rop.call_may_force_for_descr(descr)
-            self.metainterp.vrefs_after_residual_call(self.metainterp._last_op,
-                opnum, allboxes, descr, cut_pos)
+            cut_pos = self.metainterp.vrefs_after_residual_call(
+                self.metainterp._last_op, opnum, allboxes, descr, cut_pos)
             vablebox = None
             if assembler_call:
                 vablebox, resbox = self.metainterp.direct_assembler_call(
@@ -2790,7 +2790,9 @@ class MetaInterp(object):
                 # during this CALL_MAY_FORCE.  Mark this fact by
                 # generating a VIRTUAL_REF_FINISH on it and replacing
                 # it by ConstPtr(NULL).
-                self.stop_tracking_virtualref(i, op, opnum, arglist, descr, cut_pos)
+                return self.stop_tracking_virtualref(i, op, opnum, arglist,
+                                                     descr, cut_pos)
+        return cut_pos
 
     def vable_after_residual_call(self, funcbox):
         vinfo = self.jitdriver_sd.virtualizable_info
@@ -2821,10 +2823,12 @@ class MetaInterp(object):
         self.history.cut(cut_pos) # pop the CALL
         self.history.record_nospec(rop.VIRTUAL_REF_FINISH,
                             [vrefbox, virtualbox], None)
+        cut_pos = self.history.get_trace_position()
         newop = self.history.record_nospec(opnum, arglist, descr)
         op.set_position(newop.get_position())
         # mark by replacing it with ConstPtr(NULL)
         self.virtualref_boxes[i+1] = self.cpu.ts.CONST_NULL
+        return cut_pos
 
     def handle_possible_exception(self):
         if self.last_exc_value:

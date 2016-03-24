@@ -743,7 +743,8 @@ class VRefTests(object):
             return execute_frame(ExecutionContext(), 1)
 
         assert entry_point() == 1
-        self.meta_interp(entry_point, [], inline=True)
+        r = self.meta_interp(entry_point, [], inline=True)
+        assert r == 1
 
 
 class TestLLtype(VRefTests, LLJitMixin):
