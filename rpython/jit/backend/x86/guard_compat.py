@@ -2,7 +2,7 @@ from rpython.rlib import rgc
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.jit.backend.x86.arch import WORD, IS_X86_32, IS_X86_64
-from rpython.jit.backend.x86 import rx86, codebuf
+from rpython.jit.backend.x86 import rx86, codebuf, valgrind
 from rpython.jit.backend.x86.regloc import X86_64_SCRATCH_REG, imm, eax, edx
 from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from rpython.jit.metainterp.compile import GuardCompatibleDescr
@@ -136,6 +136,7 @@ def grow_switch(cpu, compiled_loop_token, guarddescr, gcref):
     # the old 'compatinfo' is not used any more, but will only be freed
     # when the looptoken is freed
     compatinfop[0] = rffi.cast(rffi.VOIDP, newcompatinfo)
+    valgrind.discard_translations(rffi.cast(lltype.Signed, compatinfop), WORD)
 
     # the machine code is not updated here.  We leave it to the actual
     # guard_compatible to update it if needed.
