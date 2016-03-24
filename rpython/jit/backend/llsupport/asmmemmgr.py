@@ -287,11 +287,14 @@ class BlockBuilderMixin(object):
             targetindex -= self.SUBBLOCK_SIZE
         assert not block
 
-    def copy_core_dump(self, addr, offset=0):
+    def copy_core_dump(self, addr, offset=0, count=-1):
         HEX = '0123456789ABCDEF'
         dump = []
-        src = rffi.cast(rffi.CCHARP, addr + offset)
-        for p in range(self.get_relative_pos()):
+        src = rffi.cast(rffi.CCHARP, addr)
+        end = self.get_relative_pos()
+        if count != -1:
+            end = offset + count
+        for p in range(offset, end):
             o = ord(src[p])
             dump.append(HEX[o >> 4])
             dump.append(HEX[o & 15])

@@ -68,17 +68,6 @@ void jitlog_try_init_using_env(void) {
 #endif
       }
     }
-    if (!jitlog_fd) {
-        jitlog_fd = 2;
-        // TODO
-        //if (isatty(2))
-        //  {
-        //    debug_start_colors_1 = "\033[1m\033[31m";
-        //    debug_start_colors_2 = "\033[31m";
-        //    debug_stop_colors = "\033[0m";
-        //  }
-    }
-
     jitlog_ready = 1;
 }
 
@@ -87,6 +76,7 @@ char *jitlog_init(int fd, const char * prefix)
 {
     jitlog_fd = fd;
     jitlog_prefix = strdup(prefix);
+    jitlog_ready = 1;
     return NULL;
 }
 
@@ -111,13 +101,8 @@ void jitlog_write_marked(int tag, char * text, int length)
 {
     if (!jitlog_ready) { return; }
 
-    char header[5];
+    char header[1];
     header[0] = tag;
-    // little endian 32 bit singed int
-    header[1] = length & 0xff;
-    header[2] = (length >> 8) & 0xff;
-    header[3] = (length >> 16) & 0xff;
-    header[4] = (length >> 24) & 0xff;
-    write(jitlog_fd, (const char*)&header, 5);
+    write(jitlog_fd, (const char*)&header, 1);
     write(jitlog_fd, text, length);
 }

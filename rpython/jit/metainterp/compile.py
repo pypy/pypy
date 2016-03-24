@@ -482,7 +482,7 @@ def propagate_original_jitcell_token(trace):
 def do_compile_loop(jd_id, unique_id, metainterp_sd, inputargs, operations,
                     looptoken, log=True, name='', memo=None):
     _log = metainterp_sd.jitlog.log_trace(MARK_TRACE_OPT, metainterp_sd, None)
-    _log.write(inputargs, operations)
+    _log.write(inputargs, operations, name=name, unique_id=unique_id)
     # TODO remove old
     metainterp_sd.logger_ops.log_loop(inputargs, operations, -2,
                                       'compiling', None, name, memo)

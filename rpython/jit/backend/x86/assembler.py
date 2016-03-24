@@ -534,7 +534,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         looptoken._ll_function_addr = rawstart
         if logger:
             log = logger.log_trace(MARK_TRACE_ASM, None, self.mc)
-            log.write(inputargs, operations, None, ops_offset)
+            log.write(inputargs, operations, None, ops_offset, unique_id=unique_id)
         self.fixup_target_tokens(rawstart)
         self.teardown()
         # oprofile support

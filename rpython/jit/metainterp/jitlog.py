@@ -3,6 +3,7 @@ from rpython.jit.metainterp import resoperation as resoperations
 from rpython.jit.metainterp.history import ConstInt, ConstFloat
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rlib.objectmodel import compute_unique_id
 import sys
 import weakref
 
@@ -31,21 +32,25 @@ class VMProfJitLogger(object):
     def __init__(self):
         self.cintf = cintf.setup()
         self.memo = {}
+        self.is_setup = False
 
     def setup_once(self):
+        self.is_setup = True
         self.cintf.jitlog_try_init_using_env()
         if self.cintf.jitlog_filter(0x0):
             return
         count = len(resoperations.opname)
         mark = MARK_RESOP_META
         for opnum, opname in resoperations.opname.items():
-            line = self.encode_le_16bit(opnum) + opname.lower()
+            line = self.encode_le_16bit(opnum) + self.encode_str(opname.lower())
             self.write_marked(mark, line)
 
     def teardown(self):
         self.cintf.jitlog_teardown()
 
     def write_marked(self, mark, line):
+        if not self.is_setup:
+            self.setup_once()
         self.cintf.jitlog_write_marked(mark, line, len(line))
 
     def log_trace(self, tag, metainterp_sd, mc, memo=None):
@@ -64,6 +69,9 @@ class VMProfJitLogger(object):
         le_addr = self.encode_le_addr(target_addr)
         lst = [le_addr, le_len, le_addr]
         self.cintf.jitlog_filter(MARK_ASM_PATCH, ''.join(lst))
+
+    def encode_str(self, string):
+        return self.encode_le_32bit(len(string)) + string
 
     def encode_le_16bit(self, val):
         return chr((val >> 0) & 0xff) + chr((val >> 8) & 0xff)
@@ -92,24 +100,36 @@ class LogTrace(object):
     def __init__(self, tag, memo, metainterp_sd, mc, logger):
         self.memo = memo
         self.metainterp_sd = metainterp_sd
+        self.ts = None
         if self.metainterp_sd is not None:
             self.ts = metainterp_sd.cpu.ts
         self.tag = tag
         self.mc = mc
         self.logger = logger
 
-    def write(self, args, ops, faildescr=None, ops_offset={}):
+    def write(self, args, ops, faildescr=None, ops_offset={},
+              name=None, unique_id=None):
         log = self.logger
 
+        if not name:
+            name = ''
         # write the initial tag
         if faildescr is None:
-            log.write_marked(self.tag, 'loop')
+            string = self.logger.encode_str('loop') + \
+                     self.logger.encode_le_addr(unique_id or 0) + \
+                     self.logger.encode_str(name or '')
+            log.write_marked(self.tag, string)
         else:
-            log.write_marked(self.tag, 'bridge')
+            unique_id = compute_unique_id(faildescr)
+            string = self.logger.encode_str('bridge') + \
+                     self.logger.encode_le_addr(unique_id) + \
+                     self.logger.encode_str(name or '')
+            log.write_marked(self.tag, string)
 
         # input args
         str_args = [self.var_to_str(arg) for arg in args]
-        log.write_marked(MARK_INPUT_ARGS, ','.join(str_args))
+        string = self.logger.encode_str(','.join(str_args))
+        log.write_marked(MARK_INPUT_ARGS, string)
 
         # assembler address (to not duplicate it in write_code_dump)
         if self.mc is not None:
@@ -138,12 +158,15 @@ class LogTrace(object):
         descr = op.getdescr()
         le_opnum = self.logger.encode_le_16bit(op.getopnum())
         str_res = self.var_to_str(op)
-        line = le_opnum + ','.join([str_res] + str_args)
+        line = ','.join([str_res] + str_args)
         if descr:
             descr_str = descr.repr_of_descr()
-            return MARK_RESOP_DESCR, line + ',' + descr_str
+            line = line + ',' + descr_str
+            string = self.logger.encode_str(line)
+            return MARK_RESOP_DESCR, le_opnum + string
         else:
-            return MARK_RESOP, line
+            string = self.logger.encode_str(line)
+            return MARK_RESOP, le_opnum + string
 
 
     def write_core_dump(self, operations, i, op, ops_offset):
@@ -177,9 +200,11 @@ class LogTrace(object):
         else:
             end_offset = ops_offset[op2]
 
-        dump = self.mc.copy_core_dump(self.mc.absolute_addr(), start_offset)
+        count = end_offset - start_offset
+        dump = self.mc.copy_core_dump(self.mc.absolute_addr(), start_offset, count)
         offset = self.logger.encode_le_16bit(start_offset)
-        self.logger.write_marked(MARK_ASM, offset + dump)
+        edump = self.logger.encode_str(dump)
+        self.logger.write_marked(MARK_ASM, offset + edump)
 
     def var_to_str(self, arg):
         try:

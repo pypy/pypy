@@ -55,8 +55,9 @@ def optimize_trace(metainterp_sd, jitdriver_sd, compile_data, memo=None):
     debug_start("jit-optimize")
     inputargs = compile_data.start_label.getarglist()
     try:
-        log = metainterp_sd.jitlog.log_trace(MARK_TRACE, metainterp_sd, None)
-        log.write(inputargs, compile_data.operations)
+        # TODO missing the unique id
+        # TODO log = metainterp_sd.jitlog.log_trace(MARK_TRACE, metainterp_sd, None)
+        # TODO log.write(inputargs, compile_data.operations)
         #
         metainterp_sd.logger_noopt.log_loop(inputargs,
                                             compile_data.operations,
