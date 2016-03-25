@@ -536,3 +536,12 @@ class TestRegisteredFunctions:
             os.open('/tmp/t', 0, 0)
             os.open(u'/tmp/t', 0, 0)
         compile(f, ())
+
+def test_symlinkat(tmpdir):
+    tmpdir.join('file').write('text')
+    dirfd = os.open(str(tmpdir), os.O_RDONLY)
+    try:
+        rposix.symlinkat('file', 'link', dir_fd=dirfd)
+        assert os.readlink(str(tmpdir.join('link'))) == 'file'
+    finally:
+        os.close(dirfd)

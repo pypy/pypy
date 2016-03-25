@@ -1905,11 +1905,11 @@ if HAVE_READLINKAT:
 
 if HAVE_SYMLINKAT:
     c_symlinkat = external('symlinkat',
-        [rffi.CCHARP, rffi.CCHARP, rffi.INT], rffi.INT,
+        [rffi.CCHARP, rffi.INT, rffi.CCHARP], rffi.INT,
         save_err=rffi.RFFI_SAVE_ERRNO)
 
     def symlinkat(src, dst, dir_fd=AT_FDCWD):
-        error = c_symlinkat(src, dst, dir_fd)
+        error = c_symlinkat(src, dir_fd, dst)
         handle_posix_error('symlinkat', error)
 
 if HAVE_OPENAT:
