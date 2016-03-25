@@ -2256,7 +2256,7 @@ class MetaInterp(object):
                     jd_sd.warmstate.get_location_str(greenkey),
                     self.staticdata.logger_ops._make_log_operations(
                         self.box_names_memo),
-                    self.history.trace)
+                    self.history.trace.unpack()[1])
             if self.aborted_tracing_jitdriver is not None:
                 jd_sd = self.aborted_tracing_jitdriver
                 greenkey = self.aborted_tracing_greenkey
