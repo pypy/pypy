@@ -36,6 +36,8 @@ class CompatibilityCondition(object):
             if oldcond.same_cond(cond, res):
                 return
         cond.activate(res, optimizer)
+        if self.conditions and self.conditions.debug_mp_str == cond.debug_mp_str:
+            cond.debug_mp_str = ''
         self.conditions.append(cond)
 
     def register_quasi_immut_field(self, op):
