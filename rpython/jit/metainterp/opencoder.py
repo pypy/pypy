@@ -11,7 +11,7 @@ from rpython.jit.metainterp.resoperation import AbstractResOp, AbstractInputArg,
     ResOperation, oparity, rop, opwithdescr, GuardResOp, IntOp, FloatOp, RefOp,\
     opclasses
 from rpython.rlib.rarithmetic import intmask, r_uint
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rtyper.lltypesystem import rffi, lltype, llmemory
 from rpython.jit.metainterp.typesystem import llhelper
 
@@ -474,5 +474,6 @@ def tag(kind, pos):
     #    raise some error
     return (pos << TAGSHIFT) | kind
 
+@specialize.ll()
 def untag(tagged):
     return intmask(tagged) & TAGMASK, intmask(tagged) >> TAGSHIFT
