@@ -391,9 +391,12 @@ class Trace(BaseTrace):
     def new_array(self, lgt):
         return [rffi.cast(STORAGE_TP, 0)] * lgt
 
+    def _encode_cast(self, i):
+        return rffi.cast(STORAGE_TP, self._encode(i))
+
     def create_top_snapshot(self, jitcode, pc, frame, flag, vable_boxes, vref_boxes):
         self._total_snapshots += 1
-        array = frame.get_list_of_active_boxes(flag, self.new_array, self._encode)
+        array = frame.get_list_of_active_boxes(flag, self.new_array, self._encode_cast)
         vable_array = self._list_of_boxes(vable_boxes)
         vref_array = self._list_of_boxes(vref_boxes)
         s = TopSnapshot(combine_uint(jitcode.index, pc), array, vable_array,
@@ -418,7 +421,7 @@ class Trace(BaseTrace):
 
     def create_snapshot(self, jitcode, pc, frame, flag):
         self._total_snapshots += 1
-        array = frame.get_list_of_active_boxes(flag, self.new_array, self._encode)
+        array = frame.get_list_of_active_boxes(flag, self.new_array, self._encode_cast)
         return Snapshot(combine_uint(jitcode.index, pc), array)
 
     def get_iter(self):
@@ -469,7 +472,7 @@ class Trace(BaseTrace):
 def tag(kind, pos):
     #if not SMALL_INT_START <= pos < SMALL_INT_STOP:
     #    raise some error
-    return rffi.cast(STORAGE_TP, (pos << TAGSHIFT) | kind)
+    return (pos << TAGSHIFT) | kind
 
 def untag(tagged):
     return intmask(tagged) & TAGMASK, intmask(tagged) >> TAGSHIFT
