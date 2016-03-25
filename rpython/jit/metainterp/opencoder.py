@@ -385,7 +385,7 @@ class Trace(BaseTrace):
     def _list_of_boxes(self, boxes):
         array = [rffi.cast(STORAGE_TP, 0)] * len(boxes)
         for i in range(len(boxes)):
-            array[i] = self._encode(boxes[i])
+            array[i] = self._encode_cast(boxes[i])
         return array
 
     def new_array(self, lgt):
