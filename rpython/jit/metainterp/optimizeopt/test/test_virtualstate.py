@@ -828,7 +828,7 @@ class BaseTestBridges(BaseTest):
         if hasattr(self, 'callinfocollection'):
             metainterp_sd.callinfocollection = self.callinfocollection
         #
-        trace = oparser.convert_loop_to_trace(bridge)
+        trace = oparser.convert_loop_to_trace(bridge, metainterp_sd)
 
         runtime_boxes = self.convert_values(bridge.operations[-1].getarglist(),
                                             values)
