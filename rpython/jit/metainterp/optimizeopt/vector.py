@@ -177,23 +177,23 @@ def user_loop_bail_fast_path(loop, warmstate):
     guard_count = 0
     at_least_one_array_access = True
     for i,op in enumerate(loop.operations):
-        if rop.is_jit_debug(op):
+        if rop.is_jit_debug(op.opnum):
             continue
 
-        if op.vector >= 0 and not op.is_guard():
+        if op.vector >= 0 and not rop.is_guard(op.opnum):
             vector_instr += 1
 
         resop_count += 1
 
-        if op.is_primitive_array_access():
+        if rop.is_primitive_array_access(op.opnum):
             at_least_one_array_access = True
 
         if warmstate.vec_ratio > 0.0:
             # blacklist
-            if rop.is_call(op) or rop.is_call_assembler(op):
+            if rop.is_call(op.opnum) or rop.is_call_assembler(op.opnum):
                 return True
 
-        if op.is_guard():
+        if rop.is_guard(op.opnum):
             guard_count += 1
 
     if not at_least_one_array_access:
