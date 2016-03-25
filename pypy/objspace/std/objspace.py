@@ -323,10 +323,15 @@ class StdObjSpace(ObjSpace):
         jit.promote(w_obj.__class__)
         return w_obj.getclass(self)
 
+    @specialize.arg_or_var(2)
     def lookup(self, w_obj, name):
         if self.config.objspace.std.withmapdict:
             from pypy.objspace.std.mapdict import mapdict_lookup
             return mapdict_lookup(self, w_obj, name)
+        # an indirection for the benefit of mapdict
+        return self._lookup(w_obj, name)
+
+    def _lookup(self, w_obj, name):
         w_type = self.type(w_obj)
         return w_type.lookup(name)
     lookup._annspecialcase_ = 'specialize:lookup'

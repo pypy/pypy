@@ -1145,11 +1145,11 @@ def LOOKUP_METHOD_mapdict_fill_cache_method(space, pycode, name, nameindex,
 # ____________________________________________________________
 # various functions that replace objspace implementations
 
+@objectmodel.specialize.arg_or_var(2)
 def mapdict_lookup(space, w_obj, name):
     if we_are_jitted():
         map = w_obj._get_mapdict_map_no_promote()
         if map is not None:
             return map._type_lookup(name)
-    w_type = space.type(w_obj)
-    return w_type.lookup(name)
+    return space._lookup(w_obj, name)
 
