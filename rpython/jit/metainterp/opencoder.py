@@ -23,7 +23,7 @@ SMALL_INT_START = -SMALL_INT_STOP
 MIN_SHORT = -2**15 + 1
 MAX_SHORT = 2**15 - 1
 
-class TagOverflow(Exception):
+class FrontendTagOverflow(Exception):
     pass
 
 class BaseTrace(object):
@@ -263,7 +263,7 @@ class Trace(BaseTrace):
             # grow by 2X
             self._ops = self._ops + [rffi.cast(rffi.SHORT, -15)] * len(self._ops)
         if not MIN_SHORT < v < MAX_SHORT:
-            raise TagOverflow
+            raise FrontendTagOverflow
         self._ops[self._pos] = rffi.cast(rffi.SHORT, v)
         self._pos += 1
 
