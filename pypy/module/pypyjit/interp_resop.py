@@ -249,7 +249,7 @@ class W_JitLoopInfo(W_Root):
                 ofs = debug_info.asminfo.ops_offset
             else:
                 ofs = {}
-            _, ops = debug_info.trace.unpack()
+            ops = debug_info.operations
             self.w_ops = space.newlist(wrap_oplist(space, logops, ops, ofs))
         else:
             self.w_ops = space.w_None
