@@ -249,10 +249,10 @@ class AbstractResOpOrInputArg(AbstractValue):
 class AbstractResOp(AbstractResOpOrInputArg):
     """The central ResOperation class, representing one operation."""
 
-    _attrs_ = ()
+    _attrs_ = ('rpyfunc', )
 
     # debug
-    name = ""
+    rpyfunc = ""
     pc = 0
     opnum = 0
     _cls_has_bool_result = False
@@ -331,6 +331,7 @@ class AbstractResOp(AbstractResOpOrInputArg):
         if descr is DONT_CHANGE:
             descr = None
         newop = ResOperation(opnum, args, descr)
+        newop.rpyfunc = self.rpyfunc
         if self.type != 'v':
             newop.copy_value_from(self)
         return newop
@@ -351,8 +352,8 @@ class AbstractResOp(AbstractResOpOrInputArg):
         #    sres = '%s = ' % (self.result,)
         else:
             sres = ''
-        if self.name:
-            prefix = "%s:%s   " % (self.name, self.pc)
+        if self.rpyfunc:
+            prefix = "%s:%s   " % (self.rpyfunc, self.pc)
             if graytext:
                 prefix = "\f%s\f" % prefix
         else:

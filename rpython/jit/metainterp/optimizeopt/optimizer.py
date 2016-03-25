@@ -264,6 +264,7 @@ class Optimizer(Optimization):
         self.optunroll = None
 
         self._last_guard_op = None
+        self._last_debug_merge_point = None
 
         self.set_optimizations(optimizations)
         self.setup()
@@ -886,6 +887,7 @@ class Optimizer(Optimization):
     # FIXME: Is this still needed?
 
     def optimize_DEBUG_MERGE_POINT(self, op):
+        self._last_debug_merge_point = op
         self.emit_operation(op)
 
     def optimize_JIT_DEBUG(self, op):

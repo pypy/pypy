@@ -55,11 +55,11 @@ class CompatibilityCondition(object):
         copied_op = op.copy()
         copied_op.setarg(1, self.known_valid)
         if op.numargs() == 2:
-            return copied_op, PureCallCondition(op, optimizer.metainterp_sd)
+            return copied_op, PureCallCondition(op, optimizer)
         arg2 = copied_op.getarg(2)
         if arg2.is_constant():
             # already a constant, can just use PureCallCondition
-            return copied_op, PureCallCondition(op, optimizer.metainterp_sd)
+            return copied_op, PureCallCondition(op, optimizer)
 
         # really simple-minded pattern matching
         # the order of things is like this:
@@ -85,15 +85,25 @@ class CompatibilityCondition(object):
         copied_op.setarg(2, qmutdescr.constantfieldbox)
         self.last_quasi_immut_field_op = None
         return copied_op, QuasiimmutGetfieldAndPureCallCondition(
-                op, qmutdescr, optimizer.metainterp_sd)
+                op, qmutdescr, optimizer)
 
     def repr_of_conditions(self, argrepr="?"):
         return "\n".join([cond.repr(argrepr) for cond in self.conditions])
 
 
 class Condition(object):
-    def __init__(self, metainterp_sd):
-        self.metainterp_sd = metainterp_sd
+    def __init__(self, optimizer):
+        self.metainterp_sd = optimizer.metainterp_sd
+        # XXX maybe too expensive
+        op = optimizer._last_debug_merge_point
+        if op:
+            jd_sd = self.metainterp_sd.jitdrivers_sd[op.getarg(0).getint()]
+            s = jd_sd.warmstate.get_location_str(op.getarglist()[3:])
+            s = s.replace(',', '.') # we use comma for argument splitting
+        else:
+            s = ''
+        self.debug_mp_str = s
+        self.rpyfunc = None
 
     def check(self, cpu, ref):
         raise NotImplementedError
@@ -133,12 +143,13 @@ class Condition(object):
         return "<huh?>"
 
 class PureCallCondition(Condition):
-    def __init__(self, op, metainterp_sd):
-        Condition.__init__(self, metainterp_sd)
+    def __init__(self, op, optimizer):
+        Condition.__init__(self, optimizer)
         args = op.getarglist()[:]
         args[1] = None
         self.args = args
         self.descr = op.getdescr()
+        self.rpyfunc = op.rpyfunc
 
     def check(self, cpu, ref):
         from rpython.rlib.debug import debug_print, debug_start, debug_stop
@@ -186,17 +197,23 @@ class PureCallCondition(Condition):
             extra = ''
         else:
             extra = ', ' + ', '.join([self._repr_const(arg) for arg in self.args[2:]])
-        return "compatible if %s == %s(%s%s)" % (result, funcname, argrepr, extra)
+        res = "compatible if %s == %s(%s%s)" % (result, funcname, argrepr, extra)
+        if self.rpyfunc:
+            res = "%s: %s" % (self.rpyfunc, res)
+        if self.debug_mp_str:
+            res = self.debug_mp_str + "\n" + res
+        return res
 
 
 class QuasiimmutGetfieldAndPureCallCondition(PureCallCondition):
-    def __init__(self, op, qmutdescr, metainterp_sd):
-        Condition.__init__(self, metainterp_sd)
+    def __init__(self, op, qmutdescr, optimizer):
+        Condition.__init__(self, optimizer)
         args = op.getarglist()[:]
         args[1] = None
         args[2] = None
         self.args = args
         self.descr = op.getdescr()
+        self.rpyfunc = op.rpyfunc
         self.qmut = qmutdescr.qmut
         self.mutatefielddescr = qmutdescr.mutatefielddescr
         self.fielddescr = qmutdescr.fielddescr
@@ -266,5 +283,10 @@ class QuasiimmutGetfieldAndPureCallCondition(PureCallCondition):
         else:
             extra = ', ' + ', '.join([self._repr_const(arg) for arg in self.args[3:]])
         attrname = self.fielddescr.repr_of_descr()
-        return "compatible if %s == %s(%s, %s.%s%s)" % (
+        res = "compatible if %s == %s(%s, %s.%s%s)" % (
                 result, funcname, argrepr, argrepr, attrname, extra)
+        if self.rpyfunc:
+            res = "%s: %s" % (self.rpyfunc, res)
+        if self.debug_mp_str:
+            res = self.debug_mp_str + "\n" + res
+        return res
