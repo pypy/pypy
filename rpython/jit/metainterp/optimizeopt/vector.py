@@ -185,7 +185,7 @@ def user_loop_bail_fast_path(loop, warmstate):
 
         resop_count += 1
 
-        if rop.is_primitive_array_access(op.opnum):
+        if op.is_primitive_array_access():
             at_least_one_array_access = True
 
         if warmstate.vec_ratio > 0.0:
