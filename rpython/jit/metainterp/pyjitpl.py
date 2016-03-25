@@ -2543,7 +2543,7 @@ class MetaInterp(object):
             op2 = self.history.record(rop.SAVE_EXCEPTION, [], exception)
             self.history._cache = self.history._cache[i:] + self.history._cache[:i]
             self.history.record(rop.RESTORE_EXCEPTION, [op1, op2], None)
-            self.history.set_inputargs(inputargs)
+            self.history.set_inputargs(inputargs, self.staticdata)
             if exception_obj:
                 self.execute_ll_raised(exception_obj)
             else:
