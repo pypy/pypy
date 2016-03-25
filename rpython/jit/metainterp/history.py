@@ -4,6 +4,7 @@ from rpython.rlib.objectmodel import we_are_translated, Symbolic
 from rpython.rlib.objectmodel import compute_unique_id, specialize
 from rpython.rlib.rarithmetic import r_int64, is_valid_int
 from rpython.rlib.rarithmetic import LONG_BIT, intmask, r_uint
+from rpython.rlib.jit import Counters
 
 from rpython.conftest import option
 
@@ -12,6 +13,7 @@ from rpython.jit.metainterp.resoperation import ResOperation, rop,\
     opclasses
 from rpython.jit.codewriter import heaptracker, longlong
 import weakref
+from rpython.jit.metainterp import jitexc
 
 # ____________________________________________________________
 
@@ -24,6 +26,15 @@ VOID  = 'v'
 VECTOR = 'V'
 
 FAILARGS_LIMIT = 1000
+
+class SwitchToBlackhole(jitexc.JitException):
+    def __init__(self, reason, raising_exception=False):
+        self.reason = reason
+        self.raising_exception = raising_exception
+        # ^^^ must be set to True if the SwitchToBlackhole is raised at a
+        #     point where the exception on metainterp.last_exc_value
+        #     is supposed to be raised.  The default False means that it
+        #     should just be copied into the blackhole interp, but not raised.
 
 def getkind(TYPE, supports_floats=True,
                   supports_longlong=True,
@@ -712,12 +723,23 @@ class History(object):
             assert lltype.typeOf(value) == llmemory.GCREF
             op.setref_base(value)
 
+    def _record_op(self, opnum, argboxes, descr=None):
+        from rpython.jit.metainterp.opencoder import FrontendTagOverflow
+
+        try:
+            return self.trace.record_op(opnum, argboxes, descr)
+        except FrontendTagOverflow:
+            # note that with the default settings this one should not
+            # happen - however if we hit that case, we don't get
+            # anything disabled
+            raise SwitchToBlackhole(Counters.ABORT_TOO_LONG)
+
     @specialize.argtype(3)
     def record(self, opnum, argboxes, value, descr=None):
         if self.trace is None:
             pos = 2**14 - 1
         else:
-            pos = self.trace.record_op(opnum, argboxes, descr)
+            pos = self._record_op(opnum, argboxes, descr)
         if value is None:
             op = FrontendOp(pos)
         elif isinstance(value, bool):
@@ -735,7 +757,7 @@ class History(object):
 
     def record_nospec(self, opnum, argboxes, descr=None):
         tp = opclasses[opnum].type
-        pos = self.trace.record_op(opnum, argboxes, descr)
+        pos = self._record_op(opnum, argboxes, descr)
         if tp == 'v':
             return FrontendOp(pos)
         elif tp == 'i':

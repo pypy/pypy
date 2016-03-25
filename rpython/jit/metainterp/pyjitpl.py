@@ -8,7 +8,7 @@ from rpython.jit.codewriter.jitcode import JitCode, SwitchDictDescr
 from rpython.jit.metainterp import history, compile, resume, executor, jitexc
 from rpython.jit.metainterp.heapcache import HeapCache
 from rpython.jit.metainterp.history import (Const, ConstInt, ConstPtr,
-    ConstFloat, TargetToken, MissingValue)
+    ConstFloat, TargetToken, MissingValue, SwitchToBlackhole)
 from rpython.jit.metainterp.jitprof import EmptyProfiler
 from rpython.jit.metainterp.logger import Logger
 from rpython.jit.metainterp.optimizeopt.util import args_dict
@@ -3186,15 +3186,6 @@ class MetaInterp(object):
 class ChangeFrame(jitexc.JitException):
     """Raised after we mutated metainterp.framestack, in order to force
     it to reload the current top-of-stack frame that gets interpreted."""
-
-class SwitchToBlackhole(jitexc.JitException):
-    def __init__(self, reason, raising_exception=False):
-        self.reason = reason
-        self.raising_exception = raising_exception
-        # ^^^ must be set to True if the SwitchToBlackhole is raised at a
-        #     point where the exception on metainterp.last_exc_value
-        #     is supposed to be raised.  The default False means that it
-        #     should just be copied into the blackhole interp, but not raised.
 
 NOT_HANDLED = history.CONST_FALSE
 

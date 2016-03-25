@@ -19,21 +19,32 @@ TAGINT, TAGCONSTPTR, TAGCONSTOTHER, TAGBOX = range(4)
 TAGMASK = 0x3
 TAGSHIFT = 2
 
-STORAGE_TP = rffi.USHORT
-MAX_SIZE = 2**16-1
+class Model:
+    STORAGE_TP = rffi.USHORT
+    # this is the initial size of the trace - note that we probably
+    # want something that would fit the inital "max_trace_length"
+    INIT_SIZE = 30000
+    MIN_SHORT = 0
+    MAX_SHORT = 2**16 - 1
+    check_range = True
+
+class BigModel:
+    INIT_SIZE = 30000
+    STORAGE_TP = lltype.Signed
+    check_range = False
+    # we can move SMALL ints here, if necessary
+
+@specialize.memo()
+def get_model(self):
+    return getattr(self.metainterp_sd, 'opencoder_model', Model)
+
 SMALL_INT_STOP  = (2 ** (15 - TAGSHIFT)) - 1
 SMALL_INT_START = -SMALL_INT_STOP # we might want to distribute them uneven
-MIN_SHORT = 0
-MAX_SHORT = 2**16 - 1
 
 def expand_sizes_to_signed():
     """ This function will make sure we can use sizes all the
     way up to lltype.Signed for indexes everywhere
     """
-    globals()['STORAGE_TP'] = lltype.Signed
-    globals()['MAX_SIZE'] = 2**31-1
-    globals()['MIN_SHORT'] = -2**31
-    globals()['MAX_SHORT'] = 2**31 - 1
 
 class FrontendTagOverflow(Exception):
     pass
@@ -252,7 +263,8 @@ class Trace(BaseTrace):
     _deadranges = (-1, None)
 
     def __init__(self, inputargs, metainterp_sd):
-        self._ops = [rffi.cast(STORAGE_TP, 0)] * MAX_SIZE
+        self.metainterp_sd = metainterp_sd
+        self._ops = [rffi.cast(get_model(self).STORAGE_TP, 0)] * get_model(self).INIT_SIZE
         self._pos = 0
         self._consts_bigint = 0
         self._consts_float = 0
@@ -273,15 +285,16 @@ class Trace(BaseTrace):
         self._start = len(inputargs)
         self._pos = self._start
         self.inputargs = inputargs
-        self.metainterp_sd = metainterp_sd
 
     def append(self, v):
+        model = get_model(self)
         if self._pos >= len(self._ops):
             # grow by 2X
-            self._ops = self._ops + [rffi.cast(STORAGE_TP, 0)] * len(self._ops)
-        if not MIN_SHORT <= v <= MAX_SHORT:
-            raise FrontendTagOverflow
-        self._ops[self._pos] = rffi.cast(STORAGE_TP, v)
+            self._ops = self._ops + [rffi.cast(model.STORAGE_TP, 0)] * len(self._ops)
+        if model.check_range:
+            if not model.MIN_SHORT <= v <= model.MAX_SHORT:
+                raise FrontendTagOverflow
+        self._ops[self._pos] = rffi.cast(model.STORAGE_TP, v)
         self._pos += 1
 
     def done(self):
@@ -387,16 +400,16 @@ class Trace(BaseTrace):
         return len(self._descrs) - 1 + len(self.metainterp_sd.all_descrs) + 1
 
     def _list_of_boxes(self, boxes):
-        array = [rffi.cast(STORAGE_TP, 0)] * len(boxes)
+        array = [rffi.cast(get_model(self).STORAGE_TP, 0)] * len(boxes)
         for i in range(len(boxes)):
             array[i] = self._encode_cast(boxes[i])
         return array
 
     def new_array(self, lgt):
-        return [rffi.cast(STORAGE_TP, 0)] * lgt
+        return [rffi.cast(get_model(self).STORAGE_TP, 0)] * lgt
 
     def _encode_cast(self, i):
-        return rffi.cast(STORAGE_TP, self._encode(i))
+        return rffi.cast(get_model(self).STORAGE_TP, self._encode(i))
 
     def create_top_snapshot(self, jitcode, pc, frame, flag, vable_boxes, vref_boxes):
         self._total_snapshots += 1
@@ -408,7 +421,7 @@ class Trace(BaseTrace):
         assert rffi.cast(lltype.Signed, self._ops[self._pos - 1]) == 0
         # guards have no descr
         self._snapshots.append(s)
-        self._ops[self._pos - 1] = rffi.cast(STORAGE_TP, len(self._snapshots) - 1)
+        self._ops[self._pos - 1] = rffi.cast(get_model(self).STORAGE_TP, len(self._snapshots) - 1)
         return s
 
     def create_empty_top_snapshot(self, vable_boxes, vref_boxes):
@@ -420,7 +433,7 @@ class Trace(BaseTrace):
         assert rffi.cast(lltype.Signed, self._ops[self._pos - 1]) == 0
         # guards have no descr
         self._snapshots.append(s)
-        self._ops[self._pos - 1] = rffi.cast(STORAGE_TP, len(self._snapshots) - 1)
+        self._ops[self._pos - 1] = rffi.cast(get_model(self).STORAGE_TP, len(self._snapshots) - 1)
         return s
 
     def create_snapshot(self, jitcode, pc, frame, flag):
@@ -474,8 +487,6 @@ class Trace(BaseTrace):
         return iter.inputargs, ops
 
 def tag(kind, pos):
-    #if not SMALL_INT_START <= pos < SMALL_INT_STOP:
-    #    raise some error
     return (pos << TAGSHIFT) | kind
 
 @specialize.ll()
