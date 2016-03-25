@@ -993,6 +993,19 @@ class AppTestPosix:
                 data = f.read()
                 assert data == "who cares?"
 
+        # XXX skip test if dir_fd is unsupported
+        def test_symlink_fd(self):
+            posix = self.posix
+            bytes_dir = self.bytes_dir
+            f = posix.open(bytes_dir, posix.O_RDONLY)
+            try:
+                posix.symlink('somefile', 'somelink', dir_fd=f)
+                assert (posix.readlink(bytes_dir + '/somelink'.encode()) ==
+                        'somefile'.encode())
+            finally:
+                posix.close(f)
+                posix.unlink(bytes_dir + '/somelink'.encode())
+
     if hasattr(os, 'ftruncate'):
         def test_truncate(self):
             posix = self.posix
@@ -1280,6 +1293,7 @@ class AppTestFdVariants:
             assert os.chdir not in os.supports_fd
         if os.name == 'posix':
             assert os.open in os.supports_dir_fd  # openat()
+
 
 def test_convert_seconds_simple(space):
     w_time = space.wrap(123.456)
