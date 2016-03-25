@@ -99,7 +99,7 @@ def test_compile_loop():
     metainterp.history.trace = t
     #
     greenkey = 'faked'
-    target_token = compile_loop(metainterp, greenkey, (0, 0),
+    target_token = compile_loop(metainterp, greenkey, (0, 0, 0),
                                 t.inputargs,
                                 [t._mapping[x] for x in loop.operations[-1].getarglist()],
                                 None)
