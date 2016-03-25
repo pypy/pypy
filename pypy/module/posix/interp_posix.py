@@ -1193,7 +1193,7 @@ def spawnve(space, mode, path, w_args, w_env):
     return space.wrap(ret)
 
 
-@unwrap_spec(w_ns=kwonly(WrappedDefault(None)),
+@unwrap_spec(w_times=WrappedDefault(None), w_ns=kwonly(WrappedDefault(None)),
     dir_fd=DirFD(rposix.HAVE_UTIMENSAT), follow_symlinks=kwonly(bool))
 def utime(space, w_path, w_times, w_ns, dir_fd=DEFAULT_DIR_FD, follow_symlinks=True):
     """utime(path, times=None, *, ns=None, dir_fd=None, follow_symlinks=True)
