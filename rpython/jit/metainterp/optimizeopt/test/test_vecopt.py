@@ -82,12 +82,17 @@ class VecTestHelper(DependencyBaseTest):
 
     def assert_vectorize(self, loop, expected_loop, call_pure_results=None):
         jump = ResOperation(rop.LABEL, loop.jump.getarglist(), loop.jump.getdescr())
-        trace = Trace(loop.label, jump, loop.operations)
-        trace = self.convert_loop_to_packed(loop)
+        # convert_loop_to_trace assumes that there are no descriptors
+        # but because this optimization pass is after the normal optimization pass
+        # parse_loop already set artificial resume descr!
+        for op in loop.operations:
+            if op.is_guard():
+                op.setdescr(None)
+        trace = convert_loop_to_trace(loop)
         compile_data = compile.LoopCompileData(trace, loop.jump.getarglist())
         state = self._do_optimize_loop(compile_data)
         loop.label = state[0].label_op
-        loop.opererations = state[1]
+        loop.operations = state[1]
         self.assert_equal(loop, expected_loop)
 
     def vectoroptimizer(self, loop):
