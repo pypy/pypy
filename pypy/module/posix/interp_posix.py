@@ -1,6 +1,7 @@
 import os
 import sys
 from math import modf
+from errno import ENOTSUP, EOPNOTSUPP
 
 from rpython.rlib import rposix, rposix_stat
 from rpython.rlib import objectmodel, rurandom
@@ -113,19 +114,22 @@ else:
     DEFAULT_DIR_FD = -100
 DIR_FD_AVAILABLE = False
 
-def _unwrap_fd(space, w_value):
+def unwrap_fd(space, w_value):
+    return space.c_int_w(w_value)
+
+def _unwrap_dirfd(space, w_value):
     if space.is_none(w_value):
         return DEFAULT_DIR_FD
     else:
-        return space.c_int_w(w_value)
+        return unwrap_fd(space, w_value)
 
 class _DirFD(Unwrapper):
     def unwrap(self, space, w_value):
-        return _unwrap_fd(space, w_value)
+        return _unwrap_dirfd(space, w_value)
 
 class _DirFD_Unavailable(Unwrapper):
     def unwrap(self, space, w_value):
-        dir_fd = _unwrap_fd(space, w_value)
+        dir_fd = unwrap_fd(space, w_value)
         if dir_fd == DEFAULT_DIR_FD:
             return dir_fd
         else:
@@ -140,7 +144,7 @@ def DirFD(available=False):
 def argument_unavailable(space, funcname, arg):
     return oefmt(
             space.w_NotImplementedError,
-            "%s: %s unavailable on this platform" % (funcname, arg))
+            "%s: %s unavailable on this platform", funcname, arg)
 
 @unwrap_spec(flags=c_int, mode=c_int, dir_fd=DirFD(rposix.HAVE_OPENAT))
 def open(space, w_path, flags, mode=0777, dir_fd=DEFAULT_DIR_FD):
@@ -477,9 +481,9 @@ The mode argument can be F_OK to test existence, or the inclusive-OR
   of R_OK, W_OK, and X_OK."""
     if not rposix.HAVE_FACCESSAT:
         if not follow_symlinks:
-            raise argument_unavailable("access", "follow_symlinks")
+            raise argument_unavailable(space, "access", "follow_symlinks")
         if effective_ids:
-            raise argument_unavailable("access", "effective_ids")
+            raise argument_unavailable(space, "access", "effective_ids")
 
     try:
         if dir_fd == DEFAULT_DIR_FD and follow_symlinks and not effective_ids:
@@ -773,7 +777,7 @@ def pipe(space):
         raise wrap_oserror(space, e)
     return space.newtuple([space.wrap(fd1), space.wrap(fd2)])
 
-@unwrap_spec(mode=c_int, dir_fd=DirFD(available=False), follow_symlinks=kwonly(bool))
+@unwrap_spec(mode=c_int, dir_fd=DirFD(rposix.HAVE_FCHMODAT), follow_symlinks=kwonly(bool))
 def chmod(space, w_path, mode, dir_fd=DEFAULT_DIR_FD, follow_symlinks=True):
     """chmod(path, mode, *, dir_fd=None, follow_symlinks=True)
 
@@ -791,20 +795,54 @@ It is an error to use dir_fd or follow_symlinks when specifying path as
   an open file descriptor.
 dir_fd and follow_symlinks may not be implemented on your platform.
   If they are unavailable, using them will raise a NotImplementedError."""
-    try:
-        dispatch_filename(rposix.chmod)(space, w_path, mode)
-    except OSError, e:
-        raise wrap_oserror2(space, e, w_path)
+    if not rposix.HAVE_FCHMODAT:
+        if not follow_symlinks:
+            raise argument_unavailable(space, "chmod", "follow_symlinks")
+        else:
+            try:
+                dispatch_filename(rposix.chmod)(space, w_path, mode)
+                return
+            except OSError as e:
+                raise wrap_oserror2(space, e, w_path)
 
-@unwrap_spec(mode=c_int)
-def fchmod(space, w_fd, mode):
-    """Change the access permissions of the file given by file
-descriptor fd."""
-    fd = space.c_filedescriptor_w(w_fd)
+    try:
+        path = space.fsencode_w(w_path)
+    except OperationError as operr:
+        if not space.isinstance_w(w_path, space.w_int):
+            raise oefmt(space.w_TypeError,
+                "argument should be string, bytes or integer, not %T", w_path)
+        fd = unwrap_fd(space, w_path)
+        _chmod_fd(space, fd, mode)
+    else:
+        try:
+            _chmod_path(path, mode, dir_fd, follow_symlinks)
+        except OSError as e:
+            if not follow_symlinks and e.errno in (ENOTSUP, EOPNOTSUPP):
+                # fchmodat() doesn't actually implement follow_symlinks=False
+                # so raise NotImplementedError in this case
+                raise argument_unavailable(space, "chmod", "follow_symlinks")
+            else:
+                raise wrap_oserror2(space, e, w_path)
+
+def _chmod_path(path, mode, dir_fd, follow_symlinks):
+    if dir_fd != DEFAULT_DIR_FD or not follow_symlinks:
+        rposix.fchmodat(path, mode, dir_fd, follow_symlinks)
+    else:
+        rposix.chmod(path, mode)
+
+def _chmod_fd(space, fd, mode):
     try:
         os.fchmod(fd, mode)
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
+
+
+@unwrap_spec(fd=c_int, mode=c_int)
+def fchmod(space, fd, mode):
+    """\
+    Change the access permissions of the file given by file descriptor fd.
+    """
+    _chmod_fd(space, fd, mode)
 
 @unwrap_spec(src_dir_fd=DirFD(available=False), dst_dir_fd=DirFD(available=False))
 def rename(space, w_old, w_new,
@@ -1197,7 +1235,7 @@ dir_fd and follow_symlinks may not be available on your platform.
             raise wrap_oserror2(space, e, w_path)
 
     if not follow_symlinks:
-        raise argument_unavailable("utime", "follow_symlinks")
+        raise argument_unavailable(space, "utime", "follow_symlinks")
 
     if not space.is_w(w_ns, space.w_None):
         raise oefmt(space.w_NotImplementedError,
