@@ -28,7 +28,7 @@ def PyObject_Realloc(space, ptr, size):
                          flavor='raw',
                          add_memory_pressure=True)
     # XXX FIXME
-    return lltype.nullptr(rffi.CCHARP.TO)
+    return lltype.nullptr(rffi.VOIDP.TO)
 
 @cpython_api([rffi.VOIDP], lltype.Void)
 def PyObject_Free(space, ptr):
