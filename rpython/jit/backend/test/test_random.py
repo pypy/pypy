@@ -718,7 +718,7 @@ class RandomLoop(object):
         assert not hasattr(loop, '_targettoken')
         for i in range(position):
             op = loop.operations[i]
-            if (not op.has_no_side_effect()
+            if (not rop.has_no_side_effect(op.opnum)
                     or op.type not in (INT, FLOAT)):
                 position = i
                 break       # cannot move the LABEL later
