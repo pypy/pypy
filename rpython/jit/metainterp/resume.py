@@ -232,7 +232,7 @@ class ResumeDataLoopMemo(object):
         v = state.v
         liveboxes = state.liveboxes
         for item in arr:
-            box = iter.get(item)
+            box = iter.get(rffi.cast(lltype.Signed, item))
             box = optimizer.get_box_replacement(box)
 
             if isinstance(box, Const):
