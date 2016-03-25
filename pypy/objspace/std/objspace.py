@@ -334,7 +334,7 @@ class StdObjSpace(ObjSpace):
     def _lookup(self, w_obj, name):
         w_type = self.type(w_obj)
         return w_type.lookup(name)
-    lookup._annspecialcase_ = 'specialize:lookup'
+    _lookup._annspecialcase_ = 'specialize:lookup'
 
     def lookup_in_type_where(self, w_type, name):
         return w_type.lookup_where(name)
