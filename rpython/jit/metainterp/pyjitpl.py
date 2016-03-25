@@ -2218,7 +2218,7 @@ class MetaInterp(object):
 
 
     def attach_debug_info(self, op):
-        if (op is not None and self.framestack is not None):
+        if (op is not None and self.framestack):
             if not we_are_translated():
                 op.pc = self.framestack[-1].pc
             op.rpyfunc = self.framestack[-1].jitcode.name
