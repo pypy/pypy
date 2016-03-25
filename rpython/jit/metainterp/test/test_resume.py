@@ -536,6 +536,7 @@ class FakeJitCode(object):
 
 class FakeMetaInterpStaticData:
     cpu = LLtypeMixin.cpu
+    all_descrs = []
 
     class options:
         failargs_limit = 100
@@ -830,7 +831,8 @@ def test_ResumeDataLoopMemo_number():
     c1, c2, c3, c4 = [ConstInt(1), ConstInt(2), ConstInt(3), ConstInt(4)]    
 
     env = [b1, c1, b2, b1, c2]
-    t = Trace([b1, b2, b3, b4, b5])
+    metainterp_sd = FakeMetaInterpStaticData()
+    t = Trace([b1, b2, b3, b4, b5], metainterp_sd)
     snap = t.create_snapshot(FakeJitCode("jitcode", 0), 0, Frame(env), False)
     env1 = [c3, b3, b1, c1]
     t.append(0) # descr index
@@ -842,11 +844,10 @@ def test_ResumeDataLoopMemo_number():
     env3 = [c3, b3, b1, c3]
     env4 = [c3, b4, b1, c3]
     env5 = [b1, b4, b5]
-    metainterp_sd = FakeMetaInterpStaticData()
 
     memo = ResumeDataLoopMemo(metainterp_sd)
 
-    iter = t.get_iter(metainterp_sd)
+    iter = t.get_iter()
     b1, b2, b3, b4, b5 = iter.inputargs
     numb, liveboxes, v = memo.number(FakeOptimizer(), 0, iter)
     assert v == 0
@@ -934,10 +935,10 @@ def test_ResumeDataLoopMemo_number():
        min_size=1))
 def test_ResumeDataLoopMemo_random(lst):
     inpargs = [box for box in lst if not isinstance(box, Const)]
-    t = Trace(inpargs)
-    t.append(0)
     metainterp_sd = FakeMetaInterpStaticData()
-    i = t.get_iter(metainterp_sd)
+    t = Trace(inpargs, metainterp_sd)
+    t.append(0)
+    i = t.get_iter()
     t.create_top_snapshot(FakeJitCode("", 0), 0, Frame(lst), False, [], [])
     memo = ResumeDataLoopMemo(metainterp_sd)
     num, liveboxes, v = memo.number(FakeOptimizer(), 0, i)
@@ -1036,7 +1037,8 @@ def _resume_remap(liveboxes, expected, *newvalues):
     return newboxes
 
 def make_storage(b1, b2, b3):
-    t = Trace([box for box in [b1, b2, b3] if not isinstance(box, Const)])
+    t = Trace([box for box in [b1, b2, b3] if not isinstance(box, Const)],
+              FakeMetaInterpStaticData())
     t.append(0)
     storage = Storage()
     snap1 = t.create_snapshot(FakeJitCode("code3", 41), 42,
@@ -1055,7 +1057,7 @@ def test_virtual_adder_int_constants():
     storage, t = make_storage(b1s, b2s, b3s)
     metainterp_sd = FakeMetaInterpStaticData()
     memo = ResumeDataLoopMemo(metainterp_sd)  
-    i = t.get_iter(metainterp_sd)  
+    i = t.get_iter()
     modifier = ResumeDataVirtualAdder(FakeOptimizer(i), storage, storage, i, memo)
     liveboxes = modifier.finish(FakeOptimizer(i))
     cpu = MyCPU([])
@@ -1073,7 +1075,7 @@ def test_virtual_adder_memo_const_sharing():
     storage, t = make_storage(b1s, b2s, b3s)
     metainterp_sd = FakeMetaInterpStaticData()
     memo = ResumeDataLoopMemo(metainterp_sd)
-    i = t.get_iter(metainterp_sd)
+    i = t.get_iter()
     modifier = ResumeDataVirtualAdder(FakeOptimizer(i), storage, storage, i, memo)
     modifier.finish(FakeOptimizer(i))
     assert len(memo.consts) == 2
@@ -1081,7 +1083,7 @@ def test_virtual_adder_memo_const_sharing():
 
     b1s, b2s, b3s = [ConstInt(sys.maxint), ConstInt(2**17), ConstInt(-65)]
     storage2, t = make_storage(b1s, b2s, b3s)
-    i = t.get_iter(metainterp_sd)
+    i = t.get_iter()
     modifier2 = ResumeDataVirtualAdder(FakeOptimizer(i), storage2, storage2,
                                        i, memo)
     modifier2.finish(FakeOptimizer(i))

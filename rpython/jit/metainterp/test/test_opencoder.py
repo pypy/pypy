@@ -54,7 +54,7 @@ def unpack_snapshot(t, op, pos):
 
 class TestOpencoder(object):
     def unpack(self, t):
-        iter = t.get_iter(metainterp_sd)
+        iter = t.get_iter()
         l = []
         while not iter.done():
             op = iter.next()
@@ -65,7 +65,7 @@ class TestOpencoder(object):
 
     def test_simple_iterator(self):
         i0, i1 = IntFrontendOp(0), IntFrontendOp(0)
-        t = Trace([i0, i1])
+        t = Trace([i0, i1], metainterp_sd)
         add = FakeOp(t.record_op(rop.INT_ADD, [i0, i1]))
         t.record_op(rop.INT_ADD, [add, ConstInt(1)])
         (i0, i1), l, _ = self.unpack(t)
@@ -79,7 +79,7 @@ class TestOpencoder(object):
 
     def test_rd_snapshot(self):
         i0, i1 = IntFrontendOp(0), IntFrontendOp(0)
-        t = Trace([i0, i1])
+        t = Trace([i0, i1], metainterp_sd)
         add = FakeOp(t.record_op(rop.INT_ADD, [i0, i1]))
         t.record_op(rop.GUARD_FALSE, [add])
         # now we write rd_snapshot and friends
@@ -103,7 +103,7 @@ class TestOpencoder(object):
 
     def test_read_snapshot_interface(self):
         i0, i1, i2 = IntFrontendOp(0), IntFrontendOp(0), IntFrontendOp(0)
-        t = Trace([i0, i1, i2])
+        t = Trace([i0, i1, i2], metainterp_sd)
         t.record_op(rop.GUARD_TRUE, [i1])
         frame0 = FakeFrame(1, JitCode(2), [i0, i1])
         frame1 = FakeFrame(3, JitCode(4), [i2, i2])
@@ -138,7 +138,7 @@ class TestOpencoder(object):
     @given(lists_of_operations())
     def xxx_test_random_snapshot(self, lst):
         inputargs, ops = lst
-        t = Trace(inputargs)
+        t = Trace(inputargs, metainterp_sd)
         for op in ops:
             newop = FakeOp(t.record_op(op.getopnum(), op.getarglist()))
             newop.orig_op = op
@@ -157,7 +157,7 @@ class TestOpencoder(object):
 
     def test_cut_trace_from(self):
         i0, i1, i2 = IntFrontendOp(0), IntFrontendOp(0), IntFrontendOp(0)
-        t = Trace([i0, i1, i2])
+        t = Trace([i0, i1, i2], metainterp_sd)
         add1 = FakeOp(t.record_op(rop.INT_ADD, [i0, i1]))
         cut_point = t.cut_point()
         add2 = FakeOp(t.record_op(rop.INT_ADD, [add1, i1]))
@@ -172,7 +172,7 @@ class TestOpencoder(object):
 
     def test_virtualizable_virtualref(self):
         i0, i1, i2 = IntFrontendOp(0), IntFrontendOp(0), IntFrontendOp(0)
-        t = Trace([i0, i1, i2])
+        t = Trace([i0, i1, i2], metainterp_sd)
         p0 = FakeOp(t.record_op(rop.NEW_WITH_VTABLE, [], descr=SomeDescr()))
         t.record_op(rop.GUARD_TRUE, [i0])
         resume.capture_resumedata([], [i1, i2, p0], [p0, i1], t)
@@ -183,15 +183,15 @@ class TestOpencoder(object):
 
     def test_liveranges(self):
         i0, i1, i2 = IntFrontendOp(0), IntFrontendOp(0), IntFrontendOp(0)
-        t = Trace([i0, i1, i2])
+        t = Trace([i0, i1, i2], metainterp_sd)
         p0 = FakeOp(t.record_op(rop.NEW_WITH_VTABLE, [], descr=SomeDescr()))
         t.record_op(rop.GUARD_TRUE, [i0])
         resume.capture_resumedata([], [i1, i2, p0], [p0, i1], t)
-        assert t.get_live_ranges(metainterp_sd) == [4, 4, 4, 4]
+        assert t.get_live_ranges() == [4, 4, 4, 4]
 
     def test_deadranges(self):
         i0, i1, i2 = IntFrontendOp(0), IntFrontendOp(0), IntFrontendOp(0)
-        t = Trace([i0, i1, i2])
+        t = Trace([i0, i1, i2], metainterp_sd)
         p0 = FakeOp(t.record_op(rop.NEW_WITH_VTABLE, [], descr=SomeDescr()))
         t.record_op(rop.GUARD_TRUE, [i0])
         resume.capture_resumedata([], [i1, i2, p0], [p0, i1], t)
@@ -203,4 +203,4 @@ class TestOpencoder(object):
         t.record_op(rop.ESCAPE_N, [ConstInt(3)])
         t.record_op(rop.ESCAPE_N, [ConstInt(3)])
         t.record_op(rop.FINISH, [i4])
-        assert t.get_dead_ranges(metainterp_sd) == [0, 0, 0, 0, 0, 3, 4, 5]
+        assert t.get_dead_ranges() == [0, 0, 0, 0, 0, 3, 4, 5]

@@ -74,6 +74,7 @@ def test_portal_trace_positions():
 def test_remove_consts_and_duplicates():
     class FakeStaticData:
         cpu = None
+        all_descrs = []
         warmrunnerdesc = None
     def is_another_box_like(box, referencebox):
         assert box is not referencebox
@@ -89,13 +90,13 @@ def test_remove_consts_and_duplicates():
     c3 = ConstInt(3)
     boxes = [b1, b2, b1, c3]
     dup = {}
-    metainterp.history.set_inputargs([b1, b2])
+    metainterp.history.set_inputargs([b1, b2], FakeStaticData())
     metainterp.remove_consts_and_duplicates(boxes, 4, dup)
     assert boxes[0] is b1
     assert boxes[1] is b2
     assert is_another_box_like(boxes[2], b1)
     assert is_another_box_like(boxes[3], c3)
-    inp, operations = metainterp.history.trace.unpack(metainterp.staticdata)
+    inp, operations = metainterp.history.trace.unpack()
     remap = dict(zip([b1, b2], inp))
     assert equaloplists(operations, [
         ResOperation(rop.SAME_AS_I, [b1]),

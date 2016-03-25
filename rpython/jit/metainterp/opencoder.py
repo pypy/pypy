@@ -30,6 +30,10 @@ def expand_sizes_to_signed():
     """ This function will make sure we can use sizes all the
     way up to lltype.Signed for indexes everywhere
     """
+    globals()['STORAGE_TP'] = lltype.Signed
+    globals()['MAX_SIZE'] = 2**31-1
+    globals()['MIN_SHORT'] = -2**31
+    globals()['MAX_SHORT'] = 2**31 - 1
 
 class FrontendTagOverflow(Exception):
     pass

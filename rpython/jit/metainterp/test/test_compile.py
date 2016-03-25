@@ -54,7 +54,7 @@ class FakeGlobalData(object):
     loopnumbering = 0
 
 class FakeMetaInterpStaticData(object):
-
+    all_descrs = []
     logger_noopt = FakeLogger()
     logger_ops = FakeLogger()
     config = get_combined_translation_config(translating=True)
