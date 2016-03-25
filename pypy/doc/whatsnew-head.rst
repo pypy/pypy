@@ -27,3 +27,8 @@ returns a scalar
 .. branch: fix_transpose_for_list_v3
 
 Allow arguments to transpose to be sequences
+
+.. branch: jit-leaner-frontend
+
+Improve the tracing speed in the frontend as well as heapcache by using a more compact representation
+of traces
