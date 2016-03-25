@@ -34,9 +34,12 @@ class BigModel:
     check_range = False
     # we can move SMALL ints here, if necessary
 
-@specialize.memo()
 def get_model(self):
-    return getattr(self.metainterp_sd, 'opencoder_model', Model)
+    return _get_model(self.metainterp_sd)
+
+@specialize.memo()
+def _get_model(metainterp_sd):
+    return getattr(metainterp_sd, 'opencoder_model', Model)
 
 SMALL_INT_STOP  = (2 ** (15 - TAGSHIFT)) - 1
 SMALL_INT_START = -SMALL_INT_STOP # we might want to distribute them uneven
