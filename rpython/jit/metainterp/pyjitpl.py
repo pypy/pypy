@@ -2332,7 +2332,8 @@ class MetaInterp(object):
         num_green_args = self.jitdriver_sd.num_green_args
         original_greenkey = original_boxes[:num_green_args]
         self.resumekey = compile.ResumeFromInterpDescr(original_greenkey)
-        self.history.set_inputargs(original_boxes[num_green_args:])
+        self.history.set_inputargs(original_boxes[num_green_args:],
+                                   self.staticdata)
         self.seen_loop_header_for_jdindex = -1
         try:
             self.interpret()
@@ -2552,7 +2553,7 @@ class MetaInterp(object):
             except ChangeFrame:
                 pass
         else:
-            self.history.set_inputargs(inputargs)
+            self.history.set_inputargs(inputargs, self.staticdata)
             assert not exception
 
     def get_procedure_token(self, greenkey, with_compiled_targets=False):

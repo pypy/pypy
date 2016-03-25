@@ -18,10 +18,13 @@ from rpython.jit.metainterp.typesystem import llhelper
 TAGINT, TAGCONSTPTR, TAGCONSTOTHER, TAGBOX = range(4)
 TAGMASK = 0x3
 TAGSHIFT = 2
-SMALL_INT_STOP  = 2 ** (15 - TAGSHIFT)
-SMALL_INT_START = -SMALL_INT_STOP
-MIN_SHORT = -2**15 + 1
-MAX_SHORT = 2**15 - 1
+
+STORAGE_TP = rffi.USHORT
+MAX_SIZE = 2**16-1
+SMALL_INT_STOP  = (2 ** (15 - TAGSHIFT)) - 1
+SMALL_INT_START = -SMALL_INT_STOP # we might want to distribute them uneven
+MIN_SHORT = 0
+MAX_SHORT = 2**16 - 1
 
 class FrontendTagOverflow(Exception):
     pass
@@ -78,6 +81,7 @@ class TraceIterator(BaseTrace):
                  metainterp_sd=None):
         self.trace = trace
         self.metainterp_sd = metainterp_sd
+        self.all_descr_len = len(metainterp_sd.all_descrs)
         self._cache = [None] * trace._index
         if force_inputargs is not None:
             # the trace here is cut and we're working from
@@ -98,8 +102,8 @@ class TraceIterator(BaseTrace):
         self.start_index = start
         self.end = end
 
-    def get_dead_ranges(self, metainterp_sd=None):
-        return self.trace.get_dead_ranges(self.metainterp_sd)
+    def get_dead_ranges(self):
+        return self.trace.get_dead_ranges()
 
     def kill_cache_at(self, pos):
         if pos:
@@ -123,7 +127,7 @@ class TraceIterator(BaseTrace):
         if tag == TAGBOX:
             return self._get(v)
         elif tag == TAGINT:
-            return ConstInt(v)
+            return ConstInt(v + SMALL_INT_START)
         elif tag == TAGCONSTPTR:
             return ConstPtr(self.trace._refs[v])
         elif tag == TAGCONSTOTHER:
@@ -174,10 +178,10 @@ class TraceIterator(BaseTrace):
             if descr_index == 0 or rop.is_guard(opnum):
                 descr = None
             else:
-                if descr_index < 0:
-                    descr = self.metainterp_sd.all_descrs[-descr_index-1]
+                if descr_index < self.all_descr_len + 1:
+                    descr = self.metainterp_sd.all_descrs[descr_index - 1]
                 else:
-                    descr = self.trace._descrs[descr_index]
+                    descr = self.trace._descrs[descr_index - self.all_descr_len - 1]
         else:
             descr = None
         res = ResOperation(opnum, args, descr=descr)
@@ -202,9 +206,10 @@ class CutTrace(BaseTrace):
         assert cut[1] > self.count
         self.trace.cut_at(cut)
 
-    def get_iter(self, metainterp_sd=None):
+    def get_iter(self):
         iter = TraceIterator(self.trace, self.start, self.trace._pos,
-                             self.inputargs, metainterp_sd=metainterp_sd)
+                             self.inputargs,
+                             metainterp_sd=self.trace.metainterp_sd)
         iter._count = self.count
         iter.start_index = self.index
         iter._index = self.index
@@ -237,8 +242,8 @@ class TopSnapshot(Snapshot):
 class Trace(BaseTrace):
     _deadranges = (-1, None)
 
-    def __init__(self, inputargs):
-        self._ops = [rffi.cast(rffi.SHORT, -15)] * 30000
+    def __init__(self, inputargs, metainterp_sd):
+        self._ops = [rffi.cast(STORAGE_TP, 0)] * MAX_SIZE
         self._pos = 0
         self._consts_bigint = 0
         self._consts_float = 0
@@ -259,14 +264,15 @@ class Trace(BaseTrace):
         self._start = len(inputargs)
         self._pos = self._start
         self.inputargs = inputargs
+        self.metainterp_sd = metainterp_sd
 
     def append(self, v):
         if self._pos >= len(self._ops):
             # grow by 2X
-            self._ops = self._ops + [rffi.cast(rffi.SHORT, -15)] * len(self._ops)
-        if not MIN_SHORT < v < MAX_SHORT:
+            self._ops = self._ops + [rffi.cast(STORAGE_TP, 0)] * len(self._ops)
+        if not MIN_SHORT <= v <= MAX_SHORT:
             raise FrontendTagOverflow
-        self._ops[self._pos] = rffi.cast(rffi.SHORT, v)
+        self._ops[self._pos] = rffi.cast(STORAGE_TP, v)
         self._pos += 1
 
     def done(self):
@@ -305,7 +311,7 @@ class Trace(BaseTrace):
             if (isinstance(box, ConstInt) and
                 isinstance(box.getint(), int) and # symbolics
                 SMALL_INT_START <= box.getint() < SMALL_INT_STOP):
-                return tag(TAGINT, box.getint())
+                return tag(TAGINT, box.getint() - SMALL_INT_START)
             elif isinstance(box, ConstInt):
                 self._consts_bigint += 1
                 if not isinstance(box.getint(), int):
@@ -367,18 +373,18 @@ class Trace(BaseTrace):
 
     def _encode_descr(self, descr):
         if descr.descr_index != -1:
-            return -descr.descr_index-1
+            return descr.descr_index + 1
         self._descrs.append(descr)
-        return len(self._descrs) - 1
+        return len(self._descrs) - 1 + len(self.metainterp_sd.all_descrs) + 1
 
     def _list_of_boxes(self, boxes):
-        array = [rffi.cast(rffi.SHORT, 0)] * len(boxes)
+        array = [rffi.cast(STORAGE_TP, 0)] * len(boxes)
         for i in range(len(boxes)):
             array[i] = self._encode(boxes[i])
         return array
 
     def new_array(self, lgt):
-        return [rffi.cast(rffi.SHORT, 0)] * lgt
+        return [rffi.cast(STORAGE_TP, 0)] * lgt
 
     def create_top_snapshot(self, jitcode, pc, frame, flag, vable_boxes, vref_boxes):
         self._total_snapshots += 1
@@ -390,7 +396,7 @@ class Trace(BaseTrace):
         assert rffi.cast(lltype.Signed, self._ops[self._pos - 1]) == 0
         # guards have no descr
         self._snapshots.append(s)
-        self._ops[self._pos - 1] = rffi.cast(rffi.SHORT, len(self._snapshots) - 1)
+        self._ops[self._pos - 1] = rffi.cast(STORAGE_TP, len(self._snapshots) - 1)
         return s
 
     def create_empty_top_snapshot(self, vable_boxes, vref_boxes):
@@ -402,7 +408,7 @@ class Trace(BaseTrace):
         assert rffi.cast(lltype.Signed, self._ops[self._pos - 1]) == 0
         # guards have no descr
         self._snapshots.append(s)
-        self._ops[self._pos - 1] = rffi.cast(rffi.SHORT, len(self._snapshots) - 1)
+        self._ops[self._pos - 1] = rffi.cast(STORAGE_TP, len(self._snapshots) - 1)
         return s
 
     def create_snapshot(self, jitcode, pc, frame, flag):
@@ -410,19 +416,19 @@ class Trace(BaseTrace):
         array = frame.get_list_of_active_boxes(flag, self.new_array, self._encode)
         return Snapshot(combine_uint(jitcode.index, pc), array)
 
-    def get_iter(self, metainterp_sd=None):
-        assert metainterp_sd
-        return TraceIterator(self, self._start, self._pos, metainterp_sd=metainterp_sd)
+    def get_iter(self):
+        return TraceIterator(self, self._start, self._pos,
+                             metainterp_sd=self.metainterp_sd)
 
-    def get_live_ranges(self, metainterp_sd):
-        t = self.get_iter(metainterp_sd)
+    def get_live_ranges(self):
+        t = self.get_iter()
         liveranges = [0] * self._index
         index = t._count
         while not t.done():
             index = t.next_element_update_live_range(index, liveranges)
         return liveranges
 
-    def get_dead_ranges(self, metainterp_sd=None):
+    def get_dead_ranges(self):
         """ Same as get_live_ranges, but returns a list of "dying" indexes,
         such as for each index x, the number found there is for sure dead
         before x
@@ -438,7 +444,7 @@ class Trace(BaseTrace):
         if self._deadranges != (-1, None):
             if self._deadranges[0] == self._count:
                 return self._deadranges[1]
-        liveranges = self.get_live_ranges(metainterp_sd)
+        liveranges = self.get_live_ranges()
         deadranges = [0] * (self._index + 2)
         assert len(deadranges) == len(liveranges) + 2
         for i in range(self._start, len(liveranges)):
@@ -448,8 +454,8 @@ class Trace(BaseTrace):
         self._deadranges = (self._count, deadranges)
         return deadranges
 
-    def unpack(self, metainterp_sd):
-        iter = self.get_iter(metainterp_sd)
+    def unpack(self):
+        iter = self.get_iter()
         ops = []
         while not iter.done():
             ops.append(iter.next())

@@ -17,7 +17,7 @@ class SomeDescr(AbstractDescr):
     pass
 
 class metainterp_sd(object):
-    pass
+    all_descrs = []
 
 class FakeOp(AbstractResOp):
     def __init__(self, pos):

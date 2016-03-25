@@ -123,8 +123,7 @@ class UnrollOptimizer(Optimization):
     
     def optimize_preamble(self, trace, runtime_boxes, call_pure_results, memo):
         info, newops = self.optimizer.propagate_all_forward(
-            trace.get_iter(self.optimizer.metainterp_sd),
-            call_pure_results, flush=False)
+            trace.get_iter(), call_pure_results, flush=False)
         exported_state = self.export_state(info.jump_op.getarglist(),
                                            info.inputargs,
                                            runtime_boxes, memo)
@@ -136,7 +135,7 @@ class UnrollOptimizer(Optimization):
 
     def optimize_peeled_loop(self, trace, celltoken, state,
                              call_pure_results, inline_short_preamble=True):
-        trace = trace.get_iter(self.optimizer.metainterp_sd)
+        trace = trace.get_iter()
         try:
             label_args = self.import_state(trace.inputargs, state)
         except VirtualStatesCantMatch:
@@ -227,7 +226,7 @@ class UnrollOptimizer(Optimization):
 
     def optimize_bridge(self, trace, runtime_boxes, call_pure_results,
                         inline_short_preamble, box_names_memo):
-        trace = trace.get_iter(self.optimizer.metainterp_sd)
+        trace = trace.get_iter()
         self._check_no_forwarding([trace.inputargs])
         info, ops = self.optimizer.propagate_all_forward(trace,
             call_pure_results, False)

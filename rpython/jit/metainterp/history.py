@@ -674,10 +674,10 @@ class History(object):
         self.consts = []
         self._cache = []
 
-    def set_inputargs(self, inpargs):
+    def set_inputargs(self, inpargs, metainterp_sd):
         from rpython.jit.metainterp.opencoder import Trace
 
-        self.trace = Trace(inpargs)
+        self.trace = Trace(inpargs, metainterp_sd)
         self.inputargs = inpargs
         if self._cache:
             # hack to record the ops *after* we know our inputargs
@@ -860,7 +860,7 @@ class Stats(object):
 
     def check_history(self, expected=None, **check):
         insns = {}
-        t = self.history.trace.get_iter(self.metainterp_sd)
+        t = self.history.trace.get_iter()
         while not t.done():
             op = t.next()
             opname = op.getopname()
