@@ -508,6 +508,16 @@ class TestPosixAscii(BasePosixUnicodeOrAscii):
         finally:
             os.close(dirfd)
 
+    def test_fchmodat(self):
+        def f(dirfd):
+            return rposix.fchmodat('test_open_ascii', 0777, dirfd)
+
+        dirfd = os.open(os.path.dirname(self.ufilename), os.O_RDONLY)
+        try:
+            interpret(f, [dirfd])  # does not crash
+        finally:
+            os.close(dirfd)
+
 
 class TestPosixUnicode(BasePosixUnicodeOrAscii):
     def _get_filename(self):
@@ -526,3 +536,12 @@ class TestRegisteredFunctions:
             os.open('/tmp/t', 0, 0)
             os.open(u'/tmp/t', 0, 0)
         compile(f, ())
+
+def test_symlinkat(tmpdir):
+    tmpdir.join('file').write('text')
+    dirfd = os.open(str(tmpdir), os.O_RDONLY)
+    try:
+        rposix.symlinkat('file', 'link', dir_fd=dirfd)
+        assert os.readlink(str(tmpdir.join('link'))) == 'file'
+    finally:
+        os.close(dirfd)

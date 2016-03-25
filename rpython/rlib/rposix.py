@@ -1739,6 +1739,7 @@ class CConfig:
     AT_SYMLINK_NOFOLLOW = rffi_platform.DefinedConstantInteger('AT_SYMLINK_NOFOLLOW')
     AT_EACCESS = rffi_platform.DefinedConstantInteger('AT_EACCESS')
     AT_REMOVEDIR = rffi_platform.DefinedConstantInteger('AT_REMOVEDIR')
+    AT_EMPTY_PATH = rffi_platform.DefinedConstantInteger('AT_EMPTY_PATH')
     UTIME_NOW = rffi_platform.DefinedConstantInteger('UTIME_NOW')
     UTIME_OMIT = rffi_platform.DefinedConstantInteger('UTIME_OMIT')
     TIMESPEC = rffi_platform.Struct('struct timespec', [
@@ -1771,6 +1772,34 @@ if HAVE_FACCESSAT:
             flags |= AT_EACCESS
         error = c_faccessat(dir_fd, pathname, mode, flags)
         return error == 0
+
+if HAVE_FCHMODAT:
+    c_fchmodat = external('fchmodat',
+        [rffi.INT, rffi.CCHARP, rffi.INT, rffi.INT], rffi.INT,
+        save_err=rffi.RFFI_SAVE_ERRNO,)
+
+    def fchmodat(path, mode, dir_fd=AT_FDCWD, follow_symlinks=True):
+        if follow_symlinks:
+            flag = 0
+        else:
+            flag = AT_SYMLINK_NOFOLLOW
+        error = c_fchmodat(dir_fd, path, mode, flag)
+        handle_posix_error('fchmodat', error)
+
+if HAVE_FCHOWNAT:
+    c_fchownat = external('fchownat',
+        [rffi.INT, rffi.CCHARP, rffi.INT, rffi.INT, rffi.INT], rffi.INT,
+        save_err=rffi.RFFI_SAVE_ERRNO,)
+
+    def fchownat(path, owner, group, dir_fd=AT_FDCWD,
+            follow_symlinks=True, empty_path=False):
+        flag = 0
+        if not follow_symlinks:
+            flag |= AT_SYMLINK_NOFOLLOW
+        if empty_path:
+            flag |= AT_EMPTY_PATH
+        error = c_fchownat(dir_fd, path, owner, group, flag)
+        handle_posix_error('fchownat', error)
 
 if HAVE_LINKAT:
     c_linkat = external('linkat',
@@ -1876,11 +1905,11 @@ if HAVE_READLINKAT:
 
 if HAVE_SYMLINKAT:
     c_symlinkat = external('symlinkat',
-        [rffi.CCHARP, rffi.CCHARP, rffi.INT], rffi.INT,
+        [rffi.CCHARP, rffi.INT, rffi.CCHARP], rffi.INT,
         save_err=rffi.RFFI_SAVE_ERRNO)
 
     def symlinkat(src, dst, dir_fd=AT_FDCWD):
-        error = c_symlinkat(src, dst, dir_fd)
+        error = c_symlinkat(src, dir_fd, dst)
         handle_posix_error('symlinkat', error)
 
 if HAVE_OPENAT:
