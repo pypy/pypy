@@ -424,7 +424,7 @@ def pick_cls(inp):
         assert inp.type == 'f'
         return history.FloatFrontendOp
 
-def convert_loop_to_trace(loop, skip_last=False):
+def convert_loop_to_trace(loop, metainterp_sd, skip_last=False):
     from rpython.jit.metainterp.opencoder import Trace
     from rpython.jit.metainterp.test.test_opencoder import FakeFrame
     from rpython.jit.metainterp import history, resume
@@ -442,7 +442,7 @@ def convert_loop_to_trace(loop, skip_last=False):
     mapping = {}
     for one, two in zip(loop.inputargs, inputargs):
         mapping[one] = two
-    trace = Trace(inputargs)
+    trace = Trace(inputargs, metainterp_sd)
     ops = loop.operations
     if skip_last:
         ops = ops[:-1]

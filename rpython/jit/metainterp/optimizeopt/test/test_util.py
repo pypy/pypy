@@ -441,6 +441,7 @@ class FakeJitDriverStaticData(object):
     vec = False
 
 class FakeMetaInterpStaticData(object):
+    all_descrs = []
 
     def __init__(self, cpu):
         self.cpu = cpu
@@ -574,7 +575,7 @@ class BaseTest(object):
         #                           descr=jump_op.getdescr())
         #end_label = jump_op.copy_and_change(opnum=rop.LABEL)
         call_pure_results = self._convert_call_pure_results(call_pure_results)
-        t = convert_loop_to_trace(loop)
+        t = convert_loop_to_trace(loop, FakeMetaInterpStaticData(self.cpu))
         preamble_data = compile.LoopCompileData(t, runtime_boxes,
                                                 call_pure_results)
         start_state, preamble_ops = self._do_optimize_loop(preamble_data)

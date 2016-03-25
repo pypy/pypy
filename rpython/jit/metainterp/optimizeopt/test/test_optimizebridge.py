@@ -1,6 +1,6 @@
 
 from rpython.jit.metainterp.optimizeopt.test.test_util import BaseTest,\
-     LLtypeMixin, convert_old_style_to_targets
+     LLtypeMixin, convert_old_style_to_targets, FakeMetaInterpStaticData
 from rpython.jit.metainterp import compile
 from rpython.jit.tool import oparser
 from rpython.jit.metainterp.resoperation import ResOperation, rop
@@ -28,7 +28,7 @@ class TestOptimizeBridge(BaseTest, LLtypeMixin):
         bridge = self.parse(bridge_ops)
         bridge.operations[-1].setdescr(jitcell_token)
         self.add_guard_future_condition(bridge)
-        trace = oparser.convert_loop_to_trace(bridge)
+        trace = oparser.convert_loop_to_trace(bridge, FakeMetaInterpStaticData(self.cpu))
         data = compile.BridgeCompileData(trace, self.convert_values(bridge.operations[-1].getarglist(), bridge_values),
                                          enable_opts=self.enable_opts,
                             inline_short_preamble=inline_short_preamble)

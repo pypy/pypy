@@ -5,7 +5,7 @@
 import py
 
 from rpython.jit.metainterp.optimizeopt.test.test_util import BaseTest,\
-     LLtypeMixin
+     LLtypeMixin, FakeMetaInterpStaticData
 from rpython.jit.metainterp.optimizeopt.util import equaloplists
 from rpython.jit.metainterp.history import (TreeLoop, ConstInt,
                                             JitCellToken, TargetToken)
@@ -53,9 +53,7 @@ class BaseTestUnroll(BaseTest, LLtypeMixin):
         preamble = TreeLoop('preamble')
 
         token = JitCellToken()
-        start_label = ResOperation(rop.LABEL, inputargs, descr=TargetToken(token))
-        stop_label = ResOperation(rop.LABEL, jump_args, descr=token)
-        trace = oparser.convert_loop_to_trace(loop)
+        trace = oparser.convert_loop_to_trace(loop, FakeMetaInterpStaticData(self.cpu))
         compile_data = LoopCompileData(trace, inputargs)
         start_state, newops = self._do_optimize_loop(compile_data)
         preamble.operations = newops
