@@ -5,7 +5,7 @@ from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.baseobjspace import W_Root
 from rpython.rlib import rvmprof
 
-from rpython.rtyper.lltypesystem import lltype
+from rpython.rtyper.lltypesystem import lltype, rffi
 
 
 # ____________________________________________________________
@@ -91,8 +91,8 @@ def get_fast_traceback(space):
     MAX_SIZE = 1000
     l = []
 
-    with lltype.scoped_alloc(lltype.Signed, MAX_SIZE) as buf:
-        n = rvmprof._get_vmprof().cintf.get_stack_trace_default(
+    with lltype.scoped_alloc(rffi.CArray(lltype.Signed), MAX_SIZE) as buf:
+        n = rvmprof._get_vmprof().cintf.vmprof_get_stack_trace_default(
             buf, MAX_SIZE)
         for i in range(n):
             l.append(buf[i])

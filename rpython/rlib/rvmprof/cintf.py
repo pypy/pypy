@@ -58,7 +58,7 @@ def setup():
     vmprof_get_stack_trace_default = rffi.llexternal(
         "vmprof_get_stack_trace_default",
         [rffi.CArrayPtr(lltype.Signed), rffi.INT],
-        rffi.INT, compilation_info=eci, threadsafe=False)
+        rffi.INT, compilation_info=eci, releasegil=False)
     return CInterface(locals())
 
 
