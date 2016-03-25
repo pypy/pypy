@@ -76,7 +76,7 @@ class TraceIterator(BaseTrace):
                  metainterp_sd=None):
         self.trace = trace
         self.metainterp_sd = metainterp_sd
-        self._cache = [None] * trace._count
+        self._cache = [None] * trace._index
         if force_inputargs is not None:
             # the trace here is cut and we're working from
             # inputargs that are in the middle, shuffle stuff around a bit
@@ -92,6 +92,7 @@ class TraceIterator(BaseTrace):
         self.start = start
         self.pos = start
         self._count = start
+        self._index = start
         self.start_index = start
         self.end = end
 
@@ -152,7 +153,9 @@ class TraceIterator(BaseTrace):
             if rop.is_guard(opnum):
                 self.get_snapshot_iter(descr_index).update_liveranges(
                     index, liveranges)
-        return index + 1
+        if opclasses[opnum].type != 'v':
+            return index + 1
+        return index
 
     def next(self):
         opnum = self._next()
@@ -180,16 +183,18 @@ class TraceIterator(BaseTrace):
             assert isinstance(res, GuardResOp)
             res.rd_resume_position = descr_index
         if res.type != 'v':
-            self._cache[self._count] = res
+            self._cache[self._index] = res
+            self._index += 1
         self._count += 1
         return res
 
 class CutTrace(BaseTrace):
-    def __init__(self, trace, start, count, inputargs):
+    def __init__(self, trace, start, count, index, inputargs):
         self.trace = trace
         self.start = start
         self.inputargs = inputargs
         self.count = count
+        self.index = index
 
     def cut_at(self, cut):
         assert cut[1] > self.count
@@ -199,7 +204,8 @@ class CutTrace(BaseTrace):
         iter = TraceIterator(self.trace, self.start, self.trace._pos,
                              self.inputargs, metainterp_sd=metainterp_sd)
         iter._count = self.count
-        iter.start_index = self.count
+        iter.start_index = self.index
+        iter._index = self.index
         return iter
 
 def combine_uint(index1, index2):
@@ -246,7 +252,8 @@ class Trace(BaseTrace):
         self._snapshots = []
         for i, inparg in enumerate(inputargs):
             inparg.set_position(i)
-        self._count = len(inputargs)
+        self._count = len(inputargs) # total count
+        self._index = len(inputargs) # "position" of resulting resops
         self._start = len(inputargs)
         self._pos = self._start
         self.inputargs = inputargs
@@ -281,14 +288,15 @@ class Trace(BaseTrace):
         return self._pos
 
     def cut_point(self):
-        return self._pos, self._count
+        return self._pos, self._count, self._index
 
     def cut_at(self, end):
         self._pos = end[0]
         self._count = end[1]
+        self._index = end[2]
 
-    def cut_trace_from(self, (start, count), inputargs):
-        return CutTrace(self, start, count, inputargs)
+    def cut_trace_from(self, (start, count, index), inputargs):
+        return CutTrace(self, start, count, index, inputargs)
 
     def _encode(self, box):
         if isinstance(box, Const):
@@ -334,7 +342,7 @@ class Trace(BaseTrace):
             assert False, "unreachable code"
 
     def record_op(self, opnum, argboxes, descr=None):
-        pos = self._count
+        pos = self._index
         self.append(opnum)
         expected_arity = oparity[opnum]
         if expected_arity == -1:
@@ -351,6 +359,8 @@ class Trace(BaseTrace):
             else:
                 self.append(self._encode_descr(descr))
         self._count += 1
+        if opclasses[opnum].type != 'v':
+            self._index += 1
         return pos
 
     def _encode_descr(self, descr):
@@ -404,7 +414,7 @@ class Trace(BaseTrace):
 
     def get_live_ranges(self, metainterp_sd):
         t = self.get_iter(metainterp_sd)
-        liveranges = [0] * self._count
+        liveranges = [0] * self._index
         index = t._count
         while not t.done():
             index = t.next_element_update_live_range(index, liveranges)
@@ -427,7 +437,8 @@ class Trace(BaseTrace):
             if self._deadranges[0] == self._count:
                 return self._deadranges[1]
         liveranges = self.get_live_ranges(metainterp_sd)
-        deadranges = [0] * (self._count + 1)
+        deadranges = [0] * (self._index + 2)
+        assert len(deadranges) == len(liveranges) + 2
         for i in range(self._start, len(liveranges)):
             elem = liveranges[i]
             if elem:

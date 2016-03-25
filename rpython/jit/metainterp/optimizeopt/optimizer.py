@@ -520,7 +520,8 @@ class Optimizer(Optimization):
                 break
             self.first_optimization.propagate_forward(op)
             trace.kill_cache_at(deadranges[i + trace.start_index])
-            i += 1
+            if op.type != 'v':
+                i += 1
         # accumulate counters
         if flush:
             self.flush()

@@ -187,7 +187,7 @@ class TestOpencoder(object):
         p0 = FakeOp(t.record_op(rop.NEW_WITH_VTABLE, [], descr=SomeDescr()))
         t.record_op(rop.GUARD_TRUE, [i0])
         resume.capture_resumedata([], [i1, i2, p0], [p0, i1], t)
-        assert t.get_live_ranges(metainterp_sd) == [4, 4, 4, 4, 0]
+        assert t.get_live_ranges(metainterp_sd) == [4, 4, 4, 4]
 
     def test_deadranges(self):
         i0, i1, i2 = IntFrontendOp(0), IntFrontendOp(0), IntFrontendOp(0)
@@ -203,4 +203,4 @@ class TestOpencoder(object):
         t.record_op(rop.ESCAPE_N, [ConstInt(3)])
         t.record_op(rop.ESCAPE_N, [ConstInt(3)])
         t.record_op(rop.FINISH, [i4])
-        assert t.get_dead_ranges(metainterp_sd) == [0, 0, 0, 0, 0, 3, 0, 5, 0, 0, 0, 0, 0, 6]
+        assert t.get_dead_ranges(metainterp_sd) == [0, 0, 0, 0, 0, 3, 4, 5]
