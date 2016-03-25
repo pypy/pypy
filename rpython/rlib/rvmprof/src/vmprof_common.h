@@ -119,3 +119,8 @@ static vmprof_stack_t *get_vmprof_stack(void)
     return 0;
 }
 #endif
+
+static int get_stack_trace_default(intptr_t *result, int max_depth)
+{
+    return get_stack_trace(get_vmprof_stack(), result, max_depth, 0);
+}

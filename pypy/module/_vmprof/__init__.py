@@ -13,6 +13,8 @@ class Module(MixedModule):
         'disable': 'interp_vmprof.disable',
         'write_all_code_objects': 'interp_vmprof.write_all_code_objects',
         'VMProfError': 'space.fromcache(interp_vmprof.Cache).w_VMProfError',
+        'get_fast_traceback' : 'interp_vmprof.get_fast_traceback',
+        'code_get_unique_id' : 'interp_vmprof.code_get_unique_id',
     }
 
 

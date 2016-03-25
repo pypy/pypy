@@ -5,6 +5,9 @@ from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.baseobjspace import W_Root
 from rpython.rlib import rvmprof
 
+from rpython.rtyper.lltypesystem import lltype
+
+
 # ____________________________________________________________
 
 
@@ -82,3 +85,20 @@ def disable(space):
         rvmprof.disable()
     except rvmprof.VMProfError, e:
         raise VMProfError(space, e)
+
+
+def get_fast_traceback(space):
+    MAX_SIZE = 1000
+    l = []
+
+    with lltype.scoped_alloc(lltype.Signed, MAX_SIZE) as buf:
+        n = rvmprof._get_vmprof().cintf.get_stack_trace_default(
+            buf, MAX_SIZE)
+        for i in range(n):
+            l.append(buf[i])
+    return space.newlist_int(l)
+
+@unwrap_spec(w_code=PyCode)
+def code_get_unique_id(space, w_code):
+    return space.wrap(w_code._vmprof_unique_id)
+
