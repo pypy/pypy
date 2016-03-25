@@ -316,6 +316,9 @@ class AbstractLLCPU(AbstractCPU):
             return ll_frame
         return execute_token
 
+    def setup_descrs(self):
+        return self.gc_ll_descr.setup_descrs()
+
     # ------------------- helpers and descriptions --------------------
 
     @staticmethod

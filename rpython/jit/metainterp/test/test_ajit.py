@@ -2007,7 +2007,7 @@ class BasicTests:
         res = self.meta_interp(g, [3, 14])
         assert res == g(3, 14)
 
-    def test_specialied_bridge(self):
+    def test_specialized_bridge(self):
         myjitdriver = JitDriver(greens = [], reds = ['y', 'x', 'res'])
         class A:
             def __init__(self, val):

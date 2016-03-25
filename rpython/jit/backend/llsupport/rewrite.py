@@ -103,7 +103,7 @@ class GcRewriterAssembler(object):
                     orig_op.set_forwarded(op)
                     replaced = True
                 op.setarg(i, arg)
-        if op.is_guard():
+        if rop.is_guard(op.opnum):
             if not replaced:
                 op = op.copy_and_change(op.getopnum())
                 orig_op.set_forwarded(op)
@@ -212,7 +212,7 @@ class GcRewriterAssembler(object):
         #                self._emit_mul_if_factor_offset_not_supported(v_length, scale, 0)
         #        op.setarg(1, ConstInt(scale))
         #        op.setarg(2, v_length)
-        if op.is_getarrayitem() or \
+        if rop.is_getarrayitem(opnum) or \
            opnum in (rop.GETARRAYITEM_RAW_I,
                      rop.GETARRAYITEM_RAW_F):
             self.handle_getarrayitem(op)
@@ -324,13 +324,13 @@ class GcRewriterAssembler(object):
             if self.transform_to_gc_load(op):
                 continue
             # ---------- turn NEWxxx into CALL_MALLOC_xxx ----------
-            if op.is_malloc():
+            if rop.is_malloc(op.opnum):
                 self.handle_malloc_operation(op)
                 continue
-            if (op.is_guard() or
+            if (rop.is_guard(op.opnum) or
                     self.could_merge_with_next_guard(op, i, operations)):
                 self.emit_pending_zeros()
-            elif op.can_malloc():
+            elif rop.can_malloc(op.opnum):
                 self.emitting_an_operation_that_can_collect()
             elif op.getopnum() == rop.LABEL:
                 self.emitting_an_operation_that_can_collect()
@@ -370,8 +370,8 @@ class GcRewriterAssembler(object):
         # return True in cases where the operation and the following guard
         # should likely remain together.  Simplified version of
         # can_merge_with_next_guard() in llsupport/regalloc.py.
-        if not op.is_comparison():
-            return op.is_ovf()    # int_xxx_ovf() / guard_no_overflow()
+        if not rop.is_comparison(op.opnum):
+            return rop.is_ovf(op.opnum)    # int_xxx_ovf() / guard_no_overflow()
         if i + 1 >= len(operations):
             return False
         next_op = operations[i + 1]
@@ -400,7 +400,6 @@ class GcRewriterAssembler(object):
         # it's hard to test all cases).  Rewrite it away.
         value = int(opnum == rop.GUARD_FALSE)
         op1 = ResOperation(rop.SAME_AS_I, [ConstInt(value)])
-        op1.setint(value)
         self.emit_op(op1)
         lst = op.getfailargs()[:]
         lst[i] = op1
@@ -633,8 +632,7 @@ class GcRewriterAssembler(object):
             args = [frame, arglist[jd.index_of_virtualizable]]
         else:
             args = [frame]
-        call_asm = ResOperation(op.getopnum(), args,
-                                op.getdescr())
+        call_asm = ResOperation(op.getopnum(), args, descr=op.getdescr())
         self.replace_op_with(self.get_box_replacement(op), call_asm)
         self.emit_op(call_asm)
 
@@ -708,7 +706,7 @@ class GcRewriterAssembler(object):
     def _gen_call_malloc_gc(self, args, v_result, descr):
         """Generate a CALL_MALLOC_GC with the given args."""
         self.emitting_an_operation_that_can_collect()
-        op = ResOperation(rop.CALL_MALLOC_GC, args, descr)
+        op = ResOperation(rop.CALL_MALLOC_GC, args, descr=descr)
         self.replace_op_with(v_result, op)
         self.emit_op(op)
         # In general, don't add v_result to write_barrier_applied:
