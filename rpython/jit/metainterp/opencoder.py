@@ -50,26 +50,28 @@ class SnapshotIterator(object):
     def get(self, index):
         return self.main_iter._untag(index)
 
-    def _update_liverange(self, item, index, liveranges):
-        tag, v = untag(item)
-        if tag == TAGBOX:
-            liveranges[v] = index
-
-    def update_liveranges(self, index, liveranges):
-        for item in self.vable_array:
-            self._update_liverange(item, index, liveranges)
-        for item in self.vref_array:
-            self._update_liverange(item, index, liveranges)
-        for frame in self.framestack:
-            for item in frame.box_array:
-                self._update_liverange(item, index, liveranges)
-
     def unpack_jitcode_pc(self, snapshot):
         return unpack_uint(snapshot.packed_jitcode_pc)
 
     def unpack_array(self, arr):
         # NOT_RPYTHON
         return [self.get(i) for i in arr]
+
+def _update_liverange(item, index, liveranges):
+    tag, v = untag(item)
+    if tag == TAGBOX:
+        liveranges[v] = index
+
+def update_liveranges(snapshot, index, liveranges):
+    assert isinstance(snapshot, TopSnapshot)
+    for item in snapshot.vable_array:
+        _update_liverange(item, index, liveranges)
+    for item in snapshot.vref_array:
+        _update_liverange(item, index, liveranges)
+    while snapshot:
+        for item in snapshot.box_array:
+            _update_liverange(item, index, liveranges)
+        snapshot = snapshot.prev
 
 class TraceIterator(BaseTrace):
     def __init__(self, trace, start, end, force_inputargs=None,
@@ -151,8 +153,8 @@ class TraceIterator(BaseTrace):
         if opwithdescr[opnum]:
             descr_index = self._next()
             if rop.is_guard(opnum):
-                self.get_snapshot_iter(descr_index).update_liveranges(
-                    index, liveranges)
+                update_liveranges(self.trace._snapshots[descr_index], index, 
+                                  liveranges)
         if opclasses[opnum].type != 'v':
             return index + 1
         return index
