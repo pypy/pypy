@@ -22,7 +22,7 @@ import sys
 PyUnicodeObjectStruct = lltype.ForwardReference()
 PyUnicodeObject = lltype.Ptr(PyUnicodeObjectStruct)
 PyUnicodeObjectFields = (PyObjectFields +
-    (("str", rffi.CWCHARP), ("size", Py_ssize_t),
+    (("str", rffi.CWCHARP), ("length", Py_ssize_t),
      ("hash", rffi.LONG), ("defenc", PyObject)))
 cpython_struct("PyUnicodeObject", PyUnicodeObjectFields, PyUnicodeObjectStruct)
 
@@ -54,7 +54,7 @@ def new_empty_unicode(space, length):
     py_uni = rffi.cast(PyUnicodeObject, py_obj)
 
     buflen = length + 1
-    py_uni.c_size = length
+    py_uni.c_length = length
     py_uni.c_str = lltype.malloc(rffi.CWCHARP.TO, buflen,
                                  flavor='raw', zero=True,
                                  add_memory_pressure=True)
@@ -65,7 +65,7 @@ def new_empty_unicode(space, length):
 def unicode_attach(space, py_obj, w_obj):
     "Fills a newly allocated PyUnicodeObject with a unicode string"
     py_unicode = rffi.cast(PyUnicodeObject, py_obj)
-    py_unicode.c_size = len(space.unicode_w(w_obj))
+    py_unicode.c_length = len(space.unicode_w(w_obj))
     py_unicode.c_str = lltype.nullptr(rffi.CWCHARP.TO)
     py_unicode.c_hash = space.hash_w(w_obj)
     py_unicode.c_defenc = lltype.nullptr(PyObject.TO)
@@ -76,7 +76,7 @@ def unicode_realize(space, py_obj):
     be modified after this call.
     """
     py_uni = rffi.cast(PyUnicodeObject, py_obj)
-    s = rffi.wcharpsize2unicode(py_uni.c_str, py_uni.c_size)
+    s = rffi.wcharpsize2unicode(py_uni.c_str, py_uni.c_length)
     w_obj = space.wrap(s)
     py_uni.c_hash = space.hash_w(w_obj)
     track_reference(space, py_obj, w_obj)
@@ -235,7 +235,7 @@ def PyUnicode_AsUnicode(space, ref):
 def PyUnicode_GetSize(space, ref):
     if from_ref(space, rffi.cast(PyObject, ref.c_ob_type)) is space.w_unicode:
         ref = rffi.cast(PyUnicodeObject, ref)
-        return ref.c_size
+        return ref.c_length
     else:
         w_obj = from_ref(space, ref)
         return space.len_w(w_obj)
@@ -250,11 +250,11 @@ def PyUnicode_AsWideChar(space, ref, buf, size):
     to make sure that the wchar_t string is 0-terminated in case this is
     required by the application."""
     c_str = PyUnicode_AS_UNICODE(space, rffi.cast(PyObject, ref))
-    c_size = ref.c_size
+    c_length = ref.c_length
 
     # If possible, try to copy the 0-termination as well
-    if size > c_size:
-        size = c_size + 1
+    if size > c_length:
+        size = c_length + 1
 
 
     i = 0
@@ -262,8 +262,8 @@ def PyUnicode_AsWideChar(space, ref, buf, size):
         buf[i] = c_str[i]
         i += 1
 
-    if size > c_size:
-        return c_size
+    if size > c_length:
+        return c_length
     else:
         return size
 
@@ -469,7 +469,7 @@ def PyUnicode_Resize(space, ref, newsize):
         ref[0] = lltype.nullptr(PyObject.TO)
         raise
     to_cp = newsize
-    oldsize = py_uni.c_size
+    oldsize = py_uni.c_length
     if oldsize < newsize:
         to_cp = oldsize
     for i in range(to_cp):
