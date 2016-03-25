@@ -26,6 +26,11 @@ SMALL_INT_START = -SMALL_INT_STOP # we might want to distribute them uneven
 MIN_SHORT = 0
 MAX_SHORT = 2**16 - 1
 
+def expand_sizes_to_signed():
+    """ This function will make sure we can use sizes all the
+    way up to lltype.Signed for indexes everywhere
+    """
+
 class FrontendTagOverflow(Exception):
     pass
 
@@ -464,7 +469,7 @@ class Trace(BaseTrace):
 def tag(kind, pos):
     #if not SMALL_INT_START <= pos < SMALL_INT_STOP:
     #    raise some error
-    return (pos << TAGSHIFT) | kind
+    return rffi.cast(STORAGE_TP, (pos << TAGSHIFT) | kind)
 
 def untag(tagged):
     return intmask(tagged) & TAGMASK, intmask(tagged) >> TAGSHIFT
