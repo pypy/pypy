@@ -1903,6 +1903,17 @@ if HAVE_READLINKAT:
         lltype.free(buf, flavor='raw')
         return result
 
+if HAVE_RENAMEAT:
+    c_renameat = external(
+        'renameat',
+        [rffi.INT, rffi.CCHARP, rffi.INT, rffi.CCHARP], rffi.INT,
+        save_err=rffi.RFFI_SAVE_ERRNO)
+
+    def renameat(src, dst, src_dir_fd=AT_FDCWD, dst_dir_fd=AT_FDCWD):
+        error = c_renameat(src_dir_fd, src, dst_dir_fd, dst)
+        handle_posix_error('renameat', error)
+
+
 if HAVE_SYMLINKAT:
     c_symlinkat = external('symlinkat',
         [rffi.CCHARP, rffi.INT, rffi.CCHARP], rffi.INT,

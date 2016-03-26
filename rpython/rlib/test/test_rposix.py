@@ -545,3 +545,14 @@ def test_symlinkat(tmpdir):
         assert os.readlink(str(tmpdir.join('link'))) == 'file'
     finally:
         os.close(dirfd)
+
+
+def test_renameat(tmpdir):
+    tmpdir.join('file').write('text')
+    dirfd = os.open(str(tmpdir), os.O_RDONLY)
+    try:
+        rposix.renameat('file', 'file2', src_dir_fd=dirfd, dst_dir_fd=dirfd)
+    finally:
+        os.close(dirfd)
+    assert tmpdir.join('file').check(exists=False)
+    assert tmpdir.join('file2').check(exists=True)
