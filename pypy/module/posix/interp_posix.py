@@ -964,7 +964,7 @@ in the hardest way possible on the hosting operating system."""
 
 @unwrap_spec(
     src='fsencode', dst='fsencode',
-    src_dir_fd=DirFD(available=False), dst_dir_fd=DirFD(available=False),
+    src_dir_fd=DirFD(rposix.HAVE_LINKAT), dst_dir_fd=DirFD(rposix.HAVE_LINKAT),
     follow_symlinks=kwonly(bool))
 def link(
         space, src, dst,
@@ -985,8 +985,12 @@ src_dir_fd, dst_dir_fd, and follow_symlinks may not be implemented on your
   platform.  If they are unavailable, using them will raise a
   NotImplementedError."""
     try:
-        os.link(src, dst)
-    except OSError, e:
+        if (src_dir_fd != DEFAULT_DIR_FD or dst_dir_fd != DEFAULT_DIR_FD
+                or not follow_symlinks):
+            rposix.linkat(src, dst, src_dir_fd, dst_dir_fd, follow_symlinks)
+        else:
+            rposix.link(src, dst)
+    except OSError as e:
         raise wrap_oserror(space, e)
 
 
