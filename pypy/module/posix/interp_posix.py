@@ -1,7 +1,12 @@
 import os
 import sys
 from math import modf
-from errno import ENOTSUP, EOPNOTSUPP
+from errno import EOPNOTSUPP
+try:
+    from errno import ENOTSUP
+except ImportError:
+    # some Pythons don't have errno.ENOTSUP
+    ENOTSUP = 0
 
 from rpython.rlib import rposix, rposix_stat
 from rpython.rlib import objectmodel, rurandom
