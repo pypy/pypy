@@ -1698,9 +1698,9 @@ def confstr(space, w_name):
     return space.wrap(res)
 
 @unwrap_spec(
-    path='fsencode', uid=c_uid_t, gid=c_gid_t,
-    dir_fd=DirFD(available=False), follow_symlinks=kwonly(bool))
-def chown(space, path, uid, gid, dir_fd=DEFAULT_DIR_FD, follow_symlinks=True):
+    uid=c_uid_t, gid=c_gid_t,
+    dir_fd=DirFD(rposix.HAVE_FCHOWNAT), follow_symlinks=kwonly(bool))
+def chown(space, w_path, uid, gid, dir_fd=DEFAULT_DIR_FD, follow_symlinks=True):
     """chown(path, uid, gid, *, dir_fd=None, follow_symlinks=True)
 
 Change the owner and group id of path to the numeric uid and gid.
@@ -1719,10 +1719,43 @@ dir_fd and follow_symlinks may not be implemented on your platform.
   If they are unavailable, using them will raise a NotImplementedError."""
     check_uid_range(space, uid)
     check_uid_range(space, gid)
+    if not (rposix.HAVE_LCHOWN or rposix.HAVE_FCHMODAT):
+        if not follow_symlinks:
+            raise argument_unavailable(space, 'chown', 'follow_symlinks')
     try:
-        os.chown(path, uid, gid)
-    except OSError, e:
-        raise wrap_oserror(space, e, path)
+        path = space.fsencode_w(w_path)
+    except OperationError:
+        if not space.isinstance_w(w_path, space.w_int):
+            raise oefmt(space.w_TypeError,
+                "argument should be string, bytes or integer, not %T", w_path)
+        # File descriptor case
+        fd = unwrap_fd(space, w_path)
+        if dir_fd != DEFAULT_DIR_FD:
+            raise oefmt(space.w_ValueError,
+                "chown: can't specify both dir_fd and fd")
+        if not follow_symlinks:
+            raise oefmt(space.w_ValueError,
+                "chown: cannnot use fd and follow_symlinks together")
+        try:
+            os.fchown(fd, uid, gid)
+        except OSError as e:
+            raise wrap_oserror(space, e)
+    else:
+        # String case
+        try:
+            if (rposix.HAVE_LCHOWN and
+                    dir_fd == DEFAULT_DIR_FD and not follow_symlinks):
+                os.lchown(path, uid, gid)
+            elif rposix.HAVE_FCHOWNAT and (
+                    not follow_symlinks or dir_fd != DEFAULT_DIR_FD):
+                rposix.fchownat(path, uid, gid, dir_fd, follow_symlinks)
+            else:
+                assert follow_symlinks
+                assert dir_fd == DEFAULT_DIR_FD
+                os.chown(path, uid, gid)
+        except OSError as e:
+            raise wrap_oserror2(space, e, w_path)
+
 
 @unwrap_spec(path='fsencode', uid=c_uid_t, gid=c_gid_t)
 def lchown(space, path, uid, gid):
