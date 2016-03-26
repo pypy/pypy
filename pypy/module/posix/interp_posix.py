@@ -849,8 +849,9 @@ def fchmod(space, fd, mode):
     """
     _chmod_fd(space, fd, mode)
 
-@unwrap_spec(src_dir_fd=DirFD(available=False), dst_dir_fd=DirFD(available=False))
-def rename(space, w_old, w_new,
+@unwrap_spec(src_dir_fd=DirFD(rposix.HAVE_RENAMEAT),
+        dst_dir_fd=DirFD(rposix.HAVE_RENAMEAT))
+def rename(space, w_src, w_dst,
         src_dir_fd=DEFAULT_DIR_FD, dst_dir_fd=DEFAULT_DIR_FD):
     """rename(src, dst, *, src_dir_fd=None, dst_dir_fd=None)
 
@@ -862,12 +863,18 @@ If either src_dir_fd or dst_dir_fd is not None, it should be a file
 src_dir_fd and dst_dir_fd, may not be implemented on your platform.
   If they are unavailable, using them will raise a NotImplementedError."""
     try:
-        dispatch_filename_2(rposix.rename)(space, w_old, w_new)
+        if (src_dir_fd != DEFAULT_DIR_FD or dst_dir_fd != DEFAULT_DIR_FD):
+            src = space.fsencode_w(w_src)
+            dst = space.fsencode_w(w_dst)
+            rposix.renameat(src, dst, src_dir_fd, dst_dir_fd)
+        else:
+            dispatch_filename_2(rposix.rename)(space, w_src, w_dst)
     except OSError, e:
         raise wrap_oserror(space, e)
 
-@unwrap_spec(src_dir_fd=DirFD(available=False), dst_dir_fd=DirFD(available=False))
-def replace(space, w_old, w_new,
+@unwrap_spec(src_dir_fd=DirFD(rposix.HAVE_RENAMEAT),
+        dst_dir_fd=DirFD(rposix.HAVE_RENAMEAT))
+def replace(space, w_src, w_dst,
         src_dir_fd=DEFAULT_DIR_FD, dst_dir_fd=DEFAULT_DIR_FD):
     """replace(src, dst, *, src_dir_fd=None, dst_dir_fd=None)
 
@@ -879,8 +886,13 @@ If either src_dir_fd or dst_dir_fd is not None, it should be a file
 src_dir_fd and dst_dir_fd, may not be implemented on your platform.
   If they are unavailable, using them will raise a NotImplementedError."""
     try:
-        dispatch_filename_2(rposix.replace)(space, w_old, w_new)
-    except OSError, e:
+        if (src_dir_fd != DEFAULT_DIR_FD or dst_dir_fd != DEFAULT_DIR_FD):
+            src = space.fsencode_w(w_src)
+            dst = space.fsencode_w(w_dst)
+            rposix.renameat(src, dst, src_dir_fd, dst_dir_fd)
+        else:
+            dispatch_filename_2(rposix.replace)(space, w_src, w_dst)
+    except OSError as e:
         raise wrap_oserror(space, e)
 
 @unwrap_spec(mode=c_int, dir_fd=DirFD(rposix.HAVE_MKFIFOAT))
