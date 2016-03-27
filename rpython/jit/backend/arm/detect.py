@@ -80,7 +80,7 @@ def getauxval(type_, filename='/proc/self/auxv'):
 
     i = 0
     while i <= buf_size - struct_size:
-        if buf[i] == 0:
+        if buf[i] == '\x00':
             i += 1
             continue
 
