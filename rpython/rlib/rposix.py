@@ -10,7 +10,8 @@ from rpython.rlib._os_support import (
     _CYGWIN, _MACRO_ON_POSIX, UNDERSCORE_ON_WIN32, _WIN32,
     _prefer_unicode, _preferred_traits)
 from rpython.rlib.objectmodel import (
-    specialize, enforceargs, register_replacement_for, NOT_CONSTANT)
+    specialize, enforceargs, register_replacement_for, NOT_CONSTANT,
+    we_are_translated)
 from rpython.rlib.rarithmetic import intmask, widen
 from rpython.rlib.signature import signature
 from rpython.tool.sourcetools import func_renamer
@@ -375,8 +376,15 @@ def dup2(fd, newfd):
 def open(path, flags, mode):
     if _prefer_unicode(path):
         fd = c_wopen(_as_unicode0(path), flags, mode)
-    else:
+    elif we_are_translated():
         fd = c_open(_as_bytes0(path), flags, mode)
+    else:
+        # Untranslated, we can't reliably call c_open()
+        # because its precise signature is (char*, int, ...)
+        # but we're pretending it is (char*, int, mode_t).
+        # Usually it makes no difference, but on some
+        # platforms it does.
+        fd = os.open(_as_bytes0(path), flags, mode)
     return handle_posix_error('open', fd)
 
 c_read = external(UNDERSCORE_ON_WIN32 + 'read',
