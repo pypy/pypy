@@ -1,9 +1,10 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
-    cpython_api, CANNOT_FAIL, CONST_STRING, FILEP, build_type_checkers)
+    cpython_api, CANNOT_FAIL, CONST_STRING, FILEP, build_type_checkers, fdopen,
+    fileno)
 from pypy.module.cpyext.pyobject import PyObject
 from pypy.module.cpyext.object import Py_PRINT_RAW
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.module._file.interp_file import W_File
 
 PyFile_Check, PyFile_CheckExact = build_type_checkers("File", W_File)
@@ -22,9 +23,8 @@ def PyFile_GetLine(space, w_obj, n):
     try:
         w_readline = space.getattr(w_obj, space.wrap('readline'))
     except OperationError:
-        raise OperationError(
-            space.w_TypeError, space.wrap(
-            "argument must be a file, or have a readline() method."))
+        raise oefmt(space.w_TypeError, 
+            "argument must be a file, or have a readline() method.")
 
     n = rffi.cast(lltype.Signed, n)
     if space.is_true(space.gt(space.wrap(n), space.wrap(0))):
@@ -52,14 +52,23 @@ def PyFile_AsFile(space, w_p):
     If the caller will ever use the returned FILE* object while
     the GIL is released it must also call the PyFile_IncUseCount() and
     PyFile_DecUseCount() functions as appropriate."""
-    raise NotImplementedError
+    assert isinstance(w_p, W_File)
+    return fdopen(space.int_w(space.call_method(w_p, 'fileno')), 
+                     w_p.mode)
 
 @cpython_api([FILEP, CONST_STRING, CONST_STRING, rffi.VOIDP], PyObject)
 def PyFile_FromFile(space, fp, name, mode, close):
     """Create a new PyFileObject from the already-open standard C file
     pointer, fp.  The function close will be called when the file should be
     closed.  Return NULL on failure."""
-    raise NotImplementedError
+    if close:
+        raise oefmt(space.w_NotImplementedError, 
+            'PyFromFile(..., close) with close function not implemented')
+    w_ret = space.allocate_instance(W_File, space.gettypefor(W_File))
+    w_ret.w_name = space.wrap(rffi.charp2str(name))
+    w_ret.check_mode_ok(rffi.charp2str(mode))
+    w_ret.fp = fp
+    return w_ret
 
 @cpython_api([PyObject, rffi.INT_real], lltype.Void)
 def PyFile_SetBufSize(space, w_file, n):

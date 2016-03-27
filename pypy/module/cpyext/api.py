@@ -93,6 +93,8 @@ else:
     fileno = rffi.llexternal('fileno', [FILEP], rffi.INT)
 
 fopen = rffi.llexternal('fopen', [CONST_STRING, CONST_STRING], FILEP)
+fdopen = rffi.llexternal('fdopen', [rffi.INT, CONST_STRING], FILEP,
+                         save_err=rffi.RFFI_SAVE_ERRNO)
 
 _fclose = rffi.llexternal('fclose', [FILEP], rffi.INT)
 def fclose(fp):
