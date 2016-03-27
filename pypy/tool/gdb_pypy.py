@@ -288,9 +288,11 @@ class RPyListPrinter(object):
             RPyListPrinter.recursive = True
             try:
                 itemlist = []
-                for i in range(length):
+                for i in range(min(length, MAX_DISPLAY_LENGTH)):
                     item = items[i]
                     itemlist.append(str(item))    # may recurse here
+                if length > MAX_DISPLAY_LENGTH:
+                    itemlist.append("...")
                 str_items = ', '.join(itemlist)
             finally:
                 RPyListPrinter.recursive = False

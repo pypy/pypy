@@ -464,6 +464,7 @@ def convert_struct(container, cstruct=None, delayed_converters=None):
     if delayed_converters_was_None:
         for converter in delayed_converters:
             converter()
+
     remove_regular_struct_content(container)
 
 def remove_regular_struct_content(container):

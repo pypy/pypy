@@ -21,6 +21,30 @@ class GcCache(object):
         self._cache_call = {}
         self._cache_interiorfield = {}
 
+    def setup_descrs(self):
+        all_descrs = []
+        for k, v in self._cache_size.iteritems():
+            v.descr_index = len(all_descrs)
+            all_descrs.append(v)
+        for k, v in self._cache_field.iteritems():
+            for k1, v1 in v.iteritems():
+                v1.descr_index = len(all_descrs)
+                all_descrs.append(v1)
+        for k, v in self._cache_array.iteritems():
+            v.descr_index = len(all_descrs)
+            all_descrs.append(v)
+        for k, v in self._cache_arraylen.iteritems():
+            v.descr_index = len(all_descrs)
+            all_descrs.append(v)
+        for k, v in self._cache_call.iteritems():
+            v.descr_index = len(all_descrs)
+            all_descrs.append(v)
+        for k, v in self._cache_interiorfield.iteritems():
+            v.descr_index = len(all_descrs)
+            all_descrs.append(v)
+        assert len(all_descrs) < 2**15
+        return all_descrs
+
     def init_size_descr(self, STRUCT, sizedescr):
         pass
 

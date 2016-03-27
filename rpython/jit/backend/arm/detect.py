@@ -1,6 +1,7 @@
 import os
 
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.tool import rffi_platform
 from rpython.rlib.clibffi import FFI_DEFAULT_ABI, FFI_SYSV, FFI_VFP
 from rpython.translator.platform import CompilationError
@@ -15,6 +16,7 @@ static void __attribute__((optimize("O0"))) pypy__arm_has_vfp()
     asm volatile("VMOV s0, s1");
 }
     """])
+getauxval = rffi.llexternal("getauxval", [lltype.Unsigned], lltype.Unsigned)
 
 def detect_hardfloat():
     return FFI_DEFAULT_ABI == FFI_VFP
@@ -63,3 +65,10 @@ def detect_arch_version(filename="/proc/cpuinfo"):
                     "falling back to", "ARMv%d" % n)
     debug_stop("jit-backend-arch")
     return n
+
+
+def detect_neon():
+    AT_HWCAP = 16
+    HWCAP_NEON = 1 << 12
+    hwcap = getauxval(AT_HWCAP)
+    return bool(hwcap & HWCAP_NEON)
