@@ -4,7 +4,6 @@ This whole file is DEPRECATED.  Use jit_libffi.py instead.
 from __future__ import with_statement
 
 from rpython.rtyper.lltypesystem import rffi, lltype
-from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import specialize, enforceargs
 from rpython.rlib.rarithmetic import intmask, r_uint, r_singlefloat, r_longlong
 from rpython.rlib import jit
@@ -16,9 +15,6 @@ from rpython.rlib.rdynload import dlopen, dlclose, dlsym, dlsym_byordinal
 from rpython.rlib.rdynload import DLLHANDLE
 
 import os
-import sys
-
-_BIG_ENDIAN = sys.byteorder == 'big'
 
 class types(object):
     """
@@ -215,8 +211,6 @@ class LongLongArg(AbstractArg):
 
 # ======================================================================
 
-NARROW_INTEGER_TYPES = unrolling_iterable([rffi.CHAR,
-    rffi.UCHAR, rffi.SHORT, rffi.USHORT, rffi.INT, rffi.UINT])
 
 class Func(AbstractFuncPtr):
 
@@ -269,12 +263,7 @@ class Func(AbstractFuncPtr):
             res = self._do_call_raw(self.funcsym, ll_args)
         elif _fits_into_signed(RESULT):
             assert not types.is_struct(self.restype)
-            for res in NARROW_INTEGER_TYPES:
-                if RESULT is res:
-                    res = self._do_call_int(self.funcsym, ll_args, rffi.CHAR)
-                    break
-            else:
-                res = self._do_call_int(self.funcsym, ll_args, rffi.SIGNED)
+            res = self._do_call_int(self.funcsym, ll_args)
         elif RESULT is rffi.DOUBLE:
             return self._do_call_float(self.funcsym, ll_args)
         elif RESULT is rffi.FLOAT:
@@ -336,9 +325,8 @@ class Func(AbstractFuncPtr):
 
     #@jit.oopspec('libffi_call_int(self, funcsym, ll_args)')
     @jit.dont_look_inside
-    @specialize.arg(3)
-    def _do_call_int(self, funcsym, ll_args, TP):
-        return self._do_call(funcsym, ll_args, TP)
+    def _do_call_int(self, funcsym, ll_args):
+        return self._do_call(funcsym, ll_args, rffi.SIGNED)
 
     #@jit.oopspec('libffi_call_float(self, funcsym, ll_args)')
     @jit.dont_look_inside
@@ -380,10 +368,10 @@ class Func(AbstractFuncPtr):
     @specialize.arg(3)
     def _do_call(self, funcsym, ll_args, RESULT):
         # XXX: check len(args)?
-        ll_result = lltype.nullptr(rffi.VOIDP.TO)
+        ll_result = lltype.nullptr(rffi.CCHARP.TO)
         if self.restype != types.void:
             size = adjust_return_size(intmask(self.restype.c_size))
-            ll_result = lltype.malloc(rffi.VOIDP.TO, size,
+            ll_result = lltype.malloc(rffi.CCHARP.TO, size,
                                       flavor='raw')
         ffires = c_ffi_call(self.ll_cif,
                             self.funcsym,
@@ -391,20 +379,14 @@ class Func(AbstractFuncPtr):
                             rffi.cast(rffi.VOIDPP, ll_args))
         if RESULT is not lltype.Void:
             TP = lltype.Ptr(rffi.CArray(RESULT))
+            buf = rffi.cast(TP, ll_result)
             if types.is_struct(self.restype):
                 assert RESULT == rffi.SIGNED
                 # for structs, we directly return the buffer and transfer the
                 # ownership
-                buf = rffi.cast(TP, ll_result)
                 res = rffi.cast(RESULT, buf)
             else:
-                if _BIG_ENDIAN and types.getkind(self.restype) in ('i','u'):
-                    ptr = ll_result
-                    n = rffi.sizeof(lltype.Signed) - self.restype.c_size
-                    ptr = rffi.ptradd(ptr, n)
-                    res = rffi.cast(TP, ptr)[0]
-                else:
-                    res = rffi.cast(TP, ll_result)[0]
+                res = buf[0]
         else:
             res = None
         self._free_buffers(ll_result, ll_args)

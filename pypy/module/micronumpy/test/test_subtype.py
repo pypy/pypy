@@ -478,7 +478,6 @@ class AppTestSupport(BaseNumpyAppTest):
                 (version, shp, typ, isf, raw) = state
                 ndarray.__setstate__(self, (shp, typ, isf, raw))
 
-        E = '<' if sys.byteorder == 'little' else '>'
         D.__module__ = 'mod'
         mod = new.module('mod')
         mod.D = D
@@ -511,7 +510,7 @@ class AppTestSupport(BaseNumpyAppTest):
             tp9
             Rp10
             (I3
-            S'{E}'
+            S'<'
             p11
             NNNI-1
             I-1
@@ -521,7 +520,7 @@ class AppTestSupport(BaseNumpyAppTest):
             S'\x00\x00\x00\x00\x00\x00\xf0?\x00\x00\x00\x00\x00\x00\x00@'
             p13
             tp14
-            b.'''.replace('            ','').format(E=E)
+            b.'''.replace('            ','')
         for ss,sn in zip(s.split('\n')[1:],s_from_numpy.split('\n')[1:]):
             if len(ss)>10:
                 # ignore binary data, it will be checked later

@@ -327,15 +327,10 @@ class AppTestSorting(BaseNumpyAppTest):
 # tests from numpy/core/tests/test_regression.py
     def test_sort_bigendian(self):
         from numpy import array, dtype
-        import sys
-
-        # little endian sorting for big endian machine
-        # is not yet supported! IMPL ME
-        if sys.byteorder == 'little':
-            a = array(range(11), dtype='float64')
-            c = a.astype(dtype('<f8'))
-            c.sort()
-            assert max(abs(a-c)) < 1e-32
+        a = array(range(11), dtype='float64')
+        c = a.astype(dtype('<f8'))
+        c.sort()
+        assert max(abs(a-c)) < 1e-32
 
     def test_string_argsort_with_zeros(self):
         import numpy as np
