@@ -1,7 +1,6 @@
 import os
 
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
-from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.tool import rffi_platform
 from rpython.rlib.clibffi import FFI_DEFAULT_ABI, FFI_SYSV, FFI_VFP
 from rpython.translator.platform import CompilationError
@@ -16,7 +15,6 @@ static void __attribute__((optimize("O0"))) pypy__arm_has_vfp()
     asm volatile("VMOV s0, s1");
 }
     """])
-getauxval = rffi.llexternal("getauxval", [lltype.Unsigned], lltype.Unsigned)
 
 def detect_hardfloat():
     return FFI_DEFAULT_ABI == FFI_VFP
@@ -65,6 +63,43 @@ def detect_arch_version(filename="/proc/cpuinfo"):
                     "falling back to", "ARMv%d" % n)
     debug_stop("jit-backend-arch")
     return n
+
+
+# Once we can rely on the availability of glibc >= 2.16, replace this with:
+# from rpython.rtyper.lltypesystem import lltype, rffi
+# getauxval = rffi.llexternal("getauxval", [lltype.Unsigned], lltype.Unsigned)
+def getauxval(type_, filename='/proc/self/auxv'):
+    fd = os.open(filename, os.O_RDONLY, 0644)
+
+    buf_size = 2048
+    struct_size = 8  # 2x uint32
+    try:
+        buf = os.read(fd, buf_size)
+    finally:
+        os.close(fd)
+
+    i = 0
+    while i <= buf_size - struct_size:
+        if buf[i] == 0:
+            i += 1
+            continue
+
+        # We only support little-endian ARM
+        a_type = (ord(buf[i]) |
+                  (ord(buf[i+1]) << 8) |
+                  (ord(buf[i+2]) << 16) |
+                  (ord(buf[i+3]) << 24))
+
+        if a_type != type_:
+            i += struct_size
+
+        a_val = (ord(buf[i+4]) |
+                 (ord(buf[i+5]) << 8) |
+                 (ord(buf[i+6]) << 16) |
+                 (ord(buf[i+7]) << 24))
+        return a_val
+
+    raise KeyError('failed to find auxval type: %i' % type_)
 
 
 def detect_neon():
