@@ -78,28 +78,25 @@ def getauxval(type_, filename='/proc/self/auxv'):
     finally:
         os.close(fd)
 
+    # decode chunks of 8 bytes (a_type, a_val), and
+    # return the a_val whose a_type corresponds to type_,
+    # or zero if not found.
     i = 0
     while i <= buf_size - struct_size:
-        if buf[i] == '\x00':
-            i += 1
-            continue
-
         # We only support little-endian ARM
         a_type = (ord(buf[i]) |
                   (ord(buf[i+1]) << 8) |
                   (ord(buf[i+2]) << 16) |
                   (ord(buf[i+3]) << 24))
-
-        if a_type != type_:
-            i += struct_size
-
         a_val = (ord(buf[i+4]) |
                  (ord(buf[i+5]) << 8) |
                  (ord(buf[i+6]) << 16) |
                  (ord(buf[i+7]) << 24))
-        return a_val
+        i += struct_size
+        if a_type == type_:
+            return a_val
 
-    raise KeyError('failed to find auxval type: %d' % type_)
+    return 0
 
 
 def detect_neon():
