@@ -99,7 +99,7 @@ def getauxval(type_, filename='/proc/self/auxv'):
                  (ord(buf[i+7]) << 24))
         return a_val
 
-    raise KeyError('failed to find auxval type: %i' % type_)
+    raise KeyError('failed to find auxval type: %d' % type_)
 
 
 def detect_neon():
