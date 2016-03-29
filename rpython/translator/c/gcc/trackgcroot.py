@@ -1123,7 +1123,7 @@ class ElfFunctionGcRootTracker32(FunctionGcRootTracker32):
     REG2LOC = dict((_reg, LOC_REG | ((_i+1)<<2))
                    for _i, _reg in enumerate(CALLEE_SAVE_REGISTERS))
     OPERAND = r'(?:[-\w$%+.:@"]+(?:[(][\w%,]+[)])?|[(][\w%,]+[)])'
-    LABEL   = r'([a-zA-Z_$.][a-zA-Z0-9_$@.]*)'
+    LABEL   = r'([a-zA-Z_$.][a-zA-Z0-9_$.]*)(?:@[@a-zA-Z0-9_$.]*)?'
     OFFSET_LABELS   = 2**30
     TOP_OF_STACK_MINUS_WORD = '-4(%esp)'
 
@@ -1185,7 +1185,7 @@ class ElfFunctionGcRootTracker64(FunctionGcRootTracker64):
     REG2LOC = dict((_reg, LOC_REG | ((_i+1)<<2))
                    for _i, _reg in enumerate(CALLEE_SAVE_REGISTERS))
     OPERAND = r'(?:[-\w$%+.:@"]+(?:[(][\w%,]+[)])?|[(][\w%,]+[)])'
-    LABEL   = r'([a-zA-Z_$.][a-zA-Z0-9_$@.]*)'
+    LABEL   = r'([a-zA-Z_$.][a-zA-Z0-9_$.]*)(?:@[@a-zA-Z0-9_$.]*)?'
     OFFSET_LABELS   = 2**30
     TOP_OF_STACK_MINUS_WORD = '-8(%rsp)'
 
