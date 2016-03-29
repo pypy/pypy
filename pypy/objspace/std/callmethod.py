@@ -42,18 +42,22 @@ def LOOKUP_METHOD(f, nameindex, *ignored):
     w_value = None
 
     safe = False
+    w_descr = None
     if space.config.objspace.std.withmapdict and jit.we_are_jitted():
         # compute safeness without reading the type
         map = w_obj._get_mapdict_map_no_promote()
         if map is not None and map._type_safe_to_do_getattr():
             safe = True
+            name = space.str_w(w_name)
+            w_descr = map._type_lookup_safe(name)
     else:
         w_type = space.type(w_obj)
         safe = w_type.has_object_getattribute()
+        if safe:
+            name = space.str_w(w_name)
+            w_descr = space.lookup(w_obj, name)
 
     if safe:
-        name = space.str_w(w_name)
-        w_descr = space.lookup(w_obj, name)
         if w_descr is None:
             # this handles directly the common case
             #   module.function(args..)
@@ -129,11 +133,12 @@ def call_method_opt(space, w_obj, methname, *arg_w):
         map = w_obj._get_mapdict_map_no_promote()
         if map is not None and map._type_safe_to_do_getattr():
             safe = True
+            w_descr = map._type_lookup_safe(methname)
     else:
         w_type = space.type(w_obj)
         safe = w_type.has_object_getattribute()
-    if safe:
         w_descr = space.lookup(w_obj, methname)
+    if safe:
         typ = type(w_descr)
         if typ is function.Function or typ is function.FunctionWithFixedCode:
             w_value = w_obj.getdictvalue(space, methname)

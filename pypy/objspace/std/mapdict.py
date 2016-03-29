@@ -327,6 +327,9 @@ class AbstractAttribute(object):
     def _type_lookup(self, name):
         if not self._type_safe_to_do_getattr():
             return self.getclass_from_terminator().lookup(name)
+        return self._type_lookup_safe(name)
+
+    def _type_lookup_safe(self, name):
         w_descr = self._type_lookup_pure(name)
         if isinstance(w_descr, MutableCell):
             w_descr = w_descr.unwrap_cell(self.space)
