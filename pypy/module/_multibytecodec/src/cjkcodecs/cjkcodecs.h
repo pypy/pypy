@@ -10,6 +10,7 @@
 #define _CJKCODECS_H_
 
 #include "src/cjkcodecs/multibytecodec.h"
+#include "src/cjkcodecs/fixnames.h"
 
 
 /* a unicode "undefined" codepoint */
