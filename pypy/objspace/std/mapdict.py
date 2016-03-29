@@ -101,9 +101,9 @@ class AbstractAttribute(object):
         the object does *not* have a devolved terminator, and -2 if the
         terminator *is* devolved """
         attr = self.find_map_attr(name, index)
-        if isinstance(self.terminator, DevolvedDictTerminator):
-            return NOATTR_DEVOLVED_TERMINATOR
         if attr is None:
+            if isinstance(self.terminator, DevolvedDictTerminator):
+                return NOATTR_DEVOLVED_TERMINATOR
             return NOATTR
         return attr.storageindex
 
