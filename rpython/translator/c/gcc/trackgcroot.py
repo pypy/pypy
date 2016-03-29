@@ -1507,7 +1507,8 @@ class ElfAssemblerParser(AssemblerParser):
         functionlines = []
         in_function = False
         for line in iterlines:
-            if self.FunctionGcRootTracker.r_functionstart.match(line):
+            match = self.FunctionGcRootTracker.r_functionstart.match(line)
+            if match and not match.group(1).startswith('__x86.get_pc_thunk.'):
                 assert not in_function, (
                     "missed the end of the previous function")
                 yield False, functionlines
