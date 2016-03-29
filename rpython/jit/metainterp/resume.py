@@ -545,12 +545,21 @@ class ResumeDataVirtualAdder(VirtualVisitor):
                 op = pending_setfields[i]
                 box = optimizer.get_box_replacement(op.getarg(0))
                 descr = op.getdescr()
-                if op.getopnum() == rop.SETARRAYITEM_GC:
+                opnum = op.getopnum()
+                if opnum == rop.SETARRAYITEM_GC:
                     fieldbox = op.getarg(2)
-                    itemindex = op.getarg(1).getint()
-                else:
+                    boxindex = optimizer.get_box_replacement(op.getarg(1))
+                    itemindex = boxindex.getint()
+                    # sanity: it's impossible to run code with SETARRAYITEM_GC
+                    # with negative index, so this guard cannot ever fail;
+                    # but it's possible to try to *build* such invalid code
+                    if itemindex < 0:
+                        raise TagOverflow
+                elif opnum == rop.SETFIELD_GC:
                     fieldbox = op.getarg(1)
                     itemindex = -1
+                else:
+                    raise AssertionError
                 fieldbox = optimizer.get_box_replacement(fieldbox)
                 #descr, box, fieldbox, itemindex = pending_setfields[i]
                 lldescr = annlowlevel.cast_instance_to_base_ptr(descr)
