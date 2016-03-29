@@ -143,7 +143,7 @@ class TestJIT(BaseRtypingTest):
         res = self.interpret(f, [2])
         assert res == 5
 
-    def test_elidable_promote(self):
+    def test_elidable_compatible(self):
         class A(object):
             pass
         a1 = A()
@@ -153,16 +153,21 @@ class TestJIT(BaseRtypingTest):
         @elidable_compatible()
         def g(a):
             return a.x
+        @elidable_compatible()
+        def h(a, b, c):
+            return a.x + b + c
         def f(x):
             if x == 1:
                 a = a1
             else:
                 a = a2
-            return g(a)
+            return g(a) + h(a, 2, 0)
+        assert f(1) == 4
+        assert f(4) == 6
         res = self.interpret(f, [1])
-        assert res == 1
+        assert res == 4
         res = self.interpret(f, [4])
-        assert res == 2
+        assert res == 6
 
     def test_elidable_promote_args(self):
         @elidable_promote(promote_args='0')

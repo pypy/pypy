@@ -156,14 +156,26 @@ def elidable_compatible(quasi_immut_field_name_for_second_arg=None):
     """
     def decorate(func):
         elidable(func)
+        def _all_args_const(*args):
+            if len(args) == 0:
+                return True
+            if len(args) == 1:
+                return isconstant(args[0])
+            return isconstant(args[0]) and _all_args_const(*args[1:])
         def wrapped_func(x, *args):
             assert x is not None
             x = hint(x, promote_compatible=True)
             if quasi_immut_field_name_for_second_arg is not None:
-                return func(x, getattr(x, quasi_immut_field_name_for_second_arg), *args)
-            return func(x, *args)
+                result = func(x, getattr(x, quasi_immut_field_name_for_second_arg), *args)
+            else:
+                result = func(x, *args)
+            if _all_args_const(*args):
+                promote(result) # make the tracer treat it as a constant
+            return result
+        wrapped_func.func_name = "elidable_compatible_%s" % (func.func_name, )
         return wrapped_func
     return decorate
+
 
 
 def dont_look_inside(func):
