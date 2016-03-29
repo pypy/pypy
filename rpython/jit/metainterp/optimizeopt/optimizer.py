@@ -7,6 +7,7 @@ from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.resoperation import rop, AbstractResOp, GuardResOp,\
      OpHelpers, ResOperation
 from rpython.jit.metainterp.optimizeopt import info
+from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.typesystem import llhelper
 from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rlib.debug import debug_print
@@ -411,11 +412,14 @@ class Optimizer(Optimization):
     def make_constant(self, box, constbox):
         assert isinstance(constbox, Const)
         box = self.get_box_replacement(box)
-        if not we_are_translated():    # safety-check
-            if (box.get_forwarded() is not None and
-                isinstance(constbox, ConstInt) and
-                not isinstance(box.get_forwarded(), info.AbstractRawPtrInfo)):
-                assert box.get_forwarded().contains(constbox.getint())
+        # safety-check: if the constant is outside the bounds for the
+        # box, then it is an invalid loop
+        if (box.get_forwarded() is not None and
+            isinstance(constbox, ConstInt) and
+            not isinstance(box.get_forwarded(), info.AbstractRawPtrInfo)):
+            if not box.get_forwarded().contains(constbox.getint()):
+                raise InvalidLoop("a box is turned into constant that is "
+                                  "outside the range allowed for that box")
         if box.is_constant():
             return
         if box.type == 'r' and box.get_forwarded() is not None:

@@ -3072,6 +3072,16 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.raises(InvalidLoop, self.optimize_loop, ops, ops)
 
+    def test_invalid_guard_value_after_bounds(self):
+        ops = """
+        [i0]
+        i1 = int_gt(i0, 5)
+        guard_true(i1) []
+        guard_value(i0, 2) []
+        jump()
+        """
+        self.raises(InvalidLoop, self.optimize_loop, ops, ops)
+
     def test_guard_class_oois(self):
         ops = """
         [p1]
