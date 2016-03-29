@@ -26,6 +26,8 @@ NUM_DIGITS_POW2 = 1 << NUM_DIGITS
 # note: we use "x * NUM_DIGITS_POW2" instead of "x << NUM_DIGITS" because
 # we want to propagate knowledge that the result cannot be negative
 
+NOATTR = -1
+NOATTR_DEVOLVED_TERMINATOR = -2
 
 class Version(object):
     pass
@@ -55,20 +57,14 @@ class AbstractAttribute(object):
     def _get_terminator(self):
         return self.terminator
 
-    @jit.elidable_compatible()
-    def _get_terminator_if_devolved(self):
-        if isinstance(self.terminator, DevolvedDictTerminator):
-            return self.terminator
-        return None
-
     def read(self, obj, name, index):
         storageindex = self.find_map_storageindex(name, index)
-        if storageindex == -1:
-            # XXX can improve the devolved case
-            terminator = self._get_terminator_if_devolved()
-            if terminator is not None:
-                return terminator._read_terminator(obj, name, index)
+        if storageindex == NOATTR:
             return None
+        if storageindex == NOATTR_DEVOLVED_TERMINATOR:
+            # XXX can improve the devolved case
+            terminator = self._get_terminator()
+            return terminator._read_terminator(obj, name, index)
         #if ( # XXX in the guard_compatible world the following isconstant may never be true?
         #    jit.isconstant(attr.storageindex) and
         #    jit.isconstant(obj) and
@@ -84,7 +80,7 @@ class AbstractAttribute(object):
 
     def write(self, obj, name, index, w_value):
         storageindex = self.find_map_storageindex(name, index)
-        if storageindex == -1:
+        if storageindex < 0:
             return self._get_terminator()._write_terminator(obj, name, index, w_value)
         obj._mapdict_write_storage(storageindex, w_value)
         return True
@@ -100,9 +96,15 @@ class AbstractAttribute(object):
 
     @jit.elidable_compatible()
     def find_map_storageindex(self, name, index):
+        """ return an index of the attributes, or a negative number if the
+        attribute is not there. returns -1 if the attribute does not exist and
+        the object does *not* have a devolved terminator, and -2 if the
+        terminator *is* devolved """
         attr = self.find_map_attr(name, index)
+        if isinstance(self.terminator, DevolvedDictTerminator):
+            return NOATTR_DEVOLVED_TERMINATOR
         if attr is None:
-            return -1
+            return NOATTR
         return attr.storageindex
 
     @jit.dont_look_inside
