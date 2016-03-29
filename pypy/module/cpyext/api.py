@@ -61,9 +61,8 @@ include_dirs = [
 class CConfig:
     _compilation_info_ = ExternalCompilationInfo(
         include_dirs=include_dirs,
-        includes=['stdarg.h', 'structmember.h'],
+        includes=['Python.h', 'stdarg.h', 'structmember.h'],
         compile_extra=['-DPy_BUILD_CORE'],
-        pre_include_bits = ['#include "Python.h"'],
         )
 
 class CConfig2:
