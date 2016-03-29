@@ -354,7 +354,7 @@ class Trace(BaseTrace):
                 # don't intern float constants
                 self._consts_float += 1
                 v = (len(self._floats) << 1) | 1
-                self._floats.append(box.getfloat())
+                self._floats.append(box.getfloatstorage())
                 return tag(TAGCONSTOTHER, v)
             else:
                 self._consts_ptr += 1
