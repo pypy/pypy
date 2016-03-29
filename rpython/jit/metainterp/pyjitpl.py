@@ -1945,16 +1945,17 @@ class MetaInterp(object):
                 jitcode.jitdriver_sd.jitdriver.is_recursive)
         #return self.jitdriver_sd is not None and jitcode is self.jitdriver_sd.mainjitcode
 
-    def newframe(self, jitcode, greenkey=None):
+    def newframe(self, jitcode, greenkey=None, enter_portal_frame=True):
         if jitcode.jitdriver_sd:
             self.portal_call_depth += 1
             self.call_ids.append(self.current_call_id)
-            unique_id = -1
-            if greenkey is not None:
-                unique_id = jitcode.jitdriver_sd.warmstate.get_unique_id(
-                    greenkey)
-                jd_no = jitcode.jitdriver_sd.index
-                self.enter_portal_frame(jd_no, unique_id)
+            if enter_portal_frame:
+                unique_id = -1
+                if greenkey is not None:
+                    unique_id = jitcode.jitdriver_sd.warmstate.get_unique_id(
+                        greenkey)
+                    jd_no = jitcode.jitdriver_sd.index
+                    self.enter_portal_frame(jd_no, unique_id)
             self.current_call_id += 1
         if greenkey is not None and self.is_main_jitcode(jitcode):
             self.portal_trace_positions.append(
@@ -1995,6 +1996,8 @@ class MetaInterp(object):
     def finishframe(self, resultbox, leave_portal_frame=True):
         # handle a non-exceptional return from the current frame
         self.last_exc_value = lltype.nullptr(rclass.OBJECT)
+        if leave_portal_frame and len(self.framestack) == 1:
+            leave_portal_frame = False # don't emit for the last one
         self.popframe(leave_portal_frame=leave_portal_frame)
         if self.framestack:
             if resultbox is not None:
@@ -2033,7 +2036,8 @@ class MetaInterp(object):
                     target = ord(code[position+1]) | (ord(code[position+2])<<8)
                     frame.pc = target
                     raise ChangeFrame
-            self.popframe()
+            # emit leave_portal_frame for all but last
+            self.popframe(leave_portal_frame=bool(self.framestack))
         try:
             self.compile_exit_frame_with_exception(self.last_exc_box)
         except SwitchToBlackhole, stb:
@@ -2714,7 +2718,8 @@ class MetaInterp(object):
         # ----- make a new frame -----
         self.portal_call_depth = -1 # always one portal around
         self.framestack = []
-        f = self.newframe(self.jitdriver_sd.mainjitcode)
+        f = self.newframe(self.jitdriver_sd.mainjitcode,
+                          enter_portal_frame=False)
         f.setup_call(original_boxes)
         assert self.portal_call_depth == 0
         self.virtualref_boxes = []
