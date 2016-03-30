@@ -6,7 +6,7 @@ from pypy.module.cpyext.api import (
 from pypy.module.cpyext.pyerrors import PyErr_BadArgument
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, Py_DecRef, make_ref, from_ref, track_reference,
-    make_typedescr, get_typedescr, as_pyobj)
+    make_typedescr, get_typedescr, as_pyobj, Py_IncRef)
 
 ##
 ## Implementation of PyStringObject
@@ -244,15 +244,16 @@ def PyString_Concat(space, ref, w_newpart):
     if not ref[0]:
         return
 
-    if w_newpart is None or not PyString_Check(space, ref[0]) or \
-            not PyString_Check(space, w_newpart):
+    if w_newpart is None or not PyString_Check(space, ref[0]) or not \
+            (space.isinstance_w(w_newpart, space.w_str) or 
+             space.isinstance_w(w_newpart, space.w_unicode)):
         Py_DecRef(space, ref[0])
         ref[0] = lltype.nullptr(PyObject.TO)
         return
     w_str = from_ref(space, ref[0])
     w_newstr = space.add(w_str, w_newpart)
-    Py_DecRef(space, ref[0])
     ref[0] = make_ref(space, w_newstr)
+    Py_IncRef(space, ref[0])
 
 @cpython_api([PyObjectP, PyObject], lltype.Void)
 def PyString_ConcatAndDel(space, ref, newpart):
