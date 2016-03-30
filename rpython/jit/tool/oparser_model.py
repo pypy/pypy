@@ -7,6 +7,7 @@ def get_real_model():
         from rpython.jit.metainterp.history import ConstInt, ConstPtr, ConstFloat
         from rpython.jit.metainterp.history import BasicFailDescr, BasicFinalDescr, TargetToken
         from rpython.jit.metainterp.typesystem import llhelper
+        from rpython.jit.metainterp.opencoder import Trace
 
         from rpython.jit.metainterp.history import get_const_ptr_for_string
         from rpython.jit.metainterp.history import get_const_ptr_for_unicode
@@ -28,7 +29,6 @@ def get_real_model():
 
 def get_mock_model():
     class MockLoopModel(object):
-
         class TreeLoop(object):
             def __init__(self, name):
                 self.name = name

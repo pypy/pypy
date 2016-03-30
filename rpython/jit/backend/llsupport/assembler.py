@@ -331,7 +331,7 @@ class BaseAssembler(object):
         counter = self._register_counter(tp, number, token)
         c_adr = ConstInt(rffi.cast(lltype.Signed, counter))
         operations.append(
-            ResOperation(rop.INCREMENT_DEBUG_COUNTER, [c_adr], None))
+            ResOperation(rop.INCREMENT_DEBUG_COUNTER, [c_adr]))
 
     def _register_counter(self, tp, number, token):
         # YYY very minor leak -- we need the counters to stay alive
