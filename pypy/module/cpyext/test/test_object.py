@@ -241,13 +241,14 @@ class AppTestObject(AppTestCpythonExtensionBase):
                  copy = PyObject_REALLOC(orig, 15);
                  if (copy == NULL)
                      Py_RETURN_NONE;
-                 ret = PyString_FromString(copy, 12);
+                 ret = PyString_FromStringAndSize(copy, 12);
+                 if (copy != orig)
+                     PyObject_Free(copy);
                  PyObject_Free(orig);
-                 PyObject_Free(copy);
                  return ret;  
              """)])
         x = module.realloctest()
-        assert x == 'hello world'
+        assert x == 'hello world\x00'
 
     def test_TypeCheck(self):
         module = self.import_extension('foo', [
@@ -430,7 +431,7 @@ class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
     PyBuffer_Release(&buf);
     Py_RETURN_NONE;
                  """)])
-        raises(ValueError, module.fillinfo)
+        raises((BufferError, ValueError), module.fillinfo)
 
 
 class AppTestPyBuffer_Release(AppTestCpythonExtensionBase):

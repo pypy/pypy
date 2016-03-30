@@ -33,12 +33,14 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
                  }
                  #ifdef PYPY_VERSION
                     expected_size = sizeof(void*)*7;
+                 #elif defined Py_DEBUG
+                    expected_size = 53;
                  #else
                     expected_size = 37;
                  #endif
                  if(s->ob_type->tp_basicsize != expected_size)
                  {
-                     printf("tp_basicsize==%d\\n", s->ob_type->tp_basicsize); 
+                     printf("tp_basicsize==%ld\\n", s->ob_type->tp_basicsize); 
                      result = 0;
                  }
                  Py_DECREF(s);
