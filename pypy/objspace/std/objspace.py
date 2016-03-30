@@ -651,6 +651,9 @@ class StdObjSpace(ObjSpace):
                 assert w_inst is not None
                 if isinstance(w_inst, cls):
                     return True
+        if self.config.objspace.std.withmapdict:
+            from pypy.objspace.std.mapdict import mapdict_type_isinstance
+            return mapdict_type_isinstance(self, w_inst, w_type)
         return self.type(w_inst).issubtype(w_type)
 
     @specialize.memo()

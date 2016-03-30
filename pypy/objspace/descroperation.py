@@ -521,10 +521,12 @@ class DescrOperation(object):
         return space.get_and_call_function(w_check, w_type, w_sub)
 
     def isinstance_allow_override(space, w_inst, w_type):
-        if space.type(w_inst) is w_type:
+        if not jit.we_are_jitted() and space.type(w_inst) is w_type:
             return space.w_True # fast path copied from cpython
         w_check = space.lookup(w_type, "__instancecheck__")
         if w_check is not None:
+            if space.type(w_inst) is w_type:
+                return space.w_True # fast path copied from cpython
             return space.get_and_call_function(w_check, w_type, w_inst)
         else:
             return space.isinstance(w_inst, w_type)

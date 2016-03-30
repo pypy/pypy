@@ -345,6 +345,11 @@ class AbstractAttribute(object):
             name, w_type.version_tag())[1]
         return w_res
 
+    @jit.elidable_compatible(quasi_immut_field_name_for_second_arg="version")
+    def _type_issubtype(self, version, w_type):
+        from pypy.objspace.std.typeobject import _issubtype
+        return _issubtype(self.terminator.w_cls, w_type)
+
 
 class Terminator(AbstractAttribute):
     _immutable_fields_ = ['w_cls']
@@ -1150,3 +1155,12 @@ def mapdict_lookup(space, w_obj, name):
             return map._type_lookup(name)
     return space._lookup(w_obj, name)
 
+
+def mapdict_type_isinstance(space, w_obj, w_type):
+    if we_are_jitted():
+        map = w_obj._get_mapdict_map()
+        if map is not None and map.version is not None:
+            version_tag = w_type.version_tag()
+            if version_tag is not None:
+                return map._type_issubtype(w_type)
+    return space.type(w_obj).issubtype(w_type)
