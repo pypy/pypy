@@ -58,6 +58,13 @@ def tuple_iter(space):
     return w_iter
 tuple_iter._annspecialcase_ = 'specialize:memo'
 
+def type_instancecheck(space):
+    "Utility that returns the app-level descriptor type.__instancecheck__."
+    w_src, w_instancecheck = space.lookup_in_type_where(space.w_type,
+                                               '__instancecheck__')
+    return w_instancecheck
+type_instancecheck._annspecialcase_ = 'specialize:memo'
+
 def raiseattrerror(space, w_obj, name, w_descr=None):
     if w_descr is None:
         raise oefmt(space.w_AttributeError,
@@ -524,12 +531,12 @@ class DescrOperation(object):
         if not jit.we_are_jitted() and space.type(w_inst) is w_type:
             return space.w_True # fast path copied from cpython
         w_check = space.lookup(w_type, "__instancecheck__")
-        if w_check is not None:
+        if w_check is None or w_check is type_instancecheck(space):
+            return space.isinstance(w_inst, w_type)
+        else:
             if space.type(w_inst) is w_type:
                 return space.w_True # fast path copied from cpython
             return space.get_and_call_function(w_check, w_type, w_inst)
-        else:
-            return space.isinstance(w_inst, w_type)
 
 
 # helpers
