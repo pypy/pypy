@@ -322,7 +322,7 @@ class AbstractAttribute(object):
         # own __getattribute__
         if version is None:
             return False
-        return w_type.has_object_getattribute()
+        return self.terminator.w_cls.has_object_getattribute()
 
     def _type_lookup(self, name):
         if not self._type_safe_to_do_getattr():

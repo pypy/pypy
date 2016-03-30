@@ -43,6 +43,7 @@ def LOOKUP_METHOD(f, nameindex, *ignored):
 
     safe = False
     w_descr = None
+    name = None
     if space.config.objspace.std.withmapdict and jit.we_are_jitted():
         # compute safeness without reading the type
         map = w_obj._get_mapdict_map_no_promote()
