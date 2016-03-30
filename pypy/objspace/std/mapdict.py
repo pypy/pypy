@@ -1158,7 +1158,7 @@ def mapdict_lookup(space, w_obj, name):
 
 def mapdict_type_isinstance(space, w_obj, w_type):
     if we_are_jitted():
-        map = w_obj._get_mapdict_map()
+        map = w_obj._get_mapdict_map_no_promote()
         if map is not None and map.version is not None:
             version_tag = w_type.version_tag()
             if version_tag is not None:
