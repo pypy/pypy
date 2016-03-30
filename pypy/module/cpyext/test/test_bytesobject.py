@@ -1,3 +1,4 @@
+# encoding: utf-8
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
@@ -130,15 +131,29 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
         s = module.getstring()
         assert s == 'test'
 
-    def test_py_string_as_string(self):
+    def test_manipulations(self):
         module = self.import_extension('foo', [
             ("string_as_string", "METH_VARARGS",
              '''
              return PyString_FromStringAndSize(PyString_AsString(
                        PyTuple_GetItem(args, 0)), 4);
              '''
-            )])
+            ),
+            ("concat", "METH_VARARGS",
+             """
+                PyObject ** v;
+                PyObject * left = PyTuple_GetItem(args, 0);
+                v = &left;
+                PyString_Concat(v, PyTuple_GetItem(args, 1));
+                return *v;
+             """)])
         assert module.string_as_string("huheduwe") == "huhe"
+        ret = module.concat('abc', 'def')
+        assert ret == 'abcdef'
+        ret = module.concat('abc', u'def')
+        assert not isinstance(ret, str)
+        assert isinstance(ret, unicode)
+        assert ret == 'abcdef'
 
     def test_py_string_as_string_None(self):
         module = self.import_extension('foo', [
