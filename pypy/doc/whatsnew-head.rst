@@ -32,3 +32,6 @@ Allow arguments to transpose to be sequences
 
 Improve the tracing speed in the frontend as well as heapcache by using a more compact representation
 of traces
+
+.. branch: win32-lib-name
+
