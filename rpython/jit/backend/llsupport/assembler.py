@@ -155,7 +155,8 @@ class BaseAssembler(object):
     def get_gcref_from_faildescr(self, descr):
         """This assumes that it is called in order for all faildescrs."""
         search = cast_instance_to_gcref(descr)
-        while self._allgcrefs[self._allgcrefs_faildescr_next] != search:
+        while not _safe_eq(
+                self._allgcrefs[self._allgcrefs_faildescr_next], search):
             self._allgcrefs_faildescr_next += 1
             assert self._allgcrefs_faildescr_next < len(self._allgcrefs)
         return self._allgcrefs_faildescr_next
@@ -466,3 +467,8 @@ def debug_bridge(descr_number, rawstart, codeendpos):
                     r_uint(rawstart + codeendpos)))
     debug_stop("jit-backend-addr")
 
+def _safe_eq(x, y):
+    try:
+        return x == y
+    except AttributeError:    # minor mess
+        return False

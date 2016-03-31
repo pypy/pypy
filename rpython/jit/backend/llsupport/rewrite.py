@@ -1,11 +1,12 @@
 from rpython.rlib import rgc
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated, r_dict
 from rpython.rlib.rarithmetic import ovfcheck, highest_bit
 from rpython.rtyper.lltypesystem import llmemory, lltype, rstr
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.jit.metainterp import history
 from rpython.jit.metainterp.history import ConstInt, ConstPtr
 from rpython.jit.metainterp.resoperation import ResOperation, rop, OpHelpers
+from rpython.jit.metainterp.typesystem import rd_eq, rd_hash
 from rpython.jit.codewriter import heaptracker
 from rpython.jit.backend.llsupport.symbolic import (WORD,
         get_array_token)
@@ -96,10 +97,11 @@ class GcRewriterAssembler(object):
         orig_op = op
         replaced = False
         opnum = op.getopnum()
+        keep = (opnum == rop.JIT_DEBUG)
         for i in range(op.numargs()):
             orig_arg = op.getarg(i)
             arg = self.get_box_replacement(orig_arg)
-            if isinstance(arg, ConstPtr) and bool(arg.value):
+            if isinstance(arg, ConstPtr) and bool(arg.value) and not keep:
                 arg = self.remove_constptr(arg)
             if orig_arg is not arg:
                 if not replaced:
@@ -319,7 +321,7 @@ class GcRewriterAssembler(object):
         # this case means between CALLs or unknown-size mallocs.
         #
         self.gcrefs_output_list = gcrefs_output_list
-        self.gcrefs_map = {}
+        self.gcrefs_map = r_dict(rd_eq, rd_hash)   # rdict {gcref: index}
         self.gcrefs_recently_loaded = {}
         operations = self.remove_bridge_exception(operations)
         self._changed_op = None
@@ -956,20 +958,12 @@ class GcRewriterAssembler(object):
         self.gcrefs_recently_loaded.clear()
 
     def _gcref_index(self, gcref):
-        if we_are_translated():
-            # can only use the dictionary after translation
-            try:
-                return self.gcrefs_map[gcref]
-            except KeyError:
-                pass
-            index = len(self.gcrefs_output_list)
-            self.gcrefs_map[gcref] = index
-        else:
-            # untranslated: linear scan
-            for i, gcref1 in enumerate(self.gcrefs_output_list):
-                if gcref == gcref1:
-                    return i
-            index = len(self.gcrefs_output_list)
+        try:
+            return self.gcrefs_map[gcref]
+        except KeyError:
+            pass
+        index = len(self.gcrefs_output_list)
+        self.gcrefs_map[gcref] = index
         self.gcrefs_output_list.append(gcref)
         return index
 
