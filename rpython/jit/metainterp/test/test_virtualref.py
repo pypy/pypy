@@ -578,7 +578,6 @@ class VRefTests(object):
                 n -= 1
             return res
         #
-        py.test.raises(InvalidVirtualRef, "fn(10)")
         py.test.raises(UnknownException, "self.meta_interp(fn, [10])")
 
     def test_call_virtualref_already_forced(self):
