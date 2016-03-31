@@ -423,16 +423,11 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
     def consider_finish(self, op):
         # the frame is in ebp, but we have to point where in the frame is
         # the potential argument to FINISH
-        descr = op.getdescr()
-        fail_descr = cast_instance_to_gcref(descr)
-        # we know it does not move, but well
-        rgc._make_sure_does_not_move(fail_descr)
-        fail_descr = rffi.cast(lltype.Signed, fail_descr)
         if op.numargs() == 1:
             loc = self.make_sure_var_in_reg(op.getarg(0))
-            locs = [loc, imm(fail_descr)]
+            locs = [loc]
         else:
-            locs = [imm(fail_descr)]
+            locs = []
         self.perform(op, locs, None)
 
     def consider_guard_no_exception(self, op):
