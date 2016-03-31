@@ -1801,6 +1801,26 @@ if HAVE_FCHOWNAT:
         error = c_fchownat(dir_fd, path, owner, group, flag)
         handle_posix_error('fchownat', error)
 
+if HAVE_FEXECVE:
+    c_fexecve = external('fexecve',
+        [rffi.INT, rffi.CCHARPP, rffi.CCHARPP], rffi.INT,
+        save_err=rffi.RFFI_SAVE_ERRNO)
+
+    def fexecve(fd, args, env):
+        envstrs = []
+        for item in env.iteritems():
+            envstr = "%s=%s" % item
+            envstrs.append(envstr)
+
+        # This list conversion already takes care of NUL bytes.
+        l_args = rffi.ll_liststr2charpp(args)
+        l_env = rffi.ll_liststr2charpp(envstrs)
+        c_fexecve(fd, l_args, l_env)
+
+        rffi.free_charpp(l_env)
+        rffi.free_charpp(l_args)
+        raise OSError(get_saved_errno(), "execve failed")
+
 if HAVE_LINKAT:
     c_linkat = external('linkat',
         [rffi.INT, rffi.CCHARP, rffi.INT, rffi.CCHARP, rffi.INT], rffi.INT)
