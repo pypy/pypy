@@ -11,6 +11,8 @@ def rposix_requires(funcname):
     return py.test.mark.skipif(not hasattr(rposix, funcname),
         reason="Requires rposix.%s()" % funcname)
 
+win_only = py.test.mark.skipif("os.name != 'nt'")
+
 class TestPosixFunction:
     def test_access(self):
         filename = str(udir.join('test_access.txt'))
@@ -33,9 +35,8 @@ class TestPosixFunction:
         for value in times:
             assert isinstance(value, float)
 
+    @py.test.mark.skipif("not hasattr(os, 'getlogin')")
     def test_getlogin(self):
-        if not hasattr(os, 'getlogin'):
-            py.test.skip('posix specific function')
         try:
             expected = os.getlogin()
         except OSError, e:
@@ -43,9 +44,8 @@ class TestPosixFunction:
         data = rposix.getlogin()
         assert data == expected
 
+    @win_only
     def test_utimes(self):
-        if os.name != 'nt':
-            py.test.skip('Windows specific feature')
         # Windows support centiseconds
         def f(fname, t1):
             os.utime(fname, (t1, t1))
@@ -55,15 +55,12 @@ class TestPosixFunction:
         t1 = 1159195039.25
         compile(f, (str, float))(str(fname), t1)
         assert t1 == os.stat(str(fname)).st_mtime
-        if sys.version_info < (2, 7):
-            py.test.skip('requires Python 2.7')
         t1 = 5000000000.0
         compile(f, (str, float))(str(fname), t1)
         assert t1 == os.stat(str(fname)).st_mtime
 
+    @win_only
     def test__getfullpathname(self):
-        if os.name != 'nt':
-            py.test.skip('nt specific function')
         posix = __import__(os.name)
         sysdrv = os.getenv('SystemDrive', 'C:')
         stuff = sysdrv + 'stuff'
@@ -134,10 +131,8 @@ class TestPosixFunction:
         os.unlink(filename)
 
 
+    @py.test.mark.skipif("os.name != 'posix'")
     def test_execve(self):
-        if os.name != 'posix':
-            py.test.skip('posix specific function')
-
         EXECVE_ENV = {"foo": "bar", "baz": "quux"}
 
         def run_execve(program, args=None, env=None, do_path_lookup=False):
@@ -276,11 +271,8 @@ class TestPosixFunction:
         assert rposix.isatty(-1) is False
 
 
+@py.test.mark.skipif("not hasattr(os, 'ttyname')")
 class TestOsExpect(ExpectTest):
-    def setup_class(cls):
-        if not hasattr(os, 'ttyname'):
-            py.test.skip("no ttyname")
-
     def test_ttyname(self):
         def f():
             import os
@@ -444,9 +436,8 @@ class BasePosixUnicodeOrAscii:
             except Exception:
                 pass
 
+    @win_only
     def test_is_valid_fd(self):
-        if os.name != 'nt':
-            py.test.skip('relevant for windows only')
         assert rposix.is_valid_fd(0) == 1
         fid = open(str(udir.join('validate_test.txt')), 'w')
         fd = fid.fileno()
@@ -537,6 +528,14 @@ class TestRegisteredFunctions:
             os.open(u'/tmp/t', 0, 0)
         compile(f, ())
 
+
+def test_fdlistdir(tmpdir):
+    tmpdir.join('file').write('text')
+    dirfd = os.open(str(tmpdir), os.O_RDONLY)
+    result = rposix.fdlistdir(dirfd)
+    # Note: fdlistdir() always closes dirfd
+    assert result == ['file']
+
 def test_symlinkat(tmpdir):
     tmpdir.join('file').write('text')
     dirfd = os.open(str(tmpdir), os.O_RDONLY)
@@ -545,7 +544,6 @@ def test_symlinkat(tmpdir):
         assert os.readlink(str(tmpdir.join('link'))) == 'file'
     finally:
         os.close(dirfd)
-
 
 def test_renameat(tmpdir):
     tmpdir.join('file').write('text')
