@@ -321,8 +321,8 @@ class GcRewriterAssembler(object):
         # this case means between CALLs or unknown-size mallocs.
         #
         self.gcrefs_output_list = gcrefs_output_list
-        self.gcrefs_map = r_dict(rd_eq, rd_hash)   # rdict {gcref: index}
-        self.gcrefs_recently_loaded = {}
+        self.gcrefs_map = None
+        self.gcrefs_recently_loaded = None
         operations = self.remove_bridge_exception(operations)
         self._changed_op = None
         for i in range(len(operations)):
@@ -955,9 +955,11 @@ class GcRewriterAssembler(object):
     def emit_label(self):
         self.emitting_an_operation_that_can_collect()
         self._known_lengths.clear()
-        self.gcrefs_recently_loaded.clear()
+        self.gcrefs_recently_loaded = None
 
     def _gcref_index(self, gcref):
+        if self.gcrefs_map is None:
+            self.gcrefs_map = r_dict(rd_eq, rd_hash)
         try:
             return self.gcrefs_map[gcref]
         except KeyError:
@@ -974,6 +976,8 @@ class GcRewriterAssembler(object):
         # LABELs.  We'd like something better, like "don't spill it",
         # but that's the wrong level...
         index = self._gcref_index(c.value)
+        if self.gcrefs_recently_loaded is None:
+            self.gcrefs_recently_loaded = {}
         try:
             load_op = self.gcrefs_recently_loaded[index]
         except KeyError:
