@@ -137,7 +137,7 @@ class GcLLDescription(GcCache):
             v = op.getarg(i)
             if isinstance(v, ConstPtr) and bool(v.value):
                 p = v.value
-                if rgc._make_sure_does_not_move(p):
+                if not rgc.can_move(p):
                     gcrefs_output_list.append(p)
                 else:
                     if l is None:
@@ -177,7 +177,10 @@ class GcLLDescription(GcCache):
 
     def rewrite_assembler(self, cpu, operations, gcrefs_output_list):
         rewriter = GcRewriterAssembler(self, cpu)
-        newops = rewriter.rewrite(operations)
+        newops = rewriter.rewrite(operations, gcrefs_output_list)
+        return newops
+
+        XXX     # kill the rest
 
         # the key is an operation that contains a ConstPtr as an argument and
         # this ConstPtrs pointer might change as it points to an object that

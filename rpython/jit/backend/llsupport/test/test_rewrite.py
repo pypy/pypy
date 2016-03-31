@@ -10,7 +10,7 @@ from rpython.jit.tool.oparser import parse
 from rpython.jit.metainterp.optimizeopt.util import equaloplists
 from rpython.jit.metainterp.history import JitCellToken, FLOAT
 from rpython.jit.metainterp.history import AbstractFailDescr
-from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper import rclass
 from rpython.jit.backend.x86.arch import WORD
 from rpython.jit.backend.llsupport.symbolic import (WORD,
@@ -77,6 +77,8 @@ class RewriteTests(object):
         tdescr = get_size_descr(self.gc_ll_descr, T)
         tdescr.tid = 5678
         tzdescr = get_field_descr(self.gc_ll_descr, T, 'z')
+        myT = lltype.cast_opaque_ptr(llmemory.GCREF,
+                                     lltype.malloc(T, zero=True))
         #
         A = lltype.GcArray(lltype.Signed)
         adescr = get_array_descr(self.gc_ll_descr, A)
@@ -112,6 +114,8 @@ class RewriteTests(object):
         xdescr = get_field_descr(self.gc_ll_descr, R1, 'x')
         ydescr = get_field_descr(self.gc_ll_descr, R1, 'y')
         zdescr = get_field_descr(self.gc_ll_descr, R1, 'z')
+        myR1 = lltype.cast_opaque_ptr(llmemory.GCREF,
+                                      lltype.malloc(R1, zero=True))
         #
         E = lltype.GcStruct('Empty')
         edescr = get_size_descr(self.gc_ll_descr, E)
@@ -1281,3 +1285,59 @@ class TestFramework(RewriteTests):
                 {t}
                 jump()
             """.format(**locals()))
+
+    def test_load_from_gc_table_1i(self):
+        self.check_rewrite("""
+            [i1]
+            setfield_gc(ConstPtr(myR1), i1, descr=xdescr)
+            jump()
+        """, """
+            [i1]
+            p0 = load_from_gc_table(0)
+            gc_store(p0, %(xdescr.offset)s, i1, %(xdescr.field_size)s)
+            jump()
+        """)
+
+    def test_load_from_gc_table_1p(self):
+        self.check_rewrite("""
+            [p1]
+            setfield_gc(ConstPtr(myT), p1, descr=tzdescr)
+            jump()
+        """, """
+            [i1]
+            p0 = load_from_gc_table(0)
+            cond_call_gc_wb(p0, descr=wbdescr)
+            gc_store(p0, %(tzdescr.offset)s, i1, %(tzdescr.field_size)s)
+            jump()
+        """)
+
+    def test_load_from_gc_table_2(self):
+        self.check_rewrite("""
+            [i1, f2]
+            setfield_gc(ConstPtr(myR1), i1, descr=xdescr)
+            setfield_gc(ConstPtr(myR1), f2, descr=ydescr)
+            jump()
+        """, """
+            [i1, f2]
+            p0 = load_from_gc_table(0)
+            gc_store(p0, %(xdescr.offset)s, i1, %(xdescr.field_size)s)
+            gc_store(p0, %(ydescr.offset)s, f2, %(ydescr.field_size)s)
+            jump()
+        """)
+
+    def test_load_from_gc_table_3(self):
+        self.check_rewrite("""
+            [i1, f2]
+            setfield_gc(ConstPtr(myR1), i1, descr=xdescr)
+            label(f2)
+            setfield_gc(ConstPtr(myR1), f2, descr=ydescr)
+            jump()
+        """, """
+            [i1, f2]
+            p0 = load_from_gc_table(0)
+            gc_store(p0, %(xdescr.offset)s, i1, %(xdescr.field_size)s)
+            label(f2)
+            p1 = load_from_gc_table(0)
+            gc_store(p1, %(ydescr.offset)s, f2, %(ydescr.field_size)s)
+            jump()
+        """)

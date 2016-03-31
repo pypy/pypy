@@ -97,6 +97,8 @@ class GcRewriterAssembler(object):
         for i in range(op.numargs()):
             orig_arg = op.getarg(i)
             arg = self.get_box_replacement(orig_arg)
+            if isinstance(arg, ConstPtr) and bool(arg.value):
+                arg = self.remove_constptr(arg)
             if orig_arg is not arg:
                 if not replaced:
                     op = op.copy_and_change(op.getopnum())
@@ -304,13 +306,15 @@ class GcRewriterAssembler(object):
         return False
 
 
-    def rewrite(self, operations):
+    def rewrite(self, operations, gcrefs_output_list):
         # we can only remember one malloc since the next malloc can possibly
         # collect; but we can try to collapse several known-size mallocs into
         # one, both for performance and to reduce the number of write
         # barriers.  We do this on each "basic block" of operations, which in
         # this case means between CALLs or unknown-size mallocs.
         #
+        self.gcrefs_output_list = gcrefs_output_list
+        self.gcrefs_map = {}
         operations = self.remove_bridge_exception(operations)
         self._changed_op = None
         for i in range(len(operations)):
@@ -940,3 +944,29 @@ class GcRewriterAssembler(object):
                 operations[start+2].getopnum() == rop.RESTORE_EXCEPTION):
                 return operations[:start] + operations[start+3:]
         return operations
+
+    def _gcref_index(self, gcref):
+        if we_are_translated():
+            # can only use the dictionary after translation
+            try:
+                return self.gcrefs_map[gcref]
+            except KeyError:
+                pass
+            index = len(self.gcrefs_output_list)
+            self.gcrefs_map[gcref] = index
+        else:
+            # untranslated: linear scan
+            for i, gcref1 in enumerate(self.gcrefs_output_list):
+                if gcref == gcref1:
+                    return i
+            index = len(self.gcrefs_output_list)
+        self.gcrefs_output_list.append(gcref)
+        return index
+
+    def remove_constptr(self, c):
+        """Remove all ConstPtrs, and replace them with load_from_gc_table.
+        """
+        index = self._gcref_index(c.value)
+        load_op = ResOperation(rop.LOAD_FROM_GC_TABLE, [ConstInt(index)])
+        self._newops.append(load_op)
+        return load_op
