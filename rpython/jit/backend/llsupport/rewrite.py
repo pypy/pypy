@@ -2,6 +2,7 @@ from rpython.rlib import rgc
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import ovfcheck, highest_bit
 from rpython.rtyper.lltypesystem import llmemory, lltype, rstr
+from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.jit.metainterp import history
 from rpython.jit.metainterp.history import ConstInt, ConstPtr
 from rpython.jit.metainterp.resoperation import ResOperation, rop, OpHelpers
@@ -94,6 +95,7 @@ class GcRewriterAssembler(object):
         op = self.get_box_replacement(op)
         orig_op = op
         replaced = False
+        opnum = op.getopnum()
         for i in range(op.numargs()):
             orig_arg = op.getarg(i)
             arg = self.get_box_replacement(orig_arg)
@@ -101,16 +103,19 @@ class GcRewriterAssembler(object):
                 arg = self.remove_constptr(arg)
             if orig_arg is not arg:
                 if not replaced:
-                    op = op.copy_and_change(op.getopnum())
+                    op = op.copy_and_change(opnum)
                     orig_op.set_forwarded(op)
                     replaced = True
                 op.setarg(i, arg)
-        if rop.is_guard(op.opnum):
+        if rop.is_guard(opnum):
             if not replaced:
-                op = op.copy_and_change(op.getopnum())
+                op = op.copy_and_change(opnum)
                 orig_op.set_forwarded(op)
             op.setfailargs([self.get_box_replacement(a, True)
                             for a in op.getfailargs()])
+        if rop.is_guard(opnum) or opnum == rop.FINISH:
+            llref = cast_instance_to_gcref(op.getdescr())
+            self.gcrefs_output_list.append(llref)
         self._newops.append(op)
 
     def replace_op_with(self, op, newop):
