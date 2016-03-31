@@ -524,6 +524,12 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             r_uint(rawstart + looppos),
             r_uint(rawstart + size_excluding_failure_stuff),
             r_uint(rawstart)))
+        debug_print("       gc table: 0x%x" % r_uint(rawstart))
+        debug_print("       function: 0x%x" % r_uint(rawstart + functionpos))
+        debug_print("           loop: 0x%x" % r_uint(rawstart + looppos))
+        debug_print("       failures: 0x%x" % r_uint(rawstart +
+                                                 size_excluding_failure_stuff))
+        debug_print("            end: 0x%x" % r_uint(rawstart + full_size))
         debug_stop("jit-backend-addr")
         self.patch_pending_failure_recoveries(rawstart)
         #

@@ -1,4 +1,6 @@
+from rpython.rlib import rgc
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.jit.backend.llsupport.symbolic import WORD
 
 
@@ -14,7 +16,8 @@ def gcrefs_trace(gc, obj_addr, callback, arg):
     length = obj.array_length
     addr = obj.array_base_addr
     while i < length:
-        gc._trace_callback(callback, arg, addr + i * WORD)
+        p = rffi.cast(llmemory.Address, addr + i * WORD)
+        gc._trace_callback(callback, arg, p)
         i += 1
 lambda_gcrefs_trace = lambda: gcrefs_trace
 
@@ -22,16 +25,17 @@ def make_gcref_tracer(array_base_addr, gcrefs):
     # careful about the order here: the allocation of the GCREFTRACER
     # can trigger a GC.  So we must write the gcrefs into the raw
     # array only afterwards...
-    tr = lltype.malloc(GCREFTRACER)
-    tr.array_base_addr = array_base_addr
-    tr.array_length = 0    # incremented as we populate the array_base_addr
-    i = 0
+    rgc.register_custom_trace_hook(GCREFTRACER, lambda_gcrefs_trace)
     length = len(gcrefs)
+    tr = lltype.malloc(GCREFTRACER)
+    # --no GC from here--
+    tr.array_base_addr = array_base_addr
+    tr.array_length = length
+    i = 0
     while i < length:
         p = rffi.cast(rffi.SIGNEDP, array_base_addr + i * WORD)
-        # --no GC from here--
         p[0] = rffi.cast(lltype.Signed, gcrefs[i])
-        tr.array_length += 1
-        # --no GC until here--
         i += 1
+    llop.gc_writebarrier(lltype.Void, tr)
+    # --no GC until here--
     return tr

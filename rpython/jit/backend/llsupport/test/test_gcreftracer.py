@@ -9,6 +9,7 @@ class FakeGC:
     def _trace_callback(self, callback, arg, addr):
         assert callback == "callback"
         assert arg == "arg"
+        assert lltype.typeOf(addr) == llmemory.Address
         self.called.append(addr)
 
 
