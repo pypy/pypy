@@ -297,6 +297,20 @@ def abs_(argnum):
     return encode_abs, argnum, None, None
 
 # ____________________________________________________________
+# ***X86_64 only*** 
+# Emit a mod/rm referencing an address "RIP + immediate_offset".
+
+@specialize.arg(2)
+def encode_rip_offset(mc, immediate, _, orbyte):
+    assert mc.WORD == 8
+    mc.writechar(chr(0x05 | orbyte))
+    mc.writeimm32(immediate)
+    return 0
+
+def rip_offset(argnum):
+    return encode_rip_offset, argnum, None, None
+
+# ____________________________________________________________
 # For 64-bits mode: the REX.W, REX.R, REX.X, REG.B prefixes
 
 REX_W = 8
@@ -914,6 +928,7 @@ def define_modrm_modes(insnname_template, before_modrm, after_modrm=[], regtype=
     add_insn('m', mem_reg_plus_const(modrm_argnum))
     add_insn('a', mem_reg_plus_scaled_reg_plus_const(modrm_argnum))
     add_insn('j', abs_(modrm_argnum))
+    add_insn('p', rip_offset(modrm_argnum))
 
 # Define a regular MOV, and a variant MOV32 that only uses the low 4 bytes of a
 # register
