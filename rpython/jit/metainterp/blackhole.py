@@ -1585,7 +1585,6 @@ class BlackholeInterpreter(object):
     def _done_with_this_frame(self):
         # rare case: we only get there if the blackhole interps all returned
         # normally (in general we get a ContinueRunningNormally exception).
-        sd = self.builder.metainterp_sd
         kind = self._return_type
         if kind == 'v':
             raise jitexc.DoneWithThisFrameVoid()

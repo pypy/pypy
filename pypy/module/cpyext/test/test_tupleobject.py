@@ -5,6 +5,7 @@ from pypy.module.cpyext.tupleobject import PyTupleObject
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib.debug import FatalError
 
 
 class TestTupleObject(BaseApiTest):
@@ -18,29 +19,44 @@ class TestTupleObject(BaseApiTest):
         #assert api.PyTuple_GET_SIZE(atuple) == 3  --- now a C macro
         raises(TypeError, api.PyTuple_Size(space.newlist([])))
         api.PyErr_Clear()
-    
+
+    def test_tuple_realize_refuses_nulls(self, space, api):
+        py_tuple = api.PyTuple_New(1)
+        py.test.raises(FatalError, from_ref, space, py_tuple)
+
     def test_tuple_resize(self, space, api):
         w_42 = space.wrap(42)
+        w_43 = space.wrap(43)
+        w_44 = space.wrap(44)
         ar = lltype.malloc(PyObjectP.TO, 1, flavor='raw')
 
         py_tuple = api.PyTuple_New(3)
         # inside py_tuple is an array of "PyObject *" items which each hold
         # a reference
         rffi.cast(PyTupleObject, py_tuple).c_ob_item[0] = make_ref(space, w_42)
+        rffi.cast(PyTupleObject, py_tuple).c_ob_item[1] = make_ref(space, w_43)
         ar[0] = py_tuple
         api._PyTuple_Resize(ar, 2)
         w_tuple = from_ref(space, ar[0])
         assert space.int_w(space.len(w_tuple)) == 2
         assert space.int_w(space.getitem(w_tuple, space.wrap(0))) == 42
+        assert space.int_w(space.getitem(w_tuple, space.wrap(1))) == 43
         api.Py_DecRef(ar[0])
 
         py_tuple = api.PyTuple_New(3)
         rffi.cast(PyTupleObject, py_tuple).c_ob_item[0] = make_ref(space, w_42)
+        rffi.cast(PyTupleObject, py_tuple).c_ob_item[1] = make_ref(space, w_43)
+        rffi.cast(PyTupleObject, py_tuple).c_ob_item[2] = make_ref(space, w_44)
         ar[0] = py_tuple
         api._PyTuple_Resize(ar, 10)
+        assert api.PyTuple_Size(ar[0]) == 10
+        for i in range(3, 10):
+            rffi.cast(PyTupleObject, py_tuple).c_ob_item[i] = make_ref(
+                space, space.wrap(42 + i))
         w_tuple = from_ref(space, ar[0])
         assert space.int_w(space.len(w_tuple)) == 10
-        assert space.int_w(space.getitem(w_tuple, space.wrap(0))) == 42
+        for i in range(10):
+            assert space.int_w(space.getitem(w_tuple, space.wrap(i))) == 42 + i
         api.Py_DecRef(ar[0])
 
         lltype.free(ar, flavor='raw')

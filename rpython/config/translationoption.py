@@ -126,6 +126,9 @@ translation_optiondescription = OptionDescription(
     ChoiceOption("jit_profiler", "integrate profiler support into the JIT",
                  ["off", "oprofile"],
                  default="off"),
+    ChoiceOption("jit_opencoder_model", "the model limits the maximal length"
+                 " of traces. Use big if you want to go bigger than "
+                 "the default", ["big", "normal"], default="normal"),
     BoolOption("check_str_without_nul",
                "Forbid NUL chars in strings in some external function calls",
                default=False, cmdline=None),

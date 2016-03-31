@@ -849,7 +849,7 @@ def _make_waitmacro(name):
     # reason: legacy code required a union wait. see
     # https://sourceware.org/bugzilla/show_bug.cgi?id=19613
     # for more details. If this get's fixed we can use lltype.Signed
-    # again.
+    # again.  (The exact same issue occurs on ppc64 big-endian.)
     c_func = external(name, [rffi.INT], lltype.Signed,
                       macro=_MACRO_ON_POSIX)
     returning_int = name in ('WEXITSTATUS', 'WSTOPSIG', 'WTERMSIG')

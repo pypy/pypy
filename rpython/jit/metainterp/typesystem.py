@@ -109,6 +109,8 @@ class LLTypeHelper(TypeSystemHelper):
         return r_dict(rd_eq, rd_hash)
     def new_ref_dict_2(self):
         return r_dict(rd_eq, rd_hash)
+    def new_ref_dict_3(self):
+        return r_dict(rd_eq, rd_hash)
 
     def cast_vtable_to_hashable(self, cpu, ptr):
         adr = llmemory.cast_ptr_to_adr(ptr)

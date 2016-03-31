@@ -688,6 +688,10 @@ class Transformer(object):
         ARRAY = op.args[0].concretetype.TO
         if self._array_of_voids(ARRAY):
             return []
+        if isinstance(ARRAY, lltype.FixedSizeArray):
+            raise NotImplementedError(
+                "%r uses %r, which is not supported by the JIT codewriter"
+                % (self.graph, ARRAY))
         if op.args[0] in self.vable_array_vars:     # for virtualizables
             vars = self.vable_array_vars[op.args[0]]
             (v_base, arrayfielddescr, arraydescr) = vars
@@ -718,6 +722,10 @@ class Transformer(object):
         ARRAY = op.args[0].concretetype.TO
         if self._array_of_voids(ARRAY):
             return []
+        if isinstance(ARRAY, lltype.FixedSizeArray):
+            raise NotImplementedError(
+                "%r uses %r, which is not supported by the JIT codewriter"
+                % (self.graph, ARRAY))
         if op.args[0] in self.vable_array_vars:     # for virtualizables
             vars = self.vable_array_vars[op.args[0]]
             (v_base, arrayfielddescr, arraydescr) = vars

@@ -414,10 +414,12 @@ class CStandaloneBuilder(CBuilder):
         if self.config.translation.gcrootfinder == 'asmgcc':
             if self.translator.platform.name == 'msvc':
                 raise Exception("msvc no longer supports asmgcc")
+            _extra = ''
             if self.config.translation.shared:
-                mk.definition('DEBUGFLAGS', '-O2 -fomit-frame-pointer -g -fPIC')
-            else:
-                mk.definition('DEBUGFLAGS', '-O2 -fomit-frame-pointer -g')
+                _extra = ' -fPIC'
+            _extra += ' -fdisable-tree-fnsplit'   # seems to help
+            mk.definition('DEBUGFLAGS',
+                '-O2 -fomit-frame-pointer -g'+ _extra)
 
             if self.config.translation.shared:
                 mk.definition('PYPY_MAIN_FUNCTION', "pypy_main_startup")
