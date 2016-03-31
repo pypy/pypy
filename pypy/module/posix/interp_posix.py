@@ -1142,7 +1142,8 @@ def waitpid(space, pid, options):
 def _exit(space, status):
     os._exit(status)
 
-def execv(space, w_command, w_args):
+def execv(space, w_path, w_args):
+
     """ execv(path, args)
 
 Execute an executable path with arguments, replacing current process.
@@ -1150,7 +1151,7 @@ Execute an executable path with arguments, replacing current process.
         path: path of executable file
         args: iterable of strings
     """
-    execve(space, w_command, w_args, None)
+    execve(space, w_path, w_args, None)
 
 def _env2interp(space, w_env):
     env = {}
@@ -1160,16 +1161,20 @@ def _env2interp(space, w_env):
         env[space.fsencode_w(w_key)] = space.fsencode_w(w_value)
     return env
 
-def execve(space, w_command, w_args, w_env):
-    """ execve(path, args, env)
+def execve(space, w_path, w_args, w_env):
+    """execve(path, args, env)
 
 Execute a path with arguments and environment, replacing current process.
 
-        path: path of executable file
-        args: iterable of arguments
-        env: dictionary of strings mapping to strings
+    path: path of executable file
+    args: tuple or list of arguments
+    env: dictionary of strings mapping to strings
+
+On some platforms, you may specify an open file descriptor for path;
+  execve will execute the program the file descriptor is open to.
+  If this functionality is unavailable, using it raises NotImplementedError.
     """
-    command = space.fsencode_w(w_command)
+    command = space.fsencode_w(w_path)
     try:
         args_w = space.unpackiterable(w_args)
         if len(args_w) < 1:
