@@ -90,10 +90,10 @@ def PySequence_Fast_ITEMS(space, w_obj):
     """
     if isinstance(w_obj, listobject.W_ListObject):
         cpy_strategy = space.fromcache(CPyListStrategy)
-        if w_obj.strategy is not cpy_strategy:
-            raise OperationError(space.w_TypeError, space.wrap( 
-                'PySequence_Fast_ITEMS called but object is not the result of PySequence_Fast'))
-        return w_obj.get_raw_items() # asserts it's a cpyext strategy
+        if w_obj.strategy is cpy_strategy:
+            return w_obj.get_raw_items() # asserts it's a cpyext strategy
+    raise OperationError(space.w_TypeError, space.wrap( 
+            'PySequence_Fast_ITEMS called but object is not the result of PySequence_Fast'))
 
 @cpython_api([PyObject, Py_ssize_t, Py_ssize_t], PyObject)
 def PySequence_GetSlice(space, w_obj, start, end):
@@ -262,13 +262,108 @@ class CPyListStrategy(ListStrategy):
 
     def getslice(self, w_list, start, stop, step, length):
         #storage = self.unerase(w_list.lstorage)
-        raise oefmt(w_list.space.w_NotImplementedError,
-            "settting a slice of a PySequence_Fast is not supported")
+        raise OperationError(w_list.space.w_NotImplementedError, w_list.space.wrap(
+            "settting a slice of a PySequence_Fast is not supported"))
+
+    def getitems(self, w_list):
+        # called when switching list strategy, so convert storage
+        storage = self.unerase(w_list.lstorage)
+        retval = [None] * storage._length
+        for i in range(storage._length):
+            retval[i] = from_ref(w_list.space, storage._elems[i])
+        return retval
+
+    #------------------------------------------
+    # all these methods fail or switch strategy and then call ListObjectStrategy's method
+        
+    def getitems_fixedsize(self, w_list):
+        raise NotImplementedError
         
     def setslice(self, w_list, start, stop, step, length):
         #storage = self.unerase(w_list.lstorage)
-        raise oefmt(w_list.space.w_NotImplementedError,
-            "settting a slice of a PySequence_Fast is not supported")
+        raise NotImplementedError
+
+    def get_sizehint(self):
+        return -1
+
+    def init_from_list_w(self, w_list, list_w):
+        raise NotImplementedError
+
+    def clone(self, w_list):
+        raise NotImplementedError
+
+    def copy_into(self, w_list, w_other):
+        raise NotImplementedError
+
+    def _resize_hint(self, w_list, hint):
+        raise NotImplementedError
+
+    def find(self, w_list, w_item, start, stop):
+        raise NotImplementedError
+
+    def getitems_copy(self, w_list):
+        raise NotImplementedError
+
+    def getitems_bytes(self, w_list):
+        raise NotImplementedError
+
+    def getitems_unicode(self, w_list):
+        raise NotImplementedError
+
+    def getitems_int(self, w_list):
+        raise NotImplementedError
+
+    def getitems_float(self, w_list):
+        raise NotImplementedError
+
+    def getstorage_copy(self, w_list):
+        raise NotImplementedError
+
+    def append(self, w_list, w_item):
+        w_list.switch_to_object_strategy()
+        w_list.strategy.append(w_list, w_item)
+
+    def mul(self, w_list, times):
+        raise NotImplementedError
+
+    def inplace_mul(self, w_list, times):
+        raise NotImplementedError
+
+    def deleteslice(self, w_list, start, step, slicelength):
+        raise NotImplementedError
+
+    def pop(self, w_list, index):
+        w_list.switch_to_object_strategy()
+        w_list.strategy.pop(w_list, index)
+
+    def pop_end(self, w_list):
+        w_list.switch_to_object_strategy()
+        w_list.strategy.pop_end(w_list)
+
+    def insert(self, w_list, index, w_item):
+        w_list.switch_to_object_strategy()
+        w_list.strategy.insert(w_list, index, w_item)
+
+    def extend(self, w_list, w_any):
+        w_list.switch_to_object_strategy()
+        w_list.strategy.extend(w_list, w_any)
+
+    def _extend_from_list(self, w_list, w_other):
+        raise NotImplementedError
+
+    def _extend_from_iterable(self, w_list, w_iterable):
+        raise NotImplementedError
+
+    def reverse(self, w_list):
+        w_list.switch_to_object_strategy()
+        w_list.strategy.reverse(w_list)
+
+    def sort(self, w_list, reverse):
+        w_list.switch_to_object_strategy()
+        w_list.descr_sort(w_list.space, reverse=reverse)
+
+    def is_empty_strategy(self):
+        return False
         
 
 PyObjectList = lltype.Ptr(lltype.Array(PyObject, hints={'nolength': True}))
