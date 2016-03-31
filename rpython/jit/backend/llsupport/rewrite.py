@@ -315,6 +315,7 @@ class GcRewriterAssembler(object):
         #
         self.gcrefs_output_list = gcrefs_output_list
         self.gcrefs_map = {}
+        self.gcrefs_recently_loaded = {}
         operations = self.remove_bridge_exception(operations)
         self._changed_op = None
         for i in range(len(operations)):
@@ -337,8 +338,7 @@ class GcRewriterAssembler(object):
             elif rop.can_malloc(op.opnum):
                 self.emitting_an_operation_that_can_collect()
             elif op.getopnum() == rop.LABEL:
-                self.emitting_an_operation_that_can_collect()
-                self._known_lengths.clear()
+                self.emit_label()
             # ---------- write barriers ----------
             if self.gc_ll_descr.write_barrier_descr is not None:
                 if op.getopnum() == rop.SETFIELD_GC:
@@ -945,6 +945,11 @@ class GcRewriterAssembler(object):
                 return operations[:start] + operations[start+3:]
         return operations
 
+    def emit_label(self):
+        self.emitting_an_operation_that_can_collect()
+        self._known_lengths.clear()
+        self.gcrefs_recently_loaded.clear()
+
     def _gcref_index(self, gcref):
         if we_are_translated():
             # can only use the dictionary after translation
@@ -966,7 +971,14 @@ class GcRewriterAssembler(object):
     def remove_constptr(self, c):
         """Remove all ConstPtrs, and replace them with load_from_gc_table.
         """
+        # Note: currently, gcrefs_recently_loaded is only cleared in
+        # LABELs.  We'd like something better, like "don't spill it",
+        # but that's the wrong level...
         index = self._gcref_index(c.value)
-        load_op = ResOperation(rop.LOAD_FROM_GC_TABLE, [ConstInt(index)])
-        self._newops.append(load_op)
+        try:
+            load_op = self.gcrefs_recently_loaded[index]
+        except KeyError:
+            load_op = ResOperation(rop.LOAD_FROM_GC_TABLE, [ConstInt(index)])
+            self._newops.append(load_op)
+            self.gcrefs_recently_loaded[index] = load_op
         return load_op
