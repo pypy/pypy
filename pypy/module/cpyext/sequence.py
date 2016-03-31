@@ -59,11 +59,11 @@ def PySequence_Fast_GET_ITEM(space, w_obj, index):
     PySequence_Fast(), o is not NULL, and that i is within bounds.
     """
     if isinstance(w_obj, listobject.W_ListObject):
-        w_res = w_obj.getitem(index)
-    else:
-        assert isinstance(w_obj, tupleobject.W_TupleObject)
-        w_res = w_obj.wrappeditems[index]
-    return w_res     # borrowed ref
+        return w_obj.getitem(index)
+    elif isinstance(w_obj, tupleobject.W_TupleObject):
+        return w_obj.wrappeditems[index]
+    raise OperationError(space.w_TypeError, space.wrap(
+        'PySequence_Fast_GET_ITEM called but object is not a list or sequence'))
 
 @cpython_api([PyObject], Py_ssize_t, error=CANNOT_FAIL)
 def PySequence_Fast_GET_SIZE(space, w_obj):
@@ -74,8 +74,10 @@ def PySequence_Fast_GET_SIZE(space, w_obj):
     or tuple."""
     if isinstance(w_obj, listobject.W_ListObject):
         return w_obj.length()
-    assert isinstance(w_obj, tupleobject.W_TupleObject)
-    return len(w_obj.wrappeditems)
+    elif isinstance(w_obj, tupleobject.W_TupleObject):
+        return len(w_obj.wrappeditems)
+    raise OperationError(space.w_TypeError, space.wrap( 
+        'PySequence_Fast_GET_SIZE called but object is not a list or sequence'))
 
 @cpython_api([PyObject], PyObjectP)
 def PySequence_Fast_ITEMS(space, w_obj):
@@ -86,8 +88,12 @@ def PySequence_Fast_ITEMS(space, w_obj):
     So, only use the underlying array pointer in contexts where the sequence
     cannot change.
     """
-    assert isinstance(w_obj, listobject.W_ListObject)
-    return w_obj.get_raw_items() # asserts it's a cpyext strategy
+    if isinstance(w_obj, listobject.W_ListObject):
+        cpy_strategy = space.fromcache(CPyListStrategy)
+        if w_obj.strategy is not cpy_strategy:
+            raise OperationError(space.w_TypeError, space.wrap( 
+                'PySequence_Fast_ITEMS called but object is not the result of PySequence_Fast'))
+        return w_obj.get_raw_items() # asserts it's a cpyext strategy
 
 @cpython_api([PyObject, Py_ssize_t, Py_ssize_t], PyObject)
 def PySequence_GetSlice(space, w_obj, start, end):
