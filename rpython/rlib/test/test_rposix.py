@@ -528,6 +528,14 @@ class TestRegisteredFunctions:
             os.open(u'/tmp/t', 0, 0)
         compile(f, ())
 
+
+def test_fdlistdir(tmpdir):
+    tmpdir.join('file').write('text')
+    dirfd = os.open(str(tmpdir), os.O_RDONLY)
+    result = rposix.fdlistdir(dirfd)
+    # Note: fdlistdir() always closes dirfd
+    assert result == ['file']
+
 def test_symlinkat(tmpdir):
     tmpdir.join('file').write('text')
     dirfd = os.open(str(tmpdir), os.O_RDONLY)
@@ -536,7 +544,6 @@ def test_symlinkat(tmpdir):
         assert os.readlink(str(tmpdir.join('link'))) == 'file'
     finally:
         os.close(dirfd)
-
 
 def test_renameat(tmpdir):
     tmpdir.join('file').write('text')

@@ -603,13 +603,43 @@ if not _WIN32:
     config = rffi_platform.configure(CConfig)
     DIRENT = config['DIRENT']
     DIRENTP = lltype.Ptr(DIRENT)
-    c_opendir = external('opendir', [rffi.CCHARP], DIRP,
-                         save_err=rffi.RFFI_SAVE_ERRNO)
+    c_opendir = external('opendir',
+        [rffi.CCHARP], DIRP, save_err=rffi.RFFI_SAVE_ERRNO)
+    c_fdopendir = external('fdopendir',
+        [rffi.INT], DIRP, save_err=rffi.RFFI_SAVE_ERRNO)
     # XXX macro=True is hack to make sure we get the correct kind of
     # dirent struct (which depends on defines)
     c_readdir = external('readdir', [DIRP], DIRENTP,
                          macro=True, save_err=rffi.RFFI_FULL_ERRNO_ZERO)
     c_closedir = external('closedir', [DIRP], rffi.INT)
+
+def _listdir(dirp):
+    result = []
+    while True:
+        direntp = c_readdir(dirp)
+        if not direntp:
+            error = get_saved_errno()
+            break
+        namep = rffi.cast(rffi.CCHARP, direntp.c_d_name)
+        name = rffi.charp2str(namep)
+        if name != '.' and name != '..':
+            result.append(name)
+    c_closedir(dirp)
+    if error:
+        raise OSError(error, "readdir failed")
+    return result
+
+def fdlistdir(dirfd):
+    """
+    Like listdir(), except that the directory is specified as an open
+    file descriptor.
+
+    Note: fdlistdir() closes the file descriptor.
+    """
+    dirp = c_fdopendir(dirfd)
+    if not dirp:
+        raise OSError(get_saved_errno(), "opendir failed")
+    return _listdir(dirp)
 
 @replace_os_function('listdir')
 @specialize.argtype(0)
@@ -619,20 +649,7 @@ def listdir(path):
         dirp = c_opendir(path)
         if not dirp:
             raise OSError(get_saved_errno(), "opendir failed")
-        result = []
-        while True:
-            direntp = c_readdir(dirp)
-            if not direntp:
-                error = get_saved_errno()
-                break
-            namep = rffi.cast(rffi.CCHARP, direntp.c_d_name)
-            name = rffi.charp2str(namep)
-            if name != '.' and name != '..':
-                result.append(name)
-        c_closedir(dirp)
-        if error:
-            raise OSError(error, "readdir failed")
-        return result
+        return _listdir(dirp)
     else:  # _WIN32 case
         traits = _preferred_traits(path)
         win32traits = make_win32_traits(traits)
