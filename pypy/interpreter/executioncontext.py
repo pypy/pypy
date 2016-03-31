@@ -74,15 +74,6 @@ class ExecutionContext(object):
         finally:
             frame_vref = self.topframeref
             self.topframeref = frame.f_backref
-            if frame.escaped or got_exception:
-                # if this frame escaped to applevel, we must ensure that also
-                # f_back does
-                f_back = frame.f_backref()
-                if f_back:
-                    f_back.mark_as_escaped()
-                # force the frame (from the JIT point of view), so that it can
-                # be accessed also later
-                frame_vref()
             jit.virtual_ref_finish(frame_vref, frame)
 
     # ________________________________________________________________
