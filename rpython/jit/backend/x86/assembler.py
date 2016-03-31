@@ -583,7 +583,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         self.patch_pending_failure_recoveries(rawstart)
         # patch the jump from original guard
         if logger:
-            logger.log_patch_guard(faildescr.adr_jump_offset, rawstart)
+            logger.log_patch_guard(descr_number, rawstart)
         self.patch_jump_for_descr(faildescr, rawstart)
         ops_offset = self.mc.ops_offset
         frame_depth = max(self.current_clt.frame_info.jfi_frame_depth,

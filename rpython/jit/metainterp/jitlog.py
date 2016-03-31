@@ -23,7 +23,7 @@ MARK_TRACE_OPT = 0x17
 MARK_TRACE_ASM = 0x18
 
 # the machine code was patched (e.g. guard)
-MARK_ASM_PATCH = 0x19
+MARK_STITCH_BRIDGE = 0x19
 
 IS_32_BIT = sys.maxint == 2**31-1
 
@@ -61,14 +61,13 @@ class VMProfJitLogger(object):
             memo = {}
         return LogTrace(tag, memo, metainterp_sd, mc, self)
 
-    def log_patch_guard(self, addr, target_addr):
-        if self.cintf.jitlog_filter(MARK_ASM_PATCH):
+    def log_patch_guard(self, descr_number, addr):
+        if self.cintf.jitlog_filter(MARK_STITCH_BRIDGE):
             return
-        le_addr_write = self.encode_le_addr(addr)
-        le_len = self.encode_le_32bit(8)
-        le_addr = self.encode_le_addr(target_addr)
-        lst = [le_addr, le_len, le_addr]
-        self.cintf.jitlog_filter(MARK_ASM_PATCH, ''.join(lst))
+        le_descr_number = self.encode_le_addr(descr_number)
+        le_addr = self.encode_le_addr(addr)
+        lst = [le_descr_number, le_addr]
+        self.write_marked(MARK_STITCH_BRIDGE, ''.join(lst))
 
     def encode_str(self, string):
         return self.encode_le_32bit(len(string)) + string
@@ -163,7 +162,9 @@ class LogTrace(object):
             descr_str = descr.repr_of_descr()
             line = line + ',' + descr_str
             string = self.logger.encode_str(line)
-            return MARK_RESOP_DESCR, le_opnum + string
+            descr_number = compute_unique_id(descr)
+            le_descr_number = self.logger.encode_le_addr(descr_number)
+            return MARK_RESOP_DESCR, le_opnum + string + le_descr_number
         else:
             string = self.logger.encode_str(line)
             return MARK_RESOP, le_opnum + string
