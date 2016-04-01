@@ -190,6 +190,14 @@ class TestCPyListStrategy(BaseApiTest):
         w_sum = space.add(w_l, w_l)
         assert space.int_w(space.len(w_sum)) == 10
 
+        api.PySequence_Fast(w_l, "foo") # converts
+        w_prod = space.mul(w_l, space.wrap(2))
+        assert space.int_w(space.len(w_prod)) == 10
+
+        api.PySequence_Fast(w_l, "foo") # converts
+        w_l.inplace_mul(2)
+        assert space.int_w(space.len(w_l)) == 10
+
 
 class XAppTestSequenceObject(AppTestCpythonExtensionBase):
     def test_sequenceobject(self):

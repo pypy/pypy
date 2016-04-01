@@ -320,18 +320,6 @@ class CPyListStrategy(ListStrategy):
     def getitems_copy(self, w_list):
         raise NotImplementedError
 
-    def getitems_bytes(self, w_list):
-        return None
-
-    def getitems_unicode(self, w_list):
-        return None
-
-    def getitems_int(self, w_list):
-        return None
-
-    def getitems_float(self, w_list):
-        return None
-
     def getstorage_copy(self, w_list):
         raise NotImplementedError
 
@@ -339,11 +327,9 @@ class CPyListStrategy(ListStrategy):
         w_list.switch_to_object_strategy()
         w_list.strategy.append(w_list, w_item)
 
-    def mul(self, w_list, times):
-        raise NotImplementedError
-
     def inplace_mul(self, w_list, times):
-        raise NotImplementedError
+        w_list.switch_to_object_strategy()
+        w_list.strategy.inplace_mul(w_list, times)
 
     def deleteslice(self, w_list, start, step, slicelength):
         raise NotImplementedError
