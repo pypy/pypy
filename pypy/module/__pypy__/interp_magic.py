@@ -172,7 +172,7 @@ def decode_long(space, string, byteorder='little', signed=1):
 def _promote(space, w_obj):
     """ Promote the first argument of the function and return it. Promote is by
     value for ints, floats, strs, unicodes (but not subclasses thereof) and by
-    reference otherwise.
+    reference otherwise.  (Unicodes not supported right now.)
 
     This function is experimental!"""
     from rpython.rlib import jit
@@ -181,9 +181,10 @@ def _promote(space, w_obj):
     elif space.is_w(space.type(w_obj), space.w_float):
         jit.promote(space.float_w(w_obj))
     elif space.is_w(space.type(w_obj), space.w_str):
-        jit.promote(space.str_w(w_obj))
+        jit.promote_string(space.str_w(w_obj))
     elif space.is_w(space.type(w_obj), space.w_unicode):
-        jit.promote(space.unicode_w(w_obj))
+        raise OperationError(space.w_TypeError, space.wrap(
+                             "promoting unicode unsupported"))
     else:
         jit.promote(w_obj)
     return w_obj
