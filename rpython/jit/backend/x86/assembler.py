@@ -4,7 +4,7 @@ import py
 
 from rpython.jit.backend.llsupport import symbolic, jitframe, rewrite, gcreftracer
 from rpython.jit.backend.llsupport.assembler import (GuardToken, BaseAssembler,
-                                                DEBUG_COUNTER, debug_bridge)
+                                                DEBUG_COUNTER)
 from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.jit.metainterp.history import (Const, VOID, ConstInt)
@@ -523,10 +523,10 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             looptoken.number, loopname,
             r_uint(rawstart + looppos),
             r_uint(rawstart + size_excluding_failure_stuff),
-            r_uint(rawstart)))
-        debug_print("       gc table: 0x%x" % r_uint(rawstart))
+            r_uint(rawstart + functionpos)))
+        debug_print("       gc table: 0x%x" % r_uint(self.gc_table_addr))
         debug_print("       function: 0x%x" % r_uint(rawstart + functionpos))
-        debug_print("           loop: 0x%x" % r_uint(rawstart + looppos))
+        debug_print("         resops: 0x%x" % r_uint(rawstart + looppos))
         debug_print("       failures: 0x%x" % r_uint(rawstart +
                                                  size_excluding_failure_stuff))
         debug_print("            end: 0x%x" % r_uint(rawstart + full_size))
@@ -591,7 +591,16 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         self.patch_gcref_table(original_loop_token, rawstart)
         self.patch_stack_checks(frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE,
                                 rawstart)
-        debug_bridge(descr_number, rawstart, codeendpos)
+        debug_start("jit-backend-addr")
+        debug_print("bridge out of Guard 0x%x has address 0x%x to 0x%x" %
+                    (r_uint(descr_number), r_uint(rawstart + startpos),
+                        r_uint(rawstart + codeendpos)))
+        debug_print("       gc table: 0x%x" % r_uint(self.gc_table_addr))
+        debug_print("    jump target: 0x%x" % r_uint(rawstart + startpos))
+        debug_print("         resops: 0x%x" % r_uint(rawstart + bridgestartpos))
+        debug_print("       failures: 0x%x" % r_uint(rawstart + codeendpos))
+        debug_print("            end: 0x%x" % r_uint(rawstart + fullsize))
+        debug_stop("jit-backend-addr")
         self.patch_pending_failure_recoveries(rawstart)
         # patch the jump from original guard
         self.patch_jump_for_descr(faildescr, rawstart + startpos)
@@ -667,18 +676,32 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         self.patch_jump_for_descr(faildescr, rawstart)
 
     def reserve_gcref_table(self, allgcrefs):
-        assert IS_X86_64, "XXX"
         gcref_table_size = len(allgcrefs) * WORD
-        # align to a multiple of 16
-        gcref_table_size = (gcref_table_size + 15) & ~15
-        mc = self.mc
-        assert mc.get_relative_pos() == 0
-        for i in range(gcref_table_size):
-            mc.writechar('\x00')
+        if IS_X86_64:
+            # align to a multiple of 16 and reserve space at the beginning
+            # of the machine code for the gc table.  This lets us write
+            # machine code with relative addressing (%rip - constant).
+            gcref_table_size = (gcref_table_size + 15) & ~15
+            mc = self.mc
+            assert mc.get_relative_pos() == 0
+            for i in range(gcref_table_size):
+                mc.writechar('\x00')
+        elif IS_X86_32:
+            # allocate the gc table right now.  This lets us write
+            # machine code with absolute 32-bit addressing.
+            self.gc_table_addr = self.datablockwrapper.malloc_aligned(
+                gcref_table_size, alignment=WORD)
+        #
         self.setup_gcrefs_list(allgcrefs)
 
     def patch_gcref_table(self, looptoken, rawstart):
-        assert IS_X86_64, "XXX"
+        if IS_X86_64:
+            # the gc table is at the start of the machine code
+            self.gc_table_addr = rawstart
+        elif IS_X86_32:
+            # the gc table was already allocated by reserve_gcref_table()
+            rawstart = self.gc_table_addr
+        #
         tracer = gcreftracer.make_gcref_tracer(rawstart, self._allgcrefs)
         gcreftracers = self.get_asmmemmgr_gcreftracers(looptoken)
         gcreftracers.append(tracer)    # keepalive
@@ -1396,18 +1419,27 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
 
     def _patch_load_from_gc_table(self, index):
         # must be called immediately after a "p"-mode instruction
-        # has been emitted
+        # has been emitted.  64-bit mode only.
+        assert IS_X86_64
         address_in_buffer = index * WORD   # at the start of the buffer
         p_location = self.mc.get_relative_pos()
         offset = address_in_buffer - p_location
         self.mc.overwrite32(p_location-4, offset)
 
+    def _addr_from_gc_table(self, index):
+        # get the address of the gc table entry 'index'.  32-bit mode only.
+        assert IS_X86_32
+        return self.gc_table_addr + index * WORD
+
     def genop_load_from_gc_table(self, op, arglocs, resloc):
         [loc] = arglocs
         assert isinstance(loc, ImmedLoc)
         assert isinstance(resloc, RegLoc)
-        self.mc.MOV_rp(resloc.value, 0)    # %rip-relative
-        self._patch_load_from_gc_table(loc.value)
+        if IS_X86_64:
+            self.mc.MOV_rp(resloc.value, 0)    # %rip-relative
+            self._patch_load_from_gc_table(loc.value)
+        elif IS_X86_32:
+            self.mc.MOV_rj(resloc.value, self._addr_from_gc_table(loc.value))
 
     def genop_int_force_ge_zero(self, op, arglocs, resloc):
         self.mc.TEST(arglocs[0], arglocs[0])
@@ -1905,8 +1937,11 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
                              guardtok.faildescr, regalloc)
         #
         faildescrindex, target = self.store_info_on_descr(startpos, guardtok)
-        self.mc.PUSH_p(0)     # %rip-relative
-        self._patch_load_from_gc_table(faildescrindex)
+        if IS_X86_64:
+            self.mc.PUSH_p(0)     # %rip-relative
+            self._patch_load_from_gc_table(faildescrindex)
+        elif IS_X86_32:
+            self.mc.PUSH_j(self._addr_from_gc_table(faildescrindex))
         self.push_gcmap(self.mc, guardtok.gcmap, push=True)
         self.mc.JMP(imm(target))
         return startpos
@@ -2021,8 +2056,11 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         
         descr = op.getdescr()
         faildescrindex = self.get_gcref_from_faildescr(descr)
-        self.mc.MOV_rp(eax.value, 0)
-        self._patch_load_from_gc_table(faildescrindex)
+        if IS_X86_64:
+            self.mc.MOV_rp(eax.value, 0)
+            self._patch_load_from_gc_table(faildescrindex)
+        elif IS_X86_32:
+            self.mc.MOV_rj(eax.value, self._addr_from_gc_table(faildescrindex))
         self.mov(eax, RawEbpLoc(ofs))
 
         arglist = op.getarglist()
@@ -2095,11 +2133,15 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         faildescr = guard_op.getdescr()
         ofs = self.cpu.get_ofs_of_frame_field('jf_force_descr')
 
-        assert IS_X86_64, "XXX uses the scratch reg"
         faildescrindex = self.get_gcref_from_faildescr(faildescr)
-        self.mc.MOV_rp(X86_64_SCRATCH_REG.value, 0)
-        self._patch_load_from_gc_table(faildescrindex)
-        self.mc.MOV(raw_stack(ofs), X86_64_SCRATCH_REG)
+        if IS_X86_64:
+            self.mc.MOV_rp(X86_64_SCRATCH_REG.value, 0)
+            self._patch_load_from_gc_table(faildescrindex)
+            self.mc.MOV(raw_stack(ofs), X86_64_SCRATCH_REG)
+        elif IS_X86_32:
+            # XXX need a scratch reg here for efficiency; be more clever
+            self.mc.PUSH_j(self._addr_from_gc_table(faildescrindex))
+            self.mc.POP(raw_stack(ofs))
 
     def _find_nearby_operation(self, delta):
         regalloc = self._regalloc
