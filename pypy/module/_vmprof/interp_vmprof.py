@@ -69,6 +69,14 @@ def enable(space, fileno, period):
     except rvmprof.VMProfError, e:
         raise VMProfError(space, e)
 
+@unwrap_spec(fileno=int)
+def enable_jitlog(space, fileno):
+    """ Enable PyPy's logging facility. """
+    try:
+        rvmprof.enable_jitlog(fileno)
+    except rvmprof.VMProfError, e:
+        raise VMProfError(space, e)
+
 def write_all_code_objects(space):
     """ Needed on cpython, just empty function here
     """

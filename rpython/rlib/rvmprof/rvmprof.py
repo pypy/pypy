@@ -109,17 +109,15 @@ class VMProf(object):
         if p_error:
             raise VMProfError(rffi.charp2str(p_error))
 
-        self.enable_jitlog(fileno, "")
-
         self._gather_all_code_objs()
         res = self.cintf.vmprof_enable()
         if res < 0:
             raise VMProfError(os.strerror(rposix.get_saved_errno()))
         self.is_enabled = True
 
-    def enable_jitlog(self, fileno, regexp):
+    def enable_jitlog(self, fileno):
         # initialize the jit log
-        p_error = self.cintf.jitlog_init(fileno, regexp)
+        p_error = self.cintf.jitlog_init(fileno)
         if p_error:
             raise VMProfError(rffi.charp2str(p_error))
 

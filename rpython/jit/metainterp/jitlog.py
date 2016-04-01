@@ -29,6 +29,8 @@ MARK_JIT_LOOP_COUNTER = 0x20
 MARK_JIT_BRIDGE_COUNTER = 0x21
 MARK_JIT_ENTRY_COUNTER = 0x22
 
+MARK_JITLOG_HEADER = 0x23
+
 IS_32_BIT = sys.maxint == 2**31-1
 
 @always_inline
@@ -69,10 +71,16 @@ class VMProfJitLogger(object):
         self.is_setup = False
 
     def setup_once(self):
+        if self.is_setup:
+            return
         self.is_setup = True
         self.cintf.jitlog_try_init_using_env()
         if not self.cintf.jitlog_enabled():
             return
+
+        header = encode_le_16bit(0xaffe)
+        self._write_marked(MARK_JITLOG_HEADER, header)
+
         count = len(resoperations.opname)
         mark = MARK_RESOP_META
         for opnum, opname in resoperations.opname.items():
@@ -81,12 +89,11 @@ class VMProfJitLogger(object):
 
     def teardown(self):
         self.cintf.jitlog_teardown()
+        self.is_setup = False
 
     def _write_marked(self, mark, line):
         if not we_are_translated():
             assert self.cintf.jitlog_enabled()
-        if not self.is_setup:
-            self.setup_once()
         self.cintf.jitlog_write_marked(mark, line, len(line))
 
     def log_jit_counter(self, struct):

@@ -5,7 +5,6 @@
 #include <fcntl.h>
 
 static int jitlog_fd = -1;
-static char * jitlog_prefix = NULL;
 static int jitlog_ready = 0;
 
 RPY_EXTERN
@@ -25,7 +24,8 @@ void jitlog_try_init_using_env(void) {
         mode_t mode = S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH;
         jitlog_fd = open(filename, O_WRONLY | O_CREAT, mode);
         if (jitlog_fd == -1) {
-            perror("could not open");
+            dprintf(2, "could not open '%s': ", filename);
+            perror(NULL);
             exit(-1);
         }
     } else {
@@ -41,10 +41,9 @@ void jitlog_try_init_using_env(void) {
 }
 
 RPY_EXTERN
-char *jitlog_init(int fd, const char * prefix)
+char *jitlog_init(int fd)
 {
     jitlog_fd = fd;
-    jitlog_prefix = strdup(prefix);
     jitlog_ready = 1;
     return NULL;
 }
@@ -59,10 +58,6 @@ void jitlog_teardown()
     // close the jitlog file descriptor
     close(jitlog_fd);
     jitlog_fd = -1;
-    // free the prefix
-    if (jitlog_prefix != NULL) {
-        free(jitlog_prefix);
-    }
 }
 
 RPY_EXTERN

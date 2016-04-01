@@ -1,4 +1,5 @@
 import re
+import os
 from rpython.rlib import debug
 from rpython.jit.tool.oparser import pure_parse
 from rpython.jit.metainterp import logger
@@ -15,13 +16,34 @@ import tempfile
 
 class TestLogger(Jit386Mixin):
 
-    def test_log_loop(self):
-        myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'res'])
+    def test_explicit_enable(self):
         vmprof = rvmprof.VMProf()
         fileno, name = tempfile.mkstemp()
+        self.run_sample_loop(lambda: vmprof.enable_jitlog(fileno))
+        assert os.path.exists(name)
+        with open(name, 'rb') as fd:
+            # check the file header
+            assert fd.read(3) == '\x23\xfe\xaf'
+            assert len(fd.read()) > 0
+        print(name)
+
+    def test_venv(self):
+        fileno, name = tempfile.mkstemp()
+        os.environ["JITLOG"] = name
+        self.run_sample_loop(None)
+        assert os.path.exists(name)
+        with open(name, 'rb') as fd:
+            # check the file header
+            assert fd.read(3) == '\x23\xfe\xaf'
+            assert len(fd.read()) > 0
+        print(name)
+
+    def run_sample_loop(self, func):
+        myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'res'])
         def f(x, y):
             res = 0
-            vmprof.enable(fileno, 0.1)
+            if func:
+                func()
             while y > 0:
                 myjitdriver.can_enter_jit(x=x, y=y, res=res)
                 myjitdriver.jit_merge_point(x=x, y=y, res=res)
@@ -34,4 +56,3 @@ class TestLogger(Jit386Mixin):
             return res
         res = self.meta_interp(f, [6, 20])
         self.check_trace_count(2)
-        print(name)

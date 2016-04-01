@@ -57,11 +57,10 @@ def setup():
                                             _nowrapper=True)
 
     # jit log functions
-    jitlog_init = rffi.llexternal("jitlog_init", [rffi.INT, rffi.CCHARP],
+    jitlog_init = rffi.llexternal("jitlog_init", [rffi.INT],
                                   rffi.CCHARP, compilation_info=eci)
     jitlog_try_init_using_env = rffi.llexternal("jitlog_try_init_using_env",
-                                  [], lltype.Void, compilation_info=eci,
-                                  releasegil=False)
+                                  [], lltype.Void, compilation_info=eci)
     jitlog_write_marked = rffi.llexternal("jitlog_write_marked",
                                   [rffi.INT, rffi.CCHARP, rffi.INT],
                                   lltype.Void, compilation_info=eci,
