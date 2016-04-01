@@ -55,7 +55,7 @@ class VMProfJitLogger(object):
 
     def log_trace(self, tag, metainterp_sd, mc, memo=None):
         if self.cintf.jitlog_filter(tag):
-            return
+            return EMPTY_TRACE_LOG
         assert isinstance(tag, int)
         if memo is None:
             memo = {}
@@ -94,8 +94,13 @@ class VMProfJitLogger(object):
                             chr((val >> 48) & 0xff),
                             chr((val >> 56)& 0xff)])
 
+class BaseLogTrace(object):
+    def write(self, args, ops, faildescr=None, ops_offset={}, name=None, unique_id=0):
+        return None
 
-class LogTrace(object):
+EMPTY_TRACE_LOG = BaseLogTrace()
+
+class LogTrace(BaseLogTrace):
     def __init__(self, tag, memo, metainterp_sd, mc, logger):
         self.memo = memo
         self.metainterp_sd = metainterp_sd
@@ -107,15 +112,15 @@ class LogTrace(object):
         self.logger = logger
 
     def write(self, args, ops, faildescr=None, ops_offset={},
-              name=None, unique_id=None):
+              name=None, unique_id=0):
         log = self.logger
 
-        if not name:
+        if name is None:
             name = ''
         # write the initial tag
         if faildescr is None:
             string = self.logger.encode_str('loop') + \
-                     self.logger.encode_le_addr(unique_id or 0) + \
+                     self.logger.encode_le_addr(unique_id) + \
                      self.logger.encode_str(name or '')
             log.write_marked(self.tag, string)
         else:

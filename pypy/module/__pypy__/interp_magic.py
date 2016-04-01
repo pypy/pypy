@@ -168,3 +168,22 @@ def decode_long(space, string, byteorder='little', signed=1):
     except InvalidEndiannessError:
         raise oefmt(space.w_ValueError, "invalid byteorder argument")
     return space.newlong_from_rbigint(result)
+
+def _promote(space, w_obj):
+    """ Promote the first argument of the function and return it. Promote is by
+    value for ints, floats, strs, unicodes (but not subclasses thereof) and by
+    reference otherwise.
+
+    This function is experimental!"""
+    from rpython.rlib import jit
+    if space.is_w(space.type(w_obj), space.w_int):
+        jit.promote(space.int_w(w_obj))
+    elif space.is_w(space.type(w_obj), space.w_float):
+        jit.promote(space.float_w(w_obj))
+    elif space.is_w(space.type(w_obj), space.w_str):
+        jit.promote(space.str_w(w_obj))
+    elif space.is_w(space.type(w_obj), space.w_unicode):
+        jit.promote(space.unicode_w(w_obj))
+    else:
+        jit.promote(w_obj)
+    return w_obj
