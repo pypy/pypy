@@ -1191,7 +1191,6 @@ On some platforms, you may specify an open file descriptor for path;
   execve will execute the program the file descriptor is open to.
   If this functionality is unavailable, using it raises NotImplementedError.
     """
-    command = space.fsencode_w(w_path)
     if not (space.isinstance_w(w_argv, space.w_list)
             or space.isinstance_w(w_argv, space.w_tuple)):
         raise oefmt(space.w_TypeError,
@@ -1199,9 +1198,25 @@ On some platforms, you may specify an open file descriptor for path;
     args = [space.fsencode_w(w_arg) for w_arg in space.unpackiterable(w_argv)]
     env = _env2interp(space, w_environment)
     try:
-        os.execve(command, args, env)
-    except OSError, e:
-        raise wrap_oserror(space, e)
+        path = space.fsencode_w(w_path)
+    except OperationError:
+        if not rposix.HAVE_FEXECVE:
+            raise oefmt(space.w_TypeError,
+                "execve: illegal type for path argument")
+        if not space.isinstance_w(w_path, space.w_int):
+            raise oefmt(space.w_TypeError,
+                "argument should be string, bytes or integer, not %T", w_path)
+        # File descriptor case
+        fd = unwrap_fd(space, w_path)
+        try:
+            rposix.fexecve(fd, args, env)
+        except OSError as e:
+            raise wrap_oserror(space, e)
+    else:
+        try:
+            os.execve(path, args, env)
+        except OSError as e:
+            raise wrap_oserror(space, e)
 
 @unwrap_spec(mode=int, path='fsencode')
 def spawnv(space, mode, path, w_args):
