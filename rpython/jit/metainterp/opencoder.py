@@ -279,7 +279,6 @@ class Trace(BaseTrace):
         self._bigints = []
         self._bigints_dict = {}
         self._floats = []
-        self._floats_dict = {}
         self._snapshots = []
         for i, inparg in enumerate(inputargs):
             inparg.set_position(i)
@@ -305,7 +304,6 @@ class Trace(BaseTrace):
 
         self._bigints_dict = {}
         self._refs_dict = llhelper.new_ref_dict_3()
-        self._floats_dict = {}
         debug_start("jit-trace-done")
         debug_print("trace length: " + str(self._pos))
         debug_print(" total snapshots: " + str(self._total_snapshots))
