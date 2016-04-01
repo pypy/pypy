@@ -1135,7 +1135,10 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
     consider_same_as_i = _consider_same_as
     consider_same_as_r = _consider_same_as
     consider_same_as_f = _consider_same_as
-    consider_load_from_gc_table = _consider_same_as
+
+    def consider_load_from_gc_table(self, op):
+        resloc = self.rm.force_allocate_reg(op)
+        self.perform(op, [], resloc)
 
     def consider_int_force_ge_zero(self, op):
         argloc = self.make_sure_var_in_reg(op.getarg(0))

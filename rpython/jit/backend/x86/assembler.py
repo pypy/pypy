@@ -1433,14 +1433,13 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         return self.gc_table_addr + index * WORD
 
     def genop_load_from_gc_table(self, op, arglocs, resloc):
-        [loc] = arglocs
-        assert isinstance(loc, ImmedLoc)
+        index = op.getarg(0).getint()
         assert isinstance(resloc, RegLoc)
         if IS_X86_64:
             self.mc.MOV_rp(resloc.value, 0)    # %rip-relative
-            self._patch_load_from_gc_table(loc.value)
+            self._patch_load_from_gc_table(index)
         elif IS_X86_32:
-            self.mc.MOV_rj(resloc.value, self._addr_from_gc_table(loc.value))
+            self.mc.MOV_rj(resloc.value, self._addr_from_gc_table(index))
 
     def genop_int_force_ge_zero(self, op, arglocs, resloc):
         self.mc.TEST(arglocs[0], arglocs[0])
