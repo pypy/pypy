@@ -91,7 +91,7 @@ class VMProfJitLogger(object):
 
     def log_jit_counter(self, struct):
         if not self.cintf.jitlog_enabled():
-            return EMPTY_TRACE_LOG
+            return
         le_addr = encode_le_addr(struct.number)
         # not an address (but a number) but it is a machine word
         le_count = encode_le_addr(struct.i)
