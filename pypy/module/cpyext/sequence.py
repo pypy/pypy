@@ -1,12 +1,13 @@
 
-from rpython.rlib import rerased
+from rpython.rlib import rerased, jit
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.objspace.std.listobject import ListStrategy
+from pypy.objspace.std.listobject import (
+    ListStrategy, UNROLL_CUTOFF, W_ListObject, ObjectListStrategy)
 from pypy.module.cpyext.api import (
     cpython_api, CANNOT_FAIL, CONST_STRING, Py_ssize_t, PyObject, PyObjectP)
 from pypy.module.cpyext.pyobject import PyObject, make_ref, from_ref
 from rpython.rtyper.lltypesystem import rffi, lltype
-from pypy.objspace.std import listobject, tupleobject
+from pypy.objspace.std import tupleobject
 
 from pypy.module.cpyext.tupleobject import PyTuple_Check, PyTuple_SetItem
 from pypy.module.cpyext.object import Py_IncRef, Py_DecRef
@@ -44,12 +45,12 @@ def PySequence_Fast(space, w_obj, m):
     which case o is returned.  Use PySequence_Fast_GET_ITEM() to access the
     members of the result.  Returns NULL on failure.  If the object is not a
     sequence, raises TypeError with m as the message text."""
-    if isinstance(w_obj, listobject.W_ListObject):
+    if isinstance(w_obj, W_ListObject):
         # make sure we can return a borrowed obj from PySequence_Fast_GET_ITEM    
         w_obj.convert_to_cpy_strategy(space)
         return w_obj
     try:
-        return listobject.W_ListObject.newlist_cpyext(space, space.listview(w_obj))
+        return W_ListObject.newlist_cpyext(space, space.listview(w_obj))
     except OperationError:
         raise OperationError(space.w_TypeError, space.wrap(rffi.charp2str(m)))
 
@@ -58,7 +59,7 @@ def PySequence_Fast_GET_ITEM(space, w_obj, index):
     """Return the ith element of o, assuming that o was returned by
     PySequence_Fast(), o is not NULL, and that i is within bounds.
     """
-    if isinstance(w_obj, listobject.W_ListObject):
+    if isinstance(w_obj, W_ListObject):
         return w_obj.getitem(index)
     elif isinstance(w_obj, tupleobject.W_TupleObject):
         return w_obj.wrappeditems[index]
@@ -72,7 +73,7 @@ def PySequence_Fast_GET_SIZE(space, w_obj):
     gotten by calling PySequence_Size() on o, but
     PySequence_Fast_GET_SIZE() is faster because it can assume o is a list
     or tuple."""
-    if isinstance(w_obj, listobject.W_ListObject):
+    if isinstance(w_obj, W_ListObject):
         return w_obj.length()
     elif isinstance(w_obj, tupleobject.W_TupleObject):
         return len(w_obj.wrappeditems)
@@ -88,7 +89,7 @@ def PySequence_Fast_ITEMS(space, w_obj):
     So, only use the underlying array pointer in contexts where the sequence
     cannot change.
     """
-    if isinstance(w_obj, listobject.W_ListObject):
+    if isinstance(w_obj, W_ListObject):
         cpy_strategy = space.fromcache(CPyListStrategy)
         if w_obj.strategy is cpy_strategy:
             return w_obj.get_raw_items() # asserts it's a cpyext strategy
@@ -276,9 +277,20 @@ class CPyListStrategy(ListStrategy):
     #------------------------------------------
     # all these methods fail or switch strategy and then call ListObjectStrategy's method
         
+    @jit.unroll_safe
+    def getitems_unroll(self, w_list):
+        storage = self.unerase(w_list.lstorage)
+        retval = [None] * storage._length
+        for i in range(storage._length):
+            retval[i] = from_ref(w_list.space, storage._elems[i])
+        return retval
+
+    @jit.look_inside_iff(lambda self, w_list:
+            jit.loop_unrolling_heuristic(w_list, w_list.length(),
+                                         UNROLL_CUTOFF))
     def getitems_fixedsize(self, w_list):
-        raise NotImplementedError
-        
+        return self.getitems_unroll(w_list)
+
     def setslice(self, w_list, start, stop, step, length):
         #storage = self.unerase(w_list.lstorage)
         raise NotImplementedError
@@ -290,8 +302,12 @@ class CPyListStrategy(ListStrategy):
         raise NotImplementedError
 
     def clone(self, w_list):
-        raise NotImplementedError
-
+        storage = w_list.lstorage  # lstorage is tuple, no need to clone
+        w_clone = W_ListObject.from_storage_and_strategy(self.space, storage,
+                                                         self)
+        w_clone.switch_to_object_strategy()
+        return w_clone
+        
     def copy_into(self, w_list, w_other):
         raise NotImplementedError
 

@@ -178,6 +178,19 @@ class TestCPyListStrategy(BaseApiTest):
         assert space.int_w(space.len(w_l)) == 5
         assert space.int_w(space.getitem(w_l, w(0))) == 0
 
+        api.PySequence_Fast(w_l, "foo") # converts
+        w_t = space.wrap(space.fixedview(w_l))
+        assert space.int_w(space.len(w_t)) == 5
+        assert space.int_w(space.getitem(w_t, w(0))) == 0
+        w_l2 = space.wrap(space.listview(w_t))
+        assert space.int_w(space.len(w_l2)) == 5
+        assert space.int_w(space.getitem(w_l2, w(0))) == 0
+
+        api.PySequence_Fast(w_l, "foo") # converts
+        w_sum = space.add(w_l, w_l)
+        assert space.int_w(space.len(w_sum)) == 10
+
+
 class XAppTestSequenceObject(AppTestCpythonExtensionBase):
     def test_sequenceobject(self):
         module = self.import_extension('foo', [
