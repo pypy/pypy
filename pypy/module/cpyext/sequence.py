@@ -274,9 +274,6 @@ class CPyListStrategy(ListStrategy):
             retval[i] = from_ref(w_list.space, storage._elems[i])
         return retval
 
-    #------------------------------------------
-    # all these methods fail or switch strategy and then call ListObjectStrategy's method
-        
     @jit.unroll_safe
     def getitems_unroll(self, w_list):
         storage = self.unerase(w_list.lstorage)
@@ -291,9 +288,12 @@ class CPyListStrategy(ListStrategy):
     def getitems_fixedsize(self, w_list):
         return self.getitems_unroll(w_list)
 
+    #------------------------------------------
+    # all these methods fail or switch strategy and then call ListObjectStrategy's method
+
     def setslice(self, w_list, start, stop, step, length):
-        #storage = self.unerase(w_list.lstorage)
-        raise NotImplementedError
+        w_list.switch_to_object_strategy()
+        w_list.strategy.setslice(w_list, start, stop, step, length)
 
     def get_sizehint(self):
         return -1
@@ -309,16 +309,19 @@ class CPyListStrategy(ListStrategy):
         return w_clone
         
     def copy_into(self, w_list, w_other):
-        raise NotImplementedError
+        w_list.switch_to_object_strategy()
+        w_list.strategy.copy_into(w_list, w_other)
 
     def _resize_hint(self, w_list, hint):
-        raise NotImplementedError
+        pass
 
     def find(self, w_list, w_item, start, stop):
-        raise NotImplementedError
+        w_list.switch_to_object_strategy()
+        return w_list.strategy.find(w_list, w_item, start, stop)
 
     def getitems_copy(self, w_list):
-        raise NotImplementedError
+        w_list.switch_to_object_strategy()
+        return w_list.strategy.getitems_copy(w_list)
 
     def getstorage_copy(self, w_list):
         raise NotImplementedError
@@ -332,7 +335,8 @@ class CPyListStrategy(ListStrategy):
         w_list.strategy.inplace_mul(w_list, times)
 
     def deleteslice(self, w_list, start, step, slicelength):
-        raise NotImplementedError
+        w_list.switch_to_object_strategy()
+        w_list.strategy.deleteslice(w_list, start, step, slicelength)
 
     def pop(self, w_list, index):
         w_list.switch_to_object_strategy()
@@ -351,10 +355,12 @@ class CPyListStrategy(ListStrategy):
         w_list.strategy.extend(w_list, w_any)
 
     def _extend_from_list(self, w_list, w_other):
-        raise NotImplementedError
+        w_list.switch_to_object_strategy()
+        w_list.strategy._extend_from_list(w_list, w_other)
 
     def _extend_from_iterable(self, w_list, w_iterable):
-        raise NotImplementedError
+        w_list.switch_to_object_strategy()
+        w_list.strategy._extend_from_iterable(w_list, w_iterable)
 
     def reverse(self, w_list):
         w_list.switch_to_object_strategy()
