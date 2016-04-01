@@ -21,7 +21,7 @@ def gcrefs_trace(gc, obj_addr, callback, arg):
         i += 1
 lambda_gcrefs_trace = lambda: gcrefs_trace
 
-def make_gcref_tracer(array_base_addr, gcrefs):
+def make_framework_tracer(array_base_addr, gcrefs):
     # careful about the order here: the allocation of the GCREFTRACER
     # can trigger a GC.  So we must write the gcrefs into the raw
     # array only afterwards...
@@ -39,3 +39,11 @@ def make_gcref_tracer(array_base_addr, gcrefs):
     llop.gc_writebarrier(lltype.Void, tr)
     # --no GC until here--
     return tr
+
+def make_boehm_tracer(array_base_addr, gcrefs):
+    # copy the addresses, but return 'gcrefs' as the object that must be
+    # kept alive
+    for i in range(len(gcrefs)):
+        p = rffi.cast(rffi.SIGNEDP, array_base_addr + i * WORD)
+        p[0] = rffi.cast(lltype.Signed, gcrefs[i])
+    return gcrefs

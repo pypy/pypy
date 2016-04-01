@@ -251,7 +251,7 @@ class AbstractLLCPU(AbstractCPU):
         if tracers is not None:
             compiled_loop_token.asmmemmgr_gcreftracers = None
             for tracer in tracers:
-                tracer.array_length = 0
+                self.gc_ll_descr.clear_gcref_tracer(tracer)
         # then free all blocks of code and raw data
         blocks = compiled_loop_token.asmmemmgr_blocks
         if blocks is not None:

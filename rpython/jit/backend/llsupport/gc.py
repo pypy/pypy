@@ -345,6 +345,13 @@ class GcLLDescr_boehm(GcLLDescription):
                                  arraydescr.itemsize,
                                  arraydescr.lendescr.offset)
 
+    def make_gcref_tracer(self, array_base_addr, gcrefs):
+        from rpython.jit.backend.llsupport import gcreftracer
+        return gcreftracer.make_boehm_tracer(array_base_addr, gcrefs)
+
+    def clear_gcref_tracer(self, tracer):
+        pass    # nothing needed
+
 # ____________________________________________________________
 # All code below is for the hybrid or minimark GC
 
@@ -754,6 +761,13 @@ class GcLLDescr_framework(GcLLDescription):
         p = base_type_info + (typeid << shift_by) + infobits_offset
         p = rffi.cast(rffi.CCHARP, p)
         return (ord(p[0]) & IS_OBJECT_FLAG) != 0
+
+    def make_gcref_tracer(self, array_base_addr, gcrefs):
+        from rpython.jit.backend.llsupport import gcreftracer
+        return gcreftracer.make_framework_tracer(array_base_addr, gcrefs)
+
+    def clear_gcref_tracer(self, tracer):
+        tracer.array_length = 0
 
 # ____________________________________________________________
 

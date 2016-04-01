@@ -2,7 +2,7 @@ import sys
 import os
 import py
 
-from rpython.jit.backend.llsupport import symbolic, jitframe, rewrite, gcreftracer
+from rpython.jit.backend.llsupport import symbolic, jitframe, rewrite
 from rpython.jit.backend.llsupport.assembler import (GuardToken, BaseAssembler,
                                                 DEBUG_COUNTER)
 from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
@@ -702,7 +702,8 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             # the gc table was already allocated by reserve_gcref_table()
             rawstart = self.gc_table_addr
         #
-        tracer = gcreftracer.make_gcref_tracer(rawstart, self._allgcrefs)
+        tracer = self.cpu.gc_ll_descr.make_gcref_tracer(rawstart,
+                                                        self._allgcrefs)
         gcreftracers = self.get_asmmemmgr_gcreftracers(looptoken)
         gcreftracers.append(tracer)    # keepalive
         self.teardown_gcrefs_list()
