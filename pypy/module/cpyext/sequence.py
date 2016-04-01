@@ -321,16 +321,16 @@ class CPyListStrategy(ListStrategy):
         raise NotImplementedError
 
     def getitems_bytes(self, w_list):
-        raise NotImplementedError
+        return None
 
     def getitems_unicode(self, w_list):
-        raise NotImplementedError
+        return None
 
     def getitems_int(self, w_list):
-        raise NotImplementedError
+        return None
 
     def getitems_float(self, w_list):
-        raise NotImplementedError
+        return None
 
     def getstorage_copy(self, w_list):
         raise NotImplementedError
