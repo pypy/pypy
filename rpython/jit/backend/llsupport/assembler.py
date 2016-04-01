@@ -352,7 +352,7 @@ class BaseAssembler(object):
         self.loop_run_counters.append(struct)
         return struct
 
-    def finish_once(self):
+    def finish_once(self, jitlog):
         if self._debug:
             debug_start('jit-backend-counts')
             for i in range(len(self.loop_run_counters)):
@@ -371,6 +371,11 @@ class BaseAssembler(object):
                         prefix = 'entry %s' % num
                 debug_print(prefix + ':' + str(struct.i))
             debug_stop('jit-backend-counts')
+
+        if jitlog:
+            # this is always called, the jitlog knows if it is enabled
+            for i, struct in enumerate(self.loop_run_counters):
+                jitlog.log_jit_counter(struct)
 
     @staticmethod
     @rgc.no_collect

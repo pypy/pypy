@@ -64,7 +64,7 @@ def setup():
     jitlog_write_marked = rffi.llexternal("jitlog_write_marked",
                                   [rffi.INT, rffi.CCHARP, rffi.INT],
                                   lltype.Void, compilation_info=eci)
-    jitlog_filter = rffi.llexternal("jitlog_filter", [rffi.INT], rffi.INT,
+    jitlog_enabled = rffi.llexternal("jitlog_enabled", [], rffi.INT,
                                     compilation_info=eci)
     jitlog_teardown = rffi.llexternal("jitlog_teardown", [], lltype.Void,
                                       compilation_info=eci)

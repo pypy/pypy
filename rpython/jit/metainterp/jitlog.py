@@ -3,7 +3,7 @@ from rpython.jit.metainterp import resoperation as resoperations
 from rpython.jit.metainterp.history import ConstInt, ConstFloat
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
-from rpython.rlib.objectmodel import compute_unique_id
+from rpython.rlib.objectmodel import compute_unique_id, always_inline
 import sys
 import weakref
 
@@ -25,7 +25,41 @@ MARK_TRACE_ASM = 0x18
 # the machine code was patched (e.g. guard)
 MARK_STITCH_BRIDGE = 0x19
 
+MARK_JIT_LOOP_COUNTER = 0x20
+MARK_JIT_BRIDGE_COUNTER = 0x21
+MARK_JIT_ENTRY_COUNTER = 0x22
+
 IS_32_BIT = sys.maxint == 2**31-1
+
+@always_inline
+def encode_str(string):
+    return encode_le_32bit(len(string)) + string
+
+@always_inline
+def encode_le_16bit(val):
+    return chr((val >> 0) & 0xff) + chr((val >> 8) & 0xff)
+
+@always_inline
+def encode_le_32bit(val):
+    return ''.join([chr((val >> 0) & 0xff),
+                    chr((val >> 8) & 0xff),
+                    chr((val >> 16) & 0xff),
+                    chr((val >> 24) & 0xff)])
+
+@always_inline
+def encode_le_addr(val):
+    if IS_32_BIT:
+        return encode_be_32bit(val)
+    else:
+        return ''.join([chr((val >> 0) & 0xff),
+                        chr((val >> 8) & 0xff),
+                        chr((val >> 16) & 0xff),
+                        chr((val >> 24) & 0xff),
+                        chr((val >> 32) & 0xff),
+                        chr((val >> 40) & 0xff),
+                        chr((val >> 48) & 0xff),
+                        chr((val >> 56)& 0xff)])
+
 
 class VMProfJitLogger(object):
 
@@ -37,24 +71,40 @@ class VMProfJitLogger(object):
     def setup_once(self):
         self.is_setup = True
         self.cintf.jitlog_try_init_using_env()
-        if self.cintf.jitlog_filter(0x0):
+        if not self.cintf.jitlog_enabled():
             return
         count = len(resoperations.opname)
         mark = MARK_RESOP_META
         for opnum, opname in resoperations.opname.items():
-            line = self.encode_le_16bit(opnum) + self.encode_str(opname.lower())
-            self.write_marked(mark, line)
+            line = encode_le_16bit(opnum) + encode_str(opname.lower())
+            self._write_marked(mark, line)
 
     def teardown(self):
         self.cintf.jitlog_teardown()
 
-    def write_marked(self, mark, line):
+    def _write_marked(self, mark, line):
+        if not we_are_translated():
+            assert self.cintf.jitlog_enabled()
         if not self.is_setup:
             self.setup_once()
         self.cintf.jitlog_write_marked(mark, line, len(line))
 
+    def log_jit_counter(self, struct):
+        if not self.cintf.jitlog_enabled():
+            return EMPTY_TRACE_LOG
+        le_addr = encode_le_addr(struct.number)
+        # not an address (but a number) but it is a machine word
+        le_count = encode_le_addr(struct.i)
+        if struct.type == 'l':
+            tag = MARK_JIT_LOOP_COUNTER
+        elif struct.type == 'b':
+            tag = MARK_JIT_BRIDGE_COUNTER
+        else:
+            tag = MARK_JIT_ENTRY_COUNTER
+        self._write_marked(tag, le_addr + le_count)
+
     def log_trace(self, tag, metainterp_sd, mc, memo=None):
-        if self.cintf.jitlog_filter(tag):
+        if not self.cintf.jitlog_enabled():
             return EMPTY_TRACE_LOG
         assert isinstance(tag, int)
         if memo is None:
@@ -62,37 +112,12 @@ class VMProfJitLogger(object):
         return LogTrace(tag, memo, metainterp_sd, mc, self)
 
     def log_patch_guard(self, descr_number, addr):
-        if self.cintf.jitlog_filter(MARK_STITCH_BRIDGE):
+        if not self.cintf.jitlog_enabled():
             return
-        le_descr_number = self.encode_le_addr(descr_number)
-        le_addr = self.encode_le_addr(addr)
+        le_descr_number = encode_le_addr(descr_number)
+        le_addr = encode_le_addr(addr)
         lst = [le_descr_number, le_addr]
-        self.write_marked(MARK_STITCH_BRIDGE, ''.join(lst))
-
-    def encode_str(self, string):
-        return self.encode_le_32bit(len(string)) + string
-
-    def encode_le_16bit(self, val):
-        return chr((val >> 0) & 0xff) + chr((val >> 8) & 0xff)
-
-    def encode_le_32bit(self, val):
-        return ''.join([chr((val >> 0) & 0xff),
-                        chr((val >> 8) & 0xff),
-                        chr((val >> 16) & 0xff),
-                        chr((val >> 24) & 0xff)])
-
-    def encode_le_addr(self,val):
-        if IS_32_BIT:
-            return encode_be_32bit(val)
-        else:
-            return ''.join([chr((val >> 0) & 0xff),
-                            chr((val >> 8) & 0xff),
-                            chr((val >> 16) & 0xff),
-                            chr((val >> 24) & 0xff),
-                            chr((val >> 32) & 0xff),
-                            chr((val >> 40) & 0xff),
-                            chr((val >> 48) & 0xff),
-                            chr((val >> 56)& 0xff)])
+        self._write_marked(MARK_STITCH_BRIDGE, ''.join(lst))
 
 class BaseLogTrace(object):
     def write(self, args, ops, faildescr=None, ops_offset={}, name=None, unique_id=0):
@@ -119,33 +144,33 @@ class LogTrace(BaseLogTrace):
             name = ''
         # write the initial tag
         if faildescr is None:
-            string = self.logger.encode_str('loop') + \
-                     self.logger.encode_le_addr(unique_id) + \
-                     self.logger.encode_str(name or '')
-            log.write_marked(self.tag, string)
+            string = encode_str('loop') + \
+                     encode_le_addr(unique_id) + \
+                     encode_str(name or '')
+            log._write_marked(self.tag, string)
         else:
             unique_id = compute_unique_id(faildescr)
-            string = self.logger.encode_str('bridge') + \
-                     self.logger.encode_le_addr(unique_id) + \
-                     self.logger.encode_str(name or '')
-            log.write_marked(self.tag, string)
+            string = encode_str('bridge') + \
+                     encode_le_addr(unique_id) + \
+                     encode_str(name or '')
+            log._write_marked(self.tag, string)
 
         # input args
         str_args = [self.var_to_str(arg) for arg in args]
-        string = self.logger.encode_str(','.join(str_args))
-        log.write_marked(MARK_INPUT_ARGS, string)
+        string = encode_str(','.join(str_args))
+        log._write_marked(MARK_INPUT_ARGS, string)
 
         # assembler address (to not duplicate it in write_code_dump)
         if self.mc is not None:
             absaddr = self.mc.absolute_addr()
             rel = self.mc.get_relative_pos()
             # packs <start addr> <end addr> as two unsigend longs
-            le_addr1 = self.logger.encode_le_addr(absaddr)
-            le_addr2 = self.logger.encode_le_addr(absaddr + rel)
-            log.write_marked(MARK_ASM_ADDR, le_addr1 + le_addr2)
+            le_addr1 = encode_le_addr(absaddr)
+            le_addr2 = encode_le_addr(absaddr + rel)
+            log._write_marked(MARK_ASM_ADDR, le_addr1 + le_addr2)
         for i,op in enumerate(ops):
             mark, line = self.encode_op(op)
-            log.write_marked(mark, line)
+            log._write_marked(mark, line)
             self.write_core_dump(ops, i, op, ops_offset)
 
         self.memo = {}
@@ -160,18 +185,18 @@ class LogTrace(BaseLogTrace):
         """
         str_args = [self.var_to_str(arg) for arg in op.getarglist()]
         descr = op.getdescr()
-        le_opnum = self.logger.encode_le_16bit(op.getopnum())
+        le_opnum = encode_le_16bit(op.getopnum())
         str_res = self.var_to_str(op)
         line = ','.join([str_res] + str_args)
         if descr:
             descr_str = descr.repr_of_descr()
             line = line + ',' + descr_str
-            string = self.logger.encode_str(line)
+            string = encode_str(line)
             descr_number = compute_unique_id(descr)
-            le_descr_number = self.logger.encode_le_addr(descr_number)
+            le_descr_number = encode_le_addr(descr_number)
             return MARK_RESOP_DESCR, le_opnum + string + le_descr_number
         else:
-            string = self.logger.encode_str(line)
+            string = encode_str(line)
             return MARK_RESOP, le_opnum + string
 
 
@@ -208,9 +233,9 @@ class LogTrace(BaseLogTrace):
 
         count = end_offset - start_offset
         dump = self.mc.copy_core_dump(self.mc.absolute_addr(), start_offset, count)
-        offset = self.logger.encode_le_16bit(start_offset)
-        edump = self.logger.encode_str(dump)
-        self.logger.write_marked(MARK_ASM, offset + edump)
+        offset = encode_le_16bit(start_offset)
+        edump = encode_str(dump)
+        self.logger._write_marked(MARK_ASM, offset + edump)
 
     def var_to_str(self, arg):
         try:

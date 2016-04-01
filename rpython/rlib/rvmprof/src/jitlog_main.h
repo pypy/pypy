@@ -9,9 +9,9 @@ static char * jitlog_prefix = NULL;
 static int jitlog_ready = 0;
 
 RPY_EXTERN
-int jitlog_filter(int tag)
+int jitlog_enabled()
 {
-    return 0; // TODO
+    return jitlog_ready;
 }
 
 RPY_EXTERN

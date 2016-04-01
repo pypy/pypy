@@ -11,6 +11,6 @@ RPY_EXTERN void vmprof_stack_free(void*);
 
 RPY_EXTERN char * jitlog_init(int, const char*);
 RPY_EXTERN void jitlog_try_init_using_env(void);
-RPY_EXTERN int jitlog_filter(int);
+RPY_EXTERN int jitlog_enabled();
 RPY_EXTERN void jitlog_write_marked(int, char*, int);
 RPY_EXTERN void jitlog_teardown();

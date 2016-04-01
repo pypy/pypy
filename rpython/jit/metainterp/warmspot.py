@@ -1040,7 +1040,8 @@ class WarmRunnerDesc(object):
         def finish():
             if self.metainterp_sd.profiler.initialized:
                 self.metainterp_sd.profiler.finish()
-            self.metainterp_sd.cpu.finish_once()
+            jitlog = self.metainterp_sd.jitlog
+            self.metainterp_sd.cpu.finish_once(jitlog)
 
         if self.cpu.translate_support_code:
             call_final_function(self.translator, finish,
