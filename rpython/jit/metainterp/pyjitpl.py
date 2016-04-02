@@ -475,18 +475,49 @@ class MIFrame(object):
 
     @arguments("box", "box", "descr")
     def opimpl_getarrayitem_gc_i(self, arraybox, indexbox, arraydescr):
+        if (arraydescr.is_always_pure() and
+            isinstance(arraybox, ConstPtr) and
+            isinstance(indexbox, ConstInt)):
+            # if the arguments are directly constants, bypass the heapcache
+            # completely
+            val = executor.execute(self.metainterp.cpu, self.metainterp,
+                                      rop.GETARRAYITEM_GC_I, arraydescr,
+                                      arraybox, indexbox)
+            return executor.wrap_constant(val)
         return self._do_getarrayitem_gc_any(rop.GETARRAYITEM_GC_I, arraybox,
                                             indexbox, arraydescr)
 
     @arguments("box", "box", "descr")
     def opimpl_getarrayitem_gc_r(self, arraybox, indexbox, arraydescr):
+        if (arraydescr.is_always_pure() and
+            isinstance(arraybox, ConstPtr) and
+            isinstance(indexbox, ConstInt)):
+            # if the arguments are directly constants, bypass the heapcache
+            # completely
+            val = executor.execute(self.metainterp.cpu, self.metainterp,
+                                      rop.GETARRAYITEM_GC_R, arraydescr,
+                                      arraybox, indexbox)
+            return executor.wrap_constant(val)
         return self._do_getarrayitem_gc_any(rop.GETARRAYITEM_GC_R, arraybox,
                                             indexbox, arraydescr)
 
     @arguments("box", "box", "descr")
     def opimpl_getarrayitem_gc_f(self, arraybox, indexbox, arraydescr):
+        if (arraydescr.is_always_pure() and
+            isinstance(arraybox, ConstPtr) and
+            isinstance(indexbox, ConstInt)):
+            # if the arguments are directly constants, bypass the heapcache
+            # completely
+            val = executor.execute(self.metainterp.cpu, self.metainterp,
+                                      rop.GETARRAYITEM_GC_F, arraydescr,
+                                      arraybox, indexbox)
+            return executor.wrap_constant(val)
         return self._do_getarrayitem_gc_any(rop.GETARRAYITEM_GC_F, arraybox,
                                             indexbox, arraydescr)
+
+    opimpl_getarrayitem_gc_i_pure = opimpl_getarrayitem_gc_i
+    opimpl_getarrayitem_gc_r_pure = opimpl_getarrayitem_gc_r
+    opimpl_getarrayitem_gc_f_pure = opimpl_getarrayitem_gc_f
 
     @arguments("box", "box", "descr")
     def opimpl_getarrayitem_raw_i(self, arraybox, indexbox, arraydescr):
@@ -497,42 +528,6 @@ class MIFrame(object):
     def opimpl_getarrayitem_raw_f(self, arraybox, indexbox, arraydescr):
         return self.execute_with_descr(rop.GETARRAYITEM_RAW_F,
                                        arraydescr, arraybox, indexbox)
-
-    @arguments("box", "box", "descr")
-    def opimpl_getarrayitem_gc_i_pure(self, arraybox, indexbox, arraydescr):
-        if isinstance(arraybox, ConstPtr) and isinstance(indexbox, ConstInt):
-            # if the arguments are directly constants, bypass the heapcache
-            # completely
-            val = executor.execute(self.metainterp.cpu, self.metainterp,
-                                      rop.GETARRAYITEM_GC_PURE_I, arraydescr,
-                                      arraybox, indexbox)
-            return executor.wrap_constant(val)
-        return self._do_getarrayitem_gc_any(rop.GETARRAYITEM_GC_PURE_I,
-                                            arraybox, indexbox, arraydescr)
-
-    @arguments("box", "box", "descr")
-    def opimpl_getarrayitem_gc_f_pure(self, arraybox, indexbox, arraydescr):
-        if isinstance(arraybox, ConstPtr) and isinstance(indexbox, ConstInt):
-            # if the arguments are directly constants, bypass the heapcache
-            # completely
-            resval = executor.execute(self.metainterp.cpu, self.metainterp,
-                                      rop.GETARRAYITEM_GC_PURE_F, arraydescr,
-                                      arraybox, indexbox)
-            return executor.wrap_constant(resval)
-        return self._do_getarrayitem_gc_any(rop.GETARRAYITEM_GC_PURE_F,
-                                            arraybox, indexbox, arraydescr)
-
-    @arguments("box", "box", "descr")
-    def opimpl_getarrayitem_gc_r_pure(self, arraybox, indexbox, arraydescr):
-        if isinstance(arraybox, ConstPtr) and isinstance(indexbox, ConstInt):
-            # if the arguments are directly constants, bypass the heapcache
-            # completely
-            val = executor.execute(self.metainterp.cpu, self.metainterp,
-                                      rop.GETARRAYITEM_GC_PURE_R, arraydescr,
-                                      arraybox, indexbox)
-            return executor.wrap_constant(val)
-        return self._do_getarrayitem_gc_any(rop.GETARRAYITEM_GC_PURE_R,
-                                            arraybox, indexbox, arraydescr)
 
     @arguments("box", "box", "box", "descr")
     def _opimpl_setarrayitem_gc_any(self, arraybox, indexbox, itembox,

@@ -1052,7 +1052,7 @@ _oplist = [
     'ARRAYLEN_GC/1d/i',
     'STRLEN/1/i',
     'STRGETITEM/2/i',
-    'GETARRAYITEM_GC_PURE/2d/rfi',
+    # 'GETARRAYITEM_GC_PURE/2d/rfi',
     'UNICODELEN/1/i',
     'UNICODEGETITEM/2/i',
     #
@@ -1356,6 +1356,10 @@ class rop(object):
             opnum == rop.GETFIELD_GC_I or
             opnum == rop.GETFIELD_GC_R or
             opnum == rop.GETFIELD_GC_F or
+            opnum == rop.GETARRAYITEM_GC_I or
+            opnum == rop.GETARRAYITEM_GC_R or
+            opnum == rop.GETARRAYITEM_GC_F or
+            opnum == rop.ARRAYLEN_GC or
             opnum == rop.GETARRAYITEM_RAW_I or
             opnum == rop.GETARRAYITEM_RAW_F):
             return descr.is_always_pure()

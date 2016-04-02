@@ -360,7 +360,7 @@ def get_array_descr(gccache, ARRAY_OR_STRUCT):
         else:
             lendescr = get_field_arraylen_descr(gccache, ARRAY_OR_STRUCT)
         flag = get_type_flag(ARRAY_INSIDE.OF)
-        is_pure = bool(ARRAY_INSIDE._immutable_field(None))
+        is_pure = ARRAY_INSIDE._immutable_field(None) != False
         arraydescr = ArrayDescr(basesize, itemsize, lendescr, flag, is_pure)
         if ARRAY_INSIDE.OF is lltype.SingleFloat or \
            ARRAY_INSIDE.OF is lltype.Float:
