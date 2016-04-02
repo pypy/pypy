@@ -247,6 +247,14 @@ class GcLLDescription(GcCache):
         """
         return jitframe.JITFRAME.allocate(frame_info)
 
+    def make_gcref_tracer(self, array_base_addr, gcrefs):
+        # for tests, or for Boehm.  Overridden for framework GCs
+        from rpython.jit.backend.llsupport import gcreftracer
+        return gcreftracer.make_boehm_tracer(array_base_addr, gcrefs)
+
+    def clear_gcref_tracer(self, tracer):
+        pass    # nothing needed unless overridden
+
 class JitFrameDescrs:
     def _freeze_(self):
         return True
@@ -344,13 +352,6 @@ class GcLLDescr_boehm(GcLLDescription):
         return self.malloc_array(arraydescr.basesize, num_elem,
                                  arraydescr.itemsize,
                                  arraydescr.lendescr.offset)
-
-    def make_gcref_tracer(self, array_base_addr, gcrefs):
-        from rpython.jit.backend.llsupport import gcreftracer
-        return gcreftracer.make_boehm_tracer(array_base_addr, gcrefs)
-
-    def clear_gcref_tracer(self, tracer):
-        pass    # nothing needed
 
 # ____________________________________________________________
 # All code below is for the hybrid or minimark GC

@@ -1368,6 +1368,37 @@ class TestFramework(RewriteTests):
         """)
         assert self.gcrefs == [self.myR1, self.myR1b]
 
+    def test_pinned_simple_getfield(self):
+        # originally in test_pinned_object_rewrite; now should give the
+        # same result for pinned objects and for normal objects
+        self.check_rewrite("""
+            []
+            i0 = getfield_gc_i(ConstPtr(myR1), descr=xdescr)
+        """, """
+            []
+            p1 = load_from_gc_table(0)
+            i0 = gc_load_i(p1, %(xdescr.offset)s, -%(xdescr.field_size)s)
+        """)
+        assert self.gcrefs == [self.myR1]
+
+    def test_pinned_simple_getfield_twice(self):
+        # originally in test_pinned_object_rewrite; now should give the
+        # same result for pinned objects and for normal objects
+        self.check_rewrite("""
+            []
+            i0 = getfield_gc_i(ConstPtr(myR1), descr=xdescr)
+            i1 = getfield_gc_i(ConstPtr(myR1b), descr=xdescr)
+            i2 = getfield_gc_i(ConstPtr(myR1), descr=xdescr)
+        """, """
+            []
+            p1 = load_from_gc_table(0)
+            i0 = gc_load_i(p1, %(xdescr.offset)s, -%(xdescr.field_size)s)
+            p2 = load_from_gc_table(1)
+            i1 = gc_load_i(p2, %(xdescr.offset)s, -%(xdescr.field_size)s)
+            i2 = gc_load_i(p1, %(xdescr.offset)s, -%(xdescr.field_size)s)
+        """)
+        assert self.gcrefs == [self.myR1, self.myR1b]
+
     def test_guard_in_gcref(self):
         self.check_rewrite("""
             [i1, i2]
