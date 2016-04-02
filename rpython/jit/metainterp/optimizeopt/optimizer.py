@@ -757,24 +757,20 @@ class Optimizer(Optimization):
         check at all, but then we don't unroll in that case.
         """
         opnum = op.getopnum()
+        descr = op.getdescr()
         cpu = self.cpu
 
-        if OpHelpers.is_pure_getfield(opnum, op.getdescr()):
-            fielddescr = op.getdescr()
+        if OpHelpers.is_pure_getfield(opnum, descr):
             ref = self.get_constant_box(op.getarg(0)).getref_base()
-            cpu.protect_speculative_field(ref, fielddescr)
+            cpu.protect_speculative_field(ref, descr)
             return
 
-        elif (opnum == rop.GETARRAYITEM_GC_PURE_I or
-              opnum == rop.GETARRAYITEM_GC_PURE_R or
-              opnum == rop.GETARRAYITEM_GC_PURE_F or
-              opnum == rop.ARRAYLEN_GC):
-            arraydescr = op.getdescr()
+        elif OpHelpers.is_pure_getarrayitem(opnum, descr):
             array = self.get_constant_box(op.getarg(0)).getref_base()
-            cpu.protect_speculative_array(array, arraydescr)
+            cpu.protect_speculative_array(array, descr)
             if opnum == rop.ARRAYLEN_GC:
                 return
-            arraylength = cpu.bh_arraylen_gc(array, arraydescr)
+            arraylength = cpu.bh_arraylen_gc(array, descr)
 
         elif (opnum == rop.STRGETITEM or
               opnum == rop.STRLEN):

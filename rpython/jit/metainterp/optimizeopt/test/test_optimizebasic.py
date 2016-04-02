@@ -5403,15 +5403,15 @@ class BaseTestOptimizeBasic(BaseTestBasic):
     def test_getarrayitem_gc_pure_not_invalidated(self):
         ops = """
         [p0]
-        i1 = getarrayitem_gc_pure_i(p0, 1, descr=arrayimmutdescr)
+        i1 = getarrayitem_gc_i(p0, 1, descr=arrayimmutdescr)
         escape_n(p0)
-        i2 = getarrayitem_gc_pure_i(p0, 1, descr=arrayimmutdescr)
+        i2 = getarrayitem_gc_i(p0, 1, descr=arrayimmutdescr)
         escape_n(i2)
         jump(p0)
         """
         expected = """
         [p0]
-        i1 = getarrayitem_gc_pure_i(p0, 1, descr=arrayimmutdescr)
+        i1 = getarrayitem_gc_i(p0, 1, descr=arrayimmutdescr)
         escape_n(p0)
         escape_n(i1)
         jump(p0)

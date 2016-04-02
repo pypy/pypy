@@ -1281,14 +1281,6 @@ class rop(object):
         return rop.GETFIELD_GC_I
 
     @staticmethod
-    def getarrayitem_pure_for_descr(descr):
-        if descr.is_array_of_pointers():
-            return rop.GETARRAYITEM_GC_PURE_R
-        elif descr.is_array_of_floats():
-            return rop.GETARRAYITEM_GC_PURE_F
-        return rop.GETARRAYITEM_GC_PURE_I
-
-    @staticmethod
     def getarrayitem_for_descr(descr):
         if descr.is_array_of_pointers():
             return rop.GETARRAYITEM_GC_R
@@ -1368,8 +1360,25 @@ class rop(object):
     @staticmethod
     def is_pure_getfield(opnum, descr):
         if (opnum == rop.GETFIELD_GC_I or
-            opnum == rop.GETFIELD_GC_F or
-            opnum == rop.GETFIELD_GC_R):
+            opnum == rop.GETFIELD_GC_R or
+            opnum == rop.GETFIELD_GC_F):
+            return descr is not None and descr.is_always_pure()
+        return False
+
+    @staticmethod
+    def is_pure_getarrayitem(opnum, descr):
+        if (opnum == rop.GETARRAYITEM_GC_I or
+            opnum == rop.GETARRAYITEM_GC_R or
+            opnum == rop.GETARRAYITEM_GC_F):
+            return descr is not None and descr.is_always_pure()
+        return False
+
+    @staticmethod
+    def is_pure_arrayref(opnum, descr):
+        if (opnum == rop.GETARRAYITEM_GC_I or
+            opnum == rop.GETARRAYITEM_GC_R or
+            opnum == rop.GETARRAYITEM_GC_F or
+            opnum == rop.ARRAYLEN_GC):
             return descr is not None and descr.is_always_pure()
         return False
 
@@ -1401,10 +1410,7 @@ class rop(object):
 
     @staticmethod
     def is_getarrayitem(opnum):
-        return opnum in (rop.GETARRAYITEM_GC_I, rop.GETARRAYITEM_GC_F,
-                         rop.GETARRAYITEM_GC_R, rop.GETARRAYITEM_GC_PURE_I,
-                         rop.GETARRAYITEM_GC_PURE_F,
-                         rop.GETARRAYITEM_GC_PURE_R)
+        return opnum in (rop.GETARRAYITEM_GC_I, rop.GETARRAYITEM_GC_F, rop.GETARRAYITEM_GC_R)
 
     @staticmethod
     def is_real_call(opnum):
@@ -1721,10 +1727,6 @@ _opvector = {
     rop.GETARRAYITEM_RAW_F: rop.VEC_GETARRAYITEM_RAW_F,
     rop.GETARRAYITEM_GC_I: rop.VEC_GETARRAYITEM_GC_I,
     rop.GETARRAYITEM_GC_F: rop.VEC_GETARRAYITEM_GC_F,
-    # note that there is no _PURE operation for vector operations.
-    # reason: currently we do not care if it is pure or not!
-    rop.GETARRAYITEM_GC_PURE_I: rop.VEC_GETARRAYITEM_GC_I,
-    rop.GETARRAYITEM_GC_PURE_F: rop.VEC_GETARRAYITEM_GC_F,
     rop.RAW_STORE:        rop.VEC_RAW_STORE,
     rop.SETARRAYITEM_RAW: rop.VEC_SETARRAYITEM_RAW,
     rop.SETARRAYITEM_GC: rop.VEC_SETARRAYITEM_GC,

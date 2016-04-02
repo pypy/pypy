@@ -7869,7 +7869,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_loopinvariant_getarrayitem_gc_pure(self):
         ops = """
         [p9, i1]
-        i843 = getarrayitem_gc_pure_i(p9, i1, descr=arrayimmutdescr)
+        i843 = getarrayitem_gc_i(p9, i1, descr=arrayimmutdescr)
         call_n(i843, descr=nonwritedescr)
         jump(p9, i1)
         """
@@ -8873,7 +8873,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ptemp = new_with_vtable(descr=nodesize)
         setfield_gc(ptemp, p1, descr=nextdescr)
         p2 = getfield_gc_r(ptemp, descr=nextdescr)
-        ix = getarrayitem_gc_pure_i(p2, 0, descr=arrayimmutdescr)
+        ix = getarrayitem_gc_i(p2, 0, descr=arrayimmutdescr)
         pfoo = getfield_gc_r(ptemp, descr=nextdescr)
         guard_value(pfoo, ConstPtr(immutarray)) []
         ifoo = int_add(ix, 13)
@@ -8905,7 +8905,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_constant_float_pure(self):
         ops = """
         [p0]
-        f0 = getarrayitem_gc_pure_f(p0, 3, descr=floatarrayimmutdescr)
+        f0 = getarrayitem_gc_f(p0, 3, descr=floatarrayimmutdescr)
         guard_value(f0, 1.03) []
         jump(p0)
         """
@@ -9141,7 +9141,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [p0, i1]
         i2 = int_gt(i1, 0)
         guard_true(i2) []
-        getarrayitem_gc_pure_i(p0, 5, descr=arraydescr)
+        getarrayitem_gc_i(p0, 5, descr=arrayimmutdescr)
         i3 = int_sub(i1, 1)
         jump(NULL, i3)
         """
@@ -9152,7 +9152,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [p0, i1]
         i2 = int_gt(i1, 0)
         guard_true(i2) []
-        getarrayitem_gc_pure_i(p0, 5, descr=arraydescr)
+        getarrayitem_gc_i(p0, 5, descr=arrayimmutdescr)
         i3 = int_sub(i1, 1)
         jump(ConstPtr(myptr3), i3)
         """
@@ -9163,7 +9163,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [p0, i1]
         i2 = int_gt(i1, 0)
         guard_true(i2) []
-        getarrayitem_gc_pure_i(p0, 125, descr=arraydescr)
+        getarrayitem_gc_i(p0, 125, descr=arrayimmutdescr)
         i3 = int_sub(i1, 1)
         jump(ConstPtr(arrayref), i3)     # too short, length < 126!
         """
@@ -9174,7 +9174,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [i0, i1]
         i2 = int_gt(i1, 0)
         guard_true(i2) []
-        getarrayitem_gc_pure_i(ConstPtr(arrayref), i0, descr=arraydescr)
+        getarrayitem_gc_i(ConstPtr(arrayref), i0, descr=arrayimmutdescr)
         i3 = int_sub(i1, 1)
         jump(125, i3)     # arrayref is too short, length < 126!
         """
@@ -9185,7 +9185,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [i0, i1]
         i2 = int_gt(i1, 0)
         guard_true(i2) []
-        getarrayitem_gc_pure_i(ConstPtr(arrayref), i0, descr=arraydescr)
+        getarrayitem_gc_i(ConstPtr(arrayref), i0, descr=arrayimmutdescr)
         i3 = int_sub(i1, 1)
         jump(-1, i3)     # cannot access array item -1!
         """

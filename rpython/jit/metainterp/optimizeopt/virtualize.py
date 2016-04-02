@@ -286,12 +286,6 @@ class OptVirtualize(optimizer.Optimization):
     optimize_GETARRAYITEM_GC_R = optimize_GETARRAYITEM_GC_I
     optimize_GETARRAYITEM_GC_F = optimize_GETARRAYITEM_GC_I
 
-    # note: the following line does not mean that the two operations are
-    # completely equivalent, because GETARRAYITEM_GC_PURE is_always_pure().
-    optimize_GETARRAYITEM_GC_PURE_I = optimize_GETARRAYITEM_GC_I
-    optimize_GETARRAYITEM_GC_PURE_R = optimize_GETARRAYITEM_GC_I
-    optimize_GETARRAYITEM_GC_PURE_F = optimize_GETARRAYITEM_GC_I
-
     def optimize_SETARRAYITEM_GC(self, op):
         opinfo = self.getptrinfo(op.getarg(0))
         if opinfo and opinfo.is_virtual():
