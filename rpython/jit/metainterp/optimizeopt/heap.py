@@ -447,6 +447,8 @@ class OptHeap(Optimization):
                 pass
             self.force_lazy_set(fielddescr, can_cache=False)
         for arraydescr in effectinfo.write_descrs_arrays:
+            if arraydescr.is_always_pure():
+                continue
             self.force_lazy_setarrayitem(arraydescr, can_cache=False)
             if arraydescr in self.corresponding_array_descrs:
                 dictdescr = self.corresponding_array_descrs.pop(arraydescr)
@@ -552,10 +554,7 @@ class OptHeap(Optimization):
         cf.do_setfield(self, op)
 
     def optimize_GETARRAYITEM_GC_I(self, op):
-        arrayinfo = self.ensure_ptr_info_arg0(op)
-        indexb = self.getintbound(op.getarg(1))
         arraydescr = op.getdescr()
-
         if (arraydescr.is_always_pure() and
             self.get_constant_box(op.getarg(0)) is not None and
             self.get_constant_box(op.getarg(1)) is not None):
@@ -563,6 +562,8 @@ class OptHeap(Optimization):
             self.optimizer.make_constant(op, resbox)
             return
 
+        arrayinfo = self.ensure_ptr_info_arg0(op)
+        indexb = self.getintbound(op.getarg(1))
         cf = None
         if indexb.is_constant():
             index = indexb.getint()
