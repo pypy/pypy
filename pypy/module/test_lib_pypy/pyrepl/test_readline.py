@@ -1,7 +1,8 @@
 import pytest
 
 
-@pytest.mark.skipif("os.name != 'posix' or 'darwin' in sys.platform")
+@pytest.mark.skipif("os.name != 'posix' or 'darwin' in sys.platform or "
+                    "'kfreebsd' in sys.platform")
 def test_raw_input():
     import os
     import pty

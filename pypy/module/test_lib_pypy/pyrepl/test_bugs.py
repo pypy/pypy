@@ -46,7 +46,8 @@ def test_cmd_instantiation_crash():
     read_spec(spec, HistoricalTestReader)
 
 
-@pytest.mark.skipif("os.name != 'posix' or 'darwin' in sys.platform")
+@pytest.mark.skipif("os.name != 'posix' or 'darwin' in sys.platform or "
+                    "'kfreebsd' in sys.platform")
 def test_signal_failure(monkeypatch):
     import os
     import pty
