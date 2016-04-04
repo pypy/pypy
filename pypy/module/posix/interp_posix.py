@@ -744,35 +744,56 @@ else:
             raise wrap_oserror(space, e)
 
 
-@unwrap_spec(w_dirname=WrappedDefault(u"."))
-def listdir(space, w_dirname):
-    """Return a list containing the names of the entries in the directory.
+@unwrap_spec(w_path=WrappedDefault(u"."))
+def listdir(space, w_path):
+    """listdir(path='.') -> list_of_filenames
 
-\tpath: path of directory to list
-
+Return a list containing the names of the files in the directory.
 The list is in arbitrary order.  It does not include the special
-entries '.' and '..' even if they are present in the directory."""
+entries '.' and '..' even if they are present in the directory.
+
+path can be specified as either str or bytes.  If path is bytes,
+  the filenames returned will also be bytes; in all other circumstances
+  the filenames returned will be str.
+On some platforms, path may also be specified as an open file descriptor;
+  the file descriptor must refer to a directory.
+  If this functionality is unavailable, using it raises NotImplementedError."""
+    if space.isinstance_w(w_path, space.w_bytes):
+        dirname = space.str0_w(w_path)
+        try:
+            result = rposix.listdir(dirname)
+        except OSError as e:
+            raise wrap_oserror2(space, e, w_path)
+        return space.newlist_bytes(result)
     try:
-        if space.isinstance_w(w_dirname, space.w_unicode):
-            dirname = FileEncoder(space, w_dirname)
+        path = space.fsencode_w(w_path)
+    except OperationError as operr:
+        if not rposix.HAVE_FDOPENDIR:
+            raise oefmt(space.w_TypeError,
+                "listdir: illegal type for path argument")
+        if not space.isinstance_w(w_path, space.w_int):
+            raise oefmt(space.w_TypeError,
+                "argument should be string, bytes or integer, not %T", w_path)
+        fd = unwrap_fd(space, w_path)
+        try:
+            result = rposix.fdlistdir(fd)
+        except OSError as e:
+            raise wrap_oserror2(space, e, w_path)
+    else:
+        dirname = FileEncoder(space, w_path)
+        try:
             result = rposix.listdir(dirname)
-            len_result = len(result)
-            result_w = [None] * len_result
-            for i in range(len_result):
-                if _WIN32:
-                    result_w[i] = space.wrap(result[i])
-                else:
-                    w_bytes = space.wrapbytes(result[i])
-                    result_w[i] = space.fsdecode(w_bytes)
-            return space.newlist(result_w)
+        except OSError as e:
+            raise wrap_oserror2(space, e, w_path)
+    len_result = len(result)
+    result_w = [None] * len_result
+    for i in range(len_result):
+        if _WIN32:
+            result_w[i] = space.wrap(result[i])
         else:
-            dirname = space.str0_w(w_dirname)
-            result = rposix.listdir(dirname)
-            # The list comprehension is a workaround for an obscure translation
-            # bug.
-            return space.newlist_bytes([x for x in result])
-    except OSError, e:
-        raise wrap_oserror2(space, e, w_dirname)
+            w_bytes = space.wrapbytes(result[i])
+            result_w[i] = space.fsdecode(w_bytes)
+    return space.newlist(result_w)
 
 def pipe(space):
     "Create a pipe.  Returns (read_end, write_end)."
