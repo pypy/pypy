@@ -18,7 +18,7 @@
 # CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 from pyrepl.historical_reader import HistoricalReader
-from .infrastructure import EA, BaseTestReader, read_spec
+from .infrastructure import EA, BaseTestReader, sane_term, read_spec
 
 # this test case should contain as-verbatim-as-possible versions of
 # (applicable) bug reports
@@ -62,13 +62,14 @@ def test_signal_failure(monkeypatch):
 
     mfd, sfd = pty.openpty()
     try:
-        c = UnixConsole(sfd, sfd)
-        c.prepare()
-        c.restore()
-        monkeypatch.setattr(signal, 'signal', failing_signal)
-        c.prepare()
-        monkeypatch.setattr(signal, 'signal', really_failing_signal)
-        c.restore()
+        with sane_term():
+            c = UnixConsole(sfd, sfd)
+            c.prepare()
+            c.restore()
+            monkeypatch.setattr(signal, 'signal', failing_signal)
+            c.prepare()
+            monkeypatch.setattr(signal, 'signal', really_failing_signal)
+            c.restore()
     finally:
         os.close(mfd)
         os.close(sfd)
