@@ -1,5 +1,6 @@
-
+import py
 from rpython.jit.metainterp.opencoder import Trace, untag, TAGINT, TAGBOX
+from rpython.jit.metainterp.opencoder import FrontendTagOverflow
 from rpython.jit.metainterp.resoperation import rop, AbstractResOp
 from rpython.jit.metainterp.history import ConstInt, IntFrontendOp
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer
@@ -204,3 +205,9 @@ class TestOpencoder(object):
         t.record_op(rop.ESCAPE_N, [ConstInt(3)])
         t.record_op(rop.FINISH, [i4])
         assert t.get_dead_ranges() == [0, 0, 0, 0, 0, 3, 4, 5]
+
+    def test_tag_overflow(self):
+        t = Trace([], metainterp_sd)
+        i0 = FakeOp(100000)
+        py.test.raises(FrontendTagOverflow, t.record_op, rop.FINISH, [i0])
+        assert t.unpack() == ([], [])
