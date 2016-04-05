@@ -690,7 +690,7 @@ class History(object):
 
         self.trace = Trace(inpargs, metainterp_sd)
         self.inputargs = inpargs
-        if self._cache:
+        if self._cache is not None:
             # hack to record the ops *after* we know our inputargs
             for (opnum, argboxes, op, descr) in self._cache:
                 pos = self.trace.record_op(opnum, argboxes, descr)
