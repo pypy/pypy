@@ -1752,17 +1752,6 @@ class CConfig:
                   'unistd.h',
                   'fcntl.h'],
     )
-    AT_FDCWD = rffi_platform.DefinedConstantInteger('AT_FDCWD')
-    AT_SYMLINK_NOFOLLOW = rffi_platform.DefinedConstantInteger('AT_SYMLINK_NOFOLLOW')
-    AT_EACCESS = rffi_platform.DefinedConstantInteger('AT_EACCESS')
-    AT_REMOVEDIR = rffi_platform.DefinedConstantInteger('AT_REMOVEDIR')
-    AT_EMPTY_PATH = rffi_platform.DefinedConstantInteger('AT_EMPTY_PATH')
-    UTIME_NOW = rffi_platform.DefinedConstantInteger('UTIME_NOW')
-    UTIME_OMIT = rffi_platform.DefinedConstantInteger('UTIME_OMIT')
-    TIMESPEC = rffi_platform.Struct('struct timespec', [
-        ('tv_sec', rffi.TIME_T),
-        ('tv_nsec', rffi.LONG)])
-
     for _name in """faccessat fchdir fchmod fchmodat fchown fchownat fexecve
             fdopendir fpathconf fstat fstatat fstatvfs ftruncate
             futimens futimes futimesat linkat chflags lchflags lchmod lchown
@@ -1771,7 +1760,28 @@ class CConfig:
         locals()['HAVE_%s' % _name.upper()] = rffi_platform.Has(_name)
 cConfig = rffi_platform.configure(CConfig)
 globals().update(cConfig)
-TIMESPEC2P = rffi.CArrayPtr(TIMESPEC)
+
+if not _WIN32:
+    class CConfig:
+        _compilation_info_ = ExternalCompilationInfo(
+            includes=['sys/stat.h',
+                    'unistd.h',
+                    'fcntl.h'],
+        )
+        AT_FDCWD = rffi_platform.DefinedConstantInteger('AT_FDCWD')
+        AT_SYMLINK_NOFOLLOW = rffi_platform.DefinedConstantInteger('AT_SYMLINK_NOFOLLOW')
+        AT_EACCESS = rffi_platform.DefinedConstantInteger('AT_EACCESS')
+        AT_REMOVEDIR = rffi_platform.DefinedConstantInteger('AT_REMOVEDIR')
+        AT_EMPTY_PATH = rffi_platform.DefinedConstantInteger('AT_EMPTY_PATH')
+        UTIME_NOW = rffi_platform.DefinedConstantInteger('UTIME_NOW')
+        UTIME_OMIT = rffi_platform.DefinedConstantInteger('UTIME_OMIT')
+        TIMESPEC = rffi_platform.Struct('struct timespec', [
+            ('tv_sec', rffi.TIME_T),
+            ('tv_nsec', rffi.LONG)])
+
+    cConfig = rffi_platform.configure(CConfig)
+    globals().update(cConfig)
+    TIMESPEC2P = rffi.CArrayPtr(TIMESPEC)
 
 if HAVE_FACCESSAT:
     c_faccessat = external('faccessat',
