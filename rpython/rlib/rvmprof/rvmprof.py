@@ -96,7 +96,6 @@ class VMProf(object):
                     uid = code._vmprof_unique_id
                     if uid != 0:
                         self._write_code_registration(uid, full_name_func(code))
-                    self._write_code_registration(uid, full_name_func(code))
             prev()
         # make a chained list of the gather() functions for all
         # the types of code objects

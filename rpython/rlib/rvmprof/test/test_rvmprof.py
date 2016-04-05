@@ -6,7 +6,11 @@ from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.nonconst import NonConstant
 
 
-def test_vmprof_execute_code_1():
+STM_TRANSLATE_KWARGS = {"gcpolicy": "stmgc", "thread": True, "stm": True}
+
+
+@py.test.mark.parametrize("stmparams", [{}, STM_TRANSLATE_KWARGS])
+def test_vmprof_execute_code_1(stmparams):
 
     class MyCode:
         pass
@@ -26,11 +30,12 @@ def test_vmprof_execute_code_1():
         return 0
 
     assert f() == 0
-    fn = compile(f, [])
+    fn = compile(f, [], **stmparams)
     assert fn() == 0
 
 
-def test_vmprof_execute_code_2():
+@py.test.mark.parametrize("stmparams", [{}, STM_TRANSLATE_KWARGS])
+def test_vmprof_execute_code_2(stmparams):
 
     class MyCode:
         pass
@@ -54,11 +59,12 @@ def test_vmprof_execute_code_2():
         return 0
 
     assert f() == 0
-    fn = compile(f, [])
+    fn = compile(f, [], **stmparams)
     assert fn() == 0
 
 
-def test_register_code():
+@py.test.mark.parametrize("stmparams", [{"gcpolicy": "minimark"}, STM_TRANSLATE_KWARGS])
+def test_register_code(stmparams):
 
     class MyCode:
         pass
@@ -80,11 +86,12 @@ def test_register_code():
         return 0
 
     assert f() == 0
-    fn = compile(f, [], gcpolicy="minimark")
+    fn = compile(f, [], **stmparams)
     assert fn() == 0
 
 
-def test_enable():
+@py.test.mark.parametrize("stmparams", [{"gcpolicy": "minimark"}, STM_TRANSLATE_KWARGS])
+def test_enable(stmparams):
 
     class MyCode:
         pass
@@ -136,7 +143,7 @@ def test_enable():
 
     assert f() == 0
     assert os.path.exists(tmpfilename)
-    fn = compile(f, [], gcpolicy="minimark")
+    fn = compile(f, [], **stmparams)
     assert fn() == 0
     try:
         import vmprof

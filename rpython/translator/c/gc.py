@@ -274,11 +274,11 @@ class NoneGcPolicy(BoehmGcPolicy):
 
     gc_startup_code = RefcountingGcPolicy.gc_startup_code.im_func
 
-    def gettransformer(self):
+    def gettransformer(self, translator):
         if self.db.translator.config.translation.stm:
             from rpython.memory.gctransform import nogcstm
-            return nogcstm.NoneSTMGCTransformer(self.db.translator)
-        return BoehmGcPolicy.gettransformer(self)
+            return nogcstm.NoneSTMGCTransformer(translator)
+        return BoehmGcPolicy.gettransformer(self, translator)
 
     def compilation_info(self):
         eci = BasicGcPolicy.compilation_info(self)

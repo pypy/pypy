@@ -228,9 +228,6 @@ class PyPyTarget(object):
             config.translation.stm = True
             config.translation.thread = True
             config.objspace.usemodules.pypystm = True
-            # for now, disable _vmprof: the JIT's stm parts are not adapted
-            # to track the stack depth
-            config.objspace.usemodules._vmprof = False
             # we don't support rlib.rawrefcount for our GC, so we need
             # to disable cpyext...
             config.objspace.usemodules.cpyext = False
