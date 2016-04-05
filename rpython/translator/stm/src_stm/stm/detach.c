@@ -107,7 +107,7 @@ void _stm_reattach_transaction(intptr_t self)
                is reset to a value different from -1 */
             dprintf(("reattach_transaction: busy wait...\n"));
             while (_stm_detached_inevitable_from_thread == -1)
-                spin_loop();
+                stm_spin_loop();
 
             /* then retry */
             goto restart;
@@ -157,7 +157,7 @@ static intptr_t fetch_detached_transaction(void)
         /* busy-loop: wait until _stm_detached_inevitable_from_thread
            is reset to a value different from -1 */
         while (_stm_detached_inevitable_from_thread == -1)
-            spin_loop();
+            stm_spin_loop();
         goto restart;
     }
     if (!__sync_bool_compare_and_swap(&_stm_detached_inevitable_from_thread,
@@ -209,7 +209,7 @@ static void commit_detached_transaction_if_from(stm_thread_local_t *tl)
         /* busy-loop: wait until _stm_detached_inevitable_from_thread
            is reset to a value different from -1 */
         while (_stm_detached_inevitable_from_thread == -1)
-            spin_loop();
+            stm_spin_loop();
         goto restart;
     }
 }

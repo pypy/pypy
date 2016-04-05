@@ -216,7 +216,7 @@ static void _stm_rehash_hashtable(stm_hashtable_t *hashtable,
     }
     biggertable->resize_counter = rc;
 
-    write_fence();   /* make sure that 'biggertable' is valid here,
+    stm_write_fence();   /* make sure that 'biggertable' is valid here,
                         and make sure 'table->resize_counter' is updated
                         ('table' must be immutable from now on). */
     VOLATILE_HASHTABLE(hashtable)->table = biggertable;
@@ -278,7 +278,7 @@ stm_hashtable_entry_t *stm_hashtable_lookup(object_t *hashtableobj,
        just now.  In both cases, this thread must simply spin loop.
     */
     if (IS_EVEN(rc)) {
-        spin_loop();
+        stm_spin_loop();
         goto restart;
     }
     /* in the other cases, we need to grab the RESIZING_LOCK.
@@ -348,7 +348,7 @@ stm_hashtable_entry_t *stm_hashtable_lookup(object_t *hashtableobj,
             hashtable->additions++;
         }
         table->items[i] = entry;
-        write_fence();     /* make sure 'table->items' is written here */
+        stm_write_fence();     /* make sure 'table->items' is written here */
         VOLATILE_TABLE(table)->resize_counter = rc - 6;    /* unlock */
         stm_read((object_t*)entry);
         return entry;
@@ -437,7 +437,7 @@ long stm_hashtable_length_upper_bound(stm_hashtable_t *hashtable)
     table = VOLATILE_HASHTABLE(hashtable)->table;
     rc = VOLATILE_TABLE(table)->resize_counter;
     if (IS_EVEN(rc)) {
-        spin_loop();
+        stm_spin_loop();
         goto restart;
     }
 

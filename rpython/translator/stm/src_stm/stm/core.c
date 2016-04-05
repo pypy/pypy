@@ -1218,7 +1218,7 @@ static void _core_commit_transaction(bool external)
         /* but first, emit commit-event of this thread: */
         timing_event(STM_SEGMENT->running_thread, STM_TRANSACTION_COMMIT);
         STM_SEGMENT->running_thread = NULL;
-        write_fence();
+        stm_write_fence();
         assert(_stm_detached_inevitable_from_thread == -1);
         _stm_detached_inevitable_from_thread = 0;
     }
@@ -1540,7 +1540,7 @@ void _stm_become_inevitable(const char *msg)
        0. We have to wait for this to happen bc. otherwise, eg.
        _stm_detach_inevitable_transaction is not safe to do yet */
     while (_stm_detached_inevitable_from_thread == -1)
-        spin_loop();
+        stm_spin_loop();
     assert(_stm_detached_inevitable_from_thread == 0);
 
     soon_finished_or_inevitable_thread_segment();

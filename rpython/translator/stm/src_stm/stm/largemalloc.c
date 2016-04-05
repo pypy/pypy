@@ -116,12 +116,12 @@ static struct {
 
 static void lm_lock(void)
 {
-    spinlock_acquire(lm.lock);
+    stm_spinlock_acquire(lm.lock);
 }
 
 static void lm_unlock(void)
 {
-    spinlock_release(lm.lock);
+    stm_spinlock_release(lm.lock);
 }
 
 

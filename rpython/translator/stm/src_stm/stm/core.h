@@ -333,12 +333,12 @@ static inline void _duck(void) {
 
 static inline void acquire_privatization_lock(int segnum)
 {
-    spinlock_acquire(get_priv_segment(segnum)->privatization_lock);
+    stm_spinlock_acquire(get_priv_segment(segnum)->privatization_lock);
 }
 
 static inline void release_privatization_lock(int segnum)
 {
-    spinlock_release(get_priv_segment(segnum)->privatization_lock);
+    stm_spinlock_release(get_priv_segment(segnum)->privatization_lock);
 }
 
 static inline bool all_privatization_locks_acquired(void)

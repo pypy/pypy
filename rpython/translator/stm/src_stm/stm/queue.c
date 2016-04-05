@@ -77,7 +77,7 @@ void stm_queue_free(stm_queue_t *queue)
         stm_queue_segment_t *seg = &queue->segs[i];
 
         struct stm_priv_segment_info_s *pseg = get_priv_segment(i + 1);
-        spinlock_acquire(pseg->active_queues_lock);
+        stm_spinlock_acquire(pseg->active_queues_lock);
 
         if (seg->active) {
             assert(pseg->active_queues != NULL);
@@ -91,7 +91,7 @@ void stm_queue_free(stm_queue_t *queue)
             assert(!seg->old_objects_popped);
         }
 
-        spinlock_release(pseg->active_queues_lock);
+        stm_spinlock_release(pseg->active_queues_lock);
 
         queue_free_entries(seg->added_in_this_transaction);
         queue_free_entries(seg->old_objects_popped);
@@ -102,12 +102,12 @@ void stm_queue_free(stm_queue_t *queue)
 static inline void queue_lock_acquire(void)
 {
     int num = STM_SEGMENT->segment_num;
-    spinlock_acquire(get_priv_segment(num)->active_queues_lock);
+    stm_spinlock_acquire(get_priv_segment(num)->active_queues_lock);
 }
 static inline void queue_lock_release(void)
 {
     int num = STM_SEGMENT->segment_num;
-    spinlock_release(get_priv_segment(num)->active_queues_lock);
+    stm_spinlock_release(get_priv_segment(num)->active_queues_lock);
 }
 
 static void queue_activate(stm_queue_t *queue, stm_queue_segment_t *seg)
@@ -133,7 +133,7 @@ static void queues_deactivate_all(struct stm_priv_segment_info_s *pseg,
 #pragma push_macro("STM_SEGMENT")
 #undef STM_PSEGMENT
 #undef STM_SEGMENT
-    spinlock_acquire(pseg->active_queues_lock);
+    stm_spinlock_acquire(pseg->active_queues_lock);
 
     bool added_any_old_entries = false;
     bool finished_more_tasks = false;
@@ -177,11 +177,11 @@ static void queues_deactivate_all(struct stm_priv_segment_info_s *pseg,
             }
             dprintf(("items move to old_entries in queue %p\n", queue));
 
-            spinlock_acquire(queue->old_entries_lock);
+            stm_spinlock_acquire(queue->old_entries_lock);
             old = queue->old_entries;
             tail->next = old;
             queue->old_entries = head;
-            spinlock_release(queue->old_entries_lock);
+            stm_spinlock_release(queue->old_entries_lock);
 
             added_any_old_entries = true;
         }
@@ -196,7 +196,7 @@ static void queues_deactivate_all(struct stm_priv_segment_info_s *pseg,
     tree_free(pseg->active_queues);
     pseg->active_queues = NULL;
 
-    spinlock_release(pseg->active_queues_lock);
+    stm_spinlock_release(pseg->active_queues_lock);
 
     if (added_any_old_entries)
         cond_broadcast(C_QUEUE_OLD_ENTRIES);
@@ -267,11 +267,11 @@ object_t *stm_queue_get(object_t *qobj, stm_queue_t *queue, double timeout,
        can free and reuse this entry.  Then the compare_and_swap
        succeeds, but the value written is outdated nonsense.
     */
-    spinlock_acquire(queue->old_entries_lock);
+    stm_spinlock_acquire(queue->old_entries_lock);
     entry = queue->old_entries;
     if (entry != NULL)
         queue->old_entries = entry->next;
-    spinlock_release(queue->old_entries_lock);
+    stm_spinlock_release(queue->old_entries_lock);
 
     if (entry != NULL) {
         /* successfully popped the old 'entry'.  It remains in the

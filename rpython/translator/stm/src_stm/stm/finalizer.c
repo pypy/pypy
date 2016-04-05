@@ -30,7 +30,7 @@ static void _commit_finalizers(void)
 {
     /* move finalizer lists to g_finalizers for major collections */
     while (__sync_lock_test_and_set(&g_finalizers.lock, 1) != 0) {
-        spin_loop();
+        stm_spin_loop();
     }
 
     if (STM_PSEGMENT->finalizers->run_finalizers != NULL) {
@@ -515,7 +515,7 @@ static void _invoke_general_finalizers(stm_thread_local_t *tl)
 
     while (__sync_lock_test_and_set(&g_finalizers.lock, 1) != 0) {
         /* somebody is adding more finalizers (_commit_finalizer()) */
-        spin_loop();
+        stm_spin_loop();
     }
     struct finalizers_s copy = g_finalizers;
     assert(copy.running_next == NULL);

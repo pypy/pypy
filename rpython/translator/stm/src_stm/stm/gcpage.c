@@ -75,7 +75,7 @@ static stm_char *allocate_outside_nursery_large(uint64_t size)
 
 
     /* uncommon case: need to initialize some more pages */
-    spinlock_acquire(lock_growth_large);
+    stm_spinlock_acquire(lock_growth_large);
 
     char *start = uninitialized_page_start;
     if (addr + size > start) {
@@ -99,7 +99,7 @@ static stm_char *allocate_outside_nursery_large(uint64_t size)
 
     ((struct object_s*)addr)->stm_flags = 0;
 
-    spinlock_release(lock_growth_large);
+    stm_spinlock_release(lock_growth_large);
     return (stm_char*)(addr - stm_object_pages);
 }
 
@@ -178,7 +178,7 @@ object_t *stm_allocate_preexisting(ssize_t size_rounded_up,
     DEBUG_EXPECT_SEGFAULT(true);
     release_privatization_lock(STM_SEGMENT->segment_num);
 
-    write_fence();     /* make sure 'nobj' is fully initialized from
+    stm_write_fence();     /* make sure 'nobj' is fully initialized from
                           all threads here */
     return (object_t *)nobj;
 }

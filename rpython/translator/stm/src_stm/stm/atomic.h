@@ -24,16 +24,16 @@
 
 #if defined(__i386__) || defined(__amd64__)
 
-  static inline void spin_loop(void) { asm("pause" : : : "memory"); }
-  static inline void write_fence(void) { asm("" : : : "memory"); }
+  static inline void stm_spin_loop(void) { asm("pause" : : : "memory"); }
+  static inline void stm_write_fence(void) { asm("" : : : "memory"); }
 /*# define atomic_exchange(ptr, old, new)  do {         \
           (old) = __sync_lock_test_and_set(ptr, new);   \
       } while (0)*/
 
 #else
 
-  static inline void spin_loop(void) { asm("" : : : "memory"); }
-  static inline void write_fence(void) { __sync_synchronize(); }
+  static inline void stm_spin_loop(void) { asm("" : : : "memory"); }
+  static inline void stm_write_fence(void) { __sync_synchronize(); }
 
 /*# define atomic_exchange(ptr, old, new)  do {           \
           (old) = *(ptr);                                 \
@@ -42,19 +42,19 @@
 #endif
 
 
-static inline void _spinlock_acquire(uint8_t *plock) {
+static inline void _stm_spinlock_acquire(uint8_t *plock) {
  retry:
     if (__builtin_expect(__sync_lock_test_and_set(plock, 1) != 0, 0)) {
-        spin_loop();
+        stm_spin_loop();
         goto retry;
     }
 }
-static inline void _spinlock_release(uint8_t *plock) {
+static inline void _stm_spinlock_release(uint8_t *plock) {
     assert(*plock == 1);
     __sync_lock_release(plock);
 }
-#define spinlock_acquire(lock) _spinlock_acquire(&(lock))
-#define spinlock_release(lock) _spinlock_release(&(lock))
+#define stm_spinlock_acquire(lock) _stm_spinlock_acquire(&(lock))
+#define stm_spinlock_release(lock) _stm_spinlock_release(&(lock))
 
 
 #endif  /* _STM_ATOMIC_H */

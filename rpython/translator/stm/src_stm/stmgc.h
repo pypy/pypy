@@ -98,7 +98,7 @@ long _stm_start_transaction(stm_thread_local_t *tl);
 void _stm_commit_transaction(void);
 void _stm_leave_noninevitable_transactional_zone(void);
 #define _stm_detach_inevitable_transaction(tl)  do {                    \
-    write_fence();                                                      \
+    stm_write_fence();                                                  \
     assert(_stm_detached_inevitable_from_thread == 0);                  \
     if (stmcb_timing_event != NULL && tl->self_or_0_if_atomic != 0)     \
         {stmcb_timing_event(tl, STM_TRANSACTION_DETACH, NULL);}         \
