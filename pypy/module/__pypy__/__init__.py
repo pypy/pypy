@@ -88,6 +88,7 @@ class Module(MixedModule):
         'save_module_content_for_future_reload':
                           'interp_magic.save_module_content_for_future_reload',
         'decode_long'               : 'interp_magic.decode_long',
+        '_promote'                   : 'interp_magic._promote',
         'normalize_exc'             : 'interp_magic.normalize_exc',
         'StdErrPrinter'             : 'interp_stderrprinter.W_StdErrPrinter',
     }

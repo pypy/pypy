@@ -15,14 +15,14 @@ static long pypy_threadlocal_lock = 0;
 static int check_valid(void);
 
 void _RPython_ThreadLocals_Acquire(void) {
-    while (!lock_test_and_set(&pypy_threadlocal_lock, 1)) {
+    while (!pypy_lock_test_and_set(&pypy_threadlocal_lock, 1)) {
         /* busy loop */
     }
     assert(check_valid());
 }
 void _RPython_ThreadLocals_Release(void) {
     assert(check_valid());
-    lock_release(&pypy_threadlocal_lock);
+    pypy_lock_release(&pypy_threadlocal_lock);
 }
 
 

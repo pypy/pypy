@@ -6,7 +6,7 @@ from rpython.jit.metainterp.compile import compile_tmp_callback
 from rpython.jit.metainterp import jitexc
 from rpython.jit.metainterp import jitprof, typesystem, compile
 from rpython.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin
-from rpython.jit.tool.oparser import parse
+from rpython.jit.tool.oparser import parse, convert_loop_to_trace
 from rpython.jit.metainterp.optimizeopt import ALL_OPTS_DICT
 
 class FakeCPU(object):
@@ -31,6 +31,9 @@ class FakeLogger(object):
     def log_loop(self, inputargs, operations, number=0, type=None, ops_offset=None, name='', memo=None):
         pass
 
+    def log_loop_from_trace(self, *args, **kwds):
+        pass
+
     def repr_of_resop(self, op):
         return repr(op)
 
@@ -51,12 +54,12 @@ class FakeGlobalData(object):
     loopnumbering = 0
 
 class FakeMetaInterpStaticData(object):
-
+    all_descrs = []
     logger_noopt = FakeLogger()
     logger_ops = FakeLogger()
     config = get_combined_translation_config(translating=True)
 
-    stats = Stats()
+    stats = Stats(None)
     profiler = jitprof.EmptyProfiler()
     warmrunnerdesc = None
     def log(self, msg, event_kind=None):
@@ -91,13 +94,14 @@ def test_compile_loop():
     metainterp.staticdata = staticdata
     metainterp.cpu = cpu
     metainterp.history = History()
-    metainterp.history.operations = loop.operations[:-1]
-    metainterp.history.inputargs = loop.inputargs[:]
+    t = convert_loop_to_trace(loop, staticdata)
+    metainterp.history.inputargs = t.inputargs
+    metainterp.history.trace = t
     #
     greenkey = 'faked'
-    target_token = compile_loop(metainterp, greenkey, 0,
-                                loop.inputargs,
-                                loop.operations[-1].getarglist(),
+    target_token = compile_loop(metainterp, greenkey, (0, 0, 0),
+                                t.inputargs,
+                                [t._mapping[x] for x in loop.operations[-1].getarglist()],
                                 None)
     jitcell_token = target_token.targeting_jitcell_token
     assert jitcell_token == target_token.original_jitcell_token
@@ -112,7 +116,6 @@ def test_compile_loop():
 
 
 def test_compile_tmp_callback():
-    from rpython.jit.codewriter import heaptracker
     from rpython.jit.backend.llgraph import runner
     from rpython.rtyper.lltypesystem import lltype, llmemory
     from rpython.rtyper.annlowlevel import llhelper

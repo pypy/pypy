@@ -172,7 +172,7 @@ show graph for obj, obj can be an expression or a dotted name
 (in which case prefixing with some packages in pypy is tried (see help pypyprefixes)).
 if obj is a function or method, the localized call graph is shown;
 if obj is a class or ClassDef the class definition graph is shown"""
-        from rpython.annotator.classdef import ClassDef
+        from rpython.annotator.classdesc import ClassDef
         from rpython.translator.tool import graphpage
         translator = self.translator
         obj = self._getobj(arg)

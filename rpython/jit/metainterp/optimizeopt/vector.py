@@ -8,7 +8,6 @@ See the rpython doc for more high level details.
 import py
 import time
 
-from rpython.jit.metainterp.resume import Snapshot
 from rpython.jit.metainterp.jitexc import NotAVectorizeableLoop, NotAProfitableLoop
 from rpython.jit.metainterp.compile import (CompileLoopVersionDescr, ResumeDescr)
 from rpython.jit.metainterp.history import (INT, FLOAT, VECTOR, ConstInt, ConstFloat,
@@ -112,13 +111,13 @@ class VectorLoop(object):
         loop.prefix_label = prefix_label
         return loop
 
-def optimize_vector(metainterp_sd, jitdriver_sd, warmstate,
+def optimize_vector(trace, metainterp_sd, jitdriver_sd, warmstate,
                     loop_info, loop_ops, jitcell_token=None):
     """ Enter the world of SIMD. Bails if it cannot transform the trace. """
     user_code = not jitdriver_sd.vec and warmstate.vec_all
     e = len(loop_ops)-1
     assert e > 0
-    assert loop_ops[e].is_final()
+    assert rop.is_final(loop_ops[e].getopnum())
     loop = VectorLoop(loop_info.label_op, loop_ops[:e], loop_ops[-1])
     if user_code and user_loop_bail_fast_path(loop, warmstate):
         return loop_info, loop_ops
@@ -178,10 +177,10 @@ def user_loop_bail_fast_path(loop, warmstate):
     guard_count = 0
     at_least_one_array_access = True
     for i,op in enumerate(loop.operations):
-        if op.is_jit_debug():
+        if rop.is_jit_debug(op.opnum):
             continue
 
-        if op.vector >= 0 and not op.is_guard():
+        if op.vector >= 0 and not rop.is_guard(op.opnum):
             vector_instr += 1
 
         resop_count += 1
@@ -191,10 +190,10 @@ def user_loop_bail_fast_path(loop, warmstate):
 
         if warmstate.vec_ratio > 0.0:
             # blacklist
-            if op.is_call() or op.is_call_assembler():
+            if rop.is_call(op.opnum) or rop.is_call_assembler(op.opnum):
                 return True
 
-        if op.is_guard():
+        if rop.is_guard(op.opnum):
             guard_count += 1
 
     if not at_least_one_array_access:
@@ -661,7 +660,7 @@ class PackSet(object):
                 #
                 if origin_pack is None:
                     op = lnode.getoperation()
-                    if op.is_primitive_load():
+                    if rop.is_primitive_load(op.opnum):
                         return Pair(lnode, rnode)
                     else:
                         return Pair(lnode, rnode)

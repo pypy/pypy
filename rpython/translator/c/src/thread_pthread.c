@@ -37,7 +37,7 @@
 #  define THREAD_STACK_SIZE   0   /* use default stack size */
 # endif
 
-# if (defined(__APPLE__) || defined(__FreeBSD__)) && defined(THREAD_STACK_SIZE) && THREAD_STACK_SIZE == 0
+# if (defined(__APPLE__) || defined(__FreeBSD__) || defined(__FreeBSD_kernel__)) && defined(THREAD_STACK_SIZE) && THREAD_STACK_SIZE == 0
    /* The default stack size for new threads on OSX is small enough that
     * we'll get hard crashes instead of 'maximum recursion depth exceeded'
     * exceptions.
@@ -84,7 +84,7 @@ long RPyThreadStart(void (*func)(void))
 	if (tss != 0)
 		pthread_attr_setstacksize(&attrs, tss);
 #endif
-#if defined(PTHREAD_SYSTEM_SCHED_SUPPORTED) && !defined(__FreeBSD__)
+#if defined(PTHREAD_SYSTEM_SCHED_SUPPORTED) && !(defined(__FreeBSD__) || defined(__FreeBSD_kernel__))
         pthread_attr_setscope(&attrs, PTHREAD_SCOPE_SYSTEM);
 #endif
 
@@ -546,7 +546,7 @@ static inline int mutex2_lock_timeout(mutex2_t *mutex, double delay) {
     return result;
 }
 
-//#define lock_test_and_set(ptr, value)  see thread_pthread.h
+//#define pypy_lock_test_and_set(ptr, value)  see thread_pthread.h
 #define atomic_increment(ptr)          __sync_fetch_and_add(ptr, 1)
 #define atomic_decrement(ptr)          __sync_fetch_and_sub(ptr, 1)
 #define HAVE_PTHREAD_ATFORK            1

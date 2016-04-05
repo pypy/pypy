@@ -33,7 +33,7 @@ class LiteralPool(object):
 
     def ensure_can_hold_constants(self, asm, op):
         # allocates 8 bytes in memory for pointers, long integers or floats
-        if op.is_jit_debug():
+        if rop.is_jit_debug(op.getopnum()):
             return
 
         for arg in op.getarglist():

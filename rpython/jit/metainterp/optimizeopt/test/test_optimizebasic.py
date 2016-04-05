@@ -12,62 +12,7 @@ from rpython.jit.metainterp.resoperation import rop, ResOperation, InputArgInt,\
      OpHelpers, InputArgRef
 from rpython.jit.metainterp.resumecode import unpack_numbering
 from rpython.rlib.rarithmetic import LONG_BIT
-from rpython.jit.tool.oparser import parse
-
-class FakeJitCode(object):
-    index = 0
-
-def test_store_final_boxes_in_guard():
-    from rpython.jit.metainterp.compile import ResumeGuardDescr
-    from rpython.jit.metainterp.resume import tag, TAGBOX
-    b0 = InputArgInt()
-    b1 = InputArgInt()
-    opt = optimizeopt.Optimizer(FakeMetaInterpStaticData(LLtypeMixin.cpu),
-                                None, None)
-    op = ResOperation(rop.GUARD_TRUE, [ConstInt(1)], None)
-    # setup rd data
-    fi0 = resume.FrameInfo(None, FakeJitCode(), 11)
-    snapshot0 = resume.Snapshot(None, [b0])
-    op.rd_snapshot = resume.TopSnapshot(snapshot0, [], [b1])
-    op.rd_frame_info_list = resume.FrameInfo(fi0, FakeJitCode(), 33)
-    #
-    opt.store_final_boxes_in_guard(op, [])
-    fdescr = op.getdescr()
-    #if op.getfailargs() == [b0, b1]:
-    #    assert list(fdescr.rd_numb.nums)      == [tag(1, TAGBOX)]
-    #    assert list(fdescr.rd_numb.prev.nums) == [tag(0, TAGBOX)]
-    #else:
-    #    assert op.getfailargs() == [b1, b0]
-    #    assert list(fdescr.rd_numb.nums)      == [tag(0, TAGBOX)]
-    #    assert list(fdescr.rd_numb.prev.nums) == [tag(1, TAGBOX)]
-    assert fdescr.rd_virtuals is None
-    assert fdescr.rd_consts == []
-
-def test_sharing_field_lists_of_virtual():
-    py.test.skip("needs to be rewritten")
-    class FakeOptimizer(object):
-        class optimizer(object):
-            class cpu(object):
-                pass
-    opt = FakeOptimizer()
-    virt1 = virtualize.AbstractVirtualStructValue(opt, None)
-    lst1 = virt1._get_field_descr_list()
-    assert lst1 == []
-    lst2 = virt1._get_field_descr_list()
-    assert lst1 is lst2
-    virt1.setfield(LLtypeMixin.valuedescr, optimizeopt.OptValue(None))
-    lst3 = virt1._get_field_descr_list()
-    assert lst3 == [LLtypeMixin.valuedescr]
-    lst4 = virt1._get_field_descr_list()
-    assert lst3 is lst4
-
-    virt2 = virtualize.AbstractVirtualStructValue(opt, None)
-    lst5 = virt2._get_field_descr_list()
-    assert lst5 is lst1
-    virt2.setfield(LLtypeMixin.valuedescr, optimizeopt.OptValue(None))
-    lst6 = virt1._get_field_descr_list()
-    assert lst6 is lst3
-
+from rpython.jit.tool.oparser import parse, convert_loop_to_trace
 
 # ____________________________________________________________
 
@@ -77,16 +22,15 @@ class BaseTestBasic(BaseTest):
     enable_opts = "intbounds:rewrite:virtualize:string:earlyforce:pure:heap"
 
     def optimize_loop(self, ops, optops, call_pure_results=None):
-        loop = self.parse(ops, postprocess=self.postprocess)
+        loop = self.parse(ops)
         token = JitCellToken()
-        label_op = ResOperation(rop.LABEL, loop.inputargs,
-                                descr=TargetToken(token))
         if loop.operations[-1].getopnum() == rop.JUMP:
             loop.operations[-1].setdescr(token)
         exp = parse(optops, namespace=self.namespace.copy())
         expected = convert_old_style_to_targets(exp, jump=True)
         call_pure_results = self._convert_call_pure_results(call_pure_results)
-        compile_data = compile.SimpleCompileData(label_op, loop.operations,
+        trace = convert_loop_to_trace(loop, FakeMetaInterpStaticData(self.cpu))
+        compile_data = compile.SimpleCompileData(trace,
                                                  call_pure_results)
         info, ops = self._do_optimize_loop(compile_data)
         label_op = ResOperation(rop.LABEL, info.inputargs)
@@ -2085,8 +2029,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
             if varname not in virtuals:
                 if strict:
                     assert box.same_box(oparse.getvar(varname))
-                else:
-                    assert box.getvalue() == oparse.getvar(varname).getvalue()
             else:
                 tag, resolved, fieldstext = virtuals[varname]
                 if tag[0] == 'virtual':

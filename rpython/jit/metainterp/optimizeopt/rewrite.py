@@ -32,7 +32,7 @@ class OptRewrite(Optimization):
             sb.add_loopinvariant_op(op)
 
     def propagate_forward(self, op):
-        if op.boolinverse != -1 or op.boolreflex != -1:
+        if opclasses[op.opnum].boolinverse != -1 or opclasses[op.opnum].boolreflex != -1:
             if self.find_rewritable_bool(op):
                 return
 
@@ -56,13 +56,13 @@ class OptRewrite(Optimization):
         arg0 = op.getarg(0)
         arg1 = op.getarg(1)
         if oldopnum != -1:
-            top = ResOperation(oldopnum, [arg0, arg1], None)
+            top = ResOperation(oldopnum, [arg0, arg1])
             if self.try_boolinvers(op, top):
                 return True
 
         oldopnum = op.boolreflex # FIXME: add INT_ADD, INT_MUL
         if oldopnum != -1:
-            top = ResOperation(oldopnum, [arg1, arg0], None)
+            top = ResOperation(oldopnum, [arg1, arg0])
             oldop = self.get_pure_result(top)
             if oldop is not None:
                 self.optimizer.make_equal_to(op, oldop)
@@ -72,7 +72,7 @@ class OptRewrite(Optimization):
             return False
         oldopnum = opclasses[op.boolreflex].boolinverse
         if oldopnum != -1:
-            top = ResOperation(oldopnum, [arg1, arg0], None)
+            top = ResOperation(oldopnum, [arg1, arg0])
             if self.try_boolinvers(op, top):
                 return True
 
@@ -111,15 +111,15 @@ class OptRewrite(Optimization):
 
     def optimize_INT_SUB(self, op):
         arg1 = self.get_box_replacement(op.getarg(0))
-        b1 = self.getintbound(arg1)
         arg2 = self.get_box_replacement(op.getarg(1))
+        b1 = self.getintbound(arg1)
         b2 = self.getintbound(arg2)
         if b2.equal(0):
             self.make_equal_to(op, arg1)
         elif b1.equal(0):
             op = self.replace_op_with(op, rop.INT_NEG, args=[arg2])
             self.emit_operation(op)
-        elif arg1.same_box(arg2):
+        elif arg1 == arg2:
             self.make_constant_int(op, 0)
         else:
             self.emit_operation(op)

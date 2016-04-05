@@ -110,7 +110,7 @@ def descr___subclasshook__(space, __args__):
 def descr__init__(space, w_obj, __args__):
     # don't allow arguments unless __new__ is overridden
     w_type = space.type(w_obj)
-    w_parent_new, _ = w_type.lookup_where('__new__')
+    w_parent_new, _ = space.lookup_in_type_where(w_type, '__new__')
     if w_parent_new is space.w_object:
         try:
             __args__.fixedunpack(0)

@@ -358,11 +358,11 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
             assert self.assembler.mc._frame_size == DEFAULT_FRAME_BYTES
             self.rm.position = i
             self.xrm.position = i
-            if op.has_no_side_effect() and op not in self.longevity:
+            if rop.has_no_side_effect(op.opnum) and op not in self.longevity:
                 i += 1
                 self.possibly_free_vars_for_op(op)
                 continue
-            if not we_are_translated() and op.getopnum() == -127:
+            if not we_are_translated() and op.getopnum() == rop.FORCE_SPILL:
                 self._consider_force_spill(op)
             else:
                 oplist[op.getopnum()](self, op)

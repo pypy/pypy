@@ -247,8 +247,9 @@ class PyPyTarget(object):
                                 "when --shared is on (it is by default). "
                                 "See issue #1971.")
         if sys.platform == 'win32':
-            config.translation.libname = '..\\..\\libs\\python27.lib'
-            thisdir.join('..', '..', 'libs').ensure(dir=1)
+            libdir = thisdir.join('..', '..', 'libs')
+            libdir.ensure(dir=1)
+            config.translation.libname = str(libdir.join('python27.lib'))
 
         if config.translation.thread:
             config.objspace.usemodules.thread = True

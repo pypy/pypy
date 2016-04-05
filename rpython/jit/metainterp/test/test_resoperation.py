@@ -52,7 +52,7 @@ def test_mixins_in_common_base():
     assert len(INT_ADD.__bases__) == 1
     BinaryPlainResOp = INT_ADD.__bases__[0]
     assert BinaryPlainResOp.__name__ == 'BinaryPlainResOp'
-    assert BinaryPlainResOp.__bases__ == (rop.BinaryOp, rop.IntOp, rop.PlainResOp)
+    assert BinaryPlainResOp.__bases__ == (rop.BinaryOp, rop.PlainResOp)
     INT_SUB = rop.opclasses[rop.rop.INT_SUB]
     assert INT_SUB.__bases__[0] is BinaryPlainResOp
 
@@ -74,13 +74,9 @@ def test_instantiate():
     #assert re.match("guard_no_exception\(descr=<.+>\)$", repr(op))
 
 def test_can_malloc():
-    a = ConstInt(1)
-    b = ConstInt(2)
-    mydescr = AbstractDescr()
-    assert rop.ResOperation(rop.rop.NEW, []).can_malloc()
-    call = rop.ResOperation(rop.rop.CALL_N, [a, b], descr=mydescr)
-    assert call.can_malloc()
-    assert not rop.ResOperation(rop.rop.INT_ADD, [a, b]).can_malloc()
+    assert rop.rop.can_malloc(rop.rop.NEW)
+    assert rop.rop.can_malloc(rop.rop.CALL_N)
+    assert not rop.rop.can_malloc(rop.rop.INT_ADD)
 
 def test_get_deep_immutable_oplist():
     a = ConstInt(1)

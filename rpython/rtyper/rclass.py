@@ -310,10 +310,15 @@ class ClassRepr(Repr):
         # setup class attributes: for each attribute name at the level
         # of 'r_parentcls', look up its value in the class
         def assign(mangled_name, value):
-            if (isinstance(value, Constant) and
-                    isinstance(value.value, staticmethod)):
-                value = Constant(value.value.__get__(42))   # staticmethod => bare function
-            llvalue = r.convert_desc_or_const(value)
+            if value is None:
+                llvalue = r.special_uninitialized_value()
+                if llvalue is None:
+                    return
+            else:
+                if (isinstance(value, Constant) and
+                        isinstance(value.value, staticmethod)):
+                    value = Constant(value.value.__get__(42))   # staticmethod => bare function
+                llvalue = r.convert_desc_or_const(value)
             setattr(vtable, mangled_name, llvalue)
 
         for fldname in r_parentcls.clsfields:
@@ -321,8 +326,7 @@ class ClassRepr(Repr):
             if r.lowleveltype is Void:
                 continue
             value = self.classdef.classdesc.read_attribute(fldname, None)
-            if value is not None:
-                assign(mangled_name, value)
+            assign(mangled_name, value)
         # extra PBC attributes
         for (access_set, attr), (mangled_name, r) in r_parentcls.pbcfields.items():
             if self.classdef.classdesc not in access_set.descs:
@@ -330,8 +334,7 @@ class ClassRepr(Repr):
             if r.lowleveltype is Void:
                 continue
             attrvalue = self.classdef.classdesc.read_attribute(attr, None)
-            if attrvalue is not None:
-                assign(mangled_name, attrvalue)
+            assign(mangled_name, attrvalue)
 
     def fill_vtable_root(self, vtable):
         """Initialize the head of the vtable."""

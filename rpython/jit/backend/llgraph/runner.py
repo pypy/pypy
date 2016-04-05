@@ -455,7 +455,7 @@ class LLGraphCPU(model.AbstractCPU):
                 if box is not frame.current_op:
                     value = frame.env[box]
                 else:
-                    value = box.getvalue()    # 0 or 0.0 or NULL
+                    value = 0 # box.getvalue()    # 0 or 0.0 or NULL
             else:
                 value = None
             values.append(value)
@@ -471,6 +471,13 @@ class LLGraphCPU(model.AbstractCPU):
         return deadframe._saved_data
 
     # ------------------------------------------------------------
+
+    def setup_descrs(self):
+        all_descrs = []
+        for k, v in self.descrs.iteritems():
+            v.descr_index = len(all_descrs)
+            all_descrs.append(v)
+        return all_descrs
 
     def calldescrof(self, FUNC, ARGS, RESULT, effect_info):
         key = ('call', getkind(RESULT),
