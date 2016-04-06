@@ -53,7 +53,7 @@ def f():
         assert _promote(1) == 1
         assert _promote(1.1) == 1.1
         assert _promote("abc") == "abc"
-        assert _promote(u"abc") == u"abc"
+        raises(TypeError, _promote, u"abc")
         l = []
         assert _promote(l) is l
         class A(object):
