@@ -432,7 +432,9 @@ path may always be specified as a string.
 On some platforms, path may also be specified as an open file descriptor.
   If this functionality is unavailable, using it raises an exception."""
     try:
-        st = dispatch_filename(rposix_stat.statvfs)(space, w_path)
+        st = dispatch_filename(
+            rposix_stat.statvfs,
+            allow_fd_fn=rposix_stat.fstatvfs)(space, w_path)
     except OSError as e:
         raise wrap_oserror2(space, e, w_path)
     else:
