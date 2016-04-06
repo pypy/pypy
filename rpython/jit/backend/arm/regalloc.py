@@ -530,7 +530,7 @@ class Regalloc(BaseRegalloc):
                             EffectInfo.OS_LLONG_AND,
                             EffectInfo.OS_LLONG_OR,
                             EffectInfo.OS_LLONG_XOR):
-                if self.cpu.cpuinfo.arch_version >= 7:
+                if self.cpu.cpuinfo.neon:
                     args = self._prepare_llong_binop_xx(op, fcond)
                     self.perform_extra(op, args, fcond)
                     return

@@ -286,7 +286,8 @@ class Regalloc(BaseRegalloc):
             self.assembler.mc.mark_op(op)
             self.rm.position = i
             self.fprm.position = i
-            if op.has_no_side_effect() and op not in self.longevity:
+            opnum = op.opnum
+            if rop.has_no_side_effect(opnum) and op not in self.longevity:
                 i += 1
                 self.possibly_free_vars_for_op(op)
                 continue
@@ -298,8 +299,7 @@ class Regalloc(BaseRegalloc):
                 else:
                     self.fprm.temp_boxes.append(box)
             #
-            opnum = op.getopnum()
-            if not we_are_translated() and opnum == -127:
+            if not we_are_translated() and opnum == rop.FORCE_SPILL:
                 self._consider_force_spill(op)
             else:
                 arglocs = oplist[opnum](self, op)

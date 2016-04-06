@@ -645,14 +645,27 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
                 pass
             elif gloc is not bloc:
                 self.mov(gloc, bloc)
+        offset = self.mc.get_relative_pos()
         self.mc.JMP_l(0)
+        self.mc.writeimm32(0)
         self.mc.force_frame_size(DEFAULT_FRAME_BYTES)
-        offset = self.mc.get_relative_pos() - 4
         rawstart = self.materialize_loop(looptoken)
-        # update the jump to the real trace
-        self._patch_jump_for_descr(rawstart + offset, asminfo.rawstart)
+        # update the jump (above) to the real trace
+        self._patch_jump_to(rawstart + offset, asminfo.rawstart)
         # update the guard to jump right to this custom piece of assembler
         self.patch_jump_for_descr(faildescr, rawstart)
+
+    def _patch_jump_to(self, adr_jump_offset, adr_new_target):
+        assert adr_jump_offset != 0
+        offset = adr_new_target - (adr_jump_offset + 5)
+        mc = codebuf.MachineCodeBlockWrapper()
+        mc.force_frame_size(DEFAULT_FRAME_BYTES)
+        if rx86.fits_in_32bits(offset):
+            mc.JMP_l(offset)
+        else:
+            mc.MOV_ri(X86_64_SCRATCH_REG.value, adr_new_target)
+            mc.JMP_r(X86_64_SCRATCH_REG.value)
+        mc.copy_to_raw_memory(adr_jump_offset)
 
     def write_pending_failure_recoveries(self, regalloc):
         # for each pending guard, generate the code of the recovery stub
@@ -791,10 +804,6 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
 
     def patch_jump_for_descr(self, faildescr, adr_new_target):
         adr_jump_offset = faildescr.adr_jump_offset
-        self._patch_jump_for_descr(adr_jump_offset, adr_new_target)
-        faildescr.adr_jump_offset = 0    # means "patched"
-
-    def _patch_jump_for_descr(self, adr_jump_offset, adr_new_target):
         assert adr_jump_offset != 0
         offset = adr_new_target - (adr_jump_offset + 4)
         # If the new target fits within a rel32 of the jump, just patch
@@ -815,6 +824,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             p = rffi.cast(rffi.INTP, adr_jump_offset)
             adr_target = adr_jump_offset + 4 + rffi.cast(lltype.Signed, p[0])
             mc.copy_to_raw_memory(adr_target)
+        faildescr.adr_jump_offset = 0    # means "patched"
 
     def fixup_target_tokens(self, rawstart):
         for targettoken in self.target_tokens_currently_compiling:

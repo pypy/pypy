@@ -20,6 +20,7 @@ from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer
 from rpython.jit.metainterp.resoperation import ResOperation, rop
 from rpython.jit.metainterp import resume, compile
 from rpython.jit.metainterp.optimizeopt import info
+from rpython.jit.tool import oparser
 
 class FakeOptimizer(Optimizer):
     def __init__(self, cpu):
@@ -812,7 +813,7 @@ class BaseTestGenerateGuards(BaseTest):
 class BaseTestBridges(BaseTest):
     enable_opts = "intbounds:rewrite:virtualize:string:pure:earlyforce:heap:unroll"
 
-    def _do_optimize_bridge(self, bridge, call_pure_results):
+    def _do_optimize_bridge(self, bridge, call_pure_results, values):
         from rpython.jit.metainterp.optimizeopt import optimize_trace
         from rpython.jit.metainterp.optimizeopt.util import args_dict
 
@@ -827,8 +828,11 @@ class BaseTestBridges(BaseTest):
         if hasattr(self, 'callinfocollection'):
             metainterp_sd.callinfocollection = self.callinfocollection
         #
-        start_label = ResOperation(rop.LABEL, bridge.inputargs)
-        data = compile.BridgeCompileData(start_label, bridge.operations,
+        trace = oparser.convert_loop_to_trace(bridge, metainterp_sd)
+
+        runtime_boxes = self.convert_values(bridge.operations[-1].getarglist(),
+                                            values)
+        data = compile.BridgeCompileData(trace, runtime_boxes,
             enable_opts=self.enable_opts, inline_short_preamble=True)
             
         info, newops = optimize_trace(metainterp_sd, None, data)
@@ -841,24 +845,12 @@ class BaseTestBridges(BaseTest):
                         boxvalues=None):
         if isinstance(loops, str):
             loops = (loops, )
-        loops = [self.parse(loop, postprocess=self.postprocess)
+        loops = [self.parse(loop)
                  for loop in loops]
-        bridge = self.parse(bridge, postprocess=self.postprocess)
+        bridge = self.parse(bridge)
         self.add_guard_future_condition(bridge)
         token = JitCellToken()
-        jump_args = bridge.operations[-1].getarglist()
-        if boxvalues is not None:
-            assert isinstance(boxvalues, list)
-            assert len(jump_args) == len(boxvalues)
-            for jump_arg, v in zip(jump_args, boxvalues):
-                jump_arg.setref_base(v)
         for loop in loops:
-            loop_jump_args = loop.operations[-1].getarglist()
-            if boxvalues is not None:
-                assert isinstance(boxvalues, list)
-                assert len(jump_args) == len(boxvalues)
-                for jump_arg, v in zip(loop_jump_args, boxvalues):
-                    jump_arg.setref_base(v)
             info = self.unroll_and_optimize(loop)
             loop.preamble = info.preamble
             loop.preamble.operations[0].setdescr(TargetToken(token))
@@ -869,7 +861,7 @@ class BaseTestBridges(BaseTest):
         for b in bridge.inputargs + [op for op in bridge.operations]:
             boxes[str(b)] = b
         bridge.operations[-1].setdescr(token)
-        info = self._do_optimize_bridge(bridge, None)
+        info = self._do_optimize_bridge(bridge, None, boxvalues)
         if not info.final():
             assert expected == 'RETRACE'
             return

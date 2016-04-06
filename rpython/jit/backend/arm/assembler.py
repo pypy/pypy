@@ -939,9 +939,9 @@ class AssemblerARM(ResOpAssembler):
             op = operations[i]
             self.mc.mark_op(op)
             opnum = op.getopnum()
-            if op.has_no_side_effect() and op not in regalloc.longevity:
+            if rop.has_no_side_effect(opnum) and op not in regalloc.longevity:
                 regalloc.possibly_free_vars_for_op(op)
-            elif not we_are_translated() and op.getopnum() == -127:
+            elif not we_are_translated() and op.getopnum() == rop.FORCE_SPILL:
                 regalloc.prepare_force_spill(op, fcond)
             else:
                 arglocs = regalloc_operations[opnum](regalloc, op, fcond)
@@ -949,7 +949,7 @@ class AssemblerARM(ResOpAssembler):
                     fcond = asm_operations[opnum](self, op, arglocs,
                                                         regalloc, fcond)
                     assert fcond is not None
-            if op.is_guard():
+            if rop.is_guard(opnum):
                 regalloc.possibly_free_vars(op.getfailargs())
             if op.type != 'v':
                 regalloc.possibly_free_var(op)

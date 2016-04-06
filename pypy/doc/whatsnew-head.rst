@@ -23,3 +23,20 @@ Implemented numpy.where for 1 argument (thanks sergem)
 
 Implement yet another strange numpy indexing compatibility; indexing by a scalar 
 returns a scalar
+
+.. branch: fix_transpose_for_list_v3
+
+Allow arguments to transpose to be sequences
+
+.. branch: jit-leaner-frontend
+
+Improve the tracing speed in the frontend as well as heapcache by using a more compact representation
+of traces
+
+.. branch: win32-lib-name
+
+.. branch: remove-frame-forcing-in-executioncontext
+
+.. branch: rposix-for-3
+
+Wrap more POSIX functions in `rpython.rlib.rposix`.

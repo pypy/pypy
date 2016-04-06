@@ -1164,7 +1164,6 @@ def _exit(space, status):
     os._exit(status)
 
 def execv(space, w_path, w_args):
-
     """ execv(path, args)
 
 Execute an executable path with arguments, replacing current process.

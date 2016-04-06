@@ -96,7 +96,7 @@ class DependencyBaseTest(BaseTest):
         assert oplist_i == len(oplist), msg
 
     def parse_loop(self, ops, add_label=True):
-        loop = self.parse(ops, postprocess=self.postprocess)
+        loop = self.parse(ops)
         loop.operations = filter(lambda op: op.getopnum() != rop.DEBUG_MERGE_POINT, loop.operations)
         token = JitCellToken()
         if add_label:
@@ -230,10 +230,7 @@ class DependencyBaseTest(BaseTest):
         for i,op in enumerate(loop.operations):
             print "[",i,"]",op,
             if op.is_guard():
-                if op.rd_snapshot:
-                    print op.rd_snapshot.boxes
-                else:
-                    print op.getfailargs()
+                print op.getfailargs()
             else:
                 print ""
 
