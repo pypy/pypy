@@ -490,10 +490,12 @@ class TranslationDriver(SimpleTaskEngine):
                     # for pypy, the import library is renamed and moved to
                     # libs/python27.lib, according to the pragma in pyconfig.h
                     libname = self.config.translation.libname
-                    libname = libname or soname.new(ext='lib').basename
-                    libname = str(newsoname.dirpath().join(libname))
-                    shutil.copyfile(str(soname.new(ext='lib')), libname)
-                    self.log.info("copied: %s" % (libname,))
+                    oldlibname = soname.new(ext='lib')
+                    if not libname:
+                        libname = oldlibname.basename
+                        libname = str(newsoname.dirpath().join(libname))
+                    shutil.copyfile(str(oldlibname), libname)
+                    self.log.info("copied: %s to %s" % (oldlibname, libname,))
                     # the pdb file goes in the same place as pypy(w).exe
                     ext_to_copy = ['pdb',]
                     for ext in ext_to_copy:

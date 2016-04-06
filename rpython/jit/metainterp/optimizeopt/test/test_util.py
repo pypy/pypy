@@ -12,14 +12,14 @@ from rpython.jit.metainterp.history import (TreeLoop, AbstractDescr,
 from rpython.jit.metainterp.optimizeopt.util import sort_descrs, equaloplists
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.logger import LogOperations
-from rpython.jit.tool.oparser import OpParser, pure_parse
+from rpython.jit.tool.oparser import OpParser, pure_parse, convert_loop_to_trace
 from rpython.jit.metainterp.quasiimmut import QuasiImmutDescr
 from rpython.jit.metainterp import compile, resume, history
 from rpython.jit.metainterp.jitprof import EmptyProfiler
 from rpython.jit.metainterp.counter import DeterministicJitCounter
 from rpython.config.translationoption import get_combined_translation_config
 from rpython.jit.metainterp.resoperation import (rop, ResOperation,
-        InputArgRef, AbstractValue)
+        InputArgRef, AbstractValue, OpHelpers)
 from rpython.jit.metainterp.optimizeopt.util import args_dict
 
 
@@ -441,6 +441,7 @@ class FakeJitDriverStaticData(object):
     vec = False
 
 class FakeMetaInterpStaticData(object):
+    all_descrs = []
 
     def __init__(self, cpu):
         self.cpu = cpu
@@ -452,6 +453,10 @@ class FakeMetaInterpStaticData(object):
     class logger_noopt:
         @classmethod
         def log_loop(*args, **kwds):
+            pass
+
+        @classmethod
+        def log_loop_from_trace(*args, **kwds):
             pass
 
     class logger_ops:
@@ -501,23 +506,14 @@ class BaseTest(object):
                                None, False, postprocess)
         return self.oparse.parse()
 
-    def postprocess(self, op):
-        class FakeJitCode(object):
-            index = 0
-
-        if op.is_guard():
-            op.rd_snapshot = resume.TopSnapshot(
-                resume.Snapshot(None, op.getfailargs()), [], [])
-            op.rd_frame_info_list = resume.FrameInfo(None, FakeJitCode(), 11)
-
     def add_guard_future_condition(self, res):
         # invent a GUARD_FUTURE_CONDITION to not have to change all tests
         if res.operations[-1].getopnum() == rop.JUMP:
-            guard = ResOperation(rop.GUARD_FUTURE_CONDITION, [], None)
-            guard.rd_snapshot = resume.TopSnapshot(None, [], [])
+            guard = ResOperation(rop.GUARD_FUTURE_CONDITION, [])
             res.operations.insert(-1, guard)
 
-    def assert_equal(self, optimized, expected, text_right=None):
+    @staticmethod
+    def assert_equal(optimized, expected, text_right=None):
         from rpython.jit.metainterp.optimizeopt.util import equaloplists
         assert len(optimized.inputargs) == len(expected.inputargs)
         remap = {}
@@ -549,23 +545,43 @@ class BaseTest(object):
             call_pure_results[list(k)] = v
         return call_pure_results
 
-    def unroll_and_optimize(self, loop, call_pure_results=None):
+    def convert_values(self, inpargs, values):
+        from rpython.jit.metainterp.history import IntFrontendOp, RefFrontendOp
+        if values:
+            r = []
+            for arg, v in zip(inpargs, values):
+                if arg.type == 'i':
+                    n = IntFrontendOp(0)
+                    if v is not None:
+                        n.setint(v)
+                else:
+                    n = RefFrontendOp(0)
+                    if v is not None:
+                        n.setref_base(v)
+                    assert arg.type == 'r'
+                r.append(n)
+            return r
+        return inpargs
+
+    def unroll_and_optimize(self, loop, call_pure_results=None,
+                            jump_values=None):
         self.add_guard_future_condition(loop)
         jump_op = loop.operations[-1]
         assert jump_op.getopnum() == rop.JUMP
-        ops = loop.operations[:-1]
-        jump_op.setdescr(JitCellToken())
-        start_label = ResOperation(rop.LABEL, loop.inputargs,
-                                   jump_op.getdescr())
-        end_label = jump_op.copy_and_change(opnum=rop.LABEL)
+        celltoken = JitCellToken()
+        runtime_boxes = self.pack_into_boxes(jump_op, jump_values)
+        jump_op.setdescr(celltoken)
+        #start_label = ResOperation(rop.LABEL, loop.inputargs,
+        #                           descr=jump_op.getdescr())
+        #end_label = jump_op.copy_and_change(opnum=rop.LABEL)
         call_pure_results = self._convert_call_pure_results(call_pure_results)
-        preamble_data = compile.LoopCompileData(start_label, end_label, ops,
+        t = convert_loop_to_trace(loop, FakeMetaInterpStaticData(self.cpu))
+        preamble_data = compile.LoopCompileData(t, runtime_boxes,
                                                 call_pure_results)
         start_state, preamble_ops = self._do_optimize_loop(preamble_data)
         preamble_data.forget_optimization_info()
-        loop_data = compile.UnrolledLoopData(start_label, jump_op,
-                                             ops, start_state,
-                                             call_pure_results)
+        loop_data = compile.UnrolledLoopData(preamble_data.trace,
+            celltoken, start_state, call_pure_results)
         loop_info, ops = self._do_optimize_loop(loop_data)
         preamble = TreeLoop('preamble')
         preamble.inputargs = start_state.renamed_inputargs
@@ -577,13 +593,16 @@ class BaseTest(object):
         return Info(preamble, loop_info.target_token.short_preamble,
                     start_state.virtual_state)
 
-    def set_values(self, ops, jump_values=None):
-        jump_op = ops[-1]
+    def pack_into_boxes(self, jump_op, jump_values):
         assert jump_op.getopnum() == rop.JUMP
+        r = []
         if jump_values is not None:
+            assert len(jump_values) == len(jump_op.getarglist())
             for i, v in enumerate(jump_values):
                 if v is not None:
-                    jump_op.getarg(i).setref_base(v)
+                    r.append(InputArgRef(v))
+                else:
+                    r.append(None)
         else:
             for i, box in enumerate(jump_op.getarglist()):
                 if box.type == 'r' and not box.is_constant():
@@ -591,9 +610,10 @@ class BaseTest(object):
                     # object here.  If you need something different, you
                     # need to pass a 'jump_values' argument to e.g.
                     # optimize_loop()
-                    box.setref_base(self.nodefulladdr)
-
-
+                    r.append(InputArgRef(self.nodefulladdr))
+                else:
+                    r.append(None)
+        return r
 
 class FakeDescr(compile.ResumeGuardDescr):
     def clone_if_mutable(self):

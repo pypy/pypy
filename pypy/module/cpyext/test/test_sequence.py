@@ -90,8 +90,10 @@ class TestSequence(BaseApiTest):
         self.raises(space, api, IndexError, api.PySequence_SetItem,
                     l, 3, w_value)
 
+        t = api.PyTuple_New(1)
+        api.PyTuple_SetItem(t, 0, l)
         self.raises(space, api, TypeError, api.PySequence_SetItem,
-                    api.PyTuple_New(1), 0, w_value)
+                    t, 0, w_value)
 
         self.raises(space, api, TypeError, api.PySequence_SetItem,
                     space.newdict(), 0, w_value)

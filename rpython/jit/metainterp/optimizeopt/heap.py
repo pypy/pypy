@@ -315,18 +315,19 @@ class OptHeap(Optimization):
     def emit_operation(self, op):        
         self.emitting_operation(op)
         self.emit_postponed_op()
-        if (op.is_comparison() or op.is_call_may_force()
-            or op.is_ovf()):
+        opnum = op.opnum
+        if (rop.is_comparison(opnum) or rop.is_call_may_force(opnum)
+            or rop.is_ovf(opnum)):
             self.postponed_op = op
         else:
             Optimization.emit_operation(self, op)
 
     def emitting_operation(self, op):
-        if op.has_no_side_effect():
+        if rop.has_no_side_effect(op.opnum):
             return
-        if op.is_ovf():
+        if rop.is_ovf(op.opnum):
             return
-        if op.is_guard():
+        if rop.is_guard(op.opnum):
             self.optimizer.pendingfields = (
                 self.force_lazy_sets_for_guard())
             return
@@ -346,8 +347,8 @@ class OptHeap(Optimization):
             opnum == rop.COPYSTRCONTENT or       # no effect on GC struct/array
             opnum == rop.COPYUNICODECONTENT):    # no effect on GC struct/array
             return
-        if op.is_call():
-            if op.is_call_assembler():
+        if rop.is_call(op.opnum):
+            if rop.is_call_assembler(op.getopnum()):
                 self._seen_guard_not_invalidated = False
             else:
                 effectinfo = op.getdescr().get_extra_info()

@@ -245,7 +245,7 @@ static inline void mutex1_unlock(mutex1_t *mutex) {
     LeaveCriticalSection(mutex);
 }
 
-//#define lock_test_and_set(ptr, value)  see thread_nt.h
+//#define pypy_lock_test_and_set(ptr, value)  see thread_nt.h
 #define atomic_increment(ptr)          InterlockedIncrement(ptr)
 #define atomic_decrement(ptr)          InterlockedDecrement(ptr)
 

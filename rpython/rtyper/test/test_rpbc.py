@@ -1947,6 +1947,30 @@ class TestSmallFuncSets(TestRPBC):
         kwds['config'] = self.config
         return TestRPBC.interpret(fn, args, **kwds)
 
+    def test_class_missing_base_method_should_crash(self):
+        class Base(object):
+            pass   # no method 'm' here
+        class A(Base):
+            def m(self):
+                return 42
+        class B(Base):
+            def m(self):
+                return 63
+        def g(n):
+            if n == 1:
+                return A()
+            elif n == 2:
+                return B()
+            else:
+                return Base()
+        def f(n):
+            return g(n).m()
+
+        assert self.interpret(f, [1]) == 42
+        assert self.interpret(f, [2]) == 63
+        e = py.test.raises(ValueError, self.interpret, f, [3])
+        assert str(e.value).startswith(r"exit case '\xff' not found")
+
 def test_smallfuncsets_basic():
     from rpython.translator.translator import TranslationContext, graphof
     from rpython.config.translationoption import get_combined_translation_config

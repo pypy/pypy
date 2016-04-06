@@ -75,8 +75,8 @@ class OptPure(Optimization):
         dispatch_opt(self, op)
 
     def optimize_default(self, op):
-        canfold = op.is_always_pure()
-        if op.is_ovf():
+        canfold = rop.is_always_pure(op.opnum)
+        if rop.is_ovf(op.opnum):
             self.postponed_op = op
             return
         if self.postponed_op:
@@ -110,7 +110,7 @@ class OptPure(Optimization):
 
         # otherwise, the operation remains
         self.emit_operation(op)
-        if op.returns_bool_result():
+        if rop.returns_bool_result(op.opnum):
             self.getintbound(op).make_bool()
         if save:
             recentops = self.getrecentops(op.getopnum())
@@ -221,9 +221,9 @@ class OptPure(Optimization):
     def produce_potential_short_preamble_ops(self, sb):
         ops = self.optimizer._newoperations
         for i, op in enumerate(ops):
-            if op.is_always_pure():
+            if rop.is_always_pure(op.opnum):
                 sb.add_pure_op(op)
-            if op.is_ovf() and ops[i + 1].getopnum() == rop.GUARD_NO_OVERFLOW:
+            if rop.is_ovf(op.opnum) and ops[i + 1].getopnum() == rop.GUARD_NO_OVERFLOW:
                 sb.add_pure_op(op)
         for i in self.call_pure_positions:
             op = ops[i]
@@ -232,7 +232,7 @@ class OptPure(Optimization):
 
             effectinfo = op.getdescr().get_extra_info()
             if not effectinfo.check_can_raise(ignore_memoryerror=True):
-                assert op.is_call()
+                assert rop.is_call(op.opnum)
                 sb.add_pure_op(op)
 
 dispatch_opt = make_dispatcher_method(OptPure, 'optimize_',
