@@ -1592,43 +1592,70 @@ class MIFrame(object):
                 resbox = self._do_jit_force_virtual(allboxes, descr, pc)
                 if resbox is not None:
                     return resbox
+
+            # 1. preparation
             self.metainterp.vable_and_vrefs_before_residual_call()
+
+            # 2. actually do the call now (we'll have cases later): the
+            #    result is stored into 'c_result' for now, which is a Const
+            metainterp = self.metainterp
             tp = descr.get_normalized_result_type()
-            resbox = NOT_HANDLED
-            opnum = -1
-            if effectinfo.oopspecindex == effectinfo.OS_LIBFFI_CALL:
-                opnum = rop.call_may_force_for_descr(descr)
-                resbox = self.metainterp.direct_libffi_call(allboxes, descr,
-                                                            tp)
-            if resbox is NOT_HANDLED:
-                if effectinfo.is_call_release_gil():
-                    opnum = rop.call_release_gil_for_descr(descr)
-                    resbox = self.metainterp.direct_call_release_gil(allboxes,
-                                                                descr, tp)
-                elif tp == 'i':
-                    resbox = self.metainterp.execute_and_record_varargs(
-                        rop.CALL_MAY_FORCE_I, allboxes, descr=descr)
-                elif tp == 'r':
-                    resbox = self.metainterp.execute_and_record_varargs(
-                        rop.CALL_MAY_FORCE_R, allboxes, descr=descr)
-                elif tp == 'f':
-                    resbox = self.metainterp.execute_and_record_varargs(
-                        rop.CALL_MAY_FORCE_F, allboxes, descr=descr)
-                elif tp == 'v':
-                    self.metainterp.execute_and_record_varargs(
-                        rop.CALL_MAY_FORCE_N, allboxes, descr=descr)
-                    resbox = None
-                else:
-                    assert False
-                if opnum == -1:
-                    opnum = rop.call_may_force_for_descr(descr)
-            cut_pos = self.metainterp.vrefs_after_residual_call(
-                self.metainterp._last_op, opnum, allboxes, descr, cut_pos)
-            vablebox = None
+            if tp == 'i':
+                opnum1 = rop.CALL_MAY_FORCE_I
+                value = executor.execute_varargs(metainterp.cpu, metainterp,
+                                                 opnum1, allboxes, descr)
+                c_result = ConstInt(value)
+            elif tp == 'r':
+                opnum1 = rop.CALL_MAY_FORCE_R
+                value = executor.execute_varargs(metainterp.cpu, metainterp,
+                                                 opnum1, allboxes, descr)
+                c_result = ConstPtr(value)
+            elif tp == 'f':
+                opnum1 = rop.CALL_MAY_FORCE_F
+                value = executor.execute_varargs(metainterp.cpu, metainterp,
+                                                 opnum1, allboxes, descr)
+                c_result = ConstFloat(value)
+            elif tp == 'v':
+                opnum1 = rop.CALL_MAY_FORCE_N
+                executor.execute_varargs(metainterp.cpu, metainterp,
+                                         opnum1, allboxes, descr)
+                c_result = None
+            else:
+                assert False
+
+            # 3. after this call, check the vrefs.  If any have been
+            #    forced by the call, then we record in the trace a
+            #    VIRTUAL_REF_FINISH---before we record any CALL
+            self.metainterp.vrefs_after_residual_call()
+
+            # 4. figure out what kind of CALL we need to record
+            #    from the effectinfo and the 'assembler_call' flag
             if assembler_call:
                 vablebox, resbox = self.metainterp.direct_assembler_call(
-                    self.metainterp._last_op, allboxes, descr, assembler_call_jd, cut_pos)
-            if resbox and resbox.type != 'v':
+                    allboxes, descr, assembler_call_jd)
+            else:
+                vablebox = None
+                resbox = None
+                if effectinfo.oopspecindex == effectinfo.OS_LIBFFI_CALL:
+                    resbox = self.metainterp.direct_libffi_call(allboxes, descr)
+                    # ^^^ may return None to mean "can't handle it myself"
+                if resbox is None:
+                    if effectinfo.is_call_release_gil():
+                        resbox = self.metainterp.direct_call_release_gil(
+                            allboxes, descr)
+                    else:
+                        resbox = self.metainterp.direct_call_may_force(
+                            allboxes, descr)
+
+            # 5. invalidate the heapcache based on the CALL_MAY_FORCE
+            #    operation executed above in step 2
+            self.metainterp.heapcache.invalidate_caches(opnum1, descr, allboxes)
+
+            # 6. put 'c_result' back into the recorded operation
+            if resbox.type == 'v':
+                resbox = None    # for void calls, must return None below
+            else:
+                resbox.copy_value_from(c_result)
                 self.make_result_of_lastop(resbox)
             self.metainterp.vable_after_residual_call(funcbox)
             self.metainterp.generate_guard(rop.GUARD_NOT_FORCED, None)
@@ -2170,7 +2197,6 @@ class MetaInterp(object):
         profiler.count_ops(opnum, Counters.RECORDED_OPS)
         self.heapcache.invalidate_caches(opnum, descr, argboxes)
         op = self.history.record(opnum, argboxes, resvalue, descr)
-        self._last_op = op
         self.attach_debug_info(op)
         if op.type != 'v':
             return op
@@ -2781,7 +2807,7 @@ class MetaInterp(object):
                                                   force_token],
                                 None, descr=vinfo.vable_token_descr)
 
-    def vrefs_after_residual_call(self, op, opnum, arglist, descr, cut_pos):
+    def vrefs_after_residual_call(self):
         vrefinfo = self.staticdata.virtualref_info
         for i in range(0, len(self.virtualref_boxes), 2):
             vrefbox = self.virtualref_boxes[i+1]
@@ -2791,9 +2817,7 @@ class MetaInterp(object):
                 # during this CALL_MAY_FORCE.  Mark this fact by
                 # generating a VIRTUAL_REF_FINISH on it and replacing
                 # it by ConstPtr(NULL).
-                cut_pos = self.stop_tracking_virtualref(i, op, opnum, arglist,
-                                                        descr, cut_pos)
-        return cut_pos
+                self.stop_tracking_virtualref(i)
 
     def vable_after_residual_call(self, funcbox):
         vinfo = self.jitdriver_sd.virtualizable_info
@@ -2817,19 +2841,14 @@ class MetaInterp(object):
                 # have the eventual exception raised (this is normally done
                 # after the call to vable_after_residual_call()).
 
-    def stop_tracking_virtualref(self, i, op, opnum, arglist, descr, cut_pos):
+    def stop_tracking_virtualref(self, i):
         virtualbox = self.virtualref_boxes[i]
         vrefbox = self.virtualref_boxes[i+1]
-        # record VIRTUAL_REF_FINISH just before the current CALL_MAY_FORCE
-        self.history.cut(cut_pos) # pop the CALL
-        self.history.record_nospec(rop.VIRTUAL_REF_FINISH,
-                            [vrefbox, virtualbox], None)
-        cut_pos = self.history.get_trace_position()
-        newop = self.history.record_nospec(opnum, arglist, descr)
-        op.set_position(newop.get_position())
-        # mark by replacing it with ConstPtr(NULL)
+        # record VIRTUAL_REF_FINISH here, which is before the actual
+        # CALL_xxx is recorded
+        self.history.record(rop.VIRTUAL_REF_FINISH, [vrefbox, virtualbox], None)
+        # mark this situation by replacing the vrefbox with ConstPtr(NULL)
         self.virtualref_boxes[i+1] = self.cpu.ts.CONST_NULL
-        return cut_pos
 
     def handle_possible_exception(self):
         if self.last_exc_value:
@@ -3026,24 +3045,26 @@ class MetaInterp(object):
         newop.copy_value_from(op)
         return newop
 
-    def direct_assembler_call(self, op, arglist, descr, targetjitdriver_sd, cut_pos):
-        """ Generate a direct call to assembler for portal entry point,
-        patching the CALL_MAY_FORCE that occurred just now.
+    def direct_call_may_force(self, argboxes, calldescr):
+        """ Common case: record in the history a CALL_MAY_FORCE with
+        'c_result' as the result of that call.  (The actual call has
+        already been done.)
         """
-        self.history.cut(cut_pos)
+        opnum = rop.call_may_force_for_descr(calldescr)
+        return self.history.record_nospec(opnum, argboxes, calldescr)
+
+    def direct_assembler_call(self, arglist, calldescr, targetjitdriver_sd):
+        """ Record in the history a direct call to assembler for portal
+        entry point.
+        """
         num_green_args = targetjitdriver_sd.num_green_args
         greenargs = arglist[1:num_green_args+1]
         args = arglist[num_green_args+1:]
         assert len(args) == targetjitdriver_sd.num_red_args
         warmrunnerstate = targetjitdriver_sd.warmstate
         token = warmrunnerstate.get_assembler_token(greenargs)
-        opnum = OpHelpers.call_assembler_for_descr(descr)
-        oldop = op
+        opnum = OpHelpers.call_assembler_for_descr(calldescr)
         op = self.history.record_nospec(opnum, args, descr=token)
-        if opnum == rop.CALL_ASSEMBLER_N:
-            op = None
-        else:
-            op.copy_value_from(oldop)
         #
         # To fix an obscure issue, make sure the vable stays alive
         # longer than the CALL_ASSEMBLER operation.  We do it by
@@ -3054,7 +3075,7 @@ class MetaInterp(object):
         else:
             return None, op
 
-    def direct_libffi_call(self, argboxes, orig_calldescr, tp):
+    def direct_libffi_call(self, argboxes, orig_calldescr):
         """Generate a direct call to C code using jit_ffi_call()
         """
         # an 'assert' that constant-folds away the rest of this function
@@ -3067,7 +3088,7 @@ class MetaInterp(object):
         #
         box_cif_description = argboxes[1]
         if not isinstance(box_cif_description, ConstInt):
-            return NOT_HANDLED
+            return None     # cannot be handled by direct_libffi_call()
         cif_description = box_cif_description.getint()
         cif_description = llmemory.cast_int_to_adr(cif_description)
         cif_description = llmemory.cast_adr_to_ptr(cif_description,
@@ -3075,7 +3096,7 @@ class MetaInterp(object):
         extrainfo = orig_calldescr.get_extra_info()
         calldescr = self.cpu.calldescrof_dynamic(cif_description, extrainfo)
         if calldescr is None:
-            return NOT_HANDLED
+            return None     # cannot be handled by direct_libffi_call()
         #
         box_exchange_buffer = argboxes[3]
         arg_boxes = []
@@ -3106,68 +3127,25 @@ class MetaInterp(object):
         # (that is, errno and SetLastError/GetLastError on Windows)
         # Note these flags match the ones in clibffi.ll_callback
         c_saveall = ConstInt(rffi.RFFI_ERR_ALL | rffi.RFFI_ALT_ERRNO)
-        if tp == 'i':
-            value = executor.execute_varargs(self.cpu, self,
-                                             rop.CALL_MAY_FORCE_I,
-                                             argboxes, orig_calldescr)
-            box_result = self.history.record(
-                rop.CALL_RELEASE_GIL_I, [c_saveall, argboxes[2]] + arg_boxes,
-                value, descr=calldescr)
-        elif tp == 'f':
-            value = executor.execute_varargs(self.cpu, self,
-                                             rop.CALL_MAY_FORCE_F,
-                                             argboxes, orig_calldescr)
-            box_result = self.history.record(
-                rop.CALL_RELEASE_GIL_F, [c_saveall, argboxes[2]] + arg_boxes,
-                value, descr=calldescr)
-        elif tp == 'v':
-            executor.execute_varargs(self.cpu, self,
-                                             rop.CALL_MAY_FORCE_N,
-                                             argboxes, orig_calldescr)
-            self.history.record(
-                rop.CALL_RELEASE_GIL_N, [c_saveall, argboxes[2]] + arg_boxes,
-                None, descr=calldescr)
-            box_result = None
-        else:
-            assert False
-        #
+        opnum = rop.call_release_gil_for_descr(orig_calldescr)
+        assert opnum == rop.call_release_gil_for_descr(calldescr)
+        return self.history.record_nospec(opnum,
+                                          [c_saveall, argboxes[2]] + arg_boxes,
+                                          calldescr)
         # note that the result is written back to the exchange_buffer by the
         # following operation, which should be a raw_store
-        return box_result
 
-    def direct_call_release_gil(self, argboxes, calldescr, tp):
+    def direct_call_release_gil(self, argboxes, calldescr):
+        if not we_are_translated():       # for llgraph
+            calldescr._original_func_ = argboxes[0].getint()
         effectinfo = calldescr.get_extra_info()
         realfuncaddr, saveerr = effectinfo.call_release_gil_target
         funcbox = ConstInt(heaptracker.adr2int(realfuncaddr))
         savebox = ConstInt(saveerr)
-        if tp == 'i':
-            value = executor.execute_varargs(self.cpu, self,
-                                             rop.CALL_MAY_FORCE_I,
-                                             argboxes, calldescr)
-            resbox = self.history.record(rop.CALL_RELEASE_GIL_I,
-                                         [savebox, funcbox] + argboxes[1:],
-                                         value, calldescr)
-        elif tp == 'f':
-            value = executor.execute_varargs(self.cpu, self,
-                                             rop.CALL_MAY_FORCE_F,
-                                             argboxes, calldescr)
-            resbox = self.history.record(rop.CALL_RELEASE_GIL_F,
-                                         [savebox, funcbox] + argboxes[1:],
-                                         value, calldescr)
-        elif tp == 'v':
-            executor.execute_varargs(self.cpu, self,
-                                             rop.CALL_MAY_FORCE_N,
-                                             argboxes, calldescr)
-            self.history.record(rop.CALL_RELEASE_GIL_N,
-                                         [savebox, funcbox] + argboxes[1:],
-                                         None, calldescr)
-            resbox = None
-        else:
-            assert False, "no CALL_RELEASE_GIL_R"
-            
-        if not we_are_translated():       # for llgraph
-            calldescr._original_func_ = argboxes[0].getint()
-        return resbox
+        opnum = rop.call_release_gil_for_descr(calldescr)
+        return self.history.record_nospec(opnum,
+                                          [savebox, funcbox] + argboxes[1:],
+                                          calldescr)
 
     def do_not_in_trace_call(self, allboxes, descr):
         self.clear_exception()
@@ -3186,8 +3164,6 @@ class MetaInterp(object):
 class ChangeFrame(jitexc.JitException):
     """Raised after we mutated metainterp.framestack, in order to force
     it to reload the current top-of-stack frame that gets interpreted."""
-
-NOT_HANDLED = history.CONST_FALSE
 
 # ____________________________________________________________
 
