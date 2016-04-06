@@ -1740,6 +1740,13 @@ class ObjSpace(object):
             _warnings.warn(msg, warningcls, stacklevel=stacklevel)
         """)
 
+    def resource_warning(self, msg):
+        w_msg = self.wrap(msg)
+        self.appexec([w_msg],
+                     """(msg):
+            import sys
+            print >> sys.stderr, msg
+        """)
 
 class AppExecCache(SpaceCache):
     def build(cache, source):

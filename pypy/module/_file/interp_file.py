@@ -49,6 +49,10 @@ class W_File(W_AbstractStream):
         # thread that runs __del__, so no race condition should be possible
         self.clear_all_weakrefs()
         if self.stream is not None:
+            if self.space.sys.resource_warning_enabled:
+                w_repr = self.space.repr(self)
+                str_repr = self.space.str_w(w_repr)
+                self.space.resource_warning("WARNING: unclosed file: " + str_repr)
             self.enqueue_for_destruction(self.space, W_File.destructor,
                                          'close() method of ')
 

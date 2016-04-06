@@ -254,6 +254,31 @@ Delivered-To: gkj@sundance.gregorykjohnson.com'''
         if '__pypy__' in sys.builtin_module_names:
             assert repr(self.temppath) in g.getvalue()
 
+    def test_resource_warning(self):
+        import os, gc, sys, cStringIO
+        if '__pypy__' not in sys.builtin_module_names:
+            skip("pypy specific test")
+        def fn():
+            f = self.file(self.temppath, 'w')
+            g = cStringIO.StringIO()
+            preverr = sys.stderr
+            try:
+                sys.stderr = g
+                del f
+                gc.collect() # force __del__ to be called
+            finally:
+                sys.stderr = preverr
+            return g.getvalue()
+
+        try:
+            sys.pypy_set_resource_warning(False)
+            assert fn() == ""
+            sys.pypy_set_resource_warning(True)
+            msg = fn()
+            assert msg.startswith("WARNING: unclosed file: <open file ")
+        finally:
+            sys.pypy_set_resource_warning(False)
+
     def test_truncate(self):
         f = self.file(self.temppath, "w")
         f.write("foo")
