@@ -1,5 +1,12 @@
 import os
 import sys
+from math import modf
+from errno import EOPNOTSUPP
+try:
+    from errno import ENOTSUP
+except ImportError:
+    # some Pythons don't have errno.ENOTSUP
+    ENOTSUP = 0
 
 from rpython.rlib import rposix, rposix_stat
 from rpython.rlib import objectmodel, rurandom
@@ -7,9 +14,10 @@ from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import r_longlong, intmask
 from rpython.rlib.unroll import unrolling_iterable
 
-from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
-from pypy.interpreter.error import (OperationError, wrap_oserror,
-                                    wrap_oserror2, strerror as _strerror)
+from pypy.interpreter.gateway import (
+    unwrap_spec, WrappedDefault, Unwrapper, kwonly)
+from pypy.interpreter.error import (
+    OperationError, wrap_oserror, oefmt, wrap_oserror2, strerror as _strerror)
 from pypy.interpreter.executioncontext import ExecutionContext
 
 
@@ -31,7 +39,7 @@ if sys.maxint == 2147483647:
         pass
 else:
     def check_uid_range(space, num):
-        if num < -(1<<31) or num >= (1<<32):
+        if num < -(1 << 31) or num >= (1 << 32):
             raise OperationError(space.w_OverflowError,
                                  space.wrap("integer out of range"))
 
@@ -104,15 +112,63 @@ def dispatch_filename_2(func):
                 return func(fname1, fname2, *args)
     return dispatch
 
-@unwrap_spec(flag=c_int, mode=c_int)
-def open(space, w_fname, flag, mode=0777):
-    """Open a file (for low level IO).
-Return a file descriptor (a small integer)."""
+
+if hasattr(rposix, 'AT_FDCWD'):
+    DEFAULT_DIR_FD = rposix.AT_FDCWD
+else:
+    DEFAULT_DIR_FD = -100
+DIR_FD_AVAILABLE = False
+
+def unwrap_fd(space, w_value):
+    return space.c_int_w(w_value)
+
+def _unwrap_dirfd(space, w_value):
+    if space.is_none(w_value):
+        return DEFAULT_DIR_FD
+    else:
+        return unwrap_fd(space, w_value)
+
+class _DirFD(Unwrapper):
+    def unwrap(self, space, w_value):
+        return _unwrap_dirfd(space, w_value)
+
+class _DirFD_Unavailable(Unwrapper):
+    def unwrap(self, space, w_value):
+        dir_fd = unwrap_fd(space, w_value)
+        if dir_fd == DEFAULT_DIR_FD:
+            return dir_fd
+        else:
+            raise oefmt(
+                space.w_NotImplementedError,
+                "dir_fd unavailable on this platform")
+
+def DirFD(available=False):
+    return _DirFD if available else _DirFD_Unavailable
+
+@specialize.arg(1, 2)
+def argument_unavailable(space, funcname, arg):
+    return oefmt(
+            space.w_NotImplementedError,
+            "%s: %s unavailable on this platform", funcname, arg)
+
+@unwrap_spec(flags=c_int, mode=c_int, dir_fd=DirFD(rposix.HAVE_OPENAT))
+def open(space, w_path, flags, mode=0777, dir_fd=DEFAULT_DIR_FD):
+    """open(path, flags, mode=0o777, *, dir_fd=None)
+
+Open a file for low level IO.  Returns a file handle (integer).
+
+If dir_fd is not None, it should be a file descriptor open to a directory,
+  and path should be relative; path will then be relative to that directory.
+dir_fd may not be implemented on your platform.
+  If it is unavailable, using it will raise a NotImplementedError."""
     try:
-        fd = dispatch_filename(rposix.open)(
-            space, w_fname, flag, mode)
-    except OSError, e:
-        raise wrap_oserror2(space, e, w_fname)
+        if dir_fd == DEFAULT_DIR_FD:
+            fd = dispatch_filename(rposix.open)(space, w_path, flags, mode)
+        else:
+            path = space.fsencode_w(w_path)
+            fd = rposix.openat(path, flags, mode, dir_fd)
+    except OSError as e:
+        raise wrap_oserror2(space, e, w_path)
     return space.wrap(fd)
 
 @unwrap_spec(fd=c_int, pos=r_longlong, how=c_int)
@@ -282,7 +338,8 @@ def build_statvfs_result(space, st):
     for i, (name, _) in STATVFS_FIELDS:
         vals_w[i] = space.wrap(getattr(st, name))
     w_tuple = space.newtuple(vals_w)
-    w_statvfs_result = space.getattr(space.getbuiltinmodule(os.name), space.wrap('statvfs_result'))
+    w_statvfs_result = space.getattr(
+        space.getbuiltinmodule(os.name), space.wrap('statvfs_result'))
     return space.call_function(w_statvfs_result, w_tuple)
 
 
@@ -297,21 +354,23 @@ file descriptor."""
     else:
         return build_stat_result(space, st)
 
-def stat(space, w_path):
-    """Perform a stat system call on the given path.  Return an object
-with (at least) the following attributes:
-    st_mode
-    st_ino
-    st_dev
-    st_nlink
-    st_uid
-    st_gid
-    st_size
-    st_atime
-    st_mtime
-    st_ctime
-"""
+@unwrap_spec(dir_fd=DirFD(available=False), follow_symlinks=kwonly(bool))
+def stat(space, w_path, dir_fd=DEFAULT_DIR_FD, follow_symlinks=True):
+    """stat(path, *, dir_fd=None, follow_symlinks=True) -> stat result
 
+Perform a stat system call on the given path.
+
+path may be specified as either a string or as an open file descriptor.
+
+If dir_fd is not None, it should be a file descriptor open to a directory,
+  and path should be relative; path will then be relative to that directory.
+  dir_fd may not be supported on your platform; if it is unavailable, using
+  it will raise a NotImplementedError.
+If follow_symlinks is False, and the last element of the path is a symbolic
+  link, stat will examine the symbolic link itself instead of the file the
+  link points to.
+It is an error to use dir_fd or follow_symlinks when specifying path as
+  an open file descriptor."""
     try:
         st = dispatch_filename(rposix_stat.stat, 0,
                                allow_fd_fn=rposix_stat.fstat)(space, w_path)
@@ -320,8 +379,13 @@ with (at least) the following attributes:
     else:
         return build_stat_result(space, st)
 
-def lstat(space, w_path):
-    "Like stat(path), but do not follow symbolic links."
+@unwrap_spec(dir_fd=DirFD(available=False))
+def lstat(space, w_path, dir_fd=DEFAULT_DIR_FD):
+    """lstat(path, *, dir_fd=None) -> stat result
+
+Like stat(), but do not follow symbolic links.
+Equivalent to stat(path, follow_symlinks=False)."""
+
     try:
         st = dispatch_filename(rposix_stat.lstat)(space, w_path)
     except OSError, e:
@@ -360,6 +424,13 @@ def fstatvfs(space, fd):
 
 
 def statvfs(space, w_path):
+    """statvfs(path)
+
+Perform a statvfs system call on the given path.
+
+path may always be specified as a string.
+On some platforms, path may also be specified as an open file descriptor.
+  If this functionality is unavailable, using it raises an exception."""
     try:
         st = dispatch_filename(rposix_stat.statvfs)(space, w_path)
     except OSError as e:
@@ -387,20 +458,46 @@ def dup2(space, old_fd, new_fd):
     except OSError, e:
         raise wrap_oserror(space, e)
 
-@unwrap_spec(mode=c_int)
-def access(space, w_path, mode):
-    """
-    access(path, mode) -> 1 if granted, 0 otherwise
+@unwrap_spec(mode=c_int,
+    dir_fd=DirFD(rposix.HAVE_FACCESSAT), effective_ids=kwonly(bool), follow_symlinks=kwonly(bool))
+def access(space, w_path, mode,
+        dir_fd=DEFAULT_DIR_FD, effective_ids=True, follow_symlinks=True):
+    """\
+access(path, mode, *, dir_fd=None, effective_ids=False, follow_symlinks=True)
 
-    Use the real uid/gid to test for access to a path.  Note that most
-    operations will use the effective uid/gid, therefore this routine can
-    be used in a suid/sgid environment to test if the invoking user has the
-    specified access to the path.  The mode argument can be F_OK to test
-    existence, or the inclusive-OR of R_OK, W_OK, and X_OK.
-    """
+Use the real uid/gid to test for access to a path.  Returns True if granted,
+False otherwise.
+
+If dir_fd is not None, it should be a file descriptor open to a directory,
+  and path should be relative; path will then be relative to that directory.
+If effective_ids is True, access will use the effective uid/gid instead of
+  the real uid/gid.
+If follow_symlinks is False, and the last element of the path is a symbolic
+  link, access will examine the symbolic link itself instead of the file the
+  link points to.
+dir_fd, effective_ids, and follow_symlinks may not be implemented
+  on your platform.  If they are unavailable, using them will raise a
+  NotImplementedError.
+
+Note that most operations will use the effective uid/gid, therefore this
+  routine can be used in a suid/sgid environment to test if the invoking user
+  has the specified access to the path.
+The mode argument can be F_OK to test existence, or the inclusive-OR
+  of R_OK, W_OK, and X_OK."""
+    if not rposix.HAVE_FACCESSAT:
+        if not follow_symlinks:
+            raise argument_unavailable(space, "access", "follow_symlinks")
+        if effective_ids:
+            raise argument_unavailable(space, "access", "effective_ids")
+
     try:
-        ok = dispatch_filename(rposix.access)(space, w_path, mode)
-    except OSError, e:
+        if dir_fd == DEFAULT_DIR_FD and follow_symlinks and not effective_ids:
+            ok = dispatch_filename(rposix.access)(space, w_path, mode)
+        else:
+            path = space.fsencode_w(w_path)
+            ok = rposix.faccessat(path, mode,
+                dir_fd, effective_ids, follow_symlinks)
+    except OSError as e:
         raise wrap_oserror2(space, e, w_path)
     else:
         return space.wrap(ok)
@@ -433,18 +530,42 @@ def system(space, cmd):
     else:
         return space.wrap(rc)
 
-def unlink(space, w_path):
-    """Remove a file (same as remove(path))."""
+@unwrap_spec(dir_fd=DirFD(rposix.HAVE_UNLINKAT))
+def unlink(space, w_path, dir_fd=DEFAULT_DIR_FD):
+    """unlink(path, *, dir_fd=None)
+
+Remove a file (same as remove()).
+
+If dir_fd is not None, it should be a file descriptor open to a directory,
+  and path should be relative; path will then be relative to that directory.
+dir_fd may not be implemented on your platform.
+  If it is unavailable, using it will raise a NotImplementedError."""
     try:
-        dispatch_filename(rposix.unlink)(space, w_path)
-    except OSError, e:
+        if dir_fd == DEFAULT_DIR_FD:
+            dispatch_filename(rposix.unlink)(space, w_path)
+        else:
+            path = space.fsencode_w(w_path)
+            rposix.unlinkat(path, dir_fd, removedir=False)
+    except OSError as e:
         raise wrap_oserror2(space, e, w_path)
 
-def remove(space, w_path):
-    """Remove a file (same as unlink(path))."""
+@unwrap_spec(dir_fd=DirFD(rposix.HAVE_UNLINKAT))
+def remove(space, w_path, dir_fd=DEFAULT_DIR_FD):
+    """remove(path, *, dir_fd=None)
+
+Remove a file (same as unlink()).
+
+If dir_fd is not None, it should be a file descriptor open to a directory,
+  and path should be relative; path will then be relative to that directory.
+dir_fd may not be implemented on your platform.
+  If it is unavailable, using it will raise a NotImplementedError."""
     try:
-        dispatch_filename(rposix.unlink)(space, w_path)
-    except OSError, e:
+        if dir_fd == DEFAULT_DIR_FD:
+            dispatch_filename(rposix.unlink)(space, w_path)
+        else:
+            path = space.fsencode_w(w_path)
+            rposix.unlinkat(path, dir_fd, removedir=False)
+    except OSError as e:
         raise wrap_oserror2(space, e, w_path)
 
 def _getfullpathname(space, w_path):
@@ -493,19 +614,44 @@ def chdir(space, w_path):
     except OSError, e:
         raise wrap_oserror2(space, e, w_path)
 
-@unwrap_spec(mode=c_int)
-def mkdir(space, w_path, mode=0777):
-    """Create a directory."""
+@unwrap_spec(mode=c_int, dir_fd=DirFD(rposix.HAVE_MKDIRAT))
+def mkdir(space, w_path, mode=0o777, dir_fd=DEFAULT_DIR_FD):
+    """mkdir(path, mode=0o777, *, dir_fd=None)
+
+Create a directory.
+
+If dir_fd is not None, it should be a file descriptor open to a directory,
+  and path should be relative; path will then be relative to that directory.
+dir_fd may not be implemented on your platform.
+  If it is unavailable, using it will raise a NotImplementedError.
+
+The mode argument is ignored on Windows."""
     try:
-        dispatch_filename(rposix.mkdir)(space, w_path, mode)
-    except OSError, e:
+        if dir_fd == DEFAULT_DIR_FD:
+            dispatch_filename(rposix.mkdir)(space, w_path, mode)
+        else:
+            path = space.fsencode_w(w_path)
+            rposix.mkdirat(path, mode, dir_fd)
+    except OSError as e:
         raise wrap_oserror2(space, e, w_path)
 
-def rmdir(space, w_path):
-    """Remove a directory."""
+@unwrap_spec(dir_fd=DirFD(rposix.HAVE_UNLINKAT))
+def rmdir(space, w_path, dir_fd=DEFAULT_DIR_FD):
+    """rmdir(path, *, dir_fd=None)
+
+Remove a directory.
+
+If dir_fd is not None, it should be a file descriptor open to a directory,
+  and path should be relative; path will then be relative to that directory.
+dir_fd may not be implemented on your platform.
+  If it is unavailable, using it will raise a NotImplementedError."""
     try:
-        dispatch_filename(rposix.rmdir)(space, w_path)
-    except OSError, e:
+        if dir_fd == DEFAULT_DIR_FD:
+            dispatch_filename(rposix.rmdir)(space, w_path)
+        else:
+            path = space.fsencode_w(w_path)
+            rposix.unlinkat(path, dir_fd, removedir=True)
+    except OSError as e:
         raise wrap_oserror2(space, e, w_path)
 
 @unwrap_spec(errno=c_int)
@@ -538,9 +684,11 @@ class State:
         self.space = space
         self.w_environ = space.newdict()
         self.random_context = rurandom.init_urandom()
+
     def startup(self, space):
         space.call_method(self.w_environ, 'clear')
         _convertenviron(space, self.w_environ)
+
     def _freeze_(self):
         # don't capture the environment in the translated pypy
         self.space.call_method(self.w_environ, 'clear')
@@ -596,35 +744,56 @@ else:
             raise wrap_oserror(space, e)
 
 
-@unwrap_spec(w_dirname=WrappedDefault(u"."))
-def listdir(space, w_dirname):
-    """Return a list containing the names of the entries in the directory.
+@unwrap_spec(w_path=WrappedDefault(u"."))
+def listdir(space, w_path):
+    """listdir(path='.') -> list_of_filenames
 
-\tpath: path of directory to list
-
+Return a list containing the names of the files in the directory.
 The list is in arbitrary order.  It does not include the special
-entries '.' and '..' even if they are present in the directory."""
+entries '.' and '..' even if they are present in the directory.
+
+path can be specified as either str or bytes.  If path is bytes,
+  the filenames returned will also be bytes; in all other circumstances
+  the filenames returned will be str.
+On some platforms, path may also be specified as an open file descriptor;
+  the file descriptor must refer to a directory.
+  If this functionality is unavailable, using it raises NotImplementedError."""
+    if space.isinstance_w(w_path, space.w_bytes):
+        dirname = space.str0_w(w_path)
+        try:
+            result = rposix.listdir(dirname)
+        except OSError as e:
+            raise wrap_oserror2(space, e, w_path)
+        return space.newlist_bytes(result)
     try:
-        if space.isinstance_w(w_dirname, space.w_unicode):
-            dirname = FileEncoder(space, w_dirname)
+        path = space.fsencode_w(w_path)
+    except OperationError as operr:
+        if not rposix.HAVE_FDOPENDIR:
+            raise oefmt(space.w_TypeError,
+                "listdir: illegal type for path argument")
+        if not space.isinstance_w(w_path, space.w_int):
+            raise oefmt(space.w_TypeError,
+                "argument should be string, bytes or integer, not %T", w_path)
+        fd = unwrap_fd(space, w_path)
+        try:
+            result = rposix.fdlistdir(fd)
+        except OSError as e:
+            raise wrap_oserror2(space, e, w_path)
+    else:
+        dirname = FileEncoder(space, w_path)
+        try:
             result = rposix.listdir(dirname)
-            len_result = len(result)
-            result_w = [None] * len_result
-            for i in range(len_result):
-                if _WIN32:
-                    result_w[i] = space.wrap(result[i])
-                else:
-                    w_bytes = space.wrapbytes(result[i])
-                    result_w[i] = space.fsdecode(w_bytes)
-            return space.newlist(result_w)
+        except OSError as e:
+            raise wrap_oserror2(space, e, w_path)
+    len_result = len(result)
+    result_w = [None] * len_result
+    for i in range(len_result):
+        if _WIN32:
+            result_w[i] = space.wrap(result[i])
         else:
-            dirname = space.str0_w(w_dirname)
-            result = rposix.listdir(dirname)
-            # The list comprehension is a workaround for an obscure translation
-            # bug.
-            return space.newlist_bytes([x for x in result])
-    except OSError, e:
-        raise wrap_oserror2(space, e, w_dirname)
+            w_bytes = space.wrapbytes(result[i])
+            result_w[i] = space.fsdecode(w_bytes)
+    return space.newlist(result_w)
 
 def pipe(space):
     "Create a pipe.  Returns (read_end, write_end)."
@@ -634,57 +803,160 @@ def pipe(space):
         raise wrap_oserror(space, e)
     return space.newtuple([space.wrap(fd1), space.wrap(fd2)])
 
-@unwrap_spec(mode=c_int)
-def chmod(space, w_path, mode):
-    "Change the access permissions of a file."
-    try:
-        dispatch_filename(rposix.chmod)(space, w_path, mode)
-    except OSError, e:
-        raise wrap_oserror2(space, e, w_path)
+@unwrap_spec(mode=c_int, dir_fd=DirFD(rposix.HAVE_FCHMODAT), follow_symlinks=kwonly(bool))
+def chmod(space, w_path, mode, dir_fd=DEFAULT_DIR_FD, follow_symlinks=True):
+    """chmod(path, mode, *, dir_fd=None, follow_symlinks=True)
 
-@unwrap_spec(mode=c_int)
-def fchmod(space, w_fd, mode):
-    """Change the access permissions of the file given by file
-descriptor fd."""
-    fd = space.c_filedescriptor_w(w_fd)
+Change the access permissions of a file.
+
+path may always be specified as a string.
+On some platforms, path may also be specified as an open file descriptor.
+  If this functionality is unavailable, using it raises an exception.
+If dir_fd is not None, it should be a file descriptor open to a directory,
+  and path should be relative; path will then be relative to that directory.
+If follow_symlinks is False, and the last element of the path is a symbolic
+  link, chmod will modify the symbolic link itself instead of the file the
+  link points to.
+It is an error to use dir_fd or follow_symlinks when specifying path as
+  an open file descriptor.
+dir_fd and follow_symlinks may not be implemented on your platform.
+  If they are unavailable, using them will raise a NotImplementedError."""
+    if not rposix.HAVE_FCHMODAT:
+        if not follow_symlinks:
+            raise argument_unavailable(space, "chmod", "follow_symlinks")
+        else:
+            try:
+                dispatch_filename(rposix.chmod)(space, w_path, mode)
+                return
+            except OSError as e:
+                raise wrap_oserror2(space, e, w_path)
+
+    try:
+        path = space.fsencode_w(w_path)
+    except OperationError as operr:
+        if not space.isinstance_w(w_path, space.w_int):
+            raise oefmt(space.w_TypeError,
+                "argument should be string, bytes or integer, not %T", w_path)
+        fd = unwrap_fd(space, w_path)
+        _chmod_fd(space, fd, mode)
+    else:
+        try:
+            _chmod_path(path, mode, dir_fd, follow_symlinks)
+        except OSError as e:
+            if not follow_symlinks and e.errno in (ENOTSUP, EOPNOTSUPP):
+                # fchmodat() doesn't actually implement follow_symlinks=False
+                # so raise NotImplementedError in this case
+                raise argument_unavailable(space, "chmod", "follow_symlinks")
+            else:
+                raise wrap_oserror2(space, e, w_path)
+
+def _chmod_path(path, mode, dir_fd, follow_symlinks):
+    if dir_fd != DEFAULT_DIR_FD or not follow_symlinks:
+        rposix.fchmodat(path, mode, dir_fd, follow_symlinks)
+    else:
+        rposix.chmod(path, mode)
+
+def _chmod_fd(space, fd, mode):
     try:
         os.fchmod(fd, mode)
+    except OSError as e:
+        raise wrap_oserror(space, e)
+
+
+@unwrap_spec(fd=c_int, mode=c_int)
+def fchmod(space, fd, mode):
+    """\
+    Change the access permissions of the file given by file descriptor fd.
+    """
+    _chmod_fd(space, fd, mode)
+
+@unwrap_spec(src_dir_fd=DirFD(rposix.HAVE_RENAMEAT),
+        dst_dir_fd=DirFD(rposix.HAVE_RENAMEAT))
+def rename(space, w_src, w_dst,
+        src_dir_fd=DEFAULT_DIR_FD, dst_dir_fd=DEFAULT_DIR_FD):
+    """rename(src, dst, *, src_dir_fd=None, dst_dir_fd=None)
+
+Rename a file or directory.
+
+If either src_dir_fd or dst_dir_fd is not None, it should be a file
+  descriptor open to a directory, and the respective path string (src or dst)
+  should be relative; the path will then be relative to that directory.
+src_dir_fd and dst_dir_fd, may not be implemented on your platform.
+  If they are unavailable, using them will raise a NotImplementedError."""
+    try:
+        if (src_dir_fd != DEFAULT_DIR_FD or dst_dir_fd != DEFAULT_DIR_FD):
+            src = space.fsencode_w(w_src)
+            dst = space.fsencode_w(w_dst)
+            rposix.renameat(src, dst, src_dir_fd, dst_dir_fd)
+        else:
+            dispatch_filename_2(rposix.rename)(space, w_src, w_dst)
     except OSError, e:
         raise wrap_oserror(space, e)
 
-def rename(space, w_old, w_new):
-    "Rename a file or directory."
+@unwrap_spec(src_dir_fd=DirFD(rposix.HAVE_RENAMEAT),
+        dst_dir_fd=DirFD(rposix.HAVE_RENAMEAT))
+def replace(space, w_src, w_dst,
+        src_dir_fd=DEFAULT_DIR_FD, dst_dir_fd=DEFAULT_DIR_FD):
+    """replace(src, dst, *, src_dir_fd=None, dst_dir_fd=None)
+
+Rename a file or directory, overwriting the destination.
+
+If either src_dir_fd or dst_dir_fd is not None, it should be a file
+  descriptor open to a directory, and the respective path string (src or dst)
+  should be relative; the path will then be relative to that directory.
+src_dir_fd and dst_dir_fd, may not be implemented on your platform.
+  If they are unavailable, using them will raise a NotImplementedError."""
     try:
-        dispatch_filename_2(rposix.rename)(space, w_old, w_new)
-    except OSError, e:
+        if (src_dir_fd != DEFAULT_DIR_FD or dst_dir_fd != DEFAULT_DIR_FD):
+            src = space.fsencode_w(w_src)
+            dst = space.fsencode_w(w_dst)
+            rposix.renameat(src, dst, src_dir_fd, dst_dir_fd)
+        else:
+            dispatch_filename_2(rposix.replace)(space, w_src, w_dst)
+    except OSError as e:
         raise wrap_oserror(space, e)
 
-def replace(space, w_old, w_new):
-    "Replace a file or directory, overwriting the destination."
-    try:
-        dispatch_filename_2(rposix.replace)(space, w_old, w_new)
-    except OSError, e:
-        raise wrap_oserror(space, e)
+@unwrap_spec(mode=c_int, dir_fd=DirFD(rposix.HAVE_MKFIFOAT))
+def mkfifo(space, w_path, mode=0666, dir_fd=DEFAULT_DIR_FD):
+    """mkfifo(path, mode=0o666, *, dir_fd=None)
 
-@unwrap_spec(mode=c_int)
-def mkfifo(space, w_filename, mode=0666):
-    """Create a FIFO (a POSIX named pipe)."""
-    try:
-        dispatch_filename(rposix.mkfifo)(space, w_filename, mode)
-    except OSError, e:
-        raise wrap_oserror2(space, e, w_filename)
+Create a FIFO (a POSIX named pipe).
 
-@unwrap_spec(mode=c_int, device=c_int)
-def mknod(space, w_filename, mode=0600, device=0):
-    """Create a filesystem node (file, device special file or named pipe)
+If dir_fd is not None, it should be a file descriptor open to a directory,
+  and path should be relative; path will then be relative to that directory.
+dir_fd may not be implemented on your platform.
+  If it is unavailable, using it will raise a NotImplementedError."""
+    try:
+        if dir_fd == DEFAULT_DIR_FD:
+            dispatch_filename(rposix.mkfifo)(space, w_path, mode)
+        else:
+            path = space.fsencode_w(w_path)
+            rposix.mkfifoat(path, mode, dir_fd)
+    except OSError as e:
+        raise wrap_oserror2(space, e, w_path)
+
+@unwrap_spec(mode=c_int, device=c_int, dir_fd=DirFD(rposix.HAVE_MKNODAT))
+def mknod(space, w_filename, mode=0600, device=0, dir_fd=DEFAULT_DIR_FD):
+    """mknod(filename, mode=0o600, device=0, *, dir_fd=None)
+
+Create a filesystem node (file, device special file or named pipe)
 named filename. mode specifies both the permissions to use and the
 type of node to be created, being combined (bitwise OR) with one of
 S_IFREG, S_IFCHR, S_IFBLK, and S_IFIFO. For S_IFCHR and S_IFBLK,
 device defines the newly created device special file (probably using
-os.makedev()), otherwise it is ignored."""
+os.makedev()), otherwise it is ignored.
+
+If dir_fd is not None, it should be a file descriptor open to a directory,
+  and path should be relative; path will then be relative to that directory.
+dir_fd may not be implemented on your platform.
+  If it is unavailable, using it will raise a NotImplementedError."""
     try:
-        dispatch_filename(rposix.mknod)(space, w_filename, mode, device)
-    except OSError, e:
+        if dir_fd == DEFAULT_DIR_FD:
+            dispatch_filename(rposix.mknod)(space, w_filename, mode, device)
+        else:
+            fname = space.fsencode_w(w_filename)
+            rposix.mknodat(fname, mode, device, dir_fd)
+    except OSError as e:
         raise wrap_oserror2(space, e, w_filename)
 
 @unwrap_spec(mask=c_int)
@@ -723,31 +995,85 @@ in the hardest way possible on the hosting operating system."""
     import signal
     rposix.kill(os.getpid(), signal.SIGABRT)
 
-@unwrap_spec(src='fsencode', dst='fsencode')
-def link(space, src, dst):
-    "Create a hard link to a file."
+@unwrap_spec(
+    src='fsencode', dst='fsencode',
+    src_dir_fd=DirFD(rposix.HAVE_LINKAT), dst_dir_fd=DirFD(rposix.HAVE_LINKAT),
+    follow_symlinks=kwonly(bool))
+def link(
+        space, src, dst,
+        src_dir_fd=DEFAULT_DIR_FD, dst_dir_fd=DEFAULT_DIR_FD,
+        follow_symlinks=True):
+    """\
+link(src, dst, *, src_dir_fd=None, dst_dir_fd=None, follow_symlinks=True)
+
+Create a hard link to a file.
+
+If either src_dir_fd or dst_dir_fd is not None, it should be a file
+  descriptor open to a directory, and the respective path string (src or dst)
+  should be relative; the path will then be relative to that directory.
+If follow_symlinks is False, and the last element of src is a symbolic
+  link, link will create a link to the symbolic link itself instead of the
+  file the link points to.
+src_dir_fd, dst_dir_fd, and follow_symlinks may not be implemented on your
+  platform.  If they are unavailable, using them will raise a
+  NotImplementedError."""
     try:
-        os.link(src, dst)
-    except OSError, e:
+        if (src_dir_fd != DEFAULT_DIR_FD or dst_dir_fd != DEFAULT_DIR_FD
+                or not follow_symlinks):
+            rposix.linkat(src, dst, src_dir_fd, dst_dir_fd, follow_symlinks)
+        else:
+            rposix.link(src, dst)
+    except OSError as e:
         raise wrap_oserror(space, e)
 
-def symlink(space, w_src, w_dst, w_target_is_directory=None):
-    "Create a symbolic link pointing to src named dst."
-    # TODO: target_is_directory has a meaning on Windows
+
+@unwrap_spec(dir_fd=DirFD(rposix.HAVE_SYMLINKAT))
+def symlink(space, w_src, w_dst, w_target_is_directory=None,
+        dir_fd=DEFAULT_DIR_FD):
+    """symlink(src, dst, target_is_directory=False, *, dir_fd=None)
+
+Create a symbolic link pointing to src named dst.
+
+target_is_directory is required on Windows if the target is to be
+  interpreted as a directory.  (On Windows, symlink requires
+  Windows 6.0 or greater, and raises a NotImplementedError otherwise.)
+  target_is_directory is ignored on non-Windows platforms.
+
+If dir_fd is not None, it should be a file descriptor open to a directory,
+  and path should be relative; path will then be relative to that directory.
+dir_fd may not be implemented on your platform.
+  If it is unavailable, using it will raise a NotImplementedError."""
     try:
-        dispatch_filename_2(rposix.symlink)(space, w_src, w_dst)
-    except OSError, e:
+        if dir_fd == DEFAULT_DIR_FD:
+            dispatch_filename_2(rposix.symlink)(space, w_src, w_dst)
+        else:
+            src = space.fsencode_w(w_src)
+            dst = space.fsencode_w(w_dst)
+            rposix.symlinkat(src, dst, dir_fd)
+    except OSError as e:
         raise wrap_oserror(space, e)
 
-def readlink(space, w_path):
-    "Return a string representing the path to which the symbolic link points."
+
+@unwrap_spec(dir_fd=DirFD(rposix.HAVE_READLINKAT))
+def readlink(space, w_path, dir_fd=DEFAULT_DIR_FD):
+    """readlink(path, *, dir_fd=None) -> path
+
+Return a string representing the path to which the symbolic link points.
+
+If dir_fd is not None, it should be a file descriptor open to a directory,
+  and path should be relative; path will then be relative to that directory.
+dir_fd may not be implemented on your platform.
+  If it is unavailable, using it will raise a NotImplementedError."""
     is_unicode = space.isinstance_w(w_path, space.w_unicode)
     if is_unicode:
         path = space.fsencode_w(w_path)
     else:
         path = space.bytes0_w(w_path)
     try:
-        result = os.readlink(path)
+        if dir_fd == DEFAULT_DIR_FD:
+            result = rposix.readlink(path)
+        else:
+            result = rposix.readlinkat(path, dir_fd)
     except OSError, e:
         raise wrap_oserror2(space, e, w_path)
     w_result = space.wrapbytes(result)
@@ -837,7 +1163,7 @@ def waitpid(space, pid, options):
 def _exit(space, status):
     os._exit(status)
 
-def execv(space, w_command, w_args):
+def execv(space, w_path, w_args):
     """ execv(path, args)
 
 Execute an executable path with arguments, replacing current process.
@@ -845,7 +1171,23 @@ Execute an executable path with arguments, replacing current process.
         path: path of executable file
         args: iterable of strings
     """
-    execve(space, w_command, w_args, None)
+    command = space.fsencode_w(w_path)
+    try:
+        args_w = space.unpackiterable(w_args)
+        if len(args_w) < 1:
+            raise oefmt(space.w_ValueError,
+                "execv() arg 2 must not be empty")
+        args = [space.fsencode_w(w_arg) for w_arg in args_w]
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        raise oefmt(space.w_TypeError,
+            "execv() arg 2 must be an iterable of strings")
+    try:
+        os.execv(command, args)
+    except OSError as e:
+        raise wrap_oserror(space, e)
+
 
 def _env2interp(space, w_env):
     env = {}
@@ -855,38 +1197,45 @@ def _env2interp(space, w_env):
         env[space.fsencode_w(w_key)] = space.fsencode_w(w_value)
     return env
 
-def execve(space, w_command, w_args, w_env):
-    """ execve(path, args, env)
+
+def execve(space, w_path, w_argv, w_environment):
+    """execve(path, args, env)
 
 Execute a path with arguments and environment, replacing current process.
 
-        path: path of executable file
-        args: iterable of arguments
-        env: dictionary of strings mapping to strings
+    path: path of executable file
+    args: tuple or list of arguments
+    env: dictionary of strings mapping to strings
+
+On some platforms, you may specify an open file descriptor for path;
+  execve will execute the program the file descriptor is open to.
+  If this functionality is unavailable, using it raises NotImplementedError.
     """
-    command = space.fsencode_w(w_command)
+    if not (space.isinstance_w(w_argv, space.w_list)
+            or space.isinstance_w(w_argv, space.w_tuple)):
+        raise oefmt(space.w_TypeError,
+            "execve: argv must be a tuple or a list")
+    args = [space.fsencode_w(w_arg) for w_arg in space.unpackiterable(w_argv)]
+    env = _env2interp(space, w_environment)
     try:
-        args_w = space.unpackiterable(w_args)
-        if len(args_w) < 1:
-            w_msg = space.wrap("execv() must have at least one argument")
-            raise OperationError(space.w_ValueError, w_msg)
-        args = [space.fsencode_w(w_arg) for w_arg in args_w]
-    except OperationError, e:
-        if not e.match(space, space.w_TypeError):
-            raise
-        msg = "execv() arg 2 must be an iterable of strings"
-        raise OperationError(space.w_TypeError, space.wrap(str(msg)))
-    #
-    if w_env is None:    # when called via execv() above
+        path = space.fsencode_w(w_path)
+    except OperationError:
+        if not rposix.HAVE_FEXECVE:
+            raise oefmt(space.w_TypeError,
+                "execve: illegal type for path argument")
+        if not space.isinstance_w(w_path, space.w_int):
+            raise oefmt(space.w_TypeError,
+                "argument should be string, bytes or integer, not %T", w_path)
+        # File descriptor case
+        fd = unwrap_fd(space, w_path)
         try:
-            os.execv(command, args)
-        except OSError, e:
+            rposix.fexecve(fd, args, env)
+        except OSError as e:
             raise wrap_oserror(space, e)
     else:
-        env = _env2interp(space, w_env)
         try:
-            os.execve(command, args, env)
-        except OSError, e:
+            os.execve(path, args, env)
+        except OSError as e:
             raise wrap_oserror(space, e)
 
 @unwrap_spec(mode=int, path='fsencode')
@@ -908,14 +1257,55 @@ def spawnve(space, mode, path, w_args, w_env):
         raise wrap_oserror(space, e)
     return space.wrap(ret)
 
-def utime(space, w_path, w_tuple):
-    """ utime(path, (atime, mtime))
-utime(path, None)
 
-Set the access and modified time of the file to the given values.  If the
-second form is used, set the access and modified times to the current time.
-    """
-    if space.is_w(w_tuple, space.w_None):
+@unwrap_spec(w_times=WrappedDefault(None), w_ns=kwonly(WrappedDefault(None)),
+    dir_fd=DirFD(rposix.HAVE_UTIMENSAT), follow_symlinks=kwonly(bool))
+def utime(space, w_path, w_times, w_ns, dir_fd=DEFAULT_DIR_FD, follow_symlinks=True):
+    """utime(path, times=None, *, ns=None, dir_fd=None, follow_symlinks=True)
+
+Set the access and modified time of path.
+
+path may always be specified as a string.
+On some platforms, path may also be specified as an open file descriptor.
+  If this functionality is unavailable, using it raises an exception.
+
+If times is not None, it must be a tuple (atime, mtime);
+    atime and mtime should be expressed as float seconds since the epoch.
+If ns is not None, it must be a tuple (atime_ns, mtime_ns);
+    atime_ns and mtime_ns should be expressed as integer nanoseconds
+    since the epoch.
+If both times and ns are None, utime uses the current time.
+Specifying tuples for both times and ns is an error.
+
+If dir_fd is not None, it should be a file descriptor open to a directory,
+  and path should be relative; path will then be relative to that directory.
+If follow_symlinks is False, and the last element of the path is a symbolic
+  link, utime will modify the symbolic link itself instead of the file the
+  link points to.
+It is an error to use dir_fd or follow_symlinks when specifying path
+  as an open file descriptor.
+dir_fd and follow_symlinks may not be available on your platform.
+  If they are unavailable, using them will raise a NotImplementedError."""
+    if (not space.is_w(w_times, space.w_None) and
+            not space.is_w(w_ns, space.w_None)):
+        raise oefmt(space.w_ValueError,
+            "utime: you may specify either 'times' or 'ns' but not both")
+
+    if rposix.HAVE_UTIMENSAT:
+        path = space.fsencode_w(w_path)
+        try:
+            _utimensat(space, path, w_times, w_ns, dir_fd, follow_symlinks)
+            return
+        except OSError, e:
+            raise wrap_oserror2(space, e, w_path)
+
+    if not follow_symlinks:
+        raise argument_unavailable(space, "utime", "follow_symlinks")
+
+    if not space.is_w(w_ns, space.w_None):
+        raise oefmt(space.w_NotImplementedError,
+            "utime: 'ns' unsupported on this platform on PyPy")
+    if space.is_w(w_times, space.w_None):
         try:
             dispatch_filename(rposix.utime, 1)(space, w_path, None)
             return
@@ -923,7 +1313,7 @@ second form is used, set the access and modified times to the current time.
             raise wrap_oserror2(space, e, w_path)
     try:
         msg = "utime() arg 2 must be a tuple (atime, mtime) or None"
-        args_w = space.fixedview(w_tuple)
+        args_w = space.fixedview(w_times)
         if len(args_w) != 2:
             raise OperationError(space.w_TypeError, space.wrap(msg))
         actime = space.float_w(args_w[0], allow_conversion=False)
@@ -935,6 +1325,51 @@ second form is used, set the access and modified times to the current time.
         if not e.match(space, space.w_TypeError):
             raise
         raise OperationError(space.w_TypeError, space.wrap(msg))
+
+
+def _utimensat(space, path, w_times, w_ns, dir_fd, follow_symlinks):
+    if space.is_w(w_times, space.w_None) and space.is_w(w_ns, space.w_None):
+        atime_s = mtime_s = 0
+        atime_ns = mtime_ns = rposix.UTIME_NOW
+    elif not space.is_w(w_times, space.w_None):
+        times_w = space.fixedview(w_times)
+        if len(times_w) != 2:
+            raise oefmt(space.w_TypeError,
+                "utime: 'times' must be either a tuple of two ints or None")
+        atime_s, atime_ns = convert_seconds(space, times_w[0])
+        mtime_s, mtime_ns = convert_seconds(space, times_w[1])
+    else:
+        args_w = space.fixedview(w_ns)
+        if len(args_w) != 2:
+            raise oefmt(space.w_TypeError,
+                "utime: 'ns' must be a tuple of two ints")
+        atime_s, atime_ns = convert_ns(space, args_w[0])
+        mtime_s, mtime_ns = convert_ns(space, args_w[1])
+
+    rposix.utimensat(
+        path, atime_s, atime_ns, mtime_s, mtime_ns,
+        dir_fd=dir_fd, follow_symlinks=follow_symlinks)
+
+def convert_seconds(space, w_time):
+    if space.isinstance_w(w_time, space.w_float):
+        time = space.float_w(w_time)
+        fracpart, intpart = modf(time)
+        if fracpart < 0:
+            fracpart += 1.
+            intpart -= 1.
+        return int(intpart), int(fracpart*1e9)
+    else:
+        time = space.int_w(w_time)
+        return time, 0
+
+def convert_ns(space, w_ns_time):
+    w_billion = space.wrap(1000000000)
+    w_res = space.divmod(w_ns_time, w_billion)
+    res_w = space.fixedview(w_res)
+    time_int = space.int_w(res_w[0])
+    time_frac = space.int_w(res_w[1])
+    return time_int, time_frac
+
 
 def uname(space):
     """ uname() -> (sysname, nodename, release, version, machine)
@@ -1073,7 +1508,7 @@ def setgroups(space, w_list):
 @unwrap_spec(username=str, gid=c_gid_t)
 def initgroups(space, username, gid):
     """ initgroups(username, gid) -> None
-    
+
     Call the system initgroups() to initialize the group access list with all of
     the groups of which the specified username is a member, plus the specified
     group id.
@@ -1246,7 +1681,7 @@ def setresuid(space, ruid, euid, suid):
 @unwrap_spec(rgid=c_gid_t, egid=c_gid_t, sgid=c_gid_t)
 def setresgid(space, rgid, egid, sgid):
     """ setresgid(rgid, egid, sgid)
-    
+
     Set the current process's real, effective, and saved group ids.
     """
     try:
@@ -1327,20 +1762,73 @@ def confstr(space, w_name):
         raise wrap_oserror(space, e)
     return space.wrap(res)
 
-@unwrap_spec(path='fsencode', uid=c_uid_t, gid=c_gid_t)
-def chown(space, path, uid, gid):
-    """Change the owner and group id of path to the numeric uid and gid."""
+@unwrap_spec(
+    uid=c_uid_t, gid=c_gid_t,
+    dir_fd=DirFD(rposix.HAVE_FCHOWNAT), follow_symlinks=kwonly(bool))
+def chown(space, w_path, uid, gid, dir_fd=DEFAULT_DIR_FD, follow_symlinks=True):
+    """chown(path, uid, gid, *, dir_fd=None, follow_symlinks=True)
+
+Change the owner and group id of path to the numeric uid and gid.
+
+path may always be specified as a string.
+On some platforms, path may also be specified as an open file descriptor.
+  If this functionality is unavailable, using it raises an exception.
+If dir_fd is not None, it should be a file descriptor open to a directory,
+  and path should be relative; path will then be relative to that directory.
+If follow_symlinks is False, and the last element of the path is a symbolic
+  link, chown will modify the symbolic link itself instead of the file the
+  link points to.
+It is an error to use dir_fd or follow_symlinks when specifying path as
+  an open file descriptor.
+dir_fd and follow_symlinks may not be implemented on your platform.
+  If they are unavailable, using them will raise a NotImplementedError."""
     check_uid_range(space, uid)
     check_uid_range(space, gid)
+    if not (rposix.HAVE_LCHOWN or rposix.HAVE_FCHMODAT):
+        if not follow_symlinks:
+            raise argument_unavailable(space, 'chown', 'follow_symlinks')
     try:
-        os.chown(path, uid, gid)
-    except OSError, e:
-        raise wrap_oserror(space, e, path)
+        path = space.fsencode_w(w_path)
+    except OperationError:
+        if not space.isinstance_w(w_path, space.w_int):
+            raise oefmt(space.w_TypeError,
+                "argument should be string, bytes or integer, not %T", w_path)
+        # File descriptor case
+        fd = unwrap_fd(space, w_path)
+        if dir_fd != DEFAULT_DIR_FD:
+            raise oefmt(space.w_ValueError,
+                "chown: can't specify both dir_fd and fd")
+        if not follow_symlinks:
+            raise oefmt(space.w_ValueError,
+                "chown: cannnot use fd and follow_symlinks together")
+        try:
+            os.fchown(fd, uid, gid)
+        except OSError as e:
+            raise wrap_oserror(space, e)
+    else:
+        # String case
+        try:
+            if (rposix.HAVE_LCHOWN and
+                    dir_fd == DEFAULT_DIR_FD and not follow_symlinks):
+                os.lchown(path, uid, gid)
+            elif rposix.HAVE_FCHOWNAT and (
+                    not follow_symlinks or dir_fd != DEFAULT_DIR_FD):
+                rposix.fchownat(path, uid, gid, dir_fd, follow_symlinks)
+            else:
+                assert follow_symlinks
+                assert dir_fd == DEFAULT_DIR_FD
+                os.chown(path, uid, gid)
+        except OSError as e:
+            raise wrap_oserror2(space, e, w_path)
+
 
 @unwrap_spec(path='fsencode', uid=c_uid_t, gid=c_gid_t)
 def lchown(space, path, uid, gid):
-    """Change the owner and group id of path to the numeric uid and gid.
-This function will not follow symbolic links."""
+    """lchown(path, uid, gid)
+
+Change the owner and group id of path to the numeric uid and gid.
+This function will not follow symbolic links.
+Equivalent to os.chown(path, uid, gid, follow_symlinks=False)."""
     check_uid_range(space, uid)
     check_uid_range(space, gid)
     try:
@@ -1350,8 +1838,10 @@ This function will not follow symbolic links."""
 
 @unwrap_spec(uid=c_uid_t, gid=c_gid_t)
 def fchown(space, w_fd, uid, gid):
-    """Change the owner and group id of the file given by file descriptor
-fd to the numeric uid and gid."""
+    """fchown(fd, uid, gid)
+
+Change the owner and group id of the file given by file descriptor
+fd to the numeric uid and gid.  Equivalent to os.chown(fd, uid, gid)."""
     fd = space.c_filedescriptor_w(w_fd)
     check_uid_range(space, uid)
     check_uid_range(space, gid)
@@ -1458,11 +1948,71 @@ if _WIN32:
             raise wrap_oserror2(space, e, w_path)
         return space.wrap(result)
 
+
+def chflags():
+    """chflags(path, flags, *, follow_symlinks=True)
+
+Set file flags.
+
+If follow_symlinks is False, and the last element of the path is a symbolic
+  link, chflags will change flags on the symbolic link itself instead of the
+  file the link points to.
+follow_symlinks may not be implemented on your platform.  If it is
+unavailable, using it will raise a NotImplementedError."""
+
+def lchflags():
+    """lchflags(path, flags)
+
+Set file flags.
+This function will not follow symbolic links.
+Equivalent to chflags(path, flags, follow_symlinks=False)."""
+
+def getxattr():
+    """getxattr(path, attribute, *, follow_symlinks=True) -> value
+
+Return the value of extended attribute attribute on path.
+
+path may be either a string or an open file descriptor.
+If follow_symlinks is False, and the last element of the path is a symbolic
+  link, getxattr will examine the symbolic link itself instead of the file
+  the link points to."""
+
+def setxattr():
+    """setxattr(path, attribute, value, flags=0, *, follow_symlinks=True)
+
+Set extended attribute attribute on path to value.
+path may be either a string or an open file descriptor.
+If follow_symlinks is False, and the last element of the path is a symbolic
+  link, setxattr will modify the symbolic link itself instead of the file
+  the link points to."""
+
+
+def removexattr():
+    """removexattr(path, attribute, *, follow_symlinks=True)
+
+Remove extended attribute attribute on path.
+path may be either a string or an open file descriptor.
+If follow_symlinks is False, and the last element of the path is a symbolic
+  link, removexattr will modify the symbolic link itself instead of the file
+  the link points to."""
+
+def listxattr():
+    """listxattr(path='.', *, follow_symlinks=True)
+
+Return a list of extended attributes on path.
+
+path may be either None, a string, or an open file descriptor.
+if path is None, listxattr will examine the current directory.
+If follow_symlinks is False, and the last element of the path is a symbolic
+  link, listxattr will examine the symbolic link itself instead of the file
+  the link points to."""
+
+
 have_functions = []
 for name in """FCHDIR FCHMOD FCHMODAT FCHOWN FCHOWNAT FEXECVE FDOPENDIR
                FPATHCONF FSTATAT FSTATVFS FTRUNCATE FUTIMENS FUTIMES
                FUTIMESAT LINKAT LCHFLAGS LCHMOD LCHOWN LSTAT LUTIMES
-               MKDIRAT MKFIFOAT MKNODAT OPENAT READLINKAT RENAMEAT 
+               MKDIRAT MKFIFOAT MKNODAT OPENAT READLINKAT RENAMEAT
                SYMLINKAT UNLINKAT UTIMENSAT""".split():
     if getattr(rposix, "HAVE_%s" % name):
         have_functions.append("HAVE_%s" % name)

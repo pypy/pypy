@@ -1,17 +1,15 @@
-
 # -*- coding: utf-8 -*-
 
-from __future__ import with_statement
-from pypy.objspace.std import StdObjSpace
-from rpython.tool.udir import udir
-from pypy.tool.pytest.objspace import gettestobjspace
-from pypy.conftest import pypydir
-from rpython.translator.c.test.test_extfunc import need_sparse_files
-from rpython.rlib import rposix
 import os
 import py
 import sys
 import signal
+
+from rpython.tool.udir import udir
+from pypy.tool.pytest.objspace import gettestobjspace
+from rpython.translator.c.test.test_extfunc import need_sparse_files
+from rpython.rlib import rposix
+
 
 def setup_module(mod):
     usemodules = ['binascii', 'posix', 'signal', 'struct', 'time']
@@ -44,7 +42,6 @@ def setup_module(mod):
 
     # Initialize sys.filesystemencoding
     # space.call_method(space.getbuiltinmodule('sys'), 'getfilesystemencoding')
-
 
 
 GET_POSIX = "(): import %s as m ; return m" % os.name
@@ -418,7 +415,6 @@ class AppTestPosix:
         def test_execv_no_args(self):
             os = self.posix
             raises(ValueError, os.execv, "notepad", [])
-            raises(ValueError, os.execve, "notepad", [], {})
 
         def test_execv_raising2(self):
             os = self.posix
@@ -540,6 +536,9 @@ class AppTestPosix:
         assert os.stat(path).st_atime > t0
         os.utime(path, (int(t0), int(t0)))
         assert int(os.stat(path).st_atime) == int(t0)
+        t1 = time()
+        os.utime(path, (int(t1), int(t1)))
+        assert int(os.stat(path).st_atime) == int(t1)
 
     def test_utime_raises(self):
         os = self.posix
@@ -984,6 +983,19 @@ class AppTestPosix:
                 data = f.read()
                 assert data == "who cares?"
 
+        # XXX skip test if dir_fd is unsupported
+        def test_symlink_fd(self):
+            posix = self.posix
+            bytes_dir = self.bytes_dir
+            f = posix.open(bytes_dir, posix.O_RDONLY)
+            try:
+                posix.symlink('somefile', 'somelink', dir_fd=f)
+                assert (posix.readlink(bytes_dir + '/somelink'.encode()) ==
+                        'somefile'.encode())
+            finally:
+                posix.close(f)
+                posix.unlink(bytes_dir + '/somelink'.encode())
+
     if hasattr(os, 'ftruncate'):
         def test_truncate(self):
             posix = self.posix
@@ -1225,38 +1237,6 @@ class AppTestUnicodeFilename:
         finally:
             self.posix.close(fd)
         assert content == b"test"
-
-
-class TestPexpect(object):
-    # XXX replace with AppExpectTest class as soon as possible
-    def setup_class(cls):
-        try:
-            import pexpect
-        except ImportError:
-            py.test.skip("pexpect not found")
-
-    def _spawn(self, *args, **kwds):
-        import pexpect
-        kwds.setdefault('timeout', 600)
-        print 'SPAWN:', args, kwds
-        child = pexpect.spawn(*args, maxread=5000, **kwds)
-        child.logfile = sys.stdout
-        return child
-
-    def spawn(self, argv):
-        py_py = py.path.local(pypydir).join('bin', 'pyinteractive.py')
-        return self._spawn(sys.executable, [str(py_py), '-S'] + argv)
-
-    def test_ttyname(self):
-        source = py.code.Source("""
-        import os, sys
-        assert os.ttyname(sys.stdin.fileno())
-        print('ok!')
-        """)
-        f = udir.join("test_ttyname.py")
-        f.write(source)
-        child = self.spawn([str(f)])
-        child.expect('ok!')
 
 
 class AppTestFdVariants:
