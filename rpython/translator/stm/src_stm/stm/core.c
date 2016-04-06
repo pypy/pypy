@@ -1033,6 +1033,13 @@ static void _do_start_transaction(stm_thread_local_t *tl)
 
     check_nursery_at_transaction_start();
 
+    if (tl->mem_reset_on_abort) {
+        assert(!!tl->mem_stored_for_reset_on_abort);
+        memcpy(tl->mem_stored_for_reset_on_abort, tl->mem_reset_on_abort,
+               tl->mem_bytes_to_reset_on_abort);
+    }
+
+
     /* Change read-version here, because if we do stm_validate in the
        safe-point below, we should not see our old reads from the last
        transaction. */
@@ -1432,6 +1439,9 @@ static stm_thread_local_t *abort_with_mutex_no_longjmp(void)
 
     if (tl->mem_clear_on_abort)
         memset(tl->mem_clear_on_abort, 0, tl->mem_bytes_to_clear_on_abort);
+    if (tl->mem_reset_on_abort)
+        memcpy(tl->mem_reset_on_abort, tl->mem_stored_for_reset_on_abort,
+               tl->mem_bytes_to_reset_on_abort);
 
     invoke_and_clear_user_callbacks(1);   /* for abort */
 

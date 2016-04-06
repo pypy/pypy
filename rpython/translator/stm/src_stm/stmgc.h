@@ -76,6 +76,11 @@ typedef struct stm_thread_local_s {
        the following raw region of memory is cleared. */
     char *mem_clear_on_abort;
     size_t mem_bytes_to_clear_on_abort;
+    /* mechanism to reset a memory location to the value it had at the start
+       of the transaction in case of an abort */
+    char *mem_reset_on_abort;   /* addr */
+    size_t mem_bytes_to_reset_on_abort; /* how many bytes */
+    char *mem_stored_for_reset_on_abort; /* content at tx start */
     /* the next fields are handled internally by the library */
     int last_associated_segment_num;   /* always a valid seg num */
     int thread_local_counter;
