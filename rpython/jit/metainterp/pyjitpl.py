@@ -1598,28 +1598,30 @@ class MIFrame(object):
 
             # 2. actually do the call now (we'll have cases later): the
             #    result is stored into 'c_result' for now, which is a Const
-            cpu = self.metainterp.cpu
+            metainterp = self.metainterp
             tp = descr.get_normalized_result_type()
             if tp == 'i':
                 opnum1 = rop.CALL_MAY_FORCE_I
-                value = executor.execute_varargs(cpu, self, opnum1,
-                                                 allboxes, descr)
+                value = executor.execute_varargs(metainterp.cpu, metainterp,
+                                                 opnum1, allboxes, descr)
                 c_result = ConstInt(value)
             elif tp == 'r':
                 opnum1 = rop.CALL_MAY_FORCE_R
-                value = executor.execute_varargs(cpu, self, opnum1,
-                                                 allboxes, descr)
+                value = executor.execute_varargs(metainterp.cpu, metainterp,
+                                                 opnum1, allboxes, descr)
                 c_result = ConstPtr(value)
             elif tp == 'f':
                 opnum1 = rop.CALL_MAY_FORCE_F
-                value = executor.execute_varargs(cpu, self, opnum1,
-                                                 allboxes, descr)
+                value = executor.execute_varargs(metainterp.cpu, metainterp,
+                                                 opnum1, allboxes, descr)
                 c_result = ConstFloat(value)
             elif tp == 'v':
                 opnum1 = rop.CALL_MAY_FORCE_N
-                executor.execute_varargs(cpu, self, opnum1,
-                                         allboxes, descr)
+                executor.execute_varargs(metainterp.cpu, metainterp,
+                                         opnum1, allboxes, descr)
                 c_result = None
+            else:
+                assert False
 
             # 3. after this call, check the vrefs.  If any have been
             #    forced by the call, then we record in the trace a
@@ -3073,7 +3075,7 @@ class MetaInterp(object):
         else:
             return None, op
 
-    def direct_libffi_call(self, argboxes, orig_calldescr, c_result):
+    def direct_libffi_call(self, argboxes, orig_calldescr):
         """Generate a direct call to C code using jit_ffi_call()
         """
         # an 'assert' that constant-folds away the rest of this function
