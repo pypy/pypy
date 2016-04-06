@@ -515,9 +515,24 @@ class MIFrame(object):
         return self._do_getarrayitem_gc_any(rop.GETARRAYITEM_GC_F, arraybox,
                                             indexbox, arraydescr)
 
-    opimpl_getarrayitem_gc_i_pure = opimpl_getarrayitem_gc_i
-    opimpl_getarrayitem_gc_r_pure = opimpl_getarrayitem_gc_r
-    opimpl_getarrayitem_gc_f_pure = opimpl_getarrayitem_gc_f
+    @arguments("box", "box", "descr")
+    def opimpl_getarrayitem_gc_i_pure(self, arraybox, indexbox, arraydescr):
+        assert arraydescr.is_always_pure()
+        return self.opimpl_getarrayitem_gc_i(arraybox, indexbox, arraydescr)
+
+    @arguments("box", "box", "descr")
+    def opimpl_getarrayitem_gc_r_pure(self, arraybox, indexbox, arraydescr):
+        assert arraydescr.is_always_pure()
+        return self.opimpl_getarrayitem_gc_r(arraybox, indexbox, arraydescr)
+
+    @arguments("box", "box", "descr")
+    def opimpl_getarrayitem_gc_f_pure(self, arraybox, indexbox, arraydescr):
+        assert arraydescr.is_always_pure()
+        return self.opimpl_getarrayitem_gc_f(arraybox, indexbox, arraydescr)
+
+    # opimpl_getarrayitem_gc_i_pure = opimpl_getarrayitem_gc_i
+    # opimpl_getarrayitem_gc_r_pure = opimpl_getarrayitem_gc_r
+    # opimpl_getarrayitem_gc_f_pure = opimpl_getarrayitem_gc_f
 
     @arguments("box", "box", "descr")
     def opimpl_getarrayitem_raw_i(self, arraybox, indexbox, arraydescr):
