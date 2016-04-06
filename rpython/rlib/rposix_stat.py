@@ -36,12 +36,11 @@ if _WIN32:
 #   sub-second timestamps.
 # - TIMESPEC is defined when the "struct stat" contains st_atim field.
 
-if sys.platform.startswith('linux') or sys.platform.startswith('openbsd'):
-    TIMESPEC = platform.Struct('struct timespec',
-                               [('tv_sec', rffi.TIME_T),
-                                ('tv_nsec', rffi.LONG)])
-else:
+try:
+    from rpython.rlib.rposix import TIMESPEC
+except ImportError:
     TIMESPEC = None
+
 
 # all possible fields - some of them are not available on all platforms
 ALL_STAT_FIELDS = [
@@ -300,13 +299,6 @@ compilation_info = ExternalCompilationInfo(
     includes=INCLUDES
 )
 
-if TIMESPEC is not None:
-    class CConfig_for_timespec:
-        _compilation_info_ = compilation_info
-        TIMESPEC = TIMESPEC
-    TIMESPEC = lltype.Ptr(
-        platform.configure(CConfig_for_timespec)['TIMESPEC'])
-
 
 def posix_declaration(try_to_add=None):
     global STAT_STRUCT, STATVFS_STRUCT
@@ -322,7 +314,7 @@ def posix_declaration(try_to_add=None):
                 if _name == originalname:
                     # replace the 'st_atime' field of type rffi.DOUBLE
                     # with a field 'st_atim' of type 'struct timespec'
-                    lst[i] = (timespecname, TIMESPEC.TO)
+                    lst[i] = (timespecname, TIMESPEC)
                     break
 
         _expand(LL_STAT_FIELDS, 'st_atime', 'st_atim')
