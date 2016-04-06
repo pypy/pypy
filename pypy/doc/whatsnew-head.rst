@@ -36,3 +36,7 @@ of traces
 .. branch: win32-lib-name
 
 .. branch: remove-frame-forcing-in-executioncontext
+
+.. branch: rposix-for-3
+
+Wrap more POSIX functions in `rpython.rlib.rposix`.
