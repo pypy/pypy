@@ -23,6 +23,7 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.rposix import (
     replace_os_function, handle_posix_error, _as_bytes0)
+from rpython.rlib import rposix
 
 _WIN32 = sys.platform.startswith('win')
 _LINUX = sys.platform.startswith('linux')
@@ -503,6 +504,23 @@ def lstat(path):
         traits = _preferred_traits(path)
         path = traits.as_str0(path)
         return win32_xstat(traits, path, traverse=False)
+
+if rposix.HAVE_FSTATAT:
+    from rpython.rlib.rposix import AT_FDCWD, AT_SYMLINK_NOFOLLOW
+    c_fstatat = rffi.llexternal('fstatat',
+        [rffi.INT, rffi.CCHARP, STAT_STRUCT, rffi.INT], rffi.INT,
+        compilation_info=compilation_info,
+        save_err=rffi.RFFI_SAVE_ERRNO, macro=True)
+
+    def fstatat(pathname, dir_fd=AT_FDCWD, follow_symlinks=True):
+        if follow_symlinks:
+            flags = 0
+        else:
+            flags = AT_SYMLINK_NOFOLLOW
+        with lltype.scoped_alloc(STAT_STRUCT.TO) as stresult:
+            error = c_fstatat(dir_fd, pathname, stresult, flags)
+            handle_posix_error('fstatat', error)
+            return build_stat_result(stresult)
 
 @replace_os_function('fstatvfs')
 def fstatvfs(fd):
