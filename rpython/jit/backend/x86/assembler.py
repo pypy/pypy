@@ -1020,15 +1020,15 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         self.mc.LEA_rs(eax.value, (FRAME_FIXED_SIZE - 4) * WORD)
         # old = current value of vmprof_tl_stack
         offset = cintf.vmprof_tl_stack.getoffset()
-        self.mc.MOV_rm(old.value, (tloc.value, offset))
+        self.mc.MOV_rm(old.value, (self.SEGMENT_NO, tloc.value, offset))
         # eax->next = old
-        self.mc.MOV_mr((eax.value, 0), old.value)
+        self.mc.MOV_mr((self.SEGMENT_NO, eax.value, 0), old.value)
         # eax->value = my esp
-        self.mc.MOV_mr((eax.value, WORD), esp.value)
+        self.mc.MOV_mr((self.SEGMENT_NO, eax.value, WORD), esp.value)
         # eax->kind = VMPROF_JITTED_TAG
-        self.mc.MOV_mi((eax.value, WORD * 2), VMPROF_JITTED_TAG)
+        self.mc.MOV_mi((self.SEGMENT_NO, eax.value, WORD * 2), VMPROF_JITTED_TAG)
         # save in vmprof_tl_stack the new eax
-        self.mc.MOV_mr((tloc.value, offset), eax.value)
+        self.mc.MOV_mr((self.SEGMENT_NO, tloc.value, offset), eax.value)
 
     def _call_footer_vmprof(self):
         from rpython.rlib.rvmprof.rvmprof import cintf
@@ -1039,14 +1039,14 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         self.mc.MOV_rs(eax.value, (FRAME_FIXED_SIZE - 4 + 0) * WORD)
         # save in vmprof_tl_stack the value eax
         offset = cintf.vmprof_tl_stack.getoffset()
-        self.mc.MOV_mr((edx.value, offset), eax.value)
+        self.mc.MOV_mr((self.SEGMENT_NO, edx.value, offset), eax.value)
 
     def _call_header(self):
         self.mc.SUB_ri(esp.value, self._get_whole_frame_size() * WORD)
         self.mc.MOV_sr(PASS_ON_MY_FRAME * WORD, ebp.value)
         if IS_X86_64:
             self.mc.MOV_sr(THREADLOCAL_OFS, esi.value)
-        if not self.cpu.gc_ll_descr.stm and self.cpu.translate_support_code:
+        if self.cpu.translate_support_code:
             self._call_header_vmprof()     # on X86_64, this uses esi
         if IS_X86_64:
             self.mc.MOV_rr(ebp.value, edi.value)
@@ -1086,7 +1086,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             self._call_footer_shadowstack()
 
         # the return value is the jitframe
-        if not self.cpu.gc_ll_descr.stm and self.cpu.translate_support_code:
+        if self.cpu.translate_support_code:
             self._call_footer_vmprof()
         self.mc.MOV_rr(eax.value, ebp.value)
 
