@@ -1763,7 +1763,12 @@ class ObjSpace(object):
                 import sys, traceback
                 # the "1" is because we don't want to show THIS code
                 # object in the traceback
-                f = sys._getframe(1)
+                try:
+                    f = sys._getframe(1)
+                except ValueError:
+                    # this happens if you call format_traceback at the very beginning
+                    # of startup, when there is no bottom code object
+                    return '<no stacktrace available>'
                 return "".join(traceback.format_stack(f))
             """)
         finally:
