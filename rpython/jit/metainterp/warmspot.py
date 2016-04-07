@@ -119,6 +119,7 @@ def jittify_and_run(interp, graph, args, repeat=1, graph_and_interp_only=False,
         return interp, graph
     res = interp.eval_graph(graph, args)
     if not kwds.get('translate_support_code', False):
+        warmrunnerdesc.metainterp_sd.jitlog.finish()
         warmrunnerdesc.metainterp_sd.profiler.finish()
         warmrunnerdesc.metainterp_sd.cpu.finish_once()
     print '~~~ return value:', repr(res)

@@ -90,8 +90,7 @@ class VMProfJitLogger(object):
             line = encode_le_16bit(opnum) + encode_str(opname.lower())
             cintf.jitlog_write_marked(mark, line, len(line))
 
-    def teardown(self):
-        import pdb; pdb.set_trace()
+    def finish(self):
         self.cintf.jitlog_teardown()
 
     def _write_marked(self, mark, line):
