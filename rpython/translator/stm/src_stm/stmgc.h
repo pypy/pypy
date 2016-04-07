@@ -117,6 +117,11 @@ void _stm_collectable_safe_point(void);
 object_t *_stm_allocate_old(ssize_t size_rounded_up);
 char *_stm_real_address(object_t *o);
 #ifdef STM_TESTS
+
+#ifdef STM_NO_AUTOMATIC_SETJMP
+extern int did_abort;
+#endif
+
 #include <stdbool.h>
 uint8_t _stm_get_transaction_read_version(void);
 uint8_t _stm_get_card_value(object_t *obj, long idx);

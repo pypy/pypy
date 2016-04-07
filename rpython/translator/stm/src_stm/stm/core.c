@@ -1063,7 +1063,7 @@ static void _do_start_transaction(stm_thread_local_t *tl)
 }
 
 #ifdef STM_NO_AUTOMATIC_SETJMP
-static int did_abort = 0;
+int did_abort = 0;
 #endif
 
 long _stm_start_transaction(stm_thread_local_t *tl)
@@ -1075,6 +1075,12 @@ long _stm_start_transaction(stm_thread_local_t *tl)
 #else
     long repeat_count = stm_rewind_jmp_setjmp(tl);
 #endif
+    if (repeat_count) {
+        /* only if there was an abort, we need to reset the memory: */
+        if (tl->mem_reset_on_abort)
+            memcpy(tl->mem_reset_on_abort, tl->mem_stored_for_reset_on_abort,
+                   tl->mem_bytes_to_reset_on_abort);
+    }
     _do_start_transaction(tl);
 
     if (repeat_count == 0) {  /* else, 'nursery_mark' was already set
@@ -1439,9 +1445,13 @@ static stm_thread_local_t *abort_with_mutex_no_longjmp(void)
 
     if (tl->mem_clear_on_abort)
         memset(tl->mem_clear_on_abort, 0, tl->mem_bytes_to_clear_on_abort);
-    if (tl->mem_reset_on_abort)
-        memcpy(tl->mem_reset_on_abort, tl->mem_stored_for_reset_on_abort,
-               tl->mem_bytes_to_reset_on_abort);
+    if (tl->mem_reset_on_abort) {
+        /* temporarily set the memory of mem_reset_on_abort to zeros since in the
+           case of vmprof, the old value is really wrong if we didn't do the longjmp
+           back yet (that restores the C stack). We restore the memory in
+           _stm_start_transaction() */
+        memset(tl->mem_reset_on_abort, 0, tl->mem_bytes_to_reset_on_abort);
+    }
 
     invoke_and_clear_user_callbacks(1);   /* for abort */
 

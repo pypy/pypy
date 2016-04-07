@@ -69,6 +69,10 @@ void stm_setup(void)
     commit_log_root.rev_num = 0;
     commit_log_root.written_count = 0;
 
+#ifdef STM_NO_AUTOMATIC_SETJMP
+    did_abort = 0;
+#endif
+
     long i;
     /* including seg0 */
     for (i = 0; i < NB_SEGMENTS; i++) {
