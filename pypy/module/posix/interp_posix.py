@@ -354,7 +354,7 @@ file descriptor."""
     else:
         return build_stat_result(space, st)
 
-@unwrap_spec(dir_fd=DirFD(available=False), follow_symlinks=kwonly(bool))
+@unwrap_spec(dir_fd=DirFD(rposix.HAVE_FSTATAT), follow_symlinks=kwonly(bool))
 def stat(space, w_path, dir_fd=DEFAULT_DIR_FD, follow_symlinks=True):
     """stat(path, *, dir_fd=None, follow_symlinks=True) -> stat result
 
@@ -371,13 +371,28 @@ If follow_symlinks is False, and the last element of the path is a symbolic
   link points to.
 It is an error to use dir_fd or follow_symlinks when specifying path as
   an open file descriptor."""
-    try:
-        st = dispatch_filename(rposix_stat.stat, 0,
-                               allow_fd_fn=rposix_stat.fstat)(space, w_path)
-    except OSError, e:
-        raise wrap_oserror2(space, e, w_path)
-    else:
+    if follow_symlinks and dir_fd == DEFAULT_DIR_FD:
+        try:
+            st = dispatch_filename(rposix_stat.stat, 0,
+                                allow_fd_fn=rposix_stat.fstat)(space, w_path)
+        except OSError as e:
+            raise wrap_oserror2(space, e, w_path)
+        else:
+            return build_stat_result(space, st)
+
+    if not follow_symlinks and dir_fd == DEFAULT_DIR_FD:
+        return lstat(space, w_path)
+
+    if rposix.HAVE_FSTATAT:
+        try:
+            path = space.fsencode_w(w_path)
+            st = rposix_stat.fstatat(path, dir_fd, follow_symlinks)
+        except OSError as e:
+            raise wrap_oserror2(space, e, w_path)
         return build_stat_result(space, st)
+
+    raise oefmt(space.w_NotImplementedError,
+        "stat: unsupported argument combination")
 
 @unwrap_spec(dir_fd=DirFD(available=False))
 def lstat(space, w_path, dir_fd=DEFAULT_DIR_FD):
