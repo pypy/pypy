@@ -44,7 +44,7 @@ class W_File(W_AbstractStream):
 
     def __init__(self, space):
         self.space = space
-        if self.space.sys.resource_warning_enabled:
+        if self.space.sys.track_resources:
             self.w_tb = self.space.format_traceback()
 
     def __del__(self):
@@ -57,7 +57,7 @@ class W_File(W_AbstractStream):
 
     def destructor(self):
         assert isinstance(self, W_File)
-        if self.space.sys.resource_warning_enabled:
+        if self.space.sys.track_resources:
             w_repr = self.space.repr(self)
             str_repr = self.space.str_w(w_repr)
             w_msg = self.space.wrap("WARNING: unclosed file: " + str_repr)

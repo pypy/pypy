@@ -266,15 +266,15 @@ Delivered-To: gkj@sundance.gregorykjohnson.com'''
         if '__pypy__' in sys.builtin_module_names:
             assert repr(self.temppath) in g.getvalue()
 
-    def test_resource_warning(self):
+    def test_track_resources(self):
         import os, gc, sys, cStringIO
         import re
         if '__pypy__' not in sys.builtin_module_names:
             skip("pypy specific test")
         def fn(flag1, flag2):
-            sys.pypy_set_resource_warning(flag1)
+            sys.pypy_set_track_resources(flag1)
             f = self.file(self.temppath, 'w')
-            sys.pypy_set_resource_warning(flag2)
+            sys.pypy_set_track_resources(flag2)
             g = cStringIO.StringIO()
             preverr = sys.stderr
             try:
@@ -283,24 +283,24 @@ Delivered-To: gkj@sundance.gregorykjohnson.com'''
                 gc.collect() # force __del__ to be called
             finally:
                 sys.stderr = preverr
-                sys.pypy_set_resource_warning(False)
+                sys.pypy_set_track_resources(False)
             return g.getvalue()
 
-        # check with resource_warning disabled
+        # check with track_resources disabled
         assert fn(False, False) == ""
         #
-        # check with resource_warning enabled
+        # check with track_resources enabled
         msg = fn(True, True)
         assert self.regex_search(r"""
         WARNING: unclosed file: <open file .*>
         Created at \(most recent call last\):
-          File ".*", line .*, in test_resource_warning
+          File ".*", line .*, in test_track_resources
           File ".*", line .*, in fn
           File ".*", line .*, in anonymous
         """, msg)
         #
-        # check with resource_warning enabled in the destructor BUT with a
-        # file which was created when resource_warning was disabled
+        # check with track_resources enabled in the destructor BUT with a
+        # file which was created when track_resources was disabled
         msg = fn(False, True)
         assert self.regex_search("WARNING: unclosed file: <open file .*>", msg)
         assert "Created at" not in msg

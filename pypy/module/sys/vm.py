@@ -65,8 +65,8 @@ def getrecursionlimit(space):
     return space.wrap(space.sys.recursionlimit)
 
 @unwrap_spec(flag=bool)
-def set_resource_warning(space, flag):
-    space.sys.resource_warning_enabled = flag
+def set_track_resources(space, flag):
+    space.sys.track_resources = flag
 
 @unwrap_spec(interval=int)
 def setcheckinterval(space, interval):

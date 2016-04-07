@@ -19,7 +19,7 @@ class Module(MixedModule):
         self.defaultencoding = "ascii"
         self.filesystemencoding = None
         self.debug = True
-        self.resource_warning_enabled = False
+        self.track_resources = False
 
     interpleveldefs = {
         '__name__'              : '(space.wrap("sys"))',
@@ -54,7 +54,7 @@ class Module(MixedModule):
         '_current_frames'       : 'currentframes._current_frames',
         'setrecursionlimit'     : 'vm.setrecursionlimit',
         'getrecursionlimit'     : 'vm.getrecursionlimit',
-        'pypy_set_resource_warning' : 'vm.set_resource_warning',
+        'pypy_set_track_resources' : 'vm.set_track_resources',
         'setcheckinterval'      : 'vm.setcheckinterval',
         'getcheckinterval'      : 'vm.getcheckinterval',
         'exc_info'              : 'vm.exc_info',
