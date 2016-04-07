@@ -55,6 +55,7 @@ class Module(MixedModule):
         'setrecursionlimit'     : 'vm.setrecursionlimit',
         'getrecursionlimit'     : 'vm.getrecursionlimit',
         'pypy_set_track_resources' : 'vm.set_track_resources',
+        'pypy_get_track_resources' : 'vm.get_track_resources',
         'setcheckinterval'      : 'vm.setcheckinterval',
         'getcheckinterval'      : 'vm.getcheckinterval',
         'exc_info'              : 'vm.exc_info',
