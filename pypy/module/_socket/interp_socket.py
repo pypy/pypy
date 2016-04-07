@@ -154,9 +154,28 @@ def ipaddr_from_object(space, w_sockaddr):
 
 
 class W_Socket(W_Root):
+    w_tb = None  # String representation of the traceback at creation time
+
     def __init__(self, space, sock):
+        self.space = space
         self.sock = sock
         register_socket(space, sock)
+        if self.space.sys.track_resources:
+            self.w_tb = self.space.format_traceback()
+
+    def __del__(self):
+        is_open = self.sock.fd >= 0
+        if is_open and self.space.sys.track_resources:
+            self.enqueue_for_destruction(self.space, W_Socket.destructor,
+                                         '__del__ method of ')
+
+    def destructor(self):
+        assert isinstance(self, W_Socket)
+        if self.space.sys.track_resources:
+            w_repr = self.space.repr(self)
+            str_repr = self.space.str_w(w_repr)
+            w_msg = self.space.wrap("WARNING: unclosed " + str_repr)
+            self.space.resource_warning(w_msg, self.w_tb)
 
     def get_type_w(self, space):
         return space.wrap(self.sock.type)

@@ -1,6 +1,8 @@
 import sys, os
 import py
 from pypy.tool.pytest.objspace import gettestobjspace
+from pypy.interpreter.gateway import interp2app
+from pypy.module._file.test.test_file import regex_search
 from rpython.tool.udir import udir
 from rpython.rlib import rsocket
 from rpython.rtyper.lltypesystem import lltype, rffi
@@ -314,6 +316,7 @@ class AppTestSocket:
     def setup_class(cls):
         cls.space = space
         cls.w_udir = space.wrap(str(udir))
+        cls.w_regex_search = space.wrap(interp2app(regex_search))
 
     def teardown_class(cls):
         if not cls.runappdirect:
@@ -401,6 +404,64 @@ class AppTestSocket:
         s.close()
         if os.name != 'nt':
             raises(OSError, os.close, fileno)
+
+    def test_socket_track_resources(self):
+        import _socket, os, gc, sys, cStringIO
+        s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
+        fileno = s.fileno()
+        assert s.fileno() >= 0
+        s.close()
+        assert s.fileno() < 0
+        s.close()
+        if os.name != 'nt':
+            raises(OSError, os.close, fileno)
+
+    def test_track_resources(self):
+        import os, gc, sys, cStringIO
+        import _socket
+        if '__pypy__' not in sys.builtin_module_names:
+            skip("pypy specific test")
+        #
+        def fn(flag1, flag2, do_close=False):
+            sys.pypy_set_track_resources(flag1)
+            mysock = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
+            sys.pypy_set_track_resources(flag2)
+            buf = cStringIO.StringIO()
+            preverr = sys.stderr
+            try:
+                sys.stderr = buf
+                if do_close:
+                    mysock.close()
+                del mysock
+                gc.collect() # force __del__ to be called
+            finally:
+                sys.stderr = preverr
+                sys.pypy_set_track_resources(False)
+            return buf.getvalue()
+
+        # check with track_resources disabled
+        assert fn(False, False) == ""
+        #
+        # check that we don't get the warning if we actually closed the socket
+        msg = fn(True, True, do_close=True)
+        assert msg == ''
+        #
+        # check with track_resources enabled
+        msg = fn(True, True)
+        assert self.regex_search(r"""
+        WARNING: unclosed <socket object, .*>
+        Created at \(most recent call last\):
+          File ".*", line .*, in test_track_resources
+          File ".*", line .*, in fn
+          File ".*", line .*, in anonymous
+        """, msg)
+        #
+        # check with track_resources enabled in the destructor BUT with a
+        # file which was created when track_resources was disabled
+        msg = fn(False, True)
+        assert self.regex_search("WARNING: unclosed <socket object, .*>", msg)
+        assert "Created at" not in msg
+
 
     def test_socket_close_error(self):
         import _socket, os

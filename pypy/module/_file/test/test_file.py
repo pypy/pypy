@@ -11,6 +11,16 @@ def getfile(space):
             return file
     """)
 
+# the following function is used e.g. in test_resource_warning
+@unwrap_spec(regex=str, s=str)
+def regex_search(space, regex, s):
+    import re
+    import textwrap
+    regex = textwrap.dedent(regex).strip()
+    m = re.search(regex, s)
+    m = bool(m)
+    return space.wrap(m)
+
 class AppTestFile(object):
     spaceconfig = dict(usemodules=("_file",))
 
@@ -18,16 +28,6 @@ class AppTestFile(object):
         cls.w_temppath = cls.space.wrap(
             str(py.test.ensuretemp("fileimpl").join("foo.txt")))
         cls.w_file = getfile(cls.space)
-        #
-        # the following function is used e.g. in test_resource_warning
-        @unwrap_spec(regex=str, s=str)
-        def regex_search(space, regex, s):
-            import re
-            import textwrap
-            regex = textwrap.dedent(regex).strip()
-            m = re.search(regex, s)
-            m = bool(m)
-            return space.wrap(m)
         cls.w_regex_search = cls.space.wrap(interp2app(regex_search))
 
     def test_simple(self):
@@ -268,26 +268,30 @@ Delivered-To: gkj@sundance.gregorykjohnson.com'''
 
     def test_track_resources(self):
         import os, gc, sys, cStringIO
-        import re
         if '__pypy__' not in sys.builtin_module_names:
             skip("pypy specific test")
-        def fn(flag1, flag2):
+        def fn(flag1, flag2, do_close=False):
             sys.pypy_set_track_resources(flag1)
             f = self.file(self.temppath, 'w')
             sys.pypy_set_track_resources(flag2)
-            g = cStringIO.StringIO()
+            buf = cStringIO.StringIO()
             preverr = sys.stderr
             try:
-                sys.stderr = g
+                sys.stderr = buf
+                if do_close:
+                    f.close()
                 del f
                 gc.collect() # force __del__ to be called
             finally:
                 sys.stderr = preverr
                 sys.pypy_set_track_resources(False)
-            return g.getvalue()
+            return buf.getvalue()
 
         # check with track_resources disabled
         assert fn(False, False) == ""
+        #
+        # check that we don't get the warning if we actually close the file
+        assert fn(False, False, do_close=True) == ""
         #
         # check with track_resources enabled
         msg = fn(True, True)
