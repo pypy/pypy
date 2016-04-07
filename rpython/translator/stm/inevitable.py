@@ -5,6 +5,7 @@ from rpython.flowspace.model import SpaceOperation, Constant
 from rpython.translator.unsimplify import varoftype
 from rpython.translator.backendopt.dataflow import AbstractForwardDataFlowAnalysis
 from rpython.translator.backendopt.support import var_needsgc
+from rpython.translator.simplify import join_blocks
 
 ALWAYS_ALLOW_OPERATIONS = set([
     'force_cast', 'keepalive', 'cast_ptr_to_adr',
@@ -268,6 +269,9 @@ def turn_inevitable_op(info):
                           varoftype(lltype.Void))
 
 def insert_turn_inevitable(stmtransformer, graph):
+    # needed for cases where stm_ignored_stop is in its own block:
+    join_blocks(graph)
+
     ia = InevitableAnalysis(stmtransformer.break_analyzer)
     ia.calculate(graph)
     #
