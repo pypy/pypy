@@ -104,7 +104,7 @@ class TestPosixFunction:
             rposix.mkdir(filename, 0)
         assert excinfo.value.errno == errno.EEXIST
         if sys.platform == 'win32':
-            assert exc.type is WindowsError
+            assert excinfo.type is WindowsError
 
     @rposix_requires('mkdirat')
     def test_mkdirat(self):
