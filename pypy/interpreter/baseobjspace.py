@@ -1751,11 +1751,20 @@ class ObjSpace(object):
         """)
 
     def format_traceback(self):
-        return self.appexec([],
-                     """():
-            import traceback
-            return "".join(traceback.format_stack())
-        """)
+        # we need to disable track_resources before calling the traceback
+        # module. Else, it tries to open more files to format the traceback,
+        # the file constructor will call space.format_traceback etc., in an
+        # inifite recursion
+        flag = self.sys.track_resources
+        self.sys.track_resources = False
+        try:
+            return self.appexec([],
+                         """():
+                import traceback
+                return "".join(traceback.format_stack())
+            """)
+        finally:
+            self.sys.track_resources = flag
 
 
 class AppExecCache(SpaceCache):

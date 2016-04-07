@@ -309,6 +309,27 @@ Delivered-To: gkj@sundance.gregorykjohnson.com'''
         assert self.regex_search("WARNING: unclosed file: <open file .*>", msg)
         assert "Created at" not in msg
 
+    def test_track_resources_dont_crash(self):
+        import os, gc, sys, cStringIO
+        if '__pypy__' not in sys.builtin_module_names:
+            skip("pypy specific test")
+        #
+        # try hard to create a code object whose co_filename points to an
+        # EXISTING file, so that traceback.py tries to open it when formatting
+        # the stacktrace
+        f = open(self.temppath, 'w')
+        f.close()
+        co = compile('open("%s")' % self.temppath, self.temppath, 'exec')
+        sys.pypy_set_track_resources(True)
+        try:
+            # this exec used to fail, because space.format_traceback tried to
+            # recurively open a file, causing an infinite recursion. For the
+            # purpose of this test, it is enough that it actually finishes
+            # without errors
+            exec co
+        finally:
+            sys.pypy_set_track_resources(False)
+
     def test_truncate(self):
         f = self.file(self.temppath, "w")
         f.write("foo")
