@@ -1044,4 +1044,3 @@ class AppTestAppMain:
             # assert it did not crash
         finally:
             sys.path[:] = old_sys_path
-    

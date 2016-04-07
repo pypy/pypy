@@ -11,6 +11,16 @@ def getfile(space):
             return file
     """)
 
+# the following function is used e.g. in test_resource_warning
+@unwrap_spec(regex=str, s=str)
+def regex_search(space, regex, s):
+    import re
+    import textwrap
+    regex = textwrap.dedent(regex).strip()
+    m = re.search(regex, s)
+    m = bool(m)
+    return space.wrap(m)
+
 class AppTestFile(object):
     spaceconfig = dict(usemodules=("_file",))
 
@@ -18,16 +28,6 @@ class AppTestFile(object):
         cls.w_temppath = cls.space.wrap(
             str(py.test.ensuretemp("fileimpl").join("foo.txt")))
         cls.w_file = getfile(cls.space)
-        #
-        # the following function is used e.g. in test_resource_warning
-        @unwrap_spec(regex=str, s=str)
-        def regex_search(space, regex, s):
-            import re
-            import textwrap
-            regex = textwrap.dedent(regex).strip()
-            m = re.search(regex, s)
-            m = bool(m)
-            return space.wrap(m)
         cls.w_regex_search = cls.space.wrap(interp2app(regex_search))
 
     def test_simple(self):
