@@ -268,7 +268,6 @@ Delivered-To: gkj@sundance.gregorykjohnson.com'''
 
     def test_track_resources(self):
         import os, gc, sys, cStringIO
-        import re
         if '__pypy__' not in sys.builtin_module_names:
             skip("pypy specific test")
         def fn(flag1, flag2):
