@@ -1,5 +1,6 @@
 from __future__ import with_statement
 import py, os, errno
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 
 def getfile(space):
     return space.appexec([], """():
@@ -17,6 +18,17 @@ class AppTestFile(object):
         cls.w_temppath = cls.space.wrap(
             str(py.test.ensuretemp("fileimpl").join("foo.txt")))
         cls.w_file = getfile(cls.space)
+        #
+        # the following function is used e.g. in test_resource_warning
+        @unwrap_spec(regex=str, s=str)
+        def regex_search(space, regex, s):
+            import re
+            import textwrap
+            regex = textwrap.dedent(regex).strip()
+            m = re.search(regex, s)
+            m = bool(m)
+            return space.wrap(m)
+        cls.w_regex_search = cls.space.wrap(interp2app(regex_search))
 
     def test_simple(self):
         f = self.file(self.temppath, "w")
@@ -256,6 +268,7 @@ Delivered-To: gkj@sundance.gregorykjohnson.com'''
 
     def test_resource_warning(self):
         import os, gc, sys, cStringIO
+        import re
         if '__pypy__' not in sys.builtin_module_names:
             skip("pypy specific test")
         def fn():
@@ -275,8 +288,13 @@ Delivered-To: gkj@sundance.gregorykjohnson.com'''
             assert fn() == ""
             sys.pypy_set_resource_warning(True)
             msg = fn()
-            assert msg.startswith("WARNING: unclosed file: <open file ")
-            assert "Created at (most recent call last):" in msg
+            assert self.regex_search(r"""
+            WARNING: unclosed file: <open file .*>
+            Created at \(most recent call last\):
+              File ".*", line .*, in test_resource_warning
+              File ".*", line .*, in fn
+              File ".*", line .*, in anonymous
+            """, msg)
         finally:
             sys.pypy_set_resource_warning(False)
 
