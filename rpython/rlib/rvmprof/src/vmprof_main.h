@@ -146,26 +146,29 @@ static void sigprof_handler(int sig_nr, siginfo_t* info, void *ucontext)
         int fd = profile_file;
         assert(fd >= 0);
 
-        struct profbuf_s *p = reserve_buffer(fd);
-        if (p == NULL) {
-            /* ignore this signal: there are no free buffers right now */
+        vmprof_stack_t *stack = get_vmprof_stack();
+        /* for STM: check that we are not currently aborting this transaction: */
+        if (stack != NULL) {
+            struct profbuf_s *p = reserve_buffer(fd);
+            if (p == NULL) {
+                /* ignore this signal: there are no free buffers right now */
+            }
+            else {
+                int depth;
+                struct prof_stacktrace_s *st = (struct prof_stacktrace_s *)p->data;
+                st->marker = MARKER_STACKTRACE;
+                st->count = 1;
+                depth = get_stack_trace(stack, st->stack,
+                                        MAX_STACK_DEPTH-2, GetPC((ucontext_t*)ucontext));
+                st->depth = depth;
+                st->stack[depth++] = get_current_thread_id();
+                p->data_offset = offsetof(struct prof_stacktrace_s, marker);
+                p->data_size = (depth * sizeof(void *) +
+                                sizeof(struct prof_stacktrace_s) -
+                                offsetof(struct prof_stacktrace_s, marker));
+                commit_buffer(fd, p);
+            }
         }
-        else {
-            int depth;
-            struct prof_stacktrace_s *st = (struct prof_stacktrace_s *)p->data;
-            st->marker = MARKER_STACKTRACE;
-            st->count = 1;
-            depth = get_stack_trace(get_vmprof_stack(), st->stack,
-                MAX_STACK_DEPTH-2, GetPC((ucontext_t*)ucontext));
-            st->depth = depth;
-            st->stack[depth++] = get_current_thread_id();
-            p->data_offset = offsetof(struct prof_stacktrace_s, marker);
-            p->data_size = (depth * sizeof(void *) +
-                            sizeof(struct prof_stacktrace_s) -
-                            offsetof(struct prof_stacktrace_s, marker));
-            commit_buffer(fd, p);
-        }
-
         errno = saved_errno;
     }
 
