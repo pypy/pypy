@@ -26,6 +26,7 @@ Options and arguments (and corresponding environment variables):
 file   : program read from script file
 -      : program read from stdin (default; interactive mode if a tty)
 arg ...: arguments passed to program in sys.argv[1:]
+
 PyPy options and arguments:
 --info : print translation information about this PyPy executable
 -X track-resources : track the creation of files and sockets and display
@@ -230,10 +231,9 @@ def set_runtime_options(options, Xparam, *args):
     if Xparam == 'track-resources':
         sys.pypy_set_track_resources(True)
     else:
-        print >> sys.stderr
         print >> sys.stderr, 'usage: %s -X [options]' % (get_sys_executable(),)
         print >> sys.stderr, '[options] can be: track-resources'
-        print >> sys.stderr
+        raise SystemExit
 
 class CommandLineError(Exception):
     pass
