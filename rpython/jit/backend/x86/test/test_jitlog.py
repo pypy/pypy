@@ -27,9 +27,9 @@ class TestLogger(Jit386Mixin):
             assert len(fd.read()) > 0
         print(name)
 
-    def test_venv(self):
+    def test_env(self, monkeypatch):
         fileno, name = tempfile.mkstemp()
-        os.environ["JITLOG"] = name
+        monkeypatch.setenv("JITLOG", name)
         self.run_sample_loop(None)
         assert os.path.exists(name)
         with open(name, 'rb') as fd:
@@ -55,4 +55,3 @@ class TestLogger(Jit386Mixin):
                 y -= 1
             return res
         res = self.meta_interp(f, [6, 20])
-        self.check_trace_count(2)

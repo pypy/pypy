@@ -120,6 +120,8 @@ class VMProf(object):
         p_error = self.cintf.jitlog_init(fileno)
         if p_error:
             raise VMProfError(rffi.charp2str(p_error))
+        from rpython.jit.metainterp.jitlog import VMProfJitLogger
+        VMProfJitLogger._write_header(self.cintf)
 
     def disable(self):
         """Disable vmprof.

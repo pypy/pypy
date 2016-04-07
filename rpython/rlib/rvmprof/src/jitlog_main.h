@@ -22,7 +22,7 @@ void jitlog_try_init_using_env(void) {
     if (filename && filename[0]) {
         // mode is 775
         mode_t mode = S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH;
-        jitlog_fd = open(filename, O_WRONLY | O_CREAT, mode);
+        jitlog_fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, mode);
         if (jitlog_fd == -1) {
             dprintf(2, "could not open '%s': ", filename);
             perror(NULL);

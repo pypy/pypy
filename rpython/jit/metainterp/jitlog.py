@@ -68,28 +68,31 @@ class VMProfJitLogger(object):
     def __init__(self):
         self.cintf = cintf.setup()
         self.memo = {}
-        self.is_setup = False
 
     def setup_once(self):
-        if self.is_setup:
+        if self.cintf.jitlog_enabled():
             return
-        self.is_setup = True
         self.cintf.jitlog_try_init_using_env()
         if not self.cintf.jitlog_enabled():
             return
+        VMProfJitLogger._write_header(self.cintf)
 
+    @staticmethod
+    @always_inline
+    def _write_header(cintf):
         header = encode_le_16bit(0xaffe)
-        self._write_marked(MARK_JITLOG_HEADER, header)
+        cintf.jitlog_write_marked(MARK_JITLOG_HEADER,
+                        header, len(header))
 
         count = len(resoperations.opname)
         mark = MARK_RESOP_META
         for opnum, opname in resoperations.opname.items():
             line = encode_le_16bit(opnum) + encode_str(opname.lower())
-            self._write_marked(mark, line)
+            cintf.jitlog_write_marked(mark, line, len(line))
 
     def teardown(self):
+        import pdb; pdb.set_trace()
         self.cintf.jitlog_teardown()
-        self.is_setup = False
 
     def _write_marked(self, mark, line):
         if not we_are_translated():
@@ -156,8 +159,9 @@ class LogTrace(BaseLogTrace):
                      encode_str(name or '')
             log._write_marked(self.tag, string)
         else:
-            unique_id = compute_unique_id(faildescr)
+            descr_number = compute_unique_id(faildescr)
             string = encode_str('bridge') + \
+                     encode_le_addr(descr_number) + \
                      encode_le_addr(unique_id) + \
                      encode_str(name or '')
             log._write_marked(self.tag, string)
