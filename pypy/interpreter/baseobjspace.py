@@ -1740,13 +1740,23 @@ class ObjSpace(object):
             _warnings.warn(msg, warningcls, stacklevel=stacklevel)
         """)
 
-    def resource_warning(self, msg):
-        w_msg = self.wrap(msg)
-        self.appexec([w_msg],
-                     """(msg):
+    def resource_warning(self, w_msg, w_tb):
+        self.appexec([w_msg, w_tb],
+                     """(msg, tb):
             import sys
             print >> sys.stderr, msg
+            if tb:
+                print >> sys.stderr, "Created at (most recent call last):"
+                print >> sys.stderr, tb
         """)
+
+    def format_traceback(self):
+        self.appexec([],
+                     """():
+            import traceback
+            return "".join(traceback.format_stack())
+        """)
+
 
 class AppExecCache(SpaceCache):
     def build(cache, source):

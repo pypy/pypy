@@ -38,11 +38,14 @@ class W_File(W_AbstractStream):
     errors   = None
     fd       = -1
     cffi_fileobj = None    # pypy/module/_cffi_backend
+    w_tb     = None  # String representation of the traceback at creation time
 
     newlines = 0     # Updated when the stream is closed
 
     def __init__(self, space):
         self.space = space
+        if self.space.sys.resource_warning_enabled:
+            self.w_tb = self.space.format_traceback()
 
     def __del__(self):
         # assume that the file and stream objects are only visible in the
@@ -57,7 +60,8 @@ class W_File(W_AbstractStream):
         if self.space.sys.resource_warning_enabled:
             w_repr = self.space.repr(self)
             str_repr = self.space.str_w(w_repr)
-            self.space.resource_warning("WARNING: unclosed file: " + str_repr)
+            w_msg = self.space.wrap("WARNING: unclosed file:" + str_repr)
+            self.space.resource_warning(w_msg, self.w_tb)
         #
         try:
             self.direct_close()

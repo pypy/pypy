@@ -275,7 +275,14 @@ Delivered-To: gkj@sundance.gregorykjohnson.com'''
             assert fn() == ""
             sys.pypy_set_resource_warning(True)
             msg = fn()
+
+            #f1 = open("/tmp/test", "w+")
+            #import pdb; pdb.set_trace()
+            print msg
+            #close(f1)
+
             assert msg.startswith("WARNING: unclosed file: <open file ")
+            assert "Created at (most recent call last):" in msg
         finally:
             sys.pypy_set_resource_warning(False)
 
