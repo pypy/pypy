@@ -1,4 +1,9 @@
 #include <string.h>
+#include <stdlib.h>
+
+#ifdef RPYTHON_VMPROF
+#include "src/threadlocal.h"
+#endif
 
 
 static void _stm_call_finalizer(object_t *obj)
@@ -42,12 +47,23 @@ void pypy_stm_register_thread_local(void)
     stm_register_thread_local(&stm_thread_local);
     stm_thread_local.mem_clear_on_abort = (char *)&pypy_g_ExcData;
     stm_thread_local.mem_bytes_to_clear_on_abort = sizeof(pypy_g_ExcData);
+
+#ifdef RPYTHON_VMPROF
+    stm_thread_local.mem_reset_on_abort = (char *)&pypy_threadlocal.vmprof_tl_stack;
+    stm_thread_local.mem_bytes_to_reset_on_abort = sizeof(pypy_threadlocal.vmprof_tl_stack);
+    stm_thread_local.mem_stored_for_reset_on_abort = malloc(sizeof(pypy_threadlocal.vmprof_tl_stack));
+#else
+    stm_thread_local.mem_reset_on_abort = NULL;
+#endif
 }
 
 void pypy_stm_unregister_thread_local(void)
 {
     stm_unregister_thread_local(&stm_thread_local);
     stm_thread_local.shadowstack_base = NULL;
+#ifdef RPYTHON_VMPROF
+    free(stm_thread_local.mem_stored_for_reset_on_abort);
+#endif
 }
 
 
