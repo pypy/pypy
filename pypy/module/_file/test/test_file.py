@@ -271,8 +271,10 @@ Delivered-To: gkj@sundance.gregorykjohnson.com'''
         import re
         if '__pypy__' not in sys.builtin_module_names:
             skip("pypy specific test")
-        def fn():
+        def fn(flag1, flag2):
+            sys.pypy_set_resource_warning(flag1)
             f = self.file(self.temppath, 'w')
+            sys.pypy_set_resource_warning(flag2)
             g = cStringIO.StringIO()
             preverr = sys.stderr
             try:
@@ -281,22 +283,27 @@ Delivered-To: gkj@sundance.gregorykjohnson.com'''
                 gc.collect() # force __del__ to be called
             finally:
                 sys.stderr = preverr
+                sys.pypy_set_resource_warning(False)
             return g.getvalue()
 
-        try:
-            sys.pypy_set_resource_warning(False)
-            assert fn() == ""
-            sys.pypy_set_resource_warning(True)
-            msg = fn()
-            assert self.regex_search(r"""
-            WARNING: unclosed file: <open file .*>
-            Created at \(most recent call last\):
-              File ".*", line .*, in test_resource_warning
-              File ".*", line .*, in fn
-              File ".*", line .*, in anonymous
-            """, msg)
-        finally:
-            sys.pypy_set_resource_warning(False)
+        # check with resource_warning disabled
+        assert fn(False, False) == ""
+        #
+        # check with resource_warning enabled
+        msg = fn(True, True)
+        assert self.regex_search(r"""
+        WARNING: unclosed file: <open file .*>
+        Created at \(most recent call last\):
+          File ".*", line .*, in test_resource_warning
+          File ".*", line .*, in fn
+          File ".*", line .*, in anonymous
+        """, msg)
+        #
+        # check with resource_warning enabled in the destructor BUT with a
+        # file which was created when resource_warning was disabled
+        msg = fn(False, True)
+        assert self.regex_search("WARNING: unclosed file: <open file .*>", msg)
+        assert "Created at" not in msg
 
     def test_truncate(self):
         f = self.file(self.temppath, "w")
