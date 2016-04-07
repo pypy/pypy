@@ -1760,8 +1760,11 @@ class ObjSpace(object):
         try:
             return self.appexec([],
                          """():
-                import traceback
-                return "".join(traceback.format_stack())
+                import sys, traceback
+                # the "1" is because we don't want to show THIS code
+                # object in the traceback
+                f = sys._getframe(1)
+                return "".join(traceback.format_stack(f))
             """)
         finally:
             self.sys.track_resources = flag
