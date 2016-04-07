@@ -37,6 +37,15 @@ class InspectorTest(BaseDirectGCTest):
                     adr_q, 1, ASize(), -1]
         assert expected == seen
 
+    def test_get_heap_stats(self):
+        p = self.malloc(S)
+        p.x = 5
+        q = self.malloc(S)
+        q.x = 6
+        self.write(p, 'next', q)
+        self.stackroots.append(p)
+        #
+       inspector.H
 
 class TestHybridGC(InspectorTest):
     from rpython.memory.gc.hybrid import HybridGC as GCClass

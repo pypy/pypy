@@ -1587,6 +1587,16 @@ class TestMiniMarkGC(TestSemiSpaceGC):
 class TestIncrementalMiniMarkGC(TestMiniMarkGC):
     gcpolicy = "incminimark"
 
+    def define_dump_rpy_stats(self):
+        def fn():
+            return 0
+
+        return fn
+
+    def test_dump_rpy_stats(self):
+        res = self.run("dump_rpy_stats")
+        assert res == 0
+
     def define_random_pin(self):
         class A:
             foo = None

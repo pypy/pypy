@@ -219,6 +219,29 @@ class HeapDumper(object):
         while pending.non_empty():
             self.unwriteobj(pending.pop())
 
+class HeapAggregator(object):
+    TYPEID_MAP = lltype.Struct('TYPEID_MAP', ('count', lltype.Signed),
+                                 ('size', lltype.Signed))
+
+
+    ARRAY_TYPEID_MAP = lltype.GcArray(TYPEID_MAP)
+
+    def __init__(self, gc, maxtypeid):
+        self.gc = gc
+        self.aggregated = lltype.malloc(self.ARRAY_TYPEID_MAP, maxtypeid)
+
+    def writeobj(self, obj):
+        super(HeapDumper, self).writeobj(obj)
+        typeid = self.gc.get_type_id(obj)
+        objsize = self.gc.get_size_incl_hash(obj)
+        if typeid in self.aggregated:
+            self.aggregated[typeid][0] += objsize
+            self.aggregated[typeid][1] += 1
+        else:
+            self.aggregated[typeid] = [0, 0]
+            self.aggregated[typeid][0] = objsize
+            self.aggregated[typeid][1] = 1
+
 def _hd_add_root(obj, heap_dumper):
     heap_dumper.add(obj)
 
@@ -235,6 +258,13 @@ def dump_rpy_heap(gc, fd):
         heapdumper.unwalk(heapdumper.pending)
     heapdumper.delete()
     return True
+
+def get_heap_stats(gc):
+    heapaggreg = HeapAggregator(gc, 200)
+    heapaggreg.add_roots()
+    heapaggreg.walk(heapaggreg.pending)
+
+    return heapaggreg.getdata()
 
 def get_typeids_z(gc):
     srcaddress = gc.root_walker.gcdata.typeids_z
