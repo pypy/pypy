@@ -60,7 +60,7 @@ class W_File(W_AbstractStream):
         if self.space.sys.resource_warning_enabled:
             w_repr = self.space.repr(self)
             str_repr = self.space.str_w(w_repr)
-            w_msg = self.space.wrap("WARNING: unclosed file:" + str_repr)
+            w_msg = self.space.wrap("WARNING: unclosed file: " + str_repr)
             self.space.resource_warning(w_msg, self.w_tb)
         #
         try:

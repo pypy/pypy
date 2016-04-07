@@ -1751,7 +1751,7 @@ class ObjSpace(object):
         """)
 
     def format_traceback(self):
-        self.appexec([],
+        return self.appexec([],
                      """():
             import traceback
             return "".join(traceback.format_stack())
