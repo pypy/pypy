@@ -64,8 +64,8 @@ static struct pypy_debug_alloc_s *pypy_debug_alloc_list = NULL;
 // spinlock_acquire/spinlock_release defined in ../../stm/src_stm/stmgcintf.h
 static uint8_t pypy_debug_alloc_lock = 0;
 #else
-# define spinlock_acquire(lock)               /* nothing */
-# define spinlock_release(lock)               /* nothing */
+# define stm_spinlock_acquire(lock)               /* nothing */
+# define stm_spinlock_release(lock)               /* nothing */
 #endif
 
 RPY_EXTERN
@@ -75,10 +75,10 @@ void pypy_debug_alloc_start(void *addr, const char *funcname)
   RPyAssert(p, "out of memory");
   p->addr = addr;
   p->funcname = funcname;
-  spinlock_acquire(pypy_debug_alloc_lock);
+  stm_spinlock_acquire(pypy_debug_alloc_lock);
   p->next = pypy_debug_alloc_list;
   pypy_debug_alloc_list = p;
-  spinlock_release(pypy_debug_alloc_lock);
+  stm_spinlock_release(pypy_debug_alloc_lock);
 }
 
 RPY_EXTERN
@@ -87,18 +87,18 @@ int try_pypy_debug_alloc_stop(void *addr)
   struct pypy_debug_alloc_s **p;
   if (!addr)
 	return 1;
-  spinlock_acquire(pypy_debug_alloc_lock);
+  stm_spinlock_acquire(pypy_debug_alloc_lock);
   for (p = &pypy_debug_alloc_list; *p; p = &((*p)->next))
     if ((*p)->addr == addr)
       {
         struct pypy_debug_alloc_s *dying;
         dying = *p;
         *p = dying->next;
-        spinlock_release(pypy_debug_alloc_lock);
+        stm_spinlock_release(pypy_debug_alloc_lock);
         free(dying);
         return 1;
       }
-  spinlock_release(pypy_debug_alloc_lock);
+  stm_spinlock_release(pypy_debug_alloc_lock);
   return 0;
 }
 
@@ -114,7 +114,7 @@ void pypy_debug_alloc_results(void)
 {
   long count = 0;
   struct pypy_debug_alloc_s *p;
-  spinlock_acquire(pypy_debug_alloc_lock);
+  stm_spinlock_acquire(pypy_debug_alloc_lock);
   for (p = pypy_debug_alloc_list; p; p = p->next)
     count++;
   if (count > 0)
@@ -130,7 +130,7 @@ void pypy_debug_alloc_results(void)
       else
         fprintf(stderr, " (use PYPY_ALLOC=1 to see the list)\n");
     }
-  spinlock_release(pypy_debug_alloc_lock);
+  stm_spinlock_release(pypy_debug_alloc_lock);
 }
 
 #endif /* RPY_ASSERT */
