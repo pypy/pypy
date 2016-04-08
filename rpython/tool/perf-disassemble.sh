@@ -49,4 +49,4 @@ for a in "$@"; do
             ;;
     esac
 done
-gdb -q -p $pid -ex "set disassembly $flavor" -ex "disas /$raw$src $start,$stop" -ex q -batch
+gdb -q -p $pid -ex "set disassembly $flavor" -ex "disas /$raw$src $start,$stop" -ex q -batch | sed "s/=>/  /g"
