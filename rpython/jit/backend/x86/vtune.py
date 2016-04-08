@@ -14,7 +14,7 @@ RPY_EXTERN void rpy_vtune_register(char *, long, long);
     separate_module_sources=["""
 #include "/opt/intel/vtune_amplifier_xe/sdk/src/ittnotify/jitprofiling.c"
 
-RPY_EXTERN void rpy_vtune_register(char *funcname, Signed addr, Signed length)
+RPY_EXTERN void rpy_vtune_register(char *funcname, Signed addr, Signed size)
 {
     iJIT_Method_Load_V2 jmethod = {0};
 
@@ -25,8 +25,8 @@ RPY_EXTERN void rpy_vtune_register(char *funcname, Signed addr, Signed length)
     jmethod.method_id = iJIT_GetNewMethodID();
     jmethod.method_name = funcname;
     jmethod.method_load_address = (void *)addr;
-    jmethod.method_size = length;
-    jmethod.module_name = "rpython_jit";
+    jmethod.method_size = size;
+    jmethod.module_name = "rpyjit";
 
     iJIT_NotifyEvent(iJVM_EVENT_TYPE_METHOD_LOAD_FINISHED_V2,
                      (void*)&jmethod);
