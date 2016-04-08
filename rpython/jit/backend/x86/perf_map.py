@@ -24,6 +24,7 @@ RPY_EXPORTED void perf_map_write_entry(
 
     fprintf(pypy_perf_map_file, "%lx %lx %s\n", start_addr,
             end_addr - start_addr, name);
+    fflush(pypy_perf_map_file);
 }
 """])
 
