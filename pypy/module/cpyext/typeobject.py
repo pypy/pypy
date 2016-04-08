@@ -266,7 +266,8 @@ def add_operators(space, dict_w, pto):
 
 @cpython_api([PyObject, PyObject, PyObject], PyObject, header=None)
 def tp_new_wrapper(space, self, w_args, w_kwds):
-    tp_new = rffi.cast(PyTypeObjectPtr, self).c_tp_new
+    self_pytype = rffi.cast(PyTypeObjectPtr, self)
+    tp_new = self_pytype.c_tp_new
 
     # Check that the user doesn't do something silly and unsafe like
     # object.__new__(dict).  To do this, we check that the most
@@ -277,8 +278,13 @@ def tp_new_wrapper(space, self, w_args, w_kwds):
     w_subtype = args_w[0]
     w_args = space.newtuple(args_w[1:])
 
-    subtype = rffi.cast(PyTypeObjectPtr, make_ref(space, w_subtype))
     try:
+        subtype = rffi.cast(PyTypeObjectPtr, make_ref(space, w_subtype))
+        if subtype == self_pytype:
+            print 'recursion detected???'
+        print 'calling tp_new of %s with %s' % (
+            rffi.charp2str(self_pytype.c_tp_name),
+            rffi.charp2str(subtype.c_tp_name))
         w_obj = generic_cpy_call(space, tp_new, subtype, w_args, w_kwds)
     finally:
         Py_DecRef(space, w_subtype)
