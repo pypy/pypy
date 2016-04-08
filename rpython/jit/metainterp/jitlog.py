@@ -1,5 +1,6 @@
 from rpython.rlib.rvmprof.rvmprof import cintf
 from rpython.jit.metainterp import resoperation as resoperations
+from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.metainterp.history import ConstInt, ConstFloat
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
@@ -30,6 +31,7 @@ MARK_JIT_BRIDGE_COUNTER = 0x21
 MARK_JIT_ENTRY_COUNTER = 0x22
 
 MARK_JITLOG_HEADER = 0x23
+MARK_JITLOG_DEBUG_MERGE_POINT = 0x24
 
 IS_32_BIT = sys.maxint == 2**31-1
 
@@ -179,11 +181,25 @@ class LogTrace(BaseLogTrace):
             le_addr2 = encode_le_addr(absaddr + rel)
             log._write_marked(MARK_ASM_ADDR, le_addr1 + le_addr2)
         for i,op in enumerate(ops):
+            if rop.DEBUG_MERGE_POINT == op.getopnum():
+                self.encode_debug_info(op)
+                continue
             mark, line = self.encode_op(op)
             log._write_marked(mark, line)
             self.write_core_dump(ops, i, op, ops_offset)
 
         self.memo = {}
+
+    def encode_debug_info(self, op):
+        log = self.logger
+        jd_sd = self.metainterp_sd.jitdrivers_sd[op.getarg(0).getint()]
+        file_name, bytecode, line_number  = jd_sd.warmstate.get_location_str(op.getarg(2))
+        line = []
+        line.append(encode_str(file_name))
+        line.append(encode_str(bytecode))
+        line.append(encode_str(line_number))
+        log._write_marked(MARK_JITLOG_DEBUG_MERGE_POINT, ''.join(line))
+
 
     def encode_op(self, op):
         """ an operation is written as follows:
