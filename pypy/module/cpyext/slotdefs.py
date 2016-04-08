@@ -497,7 +497,7 @@ def build_slot_tp_function(space, typedef, name):
 
         @cpython_api([PyTypeObjectPtr, PyObject, PyObject], PyObject, header=None)
         @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
-        def slot_tp_new(space, type, w_args, w_kwds):
+        def slot_tp_new(space, w_type, w_args, w_kwds):
             return space.call(w_type, w_args, w_kwds)
         api_func = slot_tp_new.api_func
     else:
