@@ -1,10 +1,9 @@
-import operator
-
 import pypy.module.micronumpy.constants as NPY
 from nditer import ConcreteIter, parse_op_flag, parse_op_arg
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
+from pypy.module.micronumpy import support
 from pypy.module.micronumpy.base import W_NDimArray, convert_to_array, W_NumpyObject
 from rpython.rlib import jit
 from strides import calculate_broadcast_strides, shape_agreement_multiple
@@ -27,12 +26,13 @@ class W_Broadcast(W_NumpyObject):
         self.op_flags = parse_op_arg(space, 'op_flags', space.w_None,
                                      len(self.seq), parse_op_flag)
 
-        self.shape = tuple(shape_agreement_multiple(space, self.seq, shape=None))
+        self.shape = shape_agreement_multiple(space, self.seq, shape=None)
         self.order = NPY.CORDER
 
         self.iters = []
         self.index = 0
-        self.size = reduce(operator.mul, self.shape, 1)
+
+        self.size = support.product(self.shape)
         for i in range(len(self.seq)):
             it = self.get_iter(space, i)
             it.contiguous = False
@@ -64,7 +64,7 @@ class W_Broadcast(W_NumpyObject):
         return space.wrap(self)
 
     def descr_get_shape(self, space):
-        return space.wrap(self.shape)
+        return space.newtuple([space.wrap(i) for i in self.shape])
 
     def descr_get_size(self, space):
         return space.wrap(self.size)
