@@ -537,6 +537,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
                             name=loopname, ops_offset=ops_offset)
 
         self.fixup_target_tokens(rawstart)
+        self.materialize_done(rawstart, full_size, "loop%d" % looptoken.number)
         self.teardown()
         # oprofile support
         if self.cpu.profile_agent is not None:
@@ -592,6 +593,8 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
                               ops_offset=ops_offset)
         self.fixup_target_tokens(rawstart)
         self.update_frame_depth(frame_depth)
+        self.materialize_done(rawstart, fullsize,
+                              "loop%d" % original_loop_token.number)
         self.teardown()
         # oprofile support
         if self.cpu.profile_agent is not None:
@@ -650,11 +653,14 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         self.mc.JMP_l(0)
         self.mc.writeimm32(0)
         self.mc.force_frame_size(DEFAULT_FRAME_BYTES)
+        fullsize = self.mc.get_relative_pos()
         rawstart = self.materialize_loop(looptoken)
         # update the jump (above) to the real trace
         self._patch_jump_to(rawstart + offset, asminfo.rawstart)
         # update the guard to jump right to this custom piece of assembler
         self.patch_jump_for_descr(faildescr, rawstart)
+        self.materialize_done(rawstart, fullsize,
+                              "loop%d" % looptoken.number)
 
     def _patch_jump_to(self, adr_jump_offset, adr_new_target):
         assert adr_jump_offset != 0
@@ -791,12 +797,15 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             clt.asmmemmgr_blocks = []
         return clt.asmmemmgr_blocks
 
-    def materialize(self, mc, allblocks, funcname, gcrootmap=None):
+    def materialize_done(self, rawstart, size, funcname):
         from rpython.jit.backend.x86.vtune import rpy_vtune_register
-        size = mc.get_relative_pos()
-        rawstart = mc.materialize(self.cpu, allblocks, gcrootmap=gcrootmap)
         with rffi.scoped_str2charp("rpyjit." + funcname) as p:
             rpy_vtune_register(p, rawstart, size)
+
+    def materialize(self, mc, allblocks, funcname, gcrootmap=None):
+        size = mc.get_relative_pos()
+        rawstart = mc.materialize(self.cpu, allblocks, gcrootmap=gcrootmap)
+        self.materialize_done(rawstart, size, funcname)
         return rawstart
 
     def materialize_loop(self, looptoken):
@@ -804,9 +813,8 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         self.datablockwrapper = None
         allblocks = self.get_asmmemmgr_blocks(looptoken)
         size = self.mc.get_relative_pos()
-        res = self.materialize(self.mc, allblocks,
-                               'loop%d' % (looptoken.number,),
-                               gcrootmap=self.cpu.gc_ll_descr.gcrootmap)
+        res = self.mc.materialize(self.cpu, allblocks,
+                                  gcrootmap=self.cpu.gc_ll_descr.gcrootmap)
         if self.cpu.HAS_CODEMAP:
             self.cpu.codemap.register_codemap(
                 self.codemap_builder.get_final_bytecode(res, size))
