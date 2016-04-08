@@ -73,3 +73,16 @@ class AppTestArrayBroadcast(BaseNumpyAppTest):
                      (2, 40, 700), (2, 40, 800), (2, 50, 700), (2, 50, 800),
                      (3, 40, 700), (3, 40, 800), (3, 50, 700), (3, 50, 800)]
 
+    def test_number_of_arguments(self):
+        """
+        Test from numpy unit tests.
+        """
+        import numpy as np
+        arr = np.empty((5,))
+        for j in range(35):
+            arrs = [arr] * j
+            if j < 2 or j > 32:
+                raises(ValueError, np.broadcast, *arrs)
+            else:
+                mit = np.broadcast(*arrs)
+                assert mit.numiter == j

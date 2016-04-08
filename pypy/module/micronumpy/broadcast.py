@@ -19,9 +19,14 @@ class W_Broadcast(W_NumpyObject):
     def descr_new_broadcast(space, w_subtype, __args__):
         return W_Broadcast(space, __args__.arguments_w)
 
-    def __init__(self, space, w_args):
+    def __init__(self, space, args):
+        num_args = len(args)
+        if not (2 <= num_args <= NPY.MAXARGS):
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("Need at least two and fewer than (%d) array objects." % NPY.MAXARGS))
+
         self.seq = [convert_to_array(space, w_elem)
-                    for w_elem in w_args]
+                    for w_elem in args]
 
         self.op_flags = parse_op_arg(space, 'op_flags', space.w_None,
                                      len(self.seq), parse_op_flag)
@@ -72,6 +77,9 @@ class W_Broadcast(W_NumpyObject):
     def descr_get_index(self, space):
         return space.wrap(self.index)
 
+    def descr_get_numiter(self, space):
+        return space.wrap(len(self.iters))
+
     @jit.unroll_safe
     def descr_next(self, space):
         if self.index >= self.size:
@@ -97,4 +105,5 @@ W_Broadcast.typedef = TypeDef("numpy.broadcast",
                               shape=GetSetProperty(W_Broadcast.descr_get_shape),
                               size=GetSetProperty(W_Broadcast.descr_get_size),
                               index=GetSetProperty(W_Broadcast.descr_get_index),
+                              numiter=GetSetProperty(W_Broadcast.descr_get_numiter),
                               )
