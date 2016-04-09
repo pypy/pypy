@@ -40,3 +40,15 @@ of traces
 .. branch: rposix-for-3
 
 Wrap more POSIX functions in `rpython.rlib.rposix`.
+
+.. branch: cleanup-history-rewriting
+
+A local clean-up in the JIT front-end.
+
+.. branch: jit-constptr-2
+
+Remove the forced minor collection that occurs when rewriting the
+assembler at the start of the JIT backend. This is done by emitting
+the ConstPtrs in a separate table, and loading from the table.  It
+gives improved warm-up time and memory usage, and also removes
+annoying special-purpose code for pinned pointers.
