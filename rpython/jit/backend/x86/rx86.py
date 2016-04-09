@@ -470,8 +470,6 @@ class AbstractX86CodeBuilder(object):
     """Abstract base class."""
 
     def __init__(self):
-        self.frame_positions = []
-        self.frame_assignments = []
         self.force_frame_size(self.WORD)
 
     def writechar(self, char):
@@ -492,15 +490,11 @@ class AbstractX86CodeBuilder(object):
         self.writechar(chr((imm >> 24) & 0xFF))
 
     def force_frame_size(self, frame_size):
-        self.frame_positions.append(self.get_relative_pos())
-        self.frame_assignments.append(frame_size)
         self._frame_size = frame_size
 
     def stack_frame_size_delta(self, delta):
         "Called when we generate an instruction that changes the value of ESP"
         self._frame_size += delta
-        self.frame_positions.append(self.get_relative_pos()) 
-        self.frame_assignments.append(self._frame_size)
         assert self._frame_size >= self.WORD
 
     def check_stack_size_at_ret(self):
