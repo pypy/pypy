@@ -1,4 +1,4 @@
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     cpython_api, cpython_struct, bootstrap_function, build_type_checkers,
@@ -134,8 +134,14 @@ def PyString_AsString(space, ref):
     if from_ref(space, rffi.cast(PyObject, ref.c_ob_type)) is space.w_str:
         pass    # typecheck returned "ok" without forcing 'ref' at all
     elif not PyString_Check(space, ref):   # otherwise, use the alternate way
-        raise OperationError(space.w_TypeError, space.wrap(
-            "PyString_AsString only support strings"))
+        from pypy.module.cpyext.unicodeobject import (
+            PyUnicode_Check, _PyUnicode_AsDefaultEncodedString)
+        if PyUnicode_Check(space, ref):
+            ref = _PyUnicode_AsDefaultEncodedString(space, ref, lltype.nullptr(rffi.CCHARP.TO))
+        else:
+            raise oefmt(space.w_TypeError,
+                        "expected string or Unicode object, %T found",
+                        from_ref(space, ref))
     ref_str = rffi.cast(PyStringObject, ref)
     if not ref_str.c_buffer:
         # copy string buffer
@@ -147,8 +153,14 @@ def PyString_AsString(space, ref):
 @cpython_api([PyObject, rffi.CCHARPP, rffi.CArrayPtr(Py_ssize_t)], rffi.INT_real, error=-1)
 def PyString_AsStringAndSize(space, ref, buffer, length):
     if not PyString_Check(space, ref):
-        raise OperationError(space.w_TypeError, space.wrap(
-            "PyString_AsStringAndSize only support strings"))
+        from pypy.module.cpyext.unicodeobject import (
+            PyUnicode_Check, _PyUnicode_AsDefaultEncodedString)
+        if PyUnicode_Check(space, ref):
+            ref = _PyUnicode_AsDefaultEncodedString(space, ref, lltype.nullptr(rffi.CCHARP.TO))
+        else:
+            raise oefmt(space.w_TypeError,
+                        "expected string or Unicode object, %T found",
+                        from_ref(space, ref))
     ref_str = rffi.cast(PyStringObject, ref)
     if not ref_str.c_buffer:
         # copy string buffer

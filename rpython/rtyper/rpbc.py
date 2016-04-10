@@ -431,9 +431,13 @@ class SmallFunctionSetPBCRepr(FunctionReprBase):
         if isinstance(value, types.MethodType) and value.im_self is None:
             value = value.im_func   # unbound method -> bare function
         if value is None:
+            assert self.descriptions[0] is None
             return chr(0)
         funcdesc = self.rtyper.annotator.bookkeeper.getdesc(value)
         return self.convert_desc(funcdesc)
+
+    def special_uninitialized_value(self):
+        return chr(0xFF)
 
     def dispatcher(self, shape, index, argtypes, resulttype):
         key = shape, index, tuple(argtypes), resulttype

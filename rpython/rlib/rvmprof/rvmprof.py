@@ -1,11 +1,12 @@
 import sys, os
 from rpython.rlib.objectmodel import specialize, we_are_translated
-from rpython.rlib import jit, rgc, rposix
+from rpython.rlib import jit, rposix
 from rpython.rlib.rvmprof import cintf
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
 from rpython.rtyper.lltypesystem import rffi, llmemory
 from rpython.rtyper.lltypesystem.lloperation import llop
+from rpython.rlib.rweaklist import RWeakListMixin
 
 MAX_FUNC_NAME = 1023
 
@@ -35,7 +36,7 @@ class VMProf(object):
         self._cleanup_()
         self._code_unique_id = 4
         self.cintf = cintf.setup()
-        
+
     def _cleanup_(self):
         self.is_enabled = False
 
@@ -55,6 +56,8 @@ class VMProf(object):
             self._code_unique_id = uid
             if self.is_enabled:
                 self._write_code_registration(uid, full_name_func(code))
+            else:
+                code._vmprof_weak_list.add_handle(code)
 
     def register_code_object_class(self, CodeClass, full_name_func):
         """NOT_RPYTHON
@@ -80,15 +83,19 @@ class VMProf(object):
         CodeClass._vmprof_unique_id = 0     # default value: "unknown"
         self._code_classes.add(CodeClass)
         #
-        def try_cast_to_code(gcref):
-            return rgc.try_cast_gcref_to_instance(CodeClass, gcref)
+        class WeakCodeObjectList(RWeakListMixin):
+            def __init__(self):
+                self.initialize()
+        CodeClass._vmprof_weak_list = WeakCodeObjectList()
         #
         def gather_all_code_objs():
-            all_code_objs = rgc.do_get_objects(try_cast_to_code)
-            for code in all_code_objs:
-                uid = code._vmprof_unique_id
-                if uid != 0:
-                    self._write_code_registration(uid, full_name_func(code))
+            all_code_wrefs = CodeClass._vmprof_weak_list.get_all_handles()
+            for wref in all_code_wrefs:
+                code = wref()
+                if code is not None:
+                    uid = code._vmprof_unique_id
+                    if uid != 0:
+                        self._write_code_registration(uid, full_name_func(code))
             prev()
         # make a chained list of the gather() functions for all
         # the types of code objects

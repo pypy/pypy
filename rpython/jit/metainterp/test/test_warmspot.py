@@ -623,6 +623,9 @@ class TestWarmspotDirect(object):
             class tracker:
                 pass
 
+            def setup_descrs(self):
+                pass
+
             def get_latest_descr(self, deadframe):
                 assert isinstance(deadframe, FakeDeadFrame)
                 return self.get_fail_descr_from_number(deadframe._no)

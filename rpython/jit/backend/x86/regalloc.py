@@ -358,11 +358,11 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
             assert self.assembler.mc._frame_size == DEFAULT_FRAME_BYTES
             self.rm.position = i
             self.xrm.position = i
-            if op.has_no_side_effect() and op not in self.longevity:
+            if rop.has_no_side_effect(op.opnum) and op not in self.longevity:
                 i += 1
                 self.possibly_free_vars_for_op(op)
                 continue
-            if not we_are_translated() and op.getopnum() == -127:
+            if not we_are_translated() and op.getopnum() == rop.FORCE_SPILL:
                 self._consider_force_spill(op)
             else:
                 oplist[op.getopnum()](self, op)
@@ -423,16 +423,11 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
     def consider_finish(self, op):
         # the frame is in ebp, but we have to point where in the frame is
         # the potential argument to FINISH
-        descr = op.getdescr()
-        fail_descr = cast_instance_to_gcref(descr)
-        # we know it does not move, but well
-        rgc._make_sure_does_not_move(fail_descr)
-        fail_descr = rffi.cast(lltype.Signed, fail_descr)
         if op.numargs() == 1:
             loc = self.make_sure_var_in_reg(op.getarg(0))
-            locs = [loc, imm(fail_descr)]
+            locs = [loc]
         else:
-            locs = [imm(fail_descr)]
+            locs = []
         self.perform(op, locs, None)
 
     def consider_guard_no_exception(self, op):
@@ -1140,6 +1135,10 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
     consider_same_as_i = _consider_same_as
     consider_same_as_r = _consider_same_as
     consider_same_as_f = _consider_same_as
+
+    def consider_load_from_gc_table(self, op):
+        resloc = self.rm.force_allocate_reg(op)
+        self.perform(op, [], resloc)
 
     def consider_int_force_ge_zero(self, op):
         argloc = self.make_sure_var_in_reg(op.getarg(0))

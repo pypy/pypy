@@ -47,3 +47,16 @@ def f():
         assert decode_long('\x00\x80', 'little', False) == 32768
         assert decode_long('\x00\x80', 'little', True) == -32768
         raises(ValueError, decode_long, '', 'foo')
+
+    def test_promote(self):
+        from __pypy__ import _promote
+        assert _promote(1) == 1
+        assert _promote(1.1) == 1.1
+        assert _promote("abc") == "abc"
+        raises(TypeError, _promote, u"abc")
+        l = []
+        assert _promote(l) is l
+        class A(object):
+            pass
+        a = A()
+        assert _promote(a) is a

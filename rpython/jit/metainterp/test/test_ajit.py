@@ -2007,7 +2007,7 @@ class BasicTests:
         res = self.meta_interp(g, [3, 14])
         assert res == g(3, 14)
 
-    def test_specialied_bridge(self):
+    def test_specialized_bridge(self):
         myjitdriver = JitDriver(greens = [], reds = ['y', 'x', 'res'])
         class A:
             def __init__(self, val):
@@ -4403,4 +4403,20 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
                 promote(i + 1)   # a failing guard
                 enter(i)
 
+        self.meta_interp(f, [])
+
+    def test_pending_setarrayitem_with_indirect_constant_index(self):
+        driver = JitDriver(greens=[], reds='auto')
+        class X:
+            pass
+        def f():
+            xs = [None]
+            i = 0
+            while i < 17:
+                driver.jit_merge_point()
+                xs[noConst(0)] = X()
+                if i & 5:
+                    pass
+                i += 1
+            return i
         self.meta_interp(f, [])
