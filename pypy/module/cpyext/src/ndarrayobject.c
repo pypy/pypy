@@ -1,5 +1,6 @@
 
 #include "Python.h"
+#include "pypy_numpy.h"
 #include "numpy/arrayobject.h"
 #include <string.h>   /* memset, memcpy */
 

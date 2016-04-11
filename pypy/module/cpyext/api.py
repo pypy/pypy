@@ -811,6 +811,11 @@ def build_bridge(space):
     prologue = ("#include <Python.h>\n"
                 "#include <structmember.h>\n"
                 "#include <src/thread.c>\n")
+    if use_micronumpy:
+        prologue = ("#include <Python.h>\n"
+                    "#include <structmember.h>\n"
+                    "#include <pypy_numpy.h>\n"
+                    "#include <src/thread.c>\n")
     code = (prologue +
             struct_declaration_code +
             global_code +
@@ -1012,6 +1017,16 @@ def generate_decls_and_callbacks(db, export_symbols, api_struct=True, prefix='')
     for header_name, header_functions in FUNCTIONS_BY_HEADER.iteritems():
         if header_name not in decls:
             header = decls[header_name] = []
+            header.append("#ifndef _PYPY_%s\n" % 
+                                    header_name.upper().replace('.','_'))
+            header.append("#define _PYPY_%s\n" %
+                                    header_name.upper().replace('.','_'))
+            header.append("#ifndef PYPY_STANDALONE\n")
+            header.append("#ifdef __cplusplus")
+            header.append("extern \"C\" {")
+            header.append("#endif\n")
+            header.append('#define Signed   long           /* xxx temporary fix */\n')
+            header.append('#define Unsigned unsigned long  /* xxx temporary fix */\n')
         else:
             header = decls[header_name]
 
@@ -1048,13 +1063,16 @@ def generate_decls_and_callbacks(db, export_symbols, api_struct=True, prefix='')
             typ = 'PyObject*'
         pypy_decls.append('PyAPI_DATA(%s) %s;' % (typ, name))
 
-    pypy_decls.append('#undef Signed    /* xxx temporary fix */\n')
-    pypy_decls.append('#undef Unsigned  /* xxx temporary fix */\n')
-    pypy_decls.append("#ifdef __cplusplus")
-    pypy_decls.append("}")
-    pypy_decls.append("#endif")
-    pypy_decls.append("#endif /*PYPY_STANDALONE*/\n")
-    pypy_decls.append("#endif /*_PYPY_PYPY_DECL_H*/\n")
+    for header_name in FUNCTIONS_BY_HEADER.keys():
+        header = decls[header_name]
+        header.append('#undef Signed    /* xxx temporary fix */\n')
+        header.append('#undef Unsigned  /* xxx temporary fix */\n')
+        header.append("#ifdef __cplusplus")
+        header.append("}")
+        header.append("#endif")
+        header.append("#endif /*PYPY_STANDALONE*/\n")
+        header.append("#endif /*_PYPY_%s_H*/\n" % 
+                                    header_name.upper().replace('.','_'))
 
     for header_name, header_decls in decls.iteritems():
         decl_h = udir.join(header_name)
@@ -1204,10 +1222,12 @@ def setup_library(space):
         PyObjectP, 'pypy_static_pyobjs', eci2, c_type='PyObject **',
         getter_only=True, declare_as_extern=False)
 
-    for name, func in FUNCTIONS.iteritems():
-        newname = mangle_name('PyPy', name) or name
-        deco = entrypoint_lowlevel("cpyext", func.argtypes, newname, relax=True)
-        deco(func.get_wrapper(space))
+    for name, func in FUNCTIONS_BY_HEADER.iteritems():
+        for name, func in header_functions.iteritems():
+            newname = mangle_name('PyPy', name) or name
+            deco = entrypoint_lowlevel("cpyext", func.argtypes, newname, 
+                                        relax=True)
+            deco(func.get_wrapper(space))
 
     setup_init_functions(eci, translating=True)
     trunk_include = pypydir.dirpath() / 'include'
