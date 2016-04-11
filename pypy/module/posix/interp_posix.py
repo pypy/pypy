@@ -1334,13 +1334,39 @@ dir_fd and follow_symlinks may not be available on your platform.
             not space.is_w(w_ns, space.w_None)):
         raise oefmt(space.w_ValueError,
             "utime: you may specify either 'times' or 'ns' but not both")
+    utime_now = False
+    if space.is_w(w_times, space.w_None) and space.is_w(w_ns, space.w_None):
+        atime_s = mtime_s = 0
+        atime_ns = mtime_ns = 0
+        utime_now = True
+    elif not space.is_w(w_times, space.w_None):
+        times_w = space.fixedview(w_times)
+        if len(times_w) != 2:
+            raise oefmt(space.w_TypeError,
+                "utime: 'times' must be either a tuple of two ints or None")
+        atime_s, atime_ns = convert_seconds(space, times_w[0])
+        mtime_s, mtime_ns = convert_seconds(space, times_w[1])
+    else:
+        args_w = space.fixedview(w_ns)
+        if len(args_w) != 2:
+            raise oefmt(space.w_TypeError,
+                "utime: 'ns' must be a tuple of two ints")
+        atime_s, atime_ns = convert_ns(space, args_w[0])
+        mtime_s, mtime_ns = convert_ns(space, args_w[1])
 
     if rposix.HAVE_UTIMENSAT:
         path = space.fsencode_w(w_path)
         try:
-            _utimensat(space, path, w_times, w_ns, dir_fd, follow_symlinks)
+            if utime_now:
+                rposix.utimensat(
+                    path, 0, rposix.UTIME_NOW, 0, rposix.UTIME_NOW,
+                    dir_fd=dir_fd, follow_symlinks=follow_symlinks)
+            else:
+                rposix.utimensat(
+                    path, atime_s, atime_ns, mtime_s, mtime_ns,
+                    dir_fd=dir_fd, follow_symlinks=follow_symlinks)
             return
-        except OSError, e:
+        except OSError as e:
             raise wrap_oserror2(space, e, w_path)
 
     if not follow_symlinks:
@@ -1349,7 +1375,7 @@ dir_fd and follow_symlinks may not be available on your platform.
     if not space.is_w(w_ns, space.w_None):
         raise oefmt(space.w_NotImplementedError,
             "utime: 'ns' unsupported on this platform on PyPy")
-    if space.is_w(w_times, space.w_None):
+    if utime_now:
         try:
             dispatch_filename(rposix.utime, 1)(space, w_path, None)
             return
@@ -1370,29 +1396,6 @@ dir_fd and follow_symlinks may not be available on your platform.
             raise
         raise OperationError(space.w_TypeError, space.wrap(msg))
 
-
-def _utimensat(space, path, w_times, w_ns, dir_fd, follow_symlinks):
-    if space.is_w(w_times, space.w_None) and space.is_w(w_ns, space.w_None):
-        atime_s = mtime_s = 0
-        atime_ns = mtime_ns = rposix.UTIME_NOW
-    elif not space.is_w(w_times, space.w_None):
-        times_w = space.fixedview(w_times)
-        if len(times_w) != 2:
-            raise oefmt(space.w_TypeError,
-                "utime: 'times' must be either a tuple of two ints or None")
-        atime_s, atime_ns = convert_seconds(space, times_w[0])
-        mtime_s, mtime_ns = convert_seconds(space, times_w[1])
-    else:
-        args_w = space.fixedview(w_ns)
-        if len(args_w) != 2:
-            raise oefmt(space.w_TypeError,
-                "utime: 'ns' must be a tuple of two ints")
-        atime_s, atime_ns = convert_ns(space, args_w[0])
-        mtime_s, mtime_ns = convert_ns(space, args_w[1])
-
-    rposix.utimensat(
-        path, atime_s, atime_ns, mtime_s, mtime_ns,
-        dir_fd=dir_fd, follow_symlinks=follow_symlinks)
 
 def convert_seconds(space, w_time):
     if space.isinstance_w(w_time, space.w_float):
