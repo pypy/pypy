@@ -112,6 +112,33 @@ def dispatch_filename_2(func):
                 return func(fname1, fname2, *args)
     return dispatch
 
+class Path(object):
+    _immutable_fields_ = ['as_fd', 'as_bytes', 'as_unicode']
+
+    def __init__(self, fd, bytes, unicode):
+        self.as_fd = fd
+        self.as_bytes = bytes
+        self.as_unicode = unicode
+
+class path_or_fd(Unwrapper):
+    def unwrap(self, space, w_value):
+        if _WIN32:
+            try:
+                path_u = space.unicode_w(w_value)
+                return Path(-1, None, path_u)
+            except OperationError:
+                pass
+        try:
+            path_b = space.fsencode_w(w_value)
+            return Path(-1, path_b, None)
+        except OperationError:
+            pass
+        if not space.isinstance_w(w_value, space.w_int):
+            raise oefmt(space.w_TypeError,
+                "argument should be string, bytes or integer, not %T", w_value)
+        fd = unwrap_fd(space, w_value)
+        return Path(fd, None, None)
+
 
 if hasattr(rposix, 'AT_FDCWD'):
     DEFAULT_DIR_FD = rposix.AT_FDCWD
