@@ -11,44 +11,21 @@ from pypy.module.micronumpy.ndarray import W_NDimArray
 from pypy.module.micronumpy.ctors import array
 from pypy.module.micronumpy.descriptor import get_dtype_cache, W_Dtype
 from pypy.module.micronumpy.concrete import ConcreteArray
+from pypy.module.micronumpy.constants import (ARRAY_C_CONTIGUOUS, 
+    ARRAY_F_CONTIGUOUS, ARRAY_OWNDATA, ARRAY_ALIGNED, ARRAY_WRITEABLE,
+    ARRAY_NOTSWAPPED, CORDER, FORTRANORDER)
 from pypy.module.micronumpy import ufuncs
-import pypy.module.micronumpy.constants as NPY 
 from rpython.rlib.rawstorage import RAW_STORAGE_PTR
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.gateway import interp2app
 
-NPY_C_CONTIGUOUS   = 0x0001
-NPY_F_CONTIGUOUS   = 0x0002
-NPY_OWNDATA        = 0x0004
-NPY_FORCECAST      = 0x0010
-NPY_ENSURECOPY     = 0x0020
-NPY_ENSUREARRAY    = 0x0040
-NPY_ELEMENTSTRIDES = 0x0080
-NPY_ALIGNED        = 0x0100
-NPY_NOTSWAPPED     = 0x0200
-NPY_WRITEABLE      = 0x0400
-NPY_UPDATEIFCOPY   = 0x1000
+ARRAY_BEHAVED      = ARRAY_ALIGNED | ARRAY_WRITEABLE
+ARRAY_BEHAVED_NS   = ARRAY_ALIGNED | ARRAY_WRITEABLE | ARRAY_NOTSWAPPED
+ARRAY_CARRAY       = ARRAY_C_CONTIGUOUS | ARRAY_BEHAVED
+ARRAY_DEFAULT      = ARRAY_CARRAY
 
-NPY_BEHAVED      = NPY_ALIGNED | NPY_WRITEABLE
-NPY_BEHAVED_NS   = NPY_ALIGNED | NPY_WRITEABLE | NPY_NOTSWAPPED
-NPY_CARRAY       = NPY_C_CONTIGUOUS | NPY_BEHAVED
-NPY_CARRAY_RO    = NPY_C_CONTIGUOUS | NPY_ALIGNED
-NPY_FARRAY       = NPY_F_CONTIGUOUS | NPY_BEHAVED
-NPY_FARRAY_RO    = NPY_F_CONTIGUOUS | NPY_ALIGNED
-NPY_DEFAULT      = NPY_CARRAY
-NPY_IN           = NPY_CARRAY_RO
-NPY_OUT          = NPY_CARRAY
-NPY_INOUT        = NPY_CARRAY | NPY_UPDATEIFCOPY
-NPY_IN_FARRAY    = NPY_FARRAY_RO
-NPY_OUT_FARRAY   = NPY_FARRAY
-NPY_INOUT_FARRAY = NPY_FARRAY | NPY_UPDATEIFCOPY
-NPY_CONTIGUOUS   = NPY_C_CONTIGUOUS | NPY_F_CONTIGUOUS
-NPY_UPDATE_ALL   = NPY_CONTIGUOUS | NPY_ALIGNED
-
-
-# the asserts are needed, otherwise the translation fails
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def _PyArray_Check(space, w_obj):
@@ -66,7 +43,7 @@ def _PyArray_CheckExact(space, w_obj):
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def _PyArray_FLAGS(space, w_array):
     assert isinstance(w_array, W_NDimArray)
-    flags = NPY_BEHAVED_NS | w_array.get_flags()
+    flags = ARRAY_BEHAVED_NS | w_array.get_flags()
     return flags
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
@@ -141,13 +118,13 @@ def _PyArray_FromAny(space, w_obj, w_dtype, min_depth, max_depth, requirements, 
          may be 0. Also, if op is not already an array (or does not expose
          the array interface), then a new array will be created (and filled
          from op using the sequence protocol). The new array will have
-         NPY_DEFAULT as its flags member.
+         ARRAY_DEFAULT as its flags member.
 
          The context argument is passed to the __array__ method of op and is
          only used if the array is constructed that way. Almost always this
          parameter is NULL.
     """
-    if requirements not in (0, NPY_DEFAULT):
+    if requirements not in (0, ARRAY_DEFAULT):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             '_PyArray_FromAny called with not-implemented requirements argument'))
     w_array = array(space, w_obj, w_dtype=w_dtype, copy=False)
@@ -204,12 +181,12 @@ def get_shape_and_dtype(space, nd, dims, typenum):
     return shape, dtype
 
 def simple_new(space, nd, dims, typenum,
-        order=NPY.CORDER, owning=False, w_subtype=None):
+        order=CORDER, owning=False, w_subtype=None):
     shape, dtype = get_shape_and_dtype(space, nd, dims, typenum)
     return W_NDimArray.from_shape(space, shape, dtype)
 
 def simple_new_from_data(space, nd, dims, typenum, data,
-        order=NPY.CORDER, owning=False, w_subtype=None):
+        order=CORDER, owning=False, w_subtype=None):
     shape, dtype = get_shape_and_dtype(space, nd, dims, typenum)
     storage = rffi.cast(RAW_STORAGE_PTR, data)
     return W_NDimArray.from_shape_and_storage(space, shape, storage, dtype,
@@ -228,7 +205,7 @@ def _PyArray_SimpleNewFromData(space, nd, dims, typenum, data):
 def _PyArray_SimpleNewFromDataOwning(space, nd, dims, typenum, data):
     # Variant to take over ownership of the memory, equivalent to:
     #     PyObject *arr = PyArray_SimpleNewFromData(nd, dims, typenum, data);
-    #     ((PyArrayObject*)arr)->flags |= NPY_OWNDATA;
+    #     ((PyArrayObject*)arr)->flags |= ARRAY_OWNDATA;
     return simple_new_from_data(space, nd, dims, typenum, data, owning=True)
 
 
@@ -239,8 +216,8 @@ def _PyArray_New(space, subtype, nd, dims, typenum, strides, data, itemsize, fla
         raise OperationError(space.w_NotImplementedError,
                              space.wrap("strides must be NULL"))
 
-    order = NPY.CORDER if flags & NPY_C_CONTIGUOUS else NPY.FORTRANORDER
-    owning = True if flags & NPY_OWNDATA else False
+    order = CORDER if flags & ARRAY_C_CONTIGUOUS else FORTRANORDER
+    owning = True if flags & ARRAY_OWNDATA else False
     w_subtype = None
 
     if data:
