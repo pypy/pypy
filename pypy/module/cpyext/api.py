@@ -219,7 +219,8 @@ class ApiFunction:
                 wrapper.c_name = cpyext_namespace.uniquename(self.c_name)
         return wrapper
 
-def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header='pypy_decl.h',
+DEFAULT_HEADER = 'pypy_decl.h'
+def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
                 gil=None, result_borrowed=False):
     """
     Declares a function to be exported.
@@ -253,16 +254,14 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header='pypy_decl.h',
         func_name = func.func_name
         if header is not None:
             c_name = None
+            assert func_name not in FUNCTIONS, (
+                "%s already registered" % func_name)
         else:
             c_name = func_name
         api_function = ApiFunction(argtypes, restype, func, error,
                                    c_name=c_name, gil=gil,
                                    result_borrowed=result_borrowed)
         func.api_func = api_function
-
-        if header is not None:
-            assert func_name not in FUNCTIONS, (
-                "%s already registered" % func_name)
 
         if error is _NOT_SPECIFIED:
             raise ValueError("function %s has no return value for exceptions"
@@ -351,7 +350,8 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header='pypy_decl.h',
         unwrapper_catch = make_unwrapper(True)
         unwrapper_raise = make_unwrapper(False)
         if header is not None:
-            FUNCTIONS[func_name] = api_function
+            if header == DEFAULT_HEADER:
+                FUNCTIONS[func_name] = api_function
             FUNCTIONS_BY_HEADER.setdefault(header, {})[func_name] = api_function
         INTERPLEVEL_API[func_name] = unwrapper_catch # used in tests
         return unwrapper_raise # used in 'normal' RPython code.
@@ -780,10 +780,11 @@ def build_bridge(space):
     # Structure declaration code
     members = []
     structindex = {}
-    for name, func in sorted(FUNCTIONS.iteritems()):
-        restype, args = c_function_signature(db, func)
-        members.append('%s (*%s)(%s);' % (restype, name, args))
-        structindex[name] = len(structindex)
+    for header, header_functions in FUNCTIONS_BY_HEADER.iteritems():
+        for name, func in header_functions.iteritems():
+            restype, args = c_function_signature(db, func)
+            members.append('%s (*%s)(%s);' % (restype, name, args))
+            structindex[name] = len(structindex)
     structmembers = '\n'.join(members)
     struct_declaration_code = """\
     struct PyPyAPI {
@@ -792,7 +793,8 @@ def build_bridge(space):
     RPY_EXTERN struct PyPyAPI* pypyAPI = &_pypyAPI;
     """ % dict(members=structmembers)
 
-    functions = generate_decls_and_callbacks(db, export_symbols)
+    functions = generate_decls_and_callbacks(db, export_symbols, 
+                                            prefix='cpyexttest')
 
     global_objects = []
     for name, (typ, expr) in GLOBALS.iteritems():
@@ -884,13 +886,19 @@ def build_bridge(space):
     pypyAPI = ctypes.POINTER(ctypes.c_void_p).in_dll(bridge, 'pypyAPI')
 
     # implement structure initialization code
-    for name, func in FUNCTIONS.iteritems():
-        if name.startswith('cpyext_'): # XXX hack
-            continue
-        pypyAPI[structindex[name]] = ctypes.cast(
-            ll2ctypes.lltype2ctypes(func.get_llhelper(space)),
-            ctypes.c_void_p)
-
+    #for name, func in FUNCTIONS.iteritems():
+    #    if name.startswith('cpyext_'): # XXX hack
+    #        continue
+    #    pypyAPI[structindex[name]] = ctypes.cast(
+    #        ll2ctypes.lltype2ctypes(func.get_llhelper(space)),
+    #        ctypes.c_void_p)
+    for header, header_functions in FUNCTIONS_BY_HEADER.iteritems():
+        for name, func in header_functions.iteritems():
+            if name.startswith('cpyext_'): # XXX hack
+                continue
+            pypyAPI[structindex[name]] = ctypes.cast(
+                ll2ctypes.lltype2ctypes(func.get_llhelper(space)),
+                ctypes.c_void_p)
     setup_va_functions(eci)
 
     setup_init_functions(eci, translating=False)
@@ -983,7 +991,7 @@ def generate_macros(export_symbols, prefix):
     pypy_macros_h = udir.join('pypy_macros.h')
     pypy_macros_h.write('\n'.join(pypy_macros))
 
-def generate_decls_and_callbacks(db, export_symbols, api_struct=True):
+def generate_decls_and_callbacks(db, export_symbols, api_struct=True, prefix=''):
     "NOT_RPYTHON"
     # implement function callbacks and generate function decls
     functions = []
@@ -1008,15 +1016,22 @@ def generate_decls_and_callbacks(db, export_symbols, api_struct=True):
             header = decls[header_name]
 
         for name, func in sorted(header_functions.iteritems()):
+            if header == DEFAULT_HEADER:
+                _name = name
+            else:
+                # this name is not included in pypy_macros.h
+                _name = mangle_name(prefix, name)
+                assert _name is not None, 'error converting %s' % name
+                header.append("#define %s %s" % (name, _name))
             restype, args = c_function_signature(db, func)
-            header.append("PyAPI_FUNC(%s) %s(%s);" % (restype, name, args))
+            header.append("PyAPI_FUNC(%s) %s(%s);" % (restype, _name, args))
             if api_struct:
                 callargs = ', '.join('arg%d' % (i,)
                                     for i in range(len(func.argtypes)))
                 if func.restype is lltype.Void:
-                    body = "{ _pypyAPI.%s(%s); }" % (name, callargs)
+                    body = "{ _pypyAPI.%s(%s); }" % (_name, callargs)
                 else:
-                    body = "{ return _pypyAPI.%s(%s); }" % (name, callargs)
+                    body = "{ return _pypyAPI.%s(%s); }" % (_name, callargs)
                 functions.append('%s %s(%s)\n%s' % (restype, name, args, body))
     for name in VA_TP_LIST:
         name_no_star = process_va_name(name)
@@ -1146,7 +1161,8 @@ def setup_library(space):
 
     generate_macros(export_symbols, prefix='PyPy')
 
-    functions = generate_decls_and_callbacks(db, [], api_struct=False)
+    functions = generate_decls_and_callbacks(db, [], api_struct=False, 
+                                            prefix='PyPy')
     code = "#include <Python.h>\n" + "\n".join(functions)
 
     eci = build_eci(False, export_symbols, code)
