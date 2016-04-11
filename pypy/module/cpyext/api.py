@@ -1222,7 +1222,7 @@ def setup_library(space):
         PyObjectP, 'pypy_static_pyobjs', eci2, c_type='PyObject **',
         getter_only=True, declare_as_extern=False)
 
-    for name, func in FUNCTIONS_BY_HEADER.iteritems():
+    for header, header_functions in FUNCTIONS_BY_HEADER.iteritems():
         for name, func in header_functions.iteritems():
             newname = mangle_name('PyPy', name) or name
             deco = entrypoint_lowlevel("cpyext", func.argtypes, newname, 
