@@ -1010,6 +1010,7 @@ def generate_decls_and_callbacks(db, export_symbols, api_struct=True, prefix='')
 
     for header_name, header_functions in FUNCTIONS_BY_HEADER.iteritems():
         if header_name not in decls:
+            header = decls[header_name] = []
             header.append('#define Signed   long           /* xxx temporary fix */\n')
             header.append('#define Unsigned unsigned long  /* xxx temporary fix */\n')
         else:
