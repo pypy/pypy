@@ -358,8 +358,9 @@ class CallOpAssembler(object):
                 guard_op.getopnum() == rop.GUARD_NOT_FORCED_2)
         faildescr = guard_op.getdescr()
         ofs = self.cpu.get_ofs_of_frame_field('jf_force_descr')
-        self.mc.load_imm(r.SCRATCH, rffi.cast(lltype.Signed,
-                                           cast_instance_to_gcref(faildescr)))
+        #
+        faildescrindex = self.get_gcref_from_faildescr(faildescr)
+        self.load_gcref_into(r.SCRATCH, faildescrindex)
         self.mc.STG(r.SCRATCH, l.addr(ofs, r.SPP))
 
     def _find_nearby_operation(self, regalloc, delta):
