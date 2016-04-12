@@ -41,6 +41,11 @@ def get_unique_id(next_instr, is_being_profiled, bytecode):
     from rpython.rlib import rvmprof
     return rvmprof.get_unique_id(bytecode)
 
+def get_location(next_instr, is_being_profiled, bytecode):
+    from pypy.tool.stdlib_opcode import opcode_method_names
+    name = opcode_method_names[ord(bytecode.co_code[next_instr])]
+    return (bytecode.co_filename,
+           )'%s #%d %s' % (bytecode.get_repr(), next_instr, name)
 
 def should_unroll_one_iteration(next_instr, is_being_profiled, bytecode):
     return (bytecode.co_flags & CO_GENERATOR) != 0

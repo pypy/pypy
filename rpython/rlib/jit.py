@@ -604,7 +604,7 @@ class JitDriver(object):
                  get_printable_location=None, confirm_enter_jit=None,
                  can_never_inline=None, should_unroll_one_iteration=None,
                  name='jitdriver', check_untranslated=True, vectorize=False,
-                 get_unique_id=None, is_recursive=False):
+                 get_unique_id=None, is_recursive=False, get_location=None):
         if greens is not None:
             self.greens = greens
         self.name = name
@@ -638,6 +638,7 @@ class JitDriver(object):
         assert get_jitcell_at is None, "get_jitcell_at no longer used"
         assert set_jitcell_at is None, "set_jitcell_at no longer used"
         self.get_printable_location = get_printable_location
+        self.get_location = get_location
         if get_unique_id is None:
             get_unique_id = lambda *args: 0
         self.get_unique_id = get_unique_id

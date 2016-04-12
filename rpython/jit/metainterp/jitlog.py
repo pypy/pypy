@@ -197,8 +197,8 @@ class LogTrace(BaseLogTrace):
     def encode_debug_info(self, op):
         log = self.logger
         jd_sd = self.metainterp_sd.jitdrivers_sd[op.getarg(0).getint()]
-        info  = jd_sd.warmstate.get_location_str(op.getarg(2))
-        log._write_marked(MARK_JITLOG_DEBUG_MERGE_POINT, encode_str(info))
+        filename, = jd_sd.warmstate.get_location(op.getarglist()[3:])
+        log._write_marked(MARK_JITLOG_DEBUG_MERGE_POINT, encode_str(filename))
 
 
     def encode_op(self, op):

@@ -678,6 +678,23 @@ class WarmEnterState(object):
             drivername = jitdriver.name
         else:
             drivername = '<unknown jitdriver>'
+        # get_location new API
+        get_location_ptr = self.jitdriver_sd._get_location_ptr
+        if get_location_ptr is None:
+            missing = '(%s: no get_location)' % drivername
+            def get_location_str(greenkey):
+                return missing
+        else:
+            unwrap_greenkey = self.make_unwrap_greenkey()
+            def get_location_str(greenkey):
+                greenargs = unwrap_greenkey(greenkey)
+                fn = support.maybe_on_top_of_llinterp(rtyper, get_location_ptr)
+                llres = fn(*greenargs)
+                if not we_are_translated() and isinstance(llres, tuple):
+                    return llres
+                return llres # TODO hltuple?
+        self.get_location = get_location
+        #
         get_location_ptr = self.jitdriver_sd._get_printable_location_ptr
         if get_location_ptr is None:
             missing = '(%s: no get_printable_location)' % drivername
