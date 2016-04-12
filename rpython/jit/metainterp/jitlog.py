@@ -7,6 +7,10 @@ from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rlib.objectmodel import compute_unique_id, always_inline
 import sys
 import weakref
+import struct
+
+JITLOG_VERSION = 1
+JITLOG_VERSION_16BIT_LE = struct.pack("<H", JITLOG_VERSION)
 
 MARK_INPUT_ARGS = 0x10
 MARK_RESOP_META = 0x11
@@ -82,7 +86,7 @@ class VMProfJitLogger(object):
     @staticmethod
     @always_inline
     def _write_header(cintf):
-        header = encode_le_16bit(0xaffe)
+        header = JITLOG_VERSION_16BIT_LE
         cintf.jitlog_write_marked(MARK_JITLOG_HEADER,
                         header, len(header))
 
@@ -193,12 +197,8 @@ class LogTrace(BaseLogTrace):
     def encode_debug_info(self, op):
         log = self.logger
         jd_sd = self.metainterp_sd.jitdrivers_sd[op.getarg(0).getint()]
-        file_name, bytecode, line_number  = jd_sd.warmstate.get_location_str(op.getarg(2))
-        line = []
-        line.append(encode_str(file_name))
-        line.append(encode_str(bytecode))
-        line.append(encode_str(line_number))
-        log._write_marked(MARK_JITLOG_DEBUG_MERGE_POINT, ''.join(line))
+        info  = jd_sd.warmstate.get_location_str(op.getarg(2))
+        log._write_marked(MARK_JITLOG_DEBUG_MERGE_POINT, encode_str(info))
 
 
     def encode_op(self, op):

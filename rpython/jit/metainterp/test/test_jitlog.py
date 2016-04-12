@@ -14,7 +14,7 @@ class TestLogger(object):
                 @staticmethod
                 def get_location_str(ptr):
                     if ptr.value == 0:
-                        return ['string', '', '']
+                        return 'string #3 BYTE_CODE'
 
         class FakeMetaInterpSd:
             cpu = AbstractCPU()
