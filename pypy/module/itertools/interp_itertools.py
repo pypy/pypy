@@ -1199,6 +1199,7 @@ class W_Product(W_Root):
                 space.newtuple([space.newtuple([])])
             ]
         return space.newtuple(result_w)
+
     def descr_setstate(self, space, w_state):
         gear_count = len(self.gears)
         indices_w = space.unpackiterable(w_state)
@@ -1504,6 +1505,7 @@ class W_Permutations(W_Root):
         else:
             self.started = True
         return w_result
+
     def descr_reduce(self, space):
         if self.raised_stop_iteration:
             pool_w = []
@@ -1525,6 +1527,7 @@ class W_Permutations(W_Root):
                     space.wrap(self.started)
                 ])]
         return space.newtuple(result_w)
+
     def descr_setstate(self, space, w_state):
         state = space.unpackiterable(w_state)
         if len(state) == 3:
