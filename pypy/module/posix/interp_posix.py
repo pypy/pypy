@@ -120,7 +120,7 @@ class Path(object):
         self.as_bytes = bytes
         self.as_unicode = unicode
 
-class path_or_fd(Unwrapper):
+class _PathOrFd(Unwrapper):
     def unwrap(self, space, w_value):
         if _WIN32:
             try:
@@ -138,6 +138,23 @@ class path_or_fd(Unwrapper):
                 "argument should be string, bytes or integer, not %T", w_value)
         fd = unwrap_fd(space, w_value)
         return Path(fd, None, None)
+
+class _JustPath(Unwrapper):
+    def unwrap(self, space, w_value):
+        if _WIN32:
+            try:
+                path_u = space.unicode_w(w_value)
+                return Path(-1, None, path_u)
+            except OperationError:
+                pass
+        try:
+            path_b = space.fsencode_w(w_value)
+            return Path(-1, path_b, None)
+        except OperationError:
+            raise oefmt(space.w_TypeError, "illegal type for path parameter")
+
+def path_or_fd(allow_fd=True):
+    return _PathOrFd if allow_fd else _JustPath
 
 
 if hasattr(rposix, 'AT_FDCWD'):
@@ -1303,7 +1320,7 @@ def spawnve(space, mode, path, w_args, w_env):
 
 
 @unwrap_spec(
-    path=path_or_fd,
+    path=path_or_fd(allow_fd=rposix.HAVE_FUTIMENS),
     w_times=WrappedDefault(None), w_ns=kwonly(WrappedDefault(None)),
     dir_fd=DirFD(rposix.HAVE_UTIMENSAT), follow_symlinks=kwonly(bool))
 def utime(space, path, w_times, w_ns, dir_fd=DEFAULT_DIR_FD, follow_symlinks=True):
@@ -1355,6 +1372,21 @@ dir_fd and follow_symlinks may not be available on your platform.
                 "utime: 'ns' must be a tuple of two ints")
         atime_s, atime_ns = convert_ns(space, args_w[0])
         mtime_s, mtime_ns = convert_ns(space, args_w[1])
+
+    if path.as_fd != -1:
+        if dir_fd != DEFAULT_DIR_FD:
+            raise oefmt(space.w_ValueError,
+                        "utime: can't specify both dir_fd and fd")
+        if not follow_symlinks:
+            raise oefmt(space.w_ValueError,
+                        "utime: cannot use fd and follow_symlinks together")
+        if utime_now:
+            atime_ns = mtime_ns = rposix.UTIME_NOW
+        try:
+            rposix.futimens(path.as_fd, atime_s, atime_ns, mtime_s, mtime_ns)
+            return
+        except OSError as e:
+            raise wrap_oserror(space, e)
 
     if rposix.HAVE_UTIMENSAT:
         path_b = path.as_bytes
