@@ -11,6 +11,9 @@ from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.jit.backend.zarch.arch import (WORD,
         RECOVERY_GCMAP_POOL_OFFSET, RECOVERY_TARGET_POOL_OFFSET)
 from rpython.rlib.longlong2float import float2longlong
+from rpython.jit.metainterp.history import (ConstFloat,
+        ConstInt, ConstPtr)
+
 
 class PoolOverflow(Exception):
     pass
@@ -58,14 +61,14 @@ class LiteralPool(object):
         return self.offset_map[uvalue]
 
     def unique_value(self, val):
-        if val.type == FLOAT:
+        if isinstance(val, ConstFloat):
             if val.getfloat() == 0.0:
                 return 0
             return float2longlong(val.getfloat())
-        elif val.type == INT:
+        elif isinstance(val, ConstInt):
             return rffi.cast(lltype.Signed, val.getint())
         else:
-            assert val.type == REF
+            assert isinstance(val, ConstPtr)
             return rffi.cast(lltype.Signed, val.getref_base())
 
     def reserve_literal(self, size, box, asm):
