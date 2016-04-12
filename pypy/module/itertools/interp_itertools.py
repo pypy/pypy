@@ -745,10 +745,10 @@ class W_StarMap(W_Root):
 
     def descr_reduce(self):
         return self.space.newtuple([self.space.gettypefor(W_StarMap),
-                               self.space.newtuple([
-                                   self.w_fun,
-                                   self.w_iterable])
-                               ])
+                                    self.space.newtuple([
+                                        self.w_fun,
+                                        self.w_iterable])
+                                    ])
 
 def W_StarMap___new__(space, w_subtype, w_fun, w_iterable):
     r = space.allocate_instance(W_StarMap, w_subtype)
@@ -1114,7 +1114,7 @@ W_Compress.typedef = TypeDef(
 class W_Product(W_Root):
     def __init__(self, space, args_w, w_repeat):
         self.gears = [
-            space.unpackiterable(arg_w)[:] for arg_w in args_w
+            space.unpackiterable(arg_w) for arg_w in args_w
         ] * space.int_w(w_repeat)
         #
         for gear in self.gears:
@@ -1124,7 +1124,6 @@ class W_Product(W_Root):
                 break
         else:
             self.indices = [0] * len(self.gears)
-            self.previous_indices = []
             self.lst = None
             self.stopped = False
 
@@ -1132,7 +1131,6 @@ class W_Product(W_Root):
         lst = self.lst
         x = len(self.gears) - 1
         lst[x] = self.gears[x][0]
-        self.previous_indices = self.indices[:]
         self.indices[x] = 0
         x -= 1
         # the outer loop runs as long as a we have a carry
@@ -1167,7 +1165,6 @@ class W_Product(W_Root):
             if index < len(gear):
                 # no carry: done
                 lst[x] = gear[index]
-                self.previous_indices = self.indices[:]
                 self.indices[x] = index
             else:
                 self._rotate_previous_gears()
@@ -1191,7 +1188,6 @@ class W_Product(W_Root):
             result_w = [
                 space.type(self),
                 space.newtuple(gears)
-                #space.newtuple([space.newtuple(gear) for gear in self.gears])
             ]
             if self.lst is not None:
                 result_w = result_w + [
