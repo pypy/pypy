@@ -1728,6 +1728,7 @@ class TestVariousIteratorArgs(unittest.TestCase):
 
 class LengthTransparency(unittest.TestCase):
 
+    @support.impl_detail("__length_hint__() API is undocumented")
     def test_repeat(self):
         from test.test_iterlen import len
         self.assertEqual(len(repeat(None, 50)), 50)
