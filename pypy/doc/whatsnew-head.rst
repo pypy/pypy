@@ -52,3 +52,5 @@ assembler at the start of the JIT backend. This is done by emitting
 the ConstPtrs in a separate table, and loading from the table.  It
 gives improved warm-up time and memory usage, and also removes
 annoying special-purpose code for pinned pointers.
+
+.. branch: fix-jitlog
