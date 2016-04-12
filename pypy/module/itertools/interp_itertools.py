@@ -114,7 +114,7 @@ class W_Repeat(W_Root):
         else:
             s = 'repeat(%s)' % (objrepr,)
         return self.space.wrap(s)
-    
+
     def descr_reduce(self):
         space = self.space
         if self.counting:
@@ -492,7 +492,7 @@ class W_Chain(W_Root):
             except OperationError, e:
                 pass # loop back to the start of _handle_error(e)
 
-    def descr_reduce(self, space):        
+    def descr_reduce(self, space):
         if self.w_iterables is not None:
             if self.w_it is not None:
                 inner_contents = [self.w_iterables, self.w_it]
@@ -505,6 +505,7 @@ class W_Chain(W_Root):
             result_w = [space.type(self),
                         space.newtuple([])]
         return space.newtuple(result_w)
+
     def descr_setstate(self, space, w_state):
         state = space.unpackiterable(w_state)
         num_args = len(state)
@@ -605,8 +606,8 @@ class W_ZipLongest(W_Map):
         result_w = [space.type(self),
                     iterators,
                     self.w_fillvalue]
-                    
         return space.newtuple(result_w)
+
     def descr_setstate(self, space, w_state):
         self.w_fillvalue = w_state
 
@@ -953,6 +954,7 @@ class W_GroupBy(W_Root):
                     self.lookahead = True
                     self.new_group = True #new group
                     raise StopIteration
+
     def descr_reduce(self, space):
         if self.started:
             return space.newtuple([
@@ -971,6 +973,7 @@ class W_GroupBy(W_Root):
                 space.newtuple([
                     self.w_iterable,
                     self.w_fun])])
+
     def descr_setstate(self, space, w_state):
         state = space.unpackiterable(w_state)
         num_args = len(state)
@@ -1199,6 +1202,7 @@ class W_Product(W_Root):
                 space.newtuple([space.newtuple([])])
             ]
         return space.newtuple(result_w)
+
     def descr_setstate(self, space, w_state):
         gear_count = len(self.gears)
         indices_w = space.unpackiterable(w_state)
@@ -1525,6 +1529,7 @@ class W_Permutations(W_Root):
                     space.wrap(self.started)
                 ])]
         return space.newtuple(result_w)
+
     def descr_setstate(self, space, w_state):
         state = space.unpackiterable(w_state)
         if len(state) == 3:
@@ -1535,11 +1540,11 @@ class W_Permutations(W_Root):
         else:
             raise OperationError(space.w_ValueError, space.wrap(
                 "invalid arguments"))
-        
+
         if len(indices_w) != len(self.pool_w) or len(cycles_w) != self.r:
             raise OperationError(space.w_ValueError, space.wrap(
                 "inavalid arguments"))
-    
+
         n = len(self.pool_w)
         for i in range(n):
             index = space.int_w(indices_w[i])
@@ -1572,7 +1577,7 @@ W_Permutations.typedef = TypeDef("itertools.permutations",
     __iter__ = interp2app(W_Permutations.descr__iter__),
     __next__ = interp2app(W_Permutations.descr_next),
     __reduce__ = interp2app(W_Permutations.descr_reduce),
-    __setstate__ = interp2app(W_Permutations.descr_setstate), 
+    __setstate__ = interp2app(W_Permutations.descr_setstate),
     __doc__ = """\
 permutations(iterable[, r]) --> permutations object
 
