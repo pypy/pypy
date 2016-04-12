@@ -54,3 +54,9 @@ gives improved warm-up time and memory usage, and also removes
 annoying special-purpose code for pinned pointers.
 
 .. branch: fix-jitlog
+
+.. branch: cleanup-includes
+
+Remove old uneeded numpy headers, what is left is only for testing. Also 
+generate pypy_numpy.h which exposes functions to directly use micronumpy
+ndarray and ufuncs
