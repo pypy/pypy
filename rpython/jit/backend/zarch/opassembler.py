@@ -632,11 +632,18 @@ class GuardOpAssembler(object):
     def build_guard_token(self, op, frame_depth, arglocs, fcond):
         descr = op.getdescr()
         gcmap = allocate_gcmap(self, frame_depth, r.JITFRAME_FIXED_SIZE)
+        faildescrindex = self.get_gcref_from_faildescr(descr)
         token = ZARCHGuardToken(self.cpu, gcmap, descr, op.getfailargs(),
                               arglocs, op.getopnum(), frame_depth,
-                              fcond)
+                              faildescrindex, fcond)
         #token._pool_offset = self.pool.get_descr_offset(descr)
         return token
+
+    def emit_load_from_gc_table(self, op, arglocs, regalloc):
+        resloc, = arglocs
+        index = op.getarg(0).getint()
+        assert resloc.is_reg()
+        self.load_gcref_into(resloc, index)
 
     def emit_guard_true(self, op, arglocs, regalloc):
         self._emit_guard(op, arglocs)

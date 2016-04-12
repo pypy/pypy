@@ -12,7 +12,6 @@ from rpython.jit.metainterp.history import JitCellToken, FLOAT
 from rpython.jit.metainterp.history import AbstractFailDescr
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper import rclass
-from rpython.jit.backend.x86.arch import WORD
 from rpython.jit.backend.llsupport.symbolic import (WORD,
         get_array_token)
 

@@ -1002,12 +1002,6 @@ def generate_decls_and_callbacks(db, export_symbols, api_struct=True, prefix='')
     functions = []
     decls = {}
     pypy_decls = decls['pypy_decl.h'] = []
-    pypy_decls.append("#ifndef _PYPY_PYPY_DECL_H\n")
-    pypy_decls.append("#define _PYPY_PYPY_DECL_H\n")
-    pypy_decls.append("#ifndef PYPY_STANDALONE\n")
-    pypy_decls.append("#ifdef __cplusplus")
-    pypy_decls.append("extern \"C\" {")
-    pypy_decls.append("#endif\n")
     pypy_decls.append('#define Signed   long           /* xxx temporary fix */\n')
     pypy_decls.append('#define Unsigned unsigned long  /* xxx temporary fix */\n')
 
@@ -1016,15 +1010,6 @@ def generate_decls_and_callbacks(db, export_symbols, api_struct=True, prefix='')
 
     for header_name, header_functions in FUNCTIONS_BY_HEADER.iteritems():
         if header_name not in decls:
-            header = decls[header_name] = []
-            header.append("#ifndef _PYPY_%s\n" % 
-                                    header_name.upper().replace('.','_'))
-            header.append("#define _PYPY_%s\n" %
-                                    header_name.upper().replace('.','_'))
-            header.append("#ifndef PYPY_STANDALONE\n")
-            header.append("#ifdef __cplusplus")
-            header.append("extern \"C\" {")
-            header.append("#endif\n")
             header.append('#define Signed   long           /* xxx temporary fix */\n')
             header.append('#define Unsigned unsigned long  /* xxx temporary fix */\n')
         else:
@@ -1067,12 +1052,6 @@ def generate_decls_and_callbacks(db, export_symbols, api_struct=True, prefix='')
         header = decls[header_name]
         header.append('#undef Signed    /* xxx temporary fix */\n')
         header.append('#undef Unsigned  /* xxx temporary fix */\n')
-        header.append("#ifdef __cplusplus")
-        header.append("}")
-        header.append("#endif")
-        header.append("#endif /*PYPY_STANDALONE*/\n")
-        header.append("#endif /*_PYPY_%s_H*/\n" % 
-                                    header_name.upper().replace('.','_'))
 
     for header_name, header_decls in decls.iteritems():
         decl_h = udir.join(header_name)

@@ -132,7 +132,18 @@ typedef long Py_ssize_t;
 /* Missing definitions */
 #include "missing.h"
 
-#include <pypy_decl.h>
+/* The declarations of most API functions are generated in a separate file */
+/* Don't include them while building PyPy, RPython also generated signatures
+ * which are similar but not identical. */
+#ifndef PYPY_STANDALONE
+#ifdef __cplusplus
+extern "C" {
+#endif
+  #include <pypy_decl.h>
+#ifdef __cplusplus
+}
+#endif
+#endif  /* PYPY_STANDALONE */
 
 /* Define macros for inline documentation. */
 #define PyDoc_VAR(name) static char name[]
