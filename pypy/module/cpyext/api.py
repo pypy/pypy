@@ -1001,12 +1001,6 @@ def generate_decls_and_callbacks(db, export_symbols, api_struct=True):
     functions = []
     decls = {}
     pypy_decls = decls['pypy_decl.h'] = []
-    pypy_decls.append("#ifndef _PYPY_PYPY_DECL_H\n")
-    pypy_decls.append("#define _PYPY_PYPY_DECL_H\n")
-    pypy_decls.append("#ifndef PYPY_STANDALONE\n")
-    pypy_decls.append("#ifdef __cplusplus")
-    pypy_decls.append("extern \"C\" {")
-    pypy_decls.append("#endif\n")
     pypy_decls.append('#define Signed   long           /* xxx temporary fix */\n')
     pypy_decls.append('#define Unsigned unsigned long  /* xxx temporary fix */\n')
 
@@ -1047,11 +1041,6 @@ def generate_decls_and_callbacks(db, export_symbols, api_struct=True):
 
     pypy_decls.append('#undef Signed    /* xxx temporary fix */\n')
     pypy_decls.append('#undef Unsigned  /* xxx temporary fix */\n')
-    pypy_decls.append("#ifdef __cplusplus")
-    pypy_decls.append("}")
-    pypy_decls.append("#endif")
-    pypy_decls.append("#endif /*PYPY_STANDALONE*/\n")
-    pypy_decls.append("#endif /*_PYPY_PYPY_DECL_H*/\n")
 
     for header_name, header_decls in decls.iteritems():
         decl_h = udir.join(header_name)

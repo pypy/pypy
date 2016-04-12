@@ -1,3 +1,4 @@
+import platform as host_platform
 import py
 import sys
 from rpython.tool.udir import udir
@@ -28,6 +29,9 @@ global_eci = ExternalCompilationInfo(**eci_kwds)
 
 
 def setup():
+    if host_platform.machine() == 's390x':
+        raise VMProfPlatformUnsupported("rvmprof not supported on"
+                                        " s390x CPUs for now")
     compile_extra = ['-DRPYTHON_LL2CTYPES']
     platform.verify_eci(ExternalCompilationInfo(
         compile_extra=compile_extra,

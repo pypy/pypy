@@ -389,6 +389,7 @@ class AppTestAFewExtra:
 
     def test_writelines(self):
         import array
+        import sys
         fn = self.temptestfile
         with file(fn, 'w') as f:
             f.writelines(['abc'])
@@ -406,7 +407,10 @@ class AppTestAFewExtra:
             exc = raises(TypeError, f.writelines, [memoryview('jkl')])
             assert str(exc.value) == "writelines() argument must be a sequence of strings"
         out = open(fn, 'rb').readlines()[0]
-        assert out[0:5] == 'abcd\x00'
+        if sys.byteorder == 'big':
+            assert out[0:7] == 'abc\x00\x00\x00d'
+        else:
+            assert out[0:5] == 'abcd\x00'
         assert out[-3:] == 'ghi'
 
         with file(fn, 'wb') as f:

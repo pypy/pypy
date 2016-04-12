@@ -46,7 +46,6 @@ try:
 except detect_cpu.ProcessorAutodetectError:
     pass
 
-
 translation_modules = default_modules.copy()
 translation_modules.update([
     "fcntl", "time", "select", "signal", "_rawffi", "zlib", "struct", "_md5",

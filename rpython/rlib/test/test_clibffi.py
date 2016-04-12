@@ -181,11 +181,12 @@ class TestCLibffi(BaseFfiTest):
             p_a2 = rffi.cast(rffi.VOIDPP, ll_args[1])[0]
             a1 = rffi.cast(rffi.INTP, p_a1)[0]
             a2 = rffi.cast(rffi.INTP, p_a2)[0]
-            res = rffi.cast(rffi.INTP, ll_res)
+            res = rffi.cast(rffi.SIGNEDP, ll_res)
+            # must store a full ffi arg!
             if a1 > a2:
-                res[0] = rffi.cast(rffi.INT, 1)
+                res[0] = 1
             else:
-                res[0] = rffi.cast(rffi.INT, -1)
+                res[0] = -1
 
         ptr = CallbackFuncPtr([ffi_type_pointer, ffi_type_pointer],
                               ffi_type_sint, callback)

@@ -236,7 +236,9 @@ class TestLowLevelType(object):
 
         fn = self.getcompiled(llf, [int])
         res = fn(0x33)
-        assert res in [0x10203033, 0x33203040]
+        assert res in [0x10203033, 0x33203040,
+                       # big endian 64 bit machine
+                       0x3300000010203040]
 
     def test_sizeof_void_array(self):
         from rpython.rtyper.lltypesystem import llmemory

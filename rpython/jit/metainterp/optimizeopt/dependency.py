@@ -3,7 +3,6 @@ import py
 from rpython.jit.metainterp import compile
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.resoperation import (rop, GuardResOp, ResOperation)
-from rpython.jit.metainterp.resume import Snapshot
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.history import (ConstPtr, ConstInt,Const,
         AbstractValue, AbstractFailDescr)
@@ -77,14 +76,14 @@ class Path(object):
                 i += 1
                 continue
             op = node.getoperation()
-            if op.is_guard():
+            if rop.is_guard(op.opnum):
                 descr = op.getdescr()
                 if not descr:
                     return False
                 assert isinstance(descr, AbstractFailDescr)
                 if not descr.exits_early():
                     return False
-            elif not op.is_always_pure():
+            elif not rop.is_always_pure(op.opnum):
                 return False
             i += 1
         return True
@@ -543,7 +542,7 @@ class DependencyGraph(object):
     def __init__(self, loop):
         self.loop = loop
         self.label = Node(loop.label, 0)
-        self.nodes = [ Node(op,0) for op in loop.operations if not op.is_jit_debug() ]
+        self.nodes = [ Node(op,0) for op in loop.operations if not rop.is_jit_debug(op.opnum) ]
         for i,node in enumerate(self.nodes):
             node.opidx = i+1
         self.inodes = [] # imaginary nodes
@@ -595,9 +594,9 @@ class DependencyGraph(object):
         # pass 1
         for i,node in enumerate(self.nodes):
             op = node.op
-            if op.is_always_pure():
+            if rop.is_always_pure(op.opnum):
                 node.setpriority(1)
-            if op.is_guard():
+            if rop.is_guard(op.opnum):
                 node.setpriority(2)
             # the label operation defines all operations at the
             # beginning of the loop
@@ -608,11 +607,11 @@ class DependencyGraph(object):
                 # In SSA form. Modifications get a new variable
                 tracker.define(op, node)
             # usage of defined variables
-            if op.is_always_pure() or op.is_final():
+            if rop.is_always_pure(op.opnum) or rop.is_final(op.opnum):
                 # normal case every arguments definition is set
                 for arg in op.getarglist():
                     tracker.depends_on_arg(arg, node)
-            elif op.is_guard():
+            elif rop.is_guard(op.opnum):
                 if node.exits_early():
                     pass
                 else:

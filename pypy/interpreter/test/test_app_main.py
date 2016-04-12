@@ -9,6 +9,11 @@ from contextlib import contextmanager
 from pypy.conftest import pypydir
 from lib_pypy._pypy_interact import irc_header
 
+try:
+    import __pypy__
+except ImportError:
+    __pypy__ = None
+
 banner = sys.version.splitlines()[0]
 
 app_main = os.path.join(os.path.realpath(os.path.dirname(__file__)), os.pardir, 'app_main.py')
@@ -106,6 +111,8 @@ class TestParseCommandLine:
             sys.argv[:] = saved_sys_argv
             sys.stdout = saved_sys_stdout
             sys.stderr = saved_sys_stderr
+            if __pypy__:
+                __pypy__.set_debug(True)
 
     def test_all_combinations_I_can_think_of(self):
         self.check([], {}, sys_argv=[''], run_stdin=True)
@@ -601,9 +608,7 @@ class TestNonInteractive:
     def run_with_status_code(self, cmdline, senddata='', expect_prompt=False,
             expect_banner=False, python_flags='', env=None):
         if os.name == 'nt':
-            try:
-                import __pypy__
-            except:
+            if __pypy__ is None:
                 py.test.skip('app_main cannot run on non-pypy for windows')
         cmdline = '%s %s "%s" %s' % (sys.executable, python_flags,
                                      app_main, cmdline)

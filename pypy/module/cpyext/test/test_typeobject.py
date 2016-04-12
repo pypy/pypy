@@ -606,7 +606,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 long intval;
                 PyObject *name;
 
-                if (!PyArg_ParseTuple(args, "i", &intval))
+                if (!PyArg_ParseTuple(args, "l", &intval))
                     return NULL;
 
                 IntLike_Type.tp_as_number = &intlike_as_number;

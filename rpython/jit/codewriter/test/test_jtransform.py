@@ -1,19 +1,7 @@
 
 import py
 import random
-try:
-    from itertools import product
-except ImportError:
-    # Python 2.5, this is taken from the CPython docs, but simplified.
-    def product(*args):
-        # product('ABCD', 'xy') --> Ax Ay Bx By Cx Cy Dx Dy
-        # product(range(2), repeat=3) --> 000 001 010 011 100 101 110 111
-        pools = map(tuple, args)
-        result = [[]]
-        for pool in pools:
-            result = [x+[y] for x in result for y in pool]
-        for prod in result:
-            yield tuple(prod)
+from itertools import product
 
 from rpython.flowspace.model import FunctionGraph, Block, Link, c_last_exception
 from rpython.flowspace.model import SpaceOperation, Variable, Constant
@@ -1327,6 +1315,21 @@ def test_no_gcstruct_nesting_outside_of_OBJECT():
                         varoftype(lltype.Signed))
     tr = Transformer(None, None)
     py.test.raises(NotImplementedError, tr.rewrite_operation, op)
+
+def test_no_fixedsizearray():
+    A = lltype.FixedSizeArray(lltype.Signed, 5)
+    v_x = varoftype(lltype.Ptr(A))
+    op = SpaceOperation('getarrayitem', [v_x, Constant(0, lltype.Signed)],
+                        varoftype(lltype.Signed))
+    tr = Transformer(None, None)
+    tr.graph = 'demo'
+    py.test.raises(NotImplementedError, tr.rewrite_operation, op)
+    op = SpaceOperation('setarrayitem', [v_x, Constant(0, lltype.Signed),
+                                              Constant(42, lltype.Signed)],
+                        varoftype(lltype.Void))
+    e = py.test.raises(NotImplementedError, tr.rewrite_operation, op)
+    assert str(e.value) == (
+        "'demo' uses %r, which is not supported by the JIT codewriter" % (A,))
 
 def _test_threadlocalref_get(loop_inv):
     from rpython.rlib.rthread import ThreadLocalField

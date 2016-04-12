@@ -9,7 +9,7 @@ from rpython.jit.metainterp.history import check_descr
 from rpython.jit.metainterp.history import INT, REF, FLOAT, VOID, AbstractDescr
 from rpython.jit.metainterp.history import ConstInt, ConstFloat, ConstPtr
 from rpython.jit.metainterp import resoperation
-from rpython.jit.metainterp.resoperation import rop
+from rpython.jit.metainterp.resoperation import rop, opname
 from rpython.jit.metainterp.blackhole import BlackholeInterpreter, NULL
 from rpython.jit.codewriter import longlong
 
@@ -314,7 +314,8 @@ def do_keepalive(cpu, _, x):
 
 def _make_execute_list():
     execute_by_num_args = {}
-    for key, value in rop.__dict__.items():
+    for key in opname.values():
+        value = getattr(rop, key)
         if not key.startswith('_'):
             if (rop._FINAL_FIRST <= value <= rop._FINAL_LAST or
                 rop._GUARD_FIRST <= value <= rop._GUARD_LAST):
@@ -384,6 +385,11 @@ def _make_execute_list():
                          rop.CALL_MALLOC_NURSERY_VARSIZE_FRAME,
                          rop.NURSERY_PTR_INCREMENT,
                          rop.LABEL,
+                         rop.ESCAPE_I,
+                         rop.ESCAPE_N,
+                         rop.ESCAPE_R,
+                         rop.ESCAPE_F,
+                         rop.FORCE_SPILL,
                          rop.SAVE_EXC_CLASS,
                          rop.SAVE_EXCEPTION,
                          rop.RESTORE_EXCEPTION,
@@ -402,6 +408,7 @@ def _make_execute_list():
                          rop.GC_LOAD_INDEXED_R,
                          rop.GC_STORE,
                          rop.GC_STORE_INDEXED,
+                         rop.LOAD_FROM_GC_TABLE,
                          ):      # list of opcodes never executed by pyjitpl
                 continue
             if rop._VEC_PURE_FIRST <= value <= rop._VEC_PURE_LAST:

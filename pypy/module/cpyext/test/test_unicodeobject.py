@@ -24,7 +24,7 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
                  if(PyUnicode_GetSize(s) == 11) {
                      result = 1;
                  }
-                 if(s->ob_type->tp_basicsize != sizeof(void*)*5)
+                 if(s->ob_type->tp_basicsize != sizeof(void*)*7)
                      result = 0;
                  Py_DECREF(s);
                  return PyBool_FromLong(result);
@@ -66,6 +66,7 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
                  c = PyUnicode_AsUnicode(s);
                  c[0] = 'a';
                  c[1] = 0xe9;
+                 c[2] = 0x00;
                  c[3] = 'c';
                  return s;
              """),
@@ -74,7 +75,35 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
         assert len(s) == 4
         assert s == u'aé\x00c'
 
+    def test_hash(self):
+        module = self.import_extension('foo', [
+            ("test_hash", "METH_VARARGS",
+             '''
+                PyObject* obj = (PyTuple_GetItem(args, 0));
+                long hash = ((PyUnicodeObject*)obj)->hash;
+                return PyLong_FromLong(hash);  
+             '''
+             ),
+            ])
+        res = module.test_hash(u"xyz")
+        assert res == hash(u'xyz')
 
+    def test_default_encoded_string(self):
+        module = self.import_extension('foo', [
+            ("test_default_encoded_string", "METH_O",
+             '''
+                PyObject* result = _PyUnicode_AsDefaultEncodedString(args, "replace");
+                Py_INCREF(result);
+                return result;
+             '''
+             ),
+            ])
+        res = module.test_default_encoded_string(u"xyz")
+        assert isinstance(res, str)
+        assert res == 'xyz'
+        res = module.test_default_encoded_string(u"caf\xe9")
+        assert isinstance(res, str)
+        assert res == 'caf?'
 
 class TestUnicode(BaseApiTest):
     def test_unicodeobject(self, space, api):
@@ -155,22 +184,22 @@ class TestUnicode(BaseApiTest):
     def test_unicode_resize(self, space, api):
         py_uni = new_empty_unicode(space, 10)
         ar = lltype.malloc(PyObjectP.TO, 1, flavor='raw')
-        py_uni.c_buffer[0] = u'a'
-        py_uni.c_buffer[1] = u'b'
-        py_uni.c_buffer[2] = u'c'
+        py_uni.c_str[0] = u'a'
+        py_uni.c_str[1] = u'b'
+        py_uni.c_str[2] = u'c'
         ar[0] = rffi.cast(PyObject, py_uni)
         api.PyUnicode_Resize(ar, 3)
         py_uni = rffi.cast(PyUnicodeObject, ar[0])
         assert py_uni.c_size == 3
-        assert py_uni.c_buffer[1] == u'b'
-        assert py_uni.c_buffer[3] == u'\x00'
+        assert py_uni.c_str[1] == u'b'
+        assert py_uni.c_str[3] == u'\x00'
         # the same for growing
         ar[0] = rffi.cast(PyObject, py_uni)
         api.PyUnicode_Resize(ar, 10)
         py_uni = rffi.cast(PyUnicodeObject, ar[0])
         assert py_uni.c_size == 10
-        assert py_uni.c_buffer[1] == 'b'
-        assert py_uni.c_buffer[10] == '\x00'
+        assert py_uni.c_str[1] == 'b'
+        assert py_uni.c_str[10] == '\x00'
         Py_DecRef(space, ar[0])
         lltype.free(ar, flavor='raw')
 
@@ -386,11 +415,11 @@ class TestUnicode(BaseApiTest):
                 lltype.free(pendian, flavor='raw')
 
         test("\x61\x00\x62\x00\x63\x00\x64\x00", -1)
-
-        test("\x61\x00\x62\x00\x63\x00\x64\x00", None)
-
+        if sys.byteorder == 'big':
+            test("\x00\x61\x00\x62\x00\x63\x00\x64", None)
+        else:
+            test("\x61\x00\x62\x00\x63\x00\x64\x00", None)
         test("\x00\x61\x00\x62\x00\x63\x00\x64", 1)
-
         test("\xFE\xFF\x00\x61\x00\x62\x00\x63\x00\x64", 0, 1)
         test("\xFF\xFE\x61\x00\x62\x00\x63\x00\x64\x00", 0, -1)
 
@@ -423,7 +452,10 @@ class TestUnicode(BaseApiTest):
 
         test("\x61\x00\x00\x00\x62\x00\x00\x00", -1)
 
-        test("\x61\x00\x00\x00\x62\x00\x00\x00", None)
+        if sys.byteorder == 'big':
+            test("\x00\x00\x00\x61\x00\x00\x00\x62", None)
+        else:
+            test("\x61\x00\x00\x00\x62\x00\x00\x00", None)
 
         test("\x00\x00\x00\x61\x00\x00\x00\x62", 1)
 

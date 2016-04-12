@@ -683,7 +683,7 @@ def compute_vars_longevity(inputargs, operations):
     for i in range(len(operations)-1, -1, -1):
         op = operations[i]
         if op.type != 'v':
-            if op not in last_used and op.has_no_side_effect():
+            if op not in last_used and rop.has_no_side_effect(op.opnum):
                 continue
         opnum = op.getopnum()
         for j in range(op.numargs()):
@@ -695,7 +695,7 @@ def compute_vars_longevity(inputargs, operations):
             if opnum != rop.JUMP and opnum != rop.LABEL:
                 if arg not in last_real_usage:
                     last_real_usage[arg] = i
-        if op.is_guard():
+        if rop.is_guard(op.opnum):
             for arg in op.getfailargs():
                 if arg is None: # hole
                     continue
@@ -732,14 +732,7 @@ def compute_vars_longevity(inputargs, operations):
     return longevity, last_real_usage
 
 def is_comparison_or_ovf_op(opnum):
-    from rpython.jit.metainterp.resoperation import opclasses
-    cls = opclasses[opnum]
-    # hack hack: in theory they are instance method, but they don't use
-    # any instance field, we can use a fake object
-    class Fake(cls):
-        pass
-    op = Fake()
-    return op.is_comparison() or op.is_ovf()
+    return rop.is_comparison(opnum) or rop.is_ovf(opnum)
 
 def valid_addressing_size(size):
     return size == 1 or size == 2 or size == 4 or size == 8

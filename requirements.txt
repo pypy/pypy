@@ -1,3 +1,3 @@
 # hypothesis is used for test generation on untranslated jit tests
 hypothesis
-enum>=0.4.6 # is a dependency, but old pip does not pick it up
+enum34>=1.1.2

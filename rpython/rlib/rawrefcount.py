@@ -72,6 +72,12 @@ def to_obj(Class, ob):
     return p
 
 def next_dead(OB_PTR_TYPE):
+    """NOT_RPYTHON.  When the GC runs, it finds some pyobjs to be dead
+    but cannot immediately dispose of them (it doesn't know how to call
+    e.g. tp_dealloc(), and anyway calling it immediately would cause all
+    sorts of bugs).  So instead, it stores them in an internal list,
+    initially with refcnt == 1.  This pops the next item off this list.
+    """
     if len(_d_list) == 0:
         return lltype.nullptr(OB_PTR_TYPE.TO)
     ob = _d_list.pop()

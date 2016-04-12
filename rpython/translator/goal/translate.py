@@ -83,9 +83,8 @@ translate_optiondescr = OptionDescription("translate", "XXX", [
 ])
 
 import optparse
-from rpython.tool.ansi_print import ansi_log
-log = py.log.Producer("translation")
-py.log.setconsumer("translation", ansi_log)
+from rpython.tool.ansi_print import AnsiLogger
+log = AnsiLogger("translation")
 
 def load_target(targetspec):
     log.info("Translating target as defined by %s" % targetspec)

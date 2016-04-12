@@ -74,5 +74,6 @@ syntax: regexp
 ^rpython/doc/_build/.*$
 ^compiled
 ^.git/
+^.hypothesis/
 ^release/
 ^rpython/_cache$

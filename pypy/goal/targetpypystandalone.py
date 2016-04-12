@@ -240,8 +240,9 @@ class PyPyTarget(object):
                                 "when --shared is on (it is by default). "
                                 "See issue #1971.")
         if sys.platform == 'win32':
-            config.translation.libname = '..\\..\\libs\\python27.lib'
-            thisdir.join('..', '..', 'libs').ensure(dir=1)
+            libdir = thisdir.join('..', '..', 'libs')
+            libdir.ensure(dir=1)
+            config.translation.libname = str(libdir.join('python27.lib'))
 
         if config.translation.thread:
             config.objspace.usemodules.thread = True
@@ -327,7 +328,7 @@ class PyPyTarget(object):
             # XXX possibly adapt options using modules
             failures = create_cffi_import_libraries(exename, options, basedir)
             # if failures, they were already printed
-            print  >> sys.stderr, str(exename),'successfully built, but errors while building the above modules will be ignored'
+            print  >> sys.stderr, str(exename),'successfully built (errors, if any, while building the above modules are ignored)'
         driver.task_build_cffi_imports = types.MethodType(task_build_cffi_imports, driver)
         driver.tasks['build_cffi_imports'] = driver.task_build_cffi_imports, [compile_goal]
         driver.default_goal = 'build_cffi_imports'

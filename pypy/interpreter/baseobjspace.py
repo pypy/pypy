@@ -417,7 +417,10 @@ class ObjSpace(object):
         self.wait_for_thread_shutdown()
         w_exitfunc = self.sys.getdictvalue(self, 'exitfunc')
         if w_exitfunc is not None:
-            self.call_function(w_exitfunc)
+            try:
+                self.call_function(w_exitfunc)
+            except OperationError as e:
+                e.write_unraisable(self, 'sys.exitfunc == ', w_exitfunc)
         from pypy.interpreter.module import Module
         for w_mod in self.builtin_modules.values():
             if isinstance(w_mod, Module) and w_mod.startup_called:

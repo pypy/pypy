@@ -124,7 +124,7 @@ class W_CTypePtrOrArray(W_CType):
                         s = rffi.charp2str(ptr)
                     else:
                         s = rffi.charp2strn(ptr, length)
-                    return space.wrap(s)
+                    return space.wrapbytes(s)
                 #
                 # pointer to a wchar_t: builds and returns a unicode
                 if self.is_unichar_ptr_or_array():
@@ -353,10 +353,11 @@ class W_CTypePointer(W_CTypePtrBase):
 # ____________________________________________________________
 
 
-rffi_fdopen = rffi.llexternal("fdopen", [rffi.INT, rffi.CCHARP], rffi.CCHARP,
+FILEP = rffi.COpaquePtr("FILE")
+rffi_fdopen = rffi.llexternal("fdopen", [rffi.INT, rffi.CCHARP], FILEP,
                               save_err=rffi.RFFI_SAVE_ERRNO)
-rffi_setbuf = rffi.llexternal("setbuf", [rffi.CCHARP, rffi.CCHARP], lltype.Void)
-rffi_fclose = rffi.llexternal("fclose", [rffi.CCHARP], rffi.INT)
+rffi_setbuf = rffi.llexternal("setbuf", [FILEP, rffi.CCHARP], lltype.Void)
+rffi_fclose = rffi.llexternal("fclose", [FILEP], rffi.INT)
 
 class CffiFileObj(object):
     _immutable_ = True
@@ -371,15 +372,15 @@ class CffiFileObj(object):
         rffi_fclose(self.llf)
 
 
-def prepare_file_argument(space, fileobj):
-    fileobj.direct_flush()
-    if fileobj.cffi_fileobj is None:
-        fd = fileobj.direct_fileno()
+def prepare_file_argument(space, w_fileobj):
+    w_fileobj.direct_flush()
+    if w_fileobj.cffi_fileobj is None:
+        fd = w_fileobj.direct_fileno()
         if fd < 0:
             raise OperationError(space.w_ValueError,
                                  space.wrap("file has no OS file descriptor"))
         try:
-            fileobj.cffi_fileobj = CffiFileObj(fd, fileobj.mode)
+            w_fileobj.cffi_fileobj = CffiFileObj(fd, w_fileobj.mode)
         except OSError, e:
             raise wrap_oserror(space, e)
-    return fileobj.cffi_fileobj.llf
+    return rffi.cast(rffi.CCHARP, w_fileobj.cffi_fileobj.llf)

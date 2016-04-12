@@ -21,6 +21,10 @@ class BaseLinux(BasePosix):
     so_ext = 'so'
     so_prefixes = ('lib', '')
 
+    if platform.machine() == 's390x':
+        # force the right target arch for s390x
+        cflags = ('-march=zEC12','-m64','-mzarch') + cflags
+
     def _args_for_shared(self, args):
         return ['-shared'] + args
 

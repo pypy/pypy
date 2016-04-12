@@ -51,11 +51,13 @@ def machine_code_dump(data, originaddr, backend_name, label_list=None):
         'arm_32': 'arm',
         'ppc' : 'powerpc:common64',
         'ppc-64' : 'powerpc:common64',
+        's390x': 's390:64-bit',
     }
     machine_endianness = {
         # default value: 'little'
         'ppc' : sys.byteorder,     # i.e. same as the running machine...
         'ppc-64' : sys.byteorder,     # i.e. same as the running machine...
+        's390x' : sys.byteorder,     # i.e. same as the running machine...
     }
     cmd = find_objdump()
     objdump = ('%(command)s -b binary -m %(machine)s '

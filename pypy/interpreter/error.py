@@ -291,13 +291,7 @@ class OperationError(Exception):
         return tb
 
     def set_traceback(self, traceback):
-        """Set the current traceback.  It should either be a traceback
-        pointing to some already-escaped frame, or a traceback for the
-        current frame.  To support the latter case we do not mark the
-        frame as escaped.  The idea is that it will be marked as escaping
-        only if the exception really propagates out of this frame, by
-        executioncontext.leave() being called with got_exception=True.
-        """
+        """Set the current traceback."""
         self._application_traceback = traceback
 
 

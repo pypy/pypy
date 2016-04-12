@@ -290,7 +290,7 @@ static int _write_all(const char *buf, size_t bufsize)
 
 static int close_profile(void)
 {
-    unsigned char marker = MARKER_TRAILER;
+    char marker = MARKER_TRAILER;
 
     if (_write_all(&marker, 1) < 0)
         return -1;

@@ -782,6 +782,12 @@ def set_param_to_default(driver, name):
     """Reset one of the tunable JIT parameters to its default value."""
     _set_param(driver, name, None)
 
+class TraceLimitTooHigh(Exception):
+    """ This is raised when the trace limit is too high for the chosen
+    opencoder model, recompile your interpreter with 'big' as
+    jit_opencoder_model
+    """
+
 def set_user_param(driver, text):
     """Set the tunable JIT parameters from a user-supplied string
     following the format 'param=value,param=value', or 'off' to
@@ -809,6 +815,8 @@ def set_user_param(driver, text):
             for name1, _ in unroll_parameters:
                 if name1 == name and name1 != 'enable_opts':
                     try:
+                        if name1 == 'trace_limit' and int(value) > 2**14:
+                            raise TraceLimitTooHigh
                         set_param(driver, name1, int(value))
                     except ValueError:
                         raise
@@ -1059,6 +1067,14 @@ class JitHookInterface(object):
     of JIT running like JIT loops compiled, aborts etc.
     An instance of this class will be available as policy.jithookiface.
     """
+    # WARNING: You should make a single prebuilt instance of a subclass
+    # of this class.  You can, before translation, initialize some
+    # attributes on this instance, and then read or change these
+    # attributes inside the methods of the subclass.  But this prebuilt
+    # instance *must not* be seen during the normal annotation/rtyping
+    # of the program!  A line like ``pypy_hooks.foo = ...`` must not
+    # appear inside your interpreter's RPython code.
+
     def on_abort(self, reason, jitdriver, greenkey, greenkey_repr, logops, operations):
         """ A hook called each time a loop is aborted with jitdriver and
         greenkey where it started, reason is a string why it got aborted

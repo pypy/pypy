@@ -14,16 +14,17 @@ from rpython.jit.metainterp.optimizeopt.dependency import DependencyGraph
 from rpython.jit.metainterp.optimizeopt.vector import (VectorizingOptimizer,
         MemoryRef, isomorphic, Pair, NotAVectorizeableLoop, VectorLoop,
         NotAProfitableLoop, GuardStrengthenOpt, CostModel, X86_CostModel,
-        PackSet)
+        PackSet, optimize_vector)
 from rpython.jit.metainterp.optimizeopt.schedule import (Scheduler,
         SchedulerState, VecScheduleState, Pack)
+from rpython.jit.metainterp.optimizeopt.optimizer import BasicLoopInfo
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp import compile
 from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.jit.metainterp.optimizeopt.version import LoopVersionInfo
 from rpython.jit.backend.llsupport.descr import ArrayDescr
 from rpython.jit.metainterp.optimizeopt.dependency import Node, DependencyGraph
-from rpython.jit.tool.oparser import OpParser
+from rpython.jit.tool.oparser import OpParser, convert_loop_to_trace
 from rpython.jit.backend.detect_cpu import getcpuclass
 
 CPU = getcpuclass()
@@ -74,6 +75,12 @@ def find_first_index(loop, opnum, pass_by=0):
 
 ARCH_VEC_REG_SIZE = 16
 
+class FakeWarmState(object):
+    vec_all = False
+    vec_cost = 0
+
+
+
 class VecTestHelper(DependencyBaseTest):
 
     enable_opts = "intbounds:rewrite:virtualize:string:earlyforce:pure:heap"
@@ -81,11 +88,17 @@ class VecTestHelper(DependencyBaseTest):
     jitdriver_sd = FakeJitDriverStaticData()
 
     def assert_vectorize(self, loop, expected_loop, call_pure_results=None):
-        jump = ResOperation(rop.LABEL, loop.jump.getarglist(), loop.jump.getdescr())
-        compile_data = compile.LoopCompileData(loop.label, jump, loop.operations)
-        state = self._do_optimize_loop(compile_data)
-        loop.label = state[0].label_op
-        loop.opererations = state[1]
+        jump = ResOperation(rop.JUMP, loop.jump.getarglist(), loop.jump.getdescr())
+        metainterp_sd = FakeMetaInterpStaticData(self.cpu)
+        warmstate = FakeWarmState()
+        loop.operations += [loop.jump]
+        loop_info = BasicLoopInfo(loop.jump.getarglist(), None, jump)
+        loop_info.label_op = ResOperation(rop.LABEL, loop.jump.getarglist(), loop.jump.getdescr())
+        optimize_vector(None, metainterp_sd, self.jitdriver_sd, warmstate,
+                        loop_info, loop.operations)
+        loop.operations = loop.operations[:-1]
+        #loop.label = state[0].label_op
+        #loop.operations = state[1]
         self.assert_equal(loop, expected_loop)
 
     def vectoroptimizer(self, loop):

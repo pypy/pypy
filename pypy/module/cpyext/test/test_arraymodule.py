@@ -51,13 +51,19 @@ class AppTestArrayModule(AppTestCpythonExtensionBase):
         assert arr.tolist() == [1, 23, 4]
 
     def test_buffer(self):
+        import sys
         module = self.import_module(name='array')
         arr = module.array('i', [1,2,3,4])
         buf = buffer(arr)
         exc = raises(TypeError, "buf[1] = '1'")
         assert str(exc.value) == "buffer is read-only"
-        # XXX big-endian
-        assert str(buf) == ('\x01\0\0\0'
-                            '\x02\0\0\0'
-                            '\x03\0\0\0'
-                            '\x04\0\0\0')
+        if sys.byteorder == 'big':
+            assert str(buf) == ('\0\0\0\x01'
+                                '\0\0\0\x02'
+                                '\0\0\0\x03'
+                                '\0\0\0\x04')
+        else:
+            assert str(buf) == ('\x01\0\0\0'
+                                '\x02\0\0\0'
+                                '\x03\0\0\0'
+                                '\x04\0\0\0')

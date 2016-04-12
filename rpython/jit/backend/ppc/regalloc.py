@@ -286,7 +286,8 @@ class Regalloc(BaseRegalloc):
             self.assembler.mc.mark_op(op)
             self.rm.position = i
             self.fprm.position = i
-            if op.has_no_side_effect() and op not in self.longevity:
+            opnum = op.opnum
+            if rop.has_no_side_effect(opnum) and op not in self.longevity:
                 i += 1
                 self.possibly_free_vars_for_op(op)
                 continue
@@ -298,8 +299,7 @@ class Regalloc(BaseRegalloc):
                 else:
                     self.fprm.temp_boxes.append(box)
             #
-            opnum = op.getopnum()
-            if not we_are_translated() and opnum == -127:
+            if not we_are_translated() and opnum == rop.FORCE_SPILL:
                 self._consider_force_spill(op)
             else:
                 arglocs = oplist[opnum](self, op)
@@ -955,12 +955,19 @@ class Regalloc(BaseRegalloc):
         return arglocs
 
     def prepare_zero_array(self, op):
-        itemsize, ofs, _ = unpack_arraydescr(op.getdescr())
+        _, ofs, _ = unpack_arraydescr(op.getdescr())
         base_loc = self.ensure_reg(op.getarg(0))
         startindex_loc = self.ensure_reg_or_16bit_imm(op.getarg(1))
         length_loc = self.ensure_reg_or_16bit_imm(op.getarg(2))
+        # startindex and length are bytes, not array items anymore.
+        # rewrite already applied the scale!
+        startindex_scale_box = op.getarg(3)
+        assert startindex_scale_box.getint() == 1
+        length_scale_box = op.getarg(4)
+        assert length_scale_box.getint() == 1
+        #
         ofs_loc = self.ensure_reg_or_16bit_imm(ConstInt(ofs))
-        return [base_loc, startindex_loc, length_loc, ofs_loc, imm(itemsize)]
+        return [base_loc, startindex_loc, length_loc, ofs_loc]
 
     def prepare_cond_call(self, op):
         self.load_condition_into_cc(op.getarg(0))
