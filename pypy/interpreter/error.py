@@ -277,9 +277,18 @@ class OperationError(Exception):
         raise NotImplementedError
 
     def get_traceback(self):
-        """Get the PyTraceback object, for app-level Python code.
+        """Calling this marks the PyTraceback as escaped, i.e. it becomes
+        accessible and inspectable by app-level Python code.  For the JIT.
+        Note that this has no effect if there are already several traceback
+        frames recorded, because in this case they are already marked as
+        escaping by executioncontext.leave() being called with
+        got_exception=True.
         """
-        return self._application_traceback
+        from pypy.interpreter.pytraceback import PyTraceback
+        tb = self._application_traceback
+        if tb is not None and isinstance(tb, PyTraceback):
+            tb.frame.mark_as_escaped()
+        return tb
 
     def set_traceback(self, traceback):
         """Set the current traceback."""

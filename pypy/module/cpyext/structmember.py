@@ -2,7 +2,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.structmemberdefs import *
-from pypy.module.cpyext.api import ADDR, PyObjectP, cpython_api
+from pypy.module.cpyext.api import ADDR, PyObjectP, cpython_api, CONST_STRING
 from pypy.module.cpyext.intobject import PyInt_AsLong, PyInt_AsUnsignedLong
 from pypy.module.cpyext.pyerrors import PyErr_Occurred
 from pypy.module.cpyext.pyobject import PyObject, Py_DecRef, from_ref, make_ref
@@ -34,7 +34,7 @@ integer_converters = unrolling_iterable([
 _HEADER = 'pypy_structmember_decl.h'
 
 
-@cpython_api([PyObject, lltype.Ptr(PyMemberDef)], PyObject, header=_HEADER)
+@cpython_api([CONST_STRING, lltype.Ptr(PyMemberDef)], PyObject, header=_HEADER)
 def PyMember_GetOne(space, obj, w_member):
     addr = rffi.cast(ADDR, obj)
     addr += w_member.c_offset
@@ -85,7 +85,7 @@ def PyMember_GetOne(space, obj, w_member):
     return w_result
 
 
-@cpython_api([PyObject, lltype.Ptr(PyMemberDef), PyObject], rffi.INT_real,
+@cpython_api([rffi.CCHARP, lltype.Ptr(PyMemberDef), PyObject], rffi.INT_real,
              error=-1, header=_HEADER)
 def PyMember_SetOne(space, obj, w_member, w_value):
     addr = rffi.cast(ADDR, obj)

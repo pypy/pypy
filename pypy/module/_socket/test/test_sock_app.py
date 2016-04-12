@@ -733,6 +733,7 @@ class AppTestSocketTCP:
         try:
             while 1:
                 count += cli.send(b'foobar' * 70)
+                assert count < 100000
         except timeout:
             pass
         t.recv(count)

@@ -10,9 +10,8 @@ from rpython.jit.tool.oparser import parse
 from rpython.jit.metainterp.optimizeopt.util import equaloplists
 from rpython.jit.metainterp.history import JitCellToken, FLOAT
 from rpython.jit.metainterp.history import AbstractFailDescr
-from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper import rclass
-from rpython.jit.backend.x86.arch import WORD
 from rpython.jit.backend.llsupport.symbolic import (WORD,
         get_array_token)
 
@@ -77,6 +76,9 @@ class RewriteTests(object):
         tdescr = get_size_descr(self.gc_ll_descr, T)
         tdescr.tid = 5678
         tzdescr = get_field_descr(self.gc_ll_descr, T, 'z')
+        myT = lltype.cast_opaque_ptr(llmemory.GCREF,
+                                     lltype.malloc(T, zero=True))
+        self.myT = myT
         #
         A = lltype.GcArray(lltype.Signed)
         adescr = get_array_descr(self.gc_ll_descr, A)
@@ -112,6 +114,12 @@ class RewriteTests(object):
         xdescr = get_field_descr(self.gc_ll_descr, R1, 'x')
         ydescr = get_field_descr(self.gc_ll_descr, R1, 'y')
         zdescr = get_field_descr(self.gc_ll_descr, R1, 'z')
+        myR1 = lltype.cast_opaque_ptr(llmemory.GCREF,
+                                      lltype.malloc(R1, zero=True))
+        myR1b = lltype.cast_opaque_ptr(llmemory.GCREF,
+                                       lltype.malloc(R1, zero=True))
+        self.myR1 = myR1
+        self.myR1b = myR1b
         #
         E = lltype.GcStruct('Empty')
         edescr = get_size_descr(self.gc_ll_descr, E)
@@ -174,9 +182,10 @@ class RewriteTests(object):
         ops = parse(frm_operations, namespace=namespace)
         expected = parse(to_operations % Evaluator(namespace),
                          namespace=namespace)
+        self.gcrefs = []
         operations = self.gc_ll_descr.rewrite_assembler(self.cpu,
                                                         ops.operations,
-                                                        [])
+                                                        self.gcrefs)
         remap = {}
         for a, b in zip(ops.inputargs, expected.inputargs):
             remap[b] = a
@@ -1281,3 +1290,124 @@ class TestFramework(RewriteTests):
                 {t}
                 jump()
             """.format(**locals()))
+
+    def test_load_from_gc_table_1i(self):
+        self.check_rewrite("""
+            [i1]
+            setfield_gc(ConstPtr(myR1), i1, descr=xdescr)
+            jump()
+        """, """
+            [i1]
+            p0 = load_from_gc_table(0)
+            gc_store(p0, %(xdescr.offset)s, i1, %(xdescr.field_size)s)
+            jump()
+        """)
+        assert self.gcrefs == [self.myR1]
+
+    def test_load_from_gc_table_1p(self):
+        self.check_rewrite("""
+            [p1]
+            setfield_gc(ConstPtr(myT), p1, descr=tzdescr)
+            jump()
+        """, """
+            [i1]
+            p0 = load_from_gc_table(0)
+            cond_call_gc_wb(p0, descr=wbdescr)
+            gc_store(p0, %(tzdescr.offset)s, i1, %(tzdescr.field_size)s)
+            jump()
+        """)
+        assert self.gcrefs == [self.myT]
+
+    def test_load_from_gc_table_2(self):
+        self.check_rewrite("""
+            [i1, f2]
+            setfield_gc(ConstPtr(myR1), i1, descr=xdescr)
+            setfield_gc(ConstPtr(myR1), f2, descr=ydescr)
+            jump()
+        """, """
+            [i1, f2]
+            p0 = load_from_gc_table(0)
+            gc_store(p0, %(xdescr.offset)s, i1, %(xdescr.field_size)s)
+            gc_store(p0, %(ydescr.offset)s, f2, %(ydescr.field_size)s)
+            jump()
+        """)
+        assert self.gcrefs == [self.myR1]
+
+    def test_load_from_gc_table_3(self):
+        self.check_rewrite("""
+            [i1, f2]
+            setfield_gc(ConstPtr(myR1), i1, descr=xdescr)
+            label(f2)
+            setfield_gc(ConstPtr(myR1), f2, descr=ydescr)
+            jump()
+        """, """
+            [i1, f2]
+            p0 = load_from_gc_table(0)
+            gc_store(p0, %(xdescr.offset)s, i1, %(xdescr.field_size)s)
+            label(f2)
+            p1 = load_from_gc_table(0)
+            gc_store(p1, %(ydescr.offset)s, f2, %(ydescr.field_size)s)
+            jump()
+        """)
+        assert self.gcrefs == [self.myR1]
+
+    def test_load_from_gc_table_4(self):
+        self.check_rewrite("""
+            [i1, f2]
+            setfield_gc(ConstPtr(myR1), i1, descr=xdescr)
+            setfield_gc(ConstPtr(myR1b), f2, descr=ydescr)
+            jump()
+        """, """
+            [i1, f2]
+            p0 = load_from_gc_table(0)
+            gc_store(p0, %(xdescr.offset)s, i1, %(xdescr.field_size)s)
+            p1 = load_from_gc_table(1)
+            gc_store(p1, %(ydescr.offset)s, f2, %(ydescr.field_size)s)
+            jump()
+        """)
+        assert self.gcrefs == [self.myR1, self.myR1b]
+
+    def test_pinned_simple_getfield(self):
+        # originally in test_pinned_object_rewrite; now should give the
+        # same result for pinned objects and for normal objects
+        self.check_rewrite("""
+            []
+            i0 = getfield_gc_i(ConstPtr(myR1), descr=xdescr)
+        """, """
+            []
+            p1 = load_from_gc_table(0)
+            i0 = gc_load_i(p1, %(xdescr.offset)s, -%(xdescr.field_size)s)
+        """)
+        assert self.gcrefs == [self.myR1]
+
+    def test_pinned_simple_getfield_twice(self):
+        # originally in test_pinned_object_rewrite; now should give the
+        # same result for pinned objects and for normal objects
+        self.check_rewrite("""
+            []
+            i0 = getfield_gc_i(ConstPtr(myR1), descr=xdescr)
+            i1 = getfield_gc_i(ConstPtr(myR1b), descr=xdescr)
+            i2 = getfield_gc_i(ConstPtr(myR1), descr=xdescr)
+        """, """
+            []
+            p1 = load_from_gc_table(0)
+            i0 = gc_load_i(p1, %(xdescr.offset)s, -%(xdescr.field_size)s)
+            p2 = load_from_gc_table(1)
+            i1 = gc_load_i(p2, %(xdescr.offset)s, -%(xdescr.field_size)s)
+            i2 = gc_load_i(p1, %(xdescr.offset)s, -%(xdescr.field_size)s)
+        """)
+        assert self.gcrefs == [self.myR1, self.myR1b]
+
+    def test_guard_in_gcref(self):
+        self.check_rewrite("""
+            [i1, i2]
+            guard_true(i1) []
+            guard_true(i2) []
+            jump()
+        """, """
+            [i1, i2]
+            guard_true(i1) []
+            guard_true(i2) []
+            jump()
+        """)
+        assert len(self.gcrefs) == 2

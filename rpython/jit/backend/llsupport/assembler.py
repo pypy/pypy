@@ -23,10 +23,11 @@ DEBUG_COUNTER = lltype.Struct('DEBUG_COUNTER',
 
 class GuardToken(object):
     def __init__(self, cpu, gcmap, faildescr, failargs, fail_locs,
-                 guard_opnum, frame_depth):
+                 guard_opnum, frame_depth, faildescrindex):
         assert isinstance(faildescr, AbstractFailDescr)
         self.cpu = cpu
         self.faildescr = faildescr
+        self.faildescrindex = faildescrindex
         self.failargs = failargs
         self.fail_locs = fail_locs
         self.gcmap = self.compute_gcmap(gcmap, failargs,
@@ -144,6 +145,22 @@ class BaseAssembler(object):
             self.codemap_builder = CodemapBuilder()
         self._finish_gcmap = lltype.nullptr(jitframe.GCMAP)
 
+    def setup_gcrefs_list(self, allgcrefs):
+        self._allgcrefs = allgcrefs
+        self._allgcrefs_faildescr_next = 0
+
+    def teardown_gcrefs_list(self):
+        self._allgcrefs = None
+
+    def get_gcref_from_faildescr(self, descr):
+        """This assumes that it is called in order for all faildescrs."""
+        search = cast_instance_to_gcref(descr)
+        while not _safe_eq(
+                self._allgcrefs[self._allgcrefs_faildescr_next], search):
+            self._allgcrefs_faildescr_next += 1
+            assert self._allgcrefs_faildescr_next < len(self._allgcrefs)
+        return self._allgcrefs_faildescr_next
+
     def set_debug(self, v):
         r = self._debug
         self._debug = v
@@ -186,8 +203,7 @@ class BaseAssembler(object):
                 break
         exc = guardtok.must_save_exception()
         target = self.failure_recovery_code[exc + 2 * withfloats]
-        fail_descr = cast_instance_to_gcref(guardtok.faildescr)
-        fail_descr = rffi.cast(lltype.Signed, fail_descr)
+        faildescrindex = guardtok.faildescrindex
         base_ofs = self.cpu.get_baseofs_of_frame_field()
         #
         # in practice, about 2/3rd of 'positions' lists that we build are
@@ -229,7 +245,7 @@ class BaseAssembler(object):
         self._previous_rd_locs = positions
         # write down the positions of locs
         guardtok.faildescr.rd_locs = positions
-        return fail_descr, target
+        return faildescrindex, target
 
     def enter_portal_frame(self, op):
         if self.cpu.HAS_CODEMAP:
@@ -288,7 +304,7 @@ class BaseAssembler(object):
 
         gcref = cast_instance_to_gcref(value)
         if gcref:
-            rgc._make_sure_does_not_move(gcref)
+            rgc._make_sure_does_not_move(gcref)    # but should be prebuilt
         value = rffi.cast(lltype.Signed, gcref)
         je_location = self._call_assembler_check_descr(value, tmploc)
         #
@@ -456,3 +472,8 @@ def debug_bridge(descr_number, rawstart, codeendpos):
                     r_uint(rawstart + codeendpos)))
     debug_stop("jit-backend-addr")
 
+def _safe_eq(x, y):
+    try:
+        return x == y
+    except AttributeError:    # minor mess
+        return False

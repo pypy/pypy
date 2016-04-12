@@ -65,6 +65,7 @@ class PyFrame(W_Root):
     last_exception           = None
     f_backref                = jit.vref_None
     
+    escaped                  = False  # see mark_as_escaped()
     debugdata                = None
 
     pycode = None # code object executed by that frame
@@ -150,6 +151,15 @@ class PyFrame(W_Root):
         cell = self.locals_cells_stack_w[varindex + self.pycode.co_nlocals]
         assert isinstance(cell, Cell)
         return cell
+
+    def mark_as_escaped(self):
+        """
+        Must be called on frames that are exposed to applevel, e.g. by
+        sys._getframe().  This ensures that the virtualref holding the frame
+        is properly forced by ec.leave(), and thus the frame will be still
+        accessible even after the corresponding C stack died.
+        """
+        self.escaped = True
 
     def append_block(self, block):
         assert block.previous is self.lastblock

@@ -271,17 +271,32 @@ class GettersAndSetters:
     def member_getter(self, space, w_self):
         assert isinstance(self, W_MemberDescr)
         check_descr(space, w_self, self.w_type)
-        return PyMember_GetOne(space, w_self, self.member)
+        pyref = make_ref(space, w_self)
+        try:
+            return PyMember_GetOne(
+                space, rffi.cast(rffi.CCHARP, pyref), self.member)
+        finally:
+            Py_DecRef(space, pyref)
 
     def member_delete(self, space, w_self):
         assert isinstance(self, W_MemberDescr)
         check_descr(space, w_self, self.w_type)
-        PyMember_SetOne(space, w_self, self.member, None)
+        pyref = make_ref(space, w_self)
+        try:
+            PyMember_SetOne(
+                space, rffi.cast(rffi.CCHARP, pyref), self.member, None)
+        finally:
+            Py_DecRef(space, pyref)
 
     def member_setter(self, space, w_self, w_value):
         assert isinstance(self, W_MemberDescr)
         check_descr(space, w_self, self.w_type)
-        PyMember_SetOne(space, w_self, self.member, w_value)
+        pyref = make_ref(space, w_self)
+        try:
+            PyMember_SetOne(
+                space, rffi.cast(rffi.CCHARP, pyref), self.member, w_value)
+        finally:
+            Py_DecRef(space, pyref)
 
 class W_PyCTypeObject(W_TypeObject):
     @jit.dont_look_inside

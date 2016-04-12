@@ -279,6 +279,8 @@ class TestRx86_32(object):
         if modes:
             tests = self.get_all_tests()
             m = modes[0]
+            if m == 'p' and self.WORD == 4:
+                return []
             lst = tests[m]()
             random.shuffle(lst)
             if methname == 'PSRAD_xi' and m == 'i':
