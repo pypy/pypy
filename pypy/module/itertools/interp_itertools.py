@@ -1607,14 +1607,14 @@ class W_Accumulate(W_Root):
             self.w_total = self.space.call_function(self.w_func, self.w_total, w_value)
         return self.w_total
 
-    def descr_reduce(self):
+    def reduce_w(self):
         space = self.space
         w_total = space.w_None if self.w_total is None else self.w_total
         w_func = space.w_None if self.w_func is None else self.w_func
         return space.newtuple([space.gettypefor(W_Accumulate),
                                space.newtuple([self.w_iterable, w_func]), w_total])
 
-    def descr_setstate(self, space, w_state):
+    def setstate_w(self, space, w_state):
         self.w_total = w_state if not space.is_w(w_state, space.w_None) else None
 
 def W_Accumulate__new__(space, w_subtype, w_iterable, w_func=None):
@@ -1626,8 +1626,8 @@ W_Accumulate.typedef = TypeDef("itertools.accumulate",
     __new__  = interp2app(W_Accumulate__new__),
     __iter__ = interp2app(W_Accumulate.iter_w),
     __next__ = interp2app(W_Accumulate.next_w),
-    __reduce__ = interp2app(W_Accumulate.descr_reduce),
-    __setstate__ = interp2app(W_Accumulate.descr_setstate),
+    __reduce__ = interp2app(W_Accumulate.reduce_w),
+    __setstate__ = interp2app(W_Accumulate.setstate_w),
     __doc__  = """\
 "accumulate(iterable) --> accumulate object
 
