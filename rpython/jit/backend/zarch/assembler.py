@@ -144,7 +144,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
     def load_gcref_into(self, register, index):
         topoff = index * WORD
         size = self.pool.gcref_table_size
-        self.mc.LG(r.SCRATCH, l.addr(-size + topoff, r.POOL))
+        self.mc.LG(register, l.addr(-size + topoff, r.POOL))
 
     def _build_wb_slowpath(self, withcards, withfloats=False, for_frame=False):
         descr = self.cpu.gc_ll_descr.write_barrier_descr
@@ -706,11 +706,11 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         operations = regalloc.prepare_bridge(inputargs, arglocs,
                                              operations, allgcrefs,
                                              self.current_clt.frame_info)
-        self.pool.pre_assemble(self, operations, all_gcrefs, bridge=True)
-        startpos = self.mc.get_relative_pos()
-        self.mc.LARL(r.POOL, l.halfword(self.pool.pool_start - startpos))
+        startpos = len(allgcrefs) * WORD
+        self.pool.pre_assemble(self, operations, allgcrefs, bridge=True)
         self._check_frame_depth(self.mc, regalloc.get_gcmap())
         bridgestartpos = self.mc.get_relative_pos()
+        self.mc.LARL(r.POOL, l.halfword(self.pool.pool_start - bridgestartpos))
         frame_depth_no_fixed_size = self._assemble(regalloc, inputargs, operations)
         codeendpos = self.mc.get_relative_pos()
         #self.pool.post_assemble(self)
@@ -732,7 +732,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         debug_stop("jit-backend-addr")
         self.patch_pending_failure_recoveries(rawstart)
         # patch the jump from original guard
-        self.patch_jump_for_descr(faildescr, rawstart + startpos)
+        self.patch_jump_for_descr(faildescr, rawstart + bridgestartpos)
         ops_offset = self.mc.ops_offset
         frame_depth = max(self.current_clt.frame_info.jfi_frame_depth,
                           frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)

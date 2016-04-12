@@ -642,7 +642,7 @@ class GuardOpAssembler(object):
     def emit_load_from_gc_table(self, op, arglocs, regalloc):
         resloc, = arglocs
         index = op.getarg(0).getint()
-        assert isinstance(resloc, RegLoc)
+        assert resloc.is_reg()
         self.load_gcref_into(resloc, index)
 
     def emit_guard_true(self, op, arglocs, regalloc):

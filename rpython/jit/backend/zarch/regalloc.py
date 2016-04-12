@@ -1216,7 +1216,7 @@ class Regalloc(BaseRegalloc):
         return []
 
     def prepare_load_from_gc_table(self, op):
-        resloc = self.rm.ensure_reg(op)
+        resloc = self.rm.force_allocate_reg(op)
         return [resloc]
 
     def prepare_finish(self, op):
