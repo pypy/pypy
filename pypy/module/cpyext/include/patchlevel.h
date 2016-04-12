@@ -29,7 +29,7 @@
 #define PY_VERSION		"2.7.10"
 
 /* PyPy version as a string */
-#define PYPY_VERSION "5.1.0-alpha0"
+#define PYPY_VERSION "5.2.0-alpha0"
 #define PYPY_VERSION_NUM  0x05010000
 
 /* Defined to mean a PyPy where cpyext holds more regular references
