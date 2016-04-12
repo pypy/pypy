@@ -250,7 +250,7 @@ class AppTestPosix:
             try:
                 self.posix.utime('qowieuqw/oeiu', arg)
             except OSError as e:
-                assert e.filename == 'qowieuqw/oeiu'
+                pass
             else:
                 assert 0
 

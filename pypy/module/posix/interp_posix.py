@@ -1302,9 +1302,11 @@ def spawnve(space, mode, path, w_args, w_env):
     return space.wrap(ret)
 
 
-@unwrap_spec(w_times=WrappedDefault(None), w_ns=kwonly(WrappedDefault(None)),
+@unwrap_spec(
+    path=path_or_fd,
+    w_times=WrappedDefault(None), w_ns=kwonly(WrappedDefault(None)),
     dir_fd=DirFD(rposix.HAVE_UTIMENSAT), follow_symlinks=kwonly(bool))
-def utime(space, w_path, w_times, w_ns, dir_fd=DEFAULT_DIR_FD, follow_symlinks=True):
+def utime(space, path, w_times, w_ns, dir_fd=DEFAULT_DIR_FD, follow_symlinks=True):
     """utime(path, times=None, *, ns=None, dir_fd=None, follow_symlinks=True)
 
 Set the access and modified time of path.
@@ -1355,19 +1357,22 @@ dir_fd and follow_symlinks may not be available on your platform.
         mtime_s, mtime_ns = convert_ns(space, args_w[1])
 
     if rposix.HAVE_UTIMENSAT:
-        path = space.fsencode_w(w_path)
+        path_b = path.as_bytes
+        if path_b is None:
+            raise oefmt(space.w_NotImplementedError,
+                        "utime: unsupported value for 'path'")
         try:
             if utime_now:
                 rposix.utimensat(
-                    path, 0, rposix.UTIME_NOW, 0, rposix.UTIME_NOW,
+                    path_b, 0, rposix.UTIME_NOW, 0, rposix.UTIME_NOW,
                     dir_fd=dir_fd, follow_symlinks=follow_symlinks)
             else:
                 rposix.utimensat(
-                    path, atime_s, atime_ns, mtime_s, mtime_ns,
+                    path_b, atime_s, atime_ns, mtime_s, mtime_ns,
                     dir_fd=dir_fd, follow_symlinks=follow_symlinks)
             return
         except OSError as e:
-            raise wrap_oserror2(space, e, w_path)
+            raise wrap_oserror(space, e)
 
     if not follow_symlinks:
         raise argument_unavailable(space, "utime", "follow_symlinks")
@@ -1377,10 +1382,15 @@ dir_fd and follow_symlinks may not be available on your platform.
             "utime: 'ns' unsupported on this platform on PyPy")
     if utime_now:
         try:
-            dispatch_filename(rposix.utime, 1)(space, w_path, None)
+            if path.as_unicode is not None:
+                rposix.utime(path.as_unicode, None)
+            else:
+                path_b = path.as_bytes
+                assert path_b is not None
+                rposix.utime(path.as_bytes, None)
             return
-        except OSError, e:
-            raise wrap_oserror2(space, e, w_path)
+        except OSError as e:
+            raise wrap_oserror(space, e)
     try:
         msg = "utime() arg 2 must be a tuple (atime, mtime) or None"
         args_w = space.fixedview(w_times)
@@ -1388,13 +1398,19 @@ dir_fd and follow_symlinks may not be available on your platform.
             raise OperationError(space.w_TypeError, space.wrap(msg))
         actime = space.float_w(args_w[0], allow_conversion=False)
         modtime = space.float_w(args_w[1], allow_conversion=False)
-        dispatch_filename(rposix.utime, 2)(space, w_path, (actime, modtime))
-    except OSError, e:
-        raise wrap_oserror2(space, e, w_path)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         raise OperationError(space.w_TypeError, space.wrap(msg))
+    try:
+        if path.as_unicode is not None:
+            rposix.utime(path.as_unicode, (actime, modtime))
+        else:
+            path_b = path.as_bytes
+            assert path_b is not None
+            rposix.utime(path_b, (actime, modtime))
+    except OSError as e:
+        raise wrap_oserror(space, e)
 
 
 def convert_seconds(space, w_time):
