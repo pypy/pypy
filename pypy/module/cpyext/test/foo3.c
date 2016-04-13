@@ -4,9 +4,9 @@
 PyObject* foo3type_tp_new(PyTypeObject* metatype, PyObject* args, PyObject* kwds)
 {
     PyObject* newType;
-    printf("in foo3type_tp_new, preprocessing...\n");
+    /*printf("in foo3type_tp_new, preprocessing...\n"); */
     newType = PyType_Type.tp_new(metatype, args, kwds);
-    printf("in foo3type_tp_new, postprocessing...\n");
+    /*printf("in foo3type_tp_new, postprocessing...\n"); */
     return newType;
 }
 
