@@ -8,8 +8,8 @@ from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.runicode import MAXUNICODE
 
 
-def optimize_ast(space, tree, compile_info):
-    return tree.mutate_over(OptimizingVisitor(space, compile_info))
+def optimize_ast(space, arena, tree, compile_info):
+    return tree.mutate_over(OptimizingVisitor(space, arena, compile_info))
 
 
 CONST_NOT_CONST = -1
@@ -154,8 +154,9 @@ opposite_compare_operations = misc.dict_to_switch({
 class OptimizingVisitor(ast.ASTVisitor):
     """Constant folds AST."""
 
-    def __init__(self, space, compile_info):
+    def __init__(self, space, arena, compile_info):
         self.space = space
+        self.arena = arena
         self.compile_info = compile_info
 
     def default_visitor(self, node):
@@ -193,7 +194,8 @@ class OptimizingVisitor(ast.ASTVisitor):
                     else:
                         if self.space.int_w(w_len) > 20:
                             return binop
-                    return ast.Const(w_const, binop.lineno, binop.col_offset)
+                    return ast.Const(self.arena, w_const,
+                                     binop.lineno, binop.col_offset)
         return binop
 
     def visit_UnaryOp(self, unary):
@@ -214,7 +216,8 @@ class OptimizingVisitor(ast.ASTVisitor):
             except OperationError:
                 pass
             else:
-                return ast.Const(w_const, unary.lineno, unary.col_offset)
+                return ast.Const(self.arena, w_const,
+                                 unary.lineno, unary.col_offset)
         elif op == ast.Not:
             compare = unary.operand
             if isinstance(compare, ast.Compare) and len(compare.ops) == 1:
@@ -250,7 +253,7 @@ class OptimizingVisitor(ast.ASTVisitor):
         w_const = rep.value.as_constant()
         if w_const is not None:
             w_repr = self.space.repr(w_const)
-            return ast.Const(w_repr, rep.lineno, rep.col_offset)
+            return ast.Const(self.arena, w_repr, rep.lineno, rep.col_offset)
         return rep
 
     def visit_Name(self, name):
@@ -261,7 +264,7 @@ class OptimizingVisitor(ast.ASTVisitor):
             # is allowed (if pointless).  Check anyway: custom asts that
             # correspond to "None = ..." can be made by hand.
             if name.ctx == ast.Load:
-                return ast.Const(self.space.w_None, name.lineno,
+                return ast.Const(self.arena, self.space.w_None, name.lineno,
                                  name.col_offset)
         return name
 
@@ -283,7 +286,7 @@ class OptimizingVisitor(ast.ASTVisitor):
         else:
             consts_w = []
         w_consts = self.space.newtuple(consts_w)
-        return ast.Const(w_consts, tup.lineno, tup.col_offset)
+        return ast.Const(self.arena, w_consts, tup.lineno, tup.col_offset)
 
     def visit_Subscript(self, subs):
         if subs.ctx == ast.Load:
@@ -320,6 +323,7 @@ class OptimizingVisitor(ast.ASTVisitor):
                         # See test_const_fold_unicode_subscr
                         return subs
 
-                    return ast.Const(w_const, subs.lineno, subs.col_offset)
+                    return ast.Const(self.arena, w_const,
+                                     subs.lineno, subs.col_offset)
 
         return subs

@@ -1,0 +1,2 @@
+class Arena(object):
+    pass

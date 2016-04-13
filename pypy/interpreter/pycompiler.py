@@ -6,9 +6,9 @@ Compiler instances are stored into 'space.getexecutioncontext().compiler'.
 from pypy.interpreter import pycode
 from pypy.interpreter.pyparser import future, pyparse, error as parseerror
 from pypy.interpreter.astcompiler import (astbuilder, codegen, consts, misc,
-                                          optimize, ast)
+                                          optimize, ast, astarena)
 from pypy.interpreter.error import OperationError
-
+from rpython.rlib.objectmodel import keepalive_until_here
 
 class AbstractCompiler(object):
     """Abstract base class for a bytecode compiler."""
@@ -124,13 +124,15 @@ class PythonAstCompiler(PyCodeCompiler):
         future_pos = f_lineno, f_col
         flags |= f_flags
         info = pyparse.CompileInfo(filename, mode, flags, future_pos)
-        return self._compile_ast(node, info)
+        code = self._compile_ast(arena, node, info)
+        keepalive_until_here(arena)
+        return code
 
-    def _compile_ast(self, node, info):
+    def _compile_ast(self, arena, node, info):
         space = self.space
         try:
-            mod = optimize.optimize_ast(space, node, info)
-            code = codegen.compile_ast(space, mod, info)
+            mod = optimize.optimize_ast(space, arena, node, info)
+            code = codegen.compile_ast(space, arena, mod, info)
         except parseerror.SyntaxError, e:
             raise OperationError(space.w_SyntaxError,
                                  e.wrap_info(space))
@@ -138,13 +140,17 @@ class PythonAstCompiler(PyCodeCompiler):
 
     def compile_to_ast(self, source, filename, mode, flags):
         info = pyparse.CompileInfo(filename, mode, flags)
-        return self._compile_to_ast(source, info)
+        arena = astarena.Arena()
+        mod = self._compile_to_ast(arena, source, info)
+        w_result = mod.to_object(self.space)
+        keepalive_until_here(arena)
+        return w_result
 
-    def _compile_to_ast(self, source, info):
+    def _compile_to_ast(self, arena, source, info):
         space = self.space
         try:
             parse_tree = self.parser.parse_source(source, info)
-            mod = astbuilder.ast_from_node(space, parse_tree, info)
+            mod = astbuilder.ast_from_node(space, arena, parse_tree, info)
         except parseerror.IndentationError, e:
             raise OperationError(space.w_IndentationError,
                                  e.wrap_info(space))
@@ -156,5 +162,8 @@ class PythonAstCompiler(PyCodeCompiler):
     def compile(self, source, filename, mode, flags, hidden_applevel=False):
         info = pyparse.CompileInfo(filename, mode, flags,
                                    hidden_applevel=hidden_applevel)
-        mod = self._compile_to_ast(source, info)
-        return self._compile_ast(mod, info)
+        arena = astarena.Arena()
+        mod = self._compile_to_ast(arena, source, info)
+        code = self._compile_ast(arena, mod, info)
+        keepalive_until_here(arena)
+        return code

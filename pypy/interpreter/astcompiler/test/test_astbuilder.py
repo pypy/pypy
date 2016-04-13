@@ -9,6 +9,8 @@ from pypy.interpreter.pyparser.error import SyntaxError
 from pypy.interpreter.astcompiler.astbuilder import ast_from_node
 from pypy.interpreter.astcompiler import ast, consts
 
+ARENA = None
+
 
 class TestAstBuilder:
 
@@ -19,7 +21,7 @@ class TestAstBuilder:
         info = pyparse.CompileInfo("<test>", p_mode,
                                    consts.CO_FUTURE_WITH_STATEMENT)
         tree = self.parser.parse_source(source, info)
-        ast_node = ast_from_node(self.space, tree, info)
+        ast_node = ast_from_node(self.space, ARENA, tree, info)
         return ast_node
 
     def get_first_expr(self, source):
@@ -1101,7 +1103,7 @@ class TestAstBuilder:
         info = pyparse.CompileInfo("<test>", "exec")
         tree = self.parser.parse_source(source.encode("utf-7"), info)
         assert info.encoding == "utf-7"
-        s = ast_from_node(space, tree, info).body[0].value
+        s = ast_from_node(space, ARENA, tree, info).body[0].value
         assert isinstance(s, ast.Str)
         assert space.eq_w(s.s, space.wrap(sentence))
 
@@ -1111,7 +1113,7 @@ class TestAstBuilder:
         info = pyparse.CompileInfo("<test>", "exec")
         tree = self.parser.parse_source(source, info)
         assert info.encoding == "utf8"
-        s = ast_from_node(space, tree, info).body[0].value
+        s = ast_from_node(space, ARENA, tree, info).body[0].value
         assert isinstance(s, ast.Str)
         expected = ['x', ' ', chr(0xc3), chr(0xa9), ' ', '\n']
         assert space.eq_w(s.s, space.wrap(''.join(expected)))

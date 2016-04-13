@@ -159,26 +159,31 @@ def get(space):
     return space.fromcache(State)
 
 class mod(AST):
+
+    def __init__(self, arena):
+        pass
+
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         if space.is_w(w_node, space.w_None):
             return None
         if space.isinstance_w(w_node, get(space).w_Module):
-            return Module.from_object(space, w_node)
+            return Module.from_object(space, arena, w_node)
         if space.isinstance_w(w_node, get(space).w_Interactive):
-            return Interactive.from_object(space, w_node)
+            return Interactive.from_object(space, arena, w_node)
         if space.isinstance_w(w_node, get(space).w_Expression):
-            return Expression.from_object(space, w_node)
+            return Expression.from_object(space, arena, w_node)
         if space.isinstance_w(w_node, get(space).w_Suite):
-            return Suite.from_object(space, w_node)
+            return Suite.from_object(space, arena, w_node)
         raise oefmt(space.w_TypeError,
                 "Expected mod node, got %T", w_node)
 State.ast_type('mod', 'AST', None, [])
 
 class Module(mod):
 
-    def __init__(self, body):
+    def __init__(self, arena, body):
         self.body = body
+        mod.__init__(self, arena)
 
     def walkabout(self, visitor):
         visitor.visit_Module(self)
@@ -199,19 +204,20 @@ class Module(mod):
         return w_node
 
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         w_body = get_field(space, w_node, 'body', False)
         body_w = space.unpackiterable(w_body)
-        _body = [stmt.from_object(space, w_item) for w_item in body_w]
-        return Module(_body)
+        _body = [stmt.from_object(space, arena, w_item) for w_item in body_w]
+        return Module(arena, _body)
 
 State.ast_type('Module', 'mod', ['body'])
 
 
 class Interactive(mod):
 
-    def __init__(self, body):
+    def __init__(self, arena, body):
         self.body = body
+        mod.__init__(self, arena)
 
     def walkabout(self, visitor):
         visitor.visit_Interactive(self)
@@ -232,19 +238,20 @@ class Interactive(mod):
         return w_node
 
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         w_body = get_field(space, w_node, 'body', False)
         body_w = space.unpackiterable(w_body)
-        _body = [stmt.from_object(space, w_item) for w_item in body_w]
-        return Interactive(_body)
+        _body = [stmt.from_object(space, arena, w_item) for w_item in body_w]
+        return Interactive(arena, _body)
 
 State.ast_type('Interactive', 'mod', ['body'])
 
 
 class Expression(mod):
 
-    def __init__(self, body):
+    def __init__(self, arena, body):
         self.body = body
+        mod.__init__(self, arena)
 
     def walkabout(self, visitor):
         visitor.visit_Expression(self)
@@ -260,18 +267,19 @@ class Expression(mod):
         return w_node
 
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         w_body = get_field(space, w_node, 'body', False)
-        _body = expr.from_object(space, w_body)
-        return Expression(_body)
+        _body = expr.from_object(space, arena, w_body)
+        return Expression(arena, _body)
 
 State.ast_type('Expression', 'mod', ['body'])
 
 
 class Suite(mod):
 
-    def __init__(self, body):
+    def __init__(self, arena, body):
         self.body = body
+        mod.__init__(self, arena)
 
     def walkabout(self, visitor):
         visitor.visit_Suite(self)
@@ -292,83 +300,83 @@ class Suite(mod):
         return w_node
 
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         w_body = get_field(space, w_node, 'body', False)
         body_w = space.unpackiterable(w_body)
-        _body = [stmt.from_object(space, w_item) for w_item in body_w]
-        return Suite(_body)
+        _body = [stmt.from_object(space, arena, w_item) for w_item in body_w]
+        return Suite(arena, _body)
 
 State.ast_type('Suite', 'mod', ['body'])
 
 
 class stmt(AST):
 
-    def __init__(self, lineno, col_offset):
+    def __init__(self, arena, lineno, col_offset):
         self.lineno = lineno
         self.col_offset = col_offset
 
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         if space.is_w(w_node, space.w_None):
             return None
         if space.isinstance_w(w_node, get(space).w_FunctionDef):
-            return FunctionDef.from_object(space, w_node)
+            return FunctionDef.from_object(space, arena, w_node)
         if space.isinstance_w(w_node, get(space).w_ClassDef):
-            return ClassDef.from_object(space, w_node)
+            return ClassDef.from_object(space, arena, w_node)
         if space.isinstance_w(w_node, get(space).w_Return):
-            return Return.from_object(space, w_node)
+            return Return.from_object(space, arena, w_node)
         if space.isinstance_w(w_node, get(space).w_Delete):
-            return Delete.from_object(space, w_node)
+            return Delete.from_object(space, arena, w_node)
         if space.isinstance_w(w_node, get(space).w_Assign):
-            return Assign.from_object(space, w_node)
+            return Assign.from_object(space, arena, w_node)
         if space.isinstance_w(w_node, get(space).w_AugAssign):
-            return AugAssign.from_object(space, w_node)
+            return AugAssign.from_object(space, arena, w_node)
         if space.isinstance_w(w_node, get(space).w_Print):
-            return Print.from_object(space, w_node)
+            return Print.from_object(space, arena, w_node)
         if space.isinstance_w(w_node, get(space).w_For):
-            return For.from_object(space, w_node)
+            return For.from_object(space, arena, w_node)
         if space.isinstance_w(w_node, get(space).w_While):
-            return While.from_object(space, w_node)
+            return While.from_object(space, arena, w_node)
         if space.isinstance_w(w_node, get(space).w_If):
-            return If.from_object(space, w_node)
+            return If.from_object(space, arena, w_node)
         if space.isinstance_w(w_node, get(space).w_With):
-            return With.from_object(space, w_node)
+            return With.from_object(space, arena, w_node)
         if space.isinstance_w(w_node, get(space).w_Raise):
-            return Raise.from_object(space, w_node)
+            return Raise.from_object(space, arena, w_node)
         if space.isinstance_w(w_node, get(space).w_TryExcept):
-            return TryExcept.from_object(space, w_node)
+            return TryExcept.from_object(space, arena, w_node)
         if space.isinstance_w(w_node, get(space).w_TryFinally):
-            return TryFinally.from_object(space, w_node)
+            return TryFinally.from_object(space, arena, w_node)
         if space.isinstance_w(w_node, get(space).w_Assert):
-            return Assert.from_object(space, w_node)
+            return Assert.from_object(space, arena, w_node)
         if space.isinstance_w(w_node, get(space).w_Import):
-            return Import.from_object(space, w_node)
+            return Import.from_object(space, arena, w_node)
         if space.isinstance_w(w_node, get(space).w_ImportFrom):
-            return ImportFrom.from_object(space, w_node)
+            return ImportFrom.from_object(space, arena, w_node)
         if space.isinstance_w(w_node, get(space).w_Exec):
-            return Exec.from_object(space, w_node)
+            return Exec.from_object(space, arena, w_node)
         if space.isinstance_w(w_node, get(space).w_Global):
-            return Global.from_object(space, w_node)
+            return Global.from_object(space, arena, w_node)
         if space.isinstance_w(w_node, get(space).w_Expr):
-            return Expr.from_object(space, w_node)
+            return Expr.from_object(space, arena, w_node)
         if space.isinstance_w(w_node, get(space).w_Pass):
-            return Pass.from_object(space, w_node)
+            return Pass.from_object(space, arena, w_node)
         if space.isinstance_w(w_node, get(space).w_Break):
-            return Break.from_object(space, w_node)
+            return Break.from_object(space, arena, w_node)
         if space.isinstance_w(w_node, get(space).w_Continue):
-            return Continue.from_object(space, w_node)
+            return Continue.from_object(space, arena, w_node)
         raise oefmt(space.w_TypeError,
                 "Expected stmt node, got %T", w_node)
 State.ast_type('stmt', 'AST', None, ['lineno', 'col_offset'])
 
 class FunctionDef(stmt):
 
-    def __init__(self, name, args, body, decorator_list, lineno, col_offset):
+    def __init__(self, arena, name, args, body, decorator_list, lineno, col_offset):
         self.name = name
         self.args = args
         self.body = body
         self.decorator_list = decorator_list
-        stmt.__init__(self, lineno, col_offset)
+        stmt.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_FunctionDef(self)
@@ -406,7 +414,7 @@ class FunctionDef(stmt):
         return w_node
 
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         w_name = get_field(space, w_node, 'name', False)
         w_args = get_field(space, w_node, 'args', False)
         w_body = get_field(space, w_node, 'body', False)
@@ -414,26 +422,26 @@ class FunctionDef(stmt):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _name = space.realstr_w(w_name)
-        _args = arguments.from_object(space, w_args)
+        _args = arguments.from_object(space, arena, w_args)
         body_w = space.unpackiterable(w_body)
-        _body = [stmt.from_object(space, w_item) for w_item in body_w]
+        _body = [stmt.from_object(space, arena, w_item) for w_item in body_w]
         decorator_list_w = space.unpackiterable(w_decorator_list)
-        _decorator_list = [expr.from_object(space, w_item) for w_item in decorator_list_w]
+        _decorator_list = [expr.from_object(space, arena, w_item) for w_item in decorator_list_w]
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
-        return FunctionDef(_name, _args, _body, _decorator_list, _lineno, _col_offset)
+        return FunctionDef(arena, _name, _args, _body, _decorator_list, _lineno, _col_offset)
 
 State.ast_type('FunctionDef', 'stmt', ['name', 'args', 'body', 'decorator_list'])
 
 
 class ClassDef(stmt):
 
-    def __init__(self, name, bases, body, decorator_list, lineno, col_offset):
+    def __init__(self, arena, name, bases, body, decorator_list, lineno, col_offset):
         self.name = name
         self.bases = bases
         self.body = body
         self.decorator_list = decorator_list
-        stmt.__init__(self, lineno, col_offset)
+        stmt.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_ClassDef(self)
@@ -476,7 +484,7 @@ class ClassDef(stmt):
         return w_node
 
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         w_name = get_field(space, w_node, 'name', False)
         w_bases = get_field(space, w_node, 'bases', False)
         w_body = get_field(space, w_node, 'body', False)
@@ -485,23 +493,23 @@ class ClassDef(stmt):
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _name = space.realstr_w(w_name)
         bases_w = space.unpackiterable(w_bases)
-        _bases = [expr.from_object(space, w_item) for w_item in bases_w]
+        _bases = [expr.from_object(space, arena, w_item) for w_item in bases_w]
         body_w = space.unpackiterable(w_body)
-        _body = [stmt.from_object(space, w_item) for w_item in body_w]
+        _body = [stmt.from_object(space, arena, w_item) for w_item in body_w]
         decorator_list_w = space.unpackiterable(w_decorator_list)
-        _decorator_list = [expr.from_object(space, w_item) for w_item in decorator_list_w]
+        _decorator_list = [expr.from_object(space, arena, w_item) for w_item in decorator_list_w]
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
-        return ClassDef(_name, _bases, _body, _decorator_list, _lineno, _col_offset)
+        return ClassDef(arena, _name, _bases, _body, _decorator_list, _lineno, _col_offset)
 
 State.ast_type('ClassDef', 'stmt', ['name', 'bases', 'body', 'decorator_list'])
 
 
 class Return(stmt):
 
-    def __init__(self, value, lineno, col_offset):
+    def __init__(self, arena, value, lineno, col_offset):
         self.value = value
-        stmt.__init__(self, lineno, col_offset)
+        stmt.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_Return(self)
@@ -522,23 +530,23 @@ class Return(stmt):
         return w_node
 
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         w_value = get_field(space, w_node, 'value', True)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _value = expr.from_object(space, w_value)
+        _value = expr.from_object(space, arena, w_value)
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
-        return Return(_value, _lineno, _col_offset)
+        return Return(arena, _value, _lineno, _col_offset)
 
 State.ast_type('Return', 'stmt', ['value'])
 
 
 class Delete(stmt):
 
-    def __init__(self, targets, lineno, col_offset):
+    def __init__(self, arena, targets, lineno, col_offset):
         self.targets = targets
-        stmt.__init__(self, lineno, col_offset)
+        stmt.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_Delete(self)
@@ -563,25 +571,25 @@ class Delete(stmt):
         return w_node
 
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         w_targets = get_field(space, w_node, 'targets', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         targets_w = space.unpackiterable(w_targets)
-        _targets = [expr.from_object(space, w_item) for w_item in targets_w]
+        _targets = [expr.from_object(space, arena, w_item) for w_item in targets_w]
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
-        return Delete(_targets, _lineno, _col_offset)
+        return Delete(arena, _targets, _lineno, _col_offset)
 
 State.ast_type('Delete', 'stmt', ['targets'])
 
 
 class Assign(stmt):
 
-    def __init__(self, targets, value, lineno, col_offset):
+    def __init__(self, arena, targets, value, lineno, col_offset):
         self.targets = targets
         self.value = value
-        stmt.__init__(self, lineno, col_offset)
+        stmt.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_Assign(self)
@@ -609,28 +617,28 @@ class Assign(stmt):
         return w_node
 
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         w_targets = get_field(space, w_node, 'targets', False)
         w_value = get_field(space, w_node, 'value', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         targets_w = space.unpackiterable(w_targets)
-        _targets = [expr.from_object(space, w_item) for w_item in targets_w]
-        _value = expr.from_object(space, w_value)
+        _targets = [expr.from_object(space, arena, w_item) for w_item in targets_w]
+        _value = expr.from_object(space, arena, w_value)
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
-        return Assign(_targets, _value, _lineno, _col_offset)
+        return Assign(arena, _targets, _value, _lineno, _col_offset)
 
 State.ast_type('Assign', 'stmt', ['targets', 'value'])
 
 
 class AugAssign(stmt):
 
-    def __init__(self, target, op, value, lineno, col_offset):
+    def __init__(self, arena, target, op, value, lineno, col_offset):
         self.target = target
         self.op = op
         self.value = value
-        stmt.__init__(self, lineno, col_offset)
+        stmt.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_AugAssign(self)
@@ -655,29 +663,29 @@ class AugAssign(stmt):
         return w_node
 
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         w_target = get_field(space, w_node, 'target', False)
         w_op = get_field(space, w_node, 'op', False)
         w_value = get_field(space, w_node, 'value', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _target = expr.from_object(space, w_target)
-        _op = operator.from_object(space, w_op)
-        _value = expr.from_object(space, w_value)
+        _target = expr.from_object(space, arena, w_target)
+        _op = operator.from_object(space, arena, w_op)
+        _value = expr.from_object(space, arena, w_value)
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
-        return AugAssign(_target, _op, _value, _lineno, _col_offset)
+        return AugAssign(arena, _target, _op, _value, _lineno, _col_offset)
 
 State.ast_type('AugAssign', 'stmt', ['target', 'op', 'value'])
 
 
 class Print(stmt):
 
-    def __init__(self, dest, values, nl, lineno, col_offset):
+    def __init__(self, arena, dest, values, nl, lineno, col_offset):
         self.dest = dest
         self.values = values
         self.nl = nl
-        stmt.__init__(self, lineno, col_offset)
+        stmt.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_Print(self)
@@ -708,31 +716,31 @@ class Print(stmt):
         return w_node
 
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         w_dest = get_field(space, w_node, 'dest', True)
         w_values = get_field(space, w_node, 'values', False)
         w_nl = get_field(space, w_node, 'nl', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _dest = expr.from_object(space, w_dest)
+        _dest = expr.from_object(space, arena, w_dest)
         values_w = space.unpackiterable(w_values)
-        _values = [expr.from_object(space, w_item) for w_item in values_w]
+        _values = [expr.from_object(space, arena, w_item) for w_item in values_w]
         _nl = space.bool_w(w_nl)
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
-        return Print(_dest, _values, _nl, _lineno, _col_offset)
+        return Print(arena, _dest, _values, _nl, _lineno, _col_offset)
 
 State.ast_type('Print', 'stmt', ['dest', 'values', 'nl'])
 
 
 class For(stmt):
 
-    def __init__(self, target, iter, body, orelse, lineno, col_offset):
+    def __init__(self, arena, target, iter, body, orelse, lineno, col_offset):
         self.target = target
         self.iter = iter
         self.body = body
         self.orelse = orelse
-        stmt.__init__(self, lineno, col_offset)
+        stmt.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_For(self)
@@ -771,33 +779,33 @@ class For(stmt):
         return w_node
 
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         w_target = get_field(space, w_node, 'target', False)
         w_iter = get_field(space, w_node, 'iter', False)
         w_body = get_field(space, w_node, 'body', False)
         w_orelse = get_field(space, w_node, 'orelse', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _target = expr.from_object(space, w_target)
-        _iter = expr.from_object(space, w_iter)
+        _target = expr.from_object(space, arena, w_target)
+        _iter = expr.from_object(space, arena, w_iter)
         body_w = space.unpackiterable(w_body)
-        _body = [stmt.from_object(space, w_item) for w_item in body_w]
+        _body = [stmt.from_object(space, arena, w_item) for w_item in body_w]
         orelse_w = space.unpackiterable(w_orelse)
-        _orelse = [stmt.from_object(space, w_item) for w_item in orelse_w]
+        _orelse = [stmt.from_object(space, arena, w_item) for w_item in orelse_w]
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
-        return For(_target, _iter, _body, _orelse, _lineno, _col_offset)
+        return For(arena, _target, _iter, _body, _orelse, _lineno, _col_offset)
 
 State.ast_type('For', 'stmt', ['target', 'iter', 'body', 'orelse'])
 
 
 class While(stmt):
 
-    def __init__(self, test, body, orelse, lineno, col_offset):
+    def __init__(self, arena, test, body, orelse, lineno, col_offset):
         self.test = test
         self.body = body
         self.orelse = orelse
-        stmt.__init__(self, lineno, col_offset)
+        stmt.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_While(self)
@@ -833,31 +841,31 @@ class While(stmt):
         return w_node
 
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         w_test = get_field(space, w_node, 'test', False)
         w_body = get_field(space, w_node, 'body', False)
         w_orelse = get_field(space, w_node, 'orelse', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _test = expr.from_object(space, w_test)
+        _test = expr.from_object(space, arena, w_test)
         body_w = space.unpackiterable(w_body)
-        _body = [stmt.from_object(space, w_item) for w_item in body_w]
+        _body = [stmt.from_object(space, arena, w_item) for w_item in body_w]
         orelse_w = space.unpackiterable(w_orelse)
-        _orelse = [stmt.from_object(space, w_item) for w_item in orelse_w]
+        _orelse = [stmt.from_object(space, arena, w_item) for w_item in orelse_w]
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
-        return While(_test, _body, _orelse, _lineno, _col_offset)
+        return While(arena, _test, _body, _orelse, _lineno, _col_offset)
 
 State.ast_type('While', 'stmt', ['test', 'body', 'orelse'])
 
 
 class If(stmt):
 
-    def __init__(self, test, body, orelse, lineno, col_offset):
+    def __init__(self, arena, test, body, orelse, lineno, col_offset):
         self.test = test
         self.body = body
         self.orelse = orelse
-        stmt.__init__(self, lineno, col_offset)
+        stmt.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_If(self)
@@ -893,31 +901,31 @@ class If(stmt):
         return w_node
 
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         w_test = get_field(space, w_node, 'test', False)
         w_body = get_field(space, w_node, 'body', False)
         w_orelse = get_field(space, w_node, 'orelse', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _test = expr.from_object(space, w_test)
+        _test = expr.from_object(space, arena, w_test)
         body_w = space.unpackiterable(w_body)
-        _body = [stmt.from_object(space, w_item) for w_item in body_w]
+        _body = [stmt.from_object(space, arena, w_item) for w_item in body_w]
         orelse_w = space.unpackiterable(w_orelse)
-        _orelse = [stmt.from_object(space, w_item) for w_item in orelse_w]
+        _orelse = [stmt.from_object(space, arena, w_item) for w_item in orelse_w]
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
-        return If(_test, _body, _orelse, _lineno, _col_offset)
+        return If(arena, _test, _body, _orelse, _lineno, _col_offset)
 
 State.ast_type('If', 'stmt', ['test', 'body', 'orelse'])
 
 
 class With(stmt):
 
-    def __init__(self, context_expr, optional_vars, body, lineno, col_offset):
+    def __init__(self, arena, context_expr, optional_vars, body, lineno, col_offset):
         self.context_expr = context_expr
         self.optional_vars = optional_vars
         self.body = body
-        stmt.__init__(self, lineno, col_offset)
+        stmt.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_With(self)
@@ -949,30 +957,30 @@ class With(stmt):
         return w_node
 
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         w_context_expr = get_field(space, w_node, 'context_expr', False)
         w_optional_vars = get_field(space, w_node, 'optional_vars', True)
         w_body = get_field(space, w_node, 'body', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _context_expr = expr.from_object(space, w_context_expr)
-        _optional_vars = expr.from_object(space, w_optional_vars)
+        _context_expr = expr.from_object(space, arena, w_context_expr)
+        _optional_vars = expr.from_object(space, arena, w_optional_vars)
         body_w = space.unpackiterable(w_body)
-        _body = [stmt.from_object(space, w_item) for w_item in body_w]
+        _body = [stmt.from_object(space, arena, w_item) for w_item in body_w]
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
-        return With(_context_expr, _optional_vars, _body, _lineno, _col_offset)
+        return With(arena, _context_expr, _optional_vars, _body, _lineno, _col_offset)
 
 State.ast_type('With', 'stmt', ['context_expr', 'optional_vars', 'body'])
 
 
 class Raise(stmt):
 
-    def __init__(self, type, inst, tback, lineno, col_offset):
+    def __init__(self, arena, type, inst, tback, lineno, col_offset):
         self.type = type
         self.inst = inst
         self.tback = tback
-        stmt.__init__(self, lineno, col_offset)
+        stmt.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_Raise(self)
@@ -1001,29 +1009,29 @@ class Raise(stmt):
         return w_node
 
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         w_type = get_field(space, w_node, 'type', True)
         w_inst = get_field(space, w_node, 'inst', True)
         w_tback = get_field(space, w_node, 'tback', True)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _type = expr.from_object(space, w_type)
-        _inst = expr.from_object(space, w_inst)
-        _tback = expr.from_object(space, w_tback)
+        _type = expr.from_object(space, arena, w_type)
+        _inst = expr.from_object(space, arena, w_inst)
+        _tback = expr.from_object(space, arena, w_tback)
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
-        return Raise(_type, _inst, _tback, _lineno, _col_offset)
+        return Raise(arena, _type, _inst, _tback, _lineno, _col_offset)
 
 State.ast_type('Raise', 'stmt', ['type', 'inst', 'tback'])
 
 
 class TryExcept(stmt):
 
-    def __init__(self, body, handlers, orelse, lineno, col_offset):
+    def __init__(self, arena, body, handlers, orelse, lineno, col_offset):
         self.body = body
         self.handlers = handlers
         self.orelse = orelse
-        stmt.__init__(self, lineno, col_offset)
+        stmt.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_TryExcept(self)
@@ -1064,31 +1072,31 @@ class TryExcept(stmt):
         return w_node
 
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         w_body = get_field(space, w_node, 'body', False)
         w_handlers = get_field(space, w_node, 'handlers', False)
         w_orelse = get_field(space, w_node, 'orelse', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         body_w = space.unpackiterable(w_body)
-        _body = [stmt.from_object(space, w_item) for w_item in body_w]
+        _body = [stmt.from_object(space, arena, w_item) for w_item in body_w]
         handlers_w = space.unpackiterable(w_handlers)
-        _handlers = [excepthandler.from_object(space, w_item) for w_item in handlers_w]
+        _handlers = [excepthandler.from_object(space, arena, w_item) for w_item in handlers_w]
         orelse_w = space.unpackiterable(w_orelse)
-        _orelse = [stmt.from_object(space, w_item) for w_item in orelse_w]
+        _orelse = [stmt.from_object(space, arena, w_item) for w_item in orelse_w]
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
-        return TryExcept(_body, _handlers, _orelse, _lineno, _col_offset)
+        return TryExcept(arena, _body, _handlers, _orelse, _lineno, _col_offset)
 
 State.ast_type('TryExcept', 'stmt', ['body', 'handlers', 'orelse'])
 
 
 class TryFinally(stmt):
 
-    def __init__(self, body, finalbody, lineno, col_offset):
+    def __init__(self, arena, body, finalbody, lineno, col_offset):
         self.body = body
         self.finalbody = finalbody
-        stmt.__init__(self, lineno, col_offset)
+        stmt.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_TryFinally(self)
@@ -1121,28 +1129,28 @@ class TryFinally(stmt):
         return w_node
 
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         w_body = get_field(space, w_node, 'body', False)
         w_finalbody = get_field(space, w_node, 'finalbody', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         body_w = space.unpackiterable(w_body)
-        _body = [stmt.from_object(space, w_item) for w_item in body_w]
+        _body = [stmt.from_object(space, arena, w_item) for w_item in body_w]
         finalbody_w = space.unpackiterable(w_finalbody)
-        _finalbody = [stmt.from_object(space, w_item) for w_item in finalbody_w]
+        _finalbody = [stmt.from_object(space, arena, w_item) for w_item in finalbody_w]
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
-        return TryFinally(_body, _finalbody, _lineno, _col_offset)
+        return TryFinally(arena, _body, _finalbody, _lineno, _col_offset)
 
 State.ast_type('TryFinally', 'stmt', ['body', 'finalbody'])
 
 
 class Assert(stmt):
 
-    def __init__(self, test, msg, lineno, col_offset):
+    def __init__(self, arena, test, msg, lineno, col_offset):
         self.test = test
         self.msg = msg
-        stmt.__init__(self, lineno, col_offset)
+        stmt.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_Assert(self)
@@ -1166,25 +1174,25 @@ class Assert(stmt):
         return w_node
 
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         w_test = get_field(space, w_node, 'test', False)
         w_msg = get_field(space, w_node, 'msg', True)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _test = expr.from_object(space, w_test)
-        _msg = expr.from_object(space, w_msg)
+        _test = expr.from_object(space, arena, w_test)
+        _msg = expr.from_object(space, arena, w_msg)
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
-        return Assert(_test, _msg, _lineno, _col_offset)
+        return Assert(arena, _test, _msg, _lineno, _col_offset)
 
 State.ast_type('Assert', 'stmt', ['test', 'msg'])
 
 
 class Import(stmt):
 
-    def __init__(self, names, lineno, col_offset):
+    def __init__(self, arena, names, lineno, col_offset):
         self.names = names
-        stmt.__init__(self, lineno, col_offset)
+        stmt.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_Import(self)
@@ -1209,26 +1217,26 @@ class Import(stmt):
         return w_node
 
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         w_names = get_field(space, w_node, 'names', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         names_w = space.unpackiterable(w_names)
-        _names = [alias.from_object(space, w_item) for w_item in names_w]
+        _names = [alias.from_object(space, arena, w_item) for w_item in names_w]
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
-        return Import(_names, _lineno, _col_offset)
+        return Import(arena, _names, _lineno, _col_offset)
 
 State.ast_type('Import', 'stmt', ['names'])
 
 
 class ImportFrom(stmt):
 
-    def __init__(self, module, names, level, lineno, col_offset):
+    def __init__(self, arena, module, names, level, lineno, col_offset):
         self.module = module
         self.names = names
         self.level = level
-        stmt.__init__(self, lineno, col_offset)
+        stmt.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_ImportFrom(self)
@@ -1257,7 +1265,7 @@ class ImportFrom(stmt):
         return w_node
 
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         w_module = get_field(space, w_node, 'module', True)
         w_names = get_field(space, w_node, 'names', False)
         w_level = get_field(space, w_node, 'level', True)
@@ -1265,22 +1273,22 @@ class ImportFrom(stmt):
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _module = space.str_or_None_w(w_module)
         names_w = space.unpackiterable(w_names)
-        _names = [alias.from_object(space, w_item) for w_item in names_w]
+        _names = [alias.from_object(space, arena, w_item) for w_item in names_w]
         _level = space.int_w(w_level)
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
-        return ImportFrom(_module, _names, _level, _lineno, _col_offset)
+        return ImportFrom(arena, _module, _names, _level, _lineno, _col_offset)
 
 State.ast_type('ImportFrom', 'stmt', ['module', 'names', 'level'])
 
 
 class Exec(stmt):
 
-    def __init__(self, body, globals, locals, lineno, col_offset):
+    def __init__(self, arena, body, globals, locals, lineno, col_offset):
         self.body = body
         self.globals = globals
         self.locals = locals
-        stmt.__init__(self, lineno, col_offset)
+        stmt.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_Exec(self)
@@ -1308,27 +1316,27 @@ class Exec(stmt):
         return w_node
 
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         w_body = get_field(space, w_node, 'body', False)
         w_globals = get_field(space, w_node, 'globals', True)
         w_locals = get_field(space, w_node, 'locals', True)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _body = expr.from_object(space, w_body)
-        _globals = expr.from_object(space, w_globals)
-        _locals = expr.from_object(space, w_locals)
+        _body = expr.from_object(space, arena, w_body)
+        _globals = expr.from_object(space, arena, w_globals)
+        _locals = expr.from_object(space, arena, w_locals)
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
-        return Exec(_body, _globals, _locals, _lineno, _col_offset)
+        return Exec(arena, _body, _globals, _locals, _lineno, _col_offset)
 
 State.ast_type('Exec', 'stmt', ['body', 'globals', 'locals'])
 
 
 class Global(stmt):
 
-    def __init__(self, names, lineno, col_offset):
+    def __init__(self, arena, names, lineno, col_offset):
         self.names = names
-        stmt.__init__(self, lineno, col_offset)
+        stmt.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_Global(self)
@@ -1351,7 +1359,7 @@ class Global(stmt):
         return w_node
 
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         w_names = get_field(space, w_node, 'names', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
@@ -1359,16 +1367,16 @@ class Global(stmt):
         _names = [space.realstr_w(w_item) for w_item in names_w]
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
-        return Global(_names, _lineno, _col_offset)
+        return Global(arena, _names, _lineno, _col_offset)
 
 State.ast_type('Global', 'stmt', ['names'])
 
 
 class Expr(stmt):
 
-    def __init__(self, value, lineno, col_offset):
+    def __init__(self, arena, value, lineno, col_offset):
         self.value = value
-        stmt.__init__(self, lineno, col_offset)
+        stmt.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_Expr(self)
@@ -1388,22 +1396,22 @@ class Expr(stmt):
         return w_node
 
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         w_value = get_field(space, w_node, 'value', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _value = expr.from_object(space, w_value)
+        _value = expr.from_object(space, arena, w_value)
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
-        return Expr(_value, _lineno, _col_offset)
+        return Expr(arena, _value, _lineno, _col_offset)
 
 State.ast_type('Expr', 'stmt', ['value'])
 
 
 class Pass(stmt):
 
-    def __init__(self, lineno, col_offset):
-        stmt.__init__(self, lineno, col_offset)
+    def __init__(self, arena, lineno, col_offset):
+        stmt.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_Pass(self)
@@ -1420,20 +1428,20 @@ class Pass(stmt):
         return w_node
 
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
-        return Pass(_lineno, _col_offset)
+        return Pass(arena, _lineno, _col_offset)
 
 State.ast_type('Pass', 'stmt', [])
 
 
 class Break(stmt):
 
-    def __init__(self, lineno, col_offset):
-        stmt.__init__(self, lineno, col_offset)
+    def __init__(self, arena, lineno, col_offset):
+        stmt.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_Break(self)
@@ -1450,20 +1458,20 @@ class Break(stmt):
         return w_node
 
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
-        return Break(_lineno, _col_offset)
+        return Break(arena, _lineno, _col_offset)
 
 State.ast_type('Break', 'stmt', [])
 
 
 class Continue(stmt):
 
-    def __init__(self, lineno, col_offset):
-        stmt.__init__(self, lineno, col_offset)
+    def __init__(self, arena, lineno, col_offset):
+        stmt.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_Continue(self)
@@ -1480,82 +1488,82 @@ class Continue(stmt):
         return w_node
 
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
-        return Continue(_lineno, _col_offset)
+        return Continue(arena, _lineno, _col_offset)
 
 State.ast_type('Continue', 'stmt', [])
 
 
 class expr(AST):
 
-    def __init__(self, lineno, col_offset):
+    def __init__(self, arena, lineno, col_offset):
         self.lineno = lineno
         self.col_offset = col_offset
 
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         if space.is_w(w_node, space.w_None):
             return None
         if space.isinstance_w(w_node, get(space).w_BoolOp):
-            return BoolOp.from_object(space, w_node)
+            return BoolOp.from_object(space, arena, w_node)
         if space.isinstance_w(w_node, get(space).w_BinOp):
-            return BinOp.from_object(space, w_node)
+            return BinOp.from_object(space, arena, w_node)
         if space.isinstance_w(w_node, get(space).w_UnaryOp):
-            return UnaryOp.from_object(space, w_node)
+            return UnaryOp.from_object(space, arena, w_node)
         if space.isinstance_w(w_node, get(space).w_Lambda):
-            return Lambda.from_object(space, w_node)
+            return Lambda.from_object(space, arena, w_node)
         if space.isinstance_w(w_node, get(space).w_IfExp):
-            return IfExp.from_object(space, w_node)
+            return IfExp.from_object(space, arena, w_node)
         if space.isinstance_w(w_node, get(space).w_Dict):
-            return Dict.from_object(space, w_node)
+            return Dict.from_object(space, arena, w_node)
         if space.isinstance_w(w_node, get(space).w_Set):
-            return Set.from_object(space, w_node)
+            return Set.from_object(space, arena, w_node)
         if space.isinstance_w(w_node, get(space).w_ListComp):
-            return ListComp.from_object(space, w_node)
+            return ListComp.from_object(space, arena, w_node)
         if space.isinstance_w(w_node, get(space).w_SetComp):
-            return SetComp.from_object(space, w_node)
+            return SetComp.from_object(space, arena, w_node)
         if space.isinstance_w(w_node, get(space).w_DictComp):
-            return DictComp.from_object(space, w_node)
+            return DictComp.from_object(space, arena, w_node)
         if space.isinstance_w(w_node, get(space).w_GeneratorExp):
-            return GeneratorExp.from_object(space, w_node)
+            return GeneratorExp.from_object(space, arena, w_node)
         if space.isinstance_w(w_node, get(space).w_Yield):
-            return Yield.from_object(space, w_node)
+            return Yield.from_object(space, arena, w_node)
         if space.isinstance_w(w_node, get(space).w_Compare):
-            return Compare.from_object(space, w_node)
+            return Compare.from_object(space, arena, w_node)
         if space.isinstance_w(w_node, get(space).w_Call):
-            return Call.from_object(space, w_node)
+            return Call.from_object(space, arena, w_node)
         if space.isinstance_w(w_node, get(space).w_Repr):
-            return Repr.from_object(space, w_node)
+            return Repr.from_object(space, arena, w_node)
         if space.isinstance_w(w_node, get(space).w_Num):
-            return Num.from_object(space, w_node)
+            return Num.from_object(space, arena, w_node)
         if space.isinstance_w(w_node, get(space).w_Str):
-            return Str.from_object(space, w_node)
+            return Str.from_object(space, arena, w_node)
         if space.isinstance_w(w_node, get(space).w_Attribute):
-            return Attribute.from_object(space, w_node)
+            return Attribute.from_object(space, arena, w_node)
         if space.isinstance_w(w_node, get(space).w_Subscript):
-            return Subscript.from_object(space, w_node)
+            return Subscript.from_object(space, arena, w_node)
         if space.isinstance_w(w_node, get(space).w_Name):
-            return Name.from_object(space, w_node)
+            return Name.from_object(space, arena, w_node)
         if space.isinstance_w(w_node, get(space).w_List):
-            return List.from_object(space, w_node)
+            return List.from_object(space, arena, w_node)
         if space.isinstance_w(w_node, get(space).w_Tuple):
-            return Tuple.from_object(space, w_node)
+            return Tuple.from_object(space, arena, w_node)
         if space.isinstance_w(w_node, get(space).w_Const):
-            return Const.from_object(space, w_node)
+            return Const.from_object(space, arena, w_node)
         raise oefmt(space.w_TypeError,
                 "Expected expr node, got %T", w_node)
 State.ast_type('expr', 'AST', None, ['lineno', 'col_offset'])
 
 class BoolOp(expr):
 
-    def __init__(self, op, values, lineno, col_offset):
+    def __init__(self, arena, op, values, lineno, col_offset):
         self.op = op
         self.values = values
-        expr.__init__(self, lineno, col_offset)
+        expr.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_BoolOp(self)
@@ -1582,28 +1590,28 @@ class BoolOp(expr):
         return w_node
 
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         w_op = get_field(space, w_node, 'op', False)
         w_values = get_field(space, w_node, 'values', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _op = boolop.from_object(space, w_op)
+        _op = boolop.from_object(space, arena, w_op)
         values_w = space.unpackiterable(w_values)
-        _values = [expr.from_object(space, w_item) for w_item in values_w]
+        _values = [expr.from_object(space, arena, w_item) for w_item in values_w]
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
-        return BoolOp(_op, _values, _lineno, _col_offset)
+        return BoolOp(arena, _op, _values, _lineno, _col_offset)
 
 State.ast_type('BoolOp', 'expr', ['op', 'values'])
 
 
 class BinOp(expr):
 
-    def __init__(self, left, op, right, lineno, col_offset):
+    def __init__(self, arena, left, op, right, lineno, col_offset):
         self.left = left
         self.op = op
         self.right = right
-        expr.__init__(self, lineno, col_offset)
+        expr.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_BinOp(self)
@@ -1628,28 +1636,28 @@ class BinOp(expr):
         return w_node
 
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         w_left = get_field(space, w_node, 'left', False)
         w_op = get_field(space, w_node, 'op', False)
         w_right = get_field(space, w_node, 'right', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _left = expr.from_object(space, w_left)
-        _op = operator.from_object(space, w_op)
-        _right = expr.from_object(space, w_right)
+        _left = expr.from_object(space, arena, w_left)
+        _op = operator.from_object(space, arena, w_op)
+        _right = expr.from_object(space, arena, w_right)
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
-        return BinOp(_left, _op, _right, _lineno, _col_offset)
+        return BinOp(arena, _left, _op, _right, _lineno, _col_offset)
 
 State.ast_type('BinOp', 'expr', ['left', 'op', 'right'])
 
 
 class UnaryOp(expr):
 
-    def __init__(self, op, operand, lineno, col_offset):
+    def __init__(self, arena, op, operand, lineno, col_offset):
         self.op = op
         self.operand = operand
-        expr.__init__(self, lineno, col_offset)
+        expr.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_UnaryOp(self)
@@ -1671,26 +1679,26 @@ class UnaryOp(expr):
         return w_node
 
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         w_op = get_field(space, w_node, 'op', False)
         w_operand = get_field(space, w_node, 'operand', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _op = unaryop.from_object(space, w_op)
-        _operand = expr.from_object(space, w_operand)
+        _op = unaryop.from_object(space, arena, w_op)
+        _operand = expr.from_object(space, arena, w_operand)
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
-        return UnaryOp(_op, _operand, _lineno, _col_offset)
+        return UnaryOp(arena, _op, _operand, _lineno, _col_offset)
 
 State.ast_type('UnaryOp', 'expr', ['op', 'operand'])
 
 
 class Lambda(expr):
 
-    def __init__(self, args, body, lineno, col_offset):
+    def __init__(self, arena, args, body, lineno, col_offset):
         self.args = args
         self.body = body
-        expr.__init__(self, lineno, col_offset)
+        expr.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_Lambda(self)
@@ -1713,27 +1721,27 @@ class Lambda(expr):
         return w_node
 
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         w_args = get_field(space, w_node, 'args', False)
         w_body = get_field(space, w_node, 'body', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _args = arguments.from_object(space, w_args)
-        _body = expr.from_object(space, w_body)
+        _args = arguments.from_object(space, arena, w_args)
+        _body = expr.from_object(space, arena, w_body)
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
-        return Lambda(_args, _body, _lineno, _col_offset)
+        return Lambda(arena, _args, _body, _lineno, _col_offset)
 
 State.ast_type('Lambda', 'expr', ['args', 'body'])
 
 
 class IfExp(expr):
 
-    def __init__(self, test, body, orelse, lineno, col_offset):
+    def __init__(self, arena, test, body, orelse, lineno, col_offset):
         self.test = test
         self.body = body
         self.orelse = orelse
-        expr.__init__(self, lineno, col_offset)
+        expr.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_IfExp(self)
@@ -1759,28 +1767,28 @@ class IfExp(expr):
         return w_node
 
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         w_test = get_field(space, w_node, 'test', False)
         w_body = get_field(space, w_node, 'body', False)
         w_orelse = get_field(space, w_node, 'orelse', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _test = expr.from_object(space, w_test)
-        _body = expr.from_object(space, w_body)
-        _orelse = expr.from_object(space, w_orelse)
+        _test = expr.from_object(space, arena, w_test)
+        _body = expr.from_object(space, arena, w_body)
+        _orelse = expr.from_object(space, arena, w_orelse)
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
-        return IfExp(_test, _body, _orelse, _lineno, _col_offset)
+        return IfExp(arena, _test, _body, _orelse, _lineno, _col_offset)
 
 State.ast_type('IfExp', 'expr', ['test', 'body', 'orelse'])
 
 
 class Dict(expr):
 
-    def __init__(self, keys, values, lineno, col_offset):
+    def __init__(self, arena, keys, values, lineno, col_offset):
         self.keys = keys
         self.values = values
-        expr.__init__(self, lineno, col_offset)
+        expr.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_Dict(self)
@@ -1813,27 +1821,27 @@ class Dict(expr):
         return w_node
 
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         w_keys = get_field(space, w_node, 'keys', False)
         w_values = get_field(space, w_node, 'values', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         keys_w = space.unpackiterable(w_keys)
-        _keys = [expr.from_object(space, w_item) for w_item in keys_w]
+        _keys = [expr.from_object(space, arena, w_item) for w_item in keys_w]
         values_w = space.unpackiterable(w_values)
-        _values = [expr.from_object(space, w_item) for w_item in values_w]
+        _values = [expr.from_object(space, arena, w_item) for w_item in values_w]
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
-        return Dict(_keys, _values, _lineno, _col_offset)
+        return Dict(arena, _keys, _values, _lineno, _col_offset)
 
 State.ast_type('Dict', 'expr', ['keys', 'values'])
 
 
 class Set(expr):
 
-    def __init__(self, elts, lineno, col_offset):
+    def __init__(self, arena, elts, lineno, col_offset):
         self.elts = elts
-        expr.__init__(self, lineno, col_offset)
+        expr.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_Set(self)
@@ -1858,25 +1866,25 @@ class Set(expr):
         return w_node
 
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         w_elts = get_field(space, w_node, 'elts', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         elts_w = space.unpackiterable(w_elts)
-        _elts = [expr.from_object(space, w_item) for w_item in elts_w]
+        _elts = [expr.from_object(space, arena, w_item) for w_item in elts_w]
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
-        return Set(_elts, _lineno, _col_offset)
+        return Set(arena, _elts, _lineno, _col_offset)
 
 State.ast_type('Set', 'expr', ['elts'])
 
 
 class ListComp(expr):
 
-    def __init__(self, elt, generators, lineno, col_offset):
+    def __init__(self, arena, elt, generators, lineno, col_offset):
         self.elt = elt
         self.generators = generators
-        expr.__init__(self, lineno, col_offset)
+        expr.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_ListComp(self)
@@ -1904,27 +1912,27 @@ class ListComp(expr):
         return w_node
 
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         w_elt = get_field(space, w_node, 'elt', False)
         w_generators = get_field(space, w_node, 'generators', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _elt = expr.from_object(space, w_elt)
+        _elt = expr.from_object(space, arena, w_elt)
         generators_w = space.unpackiterable(w_generators)
-        _generators = [comprehension.from_object(space, w_item) for w_item in generators_w]
+        _generators = [comprehension.from_object(space, arena, w_item) for w_item in generators_w]
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
-        return ListComp(_elt, _generators, _lineno, _col_offset)
+        return ListComp(arena, _elt, _generators, _lineno, _col_offset)
 
 State.ast_type('ListComp', 'expr', ['elt', 'generators'])
 
 
 class SetComp(expr):
 
-    def __init__(self, elt, generators, lineno, col_offset):
+    def __init__(self, arena, elt, generators, lineno, col_offset):
         self.elt = elt
         self.generators = generators
-        expr.__init__(self, lineno, col_offset)
+        expr.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_SetComp(self)
@@ -1952,28 +1960,28 @@ class SetComp(expr):
         return w_node
 
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         w_elt = get_field(space, w_node, 'elt', False)
         w_generators = get_field(space, w_node, 'generators', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _elt = expr.from_object(space, w_elt)
+        _elt = expr.from_object(space, arena, w_elt)
         generators_w = space.unpackiterable(w_generators)
-        _generators = [comprehension.from_object(space, w_item) for w_item in generators_w]
+        _generators = [comprehension.from_object(space, arena, w_item) for w_item in generators_w]
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
-        return SetComp(_elt, _generators, _lineno, _col_offset)
+        return SetComp(arena, _elt, _generators, _lineno, _col_offset)
 
 State.ast_type('SetComp', 'expr', ['elt', 'generators'])
 
 
 class DictComp(expr):
 
-    def __init__(self, key, value, generators, lineno, col_offset):
+    def __init__(self, arena, key, value, generators, lineno, col_offset):
         self.key = key
         self.value = value
         self.generators = generators
-        expr.__init__(self, lineno, col_offset)
+        expr.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_DictComp(self)
@@ -2004,29 +2012,29 @@ class DictComp(expr):
         return w_node
 
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         w_key = get_field(space, w_node, 'key', False)
         w_value = get_field(space, w_node, 'value', False)
         w_generators = get_field(space, w_node, 'generators', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _key = expr.from_object(space, w_key)
-        _value = expr.from_object(space, w_value)
+        _key = expr.from_object(space, arena, w_key)
+        _value = expr.from_object(space, arena, w_value)
         generators_w = space.unpackiterable(w_generators)
-        _generators = [comprehension.from_object(space, w_item) for w_item in generators_w]
+        _generators = [comprehension.from_object(space, arena, w_item) for w_item in generators_w]
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
-        return DictComp(_key, _value, _generators, _lineno, _col_offset)
+        return DictComp(arena, _key, _value, _generators, _lineno, _col_offset)
 
 State.ast_type('DictComp', 'expr', ['key', 'value', 'generators'])
 
 
 class GeneratorExp(expr):
 
-    def __init__(self, elt, generators, lineno, col_offset):
+    def __init__(self, arena, elt, generators, lineno, col_offset):
         self.elt = elt
         self.generators = generators
-        expr.__init__(self, lineno, col_offset)
+        expr.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_GeneratorExp(self)
@@ -2054,26 +2062,26 @@ class GeneratorExp(expr):
         return w_node
 
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         w_elt = get_field(space, w_node, 'elt', False)
         w_generators = get_field(space, w_node, 'generators', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _elt = expr.from_object(space, w_elt)
+        _elt = expr.from_object(space, arena, w_elt)
         generators_w = space.unpackiterable(w_generators)
-        _generators = [comprehension.from_object(space, w_item) for w_item in generators_w]
+        _generators = [comprehension.from_object(space, arena, w_item) for w_item in generators_w]
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
-        return GeneratorExp(_elt, _generators, _lineno, _col_offset)
+        return GeneratorExp(arena, _elt, _generators, _lineno, _col_offset)
 
 State.ast_type('GeneratorExp', 'expr', ['elt', 'generators'])
 
 
 class Yield(expr):
 
-    def __init__(self, value, lineno, col_offset):
+    def __init__(self, arena, value, lineno, col_offset):
         self.value = value
-        expr.__init__(self, lineno, col_offset)
+        expr.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_Yield(self)
@@ -2094,25 +2102,25 @@ class Yield(expr):
         return w_node
 
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         w_value = get_field(space, w_node, 'value', True)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _value = expr.from_object(space, w_value)
+        _value = expr.from_object(space, arena, w_value)
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
-        return Yield(_value, _lineno, _col_offset)
+        return Yield(arena, _value, _lineno, _col_offset)
 
 State.ast_type('Yield', 'expr', ['value'])
 
 
 class Compare(expr):
 
-    def __init__(self, left, ops, comparators, lineno, col_offset):
+    def __init__(self, arena, left, ops, comparators, lineno, col_offset):
         self.left = left
         self.ops = ops
         self.comparators = comparators
-        expr.__init__(self, lineno, col_offset)
+        expr.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_Compare(self)
@@ -2146,33 +2154,33 @@ class Compare(expr):
         return w_node
 
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         w_left = get_field(space, w_node, 'left', False)
         w_ops = get_field(space, w_node, 'ops', False)
         w_comparators = get_field(space, w_node, 'comparators', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _left = expr.from_object(space, w_left)
+        _left = expr.from_object(space, arena, w_left)
         ops_w = space.unpackiterable(w_ops)
-        _ops = [cmpop.from_object(space, w_item) for w_item in ops_w]
+        _ops = [cmpop.from_object(space, arena, w_item) for w_item in ops_w]
         comparators_w = space.unpackiterable(w_comparators)
-        _comparators = [expr.from_object(space, w_item) for w_item in comparators_w]
+        _comparators = [expr.from_object(space, arena, w_item) for w_item in comparators_w]
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
-        return Compare(_left, _ops, _comparators, _lineno, _col_offset)
+        return Compare(arena, _left, _ops, _comparators, _lineno, _col_offset)
 
 State.ast_type('Compare', 'expr', ['left', 'ops', 'comparators'])
 
 
 class Call(expr):
 
-    def __init__(self, func, args, keywords, starargs, kwargs, lineno, col_offset):
+    def __init__(self, arena, func, args, keywords, starargs, kwargs, lineno, col_offset):
         self.func = func
         self.args = args
         self.keywords = keywords
         self.starargs = starargs
         self.kwargs = kwargs
-        expr.__init__(self, lineno, col_offset)
+        expr.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_Call(self)
@@ -2216,7 +2224,7 @@ class Call(expr):
         return w_node
 
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         w_func = get_field(space, w_node, 'func', False)
         w_args = get_field(space, w_node, 'args', False)
         w_keywords = get_field(space, w_node, 'keywords', False)
@@ -2224,25 +2232,25 @@ class Call(expr):
         w_kwargs = get_field(space, w_node, 'kwargs', True)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _func = expr.from_object(space, w_func)
+        _func = expr.from_object(space, arena, w_func)
         args_w = space.unpackiterable(w_args)
-        _args = [expr.from_object(space, w_item) for w_item in args_w]
+        _args = [expr.from_object(space, arena, w_item) for w_item in args_w]
         keywords_w = space.unpackiterable(w_keywords)
-        _keywords = [keyword.from_object(space, w_item) for w_item in keywords_w]
-        _starargs = expr.from_object(space, w_starargs)
-        _kwargs = expr.from_object(space, w_kwargs)
+        _keywords = [keyword.from_object(space, arena, w_item) for w_item in keywords_w]
+        _starargs = expr.from_object(space, arena, w_starargs)
+        _kwargs = expr.from_object(space, arena, w_kwargs)
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
-        return Call(_func, _args, _keywords, _starargs, _kwargs, _lineno, _col_offset)
+        return Call(arena, _func, _args, _keywords, _starargs, _kwargs, _lineno, _col_offset)
 
 State.ast_type('Call', 'expr', ['func', 'args', 'keywords', 'starargs', 'kwargs'])
 
 
 class Repr(expr):
 
-    def __init__(self, value, lineno, col_offset):
+    def __init__(self, arena, value, lineno, col_offset):
         self.value = value
-        expr.__init__(self, lineno, col_offset)
+        expr.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_Repr(self)
@@ -2262,23 +2270,23 @@ class Repr(expr):
         return w_node
 
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         w_value = get_field(space, w_node, 'value', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _value = expr.from_object(space, w_value)
+        _value = expr.from_object(space, arena, w_value)
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
-        return Repr(_value, _lineno, _col_offset)
+        return Repr(arena, _value, _lineno, _col_offset)
 
 State.ast_type('Repr', 'expr', ['value'])
 
 
 class Num(expr):
 
-    def __init__(self, n, lineno, col_offset):
+    def __init__(self, arena, n, lineno, col_offset):
         self.n = n
-        expr.__init__(self, lineno, col_offset)
+        expr.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_Num(self)
@@ -2297,23 +2305,23 @@ class Num(expr):
         return w_node
 
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         w_n = get_field(space, w_node, 'n', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _n = w_n
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
-        return Num(_n, _lineno, _col_offset)
+        return Num(arena, _n, _lineno, _col_offset)
 
 State.ast_type('Num', 'expr', ['n'])
 
 
 class Str(expr):
 
-    def __init__(self, s, lineno, col_offset):
+    def __init__(self, arena, s, lineno, col_offset):
         self.s = s
-        expr.__init__(self, lineno, col_offset)
+        expr.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_Str(self)
@@ -2332,25 +2340,25 @@ class Str(expr):
         return w_node
 
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         w_s = get_field(space, w_node, 's', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _s = check_string(space, w_s)
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
-        return Str(_s, _lineno, _col_offset)
+        return Str(arena, _s, _lineno, _col_offset)
 
 State.ast_type('Str', 'expr', ['s'])
 
 
 class Attribute(expr):
 
-    def __init__(self, value, attr, ctx, lineno, col_offset):
+    def __init__(self, arena, value, attr, ctx, lineno, col_offset):
         self.value = value
         self.attr = attr
         self.ctx = ctx
-        expr.__init__(self, lineno, col_offset)
+        expr.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_Attribute(self)
@@ -2374,29 +2382,29 @@ class Attribute(expr):
         return w_node
 
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         w_value = get_field(space, w_node, 'value', False)
         w_attr = get_field(space, w_node, 'attr', False)
         w_ctx = get_field(space, w_node, 'ctx', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _value = expr.from_object(space, w_value)
+        _value = expr.from_object(space, arena, w_value)
         _attr = space.realstr_w(w_attr)
-        _ctx = expr_context.from_object(space, w_ctx)
+        _ctx = expr_context.from_object(space, arena, w_ctx)
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
-        return Attribute(_value, _attr, _ctx, _lineno, _col_offset)
+        return Attribute(arena, _value, _attr, _ctx, _lineno, _col_offset)
 
 State.ast_type('Attribute', 'expr', ['value', 'attr', 'ctx'])
 
 
 class Subscript(expr):
 
-    def __init__(self, value, slice, ctx, lineno, col_offset):
+    def __init__(self, arena, value, slice, ctx, lineno, col_offset):
         self.value = value
         self.slice = slice
         self.ctx = ctx
-        expr.__init__(self, lineno, col_offset)
+        expr.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_Subscript(self)
@@ -2421,28 +2429,28 @@ class Subscript(expr):
         return w_node
 
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         w_value = get_field(space, w_node, 'value', False)
         w_slice = get_field(space, w_node, 'slice', False)
         w_ctx = get_field(space, w_node, 'ctx', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _value = expr.from_object(space, w_value)
-        _slice = slice.from_object(space, w_slice)
-        _ctx = expr_context.from_object(space, w_ctx)
+        _value = expr.from_object(space, arena, w_value)
+        _slice = slice.from_object(space, arena, w_slice)
+        _ctx = expr_context.from_object(space, arena, w_ctx)
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
-        return Subscript(_value, _slice, _ctx, _lineno, _col_offset)
+        return Subscript(arena, _value, _slice, _ctx, _lineno, _col_offset)
 
 State.ast_type('Subscript', 'expr', ['value', 'slice', 'ctx'])
 
 
 class Name(expr):
 
-    def __init__(self, id, ctx, lineno, col_offset):
+    def __init__(self, arena, id, ctx, lineno, col_offset):
         self.id = id
         self.ctx = ctx
-        expr.__init__(self, lineno, col_offset)
+        expr.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_Name(self)
@@ -2463,26 +2471,26 @@ class Name(expr):
         return w_node
 
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         w_id = get_field(space, w_node, 'id', False)
         w_ctx = get_field(space, w_node, 'ctx', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _id = space.realstr_w(w_id)
-        _ctx = expr_context.from_object(space, w_ctx)
+        _ctx = expr_context.from_object(space, arena, w_ctx)
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
-        return Name(_id, _ctx, _lineno, _col_offset)
+        return Name(arena, _id, _ctx, _lineno, _col_offset)
 
 State.ast_type('Name', 'expr', ['id', 'ctx'])
 
 
 class List(expr):
 
-    def __init__(self, elts, ctx, lineno, col_offset):
+    def __init__(self, arena, elts, ctx, lineno, col_offset):
         self.elts = elts
         self.ctx = ctx
-        expr.__init__(self, lineno, col_offset)
+        expr.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_List(self)
@@ -2509,27 +2517,27 @@ class List(expr):
         return w_node
 
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         w_elts = get_field(space, w_node, 'elts', False)
         w_ctx = get_field(space, w_node, 'ctx', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         elts_w = space.unpackiterable(w_elts)
-        _elts = [expr.from_object(space, w_item) for w_item in elts_w]
-        _ctx = expr_context.from_object(space, w_ctx)
+        _elts = [expr.from_object(space, arena, w_item) for w_item in elts_w]
+        _ctx = expr_context.from_object(space, arena, w_ctx)
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
-        return List(_elts, _ctx, _lineno, _col_offset)
+        return List(arena, _elts, _ctx, _lineno, _col_offset)
 
 State.ast_type('List', 'expr', ['elts', 'ctx'])
 
 
 class Tuple(expr):
 
-    def __init__(self, elts, ctx, lineno, col_offset):
+    def __init__(self, arena, elts, ctx, lineno, col_offset):
         self.elts = elts
         self.ctx = ctx
-        expr.__init__(self, lineno, col_offset)
+        expr.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_Tuple(self)
@@ -2556,26 +2564,26 @@ class Tuple(expr):
         return w_node
 
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         w_elts = get_field(space, w_node, 'elts', False)
         w_ctx = get_field(space, w_node, 'ctx', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         elts_w = space.unpackiterable(w_elts)
-        _elts = [expr.from_object(space, w_item) for w_item in elts_w]
-        _ctx = expr_context.from_object(space, w_ctx)
+        _elts = [expr.from_object(space, arena, w_item) for w_item in elts_w]
+        _ctx = expr_context.from_object(space, arena, w_ctx)
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
-        return Tuple(_elts, _ctx, _lineno, _col_offset)
+        return Tuple(arena, _elts, _ctx, _lineno, _col_offset)
 
 State.ast_type('Tuple', 'expr', ['elts', 'ctx'])
 
 
 class Const(expr):
 
-    def __init__(self, value, lineno, col_offset):
+    def __init__(self, arena, value, lineno, col_offset):
         self.value = value
-        expr.__init__(self, lineno, col_offset)
+        expr.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_Const(self)
@@ -2594,21 +2602,21 @@ class Const(expr):
         return w_node
 
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         w_value = get_field(space, w_node, 'value', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _value = w_value
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
-        return Const(_value, _lineno, _col_offset)
+        return Const(arena, _value, _lineno, _col_offset)
 
 State.ast_type('Const', 'expr', ['value'])
 
 
 class expr_context(AST):
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         if space.isinstance_w(w_node, get(space).w_Load):
             return 1
         if space.isinstance_w(w_node, get(space).w_Store):
@@ -2672,18 +2680,22 @@ expr_context_to_class = [
 ]
 
 class slice(AST):
+
+    def __init__(self, arena):
+        pass
+
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         if space.is_w(w_node, space.w_None):
             return None
         if space.isinstance_w(w_node, get(space).w_Ellipsis):
-            return Ellipsis.from_object(space, w_node)
+            return Ellipsis.from_object(space, arena, w_node)
         if space.isinstance_w(w_node, get(space).w_Slice):
-            return Slice.from_object(space, w_node)
+            return Slice.from_object(space, arena, w_node)
         if space.isinstance_w(w_node, get(space).w_ExtSlice):
-            return ExtSlice.from_object(space, w_node)
+            return ExtSlice.from_object(space, arena, w_node)
         if space.isinstance_w(w_node, get(space).w_Index):
-            return Index.from_object(space, w_node)
+            return Index.from_object(space, arena, w_node)
         raise oefmt(space.w_TypeError,
                 "Expected slice node, got %T", w_node)
 State.ast_type('slice', 'AST', None, [])
@@ -2702,18 +2714,19 @@ class Ellipsis(slice):
         return w_node
 
     @staticmethod
-    def from_object(space, w_node):
-        return Ellipsis()
+    def from_object(space, arena, w_node):
+        return Ellipsis(arena)
 
 State.ast_type('Ellipsis', 'slice', [])
 
 
 class Slice(slice):
 
-    def __init__(self, lower, upper, step):
+    def __init__(self, arena, lower, upper, step):
         self.lower = lower
         self.upper = upper
         self.step = step
+        slice.__init__(self, arena)
 
     def walkabout(self, visitor):
         visitor.visit_Slice(self)
@@ -2738,22 +2751,23 @@ class Slice(slice):
         return w_node
 
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         w_lower = get_field(space, w_node, 'lower', True)
         w_upper = get_field(space, w_node, 'upper', True)
         w_step = get_field(space, w_node, 'step', True)
-        _lower = expr.from_object(space, w_lower)
-        _upper = expr.from_object(space, w_upper)
-        _step = expr.from_object(space, w_step)
-        return Slice(_lower, _upper, _step)
+        _lower = expr.from_object(space, arena, w_lower)
+        _upper = expr.from_object(space, arena, w_upper)
+        _step = expr.from_object(space, arena, w_step)
+        return Slice(arena, _lower, _upper, _step)
 
 State.ast_type('Slice', 'slice', ['lower', 'upper', 'step'])
 
 
 class ExtSlice(slice):
 
-    def __init__(self, dims):
+    def __init__(self, arena, dims):
         self.dims = dims
+        slice.__init__(self, arena)
 
     def walkabout(self, visitor):
         visitor.visit_ExtSlice(self)
@@ -2774,19 +2788,20 @@ class ExtSlice(slice):
         return w_node
 
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         w_dims = get_field(space, w_node, 'dims', False)
         dims_w = space.unpackiterable(w_dims)
-        _dims = [slice.from_object(space, w_item) for w_item in dims_w]
-        return ExtSlice(_dims)
+        _dims = [slice.from_object(space, arena, w_item) for w_item in dims_w]
+        return ExtSlice(arena, _dims)
 
 State.ast_type('ExtSlice', 'slice', ['dims'])
 
 
 class Index(slice):
 
-    def __init__(self, value):
+    def __init__(self, arena, value):
         self.value = value
+        slice.__init__(self, arena)
 
     def walkabout(self, visitor):
         visitor.visit_Index(self)
@@ -2802,17 +2817,17 @@ class Index(slice):
         return w_node
 
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         w_value = get_field(space, w_node, 'value', False)
-        _value = expr.from_object(space, w_value)
-        return Index(_value)
+        _value = expr.from_object(space, arena, w_value)
+        return Index(arena, _value)
 
 State.ast_type('Index', 'slice', ['value'])
 
 
 class boolop(AST):
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         if space.isinstance_w(w_node, get(space).w_And):
             return 1
         if space.isinstance_w(w_node, get(space).w_Or):
@@ -2841,7 +2856,7 @@ boolop_to_class = [
 
 class operator(AST):
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         if space.isinstance_w(w_node, get(space).w_Add):
             return 1
         if space.isinstance_w(w_node, get(space).w_Sub):
@@ -2960,7 +2975,7 @@ operator_to_class = [
 
 class unaryop(AST):
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         if space.isinstance_w(w_node, get(space).w_Invert):
             return 1
         if space.isinstance_w(w_node, get(space).w_Not):
@@ -3007,7 +3022,7 @@ unaryop_to_class = [
 
 class cmpop(AST):
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         if space.isinstance_w(w_node, get(space).w_Eq):
             return 1
         if space.isinstance_w(w_node, get(space).w_NotEq):
@@ -3108,10 +3123,11 @@ cmpop_to_class = [
 
 class comprehension(AST):
 
-    def __init__(self, target, iter, ifs):
+    def __init__(self, arena, target, iter, ifs):
         self.target = target
         self.iter = iter
         self.ifs = ifs
+        None.__init__(self, arena)
 
     def mutate_over(self, visitor):
         self.target = self.target.mutate_over(visitor)
@@ -3138,41 +3154,41 @@ class comprehension(AST):
         return w_node
 
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         w_target = get_field(space, w_node, 'target', False)
         w_iter = get_field(space, w_node, 'iter', False)
         w_ifs = get_field(space, w_node, 'ifs', False)
-        _target = expr.from_object(space, w_target)
-        _iter = expr.from_object(space, w_iter)
+        _target = expr.from_object(space, arena, w_target)
+        _iter = expr.from_object(space, arena, w_iter)
         ifs_w = space.unpackiterable(w_ifs)
-        _ifs = [expr.from_object(space, w_item) for w_item in ifs_w]
-        return comprehension(_target, _iter, _ifs)
+        _ifs = [expr.from_object(space, arena, w_item) for w_item in ifs_w]
+        return comprehension(arena, _target, _iter, _ifs)
 
 State.ast_type('comprehension', 'AST', ['target', 'iter', 'ifs'])
 
 class excepthandler(AST):
 
-    def __init__(self, lineno, col_offset):
+    def __init__(self, arena, lineno, col_offset):
         self.lineno = lineno
         self.col_offset = col_offset
 
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         if space.is_w(w_node, space.w_None):
             return None
         if space.isinstance_w(w_node, get(space).w_ExceptHandler):
-            return ExceptHandler.from_object(space, w_node)
+            return ExceptHandler.from_object(space, arena, w_node)
         raise oefmt(space.w_TypeError,
                 "Expected excepthandler node, got %T", w_node)
 State.ast_type('excepthandler', 'AST', None, ['lineno', 'col_offset'])
 
 class ExceptHandler(excepthandler):
 
-    def __init__(self, type, name, body, lineno, col_offset):
+    def __init__(self, arena, type, name, body, lineno, col_offset):
         self.type = type
         self.name = name
         self.body = body
-        excepthandler.__init__(self, lineno, col_offset)
+        excepthandler.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_ExceptHandler(self)
@@ -3205,30 +3221,31 @@ class ExceptHandler(excepthandler):
         return w_node
 
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         w_type = get_field(space, w_node, 'type', True)
         w_name = get_field(space, w_node, 'name', True)
         w_body = get_field(space, w_node, 'body', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _type = expr.from_object(space, w_type)
-        _name = expr.from_object(space, w_name)
+        _type = expr.from_object(space, arena, w_type)
+        _name = expr.from_object(space, arena, w_name)
         body_w = space.unpackiterable(w_body)
-        _body = [stmt.from_object(space, w_item) for w_item in body_w]
+        _body = [stmt.from_object(space, arena, w_item) for w_item in body_w]
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
-        return ExceptHandler(_type, _name, _body, _lineno, _col_offset)
+        return ExceptHandler(arena, _type, _name, _body, _lineno, _col_offset)
 
 State.ast_type('ExceptHandler', 'excepthandler', ['type', 'name', 'body'])
 
 
 class arguments(AST):
 
-    def __init__(self, args, vararg, kwarg, defaults):
+    def __init__(self, arena, args, vararg, kwarg, defaults):
         self.args = args
         self.vararg = vararg
         self.kwarg = kwarg
         self.defaults = defaults
+        None.__init__(self, arena)
 
     def mutate_over(self, visitor):
         if self.args:
@@ -3261,26 +3278,27 @@ class arguments(AST):
         return w_node
 
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         w_args = get_field(space, w_node, 'args', False)
         w_vararg = get_field(space, w_node, 'vararg', True)
         w_kwarg = get_field(space, w_node, 'kwarg', True)
         w_defaults = get_field(space, w_node, 'defaults', False)
         args_w = space.unpackiterable(w_args)
-        _args = [expr.from_object(space, w_item) for w_item in args_w]
+        _args = [expr.from_object(space, arena, w_item) for w_item in args_w]
         _vararg = space.str_or_None_w(w_vararg)
         _kwarg = space.str_or_None_w(w_kwarg)
         defaults_w = space.unpackiterable(w_defaults)
-        _defaults = [expr.from_object(space, w_item) for w_item in defaults_w]
-        return arguments(_args, _vararg, _kwarg, _defaults)
+        _defaults = [expr.from_object(space, arena, w_item) for w_item in defaults_w]
+        return arguments(arena, _args, _vararg, _kwarg, _defaults)
 
 State.ast_type('arguments', 'AST', ['args', 'vararg', 'kwarg', 'defaults'])
 
 class keyword(AST):
 
-    def __init__(self, arg, value):
+    def __init__(self, arena, arg, value):
         self.arg = arg
         self.value = value
+        None.__init__(self, arena)
 
     def mutate_over(self, visitor):
         self.value = self.value.mutate_over(visitor)
@@ -3298,20 +3316,21 @@ class keyword(AST):
         return w_node
 
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         w_arg = get_field(space, w_node, 'arg', False)
         w_value = get_field(space, w_node, 'value', False)
         _arg = space.realstr_w(w_arg)
-        _value = expr.from_object(space, w_value)
-        return keyword(_arg, _value)
+        _value = expr.from_object(space, arena, w_value)
+        return keyword(arena, _arg, _value)
 
 State.ast_type('keyword', 'AST', ['arg', 'value'])
 
 class alias(AST):
 
-    def __init__(self, name, asname):
+    def __init__(self, arena, name, asname):
         self.name = name
         self.asname = asname
+        None.__init__(self, arena)
 
     def mutate_over(self, visitor):
         return visitor.visit_alias(self)
@@ -3328,12 +3347,12 @@ class alias(AST):
         return w_node
 
     @staticmethod
-    def from_object(space, w_node):
+    def from_object(space, arena, w_node):
         w_name = get_field(space, w_node, 'name', False)
         w_asname = get_field(space, w_node, 'asname', True)
         _name = space.realstr_w(w_name)
         _asname = space.str_or_None_w(w_asname)
-        return alias(_name, _asname)
+        return alias(arena, _name, _asname)
 
 State.ast_type('alias', 'AST', ['name', 'asname'])
 

@@ -1,5 +1,6 @@
 from pypy.interpreter.astcompiler import ast, consts, misc
 from pypy.interpreter.astcompiler import asthelpers # Side effects
+from pypy.interpreter.astcompiler import astarena # Side effects
 from pypy.interpreter import error
 from pypy.interpreter.pyparser.pygram import syms, tokens
 from pypy.interpreter.pyparser.error import SyntaxError
@@ -7,9 +8,9 @@ from pypy.interpreter.pyparser import parsestring
 from rpython.rlib.objectmodel import specialize
 
 
-def ast_from_node(space, node, compile_info):
+def ast_from_node(space, arena, node, compile_info):
     """Turn a parse tree, node, to AST."""
-    return ASTBuilder(space, node, compile_info).build_ast()
+    return ASTBuilder(space, arena, node, compile_info).build_ast()
 
 
 augassign_operator_map = {
@@ -44,9 +45,10 @@ operator_map = misc.dict_to_switch({
 
 class ASTBuilder(object):
 
-    def __init__(self, space, n, compile_info):
+    def __init__(self, space, arena, n, compile_info):
         self.space = space
         self.compile_info = compile_info
+        self.arena = arena
         self.root_node = n
 
     def build_ast(self):
@@ -66,15 +68,15 @@ class ASTBuilder(object):
                     for j in range(sub_stmts_count):
                         small_stmt = stmt.children[j * 2]
                         stmts.append(self.handle_stmt(small_stmt))
-            return ast.Module(stmts)
+            return ast.Module(self.arena, stmts)
         elif n.type == syms.eval_input:
             body = self.handle_testlist(n.children[0])
-            return ast.Expression(body)
+            return ast.Expression(self.arena, body)
         elif n.type == syms.single_input:
             first_child = n.children[0]
             if first_child.type == tokens.NEWLINE:
                 # An empty line.
-                return ast.Interactive([])
+                return ast.Interactive(self.arena, [])
             else:
                 num_stmts = self.number_of_statements(first_child)
                 if num_stmts == 1:
@@ -86,7 +88,7 @@ class ASTBuilder(object):
                         if stmt.type == tokens.NEWLINE:
                             break
                         stmts.append(self.handle_stmt(stmt))
-                return ast.Interactive(stmts)
+                return ast.Interactive(self.arena, stmts)
         else:
             raise AssertionError("unknown root node")
 
@@ -141,29 +143,31 @@ class ASTBuilder(object):
                            for i in range(start, child_count, 2)]
         if print_node.children[-1].type == tokens.COMMA:
             newline = False
-        return ast.Print(dest, expressions, newline, print_node.lineno,
+        return ast.Print(self.arena, dest, expressions, newline, print_node.lineno,
                          print_node.column)
 
     def handle_del_stmt(self, del_node):
         targets = self.handle_exprlist(del_node.children[1], ast.Del)
-        return ast.Delete(targets, del_node.lineno, del_node.column)
+        return ast.Delete(self.arena, targets, del_node.lineno, del_node.column)
 
     def handle_flow_stmt(self, flow_node):
         first_child = flow_node.children[0]
         first_child_type = first_child.type
         if first_child_type == syms.break_stmt:
-            return ast.Break(flow_node.lineno, flow_node.column)
+            return ast.Break(self.arena, flow_node.lineno, flow_node.column)
         elif first_child_type == syms.continue_stmt:
-            return ast.Continue(flow_node.lineno, flow_node.column)
+            return ast.Continue(self.arena, flow_node.lineno, flow_node.column)
         elif first_child_type == syms.yield_stmt:
             yield_expr = self.handle_expr(first_child.children[0])
-            return ast.Expr(yield_expr, flow_node.lineno, flow_node.column)
+            return ast.Expr(self.arena, yield_expr,
+                            flow_node.lineno, flow_node.column)
         elif first_child_type == syms.return_stmt:
             if len(first_child.children) == 1:
                 values = None
             else:
                 values = self.handle_testlist(first_child.children[1])
-            return ast.Return(values, flow_node.lineno, flow_node.column)
+            return ast.Return(self.arena, values,
+                              flow_node.lineno, flow_node.column)
         elif first_child_type == syms.raise_stmt:
             exc = None
             value = None
@@ -175,8 +179,8 @@ class ASTBuilder(object):
                 value = self.handle_expr(first_child.children[3])
             if child_count == 6:
                 traceback = self.handle_expr(first_child.children[5])
-            return ast.Raise(exc, value, traceback, flow_node.lineno,
-                             flow_node.column)
+            return ast.Raise(self.arena, exc, value, traceback,
+                             flow_node.lineno, flow_node.column)
         else:
             raise AssertionError("unknown flow statement")
 
@@ -191,7 +195,7 @@ class ASTBuilder(object):
                 else:
                     as_name = None
                     self.check_forbidden_name(name, import_name.children[0])
-                return ast.alias(name, as_name)
+                return ast.alias(self.arena, name, as_name)
             elif import_name_type == syms.dotted_as_name:
                 if len(import_name.children) == 1:
                     import_name = import_name.children[0]
@@ -207,13 +211,13 @@ class ASTBuilder(object):
                     name = import_name.children[0].value
                     if store:
                         self.check_forbidden_name(name, import_name.children[0])
-                    return ast.alias(name, None)
+                    return ast.alias(self.arena, name, None)
                 name_parts = [import_name.children[i].value
                               for i in range(0, len(import_name.children), 2)]
                 name = ".".join(name_parts)
-                return ast.alias(name, None)
+                return ast.alias(self.arena, name, None)
             elif import_name_type == tokens.STAR:
-                return ast.alias("*", None)
+                return ast.alias(self.arena, "*", None)
             else:
                 raise AssertionError("unknown import name")
 
@@ -223,7 +227,8 @@ class ASTBuilder(object):
             dotted_as_names = import_node.children[1]
             aliases = [self.alias_for_import_name(dotted_as_names.children[i])
                        for i in range(0, len(dotted_as_names.children), 2)]
-            return ast.Import(aliases, import_node.lineno, import_node.column)
+            return ast.Import(self.arena, aliases,
+                              import_node.lineno, import_node.column)
         elif import_node.type == syms.import_from:
             child_count = len(import_node.children)
             module = None
@@ -262,7 +267,7 @@ class ASTBuilder(object):
                            for i in range(0, len(names_node.children), 2)]
             if module is not None:
                 modname = module.name
-            return ast.ImportFrom(modname, aliases, dot_count,
+            return ast.ImportFrom(self.arena, modname, aliases, dot_count,
                                   import_node.lineno, import_node.column)
         else:
             raise AssertionError("unknown import node")
@@ -270,7 +275,8 @@ class ASTBuilder(object):
     def handle_global_stmt(self, global_node):
         names = [global_node.children[i].value
                  for i in range(1, len(global_node.children), 2)]
-        return ast.Global(names, global_node.lineno, global_node.column)
+        return ast.Global(self.arena, names,
+                          global_node.lineno, global_node.column)
 
     def handle_exec_stmt(self, exec_node):
         child_count = len(exec_node.children)
@@ -288,7 +294,7 @@ class ASTBuilder(object):
             globs = self.handle_expr(exec_node.children[3])
             if child_count == 6:
                 locs = self.handle_expr(exec_node.children[5])
-        return ast.Exec(to_execute, globs, locs, exec_node.lineno,
+        return ast.Exec(self.arena, to_execute, globs, locs, exec_node.lineno,
                         exec_node.column)
 
     def handle_assert_stmt(self, assert_node):
@@ -296,7 +302,8 @@ class ASTBuilder(object):
         msg = None
         if len(assert_node.children) == 4:
             msg = self.handle_expr(assert_node.children[3])
-        return ast.Assert(expr, msg, assert_node.lineno, assert_node.column)
+        return ast.Assert(self.arena, expr, msg,
+                          assert_node.lineno, assert_node.column)
 
     def handle_suite(self, suite_node):
         first_child = suite_node.children[0]
@@ -327,14 +334,15 @@ class ASTBuilder(object):
         if child_count == 4:
             test = self.handle_expr(if_node.children[1])
             suite = self.handle_suite(if_node.children[3])
-            return ast.If(test, suite, None, if_node.lineno, if_node.column)
+            return ast.If(self.arena, test, suite, None,
+                          if_node.lineno, if_node.column)
         otherwise_string = if_node.children[4].value
         if otherwise_string == "else":
             test = self.handle_expr(if_node.children[1])
             suite = self.handle_suite(if_node.children[3])
             else_suite = self.handle_suite(if_node.children[6])
-            return ast.If(test, suite, else_suite, if_node.lineno,
-                          if_node.column)
+            return ast.If(self.arena, test, suite, else_suite,
+                          if_node.lineno, if_node.column)
         elif otherwise_string == "elif":
             elif_count = child_count - 4
             after_elif = if_node.children[elif_count + 1]
@@ -350,7 +358,8 @@ class ASTBuilder(object):
                 last_elif_test = self.handle_expr(last_elif)
                 elif_body = self.handle_suite(if_node.children[-4])
                 else_body = self.handle_suite(if_node.children[-1])
-                otherwise = [ast.If(last_elif_test, elif_body, else_body,
+                otherwise = [ast.If(self.arena, last_elif_test, 
+                                    elif_body, else_body,
                                     last_elif.lineno, last_elif.column)]
                 elif_count -= 1
             else:
@@ -360,12 +369,13 @@ class ASTBuilder(object):
                 elif_test_node = if_node.children[offset]
                 elif_test = self.handle_expr(elif_test_node)
                 elif_body = self.handle_suite(if_node.children[offset + 2])
-                new_if = ast.If(elif_test, elif_body, otherwise,
+                new_if = ast.If(self.arena, elif_test, elif_body, otherwise,
                                 elif_test_node.lineno, elif_test_node.column)
                 otherwise = [new_if]
             expr = self.handle_expr(if_node.children[1])
             body = self.handle_suite(if_node.children[3])
-            return ast.If(expr, body, otherwise, if_node.lineno, if_node.column)
+            return ast.If(self.arena, expr, body, otherwise,
+                          if_node.lineno, if_node.column)
         else:
             raise AssertionError("unknown if statement configuration")
 
@@ -376,8 +386,8 @@ class ASTBuilder(object):
             otherwise = self.handle_suite(while_node.children[6])
         else:
             otherwise = None
-        return ast.While(loop_test, body, otherwise, while_node.lineno,
-                         while_node.column)
+        return ast.While(self.arena, loop_test, body, otherwise,
+                         while_node.lineno, while_node.column)
 
     def handle_for_stmt(self, for_node):
         target_node = for_node.children[1]
@@ -385,7 +395,7 @@ class ASTBuilder(object):
         if len(target_node.children) == 1:
             target = target_as_exprlist[0]
         else:
-            target = ast.Tuple(target_as_exprlist, ast.Store,
+            target = ast.Tuple(self.arena, target_as_exprlist, ast.Store,
                                target_node.lineno, target_node.column)
         expr = self.handle_testlist(for_node.children[3])
         body = self.handle_suite(for_node.children[5])
@@ -393,8 +403,8 @@ class ASTBuilder(object):
             otherwise = self.handle_suite(for_node.children[8])
         else:
             otherwise = None
-        return ast.For(target, expr, body, otherwise, for_node.lineno,
-                       for_node.column)
+        return ast.For(self.arena, target, expr, body, otherwise,
+                       for_node.lineno, for_node.column)
 
     def handle_except_clause(self, exc, body):
         test = None
@@ -407,7 +417,8 @@ class ASTBuilder(object):
             target_child = exc.children[3]
             target = self.handle_expr(target_child)
             self.set_context(target, ast.Store)
-        return ast.ExceptHandler(test, target, suite, exc.lineno, exc.column)
+        return ast.ExceptHandler(self.arena, test, target, suite,
+                                 exc.lineno, exc.column)
 
     def handle_try_stmt(self, try_node):
         body = self.handle_suite(try_node.children[2])
@@ -434,13 +445,13 @@ class ASTBuilder(object):
                 exc = try_node.children[3 + base_offset]
                 except_body = try_node.children[5 + base_offset]
                 handlers.append(self.handle_except_clause(exc, except_body))
-            except_ast = ast.TryExcept(body, handlers, otherwise,
+            except_ast = ast.TryExcept(self.arena, body, handlers, otherwise,
                                        try_node.lineno, try_node.column)
             if finally_suite is None:
                 return except_ast
             body = [except_ast]
-        return ast.TryFinally(body, finally_suite, try_node.lineno,
-                              try_node.column)
+        return ast.TryFinally(self.arena, body, finally_suite,
+                              try_node.lineno, try_node.column)
 
     def handle_with_stmt(self, with_node):
         body = self.handle_suite(with_node.children[-1])
@@ -454,7 +465,7 @@ class ASTBuilder(object):
                 self.set_context(target, ast.Store)
             else:
                 target = None
-            wi = ast.With(test, target, body, with_node.lineno,
+            wi = ast.With(self.arena, test, target, body, with_node.lineno,
                           with_node.column)
             if i == 1:
                 break
@@ -467,16 +478,16 @@ class ASTBuilder(object):
         self.check_forbidden_name(name, name_node)
         if len(classdef_node.children) == 4:
             body = self.handle_suite(classdef_node.children[3])
-            return ast.ClassDef(name, None, body, decorators,
+            return ast.ClassDef(self.arena, name, None, body, decorators,
                                 classdef_node.lineno, classdef_node.column)
         if classdef_node.children[3].type == tokens.RPAR:
             body = self.handle_suite(classdef_node.children[5])
-            return ast.ClassDef(name, None, body, decorators,
+            return ast.ClassDef(self.arena, name, None, body, decorators,
                                 classdef_node.lineno, classdef_node.column)
         bases = self.handle_class_bases(classdef_node.children[3])
         body = self.handle_suite(classdef_node.children[6])
-        return ast.ClassDef(name, bases, body, decorators, classdef_node.lineno,
-                            classdef_node.column)
+        return ast.ClassDef(self.arena, name, bases, body, decorators,
+                            classdef_node.lineno, classdef_node.column)
 
     def handle_class_bases(self, bases_node):
         if len(bases_node.children) == 1:
@@ -489,7 +500,7 @@ class ASTBuilder(object):
         self.check_forbidden_name(name, name_node)
         args = self.handle_arguments(funcdef_node.children[2])
         body = self.handle_suite(funcdef_node.children[4])
-        return ast.FunctionDef(name, args, body, decorators,
+        return ast.FunctionDef(self.arena, name, args, body, decorators,
                                funcdef_node.lineno, funcdef_node.column)
 
     def handle_decorated(self, decorated_node):
@@ -513,7 +524,7 @@ class ASTBuilder(object):
         if len(decorator_node.children) == 3:
             dec = dec_name
         elif len(decorator_node.children) == 5:
-            dec = ast.Call(dec_name, None, None, None, None,
+            dec = ast.Call(self.arena, dec_name, None, None, None, None,
                            decorator_node.lineno, decorator_node.column)
         else:
             dec = self.handle_call(decorator_node.children[3], dec_name)
@@ -521,18 +532,19 @@ class ASTBuilder(object):
 
     def handle_dotted_name(self, dotted_name_node):
         base_value = dotted_name_node.children[0].value
-        name = ast.Name(base_value, ast.Load, dotted_name_node.lineno,
-                        dotted_name_node.column)
+        name = ast.Name(self.arena, base_value, ast.Load,
+                        dotted_name_node.lineno, dotted_name_node.column)
         for i in range(2, len(dotted_name_node.children), 2):
             attr = dotted_name_node.children[i].value
-            name = ast.Attribute(name, attr, ast.Load, dotted_name_node.lineno,
+            name = ast.Attribute(self.arena, name, attr, ast.Load,
+                                 dotted_name_node.lineno,
                                  dotted_name_node.column)
         return name
 
     def handle_arguments(self, arguments_node):
         if arguments_node.type == syms.parameters:
             if len(arguments_node.children) == 2:
-                return ast.arguments(None, None, None, None)
+                return ast.arguments(self.arena, None, None, None, None)
             arguments_node = arguments_node.children[1]
         i = 0
         child_count = len(arguments_node.children)
@@ -574,8 +586,8 @@ class ASTBuilder(object):
                         name_node = argument.children[0]
                         arg_name = name_node.value
                         self.check_forbidden_name(arg_name, name_node)
-                        name = ast.Name(arg_name, ast.Param, name_node.lineno,
-                                        name_node.column)
+                        name = ast.Name(self.arena, arg_name, ast.Param,
+                                        name_node.lineno, name_node.column)
                         args.append(name)
                     i += 2
                     break
@@ -595,7 +607,8 @@ class ASTBuilder(object):
             defaults = None
         if not args:
             args = None
-        return ast.arguments(args, variable_arg, keywords_arg, defaults)
+        return ast.arguments(self.arena, args, variable_arg, keywords_arg,
+                             defaults)
 
     def handle_arg_unpacking(self, fplist_node):
         args = []
@@ -604,8 +617,8 @@ class ASTBuilder(object):
             while True:
                 child = fpdef_node.children[0]
                 if child.type == tokens.NAME:
-                    arg = ast.Name(child.value, ast.Store, child.lineno,
-                                   child.column)
+                    arg = ast.Name(self.arena, child.value, ast.Store,
+                                   child.lineno, child.column)
                     args.append(arg)
                 else:
                     child = fpdef_node.children[1]
@@ -614,7 +627,8 @@ class ASTBuilder(object):
                         continue
                     args.append(self.handle_arg_unpacking(child))
                 break
-        tup = ast.Tuple(args, ast.Store, fplist_node.lineno, fplist_node.column)
+        tup = ast.Tuple(self.arena, args, ast.Store,
+                        fplist_node.lineno, fplist_node.column)
         self.set_context(tup, ast.Store)
         return tup
 
@@ -636,7 +650,7 @@ class ASTBuilder(object):
             elif stmt_type == syms.del_stmt:
                 return self.handle_del_stmt(stmt)
             elif stmt_type == syms.pass_stmt:
-                return ast.Pass(stmt.lineno, stmt.column)
+                return ast.Pass(self.arena, stmt.lineno, stmt.column)
             elif stmt_type == syms.flow_stmt:
                 return self.handle_flow_stmt(stmt)
             elif stmt_type == syms.import_stmt:
@@ -676,7 +690,7 @@ class ASTBuilder(object):
     def handle_expr_stmt(self, stmt):
         if len(stmt.children) == 1:
             expression = self.handle_testlist(stmt.children[0])
-            return ast.Expr(expression, stmt.lineno, stmt.column)
+            return ast.Expr(self.arena, expression, stmt.lineno, stmt.column)
         elif stmt.children[1].type == syms.augassign:
             # Augmented assignment.
             target_child = stmt.children[0]
@@ -689,7 +703,7 @@ class ASTBuilder(object):
                 value_expr = self.handle_expr(value_child)
             op_str = stmt.children[1].children[0].value
             operator = augassign_operator_map[op_str]
-            return ast.AugAssign(target_expr, operator, value_expr,
+            return ast.AugAssign(self.arena, target_expr, operator, value_expr,
                                  stmt.lineno, stmt.column)
         else:
             # Normal assignment.
@@ -706,7 +720,8 @@ class ASTBuilder(object):
                 value_expr = self.handle_testlist(value_child)
             else:
                 value_expr = self.handle_expr(value_child)
-            return ast.Assign(targets, value_expr, stmt.lineno, stmt.column)
+            return ast.Assign(self.arena, targets, value_expr,
+                              stmt.lineno, stmt.column)
 
     def get_expression_list(self, tests):
         return [self.handle_expr(tests.children[i])
@@ -717,7 +732,8 @@ class ASTBuilder(object):
             return self.handle_expr(tests.children[0])
         else:
             elts = self.get_expression_list(tests)
-            return ast.Tuple(elts, ast.Load, tests.lineno, tests.column)
+            return ast.Tuple(self.arena, elts, ast.Load,
+                             tests.lineno, tests.column)
 
     def handle_expr(self, expr_node):
         # Loop until we return something.
@@ -742,13 +758,14 @@ class ASTBuilder(object):
                     op = ast.Or
                 else:
                     op = ast.And
-                return ast.BoolOp(op, seq, expr_node.lineno, expr_node.column)
+                return ast.BoolOp(self.arena, op, seq,
+                                  expr_node.lineno, expr_node.column)
             elif expr_node_type == syms.not_test:
                 if len(expr_node.children) == 1:
                     expr_node = expr_node.children[0]
                     continue
                 expr = self.handle_expr(expr_node.children[1])
-                return ast.UnaryOp(ast.Not, expr, expr_node.lineno,
+                return ast.UnaryOp(self.arena, ast.Not, expr, expr_node.lineno,
                                    expr_node.column)
             elif expr_node_type == syms.comparison:
                 if len(expr_node.children) == 1:
@@ -760,8 +777,8 @@ class ASTBuilder(object):
                 for i in range(1, len(expr_node.children), 2):
                     operators.append(self.handle_comp_op(expr_node.children[i]))
                     operands.append(self.handle_expr(expr_node.children[i + 1]))
-                return ast.Compare(expr, operators, operands, expr_node.lineno,
-                                   expr_node.column)
+                return ast.Compare(self.arena, expr, operators, operands,
+                                   expr_node.lineno, expr_node.column)
             elif expr_node_type == syms.expr or \
                     expr_node_type == syms.xor_expr or \
                     expr_node_type == syms.and_expr or \
@@ -777,7 +794,8 @@ class ASTBuilder(object):
                     exp = self.handle_testlist(expr_node.children[1])
                 else:
                     exp = None
-                return ast.Yield(exp, expr_node.lineno, expr_node.column)
+                return ast.Yield(self.arena, exp,
+                                 expr_node.lineno, expr_node.column)
             elif expr_node_type == syms.factor:
                 if len(expr_node.children) == 1:
                     expr_node = expr_node.children[0]
@@ -791,17 +809,18 @@ class ASTBuilder(object):
     def handle_lambdef(self, lambdef_node):
         expr = self.handle_expr(lambdef_node.children[-1])
         if len(lambdef_node.children) == 3:
-            args = ast.arguments(None, None, None, None)
+            args = ast.arguments(self.arena, None, None, None, None)
         else:
             args = self.handle_arguments(lambdef_node.children[1])
-        return ast.Lambda(args, expr, lambdef_node.lineno, lambdef_node.column)
+        return ast.Lambda(self.arena, args, expr,
+                          lambdef_node.lineno, lambdef_node.column)
 
     def handle_ifexp(self, if_expr_node):
         body = self.handle_expr(if_expr_node.children[0])
         expression = self.handle_expr(if_expr_node.children[2])
         otherwise = self.handle_expr(if_expr_node.children[4])
-        return ast.IfExp(expression, body, otherwise, if_expr_node.lineno,
-                         if_expr_node.column)
+        return ast.IfExp(self.arena, expression, body, otherwise,
+                         if_expr_node.lineno, if_expr_node.column)
 
     def handle_comp_op(self, comp_op_node):
         comp_node = comp_op_node.children[0]
@@ -840,15 +859,15 @@ class ASTBuilder(object):
         left = self.handle_expr(binop_node.children[0])
         right = self.handle_expr(binop_node.children[2])
         op = operator_map(binop_node.children[1].type)
-        result = ast.BinOp(left, op, right, binop_node.lineno,
-                           binop_node.column)
+        result = ast.BinOp(self.arena, left, op, right,
+                           binop_node.lineno, binop_node.column)
         number_of_ops = (len(binop_node.children) - 1) / 2
         for i in range(1, number_of_ops):
             op_node = binop_node.children[i * 2 + 1]
             op = operator_map(op_node.type)
             sub_right = self.handle_expr(binop_node.children[i * 2 + 2])
-            result = ast.BinOp(result, op, sub_right, op_node.lineno,
-                               op_node.column)
+            result = ast.BinOp(self.arena, result, op, sub_right,
+                               op_node.lineno, op_node.column)
         return result
 
     def handle_factor(self, factor_node):
@@ -875,7 +894,8 @@ class ASTBuilder(object):
             op = ast.Invert
         else:
             raise AssertionError("invalid factor node")
-        return ast.UnaryOp(op, expr, factor_node.lineno, factor_node.column)
+        return ast.UnaryOp(self.arena, op, expr,
+                           factor_node.lineno, factor_node.column)
 
     def handle_power(self, power_node):
         atom_expr = self.handle_atom(power_node.children[0])
@@ -891,17 +911,17 @@ class ASTBuilder(object):
             atom_expr = tmp_atom_expr
         if power_node.children[-1].type == syms.factor:
             right = self.handle_expr(power_node.children[-1])
-            atom_expr = ast.BinOp(atom_expr, ast.Pow, right, power_node.lineno,
-                                  power_node.column)
+            atom_expr = ast.BinOp(self.arena, atom_expr, ast.Pow, right,
+                                  power_node.lineno, power_node.column)
         return atom_expr
 
     def handle_slice(self, slice_node):
         first_child = slice_node.children[0]
         if first_child.type == tokens.DOT:
-            return ast.Ellipsis()
+            return ast.Ellipsis(self.arena)
         if len(slice_node.children) == 1 and first_child.type == syms.test:
             index = self.handle_expr(first_child)
-            return ast.Index(index)
+            return ast.Index(self.arena, index)
         lower = None
         upper = None
         step = None
@@ -919,31 +939,31 @@ class ASTBuilder(object):
         last_child = slice_node.children[-1]
         if last_child.type == syms.sliceop:
             if len(last_child.children) == 1:
-                step = ast.Name("None", ast.Load, last_child.lineno,
-                                last_child.column)
+                step = ast.Name(self.arena, "None", ast.Load,
+                                last_child.lineno, last_child.column)
             else:
                 step_child = last_child.children[1]
                 if step_child.type == syms.test:
                     step = self.handle_expr(step_child)
-        return ast.Slice(lower, upper, step)
+        return ast.Slice(self.arena, lower, upper, step)
 
     def handle_trailer(self, trailer_node, left_expr):
         first_child = trailer_node.children[0]
         if first_child.type == tokens.LPAR:
             if len(trailer_node.children) == 2:
-                return ast.Call(left_expr, None, None, None, None,
+                return ast.Call(self.arena, left_expr, None, None, None, None,
                                 trailer_node.lineno, trailer_node.column)
             else:
                 return self.handle_call(trailer_node.children[1], left_expr)
         elif first_child.type == tokens.DOT:
             attr = trailer_node.children[1].value
-            return ast.Attribute(left_expr, attr, ast.Load,
+            return ast.Attribute(self.arena, left_expr, attr, ast.Load,
                                  trailer_node.lineno, trailer_node.column)
         else:
             middle = trailer_node.children[1]
             if len(middle.children) == 1:
                 slice = self.handle_slice(middle.children[0])
-                return ast.Subscript(left_expr, slice, ast.Load,
+                return ast.Subscript(self.arena, left_expr, slice, ast.Load,
                                      middle.lineno, middle.column)
             slices = []
             simple = True
@@ -953,15 +973,17 @@ class ASTBuilder(object):
                     simple = False
                 slices.append(slc)
             if not simple:
-                ext_slice = ast.ExtSlice(slices)
-                return ast.Subscript(left_expr, ext_slice, ast.Load,
+                ext_slice = ast.ExtSlice(self.arena, slices)
+                return ast.Subscript(self.arena, left_expr, ext_slice, ast.Load,
                                      middle.lineno, middle.column)
             elts = []
             for idx in slices:
                 assert isinstance(idx, ast.Index)
                 elts.append(idx.value)
-            tup = ast.Tuple(elts, ast.Load, middle.lineno, middle.column)
-            return ast.Subscript(left_expr, ast.Index(tup), ast.Load,
+            tup = ast.Tuple(self.arena, elts, ast.Load,
+                            middle.lineno, middle.column)
+            return ast.Subscript(self.arena, left_expr,
+                                 ast.Index(self.arena, tup), ast.Load,
                                  middle.lineno, middle.column)
 
     def handle_call(self, args_node, callable_expr):
@@ -1018,7 +1040,8 @@ class ASTBuilder(object):
                     used_keywords[keyword] = None
                     self.check_forbidden_name(keyword, keyword_node)
                     keyword_value = self.handle_expr(argument.children[2])
-                    keywords.append(ast.keyword(keyword, keyword_value))
+                    keywords.append(ast.keyword(self.arena,
+                                                keyword, keyword_value))
             elif argument.type == tokens.STAR:
                 variable_arg = self.handle_expr(args_node.children[i + 1])
                 i += 1
@@ -1030,9 +1053,9 @@ class ASTBuilder(object):
             args = None
         if not keywords:
             keywords = None
-        return ast.Call(callable_expr, args, keywords, variable_arg,
-                        keywords_arg, callable_expr.lineno,
-                        callable_expr.col_offset)
+        return ast.Call(self.arena, callable_expr, args, keywords,
+                        variable_arg, keywords_arg,
+                        callable_expr.lineno, callable_expr.col_offset)
 
     def parse_number(self, raw):
         base = 10
@@ -1085,7 +1108,7 @@ class ASTBuilder(object):
         first_child = atom_node.children[0]
         first_child_type = first_child.type
         if first_child_type == tokens.NAME:
-            return ast.Name(first_child.value, ast.Load,
+            return ast.Name(self.arena, first_child.value, ast.Load,
                             first_child.lineno, first_child.column)
         elif first_child_type == tokens.STRING:
             space = self.space
@@ -1109,14 +1132,16 @@ class ASTBuilder(object):
                 final_string = space.call_function(w_join, w_sub_strings)
             else:
                 final_string = sub_strings_w[0]
-            return ast.Str(final_string, atom_node.lineno, atom_node.column)
+            return ast.Str(self.arena, final_string,
+                           atom_node.lineno, atom_node.column)
         elif first_child_type == tokens.NUMBER:
             num_value = self.parse_number(first_child.value)
-            return ast.Num(num_value, atom_node.lineno, atom_node.column)
+            return ast.Num(self.arena, num_value,
+                           atom_node.lineno, atom_node.column)
         elif first_child_type == tokens.LPAR:
             second_child = atom_node.children[1]
             if second_child.type == tokens.RPAR:
-                return ast.Tuple(None, ast.Load, atom_node.lineno,
+                return ast.Tuple(self.arena, None, ast.Load, atom_node.lineno,
                                  atom_node.column)
             elif second_child.type == syms.yield_expr:
                 return self.handle_expr(second_child)
@@ -1124,24 +1149,26 @@ class ASTBuilder(object):
         elif first_child_type == tokens.LSQB:
             second_child = atom_node.children[1]
             if second_child.type == tokens.RSQB:
-                return ast.List(None, ast.Load, atom_node.lineno,
+                return ast.List(self.arena, None, ast.Load, atom_node.lineno,
                                 atom_node.column)
             if len(second_child.children) == 1 or \
                     second_child.children[1].type == tokens.COMMA:
                 elts = self.get_expression_list(second_child)
-                return ast.List(elts, ast.Load, atom_node.lineno,
+                return ast.List(self.arena, elts, ast.Load, atom_node.lineno,
                                 atom_node.column)
             return self.handle_listcomp(second_child)
         elif first_child_type == tokens.LBRACE:
             maker = atom_node.children[1]
             if maker.type == tokens.RBRACE:
-                return ast.Dict(None, None, atom_node.lineno, atom_node.column)
+                return ast.Dict(self.arena, None, None,
+                                atom_node.lineno, atom_node.column)
             n_maker_children = len(maker.children)
             if n_maker_children == 1 or maker.children[1].type == tokens.COMMA:
                 elts = []
                 for i in range(0, n_maker_children, 2):
                     elts.append(self.handle_expr(maker.children[i]))
-                return ast.Set(elts, atom_node.lineno, atom_node.column)
+                return ast.Set(self.arena, elts,
+                               atom_node.lineno, atom_node.column)
             if maker.children[1].type == syms.comp_for:
                 return self.handle_setcomp(maker)
             if (n_maker_children > 3 and
@@ -1152,10 +1179,12 @@ class ASTBuilder(object):
             for i in range(0, n_maker_children, 4):
                 keys.append(self.handle_expr(maker.children[i]))
                 values.append(self.handle_expr(maker.children[i + 2]))
-            return ast.Dict(keys, values, atom_node.lineno, atom_node.column)
+            return ast.Dict(self.arena, keys, values,
+                            atom_node.lineno, atom_node.column)
         elif first_child_type == tokens.BACKQUOTE:
             expr = self.handle_testlist(atom_node.children[1])
-            return ast.Repr(expr, atom_node.lineno, atom_node.column)
+            return ast.Repr(self.arena, expr,
+                            atom_node.lineno, atom_node.column)
         else:
             raise AssertionError("unknown atom")
 
@@ -1213,7 +1242,7 @@ class ASTBuilder(object):
             expr = handle_source_expression(comp_node.children[3])
             assert isinstance(expr, ast.expr)
             if len(for_node.children) == 1:
-                comp = ast.comprehension(for_targets[0], expr, None)
+                comp = ast.comprehension(self.arena, for_targets[0], expr, None)
             else:
                 col = comp_node.column
                 line = comp_node.lineno
@@ -1223,8 +1252,9 @@ class ASTBuilder(object):
                     assert isinstance(expr_node, ast.expr)
                     col = expr_node.col_offset
                     line = expr_node.lineno
-                target = ast.Tuple(for_targets, ast.Store, line, col)
-                comp = ast.comprehension(target, expr, None)
+                target = ast.Tuple(self.arena, for_targets, ast.Store,
+                                   line, col)
+                comp = ast.comprehension(self.arena, target, expr, None)
             if len(comp_node.children) == 5:
                 comp_node = comp_iter = comp_node.children[4]
                 assert comp_iter.type == iter_type
@@ -1247,7 +1277,7 @@ class ASTBuilder(object):
         elt = self.handle_expr(genexp_node.children[0])
         comps = self.comprehension_helper(genexp_node.children[1],
                                           comp_fix_unamed_tuple_location=True)
-        return ast.GeneratorExp(elt, comps, genexp_node.lineno,
+        return ast.GeneratorExp(self.arena, elt, comps, genexp_node.lineno,
                                 genexp_node.column)
 
     def handle_listcomp(self, listcomp_node):
@@ -1257,21 +1287,22 @@ class ASTBuilder(object):
                                           syms.list_for, syms.list_if,
                                           syms.list_iter,
                                           comp_fix_unamed_tuple_location=True)
-        return ast.ListComp(elt, comps, listcomp_node.lineno,
+        return ast.ListComp(self.arena, elt, comps, listcomp_node.lineno,
                             listcomp_node.column)
 
     def handle_setcomp(self, set_maker):
         elt = self.handle_expr(set_maker.children[0])
         comps = self.comprehension_helper(set_maker.children[1],
                                           comp_fix_unamed_tuple_location=True)
-        return ast.SetComp(elt, comps, set_maker.lineno, set_maker.column)
+        return ast.SetComp(self.arena, elt, comps,
+                           set_maker.lineno, set_maker.column)
 
     def handle_dictcomp(self, dict_maker):
         key = self.handle_expr(dict_maker.children[0])
         value = self.handle_expr(dict_maker.children[2])
         comps = self.comprehension_helper(dict_maker.children[3],
                                           comp_fix_unamed_tuple_location=True)
-        return ast.DictComp(key, value, comps, dict_maker.lineno,
+        return ast.DictComp(self.arena, key, value, comps, dict_maker.lineno,
                             dict_maker.column)
 
     def handle_exprlist(self, exprlist, context):

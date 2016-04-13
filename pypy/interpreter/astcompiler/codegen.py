@@ -13,10 +13,10 @@ from pypy.interpreter.pyparser.error import SyntaxError
 from pypy.tool import stdlib_opcode as ops
 
 
-def compile_ast(space, module, info):
+def compile_ast(space, arena, module, info):
     """Generate a code object from AST."""
     symbols = symtable.SymtableBuilder(space, module, info)
-    return TopLevelCodeGenerator(space, module, symbols, info).assemble()
+    return TopLevelCodeGenerator(space, arena, module, symbols, info).assemble()
 
 
 name_ops_default = misc.dict_to_switch({
@@ -163,10 +163,11 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
     across the AST tree generating bytecode as needed.
     """
 
-    def __init__(self, space, name, tree, lineno, symbols, compile_info):
+    def __init__(self, space, arena, name, tree, lineno, symbols, compile_info):
         self.scope = symbols.find_scope(tree)
         assemble.PythonCodeMaker.__init__(self, space, name, lineno,
                                           self.scope, compile_info)
+        self.arena = arena
         self.symbols = symbols
         self.frame_blocks = []
         self.interactive = False
@@ -189,8 +190,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def sub_scope(self, kind, name, node, lineno):
         """Convenience function for compiling a sub scope."""
-        generator = kind(self.space, name, node, lineno, self.symbols,
-                         self.compile_info)
+        generator = kind(self.space, self.arena, name, node, lineno,
+                         self.symbols, self.compile_info)
         return generator.assemble()
 
     def push_frame_block(self, kind, block):
@@ -346,7 +347,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.update_position(assign.lineno, True)
         target = assign.target
         if isinstance(target, ast.Attribute):
-            attr = ast.Attribute(target.value, target.attr, ast.AugLoad,
+            attr = ast.Attribute(self.arena,
+                                 target.value, target.attr, ast.AugLoad,
                                  target.lineno, target.col_offset)
             attr.walkabout(self)
             assign.value.walkabout(self)
@@ -354,7 +356,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             attr.ctx = ast.AugStore
             attr.walkabout(self)
         elif isinstance(target, ast.Subscript):
-            sub = ast.Subscript(target.value, target.slice, ast.AugLoad,
+            sub = ast.Subscript(self.arena,
+                                target.value, target.slice, ast.AugLoad,
                                 target.lineno, target.col_offset)
             sub.walkabout(self)
             assign.value.walkabout(self)
@@ -1200,8 +1203,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
 class TopLevelCodeGenerator(PythonCodeGenerator):
 
-    def __init__(self, space, tree, symbols, compile_info):
-        PythonCodeGenerator.__init__(self, space, "<module>", tree, -1,
+    def __init__(self, space, arena, tree, symbols, compile_info):
+        PythonCodeGenerator.__init__(self, space, arena, "<module>", tree, -1,
                                      symbols, compile_info)
 
     def _compile(self, tree):

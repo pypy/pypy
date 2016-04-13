@@ -58,7 +58,7 @@ class ASTNodeVisitor(ASDLVisitor):
         if is_simple_sum(sum):
             self.emit("class %s(AST):" % (base,))
             self.emit("@staticmethod", 1)
-            self.emit("def from_object(space, w_node):", 1)
+            self.emit("def from_object(space, arena, w_node):", 1)
             for i, cons in enumerate(sum.types):
                 self.emit("if space.isinstance_w(w_node, get(space).w_%s):"
                           % (cons.name,), 2)
@@ -83,21 +83,24 @@ class ASTNodeVisitor(ASDLVisitor):
             self.emit("")
         else:
             self.emit("class %s(AST):" % (base,))
+            self.emit("")
+            args = "".join(", " + attr.name.value
+                           for attr in sum.attributes)
+            self.emit("def __init__(self, arena%s):" % (args,), 1)
             if sum.attributes:
-                self.emit("")
-                args = ", ".join(attr.name.value for attr in sum.attributes)
-                self.emit("def __init__(self, %s):" % (args,), 1)
                 for attr in sum.attributes:
                     self.visit(attr)
-                self.emit("")
+            else:
+                self.emit("pass", 2)
+            self.emit("")
             self.emit("@staticmethod", 1)
-            self.emit("def from_object(space, w_node):", 1)
+            self.emit("def from_object(space, arena, w_node):", 1)
             self.emit("if space.is_w(w_node, space.w_None):", 2)
             self.emit("    return None", 2)
             for typ in sum.types:
                 self.emit("if space.isinstance_w(w_node, get(space).w_%s):"
                           % (typ.name,), 2)
-                self.emit("return %s.from_object(space, w_node)"
+                self.emit("return %s.from_object(space, arena, w_node)"
                           % (typ.name,), 3)
             self.emit("raise oefmt(space.w_TypeError,", 2)
             self.emit("        \"Expected %s node, got %%T\", w_node)" % (base,), 2)
@@ -137,7 +140,7 @@ class ASTNodeVisitor(ASDLVisitor):
         
     def get_value_extractor(self, field, value):
         if field.type.value in self.data.simple_types:
-            return "%s.from_object(space, %s)" % (field.type, value)
+            return "%s.from_object(space, arena, %s)" % (field.type, value)
         elif field.type.value in ("object",):
             return value
         elif field.type.value in ("string",):
@@ -151,7 +154,7 @@ class ASTNodeVisitor(ASDLVisitor):
         elif field.type.value in ("bool",):
             return "space.bool_w(%s)" % (value,)
         else:
-            return "%s.from_object(space, %s)" % (field.type, value)
+            return "%s.from_object(space, arena, %s)" % (field.type, value)
 
     def get_field_converter(self, field):
         if field.seq:
@@ -194,7 +197,7 @@ class ASTNodeVisitor(ASDLVisitor):
         self.emit("return w_node", 2)
         self.emit("")
         self.emit("@staticmethod", 1)
-        self.emit("def from_object(space, w_node):", 1)
+        self.emit("def from_object(space, arena, w_node):", 1)
         for field in all_fields:
             self.emit("w_%s = get_field(space, w_node, '%s', %s)" % (
                     field.name, field.name, field.opt), 2)
@@ -202,20 +205,21 @@ class ASTNodeVisitor(ASDLVisitor):
             unwrapping_code = self.get_field_extractor(field)
             for line in unwrapping_code:
                 self.emit(line, 2)
-        self.emit("return %s(%s)" % (
-                name, ', '.join("_%s" % (field.name,) for field in all_fields)), 2)
+        self.emit("return %s(arena%s)" % (
+                name, ''.join(", _%s" % (field.name,) for field in all_fields)), 2)
         self.emit("")
 
     def make_constructor(self, fields, node, extras=None, base=None):
         if fields or extras:
             arg_fields = fields + extras if extras else fields
-            args = ", ".join(str(field.name) for field in arg_fields)
+            args = "arena" + "".join(", %s" % field.name
+                                     for field in arg_fields)
             self.emit("def __init__(self, %s):" % args, 1)
             for field in fields:
                 self.visit(field)
-            if extras:
-                base_args = ", ".join(str(field.name) for field in extras)
-                self.emit("%s.__init__(self, %s)" % (base, base_args), 2)
+            base_args = "arena" + "".join(", %s" % field.name
+                                          for field in (extras or ()))
+            self.emit("%s.__init__(self, %s)" % (base, base_args), 2)
     
     def make_mutate_over(self, cons, name):
         self.emit("def mutate_over(self, visitor):", 1)

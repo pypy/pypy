@@ -6,23 +6,25 @@ from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.pyparser.error import SyntaxError, IndentationError
 from pypy.tool import stdlib_opcode as ops
 
+ARENA = None
+
 def compile_with_astcompiler(expr, mode, space):
     p = pyparse.PythonParser(space)
     info = pyparse.CompileInfo("<test>", mode)
     cst = p.parse_source(expr, info)
-    ast = astbuilder.ast_from_node(space, cst, info)
-    return codegen.compile_ast(space, ast, info)
+    ast = astbuilder.ast_from_node(space, ARENA, cst, info)
+    return codegen.compile_ast(space, ARENA, ast, info)
 
 def generate_function_code(expr, space):
     p = pyparse.PythonParser(space)
     info = pyparse.CompileInfo("<test>", 'exec')
     cst = p.parse_source(expr, info)
-    ast = astbuilder.ast_from_node(space, cst, info)
-    function_ast = optimize.optimize_ast(space, ast.body[0], info)
+    ast = astbuilder.ast_from_node(space, ARENA, cst, info)
+    function_ast = optimize.optimize_ast(space, ARENA, ast.body[0], info)
     function_ast = ast.body[0]
     symbols = symtable.SymtableBuilder(space, ast, info)
     generator = codegen.FunctionCodeGenerator(
-        space, 'function', function_ast, 1, symbols, info)
+        space, ARENA, 'function', function_ast, 1, symbols, info)
     blocks = generator.first_block.post_order()
     generator._resolve_block_targets(blocks)
     return generator, blocks
