@@ -994,18 +994,6 @@ class AssemblerARM(ResOpAssembler):
             else:
                 clt.invalidate_positions.append((guard_pos, relative_offset))
 
-    def get_asmmemmgr_blocks(self, looptoken):
-        clt = looptoken.compiled_loop_token
-        if clt.asmmemmgr_blocks is None:
-            clt.asmmemmgr_blocks = []
-        return clt.asmmemmgr_blocks
-
-    def get_asmmemmgr_gcreftracers(self, looptoken):
-        clt = looptoken.compiled_loop_token
-        if clt.asmmemmgr_gcreftracers is None:
-            clt.asmmemmgr_gcreftracers = []
-        return clt.asmmemmgr_gcreftracers
-
     def _walk_operations(self, inputargs, operations, regalloc):
         fcond = c.AL
         self._regalloc = regalloc

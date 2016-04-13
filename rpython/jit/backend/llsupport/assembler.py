@@ -161,6 +161,18 @@ class BaseAssembler(object):
             assert self._allgcrefs_faildescr_next < len(self._allgcrefs)
         return self._allgcrefs_faildescr_next
 
+    def get_asmmemmgr_blocks(self, looptoken):
+        clt = looptoken.compiled_loop_token
+        if clt.asmmemmgr_blocks is None:
+            clt.asmmemmgr_blocks = []
+        return clt.asmmemmgr_blocks
+
+    def get_asmmemmgr_gcreftracers(self, looptoken):
+        clt = looptoken.compiled_loop_token
+        if clt.asmmemmgr_gcreftracers is None:
+            clt.asmmemmgr_gcreftracers = []
+        return clt.asmmemmgr_gcreftracers
+
     def set_debug(self, v):
         r = self._debug
         self._debug = v

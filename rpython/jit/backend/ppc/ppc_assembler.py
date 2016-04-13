@@ -752,7 +752,6 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         frame_info = self.datablockwrapper.malloc_aligned(
             jitframe.JITFRAMEINFO_SIZE, alignment=WORD)
         clt.frame_info = rffi.cast(jitframe.JITFRAMEINFOPTR, frame_info)
-        clt.allgcrefs = []
         clt.frame_info.clear() # for now
 
         if log:
@@ -762,8 +761,10 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         regalloc = Regalloc(assembler=self)
         #
         self._call_header_with_stack_check()
+        allgcrefs = []
         operations = regalloc.prepare_loop(inputargs, operations,
-                                           looptoken, clt.allgcrefs)
+                                           looptoken, allgcrefs)
+        self.reserve_gcref_table(allgcrefs)
         looppos = self.mc.get_relative_pos()
         frame_depth_no_fixed_size = self._assemble(regalloc, inputargs,
                                                    operations)
@@ -786,6 +787,7 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
             r_uint(rawstart + size_excluding_failure_stuff),
             r_uint(rawstart)))
         debug_stop("jit-backend-addr")
+        self.patch_gcref_table(looptoken, rawstart)
         self.patch_pending_failure_recoveries(rawstart)
         #
         ops_offset = self.mc.ops_offset
@@ -840,11 +842,14 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
 
         arglocs = self.rebuild_faillocs_from_descr(faildescr, inputargs)
         regalloc = Regalloc(assembler=self)
-        startpos = self.mc.get_relative_pos()
+        allgcrefs = []
         operations = regalloc.prepare_bridge(inputargs, arglocs,
                                              operations,
-                                             self.current_clt.allgcrefs,
+                                             allgcrefs,
                                              self.current_clt.frame_info)
+        self.reserve_gcref_table(allgcrefs)
+        startpos = self.mc.get_relative_pos()
+
         self._check_frame_depth(self.mc, regalloc.get_gcmap())
         frame_depth_no_fixed_size = self._assemble(regalloc, inputargs, operations)
         codeendpos = self.mc.get_relative_pos()
@@ -854,6 +859,7 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         self.patch_stack_checks(frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)
         rawstart = self.materialize_loop(original_loop_token)
         debug_bridge(descr_number, rawstart, codeendpos)
+        self.patch_gcref_table(original_loop_token, rawstart)
         self.patch_pending_failure_recoveries(rawstart)
         # patch the jump from original guard
         self.patch_jump_for_descr(faildescr, rawstart)
@@ -867,6 +873,22 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         self.update_frame_depth(frame_depth)
         self.teardown()
         return AsmInfo(ops_offset, startpos + rawstart, codeendpos - startpos)
+
+    def reserve_gcref_table(self, allgcrefs):
+        # allocate the gc table right now.  We write absolute loads in
+        # each load_from_gc_table instruction for now.  XXX improve,
+        # but it's messy.
+        self.gc_table_addr = self.datablockwrapper.malloc_aligned(
+                len(allgcrefs) * WORD, alignment=WORD)
+        self.setup_gcrefs_list(allgcrefs)
+
+    def patch_gcref_table(self, looptoken, rawstart):
+        rawstart = self.gc_table_addr
+        tracer = self.cpu.gc_ll_descr.make_gcref_tracer(rawstart,
+                                                        self._allgcrefs)
+        gcreftracers = self.get_asmmemmgr_gcreftracers(looptoken)
+        gcreftracers.append(tracer)    # keepalive
+        self.teardown_gcrefs_list()
 
     def teardown(self):
         self.pending_guard_tokens = None
@@ -921,12 +943,12 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
 
     def generate_quick_failure(self, guardtok):
         startpos = self.mc.currpos()
-        fail_descr, target = self.store_info_on_descr(startpos, guardtok)
+        faildescrindex, target = self.store_info_on_descr(startpos, guardtok)
         assert target != 0
-        self.load_gcmap(self.mc, r.r2, gcmap=guardtok.gcmap)
-        self.mc.load_imm(r.r0, target)
-        self.mc.mtctr(r.r0.value)
-        self.mc.load_imm(r.r0, fail_descr)
+        self.mc.load_imm(r.r2, target)
+        self.mc.mtctr(r.r2.value)
+        self._load_from_gc_table(r.r0, r.r2, faildescrindex)
+        self.load_gcmap(self.mc, r.r2, gcmap=guardtok.gcmap)   # preserves r0
         self.mc.bctr()
         # we need to write at least 6 insns here, for patch_jump_for_descr()
         while self.mc.currpos() < startpos + 6 * 4:

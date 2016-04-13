@@ -291,8 +291,10 @@ class GuardOpAssembler(object):
     def build_guard_token(self, op, frame_depth, arglocs, fcond):
         descr = op.getdescr()
         gcmap = allocate_gcmap(self, frame_depth, r.JITFRAME_FIXED_SIZE)
+        faildescrindex = self.get_gcref_from_faildescr(descr)
         token = PPCGuardToken(self.cpu, gcmap, descr, op.getfailargs(),
                               arglocs, op.getopnum(), frame_depth,
+                              faildescrindex,
                               fcond)
         return token
 
@@ -474,19 +476,19 @@ class MiscOpAssembler(object):
 
     def emit_finish(self, op, arglocs, regalloc):
         base_ofs = self.cpu.get_baseofs_of_frame_field()
-        if len(arglocs) > 1:
-            [return_val, fail_descr_loc] = arglocs
+        if len(arglocs) > 0:
+            [return_val] = arglocs
             if op.getarg(0).type == FLOAT:
                 self.mc.stfd(return_val.value, r.SPP.value, base_ofs)
             else:
                 self.mc.std(return_val.value, r.SPP.value, base_ofs)
-        else:
-            [fail_descr_loc] = arglocs
 
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
         ofs2 = self.cpu.get_ofs_of_frame_field('jf_gcmap')
 
-        self.mc.load_imm(r.r5, fail_descr_loc.getint())
+        descr = op.getdescr()
+        faildescrindex = self.get_gcref_from_faildescr(descr)
+        self._load_from_gc_table(r.r5, r.r5, faildescrindex)
 
         # gcmap logic here:
         arglist = op.getarglist()
@@ -541,7 +543,7 @@ class MiscOpAssembler(object):
     emit_cast_int_to_ptr = _genop_same_as
 
     def emit_guard_no_exception(self, op, arglocs, regalloc):
-        self.mc.load_from_addr(r.SCRATCH2, self.cpu.pos_exception())
+        self.mc.load_from_addr(r.SCRATCH2, r.SCRATCH2, self.cpu.pos_exception())
         self.mc.cmp_op(0, r.SCRATCH2.value, 0, imm=True)
         self.guard_success_cc = c.EQ
         self._emit_guard(op, arglocs)
@@ -585,6 +587,17 @@ class MiscOpAssembler(object):
         mc.load_imm(r.SCRATCH, 0)
         mc.store(r.SCRATCH.value, r.SCRATCH2.value, 0)
         mc.store(r.SCRATCH.value, r.SCRATCH2.value, diff)
+
+    def _load_from_gc_table(self, rD, rT, index):
+        # rT is a temporary, may be equal to rD, must be != r0
+        addr = self.gc_table_addr + index * WORD
+        self.mc.load_from_addr(rD, rT, addr)
+
+    def emit_load_from_gc_table(self, op, arglocs, regalloc):
+        index = op.getarg(0).getint()
+        [resloc] = arglocs
+        assert resloc.is_reg()
+        self._load_from_gc_table(resloc, resloc, index)
 
 
 class CallOpAssembler(object):
@@ -646,9 +659,9 @@ class CallOpAssembler(object):
                 guard_op.getopnum() == rop.GUARD_NOT_FORCED_2)
         faildescr = guard_op.getdescr()
         ofs = self.cpu.get_ofs_of_frame_field('jf_force_descr')
-        self.mc.load_imm(r.SCRATCH, rffi.cast(lltype.Signed,
-                                           cast_instance_to_gcref(faildescr)))
-        self.mc.store(r.SCRATCH.value, r.SPP.value, ofs)
+        faildescrindex = self.get_gcref_from_faildescr(faildescr)
+        self._load_from_gc_table(r.r2, r.r2, faildescrindex)
+        self.mc.store(r.r2.value, r.SPP.value, ofs)
 
     def _find_nearby_operation(self, regalloc, delta):
         return regalloc.operations[regalloc.rm.position + delta]
