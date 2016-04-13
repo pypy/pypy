@@ -44,8 +44,12 @@ def get_unique_id(next_instr, is_being_profiled, bytecode):
 def get_location(next_instr, is_being_profiled, bytecode):
     from pypy.tool.stdlib_opcode import opcode_method_names
     name = opcode_method_names[ord(bytecode.co_code[next_instr])]
+    # we can probably do better at co_firstlineno?
     return (bytecode.co_filename,
-           )'%s #%d %s' % (bytecode.get_repr(), next_instr, name)
+            bytecode.co_firstlineno,
+            bytecode.co_name,
+            next_instr,
+            name)
 
 def should_unroll_one_iteration(next_instr, is_being_profiled, bytecode):
     return (bytecode.co_flags & CO_GENERATOR) != 0

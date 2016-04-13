@@ -54,19 +54,24 @@ def encode_le_32bit(val):
                     chr((val >> 16) & 0xff),
                     chr((val >> 24) & 0xff)])
 
+
+@always_inline
+def encode_le_64bit(val):
+    return ''.join([chr((val >> 0) & 0xff),
+                    chr((val >> 8) & 0xff),
+                    chr((val >> 16) & 0xff),
+                    chr((val >> 24) & 0xff),
+                    chr((val >> 32) & 0xff),
+                    chr((val >> 40) & 0xff),
+                    chr((val >> 48) & 0xff),
+                    chr((val >> 56)& 0xff)])
+
 @always_inline
 def encode_le_addr(val):
     if IS_32_BIT:
-        return encode_be_32bit(val)
+        return encode_le_32bit(val)
     else:
-        return ''.join([chr((val >> 0) & 0xff),
-                        chr((val >> 8) & 0xff),
-                        chr((val >> 16) & 0xff),
-                        chr((val >> 24) & 0xff),
-                        chr((val >> 32) & 0xff),
-                        chr((val >> 40) & 0xff),
-                        chr((val >> 48) & 0xff),
-                        chr((val >> 56)& 0xff)])
+        return encode_le_64bit(val)
 
 
 class VMProfJitLogger(object):
@@ -197,8 +202,14 @@ class LogTrace(BaseLogTrace):
     def encode_debug_info(self, op):
         log = self.logger
         jd_sd = self.metainterp_sd.jitdrivers_sd[op.getarg(0).getint()]
-        filename, = jd_sd.warmstate.get_location(op.getarglist()[3:])
-        log._write_marked(MARK_JITLOG_DEBUG_MERGE_POINT, encode_str(filename))
+        filename, lineno, enclosed, index, opname = jd_sd.warmstate.get_location(op.getarglist()[3:])
+        line = []
+        line.append(encode_str(filename))
+        line.append(encode_le_16bit(lineno))
+        line.append(encode_str(enclosed))
+        line.append(encode_le_64bit(index))
+        line.append(encode_str(opname))
+        log._write_marked(MARK_JITLOG_DEBUG_MERGE_POINT, ''.join(line))
 
 
     def encode_op(self, op):

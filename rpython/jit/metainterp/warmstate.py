@@ -682,11 +682,11 @@ class WarmEnterState(object):
         get_location_ptr = self.jitdriver_sd._get_location_ptr
         if get_location_ptr is None:
             missing = '(%s: no get_location)' % drivername
-            def get_location_str(greenkey):
-                return missing
+            def get_location(greenkey):
+                return (missing, 0, '', 0, '')
         else:
             unwrap_greenkey = self.make_unwrap_greenkey()
-            def get_location_str(greenkey):
+            def get_location(greenkey):
                 greenargs = unwrap_greenkey(greenkey)
                 fn = support.maybe_on_top_of_llinterp(rtyper, get_location_ptr)
                 llres = fn(*greenargs)
