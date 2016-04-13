@@ -84,15 +84,14 @@ class ASTNodeVisitor(ASDLVisitor):
         else:
             self.emit("class %s(AST):" % (base,))
             self.emit("")
-            args = "".join(", " + attr.name.value
-                           for attr in sum.attributes)
-            self.emit("def __init__(self, arena%s):" % (args,), 1)
             if sum.attributes:
+                args = "".join(", " + attr.name.value
+                               for attr in sum.attributes)
+                self.emit("def __init__(self, arena%s):" % (args,), 1)
+                self.emit("AST.__init__(self, arena)", 2)
                 for attr in sum.attributes:
                     self.visit(attr)
-            else:
-                self.emit("pass", 2)
-            self.emit("")
+                self.emit("")
             self.emit("@staticmethod", 1)
             self.emit("def from_object(space, arena, w_node):", 1)
             self.emit("if space.is_w(w_node, space.w_None):", 2)
@@ -215,11 +214,11 @@ class ASTNodeVisitor(ASDLVisitor):
             args = "arena" + "".join(", %s" % field.name
                                      for field in arg_fields)
             self.emit("def __init__(self, %s):" % args, 1)
-            for field in fields:
-                self.visit(field)
             base_args = "arena" + "".join(", %s" % field.name
                                           for field in (extras or ()))
-            self.emit("%s.__init__(self, %s)" % (base, base_args), 2)
+            self.emit("%s.__init__(self, %s)" % (base or "AST", base_args), 2)
+            for field in fields:
+                self.visit(field)
     
     def make_mutate_over(self, cons, name):
         self.emit("def mutate_over(self, visitor):", 1)
@@ -419,6 +418,9 @@ def get_field(space, w_node, name, optional):
 
 class AST(object):
     __metaclass__ = extendabletype
+
+    def __init__(self, arena):
+        pass
 
     def walkabout(self, visitor):
         raise AssertionError("walkabout() implementation not provided")

@@ -565,7 +565,7 @@ class InstanceRepr(Repr):
             clsname = 'object'
         else:
             clsname = self.classdef.name
-        return '<InstanceRepr for %s>' % (clsname,)
+        return '<%s for %s>' % (self.__class__.__name__, clsname,)
 
     def compact_repr(self):
         if self.classdef is None:
@@ -698,8 +698,7 @@ class InstanceRepr(Repr):
             rbase = rbase.rbase
         return False
 
-    def new_instance(self, llops, classcallhop=None, nonmovable=False):
-        """Build a new instance, without calling __init__."""
+    def alloc_instance(self, llops, classcallhop=None, nonmovable=False):
         flavor = self.gcflavor
         flags = {'flavor': flavor}
         if nonmovable:
@@ -709,6 +708,11 @@ class InstanceRepr(Repr):
         vlist = [ctype, cflags]
         vptr = llops.genop('malloc', vlist,
                            resulttype=Ptr(self.object_type))
+        return vptr
+
+    def new_instance(self, llops, classcallhop=None, nonmovable=False):
+        """Build a new instance, without calling __init__."""
+        vptr = self.alloc_instance(llops, classcallhop, nonmovable=nonmovable)
         ctypeptr = inputconst(CLASSTYPE, self.rclass.getvtable())
         self.setfield(vptr, '__class__', ctypeptr, llops)
         # initialize instance attributes from their defaults from the class

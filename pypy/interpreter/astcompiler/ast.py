@@ -33,6 +33,9 @@ def get_field(space, w_node, name, optional):
 class AST(object):
     __metaclass__ = extendabletype
 
+    def __init__(self, arena):
+        pass
+
     def walkabout(self, visitor):
         raise AssertionError("walkabout() implementation not provided")
 
@@ -160,9 +163,6 @@ def get(space):
 
 class mod(AST):
 
-    def __init__(self, arena):
-        pass
-
     @staticmethod
     def from_object(space, arena, w_node):
         if space.is_w(w_node, space.w_None):
@@ -182,8 +182,8 @@ State.ast_type('mod', 'AST', None, [])
 class Module(mod):
 
     def __init__(self, arena, body):
-        self.body = body
         mod.__init__(self, arena)
+        self.body = body
 
     def walkabout(self, visitor):
         visitor.visit_Module(self)
@@ -216,8 +216,8 @@ State.ast_type('Module', 'mod', ['body'])
 class Interactive(mod):
 
     def __init__(self, arena, body):
-        self.body = body
         mod.__init__(self, arena)
+        self.body = body
 
     def walkabout(self, visitor):
         visitor.visit_Interactive(self)
@@ -250,8 +250,8 @@ State.ast_type('Interactive', 'mod', ['body'])
 class Expression(mod):
 
     def __init__(self, arena, body):
-        self.body = body
         mod.__init__(self, arena)
+        self.body = body
 
     def walkabout(self, visitor):
         visitor.visit_Expression(self)
@@ -278,8 +278,8 @@ State.ast_type('Expression', 'mod', ['body'])
 class Suite(mod):
 
     def __init__(self, arena, body):
-        self.body = body
         mod.__init__(self, arena)
+        self.body = body
 
     def walkabout(self, visitor):
         visitor.visit_Suite(self)
@@ -312,6 +312,7 @@ State.ast_type('Suite', 'mod', ['body'])
 class stmt(AST):
 
     def __init__(self, arena, lineno, col_offset):
+        AST.__init__(self, arena)
         self.lineno = lineno
         self.col_offset = col_offset
 
@@ -372,11 +373,11 @@ State.ast_type('stmt', 'AST', None, ['lineno', 'col_offset'])
 class FunctionDef(stmt):
 
     def __init__(self, arena, name, args, body, decorator_list, lineno, col_offset):
+        stmt.__init__(self, arena, lineno, col_offset)
         self.name = name
         self.args = args
         self.body = body
         self.decorator_list = decorator_list
-        stmt.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_FunctionDef(self)
@@ -437,11 +438,11 @@ State.ast_type('FunctionDef', 'stmt', ['name', 'args', 'body', 'decorator_list']
 class ClassDef(stmt):
 
     def __init__(self, arena, name, bases, body, decorator_list, lineno, col_offset):
+        stmt.__init__(self, arena, lineno, col_offset)
         self.name = name
         self.bases = bases
         self.body = body
         self.decorator_list = decorator_list
-        stmt.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_ClassDef(self)
@@ -508,8 +509,8 @@ State.ast_type('ClassDef', 'stmt', ['name', 'bases', 'body', 'decorator_list'])
 class Return(stmt):
 
     def __init__(self, arena, value, lineno, col_offset):
-        self.value = value
         stmt.__init__(self, arena, lineno, col_offset)
+        self.value = value
 
     def walkabout(self, visitor):
         visitor.visit_Return(self)
@@ -545,8 +546,8 @@ State.ast_type('Return', 'stmt', ['value'])
 class Delete(stmt):
 
     def __init__(self, arena, targets, lineno, col_offset):
-        self.targets = targets
         stmt.__init__(self, arena, lineno, col_offset)
+        self.targets = targets
 
     def walkabout(self, visitor):
         visitor.visit_Delete(self)
@@ -587,9 +588,9 @@ State.ast_type('Delete', 'stmt', ['targets'])
 class Assign(stmt):
 
     def __init__(self, arena, targets, value, lineno, col_offset):
+        stmt.__init__(self, arena, lineno, col_offset)
         self.targets = targets
         self.value = value
-        stmt.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_Assign(self)
@@ -635,10 +636,10 @@ State.ast_type('Assign', 'stmt', ['targets', 'value'])
 class AugAssign(stmt):
 
     def __init__(self, arena, target, op, value, lineno, col_offset):
+        stmt.__init__(self, arena, lineno, col_offset)
         self.target = target
         self.op = op
         self.value = value
-        stmt.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_AugAssign(self)
@@ -682,10 +683,10 @@ State.ast_type('AugAssign', 'stmt', ['target', 'op', 'value'])
 class Print(stmt):
 
     def __init__(self, arena, dest, values, nl, lineno, col_offset):
+        stmt.__init__(self, arena, lineno, col_offset)
         self.dest = dest
         self.values = values
         self.nl = nl
-        stmt.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_Print(self)
@@ -736,11 +737,11 @@ State.ast_type('Print', 'stmt', ['dest', 'values', 'nl'])
 class For(stmt):
 
     def __init__(self, arena, target, iter, body, orelse, lineno, col_offset):
+        stmt.__init__(self, arena, lineno, col_offset)
         self.target = target
         self.iter = iter
         self.body = body
         self.orelse = orelse
-        stmt.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_For(self)
@@ -802,10 +803,10 @@ State.ast_type('For', 'stmt', ['target', 'iter', 'body', 'orelse'])
 class While(stmt):
 
     def __init__(self, arena, test, body, orelse, lineno, col_offset):
+        stmt.__init__(self, arena, lineno, col_offset)
         self.test = test
         self.body = body
         self.orelse = orelse
-        stmt.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_While(self)
@@ -862,10 +863,10 @@ State.ast_type('While', 'stmt', ['test', 'body', 'orelse'])
 class If(stmt):
 
     def __init__(self, arena, test, body, orelse, lineno, col_offset):
+        stmt.__init__(self, arena, lineno, col_offset)
         self.test = test
         self.body = body
         self.orelse = orelse
-        stmt.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_If(self)
@@ -922,10 +923,10 @@ State.ast_type('If', 'stmt', ['test', 'body', 'orelse'])
 class With(stmt):
 
     def __init__(self, arena, context_expr, optional_vars, body, lineno, col_offset):
+        stmt.__init__(self, arena, lineno, col_offset)
         self.context_expr = context_expr
         self.optional_vars = optional_vars
         self.body = body
-        stmt.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_With(self)
@@ -977,10 +978,10 @@ State.ast_type('With', 'stmt', ['context_expr', 'optional_vars', 'body'])
 class Raise(stmt):
 
     def __init__(self, arena, type, inst, tback, lineno, col_offset):
+        stmt.__init__(self, arena, lineno, col_offset)
         self.type = type
         self.inst = inst
         self.tback = tback
-        stmt.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_Raise(self)
@@ -1028,10 +1029,10 @@ State.ast_type('Raise', 'stmt', ['type', 'inst', 'tback'])
 class TryExcept(stmt):
 
     def __init__(self, arena, body, handlers, orelse, lineno, col_offset):
+        stmt.__init__(self, arena, lineno, col_offset)
         self.body = body
         self.handlers = handlers
         self.orelse = orelse
-        stmt.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_TryExcept(self)
@@ -1094,9 +1095,9 @@ State.ast_type('TryExcept', 'stmt', ['body', 'handlers', 'orelse'])
 class TryFinally(stmt):
 
     def __init__(self, arena, body, finalbody, lineno, col_offset):
+        stmt.__init__(self, arena, lineno, col_offset)
         self.body = body
         self.finalbody = finalbody
-        stmt.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_TryFinally(self)
@@ -1148,9 +1149,9 @@ State.ast_type('TryFinally', 'stmt', ['body', 'finalbody'])
 class Assert(stmt):
 
     def __init__(self, arena, test, msg, lineno, col_offset):
+        stmt.__init__(self, arena, lineno, col_offset)
         self.test = test
         self.msg = msg
-        stmt.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_Assert(self)
@@ -1191,8 +1192,8 @@ State.ast_type('Assert', 'stmt', ['test', 'msg'])
 class Import(stmt):
 
     def __init__(self, arena, names, lineno, col_offset):
-        self.names = names
         stmt.__init__(self, arena, lineno, col_offset)
+        self.names = names
 
     def walkabout(self, visitor):
         visitor.visit_Import(self)
@@ -1233,10 +1234,10 @@ State.ast_type('Import', 'stmt', ['names'])
 class ImportFrom(stmt):
 
     def __init__(self, arena, module, names, level, lineno, col_offset):
+        stmt.__init__(self, arena, lineno, col_offset)
         self.module = module
         self.names = names
         self.level = level
-        stmt.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_ImportFrom(self)
@@ -1285,10 +1286,10 @@ State.ast_type('ImportFrom', 'stmt', ['module', 'names', 'level'])
 class Exec(stmt):
 
     def __init__(self, arena, body, globals, locals, lineno, col_offset):
+        stmt.__init__(self, arena, lineno, col_offset)
         self.body = body
         self.globals = globals
         self.locals = locals
-        stmt.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_Exec(self)
@@ -1335,8 +1336,8 @@ State.ast_type('Exec', 'stmt', ['body', 'globals', 'locals'])
 class Global(stmt):
 
     def __init__(self, arena, names, lineno, col_offset):
-        self.names = names
         stmt.__init__(self, arena, lineno, col_offset)
+        self.names = names
 
     def walkabout(self, visitor):
         visitor.visit_Global(self)
@@ -1375,8 +1376,8 @@ State.ast_type('Global', 'stmt', ['names'])
 class Expr(stmt):
 
     def __init__(self, arena, value, lineno, col_offset):
-        self.value = value
         stmt.__init__(self, arena, lineno, col_offset)
+        self.value = value
 
     def walkabout(self, visitor):
         visitor.visit_Expr(self)
@@ -1501,6 +1502,7 @@ State.ast_type('Continue', 'stmt', [])
 class expr(AST):
 
     def __init__(self, arena, lineno, col_offset):
+        AST.__init__(self, arena)
         self.lineno = lineno
         self.col_offset = col_offset
 
@@ -1561,9 +1563,9 @@ State.ast_type('expr', 'AST', None, ['lineno', 'col_offset'])
 class BoolOp(expr):
 
     def __init__(self, arena, op, values, lineno, col_offset):
+        expr.__init__(self, arena, lineno, col_offset)
         self.op = op
         self.values = values
-        expr.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_BoolOp(self)
@@ -1608,10 +1610,10 @@ State.ast_type('BoolOp', 'expr', ['op', 'values'])
 class BinOp(expr):
 
     def __init__(self, arena, left, op, right, lineno, col_offset):
+        expr.__init__(self, arena, lineno, col_offset)
         self.left = left
         self.op = op
         self.right = right
-        expr.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_BinOp(self)
@@ -1655,9 +1657,9 @@ State.ast_type('BinOp', 'expr', ['left', 'op', 'right'])
 class UnaryOp(expr):
 
     def __init__(self, arena, op, operand, lineno, col_offset):
+        expr.__init__(self, arena, lineno, col_offset)
         self.op = op
         self.operand = operand
-        expr.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_UnaryOp(self)
@@ -1696,9 +1698,9 @@ State.ast_type('UnaryOp', 'expr', ['op', 'operand'])
 class Lambda(expr):
 
     def __init__(self, arena, args, body, lineno, col_offset):
+        expr.__init__(self, arena, lineno, col_offset)
         self.args = args
         self.body = body
-        expr.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_Lambda(self)
@@ -1738,10 +1740,10 @@ State.ast_type('Lambda', 'expr', ['args', 'body'])
 class IfExp(expr):
 
     def __init__(self, arena, test, body, orelse, lineno, col_offset):
+        expr.__init__(self, arena, lineno, col_offset)
         self.test = test
         self.body = body
         self.orelse = orelse
-        expr.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_IfExp(self)
@@ -1786,9 +1788,9 @@ State.ast_type('IfExp', 'expr', ['test', 'body', 'orelse'])
 class Dict(expr):
 
     def __init__(self, arena, keys, values, lineno, col_offset):
+        expr.__init__(self, arena, lineno, col_offset)
         self.keys = keys
         self.values = values
-        expr.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_Dict(self)
@@ -1840,8 +1842,8 @@ State.ast_type('Dict', 'expr', ['keys', 'values'])
 class Set(expr):
 
     def __init__(self, arena, elts, lineno, col_offset):
-        self.elts = elts
         expr.__init__(self, arena, lineno, col_offset)
+        self.elts = elts
 
     def walkabout(self, visitor):
         visitor.visit_Set(self)
@@ -1882,9 +1884,9 @@ State.ast_type('Set', 'expr', ['elts'])
 class ListComp(expr):
 
     def __init__(self, arena, elt, generators, lineno, col_offset):
+        expr.__init__(self, arena, lineno, col_offset)
         self.elt = elt
         self.generators = generators
-        expr.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_ListComp(self)
@@ -1930,9 +1932,9 @@ State.ast_type('ListComp', 'expr', ['elt', 'generators'])
 class SetComp(expr):
 
     def __init__(self, arena, elt, generators, lineno, col_offset):
+        expr.__init__(self, arena, lineno, col_offset)
         self.elt = elt
         self.generators = generators
-        expr.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_SetComp(self)
@@ -1978,10 +1980,10 @@ State.ast_type('SetComp', 'expr', ['elt', 'generators'])
 class DictComp(expr):
 
     def __init__(self, arena, key, value, generators, lineno, col_offset):
+        expr.__init__(self, arena, lineno, col_offset)
         self.key = key
         self.value = value
         self.generators = generators
-        expr.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_DictComp(self)
@@ -2032,9 +2034,9 @@ State.ast_type('DictComp', 'expr', ['key', 'value', 'generators'])
 class GeneratorExp(expr):
 
     def __init__(self, arena, elt, generators, lineno, col_offset):
+        expr.__init__(self, arena, lineno, col_offset)
         self.elt = elt
         self.generators = generators
-        expr.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_GeneratorExp(self)
@@ -2080,8 +2082,8 @@ State.ast_type('GeneratorExp', 'expr', ['elt', 'generators'])
 class Yield(expr):
 
     def __init__(self, arena, value, lineno, col_offset):
-        self.value = value
         expr.__init__(self, arena, lineno, col_offset)
+        self.value = value
 
     def walkabout(self, visitor):
         visitor.visit_Yield(self)
@@ -2117,10 +2119,10 @@ State.ast_type('Yield', 'expr', ['value'])
 class Compare(expr):
 
     def __init__(self, arena, left, ops, comparators, lineno, col_offset):
+        expr.__init__(self, arena, lineno, col_offset)
         self.left = left
         self.ops = ops
         self.comparators = comparators
-        expr.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_Compare(self)
@@ -2175,12 +2177,12 @@ State.ast_type('Compare', 'expr', ['left', 'ops', 'comparators'])
 class Call(expr):
 
     def __init__(self, arena, func, args, keywords, starargs, kwargs, lineno, col_offset):
+        expr.__init__(self, arena, lineno, col_offset)
         self.func = func
         self.args = args
         self.keywords = keywords
         self.starargs = starargs
         self.kwargs = kwargs
-        expr.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_Call(self)
@@ -2249,8 +2251,8 @@ State.ast_type('Call', 'expr', ['func', 'args', 'keywords', 'starargs', 'kwargs'
 class Repr(expr):
 
     def __init__(self, arena, value, lineno, col_offset):
-        self.value = value
         expr.__init__(self, arena, lineno, col_offset)
+        self.value = value
 
     def walkabout(self, visitor):
         visitor.visit_Repr(self)
@@ -2285,8 +2287,8 @@ State.ast_type('Repr', 'expr', ['value'])
 class Num(expr):
 
     def __init__(self, arena, n, lineno, col_offset):
-        self.n = n
         expr.__init__(self, arena, lineno, col_offset)
+        self.n = n
 
     def walkabout(self, visitor):
         visitor.visit_Num(self)
@@ -2320,8 +2322,8 @@ State.ast_type('Num', 'expr', ['n'])
 class Str(expr):
 
     def __init__(self, arena, s, lineno, col_offset):
-        self.s = s
         expr.__init__(self, arena, lineno, col_offset)
+        self.s = s
 
     def walkabout(self, visitor):
         visitor.visit_Str(self)
@@ -2355,10 +2357,10 @@ State.ast_type('Str', 'expr', ['s'])
 class Attribute(expr):
 
     def __init__(self, arena, value, attr, ctx, lineno, col_offset):
+        expr.__init__(self, arena, lineno, col_offset)
         self.value = value
         self.attr = attr
         self.ctx = ctx
-        expr.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_Attribute(self)
@@ -2401,10 +2403,10 @@ State.ast_type('Attribute', 'expr', ['value', 'attr', 'ctx'])
 class Subscript(expr):
 
     def __init__(self, arena, value, slice, ctx, lineno, col_offset):
+        expr.__init__(self, arena, lineno, col_offset)
         self.value = value
         self.slice = slice
         self.ctx = ctx
-        expr.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_Subscript(self)
@@ -2448,9 +2450,9 @@ State.ast_type('Subscript', 'expr', ['value', 'slice', 'ctx'])
 class Name(expr):
 
     def __init__(self, arena, id, ctx, lineno, col_offset):
+        expr.__init__(self, arena, lineno, col_offset)
         self.id = id
         self.ctx = ctx
-        expr.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_Name(self)
@@ -2488,9 +2490,9 @@ State.ast_type('Name', 'expr', ['id', 'ctx'])
 class List(expr):
 
     def __init__(self, arena, elts, ctx, lineno, col_offset):
+        expr.__init__(self, arena, lineno, col_offset)
         self.elts = elts
         self.ctx = ctx
-        expr.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_List(self)
@@ -2535,9 +2537,9 @@ State.ast_type('List', 'expr', ['elts', 'ctx'])
 class Tuple(expr):
 
     def __init__(self, arena, elts, ctx, lineno, col_offset):
+        expr.__init__(self, arena, lineno, col_offset)
         self.elts = elts
         self.ctx = ctx
-        expr.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_Tuple(self)
@@ -2582,8 +2584,8 @@ State.ast_type('Tuple', 'expr', ['elts', 'ctx'])
 class Const(expr):
 
     def __init__(self, arena, value, lineno, col_offset):
-        self.value = value
         expr.__init__(self, arena, lineno, col_offset)
+        self.value = value
 
     def walkabout(self, visitor):
         visitor.visit_Const(self)
@@ -2681,9 +2683,6 @@ expr_context_to_class = [
 
 class slice(AST):
 
-    def __init__(self, arena):
-        pass
-
     @staticmethod
     def from_object(space, arena, w_node):
         if space.is_w(w_node, space.w_None):
@@ -2723,10 +2722,10 @@ State.ast_type('Ellipsis', 'slice', [])
 class Slice(slice):
 
     def __init__(self, arena, lower, upper, step):
+        slice.__init__(self, arena)
         self.lower = lower
         self.upper = upper
         self.step = step
-        slice.__init__(self, arena)
 
     def walkabout(self, visitor):
         visitor.visit_Slice(self)
@@ -2766,8 +2765,8 @@ State.ast_type('Slice', 'slice', ['lower', 'upper', 'step'])
 class ExtSlice(slice):
 
     def __init__(self, arena, dims):
-        self.dims = dims
         slice.__init__(self, arena)
+        self.dims = dims
 
     def walkabout(self, visitor):
         visitor.visit_ExtSlice(self)
@@ -2800,8 +2799,8 @@ State.ast_type('ExtSlice', 'slice', ['dims'])
 class Index(slice):
 
     def __init__(self, arena, value):
-        self.value = value
         slice.__init__(self, arena)
+        self.value = value
 
     def walkabout(self, visitor):
         visitor.visit_Index(self)
@@ -3124,10 +3123,10 @@ cmpop_to_class = [
 class comprehension(AST):
 
     def __init__(self, arena, target, iter, ifs):
+        AST.__init__(self, arena)
         self.target = target
         self.iter = iter
         self.ifs = ifs
-        None.__init__(self, arena)
 
     def mutate_over(self, visitor):
         self.target = self.target.mutate_over(visitor)
@@ -3169,6 +3168,7 @@ State.ast_type('comprehension', 'AST', ['target', 'iter', 'ifs'])
 class excepthandler(AST):
 
     def __init__(self, arena, lineno, col_offset):
+        AST.__init__(self, arena)
         self.lineno = lineno
         self.col_offset = col_offset
 
@@ -3185,10 +3185,10 @@ State.ast_type('excepthandler', 'AST', None, ['lineno', 'col_offset'])
 class ExceptHandler(excepthandler):
 
     def __init__(self, arena, type, name, body, lineno, col_offset):
+        excepthandler.__init__(self, arena, lineno, col_offset)
         self.type = type
         self.name = name
         self.body = body
-        excepthandler.__init__(self, arena, lineno, col_offset)
 
     def walkabout(self, visitor):
         visitor.visit_ExceptHandler(self)
@@ -3241,11 +3241,11 @@ State.ast_type('ExceptHandler', 'excepthandler', ['type', 'name', 'body'])
 class arguments(AST):
 
     def __init__(self, arena, args, vararg, kwarg, defaults):
+        AST.__init__(self, arena)
         self.args = args
         self.vararg = vararg
         self.kwarg = kwarg
         self.defaults = defaults
-        None.__init__(self, arena)
 
     def mutate_over(self, visitor):
         if self.args:
@@ -3296,9 +3296,9 @@ State.ast_type('arguments', 'AST', ['args', 'vararg', 'kwarg', 'defaults'])
 class keyword(AST):
 
     def __init__(self, arena, arg, value):
+        AST.__init__(self, arena)
         self.arg = arg
         self.value = value
-        None.__init__(self, arena)
 
     def mutate_over(self, visitor):
         self.value = self.value.mutate_over(visitor)
@@ -3328,9 +3328,9 @@ State.ast_type('keyword', 'AST', ['arg', 'value'])
 class alias(AST):
 
     def __init__(self, arena, name, asname):
+        AST.__init__(self, arena)
         self.name = name
         self.asname = asname
-        None.__init__(self, arena)
 
     def mutate_over(self, visitor):
         return visitor.visit_alias(self)

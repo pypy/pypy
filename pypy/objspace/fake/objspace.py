@@ -413,7 +413,12 @@ class FakeModule(W_Root):
     def get(self, name):
         name + "xx"   # check that it's a string
         return w_some_obj()
-FakeObjSpace.sys = FakeModule()
+
+class FakeSysModule(FakeModule):
+    def get_w_default_encoder(self):
+        return w_some_obj()
+
+FakeObjSpace.sys = FakeSysModule()
 FakeObjSpace.sys.filesystemencoding = 'foobar'
 FakeObjSpace.sys.defaultencoding = 'ascii'
 FakeObjSpace.builtin = FakeModule()
