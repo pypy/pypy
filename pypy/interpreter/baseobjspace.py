@@ -231,7 +231,8 @@ class W_Root(object):
         raise BufferInterfaceNotFound
 
     def bytes_w(self, space):
-        self._typed_unwrap_error(space, "bytes")
+        buffer = space.buffer_w(self, space.BUF_FULL_RO)
+        return buffer.as_str()
 
     def unicode_w(self, space):
         self._typed_unwrap_error(space, "string")
@@ -398,7 +399,7 @@ class ObjSpace(object):
         self.check_signal_action = None   # changed by the signal module
         self.user_del_action = UserDelAction(self)
         self._code_of_sys_exc_info = None
-        
+
         # can be overridden to a subclass
         self.initialize()
 
@@ -1537,7 +1538,7 @@ class ObjSpace(object):
         """
         if w_obj is unicode, call identifier_w() (i.e., return the UTF-8
         encoded string). Else, call bytes_w().
-        
+
         Maybe we should kill str_w completely and manually substitute it with
         identifier_w/bytes_w at all call sites?
         """
