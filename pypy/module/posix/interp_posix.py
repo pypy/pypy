@@ -112,6 +112,17 @@ def dispatch_filename_2(func):
                 return func(fname1, fname2, *args)
     return dispatch
 
+@specialize.arg(0)
+def call_rposix(func, path, *args):
+    """Call a function that takes a filesystem path as its first argument"""
+    if path.as_unicode is not None:
+        return func(path.as_unicode, *args)
+    else:
+        path_b = path.as_bytes
+        assert path_b is not None
+        return func(path.as_bytes, *args)
+
+
 class Path(object):
     _immutable_fields_ = ['as_fd', 'as_bytes', 'as_unicode']
 
@@ -1414,13 +1425,7 @@ dir_fd and follow_symlinks may not be available on your platform.
             "utime: 'ns' unsupported on this platform on PyPy")
     if utime_now:
         try:
-            if path.as_unicode is not None:
-                rposix.utime(path.as_unicode, None)
-            else:
-                path_b = path.as_bytes
-                assert path_b is not None
-                rposix.utime(path.as_bytes, None)
-            return
+            call_rposix(rposix.utime, path, None)
         except OSError as e:
             raise wrap_oserror(space, e)
     try:
@@ -1435,12 +1440,7 @@ dir_fd and follow_symlinks may not be available on your platform.
             raise
         raise OperationError(space.w_TypeError, space.wrap(msg))
     try:
-        if path.as_unicode is not None:
-            rposix.utime(path.as_unicode, (actime, modtime))
-        else:
-            path_b = path.as_bytes
-            assert path_b is not None
-            rposix.utime(path_b, (actime, modtime))
+        call_rposix(rposix.utime, path, (actime, modtime))
     except OSError as e:
         raise wrap_oserror(space, e)
 
