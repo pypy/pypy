@@ -5263,3 +5263,36 @@ class LLtypeBackendTest(BaseBackendTest):
         fail = self.cpu.get_latest_descr(deadframe)
         res = self.cpu.get_int_value(deadframe, 0)
         assert res == 0
+
+    def test_load_from_gc_table_many(self):
+        # Test that 'load_from_gc_table' handles a table of NUM entries.
+        # Done by writing NUM setfield_gc on constants.  Each one
+        # requires a load_from_gc_table.  The value of NUM is choosen
+        # so that not all of them fit into the ARM's 4096-bytes offset.
+        NUM = 1025
+        S = lltype.GcStruct('S', ('x', lltype.Signed))
+        fielddescr = self.cpu.fielddescrof(S, 'x')
+        table = [lltype.malloc(S) for i in range(NUM)]
+        looptoken = JitCellToken()
+        targettoken = TargetToken()
+        ops = [
+            '[]',
+            ]
+        namespace = {'fielddescr': fielddescr,
+                     'finaldescr': BasicFinalDescr(5)}
+        for i, s in enumerate(table):
+            ops.append('setfield_gc(ConstPtr(ptr%d), %d, descr=fielddescr)'
+                           % (i, i))
+            namespace['ptr%d' % i] = lltype.cast_opaque_ptr(llmemory.GCREF, s)
+        ops.append('finish(descr=finaldescr)')
+
+        loop = parse('\n'.join(ops), namespace=namespace)
+
+        self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+        deadframe = self.cpu.execute_token(looptoken)
+        fail = self.cpu.get_latest_descr(deadframe)
+        assert fail.identifier == 5
+
+        # check that all setfield_gc() worked
+        for i, s in enumerate(table):
+            assert s.x == i
