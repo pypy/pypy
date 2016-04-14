@@ -124,43 +124,44 @@ def call_rposix(func, path, *args):
 
 
 class Path(object):
-    _immutable_fields_ = ['as_fd', 'as_bytes', 'as_unicode']
+    _immutable_fields_ = ['as_fd', 'as_bytes', 'as_unicode', 'w_path']
 
-    def __init__(self, fd, bytes, unicode):
+    def __init__(self, fd, bytes, unicode, w_path):
         self.as_fd = fd
         self.as_bytes = bytes
         self.as_unicode = unicode
+        self.w_path = w_path
 
 class _PathOrFd(Unwrapper):
     def unwrap(self, space, w_value):
         if _WIN32:
             try:
                 path_u = space.unicode_w(w_value)
-                return Path(-1, None, path_u)
+                return Path(-1, None, path_u, w_value)
             except OperationError:
                 pass
         try:
             path_b = space.fsencode_w(w_value)
-            return Path(-1, path_b, None)
+            return Path(-1, path_b, None, w_value)
         except OperationError:
             pass
         if not space.isinstance_w(w_value, space.w_int):
             raise oefmt(space.w_TypeError,
                 "argument should be string, bytes or integer, not %T", w_value)
         fd = unwrap_fd(space, w_value)
-        return Path(fd, None, None)
+        return Path(fd, None, None, w_value)
 
 class _JustPath(Unwrapper):
     def unwrap(self, space, w_value):
         if _WIN32:
             try:
                 path_u = space.unicode_w(w_value)
-                return Path(-1, None, path_u)
+                return Path(-1, None, path_u, w_value)
             except OperationError:
                 pass
         try:
             path_b = space.fsencode_w(w_value)
-            return Path(-1, path_b, None)
+            return Path(-1, path_b, None, w_value)
         except OperationError:
             raise oefmt(space.w_TypeError, "illegal type for path parameter")
 
@@ -409,8 +410,11 @@ file descriptor."""
     else:
         return build_stat_result(space, st)
 
-@unwrap_spec(dir_fd=DirFD(rposix.HAVE_FSTATAT), follow_symlinks=kwonly(bool))
-def stat(space, w_path, dir_fd=DEFAULT_DIR_FD, follow_symlinks=True):
+@unwrap_spec(
+    path=path_or_fd(allow_fd=True),
+    dir_fd=DirFD(rposix.HAVE_FSTATAT),
+    follow_symlinks=kwonly(bool))
+def stat(space, path, dir_fd=DEFAULT_DIR_FD, follow_symlinks=True):
     """stat(path, *, dir_fd=None, follow_symlinks=True) -> stat result
 
 Perform a stat system call on the given path.
@@ -426,42 +430,43 @@ If follow_symlinks is False, and the last element of the path is a symbolic
   link points to.
 It is an error to use dir_fd or follow_symlinks when specifying path as
   an open file descriptor."""
-    if follow_symlinks and dir_fd == DEFAULT_DIR_FD:
-        try:
-            st = dispatch_filename(rposix_stat.stat, 0,
-                                allow_fd_fn=rposix_stat.fstat)(space, w_path)
-        except OSError as e:
-            raise wrap_oserror2(space, e, w_path)
+    return do_stat(space, "stat", path, dir_fd, follow_symlinks)
+
+@specialize.arg(1)
+def do_stat(space, funcname, path, dir_fd, follow_symlinks):
+    """Common implementation for stat() and lstat()"""
+    try:
+        if path.as_fd != -1:
+            if dir_fd != DEFAULT_DIR_FD:
+                raise oefmt(space.w_ValueError,
+                    "%s: can't specify both dir_fd and fd", funcname)
+            if not follow_symlinks:
+                raise oefmt(space.w_ValueError,
+                    "%s: cannot use fd and follow_symlinks together", funcname)
+            st = rposix_stat.fstat(path.as_fd)
+        elif follow_symlinks and dir_fd == DEFAULT_DIR_FD:
+            st = call_rposix(rposix_stat.stat, path)
+        elif not follow_symlinks and dir_fd == DEFAULT_DIR_FD:
+            st = call_rposix(rposix_stat.lstat, path)
+        elif rposix.HAVE_FSTATAT:
+            st = call_rposix(rposix_stat.fstatat, path, dir_fd, follow_symlinks)
         else:
-            return build_stat_result(space, st)
-
-    if not follow_symlinks and dir_fd == DEFAULT_DIR_FD:
-        return lstat(space, w_path)
-
-    if rposix.HAVE_FSTATAT:
-        try:
-            path = space.fsencode_w(w_path)
-            st = rposix_stat.fstatat(path, dir_fd, follow_symlinks)
-        except OSError as e:
-            raise wrap_oserror2(space, e, w_path)
+            raise oefmt(space.w_NotImplementedError,
+                "%s: unsupported argument combination", funcname)
+    except OSError as e:
+        raise wrap_oserror2(space, e, path.w_path)
+    else:
         return build_stat_result(space, st)
 
-    raise oefmt(space.w_NotImplementedError,
-        "stat: unsupported argument combination")
-
-@unwrap_spec(dir_fd=DirFD(available=False))
-def lstat(space, w_path, dir_fd=DEFAULT_DIR_FD):
+@unwrap_spec(
+    path=path_or_fd(allow_fd=False),
+    dir_fd=DirFD(rposix.HAVE_FSTATAT))
+def lstat(space, path, dir_fd=DEFAULT_DIR_FD):
     """lstat(path, *, dir_fd=None) -> stat result
 
 Like stat(), but do not follow symbolic links.
 Equivalent to stat(path, follow_symlinks=False)."""
-
-    try:
-        st = dispatch_filename(rposix_stat.lstat)(space, w_path)
-    except OSError, e:
-        raise wrap_oserror2(space, e, w_path)
-    else:
-        return build_stat_result(space, st)
+    return do_stat(space, "lstat", path, dir_fd, False)
 
 class StatState(object):
     def __init__(self, space):
