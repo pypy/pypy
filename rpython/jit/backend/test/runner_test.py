@@ -4501,19 +4501,28 @@ class LLtypeBackendTest(BaseBackendTest):
 
         def checkops(mc, ops_regexp):
             import re
-            words = [line.split("\t")[2].split()[0] + ';' for line in mc]
+            words = []
+            print '----- checkops -----'
+            for line in mc:
+                print line.rstrip()
+                t = line.split("\t")
+                if len(t) <= 2:
+                    continue
+                w = t[2].split()
+                if len(w) == 0:
+                    continue
+                words.append(w[0] + ';')
+                print '[[%s]]' % (w[0],)
             text = ' '.join(words)
             assert re.compile(ops_regexp).match(text)
 
         data = ctypes.string_at(info.asmaddr, info.asmlen)
         try:
             mc = list(machine_code_dump(data, info.asmaddr, cpuname))
-            lines = [line for line in mc if line.count('\t') >= 2]
-            checkops(lines, self.add_loop_instructions)
+            checkops(mc, self.add_loop_instructions)
             data = ctypes.string_at(bridge_info.asmaddr, bridge_info.asmlen)
             mc = list(machine_code_dump(data, bridge_info.asmaddr, cpuname))
-            lines = [line for line in mc if line.count('\t') >= 2]
-            checkops(lines, self.bridge_loop_instructions)
+            checkops(mc, self.bridge_loop_instructions)
         except ObjdumpNotFound:
             py.test.skip("requires (g)objdump")
 
