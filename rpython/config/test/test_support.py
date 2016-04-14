@@ -46,9 +46,18 @@ class FakeEnviron:
         assert varname == 'MAKEFLAGS'
         return self._value
 
+def test_usable_cpus_from_total_cpus():
+    # test usable_processors_from_total_processors function
+    assert support.usable_processors_from_total_processors(1) == 1
+    assert support.usable_processors_from_total_processors(3) == 3
+    assert support.usable_processors_from_total_processors(4) == 3
+    assert support.usable_processors_from_total_processors(8) ==  4
+    assert support.usable_processors_from_total_processors(16) == 8
+
 def test_cpuinfo_linux():
     if not sys.platform.startswith('linux'):
         py.test.skip("linux only")
+
     saved = os.environ
     # old_cpu_count will be multiprocessing.cpu_count if multiprocessing module is available or None if the import fails
     try:
@@ -56,14 +65,15 @@ def test_cpuinfo_linux():
         old_cpu_count = multiprocessing.cpu_count
     except:
         old_cpu_count = None
+
     if old_cpu_count != None: # if multiprocessing module is available
         # test common behavior
-        assert support.detect_number_of_processors() == multiprocessing.cpu_count()
+        assert support.detect_number_of_usable_processors() == support.usable_processors_from_total_processors(multiprocessing.cpu_count())
         # test common behaviour when MAKEFLAGS is set
         os.environ = FakeEnviron('-j2')
-        assert support.detect_number_of_processors() == 1
+        assert support.detect_number_of_usable_processors() == 1
         # create an override for cpu_count that throws an exception in order to test the fallback behavior of
-        # support.detect_number_of_processors()
+        # support.detect_number_of_usable_processors()
         def fail_cpu_count():
             raise Exception("Failure")
         multiprocessing.cpu_count = fail_cpu_count
@@ -71,10 +81,10 @@ def test_cpuinfo_linux():
         # test fallback behavior (multiprocessing.cpu_count() throwing an exception or multiprocessing module
         # not available)
         os.environ = FakeEnviron(None)
-        assert support.detect_number_of_processors(StringIO(cpuinfo)) == 11
-        assert support.detect_number_of_processors('random crap that does not exist') == 1
+        assert support.detect_number_of_usable_processors(StringIO(cpuinfo)) == support.usable_processors_from_total_processors(11)
+        assert support.detect_number_of_usable_processors('random crap that does not exist') == 1
         os.environ = FakeEnviron('-j2')
-        assert support.detect_number_of_processors(StringIO(cpuinfo)) == 1
+        assert support.detect_number_of_usable_processors(StringIO(cpuinfo)) == 1
     finally:
         os.environ = saved
         if old_cpu_count != None:
@@ -94,9 +104,9 @@ def test_cpuinfo_sysctl():
     try:
         support.sysctl_get_cpu_count = count
         os.environ = FakeEnviron(None)
-        assert support.detect_number_of_processors() == 42
+        assert support.detect_number_of_usable_processors() == support.usable_processors_from_total_processors(42)
         os.environ = FakeEnviron('-j2')
-        assert support.detect_number_of_processors() == 1
+        assert support.detect_number_of_usable_processors() == 1
     finally:
         os.environ = saved
         support.sysctl_get_cpu_count = saved_func

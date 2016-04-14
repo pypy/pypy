@@ -3,7 +3,7 @@ import os
 from rpython.config.config import OptionDescription, BoolOption, IntOption, ArbitraryOption, FloatOption
 from rpython.config.config import ChoiceOption, StrOption, Config, ConflictConfigError
 from rpython.config.config import ConfigError
-from rpython.config.support import detect_number_of_processors
+from rpython.config.support import detect_number_of_usable_processors
 from rpython.translator.platform import platform as compiler
 
 
@@ -172,7 +172,7 @@ translation_optiondescription = OptionDescription(
                negation=False),
     IntOption("make_jobs", "Specify -j argument to make for compilation"
               " (C backend only)",
-              cmdline="--make-jobs", default=detect_number_of_processors()),
+              cmdline="--make-jobs", default=detect_number_of_usable_processors()),
 
     # Flags of the TranslationContext:
     BoolOption("list_comprehension_operations",
