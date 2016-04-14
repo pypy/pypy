@@ -267,19 +267,28 @@ class TestFile(BaseRtypingTest):
         self.interpret(f, [])
 
     def test_seek(self):
+        from sys import platform
         fname = str(self.tmpdir.join('file_4'))
 
         def f():
             f = open(fname, "w+")
-            f.write("xxx")
+            f.write("abcdef")
             f.seek(0)
-            assert f.read() == "xxx"
+            assert f.read() == "abcdef"
+            f.seek(1)
+            assert f.read() == "bcdef"
+            f.seek(2)
+            f.seek(-2, 2)
+            assert f.read() == "ef"
+            f.seek(2)
+            f.seek(-1, 1)
+            assert f.read() == "bcdef"
             try:
                 f.seek(0, 42)
             except IOError as e:
                 assert e.errno == errno.EINVAL
             else:
-                assert False
+                assert platform == 'win32'
             f.close()
 
         f()
