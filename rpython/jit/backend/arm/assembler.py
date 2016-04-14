@@ -783,12 +783,15 @@ class AssemblerARM(ResOpAssembler):
             # get_max_size_of_gen_load_int() instructions.  No point
             # in optimizing in case we get less.  Just in case though,
             # we check and pad with nops.
-            extra_bytes = mc.get_max_size_of_gen_load_int() * 2
+            extra_bytes = mc.get_max_size_of_gen_load_int() * 4
             offset -= extra_bytes
             start = mc.get_relative_pos()
             mc.gen_load_int(regnum, offset)
-            while mc.get_relative_pos() != start + extra_bytes:
+            missing = start + extra_bytes - mc.get_relative_pos()
+            while missing > 0:
                 mc.NOP()
+                missing = start + extra_bytes - mc.get_relative_pos()
+            assert missing == 0
             mc.LDR_rr(regnum, r.pc.value, regnum)
 
     def new_stack_loc(self, i, tp):
