@@ -542,6 +542,21 @@ string, or 'NUMBER' if the value is out of range."""
         return w_cdata.ctype.string(w_cdata, maxlen)
 
 
+    @unwrap_spec(w_cdata=W_CData)
+    def descr_rawstring(self, w_cdata):
+        """\
+Convert a cdata that is an array of 'char' or 'wchar_t' to
+a byte or unicode string.  Unlike ffi.string(), it does not stop
+at the first null.
+
+Note that if you have a pointer and an explicit length, you
+can use 'p[0:length]' to make an array view.  This is similar to
+the construct 'list(p[0:length])', which returns a list of chars/
+unichars/ints/floats."""
+        #
+        return w_cdata.ctype.rawstring(w_cdata)
+
+
     def descr_sizeof(self, w_arg):
         """\
 Return the size in bytes of the argument.
@@ -736,6 +751,7 @@ W_FFIObject.typedef = TypeDef(
         new_allocator = interp2app(W_FFIObject.descr_new_allocator),
         new_handle  = interp2app(W_FFIObject.descr_new_handle),
         offsetof    = interp2app(W_FFIObject.descr_offsetof),
+        rawstring   = interp2app(W_FFIObject.descr_rawstring),
         sizeof      = interp2app(W_FFIObject.descr_sizeof),
         string      = interp2app(W_FFIObject.descr_string),
         typeof      = interp2app(W_FFIObject.descr_typeof),

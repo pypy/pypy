@@ -127,6 +127,12 @@ class W_CType(W_Root):
         raise oefmt(space.w_TypeError,
                     "string(): unexpected cdata '%s' argument", self.name)
 
+    def rawstring(self, cdataobj):
+        space = self.space
+        raise oefmt(space.w_TypeError,
+                    "expected a 'char[]' or 'uint8_t[]' or 'int8_t[]' "
+                    "or 'wchar_t[]', got '%s'", self.name)
+
     def add(self, cdata, i):
         space = self.space
         raise oefmt(space.w_TypeError, "cannot add a cdata '%s' and a number",

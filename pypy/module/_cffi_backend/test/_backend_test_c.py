@@ -3514,3 +3514,22 @@ def test_get_common_types():
     d = {}
     _get_common_types(d)
     assert d['bool'] == '_Bool'
+
+def test_rawstring():
+    BChar = new_primitive_type("char")
+    BArray = new_array_type(new_pointer_type(BChar), 10)   # char[10]
+    p = newp(BArray, "abc\x00def")
+    assert rawstring(p) == "abc\x00def\x00\x00\x00"
+    assert rawstring(p[1:6]) == "bc\x00de"
+    BWChar = new_primitive_type("wchar_t")
+    BArray = new_array_type(new_pointer_type(BWChar), 10)   # wchar_t[10]
+    p = newp(BArray, u"abc\x00def")
+    assert rawstring(p) == u"abc\x00def\x00\x00\x00"
+    assert rawstring(p[1:6]) == u"bc\x00de"
+    BChar = new_primitive_type("uint8_t")
+    BArray = new_array_type(new_pointer_type(BChar), 10)   # uint8_t[10]
+    p = newp(BArray, [65 + i for i in range(10)])
+    assert rawstring(p) == "ABCDEFGHIJ"
+    #
+    py.test.raises(TypeError, rawstring, "foobar")
+    py.test.raises(TypeError, rawstring, p + 1)
