@@ -97,9 +97,12 @@ class VMProfJitLogger(object):
 
         count = len(resoperations.opname)
         mark = MARK_RESOP_META
+        content = [encode_le_16bit(len(resoperations.opname))]
         for opnum, opname in resoperations.opname.items():
-            line = encode_le_16bit(opnum) + encode_str(opname.lower())
-            cintf.jitlog_write_marked(mark, line, len(line))
+            content.append(encode_le_16bit(opnum))
+            content.append(encode_str(opname.lower()))
+        blob = ''.join(content)
+        cintf.jitlog_write_marked(MARK_RESOP_META, blob, len(blob))
 
     def finish(self):
         self.cintf.jitlog_teardown()
@@ -261,6 +264,7 @@ class LogTrace(BaseLogTrace):
         dump = []
 
         start_offset = ops_offset[op]
+        assert start_offset >= 0
         # end offset is either the last pos in the assembler
         # or the offset of op2
         if op2 is None:
