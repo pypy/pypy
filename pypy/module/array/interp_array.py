@@ -605,7 +605,7 @@ if rffi.sizeof(rffi.UINT) == rffi.sizeof(rffi.ULONG):
     # 32 bits: UINT can't safely overflow into a C long (rpython int)
     # via int_w, handle it like ULONG below
     _UINTTypeCode = \
-         TypeCode(rffi.UINT,          'bigint_w')
+         TypeCode(rffi.UINT,          'bigint_w.touint')
 else:
     _UINTTypeCode = \
          TypeCode(rffi.UINT,          'int_w', True)
