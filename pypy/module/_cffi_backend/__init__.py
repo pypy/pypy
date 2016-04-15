@@ -48,6 +48,7 @@ class Module(MixedModule):
         'from_buffer': 'func.from_buffer',
 
         'string': 'func.string',
+        'rawstring': 'func.rawstring',
         'buffer': 'cbuffer.buffer',
         'memmove': 'func.memmove',
 

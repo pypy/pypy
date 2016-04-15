@@ -476,3 +476,16 @@ class AppTestFFIObj:
         for i in range(5):
             raises(ValueError, ffi.init_once, do_init, "tag")
             assert seen == [1] * (i + 1)
+
+    def test_rawstring(self):
+        import _cffi_backend as _cffi1_backend
+        ffi = _cffi1_backend.FFI()
+        p = ffi.new("char[]", "abc\x00def")
+        assert ffi.rawstring(p) == "abc\x00def\x00"
+        assert ffi.rawstring(p[1:6]) == "bc\x00de"
+        p = ffi.new("wchar_t[]", u"abc\x00def")
+        assert ffi.rawstring(p) == u"abc\x00def\x00"
+        assert ffi.rawstring(p[1:6]) == u"bc\x00de"
+        #
+        raises(TypeError, ffi.rawstring, "foobar")
+        raises(TypeError, ffi.rawstring, p + 1)
