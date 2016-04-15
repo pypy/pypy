@@ -216,7 +216,8 @@ def update_all_slots(space, w_type, pto):
 
         if slot_func_helper is None:
             if WARN_ABOUT_MISSING_SLOT_FUNCTIONS:
-                os.write(2, method_name + " defined by the type but no slot function defined!\n")
+                os.write(2, "%s defined by %s but no slot function defined!\n" % (
+                        method_name, w_type.getname(space)))
             continue
 
         # XXX special case wrapper-functions and use a "specific" slot func
