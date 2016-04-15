@@ -594,7 +594,6 @@ class TypeCode(object):
         self.method = method
 
         if self.canoverflow:
-            assert self.bytes <= rffi.sizeof(rffi.ULONG)
             if self.bytes == rffi.sizeof(rffi.ULONG) and not signed and \
                     self.unwrap == 'int_w':
                 # Treat this type as a ULONG

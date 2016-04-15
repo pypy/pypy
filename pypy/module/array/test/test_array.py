@@ -77,7 +77,7 @@ class BaseArrayTests:
                 except OverflowError:
                     pass
 
-        for tc in 'BHIL':
+        for tc in 'BHILQ':
             a = self.array(tc)
             itembits = a.itemsize * 8
             vals = [0, 2 ** itembits - 1]
