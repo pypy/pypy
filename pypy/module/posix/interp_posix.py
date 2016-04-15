@@ -1853,13 +1853,19 @@ def fpathconf(space, fd, w_name):
         raise wrap_oserror(space, e)
     return space.wrap(res)
 
-@unwrap_spec(path='str0')
+@unwrap_spec(path=path_or_fd(allow_fd=hasattr(os, 'fpathconf')))
 def pathconf(space, path, w_name):
     num = confname_w(space, w_name, os.pathconf_names)
-    try:
-        res = os.pathconf(path, num)
-    except OSError, e:
-        raise wrap_oserror(space, e)
+    if path.as_fd != -1:
+        try:
+            res = os.fpathconf(path.as_fd, num)
+        except OSError, e:
+            raise wrap_oserror(space, e)
+    else:
+        try:
+            res = os.pathconf(path.as_bytes, num)
+        except OSError, e:
+            raise wrap_oserror2(space, e, path.w_path)
     return space.wrap(res)
 
 def confstr(space, w_name):
