@@ -556,18 +556,18 @@ class TypeCode(object):
         self.w_class = None
         self.method = method
 
-        if self.canoverflow:
-            assert self.bytes <= rffi.sizeof(rffi.ULONG)
-            if self.bytes == rffi.sizeof(rffi.ULONG) and not signed and \
-                    self.unwrap == 'int_w':
-                # Treat this type as a ULONG
-                self.unwrap = 'bigint_w'
-                self.canoverflow = False
-
     def _freeze_(self):
         # hint for the annotator: track individual constant instances
         return True
 
+if rffi.sizeof(rffi.UINT) == rffi.sizeof(rffi.ULONG):
+    # 32 bits: UINT can't safely overflow into a C long (rpython int)
+    # via int_w, handle it like ULONG below
+    _UINTTypeCode = \
+         TypeCode(rffi.UINT,          'bigint_w')
+else:
+    _UINTTypeCode = \
+         TypeCode(rffi.UINT,          'int_w', True)
 types = {
     'c': TypeCode(lltype.Char,        'str_w', method=''),
     'u': TypeCode(lltype.UniChar,     'unicode_w', method=''),
@@ -576,7 +576,7 @@ types = {
     'h': TypeCode(rffi.SHORT,         'int_w', True, True),
     'H': TypeCode(rffi.USHORT,        'int_w', True),
     'i': TypeCode(rffi.INT,           'int_w', True, True),
-    'I': TypeCode(rffi.UINT,          'int_w', True),
+    'I': _UINTTypeCode,
     'l': TypeCode(rffi.LONG,          'int_w', True, True),
     'L': TypeCode(rffi.ULONG,         'bigint_w'),  # Overflow handled by
                                                     # rbigint.touint() which
