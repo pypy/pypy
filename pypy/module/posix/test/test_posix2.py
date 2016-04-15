@@ -193,6 +193,7 @@ class AppTestPosix:
         assert "can't specify None" in str(excinfo.value)
         excinfo = raises(TypeError, self.posix.stat, 2.)
         assert "should be string, bytes or integer, not float" in str(excinfo.value)
+        raises(ValueError, self.posix.stat, -1)
 
     if hasattr(__import__(os.name), "statvfs"):
         def test_statvfs(self):

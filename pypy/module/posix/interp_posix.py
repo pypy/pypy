@@ -178,13 +178,17 @@ DIR_FD_AVAILABLE = False
 @specialize.arg(2)
 def unwrap_fd(space, w_value, allowed_types='integer'):
     try:
-        return space.c_int_w(w_value)
+        result = space.c_int_w(w_value)
     except OperationError as e:
         if not e.match(space, space.w_OverflowError):
             raise oefmt(space.w_TypeError,
                 "argument should be %s, not %T", allowed_types, w_value)
         else:
             raise
+    if result == -1:
+        # -1 is used as sentinel value for not a fd
+        raise oefmt(space.w_ValueError, "invalid file descriptor: -1")
+    return result
 
 def _unwrap_dirfd(space, w_value):
     if space.is_none(w_value):
