@@ -246,6 +246,13 @@ class AbstractLLCPU(AbstractCPU):
 
     def free_loop_and_bridges(self, compiled_loop_token):
         AbstractCPU.free_loop_and_bridges(self, compiled_loop_token)
+        # turn off all gcreftracers
+        tracers = compiled_loop_token.asmmemmgr_gcreftracers
+        if tracers is not None:
+            compiled_loop_token.asmmemmgr_gcreftracers = None
+            for tracer in tracers:
+                self.gc_ll_descr.clear_gcref_tracer(tracer)
+        # then free all blocks of code and raw data
         blocks = compiled_loop_token.asmmemmgr_blocks
         if blocks is not None:
             compiled_loop_token.asmmemmgr_blocks = None

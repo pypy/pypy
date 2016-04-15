@@ -35,9 +35,9 @@ from rpython.rlib.rarithmetic import r_uint
 
 class ArmGuardToken(GuardToken):
     def __init__(self, cpu, gcmap, faildescr, failargs, fail_locs,
-                 offset, guard_opnum, frame_depth, fcond=c.AL):
+                 offset, guard_opnum, frame_depth, faildescrindex, fcond=c.AL):
         GuardToken.__init__(self, cpu, gcmap, faildescr, failargs, fail_locs,
-                            guard_opnum, frame_depth)
+                            guard_opnum, frame_depth, faildescrindex)
         self.fcond = fcond
         self.offset = offset
 
@@ -178,6 +178,7 @@ class ResOpAssembler(BaseAssembler):
         assert isinstance(descr, AbstractFailDescr)
 
         gcmap = allocate_gcmap(self, frame_depth, JITFRAME_FIXED_SIZE)
+        faildescrindex = self.get_gcref_from_faildescr(descr)
         token = ArmGuardToken(self.cpu, gcmap,
                                     descr,
                                     failargs=op.getfailargs(),
@@ -185,6 +186,7 @@ class ResOpAssembler(BaseAssembler):
                                     offset=offset,
                                     guard_opnum=op.getopnum(),
                                     frame_depth=frame_depth,
+                                    faildescrindex=faildescrindex,
                                     fcond=fcond)
         return token
 
@@ -398,14 +400,13 @@ class ResOpAssembler(BaseAssembler):
 
     def emit_op_finish(self, op, arglocs, regalloc, fcond):
         base_ofs = self.cpu.get_baseofs_of_frame_field()
-        if len(arglocs) == 2:
-            [return_val, fail_descr_loc] = arglocs
+        if len(arglocs) > 0:
+            [return_val] = arglocs
             self.store_reg(self.mc, return_val, r.fp, base_ofs)
-        else:
-            [fail_descr_loc] = arglocs
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
 
-        self.mc.gen_load_int(r.ip.value, fail_descr_loc.value)
+        faildescrindex = self.get_gcref_from_faildescr(op.getdescr())
+        self.load_from_gc_table(r.ip.value, faildescrindex)
         # XXX self.mov(fail_descr_loc, RawStackLoc(ofs))
         self.store_reg(self.mc, r.ip, r.fp, ofs, helper=r.lr)
         if op.numargs() > 0 and op.getarg(0).type == REF:
@@ -1035,9 +1036,9 @@ class ResOpAssembler(BaseAssembler):
         assert (guard_op.getopnum() == rop.GUARD_NOT_FORCED or
                 guard_op.getopnum() == rop.GUARD_NOT_FORCED_2)
         faildescr = guard_op.getdescr()
+        faildescrindex = self.get_gcref_from_faildescr(faildescr)
         ofs = self.cpu.get_ofs_of_frame_field('jf_force_descr')
-        value = rffi.cast(lltype.Signed, cast_instance_to_gcref(faildescr))
-        self.mc.gen_load_int(r.ip.value, value)
+        self.load_from_gc_table(r.ip.value, faildescrindex)
         self.store_reg(self.mc, r.ip, r.fp, ofs)
 
     def _find_nearby_operation(self, delta):
@@ -1249,4 +1250,10 @@ class ResOpAssembler(BaseAssembler):
         signed = (sign_loc.value != 0)
         self._load_from_mem(res_loc, res_loc, ofs_loc, imm(scale), signed,
                             fcond)
+        return fcond
+
+    def emit_op_load_from_gc_table(self, op, arglocs, regalloc, fcond):
+        res_loc, = arglocs
+        index = op.getarg(0).getint()
+        self.load_from_gc_table(res_loc.value, index)
         return fcond
