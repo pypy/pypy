@@ -1,4 +1,4 @@
-from rpython.rlib.rvmprof.rvmprof import cintf
+from rpython.rlib.rvmprof.rvmprof import _get_vmprof
 from rpython.jit.metainterp import resoperation as resoperations
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.metainterp.history import ConstInt, ConstFloat
@@ -77,7 +77,8 @@ def encode_le_addr(val):
 class VMProfJitLogger(object):
 
     def __init__(self):
-        self.cintf = cintf.setup()
+        self.vmprof = _get_vmprof()
+        self.cintf = self.vmprof.cintf
         self.memo = {}
 
     def setup_once(self):
@@ -86,23 +87,20 @@ class VMProfJitLogger(object):
         self.cintf.jitlog_try_init_using_env()
         if not self.cintf.jitlog_enabled():
             return
-        VMProfJitLogger._write_header(self.cintf)
+        blob = VMProfJitLogger.assemble_header()
+        self.cintf.jitlog_write_marked(MARK_JITLOG_HEADER, blob, len(blob))
 
     @staticmethod
     @always_inline
-    def _write_header(cintf):
-        header = JITLOG_VERSION_16BIT_LE
-        cintf.jitlog_write_marked(MARK_JITLOG_HEADER,
-                        header, len(header))
-
+    def assemble_header():
+        version = JITLOG_VERSION_16BIT_LE
         count = len(resoperations.opname)
-        mark = MARK_RESOP_META
-        content = [encode_le_16bit(len(resoperations.opname))]
+        content = [version, chr(MARK_RESOP_META),
+                   encode_le_16bit(count)]
         for opnum, opname in resoperations.opname.items():
             content.append(encode_le_16bit(opnum))
             content.append(encode_str(opname.lower()))
-        blob = ''.join(content)
-        cintf.jitlog_write_marked(MARK_RESOP_META, blob, len(blob))
+        return ''.join(content)
 
     def finish(self):
         self.cintf.jitlog_teardown()
