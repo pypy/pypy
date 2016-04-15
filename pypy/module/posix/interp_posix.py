@@ -134,6 +134,9 @@ class Path(object):
 
 class _PathOrFd(Unwrapper):
     def unwrap(self, space, w_value):
+        if space.is_none(w_value):
+            raise oefmt(space.w_TypeError,
+                "can't specify None for path argument")
         if _WIN32:
             try:
                 path_u = space.unicode_w(w_value)
@@ -145,10 +148,7 @@ class _PathOrFd(Unwrapper):
             return Path(-1, path_b, None, w_value)
         except OperationError:
             pass
-        if not space.isinstance_w(w_value, space.w_int):
-            raise oefmt(space.w_TypeError,
-                "argument should be string, bytes or integer, not %T", w_value)
-        fd = unwrap_fd(space, w_value)
+        fd = unwrap_fd(space, w_value, "string, bytes or integer")
         return Path(fd, None, None, w_value)
 
 class _JustPath(Unwrapper):
@@ -175,8 +175,16 @@ else:
     DEFAULT_DIR_FD = -100
 DIR_FD_AVAILABLE = False
 
-def unwrap_fd(space, w_value):
-    return space.c_int_w(w_value)
+@specialize.arg(2)
+def unwrap_fd(space, w_value, allowed_types='integer'):
+    try:
+        return space.c_int_w(w_value)
+    except OperationError as e:
+        if not e.match(space, space.w_OverflowError):
+            raise oefmt(space.w_TypeError,
+                "argument should be %s, not %T", allowed_types, w_value)
+        else:
+            raise
 
 def _unwrap_dirfd(space, w_value):
     if space.is_none(w_value):
