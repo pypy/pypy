@@ -1,5 +1,5 @@
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from rpython.rlib import jit
@@ -510,17 +510,17 @@ class W_Chain(W_Root):
         state = space.unpackiterable(w_state)
         num_args = len(state)
         if num_args < 1:
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("function takes at least 1 argument "
-                                            "(" + str(num_args) + " given)"))
+            raise oefmt(space.w_TypeError,
+                        "function takes at least 1 argument (%d given)",
+                        num_args)
         elif num_args == 1:
             self.w_iterables = state[0]
         elif num_args == 2:
             self.w_iterables, self.w_it = state
         else:
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("function takes at most 2 arguments "
-                                            "(" + str(num_args) + " given)"))
+            raise oefmt(space.w_TypeError,
+                        "function takes at most 2 arguments (%d given)",
+                        num_args)
 
 def W_Chain___new__(space, w_subtype, args_w):
     r = space.allocate_instance(W_Chain, w_subtype)
@@ -978,9 +978,9 @@ class W_GroupBy(W_Root):
         state = space.unpackiterable(w_state)
         num_args = len(state)
         if num_args != 3:
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("function takes exactly 3 arguments "
-                                            "(" + str(num_args) + " given)"))
+            raise oefmt(space.w_TypeError,
+                        "function takes exactly 3 arguments (%d given)",
+                        num_args)
         w_key, w_lookahead, _ = state
         self.w_key = w_key
         self.w_lookahead = w_lookahead
@@ -1419,8 +1419,7 @@ class W_CombinationsWithReplacement(W_Combinations):
     def descr_setstate(self, space, w_state):
         indices_w = space.fixedview(w_state)
         if len(indices_w) != self.r:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "invalid arguments"))
+            raise oefmt(space.w_ValueError, "invalid arguments")
         for i in range(self.r):
             index = space.int_w(indices_w[i])
             max = self.get_maximum(i)
@@ -1539,12 +1538,10 @@ class W_Permutations(W_Root):
             cycles_w = space.unpackiterable(w_cycles)
             self.started = space.bool_w(w_started)
         else:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "invalid arguments"))
+            raise oefmt(space.w_ValueError, "invalid arguments")
 
         if len(indices_w) != len(self.pool_w) or len(cycles_w) != self.r:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "inavalid arguments"))
+            raise oefmt(space.w_ValueError, "inavalid arguments")
 
         n = len(self.pool_w)
         for i in range(n):
