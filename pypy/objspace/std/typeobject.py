@@ -630,9 +630,14 @@ class W_TypeObject(W_Root):
         if (call_init and not (space.is_w(self, space.w_type) and
             not __args__.keywords and len(__args__.arguments_w) == 1)):
             w_descr = space.lookup(w_newobject, '__init__')
-            w_result = space.get_and_call_args(w_descr, w_newobject, __args__)
-            if not space.is_w(w_result, space.w_None):
-                raise oefmt(space.w_TypeError, "__init__() should return None")
+            if w_descr:
+                w_result = space.get_and_call_args(w_descr, w_newobject, __args__)
+                if not space.is_w(w_result, space.w_None):
+                    raise oefmt(space.w_TypeError, "__init__() should return None")
+            else:
+                # XXX FIXME - happens when running test_tp_new_in_subclass_of_type
+                # but only with pypy pytest.py -A ...
+                print "'__init__' not found when calling %s" % self.getname(space)
         return w_newobject
 
     def descr_repr(self, space):
