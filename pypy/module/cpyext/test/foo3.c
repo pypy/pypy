@@ -10,6 +10,8 @@ PyObject* foo3type_tp_new(PyTypeObject* metatype, PyObject* args, PyObject* kwds
     return newType;
 }
 
+#define BASEFLAGS Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_CHECKTYPES
+
 PyTypeObject footype = {
     PyVarObject_HEAD_INIT(NULL, 0)
     /*tp_name*/             "foo3.footype",
@@ -30,7 +32,7 @@ PyTypeObject footype = {
     /*tp_getattro*/         0,
     /*tp_setattro*/         0,
     /*tp_as_buffer*/        0,
-    /*tp_flags*/            Py_TPFLAGS_DEFAULT,
+    /*tp_flags*/            BASEFLAGS,
     /*tp_doc*/              0,
     /*tp_traverse*/         0,
     /*tp_clear*/            0,
