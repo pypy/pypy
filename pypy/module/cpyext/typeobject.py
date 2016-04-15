@@ -280,11 +280,6 @@ def tp_new_wrapper(space, self, w_args, w_kwds):
 
     try:
         subtype = rffi.cast(PyTypeObjectPtr, make_ref(space, w_subtype))
-        if subtype == self_pytype:
-            print 'recursion detected???'
-        print 'calling tp_new of %s with %s' % (
-            rffi.charp2str(self_pytype.c_tp_name),
-            rffi.charp2str(subtype.c_tp_name))
         w_obj = generic_cpy_call(space, tp_new, subtype, w_args, w_kwds)
     finally:
         Py_DecRef(space, w_subtype)
