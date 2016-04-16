@@ -4510,7 +4510,10 @@ class LLtypeBackendTest(BaseBackendTest):
                     continue
                 w = t[2].split()
                 if len(w) == 0:
-                    continue
+                    if '<UNDEFINED>' in line:
+                        w = ['UNDEFINED']
+                    else:
+                        continue
                 words.append(w[0] + ';')
                 print '[[%s]]' % (w[0],)
             text = ' '.join(words)
