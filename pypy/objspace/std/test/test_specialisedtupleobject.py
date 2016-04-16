@@ -177,6 +177,11 @@ class AppTestW_SpecialisedTupleObject:
 
         assert hash(a) == hash((1, 2)) == hash((1.0, 2.0)) == hash((1.0, 2))
 
+        d = tuple([-1, 1])
+        e = (-1, 1)
+        assert d == e
+        assert hash(d) == hash(e)
+
     def test_getitem(self):
         t = (5, 3)
         assert (t)[0] == 5
