@@ -78,8 +78,6 @@ Other Highlights (since 5.0 released in March 2015)
   * Try harder to not emit NEON instructions on ARM processors without NEON
     support
 
-  * Support glibc < 2.16 on ARM
-
   * Improve the rpython posix module system interaction function calls
 
   * Detect a missing class function implementation instead of calling a random
