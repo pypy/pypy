@@ -55,11 +55,19 @@ class AppTestArrayBroadcast(BaseNumpyAppTest):
         assert b == [(1, 4), (2, 5), (3, 6)]
         assert b[0][0].dtype == x.dtype
 
-    def test_broadcast_linear_unequal(self):
+    def test_broadcast_failures(self):
         import numpy as np
+        import sys
         x = np.array([1, 2, 3])
         y = np.array([4, 5])
         raises(ValueError, np.broadcast, x, y)
+        a = np.empty(2**16,dtype='int8')
+        a = a.reshape(-1, 1, 1, 1)
+        b = a.reshape(1, -1, 1, 1)
+        c = a.reshape(1, 1, -1, 1)
+        d = a.reshape(1, 1, 1, -1)
+        exc = raises(ValueError, np.broadcast, a, b, c, d)
+        assert exc.value[0] == ('broadcast dimensions too large.')
 
     def test_broadcast_3_args(self):
         import numpy as np
@@ -82,7 +90,8 @@ class AppTestArrayBroadcast(BaseNumpyAppTest):
         for j in range(35):
             arrs = [arr] * j
             if j < 2 or j > 32:
-                raises(ValueError, np.broadcast, *arrs)
+                exc = raises(ValueError, np.broadcast, *arrs)
+                assert exc.value[0] == ('Need at least two and fewer than (32) array objects.')
             else:
                 mit = np.broadcast(*arrs)
                 assert mit.numiter == j

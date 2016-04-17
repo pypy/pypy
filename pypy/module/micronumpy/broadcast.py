@@ -1,6 +1,6 @@
 import pypy.module.micronumpy.constants as NPY
 from nditer import ConcreteIter, parse_op_flag, parse_op_arg
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.module.micronumpy import support
@@ -8,6 +8,8 @@ from pypy.module.micronumpy.base import W_NDimArray, convert_to_array, W_NumpyOb
 from rpython.rlib import jit
 from strides import calculate_broadcast_strides, shape_agreement_multiple
 
+def descr_new_broadcast(space, w_subtype, __args__):
+    return W_Broadcast(space, __args__.arguments_w)
 
 class W_Broadcast(W_NumpyObject):
     """
@@ -15,15 +17,11 @@ class W_Broadcast(W_NumpyObject):
     This class is a simplified version of nditer.W_NDIter with fixed iteration for broadcasted arrays.
     """
 
-    @staticmethod
-    def descr_new_broadcast(space, w_subtype, __args__):
-        return W_Broadcast(space, __args__.arguments_w)
-
     def __init__(self, space, args):
         num_args = len(args)
         if not (2 <= num_args <= NPY.MAXARGS):
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("Need at least two and fewer than (%d) array objects." % NPY.MAXARGS))
+            raise oefmt(space.w_ValueError,
+                                 "Need at least two and fewer than (%d) array objects.", NPY.MAXARGS)
 
         self.seq = [convert_to_array(space, w_elem)
                     for w_elem in args]
@@ -37,7 +35,10 @@ class W_Broadcast(W_NumpyObject):
         self.iters = []
         self.index = 0
 
-        self.size = support.product(self.shape)
+        try:
+            self.size = support.product_check(self.shape)
+        except OverflowError as e:
+            raise oefmt(space.w_ValueError, "broadcast dimensions too large.")
         for i in range(len(self.seq)):
             it = self.get_iter(space, i)
             it.contiguous = False
@@ -99,7 +100,7 @@ class W_Broadcast(W_NumpyObject):
 
 
 W_Broadcast.typedef = TypeDef("numpy.broadcast",
-                              __new__=interp2app(W_Broadcast.descr_new_broadcast),
+                              __new__=interp2app(descr_new_broadcast),
                               __iter__=interp2app(W_Broadcast.descr_iter),
                               next=interp2app(W_Broadcast.descr_next),
                               shape=GetSetProperty(W_Broadcast.descr_get_shape),
