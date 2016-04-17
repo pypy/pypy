@@ -476,3 +476,11 @@ class AppTestFFIObj:
         for i in range(5):
             raises(ValueError, ffi.init_once, do_init, "tag")
             assert seen == [1] * (i + 1)
+
+    def test_unpack(self):
+        import _cffi_backend as _cffi1_backend
+        ffi = _cffi1_backend.FFI()
+        p = ffi.new("char[]", b"abc\x00def")
+        assert ffi.unpack(p+1, 7) == b"bc\x00def\x00"
+        p = ffi.new("int[]", [-123456789])
+        assert ffi.unpack(p, 1) == [-123456789]

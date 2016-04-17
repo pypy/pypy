@@ -79,52 +79,43 @@ def _resolve_attr_chain(chain, obj, idx=0):
     else:
         return _resolve_attr_chain(chain, obj, idx + 1)
 
-
-class _simple_attrgetter(object):
-    def __init__(self, attr):
-        self._attr = attr
+class attrgetter(object):
+    def __init__(self, attr, *attrs):
+        if (
+            not isinstance(attr, basestring) or
+            not all(isinstance(a, basestring) for a in attrs)
+        ):
+            def _raise_typeerror(obj):
+                raise TypeError(
+                    "argument must be a string, not %r" % type(attr).__name__
+                )
+            self._call = _raise_typeerror
+        elif attrs:
+            self._multi_attrs = [
+                a.split(".") for a in [attr] + list(attrs)
+            ]
+            self._call = self._multi_attrgetter
+        elif "." not in attr:
+            self._simple_attr = attr
+            self._call = self._simple_attrgetter
+        else:
+            self._single_attr = attr.split(".")
+            self._call = self._single_attrgetter
 
     def __call__(self, obj):
-        return getattr(obj, self._attr)
+        return self._call(obj)
 
+    def _simple_attrgetter(self, obj):
+        return getattr(obj, self._simple_attr)
 
-class _single_attrgetter(object):
-    def __init__(self, attrs):
-        self._attrs = attrs
+    def _single_attrgetter(self, obj):
+        return _resolve_attr_chain(self._single_attr, obj)
 
-    def __call__(self, obj):
-        return _resolve_attr_chain(self._attrs, obj)
-
-
-class _multi_attrgetter(object):
-    def __init__(self, attrs):
-        self._attrs = attrs
-
-    def __call__(self, obj):
+    def _multi_attrgetter(self, obj):
         return tuple([
             _resolve_attr_chain(attrs, obj)
-            for attrs in self._attrs
+            for attrs in self._multi_attrs
         ])
-
-
-def attrgetter(attr, *attrs):
-    if (
-        not isinstance(attr, basestring) or
-        not all(isinstance(a, basestring) for a in attrs)
-    ):
-        def _raise_typeerror(obj):
-            raise TypeError(
-                "argument must be a string, not %r" % type(attr).__name__
-            )
-        return _raise_typeerror
-    if attrs:
-        return _multi_attrgetter([
-            a.split(".") for a in [attr] + list(attrs)
-        ])
-    elif "." not in attr:
-        return _simple_attrgetter(attr)
-    else:
-        return _single_attrgetter(attr.split("."))
 
 
 class itemgetter(object):

@@ -144,25 +144,13 @@ def _copy_header_files(headers, dstdir):
         target.chmod(0444) # make the file read-only, to make sure that nobody
                            # edits it by mistake
 
-def copy_header_files(dstdir, copy_numpy_headers):
+def copy_header_files(dstdir):
     # XXX: 20 lines of code to recursively copy a directory, really??
     assert dstdir.check(dir=True)
     headers = include_dir.listdir('*.h') + include_dir.listdir('*.inl')
-    for name in ("pypy_decl.h", "pypy_macros.h", "pypy_structmember_decl.h"):
+    for name in ["pypy_macros.h"] + FUNCTIONS_BY_HEADER.keys():
         headers.append(udir.join(name))
     _copy_header_files(headers, dstdir)
-
-    if copy_numpy_headers:
-        try:
-            dstdir.mkdir('numpy')
-        except py.error.EEXIST:
-            pass
-        numpy_dstdir = dstdir / 'numpy'
-
-        numpy_include_dir = include_dir / 'numpy'
-        numpy_headers = numpy_include_dir.listdir('*.h') + numpy_include_dir.listdir('*.inl')
-        _copy_header_files(numpy_headers, numpy_dstdir)
-
 
 class NotSpecified(object):
     pass
@@ -231,7 +219,8 @@ class ApiFunction:
                 wrapper.c_name = cpyext_namespace.uniquename(self.c_name)
         return wrapper
 
-def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header='pypy_decl.h',
+DEFAULT_HEADER = 'pypy_decl.h'
+def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
                 gil=None, result_borrowed=False):
     """
     Declares a function to be exported.
@@ -265,16 +254,14 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header='pypy_decl.h',
         func_name = func.func_name
         if header is not None:
             c_name = None
+            assert func_name not in FUNCTIONS, (
+                "%s already registered" % func_name)
         else:
             c_name = func_name
         api_function = ApiFunction(argtypes, restype, func, error,
                                    c_name=c_name, gil=gil,
                                    result_borrowed=result_borrowed)
         func.api_func = api_function
-
-        if header is not None:
-            assert func_name not in FUNCTIONS, (
-                "%s already registered" % func_name)
 
         if error is _NOT_SPECIFIED:
             raise ValueError("function %s has no return value for exceptions"
@@ -363,7 +350,8 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header='pypy_decl.h',
         unwrapper_catch = make_unwrapper(True)
         unwrapper_raise = make_unwrapper(False)
         if header is not None:
-            FUNCTIONS[func_name] = api_function
+            if header == DEFAULT_HEADER:
+                FUNCTIONS[func_name] = api_function
             FUNCTIONS_BY_HEADER.setdefault(header, {})[func_name] = api_function
         INTERPLEVEL_API[func_name] = unwrapper_catch # used in tests
         return unwrapper_raise # used in 'normal' RPython code.
@@ -792,10 +780,11 @@ def build_bridge(space):
     # Structure declaration code
     members = []
     structindex = {}
-    for name, func in sorted(FUNCTIONS.iteritems()):
-        restype, args = c_function_signature(db, func)
-        members.append('%s (*%s)(%s);' % (restype, name, args))
-        structindex[name] = len(structindex)
+    for header, header_functions in FUNCTIONS_BY_HEADER.iteritems():
+        for name, func in header_functions.iteritems():
+            restype, args = c_function_signature(db, func)
+            members.append('%s (*%s)(%s);' % (restype, name, args))
+            structindex[name] = len(structindex)
     structmembers = '\n'.join(members)
     struct_declaration_code = """\
     struct PyPyAPI {
@@ -804,7 +793,8 @@ def build_bridge(space):
     RPY_EXTERN struct PyPyAPI* pypyAPI = &_pypyAPI;
     """ % dict(members=structmembers)
 
-    functions = generate_decls_and_callbacks(db, export_symbols)
+    functions = generate_decls_and_callbacks(db, export_symbols, 
+                                            prefix='cpyexttest')
 
     global_objects = []
     for name, (typ, expr) in GLOBALS.iteritems():
@@ -821,6 +811,11 @@ def build_bridge(space):
     prologue = ("#include <Python.h>\n"
                 "#include <structmember.h>\n"
                 "#include <src/thread.c>\n")
+    if use_micronumpy:
+        prologue = ("#include <Python.h>\n"
+                    "#include <structmember.h>\n"
+                    "#include <pypy_numpy.h>\n"
+                    "#include <src/thread.c>\n")
     code = (prologue +
             struct_declaration_code +
             global_code +
@@ -896,13 +891,19 @@ def build_bridge(space):
     pypyAPI = ctypes.POINTER(ctypes.c_void_p).in_dll(bridge, 'pypyAPI')
 
     # implement structure initialization code
-    for name, func in FUNCTIONS.iteritems():
-        if name.startswith('cpyext_'): # XXX hack
-            continue
-        pypyAPI[structindex[name]] = ctypes.cast(
-            ll2ctypes.lltype2ctypes(func.get_llhelper(space)),
-            ctypes.c_void_p)
-
+    #for name, func in FUNCTIONS.iteritems():
+    #    if name.startswith('cpyext_'): # XXX hack
+    #        continue
+    #    pypyAPI[structindex[name]] = ctypes.cast(
+    #        ll2ctypes.lltype2ctypes(func.get_llhelper(space)),
+    #        ctypes.c_void_p)
+    for header, header_functions in FUNCTIONS_BY_HEADER.iteritems():
+        for name, func in header_functions.iteritems():
+            if name.startswith('cpyext_'): # XXX hack
+                continue
+            pypyAPI[structindex[name]] = ctypes.cast(
+                ll2ctypes.lltype2ctypes(func.get_llhelper(space)),
+                ctypes.c_void_p)
     setup_va_functions(eci)
 
     setup_init_functions(eci, translating=False)
@@ -995,18 +996,12 @@ def generate_macros(export_symbols, prefix):
     pypy_macros_h = udir.join('pypy_macros.h')
     pypy_macros_h.write('\n'.join(pypy_macros))
 
-def generate_decls_and_callbacks(db, export_symbols, api_struct=True):
+def generate_decls_and_callbacks(db, export_symbols, api_struct=True, prefix=''):
     "NOT_RPYTHON"
     # implement function callbacks and generate function decls
     functions = []
     decls = {}
     pypy_decls = decls['pypy_decl.h'] = []
-    pypy_decls.append("#ifndef _PYPY_PYPY_DECL_H\n")
-    pypy_decls.append("#define _PYPY_PYPY_DECL_H\n")
-    pypy_decls.append("#ifndef PYPY_STANDALONE\n")
-    pypy_decls.append("#ifdef __cplusplus")
-    pypy_decls.append("extern \"C\" {")
-    pypy_decls.append("#endif\n")
     pypy_decls.append('#define Signed   long           /* xxx temporary fix */\n')
     pypy_decls.append('#define Unsigned unsigned long  /* xxx temporary fix */\n')
 
@@ -1016,19 +1011,28 @@ def generate_decls_and_callbacks(db, export_symbols, api_struct=True):
     for header_name, header_functions in FUNCTIONS_BY_HEADER.iteritems():
         if header_name not in decls:
             header = decls[header_name] = []
+            header.append('#define Signed   long           /* xxx temporary fix */\n')
+            header.append('#define Unsigned unsigned long  /* xxx temporary fix */\n')
         else:
             header = decls[header_name]
 
         for name, func in sorted(header_functions.iteritems()):
+            if header == DEFAULT_HEADER:
+                _name = name
+            else:
+                # this name is not included in pypy_macros.h
+                _name = mangle_name(prefix, name)
+                assert _name is not None, 'error converting %s' % name
+                header.append("#define %s %s" % (name, _name))
             restype, args = c_function_signature(db, func)
-            header.append("PyAPI_FUNC(%s) %s(%s);" % (restype, name, args))
+            header.append("PyAPI_FUNC(%s) %s(%s);" % (restype, _name, args))
             if api_struct:
                 callargs = ', '.join('arg%d' % (i,)
                                     for i in range(len(func.argtypes)))
                 if func.restype is lltype.Void:
-                    body = "{ _pypyAPI.%s(%s); }" % (name, callargs)
+                    body = "{ _pypyAPI.%s(%s); }" % (_name, callargs)
                 else:
-                    body = "{ return _pypyAPI.%s(%s); }" % (name, callargs)
+                    body = "{ return _pypyAPI.%s(%s); }" % (_name, callargs)
                 functions.append('%s %s(%s)\n%s' % (restype, name, args, body))
     for name in VA_TP_LIST:
         name_no_star = process_va_name(name)
@@ -1045,13 +1049,10 @@ def generate_decls_and_callbacks(db, export_symbols, api_struct=True):
             typ = 'PyObject*'
         pypy_decls.append('PyAPI_DATA(%s) %s;' % (typ, name))
 
-    pypy_decls.append('#undef Signed    /* xxx temporary fix */\n')
-    pypy_decls.append('#undef Unsigned  /* xxx temporary fix */\n')
-    pypy_decls.append("#ifdef __cplusplus")
-    pypy_decls.append("}")
-    pypy_decls.append("#endif")
-    pypy_decls.append("#endif /*PYPY_STANDALONE*/\n")
-    pypy_decls.append("#endif /*_PYPY_PYPY_DECL_H*/\n")
+    for header_name in FUNCTIONS_BY_HEADER.keys():
+        header = decls[header_name]
+        header.append('#undef Signed    /* xxx temporary fix */\n')
+        header.append('#undef Unsigned  /* xxx temporary fix */\n')
 
     for header_name, header_decls in decls.iteritems():
         decl_h = udir.join(header_name)
@@ -1158,7 +1159,8 @@ def setup_library(space):
 
     generate_macros(export_symbols, prefix='PyPy')
 
-    functions = generate_decls_and_callbacks(db, [], api_struct=False)
+    functions = generate_decls_and_callbacks(db, [], api_struct=False, 
+                                            prefix='PyPy')
     code = "#include <Python.h>\n" + "\n".join(functions)
 
     eci = build_eci(False, export_symbols, code)
@@ -1200,14 +1202,16 @@ def setup_library(space):
         PyObjectP, 'pypy_static_pyobjs', eci2, c_type='PyObject **',
         getter_only=True, declare_as_extern=False)
 
-    for name, func in FUNCTIONS.iteritems():
-        newname = mangle_name('PyPy', name) or name
-        deco = entrypoint_lowlevel("cpyext", func.argtypes, newname, relax=True)
-        deco(func.get_wrapper(space))
+    for header, header_functions in FUNCTIONS_BY_HEADER.iteritems():
+        for name, func in header_functions.iteritems():
+            newname = mangle_name('PyPy', name) or name
+            deco = entrypoint_lowlevel("cpyext", func.argtypes, newname, 
+                                        relax=True)
+            deco(func.get_wrapper(space))
 
     setup_init_functions(eci, translating=True)
     trunk_include = pypydir.dirpath() / 'include'
-    copy_header_files(trunk_include, use_micronumpy)
+    copy_header_files(trunk_include)
 
 def init_static_data_translated(space):
     builder = space.fromcache(StaticObjectBuilder)

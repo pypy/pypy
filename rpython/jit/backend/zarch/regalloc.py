@@ -178,6 +178,7 @@ class ZARCHRegisterManager(RegisterManager):
             bind_first: the even register will be bound to bindvar,
                         if bind_first == False: the odd register will
                         be bound
+            NOTE: Calling ensure_even_odd_pair twice in a prepare function is NOT supported!
         """
         self._check_type(origvar)
         prev_loc = self.loc(origvar, must_exist=must_exist)
@@ -227,9 +228,6 @@ class ZARCHRegisterManager(RegisterManager):
         i = len(self.free_regs)-1
         while i >= 0:
             even = self.free_regs[i]
-            if even.value == 13:
-                i -= 1
-                continue
             if even.is_even():
                 # found an even registers that is actually free
                 odd = r.odd_reg(even)
@@ -309,10 +307,52 @@ class ZARCHRegisterManager(RegisterManager):
             self.reg_bindings[odd_var] = odd
             break
         else:
-            # no break! this is bad. really bad
-            raise NoVariableToSpill()
+            # uff! in this case, we need to move a forbidden var to another register
+            assert len(forbidden_vars) <= 8 # otherwise it is NOT possible to complete
+            even, odd = r.r2, r.r3
+            even_var = reverse_mapping.get(even, None)
+            odd_var = reverse_mapping.get(odd, None)
+            if even_var:
+                if even_var in forbidden_vars:
+                    self._relocate_forbidden_variable(even, even_var, reverse_mapping,
+                                                      forbidden_vars, odd)
+                else:
+                    self._sync_var(even_var)
+            if odd_var:
+                if odd_var in forbidden_vars:
+                    self._relocate_forbidden_variable(odd, odd_var, reverse_mapping,
+                                                      forbidden_vars, even)
+                else:
+                    self._sync_var(odd_var)
+
+            self.free_regs = [fr for fr in self.free_regs \
+                              if fr is not even and \
+                                 fr is not odd]
+            self.reg_bindings[even_var] = even
+            self.reg_bindings[odd_var] = odd
+            return even, odd
 
         return even, odd
+
+    def _relocate_forbidden_variable(self, reg, var, reverse_mapping, forbidden_vars, forbidden_reg):
+        for candidate in r.MANAGED_REGS:
+            # move register of var to another register
+            # thus it is not allowed to bei either reg or forbidden_reg
+            if candidate is reg or candidate is forbidden_reg:
+                continue
+            # neither can we allow to move it to a register of another forbidden variable
+            candidate_var = reverse_mapping.get(candidate, None)
+            if not candidate_var or candidate_var not in forbidden_vars:
+                if candidate_var is not None:
+                    self._sync_var(candidate_var)
+                self.assembler.regalloc_mov(reg, candidate)
+                self.reg_bindings[var] = candidate
+                reverse_mapping[reg] = var
+                self.free_regs.append(reg)
+                break
+        else:
+            raise NoVariableToSpill
+
 
 class ZARCHFrameManager(FrameManager):
     def __init__(self, base_ofs):
@@ -1215,18 +1255,16 @@ class Regalloc(BaseRegalloc):
                                  src_locations2, dst_locations2, fptmploc, WORD)
         return []
 
+    def prepare_load_from_gc_table(self, op):
+        resloc = self.rm.force_allocate_reg(op)
+        return [resloc]
+
     def prepare_finish(self, op):
-        descr = op.getdescr()
-        fail_descr = cast_instance_to_gcref(descr)
-        # we know it does not move, but well
-        rgc._make_sure_does_not_move(fail_descr)
-        fail_descr = rffi.cast(lltype.Signed, fail_descr)
-        assert fail_descr > 0
         if op.numargs() > 0:
             loc = self.ensure_reg(op.getarg(0))
-            locs = [loc, imm(fail_descr)]
+            locs = [loc]
         else:
-            locs = [imm(fail_descr)]
+            locs = []
         return locs
 
 def notimplemented(self, op):
