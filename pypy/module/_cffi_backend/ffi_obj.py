@@ -630,6 +630,38 @@ where you have an 'ffi' object but not any associated 'lib' object."""
         return w_result
 
 
+    def descr_list_types(self):
+        """\
+Returns the user type names known to this FFI instance.
+This returns a tuple containing three lists of names:
+(typedef_names, names_of_structs, names_of_unions)"""
+        #
+        space = self.space
+        ctx = self.ctxobj.ctx
+
+        lst1_w = []
+        for i in range(rffi.getintfield(ctx, 'c_num_typenames')):
+            s = rffi.charp2str(ctx.c_typenames[i].c_name)
+            lst1_w.append(space.wrap(s))
+
+        lst2_w = []
+        lst3_w = []
+        for i in range(rffi.getintfield(ctx, 'c_num_struct_unions')):
+            su = ctx.c_struct_unions[i]
+            if su.c_name[0] == '$':
+                continue
+            s = rffi.charp2str(su.c_name)
+            if rffi.getintfield(su, 'c_flags') & cffi_opcode.F_UNION:
+                lst_w = lst3_w
+            else:
+                lst_w = lst2_w
+            lst_w.append(space.wrap(s))
+
+        return space.newtuple([space.newlist(lst1_w),
+                               space.newlist(lst2_w),
+                               space.newlist(lst3_w)])
+
+
     def descr_init_once(self, w_func, w_tag):
         """\
 init_once(function, tag): run function() once.  More precisely,
@@ -750,6 +782,7 @@ W_FFIObject.typedef = TypeDef(
         getctype    = interp2app(W_FFIObject.descr_getctype),
         init_once   = interp2app(W_FFIObject.descr_init_once),
         integer_const = interp2app(W_FFIObject.descr_integer_const),
+        list_types  = interp2app(W_FFIObject.descr_list_types),
         memmove     = interp2app(W_FFIObject.descr_memmove),
         new         = interp2app(W_FFIObject.descr_new),
         new_allocator = interp2app(W_FFIObject.descr_new_allocator),
