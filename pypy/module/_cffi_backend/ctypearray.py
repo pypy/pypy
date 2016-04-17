@@ -109,21 +109,6 @@ class W_CTypeArray(W_CTypePtrOrArray):
     def typeoffsetof_index(self, index):
         return self.ctptr.typeoffsetof_index(index)
 
-    def rawstring(self, w_cdata):
-        if isinstance(self.ctitem, ctypeprim.W_CTypePrimitive):
-            space = self.space
-            length = w_cdata.get_array_length()
-            if self.ctitem.size == rffi.sizeof(lltype.Char):
-                with w_cdata as ptr:
-                    s = rffi.charpsize2str(ptr, length)
-                return space.wrapbytes(s)
-            elif self.is_unichar_ptr_or_array():
-                with w_cdata as ptr:
-                    cdata = rffi.cast(rffi.CWCHARP, ptr)
-                    u = rffi.wcharpsize2unicode(cdata, length)
-                return space.wrap(u)
-        return W_CTypePtrOrArray.rawstring(self, w_cdata)
-
 
 class W_CDataIter(W_Root):
     _immutable_fields_ = ['ctitem', 'cdata', '_stop']    # but not '_next'

@@ -127,11 +127,20 @@ class W_CType(W_Root):
         raise oefmt(space.w_TypeError,
                     "string(): unexpected cdata '%s' argument", self.name)
 
-    def rawstring(self, cdataobj):
+    def unpack_ptr(self, w_ctypeptr, ptr, length):
+        # generic implementation, when the type of items is not known to
+        # be one for which a fast-case exists
         space = self.space
-        raise oefmt(space.w_TypeError,
-                    "expected a 'char[]' or 'uint8_t[]' or 'int8_t[]' "
-                    "or 'wchar_t[]', got '%s'", self.name)
+        itemsize = self.size
+        if itemsize < 0:
+            raise oefmt(space.w_ValueError,
+                        "'%s' points to items of unknown size",
+                        w_ctypeptr.name)
+        result_w = [None] * length
+        for i in range(length):
+            result_w[i] = self.convert_to_object(ptr)
+            ptr = rffi.ptradd(ptr, itemsize)
+        return space.newlist(result_w)
 
     def add(self, cdata, i):
         space = self.space

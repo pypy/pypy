@@ -125,6 +125,10 @@ class W_CTypePrimitiveChar(W_CTypePrimitiveCharOrUniChar):
         value = self._convert_to_char(w_ob)
         cdata[0] = value
 
+    def unpack_ptr(self, w_ctypeptr, ptr, length):
+        s = rffi.charpsize2str(ptr, length)
+        return self.space.wrapbytes(s)
+
 
 # XXX explicitly use an integer type instead of lltype.UniChar here,
 # because for now the latter is defined as unsigned by RPython (even
@@ -170,6 +174,10 @@ class W_CTypePrimitiveUniChar(W_CTypePrimitiveCharOrUniChar):
     def convert_from_object(self, cdata, w_ob):
         value = self._convert_to_unichar(w_ob)
         rffi.cast(rffi.CWCHARP, cdata)[0] = value
+
+    def unpack_ptr(self, w_ctypeptr, ptr, length):
+        u = rffi.wcharpsize2unicode(rffi.cast(rffi.CWCHARP, ptr), length)
+        return self.space.wrap(u)
 
 
 class W_CTypePrimitiveSigned(W_CTypePrimitive):
