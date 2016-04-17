@@ -496,3 +496,10 @@ def test_init_once_multithread_failure():
         assert i < 20
         time.sleep(0.51)
     assert seen == ['init!', 'oops'] * 3
+
+def test_unpack():
+    ffi = _cffi1_backend.FFI()
+    p = ffi.new("char[]", b"abc\x00def")
+    assert ffi.unpack(p+1, 7) == b"bc\x00def\x00"
+    p = ffi.new("int[]", [-123456789])
+    assert ffi.unpack(p, 1) == [-123456789]
