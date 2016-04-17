@@ -53,3 +53,12 @@ class AppTestCComplex(AppTestCpythonExtensionBase):
                  return obj;
              """)])
         assert module.test() == 1.2 + 3.4j
+
+    def test_WComplex_to_PyComplex(self):
+        module = self.import_extension('foo', [
+            ("test", "METH_O",
+             """
+                 Py_complex c = ((PyComplexObject *)args)->cval;
+                 return Py_BuildValue("dd", c.real, c.imag);
+             """)])
+        assert module.test(1.2 + 3.4j) == (1.2, 3.4)
