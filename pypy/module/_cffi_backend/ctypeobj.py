@@ -49,10 +49,10 @@ class W_CType(W_Root):
     def is_unichar_ptr_or_array(self):
         return False
 
-    def unpack_list_of_int_items(self, cdata):
+    def unpack_list_of_int_items(self, ptr, length):
         return None
 
-    def unpack_list_of_float_items(self, cdata):
+    def unpack_list_of_float_items(self, ptr, length):
         return None
 
     def pack_list_of_items(self, cdata, w_ob):

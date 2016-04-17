@@ -323,14 +323,18 @@ class W_CData(W_Root):
         from pypy.module._cffi_backend import ctypearray
         ctype = self.ctype
         if isinstance(ctype, ctypearray.W_CTypeArray):
-            return ctype.ctitem.unpack_list_of_int_items(self)
+            length = self.get_array_length()
+            with self as ptr:
+                return ctype.ctitem.unpack_list_of_int_items(ptr, length)
         return None
 
     def unpackiterable_float(self, space):
         from pypy.module._cffi_backend import ctypearray
         ctype = self.ctype
         if isinstance(ctype, ctypearray.W_CTypeArray):
-            return ctype.ctitem.unpack_list_of_float_items(self)
+            length = self.get_array_length()
+            with self as ptr:
+                return ctype.ctitem.unpack_list_of_float_items(ptr, length)
         return None
 
     @specialize.argtype(1)
