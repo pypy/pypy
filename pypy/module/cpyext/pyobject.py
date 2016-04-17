@@ -1,5 +1,6 @@
 import sys
 
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.baseobjspace import W_Root, SpaceCache
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.extregistry import ExtRegistryEntry
@@ -63,7 +64,15 @@ class BaseCpyTypedescr(object):
 
     def realize(self, space, obj):
         w_type = from_ref(space, rffi.cast(PyObject, obj.c_ob_type))
-        w_obj = space.allocate_instance(self.W_BaseObject, w_type)
+        try:
+            w_obj = space.allocate_instance(self.W_BaseObject, w_type)
+        except OperationError as e:
+            if e.match(space, space.w_TypeError):
+                raise oefmt(space.w_SystemError,
+                            "cpyext: don't know how to make a '%N' object "
+                            "from a PyObject",
+                            w_type)
+            raise
         track_reference(space, obj, w_obj)
         return w_obj
 
