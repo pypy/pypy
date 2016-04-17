@@ -90,6 +90,8 @@ Other Highlights (since 5.0 released in March 2015)
 
   * Fix JIT issue with unpack() on a Trace which contains half-written operations
 
+  * Fix sandbox startup (a regression in 5.0)
+
   * Issues reported with our previous release were resolved_ after reports from users on
     our issue tracker at https://bitbucket.org/pypy/pypy/issues or on IRC at
     #pypy
