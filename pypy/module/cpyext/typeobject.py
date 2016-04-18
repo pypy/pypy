@@ -385,6 +385,12 @@ class W_PyCTypeObject(W_TypeObject):
         if not space.is_true(space.issubtype(self, space.w_type)):
             self.flag_cpytype = True
         self.flag_heaptype = False
+        # if a sequence or a mapping, then set the flag to force it
+        if pto.c_tp_as_sequence and pto.c_tp_as_sequence.c_sq_item:
+            self.flag_map_or_seq = 'S'
+        elif (pto.c_tp_as_mapping and pto.c_tp_as_mapping.c_mp_subscript and
+              not (pto.c_tp_as_sequence and pto.c_tp_as_sequence.c_sq_slice)):
+            self.flag_map_or_seq = 'M'
         if pto.c_tp_doc:
             self.w_doc = space.wrap(rffi.charp2str(pto.c_tp_doc))
 

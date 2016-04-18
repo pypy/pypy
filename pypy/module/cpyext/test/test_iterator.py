@@ -58,5 +58,53 @@ class AppTestIterator(AppTestCpythonExtensionBase):
         obj = module.test()
         assert obj["hi there"] == 42
         assert len(obj) == 2
+        assert not hasattr(obj, "__iter__")
         e = raises(TypeError, iter, obj)
         assert str(e.value).endswith("object is not iterable")
+        #
+        import operator
+        assert not operator.isSequenceType(obj)
+        assert operator.isMappingType(obj)
+
+    def test_iterable_nonmapping_object(self):
+        module = self.import_extension('foo', [
+           ("test", "METH_NOARGS",
+            '''
+                PyObject *obj;
+                Foo_Type.tp_flags = Py_TPFLAGS_DEFAULT;
+                Foo_Type.tp_as_sequence = &tp_as_sequence;
+                tp_as_sequence.sq_length = sq_length;
+                tp_as_sequence.sq_item = sq_item;
+                if (PyType_Ready(&Foo_Type) < 0) return NULL;
+                obj = PyObject_New(PyObject, &Foo_Type);
+                return obj;
+            '''
+            )],
+            '''
+            static PyObject *
+            sq_item(PyObject *self, Py_ssize_t size)
+            {
+                return PyInt_FromLong(42);
+            }
+            static Py_ssize_t
+            sq_length(PyObject *self)
+            {
+                return 2;
+            }
+            PySequenceMethods tp_as_sequence;
+            static PyTypeObject Foo_Type = {
+                PyVarObject_HEAD_INIT(NULL, 0)
+                "foo.foo",
+            };
+            ''')
+        obj = module.test()
+        assert obj[1] == 42
+        assert len(obj) == 2
+        assert not hasattr(obj, "__iter__")
+        it = iter(obj)
+        assert it.next() == 42
+        assert it.next() == 42
+        #
+        import operator
+        assert operator.isSequenceType(obj)
+        assert not operator.isMappingType(obj)
