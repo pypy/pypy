@@ -182,9 +182,9 @@ class ZARCHRegisterManager(RegisterManager):
         """
         self._check_type(origvar)
         prev_loc = self.loc(origvar, must_exist=must_exist)
-        var2 = TempVar()
+        var2 = TempInt()
         if bindvar is None:
-            bindvar = TempVar()
+            bindvar = TempInt()
         if bind_first:
             loc, loc2 = self.force_allocate_reg_pair(bindvar, var2, self.temp_boxes)
         else:
