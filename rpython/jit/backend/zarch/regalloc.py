@@ -328,6 +328,16 @@ class ZARCHRegisterManager(RegisterManager):
             self.free_regs = [fr for fr in self.free_regs \
                               if fr is not even and \
                                  fr is not odd]
+            if not even_var:
+                even_var = TempVar()
+                self.longevity[even_var] = (self.position, self.position)
+                self.temp_boxes.append(even_var)
+            if not odd_var:
+                odd_var = TempVar()
+                self.longevity[odd_var] = (self.position, self.position)
+                self.temp_boxes.append(odd_var)
+            assert even_var is not None
+            assert odd_var is not None
             self.reg_bindings[even_var] = even
             self.reg_bindings[odd_var] = odd
             return even, odd
@@ -346,6 +356,7 @@ class ZARCHRegisterManager(RegisterManager):
                 if candidate_var is not None:
                     self._sync_var(candidate_var)
                 self.assembler.regalloc_mov(reg, candidate)
+                assert var is not None
                 self.reg_bindings[var] = candidate
                 reverse_mapping[reg] = var
                 self.free_regs.append(reg)
