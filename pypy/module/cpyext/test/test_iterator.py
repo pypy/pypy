@@ -1,4 +1,5 @@
 from pypy.module.cpyext.test.test_api import BaseApiTest
+from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 
 
 class TestIterator(BaseApiTest):
@@ -20,3 +21,42 @@ class TestIterator(BaseApiTest):
         assert api.PyIter_Next(space.w_None) is None
         assert api.PyErr_Occurred() is space.w_TypeError
         api.PyErr_Clear()
+
+
+class AppTestIterator(AppTestCpythonExtensionBase):
+    def test_noniterable_object_with_mapping_interface(self):
+        module = self.import_extension('foo', [
+           ("test", "METH_NOARGS",
+            '''
+                PyObject *obj;
+                Foo_Type.tp_flags = Py_TPFLAGS_DEFAULT;
+                Foo_Type.tp_as_mapping = &tp_as_mapping;
+                tp_as_mapping.mp_length = mp_length;
+                tp_as_mapping.mp_subscript = mp_subscript;
+                if (PyType_Ready(&Foo_Type) < 0) return NULL;
+                obj = PyObject_New(PyObject, &Foo_Type);
+                return obj;
+            '''
+            )],
+            '''
+            static PyObject *
+            mp_subscript(PyObject *self, PyObject *key)
+            {
+                return PyInt_FromLong(42);
+            }
+            static Py_ssize_t
+            mp_length(PyObject *self)
+            {
+                return 2;
+            }
+            PyMappingMethods tp_as_mapping;
+            static PyTypeObject Foo_Type = {
+                PyVarObject_HEAD_INIT(NULL, 0)
+                "foo.foo",
+            };
+            ''')
+        obj = module.test()
+        assert obj["hi there"] == 42
+        assert len(obj) == 2
+        e = raises(TypeError, iter, obj)
+        assert str(e.value).endswith("object is not iterable")
