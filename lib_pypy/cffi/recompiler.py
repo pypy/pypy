@@ -1231,7 +1231,7 @@ class Recompiler:
             if c == '\n': return '\\n'
             return '\\%03o' % ord(c)
         lines = []
-        for line in s.splitlines(True):
+        for line in s.splitlines(True) or ['']:
             lines.append('"%s"' % ''.join([_char_repr(c) for c in line]))
         return ' \\\n'.join(lines)
 
@@ -1319,7 +1319,9 @@ else:
                 s = s.encode('ascii')
             super(NativeIO, self).write(s)
 
-def _make_c_or_py_source(ffi, module_name, preamble, target_file):
+def _make_c_or_py_source(ffi, module_name, preamble, target_file, verbose):
+    if verbose:
+        print("generating %s" % (target_file,))
     recompiler = Recompiler(ffi, module_name,
                             target_is_python=(preamble is None))
     recompiler.collect_type_table()
@@ -1331,6 +1333,8 @@ def _make_c_or_py_source(ffi, module_name, preamble, target_file):
         with open(target_file, 'r') as f1:
             if f1.read(len(output) + 1) != output:
                 raise IOError
+        if verbose:
+            print("(already up-to-date)")
         return False     # already up-to-date
     except IOError:
         tmp_file = '%s.~%d' % (target_file, os.getpid())
@@ -1343,12 +1347,14 @@ def _make_c_or_py_source(ffi, module_name, preamble, target_file):
             os.rename(tmp_file, target_file)
         return True
 
-def make_c_source(ffi, module_name, preamble, target_c_file):
+def make_c_source(ffi, module_name, preamble, target_c_file, verbose=False):
     assert preamble is not None
-    return _make_c_or_py_source(ffi, module_name, preamble, target_c_file)
+    return _make_c_or_py_source(ffi, module_name, preamble, target_c_file,
+                                verbose)
 
-def make_py_source(ffi, module_name, target_py_file):
-    return _make_c_or_py_source(ffi, module_name, None, target_py_file)
+def make_py_source(ffi, module_name, target_py_file, verbose=False):
+    return _make_c_or_py_source(ffi, module_name, None, target_py_file,
+                                verbose)
 
 def _modname_to_file(outputdir, modname, extension):
     parts = modname.split('.')
@@ -1438,7 +1444,8 @@ def recompile(ffi, module_name, preamble, tmpdir='.', call_c_compiler=True,
                 target = '*'
         #
         ext = ffiplatform.get_extension(ext_c_file, module_name, **kwds)
-        updated = make_c_source(ffi, module_name, preamble, c_file)
+        updated = make_c_source(ffi, module_name, preamble, c_file,
+                                verbose=compiler_verbose)
         if call_c_compiler:
             patchlist = []
             cwd = os.getcwd()
@@ -1458,7 +1465,8 @@ def recompile(ffi, module_name, preamble, tmpdir='.', call_c_compiler=True,
     else:
         if c_file is None:
             c_file, _ = _modname_to_file(tmpdir, module_name, '.py')
-        updated = make_py_source(ffi, module_name, c_file)
+        updated = make_py_source(ffi, module_name, c_file,
+                                 verbose=compiler_verbose)
         if call_c_compiler:
             return c_file
         else:
@@ -1484,4 +1492,7 @@ def _verify(ffi, module_name, preamble, *args, **kwds):
     def typeof_disabled(*args, **kwds):
         raise NotImplementedError
     ffi._typeof = typeof_disabled
+    for name in dir(ffi):
+        if not name.startswith('_') and not hasattr(module.ffi, name):
+            setattr(ffi, name, NotImplemented)
     return module.lib

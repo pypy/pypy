@@ -294,6 +294,9 @@ class StdObjSpace(ObjSpace):
     def newlist_int(self, list_i):
         return W_ListObject.newlist_int(self, list_i)
 
+    def newlist_float(self, list_f):
+        return W_ListObject.newlist_float(self, list_f)
+
     def newdict(self, module=False, instance=False, kwargs=False,
                 strdict=False):
         return W_DictMultiObject.allocate_and_init_instance(

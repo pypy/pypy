@@ -644,11 +644,12 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         full_size = self.mc.get_relative_pos()
         #
         self.patch_stack_checks(frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)
+        #
         if not we_are_translated():
             self.mc.trap() # should be never reached
         rawstart = self.materialize_loop(looptoken)
-        looptoken._ll_function_addr = rawstart + functionpos
         self.patch_gcref_table(looptoken, rawstart)
+        looptoken._ll_function_addr = rawstart + functionpos
         #
         looptoken._ll_loop_code = looppos + rawstart
         debug_start("jit-backend-addr")
@@ -706,8 +707,9 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         operations = regalloc.prepare_bridge(inputargs, arglocs,
                                              operations, allgcrefs,
                                              self.current_clt.frame_info)
-        startpos = len(allgcrefs) * WORD
+        # reserve gcref table is handled in pre_assemble
         self.pool.pre_assemble(self, operations, allgcrefs, bridge=True)
+        startpos = self.mc.get_relative_pos()
         self._check_frame_depth(self.mc, regalloc.get_gcmap())
         bridgestartpos = self.mc.get_relative_pos()
         self.mc.LARL(r.POOL, l.halfword(self.pool.pool_start - bridgestartpos))
@@ -717,9 +719,10 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         self.write_pending_failure_recoveries()
         fullsize = self.mc.get_relative_pos()
         #
+        self.patch_stack_checks(frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)
+        #
         rawstart = self.materialize_loop(original_loop_token)
         self.patch_gcref_table(original_loop_token, rawstart)
-        self.patch_stack_checks(frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)
         debug_start("jit-backend-addr")
         debug_print("bridge out of Guard 0x%x has address 0x%x to 0x%x" %
                     (r_uint(descr_number), r_uint(rawstart + startpos),
@@ -732,7 +735,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         debug_stop("jit-backend-addr")
         self.patch_pending_failure_recoveries(rawstart)
         # patch the jump from original guard
-        self.patch_jump_for_descr(faildescr, rawstart + bridgestartpos)
+        self.patch_jump_for_descr(faildescr, rawstart + startpos)
         ops_offset = self.mc.ops_offset
         frame_depth = max(self.current_clt.frame_info.jfi_frame_depth,
                           frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)
@@ -742,7 +745,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         self.fixup_target_tokens(rawstart)
         self.update_frame_depth(frame_depth)
         self.teardown()
-        return AsmInfo(ops_offset, startpos + rawstart, codeendpos - startpos,
+        return AsmInfo(ops_offset, rawstart + startpos, codeendpos - startpos,
                        rawstart + bridgestartpos)
 
     def patch_gcref_table(self, looptoken, rawstart):

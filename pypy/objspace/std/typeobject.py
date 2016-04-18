@@ -618,6 +618,9 @@ class W_TypeObject(W_Root):
             w_newfunc = None
         if w_newfunc is None:
             w_newtype, w_newdescr = self.lookup_where('__new__')
+            if w_newdescr is None:    # see test_crash_mro_without_object_1
+                raise oefmt(space.w_TypeError, "cannot create '%N' instances",
+                            self)
             w_newfunc = space.get(w_newdescr, self)
             if (space.config.objspace.std.newshortcut and
                 not we_are_jitted() and
@@ -630,9 +633,12 @@ class W_TypeObject(W_Root):
         if (call_init and not (space.is_w(self, space.w_type) and
             not __args__.keywords and len(__args__.arguments_w) == 1)):
             w_descr = space.lookup(w_newobject, '__init__')
-            w_result = space.get_and_call_args(w_descr, w_newobject, __args__)
-            if not space.is_w(w_result, space.w_None):
-                raise oefmt(space.w_TypeError, "__init__() should return None")
+            if w_descr is not None:    # see test_crash_mro_without_object_2
+                w_result = space.get_and_call_args(w_descr, w_newobject,
+                                                   __args__)
+                if not space.is_w(w_result, space.w_None):
+                    raise oefmt(space.w_TypeError,
+                                "__init__() should return None")
         return w_newobject
 
     def descr_repr(self, space):

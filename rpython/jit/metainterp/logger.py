@@ -195,7 +195,8 @@ class LogOperations(object):
         if ops_offset is None:
             offset = -1
         else:
-            offset = ops_offset.get(op, -1)
+            final_op = op.get_box_replacement()
+            offset = ops_offset.get(final_op, -1)
         if offset == -1:
             s_offset = ""
         else:
