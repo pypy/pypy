@@ -246,8 +246,6 @@ class TestUsingBoehm(AbstractThreadTests):
 class TestUsingFramework(AbstractThreadTests):
     gcpolicy = 'minimark'
 
-    @py.test.mark.xfail(platform.machine() == 's390x',
-                        reason='may fail this test under heavy load')
     def test_tlref_keepalive(self, no__thread=True):
         import weakref
         from rpython.config.translationoption import SUPPORT__THREAD
@@ -289,7 +287,12 @@ class TestUsingFramework(AbstractThreadTests):
             wr_from_thread.seen = False
             start_new_thread(thread_entry_point, ())
             wr1 = f()
-            time.sleep(0.5)
+            count = 0
+            while True:
+                time.sleep(0.5)
+                if wr_from_thread.seen or count >= 50:
+                    break
+                count += 1
             assert wr_from_thread.seen is True
             wr2 = wr_from_thread.wr
             import gc; gc.collect()      # wr2() should be collected here
@@ -302,7 +305,5 @@ class TestUsingFramework(AbstractThreadTests):
         res = fn()
         assert res == 42
 
-    @py.test.mark.xfail(platform.machine() == 's390x',
-                        reason='may fail this test under heavy load')
     def test_tlref_keepalive__thread(self):
         self.test_tlref_keepalive(no__thread=False)
