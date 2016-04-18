@@ -1353,8 +1353,8 @@ class BackendTests:
         ffi = FFI(backend=self.Backend())
         ffi.cdef("enum foo;")
         from cffi import __version_info__
-        if __version_info__ < (1, 6):
-            py.test.skip("re-enable me in version 1.6")
+        if __version_info__ < (1, 7):
+            py.test.skip("re-enable me in version 1.7")
         e = py.test.raises(CDefError, ffi.cast, "enum foo", -1)
         assert str(e.value) == (
             "'enum foo' has no values explicitly defined: refusing to guess "

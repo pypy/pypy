@@ -1511,7 +1511,9 @@ def test_extern_python_1():
             void boz(void);
         }
     """)
-    lib = verify(ffi, 'test_extern_python_1', "")
+    lib = verify(ffi, 'test_extern_python_1', """
+        static void baz(int, int);   /* forward */
+    """)
     assert ffi.typeof(lib.bar) == ffi.typeof("int(*)(int, int)")
     with FdWriteCapture() as f:
         res = lib.bar(4, 5)
@@ -1744,6 +1746,35 @@ def test_extern_python_stdcall():
     lib.mycb1 = lib.foo
     assert lib.mycb1(200) == 242
     assert lib.indirect_call(300) == 342
+
+def test_extern_python_plus_c():
+    ffi = FFI()
+    ffi.cdef("""
+        extern "Python+C" int foo(int);
+        extern "C +\tPython" int bar(int);
+        int call_me(int);
+    """)
+    lib = verify(ffi, 'test_extern_python_plus_c', """
+        int foo(int);
+        #ifdef __GNUC__
+        __attribute__((visibility("hidden")))
+        #endif
+        int bar(int);
+
+        static int call_me(int x) {
+            return foo(x) - bar(x);
+        }
+    """)
+    #
+    @ffi.def_extern()
+    def foo(x):
+        return x * 42
+    @ffi.def_extern()
+    def bar(x):
+        return x * 63
+    assert lib.foo(100) == 4200
+    assert lib.bar(100) == 6300
+    assert lib.call_me(100) == -2100
 
 def test_introspect_function():
     ffi = FFI()
