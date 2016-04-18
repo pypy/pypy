@@ -1,7 +1,7 @@
 from rpython.rlib import rwin32
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rtyper.module.ll_win32file import make_win32_traits
-from rpython.rtyper.module.support import UnicodeTraits
+from rpython.rlib.rwin32file import make_win32_traits
+from rpython.rlib._os_support import UnicodeTraits
 from rpython.translator import cdir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
