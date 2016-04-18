@@ -132,38 +132,33 @@ class Path(object):
         self.as_unicode = unicode
         self.w_path = w_path
 
-class _PathOrFd(Unwrapper):
-    def unwrap(self, space, w_value):
-        if space.is_none(w_value):
-            raise oefmt(space.w_TypeError,
-                "can't specify None for path argument")
-        if _WIN32:
-            try:
-                path_u = space.unicode_w(w_value)
-                return Path(-1, None, path_u, w_value)
-            except OperationError:
-                pass
+@specialize.arg(2)
+def _unwrap_path(space, w_value, allow_fd=True):
+    if space.is_none(w_value):
+        raise oefmt(space.w_TypeError,
+            "can't specify None for path argument")
+    if _WIN32:
         try:
-            path_b = space.fsencode_w(w_value)
-            return Path(-1, path_b, None, w_value)
+            path_u = space.unicode_w(w_value)
+            return Path(-1, None, path_u, w_value)
         except OperationError:
             pass
-        fd = unwrap_fd(space, w_value, "string, bytes or integer")
-        return Path(fd, None, None, w_value)
+    try:
+        path_b = space.fsencode_w(w_value)
+        return Path(-1, path_b, None, w_value)
+    except OperationError:
+        if allow_fd:
+            fd = unwrap_fd(space, w_value, "string, bytes or integer")
+            return Path(fd, None, None, w_value)
+    raise oefmt(space.w_TypeError, "illegal type for path parameter")
+
+class _PathOrFd(Unwrapper):
+    def unwrap(self, space, w_value):
+        return _unwrap_path(space, w_value, allow_fd=True)
 
 class _JustPath(Unwrapper):
     def unwrap(self, space, w_value):
-        if _WIN32:
-            try:
-                path_u = space.unicode_w(w_value)
-                return Path(-1, None, path_u, w_value)
-            except OperationError:
-                pass
-        try:
-            path_b = space.fsencode_w(w_value)
-            return Path(-1, path_b, None, w_value)
-        except OperationError:
-            raise oefmt(space.w_TypeError, "illegal type for path parameter")
+        return _unwrap_path(space, w_value, allow_fd=False)
 
 def path_or_fd(allow_fd=True):
     return _PathOrFd if allow_fd else _JustPath
