@@ -1173,7 +1173,27 @@ class ObjSpace(object):
         return self.w_False
 
     def issequence_w(self, w_obj):
-        return (self.findattr(w_obj, self.wrap("__getitem__")) is not None)
+        if self.is_oldstyle_instance(w_obj):
+            return (self.findattr(w_obj, self.wrap('__getitem__')) is not None)
+        flag = self.type(w_obj).flag_map_or_seq
+        if flag == 'M':
+            return False
+        elif flag == 'S':
+            return True
+        else:
+            return (self.lookup(w_obj, '__getitem__') is not None)
+
+    def ismapping_w(self, w_obj):
+        if self.is_oldstyle_instance(w_obj):
+            return (self.findattr(w_obj, self.wrap('__getitem__')) is not None)
+        flag = self.type(w_obj).flag_map_or_seq
+        if flag == 'M':
+            return True
+        elif flag == 'S':
+            return False
+        else:
+            return (self.lookup(w_obj, '__getitem__') is not None and
+                    self.lookup(w_obj, '__getslice__') is None)
 
     # The code below only works
     # for the simple case (new-style instance).

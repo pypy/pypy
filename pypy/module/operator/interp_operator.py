@@ -252,29 +252,8 @@ def _length_hint(space, w_iterable, default):
 
 def isMappingType(space, w_obj):
     'isMappingType(a) -- Return True if a has a mapping type, False otherwise.'
-    if space.is_oldstyle_instance(w_obj):
-        result = (space.findattr(w_obj, space.wrap('__getitem__')) is not None)
-    else:
-        flag = space.type(w_obj).flag_map_or_seq
-        if flag == 'M':
-            result = True
-        elif flag == 'S':
-            result = False
-        else:
-            result = (space.lookup(w_obj, '__getitem__') is not None and
-                      space.lookup(w_obj, '__getslice__') is None)
-    return space.wrap(result)
+    return space.wrap(space.ismapping_w(w_obj))
 
 def isSequenceType(space, w_obj):
     'isSequenceType(a) -- Return True if a has a sequence type, False otherwise.'
-    if space.is_oldstyle_instance(w_obj):
-        result = (space.findattr(w_obj, space.wrap('__getitem__')) is not None)
-    else:
-        flag = space.type(w_obj).flag_map_or_seq
-        if flag == 'M':
-            result = False
-        elif flag == 'S':
-            result = True
-        else:
-            result = (space.lookup(w_obj, '__getitem__') is not None)
-    return space.wrap(result)
+    return space.wrap(space.issequence_w(w_obj))

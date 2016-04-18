@@ -6,6 +6,10 @@ from pypy.module.cpyext import sequence
 import py.test
 
 class TestSequence(BaseApiTest):
+    def test_check(self, space, api):
+        assert api.PySequence_Check(space.newlist([]))
+        assert not api.PySequence_Check(space.newdict())
+
     def test_sequence(self, space, api):
         w_l = space.wrap([1, 2, 3, 4])
         assert api.PySequence_Fast(w_l, "message") is w_l

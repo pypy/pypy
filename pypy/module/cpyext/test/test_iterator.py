@@ -37,7 +37,14 @@ class AppTestIterator(AppTestCpythonExtensionBase):
                 obj = PyObject_New(PyObject, &Foo_Type);
                 return obj;
             '''
-            )],
+            ),
+           ("check", "METH_O",
+            '''
+                return PyInt_FromLong(
+                    PySequence_Check(args) +
+                    PyMapping_Check(args) * 2);
+            ''')
+            ],
             '''
             static PyObject *
             mp_subscript(PyObject *self, PyObject *key)
@@ -65,6 +72,8 @@ class AppTestIterator(AppTestCpythonExtensionBase):
         import operator
         assert not operator.isSequenceType(obj)
         assert operator.isMappingType(obj)
+        #
+        assert module.check(obj) == 2
 
     def test_iterable_nonmapping_object(self):
         module = self.import_extension('foo', [
@@ -78,8 +87,14 @@ class AppTestIterator(AppTestCpythonExtensionBase):
                 if (PyType_Ready(&Foo_Type) < 0) return NULL;
                 obj = PyObject_New(PyObject, &Foo_Type);
                 return obj;
+            '''),
+           ("check", "METH_O",
             '''
-            )],
+                return PyInt_FromLong(
+                    PySequence_Check(args) +
+                    PyMapping_Check(args) * 2);
+            ''')
+            ],
             '''
             static PyObject *
             sq_item(PyObject *self, Py_ssize_t size)
@@ -108,3 +123,5 @@ class AppTestIterator(AppTestCpythonExtensionBase):
         import operator
         assert operator.isSequenceType(obj)
         assert not operator.isMappingType(obj)
+        #
+        assert module.check(obj) == 1
