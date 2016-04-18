@@ -1511,7 +1511,7 @@ class ObjSpace(object):
             assert False
 
     # XXX rename/replace with code more like CPython getargs for buffers
-    def bufferstr_w(self, w_obj):
+    def bufferstr_w(self, w_obj, flags=BUF_SIMPLE):
         # Directly returns an interp-level str.  Note that if w_obj is a
         # unicode string, this is different from str_w(buffer(w_obj)):
         # indeed, the latter returns a string with the raw bytes from
@@ -1525,13 +1525,7 @@ class ObjSpace(object):
         except OperationError, e:
             if not e.match(self, self.w_TypeError):
                 raise
-        try:
-            buf = w_obj.buffer_w(self, 0)
-        except BufferInterfaceNotFound:
-            raise oefmt(self.w_TypeError,
-                        "'%T' does not support the buffer interface", w_obj)
-        else:
-            return buf.as_str()
+        return self.buffer_w(w_obj, flags).as_str()
 
     def str_or_None_w(self, w_obj):
         return None if self.is_none(w_obj) else self.str_w(w_obj)
