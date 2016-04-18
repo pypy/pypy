@@ -1,4 +1,4 @@
-from rpython.rlib.rvmprof.rvmprof import _get_vmprof
+from rpython.rlib.rvmprof import cintf
 from rpython.jit.metainterp import resoperation as resoperations
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.metainterp.history import ConstInt, ConstFloat
@@ -30,9 +30,7 @@ MARK_TRACE_ASM = 0x18
 # the machine code was patched (e.g. guard)
 MARK_STITCH_BRIDGE = 0x19
 
-MARK_JIT_LOOP_COUNTER = 0x20
-MARK_JIT_BRIDGE_COUNTER = 0x21
-MARK_JIT_ENTRY_COUNTER = 0x22
+MARK_JITLOG_COUNTER = 0x20
 
 MARK_JITLOG_HEADER = 0x23
 MARK_JITLOG_DEBUG_MERGE_POINT = 0x24
@@ -54,7 +52,6 @@ def encode_le_32bit(val):
                     chr((val >> 16) & 0xff),
                     chr((val >> 24) & 0xff)])
 
-
 @always_inline
 def encode_le_64bit(val):
     return ''.join([chr((val >> 0) & 0xff),
@@ -73,12 +70,19 @@ def encode_le_addr(val):
     else:
         return encode_le_64bit(val)
 
+def assemble_header():
+    version = JITLOG_VERSION_16BIT_LE
+    count = len(resoperations.opname)
+    content = [version, chr(MARK_RESOP_META),
+               encode_le_16bit(count)]
+    for opnum, opname in resoperations.opname.items():
+        content.append(encode_le_16bit(opnum))
+        content.append(encode_str(opname.lower()))
+    return ''.join(content)
 
 class VMProfJitLogger(object):
-
     def __init__(self):
-        self.vmprof = _get_vmprof()
-        self.cintf = self.vmprof.cintf
+        self.cintf = cintf.setup()
         self.memo = {}
 
     def setup_once(self):
@@ -87,20 +91,8 @@ class VMProfJitLogger(object):
         self.cintf.jitlog_try_init_using_env()
         if not self.cintf.jitlog_enabled():
             return
-        blob = VMProfJitLogger.assemble_header()
+        blob = assemble_header()
         self.cintf.jitlog_write_marked(MARK_JITLOG_HEADER, blob, len(blob))
-
-    @staticmethod
-    @always_inline
-    def assemble_header():
-        version = JITLOG_VERSION_16BIT_LE
-        count = len(resoperations.opname)
-        content = [version, chr(MARK_RESOP_META),
-                   encode_le_16bit(count)]
-        for opnum, opname in resoperations.opname.items():
-            content.append(encode_le_16bit(opnum))
-            content.append(encode_str(opname.lower()))
-        return ''.join(content)
 
     def finish(self):
         self.cintf.jitlog_teardown()
@@ -116,13 +108,7 @@ class VMProfJitLogger(object):
         le_addr = encode_le_addr(struct.number)
         # not an address (but a number) but it is a machine word
         le_count = encode_le_addr(struct.i)
-        if struct.type == 'l':
-            tag = MARK_JIT_LOOP_COUNTER
-        elif struct.type == 'b':
-            tag = MARK_JIT_BRIDGE_COUNTER
-        else:
-            tag = MARK_JIT_ENTRY_COUNTER
-        self._write_marked(tag, le_addr + le_count)
+        self._write_marked(MARK_JITLOG_COUNTER, le_addr + le_count)
 
     def log_trace(self, tag, metainterp_sd, mc, memo=None):
         if not self.cintf.jitlog_enabled():

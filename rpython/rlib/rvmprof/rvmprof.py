@@ -7,6 +7,7 @@ from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
 from rpython.rtyper.lltypesystem import rffi, llmemory
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib.rweaklist import RWeakListMixin
+from rpython.jit.metainterp import jitlog
 
 MAX_FUNC_NAME = 1023
 
@@ -127,8 +128,7 @@ class VMProf(object):
         p_error = self.cintf.jitlog_init(fileno)
         if p_error:
             raise VMProfError(rffi.charp2str(p_error))
-        from rpython.jit.metainterp import jitlog
-        blob = jitlog.VMProfJitLogger.assemble_header()
+        blob = jitlog.assemble_header()
         self.cintf.jitlog_write_marked(jitlog.MARK_JITLOG_HEADER, blob, len(blob))
 
     def disable(self):
