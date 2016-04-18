@@ -568,7 +568,7 @@ class WarmRunnerDesc(object):
         #
         annhelper = MixLevelHelperAnnotator(self.translator.rtyper)
         for jd in self.jitdrivers_sd:
-            jd._get_printable_location_ptr = self._make_hook_graph(jd,
+            jd._printable_loc_ptr = self._make_hook_graph(jd,
                 annhelper, jd.jitdriver.get_printable_location, s_Str)
             jd._get_unique_id_ptr = self._make_hook_graph(jd,
                 annhelper, jd.jitdriver.get_unique_id, annmodel.SomeInteger())
