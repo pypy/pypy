@@ -1138,8 +1138,10 @@ dir_fd may not be implemented on your platform.
         raise wrap_oserror(space, e)
 
 
-@unwrap_spec(dir_fd=DirFD(rposix.HAVE_READLINKAT))
-def readlink(space, w_path, dir_fd=DEFAULT_DIR_FD):
+@unwrap_spec(
+    path=path_or_fd(allow_fd=False),
+    dir_fd=DirFD(rposix.HAVE_READLINKAT))
+def readlink(space, path, dir_fd=DEFAULT_DIR_FD):
     """readlink(path, *, dir_fd=None) -> path
 
 Return a string representing the path to which the symbolic link points.
@@ -1148,20 +1150,15 @@ If dir_fd is not None, it should be a file descriptor open to a directory,
   and path should be relative; path will then be relative to that directory.
 dir_fd may not be implemented on your platform.
   If it is unavailable, using it will raise a NotImplementedError."""
-    is_unicode = space.isinstance_w(w_path, space.w_unicode)
-    if is_unicode:
-        path = space.fsencode_w(w_path)
-    else:
-        path = space.bytes0_w(w_path)
     try:
         if dir_fd == DEFAULT_DIR_FD:
-            result = rposix.readlink(path)
+            result = call_rposix(rposix.readlink, path)
         else:
-            result = rposix.readlinkat(path, dir_fd)
-    except OSError, e:
-        raise wrap_oserror2(space, e, w_path)
+            result = call_rposix(rposix.readlinkat, path, dir_fd)
+    except OSError as e:
+        raise wrap_oserror2(space, e, path.w_path)
     w_result = space.wrapbytes(result)
-    if is_unicode:
+    if space.isinstance_w(path.w_path, space.w_unicode):
         return space.fsdecode(w_result)
     return w_result
 
