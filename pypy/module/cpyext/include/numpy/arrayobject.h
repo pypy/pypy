@@ -19,7 +19,6 @@ PyAPI_DATA(PyTypeObject) PyArray_Type;
 
 #define PyArray_SimpleNew _PyArray_SimpleNew
 #define PyArray_ZEROS _PyArray_ZEROS
-#define PyArray_CopyInto _PyArray_CopyInto
 #define PyArray_FILLWBYTE _PyArray_FILLWBYTE
 
 #define NPY_MAXDIMS 32

@@ -228,7 +228,7 @@ def _PyArray_New(space, subtype, nd, dims, typenum, strides, data, itemsize, fla
         return simple_new(space, nd, dims, typenum,
             order=order, owning=owning, w_subtype=w_subtype)
 
-@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
+@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1, header=HEADER)
 def PyArray_CopyInto(space, w_dest, w_src):
     assert isinstance(w_dest, W_NDimArray)
     assert isinstance(w_src, W_NDimArray)
