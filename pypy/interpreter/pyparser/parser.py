@@ -44,27 +44,86 @@ class Grammar(object):
 
 class Node(object):
 
-    __slots__ = "type value children lineno column".split()
+    __slots__ = "type lineno column".split()
 
-    def __init__(self, type, value, children, lineno, column):
+    def __init__(self, type, lineno, column):
         self.type = type
-        self.value = value
-        self.children = children
         self.lineno = lineno
         self.column = column
 
     def __eq__(self, other):
-        # For tests.
-        return (self.type == other.type and
-                self.value == other.value and
-                self.children == other.children)
+        raise NotImplementedError("abstract base class")
+
+    def __ne__(self, other):
+        return not self == other
+
+    def get_value(self):
+        return None
+
+    def get_child(self, i):
+        raise NotImplementedError("abstract base class")
+
+    def num_children(self):
+        return 0
+
+    def append_child(self, child):
+        raise NotImplementedError("abstract base class")
+
+    def get_lineno(self):
+        return self.lineno
+
+    def get_column(self):
+        return self.column
+
+
+class Terminal(Node):
+    __slots__ = ("value", )
+    def __init__(self, type, value, lineno, column):
+        Node.__init__(self, type, lineno, column)
+        self.value = value
 
     def __repr__(self):
-        if self.value is None:
-            return "Node(type=%s, children=%r)" % (self.type, self.children)
-        else:
-            return "Node(type=%s, value=%r)" % (self.type, self.value)
+        return "Terminal(type=%s, value=%r)" % (self.type, self.value)
 
+    def __eq__(self, other):
+        # For tests.
+        return (type(self) == type(other) and
+                self.type == other.type and
+                self.value == other.value)
+
+    def get_value(self):
+        return self.value
+
+
+class AbstractNonterminal(Node):
+    pass
+
+class Nonterminal(AbstractNonterminal):
+    __slots__ = ("_children", )
+    def __init__(self, type, children, lineno, column):
+        Node.__init__(self, type, lineno, column)
+        self._children = children
+
+    def __eq__(self, other):
+        # For tests.
+        return (type(self) == type(other) and
+                self.type == other.type and
+                self._children == other._children)
+
+    def __repr__(self):
+        return "Nonterminal(type=%s, children=%r)" % (self.type, self._children)
+
+    def get_child(self, i):
+        return self._children[i]
+
+    def num_children(self):
+        return len(self._children)
+
+    def append_child(self, child):
+        self._children.append(child)
+        if not self._children:
+            assert self.lineno == child.lineno
+            assert self.column == child.column
 
 class ParseError(Exception):
 
@@ -97,7 +156,7 @@ class Parser(object):
         if start == -1:
             start = self.grammar.start
         self.root = None
-        current_node = Node(start, None, [], 0, 0)
+        current_node = Nonterminal(start, [], 0, 0)
         self.stack = []
         self.stack.append((self.grammar.dfas[start - 256], 0, current_node))
 
@@ -164,14 +223,14 @@ class Parser(object):
     def shift(self, next_state, token_type, value, lineno, column):
         """Shift a non-terminal and prepare for the next state."""
         dfa, state, node = self.stack[-1]
-        new_node = Node(token_type, value, None, lineno, column)
-        node.children.append(new_node)
+        new_node = Terminal(token_type, value, lineno, column)
+        node.append_child(new_node)
         self.stack[-1] = (dfa, next_state, node)
 
     def push(self, next_dfa, next_state, node_type, lineno, column):
         """Push a terminal and adjust the current state."""
         dfa, state, node = self.stack[-1]
-        new_node = Node(node_type, None, [], lineno, column)
+        new_node = Nonterminal(node_type, [], lineno, column)
         self.stack[-1] = (dfa, next_state, node)
         self.stack.append((next_dfa, 0, new_node))
 
@@ -179,6 +238,6 @@ class Parser(object):
         """Pop an entry off the stack and make its node a child of the last."""
         dfa, state, node = self.stack.pop()
         if self.stack:
-            self.stack[-1][2].children.append(node)
+            self.stack[-1][2].append_child(node)
         else:
             self.root = node
