@@ -899,6 +899,7 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
         driver = self.instance.im_self
         h = self.annotate_hook
         h(driver.get_printable_location, driver.greens, **kwds_s)
+        h(driver.get_location, driver.greens, **kwds_s)
 
     def annotate_hook(self, func, variables, args_s=[], **kwds_s):
         if func is None:
