@@ -690,13 +690,11 @@ class WarmEnterState(object):
                 greenargs = unwrap_greenkey(greenkey)
                 fn = support.maybe_on_top_of_llinterp(rtyper, get_location_ptr)
                 llres = fn(*greenargs)
-                if not we_are_translated() and isinstance(llres, tuple):
-                    return llres
-                return llres # TODO hltuple?
+                return llres
         self.get_location = get_location
         #
-        get_location_ptr = self.jitdriver_sd._get_printable_location_ptr
-        if get_location_ptr is None:
+        printable_loc_ptr = self.jitdriver_sd._printable_loc_ptr
+        if printable_loc_ptr is None:
             missing = '(%s: no get_printable_location)' % drivername
             def get_location_str(greenkey):
                 return missing
@@ -712,7 +710,7 @@ class WarmEnterState(object):
                 if not have_debug_prints_for("jit-"):
                     return missing
                 greenargs = unwrap_greenkey(greenkey)
-                fn = support.maybe_on_top_of_llinterp(rtyper, get_location_ptr)
+                fn = support.maybe_on_top_of_llinterp(rtyper, printable_loc_ptr)
                 llres = fn(*greenargs)
                 if not we_are_translated() and isinstance(llres, str):
                     return llres
