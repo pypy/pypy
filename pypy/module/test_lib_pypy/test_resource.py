@@ -4,7 +4,10 @@ import os
 if os.name != 'posix':
     skip('resource.h only available on unix')
 
-from lib_pypy import resource
+try:
+    from lib_pypy import resource
+except ImportError as e:
+    skip(str(e))
 
 
 def test_getrusage():

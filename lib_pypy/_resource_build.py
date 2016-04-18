@@ -30,7 +30,10 @@ rlimit_consts = ['#ifdef %s\n\t{"%s", %s},\n#endif\n' % (s, s, s)
 
 
 ffi.set_source("_resource_cffi", """
+#include <sys/types.h>
+#include <sys/time.h>
 #include <sys/resource.h>
+#include <sys/wait.h>
 
 static const struct my_rlimit_def {
     const char *name;
@@ -42,13 +45,14 @@ $RLIMIT_CONSTS
 
 #define doubletime(TV) ((double)(TV).tv_sec + (TV).tv_usec * 0.000001)
 
-static int my_getrusage(int who, struct rusage *result, double times[2])
+static double my_utime(struct rusage *input)
 {
-    if (getrusage(who, result) == -1)
-        return -1;
-    times[0] = doubletime(result->ru_utime);
-    times[1] = doubletime(result->ru_stime);
-    return 0;
+    return doubletime(input->ru_utime);
+}
+
+static double my_stime(struct rusage *input)
+{
+    return doubletime(input->ru_stime);
 }
 
 static int my_getrlimit(int resource, long long result[2])
@@ -99,9 +103,14 @@ struct rusage {
     ...;
 };
 
-void my_getrusage(int who, struct rusage *result, double times[2]);
+static double my_utime(struct rusage *);
+static double my_stime(struct rusage *);
+void getrusage(int who, struct rusage *result);
 int my_getrlimit(int resource, long long result[2]);
 int my_setrlimit(int resource, long long cur, long long max);
+
+int wait3(int *status, int options, struct rusage *rusage);
+int wait4(int pid, int *status, int options, struct rusage *rusage);
 """)
 
 

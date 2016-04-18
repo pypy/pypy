@@ -38,20 +38,10 @@ or via the attributes ru_utime, ru_stime, ru_maxrss, and so on."""
     ru_nvcsw = _structseq.structseqfield(14,   "voluntary context switches")
     ru_nivcsw = _structseq.structseqfield(15,  "involuntary context switches")
 
-
-@builtinify
-def getrusage(who):
-    ru = ffi.new("struct rusage *")
-    times = ffi.new("double[2]")
-    ret = lib.my_getrusage(who, ru, times)
-    if ret == -1:
-        errno = ffi.errno
-        if errno == EINVAL:
-            raise ValueError("invalid who parameter")
-        raise error(errno)
+def _make_struct_rusage(ru):
     return struct_rusage((
-        times[0],
-        times[1],
+        lib.my_utime(ru),
+        lib.my_stime(ru),
         ru.ru_maxrss,
         ru.ru_ixrss,
         ru.ru_idrss,
@@ -67,6 +57,15 @@ def getrusage(who):
         ru.ru_nvcsw,
         ru.ru_nivcsw,
         ))
+
+@builtinify
+def getrusage(who):
+    ru = ffi.new("struct rusage *")
+    if lib.getrusage(who, ru) == -1:
+        if ffi.errno == EINVAL:
+            raise ValueError("invalid who parameter")
+        raise error(ffi.errno)
+    return _make_struct_rusage(ru)
 
 @builtinify
 def getrlimit(resource):
