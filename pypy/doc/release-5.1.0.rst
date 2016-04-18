@@ -78,8 +78,6 @@ Other Highlights (since 5.0 released in March 2015)
   * Try harder to not emit NEON instructions on ARM processors without NEON
     support
 
-  * Support glibc < 2.16 on ARM
-
   * Improve the rpython posix module system interaction function calls
 
   * Detect a missing class function implementation instead of calling a random
@@ -91,6 +89,8 @@ Other Highlights (since 5.0 released in March 2015)
   * In ctypes, fix _anonymous_ fields of instances
 
   * Fix JIT issue with unpack() on a Trace which contains half-written operations
+
+  * Fix sandbox startup (a regression in 5.0)
 
   * Issues reported with our previous release were resolved_ after reports from users on
     our issue tracker at https://bitbucket.org/pypy/pypy/issues or on IRC at

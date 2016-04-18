@@ -1051,6 +1051,9 @@ class ObjSpace(object):
     def newlist_int(self, list_i):
         return self.newlist([self.wrap(i) for i in list_i])
 
+    def newlist_float(self, list_f):
+        return self.newlist([self.wrap(f) for f in list_f])
+
     def newlist_hint(self, sizehint):
         from pypy.objspace.std.listobject import make_empty_list_with_size
         return make_empty_list_with_size(self, sizehint)

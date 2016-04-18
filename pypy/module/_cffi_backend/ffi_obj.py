@@ -542,19 +542,23 @@ string, or 'NUMBER' if the value is out of range."""
         return w_cdata.ctype.string(w_cdata, maxlen)
 
 
-    @unwrap_spec(w_cdata=W_CData)
-    def descr_rawstring(self, w_cdata):
-        """\
-Convert a cdata that is an array of 'char' or 'wchar_t' to
-a byte or unicode string.  Unlike ffi.string(), it does not stop
-at the first null.
+    @unwrap_spec(w_cdata=W_CData, length=int)
+    def descr_unpack(self, w_cdata, length):
+        """Unpack an array of C data of the given length,
+returning a Python string/unicode/list.
 
-Note that if you have a pointer and an explicit length, you
-can use 'p[0:length]' to make an array view.  This is similar to
-the construct 'list(p[0:length])', which returns a list of chars/
-unichars/ints/floats."""
+If 'cdata' is a pointer to 'char', returns a byte string.
+It does not stop at the first null.  This is equivalent to:
+ffi.buffer(cdata, length)[:]
+
+If 'cdata' is a pointer to 'wchar_t', returns a unicode string.
+'length' is measured in wchar_t's; it is not the size in bytes.
+
+If 'cdata' is a pointer to anything else, returns a list of
+'length' items.  This is a faster equivalent to:
+[cdata[i] for i in range(length)]"""
         #
-        return w_cdata.ctype.rawstring(w_cdata)
+        return w_cdata.unpack(length)
 
 
     def descr_sizeof(self, w_arg):
@@ -624,6 +628,38 @@ where you have an 'ffi' object but not any associated 'lib' object."""
             raise oefmt(self.space.w_AttributeError,
                         "integer constant '%s' not found", name)
         return w_result
+
+
+    def descr_list_types(self):
+        """\
+Returns the user type names known to this FFI instance.
+This returns a tuple containing three lists of names:
+(typedef_names, names_of_structs, names_of_unions)"""
+        #
+        space = self.space
+        ctx = self.ctxobj.ctx
+
+        lst1_w = []
+        for i in range(rffi.getintfield(ctx, 'c_num_typenames')):
+            s = rffi.charp2str(ctx.c_typenames[i].c_name)
+            lst1_w.append(space.wrap(s))
+
+        lst2_w = []
+        lst3_w = []
+        for i in range(rffi.getintfield(ctx, 'c_num_struct_unions')):
+            su = ctx.c_struct_unions[i]
+            if su.c_name[0] == '$':
+                continue
+            s = rffi.charp2str(su.c_name)
+            if rffi.getintfield(su, 'c_flags') & cffi_opcode.F_UNION:
+                lst_w = lst3_w
+            else:
+                lst_w = lst2_w
+            lst_w.append(space.wrap(s))
+
+        return space.newtuple([space.newlist(lst1_w),
+                               space.newlist(lst2_w),
+                               space.newlist(lst3_w)])
 
 
     def descr_init_once(self, w_func, w_tag):
@@ -746,13 +782,14 @@ W_FFIObject.typedef = TypeDef(
         getctype    = interp2app(W_FFIObject.descr_getctype),
         init_once   = interp2app(W_FFIObject.descr_init_once),
         integer_const = interp2app(W_FFIObject.descr_integer_const),
+        list_types  = interp2app(W_FFIObject.descr_list_types),
         memmove     = interp2app(W_FFIObject.descr_memmove),
         new         = interp2app(W_FFIObject.descr_new),
         new_allocator = interp2app(W_FFIObject.descr_new_allocator),
         new_handle  = interp2app(W_FFIObject.descr_new_handle),
         offsetof    = interp2app(W_FFIObject.descr_offsetof),
-        rawstring   = interp2app(W_FFIObject.descr_rawstring),
         sizeof      = interp2app(W_FFIObject.descr_sizeof),
         string      = interp2app(W_FFIObject.descr_string),
         typeof      = interp2app(W_FFIObject.descr_typeof),
+        unpack      = interp2app(W_FFIObject.descr_unpack),
         **_extras)

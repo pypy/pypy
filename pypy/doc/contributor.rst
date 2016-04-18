@@ -81,13 +81,13 @@ appropriate measure but it's something)::
   Simon Burton
   Martin Matusiak
   Konstantin Lopuhin
+  Stefano Rivera
   Wenzhu Man
   John Witulski
   Laurence Tratt
   Ivan Sichmann Freitas
   Greg Price
   Dario Bertini
-  Stefano Rivera
   Mark Pearse
   Simon Cross
   Andreas Stührk
@@ -95,9 +95,10 @@ appropriate measure but it's something)::
   Jean-Philippe St. Pierre
   Guido van Rossum
   Pavel Vinogradov
+  Spenser Bauman
   Jeremy Thurgood
   Paweł Piotr Przeradowski
-  Spenser Bauman
+  Tobias Pape
   Paul deGrandis
   Ilya Osadchiy
   marky1991
@@ -109,7 +110,7 @@ appropriate measure but it's something)::
   Georg Brandl
   Bert Freudenberg
   Stian Andreassen
-  Tobias Pape
+  Mark Young
   Wanja Saatkamp
   Gerald Klix
   Mike Blume
@@ -140,9 +141,9 @@ appropriate measure but it's something)::
   Yichao Yu
   Rocco Moretti
   Gintautas Miliauskas
+  Devin Jeanpierre
   Michael Twomey
   Lucian Branescu Mihaila
-  Devin Jeanpierre
   Gabriel Lavoie
   Olivier Dormond
   Jared Grubb
@@ -153,6 +154,7 @@ appropriate measure but it's something)::
   Victor Stinner
   Andrews Medina
   anatoly techtonik
+  Sergey Matyunin
   Stuart Williams
   Jasper Schulz
   Christian Hudon
@@ -187,7 +189,6 @@ appropriate measure but it's something)::
   Arjun Naik
   Valentina Mukhamedzhanova
   Stefano Parmesan
-  Mark Young
   Alexis Daboville
   Jens-Uwe Mager
   Carl Meyer
@@ -195,7 +196,9 @@ appropriate measure but it's something)::
   Pieter Zieschang
   Gabriel
   Lukas Vacek
+  Kunal Grover
   Andrew Dalke
+  Florin Papa
   Sylvain Thenault
   Jakub Stasiak
   Nathan Taylor
@@ -210,7 +213,6 @@ appropriate measure but it's something)::
   Kristjan Valur Jonsson
   David Lievens
   Neil Blakey-Milner
-  Sergey Matyunin
   Lutz Paelike
   Lucio Torre
   Lars Wassermann
@@ -222,9 +224,11 @@ appropriate measure but it's something)::
   Artur Lisiecki
   Sergey Kishchenko
   Ignas Mikalajunas
+  Alecsandru Patrascu
   Christoph Gerum
   Martin Blais
   Lene Wagner
+  Catalin Gabriel Manciu
   Tomo Cocoa
   Kim Jin Su
   Toni Mattis
@@ -261,6 +265,7 @@ appropriate measure but it's something)::
   Akira Li
   Gustavo Niemeyer
   Stephan Busemann
+  florinpapa
   Rafał Gałczyński
   Matt Bogosian
   Christian Muirhead
@@ -275,6 +280,7 @@ appropriate measure but it's something)::
   Boglarka Vezer
   Chris Pressey
   Buck Golemon
+  Diana Popa
   Konrad Delong
   Dinu Gherman
   Chris Lambacher

@@ -78,9 +78,9 @@ def string(space, w_cdata, maxlen=-1):
 
 # ____________________________________________________________
 
-@unwrap_spec(w_cdata=cdataobj.W_CData)
-def rawstring(space, w_cdata):
-    return w_cdata.ctype.rawstring(w_cdata)
+@unwrap_spec(w_cdata=cdataobj.W_CData, length=int)
+def unpack(space, w_cdata, length):
+    return w_cdata.unpack(length)
 
 # ____________________________________________________________
 
