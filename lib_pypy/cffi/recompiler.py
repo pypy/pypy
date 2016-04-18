@@ -1145,11 +1145,11 @@ class Recompiler:
     def _generate_cpy_extern_python_collecttype(self, tp, name):
         assert isinstance(tp, model.FunctionPtrType)
         self._do_collect_type(tp)
+    _generate_cpy_dllexport_python_collecttype = \
+      _generate_cpy_extern_python_plus_c_collecttype = \
+      _generate_cpy_extern_python_collecttype
 
-    def _generate_cpy_dllexport_python_collecttype(self, tp, name):
-        self._generate_cpy_extern_python_collecttype(tp, name)
-
-    def _generate_cpy_extern_python_decl(self, tp, name, dllexport=False):
+    def _extern_python_decl(self, tp, name, tag_and_space):
         prnt = self._prnt
         if isinstance(tp.result, model.VoidType):
             size_of_result = '0'
@@ -1184,11 +1184,7 @@ class Recompiler:
             size_of_a = 'sizeof(%s) > %d ? sizeof(%s) : %d' % (
                 tp.result.get_c_name(''), size_of_a,
                 tp.result.get_c_name(''), size_of_a)
-        if dllexport:
-            tag = 'CFFI_DLLEXPORT'
-        else:
-            tag = 'static'
-        prnt('%s %s' % (tag, tp.result.get_c_name(name_and_arguments)))
+        prnt('%s%s' % (tag_and_space, tp.result.get_c_name(name_and_arguments)))
         prnt('{')
         prnt('  char a[%s];' % size_of_a)
         prnt('  char *p = a;')
@@ -1206,8 +1202,14 @@ class Recompiler:
         prnt()
         self._num_externpy += 1
 
+    def _generate_cpy_extern_python_decl(self, tp, name):
+        self._extern_python_decl(tp, name, 'static ')
+
     def _generate_cpy_dllexport_python_decl(self, tp, name):
-        self._generate_cpy_extern_python_decl(tp, name, dllexport=True)
+        self._extern_python_decl(tp, name, 'CFFI_DLLEXPORT ')
+
+    def _generate_cpy_extern_python_plus_c_decl(self, tp, name):
+        self._extern_python_decl(tp, name, '')
 
     def _generate_cpy_extern_python_ctx(self, tp, name):
         if self.target_is_python:
@@ -1220,8 +1222,9 @@ class Recompiler:
         self._lsts["global"].append(
             GlobalExpr(name, '&_cffi_externpy__%s' % name, type_op, name))
 
-    def _generate_cpy_dllexport_python_ctx(self, tp, name):
-        self._generate_cpy_extern_python_ctx(tp, name)
+    _generate_cpy_dllexport_python_ctx = \
+      _generate_cpy_extern_python_plus_c_ctx = \
+      _generate_cpy_extern_python_ctx
 
     def _string_literal(self, s):
         def _char_repr(c):
@@ -1231,7 +1234,7 @@ class Recompiler:
             if c == '\n': return '\\n'
             return '\\%03o' % ord(c)
         lines = []
-        for line in s.splitlines(True):
+        for line in s.splitlines(True) or ['']:
             lines.append('"%s"' % ''.join([_char_repr(c) for c in line]))
         return ' \\\n'.join(lines)
 
@@ -1319,7 +1322,9 @@ else:
                 s = s.encode('ascii')
             super(NativeIO, self).write(s)
 
-def _make_c_or_py_source(ffi, module_name, preamble, target_file):
+def _make_c_or_py_source(ffi, module_name, preamble, target_file, verbose):
+    if verbose:
+        print("generating %s" % (target_file,))
     recompiler = Recompiler(ffi, module_name,
                             target_is_python=(preamble is None))
     recompiler.collect_type_table()
@@ -1331,6 +1336,8 @@ def _make_c_or_py_source(ffi, module_name, preamble, target_file):
         with open(target_file, 'r') as f1:
             if f1.read(len(output) + 1) != output:
                 raise IOError
+        if verbose:
+            print("(already up-to-date)")
         return False     # already up-to-date
     except IOError:
         tmp_file = '%s.~%d' % (target_file, os.getpid())
@@ -1343,12 +1350,14 @@ def _make_c_or_py_source(ffi, module_name, preamble, target_file):
             os.rename(tmp_file, target_file)
         return True
 
-def make_c_source(ffi, module_name, preamble, target_c_file):
+def make_c_source(ffi, module_name, preamble, target_c_file, verbose=False):
     assert preamble is not None
-    return _make_c_or_py_source(ffi, module_name, preamble, target_c_file)
+    return _make_c_or_py_source(ffi, module_name, preamble, target_c_file,
+                                verbose)
 
-def make_py_source(ffi, module_name, target_py_file):
-    return _make_c_or_py_source(ffi, module_name, None, target_py_file)
+def make_py_source(ffi, module_name, target_py_file, verbose=False):
+    return _make_c_or_py_source(ffi, module_name, None, target_py_file,
+                                verbose)
 
 def _modname_to_file(outputdir, modname, extension):
     parts = modname.split('.')
@@ -1438,7 +1447,8 @@ def recompile(ffi, module_name, preamble, tmpdir='.', call_c_compiler=True,
                 target = '*'
         #
         ext = ffiplatform.get_extension(ext_c_file, module_name, **kwds)
-        updated = make_c_source(ffi, module_name, preamble, c_file)
+        updated = make_c_source(ffi, module_name, preamble, c_file,
+                                verbose=compiler_verbose)
         if call_c_compiler:
             patchlist = []
             cwd = os.getcwd()
@@ -1458,7 +1468,8 @@ def recompile(ffi, module_name, preamble, tmpdir='.', call_c_compiler=True,
     else:
         if c_file is None:
             c_file, _ = _modname_to_file(tmpdir, module_name, '.py')
-        updated = make_py_source(ffi, module_name, c_file)
+        updated = make_py_source(ffi, module_name, c_file,
+                                 verbose=compiler_verbose)
         if call_c_compiler:
             return c_file
         else:
@@ -1484,4 +1495,7 @@ def _verify(ffi, module_name, preamble, *args, **kwds):
     def typeof_disabled(*args, **kwds):
         raise NotImplementedError
     ffi._typeof = typeof_disabled
+    for name in dir(ffi):
+        if not name.startswith('_') and not hasattr(module.ffi, name):
+            setattr(ffi, name, NotImplemented)
     return module.lib

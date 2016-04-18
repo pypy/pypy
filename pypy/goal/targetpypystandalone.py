@@ -240,8 +240,9 @@ class PyPyTarget(object):
                                 "when --shared is on (it is by default). "
                                 "See issue #1971.")
         if sys.platform == 'win32':
-            config.translation.libname = '..\\..\\libs\\python27.lib'
-            thisdir.join('..', '..', 'libs').ensure(dir=1)
+            libdir = thisdir.join('..', '..', 'libs')
+            libdir.ensure(dir=1)
+            config.translation.libname = str(libdir.join('python27.lib'))
 
         if config.translation.thread:
             config.objspace.usemodules.thread = True
@@ -339,10 +340,6 @@ class PyPyTarget(object):
         return PyPyJitPolicy(pypy_hooks)
 
     def get_entry_point(self, config):
-        from pypy.tool.lib_pypy import import_from_lib_pypy
-        rebuild = import_from_lib_pypy('ctypes_config_cache/rebuild')
-        rebuild.try_rebuild()
-
         space = make_objspace(config)
 
         # manually imports app_main.py

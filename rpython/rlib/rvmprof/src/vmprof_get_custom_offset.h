@@ -2,7 +2,6 @@
 void *pypy_find_codemap_at_addr(long addr, long *start_addr);
 long pypy_yield_codemap_at_addr(void *codemap_raw, long addr,
                                 long *current_pos_addr);
-long pypy_jit_stack_depth_at_loc(long loc);
 
 
 static long vmprof_write_header_for_jit_addr(intptr_t *result, long n,

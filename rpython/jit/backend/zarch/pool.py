@@ -11,6 +11,9 @@ from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.jit.backend.zarch.arch import (WORD,
         RECOVERY_GCMAP_POOL_OFFSET, RECOVERY_TARGET_POOL_OFFSET)
 from rpython.rlib.longlong2float import float2longlong
+from rpython.jit.metainterp.history import (ConstFloat,
+        ConstInt, ConstPtr)
+
 
 class PoolOverflow(Exception):
     pass
@@ -33,7 +36,7 @@ class LiteralPool(object):
 
     def ensure_can_hold_constants(self, asm, op):
         # allocates 8 bytes in memory for pointers, long integers or floats
-        if op.is_jit_debug():
+        if rop.is_jit_debug(op.getopnum()):
             return
 
         for arg in op.getarglist():
@@ -58,14 +61,14 @@ class LiteralPool(object):
         return self.offset_map[uvalue]
 
     def unique_value(self, val):
-        if val.type == FLOAT:
+        if isinstance(val, ConstFloat):
             if val.getfloat() == 0.0:
                 return 0
             return float2longlong(val.getfloat())
-        elif val.type == INT:
+        elif isinstance(val, ConstInt):
             return rffi.cast(lltype.Signed, val.getint())
         else:
-            assert val.type == REF
+            assert isinstance(val, ConstPtr)
             return rffi.cast(lltype.Signed, val.getref_base())
 
     def reserve_literal(self, size, box, asm):
@@ -99,21 +102,23 @@ class LiteralPool(object):
         self.size = val
         assert val >= 0
 
-    def pre_assemble(self, asm, operations, bridge=False):
-        # O(len(operations)). I do not think there is a way
-        # around this.
-        #
+    def pre_assemble(self, asm, operations, allgcrefs, bridge=False):
         # Problem:
         # constants such as floating point operations, plain pointers,
         # or integers might serve as parameter to an operation. thus
-        # it must be loaded into a register. There is a space benefit
-        # for 64-bit integers, or python floats, when a constant is used
-        # twice.
+        # it must be loaded into a register. Loading them from immediate
+        # takes quite long and slows down the resulting JIT code.
+        # There is a space benefit for 64-bit integers/doubles used twice.
         #
-        # Solution:
-        # the current solution (gcc does the same), use a literal pool
-        # located at register r13. This one can easily offset with 20
-        # bit signed values (should be enough)
+        # creates the table for gc references here
+        self.gc_table_addr = asm.mc.get_relative_pos()
+        self.gcref_table_size = len(allgcrefs) * WORD
+        mc = asm.mc
+        assert mc.get_relative_pos() == 0
+        for i in range(self.gcref_table_size):
+            mc.writechar('\x00')
+        asm.setup_gcrefs_list(allgcrefs)
+
         self.pool_start = asm.mc.get_relative_pos()
         for op in operations:
             self.ensure_can_hold_constants(asm, op)

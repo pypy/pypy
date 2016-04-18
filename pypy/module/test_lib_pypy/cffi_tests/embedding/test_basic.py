@@ -143,7 +143,7 @@ class EmbeddingTests:
         env_extra[envname] = libpath
         for key, value in sorted(env_extra.items()):
             if os.environ.get(key) != value:
-                print '* setting env var %r to %r' % (key, value)
+                print('* setting env var %r to %r' % (key, value))
                 os.environ[key] = value
 
     def execute(self, name):
@@ -165,6 +165,9 @@ class EmbeddingTests:
 
 
 class TestBasic(EmbeddingTests):
+    def test_empty(self):
+        empty_cffi = self.prepare_module('empty')
+
     def test_basic(self):
         add1_cffi = self.prepare_module('add1')
         self.compile('add1-test', [add1_cffi])

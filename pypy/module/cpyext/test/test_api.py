@@ -102,7 +102,7 @@ class TestConversion(BaseApiTest):
 
 
 def test_copy_header_files(tmpdir):
-    api.copy_header_files(tmpdir, True)
+    api.copy_header_files(tmpdir)
     def check(name):
         f = tmpdir.join(name)
         assert f.check(file=True)

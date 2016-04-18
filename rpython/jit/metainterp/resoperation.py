@@ -1056,6 +1056,8 @@ _oplist = [
     'UNICODELEN/1/i',
     'UNICODEGETITEM/2/i',
     #
+    'LOAD_FROM_GC_TABLE/1/r',    # only emitted by rewrite.py
+    #
     '_ALWAYS_PURE_LAST',  # ----- end of always_pure operations -----
 
     # parameters GC_LOAD

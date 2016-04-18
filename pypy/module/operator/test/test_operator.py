@@ -47,7 +47,13 @@ class AppTestOperator:
         a.name = "hello"
         a.child = A()
         a.child.name = "world"
+        a.child.foo = "bar"
         assert attrgetter("child.name")(a) == "world"
+        assert attrgetter("child.name", "child.foo")(a) == ("world", "bar")
+
+    def test_attrgetter_type(self):
+        from operator import attrgetter
+        assert type(attrgetter("child.name")) is attrgetter
 
     def test_concat(self):
         class Seq1:

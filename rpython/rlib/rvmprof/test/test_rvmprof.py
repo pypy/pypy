@@ -80,7 +80,7 @@ def test_register_code():
         return 0
 
     assert f() == 0
-    fn = compile(f, [])
+    fn = compile(f, [], gcpolicy="minimark")
     assert fn() == 0
 
 
