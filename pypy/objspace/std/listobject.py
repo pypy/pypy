@@ -212,6 +212,13 @@ class W_ListObject(W_Root):
         storage = strategy.erase(list_f)
         return W_ListObject.from_storage_and_strategy(space, storage, strategy)
 
+    @staticmethod
+    def newlist_cpyext(space, list):
+        from pypy.module.cpyext.sequence import CPyListStrategy, CPyListStorage
+        strategy = space.fromcache(CPyListStrategy)
+        storage = strategy.erase(CPyListStorage(space, list))
+        return W_ListObject.from_storage_and_strategy(space, storage, strategy)
+
     def __repr__(self):
         """ representation for debugging purposes """
         return "%s(%s, %s)" % (self.__class__.__name__, self.strategy,

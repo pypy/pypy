@@ -10,7 +10,7 @@ class TestSequence(BaseApiTest):
         assert api.PySequence_Check(space.newlist([]))
         assert not api.PySequence_Check(space.newdict())
 
-    def test_sequence(self, space, api):
+    def test_sequence_api(self, space, api):
         w_l = space.wrap([1, 2, 3, 4])
         assert api.PySequence_Fast(w_l, "message") is w_l
 
