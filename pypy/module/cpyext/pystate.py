@@ -52,7 +52,8 @@ def PyEval_InitThreads(space):
 def PyEval_ThreadsInitialized(space):
     if not space.config.translation.thread:
         return 0
-    return 1
+    from pypy.module.thread import os_thread
+    return int(os_thread.threads_initialized(space))
 
 # XXX: might be generally useful
 def encapsulator(T, flavor='raw', dealloc=None):

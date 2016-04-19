@@ -112,6 +112,16 @@ class AppTestThreads(AppTestCpythonExtensionBase):
         res = module.bounce()
         assert res == 3
 
+    def test_threadsinitialized(self):
+        module = self.import_extension('foo', [
+                ("test", "METH_NOARGS",
+                 """
+                 return PyInt_FromLong(PyEval_ThreadsInitialized());
+                 """),
+                ])
+        res = module.test()
+        print "got", res
+        assert res in (0, 1)
 
 
 class TestInterpreterState(BaseApiTest):
