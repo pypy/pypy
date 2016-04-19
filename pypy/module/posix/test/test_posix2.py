@@ -174,6 +174,10 @@ class AppTestPosix:
         import stat
         st = self.posix.stat(".")
         assert stat.S_ISDIR(st.st_mode)
+        st = self.posix.stat(b".")
+        assert stat.S_ISDIR(st.st_mode)
+        st = self.posix.stat(bytearray(b"."))
+        assert stat.S_ISDIR(st.st_mode)
         st = self.posix.lstat(".")
         assert stat.S_ISDIR(st.st_mode)
 
@@ -184,6 +188,12 @@ class AppTestPosix:
             exc = raises(OSError, fn, "nonexistentdir/nonexistentfile")
             assert exc.value.errno == errno.ENOENT
             assert exc.value.filename == "nonexistentdir/nonexistentfile"
+
+        excinfo = raises(TypeError, self.posix.stat, None)
+        assert "can't specify None" in str(excinfo.value)
+        excinfo = raises(TypeError, self.posix.stat, 2.)
+        assert "should be string, bytes or integer, not float" in str(excinfo.value)
+        raises(ValueError, self.posix.stat, -1)
 
     if hasattr(__import__(os.name), "statvfs"):
         def test_statvfs(self):
@@ -250,7 +260,7 @@ class AppTestPosix:
             try:
                 self.posix.utime('qowieuqw/oeiu', arg)
             except OSError as e:
-                assert e.filename == 'qowieuqw/oeiu'
+                pass
             else:
                 assert 0
 
