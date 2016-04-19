@@ -1217,12 +1217,12 @@ class TestFramework(RewriteTests):
                                '%(unicodelendescr.field_size)s)'],
 
         ## getitem str/unicode
-        [True,  (4,),  'i3 = unicodegetitem(p0,i1)' '->'
+        [True,  (2,4), 'i3 = unicodegetitem(p0,i1)' '->'
                        'i3 = gc_load_indexed_i(p0,i1,'
                                   '%(unicodedescr.itemsize)d,'
                                   '%(unicodedescr.basesize)d,'
                                   '%(unicodedescr.itemsize)d)'],
-        #[False, (4,),  'i3 = unicodegetitem(p0,i1)' '->'
+        #[False, (2,4), 'i3 = unicodegetitem(p0,i1)' '->'
         #               'i4 = int_mul(i1, %(unicodedescr.itemsize)d);'
         #               'i5 = int_add(i4, %(unicodedescr.basesize)d);'
         #               'i3 = gc_load_i(p0,i5,%(unicodedescr.itemsize)d)'],
@@ -1236,7 +1236,7 @@ class TestFramework(RewriteTests):
         [True, (4,),  'i3 = strsetitem(p0,i1,0)' '->'
                       'i3 = gc_store_indexed(p0,i1,0,1,'
                                '%(strdescr.basesize)d,1)'],
-        [True, (4,),  'i3 = unicodesetitem(p0,i1,0)' '->'
+        [True, (2,4), 'i3 = unicodesetitem(p0,i1,0)' '->'
                       'i3 = gc_store_indexed(p0,i1,0,'
                                  '%(unicodedescr.itemsize)d,'
                                  '%(unicodedescr.basesize)d,'
@@ -1277,19 +1277,22 @@ class TestFramework(RewriteTests):
 
         if not factors:
             all_supported_sizes = [(1,), (1,2,), (4,), (1,2,4,8)]
-        for factors in all_supported_sizes:
-            self.cpu.load_supported_factors = factors
-            f, t = fromto.split('->')
-            t = ('\n' +(' '*16)).join([s for s in t.split(';')])
-            self.check_rewrite("""
-                [p0,i1,i2]
-                {f}
-                jump()
-            """.format(**locals()), """
-                [p0,i1,i2]
-                {t}
-                jump()
-            """.format(**locals()))
+        try:
+            for factors in all_supported_sizes:
+                self.cpu.load_supported_factors = factors
+                f, t = fromto.split('->')
+                t = ('\n' +(' '*20)).join([s for s in t.split(';')])
+                self.check_rewrite("""
+                    [p0,i1,i2]
+                    {f}
+                    jump()
+                """.format(**locals()), """
+                    [p0,i1,i2]
+                    {t}
+                    jump()
+                """.format(**locals()))
+        finally:
+            del self.cpu.load_supported_factors   # restore class-level value
 
     def test_load_from_gc_table_1i(self):
         self.check_rewrite("""

@@ -78,6 +78,12 @@ def string(space, w_cdata, maxlen=-1):
 
 # ____________________________________________________________
 
+@unwrap_spec(w_cdata=cdataobj.W_CData, length=int)
+def unpack(space, w_cdata, length):
+    return w_cdata.unpack(length)
+
+# ____________________________________________________________
+
 def _get_types(space):
     return space.newtuple([space.gettypefor(cdataobj.W_CData),
                            space.gettypefor(ctypeobj.W_CType)])

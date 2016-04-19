@@ -44,18 +44,26 @@ class TestRegalloc(object):
         assert self.rm.reg_bindings[a] == r.r2
         assert self.rm.reg_bindings[b] == r.r3
 
+    def test_cannot_spill_too_many_forbidden_vars(self):
+        v = temp_vars(12)
+        a, b = v[10], v[11]
+        self.rm.frame_manager.bindings[a] = self.rm.frame_manager.loc(a)
+        self.rm.frame_manager.bindings[b] = self.rm.frame_manager.loc(b)
+        # all registers are allocated
+        self.rm.allocate((2,v[0]),(3,v[1]),(4,v[2]),(5,v[3]),
+                         (6,v[4]),(7,v[5]),(8,v[6]),(9,v[7]),
+                         (10,v[8]),(11,v[9]))
+        self.rm.temp_boxes = v[:-2]
+        with py.test.raises(AssertionError):
+            # assert len(forbidden_vars) <= 8
+            self.rm.ensure_even_odd_pair(a, b, bind_first=False)
+
     def test_all_but_one_forbidden(self):
         a,b,f1,f2,f3,f4,o = temp_vars(7)
         self.rm.allocate((2,f1),(4,f2),(6,f3),(8,f4),(10,o))
         self.rm.force_allocate_reg_pair(a, b, [f1,f2,f3,f4])
         assert self.rm.reg_bindings[a] == r.r10
         assert self.rm.reg_bindings[b] == r.r11
-
-    def test_cannot_spill(self):
-        a,b,f1,f2,f3,f4,f5 = temp_vars(7)
-        self.rm.allocate((2,f1),(4,f2),(6,f3),(8,f4),(10,f5))
-        with py.test.raises(NoVariableToSpill):
-            self.rm.force_allocate_reg_pair(a, b, [f1,f2,f3,f4,f5])
 
     def test_all_but_one_forbidden_odd(self):
         a,b,f1,f2,f3,f4,f5 = temp_vars(7)
@@ -85,6 +93,25 @@ class TestRegalloc(object):
         assert ro == self.rm.reg_bindings[b]
         assert a not in self.rm.reg_bindings
         assert self.rm.assembler.move_count == 2
+
+    def test_ensure_pair_fully_allocated_first_forbidden(self):
+        v = temp_vars(12)
+        a, b = v[10], v[11]
+        self.rm.frame_manager.bindings[a] = self.rm.frame_manager.loc(a)
+        self.rm.frame_manager.bindings[b] = self.rm.frame_manager.loc(b)
+        # all registers are allocated
+        self.rm.allocate((2,v[0]),(3,v[1]),(4,v[2]),(5,v[3]),
+                         (6,v[4]),(7,v[5]),(8,v[6]),(9,v[7]),
+                         (10,v[8]),(11,v[9]))
+        self.rm.temp_boxes = [v[0],v[2],v[4],v[6],v[8]]
+        e, o = self.rm.ensure_even_odd_pair(a, b, bind_first=False)
+        assert e == r.r2
+        assert o == r.r3
+
+        self.rm.temp_boxes = [v[0],v[1],v[2],v[4],v[6],v[8]]
+        e, o = self.rm.ensure_even_odd_pair(a, b, bind_first=False)
+        assert e == r.r2
+        assert o == r.r3
 
 def run(inputargs, ops):
     cpu = CPU(None, None)
