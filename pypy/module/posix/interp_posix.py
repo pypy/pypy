@@ -1406,6 +1406,12 @@ dir_fd and follow_symlinks may not be available on your platform.
             rposix.futimens(path.as_fd, atime_s, atime_ns, mtime_s, mtime_ns)
             return
         except OSError as e:
+            # CPython's Modules/posixmodule.c::posix_utime() has this comment:
+            # /* Avoid putting the file name into the error here,
+            #    as that may confuse the user into believing that
+            #    something is wrong with the file, when it also
+            #    could be the time stamp that gives a problem. */
+            # so we use wrap_oserror() instead of wrap_oserror2() here
             raise wrap_oserror(space, e)
 
     if rposix.HAVE_UTIMENSAT:
@@ -1424,6 +1430,7 @@ dir_fd and follow_symlinks may not be available on your platform.
                     dir_fd=dir_fd, follow_symlinks=follow_symlinks)
             return
         except OSError as e:
+            # see comment above
             raise wrap_oserror(space, e)
 
     if not follow_symlinks:
@@ -1436,6 +1443,7 @@ dir_fd and follow_symlinks may not be available on your platform.
         try:
             call_rposix(rposix.utime, path, None)
         except OSError as e:
+            # see comment above
             raise wrap_oserror(space, e)
     try:
         msg = "utime() arg 2 must be a tuple (atime, mtime) or None"
@@ -1451,6 +1459,7 @@ dir_fd and follow_symlinks may not be available on your platform.
     try:
         call_rposix(rposix.utime, path, (actime, modtime))
     except OSError as e:
+        # see comment above
         raise wrap_oserror(space, e)
 
 
