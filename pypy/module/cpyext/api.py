@@ -494,11 +494,11 @@ SYMBOLS_C = [
 ]
 TYPES = {}
 GLOBALS = { # this needs to include all prebuilt pto, otherwise segfaults occur
-    '_Py_NoneStruct#': ('PyObject*', 'space.w_None'),
-    '_Py_TrueStruct#': ('PyIntObject*', 'space.w_True'),
-    '_Py_ZeroStruct#': ('PyIntObject*', 'space.w_False'),
-    '_Py_NotImplementedStruct#': ('PyObject*', 'space.w_NotImplemented'),
-    '_Py_EllipsisObject#': ('PyObject*', 'space.w_Ellipsis'),
+    '_Py_NoneStruct#%s' % pypy_decl: ('PyObject*', 'space.w_None'),
+    '_Py_TrueStruct#%s' % pypy_decl: ('PyIntObject*', 'space.w_True'),
+    '_Py_ZeroStruct#%s' % pypy_decl: ('PyIntObject*', 'space.w_False'),
+    '_Py_NotImplementedStruct#%s' % pypy_decl: ('PyObject*', 'space.w_NotImplemented'),
+    '_Py_EllipsisObject#%s' % pypy_decl: ('PyObject*', 'space.w_Ellipsis'),
     'PyDateTimeAPI': ('PyDateTime_CAPI*', 'None'),
     }
 FORWARD_DECLS = []
@@ -548,7 +548,7 @@ def build_exported_objects():
         'PyCFunction_Type': 'space.gettypeobject(cpyext.methodobject.W_PyCFunctionObject.typedef)',
         'PyWrapperDescr_Type': 'space.gettypeobject(cpyext.methodobject.W_PyCMethodObject.typedef)'
         }.items():
-        GLOBALS['%s#' % (cpyname, )] = ('PyTypeObject*', pypyexpr)
+        GLOBALS['%s#%s' % (cpyname, pypy_decl)] = ('PyTypeObject*', pypyexpr)
 
     for cpyname in '''PyMethodObject PyListObject PyLongObject
                       PyDictObject PyClassObject'''.split():
@@ -887,6 +887,9 @@ def build_bridge(space):
     structindex = {}
     for header, header_functions in FUNCTIONS_BY_HEADER.iteritems():
         for name, func in header_functions.iteritems():
+            if not func: 
+                # added only for the macro, not the decl
+                continue
             restype, args = c_function_signature(db, func)
             members.append('%s (*%s)(%s);' % (restype, name, args))
             structindex[name] = len(structindex)
@@ -903,7 +906,7 @@ def build_bridge(space):
 
     global_objects = []
     for name, (typ, expr) in GLOBALS.iteritems():
-        if "#" in name:
+        if '#' in name:
             continue
         if typ == 'PyDateTime_CAPI*':
             continue
@@ -927,7 +930,7 @@ def build_bridge(space):
             '\n' +
             '\n'.join(functions))
 
-    eci = build_eci(True, export_symbols, code)
+    eci = build_eci(True, export_symbols, code, use_micronumpy)
     eci = eci.compile_shared_lib(
         outputfilename=str(udir / "module_cache" / "pypyapi"))
     modulename = py.path.local(eci.libraries[-1])
@@ -958,8 +961,8 @@ def build_bridge(space):
     for name, (typ, expr) in GLOBALS.iteritems():
         from pypy.module import cpyext    # for the eval() below
         w_obj = eval(expr)
-        if name.endswith('#'):
-            name = name[:-1]
+        if '#' in name:
+            name = name.split('#')[0]
             isptr = False
         else:
             isptr = True
@@ -1004,7 +1007,7 @@ def build_bridge(space):
     #        ctypes.c_void_p)
     for header, header_functions in FUNCTIONS_BY_HEADER.iteritems():
         for name, func in header_functions.iteritems():
-            if name.startswith('cpyext_'): # XXX hack
+            if name.startswith('cpyext_') or func is None: # XXX hack
                 continue
             pypyAPI[structindex[name]] = ctypes.cast(
                 ll2ctypes.lltype2ctypes(func.get_llhelper(space)),
@@ -1076,10 +1079,14 @@ def generate_macros(export_symbols, prefix):
     pypy_macros = []
     renamed_symbols = []
     for name in export_symbols:
-        name = name.replace("#", "")
+        if '#' in name:
+            name,header = name.split('#')
+        else:
+            header = pypy_decl
         newname = mangle_name(prefix, name)
         assert newname, name
-        pypy_macros.append('#define %s %s' % (name, newname))
+        if header == pypy_decl:
+            pypy_macros.append('#define %s %s' % (name, newname))
         if name.startswith("PyExc_"):
             pypy_macros.append('#define _%s _%s' % (name, newname))
         renamed_symbols.append(newname)
@@ -1124,6 +1131,8 @@ def generate_decls_and_callbacks(db, export_symbols, api_struct=True, prefix='')
             header = decls[header_name]
 
         for name, func in sorted(header_functions.iteritems()):
+            if not func:
+                continue
             if header == DEFAULT_HEADER:
                 _name = name
             else:
@@ -1149,12 +1158,15 @@ def generate_decls_and_callbacks(db, export_symbols, api_struct=True, prefix='')
         functions.append(header + '\n{return va_arg(*vp, %s);}\n' % name)
 
     for name, (typ, expr) in GLOBALS.iteritems():
-        if name.endswith('#'):
-            name = name.replace("#", "")
+        if '#' in name:
+            name, header = name.split("#")
             typ = typ.replace("*", "")
         elif name.startswith('PyExc_'):
             typ = 'PyObject*'
-        pypy_decls.append('PyAPI_DATA(%s) %s;' % (typ, name))
+            header = pypy_decl
+        if header != pypy_decl:
+            decls[header].append('#define %s %s' % (name, mangle_name(prefix, name)))
+        decls[header].append('PyAPI_DATA(%s) %s;' % (typ, name))
 
     for header_name in FUNCTIONS_BY_HEADER.keys():
         header = decls[header_name]
@@ -1185,7 +1197,7 @@ separate_module_files = [source_dir / "varargwrapper.c",
                          source_dir / "pymem.c",
                          ]
 
-def build_eci(building_bridge, export_symbols, code):
+def build_eci(building_bridge, export_symbols, code, use_micronumpy=False):
     "NOT_RPYTHON"
     # Build code and get pointer to the structure
     kwds = {}
@@ -1207,9 +1219,11 @@ def build_eci(building_bridge, export_symbols, code):
 
     # Generate definitions for global structures
     structs = ["#include <Python.h>"]
+    if use_micronumpy:
+        structs.append('#include <pypy_numpy.h>')
     for name, (typ, expr) in GLOBALS.iteritems():
-        if name.endswith('#'):
-            structs.append('%s %s;' % (typ[:-1], name[:-1]))
+        if '#' in name:
+            structs.append('%s %s;' % (typ[:-1], name.split('#')[0]))
         elif name.startswith('PyExc_'):
             structs.append('PyTypeObject _%s;' % (name,))
             structs.append('PyObject* %s = (PyObject*)&_%s;' % (name, name))
@@ -1250,11 +1264,12 @@ def setup_micronumpy(space):
     use_micronumpy = space.config.objspace.usemodules.micronumpy
     if not use_micronumpy:
         return use_micronumpy
-    # import to register api functions by side-effect
-    import pypy.module.cpyext.ndarrayobject
-    global GLOBALS, SYMBOLS_C, separate_module_files
-    GLOBALS["PyArray_Type#"]= ('PyTypeObject*', "space.gettypeobject(W_NDimArray.typedef)")
-    SYMBOLS_C += ['PyArray_Type', '_PyArray_FILLWBYTE', '_PyArray_ZEROS']
+    # import registers api functions by side-effect, we also need HEADER
+    from pypy.module.cpyext.ndarrayobject import HEADER
+    global GLOBALS, FUNCTIONS_BY_HEADER, separate_module_files
+    for func_name in ['PyArray_Type', '_PyArray_FILLWBYTE', '_PyArray_ZEROS']:
+        FUNCTIONS_BY_HEADER.setdefault(HEADER, {})[func_name] = None
+    GLOBALS["PyArray_Type#%s" % HEADER] = ('PyTypeObject*', "space.gettypeobject(W_NDimArray.typedef)")
     separate_module_files.append(source_dir / "ndarrayobject.c")
     return use_micronumpy
 
@@ -1269,9 +1284,12 @@ def setup_library(space):
 
     functions = generate_decls_and_callbacks(db, [], api_struct=False, 
                                             prefix='PyPy')
-    code = "#include <Python.h>\n" + "\n".join(functions)
+    code = "#include <Python.h>\n"
+    if use_micronumpy:
+        code += "#include <pypy_numpy.h>"
+    code  += "\n".join(functions)
 
-    eci = build_eci(False, export_symbols, code)
+    eci = build_eci(False, export_symbols, code, use_micronumpy)
 
     space.fromcache(State).install_dll(eci)
 
@@ -1283,7 +1301,8 @@ def setup_library(space):
     lines = ['PyObject *pypy_static_pyobjs[] = {\n']
     include_lines = ['RPY_EXTERN PyObject *pypy_static_pyobjs[];\n']
     for name, (typ, expr) in sorted(GLOBALS.items()):
-        if name.endswith('#'):
+        if '#' in name:
+            name = name.split('#')[0]
             assert typ in ('PyObject*', 'PyTypeObject*', 'PyIntObject*')
             typ, name = typ[:-1], name[:-1]
         elif name.startswith('PyExc_'):
