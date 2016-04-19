@@ -89,7 +89,9 @@ void RPyGilAcquireSlowPath(long old_fastgil)
              * at precisely this moment, killing the first thread.
              */
             fprintf(stderr, "Fatal RPython error: a thread is trying to wait "
-                            "for the GIL, but the GIL was not initialized\n");
+                            "for the GIL, but the GIL was not initialized\n"
+                            "(For PyPy, see "
+                            "https://bitbucket.org/pypy/pypy/issues/2274)\n");
             abort();
         }
 
