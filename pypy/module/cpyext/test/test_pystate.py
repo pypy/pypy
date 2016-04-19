@@ -109,6 +109,8 @@ class AppTestThreads(AppTestCpythonExtensionBase):
                  return PyLong_FromLong(3);
                                   """),
                 ])
+        res = module.bounce()
+        assert res == 3
 
 
 
