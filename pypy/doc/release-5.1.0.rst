@@ -6,7 +6,7 @@ We have released PyPy 5.1, about a month after PyPy 5.0.
 We encourage all users of PyPy to update to this version. Apart from the usual
 bug fixes, there is an ongoing effort to improve the warmup time and memory
 usage of JIT-related metadata, and we now fully support the IBM s390x 
-architecture.
+architecture. We also updated cffi_ to 1.6
 
 You can download the PyPy 5.1 release here:
 
@@ -26,6 +26,7 @@ with making RPython's JIT even better.
 .. _`modules`: http://doc.pypy.org/en/latest/project-ideas.html#make-more-python-modules-pypy-friendly
 .. _`help`: http://doc.pypy.org/en/latest/project-ideas.html
 .. _`numpy`: https://bitbucket.org/pypy/numpy
+.. _cffi: https://cffi.readthedocs.org
 
 What is PyPy?
 =============
@@ -92,6 +93,15 @@ Other Highlights (since 5.0 released in March 2015)
 
   * Fix sandbox startup (a regression in 5.0)
 
+  * Fix possible segfault for classes with mangled mro or __metaclass__
+
+  * Fix isinstance(deque(), Hashable) on the pure python deque
+
+  * Fix an issue with forkpty()
+
+  * Fix issue with GIL and C-API multithreading, we care if PyPyGILState_Ensure
+    is called before initializing the GIL where cpython allows unsafe behaviour
+
   * Issues reported with our previous release were resolved_ after reports from users on
     our issue tracker at https://bitbucket.org/pypy/pypy/issues or on IRC at
     #pypy
@@ -108,6 +118,8 @@ Other Highlights (since 5.0 released in March 2015)
     functions exported from libpypy.so are declared in pypy_numpy.h, which is
     included only when building our fork of numpy
 
+  * Add broadcast
+
 * Performance improvements:
 
   * Improve str.endswith([tuple]) and str.startswith([tuple]) to allow JITting
@@ -119,11 +131,15 @@ Other Highlights (since 5.0 released in March 2015)
   * Remove the forced minor collection that occurs when rewriting the
     assembler at the start of the JIT backend
 
+  * Port the resource module to cffi
+
 * Internal refactorings:
 
   * Use a simpler logger to speed up translation
 
   * Drop vestiges of Python 2.5 support in testing
+
+  * Update rpython functions with ones needed for py3k
 
 .. _resolved: http://doc.pypy.org/en/latest/whatsnew-5.0.0.html
 .. _`blog post`: http://morepypy.blogspot.com/2016/02/c-api-support-update.html
