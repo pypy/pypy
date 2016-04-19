@@ -48,9 +48,13 @@ class TranslationTest(CCompiledMixin):
                                  lltype.Float, macro=True, releasegil=True,
                                  compilation_info=eci)
 
+        def get_location():
+            return "file", 0, "func", 0, "opcode"
+
         jitdriver = JitDriver(greens = [],
                               reds = ['total', 'frame', 'j'],
-                              virtualizables = ['frame'])
+                              virtualizables = ['frame'],
+                              get_location = get_location)
         def f(i, j):
             for param, _ in unroll_parameters:
                 defl = PARAMETERS[param]

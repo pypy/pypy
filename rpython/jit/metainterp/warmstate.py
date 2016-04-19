@@ -689,8 +689,14 @@ class WarmEnterState(object):
             def get_location(greenkey):
                 greenargs = unwrap_greenkey(greenkey)
                 fn = support.maybe_on_top_of_llinterp(rtyper, get_location_ptr)
-                llres = fn(*greenargs)
-                return llres
+                tuple_ptr = fn(*greenargs)
+                # it seems there is no "hltuple" function
+                return (hlstr(tuple_ptr.item0),
+                        intmask(tuple_ptr.item1),
+                        hlstr(tuple_ptr.item2),
+                        intmask(tuple_ptr.item3),
+                        hlstr(tuple_ptr.item4)
+                       )
         self.get_location = get_location
         #
         printable_loc_ptr = self.jitdriver_sd._printable_loc_ptr
