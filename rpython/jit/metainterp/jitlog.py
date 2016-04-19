@@ -31,6 +31,7 @@ MARK_TRACE_ASM = 0x18
 MARK_STITCH_BRIDGE = 0x19
 
 MARK_JITLOG_COUNTER = 0x20
+MARK_START_TRACE = 0x21
 
 MARK_JITLOG_HEADER = 0x23
 MARK_JITLOG_DEBUG_MERGE_POINT = 0x24
@@ -84,6 +85,7 @@ class VMProfJitLogger(object):
     def __init__(self):
         self.cintf = cintf.setup()
         self.memo = {}
+        self.trace_id = 0
 
     def setup_once(self):
         if self.cintf.jitlog_enabled():
@@ -96,6 +98,20 @@ class VMProfJitLogger(object):
 
     def finish(self):
         self.cintf.jitlog_teardown()
+
+    def start_new_trace(self, faildescr=None, entry_bridge=False):
+        if not self.cintf.jitlog_enabled():
+            return
+        content = [encode_le_addr(self.trace_id)]
+        if faildescr:
+            content.append(encode_str('bridge'))
+            descrnmr = compute_unique_id(faildescr)
+            content.append(encode_le_addr(descrnmr))
+        else:
+            content.append(encode_str('loop'))
+            content.append(encode_le_addr(int(entry_bridge)))
+        self.cintf._write_marked(MARK_START_TRACE, ''.join(content))
+        self.trace_id += 1
 
     def _write_marked(self, mark, line):
         if not we_are_translated():
@@ -127,7 +143,10 @@ class VMProfJitLogger(object):
         self._write_marked(MARK_STITCH_BRIDGE, ''.join(lst))
 
 class BaseLogTrace(object):
-    def write(self, args, ops, faildescr=None, ops_offset={}, name=None, unique_id=0):
+    def write_trace(self, trace):
+        return None
+
+    def write(self, args, ops, ops_offset={}):
         return None
 
 EMPTY_TRACE_LOG = BaseLogTrace()
@@ -143,25 +162,16 @@ class LogTrace(BaseLogTrace):
         self.mc = mc
         self.logger = logger
 
-    def write(self, args, ops, faildescr=None, ops_offset={},
-              name=None, unique_id=0):
-        log = self.logger
+    def write_trace(self, trace):
+        ops = []
+        i = trace.get_iter()
+        while not i.done():
+            ops.append(i.next())
+        self.write(i.inputargs, ops)
 
-        if name is None:
-            name = ''
-        # write the initial tag
-        if faildescr is None:
-            string = encode_str('loop') + \
-                     encode_le_addr(unique_id) + \
-                     encode_str(name or '')
-            log._write_marked(self.tag, string)
-        else:
-            descr_number = compute_unique_id(faildescr)
-            string = encode_str('bridge') + \
-                     encode_le_addr(descr_number) + \
-                     encode_le_addr(unique_id) + \
-                     encode_str(name or '')
-            log._write_marked(self.tag, string)
+    def write(self, args, ops, faildescr=None, ops_offset={}):
+        log = self.logger
+        log._write_marked(self.tag, encode_le_addr(self.trace_id))
 
         # input args
         str_args = [self.var_to_str(arg) for arg in args]
@@ -191,11 +201,11 @@ class LogTrace(BaseLogTrace):
         jd_sd = self.metainterp_sd.jitdrivers_sd[op.getarg(0).getint()]
         filename, lineno, enclosed, index, opname = jd_sd.warmstate.get_location(op.getarglist()[3:])
         line = []
-        line.append(encode_str(filename))
+        line.append(encode_str(filename or ""))
         line.append(encode_le_16bit(lineno))
-        line.append(encode_str(enclosed))
+        line.append(encode_str(enclosed or ""))
         line.append(encode_le_64bit(index))
-        line.append(encode_str(opname))
+        line.append(encode_str(opname or ""))
         log._write_marked(MARK_JITLOG_DEBUG_MERGE_POINT, ''.join(line))
 
 

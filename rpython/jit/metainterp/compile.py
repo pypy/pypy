@@ -478,10 +478,7 @@ def propagate_original_jitcell_token(trace):
 def do_compile_loop(jd_id, unique_id, metainterp_sd, inputargs, operations,
                     looptoken, log=True, name='', memo=None):
     _log = metainterp_sd.jitlog.log_trace(MARK_TRACE_OPT, metainterp_sd, None)
-    _log.write(inputargs, operations, None, name=name, unique_id=unique_id)
-    # TODO remove old
-    metainterp_sd.logger_ops.log_loop(inputargs, operations, -2,
-                                      'compiling', None, name, memo)
+    _log.write(inputargs, operations)
     return metainterp_sd.cpu.compile_loop(inputargs,
                                           operations, looptoken,
                                           jd_id=jd_id, unique_id=unique_id,
@@ -491,10 +488,7 @@ def do_compile_loop(jd_id, unique_id, metainterp_sd, inputargs, operations,
 def do_compile_bridge(metainterp_sd, faildescr, inputargs, operations,
                       original_loop_token, log=True, memo=None):
     _log = metainterp_sd.jitlog.log_trace(MARK_TRACE_OPT, metainterp_sd, None)
-    _log.write(inputargs, operations, faildescr)
-    # TODO remove old
-    metainterp_sd.logger_ops.log_bridge(inputargs, operations, "compiling",
-                                        memo=memo)
+    _log.write(inputargs, operations)
     assert isinstance(faildescr, AbstractFailDescr)
     return metainterp_sd.cpu.compile_bridge(faildescr, inputargs, operations,
                                             original_loop_token, log=log,
@@ -510,6 +504,7 @@ def forget_optimization_info(lst, reset_values=False):
 
 def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type,
                          orig_inpargs, memo):
+    metainterp_sd.jitlog.start_new_trace(None, type == "entry bridge")
     forget_optimization_info(loop.operations)
     forget_optimization_info(loop.inputargs)
     vinfo = jitdriver_sd.virtualizable_info
@@ -571,6 +566,7 @@ def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type,
 
 def send_bridge_to_backend(jitdriver_sd, metainterp_sd, faildescr, inputargs,
                            operations, original_loop_token, memo):
+    metainterp_sd.jitlog.start_new_trace(faildescr)
     forget_optimization_info(operations)
     forget_optimization_info(inputargs)
     if not we_are_translated():

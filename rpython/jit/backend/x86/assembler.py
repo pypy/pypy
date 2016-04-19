@@ -544,7 +544,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         looptoken._ll_function_addr = rawstart + functionpos
         if logger:
             log = logger.log_trace(MARK_TRACE_ASM, None, self.mc)
-            log.write(inputargs, operations, None, ops_offset=ops_offset, unique_id=rawstart)
+            log.write(inputargs, operations, ops_offset=ops_offset)
         
         self.fixup_target_tokens(rawstart)
         self.teardown()
@@ -611,7 +611,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
                           frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)
         if logger:
             log = logger.log_trace(MARK_TRACE_ASM, None, self.mc)
-            log.write(inputargs, operations, faildescr, ops_offset, unique_id=rawstart)
+            log.write(inputargs, operations, ops_offset)
         self.fixup_target_tokens(rawstart)
         self.update_frame_depth(frame_depth)
         self.teardown()

@@ -564,6 +564,7 @@ class WarmRunnerDesc(object):
 
     def make_driverhook_graphs(self):
         s_Str = annmodel.SomeString()
+        s_Str_None = annmodel.SomeString(can_be_None=True)
         s_Int = annmodel.SomeInteger()
         #
         annhelper = MixLevelHelperAnnotator(self.translator.rtyper)
@@ -580,7 +581,7 @@ class WarmRunnerDesc(object):
             jd._should_unroll_one_iteration_ptr = self._make_hook_graph(jd,
                 annhelper, jd.jitdriver.should_unroll_one_iteration,
                 annmodel.s_Bool)
-            s_Tuple = annmodel.SomeTuple([s_Str, s_Int, s_Str, s_Int, s_Str])
+            s_Tuple = annmodel.SomeTuple([s_Str_None, s_Int, s_Str_None, s_Int, s_Str_None])
             jd._get_location_ptr = self._make_hook_graph(jd,
                 annhelper, jd.jitdriver.get_location, s_Tuple)
         annhelper.finish()
