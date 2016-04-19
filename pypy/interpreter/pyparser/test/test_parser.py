@@ -56,7 +56,7 @@ def tree_from_string(expected, gram):
         else:
             tp = gram.symbol_ids[data[0]]
             children = []
-            n = parser.Nonterminal(tp, children, 0, 0)
+            n = parser.Nonterminal(tp, children)
         new_indent = count_indent(line)
         if new_indent >= last_indent:
             if new_indent == last_indent and node_stack:

@@ -44,12 +44,10 @@ class Grammar(object):
 
 class Node(object):
 
-    __slots__ = "type lineno column".split()
+    __slots__ = ("type", )
 
-    def __init__(self, type, lineno, column):
+    def __init__(self, type):
         self.type = type
-        self.lineno = lineno
-        self.column = column
 
     def __eq__(self, other):
         raise NotImplementedError("abstract base class")
@@ -70,17 +68,19 @@ class Node(object):
         raise NotImplementedError("abstract base class")
 
     def get_lineno(self):
-        return self.lineno
+        raise NotImplementedError("abstract base class")
 
     def get_column(self):
-        return self.column
+        raise NotImplementedError("abstract base class")
 
 
 class Terminal(Node):
-    __slots__ = ("value", )
+    __slots__ = ("value", "lineno", "column")
     def __init__(self, type, value, lineno, column):
-        Node.__init__(self, type, lineno, column)
+        Node.__init__(self, type)
         self.value = value
+        self.lineno = lineno
+        self.column = column
 
     def __repr__(self):
         return "Terminal(type=%s, value=%r)" % (self.type, self.value)
@@ -94,21 +94,42 @@ class Terminal(Node):
     def get_value(self):
         return self.value
 
+    def get_lineno(self):
+        return self.lineno
+
+    def get_column(self):
+        return self.column
+
 
 class AbstractNonterminal(Node):
-    pass
+    __slots__ = ()
 
-class Nonterminal(AbstractNonterminal):
-    __slots__ = ("_children", )
-    def __init__(self, type, children, lineno, column):
-        Node.__init__(self, type, lineno, column)
-        self._children = children
+    def get_lineno(self):
+        return self.get_child(0).get_lineno()
+
+    def get_column(self):
+        return self.get_child(0).get_column()
 
     def __eq__(self, other):
         # For tests.
-        return (type(self) == type(other) and
-                self.type == other.type and
-                self._children == other._children)
+        # grumble, annoying
+        if not isinstance(other, AbstractNonterminal):
+            return False
+        if self.type != other.type:
+            return False
+        if self.num_children() != other.num_children():
+            return False
+        for i in range(self.num_children()):
+            if self.get_child(i) != other.get_child(i):
+                return False
+        return True
+
+
+class Nonterminal(AbstractNonterminal):
+    __slots__ = ("_children", )
+    def __init__(self, type, children):
+        Node.__init__(self, type)
+        self._children = children
 
     def __repr__(self):
         return "Nonterminal(type=%s, children=%r)" % (self.type, self._children)
@@ -121,9 +142,28 @@ class Nonterminal(AbstractNonterminal):
 
     def append_child(self, child):
         self._children.append(child)
-        if not self._children:
-            assert self.lineno == child.lineno
-            assert self.column == child.column
+
+
+class Nonterminal1(AbstractNonterminal):
+    __slots__ = ("_child", )
+    def __init__(self, type, child):
+        Node.__init__(self, type)
+        self._child = child
+
+    def __repr__(self):
+        return "Nonterminal(type=%s, children=[%r])" % (self.type, self._child)
+
+    def get_child(self, i):
+        assert i == 0 or i == -1
+        return self._child
+
+    def num_children(self):
+        return 1
+
+    def append_child(self, child):
+        assert 0, "should be unreachable"
+
+
 
 class ParseError(Exception):
 
@@ -156,7 +196,7 @@ class Parser(object):
         if start == -1:
             start = self.grammar.start
         self.root = None
-        current_node = Nonterminal(start, [], 0, 0)
+        current_node = Nonterminal(start, [])
         self.stack = []
         self.stack.append((self.grammar.dfas[start - 256], 0, current_node))
 
@@ -230,7 +270,7 @@ class Parser(object):
     def push(self, next_dfa, next_state, node_type, lineno, column):
         """Push a terminal and adjust the current state."""
         dfa, state, node = self.stack[-1]
-        new_node = Nonterminal(node_type, [], lineno, column)
+        new_node = Nonterminal(node_type, [])
         self.stack[-1] = (dfa, next_state, node)
         self.stack.append((next_dfa, 0, new_node))
 
@@ -238,6 +278,10 @@ class Parser(object):
         """Pop an entry off the stack and make its node a child of the last."""
         dfa, state, node = self.stack.pop()
         if self.stack:
+            # we are now done with node, so we can store it more efficiently if
+            # it has just one child
+            if node.num_children() == 1:
+                node = Nonterminal1(node.type, node.get_child(0))
             self.stack[-1][2].append_child(node)
         else:
             self.root = node
