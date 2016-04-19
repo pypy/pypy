@@ -1,7 +1,7 @@
 # Edit these appropriately before running this script
 maj=5
-min=0
-rev=1
+min=1
+rev=0
 branchname=release-$maj.x  # ==OR== release-$maj.$min.x
 tagname=release-$maj.$min.$rev
 # This script will download latest builds from the buildmaster, rename the top
