@@ -1,7 +1,7 @@
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std.tupleobject import W_AbstractTupleObject
 from pypy.objspace.std.util import negate
-from rpython.rlib.objectmodel import compute_hash, specialize
+from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.tool.sourcetools import func_with_new_name
@@ -67,8 +67,14 @@ def make_specialised_class(typetuple):
                     # integer & other less frequent cases
                     from pypy.objspace.std.floatobject import _hash_float
                     y = _hash_float(space, value)
+                elif typetuple[i] == int:
+                    # hash for int which is different from the hash
+                    # given by rpython
+                    from pypy.objspace.std.intobject import _hash_int
+                    y = _hash_int(value)
                 else:
-                    y = compute_hash(value)
+                    raise NotImplementedError
+
                 x = (x ^ y) * mult
                 z -= 1
                 mult += 82520 + z + z

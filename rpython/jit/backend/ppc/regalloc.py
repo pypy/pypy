@@ -523,17 +523,16 @@ class Regalloc(BaseRegalloc):
         return [loc1, res]
 
     def prepare_finish(self, op):
-        descr = op.getdescr()
-        fail_descr = cast_instance_to_gcref(descr)
-        # we know it does not move, but well
-        rgc._make_sure_does_not_move(fail_descr)
-        fail_descr = rffi.cast(lltype.Signed, fail_descr)
         if op.numargs() > 0:
             loc = self.ensure_reg(op.getarg(0))
-            locs = [loc, imm(fail_descr)]
+            locs = [loc]
         else:
-            locs = [imm(fail_descr)]
+            locs = []
         return locs
+
+    def prepare_load_from_gc_table(self, op):
+        res = self.rm.force_allocate_reg(op)
+        return [res]
 
     def prepare_call_malloc_gc(self, op):
         return self._prepare_call(op)

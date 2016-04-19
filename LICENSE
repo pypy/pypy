@@ -111,23 +111,24 @@ copyrighted by one or more of the following people and organizations:
   Simon Burton
   Martin Matusiak
   Konstantin Lopuhin
+  Stefano Rivera
   Wenzhu Man
   John Witulski
   Laurence Tratt
   Ivan Sichmann Freitas
   Greg Price
   Dario Bertini
-  Stefano Rivera
   Mark Pearse
   Simon Cross
-  Andreas Stührk
   Edd Barrett
+  Andreas Stührk
   Jean-Philippe St. Pierre
   Guido van Rossum
   Pavel Vinogradov
+  Spenser Bauman
   Jeremy Thurgood
   Paweł Piotr Przeradowski
-  Spenser Bauman
+  Tobias Pape
   Paul deGrandis
   Ilya Osadchiy
   marky1991
@@ -139,7 +140,7 @@ copyrighted by one or more of the following people and organizations:
   Georg Brandl
   Bert Freudenberg
   Stian Andreassen
-  Tobias Pape
+  Mark Young
   Wanja Saatkamp
   Gerald Klix
   Mike Blume
@@ -170,9 +171,9 @@ copyrighted by one or more of the following people and organizations:
   Yichao Yu
   Rocco Moretti
   Gintautas Miliauskas
+  Devin Jeanpierre
   Michael Twomey
   Lucian Branescu Mihaila
-  Devin Jeanpierre
   Gabriel Lavoie
   Olivier Dormond
   Jared Grubb
@@ -183,6 +184,7 @@ copyrighted by one or more of the following people and organizations:
   Victor Stinner
   Andrews Medina
   anatoly techtonik
+  Sergey Matyunin
   Stuart Williams
   Jasper Schulz
   Christian Hudon
@@ -217,7 +219,6 @@ copyrighted by one or more of the following people and organizations:
   Arjun Naik
   Valentina Mukhamedzhanova
   Stefano Parmesan
-  Mark Young
   Alexis Daboville
   Jens-Uwe Mager
   Carl Meyer
@@ -225,7 +226,9 @@ copyrighted by one or more of the following people and organizations:
   Pieter Zieschang
   Gabriel
   Lukas Vacek
+  Kunal Grover
   Andrew Dalke
+  Florin Papa
   Sylvain Thenault
   Jakub Stasiak
   Nathan Taylor
@@ -240,7 +243,6 @@ copyrighted by one or more of the following people and organizations:
   Kristjan Valur Jonsson
   David Lievens
   Neil Blakey-Milner
-  Sergey Matyunin
   Lutz Paelike
   Lucio Torre
   Lars Wassermann
@@ -252,9 +254,11 @@ copyrighted by one or more of the following people and organizations:
   Artur Lisiecki
   Sergey Kishchenko
   Ignas Mikalajunas
+  Alecsandru Patrascu
   Christoph Gerum
   Martin Blais
   Lene Wagner
+  Catalin Gabriel Manciu
   Tomo Cocoa
   Kim Jin Su
   Toni Mattis
@@ -291,6 +295,7 @@ copyrighted by one or more of the following people and organizations:
   Akira Li
   Gustavo Niemeyer
   Stephan Busemann
+  florinpapa
   Rafał Gałczyński
   Matt Bogosian
   Christian Muirhead
@@ -305,6 +310,7 @@ copyrighted by one or more of the following people and organizations:
   Boglarka Vezer
   Chris Pressey
   Buck Golemon
+  Diana Popa
   Konrad Delong
   Dinu Gherman
   Chris Lambacher

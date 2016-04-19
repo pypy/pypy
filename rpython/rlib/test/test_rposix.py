@@ -104,7 +104,7 @@ class TestPosixFunction:
             rposix.mkdir(filename, 0)
         assert excinfo.value.errno == errno.EEXIST
         if sys.platform == 'win32':
-            assert exc.type is WindowsError
+            assert excinfo.type is WindowsError
 
     @rposix_requires('mkdirat')
     def test_mkdirat(self):
@@ -488,6 +488,7 @@ class TestPosixAscii(BasePosixUnicodeOrAscii):
             os.close(dirfd)
         assert not os.path.exists(self.ufilename)
 
+    @rposix_requires('utimensat')
     def test_utimensat(self):
         def f(dirfd):
             return rposix.utimensat('test_open_ascii',
@@ -499,6 +500,7 @@ class TestPosixAscii(BasePosixUnicodeOrAscii):
         finally:
             os.close(dirfd)
 
+    @rposix_requires('fchmodat')
     def test_fchmodat(self):
         def f(dirfd):
             return rposix.fchmodat('test_open_ascii', 0777, dirfd)
@@ -529,6 +531,7 @@ class TestRegisteredFunctions:
         compile(f, ())
 
 
+@rposix_requires('fdlistdir')
 def test_fdlistdir(tmpdir):
     tmpdir.join('file').write('text')
     dirfd = os.open(str(tmpdir), os.O_RDONLY)
@@ -536,6 +539,7 @@ def test_fdlistdir(tmpdir):
     # Note: fdlistdir() always closes dirfd
     assert result == ['file']
 
+@rposix_requires('symlinkat')
 def test_symlinkat(tmpdir):
     tmpdir.join('file').write('text')
     dirfd = os.open(str(tmpdir), os.O_RDONLY)
@@ -545,6 +549,7 @@ def test_symlinkat(tmpdir):
     finally:
         os.close(dirfd)
 
+@rposix_requires('renameat')
 def test_renameat(tmpdir):
     tmpdir.join('file').write('text')
     dirfd = os.open(str(tmpdir), os.O_RDONLY)

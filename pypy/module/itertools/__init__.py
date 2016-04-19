@@ -40,6 +40,7 @@ class Module(MixedModule):
         'cycle'         : 'interp_itertools.W_Cycle',
         'dropwhile'     : 'interp_itertools.W_DropWhile',
         'groupby'       : 'interp_itertools.W_GroupBy',
+        '_groupby'      : 'interp_itertools.W_GroupByIterator',
         'filterfalse'   : 'interp_itertools.W_FilterFalse',
         'islice'        : 'interp_itertools.W_ISlice',
         'permutations'  : 'interp_itertools.W_Permutations',

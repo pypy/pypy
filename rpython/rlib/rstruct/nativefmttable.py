@@ -83,6 +83,8 @@ def setup():
         #include <sys/types.h>
         #ifdef _MSC_VER
         #define _Bool char
+        typedef int ssize_t; /* XXX fixme for 64 bit*/
+        typedef unsigned int size_t; /* XXX fixme for 64 bit*/
         #endif"""]
     field_names = dict.fromkeys(INSPECT)
     for fmtchar, ctype in INSPECT.iteritems():

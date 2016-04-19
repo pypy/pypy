@@ -583,6 +583,9 @@ class ObjSpace(object):
         # lives in pypy/module/exceptions, we rename it below for
         # sys.builtin_module_names
         bootstrap_modules = set(('sys', 'imp', 'builtins', 'exceptions'))
+        if sys.platform.startswith("win"):
+            self.setbuiltinmodule('_winreg')
+            bootstrap_modules.add('winreg')
         installed_builtin_modules = list(bootstrap_modules)
 
         exception_types_w = self.export_builtin_exceptions()
@@ -1052,6 +1055,9 @@ class ObjSpace(object):
     def newlist_int(self, list_i):
         return self.newlist([self.wrap(i) for i in list_i])
 
+    def newlist_float(self, list_f):
+        return self.newlist([self.wrap(f) for f in list_f])
+
     def newlist_hint(self, sizehint):
         from pypy.objspace.std.listobject import make_empty_list_with_size
         return make_empty_list_with_size(self, sizehint)
@@ -1509,7 +1515,7 @@ class ObjSpace(object):
             assert False
 
     # XXX rename/replace with code more like CPython getargs for buffers
-    def bufferstr_w(self, w_obj):
+    def bufferstr_w(self, w_obj, flags=BUF_SIMPLE):
         # Directly returns an interp-level str.  Note that if w_obj is a
         # unicode string, this is different from str_w(buffer(w_obj)):
         # indeed, the latter returns a string with the raw bytes from
@@ -1523,13 +1529,7 @@ class ObjSpace(object):
         except OperationError, e:
             if not e.match(self, self.w_TypeError):
                 raise
-        try:
-            buf = w_obj.buffer_w(self, 0)
-        except BufferInterfaceNotFound:
-            raise oefmt(self.w_TypeError,
-                        "'%T' does not support the buffer interface", w_obj)
-        else:
-            return buf.as_str()
+        return self.buffer_w(w_obj, flags).as_str()
 
     def str_or_None_w(self, w_obj):
         return None if self.is_none(w_obj) else self.str_w(w_obj)

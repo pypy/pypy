@@ -1,10 +1,12 @@
 from rpython.rlib import rgc
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated, r_dict
 from rpython.rlib.rarithmetic import ovfcheck, highest_bit
 from rpython.rtyper.lltypesystem import llmemory, lltype, rstr
+from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.jit.metainterp import history
 from rpython.jit.metainterp.history import ConstInt, ConstPtr
 from rpython.jit.metainterp.resoperation import ResOperation, rop, OpHelpers
+from rpython.jit.metainterp.typesystem import rd_eq, rd_hash
 from rpython.jit.codewriter import heaptracker
 from rpython.jit.backend.llsupport.symbolic import (WORD,
         get_array_token)
@@ -94,21 +96,28 @@ class GcRewriterAssembler(object):
         op = self.get_box_replacement(op)
         orig_op = op
         replaced = False
+        opnum = op.getopnum()
+        keep = (opnum == rop.JIT_DEBUG)
         for i in range(op.numargs()):
             orig_arg = op.getarg(i)
             arg = self.get_box_replacement(orig_arg)
+            if isinstance(arg, ConstPtr) and bool(arg.value) and not keep:
+                arg = self.remove_constptr(arg)
             if orig_arg is not arg:
                 if not replaced:
-                    op = op.copy_and_change(op.getopnum())
+                    op = op.copy_and_change(opnum)
                     orig_op.set_forwarded(op)
                     replaced = True
                 op.setarg(i, arg)
-        if rop.is_guard(op.opnum):
+        if rop.is_guard(opnum):
             if not replaced:
-                op = op.copy_and_change(op.getopnum())
+                op = op.copy_and_change(opnum)
                 orig_op.set_forwarded(op)
             op.setfailargs([self.get_box_replacement(a, True)
                             for a in op.getfailargs()])
+        if rop.is_guard(opnum) or opnum == rop.FINISH:
+            llref = cast_instance_to_gcref(op.getdescr())
+            self.gcrefs_output_list.append(llref)
         self._newops.append(op)
 
     def replace_op_with(self, op, newop):
@@ -304,13 +313,16 @@ class GcRewriterAssembler(object):
         return False
 
 
-    def rewrite(self, operations):
+    def rewrite(self, operations, gcrefs_output_list):
         # we can only remember one malloc since the next malloc can possibly
         # collect; but we can try to collapse several known-size mallocs into
         # one, both for performance and to reduce the number of write
         # barriers.  We do this on each "basic block" of operations, which in
         # this case means between CALLs or unknown-size mallocs.
         #
+        self.gcrefs_output_list = gcrefs_output_list
+        self.gcrefs_map = None
+        self.gcrefs_recently_loaded = None
         operations = self.remove_bridge_exception(operations)
         self._changed_op = None
         for i in range(len(operations)):
@@ -333,8 +345,7 @@ class GcRewriterAssembler(object):
             elif rop.can_malloc(op.opnum):
                 self.emitting_an_operation_that_can_collect()
             elif op.getopnum() == rop.LABEL:
-                self.emitting_an_operation_that_can_collect()
-                self._known_lengths.clear()
+                self.emit_label()
             # ---------- write barriers ----------
             if self.gc_ll_descr.write_barrier_descr is not None:
                 if op.getopnum() == rop.SETFIELD_GC:
@@ -940,3 +951,37 @@ class GcRewriterAssembler(object):
                 operations[start+2].getopnum() == rop.RESTORE_EXCEPTION):
                 return operations[:start] + operations[start+3:]
         return operations
+
+    def emit_label(self):
+        self.emitting_an_operation_that_can_collect()
+        self._known_lengths.clear()
+        self.gcrefs_recently_loaded = None
+
+    def _gcref_index(self, gcref):
+        if self.gcrefs_map is None:
+            self.gcrefs_map = r_dict(rd_eq, rd_hash)
+        try:
+            return self.gcrefs_map[gcref]
+        except KeyError:
+            pass
+        index = len(self.gcrefs_output_list)
+        self.gcrefs_map[gcref] = index
+        self.gcrefs_output_list.append(gcref)
+        return index
+
+    def remove_constptr(self, c):
+        """Remove all ConstPtrs, and replace them with load_from_gc_table.
+        """
+        # Note: currently, gcrefs_recently_loaded is only cleared in
+        # LABELs.  We'd like something better, like "don't spill it",
+        # but that's the wrong level...
+        index = self._gcref_index(c.value)
+        if self.gcrefs_recently_loaded is None:
+            self.gcrefs_recently_loaded = {}
+        try:
+            load_op = self.gcrefs_recently_loaded[index]
+        except KeyError:
+            load_op = ResOperation(rop.LOAD_FROM_GC_TABLE, [ConstInt(index)])
+            self._newops.append(load_op)
+            self.gcrefs_recently_loaded[index] = load_op
+        return load_op

@@ -93,3 +93,24 @@ def test_execute_code_ignore_errors():
     finally:
         sys.stderr = oldstderr
     assert 'ERROR' not in capture.getvalue().upper()
+
+def test_execute_code_show_runtime_error():
+    f = localudir.join('z.c')
+    f.write("""
+    #include <stdio.h>
+    int main()
+    {
+       fprintf(stderr, "hello\\n");
+       return 0;
+    }
+    """)
+    for i in range(2):
+        eci = ExternalCompilationInfo()
+        oldstderr = sys.stderr
+        try:
+            sys.stderr = capture = cStringIO.StringIO()
+            output = build_executable_cache([f], eci, True)
+        finally:
+            sys.stderr = oldstderr
+        assert 'hello' in capture.getvalue()
+        assert output == ''

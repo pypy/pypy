@@ -36,10 +36,9 @@ if _WIN32:
 # - ALL_STAT_FIELDS contains Float fields if the system can retrieve
 #   sub-second timestamps.
 # - TIMESPEC is defined when the "struct stat" contains st_atim field.
-
-try:
+if sys.platform.startswith('linux') or sys.platform.startswith('openbsd'):
     from rpython.rlib.rposix import TIMESPEC
-except ImportError:
+else:
     TIMESPEC = None
 
 

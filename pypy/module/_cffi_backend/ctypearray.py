@@ -7,11 +7,12 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef
 
-from rpython.rtyper.lltypesystem import rffi
+from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rarithmetic import ovfcheck
 
 from pypy.module._cffi_backend import cdataobj
 from pypy.module._cffi_backend.ctypeptr import W_CTypePtrOrArray
+from pypy.module._cffi_backend import ctypeprim
 
 
 class W_CTypeArray(W_CTypePtrOrArray):
