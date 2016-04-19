@@ -189,6 +189,7 @@ def _errno_after(save_err):
             rthread.tlfield_alt_errno.setraw(_get_errno())
         else:
             rthread.tlfield_rpy_errno.setraw(_get_errno())
+            # ^^^ keep fork() up-to-date too, below
 
 
 if os.name == 'nt':
@@ -765,17 +766,19 @@ c_openpty = external('openpty',
                      save_err=rffi.RFFI_SAVE_ERRNO)
 c_forkpty = external('forkpty',
                      [rffi.INTP, rffi.VOIDP, rffi.VOIDP, rffi.VOIDP],
-                     rffi.PID_T,
-                     save_err=rffi.RFFI_SAVE_ERRNO)
+                     rffi.PID_T, _nowrapper = True)
 
 @replace_os_function('fork')
 @jit.dont_look_inside
 def fork():
     # NB. keep forkpty() up-to-date, too
+    # lots of custom logic here, to do things in the right order
     ofs = debug.debug_offset()
     opaqueaddr = rthread.gc_thread_before_fork()
     childpid = c_fork()
+    errno = _get_errno()
     rthread.gc_thread_after_fork(childpid, opaqueaddr)
+    rthread.tlfield_rpy_errno.setraw(errno)
     childpid = handle_posix_error('fork', childpid)
     if childpid == 0:
         debug.debug_forked(ofs)
@@ -799,11 +802,14 @@ def openpty():
 def forkpty():
     master_p = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
     master_p[0] = rffi.cast(rffi.INT, -1)
+    null = lltype.nullptr(rffi.VOIDP.TO)
     try:
         ofs = debug.debug_offset()
         opaqueaddr = rthread.gc_thread_before_fork()
-        childpid = c_forkpty(master_p, None, None, None)
+        childpid = c_forkpty(master_p, null, null, null)
+        errno = _get_errno()
         rthread.gc_thread_after_fork(childpid, opaqueaddr)
+        rthread.tlfield_rpy_errno.setraw(errno)
         childpid = handle_posix_error('forkpty', childpid)
         if childpid == 0:
             debug.debug_forked(ofs)
