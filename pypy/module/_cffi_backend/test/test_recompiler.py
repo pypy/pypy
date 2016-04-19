@@ -420,9 +420,11 @@ class AppTestRecompiler:
 
     def test_math_sin_type(self):
         ffi, lib = self.prepare(
-            "double sin(double);",
+            "double sin(double); void *xxtestfunc();",
             'test_math_sin_type',
-            '#include <math.h>')
+            """#include <math.h>
+               void *xxtestfunc(void) { return 0; }
+            """)
         # 'lib.sin' is typed as a <built-in method> object on lib
         assert ffi.typeof(lib.sin).cname == "double(*)(double)"
         # 'x' is another <built-in method> object on lib, made very indirectly
@@ -432,7 +434,16 @@ class AppTestRecompiler:
         # present on built-in functions on CPython; must be emulated on PyPy:
         assert lib.sin.__name__ == 'sin'
         assert lib.sin.__module__ == '_CFFI_test_math_sin_type'
-        assert lib.sin.__doc__=='direct call to the C function of the same name'
+        assert lib.sin.__doc__ == (
+            "double sin(double);\n"
+            "\n"
+            "CFFI C function from _CFFI_test_math_sin_type.lib")
+
+        assert ffi.typeof(lib.xxtestfunc).cname == "void *(*)()"
+        assert lib.xxtestfunc.__doc__ == (
+            "void *xxtestfunc();\n"
+            "\n"
+            "CFFI C function from _CFFI_test_math_sin_type.lib")
 
     def test_verify_anonymous_struct_with_typedef(self):
         ffi, lib = self.prepare(

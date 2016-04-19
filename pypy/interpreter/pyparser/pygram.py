@@ -31,8 +31,11 @@ tokens = _Tokens()
 
 class _Symbols(object):
     pass
+rev_lookup = {}
 for sym_name, idx in python_grammar.symbol_ids.iteritems():
     setattr(_Symbols, sym_name, idx)
+    rev_lookup[idx] = sym_name
 syms = _Symbols()
+syms._rev_lookup = rev_lookup # for debugging
 
 del _get_python_grammar, _Tokens, tok_name, sym_name, idx

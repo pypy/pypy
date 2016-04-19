@@ -148,6 +148,9 @@ def setup_threads(space):
     space.threadlocals.setup_threads(space)
     bootstrapper.setup(space)
 
+def threads_initialized(space):
+    return space.threadlocals.threads_initialized()
+
 
 def reinit_threads(space):
     "Called in the child process after a fork()"
