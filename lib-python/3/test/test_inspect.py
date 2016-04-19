@@ -1481,12 +1481,13 @@ class TestSignatureObject(unittest.TestCase):
     def test_signature_on_builtin_function(self):
         with self.assertRaisesRegex(ValueError, 'not supported by signature'):
             inspect.signature(type)
-        with self.assertRaisesRegex(ValueError, 'not supported by signature'):
-            # support for 'wrapper_descriptor'
-            inspect.signature(type.__call__)
-        with self.assertRaisesRegex(ValueError, 'not supported by signature'):
-            # support for 'method-wrapper'
-            inspect.signature(min.__call__)
+        if check_impl_detail(pypy=False):
+            with self.assertRaisesRegex(ValueError, 'not supported by signature'):
+                # support for 'wrapper_descriptor'
+                inspect.signature(type.__call__)
+            with self.assertRaisesRegex(ValueError, 'not supported by signature'):
+                # support for 'method-wrapper'
+                inspect.signature(min.__call__)
         with self.assertRaisesRegex(ValueError,
                                      'no signature found for builtin function'):
             # support for 'method-wrapper'
@@ -1920,7 +1921,7 @@ class TestSignatureObject(unittest.TestCase):
     def test_signature_unhashable(self):
         def foo(a): pass
         sig = inspect.signature(foo)
-        with self.assertRaisesRegex(TypeError, 'unhashable type'):
+        with self.assertRaisesRegex(TypeError, 'unhashable'):
             hash(sig)
 
     def test_signature_str(self):
@@ -2029,7 +2030,7 @@ class TestParameterObject(unittest.TestCase):
         p = inspect.Parameter('foo', default=42,
                               kind=inspect.Parameter.KEYWORD_ONLY)
 
-        with self.assertRaisesRegex(TypeError, 'unhashable type'):
+        with self.assertRaisesRegex(TypeError, 'unhashable'):
             hash(p)
 
     def test_signature_parameter_replace(self):
@@ -2297,7 +2298,7 @@ class TestBoundArguments(unittest.TestCase):
         def foo(a): pass
         ba = inspect.signature(foo).bind(1)
 
-        with self.assertRaisesRegex(TypeError, 'unhashable type'):
+        with self.assertRaisesRegex(TypeError, 'unhashable'):
             hash(ba)
 
     def test_signature_bound_arguments_equality(self):
