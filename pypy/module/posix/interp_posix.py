@@ -64,7 +64,7 @@ class FileDecoder(object):
         self.w_obj = w_obj
 
     def as_bytes(self):
-        return self.space.bytes0_w(self.w_obj)
+        return self.space.fsencode_w(self.w_obj)
 
     def as_unicode(self):
         return self.space.fsdecode_w(self.w_obj)
@@ -83,7 +83,7 @@ def make_dispatch_function(func, tag, allow_fd_fn=None):
             fname = FileEncoder(space, w_fname)
             return func(fname, *args)
         else:
-            fname = space.bytes0_w(w_fname)
+            fname = space.fsencode_w(w_fname)
             return func(fname, *args)
     return dispatch
 

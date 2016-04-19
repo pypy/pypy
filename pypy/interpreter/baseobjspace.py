@@ -231,8 +231,7 @@ class W_Root(object):
         raise BufferInterfaceNotFound
 
     def bytes_w(self, space):
-        buffer = space.buffer_w(self, space.BUF_FULL_RO)
-        return buffer.as_str()
+        self._typed_unwrap_error(space, "bytes")
 
     def unicode_w(self, space):
         self._typed_unwrap_error(space, "string")
@@ -1639,9 +1638,14 @@ class ObjSpace(object):
         return fsdecode(space, w_obj)
 
     def fsencode_w(self, w_obj):
+        from rpython.rlib import rstring
         if self.isinstance_w(w_obj, self.w_unicode):
             w_obj = self.fsencode(w_obj)
-        return self.bytes0_w(w_obj)
+        result = self.bufferstr_w(w_obj, self.BUF_FULL_RO)
+        if '\x00' in result:
+            raise oefmt(self.w_TypeError,
+                        "argument must be a string without NUL characters")
+        return rstring.assert_str0(result)
 
     def fsdecode_w(self, w_obj):
         if self.isinstance_w(w_obj, self.w_bytes):
