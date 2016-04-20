@@ -3,10 +3,17 @@ PyPy 5.1
 ========
 
 We have released PyPy 5.1, about a month after PyPy 5.0.
-We encourage all users of PyPy to update to this version. Apart from the usual
-bug fixes, there is an ongoing effort to improve the warmup time and memory
-usage of JIT-related metadata, and we now fully support the IBM s390x 
-architecture. We also updated cffi_ to 1.6
+
+This release includes more improvement to warmup time and memory
+requirements. We have seen about a 20% memory requirement reduction and up to
+30% warmup time improvement, more detail in the `blog post`_.
+
+We also now have `fully support for the IBM s390x`_. Since this support is in
+`RPython`_, any dynamic language written using RPython, like PyPy, will
+automagically be supported on that architecture.  
+
+We updated cffi_ to 1.6, and continue to improve support for the wider
+python ecosystem using the PyPy interpreter.
 
 You can download the PyPy 5.1 release here:
 
@@ -27,6 +34,8 @@ with making RPython's JIT even better.
 .. _`help`: http://doc.pypy.org/en/latest/project-ideas.html
 .. _`numpy`: https://bitbucket.org/pypy/numpy
 .. _cffi: https://cffi.readthedocs.org
+.. _`fully support for the IBM s390x`: http://morepypy.blogspot.com/2016/04/pypy-enterprise-edition.html
+.. _`blog post`: http://morepypy.blogspot.com/2016/04/warmup-improvements-more-efficient.html
 
 What is PyPy?
 =============
@@ -105,7 +114,7 @@ Other Highlights (since 5.0 released in March 2015)
     our issue tracker at https://bitbucket.org/pypy/pypy/issues or on IRC at
     #pypy
 
-* Numpy:
+* Numpy_:
 
   * Implemented numpy.where for a single argument
 
@@ -141,7 +150,7 @@ Other Highlights (since 5.0 released in March 2015)
   * Update rpython functions with ones needed for py3k
 
 .. _resolved: http://doc.pypy.org/en/latest/whatsnew-5.0.0.html
-.. _`blog post`: http://morepypy.blogspot.com/2016/02/c-api-support-update.html
+.. _Numpy: https://bitbucket.org/pypy/numpy
 
 Please update, and continue to help us make PyPy better.
 
