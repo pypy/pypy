@@ -47,7 +47,7 @@ This release supports:
   
   * big- and little-endian variants of **PPC64** running Linux,
 
-  * **s960x** running Linux
+  * **s390x** running Linux
 
 .. _`PyPy and CPython 2.7.x`: http://speed.pypy.org
 .. _`dynamic languages`: http://pypyjs.org
