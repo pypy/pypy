@@ -398,7 +398,7 @@ class ObjSpace(object):
         self.check_signal_action = None   # changed by the signal module
         self.user_del_action = UserDelAction(self)
         self._code_of_sys_exc_info = None
-        
+
         # can be overridden to a subclass
         self.initialize()
 
@@ -582,6 +582,9 @@ class ObjSpace(object):
         # lives in pypy/module/exceptions, we rename it below for
         # sys.builtin_module_names
         bootstrap_modules = set(('sys', 'imp', 'builtins', 'exceptions'))
+        if sys.platform.startswith("win"):
+            self.setbuiltinmodule('_winreg')
+            bootstrap_modules.add('winreg')
         installed_builtin_modules = list(bootstrap_modules)
 
         exception_types_w = self.export_builtin_exceptions()
@@ -1534,7 +1537,7 @@ class ObjSpace(object):
         """
         if w_obj is unicode, call identifier_w() (i.e., return the UTF-8
         encoded string). Else, call bytes_w().
-        
+
         Maybe we should kill str_w completely and manually substitute it with
         identifier_w/bytes_w at all call sites?
         """
@@ -1635,9 +1638,14 @@ class ObjSpace(object):
         return fsdecode(space, w_obj)
 
     def fsencode_w(self, w_obj):
+        from rpython.rlib import rstring
         if self.isinstance_w(w_obj, self.w_unicode):
             w_obj = self.fsencode(w_obj)
-        return self.bytes0_w(w_obj)
+        result = self.bufferstr_w(w_obj, self.BUF_FULL_RO)
+        if '\x00' in result:
+            raise oefmt(self.w_TypeError,
+                        "argument must be a string without NUL characters")
+        return rstring.assert_str0(result)
 
     def fsdecode_w(self, w_obj):
         if self.isinstance_w(w_obj, self.w_bytes):
