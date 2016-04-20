@@ -357,44 +357,56 @@ opened on a directory, not a file."""
 
 STAT_FIELDS = unrolling_iterable(enumerate(rposix_stat.STAT_FIELDS))
 
-STATVFS_FIELDS = unrolling_iterable(enumerate(rposix_stat.STATVFS_FIELDS))
+N_INDEXABLE_FIELDS = 10
+
+def _time_ns_from_float(ftime):
+    "Convert a floating-point time (in seconds) into a (s, ns) pair of ints"
+    fracpart, intpart = modf(ftime)
+    if fracpart < 0:
+        fracpart += 1.
+        intpart -= 1.
+    return int(intpart), int(fracpart * 1e9)
+
+@specialize.arg(4)
+def _fill_time(space, lst, index, w_keywords, attrname, ftime):
+    stat_float_times = space.fromcache(StatState).stat_float_times
+    seconds, fractional_ns = _time_ns_from_float(ftime)
+    lst[index] = space.wrap(seconds)
+    if stat_float_times:
+        space.setitem(w_keywords, space.wrap(attrname), space.wrap(ftime))
+    else:
+        space.setitem(w_keywords, space.wrap(attrname), space.wrap(seconds))
+    w_billion = space.wrap(1000000000)
+    w_total_ns = space.add(space.mul(space.wrap(seconds), w_billion),
+                           space.wrap(fractional_ns))
+    space.setitem(w_keywords, space.wrap(attrname + '_ns'), w_total_ns)
+
+STANDARD_FIELDS = unrolling_iterable(enumerate(rposix_stat.STAT_FIELDS[:7]))
+EXTRA_FIELDS = unrolling_iterable(rposix_stat.STAT_FIELDS[10:])
 
 def build_stat_result(space, st):
-    FIELDS = STAT_FIELDS    # also when not translating at all
-    lst = [None] * rposix_stat.N_INDEXABLE_FIELDS
+    lst = [None] * N_INDEXABLE_FIELDS
     w_keywords = space.newdict()
-    stat_float_times = space.fromcache(StatState).stat_float_times
-    for i, (name, TYPE) in FIELDS:
+    for (i, (name, TYPE)) in STANDARD_FIELDS:
         value = getattr(st, name)
-        if name in ('st_atime', 'st_mtime', 'st_ctime'):
-            value = int(value)   # rounded to an integer for indexed access
         w_value = space.wrap(value)
-        if i < rposix_stat.N_INDEXABLE_FIELDS:
-            lst[i] = w_value
-        else:
-            space.setitem(w_keywords, space.wrap(name), w_value)
+        lst[i] = w_value
 
-    # non-rounded values for name-based access
-    if stat_float_times:
-        space.setitem(w_keywords,
-                      space.wrap('st_atime'), space.wrap(st.st_atime))
-        space.setitem(w_keywords,
-                      space.wrap('st_mtime'), space.wrap(st.st_mtime))
-        space.setitem(w_keywords,
-                      space.wrap('st_ctime'), space.wrap(st.st_ctime))
-    else:
-        space.setitem(w_keywords,
-                      space.wrap('st_atime'), space.wrap(int(st.st_atime)))
-        space.setitem(w_keywords,
-                      space.wrap('st_mtime'), space.wrap(int(st.st_mtime)))
-        space.setitem(w_keywords,
-                      space.wrap('st_ctime'), space.wrap(int(st.st_ctime)))
+    _fill_time(space, lst, 7, w_keywords, 'st_atime', st.st_atime)
+    _fill_time(space, lst, 8, w_keywords, 'st_mtime', st.st_mtime)
+    _fill_time(space, lst, 9, w_keywords, 'st_ctime', st.st_ctime)
+
+    for name, TYPE in EXTRA_FIELDS:
+        value = getattr(st, name)
+        w_value = space.wrap(value)
+        space.setitem(w_keywords, space.wrap(name), w_value)
 
     w_tuple = space.newtuple(lst)
     w_stat_result = space.getattr(space.getbuiltinmodule(os.name),
                                   space.wrap('stat_result'))
     return space.call_function(w_stat_result, w_tuple, w_keywords)
 
+STATVFS_FIELDS = unrolling_iterable(enumerate(rposix_stat.STATVFS_FIELDS))
 
 def build_statvfs_result(space, st):
     vals_w = [None] * len(rposix_stat.STATVFS_FIELDS)

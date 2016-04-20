@@ -36,10 +36,12 @@ class stat_result(metaclass=structseqtype):
 
     # further fields, not accessible by index (the numbers are still needed
     # but not visible because they are no longer consecutive)
-
-    st_atime = structseqfield(15, "time of last access")
-    st_mtime = structseqfield(16, "time of last modification")
-    st_ctime = structseqfield(17, "time of last status change")
+    st_atime = structseqfield(11, "time of last access")
+    st_mtime = structseqfield(12, "time of last modification")
+    st_ctime = structseqfield(13, "time of last change")
+    st_atime_ns = structseqfield(14, "time of last access in nanoseconds")
+    st_mtime_ns = structseqfield(15, "time of last modification in nanoseconds")
+    st_ctime_ns = structseqfield(16, "time of last change in nanoseconds")
 
     if "st_blksize" in posix._statfields:
         st_blksize = structseqfield(20, "blocksize for filesystem I/O")
