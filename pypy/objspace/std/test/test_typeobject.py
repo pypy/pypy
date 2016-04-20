@@ -1176,22 +1176,26 @@ class AppTestTypeObject:
         """
 
     def test_crash_mro_without_object_1(self):
+        """
         class X(type):
             def mro(self):
                 return [self]
-        class C:
-            __metaclass__ = X
+        class C(metaclass=X):
+            pass
         e = raises(TypeError, C)     # the lookup of '__new__' fails
         assert str(e.value) == "cannot create 'C' instances"
+        """
 
     def test_crash_mro_without_object_2(self):
+        """
         class X(type):
             def mro(self):
                 return [self, int]
-        class C(int):
-            __metaclass__ = X
+        class C(int, metaclass=X):
+            pass
         C()    # the lookup of '__new__' succeeds in 'int',
                # but the lookup of '__init__' fails
+        """
 
 
 class AppTestWithMethodCacheCounter:
