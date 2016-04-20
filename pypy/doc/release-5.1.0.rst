@@ -75,6 +75,8 @@ Other Highlights (since 5.0 released in March 2015)
   * Fix a corner case in the JIT
 
   * Fix edge cases in the cpyext refcounting-compatible semantics
+    (more work on cpyext compatibility is coming in the ``cpyext-ext``
+    branch, but isn't ready yet)
 
   * Try harder to not emit NEON instructions on ARM processors without NEON
     support
@@ -98,9 +100,6 @@ Other Highlights (since 5.0 released in March 2015)
   * Fix isinstance(deque(), Hashable) on the pure python deque
 
   * Fix an issue with forkpty()
-
-  * Fix issue with GIL and C-API multithreading, we care if PyPyGILState_Ensure
-    is called before initializing the GIL where cpython allows unsafe behaviour
 
   * Issues reported with our previous release were resolved_ after reports from users on
     our issue tracker at https://bitbucket.org/pypy/pypy/issues or on IRC at
