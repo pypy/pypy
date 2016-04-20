@@ -1193,9 +1193,8 @@ class W_Product(W_Root):
                 space.newtuple(gears)
             ]
             if self.lst is not None:
-                result_w = result_w + [
-			    space.newtuple([
-                        	space.wrap(index) for index in self.indices])]
+                indices_w = [space.wrap(index) for index in self.indices]
+                result_w = result_w + [space.newtuple(indices_w)]
         else:
             result_w = [
                 space.type(self),
