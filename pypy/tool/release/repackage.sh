@@ -3,7 +3,11 @@ maj=5
 min=1
 rev=0
 branchname=release-$maj.x  # ==OR== release-$maj.$min.x
-tagname=release-$maj.$min.$rev
+tagname=release-$maj.$min  # ==OR== release-$maj.$min.$rev
+
+hg log -r $branchname || exit 1
+hg log -r $tagname || exit 1
+
 # This script will download latest builds from the buildmaster, rename the top
 # level directory, and repackage ready to be uploaded to bitbucket. It will also
 # download source, assuming a tag for the release already exists, and repackage them.
