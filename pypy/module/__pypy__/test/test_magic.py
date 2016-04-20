@@ -56,7 +56,7 @@ def f():
         from __pypy__ import _promote
         assert _promote(1) == 1
         assert _promote(1.1) == 1.1
-        assert _promote("abc") == "abc"
+        assert _promote(b"abc") == b"abc"
         raises(TypeError, _promote, u"abc")
         l = []
         assert _promote(l) is l
