@@ -1220,7 +1220,7 @@ def build_eci(building_bridge, export_symbols, code, use_micronumpy=False):
     # Generate definitions for global structures
     structs = ["#include <Python.h>"]
     if use_micronumpy:
-        structs.append('#include <pypy_numpy.h>')
+        structs.append('#include <pypy_numpy.h> /* api.py line 1223 */)
     for name, (typ, expr) in GLOBALS.iteritems():
         if '#' in name:
             structs.append('%s %s;' % (typ[:-1], name.split('#')[0]))
@@ -1279,14 +1279,15 @@ def setup_library(space):
     export_symbols = sorted(FUNCTIONS) + sorted(SYMBOLS_C) + sorted(GLOBALS)
     from rpython.translator.c.database import LowLevelDatabase
     db = LowLevelDatabase()
+    prefix = 'PyPy'
 
-    generate_macros(export_symbols, prefix='PyPy')
+    generate_macros(export_symbols, prefix=prefix)
 
     functions = generate_decls_and_callbacks(db, [], api_struct=False, 
-                                            prefix='PyPy')
+                                            prefix=prefix)
     code = "#include <Python.h>\n"
     if use_micronumpy:
-        code += "#include <pypy_numpy.h>"
+        code += "#include <pypy_numpy.h> /* api.py line 1290 */"
     code  += "\n".join(functions)
 
     eci = build_eci(False, export_symbols, code, use_micronumpy)
@@ -1302,9 +1303,13 @@ def setup_library(space):
     include_lines = ['RPY_EXTERN PyObject *pypy_static_pyobjs[];\n']
     for name, (typ, expr) in sorted(GLOBALS.items()):
         if '#' in name:
-            name = name.split('#')[0]
+            name, header = name.split('#')
             assert typ in ('PyObject*', 'PyTypeObject*', 'PyIntObject*')
-            typ, name = typ[:-1], name[:-1]
+            typ = typ[:-1]
+            if header != pypy_decl:
+                # since the #define is not in pypy_macros, do it here
+                mname = mangle_name(prefix, name)
+                include_lines.append('#define %s %s\n' % (name, mname))
         elif name.startswith('PyExc_'):
             typ = 'PyTypeObject'
             name = '_' + name
@@ -1331,6 +1336,8 @@ def setup_library(space):
 
     for header, header_functions in FUNCTIONS_BY_HEADER.iteritems():
         for name, func in header_functions.iteritems():
+            if not func:
+                continue
             newname = mangle_name('PyPy', name) or name
             deco = entrypoint_lowlevel("cpyext", func.argtypes, newname, 
                                         relax=True)
