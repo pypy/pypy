@@ -204,10 +204,6 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
         BoolOption("withstrbuf", "use strings optimized for addition (ver 2)",
                    default=False),
 
-        BoolOption("withprebuiltchar",
-                   "use prebuilt single-character string objects",
-                   default=False),
-
         BoolOption("sharesmallstr",
                    "always reuse the prebuilt string objects "
                    "(the empty string and potentially single-char strings)",
@@ -292,7 +288,6 @@ def set_pypy_opt_level(config, level):
     # all the good optimizations for PyPy should be listed here
     if level in ['2', '3', 'jit']:
         config.objspace.std.suggest(withmethodcache=True)
-        config.objspace.std.suggest(withprebuiltchar=True)
         config.objspace.std.suggest(intshortcut=True)
         config.objspace.std.suggest(optimized_list_getitem=True)
         config.objspace.std.suggest(getattributeshortcut=True)
@@ -312,7 +307,7 @@ def set_pypy_opt_level(config, level):
     if level == 'mem':
         config.objspace.std.suggest(withprebuiltint=True)
         config.objspace.std.suggest(withliststrategies=True)
-        config.objspace.std.suggest(withprebuiltchar=True)
+        config.objspace.std.suggest(sharesmallstr=True)
         config.objspace.std.suggest(withmapdict=True)
         if not IS_64_BITS:
             config.objspace.std.suggest(withsmalllong=True)

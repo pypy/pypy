@@ -847,23 +847,18 @@ del i
 
 def wrapstr(space, s):
     if space.config.objspace.std.sharesmallstr:
-        if space.config.objspace.std.withprebuiltchar:
-            # share characters and empty string
-            if len(s) <= 1:
-                if len(s) == 0:
-                    return W_BytesObject.EMPTY
-                else:
-                    s = s[0]     # annotator hint: a single char
-                    return wrapchar(space, s)
-        else:
-            # only share the empty string
+        # share characters and empty string
+        if len(s) <= 1:
             if len(s) == 0:
                 return W_BytesObject.EMPTY
+            else:
+                s = s[0]     # annotator hint: a single char
+                return wrapchar(space, s)
     return W_BytesObject(s)
 
 
 def wrapchar(space, c):
-    if space.config.objspace.std.withprebuiltchar and not we_are_jitted():
+    if space.config.objspace.std.sharesmallstr and not we_are_jitted():
         return W_BytesObject.PREBUILT[ord(c)]
     else:
         return W_BytesObject(c)
