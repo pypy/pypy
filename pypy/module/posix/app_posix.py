@@ -3,6 +3,7 @@ from _structseq import structseqtype, structseqfield
 from __pypy__ import validate_fd
 
 # XXX we need a way to access the current module's globals more directly...
+import errno
 import sys
 if 'posix' in sys.builtin_module_names:
     import posix
@@ -135,5 +136,7 @@ if osname == 'posix':
         try:
             with open('/dev/urandom', 'rb', buffering=0) as fd:
                 return fd.read(n)
-        except (OSError, IOError):
-            raise NotImplementedError("/dev/urandom (or equivalent) not found")
+        except OSError as e:
+            if e.errno in (errno.ENOENT, errno.ENXIO, errno.ENODEV, errno.EACCES):
+                raise NotImplementedError("/dev/urandom (or equivalent) not found")
+            raise
