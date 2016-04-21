@@ -222,22 +222,15 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    "make instances really small but slow without the JIT",
                    default=False,
                    requires=[("objspace.std.getattributeshortcut", True),
-                             ("objspace.std.withtypeversion", True),
                        ]),
 
         BoolOption("withliststrategies",
                    "enable optimized ways to store lists of primitives ",
                    default=True),
 
-        BoolOption("withtypeversion",
-                   "version type objects when changing them",
-                   cmdline=None,
-                   default=False),
-
         BoolOption("withmethodcache",
                    "try to cache method lookups",
-                   default=False,
-                   requires=[("objspace.std.withtypeversion", True)]),
+                   default=False),
         BoolOption("withmethodcachecounter",
                    "try to cache methods and provide a counter in __pypy__. "
                    "for testing purposes only.",

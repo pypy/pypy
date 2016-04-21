@@ -52,14 +52,6 @@ def test_set_pypy_opt_level():
     set_pypy_opt_level(conf, '0')
     assert not conf.objspace.std.getattributeshortcut
 
-def test_rweakref_required():
-    conf = get_pypy_config()
-    conf.translation.rweakref = False
-    set_pypy_opt_level(conf, '3')
-
-    assert not conf.objspace.std.withtypeversion
-    assert not conf.objspace.std.withmethodcache
-
 def test_check_documentation():
     def check_file_exists(fn):
         assert configdocdir.join(fn).check()

@@ -38,9 +38,8 @@ class IntMutableCell(MutableCell):
 
 
 def unwrap_cell(space, w_value):
-    if space.config.objspace.std.withtypeversion:
-        if isinstance(w_value, MutableCell):
-            return w_value.unwrap_cell(space)
+    if isinstance(w_value, MutableCell):
+        return w_value.unwrap_cell(space)
     return w_value
 
 def write_cell(space, w_cell, w_value):
@@ -170,14 +169,13 @@ class W_TypeObject(W_Root):
             layout = setup_user_defined_type(w_self, force_new_layout)
         w_self.layout = layout
 
-        if space.config.objspace.std.withtypeversion:
-            if not is_mro_purely_of_types(w_self.mro_w):
-                pass
-            else:
-                # the _version_tag should change, whenever the content of
-                # dict_w of any of the types in the mro changes, or if the mro
-                # itself changes
-                w_self._version_tag = VersionTag()
+        if not is_mro_purely_of_types(w_self.mro_w):
+            pass
+        else:
+            # the _version_tag should change, whenever the content of
+            # dict_w of any of the types in the mro changes, or if the mro
+            # itself changes
+            w_self._version_tag = VersionTag()
         if space.config.objspace.std.withmapdict:
             from pypy.objspace.std.mapdict import DictTerminator, NoDictTerminator
             if w_self.hasdict:
@@ -197,11 +195,6 @@ class W_TypeObject(W_Root):
         """
         space = w_self.space
         assert w_self.is_heaptype() or w_self.is_cpytype()
-        if (not space.config.objspace.std.withtypeversion and
-            not space.config.objspace.std.getattributeshortcut and
-            not space.config.objspace.std.withidentitydict and
-            not space.config.objspace.std.newshortcut):
-            return
 
         if space.config.objspace.std.getattributeshortcut:
             w_self.uses_object_getattribute = False
@@ -215,8 +208,7 @@ class W_TypeObject(W_Root):
         if space.config.objspace.std.newshortcut:
             w_self.w_new_function = None
 
-        if (space.config.objspace.std.withtypeversion
-            and w_self._version_tag is not None):
+        if w_self._version_tag is not None:
             w_self._version_tag = VersionTag()
 
         subclasses_w = w_self.get_subclasses()
@@ -296,13 +288,12 @@ class W_TypeObject(W_Root):
         return compute_C3_mro(w_self.space, w_self)
 
     def getdictvalue(w_self, space, attr):
-        if space.config.objspace.std.withtypeversion:
-            version_tag = w_self.version_tag()
-            if version_tag is not None:
-                return unwrap_cell(
-                    space,
-                    w_self._pure_getdictvalue_no_unwrapping(
-                        space, version_tag, attr))
+        version_tag = w_self.version_tag()
+        if version_tag is not None:
+            return unwrap_cell(
+                space,
+                w_self._pure_getdictvalue_no_unwrapping(
+                    space, version_tag, attr))
         w_value = w_self._getdictvalue_no_unwrapping(space, attr)
         return unwrap_cell(space, w_value)
 
@@ -333,14 +324,13 @@ class W_TypeObject(W_Root):
             msg = ("a __del__ method added to an existing type will not be "
                    "called")
             space.warn(space.wrap(msg), space.w_RuntimeWarning)
-        if space.config.objspace.std.withtypeversion:
-            version_tag = w_self.version_tag()
-            if version_tag is not None:
-                w_curr = w_self._pure_getdictvalue_no_unwrapping(
-                        space, version_tag, name)
-                w_value = write_cell(space, w_curr, w_value)
-                if w_value is None:
-                    return True
+        version_tag = w_self.version_tag()
+        if version_tag is not None:
+            w_curr = w_self._pure_getdictvalue_no_unwrapping(
+                    space, version_tag, name)
+            w_value = write_cell(space, w_curr, w_value)
+            if w_value is None:
+                return True
         w_self.mutated(name)
         w_self.dict_w[name] = w_value
         return True
@@ -429,8 +419,7 @@ class W_TypeObject(W_Root):
             return tup
         tup_w = w_self._pure_lookup_where_with_method_cache(name, version_tag)
         w_class, w_value = tup_w
-        if (space.config.objspace.std.withtypeversion and
-                isinstance(w_value, MutableCell)):
+        if isinstance(w_value, MutableCell):
             return w_class, w_value.unwrap_cell(space)
         return tup_w   # don't make a new tuple, reuse the old one
 
@@ -524,7 +513,7 @@ class W_TypeObject(W_Root):
     def issubtype(w_self, w_type):
         promote(w_self)
         promote(w_type)
-        if w_self.space.config.objspace.std.withtypeversion and we_are_jitted():
+        if we_are_jitted():
             version_tag1 = w_self.version_tag()
             version_tag2 = w_type.version_tag()
             if version_tag1 is not None and version_tag2 is not None:
@@ -843,8 +832,7 @@ def descr_set__bases__(space, w_type, w_value):
             cls.mro_w = old_mro
         w_type.bases_w = saved_bases_w
         raise
-    if (space.config.objspace.std.withtypeversion and
-        w_type.version_tag() is not None and
+    if (w_type.version_tag() is not None and
         not is_mro_purely_of_types(w_type.mro_w)):
         # Disable method cache if the hierarchy isn't pure.
         w_type._version_tag = None
