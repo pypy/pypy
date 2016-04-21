@@ -6,7 +6,7 @@ from rpython.jit.metainterp import resoperation, history
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
 from rpython.rlib.debug import have_debug_prints_for
 from rpython.rlib.jit import PARAMETERS
-from rpython.rlib import jitlog
+from rpython.rlib import jitlog as jl
 from rpython.rlib.nonconst import NonConstant
 from rpython.rlib.objectmodel import specialize, we_are_translated, r_dict
 from rpython.rlib.rarithmetic import intmask, r_uint
@@ -684,24 +684,25 @@ class WarmEnterState(object):
         if get_location_ptr is not None:
             types = self.jitdriver_sd._get_loc_types
             unwrap_greenkey = self.make_unwrap_greenkey()
-            unrolled_types = unrolling_iterable(enumerate(types))
+            unrolled_types = unrolling_iterable(types)
             def get_location(greenkey):
                 greenargs = unwrap_greenkey(greenkey)
                 fn = support.maybe_on_top_of_llinterp(rtyper, get_location_ptr)
-                tuple_ptr = fn(*greenargs)
-                #
-                flag = intmask(tuple_ptr.item0)
-                value_tuple = tuple_ptr.item1
-                ntuple = ()
-                for i,(_,t) in unrolled_types:
-                    if t == "s":
-                        ntuple += (hlstr(getattr(value_tuple, 'item' + str(i))),)
-                    elif t == "i":
-                        ntuple += (intmask(getattr(value_tuple, 'item' + str(i))),)
+                value_tuple = fn(*greenargs)
+                values = []
+                i = 0
+                for sem_type,gen_type in unrolled_types:
+                    if gen_type == "s":
+                        value = getattr(value_tuple, 'item' + str(i))
+                        values.append(jl.wrap(sem_type,gen_type,hlstr(value)))
+                    elif gen_type == "i":
+                        value = getattr(value_tuple, 'item' + str(i))
+                        values.append(jl.wrap(sem_type,gen_type,intmask(value)))
                     else:
                         raise NotImplementedError
-                return flag, ntuple
-            self.get_location_types = types
+                    i += 1
+                return values
+            self.get_location_types = list(types)
             self.get_location = get_location
         else:
             self.get_location_types = None
