@@ -114,8 +114,8 @@ and step of the range. Only when somebody mutates the list the actual list is
 created. This gives the memory and speed behaviour of ``xrange`` and the generality
 of use of ``range``, and makes ``xrange`` essentially useless.
 
-You can enable this feature with the :config:`objspace.std.withrangelist`
-option.
+This feature is enabled by default as part of the
+:config:`objspace.std.withliststrategies` option.
 
 
 User Class Optimizations
