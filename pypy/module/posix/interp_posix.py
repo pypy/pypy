@@ -1023,11 +1023,11 @@ If dir_fd is not None, it should be a file descriptor open to a directory,
 dir_fd may not be implemented on your platform.
   If it is unavailable, using it will raise a NotImplementedError."""
     try:
-        if dir_fd == DEFAULT_DIR_FD:
-            dispatch_filename(rposix.mkfifo)(space, w_path, mode)
-        else:
+        if rposix.HAVE_MKFIFOAT and dir_fd != DEFAULT_DIR_FD:
             path = space.fsencode_w(w_path)
             rposix.mkfifoat(path, mode, dir_fd)
+        else:
+            dispatch_filename(rposix.mkfifo)(space, w_path, mode)
     except OSError as e:
         raise wrap_oserror2(space, e, w_path)
 
@@ -1047,11 +1047,11 @@ If dir_fd is not None, it should be a file descriptor open to a directory,
 dir_fd may not be implemented on your platform.
   If it is unavailable, using it will raise a NotImplementedError."""
     try:
-        if dir_fd == DEFAULT_DIR_FD:
-            dispatch_filename(rposix.mknod)(space, w_filename, mode, device)
-        else:
+        if rposix.HAVE_MKNODAT and dir_fd != DEFAULT_DIR_FD:
             fname = space.fsencode_w(w_filename)
             rposix.mknodat(fname, mode, device, dir_fd)
+        else:
+            dispatch_filename(rposix.mknod)(space, w_filename, mode, device)
     except OSError as e:
         raise wrap_oserror2(space, e, w_filename)
 
@@ -1405,7 +1405,7 @@ dir_fd and follow_symlinks may not be available on your platform.
         atime_s, atime_ns = convert_ns(space, args_w[0])
         mtime_s, mtime_ns = convert_ns(space, args_w[1])
 
-    if path.as_fd != -1:
+    if rposix.HAVE_FUTIMENS and path.as_fd != -1:
         if dir_fd != DEFAULT_DIR_FD:
             raise oefmt(space.w_ValueError,
                         "utime: can't specify both dir_fd and fd")
