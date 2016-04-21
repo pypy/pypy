@@ -87,7 +87,7 @@ get a list in decending order."""
 
     howmany = get_len_of_range(space, start, stop, step)
 
-    if space.config.objspace.std.withrangelist:
+    if space.config.objspace.std.withliststrategies:
         return range_withspecialized_implementation(space, start,
                                                     step, howmany)
     res_w = [None] * howmany
@@ -99,7 +99,7 @@ get a list in decending order."""
 
 
 def range_withspecialized_implementation(space, start, step, length):
-    assert space.config.objspace.std.withrangelist
+    assert space.config.objspace.std.withliststrategies
     from pypy.objspace.std.listobject import make_range_list
     return make_range_list(space, start, step, length)
 

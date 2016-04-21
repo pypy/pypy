@@ -229,11 +229,6 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                              ("objspace.std.withtypeversion", True),
                        ]),
 
-        BoolOption("withrangelist",
-                   "enable special range list implementation that does not "
-                   "actually create the full list until the resulting "
-                   "list is mutated",
-                   default=False),
         BoolOption("withliststrategies",
                    "enable optimized ways to store lists of primitives ",
                    default=True),
@@ -296,7 +291,6 @@ def set_pypy_opt_level(config, level):
     """
     # all the good optimizations for PyPy should be listed here
     if level in ['2', '3', 'jit']:
-        config.objspace.std.suggest(withrangelist=True)
         config.objspace.std.suggest(withmethodcache=True)
         config.objspace.std.suggest(withprebuiltchar=True)
         config.objspace.std.suggest(intshortcut=True)
@@ -317,7 +311,7 @@ def set_pypy_opt_level(config, level):
     # memory-saving optimizations
     if level == 'mem':
         config.objspace.std.suggest(withprebuiltint=True)
-        config.objspace.std.suggest(withrangelist=True)
+        config.objspace.std.suggest(withliststrategies=True)
         config.objspace.std.suggest(withprebuiltchar=True)
         config.objspace.std.suggest(withmapdict=True)
         if not IS_64_BITS:
