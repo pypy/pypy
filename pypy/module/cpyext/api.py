@@ -1220,7 +1220,7 @@ def build_eci(building_bridge, export_symbols, code, use_micronumpy=False):
     # Generate definitions for global structures
     structs = ["#include <Python.h>"]
     if use_micronumpy:
-        structs.append('#include <pypy_numpy.h> /* api.py line 1223 */)
+        structs.append('#include <pypy_numpy.h> /* api.py line 1223 */')
     for name, (typ, expr) in GLOBALS.iteritems():
         if '#' in name:
             structs.append('%s %s;' % (typ[:-1], name.split('#')[0]))
