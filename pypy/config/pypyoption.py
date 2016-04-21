@@ -232,15 +232,12 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
         BoolOption("withtypeversion",
                    "version type objects when changing them",
                    cmdline=None,
-                   default=False,
-                   # weakrefs needed, because of get_subclasses()
-                   requires=[("translation.rweakref", True)]),
+                   default=False),
 
         BoolOption("withmethodcache",
                    "try to cache method lookups",
                    default=False,
-                   requires=[("objspace.std.withtypeversion", True),
-                             ("translation.rweakref", True)]),
+                   requires=[("objspace.std.withtypeversion", True)]),
         BoolOption("withmethodcachecounter",
                    "try to cache methods and provide a counter in __pypy__. "
                    "for testing purposes only.",
@@ -258,14 +255,10 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    default=False),
         BoolOption("getattributeshortcut",
                    "track types that override __getattribute__",
-                   default=False,
-                   # weakrefs needed, because of get_subclasses()
-                   requires=[("translation.rweakref", True)]),
+                   default=False),
         BoolOption("newshortcut",
                    "cache and shortcut calling __new__ from builtin types",
-                   default=False,
-                   # weakrefs needed, because of get_subclasses()
-                   requires=[("translation.rweakref", True)]),
+                   default=False),
 
         BoolOption("withidentitydict",
                    "track types that override __hash__, __eq__ or __cmp__ and use a special dict strategy for those which do not",

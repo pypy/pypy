@@ -557,7 +557,8 @@ class W_TypeObject(W_Root):
     def add_subclass(w_self, w_subclass):
         space = w_self.space
         if not space.config.translation.rweakref:
-            return    # no weakref support, don't keep track of subclasses
+            self.weak_subclasses.append(w_subclass) # not really weak, but well
+            return
         import weakref
         assert isinstance(w_subclass, W_TypeObject)
         newref = weakref.ref(w_subclass)
@@ -572,7 +573,12 @@ class W_TypeObject(W_Root):
     def remove_subclass(w_self, w_subclass):
         space = w_self.space
         if not space.config.translation.rweakref:
-            return    # no weakref support, don't keep track of subclasses
+            for i in range(len(w_self.weak_subclasses)):
+                w_cls = w_self.weak_subclasses[i]
+                if w_cls is w_subclass:
+                    del w_self.weak_subclasses[i]
+                    return
+            return
         for i in range(len(w_self.weak_subclasses)):
             ref = w_self.weak_subclasses[i]
             if ref() is w_subclass:
@@ -582,9 +588,7 @@ class W_TypeObject(W_Root):
     def get_subclasses(w_self):
         space = w_self.space
         if not space.config.translation.rweakref:
-            raise oefmt(space.w_RuntimeError,
-                        "this feature requires weakrefs, "
-                        "which are not available in this build of PyPy")
+            return self.weak_subclasses[:]
         subclasses_w = []
         for ref in w_self.weak_subclasses:
             w_ob = ref()
