@@ -6,6 +6,7 @@ from rpython.jit.metainterp import resoperation, history
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
 from rpython.rlib.debug import have_debug_prints_for
 from rpython.rlib.jit import PARAMETERS
+from rpython.rlib import jitlog
 from rpython.rlib.nonconst import NonConstant
 from rpython.rlib.objectmodel import specialize, we_are_translated, r_dict
 from rpython.rlib.rarithmetic import intmask, r_uint
@@ -678,26 +679,33 @@ class WarmEnterState(object):
             drivername = jitdriver.name
         else:
             drivername = '<unknown jitdriver>'
-        # get_location new API
+        # get_location returns 
         get_location_ptr = self.jitdriver_sd._get_location_ptr
-        if get_location_ptr is None:
-            missing_get_loc = '(%s: no get_location)' % drivername
-            def get_location(greenkey):
-                return (missing_get_loc, 0, '', 0, '')
-        else:
+        if get_location_ptr is not None:
+            types = self.jitdriver_sd._get_loc_types
             unwrap_greenkey = self.make_unwrap_greenkey()
+            unrolled_types = unrolling_iterable(enumerate(types))
             def get_location(greenkey):
                 greenargs = unwrap_greenkey(greenkey)
                 fn = support.maybe_on_top_of_llinterp(rtyper, get_location_ptr)
                 tuple_ptr = fn(*greenargs)
-                # it seems there is no "hltuple" function
-                return (hlstr(tuple_ptr.item0),
-                        intmask(tuple_ptr.item1),
-                        hlstr(tuple_ptr.item2),
-                        intmask(tuple_ptr.item3),
-                        hlstr(tuple_ptr.item4)
-                       )
-        self.get_location = get_location
+                #
+                flag = intmask(tuple_ptr.item0)
+                value_tuple = tuple_ptr.item1
+                ntuple = ()
+                for i,(_,t) in unrolled_types:
+                    if t == "s":
+                        ntuple += (hlstr(getattr(value_tuple, 'item' + str(i))),)
+                    elif t == "i":
+                        ntuple += (intmask(getattr(value_tuple, 'item' + str(i))),)
+                    else:
+                        raise NotImplementedError
+                return flag, ntuple
+            self.get_location_types = types
+            self.get_location = get_location
+        else:
+            self.get_location_types = None
+            self.get_location = None
         #
         printable_loc_ptr = self.jitdriver_sd._printable_loc_ptr
         if printable_loc_ptr is None:

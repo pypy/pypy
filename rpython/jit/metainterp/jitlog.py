@@ -5,6 +5,7 @@ from rpython.jit.metainterp.history import ConstInt, ConstFloat
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rlib.objectmodel import compute_unique_id, always_inline
+from rpython.rlib import jitlog as jl
 import sys
 import weakref
 import struct
@@ -32,6 +33,7 @@ MARK_STITCH_BRIDGE = 0x19
 
 MARK_JITLOG_COUNTER = 0x20
 MARK_START_TRACE = 0x21
+MARK_INIT_MERGE_POINT = 0x22
 
 MARK_JITLOG_HEADER = 0x23
 MARK_JITLOG_DEBUG_MERGE_POINT = 0x24
@@ -70,6 +72,18 @@ def encode_le_addr(val):
         return encode_le_32bit(val)
     else:
         return encode_le_64bit(val)
+
+def encode_type(type, value):
+    if type == "s":
+        return encode_str(value)
+    elif type == "q":
+        return encode_le_64bit(value)
+    elif type == "i":
+        return encode_le_32bit(value)
+    elif type == "h":
+        return encode_le_32bit(value)
+    else:
+        raise NotImplementedError
 
 def assemble_header():
     version = JITLOG_VERSION_16BIT_LE
@@ -110,7 +124,7 @@ class VMProfJitLogger(object):
         else:
             content.append(encode_str('loop'))
             content.append(encode_le_addr(int(entry_bridge)))
-        self.cintf._write_marked(MARK_START_TRACE, ''.join(content))
+        self._write_marked(MARK_START_TRACE, ''.join(content))
         self.trace_id += 1
 
     def _write_marked(self, mark, line):
@@ -161,6 +175,7 @@ class LogTrace(BaseLogTrace):
         self.tag = tag
         self.mc = mc
         self.logger = logger
+        self.merge_point_file = None
 
     def write_trace(self, trace):
         ops = []
@@ -169,9 +184,9 @@ class LogTrace(BaseLogTrace):
             ops.append(i.next())
         self.write(i.inputargs, ops)
 
-    def write(self, args, ops, faildescr=None, ops_offset={}):
+    def write(self, args, ops, ops_offset={}):
         log = self.logger
-        log._write_marked(self.tag, encode_le_addr(self.trace_id))
+        log._write_marked(self.tag, encode_le_addr(self.logger.trace_id))
 
         # input args
         str_args = [self.var_to_str(arg) for arg in args]
@@ -196,16 +211,40 @@ class LogTrace(BaseLogTrace):
 
         self.memo = {}
 
+    def encode_once(self):
+        pass
+
     def encode_debug_info(self, op):
         log = self.logger
         jd_sd = self.metainterp_sd.jitdrivers_sd[op.getarg(0).getint()]
-        filename, lineno, enclosed, index, opname = jd_sd.warmstate.get_location(op.getarglist()[3:])
+        if not jd_sd.warmstate.get_location:
+            return
+        types = jd_sd.warmstate.get_location_types
+        values = jd_sd.warmstate.get_location(op.getarglist()[3:])
+        if values is None:
+            # indicates that this function is not provided to the jit driver
+            return
+
+        if self.merge_point_file is None:
+            # first time visiting a merge point
+            positions = jd_sd.warmstate.get_location_positions
+            encoded_types = []
+            for i, (semantic_type, _) in enumerate(positions):
+                encoded_types.append(chr(semantic_type))
+                if semantic_type == jl.MP_FILENAME:
+                    self.common_prefix = values[i]
+            log._write_marked(MARK_INIT_MERGE_POINT, ''.join(encoded_types))
+
+
+        # the types have already been written
         line = []
-        line.append(encode_str(filename or ""))
-        line.append(encode_le_16bit(lineno))
-        line.append(encode_str(enclosed or ""))
-        line.append(encode_le_64bit(index))
-        line.append(encode_str(opname or ""))
+        for i,(sem_type,gen_type) in enumerate(types):
+            value = values[i]
+            if sem_type == jl.PM_FILENAME:
+                self.common_prefix = os.path.commonpath([self.common_prefix, value])
+                log._write_marked(MARK_COMMON_PREFIX, chr(jl.PM_FILENAME) + \
+                                                      encode_str(self.common_prefix))
+            line.append(encode_type(gen_type, value))
         log._write_marked(MARK_JITLOG_DEBUG_MERGE_POINT, ''.join(line))
 
 

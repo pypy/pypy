@@ -3,7 +3,7 @@ from rpython.tool.udir import udir
 from rpython.rlib.jit import JitDriver, unroll_parameters, set_param
 from rpython.rlib.jit import PARAMETERS, dont_look_inside
 from rpython.rlib.jit import promote, _get_virtualizable_token
-from rpython.rlib import jit_hooks, rposix
+from rpython.rlib import jit_hooks, rposix, jitlog
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rlib.rthread import ThreadLocalReference, ThreadLocalField
 from rpython.jit.backend.detect_cpu import getcpuclass
@@ -48,8 +48,11 @@ class TranslationTest(CCompiledMixin):
                                  lltype.Float, macro=True, releasegil=True,
                                  compilation_info=eci)
 
+        @jitlog.returns(jitlog.MP_FILENAME,
+                        jitlog.MP_LINENO,
+                        jitlog.MP_INDEX)
         def get_location():
-            return "file", 0, "func", 0, "opcode"
+            return ("/home.py",0,0)
 
         jitdriver = JitDriver(greens = [],
                               reds = ['total', 'frame', 'j'],
