@@ -16,9 +16,12 @@ from pypy.module.cpyext.pyobject import (
 # For the convenience of C programmers, the bytes type is considered
 # to contain a char pointer, not an unsigned char pointer.
 
-# XXX Since the ob_bytes is mutable, we must reflect the buffer back
-# into the W_ByteArray object at each call to from_ref and each call to
-# exported functions
+# XXX The underlying data array is mutable, cpython gives direct access
+# to ob_bytes as a RW pointer to bytes. How can we do this?
+# One proposal is to make W_Bytearray.data into a nonmovable gc list
+# as part of as_pyobj(), and expose data only through PyByteArray_AS_STRING
+# Under this strategy ob_bytes could possibly not reflect the current state
+# of the object
 
 PyByteArrayObjectStruct = lltype.ForwardReference()
 PyByteArrayObject = lltype.Ptr(PyByteArrayObjectStruct)
