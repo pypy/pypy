@@ -318,6 +318,7 @@ class W_ISlice(W_Root):
     def __init__(self, space, w_iterable, w_startstop, args_w):
         self.iterable = space.iter(w_iterable)
         self.space = space
+        self.exhausted = False
 
         num_args = len(args_w)
 
@@ -326,7 +327,7 @@ class W_ISlice(W_Root):
             w_stop = w_startstop
         elif num_args <= 2:
             if space.is_w(w_startstop, space.w_None):
-                start = 0
+                start = -1
             else:
                 start = self.arg_int_w(w_startstop, 0,
                  "Indicies for islice() must be None or non-negative integers")
@@ -383,24 +384,24 @@ class W_ISlice(W_Root):
                                 # has no effect any more
                 if stop > 0:
                     self._ignore_items(stop)
-                self.iterable = None
+                self.exhausted = True
                 raise OperationError(self.space.w_StopIteration,
                                      self.space.w_None)
             self.stop = stop - (ignore + 1)
         if ignore > 0:
             self._ignore_items(ignore)
-        if self.iterable is None:
+        if self.exhausted:
             raise OperationError(self.space.w_StopIteration, self.space.w_None)
         try:
             return self.space.next(self.iterable)
         except OperationError as e:
             if e.match(self.space, self.space.w_StopIteration):
-                self.iterable = None
+                self.exhausted = True
             raise
 
     def _ignore_items(self, num):
         w_iterator = self.iterable
-        if w_iterator is None:
+        if self.exhausted:
             raise OperationError(self.space.w_StopIteration, self.space.w_None)
 
         tp = self.space.type(w_iterator)
@@ -413,18 +414,24 @@ class W_ISlice(W_Root):
                 self.space.next(w_iterator)
             except OperationError as e:
                 if e.match(self.space, self.space.w_StopIteration):
-                    self.iterable = None
+                    self.exhausted = True
                 raise
             num -= 1
             if num <= 0:
                 break
 
     def descr_reduce(self, space):
+        start = self.start
+        stop = self.stop
+        if start == -1:
+            start = None
+        if stop == -1:
+            stop = None
         return space.newtuple([
             space.type(self),
             space.newtuple([self.iterable,
-                            space.wrap(self.start),
-                            space.wrap(self.stop),
+                            space.wrap(start),
+                            space.wrap(stop),
                             space.wrap(self.ignore + 1)]),
         ])
 
