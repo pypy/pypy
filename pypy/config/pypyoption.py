@@ -251,9 +251,7 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
 
         BoolOption("withidentitydict",
                    "track types that override __hash__, __eq__ or __cmp__ and use a special dict strategy for those which do not",
-                   default=False,
-                   # weakrefs needed, because of get_subclasses()
-                   requires=[("translation.rweakref", True)]),
+                   default=False),
      ]),
 ])
 
