@@ -218,10 +218,6 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    default=False,
                    requires=[("objspace.honor__builtins__", False)]),
 
-        BoolOption("withmapdict",
-                   "make instances really small but slow without the JIT",
-                   default=False),
-
         BoolOption("withliststrategies",
                    "enable optimized ways to store lists of primitives ",
                    default=True),
@@ -277,14 +273,12 @@ def set_pypy_opt_level(config, level):
         config.objspace.std.suggest(withprebuiltint=True)
         config.objspace.std.suggest(withliststrategies=True)
         config.objspace.std.suggest(sharesmallstr=True)
-        config.objspace.std.suggest(withmapdict=True)
         if not IS_64_BITS:
             config.objspace.std.suggest(withsmalllong=True)
 
     # extra optimizations with the JIT
     if level == 'jit':
         config.objspace.std.suggest(withcelldict=True)
-        config.objspace.std.suggest(withmapdict=True)
 
 
 def enable_allworkingmodules(config):

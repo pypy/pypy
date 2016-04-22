@@ -6,14 +6,14 @@ from rpython.rlib import rgc
 @unwrap_spec(generation=int)
 def collect(space, generation=0):
     "Run a full collection.  The optional argument is ignored."
-    # First clear the method cache.  See test_gc for an example of why.
+    # First clear the method and the map cache.
+    # See test_gc for an example of why.
     from pypy.objspace.std.typeobject import MethodCache
+    from pypy.objspace.std.mapdict import MapAttrCache
     cache = space.fromcache(MethodCache)
     cache.clear()
-    if space.config.objspace.std.withmapdict:
-        from pypy.objspace.std.mapdict import MapAttrCache
-        cache = space.fromcache(MapAttrCache)
-        cache.clear()
+    cache = space.fromcache(MapAttrCache)
+    cache.clear()
     rgc.collect()
     return space.wrap(0)
 

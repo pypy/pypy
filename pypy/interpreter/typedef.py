@@ -160,7 +160,7 @@ def _getusercls(config, cls, wants_dict, wants_slots, wants_del, weakrefable):
     typedef = cls.typedef
     if wants_dict and typedef.hasdict:
         wants_dict = False
-    if config.objspace.std.withmapdict and not typedef.hasdict:
+    if not typedef.hasdict:
         # mapdict only works if the type does not already have a dict
         if wants_del:
             parentcls = get_unique_interplevel_subclass(config, cls, True, True,
@@ -226,7 +226,7 @@ def _builduserclswithfeature(config, supercls, *features):
                     value = func_with_new_name(value, value.func_name)
                 body[key] = value
 
-    if (config.objspace.std.withmapdict and "dict" in features):
+    if "dict" in features:
         from pypy.objspace.std.mapdict import BaseMapdictObject, ObjectMixin
         add(BaseMapdictObject)
         add(ObjectMixin)
@@ -298,24 +298,6 @@ def _builduserclswithfeature(config, supercls, *features):
                 return True
             def getslotvalue(self, index):
                 return self.slots_w[index]
-        add(Proto)
-
-    if "dict" in features:
-        base_user_setup = supercls.user_setup.im_func
-        if "user_setup" in body:
-            base_user_setup = body["user_setup"]
-        class Proto(object):
-            def getdict(self, space):
-                return self.w__dict__
-
-            def setdict(self, space, w_dict):
-                self.w__dict__ = check_new_dictionary(space, w_dict)
-
-            def user_setup(self, space, w_subtype):
-                self.w__dict__ = space.newdict(
-                    instance=True)
-                base_user_setup(self, space, w_subtype)
-
         add(Proto)
 
     subcls = type(name, (supercls,), body)

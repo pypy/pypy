@@ -33,7 +33,7 @@ def LOOKUP_METHOD(f, nameindex, *ignored):
     space = f.space
     w_obj = f.popvalue()
 
-    if space.config.objspace.std.withmapdict and not jit.we_are_jitted():
+    if not jit.we_are_jitted():
         # mapdict has an extra-fast version of this function
         if LOOKUP_METHOD_mapdict(f, nameindex, w_obj):
             return
@@ -59,8 +59,7 @@ def LOOKUP_METHOD(f, nameindex, *ignored):
                     # nothing in the instance
                     f.pushvalue(w_descr)
                     f.pushvalue(w_obj)
-                    if (space.config.objspace.std.withmapdict and
-                            not jit.we_are_jitted()):
+                    if not jit.we_are_jitted():
                         # let mapdict cache stuff
                         LOOKUP_METHOD_mapdict_fill_cache_method(
                             space, f.getcode(), name, nameindex, w_obj, w_type)

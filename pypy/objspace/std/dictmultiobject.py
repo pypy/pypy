@@ -66,7 +66,7 @@ class W_DictMultiObject(W_Root):
             w_obj = space.allocate_instance(W_ModuleDictObject, space.w_dict)
             W_ModuleDictObject.__init__(w_obj, space, strategy, storage)
             return w_obj
-        elif space.config.objspace.std.withmapdict and instance:
+        elif instance:
             from pypy.objspace.std.mapdict import MapDictStrategy
             strategy = space.fromcache(MapDictStrategy)
         elif instance or strdict or module:

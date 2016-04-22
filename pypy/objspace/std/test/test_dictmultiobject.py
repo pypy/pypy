@@ -1114,7 +1114,6 @@ class Config:
     class objspace:
         class std:
             withcelldict = False
-            withmapdict = False
             methodcachesizeexp = 11
             withmethodcachecounter = False
 

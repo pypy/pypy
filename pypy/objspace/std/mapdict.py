@@ -583,7 +583,6 @@ class Object(ObjectMixin, BaseMapdictObject, W_Root):
     pass # mainly for tests
 
 def get_subclass_of_correct_size(space, cls, w_type):
-    assert space.config.objspace.std.withmapdict
     map = w_type.terminator
     classes = memo_get_subclass_of_correct_size(space, cls)
     if SUBCLASSES_MIN_FIELDS == SUBCLASSES_MAX_FIELDS:

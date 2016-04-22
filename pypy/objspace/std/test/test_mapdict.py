@@ -5,7 +5,6 @@ class Config:
     class objspace:
         class std:
             withcelldict = False
-            withmapdict = True
             methodcachesizeexp = 11
             withmethodcachecounter = False
 
@@ -645,7 +644,6 @@ def test_specialized_class():
 # XXX write more
 
 class AppTestWithMapDict(object):
-    spaceconfig = {"objspace.std.withmapdict": True}
 
     def test_simple(self):
         class A(object):
@@ -862,8 +860,7 @@ class AppTestWithMapDict(object):
 
 
 class AppTestWithMapDictAndCounters(object):
-    spaceconfig = {"objspace.std.withmapdict": True,
-                   "objspace.std.withmethodcachecounter": True}
+    spaceconfig = {"objspace.std.withmethodcachecounter": True}
 
     def setup_class(cls):
         from pypy.interpreter import gateway
@@ -1206,8 +1203,7 @@ class AppTestWithMapDictAndCounters(object):
         assert got == 'd'
 
 class AppTestGlobalCaching(AppTestWithMapDict):
-    spaceconfig = {"objspace.std.withmethodcachecounter": True,
-                   "objspace.std.withmapdict": True}
+    spaceconfig = {"objspace.std.withmethodcachecounter": True}
 
     def test_mix_classes(self):
         import __pypy__
@@ -1264,8 +1260,7 @@ class AppTestGlobalCaching(AppTestWithMapDict):
             assert 0, "failed: got %r" % ([got[1] for got in seen],)
 
 class TestDictSubclassShortcutBug(object):
-    spaceconfig = {"objspace.std.withmapdict": True,
-                   "objspace.std.withmethodcachecounter": True}
+    spaceconfig = {"objspace.std.withmethodcachecounter": True}
 
     def test_bug(self):
         w_dict = self.space.appexec([], """():

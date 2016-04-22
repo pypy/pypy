@@ -356,8 +356,7 @@ class StdObjSpace(ObjSpace):
             if cls.typedef.applevel_subclasses_base is not None:
                 cls = cls.typedef.applevel_subclasses_base
             #
-            if (self.config.objspace.std.withmapdict and cls is W_ObjectObject
-                    and not w_subtype.needsdel):
+            if cls is W_ObjectObject and not w_subtype.needsdel:
                 from pypy.objspace.std.mapdict import get_subclass_of_correct_size
                 subcls = get_subclass_of_correct_size(self, cls, w_subtype)
             else:
