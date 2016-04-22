@@ -4,10 +4,10 @@ What is PyPy?
 Historically, PyPy has been used to mean two things.  The first is the
 :ref:`RPython translation toolchain <rpython:index>` for generating
 interpreters for dynamic programming languages.  And the second is one
-particular implementation generated with it -- an implementation of the
-Python_. Because RPython uses the same syntax as Python, this generated
-version became known as Python interpreter written in Python. This was
-designed to be flexible and easy to experiment with.
+particular implementation of Python_ generated with it. Because RPython
+uses the same syntax as Python, this generated version became known as
+Python interpreter written in Python. It is designed to be flexible and
+easy to experiment with.
 
 Double usage has proven to be confusing, so we've moved away from using
 the word PyPy to mean both things.  Now we use word PyPy to refer to
