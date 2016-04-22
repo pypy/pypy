@@ -4,9 +4,7 @@ from pypy.objspace.std.mapdict import *
 class Config:
     class objspace:
         class std:
-            withsmalldicts = False
             withcelldict = False
-            withidentitydict = False
             withmapdict = True
 
 space = FakeSpace()

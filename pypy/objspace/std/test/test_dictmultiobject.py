@@ -1113,7 +1113,6 @@ class FakeSpace:
 class Config:
     class objspace:
         class std:
-            withsmalldicts = False
             withcelldict = False
             withmapdict = False
 
