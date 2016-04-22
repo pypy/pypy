@@ -2,11 +2,11 @@ from pypy.interpreter.error import OperationError, oefmt
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     cpython_api, cpython_struct, bootstrap_function, build_type_checkers,
-    PyObjectFields, PyVarObjectFields, Py_ssize_t, CONST_STRING, CANNOT_FAIL)
+    PyVarObjectFields, Py_ssize_t, CONST_STRING, CANNOT_FAIL)
 from pypy.module.cpyext.pyerrors import PyErr_BadArgument
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, Py_DecRef, make_ref, from_ref, track_reference,
-    make_typedescr, get_typedescr, as_pyobj, Py_IncRef)
+    make_typedescr, get_typedescr, Py_IncRef)
 
 ##
 ## Implementation of PyStringObject
