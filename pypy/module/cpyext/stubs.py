@@ -59,63 +59,6 @@ def PyMemoryView_GetContiguous(space, obj, buffertype, order):
     raise NotImplementedError
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyByteArray_Check(space, o):
-    """Return true if the object o is a bytearray object or an instance of a
-    subtype of the bytearray type."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyByteArray_CheckExact(space, o):
-    """Return true if the object o is a bytearray object, but not an instance of a
-    subtype of the bytearray type."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], PyObject)
-def PyByteArray_FromObject(space, o):
-    """Return a new bytearray object from any object, o, that implements the
-    buffer protocol.
-
-    XXX expand about the buffer protocol, at least somewhere"""
-    raise NotImplementedError
-
-@cpython_api([rffi.CCHARP, Py_ssize_t], PyObject)
-def PyByteArray_FromStringAndSize(space, string, len):
-    """Create a new bytearray object from string and its length, len.  On
-    failure, NULL is returned."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, PyObject], PyObject)
-def PyByteArray_Concat(space, a, b):
-    """Concat bytearrays a and b and return a new bytearray with the result."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], Py_ssize_t, error=-1)
-def PyByteArray_Size(space, bytearray):
-    """Return the size of bytearray after checking for a NULL pointer."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.CCHARP)
-def PyByteArray_AsString(space, bytearray):
-    """Return the contents of bytearray as a char array after checking for a
-    NULL pointer."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, Py_ssize_t], rffi.INT_real, error=-1)
-def PyByteArray_Resize(space, bytearray, len):
-    """Resize the internal buffer of bytearray to len."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.CCHARP)
-def PyByteArray_AS_STRING(space, bytearray):
-    """Macro version of PyByteArray_AsString()."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], Py_ssize_t, error=-1)
-def PyByteArray_GET_SIZE(space, bytearray):
-    """Macro version of PyByteArray_Size()."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyCell_Check(space, ob):
     """Return true if ob is a cell object; ob must not be NULL."""
     raise NotImplementedError
