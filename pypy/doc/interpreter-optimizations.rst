@@ -133,8 +133,7 @@ lookup happens (this version is incremented every time the type or one of its
 base classes is changed). On subsequent lookups the cached version can be used,
 as long as the instance did not shadow any of its classes attributes.
 
-You can enable this feature with the :config:`objspace.std.withmethodcache`
-option.
+This feature is enabled by default.
 
 
 Interpreter Optimizations

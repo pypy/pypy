@@ -67,12 +67,7 @@ class AbstractAttribute(object):
 
     @jit.elidable
     def find_map_attr(self, name, index):
-        if (self.space.config.objspace.std.withmethodcache):
-            return self._find_map_attr_cache(name, index)
-        return self._find_map_attr(name, index)
-
-    @jit.dont_look_inside
-    def _find_map_attr_cache(self, name, index):
+        # attr cache
         space = self.space
         cache = space.fromcache(MapAttrCache)
         SHIFT2 = r_uint.BITS - space.config.objspace.std.methodcachesizeexp
@@ -429,7 +424,6 @@ def _become(w_obj, new_obj):
 
 class MapAttrCache(object):
     def __init__(self, space):
-        assert space.config.objspace.std.withmethodcache
         SIZE = 1 << space.config.objspace.std.methodcachesizeexp
         self.attrs = [None] * SIZE
         self.names = [None] * SIZE

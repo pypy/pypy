@@ -1115,7 +1115,6 @@ class Config:
         class std:
             withsmalldicts = False
             withcelldict = False
-            withmethodcache = False
             withidentitydict = False
             withmapdict = False
 

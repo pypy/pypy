@@ -68,7 +68,6 @@ class VersionTag(object):
 class MethodCache(object):
 
     def __init__(self, space):
-        assert space.config.objspace.std.withmethodcache
         SIZE = 1 << space.config.objspace.std.methodcachesizeexp
         self.versions = [None] * SIZE
         self.names = [None] * SIZE
@@ -352,17 +351,11 @@ class W_TypeObject(W_Root):
     def lookup(w_self, name):
         # note that this doesn't call __get__ on the result at all
         space = w_self.space
-        if space.config.objspace.std.withmethodcache:
-            return w_self.lookup_where_with_method_cache(name)[1]
-
-        return w_self._lookup(name)
+        return w_self.lookup_where_with_method_cache(name)[1]
 
     def lookup_where(w_self, name):
         space = w_self.space
-        if space.config.objspace.std.withmethodcache:
-            return w_self.lookup_where_with_method_cache(name)
-
-        return w_self._lookup_where(name)
+        return w_self.lookup_where_with_method_cache(name)
 
     @unroll_safe
     def lookup_starting_at(w_self, w_starttype, name):
@@ -412,7 +405,6 @@ class W_TypeObject(W_Root):
     def lookup_where_with_method_cache(w_self, name):
         space = w_self.space
         promote(w_self)
-        assert space.config.objspace.std.withmethodcache
         version_tag = promote(w_self.version_tag())
         if version_tag is None:
             tup = w_self._lookup_where(name)
@@ -424,10 +416,7 @@ class W_TypeObject(W_Root):
         return tup_w   # don't make a new tuple, reuse the old one
 
     def _pure_lookup_where_possibly_with_method_cache(w_self, name, version_tag):
-        if w_self.space.config.objspace.std.withmethodcache:
-            return w_self._pure_lookup_where_with_method_cache(name, version_tag)
-        else:
-            return w_self._lookup_where_all_typeobjects(name)
+        return w_self._pure_lookup_where_with_method_cache(name, version_tag)
 
     @elidable
     def _pure_lookup_where_with_method_cache(w_self, name, version_tag):

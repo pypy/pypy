@@ -228,14 +228,10 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    "enable optimized ways to store lists of primitives ",
                    default=True),
 
-        BoolOption("withmethodcache",
-                   "try to cache method lookups",
-                   default=False),
         BoolOption("withmethodcachecounter",
                    "try to cache methods and provide a counter in __pypy__. "
                    "for testing purposes only.",
-                   default=False,
-                   requires=[("objspace.std.withmethodcache", True)]),
+                   default=False),
         IntOption("methodcachesizeexp",
                   " 2 ** methodcachesizeexp is the size of the of the method cache ",
                   default=11),
@@ -273,7 +269,6 @@ def set_pypy_opt_level(config, level):
     """
     # all the good optimizations for PyPy should be listed here
     if level in ['2', '3', 'jit']:
-        config.objspace.std.suggest(withmethodcache=True)
         config.objspace.std.suggest(intshortcut=True)
         config.objspace.std.suggest(optimized_list_getitem=True)
         config.objspace.std.suggest(getattributeshortcut=True)
