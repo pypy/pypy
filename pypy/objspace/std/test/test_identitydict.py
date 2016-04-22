@@ -2,7 +2,6 @@ import py
 from pypy.interpreter.gateway import interp2app
 
 class AppTestComparesByIdentity:
-    spaceconfig = {"objspace.std.withidentitydict": True}
 
     def setup_class(cls):
         from pypy.objspace.std import identitydict
@@ -56,7 +55,6 @@ class AppTestComparesByIdentity:
 
 
 class AppTestIdentityDict(object):
-    spaceconfig = {"objspace.std.withidentitydict": True}
 
     def setup_class(cls):
         if cls.runappdirect:

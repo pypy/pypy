@@ -1115,7 +1115,6 @@ class Config:
         class std:
             withsmalldicts = False
             withcelldict = False
-            withidentitydict = False
             withmapdict = False
 
 FakeSpace.config = Config()

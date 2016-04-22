@@ -124,6 +124,7 @@ class W_TypeObject(W_Root):
                           "flag_cpytype",
                           "flag_abstract?",
                           "flag_sequence_bug_compat",
+                          "compares_by_identity_status?",
                           'needsdel',
                           'weakrefable',
                           'hasdict',
@@ -138,7 +139,7 @@ class W_TypeObject(W_Root):
     # (False is a conservative default, fixed during real usage)
     uses_object_getattribute = False
 
-    # for config.objspace.std.withidentitydict
+    # for the IdentityDictStrategy
     compares_by_identity_status = UNKNOWN
 
     # used to cache the type's __new__ function
@@ -199,10 +200,9 @@ class W_TypeObject(W_Root):
             w_self.uses_object_getattribute = False
             # ^^^ conservative default, fixed during real usage
 
-        if space.config.objspace.std.withidentitydict:
-            if (key is None or key == '__eq__' or
-                key == '__cmp__' or key == '__hash__'):
-                w_self.compares_by_identity_status = UNKNOWN
+        if (key is None or key == '__eq__' or
+            key == '__cmp__' or key == '__hash__'):
+            w_self.compares_by_identity_status = UNKNOWN
 
         if space.config.objspace.std.newshortcut:
             w_self.w_new_function = None
@@ -253,8 +253,6 @@ class W_TypeObject(W_Root):
 
     def compares_by_identity(w_self):
         from pypy.objspace.descroperation import object_hash, type_eq
-        if not w_self.space.config.objspace.std.withidentitydict:
-            return False # conservative
         #
         if w_self.compares_by_identity_status != UNKNOWN:
             # fast path
