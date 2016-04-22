@@ -2,7 +2,7 @@
 # This is pure Python code that handles the main entry point into "pypy".
 # See test/test_app_main.
 
-# Missing vs CPython: -b, -d, -v, -x, -3
+# Missing vs CPython: -b, -d, -x, -3
 from __future__ import print_function, unicode_literals
 USAGE1 = __doc__ = """\
 Options and arguments (and corresponding environment variables):
@@ -20,6 +20,8 @@ Options and arguments (and corresponding environment variables):
 -s     : don't add user site directory to sys.path; also PYTHONNOUSERSITE
 -S     : don't imply 'import site' on initialization
 -u     : unbuffered binary stdout and stderr; also PYTHONUNBUFFERED=x
+-v     : verbose (trace import statements); also PYTHONVERBOSE=x
+         can be supplied multiple times to increase verbosity
 -V     : print the Python version number and exit (also --version)
 -W arg : warning control; arg is action:message:category:module:lineno
          also PYTHONWARNINGS=arg
@@ -30,12 +32,13 @@ arg ...: arguments passed to program in sys.argv[1:]
 PyPy options and arguments:
 --info : print translation information about this PyPy executable
 """
-# Missing vs CPython: PYTHONHOME, PYTHONCASEOK
+# Missing vs CPython: PYTHONHOME
 USAGE2 = """
 Other environment variables:
 PYTHONSTARTUP: file executed on interactive startup (no default)
 PYTHONPATH   : %r-separated list of directories prefixed to the
                default module search path.  The result is sys.path.
+PYTHONCASEOK : ignore case in 'import' statements (Windows).
 PYTHONIOENCODING: Encoding[:errors] used for stdin/stdout/stderr.
 PYPY_IRC_TOPIC: if set to a non-empty value, print a random #pypy IRC
                topic at startup of interactive mode.
