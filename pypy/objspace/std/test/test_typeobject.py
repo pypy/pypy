@@ -1105,7 +1105,6 @@ class AppTestWithMethodCacheCounter:
 
 
 class AppTestGetattributeShortcut:
-    spaceconfig = {"objspace.std.getattributeshortcut": True}
 
     def test_reset_logic(self):
         class X(object):

@@ -517,7 +517,6 @@ class StdObjSpace(ObjSpace):
         return self.int_w(l_w[0]), self.int_w(l_w[1]), self.int_w(l_w[2])
 
     _DescrOperation_is_true = is_true
-    _DescrOperation_getattr = getattr
 
     def is_true(self, w_obj):
         # a shortcut for performance
@@ -526,8 +525,6 @@ class StdObjSpace(ObjSpace):
         return self._DescrOperation_is_true(w_obj)
 
     def getattr(self, w_obj, w_name):
-        if not self.config.objspace.std.getattributeshortcut:
-            return self._DescrOperation_getattr(w_obj, w_name)
         # an optional shortcut for performance
 
         w_type = self.type(w_obj)

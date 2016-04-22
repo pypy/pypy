@@ -220,9 +220,7 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
 
         BoolOption("withmapdict",
                    "make instances really small but slow without the JIT",
-                   default=False,
-                   requires=[("objspace.std.getattributeshortcut", True),
-                       ]),
+                   default=False),
 
         BoolOption("withliststrategies",
                    "enable optimized ways to store lists of primitives ",
@@ -241,9 +239,6 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    default=False),
         BoolOption("optimized_list_getitem",
                    "special case the 'list[integer]' expressions",
-                   default=False),
-        BoolOption("getattributeshortcut",
-                   "track types that override __getattribute__",
                    default=False),
         BoolOption("newshortcut",
                    "cache and shortcut calling __new__ from builtin types",
@@ -266,7 +261,6 @@ def set_pypy_opt_level(config, level):
     if level in ['2', '3', 'jit']:
         config.objspace.std.suggest(intshortcut=True)
         config.objspace.std.suggest(optimized_list_getitem=True)
-        config.objspace.std.suggest(getattributeshortcut=True)
         #config.objspace.std.suggest(newshortcut=True)
         config.objspace.std.suggest(withspecialisedtuple=True)
         #if not IS_64_BITS:

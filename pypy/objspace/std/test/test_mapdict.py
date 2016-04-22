@@ -6,6 +6,8 @@ class Config:
         class std:
             withcelldict = False
             withmapdict = True
+            methodcachesizeexp = 11
+            withmethodcachecounter = False
 
 space = FakeSpace()
 space.config = Config

@@ -1115,6 +1115,8 @@ class Config:
         class std:
             withcelldict = False
             withmapdict = False
+            methodcachesizeexp = 11
+            withmethodcachecounter = False
 
 FakeSpace.config = Config()
 

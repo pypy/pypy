@@ -135,7 +135,7 @@ class W_TypeObject(W_Root):
                           'mro_w?[*]',
                           ]
 
-    # for config.objspace.std.getattributeshortcut
+    # wether the class has an overridden __getattribute__
     # (False is a conservative default, fixed during real usage)
     uses_object_getattribute = False
 
@@ -196,9 +196,8 @@ class W_TypeObject(W_Root):
         space = w_self.space
         assert w_self.is_heaptype() or w_self.is_cpytype()
 
-        if space.config.objspace.std.getattributeshortcut:
-            w_self.uses_object_getattribute = False
-            # ^^^ conservative default, fixed during real usage
+        w_self.uses_object_getattribute = False
+        # ^^^ conservative default, fixed during real usage
 
         if (key is None or key == '__eq__' or
             key == '__cmp__' or key == '__hash__'):
@@ -230,15 +229,13 @@ class W_TypeObject(W_Root):
         the one from object, in which case it returns None """
         from pypy.objspace.descroperation import object_getattribute
         if not we_are_jitted():
-            shortcut = w_self.space.config.objspace.std.getattributeshortcut
-            if not shortcut or not w_self.uses_object_getattribute:
+            if not w_self.uses_object_getattribute:
                 # slow path: look for a custom __getattribute__ on the class
                 w_descr = w_self.lookup('__getattribute__')
                 # if it was not actually overriden in the class, we remember this
                 # fact for the next time.
                 if w_descr is object_getattribute(w_self.space):
-                    if shortcut:
-                        w_self.uses_object_getattribute = True
+                    w_self.uses_object_getattribute = True
                 else:
                     return w_descr
             return None
