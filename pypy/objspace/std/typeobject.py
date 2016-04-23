@@ -177,7 +177,13 @@ class W_TypeObject(W_Root):
             # itself changes
             w_self._version_tag = VersionTag()
         from pypy.objspace.std.mapdict import DictTerminator, NoDictTerminator
-        if w_self.hasdict:
+        # if the typedef has a dict, then the rpython-class does all the dict
+        # management, which means from the point of view of mapdict there is no
+        # dict. However, W_InstanceObjects are an exception to this
+        from pypy.module.__builtin__.interp_classobj import W_InstanceObject
+        typedef = w_self.layout.typedef
+        if (w_self.hasdict and not typedef.hasdict or
+                typedef is W_InstanceObject.typedef):
             w_self.terminator = DictTerminator(space, w_self)
         else:
             w_self.terminator = NoDictTerminator(space, w_self)

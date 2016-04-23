@@ -98,175 +98,51 @@ def default_identity_hash(space, w_obj):
 # reason is that it is missing a place to store the __dict__, the slots,
 # the weakref lifeline, and it typically has no interp-level __del__.
 # So we create a few interp-level subclasses of W_XxxObject, which add
-# some combination of features.
-#
-# We don't build 2**4 == 16 subclasses for all combinations of requested
-# features, but limit ourselves to 6, chosen a bit arbitrarily based on
-# typical usage (case 1 is the most common kind of app-level subclasses;
-# case 2 is the memory-saving kind defined with __slots__).
-#
-#  +----------------------------------------------------------------+
-#  | NOTE: if withmapdict is enabled, the following doesn't apply!  |
-#  | Map dicts can flexibly allow any slots/__dict__/__weakref__ to |
-#  | show up only when needed.  In particular there is no way with  |
-#  | mapdict to prevent some objects from being weakrefable.        |
-#  +----------------------------------------------------------------+
-#
-#     dict   slots   del   weakrefable
-#
-# 1.    Y      N      N         Y          UserDictWeakref
-# 2.    N      Y      N         N          UserSlots
-# 3.    Y      Y      N         Y          UserDictWeakrefSlots
-# 4.    N      Y      N         Y          UserSlotsWeakref
-# 5.    Y      Y      Y         Y          UserDictWeakrefSlotsDel
-# 6.    N      Y      Y         Y          UserSlotsWeakrefDel
-#
-# Note that if the app-level explicitly requests no dict, we should not
-# provide one, otherwise storing random attributes on the app-level
-# instance would unexpectedly work.  We don't care too much, though, if
-# an object is weakrefable when it shouldn't really be.  It's important
-# that it has a __del__ only if absolutely needed, as this kills the
-# performance of the GCs.
-#
-# Interp-level inheritance is like this:
-#
-#        W_XxxObject base
-#             /   \
-#            1     2
-#           /       \
-#          3         4
-#         /           \
-#        5             6
+# some combination of features. This is done using mapdict.
 
-def get_unique_interplevel_subclass(config, cls, hasdict, wants_slots,
-                                    needsdel=False, weakrefable=False):
+# we need two subclasses of the app-level type, one to add mapdict, and then one
+# to add del to not slow down the GC.
+
+def get_unique_interplevel_subclass(config, cls, needsdel=False):
     "NOT_RPYTHON: initialization-time only"
     if hasattr(cls, '__del__') and getattr(cls, "handle_del_manually", False):
         needsdel = False
     assert cls.typedef.acceptable_as_base_class
-    key = config, cls, hasdict, wants_slots, needsdel, weakrefable
+    key = config, cls, needsdel
     try:
         return _subclass_cache[key]
     except KeyError:
-        subcls = _getusercls(config, cls, hasdict, wants_slots, needsdel,
-                             weakrefable)
+        # XXX can save a class if cls already has a __del__
+        if needsdel:
+            cls = get_unique_interplevel_subclass(config, cls, False)
+        subcls = _getusercls(config, cls, needsdel)
         assert key not in _subclass_cache
         _subclass_cache[key] = subcls
         return subcls
 get_unique_interplevel_subclass._annspecialcase_ = "specialize:memo"
 _subclass_cache = {}
 
-def _getusercls(config, cls, wants_dict, wants_slots, wants_del, weakrefable):
+def _getusercls(config, cls, wants_del, reallywantdict=False):
+    from rpython.rlib import objectmodel
+    from pypy.objspace.std.mapdict import (BaseUserClassMapdict,
+            MapdictDictSupport, MapdictWeakrefSupport,
+            _make_storage_mixin_size_n)
     typedef = cls.typedef
-    if wants_dict and typedef.hasdict:
-        wants_dict = False
-    if not typedef.hasdict:
-        # mapdict only works if the type does not already have a dict
-        if wants_del:
-            parentcls = get_unique_interplevel_subclass(config, cls, True, True,
-                                                        False, True)
-            return _usersubclswithfeature(config, parentcls, "del")
-        return _usersubclswithfeature(config, cls, "user", "dict", "weakref", "slots")
-    # Forest of if's - see the comment above.
+    name = cls.__name__ + "User"
+
+    mixins_needed = [BaseUserClassMapdict, _make_storage_mixin_size_n()]
+    if reallywantdict or not typedef.hasdict:
+        # the type has no dict, mapdict to provide the dict
+        mixins_needed.append(MapdictDictSupport)
+        name += "Dict"
+    if not typedef.weakrefable:
+        # the type does not support weakrefs yet, mapdict to provide weakref
+        # support
+        mixins_needed.append(MapdictWeakrefSupport)
+        name += "Weakrefable"
     if wants_del:
-        if wants_dict:
-            # case 5.  Parent class is 3.
-            parentcls = get_unique_interplevel_subclass(config, cls, True, True,
-                                                        False, True)
-        else:
-            # case 6.  Parent class is 4.
-            parentcls = get_unique_interplevel_subclass(config, cls, False, True,
-                                                        False, True)
-        return _usersubclswithfeature(config, parentcls, "del")
-    elif wants_dict:
-        if wants_slots:
-            # case 3.  Parent class is 1.
-            parentcls = get_unique_interplevel_subclass(config, cls, True, False,
-                                                        False, True)
-            return _usersubclswithfeature(config, parentcls, "slots")
-        else:
-            # case 1 (we need to add weakrefable unless it's already in 'cls')
-            if not typedef.weakrefable:
-                return _usersubclswithfeature(config, cls, "user", "dict", "weakref")
-            else:
-                return _usersubclswithfeature(config, cls, "user", "dict")
-    else:
-        if weakrefable and not typedef.weakrefable:
-            # case 4.  Parent class is 2.
-            parentcls = get_unique_interplevel_subclass(config, cls, False, True,
-                                                        False, False)
-            return _usersubclswithfeature(config, parentcls, "weakref")
-        else:
-            # case 2 (if the base is already weakrefable, case 2 == case 4)
-            return _usersubclswithfeature(config, cls, "user", "slots")
-
-def _usersubclswithfeature(config, parentcls, *features):
-    key = config, parentcls, features
-    try:
-        return _usersubclswithfeature_cache[key]
-    except KeyError:
-        subcls = _builduserclswithfeature(config, parentcls, *features)
-        _usersubclswithfeature_cache[key] = subcls
-        return subcls
-_usersubclswithfeature_cache = {}
-_allusersubcls_cache = {}
-
-def _builduserclswithfeature(config, supercls, *features):
-    "NOT_RPYTHON: initialization-time only"
-    name = supercls.__name__
-    name += ''.join([name.capitalize() for name in features])
-    body = {}
-    #print '..........', name, '(', supercls.__name__, ')'
-
-    def add(Proto):
-        for key, value in Proto.__dict__.items():
-            if (not key.startswith('__') and not key.startswith('_mixin_')
-                    or key == '__del__'):
-                if hasattr(value, "func_name"):
-                    value = func_with_new_name(value, value.func_name)
-                body[key] = value
-
-    if "dict" in features:
-        from pypy.objspace.std.mapdict import BaseMapdictObject, ObjectMixin
-        add(BaseMapdictObject)
-        add(ObjectMixin)
-        body["user_overridden_class"] = True
-        features = ()
-
-    if "user" in features:     # generic feature needed by all subcls
-
-        class Proto(object):
-            user_overridden_class = True
-
-            def getclass(self, space):
-                return promote(self.w__class__)
-
-            def setclass(self, space, w_subtype):
-                # only used by descr_set___class__
-                self.w__class__ = w_subtype
-
-            def user_setup(self, space, w_subtype):
-                self.space = space
-                self.w__class__ = w_subtype
-                self.user_setup_slots(w_subtype.layout.nslots)
-
-            def user_setup_slots(self, nslots):
-                assert nslots == 0
-        add(Proto)
-
-    if "weakref" in features:
-        class Proto(object):
-            _lifeline_ = None
-            def getweakref(self):
-                return self._lifeline_
-            def setweakref(self, space, weakreflifeline):
-                self._lifeline_ = weakreflifeline
-            def delweakref(self):
-                self._lifeline_ = None
-        add(Proto)
-
-    if "del" in features:
-        parent_destructor = getattr(supercls, '__del__', None)
+        name += "Del"
+        parent_destructor = getattr(cls, '__del__', None)
         def call_parent_del(self):
             assert isinstance(self, subcls)
             parent_destructor(self)
@@ -281,39 +157,15 @@ def _builduserclswithfeature(config, supercls, *features):
                 if parent_destructor is not None:
                     self.enqueue_for_destruction(self.space, call_parent_del,
                                                  'internal destructor of ')
-        add(Proto)
+        mixins_needed.append(Proto)
 
-    if "slots" in features:
-        class Proto(object):
-            slots_w = []
-            def user_setup_slots(self, nslots):
-                if nslots > 0:
-                    self.slots_w = [None] * nslots
-            def setslotvalue(self, index, w_value):
-                self.slots_w[index] = w_value
-            def delslotvalue(self, index):
-                if self.slots_w[index] is None:
-                    return False
-                self.slots_w[index] = None
-                return True
-            def getslotvalue(self, index):
-                return self.slots_w[index]
-        add(Proto)
-
-    subcls = type(name, (supercls,), body)
-    _allusersubcls_cache[subcls] = True
+    class subcls(cls):
+        user_overridden_class = True
+        for base in mixins_needed:
+            objectmodel.import_from_mixin(base)
+    subcls.__name__ = name
     return subcls
 
-# a couple of helpers for the Proto classes above, factored out to reduce
-# the translated code size
-def check_new_dictionary(space, w_dict):
-    if not space.isinstance_w(w_dict, space.w_dict):
-        raise OperationError(space.w_TypeError,
-                space.wrap("setting dictionary to a non-dict"))
-    from pypy.objspace.std import dictmultiobject
-    assert isinstance(w_dict, dictmultiobject.W_DictMultiObject)
-    return w_dict
-check_new_dictionary._dont_inline_ = True
 
 # ____________________________________________________________
 

@@ -13,7 +13,7 @@ space.config = Config
 
 class Class(object):
     def __init__(self, hasdict=True):
-        self.hasdict = True
+        self.hasdict = hasdict
         if hasdict:
             self.terminator = DictTerminator(space, self)
         else:
@@ -22,9 +22,16 @@ class Class(object):
     def instantiate(self, sp=None):
         if sp is None:
             sp = space
-        result = Object()
+        if self.hasdict:
+            result = Object()
+        else:
+            result = ObjectWithoutDict()
         result.user_setup(sp, self)
         return result
+
+class ObjectWithoutDict(ObjectWithoutDict):
+    class typedef:
+        hasdict = False
 
 class Object(Object):
     class typedef:
@@ -429,6 +436,9 @@ def test_slots_no_dict():
     assert obj.getslotvalue(b) == 60
     assert obj.storage == [50, 60]
     assert not obj.setdictvalue(space, "a", 70)
+    assert obj.getdict(space) is None
+    assert obj.getdictvalue(space, "a") is None
+
 
 def test_getdict():
     cls = Class()
