@@ -23,6 +23,7 @@ from pypy.objspace.std.mapdict import LOOKUP_METHOD_mapdict, \
 
 
 def LOOKUP_METHOD(f, nameindex, *ignored):
+    from pypy.objspace.std.typeobject import MutableCell
     #   stack before                 after
     #  --------------    --fast-method----fallback-case------------
     #
@@ -44,7 +45,18 @@ def LOOKUP_METHOD(f, nameindex, *ignored):
     w_type = space.type(w_obj)
     if w_type.has_object_getattribute():
         name = space.str_w(w_name)
-        w_descr = w_type.lookup(name)
+        # bit of a mess to use these internal functions, but it allows the
+        # mapdict caching below to work without an additional lookup
+        version_tag = w_type.version_tag()
+        if version_tag is None:
+            _, w_descr = w_type._lookup_where(name)
+            w_descr_cell = None
+        else:
+            _, w_descr_cell = w_type._pure_lookup_where_possibly_with_method_cache(
+                name, version_tag)
+            w_descr = w_descr_cell
+            if isinstance(w_descr, MutableCell):
+                w_descr = w_descr.unwrap_cell(space)
         if w_descr is None:
             # this handles directly the common case
             #   module.function(args..)
@@ -62,7 +74,8 @@ def LOOKUP_METHOD(f, nameindex, *ignored):
                     if not jit.we_are_jitted():
                         # let mapdict cache stuff
                         LOOKUP_METHOD_mapdict_fill_cache_method(
-                            space, f.getcode(), name, nameindex, w_obj, w_type)
+                            space, f.getcode(), name, nameindex, w_obj, w_type,
+                            w_descr_cell)
                     return
     if w_value is None:
         w_value = space.getattr(w_obj, w_name)

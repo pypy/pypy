@@ -1011,21 +1011,14 @@ def LOOKUP_METHOD_mapdict(f, nameindex, w_obj):
     return False
 
 def LOOKUP_METHOD_mapdict_fill_cache_method(space, pycode, name, nameindex,
-                                            w_obj, w_type):
-    version_tag = w_type.version_tag()
-    if version_tag is None:
+                                            w_obj, w_type, w_method):
+    if w_method is None or isinstance(w_method, MutableCell):
+        # don't cache the MutableCell XXX could be fixed
         return
+    version_tag = w_type.version_tag()
+    assert version_tag is not None
     map = w_obj._get_mapdict_map()
     if map is None or isinstance(map.terminator, DevolvedDictTerminator):
-        return
-    # We know here that w_obj.getdictvalue(space, name) just returned None,
-    # so the 'name' is not in the instance.  We repeat the lookup to find it
-    # in the class, this time taking care of the result: it can be either a
-    # quasi-constant class attribute, or actually a MutableCell --- which we
-    # must not cache.  (It should not be None here, but you never know...)
-    _, w_method = w_type._pure_lookup_where_possibly_with_method_cache(
-        name, version_tag)
-    if w_method is None or isinstance(w_method, MutableCell):
         return
     _fill_cache(pycode, nameindex, map, version_tag, -1, w_method)
 
