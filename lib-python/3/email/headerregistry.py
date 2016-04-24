@@ -7,6 +7,7 @@ Eventually HeaderRegistry will be a public API, but it isn't yet,
 and will probably change some before that happens.
 
 """
+from types import MappingProxyType
 
 from email import utils
 from email import errors
@@ -80,7 +81,8 @@ class Address:
         return lp
 
     def __repr__(self):
-        return "Address(display_name={!r}, username={!r}, domain={!r})".format(
+        return "{}(display_name={!r}, username={!r}, domain={!r})".format(
+                        self.__class__.__name__,
                         self.display_name, self.username, self.domain)
 
     def __str__(self):
@@ -131,7 +133,8 @@ class Group:
         return self._addresses
 
     def __repr__(self):
-        return "Group(display_name={!r}, addresses={!r}".format(
+        return "{}(display_name={!r}, addresses={!r}".format(
+                 self.__class__.__name__,
                  self.display_name, self.addresses)
 
     def __str__(self):
@@ -454,7 +457,7 @@ class ParameterizedMIMEHeader:
 
     @property
     def params(self):
-        return self._params.copy()
+        return MappingProxyType(self._params)
 
 
 class ContentTypeHeader(ParameterizedMIMEHeader):

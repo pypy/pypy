@@ -3,8 +3,6 @@
 # Module and documentation by Eric S. Raymond, 21 Dec 1998
 
 import os, shlex, stat
-if os.name == 'posix':
-    import pwd
 
 __all__ = ["netrc", "NetrcParseError"]
 
@@ -28,7 +26,7 @@ class netrc:
             try:
                 file = os.path.join(os.environ['HOME'], ".netrc")
             except KeyError:
-                raise IOError("Could not find .netrc: $HOME is not set")
+                raise OSError("Could not find .netrc: $HOME is not set")
         self.hosts = {}
         self.macros = {}
         with open(file) as fp:
@@ -92,6 +90,7 @@ class netrc:
                     if os.name == 'posix' and default_netrc:
                         prop = os.fstat(fp.fileno())
                         if prop.st_uid != os.getuid():
+                            import pwd
                             try:
                                 fowner = pwd.getpwuid(prop.st_uid)[0]
                             except KeyError:

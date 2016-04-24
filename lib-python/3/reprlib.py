@@ -83,16 +83,22 @@ class Repr:
         return self._repr_iterable(x, level, '[', ']', self.maxlist)
 
     def repr_array(self, x, level):
+        if not x:
+            return "array('%s')" % x.typecode
         header = "array('%s', [" % x.typecode
         return self._repr_iterable(x, level, header, '])', self.maxarray)
 
     def repr_set(self, x, level):
+        if not x:
+            return 'set()'
         x = _possibly_sorted(x)
-        return self._repr_iterable(x, level, 'set([', '])', self.maxset)
+        return self._repr_iterable(x, level, '{', '}', self.maxset)
 
     def repr_frozenset(self, x, level):
+        if not x:
+            return 'frozenset()'
         x = _possibly_sorted(x)
-        return self._repr_iterable(x, level, 'frozenset([', '])',
+        return self._repr_iterable(x, level, 'frozenset({', '})',
                                    self.maxfrozenset)
 
     def repr_deque(self, x, level):
@@ -136,7 +142,7 @@ class Repr:
             # Bugs in x.__repr__() can cause arbitrary
             # exceptions -- then make up something
         except Exception:
-            return '<%s instance at %x>' % (x.__class__.__name__, id(x))
+            return '<%s instance at %#x>' % (x.__class__.__name__, id(x))
         if len(s) > self.maxother:
             i = max(0, (self.maxother-3)//2)
             j = max(0, self.maxother-3-i)

@@ -6,7 +6,7 @@ one of the other *util.py modules.
 
 import os
 import re
-import imp
+import importlib.util
 import sys
 import string
 from distutils.errors import DistutilsPlatformError
@@ -154,12 +154,6 @@ def change_root (new_root, pathname):
             path = path[1:]
         return os.path.join(new_root, path)
 
-    elif os.name == 'os2':
-        (drive, path) = os.path.splitdrive(pathname)
-        if path[0] == os.sep:
-            path = path[1:]
-        return os.path.join(new_root, path)
-
     else:
         raise DistutilsPlatformError("nothing known about platform '%s'" % os.name)
 
@@ -213,25 +207,10 @@ def subst_vars (s, local_vars):
 
 
 def grok_environment_error (exc, prefix="error: "):
-    """Generate a useful error message from an EnvironmentError (IOError or
-    OSError) exception object.  Handles Python 1.5.1 and 1.5.2 styles, and
-    does what it can to deal with exception objects that don't have a
-    filename (which happens when the error is due to a two-file operation,
-    such as 'rename()' or 'link()'.  Returns the error message as a string
-    prefixed with 'prefix'.
-    """
-    # check for Python 1.5.2-style {IO,OS}Error exception objects
-    if hasattr(exc, 'filename') and hasattr(exc, 'strerror'):
-        if exc.filename:
-            error = prefix + "%s: %s" % (exc.filename, exc.strerror)
-        else:
-            # two-argument functions in posix module don't
-            # include the filename in the exception object!
-            error = prefix + "%s" % exc.strerror
-    else:
-        error = prefix + str(exc.args[-1])
-
-    return error
+    # Function kept for backward compatibility.
+    # Used to try clever things with EnvironmentErrors,
+    # but nowadays str(exception) produces good messages.
+    return prefix + str(exc)
 
 
 # Needed by 'split_quoted()'
@@ -343,11 +322,11 @@ def byte_compile (py_files,
                   prefix=None, base_dir=None,
                   verbose=1, dry_run=0,
                   direct=None):
-    """Byte-compile a collection of Python source files to either .pyc
-    or .pyo files in a __pycache__ subdirectory.  'py_files' is a list
+    """Byte-compile a collection of Python source files to .pyc
+    files in a __pycache__ subdirectory.  'py_files' is a list
     of files to compile; any files that don't end in ".py" are silently
     skipped.  'optimize' must be one of the following:
-      0 - don't optimize (generate .pyc)
+      0 - don't optimize
       1 - normal optimization (like "python -O")
       2 - extra optimization (like "python -OO")
     If 'force' is true, all files are recompiled regardless of
@@ -459,9 +438,11 @@ byte_compile(files, optimize=%r, force=%r,
             #   cfile - byte-compiled file
             #   dfile - purported source filename (same as 'file' by default)
             if optimize >= 0:
-                cfile = imp.cache_from_source(file, debug_override=not optimize)
+                opt = '' if optimize == 0 else optimize
+                cfile = importlib.util.cache_from_source(
+                    file, optimization=opt)
             else:
-                cfile = imp.cache_from_source(file)
+                cfile = importlib.util.cache_from_source(file)
             dfile = file
             if prefix:
                 if file[:len(prefix)] != prefix:

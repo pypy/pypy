@@ -5,8 +5,8 @@ import subprocess
 import shutil
 from copy import copy
 
-from test.support import (run_unittest, TESTFN, unlink,
-                          captured_stdout, skip_unless_symlink)
+from test.support import (run_unittest, TESTFN, unlink, check_warnings,
+                          captured_stdout, skip_unless_symlink, change_cwd)
 
 import sysconfig
 from sysconfig import (get_paths, get_platform, get_config_vars,
@@ -234,7 +234,7 @@ class TestSysConfig(unittest.TestCase):
         self.assertTrue(os.path.isfile(config_h), config_h)
 
     def test_get_scheme_names(self):
-        wanted = ('nt', 'nt_user', 'os2', 'os2_home', 'osx_framework_user',
+        wanted = ('nt', 'nt_user', 'osx_framework_user',
                   'posix_home', 'posix_prefix', 'posix_user')
         self.assertEqual(get_scheme_names(), wanted)
 
@@ -305,14 +305,13 @@ class TestSysConfig(unittest.TestCase):
         if 'MACOSX_DEPLOYMENT_TARGET' in env:
             del env['MACOSX_DEPLOYMENT_TARGET']
 
-        with open('/dev/null', 'w') as devnull_fp:
-            p = subprocess.Popen([
-                    sys.executable, '-c',
-                    'import sysconfig; print(sysconfig.get_platform())',
-                ],
-                stdout=subprocess.PIPE,
-                stderr=devnull_fp,
-                env=env)
+        p = subprocess.Popen([
+                sys.executable, '-c',
+                'import sysconfig; print(sysconfig.get_platform())',
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            env=env)
         test_platform = p.communicate()[0].strip()
         test_platform = test_platform.decode('utf-8')
         status = p.wait()
@@ -325,20 +324,19 @@ class TestSysConfig(unittest.TestCase):
         env = os.environ.copy()
         env['MACOSX_DEPLOYMENT_TARGET'] = '10.1'
 
-        with open('/dev/null') as dev_null:
-            p = subprocess.Popen([
-                    sys.executable, '-c',
-                    'import sysconfig; print(sysconfig.get_platform())',
-                ],
-                stdout=subprocess.PIPE,
-                stderr=dev_null,
-                env=env)
-            test_platform = p.communicate()[0].strip()
-            test_platform = test_platform.decode('utf-8')
-            status = p.wait()
+        p = subprocess.Popen([
+                sys.executable, '-c',
+                'import sysconfig; print(sysconfig.get_platform())',
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            env=env)
+        test_platform = p.communicate()[0].strip()
+        test_platform = test_platform.decode('utf-8')
+        status = p.wait()
 
-            self.assertEqual(status, 0)
-            self.assertEqual(my_platform, test_platform)
+        self.assertEqual(status, 0)
+        self.assertEqual(my_platform, test_platform)
 
     def test_srcdir(self):
         # See Issues #15322, #15364.
@@ -363,14 +361,49 @@ class TestSysConfig(unittest.TestCase):
         # srcdir should be independent of the current working directory
         # See Issues #15322, #15364.
         srcdir = sysconfig.get_config_var('srcdir')
-        cwd = os.getcwd()
-        try:
-            os.chdir('..')
+        with change_cwd(os.pardir):
             srcdir2 = sysconfig.get_config_var('srcdir')
-        finally:
-            os.chdir(cwd)
         self.assertEqual(srcdir, srcdir2)
 
+    @unittest.skipIf(sysconfig.get_config_var('EXT_SUFFIX') is None,
+                     'EXT_SUFFIX required for this test')
+    def test_SO_deprecation(self):
+        self.assertWarns(DeprecationWarning,
+                         sysconfig.get_config_var, 'SO')
+
+    @unittest.skipIf(sysconfig.get_config_var('EXT_SUFFIX') is None,
+                     'EXT_SUFFIX required for this test')
+    def test_SO_value(self):
+        with check_warnings(('', DeprecationWarning)):
+            self.assertEqual(sysconfig.get_config_var('SO'),
+                             sysconfig.get_config_var('EXT_SUFFIX'))
+
+    @unittest.skipIf(sysconfig.get_config_var('EXT_SUFFIX') is None,
+                     'EXT_SUFFIX required for this test')
+    def test_SO_in_vars(self):
+        vars = sysconfig.get_config_vars()
+        self.assertIsNotNone(vars['SO'])
+        self.assertEqual(vars['SO'], vars['EXT_SUFFIX'])
+
+    @unittest.skipUnless(sys.platform == 'linux', 'Linux-specific test')
+    def test_triplet_in_ext_suffix(self):
+        import ctypes, platform, re
+        machine = platform.machine()
+        suffix = sysconfig.get_config_var('EXT_SUFFIX')
+        if re.match('(aarch64|arm|mips|ppc|powerpc|s390|sparc)', machine):
+            self.assertTrue('linux' in suffix, suffix)
+        if re.match('(i[3-6]86|x86_64)$', machine):
+            if ctypes.sizeof(ctypes.c_char_p()) == 4:
+                self.assertTrue(suffix.endswith('i386-linux-gnu.so') \
+                                or suffix.endswith('x86_64-linux-gnux32.so'),
+                                suffix)
+            else: # 8 byte pointer size
+                self.assertTrue(suffix.endswith('x86_64-linux-gnu.so'), suffix)
+
+    @unittest.skipUnless(sys.platform == 'darwin', 'OS X-specific test')
+    def test_osx_ext_suffix(self):
+        suffix = sysconfig.get_config_var('EXT_SUFFIX')
+        self.assertTrue(suffix.endswith('-darwin.so'), suffix)
 
 class MakefileTests(unittest.TestCase):
 

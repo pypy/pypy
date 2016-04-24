@@ -231,29 +231,30 @@ class TestJointOps:
             self.assertEqual(self.s, dup, "%s != %s" % (self.s, dup))
             if type(self.s) not in (set, frozenset):
                 self.s.x = 10
-                p = pickle.dumps(self.s)
+                p = pickle.dumps(self.s, i)
                 dup = pickle.loads(p)
                 self.assertEqual(self.s.x, dup.x)
 
     def test_iterator_pickling(self):
-        itorg = iter(self.s)
-        data = self.thetype(self.s)
-        d = pickle.dumps(itorg)
-        it = pickle.loads(d)
-        # Set iterators unpickle as list iterators due to the
-        # undefined order of set items.
-        # self.assertEqual(type(itorg), type(it))
-        self.assertTrue(isinstance(it, collections.abc.Iterator))
-        self.assertEqual(self.thetype(it), data)
+        for proto in range(pickle.HIGHEST_PROTOCOL + 1):
+            itorg = iter(self.s)
+            data = self.thetype(self.s)
+            d = pickle.dumps(itorg, proto)
+            it = pickle.loads(d)
+            # Set iterators unpickle as list iterators due to the
+            # undefined order of set items.
+            # self.assertEqual(type(itorg), type(it))
+            self.assertIsInstance(it, collections.abc.Iterator)
+            self.assertEqual(self.thetype(it), data)
 
-        it = pickle.loads(d)
-        try:
-            drop = next(it)
-        except StopIteration:
-            return
-        d = pickle.dumps(it)
-        it = pickle.loads(d)
-        self.assertEqual(self.thetype(it), data - self.thetype((drop,)))
+            it = pickle.loads(d)
+            try:
+                drop = next(it)
+            except StopIteration:
+                continue
+            d = pickle.dumps(it, proto)
+            it = pickle.loads(d)
+            self.assertEqual(self.thetype(it), data - self.thetype((drop,)))
 
     def test_deepcopy(self):
         class Tracer:
@@ -848,15 +849,14 @@ class TestBasicOps:
         for v in self.set:
             self.assertIn(v, self.values)
         setiter = iter(self.set)
-        # note: __length_hint__ is an internal undocumented API,
-        # don't rely on it in your own programs
         self.assertEqual(setiter.__length_hint__(), len(self.set))
 
     def test_pickling(self):
-        p = pickle.dumps(self.set)
-        copy = pickle.loads(p)
-        self.assertEqual(self.set, copy,
-                         "%s != %s" % (self.set, copy))
+        for proto in range(pickle.HIGHEST_PROTOCOL + 1):
+            p = pickle.dumps(self.set, proto)
+            copy = pickle.loads(p)
+            self.assertEqual(self.set, copy,
+                             "%s != %s" % (self.set, copy))
 
 #------------------------------------------------------------------------------
 
@@ -931,7 +931,7 @@ class TestBasicOpsString(TestBasicOps, unittest.TestCase):
 
 class TestBasicOpsBytes(TestBasicOps, unittest.TestCase):
     def setUp(self):
-        self.case   = "string set"
+        self.case   = "bytes set"
         self.values = [b"a", b"b", b"c"]
         self.set    = set(self.values)
         self.dup    = set(self.values)
@@ -1730,6 +1730,30 @@ class TestWeirdBugs(unittest.TestCase):
         dict2 = {bad_dict_clear(): None}
         be_bad = True
         set1.symmetric_difference_update(dict2)
+
+    def test_iter_and_mutate(self):
+        # Issue #24581
+        s = set(range(100))
+        s.clear()
+        s.update(range(100))
+        si = iter(s)
+        s.clear()
+        a = list(range(100))
+        s.update(range(100))
+        list(si)
+
+    def test_merge_and_mutate(self):
+        class X:
+            def __hash__(self):
+                return hash(0)
+            def __eq__(self, o):
+                other.clear()
+                return False
+
+        other = set()
+        other = {X() for i in range(10)}
+        s = {0}
+        s.update(other)
 
 # Application tests (based on David Eppstein's graph recipes ====================================
 

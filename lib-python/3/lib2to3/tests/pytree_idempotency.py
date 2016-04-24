@@ -4,6 +4,8 @@
 
 """Main program for testing the infrastructure."""
 
+from __future__ import print_function
+
 __author__ = "Guido van Rossum <guido@python.org>"
 
 # Support imports (need to be imported first)
@@ -53,7 +55,7 @@ def main():
     for dir in sys.path:
         try:
             names = os.listdir(dir)
-        except os.error:
+        except OSError:
             continue
         print("Scanning", dir, "...", file=sys.stderr)
         for name in names:

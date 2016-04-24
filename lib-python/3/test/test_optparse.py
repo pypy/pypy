@@ -395,6 +395,7 @@ class TestOptionParser(BaseTest):
         self.assertRaises(self.parser.remove_option, ('foo',), None,
                           ValueError, "no such option 'foo'")
 
+    @support.impl_detail('Relies on sys.getrefcount', cpython=True)
     def test_refleak(self):
         # If an OptionParser is carrying around a reference to a large
         # object, various cycles can prevent it from being GC'd in
@@ -730,7 +731,7 @@ class TestStandard(BaseTest):
     def test_short_and_long_option_split(self):
         self.assertParseOK(["-a", "xyz", "--foo", "bar"],
                            {'a': 'xyz', 'boo': None, 'foo': ["bar"]},
-                           []),
+                           [])
 
     def test_short_option_split_long_option_append(self):
         self.assertParseOK(["--foo=bar", "-b", "123", "--foo", "baz"],
@@ -740,15 +741,15 @@ class TestStandard(BaseTest):
     def test_short_option_split_one_positional_arg(self):
         self.assertParseOK(["-a", "foo", "bar"],
                            {'a': "foo", 'boo': None, 'foo': None},
-                           ["bar"]),
+                           ["bar"])
 
     def test_short_option_consumes_separator(self):
         self.assertParseOK(["-a", "--", "foo", "bar"],
                            {'a': "--", 'boo': None, 'foo': None},
-                           ["foo", "bar"]),
+                           ["foo", "bar"])
         self.assertParseOK(["-a", "--", "--foo", "bar"],
                            {'a': "--", 'boo': None, 'foo': ["bar"]},
-                           []),
+                           [])
 
     def test_short_option_joined_and_separator(self):
         self.assertParseOK(["-ab", "--", "--foo", "bar"],

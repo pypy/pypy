@@ -4,9 +4,11 @@ def url2pathname(url):
     """OS-specific conversion from a relative URL of the 'file' scheme
     to a file system path; not recommended for general use."""
     # e.g.
-    # ///C|/foo/bar/spam.foo
-    # becomes
-    # C:\foo\bar\spam.foo
+    #   ///C|/foo/bar/spam.foo
+    # and
+    #   ///C:/foo/bar/spam.foo
+    # become
+    #   C:\foo\bar\spam.foo
     import string, urllib.parse
     # Windows itself uses ":" even in URLs.
     url = url.replace(':', '|')
@@ -23,7 +25,7 @@ def url2pathname(url):
     comp = url.split('|')
     if len(comp) != 2 or comp[0][-1] not in string.ascii_letters:
         error = 'Bad URL: ' + url
-        raise IOError(error)
+        raise OSError(error)
     drive = comp[0][-1].upper()
     components = comp[1].split('/')
     path = drive + ':'
@@ -39,9 +41,9 @@ def pathname2url(p):
     """OS-specific conversion from a file system path to a relative URL
     of the 'file' scheme; not recommended for general use."""
     # e.g.
-    # C:\foo\bar\spam.foo
+    #   C:\foo\bar\spam.foo
     # becomes
-    # ///C|/foo/bar/spam.foo
+    #   ///C:/foo/bar/spam.foo
     import urllib.parse
     if not ':' in p:
         # No drive specifier, just convert slashes and quote the name
@@ -55,7 +57,7 @@ def pathname2url(p):
     comp = p.split(':')
     if len(comp) != 2 or len(comp[0]) > 1:
         error = 'Bad path: ' + p
-        raise IOError(error)
+        raise OSError(error)
 
     drive = urllib.parse.quote(comp[0].upper())
     components = comp[1].split('\\')

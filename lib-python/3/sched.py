@@ -35,16 +35,12 @@ try:
     import threading
 except ImportError:
     import dummy_threading as threading
-try:
-    from time import monotonic as _time
-except ImportError:
-    from time import time as _time
+from time import monotonic as _time
 
 __all__ = ["scheduler"]
 
 class Event(namedtuple('Event', 'time, priority, action, argument, kwargs')):
     def __eq__(s, o): return (s.time, s.priority) == (o.time, o.priority)
-    def __ne__(s, o): return (s.time, s.priority) != (o.time, o.priority)
     def __lt__(s, o): return (s.time, s.priority) <  (o.time, o.priority)
     def __le__(s, o): return (s.time, s.priority) <= (o.time, o.priority)
     def __gt__(s, o): return (s.time, s.priority) >  (o.time, o.priority)
@@ -71,10 +67,10 @@ class scheduler:
         """
         if kwargs is _sentinel:
             kwargs = {}
+        event = Event(time, priority, action, argument, kwargs)
         with self._lock:
-            event = Event(time, priority, action, argument, kwargs)
             heapq.heappush(self._queue, event)
-            return event # The ID
+        return event # The ID
 
     def enter(self, delay, priority, action, argument=(), kwargs=_sentinel):
         """A variant that specifies the time as a relative time.
@@ -82,9 +78,8 @@ class scheduler:
         This is actually the more commonly used interface.
 
         """
-        with self._lock:
-            time = self.timefunc() + delay
-            return self.enterabs(time, priority, action, argument, kwargs)
+        time = self.timefunc() + delay
+        return self.enterabs(time, priority, action, argument, kwargs)
 
     def cancel(self, event):
         """Remove an event from the queue.
@@ -165,4 +160,4 @@ class scheduler:
         # the actual order they would be retrieved.
         with self._lock:
             events = self._queue[:]
-            return list(map(heapq.heappop, [events]*len(events)))
+        return list(map(heapq.heappop, [events]*len(events)))

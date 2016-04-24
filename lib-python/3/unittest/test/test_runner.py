@@ -5,8 +5,10 @@ import pickle
 import subprocess
 
 import unittest
+from unittest.case import _Outcome
 
-from .support import LoggingResult, ResultWithNoStartTestRunStopTestRun
+from unittest.test.support import (LoggingResult,
+                                   ResultWithNoStartTestRunStopTestRun)
 
 
 class TestCleanUp(unittest.TestCase):
@@ -42,12 +44,8 @@ class TestCleanUp(unittest.TestCase):
             def testNothing(self):
                 pass
 
-        class MockOutcome(object):
-            success = True
-            errors = []
-
         test = TestableTest('testNothing')
-        test._outcomeForDoCleanups = MockOutcome
+        outcome = test._outcome = _Outcome()
 
         exc1 = Exception('foo')
         exc2 = Exception('bar')
@@ -61,9 +59,10 @@ class TestCleanUp(unittest.TestCase):
         test.addCleanup(cleanup2)
 
         self.assertFalse(test.doCleanups())
-        self.assertFalse(MockOutcome.success)
+        self.assertFalse(outcome.success)
 
-        (Type1, instance1, _), (Type2, instance2, _) = reversed(MockOutcome.errors)
+        ((_, (Type1, instance1, _)),
+         (_, (Type2, instance2, _))) = reversed(outcome.errors)
         self.assertEqual((Type1, instance1), (Exception, exc1))
         self.assertEqual((Type2, instance2), (Exception, exc2))
 
@@ -159,7 +158,7 @@ class Test_TextTestRunner(unittest.TestCase):
         self.assertEqual(runner.warnings, None)
         self.assertTrue(runner.descriptions)
         self.assertEqual(runner.resultclass, unittest.TextTestResult)
-
+        self.assertFalse(runner.tb_locals)
 
     def test_multiple_inheritance(self):
         class AResult(unittest.TestResult):
@@ -173,20 +172,24 @@ class Test_TextTestRunner(unittest.TestCase):
         # on arguments in its __init__ super call
         ATextResult(None, None, 1)
 
-
     def testBufferAndFailfast(self):
         class Test(unittest.TestCase):
             def testFoo(self):
                 pass
         result = unittest.TestResult()
         runner = unittest.TextTestRunner(stream=io.StringIO(), failfast=True,
-                                           buffer=True)
+                                         buffer=True)
         # Use our result object
         runner._makeResult = lambda: result
         runner.run(Test('testFoo'))
 
         self.assertTrue(result.failfast)
         self.assertTrue(result.buffer)
+
+    def test_locals(self):
+        runner = unittest.TextTestRunner(stream=io.StringIO(), tb_locals=True)
+        result = runner.run(unittest.TestSuite())
+        self.assertEqual(True, result.tb_locals)
 
     def testRunnerRegistersResult(self):
         class Test(unittest.TestCase):
@@ -341,3 +344,7 @@ class Test_TextTestRunner(unittest.TestCase):
         f = io.StringIO()
         runner = unittest.TextTestRunner(f)
         self.assertTrue(runner.stream.stream is f)
+
+
+if __name__ == "__main__":
+    unittest.main()

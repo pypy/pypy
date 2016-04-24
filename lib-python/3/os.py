@@ -1,9 +1,9 @@
-r"""OS routines for Mac, NT, or Posix depending on what system we're on.
+r"""OS routines for NT or Posix depending on what system we're on.
 
 This exports:
-  - all functions from posix, nt, os2, or ce, e.g. unlink, stat, etc.
+  - all functions from posix, nt or ce, e.g. unlink, stat, etc.
   - os.path is either posixpath or ntpath
-  - os.name is either 'posix', 'nt', 'os2' or 'ce'.
+  - os.name is either 'posix', 'nt' or 'ce'.
   - os.curdir is a string representing the current directory ('.' or ':')
   - os.pardir is a string representing the parent directory ('..' or '::')
   - os.sep is the (or a most common) pathname separator ('/' or ':' or '\\')
@@ -61,6 +61,10 @@ if 'posix' in _names:
     except ImportError:
         pass
 
+    import posix
+    __all__.extend(_get_exports_list(posix))
+    del posix
+
 elif 'nt' in _names:
     name = 'nt'
     linesep = '\r\n'
@@ -78,30 +82,6 @@ elif 'nt' in _names:
 
     try:
         from nt import _have_functions
-    except ImportError:
-        pass
-
-elif 'os2' in _names:
-    name = 'os2'
-    linesep = '\r\n'
-    from os2 import *
-    try:
-        from os2 import _exit
-        __all__.append('_exit')
-    except ImportError:
-        pass
-    if sys.version.find('EMX GCC') == -1:
-        import ntpath as path
-    else:
-        import os2emxpath as path
-        from _emx_link import link
-
-    import os2
-    __all__.extend(_get_exports_list(os2))
-    del os2
-
-    try:
-        from os2 import _have_functions
     except ImportError:
         pass
 
@@ -230,23 +210,16 @@ SEEK_SET = 0
 SEEK_CUR = 1
 SEEK_END = 2
 
-
-def _get_masked_mode(mode):
-    mask = umask(0)
-    umask(mask)
-    return mode & ~mask
-
 # Super directory utilities.
 # (Inspired by Eric Raymond; the doc strings are mostly his)
 
 def makedirs(name, mode=0o777, exist_ok=False):
-    """makedirs(path [, mode=0o777][, exist_ok=False])
+    """makedirs(name [, mode=0o777][, exist_ok=False])
 
-    Super-mkdir; create a leaf directory and all intermediate ones.
-    Works like mkdir, except that any intermediate path segment (not
-    just the rightmost) will be created if it does not exist. If the
-    target directory with the same mode as we specified already exists,
-    raises an OSError if exist_ok is False, otherwise no exception is
+    Super-mkdir; create a leaf directory and all intermediate ones.  Works like
+    mkdir, except that any intermediate path segment (not just the rightmost)
+    will be created if it does not exist. If the target directory already
+    exists, raise an OSError if exist_ok is False. Otherwise no exception is
     raised.  This is recursive.
 
     """
@@ -256,10 +229,9 @@ def makedirs(name, mode=0o777, exist_ok=False):
     if head and tail and not path.exists(head):
         try:
             makedirs(head, mode, exist_ok)
-        except OSError as e:
-            # be happy if someone already created the path
-            if e.errno != errno.EEXIST:
-                raise
+        except FileExistsError:
+            # Defeats race condition when another thread created the path
+            pass
         cdir = curdir
         if isinstance(tail, bytes):
             cdir = bytes(curdir, 'ASCII')
@@ -267,25 +239,14 @@ def makedirs(name, mode=0o777, exist_ok=False):
             return
     try:
         mkdir(name, mode)
-    except OSError as e:
-        dir_exists = path.isdir(name)
-        expected_mode = _get_masked_mode(mode)
-        if dir_exists:
-            # S_ISGID is automatically copied by the OS from parent to child
-            # directories on mkdir.  Don't consider it being set to be a mode
-            # mismatch as mkdir does not unset it when not specified in mode.
-            actual_mode = st.S_IMODE(lstat(name).st_mode) & ~st.S_ISGID
-        else:
-            actual_mode = -1
-        if not (e.errno == errno.EEXIST and exist_ok and dir_exists and
-                actual_mode == expected_mode):
-            if dir_exists and actual_mode != expected_mode:
-                e.strerror += ' (mode %o != expected mode %o)' % (
-                        actual_mode, expected_mode)
+    except OSError:
+        # Cannot rely on checking for EEXIST, since the operating system
+        # could give priority to other errors like EACCES or EROFS
+        if not exist_ok or not path.isdir(name):
             raise
 
 def removedirs(name):
-    """removedirs(path)
+    """removedirs(name)
 
     Super-rmdir; remove a leaf directory and all empty intermediate
     ones.  Works like rmdir except that, if the leaf directory is
@@ -302,7 +263,7 @@ def removedirs(name):
     while head and tail:
         try:
             rmdir(head)
-        except error:
+        except OSError:
             break
         head, tail = path.split(head)
 
@@ -313,7 +274,7 @@ def renames(old, new):
     empty.  Works like rename, except creation of any intermediate
     directories needed to make the new pathname good is attempted
     first.  After the rename, directories corresponding to rightmost
-    path segments of the old name will be pruned way until either the
+    path segments of the old name will be pruned until either the
     whole path is consumed or a nonempty directory is found.
 
     Note: this function can fail with the new directory structure made
@@ -329,7 +290,7 @@ def renames(old, new):
     if head and tail:
         try:
             removedirs(head)
-        except error:
+        except OSError:
             pass
 
 __all__.extend(["makedirs", "removedirs", "renames"])
@@ -357,15 +318,16 @@ def walk(top, topdown=True, onerror=None, followlinks=False):
 
     When topdown is true, the caller can modify the dirnames list in-place
     (e.g., via del or slice assignment), and walk will only recurse into the
-    subdirectories whose names remain in dirnames; this can be used to prune
-    the search, or to impose a specific order of visiting.  Modifying
-    dirnames when topdown is false is ineffective, since the directories in
-    dirnames have already been generated by the time dirnames itself is
-    generated.
+    subdirectories whose names remain in dirnames; this can be used to prune the
+    search, or to impose a specific order of visiting.  Modifying dirnames when
+    topdown is false is ineffective, since the directories in dirnames have
+    already been generated by the time dirnames itself is generated. No matter
+    the value of topdown, the list of subdirectories is retrieved before the
+    tuples for the directory and its subdirectories are generated.
 
-    By default errors from the os.listdir() call are ignored.  If
+    By default errors from the os.scandir() call are ignored.  If
     optional arg 'onerror' is specified, it should be a function; it
-    will be called with one argument, an os.error instance.  It can
+    will be called with one argument, an OSError instance.  It can
     report the error to continue with the walk, or raise the exception
     to abort the walk.  Note that the filename is available as the
     filename attribute of the exception object.
@@ -389,9 +351,11 @@ def walk(top, topdown=True, onerror=None, followlinks=False):
         print("bytes in", len(files), "non-directory files")
         if 'CVS' in dirs:
             dirs.remove('CVS')  # don't visit CVS directories
+
     """
 
-    islink, join, isdir = path.islink, path.join, path.isdir
+    dirs = []
+    nondirs = []
 
     # We may not have read permission for top, in which case we can't
     # get a list of the files the directory contains.  os.walk
@@ -399,28 +363,71 @@ def walk(top, topdown=True, onerror=None, followlinks=False):
     # minor reason when (say) a thousand readable directories are still
     # left to visit.  That logic is copied here.
     try:
-        # Note that listdir and error are globals in this module due
+        # Note that scandir is global in this module due
         # to earlier import-*.
-        names = listdir(top)
-    except error as err:
+        scandir_it = scandir(top)
+    except OSError as error:
         if onerror is not None:
-            onerror(err)
+            onerror(error)
         return
 
-    dirs, nondirs = [], []
-    for name in names:
-        if isdir(join(top, name)):
-            dirs.append(name)
-        else:
-            nondirs.append(name)
+    while True:
+        try:
+            try:
+                entry = next(scandir_it)
+            except StopIteration:
+                break
+        except OSError as error:
+            if onerror is not None:
+                onerror(error)
+            return
 
+        try:
+            is_dir = entry.is_dir()
+        except OSError:
+            # If is_dir() raises an OSError, consider that the entry is not
+            # a directory, same behaviour than os.path.isdir().
+            is_dir = False
+
+        if is_dir:
+            dirs.append(entry.name)
+        else:
+            nondirs.append(entry.name)
+
+        if not topdown and is_dir:
+            # Bottom-up: recurse into sub-directory, but exclude symlinks to
+            # directories if followlinks is False
+            if followlinks:
+                walk_into = True
+            else:
+                try:
+                    is_symlink = entry.is_symlink()
+                except OSError:
+                    # If is_symlink() raises an OSError, consider that the
+                    # entry is not a symbolic link, same behaviour than
+                    # os.path.islink().
+                    is_symlink = False
+                walk_into = not is_symlink
+
+            if walk_into:
+                yield from walk(entry.path, topdown, onerror, followlinks)
+
+    # Yield before recursion if going top down
     if topdown:
         yield top, dirs, nondirs
-    for name in dirs:
-        new_path = join(top, name)
-        if followlinks or not islink(new_path):
-            yield from walk(new_path, topdown, onerror, followlinks)
-    if not topdown:
+
+        # Recurse into sub-directories
+        islink, join = path.islink, path.join
+        for name in dirs:
+            new_path = join(top, name)
+            # Issue #23605: os.path.islink() is used instead of caching
+            # entry.is_symlink() result during the loop on os.scandir() because
+            # the caller can replace the directory entry during the "yield"
+            # above.
+            if followlinks or not islink(new_path):
+                yield from walk(new_path, topdown, onerror, followlinks)
+    else:
+        # Yield after recursion if going bottom up
         yield top, dirs, nondirs
 
 __all__.append("walk")
@@ -504,7 +511,7 @@ if {open, stat} <= supports_dir_fd and {listdir, stat} <= supports_fd:
             try:
                 orig_st = stat(name, dir_fd=topfd, follow_symlinks=follow_symlinks)
                 dirfd = open(name, O_RDONLY, dir_fd=topfd)
-            except error as err:
+            except OSError as err:
                 if onerror is not None:
                     onerror(err)
                 return
@@ -599,7 +606,7 @@ def _execvpe(file, args, env=None):
         fullname = path.join(dir, file)
         try:
             exec_func(fullname, *argrest)
-        except error as e:
+        except OSError as e:
             last_exc = e
             tb = sys.exc_info()[2]
             if (e.errno != errno.ENOENT and e.errno != errno.ENOTDIR
@@ -656,7 +663,7 @@ def get_exec_path(env=None):
 
 
 # Change environ to automatically call putenv(), unsetenv if they exist.
-from collections.abc import MutableMapping
+from _collections_abc import MutableMapping
 
 class _Environ(MutableMapping):
     def __init__(self, data, encodekey, decodekey, encodevalue, decodevalue, putenv, unsetenv):
@@ -716,17 +723,19 @@ try:
 except NameError:
     _putenv = lambda key, value: None
 else:
-    __all__.append("putenv")
+    if "putenv" not in __all__:
+        __all__.append("putenv")
 
 try:
     _unsetenv = unsetenv
 except NameError:
     _unsetenv = lambda key: _putenv(key, "")
 else:
-    __all__.append("unsetenv")
+    if "unsetenv" not in __all__:
+        __all__.append("unsetenv")
 
 def _createenviron():
-    if name in ('os2', 'nt'):
+    if name == 'nt':
         # Where Env Var Names Must Be UPPERCASE
         def check_str(value):
             if not isinstance(value, str):
@@ -766,7 +775,7 @@ def getenv(key, default=None):
     key, default and the result are str."""
     return environ.get(key, default)
 
-supports_bytes_environ = name not in ('os2', 'nt')
+supports_bytes_environ = (name != 'nt')
 __all__.extend(("getenv", "supports_bytes_environ"))
 
 if supports_bytes_environ:
@@ -865,7 +874,7 @@ if _exists("fork") and not _exists("spawnv") and _exists("execv"):
                 elif WIFEXITED(sts):
                     return WEXITSTATUS(sts)
                 else:
-                    raise error("Not stopped, signaled or exited???")
+                    raise OSError("Not stopped, signaled or exited???")
 
     def spawnv(mode, file, args):
         """spawnv(mode, file, args) -> integer
@@ -908,6 +917,10 @@ If mode == P_WAIT return the process's exit code if it exits normally;
 otherwise return -SIG, where SIG is the signal that killed it. """
         return _spawnvef(mode, file, args, env, execvpe)
 
+
+    __all__.extend(["spawnv", "spawnve", "spawnvp", "spawnvpe"])
+
+
 if _exists("spawnv"):
     # These aren't supplied by the basic Windows code
     # but can be easily implemented in Python
@@ -933,7 +946,7 @@ otherwise return -SIG, where SIG is the signal that killed it. """
         return spawnve(mode, file, args[:-1], env)
 
 
-    __all__.extend(["spawnv", "spawnve", "spawnl", "spawnle",])
+    __all__.extend(["spawnl", "spawnle"])
 
 
 if _exists("spawnvp"):
@@ -961,34 +974,8 @@ otherwise return -SIG, where SIG is the signal that killed it. """
         return spawnvpe(mode, file, args[:-1], env)
 
 
-    __all__.extend(["spawnvp", "spawnvpe", "spawnlp", "spawnlpe",])
+    __all__.extend(["spawnlp", "spawnlpe"])
 
-import copyreg as _copyreg
-
-def _make_stat_result(tup, dict):
-    return stat_result(tup, dict)
-
-def _pickle_stat_result(sr):
-    (type, args) = sr.__reduce__()
-    return (_make_stat_result, args)
-
-try:
-    _copyreg.pickle(stat_result, _pickle_stat_result, _make_stat_result)
-except NameError: # stat_result may not exist
-    pass
-
-def _make_statvfs_result(tup, dict):
-    return statvfs_result(tup, dict)
-
-def _pickle_statvfs_result(sr):
-    (type, args) = sr.__reduce__()
-    return (_make_statvfs_result, args)
-
-try:
-    _copyreg.pickle(statvfs_result, _pickle_statvfs_result,
-                     _make_statvfs_result)
-except NameError: # statvfs_result may not exist
-    pass
 
 # Supply os.popen()
 def popen(cmd, mode="r", buffering=-1):

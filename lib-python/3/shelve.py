@@ -61,7 +61,7 @@ from io import BytesIO
 
 import collections
 
-__all__ = ["Shelf","BsdDbShelf","DbfilenameShelf","open"]
+__all__ = ["Shelf", "BsdDbShelf", "DbfilenameShelf", "open"]
 
 class _ClosedDict(collections.MutableMapping):
     'Marker for a closed dict.  Access attempts raise a ValueError.'
@@ -131,22 +131,33 @@ class Shelf(collections.MutableMapping):
         except KeyError:
             pass
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, traceback):
+        self.close()
+
     def close(self):
-        self.sync()
+        if self.dict is None:
+            return
         try:
-            self.dict.close()
-        except AttributeError:
-            pass
-        # Catch errors that may happen when close is called from __del__
-        # because CPython is in interpreter shutdown.
-        try:
-            self.dict = _ClosedDict()
-        except (NameError, TypeError):
-            self.dict = None
+            self.sync()
+            try:
+                self.dict.close()
+            except AttributeError:
+                pass
+        finally:
+            # Catch errors that may happen when close is called from __del__
+            # because CPython is in interpreter shutdown.
+            try:
+                self.dict = _ClosedDict()
+            except:
+                self.dict = None
 
     def __del__(self):
         if not hasattr(self, 'writeback'):
             # __init__ didn't succeed, so don't bother closing
+            # see http://bugs.python.org/issue1339007 for details
             return
         self.close()
 

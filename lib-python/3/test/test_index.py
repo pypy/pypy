@@ -81,7 +81,8 @@ class BaseTestCase(unittest.TestCase):
                 return True
 
         bad_int = BadInt()
-        n = operator.index(bad_int)
+        with self.assertWarns(DeprecationWarning):
+            n = operator.index(bad_int)
         self.assertEqual(n, 1)
 
         bad_int = BadInt2()

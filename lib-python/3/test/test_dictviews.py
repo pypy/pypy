@@ -1,5 +1,6 @@
+import copy
+import pickle
 import unittest
-from test import support
 
 class DictSetTest(unittest.TestCase):
 
@@ -196,11 +197,24 @@ class DictSetTest(unittest.TestCase):
     def test_recursive_repr(self):
         d = {}
         d[42] = d.values()
-        self.assertRaises(RuntimeError, repr, d)
+        self.assertRaises(RecursionError, repr, d)
 
+    def test_copy(self):
+        d = {1: 10, "a": "ABC"}
+        self.assertRaises(TypeError, copy.copy, d.keys())
+        self.assertRaises(TypeError, copy.copy, d.values())
+        self.assertRaises(TypeError, copy.copy, d.items())
 
-def test_main():
-    support.run_unittest(DictSetTest)
+    def test_pickle(self):
+        d = {1: 10, "a": "ABC"}
+        for proto in range(pickle.HIGHEST_PROTOCOL + 1):
+            self.assertRaises((TypeError, pickle.PicklingError),
+                pickle.dumps, d.keys(), proto)
+            self.assertRaises((TypeError, pickle.PicklingError),
+                pickle.dumps, d.values(), proto)
+            self.assertRaises((TypeError, pickle.PicklingError),
+                pickle.dumps, d.items(), proto)
+
 
 if __name__ == "__main__":
-    test_main()
+    unittest.main()

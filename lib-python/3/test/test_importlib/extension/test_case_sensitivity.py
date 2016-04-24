@@ -1,28 +1,32 @@
-import imp
+from importlib import _bootstrap_external
 import sys
 from test import support
 import unittest
-from importlib import _bootstrap
+
 from .. import util
-from . import util as ext_util
+
+machinery = util.import_importlib('importlib.machinery')
 
 
+# XXX find_spec tests
+
+@unittest.skipIf(util.EXTENSIONS.filename is None, '_testcapi not available')
 @util.case_insensitive_tests
-class ExtensionModuleCaseSensitivityTest(unittest.TestCase):
+class ExtensionModuleCaseSensitivityTest:
 
     def find_module(self):
-        good_name = ext_util.NAME
+        good_name = util.EXTENSIONS.name
         bad_name = good_name.upper()
         assert good_name != bad_name
-        finder = _bootstrap.FileFinder(ext_util.PATH,
-                                        (_bootstrap.ExtensionFileLoader,
-                                         _bootstrap.EXTENSION_SUFFIXES))
+        finder = self.machinery.FileFinder(util.EXTENSIONS.path,
+                                          (self.machinery.ExtensionFileLoader,
+                                           self.machinery.EXTENSION_SUFFIXES))
         return finder.find_module(bad_name)
 
     def test_case_sensitive(self):
         with support.EnvironmentVarGuard() as env:
             env.unset('PYTHONCASEOK')
-            if b'PYTHONCASEOK' in _bootstrap._os.environ:
+            if b'PYTHONCASEOK' in _bootstrap_external._os.environ:
                 self.skipTest('os.environ changes not reflected in '
                               '_os.environ')
             loader = self.find_module()
@@ -31,20 +35,17 @@ class ExtensionModuleCaseSensitivityTest(unittest.TestCase):
     def test_case_insensitivity(self):
         with support.EnvironmentVarGuard() as env:
             env.set('PYTHONCASEOK', '1')
-            if b'PYTHONCASEOK' not in _bootstrap._os.environ:
+            if b'PYTHONCASEOK' not in _bootstrap_external._os.environ:
                 self.skipTest('os.environ changes not reflected in '
                               '_os.environ')
             loader = self.find_module()
             self.assertTrue(hasattr(loader, 'load_module'))
 
 
-
-
-def test_main():
-    if ext_util.FILENAME is None:
-        return
-    support.run_unittest(ExtensionModuleCaseSensitivityTest)
+(Frozen_ExtensionCaseSensitivity,
+ Source_ExtensionCaseSensitivity
+ ) = util.test_both(ExtensionModuleCaseSensitivityTest, machinery=machinery)
 
 
 if __name__ == '__main__':
-    test_main()
+    unittest.main()

@@ -8,7 +8,7 @@ from test.support import run_unittest, import_module
 thread = import_module('_thread')
 import time
 
-if sys.platform[:3] in ('win', 'os2') or sys.platform=='riscos':
+if (sys.platform[:3] == 'win'):
     raise unittest.SkipTest("Can't test signal on %s" % sys.platform)
 
 process_pid = os.getpid()
@@ -74,6 +74,9 @@ class ThreadSignals(unittest.TestCase):
 
     @unittest.skipIf(USING_PTHREAD_COND,
                      'POSIX condition variables cannot be interrupted')
+    # Issue #20564: sem_timedwait() cannot be interrupted on OpenBSD
+    @unittest.skipIf(sys.platform.startswith('openbsd'),
+                     'lock cannot be interrupted on OpenBSD')
     def test_lock_acquire_interruption(self):
         # Mimic receiving a SIGINT (KeyboardInterrupt) with SIGALRM while stuck
         # in a deadlock.
@@ -97,6 +100,9 @@ class ThreadSignals(unittest.TestCase):
 
     @unittest.skipIf(USING_PTHREAD_COND,
                      'POSIX condition variables cannot be interrupted')
+    # Issue #20564: sem_timedwait() cannot be interrupted on OpenBSD
+    @unittest.skipIf(sys.platform.startswith('openbsd'),
+                     'lock cannot be interrupted on OpenBSD')
     def test_rlock_acquire_interruption(self):
         # Mimic receiving a SIGINT (KeyboardInterrupt) with SIGALRM while stuck
         # in a deadlock.

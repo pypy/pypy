@@ -15,6 +15,10 @@ import contextlib
 from test import support
 
 try:
+    import gzip
+except ImportError:
+    gzip = None
+try:
     import threading
 except ImportError:
     threading = None
@@ -216,7 +220,7 @@ class XMLRPCTestCase(unittest.TestCase):
             xmlrpc.client.ServerProxy('https://localhost:9999').bad_function()
         except NotImplementedError:
             self.assertFalse(has_ssl, "xmlrpc client's error with SSL support")
-        except socket.error:
+        except OSError:
             self.assertTrue(has_ssl)
 
 class HelperTestCase(unittest.TestCase):
@@ -283,7 +287,7 @@ class DateTimeTestCase(unittest.TestCase):
     def test_repr(self):
         d = datetime.datetime(2007,1,2,3,4,5)
         t = xmlrpclib.DateTime(d)
-        val ="<DateTime '20070102T03:04:05' at %x>" % id(t)
+        val ="<DateTime '20070102T03:04:05' at %#x>" % id(t)
         self.assertEqual(repr(t), val)
 
     def test_decode(self):
@@ -376,6 +380,11 @@ def http_server(evt, numrequests, requestHandler=None):
             if name == 'div':
                 return 'This is the div function'
 
+        class Fixture:
+            @staticmethod
+            def getData():
+                return '42'
+
     def my_function():
         '''This is my function'''
         return True
@@ -407,7 +416,8 @@ def http_server(evt, numrequests, requestHandler=None):
         serv.register_function(pow)
         serv.register_function(lambda x,y: x+y, 'add')
         serv.register_function(my_function)
-        serv.register_instance(TestInstanceClass())
+        testInstance = TestInstanceClass()
+        serv.register_instance(testInstance, allow_dotted_names=True)
         evt.set()
 
         # handle up to 'numrequests' requests
@@ -500,14 +510,14 @@ def is_unavailable_exception(e):
             return True
         exc_mess = e.headers.get('X-exception')
     except AttributeError:
-        # Ignore socket.errors here.
+        # Ignore OSErrors here.
         exc_mess = str(e)
 
     if exc_mess and 'temporarily unavailable' in exc_mess.lower():
         return True
 
 def make_request_and_skipIf(condition, reason):
-    # If we skip the test, we have to make a request because the
+    # If we skip the test, we have to make a request because
     # the server created in setUp blocks expecting one to come in.
     if not condition:
         return lambda func: func
@@ -515,7 +525,7 @@ def make_request_and_skipIf(condition, reason):
         def make_request_and_skip(self):
             try:
                 xmlrpclib.ServerProxy(URL).my_function()
-            except (xmlrpclib.ProtocolError, socket.error) as e:
+            except (xmlrpclib.ProtocolError, OSError) as e:
                 if not is_unavailable_exception(e):
                     raise
             raise unittest.SkipTest(reason)
@@ -553,7 +563,7 @@ class SimpleServerTestCase(BaseServerTestCase):
         try:
             p = xmlrpclib.ServerProxy(URL)
             self.assertEqual(p.pow(6,8), 6**8)
-        except (xmlrpclib.ProtocolError, socket.error) as e:
+        except (xmlrpclib.ProtocolError, OSError) as e:
             # ignore failures due to non-blocking socket 'unavailable' errors
             if not is_unavailable_exception(e):
                 # protocol error; provide additional information in test output
@@ -566,7 +576,7 @@ class SimpleServerTestCase(BaseServerTestCase):
             p = xmlrpclib.ServerProxy(URL)
             self.assertEqual(p.add(start_string, end_string),
                              start_string + end_string)
-        except (xmlrpclib.ProtocolError, socket.error) as e:
+        except (xmlrpclib.ProtocolError, OSError) as e:
             # ignore failures due to non-blocking socket 'unavailable' errors
             if not is_unavailable_exception(e):
                 # protocol error; provide additional information in test output
@@ -587,12 +597,13 @@ class SimpleServerTestCase(BaseServerTestCase):
     def test_introspection1(self):
         expected_methods = set(['pow', 'div', 'my_function', 'add',
                                 'system.listMethods', 'system.methodHelp',
-                                'system.methodSignature', 'system.multicall'])
+                                'system.methodSignature', 'system.multicall',
+                                'Fixture'])
         try:
             p = xmlrpclib.ServerProxy(URL)
             meth = p.system.listMethods()
             self.assertEqual(set(meth), expected_methods)
-        except (xmlrpclib.ProtocolError, socket.error) as e:
+        except (xmlrpclib.ProtocolError, OSError) as e:
             # ignore failures due to non-blocking socket 'unavailable' errors
             if not is_unavailable_exception(e):
                 # protocol error; provide additional information in test output
@@ -605,7 +616,7 @@ class SimpleServerTestCase(BaseServerTestCase):
             p = xmlrpclib.ServerProxy(URL)
             divhelp = p.system.methodHelp('div')
             self.assertEqual(divhelp, 'This is the div function')
-        except (xmlrpclib.ProtocolError, socket.error) as e:
+        except (xmlrpclib.ProtocolError, OSError) as e:
             # ignore failures due to non-blocking socket 'unavailable' errors
             if not is_unavailable_exception(e):
                 # protocol error; provide additional information in test output
@@ -619,7 +630,7 @@ class SimpleServerTestCase(BaseServerTestCase):
             p = xmlrpclib.ServerProxy(URL)
             myfunction = p.system.methodHelp('my_function')
             self.assertEqual(myfunction, 'This is my function')
-        except (xmlrpclib.ProtocolError, socket.error) as e:
+        except (xmlrpclib.ProtocolError, OSError) as e:
             # ignore failures due to non-blocking socket 'unavailable' errors
             if not is_unavailable_exception(e):
                 # protocol error; provide additional information in test output
@@ -632,7 +643,7 @@ class SimpleServerTestCase(BaseServerTestCase):
             p = xmlrpclib.ServerProxy(URL)
             divsig = p.system.methodSignature('div')
             self.assertEqual(divsig, 'signatures not supported')
-        except (xmlrpclib.ProtocolError, socket.error) as e:
+        except (xmlrpclib.ProtocolError, OSError) as e:
             # ignore failures due to non-blocking socket 'unavailable' errors
             if not is_unavailable_exception(e):
                 # protocol error; provide additional information in test output
@@ -649,7 +660,7 @@ class SimpleServerTestCase(BaseServerTestCase):
             self.assertEqual(add_result, 2+3)
             self.assertEqual(pow_result, 6**8)
             self.assertEqual(div_result, 127//42)
-        except (xmlrpclib.ProtocolError, socket.error) as e:
+        except (xmlrpclib.ProtocolError, OSError) as e:
             # ignore failures due to non-blocking socket 'unavailable' errors
             if not is_unavailable_exception(e):
                 # protocol error; provide additional information in test output
@@ -670,7 +681,7 @@ class SimpleServerTestCase(BaseServerTestCase):
             self.assertEqual(result.results[0]['faultString'],
                 '<class \'Exception\'>:method "this_is_not_exists" '
                 'is not supported')
-        except (xmlrpclib.ProtocolError, socket.error) as e:
+        except (xmlrpclib.ProtocolError, OSError) as e:
             # ignore failures due to non-blocking socket 'unavailable' errors
             if not is_unavailable_exception(e):
                 # protocol error; provide additional information in test output
@@ -686,6 +697,12 @@ class SimpleServerTestCase(BaseServerTestCase):
         # This avoids waiting for the socket timeout.
         self.test_simple1()
 
+    def test_allow_dotted_names_true(self):
+        # XXX also need allow_dotted_names_false test.
+        server = xmlrpclib.ServerProxy("http://%s:%d/RPC2" % (ADDR, PORT))
+        data = server.Fixture.getData()
+        self.assertEqual(data, '42')
+
     def test_unicode_host(self):
         server = xmlrpclib.ServerProxy("http://%s:%d/RPC2" % (ADDR, PORT))
         self.assertEqual(server.add("a", "\xe9"), "a\xe9")
@@ -695,6 +712,23 @@ class SimpleServerTestCase(BaseServerTestCase):
         conn = http.client.HTTPConnection(ADDR, PORT)
         conn.request('POST', '/RPC2 HTTP/1.0\r\nContent-Length: 100\r\n\r\nbye')
         conn.close()
+
+    def test_context_manager(self):
+        with xmlrpclib.ServerProxy(URL) as server:
+            server.add(2, 3)
+            self.assertNotEqual(server('transport')._connection,
+                                (None, None))
+        self.assertEqual(server('transport')._connection,
+                         (None, None))
+
+    def test_context_manager_method_error(self):
+        try:
+            with xmlrpclib.ServerProxy(URL) as server:
+                server.add(2, "a")
+        except xmlrpclib.Fault:
+            pass
+        self.assertEqual(server('transport')._connection,
+                         (None, None))
 
 
 class MultiPathServerTestCase(BaseServerTestCase):
@@ -793,6 +827,7 @@ class KeepaliveServerTestCase2(BaseKeepaliveServerTestCase):
 
 #A test case that verifies that gzip encoding works in both directions
 #(for a request and the response)
+@unittest.skipIf(gzip is None, 'requires gzip')
 class GzipServerTestCase(BaseServerTestCase):
     #a request handler that supports keep-alive and logs requests into a
     #class variable
@@ -845,7 +880,7 @@ class GzipServerTestCase(BaseServerTestCase):
             p.pow(6, 8)
         p("close")()
 
-    def test_gsip_response(self):
+    def test_gzip_response(self):
         t = self.Transport()
         p = xmlrpclib.ServerProxy(URL, transport=t)
         old = self.requestHandler.encode_threshold
@@ -858,6 +893,27 @@ class GzipServerTestCase(BaseServerTestCase):
         b = t.response_length
         self.requestHandler.encode_threshold = old
         self.assertTrue(a>b)
+
+
+@unittest.skipIf(gzip is None, 'requires gzip')
+class GzipUtilTestCase(unittest.TestCase):
+
+    def test_gzip_decode_limit(self):
+        max_gzip_decode = 20 * 1024 * 1024
+        data = b'\0' * max_gzip_decode
+        encoded = xmlrpclib.gzip_encode(data)
+        decoded = xmlrpclib.gzip_decode(encoded)
+        self.assertEqual(len(decoded), max_gzip_decode)
+
+        data = b'\0' * (max_gzip_decode + 1)
+        encoded = xmlrpclib.gzip_encode(data)
+
+        with self.assertRaisesRegex(ValueError,
+                                    "max gzipped payload length exceeded"):
+            xmlrpclib.gzip_decode(encoded)
+
+        xmlrpclib.gzip_decode(encoded, max_decode=-1)
+
 
 #Test special attributes of the ServerProxy object
 class ServerProxyTestCase(unittest.TestCase):
@@ -879,6 +935,7 @@ class ServerProxyTestCase(unittest.TestCase):
         t = xmlrpclib.Transport()
         p = xmlrpclib.ServerProxy(self.url, transport=t)
         self.assertEqual(p('transport'), t)
+
 
 # This is a contrived way to make a failure occur on the server side
 # in order to test the _send_traceback_header flag on the server
@@ -923,7 +980,7 @@ class FailingServerTestCase(unittest.TestCase):
         try:
             p = xmlrpclib.ServerProxy(URL)
             self.assertEqual(p.pow(6,8), 6**8)
-        except (xmlrpclib.ProtocolError, socket.error) as e:
+        except (xmlrpclib.ProtocolError, OSError) as e:
             # ignore failures due to non-blocking socket 'unavailable' errors
             if not is_unavailable_exception(e):
                 # protocol error; provide additional information in test output
@@ -936,7 +993,7 @@ class FailingServerTestCase(unittest.TestCase):
         try:
             p = xmlrpclib.ServerProxy(URL)
             p.pow(6,8)
-        except (xmlrpclib.ProtocolError, socket.error) as e:
+        except (xmlrpclib.ProtocolError, OSError) as e:
             # ignore failures due to non-blocking socket 'unavailable' errors
             if not is_unavailable_exception(e) and hasattr(e, "headers"):
                 # The two server-side error headers shouldn't be sent back in this case
@@ -956,7 +1013,7 @@ class FailingServerTestCase(unittest.TestCase):
         try:
             p = xmlrpclib.ServerProxy(URL)
             p.pow(6,8)
-        except (xmlrpclib.ProtocolError, socket.error) as e:
+        except (xmlrpclib.ProtocolError, OSError) as e:
             # ignore failures due to non-blocking socket 'unavailable' errors
             if not is_unavailable_exception(e) and hasattr(e, "headers"):
                 # We should get error info in the response
@@ -1084,23 +1141,13 @@ class UseBuiltinTypesTestCase(unittest.TestCase):
 
 @support.reap_threads
 def test_main():
-    xmlrpc_tests = [XMLRPCTestCase, HelperTestCase, DateTimeTestCase,
-         BinaryTestCase, FaultTestCase]
-    xmlrpc_tests.append(UseBuiltinTypesTestCase)
-    xmlrpc_tests.append(SimpleServerTestCase)
-    xmlrpc_tests.append(KeepaliveServerTestCase1)
-    xmlrpc_tests.append(KeepaliveServerTestCase2)
-    try:
-        import gzip
-        xmlrpc_tests.append(GzipServerTestCase)
-    except ImportError:
-        pass #gzip not supported in this build
-    xmlrpc_tests.append(MultiPathServerTestCase)
-    xmlrpc_tests.append(ServerProxyTestCase)
-    xmlrpc_tests.append(FailingServerTestCase)
-    xmlrpc_tests.append(CGIHandlerTestCase)
+    support.run_unittest(XMLRPCTestCase, HelperTestCase, DateTimeTestCase,
+            BinaryTestCase, FaultTestCase, UseBuiltinTypesTestCase,
+            SimpleServerTestCase, KeepaliveServerTestCase1,
+            KeepaliveServerTestCase2, GzipServerTestCase, GzipUtilTestCase,
+            MultiPathServerTestCase, ServerProxyTestCase, FailingServerTestCase,
+            CGIHandlerTestCase)
 
-    support.run_unittest(*xmlrpc_tests)
 
 if __name__ == "__main__":
     test_main()

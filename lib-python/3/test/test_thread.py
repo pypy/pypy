@@ -68,7 +68,7 @@ class ThreadRunningTests(BasicThreadTest):
         thread.stack_size(0)
         self.assertEqual(thread.stack_size(), 0, "stack_size not reset to default")
 
-    @unittest.skipIf(os.name not in ("nt", "os2", "posix"), 'test meant for nt, os2, and posix')
+    @unittest.skipIf(os.name not in ("nt", "posix"), 'test meant for nt and posix')
     def test_nt_and_posix_stack_size(self):
         try:
             thread.stack_size(4096)
@@ -252,9 +252,5 @@ class TestForkInThread(unittest.TestCase):
             pass
 
 
-def test_main():
-    support.run_unittest(ThreadRunningTests, BarrierTest, LockTests,
-                         TestForkInThread)
-
 if __name__ == "__main__":
-    test_main()
+    unittest.main()

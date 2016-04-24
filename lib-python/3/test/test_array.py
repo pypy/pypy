@@ -285,17 +285,18 @@ class BaseTest:
 
     def test_iterator_pickle(self):
         data = array.array(self.typecode, self.example)
-        orgit = iter(data)
-        d = pickle.dumps(orgit)
-        it = pickle.loads(d)
-        self.assertEqual(type(orgit), type(it))
-        self.assertEqual(list(it), list(data))
-
-        if len(data):
+        for proto in range(pickle.HIGHEST_PROTOCOL + 1):
+            orgit = iter(data)
+            d = pickle.dumps(orgit, proto)
             it = pickle.loads(d)
-            next(it)
-            d = pickle.dumps(it)
-            self.assertEqual(list(it), list(data)[1:])
+            self.assertEqual(type(orgit), type(it))
+            self.assertEqual(list(it), list(data))
+
+            if len(data):
+                it = pickle.loads(d)
+                next(it)
+                d = pickle.dumps(it, proto)
+                self.assertEqual(list(it), list(data)[1:])
 
     def test_insert(self):
         a = array.array(self.typecode, self.example)
@@ -353,12 +354,12 @@ class BaseTest:
             support.unlink(support.TESTFN)
 
     def test_fromfile_ioerror(self):
-        # Issue #5395: Check if fromfile raises a proper IOError
+        # Issue #5395: Check if fromfile raises a proper OSError
         # instead of EOFError.
         a = array.array(self.typecode)
         f = open(support.TESTFN, 'wb')
         try:
-            self.assertRaises(IOError, a.fromfile, f, len(self.example))
+            self.assertRaises(OSError, a.fromfile, f, len(self.example))
         finally:
             f.close()
             support.unlink(support.TESTFN)
@@ -393,7 +394,9 @@ class BaseTest:
         self.assertEqual(a, b)
 
     def test_tofromstring(self):
-        nb_warnings = 4
+        # Warnings not raised when arguments are incorrect as Argument Clinic
+        # handles that before the warning can be raised.
+        nb_warnings = 2
         with warnings.catch_warnings(record=True) as r:
             warnings.filterwarnings("always",
                                     message=r"(to|from)string\(\) is deprecated",
@@ -1026,6 +1029,23 @@ class BaseTest:
         basesize = support.calcvobjsize('Pn2Pi')
         support.check_sizeof(self, a, basesize)
 
+    def test_initialize_with_unicode(self):
+        if self.typecode != 'u':
+            with self.assertRaises(TypeError) as cm:
+                a = array.array(self.typecode, 'foo')
+            self.assertIn("cannot use a str", str(cm.exception))
+            with self.assertRaises(TypeError) as cm:
+                a = array.array(self.typecode, array.array('u', 'foo'))
+            self.assertIn("cannot use a unicode array", str(cm.exception))
+        else:
+            a = array.array(self.typecode, "foo")
+            a = array.array(self.typecode, array.array('u', 'foo'))
+
+    @support.cpython_only
+    def test_obsolete_write_lock(self):
+        from _testcapi import getbuffer_with_null_view
+        a = array.array('B', b"")
+        self.assertRaises(BufferError, getbuffer_with_null_view, a)
 
 class StringTest(BaseTest):
 

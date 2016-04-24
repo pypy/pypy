@@ -26,6 +26,7 @@ import re
 from email import errors
 from email import message
 from email._policybase import compat32
+from collections import deque
 
 NLCRE = re.compile('\r\n|\r|\n')
 NLCRE_bol = re.compile('(\r\n|\r|\n)')
@@ -33,7 +34,7 @@ NLCRE_eol = re.compile('(\r\n|\r|\n)\Z')
 NLCRE_crack = re.compile('(\r\n|\r|\n)')
 # RFC 2822 $3.6.8 Optional fields.  ftext is %d33-57 / %d59-126, Any character
 # except controls, SP, and ":".
-headerRE = re.compile(r'^(From |[\041-\071\073-\176]{1,}:|[\t ])')
+headerRE = re.compile(r'^(From |[\041-\071\073-\176]*:|[\t ])')
 EMPTYSTRING = ''
 NL = '\n'
 
@@ -50,10 +51,10 @@ class BufferedSubFile(object):
     simple abstraction -- it parses until EOF closes the current message.
     """
     def __init__(self):
-        # The last partial line pushed into this object.
-        self._partial = ''
-        # The list of full, pushed lines, in reverse order
-        self._lines = []
+        # Chunks of the last partial line pushed into this object.
+        self._partial = []
+        # A deque of full, pushed lines
+        self._lines = deque()
         # The stack of false-EOF checking predicates.
         self._eofstack = []
         # A flag indicating whether the file has been closed or not.
@@ -67,8 +68,8 @@ class BufferedSubFile(object):
 
     def close(self):
         # Don't forget any trailing partial line.
-        self._lines.append(self._partial)
-        self._partial = ''
+        self.pushlines(''.join(self._partial).splitlines(True))
+        self._partial = []
         self._closed = True
 
     def readline(self):
@@ -78,48 +79,48 @@ class BufferedSubFile(object):
             return NeedMoreData
         # Pop the line off the stack and see if it matches the current
         # false-EOF predicate.
-        line = self._lines.pop()
+        line = self._lines.popleft()
         # RFC 2046, section 5.1.2 requires us to recognize outer level
         # boundaries at any level of inner nesting.  Do this, but be sure it's
         # in the order of most to least nested.
-        for ateof in self._eofstack[::-1]:
+        for ateof in reversed(self._eofstack):
             if ateof(line):
                 # We're at the false EOF.  But push the last line back first.
-                self._lines.append(line)
+                self._lines.appendleft(line)
                 return ''
         return line
 
     def unreadline(self, line):
         # Let the consumer push a line back into the buffer.
         assert line is not NeedMoreData
-        self._lines.append(line)
+        self._lines.appendleft(line)
 
     def push(self, data):
         """Push some new data into this object."""
-        # Handle any previous leftovers
-        data, self._partial = self._partial + data, ''
-        # Crack into lines, but preserve the newlines on the end of each
-        parts = NLCRE_crack.split(data)
-        # The *ahem* interesting behaviour of re.split when supplied grouping
-        # parentheses is that the last element of the resulting list is the
-        # data after the final RE.  In the case of a NL/CR terminated string,
-        # this is the empty string.
-        self._partial = parts.pop()
-        #GAN 29Mar09  bugs 1555570, 1721862  Confusion at 8K boundary ending with \r:
-        # is there a \n to follow later?
-        if not self._partial and parts and parts[-1].endswith('\r'):
-            self._partial = parts.pop(-2)+parts.pop()
-        # parts is a list of strings, alternating between the line contents
-        # and the eol character(s).  Gather up a list of lines after
-        # re-attaching the newlines.
-        lines = []
-        for i in range(len(parts) // 2):
-            lines.append(parts[i*2] + parts[i*2+1])
-        self.pushlines(lines)
+        # Crack into lines, but preserve the linesep characters on the end of each
+        parts = data.splitlines(True)
+
+        if not parts or not parts[0].endswith(('\n', '\r')):
+            # No new complete lines, so just accumulate partials
+            self._partial += parts
+            return
+
+        if self._partial:
+            # If there are previous leftovers, complete them now
+            self._partial.append(parts[0])
+            parts[0:1] = ''.join(self._partial).splitlines(True)
+            del self._partial[:]
+
+        # If the last element of the list does not end in a newline, then treat
+        # it as a partial line.  We only check for '\n' here because a line
+        # ending with '\r' might be a line that was split in the middle of a
+        # '\r\n' sequence (see bugs 1555570 and 1721862).
+        if not parts[-1].endswith('\n'):
+            self._partial = [parts.pop()]
+        self.pushlines(parts)
 
     def pushlines(self, lines):
-        # Reverse and insert at the front of the lines.
-        self._lines[:0] = lines[::-1]
+        self._lines.extend(lines)
 
     def __iter__(self):
         return self
@@ -135,7 +136,7 @@ class BufferedSubFile(object):
 class FeedParser:
     """A feed-style parser of email."""
 
-    def __init__(self, _factory=message.Message, *, policy=compat32):
+    def __init__(self, _factory=None, *, policy=compat32):
         """_factory is called with no arguments to create a new message obj
 
         The policy keyword specifies a policy object that controls a number of
@@ -143,14 +144,23 @@ class FeedParser:
         backward compatibility.
 
         """
-        self._factory = _factory
         self.policy = policy
-        try:
-            _factory(policy=self.policy)
-            self._factory_kwds = lambda: {'policy': self.policy}
-        except TypeError:
-            # Assume this is an old-style factory
-            self._factory_kwds = lambda: {}
+        self._factory_kwds = lambda: {'policy': self.policy}
+        if _factory is None:
+            # What this should be:
+            #self._factory = policy.default_message_factory
+            # but, because we are post 3.4 feature freeze, fix with temp hack:
+            if self.policy is compat32:
+                self._factory = message.Message
+            else:
+                self._factory = message.EmailMessage
+        else:
+            self._factory = _factory
+            try:
+                _factory(policy=self.policy)
+            except TypeError:
+                # Assume this is an old-style factory
+                self._factory_kwds = lambda: {}
         self._input = BufferedSubFile()
         self._msgstack = []
         self._parse = self._parsegen().__next__
@@ -501,6 +511,15 @@ class FeedParser:
             # There will always be a colon, because if there wasn't the part of
             # the parser that calls us would have started parsing the body.
             i = line.find(':')
+
+            # If the colon is on the start of the line the header is clearly
+            # malformed, but we might be able to salvage the rest of the
+            # message. Track the error but keep going.
+            if i == 0:
+                defect = errors.InvalidHeaderDefect("Missing header name.")
+                self._cur.defects.append(defect)
+                continue
+
             assert i>0, "_parse_headers fed line with no : and no leading WS"
             lastheader = line[:i]
             lastvalue = [line]

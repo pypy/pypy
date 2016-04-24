@@ -14,19 +14,11 @@ import argparse
 from io import StringIO
 
 from test import support
+from unittest import mock
 class StdIOBuffer(StringIO):
     pass
 
 class TestCase(unittest.TestCase):
-
-    def assertEqual(self, obj1, obj2):
-        if obj1 != obj2:
-            print('')
-            print(repr(obj1))
-            print(repr(obj2))
-            print(obj1)
-            print(obj2)
-        super(TestCase, self).assertEqual(obj1, obj2)
 
     def setUp(self):
         # The tests assume that line wrapping occurs at 80 columns, but this
@@ -46,6 +38,9 @@ class TempDirMixin(object):
 
     def tearDown(self):
         os.chdir(self.old_dir)
+        for root, dirs, files in os.walk(self.temp_dir, topdown=False):
+            for name in files:
+                os.chmod(os.path.join(self.temp_dir, name), stat.S_IWRITE)
         shutil.rmtree(self.temp_dir, True)
 
     def create_readonly_file(self, filename):
@@ -73,9 +68,6 @@ class NS(object):
 
     def __eq__(self, other):
         return vars(self) == vars(other)
-
-    def __ne__(self, other):
-        return not (self == other)
 
 
 class ArgumentParserError(Exception):
@@ -231,8 +223,8 @@ class ParserTesterMetaclass(type):
                 parser = self._get_parser(tester)
                 for args_str in tester.failures:
                     args = args_str.split()
-                    raises = tester.assertRaises
-                    raises(ArgumentParserError, parser.parse_args, args)
+                    with tester.assertRaises(ArgumentParserError, msg=args):
+                        parser.parse_args(args)
 
             def test_successes(self, tester):
                 parser = self._get_parser(tester)
@@ -640,7 +632,7 @@ class TestOptionalsChoices(ParserTestCase):
 
 
 class TestOptionalsRequired(ParserTestCase):
-    """Tests the an optional action that is required"""
+    """Tests an optional action that is required"""
 
     argument_signatures = [
         Sig('-x', type=int, required=True),
@@ -760,6 +752,39 @@ class TestOptionalsActionCount(ParserTestCase):
         ('-x', NS(x=1)),
     ]
 
+
+class TestOptionalsAllowLongAbbreviation(ParserTestCase):
+    """Allow long options to be abbreviated unambiguously"""
+
+    argument_signatures = [
+        Sig('--foo'),
+        Sig('--foobaz'),
+        Sig('--fooble', action='store_true'),
+    ]
+    failures = ['--foob 5', '--foob']
+    successes = [
+        ('', NS(foo=None, foobaz=None, fooble=False)),
+        ('--foo 7', NS(foo='7', foobaz=None, fooble=False)),
+        ('--fooba a', NS(foo=None, foobaz='a', fooble=False)),
+        ('--foobl --foo g', NS(foo='g', foobaz=None, fooble=True)),
+    ]
+
+
+class TestOptionalsDisallowLongAbbreviation(ParserTestCase):
+    """Do not allow abbreviations of long options at all"""
+
+    parser_signature = Sig(allow_abbrev=False)
+    argument_signatures = [
+        Sig('--foo'),
+        Sig('--foodle', action='store_true'),
+        Sig('--foonly'),
+    ]
+    failures = ['-foon 3', '--foon 3', '--food', '--food --foo 2']
+    successes = [
+        ('', NS(foo=None, foodle=False, foonly=None)),
+        ('--foo 3', NS(foo='3', foodle=False, foonly=None)),
+        ('--foonly 7 --foodle --foo 2', NS(foo='2', foodle=True, foonly='7')),
+    ]
 
 # ================
 # Positional tests
@@ -1421,6 +1446,19 @@ class TestFileTypeRepr(TestCase):
         type = argparse.FileType('wb', 1)
         self.assertEqual("FileType('wb', 1)", repr(type))
 
+    def test_r_latin(self):
+        type = argparse.FileType('r', encoding='latin_1')
+        self.assertEqual("FileType('r', encoding='latin_1')", repr(type))
+
+    def test_w_big5_ignore(self):
+        type = argparse.FileType('w', encoding='big5', errors='ignore')
+        self.assertEqual("FileType('w', encoding='big5', errors='ignore')",
+                         repr(type))
+
+    def test_r_1_replace(self):
+        type = argparse.FileType('r', 1, errors='replace')
+        self.assertEqual("FileType('r', 1, errors='replace')", repr(type))
+
 
 class RFile(object):
     seen = {}
@@ -1555,6 +1593,24 @@ class TestFileTypeWB(TempDirMixin, ParserTestCase):
         ('bar -x foo', NS(x=WFile('foo'), spam=WFile('bar'))),
         ('-x - -', NS(x=sys.stdout, spam=sys.stdout)),
     ]
+
+
+class TestFileTypeOpenArgs(TestCase):
+    """Test that open (the builtin) is correctly called"""
+
+    def test_open_args(self):
+        FT = argparse.FileType
+        cases = [
+            (FT('rb'), ('rb', -1, None, None)),
+            (FT('w', 1), ('w', 1, None, None)),
+            (FT('w', errors='replace'), ('w', -1, None, 'replace')),
+            (FT('wb', encoding='big5'), ('wb', -1, 'big5', None)),
+            (FT('w', 0, 'l1', 'strict'), ('w', 0, 'l1', 'strict')),
+        ]
+        with mock.patch('builtins.open') as m:
+            for type, args in cases:
+                type('foo')
+                m.assert_called_with('foo', *args)
 
 
 class TestTypeCallable(ParserTestCase):
@@ -1958,14 +2014,9 @@ class TestAddSubparsers(TestCase):
             '''))
 
     def _test_subparser_help(self, args_str, expected_help):
-        try:
+        with self.assertRaises(ArgumentParserError) as cm:
             self.parser.parse_args(args_str.split())
-        except ArgumentParserError:
-            err = sys.exc_info()[1]
-            if err.stdout != expected_help:
-                print(repr(expected_help))
-                print(repr(err.stdout))
-            self.assertEqual(err.stdout, expected_help)
+        self.assertEqual(expected_help, cm.exception.stdout)
 
     def test_subparser1_help(self):
         self._test_subparser_help('5.0 1 -h', textwrap.dedent('''\
@@ -2760,6 +2811,13 @@ class TestSetDefaults(TestCase):
         parser = ErrorRaisingArgumentParser(parents=[parent])
         self.assertEqual(NS(x='foo'), parser.parse_args([]))
 
+    def test_set_defaults_on_parent_and_subparser(self):
+        parser = argparse.ArgumentParser()
+        xparser = parser.add_subparsers().add_parser('X')
+        parser.set_defaults(foo=1)
+        xparser.set_defaults(foo=2)
+        self.assertEqual(NS(foo=2), parser.parse_args(['X']))
+
     def test_set_defaults_same_as_add_argument(self):
         parser = ErrorRaisingArgumentParser()
         parser.set_defaults(w='W', x='X', y='Y', z='Z')
@@ -2804,15 +2862,15 @@ class TestGetDefault(TestCase):
 
     def test_get_default(self):
         parser = ErrorRaisingArgumentParser()
-        self.assertEqual(None, parser.get_default("foo"))
-        self.assertEqual(None, parser.get_default("bar"))
+        self.assertIsNone(parser.get_default("foo"))
+        self.assertIsNone(parser.get_default("bar"))
 
         parser.add_argument("--foo")
-        self.assertEqual(None, parser.get_default("foo"))
-        self.assertEqual(None, parser.get_default("bar"))
+        self.assertIsNone(parser.get_default("foo"))
+        self.assertIsNone(parser.get_default("bar"))
 
         parser.add_argument("--bar", type=int, default=42)
-        self.assertEqual(None, parser.get_default("foo"))
+        self.assertIsNone(parser.get_default("foo"))
         self.assertEqual(42, parser.get_default("bar"))
 
         parser.set_defaults(foo="badger")
@@ -2827,18 +2885,16 @@ class TestNamespaceContainsSimple(TestCase):
 
     def test_empty(self):
         ns = argparse.Namespace()
-        self.assertEqual('' in ns, False)
-        self.assertEqual('' not in ns, True)
-        self.assertEqual('x' in ns, False)
+        self.assertNotIn('', ns)
+        self.assertNotIn('x', ns)
 
     def test_non_empty(self):
         ns = argparse.Namespace(x=1, y=2)
-        self.assertEqual('x' in ns, True)
-        self.assertEqual('x' not in ns, False)
-        self.assertEqual('y' in ns, True)
-        self.assertEqual('' in ns, False)
-        self.assertEqual('xx' in ns, False)
-        self.assertEqual('z' in ns, False)
+        self.assertNotIn('', ns)
+        self.assertIn('x', ns)
+        self.assertIn('y', ns)
+        self.assertNotIn('xx', ns)
+        self.assertNotIn('z', ns)
 
 # =====================
 # Help formatting tests
@@ -2894,13 +2950,6 @@ class TestHelpFormattingMetaclass(type):
             def _test(self, tester, parser_text):
                 expected_text = getattr(tester, self.func_suffix)
                 expected_text = textwrap.dedent(expected_text)
-                if expected_text != parser_text:
-                    print(repr(expected_text))
-                    print(repr(parser_text))
-                    for char1, char2 in zip(expected_text, parser_text):
-                        if char1 != char2:
-                            print('first diff: %r %r' % (char1, char2))
-                            break
                 tester.assertEqual(expected_text, parser_text)
 
             def test_format(self, tester):
@@ -2977,7 +3026,7 @@ class TestShortColumns(HelpTestCase):
     '''Test extremely small number of columns.
 
     TestCase prevents "COLUMNS" from being too small in the tests themselves,
-    but we don't want any exceptions thrown in such case. Only ugly representation.
+    but we don't want any exceptions thrown in such cases. Only ugly representation.
     '''
     def setUp(self):
         env = support.EnvironmentVarGuard()
@@ -3803,34 +3852,6 @@ class TestHelpNoHelpOptional(HelpTestCase):
     version = ''
 
 
-class TestHelpVersionOptional(HelpTestCase):
-    """Test that the --version argument can be suppressed help messages"""
-
-    parser_signature = Sig(prog='PROG')
-    argument_signatures = [
-        Sig('-v', '--version', action='version', version='1.0'),
-        Sig('--foo', help='foo help'),
-        Sig('spam', help='spam help'),
-    ]
-    argument_group_signatures = []
-    usage = '''\
-        usage: PROG [-h] [-v] [--foo FOO] spam
-        '''
-    help = usage + '''\
-
-        positional arguments:
-          spam           spam help
-
-        optional arguments:
-          -h, --help     show this help message and exit
-          -v, --version  show program's version number and exit
-          --foo FOO      foo help
-        '''
-    version = '''\
-        1.0
-        '''
-
-
 class TestHelpNone(HelpTestCase):
     """Test that no errors occur if no help is specified"""
 
@@ -4038,6 +4059,32 @@ class TestHelpVersionAction(HelpTestCase):
         '''
     version = ''
 
+
+class TestHelpVersionActionSuppress(HelpTestCase):
+    """Test that the --version argument can be suppressed in help messages"""
+
+    parser_signature = Sig(prog='PROG')
+    argument_signatures = [
+        Sig('-v', '--version', action='version', version='1.0',
+            help=argparse.SUPPRESS),
+        Sig('--foo', help='foo help'),
+        Sig('spam', help='spam help'),
+    ]
+    argument_group_signatures = []
+    usage = '''\
+        usage: PROG [-h] [--foo FOO] spam
+        '''
+    help = usage + '''\
+
+        positional arguments:
+          spam        spam help
+
+        optional arguments:
+          -h, --help  show this help message and exit
+          --foo FOO   foo help
+        '''
+
+
 class TestHelpSubparsersOrdering(HelpTestCase):
     """Test ordering of subcommands in help matches the code"""
     parser_signature = Sig(prog='PROG',
@@ -4181,24 +4228,17 @@ class TestInvalidArgumentConstructors(TestCase):
         self.assertValueError('foo', action='baz')
         self.assertValueError('--foo', action=('store', 'append'))
         parser = argparse.ArgumentParser()
-        try:
+        with self.assertRaises(ValueError) as cm:
             parser.add_argument("--foo", action="store-true")
-        except ValueError:
-            e = sys.exc_info()[1]
-            expected = 'unknown action'
-            msg = 'expected %r, found %r' % (expected, e)
-            self.assertTrue(expected in str(e), msg)
+        self.assertIn('unknown action', str(cm.exception))
 
     def test_multiple_dest(self):
         parser = argparse.ArgumentParser()
         parser.add_argument(dest='foo')
-        try:
+        with self.assertRaises(ValueError) as cm:
             parser.add_argument('bar', dest='baz')
-        except ValueError:
-            e = sys.exc_info()[1]
-            expected = 'dest supplied twice for positional argument'
-            msg = 'expected %r, found %r' % (expected, e)
-            self.assertTrue(expected in str(e), msg)
+        self.assertIn('dest supplied twice for positional argument',
+                      str(cm.exception))
 
     def test_no_argument_actions(self):
         for action in ['store_const', 'store_true', 'store_false',
@@ -4355,18 +4395,10 @@ class TestConflictHandling(TestCase):
 class TestOptionalsHelpVersionActions(TestCase):
     """Test the help and version actions"""
 
-    def _get_error(self, func, *args, **kwargs):
-        try:
-            func(*args, **kwargs)
-        except ArgumentParserError:
-            return sys.exc_info()[1]
-        else:
-            self.assertRaises(ArgumentParserError, func, *args, **kwargs)
-
     def assertPrintHelpExit(self, parser, args_str):
-        self.assertEqual(
-            parser.format_help(),
-            self._get_error(parser.parse_args, args_str.split()).stdout)
+        with self.assertRaises(ArgumentParserError) as cm:
+            parser.parse_args(args_str.split())
+        self.assertEqual(parser.format_help(), cm.exception.stdout)
 
     def assertArgumentParserError(self, parser, *args):
         self.assertRaises(ArgumentParserError, parser.parse_args, args)
@@ -4381,8 +4413,9 @@ class TestOptionalsHelpVersionActions(TestCase):
     def test_version_format(self):
         parser = ErrorRaisingArgumentParser(prog='PPP')
         parser.add_argument('-v', '--version', action='version', version='%(prog)s 3.5')
-        msg = self._get_error(parser.parse_args, ['-v']).stderr
-        self.assertEqual('PPP 3.5\n', msg)
+        with self.assertRaises(ArgumentParserError) as cm:
+            parser.parse_args(['-v'])
+        self.assertEqual('PPP 3.5\n', cm.exception.stdout)
 
     def test_version_no_help(self):
         parser = ErrorRaisingArgumentParser(add_help=False)
@@ -4394,8 +4427,9 @@ class TestOptionalsHelpVersionActions(TestCase):
     def test_version_action(self):
         parser = ErrorRaisingArgumentParser(prog='XXX')
         parser.add_argument('-V', action='version', version='%(prog)s 3.7')
-        msg = self._get_error(parser.parse_args, ['-V']).stderr
-        self.assertEqual('XXX 3.7\n', msg)
+        with self.assertRaises(ArgumentParserError) as cm:
+            parser.parse_args(['-V'])
+        self.assertEqual('XXX 3.7\n', cm.exception.stdout)
 
     def test_no_help(self):
         parser = ErrorRaisingArgumentParser(add_help=False)
@@ -4516,6 +4550,12 @@ class TestNamespace(TestCase):
         self.assertTrue(ns2 != ns3)
         self.assertTrue(ns2 != ns4)
 
+    def test_equality_returns_notimplemeted(self):
+        # See issue 21481
+        ns = argparse.Namespace(a=1, b=2)
+        self.assertIs(ns.__eq__(None), NotImplemented)
+        self.assertIs(ns.__ne__(None), NotImplemented)
+
 
 # ===================
 # File encoding tests
@@ -4559,14 +4599,10 @@ class TestArgumentTypeError(TestCase):
 
         parser = ErrorRaisingArgumentParser(prog='PROG', add_help=False)
         parser.add_argument('x', type=spam)
-        try:
+        with self.assertRaises(ArgumentParserError) as cm:
             parser.parse_args(['XXX'])
-        except ArgumentParserError:
-            expected = 'usage: PROG x\nPROG: error: argument x: spam!\n'
-            msg = sys.exc_info()[1].stderr
-            self.assertEqual(expected, msg)
-        else:
-            self.fail()
+        self.assertEqual('usage: PROG x\nPROG: error: argument x: spam!\n',
+                         cm.exception.stderr)
 
 # =========================
 # MessageContentError tests

@@ -1,6 +1,7 @@
 "Test InteractiveConsole and InteractiveInterpreter from code module"
 import sys
 import unittest
+from textwrap import dedent
 from contextlib import ExitStack
 from unittest import mock
 from test import support
@@ -51,7 +52,7 @@ class TestInteractiveConsole(unittest.TestCase):
         self.infunc.side_effect = ["undefined", EOFError('Finished')]
         self.console.interact()
         for call in self.stderr.method_calls:
-            if 'NameError:' in ''.join(call[1]):
+            if 'NameError' in ''.join(call[1]):
                 break
         else:
             raise AssertionError("No syntax error from console")
@@ -64,9 +65,54 @@ class TestInteractiveConsole(unittest.TestCase):
         self.console.interact()
         self.assertTrue(hook.called)
 
+    def test_banner(self):
+        # with banner
+        self.infunc.side_effect = EOFError('Finished')
+        self.console.interact(banner='Foo')
+        self.assertEqual(len(self.stderr.method_calls), 2)
+        banner_call = self.stderr.method_calls[0]
+        self.assertEqual(banner_call, ['write', ('Foo\n',), {}])
 
-def test_main():
-    support.run_unittest(TestInteractiveConsole)
+        # no banner
+        self.stderr.reset_mock()
+        self.infunc.side_effect = EOFError('Finished')
+        self.console.interact(banner='')
+        self.assertEqual(len(self.stderr.method_calls), 1)
+
+    def test_cause_tb(self):
+        self.infunc.side_effect = ["raise ValueError('') from AttributeError",
+                                    EOFError('Finished')]
+        self.console.interact()
+        output = ''.join(''.join(call[1]) for call in self.stderr.method_calls)
+        expected = dedent("""
+        AttributeError
+
+        The above exception was the direct cause of the following exception:
+
+        Traceback (most recent call last):
+          File "<console>", line 1, in <module>
+        ValueError
+        """)
+        self.assertIn(expected, output)
+
+    def test_context_tb(self):
+        self.infunc.side_effect = ["try: ham\nexcept: eggs\n",
+                                    EOFError('Finished')]
+        self.console.interact()
+        output = ''.join(''.join(call[1]) for call in self.stderr.method_calls)
+        expected = dedent("""
+        Traceback (most recent call last):
+          File "<console>", line 1, in <module>
+        NameError: name 'ham' is not defined
+
+        During handling of the above exception, another exception occurred:
+
+        Traceback (most recent call last):
+          File "<console>", line 2, in <module>
+        NameError: name 'eggs' is not defined
+        """)
+        self.assertIn(expected, output)
+
 
 if __name__ == "__main__":
     unittest.main()

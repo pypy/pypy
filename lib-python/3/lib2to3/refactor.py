@@ -57,7 +57,7 @@ def _get_head_types(pat):
         # Always return leafs
         if pat.type is None:
             raise _EveryNode
-        return set([pat.type])
+        return {pat.type}
 
     if isinstance(pat, pytree.NegatedPattern):
         if pat.content:
@@ -133,7 +133,7 @@ def _detect_future_features(source):
     def advance():
         tok = next(gen)
         return tok[0], tok[1]
-    ignore = frozenset((token.NEWLINE, tokenize.NL, token.COMMENT))
+    ignore = frozenset({token.NEWLINE, tokenize.NL, token.COMMENT})
     features = set()
     try:
         while True:
@@ -255,7 +255,7 @@ class RefactoringTool(object):
             fixer = fix_class(self.options, self.fixer_log)
             if fixer.explicit and self.explicit is not True and \
                     fix_mod_path not in self.explicit:
-                self.log_message("Skipping implicit fixer: %s", fix_name)
+                self.log_message("Skipping optional fixer: %s", fix_name)
                 continue
 
             self.log_debug("Adding transformation: %s", fix_name)
@@ -326,7 +326,7 @@ class RefactoringTool(object):
         """
         try:
             f = open(filename, "rb")
-        except IOError as err:
+        except OSError as err:
             self.log_error("Can't open %s: %s", filename, err)
             return None, None
         try:
@@ -534,12 +534,12 @@ class RefactoringTool(object):
         """
         try:
             f = _open_with_encoding(filename, "w", encoding=encoding)
-        except os.error as err:
+        except OSError as err:
             self.log_error("Can't create %s: %s", filename, err)
             return
         try:
             f.write(_to_system_newlines(new_text))
-        except os.error as err:
+        except OSError as err:
             self.log_error("Can't write %s: %s", filename, err)
         finally:
             f.close()

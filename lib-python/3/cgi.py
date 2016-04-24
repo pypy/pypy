@@ -82,7 +82,7 @@ def initlog(*allargs):
     if logfile and not logfp:
         try:
             logfp = open(logfile, "a")
-        except IOError:
+        except OSError:
             pass
     if not logfp:
         log = nolog
@@ -560,6 +560,18 @@ class FieldStorage:
         else:
             self.read_single()
 
+    def __del__(self):
+        try:
+            self.file.close()
+        except AttributeError:
+            pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        self.file.close()
+
     def __repr__(self):
         """Return a printable representation."""
         return "FieldStorage(%r, %r, %r)" % (
@@ -680,7 +692,6 @@ class FieldStorage:
                 encoding=self.encoding, errors=self.errors)
             for key, value in query:
                 self.list.append(MiniFieldStorage(key, value))
-            FieldStorageClass = None
 
         klass = self.FieldStorageClass or self.__class__
         first_line = self.fp.readline() # bytes
@@ -688,8 +699,13 @@ class FieldStorage:
             raise ValueError("%s should return bytes, got %s" \
                              % (self.fp, type(first_line).__name__))
         self.bytes_read += len(first_line)
-        # first line holds boundary ; ignore it, or check that
-        # b"--" + ib == first_line.strip() ?
+
+        # Ensure that we consume the file until we've hit our inner boundary
+        while (first_line.strip() != (b"--" + self.innerboundary) and
+                first_line):
+            first_line = self.fp.readline()
+            self.bytes_read += len(first_line)
+
         while True:
             parser = FeedParser()
             hdr_text = b""
@@ -704,6 +720,11 @@ class FieldStorage:
             self.bytes_read += len(hdr_text)
             parser.feed(hdr_text.decode(self.encoding, self.errors))
             headers = parser.close()
+
+            # Some clients add Content-Length for part headers, ignore them
+            if 'content-length' in headers:
+                del headers['content-length']
+
             part = klass(self.fp, headers, ib, environ, keep_blank_values,
                          strict_parsing,self.limit-self.bytes_read,
                          self.encoding, self.errors)
@@ -968,8 +989,8 @@ def print_directory():
     print("<H3>Current Working Directory:</H3>")
     try:
         pwd = os.getcwd()
-    except os.error as msg:
-        print("os.error:", html.escape(str(msg)))
+    except OSError as msg:
+        print("OSError:", html.escape(str(msg)))
     else:
         print(html.escape(pwd))
     print()
@@ -1040,7 +1061,7 @@ def escape(s, quote=None):
     return s
 
 
-def valid_boundary(s, _vb_pattern=None):
+def valid_boundary(s):
     import re
     if isinstance(s, bytes):
         _vb_pattern = b"^[ -~]{0,200}[!-~]$"

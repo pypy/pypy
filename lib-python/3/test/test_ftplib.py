@@ -21,6 +21,7 @@ from test import support
 from test.support import HOST, HOSTv6
 threading = support.import_module('threading')
 
+TIMEOUT = 3
 # the dummy data returned by server over the data channel when
 # RETR, LIST, NLST, MLSD commands are issued
 RETR_DATA = 'abcde12345\r\n' * 1000
@@ -72,7 +73,7 @@ class DummyDTPHandler(asynchat.async_chat):
         super(DummyDTPHandler, self).push(what.encode('ascii'))
 
     def handle_error(self):
-        raise
+        raise Exception
 
 
 class DummyFTPHandler(asynchat.async_chat):
@@ -117,7 +118,7 @@ class DummyFTPHandler(asynchat.async_chat):
             self.push('550 command "%s" not understood.' %cmd)
 
     def handle_error(self):
-        raise
+        raise Exception
 
     def push(self, data):
         asynchat.async_chat.push(self, data.encode('ascii') + b'\r\n')
@@ -126,15 +127,15 @@ class DummyFTPHandler(asynchat.async_chat):
         addr = list(map(int, arg.split(',')))
         ip = '%d.%d.%d.%d' %tuple(addr[:4])
         port = (addr[4] * 256) + addr[5]
-        s = socket.create_connection((ip, port), timeout=2)
+        s = socket.create_connection((ip, port), timeout=TIMEOUT)
         self.dtp = self.dtp_handler(s, baseclass=self)
         self.push('200 active data connection established')
 
     def cmd_pasv(self, arg):
         with socket.socket() as sock:
             sock.bind((self.socket.getsockname()[0], 0))
-            sock.listen(5)
-            sock.settimeout(10)
+            sock.listen()
+            sock.settimeout(TIMEOUT)
             ip, port = sock.getsockname()[:2]
             ip = ip.replace('.', ','); p1 = port / 256; p2 = port % 256
             self.push('227 entering passive mode (%s,%d,%d)' %(ip, p1, p2))
@@ -144,15 +145,15 @@ class DummyFTPHandler(asynchat.async_chat):
     def cmd_eprt(self, arg):
         af, ip, port = arg.split(arg[0])[1:-1]
         port = int(port)
-        s = socket.create_connection((ip, port), timeout=2)
+        s = socket.create_connection((ip, port), timeout=TIMEOUT)
         self.dtp = self.dtp_handler(s, baseclass=self)
         self.push('200 active data connection established')
 
     def cmd_epsv(self, arg):
         with socket.socket(socket.AF_INET6) as sock:
             sock.bind((self.socket.getsockname()[0], 0))
-            sock.listen(5)
-            sock.settimeout(10)
+            sock.listen()
+            sock.settimeout(TIMEOUT)
             port = sock.getsockname()[1]
             self.push('229 entering extended passive mode (|||%d|)' %port)
             conn, addr = sock.accept()
@@ -295,12 +296,13 @@ class DummyFTPServer(asyncore.dispatcher, threading.Thread):
         return 0
 
     def handle_error(self):
-        raise
+        raise Exception
 
 
 if ssl is not None:
 
-    CERTFILE = os.path.join(os.path.dirname(__file__), "keycert.pem")
+    CERTFILE = os.path.join(os.path.dirname(__file__), "keycert3.pem")
+    CAFILE = os.path.join(os.path.dirname(__file__), "pycacert.pem")
 
     class SSLConnection(asyncore.dispatcher):
         """An asyncore.dispatcher subclass supporting TLS/SSL."""
@@ -327,7 +329,7 @@ if ssl is not None:
                 elif err.args[0] == ssl.SSL_ERROR_EOF:
                     return self.handle_close()
                 raise
-            except socket.error as err:
+            except OSError as err:
                 if err.args[0] == errno.ECONNABORTED:
                     return self.handle_close()
             else:
@@ -341,7 +343,7 @@ if ssl is not None:
                 if err.args[0] in (ssl.SSL_ERROR_WANT_READ,
                                    ssl.SSL_ERROR_WANT_WRITE):
                     return
-            except socket.error as err:
+            except OSError as err:
                 # Any "socket error" corresponds to a SSL_ERROR_SYSCALL return
                 # from OpenSSL's SSL_shutdown(), corresponding to a
                 # closed socket condition. See also:
@@ -392,7 +394,7 @@ if ssl is not None:
                 raise
 
         def handle_error(self):
-            raise
+            raise Exception
 
         def close(self):
             if (isinstance(self.socket, ssl.SSLSocket) and
@@ -460,7 +462,7 @@ class TestFTPClass(TestCase):
     def setUp(self):
         self.server = DummyFTPServer((HOST, 0))
         self.server.start()
-        self.client = ftplib.FTP(timeout=2)
+        self.client = ftplib.FTP(timeout=TIMEOUT)
         self.client.connect(self.server.host, self.server.port)
 
     def tearDown(self):
@@ -488,7 +490,7 @@ class TestFTPClass(TestCase):
 
     def test_all_errors(self):
         exceptions = (ftplib.error_reply, ftplib.error_temp, ftplib.error_perm,
-                      ftplib.error_proto, ftplib.Error, IOError, EOFError)
+                      ftplib.error_proto, ftplib.Error, OSError, EOFError)
         for x in exceptions:
             try:
                 raise x('exception not included in all_errors set')
@@ -668,7 +670,7 @@ class TestFTPClass(TestCase):
         self.assertRaises(StopIteration, next, self.client.mlsd())
         set_data('')
         for x in self.client.mlsd():
-            self.fail("unexpected data %s" % data)
+            self.fail("unexpected data %s" % x)
 
     def test_makeport(self):
         with self.client.makeport():
@@ -678,7 +680,7 @@ class TestFTPClass(TestCase):
 
     def test_makepasv(self):
         host, port = self.client.makepasv()
-        conn = socket.create_connection((host, port), 10)
+        conn = socket.create_connection((host, port), timeout=TIMEOUT)
         conn.close()
         # IPv4 is in use, just make sure send_epsv has not been used
         self.assertEqual(self.server.handler_instance.last_received_cmd, 'pasv')
@@ -691,12 +693,12 @@ class TestFTPClass(TestCase):
                 return False
             try:
                 self.client.sendcmd('noop')
-            except (socket.error, EOFError):
+            except (OSError, EOFError):
                 return False
             return True
 
         # base test
-        with ftplib.FTP(timeout=2) as self.client:
+        with ftplib.FTP(timeout=TIMEOUT) as self.client:
             self.client.connect(self.server.host, self.server.port)
             self.client.sendcmd('noop')
             self.assertTrue(is_client_connected())
@@ -704,7 +706,7 @@ class TestFTPClass(TestCase):
         self.assertFalse(is_client_connected())
 
         # QUIT sent inside the with block
-        with ftplib.FTP(timeout=2) as self.client:
+        with ftplib.FTP(timeout=TIMEOUT) as self.client:
             self.client.connect(self.server.host, self.server.port)
             self.client.sendcmd('noop')
             self.client.quit()
@@ -714,7 +716,7 @@ class TestFTPClass(TestCase):
         # force a wrong response code to be sent on QUIT: error_perm
         # is expected and the connection is supposed to be closed
         try:
-            with ftplib.FTP(timeout=2) as self.client:
+            with ftplib.FTP(timeout=TIMEOUT) as self.client:
                 self.client.connect(self.server.host, self.server.port)
                 self.client.sendcmd('noop')
                 self.server.handler_instance.next_response = '550 error on quit'
@@ -736,7 +738,7 @@ class TestFTPClass(TestCase):
                                 source_address=(HOST, port))
             self.assertEqual(self.client.sock.getsockname()[1], port)
             self.client.quit()
-        except IOError as e:
+        except OSError as e:
             if e.errno == errno.EADDRINUSE:
                 self.skipTest("couldn't bind to port %d" % port)
             raise
@@ -747,7 +749,7 @@ class TestFTPClass(TestCase):
         try:
             with self.client.transfercmd('list') as sock:
                 self.assertEqual(sock.getsockname()[1], port)
-        except IOError as e:
+        except OSError as e:
             if e.errno == errno.EADDRINUSE:
                 self.skipTest("couldn't bind to port %d" % port)
             raise
@@ -785,7 +787,7 @@ class TestIPv6Environment(TestCase):
     def setUp(self):
         self.server = DummyFTPServer((HOSTv6, 0), af=socket.AF_INET6)
         self.server.start()
-        self.client = ftplib.FTP()
+        self.client = ftplib.FTP(timeout=TIMEOUT)
         self.client.connect(self.server.host, self.server.port)
 
     def tearDown(self):
@@ -802,7 +804,7 @@ class TestIPv6Environment(TestCase):
 
     def test_makepasv(self):
         host, port = self.client.makepasv()
-        conn = socket.create_connection((host, port), 10)
+        conn = socket.create_connection((host, port), timeout=TIMEOUT)
         conn.close()
         self.assertEqual(self.server.handler_instance.last_received_cmd, 'epsv')
 
@@ -829,7 +831,7 @@ class TestTLS_FTPClassMixin(TestFTPClass):
     def setUp(self):
         self.server = DummyTLS_FTPServer((HOST, 0))
         self.server.start()
-        self.client = ftplib.FTP_TLS(timeout=2)
+        self.client = ftplib.FTP_TLS(timeout=TIMEOUT)
         self.client.connect(self.server.host, self.server.port)
         # enable TLS
         self.client.auth()
@@ -843,7 +845,7 @@ class TestTLS_FTPClass(TestCase):
     def setUp(self):
         self.server = DummyTLS_FTPServer((HOST, 0))
         self.server.start()
-        self.client = ftplib.FTP_TLS(timeout=2)
+        self.client = ftplib.FTP_TLS(timeout=TIMEOUT)
         self.client.connect(self.server.host, self.server.port)
 
     def tearDown(self):
@@ -887,7 +889,7 @@ class TestTLS_FTPClass(TestCase):
 
     def test_auth_ssl(self):
         try:
-            self.client.ssl_version = ssl.PROTOCOL_SSLv3
+            self.client.ssl_version = ssl.PROTOCOL_SSLv23
             self.client.auth()
             self.assertRaises(ValueError, self.client.auth)
         finally:
@@ -903,7 +905,7 @@ class TestTLS_FTPClass(TestCase):
         self.assertRaises(ValueError, ftplib.FTP_TLS, certfile=CERTFILE,
                           keyfile=CERTFILE, context=ctx)
 
-        self.client = ftplib.FTP_TLS(context=ctx, timeout=2)
+        self.client = ftplib.FTP_TLS(context=ctx, timeout=TIMEOUT)
         self.client.connect(self.server.host, self.server.port)
         self.assertNotIsInstance(self.client.sock, ssl.SSLSocket)
         self.client.auth()
@@ -921,6 +923,36 @@ class TestTLS_FTPClass(TestCase):
         self.assertIsInstance(self.client.sock, ssl.SSLSocket)
         self.client.ccc()
         self.assertRaises(ValueError, self.client.sock.unwrap)
+
+    def test_check_hostname(self):
+        self.client.quit()
+        ctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
+        ctx.verify_mode = ssl.CERT_REQUIRED
+        ctx.check_hostname = True
+        ctx.load_verify_locations(CAFILE)
+        self.client = ftplib.FTP_TLS(context=ctx, timeout=TIMEOUT)
+
+        # 127.0.0.1 doesn't match SAN
+        self.client.connect(self.server.host, self.server.port)
+        with self.assertRaises(ssl.CertificateError):
+            self.client.auth()
+        # exception quits connection
+
+        self.client.connect(self.server.host, self.server.port)
+        self.client.prot_p()
+        with self.assertRaises(ssl.CertificateError):
+            with self.client.transfercmd("list") as sock:
+                pass
+        self.client.quit()
+
+        self.client.connect("localhost", self.server.port)
+        self.client.auth()
+        self.client.quit()
+
+        self.client.connect("localhost", self.server.port)
+        self.client.prot_p()
+        with self.client.transfercmd("list") as sock:
+            pass
 
 
 class TestTimeouts(TestCase):
@@ -947,7 +979,7 @@ class TestTimeouts(TestCase):
         #  1) when the connection is ready to be accepted.
         #  2) when it is safe for the caller to close the connection
         #  3) when we have closed the socket
-        self.sock.listen(5)
+        self.sock.listen()
         # (1) Signal the caller that we are ready to accept the connection.
         self.evt.set()
         try:

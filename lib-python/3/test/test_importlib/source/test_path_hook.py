@@ -1,20 +1,20 @@
-from . import util as source_util
+from .. import util
 
-from importlib import machinery
-import imp
+machinery = util.import_importlib('importlib.machinery')
+
 import unittest
 
 
-class PathHookTest(unittest.TestCase):
+class PathHookTest:
 
     """Test the path hook for source."""
 
     def path_hook(self):
-        return machinery.FileFinder.path_hook((machinery.SourceFileLoader,
-            machinery.SOURCE_SUFFIXES))
+        return self.machinery.FileFinder.path_hook((self.machinery.SourceFileLoader,
+            self.machinery.SOURCE_SUFFIXES))
 
     def test_success(self):
-        with source_util.create_modules('dummy') as mapping:
+        with util.create_modules('dummy') as mapping:
             self.assertTrue(hasattr(self.path_hook()(mapping['.root']),
                                  'find_module'))
 
@@ -23,10 +23,10 @@ class PathHookTest(unittest.TestCase):
         self.assertTrue(hasattr(self.path_hook()(''), 'find_module'))
 
 
-def test_main():
-    from test.support import run_unittest
-    run_unittest(PathHookTest)
+(Frozen_PathHookTest,
+ Source_PathHooktest
+ ) = util.test_both(PathHookTest, machinery=machinery)
 
 
 if __name__ == '__main__':
-    test_main()
+    unittest.main()

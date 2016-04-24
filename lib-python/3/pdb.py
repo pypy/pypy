@@ -92,21 +92,14 @@ def find_function(funcname, filename):
     cre = re.compile(r'def\s+%s\s*[(]' % re.escape(funcname))
     try:
         fp = open(filename)
-    except IOError:
+    except OSError:
         return None
     # consumer of this info expects the first line to be 1
-    lineno = 1
-    answer = None
-    while True:
-        line = fp.readline()
-        if line == '':
-            break
-        if cre.match(line):
-            answer = funcname, filename, lineno
-            break
-        lineno += 1
-    fp.close()
-    return answer
+    with fp:
+        for lineno, line in enumerate(fp, start=1):
+            if cre.match(line):
+                return funcname, filename, lineno
+    return None
 
 def getsourcelines(obj):
     lines, lineno = inspect.findsource(obj)
@@ -170,12 +163,12 @@ class Pdb(bdb.Bdb, cmd.Cmd):
             try:
                 with open(os.path.join(envHome, ".pdbrc")) as rcFile:
                     self.rcLines.extend(rcFile)
-            except IOError:
+            except OSError:
                 pass
         try:
             with open(".pdbrc") as rcFile:
                 self.rcLines.extend(rcFile)
-        except IOError:
+        except OSError:
             pass
 
         self.commands = {} # associates a command list to breakpoint numbers
@@ -304,8 +297,16 @@ class Pdb(bdb.Bdb, cmd.Cmd):
             return
         exc_type, exc_value, exc_traceback = exc_info
         frame.f_locals['__exception__'] = exc_type, exc_value
-        self.message(traceback.format_exception_only(exc_type,
-                                                     exc_value)[-1].strip())
+
+        # An 'Internal StopIteration' exception is an exception debug event
+        # issued by the interpreter when handling a subgenerator run with
+        # 'yield from' or a generator controled by a for loop. No exception has
+        # actually occurred in this case. The debugger uses this debug event to
+        # stop when the debuggee is returning from such generators.
+        prefix = 'Internal ' if (not exc_traceback
+                                    and exc_type is StopIteration) else ''
+        self.message('%s%s' % (prefix,
+            traceback.format_exception_only(exc_type, exc_value)[-1].strip()))
         self.interaction(frame, exc_traceback)
 
     # General interaction function
@@ -672,7 +673,7 @@ class Pdb(bdb.Bdb, cmd.Cmd):
             # now set the break point
             err = self.set_break(filename, line, temporary, cond, funcname)
             if err:
-                self.error(err, file=self.stdout)
+                self.error(err)
             else:
                 bp = self.get_breaks(filename, line)[-1]
                 self.message("Breakpoint %d at %s:%d" %
@@ -1163,15 +1164,13 @@ class Pdb(bdb.Bdb, cmd.Cmd):
             return _rstr('** raised %s **' % err)
 
     def do_p(self, arg):
-        """p(rint) expression
+        """p expression
         Print the value of the expression.
         """
         try:
             self.message(repr(self._getval(arg)))
         except:
             pass
-    # make "print" an alias of "p" since print isn't a Python statement anymore
-    do_print = do_p
 
     def do_pp(self, arg):
         """pp expression
@@ -1245,7 +1244,7 @@ class Pdb(bdb.Bdb, cmd.Cmd):
         breaklist = self.get_file_breaks(filename)
         try:
             lines, lineno = getsourcelines(self.curframe)
-        except IOError as err:
+        except OSError as err:
             self.error(err)
             return
         self._print_lines(lines, lineno, breaklist, self.curframe)
@@ -1261,7 +1260,7 @@ class Pdb(bdb.Bdb, cmd.Cmd):
             return
         try:
             lines, lineno = getsourcelines(obj)
-        except (IOError, TypeError) as err:
+        except (OSError, TypeError) as err:
             self.error(err)
             return
         self._print_lines(lines, lineno)
@@ -1317,7 +1316,7 @@ class Pdb(bdb.Bdb, cmd.Cmd):
             return
         # Is it a class?
         if value.__class__ is type:
-            self.message('Class %s.%s' % (value.__module__, value.__name__))
+            self.message('Class %s.%s' % (value.__module__, value.__qualname__))
             return
         # None of the above...
         self.message(type(value))
@@ -1392,7 +1391,7 @@ class Pdb(bdb.Bdb, cmd.Cmd):
         placed in the .pdbrc file):
 
         # Print instance variables (usage "pi classInst")
-        alias pi for k in %1.__dict__.keys(): print "%1.",k,"=",%1.__dict__[k]
+        alias pi for k in %1.__dict__.keys(): print("%1.",k,"=",%1.__dict__[k])
         # Print instance variables in self
         alias ps pi self
         """
@@ -1550,7 +1549,7 @@ if __doc__ is not None:
         'help', 'where', 'down', 'up', 'break', 'tbreak', 'clear', 'disable',
         'enable', 'ignore', 'condition', 'commands', 'step', 'next', 'until',
         'jump', 'return', 'retval', 'run', 'continue', 'list', 'longlist',
-        'args', 'print', 'pp', 'whatis', 'source', 'display', 'undisplay',
+        'args', 'p', 'pp', 'whatis', 'source', 'display', 'undisplay',
         'interact', 'alias', 'unalias', 'debug', 'quit',
     ]
 
@@ -1670,6 +1669,9 @@ def main():
             # In most cases SystemExit does not warrant a post-mortem session.
             print("The program exited via sys.exit(). Exit status:", end=' ')
             print(sys.exc_info()[1])
+        except SyntaxError:
+            traceback.print_exc()
+            sys.exit(1)
         except:
             traceback.print_exc()
             print("Uncaught exception. Entering post mortem debugging")

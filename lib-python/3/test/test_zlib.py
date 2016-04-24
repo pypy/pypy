@@ -1,6 +1,7 @@
 import unittest
 from test import support
 import binascii
+import pickle
 import random
 import sys
 from test.support import bigmemtest, _1G, _4G
@@ -121,11 +122,17 @@ class ExceptionTestCase(unittest.TestCase):
         self.assertRaises(ValueError, zlib.decompressobj().flush, 0)
         self.assertRaises(ValueError, zlib.decompressobj().flush, -1)
 
+    @support.cpython_only
+    def test_overflow(self):
+        with self.assertRaisesRegex(OverflowError, 'int too large'):
+            zlib.decompress(b'', 15, sys.maxsize + 1)
+        with self.assertRaisesRegex(OverflowError, 'int too large'):
+            zlib.decompressobj().flush(sys.maxsize + 1)
+
 
 class BaseCompressTestCase(object):
     def check_big_compress_buffer(self, size, compress_func):
         _1M = 1024 * 1024
-        fmt = "%%0%dx" % (2 * _1M)
         # Generate 10MB worth of random, and expand it by repeating it.
         # The assumption is that zlib's memory is not big enough to exploit
         # such spread out redundancy.
@@ -195,6 +202,18 @@ class CompressTestCase(BaseCompressTestCase, unittest.TestCase):
         finally:
             data = None
 
+    @bigmemtest(size=_4G, memuse=1)
+    def test_large_bufsize(self, size):
+        # Test decompress(bufsize) parameter greater than the internal limit
+        data = HAMLET_SCENE * 10
+        compressed = zlib.compress(data, 1)
+        self.assertEqual(zlib.decompress(compressed, 15, size), data)
+
+    def test_custom_bufsize(self):
+        data = HAMLET_SCENE * 10
+        compressed = zlib.compress(data, 1)
+        self.assertEqual(zlib.decompress(compressed, 15, CustomInt()), data)
+
 
 class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
     # Test compression object
@@ -222,15 +241,19 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
         level = 2
         method = zlib.DEFLATED
         wbits = -12
-        memlevel = 9
+        memLevel = 9
         strategy = zlib.Z_FILTERED
-        co = zlib.compressobj(level, method, wbits, memlevel, strategy)
+        co = zlib.compressobj(level, method, wbits, memLevel, strategy)
         x1 = co.compress(HAMLET_SCENE)
         x2 = co.flush()
         dco = zlib.decompressobj(wbits)
         y1 = dco.decompress(x1 + x2)
         y2 = dco.flush()
         self.assertEqual(HAMLET_SCENE, y1 + y2)
+
+        # keyword arguments should also be supported
+        zlib.compressobj(level=level, method=method, wbits=wbits,
+            memLevel=memLevel, strategy=strategy, zdict=b"")
 
     def test_compressincremental(self):
         # compress object in steps, decompress object as one-shot
@@ -358,6 +381,21 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
         dco = zlib.decompressobj()
         self.assertRaises(ValueError, dco.decompress, b"", -1)
         self.assertEqual(b'', dco.unconsumed_tail)
+
+    def test_maxlen_large(self):
+        # Sizes up to sys.maxsize should be accepted, although zlib is
+        # internally limited to expressing sizes with unsigned int
+        data = HAMLET_SCENE * 10
+        self.assertGreater(len(data), zlib.DEF_BUF_SIZE)
+        compressed = zlib.compress(data, 1)
+        dco = zlib.decompressobj()
+        self.assertEqual(dco.decompress(compressed, sys.maxsize), data)
+
+    def test_maxlen_custom(self):
+        data = HAMLET_SCENE * 10
+        compressed = zlib.compress(data, 1)
+        dco = zlib.decompressobj()
+        self.assertEqual(dco.decompress(compressed, CustomInt()), data[:100])
 
     def test_clear_unconsumed_tail(self):
         # Issue #12050: calling decompress() without providing max_length
@@ -532,6 +570,22 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
         data = zlib.compress(input2)
         self.assertEqual(dco.flush(), input1[1:])
 
+    @bigmemtest(size=_4G, memuse=1)
+    def test_flush_large_length(self, size):
+        # Test flush(length) parameter greater than internal limit UINT_MAX
+        input = HAMLET_SCENE * 10
+        data = zlib.compress(input, 1)
+        dco = zlib.decompressobj()
+        dco.decompress(data, 1)
+        self.assertEqual(dco.flush(size), input[1:])
+
+    def test_flush_custom_length(self):
+        input = HAMLET_SCENE * 10
+        data = zlib.compress(input, 1)
+        dco = zlib.decompressobj()
+        dco.decompress(data, 1)
+        self.assertEqual(dco.flush(CustomInt()), input[1:])
+
     @requires_Compress_copy
     def test_compresscopy(self):
         # Test copying a compression object
@@ -595,6 +649,16 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
         d.decompress(data)
         d.flush()
         self.assertRaises(ValueError, d.copy)
+
+    def test_compresspickle(self):
+        for proto in range(pickle.HIGHEST_PROTOCOL + 1):
+            with self.assertRaises((TypeError, pickle.PicklingError)):
+                pickle.dumps(zlib.compressobj(zlib.Z_BEST_COMPRESSION), proto)
+
+    def test_decompresspickle(self):
+        for proto in range(pickle.HIGHEST_PROTOCOL + 1):
+            with self.assertRaises((TypeError, pickle.PicklingError)):
+                pickle.dumps(zlib.decompressobj(), proto)
 
     # Memory use of the following functions takes into account overallocation
 
@@ -710,16 +774,10 @@ LAERTES
 """
 
 
-def test_main():
-    support.run_unittest(
-        VersionTestCase,
-        ChecksumTestCase,
-        ChecksumBigBufferTestCase,
-        ExceptionTestCase,
-        CompressTestCase,
-        CompressObjectTestCase
-    )
+class CustomInt:
+    def __int__(self):
+        return 100
+
 
 if __name__ == "__main__":
-    unittest.main() # XXX
-    ###test_main()
+    unittest.main()

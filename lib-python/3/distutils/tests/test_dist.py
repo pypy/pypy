@@ -13,6 +13,7 @@ from distutils.cmd import Command
 
 from test.support import TESTFN, captured_stdout, run_unittest
 from distutils.tests import support
+from distutils import log
 
 
 class test_dist(Command):
@@ -39,6 +40,7 @@ class TestDistribution(Distribution):
 
 
 class DistributionTestCase(support.LoggingSilencer,
+                           support.TempdirManager,
                            support.EnvironGuard,
                            unittest.TestCase):
 
@@ -213,6 +215,34 @@ class DistributionTestCase(support.LoggingSilencer,
         self.assertRaises(ValueError, dist.announce, args, kwargs)
 
 
+    def test_find_config_files_disable(self):
+        # Ticket #1180: Allow user to disable their home config file.
+        temp_home = self.mkdtemp()
+        if os.name == 'posix':
+            user_filename = os.path.join(temp_home, ".pydistutils.cfg")
+        else:
+            user_filename = os.path.join(temp_home, "pydistutils.cfg")
+
+        with open(user_filename, 'w') as f:
+            f.write('[distutils]\n')
+
+        def _expander(path):
+            return temp_home
+
+        old_expander = os.path.expanduser
+        os.path.expanduser = _expander
+        try:
+            d = Distribution()
+            all_files = d.find_config_files()
+
+            d = Distribution(attrs={'script_args': ['--no-user-cfg']})
+            files = d.find_config_files()
+        finally:
+            os.path.expanduser = old_expander
+
+        # make sure --no-user-cfg disables the user cfg file
+        self.assertEqual(len(all_files)-1, len(files))
+
 class MetadataTestCase(support.TempdirManager, support.EnvironGuard,
                        unittest.TestCase):
 
@@ -376,6 +406,7 @@ class MetadataTestCase(support.TempdirManager, support.EnvironGuard,
 
     def test_show_help(self):
         # smoke test, just makes sure some help is displayed
+        self.addCleanup(log.set_threshold, log._global_log.threshold)
         dist = Distribution()
         sys.argv = []
         dist.help = 1

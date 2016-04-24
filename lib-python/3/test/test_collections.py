@@ -1,7 +1,8 @@
 """Unit tests for collections.py."""
 
 import unittest, doctest, operator
-from test.support import TESTFN, forget, unlink
+from test.support import TESTFN, forget, unlink, import_fresh_module
+import contextlib
 import inspect
 from test import support
 from collections import namedtuple, Counter, OrderedDict, _count_elements
@@ -11,14 +12,37 @@ from random import randrange, shuffle
 import keyword
 import re
 import sys
-from collections import UserDict
+import types
+from collections import UserDict, UserString, UserList
 from collections import ChainMap
-from collections.abc import Hashable, Iterable, Iterator
+from collections import deque
+from collections.abc import Awaitable, Coroutine, AsyncIterator, AsyncIterable
+from collections.abc import Hashable, Iterable, Iterator, Generator
 from collections.abc import Sized, Container, Callable
 from collections.abc import Set, MutableSet
 from collections.abc import Mapping, MutableMapping, KeysView, ItemsView
 from collections.abc import Sequence, MutableSequence
 from collections.abc import ByteString
+
+
+class TestUserObjects(unittest.TestCase):
+    def _superset_test(self, a, b):
+        self.assertGreaterEqual(
+            set(dir(a)),
+            set(dir(b)),
+            '{a} should have all the methods of {b}'.format(
+                a=a.__name__,
+                b=b.__name__,
+            ),
+        )
+    def test_str_protocol(self):
+        self._superset_test(UserString, str)
+
+    def test_list_protocol(self):
+        self._superset_test(UserList, list)
+
+    def test_dict_protocol(self):
+        self._superset_test(UserDict, dict)
 
 
 ################################################################################
@@ -63,10 +87,17 @@ class TestChainMap(unittest.TestCase):
             for m1, m2 in zip(d.maps[1:], e.maps[1:]):
                 self.assertIs(m1, m2)
 
-        for e in [pickle.loads(pickle.dumps(d)),
-                  copy.deepcopy(d),
+        # check deep copies
+        for proto in range(pickle.HIGHEST_PROTOCOL + 1):
+            e = pickle.loads(pickle.dumps(d, proto))
+            self.assertEqual(d, e)
+            self.assertEqual(d.maps, e.maps)
+            self.assertIsNot(d, e)
+            for m1, m2 in zip(d.maps, e.maps):
+                self.assertIsNot(m1, m2, e)
+        for e in [copy.deepcopy(d),
                   eval(repr(d))
-                ]:                                                    # check deep copies
+                ]:
             self.assertEqual(d, e)
             self.assertEqual(d.maps, e.maps)
             self.assertIsNot(d, e)
@@ -111,6 +142,38 @@ class TestChainMap(unittest.TestCase):
         d = ChainMap(dict(a=1, b=2), dict(b=20, c=30))
         self.assertEqual(dict(d), dict(a=1, b=2, c=30))
         self.assertEqual(dict(d.items()), dict(a=1, b=2, c=30))
+
+    def test_new_child(self):
+        'Tests for changes for issue #16613.'
+        c = ChainMap()
+        c['a'] = 1
+        c['b'] = 2
+        m = {'b':20, 'c': 30}
+        d = c.new_child(m)
+        self.assertEqual(d.maps, [{'b':20, 'c':30}, {'a':1, 'b':2}])  # check internal state
+        self.assertIs(m, d.maps[0])
+
+        # Use a different map than a dict
+        class lowerdict(dict):
+            def __getitem__(self, key):
+                if isinstance(key, str):
+                    key = key.lower()
+                return dict.__getitem__(self, key)
+            def __contains__(self, key):
+                if isinstance(key, str):
+                    key = key.lower()
+                return dict.__contains__(self, key)
+
+        c = ChainMap()
+        c['a'] = 1
+        c['b'] = 2
+        m = lowerdict(b=20, c=30)
+        d = c.new_child(m)
+        self.assertIs(m, d.maps[0])
+        for key in 'abc':                                             # check contains
+            self.assertIn(key, d)
+        for k, v in dict(a=1, B=20, C=30, z=100).items():             # check get
+            self.assertEqual(d.get(k, 100), v)
 
 
 ################################################################################
@@ -157,6 +220,14 @@ class TestNamedTuple(unittest.TestCase):
         Point = namedtuple('Point', 'x y')
         self.assertEqual(Point.__doc__, 'Point(x, y)')
 
+    @unittest.skipIf(sys.flags.optimize >= 2,
+                     "Docstrings are omitted with -O2 and above")
+    def test_doc_writable(self):
+        Point = namedtuple('Point', 'x y')
+        self.assertEqual(Point.x.__doc__, 'Alias for field number 0')
+        Point.x.__doc__ = 'docstring for Point.x'
+        self.assertEqual(Point.x.__doc__, 'docstring for Point.x')
+
     def test_name_fixer(self):
         for spec, renamed in [
             [('efg', 'g%hi'),  ('efg', '_1')],                              # field with non-alpha char
@@ -186,7 +257,6 @@ class TestNamedTuple(unittest.TestCase):
         self.assertEqual(p._fields, ('x', 'y'))                             # test _fields attribute
         self.assertEqual(p._replace(x=1), (1, 22))                          # test _replace method
         self.assertEqual(p._asdict(), dict(x=11, y=22))                     # test _asdict method
-        self.assertEqual(vars(p), p._asdict())                              # verify that vars() works
 
         try:
             p._replace(x=1, error=2)
@@ -269,7 +339,7 @@ class TestNamedTuple(unittest.TestCase):
         for module in (pickle,):
             loads = getattr(module, 'loads')
             dumps = getattr(module, 'dumps')
-            for protocol in -1, 0, 1, 2:
+            for protocol in range(-1, module.HIGHEST_PROTOCOL + 1):
                 q = loads(dumps(p, protocol))
                 self.assertEqual(p, q)
                 self.assertEqual(p._fields, q._fields)
@@ -341,6 +411,17 @@ class TestNamedTuple(unittest.TestCase):
         globals().pop('NTColor', None)          # clean-up after this test
 
 
+    def test_namedtuple_subclass_issue_24931(self):
+        class Point(namedtuple('_Point', ['x', 'y'])):
+            pass
+
+        a = Point(3, 4)
+        self.assertEqual(a._asdict(), OrderedDict([('x', 3), ('y', 4)]))
+
+        a.w = 5
+        self.assertEqual(a.__dict__, {'w': 5})
+
+
 ################################################################################
 ### Abstract Base Classes
 ################################################################################
@@ -406,6 +487,121 @@ class ABCTestCase(unittest.TestCase):
 
 class TestOneTrickPonyABCs(ABCTestCase):
 
+    def test_Awaitable(self):
+        def gen():
+            yield
+
+        @types.coroutine
+        def coro():
+            yield
+
+        async def new_coro():
+            pass
+
+        class Bar:
+            def __await__(self):
+                yield
+
+        class MinimalCoro(Coroutine):
+            def send(self, value):
+                return value
+            def throw(self, typ, val=None, tb=None):
+                super().throw(typ, val, tb)
+            def __await__(self):
+                yield
+
+        non_samples = [None, int(), gen(), object()]
+        for x in non_samples:
+            self.assertNotIsInstance(x, Awaitable)
+            self.assertFalse(issubclass(type(x), Awaitable), repr(type(x)))
+
+        samples = [Bar(), MinimalCoro()]
+        for x in samples:
+            self.assertIsInstance(x, Awaitable)
+            self.assertTrue(issubclass(type(x), Awaitable))
+
+        c = coro()
+        # Iterable coroutines (generators with CO_ITERABLE_COROUTINE
+        # flag don't have '__await__' method, hence can't be instances
+        # of Awaitable. Use inspect.isawaitable to detect them.
+        self.assertNotIsInstance(c, Awaitable)
+
+        c = new_coro()
+        self.assertIsInstance(c, Awaitable)
+        c.close() # awoid RuntimeWarning that coro() was not awaited
+
+        class CoroLike: pass
+        Coroutine.register(CoroLike)
+        self.assertTrue(isinstance(CoroLike(), Awaitable))
+        self.assertTrue(issubclass(CoroLike, Awaitable))
+        CoroLike = None
+        support.gc_collect() # Kill CoroLike to clean-up ABCMeta cache
+
+    def test_Coroutine(self):
+        def gen():
+            yield
+
+        @types.coroutine
+        def coro():
+            yield
+
+        async def new_coro():
+            pass
+
+        class Bar:
+            def __await__(self):
+                yield
+
+        class MinimalCoro(Coroutine):
+            def send(self, value):
+                return value
+            def throw(self, typ, val=None, tb=None):
+                super().throw(typ, val, tb)
+            def __await__(self):
+                yield
+
+        non_samples = [None, int(), gen(), object(), Bar()]
+        for x in non_samples:
+            self.assertNotIsInstance(x, Coroutine)
+            self.assertFalse(issubclass(type(x), Coroutine), repr(type(x)))
+
+        samples = [MinimalCoro()]
+        for x in samples:
+            self.assertIsInstance(x, Awaitable)
+            self.assertTrue(issubclass(type(x), Awaitable))
+
+        c = coro()
+        # Iterable coroutines (generators with CO_ITERABLE_COROUTINE
+        # flag don't have '__await__' method, hence can't be instances
+        # of Coroutine. Use inspect.isawaitable to detect them.
+        self.assertNotIsInstance(c, Coroutine)
+
+        c = new_coro()
+        self.assertIsInstance(c, Coroutine)
+        c.close() # awoid RuntimeWarning that coro() was not awaited
+
+        class CoroLike:
+            def send(self, value):
+                pass
+            def throw(self, typ, val=None, tb=None):
+                pass
+            def close(self):
+                pass
+            def __await__(self):
+                pass
+        self.assertTrue(isinstance(CoroLike(), Coroutine))
+        self.assertTrue(issubclass(CoroLike, Coroutine))
+
+        class CoroLike:
+            def send(self, value):
+                pass
+            def close(self):
+                pass
+            def __await__(self):
+                pass
+        self.assertFalse(isinstance(CoroLike(), Coroutine))
+        self.assertFalse(issubclass(CoroLike, Coroutine))
+
     def test_Hashable(self):
         # Check some non-hashables
         non_samples = [bytearray(), list(), set(), dict()]
@@ -431,6 +627,40 @@ class TestOneTrickPonyABCs(ABCTestCase):
         self.assertFalse(issubclass(int, H))
         self.validate_abstract_methods(Hashable, '__hash__')
         self.validate_isinstance(Hashable, '__hash__')
+
+    def test_AsyncIterable(self):
+        class AI:
+            async def __aiter__(self):
+                return self
+        self.assertTrue(isinstance(AI(), AsyncIterable))
+        self.assertTrue(issubclass(AI, AsyncIterable))
+        # Check some non-iterables
+        non_samples = [None, object, []]
+        for x in non_samples:
+            self.assertNotIsInstance(x, AsyncIterable)
+            self.assertFalse(issubclass(type(x), AsyncIterable), repr(type(x)))
+        self.validate_abstract_methods(AsyncIterable, '__aiter__')
+        self.validate_isinstance(AsyncIterable, '__aiter__')
+
+    def test_AsyncIterator(self):
+        class AI:
+            async def __aiter__(self):
+                return self
+            async def __anext__(self):
+                raise StopAsyncIteration
+        self.assertTrue(isinstance(AI(), AsyncIterator))
+        self.assertTrue(issubclass(AI, AsyncIterator))
+        non_samples = [None, object, []]
+        # Check some non-iterables
+        for x in non_samples:
+            self.assertNotIsInstance(x, AsyncIterator)
+            self.assertFalse(issubclass(type(x), AsyncIterator), repr(type(x)))
+        # Similarly to regular iterators (see issue 10565)
+        class AnextOnly:
+            async def __anext__(self):
+                raise StopAsyncIteration
+        self.assertNotIsInstance(AnextOnly(), AsyncIterator)
+        self.validate_abstract_methods(AsyncIterator, '__anext__', '__aiter__')
 
     def test_Iterable(self):
         # Check some non-iterables
@@ -479,8 +709,79 @@ class TestOneTrickPonyABCs(ABCTestCase):
         class NextOnly:
             def __next__(self):
                 yield 1
-                raise StopIteration
+                return
         self.assertNotIsInstance(NextOnly(), Iterator)
+
+    def test_Generator(self):
+        class NonGen1:
+            def __iter__(self): return self
+            def __next__(self): return None
+            def close(self): pass
+            def throw(self, typ, val=None, tb=None): pass
+
+        class NonGen2:
+            def __iter__(self): return self
+            def __next__(self): return None
+            def close(self): pass
+            def send(self, value): return value
+
+        class NonGen3:
+            def close(self): pass
+            def send(self, value): return value
+            def throw(self, typ, val=None, tb=None): pass
+
+        non_samples = [
+            None, 42, 3.14, 1j, b"", "", (), [], {}, set(),
+            iter(()), iter([]), NonGen1(), NonGen2(), NonGen3()]
+        for x in non_samples:
+            self.assertNotIsInstance(x, Generator)
+            self.assertFalse(issubclass(type(x), Generator), repr(type(x)))
+
+        class Gen:
+            def __iter__(self): return self
+            def __next__(self): return None
+            def close(self): pass
+            def send(self, value): return value
+            def throw(self, typ, val=None, tb=None): pass
+
+        class MinimalGen(Generator):
+            def send(self, value):
+                return value
+            def throw(self, typ, val=None, tb=None):
+                super().throw(typ, val, tb)
+
+        def gen():
+            yield 1
+
+        samples = [gen(), (lambda: (yield))(), Gen(), MinimalGen()]
+        for x in samples:
+            self.assertIsInstance(x, Iterator)
+            self.assertIsInstance(x, Generator)
+            self.assertTrue(issubclass(type(x), Generator), repr(type(x)))
+        self.validate_abstract_methods(Generator, 'send', 'throw')
+
+        # mixin tests
+        mgen = MinimalGen()
+        self.assertIs(mgen, iter(mgen))
+        self.assertIs(mgen.send(None), next(mgen))
+        self.assertEqual(2, mgen.send(2))
+        self.assertIsNone(mgen.close())
+        self.assertRaises(ValueError, mgen.throw, ValueError)
+        self.assertRaisesRegex(ValueError, "^huhu$",
+                               mgen.throw, ValueError, ValueError("huhu"))
+        self.assertRaises(StopIteration, mgen.throw, StopIteration())
+
+        class FailOnClose(Generator):
+            def send(self, value): return value
+            def throw(self, *args): raise ValueError
+
+        self.assertRaises(ValueError, FailOnClose().close)
+
+        class IgnoreGeneratorExit(Generator):
+            def send(self, value): return value
+            def throw(self, *args): pass
+
+        self.assertRaises(RuntimeError, IgnoreGeneratorExit().close)
 
     def test_Sized(self):
         non_samples = [None, 42, 3.14, 1j,
@@ -608,6 +909,59 @@ class TestCollectionABCs(ABCTestCase):
         a, b = OneTwoThreeSet(), OneTwoThreeSet()
         self.assertTrue(hash(a) == hash(b))
 
+    def test_isdisjoint_Set(self):
+        class MySet(Set):
+            def __init__(self, itr):
+                self.contents = itr
+            def __contains__(self, x):
+                return x in self.contents
+            def __iter__(self):
+                return iter(self.contents)
+            def __len__(self):
+                return len([x for x in self.contents])
+        s1 = MySet((1, 2, 3))
+        s2 = MySet((4, 5, 6))
+        s3 = MySet((1, 5, 6))
+        self.assertTrue(s1.isdisjoint(s2))
+        self.assertFalse(s1.isdisjoint(s3))
+
+    def test_equality_Set(self):
+        class MySet(Set):
+            def __init__(self, itr):
+                self.contents = itr
+            def __contains__(self, x):
+                return x in self.contents
+            def __iter__(self):
+                return iter(self.contents)
+            def __len__(self):
+                return len([x for x in self.contents])
+        s1 = MySet((1,))
+        s2 = MySet((1, 2))
+        s3 = MySet((3, 4))
+        s4 = MySet((3, 4))
+        self.assertTrue(s2 > s1)
+        self.assertTrue(s1 < s2)
+        self.assertFalse(s2 <= s1)
+        self.assertFalse(s2 <= s3)
+        self.assertFalse(s1 >= s2)
+        self.assertEqual(s3, s4)
+        self.assertNotEqual(s2, s3)
+
+    def test_arithmetic_Set(self):
+        class MySet(Set):
+            def __init__(self, itr):
+                self.contents = itr
+            def __contains__(self, x):
+                return x in self.contents
+            def __iter__(self):
+                return iter(self.contents)
+            def __len__(self):
+                return len([x for x in self.contents])
+        s1 = MySet((1, 2, 3))
+        s2 = MySet((3, 4, 5))
+        s3 = s1 & s2
+        self.assertEqual(s3, MySet((3,)))
+
     def test_MutableSet(self):
         self.assertIsInstance(set(), MutableSet)
         self.assertTrue(issubclass(set, MutableSet))
@@ -688,14 +1042,166 @@ class TestCollectionABCs(ABCTestCase):
 
         cs = MyComparableSet()
         ncs = MyNonComparableSet()
+        self.assertFalse(ncs < cs)
+        self.assertTrue(ncs <= cs)
+        self.assertFalse(ncs > cs)
+        self.assertTrue(ncs >= cs)
+
+    def assertSameSet(self, s1, s2):
+        # coerce both to a real set then check equality
+        self.assertSetEqual(set(s1), set(s2))
+
+    def test_Set_interoperability_with_real_sets(self):
+        # Issue: 8743
+        class ListSet(Set):
+            def __init__(self, elements=()):
+                self.data = []
+                for elem in elements:
+                    if elem not in self.data:
+                        self.data.append(elem)
+            def __contains__(self, elem):
+                return elem in self.data
+            def __iter__(self):
+                return iter(self.data)
+            def __len__(self):
+                return len(self.data)
+            def __repr__(self):
+                return 'Set({!r})'.format(self.data)
+
+        r1 = set('abc')
+        r2 = set('bcd')
+        r3 = set('abcde')
+        f1 = ListSet('abc')
+        f2 = ListSet('bcd')
+        f3 = ListSet('abcde')
+        l1 = list('abccba')
+        l2 = list('bcddcb')
+        l3 = list('abcdeedcba')
+
+        target = r1 & r2
+        self.assertSameSet(f1 & f2, target)
+        self.assertSameSet(f1 & r2, target)
+        self.assertSameSet(r2 & f1, target)
+        self.assertSameSet(f1 & l2, target)
+
+        target = r1 | r2
+        self.assertSameSet(f1 | f2, target)
+        self.assertSameSet(f1 | r2, target)
+        self.assertSameSet(r2 | f1, target)
+        self.assertSameSet(f1 | l2, target)
+
+        fwd_target = r1 - r2
+        rev_target = r2 - r1
+        self.assertSameSet(f1 - f2, fwd_target)
+        self.assertSameSet(f2 - f1, rev_target)
+        self.assertSameSet(f1 - r2, fwd_target)
+        self.assertSameSet(f2 - r1, rev_target)
+        self.assertSameSet(r1 - f2, fwd_target)
+        self.assertSameSet(r2 - f1, rev_target)
+        self.assertSameSet(f1 - l2, fwd_target)
+        self.assertSameSet(f2 - l1, rev_target)
+
+        target = r1 ^ r2
+        self.assertSameSet(f1 ^ f2, target)
+        self.assertSameSet(f1 ^ r2, target)
+        self.assertSameSet(r2 ^ f1, target)
+        self.assertSameSet(f1 ^ l2, target)
+
+        # Don't change the following to use assertLess or other
+        # "more specific" unittest assertions.  The current
+        # assertTrue/assertFalse style makes the pattern of test
+        # case combinations clear and allows us to know for sure
+        # the exact operator being invoked.
+
+        # proper subset
+        self.assertTrue(f1 < f3)
+        self.assertFalse(f1 < f1)
+        self.assertFalse(f1 < f2)
+        self.assertTrue(r1 < f3)
+        self.assertFalse(r1 < f1)
+        self.assertFalse(r1 < f2)
+        self.assertTrue(r1 < r3)
+        self.assertFalse(r1 < r1)
+        self.assertFalse(r1 < r2)
         with self.assertRaises(TypeError):
-            ncs < cs
+            f1 < l3
         with self.assertRaises(TypeError):
-            ncs <= cs
+            f1 < l1
         with self.assertRaises(TypeError):
-            cs > ncs
+            f1 < l2
+
+        # any subset
+        self.assertTrue(f1 <= f3)
+        self.assertTrue(f1 <= f1)
+        self.assertFalse(f1 <= f2)
+        self.assertTrue(r1 <= f3)
+        self.assertTrue(r1 <= f1)
+        self.assertFalse(r1 <= f2)
+        self.assertTrue(r1 <= r3)
+        self.assertTrue(r1 <= r1)
+        self.assertFalse(r1 <= r2)
         with self.assertRaises(TypeError):
-            cs >= ncs
+            f1 <= l3
+        with self.assertRaises(TypeError):
+            f1 <= l1
+        with self.assertRaises(TypeError):
+            f1 <= l2
+
+        # proper superset
+        self.assertTrue(f3 > f1)
+        self.assertFalse(f1 > f1)
+        self.assertFalse(f2 > f1)
+        self.assertTrue(r3 > r1)
+        self.assertFalse(f1 > r1)
+        self.assertFalse(f2 > r1)
+        self.assertTrue(r3 > r1)
+        self.assertFalse(r1 > r1)
+        self.assertFalse(r2 > r1)
+        with self.assertRaises(TypeError):
+            f1 > l3
+        with self.assertRaises(TypeError):
+            f1 > l1
+        with self.assertRaises(TypeError):
+            f1 > l2
+
+        # any superset
+        self.assertTrue(f3 >= f1)
+        self.assertTrue(f1 >= f1)
+        self.assertFalse(f2 >= f1)
+        self.assertTrue(r3 >= r1)
+        self.assertTrue(f1 >= r1)
+        self.assertFalse(f2 >= r1)
+        self.assertTrue(r3 >= r1)
+        self.assertTrue(r1 >= r1)
+        self.assertFalse(r2 >= r1)
+        with self.assertRaises(TypeError):
+            f1 >= l3
+        with self.assertRaises(TypeError):
+            f1 >=l1
+        with self.assertRaises(TypeError):
+            f1 >= l2
+
+        # equality
+        self.assertTrue(f1 == f1)
+        self.assertTrue(r1 == f1)
+        self.assertTrue(f1 == r1)
+        self.assertFalse(f1 == f3)
+        self.assertFalse(r1 == f3)
+        self.assertFalse(f1 == r3)
+        self.assertFalse(f1 == l3)
+        self.assertFalse(f1 == l1)
+        self.assertFalse(f1 == l2)
+
+        # inequality
+        self.assertFalse(f1 != f1)
+        self.assertFalse(r1 != f1)
+        self.assertFalse(f1 != r1)
+        self.assertTrue(f1 != f3)
+        self.assertTrue(r1 != f3)
+        self.assertTrue(f1 != r3)
+        self.assertTrue(f1 != l3)
+        self.assertTrue(f1 != l1)
+        self.assertTrue(f1 != l2)
 
     def test_Mapping(self):
         for sample in [dict]:
@@ -750,9 +1256,46 @@ class TestCollectionABCs(ABCTestCase):
             self.assertTrue(issubclass(sample, Sequence))
         self.assertIsInstance(range(10), Sequence)
         self.assertTrue(issubclass(range, Sequence))
+        self.assertIsInstance(memoryview(b""), Sequence)
+        self.assertTrue(issubclass(memoryview, Sequence))
         self.assertTrue(issubclass(str, Sequence))
         self.validate_abstract_methods(Sequence, '__contains__', '__iter__', '__len__',
             '__getitem__')
+
+    def test_Sequence_mixins(self):
+        class SequenceSubclass(Sequence):
+            def __init__(self, seq=()):
+                self.seq = seq
+
+            def __getitem__(self, index):
+                return self.seq[index]
+
+            def __len__(self):
+                return len(self.seq)
+
+        # Compare Sequence.index() behavior to (list|str).index() behavior
+        def assert_index_same(seq1, seq2, index_args):
+            try:
+                expected = seq1.index(*index_args)
+            except ValueError:
+                with self.assertRaises(ValueError):
+                    seq2.index(*index_args)
+            else:
+                actual = seq2.index(*index_args)
+                self.assertEqual(
+                    actual, expected, '%r.index%s' % (seq1, index_args))
+
+        for ty in list, str:
+            nativeseq = ty('abracadabra')
+            indexes = [-10000, -9999] + list(range(-3, len(nativeseq) + 3))
+            seqseq = SequenceSubclass(nativeseq)
+            for letter in set(nativeseq) | {'z'}:
+                assert_index_same(nativeseq, seqseq, (letter,))
+                for start in range(-3, len(nativeseq) + 3):
+                    assert_index_same(nativeseq, seqseq, (letter, start))
+                    for stop in range(-3, len(nativeseq) + 3):
+                        assert_index_same(
+                            nativeseq, seqseq, (letter, start, stop))
 
     def test_ByteString(self):
         for sample in [bytes, bytearray]:
@@ -768,7 +1311,7 @@ class TestCollectionABCs(ABCTestCase):
         for sample in [tuple, str, bytes]:
             self.assertNotIsInstance(sample(), MutableSequence)
             self.assertFalse(issubclass(sample, MutableSequence))
-        for sample in [list, bytearray]:
+        for sample in [list, bytearray, deque]:
             self.assertIsInstance(sample(), MutableSequence)
             self.assertTrue(issubclass(sample, MutableSequence))
         self.assertFalse(issubclass(str, MutableSequence))
@@ -898,29 +1441,47 @@ class TestCounter(unittest.TestCase):
         self.assertEqual(c.setdefault('e', 5), 5)
         self.assertEqual(c['e'], 5)
 
+    def test_init(self):
+        self.assertEqual(list(Counter(self=42).items()), [('self', 42)])
+        self.assertEqual(list(Counter(iterable=42).items()), [('iterable', 42)])
+        self.assertEqual(list(Counter(iterable=None).items()), [('iterable', None)])
+        self.assertRaises(TypeError, Counter, 42)
+        self.assertRaises(TypeError, Counter, (), ())
+        self.assertRaises(TypeError, Counter.__init__)
+
+    def test_update(self):
+        c = Counter()
+        c.update(self=42)
+        self.assertEqual(list(c.items()), [('self', 42)])
+        c = Counter()
+        c.update(iterable=42)
+        self.assertEqual(list(c.items()), [('iterable', 42)])
+        c = Counter()
+        c.update(iterable=None)
+        self.assertEqual(list(c.items()), [('iterable', None)])
+        self.assertRaises(TypeError, Counter().update, 42)
+        self.assertRaises(TypeError, Counter().update, {}, {})
+        self.assertRaises(TypeError, Counter.update)
+
     def test_copying(self):
         # Check that counters are copyable, deepcopyable, picklable, and
         #have a repr/eval round-trip
         words = Counter('which witch had which witches wrist watch'.split())
+        def check(dup):
+            msg = "\ncopy: %s\nwords: %s" % (dup, words)
+            self.assertIsNot(dup, words, msg)
+            self.assertEqual(dup, words)
+        check(words.copy())
+        check(copy.copy(words))
+        check(copy.deepcopy(words))
+        for proto in range(pickle.HIGHEST_PROTOCOL + 1):
+            with self.subTest(proto=proto):
+                check(pickle.loads(pickle.dumps(words, proto)))
+        check(eval(repr(words)))
         update_test = Counter()
         update_test.update(words)
-        for i, dup in enumerate([
-                    words.copy(),
-                    copy.copy(words),
-                    copy.deepcopy(words),
-                    pickle.loads(pickle.dumps(words, 0)),
-                    pickle.loads(pickle.dumps(words, 1)),
-                    pickle.loads(pickle.dumps(words, 2)),
-                    pickle.loads(pickle.dumps(words, -1)),
-                    eval(repr(words)),
-                    update_test,
-                    Counter(words),
-                    ]):
-            msg = (i, dup, words)
-            self.assertTrue(dup is not words)
-            self.assertEqual(dup, words)
-            self.assertEqual(len(dup), len(words))
-            self.assertEqual(type(dup), type(words))
+        check(update_test)
+        check(Counter(words))
 
     def test_copy_subclass(self):
         class MyCounter(Counter):
@@ -1016,6 +1577,16 @@ class TestCounter(unittest.TestCase):
         c.subtract('aaaabbcce')
         self.assertEqual(c, Counter(a=-1, b=0, c=-1, d=1, e=-1))
 
+        c = Counter()
+        c.subtract(self=42)
+        self.assertEqual(list(c.items()), [('self', -42)])
+        c = Counter()
+        c.subtract(iterable=42)
+        self.assertEqual(list(c.items()), [('iterable', -42)])
+        self.assertRaises(TypeError, Counter().subtract, 42)
+        self.assertRaises(TypeError, Counter().subtract, {}, {})
+        self.assertRaises(TypeError, Counter.subtract)
+
     def test_unary(self):
         c = Counter(a=-5, b=0, c=5, d=10, e=15,g=40)
         self.assertEqual(dict(+c), dict(c=5, d=10, e=15, g=40))
@@ -1043,17 +1614,34 @@ class TestCounter(unittest.TestCase):
         # test fidelity to the pure python version
         c = CounterSubclassWithSetItem('abracadabra')
         self.assertTrue(c.called)
+        self.assertEqual(dict(c), {'a': 5, 'b': 2, 'c': 1, 'd': 1, 'r':2 })
         c = CounterSubclassWithGet('abracadabra')
         self.assertTrue(c.called)
+        self.assertEqual(dict(c), {'a': 5, 'b': 2, 'c': 1, 'd': 1, 'r':2 })
 
 
 ################################################################################
 ### OrderedDict
 ################################################################################
 
-class TestOrderedDict(unittest.TestCase):
+py_coll = import_fresh_module('collections', blocked=['_collections'])
+c_coll = import_fresh_module('collections', fresh=['_collections'])
+
+
+@contextlib.contextmanager
+def replaced_module(name, replacement):
+    original_module = sys.modules[name]
+    sys.modules[name] = replacement
+    try:
+        yield
+    finally:
+        sys.modules[name] = original_module
+
+
+class OrderedDictTests:
 
     def test_init(self):
+        OrderedDict = self.OrderedDict
         with self.assertRaises(TypeError):
             OrderedDict([('a', 1), ('b', 2)], None)                                 # too many args
         pairs = [('a', 1), ('b', 2), ('c', 3), ('d', 4), ('e', 5)]
@@ -1064,8 +1652,11 @@ class TestOrderedDict(unittest.TestCase):
                                           c=3, e=5).items()), pairs)                # mixed input
 
         # make sure no positional args conflict with possible kwdargs
-        self.assertEqual(inspect.getargspec(OrderedDict.__dict__['__init__']).args,
-                         ['self'])
+        self.assertEqual(list(OrderedDict(self=42).items()), [('self', 42)])
+        self.assertEqual(list(OrderedDict(other=42).items()), [('other', 42)])
+        self.assertRaises(TypeError, OrderedDict, 42)
+        self.assertRaises(TypeError, OrderedDict, (), ())
+        self.assertRaises(TypeError, OrderedDict.__init__)
 
         # Make sure that direct calls to __init__ do not clear previous contents
         d = OrderedDict([('a', 1), ('b', 2), ('c', 3), ('d', 44), ('e', 55)])
@@ -1074,6 +1665,7 @@ class TestOrderedDict(unittest.TestCase):
             [('a', 1), ('b', 2), ('c', 3), ('d', 4), ('e', 5), ('f', 6), ('g', 7)])
 
     def test_update(self):
+        OrderedDict = self.OrderedDict
         with self.assertRaises(TypeError):
             OrderedDict().update([('a', 1), ('b', 2)], None)                        # too many args
         pairs = [('a', 1), ('b', 2), ('c', 3), ('d', 4), ('e', 5)]
@@ -1110,11 +1702,30 @@ class TestOrderedDict(unittest.TestCase):
         self.assertEqual(list(d.items()),
             [('a', 1), ('b', 2), ('c', 3), ('d', 4), ('e', 5), ('f', 6), ('g', 7)])
 
+        self.assertRaises(TypeError, OrderedDict().update, 42)
+        self.assertRaises(TypeError, OrderedDict().update, (), ())
+        self.assertRaises(TypeError, OrderedDict.update)
+
+        self.assertRaises(TypeError, OrderedDict().update, 42)
+        self.assertRaises(TypeError, OrderedDict().update, (), ())
+        self.assertRaises(TypeError, OrderedDict.update)
+
+    def test_fromkeys(self):
+        OrderedDict = self.OrderedDict
+        od = OrderedDict.fromkeys('abc')
+        self.assertEqual(list(od.items()), [(c, None) for c in 'abc'])
+        od = OrderedDict.fromkeys('abc', value=None)
+        self.assertEqual(list(od.items()), [(c, None) for c in 'abc'])
+        od = OrderedDict.fromkeys('abc', value=0)
+        self.assertEqual(list(od.items()), [(c, 0) for c in 'abc'])
+
     def test_abc(self):
+        OrderedDict = self.OrderedDict
         self.assertIsInstance(OrderedDict(), MutableMapping)
         self.assertTrue(issubclass(OrderedDict, MutableMapping))
 
     def test_clear(self):
+        OrderedDict = self.OrderedDict
         pairs = [('c', 1), ('b', 2), ('a', 3), ('d', 4), ('e', 5), ('f', 6)]
         shuffle(pairs)
         od = OrderedDict(pairs)
@@ -1123,6 +1734,7 @@ class TestOrderedDict(unittest.TestCase):
         self.assertEqual(len(od), 0)
 
     def test_delitem(self):
+        OrderedDict = self.OrderedDict
         pairs = [('c', 1), ('b', 2), ('a', 3), ('d', 4), ('e', 5), ('f', 6)]
         od = OrderedDict(pairs)
         del od['a']
@@ -1132,6 +1744,7 @@ class TestOrderedDict(unittest.TestCase):
         self.assertEqual(list(od.items()), pairs[:2] + pairs[3:])
 
     def test_setitem(self):
+        OrderedDict = self.OrderedDict
         od = OrderedDict([('d', 1), ('b', 2), ('c', 3), ('a', 4), ('e', 5)])
         od['c'] = 10           # existing element
         od['f'] = 20           # new element
@@ -1139,6 +1752,7 @@ class TestOrderedDict(unittest.TestCase):
                          [('d', 1), ('b', 2), ('c', 10), ('a', 4), ('e', 5), ('f', 20)])
 
     def test_iterators(self):
+        OrderedDict = self.OrderedDict
         pairs = [('c', 1), ('b', 2), ('a', 3), ('d', 4), ('e', 5), ('f', 6)]
         shuffle(pairs)
         od = OrderedDict(pairs)
@@ -1148,8 +1762,51 @@ class TestOrderedDict(unittest.TestCase):
         self.assertEqual(list(od.items()), pairs)
         self.assertEqual(list(reversed(od)),
                          [t[0] for t in reversed(pairs)])
+        self.assertEqual(list(reversed(od.keys())),
+                         [t[0] for t in reversed(pairs)])
+        self.assertEqual(list(reversed(od.values())),
+                         [t[1] for t in reversed(pairs)])
+        self.assertEqual(list(reversed(od.items())), list(reversed(pairs)))
+
+    def test_detect_deletion_during_iteration(self):
+        OrderedDict = self.OrderedDict
+        od = OrderedDict.fromkeys('abc')
+        it = iter(od)
+        key = next(it)
+        del od[key]
+        with self.assertRaises(Exception):
+            # Note, the exact exception raised is not guaranteed
+            # The only guarantee that the next() will not succeed
+            next(it)
+
+    def test_sorted_iterators(self):
+        OrderedDict = self.OrderedDict
+        with self.assertRaises(TypeError):
+            OrderedDict([('a', 1), ('b', 2)], None)
+        pairs = [('a', 1), ('b', 2), ('c', 3), ('d', 4), ('e', 5)]
+        od = OrderedDict(pairs)
+        self.assertEqual(sorted(od), [t[0] for t in pairs])
+        self.assertEqual(sorted(od.keys()), [t[0] for t in pairs])
+        self.assertEqual(sorted(od.values()), [t[1] for t in pairs])
+        self.assertEqual(sorted(od.items()), pairs)
+        self.assertEqual(sorted(reversed(od)),
+                         sorted([t[0] for t in reversed(pairs)]))
+
+    def test_iterators_empty(self):
+        OrderedDict = self.OrderedDict
+        od = OrderedDict()
+        empty = []
+        self.assertEqual(list(od), empty)
+        self.assertEqual(list(od.keys()), empty)
+        self.assertEqual(list(od.values()), empty)
+        self.assertEqual(list(od.items()), empty)
+        self.assertEqual(list(reversed(od)), empty)
+        self.assertEqual(list(reversed(od.keys())), empty)
+        self.assertEqual(list(reversed(od.values())), empty)
+        self.assertEqual(list(reversed(od.items())), empty)
 
     def test_popitem(self):
+        OrderedDict = self.OrderedDict
         pairs = [('c', 1), ('b', 2), ('a', 3), ('d', 4), ('e', 5), ('f', 6)]
         shuffle(pairs)
         od = OrderedDict(pairs)
@@ -1159,7 +1816,19 @@ class TestOrderedDict(unittest.TestCase):
             od.popitem()
         self.assertEqual(len(od), 0)
 
+    def test_popitem_last(self):
+        OrderedDict = self.OrderedDict
+        pairs = [(i, i) for i in range(30)]
+
+        obj = OrderedDict(pairs)
+        for i in range(8):
+            obj.popitem(True)
+        obj.popitem(True)
+        obj.popitem(last=True)
+        self.assertEqual(len(obj), 20)
+
     def test_pop(self):
+        OrderedDict = self.OrderedDict
         pairs = [('c', 1), ('b', 2), ('a', 3), ('d', 4), ('e', 5), ('f', 6)]
         shuffle(pairs)
         od = OrderedDict(pairs)
@@ -1180,10 +1849,12 @@ class TestOrderedDict(unittest.TestCase):
         self.assertEqual(m.pop('b', 5), 5)
         self.assertEqual(m.pop('a', 6), 1)
         self.assertEqual(m.pop('a', 6), 6)
+        self.assertEqual(m.pop('a', default=6), 6)
         with self.assertRaises(KeyError):
             m.pop('a')
 
     def test_equality(self):
+        OrderedDict = self.OrderedDict
         pairs = [('c', 1), ('b', 2), ('a', 3), ('d', 4), ('e', 5), ('f', 6)]
         shuffle(pairs)
         od1 = OrderedDict(pairs)
@@ -1199,32 +1870,34 @@ class TestOrderedDict(unittest.TestCase):
         self.assertNotEqual(od1, OrderedDict(pairs[:-1]))
 
     def test_copying(self):
+        OrderedDict = self.OrderedDict
         # Check that ordered dicts are copyable, deepcopyable, picklable,
         # and have a repr/eval round-trip
         pairs = [('c', 1), ('b', 2), ('a', 3), ('d', 4), ('e', 5), ('f', 6)]
         od = OrderedDict(pairs)
-        update_test = OrderedDict()
-        update_test.update(od)
-        for i, dup in enumerate([
-                    od.copy(),
-                    copy.copy(od),
-                    copy.deepcopy(od),
-                    pickle.loads(pickle.dumps(od, 0)),
-                    pickle.loads(pickle.dumps(od, 1)),
-                    pickle.loads(pickle.dumps(od, 2)),
-                    pickle.loads(pickle.dumps(od, 3)),
-                    pickle.loads(pickle.dumps(od, -1)),
-                    eval(repr(od)),
-                    update_test,
-                    OrderedDict(od),
-                    ]):
-            self.assertTrue(dup is not od)
+        def check(dup):
+            msg = "\ncopy: %s\nod: %s" % (dup, od)
+            self.assertIsNot(dup, od, msg)
             self.assertEqual(dup, od)
             self.assertEqual(list(dup.items()), list(od.items()))
             self.assertEqual(len(dup), len(od))
             self.assertEqual(type(dup), type(od))
+        check(od.copy())
+        check(copy.copy(od))
+        check(copy.deepcopy(od))
+        # pickle directly pulls the module, so we have to fake it
+        with replaced_module('collections', self.module):
+            for proto in range(pickle.HIGHEST_PROTOCOL + 1):
+                with self.subTest(proto=proto):
+                    check(pickle.loads(pickle.dumps(od, proto)))
+        check(eval(repr(od)))
+        update_test = OrderedDict()
+        update_test.update(od)
+        check(update_test)
+        check(OrderedDict(od))
 
     def test_yaml_linkage(self):
+        OrderedDict = self.OrderedDict
         # Verify that __reduce__ is setup in a way that supports PyYAML's dump() feature.
         # In yaml, lists are native but tuples are not.
         pairs = [('c', 1), ('b', 2), ('a', 3), ('d', 4), ('e', 5), ('f', 6)]
@@ -1234,14 +1907,29 @@ class TestOrderedDict(unittest.TestCase):
         self.assertTrue(all(type(pair)==list for pair in od.__reduce__()[1]))
 
     def test_reduce_not_too_fat(self):
+        OrderedDict = self.OrderedDict
         # do not save instance dictionary if not needed
         pairs = [('c', 1), ('b', 2), ('a', 3), ('d', 4), ('e', 5), ('f', 6)]
         od = OrderedDict(pairs)
-        self.assertEqual(len(od.__reduce__()), 2)
+        self.assertIsNone(od.__reduce__()[2])
         od.x = 10
-        self.assertEqual(len(od.__reduce__()), 3)
+        self.assertIsNotNone(od.__reduce__()[2])
+
+    def test_pickle_recursive(self):
+        OrderedDict = self.OrderedDict
+        od = OrderedDict()
+        od[1] = od
+
+        # pickle directly pulls the module, so we have to fake it
+        with replaced_module('collections', self.module):
+            for proto in range(-1, pickle.HIGHEST_PROTOCOL + 1):
+                dup = pickle.loads(pickle.dumps(od, proto))
+                self.assertIsNot(dup, od)
+                self.assertEqual(list(dup.keys()), [1])
+                self.assertIs(dup[1], dup)
 
     def test_repr(self):
+        OrderedDict = self.OrderedDict
         od = OrderedDict([('c', 1), ('b', 2), ('a', 3), ('d', 4), ('e', 5), ('f', 6)])
         self.assertEqual(repr(od),
             "OrderedDict([('c', 1), ('b', 2), ('a', 3), ('d', 4), ('e', 5), ('f', 6)])")
@@ -1249,6 +1937,7 @@ class TestOrderedDict(unittest.TestCase):
         self.assertEqual(repr(OrderedDict()), "OrderedDict()")
 
     def test_repr_recursive(self):
+        OrderedDict = self.OrderedDict
         # See issue #9826
         od = OrderedDict.fromkeys('abc')
         od['x'] = od
@@ -1256,6 +1945,7 @@ class TestOrderedDict(unittest.TestCase):
             "OrderedDict([('a', None), ('b', None), ('c', None), ('x', ...)])")
 
     def test_setdefault(self):
+        OrderedDict = self.OrderedDict
         pairs = [('c', 1), ('b', 2), ('a', 3), ('d', 4), ('e', 5), ('f', 6)]
         shuffle(pairs)
         od = OrderedDict(pairs)
@@ -1266,6 +1956,7 @@ class TestOrderedDict(unittest.TestCase):
         self.assertEqual(od.setdefault('x', 10), 10)
         # make sure 'x' is added to the end
         self.assertEqual(list(od.items())[-1], ('x', 10))
+        self.assertEqual(od.setdefault('g', default=9), 9)
 
         # make sure setdefault still works when __missing__ is defined
         class Missing(OrderedDict):
@@ -1274,16 +1965,19 @@ class TestOrderedDict(unittest.TestCase):
         self.assertEqual(Missing().setdefault(5, 9), 9)
 
     def test_reinsert(self):
+        OrderedDict = self.OrderedDict
         # Given insert a, insert b, delete a, re-insert a,
         # verify that a is now later than b.
         od = OrderedDict()
         od['a'] = 1
         od['b'] = 2
         del od['a']
+        self.assertEqual(list(od.items()), [('b', 2)])
         od['a'] = 1
         self.assertEqual(list(od.items()), [('b', 2), ('a', 1)])
 
     def test_move_to_end(self):
+        OrderedDict = self.OrderedDict
         od = OrderedDict.fromkeys('abcde')
         self.assertEqual(list(od), list('abcde'))
         od.move_to_end('c')
@@ -1294,16 +1988,36 @@ class TestOrderedDict(unittest.TestCase):
         self.assertEqual(list(od), list('cabde'))
         od.move_to_end('e')
         self.assertEqual(list(od), list('cabde'))
+        od.move_to_end('b', last=False)
+        self.assertEqual(list(od), list('bcade'))
         with self.assertRaises(KeyError):
             od.move_to_end('x')
+        with self.assertRaises(KeyError):
+            od.move_to_end('x', 0)
+
+    def test_move_to_end_issue25406(self):
+        OrderedDict = self.OrderedDict
+        od = OrderedDict.fromkeys('abc')
+        od.move_to_end('c', last=False)
+        self.assertEqual(list(od), list('cab'))
+        od.move_to_end('a', last=False)
+        self.assertEqual(list(od), list('acb'))
+
+        od = OrderedDict.fromkeys('abc')
+        od.move_to_end('a')
+        self.assertEqual(list(od), list('bca'))
+        od.move_to_end('c')
+        self.assertEqual(list(od), list('bac'))
 
     def test_sizeof(self):
+        OrderedDict = self.OrderedDict
         # Wimpy test: Just verify the reported size is larger than a regular dict
         d = dict(a=1)
         od = OrderedDict(**d)
         self.assertGreater(sys.getsizeof(od), sys.getsizeof(d))
 
     def test_override_update(self):
+        OrderedDict = self.OrderedDict
         # Verify that subclasses can override update() without breaking __init__()
         class MyOD(OrderedDict):
             def update(self, *args, **kwds):
@@ -1311,18 +2025,269 @@ class TestOrderedDict(unittest.TestCase):
         items = [('a', 1), ('c', 3), ('b', 2)]
         self.assertEqual(list(MyOD(items).items()), items)
 
-class GeneralMappingTests(mapping_tests.BasicTestMappingProtocol):
-    type2test = OrderedDict
+    def test_highly_nested(self):
+        # Issue 25395: crashes during garbage collection
+        OrderedDict = self.OrderedDict
+        obj = None
+        for _ in range(1000):
+            obj = OrderedDict([(None, obj)])
+        del obj
+        support.gc_collect()
+
+    def test_highly_nested_subclass(self):
+        # Issue 25395: crashes during garbage collection
+        OrderedDict = self.OrderedDict
+        deleted = []
+        class MyOD(OrderedDict):
+            def __del__(self):
+                deleted.append(self.i)
+        obj = None
+        for i in range(100):
+            obj = MyOD([(None, obj)])
+            obj.i = i
+        del obj
+        support.gc_collect()
+        self.assertEqual(deleted, list(reversed(range(100))))
+
+    def test_delitem_hash_collision(self):
+        OrderedDict = self.OrderedDict
+
+        class Key:
+            def __init__(self, hash):
+                self._hash = hash
+                self.value = str(id(self))
+            def __hash__(self):
+                return self._hash
+            def __eq__(self, other):
+                try:
+                    return self.value == other.value
+                except AttributeError:
+                    return False
+            def __repr__(self):
+                return self.value
+
+        def blocking_hash(hash):
+            # See the collision-handling in lookdict (in Objects/dictobject.c).
+            MINSIZE = 8
+            i = (hash & MINSIZE-1)
+            return (i << 2) + i + hash + 1
+
+        COLLIDING = 1
+
+        key = Key(COLLIDING)
+        colliding = Key(COLLIDING)
+        blocking = Key(blocking_hash(COLLIDING))
+
+        od = OrderedDict()
+        od[key] = ...
+        od[blocking] = ...
+        od[colliding] = ...
+        od['after'] = ...
+
+        del od[blocking]
+        del od[colliding]
+        self.assertEqual(list(od.items()), [(key, ...), ('after', ...)])
+
+    def test_issue24347(self):
+        OrderedDict = self.OrderedDict
+
+        class Key:
+            def __hash__(self):
+                return randrange(100000)
+
+        od = OrderedDict()
+        for i in range(100):
+            key = Key()
+            od[key] = i
+
+        # These should not crash.
+        with self.assertRaises(KeyError):
+            list(od.values())
+        with self.assertRaises(KeyError):
+            list(od.items())
+        with self.assertRaises(KeyError):
+            repr(od)
+        with self.assertRaises(KeyError):
+            od.copy()
+
+    def test_issue24348(self):
+        OrderedDict = self.OrderedDict
+
+        class Key:
+            def __hash__(self):
+                return 1
+
+        od = OrderedDict()
+        od[Key()] = 0
+        # This should not crash.
+        od.popitem()
+
+    def test_issue24667(self):
+        """
+        dict resizes after a certain number of insertion operations,
+        whether or not there were deletions that freed up slots in the
+        hash table.  During fast node lookup, OrderedDict must correctly
+        respond to all resizes, even if the current "size" is the same
+        as the old one.  We verify that here by forcing a dict resize
+        on a sparse odict and then perform an operation that should
+        trigger an odict resize (e.g. popitem).  One key aspect here is
+        that we will keep the size of the odict the same at each popitem
+        call.  This verifies that we handled the dict resize properly.
+        """
+        OrderedDict = self.OrderedDict
+
+        od = OrderedDict()
+        for c0 in '0123456789ABCDEF':
+            for c1 in '0123456789ABCDEF':
+                if len(od) == 4:
+                    # This should not raise a KeyError.
+                    od.popitem(last=False)
+                key = c0 + c1
+                od[key] = key
+
+    # Direct use of dict methods
+
+    def test_dict_setitem(self):
+        OrderedDict = self.OrderedDict
+        od = OrderedDict()
+        dict.__setitem__(od, 'spam', 1)
+        self.assertNotIn('NULL', repr(od))
+
+    def test_dict_delitem(self):
+        OrderedDict = self.OrderedDict
+        od = OrderedDict()
+        od['spam'] = 1
+        od['ham'] = 2
+        dict.__delitem__(od, 'spam')
+        with self.assertRaises(KeyError):
+            repr(od)
+
+    def test_dict_clear(self):
+        OrderedDict = self.OrderedDict
+        od = OrderedDict()
+        od['spam'] = 1
+        od['ham'] = 2
+        dict.clear(od)
+        self.assertNotIn('NULL', repr(od))
+
+    def test_dict_pop(self):
+        OrderedDict = self.OrderedDict
+        od = OrderedDict()
+        od['spam'] = 1
+        od['ham'] = 2
+        dict.pop(od, 'spam')
+        with self.assertRaises(KeyError):
+            repr(od)
+
+    def test_dict_popitem(self):
+        OrderedDict = self.OrderedDict
+        od = OrderedDict()
+        od['spam'] = 1
+        od['ham'] = 2
+        dict.popitem(od)
+        with self.assertRaises(KeyError):
+            repr(od)
+
+    def test_dict_setdefault(self):
+        OrderedDict = self.OrderedDict
+        od = OrderedDict()
+        dict.setdefault(od, 'spam', 1)
+        self.assertNotIn('NULL', repr(od))
+
+    def test_dict_update(self):
+        od = OrderedDict()
+        dict.update(od, [('spam', 1)])
+        self.assertNotIn('NULL', repr(od))
+
+
+class PurePythonOrderedDictTests(OrderedDictTests, unittest.TestCase):
+
+    module = py_coll
+    OrderedDict = py_coll.OrderedDict
+
+
+@unittest.skipUnless(c_coll, 'requires the C version of the collections module')
+class CPythonOrderedDictTests(OrderedDictTests, unittest.TestCase):
+
+    module = c_coll
+    OrderedDict = c_coll.OrderedDict
+
+    def test_key_change_during_iteration(self):
+        OrderedDict = self.OrderedDict
+
+        od = OrderedDict.fromkeys('abcde')
+        self.assertEqual(list(od), list('abcde'))
+        with self.assertRaises(RuntimeError):
+            for i, k in enumerate(od):
+                od.move_to_end(k)
+                self.assertLess(i, 5)
+        with self.assertRaises(RuntimeError):
+            for k in od:
+                od['f'] = None
+        with self.assertRaises(RuntimeError):
+            for k in od:
+                del od['c']
+        self.assertEqual(list(od), list('bdeaf'))
+
+
+class PurePythonOrderedDictSubclassTests(PurePythonOrderedDictTests):
+
+    module = py_coll
+    class OrderedDict(py_coll.OrderedDict):
+        pass
+
+
+class CPythonOrderedDictSubclassTests(CPythonOrderedDictTests):
+
+    module = c_coll
+    class OrderedDict(c_coll.OrderedDict):
+        pass
+
+
+class PurePythonGeneralMappingTests(mapping_tests.BasicTestMappingProtocol):
+
+    @classmethod
+    def setUpClass(cls):
+        cls.type2test = py_coll.OrderedDict
 
     def test_popitem(self):
         d = self._empty_mapping()
         self.assertRaises(KeyError, d.popitem)
 
-class MyOrderedDict(OrderedDict):
-    pass
 
-class SubclassMappingTests(mapping_tests.BasicTestMappingProtocol):
-    type2test = MyOrderedDict
+@unittest.skipUnless(c_coll, 'requires the C version of the collections module')
+class CPythonGeneralMappingTests(mapping_tests.BasicTestMappingProtocol):
+
+    @classmethod
+    def setUpClass(cls):
+        cls.type2test = c_coll.OrderedDict
+
+    def test_popitem(self):
+        d = self._empty_mapping()
+        self.assertRaises(KeyError, d.popitem)
+
+
+class PurePythonSubclassMappingTests(mapping_tests.BasicTestMappingProtocol):
+
+    @classmethod
+    def setUpClass(cls):
+        class MyOrderedDict(py_coll.OrderedDict):
+            pass
+        cls.type2test = MyOrderedDict
+
+    def test_popitem(self):
+        d = self._empty_mapping()
+        self.assertRaises(KeyError, d.popitem)
+
+
+@unittest.skipUnless(c_coll, 'requires the C version of the collections module')
+class CPythonSubclassMappingTests(mapping_tests.BasicTestMappingProtocol):
+
+    @classmethod
+    def setUpClass(cls):
+        class MyOrderedDict(c_coll.OrderedDict):
+            pass
+        cls.type2test = MyOrderedDict
 
     def test_popitem(self):
         d = self._empty_mapping()
@@ -1339,7 +2304,13 @@ def test_main(verbose=None):
     NamedTupleDocs = doctest.DocTestSuite(module=collections)
     test_classes = [TestNamedTuple, NamedTupleDocs, TestOneTrickPonyABCs,
                     TestCollectionABCs, TestCounter, TestChainMap,
-                    TestOrderedDict, GeneralMappingTests, SubclassMappingTests]
+                    PurePythonOrderedDictTests, CPythonOrderedDictTests,
+                    PurePythonOrderedDictSubclassTests,
+                    CPythonOrderedDictSubclassTests,
+                    PurePythonGeneralMappingTests, CPythonGeneralMappingTests,
+                    PurePythonSubclassMappingTests, CPythonSubclassMappingTests,
+                    TestUserObjects,
+                    ]
     support.run_unittest(*test_classes)
     support.run_doctest(collections, verbose)
 

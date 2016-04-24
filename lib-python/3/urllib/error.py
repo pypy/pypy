@@ -1,6 +1,6 @@
 """Exception classes raised by urllib.
 
-The base exception class is URLError, which inherits from IOError.  It
+The base exception class is URLError, which inherits from OSError.  It
 doesn't define any behavior of its own, but is the base class for all
 exceptions defined in this package.
 
@@ -17,11 +17,11 @@ __all__ = ['URLError', 'HTTPError', 'ContentTooShortError']
 
 
 # do these error classes make sense?
-# make sure all of the IOError stuff is overridden.  we just want to be
+# make sure all of the OSError stuff is overridden.  we just want to be
 # subtypes.
 
-class URLError(IOError):
-    # URLError is a sub-type of IOError, but it doesn't share any of
+class URLError(OSError):
+    # URLError is a sub-type of OSError, but it doesn't share any of
     # the implementation.  need to override __init__ and __str__.
     # It sets self.args for compatibility with other EnvironmentError
     # subclasses, but args doesn't have the typical format with errno in
@@ -34,6 +34,7 @@ class URLError(IOError):
 
     def __str__(self):
         return '<urlopen error %s>' % self.reason
+
 
 class HTTPError(URLError, urllib.response.addinfourl):
     """Raised when HTTP error occurs, but also acts like non-error return"""
@@ -55,18 +56,26 @@ class HTTPError(URLError, urllib.response.addinfourl):
     def __str__(self):
         return 'HTTP Error %s: %s' % (self.code, self.msg)
 
+    def __repr__(self):
+        return '<HTTPError %s: %r>' % (self.code, self.msg)
+
     # since URLError specifies a .reason attribute, HTTPError should also
     #  provide this attribute. See issue13211 for discussion.
     @property
     def reason(self):
         return self.msg
 
-    def info(self):
+    @property
+    def headers(self):
         return self.hdrs
 
+    @headers.setter
+    def headers(self, headers):
+        self.hdrs = headers
 
-# exception raised when downloaded size does not match content-length
+
 class ContentTooShortError(URLError):
+    """Exception raised when downloaded size does not match content-length."""
     def __init__(self, message, content):
         URLError.__init__(self, message)
         self.content = content

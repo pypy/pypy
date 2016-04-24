@@ -2,7 +2,9 @@ import io
 
 import os
 import sys
+from test import support
 import unittest
+import unittest.test
 
 
 class Test_TestProgram(unittest.TestCase):
@@ -64,6 +66,41 @@ class Test_TestProgram(unittest.TestCase):
             return self.suiteClass(
                 [self.loadTestsFromTestCase(Test_TestProgram.FooBar)])
 
+        def loadTestsFromNames(self, names, module):
+            return self.suiteClass(
+                [self.loadTestsFromTestCase(Test_TestProgram.FooBar)])
+
+    def test_defaultTest_with_string(self):
+        class FakeRunner(object):
+            def run(self, test):
+                self.test = test
+                return True
+
+        old_argv = sys.argv
+        sys.argv = ['faketest']
+        runner = FakeRunner()
+        program = unittest.TestProgram(testRunner=runner, exit=False,
+                                       defaultTest='unittest.test',
+                                       testLoader=self.FooBarLoader())
+        sys.argv = old_argv
+        self.assertEqual(('unittest.test',), program.testNames)
+
+    def test_defaultTest_with_iterable(self):
+        class FakeRunner(object):
+            def run(self, test):
+                self.test = test
+                return True
+
+        old_argv = sys.argv
+        sys.argv = ['faketest']
+        runner = FakeRunner()
+        program = unittest.TestProgram(
+            testRunner=runner, exit=False,
+            defaultTest=['unittest.test', 'unittest.test2'],
+            testLoader=self.FooBarLoader())
+        sys.argv = old_argv
+        self.assertEqual(['unittest.test', 'unittest.test2'],
+                          program.testNames)
 
     def test_NonExit(self):
         program = unittest.main(exit=False,
@@ -97,6 +134,7 @@ class InitialisableProgram(unittest.TestProgram):
     result = None
     verbosity = 1
     defaultTest = None
+    tb_locals = False
     testRunner = None
     testLoader = unittest.defaultTestLoader
     module = '__main__'
@@ -110,17 +148,18 @@ RESULT = object()
 class FakeRunner(object):
     initArgs = None
     test = None
-    raiseError = False
+    raiseError = 0
 
     def __init__(self, **kwargs):
         FakeRunner.initArgs = kwargs
         if FakeRunner.raiseError:
-            FakeRunner.raiseError = False
+            FakeRunner.raiseError -= 1
             raise TypeError
 
     def run(self, test):
         FakeRunner.test = test
         return RESULT
+
 
 class TestCommandLineArgs(unittest.TestCase):
 
@@ -129,7 +168,7 @@ class TestCommandLineArgs(unittest.TestCase):
         self.program.createTests = lambda: None
         FakeRunner.initArgs = None
         FakeRunner.test = None
-        FakeRunner.raiseError = False
+        FakeRunner.raiseError = 0
 
     def testVerbosity(self):
         program = self.program
@@ -151,20 +190,38 @@ class TestCommandLineArgs(unittest.TestCase):
             if attr == 'catch' and not hasInstallHandler:
                 continue
 
+            setattr(program, attr, None)
+            program.parseArgs([None])
+            self.assertIs(getattr(program, attr), False)
+
+            false = []
+            setattr(program, attr, false)
+            program.parseArgs([None])
+            self.assertIs(getattr(program, attr), false)
+
+            true = [42]
+            setattr(program, attr, true)
+            program.parseArgs([None])
+            self.assertIs(getattr(program, attr), true)
+
             short_opt = '-%s' % arg[0]
             long_opt = '--%s' % arg
             for opt in short_opt, long_opt:
                 setattr(program, attr, None)
-
                 program.parseArgs([None, opt])
-                self.assertTrue(getattr(program, attr))
+                self.assertIs(getattr(program, attr), True)
 
-            for opt in short_opt, long_opt:
-                not_none = object()
-                setattr(program, attr, not_none)
+                setattr(program, attr, False)
+                with support.captured_stderr() as stderr, \
+                    self.assertRaises(SystemExit) as cm:
+                    program.parseArgs([None, opt])
+                self.assertEqual(cm.exception.args, (2,))
 
-                program.parseArgs([None, opt])
-                self.assertEqual(getattr(program, attr), not_none)
+                setattr(program, attr, True)
+                with support.captured_stderr() as stderr, \
+                    self.assertRaises(SystemExit) as cm:
+                    program.parseArgs([None, opt])
+                self.assertEqual(cm.exception.args, (2,))
 
     def testWarning(self):
         """Test the warnings argument"""
@@ -201,6 +258,7 @@ class TestCommandLineArgs(unittest.TestCase):
         self.assertEqual(FakeRunner.initArgs, {'verbosity': 'verbosity',
                                                 'failfast': 'failfast',
                                                 'buffer': 'buffer',
+                                                'tb_locals': False,
                                                 'warnings': 'warnings'})
         self.assertEqual(FakeRunner.test, 'test')
         self.assertIs(program.result, RESULT)
@@ -219,10 +277,25 @@ class TestCommandLineArgs(unittest.TestCase):
         self.assertEqual(FakeRunner.test, 'test')
         self.assertIs(program.result, RESULT)
 
+    def test_locals(self):
+        program = self.program
+
+        program.testRunner = FakeRunner
+        program.parseArgs([None, '--locals'])
+        self.assertEqual(True, program.tb_locals)
+        program.runTests()
+        self.assertEqual(FakeRunner.initArgs, {'buffer': False,
+                                               'failfast': False,
+                                               'tb_locals': True,
+                                               'verbosity': 1,
+                                               'warnings': None})
+
     def testRunTestsOldRunnerClass(self):
         program = self.program
 
-        FakeRunner.raiseError = True
+        # Two TypeErrors are needed to fall all the way back to old-style
+        # runners - one to fail tb_locals, one to fail buffer etc.
+        FakeRunner.raiseError = 2
         program.testRunner = FakeRunner
         program.verbosity = 'verbosity'
         program.failfast = 'failfast'

@@ -52,7 +52,9 @@ from errno import ENOENT
 
 __all__ = ['NullTranslations', 'GNUTranslations', 'Catalog',
            'find', 'translation', 'install', 'textdomain', 'bindtextdomain',
-           'dgettext', 'dngettext', 'gettext', 'ngettext',
+           'bind_textdomain_codeset',
+           'dgettext', 'dngettext', 'gettext', 'lgettext', 'ldgettext',
+           'ldngettext', 'lngettext', 'ngettext',
            ]
 
 _default_localedir = os.path.join(sys.base_prefix, 'share', 'locale')
@@ -225,6 +227,13 @@ class GNUTranslations(NullTranslations):
     LE_MAGIC = 0x950412de
     BE_MAGIC = 0xde120495
 
+    # Acceptable .mo versions
+    VERSIONS = (0, 1)
+
+    def _get_versions(self, version):
+        """Returns a tuple of major version, minor version"""
+        return (version >> 16, version & 0xffff)
+
     def _parse(self, fp):
         """Override this method to support alternative .mo formats."""
         unpack = struct.unpack
@@ -244,7 +253,13 @@ class GNUTranslations(NullTranslations):
             version, msgcount, masteridx, transidx = unpack('>4I', buf[4:20])
             ii = '>II'
         else:
-            raise IOError(0, 'Bad magic number', filename)
+            raise OSError(0, 'Bad magic number', filename)
+
+        major_version, minor_version = self._get_versions(version)
+
+        if major_version not in self.VERSIONS:
+            raise OSError(0, 'Bad version number ' + str(major_version), filename)
+
         # Now put all messages from the .mo file buffer into the catalog
         # dictionary.
         for i in range(0, msgcount):
@@ -256,15 +271,16 @@ class GNUTranslations(NullTranslations):
                 msg = buf[moff:mend]
                 tmsg = buf[toff:tend]
             else:
-                raise IOError(0, 'File is corrupt', filename)
+                raise OSError(0, 'File is corrupt', filename)
             # See if we're looking at GNU .mo conventions for metadata
             if mlen == 0:
                 # Catalog description
-                lastk = k = None
+                lastk = None
                 for b_item in tmsg.split('\n'.encode("ascii")):
                     item = b_item.decode().strip()
                     if not item:
                         continue
+                    k = v = None
                     if ':' in item:
                         k, v = item.split(':', 1)
                         k = k.strip().lower()
@@ -398,7 +414,7 @@ def translation(domain, localedir=None, languages=None,
     if not mofiles:
         if fallback:
             return NullTranslations()
-        raise IOError(ENOENT, 'No translation file found for domain', domain)
+        raise OSError(ENOENT, 'No translation file found for domain', domain)
     # Avoid opening, reading, and parsing the .mo file after it's been done
     # once.
     result = None
@@ -460,7 +476,7 @@ def dgettext(domain, message):
     try:
         t = translation(domain, _localedirs.get(domain, None),
                         codeset=_localecodesets.get(domain))
-    except IOError:
+    except OSError:
         return message
     return t.gettext(message)
 
@@ -468,7 +484,7 @@ def ldgettext(domain, message):
     try:
         t = translation(domain, _localedirs.get(domain, None),
                         codeset=_localecodesets.get(domain))
-    except IOError:
+    except OSError:
         return message
     return t.lgettext(message)
 
@@ -476,7 +492,7 @@ def dngettext(domain, msgid1, msgid2, n):
     try:
         t = translation(domain, _localedirs.get(domain, None),
                         codeset=_localecodesets.get(domain))
-    except IOError:
+    except OSError:
         if n == 1:
             return msgid1
         else:
@@ -487,7 +503,7 @@ def ldngettext(domain, msgid1, msgid2, n):
     try:
         t = translation(domain, _localedirs.get(domain, None),
                         codeset=_localecodesets.get(domain))
-    except IOError:
+    except OSError:
         if n == 1:
             return msgid1
         else:

@@ -1,6 +1,7 @@
 from test.support import TESTFN
 import unittest
 from test import audiotests
+from audioop import byteswap
 import sys
 import sunau
 
@@ -43,6 +44,31 @@ class SunauPCM16Test(SunauTest, unittest.TestCase):
       1183FA30 3EEAFB59 BC78FCB4 66D5FF60 CF130415 431A097D C1BA0EC7 512312A0 \
       EEE11754 82071666 7FFE1448 80001298 49990EB7 52B40DC1 EFAD0F65 CE3A0FBE \
       E4B70CE6 63490A57 08CC0A1D 2BBC0B09 51480E46 8BCB113C B6F60EE9 44150A5A \
+      """)
+
+
+class SunauPCM24Test(SunauTest, unittest.TestCase):
+    sndfilename = 'pluck-pcm24.au'
+    sndfilenframes = 3307
+    nchannels = 2
+    sampwidth = 3
+    framerate = 11025
+    nframes = 48
+    comptype = 'NONE'
+    compname = 'not compressed'
+    frames = bytes.fromhex("""\
+      022D65FFEB9D 4B5A0F00FA54 3113C304EE2B 80DCD6084303 \
+      CBDEC006B261 48A99803F2F8 BFE82401B07D 036BFBFE7B5D \
+      B85756FA3EC9 B4B055F3502B 299830EBCB62 1A5CA7E6D99A \
+      EDFA3EE491BD C625EBE27884 0E05A9E0B6CF EF2929E02922 \
+      5758D8E27067 FB3557E83E16 1377BFEF8402 D82C5BF7272A \
+      978F16FB7745 F5F865FC1013 086635FB9C4E DF30FCFB40EE \
+      117FE0FA3438 3EE6B8FB5AC3 BC77A3FCB2F4 66D6DAFF5F32 \
+      CF13B9041275 431D69097A8C C1BB600EC74E 5120B912A2BA \
+      EEDF641754C0 8207001664B7 7FFFFF14453F 8000001294E6 \
+      499C1B0EB3B2 52B73E0DBCA0 EFB2B20F5FD8 CE3CDB0FBE12 \
+      E4B49C0CEA2D 6344A80A5A7C 08C8FE0A1FFE 2BB9860B0A0E \
+      51486F0E44E1 8BCC64113B05 B6F4EC0EEB36 4413170A5B48 \
       """)
 
 
@@ -89,7 +115,7 @@ class SunauULAWTest(SunauTest, unittest.TestCase):
       E5040CBC 617C0A3C 08BC0A3C 2C7C0B3C 517C0E3C 8A8410FC B6840EBC 457C0A3C \
       """)
     if sys.byteorder != 'big':
-        frames = audiotests.byteswap2(frames)
+        frames = byteswap(frames, 2)
 
 
 if __name__ == "__main__":

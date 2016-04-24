@@ -1,4 +1,6 @@
+from collections import abc
 import array
+import operator
 import unittest
 import struct
 import sys
@@ -6,7 +8,6 @@ import sys
 from test import support
 
 ISBIGENDIAN = sys.byteorder == "big"
-IS32BIT = sys.maxsize == 0x7fffffff
 
 integer_codes = 'b', 'B', 'h', 'H', 'i', 'I', 'l', 'L', 'q', 'Q', 'n', 'N'
 byteorders = '', '@', '=', '<', '>', '!'
@@ -489,7 +490,7 @@ class StructTest(unittest.TestCase):
     def test_bool(self):
         class ExplodingBool(object):
             def __bool__(self):
-                raise IOError
+                raise OSError
         for prefix in tuple("<>!=")+('',):
             false = (), [], [], '', 0
             true = [1], 'test', 5, -1, 0xffffffff+1, 0xffffffff/2
@@ -520,10 +521,10 @@ class StructTest(unittest.TestCase):
 
             try:
                 struct.pack(prefix + '?', ExplodingBool())
-            except IOError:
+            except OSError:
                 pass
             else:
-                self.fail("Expected IOError: struct.pack(%r, "
+                self.fail("Expected OSError: struct.pack(%r, "
                           "ExplodingBool())" % (prefix + '?'))
 
         for c in [b'\x01', b'\x7f', b'\xff', b'\x0f', b'\xf0']:
@@ -535,10 +536,6 @@ class StructTest(unittest.TestCase):
 
         hugecount2 = '{}b{}H'.format(sys.maxsize//2, sys.maxsize//2)
         self.assertRaises(struct.error, struct.calcsize, hugecount2)
-
-    if IS32BIT:
-        def test_crasher(self):
-            self.assertRaises(MemoryError, struct.pack, "357913941b", "a")
 
     def test_trailing_counter(self):
         store = array.array('b', b' '*100)
@@ -576,7 +573,7 @@ class StructTest(unittest.TestCase):
         # The size of 'PyStructObject'
         totalsize = support.calcobjsize('2n3P')
         # The size taken up by the 'formatcode' dynamic array
-        totalsize += struct.calcsize('P2n0P') * (number_of_codes + 1)
+        totalsize += struct.calcsize('P3n0P') * (number_of_codes + 1)
         support.check_sizeof(self, struct.Struct(format_str), totalsize)
 
     @support.cpython_only
@@ -587,14 +584,81 @@ class StructTest(unittest.TestCase):
         self.check_sizeof('B' * 1234, 1234)
         self.check_sizeof('fd', 2)
         self.check_sizeof('xxxxxxxxxxxxxx', 0)
-        self.check_sizeof('100H', 100)
+        self.check_sizeof('100H', 1)
         self.check_sizeof('187s', 1)
         self.check_sizeof('20p', 1)
         self.check_sizeof('0s', 1)
         self.check_sizeof('0c', 0)
 
-def test_main():
-    support.run_unittest(StructTest)
+
+class UnpackIteratorTest(unittest.TestCase):
+    """
+    Tests for iterative unpacking (struct.Struct.iter_unpack).
+    """
+
+    def test_construct(self):
+        def _check_iterator(it):
+            self.assertIsInstance(it, abc.Iterator)
+            self.assertIsInstance(it, abc.Iterable)
+        s = struct.Struct('>ibcp')
+        it = s.iter_unpack(b"")
+        _check_iterator(it)
+        it = s.iter_unpack(b"1234567")
+        _check_iterator(it)
+        # Wrong bytes length
+        with self.assertRaises(struct.error):
+            s.iter_unpack(b"123456")
+        with self.assertRaises(struct.error):
+            s.iter_unpack(b"12345678")
+        # Zero-length struct
+        s = struct.Struct('>')
+        with self.assertRaises(struct.error):
+            s.iter_unpack(b"")
+        with self.assertRaises(struct.error):
+            s.iter_unpack(b"12")
+
+    def test_iterate(self):
+        s = struct.Struct('>IB')
+        b = bytes(range(1, 16))
+        it = s.iter_unpack(b)
+        self.assertEqual(next(it), (0x01020304, 5))
+        self.assertEqual(next(it), (0x06070809, 10))
+        self.assertEqual(next(it), (0x0b0c0d0e, 15))
+        self.assertRaises(StopIteration, next, it)
+        self.assertRaises(StopIteration, next, it)
+
+    def test_arbitrary_buffer(self):
+        s = struct.Struct('>IB')
+        b = bytes(range(1, 11))
+        it = s.iter_unpack(memoryview(b))
+        self.assertEqual(next(it), (0x01020304, 5))
+        self.assertEqual(next(it), (0x06070809, 10))
+        self.assertRaises(StopIteration, next, it)
+        self.assertRaises(StopIteration, next, it)
+
+    def test_length_hint(self):
+        lh = operator.length_hint
+        s = struct.Struct('>IB')
+        b = bytes(range(1, 16))
+        it = s.iter_unpack(b)
+        self.assertEqual(lh(it), 3)
+        next(it)
+        self.assertEqual(lh(it), 2)
+        next(it)
+        self.assertEqual(lh(it), 1)
+        next(it)
+        self.assertEqual(lh(it), 0)
+        self.assertRaises(StopIteration, next, it)
+        self.assertEqual(lh(it), 0)
+
+    def test_module_func(self):
+        # Sanity check for the global struct.iter_unpack()
+        it = struct.iter_unpack('>IB', bytes(range(1, 11)))
+        self.assertEqual(next(it), (0x01020304, 5))
+        self.assertEqual(next(it), (0x06070809, 10))
+        self.assertRaises(StopIteration, next, it)
+        self.assertRaises(StopIteration, next, it)
+
 
 if __name__ == '__main__':
-    test_main()
+    unittest.main()

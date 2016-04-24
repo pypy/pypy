@@ -23,7 +23,9 @@ def raise1():
 def raise2():
     raise SystemError
 
-class TestCase(unittest.TestCase):
+
+class GeneralTest(unittest.TestCase):
+
     def setUp(self):
         self.save_stdout = sys.stdout
         self.save_stderr = sys.stderr
@@ -141,8 +143,39 @@ class TestCase(unittest.TestCase):
         self.assertEqual(l, [5])
 
 
-def test_main():
-    support.run_unittest(TestCase)
+class SubinterpreterTest(unittest.TestCase):
+
+    def test_callbacks_leak(self):
+        # This test shows a leak in refleak mode if atexit doesn't
+        # take care to free callbacks in its per-subinterpreter module
+        # state.
+        n = atexit._ncallbacks()
+        code = r"""if 1:
+            import atexit
+            def f():
+                pass
+            atexit.register(f)
+            del atexit
+            """
+        ret = support.run_in_subinterp(code)
+        self.assertEqual(ret, 0)
+        self.assertEqual(atexit._ncallbacks(), n)
+
+    def test_callbacks_leak_refcycle(self):
+        # Similar to the above, but with a refcycle through the atexit
+        # module.
+        n = atexit._ncallbacks()
+        code = r"""if 1:
+            import atexit
+            def f():
+                pass
+            atexit.register(f)
+            atexit.__atexit = atexit
+            """
+        ret = support.run_in_subinterp(code)
+        self.assertEqual(ret, 0)
+        self.assertEqual(atexit._ncallbacks(), n)
+
 
 if __name__ == "__main__":
-    test_main()
+    unittest.main()

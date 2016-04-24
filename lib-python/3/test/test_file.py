@@ -83,11 +83,11 @@ class AutoFileTests:
     def testErrors(self):
         f = self.f
         self.assertEqual(f.name, TESTFN)
-        self.assertTrue(not f.isatty())
-        self.assertTrue(not f.closed)
+        self.assertFalse(f.isatty())
+        self.assertFalse(f.closed)
 
         if hasattr(f, "readinto"):
-            self.assertRaises((IOError, TypeError), f.readinto, "")
+            self.assertRaises((OSError, TypeError), f.readinto, "")
         f.close()
         self.assertTrue(f.closed)
 
@@ -126,7 +126,7 @@ class AutoFileTests:
             self.assertEqual(self.f.__exit__(*sys.exc_info()), None)
 
     def testReadWhenWriting(self):
-        self.assertRaises(IOError, self.f.read)
+        self.assertRaises(OSError, self.f.read)
 
 class CAutoFileTests(AutoFileTests, unittest.TestCase):
     open = io.open
@@ -177,7 +177,7 @@ class OtherFileTests:
                 d = int(f.read().decode("ascii"))
                 f.close()
                 f.close()
-            except IOError as msg:
+            except OSError as msg:
                 self.fail('error setting buffer size %d: %s' % (s, str(msg)))
             self.assertEqual(d, s)
 

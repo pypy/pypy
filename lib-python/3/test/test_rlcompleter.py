@@ -1,4 +1,3 @@
-from test import support
 import unittest
 import builtins
 import rlcompleter
@@ -65,9 +64,26 @@ class TestRlcompleter(unittest.TestCase):
                          ['egg.{}('.format(x) for x in dir(str)
                           if x.startswith('s')])
 
-def test_main():
-    support.run_unittest(TestRlcompleter)
+    def test_excessive_getattr(self):
+        # Ensure getattr() is invoked no more than once per attribute
+        class Foo:
+            calls = 0
+            @property
+            def bar(self):
+                self.calls += 1
+                return None
+        f = Foo()
+        completer = rlcompleter.Completer(dict(f=f))
+        self.assertEqual(completer.complete('f.b', 0), 'f.bar')
+        self.assertEqual(f.calls, 1)
 
+    def test_complete(self):
+        completer = rlcompleter.Completer()
+        self.assertEqual(completer.complete('', 0), '\t')
+        self.assertEqual(completer.complete('a', 0), 'and')
+        self.assertEqual(completer.complete('a', 1), 'as')
+        self.assertEqual(completer.complete('as', 2), 'assert')
+        self.assertEqual(completer.complete('an', 0), 'and')
 
 if __name__ == '__main__':
-    test_main()
+    unittest.main()

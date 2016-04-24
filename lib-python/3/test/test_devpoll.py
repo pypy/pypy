@@ -2,13 +2,15 @@
 
 # Initial tests are copied as is from "test_poll.py"
 
-import os, select, random, unittest, sys
+import os
+import random
+import select
+import sys
+import unittest
 from test.support import TESTFN, run_unittest, cpython_only
 
-try:
-    select.devpoll
-except AttributeError:
-    raise unittest.SkipTest("select.devpoll not defined -- skipping test_devpoll")
+if not hasattr(select, 'devpoll') :
+    raise unittest.SkipTest('test works only on Solaris OS family')
 
 
 def find_ready_matching(ready, flag):
@@ -86,6 +88,35 @@ class DevPollTests(unittest.TestCase):
         self.assertRaises(OverflowError, pollster.poll, 1 << 31)
         self.assertRaises(OverflowError, pollster.poll, 1 << 63)
         self.assertRaises(OverflowError, pollster.poll, 1 << 64)
+
+    def test_close(self):
+        open_file = open(__file__, "rb")
+        self.addCleanup(open_file.close)
+        fd = open_file.fileno()
+        devpoll = select.devpoll()
+
+        # test fileno() method and closed attribute
+        self.assertIsInstance(devpoll.fileno(), int)
+        self.assertFalse(devpoll.closed)
+
+        # test close()
+        devpoll.close()
+        self.assertTrue(devpoll.closed)
+        self.assertRaises(ValueError, devpoll.fileno)
+
+        # close() can be called more than once
+        devpoll.close()
+
+        # operations must fail with ValueError("I/O operation on closed ...")
+        self.assertRaises(ValueError, devpoll.modify, fd, select.POLLIN)
+        self.assertRaises(ValueError, devpoll.poll)
+        self.assertRaises(ValueError, devpoll.register, fd, fd, select.POLLIN)
+        self.assertRaises(ValueError, devpoll.unregister, fd)
+
+    def test_fd_non_inheritable(self):
+        devpoll = select.devpoll()
+        self.addCleanup(devpoll.close)
+        self.assertEqual(os.get_inheritable(devpoll.fileno()), False)
 
     def test_events_mask_overflow(self):
         pollster = select.devpoll()
