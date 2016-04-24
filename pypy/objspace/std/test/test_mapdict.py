@@ -599,15 +599,20 @@ def test_setdict():
 
 
 def test_specialized_class():
+    from pypy.objspace.std.mapdict import _make_storage_mixin_size_n
     from pypy.objspace.std.objectobject import W_ObjectObject
-    classes = memo_get_subclass_of_correct_size(space, W_ObjectObject)
+    classes = [_make_storage_mixin_size_n(i) for i in range(2, 10)]
     w1 = W_Root()
     w2 = W_Root()
     w3 = W_Root()
     w4 = W_Root()
     w5 = W_Root()
     w6 = W_Root()
-    for objectcls in classes:
+    for mixin in classes:
+        class objectcls(W_ObjectObject):
+            objectmodel.import_from_mixin(BaseUserClassMapdict)
+            objectmodel.import_from_mixin(MapdictDictSupport)
+            objectmodel.import_from_mixin(mixin)
         cls = Class()
         obj = objectcls()
         obj.user_setup(space, cls)

@@ -1,8 +1,7 @@
 import py
 
 class AppTest(object):
-    spaceconfig = {"objspace.usemodules.select": False,
-                   "objspace.std.withrangelist": True}
+    spaceconfig = {"objspace.usemodules.select": False}
 
     def setup_class(cls):
         if cls.runappdirect:

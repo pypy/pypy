@@ -579,15 +579,15 @@ def _obj_getdict(self, space):
 
 @objectmodel.dont_inline
 def _obj_setdict(self, space, w_dict):
-    from pypy.objspace.std import dictmultiobject
+    from pypy.interpreter.error import OperationError
     terminator = self._get_mapdict_map().terminator
     assert isinstance(terminator, DictTerminator) or isinstance(terminator, DevolvedDictTerminator)
     if not space.isinstance_w(w_dict, space.w_dict):
         raise OperationError(space.w_TypeError,
                 space.wrap("setting dictionary to a non-dict"))
-    assert isinstance(w_dict, dictmultiobject.W_DictMultiObject)
-    w_olddict = self.getdict(space)
     assert isinstance(w_dict, W_DictMultiObject)
+    w_olddict = self.getdict(space)
+    assert isinstance(w_olddict, W_DictMultiObject)
     # The old dict has got 'self' as dstorage, but we are about to
     # change self's ("dict", SPECIAL) attribute to point to the
     # new dict.  If the old dict was using the MapDictStrategy, we
@@ -617,11 +617,22 @@ class MapdictStorageMixin(object):
         self.storage = storage
         self.map = map
 
-class ObjectWithoutDict(MapdictStorageMixin, BaseUserClassMapdict, MapdictWeakrefSupport, W_Root):
-    pass # mainly for tests
+class ObjectWithoutDict(W_Root):
+    # mainly for tests
+    objectmodel.import_from_mixin(MapdictStorageMixin)
 
-class Object(MapdictStorageMixin, BaseUserClassMapdict, MapdictDictSupport, MapdictWeakrefSupport, W_Root):
-    pass # mainly for tests
+    objectmodel.import_from_mixin(BaseUserClassMapdict)
+    objectmodel.import_from_mixin(MapdictWeakrefSupport)
+
+
+class Object(W_Root):
+    # mainly for tests
+    objectmodel.import_from_mixin(MapdictStorageMixin)
+
+    objectmodel.import_from_mixin(BaseUserClassMapdict)
+    objectmodel.import_from_mixin(MapdictWeakrefSupport)
+    objectmodel.import_from_mixin(MapdictDictSupport)
+
 
 SUBCLASSES_NUM_FIELDS = 5
 

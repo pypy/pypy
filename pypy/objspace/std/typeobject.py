@@ -535,7 +535,7 @@ class W_TypeObject(W_Root):
     def add_subclass(w_self, w_subclass):
         space = w_self.space
         if not space.config.translation.rweakref:
-            self.weak_subclasses.append(w_subclass) # not really weak, but well
+            w_self.weak_subclasses.append(w_subclass) # not really weak, but well
             return
         import weakref
         assert isinstance(w_subclass, W_TypeObject)
@@ -566,7 +566,7 @@ class W_TypeObject(W_Root):
     def get_subclasses(w_self):
         space = w_self.space
         if not space.config.translation.rweakref:
-            return self.weak_subclasses[:]
+            return w_self.weak_subclasses[:]
         subclasses_w = []
         for ref in w_self.weak_subclasses:
             w_ob = ref()

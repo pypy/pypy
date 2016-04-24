@@ -163,6 +163,7 @@ def _getusercls(config, cls, wants_del, reallywantdict=False):
         user_overridden_class = True
         for base in mixins_needed:
             objectmodel.import_from_mixin(base)
+    del subcls.base
     subcls.__name__ = name
     return subcls
 
