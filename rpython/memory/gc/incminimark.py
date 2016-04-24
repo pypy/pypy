@@ -726,7 +726,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
 
     def minor_collection_with_major_progress(self, extrasize=0):
-        """To a minor collection.  Then, if there is already a major GC
+        """Do a minor collection.  Then, if there is already a major GC
         in progress, run at least one major collection step.  If there is
         no major GC but the threshold is reached, start a major GC.
         """
