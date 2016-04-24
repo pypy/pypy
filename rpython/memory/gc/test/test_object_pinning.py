@@ -19,6 +19,8 @@ class PinningGCTest(BaseDirectGCTest):
         BaseDirectGCTest.setup_method(self, meth)
         max = getattr(meth, 'max_number_of_pinned_objects', 20)
         self.gc.max_number_of_pinned_objects = max
+        if not hasattr(self.gc, 'minor_collection'):
+            self.gc.minor_collection = self.gc._minor_collection
 
     def test_pin_can_move(self):
         # even a pinned object is considered to be movable. Only the caller
