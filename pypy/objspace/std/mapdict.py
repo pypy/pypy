@@ -563,7 +563,8 @@ class MapdictDictSupport(object):
 
 @objectmodel.dont_inline
 def _obj_getdict(self, space):
-    assert isinstance(self._get_mapdict_map().terminator, DictTerminator)
+    terminator = self._get_mapdict_map().terminator
+    assert isinstance(terminator, DictTerminator) or isinstance(terminator, DevolvedDictTerminator)
     w_dict = self._get_mapdict_map().read(self, "dict", SPECIAL)
     if w_dict is not None:
         assert isinstance(w_dict, W_DictMultiObject)
@@ -579,7 +580,8 @@ def _obj_getdict(self, space):
 @objectmodel.dont_inline
 def _obj_setdict(self, space, w_dict):
     from pypy.objspace.std import dictmultiobject
-    assert isinstance(self._get_mapdict_map().terminator, DictTerminator)
+    terminator = self._get_mapdict_map().terminator
+    assert isinstance(terminator, DictTerminator) or isinstance(terminator, DevolvedDictTerminator)
     if not space.isinstance_w(w_dict, space.w_dict):
         raise OperationError(space.w_TypeError,
                 space.wrap("setting dictionary to a non-dict"))
