@@ -746,13 +746,15 @@ class IncrementalMiniMarkGC(MovingGCBase):
         if self.gc_state != STATE_SCANNING or self.threshold_reached(extrasize):
             self.major_collection_step(extrasize)
 
-            # See documentation in major_collection_step()
+            # See documentation in major_collection_step() for target invariants
             while self.gc_state != STATE_SCANNING:    # target (A1)
                 threshold = self.threshold_objects_made_old
                 if threshold >= r_uint(extrasize):
-                    threshold -= r_uint(extrasize)
+                    threshold -= r_uint(extrasize)     # (*)
                     if self.size_objects_made_old <= threshold:   # target (A2)
                         break
+                    # Note that target (A2) is tweaked by (*); see
+                    # test_gc_set_max_heap_size in translator/c, test_newgc.py
 
                 self._minor_collection()
                 self.major_collection_step(extrasize)
