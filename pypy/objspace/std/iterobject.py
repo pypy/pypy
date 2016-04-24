@@ -14,7 +14,7 @@ class W_AbstractSeqIterObject(W_Root):
         self.index = index
 
     def getlength(self, space):
-        if self.w_seq is None:
+        if self.w_seq is None or space.is_w(self.w_seq, space.w_None):
             return space.wrap(0)
         index = self.index
         w_length = space.len(self.w_seq)
@@ -60,7 +60,7 @@ class W_SeqIterObject(W_AbstractSeqIterObject):
     """Sequence iterator implementation for general sequences."""
 
     def descr_next(self, space):
-        if self.w_seq is None:
+        if self.w_seq is None or space.is_w(self.w_seq, space.w_None):
             raise OperationError(space.w_StopIteration, space.w_None)
         try:
             w_item = space.getitem(self.w_seq, space.wrap(self.index))
@@ -79,7 +79,7 @@ class W_FastListIterObject(W_AbstractSeqIterObject):
     def descr_next(self, space):
         from pypy.objspace.std.listobject import W_ListObject
         w_seq = self.w_seq
-        if w_seq is None:
+        if w_seq is None or space.is_w(w_seq, space.w_None):
             raise OperationError(space.w_StopIteration, space.w_None)
         assert isinstance(w_seq, W_ListObject)
         index = self.index
@@ -129,7 +129,7 @@ class W_ReverseSeqIterObject(W_Root):
         return space.newtuple([new_inst, space.newtuple(tup)])
 
     def descr_length_hint(self, space):
-        if self.w_seq is None:
+        if self.w_seq is None or space.is_w(self.w_seq, space.w_None):
             return space.wrap(0)
         index = self.index + 1
         w_length = space.len(self.w_seq)
@@ -147,7 +147,9 @@ class W_ReverseSeqIterObject(W_Root):
         return self
 
     def descr_next(self, space):
-        if self.w_seq is None or self.index < 0:
+        if (self.w_seq is None
+            or space.is_w(self.w_seq, space.w_None)
+            or self.index < 0):
             raise OperationError(space.w_StopIteration, space.w_None)
         try:
             w_item = space.getitem(self.w_seq, space.wrap(self.index))

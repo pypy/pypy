@@ -49,6 +49,8 @@ class Module(MixedModule):
         'starmap'       : 'interp_itertools.W_StarMap',
         'takewhile'     : 'interp_itertools.W_TakeWhile',
         'tee'           : 'interp_itertools.tee',
+        '_tee'          : 'interp_itertools.W_TeeIterable',
+        '_tee_chained_list' : 'interp_itertools.W_TeeChainedListNode',
         'zip_longest'  : 'interp_itertools.W_ZipLongest',
     }
 
