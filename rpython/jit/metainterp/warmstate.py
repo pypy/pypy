@@ -684,14 +684,13 @@ class WarmEnterState(object):
         if get_location_ptr is not None:
             types = self.jitdriver_sd._get_loc_types
             unwrap_greenkey = self.make_unwrap_greenkey()
-            unrolled_types = unrolling_iterable(types)
+            unrolled_types = unrolling_iterable(enumerate(types))
             def get_location(greenkey):
                 greenargs = unwrap_greenkey(greenkey)
                 fn = support.maybe_on_top_of_llinterp(rtyper, get_location_ptr)
                 value_tuple = fn(*greenargs)
                 values = []
-                i = 0
-                for sem_type,gen_type in unrolled_types:
+                for i, (sem_type,gen_type) in unrolled_types:
                     if gen_type == "s":
                         value = getattr(value_tuple, 'item' + str(i))
                         values.append(jl.wrap(sem_type,gen_type,hlstr(value)))
@@ -700,7 +699,6 @@ class WarmEnterState(object):
                         values.append(jl.wrap(sem_type,gen_type,intmask(value)))
                     else:
                         raise NotImplementedError
-                    i += 1
                 return values
             self.get_location_types = list(types)
             self.get_location = get_location

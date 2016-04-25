@@ -81,7 +81,7 @@ MP_SCOPE = (0x8, "s")
 MP_OPCODE = (0x10, "s")
 
 class WrappedValue(object):
-    def encode(self, i, prefixes):
+    def encode(self, log, i, prefixes):
         raise NotImplementedError
 
 class StringValue(WrappedValue):
@@ -89,30 +89,31 @@ class StringValue(WrappedValue):
         self.value = value
 
     def encode(self, log, i, prefixes):
-        str_value = self.value
-        if len(str_value) < 5:
-            enc_value = encode_str(chr(0xff) + str_value)
-        else:
-            cp = commonprefix([prefixes[i], str_value])
-            if cp != prefixes[i]:
-                if len(cp) == 0:
-                    # they are fully different!
-                    prefixes[i] = str_value
-                    enc_value = encode_str(chr(0xff) + str_value)
-                else:
-                    # the prefix changed
-                    prefixes[i] = cp
-                    # common prefix of field i
-                    assert i != 0xff
-                    log._write_marked(MARK_COMMON_PREFIX, chr(i) \
-                                                      + encode_str(cp))
-                    enc_value = encode_str(chr(i) + str_value)
-            else:
-                enc_value = encode_str(chr(i) + str_value)
-        #
-        if prefixes[i] is None:
-            prefixes[i] = str_value
-        return enc_value
+        return encode_str(self.value)
+        #str_value = self.value
+        #if len(str_value) < 5:
+        #    enc_value = encode_str(chr(0xff) + str_value)
+        #else:
+        #    cp = commonprefix([prefixes[i], str_value])
+        #    if cp != prefixes[i]:
+        #        if len(cp) == 0:
+        #            # they are fully different!
+        #            prefixes[i] = str_value
+        #            enc_value = encode_str(chr(0xff) + str_value)
+        #        else:
+        #            # the prefix changed
+        #            prefixes[i] = cp
+        #            # common prefix of field i
+        #            assert i != 0xff
+        #            log._write_marked(MARK_COMMON_PREFIX, chr(i) \
+        #                                              + encode_str(cp))
+        #            enc_value = encode_str(chr(i) + str_value)
+        #    else:
+        #        enc_value = encode_str(chr(i) + str_value)
+        ##
+        #if prefixes[i] is None:
+        #    prefixes[i] = str_value
+        #return enc_value
 
 class IntValue(WrappedValue):
     def __init__(self, sem_type, gen_type, value):
@@ -264,9 +265,6 @@ def encode_merge_point(log, prefixes, values):
     unrolled = unrolling_iterable(values)
     i = 0
     for value in unrolled:
-        cp = value.encode_common_prefix(i, prefixes)
-        if cp is not None:
-            log._write_marked(MARK_COMMON_PREFIX, cp)
         line.append(value.encode(log,i,prefixes))
         i += 1
     return ''.join(line)

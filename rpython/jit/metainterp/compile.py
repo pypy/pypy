@@ -17,7 +17,7 @@ from rpython.jit.metainterp import history, jitexc
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.resume import (PENDINGFIELDSP,
         ResumeDataDirectReader, AccumInfo)
-from rpython.jit.metainterp.jitlog import MARK_TRACE_OPT
+from rpython.rlib.jitlog import MARK_TRACE_OPT
 from rpython.jit.metainterp.resumecode import NUMBERING
 from rpython.jit.codewriter import heaptracker, longlong
 
