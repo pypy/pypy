@@ -4,6 +4,7 @@ from rpython.jit.metainterp.history import INT
 from rpython.jit.metainterp.compile import compile_loop
 from rpython.jit.metainterp.compile import compile_tmp_callback
 from rpython.jit.metainterp import jitexc
+from rpython.rlib import jitlog as jl
 from rpython.jit.metainterp import jitprof, typesystem, compile
 from rpython.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin
 from rpython.jit.tool.oparser import parse, convert_loop_to_trace
@@ -58,6 +59,7 @@ class FakeMetaInterpStaticData(object):
     logger_noopt = FakeLogger()
     logger_ops = FakeLogger()
     config = get_combined_translation_config(translating=True)
+    jitlog = jl.VMProfJitLogger()
 
     stats = Stats(None)
     profiler = jitprof.EmptyProfiler()
