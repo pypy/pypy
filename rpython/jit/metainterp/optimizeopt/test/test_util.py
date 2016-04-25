@@ -21,6 +21,7 @@ from rpython.config.translationoption import get_combined_translation_config
 from rpython.jit.metainterp.resoperation import (rop, ResOperation,
         InputArgRef, AbstractValue, OpHelpers)
 from rpython.jit.metainterp.optimizeopt.util import args_dict
+from rpython.rlib import jitlog as jl
 
 
 def test_sort_descrs():
@@ -449,6 +450,7 @@ class FakeMetaInterpStaticData(object):
         self.options = Fake()
         self.globaldata = Fake()
         self.config = get_combined_translation_config(translating=True)
+        self.jitlog = jl.VMProfJitLogger()
 
     class logger_noopt:
         @classmethod
