@@ -1,3 +1,4 @@
+import py
 from rpython.jit.tool.oparser import pure_parse
 from rpython.jit.metainterp.optimizeopt.util import equaloplists
 from rpython.jit.metainterp.resoperation import ResOperation, rop
@@ -5,7 +6,6 @@ from rpython.jit.backend.model import AbstractCPU
 from rpython.jit.metainterp.history import ConstInt, ConstPtr
 from rpython.rlib.jitlog import (encode_str, encode_le_16bit, encode_le_64bit)
 from rpython.rlib import jitlog as jl
-import tempfile
 
 class TestLogger(object):
 
@@ -54,3 +54,12 @@ class TestLogger(object):
     def test_common_prefix(self):
         fakelog = FakeLog()
         logger = jitlog.LogTrace(0x0, {}, None, None, fakelog)
+
+    def test_common_prefix_func(self):
+        assert jl.commonprefix("","") == ""
+        assert jl.commonprefix("/hello/world","/path/to") == "/"
+        assert jl.commonprefix("pyramid","python") == "py"
+        assert jl.commonprefix("0"*100,"0"*100) == "0"*100
+        with py.test.raises(AssertionError):
+            jl.commonprefix(None,None)
+

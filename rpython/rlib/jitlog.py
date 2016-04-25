@@ -13,15 +13,19 @@ from rpython.rlib.objectmodel import compute_unique_id, always_inline
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rlib.unroll import unrolling_iterable
 
-def commonprefix(m):
+def commonprefix(a,b):
     "Given a list of pathnames, returns the longest common leading component"
-    if not m: return ''
-    s1 = min(m)
-    s2 = max(m)
-    for i, c in enumerate(s1):
-        if c != s2[i]:
-            return s1[:i]
-    return s1
+    assert a is not None
+    assert b is not None
+    la = len(a)
+    lb = len(b)
+    c = min(la,lb)
+    if c == 0:
+        return ""
+    for i in range(c):
+        if a[i] != b[i]:
+            return a[:i] # partly matching
+    return a # full match
 
 @always_inline
 def encode_str(string):
@@ -89,31 +93,30 @@ class StringValue(WrappedValue):
         self.value = value
 
     def encode(self, log, i, prefixes):
-        return encode_str(self.value)
-        #str_value = self.value
-        #if len(str_value) < 5:
-        #    enc_value = encode_str(chr(0xff) + str_value)
-        #else:
-        #    cp = commonprefix([prefixes[i], str_value])
-        #    if cp != prefixes[i]:
-        #        if len(cp) == 0:
-        #            # they are fully different!
-        #            prefixes[i] = str_value
-        #            enc_value = encode_str(chr(0xff) + str_value)
-        #        else:
-        #            # the prefix changed
-        #            prefixes[i] = cp
-        #            # common prefix of field i
-        #            assert i != 0xff
-        #            log._write_marked(MARK_COMMON_PREFIX, chr(i) \
-        #                                              + encode_str(cp))
-        #            enc_value = encode_str(chr(i) + str_value)
-        #    else:
-        #        enc_value = encode_str(chr(i) + str_value)
-        ##
-        #if prefixes[i] is None:
-        #    prefixes[i] = str_value
-        #return enc_value
+        str_value = self.value
+        if len(str_value) < 5:
+            enc_value = encode_str(chr(0xff) + str_value)
+        else:
+            cp = commonprefix([prefixes[i], str_value])
+            if cp != prefixes[i]:
+                if len(cp) == 0:
+                    # they are fully different!
+                    prefixes[i] = str_value
+                    enc_value = encode_str(chr(0xff) + str_value)
+                else:
+                    # the prefix changed
+                    prefixes[i] = cp
+                    # common prefix of field i
+                    assert i != 0xff
+                    log._write_marked(MARK_COMMON_PREFIX, chr(i) \
+                                                      + encode_str(cp))
+                    enc_value = encode_str(chr(i) + str_value)
+            else:
+                enc_value = encode_str(chr(i) + str_value)
+        #
+        if prefixes[i] is None:
+            prefixes[i] = str_value
+        return enc_value
 
 class IntValue(WrappedValue):
     def __init__(self, sem_type, gen_type, value):
