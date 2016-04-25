@@ -102,7 +102,7 @@ class TestExceptions(BaseApiTest):
         instance = space.call_function(space.w_ValueError)
         assert api.PyExceptionInstance_Class(instance) is space.w_ValueError
 
-    @pytest.mark.skipif("sys.platform == 'win32'")
+    @pytest.mark.skipif(True, reason='not implemented yet')
     def test_interrupt_occurred(self, space, api):
         assert not api.PyOS_InterruptOccurred()
         import signal, os
