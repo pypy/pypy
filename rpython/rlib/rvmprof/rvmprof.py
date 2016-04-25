@@ -129,7 +129,7 @@ class VMProf(object):
         if p_error:
             raise VMProfError(rffi.charp2str(p_error))
         blob = jl.assemble_header()
-        self.cintf.jitlog_write_marked(jitlog.MARK_JITLOG_HEADER, blob, len(blob))
+        self.cintf.jitlog_write_marked(jl.MARK_JITLOG_HEADER, blob, len(blob))
 
     def disable(self):
         """Disable vmprof.

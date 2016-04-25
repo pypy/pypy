@@ -78,12 +78,12 @@ class TestLogger(object):
         #
         result = jl.encode_merge_point(fakelog, compressor, [jl.StringValue(0x0,'s','hello')])
         assert result == b"\xef"
-        assert fakelog.values == ["\x25\x00\x05\x00\x00\x00hello"]
+        assert fakelog.values == [chr(jl.MARK_COMMON_PREFIX) + "\x00\x05\x00\x00\x00hello"]
         #
         fakelog.values = []
         result = jl.encode_merge_point(fakelog, compressor, [jl.StringValue(0x0,'s','heiter')])
         assert result == b"\x00\x04\x00\x00\x00iter"
-        assert fakelog.values == ["\x25\x00\x02\x00\x00\x00he"]
+        assert fakelog.values == [chr(jl.MARK_COMMON_PREFIX) + "\x00\x02\x00\x00\x00he"]
         #
         fakelog.values = []
         result = jl.encode_merge_point(fakelog, compressor, [jl.StringValue(0x0,'s','heute')])
@@ -98,7 +98,7 @@ class TestLogger(object):
         fakelog.values = []
         result = jl.encode_merge_point(fakelog, compressor, [jl.StringValue(0x0,'s','welle')])
         assert result == b"\x00\x02\x00\x00\x00le"
-        assert fakelog.values == ["\x25\x00\x03\x00\x00\x00wel"]
+        assert fakelog.values == [chr(jl.MARK_COMMON_PREFIX) + "\x00\x03\x00\x00\x00wel"]
 
     def test_common_prefix_func(self):
         assert jl.commonprefix("","") == ""
