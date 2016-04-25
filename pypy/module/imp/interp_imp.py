@@ -64,10 +64,9 @@ def load_dynamic(space, w_modulename, filename, w_file=None):
 
     return importing.check_sys_modules(space, w_modulename)
 
-def init_builtin(space, w_name):
+def create_builtin(space, w_spec):
+    w_name = space.getattr(w_spec, space.wrap("name"))
     name = space.str0_w(w_name)
-    if name not in space.builtin_modules:
-        return
     # force_init is needed to make reload actually reload instead of just
     # using the already-present module in sys.modules.
 
@@ -75,6 +74,9 @@ def init_builtin(space, w_name):
     # we want to reuse (and reinitialize) the existing module object
     reuse = space.finditem(space.sys.get('modules'), w_name) is not None
     return space.getbuiltinmodule(name, force_init=True, reuse=reuse)
+
+def exec_builtin(space, w_mod):
+    return  # Until we really support ModuleDef
 
 def init_frozen(space, w_name):
     return None

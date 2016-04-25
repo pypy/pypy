@@ -274,8 +274,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             return False
 
     def _get_code_flags(self):
-        # Default for everything but module scopes.
-        return consts.CO_NEWLOCALS
+        return 0
 
     def _handle_body(self, body):
         """Compile a list of statements, handling doc strings if needed."""
@@ -865,7 +864,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.load_const(self.space.w_None)
         self.use_next_block(cleanup)
         self.push_frame_block(F_BLOCK_FINALLY_END, cleanup)
-        self.emit_op(ops.WITH_CLEANUP)
+        self.emit_op(ops.WITH_CLEANUP_START)
+        self.emit_op(ops.WITH_CLEANUP_FINISH)
         self.emit_op(ops.END_FINALLY)
         self.pop_frame_block(F_BLOCK_FINALLY_END, cleanup)
 
@@ -1062,12 +1062,26 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def visit_Dict(self, d):
         self.update_position(d.lineno)
-        self.emit_op_arg(ops.BUILD_MAP, 0)
+        containers = 0
+        elements = 0
         if d.values:
             for i in range(len(d.values)):
+                if elements == 0xFFFF:
+                    self.emit_op_arg(ops.BUILD_MAP, elements)
+                    containers += 1
+                    elements = 0
                 d.values[i].walkabout(self)
                 d.keys[i].walkabout(self)
-                self.emit_op(ops.STORE_MAP)
+                elements += 1
+        if elements or containers == 0:
+            self.emit_op_arg(ops.BUILD_MAP, elements)
+            containers += 1
+        # If there is more than one dict, they need to be merged into
+        # a new dict.
+        while containers > 1:
+            oparg = max(containers, 255)
+            self.emit_op_arg(ops.BUILD_MAP_UNPACK, oparg)
+            containers -= (oparg - 1)
 
     def visit_Set(self, s):
         self.update_position(s.lineno)
@@ -1289,7 +1303,7 @@ class AbstractFunctionCodeGenerator(PythonCodeGenerator):
     def _get_code_flags(self):
         scope = self.scope
         assert isinstance(scope, symtable.FunctionScope)
-        flags = 0
+        flags = consts.CO_NEWLOCALS
         if scope.optimized:
             flags |= consts.CO_OPTIMIZED
         if scope.nested:
@@ -1372,10 +1386,6 @@ class ClassCodeGenerator(PythonCodeGenerator):
         self.ensure_docstring_constant(cls.body)
         self.lineno = self.first_lineno
         self.argcount = 1
-        # load the first argument (__locals__) ...
-        self.emit_op_arg(ops.LOAD_FAST, 0)
-        # ...and store it into f_locals.
-        self.emit_op(ops.STORE_LOCALS)
         # load (global) __name__ ...
         self.name_op("__name__", ast.Load)
         # ... and store it as __module__

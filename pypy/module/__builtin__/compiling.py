@@ -3,11 +3,12 @@ Implementation of the interpreter-level compile/eval builtins.
 """
 
 from pypy.interpreter.pycode import PyCode
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.astcompiler import consts, ast
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.nestedscope import Cell
+from pypy.interpreter.function import Function
 
 @unwrap_spec(filename='fsencode', mode=str, flags=int, dont_inherit=int,
              optimize=int)
@@ -94,6 +95,8 @@ def exec_(space, w_prog, w_globals=None, w_locals=None):
     frame.exec_(w_prog, w_globals, w_locals)
 
 def build_class(space, w_func, w_name, __args__):
+    if not isinstance(w_func, Function):
+        raise oefmt(space.w_TypeError, "__build_class__: func must be a function")
     bases_w, kwds_w = __args__.unpack()
     w_bases = space.newtuple(bases_w)
     w_meta = kwds_w.pop('metaclass', None)
@@ -124,7 +127,7 @@ def build_class(space, w_func, w_name, __args__):
                          keywords=keywords,
                          keywords_w=kwds_w.values())
         w_namespace = space.call_args(w_prep, args)
-    w_cell = space.call_function(w_func, w_namespace)
+    w_cell = w_func.getcode().exec_code(space, w_func.w_func_globals, w_namespace)
     keywords = kwds_w.keys()
     args = Arguments(space,
                      args_w=[w_name, w_bases, w_namespace],

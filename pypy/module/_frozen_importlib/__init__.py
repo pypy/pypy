@@ -13,22 +13,33 @@ class Module(MixedModule):
     appleveldefs = {
         }
 
+    @staticmethod
+    def _compile_bootstrap_module(space, name, w_name, w_dict):
+        """NOT_RPYTHON"""
+        ec = space.getexecutioncontext()
+        with open(os.path.join(lib_python, 'importlib', name + '.py')) as fp:
+            source = fp.read()
+        pathname = "<frozen importlib.%s>" % name
+        code_w = ec.compiler.compile(source, pathname, 'exec', 0)
+        space.setitem(w_dict, space.wrap('__name__'), w_name)
+        space.setitem(w_dict, space.wrap('__builtins__'),
+                      space.wrap(space.builtin))
+        code_w.exec_code(space, w_dict, w_dict)
+
     def install(self):
         """NOT_RPYTHON"""
         super(Module, self).install()
         space = self.space
+        # "import importlib/_boostrap_external.py"
+        w_mod = Module(space, space.wrap("_frozen_importlib_external"))
+        self._compile_bootstrap_module(
+            space, '_bootstrap_external', w_mod.w_name, w_mod.w_dict)
+        space.sys.setmodule(w_mod)
         # "from importlib/_boostrap.py import *"
         # It's not a plain "import importlib._boostrap", because we
         # don't want to freeze importlib.__init__.
-        ec = space.getexecutioncontext()
-        with open(os.path.join(lib_python, 'importlib', '_bootstrap.py')) as fp:
-            source = fp.read()
-        pathname = "<frozen importlib._bootstrap>"
-        code_w = ec.compiler.compile(source, pathname, 'exec', 0)
-        space.setitem(self.w_dict, space.wrap('__name__'), self.w_name)
-        space.setitem(self.w_dict, space.wrap('__builtins__'),
-                      space.wrap(space.builtin))
-        code_w.exec_code(space, self.w_dict, self.w_dict)
+        self._compile_bootstrap_module(
+            space, '_bootstrap', self.w_name, self.w_dict)
 
         self.w_import = space.wrap(interp_import.import_with_frames_removed)
 

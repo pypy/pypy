@@ -380,10 +380,6 @@ class __extend__(pyframe.PyFrame):
                 self.STORE_FAST(oparg, next_instr)
             elif opcode == opcodedesc.STORE_GLOBAL.index:
                 self.STORE_GLOBAL(oparg, next_instr)
-            elif opcode == opcodedesc.STORE_LOCALS.index:
-                self.STORE_LOCALS(oparg, next_instr)
-            elif opcode == opcodedesc.STORE_MAP.index:
-                self.STORE_MAP(oparg, next_instr)
             elif opcode == opcodedesc.STORE_NAME.index:
                 self.STORE_NAME(oparg, next_instr)
             elif opcode == opcodedesc.STORE_SUBSCR.index:
@@ -400,8 +396,10 @@ class __extend__(pyframe.PyFrame):
                 self.UNPACK_EX(oparg, next_instr)
             elif opcode == opcodedesc.UNPACK_SEQUENCE.index:
                 self.UNPACK_SEQUENCE(oparg, next_instr)
-            elif opcode == opcodedesc.WITH_CLEANUP.index:
-                self.WITH_CLEANUP(oparg, next_instr)
+            elif opcode == opcodedesc.WITH_CLEANUP_START.index:
+                self.WITH_CLEANUP_START(oparg, next_instr)
+            elif opcode == opcodedesc.WITH_CLEANUP_FINISH.index:
+                self.WITH_CLEANUP_FINISH(oparg, next_instr)
             elif opcode == opcodedesc.YIELD_VALUE.index:
                 self.YIELD_VALUE(oparg, next_instr)
             elif opcode == opcodedesc.YIELD_FROM.index:
@@ -691,9 +689,6 @@ class __extend__(pyframe.PyFrame):
 
     def LOAD_LOCALS(self, oparg, next_instr):
         self.pushvalue(self.getorcreatedebug().w_locals)
-
-    def STORE_LOCALS(self, oparg, next_instr):
-        self.getorcreatedebug().w_locals = self.popvalue()
 
     def exec_(self, w_prog, w_globals, w_locals):
         """The builtins.exec function."""
@@ -1138,7 +1133,7 @@ class __extend__(pyframe.PyFrame):
         self.lastblock = block
         self.pushvalue(w_result)
 
-    def WITH_CLEANUP(self, oparg, next_instr):
+    def WITH_CLEANUP_START(self, oparg, next_instr):
         # see comment in END_FINALLY for stack state
         w_unroller = self.popvalue()
         w_exitfunc = self.popvalue()
@@ -1149,21 +1144,28 @@ class __extend__(pyframe.PyFrame):
             old_last_exception = self.last_exception
             self.last_exception = operr
             w_traceback = self.space.wrap(operr.get_traceback())
-            w_suppress = self.call_contextmanager_exit_function(
+            w_res = self.call_contextmanager_exit_function(
                 w_exitfunc,
                 operr.w_type,
                 operr.get_w_value(self.space),
                 w_traceback)
             self.last_exception = old_last_exception
-            if self.space.is_true(w_suppress):
-                # __exit__() returned True -> Swallow the exception.
-                self.settopvalue(self.space.w_None)
         else:
-            self.call_contextmanager_exit_function(
+            w_res = self.call_contextmanager_exit_function(
                 w_exitfunc,
                 self.space.w_None,
                 self.space.w_None,
                 self.space.w_None)
+        self.pushvalue(w_res)
+        self.pushvalue(w_unroller)
+
+    def WITH_CLEANUP_FINISH(self, oparg, next_instr):
+        w_unroller = self.popvalue()
+        w_suppress = self.popvalue()
+        if isinstance(w_unroller, SApplicationException):
+            if self.space.is_true(w_suppress):
+                # __exit__() returned True -> Swallow the exception.
+                self.settopvalue(self.space.w_None)
 
     @jit.unroll_safe
     def call_function(self, oparg, w_star=None, w_starstar=None):
@@ -1309,6 +1311,10 @@ class __extend__(pyframe.PyFrame):
 
     def BUILD_MAP(self, itemcount, next_instr):
         w_dict = self.space.newdict()
+        for i in range(itemcount):
+            w_key = self.popvalue()
+            w_value = self.popvalue()
+            self.space.setitem(w_dict, w_key, w_value)
         self.pushvalue(w_dict)
 
     @jit.unroll_safe
@@ -1318,12 +1324,6 @@ class __extend__(pyframe.PyFrame):
             w_item = self.popvalue()
             self.space.call_method(w_set, 'add', w_item)
         self.pushvalue(w_set)
-
-    def STORE_MAP(self, oparg, next_instr):
-        w_key = self.popvalue()
-        w_value = self.popvalue()
-        w_dict = self.peekvalue()
-        self.space.setitem(w_dict, w_key, w_value)
 
 
 ### ____________________________________________________________ ###

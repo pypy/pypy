@@ -193,7 +193,10 @@ corresponding Unix manual entries for more information on calls."""
 
     def startup(self, space):
         from pypy.module.posix import interp_posix
+        from pypy.module.imp import importing
         interp_posix.get(space).startup(space)
+        # Import structseq before the full importlib is ready
+        importing.importhook(space, '_structseq')
 
 for constant in dir(os):
     value = getattr(os, constant)

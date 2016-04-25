@@ -557,7 +557,6 @@ _static_opcode_stack_effects = {
     ops.LIST_APPEND: -1,
     ops.SET_ADD: -1,
     ops.MAP_ADD: -2,
-    ops.STORE_MAP: -2,
 
     ops.BINARY_POWER: -1,
     ops.BINARY_MULTIPLY: -1,
@@ -597,9 +596,9 @@ _static_opcode_stack_effects = {
 
     ops.PRINT_EXPR: -1,
 
-    ops.WITH_CLEANUP: -1,
+    ops.WITH_CLEANUP_START: -1,
+    ops.WITH_CLEANUP_FINISH: -1,  # XXX Sometimes more
     ops.LOAD_BUILD_CLASS: 1,
-    ops.STORE_LOCALS: -1,
     ops.POP_BLOCK: 0,
     ops.POP_EXCEPT: -1,
     ops.END_FINALLY: -4,     # assume always 4: we pretend that SETUP_FINALLY
@@ -612,7 +611,6 @@ _static_opcode_stack_effects = {
     ops.RETURN_VALUE: -1,
     ops.YIELD_VALUE: 0,
     ops.YIELD_FROM: -1,
-    ops.BUILD_MAP: 1,
     ops.COMPARE_OP: -1,
 
     ops.LOOKUP_METHOD: 1,
@@ -670,6 +668,12 @@ def _compute_BUILD_LIST(arg):
     return 1 - arg
 
 def _compute_BUILD_SET(arg):
+    return 1 - arg
+
+def _compute_BUILD_MAP(arg):
+    return 1 - 2 * arg
+
+def _compute_BUILD_MAP_UNPACK(arg):
     return 1 - arg
 
 def _compute_MAKE_CLOSURE(arg):

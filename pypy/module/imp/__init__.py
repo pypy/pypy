@@ -13,10 +13,12 @@ class Module(MixedModule):
         'get_magic':       'interp_imp.get_magic',
         'get_tag':         'interp_imp.get_tag',
         'load_dynamic':    'interp_imp.load_dynamic',
-        'init_builtin':    'interp_imp.init_builtin',
+        'create_builtin':  'interp_imp.create_builtin',
         'init_frozen':     'interp_imp.init_frozen',
         'is_builtin':      'interp_imp.is_builtin',
         'is_frozen':       'interp_imp.is_frozen',
+        'exec_builtin':    'interp_imp.exec_builtin',
+        'exec_dynamic':    'interp_imp.exec_builtin',
         'get_frozen_object': 'interp_imp.get_frozen_object',
         'is_frozen_package': 'interp_imp.is_frozen_package',
 
