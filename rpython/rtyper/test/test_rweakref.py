@@ -138,3 +138,22 @@ class TestRweakref(BaseRtypingTest):
 
         res = self.interpret(f, [])
         assert res == lltype.nullptr(S)
+
+
+class TestRWeakrefDisabled(BaseRtypingTest):
+    def test_no_real_weakref(self):
+        class A:
+            pass
+        a1 = A()
+        mylist = [weakref.ref(a1), None]
+        def g():
+            a2 = A()
+            return weakref.ref(a2)
+        def fn(i):
+            w = g()
+            rgc.collect()
+            assert w() is not None
+            return mylist[i] is None
+
+        assert self.interpret(fn, [0], rweakref=False) is False
+        assert self.interpret(fn, [1], rweakref=False) is True
