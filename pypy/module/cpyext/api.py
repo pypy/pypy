@@ -144,13 +144,25 @@ def _copy_header_files(headers, dstdir):
         target.chmod(0444) # make the file read-only, to make sure that nobody
                            # edits it by mistake
 
-def copy_header_files(dstdir):
+def copy_header_files(dstdir, copy_numpy_headers):
     # XXX: 20 lines of code to recursively copy a directory, really??
     assert dstdir.check(dir=True)
     headers = include_dir.listdir('*.h') + include_dir.listdir('*.inl')
     for name in ["pypy_macros.h"] + FUNCTIONS_BY_HEADER.keys():
         headers.append(udir.join(name))
     _copy_header_files(headers, dstdir)
+
+    if copy_numpy_headers:
+        try:
+            dstdir.mkdir('numpy')
+        except py.error.EEXIST:
+            pass
+        numpy_dstdir = dstdir / 'numpy'
+
+        numpy_include_dir = include_dir / 'numpy'
+        numpy_headers = numpy_include_dir.listdir('*.h') + numpy_include_dir.listdir('*.inl')
+        _copy_header_files(numpy_headers, numpy_dstdir)
+
 
 class NotSpecified(object):
     pass
@@ -1211,7 +1223,7 @@ def setup_library(space):
 
     setup_init_functions(eci, translating=True)
     trunk_include = pypydir.dirpath() / 'include'
-    copy_header_files(trunk_include)
+    copy_header_files(trunk_include, use_micronumpy)
 
 def init_static_data_translated(space):
     builder = space.fromcache(StaticObjectBuilder)
