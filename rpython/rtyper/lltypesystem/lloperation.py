@@ -166,8 +166,6 @@ class Entry(ExtRegistryEntry):
 # ____________________________________________________________
 #
 # This list corresponds to the operations implemented by the LLInterpreter.
-# Note that many exception-raising operations can be replaced by calls
-# to helper functions in rpython.rtyper.raisingops.
 # ***** Run test_lloperation after changes. *****
 
 LL_OPERATIONS = {
@@ -191,18 +189,14 @@ LL_OPERATIONS = {
 
     'int_is_true':          LLOp(canfold=True),
     'int_neg':              LLOp(canfold=True),
-    'int_neg_ovf':          LLOp(canraise=(OverflowError,), tryfold=True),
     'int_abs':              LLOp(canfold=True),
-    'int_abs_ovf':          LLOp(canraise=(OverflowError,), tryfold=True),
     'int_invert':           LLOp(canfold=True),
 
     'int_add':              LLOp(canfold=True),
     'int_sub':              LLOp(canfold=True),
     'int_mul':              LLOp(canfold=True),
-    'int_floordiv':         LLOp(canfold=True),
-    'int_floordiv_zer':     LLOp(canraise=(ZeroDivisionError,), tryfold=True),
-    'int_mod':              LLOp(canfold=True),
-    'int_mod_zer':          LLOp(canraise=(ZeroDivisionError,), tryfold=True),
+    'int_floordiv':         LLOp(canfold=True),  # C-like behavior for neg num
+    'int_mod':              LLOp(canfold=True),  # C-like behavior for neg num
     'int_lt':               LLOp(canfold=True),
     'int_le':               LLOp(canfold=True),
     'int_eq':               LLOp(canfold=True),
@@ -218,20 +212,6 @@ LL_OPERATIONS = {
     'int_between':          LLOp(canfold=True),   # a <= b < c
     'int_force_ge_zero':    LLOp(canfold=True),   # 0 if a < 0 else a
 
-    'int_add_ovf':          LLOp(canraise=(OverflowError,), tryfold=True),
-    'int_add_nonneg_ovf':   LLOp(canraise=(OverflowError,), tryfold=True),
-              # ^^^ more efficient version when 2nd arg is nonneg
-    'int_sub_ovf':          LLOp(canraise=(OverflowError,), tryfold=True),
-    'int_mul_ovf':          LLOp(canraise=(OverflowError,), tryfold=True),
-    # the following operations overflow in one case: (-sys.maxint-1) // (-1)
-    'int_floordiv_ovf':     LLOp(canraise=(OverflowError,), tryfold=True),
-    'int_floordiv_ovf_zer': LLOp(canraise=(OverflowError, ZeroDivisionError),
-                                                            tryfold=True),
-    'int_mod_ovf':          LLOp(canraise=(OverflowError,), tryfold=True),
-    'int_mod_ovf_zer':      LLOp(canraise=(OverflowError, ZeroDivisionError),
-                                                            tryfold=True),
-    'int_lshift_ovf':       LLOp(canraise=(OverflowError,), tryfold=True),
-
     'uint_is_true':         LLOp(canfold=True),
     'uint_invert':          LLOp(canfold=True),
 
@@ -239,9 +219,7 @@ LL_OPERATIONS = {
     'uint_sub':             LLOp(canfold=True),
     'uint_mul':             LLOp(canfold=True),
     'uint_floordiv':        LLOp(canfold=True),
-    'uint_floordiv_zer':    LLOp(canraise=(ZeroDivisionError,), tryfold=True),
     'uint_mod':             LLOp(canfold=True),
-    'uint_mod_zer':         LLOp(canraise=(ZeroDivisionError,), tryfold=True),
     'uint_lt':              LLOp(canfold=True),
     'uint_le':              LLOp(canfold=True),
     'uint_eq':              LLOp(canfold=True),
@@ -280,9 +258,7 @@ LL_OPERATIONS = {
     'llong_sub':            LLOp(canfold=True),
     'llong_mul':            LLOp(canfold=True),
     'llong_floordiv':       LLOp(canfold=True),
-    'llong_floordiv_zer':   LLOp(canraise=(ZeroDivisionError,), tryfold=True),
     'llong_mod':            LLOp(canfold=True),
-    'llong_mod_zer':        LLOp(canraise=(ZeroDivisionError,), tryfold=True),
     'llong_lt':             LLOp(canfold=True),
     'llong_le':             LLOp(canfold=True),
     'llong_eq':             LLOp(canfold=True),
@@ -302,9 +278,7 @@ LL_OPERATIONS = {
     'ullong_sub':           LLOp(canfold=True),
     'ullong_mul':           LLOp(canfold=True),
     'ullong_floordiv':      LLOp(canfold=True),
-    'ullong_floordiv_zer':  LLOp(canraise=(ZeroDivisionError,), tryfold=True),
     'ullong_mod':           LLOp(canfold=True),
-    'ullong_mod_zer':       LLOp(canraise=(ZeroDivisionError,), tryfold=True),
     'ullong_lt':            LLOp(canfold=True),
     'ullong_le':            LLOp(canfold=True),
     'ullong_eq':            LLOp(canfold=True),
@@ -326,9 +300,7 @@ LL_OPERATIONS = {
     'lllong_sub':            LLOp(canfold=True),
     'lllong_mul':            LLOp(canfold=True),
     'lllong_floordiv':       LLOp(canfold=True),
-    'lllong_floordiv_zer':   LLOp(canraise=(ZeroDivisionError,), tryfold=True),
     'lllong_mod':            LLOp(canfold=True),
-    'lllong_mod_zer':        LLOp(canraise=(ZeroDivisionError,), tryfold=True),
     'lllong_lt':             LLOp(canfold=True),
     'lllong_le':             LLOp(canfold=True),
     'lllong_eq':             LLOp(canfold=True),

@@ -35,9 +35,4 @@ void RPyDebugReturnShowException(const char *msg, const char *filename,
 		RPyClearException();					\
 	} while (0)
 
-/* prototypes */
-
-RPY_EXTERN
-void _RPyRaiseSimpleException(RPYTHON_EXCEPTION rexc);
-
 #endif

@@ -21,15 +21,7 @@
 #define OP_INT_INVERT(x,r)    r = ~(x)
 #define OP_INT_NEG(x,r)       r = -(x)
 
-#define OP_INT_NEG_OVF(x,r) \
-	if ((x) == SIGNED_MIN) FAIL_OVF("integer negate"); \
-	OP_INT_NEG(x,r)
-
 #define OP_INT_ABS(x,r)    r = (x) >= 0 ? x : -(x)
-
-#define OP_INT_ABS_OVF(x,r) \
-	if ((x) == SIGNED_MIN) FAIL_OVF("integer absolute"); \
-	OP_INT_ABS(x,r)
 
 /***  binary operations ***/
 
@@ -53,35 +45,8 @@
 /* addition, subtraction */
 
 #define OP_INT_ADD(x,y,r)     r = (x) + (y)
-
-/* cast to avoid undefined behaviour on overflow */
-#define OP_INT_ADD_OVF(x,y,r) \
-        r = (Signed)((Unsigned)x + y); \
-        if ((r^x) < 0 && (r^y) < 0) FAIL_OVF("integer addition")
-
-#define OP_INT_ADD_NONNEG_OVF(x,y,r)  /* y can be assumed >= 0 */ \
-        r = (Signed)((Unsigned)x + y); \
-        if ((r&~x) < 0) FAIL_OVF("integer addition")
-
 #define OP_INT_SUB(x,y,r)     r = (x) - (y)
-
-#define OP_INT_SUB_OVF(x,y,r) \
-        r = (Signed)((Unsigned)x - y); \
-        if ((r^x) < 0 && (r^~y) < 0) FAIL_OVF("integer subtraction")
-
 #define OP_INT_MUL(x,y,r)     r = (x) * (y)
-
-#if SIZEOF_LONG * 2 <= SIZEOF_LONG_LONG && !defined(_WIN64)
-#define OP_INT_MUL_OVF(x,y,r) \
-	{ \
-		long long _lr = (long long)x * y; \
-		r = (long)_lr; \
-		if (_lr != (long long)r) FAIL_OVF("integer multiplication"); \
-	}
-#else
-#define OP_INT_MUL_OVF(x,y,r) \
-	r = op_llong_mul_ovf(x, y)   /* long == long long */
-#endif
 
 /* shifting */
 
@@ -111,11 +76,6 @@
 #define OP_ULLONG_LSHIFT(x,y,r) CHECK_SHIFT_RANGE(y, PYPY_LONGLONG_BIT); \
 							r = (x) << (y)
 
-#define OP_INT_LSHIFT_OVF(x,y,r) \
-	OP_INT_LSHIFT(x,y,r); \
-	if ((x) != Py_ARITHMETIC_RIGHT_SHIFT(Signed, r, (y))) \
-		FAIL_OVF("x<<y losing bits or changing sign")
-
 /* floor division */
 
 #define OP_INT_FLOORDIV(x,y,r)    r = (x) / (y)
@@ -124,46 +84,6 @@
 #define OP_ULLONG_FLOORDIV(x,y,r) r = (x) / (y)
 #define OP_LLLONG_FLOORDIV(x,y,r)  r = (x) / (y)
 
-#define OP_INT_FLOORDIV_OVF(x,y,r)                      \
-	if ((y) == -1 && (x) == SIGNED_MIN)               \
-	    { FAIL_OVF("integer division"); r=0; }      \
-	else                                            \
-	    r = (x) / (y)
-
-#define OP_INT_FLOORDIV_ZER(x,y,r)                      \
-	if ((y) == 0)                                   \
-	    { FAIL_ZER("integer division"); r=0; }      \
-	else                                            \
-	    r = (x) / (y)
-#define OP_UINT_FLOORDIV_ZER(x,y,r)                             \
-	if ((y) == 0)                                           \
-	    { FAIL_ZER("unsigned integer division"); r=0; }     \
-	else                                                    \
-	    r = (x) / (y)
-#define OP_LLONG_FLOORDIV_ZER(x,y,r)                    \
-	if ((y) == 0)                                   \
-	    { FAIL_ZER("integer division"); r=0; }      \
-	else                                            \
-	    r = (x) / (y)
-
-#define OP_ULLONG_FLOORDIV_ZER(x,y,r)                           \
-	if ((y) == 0)                                           \
-	    { FAIL_ZER("unsigned integer division"); r=0; }     \
-	else                                                    \
-	    r = (x) / (y)
-	    
-#define OP_LLLONG_FLOORDIV_ZER(x,y,r)                    \
-        if ((y) == 0)                                   \
-            { FAIL_ZER("integer division"); r=0; }      \
-        else                                            \
-            r = (x) / (y)
-            
-#define OP_INT_FLOORDIV_OVF_ZER(x,y,r)                  \
-	if ((y) == 0)                                   \
-	    { FAIL_ZER("integer division"); r=0; }      \
-	else                                            \
-	    { OP_INT_FLOORDIV_OVF(x,y,r); }
-
 /* modulus */
 
 #define OP_INT_MOD(x,y,r)     r = (x) % (y)
@@ -171,44 +91,6 @@
 #define OP_LLONG_MOD(x,y,r)   r = (x) % (y)
 #define OP_ULLONG_MOD(x,y,r)  r = (x) % (y)
 #define OP_LLLONG_MOD(x,y,r)   r = (x) % (y)
-
-#define OP_INT_MOD_OVF(x,y,r)                           \
-	if ((y) == -1 && (x) == SIGNED_MIN)               \
-	    { FAIL_OVF("integer modulo"); r=0; }        \
-	else                                            \
-	    r = (x) % (y)
-#define OP_INT_MOD_ZER(x,y,r)                           \
-	if ((y) == 0)                                   \
-	    { FAIL_ZER("integer modulo"); r=0; }        \
-	else                                            \
-	    r = (x) % (y)
-#define OP_UINT_MOD_ZER(x,y,r)                                  \
-	if ((y) == 0)                                           \
-	    { FAIL_ZER("unsigned integer modulo"); r=0; }       \
-	else                                                    \
-	    r = (x) % (y)
-#define OP_LLONG_MOD_ZER(x,y,r)                         \
-	if ((y) == 0)                                   \
-	    { FAIL_ZER("integer modulo"); r=0; }        \
-	else                                            \
-	    r = (x) % (y)
-#define OP_ULLONG_MOD_ZER(x,y,r)                                \
-	if ((y) == 0)                                           \
-	    { FAIL_ZER("unsigned integer modulo"); r=0; }       \
-	else                                                    \
-	    r = (x) % (y)
-
-#define OP_LLLONG_MOD_ZER(x,y,r)                         \
-        if ((y) == 0)                                   \
-            { FAIL_ZER("integer modulo"); r=0; }        \
-        else                                            \
-            r = (x) % (y)
-            
-#define OP_INT_MOD_OVF_ZER(x,y,r)                       \
-	if ((y) == 0)                                   \
-	    { FAIL_ZER("integer modulo"); r=0; }        \
-	else                                            \
-	    { OP_INT_MOD_OVF(x,y,r); }
 
 /* bit operations */
 
