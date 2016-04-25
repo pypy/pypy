@@ -827,7 +827,7 @@ def tee(space, w_iterable, n=2):
                                                       w_chained_list))
     else:
         w_iterator = space.iter(w_iterable)
-        w_chained_list = space.wrap(W_TeeChainedListNode(space))
+        w_chained_list = W_TeeChainedListNode(space)
         iterators_w = [space.wrap(
                            W_TeeIterable(space, w_iterator, w_chained_list))
                        for x in range(n)]
@@ -843,8 +843,6 @@ class W_TeeChainedListNode(W_Root):
         list_w = []
         node = self
         while node is not None:
-            #TODO:  Why does the annotator need this?
-            assert isinstance(node, W_TeeChainedListNode)
             if node.w_obj is not None:
                 list_w.append(node.w_obj)
                 node = node.w_next
@@ -866,7 +864,6 @@ class W_TeeChainedListNode(W_Root):
         obj_list_w = space.unpackiterable(state[0])
         node = self
         for w_obj in obj_list_w:
-            assert isinstance(node, W_TeeChainedListNode)
             node.w_obj = w_obj
             node.w_next = W_TeeChainedListNode(self.space)
             node = node.w_next
@@ -910,7 +907,7 @@ class W_TeeIterable(W_Root):
                 if e.match(self.space, self.space.w_StopIteration):
                     self.w_chained_list = None
                 raise
-            w_chained_list.w_next = self.space.wrap(W_TeeChainedListNode(self.space))
+            w_chained_list.w_next = W_TeeChainedListNode(self.space)
             w_chained_list.w_obj = w_obj
         self.w_chained_list = w_chained_list.w_next
         return w_obj
@@ -930,7 +927,7 @@ def W_TeeIterable___new__(space, w_subtype, w_iterable, w_chained_list=None):
         w_chained_list = myiter.w_chained_list
     else:
         w_iterator = space.iter(w_iterable)
-        w_chained_list = w_chained_list or space.wrap(W_TeeChainedListNode(space))
+        w_chained_list = w_chained_list or W_TeeChainedListNode(space)
     return space.wrap(W_TeeIterable(space, w_iterator, w_chained_list))
 
 W_TeeIterable.typedef = TypeDef(
