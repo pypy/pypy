@@ -14,16 +14,25 @@ class FakeLog(object):
     def _write_marked(self, id, text):
         self.values.append(chr(id) + text)
 
+def _get_location(greenkey_list):
+    assert len(greenkey_list) == 0
+    return '/home/pypy/jit.py', 0, 'enclosed', 99, 'DEL'
+
 class TestLogger(object):
 
     def make_metainterp_sd(self):
         class FakeJitDriver(object):
             class warmstate(object):
+                get_location_types = [jl.MP_FILENAME,jl.MP_INT,jl.MP_SCOPE, jl.MP_INT, jl.MP_OPCODE]
                 @staticmethod
                 def get_location(greenkey_list):
-                    assert len(greenkey_list) == 0
-                    return '/home/pypy/jit.py', 0, 'enclosed', 99, 'DEL'
-                get_location_types = [(jl.MP_FILENAME,'s'),(0x0,'i'),(jl.MP_SCOPE,'s'), (0x0,'i'), (jl.MP_OPCODE, 's')]
+                    return [jl.wrap(jl.MP_FILENAME[0],'s','/home/pypy/jit.py'),
+                            jl.wrap(jl.MP_INT[0], 'i', 0),
+                            jl.wrap(jl.MP_SCOPE[0], 's', 'enclosed'),
+                            jl.wrap(jl.MP_INT[0], 'i', 99),
+                            jl.wrap(jl.MP_OPCODE[0], 's', 'DEL')
+                           ]
+
 
         class FakeMetaInterpSd:
             cpu = AbstractCPU()
@@ -39,20 +48,25 @@ class TestLogger(object):
         file.ensure()
         fd = file.open('wb')
         logger.cintf.jitlog_init(fd.fileno())
-        log_trace = logger.log_trace(0, self.make_metainterp_sd(), None)
+        logger.start_new_trace()
+        log_trace = logger.log_trace(jl.MARK_TRACE, self.make_metainterp_sd(), None)
         op = ResOperation(rop.DEBUG_MERGE_POINT, [ConstInt(0), ConstInt(0), ConstInt(0)])
         log_trace.write([], [op])
         #the next line will close 'fd'
         fd.close()
         logger.finish()
         binary = file.read()
-        assert binary.startswith(b'\x00\x04\x00\x00\x00loop')
-        assert binary.endswith(b'\x24' + \
-                               encode_str('/home/pypy/jit.py') + \
-                               encode_le_16bit(0) + \
-                               encode_str('enclosed') + \
-                               encode_le_64bit(99) + \
-                               encode_str('DEL'))
+        assert binary == chr(jl.MARK_START_TRACE) + jl.encode_le_addr(0) + \
+                         jl.encode_str('loop') + jl.encode_le_addr(0) + \
+                         chr(jl.MARK_TRACE) + jl.encode_le_addr(0) + \
+                         chr(jl.MARK_INPUT_ARGS) + jl.encode_str('') + \
+                         chr(jl.MARK_INIT_MERGE_POINT) + b'\x01s\x00i\x08s\x00i\x10s' + \
+                         chr(jl.MARK_MERGE_POINT) + \
+                         b'\xff' + encode_str('/home/pypy/jit.py') + \
+                         b'\x00' + encode_le_64bit(0) + \
+                         b'\xff' + encode_str('enclosed') + \
+                         b'\x00' + encode_le_64bit(99) + \
+                         b'\xff' + encode_str('DEL')
 
     def test_common_prefix(self):
         fakelog = FakeLog()

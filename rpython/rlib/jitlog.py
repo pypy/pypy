@@ -97,7 +97,7 @@ class StringValue(WrappedValue):
         last_prefix = compressor.get_last_written(i)
         cp = compressor.compress(i, str_value)
         if cp is None:
-            return chr(0xff) + encode_str(str_value)
+            return b'\xff' + encode_str(str_value)
 
         else:
             cp_len = len(cp)
@@ -107,15 +107,15 @@ class StringValue(WrappedValue):
             else:
                 compressor.write(log, i, cp)
         if len(str_value) == len(cp):
-            return "\xef"
-        return chr(i) + encode_str(str_value[len(cp):])
+            return b'\xef'
+        return b'\x00' + encode_str(str_value[len(cp):])
 
 class IntValue(WrappedValue):
     def __init__(self, sem_type, gen_type, value):
         self.value = value
 
     def encode(self, log, i, prefixes):
-        return encode_le_64bit(self.value)
+        return b'\x00' + encode_le_64bit(self.value)
 
 # note that a ...
 # "semantic_type" is an integer denoting which meaning does a type at a merge point have
@@ -147,31 +147,46 @@ def returns(*args):
 JITLOG_VERSION = 1
 JITLOG_VERSION_16BIT_LE = struct.pack("<H", JITLOG_VERSION)
 
-MARK_INPUT_ARGS = 0x10
-MARK_RESOP_META = 0x11
-MARK_RESOP = 0x12
-MARK_RESOP_DESCR = 0x13
-MARK_ASM_ADDR = 0x14
-MARK_ASM = 0x15
+marks = [
+    ('INPUT_ARGS',),
+    ('RESOP_META',),
+    ('RESOP',),
+    ('RESOP_DESCR',),
+    ('ASM_ADDR',),
+    ('ASM',),
 
-# which type of trace is logged after this
-# the trace as it is recorded by the tracer
-MARK_TRACE = 0x16
-# the trace that has passed the optimizer
-MARK_TRACE_OPT = 0x17
-# the trace assembled to machine code (after rewritten)
-MARK_TRACE_ASM = 0x18
+    # which type of trace is logged after this
+    # the trace as it is recorded by the tracer
+    ('TRACE',),
+    # the trace that has passed the optimizer
+    ('TRACE_OPT',),
+    # the trace assembled to machine code (after rewritten)
+    ('TRACE_ASM',),
 
-# the machine code was patched (e.g. guard)
-MARK_STITCH_BRIDGE = 0x19
+    # the machine code was patched (e.g. guard)
+    ('STITCH_BRIDGE',),
 
-MARK_JITLOG_COUNTER = 0x20
-MARK_START_TRACE = 0x21
-MARK_INIT_MERGE_POINT = 0x22
+    ('START_TRACE',),
 
-MARK_JITLOG_HEADER = 0x23
-MARK_JITLOG_DEBUG_MERGE_POINT = 0x24
-MARK_COMMON_PREFIX = 0x25
+    ('JITLOG_COUNTER',),
+    ('INIT_MERGE_POINT',),
+
+    ('JITLOG_HEADER',),
+    ('MERGE_POINT',),
+    ('COMMON_PREFIX',),
+]
+
+start = 0x10
+for mark, in marks:
+    globals()['MARK_' + mark] = start
+    start += 1
+
+if __name__ == "__main__":
+    print("# generated constants from rpython/rlib/jitlog.py")
+    for mark in marks:
+        print '%s = %d' % ('MARK_' + mark, globals()['MARK_' + mark])
+
+del marks
 
 IS_32_BIT = sys.maxint == 2**31-1
 
@@ -189,7 +204,7 @@ class VMProfJitLogger(object):
     def __init__(self):
         self.cintf = cintf.setup()
         self.memo = {}
-        self.trace_id = 0
+        self.trace_id = -1
 
     def setup_once(self):
         if self.cintf.jitlog_enabled():
@@ -206,6 +221,7 @@ class VMProfJitLogger(object):
     def start_new_trace(self, faildescr=None, entry_bridge=False):
         if not self.cintf.jitlog_enabled():
             return
+        self.trace_id += 1
         content = [encode_le_addr(self.trace_id)]
         if faildescr:
             content.append(encode_str('bridge'))
@@ -215,7 +231,6 @@ class VMProfJitLogger(object):
             content.append(encode_str('loop'))
             content.append(encode_le_addr(int(entry_bridge)))
         self._write_marked(MARK_START_TRACE, ''.join(content))
-        self.trace_id += 1
 
     def _write_marked(self, mark, line):
         if not we_are_translated():
@@ -273,7 +288,7 @@ class PrefixCompressor(object):
             self.prefixes[index] = string
             return None
         cp = commonprefix(last, string)
-        if len(cp) <= 1: # prevent common prefix '/'
+        if len(cp) <= 1: # prevent very small common prefixes (like "/")
             self.prefixes[index] = string
             return None
         return cp
@@ -365,12 +380,12 @@ class LogTrace(BaseLogTrace):
             encoded_types = []
             for i, (semantic_type, generic_type) in enumerate(types):
                 encoded_types.append(chr(semantic_type))
-                encoded_types.append(chr(generic_type))
+                encoded_types.append(generic_type)
             log._write_marked(MARK_INIT_MERGE_POINT, ''.join(encoded_types))
 
         # the types have already been written
         encoded = encode_merge_point(log, self.common_prefix, values)
-        log._write_marked(MARK_JITLOG_DEBUG_MERGE_POINT, encoded)
+        log._write_marked(MARK_MERGE_POINT, encoded)
 
     def encode_op(self, op):
         """ an operation is written as follows:
