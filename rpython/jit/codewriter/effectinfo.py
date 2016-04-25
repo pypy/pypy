@@ -2,6 +2,31 @@ from rpython.jit.metainterp.typesystem import deref, fieldType, arrayItem
 from rpython.rtyper.rclass import OBJECT
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.translator.backendopt.graphanalyze import BoolGraphAnalyzer
+from rpython.tool.algo import bitstring
+
+
+
+class DescrCounterCache(object):
+    cache = []
+
+    def make_descr_set(self, lst):
+        if lst is None:
+            return None
+        integer_list = []
+        for descr in lst:
+            try:
+                x = descr._ei_index
+            except AttributeError:
+                x = descr._ei_index = len(self.cache)
+                self.cache.append(descr)
+            integer_list.append(x)
+        return bitstring.make_bitstring(integer_list)
+
+def expand_descr_list(cpu, bitstr):
+    # for debugging
+    return [cpu._descr_counter_cache.cache[i]
+                for i in range(bitstring.num_bits(bitstr))
+                if bitstring.bitcheck(bitstr, i)]
 
 
 class EffectInfo(object):
@@ -109,13 +134,21 @@ class EffectInfo(object):
                 oopspecindex=OS_NONE,
                 can_invalidate=False,
                 call_release_gil_target=_NO_CALL_RELEASE_GIL_TARGET,
-                extradescrs=None):
-        key = (frozenset_or_none(readonly_descrs_fields),
-               frozenset_or_none(readonly_descrs_arrays),
-               frozenset_or_none(readonly_descrs_interiorfields),
-               frozenset_or_none(write_descrs_fields),
-               frozenset_or_none(write_descrs_arrays),
-               frozenset_or_none(write_descrs_interiorfields),
+                extradescrs=None,
+                descr_counter_cache=DescrCounterCache()):
+        make = descr_counter_cache.make_descr_set
+        readonly_descrs_fields = make(readonly_descrs_fields)
+        readonly_descrs_arrays = make(readonly_descrs_arrays)
+        readonly_descrs_interiorfields = make(readonly_descrs_interiorfields)
+        write_descrs_fields = make(write_descrs_fields)
+        write_descrs_arrays = make(write_descrs_arrays)
+        write_descrs_interiorfields = make(write_descrs_interiorfields)
+        key = (readonly_descrs_fields,
+               readonly_descrs_arrays,
+               readonly_descrs_interiorfields,
+               write_descrs_fields,
+               write_descrs_arrays,
+               write_descrs_interiorfields,
                extraeffect,
                oopspecindex,
                can_invalidate)
@@ -142,19 +175,9 @@ class EffectInfo(object):
         result.readonly_descrs_fields = readonly_descrs_fields
         result.readonly_descrs_arrays = readonly_descrs_arrays
         result.readonly_descrs_interiorfields = readonly_descrs_interiorfields
-        if extraeffect == EffectInfo.EF_LOOPINVARIANT or \
-           extraeffect == EffectInfo.EF_ELIDABLE_CANNOT_RAISE or \
-           extraeffect == EffectInfo.EF_ELIDABLE_OR_MEMORYERROR or \
-           extraeffect == EffectInfo.EF_ELIDABLE_CAN_RAISE:
-            # Ignore the writes.  Note that this ignores also writes with
-            # no corresponding reads (rarely the case, but possible).
-            result.write_descrs_fields = []
-            result.write_descrs_arrays = []
-            result.write_descrs_interiorfields = []
-        else:
-            result.write_descrs_fields = write_descrs_fields
-            result.write_descrs_arrays = write_descrs_arrays
-            result.write_descrs_interiorfields = write_descrs_interiorfields
+        result.write_descrs_fields = write_descrs_fields
+        result.write_descrs_arrays = write_descrs_arrays
+        result.write_descrs_interiorfields = write_descrs_interiorfields
         result.extraeffect = extraeffect
         result.can_invalidate = can_invalidate
         result.oopspecindex = oopspecindex
@@ -195,11 +218,6 @@ class EffectInfo(object):
             more = ' OS=%r' % (self.oopspecindex,)
         return '<EffectInfo 0x%x: EF=%r%s>' % (id(self), self.extraeffect, more)
 
-
-def frozenset_or_none(x):
-    if x is None:
-        return None
-    return frozenset(x)
 
 EffectInfo.MOST_GENERAL = EffectInfo(None, None, None, None, None, None,
                                      EffectInfo.EF_RANDOM_EFFECTS,
@@ -287,6 +305,18 @@ def effectinfo_from_writeanalyze(effects, cpu,
             else:
                 assert 0
     #
+    if extraeffect == EffectInfo.EF_LOOPINVARIANT or \
+       extraeffect == EffectInfo.EF_ELIDABLE_CANNOT_RAISE or \
+       extraeffect == EffectInfo.EF_ELIDABLE_OR_MEMORYERROR or \
+       extraeffect == EffectInfo.EF_ELIDABLE_CAN_RAISE:
+        # Ignore the writes.  Note that this ignores also writes with
+        # no corresponding reads (rarely the case, but possible).
+        write_descrs_fields = []
+        write_descrs_arrays = []
+        write_descrs_interiorfields = []
+    #
+    if not hasattr(cpu, '_descr_counter_cache'):
+        cpu._descr_counter_cache = DescrCounterCache()
     return EffectInfo(readonly_descrs_fields,
                       readonly_descrs_arrays,
                       readonly_descrs_interiorfields,
@@ -297,7 +327,8 @@ def effectinfo_from_writeanalyze(effects, cpu,
                       oopspecindex,
                       can_invalidate,
                       call_release_gil_target,
-                      extradescr)
+                      extradescr,
+                      cpu._descr_counter_cache)
 
 def consider_struct(TYPE, fieldname):
     if fieldType(TYPE, fieldname) is lltype.Void:

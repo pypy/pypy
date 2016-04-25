@@ -18,3 +18,6 @@ def bitcheck(bitstring, n):
     if byte_number >= len(bitstring):
         return False
     return (ord(bitstring[byte_number]) & (1 << (n & 7))) != 0
+
+def num_bits(bitstring):
+    return len(bitstring) << 3

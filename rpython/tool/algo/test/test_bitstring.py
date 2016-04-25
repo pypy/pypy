@@ -18,3 +18,8 @@ def test_bitcheck():
 def test_random(lst):
     bitstring = make_bitstring(lst)
     assert set([n for n in range(300) if bitcheck(bitstring, n)]) == set(lst)
+
+def test_num_bits():
+    assert num_bits('') == 0
+    assert num_bits('a') == 8
+    assert num_bits('bcd') == 24
