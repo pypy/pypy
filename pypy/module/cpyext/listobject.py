@@ -32,9 +32,9 @@ def PyList_SET_ITEM(space, w_list, index, w_item):
     """
     assert isinstance(w_list, W_ListObject)
     assert 0 <= index < w_list.length
-    Py_DecRef(space, w_item)
     # Deliberately leak, so that it can be safely decref'd.
     make_ref(space, w_list.getitem(index))
+    Py_DecRef(space, w_item)
     w_list.setitem(index, w_item)
     return 0
 
