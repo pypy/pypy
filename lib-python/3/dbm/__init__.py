@@ -42,7 +42,7 @@ _names = ['dbm.gnu', 'dbm.ndbm', 'dbm.dumb']
 _defaultmod = None
 _modules = {}
 
-error = (error, IOError)
+error = (error, OSError)
 
 try:
     from dbm import ndbm
@@ -111,12 +111,10 @@ def whichdb(filename):
     try:
         f = io.open(filename + ".pag", "rb")
         f.close()
-        # dbm linked with gdbm on OS/2 doesn't have .dir file
-        if not (ndbm.library == "GNU gdbm" and sys.platform == "os2emx"):
-            f = io.open(filename + ".dir", "rb")
-            f.close()
+        f = io.open(filename + ".dir", "rb")
+        f.close()
         return "dbm.ndbm"
-    except IOError:
+    except OSError:
         # some dbm emulations based on Berkeley DB generate a .db file
         # some do not, but they should be caught by the bsd checks
         try:
@@ -129,7 +127,7 @@ def whichdb(filename):
                 d = ndbm.open(filename)
                 d.close()
                 return "dbm.ndbm"
-        except IOError:
+        except OSError:
             pass
 
     # Check for dumbdbm next -- this has a .dir and a .dat file
@@ -146,18 +144,18 @@ def whichdb(filename):
                 return "dbm.dumb"
         finally:
             f.close()
-    except (OSError, IOError):
+    except OSError:
         pass
 
     # See if the file exists, return None if not
     try:
         f = io.open(filename, "rb")
-    except IOError:
+    except OSError:
         return None
 
-    # Read the start of the file -- the magic number
-    s16 = f.read(16)
-    f.close()
+    with f:
+        # Read the start of the file -- the magic number
+        s16 = f.read(16)
     s = s16[0:4]
 
     # Return "" if not at least 4 bytes

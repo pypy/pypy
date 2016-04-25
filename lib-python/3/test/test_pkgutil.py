@@ -1,12 +1,13 @@
-from test.support import run_unittest, unload, check_warnings
+from test.support import run_unittest, unload, check_warnings, CleanImport
 import unittest
 import sys
-import imp
 import importlib
+from importlib.util import spec_from_file_location
 import pkgutil
 import os
 import os.path
 import tempfile
+import types
 import shutil
 import zipfile
 
@@ -103,23 +104,23 @@ class PkgutilTests(unittest.TestCase):
 class PkgutilPEP302Tests(unittest.TestCase):
 
     class MyTestLoader(object):
-        def load_module(self, fullname):
-            # Create an empty module
-            mod = sys.modules.setdefault(fullname, imp.new_module(fullname))
-            mod.__file__ = "<%s>" % self.__class__.__name__
-            mod.__loader__ = self
-            # Make it a package
-            mod.__path__ = []
+        def create_module(self, spec):
+            return None
+
+        def exec_module(self, mod):
             # Count how many times the module is reloaded
-            mod.__dict__['loads'] = mod.__dict__.get('loads',0) + 1
-            return mod
+            mod.__dict__['loads'] = mod.__dict__.get('loads', 0) + 1
 
         def get_data(self, path):
             return "Hello, world!"
 
     class MyTestImporter(object):
-        def find_module(self, fullname, path=None):
-            return PkgutilPEP302Tests.MyTestLoader()
+        def find_spec(self, fullname, path=None, target=None):
+            loader = PkgutilPEP302Tests.MyTestLoader()
+            return spec_from_file_location(fullname,
+                                           '<%s>' % loader.__class__.__name__,
+                                           loader=loader,
+                                           submodule_search_locations=[])
 
     def setUp(self):
         sys.meta_path.insert(0, self.MyTestImporter())
@@ -200,6 +201,8 @@ class ExtendPathTests(unittest.TestCase):
         dirname = self.create_init(pkgname)
         pathitem = os.path.join(dirname, pkgname)
         fullname = '{}.{}'.format(pkgname, modname)
+        sys.modules.pop(fullname, None)
+        sys.modules.pop(pkgname, None)
         try:
             self.create_submodule(dirname, pkgname, modname, 0)
 
@@ -208,11 +211,19 @@ class ExtendPathTests(unittest.TestCase):
             importers = list(iter_importers(fullname))
             expected_importer = get_importer(pathitem)
             for finder in importers:
+                spec = pkgutil._get_spec(finder, fullname)
+                loader = spec.loader
+                try:
+                    loader = loader.loader
+                except AttributeError:
+                    # For now we still allow raw loaders from
+                    # find_module().
+                    pass
                 self.assertIsInstance(finder, importlib.machinery.FileFinder)
                 self.assertEqual(finder, expected_importer)
-                self.assertIsInstance(finder.find_module(fullname),
+                self.assertIsInstance(loader,
                                       importlib.machinery.SourceFileLoader)
-                self.assertIsNone(finder.find_module(pkgname))
+                self.assertIsNone(pkgutil._get_spec(finder, pkgname))
 
             with self.assertRaises(ImportError):
                 list(iter_importers('invalid.module'))
@@ -222,8 +233,11 @@ class ExtendPathTests(unittest.TestCase):
         finally:
             shutil.rmtree(dirname)
             del sys.path[0]
-            del sys.modules['spam']
-            del sys.modules['spam.eggs']
+            try:
+                del sys.modules['spam']
+                del sys.modules['spam.eggs']
+            except KeyError:
+                pass
 
 
     def test_mixed_namespace(self):
@@ -321,6 +335,56 @@ class ImportlibMigrationTests(unittest.TestCase):
             self.assertIsNotNone(pkgutil.get_loader("sys"))
             self.assertIsNotNone(pkgutil.get_loader("os"))
             self.assertIsNotNone(pkgutil.get_loader("test.support"))
+            self.assertEqual(len(w.warnings), 0)
+
+    def test_get_loader_handles_missing_loader_attribute(self):
+        global __loader__
+        this_loader = __loader__
+        del __loader__
+        try:
+            with check_warnings() as w:
+                self.assertIsNotNone(pkgutil.get_loader(__name__))
+                self.assertEqual(len(w.warnings), 0)
+        finally:
+            __loader__ = this_loader
+
+    def test_get_loader_handles_missing_spec_attribute(self):
+        name = 'spam'
+        mod = type(sys)(name)
+        del mod.__spec__
+        with CleanImport(name):
+            sys.modules[name] = mod
+            loader = pkgutil.get_loader(name)
+        self.assertIsNone(loader)
+
+    def test_get_loader_handles_spec_attribute_none(self):
+        name = 'spam'
+        mod = type(sys)(name)
+        mod.__spec__ = None
+        with CleanImport(name):
+            sys.modules[name] = mod
+            loader = pkgutil.get_loader(name)
+        self.assertIsNone(loader)
+
+    def test_get_loader_None_in_sys_modules(self):
+        name = 'totally bogus'
+        sys.modules[name] = None
+        try:
+            loader = pkgutil.get_loader(name)
+        finally:
+            del sys.modules[name]
+        self.assertIsNone(loader)
+
+    def test_find_loader_missing_module(self):
+        name = 'totally bogus'
+        loader = pkgutil.find_loader(name)
+        self.assertIsNone(loader)
+
+    def test_find_loader_avoids_emulation(self):
+        with check_warnings() as w:
+            self.assertIsNotNone(pkgutil.find_loader("sys"))
+            self.assertIsNotNone(pkgutil.find_loader("os"))
+            self.assertIsNotNone(pkgutil.find_loader("test.support"))
             self.assertEqual(len(w.warnings), 0)
 
     def test_get_importer_avoids_emulation(self):

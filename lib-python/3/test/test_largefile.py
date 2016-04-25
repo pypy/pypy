@@ -159,7 +159,7 @@ def setUpModule():
             # Seeking is not enough of a test: you must write and flush, too!
             f.write(b'x')
             f.flush()
-        except (IOError, OverflowError):
+        except (OSError, OverflowError):
             raise unittest.SkipTest("filesystem does not have "
                                     "largefile support")
         finally:

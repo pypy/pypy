@@ -110,6 +110,18 @@ def test_bmp(h, f):
 
 tests.append(test_bmp)
 
+def test_webp(h, f):
+    if h.startswith(b'RIFF') and h[8:12] == b'WEBP':
+        return 'webp'
+
+tests.append(test_webp)
+
+def test_exr(h, f):
+    if h.startswith(b'\x76\x2f\x31\x01'):
+        return 'exr'
+
+tests.append(test_exr)
+
 #--------------------#
 # Small test program #
 #--------------------#
@@ -147,7 +159,7 @@ def testall(list, recursive, toplevel):
             sys.stdout.flush()
             try:
                 print(what(filename))
-            except IOError:
+            except OSError:
                 print('*** not found ***')
 
 if __name__ == '__main__':

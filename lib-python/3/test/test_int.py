@@ -228,6 +228,47 @@ class IntTestCases(unittest.TestCase):
         self.assertRaises(TypeError, int, base=10)
         self.assertRaises(TypeError, int, base=0)
 
+    def test_int_base_limits(self):
+        """Testing the supported limits of the int() base parameter."""
+        self.assertEqual(int('0', 5), 0)
+        with self.assertRaises(ValueError):
+            int('0', 1)
+        with self.assertRaises(ValueError):
+            int('0', 37)
+        with self.assertRaises(ValueError):
+            int('0', -909)  # An old magic value base from Python 2.
+        with self.assertRaises(ValueError):
+            int('0', base=0-(2**234))
+        with self.assertRaises(ValueError):
+            int('0', base=2**234)
+        # Bases 2 through 36 are supported.
+        for base in range(2,37):
+            self.assertEqual(int('0', base=base), 0)
+
+    def test_int_base_bad_types(self):
+        """Not integer types are not valid bases; issue16772."""
+        with self.assertRaises(TypeError):
+            int('0', 5.5)
+        with self.assertRaises(TypeError):
+            int('0', 5.0)
+
+    def test_int_base_indexable(self):
+        class MyIndexable(object):
+            def __init__(self, value):
+                self.value = value
+            def __index__(self):
+                return self.value
+
+        # Check out of range bases.
+        for base in 2**100, -2**100, 1, 37:
+            with self.assertRaises(ValueError):
+                int('43', base)
+
+        # Check in-range bases.
+        self.assertEqual(int('101', base=MyIndexable(2)), 5)
+        self.assertEqual(int('101', base=MyIndexable(10)), 101)
+        self.assertEqual(int('101', base=MyIndexable(36)), 1 + 36**2)
+
     def test_non_numeric_input_types(self):
         # Test possible non-numeric types for the argument x, including
         # subclasses of the explicitly documented accepted types.
@@ -235,16 +276,40 @@ class IntTestCases(unittest.TestCase):
         class CustomBytes(bytes): pass
         class CustomByteArray(bytearray): pass
 
-        values = [b'100',
-                  bytearray(b'100'),
-                  CustomStr('100'),
-                  CustomBytes(b'100'),
-                  CustomByteArray(b'100')]
+        factories = [
+            bytes,
+            bytearray,
+            lambda b: CustomStr(b.decode()),
+            CustomBytes,
+            CustomByteArray,
+            memoryview,
+        ]
+        try:
+            from array import array
+        except ImportError:
+            pass
+        else:
+            factories.append(lambda b: array('B', b))
 
-        for x in values:
-            msg = 'x has type %s' % type(x).__name__
-            self.assertEqual(int(x), 100, msg=msg)
-            self.assertEqual(int(x, 2), 4, msg=msg)
+        for f in factories:
+            x = f(b'100')
+            with self.subTest(type(x)):
+                self.assertEqual(int(x), 100)
+                if isinstance(x, (str, bytes, bytearray)):
+                    self.assertEqual(int(x, 2), 4)
+                else:
+                    msg = "can't convert non-string"
+                    with self.assertRaisesRegex(TypeError, msg):
+                        int(x, 2)
+                with self.assertRaisesRegex(ValueError, 'invalid literal'):
+                    int(f(b'A' * 0x10))
+
+    def test_int_memoryview(self):
+        self.assertEqual(int(memoryview(b'123')[1:3]), 23)
+        self.assertEqual(int(memoryview(b'123\x00')[1:3]), 23)
+        self.assertEqual(int(memoryview(b'123 ')[1:3]), 23)
+        self.assertEqual(int(memoryview(b'123A')[1:3]), 23)
+        self.assertEqual(int(memoryview(b'1234')[1:3]), 23)
 
     def test_string_float(self):
         self.assertRaises(ValueError, int, '1.2')
@@ -360,15 +425,18 @@ class IntTestCases(unittest.TestCase):
                 return True
 
         bad_int = BadInt()
-        n = int(bad_int)
+        with self.assertWarns(DeprecationWarning):
+            n = int(bad_int)
         self.assertEqual(n, 1)
 
         bad_int = BadInt2()
-        n = int(bad_int)
+        with self.assertWarns(DeprecationWarning):
+            n = int(bad_int)
         self.assertEqual(n, 1)
 
         bad_int = TruncReturnsBadInt()
-        n = int(bad_int)
+        with self.assertWarns(DeprecationWarning):
+            n = int(bad_int)
         self.assertEqual(n, 1)
 
         good_int = TruncReturnsIntSubclass()
@@ -408,8 +476,5 @@ class IntTestCases(unittest.TestCase):
         check('123\ud800')
         check('123\ud800', 10)
 
-def test_main():
-    support.run_unittest(IntTestCases)
-
 if __name__ == "__main__":
-    test_main()
+    unittest.main()

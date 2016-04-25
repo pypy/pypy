@@ -1,12 +1,14 @@
 """Utilities to support packages."""
 
-import os
-import sys
+from functools import singledispatch as simplegeneric
 import importlib
-import imp
+import importlib.util
+import importlib.machinery
+import os
 import os.path
-from warnings import warn
+import sys
 from types import ModuleType
+import warnings
 
 __all__ = [
     'get_importer', 'iter_importers', 'get_loader', 'find_loader',
@@ -14,57 +16,32 @@ __all__ = [
     'ImpImporter', 'ImpLoader', 'read_code', 'extend_path',
 ]
 
+
+def _get_spec(finder, name):
+    """Return the finder-specific module spec."""
+    # Works with legacy finders.
+    try:
+        find_spec = finder.find_spec
+    except AttributeError:
+        loader = finder.find_module(name)
+        if loader is None:
+            return None
+        return importlib.util.spec_from_loader(name, loader)
+    else:
+        return find_spec(name)
+
+
 def read_code(stream):
     # This helper is needed in order for the PEP 302 emulation to
     # correctly handle compiled files
     import marshal
 
     magic = stream.read(4)
-    if magic != imp.get_magic():
+    if magic != importlib.util.MAGIC_NUMBER:
         return None
 
     stream.read(8) # Skip timestamp and size
     return marshal.load(stream)
-
-
-def simplegeneric(func):
-    """Make a trivial single-dispatch generic function"""
-    registry = {}
-    def wrapper(*args, **kw):
-        ob = args[0]
-        try:
-            cls = ob.__class__
-        except AttributeError:
-            cls = type(ob)
-        try:
-            mro = cls.__mro__
-        except AttributeError:
-            try:
-                class cls(cls, object):
-                    pass
-                mro = cls.__mro__[1:]
-            except TypeError:
-                mro = object,   # must be an ExtensionClass or some such  :(
-        for t in mro:
-            if t in registry:
-                return registry[t](*args, **kw)
-        else:
-            return func(*args, **kw)
-    try:
-        wrapper.__name__ = func.__name__
-    except (TypeError, AttributeError):
-        pass    # Python 2.3 doesn't allow functions to be renamed
-
-    def register(typ, func=None):
-        if func is None:
-            return lambda f: register(typ, f)
-        registry[typ] = func
-        return func
-
-    wrapper.__dict__ = func.__dict__
-    wrapper.__doc__ = func.__doc__
-    wrapper.register = register
-    return wrapper
 
 
 def walk_packages(path=None, prefix='', onerror=None):
@@ -121,8 +98,7 @@ def walk_packages(path=None, prefix='', onerror=None):
                 # don't traverse path items we've seen before
                 path = [p for p in path if not seen(p)]
 
-                for item in walk_packages(path, name+'.', onerror):
-                    yield item
+                yield from walk_packages(path, name+'.', onerror)
 
 
 def iter_modules(path=None, prefix=''):
@@ -149,13 +125,12 @@ def iter_modules(path=None, prefix=''):
                 yield i, name, ispkg
 
 
-#@simplegeneric
+@simplegeneric
 def iter_importer_modules(importer, prefix=''):
     if not hasattr(importer, 'iter_modules'):
         return []
     return importer.iter_modules(prefix)
 
-iter_importer_modules = simplegeneric(iter_importer_modules)
 
 # Implement a file walker for the normal importlib path hook
 def _iter_file_finder_modules(importer, prefix=''):
@@ -201,6 +176,13 @@ def _iter_file_finder_modules(importer, prefix=''):
 iter_importer_modules.register(
     importlib.machinery.FileFinder, _iter_file_finder_modules)
 
+
+def _import_imp():
+    global imp
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore', PendingDeprecationWarning)
+        imp = importlib.import_module('imp')
+
 class ImpImporter:
     """PEP 302 Importer that wraps Python's "classic" import algorithm
 
@@ -213,8 +195,10 @@ class ImpImporter:
     """
 
     def __init__(self, path=None):
-        warn("This emulation is deprecated, use 'importlib' instead",
+        global imp
+        warnings.warn("This emulation is deprecated, use 'importlib' instead",
              DeprecationWarning)
+        _import_imp()
         self.path = path
 
     def find_module(self, fullname, path=None):
@@ -279,8 +263,9 @@ class ImpLoader:
     code = source = None
 
     def __init__(self, fullname, file, filename, etc):
-        warn("This emulation is deprecated, use 'importlib' instead",
-             DeprecationWarning)
+        warnings.warn("This emulation is deprecated, use 'importlib' instead",
+                      DeprecationWarning)
+        _import_imp()
         self.file = file
         self.filename = filename
         self.fullname = fullname
@@ -350,16 +335,16 @@ class ImpLoader:
                     self.file.close()
             elif mod_type==imp.PY_COMPILED:
                 if os.path.exists(self.filename[:-1]):
-                    f = open(self.filename[:-1], 'r')
-                    self.source = f.read()
-                    f.close()
+                    with open(self.filename[:-1], 'r') as f:
+                        self.source = f.read()
             elif mod_type==imp.PKG_DIRECTORY:
                 self.source = self._get_delegate().get_source()
         return self.source
 
-
     def _get_delegate(self):
-        return ImpImporter(self.filename).find_module('__init__')
+        finder = ImpImporter(self.filename)
+        spec = _get_spec(finder, '__init__')
+        return spec.loader
 
     def get_filename(self, fullname=None):
         fullname = self._fix_name(fullname)
@@ -456,11 +441,11 @@ def iter_importers(fullname=""):
         if path is None:
             return
     else:
-        for importer in sys.meta_path:
-            yield importer
+        yield from sys.meta_path
         path = sys.path
     for item in path:
         yield get_importer(item)
+
 
 def get_loader(module_or_name):
     """Get a PEP 302 "loader" object for module_or_name
@@ -471,11 +456,15 @@ def get_loader(module_or_name):
     """
     if module_or_name in sys.modules:
         module_or_name = sys.modules[module_or_name]
+        if module_or_name is None:
+            return None
     if isinstance(module_or_name, ModuleType):
         module = module_or_name
         loader = getattr(module, '__loader__', None)
         if loader is not None:
             return loader
+        if getattr(module, '__spec__', None) is None:
+            return None
         fullname = module.__name__
     else:
         fullname = module_or_name
@@ -485,29 +474,22 @@ def get_loader(module_or_name):
 def find_loader(fullname):
     """Find a PEP 302 "loader" object for fullname
 
-    This is s convenience wrapper around :func:`importlib.find_loader` that
-    sets the *path* argument correctly when searching for submodules, and
-    also ensures parent packages (if any) are imported before searching for
-    submodules.
+    This is a backwards compatibility wrapper around
+    importlib.util.find_spec that converts most failures to ImportError
+    and only returns the loader rather than the full spec
     """
     if fullname.startswith('.'):
         msg = "Relative module name {!r} not supported".format(fullname)
         raise ImportError(msg)
-    path = None
-    pkg_name = fullname.rpartition(".")[0]
-    if pkg_name:
-        pkg = importlib.import_module(pkg_name)
-        path = getattr(pkg, "__path__", None)
-        if path is None:
-            return None
     try:
-        return importlib.find_loader(fullname, path)
+        spec = importlib.util.find_spec(fullname)
     except (ImportError, AttributeError, TypeError, ValueError) as ex:
         # This hack fixes an impedance mismatch between pkgutil and
         # importlib, where the latter raises other errors for cases where
         # pkgutil previously raised ImportError
         msg = "Error while finding loader for {!r} ({}: {})"
         raise ImportError(msg.format(fullname, type(ex), ex)) from ex
+    return spec.loader if spec is not None else None
 
 
 def extend_path(path, name):
@@ -569,13 +551,14 @@ def extend_path(path, name):
 
         finder = get_importer(dir)
         if finder is not None:
+            portions = []
+            if hasattr(finder, 'find_spec'):
+                spec = finder.find_spec(final_name)
+                if spec is not None:
+                    portions = spec.submodule_search_locations or []
             # Is this finder PEP 420 compliant?
-            if hasattr(finder, 'find_loader'):
-                loader, portions = finder.find_loader(final_name)
-            else:
-                # No, no need to call it
-                loader = None
-                portions = []
+            elif hasattr(finder, 'find_loader'):
+                _, portions = finder.find_loader(final_name)
 
             for portion in portions:
                 # XXX This may still add duplicate entries to path on
@@ -589,18 +572,19 @@ def extend_path(path, name):
         if os.path.isfile(pkgfile):
             try:
                 f = open(pkgfile)
-            except IOError as msg:
+            except OSError as msg:
                 sys.stderr.write("Can't open %s: %s\n" %
                                  (pkgfile, msg))
             else:
-                for line in f:
-                    line = line.rstrip('\n')
-                    if not line or line.startswith('#'):
-                        continue
-                    path.append(line) # Don't check for existence!
-                f.close()
+                with f:
+                    for line in f:
+                        line = line.rstrip('\n')
+                        if not line or line.startswith('#'):
+                            continue
+                        path.append(line) # Don't check for existence!
 
     return path
+
 
 def get_data(package, resource):
     """Get a resource from a package.
@@ -624,10 +608,15 @@ def get_data(package, resource):
     which does not support get_data(), then None is returned.
     """
 
-    loader = get_loader(package)
+    spec = importlib.util.find_spec(package)
+    if spec is None:
+        return None
+    loader = spec.loader
     if loader is None or not hasattr(loader, 'get_data'):
         return None
-    mod = sys.modules.get(package) or loader.load_module(package)
+    # XXX needs test
+    mod = (sys.modules.get(package) or
+           importlib._bootstrap._load(spec))
     if mod is None or not hasattr(mod, '__file__'):
         return None
 

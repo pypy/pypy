@@ -41,7 +41,7 @@ from types import MethodType as _MethodType, BuiltinMethodType as _BuiltinMethod
 from math import log as _log, exp as _exp, pi as _pi, e as _e, ceil as _ceil
 from math import sqrt as _sqrt, acos as _acos, cos as _cos, sin as _sin
 from os import urandom as _urandom
-from collections.abc import Set as _Set, Sequence as _Sequence
+from _collections_abc import Set as _Set, Sequence as _Sequence
 from hashlib import sha512 as _sha512
 
 __all__ = ["Random","seed","random","uniform","randint","choice","sample",
@@ -105,7 +105,9 @@ class Random(_random.Random):
 
         if a is None:
             try:
-                a = int.from_bytes(_urandom(32), 'big')
+                # Seed with enough bytes to span the 19937 bit
+                # state space for the Mersenne Twister
+                a = int.from_bytes(_urandom(2500), 'big')
             except NotImplementedError:
                 import time
                 a = int(time.time() * 256) # use fractional seconds
@@ -151,6 +153,9 @@ class Random(_random.Random):
 
 ## -------------------- pickle support  -------------------
 
+    # Issue 17489: Since __reduce__ was defined to fix #759889 this is no
+    # longer called; we leave it here because it has been here since random was
+    # rewritten back in 2001 and why risk breaking something.
     def __getstate__(self): # for pickle
         return self.getstate()
 
@@ -216,10 +221,11 @@ class Random(_random.Random):
                    Method=_MethodType, BuiltinMethod=_BuiltinMethodType):
         "Return a random int in the range [0,n).  Raises ValueError if n==0."
 
+        random = self.random
         getrandbits = self.getrandbits
         # Only call self.getrandbits if the original random() builtin method
         # has not been overridden or if a new getrandbits() was supplied.
-        if type(self.random) is BuiltinMethod or type(getrandbits) is Method:
+        if type(random) is BuiltinMethod or type(getrandbits) is Method:
             k = n.bit_length()  # don't use (n-1) here because n can be 1
             r = getrandbits(k)          # 0 <= r < 2**k
             while r >= n:
@@ -227,7 +233,6 @@ class Random(_random.Random):
             return r
         # There's an overriden random() method but no new getrandbits() method,
         # so we can only use random() from here.
-        random = self.random
         if n >= maxsize:
             _warn("Underlying random() generator does not supply \n"
                 "enough bits to choose from a population range this large.\n"
@@ -251,10 +256,11 @@ class Random(_random.Random):
         return seq[i]
 
     def shuffle(self, x, random=None):
-        """x, random=random.random -> shuffle list x in place; return None.
+        """Shuffle list x in place, and return None.
 
-        Optional arg random is a 0-argument function returning a random
-        float in [0.0, 1.0); by default, the standard random.random.
+        Optional argument random is a 0-argument function returning a
+        random float in [0.0, 1.0); if it is the default None, the
+        standard random.random will be used.
 
         """
 
@@ -349,7 +355,10 @@ class Random(_random.Random):
 
         """
         u = self.random()
-        c = 0.5 if mode is None else (mode - low) / (high - low)
+        try:
+            c = 0.5 if mode is None else (mode - low) / (high - low)
+        except ZeroDivisionError:
+            return low
         if u > c:
             u = 1.0 - u
             c = 1.0 - c
@@ -678,7 +687,7 @@ def _test_generator(n, func, args):
     print(round(t1-t0, 3), 'sec,', end=' ')
     avg = total/n
     stddev = _sqrt(sqsum/n - avg*avg)
-    print('avg %g, stddev %g, min %g, max %g' % \
+    print('avg %g, stddev %g, min %g, max %g\n' % \
               (avg, stddev, smallest, largest))
 
 

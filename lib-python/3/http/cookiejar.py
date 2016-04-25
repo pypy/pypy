@@ -423,10 +423,10 @@ def join_header_words(lists):
     Takes a list of lists of (key, value) pairs and produces a single header
     value.  Attribute values are quoted if needed.
 
-    >>> join_header_words([[("text/plain", None), ("charset", "iso-8859/1")]])
-    'text/plain; charset="iso-8859/1"'
-    >>> join_header_words([[("text/plain", None)], [("charset", "iso-8859/1")]])
-    'text/plain, charset="iso-8859/1"'
+    >>> join_header_words([[("text/plain", None), ("charset", "iso-8859-1")]])
+    'text/plain; charset="iso-8859-1"'
+    >>> join_header_words([[("text/plain", None)], [("charset", "iso-8859-1")]])
+    'text/plain, charset="iso-8859-1"'
 
     """
     headers = []
@@ -472,26 +472,42 @@ def parse_ns_headers(ns_headers):
     for ns_header in ns_headers:
         pairs = []
         version_set = False
-        for ii, param in enumerate(re.split(r";\s*", ns_header)):
-            param = param.rstrip()
-            if param == "": continue
-            if "=" not in param:
-                k, v = param, None
-            else:
-                k, v = re.split(r"\s*=\s*", param, 1)
-                k = k.lstrip()
+
+        # XXX: The following does not strictly adhere to RFCs in that empty
+        # names and values are legal (the former will only appear once and will
+        # be overwritten if multiple occurrences are present). This is
+        # mostly to deal with backwards compatibility.
+        for ii, param in enumerate(ns_header.split(';')):
+            param = param.strip()
+
+            key, sep, val = param.partition('=')
+            key = key.strip()
+
+            if not key:
+                if ii == 0:
+                    break
+                else:
+                    continue
+
+            # allow for a distinction between present and empty and missing
+            # altogether
+            val = val.strip() if sep else None
+
             if ii != 0:
-                lc = k.lower()
+                lc = key.lower()
                 if lc in known_attrs:
-                    k = lc
-                if k == "version":
+                    key = lc
+
+                if key == "version":
                     # This is an RFC 2109 cookie.
-                    v = strip_quotes(v)
+                    if val is not None:
+                        val = strip_quotes(val)
                     version_set = True
-                if k == "expires":
+                elif key == "expires":
                     # convert expires date to seconds since epoch
-                    v = http2time(strip_quotes(v))  # None if invalid
-            pairs.append((k, v))
+                    if val is not None:
+                        val = http2time(strip_quotes(val))  # None if invalid
+            pairs.append((key, val))
 
         if pairs:
             if not version_set:
@@ -742,7 +758,7 @@ class Cookie:
                  ):
 
         if version is not None: version = int(version)
-        if expires is not None: expires = int(expires)
+        if expires is not None: expires = int(float(expires))
         if port is None and port_specified is True:
             raise ValueError("if port is None, port_specified must be false")
 
@@ -805,7 +821,7 @@ class Cookie:
             args.append("%s=%s" % (name, repr(attr)))
         args.append("rest=%s" % repr(self._rest))
         args.append("rfc2109=%s" % repr(self.rfc2109))
-        return "Cookie(%s)" % ", ".join(args)
+        return "%s(%s)" % (self.__class__.__name__, ", ".join(args))
 
 
 class CookiePolicy:
@@ -1193,8 +1209,7 @@ def deepvalues(mapping):
             pass
         else:
             mapping = True
-            for subobj in deepvalues(obj):
-                yield subobj
+            yield from deepvalues(obj)
         if not mapping:
             yield obj
 
@@ -1422,7 +1437,7 @@ class CookieJar:
                         break
                     # convert RFC 2965 Max-Age to seconds since epoch
                     # XXX Strictly you're supposed to follow RFC 2616
-                    #   age-calculation rules.  Remember that zero Max-Age is a
+                    #   age-calculation rules.  Remember that zero Max-Age
                     #   is a request to discard (old and new) cookie, though.
                     k = "expires"
                     v = self._now + v
@@ -1723,16 +1738,16 @@ class CookieJar:
     def __repr__(self):
         r = []
         for cookie in self: r.append(repr(cookie))
-        return "<%s[%s]>" % (self.__class__, ", ".join(r))
+        return "<%s[%s]>" % (self.__class__.__name__, ", ".join(r))
 
     def __str__(self):
         r = []
         for cookie in self: r.append(str(cookie))
-        return "<%s[%s]>" % (self.__class__, ", ".join(r))
+        return "<%s[%s]>" % (self.__class__.__name__, ", ".join(r))
 
 
-# derives from IOError for backwards-compatibility with Python 2.4.0
-class LoadError(IOError): pass
+# derives from OSError for backwards-compatibility with Python 2.4.0
+class LoadError(OSError): pass
 
 class FileCookieJar(CookieJar):
     """CookieJar that can be loaded from and saved to a file."""
@@ -1762,17 +1777,14 @@ class FileCookieJar(CookieJar):
             if self.filename is not None: filename = self.filename
             else: raise ValueError(MISSING_FILENAME_TEXT)
 
-        f = open(filename)
-        try:
+        with open(filename) as f:
             self._really_load(f, filename, ignore_discard, ignore_expires)
-        finally:
-            f.close()
 
     def revert(self, filename=None,
                ignore_discard=False, ignore_expires=False):
         """Clear all cookies and reload cookies from a saved file.
 
-        Raises LoadError (or IOError) if reversion is not successful; the
+        Raises LoadError (or OSError) if reversion is not successful; the
         object's state will not be altered if this happens.
 
         """
@@ -1787,7 +1799,7 @@ class FileCookieJar(CookieJar):
             self._cookies = {}
             try:
                 self.load(filename, ignore_discard, ignore_expires)
-            except (LoadError, IOError):
+            except OSError:
                 self._cookies = old_state
                 raise
 
@@ -1796,7 +1808,7 @@ class FileCookieJar(CookieJar):
 
 
 def lwp_cookie_str(cookie):
-    """Return string representation of Cookie in an the LWP cookie file format.
+    """Return string representation of Cookie in the LWP cookie file format.
 
     Actually, the format is extended a bit -- see module docstring.
 
@@ -1857,15 +1869,12 @@ class LWPCookieJar(FileCookieJar):
             if self.filename is not None: filename = self.filename
             else: raise ValueError(MISSING_FILENAME_TEXT)
 
-        f = open(filename, "w")
-        try:
+        with open(filename, "w") as f:
             # There really isn't an LWP Cookies 2.0 format, but this indicates
             # that there is extra information in here (domain_dot and
             # port_spec) while still being compatible with libwww-perl, I hope.
             f.write("#LWP-Cookies-2.0\n")
             f.write(self.as_lwp_str(ignore_discard, ignore_expires))
-        finally:
-            f.close()
 
     def _really_load(self, f, filename, ignore_discard, ignore_expires):
         magic = f.readline()
@@ -1938,8 +1947,7 @@ class LWPCookieJar(FileCookieJar):
                     if not ignore_expires and c.is_expired(now):
                         continue
                     self.set_cookie(c)
-
-        except IOError:
+        except OSError:
             raise
         except Exception:
             _warn_unhandled_exception()
@@ -1991,7 +1999,6 @@ class MozillaCookieJar(FileCookieJar):
 
         magic = f.readline()
         if not self.magic_re.search(magic):
-            f.close()
             raise LoadError(
                 "%r does not look like a Netscape format cookies file" %
                 filename)
@@ -2045,7 +2052,7 @@ class MozillaCookieJar(FileCookieJar):
                     continue
                 self.set_cookie(c)
 
-        except IOError:
+        except OSError:
             raise
         except Exception:
             _warn_unhandled_exception()
@@ -2057,8 +2064,7 @@ class MozillaCookieJar(FileCookieJar):
             if self.filename is not None: filename = self.filename
             else: raise ValueError(MISSING_FILENAME_TEXT)
 
-        f = open(filename, "w")
-        try:
+        with open(filename, "w") as f:
             f.write(self.header)
             now = time.time()
             for cookie in self:
@@ -2087,5 +2093,3 @@ class MozillaCookieJar(FileCookieJar):
                     "\t".join([cookie.domain, initial_dot, cookie.path,
                                secure, expires, name, value])+
                     "\n")
-        finally:
-            f.close()

@@ -7,6 +7,7 @@
 
 import sys
 import traceback
+import argparse
 from codeop import CommandCompiler, compile_command
 
 __all__ = ["InteractiveInterpreter", "InteractiveConsole", "interact",
@@ -226,7 +227,7 @@ class InteractiveConsole(InteractiveInterpreter):
             self.write("Python %s on %s\n%s\n(%s)\n" %
                        (sys.version, sys.platform, cprt,
                         self.__class__.__name__))
-        else:
+        elif banner:
             self.write("%s\n" % str(banner))
         more = 0
         while 1:
@@ -309,4 +310,12 @@ def interact(banner=None, readfunc=None, local=None):
 
 
 if __name__ == "__main__":
-    interact()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-q', action='store_true',
+                       help="don't print version and copyright messages")
+    args = parser.parse_args()
+    if args.q or sys.flags.quiet:
+        banner = ''
+    else:
+        banner = None
+    interact(banner)

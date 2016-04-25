@@ -7,7 +7,7 @@
 This will append site-specific paths to the module search path.  On
 Unix (including Mac OSX), it starts with sys.prefix and
 sys.exec_prefix (if different) and appends
-lib/python<version>/site-packages as well as lib/site-python.
+lib/python<version>/site-packages.
 On other platforms (such as Windows), it tries each of the
 prefixes directly, as well as with lib/site-packages appended.  The
 resulting directories, if they exist, are appended to sys.path, and
@@ -15,7 +15,7 @@ also inspected for path configuration files.
 
 If a file named "pyvenv.cfg" exists one directory above sys.executable,
 sys.prefix and sys.exec_prefix are set to that directory and
-it is also checked for site-packages and site-python (sys.base_prefix and
+it is also checked for site-packages (sys.base_prefix and
 sys.base_exec_prefix will always be the "real" prefixes of the Python
 installation). If "pyvenv.cfg" (a bootstrap configuration file) contains
 the key "include-system-site-packages" set to anything other than "false"
@@ -58,17 +58,20 @@ Note that bletch is omitted because it doesn't exist; bar precedes foo
 because bar.pth comes alphabetically before foo.pth; and spam is
 omitted because it is not mentioned in either path configuration file.
 
-After these path manipulations, an attempt is made to import a module
+The readline module is also automatically configured to enable
+completion for systems that support it.  This can be overriden in
+sitecustomize, usercustomize or PYTHONSTARTUP.
+
+After these operations, an attempt is made to import a module
 named sitecustomize, which can perform arbitrary additional
 site-specific customizations.  If this import fails with an
 ImportError exception, it is silently ignored.
-
 """
 
 import sys
 import os
-import re
 import builtins
+import _sitebuiltins
 
 is_pypy = '__pypy__' in sys.builtin_module_names
 
@@ -97,8 +100,8 @@ def makepath(*paths):
 def abs_paths():
     """Set all module __file__ and __cached__ attributes to an absolute path"""
     for m in set(sys.modules.values()):
-        if (getattr(getattr(m, '__loader__', None), '__module__', None) !=
-                '_frozen_importlib'):
+        if (getattr(getattr(m, '__loader__', None), '__module__', None) not in
+                ('_frozen_importlib', '_frozen_importlib_external')):
             continue   # don't mess with a PEP 302-supplied __file__
         try:
             m.__file__ = os.path.abspath(m.__file__)
@@ -148,14 +151,14 @@ def addpackage(sitedir, name, known_paths):
        and add that to known_paths, or execute it if it starts with 'import '.
     """
     if known_paths is None:
-        _init_pathinfo()
+        known_paths = _init_pathinfo()
         reset = 1
     else:
         reset = 0
     fullname = os.path.join(sitedir, name)
     try:
         f = open(fullname, "r")
-    except IOError:
+    except OSError:
         return
     with f:
         for n, line in enumerate(f):
@@ -198,7 +201,7 @@ def addsitedir(sitedir, known_paths=None):
         known_paths.add(sitedircase)
     try:
         names = os.listdir(sitedir)
-    except os.error:
+    except OSError:
         return
     names = [name for name in names if name.endswith(".pth")]
     for name in sorted(names):
@@ -284,8 +287,7 @@ def addusersitepackages(known_paths):
     return known_paths
 
 def getsitepackages(prefixes=None):
-    """Returns a list containing all global site-packages directories
-    (and possibly site-python).
+    """Returns a list containing all global site-packages directories.
 
     For each directory present in ``prefixes`` (or the global ``PREFIXES``),
     this function will find its `site-packages` subdirectory depending on the
@@ -302,9 +304,7 @@ def getsitepackages(prefixes=None):
             continue
         seen.add(prefix)
 
-        if sys.platform in ('os2emx', 'riscos'):
-            sitepackages.append(os.path.join(prefix, "Lib", "site-packages"))
-        elif is_pypy:
+        if is_pypy:
             from distutils.sysconfig import get_python_lib
             sitepackages.append(get_python_lib(standard_lib=False,
                                                prefix=prefix))
@@ -312,7 +312,6 @@ def getsitepackages(prefixes=None):
             sitepackages.append(os.path.join(prefix, "lib",
                                         "python" + sys.version[:3],
                                         "site-packages"))
-            sitepackages.append(os.path.join(prefix, "lib", "site-python"))
         else:
             sitepackages.append(prefix)
             sitepackages.append(os.path.join(prefix, "lib", "site-packages"))
@@ -328,29 +327,12 @@ def getsitepackages(prefixes=None):
     return sitepackages
 
 def addsitepackages(known_paths, prefixes=None):
-    """Add site-packages (and possibly site-python) to sys.path"""
+    """Add site-packages to sys.path"""
     for sitedir in getsitepackages(prefixes):
         if os.path.isdir(sitedir):
             addsitedir(sitedir, known_paths)
 
     return known_paths
-
-def setBEGINLIBPATH():
-    """The OS/2 EMX port has optional extension modules that do double duty
-    as DLLs (and must use the .DLL file extension) for other extensions.
-    The library search path needs to be amended so these will be found
-    during module import.  Use BEGINLIBPATH so that these are at the start
-    of the library search path.
-
-    """
-    dllpath = os.path.join(sys.prefix, "Lib", "lib-dynload")
-    libpath = os.environ['BEGINLIBPATH'].split(';')
-    if libpath[-1]:
-        libpath.append(dllpath)
-    else:
-        libpath[-1] = dllpath
-    os.environ['BEGINLIBPATH'] = ';'.join(libpath)
-
 
 def setquit():
     """Define new builtins 'quit' and 'exit'.
@@ -366,86 +348,13 @@ def setquit():
     else:
         eof = 'Ctrl-D (i.e. EOF)'
 
-    class Quitter(object):
-        def __init__(self, name):
-            self.name = name
-        def __repr__(self):
-            return 'Use %s() or %s to exit' % (self.name, eof)
-        def __call__(self, code=None):
-            # Shells like IDLE catch the SystemExit, but listen when their
-            # stdin wrapper is closed.
-            try:
-                sys.stdin.close()
-            except:
-                pass
-            raise SystemExit(code)
-    builtins.quit = Quitter('quit')
-    builtins.exit = Quitter('exit')
+    builtins.quit = _sitebuiltins.Quitter('quit', eof)
+    builtins.exit = _sitebuiltins.Quitter('exit', eof)
 
-
-class _Printer(object):
-    """interactive prompt objects for printing the license text, a list of
-    contributors and the copyright notice."""
-
-    MAXLINES = 23
-
-    def __init__(self, name, data, files=(), dirs=()):
-        self.__name = name
-        self.__data = data
-        self.__files = files
-        self.__dirs = dirs
-        self.__lines = None
-
-    def __setup(self):
-        if self.__lines:
-            return
-        data = None
-        for dir in self.__dirs:
-            for filename in self.__files:
-                filename = os.path.join(dir, filename)
-                try:
-                    fp = open(filename, "r")
-                    data = fp.read()
-                    fp.close()
-                    break
-                except IOError:
-                    pass
-            if data:
-                break
-        if not data:
-            data = self.__data
-        self.__lines = data.split('\n')
-        self.__linecnt = len(self.__lines)
-
-    def __repr__(self):
-        self.__setup()
-        if len(self.__lines) <= self.MAXLINES:
-            return "\n".join(self.__lines)
-        else:
-            return "Type %s() to see the full %s text" % ((self.__name,)*2)
-
-    def __call__(self):
-        self.__setup()
-        prompt = 'Hit Return for more, or q (and Return) to quit: '
-        lineno = 0
-        while 1:
-            try:
-                for i in range(lineno, lineno + self.MAXLINES):
-                    print(self.__lines[i])
-            except IndexError:
-                break
-            else:
-                lineno += self.MAXLINES
-                key = None
-                while key is None:
-                    key = input(prompt)
-                    if key not in ('', 'q'):
-                        key = None
-                if key == 'q':
-                    break
 
 def setcopyright():
     """Set 'copyright' and 'credits' in builtins"""
+    builtins.copyright = _sitebuiltins._Printer("copyright", sys.copyright)
     licenseargs = None
     if is_pypy:
         credits = "PyPy is maintained by the PyPy developers: http://pypy.org/"
@@ -459,39 +368,79 @@ def setcopyright():
     Thanks to CWI, CNRI, BeOpen.com, Zope Corporation and a cast of thousands
     for supporting Python development.  See www.python.org for more information."""
     if licenseargs is None:
-        here = os.path.dirname(os.__file__)
-        license = "See http://www.python.org/download/releases/%.5s/license/" % sys.version,
-        licenseargs = (license, ["LICENSE.txt", "LICENSE"],
-                       [os.path.join(here, os.pardir), here, os.curdir])
+        files, dirs = [], []
+        # Not all modules are required to have a __file__ attribute.  See
+        # PEP 420 for more details.
+        if hasattr(os, '__file__'):
+            here = os.path.dirname(os.__file__)
+            files.extend(["LICENSE.txt", "LICENSE"])
+            dirs.extend([os.path.join(here, os.pardir), here, os.curdir])
+        license = "See https://www.python.org/psf/license/"
+        licenseargs = (license, files, dirs)
 
-    builtins.copyright = _Printer("copyright", sys.copyright)
     builtins.credits = _Printer("credits", credits)
     builtins.license = _Printer("license", *licenseargs)
 
-
-class _Helper(object):
-    """Define the builtin 'help'.
-    This is a wrapper around pydoc.help (with a twist).
-
-    """
-
-    def __repr__(self):
-        return "Type help() for interactive help, " \
-               "or help(object) for help about object."
-    def __call__(self, *args, **kwds):
-        import pydoc
-        return pydoc.help(*args, **kwds)
-
 def sethelper():
-    builtins.help = _Helper()
+    builtins.help = _sitebuiltins._Helper()
+
+def enablerlcompleter():
+    """Enable default readline configuration on interactive prompts, by
+    registering a sys.__interactivehook__.
+
+    If the readline module can be imported, the hook will set the Tab key
+    as completion key and register ~/.python_history as history file.
+    This can be overriden in the sitecustomize or usercustomize module,
+    or in a PYTHONSTARTUP file.
+    """
+    def register_readline():
+        import atexit
+        try:
+            import readline
+            import rlcompleter
+        except ImportError:
+            return
+
+        # Reading the initialization (config) file may not be enough to set a
+        # completion key, so we set one first and then read the file.
+        readline_doc = getattr(readline, '__doc__', '')
+        if readline_doc is not None and 'libedit' in readline_doc:
+            readline.parse_and_bind('bind ^I rl_complete')
+        else:
+            readline.parse_and_bind('tab: complete')
+
+        try:
+            readline.read_init_file()
+        except OSError:
+            # An OSError here could have many causes, but the most likely one
+            # is that there's no .inputrc file (or .editrc file in the case of
+            # Mac OS X + libedit) in the expected location.  In that case, we
+            # want to ignore the exception.
+            pass
+
+        if readline.get_current_history_length() == 0:
+            # If no history was loaded, default to .python_history.
+            # The guard is necessary to avoid doubling history size at
+            # each interpreter exit when readline was already configured
+            # through a PYTHONSTARTUP hook, see:
+            # http://bugs.python.org/issue5845#msg198636
+            history = os.path.join(os.path.expanduser('~'),
+                                   '.python_history')
+            try:
+                readline.read_history_file(history)
+            except IOError:
+                pass
+            atexit.register(readline.write_history_file, history)
+
+    sys.__interactivehook__ = register_readline
 
 def aliasmbcs():
     """On Windows, some default encodings are not provided by Python,
     while they are always available as "mbcs" in each locale. Make
     them usable by aliasing to "mbcs" in such a case."""
     if sys.platform == 'win32':
-        import locale, codecs
-        enc = locale.getdefaultlocale()[1]
+        import _bootlocale, codecs
+        enc = _bootlocale.getpreferredencoding(False)
         if enc.startswith('cp'):            # "cp***" ?
             try:
                 codecs.lookup(enc)
@@ -500,8 +449,7 @@ def aliasmbcs():
                 encodings._cache[enc] = encodings._unknown
                 encodings.aliases.aliases[enc] = 'mbcs'
 
-
-CONFIG_LINE = re.compile(r'^(?P<key>(\w|[-_])+)\s*=\s*(?P<value>.*)\s*$')
+CONFIG_LINE = r'^(?P<key>(\w|[-_])+)\s*=\s*(?P<value>.*)\s*$'
 
 def venv(known_paths):
     global PREFIXES, ENABLE_USER_SITE
@@ -524,12 +472,16 @@ def venv(known_paths):
         ]
 
     if candidate_confs:
+        import re
+        config_line = re.compile(CONFIG_LINE)
         virtual_conf = candidate_confs[0]
         system_site = "true"
-        with open(virtual_conf) as f:
+        # Issue 25185: Use UTF-8, as that's what the venv module uses when
+        # writing the file.
+        with open(virtual_conf, encoding='utf-8') as f:
             for line in f:
                 line = line.strip()
-                m = CONFIG_LINE.match(line)
+                m = config_line.match(line)
                 if m:
                     d = m.groupdict()
                     key, value = d['key'].lower(), d['value']
@@ -537,6 +489,12 @@ def venv(known_paths):
                         system_site = value.lower()
                     elif key == 'home':
                         sys._home = value
+                    elif key == 'applocal' and value.lower() == 'true':
+                        # App-local installs use the exe_dir as prefix,
+                        # not one level higher, and do not use system
+                        # site packages.
+                        site_prefix = exe_dir
+                        system_site = 'false'
 
         sys.prefix = sys.exec_prefix = site_prefix
 
@@ -601,11 +559,10 @@ def main():
         ENABLE_USER_SITE = check_enableusersite()
     known_paths = addusersitepackages(known_paths)
     known_paths = addsitepackages(known_paths)
-    if sys.platform == 'os2emx':
-        setBEGINLIBPATH()
     setquit()
     setcopyright()
     sethelper()
+    enablerlcompleter()
     aliasmbcs()
     execsitecustomize()
     if ENABLE_USER_SITE:

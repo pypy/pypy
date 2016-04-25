@@ -121,10 +121,12 @@ def _parse_ns_name(builder, name):
         qname = "%s:%s" % (prefix, localname)
         qname = intern(qname, qname)
         localname = intern(localname, localname)
-    else:
+    elif len(parts) == 2:
         uri, localname = parts
         prefix = EMPTY_PREFIX
         qname = localname = intern(localname, localname)
+    else:
+        raise ValueError("Unsupported syntax: spaces in URIs not supported: %r" % name)
     return intern(uri, uri), localname, prefix, qname
 
 
@@ -905,11 +907,8 @@ def parse(file, namespaces=True):
         builder = ExpatBuilder()
 
     if isinstance(file, str):
-        fp = open(file, 'rb')
-        try:
+        with open(file, 'rb') as fp:
             result = builder.parseFile(fp)
-        finally:
-            fp.close()
     else:
         result = builder.parseFile(file)
     return result
@@ -939,11 +938,8 @@ def parseFragment(file, context, namespaces=True):
         builder = FragmentBuilder(context)
 
     if isinstance(file, str):
-        fp = open(file, 'rb')
-        try:
+        with open(file, 'rb') as fp:
             result = builder.parseFile(fp)
-        finally:
-            fp.close()
     else:
         result = builder.parseFile(file)
     return result

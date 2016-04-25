@@ -25,13 +25,10 @@ __all__ = [
 import os
 import re
 import time
-import base64
 import random
 import socket
 import datetime
 import urllib.parse
-import warnings
-from io import StringIO
 
 from email._parseaddr import quote
 from email._parseaddr import AddressList as _AddressList
@@ -39,10 +36,7 @@ from email._parseaddr import mktime_tz
 
 from email._parseaddr import parsedate, parsedate_tz, _parsedate_tz
 
-from quopri import decodestring as _qdecode
-
 # Intrapackage imports
-from email.encoders import _bencode, _qencode
 from email.charset import Charset
 
 COMMASPACE = ', '
@@ -54,17 +48,27 @@ TICK = "'"
 specialsre = re.compile(r'[][\\()<>@,:;".]')
 escapesre = re.compile(r'[\\"]')
 
-# How to figure out if we are processing strings that come from a byte
-# source with undecodable characters.
-_has_surrogates = re.compile(
-    '([^\ud800-\udbff]|\A)[\udc00-\udfff]([^\udc00-\udfff]|\Z)').search
+def _has_surrogates(s):
+    """Return True if s contains surrogate-escaped binary data."""
+    # This check is based on the fact that unless there are surrogates, utf8
+    # (Python's default encoding) can encode any string.  This is the fastest
+    # way to check for surrogates, see issue 11454 for timings.
+    try:
+        s.encode()
+        return False
+    except UnicodeEncodeError:
+        return True
 
 # How to deal with a string containing bytes before handing it to the
 # application through the 'normal' interface.
 def _sanitize(string):
-    # Turn any escaped bytes into unicode 'unknown' char.
-    original_bytes = string.encode('ascii', 'surrogateescape')
-    return original_bytes.decode('ascii', 'replace')
+    # Turn any escaped bytes into unicode 'unknown' char.  If the escaped
+    # bytes happen to be utf-8 they will instead get decoded, even if they
+    # were invalid in the charset the source was supposed to be in.  This
+    # seems like it is not a bad thing; a defect was still registered.
+    original_bytes = string.encode('utf-8', 'surrogateescape')
+    return original_bytes.decode('utf-8', 'replace')
+
 
 
 # Helpers
@@ -151,30 +155,14 @@ def formatdate(timeval=None, localtime=False, usegmt=False):
     # 2822 requires that day and month names be the English abbreviations.
     if timeval is None:
         timeval = time.time()
-    if localtime:
-        now = time.localtime(timeval)
-        # Calculate timezone offset, based on whether the local zone has
-        # daylight savings time, and whether DST is in effect.
-        if time.daylight and now[-1]:
-            offset = time.altzone
-        else:
-            offset = time.timezone
-        hours, minutes = divmod(abs(offset), 3600)
-        # Remember offset is in seconds west of UTC, but the timezone is in
-        # minutes east of UTC, so the signs differ.
-        if offset > 0:
-            sign = '-'
-        else:
-            sign = '+'
-        zone = '%s%02d%02d' % (sign, hours, minutes // 60)
+    if localtime or usegmt:
+        dt = datetime.datetime.fromtimestamp(timeval, datetime.timezone.utc)
     else:
-        now = time.gmtime(timeval)
-        # Timezone offset is always -0000
-        if usegmt:
-            zone = 'GMT'
-        else:
-            zone = '-0000'
-    return _format_timetuple_and_zone(now, zone)
+        dt = datetime.datetime.utcfromtimestamp(timeval)
+    if localtime:
+        dt = dt.astimezone()
+        usegmt = False
+    return format_datetime(dt, usegmt)
 
 def format_datetime(dt, usegmt=False):
     """Turn a datetime into a date string as specified in RFC 2822.
@@ -198,24 +186,23 @@ def format_datetime(dt, usegmt=False):
 def make_msgid(idstring=None, domain=None):
     """Returns a string suitable for RFC 2822 compliant Message-ID, e.g:
 
-    <20020201195627.33539.96671@nightshade.la.mastaler.com>
+    <142480216486.20800.16526388040877946887@nightshade.la.mastaler.com>
 
     Optional idstring if given is a string used to strengthen the
     uniqueness of the message id.  Optional domain if given provides the
     portion of the message id after the '@'.  It defaults to the locally
     defined hostname.
     """
-    timeval = time.time()
-    utcdate = time.strftime('%Y%m%d%H%M%S', time.gmtime(timeval))
+    timeval = int(time.time()*100)
     pid = os.getpid()
-    randint = random.randrange(100000)
+    randint = random.getrandbits(64)
     if idstring is None:
         idstring = ''
     else:
         idstring = '.' + idstring
     if domain is None:
         domain = socket.getfqdn()
-    msgid = '<%s.%s.%s%s@%s>' % (utcdate, pid, randint, idstring, domain)
+    msgid = '<%d.%d.%d%s@%s>' % (timeval, pid, randint, idstring, domain)
     return msgid
 
 

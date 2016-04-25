@@ -2,6 +2,8 @@ import unittest
 from ctypes import *
 from test.support import impl_detail
 
+from ctypes.test import need_symbol
+
 formats = "bBhHiIlLqQfd"
 
 # c_longdouble commented out for PyPy, look at the commend in test_longdouble
@@ -109,20 +111,16 @@ class ArrayTestCase(unittest.TestCase):
         self.assertEqual(sz[1:4:2], b"o")
         self.assertEqual(sz.value, b"foo")
 
-    try:
-        create_unicode_buffer
-    except NameError:
-        pass
-    else:
-        def test_from_addressW(self):
-            p = create_unicode_buffer("foo")
-            sz = (c_wchar * 3).from_address(addressof(p))
-            self.assertEqual(sz[:], "foo")
-            self.assertEqual(sz[::], "foo")
-            self.assertEqual(sz[::-1], "oof")
-            self.assertEqual(sz[::3], "f")
-            self.assertEqual(sz[1:4:2], "o")
-            self.assertEqual(sz.value, "foo")
+    @need_symbol('create_unicode_buffer')
+    def test_from_addressW(self):
+        p = create_unicode_buffer("foo")
+        sz = (c_wchar * 3).from_address(addressof(p))
+        self.assertEqual(sz[:], "foo")
+        self.assertEqual(sz[::], "foo")
+        self.assertEqual(sz[::-1], "oof")
+        self.assertEqual(sz[::3], "f")
+        self.assertEqual(sz[1:4:2], "o")
+        self.assertEqual(sz.value, "foo")
 
     def test_cache(self):
         # Array types are cached internally in the _ctypes extension,

@@ -3,14 +3,14 @@
   Nick Mathewson
 """
 
-import imp
 import sys
 import os
 import shutil
 import importlib
+import importlib.util
 import unittest
 
-from test.support import run_unittest, create_empty_file, verbose
+from test.support import create_empty_file, verbose
 from reprlib import repr as r # Don't shadow builtin repr
 from reprlib import Repr
 from reprlib import recursive_repr
@@ -70,18 +70,18 @@ class ReprTests(unittest.TestCase):
         eq(r([1, 2, 3, 4, 5, 6, 7]), "[1, 2, 3, 4, 5, 6, ...]")
 
         # Sets give up after 6 as well
-        eq(r(set([])), "set([])")
-        eq(r(set([1])), "set([1])")
-        eq(r(set([1, 2, 3])), "set([1, 2, 3])")
-        eq(r(set([1, 2, 3, 4, 5, 6])), "set([1, 2, 3, 4, 5, 6])")
-        eq(r(set([1, 2, 3, 4, 5, 6, 7])), "set([1, 2, 3, 4, 5, 6, ...])")
+        eq(r(set([])), "set()")
+        eq(r(set([1])), "{1}")
+        eq(r(set([1, 2, 3])), "{1, 2, 3}")
+        eq(r(set([1, 2, 3, 4, 5, 6])), "{1, 2, 3, 4, 5, 6}")
+        eq(r(set([1, 2, 3, 4, 5, 6, 7])), "{1, 2, 3, 4, 5, 6, ...}")
 
         # Frozensets give up after 6 as well
-        eq(r(frozenset([])), "frozenset([])")
-        eq(r(frozenset([1])), "frozenset([1])")
-        eq(r(frozenset([1, 2, 3])), "frozenset([1, 2, 3])")
-        eq(r(frozenset([1, 2, 3, 4, 5, 6])), "frozenset([1, 2, 3, 4, 5, 6])")
-        eq(r(frozenset([1, 2, 3, 4, 5, 6, 7])), "frozenset([1, 2, 3, 4, 5, 6, ...])")
+        eq(r(frozenset([])), "frozenset()")
+        eq(r(frozenset([1])), "frozenset({1})")
+        eq(r(frozenset([1, 2, 3])), "frozenset({1, 2, 3})")
+        eq(r(frozenset([1, 2, 3, 4, 5, 6])), "frozenset({1, 2, 3, 4, 5, 6})")
+        eq(r(frozenset([1, 2, 3, 4, 5, 6, 7])), "frozenset({1, 2, 3, 4, 5, 6, ...})")
 
         # collections.deque after 6
         eq(r(deque([1, 2, 3, 4, 5, 6, 7])), "deque([1, 2, 3, 4, 5, 6, ...])")
@@ -94,7 +94,7 @@ class ReprTests(unittest.TestCase):
         eq(r(d), "{'alice': 1, 'arthur': 1, 'bob': 2, 'charles': 3, ...}")
 
         # array.array after 5.
-        eq(r(array('i')), "array('i', [])")
+        eq(r(array('i')), "array('i')")
         eq(r(array('i', [1])), "array('i', [1])")
         eq(r(array('i', [1, 2])), "array('i', [1, 2])")
         eq(r(array('i', [1, 2, 3])), "array('i', [1, 2, 3])")
@@ -102,6 +102,20 @@ class ReprTests(unittest.TestCase):
         eq(r(array('i', [1, 2, 3, 4, 5])), "array('i', [1, 2, 3, 4, 5])")
         eq(r(array('i', [1, 2, 3, 4, 5, 6])),
                    "array('i', [1, 2, 3, 4, 5, ...])")
+
+    def test_set_literal(self):
+        eq = self.assertEqual
+        eq(r({1}), "{1}")
+        eq(r({1, 2, 3}), "{1, 2, 3}")
+        eq(r({1, 2, 3, 4, 5, 6}), "{1, 2, 3, 4, 5, 6}")
+        eq(r({1, 2, 3, 4, 5, 6, 7}), "{1, 2, 3, 4, 5, 6, ...}")
+
+    def test_frozenset(self):
+        eq = self.assertEqual
+        eq(r(frozenset({1})), "frozenset({1})")
+        eq(r(frozenset({1, 2, 3})), "frozenset({1, 2, 3})")
+        eq(r(frozenset({1, 2, 3, 4, 5, 6})), "frozenset({1, 2, 3, 4, 5, 6})")
+        eq(r(frozenset({1, 2, 3, 4, 5, 6, 7})), "frozenset({1, 2, 3, 4, 5, 6, ...})")
 
     def test_numbers(self):
         eq = self.assertEqual
@@ -123,7 +137,7 @@ class ReprTests(unittest.TestCase):
         eq(r(i2), expected)
 
         i3 = ClassWithFailingRepr()
-        eq(r(i3), ("<ClassWithFailingRepr instance at %x>"%id(i3)))
+        eq(r(i3), ("<ClassWithFailingRepr instance at %#x>"%id(i3)))
 
         s = r(ClassWithFailingRepr)
         self.assertTrue(s.startswith("<class "))
@@ -256,7 +270,8 @@ class LongReprTest(unittest.TestCase):
         source_path_len += 2 * (len(self.longname) + 1)
         # a path separator + `module_name` + ".py"
         source_path_len += len(module_name) + 1 + len(".py")
-        cached_path_len = source_path_len + len(imp.cache_from_source("x.py")) - len("x.py")
+        cached_path_len = (source_path_len +
+            len(importlib.util.cache_from_source("x.py")) - len("x.py"))
         if os.name == 'nt' and cached_path_len >= 258:
             # Under Windows, the max path len is 260 including C's terminating
             # NUL character.
@@ -267,6 +282,7 @@ class LongReprTest(unittest.TestCase):
             print("cached_path_len =", cached_path_len)
 
     def test_module(self):
+        self.maxDiff = None
         self._check_path_limitations(self.pkgname)
         create_empty_file(os.path.join(self.subpkgname, self.pkgname + '.py'))
         importlib.invalidate_caches()
@@ -379,11 +395,5 @@ class TestRecursiveRepr(unittest.TestCase):
         m.append(m)
         self.assertEqual(repr(m), '<a, b, c, d, e, +++, x, +++>')
 
-def test_main():
-    run_unittest(ReprTests)
-    run_unittest(LongReprTest)
-    run_unittest(TestRecursiveRepr)
-
-
 if __name__ == "__main__":
-    test_main()
+    unittest.main()

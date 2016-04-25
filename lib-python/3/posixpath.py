@@ -22,7 +22,8 @@ __all__ = ["normcase","isabs","join","splitdrive","split","splitext",
            "ismount", "expanduser","expandvars","normpath","abspath",
            "samefile","sameopenfile","samestat",
            "curdir","pardir","sep","pathsep","defpath","altsep","extsep",
-           "devnull","realpath","supports_unicode_filenames","relpath"]
+           "devnull","realpath","supports_unicode_filenames","relpath",
+           "commonpath"]
 
 # Strings representing various path-related bits and pieces.
 # These are primarily for export; internally, they are hardcoded.
@@ -48,7 +49,6 @@ def _get_sep(path):
 
 def normcase(s):
     """Normalize case of pathname.  Has no effect under Posix"""
-    # TODO: on Mac OS X, this should really return s.lower().
     if not isinstance(s, (bytes, str)):
         raise TypeError("normcase() argument must be str or bytes, "
                         "not '{}'".format(s.__class__.__name__))
@@ -76,6 +76,8 @@ def join(a, *p):
     sep = _get_sep(a)
     path = a
     try:
+        if not p:
+            path[:0] + sep  #23780: Ensure compatible data type even if p is null.
         for b in p:
             if b.startswith(sep):
                 path = b
@@ -83,13 +85,8 @@ def join(a, *p):
                 path += b
             else:
                 path += sep + b
-    except TypeError:
-        valid_types = all(isinstance(s, (str, bytes, bytearray))
-                          for s in (a, ) + p)
-        if valid_types:
-            # Must have a mixture of text and binary data
-            raise TypeError("Can't mix strings and bytes in path "
-                            "components.") from None
+    except (TypeError, AttributeError, BytesWarning):
+        genericpath._check_arg_types('join', a, *p)
         raise
     return path
 
@@ -162,7 +159,7 @@ def islink(path):
     """Test whether a path is a symbolic link"""
     try:
         st = os.lstat(path)
-    except (os.error, AttributeError):
+    except (OSError, AttributeError):
         return False
     return stat.S_ISLNK(st.st_mode)
 
@@ -172,37 +169,9 @@ def lexists(path):
     """Test whether a path exists.  Returns True for broken symbolic links"""
     try:
         os.lstat(path)
-    except os.error:
+    except OSError:
         return False
     return True
-
-
-# Are two filenames really pointing to the same file?
-
-def samefile(f1, f2):
-    """Test whether two pathnames reference the same actual file"""
-    s1 = os.stat(f1)
-    s2 = os.stat(f2)
-    return samestat(s1, s2)
-
-
-# Are two open files really referencing the same file?
-# (Not necessarily the same file descriptor!)
-
-def sameopenfile(fp1, fp2):
-    """Test whether two open file objects reference the same file"""
-    s1 = os.fstat(fp1)
-    s2 = os.fstat(fp2)
-    return samestat(s1, s2)
-
-
-# Are two stat buffers (obtained from stat, fstat or lstat)
-# describing the same file?
-
-def samestat(s1, s2):
-    """Test whether two stat buffers reference the same file"""
-    return s1.st_ino == s2.st_ino and \
-           s1.st_dev == s2.st_dev
 
 
 # Is a path a mount point?
@@ -210,18 +179,25 @@ def samestat(s1, s2):
 
 def ismount(path):
     """Test whether a path is a mount point"""
-    if islink(path):
-        # A symlink can never be a mount point
-        return False
     try:
         s1 = os.lstat(path)
-        if isinstance(path, bytes):
-            parent = join(path, b'..')
-        else:
-            parent = join(path, '..')
+    except OSError:
+        # It doesn't exist -- so not a mount point. :-)
+        return False
+    else:
+        # A symlink can never be a mount point
+        if stat.S_ISLNK(s1.st_mode):
+            return False
+
+    if isinstance(path, bytes):
+        parent = join(path, b'..')
+    else:
+        parent = join(path, '..')
+    try:
         s2 = os.lstat(parent)
-    except os.error:
-        return False # It doesn't exist -- so not a mount point :-)
+    except OSError:
+        return False
+
     dev1 = s1.st_dev
     dev2 = s2.st_dev
     if dev1 != dev2:
@@ -469,13 +445,58 @@ def relpath(path, start=None):
     if start is None:
         start = curdir
 
-    start_list = [x for x in abspath(start).split(sep) if x]
-    path_list = [x for x in abspath(path).split(sep) if x]
+    try:
+        start_list = [x for x in abspath(start).split(sep) if x]
+        path_list = [x for x in abspath(path).split(sep) if x]
+        # Work out how much of the filepath is shared by start and path.
+        i = len(commonprefix([start_list, path_list]))
 
-    # Work out how much of the filepath is shared by start and path.
-    i = len(commonprefix([start_list, path_list]))
+        rel_list = [pardir] * (len(start_list)-i) + path_list[i:]
+        if not rel_list:
+            return curdir
+        return join(*rel_list)
+    except (TypeError, AttributeError, BytesWarning, DeprecationWarning):
+        genericpath._check_arg_types('relpath', path, start)
+        raise
 
-    rel_list = [pardir] * (len(start_list)-i) + path_list[i:]
-    if not rel_list:
-        return curdir
-    return join(*rel_list)
+
+# Return the longest common sub-path of the sequence of paths given as input.
+# The paths are not normalized before comparing them (this is the
+# responsibility of the caller). Any trailing separator is stripped from the
+# returned path.
+
+def commonpath(paths):
+    """Given a sequence of path names, returns the longest common sub-path."""
+
+    if not paths:
+        raise ValueError('commonpath() arg is an empty sequence')
+
+    if isinstance(paths[0], bytes):
+        sep = b'/'
+        curdir = b'.'
+    else:
+        sep = '/'
+        curdir = '.'
+
+    try:
+        split_paths = [path.split(sep) for path in paths]
+
+        try:
+            isabs, = set(p[:1] == sep for p in paths)
+        except ValueError:
+            raise ValueError("Can't mix absolute and relative paths") from None
+
+        split_paths = [[c for c in s if c and c != curdir] for s in split_paths]
+        s1 = min(split_paths)
+        s2 = max(split_paths)
+        common = s1
+        for i, c in enumerate(s1):
+            if c != s2[i]:
+                common = s1[:i]
+                break
+
+        prefix = sep if isabs else sep[:0]
+        return prefix + sep.join(common)
+    except (TypeError, AttributeError):
+        genericpath._check_arg_types('commonpath', *paths)
+        raise

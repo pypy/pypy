@@ -1,13 +1,12 @@
 import sys
 import os
 import marshal
-import imp
+import importlib.util
 import struct
 import time
 import unittest
 
 from test import support
-from test.test_importhooks import ImportHooksBaseTestCase, test_src, test_co
 
 from zipfile import ZipFile, ZipInfo, ZIP_STORED, ZIP_DEFLATED
 
@@ -17,6 +16,14 @@ import doctest
 import inspect
 import io
 from traceback import extract_tb, extract_stack, print_tb
+
+test_src = """\
+def get_name():
+    return __name__
+def get_file():
+    return __file__
+"""
+test_co = compile(test_src, "<???>", "exec")
 raise_src = 'def do_raise(): raise TypeError\n'
 
 def make_pyc(co, mtime, size):
@@ -27,7 +34,8 @@ def make_pyc(co, mtime, size):
             mtime = int(mtime)
         else:
             mtime = int(-0x100000000 + int(mtime))
-    pyc = imp.get_magic() + struct.pack("<ii", int(mtime), size & 0xFFFFFFFF) + data
+    pyc = (importlib.util.MAGIC_NUMBER +
+        struct.pack("<ii", int(mtime), size & 0xFFFFFFFF) + data)
     return pyc
 
 def module_path_to_dotted_name(path):
@@ -42,8 +50,25 @@ TESTPACK = "ziptestpackage"
 TESTPACK2 = "ziptestpackage2"
 TEMP_ZIP = os.path.abspath("junk95142.zip")
 
-pyc_file = imp.cache_from_source(TESTMOD + '.py')
-pyc_ext = ('.pyc' if __debug__ else '.pyo')
+pyc_file = importlib.util.cache_from_source(TESTMOD + '.py')
+pyc_ext = '.pyc'
+
+
+class ImportHooksBaseTestCase(unittest.TestCase):
+
+    def setUp(self):
+        self.path = sys.path[:]
+        self.meta_path = sys.meta_path[:]
+        self.path_hooks = sys.path_hooks[:]
+        sys.path_importer_cache.clear()
+        self.modules_before = support.modules_setup()
+
+    def tearDown(self):
+        sys.path[:] = self.path
+        sys.meta_path[:] = self.meta_path
+        sys.path_hooks[:] = self.path_hooks
+        sys.path_importer_cache.clear()
+        support.modules_cleanup(*self.modules_before)
 
 
 class UncompressedZipImportTestCase(ImportHooksBaseTestCase):
@@ -196,6 +221,7 @@ class UncompressedZipImportTestCase(ImportHooksBaseTestCase):
             for name, (mtime, data) in files.items():
                 zinfo = ZipInfo(name, time.localtime(mtime))
                 zinfo.compress_type = self.compression
+                zinfo.comment = b"spam"
                 z.writestr(zinfo, data)
             z.close()
 
@@ -245,6 +271,7 @@ class UncompressedZipImportTestCase(ImportHooksBaseTestCase):
             for name, (mtime, data) in files.items():
                 zinfo = ZipInfo(name, time.localtime(mtime))
                 zinfo.compress_type = self.compression
+                zinfo.comment = b"eggs"
                 z.writestr(zinfo, data)
             z.close()
 
@@ -423,7 +450,9 @@ class BadFileZipImportTestCase(unittest.TestCase):
         fd = os.open(TESTMOD, os.O_CREAT, 000)
         try:
             os.close(fd)
-            self.assertZipFailure(TESTMOD)
+
+            with self.assertRaises(zipimport.ZipImportError) as cm:
+                zipimport.zipimporter(TESTMOD)
         finally:
             # If we leave "the read-only bit" set on Windows, nothing can
             # delete TESTMOD, and later tests suffer bogus failures.
@@ -459,7 +488,7 @@ class BadFileZipImportTestCase(unittest.TestCase):
 
             self.assertRaises(error, z.load_module, 'abc')
             self.assertRaises(error, z.get_code, 'abc')
-            self.assertRaises(IOError, z.get_data, 'abc')
+            self.assertRaises(OSError, z.get_data, 'abc')
             self.assertRaises(error, z.get_source, 'abc')
             self.assertRaises(error, z.is_package, 'abc')
         finally:

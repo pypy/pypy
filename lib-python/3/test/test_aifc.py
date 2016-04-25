@@ -1,6 +1,7 @@
 from test.support import findfile, TESTFN, unlink
 import unittest
 from test import audiotests
+from audioop import byteswap
 import os
 import io
 import sys
@@ -119,7 +120,7 @@ class AifcULAWTest(AifcTest, unittest.TestCase):
       E5040CBC 617C0A3C 08BC0A3C 2C7C0B3C 517C0E3C 8A8410FC B6840EBC 457C0A3C \
       """)
     if sys.byteorder != 'big':
-        frames = audiotests.byteswap2(frames)
+        frames = byteswap(frames, 2)
 
 
 class AifcALAWTest(AifcTest, unittest.TestCase):
@@ -140,7 +141,7 @@ class AifcALAWTest(AifcTest, unittest.TestCase):
       E4800CC0 62000A40 08C00A40 2B000B40 52000E40 8A001180 B6000EC0 46000A40 \
       """)
     if sys.byteorder != 'big':
-        frames = audiotests.byteswap2(frames)
+        frames = byteswap(frames, 2)
 
 
 class AifcMiscTest(audiotests.AudioTests, unittest.TestCase):
@@ -148,6 +149,21 @@ class AifcMiscTest(audiotests.AudioTests, unittest.TestCase):
         #Issue 2245
         #This file contains chunk types aifc doesn't recognize.
         self.f = aifc.open(findfile('Sine-1000Hz-300ms.aif'))
+
+    def test_params_added(self):
+        f = self.f = aifc.open(TESTFN, 'wb')
+        f.aiff()
+        f.setparams((1, 1, 1, 1, b'NONE', b''))
+        f.close()
+
+        f = self.f = aifc.open(TESTFN, 'rb')
+        params = f.getparams()
+        self.assertEqual(params.nchannels, f.getnchannels())
+        self.assertEqual(params.sampwidth, f.getsampwidth())
+        self.assertEqual(params.framerate, f.getframerate())
+        self.assertEqual(params.nframes, f.getnframes())
+        self.assertEqual(params.comptype, f.getcomptype())
+        self.assertEqual(params.compname, f.getcompname())
 
     def test_write_header_comptype_sampwidth(self):
         for comptype in (b'ULAW', b'ulaw', b'ALAW', b'alaw', b'G722'):
@@ -352,12 +368,14 @@ class AIFCLowLevelTest(unittest.TestCase):
 
     def test_write_aiff_by_extension(self):
         sampwidth = 2
-        fout = self.fout = aifc.open(TESTFN + '.aiff', 'wb')
+        filename = TESTFN + '.aiff'
+        fout = self.fout = aifc.open(filename, 'wb')
+        self.addCleanup(unlink, filename)
         fout.setparams((1, sampwidth, 1, 1, b'ULAW', b''))
         frames = b'\x00' * fout.getnchannels() * sampwidth
         fout.writeframes(frames)
         fout.close()
-        f = self.f = aifc.open(TESTFN + '.aiff', 'rb')
+        f = self.f = aifc.open(filename, 'rb')
         self.assertEqual(f.getcomptype(), b'NONE')
         f.close()
 

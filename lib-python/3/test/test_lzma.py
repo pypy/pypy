@@ -1,4 +1,5 @@
-from io import BytesIO, UnsupportedOperation
+import _compression
+from io import BytesIO, UnsupportedOperation, DEFAULT_BUFFER_SIZE
 import os
 import pickle
 import random
@@ -135,6 +136,97 @@ class CompressorDecompressorTestCase(unittest.TestCase):
         self.assertTrue(lzd.eof)
         self.assertEqual(lzd.unused_data, b"")
 
+    def test_decompressor_chunks_maxsize(self):
+        lzd = LZMADecompressor()
+        max_length = 100
+        out = []
+
+        # Feed first half the input
+        len_ = len(COMPRESSED_XZ) // 2
+        out.append(lzd.decompress(COMPRESSED_XZ[:len_],
+                                  max_length=max_length))
+        self.assertFalse(lzd.needs_input)
+        self.assertEqual(len(out[-1]), max_length)
+
+        # Retrieve more data without providing more input
+        out.append(lzd.decompress(b'', max_length=max_length))
+        self.assertFalse(lzd.needs_input)
+        self.assertEqual(len(out[-1]), max_length)
+
+        # Retrieve more data while providing more input
+        out.append(lzd.decompress(COMPRESSED_XZ[len_:],
+                                  max_length=max_length))
+        self.assertLessEqual(len(out[-1]), max_length)
+
+        # Retrieve remaining uncompressed data
+        while not lzd.eof:
+            out.append(lzd.decompress(b'', max_length=max_length))
+            self.assertLessEqual(len(out[-1]), max_length)
+
+        out = b"".join(out)
+        self.assertEqual(out, INPUT)
+        self.assertEqual(lzd.check, lzma.CHECK_CRC64)
+        self.assertEqual(lzd.unused_data, b"")
+
+    def test_decompressor_inputbuf_1(self):
+        # Test reusing input buffer after moving existing
+        # contents to beginning
+        lzd = LZMADecompressor()
+        out = []
+
+        # Create input buffer and fill it
+        self.assertEqual(lzd.decompress(COMPRESSED_XZ[:100],
+                                        max_length=0), b'')
+
+        # Retrieve some results, freeing capacity at beginning
+        # of input buffer
+        out.append(lzd.decompress(b'', 2))
+
+        # Add more data that fits into input buffer after
+        # moving existing data to beginning
+        out.append(lzd.decompress(COMPRESSED_XZ[100:105], 15))
+
+        # Decompress rest of data
+        out.append(lzd.decompress(COMPRESSED_XZ[105:]))
+        self.assertEqual(b''.join(out), INPUT)
+
+    def test_decompressor_inputbuf_2(self):
+        # Test reusing input buffer by appending data at the
+        # end right away
+        lzd = LZMADecompressor()
+        out = []
+
+        # Create input buffer and empty it
+        self.assertEqual(lzd.decompress(COMPRESSED_XZ[:200],
+                                        max_length=0), b'')
+        out.append(lzd.decompress(b''))
+
+        # Fill buffer with new data
+        out.append(lzd.decompress(COMPRESSED_XZ[200:280], 2))
+
+        # Append some more data, not enough to require resize
+        out.append(lzd.decompress(COMPRESSED_XZ[280:300], 2))
+
+        # Decompress rest of data
+        out.append(lzd.decompress(COMPRESSED_XZ[300:]))
+        self.assertEqual(b''.join(out), INPUT)
+
+    def test_decompressor_inputbuf_3(self):
+        # Test reusing input buffer after extending it
+
+        lzd = LZMADecompressor()
+        out = []
+
+        # Create almost full input buffer
+        out.append(lzd.decompress(COMPRESSED_XZ[:200], 5))
+
+        # Add even more data to it, requiring resize
+        out.append(lzd.decompress(COMPRESSED_XZ[200:300], 5))
+
+        # Decompress rest of data
+        out.append(lzd.decompress(COMPRESSED_XZ[300:]))
+        self.assertEqual(b''.join(out), INPUT)
+
     def test_decompressor_unused_data(self):
         lzd = LZMADecompressor()
         extra = b"fooblibar"
@@ -220,10 +312,11 @@ class CompressorDecompressorTestCase(unittest.TestCase):
     # Pickling raises an exception; there's no way to serialize an lzma_stream.
 
     def test_pickle(self):
-        with self.assertRaises(TypeError):
-            pickle.dumps(LZMACompressor())
-        with self.assertRaises(TypeError):
-            pickle.dumps(LZMADecompressor())
+        for proto in range(pickle.HIGHEST_PROTOCOL + 1):
+            with self.assertRaises(TypeError):
+                pickle.dumps(LZMACompressor(), proto)
+            with self.assertRaises(TypeError):
+                pickle.dumps(LZMADecompressor(), proto)
 
 
 class CompressDecompressFunctionTestCase(unittest.TestCase):
@@ -383,6 +476,8 @@ class FileTestCase(unittest.TestCase):
             pass
         with LZMAFile(BytesIO(), "w") as f:
             pass
+        with LZMAFile(BytesIO(), "x") as f:
+            pass
         with LZMAFile(BytesIO(), "a") as f:
             pass
 
@@ -410,13 +505,29 @@ class FileTestCase(unittest.TestCase):
             with LZMAFile(TESTFN, "ab"):
                 pass
 
+    def test_init_with_x_mode(self):
+        self.addCleanup(unlink, TESTFN)
+        for mode in ("x", "xb"):
+            unlink(TESTFN)
+            with LZMAFile(TESTFN, mode):
+                pass
+            with self.assertRaises(FileExistsError):
+                with LZMAFile(TESTFN, mode):
+                    pass
+
     def test_init_bad_mode(self):
         with self.assertRaises(ValueError):
             LZMAFile(BytesIO(COMPRESSED_XZ), (3, "x"))
         with self.assertRaises(ValueError):
             LZMAFile(BytesIO(COMPRESSED_XZ), "")
         with self.assertRaises(ValueError):
-            LZMAFile(BytesIO(COMPRESSED_XZ), "x")
+            LZMAFile(BytesIO(COMPRESSED_XZ), "xt")
+        with self.assertRaises(ValueError):
+            LZMAFile(BytesIO(COMPRESSED_XZ), "x+")
+        with self.assertRaises(ValueError):
+            LZMAFile(BytesIO(COMPRESSED_XZ), "rx")
+        with self.assertRaises(ValueError):
+            LZMAFile(BytesIO(COMPRESSED_XZ), "wx")
         with self.assertRaises(ValueError):
             LZMAFile(BytesIO(COMPRESSED_XZ), "rt")
         with self.assertRaises(ValueError):
@@ -662,13 +773,13 @@ class FileTestCase(unittest.TestCase):
     def test_read_multistream_buffer_size_aligned(self):
         # Test the case where a stream boundary coincides with the end
         # of the raw read buffer.
-        saved_buffer_size = lzma._BUFFER_SIZE
-        lzma._BUFFER_SIZE = len(COMPRESSED_XZ)
+        saved_buffer_size = _compression.BUFFER_SIZE
+        _compression.BUFFER_SIZE = len(COMPRESSED_XZ)
         try:
             with LZMAFile(BytesIO(COMPRESSED_XZ *  5)) as f:
                 self.assertEqual(f.read(), INPUT * 5)
         finally:
-            lzma._BUFFER_SIZE = saved_buffer_size
+            _compression.BUFFER_SIZE = saved_buffer_size
 
     def test_read_trailing_junk(self):
         with LZMAFile(BytesIO(COMPRESSED_XZ + COMPRESSED_BOGUS)) as f:
@@ -698,6 +809,20 @@ class FileTestCase(unittest.TestCase):
         with LZMAFile(BytesIO(COMPRESSED_XZ[:128])) as f:
             self.assertRaises(EOFError, f.read)
 
+    def test_read_truncated(self):
+        # Drop stream footer: CRC (4 bytes), index size (4 bytes),
+        # flags (2 bytes) and magic number (2 bytes).
+        truncated = COMPRESSED_XZ[:-12]
+        with LZMAFile(BytesIO(truncated)) as f:
+            self.assertRaises(EOFError, f.read)
+        with LZMAFile(BytesIO(truncated)) as f:
+            self.assertEqual(f.read(len(INPUT)), INPUT)
+            self.assertRaises(EOFError, f.read, 1)
+        # Incomplete 12-byte header.
+        for i in range(12):
+            with LZMAFile(BytesIO(truncated[:i])) as f:
+                self.assertRaises(EOFError, f.read, 1)
+
     def test_read_bad_args(self):
         f = LZMAFile(BytesIO(COMPRESSED_XZ))
         f.close()
@@ -705,7 +830,7 @@ class FileTestCase(unittest.TestCase):
         with LZMAFile(BytesIO(), "w") as f:
             self.assertRaises(ValueError, f.read)
         with LZMAFile(BytesIO(COMPRESSED_XZ)) as f:
-            self.assertRaises(TypeError, f.read, None)
+            self.assertRaises(TypeError, f.read, float())
 
     def test_read_bad_data(self):
         with LZMAFile(BytesIO(COMPRESSED_BOGUS)) as f:
@@ -800,6 +925,17 @@ class FileTestCase(unittest.TestCase):
             lines = f.readlines()
         with LZMAFile(BytesIO(COMPRESSED_XZ)) as f:
             self.assertListEqual(f.readlines(), lines)
+
+    def test_decompress_limited(self):
+        """Decompressed data buffering should be limited"""
+        bomb = lzma.compress(bytes(int(2e6)), preset=6)
+        self.assertLess(len(bomb), _compression.BUFFER_SIZE)
+
+        decomp = LZMAFile(BytesIO(bomb))
+        self.assertEqual(bytes(1), decomp.read(1))
+        max_decomp = 1 + DEFAULT_BUFFER_SIZE
+        self.assertLessEqual(decomp._buffer.raw.tell(), max_decomp,
+            "Excessive amount of data was decompressed")
 
     def test_write(self):
         with BytesIO() as dst:
@@ -966,7 +1102,8 @@ class FileTestCase(unittest.TestCase):
             self.assertRaises(ValueError, f.seek, 0)
         with LZMAFile(BytesIO(COMPRESSED_XZ)) as f:
             self.assertRaises(ValueError, f.seek, 0, 3)
-            self.assertRaises(ValueError, f.seek, 9, ())
+            # io.BufferedReader raises TypeError instead of ValueError
+            self.assertRaises((TypeError, ValueError), f.seek, 9, ())
             self.assertRaises(TypeError, f.seek, None)
             self.assertRaises(TypeError, f.seek, b"derp")
 
@@ -1041,8 +1178,6 @@ class OpenTestCase(unittest.TestCase):
         with self.assertRaises(ValueError):
             lzma.open(TESTFN, "")
         with self.assertRaises(ValueError):
-            lzma.open(TESTFN, "x")
-        with self.assertRaises(ValueError):
             lzma.open(TESTFN, "rbt")
         with self.assertRaises(ValueError):
             lzma.open(TESTFN, "rb", encoding="utf-8")
@@ -1090,6 +1225,16 @@ class OpenTestCase(unittest.TestCase):
             bio.seek(0)
             with lzma.open(bio, "rt", newline="\r") as f:
                 self.assertEqual(f.readlines(), [text])
+
+    def test_x_mode(self):
+        self.addCleanup(unlink, TESTFN)
+        for mode in ("x", "xb", "xt"):
+            unlink(TESTFN)
+            with lzma.open(TESTFN, mode):
+                pass
+            with self.assertRaises(FileExistsError):
+                with lzma.open(TESTFN, mode):
+                    pass
 
 
 class MiscellaneousTestCase(unittest.TestCase):

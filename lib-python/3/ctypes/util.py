@@ -19,6 +19,8 @@ if os.name == "nt":
         i = i + len(prefix)
         s, rest = sys.version[i:].split(" ", 1)
         majorVersion = int(s[:-2]) - 6
+        if majorVersion >= 13:
+            majorVersion += 1
         minorVersion = int(s[2:3]) / 10.0
         # I don't think paths are affected by minor version in version 6
         if majorVersion == 6:
@@ -36,8 +38,12 @@ if os.name == "nt":
             return None
         if version <= 6:
             clibname = 'msvcrt'
-        else:
+        elif version <= 13:
             clibname = 'msvcr%d' % (version * 10)
+        else:
+            # CRT is no longer directly loadable. See issue23606 for the
+            # discussion about alternative approaches.
+            return None
 
         # If python was built with in debug mode
         import importlib.machinery
@@ -85,10 +91,9 @@ if os.name == "posix" and sys.platform == "darwin":
 
 elif os.name == "posix":
     # Andreas Degert's find functions, using gcc, /sbin/ldconfig, objdump
-    import re, errno
+    import re, tempfile
 
     def _findLib_gcc(name):
-        import tempfile
         expr = r'[^\(\)\s]*lib%s\.[^\(\)\s]*' % re.escape(name)
         fdout, ccout = tempfile.mkstemp()
         os.close(fdout)
@@ -103,9 +108,8 @@ elif os.name == "posix":
         finally:
             try:
                 os.unlink(ccout)
-            except OSError as e:
-                if e.errno != errno.ENOENT:
-                    raise
+            except FileNotFoundError:
+                pass
         if rv == 10:
             raise OSError('gcc or cc command not found')
         res = re.search(expr, trace)
@@ -134,8 +138,10 @@ elif os.name == "posix":
             cmd = 'if ! type objdump >/dev/null 2>&1; then exit 10; fi;' \
                   "objdump -p -j .dynamic 2>/dev/null " + f
             f = os.popen(cmd)
-            dump = f.read()
-            rv = f.close()
+            try:
+                dump = f.read()
+            finally:
+                rv = f.close()
             if rv == 10:
                 raise OSError('objdump command not found')
             res = re.search(r'\sSONAME\s+([^\s]+)', dump)
@@ -178,10 +184,11 @@ elif os.name == "posix":
             else:
                 cmd = 'env LC_ALL=C /usr/bin/crle 2>/dev/null'
 
-            for line in os.popen(cmd).readlines():
-                line = line.strip()
-                if line.startswith('Default Library Path (ELF):'):
-                    paths = line.split()[4]
+            with contextlib.closing(os.popen(cmd)) as f:
+                for line in f.readlines():
+                    line = line.strip()
+                    if line.startswith('Default Library Path (ELF):'):
+                        paths = line.split()[4]
 
             if not paths:
                 return None

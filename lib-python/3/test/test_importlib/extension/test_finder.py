@@ -1,21 +1,27 @@
-from importlib import machinery
 from .. import abc
-from . import util
+from .. import util
+
+machinery = util.import_importlib('importlib.machinery')
 
 import unittest
+import warnings
+
+# XXX find_spec tests
 
 class FinderTests(abc.FinderTests):
 
     """Test the finder for extension modules."""
 
     def find_module(self, fullname):
-        importer = machinery.FileFinder(util.PATH,
-                                        (machinery.ExtensionFileLoader,
-                                         machinery.EXTENSION_SUFFIXES))
-        return importer.find_module(fullname)
+        importer = self.machinery.FileFinder(util.EXTENSIONS.path,
+                                            (self.machinery.ExtensionFileLoader,
+                                             self.machinery.EXTENSION_SUFFIXES))
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', DeprecationWarning)
+            return importer.find_module(fullname)
 
     def test_module(self):
-        self.assertTrue(self.find_module(util.NAME))
+        self.assertTrue(self.find_module(util.EXTENSIONS.name))
 
     # No extension module as an __init__ available for testing.
     test_package = test_package_in_package = None
@@ -30,10 +36,10 @@ class FinderTests(abc.FinderTests):
         self.assertIsNone(self.find_module('asdfjkl;'))
 
 
-def test_main():
-    from test.support import run_unittest
-    run_unittest(FinderTests)
+(Frozen_FinderTests,
+ Source_FinderTests
+ ) = util.test_both(FinderTests, machinery=machinery)
 
 
 if __name__ == '__main__':
-    test_main()
+    unittest.main()

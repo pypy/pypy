@@ -12,22 +12,23 @@ __all__ = [ 'Client', 'Listener', 'Pipe', 'wait' ]
 import io
 import os
 import sys
-import pickle
-import select
 import socket
 import struct
-import errno
 import time
 import tempfile
 import itertools
 
 import _multiprocessing
-from multiprocessing import current_process, AuthenticationError, BufferTooShort
-from multiprocessing.util import get_temp_dir, Finalize, sub_debug, debug
-from multiprocessing.forking import ForkingPickler
+
+from . import reduction
+from . import util
+
+from . import AuthenticationError, BufferTooShort
+from .reduction import ForkingPickler
+
 try:
     import _winapi
-    from _winapi import WAIT_OBJECT_0, WAIT_TIMEOUT, INFINITE
+    from _winapi import WAIT_OBJECT_0, WAIT_ABANDONED_0, WAIT_TIMEOUT, INFINITE
 except ImportError:
     if sys.platform == 'win32':
         raise
@@ -72,10 +73,10 @@ def arbitrary_address(family):
     if family == 'AF_INET':
         return ('localhost', 0)
     elif family == 'AF_UNIX':
-        return tempfile.mktemp(prefix='listener-', dir=get_temp_dir())
+        return tempfile.mktemp(prefix='listener-', dir=util.get_temp_dir())
     elif family == 'AF_PIPE':
         return tempfile.mktemp(prefix=r'\\.\pipe\pyc-%d-%d-' %
-                               (os.getpid(), next(_mmap_counter)))
+                               (os.getpid(), next(_mmap_counter)), dir="")
     else:
         raise ValueError('unrecognized family')
 
@@ -132,22 +133,22 @@ class _ConnectionBase:
 
     def _check_closed(self):
         if self._handle is None:
-            raise IOError("handle is closed")
+            raise OSError("handle is closed")
 
     def _check_readable(self):
         if not self._readable:
-            raise IOError("connection is write-only")
+            raise OSError("connection is write-only")
 
     def _check_writable(self):
         if not self._writable:
-            raise IOError("connection is read-only")
+            raise OSError("connection is read-only")
 
     def _bad_message_length(self):
         if self._writable:
             self._readable = False
         else:
             self.close()
-        raise IOError("bad message length")
+        raise OSError("bad message length")
 
     @property
     def closed(self):
@@ -202,9 +203,7 @@ class _ConnectionBase:
         """Send a (picklable) object"""
         self._check_closed()
         self._check_writable()
-        buf = io.BytesIO()
-        ForkingPickler(buf, pickle.HIGHEST_PROTOCOL).dump(obj)
-        self._send_bytes(buf.getbuffer())
+        self._send_bytes(ForkingPickler.dumps(obj))
 
     def recv_bytes(self, maxlength=None):
         """
@@ -221,7 +220,7 @@ class _ConnectionBase:
 
     def recv_bytes_into(self, buf, offset=0):
         """
-        Receive bytes data into a writeable buffer-like object.
+        Receive bytes data into a writeable bytes-like object.
         Return the number of bytes read.
         """
         self._check_closed()
@@ -249,7 +248,7 @@ class _ConnectionBase:
         self._check_closed()
         self._check_readable()
         buf = self._recv_bytes()
-        return pickle.loads(buf.getbuffer())
+        return ForkingPickler.loads(buf.getbuffer())
 
     def poll(self, timeout=0.0):
         """Whether there is any input available to be read"""
@@ -317,7 +316,7 @@ if _winapi:
                             return f
                         elif err == _winapi.ERROR_MORE_DATA:
                             return self._get_more_data(ov, maxsize)
-                except IOError as e:
+                except OSError as e:
                     if e.winerror == _winapi.ERROR_BROKEN_PIPE:
                         raise EOFError
                     else:
@@ -366,10 +365,7 @@ class Connection(_ConnectionBase):
     def _send(self, buf, write=_write):
         remaining = len(buf)
         while True:
-            try:
-                n = write(self._handle, buf)
-            except InterruptedError:
-                continue
+            n = write(self._handle, buf)
             remaining -= n
             if remaining == 0:
                 break
@@ -380,16 +376,13 @@ class Connection(_ConnectionBase):
         handle = self._handle
         remaining = size
         while remaining > 0:
-            try:
-                chunk = read(handle, remaining)
-            except InterruptedError:
-                continue
+            chunk = read(handle, remaining)
             n = len(chunk)
             if n == 0:
                 if remaining == size:
                     raise EOFError
                 else:
-                    raise IOError("got end of file during message")
+                    raise OSError("got end of file during message")
             buf.write(chunk)
             remaining -= n
         return buf
@@ -401,17 +394,14 @@ class Connection(_ConnectionBase):
         if n > 16384:
             # The payload is large so Nagle's algorithm won't be triggered
             # and we'd better avoid the cost of concatenation.
-            chunks = [header, buf]
-        elif n > 0:
+            self._send(header)
+            self._send(buf)
+        else:
             # Issue # 20540: concatenate before sending, to avoid delays due
             # to Nagle's algorithm on a TCP socket.
-            chunks = [header + buf]
-        else:
-            # This code path is necessary to avoid "broken pipe" errors
-            # when sending a 0-length buffer if the other end closed the pipe.
-            chunks = [header]
-        for chunk in chunks:
-            self._send(chunk)
+            # Also note we want to avoid sending a 0-length buffer separately,
+            # to avoid "broken pipe" errors if the other end closed the pipe.
+            self._send(header + buf)
 
     def _recv_bytes(self, maxsize=None):
         buf = self._recv(4)
@@ -459,7 +449,7 @@ class Listener(object):
         Returns a `Connection` object.
         '''
         if self._listener is None:
-            raise IOError('listener is closed')
+            raise OSError('listener is closed')
         c = self._listener.accept()
         if self._authkey:
             deliver_challenge(c, self._authkey)
@@ -470,9 +460,10 @@ class Listener(object):
         '''
         Close the bound socket or named pipe of `self`.
         '''
-        if self._listener is not None:
-            self._listener.close()
+        listener = self._listener
+        if listener is not None:
             self._listener = None
+            listener.close()
 
     address = property(lambda self: self._listener._address)
     last_accepted = property(lambda self: self._listener._last_accepted)
@@ -545,7 +536,9 @@ else:
             _winapi.FILE_FLAG_FIRST_PIPE_INSTANCE,
             _winapi.PIPE_TYPE_MESSAGE | _winapi.PIPE_READMODE_MESSAGE |
             _winapi.PIPE_WAIT,
-            1, obsize, ibsize, _winapi.NMPWAIT_WAIT_FOREVER, _winapi.NULL
+            1, obsize, ibsize, _winapi.NMPWAIT_WAIT_FOREVER,
+            # default security descriptor: the handle cannot be inherited
+            _winapi.NULL
             )
         h2 = _winapi.CreateFile(
             address, access, 0, _winapi.NULL, _winapi.OPEN_EXISTING,
@@ -590,27 +583,25 @@ class SocketListener(object):
         self._last_accepted = None
 
         if family == 'AF_UNIX':
-            self._unlink = Finalize(
+            self._unlink = util.Finalize(
                 self, os.unlink, args=(address,), exitpriority=0
                 )
         else:
             self._unlink = None
 
     def accept(self):
-        while True:
-            try:
-                s, self._last_accepted = self._socket.accept()
-            except InterruptedError:
-                pass
-            else:
-                break
+        s, self._last_accepted = self._socket.accept()
         s.setblocking(True)
         return Connection(s.detach())
 
     def close(self):
-        self._socket.close()
-        if self._unlink is not None:
-            self._unlink()
+        try:
+            self._socket.close()
+        finally:
+            unlink = self._unlink
+            if unlink is not None:
+                self._unlink = None
+                unlink()
 
 
 def SocketClient(address):
@@ -638,8 +629,8 @@ if sys.platform == 'win32':
             self._handle_queue = [self._new_handle(first=True)]
 
             self._last_accepted = None
-            sub_debug('listener created with address=%r', self._address)
-            self.close = Finalize(
+            util.sub_debug('listener created with address=%r', self._address)
+            self.close = util.Finalize(
                 self, PipeListener._finalize_pipe_listener,
                 args=(self._handle_queue, self._address), exitpriority=0
                 )
@@ -681,7 +672,7 @@ if sys.platform == 'win32':
 
         @staticmethod
         def _finalize_pipe_listener(queue, address):
-            sub_debug('closing listener with address=%r', address)
+            util.sub_debug('closing listener with address=%r', address)
             for handle in queue:
                 _winapi.CloseHandle(handle)
 
@@ -698,7 +689,7 @@ if sys.platform == 'win32':
                     0, _winapi.NULL, _winapi.OPEN_EXISTING,
                     _winapi.FILE_FLAG_OVERLAPPED, _winapi.NULL
                     )
-            except WindowsError as e:
+            except OSError as e:
                 if e.winerror not in (_winapi.ERROR_SEM_TIMEOUT,
                                       _winapi.ERROR_PIPE_BUSY) or _check_timeout(t):
                     raise
@@ -727,7 +718,7 @@ def deliver_challenge(connection, authkey):
     assert isinstance(authkey, bytes)
     message = os.urandom(MESSAGE_LENGTH)
     connection.send_bytes(CHALLENGE + message)
-    digest = hmac.new(authkey, message).digest()
+    digest = hmac.new(authkey, message, 'md5').digest()
     response = connection.recv_bytes(256)        # reject large message
     if response == digest:
         connection.send_bytes(WELCOME)
@@ -741,7 +732,7 @@ def answer_challenge(connection, authkey):
     message = connection.recv_bytes(256)         # reject large message
     assert message[:len(CHALLENGE)] == CHALLENGE, 'message = %r' % message
     message = message[len(CHALLENGE):]
-    digest = hmac.new(authkey, message).digest()
+    digest = hmac.new(authkey, message, 'md5').digest()
     connection.send_bytes(digest)
     response = connection.recv_bytes(256)        # reject large message
     if response != WELCOME:
@@ -843,7 +834,7 @@ if sys.platform == 'win32':
                     try:
                         ov, err = _winapi.ReadFile(fileno(), 0, True)
                     except OSError as e:
-                        err = e.winerror
+                        ov, err = None, e.winerror
                         if err not in _ready_errors:
                             raise
                     if err == _winapi.ERROR_IO_PENDING:
@@ -852,7 +843,16 @@ if sys.platform == 'win32':
                     else:
                         # If o.fileno() is an overlapped pipe handle and
                         # err == 0 then there is a zero length message
-                        # in the pipe, but it HAS NOT been consumed.
+                        # in the pipe, but it HAS NOT been consumed...
+                        if ov and sys.getwindowsversion()[:2] >= (6, 2):
+                            # ... except on Windows 8 and later, where
+                            # the message HAS been consumed.
+                            try:
+                                _, err = ov.GetOverlappedResult(False)
+                            except OSError as e:
+                                err = e.winerror
+                            if not err and hasattr(o, '_got_empty_message'):
+                                o._got_empty_message = True
                         ready_objects.add(o)
                         timeout = 0
 
@@ -884,28 +884,15 @@ if sys.platform == 'win32':
 
 else:
 
-    if hasattr(select, 'poll'):
-        def _poll(fds, timeout):
-            if timeout is not None:
-                timeout = int(timeout * 1000)  # timeout is in milliseconds
-            fd_map = {}
-            pollster = select.poll()
-            for fd in fds:
-                pollster.register(fd, select.POLLIN)
-                if hasattr(fd, 'fileno'):
-                    fd_map[fd.fileno()] = fd
-                else:
-                    fd_map[fd] = fd
-            ls = []
-            for fd, event in pollster.poll(timeout):
-                if event & select.POLLNVAL:
-                    raise ValueError('invalid file descriptor %i' % fd)
-                ls.append(fd_map[fd])
-            return ls
-    else:
-        def _poll(fds, timeout):
-            return select.select(fds, [], [], timeout)[0]
+    import selectors
 
+    # poll/select have the advantage of not requiring any extra file
+    # descriptor, contrarily to epoll/kqueue (also, they require a single
+    # syscall).
+    if hasattr(selectors, 'PollSelector'):
+        _WaitSelector = selectors.PollSelector
+    else:
+        _WaitSelector = selectors.SelectSelector
 
     def wait(object_list, timeout=None):
         '''
@@ -913,34 +900,54 @@ else:
 
         Returns list of those objects in object_list which are ready/readable.
         '''
-        if timeout is not None:
-            if timeout <= 0:
-                return _poll(object_list, 0)
-            else:
-                deadline = time.time() + timeout
-        while True:
-            try:
-                return _poll(object_list, timeout)
-            except OSError as e:
-                if e.errno != errno.EINTR:
-                    raise
+        with _WaitSelector() as selector:
+            for obj in object_list:
+                selector.register(obj, selectors.EVENT_READ)
+
             if timeout is not None:
-                timeout = deadline - time.time()
+                deadline = time.time() + timeout
+
+            while True:
+                ready = selector.select(timeout)
+                if ready:
+                    return [key.fileobj for (key, events) in ready]
+                else:
+                    if timeout is not None:
+                        timeout = deadline - time.time()
+                        if timeout < 0:
+                            return ready
 
 #
 # Make connection and socket objects sharable if possible
 #
 
 if sys.platform == 'win32':
-    from . import reduction
-    ForkingPickler.register(socket.socket, reduction.reduce_socket)
-    ForkingPickler.register(Connection, reduction.reduce_connection)
-    ForkingPickler.register(PipeConnection, reduction.reduce_pipe_connection)
+    def reduce_connection(conn):
+        handle = conn.fileno()
+        with socket.fromfd(handle, socket.AF_INET, socket.SOCK_STREAM) as s:
+            from . import resource_sharer
+            ds = resource_sharer.DupSocket(s)
+            return rebuild_connection, (ds, conn.readable, conn.writable)
+    def rebuild_connection(ds, readable, writable):
+        sock = ds.detach()
+        return Connection(sock.detach(), readable, writable)
+    reduction.register(Connection, reduce_connection)
+
+    def reduce_pipe_connection(conn):
+        access = ((_winapi.FILE_GENERIC_READ if conn.readable else 0) |
+                  (_winapi.FILE_GENERIC_WRITE if conn.writable else 0))
+        dh = reduction.DupHandle(conn.fileno(), access)
+        return rebuild_pipe_connection, (dh, conn.readable, conn.writable)
+    def rebuild_pipe_connection(dh, readable, writable):
+        handle = dh.detach()
+        return PipeConnection(handle, readable, writable)
+    reduction.register(PipeConnection, reduce_pipe_connection)
+
 else:
-    try:
-        from . import reduction
-    except ImportError:
-        pass
-    else:
-        ForkingPickler.register(socket.socket, reduction.reduce_socket)
-        ForkingPickler.register(Connection, reduction.reduce_connection)
+    def reduce_connection(conn):
+        df = reduction.DupFd(conn.fileno())
+        return rebuild_connection, (df, conn.readable, conn.writable)
+    def rebuild_connection(df, readable, writable):
+        fd = df.detach()
+        return Connection(fd, readable, writable)
+    reduction.register(Connection, reduce_connection)

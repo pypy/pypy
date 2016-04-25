@@ -1,8 +1,6 @@
 import sys
-import io
 import linecache
 import time
-import socket
 import traceback
 import _thread as thread
 import threading
@@ -150,8 +148,8 @@ def manage_socket(address):
         try:
             server = MyRPCServer(address, MyHandler)
             break
-        except socket.error as err:
-            print("IDLE Subprocess: socket error: " + err.args[1] +
+        except OSError as err:
+            print("IDLE Subprocess: OSError: " + err.args[1] +
                   ", retrying....", file=sys.__stderr__)
             socket_error = err
     else:
@@ -176,7 +174,7 @@ def show_socket_error(err, address):
         tkMessageBox.showerror("IDLE Subprocess Error", msg, parent=root)
     else:
         tkMessageBox.showerror("IDLE Subprocess Error",
-                               "Socket Error: %s" % err.args[1])
+                               "Socket Error: %s" % err.args[1], parent=root)
     root.destroy()
 
 def print_exception():

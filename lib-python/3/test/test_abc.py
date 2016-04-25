@@ -68,6 +68,19 @@ class TestLegacyAPI(unittest.TestCase):
 
 class TestABC(unittest.TestCase):
 
+    def test_ABC_helper(self):
+        # create an ABC using the helper class and perform basic checks
+        class C(abc.ABC):
+            @classmethod
+            @abc.abstractmethod
+            def foo(cls): return cls.__name__
+        self.assertEqual(type(C), abc.ABCMeta)
+        self.assertRaises(TypeError, C)
+        class D(C):
+            @classmethod
+            def foo(cls): return super().foo()
+        self.assertEqual(D.foo(), 'D')
+
     def test_abstractmethod_basics(self):
         @abc.abstractmethod
         def foo(self): pass
@@ -181,9 +194,9 @@ class TestABC(unittest.TestCase):
         # check that the property's __isabstractmethod__ descriptor does the
         # right thing when presented with a value that fails truth testing:
         class NotBool(object):
-            def __nonzero__(self):
+            def __bool__(self):
                 raise ValueError()
-            __len__ = __nonzero__
+            __len__ = __bool__
         with self.assertRaises(ValueError):
             class F(C):
                 def bar(self):
@@ -288,7 +301,10 @@ class TestABC(unittest.TestCase):
         b = B()
         self.assertFalse(isinstance(b, A))
         self.assertFalse(isinstance(b, (A,)))
+        token_old = abc.get_cache_token()
         A.register(B)
+        token_new = abc.get_cache_token()
+        self.assertNotEqual(token_old, token_new)
         self.assertTrue(isinstance(b, A))
         self.assertTrue(isinstance(b, (A,)))
 

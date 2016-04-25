@@ -22,7 +22,7 @@ def has_sound(sound):
         key = winreg.OpenKeyEx(winreg.HKEY_CURRENT_USER,
                 "AppEvents\Schemes\Apps\.Default\{0}\.Default".format(sound))
         return winreg.EnumValue(key, 0)[1] != ""
-    except WindowsError:
+    except OSError:
         return False
 
 class BeepTest(unittest.TestCase):
@@ -246,8 +246,5 @@ def _have_soundcard():
     return __have_soundcard_cache
 
 
-def test_main():
-    support.run_unittest(BeepTest, MessageBeepTest, PlaySoundTest)
-
-if __name__=="__main__":
-    test_main()
+if __name__ == "__main__":
+    unittest.main()

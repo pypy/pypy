@@ -35,24 +35,22 @@ from _ctypes import FUNCFLAG_CDECL as _FUNCFLAG_CDECL, \
      FUNCFLAG_USE_ERRNO as _FUNCFLAG_USE_ERRNO, \
      FUNCFLAG_USE_LASTERROR as _FUNCFLAG_USE_LASTERROR
 
-"""
-WINOLEAPI -> HRESULT
-WINOLEAPI_(type)
-
-STDMETHODCALLTYPE
-
-STDMETHOD(name)
-STDMETHOD_(type, name)
-
-STDAPICALLTYPE
-"""
+# WINOLEAPI -> HRESULT
+# WINOLEAPI_(type)
+#
+# STDMETHODCALLTYPE
+#
+# STDMETHOD(name)
+# STDMETHOD_(type, name)
+#
+# STDAPICALLTYPE
 
 def create_string_buffer(init, size=None):
     """create_string_buffer(aBytes) -> character array
     create_string_buffer(anInteger) -> character array
     create_string_buffer(aString, anInteger) -> character array
     """
-    if isinstance(init, (str, bytes)):
+    if isinstance(init, bytes):
         if size is None:
             size = len(init)+1
         buftype = c_char * size
@@ -240,14 +238,8 @@ _check_size(c_char)
 
 class c_char_p(_SimpleCData):
     _type_ = "z"
-    if _os.name == "nt":
-        def __repr__(self):
-            if not windll.kernel32.IsBadStringPtrA(self, -1):
-                return "%s(%r)" % (self.__class__.__name__, self.value)
-            return "%s(%s)" % (self.__class__.__name__, cast(self, c_void_p).value)
-    else:
-        def __repr__(self):
-            return "%s(%s)" % (self.__class__.__name__, cast(self, c_void_p).value)
+    def __repr__(self):
+        return "%s(%s)" % (self.__class__.__name__, c_void_p.from_buffer(self).value)
 _check_size(c_char_p, "P")
 
 class c_void_p(_SimpleCData):
@@ -262,6 +254,8 @@ from _ctypes import POINTER, pointer, _pointer_type_cache
 
 class c_wchar_p(_SimpleCData):
     _type_ = "Z"
+    def __repr__(self):
+        return "%s(%s)" % (self.__class__.__name__, c_void_p.from_buffer(self).value)
 
 class c_wchar(_SimpleCData):
     _type_ = "u"
@@ -287,7 +281,7 @@ def create_unicode_buffer(init, size=None):
     create_unicode_buffer(anInteger) -> character array
     create_unicode_buffer(aString, anInteger) -> character array
     """
-    if isinstance(init, (str, bytes)):
+    if isinstance(init, str):
         if size is None:
             size = len(init)+1
         buftype = c_wchar * size
@@ -398,7 +392,7 @@ if _os.name in ("nt", "ce"):
         _type_ = "l"
         # _check_retval_ is called with the function's result when it
         # is used as restype.  It checks for the FAILED bit, and
-        # raises a WindowsError if it is set.
+        # raises an OSError if it is set.
         #
         # The _check_retval_ method is implemented in C, so that the
         # method definition itself is not included in the traceback
@@ -410,7 +404,7 @@ if _os.name in ("nt", "ce"):
     class OleDLL(CDLL):
         """This class represents a dll exporting functions using the
         Windows stdcall calling convention, and returning HRESULT.
-        HRESULT error values are automatically raised as WindowsError
+        HRESULT error values are automatically raised as OSError
         exceptions.
         """
         _func_flags_ = _FUNCFLAG_STDCALL
@@ -459,7 +453,7 @@ if _os.name in ("nt", "ce"):
             code = GetLastError()
         if descr is None:
             descr = FormatError(code).strip()
-        return WindowsError(None, descr, None, code)
+        return OSError(None, descr, None, code)
 
 if sizeof(c_uint) == sizeof(c_void_p):
     c_size_t = c_uint

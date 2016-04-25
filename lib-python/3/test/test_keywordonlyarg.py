@@ -4,7 +4,6 @@ __author__ = "Jiwon Seo"
 __email__ = "seojiwon at gmail dot com"
 
 import unittest
-from test.support import run_unittest
 
 def posonly_sum(pos_arg1, *arg, **kwarg):
     return pos_arg1 + sum(arg) + sum(kwarg.values())
@@ -174,8 +173,17 @@ class KeywordOnlyArgTestCase(unittest.TestCase):
                 return __a
         self.assertEqual(X().f(), 42)
 
-def test_main():
-    run_unittest(KeywordOnlyArgTestCase)
+    def test_default_evaluation_order(self):
+        # See issue 16967
+        a = 42
+        with self.assertRaises(NameError) as err:
+            def f(v=a, x=b, *, y=c, z=d):
+                pass
+        self.assertEqual(str(err.exception), "name 'b' is not defined")
+        with self.assertRaises(NameError) as err:
+            f = lambda v=a, x=b, *, y=c, z=d: None
+        self.assertEqual(str(err.exception), "name 'b' is not defined")
+
 
 if __name__ == "__main__":
-    test_main()
+    unittest.main()

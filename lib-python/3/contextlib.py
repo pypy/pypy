@@ -4,7 +4,8 @@ import sys
 from collections import deque
 from functools import wraps
 
-__all__ = ["contextmanager", "closing", "ContextDecorator", "ExitStack"]
+__all__ = ["contextmanager", "closing", "ContextDecorator", "ExitStack",
+           "redirect_stdout", "redirect_stderr", "suppress"]
 
 
 class ContextDecorator(object):
@@ -33,21 +34,31 @@ class ContextDecorator(object):
 class _GeneratorContextManager(ContextDecorator):
     """Helper for @contextmanager decorator."""
 
-    def __init__(self, func, *args, **kwds):
+    def __init__(self, func, args, kwds):
         self.gen = func(*args, **kwds)
         self.func, self.args, self.kwds = func, args, kwds
+        # Issue 19330: ensure context manager instances have good docstrings
+        doc = getattr(func, "__doc__", None)
+        if doc is None:
+            doc = type(self).__doc__
+        self.__doc__ = doc
+        # Unfortunately, this still doesn't provide good help output when
+        # inspecting the created context manager instances, since pydoc
+        # currently bypasses the instance docstring and shows the docstring
+        # for the class instead.
+        # See http://bugs.python.org/issue19404 for more details.
 
     def _recreate_cm(self):
         # _GCM instances are one-shot context managers, so the
         # CM must be recreated each time a decorated function is
         # called
-        return self.__class__(self.func, *self.args, **self.kwds)
+        return self.__class__(self.func, self.args, self.kwds)
 
     def __enter__(self):
         try:
             return next(self.gen)
         except StopIteration:
-            raise RuntimeError("generator didn't yield")
+            raise RuntimeError("generator didn't yield") from None
 
     def __exit__(self, type, value, traceback):
         if type is None:
@@ -66,10 +77,17 @@ class _GeneratorContextManager(ContextDecorator):
                 self.gen.throw(type, value, traceback)
                 raise RuntimeError("generator didn't stop after throw()")
             except StopIteration as exc:
-                # Suppress the exception *unless* it's the same exception that
+                # Suppress StopIteration *unless* it's the same exception that
                 # was passed to throw().  This prevents a StopIteration
-                # raised inside the "with" statement from being suppressed
+                # raised inside the "with" statement from being suppressed.
                 return exc is not value
+            except RuntimeError as exc:
+                # Likewise, avoid suppressing if a StopIteration exception
+                # was passed to throw() and later wrapped into a RuntimeError
+                # (see PEP 479).
+                if exc.__cause__ is value:
+                    return False
+                raise
             except:
                 # only re-raise if it's *not* the exception that was
                 # passed to throw(), because __exit__() must not raise
@@ -112,7 +130,7 @@ def contextmanager(func):
     """
     @wraps(func)
     def helper(*args, **kwds):
-        return _GeneratorContextManager(func, *args, **kwds)
+        return _GeneratorContextManager(func, args, kwds)
     return helper
 
 
@@ -139,6 +157,76 @@ class closing(object):
         return self.thing
     def __exit__(self, *exc_info):
         self.thing.close()
+
+
+class _RedirectStream:
+
+    _stream = None
+
+    def __init__(self, new_target):
+        self._new_target = new_target
+        # We use a list of old targets to make this CM re-entrant
+        self._old_targets = []
+
+    def __enter__(self):
+        self._old_targets.append(getattr(sys, self._stream))
+        setattr(sys, self._stream, self._new_target)
+        return self._new_target
+
+    def __exit__(self, exctype, excinst, exctb):
+        setattr(sys, self._stream, self._old_targets.pop())
+
+
+class redirect_stdout(_RedirectStream):
+    """Context manager for temporarily redirecting stdout to another file.
+
+        # How to send help() to stderr
+        with redirect_stdout(sys.stderr):
+            help(dir)
+
+        # How to write help() to a file
+        with open('help.txt', 'w') as f:
+            with redirect_stdout(f):
+                help(pow)
+    """
+
+    _stream = "stdout"
+
+
+class redirect_stderr(_RedirectStream):
+    """Context manager for temporarily redirecting stderr to another file."""
+
+    _stream = "stderr"
+
+
+class suppress:
+    """Context manager to suppress specified exceptions
+
+    After the exception is suppressed, execution proceeds with the next
+    statement following the with statement.
+
+         with suppress(FileNotFoundError):
+             os.remove(somefile)
+         # Execution still resumes here if the file was already removed
+    """
+
+    def __init__(self, *exceptions):
+        self._exceptions = exceptions
+
+    def __enter__(self):
+        pass
+
+    def __exit__(self, exctype, excinst, exctb):
+        # Unlike isinstance and issubclass, CPython exception handling
+        # currently only looks at the concrete type hierarchy (ignoring
+        # the instance and subclass checking hooks). While Guido considers
+        # that a bug rather than a feature, it's a fairly hard one to fix
+        # due to various internal implementation details. suppress provides
+        # the simpler issubclass based semantics, rather than trying to
+        # exactly reproduce the limitations of the CPython interpreter.
+        #
+        # See http://bugs.python.org/issue12029 for more details
+        return exctype is not None and issubclass(exctype, self._exceptions)
 
 
 # Inspired by discussions on http://bugs.python.org/issue13585

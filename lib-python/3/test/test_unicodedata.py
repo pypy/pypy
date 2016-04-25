@@ -9,8 +9,7 @@
 import sys
 import unittest
 import hashlib
-import subprocess
-import test.support
+from test.support import script_helper
 
 encoding = 'utf-8'
 errors = 'surrogatepass'
@@ -21,7 +20,7 @@ errors = 'surrogatepass'
 class UnicodeMethodsTest(unittest.TestCase):
 
     # update this, if the database changes
-    expectedchecksum = 'bf7a78f1a532421b5033600102e23a92044dbba9'
+    expectedchecksum = '5971760872b2f98bb9c701e6c0db3273d756b3ec'
 
     def test_method_checksum(self):
         h = hashlib.sha1()
@@ -79,8 +78,9 @@ class UnicodeDatabaseTest(unittest.TestCase):
 
 class UnicodeFunctionsTest(UnicodeDatabaseTest):
 
-    # update this, if the database changes
-    expectedchecksum = '17fe2f12b788e4fff5479b469c4404bb6ecf841f'
+    # Update this if the database changes. Make sure to do a full rebuild
+    # (e.g. 'make distclean && make') to get the correct checksum.
+    expectedchecksum = '5e74827cd07f9e546a30f34b7bcf6cc2eac38c8c'
     def test_function_checksum(self):
         data = []
         h = hashlib.sha1()
@@ -233,17 +233,12 @@ class UnicodeMiscTest(UnicodeDatabaseTest):
         code = "import sys;" \
             "sys.modules['unicodedata'] = None;" \
             """eval("'\\\\N{SOFT HYPHEN}'")"""
-        args = [sys.executable, "-c", code]
-        # We use a subprocess because the unicodedata module may already have
-        # been loaded in this process.
-        popen = subprocess.Popen(args, stderr=subprocess.PIPE)
-        popen.wait()
-        self.assertIn(popen.returncode, [0, 1]) # at least it did not segfault
-        if test.support.check_impl_detail():
-            error = "SyntaxError: (unicode error) \\N escapes not supported " \
-                "(can't load unicodedata module)"
-            self.assertIn(error, popen.stderr.read().decode("ascii"))
-        popen.stderr.close()
+        # We use a separate process because the unicodedata module may already
+        # have been loaded in this process.
+        result = script_helper.assert_python_failure("-c", code)
+        error = "SyntaxError: (unicode error) \\N escapes not supported " \
+            "(can't load unicodedata module)"
+        self.assertIn(error, result.err.decode("ascii"))
 
     def test_decimal_numeric_consistent(self):
         # Test that decimal and numeric are consistent,
@@ -313,12 +308,5 @@ class UnicodeMiscTest(UnicodeDatabaseTest):
                 self.assertEqual(len(lines), 1,
                                  r"\u%.4x should not be a linebreak" % i)
 
-def test_main():
-    test.support.run_unittest(
-        UnicodeMiscTest,
-        UnicodeMethodsTest,
-        UnicodeFunctionsTest
-    )
-
 if __name__ == "__main__":
-    test_main()
+    unittest.main()

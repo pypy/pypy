@@ -2,7 +2,6 @@
    Test cases for pyclbr.py
    Nick Mathewson
 '''
-from test.support import run_unittest
 import sys
 from types import FunctionType, MethodType, BuiltinFunctionType
 import pyclbr
@@ -142,7 +141,7 @@ class PyclbrTest(TestCase):
         self.checkModule('pyclbr')
         self.checkModule('ast')
         self.checkModule('doctest', ignore=("TestResults", "_SpoofOut",
-                                            "DocTestCase"))
+                                            "DocTestCase", '_DocTestSuite'))
         self.checkModule('difflib', ignore=("Match",))
 
     def test_decorators(self):
@@ -157,9 +156,9 @@ class PyclbrTest(TestCase):
         # These were once about the 10 longest modules
         cm('random', ignore=('Random',))  # from _random import Random as CoreGenerator
         cm('cgi', ignore=('log',))      # set with = in module
-        cm('pickle', ignore=('Pickler', 'Unpickler',)) # from _pickle import *
-        cm('aifc', ignore=('openfp',))  # set with = in module
-        cm('sre_parse', ignore=('dump',)) # from sre_constants import *
+        cm('pickle')
+        cm('aifc', ignore=('openfp', '_aifc_params'))  # set with = in module
+        cm('sre_parse', ignore=('dump', 'groups')) # from sre_constants import *; property
         cm('pdb')
         cm('pydoc')
 
@@ -173,9 +172,5 @@ class PyclbrTest(TestCase):
         self.assertRaises(ImportError, pyclbr.readmodule_ex, 'asyncore.foo')
 
 
-def test_main():
-    run_unittest(PyclbrTest)
-
-
 if __name__ == "__main__":
-    test_main()
+    unittest.main()

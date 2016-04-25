@@ -3,38 +3,40 @@ from test import support
 # Skip this test if the _testcapi module isn't available.
 support.import_module('_testcapi')
 from _testcapi import getargs_keywords, getargs_keyword_only
+try:
+    from _testcapi import getargs_L, getargs_K
+except ImportError:
+    getargs_L = None # PY_LONG_LONG not available
 
-"""
-> How about the following counterproposal. This also changes some of
-> the other format codes to be a little more regular.
->
-> Code C type Range check
->
-> b unsigned char 0..UCHAR_MAX
-> h signed short SHRT_MIN..SHRT_MAX
-> B unsigned char none **
-> H unsigned short none **
-> k * unsigned long none
-> I * unsigned int 0..UINT_MAX
-
-
-> i int INT_MIN..INT_MAX
-> l long LONG_MIN..LONG_MAX
-
-> K * unsigned long long none
-> L long long LLONG_MIN..LLONG_MAX
-
-> Notes:
->
-> * New format codes.
->
-> ** Changed from previous "range-and-a-half" to "none"; the
-> range-and-a-half checking wasn't particularly useful.
-
-Plus a C API or two, e.g. PyInt_AsLongMask() ->
-unsigned long and PyInt_AsLongLongMask() -> unsigned
-long long (if that exists).
-"""
+# > How about the following counterproposal. This also changes some of
+# > the other format codes to be a little more regular.
+# >
+# > Code C type Range check
+# >
+# > b unsigned char 0..UCHAR_MAX
+# > h signed short SHRT_MIN..SHRT_MAX
+# > B unsigned char none **
+# > H unsigned short none **
+# > k * unsigned long none
+# > I * unsigned int 0..UINT_MAX
+#
+#
+# > i int INT_MIN..INT_MAX
+# > l long LONG_MIN..LONG_MAX
+#
+# > K * unsigned long long none
+# > L long long LLONG_MIN..LLONG_MAX
+#
+# > Notes:
+# >
+# > * New format codes.
+# >
+# > ** Changed from previous "range-and-a-half" to "none"; the
+# > range-and-a-half checking wasn't particularly useful.
+#
+# Plus a C API or two, e.g. PyLong_AsUnsignedLongMask() ->
+# unsigned long and PyLong_AsUnsignedLongLongMask() -> unsigned
+# long long (if that exists).
 
 LARGE = 0x7FFFFFFF
 VERY_LARGE = 0xFF0000121212121212121242
@@ -77,7 +79,8 @@ class Unsigned_TestCase(unittest.TestCase):
         self.assertEqual(99, getargs_b(Int()))
         self.assertEqual(0, getargs_b(IntSubclass()))
         self.assertRaises(TypeError, getargs_b, BadInt())
-        self.assertEqual(1, getargs_b(BadInt2()))
+        with self.assertWarns(DeprecationWarning):
+            self.assertEqual(1, getargs_b(BadInt2()))
         self.assertEqual(0, getargs_b(BadInt3()))
 
         self.assertRaises(OverflowError, getargs_b, -1)
@@ -95,7 +98,8 @@ class Unsigned_TestCase(unittest.TestCase):
         self.assertEqual(99, getargs_B(Int()))
         self.assertEqual(0, getargs_B(IntSubclass()))
         self.assertRaises(TypeError, getargs_B, BadInt())
-        self.assertEqual(1, getargs_B(BadInt2()))
+        with self.assertWarns(DeprecationWarning):
+            self.assertEqual(1, getargs_B(BadInt2()))
         self.assertEqual(0, getargs_B(BadInt3()))
 
         self.assertEqual(UCHAR_MAX, getargs_B(-1))
@@ -113,7 +117,8 @@ class Unsigned_TestCase(unittest.TestCase):
         self.assertEqual(99, getargs_H(Int()))
         self.assertEqual(0, getargs_H(IntSubclass()))
         self.assertRaises(TypeError, getargs_H, BadInt())
-        self.assertEqual(1, getargs_H(BadInt2()))
+        with self.assertWarns(DeprecationWarning):
+            self.assertEqual(1, getargs_H(BadInt2()))
         self.assertEqual(0, getargs_H(BadInt3()))
 
         self.assertEqual(USHRT_MAX, getargs_H(-1))
@@ -132,7 +137,8 @@ class Unsigned_TestCase(unittest.TestCase):
         self.assertEqual(99, getargs_I(Int()))
         self.assertEqual(0, getargs_I(IntSubclass()))
         self.assertRaises(TypeError, getargs_I, BadInt())
-        self.assertEqual(1, getargs_I(BadInt2()))
+        with self.assertWarns(DeprecationWarning):
+            self.assertEqual(1, getargs_I(BadInt2()))
         self.assertEqual(0, getargs_I(BadInt3()))
 
         self.assertEqual(UINT_MAX, getargs_I(-1))
@@ -172,7 +178,8 @@ class Signed_TestCase(unittest.TestCase):
         self.assertEqual(99, getargs_h(Int()))
         self.assertEqual(0, getargs_h(IntSubclass()))
         self.assertRaises(TypeError, getargs_h, BadInt())
-        self.assertEqual(1, getargs_h(BadInt2()))
+        with self.assertWarns(DeprecationWarning):
+            self.assertEqual(1, getargs_h(BadInt2()))
         self.assertEqual(0, getargs_h(BadInt3()))
 
         self.assertRaises(OverflowError, getargs_h, SHRT_MIN-1)
@@ -190,7 +197,8 @@ class Signed_TestCase(unittest.TestCase):
         self.assertEqual(99, getargs_i(Int()))
         self.assertEqual(0, getargs_i(IntSubclass()))
         self.assertRaises(TypeError, getargs_i, BadInt())
-        self.assertEqual(1, getargs_i(BadInt2()))
+        with self.assertWarns(DeprecationWarning):
+            self.assertEqual(1, getargs_i(BadInt2()))
         self.assertEqual(0, getargs_i(BadInt3()))
 
         self.assertRaises(OverflowError, getargs_i, INT_MIN-1)
@@ -208,7 +216,8 @@ class Signed_TestCase(unittest.TestCase):
         self.assertEqual(99, getargs_l(Int()))
         self.assertEqual(0, getargs_l(IntSubclass()))
         self.assertRaises(TypeError, getargs_l, BadInt())
-        self.assertEqual(1, getargs_l(BadInt2()))
+        with self.assertWarns(DeprecationWarning):
+            self.assertEqual(1, getargs_l(BadInt2()))
         self.assertEqual(0, getargs_l(BadInt3()))
 
         self.assertRaises(OverflowError, getargs_l, LONG_MIN-1)
@@ -239,6 +248,7 @@ class Signed_TestCase(unittest.TestCase):
         self.assertRaises(OverflowError, getargs_n, VERY_LARGE)
 
 
+@unittest.skipIf(getargs_L is None, 'PY_LONG_LONG is not available')
 class LongLong_TestCase(unittest.TestCase):
     def test_L(self):
         from _testcapi import getargs_L
@@ -249,7 +259,8 @@ class LongLong_TestCase(unittest.TestCase):
         self.assertEqual(99, getargs_L(Int()))
         self.assertEqual(0, getargs_L(IntSubclass()))
         self.assertRaises(TypeError, getargs_L, BadInt())
-        self.assertEqual(1, getargs_L(BadInt2()))
+        with self.assertWarns(DeprecationWarning):
+            self.assertEqual(1, getargs_L(BadInt2()))
         self.assertEqual(0, getargs_L(BadInt3()))
 
         self.assertRaises(OverflowError, getargs_L, LLONG_MIN-1)
@@ -471,7 +482,7 @@ class Bytes_TestCase(unittest.TestCase):
     def test_s(self):
         from _testcapi import getargs_s
         self.assertEqual(getargs_s('abc\xe9'), b'abc\xc3\xa9')
-        self.assertRaises(TypeError, getargs_s, 'nul:\0')
+        self.assertRaises(ValueError, getargs_s, 'nul:\0')
         self.assertRaises(TypeError, getargs_s, b'bytes')
         self.assertRaises(TypeError, getargs_s, bytearray(b'bytearray'))
         self.assertRaises(TypeError, getargs_s, memoryview(b'memoryview'))
@@ -498,7 +509,7 @@ class Bytes_TestCase(unittest.TestCase):
     def test_z(self):
         from _testcapi import getargs_z
         self.assertEqual(getargs_z('abc\xe9'), b'abc\xc3\xa9')
-        self.assertRaises(TypeError, getargs_z, 'nul:\0')
+        self.assertRaises(ValueError, getargs_z, 'nul:\0')
         self.assertRaises(TypeError, getargs_z, b'bytes')
         self.assertRaises(TypeError, getargs_z, bytearray(b'bytearray'))
         self.assertRaises(TypeError, getargs_z, memoryview(b'memoryview'))
@@ -526,7 +537,7 @@ class Bytes_TestCase(unittest.TestCase):
         from _testcapi import getargs_y
         self.assertRaises(TypeError, getargs_y, 'abc\xe9')
         self.assertEqual(getargs_y(b'bytes'), b'bytes')
-        self.assertRaises(TypeError, getargs_y, b'nul:\0')
+        self.assertRaises(ValueError, getargs_y, b'nul:\0')
         self.assertRaises(TypeError, getargs_y, bytearray(b'bytearray'))
         self.assertRaises(TypeError, getargs_y, memoryview(b'memoryview'))
         self.assertRaises(TypeError, getargs_y, None)
@@ -566,7 +577,7 @@ class Unicode_TestCase(unittest.TestCase):
     def test_u(self):
         from _testcapi import getargs_u
         self.assertEqual(getargs_u('abc\xe9'), 'abc\xe9')
-        self.assertRaises(TypeError, getargs_u, 'nul:\0')
+        self.assertRaises(ValueError, getargs_u, 'nul:\0')
         self.assertRaises(TypeError, getargs_u, b'bytes')
         self.assertRaises(TypeError, getargs_u, bytearray(b'bytearray'))
         self.assertRaises(TypeError, getargs_u, memoryview(b'memoryview'))
@@ -584,7 +595,7 @@ class Unicode_TestCase(unittest.TestCase):
     def test_Z(self):
         from _testcapi import getargs_Z
         self.assertEqual(getargs_Z('abc\xe9'), 'abc\xe9')
-        self.assertRaises(TypeError, getargs_Z, 'nul:\0')
+        self.assertRaises(ValueError, getargs_Z, 'nul:\0')
         self.assertRaises(TypeError, getargs_Z, b'bytes')
         self.assertRaises(TypeError, getargs_Z, bytearray(b'bytearray'))
         self.assertRaises(TypeError, getargs_Z, memoryview(b'memoryview'))
@@ -600,24 +611,5 @@ class Unicode_TestCase(unittest.TestCase):
         self.assertIsNone(getargs_Z_hash(None))
 
 
-def test_main():
-    tests = [
-        Signed_TestCase,
-        Unsigned_TestCase,
-        Boolean_TestCase,
-        Tuple_TestCase,
-        Keywords_TestCase,
-        KeywordOnly_TestCase,
-        Bytes_TestCase,
-        Unicode_TestCase,
-    ]
-    try:
-        from _testcapi import getargs_L, getargs_K
-    except ImportError:
-        pass # PY_LONG_LONG not available
-    else:
-        tests.append(LongLong_TestCase)
-    support.run_unittest(*tests)
-
 if __name__ == "__main__":
-    test_main()
+    unittest.main()

@@ -6,9 +6,12 @@ import pickle
 import random
 import subprocess
 import sys
+import textwrap
 import time
 import unittest
 from test import support
+from test.support import MISSING_C_DOCSTRINGS
+from test.support.script_helper import assert_python_failure
 try:
     import _posixsubprocess
 except ImportError:
@@ -19,6 +22,9 @@ except ImportError:
     threading = None
 # Skip this test if the _testcapi module isn't available.
 _testcapi = support.import_module('_testcapi')
+
+# Were we compiled --with-pydebug or with #define Py_DEBUG?
+Py_DEBUG = hasattr(sys, 'gettotalrefcount')
 
 
 def testfunction(self):
@@ -44,7 +50,7 @@ class CAPITest(unittest.TestCase):
 
     @unittest.skipUnless(threading, 'Threading required for this test.')
     def test_no_FatalError_infinite_loop(self):
-        with support.suppress_crash_popup():
+        with support.SuppressCrashReport():
             p = subprocess.Popen([sys.executable, "-c",
                                   'import _testcapi;'
                                   '_testcapi.crash_no_current_thread()'],
@@ -110,6 +116,127 @@ class CAPITest(unittest.TestCase):
         self.assertRaises(TypeError, _posixsubprocess.fork_exec,
                           Z(),[b'1'],3,[1, 2],5,6,7,8,9,10,11,12,13,14,15,16,17)
 
+    @unittest.skipIf(MISSING_C_DOCSTRINGS,
+                     "Signature information for builtins requires docstrings")
+    def test_docstring_signature_parsing(self):
+
+        self.assertEqual(_testcapi.no_docstring.__doc__, None)
+        self.assertEqual(_testcapi.no_docstring.__text_signature__, None)
+
+        self.assertEqual(_testcapi.docstring_empty.__doc__, None)
+        self.assertEqual(_testcapi.docstring_empty.__text_signature__, None)
+
+        self.assertEqual(_testcapi.docstring_no_signature.__doc__,
+            "This docstring has no signature.")
+        self.assertEqual(_testcapi.docstring_no_signature.__text_signature__, None)
+
+        self.assertEqual(_testcapi.docstring_with_invalid_signature.__doc__,
+            "docstring_with_invalid_signature($module, /, boo)\n"
+            "\n"
+            "This docstring has an invalid signature."
+            )
+        self.assertEqual(_testcapi.docstring_with_invalid_signature.__text_signature__, None)
+
+        self.assertEqual(_testcapi.docstring_with_invalid_signature2.__doc__,
+            "docstring_with_invalid_signature2($module, /, boo)\n"
+            "\n"
+            "--\n"
+            "\n"
+            "This docstring also has an invalid signature."
+            )
+        self.assertEqual(_testcapi.docstring_with_invalid_signature2.__text_signature__, None)
+
+        self.assertEqual(_testcapi.docstring_with_signature.__doc__,
+            "This docstring has a valid signature.")
+        self.assertEqual(_testcapi.docstring_with_signature.__text_signature__, "($module, /, sig)")
+
+        self.assertEqual(_testcapi.docstring_with_signature_but_no_doc.__doc__, None)
+        self.assertEqual(_testcapi.docstring_with_signature_but_no_doc.__text_signature__,
+            "($module, /, sig)")
+
+        self.assertEqual(_testcapi.docstring_with_signature_and_extra_newlines.__doc__,
+            "\nThis docstring has a valid signature and some extra newlines.")
+        self.assertEqual(_testcapi.docstring_with_signature_and_extra_newlines.__text_signature__,
+            "($module, /, parameter)")
+
+    def test_c_type_with_matrix_multiplication(self):
+        M = _testcapi.matmulType
+        m1 = M()
+        m2 = M()
+        self.assertEqual(m1 @ m2, ("matmul", m1, m2))
+        self.assertEqual(m1 @ 42, ("matmul", m1, 42))
+        self.assertEqual(42 @ m1, ("matmul", 42, m1))
+        o = m1
+        o @= m2
+        self.assertEqual(o, ("imatmul", m1, m2))
+        o = m1
+        o @= 42
+        self.assertEqual(o, ("imatmul", m1, 42))
+        o = 42
+        o @= m1
+        self.assertEqual(o, ("matmul", 42, m1))
+
+    def test_return_null_without_error(self):
+        # Issue #23571: A function must not return NULL without setting an
+        # error
+        if Py_DEBUG:
+            code = textwrap.dedent("""
+                import _testcapi
+                from test import support
+
+                with support.SuppressCrashReport():
+                    _testcapi.return_null_without_error()
+            """)
+            rc, out, err = assert_python_failure('-c', code)
+            self.assertRegex(err.replace(b'\r', b''),
+                             br'Fatal Python error: a function returned NULL '
+                                br'without setting an error\n'
+                             br'SystemError: <built-in function '
+                                 br'return_null_without_error> returned NULL '
+                                 br'without setting an error\n'
+                             br'\n'
+                             br'Current thread.*:\n'
+                             br'  File .*", line 6 in <module>')
+        else:
+            with self.assertRaises(SystemError) as cm:
+                _testcapi.return_null_without_error()
+            self.assertRegex(str(cm.exception),
+                             'return_null_without_error.* '
+                             'returned NULL without setting an error')
+
+    def test_return_result_with_error(self):
+        # Issue #23571: A function must not return a result with an error set
+        if Py_DEBUG:
+            code = textwrap.dedent("""
+                import _testcapi
+                from test import support
+
+                with support.SuppressCrashReport():
+                    _testcapi.return_result_with_error()
+            """)
+            rc, out, err = assert_python_failure('-c', code)
+            self.assertRegex(err.replace(b'\r', b''),
+                             br'Fatal Python error: a function returned a '
+                                br'result with an error set\n'
+                             br'ValueError\n'
+                             br'\n'
+                             br'During handling of the above exception, '
+                                br'another exception occurred:\n'
+                             br'\n'
+                             br'SystemError: <built-in '
+                                br'function return_result_with_error> '
+                                br'returned a result with an error set\n'
+                             br'\n'
+                             br'Current thread.*:\n'
+                             br'  File .*, line 6 in <module>')
+        else:
+            with self.assertRaises(SystemError) as cm:
+                _testcapi.return_result_with_error()
+            self.assertRegex(str(cm.exception),
+                             'return_result_with_error.* '
+                             'returned a result with an error set')
+
+
 @unittest.skipIf(support.check_impl_detail(pypy=True),
                  'Py_AddPendingCall not currently supported.')
 @unittest.skipUnless(threading, 'Threading required for this test.')
@@ -163,15 +290,11 @@ class TestPendingCalls(unittest.TestCase):
         context.lock = threading.Lock()
         context.event = threading.Event()
 
-        for i in range(context.nThreads):
-            t = threading.Thread(target=self.pendingcalls_thread, args = (context,))
-            t.start()
-            threads.append(t)
-
-        self.pendingcalls_wait(context.l, n, context)
-
-        for t in threads:
-            t.join()
+        threads = [threading.Thread(target=self.pendingcalls_thread,
+                                    args=(context,))
+                   for i in range(context.nThreads)]
+        with support.start_threads(threads):
+            self.pendingcalls_wait(context.l, n, context)
 
     def pendingcalls_thread(self, context):
         try:
@@ -195,6 +318,9 @@ class TestPendingCalls(unittest.TestCase):
         self.pendingcalls_submit(l, n)
         self.pendingcalls_wait(l, n)
 
+
+class SubinterpreterTest(unittest.TestCase):
+
     def test_subinterps(self):
         import builtins
         r, w = os.pipe()
@@ -205,10 +331,11 @@ class TestPendingCalls(unittest.TestCase):
                 pickle.dump(id(builtins), f)
             """.format(w)
         with open(r, "rb") as f:
-            ret = _testcapi.run_in_subinterp(code)
+            ret = support.run_in_subinterp(code)
             self.assertEqual(ret, 0)
             self.assertNotEqual(pickle.load(f), id(sys.modules))
             self.assertNotEqual(pickle.load(f), id(builtins))
+
 
 # Bug #6012
 class Test6012(unittest.TestCase):
@@ -219,36 +346,102 @@ class Test6012(unittest.TestCase):
         self.assertEqual(_testcapi.argparsing("Hello", "World") & 0xfffffff, 1)
 
 
-class EmbeddingTest(unittest.TestCase):
-
-    @unittest.skipIf(
-        sys.platform.startswith('win'),
-        "test doesn't work under Windows")
-    def test_subinterps(self):
-        # XXX only tested under Unix checkouts
+class EmbeddingTests(unittest.TestCase):
+    def setUp(self):
         basepath = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-        oldcwd = os.getcwd()
+        exename = "_testembed"
+        if sys.platform.startswith("win"):
+            ext = ("_d" if "_d" in sys.executable else "") + ".exe"
+            exename += ext
+            exepath = os.path.dirname(sys.executable)
+        else:
+            exepath = os.path.join(basepath, "Programs")
+        self.test_exe = exe = os.path.join(exepath, exename)
+        if not os.path.exists(exe):
+            self.skipTest("%r doesn't exist" % exe)
         # This is needed otherwise we get a fatal error:
         # "Py_Initialize: Unable to get the locale encoding
         # LookupError: no codec search functions registered: can't find encoding"
+        self.oldcwd = os.getcwd()
         os.chdir(basepath)
+
+    def tearDown(self):
+        os.chdir(self.oldcwd)
+
+    def run_embedded_interpreter(self, *args):
+        """Runs a test in the embedded interpreter"""
+        cmd = [self.test_exe]
+        cmd.extend(args)
+        p = subprocess.Popen(cmd,
+                             stdout=subprocess.PIPE,
+                             stderr=subprocess.PIPE,
+                             universal_newlines=True)
+        (out, err) = p.communicate()
+        self.assertEqual(p.returncode, 0,
+                         "bad returncode %d, stderr is %r" %
+                         (p.returncode, err))
+        return out, err
+
+    def test_subinterps(self):
+        # This is just a "don't crash" test
+        out, err = self.run_embedded_interpreter()
+        if support.verbose:
+            print()
+            print(out)
+            print(err)
+
+    @staticmethod
+    def _get_default_pipe_encoding():
+        rp, wp = os.pipe()
         try:
-            exe = os.path.join(basepath, "Modules", "_testembed")
-            if not os.path.exists(exe):
-                self.skipTest("%r doesn't exist" % exe)
-            p = subprocess.Popen([exe],
-                                 stdout=subprocess.PIPE,
-                                 stderr=subprocess.PIPE)
-            (out, err) = p.communicate()
-            self.assertEqual(p.returncode, 0,
-                             "bad returncode %d, stderr is %r" %
-                             (p.returncode, err))
-            if support.verbose:
-                print()
-                print(out.decode('latin1'))
-                print(err.decode('latin1'))
+            with os.fdopen(wp, 'w') as w:
+                default_pipe_encoding = w.encoding
         finally:
-            os.chdir(oldcwd)
+            os.close(rp)
+        return default_pipe_encoding
+
+    def test_forced_io_encoding(self):
+        # Checks forced configuration of embedded interpreter IO streams
+        out, err = self.run_embedded_interpreter("forced_io_encoding")
+        if support.verbose:
+            print()
+            print(out)
+            print(err)
+        expected_errors = sys.__stdout__.errors
+        expected_stdin_encoding = sys.__stdin__.encoding
+        expected_pipe_encoding = self._get_default_pipe_encoding()
+        expected_output = '\n'.join([
+        "--- Use defaults ---",
+        "Expected encoding: default",
+        "Expected errors: default",
+        "stdin: {in_encoding}:{errors}",
+        "stdout: {out_encoding}:{errors}",
+        "stderr: {out_encoding}:backslashreplace",
+        "--- Set errors only ---",
+        "Expected encoding: default",
+        "Expected errors: ignore",
+        "stdin: {in_encoding}:ignore",
+        "stdout: {out_encoding}:ignore",
+        "stderr: {out_encoding}:backslashreplace",
+        "--- Set encoding only ---",
+        "Expected encoding: latin-1",
+        "Expected errors: default",
+        "stdin: latin-1:{errors}",
+        "stdout: latin-1:{errors}",
+        "stderr: latin-1:backslashreplace",
+        "--- Set encoding and errors ---",
+        "Expected encoding: latin-1",
+        "Expected errors: replace",
+        "stdin: latin-1:replace",
+        "stdout: latin-1:replace",
+        "stderr: latin-1:backslashreplace"])
+        expected_output = expected_output.format(
+                                in_encoding=expected_stdin_encoding,
+                                out_encoding=expected_pipe_encoding,
+                                errors=expected_errors)
+        # This is useful if we ever trip over odd platform behaviour
+        self.maxDiff = None
+        self.assertEqual(out.strip(), expected_output)
 
 class SkipitemTest(unittest.TestCase):
 
@@ -362,10 +555,9 @@ class Test_testcapi(unittest.TestCase):
     def test__testcapi(self):
         for name in dir(_testcapi):
             if name.startswith('test_'):
-                test = getattr(_testcapi, name)
-                if support.verbose:
-                    print("_tescapi.%s()" % name)
-                test()
+                with self.subTest("internal", name=name):
+                    test = getattr(_testcapi, name)
+                    test()
 
 if __name__ == "__main__":
     unittest.main()

@@ -7,7 +7,6 @@ import unittest
 import errno
 from errno import EEXIST
 
-from test import support
 
 class SubOSError(OSError):
     pass
@@ -157,8 +156,6 @@ class AttributesTest(unittest.TestCase):
         e.characters_written = 5
         self.assertEqual(e.characters_written, 5)
 
-    # XXX VMSError not tested
-
 
 class ExplicitSubclassingTest(unittest.TestCase):
 
@@ -204,8 +201,5 @@ class ExplicitSubclassingTest(unittest.TestCase):
         self.assertEqual(str(e), '')
 
 
-def test_main():
-    support.run_unittest(__name__)
-
-if __name__=="__main__":
-    test_main()
+if __name__ == "__main__":
+    unittest.main()

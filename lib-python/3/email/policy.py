@@ -5,6 +5,7 @@ code that adds all the email6 features.
 from email._policybase import Policy, Compat32, compat32, _extend_docstrings
 from email.utils import _has_surrogates
 from email.headerregistry import HeaderRegistry as HeaderRegistry
+from email.contentmanager import raw_data_manager
 
 __all__ = [
     'Compat32',
@@ -34,6 +35,13 @@ class EmailPolicy(Policy):
     In addition to the settable attributes listed above that apply to
     all Policies, this policy adds the following additional attributes:
 
+    utf8                -- if False (the default) message headers will be
+                           serialized as ASCII, using encoded words to encode
+                           any non-ASCII characters in the source strings.  If
+                           True, the message headers will be serialized using
+                           utf8 and will not contain encoded words (see RFC
+                           6532 for more on this serialization format).
+
     refold_source       -- if the value for a header in the Message object
                            came from the parsing of some source, this attribute
                            indicates whether or not a generator should refold
@@ -58,10 +66,23 @@ class EmailPolicy(Policy):
                            special treatment, while all other fields are
                            treated as unstructured.  This list will be
                            completed before the extension is marked stable.)
+
+    content_manager     -- an object with at least two methods: get_content
+                           and set_content.  When the get_content or
+                           set_content method of a Message object is called,
+                           it calls the corresponding method of this object,
+                           passing it the message object as its first argument,
+                           and any arguments or keywords that were passed to
+                           it as additional arguments.  The default
+                           content_manager is
+                           :data:`~email.contentmanager.raw_data_manager`.
+
     """
 
+    utf8 = False
     refold_source = 'long'
     header_factory = HeaderRegistry()
+    content_manager = raw_data_manager
 
     def __init__(self, **kw):
         # Ensure that each new instance gets a unique header factory
@@ -162,9 +183,13 @@ class EmailPolicy(Policy):
         refold_header setting, since there is no way to know whether the binary
         data consists of single byte characters or multibyte characters.
 
+        If utf8 is true, headers are encoded to utf8, otherwise to ascii with
+        non-ASCII unicode rendered as encoded words.
+
         """
         folded = self._fold(name, value, refold_binary=self.cte_type=='7bit')
-        return folded.encode('ascii', 'surrogateescape')
+        charset = 'utf8' if self.utf8 else 'ascii'
+        return folded.encode(charset, 'surrogateescape')
 
     def _fold(self, name, value, refold_binary=False):
         if hasattr(value, 'name'):
@@ -186,3 +211,4 @@ del default.header_factory
 strict = default.clone(raise_on_defect=True)
 SMTP = default.clone(linesep='\r\n')
 HTTP = default.clone(linesep='\r\n', max_line_length=None)
+SMTPUTF8 = SMTP.clone(utf8=True)

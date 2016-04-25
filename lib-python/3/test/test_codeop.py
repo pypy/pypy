@@ -298,9 +298,5 @@ class CodeopTests(unittest.TestCase):
                             compile("a = 1\n", "def", 'single').co_filename)
 
 
-def test_main():
-    run_unittest(CodeopTests)
-
-
 if __name__ == "__main__":
-    test_main()
+    unittest.main()

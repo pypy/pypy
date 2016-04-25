@@ -29,7 +29,8 @@ class UserDictTest(mapping_tests.TestHashMappingProtocol):
         self.assertEqual(collections.UserDict(one=1, two=2), d2)
         # item sequence constructor
         self.assertEqual(collections.UserDict([('one',1), ('two',2)]), d2)
-        self.assertEqual(collections.UserDict(dict=[('one',1), ('two',2)]), d2)
+        with self.assertWarnsRegex(PendingDeprecationWarning, "'dict'"):
+            self.assertEqual(collections.UserDict(dict=[('one',1), ('two',2)]), d2)
         # both together
         self.assertEqual(collections.UserDict([('one',1), ('two',2)], two=3, three=5), d3)
 
@@ -45,7 +46,8 @@ class UserDictTest(mapping_tests.TestHashMappingProtocol):
         # Test __repr__
         self.assertEqual(str(u0), str(d0))
         self.assertEqual(repr(u1), repr(d1))
-        self.assertEqual(repr(u2), repr(d2))
+        self.assertIn(repr(u2), ("{'one': 1, 'two': 2}",
+                                 "{'two': 2, 'one': 1}"))
 
         # Test rich comparison and __len__
         all = [d0, d1, d2, u, u0, u1, u2, uu, uu0, uu1, uu2]
@@ -89,9 +91,9 @@ class UserDictTest(mapping_tests.TestHashMappingProtocol):
         self.assertNotEqual(m2a, m2)
 
         # Test keys, items, values
-        self.assertEqual(u2.keys(), d2.keys())
-        self.assertEqual(u2.items(), d2.items())
-        self.assertEqual(list(u2.values()), list(d2.values()))
+        self.assertEqual(sorted(u2.keys()), sorted(d2.keys()))
+        self.assertEqual(sorted(u2.items()), sorted(d2.items()))
+        self.assertEqual(sorted(u2.values()), sorted(d2.values()))
 
         # Test "in".
         for i in u2.keys():
@@ -138,6 +140,30 @@ class UserDictTest(mapping_tests.TestHashMappingProtocol):
         self.assertEqual(t.popitem(), ("x", 42))
         self.assertRaises(KeyError, t.popitem)
 
+    def test_init(self):
+        for kw in 'self', 'other', 'iterable':
+            self.assertEqual(list(collections.UserDict(**{kw: 42}).items()),
+                             [(kw, 42)])
+        self.assertEqual(list(collections.UserDict({}, dict=42).items()),
+                         [('dict', 42)])
+        self.assertEqual(list(collections.UserDict({}, dict=None).items()),
+                         [('dict', None)])
+        with self.assertWarnsRegex(PendingDeprecationWarning, "'dict'"):
+            self.assertEqual(list(collections.UserDict(dict={'a': 42}).items()),
+                             [('a', 42)])
+        self.assertRaises(TypeError, collections.UserDict, 42)
+        self.assertRaises(TypeError, collections.UserDict, (), ())
+        self.assertRaises(TypeError, collections.UserDict.__init__)
+
+    def test_update(self):
+        for kw in 'self', 'dict', 'other', 'iterable':
+            d = collections.UserDict()
+            d.update(**{kw: 42})
+            self.assertEqual(list(d.items()), [(kw, 42)])
+        self.assertRaises(TypeError, collections.UserDict().update, 42)
+        self.assertRaises(TypeError, collections.UserDict().update, {}, {})
+        self.assertRaises(TypeError, collections.UserDict.update)
+
     def test_missing(self):
         # Make sure UserDict doesn't have a __missing__ method
         self.assertEqual(hasattr(collections.UserDict, "__missing__"), False)
@@ -145,7 +171,7 @@ class UserDictTest(mapping_tests.TestHashMappingProtocol):
         # (D) subclass defines __missing__ method returning a value
         # (E) subclass defines __missing__ method raising RuntimeError
         # (F) subclass sets __missing__ instance variable (no effect)
-        # (G) subclass doesn't define __missing__ at a all
+        # (G) subclass doesn't define __missing__ at all
         class D(collections.UserDict):
             def __missing__(self, key):
                 return 42
@@ -189,10 +215,5 @@ class UserDictTest(mapping_tests.TestHashMappingProtocol):
 
 
 
-def test_main():
-    support.run_unittest(
-        UserDictTest,
-    )
-
 if __name__ == "__main__":
-    test_main()
+    unittest.main()
