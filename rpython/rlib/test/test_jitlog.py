@@ -7,6 +7,13 @@ from rpython.jit.metainterp.history import ConstInt, ConstPtr
 from rpython.rlib.jitlog import (encode_str, encode_le_16bit, encode_le_64bit)
 from rpython.rlib import jitlog as jl
 
+class FakeLog(object):
+    def __init__(self):
+        self.values = []
+
+    def _write_marked(self, id, text):
+        self.values.append(chr(id) + text)
+
 class TestLogger(object):
 
     def make_metainterp_sd(self):
@@ -27,7 +34,7 @@ class TestLogger(object):
         return FakeMetaInterpSd()
 
     def test_debug_merge_point(self, tmpdir):
-        logger = jitlog.VMProfJitLogger()
+        logger = jl.VMProfJitLogger()
         file = tmpdir.join('binary_file')
         file.ensure()
         fd = file.open('wb')
@@ -47,13 +54,37 @@ class TestLogger(object):
                                encode_le_64bit(99) + \
                                encode_str('DEL'))
 
-    class FakeLog(object):
-        def _write_marked(self, id, text):
-            pass
-
     def test_common_prefix(self):
         fakelog = FakeLog()
-        logger = jitlog.LogTrace(0x0, {}, None, None, fakelog)
+        compressor = jl.PrefixCompressor(1)
+        # nothing to compress yet!
+        result = jl.encode_merge_point(fakelog, compressor, [jl.StringValue(0x0,'s','hello')])
+        assert result == b"\xff\x05\x00\x00\x00hello"
+        assert fakelog.values == []
+        #
+        result = jl.encode_merge_point(fakelog, compressor, [jl.StringValue(0x0,'s','hello')])
+        assert result == b"\xef"
+        assert fakelog.values == ["\x25\x00\x05\x00\x00\x00hello"]
+        #
+        fakelog.values = []
+        result = jl.encode_merge_point(fakelog, compressor, [jl.StringValue(0x0,'s','heiter')])
+        assert result == b"\x00\x04\x00\x00\x00iter"
+        assert fakelog.values == ["\x25\x00\x02\x00\x00\x00he"]
+        #
+        fakelog.values = []
+        result = jl.encode_merge_point(fakelog, compressor, [jl.StringValue(0x0,'s','heute')])
+        assert result == b"\x00\x03\x00\x00\x00ute"
+        assert fakelog.values == []
+        #
+        fakelog.values = []
+        result = jl.encode_merge_point(fakelog, compressor, [jl.StringValue(0x0,'s','welt')])
+        assert result == b"\xff\x04\x00\x00\x00welt"
+        assert fakelog.values == []
+        #
+        fakelog.values = []
+        result = jl.encode_merge_point(fakelog, compressor, [jl.StringValue(0x0,'s','welle')])
+        assert result == b"\x00\x02\x00\x00\x00le"
+        assert fakelog.values == ["\x25\x00\x03\x00\x00\x00wel"]
 
     def test_common_prefix_func(self):
         assert jl.commonprefix("","") == ""

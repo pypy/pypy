@@ -85,38 +85,30 @@ MP_SCOPE = (0x8, "s")
 MP_OPCODE = (0x10, "s")
 
 class WrappedValue(object):
-    def encode(self, log, i, prefixes):
+    def encode(self, log, i, compressor):
         raise NotImplementedError
 
 class StringValue(WrappedValue):
     def __init__(self, sem_type, gen_type, value):
         self.value = value
 
-    def encode(self, log, i, prefixes):
+    def encode(self, log, i, compressor):
         str_value = self.value
-        if len(str_value) < 5:
-            enc_value = encode_str(chr(0xff) + str_value)
+        last_prefix = compressor.get_last_written(i)
+        cp = compressor.compress(i, str_value)
+        if cp is None:
+            return chr(0xff) + encode_str(str_value)
+
         else:
-            cp = commonprefix([prefixes[i], str_value])
-            if cp != prefixes[i]:
-                if len(cp) == 0:
-                    # they are fully different!
-                    prefixes[i] = str_value
-                    enc_value = encode_str(chr(0xff) + str_value)
-                else:
-                    # the prefix changed
-                    prefixes[i] = cp
-                    # common prefix of field i
-                    assert i != 0xff
-                    log._write_marked(MARK_COMMON_PREFIX, chr(i) \
-                                                      + encode_str(cp))
-                    enc_value = encode_str(chr(i) + str_value)
+            cp_len = len(cp)
+            if cp == last_prefix:
+                # we have the same prefix
+                pass
             else:
-                enc_value = encode_str(chr(i) + str_value)
-        #
-        if prefixes[i] is None:
-            prefixes[i] = str_value
-        return enc_value
+                compressor.write(log, i, cp)
+        if len(str_value) == len(cp):
+            return "\xef"
+        return chr(i) + encode_str(str_value[len(cp):])
 
 class IntValue(WrappedValue):
     def __init__(self, sem_type, gen_type, value):
@@ -263,12 +255,42 @@ class BaseLogTrace(object):
 
 EMPTY_TRACE_LOG = BaseLogTrace()
 
-def encode_merge_point(log, prefixes, values):
+class PrefixCompressor(object):
+    def __init__(self, count):
+        self.prefixes = [None] * count
+        self.written_prefixes = [None] * count
+
+    def get_last(self, index):
+        return self.prefixes[index]
+
+    def get_last_written(self, index):
+        return self.written_prefixes[index]
+
+    def compress(self, index, string):
+        assert string is not None
+        last = self.get_last(index)
+        if last is None:
+            self.prefixes[index] = string
+            return None
+        cp = commonprefix(last, string)
+        if len(cp) <= 1: # prevent common prefix '/'
+            self.prefixes[index] = string
+            return None
+        return cp
+
+
+    def write(self, log, index, prefix):
+        # we have a new prefix
+        log._write_marked(MARK_COMMON_PREFIX, chr(index) \
+                                          + encode_str(prefix))
+        self.written_prefixes[index] = prefix
+
+def encode_merge_point(log, compressor, values):
     line = []
     unrolled = unrolling_iterable(values)
     i = 0
     for value in unrolled:
-        line.append(value.encode(log,i,prefixes))
+        line.append(value.encode(log,i,compressor))
         i += 1
     return ''.join(line)
 
@@ -339,10 +361,11 @@ class LogTrace(BaseLogTrace):
         if self.common_prefix is None:
             # first time visiting a merge point
             # setup the common prefix
-            self.common_prefix = [""] * len(types)
+            self.common_prefix = PrefixCompressor(len(types))
             encoded_types = []
-            for i, (semantic_type, _) in enumerate(types):
+            for i, (semantic_type, generic_type) in enumerate(types):
                 encoded_types.append(chr(semantic_type))
+                encoded_types.append(chr(generic_type))
             log._write_marked(MARK_INIT_MERGE_POINT, ''.join(encoded_types))
 
         # the types have already been written
