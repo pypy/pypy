@@ -301,7 +301,8 @@ class CallControl(object):
         #
         assert effectinfo is not None
         if elidable or loopinvariant:
-            assert extraeffect != EffectInfo.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE
+            assert (effectinfo.extraeffect <
+                    EffectInfo.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE)
             # XXX this should also say assert not can_invalidate, but
             #     it can't because our analyzer is not good enough for now
             #     (and getexecutioncontext() can't really invalidate)
