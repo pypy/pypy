@@ -1,3 +1,4 @@
+import weakref
 from pypy.interpreter import gateway
 from pypy.interpreter.baseobjspace import W_Root, SpaceCache
 from pypy.interpreter.error import oefmt, OperationError
@@ -9,6 +10,7 @@ from pypy.interpreter.astcompiler.misc import mangle
 from rpython.rlib.jit import (promote, elidable_promote, we_are_jitted,
      elidable, dont_look_inside, unroll_safe)
 from rpython.rlib.objectmodel import current_object_addr_as_int, compute_hash
+from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import intmask, r_uint
 
 class MutableCell(W_Root):
@@ -84,6 +86,10 @@ class MethodCache(object):
             self.names[i] = None
         for i in range(len(self.lookup_where)):
             self.lookup_where[i] = None_None
+
+class _Global(object):
+    weakref_warning_printed = False
+_global = _Global()
 
 
 class Layout(object):
@@ -372,6 +378,7 @@ class W_TypeObject(W_Root):
 
     @unroll_safe
     def _lookup(w_self, key):
+        # nowadays, only called from ../../tool/ann_override.py
         space = w_self.space
         for w_class in w_self.mro_w:
             w_value = w_class.getdictvalue(space, key)
@@ -381,7 +388,7 @@ class W_TypeObject(W_Root):
 
     @unroll_safe
     def _lookup_where(w_self, key):
-        # like lookup() but also returns the parent class in which the
+        # like _lookup() but also returns the parent class in which the
         # attribute was found
         space = w_self.space
         for w_class in w_self.mro_w:
@@ -414,9 +421,6 @@ class W_TypeObject(W_Root):
         if isinstance(w_value, MutableCell):
             return w_class, w_value.unwrap_cell(space)
         return tup_w   # don't make a new tuple, reuse the old one
-
-    def _pure_lookup_where_possibly_with_method_cache(w_self, name, version_tag):
-        return w_self._pure_lookup_where_with_method_cache(name, version_tag)
 
     @elidable
     def _pure_lookup_where_with_method_cache(w_self, name, version_tag):
@@ -535,9 +539,15 @@ class W_TypeObject(W_Root):
     def add_subclass(w_self, w_subclass):
         space = w_self.space
         if not space.config.translation.rweakref:
-            w_self.weak_subclasses.append(w_subclass) # not really weak, but well
-            return
-        import weakref
+            # We don't have weakrefs!  In this case, every class stores
+            # subclasses in a non-weak list.  ALL CLASSES LEAK!  To make
+            # the user aware of this annoying fact, print a warning.
+            if we_are_translated() and not _global.weakref_warning_printed:
+                from rpython.rlib import debug
+                debug.debug_print("Warning: no weakref support in this PyPy. "
+                                  "All user-defined classes will leak!")
+                _global.weakref_warning_printed = True
+
         assert isinstance(w_subclass, W_TypeObject)
         newref = weakref.ref(w_subclass)
         for i in range(len(w_self.weak_subclasses)):
@@ -550,13 +560,6 @@ class W_TypeObject(W_Root):
 
     def remove_subclass(w_self, w_subclass):
         space = w_self.space
-        if not space.config.translation.rweakref:
-            for i in range(len(w_self.weak_subclasses)):
-                w_cls = w_self.weak_subclasses[i]
-                if w_cls is w_subclass:
-                    del w_self.weak_subclasses[i]
-                    return
-            return
         for i in range(len(w_self.weak_subclasses)):
             ref = w_self.weak_subclasses[i]
             if ref() is w_subclass:
@@ -565,8 +568,6 @@ class W_TypeObject(W_Root):
 
     def get_subclasses(w_self):
         space = w_self.space
-        if not space.config.translation.rweakref:
-            return w_self.weak_subclasses[:]
         subclasses_w = []
         for ref in w_self.weak_subclasses:
             w_ob = ref()

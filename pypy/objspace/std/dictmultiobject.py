@@ -69,7 +69,7 @@ class W_DictMultiObject(W_Root):
         elif instance:
             from pypy.objspace.std.mapdict import MapDictStrategy
             strategy = space.fromcache(MapDictStrategy)
-        elif instance or strdict or module:
+        elif strdict or module:
             assert w_type is None
             strategy = space.fromcache(BytesDictStrategy)
         elif kwargs:

@@ -52,7 +52,7 @@ def LOOKUP_METHOD(f, nameindex, *ignored):
             _, w_descr = w_type._lookup_where(name)
             w_descr_cell = None
         else:
-            _, w_descr_cell = w_type._pure_lookup_where_possibly_with_method_cache(
+            _, w_descr_cell = w_type._pure_lookup_where_with_method_cache(
                 name, version_tag)
             w_descr = w_descr_cell
             if isinstance(w_descr, MutableCell):

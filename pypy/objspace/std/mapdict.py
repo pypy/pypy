@@ -977,7 +977,7 @@ def LOAD_ATTR_slowpath(pycode, w_obj, nameindex, map):
             name = space.str_w(w_name)
             # We need to care for obscure cases in which the w_descr is
             # a MutableCell, which may change without changing the version_tag
-            _, w_descr = w_type._pure_lookup_where_possibly_with_method_cache(
+            _, w_descr = w_type._pure_lookup_where_with_method_cache(
                 name, version_tag)
             #
             attrname, index = ("", INVALID)
