@@ -124,11 +124,11 @@ class VMProf(object):
 
     def enable_jitlog(self, fileno):
         # initialize the jit log
-        from rpython.jit.metainterp import jitlog
+        from rpython.rlib import jitlog as jl
         p_error = self.cintf.jitlog_init(fileno)
         if p_error:
             raise VMProfError(rffi.charp2str(p_error))
-        blob = jitlog.assemble_header()
+        blob = jl.assemble_header()
         self.cintf.jitlog_write_marked(jitlog.MARK_JITLOG_HEADER, blob, len(blob))
 
     def disable(self):
