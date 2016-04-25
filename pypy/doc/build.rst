@@ -109,8 +109,8 @@ For the optional lzma module on PyPy3 you will also need ``liblzma-dev``.
 On Fedora::
 
     dnf install gcc make libffi-devel pkgconfig zlib-devel bzip2-devel \
-    lib-sqlite3-devel ncurses-devel expat-devel openssl-devel
-    (XXX plus the Fedora version of libgdbm-dev and tk-dev)
+    lib-sqlite3-devel ncurses-devel expat-devel openssl-devel tk-devel \
+    gdbm-devel
 
 For the optional lzma module on PyPy3 you will also need ``xz-devel``.
 
