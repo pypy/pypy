@@ -127,7 +127,10 @@ def build_class(space, w_func, w_name, __args__):
                          keywords=keywords,
                          keywords_w=kwds_w.values())
         w_namespace = space.call_args(w_prep, args)
-    w_cell = w_func.getcode().exec_code(space, w_func.w_func_globals, w_namespace)
+    code = w_func.getcode()
+    frame = space.createframe(code, w_func.w_func_globals, w_func)
+    frame.setdictscope(w_namespace)
+    w_cell = frame.run()
     keywords = kwds_w.keys()
     args = Arguments(space,
                      args_w=[w_name, w_bases, w_namespace],
