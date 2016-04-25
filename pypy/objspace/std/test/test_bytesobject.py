@@ -795,6 +795,3 @@ class AppTestBytesObject:
                 return 42
         x = Foo()
         assert "hello" + x == 42
-
-class AppTestShare(AppTestBytesObject):
-    spaceconfig = {"objspace.std.sharesmallstr": True}

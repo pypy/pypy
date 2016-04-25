@@ -204,11 +204,6 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
         BoolOption("withstrbuf", "use strings optimized for addition (ver 2)",
                    default=False),
 
-        BoolOption("sharesmallstr",
-                   "always reuse the prebuilt string objects "
-                   "(the empty string and potentially single-char strings)",
-                   default=False),
-
         BoolOption("withspecialisedtuple",
                    "use specialised tuples",
                    default=False),
@@ -272,7 +267,6 @@ def set_pypy_opt_level(config, level):
     if level == 'mem':
         config.objspace.std.suggest(withprebuiltint=True)
         config.objspace.std.suggest(withliststrategies=True)
-        config.objspace.std.suggest(sharesmallstr=True)
         if not IS_64_BITS:
             config.objspace.std.suggest(withsmalllong=True)
 
