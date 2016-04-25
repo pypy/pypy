@@ -4,7 +4,7 @@ from rpython.translator.backendopt import graphanalyze
 top_set = object()
 empty_set = frozenset()
 
-CUTOFF = 1000
+CUTOFF = 3000
 
 class WriteAnalyzer(graphanalyze.GraphAnalyzer):
     cutoff = CUTOFF
