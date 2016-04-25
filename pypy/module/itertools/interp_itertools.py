@@ -846,6 +846,8 @@ class W_TeeChainedListNode(W_Root):
             if node.w_obj is not None:
                 list_w.append(node.w_obj)
                 node = node.w_next
+            else:
+                break
         space = self.space
         if list_w:
             return self.space.newtuple([space.type(self),
@@ -917,8 +919,7 @@ class W_TeeIterable(W_Root):
                                     self.space.newtuple([
                                         self.w_iterator,
                                         self.w_chained_list])
-                                    ])
-        
+                                    ]) 
 
 def W_TeeIterable___new__(space, w_subtype, w_iterable, w_chained_list=None):
     if isinstance(w_iterable, W_TeeIterable):
