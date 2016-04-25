@@ -424,14 +424,18 @@ class W_ISlice(W_Root):
         start = self.start
         stop = self.stop
         if start == -1:
-            start = None
+            w_start = space.w_None
+        else:
+            w_start = space.wrap(start)
         if stop == -1:
-            stop = None
+            w_stop = space.w_None
+        else:
+            w_stop = space.wrap(stop)
         return space.newtuple([
             space.type(self),
             space.newtuple([self.iterable,
-                            space.wrap(start),
-                            space.wrap(stop),
+                            w_start,
+                            w_stop,
                             space.wrap(self.ignore + 1)]),
         ])
 
