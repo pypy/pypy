@@ -132,6 +132,7 @@ def _run_with_pyjitpl(testself, args, stats):
     metainterp_sd = pyjitpl.MetaInterpStaticData(cw.cpu, opt)
     stats.metainterp_sd = metainterp_sd
     metainterp_sd.finish_setup(cw)
+    metainterp_sd.finish_setup_descrs()
 
     [jitdriver_sd] = metainterp_sd.jitdrivers_sd
     metainterp = pyjitpl.MetaInterp(metainterp_sd, jitdriver_sd)

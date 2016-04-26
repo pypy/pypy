@@ -1809,7 +1809,6 @@ class MetaInterpStaticData(object):
         self._addr2name_values = [value for key, value in list_of_addr2name]
 
     def finish_setup(self, codewriter, optimizer=None):
-        from rpython.jit.codewriter import effectinfo
         from rpython.jit.metainterp.blackhole import BlackholeInterpBuilder
         self.blackholeinterpbuilder = BlackholeInterpBuilder(codewriter, self)
         #
@@ -1839,6 +1838,9 @@ class MetaInterpStaticData(object):
         self.cpu.propagate_exception_descr = exc_descr
         #
         self.globaldata = MetaInterpGlobalData(self)
+
+    def finish_setup_descrs(self):
+        from rpython.jit.codewriter import effectinfo
         self.all_descrs = self.cpu.setup_descrs()
         effectinfo.compute_bitstrings(self.all_descrs)
 
