@@ -10,3 +10,9 @@ What's new in PyPy 5.1+
 .. branch: gcheader-decl
 
 Reduce the size of generated C sources.
+
+
+.. branch: remove-objspace-options
+
+Remove a number of options from the build process that were never tested and
+never set. Fix a performance bug in the method cache.

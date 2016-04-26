@@ -85,11 +85,10 @@ def unicode_realize(space, py_obj):
 @cpython_api([PyObject], lltype.Void, header=None)
 def unicode_dealloc(space, py_obj):
     py_unicode = rffi.cast(PyUnicodeObject, py_obj)
+    Py_DecRef(space, py_unicode.c_defenc)
     if py_unicode.c_str:
         lltype.free(py_unicode.c_str, flavor="raw")
     from pypy.module.cpyext.object import PyObject_dealloc
-    if py_unicode.c_defenc:
-        PyObject_dealloc(space, py_unicode.c_defenc)
     PyObject_dealloc(space, py_obj)
 
 @cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)

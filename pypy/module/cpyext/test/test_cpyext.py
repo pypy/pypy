@@ -140,7 +140,6 @@ class LeakCheckingTest(object):
                                    'itertools', 'time', 'binascii',
                                    'micronumpy',
                                    ])
-    spaceconfig['std.withmethodcache'] = True
 
     enable_leak_checking = True
 
