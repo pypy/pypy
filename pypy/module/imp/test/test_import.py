@@ -100,6 +100,7 @@ def setup_directory_structure(space):
         'a=15\nb=16\rc="""foo\r\nbar"""\r', mode='wb')
     setuppkg("verbose1pkg", verbosemod='a = 1729')
     setuppkg("verbose2pkg", verbosemod='a = 1729')
+    setuppkg("verbose0pkg", verbosemod='a = 1729')
 
     # create compiled/x.py and a corresponding pyc file
     p = setuppkg("compiled", x = "x = 84")
@@ -760,6 +761,20 @@ class AppTestImport:
                    for line in output[:-2])
         assert output[-2].startswith('# trying')
         assert 'import verbose2pkg.verbosemod # from ' in output[-1]
+
+    def test_verbose_flag_0(self):
+        output = []
+        class StdErr(object):
+            def write(self, line):
+                output.append(line)
+
+        import sys
+        sys.stderr = StdErr()
+        try:
+            import verbose0pkg.verbosemod
+        finally:
+            reload(sys)
+        assert not output
 
 
 class TestAbi:
