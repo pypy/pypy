@@ -333,17 +333,6 @@ class Transformer(object):
     rewrite_op_float_gt  = _rewrite_symmetric
     rewrite_op_float_ge  = _rewrite_symmetric
 
-    def rewrite_op_int_add_ovf(self, op):
-        op0 = self._rewrite_symmetric(op)
-        op1 = SpaceOperation('-live-', [], None)
-        return [op1, op0]
-
-    rewrite_op_int_mul_ovf = rewrite_op_int_add_ovf
-
-    def rewrite_op_int_sub_ovf(self, op):
-        op1 = SpaceOperation('-live-', [], None)
-        return [op1, op]
-
     def _noop_rewrite(self, op):
         return op
 
@@ -518,23 +507,12 @@ class Transformer(object):
 
     # XXX some of the following functions should not become residual calls
     # but be really compiled
-    rewrite_op_int_floordiv_ovf_zer   = _do_builtin_call
-    rewrite_op_int_floordiv_ovf       = _do_builtin_call
-    rewrite_op_int_floordiv_zer       = _do_builtin_call
-    rewrite_op_int_mod_ovf_zer        = _do_builtin_call
-    rewrite_op_int_mod_ovf            = _do_builtin_call
-    rewrite_op_int_mod_zer            = _do_builtin_call
-    rewrite_op_int_lshift_ovf         = _do_builtin_call
     rewrite_op_int_abs                = _do_builtin_call
     rewrite_op_llong_abs              = _do_builtin_call
     rewrite_op_llong_floordiv         = _do_builtin_call
-    rewrite_op_llong_floordiv_zer     = _do_builtin_call
     rewrite_op_llong_mod              = _do_builtin_call
-    rewrite_op_llong_mod_zer          = _do_builtin_call
     rewrite_op_ullong_floordiv        = _do_builtin_call
-    rewrite_op_ullong_floordiv_zer    = _do_builtin_call
     rewrite_op_ullong_mod             = _do_builtin_call
-    rewrite_op_ullong_mod_zer         = _do_builtin_call
     rewrite_op_gc_identityhash        = _do_builtin_call
     rewrite_op_gc_id                  = _do_builtin_call
     rewrite_op_gc_pin                 = _do_builtin_call
@@ -1499,7 +1477,6 @@ class Transformer(object):
     for _old, _new in [('bool_not', 'int_is_zero'),
                        ('cast_bool_to_float', 'cast_int_to_float'),
 
-                       ('int_add_nonneg_ovf', 'int_add_ovf'),
                        ('keepalive', '-live-'),
 
                        ('char_lt', 'int_lt'),
@@ -1531,12 +1508,6 @@ class Transformer(object):
                 op1 = SpaceOperation(%r, op.args, op.result)
                 return self.rewrite_operation(op1)
         ''' % (_old, _new)).compile()
-
-    def rewrite_op_int_neg_ovf(self, op):
-        op1 = SpaceOperation('int_sub_ovf',
-                             [Constant(0, lltype.Signed), op.args[0]],
-                             op.result)
-        return self.rewrite_operation(op1)
 
     def rewrite_op_float_is_true(self, op):
         op1 = SpaceOperation('float_ne',

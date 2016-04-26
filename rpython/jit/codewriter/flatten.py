@@ -103,7 +103,7 @@ class GraphFlattener(object):
         self.seen_blocks = {}
         self.make_bytecode_block(self.graph.startblock)
 
-    def make_bytecode_block(self, block, handling_ovf=False):
+    def make_bytecode_block(self, block):
         if block.exits == ():
             self.make_return(block.inputargs)
             return
@@ -117,15 +117,10 @@ class GraphFlattener(object):
         #
         operations = block.operations
         for i, op in enumerate(operations):
-            if '_ovf' in op.opname:
-                if (len(block.exits) not in (2, 3) or
-                    block.exitswitch is not c_last_exception):
-                    raise Exception("detected a block containing ovfcheck()"
-                                    " but no OverflowError is caught, this"
-                                    " is not legal in jitted blocks")
+            assert '_ovf' not in op.opname   # should not exist any more
             self.serialize_op(op)
         #
-        self.insert_exits(block, handling_ovf)
+        self.insert_exits(block)
 
     def make_return(self, args):
         if len(args) == 1:
@@ -145,16 +140,16 @@ class GraphFlattener(object):
             raise Exception("?")
         self.emitline("---")
 
-    def make_link(self, link, handling_ovf):
+    def make_link(self, link):
         if (link.target.exits == ()
             and link.last_exception not in link.args
             and link.last_exc_value not in link.args):
             self.make_return(link.args)     # optimization only
             return
         self.insert_renamings(link)
-        self.make_bytecode_block(link.target, handling_ovf)
+        self.make_bytecode_block(link.target)
 
-    def make_exception_link(self, link, handling_ovf):
+    def make_exception_link(self, link):
         # Like make_link(), but also introduces the 'last_exception' and
         # 'last_exc_value' as variables if needed.  Also check if the link
         # is jumping directly to the re-raising exception block.
@@ -162,52 +157,31 @@ class GraphFlattener(object):
         assert link.last_exc_value is not None
         if link.target.operations == () and link.args == [link.last_exception,
                                                           link.last_exc_value]:
-            if handling_ovf:
-                exc_data = self.cpu.rtyper.exceptiondata
-                ll_ovf = exc_data.get_standard_ll_exc_instance_by_class(
-                    OverflowError)
-                c = Constant(ll_ovf, concretetype=lltype.typeOf(ll_ovf))
-                self.emitline("raise", c)
-            else:
-                self.emitline("reraise")
+            self.emitline("reraise")
             self.emitline("---")
             return   # done
-        self.make_link(link, handling_ovf)
+        self.make_link(link)
 
-    def insert_exits(self, block, handling_ovf=False):
+    def insert_exits(self, block):
         if len(block.exits) == 1:
             # A single link, fall-through
             link = block.exits[0]
             assert link.exitcase in (None, False, True)
             # the cases False or True should not really occur, but can show
             # up in the manually hacked graphs for generators...
-            self.make_link(link, handling_ovf)
+            self.make_link(link)
         #
         elif block.canraise:
             # An exception block. See test_exc_exitswitch in test_flatten.py
             # for an example of what kind of code this makes.
             index = -1
             opname = block.operations[index].opname
-            if '_ovf' in opname:
-                # ovf checking operation as a lat thing, -live- should be
-                # one before it
-                line = self.popline()
-                self.emitline(opname[:7] + '_jump_if_ovf',
-                              TLabel(block.exits[1]), *line[1:])
-                assert len(block.exits) in (2, 3)
-                self.make_link(block.exits[0], False)
-                self.emitline(Label(block.exits[1]))
-                self.make_exception_link(block.exits[1], True)
-                if len(block.exits) == 3:
-                    assert block.exits[2].exitcase is Exception
-                    self.make_exception_link(block.exits[2], False)
-                return
-            else:
-                while True:
-                    lastopname = block.operations[index].opname
-                    if lastopname != '-live-':
-                        break
-                    index -= 1
+            assert '_ovf' not in opname    # should not exist any more
+            while True:
+                lastopname = block.operations[index].opname
+                if lastopname != '-live-':
+                    break
+                index -= 1
             assert block.exits[0].exitcase is None # is this always True?
             #
             if not self._include_all_exc_links:
@@ -261,10 +235,10 @@ class GraphFlattener(object):
             #if not livebefore:
             #    self.emitline('-live-', TLabel(linkfalse))
             # true path:
-            self.make_link(linktrue, handling_ovf)
+            self.make_link(linktrue)
             # false path:
             self.emitline(Label(linkfalse))
-            self.make_link(linkfalse, handling_ovf)
+            self.make_link(linkfalse)
         #
         else:
             # A switch.
@@ -287,7 +261,7 @@ class GraphFlattener(object):
                                     switchdict)
             # emit the default path
             if block.exits[-1].exitcase == 'default':
-                self.make_link(block.exits[-1], handling_ovf)
+                self.make_link(block.exits[-1])
             else:
                 self.emitline("unreachable")
                 self.emitline("---")
@@ -301,7 +275,7 @@ class GraphFlattener(object):
                 # if the switched value doesn't match any case.
                 self.emitline(Label(switch))
                 self.emitline('-live-')
-                self.make_link(switch, handling_ovf)
+                self.make_link(switch)
 
     def insert_renamings(self, link):
         renamings = {}
