@@ -23,8 +23,8 @@ def PyList_New(space, len):
 
 @cpython_api([PyObject, Py_ssize_t, PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyList_SET_ITEM(space, w_list, index, w_item):
-    """Set the item at index index in list to item.  Return 0 on success
-    or -1 on failure.
+    """Macro form of PyList_SetItem() without error checking. This is normally
+    only used to fill in new lists where there is no previous content.
 
     This function "steals" a reference to item, and, unlike PyList_SetItem(),
     does not discard a reference to any item that it being replaced; any
