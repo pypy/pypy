@@ -6,7 +6,8 @@ from rpython.jit.metainterp.warmstate import equal_whatever, hash_whatever
 from rpython.jit.metainterp.warmstate import WarmEnterState
 from rpython.jit.metainterp.resoperation import InputArgInt, InputArgRef,\
      InputArgFloat
-from rpython.jit.metainterp.history import ConstInt, ConstFloat, ConstPtr
+from rpython.jit.metainterp.history import ConstInt, ConstFloat, ConstPtr,\
+     IntFrontendOp, FloatFrontendOp, RefFrontendOp
 from rpython.jit.metainterp.counter import DeterministicJitCounter
 from rpython.jit.codewriter import longlong
 from rpython.rlib.rarithmetic import r_singlefloat
@@ -31,6 +32,24 @@ def test_unwrap():
     assert unwrap(lltype.Ptr(RS), InputArgInt(0)) == lltype.nullptr(RS)
 
 def test_wrap():
+    def InputArgInt(a):
+        i = IntFrontendOp(0)
+        i.setint(a)
+        return i
+
+    def InputArgFloat(a):
+        i = FloatFrontendOp(0)
+        i.setfloatstorage(a)
+        return i
+
+    def InputArgRef(a):
+        i = RefFrontendOp(0)
+        i.setref_base(a)
+        return i
+
+    def boxfloat(x):
+        return InputArgFloat(longlong.getfloatstorage(x))
+
     def _is(box1, box2):
         return (box1.__class__ == box2.__class__ and
                 box1.getvalue() == box2.getvalue())
@@ -76,7 +95,7 @@ def test_hash_equal_whatever_lltype():
                 hash_whatever(lltype.typeOf(s2), s2))
         assert equal_whatever(lltype.typeOf(s1), s1, s2)
     fn(42)
-    interpret(fn, [42], type_system='lltype')
+    interpret(fn, [42])
 
 
 def test_make_unwrap_greenkey():

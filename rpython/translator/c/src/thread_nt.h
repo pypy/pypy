@@ -30,3 +30,12 @@ long RPyThreadGetStackSize(void);
 RPY_EXTERN
 long RPyThreadSetStackSize(long);
 #endif
+
+
+#ifdef _M_IA64
+/* On Itanium, use 'acquire' memory ordering semantics */
+#define pypy_lock_test_and_set(ptr, value) InterlockedExchangeAcquire(ptr,value)
+#else
+#define pypy_lock_test_and_set(ptr, value) InterlockedExchange(ptr, value)
+#endif
+#define pypy_lock_release(ptr)             (*((volatile long *)ptr) = 0)

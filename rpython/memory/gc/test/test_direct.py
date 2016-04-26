@@ -565,8 +565,8 @@ class TestMiniMarkGCSimple(DirectGCTest):
         tid = self.get_type_id(VAR)
         largeobj_size =  self.gc.nonlarge_max + 1
         self.gc.next_major_collection_threshold = 99999.0
-        addr_src = self.gc.external_malloc(tid, largeobj_size)
-        addr_dst = self.gc.external_malloc(tid, largeobj_size)
+        addr_src = self.gc.external_malloc(tid, largeobj_size, alloc_young=True)
+        addr_dst = self.gc.external_malloc(tid, largeobj_size, alloc_young=True)
         hdr_src = self.gc.header(addr_src)
         hdr_dst = self.gc.header(addr_dst)
         #
@@ -617,7 +617,7 @@ class TestIncrementalMiniMarkGCSimple(TestMiniMarkGCSimple):
         oldhdr = self.gc.header(llmemory.cast_ptr_to_adr(oldobj))
         assert oldhdr.tid & incminimark.GCFLAG_VISITED == 0
 
-        self.gc.minor_collection()
+        self.gc._minor_collection()
         self.gc.visit_all_objects_step(1)
 
         assert oldhdr.tid & incminimark.GCFLAG_VISITED
@@ -628,7 +628,7 @@ class TestIncrementalMiniMarkGCSimple(TestMiniMarkGCSimple):
 
         assert self.gc.header(self.gc.old_objects_pointing_to_young.tolist()[0]) == oldhdr
 
-        self.gc.minor_collection()
+        self.gc._minor_collection()
         self.gc.debug_check_consistency()
 
     def test_sweeping_simple(self):

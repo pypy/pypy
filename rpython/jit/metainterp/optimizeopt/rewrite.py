@@ -32,7 +32,7 @@ class OptRewrite(Optimization):
             sb.add_loopinvariant_op(op)
 
     def propagate_forward(self, op):
-        if op.boolinverse != -1 or op.boolreflex != -1:
+        if opclasses[op.opnum].boolinverse != -1 or opclasses[op.opnum].boolreflex != -1:
             if self.find_rewritable_bool(op):
                 return
 
@@ -56,13 +56,13 @@ class OptRewrite(Optimization):
         arg0 = op.getarg(0)
         arg1 = op.getarg(1)
         if oldopnum != -1:
-            top = ResOperation(oldopnum, [arg0, arg1], None)
+            top = ResOperation(oldopnum, [arg0, arg1])
             if self.try_boolinvers(op, top):
                 return True
 
         oldopnum = op.boolreflex # FIXME: add INT_ADD, INT_MUL
         if oldopnum != -1:
-            top = ResOperation(oldopnum, [arg1, arg0], None)
+            top = ResOperation(oldopnum, [arg1, arg0])
             oldop = self.get_pure_result(top)
             if oldop is not None:
                 self.optimizer.make_equal_to(op, oldop)
@@ -72,7 +72,7 @@ class OptRewrite(Optimization):
             return False
         oldopnum = opclasses[op.boolreflex].boolinverse
         if oldopnum != -1:
-            top = ResOperation(oldopnum, [arg1, arg0], None)
+            top = ResOperation(oldopnum, [arg1, arg0])
             if self.try_boolinvers(op, top):
                 return True
 
@@ -111,15 +111,15 @@ class OptRewrite(Optimization):
 
     def optimize_INT_SUB(self, op):
         arg1 = self.get_box_replacement(op.getarg(0))
-        b1 = self.getintbound(arg1)
         arg2 = self.get_box_replacement(op.getarg(1))
+        b1 = self.getintbound(arg1)
         b2 = self.getintbound(arg2)
         if b2.equal(0):
             self.make_equal_to(op, arg1)
         elif b1.equal(0):
             op = self.replace_op_with(op, rop.INT_NEG, args=[arg2])
             self.emit_operation(op)
-        elif arg1.same_box(arg2):
+        elif arg1 == arg2:
             self.make_constant_int(op, 0)
         else:
             self.emit_operation(op)
@@ -220,10 +220,10 @@ class OptRewrite(Optimization):
             v2 = self.get_box_replacement(rhs)
 
             if v1.is_constant():
-                if v1.getfloatstorage() == 1.0:
+                if v1.getfloat() == 1.0:
                     self.make_equal_to(op, v2)
                     return
-                elif v1.getfloatstorage() == -1.0:
+                elif v1.getfloat() == -1.0:
                     newop = self.replace_op_with(op, rop.FLOAT_NEG, args=[rhs])
                     self.emit_operation(newop)
                     return
@@ -238,7 +238,7 @@ class OptRewrite(Optimization):
         # replace "x / const" by "x * (1/const)" if possible
         newop = op
         if v2.is_constant():
-            divisor = v2.getfloatstorage()
+            divisor = v2.getfloat()
             fraction = math.frexp(divisor)[0]
             # This optimization is valid for powers of two
             # but not for zeroes, some denormals and NaN:
@@ -380,7 +380,7 @@ class OptRewrite(Optimization):
                     raise InvalidLoop("promote of a virtual")
                 old_guard_op = info.get_last_guard(self.optimizer)
                 if old_guard_op is not None:
-                    op = self.replace_guard_class_with_guard_value(op, info,
+                    op = self.replace_old_guard_with_guard_value(op, info,
                                                               old_guard_op)
         elif arg0.type == 'f':
             arg0 = self.get_box_replacement(arg0)
@@ -390,18 +390,33 @@ class OptRewrite(Optimization):
         assert isinstance(constbox, Const)
         self.optimize_guard(op, constbox)
 
-    def replace_guard_class_with_guard_value(self, op, info, old_guard_op):
-        if old_guard_op.opnum != rop.GUARD_NONNULL:
-            previous_classbox = info.get_known_class(self.optimizer.cpu)
-            expected_classbox = self.optimizer.cpu.ts.cls_of_box(op.getarg(1))
-            assert previous_classbox is not None
+    def replace_old_guard_with_guard_value(self, op, info, old_guard_op):
+        # there already has been a guard_nonnull or guard_class or
+        # guard_nonnull_class on this value, which is rather silly.
+        # This function replaces the original guard with a
+        # guard_value.  Must be careful: doing so is unsafe if the
+        # original guard checks for something inconsistent,
+        # i.e. different than what it would give if the guard_value
+        # passed (this is a rare case, but possible).  If we get
+        # inconsistent results in this way, then we must not do the
+        # replacement, otherwise we'd put guard_value up there but all
+        # intermediate ops might be executed by assuming something
+        # different, from the old guard that is now removed...
+
+        c_value = op.getarg(1)
+        if not c_value.nonnull():
+            raise InvalidLoop('A GUARD_VALUE(..., NULL) follows some other '
+                              'guard that it is not NULL')
+        previous_classbox = info.get_known_class(self.optimizer.cpu)
+        if previous_classbox is not None:
+            expected_classbox = self.optimizer.cpu.ts.cls_of_box(c_value)
             assert expected_classbox is not None
             if not previous_classbox.same_constant(
                     expected_classbox):
                 r = self.optimizer.metainterp_sd.logger_ops.repr_of_resop(op)
                 raise InvalidLoop('A GUARD_VALUE (%s) was proven to '
                                   'always fail' % r)
-        descr = compile.ResumeGuardValueDescr()
+        descr = compile.ResumeGuardDescr()
         op = old_guard_op.copy_and_change(rop.GUARD_VALUE,
                          args = [old_guard_op.getarg(0), op.getarg(1)],
                          descr = descr)
@@ -411,7 +426,6 @@ class OptRewrite(Optimization):
         # not put in short preambles guard_xxx and guard_value
         # on the same box.
         self.optimizer.replace_guard(op, info)
-        descr.make_a_counter_per_value(op)
         # to be safe
         info.reset_last_guard_pos()
         return op
@@ -453,7 +467,7 @@ class OptRewrite(Optimization):
             if old_guard_op.getopnum() == rop.GUARD_NONNULL:
                 # it was a guard_nonnull, which we replace with a
                 # guard_nonnull_class.
-                descr = compile.ResumeGuardNonnullClassDescr()
+                descr = compile.ResumeGuardDescr()
                 op = old_guard_op.copy_and_change (rop.GUARD_NONNULL_CLASS,
                             args = [old_guard_op.getarg(0), op.getarg(1)],
                             descr=descr)

@@ -16,10 +16,11 @@ DEFL_LOW_INLINE_THRESHOLD = DEFL_INLINE_THRESHOLD / 2.0
 
 DEFL_GC = "incminimark"   # XXX
 
+DEFL_ROOTFINDER_WITHJIT = "shadowstack"
 if sys.platform.startswith("linux"):
-    DEFL_ROOTFINDER_WITHJIT = "asmgcc"
-else:
-    DEFL_ROOTFINDER_WITHJIT = "shadowstack"
+    _mach = os.popen('uname -m', 'r').read().strip()
+    if _mach.startswith('x86') or _mach in ['i386', 'i486', 'i586', 'i686']:
+        DEFL_ROOTFINDER_WITHJIT = "asmgcc"   # only for Linux on x86 / x86-64
 
 IS_64_BITS = sys.maxint > 2147483647
 
@@ -125,6 +126,9 @@ translation_optiondescription = OptionDescription(
     ChoiceOption("jit_profiler", "integrate profiler support into the JIT",
                  ["off", "oprofile"],
                  default="off"),
+    ChoiceOption("jit_opencoder_model", "the model limits the maximal length"
+                 " of traces. Use big if you want to go bigger than "
+                 "the default", ["big", "normal"], default="normal"),
     BoolOption("check_str_without_nul",
                "Forbid NUL chars in strings in some external function calls",
                default=False, cmdline=None),
@@ -191,6 +195,8 @@ translation_optiondescription = OptionDescription(
                "If true, makes an lldebug0 build", default=False,
                cmdline="--lldebug0"),
     StrOption("icon", "Path to the (Windows) icon to use for the executable"),
+    StrOption("libname",
+              "Windows: name and possibly location of the lib file to create"),
 
     OptionDescription("backendopt", "Backend Optimization Options", [
         # control inlining

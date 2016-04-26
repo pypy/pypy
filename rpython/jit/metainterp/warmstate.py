@@ -75,7 +75,9 @@ def wrap(cpu, value, in_const_box=False):
             if in_const_box:
                 return history.ConstPtr(value)
             else:
-                return resoperation.InputArgRef(value)
+                res = history.RefFrontendOp(0)
+                res.setref_base(value)
+                return res
         else:
             adr = llmemory.cast_ptr_to_adr(value)
             value = heaptracker.adr2int(adr)
@@ -89,7 +91,9 @@ def wrap(cpu, value, in_const_box=False):
         if in_const_box:
             return history.ConstFloat(value)
         else:
-            return resoperation.InputArgFloat(value)
+            res = history.FloatFrontendOp(0)
+            res.setfloatstorage(value)
+            return res
     elif isinstance(value, str) or isinstance(value, unicode):
         assert len(value) == 1     # must be a character
         value = ord(value)
@@ -100,7 +104,9 @@ def wrap(cpu, value, in_const_box=False):
     if in_const_box:
         return history.ConstInt(value)
     else:
-        return resoperation.InputArgInt(value)
+        res = history.IntFrontendOp(0)
+        res.setint(value)
+        return res
 
 @specialize.arg(0)
 def equal_whatever(TYPE, x, y):
@@ -301,6 +307,24 @@ class WarmEnterState(object):
             if self.warmrunnerdesc.memory_manager:
                 self.warmrunnerdesc.memory_manager.max_unroll_recursion = value
 
+    def set_param_vec(self, value):
+        self.vec = bool(value)
+
+    def set_param_vec_all(self, value):
+        self.vec_all = bool(value)
+
+    def set_param_vec_cost(self, value):
+        self.vec_cost = bool(value)
+
+    def set_param_vec_length(self, value):
+        self.vec_length = int(value)
+
+    def set_param_vec_ratio(self, value):
+        self.vec_ratio = value / 10.0
+
+    def set_param_vec_guard_ratio(self, value):
+        self.vec_guard_ratio = value / 10.0
+
     def disable_noninlinable_function(self, greenkey):
         cell = self.JitCell.ensure_jit_cell_at_key(greenkey)
         cell.flags |= JC_DONT_TRACE_HERE
@@ -413,6 +437,14 @@ class WarmEnterState(object):
                 # not found. increment the counter
                 if jitcounter.tick(hash, increment_threshold):
                     bound_reached(hash, None, *args)
+                return
+
+            # Workaround for issue #2200, maybe temporary.  This is not
+            # a proper fix, but only a hack that should work well enough
+            # for PyPy's main jitdriver...  See test_issue2200_recursion
+            from rpython.jit.metainterp.blackhole import workaround2200
+            if workaround2200.active:
+                workaround2200.active = False
                 return
 
             # Here, we have found 'cell'.
@@ -545,12 +577,24 @@ class WarmEnterState(object):
             @staticmethod
             def trace_next_iteration(greenkey):
                 greenargs = unwrap_greenkey(greenkey)
+                JitCell._trace_next_iteration(*greenargs)
+
+            @staticmethod
+            def _trace_next_iteration(*greenargs):
                 hash = JitCell.get_uhash(*greenargs)
+                jitcounter.change_current_fraction(hash, 0.98)
+
+            @staticmethod
+            def trace_next_iteration_hash(hash):
                 jitcounter.change_current_fraction(hash, 0.98)
 
             @staticmethod
             def ensure_jit_cell_at_key(greenkey):
                 greenargs = unwrap_greenkey(greenkey)
+                return JitCell._ensure_jit_cell_at_key(*greenargs)
+
+            @staticmethod
+            def _ensure_jit_cell_at_key(*greenargs):
                 hash = JitCell.get_uhash(*greenargs)
                 cell = jitcounter.lookup_chain(hash)
                 while cell is not None:
@@ -561,6 +605,11 @@ class WarmEnterState(object):
                 newcell = JitCell(*greenargs)
                 jitcounter.install_new_cell(hash, newcell)
                 return newcell
+
+            @staticmethod
+            def dont_trace_here(*greenargs):
+                cell = JitCell._ensure_jit_cell_at_key(*greenargs)
+                cell.flags |= JC_DONT_TRACE_HERE
         #
         self.JitCell = JitCell
         return JitCell

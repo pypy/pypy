@@ -3,7 +3,7 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (cpython_api, CANNOT_FAIL, Py_ssize_t,
                                     build_type_checkers)
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
-from pypy.module.cpyext.pyobject import Py_DecRef, PyObject, borrow_from
+from pypy.module.cpyext.pyobject import Py_DecRef, PyObject
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.interpreter.error import OperationError
 
@@ -38,7 +38,7 @@ def PyList_SetItem(space, w_list, index, w_item):
     w_list.setitem(index, w_item)
     return 0
 
-@cpython_api([PyObject, Py_ssize_t], PyObject)
+@cpython_api([PyObject, Py_ssize_t], PyObject, result_borrowed=True)
 def PyList_GetItem(space, w_list, index):
     """Return the object at position pos in the list pointed to by p.  The
     position must be positive, indexing from the end of the list is not
@@ -49,8 +49,10 @@ def PyList_GetItem(space, w_list, index):
     if index < 0 or index >= w_list.length():
         raise OperationError(space.w_IndexError, space.wrap(
             "list index out of range"))
-    w_item = w_list.getitem(index)
-    return borrow_from(w_list, w_item)
+    w_list.ensure_object_strategy()  # make sure we can return a borrowed obj
+    # XXX ^^^ how does this interact with CPyListStrategy?
+    w_res = w_list.getitem(index)
+    return w_res     # borrowed ref
 
 
 @cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)

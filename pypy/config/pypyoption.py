@@ -36,12 +36,15 @@ working_modules.update([
     "cStringIO", "thread", "itertools", "pyexpat", "_ssl", "cpyext", "array",
     "binascii", "_multiprocessing", '_warnings', "_collections",
     "_multibytecodec", "micronumpy", "_continuation", "_cffi_backend",
-    "_csv", "cppyy", "_pypyjson"
+    "_csv", "cppyy", "_pypyjson",
 ])
 
-if (sys.platform.startswith('linux') and os.uname()[4] == 'x86_64'
-        and sys.maxint > 2**32):    # it's not enough that we get x86_64
-    working_modules.add('_vmprof')
+from rpython.jit.backend import detect_cpu
+try:
+    if detect_cpu.autodetect().startswith('x86'):
+        working_modules.add('_vmprof')
+except detect_cpu.ProcessorAutodetectError:
+    pass
 
 translation_modules = default_modules.copy()
 translation_modules.update([
@@ -75,6 +78,11 @@ if sys.platform == "sunos5":
     if "cppyy" in working_modules:
         working_modules.remove("cppyy")  # depends on ctypes
 
+#if sys.platform.startswith("linux"):
+#    _mach = os.popen('uname -m', 'r').read().strip()
+#    if _mach.startswith(...):
+#        working_modules.remove("_continuation")
+
 
 module_dependencies = {
     '_multiprocessing': [('objspace.usemodules.time', True),
@@ -92,6 +100,8 @@ module_suggests = {
 if sys.platform == "win32":
     module_suggests["cpyext"].append(("translation.shared", True))
 
+
+# NOTE: this dictionary is not used any more
 module_import_dependencies = {
     # no _rawffi if importing rpython.rlib.clibffi raises ImportError
     # or CompilationError or py.test.skip.Exception
@@ -108,6 +118,7 @@ module_import_dependencies = {
     }
 
 def get_module_validator(modname):
+    # NOTE: this function is not used any more
     if modname in module_import_dependencies:
         modlist = module_import_dependencies[modname]
         def validator(config):
@@ -158,12 +169,8 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                cmdline="--translationmodules",
                suggests=[("objspace.allworkingmodules", False)]),
 
-    BoolOption("usepycfiles", "Write and read pyc files when importing",
-               default=True),
-
     BoolOption("lonepycfiles", "Import pyc files with no matching py file",
-               default=False,
-               requires=[("objspace.usepycfiles", True)]),
+               default=False),
 
     StrOption("soabi",
               "Tag to differentiate extension modules built for different Python interpreters",

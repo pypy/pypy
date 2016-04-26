@@ -28,7 +28,7 @@ class RecursiveTests:
                 return 1
         res = self.meta_interp(main, [20], enable_opts='')
         assert res == main(20)
-        self.check_history(call=0)
+        self.check_history(call_i=0)
 
     def test_simple_recursion_with_exc(self):
         myjitdriver = JitDriver(greens=[], reds=['n', 'm'])
@@ -541,7 +541,8 @@ class RecursiveTests:
             code = hlstr(code)
             return "%s %d %s" % (code, pc, code[pc])
         myjitdriver = JitDriver(greens=['pc', 'code'], reds=['n'],
-                                get_printable_location=p)
+                                get_printable_location=p,
+                                is_recursive=True)
 
         def f(code, n):
             pc = 0
@@ -592,7 +593,7 @@ class RecursiveTests:
                 i += 1
 
         self.meta_interp(portal, [2], inline=True)
-        self.check_history(call_assembler=1)
+        self.check_history(call_assembler_n=1)
 
     def test_recursion_cant_call_assembler_directly(self):
         driver = JitDriver(greens = ['codeno'], reds = ['i', 'j'],
@@ -709,7 +710,7 @@ class RecursiveTests:
             return k
 
         self.meta_interp(portal, [2], inline=True)
-        self.check_history(call_assembler=1)
+        self.check_history(call_assembler_i=1)
 
     def test_directly_call_assembler_raise(self):
 
@@ -735,7 +736,7 @@ class RecursiveTests:
                 raise MyException(1)
 
         self.meta_interp(portal, [2], inline=True)
-        self.check_history(call_assembler=1)
+        self.check_history(call_assembler_n=1)
 
     def test_directly_call_assembler_fail_guard(self):
         driver = JitDriver(greens = ['codeno'], reds = ['i', 'k'],
@@ -1311,7 +1312,7 @@ class RecursiveTests:
                 return (code + 1) * 2
 
             driver = JitDriver(greens=["pc", "code"], reds='auto',
-                               get_unique_id=get_unique_id)
+                               get_unique_id=get_unique_id, is_recursive=True)
 
             def f(pc, code):
                 i = 0

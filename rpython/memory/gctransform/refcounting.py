@@ -285,3 +285,7 @@ def ll_deallocator(addr):
                           resulttype=llmemory.Address)
         hop.genop("direct_call", [self.identityhash_ptr, v_adr],
                   resultvar=hop.spaceop.result)
+
+    def gcheader_initdata(self, obj):
+        top = lltype.top_container(obj)
+        return self.gcheaderbuilder.header_of_object(top)._obj

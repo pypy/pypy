@@ -323,14 +323,18 @@ class W_CData(W_Root):
         from pypy.module._cffi_backend import ctypearray
         ctype = self.ctype
         if isinstance(ctype, ctypearray.W_CTypeArray):
-            return ctype.ctitem.unpack_list_of_int_items(self)
+            length = self.get_array_length()
+            with self as ptr:
+                return ctype.ctitem.unpack_list_of_int_items(ptr, length)
         return None
 
     def unpackiterable_float(self, space):
         from pypy.module._cffi_backend import ctypearray
         ctype = self.ctype
         if isinstance(ctype, ctypearray.W_CTypeArray):
-            return ctype.ctitem.unpack_list_of_float_items(self)
+            length = self.get_array_length()
+            with self as ptr:
+                return ctype.ctitem.unpack_list_of_float_items(ptr, length)
         return None
 
     @specialize.argtype(1)
@@ -366,6 +370,25 @@ class W_CData(W_Root):
     def with_gc(self, w_destructor):
         with self as ptr:
             return W_CDataGCP(self.space, ptr, self.ctype, self, w_destructor)
+
+    def unpack(self, length):
+        from pypy.module._cffi_backend.ctypeptr import W_CTypePtrOrArray
+        space = self.space
+        if not self.ctype.is_nonfunc_pointer_or_array:
+            raise oefmt(space.w_TypeError,
+                        "expected a pointer or array, got '%s'",
+                        self.ctype.name)
+        if length < 0:
+            raise oefmt(space.w_ValueError, "'length' cannot be negative")
+        ctype = self.ctype
+        assert isinstance(ctype, W_CTypePtrOrArray)
+        with self as ptr:
+            if not ptr:
+                raise oefmt(space.w_RuntimeError,
+                            "cannot use unpack() on %s",
+                            space.str_w(self.repr()))
+            w_result = ctype.ctitem.unpack_ptr(ctype, ptr, length)
+        return w_result
 
 
 class W_CDataMem(W_CData):

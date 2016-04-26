@@ -14,9 +14,15 @@ from rpython.rlib.rarithmetic import (ovfcheck, is_valid_int, intmask,
     r_uint, r_longlong, r_ulonglong, r_longlonglong)
 from rpython.rtyper.lltypesystem import lltype, llmemory, lloperation, llheap
 from rpython.rtyper import rclass
+from rpython.tool.ansi_print import AnsiLogger
 
 
-log = py.log.Producer('llinterp')
+# by default this logger's output is disabled.
+# e.g. tests can then switch on logging to get more help
+# for failing tests
+log = AnsiLogger('llinterp')
+log.output_disabled = True
+
 
 class LLException(Exception):
     def __init__(self, *args):
@@ -40,6 +46,10 @@ class LLException(Exception):
 class LLFatalError(Exception):
     def __str__(self):
         return ': '.join([str(x) for x in self.args])
+
+class LLAssertFailure(Exception):
+    pass
+
 
 def type_name(etype):
     return ''.join(etype.name.chars)
@@ -466,7 +476,7 @@ class LLFrame(object):
         raise LLException(etype, evalue, *extraargs)
 
     def invoke_callable_with_pyexceptions(self, fptr, *args):
-        obj = self.llinterpreter.typer.type_system.deref(fptr)
+        obj = fptr._obj
         try:
             return obj._callable(*args)
         except LLException, e:
@@ -508,7 +518,8 @@ class LLFrame(object):
         track(*ll_objects)
 
     def op_debug_assert(self, x, msg):
-        assert x, msg
+        if not x:
+            raise LLAssertFailure(msg)
 
     def op_debug_fatalerror(self, ll_msg, ll_exc=None):
         msg = ''.join(ll_msg.chars)
@@ -644,7 +655,7 @@ class LLFrame(object):
             array[index] = item
 
     def perform_call(self, f, ARGS, args):
-        fobj = self.llinterpreter.typer.type_system.deref(f)
+        fobj = f._obj
         has_callable = getattr(fobj, '_callable', None) is not None
         if hasattr(fobj, 'graph'):
             graph = fobj.graph
@@ -669,7 +680,7 @@ class LLFrame(object):
         graphs = args[-1]
         args = args[:-1]
         if graphs is not None:
-            obj = self.llinterpreter.typer.type_system.deref(f)
+            obj = f._obj
             if hasattr(obj, 'graph'):
                 assert obj.graph in graphs
         else:
@@ -890,19 +901,6 @@ class LLFrame(object):
     def op_gc_reattach_callback_pieces(self):
         raise NotImplementedError("gc_reattach_callback_pieces")
 
-    def op_gc_shadowstackref_new(self):   # stacklet+shadowstack
-        raise NotImplementedError("gc_shadowstackref_new")
-    def op_gc_shadowstackref_context(self):
-        raise NotImplementedError("gc_shadowstackref_context")
-    def op_gc_save_current_state_away(self):
-        raise NotImplementedError("gc_save_current_state_away")
-    def op_gc_forget_current_state(self):
-        raise NotImplementedError("gc_forget_current_state")
-    def op_gc_restore_state_from(self):
-        raise NotImplementedError("gc_restore_state_from")
-    def op_gc_start_fresh_new_state(self):
-        raise NotImplementedError("gc_start_fresh_new_state")
-
     def op_gc_get_type_info_group(self):
         raise NotImplementedError("gc_get_type_info_group")
 
@@ -933,6 +931,21 @@ class LLFrame(object):
     def op_gc_gcflag_extra(self, subopnum, *args):
         return self.heap.gcflag_extra(subopnum, *args)
 
+    def op_gc_rawrefcount_init(self, *args):
+        raise NotImplementedError("gc_rawrefcount_init")
+
+    def op_gc_rawrefcount_to_obj(self, *args):
+        raise NotImplementedError("gc_rawrefcount_to_obj")
+
+    def op_gc_rawrefcount_from_obj(self, *args):
+        raise NotImplementedError("gc_rawrefcount_from_obj")
+
+    def op_gc_rawrefcount_create_link_pyobj(self, *args):
+        raise NotImplementedError("gc_rawrefcount_create_link_pyobj")
+
+    def op_gc_rawrefcount_create_link_pypy(self, *args):
+        raise NotImplementedError("gc_rawrefcount_create_link_pypy")
+
     def op_do_malloc_fixedsize(self):
         raise NotImplementedError("do_malloc_fixedsize")
     def op_do_malloc_fixedsize_clear(self):
@@ -957,6 +970,13 @@ class LLFrame(object):
     def op_threadlocalref_get(self, RESTYPE, offset):
         return self.op_raw_load(RESTYPE, _address_of_thread_local(), offset)
     op_threadlocalref_get.need_result_type = True
+
+    def op_threadlocalref_acquire(self, prev):
+        raise NotImplementedError
+    def op_threadlocalref_release(self, prev):
+        raise NotImplementedError
+    def op_threadlocalref_enum(self, prev):
+        raise NotImplementedError
 
     # __________________________________________________________
     # operations on addresses
@@ -1353,10 +1373,3 @@ class _address_of_local_var_accessor(object):
 class _address_of_thread_local(object):
     _TYPE = llmemory.Address
     is_fake_thread_local_addr = True
-
-
-# by default we route all logging messages to nothingness
-# e.g. tests can then switch on logging to get more help
-# for failing tests
-from rpython.tool.ansi_print import ansi_log
-py.log.setconsumer('llinterp', ansi_log)

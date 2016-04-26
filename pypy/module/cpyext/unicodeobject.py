@@ -9,7 +9,7 @@ from pypy.module.cpyext.pyerrors import PyErr_BadArgument
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, Py_DecRef, make_ref, from_ref, track_reference,
     make_typedescr, get_typedescr)
-from pypy.module.cpyext.stringobject import PyString_Check
+from pypy.module.cpyext.bytesobject import PyString_Check
 from pypy.module.sys.interp_encoding import setdefaultencoding
 from pypy.module._codecs.interp_codecs import CodecState
 from pypy.objspace.std import unicodeobject
@@ -17,17 +17,18 @@ from rpython.rlib import rstring, runicode
 from rpython.tool.sourcetools import func_renamer
 import sys
 
-## See comment in stringobject.py.
+## See comment in bytesobject.py.
 
 PyUnicodeObjectStruct = lltype.ForwardReference()
 PyUnicodeObject = lltype.Ptr(PyUnicodeObjectStruct)
 PyUnicodeObjectFields = (PyObjectFields +
-    (("buffer", rffi.CWCHARP), ("size", Py_ssize_t)))
+    (("str", rffi.CWCHARP), ("size", Py_ssize_t),
+     ("hash", rffi.LONG), ("defenc", PyObject)))
 cpython_struct("PyUnicodeObject", PyUnicodeObjectFields, PyUnicodeObjectStruct)
 
 @bootstrap_function
 def init_unicodeobject(space):
-    make_typedescr(space.w_unicode.instancetypedef,
+    make_typedescr(space.w_unicode.layout.typedef,
                    basestruct=PyUnicodeObject.TO,
                    attach=unicode_attach,
                    dealloc=unicode_dealloc,
@@ -44,25 +45,30 @@ Py_UNICODE = lltype.UniChar
 
 def new_empty_unicode(space, length):
     """
-    Allocatse a PyUnicodeObject and its buffer, but without a corresponding
+    Allocate a PyUnicodeObject and its buffer, but without a corresponding
     interpreter object.  The buffer may be mutated, until unicode_realize() is
-    called.
+    called.  Refcount of the result is 1.
     """
-    typedescr = get_typedescr(space.w_unicode.instancetypedef)
+    typedescr = get_typedescr(space.w_unicode.layout.typedef)
     py_obj = typedescr.allocate(space, space.w_unicode)
     py_uni = rffi.cast(PyUnicodeObject, py_obj)
 
     buflen = length + 1
     py_uni.c_size = length
-    py_uni.c_buffer = lltype.malloc(rffi.CWCHARP.TO, buflen,
-                                    flavor='raw', zero=True)
+    py_uni.c_str = lltype.malloc(rffi.CWCHARP.TO, buflen,
+                                 flavor='raw', zero=True,
+                                 add_memory_pressure=True)
+    py_uni.c_hash = -1
+    py_uni.c_defenc = lltype.nullptr(PyObject.TO)
     return py_uni
 
 def unicode_attach(space, py_obj, w_obj):
     "Fills a newly allocated PyUnicodeObject with a unicode string"
     py_unicode = rffi.cast(PyUnicodeObject, py_obj)
     py_unicode.c_size = len(space.unicode_w(w_obj))
-    py_unicode.c_buffer = lltype.nullptr(rffi.CWCHARP.TO)
+    py_unicode.c_str = lltype.nullptr(rffi.CWCHARP.TO)
+    py_unicode.c_hash = space.hash_w(w_obj)
+    py_unicode.c_defenc = lltype.nullptr(PyObject.TO)
 
 def unicode_realize(space, py_obj):
     """
@@ -70,17 +76,20 @@ def unicode_realize(space, py_obj):
     be modified after this call.
     """
     py_uni = rffi.cast(PyUnicodeObject, py_obj)
-    s = rffi.wcharpsize2unicode(py_uni.c_buffer, py_uni.c_size)
+    s = rffi.wcharpsize2unicode(py_uni.c_str, py_uni.c_size)
     w_obj = space.wrap(s)
+    py_uni.c_hash = space.hash_w(w_obj)
     track_reference(space, py_obj, w_obj)
     return w_obj
 
-@cpython_api([PyObject], lltype.Void, external=False)
+@cpython_api([PyObject], lltype.Void, header=None)
 def unicode_dealloc(space, py_obj):
     py_unicode = rffi.cast(PyUnicodeObject, py_obj)
-    if py_unicode.c_buffer:
-        lltype.free(py_unicode.c_buffer, flavor="raw")
+    if py_unicode.c_str:
+        lltype.free(py_unicode.c_str, flavor="raw")
     from pypy.module.cpyext.object import PyObject_dealloc
+    if py_unicode.c_defenc:
+        PyObject_dealloc(space, py_unicode.c_defenc)
     PyObject_dealloc(space, py_obj)
 
 @cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
@@ -204,12 +213,12 @@ def PyUnicode_AS_UNICODE(space, ref):
     """Return a pointer to the internal Py_UNICODE buffer of the object.  ref
     has to be a PyUnicodeObject (not checked)."""
     ref_unicode = rffi.cast(PyUnicodeObject, ref)
-    if not ref_unicode.c_buffer:
+    if not ref_unicode.c_str:
         # Copy unicode buffer
         w_unicode = from_ref(space, ref)
         u = space.unicode_w(w_unicode)
-        ref_unicode.c_buffer = rffi.unicode2wcharp(u)
-    return ref_unicode.c_buffer
+        ref_unicode.c_str = rffi.unicode2wcharp(u)
+    return ref_unicode.c_str
 
 @cpython_api([PyObject], rffi.CWCHARP)
 def PyUnicode_AsUnicode(space, ref):
@@ -240,7 +249,7 @@ def PyUnicode_AsWideChar(space, ref, buf, size):
     string may or may not be 0-terminated.  It is the responsibility of the caller
     to make sure that the wchar_t string is 0-terminated in case this is
     required by the application."""
-    c_buffer = PyUnicode_AS_UNICODE(space, rffi.cast(PyObject, ref))
+    c_str = PyUnicode_AS_UNICODE(space, rffi.cast(PyObject, ref))
     c_size = ref.c_size
 
     # If possible, try to copy the 0-termination as well
@@ -250,7 +259,7 @@ def PyUnicode_AsWideChar(space, ref, buf, size):
 
     i = 0
     while i < size:
-        buf[i] = c_buffer[i]
+        buf[i] = c_str[i]
         i += 1
 
     if size > c_size:
@@ -342,8 +351,15 @@ def PyUnicode_FromWideChar(space, wchar_p, length):
     return PyUnicode_FromUnicode(space, wchar_p, length)
 
 @cpython_api([PyObject, CONST_STRING], PyObject)
-def _PyUnicode_AsDefaultEncodedString(space, w_unicode, errors):
-    return PyUnicode_AsEncodedString(space, w_unicode, lltype.nullptr(rffi.CCHARP.TO), errors)
+def _PyUnicode_AsDefaultEncodedString(space, ref, errors):
+    # Returns a borrowed reference.
+    py_uni = rffi.cast(PyUnicodeObject, ref)
+    if not py_uni.c_defenc:
+        py_uni.c_defenc = make_ref(
+            space, PyUnicode_AsEncodedString(
+                space, ref,
+                lltype.nullptr(rffi.CCHARP.TO), errors))
+    return py_uni.c_defenc
 
 @cpython_api([CONST_STRING, Py_ssize_t, CONST_STRING, CONST_STRING], PyObject)
 def PyUnicode_Decode(space, s, size, encoding, errors):
@@ -360,7 +376,7 @@ def PyUnicode_Decode(space, s, size, encoding, errors):
     if errors:
         w_errors = space.wrap(rffi.charp2str(errors))
     else:
-        w_errors = space.w_None
+        w_errors = None
     return space.call_method(w_str, 'decode', w_encoding, w_errors)
 
 @cpython_api([PyObject], PyObject)
@@ -391,7 +407,7 @@ def PyUnicode_FromEncodedObject(space, w_obj, encoding, errors):
     if errors:
         w_errors = space.wrap(rffi.charp2str(errors))
     else:
-        w_errors = space.w_None
+        w_errors = None
 
     # - unicode is disallowed
     # - raise TypeError for non-string types
@@ -443,7 +459,7 @@ def PyUnicode_FromOrdinal(space, ordinal):
 def PyUnicode_Resize(space, ref, newsize):
     # XXX always create a new string so far
     py_uni = rffi.cast(PyUnicodeObject, ref[0])
-    if not py_uni.c_buffer:
+    if not py_uni.c_str:
         raise OperationError(space.w_SystemError, space.wrap(
             "PyUnicode_Resize called on already created string"))
     try:
@@ -457,7 +473,7 @@ def PyUnicode_Resize(space, ref, newsize):
     if oldsize < newsize:
         to_cp = oldsize
     for i in range(to_cp):
-        py_newuni.c_buffer[i] = py_uni.c_buffer[i]
+        py_newuni.c_str[i] = py_uni.c_str[i]
     Py_DecRef(space, ref[0])
     ref[0] = rffi.cast(PyObject, py_newuni)
     return 0
@@ -484,7 +500,7 @@ def make_conversion_functions(suffix, encoding):
         if errors:
             w_errors = space.wrap(rffi.charp2str(errors))
         else:
-            w_errors = space.w_None
+            w_errors = None
         return space.call_method(w_s, 'decode', space.wrap(encoding), w_errors)
     globals()['PyUnicode_Decode%s' % suffix] = PyUnicode_DecodeXXX
 
@@ -498,7 +514,7 @@ def make_conversion_functions(suffix, encoding):
         if errors:
             w_errors = space.wrap(rffi.charp2str(errors))
         else:
-            w_errors = space.w_None
+            w_errors = None
         return space.call_method(w_u, 'encode', space.wrap(encoding), w_errors)
     globals()['PyUnicode_Encode%s' % suffix] = PyUnicode_EncodeXXX
 

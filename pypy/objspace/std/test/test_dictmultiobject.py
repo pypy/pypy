@@ -2,14 +2,14 @@ import sys
 import py
 
 from pypy.objspace.std.dictmultiobject import (W_DictMultiObject,
-    BytesDictStrategy, ObjectDictStrategy)
+    W_DictObject, BytesDictStrategy, ObjectDictStrategy)
 
 
 class TestW_DictObject(object):
     def test_empty(self):
         d = self.space.newdict()
         assert not self.space.is_true(d)
-        assert type(d.strategy) is not ObjectDictStrategy
+        assert type(d.get_strategy()) is not ObjectDictStrategy
 
     def test_nonempty(self):
         space = self.space
@@ -1050,7 +1050,7 @@ class FakeSpace:
         return l
     def newlist_bytes(self, l):
         return l
-    DictObjectCls = W_DictMultiObject
+    DictObjectCls = W_DictObject
     def type(self, w_obj):
         if isinstance(w_obj, FakeString):
             return str
@@ -1076,7 +1076,7 @@ class FakeSpace:
         return tuple(l)
 
     def newdict(self, module=False, instance=False):
-        return W_DictMultiObject.allocate_and_init_instance(
+        return W_DictObject.allocate_and_init_instance(
                 self, module=module, instance=instance)
 
     def view_as_kwargs(self, w_d):
@@ -1105,7 +1105,7 @@ class FakeSpace:
     w_float = float
     StringObjectCls = FakeString
     UnicodeObjectCls = FakeUnicode
-    w_dict = W_DictMultiObject
+    w_dict = W_DictObject
     iter = iter
     fixedview = list
     listview  = list
@@ -1149,8 +1149,8 @@ class BaseTestRDictImplementation:
     def get_impl(self):
         strategy = self.StrategyClass(self.fakespace)
         storage = strategy.get_empty_storage()
-        w_dict = self.fakespace.allocate_instance(W_DictMultiObject, None)
-        W_DictMultiObject.__init__(w_dict, self.fakespace, strategy, storage)
+        w_dict = self.fakespace.allocate_instance(W_DictObject, None)
+        W_DictObject.__init__(w_dict, self.fakespace, strategy, storage)
         return w_dict
 
     def fill_impl(self):
@@ -1159,7 +1159,7 @@ class BaseTestRDictImplementation:
 
     def check_not_devolved(self):
         #XXX check if strategy changed!?
-        assert type(self.impl.strategy) is self.StrategyClass
+        assert type(self.impl.get_strategy()) is self.StrategyClass
         #assert self.impl.r_dict_content is None
 
     def test_popitem(self):
@@ -1246,7 +1246,10 @@ class BaseTestRDictImplementation:
         for x in xrange(100):
             impl.setitem(self.fakespace.str_w(str(x)), x)
             impl.setitem(x, x)
-        assert type(impl.strategy) is ObjectDictStrategy
+        assert type(impl.get_strategy()) is ObjectDictStrategy
+
+
+    setdefault_hash_count = 1
 
     def test_setdefault_fast(self):
         on_pypy = "__pypy__" in sys.builtin_module_names
@@ -1255,11 +1258,11 @@ class BaseTestRDictImplementation:
         x = impl.setdefault(key, 1)
         assert x == 1
         if on_pypy:
-            assert key.hash_count == 1
+            assert key.hash_count == self.setdefault_hash_count
         x = impl.setdefault(key, 2)
         assert x == 1
         if on_pypy:
-            assert key.hash_count == 2
+            assert key.hash_count == self.setdefault_hash_count + 1
 
     def test_fallback_evil_key(self):
         class F(object):
@@ -1308,7 +1311,7 @@ class TestBytesDictImplementation(BaseTestRDictImplementation):
 class BaseTestDevolvedDictImplementation(BaseTestRDictImplementation):
     def fill_impl(self):
         BaseTestRDictImplementation.fill_impl(self)
-        self.impl.strategy.switch_to_object_strategy(self.impl)
+        self.impl.get_strategy().switch_to_object_strategy(self.impl)
 
     def check_not_devolved(self):
         pass
@@ -1320,5 +1323,5 @@ class TestDevolvedBytesDictImplementation(BaseTestDevolvedDictImplementation):
 def test_module_uses_strdict():
     fakespace = FakeSpace()
     d = fakespace.newdict(module=True)
-    assert type(d.strategy) is BytesDictStrategy
+    assert type(d.get_strategy()) is BytesDictStrategy
 

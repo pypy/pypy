@@ -28,13 +28,13 @@ class TestBuffers(BaseTestPyPyC):
 
     def test_struct_unpack(self):
         def main(n):
-            import struct
+            import _struct as struct
             import array
             a = array.array('c', struct.pack('i', 42))
             i = 0
             while i < n:
                 i += 1
-                struct.unpack('i', a)  # ID: unpack
+                struct.unpack('<i', a)  # ID: unpack
             return i
         log = self.run(main, [1000])
         assert log.result == 1000

@@ -317,18 +317,6 @@ def cartesian_product(lstlst):
             yield (value,) + tuple_tail
 
 
-def make_constgraphbuilder(n, v=None, factory=None, srcmodule=None):
-    def constgraphbuilder(translator, ignore):
-        args = ','.join(["arg%d" % i for i in range(n)])
-        if factory is not None:
-            computed_v = factory()
-        else:
-            computed_v = v
-        miniglobals = {'v': computed_v, '__name__': srcmodule}
-        exec py.code.Source("constf = lambda %s: v" % args).compile() in miniglobals
-        return translator.buildflowgraph(miniglobals['constf'])
-    return constgraphbuilder
-
 def maybe_star_args(funcdesc, key, args_s):
     args_s, key1, builder = flatten_star_args(funcdesc, args_s)
     if key1 is not None:
@@ -364,12 +352,6 @@ def specialize_arg_or_var(funcdesc, args_s, *argindices):
 
 def specialize_argtype(funcdesc, args_s, *argindices):
     key = tuple([args_s[i].knowntype for i in argindices])
-    for cls in key:
-        try:
-            assert '_must_specialize_' not in cls.classdesc.pyobj.__dict__, (
-                "%s has the tag _must_specialize_" % (cls,))
-        except AttributeError:
-            pass
     return maybe_star_args(funcdesc, key, args_s)
 
 def specialize_arglistitemtype(funcdesc, args_s, i):

@@ -12,8 +12,6 @@ from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.llinterp import LLInterpreter
 from rpython.conftest import option
 
-import py
-log = py.log.Producer('test_backendoptimization')
 
 def get_graph(fn, signature, all_opts=True):
     t = TranslationContext()

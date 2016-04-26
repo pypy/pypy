@@ -2,7 +2,7 @@
 import py
 import platform
 import sys, ctypes
-from cffi import FFI, CDefError, FFIError
+from cffi import FFI, CDefError, FFIError, VerificationMissing
 from pypy.module.test_lib_pypy.cffi_tests.support import *
 
 SIZE_OF_INT   = ctypes.sizeof(ctypes.c_int)
@@ -757,10 +757,11 @@ class BackendTests:
         p = ffi.cast("long long", ffi.cast("wchar_t", -1))
         if SIZE_OF_WCHAR == 2:      # 2 bytes, unsigned
             assert int(p) == 0xffff
-        elif platform.machine() == 'aarch64': # 4 bytes, unsigned
-            assert int(p) == 0xffffffff
-        else:                       # 4 bytes, signed
+        elif (sys.platform.startswith('linux') and
+              platform.machine().startswith('x86')):   # known to be signed
             assert int(p) == -1
+        else:                     # in general, it can be either signed or not
+            assert int(p) in [-1, 0xffffffff]  # e.g. on arm, both cases occur
         p = ffi.cast("int", u+'\u1234')
         assert int(p) == 0x1234
 
@@ -926,6 +927,14 @@ class BackendTests:
         assert ffi.string(ffi.cast("enum foo", 8)) == "D"
         assert ffi.string(ffi.cast("enum foo", -16)) == "E"
         assert ffi.string(ffi.cast("enum foo", -8)) == "F"
+
+    def test_enum_partial(self):
+        ffi = FFI(backend=self.Backend())
+        ffi.cdef(r"enum foo {A, ...}; enum bar { B, C };")
+        lib = ffi.dlopen(None)
+        assert lib.B == 0
+        py.test.raises(VerificationMissing, getattr, lib, "A")
+        assert lib.C == 1
 
     def test_array_of_struct(self):
         ffi = FFI(backend=self.Backend())
@@ -1327,7 +1336,8 @@ class BackendTests:
         # these depend on user-defined data, so should not be shared
         assert ffi1.typeof("struct foo") is not ffi2.typeof("struct foo")
         assert ffi1.typeof("union foo *") is not ffi2.typeof("union foo*")
-        assert ffi1.typeof("enum foo") is not ffi2.typeof("enum foo")
+        # the following test is an opaque enum, which we no longer support
+        #assert ffi1.typeof("enum foo") is not ffi2.typeof("enum foo")
         # sanity check: twice 'ffi1'
         assert ffi1.typeof("struct foo*") is ffi1.typeof("struct foo *")
 
@@ -1338,6 +1348,17 @@ class BackendTests:
         assert ffi.getctype("e*") == 'e *'
         assert ffi.getctype("pe") == 'e *'
         assert ffi.getctype("e1*") == 'e1 *'
+
+    def test_opaque_enum(self):
+        ffi = FFI(backend=self.Backend())
+        ffi.cdef("enum foo;")
+        from cffi import __version_info__
+        if __version_info__ < (1, 7):
+            py.test.skip("re-enable me in version 1.7")
+        e = py.test.raises(CDefError, ffi.cast, "enum foo", -1)
+        assert str(e.value) == (
+            "'enum foo' has no values explicitly defined: refusing to guess "
+            "which integer type it is meant to be (unsigned/signed, int/long)")
 
     def test_new_ctype(self):
         ffi = FFI(backend=self.Backend())
@@ -1789,3 +1810,45 @@ class BackendTests:
         assert lib.EE1 == 0
         assert lib.EE2 == 0
         assert lib.EE3 == 1
+
+    def test_init_once(self):
+        def do_init():
+            seen.append(1)
+            return 42
+        ffi = FFI()
+        seen = []
+        for i in range(3):
+            res = ffi.init_once(do_init, "tag1")
+            assert res == 42
+            assert seen == [1]
+        for i in range(3):
+            res = ffi.init_once(do_init, "tag2")
+            assert res == 42
+            assert seen == [1, 1]
+
+    def test_init_once_multithread(self):
+        import sys, time
+        if sys.version_info < (3,):
+            import thread
+        else:
+            import _thread as thread
+        #
+        def do_init():
+            seen.append('init!')
+            time.sleep(1)
+            seen.append('init done')
+            return 7
+        ffi = FFI()
+        seen = []
+        for i in range(6):
+            def f():
+                res = ffi.init_once(do_init, "tag")
+                seen.append(res)
+            thread.start_new_thread(f, ())
+        time.sleep(1.5)
+        assert seen == ['init!', 'init done'] + 6 * [7]
+
+    def test_sizeof_struct_directly(self):
+        # only works with the Python FFI instances
+        ffi = FFI(backend=self.Backend())
+        assert ffi.sizeof("struct{int a;}") == ffi.sizeof("int")

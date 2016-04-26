@@ -58,12 +58,15 @@ class AppFrame(py.code.Frame):
         self.w_locals = space.getattr(pyframe, space.wrap('f_locals'))
         self.f_locals = self.w_locals   # for py.test's recursion detection
 
+    def get_w_globals(self):
+        return self.w_globals
+
     def eval(self, code, **vars):
         space = self.space
         for key, w_value in vars.items():
             space.setitem(self.w_locals, space.wrap(key), w_value)
         if isinstance(code, str):
-            return space.eval(code, self.w_globals, self.w_locals)
+            return space.eval(code, self.get_w_globals(), self.w_locals)
         pyc = pycode.PyCode._from_code(space, code)
         return pyc.exec_host_bytecode(self.w_globals, self.w_locals)
     exec_ = eval
@@ -248,7 +251,7 @@ def pypyraises(space, w_ExpectedException, w_expr, __args__):
         #if filename.endswith("pyc"):
         #    filename = filename[:-1]
         try:
-            space.exec_(str(source), frame.w_globals, w_locals,
+            space.exec_(str(source), frame.get_w_globals(), w_locals,
                         filename=filename)
         except OperationError, e:
             if e.match(space, w_ExpectedException):

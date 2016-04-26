@@ -4,7 +4,7 @@
 from rpython.rlib import jit
 from rpython.rlib.debug import make_sure_not_resized, check_nonneg
 from rpython.rlib.jit import hint
-from rpython.rlib.objectmodel import we_are_translated, instantiate
+from rpython.rlib.objectmodel import instantiate, specialize, we_are_translated
 from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.tool.pairtype import extendabletype
 
@@ -12,7 +12,8 @@ from pypy.interpreter import pycode, pytraceback
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.astcompiler import consts
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import (
+    OperationError, get_cleared_operation_error, oefmt)
 from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.nestedscope import Cell
 from pypy.tool import stdlib_opcode
@@ -36,6 +37,7 @@ class FrameDebugData(object):
 
     def __init__(self, pycode):
         self.f_lineno = pycode.co_firstlineno
+        self.w_globals = pycode.w_globals
 
 class PyFrame(W_Root):
     """Represents a frame for a regular Python function
@@ -67,7 +69,6 @@ class PyFrame(W_Root):
     escaped                  = False  # see mark_as_escaped()
     debugdata                = None
 
-    w_globals = None
     pycode = None # code object executed by that frame
     locals_cells_stack_w = None # the list of all locals, cells and the valuestack
     valuestackdepth = 0 # number of items on valuestack
@@ -90,8 +91,9 @@ class PyFrame(W_Root):
         self = hint(self, access_directly=True, fresh_virtualizable=True)
         assert isinstance(code, pycode.PyCode)
         self.space = space
-        self.w_globals = w_globals
         self.pycode = code
+        if code.frame_stores_global(w_globals):
+            self.getorcreatedebug().w_globals = w_globals
         ncellvars = len(code.co_cellvars)
         nfreevars = len(code.co_freevars)
         size = code.co_nlocals + ncellvars + nfreevars + code.co_stacksize
@@ -115,6 +117,12 @@ class PyFrame(W_Root):
         if self.debugdata is None:
             self.debugdata = FrameDebugData(self.pycode)
         return self.debugdata
+
+    def get_w_globals(self):
+        debugdata = self.getdebug()
+        if debugdata is not None:
+            return debugdata.w_globals
+        return jit.promote(self.pycode).w_globals
 
     def get_w_f_trace(self):
         d = self.getdebug()
@@ -201,8 +209,9 @@ class PyFrame(W_Root):
             if flags & pycode.CO_NEWLOCALS:
                 self.getorcreatedebug().w_locals = self.space.newdict(module=True)
             else:
-                assert self.w_globals is not None
-                self.getorcreatedebug().w_locals = self.w_globals
+                w_globals = self.get_w_globals()
+                assert w_globals is not None
+                self.getorcreatedebug().w_locals = w_globals
 
         ncellvars = len(code.co_cellvars)
         nfreevars = len(code.co_freevars)
@@ -449,7 +458,7 @@ class PyFrame(W_Root):
             w_blockstack,
             w_exc_value, # last_exception
             w_tb,        #
-            self.w_globals,
+            self.get_w_globals(),
             w(self.last_instr),
             w(self.frame_finished_execution),
             w(f_lineno),
@@ -658,6 +667,11 @@ class PyFrame(W_Root):
     def fget_getdictscope(self, space):
         return self.getdictscope()
 
+    def fget_w_globals(self, space):
+        # bit silly, but GetSetProperty passes a space
+        return self.get_w_globals()
+
+
     ### line numbers ###
 
     def fget_f_lineno(self, space):
@@ -857,6 +871,22 @@ class PyFrame(W_Root):
             return space.wrap(self.builtin is not space.builtin)
         return space.w_False
 
+    @jit.unroll_safe
+    @specialize.arg(2)
+    def _exc_info_unroll(self, space, for_hidden=False):
+        """Return the most recent OperationError being handled in the
+        call stack
+        """
+        frame = self
+        while frame:
+            last = frame.last_exception
+            if last is not None:
+                if last is get_cleared_operation_error(self.space):
+                    break
+                if for_hidden or not frame.hide():
+                    return last
+            frame = frame.f_backref()
+        return None
 
 # ____________________________________________________________
 

@@ -17,12 +17,15 @@ from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong, intmask
 #
 # Helpers for simple cases
 
-def eci_from_header(c_header_source, include_dirs=None):
+def eci_from_header(c_header_source, include_dirs=None, libraries=None):
     if include_dirs is None:
         include_dirs = []
+    if libraries is None:
+        libraries = []
     return ExternalCompilationInfo(
         post_include_bits=[c_header_source],
-        include_dirs=include_dirs
+        include_dirs=include_dirs,
+        libraries=libraries,
     )
 
 def getstruct(name, c_header_source, interesting_fields):
@@ -75,9 +78,10 @@ def getintegerfunctionresult(function, args=None, c_header_source='', includes=[
         CConfig._compilation_info_.includes = includes
     return configure(CConfig)['RESULT']
 
-def has(name, c_header_source, include_dirs=None):
+def has(name, c_header_source, include_dirs=None, libraries=None):
     class CConfig:
-        _compilation_info_ = eci_from_header(c_header_source, include_dirs)
+        _compilation_info_ = \
+            eci_from_header(c_header_source, include_dirs, libraries)
         HAS = Has(name)
     return configure(CConfig)['HAS']
 
@@ -259,10 +263,11 @@ class Struct(CConfigEntry):
     """An entry in a CConfig class that stands for an externally
     defined structure.
     """
-    def __init__(self, name, interesting_fields, ifdef=None):
+    def __init__(self, name, interesting_fields, ifdef=None, adtmeths={}):
         self.name = name
         self.interesting_fields = interesting_fields
         self.ifdef = ifdef
+        self.adtmeths = adtmeths
 
     def prepare_code(self):
         if self.ifdef is not None:
@@ -309,7 +314,9 @@ class Struct(CConfigEntry):
                 offset = info['fldofs '  + fieldname]
                 size   = info['fldsize ' + fieldname]
                 sign   = info.get('fldunsigned ' + fieldname, False)
-                if (size, sign) != rffi.size_and_sign(fieldtype):
+                if is_array_nolength(fieldtype):
+                    pass       # ignore size and sign
+                elif (size, sign) != rffi.size_and_sign(fieldtype):
                     fieldtype = fixup_ctype(fieldtype, fieldname, (size, sign))
                 layout_addfield(layout, offset, fieldtype, fieldname)
 
@@ -349,7 +356,7 @@ class Struct(CConfigEntry):
             name = name[7:]
         else:
             hints['typedef'] = True
-        kwds = {'hints': hints}
+        kwds = {'hints': hints, 'adtmeths': self.adtmeths}
         return rffi.CStruct(name, *fields, **kwds)
 
 class SimpleType(CConfigEntry):
@@ -678,8 +685,14 @@ class Field(object):
     def __repr__(self):
         return '<field %s: %s>' % (self.name, self.ctype)
 
+def is_array_nolength(TYPE):
+    return isinstance(TYPE, lltype.Array) and TYPE._hints.get('nolength', False)
+
 def layout_addfield(layout, offset, ctype, prefix):
-    size = _sizeof(ctype)
+    if is_array_nolength(ctype):
+        size = len(layout) - offset    # all the rest of the struct
+    else:
+        size = _sizeof(ctype)
     name = prefix
     i = 0
     while name in layout:

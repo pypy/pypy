@@ -11,7 +11,8 @@ from pypy.module._cffi_backend import cdataobj
 
 
 class W_CType(W_Root):
-    _attrs_ = ['space', 'size',  'name', 'name_position', '_lifeline_']
+    _attrs_ = ['space', 'size',  'name', 'name_position', '_lifeline_',
+               '_pointer_type']
     _immutable_fields_ = ['size?', 'name', 'name_position']
     # note that 'size' is not strictly immutable, because it can change
     # from -1 to the real value in the W_CTypeStruct subclass.
@@ -20,6 +21,8 @@ class W_CType(W_Root):
 
     cast_anything = False
     is_primitive_integer = False
+    is_nonfunc_pointer_or_array = False
+    is_indirect_arg_for_call_python = False
     kind = "?"
 
     def __init__(self, space, size, name, name_position):
@@ -46,10 +49,10 @@ class W_CType(W_Root):
     def is_unichar_ptr_or_array(self):
         return False
 
-    def unpack_list_of_int_items(self, cdata):
+    def unpack_list_of_int_items(self, ptr, length):
         return None
 
-    def unpack_list_of_float_items(self, cdata):
+    def unpack_list_of_float_items(self, ptr, length):
         return None
 
     def pack_list_of_items(self, cdata, w_ob):
@@ -124,6 +127,21 @@ class W_CType(W_Root):
         raise oefmt(space.w_TypeError,
                     "string(): unexpected cdata '%s' argument", self.name)
 
+    def unpack_ptr(self, w_ctypeptr, ptr, length):
+        # generic implementation, when the type of items is not known to
+        # be one for which a fast-case exists
+        space = self.space
+        itemsize = self.size
+        if itemsize < 0:
+            raise oefmt(space.w_ValueError,
+                        "'%s' points to items of unknown size",
+                        w_ctypeptr.name)
+        result_w = [None] * length
+        for i in range(length):
+            result_w[i] = self.convert_to_object(ptr)
+            ptr = rffi.ptradd(ptr, itemsize)
+        return space.newlist(result_w)
+
     def add(self, cdata, i):
         space = self.space
         raise oefmt(space.w_TypeError, "cannot add a cdata '%s' and a number",
@@ -142,7 +160,7 @@ class W_CType(W_Root):
             # obscure hack when untranslated, maybe, approximate, don't use
             if isinstance(align, llmemory.FieldOffset):
                 align = rffi.sizeof(align.TYPE.y)
-                if (1 << (8*align-2)) > sys.maxint:
+                if sys.platform != 'win32' and (1 << (8*align-2)) > sys.maxint:
                     align /= 2
         else:
             # a different hack when translated, to avoid seeing constants

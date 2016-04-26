@@ -10,10 +10,6 @@ from rpython.jit.backend.x86 import regloc
 
 import sys
 
-from rpython.tool.ansi_print import ansi_log
-log = py.log.Producer('jitbackend')
-py.log.setconsumer('jitbackend', ansi_log)
-
 
 class AbstractX86CPU(AbstractLLCPU):
     debug = True
@@ -23,6 +19,9 @@ class AbstractX86CPU(AbstractLLCPU):
     dont_keepalive_stuff = False # for tests
     with_threads = False
     frame_reg = regloc.ebp
+
+    # can an ISA instruction handle a factor to the offset?
+    load_supported_factors = (1,2,4,8)
 
     from rpython.jit.backend.x86.arch import JITFRAME_FIXED_SIZE
     all_reg_indexes = gpr_reg_mgr_cls.all_reg_indexes
@@ -148,5 +147,10 @@ class CPU_X86_64(AbstractX86CPU):
 
     IS_64_BIT = True
     HAS_CODEMAP = True
+
+class CPU_X86_64_SSE4(CPU_X86_64):
+    vector_extension = True
+    vector_register_size = 16
+    vector_horizontal_operations = True
 
 CPU = CPU386

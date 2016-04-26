@@ -29,7 +29,11 @@ class OptVirtualize(optimizer.Optimization):
             const = self.new_const_item(arraydescr)
             opinfo = info.ArrayPtrInfo(arraydescr, const, size, clear,
                                        is_virtual=True)
-        newop = self.replace_op_with(source_op, source_op.getopnum())
+        # Replace 'source_op' with a version in which the length is
+        # given as directly a Const, without relying on forwarding.
+        # See test_virtual_array_length_discovered_constant_2.
+        newop = self.replace_op_with(source_op, source_op.getopnum(),
+                                     args=[ConstInt(size)])
         newop.set_forwarded(opinfo)
         return opinfo
 
@@ -42,13 +46,15 @@ class OptVirtualize(optimizer.Optimization):
 
     def make_virtual_raw_memory(self, size, source_op):
         opinfo = info.RawBufferPtrInfo(self.optimizer.cpu, size)
-        newop = self.replace_op_with(source_op, source_op.getopnum())
+        newop = self.replace_op_with(source_op, source_op.getopnum(),
+                                     args=[source_op.getarg(0), ConstInt(size)])
         newop.set_forwarded(opinfo)
         return opinfo
 
     def make_virtual_raw_slice(self, offset, parent, source_op):
         opinfo = info.RawSlicePtrInfo(offset, parent)
-        newop = self.replace_op_with(source_op, source_op.getopnum())
+        newop = self.replace_op_with(source_op, source_op.getopnum(),
+                                   args=[source_op.getarg(0), ConstInt(offset)])
         newop.set_forwarded(opinfo)
         return opinfo
 
@@ -182,12 +188,6 @@ class OptVirtualize(optimizer.Optimization):
     optimize_GETFIELD_GC_R = optimize_GETFIELD_GC_I
     optimize_GETFIELD_GC_F = optimize_GETFIELD_GC_I
 
-    # note: the following line does not mean that the two operations are
-    # completely equivalent, because GETFIELD_GC_PURE is_always_pure().
-    optimize_GETFIELD_GC_PURE_I = optimize_GETFIELD_GC_I
-    optimize_GETFIELD_GC_PURE_R = optimize_GETFIELD_GC_I
-    optimize_GETFIELD_GC_PURE_F = optimize_GETFIELD_GC_I
-
     def optimize_SETFIELD_GC(self, op):
         struct = op.getarg(0)
         opinfo = self.getptrinfo(struct)
@@ -256,12 +256,9 @@ class OptVirtualize(optimizer.Optimization):
             offset = offsetbox.getint()
             # the following check is constant-folded to False if the
             # translation occurs without any VRawXxxValue instance around
-            if isinstance(opinfo, info.RawBufferPtrInfo):
+            if (isinstance(opinfo, info.RawBufferPtrInfo) or
+                isinstance(opinfo, info.RawSlicePtrInfo)):
                 self.make_virtual_raw_slice(offset, opinfo, op)
-                return
-            elif isinstance(opinfo, info.RawSlicePtrInfo):
-                offset = offset + opinfo.offset
-                self.make_virtual_raw_slice(offset, opinfo.parent, op)
                 return
         self.emit_operation(op)
 

@@ -7,6 +7,7 @@ import sys
 from rpython.rlib.rarithmetic import r_uint, r_ulonglong, intmask
 from rpython.rlib import jit
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper.tool import rfficache
 
 from pypy.interpreter.error import oefmt
 from pypy.module._cffi_backend import cdataobj, misc
@@ -86,6 +87,13 @@ class W_CTypePrimitive(W_CType):
             return self.space.wrap(s)
         return W_CType.string(self, cdataobj, maxlen)
 
+    def unpack_ptr(self, w_ctypeptr, ptr, length):
+        result = self.unpack_list_of_int_items(ptr, length)
+        if result is not None:
+            return self.space.newlist_int(result)
+        return W_CType.unpack_ptr(self, w_ctypeptr, ptr, length)
+
+
 class W_CTypePrimitiveCharOrUniChar(W_CTypePrimitive):
     _attrs_ = []
     is_primitive_integer = True
@@ -124,13 +132,30 @@ class W_CTypePrimitiveChar(W_CTypePrimitiveCharOrUniChar):
         value = self._convert_to_char(w_ob)
         cdata[0] = value
 
+    def unpack_ptr(self, w_ctypeptr, ptr, length):
+        s = rffi.charpsize2str(ptr, length)
+        return self.space.wrapbytes(s)
+
+
+# XXX explicitly use an integer type instead of lltype.UniChar here,
+# because for now the latter is defined as unsigned by RPython (even
+# though it may be signed when 'wchar_t' is written to C).
+WCHAR_INT = {(2, False): rffi.USHORT,
+             (4, False): rffi.UINT,
+             (4, True): rffi.INT}[rffi.sizeof(lltype.UniChar),
+                                  rfficache.signof_c_type('wchar_t')]
+WCHAR_INTP = rffi.CArrayPtr(WCHAR_INT)
 
 class W_CTypePrimitiveUniChar(W_CTypePrimitiveCharOrUniChar):
     _attrs_ = []
 
+    if rffi.r_wchar_t.SIGN:
+        def write_raw_integer_data(self, w_cdata, value):
+            w_cdata.write_raw_signed_data(value)
+
     def cast_to_int(self, cdata):
-        unichardata = rffi.cast(rffi.CWCHARP, cdata)
-        return self.space.wrap(ord(unichardata[0]))
+        unichardata = rffi.cast(WCHAR_INTP, cdata)
+        return self.space.wrap(unichardata[0])
 
     def convert_to_object(self, cdata):
         unichardata = rffi.cast(rffi.CWCHARP, cdata)
@@ -156,6 +181,10 @@ class W_CTypePrimitiveUniChar(W_CTypePrimitiveCharOrUniChar):
     def convert_from_object(self, cdata, w_ob):
         value = self._convert_to_unichar(w_ob)
         rffi.cast(rffi.CWCHARP, cdata)[0] = value
+
+    def unpack_ptr(self, w_ctypeptr, ptr, length):
+        u = rffi.wcharpsize2unicode(rffi.cast(rffi.CWCHARP, ptr), length)
+        return self.space.wrap(u)
 
 
 class W_CTypePrimitiveSigned(W_CTypePrimitive):
@@ -207,19 +236,16 @@ class W_CTypePrimitiveSigned(W_CTypePrimitive):
     def write_raw_integer_data(self, w_cdata, value):
         w_cdata.write_raw_signed_data(value)
 
-    def unpack_list_of_int_items(self, w_cdata):
+    def unpack_list_of_int_items(self, ptr, length):
         if self.size == rffi.sizeof(rffi.LONG):
             from rpython.rlib.rrawarray import populate_list_from_raw_array
             res = []
-            length = w_cdata.get_array_length()
-            with w_cdata as ptr:
-                buf = rffi.cast(rffi.LONGP, ptr)
-                populate_list_from_raw_array(res, buf, length)
+            buf = rffi.cast(rffi.LONGP, ptr)
+            populate_list_from_raw_array(res, buf, length)
             return res
         elif self.value_smaller_than_long:
-            res = [0] * w_cdata.get_array_length()
-            with w_cdata as ptr:
-                misc.unpack_list_from_raw_array(res, ptr, self.size)
+            res = [0] * length
+            misc.unpack_list_from_raw_array(res, ptr, self.size)
             return res
         return None
 
@@ -299,11 +325,10 @@ class W_CTypePrimitiveUnsigned(W_CTypePrimitive):
     def write_raw_integer_data(self, w_cdata, value):
         w_cdata.write_raw_unsigned_data(value)
 
-    def unpack_list_of_int_items(self, w_cdata):
+    def unpack_list_of_int_items(self, ptr, length):
         if self.value_fits_long:
-            res = [0] * w_cdata.get_array_length()
-            with w_cdata as ptr:
-                misc.unpack_unsigned_list_from_raw_array(res, ptr, self.size)
+            res = [0] * length
+            misc.unpack_unsigned_list_from_raw_array(res, ptr, self.size)
             return res
         return None
 
@@ -377,19 +402,16 @@ class W_CTypePrimitiveFloat(W_CTypePrimitive):
         value = space.float_w(space.float(w_ob))
         misc.write_raw_float_data(cdata, value, self.size)
 
-    def unpack_list_of_float_items(self, w_cdata):
+    def unpack_list_of_float_items(self, ptr, length):
         if self.size == rffi.sizeof(rffi.DOUBLE):
             from rpython.rlib.rrawarray import populate_list_from_raw_array
             res = []
-            length = w_cdata.get_array_length()
-            with w_cdata as ptr:
-                buf = rffi.cast(rffi.DOUBLEP, ptr)
-                populate_list_from_raw_array(res, buf, length)
+            buf = rffi.cast(rffi.DOUBLEP, ptr)
+            populate_list_from_raw_array(res, buf, length)
             return res
         elif self.size == rffi.sizeof(rffi.FLOAT):
-            res = [0.0] * w_cdata.get_array_length()
-            with w_cdata as ptr:
-                misc.unpack_cfloat_list_from_raw_array(res, ptr)
+            res = [0.0] * length
+            misc.unpack_cfloat_list_from_raw_array(res, ptr)
             return res
         return None
 
@@ -407,9 +429,16 @@ class W_CTypePrimitiveFloat(W_CTypePrimitive):
                 return True
         return W_CTypePrimitive.pack_list_of_items(self, cdata, w_ob)
 
+    def unpack_ptr(self, w_ctypeptr, ptr, length):
+        result = self.unpack_list_of_float_items(ptr, length)
+        if result is not None:
+            return self.space.newlist_float(result)
+        return W_CType.unpack_ptr(self, w_ctypeptr, ptr, length)
+
 
 class W_CTypePrimitiveLongDouble(W_CTypePrimitiveFloat):
     _attrs_ = []
+    is_indirect_arg_for_call_python = True
 
     @jit.dont_look_inside
     def extra_repr(self, cdata):

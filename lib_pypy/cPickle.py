@@ -167,7 +167,11 @@ class Unpickler(object):
         try:
             key = ord(self.read(1))
             while key != STOP:
-                self.dispatch[key](self)
+                try:
+                    meth = self.dispatch[key]
+                except KeyError:
+                    raise UnpicklingError("invalid load key, %r." % chr(key))
+                meth(self)
                 key = ord(self.read(1))
         except TypeError:
             if self.read(1) == '':
@@ -559,6 +563,7 @@ class Unpickler(object):
 
 def decode_long(data):
     r"""Decode a long from a two's complement little-endian binary string.
+    This is overriden on PyPy by a RPython version that has linear complexity.
 
     >>> decode_long('')
     0L
@@ -591,6 +596,11 @@ def decode_long(data):
     if ord(data[nbytes - 1]) >= 128:
         n -= 1L << (nbytes << 3)
     return n
+
+try:
+    from __pypy__ import decode_long
+except ImportError:
+    pass
 
 def load(f):
     return Unpickler(f).load()

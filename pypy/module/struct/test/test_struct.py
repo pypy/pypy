@@ -462,3 +462,29 @@ class AppTestStructBuffer(object):
         assert self.struct.unpack_from("ii", b, 2) == (17, 42)
         b[:sz] = self.struct.pack("ii", 18, 43)
         assert self.struct.unpack_from("ii", b) == (18, 43)
+
+
+class AppTestFastPath(object):
+    spaceconfig = dict(usemodules=['struct', '__pypy__'])
+
+    def setup_class(cls):
+        from rpython.rlib.rstruct import standardfmttable
+        standardfmttable.ALLOW_SLOWPATH = False
+        #
+        cls.w_struct = cls.space.appexec([], """():
+            import struct
+            return struct
+        """)
+        cls.w_bytebuffer = cls.space.appexec([], """():
+            import __pypy__
+            return __pypy__.bytebuffer
+        """)
+
+    def teardown_class(cls):
+        from rpython.rlib.rstruct import standardfmttable
+        standardfmttable.ALLOW_SLOWPATH = True
+
+    def test_unpack_from(self):
+        buf = self.struct.pack("iii", 0, 42, 43)
+        offset = self.struct.calcsize("i")
+        assert self.struct.unpack_from("ii", buf, offset) == (42, 43)

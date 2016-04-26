@@ -167,7 +167,7 @@ def test_llinterp_unmarshal():
 def test_stat_result():
     import os
     from rpython.translator.c.test.test_genc import compile
-    from rpython.rtyper.module.ll_os_stat import s_StatResult
+    from rpython.rlib.rposix_stat import s_StatResult
     marshal_stat_result = get_marshaller(s_StatResult)
     unmarshal_stat_result = get_unmarshaller(s_StatResult)
     def f(path):
@@ -190,3 +190,13 @@ def test_stat_result():
     assert sttuple[4] == st[4]
     assert sttuple[5] == st[5]
     assert len(sttuple) == 10
+
+def test_longlong():
+    # get_loader for (r_longolong, nonneg=True) used to return
+    # load_int_nonneg on 32-bit, instead of load_longlong.
+    for nonneg in [True, False]:
+        s_longlong = annmodel.SomeInteger(knowntype=r_longlong, nonneg=nonneg)
+        load = get_loader(s_longlong)
+        loader = Loader("I\x01\x23\x45\x67\x89\xab\xcd\x0e")
+        res = load(loader)
+        assert res == 0x0ecdab8967452301

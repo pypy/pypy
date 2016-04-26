@@ -1,3 +1,4 @@
+import sys
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
 from pypy.interpreter.gateway import interp2app, unwrap_spec
@@ -18,6 +19,8 @@ from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib.rarithmetic import intmask, r_uint
 from pypy.module._rawffi.buffer import RawFFIBuffer
 from pypy.module._rawffi.tracker import tracker
+
+BIGENDIAN = sys.byteorder == 'big'
 
 TYPEMAP = {
     # XXX A mess with unsigned/signed/normal chars :-/
@@ -331,9 +334,13 @@ class W_DataInstance(W_Root):
             if tracker.DO_TRACING:
                 ll_buf = rffi.cast(lltype.Signed, self.ll_buffer)
                 tracker.trace_allocation(ll_buf, self)
+        self._ll_buffer = self.ll_buffer
 
     def getbuffer(self, space):
         return space.wrap(rffi.cast(lltype.Unsigned, self.ll_buffer))
+
+    def buffer_advance(self, n):
+        self.ll_buffer = rffi.ptradd(self.ll_buffer, n)
 
     def byptr(self, space):
         from pypy.module._rawffi.array import ARRAY_OF_PTRS
@@ -342,16 +349,17 @@ class W_DataInstance(W_Root):
         return space.wrap(array)
 
     def free(self, space):
-        if not self.ll_buffer:
+        if not self._ll_buffer:
             raise segfault_exception(space, "freeing NULL pointer")
         self._free()
 
     def _free(self):
         if tracker.DO_TRACING:
-            ll_buf = rffi.cast(lltype.Signed, self.ll_buffer)
+            ll_buf = rffi.cast(lltype.Signed, self._ll_buffer)
             tracker.trace_free(ll_buf)
-        lltype.free(self.ll_buffer, flavor='raw')
+        lltype.free(self._ll_buffer, flavor='raw')
         self.ll_buffer = lltype.nullptr(rffi.VOIDP.TO)
+        self._ll_buffer = self.ll_buffer
 
     def buffer_w(self, space, flags):
         return RawFFIBuffer(self)
@@ -432,12 +440,19 @@ def wrap_value(space, func, add_arg, argdesc, letter):
                          space.wrap("cannot directly read value"))
 wrap_value._annspecialcase_ = 'specialize:arg(1)'
 
+NARROW_INTEGER_TYPES = 'cbhiBIH?'
+
+def is_narrow_integer_type(letter):
+    return letter in NARROW_INTEGER_TYPES
 
 class W_FuncPtr(W_Root):
     def __init__(self, space, ptr, argshapes, resshape):
         self.ptr = ptr
         self.argshapes = argshapes
         self.resshape = resshape
+        self.narrow_integer = False
+        if resshape is not None:
+            self.narrow_integer = is_narrow_integer_type(resshape.itemcode.lower())
 
     def getbuffer(self, space):
         return space.wrap(rffi.cast(lltype.Unsigned, self.ptr.funcsym))
@@ -497,6 +512,10 @@ class W_FuncPtr(W_Root):
                 result = self.resshape.allocate(space, 1, autofree=True)
                 # adjust_return_size() was used here on result.ll_buffer
                 self.ptr.call(args_ll, result.ll_buffer)
+                if BIGENDIAN and self.narrow_integer:
+                    # we get a 8 byte value in big endian
+                    n = rffi.sizeof(lltype.Signed) - result.shape.size
+                    result.buffer_advance(n)
                 return space.wrap(result)
             else:
                 self.ptr.call(args_ll, lltype.nullptr(rffi.VOIDP.TO))

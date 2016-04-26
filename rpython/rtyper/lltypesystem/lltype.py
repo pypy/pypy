@@ -1469,7 +1469,10 @@ class _ptr(_abstract_ptr):
         result = intmask(obj._getid())
         # assume that id() returns an addressish value which is
         # not zero and aligned to at least a multiple of 4
-        assert result != 0 and (result & 3) == 0
+        # (at least for GC pointers; we can't really assume anything
+        # for raw addresses)
+        if self._T._gckind == 'gc':
+            assert result != 0 and (result & 3) == 0
         return result
 
     def _cast_to_adr(self):
@@ -1758,7 +1761,10 @@ class _struct(_parentable):
 
     def __new__(self, TYPE, n=None, initialization=None, parent=None,
                 parentindex=None):
-        my_variety = _struct_variety(TYPE._names)
+        if isinstance(TYPE, FixedSizeArray):
+            my_variety = _fixedsizearray
+        else:
+            my_variety = _struct_variety(TYPE._names)
         return object.__new__(my_variety)
 
     def __init__(self, TYPE, n=None, initialization=None, parent=None,
@@ -1768,7 +1774,6 @@ class _struct(_parentable):
             raise TypeError("%r is not variable-sized" % (TYPE,))
         if n is None and TYPE._arrayfld is not None:
             raise TypeError("%r is variable-sized" % (TYPE,))
-        first, FIRSTTYPE = TYPE._first_struct()
         for fld, typ in TYPE._flds.items():
             if fld == TYPE._arrayfld:
                 value = _array(typ, n, initialization=initialization,
@@ -1811,23 +1816,48 @@ class _struct(_parentable):
             raise UninitializedMemoryAccess("%r.%s"%(self, field_name))
         return r
 
-    # for FixedSizeArray kind of structs:
+
+class _fixedsizearray(_struct):
+    def __init__(self, TYPE, n=None, initialization=None, parent=None,
+                 parentindex=None):
+        _parentable.__init__(self, TYPE)
+        if n is not None:
+            raise TypeError("%r is not variable-sized" % (TYPE,))
+        typ = TYPE.OF
+        storage = []
+        for i, fld in enumerate(TYPE._names):
+            value = typ._allocate(initialization=initialization,
+                                  parent=self, parentindex=fld)
+            storage.append(value)
+        self._items = storage
+        if parent is not None:
+            self._setparentstructure(parent, parentindex)
 
     def getlength(self):
-        assert isinstance(self._TYPE, FixedSizeArray)
         return self._TYPE.length
 
     def getbounds(self):
         return 0, self.getlength()
 
     def getitem(self, index, uninitialized_ok=False):
-        assert isinstance(self._TYPE, FixedSizeArray)
-        return self._getattr('item%d' % index, uninitialized_ok)
+        assert 0 <= index < self.getlength()
+        return self._items[index]
 
     def setitem(self, index, value):
-        assert isinstance(self._TYPE, FixedSizeArray)
-        setattr(self, 'item%d' % index, value)
+        assert 0 <= index < self.getlength()
+        self._items[index] = value
 
+    def __getattr__(self, name):
+        # obscure
+        if name.startswith("item"):
+            return self.getitem(int(name[len('item'):]))
+        return _struct.__getattr__(self, name)
+
+    def __setattr__(self, name, value):
+        if name.startswith("item"):
+            self.setitem(int(name[len('item'):]), value)
+            return
+        _struct.__setattr__(self, name, value)
 
 class _array(_parentable):
     _kind = "array"
@@ -2265,6 +2295,35 @@ def functionptr(TYPE, name, **attrs):
     o = _func(TYPE, _name=name, **attrs)
     return _ptr(Ptr(TYPE), o)
 
+def _getconcretetype(v):
+    return v.concretetype
+
+def getfunctionptr(graph, getconcretetype=_getconcretetype):
+    """Return callable given a Python function."""
+    llinputs = [getconcretetype(v) for v in graph.getargs()]
+    lloutput = getconcretetype(graph.getreturnvar())
+
+    FT = FuncType(llinputs, lloutput)
+    name = graph.name
+    if hasattr(graph, 'func') and callable(graph.func):
+        # the Python function object can have _llfnobjattrs_, specifying
+        # attributes that are forced upon the functionptr().  The idea
+        # for not passing these extra attributes as arguments to
+        # getcallable() itself is that multiple calls to getcallable()
+        # for the same graph should return equal functionptr() objects.
+        if hasattr(graph.func, '_llfnobjattrs_'):
+            fnobjattrs = graph.func._llfnobjattrs_.copy()
+            # can specify a '_name', but use graph.name by default
+            name = fnobjattrs.pop('_name', name)
+        else:
+            fnobjattrs = {}
+        # _callable is normally graph.func, but can be overridden:
+        # see fakeimpl in extfunc.py
+        _callable = fnobjattrs.pop('_callable', graph.func)
+        return functionptr(FT, name, graph=graph, _callable=_callable,
+                           **fnobjattrs)
+    else:
+        return functionptr(FT, name, graph=graph)
 
 def nullptr(T):
     return Ptr(T)._defl()
@@ -2444,3 +2503,5 @@ def dissect_ll_instance(v, t=None, memo=None):
         for item in v.items:
             for i in dissect_ll_instance(item, t.OF, memo):
                 yield i
+
+

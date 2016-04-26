@@ -71,6 +71,12 @@ PINFO = rffi.CStructPtr('_cffi_parse_info_s',
                         ('error_location', rffi.SIZE_T),
                         ('error_message', rffi.CCHARP))
 
+PEXTERNPY = rffi.CStructPtr('_cffi_externpy_s',
+                            ('name', rffi.CCHARP),
+                            ('size_of_result', rffi.SIZE_T),
+                            ('reserved1', rffi.VOIDP),
+                            ('reserved2', rffi.VOIDP))
+
 GETCONST_S = rffi.CStruct('_cffi_getconst_s',
                           ('value', rffi.ULONGLONG),
                           ('ctx', PCTX),
@@ -87,6 +93,8 @@ ll_search_in_struct_unions = llexternal('pypy_search_in_struct_unions',
 ll_set_cdl_realize_global_int = llexternal('pypy_set_cdl_realize_global_int',
                                            [lltype.Ptr(GLOBAL_S)],
                                            lltype.Void)
+ll_enum_common_types = llexternal('pypy_enum_common_types',
+                                  [rffi.INT], rffi.CCHARP)
 
 def parse_c_type(info, input):
     p_input = rffi.str2charp(input)

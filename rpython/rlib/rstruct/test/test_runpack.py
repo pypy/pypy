@@ -1,15 +1,18 @@
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rlib.rstruct.runpack import runpack
+from rpython.rlib.rstruct import standardfmttable
 from rpython.rlib.rarithmetic import LONG_BIT
 import struct
 
 class TestRStruct(BaseRtypingTest):
     def test_unpack(self):
+        import sys
         pad = '\x00' * (LONG_BIT//8-1)    # 3 or 7 null bytes
         def fn():
             return runpack('sll', 'a'+pad+'\x03'+pad+'\x04'+pad)[1]
-        assert fn() == 3
-        assert self.interpret(fn, []) == 3
+        result = 3 if sys.byteorder == 'little' else 3 << (LONG_BIT-8)
+        assert fn() == result
+        assert self.interpret(fn, []) == result
 
     def test_unpack_2(self):
         data = struct.pack('iiii', 0, 1, 2, 4)
@@ -37,3 +40,63 @@ class TestRStruct(BaseRtypingTest):
             return runpack(">d", "testtest")
         assert fn() == struct.unpack(">d", "testtest")[0]
         assert self.interpret(fn, []) == struct.unpack(">d", "testtest")[0]
+
+    def test_native_floats(self):
+        """
+        Check the 'd' and 'f' format characters on native packing.
+        """
+        d_data = struct.pack("df", 12.34, 12.34)
+        def fn():
+            d, f = runpack("@df", d_data)
+            return d, f
+        #
+        # direct test
+        d, f = fn()
+        assert d == 12.34     # no precision lost
+        assert f != 12.34     # precision lost
+        assert abs(f - 12.34) < 1E-6
+        #
+        # translated test
+        res = self.interpret(fn, [])
+        d = res.item0
+        f = res.item1  # convert from r_singlefloat
+        assert d == 12.34     # no precision lost
+        assert f != 12.34     # precision lost
+        assert abs(f - 12.34) < 1E-6
+
+    def test_unpack_standard_little(self):
+        def unpack(fmt, data):
+            def fn():
+                return runpack(fmt, data)
+            return self.interpret(fn, [])
+        #
+        assert unpack("<i", 'DCBA') == 0x41424344
+        assert unpack("<i", '\xfd\xff\xff\xff') == -3
+        assert unpack("<i", '\x00\x00\x00\x80') == -2147483648
+        assert unpack("<I", 'DCB\x81') == 0x81424344
+        assert unpack("<q", 'HGFEDCBA') == 0x4142434445464748
+        assert unpack("<q", 'HHIJKLM\xbe') == -0x41B2B3B4B5B6B7B8
+        assert unpack("<Q", 'HGFEDCB\x81') == 0x8142434445464748
+
+    def test_unpack_standard_big(self):
+        def unpack(fmt, data):
+            def fn():
+                return runpack(fmt, data)
+            return self.interpret(fn, [])
+        #
+        assert unpack(">i", 'ABCD') == 0x41424344
+        assert unpack(">i", '\xff\xff\xff\xfd') == -3
+        assert unpack(">i", '\x80\x00\x00\x00') == -2147483648
+        assert unpack(">I", '\x81BCD') == 0x81424344
+        assert unpack(">q", 'ABCDEFGH') == 0x4142434445464748
+        assert unpack(">q", '\xbeMLKJIHH') == -0x41B2B3B4B5B6B7B8
+        assert unpack(">Q", '\x81BCDEFGH') == 0x8142434445464748
+
+
+class TestNoFastPath(TestRStruct):
+
+    def setup_method(self, meth):
+        standardfmttable.USE_FASTPATH = False
+
+    def teardown_method(self, meth):
+        standardfmttable.USE_FASTPATH = True

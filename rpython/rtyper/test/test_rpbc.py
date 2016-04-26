@@ -1,7 +1,7 @@
 import py
 
 from rpython.annotator import model as annmodel
-from rpython.annotator import policy, specialize
+from rpython.annotator import specialize
 from rpython.rtyper.lltypesystem.lltype import typeOf
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rtyper.llannotation import SomePtr, lltype_to_annotation
@@ -1690,59 +1690,6 @@ class TestRPBC(BaseRtypingTest):
 
 # ____________________________________________________________
 
-class TestRPBCExtra(BaseRtypingTest):
-
-    def test_folding_specialize_support(self):
-
-        class S(object):
-
-            def w(s, x):
-                if isinstance(x, int):
-                    return x
-                if isinstance(x, str):
-                    return len(x)
-                return -1
-            w._annspecialcase_ = "specialize:w"
-
-            def _freeze_(self):
-                return True
-
-        s = S()
-
-        def f(i, n):
-            w = s.w
-            if i == 0:
-                return w(0)
-            elif i == 1:
-                return w("abc")
-            elif i == 2:
-                return w(3*n)
-            elif i == 3:
-                return w(str(n))
-            return -1
-
-        class P(policy.AnnotatorPolicy):
-            def specialize__w(pol, funcdesc, args_s):
-                typ = args_s[1].knowntype
-                if args_s[0].is_constant() and args_s[1].is_constant():
-                    x = args_s[1].const
-                    v = s.w(x)
-                    builder = specialize.make_constgraphbuilder(2, v)
-                    return funcdesc.cachedgraph(x, builder=builder)
-                return funcdesc.cachedgraph(typ)
-
-        p = P()
-
-        res = self.interpret(f, [0, 66], policy=p)
-        assert res == 0
-        res = self.interpret(f, [1, 66], policy=p)
-        assert res == 3
-        res = self.interpret(f, [2, 4], policy=p)
-        assert res == 12
-        res = self.interpret(f, [3, 5555], policy=p)
-        assert res == 4
-
-
 def test_hlinvoke_simple():
     def f(a,b):
         return a + b
@@ -1998,7 +1945,31 @@ class TestSmallFuncSets(TestRPBC):
 
     def interpret(self, fn, args, **kwds):
         kwds['config'] = self.config
-        return TestRPBC.interpret(self, fn, args, **kwds)
+        return TestRPBC.interpret(fn, args, **kwds)
+
+    def test_class_missing_base_method_should_crash(self):
+        class Base(object):
+            pass   # no method 'm' here
+        class A(Base):
+            def m(self):
+                return 42
+        class B(Base):
+            def m(self):
+                return 63
+        def g(n):
+            if n == 1:
+                return A()
+            elif n == 2:
+                return B()
+            else:
+                return Base()
+        def f(n):
+            return g(n).m()
+
+        assert self.interpret(f, [1]) == 42
+        assert self.interpret(f, [2]) == 63
+        e = py.test.raises(ValueError, self.interpret, f, [3])
+        assert str(e.value).startswith(r"exit case '\xff' not found")
 
 def test_smallfuncsets_basic():
     from rpython.translator.translator import TranslationContext, graphof

@@ -1073,6 +1073,24 @@ class AppTestTypeObject:
         class D(B, A):     # "best base" is A
             __slots__ = ("__weakref__",)
 
+    def test_crash_mro_without_object_1(self):
+        class X(type):
+            def mro(self):
+                return [self]
+        class C:
+            __metaclass__ = X
+        e = raises(TypeError, C)     # the lookup of '__new__' fails
+        assert str(e.value) == "cannot create 'C' instances"
+
+    def test_crash_mro_without_object_2(self):
+        class X(type):
+            def mro(self):
+                return [self, int]
+        class C(int):
+            __metaclass__ = X
+        C()    # the lookup of '__new__' succeeds in 'int',
+               # but the lookup of '__init__' fails
+
 
 class AppTestWithMethodCacheCounter:
     spaceconfig = {"objspace.std.withmethodcachecounter": True}

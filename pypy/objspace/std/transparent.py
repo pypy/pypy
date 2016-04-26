@@ -62,7 +62,7 @@ completely controlled by the controller."""
             return W_TransparentGenerator(space, w_type, w_controller)
         if space.is_true(space.issubtype(w_type, space.gettypeobject(PyCode.typedef))):
             return W_TransparentCode(space, w_type, w_controller)
-        if w_type.instancetypedef is space.w_object.instancetypedef:
+        if w_type.layout.typedef is space.w_object.layout.typedef:
             return W_Transparent(space, w_type, w_controller)
     else:
         raise OperationError(space.w_TypeError, space.wrap("type expected as first argument"))

@@ -225,6 +225,12 @@ class AppTestItertools:
             assert it.next() == x
         raises(StopIteration, it.next)
 
+        # CPython implementation allows floats
+        it = itertools.islice([1, 2, 3, 4, 5], 0.0, 3.0, 2.0)
+        for x in [1, 3]:
+            assert it.next() == x
+        raises(StopIteration, it.next)
+
         it = itertools.islice([1, 2, 3], 0, None)
         for x in [1, 2, 3]:
             assert it.next() == x
@@ -1085,3 +1091,18 @@ class AppTestItertools27:
                 assert list(itertools.islice(c2, 3)) == expected
                 c3 = pickle.loads(pickle.dumps(c))
                 assert list(itertools.islice(c3, 3)) == expected
+
+    def test_islice_attack(self):
+        import itertools
+        class Iterator(object):
+            first = True
+            def __iter__(self):
+                return self
+            def next(self):
+                if self.first:
+                    self.first = False
+                    list(islice)
+                return 52
+        myiter = Iterator()
+        islice = itertools.islice(myiter, 5, 8)
+        raises(StopIteration, islice.next)

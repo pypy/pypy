@@ -158,7 +158,7 @@ testmap = [
     RegrTest('test_codecs.py', core=True, usemodules='_multibytecodec'),
     RegrTest('test_codeop.py', core=True),
     RegrTest('test_coding.py', core=True),
-    RegrTest('test_coercion.py', core=True),
+    RegrTest('test_coercion.py', core=True, usemodules='struct'),
     RegrTest('test_collections.py', usemodules='binascii struct'),
     RegrTest('test_colorsys.py'),
     RegrTest('test_commands.py'),

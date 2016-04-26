@@ -389,6 +389,7 @@ class AppTestAFewExtra:
 
     def test_writelines(self):
         import array
+        import sys
         fn = self.temptestfile
         with file(fn, 'w') as f:
             f.writelines(['abc'])
@@ -406,7 +407,10 @@ class AppTestAFewExtra:
             exc = raises(TypeError, f.writelines, [memoryview('jkl')])
             assert str(exc.value) == "writelines() argument must be a sequence of strings"
         out = open(fn, 'rb').readlines()[0]
-        assert out[0:5] == 'abcd\x00'
+        if sys.byteorder == 'big':
+            assert out[0:7] == 'abc\x00\x00\x00d'
+        else:
+            assert out[0:5] == 'abcd\x00'
         assert out[-3:] == 'ghi'
 
         with file(fn, 'wb') as f:
@@ -571,6 +575,17 @@ class AppTestAFewExtra:
         assert n == 6
         assert len(a) == 10
         assert a.tostring() == 'foobar6789'
+
+    @py.test.mark.skipif("os.name != 'posix'")
+    def test_readinto_error(self):
+        import _socket, posix, array
+        s = _socket.socket()
+        buff = array.array("c", "X" * 65)
+        fh = posix.fdopen(posix.dup(s.fileno()), 'rb')
+        # "Transport endpoint is not connected"
+        raises(IOError, fh.readinto, buff)
+        fh.close()
+        s.close()
 
     def test_weakref(self):
         """Files are weakrefable."""

@@ -739,25 +739,16 @@ class __extend__(pyframe.PyFrame):
         unroller = SContinueLoop(startofloop)
         return self.unrollstack_and_jump(unroller)
 
-    @jit.unroll_safe
     def RAISE_VARARGS(self, nbargs, next_instr):
         space = self.space
         if nbargs == 0:
-            frame = self
-            while frame:
-                if frame.last_exception is not None:
-                    operror = frame.last_exception
-                    break
-                frame = frame.f_backref()
-            else:
-                raise OperationError(space.w_TypeError,
-                    space.wrap("raise: no active exception to re-raise"))
-            if operror.w_type is space.w_None:
-                raise OperationError(space.w_TypeError,
-                    space.wrap("raise: the exception to re-raise was cleared"))
+            last_operr = self._exc_info_unroll(space)
+            if last_operr is None:
+                raise oefmt(space.w_TypeError,
+                            "No active exception to reraise")
             # re-raise, no new traceback obj will be attached
-            self.last_exception = operror
-            raise RaiseWithExplicitTraceback(operror)
+            self.last_exception = last_operr
+            raise RaiseWithExplicitTraceback(last_operr)
 
         w_value = w_traceback = space.w_None
         if nbargs >= 3:
@@ -837,7 +828,7 @@ class __extend__(pyframe.PyFrame):
         w_bases = self.popvalue()
         w_name = self.popvalue()
         w_metaclass = find_metaclass(self.space, w_bases,
-                                     w_methodsdict, self.w_globals,
+                                     w_methodsdict, self.get_w_globals(),
                                      self.space.wrap(self.get_builtin()))
         w_newclass = self.space.call_function(w_metaclass, w_name,
                                               w_bases, w_methodsdict)
@@ -881,14 +872,14 @@ class __extend__(pyframe.PyFrame):
     def STORE_GLOBAL(self, nameindex, next_instr):
         varname = self.getname_u(nameindex)
         w_newvalue = self.popvalue()
-        self.space.setitem_str(self.w_globals, varname, w_newvalue)
+        self.space.setitem_str(self.get_w_globals(), varname, w_newvalue)
 
     def DELETE_GLOBAL(self, nameindex, next_instr):
         w_varname = self.getname_w(nameindex)
-        self.space.delitem(self.w_globals, w_varname)
+        self.space.delitem(self.get_w_globals(), w_varname)
 
     def LOAD_NAME(self, nameindex, next_instr):
-        if self.getorcreatedebug().w_locals is not self.w_globals:
+        if self.getorcreatedebug().w_locals is not self.get_w_globals():
             varname = self.getname_u(nameindex)
             w_value = self.space.finditem_str(self.getorcreatedebug().w_locals,
                                               varname)
@@ -898,7 +889,7 @@ class __extend__(pyframe.PyFrame):
         self.LOAD_GLOBAL(nameindex, next_instr)    # fall-back
 
     def _load_global(self, varname):
-        w_value = self.space.finditem_str(self.w_globals, varname)
+        w_value = self.space.finditem_str(self.get_w_globals(), varname)
         if w_value is None:
             # not in the globals, now look in the built-ins
             w_value = self.get_builtin().getdictvalue(self.space, varname)
@@ -1029,7 +1020,7 @@ class __extend__(pyframe.PyFrame):
         if w_locals is None:            # CPython does this
             w_locals = space.w_None
         w_modulename = space.wrap(modulename)
-        w_globals = self.w_globals
+        w_globals = self.get_w_globals()
         if w_flag is None:
             w_obj = space.call_function(w_import, w_modulename, w_globals,
                                         w_locals, w_fromlist)
@@ -1237,7 +1228,7 @@ class __extend__(pyframe.PyFrame):
         w_codeobj = self.popvalue()
         codeobj = self.space.interp_w(PyCode, w_codeobj)
         defaultarguments = self.popvalues(numdefaults)
-        fn = function.Function(self.space, codeobj, self.w_globals,
+        fn = function.Function(self.space, codeobj, self.get_w_globals(),
                                defaultarguments)
         self.pushvalue(self.space.wrap(fn))
 
@@ -1249,7 +1240,7 @@ class __extend__(pyframe.PyFrame):
         freevars = [self.space.interp_w(Cell, cell)
                     for cell in self.space.fixedview(w_freevarstuple)]
         defaultarguments = self.popvalues(numdefaults)
-        fn = function.Function(self.space, codeobj, self.w_globals,
+        fn = function.Function(self.space, codeobj, self.get_w_globals(),
                                defaultarguments, freevars)
         self.pushvalue(self.space.wrap(fn))
 

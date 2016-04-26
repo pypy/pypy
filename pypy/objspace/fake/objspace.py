@@ -318,6 +318,9 @@ class FakeObjSpace(ObjSpace):
     def unicode_from_object(self, w_obj):
         return w_some_obj()
 
+    def _try_fetch_pycode(self, w_func):
+        return None
+
     # ----------
 
     def translates(self, func=None, argtypes=None, seeobj_w=[], **kwds):
@@ -394,8 +397,13 @@ def see_typedef(space, typedef):
             space.wrap(value)
 
 class FakeCompiler(object):
-    pass
+    def compile(self, code, name, mode, flags):
+        return FakePyCode()
 FakeObjSpace.default_compiler = FakeCompiler()
+
+class FakePyCode(W_Root):
+    def exec_code(self, space, w_globals, w_locals):
+        return W_Root()
 
 
 class FakeModule(W_Root):

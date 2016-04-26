@@ -1,5 +1,5 @@
 import struct, sys
-from rpython.jit.backend.x86.rx86 import R
+from rpython.jit.backend.x86.rx86 import R, fits_in_32bits
 from rpython.jit.backend.x86.regloc import *
 from rpython.jit.backend.x86.test.test_rx86 import CodeBuilder32, CodeBuilder64, assert_encodes_as
 from rpython.jit.backend.x86.assembler import heap
@@ -112,6 +112,9 @@ class Fake32CodeBlockWrapper(codebuf.MachineCodeBlockWrapper):
 def test_follow_jump_instructions_32():
     buf = lltype.malloc(rffi.CCHARP.TO, 80, flavor='raw')
     raw = rffi.cast(lltype.Signed, buf)
+    if not fits_in_32bits(raw):
+        lltype.free(buf, flavor='raw')
+        py.test.skip("not testable")
     mc = Fake32CodeBlockWrapper(); mc.WORD = 4; mc.relocations = []
     mc.RET()
     mc.copy_to_raw_memory(raw)

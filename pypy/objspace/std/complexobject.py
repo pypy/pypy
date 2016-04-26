@@ -266,11 +266,12 @@ class W_ComplexObject(W_Root):
             return None
         from rpython.rlib.longlong2float import float2longlong
         from pypy.objspace.std.util import IDTAG_COMPLEX as tag
+        from pypy.objspace.std.util import IDTAG_SHIFT
         real = space.float_w(space.getattr(self, space.wrap("real")))
         imag = space.float_w(space.getattr(self, space.wrap("imag")))
         real_b = rbigint.fromrarith_int(float2longlong(real))
         imag_b = rbigint.fromrarith_int(r_ulonglong(float2longlong(imag)))
-        val = real_b.lshift(64).or_(imag_b).lshift(3).int_or_(tag)
+        val = real_b.lshift(64).or_(imag_b).lshift(IDTAG_SHIFT).int_or_(tag)
         return space.newlong_from_rbigint(val)
 
     def int(self, space):

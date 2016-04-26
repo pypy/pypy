@@ -1,5 +1,3 @@
-import py
-
 from rpython.annotator import model as annmodel, annrpython
 from rpython.flowspace.model import Constant
 from rpython.rtyper import rmodel
@@ -8,14 +6,6 @@ from rpython.rtyper.rtyper import RPythonTyper
 from rpython.rtyper.test.test_llinterp import interpret
 from rpython.translator.translator import TranslationContext, graphof
 
-
-def setup_module(mod):
-    mod.logstate = py.log._getstate()
-    py.log.setconsumer("rtyper", py.log.STDOUT)
-    py.log.setconsumer("annrpython", None)
-
-def teardown_module(mod):
-    py.log._setstate(mod.logstate)
 
 def test_reprkeys_dont_clash():
     stup1 = annmodel.SomeTuple((annmodel.SomeFloat(),
@@ -91,8 +81,6 @@ def test_getgcflavor():
     class R:
         _alloc_flavor_ = "raw"
 
-    NDF = object()
-
     class DummyClsDescDef:
         def __init__(self, cls):
             self._cls = cls
@@ -102,14 +90,8 @@ def test_getgcflavor():
         def getmro(self):
             return [self]
 
-        def read_attribute(self, attr, default=NDF):
-            try:
-                return Constant(getattr(self._cls, attr))
-            except AttributeError:
-                if default is NDF:
-                    raise
-                else:
-                    return default
+        def get_param(self, name, default=None, inherit=True):
+            return getattr(self._cls, name, default)
 
     assert rmodel.getgcflavor(DummyClsDescDef(A)) == 'gc'
     assert rmodel.getgcflavor(DummyClsDescDef(B)) == 'gc'

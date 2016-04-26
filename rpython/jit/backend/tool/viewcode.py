@@ -45,12 +45,23 @@ def machine_code_dump(data, originaddr, backend_name, label_list=None):
         'x86_32': 'i386',
         'x86_64': 'i386:x86-64',
         'x86-64': 'i386:x86-64',
+        'x86-64-sse4': 'i386:x86-64',
         'i386': 'i386',
         'arm': 'arm',
         'arm_32': 'arm',
+        'ppc' : 'powerpc:common64',
+        'ppc-64' : 'powerpc:common64',
+        's390x': 's390:64-bit',
+    }
+    machine_endianness = {
+        # default value: 'little'
+        'ppc' : sys.byteorder,     # i.e. same as the running machine...
+        'ppc-64' : sys.byteorder,     # i.e. same as the running machine...
+        's390x' : sys.byteorder,     # i.e. same as the running machine...
     }
     cmd = find_objdump()
     objdump = ('%(command)s -b binary -m %(machine)s '
+               '--endian=%(endianness)s '
                '--disassembler-options=intel-mnemonics '
                '--adjust-vma=%(origin)d -D %(file)s')
     #
@@ -62,6 +73,7 @@ def machine_code_dump(data, originaddr, backend_name, label_list=None):
         'file': tmpfile,
         'origin': originaddr,
         'machine': objdump_machine_option[backend_name],
+        'endianness': machine_endianness.get(backend_name, 'little'),
     }, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout, stderr = p.communicate()
     assert not p.returncode, ('Encountered an error running objdump: %s' %

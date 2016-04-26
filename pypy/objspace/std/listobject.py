@@ -206,6 +206,12 @@ class W_ListObject(W_Root):
         storage = strategy.erase(list_i)
         return W_ListObject.from_storage_and_strategy(space, storage, strategy)
 
+    @staticmethod
+    def newlist_float(space, list_f):
+        strategy = space.fromcache(FloatListStrategy)
+        storage = strategy.erase(list_f)
+        return W_ListObject.from_storage_and_strategy(space, storage, strategy)
+
     def __repr__(self):
         """ representation for debugging purposes """
         return "%s(%s, %s)" % (self.__class__.__name__, self.strategy,
@@ -221,6 +227,10 @@ class W_ListObject(W_Root):
         object_strategy = self.space.fromcache(ObjectListStrategy)
         self.strategy = object_strategy
         object_strategy.init_from_list_w(self, list_w)
+
+    def ensure_object_strategy(self):     # for cpyext
+        if self.strategy is not self.space.fromcache(ObjectListStrategy):
+            self.switch_to_object_strategy()
 
     def _temporarily_as_objects(self):
         if self.strategy is self.space.fromcache(ObjectListStrategy):
@@ -521,7 +531,6 @@ class W_ListObject(W_Root):
 
     def descr_getitem(self, space, w_index):
         if isinstance(w_index, W_SliceObject):
-            # XXX consider to extend rlist's functionality?
             length = self.length()
             start, stop, step, slicelength = w_index.indices4(space, length)
             assert slicelength >= 0
@@ -1396,15 +1405,18 @@ class AbstractUnwrappedStrategy(object):
         else:
             subitems_w = [self._none_value] * length
             l = self.unerase(w_list.lstorage)
-            for i in range(length):
-                try:
-                    subitems_w[i] = l[start]
-                    start += step
-                except IndexError:
-                    raise
+            self._fill_in_with_sliced_items(subitems_w, l, start, step, length)
             storage = self.erase(subitems_w)
             return W_ListObject.from_storage_and_strategy(
                     self.space, storage, self)
+
+    def _fill_in_with_sliced_items(self, subitems_w, l, start, step, length):
+        for i in range(length):
+            try:
+                subitems_w[i] = l[start]
+                start += step
+            except IndexError:
+                raise
 
     def switch_to_next_strategy(self, w_list, w_sample_item):
         w_list.switch_to_object_strategy()

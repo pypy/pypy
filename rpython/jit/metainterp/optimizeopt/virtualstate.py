@@ -157,9 +157,11 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
                 raise VirtualStatesCantMatch("field descrs don't match")
             if runtime_box is not None and opinfo is not None:
                 fieldbox = opinfo._fields[self.fielddescrs[i].get_index()]
-                # must be there
-                fieldbox_runtime = state.get_runtime_field(runtime_box,
+                if fieldbox is not None:
+                    fieldbox_runtime = state.get_runtime_field(runtime_box,
                                                            self.fielddescrs[i])
+                else:
+                    fieldbox_runtime = None
             else:
                 fieldbox = None
                 fieldbox_runtime = None
@@ -424,7 +426,7 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
         elif self.level == LEVEL_NONNULL:
             if other.level == LEVEL_UNKNOWN:
                 if runtime_box is not None and runtime_box.nonnull():
-                    op = ResOperation(rop.GUARD_NONNULL, [box], None)
+                    op = ResOperation(rop.GUARD_NONNULL, [box])
                     extra_guards.append(op)
                     return
                 else:
@@ -444,7 +446,7 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
             if other.level == LEVEL_UNKNOWN:
                 if (runtime_box and runtime_box.nonnull() and
               self.known_class.same_constant(cpu.ts.cls_of_box(runtime_box))):
-                    op = ResOperation(rop.GUARD_NONNULL_CLASS, [box, self.known_class], None)
+                    op = ResOperation(rop.GUARD_NONNULL_CLASS, [box, self.known_class])
                     extra_guards.append(op)
                     return
                 else:
@@ -452,7 +454,7 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
             elif other.level == LEVEL_NONNULL:
                 if (runtime_box and self.known_class.same_constant(
                         cpu.ts.cls_of_box(runtime_box))):
-                    op = ResOperation(rop.GUARD_CLASS, [box, self.known_class], None)
+                    op = ResOperation(rop.GUARD_CLASS, [box, self.known_class])
                     extra_guards.append(op)
                     return
                 else:
@@ -476,7 +478,7 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
                     return
                 raise VirtualStatesCantMatch("different constants")
             if runtime_box is not None and self.constbox.same_constant(runtime_box.constbox()):
-                op = ResOperation(rop.GUARD_VALUE, [box, self.constbox], None)
+                op = ResOperation(rop.GUARD_VALUE, [box, self.constbox])
                 extra_guards.append(op)
                 return
             else:

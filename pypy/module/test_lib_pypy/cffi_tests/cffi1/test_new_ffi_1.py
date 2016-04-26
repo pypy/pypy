@@ -782,10 +782,11 @@ class TestNewFFI1:
         p = ffi.cast("long long", ffi.cast("wchar_t", -1))
         if SIZE_OF_WCHAR == 2:      # 2 bytes, unsigned
             assert int(p) == 0xffff
-        elif platform.machine() == 'aarch64': # 4 bytes, unsigned
-            assert int(p) == 0xffffffff
-        else:                       # 4 bytes, signed
+        elif (sys.platform.startswith('linux') and
+              platform.machine().startswith('x86')):   # known to be signed
             assert int(p) == -1
+        else:                     # in general, it can be either signed or not
+            assert int(p) in [-1, 0xffffffff]  # e.g. on arm, both cases occur
         p = ffi.cast("int", u+'\u1234')
         assert int(p) == 0x1234
 
@@ -1718,3 +1719,10 @@ class TestNewFFI1:
         exec("from _test_import_from_lib.lib import *", d)
         assert (set(key for key in d if not key.startswith('_')) ==
                 set(['myfunc', 'MYFOO']))
+        #
+        # also test "import *" on the module itself, which should be
+        # equivalent to "import ffi, lib"
+        d = {}
+        exec("from _test_import_from_lib import *", d)
+        assert (sorted([x for x in d.keys() if not x.startswith('__')]) ==
+                ['ffi', 'lib'])

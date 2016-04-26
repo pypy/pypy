@@ -4,7 +4,8 @@ import sys, os, py
 from cffi import FFI, VerificationError, FFIError
 from cffi import recompiler
 from pypy.module.test_lib_pypy.cffi_tests.udir import udir
-from pypy.module.test_lib_pypy.cffi_tests.support import u
+from pypy.module.test_lib_pypy.cffi_tests.support import u, long
+from pypy.module.test_lib_pypy.cffi_tests.support import FdWriteCapture, StdErrCapture
 
 
 def check_type_table(input, expected_output, included=None):
@@ -22,7 +23,7 @@ def verify(ffi, module_name, source, *args, **kwds):
     kwds.setdefault('undef_macros', ['NDEBUG'])
     module_name = '_CFFI_' + module_name
     ffi.set_source(module_name, source)
-    if 1:     # test the .cpp mode too
+    if not os.environ.get('NO_CPP'):     # test the .cpp mode too
         kwds.setdefault('source_extension', '.cpp')
         source = 'extern "C" {\n%s\n}' % (source,)
     else:
@@ -199,7 +200,7 @@ def test_macro_check_value():
     vals = ['42', '-42', '0x80000000', '-2147483648',
             '0', '9223372036854775809ULL',
             '-9223372036854775807LL']
-    if sys.maxsize <= 2**32:
+    if sys.maxsize <= 2**32 or sys.platform == 'win32':
         vals.remove('-2147483648')
     ffi = FFI()
     cdef_lines = ['#define FOO_%d_%d %s' % (i, j, vals[i])
@@ -416,8 +417,11 @@ def test_open_array_in_struct():
 
 def test_math_sin_type():
     ffi = FFI()
-    ffi.cdef("double sin(double);")
-    lib = verify(ffi, 'test_math_sin_type', '#include <math.h>')
+    ffi.cdef("double sin(double); void *xxtestfunc();")
+    lib = verify(ffi, 'test_math_sin_type', """
+        #include <math.h>
+        void *xxtestfunc(void) { return 0; }
+    """)
     # 'lib.sin' is typed as a <built-in method> object on lib
     assert ffi.typeof(lib.sin).cname == "double(*)(double)"
     # 'x' is another <built-in method> object on lib, made very indirectly
@@ -427,7 +431,16 @@ def test_math_sin_type():
     # present on built-in functions on CPython; must be emulated on PyPy:
     assert lib.sin.__name__ == 'sin'
     assert lib.sin.__module__ == '_CFFI_test_math_sin_type'
-    assert lib.sin.__doc__ == 'direct call to the C function of the same name'
+    assert lib.sin.__doc__ == (
+        "double sin(double);\n"
+        "\n"
+        "CFFI C function from _CFFI_test_math_sin_type.lib")
+
+    assert ffi.typeof(lib.xxtestfunc).cname == "void *(*)()"
+    assert lib.xxtestfunc.__doc__ == (
+        "void *xxtestfunc();\n"
+        "\n"
+        "CFFI C function from _CFFI_test_math_sin_type.lib")
 
 def test_verify_anonymous_struct_with_typedef():
     ffi = FFI()
@@ -459,7 +472,7 @@ def test_verify_anonymous_enum_with_typedef():
     ffi.cdef("typedef enum { AA=%d } e1;" % sys.maxsize)
     lib = verify(ffi, 'test_verify_anonymous_enum_with_typedef2',
                  "typedef enum { AA=%d } e1;" % sys.maxsize)
-    assert lib.AA == sys.maxsize
+    assert lib.AA == int(ffi.cast("long", sys.maxsize))
     assert ffi.sizeof("e1") == ffi.sizeof("long")
 
 def test_unique_types():
@@ -948,6 +961,19 @@ def test_constant_of_value_unknown_to_the_compiler():
     """, sources=[str(extra_c_source)])
     assert lib.external_foo == 42
 
+def test_dotdot_in_source_file_names():
+    extra_c_source = udir.join(
+        'extra_test_dotdot_in_source_file_names.c')
+    extra_c_source.write('const int external_foo = 42;\n')
+    ffi = FFI()
+    ffi.cdef("const int external_foo;")
+    lib = verify(ffi, 'test_dotdot_in_source_file_names', """
+        extern const int external_foo;
+    """, sources=[os.path.join(os.path.dirname(str(extra_c_source)),
+                               'foobar', '..',
+                               os.path.basename(str(extra_c_source)))])
+    assert lib.external_foo == 42
+
 def test_call_with_incomplete_structs():
     ffi = FFI()
     ffi.cdef("typedef struct {...;} foo_t; "
@@ -1143,6 +1169,7 @@ def test_import_from_lib():
     assert hasattr(lib, '__dict__')
     assert lib.__all__ == ['MYFOO', 'mybar']   # but not 'myvar'
     assert lib.__name__ == repr(lib)
+    assert lib.__class__ is type(lib)
 
 def test_macro_var_callback():
     ffi = FFI()
@@ -1192,3 +1219,693 @@ def test_macro_var_callback():
     py.test.raises(ffi.error, getattr, lib, 'my_value')
     e = py.test.raises(ffi.error, setattr, lib, 'my_value', 50)
     assert str(e.value) == "global variable 'my_value' is at address NULL"
+
+def test_const_fields():
+    ffi = FFI()
+    ffi.cdef("""struct foo_s { const int a; void *const b; };""")
+    lib = verify(ffi, 'test_const_fields', """
+        struct foo_s { const int a; void *const b; };""")
+    foo_s = ffi.typeof("struct foo_s")
+    assert foo_s.fields[0][0] == 'a'
+    assert foo_s.fields[0][1].type is ffi.typeof("int")
+    assert foo_s.fields[1][0] == 'b'
+    assert foo_s.fields[1][1].type is ffi.typeof("void *")
+
+def test_restrict_fields():
+    ffi = FFI()
+    ffi.cdef("""struct foo_s { void * restrict b; };""")
+    lib = verify(ffi, 'test_restrict_fields', """
+        struct foo_s { void * __restrict b; };""")
+    foo_s = ffi.typeof("struct foo_s")
+    assert foo_s.fields[0][0] == 'b'
+    assert foo_s.fields[0][1].type is ffi.typeof("void *")
+
+def test_volatile_fields():
+    ffi = FFI()
+    ffi.cdef("""struct foo_s { void * volatile b; };""")
+    lib = verify(ffi, 'test_volatile_fields', """
+        struct foo_s { void * volatile b; };""")
+    foo_s = ffi.typeof("struct foo_s")
+    assert foo_s.fields[0][0] == 'b'
+    assert foo_s.fields[0][1].type is ffi.typeof("void *")
+
+def test_const_array_fields():
+    ffi = FFI()
+    ffi.cdef("""struct foo_s { const int a[4]; };""")
+    lib = verify(ffi, 'test_const_array_fields', """
+        struct foo_s { const int a[4]; };""")
+    foo_s = ffi.typeof("struct foo_s")
+    assert foo_s.fields[0][0] == 'a'
+    assert foo_s.fields[0][1].type is ffi.typeof("int[4]")
+
+def test_const_array_fields_varlength():
+    ffi = FFI()
+    ffi.cdef("""struct foo_s { const int a[]; ...; };""")
+    lib = verify(ffi, 'test_const_array_fields_varlength', """
+        struct foo_s { const int a[4]; };""")
+    foo_s = ffi.typeof("struct foo_s")
+    assert foo_s.fields[0][0] == 'a'
+    assert foo_s.fields[0][1].type is ffi.typeof("int[]")
+
+def test_const_array_fields_unknownlength():
+    ffi = FFI()
+    ffi.cdef("""struct foo_s { const int a[...]; ...; };""")
+    lib = verify(ffi, 'test_const_array_fields_unknownlength', """
+        struct foo_s { const int a[4]; };""")
+    foo_s = ffi.typeof("struct foo_s")
+    assert foo_s.fields[0][0] == 'a'
+    assert foo_s.fields[0][1].type is ffi.typeof("int[4]")
+
+def test_const_function_args():
+    ffi = FFI()
+    ffi.cdef("""int foobar(const int a, const int *b, const int c[]);""")
+    lib = verify(ffi, 'test_const_function_args', """
+        int foobar(const int a, const int *b, const int c[]) {
+            return a + *b + *c;
+        }
+    """)
+    assert lib.foobar(100, ffi.new("int *", 40), ffi.new("int *", 2)) == 142
+
+def test_const_function_type_args():
+    ffi = FFI()
+    ffi.cdef("""int (*foobar)(const int a, const int *b, const int c[]);""")
+    lib = verify(ffi, 'test_const_function_type_args', """
+        int (*foobar)(const int a, const int *b, const int c[]);
+    """)
+    t = ffi.typeof(lib.foobar)
+    assert t.args[0] is ffi.typeof("int")
+    assert t.args[1] is ffi.typeof("int *")
+    assert t.args[2] is ffi.typeof("int *")
+
+def test_const_constant():
+    ffi = FFI()
+    ffi.cdef("""struct foo_s { int x,y; }; const struct foo_s myfoo;""")
+    lib = verify(ffi, 'test_const_constant', """
+        struct foo_s { int x,y; }; const struct foo_s myfoo = { 40, 2 };
+    """)
+    assert lib.myfoo.x == 40
+    assert lib.myfoo.y == 2
+
+def test_const_via_typedef():
+    ffi = FFI()
+    ffi.cdef("""typedef const int const_t; const_t aaa;""")
+    lib = verify(ffi, 'test_const_via_typedef', """
+        typedef const int const_t;
+        #define aaa 42
+    """)
+    assert lib.aaa == 42
+    py.test.raises(AttributeError, "lib.aaa = 43")
+
+def test_win32_calling_convention_0():
+    ffi = FFI()
+    ffi.cdef("""
+        int call1(int(__cdecl   *cb)(int));
+        int (*const call2)(int(__stdcall *cb)(int));
+    """)
+    lib = verify(ffi, 'test_win32_calling_convention_0', r"""
+        #ifndef _MSC_VER
+        #  define __stdcall  /* nothing */
+        #endif
+        int call1(int(*cb)(int)) {
+            int i, result = 0;
+            //printf("call1: cb = %p\n", cb);
+            for (i = 0; i < 1000; i++)
+                result += cb(i);
+            //printf("result = %d\n", result);
+            return result;
+        }
+        int call2(int(__stdcall *cb)(int)) {
+            int i, result = 0;
+            //printf("call2: cb = %p\n", cb);
+            for (i = 0; i < 1000; i++)
+                result += cb(-i);
+            //printf("result = %d\n", result);
+            return result;
+        }
+    """)
+    @ffi.callback("int(int)")
+    def cb1(x):
+        return x * 2
+    @ffi.callback("int __stdcall(int)")
+    def cb2(x):
+        return x * 3
+    res = lib.call1(cb1)
+    assert res == 500*999*2
+    assert res == ffi.addressof(lib, 'call1')(cb1)
+    res = lib.call2(cb2)
+    assert res == -500*999*3
+    assert res == ffi.addressof(lib, 'call2')(cb2)
+    if sys.platform == 'win32' and not sys.maxsize > 2**32:
+        assert '__stdcall' in str(ffi.typeof(cb2))
+        assert '__stdcall' not in str(ffi.typeof(cb1))
+        py.test.raises(TypeError, lib.call1, cb2)
+        py.test.raises(TypeError, lib.call2, cb1)
+    else:
+        assert '__stdcall' not in str(ffi.typeof(cb2))
+        assert ffi.typeof(cb2) is ffi.typeof(cb1)
+
+def test_win32_calling_convention_1():
+    ffi = FFI()
+    ffi.cdef("""
+        int __cdecl   call1(int(__cdecl   *cb)(int));
+        int __stdcall call2(int(__stdcall *cb)(int));
+        int (__cdecl   *const cb1)(int);
+        int (__stdcall *const cb2)(int);
+    """)
+    lib = verify(ffi, 'test_win32_calling_convention_1', r"""
+        #ifndef _MSC_VER
+        #  define __cdecl
+        #  define __stdcall
+        #endif
+        int __cdecl   cb1(int x) { return x * 2; }
+        int __stdcall cb2(int x) { return x * 3; }
+
+        int __cdecl call1(int(__cdecl *cb)(int)) {
+            int i, result = 0;
+            //printf("here1\n");
+            //printf("cb = %p, cb1 = %p\n", cb, (void *)cb1);
+            for (i = 0; i < 1000; i++)
+                result += cb(i);
+            //printf("result = %d\n", result);
+            return result;
+        }
+        int __stdcall call2(int(__stdcall *cb)(int)) {
+            int i, result = 0;
+            //printf("here1\n");
+            //printf("cb = %p, cb2 = %p\n", cb, (void *)cb2);
+            for (i = 0; i < 1000; i++)
+                result += cb(-i);
+            //printf("result = %d\n", result);
+            return result;
+        }
+    """)
+    #print '<<< cb1 =', ffi.addressof(lib, 'cb1')
+    ptr_call1 = ffi.addressof(lib, 'call1')
+    assert lib.call1(ffi.addressof(lib, 'cb1')) == 500*999*2
+    assert ptr_call1(ffi.addressof(lib, 'cb1')) == 500*999*2
+    #print '<<< cb2 =', ffi.addressof(lib, 'cb2')
+    ptr_call2 = ffi.addressof(lib, 'call2')
+    assert lib.call2(ffi.addressof(lib, 'cb2')) == -500*999*3
+    assert ptr_call2(ffi.addressof(lib, 'cb2')) == -500*999*3
+    #print '<<< done'
+
+def test_win32_calling_convention_2():
+    # any mistake in the declaration of plain function (including the
+    # precise argument types and, here, the calling convention) are
+    # automatically corrected.  But this does not apply to the 'cb'
+    # function pointer argument.
+    ffi = FFI()
+    ffi.cdef("""
+        int __stdcall call1(int(__cdecl   *cb)(int));
+        int __cdecl   call2(int(__stdcall *cb)(int));
+        int (__cdecl   *const cb1)(int);
+        int (__stdcall *const cb2)(int);
+    """)
+    lib = verify(ffi, 'test_win32_calling_convention_2', """
+        #ifndef _MSC_VER
+        #  define __cdecl
+        #  define __stdcall
+        #endif
+        int __cdecl call1(int(__cdecl *cb)(int)) {
+            int i, result = 0;
+            for (i = 0; i < 1000; i++)
+                result += cb(i);
+            return result;
+        }
+        int __stdcall call2(int(__stdcall *cb)(int)) {
+            int i, result = 0;
+            for (i = 0; i < 1000; i++)
+                result += cb(-i);
+            return result;
+        }
+        int __cdecl   cb1(int x) { return x * 2; }
+        int __stdcall cb2(int x) { return x * 3; }
+    """)
+    ptr_call1 = ffi.addressof(lib, 'call1')
+    ptr_call2 = ffi.addressof(lib, 'call2')
+    if sys.platform == 'win32' and not sys.maxsize > 2**32:
+        py.test.raises(TypeError, lib.call1, ffi.addressof(lib, 'cb2'))
+        py.test.raises(TypeError, ptr_call1, ffi.addressof(lib, 'cb2'))
+        py.test.raises(TypeError, lib.call2, ffi.addressof(lib, 'cb1'))
+        py.test.raises(TypeError, ptr_call2, ffi.addressof(lib, 'cb1'))
+    assert lib.call1(ffi.addressof(lib, 'cb1')) == 500*999*2
+    assert ptr_call1(ffi.addressof(lib, 'cb1')) == 500*999*2
+    assert lib.call2(ffi.addressof(lib, 'cb2')) == -500*999*3
+    assert ptr_call2(ffi.addressof(lib, 'cb2')) == -500*999*3
+
+def test_win32_calling_convention_3():
+    ffi = FFI()
+    ffi.cdef("""
+        struct point { int x, y; };
+
+        int (*const cb1)(struct point);
+        int (__stdcall *const cb2)(struct point);
+
+        struct point __stdcall call1(int(*cb)(struct point));
+        struct point call2(int(__stdcall *cb)(struct point));
+    """)
+    lib = verify(ffi, 'test_win32_calling_convention_3', r"""
+        #ifndef _MSC_VER
+        #  define __cdecl
+        #  define __stdcall
+        #endif
+        struct point { int x, y; };
+        int           cb1(struct point pt) { return pt.x + 10 * pt.y; }
+        int __stdcall cb2(struct point pt) { return pt.x + 100 * pt.y; }
+        struct point __stdcall call1(int(__cdecl *cb)(struct point)) {
+            int i;
+            struct point result = { 0, 0 };
+            //printf("here1\n");
+            //printf("cb = %p, cb1 = %p\n", cb, (void *)cb1);
+            for (i = 0; i < 1000; i++) {
+                struct point p = { i, -i };
+                int r = cb(p);
+                result.x += r;
+                result.y -= r;
+            }
+            return result;
+        }
+        struct point __cdecl call2(int(__stdcall *cb)(struct point)) {
+            int i;
+            struct point result = { 0, 0 };
+            for (i = 0; i < 1000; i++) {
+                struct point p = { -i, i };
+                int r = cb(p);
+                result.x += r;
+                result.y -= r;
+            }
+            return result;
+        }
+    """)
+    ptr_call1 = ffi.addressof(lib, 'call1')
+    ptr_call2 = ffi.addressof(lib, 'call2')
+    if sys.platform == 'win32' and not sys.maxsize > 2**32:
+        py.test.raises(TypeError, lib.call1, ffi.addressof(lib, 'cb2'))
+        py.test.raises(TypeError, ptr_call1, ffi.addressof(lib, 'cb2'))
+        py.test.raises(TypeError, lib.call2, ffi.addressof(lib, 'cb1'))
+        py.test.raises(TypeError, ptr_call2, ffi.addressof(lib, 'cb1'))
+    pt = lib.call1(ffi.addressof(lib, 'cb1'))
+    assert (pt.x, pt.y) == (-9*500*999, 9*500*999)
+    pt = ptr_call1(ffi.addressof(lib, 'cb1'))
+    assert (pt.x, pt.y) == (-9*500*999, 9*500*999)
+    pt = lib.call2(ffi.addressof(lib, 'cb2'))
+    assert (pt.x, pt.y) == (99*500*999, -99*500*999)
+    pt = ptr_call2(ffi.addressof(lib, 'cb2'))
+    assert (pt.x, pt.y) == (99*500*999, -99*500*999)
+
+def test_extern_python_1():
+    ffi = FFI()
+    ffi.cdef("""
+        extern "Python" {
+            int bar(int, int);
+            void baz(int, int);
+            int bok(void);
+            void boz(void);
+        }
+    """)
+    lib = verify(ffi, 'test_extern_python_1', """
+        static void baz(int, int);   /* forward */
+    """)
+    assert ffi.typeof(lib.bar) == ffi.typeof("int(*)(int, int)")
+    with FdWriteCapture() as f:
+        res = lib.bar(4, 5)
+    assert res == 0
+    assert f.getvalue() == (
+        b"extern \"Python\": function bar() called, but no code was attached "
+        b"to it yet with @ffi.def_extern().  Returning 0.\n")
+
+    @ffi.def_extern("bar")
+    def my_bar(x, y):
+        seen.append(("Bar", x, y))
+        return x * y
+    assert my_bar != lib.bar
+    seen = []
+    res = lib.bar(6, 7)
+    assert seen == [("Bar", 6, 7)]
+    assert res == 42
+
+    def baz(x, y):
+        seen.append(("Baz", x, y))
+    baz1 = ffi.def_extern()(baz)
+    assert baz1 is baz
+    seen = []
+    baz(long(40), long(4))
+    res = lib.baz(long(50), long(8))
+    assert res is None
+    assert seen == [("Baz", 40, 4), ("Baz", 50, 8)]
+    assert type(seen[0][1]) is type(seen[0][2]) is long
+    assert type(seen[1][1]) is type(seen[1][2]) is int
+
+    @ffi.def_extern(name="bok")
+    def bokk():
+        seen.append("Bok")
+        return 42
+    seen = []
+    assert lib.bok() == 42
+    assert seen == ["Bok"]
+
+    @ffi.def_extern()
+    def boz():
+        seen.append("Boz")
+    seen = []
+    assert lib.boz() is None
+    assert seen == ["Boz"]
+
+def test_extern_python_bogus_name():
+    ffi = FFI()
+    ffi.cdef("int abc;")
+    lib = verify(ffi, 'test_extern_python_bogus_name', "int abc;")
+    def fn():
+        pass
+    py.test.raises(ffi.error, ffi.def_extern("unknown_name"), fn)
+    py.test.raises(ffi.error, ffi.def_extern("abc"), fn)
+    assert lib.abc == 0
+    e = py.test.raises(ffi.error, ffi.def_extern("abc"), fn)
+    assert str(e.value) == ("ffi.def_extern('abc'): no 'extern \"Python\"' "
+                            "function with this name")
+    e = py.test.raises(ffi.error, ffi.def_extern(), fn)
+    assert str(e.value) == ("ffi.def_extern('fn'): no 'extern \"Python\"' "
+                            "function with this name")
+    #
+    py.test.raises(TypeError, ffi.def_extern(42), fn)
+    py.test.raises((TypeError, AttributeError), ffi.def_extern(), "foo")
+    class X:
+        pass
+    x = X()
+    x.__name__ = x
+    py.test.raises(TypeError, ffi.def_extern(), x)
+
+def test_extern_python_bogus_result_type():
+    ffi = FFI()
+    ffi.cdef("""extern "Python" void bar(int);""")
+    lib = verify(ffi, 'test_extern_python_bogus_result_type', "")
+    #
+    @ffi.def_extern()
+    def bar(n):
+        return n * 10
+    with StdErrCapture() as f:
+        res = lib.bar(321)
+    assert res is None
+    assert f.getvalue() == (
+        "From cffi callback %r:\n" % (bar,) +
+        "Trying to convert the result back to C:\n"
+        "TypeError: callback with the return type 'void' must return None\n")
+
+def test_extern_python_redefine():
+    ffi = FFI()
+    ffi.cdef("""extern "Python" int bar(int);""")
+    lib = verify(ffi, 'test_extern_python_redefine', "")
+    #
+    @ffi.def_extern()
+    def bar(n):
+        return n * 10
+    assert lib.bar(42) == 420
+    #
+    @ffi.def_extern()
+    def bar(n):
+        return -n
+    assert lib.bar(42) == -42
+
+def test_extern_python_struct():
+    ffi = FFI()
+    ffi.cdef("""
+        struct foo_s { int a, b, c; };
+        extern "Python" int bar(int, struct foo_s, int);
+        extern "Python" { struct foo_s baz(int, int);
+                          struct foo_s bok(void); }
+    """)
+    lib = verify(ffi, 'test_extern_python_struct',
+                 "struct foo_s { int a, b, c; };")
+    #
+    @ffi.def_extern()
+    def bar(x, s, z):
+        return x + s.a + s.b + s.c + z
+    res = lib.bar(1000, [1001, 1002, 1004], 1008)
+    assert res == 5015
+    #
+    @ffi.def_extern()
+    def baz(x, y):
+        return [x + y, x - y, x * y]
+    res = lib.baz(1000, 42)
+    assert res.a == 1042
+    assert res.b == 958
+    assert res.c == 42000
+    #
+    @ffi.def_extern()
+    def bok():
+        return [10, 20, 30]
+    res = lib.bok()
+    assert [res.a, res.b, res.c] == [10, 20, 30]
+
+def test_extern_python_long_double():
+    ffi = FFI()
+    ffi.cdef("""
+        extern "Python" int bar(int, long double, int);
+        extern "Python" long double baz(int, int);
+        extern "Python" long double bok(void);
+    """)
+    lib = verify(ffi, 'test_extern_python_long_double', "")
+    #
+    @ffi.def_extern()
+    def bar(x, l, z):
+        seen.append((x, l, z))
+        return 6
+    seen = []
+    lib.bar(10, 3.5, 20)
+    expected = ffi.cast("long double", 3.5)
+    assert repr(seen) == repr([(10, expected, 20)])
+    #
+    @ffi.def_extern()
+    def baz(x, z):
+        assert x == 10 and z == 20
+        return expected
+    res = lib.baz(10, 20)
+    assert repr(res) == repr(expected)
+    #
+    @ffi.def_extern()
+    def bok():
+        return expected
+    res = lib.bok()
+    assert repr(res) == repr(expected)
+
+def test_extern_python_signature():
+    ffi = FFI()
+    lib = verify(ffi, 'test_extern_python_signature', "")
+    py.test.raises(TypeError, ffi.def_extern(425), None)
+    py.test.raises(TypeError, ffi.def_extern, 'a', 'b', 'c', 'd')
+
+def test_extern_python_errors():
+    ffi = FFI()
+    ffi.cdef("""
+        extern "Python" int bar(int);
+    """)
+    lib = verify(ffi, 'test_extern_python_errors', "")
+
+    seen = []
+    def oops(*args):
+        seen.append(args)
+
+    @ffi.def_extern(onerror=oops)
+    def bar(x):
+        return x + ""
+    assert lib.bar(10) == 0
+
+    @ffi.def_extern(name="bar", onerror=oops, error=-66)
+    def bar2(x):
+        return x + ""
+    assert lib.bar(10) == -66
+
+    assert len(seen) == 2
+    exc, val, tb = seen[0]
+    assert exc is TypeError
+    assert isinstance(val, TypeError)
+    assert tb.tb_frame.f_code.co_name == "bar"
+    exc, val, tb = seen[1]
+    assert exc is TypeError
+    assert isinstance(val, TypeError)
+    assert tb.tb_frame.f_code.co_name == "bar2"
+    #
+    # a case where 'onerror' is not callable
+    py.test.raises(TypeError, ffi.def_extern(name='bar', onerror=42),
+                   lambda x: x)
+
+def test_extern_python_stdcall():
+    ffi = FFI()
+    ffi.cdef("""
+        extern "Python" int __stdcall foo(int);
+        extern "Python" int WINAPI bar(int);
+        int (__stdcall * mycb1)(int);
+        int indirect_call(int);
+    """)
+    lib = verify(ffi, 'test_extern_python_stdcall', """
+        #ifndef _MSC_VER
+        #  define __stdcall
+        #endif
+        static int (__stdcall * mycb1)(int);
+        static int indirect_call(int x) {
+            return mycb1(x);
+        }
+    """)
+    #
+    @ffi.def_extern()
+    def foo(x):
+        return x + 42
+    @ffi.def_extern()
+    def bar(x):
+        return x + 43
+    assert lib.foo(100) == 142
+    assert lib.bar(100) == 143
+    lib.mycb1 = lib.foo
+    assert lib.mycb1(200) == 242
+    assert lib.indirect_call(300) == 342
+
+def test_extern_python_plus_c():
+    ffi = FFI()
+    ffi.cdef("""
+        extern "Python+C" int foo(int);
+        extern "C +\tPython" int bar(int);
+        int call_me(int);
+    """)
+    lib = verify(ffi, 'test_extern_python_plus_c', """
+        int foo(int);
+        #ifdef __GNUC__
+        __attribute__((visibility("hidden")))
+        #endif
+        int bar(int);
+
+        static int call_me(int x) {
+            return foo(x) - bar(x);
+        }
+    """)
+    #
+    @ffi.def_extern()
+    def foo(x):
+        return x * 42
+    @ffi.def_extern()
+    def bar(x):
+        return x * 63
+    assert lib.foo(100) == 4200
+    assert lib.bar(100) == 6300
+    assert lib.call_me(100) == -2100
+
+def test_introspect_function():
+    ffi = FFI()
+    ffi.cdef("float f1(double);")
+    lib = verify(ffi, 'test_introspect_function', """
+        float f1(double x) { return x; }
+    """)
+    assert dir(lib) == ['f1']
+    FUNC = ffi.typeof(lib.f1)
+    assert FUNC.kind == 'function'
+    assert FUNC.args[0].cname == 'double'
+    assert FUNC.result.cname == 'float'
+    assert ffi.typeof(ffi.addressof(lib, 'f1')) is FUNC
+
+def test_introspect_global_var():
+    ffi = FFI()
+    ffi.cdef("float g1;")
+    lib = verify(ffi, 'test_introspect_global_var', """
+        float g1;
+    """)
+    assert dir(lib) == ['g1']
+    FLOATPTR = ffi.typeof(ffi.addressof(lib, 'g1'))
+    assert FLOATPTR.kind == 'pointer'
+    assert FLOATPTR.item.cname == 'float'
+
+def test_introspect_global_var_array():
+    ffi = FFI()
+    ffi.cdef("float g1[100];")
+    lib = verify(ffi, 'test_introspect_global_var_array', """
+        float g1[100];
+    """)
+    assert dir(lib) == ['g1']
+    FLOATARRAYPTR = ffi.typeof(ffi.addressof(lib, 'g1'))
+    assert FLOATARRAYPTR.kind == 'pointer'
+    assert FLOATARRAYPTR.item.kind == 'array'
+    assert FLOATARRAYPTR.item.length == 100
+    assert ffi.typeof(lib.g1) is FLOATARRAYPTR.item
+
+def test_introspect_integer_const():
+    ffi = FFI()
+    ffi.cdef("#define FOO 42")
+    lib = verify(ffi, 'test_introspect_integer_const', """
+        #define FOO 42
+    """)
+    assert dir(lib) == ['FOO']
+    assert lib.FOO == ffi.integer_const('FOO') == 42
+
+def test_introspect_typedef():
+    ffi = FFI()
+    ffi.cdef("typedef int foo_t;")
+    lib = verify(ffi, 'test_introspect_typedef', """
+        typedef int foo_t;
+    """)
+    assert ffi.list_types() == (['foo_t'], [], [])
+    assert ffi.typeof('foo_t').kind == 'primitive'
+    assert ffi.typeof('foo_t').cname == 'int'
+
+def test_introspect_typedef_multiple():
+    ffi = FFI()
+    ffi.cdef("typedef signed char a_t, c_t, g_t, b_t;")
+    lib = verify(ffi, 'test_introspect_typedef_multiple', """
+        typedef signed char a_t, c_t, g_t, b_t;
+    """)
+    assert ffi.list_types() == (['a_t', 'b_t', 'c_t', 'g_t'], [], [])
+
+def test_introspect_struct():
+    ffi = FFI()
+    ffi.cdef("struct foo_s { int a; };")
+    lib = verify(ffi, 'test_introspect_struct', """
+        struct foo_s { int a; };
+    """)
+    assert ffi.list_types() == ([], ['foo_s'], [])
+    assert ffi.typeof('struct foo_s').kind == 'struct'
+    assert ffi.typeof('struct foo_s').cname == 'struct foo_s'
+
+def test_introspect_union():
+    ffi = FFI()
+    ffi.cdef("union foo_s { int a; };")
+    lib = verify(ffi, 'test_introspect_union', """
+        union foo_s { int a; };
+    """)
+    assert ffi.list_types() == ([], [], ['foo_s'])
+    assert ffi.typeof('union foo_s').kind == 'union'
+    assert ffi.typeof('union foo_s').cname == 'union foo_s'
+
+def test_introspect_struct_and_typedef():
+    ffi = FFI()
+    ffi.cdef("typedef struct { int a; } foo_t;")
+    lib = verify(ffi, 'test_introspect_struct_and_typedef', """
+        typedef struct { int a; } foo_t;
+    """)
+    assert ffi.list_types() == (['foo_t'], [], [])
+    assert ffi.typeof('foo_t').kind == 'struct'
+    assert ffi.typeof('foo_t').cname == 'foo_t'
+
+def test_introspect_included_type():
+    SOURCE = """
+        typedef signed char schar_t;
+        struct sint_t { int x; };
+    """
+    ffi1 = FFI()
+    ffi1.cdef(SOURCE)
+    ffi2 = FFI()
+    ffi2.include(ffi1)
+    verify(ffi1, "test_introspect_included_type_parent", SOURCE)
+    verify(ffi2, "test_introspect_included_type", SOURCE)
+    assert ffi1.list_types() == ffi2.list_types() == (
+            ['schar_t'], ['sint_t'], [])
+
+def test_introspect_order():
+    ffi = FFI()
+    ffi.cdef("union aaa { int a; }; typedef struct ccc { int a; } b;")
+    ffi.cdef("union g   { int a; }; typedef struct cc  { int a; } bbb;")
+    ffi.cdef("union aa  { int a; }; typedef struct a   { int a; } bb;")
+    verify(ffi, "test_introspect_order", """
+        union aaa { int a; }; typedef struct ccc { int a; } b;
+        union g   { int a; }; typedef struct cc  { int a; } bbb;
+        union aa  { int a; }; typedef struct a   { int a; } bb;
+    """)
+    assert ffi.list_types() == (['b', 'bb', 'bbb'],
+                                    ['a', 'cc', 'ccc'],
+                                    ['aa', 'aaa', 'g'])

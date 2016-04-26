@@ -237,8 +237,8 @@ class TestW_TupleObject:
 class AppTestW_TupleObject:
     def test_is_true(self):
         assert not ()
-        assert (5,)
-        assert (5, 3)
+        assert bool((5,))
+        assert bool((5, 3))
 
     def test_len(self):
         assert len(()) == 0
@@ -407,3 +407,22 @@ class AppTestW_TupleObject:
         assert (() != object()) is True
         assert ((1,) != object()) is True
         assert ((1, 2) != object()) is True
+
+    def test_zip_two_lists(self):
+        try:
+            from __pypy__ import specialized_zip_2_lists
+        except ImportError:
+            specialized_zip_2_lists = zip
+        else:
+            raises(TypeError, specialized_zip_2_lists, [], ())
+            raises(TypeError, specialized_zip_2_lists, (), [])
+        assert specialized_zip_2_lists([], []) == [
+            ]
+        assert specialized_zip_2_lists([2, 3], []) == [
+            ]
+        assert specialized_zip_2_lists([2, 3], [4, 5, 6]) == [
+            (2, 4), (3, 5)]
+        assert specialized_zip_2_lists([4.1, 3.6, 7.2], [2.3, 4.8]) == [
+            (4.1, 2.3), (3.6, 4.8)]
+        assert specialized_zip_2_lists(["foo", "bar"], [6, 2]) == [
+            ("foo", 6), ("bar", 2)]

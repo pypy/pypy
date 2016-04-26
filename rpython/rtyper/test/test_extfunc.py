@@ -1,10 +1,10 @@
 import py
 
-from rpython.rtyper.extfunc import ExtFuncEntry, register_external,\
-     is_external, lazy_register
-from rpython.annotator import model as annmodel
+from rpython.rtyper.extfunc import register_external
+from rpython.annotator.model import SomeInteger, SomeString, AnnotatorError
 from rpython.annotator.annrpython import RPythonAnnotator
 from rpython.annotator.policy import AnnotatorPolicy
+from rpython.annotator.signature import SignatureError
 from rpython.rtyper.test.test_llinterp import interpret
 
 class TestExtFuncEntry:
@@ -18,11 +18,7 @@ class TestExtFuncEntry:
             "NOT_RPYTHON"
             return eval("x+40")
 
-        class BTestFuncEntry(ExtFuncEntry):
-            _about_ = b
-            name = 'b'
-            signature_args = [annmodel.SomeInteger()]
-            signature_result = annmodel.SomeInteger()
+        register_external(b, [int], result=int)
 
         def f():
             return b(2)
@@ -30,7 +26,7 @@ class TestExtFuncEntry:
         policy = AnnotatorPolicy()
         a = RPythonAnnotator(policy=policy)
         s = a.build_types(f, [])
-        assert isinstance(s, annmodel.SomeInteger)
+        assert isinstance(s, SomeInteger)
 
         res = interpret(f, [])
         assert res == 42
@@ -42,37 +38,17 @@ class TestExtFuncEntry:
         def c(y, x):
             yyy
 
-        class CTestFuncEntry(ExtFuncEntry):
-            _about_ = c
-            name = 'ccc'
-            signature_args = [annmodel.SomeInteger()] * 2
-            signature_result = annmodel.SomeInteger()
+        def llimpl(y, x):
+            return y + x
 
-            def lltypeimpl(y, x):
-                return y + x
-            lltypeimpl = staticmethod(lltypeimpl)
+        register_external(c, [int, int], result=int, llimpl=llimpl,
+                          export_name='ccc')
 
         def f():
             return c(3, 4)
 
         res = interpret(f, [])
         assert res == 7
-
-    def test_register_external_signature(self):
-        """
-        Test the standard interface for external functions.
-        """
-        def dd():
-            pass
-        register_external(dd, [int], int)
-
-        def f():
-            return dd(3)
-
-        policy = AnnotatorPolicy()
-        a = RPythonAnnotator(policy=policy)
-        s = a.build_types(f, [])
-        assert isinstance(s, annmodel.SomeInteger)
 
     def test_register_external_tuple_args(self):
         """
@@ -96,7 +72,7 @@ class TestExtFuncEntry:
         s = a.build_types(f, [])
 
         # Not a very good assertion, but at least it means _something_ happened.
-        assert isinstance(s, annmodel.SomeInteger)
+        assert isinstance(s, SomeInteger)
 
     def test_register_external_return_goes_back(self):
         """
@@ -118,27 +94,10 @@ class TestExtFuncEntry:
         policy = AnnotatorPolicy()
         a = RPythonAnnotator(policy=policy)
         s = a.build_types(f, [])
-        assert isinstance(s, annmodel.SomeInteger)
-
-    def test_register_external_specialcase(self):
-        """
-        When args=None, the external function accepts any arguments unmodified.
-        """
-        def function_withspecialcase(arg):
-            return repr(arg)
-        register_external(function_withspecialcase, args=None, result=str)
-
-        def f():
-            x = function_withspecialcase
-            return x(33) + x("aaa") + x([]) + "\n"
-
-        policy = AnnotatorPolicy()
-        a = RPythonAnnotator(policy=policy)
-        s = a.build_types(f, [])
-        assert isinstance(s, annmodel.SomeString)
+        assert isinstance(s, SomeInteger)
 
     def test_str0(self):
-        str0 = annmodel.SomeString(no_nul=True)
+        str0 = SomeString(no_nul=True)
         def os_open(s):
             pass
         register_external(os_open, [str0], None)
@@ -152,25 +111,51 @@ class TestExtFuncEntry:
         a.translator.config.translation.check_str_without_nul=True
         def g(s):
             return os_open(s)
-        py.test.raises(Exception, a.build_types, g, [str])
+        with py.test.raises(SignatureError):
+            a.build_types(g, [str])
         a.build_types(g, [str0])  # Does not raise
 
-    def test_list_of_str0(self):
-        str0 = annmodel.SomeString(no_nul=True)
+    def test_list_of_str0_unchecked(self):
+        str0 = SomeString(no_nul=True)
+
         def os_execve(l):
             pass
+
         register_external(os_execve, [[str0]], None)
+
         def f(l):
             return os_execve(l)
+
         policy = AnnotatorPolicy()
         a = RPythonAnnotator(policy=policy)
-        a.build_types(f, [[str]])  # Does not raise
         assert a.translator.config.translation.check_str_without_nul == False
+        a.build_types(f, [[str]])  # Does not raise
         # Now enable the str0 check, and try again with a similar function
         a.translator.config.translation.check_str_without_nul=True
+
         def g(l):
             return os_execve(l)
-        py.test.raises(Exception, a.build_types, g, [[str]])
+
+        with py.test.raises(AnnotatorError):
+            # fails with TooLateForChange
+            a.build_types(g, [[str]])
         a.build_types(g, [[str0]])  # Does not raise
 
+    def test_register_external_llfakeimpl(self):
+        def a(i):
+            return i
+        def a_llimpl(i):
+            return i * 2
+        def a_llfakeimpl(i):
+            return i * 3
+        register_external(a, [int], int, llimpl=a_llimpl,
+                          llfakeimpl=a_llfakeimpl)
+        def f(i):
+            return a(i)
 
+        res = interpret(f, [7])
+        assert res == 21
+
+        from rpython.translator.c.test.test_genc import compile
+        fc = compile(f, [int])
+        assert fc(7) == 14

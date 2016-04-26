@@ -942,7 +942,7 @@ class AbstractUnwrappedSetStrategy(object):
             return False
         if w_set.length() == 0:
             return True
-        # it's possible to have 0-lenght strategy that's not empty
+        # it's possible to have 0-length strategy that's not empty
         if w_set.strategy is w_other.strategy:
             return self._issubset_unwrapped(w_set, w_other)
         if not self.may_contain_equal_elements(w_other.strategy):
@@ -1076,7 +1076,7 @@ class AbstractUnwrappedSetStrategy(object):
         if self is w_other.strategy:
             strategy = self
             if w_set.length() > w_other.length():
-                # swap operants
+                # swap operands
                 storage = self._intersect_unwrapped(w_other, w_set)
             else:
                 storage = self._intersect_unwrapped(w_set, w_other)
@@ -1086,7 +1086,7 @@ class AbstractUnwrappedSetStrategy(object):
         else:
             strategy = self.space.fromcache(ObjectSetStrategy)
             if w_set.length() > w_other.length():
-                # swap operants
+                # swap operands
                 storage = w_other.strategy._intersect_wrapped(w_other, w_set)
             else:
                 storage = self._intersect_wrapped(w_set, w_other)
@@ -1589,18 +1589,18 @@ def set_strategy_and_setdata(space, w_set, w_iterable):
         w_set.sstorage = strategy.get_storage_from_unwrapped_list(intlist)
         return
 
+    length_hint = space.length_hint(w_iterable, 0)
+
+    if jit.isconstant(length_hint):
+        return _pick_correct_strategy_unroll(space, w_set, w_iterable)
+
+    _create_from_iterable(space, w_set, w_iterable)
+
+
+@jit.unroll_safe
+def _pick_correct_strategy_unroll(space, w_set, w_iterable):
+
     iterable_w = space.listview(w_iterable)
-
-    if len(iterable_w) == 0:
-        w_set.strategy = strategy = space.fromcache(EmptySetStrategy)
-        w_set.sstorage = strategy.get_empty_storage()
-        return
-
-    _pick_correct_strategy(space, w_set, iterable_w)
-
-@jit.look_inside_iff(lambda space, w_set, iterable_w:
-        jit.loop_unrolling_heuristic(iterable_w, len(iterable_w), UNROLL_CUTOFF))
-def _pick_correct_strategy(space, w_set, iterable_w):
     # check for integers
     for w_item in iterable_w:
         if type(w_item) is not W_IntObject:
@@ -1639,6 +1639,29 @@ def _pick_correct_strategy(space, w_set, iterable_w):
 
     w_set.strategy = space.fromcache(ObjectSetStrategy)
     w_set.sstorage = w_set.strategy.get_storage_from_list(iterable_w)
+
+
+create_set_driver = jit.JitDriver(name='create_set',
+                                  greens=['tp', 'strategy'],
+                                  reds='auto')
+
+def _create_from_iterable(space, w_set, w_iterable):
+    w_set.strategy = strategy = space.fromcache(EmptySetStrategy)
+    w_set.sstorage = strategy.get_empty_storage()
+
+    tp = space.type(w_iterable)
+
+    w_iter = space.iter(w_iterable)
+    while True:
+        try:
+            w_item = space.next(w_iter)
+        except OperationError, e:
+            if not e.match(space, space.w_StopIteration):
+                raise
+            return
+        create_set_driver.jit_merge_point(tp=tp, strategy=w_set.strategy)
+        w_set.add(w_item)
+
 
 init_signature = Signature(['some_iterable'], None, None)
 init_defaults = [None]

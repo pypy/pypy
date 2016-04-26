@@ -10,6 +10,15 @@ project. The `PyPy uwsgi plugin`_ is a good example of using the embedding API.
 with a ``libpypy-c.so`` or ``pypy-c.dll`` file.  This is the default in
 recent versions of PyPy.
 
+.. note::
+
+   The interface described in this page is kept for backward compatibility.
+   From PyPy 4.1, it is recommended to use instead CFFI's `native embedding
+   support,`__ which gives a simpler approach that works on CPython as well
+   as PyPy.
+
+.. __: http://cffi.readthedocs.org/en/latest/embedding.html
+
 The resulting shared library exports very few functions, however they are
 enough to accomplish everything you need, provided you follow a few principles.
 The API is:
@@ -130,8 +139,13 @@ with a command like::
 More complete example
 ---------------------
 
-.. note:: This example depends on pypy_execute_source_ptr which is not available
-          in PyPy <= 2.2.1.
+.. note:: Note that we do not make use of ``extern "Python"``, the new
+   way to do callbacks in CFFI 1.4: this is because these examples use
+   the ABI mode, not the API mode, and with the ABI mode you still have
+   to use ``ffi.callback()``.  It is work in progress to integrate
+   ``extern "Python"`` with the idea of embedding (and it is expected
+   to ultimately lead to a better way to do embedding than the one
+   described here, and that would work equally well on CPython and PyPy).
 
 Typically we need something more to do than simply execute source. The following
 is a fully fledged example, please consult cffi documentation for details.

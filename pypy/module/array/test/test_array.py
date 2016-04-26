@@ -99,12 +99,13 @@ class BaseArrayTests:
 
         for tc in 'BHIL':
             a = self.array(tc)
-            vals = [0, 2 ** a.itemsize - 1]
+            itembits = a.itemsize * 8
+            vals = [0, 2 ** itembits - 1]
             a.fromlist(vals)
             assert a.tolist() == vals
 
             a = self.array(tc.lower())
-            vals = [-1 * (2 ** a.itemsize) / 2,  (2 ** a.itemsize) / 2 - 1]
+            vals = [-1 * (2 ** itembits) / 2,  (2 ** itembits) / 2 - 1]
             a.fromlist(vals)
             assert a.tolist() == vals
 
@@ -843,6 +844,18 @@ class BaseArrayTests:
         b = self.array('u', unicode(r'\x01\u263a\x00\ufeff', 'unicode-escape'))
         b.byteswap()
         assert a != b
+
+    def test_unicode_ord_positive(self):
+        import sys
+        if sys.maxunicode == 0xffff:
+            skip("test for 32-bit unicodes")
+        a = self.array('u', '\xff\xff\xff\xff')
+        assert len(a) == 1
+        assert repr(a[0]) == "u'\Uffffffff'"
+        if sys.maxint == 2147483647:
+            assert ord(a[0]) == -1
+        else:
+            assert ord(a[0]) == 4294967295
 
     def test_weakref(self):
         import weakref

@@ -314,6 +314,59 @@ class TestBitfield:
         ffi.cast("unsigned short *", c)[1] += 500
         assert list(a) == [10000, 20500, 30000]
 
+    def test_memmove(self):
+        ffi = FFI()
+        p = ffi.new("short[]", [-1234, -2345, -3456, -4567, -5678])
+        ffi.memmove(p, p + 1, 4)
+        assert list(p) == [-2345, -3456, -3456, -4567, -5678]
+        p[2] = 999
+        ffi.memmove(p + 2, p, 6)
+        assert list(p) == [-2345, -3456, -2345, -3456, 999]
+        ffi.memmove(p + 4, ffi.new("char[]", b"\x71\x72"), 2)
+        if sys.byteorder == 'little':
+            assert list(p) == [-2345, -3456, -2345, -3456, 0x7271]
+        else:
+            assert list(p) == [-2345, -3456, -2345, -3456, 0x7172]
+
+    def test_memmove_buffer(self):
+        import array
+        ffi = FFI()
+        a = array.array('H', [10000, 20000, 30000])
+        p = ffi.new("short[]", 5)
+        ffi.memmove(p, a, 6)
+        assert list(p) == [10000, 20000, 30000, 0, 0]
+        ffi.memmove(p + 1, a, 6)
+        assert list(p) == [10000, 10000, 20000, 30000, 0]
+        b = array.array('h', [-1000, -2000, -3000])
+        ffi.memmove(b, a, 4)
+        assert b.tolist() == [10000, 20000, -3000]
+        assert a.tolist() == [10000, 20000, 30000]
+        p[0] = 999
+        p[1] = 998
+        p[2] = 997
+        p[3] = 996
+        p[4] = 995
+        ffi.memmove(b, p, 2)
+        assert b.tolist() == [999, 20000, -3000]
+        ffi.memmove(b, p + 2, 4)
+        assert b.tolist() == [997, 996, -3000]
+        p[2] = -p[2]
+        p[3] = -p[3]
+        ffi.memmove(b, p + 2, 6)
+        assert b.tolist() == [-997, -996, 995]
+
+    def test_memmove_readonly_readwrite(self):
+        ffi = FFI()
+        p = ffi.new("signed char[]", 5)
+        ffi.memmove(p, b"abcde", 3)
+        assert list(p) == [ord("a"), ord("b"), ord("c"), 0, 0]
+        ffi.memmove(p, bytearray(b"ABCDE"), 2)
+        assert list(p) == [ord("A"), ord("B"), ord("c"), 0, 0]
+        py.test.raises((TypeError, BufferError), ffi.memmove, b"abcde", p, 3)
+        ba = bytearray(b"xxxxx")
+        ffi.memmove(dest=ba, src=p, n=3)
+        assert ba == bytearray(b"ABcxx")
+
     def test_all_primitives(self):
         ffi = FFI()
         for name in [
@@ -367,3 +420,63 @@ class TestBitfield:
             ]:
             x = ffi.sizeof(name)
             assert 1 <= x <= 16
+
+    def test_ffi_def_extern(self):
+        ffi = FFI()
+        py.test.raises(ValueError, ffi.def_extern)
+
+    def test_introspect_typedef(self):
+        ffi = FFI()
+        ffi.cdef("typedef int foo_t;")
+        assert ffi.list_types() == (['foo_t'], [], [])
+        assert ffi.typeof('foo_t').kind == 'primitive'
+        assert ffi.typeof('foo_t').cname == 'int'
+        #
+        ffi.cdef("typedef signed char a_t, c_t, g_t, b_t;")
+        assert ffi.list_types() == (['a_t', 'b_t', 'c_t', 'foo_t', 'g_t'],
+                                    [], [])
+
+    def test_introspect_struct(self):
+        ffi = FFI()
+        ffi.cdef("struct foo_s { int a; };")
+        assert ffi.list_types() == ([], ['foo_s'], [])
+        assert ffi.typeof('struct foo_s').kind == 'struct'
+        assert ffi.typeof('struct foo_s').cname == 'struct foo_s'
+
+    def test_introspect_union(self):
+        ffi = FFI()
+        ffi.cdef("union foo_s { int a; };")
+        assert ffi.list_types() == ([], [], ['foo_s'])
+        assert ffi.typeof('union foo_s').kind == 'union'
+        assert ffi.typeof('union foo_s').cname == 'union foo_s'
+
+    def test_introspect_struct_and_typedef(self):
+        ffi = FFI()
+        ffi.cdef("typedef struct { int a; } foo_t;")
+        assert ffi.list_types() == (['foo_t'], [], [])
+        assert ffi.typeof('foo_t').kind == 'struct'
+        assert ffi.typeof('foo_t').cname == 'foo_t'
+
+    def test_introspect_included_type(self):
+        ffi1 = FFI()
+        ffi2 = FFI()
+        ffi1.cdef("typedef signed char schar_t; struct sint_t { int x; };")
+        ffi2.include(ffi1)
+        assert ffi1.list_types() == ffi2.list_types() == (
+            ['schar_t'], ['sint_t'], [])
+
+    def test_introspect_order(self):
+        ffi = FFI()
+        ffi.cdef("union aaa { int a; }; typedef struct ccc { int a; } b;")
+        ffi.cdef("union g   { int a; }; typedef struct cc  { int a; } bbb;")
+        ffi.cdef("union aa  { int a; }; typedef struct a   { int a; } bb;")
+        assert ffi.list_types() == (['b', 'bb', 'bbb'],
+                                    ['a', 'cc', 'ccc'],
+                                    ['aa', 'aaa', 'g'])
+
+    def test_unpack(self):
+        ffi = FFI()
+        p = ffi.new("char[]", b"abc\x00def")
+        assert ffi.unpack(p+1, 7) == b"bc\x00def\x00"
+        p = ffi.new("int[]", [-123456789])
+        assert ffi.unpack(p, 1) == [-123456789]

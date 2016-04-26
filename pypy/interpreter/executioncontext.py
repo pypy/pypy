@@ -210,11 +210,11 @@ class ExecutionContext(object):
 
     def exception_trace(self, frame, operationerr):
         "Trace function called upon OperationError."
-        operationerr.record_interpreter_traceback()
         if self.gettrace() is not None:
             self._trace(frame, 'exception', None, operationerr)
         #operationerr.print_detailed_traceback(self.space)
 
+    @jit.dont_look_inside
     @specialize.arg(1)
     def sys_exc_info(self, for_hidden=False):
         """Implements sys.exc_info().
@@ -226,15 +226,7 @@ class ExecutionContext(object):
         # NOTE: the result is not the wrapped sys.exc_info() !!!
 
         """
-        frame = self.gettopframe()
-        while frame:
-            if frame.last_exception is not None:
-                if ((for_hidden or not frame.hide()) or
-                        frame.last_exception is
-                            get_cleared_operation_error(self.space)):
-                    return frame.last_exception
-            frame = frame.f_backref()
-        return None
+        return self.gettopframe()._exc_info_unroll(self.space, for_hidden)
 
     def set_sys_exc_info(self, operror):
         frame = self.gettopframe_nohidden()
@@ -327,10 +319,14 @@ class ExecutionContext(object):
                 w_arg = space.newtuple([operr.w_type, w_value,
                                      space.wrap(operr.get_traceback())])
 
-            frame.fast2locals()
+            d = frame.getorcreatedebug()
+            if d.w_locals is not None:
+                # only update the w_locals dict if it exists
+                # if it does not exist yet and the tracer accesses it via
+                # frame.f_locals, it is filled by PyFrame.getdictscope
+                frame.fast2locals()
             self.is_tracing += 1
             try:
-                d = frame.getorcreatedebug()
                 try:
                     w_result = space.call_function(w_callback, space.wrap(frame), space.wrap(event), w_arg)
                     if space.is_w(w_result, space.w_None):
@@ -343,7 +339,8 @@ class ExecutionContext(object):
                     raise
             finally:
                 self.is_tracing -= 1
-                frame.locals2fast()
+                if d.w_locals is not None:
+                    frame.locals2fast()
 
         # Profile cases
         if self.profilefunc is not None:

@@ -1,21 +1,9 @@
 
 import py
 import random
-try:
-    from itertools import product
-except ImportError:
-    # Python 2.5, this is taken from the CPython docs, but simplified.
-    def product(*args):
-        # product('ABCD', 'xy') --> Ax Ay Bx By Cx Cy Dx Dy
-        # product(range(2), repeat=3) --> 000 001 010 011 100 101 110 111
-        pools = map(tuple, args)
-        result = [[]]
-        for pool in pools:
-            result = [x+[y] for x in result for y in pool]
-        for prod in result:
-            yield tuple(prod)
+from itertools import product
 
-from rpython.flowspace.model import FunctionGraph, Block, Link
+from rpython.flowspace.model import FunctionGraph, Block, Link, c_last_exception
 from rpython.flowspace.model import SpaceOperation, Variable, Constant
 from rpython.rtyper.lltypesystem import lltype, llmemory, rstr, rffi
 from rpython.rtyper import rclass
@@ -30,7 +18,6 @@ def const(x):
     return Constant(x, lltype.typeOf(x))
 
 class FakeRTyper:
-    class type_system: name = 'lltypesystem'
     instance_reprs = {}
 
 class FakeCPU:
@@ -187,7 +174,7 @@ def test_optimize_goto_if_not():
     res = Transformer().optimize_goto_if_not(block)
     assert res == True
     assert block.operations == [sp1, sp2]
-    assert block.exitswitch == ('int_gt', v1, v2)
+    assert block.exitswitch == ('int_gt', v1, v2, '-live-before')
     assert block.exits == exits
 
 def test_optimize_goto_if_not__incoming():
@@ -211,7 +198,7 @@ def test_optimize_goto_if_not__exit():
     res = Transformer().optimize_goto_if_not(block)
     assert res == True
     assert block.operations == []
-    assert block.exitswitch == ('int_gt', v1, v2)
+    assert block.exitswitch == ('int_gt', v1, v2, '-live-before')
     assert block.exits == exits
     assert exits[1].args == [const(True)]
 
@@ -235,7 +222,7 @@ def test_optimize_goto_if_not__ptr_eq():
         res = Transformer().optimize_goto_if_not(block)
         assert res == True
         assert block.operations == []
-        assert block.exitswitch == (opname, v1, v2)
+        assert block.exitswitch == (opname, v1, v2, '-live-before')
         assert block.exits == exits
 
 def test_optimize_goto_if_not__ptr_iszero():
@@ -287,7 +274,7 @@ def test_symmetric_int_add_ovf():
         for v2 in [varoftype(lltype.Signed), const(43)]:
             op = SpaceOperation('int_add_nonneg_ovf', [v1, v2], v3)
             oplist = Transformer(FakeCPU()).rewrite_operation(op)
-            op0, op1 = oplist
+            op1, op0 = oplist
             assert op0.opname == 'int_add_ovf'
             if isinstance(v1, Constant) and isinstance(v2, Variable):
                 assert op0.args == [v2, v1]
@@ -1025,7 +1012,8 @@ def test_getfield_gc_greenfield():
     v1 = varoftype(lltype.Ptr(S))
     v2 = varoftype(lltype.Char)
     op = SpaceOperation('getfield', [v1, Constant('x', lltype.Void)], v2)
-    op1 = Transformer(FakeCPU(), FakeCC()).rewrite_operation(op)
+    op0, op1 = Transformer(FakeCPU(), FakeCC()).rewrite_operation(op)
+    assert op0.opname == '-live-'
     assert op1.opname == 'getfield_gc_i_greenfield'
     assert op1.args == [v1, ('fielddescr', S, 'x')]
     assert op1.result == v2
@@ -1328,12 +1316,27 @@ def test_no_gcstruct_nesting_outside_of_OBJECT():
     tr = Transformer(None, None)
     py.test.raises(NotImplementedError, tr.rewrite_operation, op)
 
+def test_no_fixedsizearray():
+    A = lltype.FixedSizeArray(lltype.Signed, 5)
+    v_x = varoftype(lltype.Ptr(A))
+    op = SpaceOperation('getarrayitem', [v_x, Constant(0, lltype.Signed)],
+                        varoftype(lltype.Signed))
+    tr = Transformer(None, None)
+    tr.graph = 'demo'
+    py.test.raises(NotImplementedError, tr.rewrite_operation, op)
+    op = SpaceOperation('setarrayitem', [v_x, Constant(0, lltype.Signed),
+                                              Constant(42, lltype.Signed)],
+                        varoftype(lltype.Void))
+    e = py.test.raises(NotImplementedError, tr.rewrite_operation, op)
+    assert str(e.value) == (
+        "'demo' uses %r, which is not supported by the JIT codewriter" % (A,))
+
 def _test_threadlocalref_get(loop_inv):
     from rpython.rlib.rthread import ThreadLocalField
     tlfield = ThreadLocalField(lltype.Signed, 'foobar_test_',
                                loop_invariant=loop_inv)
     OS_THREADLOCALREF_GET = effectinfo.EffectInfo.OS_THREADLOCALREF_GET
-    c = const(tlfield.offset)
+    c = const(tlfield.getoffset())
     v = varoftype(lltype.Signed)
     op = SpaceOperation('threadlocalref_get', [c], v)
     cc = FakeBuiltinCallControl()

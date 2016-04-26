@@ -416,3 +416,14 @@ class TestModuleMinimal:
             i -= 1
             assert i >= 0
             gc.collect()
+
+    def test_exitfunc_catches_exceptions(self):
+        from pypy.tool.pytest.objspace import maketestobjspace
+        space = maketestobjspace()
+        space.appexec([], """():
+            import sys
+            sys.exitfunc = lambda: this_is_an_unknown_name
+        """)
+        space.finish()
+        # assert that we reach this point without getting interrupted
+        # by the OperationError(NameError)

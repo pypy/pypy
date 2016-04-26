@@ -1,16 +1,18 @@
-
 import py
-try:
-    from collections import OrderedDict
-except ImportError:     # Python 2.6
-    py.test.skip("requires collections.OrderedDict")
+from collections import OrderedDict
+
+from hypothesis import settings
+from hypothesis.stateful import run_state_machine_as_test
+
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem import rordereddict, rstr
 from rpython.rlib.rarithmetic import intmask
 from rpython.rtyper.annlowlevel import llstr, hlstr
-from rpython.rtyper.test.test_rdict import BaseTestRDict
+from rpython.rtyper.test.test_rdict import (
+    BaseTestRDict, MappingSpace, MappingSM)
 from rpython.rlib import objectmodel
 
+rodct = rordereddict
 
 def get_indexes(ll_d):
     return ll_d.indexes._obj.container._as_ptr()
@@ -332,124 +334,48 @@ class TestOrderedRDict(BaseTestRDict):
         assert res == 6
 
 
-class TestStress:
+class ODictSpace(MappingSpace):
+    MappingRepr = rodct.OrderedDictRepr
+    new_reference = OrderedDict
+    ll_getitem = staticmethod(rodct.ll_dict_getitem)
+    ll_setitem = staticmethod(rodct.ll_dict_setitem)
+    ll_delitem = staticmethod(rodct.ll_dict_delitem)
+    ll_len = staticmethod(rodct.ll_dict_len)
+    ll_contains = staticmethod(rodct.ll_dict_contains)
+    ll_copy = staticmethod(rodct.ll_dict_copy)
+    ll_clear = staticmethod(rodct.ll_dict_clear)
 
-    def test_stress(self):
-        from rpython.annotator.dictdef import DictKey, DictValue
-        from rpython.annotator import model as annmodel
-        from rpython.rtyper import rint
-        from rpython.rtyper.test.test_rdict import not_really_random
-        rodct = rordereddict
-        dictrepr = rodct.OrderedDictRepr(
-                                  None, rint.signed_repr, rint.signed_repr,
-                                  DictKey(None, annmodel.SomeInteger()),
-                                  DictValue(None, annmodel.SomeInteger()))
-        dictrepr.setup()
-        l_dict = rodct.ll_newdict(dictrepr.DICT)
-        referencetable = [None] * 400
-        referencelength = 0
-        value = 0
+    def newdict(self, repr):
+        return rodct.ll_newdict(repr.DICT)
 
-        def complete_check():
-            for n, refvalue in zip(range(len(referencetable)), referencetable):
-                try:
-                    gotvalue = rodct.ll_dict_getitem(l_dict, n)
-                except KeyError:
-                    assert refvalue is None
-                else:
-                    assert gotvalue == refvalue
+    def get_keys(self):
+        DICT = lltype.typeOf(self.l_dict).TO
+        ITER = rordereddict.get_ll_dictiter(lltype.Ptr(DICT))
+        ll_iter = rordereddict.ll_dictiter(ITER, self.l_dict)
+        ll_dictnext = rordereddict._ll_dictnext
+        keys_ll = []
+        while True:
+            try:
+                num = ll_dictnext(ll_iter)
+                keys_ll.append(self.l_dict.entries[num].key)
+            except StopIteration:
+                break
+        return keys_ll
 
-        for x in not_really_random():
-            n = int(x*100.0)    # 0 <= x < 400
-            op = repr(x)[-1]
-            if op <= '2' and referencetable[n] is not None:
-                rodct.ll_dict_delitem(l_dict, n)
-                referencetable[n] = None
-                referencelength -= 1
-            elif op <= '6':
-                rodct.ll_dict_setitem(l_dict, n, value)
-                if referencetable[n] is None:
-                    referencelength += 1
-                referencetable[n] = value
-                value += 1
-            else:
-                try:
-                    gotvalue = rodct.ll_dict_getitem(l_dict, n)
-                except KeyError:
-                    assert referencetable[n] is None
-                else:
-                    assert gotvalue == referencetable[n]
-            if 1.38 <= x <= 1.39:
-                complete_check()
-                print 'current dict length:', referencelength
-            assert l_dict.num_live_items == referencelength
-        complete_check()
+    def fullcheck(self):
+        # overridden to also check key order
+        assert self.ll_len(self.l_dict) == len(self.reference)
+        keys_ll = self.get_keys()
+        assert len(keys_ll) == len(self.reference)
+        for key, ll_key in zip(self.reference, keys_ll):
+            assert self.ll_key(key) == ll_key
+            assert (self.ll_getitem(self.l_dict, self.ll_key(key)) ==
+                self.ll_value(self.reference[key]))
 
-    def test_stress_2(self):
-        yield self.stress_combination, True,  False
-        yield self.stress_combination, False, True
-        yield self.stress_combination, False, False
-        yield self.stress_combination, True,  True
 
-    def stress_combination(self, key_can_be_none, value_can_be_none):
-        from rpython.rtyper.lltypesystem.rstr import string_repr
-        from rpython.annotator.dictdef import DictKey, DictValue
-        from rpython.annotator import model as annmodel
-        from rpython.rtyper.test.test_rdict import not_really_random
-        rodct = rordereddict
+class ODictSM(MappingSM):
+    Space = ODictSpace
 
-        print
-        print "Testing combination with can_be_None: keys %s, values %s" % (
-            key_can_be_none, value_can_be_none)
-
-        class PseudoRTyper:
-            cache_dummy_values = {}
-        dictrepr = rodct.OrderedDictRepr(
-                       PseudoRTyper(), string_repr, string_repr,
-                       DictKey(None, annmodel.SomeString(key_can_be_none)),
-                       DictValue(None, annmodel.SomeString(value_can_be_none)))
-        dictrepr.setup()
-        print dictrepr.lowleveltype
-        #for key, value in dictrepr.DICTENTRY._adtmeths.items():
-        #    print '    %s = %s' % (key, value)
-        l_dict = rodct.ll_newdict(dictrepr.DICT)
-        referencetable = [None] * 400
-        referencelength = 0
-        values = not_really_random()
-        keytable = [string_repr.convert_const("foo%d" % n)
-                    for n in range(len(referencetable))]
-
-        def complete_check():
-            for n, refvalue in zip(range(len(referencetable)), referencetable):
-                try:
-                    gotvalue = rodct.ll_dict_getitem(l_dict, keytable[n])
-                except KeyError:
-                    assert refvalue is None
-                else:
-                    assert gotvalue == refvalue
-
-        for x in not_really_random():
-            n = int(x*100.0)    # 0 <= x < 400
-            op = repr(x)[-1]
-            if op <= '2' and referencetable[n] is not None:
-                rodct.ll_dict_delitem(l_dict, keytable[n])
-                referencetable[n] = None
-                referencelength -= 1
-            elif op <= '6':
-                ll_value = string_repr.convert_const(str(values.next()))
-                rodct.ll_dict_setitem(l_dict, keytable[n], ll_value)
-                if referencetable[n] is None:
-                    referencelength += 1
-                referencetable[n] = ll_value
-            else:
-                try:
-                    gotvalue = rodct.ll_dict_getitem(l_dict, keytable[n])
-                except KeyError:
-                    assert referencetable[n] is None
-                else:
-                    assert gotvalue == referencetable[n]
-            if 1.38 <= x <= 1.39:
-                complete_check()
-                print 'current dict length:', referencelength
-            assert l_dict.num_live_items == referencelength
-        complete_check()
+def test_hypothesis():
+    run_state_machine_as_test(
+        ODictSM, settings(max_examples=500, stateful_step_count=100))

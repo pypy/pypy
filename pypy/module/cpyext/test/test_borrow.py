@@ -1,19 +1,8 @@
 import py
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.test.test_api import BaseApiTest
-from pypy.module.cpyext.pyobject import make_ref, borrow_from, RefcountState
+from pypy.module.cpyext.pyobject import make_ref
 
-
-class TestBorrowing(BaseApiTest):
-    def test_borrowing(self, space, api):
-        w_int = space.wrap(1)
-        w_tuple = space.newtuple([w_int])
-        api.Py_IncRef(w_tuple)
-        one_pyo = borrow_from(w_tuple, w_int).get_ref(space)
-        api.Py_DecRef(w_tuple)
-        state = space.fromcache(RefcountState)
-        state.print_refcounts()
-        py.test.raises(AssertionError, api.Py_DecRef, one_pyo)
 
 class AppTestBorrow(AppTestCpythonExtensionBase):
     def test_tuple_borrowing(self):
@@ -76,4 +65,5 @@ class AppTestBorrow(AppTestCpythonExtensionBase):
             ])
         wr = module.run()
         # check that the set() object was deallocated
+        self.debug_collect()
         assert wr() is None

@@ -237,6 +237,11 @@ def execute_tests(run_param, testdirs, logfile, out):
     N = run_param.parallel_runs
     if N > 1:
         out.write("running %d parallel test workers\n" % N)
+        s = 'setting'
+        if os.environ.get('MAKEFLAGS'):
+            s = 'overriding'
+        out.write("%s MAKEFLAGS to ' ' (space)\n" % s)
+        os.environ['MAKEFLAGS'] = ' '
     failure = False
 
     for testname in testdirs:
@@ -259,7 +264,8 @@ def execute_tests(run_param, testdirs, logfile, out):
 
         if res[0] == 'start':
             started += 1
-            out.write("++ starting %s [%d started in total]\n" % (res[1],
+            now = time.strftime('%H:%M:%S')
+            out.write("++ %s starting %s [%d started in total]\n" % (now, res[1],
                                                                   started))
             continue
         

@@ -8,7 +8,7 @@ from rpython.rlib.rarithmetic import r_longlong
 from rpython.rlib.debug import ll_assert, have_debug_prints, debug_flush
 from rpython.rlib.debug import debug_print, debug_start, debug_stop
 from rpython.rlib.debug import debug_offset, have_debug_prints_for
-from rpython.rlib.entrypoint import entrypoint, secondary_entrypoints
+from rpython.rlib.entrypoint import entrypoint_highlevel, secondary_entrypoints
 from rpython.rtyper.lltypesystem import lltype
 from rpython.translator.translator import TranslationContext
 from rpython.translator.backendopt import all
@@ -81,7 +81,7 @@ class TestStandalone(StandaloneTests):
         #
         # verify that the executable re-export symbols, but not too many
         if sys.platform.startswith('linux') and not kwds.get('shared', False):
-            seen_main = False
+            seen = set()
             g = os.popen("objdump -T '%s'" % builder.executable_name, 'r')
             for line in g:
                 if not line.strip():
@@ -91,10 +91,12 @@ class TestStandalone(StandaloneTests):
                 name = line.split()[-1]
                 if name.startswith('__'):
                     continue
+                seen.add(name)
                 if name == 'main':
-                    seen_main = True
                     continue
                 if name == 'pypy_debug_file':     # ok to export this one
+                    continue
+                if name == 'rpython_startup_code':  # ok for this one too
                     continue
                 if 'pypy' in name.lower() or 'rpy' in name.lower():
                     raise Exception("Unexpected exported name %r.  "
@@ -102,7 +104,9 @@ class TestStandalone(StandaloneTests):
                         "declaration of this C function or global variable"
                         % (name,))
             g.close()
-            assert seen_main, "did not see 'main' exported"
+            # list of symbols that we *want* to be exported:
+            for name in ['main', 'pypy_debug_file', 'rpython_startup_code']:
+                assert name in seen, "did not see '%r' exported" % name
         #
         return t, builder
 
@@ -121,9 +125,9 @@ class TestStandalone(StandaloneTests):
 
         # Verify that the generated C files have sane names:
         gen_c_files = [str(f) for f in cbuilder.extrafiles]
-        for expfile in ('rpython_rlib_rposix.c',
-                        'rpython_rtyper_lltypesystem_rstr.c',
-                        'rpython_translator_c_test_test_standalone.c'):
+        for expfile in ('rpython_rlib.c',
+                        'rpython_rtyper_lltypesystem.c',
+                        'rpython_translator_c_test.c'):
             assert cbuilder.targetdir.join(expfile) in gen_c_files
 
     def test_print(self):
@@ -531,6 +535,7 @@ class TestStandalone(StandaloneTests):
             py.test.skip("requires fork()")
 
         def entry_point(argv):
+            print "parentpid =", os.getpid()
             debug_start("foo")
             debug_print("test line")
             childpid = os.fork()
@@ -543,40 +548,46 @@ class TestStandalone(StandaloneTests):
         t, cbuilder = self.compile(entry_point)
         path = udir.join('test_debug_print_fork.log')
         out, err = cbuilder.cmdexec("", err=True,
-                                    env={'PYPYLOG': ':%s' % path})
+                                    env={'PYPYLOG': ':%s.%%d' % path})
         assert not err
+        import time
+        time.sleep(0.5)    # time for the forked children to finish
         #
-        f = open(str(path), 'r')
+        lines = out.splitlines()
+        assert lines[-1].startswith('parentpid = ')
+        parentpid = int(lines[-1][12:])
+        #
+        f = open('%s.%d' % (path, parentpid), 'r')
         lines = f.readlines()
         f.close()
         assert '{foo' in lines[0]
         assert lines[1] == "test line\n"
-        offset1 = len(lines[0]) + len(lines[1])
+        #offset1 = len(lines[0]) + len(lines[1])
         assert lines[2].startswith('childpid = ')
         childpid = int(lines[2][11:])
         assert childpid != 0
         assert 'foo}' in lines[3]
         assert len(lines) == 4
         #
-        f = open('%s.fork%d' % (path, childpid), 'r')
+        f = open('%s.%d' % (path, childpid), 'r')
         lines = f.readlines()
         f.close()
-        assert lines[0] == 'FORKED: %d %s\n' % (offset1, path)
-        assert lines[1] == 'childpid = 0\n'
-        offset2 = len(lines[0]) + len(lines[1])
-        assert lines[2].startswith('childpid2 = ')
-        childpid2 = int(lines[2][11:])
+        #assert lines[0] == 'FORKED: %d %s\n' % (offset1, path)
+        assert lines[0] == 'childpid = 0\n'
+        #offset2 = len(lines[0]) + len(lines[1])
+        assert lines[1].startswith('childpid2 = ')
+        childpid2 = int(lines[1][11:])
         assert childpid2 != 0
-        assert 'foo}' in lines[3]
-        assert len(lines) == 4
-        #
-        f = open('%s.fork%d' % (path, childpid2), 'r')
-        lines = f.readlines()
-        f.close()
-        assert lines[0] == 'FORKED: %d %s.fork%d\n' % (offset2, path, childpid)
-        assert lines[1] == 'childpid2 = 0\n'
         assert 'foo}' in lines[2]
         assert len(lines) == 3
+        #
+        f = open('%s.%d' % (path, childpid2), 'r')
+        lines = f.readlines()
+        f.close()
+        #assert lines[0] == 'FORKED: %d %s.fork%d\n' % (offset2, path, childpid)
+        assert lines[0] == 'childpid2 = 0\n'
+        assert 'foo}' in lines[1]
+        assert len(lines) == 2
 
     def test_debug_flush_at_exit(self):
         def entry_point(argv):
@@ -1086,22 +1097,10 @@ class TestThread(object):
         import time
         from rpython.rlib import rthread
         from rpython.rtyper.lltypesystem import lltype
-        from rpython.rlib.objectmodel import invoke_around_extcall
 
         class State:
             pass
         state = State()
-
-        def before():
-            debug_print("releasing...")
-            ll_assert(not rthread.acquire_NOAUTO(state.ll_lock, False),
-                      "lock not held!")
-            rthread.release_NOAUTO(state.ll_lock)
-            debug_print("released")
-        def after():
-            debug_print("waiting...")
-            rthread.acquire_NOAUTO(state.ll_lock, True)
-            debug_print("acquired")
 
         def recurse(n):
             if n > 0:
@@ -1138,10 +1137,7 @@ class TestThread(object):
             s1 = State(); s2 = State(); s3 = State()
             s1.x = 0x11111111; s2.x = 0x22222222; s3.x = 0x33333333
             # start 3 new threads
-            state.ll_lock = rthread.allocate_ll_lock()
-            after()
             state.count = 0
-            invoke_around_extcall(before, after)
             ident1 = rthread.start_new_thread(bootstrap, ())
             ident2 = rthread.start_new_thread(bootstrap, ())
             ident3 = rthread.start_new_thread(bootstrap, ())
@@ -1185,19 +1181,10 @@ class TestThread(object):
         import time, gc
         from rpython.rlib import rthread, rposix
         from rpython.rtyper.lltypesystem import lltype
-        from rpython.rlib.objectmodel import invoke_around_extcall
 
         class State:
             pass
         state = State()
-
-        def before():
-            ll_assert(not rthread.acquire_NOAUTO(state.ll_lock, False),
-                      "lock not held!")
-            rthread.release_NOAUTO(state.ll_lock)
-        def after():
-            rthread.acquire_NOAUTO(state.ll_lock, True)
-            rthread.gc_thread_run()
 
         class Cons:
             def __init__(self, head, tail):
@@ -1228,9 +1215,6 @@ class TestThread(object):
             state.xlist = []
             x2 = Cons(51, Cons(62, Cons(74, None)))
             # start 5 new threads
-            state.ll_lock = rthread.allocate_ll_lock()
-            after()
-            invoke_around_extcall(before, after)
             ident1 = new_thread()
             ident2 = new_thread()
             #
@@ -1274,7 +1258,6 @@ class TestThread(object):
 
 
     def test_gc_with_fork_without_threads(self):
-        from rpython.rlib.objectmodel import invoke_around_extcall
         if not hasattr(os, 'fork'):
             py.test.skip("requires fork()")
 
@@ -1301,21 +1284,17 @@ class TestThread(object):
         # alive are really freed.
         import time, gc, os
         from rpython.rlib import rthread
-        from rpython.rlib.objectmodel import invoke_around_extcall
         if not hasattr(os, 'fork'):
             py.test.skip("requires fork()")
+
+        from rpython.rtyper.lltypesystem import rffi, lltype
+        direct_write = rffi.llexternal(
+            "write", [rffi.INT, rffi.CCHARP, rffi.SIZE_T], lltype.Void,
+            _nowrapper=True)
 
         class State:
             pass
         state = State()
-
-        def before():
-            ll_assert(not rthread.acquire_NOAUTO(state.ll_lock, False),
-                      "lock not held!")
-            rthread.release_NOAUTO(state.ll_lock)
-        def after():
-            rthread.acquire_NOAUTO(state.ll_lock, True)
-            rthread.gc_thread_run()
 
         class Cons:
             def __init__(self, head, tail):
@@ -1324,7 +1303,10 @@ class TestThread(object):
 
         class Stuff:
             def __del__(self):
-                os.write(state.write_end, 'd')
+                p = rffi.str2charp('d')
+                one = rffi.cast(rffi.SIZE_T, 1)
+                direct_write(rffi.cast(rffi.INT, state.write_end), p, one)
+                rffi.free_charp(p)
 
         def allocate_stuff():
             s = Stuff()
@@ -1373,9 +1355,6 @@ class TestThread(object):
             state.read_end, state.write_end = os.pipe()
             x2 = Cons(51, Cons(62, Cons(74, None)))
             # start 5 new threads
-            state.ll_lock = rthread.allocate_ll_lock()
-            after()
-            invoke_around_extcall(before, after)
             start_arthreads()
             # force freeing
             gc.collect()
@@ -1413,7 +1392,7 @@ class TestShared(StandaloneTests):
         config = get_combined_translation_config(translating=True)
         self.config = config
 
-        @entrypoint('test', [lltype.Signed], c_name='foo')
+        @entrypoint_highlevel('test', [lltype.Signed], c_name='foo')
         def f(a):
             return a + 3
 
@@ -1421,7 +1400,8 @@ class TestShared(StandaloneTests):
             return 0
 
         t, cbuilder = self.compile(entry_point, shared=True,
-                                   entrypoints=[f], local_icon='red.ico')
+                                   entrypoints=[f.exported_wrapper],
+                                   local_icon='red.ico')
         ext_suffix = '.so'
         if cbuilder.eci.platform.name == 'msvc':
             ext_suffix = '.dll'

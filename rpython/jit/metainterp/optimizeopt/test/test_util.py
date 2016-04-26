@@ -1,4 +1,4 @@
-import py, random
+import py, random, string
 
 from rpython.rlib.debug import debug_print
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
@@ -12,13 +12,14 @@ from rpython.jit.metainterp.history import (TreeLoop, AbstractDescr,
 from rpython.jit.metainterp.optimizeopt.util import sort_descrs, equaloplists
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.logger import LogOperations
-from rpython.jit.tool.oparser import OpParser, pure_parse
+from rpython.jit.tool.oparser import OpParser, pure_parse, convert_loop_to_trace
 from rpython.jit.metainterp.quasiimmut import QuasiImmutDescr
 from rpython.jit.metainterp import compile, resume, history
 from rpython.jit.metainterp.jitprof import EmptyProfiler
 from rpython.jit.metainterp.counter import DeterministicJitCounter
 from rpython.config.translationoption import get_combined_translation_config
-from rpython.jit.metainterp.resoperation import rop, ResOperation, InputArgRef
+from rpython.jit.metainterp.resoperation import (rop, ResOperation,
+        InputArgRef, AbstractValue, OpHelpers)
 from rpython.jit.metainterp.optimizeopt.util import args_dict
 
 
@@ -88,8 +89,6 @@ def test_equaloplists_fail_args():
 # ____________________________________________________________
 
 class LLtypeMixin(object):
-    type_system = 'lltype'
-
     def get_class_of_box(self, box):
         base = box.getref_base()
         return lltype.cast_opaque_ptr(rclass.OBJECTPTR, base).typeptr
@@ -123,7 +122,14 @@ class LLtypeMixin(object):
                             ('value', lltype.Signed),
                             ('next', lltype.Ptr(NODE3)),
                             hints={'immutable': True}))
-    
+
+    big_fields = [('big' + i, lltype.Signed) for i in string.ascii_lowercase]
+    BIG = lltype.GcForwardReference()
+    BIG.become(lltype.GcStruct('BIG', *big_fields, hints={'immutable': True}))
+
+    for field, _ in big_fields:
+        locals()[field + 'descr'] = cpu.fielddescrof(BIG, field)
+
     node = lltype.malloc(NODE)
     node.value = 5
     node.next = node
@@ -134,13 +140,25 @@ class LLtypeMixin(object):
     node2.parent.parent.typeptr = node_vtable2
     node2addr = lltype.cast_opaque_ptr(llmemory.GCREF, node2)
     myptr = lltype.cast_opaque_ptr(llmemory.GCREF, node)
-    mynode2 = lltype.malloc(NODE)
+    mynodeb = lltype.malloc(NODE)
     myarray = lltype.cast_opaque_ptr(llmemory.GCREF, lltype.malloc(lltype.GcArray(lltype.Signed), 13, zero=True))
-    mynode2.parent.typeptr = node_vtable
-    myptr2 = lltype.cast_opaque_ptr(llmemory.GCREF, mynode2)
-    mynode3 = lltype.malloc(NODE2)
-    mynode3.parent.parent.typeptr = node_vtable2
-    myptr3 = lltype.cast_opaque_ptr(llmemory.GCREF, mynode3)
+    mynodeb.parent.typeptr = node_vtable
+    myptrb = lltype.cast_opaque_ptr(llmemory.GCREF, mynodeb)
+    myptr2 = lltype.malloc(NODE2)
+    myptr2.parent.parent.typeptr = node_vtable2
+    myptr2 = lltype.cast_opaque_ptr(llmemory.GCREF, myptr2)
+    nullptr = lltype.nullptr(llmemory.GCREF.TO)
+
+    mynode3 = lltype.malloc(NODE3)
+    mynode3.parent.typeptr = node_vtable3
+    mynode3.value = 7
+    mynode3.next = mynode3
+    myptr3 = lltype.cast_opaque_ptr(llmemory.GCREF, mynode3)   # a NODE2
+    mynode4 = lltype.malloc(NODE3)
+    mynode4.parent.typeptr = node_vtable3
+    myptr4 = lltype.cast_opaque_ptr(llmemory.GCREF, mynode4)   # a NODE3
+
+
     nullptr = lltype.nullptr(llmemory.GCREF.TO)
     #nodebox2 = InputArgRef(lltype.cast_opaque_ptr(llmemory.GCREF, node2))
     nodesize = cpu.sizeof(NODE, node_vtable)
@@ -199,7 +217,9 @@ class LLtypeMixin(object):
     immut_ptrval = cpu.fielddescrof(PTROBJ_IMMUT, 'ptrval')
 
     arraydescr = cpu.arraydescrof(lltype.GcArray(lltype.Signed))
-    floatarraydescr = cpu.arraydescrof(lltype.GcArray(lltype.Float))
+    int32arraydescr = cpu.arraydescrof(lltype.GcArray(rffi.INT))
+    int16arraydescr = cpu.arraydescrof(lltype.GcArray(rffi.SHORT))
+    float32arraydescr = cpu.arraydescrof(lltype.GcArray(lltype.SingleFloat))
     arraydescr_tid = arraydescr.get_type_id()
     array = lltype.malloc(lltype.GcArray(lltype.Signed), 15, zero=True)
     arrayref = lltype.cast_opaque_ptr(llmemory.GCREF, array)
@@ -208,6 +228,11 @@ class LLtypeMixin(object):
     gcarraydescr = cpu.arraydescrof(lltype.GcArray(llmemory.GCREF))
     gcarraydescr_tid = gcarraydescr.get_type_id()
     floatarraydescr = cpu.arraydescrof(lltype.GcArray(lltype.Float))
+
+    arrayimmutdescr = cpu.arraydescrof(lltype.GcArray(lltype.Signed, hints={"immutable": True}))
+    immutarray = lltype.cast_opaque_ptr(llmemory.GCREF, lltype.malloc(arrayimmutdescr.A, 13, zero=True))
+    gcarrayimmutdescr = cpu.arraydescrof(lltype.GcArray(llmemory.GCREF, hints={"immutable": True}))
+    floatarrayimmutdescr = cpu.arraydescrof(lltype.GcArray(lltype.Float, hints={"immutable": True}))
 
     # a GcStruct not inheriting from OBJECT
     tpl = lltype.malloc(S, zero=True)
@@ -240,7 +265,7 @@ class LLtypeMixin(object):
     tsize = cpu.sizeof(T, None)
     cdescr = cpu.fielddescrof(T, 'c')
     ddescr = cpu.fielddescrof(T, 'd')
-    arraydescr3 = cpu.arraydescrof(lltype.GcArray(lltype.Ptr(NODE)))
+    arraydescr3 = cpu.arraydescrof(lltype.GcArray(lltype.Ptr(NODE3)))
 
     U = lltype.GcStruct('U',
                         ('parent', OBJECT),
@@ -280,6 +305,8 @@ class LLtypeMixin(object):
     writearraydescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
                                   EffectInfo([], [], [], [adescr], [arraydescr],
                                              []))
+    writevalue3descr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                                       EffectInfo([], [], [], [valuedescr3], [], []))
     readadescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
                                  EffectInfo([adescr], [], [], [], [], []))
     mayforcevirtdescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
@@ -403,8 +430,18 @@ class Fake(object):
     failargs_limit = 1000
     storedebug = None
 
+class FakeWarmState(object):
+    vec = True # default is on
+    vec_all = False
+    vec_cost = 0
+    def __init__(self, enable_opts):
+        self.enable_opts = enable_opts
+
+class FakeJitDriverStaticData(object):
+    vec = False
 
 class FakeMetaInterpStaticData(object):
+    all_descrs = []
 
     def __init__(self, cpu):
         self.cpu = cpu
@@ -416,6 +453,10 @@ class FakeMetaInterpStaticData(object):
     class logger_noopt:
         @classmethod
         def log_loop(*args, **kwds):
+            pass
+
+        @classmethod
+        def log_loop_from_trace(*args, **kwds):
             pass
 
     class logger_ops:
@@ -460,24 +501,19 @@ final_descr = history.BasicFinalDescr()
 class BaseTest(object):
 
     def parse(self, s, boxkinds=None, want_fail_descr=True, postprocess=None):
-        self.oparse = OpParser(s, self.cpu, self.namespace, 'lltype',
-                               boxkinds,
+        AbstractValue._repr_memo.counter = 0
+        self.oparse = OpParser(s, self.cpu, self.namespace, boxkinds,
                                None, False, postprocess)
         return self.oparse.parse()
-
-    def postprocess(self, op):
-        if op.is_guard():
-            op.rd_snapshot = resume.Snapshot(None, op.getfailargs())
-            op.rd_frame_info_list = resume.FrameInfo(None, "code", 11)
 
     def add_guard_future_condition(self, res):
         # invent a GUARD_FUTURE_CONDITION to not have to change all tests
         if res.operations[-1].getopnum() == rop.JUMP:
-            guard = ResOperation(rop.GUARD_FUTURE_CONDITION, [], None)
-            guard.rd_snapshot = resume.Snapshot(None, [])
+            guard = ResOperation(rop.GUARD_FUTURE_CONDITION, [])
             res.operations.insert(-1, guard)
 
-    def assert_equal(self, optimized, expected, text_right=None):
+    @staticmethod
+    def assert_equal(optimized, expected, text_right=None):
         from rpython.jit.metainterp.optimizeopt.util import equaloplists
         assert len(optimized.inputargs) == len(expected.inputargs)
         remap = {}
@@ -509,23 +545,43 @@ class BaseTest(object):
             call_pure_results[list(k)] = v
         return call_pure_results
 
-    def unroll_and_optimize(self, loop, call_pure_results=None):
+    def convert_values(self, inpargs, values):
+        from rpython.jit.metainterp.history import IntFrontendOp, RefFrontendOp
+        if values:
+            r = []
+            for arg, v in zip(inpargs, values):
+                if arg.type == 'i':
+                    n = IntFrontendOp(0)
+                    if v is not None:
+                        n.setint(v)
+                else:
+                    n = RefFrontendOp(0)
+                    if v is not None:
+                        n.setref_base(v)
+                    assert arg.type == 'r'
+                r.append(n)
+            return r
+        return inpargs
+
+    def unroll_and_optimize(self, loop, call_pure_results=None,
+                            jump_values=None):
         self.add_guard_future_condition(loop)
         jump_op = loop.operations[-1]
         assert jump_op.getopnum() == rop.JUMP
-        ops = loop.operations[:-1]
-        jump_op.setdescr(JitCellToken())
-        start_label = ResOperation(rop.LABEL, loop.inputargs,
-                                   jump_op.getdescr())
-        end_label = jump_op.copy_and_change(opnum=rop.LABEL)
+        celltoken = JitCellToken()
+        runtime_boxes = self.pack_into_boxes(jump_op, jump_values)
+        jump_op.setdescr(celltoken)
+        #start_label = ResOperation(rop.LABEL, loop.inputargs,
+        #                           descr=jump_op.getdescr())
+        #end_label = jump_op.copy_and_change(opnum=rop.LABEL)
         call_pure_results = self._convert_call_pure_results(call_pure_results)
-        preamble_data = compile.LoopCompileData(start_label, end_label, ops,
+        t = convert_loop_to_trace(loop, FakeMetaInterpStaticData(self.cpu))
+        preamble_data = compile.LoopCompileData(t, runtime_boxes,
                                                 call_pure_results)
         start_state, preamble_ops = self._do_optimize_loop(preamble_data)
         preamble_data.forget_optimization_info()
-        loop_data = compile.UnrolledLoopData(start_label, jump_op,
-                                             ops, start_state,
-                                             call_pure_results)
+        loop_data = compile.UnrolledLoopData(preamble_data.trace,
+            celltoken, start_state, call_pure_results)
         loop_info, ops = self._do_optimize_loop(loop_data)
         preamble = TreeLoop('preamble')
         preamble.inputargs = start_state.renamed_inputargs
@@ -537,19 +593,27 @@ class BaseTest(object):
         return Info(preamble, loop_info.target_token.short_preamble,
                     start_state.virtual_state)
 
-    def set_values(self, ops, jump_values=None):
-        jump_op = ops[-1]
+    def pack_into_boxes(self, jump_op, jump_values):
         assert jump_op.getopnum() == rop.JUMP
+        r = []
         if jump_values is not None:
+            assert len(jump_values) == len(jump_op.getarglist())
             for i, v in enumerate(jump_values):
                 if v is not None:
-                    jump_op.getarg(i).setref_base(v)
+                    r.append(InputArgRef(v))
+                else:
+                    r.append(None)
         else:
             for i, box in enumerate(jump_op.getarglist()):
                 if box.type == 'r' and not box.is_constant():
-                    box.setref_base(self.nodefulladdr)
-
-
+                    # NOTE: we arbitrarily set the box contents to a NODE2
+                    # object here.  If you need something different, you
+                    # need to pass a 'jump_values' argument to e.g.
+                    # optimize_loop()
+                    r.append(InputArgRef(self.nodefulladdr))
+                else:
+                    r.append(None)
+        return r
 
 class FakeDescr(compile.ResumeGuardDescr):
     def clone_if_mutable(self):
@@ -569,4 +633,3 @@ def convert_old_style_to_targets(loop, jump):
     return newloop
 
 # ____________________________________________________________
-

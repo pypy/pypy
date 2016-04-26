@@ -3,6 +3,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef
 from pypy.module._cffi_backend.cdataobj import W_CData
 from pypy.module._cffi_backend import newtype
+from rpython.rlib import rgil
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
@@ -26,7 +27,9 @@ class W_GlobSupport(W_Root):
             if not we_are_translated():
                 FNPTR = rffi.CCallback([], rffi.VOIDP)
                 fetch_addr = rffi.cast(FNPTR, self.fetch_addr)
+                rgil.release()
                 result = fetch_addr()
+                rgil.acquire()
             else:
                 # careful in translated versions: we need to call fetch_addr,
                 # but in a GIL-releasing way.  The easiest is to invoke a

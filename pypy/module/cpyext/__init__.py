@@ -34,9 +34,8 @@ import pypy.module.cpyext.pythonrun
 import pypy.module.cpyext.pyerrors
 import pypy.module.cpyext.typeobject
 import pypy.module.cpyext.object
-import pypy.module.cpyext.stringobject
+import pypy.module.cpyext.bytesobject
 import pypy.module.cpyext.tupleobject
-import pypy.module.cpyext.ndarrayobject
 import pypy.module.cpyext.setobject
 import pypy.module.cpyext.dictobject
 import pypy.module.cpyext.intobject
@@ -61,11 +60,11 @@ import pypy.module.cpyext.weakrefobject
 import pypy.module.cpyext.funcobject
 import pypy.module.cpyext.frameobject
 import pypy.module.cpyext.classobject
-import pypy.module.cpyext.pypyintf
 import pypy.module.cpyext.memoryobject
 import pypy.module.cpyext.codecs
 import pypy.module.cpyext.pyfile
 import pypy.module.cpyext.pystrtod
+import pypy.module.cpyext.pytraceback
 
 # now that all rffi_platform.Struct types are registered, configure them
 api.configure_types()

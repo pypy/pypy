@@ -3,6 +3,8 @@ from pypy.conftest import option
 
 
 class AppTestObjectDtypes(BaseNumpyAppTest):
+    spaceconfig = dict(usemodules=["micronumpy", "struct", "binascii"])
+
     def setup_class(cls):
         BaseNumpyAppTest.setup_class.im_func(cls)
         cls.w_runappdirect = cls.space.wrap(option.runappdirect)
@@ -112,9 +114,6 @@ class AppTestObjectDtypes(BaseNumpyAppTest):
 
     def test_array_interface(self):
         import numpy as np
-        if self.runappdirect:
-            skip('requires numpy.core, test with numpy test suite instead')
-        import sys
         class DummyArray(object):
             def __init__(self, interface, base=None):
                 self.__array_interface__ = interface
@@ -124,8 +123,6 @@ class AppTestObjectDtypes(BaseNumpyAppTest):
         interface = dict(a.__array_interface__)
         interface['shape'] = tuple([3])
         interface['strides'] = tuple([0])
-        if '__pypy__' in sys.builtin_module_names:
-            skip('not implemented yet')
         c = np.array(DummyArray(interface, base=a))
         c.dtype = a.dtype
         #print c
@@ -158,6 +155,9 @@ class AppTestObjectDtypes(BaseNumpyAppTest):
         import sys
         ytype = np.object_
         if '__pypy__' in sys.builtin_module_names:
+            dt = np.dtype([('x', int), ('y', ytype)])
+            x = np.empty((4, 0), dtype = dt)
+            raises(NotImplementedError, x.__getitem__, 'y')
             ytype = str
         dt = np.dtype([('x', int), ('y', ytype)])
         # Correct way
@@ -170,7 +170,14 @@ class AppTestObjectDtypes(BaseNumpyAppTest):
         a = np.array([b'a' * 100], dtype='O')
         assert 'a' * 100 in str(a)
         b = a.astype('S')
+        assert b.dtype == 'S100'
         assert 'a' * 100 in str(b)
+        a = np.array([u'a' * 100], dtype='O')
+        assert 'a' * 100 in str(a)
+        b = a.astype('U')
+        assert b.dtype == 'U100'
+        assert 'a' * 100 in str(b)
+
         a = np.array([123], dtype='U')
         assert a[0] == u'123'
         b = a.astype('O')
@@ -187,3 +194,21 @@ class AppTestObjectDtypes(BaseNumpyAppTest):
         assert b.shape == (1,)
         assert b.dtype == np.float_
         assert (b == 1.0).all()
+
+
+    def test__reduce__(self):
+        from numpy import arange, dtype
+        from cPickle import loads, dumps
+        import sys
+        
+        a = arange(15).astype(object)
+        if '__pypy__' in sys.builtin_module_names:
+            raises(NotImplementedError, dumps, a)
+            skip('not implemented yet')
+        b = loads(dumps(a))
+        assert (a == b).all()
+
+        a = arange(15).astype(object).reshape((3, 5))
+        b = loads(dumps(a))
+        assert (a == b).all()
+        

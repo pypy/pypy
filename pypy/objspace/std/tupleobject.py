@@ -30,6 +30,11 @@ def _unroll_condition_cmp(self, space, other):
 contains_jmp = jit.JitDriver(greens = ['tp'], reds = 'auto',
                              name = 'tuple.contains')
 
+hash_driver = jit.JitDriver(
+    name='tuple.hash',
+    greens=['w_type'],
+    reds='auto')
+
 class W_AbstractTupleObject(W_Root):
     __slots__ = ()
 
@@ -262,12 +267,32 @@ class W_TupleObject(W_AbstractTupleObject):
     def length(self):
         return len(self.wrappeditems)
 
-    @jit.look_inside_iff(lambda self, _1: _unroll_condition(self))
     def descr_hash(self, space):
+        if _unroll_condition(self):
+            return self._descr_hash_unroll(space)
+        else:
+            return self._descr_hash_jitdriver(space)
+
+    @jit.unroll_safe
+    def _descr_hash_unroll(self, space):
         mult = 1000003
         x = 0x345678
         z = len(self.wrappeditems)
         for w_item in self.wrappeditems:
+            y = space.hash_w(w_item)
+            x = (x ^ y) * mult
+            z -= 1
+            mult += 82520 + z + z
+        x += 97531
+        return space.wrap(intmask(x))
+
+    def _descr_hash_jitdriver(self, space):
+        mult = 1000003
+        x = 0x345678
+        z = len(self.wrappeditems)
+        w_type = space.type(self.wrappeditems[0])
+        for w_item in self.wrappeditems:
+            hash_driver.jit_merge_point(w_type=w_type)
             y = space.hash_w(w_item)
             x = (x ^ y) * mult
             z -= 1

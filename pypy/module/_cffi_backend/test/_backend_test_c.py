@@ -1,7 +1,7 @@
 # ____________________________________________________________
 
 import sys
-assert __version__ == "1.3.0", ("This test_c.py file is for testing a version"
+assert __version__ == "1.6.0", ("This test_c.py file is for testing a version"
                                 " of cffi that differs from the one that we"
                                 " get from 'import _cffi_backend'")
 if sys.version_info < (3,):
@@ -2316,9 +2316,6 @@ def test_errno_callback():
     f(); f()
     assert get_errno() == 77
 
-def test_abi():
-    assert isinstance(FFI_DEFAULT_ABI, int)
-
 def test_cast_to_array():
     # not valid in C!  extension to get a non-owning <cdata 'int[3]'>
     BInt = new_primitive_type("int")
@@ -3396,6 +3393,78 @@ def test_from_buffer_more_cases():
     check(4 | 8,  "CHB", "GTB")
     check(4 | 16, "CHB", "ROB")
 
+def test_memmove():
+    Short = new_primitive_type("short")
+    ShortA = new_array_type(new_pointer_type(Short), None)
+    Char = new_primitive_type("char")
+    CharA = new_array_type(new_pointer_type(Char), None)
+    p = newp(ShortA, [-1234, -2345, -3456, -4567, -5678])
+    memmove(p, p + 1, 4)
+    assert list(p) == [-2345, -3456, -3456, -4567, -5678]
+    p[2] = 999
+    memmove(p + 2, p, 6)
+    assert list(p) == [-2345, -3456, -2345, -3456, 999]
+    memmove(p + 4, newp(CharA, b"\x71\x72"), 2)
+    if sys.byteorder == 'little':
+        assert list(p) == [-2345, -3456, -2345, -3456, 0x7271]
+    else:
+        assert list(p) == [-2345, -3456, -2345, -3456, 0x7172]
+
+def test_memmove_buffer():
+    import array
+    Short = new_primitive_type("short")
+    ShortA = new_array_type(new_pointer_type(Short), None)
+    a = array.array('H', [10000, 20000, 30000])
+    p = newp(ShortA, 5)
+    memmove(p, a, 6)
+    assert list(p) == [10000, 20000, 30000, 0, 0]
+    memmove(p + 1, a, 6)
+    assert list(p) == [10000, 10000, 20000, 30000, 0]
+    b = array.array('h', [-1000, -2000, -3000])
+    memmove(b, a, 4)
+    assert b.tolist() == [10000, 20000, -3000]
+    assert a.tolist() == [10000, 20000, 30000]
+    p[0] = 999
+    p[1] = 998
+    p[2] = 997
+    p[3] = 996
+    p[4] = 995
+    memmove(b, p, 2)
+    assert b.tolist() == [999, 20000, -3000]
+    memmove(b, p + 2, 4)
+    assert b.tolist() == [997, 996, -3000]
+    p[2] = -p[2]
+    p[3] = -p[3]
+    memmove(b, p + 2, 6)
+    assert b.tolist() == [-997, -996, 995]
+
+def test_memmove_readonly_readwrite():
+    SignedChar = new_primitive_type("signed char")
+    SignedCharA = new_array_type(new_pointer_type(SignedChar), None)
+    p = newp(SignedCharA, 5)
+    memmove(p, b"abcde", 3)
+    assert list(p) == [ord("a"), ord("b"), ord("c"), 0, 0]
+    memmove(p, bytearray(b"ABCDE"), 2)
+    assert list(p) == [ord("A"), ord("B"), ord("c"), 0, 0]
+    py.test.raises((TypeError, BufferError), memmove, b"abcde", p, 3)
+    ba = bytearray(b"xxxxx")
+    memmove(dest=ba, src=p, n=3)
+    assert ba == bytearray(b"ABcxx")
+    memmove(ba, b"EFGH", 4)
+    assert ba == bytearray(b"EFGHx")
+
+def test_memmove_sign_check():
+    SignedChar = new_primitive_type("signed char")
+    SignedCharA = new_array_type(new_pointer_type(SignedChar), None)
+    p = newp(SignedCharA, 5)
+    py.test.raises(ValueError, memmove, p, p + 1, -1)   # not segfault
+
+def test_memmove_bad_cdata():
+    BInt = new_primitive_type("int")
+    p = cast(BInt, 42)
+    py.test.raises(TypeError, memmove, p, bytearray(b'a'), 1)
+    py.test.raises(TypeError, memmove, bytearray(b'a'), p, 1)
+
 def test_dereference_null_ptr():
     BInt = new_primitive_type("int")
     BIntPtr = new_pointer_type(BInt)
@@ -3427,3 +3496,90 @@ def test_mixup():
                             "be 'foo *', but the types are different (check "
                             "that you are not e.g. mixing up different ffi "
                             "instances)")
+
+def test_stdcall_function_type():
+    assert FFI_CDECL == FFI_DEFAULT_ABI
+    try:
+        stdcall = FFI_STDCALL
+    except NameError:
+        stdcall = FFI_DEFAULT_ABI
+    BInt = new_primitive_type("int")
+    BFunc = new_function_type((BInt, BInt), BInt, False, stdcall)
+    if stdcall != FFI_DEFAULT_ABI:
+        assert repr(BFunc) == "<ctype 'int(__stdcall *)(int, int)'>"
+    else:
+        assert repr(BFunc) == "<ctype 'int(*)(int, int)'>"
+
+def test_get_common_types():
+    d = {}
+    _get_common_types(d)
+    assert d['bool'] == '_Bool'
+
+def test_unpack():
+    BChar = new_primitive_type("char")
+    BArray = new_array_type(new_pointer_type(BChar), 10)   # char[10]
+    p = newp(BArray, b"abc\x00def")
+    p0 = p
+    assert unpack(p, 10) == b"abc\x00def\x00\x00\x00"
+    assert unpack(p+1, 5) == b"bc\x00de"
+    BWChar = new_primitive_type("wchar_t")
+    BArray = new_array_type(new_pointer_type(BWChar), 10)   # wchar_t[10]
+    p = newp(BArray, u"abc\x00def")
+    assert unpack(p, 10) == u"abc\x00def\x00\x00\x00"
+
+    for typename, samples in [
+            ("uint8_t",  [0, 2**8-1]),
+            ("uint16_t", [0, 2**16-1]),
+            ("uint32_t", [0, 2**32-1]),
+            ("uint64_t", [0, 2**64-1]),
+            ("int8_t",  [-2**7, 2**7-1]),
+            ("int16_t", [-2**15, 2**15-1]),
+            ("int32_t", [-2**31, 2**31-1]),
+            ("int64_t", [-2**63, 2**63-1]),
+            ("_Bool", [0, 1]),
+            ("float", [0.0, 10.5]),
+            ("double", [12.34, 56.78]),
+            ]:
+        BItem = new_primitive_type(typename)
+        BArray = new_array_type(new_pointer_type(BItem), 10)
+        p = newp(BArray, samples)
+        result = unpack(p, len(samples))
+        assert result == samples
+        for i in range(len(samples)):
+            assert result[i] == p[i] and type(result[i]) is type(p[i])
+    #
+    BInt = new_primitive_type("int")
+    py.test.raises(TypeError, unpack, p)
+    py.test.raises(TypeError, unpack, b"foobar", 6)
+    py.test.raises(TypeError, unpack, cast(BInt, 42), 1)
+    #
+    BPtr = new_pointer_type(BInt)
+    random_ptr = cast(BPtr, -424344)
+    other_ptr = cast(BPtr, 54321)
+    BArray = new_array_type(new_pointer_type(BPtr), None)
+    lst = unpack(newp(BArray, [random_ptr, other_ptr]), 2)
+    assert lst == [random_ptr, other_ptr]
+    #
+    BFunc = new_function_type((BInt, BInt), BInt, False)
+    BFuncPtr = new_pointer_type(BFunc)
+    lst = unpack(newp(new_array_type(BFuncPtr, None), 2), 2)
+    assert len(lst) == 2
+    assert not lst[0] and not lst[1]
+    assert typeof(lst[0]) is BFunc
+    #
+    BStruct = new_struct_type("foo")
+    BStructPtr = new_pointer_type(BStruct)
+    e = py.test.raises(ValueError, unpack, cast(BStructPtr, 42), 5)
+    assert str(e.value) == "'foo *' points to items of unknown size"
+    complete_struct_or_union(BStruct, [('a1', BInt, -1),
+                                       ('a2', BInt, -1)])
+    array_of_structs = newp(new_array_type(BStructPtr, None), [[4,5], [6,7]])
+    lst = unpack(array_of_structs, 2)
+    assert typeof(lst[0]) is BStruct
+    assert lst[0].a1 == 4 and lst[1].a2 == 7
+    #
+    py.test.raises(RuntimeError, unpack, cast(new_pointer_type(BChar), 0), 0)
+    py.test.raises(RuntimeError, unpack, cast(new_pointer_type(BChar), 0), 10)
+    #
+    py.test.raises(ValueError, unpack, p0, -1)
+    py.test.raises(ValueError, unpack, p, -1)

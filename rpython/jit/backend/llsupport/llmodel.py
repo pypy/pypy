@@ -6,6 +6,7 @@ from rpython.rtyper.annlowlevel import llhelper, MixLevelHelperAnnotator
 from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.jit.metainterp import history, compile
+from rpython.jit.metainterp.optimize import SpeculativeError
 from rpython.jit.codewriter import heaptracker, longlong
 from rpython.jit.backend.model import AbstractCPU
 from rpython.jit.backend.llsupport import symbolic, jitframe
@@ -31,6 +32,14 @@ class AbstractLLCPU(AbstractCPU):
     done_with_this_frame_descr_void     = None
     exit_frame_with_exception_descr_ref = None
 
+    # can an ISA instruction handle a factor to the offset?
+    load_supported_factors = (1,)
+
+    vector_extension = False
+    vector_register_size = 0 # in bytes
+    vector_horizontal_operations = False
+    vector_pack_slots = False
+
     def __init__(self, rtyper, stats, opts, translate_support_code=False,
                  gcdescr=None):
         assert type(opts) is not bool
@@ -47,6 +56,10 @@ class AbstractLLCPU(AbstractCPU):
         else:
             translator = None
         self.gc_ll_descr = get_ll_description(gcdescr, translator, rtyper)
+        # support_guard_gc_type indicates if a gc type of an object can be read.
+        # In some states (boehm or x86 untranslated) the type is not known just yet,
+        # because there are cases where it is not guarded. The precise place where it's not
+        # is while inlining short preamble.
         self.supports_guard_gc_type = self.gc_ll_descr.supports_guard_gc_type
         if translator and translator.config.translation.gcremovetypeptr:
             self.vtable_offset = None
@@ -101,6 +114,9 @@ class AbstractLLCPU(AbstractCPU):
         return self.assembler.assemble_loop(jd_id, unique_id, logger, name,
                                             inputargs, operations,
                                             looptoken, log=log)
+
+    def stitch_bridge(self, faildescr, target):
+        self.assembler.stitch_bridge(faildescr, target)
 
     def _setup_frame_realloc(self, translate_support_code):
         FUNC_TP = lltype.Ptr(lltype.FuncType([llmemory.GCREF, lltype.Signed],
@@ -230,6 +246,13 @@ class AbstractLLCPU(AbstractCPU):
 
     def free_loop_and_bridges(self, compiled_loop_token):
         AbstractCPU.free_loop_and_bridges(self, compiled_loop_token)
+        # turn off all gcreftracers
+        tracers = compiled_loop_token.asmmemmgr_gcreftracers
+        if tracers is not None:
+            compiled_loop_token.asmmemmgr_gcreftracers = None
+            for tracer in tracers:
+                self.gc_ll_descr.clear_gcref_tracer(tracer)
+        # then free all blocks of code and raw data
         blocks = compiled_loop_token.asmmemmgr_blocks
         if blocks is not None:
             compiled_loop_token.asmmemmgr_blocks = None
@@ -299,6 +322,9 @@ class AbstractLLCPU(AbstractCPU):
             #llop.debug_print(lltype.Void, "<<<< Back")
             return ll_frame
         return execute_token
+
+    def setup_descrs(self):
+        return self.gc_ll_descr.setup_descrs()
 
     # ------------------- helpers and descriptions --------------------
 
@@ -389,20 +415,40 @@ class AbstractLLCPU(AbstractCPU):
         descr = self.get_latest_descr(deadframe)
         return rffi.cast(lltype.Signed, descr.rd_locs[index]) * WORD
 
+    @specialize.arg(2)
+    def get_value_direct(self, deadframe, tp, index):
+        if tp == 'i':
+            return self.get_int_value_direct(deadframe, index * WORD)
+        elif tp == 'r':
+            return self.get_ref_value_direct(deadframe, index * WORD)
+        elif tp == 'f':
+            return self.get_float_value_direct(deadframe, index * WORD)
+        else:
+            assert False
+
     def get_int_value(self, deadframe, index):
         pos = self._decode_pos(deadframe, index)
+        return self.get_int_value_direct(deadframe, pos)
+
+    def get_int_value_direct(self, deadframe, pos):
         descr = self.gc_ll_descr.getframedescrs(self).arraydescr
         ofs = self.unpack_arraydescr(descr)
         return self.read_int_at_mem(deadframe, pos + ofs, WORD, 1)
 
     def get_ref_value(self, deadframe, index):
         pos = self._decode_pos(deadframe, index)
+        return self.get_ref_value_direct(deadframe, pos)
+
+    def get_ref_value_direct(self, deadframe, pos):
         descr = self.gc_ll_descr.getframedescrs(self).arraydescr
         ofs = self.unpack_arraydescr(descr)
         return self.read_ref_at_mem(deadframe, pos + ofs)
 
     def get_float_value(self, deadframe, index):
         pos = self._decode_pos(deadframe, index)
+        return self.get_float_value_direct(deadframe, pos)
+
+    def get_float_value_direct(self, deadframe, pos):
         descr = self.gc_ll_descr.getframedescrs(self).arraydescr
         ofs = self.unpack_arraydescr(descr)
         return self.read_float_at_mem(deadframe, pos + ofs)
@@ -496,6 +542,34 @@ class AbstractLLCPU(AbstractCPU):
         real backend."""
         assert self.supports_guard_gc_type
         return self.gc_ll_descr.get_actual_typeid(gcptr)
+
+    def protect_speculative_field(self, gcptr, fielddescr):
+        if not gcptr:
+            raise SpeculativeError
+        if self.supports_guard_gc_type:
+            assert isinstance(fielddescr, FieldDescr)
+            sizedescr = fielddescr.parent_descr
+            if sizedescr.is_object():
+                if (not self.check_is_object(gcptr) or
+                    not sizedescr.is_valid_class_for(gcptr)):
+                    raise SpeculativeError
+            else:
+                if self.get_actual_typeid(gcptr) != sizedescr.tid:
+                    raise SpeculativeError
+
+    def protect_speculative_array(self, gcptr, arraydescr):
+        if not gcptr:
+            raise SpeculativeError
+        if self.supports_guard_gc_type:
+            assert isinstance(arraydescr, ArrayDescr)
+            if self.get_actual_typeid(gcptr) != arraydescr.tid:
+                raise SpeculativeError
+
+    def protect_speculative_string(self, gcptr):
+        self.protect_speculative_array(gcptr, self.gc_ll_descr.str_descr)
+
+    def protect_speculative_unicode(self, gcptr):
+        self.protect_speculative_array(gcptr, self.gc_ll_descr.unicode_descr)
 
     # ____________________________________________________________
 
@@ -600,16 +674,22 @@ class AbstractLLCPU(AbstractCPU):
     @specialize.argtype(1)
     def bh_getfield_gc_i(self, struct, fielddescr):
         ofs, size, sign = self.unpack_fielddescr_size(fielddescr)
+        if isinstance(lltype.typeOf(struct), lltype.Ptr):
+            fielddescr.assert_correct_type(struct)
         return self.read_int_at_mem(struct, ofs, size, sign)
 
     @specialize.argtype(1)
     def bh_getfield_gc_r(self, struct, fielddescr):
         ofs = self.unpack_fielddescr(fielddescr)
+        if isinstance(lltype.typeOf(struct), lltype.Ptr):
+            fielddescr.assert_correct_type(struct)
         return self.read_ref_at_mem(struct, ofs)
 
     @specialize.argtype(1)
     def bh_getfield_gc_f(self, struct, fielddescr):
         ofs = self.unpack_fielddescr(fielddescr)
+        if isinstance(lltype.typeOf(struct), lltype.Ptr):
+            fielddescr.assert_correct_type(struct)
         return self.read_float_at_mem(struct, ofs)
 
     bh_getfield_raw_i = bh_getfield_gc_i
@@ -620,20 +700,20 @@ class AbstractLLCPU(AbstractCPU):
     def bh_setfield_gc_i(self, struct, newvalue, fielddescr):
         ofs, size, _ = self.unpack_fielddescr_size(fielddescr)
         if isinstance(lltype.typeOf(struct), lltype.Ptr):
-            fielddescr.check_correct_type(struct)
+            fielddescr.assert_correct_type(struct)
         self.write_int_at_mem(struct, ofs, size, newvalue)
 
     def bh_setfield_gc_r(self, struct, newvalue, fielddescr):
         ofs = self.unpack_fielddescr(fielddescr)
         if isinstance(lltype.typeOf(struct), lltype.Ptr):
-            fielddescr.check_correct_type(struct)
+            fielddescr.assert_correct_type(struct)
         self.write_ref_at_mem(struct, ofs, newvalue)
 
     @specialize.argtype(1)
     def bh_setfield_gc_f(self, struct, newvalue, fielddescr):
         ofs = self.unpack_fielddescr(fielddescr)
         if isinstance(lltype.typeOf(struct), lltype.Ptr):
-            fielddescr.check_correct_type(struct)
+            fielddescr.assert_correct_type(struct)
         self.write_float_at_mem(struct, ofs, newvalue)
 
     bh_setfield_raw_i = bh_setfield_gc_i
@@ -653,6 +733,16 @@ class AbstractLLCPU(AbstractCPU):
         return self.read_int_at_mem(addr, offset, size, sign)
 
     def bh_raw_load_f(self, addr, offset, descr):
+        return self.read_float_at_mem(addr, offset)
+
+    def bh_gc_load_indexed_i(self, addr, index, scale, base_ofs, bytes):
+        offset = base_ofs + scale * index
+        return self.read_int_at_mem(addr, offset, abs(bytes), bytes < 0)
+
+    def bh_gc_load_indexed_f(self, addr, index, scale, base_ofs, bytes):
+        # only for 'double'!
+        assert bytes == rffi.sizeof(lltype.Float)
+        offset = base_ofs + scale * index
         return self.read_float_at_mem(addr, offset)
 
     def bh_new(self, sizedescr):

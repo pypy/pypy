@@ -36,7 +36,7 @@ def slice_attach(space, py_obj, w_obj):
     py_slice.c_stop = make_ref(space, w_obj.w_stop)
     py_slice.c_step = make_ref(space, w_obj.w_step)
 
-@cpython_api([PyObject], lltype.Void, external=False)
+@cpython_api([PyObject], lltype.Void, header=None)
 def slice_dealloc(space, py_obj):
     """Frees allocated PyStringObject resources.
     """

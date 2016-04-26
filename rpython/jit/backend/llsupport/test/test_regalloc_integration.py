@@ -86,11 +86,9 @@ class BaseTestRegalloc(object):
                                    EffectInfo.MOST_GENERAL)
 
     namespace = locals().copy()
-    type_system = 'lltype'
 
     def parse(self, s, boxkinds=None, namespace=None):
         return parse(s, self.cpu, namespace or self.namespace,
-                     type_system=self.type_system,
                      boxkinds=boxkinds)
 
     def interpret(self, ops, args, run=True, namespace=None):

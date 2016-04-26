@@ -9,7 +9,7 @@ from rpython.jit.metainterp.history import check_descr
 from rpython.jit.metainterp.history import INT, REF, FLOAT, VOID, AbstractDescr
 from rpython.jit.metainterp.history import ConstInt, ConstFloat, ConstPtr
 from rpython.jit.metainterp import resoperation
-from rpython.jit.metainterp.resoperation import rop
+from rpython.jit.metainterp.resoperation import rop, opname
 from rpython.jit.metainterp.blackhole import BlackholeInterpreter, NULL
 from rpython.jit.codewriter import longlong
 
@@ -253,7 +253,7 @@ def do_int_add_ovf(cpu, metainterp, box1, box2):
         z = ovfcheck(a + b)
     except OverflowError:
         assert metainterp is not None
-        metainterp.execute_raised(OverflowError(), constant=True)
+        metainterp.ovf_flag = True
         z = 0
     return z
 
@@ -264,7 +264,7 @@ def do_int_sub_ovf(cpu, metainterp, box1, box2):
         z = ovfcheck(a - b)
     except OverflowError:
         assert metainterp is not None
-        metainterp.execute_raised(OverflowError(), constant=True)
+        metainterp.ovf_flag = True
         z = 0
     return z
 
@@ -275,7 +275,7 @@ def do_int_mul_ovf(cpu, metainterp, box1, box2):
         z = ovfcheck(a * b)
     except OverflowError:
         assert metainterp is not None
-        metainterp.execute_raised(OverflowError(), constant=True)
+        metainterp.ovf_flag = True
         z = 0
     return z
 
@@ -314,7 +314,8 @@ def do_keepalive(cpu, _, x):
 
 def _make_execute_list():
     execute_by_num_args = {}
-    for key, value in rop.__dict__.items():
+    for key in opname.values():
+        value = getattr(rop, key)
         if not key.startswith('_'):
             if (rop._FINAL_FIRST <= value <= rop._FINAL_LAST or
                 rop._GUARD_FIRST <= value <= rop._GUARD_LAST):
@@ -367,7 +368,6 @@ def _make_execute_list():
                          rop.INCREMENT_DEBUG_COUNTER,
                          rop.COND_CALL_GC_WB,
                          rop.COND_CALL_GC_WB_ARRAY,
-                         rop.ZERO_PTR_FIELD,
                          rop.ZERO_ARRAY,
                          rop.DEBUG_MERGE_POINT,
                          rop.JIT_DEBUG,
@@ -376,7 +376,6 @@ def _make_execute_list():
                          rop.SETARRAYITEM_RAW,
                          rop.SETINTERIORFIELD_RAW,
                          rop.CALL_RELEASE_GIL_I,
-                         rop.CALL_RELEASE_GIL_R,
                          rop.CALL_RELEASE_GIL_F,
                          rop.CALL_RELEASE_GIL_N,
                          rop.QUASIIMMUT_FIELD,
@@ -386,15 +385,42 @@ def _make_execute_list():
                          rop.CALL_MALLOC_NURSERY_VARSIZE_FRAME,
                          rop.NURSERY_PTR_INCREMENT,
                          rop.LABEL,
+                         rop.ESCAPE_I,
+                         rop.ESCAPE_N,
+                         rop.ESCAPE_R,
+                         rop.ESCAPE_F,
+                         rop.FORCE_SPILL,
+                         rop.SAVE_EXC_CLASS,
+                         rop.SAVE_EXCEPTION,
+                         rop.RESTORE_EXCEPTION,
+                         rop.VEC_RAW_LOAD_I,
+                         rop.VEC_RAW_LOAD_F,
+                         rop.VEC_RAW_STORE,
+                         rop.VEC_GETARRAYITEM_RAW_I,
+                         rop.VEC_GETARRAYITEM_RAW_F,
+                         rop.VEC_SETARRAYITEM_RAW,
+                         rop.VEC_GETARRAYITEM_GC_I,
+                         rop.VEC_GETARRAYITEM_GC_F,
+                         rop.VEC_SETARRAYITEM_GC,
+                         rop.GC_LOAD_I,
+                         rop.GC_LOAD_R,
+                         rop.GC_LOAD_F,
+                         rop.GC_LOAD_INDEXED_R,
+                         rop.GC_STORE,
+                         rop.GC_STORE_INDEXED,
+                         rop.LOAD_FROM_GC_TABLE,
                          ):      # list of opcodes never executed by pyjitpl
                 continue
+            if rop._VEC_PURE_FIRST <= value <= rop._VEC_PURE_LAST:
+                continue
+
             raise AssertionError("missing %r" % (key,))
     return execute_by_num_args
 
 def make_execute_function(name, func):
     # Make a wrapper for 'func'.  The func is a simple bhimpl_xxx function
     # from the BlackholeInterpreter class.  The wrapper is a new function
-    # that receives and returns boxed values.
+    # that receives boxed values (but returns a non-boxed value).
     for argtype in func.argtypes:
         if argtype not in ('i', 'r', 'f', 'd', 'cpu'):
             return None

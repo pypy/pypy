@@ -4,6 +4,7 @@ import sys
 
 from rpython.rlib import rarithmetic, rfloat
 from rpython.rlib.rarithmetic import LONG_BIT, intmask, ovfcheck_float_to_int
+from rpython.rlib.rarithmetic import int_between
 from rpython.rlib.rbigint import rbigint
 from rpython.rlib.rfloat import (
     DTSF_ADD_DOT_0, DTSF_STR_PRECISION, INFINITY, NAN, copysign,
@@ -121,10 +122,11 @@ def make_compare_func(opname):
         if space.isinstance_w(w_other, space.w_int):
             f1 = self.floatval
             i2 = space.int_w(w_other)
-            f2 = float(i2)
-            if LONG_BIT > 32 and int(f2) != i2:
+            # (double-)floats have always at least 48 bits of precision
+            if LONG_BIT > 32 and not int_between(-1, i2 >> 48, 1):
                 res = do_compare_bigint(f1, rbigint.fromint(i2))
             else:
+                f2 = float(i2)
                 res = op(f1, f2)
             return space.newbool(res)
         if space.isinstance_w(w_other, space.w_long):
@@ -158,15 +160,11 @@ class W_FloatObject(W_Root):
         return self.floatval
 
     def int(self, space):
+        # this is a speed-up only, for space.int(w_float).
         if (type(self) is not W_FloatObject and
             space.is_overloaded(self, space.w_float, '__int__')):
             return W_Root.int(self, space)
-        try:
-            value = ovfcheck_float_to_int(self.floatval)
-        except OverflowError:
-            return space.long(self)
-        else:
-            return space.newint(value)
+        return self.descr_trunc(space)
 
     def is_w(self, space, w_other):
         from rpython.rlib.longlong2float import float2longlong
@@ -183,9 +181,10 @@ class W_FloatObject(W_Root):
             return None
         from rpython.rlib.longlong2float import float2longlong
         from pypy.objspace.std.util import IDTAG_FLOAT as tag
+        from pypy.objspace.std.util import IDTAG_SHIFT
         val = float2longlong(space.float_w(self))
         b = rbigint.fromrarith_int(val)
-        b = b.lshift(3).int_or_(tag)
+        b = b.lshift(IDTAG_SHIFT).int_or_(tag)
         return space.newlong_from_rbigint(b)
 
     def __repr__(self):
@@ -422,9 +421,8 @@ class W_FloatObject(W_Root):
                         "cannot convert float NaN to integer")
 
     def descr_trunc(self, space):
-        whole = math.modf(self.floatval)[1]
         try:
-            value = ovfcheck_float_to_int(whole)
+            value = ovfcheck_float_to_int(self.floatval)
         except OverflowError:
             return self.descr_long(space)
         else:
@@ -659,7 +657,7 @@ Convert a string or number to a floating point number, if possible.''',
     __format__ = interp2app(W_FloatObject.descr_format),
     __coerce__ = interp2app(W_FloatObject.descr_coerce),
     __nonzero__ = interp2app(W_FloatObject.descr_nonzero),
-    __int__ = interp2app(W_FloatObject.int),
+    __int__ = interp2app(W_FloatObject.descr_trunc),
     __float__ = interp2app(W_FloatObject.descr_float),
     __long__ = interp2app(W_FloatObject.descr_long),
     __trunc__ = interp2app(W_FloatObject.descr_trunc),

@@ -5,7 +5,7 @@ from rpython.annotator.model import (
 from rpython.rlib.rarithmetic import r_uint, r_singlefloat
 from rpython.rtyper.llannotation import (
     SomePtr, annotation_to_lltype, ll_to_annotation)
-from rpython.rtyper.typesystem import lltype
+from rpython.rtyper.lltypesystem import lltype
 import rpython.rtyper.rtyper  # make sure to import the world
 
 class C(object):
@@ -15,6 +15,7 @@ class DummyClassDef:
     def __init__(self, cls=C):
         self.cls = cls
         self.name = cls.__name__
+        self.classdesc = cls
 
 def test_ll_to_annotation():
     s_z = ll_to_annotation(lltype.Signed._defl())
