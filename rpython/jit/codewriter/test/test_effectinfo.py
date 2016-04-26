@@ -1,23 +1,19 @@
 import pytest
 
 from rpython.jit.codewriter.effectinfo import (effectinfo_from_writeanalyze,
-    EffectInfo, VirtualizableAnalyzer, expand_descr_list)
+    EffectInfo, VirtualizableAnalyzer)
 from rpython.rlib import jit
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.rclass import OBJECT
 from rpython.translator.translator import TranslationContext, graphof
 
 
-class FakeDescr(tuple):
-    pass
-
-
 class FakeCPU(object):
     def fielddescrof(self, T, fieldname):
-        return FakeDescr(('fielddescr', T, fieldname))
+        return ('fielddescr', T, fieldname)
 
     def arraydescrof(self, A):
-        return FakeDescr(('arraydescr', A))
+        return ('arraydescr', A)
 
 
 def test_no_oopspec_duplicate():
@@ -32,98 +28,83 @@ def test_no_oopspec_duplicate():
 def test_include_read_field():
     S = lltype.GcStruct("S", ("a", lltype.Signed))
     effects = frozenset([("readstruct", lltype.Ptr(S), "a")])
-    cpu = FakeCPU()
-    effectinfo = effectinfo_from_writeanalyze(effects, cpu)
-    assert (expand_descr_list(cpu, effectinfo.readonly_descrs_fields) ==
-                [('fielddescr', S, "a")])
-    assert expand_descr_list(cpu, effectinfo.write_descrs_fields) == []
-    assert expand_descr_list(cpu, effectinfo.write_descrs_arrays) == []
+    effectinfo = effectinfo_from_writeanalyze(effects, FakeCPU())
+    assert list(effectinfo.readonly_descrs_fields) == [('fielddescr', S, "a")]
+    assert not effectinfo.write_descrs_fields
+    assert not effectinfo.write_descrs_arrays
 
 
 def test_include_write_field():
     S = lltype.GcStruct("S", ("a", lltype.Signed))
     effects = frozenset([("struct", lltype.Ptr(S), "a")])
-    cpu = FakeCPU()
-    effectinfo = effectinfo_from_writeanalyze(effects, cpu)
-    assert (expand_descr_list(cpu, effectinfo.write_descrs_fields) ==
-                [('fielddescr', S, "a")])
-    assert expand_descr_list(cpu, effectinfo.readonly_descrs_fields) == []
-    assert expand_descr_list(cpu, effectinfo.write_descrs_arrays) == []
+    effectinfo = effectinfo_from_writeanalyze(effects, FakeCPU())
+    assert list(effectinfo.write_descrs_fields) == [('fielddescr', S, "a")]
+    assert not effectinfo.readonly_descrs_fields
+    assert not effectinfo.write_descrs_arrays
 
 
 def test_include_read_array():
     A = lltype.GcArray(lltype.Signed)
     effects = frozenset([("readarray", lltype.Ptr(A))])
-    cpu = FakeCPU()
-    effectinfo = effectinfo_from_writeanalyze(effects, cpu)
-    assert expand_descr_list(cpu, effectinfo.readonly_descrs_fields) == []
-    assert (expand_descr_list(cpu, effectinfo.readonly_descrs_arrays) ==
-                [('arraydescr', A)])
-    assert expand_descr_list(cpu, effectinfo.write_descrs_fields) == []
-    assert expand_descr_list(cpu, effectinfo.write_descrs_arrays) == []
+    effectinfo = effectinfo_from_writeanalyze(effects, FakeCPU())
+    assert not effectinfo.readonly_descrs_fields
+    assert list(effectinfo.readonly_descrs_arrays) == [('arraydescr', A)]
+    assert not effectinfo.write_descrs_fields
+    assert not effectinfo.write_descrs_arrays
 
 
 def test_include_write_array():
     A = lltype.GcArray(lltype.Signed)
     effects = frozenset([("array", lltype.Ptr(A))])
-    cpu = FakeCPU()
-    effectinfo = effectinfo_from_writeanalyze(effects, cpu)
-    assert expand_descr_list(cpu, effectinfo.readonly_descrs_fields) == []
-    assert expand_descr_list(cpu, effectinfo.write_descrs_fields) == []
-    assert (expand_descr_list(cpu, effectinfo.write_descrs_arrays) ==
-                [('arraydescr', A)])
+    effectinfo = effectinfo_from_writeanalyze(effects, FakeCPU())
+    assert not effectinfo.readonly_descrs_fields
+    assert not effectinfo.write_descrs_fields
+    assert list(effectinfo.write_descrs_arrays) == [('arraydescr', A)]
 
 
 def test_dont_include_read_and_write_field():
     S = lltype.GcStruct("S", ("a", lltype.Signed))
     effects = frozenset([("readstruct", lltype.Ptr(S), "a"),
                          ("struct", lltype.Ptr(S), "a")])
-    cpu = FakeCPU()
-    effectinfo = effectinfo_from_writeanalyze(effects, cpu)
-    assert expand_descr_list(cpu, effectinfo.readonly_descrs_fields) == []
-    assert (expand_descr_list(cpu, effectinfo.write_descrs_fields) ==
-                [('fielddescr', S, "a")])
-    assert expand_descr_list(cpu, effectinfo.write_descrs_arrays) == []
+    effectinfo = effectinfo_from_writeanalyze(effects, FakeCPU())
+    assert not effectinfo.readonly_descrs_fields
+    assert list(effectinfo.write_descrs_fields) == [('fielddescr', S, "a")]
+    assert not effectinfo.write_descrs_arrays
 
 
 def test_dont_include_read_and_write_array():
     A = lltype.GcArray(lltype.Signed)
     effects = frozenset([("readarray", lltype.Ptr(A)),
                          ("array", lltype.Ptr(A))])
-    cpu = FakeCPU()
-    effectinfo = effectinfo_from_writeanalyze(effects, cpu)
-    assert expand_descr_list(cpu, effectinfo.readonly_descrs_fields) == []
-    assert expand_descr_list(cpu, effectinfo.readonly_descrs_arrays) == []
-    assert expand_descr_list(cpu, effectinfo.write_descrs_fields) == []
-    assert (expand_descr_list(cpu, effectinfo.write_descrs_arrays) ==
-                [('arraydescr', A)])
+    effectinfo = effectinfo_from_writeanalyze(effects, FakeCPU())
+    assert not effectinfo.readonly_descrs_fields
+    assert not effectinfo.readonly_descrs_arrays
+    assert not effectinfo.write_descrs_fields
+    assert list(effectinfo.write_descrs_arrays) == [('arraydescr', A)]
 
 
 def test_filter_out_typeptr():
     effects = frozenset([("struct", lltype.Ptr(OBJECT), "typeptr")])
-    cpu = FakeCPU()
-    effectinfo = effectinfo_from_writeanalyze(effects, cpu)
-    assert expand_descr_list(cpu, effectinfo.readonly_descrs_fields) == []
-    assert expand_descr_list(cpu, effectinfo.write_descrs_fields) == []
-    assert expand_descr_list(cpu, effectinfo.write_descrs_arrays) == []
+    effectinfo = effectinfo_from_writeanalyze(effects, None)
+    assert not effectinfo.readonly_descrs_fields
+    assert not effectinfo.write_descrs_fields
+    assert not effectinfo.write_descrs_arrays
 
 
 def test_filter_out_array_of_void():
     effects = frozenset([("array", lltype.Ptr(lltype.GcArray(lltype.Void)))])
-    cpu = FakeCPU()
-    effectinfo = effectinfo_from_writeanalyze(effects, cpu)
-    assert expand_descr_list(cpu, effectinfo.readonly_descrs_fields) == []
-    assert expand_descr_list(cpu, effectinfo.write_descrs_fields) == []
-    assert expand_descr_list(cpu, effectinfo.write_descrs_arrays) == []
+    effectinfo = effectinfo_from_writeanalyze(effects, None)
+    assert not effectinfo.readonly_descrs_fields
+    assert not effectinfo.write_descrs_fields
+    assert not effectinfo.write_descrs_arrays
 
 
 def test_filter_out_struct_with_void():
     effects = frozenset([("struct", lltype.Ptr(lltype.GcStruct("x", ("a", lltype.Void))), "a")])
-    cpu = FakeCPU()
-    effectinfo = effectinfo_from_writeanalyze(effects, cpu)
-    assert expand_descr_list(cpu, effectinfo.readonly_descrs_fields) == []
-    assert expand_descr_list(cpu, effectinfo.write_descrs_fields) == []
-    assert expand_descr_list(cpu, effectinfo.write_descrs_arrays) == []
+    effectinfo = effectinfo_from_writeanalyze(effects, None)
+    assert not effectinfo.readonly_descrs_fields
+    assert not effectinfo.write_descrs_fields
+    assert not effectinfo.write_descrs_arrays
 
 
 class TestVirtualizableAnalyzer(object):
