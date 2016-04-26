@@ -440,6 +440,8 @@ def compute_bitstrings(all_descrs):
     for descr in all_descrs:
         if hasattr(descr, 'get_extra_info'):
             ei = descr.get_extra_info()
+            if ei is None:
+                continue
             if ei._readonly_descrs_fields is None:
                 for key in descrs:
                     assert getattr(ei, '_readonly_descrs_' + key) is None
@@ -453,17 +455,33 @@ def compute_bitstrings(all_descrs):
                     descrs[key].update(getattr(ei, '_write_descrs_' + key))
         else:
             descr.ei_index = sys.maxint
+
     for key in descrs:
-        mapping = {}
+        all_sets = []
         for descr in descrs[key]:
-            assert descr.ei_index == sys.maxint    # not modified yet
             eisetr = [ei for ei in effectinfos
                          if descr in getattr(ei, '_readonly_descrs_' + key)]
             eisetw = [ei for ei in effectinfos
                          if descr in getattr(ei, '_write_descrs_' + key)]
+            # these are the set of all ei such that this descr is in
+            # ei._readonly_descrs or ei._write_descrs
             eisetr = frozenset(eisetr)
             eisetw = frozenset(eisetw)
+            all_sets.append((descr, eisetr, eisetw))
+
+        # heuristic to reduce the total size of the bitstrings: start with
+        # numbering the descrs that are seen in many EffectInfos.  If instead,
+        # by lack of chance, such a descr had a high number, then all these
+        # EffectInfos' bitstrings would need to store the same high number.
+        def size_of_both_sets((d, r, w)):
+            return len(r) + len(w)
+        all_sets.sort(key=size_of_both_sets, reverse=True)
+
+        mapping = {}
+        for (descr, eisetr, eisetw) in all_sets:
+            assert descr.ei_index == sys.maxint    # not modified yet
             descr.ei_index = mapping.setdefault((eisetr, eisetw), len(mapping))
+
         for ei in effectinfos:
             bitstrr = [descr.ei_index
                            for descr in getattr(ei, '_readonly_descrs_' + key)]
