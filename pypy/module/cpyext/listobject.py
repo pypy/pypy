@@ -21,7 +21,8 @@ def PyList_New(space, len):
     """
     return space.newlist([None] * len)
 
-@cpython_api([PyObject, Py_ssize_t, PyObject], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([PyObject, Py_ssize_t, PyObject], PyObject, error=CANNOT_FAIL,
+             result_borrowed=True)
 def PyList_SET_ITEM(space, w_list, index, w_item):
     """Macro form of PyList_SetItem() without error checking. This is normally
     only used to fill in new lists where there is no previous content.
@@ -36,7 +37,7 @@ def PyList_SET_ITEM(space, w_list, index, w_item):
     make_ref(space, w_list.getitem(index))
     Py_DecRef(space, w_item)
     w_list.setitem(index, w_item)
-    return 0
+    return w_item
 
 
 @cpython_api([PyObject, Py_ssize_t, PyObject], rffi.INT_real, error=-1)
