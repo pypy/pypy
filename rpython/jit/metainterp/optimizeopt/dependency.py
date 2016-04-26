@@ -22,6 +22,8 @@ MODIFY_COMPLEX_OBJ = [ (rop.SETARRAYITEM_GC, 0, 1)
                      , (rop.UNICODESETITEM, 0, -1)
                      ]
 
+UNROLLED_MODIFY_COMPLEX_OBJ = unrolling_iterable(MODIFY_COMPLEX_OBJ)
+
 LOAD_COMPLEX_OBJ = [ (rop.GETARRAYITEM_GC_I, 0, 1)
                    , (rop.GETARRAYITEM_GC_F, 0, 1)
                    , (rop.GETARRAYITEM_GC_R, 0, 1)
@@ -39,6 +41,8 @@ LOAD_COMPLEX_OBJ = [ (rop.GETARRAYITEM_GC_I, 0, 1)
                    , (rop.GETFIELD_RAW_F, 0, -1)
                    , (rop.GETFIELD_RAW_R, 0, -1)
                    ]
+
+UNROLLED_LOAD_COMPLEX_OBJ = unrolling_iterable(LOAD_COMPLEX_OBJ)
 
 class Path(object):
     def __init__(self,path):
@@ -202,7 +206,7 @@ class Node(object):
         args = []
         op = self.op
         if self.modifies_complex_object():
-            for opnum, i, j in unrolling_iterable(MODIFY_COMPLEX_OBJ):
+            for opnum, i, j in UNROLLED_MODIFY_COMPLEX_OBJ: #unrolling_iterable(MODIFY_COMPLEX_OBJ):
                 if op.getopnum() == opnum:
                     op_args = op.getarglist()
                     if j == -1:
@@ -723,7 +727,7 @@ class DependencyGraph(object):
         if node.loads_from_complex_object():
             # If this complex object load operation loads an index that has been
             # modified, the last modification should be used to put a def-use edge.
-            for opnum, i, j in unrolling_iterable(LOAD_COMPLEX_OBJ):
+            for opnum, i, j in UNROLLED_LOAD_COMPLEX_OBJ:
                 if opnum == op.getopnum():
                     cobj = op.getarg(i)
                     if j != -1:

@@ -176,17 +176,20 @@ marks = [
     ('COMMON_PREFIX',),
 ]
 
-start = 0x10
+start = 0x11
 for mark, in marks:
     globals()['MARK_' + mark] = start
     start += 1
 
 if __name__ == "__main__":
     print("# generated constants from rpython/rlib/jitlog.py")
-    for mark in marks:
-        print '%s = %d' % ('MARK_' + mark, globals()['MARK_' + mark])
+    print 'MARK_JITLOG_START = chr(%s)' % hex(0x10)
+    for mark, in marks:
+        print '%s = chr(%s)' % ('MARK_' + mark, hex(globals()['MARK_' + mark]))
+    print 'MARK_JITLOG_END = chr(%s)' % hex(start)
 
 del marks
+del start
 
 IS_32_BIT = sys.maxint == 2**31-1
 
@@ -331,7 +334,7 @@ class LogTrace(BaseLogTrace):
 
     def write(self, args, ops, ops_offset={}):
         log = self.logger
-        log._write_marked(self.tag, encode_le_addr(self.logger.trace_id))
+        log._write_marked(self.tag, encode_le_64bit(self.logger.trace_id))
 
         # input args
         str_args = [self.var_to_str(arg) for arg in args]

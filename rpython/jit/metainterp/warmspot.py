@@ -581,8 +581,6 @@ class WarmRunnerDesc(object):
                 annhelper, jd.jitdriver.should_unroll_one_iteration,
                 annmodel.s_Bool)
             #
-            s_Str = annmodel.SomeString(no_nul=True)
-            s_Int = annmodel.SomeInteger()
             items = []
             types = ()
             pos = ()
@@ -601,9 +599,9 @@ class WarmRunnerDesc(object):
                 #
                 for _,type in types:
                     if type == 's':
-                        items.append(s_Str)
+                        items.append(annmodel.SomeString())
                     elif type == 'i':
-                        items.append(s_Int)
+                        items.append(annmodel.SomeInteger())
                     else:
                         raise NotImplementedError
             s_Tuple = annmodel.SomeTuple(items)
