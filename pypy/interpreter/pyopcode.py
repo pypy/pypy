@@ -73,6 +73,7 @@ class __extend__(pyframe.PyFrame):
         try:
             next_instr = self.dispatch_bytecode(co_code, next_instr, ec)
         except OperationError, operr:
+            operr.record_context(self.space, self)
             next_instr = self.handle_operation_error(ec, operr)
         except RaiseWithExplicitTraceback, e:
             next_instr = self.handle_operation_error(ec, e.operr,
