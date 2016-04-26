@@ -1,7 +1,9 @@
+import sys
 from rpython.jit.metainterp.typesystem import deref, fieldType, arrayItem
 from rpython.rtyper.rclass import OBJECT
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.translator.backendopt.graphanalyze import BoolGraphAnalyzer
+from rpython.tool.algo import bitstring
 
 
 class EffectInfo(object):
@@ -110,12 +112,20 @@ class EffectInfo(object):
                 can_invalidate=False,
                 call_release_gil_target=_NO_CALL_RELEASE_GIL_TARGET,
                 extradescrs=None):
-        key = (frozenset_or_none(readonly_descrs_fields),
-               frozenset_or_none(readonly_descrs_arrays),
-               frozenset_or_none(readonly_descrs_interiorfields),
-               frozenset_or_none(write_descrs_fields),
-               frozenset_or_none(write_descrs_arrays),
-               frozenset_or_none(write_descrs_interiorfields),
+        readonly_descrs_fields = frozenset_or_none(readonly_descrs_fields)
+        readonly_descrs_arrays = frozenset_or_none(readonly_descrs_arrays)
+        readonly_descrs_interiorfields = frozenset_or_none(
+                                              readonly_descrs_interiorfields)
+        write_descrs_fields = frozenset_or_none(write_descrs_fields)
+        write_descrs_arrays = frozenset_or_none(write_descrs_arrays)
+        write_descrs_interiorfields = frozenset_or_none(
+                                              write_descrs_interiorfields)
+        key = (readonly_descrs_fields,
+               readonly_descrs_arrays,
+               readonly_descrs_interiorfields,
+               write_descrs_fields,
+               write_descrs_arrays,
+               write_descrs_interiorfields,
                extraeffect,
                oopspecindex,
                can_invalidate)
@@ -139,22 +149,24 @@ class EffectInfo(object):
             assert write_descrs_arrays is not None
             assert write_descrs_interiorfields is not None
         result = object.__new__(cls)
-        result.readonly_descrs_fields = readonly_descrs_fields
-        result.readonly_descrs_arrays = readonly_descrs_arrays
-        result.readonly_descrs_interiorfields = readonly_descrs_interiorfields
+        # the frozensets "._readonly_xxx" and "._write_xxx" should not be
+        # translated.
+        result._readonly_descrs_fields = readonly_descrs_fields
+        result._readonly_descrs_arrays = readonly_descrs_arrays
+        result._readonly_descrs_interiorfields = readonly_descrs_interiorfields
         if extraeffect == EffectInfo.EF_LOOPINVARIANT or \
            extraeffect == EffectInfo.EF_ELIDABLE_CANNOT_RAISE or \
            extraeffect == EffectInfo.EF_ELIDABLE_OR_MEMORYERROR or \
            extraeffect == EffectInfo.EF_ELIDABLE_CAN_RAISE:
             # Ignore the writes.  Note that this ignores also writes with
             # no corresponding reads (rarely the case, but possible).
-            result.write_descrs_fields = []
-            result.write_descrs_arrays = []
-            result.write_descrs_interiorfields = []
+            result._write_descrs_fields = frozenset()
+            result._write_descrs_arrays = frozenset()
+            result._write_descrs_interiorfields = frozenset()
         else:
-            result.write_descrs_fields = write_descrs_fields
-            result.write_descrs_arrays = write_descrs_arrays
-            result.write_descrs_interiorfields = write_descrs_interiorfields
+            result._write_descrs_fields = write_descrs_fields
+            result._write_descrs_arrays = write_descrs_arrays
+            result._write_descrs_interiorfields = write_descrs_interiorfields
         result.extraeffect = extraeffect
         result.can_invalidate = can_invalidate
         result.oopspecindex = oopspecindex
@@ -164,6 +176,25 @@ class EffectInfo(object):
             assert oopspecindex in cls._OS_CANRAISE
         cls._cache[key] = result
         return result
+
+    def check_readonly_descr_field(self, fielddescr):
+        return bitstring.bitcheck(self.bitstring_readonly_descrs_fields,
+                                  fielddescr.ei_index)
+    def check_write_descr_field(self, fielddescr):
+        return bitstring.bitcheck(self.bitstring_write_descrs_fields,
+                                  fielddescr.ei_index)
+    def check_readonly_descr_array(self, arraydescr):
+        return bitstring.bitcheck(self.bitstring_readonly_descrs_arrays,
+                                  arraydescr.ei_index)
+    def check_write_descr_array(self, arraydescr):
+        return bitstring.bitcheck(self.bitstring_write_descrs_arrays,
+                                  arraydescr.ei_index)
+    def check_readonly_descr_interiorfield(self, interiorfielddescr):
+        return bitstring.bitcheck(self.bitstring_readonly_descrs_interiorfields,
+                                  interiorfielddescr.ei_index)
+    def check_write_descr_interiorfield(self, interiorfielddescr):
+        return bitstring.bitcheck(self.bitstring_write_descrs_interiorfields,
+                                  interiorfielddescr.ei_index)
 
     def check_can_raise(self, ignore_memoryerror=False):
         if ignore_memoryerror:
@@ -382,3 +413,55 @@ class CallInfoCollection(object):
         assert funcptr
         return funcptr
     funcptr_for_oopspec._annspecialcase_ = 'specialize:arg(1)'
+
+# ____________________________________________________________
+
+def compute_bitstrings(all_descrs):
+    # Compute the bitstrings in the EffectInfo,
+    # bitstring_{readonly,write}_descrs_{fieldd,arrays,interiordescrs},
+    # and for each FieldDescrs and ArrayDescrs compute 'ei_index'.
+    # Each bit in the bitstrings says whether this Descr is present in
+    # this EffectInfo or not.  We try to share the value of 'ei_index'
+    # across multiple Descrs if they always give the same answer (in
+    # PyPy, it reduces the length of the bitstrings from 4000+ to
+    # 373).
+    effectinfos = []
+    descrs = {'fields': set(), 'arrays': set(), 'interiorfields': set()}
+    for descr in all_descrs:
+        if hasattr(descr, 'get_extra_info'):
+            ei = descr.get_extra_info()
+            if ei._readonly_descrs_fields is None:
+                for key in descrs:
+                    assert getattr(ei, '_readonly_descrs_' + key) is None
+                    assert getattr(ei, '_write_descrs_' + key) is None
+                    setattr(ei, 'bitstring_readonly_descrs_' + key, None)
+                    setattr(ei, 'bitstring_write_descrs_' + key, None)
+            else:
+                effectinfos.append(ei)
+                for key in descrs:
+                    descrs[key].update(getattr(ei, '_readonly_descrs_' + key))
+                    descrs[key].update(getattr(ei, '_write_descrs_' + key))
+        else:
+            descr.ei_index = sys.maxint
+    for key in descrs:
+        mapping = {}
+        for descr in descrs[key]:
+            assert descr.ei_index == sys.maxint    # not modified yet
+            eisetr = [ei for ei in effectinfos
+                         if descr in getattr(ei, '_readonly_descrs_' + key)]
+            eisetw = [ei for ei in effectinfos
+                         if descr in getattr(ei, '_write_descrs_' + key)]
+            eisetr = frozenset(eisetr)
+            eisetw = frozenset(eisetw)
+            descr.ei_index = mapping.setdefault((eisetr, eisetw), len(mapping))
+        for ei in effectinfos:
+            bitstrr = [descr.ei_index
+                           for descr in getattr(ei, '_readonly_descrs_' + key)]
+            bitstrw = [descr.ei_index
+                           for descr in getattr(ei, '_write_descrs_' + key)]
+            assert sys.maxint not in bitstrr
+            assert sys.maxint not in bitstrw
+            bitstrr = bitstring.make_bitstring(bitstrr)
+            bitstrw = bitstring.make_bitstring(bitstrw)
+            setattr(ei, 'bitstring_readonly_descrs_' + key, bitstrr)
+            setattr(ei, 'bitstring_write_descrs_' + key, bitstrw)
