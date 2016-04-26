@@ -739,25 +739,16 @@ class __extend__(pyframe.PyFrame):
         unroller = SContinueLoop(startofloop)
         return self.unrollstack_and_jump(unroller)
 
-    @jit.unroll_safe
     def RAISE_VARARGS(self, nbargs, next_instr):
         space = self.space
         if nbargs == 0:
-            frame = self
-            while frame:
-                if frame.last_exception is not None:
-                    operror = frame.last_exception
-                    break
-                frame = frame.f_backref()
-            else:
-                raise OperationError(space.w_TypeError,
-                    space.wrap("raise: no active exception to re-raise"))
-            if operror.w_type is space.w_None:
-                raise OperationError(space.w_TypeError,
-                    space.wrap("raise: the exception to re-raise was cleared"))
+            last_operr = self._exc_info_unroll(space)
+            if last_operr is None:
+                raise oefmt(space.w_TypeError,
+                            "No active exception to reraise")
             # re-raise, no new traceback obj will be attached
-            self.last_exception = operror
-            raise RaiseWithExplicitTraceback(operror)
+            self.last_exception = last_operr
+            raise RaiseWithExplicitTraceback(last_operr)
 
         w_value = w_traceback = space.w_None
         if nbargs >= 3:
