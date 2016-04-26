@@ -4,7 +4,7 @@ from rpython.annotator import model as annmodel
 from rpython.flowspace.operation import op_appendices
 from rpython.rlib import objectmodel, jit
 from rpython.rlib.rarithmetic import intmask, longlongmask, r_int, r_longlong
-from rpython.rlib.rarithmetic import r_uint, r_ulonglong
+from rpython.rlib.rarithmetic import r_uint, r_ulonglong, r_longlonglong
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.lltypesystem.lltype import (Signed, Unsigned, Bool, Float,
     Char, UniChar, UnsignedLongLong, SignedLongLong, build_number, Number,
@@ -12,6 +12,8 @@ from rpython.rtyper.lltypesystem.lltype import (Signed, Unsigned, Bool, Float,
 from rpython.rtyper.rfloat import FloatRepr
 from rpython.rtyper.rmodel import inputconst, log
 from rpython.tool.pairtype import pairtype
+from rpython.rtyper.lltypesystem.lloperation import llop
+
 
 class IntegerRepr(FloatRepr):
     def __init__(self, lowleveltype, opprefix):
@@ -100,11 +102,7 @@ class IntegerRepr(FloatRepr):
         if hop.s_result.unsigned:
             raise TyperError("forbidden uint_abs_ovf")
         else:
-            [v_arg] = hop.inputargs(self)
-            hop.has_implicit_exception(OverflowError) # record we know about it
-            hop.exception_is_here()
-            llfunc = globals()['ll_' + self.opprefix + 'abs_ovf']
-            return hop.gendirectcall(llfunc, v_arg)
+            return _rtype_call_helper(hop, 'abs_ovf')
 
     def rtype_invert(self, hop):
         self = self.as_int
@@ -129,12 +127,7 @@ class IntegerRepr(FloatRepr):
             hop.exception_cannot_occur()
             return self.rtype_neg(hop)
         else:
-            [v_arg] = hop.inputargs(self)
-            hop.has_implicit_exception(OverflowError) # record we know about it
-            hop.exception_is_here()
-            llfunc = globals()['ll_' + self.opprefix + 'sub_ovf']
-            c_zero = hop.inputconst(self.lowleveltype, 0)
-            return hop.gendirectcall(llfunc, c_zero, v_arg)
+            return _rtype_call_helper(hop, 'neg_ovf')
 
     def rtype_pos(self, hop):
         self = self.as_int
@@ -226,28 +219,28 @@ class __extend__(pairtype(IntegerRepr, IntegerRepr)):
                 hop = hop.copy()
                 hop.swap_fst_snd_args()
                 func = 'add_nonneg_ovf'
-        return _rtype_template(hop, func)
+        return _rtype_call_helper(hop, func)
 
     def rtype_sub(_, hop):
         return _rtype_template(hop, 'sub')
     rtype_inplace_sub = rtype_sub
 
     def rtype_sub_ovf(_, hop):
-        return _rtype_template(hop, 'sub_ovf')
+        return _rtype_call_helper(hop, 'sub_ovf')
 
     def rtype_mul(_, hop):
         return _rtype_template(hop, 'mul')
     rtype_inplace_mul = rtype_mul
 
     def rtype_mul_ovf(_, hop):
-        return _rtype_template(hop, 'mul_ovf')
+        return _rtype_call_helper(hop, 'mul_ovf')
 
     def rtype_floordiv(_, hop):
-        return _rtype_template(hop, 'floordiv', [ZeroDivisionError])
+        return _rtype_call_helper(hop, 'floordiv', [ZeroDivisionError])
     rtype_inplace_floordiv = rtype_floordiv
 
     def rtype_floordiv_ovf(_, hop):
-        return _rtype_template(hop, 'floordiv_ovf', [ZeroDivisionError])
+        return _rtype_call_helper(hop, 'floordiv_ovf', [ZeroDivisionError])
 
     # turn 'div' on integers into 'floordiv'
     rtype_div         = rtype_floordiv
@@ -257,11 +250,11 @@ class __extend__(pairtype(IntegerRepr, IntegerRepr)):
     # 'def rtype_truediv' is delegated to the superclass FloatRepr
 
     def rtype_mod(_, hop):
-        return _rtype_template(hop, 'mod', [ZeroDivisionError])
+        return _rtype_call_helper(hop, 'mod', [ZeroDivisionError])
     rtype_inplace_mod = rtype_mod
 
     def rtype_mod_ovf(_, hop):
-        return _rtype_template(hop, 'mod_ovf', [ZeroDivisionError])
+        return _rtype_call_helper(hop, 'mod_ovf', [ZeroDivisionError])
 
     def rtype_xor(_, hop):
         return _rtype_template(hop, 'xor')
@@ -280,7 +273,7 @@ class __extend__(pairtype(IntegerRepr, IntegerRepr)):
     rtype_inplace_lshift = rtype_lshift
 
     def rtype_lshift_ovf(_, hop):
-        return _rtype_template(hop, 'lshift_ovf')
+        return _rtype_call_helper(hop, 'lshift_ovf')
 
     def rtype_rshift(_, hop):
         return _rtype_template(hop, 'rshift')
@@ -310,17 +303,13 @@ class __extend__(pairtype(IntegerRepr, IntegerRepr)):
 
 #Helper functions
 
-def _rtype_template(hop, func, implicit_excs=[]):
-    if func.endswith('_ovf'):
-        if hop.s_result.unsigned:
-            raise TyperError("forbidden unsigned " + func)
-        else:
-            hop.has_implicit_exception(OverflowError)
-
-    for implicit_exc in implicit_excs:
-        if hop.has_implicit_exception(implicit_exc):
-            appendix = op_appendices[implicit_exc]
-            func += '_' + appendix
+def _rtype_template(hop, func):
+    """Write a simple operation implementing the given 'func'.
+    It must be an operation that cannot raise.
+    """
+    if '_ovf' in func or (func.startswith(('mod', 'floordiv'))
+                              and not hop.s_result.unsigned):
+        raise TyperError("%r should not be used here any more" % (func,))
 
     r_result = hop.r_result
     if r_result.lowleveltype == Bool:
@@ -332,74 +321,269 @@ def _rtype_template(hop, func, implicit_excs=[]):
     else:
         repr2 = repr
     vlist = hop.inputargs(repr, repr2)
-    hop.exception_is_here()
+    hop.exception_cannot_occur()
 
     prefix = repr.opprefix
-
     v_res = hop.genop(prefix+func, vlist, resulttype=repr)
-    bothnonneg = hop.args_s[0].nonneg and hop.args_s[1].nonneg
-    if prefix in ('int_', 'llong_') and not bothnonneg:
-
-        # cpython, and rpython, assumed that integer division truncates
-        # towards -infinity.  however, in C99 and most (all?) other
-        # backends, integer division truncates towards 0.  so assuming
-        # that, we call a helper function that applies the necessary
-        # correction in the right cases.
-
-        op = func.split('_', 1)[0]
-
-        if op == 'floordiv':
-            llfunc = globals()['ll_correct_' + prefix + 'floordiv']
-            v_res = hop.gendirectcall(llfunc, vlist[0], vlist[1], v_res)
-        elif op == 'mod':
-            llfunc = globals()['ll_correct_' + prefix + 'mod']
-            v_res = hop.gendirectcall(llfunc, vlist[1], v_res)
-
     v_res = hop.llops.convertvar(v_res, repr, r_result)
     return v_res
 
 
+def _rtype_call_helper(hop, func, implicit_excs=[]):
+    """Write a call to a helper implementing the given 'func'.
+    It can raise OverflowError if 'func' ends with '_ovf'.
+    Other possible exceptions can be specified in 'implicit_excs'.
+    """
+    any_implicit_exception = False
+    if func.endswith('_ovf'):
+        if hop.s_result.unsigned:
+            raise TyperError("forbidden unsigned " + func)
+        else:
+            hop.has_implicit_exception(OverflowError)
+            any_implicit_exception = True
+
+    for implicit_exc in implicit_excs:
+        if hop.has_implicit_exception(implicit_exc):
+            appendix = op_appendices[implicit_exc]
+            func += '_' + appendix
+            any_implicit_exception = True
+
+    if not any_implicit_exception:
+        if not func.startswith(('mod', 'floordiv')):
+            return _rtype_template(hop, func)
+        if hop.s_result.unsigned:
+            return _rtype_template(hop, func)
+
+    repr = hop.r_result
+    assert repr.lowleveltype != Bool
+    if func in ('abs_ovf', 'neg_ovf'):
+        vlist = hop.inputargs(repr)
+    else:
+        if func.startswith(('lshift', 'rshift')):
+            vlist = hop.inputargs(repr, signed_repr)
+        else:
+            vlist = hop.inputargs(repr, repr)
+    if any_implicit_exception:
+        hop.exception_is_here()
+    else:
+        hop.exception_cannot_occur()
+
+    llfunc = globals()['ll_' + repr.opprefix + func]
+    v_result = hop.gendirectcall(llfunc, *vlist)
+    assert v_result.concretetype == repr.lowleveltype
+    return v_result
+
+
 INT_BITS_1 = r_int.BITS - 1
 LLONG_BITS_1 = r_longlong.BITS - 1
+LLLONG_BITS_1 = r_longlonglong.BITS - 1
 INT_MIN = int(-(1 << INT_BITS_1))
 LLONG_MIN = r_longlong(-(1 << LLONG_BITS_1))
 
-def ll_correct_int_floordiv(x, y, r):
+
+# ---------- floordiv ----------
+
+def ll_int_floordiv(x, y):
+    # Python, and RPython, assume that integer division truncates
+    # towards -infinity.  However, in C, integer division truncates
+    # towards 0.  So assuming that, we need to apply a correction
+    # in the right cases.
+    r = llop.int_floordiv(Signed, x, y)            # <= truncates like in C
     p = r * y
     if y < 0: u = p - x
     else:     u = x - p
     return r + (u >> INT_BITS_1)
 
-def ll_correct_llong_floordiv(x, y, r):
+def ll_int_floordiv_zer(x, y):
+    if y == 0:
+        raise ZeroDivisionError("integer division")
+    return ll_int_floordiv(x, y)
+
+def ll_uint_floordiv_zer(x, y):
+    if y == 0:
+        raise ZeroDivisionError("unsigned integer division")
+    return llop.uint_floordiv(Unsigned, x, y)
+
+def ll_int_floordiv_ovf(x, y):
+    # JIT: intentionally not short-circuited to produce only one guard
+    # and to remove the check fully if one of the arguments is known
+    if (x == -sys.maxint - 1) & (y == -1):
+        raise OverflowError("integer division")
+    return ll_int_floordiv(x, y)
+
+def ll_int_floordiv_ovf_zer(x, y):
+    if y == 0:
+        raise ZeroDivisionError("integer division")
+    return ll_int_floordiv_ovf(x, y)
+
+def ll_llong_floordiv(x, y):
+    r = llop.llong_floordiv(SignedLongLong, x, y)  # <= truncates like in C
     p = r * y
     if y < 0: u = p - x
     else:     u = x - p
     return r + (u >> LLONG_BITS_1)
 
-def ll_correct_int_mod(y, r):
+def ll_llong_floordiv_zer(x, y):
+    if y == 0:
+        raise ZeroDivisionError("longlong division")
+    return ll_llong_floordiv(x, y)
+
+def ll_ullong_floordiv_zer(x, y):
+    if y == 0:
+        raise ZeroDivisionError("unsigned longlong division")
+    return llop.ullong_floordiv(UnsignedLongLong, x, y)
+
+def ll_lllong_floordiv(x, y):
+    r = llop.lllong_floordiv(SignedLongLongLong, x, y) # <= truncates like in C
+    p = r * y
+    if y < 0: u = p - x
+    else:     u = x - p
+    return r + (u >> LLLONG_BITS_1)
+
+def ll_lllong_floordiv_zer(x, y):
+    if y == 0:
+        raise ZeroDivisionError("longlonglong division")
+    return ll_lllong_floordiv(x, y)
+
+
+# ---------- mod ----------
+
+def ll_int_mod(x, y):
+    r = llop.int_mod(Signed, x, y)                 # <= truncates like in C
     if y < 0: u = -r
     else:     u = r
     return r + (y & (u >> INT_BITS_1))
 
-def ll_correct_llong_mod(y, r):
+def ll_int_mod_zer(x, y):
+    if y == 0:
+        raise ZeroDivisionError
+    return ll_int_mod(x, y)
+
+def ll_uint_mod_zer(x, y):
+    if y == 0:
+        raise ZeroDivisionError
+    return llop.uint_mod(Unsigned, x, y)
+
+def ll_int_mod_ovf(x, y):
+    # see comment in ll_int_floordiv_ovf
+    if (x == -sys.maxint - 1) & (y == -1):
+        raise OverflowError
+    return ll_int_mod(x, y)
+
+def ll_int_mod_ovf_zer(x, y):
+    if y == 0:
+        raise ZeroDivisionError
+    return ll_int_mod_ovf(x, y)
+
+def ll_llong_mod(x, y):
+    r = llop.llong_mod(SignedLongLong, x, y)       # <= truncates like in C
     if y < 0: u = -r
     else:     u = r
     return r + (y & (u >> LLONG_BITS_1))
 
+def ll_llong_mod_zer(x, y):
+    if y == 0:
+        raise ZeroDivisionError
+    return ll_llong_mod(x, y)
+
+def ll_ullong_mod_zer(x, y):
+    if y == 0:
+        raise ZeroDivisionError
+    return llop.ullong_mod(UnsignedLongLong, x, y)
+
+def ll_lllong_mod(x, y):
+    r = llop.lllong_mod(SignedLongLongLong, x, y)  # <= truncates like in C
+    if y < 0: u = -r
+    else:     u = r
+    return r + (y & (u >> LLLONG_BITS_1))
+
+def ll_lllong_mod_zer(x, y):
+    if y == 0:
+        raise ZeroDivisionError
+    return ll_lllong_mod(x, y)
+
+
+# ---------- add, sub, mul ----------
+
+@jit.oopspec("add_ovf")
+def ll_int_add_ovf(x, y):
+    r = intmask(r_uint(x) + r_uint(y))
+    if r^x < 0 and r^y < 0:
+        raise OverflowError("integer addition")
+    return r
+
+@jit.oopspec("add_ovf")
+def ll_int_add_nonneg_ovf(x, y):     # y can be assumed >= 0
+    r = intmask(r_uint(x) + r_uint(y))
+    if r < x:
+        raise OverflowError("integer addition")
+    return r
 
 @jit.oopspec("sub_ovf")
 def ll_int_sub_ovf(x, y):
     r = intmask(r_uint(x) - r_uint(y))
-    if r^x >= 0 or r^~y >= 0:
-        return r
-    raise OverflowError("integer subtraction")
+    if r^x < 0 and r^~y < 0:
+        raise OverflowError("integer subtraction")
+    return r
 
 @jit.oopspec("sub_ovf")
 def ll_llong_sub_ovf(x, y):
     r = longlongmask(r_ulonglong(x) - r_ulonglong(y))
-    if r^x >= 0 or r^~y >= 0:
+    if r^x < 0 and r^~y < 0:
+        raise OverflowError("longlong subtraction")
+    return r
+
+@jit.oopspec("mul_ovf")
+def ll_int_mul_ovf(a, b):
+    if INT_BITS_1 < LLONG_BITS_1:
+        rr = r_longlong(a) * r_longlong(b)
+        r = intmask(rr)
+        if r_longlong(r) != rr:
+            raise OverflowError("integer multiplication")
         return r
-    raise OverflowError("longlong subtraction")
+    else:
+        longprod = intmask(a * b)
+        doubleprod = float(a) * float(b)
+        doubled_longprod = float(longprod)
+
+        # Fast path for normal case:  small multiplicands, and no info
+        # is lost in either method.
+        if doubled_longprod == doubleprod:
+            return longprod
+
+        # Somebody somewhere lost info.  Close enough, or way off?  Note
+        # that a != 0 and b != 0 (else doubled_longprod == doubleprod == 0).
+        # The difference either is or isn't significant compared to the
+        # true value (of which doubleprod is a good approximation).
+        # absdiff/absprod <= 1/32 iff 32 * absdiff <= absprod -- 5 good
+        # bits is "close enough"
+        if 32.0 * abs(doubled_longprod - doubleprod) <= abs(doubleprod):
+            return longprod
+
+        raise OverflowError("integer multiplication")
+
+
+# ---------- lshift, neg, abs ----------
+
+def ll_int_lshift_ovf(x, y):
+    result = x << y
+    if (result >> y) != x:
+        raise OverflowError("x<<y loosing bits or changing sign")
+    return result
+
+def ll_int_neg_ovf(x):
+    if jit.we_are_jitted():
+        return ll_int_sub_ovf(0, x)
+    if x == INT_MIN:
+        raise OverflowError
+    return -x
+
+def ll_llong_neg_ovf(x):
+    if jit.we_are_jitted():
+        return ll_llong_sub_ovf(0, x)
+    if x == LLONG_MIN:
+        raise OverflowError
+    return -x
 
 def ll_int_abs_ovf(x):
     if x == INT_MIN:
