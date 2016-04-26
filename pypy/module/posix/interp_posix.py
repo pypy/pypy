@@ -13,6 +13,7 @@ from rpython.rlib import objectmodel, rurandom
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import r_longlong, intmask
 from rpython.rlib.unroll import unrolling_iterable
+from rpython.tool.sourcetools import func_with_new_name
 
 from pypy.interpreter.gateway import (
     unwrap_spec, WrappedDefault, Unwrapper, kwonly)
@@ -42,6 +43,9 @@ else:
         if num < -(1 << 31) or num >= (1 << 32):
             raise OperationError(space.w_OverflowError,
                                  space.wrap("integer out of range"))
+
+# specialize utime when called w/ None for use w/ call_rposix
+utime_now = func_with_new_name(rposix.utime, 'utime_now')
 
 class FileEncoder(object):
     is_unicode = True
@@ -1385,11 +1389,11 @@ dir_fd and follow_symlinks may not be available on your platform.
             not space.is_w(w_ns, space.w_None)):
         raise oefmt(space.w_ValueError,
             "utime: you may specify either 'times' or 'ns' but not both")
-    utime_now = False
+    now = False
     if space.is_w(w_times, space.w_None) and space.is_w(w_ns, space.w_None):
         atime_s = mtime_s = 0
         atime_ns = mtime_ns = 0
-        utime_now = True
+        now = True
     elif not space.is_w(w_times, space.w_None):
         times_w = space.fixedview(w_times)
         if len(times_w) != 2:
@@ -1412,7 +1416,7 @@ dir_fd and follow_symlinks may not be available on your platform.
         if not follow_symlinks:
             raise oefmt(space.w_ValueError,
                         "utime: cannot use fd and follow_symlinks together")
-        if utime_now:
+        if now:
             atime_ns = mtime_ns = rposix.UTIME_NOW
         try:
             rposix.futimens(path.as_fd, atime_s, atime_ns, mtime_s, mtime_ns)
@@ -1432,7 +1436,7 @@ dir_fd and follow_symlinks may not be available on your platform.
             raise oefmt(space.w_NotImplementedError,
                         "utime: unsupported value for 'path'")
         try:
-            if utime_now:
+            if now:
                 rposix.utimensat(
                     path_b, 0, rposix.UTIME_NOW, 0, rposix.UTIME_NOW,
                     dir_fd=dir_fd, follow_symlinks=follow_symlinks)
@@ -1451,9 +1455,9 @@ dir_fd and follow_symlinks may not be available on your platform.
     if not space.is_w(w_ns, space.w_None):
         raise oefmt(space.w_NotImplementedError,
             "utime: 'ns' unsupported on this platform on PyPy")
-    if utime_now:
+    if now:
         try:
-            call_rposix(rposix.utime, path, None)
+            call_rposix(utime_now, path, None)
         except OSError as e:
             # see comment above
             raise wrap_oserror(space, e)
