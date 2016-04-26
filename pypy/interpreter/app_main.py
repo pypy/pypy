@@ -2,7 +2,7 @@
 # This is pure Python code that handles the main entry point into "pypy".
 # See test/test_app_main.
 
-# Missing vs CPython: -d, -t, -v, -x, -3
+# Missing vs CPython: -d, -t, -x, -3
 USAGE1 = __doc__ = """\
 Options and arguments (and corresponding environment variables):
 -B     : don't write .py[co] files on import; also PYTHONDONTWRITEBYTECODE=x
@@ -19,6 +19,8 @@ Options and arguments (and corresponding environment variables):
 -s     : don't add user site directory to sys.path; also PYTHONNOUSERSITE
 -S     : don't imply 'import site' on initialization
 -u     : unbuffered binary stdout and stderr; also PYTHONUNBUFFERED=x
+-v     : verbose (trace import statements); also PYTHONVERBOSE=x
+         can be supplied multiple times to increase verbosity
 -V     : print the Python version number and exit (also --version)
 -W arg : warning control; arg is action:message:category:module:lineno
          also PYTHONWARNINGS=arg
