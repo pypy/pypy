@@ -56,9 +56,10 @@ def get_so_extension(space):
     return '.' + soabi + SO
 
 def log_pyverbose(space, level, message):
-    w_flags = space.sys.get('flags')
-    w_verbose = space.getattr(w_flags, 'verbose')
-    if space.int_w(w_verbose) >= level:
+    if space.sys.w_initialdict is None:
+        return # sys module not initialised, avoid recursion
+    w_verbose = space.sys.get_flag('verbose')
+    if w_verbose >= level:
         w_stderr = space.sys.get('stderr')
         space.call_method(w_stderr, "write", space.wrap(message))
 
