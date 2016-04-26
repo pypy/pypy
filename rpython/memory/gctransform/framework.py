@@ -236,8 +236,9 @@ class BaseFrameworkGCTransformer(GCTransformer):
                                                annmodel.s_None)
 
         self.annotate_walker_functions(getfn)
-        self.weakref_deref_ptr = self.inittime_helper(
-            ll_weakref_deref, [llmemory.WeakRefPtr], llmemory.Address)
+        if translator.config.translation.rweakref:
+            self.weakref_deref_ptr = self.inittime_helper(
+                ll_weakref_deref, [llmemory.WeakRefPtr], llmemory.Address)
 
         classdef = bk.getuniqueclassdef(GCClass)
         s_gc = annmodel.SomeInstance(classdef)

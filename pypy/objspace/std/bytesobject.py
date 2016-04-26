@@ -841,32 +841,10 @@ def _create_list_from_bytes(value):
     return [s for s in value]
 
 W_BytesObject.EMPTY = W_BytesObject('')
-W_BytesObject.PREBUILT = [W_BytesObject(chr(i)) for i in range(256)]
-del i
 
 
 def wrapstr(space, s):
-    if space.config.objspace.std.sharesmallstr:
-        if space.config.objspace.std.withprebuiltchar:
-            # share characters and empty string
-            if len(s) <= 1:
-                if len(s) == 0:
-                    return W_BytesObject.EMPTY
-                else:
-                    s = s[0]     # annotator hint: a single char
-                    return wrapchar(space, s)
-        else:
-            # only share the empty string
-            if len(s) == 0:
-                return W_BytesObject.EMPTY
     return W_BytesObject(s)
-
-
-def wrapchar(space, c):
-    if space.config.objspace.std.withprebuiltchar and not we_are_jitted():
-        return W_BytesObject.PREBUILT[ord(c)]
-    else:
-        return W_BytesObject(c)
 
 
 W_BytesObject.typedef = TypeDef(

@@ -795,13 +795,3 @@ class AppTestBytesObject:
                 return 42
         x = Foo()
         assert "hello" + x == 42
-
-class AppTestPrebuilt(AppTestBytesObject):
-    spaceconfig = {"objspace.std.withprebuiltchar": True}
-
-class AppTestShare(AppTestBytesObject):
-    spaceconfig = {"objspace.std.sharesmallstr": True}
-
-class AppTestPrebuiltShare(AppTestBytesObject):
-    spaceconfig = {"objspace.std.withprebuiltchar": True,
-                   "objspace.std.sharesmallstr": True}

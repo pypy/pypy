@@ -114,6 +114,7 @@ class PyCode(eval.Code):
                 e.write_unraisable(self.space, "new_code_hook()")
 
     def _initialize(self):
+        from pypy.objspace.std.mapdict import init_mapdict_cache
         if self.co_cellvars:
             argcount = self.co_argcount
             assert argcount >= 0     # annotator hint
@@ -149,9 +150,7 @@ class PyCode(eval.Code):
 
         self._compute_flatcall()
 
-        if self.space.config.objspace.std.withmapdict:
-            from pypy.objspace.std.mapdict import init_mapdict_cache
-            init_mapdict_cache(self)
+        init_mapdict_cache(self)
 
     def _init_ready(self):
         "This is a hook for the vmprof module, which overrides this method."

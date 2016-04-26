@@ -37,17 +37,15 @@ def reset_method_cache_counter(space):
     cache = space.fromcache(MethodCache)
     cache.misses = {}
     cache.hits = {}
-    if space.config.objspace.std.withmapdict:
-        cache = space.fromcache(MapAttrCache)
-        cache.misses = {}
-        cache.hits = {}
+    cache = space.fromcache(MapAttrCache)
+    cache.misses = {}
+    cache.hits = {}
 
 @unwrap_spec(name=str)
 def mapdict_cache_counter(space, name):
     """Return a tuple (index_cache_hits, index_cache_misses) for lookups
     in the mapdict cache with the given attribute name."""
     assert space.config.objspace.std.withmethodcachecounter
-    assert space.config.objspace.std.withmapdict
     cache = space.fromcache(MapAttrCache)
     return space.newtuple([space.newint(cache.hits.get(name, 0)),
                            space.newint(cache.misses.get(name, 0))])

@@ -1118,8 +1118,7 @@ class AppTestOldStyleClassBytesDict(object):
         assert getattr(c, u"x") == 1
 
 
-class AppTestOldStyleMapDict(AppTestOldstyle):
-    spaceconfig = {"objspace.std.withmapdict": True}
+class AppTestOldStyleMapDict:
 
     def setup_class(cls):
         if cls.runappdirect:

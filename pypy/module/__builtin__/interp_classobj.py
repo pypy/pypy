@@ -185,12 +185,19 @@ class W_ClassObject(W_Root):
 
 class Cache:
     def __init__(self, space):
-        from pypy.interpreter.typedef import _usersubclswithfeature
-        # evil
-        self.cls_without_del = _usersubclswithfeature(
-                space.config, W_InstanceObject, "dict", "weakref")
-        self.cls_with_del = _usersubclswithfeature(
-                space.config, self.cls_without_del, "del")
+        from pypy.interpreter.typedef import _getusercls
+
+        if hasattr(space, 'is_fake_objspace'):
+            # hack: with the fake objspace, we don't want to see typedef's
+            # _getusercls() at all
+            self.cls_without_del = W_InstanceObject
+            self.cls_with_del = W_InstanceObject
+            return
+
+        self.cls_without_del = _getusercls(
+                space.config, W_InstanceObject, False, reallywantdict=True)
+        self.cls_with_del = _getusercls(
+                space.config, W_InstanceObject, True, reallywantdict=True)
 
 
 def class_descr_call(space, w_self, __args__):

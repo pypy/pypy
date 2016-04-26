@@ -1,3 +1,4 @@
+import py
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef
@@ -1105,7 +1106,6 @@ class AppTestWithMethodCacheCounter:
 
 
 class AppTestGetattributeShortcut:
-    spaceconfig = {"objspace.std.getattributeshortcut": True}
 
     def test_reset_logic(self):
         class X(object):
@@ -1239,3 +1239,57 @@ class AppTestNewShortcut:
         class Y:
             __metaclass__ = X
         assert (Y < Y) is True
+
+
+class AppTestComparesByIdentity:
+
+    def setup_class(cls):
+        if cls.runappdirect:
+            py.test.skip("interp2app doesn't work on appdirect")
+
+        def compares_by_identity(space, w_cls):
+            return space.wrap(w_cls.compares_by_identity())
+        cls.w_compares_by_identity = cls.space.wrap(interp2app(compares_by_identity))
+
+    def test_compares_by_identity(self):
+        class Plain(object):
+            pass
+
+        class CustomEq(object):
+            def __eq__(self, other):
+                return True
+
+        class CustomCmp (object):
+            def __cmp__(self, other):
+                return 0
+
+        class CustomHash(object):
+            def __hash__(self):
+                return 0
+
+        class TypeSubclass(type):
+            pass
+
+        class TypeSubclassCustomCmp(type):
+            def __cmp__(self, other):
+                return 0
+
+        assert self.compares_by_identity(Plain)
+        assert not self.compares_by_identity(CustomEq)
+        assert not self.compares_by_identity(CustomCmp)
+        assert not self.compares_by_identity(CustomHash)
+        assert self.compares_by_identity(type)
+        assert self.compares_by_identity(TypeSubclass)
+        assert not self.compares_by_identity(TypeSubclassCustomCmp)
+
+    def test_modify_class(self):
+        class X(object):
+            pass
+
+        assert self.compares_by_identity(X)
+        X.__eq__ = lambda x: None
+        assert not self.compares_by_identity(X)
+        del X.__eq__
+        assert self.compares_by_identity(X)
+
+

@@ -120,6 +120,8 @@ BUILTIN_TYPES = ['int', 'str', 'float', 'long', 'tuple', 'list', 'dict',
                  'bytearray', 'buffer', 'set', 'frozenset']
 
 class FakeObjSpace(ObjSpace):
+    is_fake_objspace = True
+
     def __init__(self, config=None):
         self._seen_extras = []
         ObjSpace.__init__(self, config=config)
