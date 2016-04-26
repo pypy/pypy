@@ -191,11 +191,12 @@ class W_BaseException(W_Root):
         last_operr = None
         w_traceback = self.w_traceback
         if w_traceback is not None and isinstance(w_traceback, PyTraceback):
-            ec = space.getexecutioncontext()
             # search for __context__ beginning in the previous frame. A
             # __context__ from the top most frame would have already
             # been handled by OperationError.record_context
-            last_operr = ec.last_operr(space, w_traceback.frame.f_backref())
+            frame = w_traceback.frame.f_backref()
+            if frame:
+                last_operr = frame._exc_info_unroll(space)
         if last_operr is None:
             # no __context__
             return space.w_None

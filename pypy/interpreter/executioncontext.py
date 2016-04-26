@@ -218,9 +218,6 @@ class ExecutionContext(object):
         """Implements sys.exc_info().
         Return an OperationError instance or None.
 
-        Ignores exceptions within hidden frames unless for_hidden=True
-        is specified.
-
         # NOTE: the result is not the wrapped sys.exc_info() !!!
 
         """
