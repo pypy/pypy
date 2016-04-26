@@ -3,7 +3,8 @@ import sys
 from rpython.annotator import model as annmodel
 from rpython.flowspace.operation import op_appendices
 from rpython.rlib import objectmodel, jit
-from rpython.rlib.rarithmetic import intmask, r_int, r_longlong
+from rpython.rlib.rarithmetic import intmask, longlongmask, r_int, r_longlong
+from rpython.rlib.rarithmetic import r_uint, r_ulonglong
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.lltypesystem.lltype import (Signed, Unsigned, Bool, Float,
     Char, UniChar, UnsignedLongLong, SignedLongLong, build_number, Number,
@@ -99,10 +100,11 @@ class IntegerRepr(FloatRepr):
         if hop.s_result.unsigned:
             raise TyperError("forbidden uint_abs_ovf")
         else:
-            vlist = hop.inputargs(self)
+            [v_arg] = hop.inputargs(self)
             hop.has_implicit_exception(OverflowError) # record we know about it
             hop.exception_is_here()
-            return hop.genop(self.opprefix + 'abs_ovf', vlist, resulttype=self)
+            llfunc = globals()['ll_' + self.opprefix + 'abs_ovf']
+            return hop.gendirectcall(llfunc, v_arg)
 
     def rtype_invert(self, hop):
         self = self.as_int
@@ -127,10 +129,12 @@ class IntegerRepr(FloatRepr):
             hop.exception_cannot_occur()
             return self.rtype_neg(hop)
         else:
-            vlist = hop.inputargs(self)
+            [v_arg] = hop.inputargs(self)
             hop.has_implicit_exception(OverflowError) # record we know about it
             hop.exception_is_here()
-            return hop.genop(self.opprefix + 'neg_ovf', vlist, resulttype=self)
+            llfunc = globals()['ll_' + self.opprefix + 'sub_ovf']
+            c_zero = hop.inputconst(self.lowleveltype, 0)
+            return hop.gendirectcall(llfunc, c_zero, v_arg)
 
     def rtype_pos(self, hop):
         self = self.as_int
@@ -357,6 +361,8 @@ def _rtype_template(hop, func, implicit_excs=[]):
 
 INT_BITS_1 = r_int.BITS - 1
 LLONG_BITS_1 = r_longlong.BITS - 1
+INT_MIN = int(-(1 << INT_BITS_1))
+LLONG_MIN = r_longlong(-(1 << LLONG_BITS_1))
 
 def ll_correct_int_floordiv(x, y, r):
     p = r * y
@@ -379,6 +385,31 @@ def ll_correct_llong_mod(y, r):
     if y < 0: u = -r
     else:     u = r
     return r + (y & (u >> LLONG_BITS_1))
+
+
+@jit.oopspec("sub_ovf")
+def ll_int_sub_ovf(x, y):
+    r = intmask(r_uint(x) - r_uint(y))
+    if r^x >= 0 or r^~y >= 0:
+        return r
+    raise OverflowError("integer subtraction")
+
+@jit.oopspec("sub_ovf")
+def ll_llong_sub_ovf(x, y):
+    r = longlongmask(r_ulonglong(x) - r_ulonglong(y))
+    if r^x >= 0 or r^~y >= 0:
+        return r
+    raise OverflowError("longlong subtraction")
+
+def ll_int_abs_ovf(x):
+    if x == INT_MIN:
+        raise OverflowError
+    return abs(x)
+
+def ll_llong_abs_ovf(x):
+    if x == LLONG_MIN:
+        raise OverflowError
+    return abs(x)
 
 
 #Helper functions for comparisons
