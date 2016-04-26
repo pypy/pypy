@@ -174,6 +174,7 @@ marks = [
     ('JITLOG_HEADER',),
     ('MERGE_POINT',),
     ('COMMON_PREFIX',),
+    ('ABORT_TRACE',),
 ]
 
 start = 0x11
@@ -234,6 +235,9 @@ class VMProfJitLogger(object):
             content.append(encode_str('loop'))
             content.append(encode_le_addr(int(entry_bridge)))
         self._write_marked(MARK_START_TRACE, ''.join(content))
+
+    def trace_aborted(self):
+        self._write_marked(MARK_ABORT_TRACE, encode_le_64bit(self.trace_id))
 
     def _write_marked(self, mark, line):
         if not we_are_translated():

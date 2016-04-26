@@ -218,6 +218,7 @@ def compile_simple_loop(metainterp, greenkey, trace, runtime_args, enable_opts,
         loop_info, ops = optimize_trace(metainterp_sd, jitdriver_sd,
                                         data, metainterp.box_names_memo)
     except InvalidLoop:
+        metainterp_sd.jitlog.trace_aborted()
         trace.cut_at(cut_at)
         return None
     loop = create_empty_loop(metainterp)
@@ -251,7 +252,9 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
     history = metainterp.history
     trace = history.trace
     warmstate = jitdriver_sd.warmstate
-
+    #
+    metainterp_sd.jitlog.start_new_trace(None, False)
+    #
     enable_opts = jitdriver_sd.warmstate.enable_opts
     if try_disabling_unroll:
         if 'unroll' not in enable_opts:
@@ -276,6 +279,7 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
                                                    preamble_data,
                                                    metainterp.box_names_memo)
     except InvalidLoop:
+        metainterp_sd.jitlog.trace_aborted()
         history.cut(cut_at)
         return None
 
@@ -292,6 +296,7 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
                                              loop_data,
                                              metainterp.box_names_memo)
     except InvalidLoop:
+        metainterp_sd.jitlog.trace_aborted()
         history.cut(cut_at)
         return None
 
@@ -341,7 +346,9 @@ def compile_retrace(metainterp, greenkey, start,
     metainterp_sd = metainterp.staticdata
     jitdriver_sd = metainterp.jitdriver_sd
     history = metainterp.history
-
+    #
+    metainterp_sd.jitlog.start_new_trace(resumekey, False)
+    #
     loop_jitcell_token = metainterp.get_procedure_token(greenkey)
     assert loop_jitcell_token
 
@@ -369,6 +376,7 @@ def compile_retrace(metainterp, greenkey, start,
                                                  loop_data,
                                                  metainterp.box_names_memo)
         except InvalidLoop:
+            metainterp_sd.jitlog.trace_aborted()
             history.cut(cut)
             return None
 
@@ -566,7 +574,6 @@ def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type,
 
 def send_bridge_to_backend(jitdriver_sd, metainterp_sd, faildescr, inputargs,
                            operations, original_loop_token, memo):
-    metainterp_sd.jitlog.start_new_trace(faildescr)
     forget_optimization_info(operations)
     forget_optimization_info(inputargs)
     if not we_are_translated():
@@ -1018,7 +1025,7 @@ class ResumeFromInterpDescr(ResumeDescr):
 
 def compile_trace(metainterp, resumekey, runtime_boxes):
     """Try to compile a new bridge leading from the beginning of the history
-    to some existging place.
+    to some existing place.
     """
 
     from rpython.jit.metainterp.optimizeopt import optimize_trace
@@ -1031,6 +1038,9 @@ def compile_trace(metainterp, resumekey, runtime_boxes):
 
     metainterp_sd = metainterp.staticdata
     jitdriver_sd = metainterp.jitdriver_sd
+    #
+    metainterp_sd.jitlog.start_new_trace(resumekey, False)
+    #
     if isinstance(resumekey, ResumeAtPositionDescr):
         inline_short_preamble = False
     else:
@@ -1055,6 +1065,7 @@ def compile_trace(metainterp, resumekey, runtime_boxes):
         info, newops = optimize_trace(metainterp_sd, jitdriver_sd,
                                       data, metainterp.box_names_memo)
     except InvalidLoop:
+        metainterp_sd.jitlog.trace_aborted()
         #pdb.post_mortem(sys.exc_info()[2])
         debug_print("compile_new_bridge: got an InvalidLoop")
         # XXX I am fairly convinced that optimize_bridge cannot actually raise
