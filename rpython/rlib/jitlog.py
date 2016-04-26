@@ -188,6 +188,24 @@ if __name__ == "__main__":
     for mark, in marks:
         print '%s = chr(%s)' % ('MARK_' + mark, hex(globals()['MARK_' + mark]))
     print 'MARK_JITLOG_END = chr(%s)' % hex(start)
+    for key,value in locals().items():
+        if key.startswith("MP_"):
+            print '%s = (%s,"%s")' % (key, hex(value[0]), value[1])
+    print 'SEM_TYPE_NAMES = {'
+    for key,value in locals().items():
+        if key.startswith("MP_") and value[0] != 0:
+            print '    %s: "%s",' % (hex(value[0]), key[3:].lower())
+    print '}'
+
+MP_STR = (0x0, "s")
+MP_INT = (0x0, "i")
+
+# concrete parameters
+MP_FILENAME = (0x1, "s")
+MP_LINENO = (0x2, "i")
+MP_INDEX = (0x4, "i")
+MP_SCOPE = (0x8, "s")
+MP_OPCODE = (0x10, "s")
 
 del marks
 del start
@@ -391,7 +409,8 @@ class LogTrace(BaseLogTrace):
             for i, (semantic_type, generic_type) in enumerate(types):
                 encoded_types.append(chr(semantic_type))
                 encoded_types.append(generic_type)
-            log._write_marked(MARK_INIT_MERGE_POINT, ''.join(encoded_types))
+            count = encode_le_16bit(len(types))
+            log._write_marked(MARK_INIT_MERGE_POINT, count + ''.join(encoded_types))
 
         # the types have already been written
         encoded = encode_merge_point(log, self.common_prefix, values)

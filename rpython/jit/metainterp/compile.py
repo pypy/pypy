@@ -512,7 +512,6 @@ def forget_optimization_info(lst, reset_values=False):
 
 def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type,
                          orig_inpargs, memo):
-    metainterp_sd.jitlog.start_new_trace(metainterp_sd, None, type == "entry bridge")
     forget_optimization_info(loop.operations)
     forget_optimization_info(loop.inputargs)
     vinfo = jitdriver_sd.virtualizable_info
