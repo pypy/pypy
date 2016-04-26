@@ -98,6 +98,8 @@ def setup_directory_structure(space):
         'a=5\nb=6\rc="""hello\r\nworld"""\r', mode='wb')
     p.join('mod.py').write(
         'a=15\nb=16\rc="""foo\r\nbar"""\r', mode='wb')
+    setuppkg("verbose1pkg", verbosemod='a = 1729')
+    setuppkg("verbose2pkg", verbosemod='a = 1729')
 
     # create compiled/x.py and a corresponding pyc file
     p = setuppkg("compiled", x = "x = 84")
@@ -710,6 +712,54 @@ class AppTestImport:
                 pass    # 'int' object does not support indexing
             else:
                 raise AssertionError("should have failed")
+
+    def test_verbose_flag_1(self):
+        output = []
+        class StdErr(object):
+            def write(self, line):
+                output.append(line)
+
+        import sys
+        old_flags = sys.flags
+
+        class Flags(object):
+            verbose = 1
+            def __getattr__(self, name):
+                return getattr(old_flags, name)
+
+        sys.flags = Flags()
+        sys.stderr = StdErr()
+        try:
+            import verbose1pkg.verbosemod
+        finally:
+            reload(sys)
+        assert 'import verbose1pkg # from ' in output[-2]
+        assert 'import verbose1pkg.verbosemod # from ' in output[-1]
+
+    def test_verbose_flag_2(self):
+        output = []
+        class StdErr(object):
+            def write(self, line):
+                output.append(line)
+
+        import sys
+        old_flags = sys.flags
+
+        class Flags(object):
+            verbose = 2
+            def __getattr__(self, name):
+                return getattr(old_flags, name)
+
+        sys.flags = Flags()
+        sys.stderr = StdErr()
+        try:
+            import verbose2pkg.verbosemod
+        finally:
+            reload(sys)
+        assert any('import verbose2pkg # from ' in line
+                   for line in output[:-2])
+        assert output[-2].startswith('# trying')
+        assert 'import verbose2pkg.verbosemod # from ' in output[-1]
 
 
 class TestAbi:
