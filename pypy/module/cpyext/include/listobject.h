@@ -1,1 +1,1 @@
-#define PyList_SET_ITEM PyList_SetItem
+#define PyList_GET_ITEM PyList_GetItem

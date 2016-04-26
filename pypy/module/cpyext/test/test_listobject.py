@@ -137,6 +137,23 @@ class AppTestListObject(AppTestCpythonExtensionBase):
         module.setlistitem(l,0)
         assert l == [None, 2, 3]
 
+    def test_get_item_macro(self):
+        module = self.import_extension('foo', [
+             ("test_get_item", "METH_NOARGS",
+             """
+                PyObject* o = PyList_New(1);
+
+                PyObject* o2 = PyInt_FromLong(0);
+                PyList_SET_ITEM(o, 0, o2);
+                o2 = NULL;
+
+                PyObject* o3 = PyList_GET_ITEM(o, 0);
+                Py_INCREF(o3);
+                Py_CLEAR(o);
+                return o3;
+             """)])
+        assert module.test_get_item() == 0
+
     def test_set_item_macro(self):
         """PyList_SET_ITEM leaks a reference to the target."""
         module = self.import_extension('foo', [
