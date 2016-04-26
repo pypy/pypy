@@ -167,6 +167,16 @@ class EffectInfo(object):
             result._write_descrs_fields = write_descrs_fields
             result._write_descrs_arrays = write_descrs_arrays
             result._write_descrs_interiorfields = write_descrs_interiorfields
+        # initialized later, in compute_bitstrings()
+        # (the goal of this is to make sure we don't build new EffectInfo
+        # instances after compute_bitstrings() is called)
+        result.bitstring_readonly_descrs_fields = Ellipsis
+        result.bitstring_readonly_descrs_arrays = Ellipsis
+        result.bitstring_readonly_descrs_interiorfields = Ellipsis
+        result.bitstring_write_descrs_fields = Ellipsis
+        result.bitstring_write_descrs_arrays = Ellipsis
+        result.bitstring_write_descrs_interiorfields = Ellipsis
+        #
         result.extraeffect = extraeffect
         result.can_invalidate = can_invalidate
         result.oopspecindex = oopspecindex
