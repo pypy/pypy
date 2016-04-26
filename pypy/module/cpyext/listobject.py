@@ -3,7 +3,7 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (cpython_api, CANNOT_FAIL, Py_ssize_t,
                                     build_type_checkers)
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
-from pypy.module.cpyext.pyobject import Py_DecRef, PyObject
+from pypy.module.cpyext.pyobject import Py_DecRef, PyObject, make_ref
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.interpreter.error import OperationError
 
@@ -20,6 +20,25 @@ def PyList_New(space, len):
     setting all items to a real object with PyList_SetItem().
     """
     return space.newlist([None] * len)
+
+@cpython_api([PyObject, Py_ssize_t, PyObject], PyObject, error=CANNOT_FAIL,
+             result_borrowed=True)
+def PyList_SET_ITEM(space, w_list, index, w_item):
+    """Macro form of PyList_SetItem() without error checking. This is normally
+    only used to fill in new lists where there is no previous content.
+
+    This function "steals" a reference to item, and, unlike PyList_SetItem(),
+    does not discard a reference to any item that it being replaced; any
+    reference in list at position i will be leaked.
+    """
+    assert isinstance(w_list, W_ListObject)
+    assert 0 <= index < w_list.length
+    # Deliberately leak, so that it can be safely decref'd.
+    make_ref(space, w_list.getitem(index))
+    Py_DecRef(space, w_item)
+    w_list.setitem(index, w_item)
+    return w_item
+
 
 @cpython_api([PyObject, Py_ssize_t, PyObject], rffi.INT_real, error=-1)
 def PyList_SetItem(space, w_list, index, w_item):
