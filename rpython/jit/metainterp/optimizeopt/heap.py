@@ -453,12 +453,13 @@ class OptHeap(Optimization):
                 self.force_lazy_setarrayitem_submap(submap)
             if effectinfo.check_write_descr_array(arraydescr):
                 self.force_lazy_setarrayitem_submap(submap, can_cache=False)
-                if arraydescr in self.corresponding_array_descrs:
-                    dictdescr = self.corresponding_array_descrs.pop(arraydescr)
-                    try:
-                        del self.cached_dict_reads[dictdescr]
-                    except KeyError:
-                        pass # someone did it already
+        #
+        for arraydescr, dictdescr in self.corresponding_array_descrs.items():
+            if effectinfo.check_write_descr_array(arraydescr):
+                try:
+                    del self.cached_dict_reads[dictdescr]
+                except KeyError:
+                    pass # someone did it already
         #
         if effectinfo.check_forces_virtual_or_virtualizable():
             vrefinfo = self.optimizer.metainterp_sd.virtualref_info
@@ -483,7 +484,7 @@ class OptHeap(Optimization):
                 cf.force_lazy_set(self, None, can_cache)
 
     def force_lazy_setarrayitem_submap(self, submap, can_cache=True):
-        for idx, cf in submap.iteritems():
+        for cf in submap.itervalues():
             cf.force_lazy_set(self, None, can_cache)
 
     def force_all_lazy_sets(self):
