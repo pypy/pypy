@@ -174,6 +174,14 @@ class EffectInfo(object):
         result.call_release_gil_target = call_release_gil_target
         if result.check_can_raise(ignore_memoryerror=True):
             assert oopspecindex in cls._OS_CANRAISE
+
+        if (result._write_descrs_arrays is not None and
+            len(result._write_descrs_arrays) == 1):
+            # this is used only for ARRAYCOPY operations
+            [result.single_write_descr_array] = result._write_descrs_arrays
+        else:
+            result.single_write_descr_array = None
+
         cls._cache[key] = result
         return result
 
@@ -190,9 +198,11 @@ class EffectInfo(object):
         return bitstring.bitcheck(self.bitstring_write_descrs_arrays,
                                   arraydescr.ei_index)
     def check_readonly_descr_interiorfield(self, interiorfielddescr):
+        # NOTE: this is not used so far
         return bitstring.bitcheck(self.bitstring_readonly_descrs_interiorfields,
                                   interiorfielddescr.ei_index)
     def check_write_descr_interiorfield(self, interiorfielddescr):
+        # NOTE: this is not used so far
         return bitstring.bitcheck(self.bitstring_write_descrs_interiorfields,
                                   interiorfielddescr.ei_index)
 

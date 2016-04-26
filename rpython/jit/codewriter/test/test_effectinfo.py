@@ -33,6 +33,7 @@ def test_include_read_field():
     assert list(effectinfo._readonly_descrs_fields) == [('fielddescr', S, "a")]
     assert not effectinfo._write_descrs_fields
     assert not effectinfo._write_descrs_arrays
+    assert effectinfo.single_write_descr_array is None
 
 
 def test_include_write_field():
@@ -61,6 +62,7 @@ def test_include_write_array():
     assert not effectinfo._readonly_descrs_fields
     assert not effectinfo._write_descrs_fields
     assert list(effectinfo._write_descrs_arrays) == [('arraydescr', A)]
+    assert effectinfo.single_write_descr_array == ('arraydescr', A)
 
 
 def test_dont_include_read_and_write_field():

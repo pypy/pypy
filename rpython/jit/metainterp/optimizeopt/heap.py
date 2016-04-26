@@ -432,10 +432,14 @@ class OptHeap(Optimization):
     optimize_GUARD_EXCEPTION = optimize_GUARD_NO_EXCEPTION
 
     def force_from_effectinfo(self, effectinfo):
+        # Note: this version of the code handles effectively
+        # effectinfos that store arbitrarily many descrs, by looping
+        # on self.cached_{fields, arrayitems} and looking them up in
+        # the bitstrings stored in the effectinfo.
         for fielddescr, cf in self.cached_fields.items():
             if effectinfo.check_readonly_descr_field(fielddescr):
                 cf.force_lazy_set(self, fielddescr)
-            elif effectinfo.check_write_descr_field(fielddescr):
+            if effectinfo.check_write_descr_field(fielddescr):
                 if fielddescr.is_always_pure():
                     continue
                 try:
@@ -447,7 +451,7 @@ class OptHeap(Optimization):
         for arraydescr, submap in self.cached_arrayitems.items():
             if effectinfo.check_readonly_descr_array(arraydescr):
                 self.force_lazy_setarrayitem_submap(submap)
-            elif effectinfo.check_write_descr_array(arraydescr):
+            if effectinfo.check_write_descr_array(arraydescr):
                 self.force_lazy_setarrayitem_submap(submap, can_cache=False)
                 if arraydescr in self.corresponding_array_descrs:
                     dictdescr = self.corresponding_array_descrs.pop(arraydescr)
