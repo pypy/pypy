@@ -438,6 +438,30 @@ class AppTestRaiseContext:
         else:
             fail('No exception raised')
 
+    def test_context_with_suppressed(self):
+        # XXX: requires with statement's WHY_SILENCED
+        class RaiseExc:
+            def __init__(self, exc):
+                self.exc = exc
+            def __enter__(self):
+                return self
+            def __exit__(self, *exc_details):
+                raise self.exc
+
+        class SuppressExc:
+            def __enter__(self):
+                return self
+            def __exit__(self, *exc_details):
+                return True
+
+        try:
+            with RaiseExc(IndexError):
+                with SuppressExc():
+                    with RaiseExc(ValueError):
+                        1/0
+        except IndexError as exc:
+            assert exc.__context__ is None
+
 
 class AppTestTraceback:
 
