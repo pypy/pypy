@@ -624,7 +624,7 @@ class TestWarmspotDirect(object):
                 pass
 
             def setup_descrs(self):
-                pass
+                return []
 
             def get_latest_descr(self, deadframe):
                 assert isinstance(deadframe, FakeDeadFrame)
