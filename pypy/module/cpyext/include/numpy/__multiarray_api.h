@@ -5,6 +5,7 @@ typedef struct {
         npy_bool obval;
 } PyBoolScalarObject;
 
-#define import_array()
-#define PyArray_New _PyArray_New
+static int import_array(){};
+static int _import_array(){};
+static int _import_math(){};
 

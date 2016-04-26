@@ -10,6 +10,7 @@
 extern "C" {
 #endif
 
+#include "pypy_numpy.h"
 #include "old_defines.h"
 #include "npy_common.h"
 #include "__multiarray_api.h"
