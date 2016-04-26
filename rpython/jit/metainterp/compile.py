@@ -253,7 +253,7 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
     trace = history.trace
     warmstate = jitdriver_sd.warmstate
     #
-    metainterp_sd.jitlog.start_new_trace(None, False)
+    metainterp_sd.jitlog.start_new_trace(metainterp_sd, None, False)
     #
     enable_opts = jitdriver_sd.warmstate.enable_opts
     if try_disabling_unroll:
@@ -347,7 +347,7 @@ def compile_retrace(metainterp, greenkey, start,
     jitdriver_sd = metainterp.jitdriver_sd
     history = metainterp.history
     #
-    metainterp_sd.jitlog.start_new_trace(resumekey, False)
+    metainterp_sd.jitlog.start_new_trace(metainterp_sd, resumekey, False)
     #
     loop_jitcell_token = metainterp.get_procedure_token(greenkey)
     assert loop_jitcell_token
@@ -512,7 +512,7 @@ def forget_optimization_info(lst, reset_values=False):
 
 def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type,
                          orig_inpargs, memo):
-    metainterp_sd.jitlog.start_new_trace(None, type == "entry bridge")
+    metainterp_sd.jitlog.start_new_trace(metainterp_sd, None, type == "entry bridge")
     forget_optimization_info(loop.operations)
     forget_optimization_info(loop.inputargs)
     vinfo = jitdriver_sd.virtualizable_info
@@ -1039,7 +1039,7 @@ def compile_trace(metainterp, resumekey, runtime_boxes):
     metainterp_sd = metainterp.staticdata
     jitdriver_sd = metainterp.jitdriver_sd
     #
-    metainterp_sd.jitlog.start_new_trace(resumekey, False)
+    metainterp_sd.jitlog.start_new_trace(metainterp_sd, resumekey, False)
     #
     if isinstance(resumekey, ResumeAtPositionDescr):
         inline_short_preamble = False

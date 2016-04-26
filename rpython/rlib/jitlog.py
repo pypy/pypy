@@ -209,6 +209,7 @@ class VMProfJitLogger(object):
         self.cintf = cintf.setup()
         self.memo = {}
         self.trace_id = -1
+        self.metainterp_sd = None
 
     def setup_once(self):
         if self.cintf.jitlog_enabled():
@@ -222,9 +223,10 @@ class VMProfJitLogger(object):
     def finish(self):
         self.cintf.jitlog_teardown()
 
-    def start_new_trace(self, faildescr=None, entry_bridge=False):
+    def start_new_trace(self, metainterp_sd, faildescr=None, entry_bridge=False):
         if not self.cintf.jitlog_enabled():
             return
+        self.metainterp_sd = metainterp_sd
         self.trace_id += 1
         content = [encode_le_addr(self.trace_id)]
         if faildescr:
@@ -255,10 +257,11 @@ class VMProfJitLogger(object):
     def log_trace(self, tag, metainterp_sd, mc, memo=None):
         if not self.cintf.jitlog_enabled():
             return EMPTY_TRACE_LOG
+        assert self.metainterp_sd is not None
         assert isinstance(tag, int)
         if memo is None:
             memo = {}
-        return LogTrace(tag, memo, metainterp_sd, mc, self)
+        return LogTrace(tag, memo, self.metainterp_sd, mc, self)
 
     def log_patch_guard(self, descr_number, addr):
         if not self.cintf.jitlog_enabled():
