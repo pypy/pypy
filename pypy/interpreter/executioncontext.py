@@ -1,7 +1,6 @@
 import sys
 from pypy.interpreter.error import OperationError, get_cleared_operation_error
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rlib.objectmodel import specialize
 from rpython.rlib import jit
 
 TICK_COUNTER_STEP = 100
@@ -214,21 +213,18 @@ class ExecutionContext(object):
             self._trace(frame, 'exception', None, operationerr)
         #operationerr.print_detailed_traceback(self.space)
 
-    @staticmethod
-    def last_operr(space, frame):
-        while frame:
-            last = frame.last_exception
-            if (last is not None and
-                (not frame.hide() or
-                 last is get_cleared_operation_error(space))):
-                    return last
-            frame = frame.f_backref()
-        return None
-
-    def sys_exc_info(self): # attn: the result is not the wrapped sys.exc_info() !!!
+    @jit.dont_look_inside
+    def sys_exc_info(self):
         """Implements sys.exc_info().
-        Return an OperationError instance or None."""
-        return self.last_operr(self.space, self.gettopframe())
+        Return an OperationError instance or None.
+
+        Ignores exceptions within hidden frames unless for_hidden=True
+        is specified.
+
+        # NOTE: the result is not the wrapped sys.exc_info() !!!
+
+        """
+        return self.gettopframe()._exc_info_unroll(self.space)
 
     def set_sys_exc_info(self, operror):
         frame = self.gettopframe_nohidden()
