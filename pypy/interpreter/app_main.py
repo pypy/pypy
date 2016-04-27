@@ -511,6 +511,7 @@ def parse_command_line(argv):
 def exec_(src, dic):
     exec(src, dic)
 
+@hidden_applevel
 def run_command_line(interactive,
                      inspect,
                      run_command,
