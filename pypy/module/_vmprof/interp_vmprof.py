@@ -77,6 +77,10 @@ def enable_jitlog(space, fileno):
     except rvmprof.VMProfError, e:
         raise VMProfError(space, e)
 
+def disable_jitlog(space):
+    """ Disable PyPy's logging facility. """
+    rvmprof.disable_jitlog()
+
 def write_all_code_objects(space):
     """ Needed on cpython, just empty function here
     """

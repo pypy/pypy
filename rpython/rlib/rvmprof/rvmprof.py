@@ -131,6 +131,9 @@ class VMProf(object):
         blob = jl.assemble_header()
         self.cintf.jitlog_write_marked(jl.MARK_JITLOG_HEADER, blob, len(blob))
 
+    def disable_jitlog(self):
+        self.cintf.jitlog_teardown()
+
     def disable(self):
         """Disable vmprof.
         Raises VMProfError if something goes wrong.
