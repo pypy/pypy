@@ -20,7 +20,7 @@ from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.lltypesystem.lloperation import llop
-from rpython.rlib.rarithmetic import is_valid_int
+from rpython.rlib.rarithmetic import is_valid_int, r_uint, intmask
 from rpython.rlib.debug import ll_assert
 
 
@@ -212,12 +212,12 @@ def _rtype_unerase_int(hop, v):
 
 def _rtype_erase_int(hop):
     [v_value] = hop.inputargs(lltype.Signed)
-    c_one = hop.inputconst(lltype.Signed, 1)
     hop.exception_is_here()
-    v2 = hop.genop('int_add_ovf', [v_value, v_value],
-                   resulttype = lltype.Signed)
-    v2p1 = hop.genop('int_add', [v2, c_one],
-                     resulttype = lltype.Signed)
-    v_instance = hop.genop('cast_int_to_ptr', [v2p1],
-                           resulttype=llmemory.GCREF)
+    v_instance = hop.gendirectcall(_ll_erase_int, v_value)
     return v_instance
+
+def _ll_erase_int(x):
+    r = intmask(r_uint(x) << 1)
+    if r^x < 0:
+        raise OverflowError("integer addition")
+    return lltype.cast_int_to_ptr(llmemory.GCREF, r + 1)
