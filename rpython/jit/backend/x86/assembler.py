@@ -612,6 +612,8 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         if logger:
             log = logger.log_trace(MARK_TRACE_ASM, None, self.mc)
             log.write(inputargs, operations, ops_offset)
+            # log that the already written bridge is stitched to a descr!
+            logger.log_patch_guard(descr_number, rawstart)
         self.fixup_target_tokens(rawstart)
         self.update_frame_depth(frame_depth)
         self.teardown()
