@@ -445,6 +445,9 @@ def compute_bitstrings(all_descrs):
     # across multiple Descrs if they always give the same answer (in
     # PyPy, it reduces the length of the bitstrings from 4000+ to
     # 373).
+    from rpython.jit.codewriter.policy import log
+
+    log("compute_bitstrings:")
     effectinfos = []
     descrs = {'fields': set(), 'arrays': set(), 'interiorfields': set()}
     for descr in all_descrs:
@@ -465,7 +468,11 @@ def compute_bitstrings(all_descrs):
                     descrs[key].update(getattr(ei, '_write_descrs_' + key))
         else:
             descr.ei_index = sys.maxint
+    log("  %d effectinfos:" % (len(effectinfos),))
+    for key in sorted(descrs):
+        log("    %d descrs for %s" % (len(descrs[key]), key))
 
+    seen = set()
     for key in descrs:
         all_sets = []
         for descr in descrs[key]:
@@ -503,3 +510,11 @@ def compute_bitstrings(all_descrs):
             bitstrw = bitstring.make_bitstring(bitstrw)
             setattr(ei, 'bitstring_readonly_descrs_' + key, bitstrr)
             setattr(ei, 'bitstring_write_descrs_' + key, bitstrw)
+            seen.add(bitstrr)
+            seen.add(bitstrw)
+
+    if seen:
+        mean_length = float(sum(len(x) for x in seen)) / len(seen)
+        max_length = max(len(x) for x in seen)
+        log("-> %d bitstrings, mean length %.1f, max length %d" % (
+            len(seen), mean_length, max_length))
