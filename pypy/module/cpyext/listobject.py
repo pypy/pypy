@@ -32,7 +32,7 @@ def PyList_SET_ITEM(space, w_list, index, w_item):
     reference in list at position i will be leaked.
     """
     assert isinstance(w_list, W_ListObject)
-    assert 0 <= index < w_list.length
+    assert 0 <= index < w_list.length()
     # Deliberately leak, so that it can be safely decref'd.
     make_ref(space, w_list.getitem(index))
     Py_DecRef(space, w_item)
