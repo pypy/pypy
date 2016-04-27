@@ -53,7 +53,7 @@ def test_is_pure():
     from rpython.flowspace.model import Variable, Constant
     assert llop.bool_not.is_pure([Variable()])
     assert llop.debug_assert.is_pure([Variable()])
-    assert not llop.int_add_ovf.is_pure([Variable(), Variable()])
+    assert not llop.setarrayitem.is_pure([Variable(), Variable(), Variable()])
     #
     S1 = lltype.GcStruct('S', ('x', lltype.Signed), ('y', lltype.Signed))
     v_s1 = Variable()
