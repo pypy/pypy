@@ -2,22 +2,21 @@ import sys
 import weakref
 import os
 
-import py
+import py, pytest
 
 from pypy.conftest import pypydir
-from pypy.interpreter.error import OperationError
 from pypy.interpreter import gateway
-from rpython.rtyper.lltypesystem import rffi, lltype, ll2ctypes
+from rpython.rtyper.lltypesystem import lltype, ll2ctypes
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator import platform
 from rpython.translator.gensupp import uniquemodulename
 from rpython.tool.udir import udir
 from pypy.module.cpyext import api
 from pypy.module.cpyext.state import State
-from pypy.module.cpyext.pyobject import debug_collect
-from pypy.module.cpyext.pyobject import Py_DecRef, InvalidPointerException
+from pypy.module.cpyext.pyobject import Py_DecRef
 from rpython.tool.identity_dict import identity_dict
 from rpython.tool import leakfinder
+from rpython.rlib import rawrefcount
 
 def setup_module(module):
     if os.name == 'nt':
@@ -140,7 +139,6 @@ class LeakCheckingTest(object):
                                    'itertools', 'time', 'binascii',
                                    'micronumpy',
                                    ])
-    spaceconfig['std.withmethodcache'] = True
 
     enable_leak_checking = True
 
@@ -165,7 +163,7 @@ class LeakCheckingTest(object):
         state.reset_borrowed_references()
 
     def check_and_print_leaks(self):
-        debug_collect()
+        rawrefcount._collect()
         # check for sane refcnts
         import gc
 
@@ -219,7 +217,10 @@ class LeakCheckingTest(object):
 class AppTestApi(LeakCheckingTest):
     def setup_class(cls):
         from rpython.rlib.clibffi import get_libc_name
-        cls.w_libc = cls.space.wrap(get_libc_name())
+        if cls.runappdirect:
+            cls.libc = get_libc_name()
+        else:
+            cls.w_libc = cls.space.wrap(get_libc_name())
 
     def setup_method(self, meth):
         freeze_refcnts(self)
@@ -234,9 +235,11 @@ class AppTestApi(LeakCheckingTest):
             "the test actually passed in the first place; if it failed "
             "it is likely to reach this place.")
 
+    @pytest.mark.skipif('__pypy__' not in sys.builtin_module_names, reason='pypy only test')
     def test_only_import(self):
         import cpyext
 
+    @pytest.mark.skipif('__pypy__' not in sys.builtin_module_names, reason='pypy only test')
     def test_load_error(self):
         import cpyext
         raises(ImportError, cpyext.load_module, "missing.file", "foo")
@@ -348,7 +351,11 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
 
         @gateway.unwrap_spec(mod=str, name=str)
         def reimport_module(space, mod, name):
-            api.load_extension_module(space, mod, name)
+            if self.runappdirect:
+                import imp
+                return imp.load_dynamic(name, mod)
+            else:
+                api.load_extension_module(space, mod, name)
             return space.getitem(
                 space.sys.get('modules'),
                 space.wrap(name))
@@ -394,6 +401,9 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             name gives the name of the module in the space's sys.modules.
             """
             self.imported_module_names.append(name)
+
+        def debug_collect(space):
+            rawrefcount._collect()
 
         # A list of modules which the test caused to be imported (in
         # self.space).  These will be cleaned up automatically in teardown.
@@ -586,6 +596,8 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         If `cherry.date` is an extension module which imports `apple.banana`,
         the latter is added to `sys.modules` for the `"apple.banana"` key.
         """
+        if self.runappdirect:
+            skip('record_imported_module not supported in runappdirect mode')
         # Build the extensions.
         banana = self.compile_module(
             "apple.banana", separate_module_files=[self.here + 'banana.c'])
@@ -779,7 +791,8 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
 
 
     def test_internal_exceptions(self):
-        import sys
+        if self.runappdirect:
+            skip('cannot import module with undefined functions')
         init = """
         if (Py_IsInitialized())
             Py_InitModule("foo", methods);
@@ -847,6 +860,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
             ])
         raises(SystemError, mod.newexc, "name", Exception, {})
 
+    @pytest.mark.skipif('__pypy__' not in sys.builtin_module_names, reason='pypy specific test')
     def test_hash_pointer(self):
         mod = self.import_extension('foo', [
             ('get_hash', 'METH_NOARGS',
@@ -897,6 +911,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         print p
         assert 'py' in p
 
+    @pytest.mark.skipif('__pypy__' not in sys.builtin_module_names, reason='pypy only test')
     def test_get_version(self):
         mod = self.import_extension('foo', [
             ('get_version', 'METH_NOARGS',

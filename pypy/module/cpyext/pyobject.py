@@ -220,11 +220,6 @@ def from_ref(space, ref):
     assert isinstance(w_type, W_TypeObject)
     return get_typedescr(w_type.layout.typedef).realize(space, ref)
 
-
-def debug_collect():
-    rawrefcount._collect()
-
-
 def as_pyobj(space, w_obj):
     """
     Returns a 'PyObject *' representing the given intepreter object.

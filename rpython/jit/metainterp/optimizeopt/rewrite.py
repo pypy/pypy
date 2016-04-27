@@ -620,10 +620,10 @@ class OptRewrite(Optimization):
             and length and ((dest_info and dest_info.is_virtual()) or
                             length.getint() <= 8) and
             ((source_info and source_info.is_virtual()) or length.getint() <= 8)
-            and len(extrainfo.write_descrs_arrays) == 1):   # <-sanity check
+            and extrainfo.single_write_descr_array is not None): #<-sanity check
             source_start = source_start_box.getint()
             dest_start = dest_start_box.getint()
-            arraydescr = extrainfo.write_descrs_arrays[0]
+            arraydescr = extrainfo.single_write_descr_array
             if arraydescr.is_array_of_structs():
                 return False       # not supported right now
 

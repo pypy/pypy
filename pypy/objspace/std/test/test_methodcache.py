@@ -202,7 +202,8 @@ class AppTestMethodCaching(test_typeobject.AppTestTypeObject):
                 l = [type.__getattribute__(A, "__new__")(A)] * 10
                 __pypy__.reset_method_cache_counter()
                 for i, a in enumerate(l):
-                    assert a.f() == 42
+                    # use getattr to circumvent the mapdict cache
+                    assert getattr(a, "f")() == 42
                 cache_counter = __pypy__.method_cache_counter("f")
                 assert sum(cache_counter) == 10
                 if cache_counter == (9, 1):
@@ -225,9 +226,11 @@ class AppTestMethodCaching(test_typeobject.AppTestTypeObject):
                 assert a.x == i + 1
                 A.x += 1
             cache_counter = __pypy__.method_cache_counter("x")
-            assert cache_counter[0] >= 350
+            # XXX this is the bad case for the mapdict cache: looking up
+            # non-method attributes from the class
+            assert cache_counter[0] >= 450
             assert cache_counter[1] >= 1
-            assert sum(cache_counter) == 400
+            assert sum(cache_counter) == 500
 
             __pypy__.reset_method_cache_counter()
             a = A()

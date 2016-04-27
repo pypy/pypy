@@ -92,7 +92,8 @@ class W_FunctionWrapper(W_Root):
         return ctype._call(self.fnptr, args_w)
 
     def descr_repr(self, space):
-        return space.wrap("<FFIFunctionWrapper for %s()>" % (self.fnname,))
+        doc = self.rawfunctype.repr_fn_type(self.ffi, self.fnname)
+        return space.wrap("<FFIFunctionWrapper '%s'>" % (doc,))
 
     def descr_get_doc(self, space):
         doc = self.rawfunctype.repr_fn_type(self.ffi, self.fnname)
