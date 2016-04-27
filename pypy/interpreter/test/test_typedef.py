@@ -362,6 +362,26 @@ class TestTypeDef:
         """)
         assert seen == [1]
 
+    def test_mapdict_number_of_slots(self):
+        space = self.space
+        a, b, c = space.unpackiterable(space.appexec([], """():
+            class A(object):
+                pass
+            a = A()
+            a.x = 1
+            class B:
+                pass
+            b = B()
+            b.x = 1
+            class C(int):
+                pass
+            c = C(1)
+            c.x = 1
+            return a, b, c
+        """), 3)
+        assert not hasattr(a, "storage")
+        assert not hasattr(b, "storage")
+        assert hasattr(c, "storage")
 
 class AppTestTypeDef:
 
@@ -423,3 +443,4 @@ class AppTestTypeDef:
         def f():
             return x
         assert f.__closure__[0].cell_contents is x
+

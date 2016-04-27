@@ -5,7 +5,7 @@ from rpython.tool.uid import HUGEVAL_BYTES
 from rpython.rlib import jit, types
 from rpython.rlib.debug import make_sure_not_resized
 from rpython.rlib.objectmodel import (we_are_translated, newlist_hint,
-     compute_unique_id, specialize)
+     compute_unique_id, specialize, import_from_mixin)
 from rpython.rlib.signature import signature
 from rpython.rlib.rarithmetic import r_uint, SHRT_MIN, SHRT_MAX, \
     INT_MIN, INT_MAX, UINT_MAX, USHRT_MAX
@@ -15,6 +15,8 @@ from pypy.interpreter.executioncontext import (ExecutionContext, ActionFlag,
 from pypy.interpreter.error import OperationError, new_exception_class, oefmt
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.miscutils import ThreadLocals, make_weak_value_dictionary
+
+from pypy.objspace.std.basemapdictobject import RootObjectMapdictMixin
 
 
 __all__ = ['ObjSpace', 'OperationError', 'W_Root']
@@ -30,8 +32,9 @@ class W_Root(object):
     __slots__ = ('__weakref__',)
     user_overridden_class = False
 
-    def getdict(self, space):
-        return None
+    # a lot of the default functionality assumes mapdict now.
+    # import those methods
+    import_from_mixin(RootObjectMapdictMixin)
 
     def getdictvalue(self, space, attr):
         w_dict = self.getdict(space)
@@ -46,29 +49,18 @@ class W_Root(object):
             return True
         return False
 
-    def deldictvalue(self, space, attr):
-        w_dict = self.getdict(space)
-        if w_dict is not None:
-            try:
-                space.delitem(w_dict, space.wrap(attr))
-                return True
-            except OperationError, ex:
-                if not ex.match(space, space.w_KeyError):
-                    raise
-        return False
+    # deldictvalue, getdict, setdict are mixed in from basemapdictobject
+    # def deldictvalue(self, space, attrname):
+    # def getdict(self, space):
+    # def setdict(self, space, w_dict):
 
-    def setdict(self, space, w_dict):
-        raise oefmt(space.w_TypeError,
-                     "attribute '__dict__' of %T objects is not writable",
-                     self)
 
     # to be used directly only by space.type implementations
     def getclass(self, space):
         return space.gettypeobject(self.typedef)
 
-    def setclass(self, space, w_subtype):
-        raise OperationError(space.w_TypeError,
-                             space.wrap("__class__ assignment: only for heap types"))
+    # setclass is mixed in from basemapdictobject
+    # def setclass(self, space, w_cls):
 
     def user_setup(self, space, w_subtype):
         raise NotImplementedError("only for interp-level user subclasses "
@@ -106,14 +98,10 @@ class W_Root(object):
         return space.wrap("<%s at 0x%s%s>" % (info, addrstring,
                                               moreinfo))
 
-    def getslotvalue(self, index):
-        raise NotImplementedError
-
-    def setslotvalue(self, index, w_val):
-        raise NotImplementedError
-
-    def delslotvalue(self, index):
-        raise NotImplementedError
+    # mixed in from basemapdictobject are: getslotvalue, setslotvalue, delslotvalue
+    # def getslotvalue(self, index):
+    # def setslotvalue(self, index, w_val):
+    # def delslotvalue(self, slotindex):
 
     def descr_call_mismatch(self, space, opname, RequiredClass, args):
         if RequiredClass is None:
@@ -125,15 +113,10 @@ class W_Root(object):
 
     # used by _weakref implemenation
 
-    def getweakref(self):
-        return None
-
-    def setweakref(self, space, weakreflifeline):
-        raise oefmt(space.w_TypeError,
-                    "cannot create weak reference to '%T' object", self)
-
-    def delweakref(self):
-        pass
+    # mixed in from basemapdictobject are: getweakref, setweakref, delweakref
+    # def getweakref(self):
+    # def setweakref(self, space, weakreflifeline):
+    # def delweakref(self):
 
     def clear_all_weakrefs(self):
         """Call this at the beginning of interp-level __del__() methods
@@ -171,19 +154,6 @@ class W_Root(object):
             self.__already_enqueued_for_destruction += (callback,)
         space.user_del_action.register_callback(self, callback, descrname)
 
-    # hooks that the mapdict implementations needs:
-    def _get_mapdict_map(self):
-        return None
-    def _set_mapdict_map(self, map):
-        raise NotImplementedError
-    def _mapdict_read_storage(self, index):
-        raise NotImplementedError
-    def _mapdict_write_storage(self, index, value):
-        raise NotImplementedError
-    def _mapdict_storage_length(self):
-        raise NotImplementedError
-    def _set_mapdict_storage_and_map(self, storage, map):
-        raise NotImplementedError
 
     # -------------------------------------------------------------------
 

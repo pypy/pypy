@@ -124,22 +124,23 @@ _subclass_cache = {}
 
 def _getusercls(config, cls, wants_del, reallywantdict=False):
     from rpython.rlib import objectmodel
+    from pypy.objspace.std.objectobject import W_ObjectObject
+    from pypy.module.__builtin__.interp_classobj import W_InstanceObject
     from pypy.objspace.std.mapdict import (BaseUserClassMapdict,
-            MapdictDictSupport, MapdictWeakrefSupport,
-            _make_storage_mixin_size_n)
+            MapdictDictSupport,
+            _make_storage_mixin_size_n, MapdictStorageMixin)
     typedef = cls.typedef
     name = cls.__name__ + "User"
 
-    mixins_needed = [BaseUserClassMapdict, _make_storage_mixin_size_n()]
+    mixins_needed = [BaseUserClassMapdict]
+    if cls is W_ObjectObject or cls is W_InstanceObject:
+        mixins_needed.append(_make_storage_mixin_size_n())
+    else:
+        mixins_needed.append(MapdictStorageMixin)
     if reallywantdict or not typedef.hasdict:
         # the type has no dict, mapdict to provide the dict
         mixins_needed.append(MapdictDictSupport)
         name += "Dict"
-    if not typedef.weakrefable:
-        # the type does not support weakrefs yet, mapdict to provide weakref
-        # support
-        mixins_needed.append(MapdictWeakrefSupport)
-        name += "Weakrefable"
     if wants_del:
         name += "Del"
         parent_destructor = getattr(cls, '__del__', None)

@@ -10,6 +10,8 @@ from pypy.objspace.std.dictmultiobject import (
     W_DictObject,
 )
 from pypy.objspace.std.typeobject import MutableCell
+from pypy.objspace.std.basemapdictobject import (DICT, SPECIAL,
+        SLOTS_STARTING_FROM, INVALID)
 
 
 erase_item, unerase_item = rerased.new_erasing_pair("mapdict storage item")
@@ -277,7 +279,7 @@ class Terminator(AbstractAttribute):
     def copy(self, obj):
         result = Object()
         result.space = self.space
-        result._init_empty(self)
+        result._mapdict_init_empty(self)
         return result
 
     def length(self):
@@ -286,7 +288,7 @@ class Terminator(AbstractAttribute):
     def set_terminator(self, obj, terminator):
         result = Object()
         result.space = self.space
-        result._init_empty(terminator)
+        result._mapdict_init_empty(terminator)
         return result
 
     def remove_dict_entries(self, obj):
@@ -297,6 +299,9 @@ class Terminator(AbstractAttribute):
 
 class DictTerminator(Terminator):
     _immutable_fields_ = ['devolved_dict_terminator']
+
+    has_dict = True
+
     def __init__(self, space, w_cls):
         Terminator.__init__(self, space, w_cls)
         self.devolved_dict_terminator = DevolvedDictTerminator(space, w_cls)
@@ -304,11 +309,13 @@ class DictTerminator(Terminator):
     def materialize_r_dict(self, space, obj, dict_w):
         result = Object()
         result.space = space
-        result._init_empty(self.devolved_dict_terminator)
+        result._mapdict_init_empty(self.devolved_dict_terminator)
         return result
 
 
 class NoDictTerminator(Terminator):
+    has_dict = False
+
     def _write_terminator(self, obj, name, index, w_value):
         if index == DICT:
             return False
@@ -316,6 +323,8 @@ class NoDictTerminator(Terminator):
 
 
 class DevolvedDictTerminator(Terminator):
+    has_dict = True
+
     def _read_terminator(self, obj, name, index):
         if index == DICT:
             space = self.space
@@ -417,11 +426,6 @@ class PlainAttribute(AbstractAttribute):
     def __repr__(self):
         return "<PlainAttribute %s %s %s %r>" % (self.name, self.index, self.storageindex, self.back)
 
-def _become(w_obj, new_obj):
-    # this is like the _become method, really, but we cannot use that due to
-    # RPython reasons
-    w_obj._set_mapdict_storage_and_map(new_obj.storage, new_obj.map)
-
 class MapAttrCache(object):
     def __init__(self, space):
         SIZE = 1 << space.config.objspace.std.methodcachesizeexp
@@ -445,11 +449,6 @@ class MapAttrCache(object):
 # ____________________________________________________________
 # object implementation
 
-DICT = 0
-SPECIAL = 1
-INVALID = 2
-SLOTS_STARTING_FROM = 3
-
 # a little bit of a mess of mixin classes that implement various pieces of
 # objspace user object functionality in terms of mapdict
 
@@ -457,15 +456,12 @@ class BaseUserClassMapdict:
     # everything that's needed to use mapdict for a user subclass at all.
     # This immediately makes slots possible.
 
-    # assumes presence of _init_empty, _mapdict_read_storage,
+    # assumes presence of _mapdict_init_empty, _mapdict_read_storage,
     # _mapdict_write_storage, _mapdict_storage_length,
     # _set_mapdict_storage_and_map
 
     # _____________________________________________
     # methods needed for mapdict
-
-    def _become(self, new_obj):
-        self._set_mapdict_storage_and_map(new_obj.storage, new_obj.map)
 
     def _get_mapdict_map(self):
         return jit.promote(self.map)
@@ -480,59 +476,13 @@ class BaseUserClassMapdict:
     def getclass(self, space):
         return self._get_mapdict_map().terminator.w_cls
 
-    def setclass(self, space, w_cls):
-        new_obj = self._get_mapdict_map().set_terminator(self, w_cls.terminator)
-        self._become(new_obj)
-
     def user_setup(self, space, w_subtype):
         from pypy.module.__builtin__.interp_classobj import W_InstanceObject
         self.space = space
         assert (not self.typedef.hasdict or
                 isinstance(w_subtype.terminator, NoDictTerminator) or
                 self.typedef is W_InstanceObject.typedef)
-        self._init_empty(w_subtype.terminator)
-
-
-    # methods needed for slots
-
-    def getslotvalue(self, slotindex):
-        index = SLOTS_STARTING_FROM + slotindex
-        return self._get_mapdict_map().read(self, "slot", index)
-
-    def setslotvalue(self, slotindex, w_value):
-        index = SLOTS_STARTING_FROM + slotindex
-        self._get_mapdict_map().write(self, "slot", index, w_value)
-
-    def delslotvalue(self, slotindex):
-        index = SLOTS_STARTING_FROM + slotindex
-        new_obj = self._get_mapdict_map().delete(self, "slot", index)
-        if new_obj is None:
-            return False
-        self._become(new_obj)
-        return True
-
-
-class MapdictWeakrefSupport(object):
-    # stuff used by the _weakref implementation
-
-    def getweakref(self):
-        from pypy.module._weakref.interp__weakref import WeakrefLifeline
-        lifeline = self._get_mapdict_map().read(self, "weakref", SPECIAL)
-        if lifeline is None:
-            return None
-        assert isinstance(lifeline, WeakrefLifeline)
-        return lifeline
-    getweakref._cannot_really_call_random_things_ = True
-
-    def setweakref(self, space, weakreflifeline):
-        from pypy.module._weakref.interp__weakref import WeakrefLifeline
-        assert isinstance(weakreflifeline, WeakrefLifeline)
-        self._get_mapdict_map().write(self, "weakref", SPECIAL, weakreflifeline)
-    setweakref._cannot_really_call_random_things_ = True
-
-    def delweakref(self):
-        self._get_mapdict_map().write(self, "weakref", SPECIAL, None)
-    delweakref._cannot_really_call_random_things_ = True
+        self._mapdict_init_empty(w_subtype.terminator)
 
 
 class MapdictDictSupport(object):
@@ -545,61 +495,9 @@ class MapdictDictSupport(object):
     def setdictvalue(self, space, attrname, w_value):
         return self._get_mapdict_map().write(self, attrname, DICT, w_value)
 
-    def deldictvalue(self, space, attrname):
-        new_obj = self._get_mapdict_map().delete(self, attrname, DICT)
-        if new_obj is None:
-            return False
-        self._become(new_obj)
-        return True
-
-    def getdict(self, space):
-        return _obj_getdict(self, space)
-
-    def setdict(self, space, w_dict):
-        _obj_setdict(self, space, w_dict)
-
-# a couple of helpers for the classes above, factored out to reduce
-# the translated code size
-
-@objectmodel.dont_inline
-def _obj_getdict(self, space):
-    terminator = self._get_mapdict_map().terminator
-    assert isinstance(terminator, DictTerminator) or isinstance(terminator, DevolvedDictTerminator)
-    w_dict = self._get_mapdict_map().read(self, "dict", SPECIAL)
-    if w_dict is not None:
-        assert isinstance(w_dict, W_DictMultiObject)
-        return w_dict
-
-    strategy = space.fromcache(MapDictStrategy)
-    storage = strategy.erase(self)
-    w_dict = W_DictObject(space, strategy, storage)
-    flag = self._get_mapdict_map().write(self, "dict", SPECIAL, w_dict)
-    assert flag
-    return w_dict
-
-@objectmodel.dont_inline
-def _obj_setdict(self, space, w_dict):
-    from pypy.interpreter.error import OperationError
-    terminator = self._get_mapdict_map().terminator
-    assert isinstance(terminator, DictTerminator) or isinstance(terminator, DevolvedDictTerminator)
-    if not space.isinstance_w(w_dict, space.w_dict):
-        raise OperationError(space.w_TypeError,
-                space.wrap("setting dictionary to a non-dict"))
-    assert isinstance(w_dict, W_DictMultiObject)
-    w_olddict = self.getdict(space)
-    assert isinstance(w_olddict, W_DictMultiObject)
-    # The old dict has got 'self' as dstorage, but we are about to
-    # change self's ("dict", SPECIAL) attribute to point to the
-    # new dict.  If the old dict was using the MapDictStrategy, we
-    # have to force it now: otherwise it would remain an empty
-    # shell that continues to delegate to 'self'.
-    if type(w_olddict.get_strategy()) is MapDictStrategy:
-        w_olddict.get_strategy().switch_to_object_strategy(w_olddict)
-    flag = self._get_mapdict_map().write(self, "dict", SPECIAL, w_dict)
-    assert flag
 
 class MapdictStorageMixin(object):
-    def _init_empty(self, map):
+    def _mapdict_init_empty(self, map):
         from rpython.rlib.debug import make_sure_not_resized
         self.map = map
         self.storage = make_sure_not_resized([None] * map.size_estimate())
@@ -622,7 +520,6 @@ class ObjectWithoutDict(W_Root):
     objectmodel.import_from_mixin(MapdictStorageMixin)
 
     objectmodel.import_from_mixin(BaseUserClassMapdict)
-    objectmodel.import_from_mixin(MapdictWeakrefSupport)
 
 
 class Object(W_Root):
@@ -630,7 +527,6 @@ class Object(W_Root):
     objectmodel.import_from_mixin(MapdictStorageMixin)
 
     objectmodel.import_from_mixin(BaseUserClassMapdict)
-    objectmodel.import_from_mixin(MapdictWeakrefSupport)
     objectmodel.import_from_mixin(MapdictDictSupport)
 
 
@@ -643,7 +539,7 @@ def _make_storage_mixin_size_n(n=SUBCLASSES_NUM_FIELDS):
     rangenmin1 = unroll.unrolling_iterable(range(nmin1))
     valnmin1 = "_value%s" % nmin1
     class subcls(object):
-        def _init_empty(self, map):
+        def _mapdict_init_empty(self, map):
             for i in rangenmin1:
                 setattr(self, "_value%s" % i, None)
             setattr(self, valnmin1, erase_item(None))
@@ -731,7 +627,7 @@ class MapDictStrategy(DictStrategy):
     def get_empty_storage(self):
         w_result = Object()
         terminator = self.space.fromcache(get_terminator_for_dicts)
-        w_result._init_empty(terminator)
+        w_result._mapdict_init_empty(terminator)
         return self.erase(w_result)
 
     def switch_to_object_strategy(self, w_dict):
@@ -811,7 +707,7 @@ class MapDictStrategy(DictStrategy):
     def clear(self, w_dict):
         w_obj = self.unerase(w_dict.dstorage)
         new_obj = w_obj._get_mapdict_map().remove_dict_entries(w_obj)
-        _become(w_obj, new_obj)
+        w_obj._set_mapdict_storage_and_map(new_obj.storage, new_obj.map)
 
     def popitem(self, w_dict):
         curr = self.unerase(w_dict.dstorage)._get_mapdict_map().search(DICT)
@@ -833,10 +729,10 @@ class MapDictStrategy(DictStrategy):
         return MapDictIteratorItems(self.space, self, w_dict)
 
 
-def materialize_r_dict(space, obj, dict_w):
-    map = obj._get_mapdict_map()
-    new_obj = map.materialize_r_dict(space, obj, dict_w)
-    _become(obj, new_obj)
+def materialize_r_dict(space, w_obj, dict_w):
+    map = w_obj._get_mapdict_map()
+    new_obj = map.materialize_r_dict(space, w_obj, dict_w)
+    w_obj._set_mapdict_storage_and_map(new_obj.storage, new_obj.map)
 
 class MapDictIteratorKeys(BaseKeyIterator):
     def __init__(self, space, strategy, dictimplementation):
