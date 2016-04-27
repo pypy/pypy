@@ -87,13 +87,13 @@ assert CONST_WSTRING == rffi.CWCHARP
 FILEP = rffi.COpaquePtr('FILE')
 
 if sys.platform == 'win32':
-    fileno = rffi.llexternal('_fileno', [FILEP], rffi.INT)
+    dash = '_'
 else:
-    fileno = rffi.llexternal('fileno', [FILEP], rffi.INT)
-
+    dash = ''
+fileno = rffi.llexternal(dash + 'fileno', [FILEP], rffi.INT)
 fopen = rffi.llexternal('fopen', [CONST_STRING, CONST_STRING], FILEP)
-fdopen = rffi.llexternal('fdopen', [rffi.INT, CONST_STRING], FILEP,
-                         save_err=rffi.RFFI_SAVE_ERRNO)
+fdopen = rffi.llexternal(dash + 'fdopen', [rffi.INT, CONST_STRING],
+                  FILEP, save_err=rffi.RFFI_SAVE_ERRNO)
 
 _fclose = rffi.llexternal('fclose', [FILEP], rffi.INT)
 def fclose(fp):

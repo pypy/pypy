@@ -118,12 +118,13 @@ class AppTestThreads(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
                 ("bounce", "METH_NOARGS",
                  """
+                 PyThreadState * tstate;
                  if (PyEval_ThreadsInitialized() == 0)
                  {
                     PyEval_InitThreads();
                  }
                  PyGILState_Ensure();
-                 PyThreadState *tstate = PyEval_SaveThread();
+                 tstate = PyEval_SaveThread();
                  if (tstate == NULL) {
                      return PyLong_FromLong(0);
                  }
