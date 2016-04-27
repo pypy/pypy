@@ -658,7 +658,7 @@ class __extend__(pyframe.PyFrame):
         if nbargs > 2:
             raise BytecodeCorruption("bad RAISE_VARARGS oparg")
         if nbargs == 0:
-            last_operr = self._exc_info_unroll(space)
+            last_operr = self._exc_info_unroll(space, for_hidden=True)
             if last_operr is None:
                 raise oefmt(space.w_RuntimeError,
                             "No active exception to reraise")
