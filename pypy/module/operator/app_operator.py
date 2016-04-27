@@ -5,7 +5,6 @@ This module exports a set of operators as functions. E.g. operator.add(x,y) is
 equivalent to x+y.
 '''
 
-import types
 import __pypy__
 
 
