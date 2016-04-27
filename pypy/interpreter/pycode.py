@@ -188,7 +188,10 @@ class PyCode(eval.Code):
         # When translating PyPy, freeze the file name
         #     <builtin>/lastdirname/basename.py
         # instead of freezing the complete translation-time path.
-        filename = self.co_filename.lstrip('<').rstrip('>')
+        filename = self.co_filename
+        if filename.startswith('<builtin>'):
+            return
+        filename = filename.lstrip('<').rstrip('>')
         if filename.lower().endswith('.pyc'):
             filename = filename[:-1]
         basename = os.path.basename(filename)
