@@ -4,7 +4,7 @@
 from rpython.rlib import jit
 from rpython.rlib.debug import make_sure_not_resized, check_nonneg
 from rpython.rlib.jit import hint
-from rpython.rlib.objectmodel import instantiate, we_are_translated
+from rpython.rlib.objectmodel import instantiate, specialize, we_are_translated
 from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.tool.pairtype import extendabletype
 
@@ -872,7 +872,8 @@ class PyFrame(W_Root):
         return space.w_False
 
     @jit.unroll_safe
-    def _exc_info_unroll(self, space):
+    @specialize.arg(2)
+    def _exc_info_unroll(self, space, for_hidden=False):
         """Return the most recent OperationError being handled in the
         call stack
         """
@@ -882,7 +883,7 @@ class PyFrame(W_Root):
             if last is not None:
                 if last is get_cleared_operation_error(self.space):
                     break
-                if not frame.hide():
+                if for_hidden or not frame.hide():
                     return last
             frame = frame.f_backref()
         return None
