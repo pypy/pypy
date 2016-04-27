@@ -215,7 +215,11 @@ class TestObject(BaseApiTest):
 class AppTestObject(AppTestCpythonExtensionBase):
     def setup_class(cls):
         AppTestCpythonExtensionBase.setup_class.im_func(cls)
-        cls.w_tmpname = cls.space.wrap(str(py.test.ensuretemp("out", dir=0)))
+        tmpname = str(py.test.ensuretemp('out', dir=0))
+        if cls.runappdirect:
+            cls.tmpname = tmpname
+        else:
+            cls.w_tmpname = cls.space.wrap(tmpname)
 
     def test_object_malloc(self):
         module = self.import_extension('foo', [
