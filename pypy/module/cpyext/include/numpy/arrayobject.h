@@ -201,7 +201,6 @@ PyAPI_FUNC(PyObject *) _PyArray_ZEROS(int nd, npy_intp* dims, int type_num, int 
 
 #define PyArray_FILLWBYTE _PyArray_FILLWBYTE
 #define PyArray_ZEROS _PyArray_ZEROS
-#define PyArray_CopyInto _PyArray_CopyInto
 
 #define PyArray_Resize(self, newshape, refcheck, fortran) (NULL)
 
