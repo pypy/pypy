@@ -474,10 +474,20 @@ class LogTrace(BaseLogTrace):
             end_offset = ops_offset[op2]
 
         count = end_offset - start_offset
-        dump = self.mc.copy_core_dump(self.mc.absolute_addr(), start_offset, count)
+        dump = self.copy_core_dump(self.mc.absolute_addr(), start_offset, count)
         offset = encode_le_16bit(start_offset)
         edump = encode_str(dump)
         self.logger._write_marked(MARK_ASM, offset + edump)
+
+    def copy_core_dump(self, addr, offset=0, count=-1):
+        dump = []
+        src = rffi.cast(rffi.CCHARP, addr)
+        end = self.get_relative_pos()
+        if count != -1:
+            end = offset + count
+        for p in range(offset, end):
+            dump.append(src[p])
+        return ''.join(dump)
 
     def var_to_str(self, arg):
         try:
