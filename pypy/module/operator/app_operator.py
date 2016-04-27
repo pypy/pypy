@@ -6,6 +6,7 @@ equivalent to x+y.
 '''
 
 import types
+import __pypy__
 
 
 def countOf(a,b):
@@ -39,27 +40,18 @@ def indexOf(a, b):
         index += 1
     raise ValueError('sequence.index(x): x not in sequence')
 
-def isMappingType(obj,):
-    'isMappingType(a) -- Return True if a has a mapping type, False otherwise.'
-    if isinstance(obj, types.InstanceType):
-        return hasattr(obj, '__getitem__')
-    return hasattr(obj, '__getitem__') and not hasattr(obj, '__getslice__')
-
 def isNumberType(obj,):
     'isNumberType(a) -- Return True if a has a numeric type, False otherwise.'
-    return hasattr(obj, '__int__') or hasattr(obj, '__float__')
-
-def isSequenceType(obj,):
-    'isSequenceType(a) -- Return True if a has a sequence type, False otherwise.'
-    if isinstance(obj, dict):
-        return False
-    return hasattr(obj, '__getitem__')
+    return (__pypy__.lookup_special(obj, '__int__') is not None or
+            __pypy__.lookup_special(obj, '__float__') is not None)
 
 def repeat(obj, num):
     'repeat(a, b) -- Return a * b, where a is a sequence, and b is an integer.'
+    import operator
+
     if not isinstance(num, (int, long)):
         raise TypeError('an integer is required')
-    if not isSequenceType(obj):
+    if not operator.isSequenceType(obj):
         raise TypeError("non-sequence object can't be repeated")
 
     return obj * num

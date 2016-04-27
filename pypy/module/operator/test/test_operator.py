@@ -190,6 +190,19 @@ class AppTestOperator:
         class Dict(dict): pass
         assert not operator.isSequenceType(Dict())
 
+    def test_isXxxType_more(self):
+        import operator
+
+        assert not operator.isSequenceType(list)
+        assert not operator.isSequenceType(dict)
+        assert not operator.isSequenceType({})
+        assert not operator.isMappingType(list)
+        assert not operator.isMappingType(dict)
+        assert not operator.isMappingType([])
+        assert not operator.isMappingType(())
+        assert not operator.isNumberType(int)
+        assert not operator.isNumberType(float)
+
     def test_inplace(self):
         import operator
 

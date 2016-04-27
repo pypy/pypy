@@ -1,5 +1,6 @@
 import sys
 
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.baseobjspace import W_Root, SpaceCache
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.extregistry import ExtRegistryEntry
@@ -10,7 +11,7 @@ from pypy.module.cpyext.api import (
 from pypy.module.cpyext.state import State
 from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.objspace.std.objectobject import W_ObjectObject
-from rpython.rlib.objectmodel import specialize, we_are_translated
+from rpython.rlib.objectmodel import specialize
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib import rawrefcount
@@ -46,7 +47,7 @@ class BaseCpyTypedescr(object):
             size = pytype.c_tp_basicsize
         else:
             size = rffi.sizeof(self.basestruct)
-        if itemcount:
+        if itemcount and w_type is not space.w_str:
             size += itemcount * pytype.c_tp_itemsize
         assert size >= rffi.sizeof(PyObject.TO)
         buf = lltype.malloc(rffi.VOIDP.TO, size,
@@ -54,6 +55,7 @@ class BaseCpyTypedescr(object):
                             add_memory_pressure=True)
         pyobj = rffi.cast(PyObject, buf)
         pyobj.c_ob_refcnt = 1
+        #pyobj.c_ob_pypy_link should get assigned very quickly
         pyobj.c_ob_type = pytype
         return pyobj
 
@@ -62,7 +64,15 @@ class BaseCpyTypedescr(object):
 
     def realize(self, space, obj):
         w_type = from_ref(space, rffi.cast(PyObject, obj.c_ob_type))
-        w_obj = space.allocate_instance(self.W_BaseObject, w_type)
+        try:
+            w_obj = space.allocate_instance(self.W_BaseObject, w_type)
+        except OperationError as e:
+            if e.match(space, space.w_TypeError):
+                raise oefmt(space.w_SystemError,
+                            "cpyext: don't know how to make a '%N' object "
+                            "from a PyObject",
+                            w_type)
+            raise
         track_reference(space, obj, w_obj)
         return w_obj
 
@@ -92,7 +102,7 @@ def make_typedescr(typedef, **kw):
 
         if tp_alloc:
             def allocate(self, space, w_type, itemcount=0):
-                return tp_alloc(space, w_type)
+                return tp_alloc(space, w_type, itemcount)
 
         if tp_dealloc:
             def get_dealloc(self, space):
@@ -210,11 +220,6 @@ def from_ref(space, ref):
     assert isinstance(w_type, W_TypeObject)
     return get_typedescr(w_type.layout.typedef).realize(space, ref)
 
-
-def debug_collect():
-    rawrefcount._collect()
-
-
 def as_pyobj(space, w_obj):
     """
     Returns a 'PyObject *' representing the given intepreter object.
@@ -326,6 +331,7 @@ def Py_DecRef(space, obj):
 @cpython_api([PyObject], lltype.Void)
 def _Py_NewReference(space, obj):
     obj.c_ob_refcnt = 1
+    # XXX is it always useful to create the W_Root object here?
     w_type = from_ref(space, rffi.cast(PyObject, obj.c_ob_type))
     assert isinstance(w_type, W_TypeObject)
     get_typedescr(w_type.layout.typedef).realize(space, obj)

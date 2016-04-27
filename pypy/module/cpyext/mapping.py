@@ -8,7 +8,7 @@ from pypy.module.cpyext.pyobject import PyObject
 def PyMapping_Check(space, w_obj):
     """Return 1 if the object provides mapping protocol, and 0 otherwise.  This
     function always succeeds."""
-    return int(space.findattr(w_obj, space.wrap("items")) is not None)
+    return int(space.ismapping_w(w_obj))
 
 @cpython_api([PyObject], Py_ssize_t, error=-1)
 def PyMapping_Size(space, w_obj):
