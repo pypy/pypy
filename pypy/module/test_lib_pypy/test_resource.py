@@ -6,7 +6,7 @@ if os.name != 'posix':
 
 try:
     from lib_pypy import resource
-except ImportError as e:
+except (ImportError, SyntaxError) as e:
     skip(str(e))
 
 
