@@ -1,3 +1,4 @@
+import py
 from rpython.rtyper.lltypesystem import lltype
 from rpython.translator.translator import TranslationContext, graphof
 from rpython.translator.backendopt.writeanalyze import WriteAnalyzer, top_set
@@ -314,6 +315,7 @@ class TestLLtypeReadWriteAnalyze(BaseTest):
         assert T1 == T2
 
     def test_cutoff(self):
+        py.test.skip("cutoff: disabled")
         from rpython.rlib.unroll import unrolling_iterable
         cutoff = 20
         attrs = unrolling_iterable(["s%s" % i for i in range(cutoff + 5)])

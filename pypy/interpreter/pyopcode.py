@@ -742,7 +742,7 @@ class __extend__(pyframe.PyFrame):
     def RAISE_VARARGS(self, nbargs, next_instr):
         space = self.space
         if nbargs == 0:
-            last_operr = self._exc_info_unroll(space)
+            last_operr = self._exc_info_unroll(space, for_hidden=True)
             if last_operr is None:
                 raise oefmt(space.w_TypeError,
                             "No active exception to reraise")

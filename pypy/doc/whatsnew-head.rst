@@ -16,3 +16,9 @@ Reduce the size of generated C sources.
 
 Remove a number of options from the build process that were never tested and
 never set. Fix a performance bug in the method cache.
+
+.. branch: bitstring
+
+JIT: use bitstrings to compress the lists of read or written descrs
+that we attach to EffectInfo.  Fixes a problem we had in
+remove-objspace-options.

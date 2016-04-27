@@ -4,10 +4,14 @@ from rpython.translator.backendopt import graphanalyze
 top_set = object()
 empty_set = frozenset()
 
-CUTOFF = 3000
+# CUTOFF is disabled, as it gave a strangely not-working-any-more effect
+# if the size of the result grows past that bound.  The main user was
+# optimizeopt/heap.py (force_from_effectinfo), which has been rewritten
+# to be happy with any size now.
+#CUTOFF = 3000
 
 class WriteAnalyzer(graphanalyze.GraphAnalyzer):
-    cutoff = CUTOFF
+    #cutoff = CUTOFF
 
     def bottom_result(self):
         return empty_set
@@ -25,8 +29,8 @@ class WriteAnalyzer(graphanalyze.GraphAnalyzer):
         if other is top_set:
             return top_set
         result.update(other)
-        if len(result) > self.cutoff:
-            return top_set
+        #if len(result) > self.cutoff:
+        #    return top_set
         return result
 
     def finalize_builder(self, result):
