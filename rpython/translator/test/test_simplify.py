@@ -23,9 +23,11 @@ def test_remove_ovfcheck_1():
             return ovfcheck(x*2)
         except OverflowError:
             return -42
-    graph, _ = translate(f, [int])
+    graph, _ = translate(f, [int], backend_optimize=False)
     assert len(graph.startblock.operations) == 1
-    assert graph.startblock.operations[0].opname == 'int_mul_ovf'
+    assert graph.startblock.operations[0].opname == 'direct_call'
+    assert 'll_int_mul_ovf' in repr(
+        graph.startblock.operations[0].args[0].value)
     assert len(graph.startblock.exits) == 2
     assert [link.target.operations for link in graph.startblock.exits] == \
            [(), ()]
@@ -36,9 +38,9 @@ def test_remove_ovfcheck_bug():
     from rpython.rlib.rarithmetic import ovfcheck
     def f(x):
         return ovfcheck(x*2) - 1
-    graph, _ = translate(f, [int])
+    graph, _ = translate(f, [int], backend_optimize=False)
     assert len(graph.startblock.operations) == 2
-    assert graph.startblock.operations[0].opname == 'int_mul_ovf'
+    assert graph.startblock.operations[0].opname == 'direct_call'
     assert graph.startblock.operations[1].opname == 'int_sub'
 
 def test_remove_ovfcheck_floordiv():
@@ -52,9 +54,11 @@ def test_remove_ovfcheck_floordiv():
             return -42
         except ZeroDivisionError:
             return -43
-    graph, _ = translate(f, [int, int])
+    graph, _ = translate(f, [int, int], backend_optimize=False)
     assert len(graph.startblock.operations) == 1
-    assert graph.startblock.operations[0].opname == 'int_floordiv_ovf_zer'
+    assert graph.startblock.operations[0].opname == 'direct_call'
+    assert 'int_floordiv_ovf_zer' in repr(
+        graph.startblock.operations[0].args[0].value)
     assert len(graph.startblock.exits) == 3
     assert [link.target.operations for link in graph.startblock.exits[1:]] == \
            [(), ()]
@@ -68,9 +72,11 @@ def test_remove_ovfcheck_floordiv_2():
             return ovfcheck(x // y)
         except ZeroDivisionError:
             return -43
-    graph, _ = translate(f, [int, int])
+    graph, _ = translate(f, [int, int], backend_optimize=False)
     assert len(graph.startblock.operations) == 1
-    assert graph.startblock.operations[0].opname == 'int_floordiv_ovf_zer'
+    assert graph.startblock.operations[0].opname == 'direct_call'
+    assert 'int_floordiv_ovf_zer' in repr(
+        graph.startblock.operations[0].args[0].value)
     assert len(graph.startblock.exits) == 3
     assert [link.target.operations for link in graph.startblock.exits[1:]] == \
            [(), ()]
