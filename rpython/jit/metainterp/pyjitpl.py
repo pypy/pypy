@@ -1838,7 +1838,11 @@ class MetaInterpStaticData(object):
         self.cpu.propagate_exception_descr = exc_descr
         #
         self.globaldata = MetaInterpGlobalData(self)
+
+    def finish_setup_descrs(self):
+        from rpython.jit.codewriter import effectinfo
         self.all_descrs = self.cpu.setup_descrs()
+        effectinfo.compute_bitstrings(self.all_descrs)
 
     def _setup_once(self):
         """Runtime setup needed by the various components of the JIT."""
