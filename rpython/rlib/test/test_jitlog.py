@@ -48,8 +48,8 @@ class TestLogger(object):
         file.ensure()
         fd = file.open('wb')
         logger.cintf.jitlog_init(fd.fileno())
-        logger.start_new_trace()
-        log_trace = logger.log_trace(jl.MARK_TRACE, self.make_metainterp_sd(), None)
+        logger.start_new_trace(self.make_metainterp_sd())
+        log_trace = logger.log_trace(jl.MARK_TRACE, None, None)
         op = ResOperation(rop.DEBUG_MERGE_POINT, [ConstInt(0), ConstInt(0), ConstInt(0)])
         log_trace.write([], [op])
         #the next line will close 'fd'
@@ -60,7 +60,7 @@ class TestLogger(object):
                          jl.encode_str('loop') + jl.encode_le_addr(0) + \
                          chr(jl.MARK_TRACE) + jl.encode_le_addr(0) + \
                          chr(jl.MARK_INPUT_ARGS) + jl.encode_str('') + \
-                         chr(jl.MARK_INIT_MERGE_POINT) + b'\x01s\x00i\x08s\x00i\x10s' + \
+                         chr(jl.MARK_INIT_MERGE_POINT) + b'\x05\x00\x01s\x00i\x08s\x00i\x10s' + \
                          chr(jl.MARK_MERGE_POINT) + \
                          b'\xff' + encode_str('/home/pypy/jit.py') + \
                          b'\x00' + encode_le_64bit(0) + \

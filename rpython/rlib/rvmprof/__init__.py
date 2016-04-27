@@ -40,3 +40,6 @@ def enable_jitlog(fileno):
 
 def disable():
     _get_vmprof().disable()
+
+def disable_jitlog():
+    _get_vmprof().disable_jitlog()
