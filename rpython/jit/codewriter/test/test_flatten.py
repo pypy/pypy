@@ -71,6 +71,9 @@ class FakeCallControl:
     _descr_cannot_raise = FakeDescr()
     callinfocollection = FakeCallInfoCollection()
     def guess_call_kind(self, op):
+        if op.args[0].value._obj._name.startswith(
+                ('ll_int_add_ovf', 'll_int_sub_ovf', 'll_int_mul_ovf')):
+            return 'builtin'
         return 'residual'
     def getcalldescr(self, op, oopspecindex=EffectInfo.OS_NONE,
                      extraeffect=None, extradescr=None):
@@ -478,7 +481,7 @@ class TestFlatten:
             except ZeroDivisionError:
                 return -42
         self.encoding_test(f, [7, 2], """
-            residual_call_ir_i $<* fn int_floordiv_ovf_zer>, I[%i0, %i1], R[], <Descr> -> %i2
+            residual_call_ir_i $<* fn ll_int_floordiv_ovf_zer__Signed_Signed>, I[%i0, %i1], R[], <Descr> -> %i2
             -live-
             catch_exception L1
             int_return %i2
@@ -505,7 +508,7 @@ class TestFlatten:
                 return 42
         # XXX so far, this really produces a int_mod_ovf_zer...
         self.encoding_test(f, [7, 2], """
-            residual_call_ir_i $<* fn int_mod_ovf_zer>, I[%i0, %i1], R[], <Descr> -> %i2
+            residual_call_ir_i $<* fn ll_int_mod_ovf_zer__Signed_Signed>, I[%i0, %i1], R[], <Descr> -> %i2
             -live-
             catch_exception L1
             int_return %i2
@@ -542,6 +545,36 @@ class TestFlatten:
         self.encoding_test(f, [7, 2], """
             -live- %i0, %i1
             int_add_jump_if_ovf L1, %i0, %i1 -> %i2
+            int_return %i2
+            ---
+            L1:
+            int_return $42
+        """, transform=True, liveness=True)
+
+    def test_int_sub_ovf(self):
+        def f(i, j):
+            try:
+                return ovfcheck(i - j)
+            except OverflowError:
+                return 42
+        self.encoding_test(f, [7, 2], """
+            -live- %i0, %i1
+            int_sub_jump_if_ovf L1, %i0, %i1 -> %i2
+            int_return %i2
+            ---
+            L1:
+            int_return $42
+        """, transform=True, liveness=True)
+
+    def test_int_mul_ovf(self):
+        def f(i, j):
+            try:
+                return ovfcheck(i * j)
+            except OverflowError:
+                return 42
+        self.encoding_test(f, [7, 2], """
+            -live- %i0, %i1
+            int_mul_jump_if_ovf L1, %i0, %i1 -> %i2
             int_return %i2
             ---
             L1:

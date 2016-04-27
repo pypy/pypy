@@ -425,6 +425,8 @@ class Transformer(object):
         # dispatch to various implementations depending on the oopspec_name
         if oopspec_name.startswith('list.') or oopspec_name.startswith('newlist'):
             prepare = self._handle_list_call
+        elif oopspec_name.startswith('int.'):
+            prepare = self._handle_int_ovf
         elif oopspec_name.startswith('stroruni.'):
             prepare = self._handle_stroruni_call
         elif oopspec_name == 'str.str2unicode':
@@ -1899,6 +1901,14 @@ class Transformer(object):
             func = heaptracker.adr2int(
                 llmemory.cast_ptr_to_adr(c_func.value))
         self.callcontrol.callinfocollection.add(oopspecindex, calldescr, func)
+
+    def _handle_int_ovf(self, op, oopspec_name, args):
+        assert oopspec_name in ('int.add_ovf', 'int.sub_ovf', 'int.mul_ovf')
+        op0 = SpaceOperation(oopspec_name.replace('.', '_'), args, op.result)
+        if oopspec_name != 'int.sub_ovf':
+            op0 = self._rewrite_symmetric(op0)
+        oplive = SpaceOperation('-live-', [], None)
+        return [oplive, op0]
 
     def _handle_stroruni_call(self, op, oopspec_name, args):
         SoU = args[0].concretetype     # Ptr(STR) or Ptr(UNICODE)

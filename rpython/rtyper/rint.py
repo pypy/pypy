@@ -378,7 +378,6 @@ INT_BITS_1 = r_int.BITS - 1
 LLONG_BITS_1 = r_longlong.BITS - 1
 LLLONG_BITS_1 = r_longlonglong.BITS - 1
 INT_MIN = int(-(1 << INT_BITS_1))
-LLONG_MIN = r_longlong(-(1 << LLONG_BITS_1))
 
 
 # ---------- floordiv ----------
@@ -505,35 +504,28 @@ def ll_lllong_mod_zer(x, y):
 
 # ---------- add, sub, mul ----------
 
-@jit.oopspec("add_ovf")
+@jit.oopspec("int.add_ovf(x, y)")
 def ll_int_add_ovf(x, y):
     r = intmask(r_uint(x) + r_uint(y))
     if r^x < 0 and r^y < 0:
         raise OverflowError("integer addition")
     return r
 
-@jit.oopspec("add_ovf")
+@jit.oopspec("int.add_ovf(x, y)")
 def ll_int_add_nonneg_ovf(x, y):     # y can be assumed >= 0
     r = intmask(r_uint(x) + r_uint(y))
     if r < x:
         raise OverflowError("integer addition")
     return r
 
-@jit.oopspec("sub_ovf")
+@jit.oopspec("int.sub_ovf(x, y)")
 def ll_int_sub_ovf(x, y):
     r = intmask(r_uint(x) - r_uint(y))
     if r^x < 0 and r^~y < 0:
         raise OverflowError("integer subtraction")
     return r
 
-@jit.oopspec("sub_ovf")
-def ll_llong_sub_ovf(x, y):
-    r = longlongmask(r_ulonglong(x) - r_ulonglong(y))
-    if r^x < 0 and r^~y < 0:
-        raise OverflowError("longlong subtraction")
-    return r
-
-@jit.oopspec("mul_ovf")
+@jit.oopspec("int.mul_ovf(a, b)")
 def ll_int_mul_ovf(a, b):
     if INT_BITS_1 < LLONG_BITS_1:
         rr = r_longlong(a) * r_longlong(b)
@@ -578,20 +570,8 @@ def ll_int_neg_ovf(x):
         raise OverflowError
     return -x
 
-def ll_llong_neg_ovf(x):
-    if jit.we_are_jitted():
-        return ll_llong_sub_ovf(0, x)
-    if x == LLONG_MIN:
-        raise OverflowError
-    return -x
-
 def ll_int_abs_ovf(x):
     if x == INT_MIN:
-        raise OverflowError
-    return abs(x)
-
-def ll_llong_abs_ovf(x):
-    if x == LLONG_MIN:
         raise OverflowError
     return abs(x)
 
