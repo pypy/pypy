@@ -1629,7 +1629,7 @@ def ensure_ns(space, w_globals, w_locals, funcname, caller=None):
         if caller is None:
             caller = space.getexecutioncontext().gettopframe_nohidden()
         if caller is None:
-            w_globals = space.newdict()
+            w_globals = space.newdict(module=True)
             if space.is_none(w_locals):
                 w_locals = w_globals
         else:
