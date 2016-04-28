@@ -82,11 +82,12 @@ class AppTestDatetime(AppTestCpythonExtensionBase):
                      PyErr_SetString(PyExc_RuntimeError, "No PyDateTimeAPI");
                      return NULL;
                  }
-                 return PyTuple_Pack(4,
+                 return PyTuple_Pack(5,
                                      PyDateTimeAPI->DateType,
                                      PyDateTimeAPI->DateTimeType,
                                      PyDateTimeAPI->TimeType,
-                                     PyDateTimeAPI->DeltaType);
+                                     PyDateTimeAPI->DeltaType,
+                                     PyDateTimeAPI->TZInfoType);
              """),
             ("clear_types", "METH_NOARGS",
              """
@@ -94,6 +95,7 @@ class AppTestDatetime(AppTestCpythonExtensionBase):
                  Py_DECREF(PyDateTimeAPI->DateTimeType);
                  Py_DECREF(PyDateTimeAPI->TimeType);
                  Py_DECREF(PyDateTimeAPI->DeltaType);
+                 Py_DECREF(PyDateTimeAPI->TZInfoType);
                  Py_RETURN_NONE;
              """
              )
@@ -102,5 +104,6 @@ class AppTestDatetime(AppTestCpythonExtensionBase):
         assert module.get_types() == (datetime.date,
                                       datetime.datetime,
                                       datetime.time,
-                                      datetime.timedelta)
+                                      datetime.timedelta,
+                                      datetime.tzinfo)
         module.clear_types()
