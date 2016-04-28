@@ -197,7 +197,7 @@ class Cache:
         self.cls_without_del = _getusercls(
                 space.config, W_InstanceObject, False, reallywantdict=True)
         self.cls_with_del = _getusercls(
-                space.config, W_InstanceObject, True, reallywantdict=True)
+                space.config, self.cls_without_del, True, reallywantdict=True)
 
 
 def class_descr_call(space, w_self, __args__):

@@ -383,6 +383,26 @@ class TestTypeDef:
         assert not hasattr(b, "storage")
         assert hasattr(c, "storage")
 
+    def test_del(self):
+        space = self.space
+        a, b, c, d = space.unpackiterable(space.appexec([], """():
+            class A(object):
+                pass
+            class B(object):
+                def __del__(self):
+                    pass
+            class F(file):
+                pass
+            class G(file):
+                def __del__(self):
+                    pass
+            return A(), B(), F("xyz", "w"), G("ghi", "w")
+        """))
+        assert type(b).__base__ is type(a)
+        assert hasattr(c, "__del__")
+        assert type(d) is type(c)
+
+
 class AppTestTypeDef:
 
     def setup_class(cls):

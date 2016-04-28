@@ -112,12 +112,18 @@ def get_unique_interplevel_subclass(config, cls, needsdel=False):
     try:
         return _subclass_cache[key]
     except KeyError:
-        # XXX can save a class if cls already has a __del__
-        if needsdel:
+        keys = [key]
+        base_has_del = hasattr(cls, '__del__')
+        if base_has_del:
+            # if the base has a __del__, we only need one class
+            keys = [(config, cls, True), (config, cls, False)]
+            needsdel = True
+        elif needsdel:
             cls = get_unique_interplevel_subclass(config, cls, False)
         subcls = _getusercls(config, cls, needsdel)
         assert key not in _subclass_cache
-        _subclass_cache[key] = subcls
+        for key in keys:
+            _subclass_cache[key] = subcls
         return subcls
 get_unique_interplevel_subclass._annspecialcase_ = "specialize:memo"
 _subclass_cache = {}
@@ -130,17 +136,19 @@ def _getusercls(config, cls, wants_del, reallywantdict=False):
             MapdictDictSupport,
             _make_storage_mixin_size_n, MapdictStorageMixin)
     typedef = cls.typedef
-    name = cls.__name__ + "User"
-
-    mixins_needed = [BaseUserClassMapdict]
-    if cls is W_ObjectObject or cls is W_InstanceObject:
-        mixins_needed.append(_make_storage_mixin_size_n())
-    else:
-        mixins_needed.append(MapdictStorageMixin)
-    if reallywantdict or not typedef.hasdict:
-        # the type has no dict, mapdict to provide the dict
-        mixins_needed.append(MapdictDictSupport)
-        name += "Dict"
+    mixins_needed = []
+    name = cls.__name__
+    if not cls.user_overridden_class:
+        mixins_needed.append(BaseUserClassMapdict)
+        name += "User"
+        if cls is W_ObjectObject or cls is W_InstanceObject:
+            mixins_needed.append(_make_storage_mixin_size_n())
+        else:
+            mixins_needed.append(MapdictStorageMixin)
+        if reallywantdict or not typedef.hasdict:
+            # the type has no dict, mapdict to provide the dict
+            mixins_needed.append(MapdictDictSupport)
+            name += "Dict"
     if wants_del:
         name += "Del"
         parent_destructor = getattr(cls, '__del__', None)
