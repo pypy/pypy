@@ -24,6 +24,18 @@ typedef struct {
     PyObject_HEAD
 } PyDateTime_Delta;
 
+typedef struct {
+    PyObject_HEAD
+} PyDateTime_Date;
+
+typedef struct {
+    PyObject_HEAD
+} PyDateTime_Time;
+
+typedef struct {
+    PyObject_HEAD
+} PyDateTime_DateTime;
+
 #ifdef __cplusplus
 }
 #endif

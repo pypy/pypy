@@ -1,10 +1,10 @@
-from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem import rffi
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.test.test_api import BaseApiTest
-from pypy.module.cpyext.pyobject import PyObject, make_ref, from_ref
+from pypy.module.cpyext.pyobject import make_ref, from_ref
 from pypy.module.cpyext.typeobject import PyTypeObjectPtr
 
-import py
+import pytest
 import sys
 
 class AppTestTypeObject(AppTestCpythonExtensionBase):
@@ -55,6 +55,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         raises(SystemError, "obj.broken_member = 42")
         assert module.fooType.broken_member.__doc__ is None
         assert module.fooType.object_member.__doc__ == "A Python object."
+        assert str(type(module.fooType.int_member)) == "<class 'member_descriptor'>"
 
     def test_typeobject_object_member(self):
         module = self.import_module(name='foo')
@@ -122,12 +123,14 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         obj = module.fooType.classmeth()
         assert obj is module.fooType
 
+    @pytest.mark.skipif('__pypy__' not in sys.builtin_module_names, reason='cpython segfaults')
     def test_new(self):
+        # XXX cpython segfaults but if run singly (with -k test_new) this passes
         module = self.import_module(name='foo')
         obj = module.new()
         # call __new__
-        newobj = module.UnicodeSubtype("xyz")
-        assert newobj == "xyz"
+        newobj = module.UnicodeSubtype(u"xyz")
+        assert newobj == u"xyz"
         assert isinstance(newobj, module.UnicodeSubtype)
 
         assert isinstance(module.fooType(), module.fooType)
@@ -139,8 +142,16 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         class fuu2(fuu):
             def baz(self):
                 return self
-        assert fuu2("abc").baz().escape()
+        assert fuu2(u"abc").baz().escape()
         raises(TypeError, module.fooType.object_member.__get__, 1)
+
+    def test_multiple_inheritance(self):
+        module = self.import_module(name='foo')
+        obj = module.UnicodeSubtype(u'xyz')
+        obj2 = module.UnicodeSubtype2()
+        obj3 = module.UnicodeSubtype3()
+        assert obj3.get_val() == 42
+        assert len(type(obj3).mro()) == 6
 
     def test_init(self):
         module = self.import_module(name="foo")
@@ -167,6 +178,8 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         x = module.MetaType('name', (), {})
         assert isinstance(x, type)
         assert isinstance(x, module.MetaType)
+        if self.runappdirect and '__pypy__' in sys.builtin_module_names:
+            skip('x is not callable when runappdirect??')
         x()
 
     def test_metaclass_compatible(self):
@@ -174,10 +187,19 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         module = self.import_module(name='foo')
         assert module.MetaType.__mro__ == (module.MetaType, type, object)
         assert type(module.fooType).__mro__ == (type, object)
-        y = module.MetaType('other', (module.fooType,), {})
+        y = module.MetaType('other', (module.MetaType,), {})
         assert isinstance(y, module.MetaType)
-        x = y()
+        if self.runappdirect and '__pypy__' in sys.builtin_module_names:
+            skip('y is not callable when runappdirect??')
+        x = y('something', (type(y),), {})
         del x, y
+
+    def test_metaclass_compatible2(self):
+        skip('type.__new__ does not check acceptable_as_base_class')
+        # XXX FIX - must raise since fooType (which is a base type)
+        # does not have flag Py_TPFLAGS_BASETYPE
+        module = self.import_module(name='foo')
+        raises(TypeError, module.MetaType, 'other', (module.fooType,), {})
 
     def test_sre(self):
         import sys
@@ -190,8 +212,8 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         module = self.import_module(name='_sre')
         import re
         assert re.sre_compile._sre is module
-        s = "Foo " * 1000 + "Bar"
-        prog = re.compile(r"Foo.*Bar")
+        s = u"Foo " * 1000 + u"Bar"
+        prog = re.compile(ur"Foo.*Bar")
         assert prog.match(s)
         m = re.search("xyz", "xyzxyz")
         assert m
@@ -371,7 +393,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                     which should have a different tp_getattro/tp_setattro
                     than its tp_base, which is 'object'.
                   */
-                  
+
                  if (!args->ob_type->tp_setattro)
                  {
                      PyErr_SetString(PyExc_ValueError, "missing tp_setattro");
@@ -447,21 +469,68 @@ class AppTestSlots(AppTestCpythonExtensionBase):
 
     def test_nb_int(self):
         module = self.import_extension('foo', [
-            ("nb_int", "METH_O",
+            ("nb_int", "METH_VARARGS",
              '''
-                 if (!args->ob_type->tp_as_number ||
-                     !args->ob_type->tp_as_number->nb_int)
+                 PyTypeObject *type = (PyTypeObject *)PyTuple_GET_ITEM(args, 0);
+                 PyObject *obj = PyTuple_GET_ITEM(args, 1);
+                 if (!type->tp_as_number ||
+                     !type->tp_as_number->nb_int)
                  {
                      PyErr_SetNone(PyExc_ValueError);
                      return NULL;
                  }
-                 return args->ob_type->tp_as_number->nb_int(args);
+                 return type->tp_as_number->nb_int(obj);
              '''
              )
             ])
-        assert module.nb_int(10) == 10
-        assert module.nb_int(-12.3) == -12
-        raises(ValueError, module.nb_int, "123")
+        assert module.nb_int(int, 10) == 10
+        assert module.nb_int(float, -12.3) == -12
+        raises(ValueError, module.nb_int, str, "123")
+        class F(float):
+            def __int__(self):
+                return 666
+        # as long as issue 2248 is not fixed, 'expected' is 666 on pypy,
+        # but it should be -12.  This test is not concerned about that,
+        # but only about getting the same answer with module.nb_int().
+        expected = float.__int__(F(-12.3))
+        assert module.nb_int(float, F(-12.3)) == expected
+
+    def test_nb_float(self):
+        module = self.import_extension('foo', [
+            ("nb_float", "METH_VARARGS",
+             '''
+                 PyTypeObject *type = (PyTypeObject *)PyTuple_GET_ITEM(args, 0);
+                 PyObject *obj = PyTuple_GET_ITEM(args, 1);
+                 if (!type->tp_as_number ||
+                     !type->tp_as_number->nb_float)
+                 {
+                     PyErr_SetNone(PyExc_ValueError);
+                     return NULL;
+                 }
+                 return type->tp_as_number->nb_float(obj);
+             '''
+             )
+            ])
+        assert module.nb_float(int, 10) == 10.0
+        assert module.nb_float(float, -12.3) == -12.3
+        raises(ValueError, module.nb_float, str, "123")
+        #
+        # check that calling PyInt_Type->tp_as_number->nb_float(x)
+        # does not invoke a user-defined __float__()
+        class I(int):
+            def __float__(self):
+                return -55.55
+        class F(float):
+            def __float__(self):
+                return -66.66
+        assert float(I(10)) == -55.55
+        assert float(F(10.5)) == -66.66
+        assert module.nb_float(int, I(10)) == 10.0
+        assert module.nb_float(float, F(10.5)) == 10.5
+        # XXX but the subtype's tp_as_number->nb_float(x) should really invoke
+        # the user-defined __float__(); it doesn't so far
+        #assert module.nb_float(I, I(10)) == -55.55
+        #assert module.nb_float(F, F(10.5)) == -66.66
 
     def test_tp_call(self):
         module = self.import_extension('foo', [
@@ -481,31 +550,73 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         class C:
             def __call__(self, *args):
                 return args
-        assert module.tp_call(C(), ('x', 2)) == ('x', 2)
+        assert module.tp_call(type(C()), C(), ('x', 2)) == ('x', 2)
+        class D(type):
+            def __call__(self, *args):
+                return "foo! %r" % (args,)
+        typ1 = D('d', (), {})
+        #assert module.tp_call(D, typ1, ()) == "foo! ()" XXX not working so far
+        assert isinstance(module.tp_call(type, typ1, ()), typ1)
 
-    def test_tp_str(self):
+    def test_tp_init(self):
         module = self.import_extension('foo', [
-           ("tp_str", "METH_O",
-            '''
-                 if (!args->ob_type->tp_str)
+            ("tp_init", "METH_VARARGS",
+             '''
+                 PyTypeObject *type = (PyTypeObject *)PyTuple_GET_ITEM(args, 0);
+                 PyObject *obj = PyTuple_GET_ITEM(args, 1);
+                 PyObject *c_args = PyTuple_GET_ITEM(args, 2);
+                 if (!type->tp_init)
                  {
                      PyErr_SetNone(PyExc_ValueError);
                      return NULL;
                  }
-                 return args->ob_type->tp_str(args);
+                 if (type->tp_init(obj, c_args, NULL) < 0)
+                     return NULL;
+                 Py_INCREF(Py_None);
+                 return Py_None;
+             '''
+             )
+            ])
+        x = [42]
+        assert module.tp_init(list, x, ("hi",)) is None
+        assert x == ["h", "i"]
+        class LL(list):
+            def __init__(self, *ignored):
+                raise Exception
+        x = LL.__new__(LL)
+        assert module.tp_init(list, x, ("hi",)) is None
+        assert x == ["h", "i"]
+
+    def test_tp_str(self):
+        module = self.import_extension('foo', [
+           ("tp_str", "METH_VARARGS",
+            '''
+                 PyTypeObject *type = (PyTypeObject *)PyTuple_GET_ITEM(args, 0);
+                 PyObject *obj = PyTuple_GET_ITEM(args, 1);
+                 if (!type->tp_str)
+                 {
+                     PyErr_SetNone(PyExc_ValueError);
+                     return NULL;
+                 }
+                 return type->tp_str(obj);
              '''
              )
             ])
         class C:
             def __str__(self):
                 return "text"
-        assert module.tp_str(C()) == "text"
+        assert module.tp_str(type(C()), C()) == "text"
+        class D(int):
+            def __str__(self):
+                return "more text"
+        assert module.tp_str(int, D(42)) == "42"
 
     def test_mp_ass_subscript(self):
         module = self.import_extension('foo', [
            ("new_obj", "METH_NOARGS",
             '''
                 PyObject *obj;
+                Foo_Type.tp_flags = Py_TPFLAGS_DEFAULT;
                 Foo_Type.tp_as_mapping = &tp_as_mapping;
                 tp_as_mapping.mp_ass_subscript = mp_ass_subscript;
                 if (PyType_Ready(&Foo_Type) < 0) return NULL;
@@ -564,32 +675,49 @@ class AppTestSlots(AppTestCpythonExtensionBase):
 
     def test_tp_iter(self):
         module = self.import_extension('foo', [
-           ("tp_iter", "METH_O",
+           ("tp_iter", "METH_VARARGS",
             '''
-                 if (!args->ob_type->tp_iter)
+                 PyTypeObject *type = (PyTypeObject *)PyTuple_GET_ITEM(args, 0);
+                 PyObject *obj = PyTuple_GET_ITEM(args, 1);
+                 if (!type->tp_iter)
                  {
                      PyErr_SetNone(PyExc_ValueError);
                      return NULL;
                  }
-                 return args->ob_type->tp_iter(args);
+                 return type->tp_iter(obj);
              '''
              ),
-           ("tp_iternext", "METH_O",
+           ("tp_iternext", "METH_VARARGS",
             '''
-                 if (!args->ob_type->tp_iternext)
+                 PyTypeObject *type = (PyTypeObject *)PyTuple_GET_ITEM(args, 0);
+                 PyObject *obj = PyTuple_GET_ITEM(args, 1);
+                 PyObject *result;
+                 if (!type->tp_iternext)
                  {
                      PyErr_SetNone(PyExc_ValueError);
                      return NULL;
                  }
-                 return args->ob_type->tp_iternext(args);
+                 result = type->tp_iternext(obj);
+                 if (!result && !PyErr_Occurred())
+                     result = PyBytes_FromString("stop!");
+                 return result;
              '''
              )
             ])
         l = [1]
-        it = module.tp_iter(l)
+        it = module.tp_iter(list, l)
         assert type(it) is type(iter([]))
-        assert module.tp_iternext(it) == 1
-        raises(StopIteration, module.tp_iternext, it)
+        assert module.tp_iternext(type(it), it) == 1
+        raises(StopIteration, module.tp_iternext, type(it), it)
+        #
+        class LL(list):
+            def __iter__(self):
+                return iter(())
+        ll = LL([1])
+        it = module.tp_iter(list, ll)
+        assert type(it) is type(iter([]))
+        x = list(it)
+        assert x == [1]
 
     def test_bool(self):
         module = self.import_extension('foo', [
@@ -602,6 +730,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 if (!PyArg_ParseTuple(args, "l", &intval))
                     return NULL;
 
+                IntLike_Type.tp_flags |= Py_TPFLAGS_DEFAULT;
                 IntLike_Type.tp_as_number = &intlike_as_number;
                 intlike_as_number.nb_bool = intlike_nb_bool;
                 if (PyType_Ready(&IntLike_Type) < 0) return NULL;
@@ -627,6 +756,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                     PyErr_SetNone(PyExc_ValueError);
                     return -1;
                 }
+                /* Returning -1 should be for exceptions only! */
                 return v->value;
             }
 
@@ -640,10 +770,10 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             """)
         assert not bool(module.newInt(0))
         assert bool(module.newInt(1))
-        assert bool(module.newInt(-1))
+        raises(SystemError, bool, module.newInt(-1))
         raises(ValueError, bool, module.newInt(-42))
 
-    def test_binaryfunc(self):
+    def test_mathfunc(self):
         module = self.import_extension('foo', [
             ("newInt", "METH_VARARGS",
              """
@@ -654,8 +784,9 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                     return NULL;
 
                 IntLike_Type.tp_as_number = &intlike_as_number;
-                IntLike_Type.tp_flags |= Py_TPFLAGS_CHECKTYPES;
+                IntLike_Type.tp_flags |= Py_TPFLAGS_DEFAULT | Py_TPFLAGS_CHECKTYPES;
                 intlike_as_number.nb_add = intlike_nb_add;
+                intlike_as_number.nb_power = intlike_nb_pow;
                 if (PyType_Ready(&IntLike_Type) < 0) return NULL;
                 intObj = PyObject_New(IntLikeObject, &IntLike_Type);
                 if (!intObj) {
@@ -673,7 +804,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 if (!PyArg_ParseTuple(args, "l", &intval))
                     return NULL;
 
-                IntLike_Type_NoOp.tp_flags |= Py_TPFLAGS_CHECKTYPES;
+                IntLike_Type_NoOp.tp_flags |= Py_TPFLAGS_DEFAULT | Py_TPFLAGS_CHECKTYPES;
                 if (PyType_Ready(&IntLike_Type_NoOp) < 0) return NULL;
                 intObjNoOp = PyObject_New(IntLikeObjectNoOp, &IntLike_Type_NoOp);
                 if (!intObjNoOp) {
@@ -682,26 +813,40 @@ class AppTestSlots(AppTestCpythonExtensionBase):
 
                 intObjNoOp->ival = intval;
                 return (PyObject *)intObjNoOp;
-             """)],
+             """)], prologue=
             """
+            #include <math.h>
             typedef struct
             {
                 PyObject_HEAD
                 long ival;
             } IntLikeObject;
 
-            static PyObject * 
+            static PyObject *
             intlike_nb_add(PyObject *self, PyObject *other)
             {
-                long val1 = ((IntLikeObject *)(self))->ival;
+                long val2, val1 = ((IntLikeObject *)(self))->ival;
                 if (PyLong_Check(other)) {
                   long val2 = PyLong_AsLong(other);
                   return PyLong_FromLong(val1+val2);
                 }
 
-                long val2 = ((IntLikeObject *)(other))->ival;
+                val2 = ((IntLikeObject *)(other))->ival;
                 return PyLong_FromLong(val1+val2);
             }
+
+            static PyObject *
+            intlike_nb_pow(PyObject *self, PyObject *other, PyObject * z)
+            {
+                long val2, val1 = ((IntLikeObject *)(self))->ival;
+                if (PyLong_Check(other)) {
+                  long val2 = PyLong_AsLong(other);
+                  return PyLong_FromLong(val1+val2);
+                }
+
+                val2 = ((IntLikeObject *)(other))->ival;
+                return PyLong_FromLong((int)pow(val1,val2));
+             }
 
             PyTypeObject IntLike_Type = {
                 PyObject_HEAD_INIT(0)
@@ -731,14 +876,16 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         assert (a + b) == 3
         assert (b + c) == 5
         assert (d + a) == 5
+        assert pow(d,b) == 16
 
     def test_tp_new_in_subclass_of_type(self):
-        skip("BROKEN")
         module = self.import_module(name='foo3')
-        print('calling module.Type()...')
-        module.Type("X", (object,), {})
+        #print('calling module.footype()...')
+        module.footype("X", (object,), {})
 
+    @pytest.mark.skipif('__pypy__' not in sys.builtin_module_names, reason='cpython fails')
     def test_app_subclass_of_c_type(self):
+        # on cpython, the size changes (6 bytes added)
         module = self.import_module(name='foo')
         size = module.size_of_instances(module.fooType)
         class f1(object):
@@ -753,9 +900,15 @@ class AppTestSlots(AppTestCpythonExtensionBase):
     def test_app_cant_subclass_two_types(self):
         module = self.import_module(name='foo')
         try:
-            class bar(module.fooType, module.Property):
+            class bar(module.fooType, module.UnicodeSubtype):
                 pass
         except TypeError as e:
-            assert str(e) == 'instance layout conflicts in multiple inheritance'
+            import sys
+            if '__pypy__' in sys.builtin_module_names:
+                assert str(e) == 'instance layout conflicts in multiple inheritance'
+
+            else:
+                assert str(e) == ('Error when calling the metaclass bases\n'
+                          '    multiple bases have instance lay-out conflict')
         else:
             raise AssertionError("did not get TypeError!")

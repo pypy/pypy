@@ -411,3 +411,7 @@ def PyErr_SetExcInfo(space, w_type, w_value, w_traceback):
     Py_DecRef(space, w_type)
     Py_DecRef(space, w_value)
     Py_DecRef(space, w_traceback)
+
+@cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
+def PyOS_InterruptOccurred(space):
+    return 0;

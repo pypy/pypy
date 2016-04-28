@@ -89,6 +89,7 @@ class StdObjSpace(ObjSpace):
             self.builtin_types[typedef.name] = w_type
             setattr(self, 'w_' + typedef.name, w_type)
             self._interplevel_classes[w_type] = cls
+        self.w_dict.flag_map_or_seq = 'M'
         self.w_unicode = self.w_str
         self.w_text = self.w_str
         self.w_str = self.w_bytes

@@ -21,7 +21,7 @@ import sys
 PyUnicodeObjectStruct = lltype.ForwardReference()
 PyUnicodeObject = lltype.Ptr(PyUnicodeObjectStruct)
 PyUnicodeObjectFields = (PyObjectFields +
-    (("buffer", rffi.CWCHARP), ("size", Py_ssize_t),
+    (("buffer", rffi.CWCHARP), ("length", Py_ssize_t),
      ("utf8buffer", rffi.CCHARP)))
 cpython_struct("PyUnicodeObject", PyUnicodeObjectFields, PyUnicodeObjectStruct)
 
@@ -53,7 +53,7 @@ def new_empty_unicode(space, length):
     py_uni = rffi.cast(PyUnicodeObject, py_obj)
 
     buflen = length + 1
-    py_uni.c_size = length
+    py_uni.c_length = length
     py_uni.c_buffer = lltype.malloc(rffi.CWCHARP.TO, buflen,
                                     flavor='raw', zero=True,
                                     add_memory_pressure=True)
@@ -62,7 +62,7 @@ def new_empty_unicode(space, length):
 def unicode_attach(space, py_obj, w_obj):
     "Fills a newly allocated PyUnicodeObject with a unicode string"
     py_unicode = rffi.cast(PyUnicodeObject, py_obj)
-    py_unicode.c_size = len(space.unicode_w(w_obj))
+    py_unicode.c_length = len(space.unicode_w(w_obj))
     py_unicode.c_buffer = lltype.nullptr(rffi.CWCHARP.TO)
 
 def unicode_realize(space, py_obj):
@@ -71,7 +71,7 @@ def unicode_realize(space, py_obj):
     be modified after this call.
     """
     py_uni = rffi.cast(PyUnicodeObject, py_obj)
-    s = rffi.wcharpsize2unicode(py_uni.c_buffer, py_uni.c_size)
+    s = rffi.wcharpsize2unicode(py_uni.c_buffer, py_uni.c_length)
     w_obj = space.wrap(s)
     track_reference(space, py_obj, w_obj)
     return w_obj
@@ -254,7 +254,7 @@ def _PyUnicode_AsString(space, ref):
 def PyUnicode_GetSize(space, ref):
     if from_ref(space, rffi.cast(PyObject, ref.c_ob_type)) is space.w_unicode:
         ref = rffi.cast(PyUnicodeObject, ref)
-        return ref.c_size
+        return ref.c_length
     else:
         w_obj = from_ref(space, ref)
         return space.len_w(w_obj)
@@ -270,19 +270,19 @@ def PyUnicode_AsWideChar(space, ref, buf, size):
     required by the application."""
     c_buffer = PyUnicode_AS_UNICODE(space, ref)
     ref = rffi.cast(PyUnicodeObject, ref)
-    c_size = ref.c_size
+    c_length = ref.c_length
 
     # If possible, try to copy the 0-termination as well
-    if size > c_size:
-        size = c_size + 1
+    if size > c_length:
+        size = c_length + 1
 
     i = 0
     while i < size:
         buf[i] = c_buffer[i]
         i += 1
 
-    if size > c_size:
-        return c_size
+    if size > c_length:
+        return c_length
     else:
         return size
 
@@ -473,16 +473,16 @@ def PyUnicode_FSDecoder(space, w_obj, result):
     data = space.unicode0_w(w_output)  # Check for NUL bytes
     result[0] = make_ref(space, w_output)
     return Py_CLEANUP_SUPPORTED
-    
+
 
 @cpython_api([rffi.CCHARP, Py_ssize_t], PyObject)
 def PyUnicode_DecodeFSDefaultAndSize(space, s, size):
     """Decode a string using Py_FileSystemDefaultEncoding and the
     'surrogateescape' error handler, or 'strict' on Windows.
-    
+
     If Py_FileSystemDefaultEncoding is not set, fall back to the
     locale encoding.
-    
+
     Use 'strict' error handler on Windows."""
     w_bytes = space.wrapbytes(rffi.charpsize2str(s, size))
     return space.fsdecode(w_bytes)
@@ -492,12 +492,12 @@ def PyUnicode_DecodeFSDefaultAndSize(space, s, size):
 def PyUnicode_DecodeFSDefault(space, s):
     """Decode a null-terminated string using Py_FileSystemDefaultEncoding
     and the 'surrogateescape' error handler, or 'strict' on Windows.
-    
+
     If Py_FileSystemDefaultEncoding is not set, fall back to the
     locale encoding.
-    
+
     Use PyUnicode_DecodeFSDefaultAndSize() if you know the string length.
-    
+
     Use 'strict' error handler on Windows."""
     w_bytes = space.wrapbytes(rffi.charp2str(s))
     return space.fsdecode(w_bytes)
@@ -509,7 +509,7 @@ def PyUnicode_EncodeFSDefault(space, w_unicode):
     'surrogateescape' error handler, or 'strict' on Windows, and return
     bytes. Note that the resulting bytes object may contain
     null bytes.
-    
+
     If Py_FileSystemDefaultEncoding is not set, fall back to the
     locale encoding.
     """
@@ -570,7 +570,7 @@ def PyUnicode_Resize(space, ref, newsize):
         ref[0] = lltype.nullptr(PyObject.TO)
         raise
     to_cp = newsize
-    oldsize = py_uni.c_size
+    oldsize = py_uni.c_length
     if oldsize < newsize:
         to_cp = oldsize
     for i in range(to_cp):
@@ -783,7 +783,7 @@ def PyUnicode_TransformDecimalToASCII(space, s, size):
                 ch = unichr(ord('0') + decimal)
         result.append(ch)
     return space.wrap(result.build())
-    
+
 @cpython_api([PyObject, PyObject], rffi.INT_real, error=-2)
 def PyUnicode_Compare(space, w_left, w_right):
     """Compare two strings and return -1, 0, 1 for less than, equal, and greater
@@ -793,6 +793,11 @@ def PyUnicode_Compare(space, w_left, w_right):
     if space.is_true(space.lt(w_right, w_left)):
         return 1
     return 0
+
+@cpython_api([PyObject, PyObject], PyObject)
+def PyUnicode_Concat(space, w_left, w_right):
+    """Concat two strings giving a new Unicode string."""
+    return space.call_method(w_left, '__add__', w_right)
 
 @cpython_api([PyObject, CONST_STRING], rffi.INT_real, error=CANNOT_FAIL)
 def PyUnicode_CompareWithASCIIString(space, w_uni, string):
@@ -817,7 +822,7 @@ def PyUnicode_CompareWithASCIIString(space, w_uni, string):
     if string[i] != '\0':
         return -1  # str is longer
     return 0
-    
+
 
 @cpython_api([rffi.CWCHARP, rffi.CWCHARP, Py_ssize_t], lltype.Void)
 def Py_UNICODE_COPY(space, target, source, length):

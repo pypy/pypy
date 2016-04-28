@@ -3,7 +3,7 @@ from pypy.module.cpyext.api import (
     cpython_api, CONST_STRING, FILEP)
 from pypy.module.cpyext.pyobject import PyObject
 from pypy.module.cpyext.object import Py_PRINT_RAW
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 
 @cpython_api([PyObject, rffi.INT_real], PyObject)
 def PyFile_GetLine(space, w_obj, n):
@@ -19,9 +19,8 @@ def PyFile_GetLine(space, w_obj, n):
     try:
         w_readline = space.getattr(w_obj, space.wrap('readline'))
     except OperationError:
-        raise OperationError(
-            space.w_TypeError, space.wrap(
-            "argument must be a file, or have a readline() method."))
+        raise oefmt(space.w_TypeError, 
+            "argument must be a file, or have a readline() method.")
 
     n = rffi.cast(lltype.Signed, n)
     if space.is_true(space.gt(space.wrap(n), space.wrap(0))):

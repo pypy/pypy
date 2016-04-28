@@ -65,6 +65,7 @@ class W_MyListObj(W_MyObject):
 
 class W_MyType(W_MyObject):
     name = "foobar"
+    flag_map_or_seq = '?'
 
     def __init__(self):
         self.mro_w = [w_some_obj(), w_some_obj()]

@@ -64,6 +64,11 @@ static PyMethodDef module_functions[] = {
     {NULL,        NULL}    /* Sentinel */
 };
 
+#ifdef __GNUC__
+extern __attribute__((visibility("default")))
+#else
+extern __declspec(dllexport)
+#endif
 
 PyMODINIT_FUNC
 initcallback_in_thread(void)

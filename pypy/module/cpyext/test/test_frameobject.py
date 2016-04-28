@@ -57,15 +57,17 @@ class AppTestFrameObject(AppTestCpythonExtensionBase):
                  Py_XDECREF(py_frame);
                  return NULL;
              """),
-            ])
+            ], prologue='#include "frameobject.h"')
         exc = raises(ValueError, module.raise_exception)
-        frame = exc.traceback.tb_frame
-        assert frame.f_code.co_filename == "filename"
-        assert frame.f_code.co_name == "funcname"
+        exc.value[0] == 'error message'
+        if not self.runappdirect:
+            frame = exc.traceback.tb_frame
+            assert frame.f_code.co_filename == "filename"
+            assert frame.f_code.co_name == "funcname"
 
-        # Cython does not work on CPython as well...
-        assert exc.traceback.tb_lineno == 42 # should be 48
-        assert frame.f_lineno == 42
+            # Cython does not work on CPython as well...
+            assert exc.traceback.tb_lineno == 42 # should be 48
+            assert frame.f_lineno == 42
 
     def test_traceback_check(self):
         module = self.import_extension('foo', [

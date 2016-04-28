@@ -131,6 +131,7 @@ class W_TypeObject(W_Root):
                           "flag_cpytype",
                           "flag_abstract?",
                           "flag_sequence_bug_compat",
+                          "flag_map_or_seq",    # '?' or 'M' or 'S'
                           "compares_by_identity_status?",
                           'needsdel',
                           'weakrefable',
@@ -169,6 +170,7 @@ class W_TypeObject(W_Root):
         w_self.flag_cpytype = False
         w_self.flag_abstract = False
         w_self.flag_sequence_bug_compat = False
+        w_self.flag_map_or_seq = '?'   # '?' means "don't know, check otherwise"
 
         if overridetypedef is not None:
             assert not force_new_layout
@@ -1095,6 +1097,8 @@ def setup_user_defined_type(w_self, force_new_layout):
             continue
         w_self.flag_cpytype |= w_base.flag_cpytype
         w_self.flag_abstract |= w_base.flag_abstract
+        if w_self.flag_map_or_seq == '?':
+            w_self.flag_map_or_seq = w_base.flag_map_or_seq
 
     hasoldstylebase = copy_flags_from_bases(w_self, w_bestbase)
     layout = create_all_slots(w_self, hasoldstylebase, w_bestbase,

@@ -285,7 +285,8 @@ class DescrOperation(object):
     def iter(space, w_obj):
         w_descr = space.lookup(w_obj, '__iter__')
         if w_descr is None:
-            w_descr = space.lookup(w_obj, '__getitem__')
+            if space.type(w_obj).flag_map_or_seq != 'M':
+                w_descr = space.lookup(w_obj, '__getitem__')
             if w_descr is None:
                 raise oefmt(space.w_TypeError,
                             "'%T' object is not iterable", w_obj)

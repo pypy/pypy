@@ -1,4 +1,4 @@
-import py
+import pytest
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 
@@ -53,3 +53,7 @@ class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
         expected = ("cannot make memory view from a buffer with a NULL data "
                     "pointer")
         assert str(exc.value) == expected
+
+    @pytest.mark.skipif(True, reason='write a test for this')
+    def test_get_base_and_get_buffer(self, space, api):
+        assert False # XXX test PyMemoryView_GET_BASE, PyMemoryView_GET_BUFFER

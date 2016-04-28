@@ -42,9 +42,15 @@ def _PyDateTime_Import(space):
 
     return datetimeAPI
 
-PyDateTime_Date = PyObject
-PyDateTime_Time = PyObject
-PyDateTime_DateTime = PyObject
+PyDateTime_DateStruct = lltype.ForwardReference()
+PyDateTime_TimeStruct = lltype.ForwardReference()
+PyDateTime_DateTimeStruct = lltype.ForwardReference()
+cpython_struct("PyDateTime_Date", PyObjectFields, PyDateTime_DateStruct)
+PyDateTime_Date = lltype.Ptr(PyDateTime_DateStruct)
+cpython_struct("PyDateTime_Time", PyObjectFields, PyDateTime_TimeStruct)
+PyDateTime_Time = lltype.Ptr(PyDateTime_TimeStruct)
+cpython_struct("PyDateTime_DateTime", PyObjectFields, PyDateTime_DateTimeStruct)
+PyDateTime_DateTime = lltype.Ptr(PyDateTime_DateTimeStruct)
 
 PyDeltaObjectStruct = lltype.ForwardReference()
 cpython_struct("PyDateTime_Delta", PyObjectFields, PyDeltaObjectStruct)
