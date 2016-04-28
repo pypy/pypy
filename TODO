@@ -1,3 +1,2 @@
-* python setup.py install in numpy does not somehow tell setuptools
-  it's installed (I bet it's about the py27 tag)
 * reduce size of generated c code from slot definitions in slotdefs.
+* remove broken DEBUG_REFCOUNT from pyobject.py
