@@ -37,6 +37,10 @@ typedef struct {
     PyObject_HEAD
 } PyDateTime_DateTime;
 
+typedef struct {
+    PyObject_HEAD
+} PyDateTime_TZInfo;
+
 #ifdef __cplusplus
 }
 #endif

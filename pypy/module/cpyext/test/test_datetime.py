@@ -72,6 +72,16 @@ class TestDatetime(BaseApiTest):
         date = datetime.datetime.fromtimestamp(0)
         assert space.unwrap(space.str(w_date)) == str(date)
 
+    def test_tzinfo(self, space, api):
+        w_tzinfo = space.appexec(
+            [], """():
+            from datetime import tzinfo
+            return tzinfo()
+        """)
+        assert api.PyTZInfo_Check(w_tzinfo)
+        assert api.PyTZInfo_CheckExact(w_tzinfo)
+        assert not api.PyTZInfo_Check(space.w_None)
+
 class AppTestDatetime(AppTestCpythonExtensionBase):
     def test_CAPI(self):
         module = self.import_extension('foo', [

@@ -92,6 +92,7 @@ make_check_function("PyDateTime_Check", "datetime")
 make_check_function("PyDate_Check", "date")
 make_check_function("PyTime_Check", "time")
 make_check_function("PyDelta_Check", "timedelta")
+make_check_function("PyTZInfo_Check", "tzinfo")
 
 # Constructors
 
