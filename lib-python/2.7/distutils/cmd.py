@@ -298,8 +298,11 @@ class Command:
         src_cmd_obj.ensure_finalized()
         for (src_option, dst_option) in option_pairs:
             if getattr(self, dst_option) is None:
-                setattr(self, dst_option,
-                        getattr(src_cmd_obj, src_option))
+                try:
+                    setattr(self, dst_option,
+                            getattr(src_cmd_obj, src_option))
+                except AttributeError:
+                    pass
 
 
     def get_finalized_command(self, command, create=1):
