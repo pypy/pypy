@@ -93,7 +93,7 @@ class AppTestBytesObject(AppTestCpythonExtensionBase):
         assert len(s) == 4
         assert s == b'ab\x00c'
 
-    def test_string_tp_alloc(self):
+    def test_bytes_tp_alloc(self):
         module = self.import_extension('foo', [
             ("tpalloc", "METH_NOARGS",
              """
@@ -117,7 +117,7 @@ class AppTestBytesObject(AppTestCpythonExtensionBase):
              """),
             ])
         s = module.tpalloc()
-        assert s == '\x00' * 10
+        assert s == b'\x00' * 10
 
     def test_AsString(self):
         module = self.import_extension('foo', [

@@ -35,7 +35,7 @@ class AppTestThreads(AppTestCpythonExtensionBase):
                 PyEval_InitThreads();
                 state0 = PyGILState_Ensure(); /* hangs here */
                 if (val != 0)
-                { 
+                {
                     state1 = PyGILState_Ensure();
                     PyGILState_Release(state1);
                 }
@@ -68,9 +68,8 @@ class AppTestThreads(AppTestCpythonExtensionBase):
                 ])
         assert module.get() == 3
 
+    @py.test.mark.xfail(run=False, reason='PyThreadState_Get() segfaults on py3k and CPython')
     def test_basic_threadstate_dance(self):
-        if self.runappdirect:
-            py.test.xfail('segfault: on cpython cannot Get() a NULL tstate')
         module = self.import_extension('foo', [
                 ("dance", "METH_NOARGS",
                  """
@@ -151,8 +150,8 @@ class AppTestThreads(AppTestCpythonExtensionBase):
         res = module.test()
         print "got", res
         assert res in (0, 1)
-        
-        
+
+
 class AppTestState(AppTestCpythonExtensionBase):
 
     def test_frame_tstate_tracing(self):

@@ -213,7 +213,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         import re
         assert re.sre_compile._sre is module
         s = u"Foo " * 1000 + u"Bar"
-        prog = re.compile(ur"Foo.*Bar")
+        prog = re.compile("Foo.*Bar")
         assert prog.match(s)
         m = re.search("xyz", "xyzxyz")
         assert m

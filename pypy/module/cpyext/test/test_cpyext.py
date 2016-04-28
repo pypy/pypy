@@ -257,8 +257,6 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
 
     def setup_class(cls):
         cls.space.getbuiltinmodule("cpyext")
-        from pypy.module.imp.importing import importhook
-        importhook(cls.space, "os") # warm up reference counts
         #state = cls.space.fromcache(RefcountState) ZZZ
         #state.non_heaptypes_w[:] = []
         if not cls.runappdirect:

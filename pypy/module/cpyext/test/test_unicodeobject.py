@@ -169,19 +169,6 @@ class TestUnicode(BaseApiTest):
             space.sys.get('getdefaultencoding')
         )
         assert encoding == space.unwrap(w_default_encoding)
-        invalid = rffi.str2charp('invalid')
-        utf_8 = rffi.str2charp('utf-8')
-        prev_encoding = rffi.str2charp(space.unwrap(w_default_encoding))
-        self.raises(space, api, TypeError, api.PyUnicode_SetDefaultEncoding, lltype.nullptr(rffi.CCHARP.TO))
-        assert api.PyUnicode_SetDefaultEncoding(invalid) == -1
-        assert api.PyErr_Occurred() is space.w_LookupError
-        api.PyErr_Clear()
-        assert api.PyUnicode_SetDefaultEncoding(utf_8) == 0
-        assert rffi.charp2str(api.PyUnicode_GetDefaultEncoding()) == 'utf-8'
-        assert api.PyUnicode_SetDefaultEncoding(prev_encoding) == 0
-        rffi.free_charp(invalid)
-        rffi.free_charp(utf_8)
-        rffi.free_charp(prev_encoding)
 
     def test_AS(self, space, api):
         word = space.wrap(u'spam')
@@ -196,10 +183,10 @@ class TestUnicode(BaseApiTest):
                     space.wrapbytes('spam'))
 
         utf_8 = rffi.str2charp('utf-8')
-        encoded = api.PyUnicode_AsEncodedString(space.wrap(u'sp�m'),
+        encoded = api.PyUnicode_AsEncodedString(space.wrap(u'späm'),
                                                 utf_8, None)
         assert space.unwrap(encoded) == 'sp\xc3\xa4m'
-        encoded_obj = api.PyUnicode_AsEncodedObject(space.wrap(u'sp�m'),
+        encoded_obj = api.PyUnicode_AsEncodedObject(space.wrap(u'späm'),
                                                 utf_8, None)
         assert space.eq_w(encoded, encoded_obj)
         self.raises(space, api, TypeError, api.PyUnicode_AsEncodedString,
@@ -208,7 +195,7 @@ class TestUnicode(BaseApiTest):
                space.wrapbytes(''), None, None)
         ascii = rffi.str2charp('ascii')
         replace = rffi.str2charp('replace')
-        encoded = api.PyUnicode_AsEncodedString(space.wrap(u'sp�m'),
+        encoded = api.PyUnicode_AsEncodedString(space.wrap(u'späm'),
                                                 ascii, replace)
         assert space.unwrap(encoded) == 'sp?m'
         rffi.free_charp(utf_8)
@@ -249,14 +236,14 @@ class TestUnicode(BaseApiTest):
         ar[0] = rffi.cast(PyObject, py_uni)
         api.PyUnicode_Resize(ar, 3)
         py_uni = rffi.cast(PyUnicodeObject, ar[0])
-        assert py_uni.c_size == 3
+        assert py_uni.c_length == 3
         assert py_uni.c_buffer[1] == u'b'
         assert py_uni.c_buffer[3] == u'\x00'
         # the same for growing
         ar[0] = rffi.cast(PyObject, py_uni)
         api.PyUnicode_Resize(ar, 10)
         py_uni = rffi.cast(PyUnicodeObject, ar[0])
-        assert py_uni.c_size == 10
+        assert py_uni.c_length == 10
         assert py_uni.c_buffer[1] == 'b'
         assert py_uni.c_buffer[10] == '\x00'
         Py_DecRef(space, ar[0])
@@ -267,13 +254,13 @@ class TestUnicode(BaseApiTest):
         w_res = api.PyUnicode_AsUTF8String(w_u)
         assert space.type(w_res) is space.w_str
         assert space.unwrap(w_res) == 'sp\tm'
-    
+
     def test_decode_utf8(self, space, api):
         u = rffi.str2charp(u'sp\x134m'.encode("utf-8"))
         w_u = api.PyUnicode_DecodeUTF8(u, 5, None)
         assert space.type(w_u) is space.w_unicode
         assert space.unwrap(w_u) == u'sp\x134m'
-        
+
         w_u = api.PyUnicode_DecodeUTF8(u, 2, None)
         assert space.type(w_u) is space.w_unicode
         assert space.unwrap(w_u) == 'sp'
@@ -489,7 +476,7 @@ class TestUnicode(BaseApiTest):
         ustr = "abcdef"
         w_ustr = space.wrap(ustr.decode("ascii"))
         result = api.PyUnicode_AsASCIIString(w_ustr)
-        
+
         assert space.eq_w(space.wrapbytes(ustr), result)
 
         w_ustr = space.wrap(u"abcd\xe9f")
