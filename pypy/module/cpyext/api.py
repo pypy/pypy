@@ -10,6 +10,7 @@ from rpython.rtyper.tool import rffi_platform
 from rpython.rtyper.lltypesystem import ll2ctypes
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib.objectmodel import we_are_translated, keepalive_until_here
+from rpython.rlib.objectmodel import dont_inline
 from rpython.translator import cdir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.gensupp import NameManager
@@ -668,37 +669,129 @@ def build_type_checkers(type_name, cls=None):
 
 pypy_debug_catch_fatal_exception = rffi.llexternal('pypy_debug_catch_fatal_exception', [], lltype.Void)
 
+
+# ____________________________________________________________
+
+
+class WrapperCache(object):
+    def __init__(self, space):
+        self.space = space
+        self.wrapper_gens = {}    # {signature: WrapperGen()}
+        self.callable2name = {}
+        self.stats = [0, 0]
+
+class WrapperGen(object):
+    def __init__(self, space, signature):
+        self.space = space
+        self.callable2name = {}
+        self.wrapper_second_level = make_wrapper_second_level(
+            self.space, self.callable2name, *signature)
+
+    def make_wrapper(self, callable):
+        self.callable2name[callable] = callable.__name__
+        wrapper_second_level = self.wrapper_second_level
+
+        def wrapper(*args):
+            # no GC here, not even any GC object
+            args += (callable,)
+            return wrapper_second_level(*args)
+
+        wrapper.__name__ = "wrapper for %r" % (callable, )
+        return wrapper
+
+
 # Make the wrapper for the cases (1) and (2)
 def make_wrapper(space, callable, gil=None):
     "NOT_RPYTHON"
+    # This logic is obscure, because we try to avoid creating one
+    # big wrapper() function for every callable.  Instead we create
+    # only one per "signature".
+
+    argnames = callable.api_func.argnames
+    argtypesw = zip(callable.api_func.argtypes,
+                    [_name.startswith("w_") for _name in argnames])
+    error_value = callable.api_func.error_value
+    if (isinstance(callable.api_func.restype, lltype.Ptr)
+            and error_value is not CANNOT_FAIL):
+        assert lltype.typeOf(error_value) == callable.api_func.restype
+        assert not error_value    # only support error=NULL
+        error_value = 0    # because NULL is not hashable
+
+    signature = (tuple(argtypesw),
+                 callable.api_func.restype,
+                 callable.api_func.result_borrowed,
+                 error_value,
+                 gil)
+
+    cache = space.fromcache(WrapperCache)
+    cache.stats[1] += 1
+    try:
+        wrapper_gen = cache.wrapper_gens[signature]
+    except KeyError:
+        print signature
+        wrapper_gen = cache.wrapper_gens[signature] = WrapperGen(space,
+                                                                 signature)
+        cache.stats[0] += 1
+    print 'Wrapper cache [wrappers/total]:', cache.stats
+    return wrapper_gen.make_wrapper(callable)
+
+
+@dont_inline
+def deadlock_error(funcname):
+    fatalerror_notb("GIL deadlock detected when a CPython C extension "
+                    "module calls %r" % (funcname,))
+
+@dont_inline
+def no_gil_error(funcname):
+    fatalerror_notb("GIL not held when a CPython C extension "
+                    "module calls %r" % (funcname,))
+
+@dont_inline
+def unexpected_exception(funcname, e, tb):
+    print 'Fatal error in cpyext, CPython compatibility layer, calling',funcname
+    print 'Either report a bug or consider not using this particular extension'
+    if not we_are_translated():
+        if tb is None:
+            tb = sys.exc_info()[2]
+        import traceback
+        traceback.print_exc()
+        if sys.stdout == sys.__stdout__:
+            import pdb; pdb.post_mortem(tb)
+        # we can't do much here, since we're in ctypes, swallow
+    else:
+        print str(e)
+        pypy_debug_catch_fatal_exception()
+        assert False
+
+def make_wrapper_second_level(space, callable2name, argtypesw, restype,
+                              result_borrowed, error_value, gil):
     from rpython.rlib import rgil
-    names = callable.api_func.argnames
-    argtypes_enum_ui = unrolling_iterable(enumerate(zip(callable.api_func.argtypes,
-        [name.startswith("w_") for name in names])))
-    fatal_value = callable.api_func.restype._defl()
+    argtypes_enum_ui = unrolling_iterable(enumerate(argtypesw))
+    fatal_value = restype._defl()
     gil_acquire = (gil == "acquire" or gil == "around")
     gil_release = (gil == "release" or gil == "around")
     pygilstate_ensure = (gil == "pygilstate_ensure")
     pygilstate_release = (gil == "pygilstate_release")
     assert (gil is None or gil_acquire or gil_release
             or pygilstate_ensure or pygilstate_release)
-    deadlock_error = ("GIL deadlock detected when a CPython C extension "
-                      "module calls %r" % (callable.__name__,))
-    no_gil_error = ("GIL not held when a CPython C extension "
-                    "module calls %r" % (callable.__name__,))
+    expected_nb_args = len(argtypesw) + pygilstate_ensure
 
-    @specialize.ll()
-    def wrapper(*args):
+    if isinstance(restype, lltype.Ptr) and error_value == 0:
+        error_value = lltype.nullptr(restype.TO)
+
+    def wrapper_second_level(*args):
         from pypy.module.cpyext.pyobject import make_ref, from_ref, is_pyobj
         from pypy.module.cpyext.pyobject import as_pyobj
         # we hope that malloc removal removes the newtuple() that is
         # inserted exactly here by the varargs specializer
+        callable = args[-1]
+        args = args[:len(args)-1]
 
         # see "Handling of the GIL" above (careful, we don't have the GIL here)
         tid = rthread.get_or_make_ident()
         if gil_acquire:
             if cpyext_glob_tid_ptr[0] == tid:
-                fatalerror_notb(deadlock_error)
+                deadlock_error(callable2name[callable])
             rgil.acquire()
             assert cpyext_glob_tid_ptr[0] == 0
         elif pygilstate_ensure:
@@ -711,7 +804,7 @@ def make_wrapper(space, callable, gil=None):
                 args += (pystate.PyGILState_UNLOCKED,)
         else:
             if cpyext_glob_tid_ptr[0] != tid:
-                fatalerror_notb(no_gil_error)
+                no_gil_error(callable2name[callable])
             cpyext_glob_tid_ptr[0] = 0
 
         rffi.stackcounter.stacks_counter += 1
@@ -722,8 +815,7 @@ def make_wrapper(space, callable, gil=None):
         try:
             if not we_are_translated() and DEBUG_WRAPPER:
                 print >>sys.stderr, callable,
-            assert len(args) == (len(callable.api_func.argtypes) +
-                                 pygilstate_ensure)
+            assert len(args) == expected_nb_args
             for i, (typ, is_wrapped) in argtypes_enum_ui:
                 arg = args[i]
                 if is_PyObject(typ) and is_wrapped:
@@ -757,41 +849,28 @@ def make_wrapper(space, callable, gil=None):
                 failed = False
 
             if failed:
-                error_value = callable.api_func.error_value
                 if error_value is CANNOT_FAIL:
                     raise SystemError("The function '%s' was not supposed to fail"
                                       % (callable.__name__,))
                 retval = error_value
 
-            elif is_PyObject(callable.api_func.restype):
+            elif is_PyObject(restype):
                 if is_pyobj(result):
                     retval = result
                 else:
                     if result is not None:
-                        if callable.api_func.result_borrowed:
+                        if result_borrowed:
                             retval = as_pyobj(space, result)
                         else:
                             retval = make_ref(space, result)
-                        retval = rffi.cast(callable.api_func.restype, retval)
+                        retval = rffi.cast(restype, retval)
                     else:
                         retval = lltype.nullptr(PyObject.TO)
-            elif callable.api_func.restype is not lltype.Void:
-                retval = rffi.cast(callable.api_func.restype, result)
+            elif restype is not lltype.Void:
+                retval = rffi.cast(restype, result)
         except Exception, e:
-            print 'Fatal error in cpyext, CPython compatibility layer, calling', callable.__name__
-            print 'Either report a bug or consider not using this particular extension'
-            if not we_are_translated():
-                if tb is None:
-                    tb = sys.exc_info()[2]
-                import traceback
-                traceback.print_exc()
-                if sys.stdout == sys.__stdout__:
-                    import pdb; pdb.post_mortem(tb)
-                # we can't do much here, since we're in ctypes, swallow
-            else:
-                print str(e)
-                pypy_debug_catch_fatal_exception()
-                assert False
+            unexpected_exception(callable2name[callable], e, tb)
+
         rffi.stackcounter.stacks_counter -= 1
 
         # see "Handling of the GIL" above
@@ -808,9 +887,9 @@ def make_wrapper(space, callable, gil=None):
             cpyext_glob_tid_ptr[0] = tid
 
         return retval
-    callable._always_inline_ = 'try'
-    wrapper.__name__ = "wrapper for %r" % (callable, )
-    return wrapper
+
+    wrapper_second_level._dont_inline_ = True
+    return wrapper_second_level
 
 def process_va_name(name):
     return name.replace('*', '_star')
