@@ -49,8 +49,20 @@ class W_Root(object):
             return True
         return False
 
-    # deldictvalue, getdict, setdict are mixed in from basemapdictobject
-    # def deldictvalue(self, space, attrname):
+    def deldictvalue(self, space, attrname):
+        from pypy.interpreter.error import OperationError
+        # check whether it has a dict and use that
+        w_dict = self.getdict(space)
+        if w_dict is not None:
+            try:
+                space.delitem(w_dict, space.wrap(attrname))
+                return True
+            except OperationError, ex:
+                if not ex.match(space, space.w_KeyError):
+                    raise
+        return False
+
+    # getdict, setdict are mixed in from basemapdictobject
     # def getdict(self, space):
     # def setdict(self, space, w_dict):
 

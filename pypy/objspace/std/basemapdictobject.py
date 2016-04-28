@@ -59,25 +59,6 @@ class RootObjectMapdictMixin(object):
 
     # getdictvalue and setdictvalue are not done here, for performance reasons
 
-    def deldictvalue(self, space, attrname):
-        from pypy.interpreter.error import OperationError
-        map = self._get_mapdict_map()
-        if map is None:
-            # check whether it has a dict and use that
-            w_dict = self.getdict(space)
-            if w_dict is not None:
-                try:
-                    space.delitem(w_dict, space.wrap(attrname))
-                    return True
-                except OperationError, ex:
-                    if not ex.match(space, space.w_KeyError):
-                        raise
-            return False
-        new_obj = map.delete(self, attrname, DICT)
-        if new_obj is None:
-            return False
-        self._set_mapdict_storage_and_map(new_obj.storage, new_obj.map)
-        return True
 
     def getdict(self, space):
         from pypy.objspace.std.mapdict import MapDictStrategy
@@ -175,6 +156,7 @@ class RootObjectMapdictMixin(object):
 
     def setweakref(self, space, weakreflifeline):
         from pypy.module._weakref.interp__weakref import WeakrefLifeline
+        from pypy.interpreter.error import oefmt
         map = self._get_mapdict_map()
         if map is None:
             # not a user-defined subclass

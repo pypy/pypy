@@ -495,6 +495,14 @@ class MapdictDictSupport(object):
     def setdictvalue(self, space, attrname, w_value):
         return self._get_mapdict_map().write(self, attrname, DICT, w_value)
 
+    def deldictvalue(self, space, attrname):
+        map = self._get_mapdict_map()
+        new_obj = map.delete(self, attrname, DICT)
+        if new_obj is None:
+            return False
+        self._set_mapdict_storage_and_map(new_obj.storage, new_obj.map)
+        return True
+
 
 class MapdictStorageMixin(object):
     def _mapdict_init_empty(self, map):
