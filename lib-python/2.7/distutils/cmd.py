@@ -302,6 +302,11 @@ class Command:
                     setattr(self, dst_option,
                             getattr(src_cmd_obj, src_option))
                 except AttributeError:
+                    # This was added after problems with setuptools 18.4.
+                    # It seems that setuptools 20.9 fixes the problem.
+                    # But e.g. on Ubuntu 14.04 with /usr/bin/virtualenv
+                    # if I say "virtualenv -p pypy venv-pypy" then it
+                    # just installs setuptools 18.4 from some cache...
                     pass
 
 
