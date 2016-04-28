@@ -156,7 +156,7 @@ class Link(object):
 
     def show(self):
         from rpython.translator.tool.graphpage import try_show
-        try_show(self)
+        return try_show(self)
 
     view = show
 
@@ -239,7 +239,7 @@ class Block(object):
 
     def show(self):
         from rpython.translator.tool.graphpage import try_show
-        try_show(self)
+        return try_show(self)
 
     def _slowly_get_graph(self):
         import gc

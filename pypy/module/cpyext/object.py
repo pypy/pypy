@@ -52,6 +52,9 @@ def PyObject_Del(space, obj):
 
 @cpython_api([PyObject], lltype.Void)
 def PyObject_dealloc(space, obj):
+    # This frees an object after its refcount dropped to zero, so we
+    # assert that it is really zero here.
+    assert obj.c_ob_refcnt == 0
     pto = obj.c_ob_type
     obj_voidp = rffi.cast(rffi.VOIDP, obj)
     generic_cpy_call(space, pto.c_tp_free, obj_voidp)

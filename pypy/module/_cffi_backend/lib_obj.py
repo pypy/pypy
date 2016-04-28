@@ -64,7 +64,8 @@ class W_LibObject(W_Root):
         #
         ptr = rffi.cast(rffi.CCHARP, g.c_address)
         assert ptr
-        return W_FunctionWrapper(self.space, ptr, g.c_size_or_direct_fn,
+        return W_FunctionWrapper(self.space, self.ffi,
+                                 ptr, g.c_size_or_direct_fn,
                                  rawfunctype, fnname, self.libname)
 
     @jit.elidable_promote()

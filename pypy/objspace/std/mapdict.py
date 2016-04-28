@@ -67,12 +67,7 @@ class AbstractAttribute(object):
 
     @jit.elidable
     def find_map_attr(self, name, index):
-        if (self.space.config.objspace.std.withmethodcache):
-            return self._find_map_attr_cache(name, index)
-        return self._find_map_attr(name, index)
-
-    @jit.dont_look_inside
-    def _find_map_attr_cache(self, name, index):
+        # attr cache
         space = self.space
         cache = space.fromcache(MapAttrCache)
         SHIFT2 = r_uint.BITS - space.config.objspace.std.methodcachesizeexp
@@ -429,7 +424,6 @@ def _become(w_obj, new_obj):
 
 class MapAttrCache(object):
     def __init__(self, space):
-        assert space.config.objspace.std.withmethodcache
         SIZE = 1 << space.config.objspace.std.methodcachesizeexp
         self.attrs = [None] * SIZE
         self.names = [None] * SIZE
@@ -456,12 +450,19 @@ SPECIAL = 1
 INVALID = 2
 SLOTS_STARTING_FROM = 3
 
+# a little bit of a mess of mixin classes that implement various pieces of
+# objspace user object functionality in terms of mapdict
 
-class BaseMapdictObject:
-    _mixin_ = True
+class BaseUserClassMapdict:
+    # everything that's needed to use mapdict for a user subclass at all.
+    # This immediately makes slots possible.
 
-    def _init_empty(self, map):
-        raise NotImplementedError("abstract base class")
+    # assumes presence of _init_empty, _mapdict_read_storage,
+    # _mapdict_write_storage, _mapdict_storage_length,
+    # _set_mapdict_storage_and_map
+
+    # _____________________________________________
+    # methods needed for mapdict
 
     def _become(self, new_obj):
         self._set_mapdict_storage_and_map(new_obj.storage, new_obj.map)
@@ -470,49 +471,11 @@ class BaseMapdictObject:
         return jit.promote(self.map)
     def _set_mapdict_map(self, map):
         self.map = map
+
     # _____________________________________________
     # objspace interface
 
-    def getdictvalue(self, space, attrname):
-        return self._get_mapdict_map().read(self, attrname, DICT)
-
-    def setdictvalue(self, space, attrname, w_value):
-        return self._get_mapdict_map().write(self, attrname, DICT, w_value)
-
-    def deldictvalue(self, space, attrname):
-        new_obj = self._get_mapdict_map().delete(self, attrname, DICT)
-        if new_obj is None:
-            return False
-        self._become(new_obj)
-        return True
-
-    def getdict(self, space):
-        w_dict = self._get_mapdict_map().read(self, "dict", SPECIAL)
-        if w_dict is not None:
-            assert isinstance(w_dict, W_DictMultiObject)
-            return w_dict
-
-        strategy = space.fromcache(MapDictStrategy)
-        storage = strategy.erase(self)
-        w_dict = W_DictObject(space, strategy, storage)
-        flag = self._get_mapdict_map().write(self, "dict", SPECIAL, w_dict)
-        assert flag
-        return w_dict
-
-    def setdict(self, space, w_dict):
-        from pypy.interpreter.typedef import check_new_dictionary
-        w_dict = check_new_dictionary(space, w_dict)
-        w_olddict = self.getdict(space)
-        assert isinstance(w_dict, W_DictMultiObject)
-        # The old dict has got 'self' as dstorage, but we are about to
-        # change self's ("dict", SPECIAL) attribute to point to the
-        # new dict.  If the old dict was using the MapDictStrategy, we
-        # have to force it now: otherwise it would remain an empty
-        # shell that continues to delegate to 'self'.
-        if type(w_olddict.get_strategy()) is MapDictStrategy:
-            w_olddict.get_strategy().switch_to_object_strategy(w_olddict)
-        flag = self._get_mapdict_map().write(self, "dict", SPECIAL, w_dict)
-        assert flag
+    # class access
 
     def getclass(self, space):
         return self._get_mapdict_map().terminator.w_cls
@@ -523,8 +486,12 @@ class BaseMapdictObject:
 
     def user_setup(self, space, w_subtype):
         self.space = space
-        assert not self.typedef.hasdict
+        assert (not self.typedef.hasdict or
+                isinstance(w_subtype.terminator, NoDictTerminator))
         self._init_empty(w_subtype.terminator)
+
+
+    # methods needed for slots
 
     def getslotvalue(self, slotindex):
         index = SLOTS_STARTING_FROM + slotindex
@@ -542,7 +509,9 @@ class BaseMapdictObject:
         self._become(new_obj)
         return True
 
-    # used by _weakref implemenation
+
+class MapdictWeakrefSupport(object):
+    # stuff used by the _weakref implementation
 
     def getweakref(self):
         from pypy.module._weakref.interp__weakref import WeakrefLifeline
@@ -563,8 +532,71 @@ class BaseMapdictObject:
         self._get_mapdict_map().write(self, "weakref", SPECIAL, None)
     delweakref._cannot_really_call_random_things_ = True
 
-class ObjectMixin(object):
-    _mixin_ = True
+
+class MapdictDictSupport(object):
+
+    # objspace interface for dictionary operations
+
+    def getdictvalue(self, space, attrname):
+        return self._get_mapdict_map().read(self, attrname, DICT)
+
+    def setdictvalue(self, space, attrname, w_value):
+        return self._get_mapdict_map().write(self, attrname, DICT, w_value)
+
+    def deldictvalue(self, space, attrname):
+        new_obj = self._get_mapdict_map().delete(self, attrname, DICT)
+        if new_obj is None:
+            return False
+        self._become(new_obj)
+        return True
+
+    def getdict(self, space):
+        return _obj_getdict(self, space)
+
+    def setdict(self, space, w_dict):
+        _obj_setdict(self, space, w_dict)
+
+# a couple of helpers for the classes above, factored out to reduce
+# the translated code size
+
+@objectmodel.dont_inline
+def _obj_getdict(self, space):
+    terminator = self._get_mapdict_map().terminator
+    assert isinstance(terminator, DictTerminator) or isinstance(terminator, DevolvedDictTerminator)
+    w_dict = self._get_mapdict_map().read(self, "dict", SPECIAL)
+    if w_dict is not None:
+        assert isinstance(w_dict, W_DictMultiObject)
+        return w_dict
+
+    strategy = space.fromcache(MapDictStrategy)
+    storage = strategy.erase(self)
+    w_dict = W_DictObject(space, strategy, storage)
+    flag = self._get_mapdict_map().write(self, "dict", SPECIAL, w_dict)
+    assert flag
+    return w_dict
+
+@objectmodel.dont_inline
+def _obj_setdict(self, space, w_dict):
+    from pypy.interpreter.error import OperationError
+    terminator = self._get_mapdict_map().terminator
+    assert isinstance(terminator, DictTerminator) or isinstance(terminator, DevolvedDictTerminator)
+    if not space.isinstance_w(w_dict, space.w_dict):
+        raise OperationError(space.w_TypeError,
+                space.wrap("setting dictionary to a non-dict"))
+    assert isinstance(w_dict, W_DictMultiObject)
+    w_olddict = self.getdict(space)
+    assert isinstance(w_olddict, W_DictMultiObject)
+    # The old dict has got 'self' as dstorage, but we are about to
+    # change self's ("dict", SPECIAL) attribute to point to the
+    # new dict.  If the old dict was using the MapDictStrategy, we
+    # have to force it now: otherwise it would remain an empty
+    # shell that continues to delegate to 'self'.
+    if type(w_olddict.get_strategy()) is MapDictStrategy:
+        w_olddict.get_strategy().switch_to_object_strategy(w_olddict)
+    flag = self._get_mapdict_map().write(self, "dict", SPECIAL, w_dict)
+    assert flag
+
+class MapdictStorageMixin(object):
     def _init_empty(self, map):
         from rpython.rlib.debug import make_sure_not_resized
         self.map = map
@@ -583,51 +615,32 @@ class ObjectMixin(object):
         self.storage = storage
         self.map = map
 
-class Object(ObjectMixin, BaseMapdictObject, W_Root):
-    pass # mainly for tests
+class ObjectWithoutDict(W_Root):
+    # mainly for tests
+    objectmodel.import_from_mixin(MapdictStorageMixin)
 
-def get_subclass_of_correct_size(space, cls, w_type):
-    assert space.config.objspace.std.withmapdict
-    map = w_type.terminator
-    classes = memo_get_subclass_of_correct_size(space, cls)
-    if SUBCLASSES_MIN_FIELDS == SUBCLASSES_MAX_FIELDS:
-        return classes[0]
-    size = map.size_estimate()
-    debug.check_nonneg(size)
-    if size < len(classes):
-        return classes[size]
-    else:
-        return classes[len(classes)-1]
-get_subclass_of_correct_size._annspecialcase_ = "specialize:arg(1)"
+    objectmodel.import_from_mixin(BaseUserClassMapdict)
+    objectmodel.import_from_mixin(MapdictWeakrefSupport)
 
-SUBCLASSES_MIN_FIELDS = 5 # XXX tweak these numbers
-SUBCLASSES_MAX_FIELDS = 5
 
-def memo_get_subclass_of_correct_size(space, supercls):
-    key = space, supercls
-    try:
-        return _subclass_cache[key]
-    except KeyError:
-        assert not hasattr(supercls, "__del__")
-        result = []
-        for i in range(SUBCLASSES_MIN_FIELDS, SUBCLASSES_MAX_FIELDS+1):
-            result.append(_make_subclass_size_n(supercls, i))
-        for i in range(SUBCLASSES_MIN_FIELDS):
-            result.insert(0, result[0])
-        if SUBCLASSES_MIN_FIELDS == SUBCLASSES_MAX_FIELDS:
-            assert len(set(result)) == 1
-        _subclass_cache[key] = result
-        return result
-memo_get_subclass_of_correct_size._annspecialcase_ = "specialize:memo"
-_subclass_cache = {}
+class Object(W_Root):
+    # mainly for tests
+    objectmodel.import_from_mixin(MapdictStorageMixin)
 
-def _make_subclass_size_n(supercls, n):
+    objectmodel.import_from_mixin(BaseUserClassMapdict)
+    objectmodel.import_from_mixin(MapdictWeakrefSupport)
+    objectmodel.import_from_mixin(MapdictDictSupport)
+
+
+SUBCLASSES_NUM_FIELDS = 5
+
+def _make_storage_mixin_size_n(n=SUBCLASSES_NUM_FIELDS):
     from rpython.rlib import unroll
     rangen = unroll.unrolling_iterable(range(n))
     nmin1 = n - 1
     rangenmin1 = unroll.unrolling_iterable(range(nmin1))
     valnmin1 = "_value%s" % nmin1
-    class subcls(BaseMapdictObject, supercls):
+    class subcls(object):
         def _init_empty(self, map):
             for i in rangenmin1:
                 setattr(self, "_value%s" % i, None)
@@ -695,7 +708,7 @@ def _make_subclass_size_n(supercls, n):
                 erased = erase_list(storage_list)
             setattr(self, "_value%s" % nmin1, erased)
 
-    subcls.__name__ = supercls.__name__ + "Size%s" % n
+    subcls.__name__ = "Size%s" % n
     return subcls
 
 # ____________________________________________________________
@@ -962,7 +975,7 @@ def LOAD_ATTR_slowpath(pycode, w_obj, nameindex, map):
             name = space.str_w(w_name)
             # We need to care for obscure cases in which the w_descr is
             # a MutableCell, which may change without changing the version_tag
-            _, w_descr = w_type._pure_lookup_where_possibly_with_method_cache(
+            _, w_descr = w_type._pure_lookup_where_with_method_cache(
                 name, version_tag)
             #
             attrname, index = ("", INVALID)
@@ -1009,21 +1022,14 @@ def LOOKUP_METHOD_mapdict(f, nameindex, w_obj):
     return False
 
 def LOOKUP_METHOD_mapdict_fill_cache_method(space, pycode, name, nameindex,
-                                            w_obj, w_type):
-    version_tag = w_type.version_tag()
-    if version_tag is None:
+                                            w_obj, w_type, w_method):
+    if w_method is None or isinstance(w_method, MutableCell):
+        # don't cache the MutableCell XXX could be fixed
         return
+    version_tag = w_type.version_tag()
+    assert version_tag is not None
     map = w_obj._get_mapdict_map()
     if map is None or isinstance(map.terminator, DevolvedDictTerminator):
-        return
-    # We know here that w_obj.getdictvalue(space, name) just returned None,
-    # so the 'name' is not in the instance.  We repeat the lookup to find it
-    # in the class, this time taking care of the result: it can be either a
-    # quasi-constant class attribute, or actually a MutableCell --- which we
-    # must not cache.  (It should not be None here, but you never know...)
-    _, w_method = w_type._pure_lookup_where_possibly_with_method_cache(
-        name, version_tag)
-    if w_method is None or isinstance(w_method, MutableCell):
         return
     _fill_cache(pycode, nameindex, map, version_tag, -1, w_method)
 

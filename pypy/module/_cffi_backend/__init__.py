@@ -46,6 +46,7 @@ class Module(MixedModule):
         '_get_types': 'func._get_types',
         '_get_common_types': 'func._get_common_types',
         'from_buffer': 'func.from_buffer',
+        'gcp': 'func.gcp',
 
         'string': 'func.string',
         'unpack': 'func.unpack',

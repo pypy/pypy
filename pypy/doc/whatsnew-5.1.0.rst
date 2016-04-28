@@ -60,3 +60,13 @@ annoying special-purpose code for pinned pointers.
 Remove old uneeded numpy headers, what is left is only for testing. Also 
 generate pypy_numpy.h which exposes functions to directly use micronumpy
 ndarray and ufuncs
+
+.. branch: rposix-for-3
+
+Reuse rposix definition of TIMESPEC in rposix_stat, add wrapper for fstatat().
+This updates the underlying rpython functions with the ones needed for the 
+py3k branch
+ 
+.. branch: numpy_broadcast
+
+Add broadcast to micronumpy

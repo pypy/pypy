@@ -782,17 +782,21 @@ class LLFrame(object):
     def op_weakref_create(self, v_obj):
         def objgetter():    # special support for gcwrapper.py
             return self.getval(v_obj)
+        assert self.llinterpreter.typer.getconfig().translation.rweakref
         return self.heap.weakref_create_getlazy(objgetter)
     op_weakref_create.specialform = True
 
     def op_weakref_deref(self, PTRTYPE, obj):
+        assert self.llinterpreter.typer.getconfig().translation.rweakref
         return self.heap.weakref_deref(PTRTYPE, obj)
     op_weakref_deref.need_result_type = True
 
     def op_cast_ptr_to_weakrefptr(self, obj):
+        assert self.llinterpreter.typer.getconfig().translation.rweakref
         return llmemory.cast_ptr_to_weakrefptr(obj)
 
     def op_cast_weakrefptr_to_ptr(self, PTRTYPE, obj):
+        assert self.llinterpreter.typer.getconfig().translation.rweakref
         return llmemory.cast_weakrefptr_to_ptr(PTRTYPE, obj)
     op_cast_weakrefptr_to_ptr.need_result_type = True
 

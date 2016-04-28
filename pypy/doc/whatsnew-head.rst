@@ -3,14 +3,22 @@ What's new in PyPy 5.1+
 =========================
 
 .. this is a revision shortly after release-5.1
-.. startrev: 2180e1eaf6f6
+.. startrev: aa60332382a1
 
-.. branch: rposix-for-3
+.. branch: techtonik/introductionrst-simplify-explanation-abo-1460879168046
 
-Reuse rposix definition of TIMESPEC in rposix_stat, add wrapper for fstatat().
-This updates the underlying rpython functions with the ones needed for the 
-py3k branch
- 
-.. branch: numpy_broadcast
+.. branch: gcheader-decl
 
-Add broadcast to micronumpy
+Reduce the size of generated C sources.
+
+
+.. branch: remove-objspace-options
+
+Remove a number of options from the build process that were never tested and
+never set. Fix a performance bug in the method cache.
+
+.. branch: bitstring
+
+JIT: use bitstrings to compress the lists of read or written descrs
+that we attach to EffectInfo.  Fixes a problem we had in
+remove-objspace-options.

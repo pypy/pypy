@@ -1,15 +1,19 @@
 # Edit these appropriately before running this script
 maj=5
-min=0
-rev=1
+min=1
+rev=0
 branchname=release-$maj.x  # ==OR== release-$maj.$min.x
-tagname=release-$maj.$min.$rev
+tagname=release-$maj.$min  # ==OR== release-$maj.$min.$rev
+
+hg log -r $branchname || exit 1
+hg log -r $tagname || exit 1
+
 # This script will download latest builds from the buildmaster, rename the top
 # level directory, and repackage ready to be uploaded to bitbucket. It will also
 # download source, assuming a tag for the release already exists, and repackage them.
 # The script should be run in an empty directory, i.e. /tmp/release_xxx
 
-for plat in linux linux64 linux-armhf-raspbian linux-armhf-raring linux-armel osx64
+for plat in linux linux64 linux-armhf-raspbian linux-armhf-raring linux-armel osx64 s390x
   do
     wget http://buildbot.pypy.org/nightly/$branchname/pypy-c-jit-latest-$plat.tar.bz2
     tar -xf pypy-c-jit-latest-$plat.tar.bz2

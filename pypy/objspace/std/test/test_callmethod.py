@@ -108,10 +108,6 @@ class AppTestCallMethod:
         """)
 
 
-class AppTestCallMethodWithGetattributeShortcut(AppTestCallMethod):
-    spaceconfig = {"objspace.std.getattributeshortcut": True}
-
-
 class TestCallMethod:
     def test_space_call_method(self):
         space = self.space

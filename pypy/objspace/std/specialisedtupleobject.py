@@ -186,10 +186,9 @@ def _build_zipped_unspec(space, w_list1, w_list2):
 
 def specialized_zip_2_lists(space, w_list1, w_list2):
     from pypy.objspace.std.listobject import W_ListObject
-    if (not isinstance(w_list1, W_ListObject) or
-        not isinstance(w_list2, W_ListObject)):
+    if type(w_list1) is not W_ListObject or type(w_list2) is not W_ListObject:
         raise OperationError(space.w_TypeError,
-                             space.wrap("expected two lists"))
+                             space.wrap("expected two exact lists"))
 
     if space.config.objspace.std.withspecialisedtuple:
         intlist1 = w_list1.getitems_int()

@@ -7,7 +7,14 @@ a form of WeakKeyDictionary, and a limited version of WeakValueDictionary.
 import weakref
 from rpython.annotator.model import UnionError
 
-ref = weakref.ref    # basic regular weakrefs are supported in RPython
+
+# Basic regular weakrefs are supported in RPython.
+# Note that if 'translation.rweakref' is False, they will
+# still work, but be implemented as a strong reference.
+# This case is useful for developing new GCs, for example.
+
+ref = weakref.ref
+
 
 def has_weakref_support():
     return True      # returns False if --no-translation-rweakref

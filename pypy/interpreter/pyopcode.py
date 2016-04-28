@@ -157,7 +157,6 @@ class __extend__(pyframe.PyFrame):
                 ec.bytecode_trace(self)
             next_instr = r_uint(self.last_instr)
             opcode = ord(co_code[next_instr])
-            #print 'executing', self.last_instr, bytecode_spec.method_names[opcode]
             next_instr += 1
 
             if opcode >= HAVE_ARGUMENT:
@@ -905,8 +904,7 @@ class __extend__(pyframe.PyFrame):
     def LOAD_ATTR(self, nameindex, next_instr):
         "obj.attributename"
         w_obj = self.popvalue()
-        if (self.space.config.objspace.std.withmapdict
-            and not jit.we_are_jitted()):
+        if not jit.we_are_jitted():
             from pypy.objspace.std.mapdict import LOAD_ATTR_caching
             w_value = LOAD_ATTR_caching(self.getcode(), w_obj, nameindex)
         else:
@@ -1535,7 +1533,6 @@ class FinallyBlock(FrameBlock):
         if operationerr and self.restore_last_exception:
             frame.last_exception = operationerr
         return r_uint(self.handlerposition)   # jump to the handler
-
 
 
 class WithBlock(FinallyBlock):
