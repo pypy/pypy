@@ -254,13 +254,15 @@ class AppTestApi(LeakCheckingTest):
 class AppTestCpythonExtensionBase(LeakCheckingTest):
 
     def setup_class(cls):
-        cls.space.getbuiltinmodule("cpyext")
-        from pypy.module.imp.importing import importhook
-        importhook(cls.space, "os") # warm up reference counts
+        space = cls.space
+        space.getbuiltinmodule("cpyext")
+        # 'import os' to warm up reference counts
+        w_import = space.builtin.getdictvalue(space, '__import__')
+        space.call_function(w_import, space.wrap("os"))
         #state = cls.space.fromcache(RefcountState) ZZZ
         #state.non_heaptypes_w[:] = []
         if not cls.runappdirect:
-            cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
+            cls.w_runappdirect = space.wrap(cls.runappdirect)
 
     def setup_method(self, func):
         @gateway.unwrap_spec(name=str)
