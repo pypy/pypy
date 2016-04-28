@@ -2,11 +2,11 @@ from pypy.interpreter.error import OperationError, oefmt
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     cpython_api, cpython_struct, bootstrap_function, build_type_checkers,
-    PyObjectFields, Py_ssize_t, CONST_STRING, CANNOT_FAIL)
+    PyObjectFields, PyVarObjectFields, Py_ssize_t, CONST_STRING, CANNOT_FAIL)
 from pypy.module.cpyext.pyerrors import PyErr_BadArgument
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, Py_DecRef, make_ref, from_ref, track_reference,
-    make_typedescr, get_typedescr)
+    make_typedescr, get_typedescr, as_pyobj, Py_IncRef)
 
 ##
 ## Implementation of PyStringObject
@@ -27,7 +27,7 @@ from pypy.module.cpyext.pyobject import (
 ## Solution
 ## --------
 ##
-## PyStringObject contains two additional members: the size and a pointer to a
+## PyStringObject contains two additional members: the ob_size and a pointer to a
 ## char buffer; it may be NULL.
 ##
 ## - A string allocated by pypy will be converted into a PyStringObject with a
@@ -36,7 +36,7 @@ from pypy.module.cpyext.pyobject import (
 ##
 ## - A string allocated with PyString_FromStringAndSize(NULL, size) will
 ##   allocate a PyStringObject structure, and a buffer with the specified
-##   size, but the reference won't be stored in the global map; there is no
+##   size+1, but the reference won't be stored in the global map; there is no
 ##   corresponding object in pypy.  When from_ref() or Py_INCREF() is called,
 ##   the pypy string is created, and added to the global map of tracked
 ##   objects.  The buffer is then supposed to be immutable.
@@ -52,8 +52,8 @@ from pypy.module.cpyext.pyobject import (
 
 PyStringObjectStruct = lltype.ForwardReference()
 PyStringObject = lltype.Ptr(PyStringObjectStruct)
-PyStringObjectFields = PyObjectFields + \
-    (("buffer", rffi.CCHARP), ("size", Py_ssize_t))
+PyStringObjectFields = PyVarObjectFields + \
+    (("ob_shash", rffi.LONG), ("ob_sstate", rffi.INT), ("buffer", rffi.CCHARP))
 cpython_struct("PyStringObject", PyStringObjectFields, PyStringObjectStruct)
 
 @bootstrap_function
@@ -78,10 +78,11 @@ def new_empty_str(space, length):
     py_str = rffi.cast(PyStringObject, py_obj)
 
     buflen = length + 1
-    py_str.c_size = length
+    py_str.c_ob_size = length
     py_str.c_buffer = lltype.malloc(rffi.CCHARP.TO, buflen,
                                     flavor='raw', zero=True,
                                     add_memory_pressure=True)
+    py_str.c_ob_sstate = rffi.cast(rffi.INT, 0) # SSTATE_NOT_INTERNED
     return py_str
 
 def string_attach(space, py_obj, w_obj):
@@ -90,8 +91,10 @@ def string_attach(space, py_obj, w_obj):
     buffer must not be modified.
     """
     py_str = rffi.cast(PyStringObject, py_obj)
-    py_str.c_size = len(space.str_w(w_obj))
+    py_str.c_ob_size = len(space.str_w(w_obj))
     py_str.c_buffer = lltype.nullptr(rffi.CCHARP.TO)
+    py_str.c_ob_shash = space.hash_w(w_obj)
+    py_str.c_ob_sstate = rffi.cast(rffi.INT, 1) # SSTATE_INTERNED_MORTAL
 
 def string_realize(space, py_obj):
     """
@@ -99,8 +102,13 @@ def string_realize(space, py_obj):
     be modified after this call.
     """
     py_str = rffi.cast(PyStringObject, py_obj)
-    s = rffi.charpsize2str(py_str.c_buffer, py_str.c_size)
+    if not py_str.c_buffer:
+        py_str.c_buffer = lltype.malloc(rffi.CCHARP.TO, py_str.c_ob_size + 1,
+                                    flavor='raw', zero=True)
+    s = rffi.charpsize2str(py_str.c_buffer, py_str.c_ob_size)
     w_obj = space.wrap(s)
+    py_str.c_ob_shash = space.hash_w(w_obj)
+    py_str.c_ob_sstate = rffi.cast(rffi.INT, 1) # SSTATE_INTERNED_MORTAL
     track_reference(space, py_obj, w_obj)
     return w_obj
 
@@ -169,12 +177,12 @@ def PyString_AsStringAndSize(space, ref, buffer, length):
         ref_str.c_buffer = rffi.str2charp(s)
     buffer[0] = ref_str.c_buffer
     if length:
-        length[0] = ref_str.c_size
+        length[0] = ref_str.c_ob_size
     else:
         i = 0
         while ref_str.c_buffer[i] != '\0':
             i += 1
-        if i != ref_str.c_size:
+        if i != ref_str.c_ob_size:
             raise OperationError(space.w_TypeError, space.wrap(
                 "expected string without null bytes"))
     return 0
@@ -183,7 +191,7 @@ def PyString_AsStringAndSize(space, ref, buffer, length):
 def PyString_Size(space, ref):
     if from_ref(space, rffi.cast(PyObject, ref.c_ob_type)) is space.w_str:
         ref = rffi.cast(PyStringObject, ref)
-        return ref.c_size
+        return ref.c_ob_size
     else:
         w_obj = from_ref(space, ref)
         return space.len_w(w_obj)
@@ -212,7 +220,7 @@ def _PyString_Resize(space, ref, newsize):
         ref[0] = lltype.nullptr(PyObject.TO)
         raise
     to_cp = newsize
-    oldsize = py_str.c_size
+    oldsize = py_str.c_ob_size
     if oldsize < newsize:
         to_cp = oldsize
     for i in range(to_cp):
@@ -236,15 +244,16 @@ def PyString_Concat(space, ref, w_newpart):
     if not ref[0]:
         return
 
-    if w_newpart is None or not PyString_Check(space, ref[0]) or \
-            not PyString_Check(space, w_newpart):
+    if w_newpart is None or not PyString_Check(space, ref[0]) or not \
+            (space.isinstance_w(w_newpart, space.w_str) or 
+             space.isinstance_w(w_newpart, space.w_unicode)):
         Py_DecRef(space, ref[0])
         ref[0] = lltype.nullptr(PyObject.TO)
         return
     w_str = from_ref(space, ref[0])
     w_newstr = space.add(w_str, w_newpart)
-    Py_DecRef(space, ref[0])
     ref[0] = make_ref(space, w_newstr)
+    Py_IncRef(space, ref[0])
 
 @cpython_api([PyObjectP, PyObject], lltype.Void)
 def PyString_ConcatAndDel(space, ref, newpart):

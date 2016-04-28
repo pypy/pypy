@@ -106,8 +106,12 @@ recommend that you use the cffi_ module to interface with C code.
 For information on which third party extensions work (or do not work)
 with PyPy see the `compatibility wiki`_.
 
+For more information about how we manage refcounting semamtics see 
+rawrefcount_
+
 .. _compatibility wiki: https://bitbucket.org/pypy/compatibility/wiki/Home
 .. _cffi: http://cffi.readthedocs.org/
+.. _rawrefcount: discussion/rawrefcount.html   
 
 
 On which platforms does PyPy run?

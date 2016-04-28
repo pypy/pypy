@@ -24,7 +24,13 @@ def PyNumber_Check(space, w_obj):
         space.float_w(w_obj)
         return 1
     except OperationError:
-        return 0
+        pass
+    try:
+        space.int_w(w_obj)
+        return 1
+    except OperationError:
+        pass
+    return 0
 
 @cpython_api([PyObject, PyObject], Py_ssize_t, error=-1)
 def PyNumber_AsSsize_t(space, w_obj, w_exc):

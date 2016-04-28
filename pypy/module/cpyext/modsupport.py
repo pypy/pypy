@@ -82,7 +82,7 @@ def convert_method_defs(space, dict_w, methods, w_type, w_self=None, name=None):
             method = methods[i]
             if not method.c_ml_name: break
 
-            methodname = rffi.charp2str(method.c_ml_name)
+            methodname = rffi.charp2str(rffi.cast(rffi.CCHARP, method.c_ml_name))
             flags = rffi.cast(lltype.Signed, method.c_ml_flags)
 
             if w_type is None:

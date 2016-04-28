@@ -27,8 +27,12 @@ class FakeEffectinfo(object):
     def __init__(self, extraeffect, oopspecindex, write_descrs_fields, write_descrs_arrays):
         self.extraeffect = extraeffect
         self.oopspecindex = oopspecindex
-        self.write_descrs_fields = write_descrs_fields
-        self.write_descrs_arrays = write_descrs_arrays
+        self._write_descrs_fields = write_descrs_fields
+        self._write_descrs_arrays = write_descrs_arrays
+        if len(write_descrs_arrays) == 1:
+            [self.single_write_descr_array] = write_descrs_arrays
+        else:
+            self.single_write_descr_array = None
 
     def has_random_effects(self):
         return self.extraeffect == self.EF_RANDOM_EFFECTS
@@ -37,14 +41,14 @@ class FakeCallDescr(object):
     def __init__(self, extraeffect, oopspecindex=None, write_descrs_fields=[], write_descrs_arrays=[]):
         self.extraeffect = extraeffect
         self.oopspecindex = oopspecindex
-        self.write_descrs_fields = write_descrs_fields
-        self.write_descrs_arrays = write_descrs_arrays
+        self.__write_descrs_fields = write_descrs_fields
+        self.__write_descrs_arrays = write_descrs_arrays
 
     def get_extra_info(self):
         return FakeEffectinfo(
             self.extraeffect, self.oopspecindex,
-            write_descrs_fields=self.write_descrs_fields,
-            write_descrs_arrays=self.write_descrs_arrays,
+            write_descrs_fields=self.__write_descrs_fields,
+            write_descrs_arrays=self.__write_descrs_arrays,
         )
 
 arraycopydescr1 = FakeCallDescr(FakeEffectinfo.EF_CANNOT_RAISE, FakeEffectinfo.OS_ARRAYCOPY, write_descrs_arrays=[descr1])

@@ -15,13 +15,23 @@ import pypy.module.__builtin__.operation as operation
 
 
 @cpython_api([Py_ssize_t], rffi.VOIDP)
-def PyObject_MALLOC(space, size):
+def PyObject_Malloc(space, size):
+    # returns non-zero-initialized memory, like CPython
     return lltype.malloc(rffi.VOIDP.TO, size,
-                         flavor='raw', zero=True,
+                         flavor='raw',
                          add_memory_pressure=True)
 
+@cpython_api([rffi.VOIDP, Py_ssize_t], rffi.VOIDP)
+def PyObject_Realloc(space, ptr, size):
+    if not lltype.cast_ptr_to_int(ptr):
+        return lltype.malloc(rffi.VOIDP.TO, size,
+                         flavor='raw',
+                         add_memory_pressure=True)
+    # XXX FIXME
+    return lltype.nullptr(rffi.VOIDP.TO)
+
 @cpython_api([rffi.VOIDP], lltype.Void)
-def PyObject_FREE(space, ptr):
+def PyObject_Free(space, ptr):
     lltype.free(ptr, flavor='raw')
 
 @cpython_api([PyTypeObjectPtr], PyObject)
@@ -42,12 +52,11 @@ def _PyObject_NewVar(space, type, itemcount):
         w_obj = PyObject_InitVar(space, py_objvar, type, itemcount)
     return py_obj
 
-@cpython_api([rffi.VOIDP], lltype.Void)
-def PyObject_Del(space, obj):
-    lltype.free(obj, flavor='raw')
-
 @cpython_api([PyObject], lltype.Void)
 def PyObject_dealloc(space, obj):
+    # This frees an object after its refcount dropped to zero, so we
+    # assert that it is really zero here.
+    assert obj.c_ob_refcnt == 0
     pto = obj.c_ob_type
     obj_voidp = rffi.cast(rffi.VOIDP, obj)
     generic_cpy_call(space, pto.c_tp_free, obj_voidp)
@@ -60,7 +69,7 @@ def _PyObject_GC_New(space, type):
 
 @cpython_api([rffi.VOIDP], lltype.Void)
 def PyObject_GC_Del(space, obj):
-    PyObject_Del(space, obj)
+    PyObject_Free(space, obj)
 
 @cpython_api([rffi.VOIDP], lltype.Void)
 def PyObject_GC_Track(space, op):
@@ -194,6 +203,7 @@ def PyObject_Init(space, obj, type):
     if not obj:
         PyErr_NoMemory(space)
     obj.c_ob_type = type
+    obj.c_ob_pypy_link = 0
     obj.c_ob_refcnt = 1
     return obj
 
@@ -232,6 +242,12 @@ def PyObject_Repr(space, w_obj):
     if w_obj is None:
         return space.wrap("<NULL>")
     return space.repr(w_obj)
+
+@cpython_api([PyObject, PyObject], PyObject)
+def PyObject_Format(space, w_obj, w_format_spec):
+    if w_format_spec is None:
+        w_format_spec = space.wrap('')
+    return space.call_method(w_obj, '__format__', w_format_spec)
 
 @cpython_api([PyObject], PyObject)
 def PyObject_Unicode(space, w_obj):
@@ -294,7 +310,7 @@ def PyObject_RichCompareBool(space, ref1, ref2, opid):
 
 @cpython_api([PyObject], PyObject)
 def PyObject_SelfIter(space, ref):
-    """Undocumented function, this is wat CPython does."""
+    """Undocumented function, this is what CPython does."""
     Py_IncRef(space, ref)
     return ref
 
@@ -387,6 +403,10 @@ def PyObject_Hash(space, w_obj):
     Compute and return the hash value of an object o.  On failure, return -1.
     This is the equivalent of the Python expression hash(o)."""
     return space.int_w(space.hash(w_obj))
+
+@cpython_api([rffi.DOUBLE], rffi.LONG, error=-1)
+def _Py_HashDouble(space, v):
+    return space.int_w(space.hash(space.wrap(v)))
 
 @cpython_api([PyObject], lltype.Signed, error=-1)
 def PyObject_HashNotImplemented(space, o):

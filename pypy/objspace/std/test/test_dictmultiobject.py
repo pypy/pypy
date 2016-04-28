@@ -1113,11 +1113,9 @@ class FakeSpace:
 class Config:
     class objspace:
         class std:
-            withsmalldicts = False
             withcelldict = False
-            withmethodcache = False
-            withidentitydict = False
-            withmapdict = False
+            methodcachesizeexp = 11
+            withmethodcachecounter = False
 
 FakeSpace.config = Config()
 

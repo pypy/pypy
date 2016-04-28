@@ -277,6 +277,7 @@ class WarmRunnerDesc(object):
         for vinfo in vinfos:
             if vinfo is not None:
                 vinfo.finish()
+        self.metainterp_sd.finish_setup_descrs()
         if self.cpu.translate_support_code:
             self.annhelper.finish()
 

@@ -211,6 +211,12 @@ def always_inline(func):
     func._always_inline_ = True
     return func
 
+def dont_inline(func):
+    """ mark the function as never-to-be-inlined by the RPython optimizations
+    (not the JIT!), no matter its size."""
+    func._dont_inline_ = True
+    return func
+
 
 # ____________________________________________________________
 

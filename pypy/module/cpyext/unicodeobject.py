@@ -8,7 +8,7 @@ from pypy.module.cpyext.api import (
 from pypy.module.cpyext.pyerrors import PyErr_BadArgument
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, Py_DecRef, make_ref, from_ref, track_reference,
-    make_typedescr, get_typedescr)
+    make_typedescr, get_typedescr, as_pyobj)
 from pypy.module.cpyext.bytesobject import PyString_Check
 from pypy.module.sys.interp_encoding import setdefaultencoding
 from pypy.module._codecs.interp_codecs import CodecState
@@ -22,7 +22,7 @@ import sys
 PyUnicodeObjectStruct = lltype.ForwardReference()
 PyUnicodeObject = lltype.Ptr(PyUnicodeObjectStruct)
 PyUnicodeObjectFields = (PyObjectFields +
-    (("str", rffi.CWCHARP), ("size", Py_ssize_t),
+    (("str", rffi.CWCHARP), ("length", Py_ssize_t),
      ("hash", rffi.LONG), ("defenc", PyObject)))
 cpython_struct("PyUnicodeObject", PyUnicodeObjectFields, PyUnicodeObjectStruct)
 
@@ -54,7 +54,7 @@ def new_empty_unicode(space, length):
     py_uni = rffi.cast(PyUnicodeObject, py_obj)
 
     buflen = length + 1
-    py_uni.c_size = length
+    py_uni.c_length = length
     py_uni.c_str = lltype.malloc(rffi.CWCHARP.TO, buflen,
                                  flavor='raw', zero=True,
                                  add_memory_pressure=True)
@@ -65,7 +65,7 @@ def new_empty_unicode(space, length):
 def unicode_attach(space, py_obj, w_obj):
     "Fills a newly allocated PyUnicodeObject with a unicode string"
     py_unicode = rffi.cast(PyUnicodeObject, py_obj)
-    py_unicode.c_size = len(space.unicode_w(w_obj))
+    py_unicode.c_length = len(space.unicode_w(w_obj))
     py_unicode.c_str = lltype.nullptr(rffi.CWCHARP.TO)
     py_unicode.c_hash = space.hash_w(w_obj)
     py_unicode.c_defenc = lltype.nullptr(PyObject.TO)
@@ -76,7 +76,7 @@ def unicode_realize(space, py_obj):
     be modified after this call.
     """
     py_uni = rffi.cast(PyUnicodeObject, py_obj)
-    s = rffi.wcharpsize2unicode(py_uni.c_str, py_uni.c_size)
+    s = rffi.wcharpsize2unicode(py_uni.c_str, py_uni.c_length)
     w_obj = space.wrap(s)
     py_uni.c_hash = space.hash_w(w_obj)
     track_reference(space, py_obj, w_obj)
@@ -85,11 +85,10 @@ def unicode_realize(space, py_obj):
 @cpython_api([PyObject], lltype.Void, header=None)
 def unicode_dealloc(space, py_obj):
     py_unicode = rffi.cast(PyUnicodeObject, py_obj)
+    Py_DecRef(space, py_unicode.c_defenc)
     if py_unicode.c_str:
         lltype.free(py_unicode.c_str, flavor="raw")
     from pypy.module.cpyext.object import PyObject_dealloc
-    if py_unicode.c_defenc:
-        PyObject_dealloc(space, py_unicode.c_defenc)
     PyObject_dealloc(space, py_obj)
 
 @cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
@@ -235,7 +234,7 @@ def PyUnicode_AsUnicode(space, ref):
 def PyUnicode_GetSize(space, ref):
     if from_ref(space, rffi.cast(PyObject, ref.c_ob_type)) is space.w_unicode:
         ref = rffi.cast(PyUnicodeObject, ref)
-        return ref.c_size
+        return ref.c_length
     else:
         w_obj = from_ref(space, ref)
         return space.len_w(w_obj)
@@ -250,11 +249,11 @@ def PyUnicode_AsWideChar(space, ref, buf, size):
     to make sure that the wchar_t string is 0-terminated in case this is
     required by the application."""
     c_str = PyUnicode_AS_UNICODE(space, rffi.cast(PyObject, ref))
-    c_size = ref.c_size
+    c_length = ref.c_length
 
     # If possible, try to copy the 0-termination as well
-    if size > c_size:
-        size = c_size + 1
+    if size > c_length:
+        size = c_length + 1
 
 
     i = 0
@@ -262,8 +261,8 @@ def PyUnicode_AsWideChar(space, ref, buf, size):
         buf[i] = c_str[i]
         i += 1
 
-    if size > c_size:
-        return c_size
+    if size > c_length:
+        return c_length
     else:
         return size
 
@@ -469,7 +468,7 @@ def PyUnicode_Resize(space, ref, newsize):
         ref[0] = lltype.nullptr(PyObject.TO)
         raise
     to_cp = newsize
-    oldsize = py_uni.c_size
+    oldsize = py_uni.c_length
     if oldsize < newsize:
         to_cp = oldsize
     for i in range(to_cp):
@@ -671,6 +670,11 @@ def PyUnicode_Compare(space, w_left, w_right):
     """Compare two strings and return -1, 0, 1 for less than, equal, and greater
     than, respectively."""
     return space.int_w(space.cmp(w_left, w_right))
+
+@cpython_api([PyObject, PyObject], PyObject)
+def PyUnicode_Concat(space, w_left, w_right):
+    """Concat two strings giving a new Unicode string."""
+    return space.call_method(w_left, '__add__', w_right)
 
 @cpython_api([rffi.CWCHARP, rffi.CWCHARP, Py_ssize_t], lltype.Void)
 def Py_UNICODE_COPY(space, target, source, length):

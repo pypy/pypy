@@ -21,10 +21,10 @@ PyCFunctionKwArgs = lltype.Ptr(lltype.FuncType([PyObject, PyObject, PyObject],
 
 PyMethodDef = cpython_struct(
     'PyMethodDef',
-    [('ml_name', rffi.CCHARP),
+    [('ml_name', rffi.CONST_CCHARP),
      ('ml_meth', PyCFunction_typedef),
      ('ml_flags', rffi.INT_real),
-     ('ml_doc', rffi.CCHARP),
+     ('ml_doc', rffi.CONST_CCHARP),
      ])
 
 PyCFunctionObjectStruct = cpython_struct(
@@ -62,7 +62,7 @@ def cfunction_dealloc(space, py_obj):
 class W_PyCFunctionObject(W_Root):
     def __init__(self, space, ml, w_self, w_module=None):
         self.ml = ml
-        self.name = rffi.charp2str(self.ml.c_ml_name)
+        self.name = rffi.charp2str(rffi.cast(rffi.CCHARP,self.ml.c_ml_name))
         self.w_self = w_self
         self.w_module = w_module
 
@@ -108,7 +108,7 @@ class W_PyCFunctionObject(W_Root):
     def get_doc(self, space):
         doc = self.ml.c_ml_doc
         if doc:
-            return space.wrap(rffi.charp2str(doc))
+            return space.wrap(rffi.charp2str(rffi.cast(rffi.CCHARP,doc)))
         else:
             return space.w_None
 
@@ -118,7 +118,7 @@ class W_PyCMethodObject(W_PyCFunctionObject):
     def __init__(self, space, ml, w_type):
         self.space = space
         self.ml = ml
-        self.name = rffi.charp2str(ml.c_ml_name)
+        self.name = rffi.charp2str(rffi.cast(rffi.CCHARP, ml.c_ml_name))
         self.w_objclass = w_type
 
     def __repr__(self):
@@ -137,7 +137,7 @@ class W_PyCClassMethodObject(W_PyCFunctionObject):
     def __init__(self, space, ml, w_type):
         self.space = space
         self.ml = ml
-        self.name = rffi.charp2str(ml.c_ml_name)
+        self.name = rffi.charp2str(rffi.cast(rffi.CCHARP, ml.c_ml_name))
         self.w_objclass = w_type
 
     def __repr__(self):
@@ -276,7 +276,12 @@ def PyCFunction_NewEx(space, ml, w_self, w_name):
 
 @cpython_api([PyObject], PyCFunction_typedef)
 def PyCFunction_GetFunction(space, w_obj):
-    cfunction = space.interp_w(W_PyCFunctionObject, w_obj)
+    try:
+        cfunction = space.interp_w(W_PyCFunctionObject, w_obj)
+    except OperationError, e:
+        if e.match(space, space.w_TypeError):
+            raise oefmt(space.w_SystemError, "bad argument to internal function")
+        raise
     return cfunction.ml.c_ml_meth
 
 @cpython_api([PyObject], PyObject)
@@ -323,8 +328,8 @@ def Py_FindMethod(space, table, w_obj, name_ptr):
                 break
             if name == "__methods__":
                 method_list_w.append(
-                    space.wrap(rffi.charp2str(method.c_ml_name)))
-            elif rffi.charp2str(method.c_ml_name) == name: # XXX expensive copy
+                    space.wrap(rffi.charp2str(rffi.cast(rffi.CCHARP, method.c_ml_name))))
+            elif rffi.charp2str(rffi.cast(rffi.CCHARP, method.c_ml_name)) == name: # XXX expensive copy
                 return space.wrap(W_PyCFunctionObject(space, method, w_obj))
     if name == "__methods__":
         return space.newlist(method_list_w)

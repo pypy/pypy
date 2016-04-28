@@ -387,6 +387,14 @@ Miscellaneous
   wrappers.  On PyPy we can't tell the difference, so
   ``ismethod([].__add__) == ismethod(list.__add__) == True``.
 
+* in CPython, the built-in types have attributes that can be
+  implemented in various ways.  Depending on the way, if you try to
+  write to (or delete) a read-only (or undeletable) attribute, you get
+  either a ``TypeError`` or an ``AttributeError``.  PyPy tries to
+  strike some middle ground between full consistency and full
+  compatibility here.  This means that a few corner cases don't raise
+  the same exception, like ``del (lambda:None).__closure__``.
+
 * in pure Python, if you write ``class A(object): def f(self): pass``
   and have a subclass ``B`` which doesn't override ``f()``, then
   ``B.f(x)`` still checks that ``x`` is an instance of ``B``.  In

@@ -1,9 +1,11 @@
+# encoding: utf-8
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.bytesobject import new_empty_str, PyStringObject
 from pypy.module.cpyext.api import PyObjectP, PyObject, Py_ssize_tP
 from pypy.module.cpyext.pyobject import Py_DecRef, from_ref, make_ref
+from pypy.module.cpyext.typeobjectdefs import PyTypeObjectPtr
 
 import py
 import sys
@@ -24,12 +26,23 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
              """
                  PyObject* s = PyString_FromString("Hello world");
                  int result = 0;
+                 size_t expected_size;
 
                  if(PyString_Size(s) == 11) {
                      result = 1;
                  }
-                 if(s->ob_type->tp_basicsize != sizeof(void*)*5)
+                 #ifdef PYPY_VERSION
+                    expected_size = sizeof(void*)*7;
+                 #elif defined Py_DEBUG
+                    expected_size = 53;
+                 #else
+                    expected_size = 37;
+                 #endif
+                 if(s->ob_type->tp_basicsize != expected_size)
+                 {
+                     printf("tp_basicsize==%ld\\n", s->ob_type->tp_basicsize); 
                      result = 0;
+                 }
                  Py_DECREF(s);
                  return PyBool_FromLong(result);
              """),
@@ -44,7 +57,7 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
              ("test_is_string", "METH_VARARGS",
              """
                 return PyBool_FromLong(PyString_Check(PyTuple_GetItem(args, 0)));
-             """)])
+             """)], prologue='#include <stdlib.h>')
         assert module.get_hello1() == 'Hello world'
         assert module.get_hello2() == 'Hello world'
         assert module.test_Size()
@@ -71,6 +84,7 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
                  c = PyString_AsString(s);
                  c[0] = 'a';
                  c[1] = 'b';
+                 c[2] = 0;
                  c[3] = 'c';
                  return s;
              """),
@@ -79,7 +93,31 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
         assert len(s) == 4
         assert s == 'ab\x00c'
 
-
+    def test_string_tp_alloc(self):
+        module = self.import_extension('foo', [
+            ("tpalloc", "METH_NOARGS",
+             """
+                PyObject *base;
+                PyTypeObject * type;
+                PyStringObject *obj;
+                char * p_str;
+                base = PyString_FromString("test");
+                if (PyString_GET_SIZE(base) != 4)
+                    return PyLong_FromLong(-PyString_GET_SIZE(base));
+                type = base->ob_type;
+                if (type->tp_itemsize != 1)
+                    return PyLong_FromLong(type->tp_itemsize);
+                obj = (PyStringObject*)type->tp_alloc(type, 10);
+                if (PyString_GET_SIZE(obj) != 10)
+                    return PyLong_FromLong(PyString_GET_SIZE(obj));
+                /* cannot work, there is only RO access
+                memcpy(PyString_AS_STRING(obj), "works", 6); */
+                Py_INCREF(obj);
+                return (PyObject*)obj;
+             """),
+            ])
+        s = module.tpalloc()
+        assert s == '\x00' * 10
 
     def test_AsString(self):
         module = self.import_extension('foo', [
@@ -95,15 +133,29 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
         s = module.getstring()
         assert s == 'test'
 
-    def test_py_string_as_string(self):
+    def test_manipulations(self):
         module = self.import_extension('foo', [
             ("string_as_string", "METH_VARARGS",
              '''
              return PyString_FromStringAndSize(PyString_AsString(
                        PyTuple_GetItem(args, 0)), 4);
              '''
-            )])
+            ),
+            ("concat", "METH_VARARGS",
+             """
+                PyObject ** v;
+                PyObject * left = PyTuple_GetItem(args, 0);
+                v = &left;
+                PyString_Concat(v, PyTuple_GetItem(args, 1));
+                return *v;
+             """)])
         assert module.string_as_string("huheduwe") == "huhe"
+        ret = module.concat('abc', 'def')
+        assert ret == 'abcdef'
+        ret = module.concat('abc', u'def')
+        assert not isinstance(ret, str)
+        assert isinstance(ret, unicode)
+        assert ret == 'abcdef'
 
     def test_py_string_as_string_None(self):
         module = self.import_extension('foo', [
@@ -223,12 +275,44 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
                  PyObject *s = args;
                  Py_INCREF(s);
                  PyString_InternInPlace(&s);
+                 if (((PyStringObject*)s)->ob_sstate == SSTATE_NOT_INTERNED)
+                 {
+                    Py_DECREF(s);
+                    s = PyString_FromString("interned error");
+                 }
                  return s;
              '''
              )
             ])
         # This does not test much, but at least the refcounts are checked.
         assert module.test_intern_inplace('s') == 's'
+
+    def test_hash_and_state(self):
+        module = self.import_extension('foo', [
+            ("test_hash", "METH_VARARGS",
+             '''
+                PyObject* obj = (PyTuple_GetItem(args, 0));
+                long hash = ((PyStringObject*)obj)->ob_shash;
+                return PyLong_FromLong(hash);  
+             '''
+             ),
+            ("test_sstate", "METH_NOARGS",
+             '''
+                PyObject *s = PyString_FromString("xyz");
+                int sstate = ((PyStringObject*)s)->ob_sstate;
+                /*printf("sstate now %d\\n", sstate);*/
+                PyString_InternInPlace(&s);
+                sstate = ((PyStringObject*)s)->ob_sstate;
+                /*printf("sstate now %d\\n", sstate);*/
+                Py_DECREF(s);
+                return PyBool_FromLong(1);
+             '''),
+            ], prologue='#include <stdlib.h>')
+        res = module.test_hash("xyz")
+        assert res == hash('xyz')
+        # doesn't really test, but if printf is enabled will prove sstate
+        assert module.test_sstate()
+
 
 class TestString(BaseApiTest):
     def test_string_resize(self, space, api):
@@ -240,14 +324,14 @@ class TestString(BaseApiTest):
         ar[0] = rffi.cast(PyObject, py_str)
         api._PyString_Resize(ar, 3)
         py_str = rffi.cast(PyStringObject, ar[0])
-        assert py_str.c_size == 3
+        assert py_str.c_ob_size == 3
         assert py_str.c_buffer[1] == 'b'
         assert py_str.c_buffer[3] == '\x00'
         # the same for growing
         ar[0] = rffi.cast(PyObject, py_str)
         api._PyString_Resize(ar, 10)
         py_str = rffi.cast(PyStringObject, ar[0])
-        assert py_str.c_size == 10
+        assert py_str.c_ob_size == 10
         assert py_str.c_buffer[1] == 'b'
         assert py_str.c_buffer[10] == '\x00'
         Py_DecRef(space, ar[0])
@@ -368,3 +452,4 @@ class TestString(BaseApiTest):
         w_seq = space.wrap(['a', 'b'])
         w_joined = api._PyString_Join(w_sep, w_seq)
         assert space.unwrap(w_joined) == 'a<sep>b'
+

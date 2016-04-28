@@ -1,5 +1,6 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import unwrap_spec
+from pypy.module.__builtin__.interp_classobj import W_InstanceObject
 
 
 def index(space, w_a):
@@ -247,3 +248,12 @@ def irepeat(space, w_obj1, w_obj2):
 @unwrap_spec(default=int)
 def _length_hint(space, w_iterable, default):
     return space.wrap(space.length_hint(w_iterable, default))
+
+
+def isMappingType(space, w_obj):
+    'isMappingType(a) -- Return True if a has a mapping type, False otherwise.'
+    return space.wrap(space.ismapping_w(w_obj))
+
+def isSequenceType(space, w_obj):
+    'isSequenceType(a) -- Return True if a has a sequence type, False otherwise.'
+    return space.wrap(space.issequence_w(w_obj))
