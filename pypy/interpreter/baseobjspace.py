@@ -1171,8 +1171,6 @@ class ObjSpace(object):
         return self.wrap(self.lookup(w_obj, "__call__") is not None)
 
     def issequence_w(self, w_obj):
-        if self.is_oldstyle_instance(w_obj):
-            return (self.findattr(w_obj, self.wrap('__getitem__')) is not None)
         flag = self.type(w_obj).flag_map_or_seq
         if flag == 'M':
             return False
@@ -1182,8 +1180,6 @@ class ObjSpace(object):
             return (self.lookup(w_obj, '__getitem__') is not None)
 
     def ismapping_w(self, w_obj):
-        if self.is_oldstyle_instance(w_obj):
-            return (self.findattr(w_obj, self.wrap('__getitem__')) is not None)
         flag = self.type(w_obj).flag_map_or_seq
         if flag == 'M':
             return True

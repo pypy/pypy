@@ -148,7 +148,7 @@ def memberdescr_attach(space, py_obj, w_obj):
     py_memberdescr.c_d_member = w_obj.member
 
 def memberdescr_realize(space, obj):
-    # XXX NOT TESTED When is this ever called? 
+    # XXX NOT TESTED When is this ever called?
     member = rffi.cast(lltype.Ptr(PyMemberDef), obj)
     w_type = from_ref(space, rffi.cast(PyObject, obj.c_ob_type))
     w_obj = space.allocate_instance(W_MemberDescr, w_type)
@@ -405,8 +405,7 @@ class W_PyCTypeObject(W_TypeObject):
         # if a sequence or a mapping, then set the flag to force it
         if pto.c_tp_as_sequence and pto.c_tp_as_sequence.c_sq_item:
             self.flag_map_or_seq = 'S'
-        elif (pto.c_tp_as_mapping and pto.c_tp_as_mapping.c_mp_subscript and
-              not (pto.c_tp_as_sequence and pto.c_tp_as_sequence.c_sq_slice)):
+        elif pto.c_tp_as_mapping and pto.c_tp_as_mapping.c_mp_subscript:
             self.flag_map_or_seq = 'M'
         if pto.c_tp_doc:
             self.w_doc = space.wrap(rffi.charp2str(pto.c_tp_doc))
@@ -627,7 +626,7 @@ def _type_realize(space, py_obj):
 
     if py_type.c_ob_type:
         w_metatype = from_ref(space, rffi.cast(PyObject, py_type.c_ob_type))
-    else: 
+    else:
         # Somehow the tp_base type is created with no ob_type, notably
         # PyString_Type and PyBaseString_Type
         # While this is a hack, cpython does it as well.
@@ -642,10 +641,10 @@ def _type_realize(space, py_obj):
     # inheriting tp_as_* slots
     base = py_type.c_tp_base
     if base:
-        if not py_type.c_tp_as_number: py_type.c_tp_as_number = base.c_tp_as_number 
-        if not py_type.c_tp_as_sequence: py_type.c_tp_as_sequence = base.c_tp_as_sequence 
-        if not py_type.c_tp_as_mapping: py_type.c_tp_as_mapping = base.c_tp_as_mapping 
-        if not py_type.c_tp_as_buffer: py_type.c_tp_as_buffer = base.c_tp_as_buffer 
+        if not py_type.c_tp_as_number: py_type.c_tp_as_number = base.c_tp_as_number
+        if not py_type.c_tp_as_sequence: py_type.c_tp_as_sequence = base.c_tp_as_sequence
+        if not py_type.c_tp_as_mapping: py_type.c_tp_as_mapping = base.c_tp_as_mapping
+        if not py_type.c_tp_as_buffer: py_type.c_tp_as_buffer = base.c_tp_as_buffer
 
     return w_obj
 
