@@ -417,11 +417,6 @@ class PlainAttribute(AbstractAttribute):
     def __repr__(self):
         return "<PlainAttribute %s %s %s %r>" % (self.name, self.index, self.storageindex, self.back)
 
-def _become(w_obj, new_obj):
-    # this is like the _become method, really, but we cannot use that due to
-    # RPython reasons
-    w_obj._set_mapdict_storage_and_map(new_obj.storage, new_obj.map)
-
 class MapAttrCache(object):
     def __init__(self, space):
         SIZE = 1 << space.config.objspace.std.methodcachesizeexp
@@ -464,9 +459,6 @@ class BaseUserClassMapdict:
     # _____________________________________________
     # methods needed for mapdict
 
-    def _become(self, new_obj):
-        self._set_mapdict_storage_and_map(new_obj.storage, new_obj.map)
-
     def _get_mapdict_map(self):
         return jit.promote(self.map)
     def _set_mapdict_map(self, map):
@@ -482,7 +474,7 @@ class BaseUserClassMapdict:
 
     def setclass(self, space, w_cls):
         new_obj = self._get_mapdict_map().set_terminator(self, w_cls.terminator)
-        self._become(new_obj)
+        self._set_mapdict_storage_and_map(new_obj.storage, new_obj.map)
 
     def user_setup(self, space, w_subtype):
         from pypy.module.__builtin__.interp_classobj import W_InstanceObject
@@ -508,7 +500,7 @@ class BaseUserClassMapdict:
         new_obj = self._get_mapdict_map().delete(self, "slot", index)
         if new_obj is None:
             return False
-        self._become(new_obj)
+        self._set_mapdict_storage_and_map(new_obj.storage, new_obj.map)
         return True
 
 
@@ -549,7 +541,7 @@ class MapdictDictSupport(object):
         new_obj = self._get_mapdict_map().delete(self, attrname, DICT)
         if new_obj is None:
             return False
-        self._become(new_obj)
+        self._set_mapdict_storage_and_map(new_obj.storage, new_obj.map)
         return True
 
     def getdict(self, space):
@@ -811,7 +803,7 @@ class MapDictStrategy(DictStrategy):
     def clear(self, w_dict):
         w_obj = self.unerase(w_dict.dstorage)
         new_obj = w_obj._get_mapdict_map().remove_dict_entries(w_obj)
-        _become(w_obj, new_obj)
+        w_obj._set_mapdict_storage_and_map(new_obj.storage, new_obj.map)
 
     def popitem(self, w_dict):
         curr = self.unerase(w_dict.dstorage)._get_mapdict_map().search(DICT)
@@ -836,7 +828,7 @@ class MapDictStrategy(DictStrategy):
 def materialize_r_dict(space, obj, dict_w):
     map = obj._get_mapdict_map()
     new_obj = map.materialize_r_dict(space, obj, dict_w)
-    _become(obj, new_obj)
+    obj._set_mapdict_storage_and_map(new_obj.storage, new_obj.map)
 
 class MapDictIteratorKeys(BaseKeyIterator):
     def __init__(self, space, strategy, dictimplementation):
