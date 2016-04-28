@@ -190,7 +190,6 @@ class W_TypeObject(W_Root):
         # if the typedef has a dict, then the rpython-class does all the dict
         # management, which means from the point of view of mapdict there is no
         # dict.
-        from pypy.module.__builtin__.interp_classobj import W_InstanceObject
         typedef = w_self.layout.typedef
         if (w_self.hasdict and not typedef.hasdict):
             w_self.terminator = DictTerminator(space, w_self)
