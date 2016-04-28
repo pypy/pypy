@@ -277,7 +277,7 @@ class Terminator(AbstractAttribute):
     def copy(self, obj):
         result = Object()
         result.space = self.space
-        result._init_empty(self)
+        result._mapdict_init_empty(self)
         return result
 
     def length(self):
@@ -286,7 +286,7 @@ class Terminator(AbstractAttribute):
     def set_terminator(self, obj, terminator):
         result = Object()
         result.space = self.space
-        result._init_empty(terminator)
+        result._mapdict_init_empty(terminator)
         return result
 
     def remove_dict_entries(self, obj):
@@ -304,7 +304,7 @@ class DictTerminator(Terminator):
     def materialize_r_dict(self, space, obj, dict_w):
         result = Object()
         result.space = space
-        result._init_empty(self.devolved_dict_terminator)
+        result._mapdict_init_empty(self.devolved_dict_terminator)
         return result
 
 
@@ -452,7 +452,7 @@ class BaseUserClassMapdict:
     # everything that's needed to use mapdict for a user subclass at all.
     # This immediately makes slots possible.
 
-    # assumes presence of _init_empty, _mapdict_read_storage,
+    # assumes presence of _mapdict_init_empty, _mapdict_read_storage,
     # _mapdict_write_storage, _mapdict_storage_length,
     # _set_mapdict_storage_and_map
 
@@ -482,7 +482,7 @@ class BaseUserClassMapdict:
         assert (not self.typedef.hasdict or
                 isinstance(w_subtype.terminator, NoDictTerminator) or
                 self.typedef is W_InstanceObject.typedef)
-        self._init_empty(w_subtype.terminator)
+        self._mapdict_init_empty(w_subtype.terminator)
 
 
     # methods needed for slots
@@ -591,7 +591,7 @@ def _obj_setdict(self, space, w_dict):
     assert flag
 
 class MapdictStorageMixin(object):
-    def _init_empty(self, map):
+    def _mapdict_init_empty(self, map):
         from rpython.rlib.debug import make_sure_not_resized
         self.map = map
         self.storage = make_sure_not_resized([None] * map.size_estimate())
@@ -635,7 +635,7 @@ def _make_storage_mixin_size_n(n=SUBCLASSES_NUM_FIELDS):
     rangenmin1 = unroll.unrolling_iterable(range(nmin1))
     valnmin1 = "_value%s" % nmin1
     class subcls(object):
-        def _init_empty(self, map):
+        def _mapdict_init_empty(self, map):
             for i in rangenmin1:
                 setattr(self, "_value%s" % i, None)
             setattr(self, valnmin1, erase_item(None))
@@ -723,7 +723,7 @@ class MapDictStrategy(DictStrategy):
     def get_empty_storage(self):
         w_result = Object()
         terminator = self.space.fromcache(get_terminator_for_dicts)
-        w_result._init_empty(terminator)
+        w_result._mapdict_init_empty(terminator)
         return self.erase(w_result)
 
     def switch_to_object_strategy(self, w_dict):
