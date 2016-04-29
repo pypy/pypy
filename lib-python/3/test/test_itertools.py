@@ -1204,6 +1204,7 @@ class TestBasicOps(unittest.TestCase):
         p = proxy(a)
         self.assertEqual(getattr(p, '__class__'), type(b))
         del a
+        support.gc_collect()
         self.assertRaises(ReferenceError, getattr, p, '__class__')
 
         ans = list('abc')

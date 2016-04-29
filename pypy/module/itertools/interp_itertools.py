@@ -318,6 +318,7 @@ class W_ISlice(W_Root):
     def __init__(self, space, w_iterable, w_startstop, args_w):
         self.iterable = space.iter(w_iterable)
         self.space = space
+        self.exhausted = False
 
         num_args = len(args_w)
 
@@ -326,7 +327,7 @@ class W_ISlice(W_Root):
             w_stop = w_startstop
         elif num_args <= 2:
             if space.is_w(w_startstop, space.w_None):
-                start = 0
+                start = -1
             else:
                 start = self.arg_int_w(w_startstop, 0,
                  "Indicies for islice() must be None or non-negative integers")
@@ -383,24 +384,24 @@ class W_ISlice(W_Root):
                                 # has no effect any more
                 if stop > 0:
                     self._ignore_items(stop)
-                self.iterable = None
+                self.exhausted = True
                 raise OperationError(self.space.w_StopIteration,
                                      self.space.w_None)
             self.stop = stop - (ignore + 1)
         if ignore > 0:
             self._ignore_items(ignore)
-        if self.iterable is None:
+        if self.exhausted:
             raise OperationError(self.space.w_StopIteration, self.space.w_None)
         try:
             return self.space.next(self.iterable)
         except OperationError as e:
             if e.match(self.space, self.space.w_StopIteration):
-                self.iterable = None
+                self.exhausted = True
             raise
 
     def _ignore_items(self, num):
         w_iterator = self.iterable
-        if w_iterator is None:
+        if self.exhausted:
             raise OperationError(self.space.w_StopIteration, self.space.w_None)
 
         tp = self.space.type(w_iterator)
@@ -413,18 +414,28 @@ class W_ISlice(W_Root):
                 self.space.next(w_iterator)
             except OperationError as e:
                 if e.match(self.space, self.space.w_StopIteration):
-                    self.iterable = None
+                    self.exhausted = True
                 raise
             num -= 1
             if num <= 0:
                 break
 
     def descr_reduce(self, space):
+        start = self.start
+        stop = self.stop
+        if start == -1:
+            w_start = space.w_None
+        else:
+            w_start = space.wrap(start)
+        if stop == -1:
+            w_stop = space.w_None
+        else:
+            w_stop = space.wrap(stop)
         return space.newtuple([
             space.type(self),
             space.newtuple([self.iterable,
-                            space.wrap(self.start),
-                            space.wrap(self.stop),
+                            w_start,
+                            w_stop,
                             space.wrap(self.ignore + 1)]),
         ])
 
@@ -809,53 +820,130 @@ def tee(space, w_iterable, n=2):
         raise OperationError(space.w_ValueError, space.wrap("n must be >= 0"))
 
     if isinstance(w_iterable, W_TeeIterable):     # optimization only
-        chained_list = w_iterable.chained_list
+        w_chained_list = w_iterable.w_chained_list
         w_iterator = w_iterable.w_iterator
         iterators_w = [w_iterable] * n
         for i in range(1, n):
             iterators_w[i] = space.wrap(W_TeeIterable(space, w_iterator,
-                                                      chained_list))
+                                                      w_chained_list))
     else:
         w_iterator = space.iter(w_iterable)
-        chained_list = TeeChainedListNode()
+        w_chained_list = W_TeeChainedListNode(space)
         iterators_w = [space.wrap(
-                           W_TeeIterable(space, w_iterator, chained_list))
+                           W_TeeIterable(space, w_iterator, w_chained_list))
                        for x in range(n)]
     return space.newtuple(iterators_w)
 
-class TeeChainedListNode(object):
-    w_obj = None
+class W_TeeChainedListNode(W_Root):
+    def __init__(self, space):
+        self.space = space
+        self.w_next = None
+        self.w_obj = None
+    
+    def reduce_w(self):
+        list_w = []
+        node = self
+        while node is not None:
+            if node.w_obj is not None:
+                list_w.append(node.w_obj)
+                node = node.w_next
+            else:
+                break
+        space = self.space
+        if list_w:
+            return self.space.newtuple([space.type(self),
+                                        space.newtuple([]),
+                                        space.newtuple([space.newlist(list_w)])
+                                       ])
+        else:
+            return self.space.newtuple([space.type(self),
+                                        space.newtuple([])])
 
+    def descr_setstate(self, space, w_state):
+        state = space.unpackiterable(w_state)
+        if len(state) != 1:
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("invalid arguments"))
+        obj_list_w = space.unpackiterable(state[0])
+        node = self
+        for w_obj in obj_list_w:
+            node.w_obj = w_obj
+            node.w_next = W_TeeChainedListNode(self.space)
+            node = node.w_next
+
+def W_TeeChainedListNode___new__(space, w_subtype):
+    r = space.allocate_instance(W_TeeChainedListNode, w_subtype)
+    r.__init__(space)
+    return space.wrap(r)
+
+W_TeeChainedListNode.typedef = TypeDef(
+    'itertools._tee_dataobject',
+    __new__ = interp2app(W_TeeChainedListNode___new__),
+    __weakref__ = make_weakref_descr(W_TeeChainedListNode),
+    __reduce__ = interp2app(W_TeeChainedListNode.reduce_w),
+    __setstate__ = interp2app(W_TeeChainedListNode.descr_setstate)
+)
+
+W_TeeChainedListNode.typedef.acceptable_as_base_class = False
 
 class W_TeeIterable(W_Root):
-    def __init__(self, space, w_iterator, chained_list):
+    def __init__(self, space, w_iterator, w_chained_list=None):
         self.space = space
         self.w_iterator = w_iterator
-        assert chained_list is not None
-        self.chained_list = chained_list
+        self.w_chained_list = w_chained_list
 
     def iter_w(self):
         return self.space.wrap(self)
 
     def next_w(self):
-        chained_list = self.chained_list
-        w_obj = chained_list.w_obj
+        w_chained_list = self.w_chained_list
+        if w_chained_list is None:
+            raise OperationError(self.space.w_StopIteration, self.space.w_None)
+        w_obj = w_chained_list.w_obj
         if w_obj is None:
-            w_obj = self.space.next(self.w_iterator)
-            chained_list.next = TeeChainedListNode()
-            chained_list.w_obj = w_obj
-        self.chained_list = chained_list.next
+            try:
+                w_obj = self.space.next(self.w_iterator)
+            except OperationError, e:
+                if e.match(self.space, self.space.w_StopIteration):
+                    self.w_chained_list = None
+                raise
+            w_chained_list.w_next = W_TeeChainedListNode(self.space)
+            w_chained_list.w_obj = w_obj
+        self.w_chained_list = w_chained_list.w_next
         return w_obj
 
+    def reduce_w(self):
+        return self.space.newtuple([self.space.gettypefor(W_TeeIterable),
+                                    self.space.newtuple([self.space.newtuple([])]),
+                                    self.space.newtuple([
+                                        self.w_iterator,
+                                        self.w_chained_list])
+                                    ]) 
+    def setstate_w(self, w_state):
+        state = self.space.unpackiterable(w_state)
+        num_args = len(state)
+        if num_args != 2:
+            raise oefmt(self.space.w_TypeError,
+                        "function takes exactly 2 arguments (%d given)",
+                        num_args)
+        w_iterator, w_chained_list = state
+        if not isinstance(w_chained_list, W_TeeChainedListNode):
+            raise oefmt(self.space.w_TypeError,
+                        "must be itertools._tee_dataobject, not %s",
+                        self.space.type(w_chained_list).name)
+
+        self.w_iterator = w_iterator
+        self.w_chained_list = w_chained_list
+
 def W_TeeIterable___new__(space, w_subtype, w_iterable):
-    # Obscure and undocumented function.  PyPy only supports w_iterable
-    # being a W_TeeIterable, because the case where it is a general
-    # iterable is useless and confusing as far as I can tell (as the
-    # semantics are then slightly different; see the XXX in lib-python's
-    # test_itertools).
-    myiter = space.interp_w(W_TeeIterable, w_iterable)
-    return space.wrap(W_TeeIterable(space, myiter.w_iterator,
-                                           myiter.chained_list))
+    if isinstance(w_iterable, W_TeeIterable):
+        myiter = space.interp_w(W_TeeIterable, w_iterable)
+        w_iterator = myiter.w_iterator
+        w_chained_list = myiter.w_chained_list
+    else:
+        w_iterator = space.iter(w_iterable)
+        w_chained_list = W_TeeChainedListNode(space)
+    return W_TeeIterable(space, w_iterator, w_chained_list)
 
 W_TeeIterable.typedef = TypeDef(
         'itertools._tee',
@@ -863,6 +951,8 @@ W_TeeIterable.typedef = TypeDef(
         __iter__ = interp2app(W_TeeIterable.iter_w),
         __next__ = interp2app(W_TeeIterable.next_w),
         __weakref__ = make_weakref_descr(W_TeeIterable),
+        __reduce__ = interp2app(W_TeeIterable.reduce_w),
+        __setstate__ = interp2app(W_TeeIterable.setstate_w)
         )
 W_TeeIterable.typedef.acceptable_as_base_class = False
 
