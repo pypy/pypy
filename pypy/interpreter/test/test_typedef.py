@@ -135,7 +135,7 @@ class TestTypeDef:
             prevsubcls = subclasses[cls].setdefault(subcls.__name__, subcls)
             assert subcls is prevsubcls
         for cls, set in subclasses.items():
-            assert len(set) <= 6, "%s has %d subclasses:\n%r" % (
+            assert len(set) <= 2, "%s has %d subclasses:\n%r" % (
                 cls, len(set), list(set))
 
     def test_getsetproperty(self):
