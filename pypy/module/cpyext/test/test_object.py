@@ -202,15 +202,15 @@ class AppTestObject(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
             ("malloctest", "METH_NOARGS",
              """
-                 PyObject *obj = PyObject_MALLOC(sizeof(PyIntObject));
-                 obj = PyObject_Init(obj, &PyInt_Type);
+                 PyObject *obj = PyObject_MALLOC(sizeof(PyFloatObject));
+                 obj = PyObject_Init(obj, &PyFloat_Type);
                  if (obj != NULL)
-                     ((PyIntObject *)obj)->ob_ival = -424344;
+                     ((PyFloatObject *)obj)->ob_fval = -12.34;
                  return obj;
              """)])
         x = module.malloctest()
-        assert type(x) is int
-        assert x == -424344
+        assert type(x) is float
+        assert x == -12.34
 
     @pytest.mark.skipif(True, reason='realloc not fully implemented')
     def test_object_realloc(self):

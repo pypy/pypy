@@ -44,10 +44,7 @@ class AppTestThreads(AppTestCpythonExtensionBase):
              '''),
             ])
         module.double_ensure(0)
-        print '0 ok'
         module.double_ensure(1)
-        print '1 ok'
-
 
     def test_thread_state_get(self):
         module = self.import_extension('foo', [
