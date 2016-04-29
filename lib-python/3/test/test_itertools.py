@@ -4,7 +4,7 @@ from itertools import *
 from weakref import proxy
 from decimal import Decimal
 from fractions import Fraction
-import sys
+import sys, gc
 import operator
 import random
 import copy
@@ -1204,7 +1204,8 @@ class TestBasicOps(unittest.TestCase):
         p = proxy(a)
         self.assertEqual(getattr(p, '__class__'), type(b))
         del a
-        #self.assertRaises(ReferenceError, getattr, p, '__class__')
+        gc.collect()
+        self.assertRaises(ReferenceError, getattr, p, '__class__')
         ans = list('abc')
         long_ans = list(range(10000))
 
@@ -1568,6 +1569,7 @@ class S:
 def L(seqn):
     'Test multiple tiers of iterators'
     return chain(map(lambda x:x, R(Ig(G(seqn)))))
+
 
 class TestVariousIteratorArgs(unittest.TestCase):
 

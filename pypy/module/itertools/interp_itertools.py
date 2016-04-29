@@ -1,5 +1,5 @@
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from rpython.rlib import jit
@@ -922,15 +922,14 @@ class W_TeeIterable(W_Root):
         state = self.space.unpackiterable(w_state)
         num_args = len(state)
         if num_args != 2:
-            raise OperationError(self.space.w_TypeError,
-                                 self.space.wrap("function takes exactly 2 arguments "
-                                            "(" + str(num_args) + " given)"))
+            raise oefmt(self.space.w_TypeError,
+                        "function takes exactly 2 arguments (%d given)",
+                        num_args)
         w_iterator, w_chained_list = state
         if not isinstance(w_chained_list, W_TeeChainedListNode):
-            raise OperationError(
-                    self.space.w_TypeError,
-                    self.space.wrap("must be itertools._tee_dataobject, not " +
-                                    self.space.type(w_chained_list).name))
+            raise oefmt(self.space.w_TypeError,
+                        "must be itertools._tee_dataobject, not %s",
+                        self.space.type(w_chained_list).name)
 
         self.w_iterator = w_iterator
         self.w_chained_list = w_chained_list
