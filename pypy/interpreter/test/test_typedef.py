@@ -362,6 +362,45 @@ class TestTypeDef:
         """)
         assert seen == [1]
 
+    def test_mapdict_number_of_slots(self):
+        space = self.space
+        a, b, c = space.unpackiterable(space.appexec([], """():
+            class A(object):
+                pass
+            a = A()
+            a.x = 1
+            class B:
+                pass
+            b = B()
+            b.x = 1
+            class C(int):
+                pass
+            c = C(1)
+            c.x = 1
+            return a, b, c
+        """), 3)
+        assert not hasattr(a, "storage")
+        assert not hasattr(b, "storage")
+        assert hasattr(c, "storage")
+
+    def test_del(self):
+        space = self.space
+        a, b, c, d = space.unpackiterable(space.appexec([], """():
+            class A(object):
+                pass
+            class B(object):
+                def __del__(self):
+                    pass
+            class F(file):
+                pass
+            class G(file):
+                def __del__(self):
+                    pass
+            return A(), B(), F("xyz", "w"), G("ghi", "w")
+        """))
+        assert type(b).__base__ is type(a)
+        assert hasattr(c, "__del__")
+        assert type(d) is type(c)
 
 class AppTestTypeDef:
 
