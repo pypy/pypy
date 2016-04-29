@@ -239,9 +239,7 @@ def PyArray_CopyInto(space, w_dest, w_src):
     
 
 gufunctype = lltype.Ptr(ufuncs.GenericUfunc)
-# XXX single rffi.CArrayPtr(gufunctype) does not work, this does, is there
-# a problem with casting function pointers?
-@cpython_api([rffi.CArrayPtr(rffi.CArrayPtr(gufunctype)), rffi.VOIDP, rffi.CCHARP, Py_ssize_t, Py_ssize_t,
+@cpython_api([rffi.CArrayPtr(gufunctype), rffi.VOIDP, rffi.CCHARP, Py_ssize_t, Py_ssize_t,
               Py_ssize_t, Py_ssize_t, rffi.CCHARP, rffi.CCHARP, Py_ssize_t,
               rffi.CCHARP], PyObject, header=HEADER)
 def PyUFunc_FromFuncAndDataAndSignature(space, funcs, data, types, ntypes,
@@ -249,14 +247,18 @@ def PyUFunc_FromFuncAndDataAndSignature(space, funcs, data, types, ntypes,
     w_signature = rffi.charp2str(signature)
     return do_ufunc(space, funcs, data, types, ntypes, nin, nout, identity, name, doc,
              check_return, w_signature)
-            
+
 
 def do_ufunc(space, funcs, data, types, ntypes, nin, nout, identity, name, doc,
              check_return, w_signature):
     funcs_w = [None] * ntypes
     dtypes_w = [None] * ntypes * (nin + nout)
+    # XXX For some reason funcs[i] segfaults, but this does not:
+    # cast(gufunctype, cast(CArrayPtr(CArrayPtr(gufunctype)), funcs)[i])
+    # Something is very wrong here.
+    funcs_wrong_type = rffi.cast(rffi.CArrayPtr(rffi.CArrayPtr(gufunctype)), funcs)
     for i in range(ntypes):
-        funcs_w[i] = ufuncs.W_GenericUFuncCaller(rffi.cast(gufunctype, funcs[i]), data)
+        funcs_w[i] = ufuncs.W_GenericUFuncCaller(rffi.cast(gufunctype, funcs_wrong_type[i]), data)
     for i in range(ntypes*(nin+nout)):
         dtypes_w[i] = get_dtype_cache(space).dtypes_by_num[ord(types[i])]
     w_funcs = space.newlist(funcs_w)
@@ -268,7 +270,7 @@ def do_ufunc(space, funcs, data, types, ntypes, nin, nout, identity, name, doc,
                  w_signature, w_identity, w_name, w_doc, stack_inputs=True)
     return ufunc_generic
 
-@cpython_api([rffi.CArrayPtr(rffi.CArrayPtr(gufunctype)), rffi.VOIDP, rffi.CCHARP, Py_ssize_t, Py_ssize_t,
+@cpython_api([rffi.CArrayPtr(gufunctype), rffi.VOIDP, rffi.CCHARP, Py_ssize_t, Py_ssize_t,
               Py_ssize_t, Py_ssize_t, rffi.CCHARP, rffi.CCHARP, Py_ssize_t], PyObject, header=HEADER)
 def PyUFunc_FromFuncAndData(space, funcs, data, types, ntypes,
                     nin, nout, identity, name, doc, check_return):
