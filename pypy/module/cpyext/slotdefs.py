@@ -461,7 +461,7 @@ def build_slot_tp_function(space, typedef, name):
         api_func = slot_tp_iter.api_func
 
     elif name == 'tp_iternext':
-        iternext_fn = w_type.getdictvalue(space, 'next')
+        iternext_fn = w_type.getdictvalue(space, '__next__')
         if iternext_fn is None:
             return
 

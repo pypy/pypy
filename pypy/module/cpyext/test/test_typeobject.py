@@ -545,11 +545,6 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 return type->tp_call(obj, c_args, NULL);
              ''')])
 
-        class C:
-            def __call__(self, *args):
-                return args
-        assert module.tp_call(type(C()), C(), ('x', 2)) == ('x', 2)
-
         class D(type):
             def __call__(self, *args):
                 return "foo! %r" % (args,)
@@ -601,10 +596,6 @@ class AppTestSlots(AppTestCpythonExtensionBase):
              '''
              )
             ])
-        class C:
-            def __str__(self):
-                return "text"
-        assert module.tp_str(type(C()), C()) == "text"
         class D(int):
             def __str__(self):
                 return "more text"
@@ -683,9 +674,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                      PyErr_SetNone(PyExc_ValueError);
                      return NULL;
                  }
-                 return type->tp_iter(obj);
-             '''
-             ),
+                 return type->tp_iter(obj);'''),
            ("tp_iternext", "METH_VARARGS",
             '''
                  PyTypeObject *type = (PyTypeObject *)PyTuple_GET_ITEM(args, 0);
@@ -697,17 +686,16 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                      return NULL;
                  }
                  result = type->tp_iternext(obj);
+                 /* In py3, returning NULL from tp_iternext means the iterator
+                  * is exhausted */
                  if (!result && !PyErr_Occurred())
                      result = PyBytes_FromString("stop!");
-                 return result;
-             '''
-             )
-            ])
+                 return result;''')])
         l = [1]
         it = module.tp_iter(list, l)
         assert type(it) is type(iter([]))
         assert module.tp_iternext(type(it), it) == 1
-        raises(StopIteration, module.tp_iternext, type(it), it)
+        assert module.tp_iternext(type(it), it) == b'stop!'
         #
         class LL(list):
             def __iter__(self):
