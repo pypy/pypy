@@ -747,6 +747,11 @@ def no_gil_error(funcname):
                     "module calls %r" % (funcname,))
 
 @dont_inline
+def not_supposed_to_fail(funcname):
+    raise SystemError("The function '%s' was not supposed to fail"
+                      % (funcname,))
+
+@dont_inline
 def unexpected_exception(funcname, e, tb):
     print 'Fatal error in cpyext, CPython compatibility layer, calling',funcname
     print 'Either report a bug or consider not using this particular extension'
@@ -778,6 +783,8 @@ def make_wrapper_second_level(space, callable2name, argtypesw, restype,
 
     if isinstance(restype, lltype.Ptr) and error_value == 0:
         error_value = lltype.nullptr(restype.TO)
+    if error_value is not CANNOT_FAIL:
+        assert lltype.typeOf(error_value) == lltype.typeOf(fatal_value)
 
     def wrapper_second_level(*args):
         from pypy.module.cpyext.pyobject import make_ref, from_ref, is_pyobj
@@ -785,7 +792,7 @@ def make_wrapper_second_level(space, callable2name, argtypesw, restype,
         # we hope that malloc removal removes the newtuple() that is
         # inserted exactly here by the varargs specializer
         callable = args[-1]
-        args = args[:len(args)-1]
+        args = args[:-1]
 
         # see "Handling of the GIL" above (careful, we don't have the GIL here)
         tid = rthread.get_or_make_ident()
@@ -850,8 +857,7 @@ def make_wrapper_second_level(space, callable2name, argtypesw, restype,
 
             if failed:
                 if error_value is CANNOT_FAIL:
-                    raise SystemError("The function '%s' was not supposed to fail"
-                                      % (callable.__name__,))
+                    raise not_supposed_to_fail(callable2name[callable])
                 retval = error_value
 
             elif is_PyObject(restype):
@@ -865,7 +871,7 @@ def make_wrapper_second_level(space, callable2name, argtypesw, restype,
                             retval = make_ref(space, result)
                         retval = rffi.cast(restype, retval)
                     else:
-                        retval = lltype.nullptr(PyObject.TO)
+                        retval = lltype.nullptr(restype.TO)
             elif restype is not lltype.Void:
                 retval = rffi.cast(restype, result)
         except Exception, e:
