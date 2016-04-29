@@ -19,13 +19,13 @@ class TestListObject(BaseApiTest):
 
         assert not api.PyList_Check(space.newtuple([]))
         assert not api.PyList_CheckExact(space.newtuple([]))
-    
+
     def test_get_size(self, space, api):
         l = api.PyList_New(0)
         assert api.PyList_GET_SIZE(l) == 0
         api.PyList_Append(l, space.wrap(3))
         assert api.PyList_GET_SIZE(l) == 1
-    
+
     def test_size(self, space, api):
         l = space.newlist([space.w_None, space.w_None])
         assert api.PyList_Size(l) == 2
@@ -42,12 +42,12 @@ class TestListObject(BaseApiTest):
         # insert at index -1: next-to-last
         assert api.PyList_Insert(w_l, -1, space.wrap(3)) == 0
         assert space.unwrap(api.PyList_GetItem(w_l, 3)) == 3
-    
+
     def test_sort(self, space, api):
         l = space.newlist([space.wrap(1), space.wrap(0), space.wrap(7000)])
         assert api.PyList_Sort(l) == 0
         assert space.eq_w(l, space.newlist([space.wrap(0), space.wrap(1), space.wrap(7000)]))
-    
+
     def test_reverse(self, space, api):
         l = space.newlist([space.wrap(3), space.wrap(2), space.wrap(1)])
         assert api.PyList_Reverse(l) == 0
@@ -117,9 +117,9 @@ class AppTestListObject(AppTestCpythonExtensionBase):
         l = L([1])
         module.setlistitem(l, 0)
         assert len(l) == 1
-        
+
         raises(SystemError, module.setlistitem, (1, 2, 3), 0)
-    
+
         l = []
         module.appendlist(l, 14)
         assert len(l) == 1
@@ -144,7 +144,7 @@ class AppTestListObject(AppTestCpythonExtensionBase):
                 PyObject* o, *o2, *o3;
                 o = PyList_New(1);
 
-                o2 = PyInt_FromLong(0);
+                o2 = PyLong_FromLong(0);
                 PyList_SET_ITEM(o, 0, o2);
                 o2 = NULL;
 

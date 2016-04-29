@@ -59,7 +59,7 @@ class AppTestFrameObject(AppTestCpythonExtensionBase):
              """),
             ], prologue='#include "frameobject.h"')
         exc = raises(ValueError, module.raise_exception)
-        exc.value[0] == 'error message'
+        exc.value.args[0] == 'error message'
         if not self.runappdirect:
             frame = exc.traceback.tb_frame
             assert frame.f_code.co_filename == "filename"
@@ -75,7 +75,7 @@ class AppTestFrameObject(AppTestCpythonExtensionBase):
              """
                  int check;
                  PyObject *type, *value, *tb;
-                 PyObject *ret = PyRun_String("XXX", Py_eval_input, 
+                 PyObject *ret = PyRun_String("XXX", Py_eval_input,
                                               Py_None, Py_None);
                  if (ret) {
                      Py_DECREF(ret);

@@ -1,7 +1,6 @@
-from pypy.module.cpyext.api import fopen, fclose, fwrite
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.object import Py_PRINT_RAW
-from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem import rffi
 from rpython.tool.udir import udir
 import pytest
 
@@ -55,18 +54,6 @@ class TestFile(BaseApiTest):
             with rffi.scoped_str2charp("wb") as mode:
                 w_file = api.PyFile_FromString(filename, mode)
         assert space.str_w(api.PyFile_Name(w_file)) == name
-
-    def test_file_fromfile(self, space, api):
-        name = str(udir / "_test_file")
-        with rffi.scoped_str2charp(name) as filename:
-            with rffi.scoped_str2charp("wb") as mode:
-                w_file = api.PyFile_FromString(filename, mode)
-                fp = api.PyFile_AsFile(w_file)
-                assert fp is not None
-                w_file2 = api.PyFile_FromFile(fp, filename, mode, None)
-        assert w_file2 is not None
-        assert api.PyFile_Check(w_file2)
-        assert space.str_w(api.PyFile_Name(w_file2)) == name
 
     @pytest.mark.xfail
     def test_file_setbufsize(self, space, api):
