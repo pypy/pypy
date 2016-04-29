@@ -120,7 +120,7 @@ On which platforms does PyPy run?
 PyPy currently supports:
 
   * **x86** machines on most common operating systems
-    (Linux 32/64, Mac OS X 64, Windows 32, OpenBSD, FreeBSD),
+    (Linux 32/64 bits, Mac OS X 64 bits, Windows 32 bits, OpenBSD, FreeBSD),
   
   * newer **ARM** hardware (ARMv6 or ARMv7, with VFPv3) running Linux,
   
