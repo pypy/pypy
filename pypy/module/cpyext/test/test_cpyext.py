@@ -321,10 +321,6 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
                 code = """
                 %(PY_SSIZE_T_CLEAN)s
                 #include <Python.h>
-                /* fix for cpython 2.7 Python.h if running tests with -A
-                   since pypy compiles with -fvisibility-hidden */
-                #undef PyMODINIT_FUNC
-                #define PyMODINIT_FUNC RPY_EXPORTED void
 
                 %(body)s
 
