@@ -898,7 +898,6 @@ class W_TeeIterable(W_Root):
         w_chained_list = self.w_chained_list
         if w_chained_list is None:
             raise OperationError(self.space.w_StopIteration, self.space.w_None)
-        #TODO: Is this the right thing to do?
         w_obj = w_chained_list.w_obj
         if w_obj is None:
             try:
