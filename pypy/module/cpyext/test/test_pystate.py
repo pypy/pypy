@@ -141,11 +141,10 @@ class AppTestThreads(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
                 ("test", "METH_NOARGS",
                  """
-                 return PyInt_FromLong(PyEval_ThreadsInitialized());
+                 return PyLong_FromLong(PyEval_ThreadsInitialized());
                  """),
                 ])
         res = module.test()
-        print "got", res
         assert res in (0, 1)
 
 

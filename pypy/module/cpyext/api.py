@@ -1320,7 +1320,7 @@ def setup_library(space):
     for name, (typ, expr) in sorted(GLOBALS.items()):
         if '#' in name:
             name, header = name.split('#')
-            assert typ in ('PyObject*', 'PyTypeObject*', 'PyIntObject*')
+            assert typ in ('PyObject*', 'PyTypeObject*')
             typ = typ[:-1]
             if header != pypy_decl:
                 # since the #define is not in pypy_macros, do it here
