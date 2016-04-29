@@ -230,10 +230,6 @@ def PyDict_Next(space, w_dict, ppos, pkey, pvalue):
         return 0
     return 1
 
-@cpython_api([PyObject], PyObject)
-def PyDictProxy_New(space, w_dict):
-    return space.wrap(W_DictProxyObject(w_dict))
-
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def _PyDict_HasOnlyStringKeys(space, w_dict):
     keys_w = space.unpackiterable(w_dict)
