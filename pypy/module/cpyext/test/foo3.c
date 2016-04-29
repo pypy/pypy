@@ -62,23 +62,36 @@ PyTypeObject footype = {
 
 static PyMethodDef sbkMethods[] = {{NULL, NULL, 0, NULL}};
 
+static struct PyModuleDef moduledef = {
+    PyModuleDef_HEAD_INIT,
+    "foo",
+    "Module Doc",
+    -1,
+    &sbkMethods,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+};
+
 /* Initialize this module. */
 #ifdef __GNUC__
 extern __attribute__((visibility("default")))
 #endif
 
 PyMODINIT_FUNC
-initfoo3(void)
+PyInit_foo3(void)
 {
     PyObject *mod, *d;
     footype.tp_base = &PyType_Type;
     PyType_Ready(&footype);
-    mod = Py_InitModule("foo3", sbkMethods);
+    mod = PyModule_Create(&moduledef);
     if (mod == NULL)
-        return;
+        return NULL;
     d = PyModule_GetDict(mod);
     if (d == NULL)
-        return;
+        return NULL;
     if (PyDict_SetItemString(d, "footype", (PyObject *)&footype) < 0)
-        return;
+        return NULL;
+    return mod;
 }

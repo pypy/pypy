@@ -123,7 +123,6 @@ class AppTestGetargs(AppTestCpythonExtensionBase):
             return result;
             ''')
         assert b'foo\0bar\0baz' == pybuffer(b'foo\0bar\0baz')
-        assert 'foo\0bar\0baz' == pybuffer(bytearray('foo\0bar\0baz'))
 
 
     def test_pyarg_parse_string_fails(self):

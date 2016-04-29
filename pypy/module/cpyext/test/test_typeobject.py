@@ -151,7 +151,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         obj2 = module.UnicodeSubtype2()
         obj3 = module.UnicodeSubtype3()
         assert obj3.get_val() == 42
-        assert len(type(obj3).mro()) == 6
+        assert len(type(obj3).mro()) == 5
 
     def test_init(self):
         module = self.import_module(name="foo")
@@ -269,7 +269,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
     def test_tp_dict(self):
         foo = self.import_module("foo")
         module = self.import_extension('test', [
-           ("read_tp_dict", "METH_O",
+            ("read_tp_dict", "METH_O",
             '''
                  PyObject *method;
                  if (!args->ob_type->tp_dict)
@@ -281,9 +281,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
                      args->ob_type->tp_dict, "copy");
                  Py_INCREF(method);
                  return method;
-             '''
-             )
-            ])
+             ''')])
         obj = foo.new()
         assert module.read_tp_dict(obj) == foo.fooType.copy
 
@@ -377,7 +375,7 @@ class TestTypes(BaseApiTest):
         assert api.PyErr_Occurred() is None
 
     def test_ndarray_ref(self, space, api):
-        py.test.py3k_skip('Numpy not yet supported on py3k')
+        pytest.py3k_skip('Numpy not yet supported on py3k')
         w_obj = space.appexec([], """():
             import _numpypy
             return _numpypy.multiarray.dtype('int64').type(2)""")
@@ -536,21 +534,22 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
             ("tp_call", "METH_VARARGS",
              '''
-                 PyObject *obj = PyTuple_GET_ITEM(args, 0);
-                 PyObject *c_args = PyTuple_GET_ITEM(args, 1);
-                 if (!obj->ob_type->tp_call)
-                 {
-                     PyErr_SetNone(PyExc_ValueError);
-                     return NULL;
-                 }
-                 return obj->ob_type->tp_call(obj, c_args, NULL);
-             '''
-             )
-            ])
+                PyTypeObject *type = (PyTypeObject *)PyTuple_GET_ITEM(args, 0);
+                PyObject *obj = PyTuple_GET_ITEM(args, 1);
+                PyObject *c_args = PyTuple_GET_ITEM(args, 2);
+                if (!type->tp_call)
+                {
+                    PyErr_SetNone(PyExc_ValueError);
+                    return NULL;
+                }
+                return type->tp_call(obj, c_args, NULL);
+             ''')])
+
         class C:
             def __call__(self, *args):
                 return args
         assert module.tp_call(type(C()), C(), ('x', 2)) == ('x', 2)
+
         class D(type):
             def __call__(self, *args):
                 return "foo! %r" % (args,)

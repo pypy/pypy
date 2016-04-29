@@ -387,9 +387,9 @@ def PyErr_SetExcInfo(space, w_type, w_value, w_traceback):
     freshly raised.  This function steals the references of the arguments.
     To clear the exception state, pass *NULL* for all three arguments.
     For general rules about the three arguments, see :c:func:`PyErr_Restore`.
- 
+
     .. note::
- 
+
        This function is not normally used by code that wants to handle
        exceptions.  Rather, it can be used when code needs to save and
        restore the exception state temporarily.  Use

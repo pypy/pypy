@@ -700,7 +700,7 @@ PyMODINIT_FUNC
     UnicodeSubtype3.tp_bases = Py_BuildValue("(OO)", &UnicodeSubtype,
                                                     &CustomType);
     if (PyType_Ready(&UnicodeSubtype3) < 0)
-        return;
+        return NULL;
 
     m = PyModule_Create(&moduledef);
     if (m == NULL)

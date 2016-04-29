@@ -401,6 +401,8 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             init = """PyObject *mod = PyModule_Create(&moduledef);"""
             if more_init:
                 init += more_init
+            else:
+                init += "\nreturn mod;"
             return import_module(space, name=modname, init=init, body=body,
                                  w_include_dirs=w_include_dirs,
                                  PY_SSIZE_T_CLEAN=PY_SSIZE_T_CLEAN)
