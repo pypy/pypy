@@ -256,7 +256,7 @@ cpyext_namespace = NameManager('cpyext_')
 
 class ApiFunction:
     def __init__(self, argtypes, restype, callable, error=_NOT_SPECIFIED,
-                 c_name=None, gil=None, result_borrowed=False):
+                 c_name=None, gil=None, result_borrowed=False, result_is_ll=False):
         self.argtypes = argtypes
         self.restype = restype
         self.functype = lltype.Ptr(lltype.FuncType(argtypes, restype))
@@ -277,6 +277,9 @@ class ApiFunction:
         assert len(self.argnames) == len(self.argtypes)
         self.gil = gil
         self.result_borrowed = result_borrowed
+        self.result_is_ll = result_is_ll
+        if result_is_ll:    # means 'returns a low-level PyObject pointer'
+            assert is_PyObject(restype)
         #
         def get_llhelper(space):
             return llhelper(self.functype, self.get_wrapper(space))
@@ -298,7 +301,7 @@ class ApiFunction:
 
 DEFAULT_HEADER = 'pypy_decl.h'
 def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
-                gil=None, result_borrowed=False):
+                gil=None, result_borrowed=False, result_is_ll=False):
     """
     Declares a function to be exported.
     - `argtypes`, `restype` are lltypes and describe the function signature.
@@ -337,7 +340,8 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
             c_name = func_name
         api_function = ApiFunction(argtypes, restype, func, error,
                                    c_name=c_name, gil=gil,
-                                   result_borrowed=result_borrowed)
+                                   result_borrowed=result_borrowed,
+                                   result_is_ll=result_is_ll)
         func.api_func = api_function
 
         if error is _NOT_SPECIFIED:
@@ -613,6 +617,9 @@ Py_buffer = cpython_struct(
 def is_PyObject(TYPE):
     if not isinstance(TYPE, lltype.Ptr):
         return False
+    if TYPE == PyObject:
+        return True
+    assert not isinstance(TYPE.TO, lltype.ForwardReference)
     return hasattr(TYPE.TO, 'c_ob_refcnt') and hasattr(TYPE.TO, 'c_ob_type')
 
 # a pointer to PyObject
@@ -710,7 +717,7 @@ def make_wrapper(space, callable, gil=None):
     argnames = callable.api_func.argnames
     argtypesw = zip(callable.api_func.argtypes,
                     [_name.startswith("w_") for _name in argnames])
-    error_value = callable.api_func.error_value
+    error_value = getattr(callable.api_func, "error_value", CANNOT_FAIL)
     if (isinstance(callable.api_func.restype, lltype.Ptr)
             and error_value is not CANNOT_FAIL):
         assert lltype.typeOf(error_value) == callable.api_func.restype
@@ -720,6 +727,7 @@ def make_wrapper(space, callable, gil=None):
     signature = (tuple(argtypesw),
                  callable.api_func.restype,
                  callable.api_func.result_borrowed,
+                 callable.api_func.result_is_ll,
                  error_value,
                  gil)
 
@@ -769,7 +777,7 @@ def unexpected_exception(funcname, e, tb):
         assert False
 
 def make_wrapper_second_level(space, callable2name, argtypesw, restype,
-                              result_borrowed, error_value, gil):
+                              result_borrowed, result_is_ll, error_value, gil):
     from rpython.rlib import rgil
     argtypes_enum_ui = unrolling_iterable(enumerate(argtypesw))
     fatal_value = restype._defl()
@@ -862,13 +870,17 @@ def make_wrapper_second_level(space, callable2name, argtypesw, restype,
 
             elif is_PyObject(restype):
                 if is_pyobj(result):
-                    assert 0, "XXX retval = result"
+                    assert result_is_ll
                 else:
+                    assert not result_is_ll
                     if result_borrowed:
                         result = as_pyobj(space, result)
                     else:
                         result = make_ref(space, result)
-                    retval = rffi.cast(restype, result)
+                retval = rffi.cast(restype, result)
+
+            elif restype is not lltype.Void:
+                retval = rffi.cast(restype, result)
 
         except Exception, e:
             unexpected_exception(callable2name[callable], e, tb)

@@ -127,7 +127,7 @@ def tuple_dealloc(space, py_obj):
 
 #_______________________________________________________________________
 
-@cpython_api([Py_ssize_t], PyObject)
+@cpython_api([Py_ssize_t], PyObject, result_is_ll=True)
 def PyTuple_New(space, size):
     return rffi.cast(PyObject, new_empty_tuple(space, size))
 
@@ -150,7 +150,8 @@ def PyTuple_SetItem(space, ref, index, py_obj):
         decref(space, old_ref)
     return 0
 
-@cpython_api([PyObject, Py_ssize_t], PyObject, result_borrowed=True)
+@cpython_api([PyObject, Py_ssize_t], PyObject,
+             result_borrowed=True, result_is_ll=True)
 def PyTuple_GetItem(space, ref, index):
     if not tuple_check_ref(space, ref):
         PyErr_BadInternalCall(space)
