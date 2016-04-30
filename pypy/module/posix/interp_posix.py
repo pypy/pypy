@@ -167,11 +167,7 @@ class _JustPath(Unwrapper):
 def path_or_fd(allow_fd=True):
     return _PathOrFd if allow_fd else _JustPath
 
-
-if hasattr(rposix, 'AT_FDCWD'):
-    DEFAULT_DIR_FD = rposix.AT_FDCWD
-else:
-    DEFAULT_DIR_FD = -100
+DEFAULT_DIR_FD = getattr(rposix, 'AT_FDCWD', -100)
 DIR_FD_AVAILABLE = False
 
 @specialize.arg(2)
@@ -204,10 +200,8 @@ class _DirFD_Unavailable(Unwrapper):
         dir_fd = unwrap_fd(space, w_value)
         if dir_fd == DEFAULT_DIR_FD:
             return dir_fd
-        else:
-            raise oefmt(
-                space.w_NotImplementedError,
-                "dir_fd unavailable on this platform")
+        raise oefmt(space.w_NotImplementedError,
+                    "dir_fd unavailable on this platform")
 
 def DirFD(available=False):
     return _DirFD if available else _DirFD_Unavailable
@@ -559,7 +553,8 @@ def dup2(space, old_fd, new_fd):
         raise wrap_oserror(space, e)
 
 @unwrap_spec(mode=c_int,
-    dir_fd=DirFD(rposix.HAVE_FACCESSAT), effective_ids=kwonly(bool), follow_symlinks=kwonly(bool))
+    dir_fd=DirFD(rposix.HAVE_FACCESSAT), effective_ids=kwonly(bool),
+    follow_symlinks=kwonly(bool))
 def access(space, w_path, mode,
         dir_fd=DEFAULT_DIR_FD, effective_ids=True, follow_symlinks=True):
     """\
@@ -903,7 +898,8 @@ def pipe(space):
         raise wrap_oserror(space, e)
     return space.newtuple([space.wrap(fd1), space.wrap(fd2)])
 
-@unwrap_spec(mode=c_int, dir_fd=DirFD(rposix.HAVE_FCHMODAT), follow_symlinks=kwonly(bool))
+@unwrap_spec(mode=c_int, dir_fd=DirFD(rposix.HAVE_FCHMODAT),
+             follow_symlinks=kwonly(bool))
 def chmod(space, w_path, mode, dir_fd=DEFAULT_DIR_FD, follow_symlinks=True):
     """chmod(path, mode, *, dir_fd=None, follow_symlinks=True)
 
@@ -924,12 +920,11 @@ dir_fd and follow_symlinks may not be implemented on your platform.
     if not rposix.HAVE_FCHMODAT:
         if not follow_symlinks:
             raise argument_unavailable(space, "chmod", "follow_symlinks")
-        else:
-            try:
-                dispatch_filename(rposix.chmod)(space, w_path, mode)
-                return
-            except OSError as e:
-                raise wrap_oserror2(space, e, w_path)
+        try:
+            dispatch_filename(rposix.chmod)(space, w_path, mode)
+            return
+        except OSError as e:
+            raise wrap_oserror2(space, e, w_path)
 
     try:
         path = space.fsencode_w(w_path)
@@ -947,8 +942,7 @@ dir_fd and follow_symlinks may not be implemented on your platform.
                 # fchmodat() doesn't actually implement follow_symlinks=False
                 # so raise NotImplementedError in this case
                 raise argument_unavailable(space, "chmod", "follow_symlinks")
-            else:
-                raise wrap_oserror2(space, e, w_path)
+            raise wrap_oserror2(space, e, w_path)
 
 def _chmod_path(path, mode, dir_fd, follow_symlinks):
     if dir_fd != DEFAULT_DIR_FD or not follow_symlinks:
@@ -1359,7 +1353,8 @@ def spawnve(space, mode, path, w_args, w_env):
     path=path_or_fd(allow_fd=rposix.HAVE_FUTIMENS),
     w_times=WrappedDefault(None), w_ns=kwonly(WrappedDefault(None)),
     dir_fd=DirFD(rposix.HAVE_UTIMENSAT), follow_symlinks=kwonly(bool))
-def utime(space, path, w_times, w_ns, dir_fd=DEFAULT_DIR_FD, follow_symlinks=True):
+def utime(space, path, w_times, w_ns, dir_fd=DEFAULT_DIR_FD,
+          follow_symlinks=True):
     """utime(path, times=None, *, ns=None, dir_fd=None, follow_symlinks=True)
 
 Set the access and modified time of path.
