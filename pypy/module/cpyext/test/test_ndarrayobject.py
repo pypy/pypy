@@ -366,7 +366,7 @@ class AppTestNDArray(AppTestCpythonExtensionBase):
     def test_ufunc(self):
         if self.runappdirect:
             from numpy import arange
-            py.test.xfail('why does this segfault on cpython?')
+            py.test.xfail('segfaults on cpython: PyUFunc_API == NULL?')
         else:
             from _numpypy.multiarray import arange
         mod = self.import_extension('foo', [
