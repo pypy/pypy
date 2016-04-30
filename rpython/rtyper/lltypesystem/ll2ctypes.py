@@ -1009,12 +1009,22 @@ def ctypes2lltype(T, cobj):
                     container = _array_of_known_length(T.TO)
                     container._storage = type(cobj)(cobj.contents)
             elif isinstance(T.TO, lltype.FuncType):
+                # cobj is a CFunctionType object.  We naively think
+                # that it should be a function pointer.  No no no.  If
+                # it was read out of an array, say, then it is a *pointer*
+                # to a function pointer.  In other words, the read doesn't
+                # read anything, it just takes the address of the function
+                # pointer inside the array.  If later the array is modified
+                # or goes out of scope, then we crash.  CTypes is fun.
+                # It works if we cast it now to an int and back.
                 cobjkey = intmask(ctypes.cast(cobj, ctypes.c_void_p).value)
                 if cobjkey in _int2obj:
                     container = _int2obj[cobjkey]
                 else:
+                    name = getattr(cobj, '__name__', '?')
+                    cobj = ctypes.cast(cobjkey, type(cobj))
                     _callable = get_ctypes_trampoline(T.TO, cobj)
-                    return lltype.functionptr(T.TO, getattr(cobj, '__name__', '?'),
+                    return lltype.functionptr(T.TO, name,
                                               _callable=_callable)
             elif isinstance(T.TO, lltype.OpaqueType):
                 if T == llmemory.GCREF:
