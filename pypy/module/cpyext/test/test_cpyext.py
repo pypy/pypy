@@ -395,7 +395,7 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
                 "%(modname)s",  /* m_name */
                 NULL,           /* m_doc */
                 -1,             /* m_size */
-                &methods        /* m_methods */
+                methods,        /* m_methods */
             };
             """ % dict(methods='\n'.join(methods_table), modname=modname)
             init = """PyObject *mod = PyModule_Create(&moduledef);"""
@@ -519,7 +519,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
             "%(modname)s",  /* m_name */
             NULL,           /* m_doc */
             -1,             /* m_size */
-            &methods        /* m_methods */
+            methods,        /* m_methods */
         };
         """
         module = self.import_module(name='foo', body=body)
@@ -547,7 +547,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
             "%(modname)s",  /* m_name */
             NULL,           /* m_doc */
             -1,             /* m_size */
-            &methods        /* m_methods */
+            methods,        /* m_methods */
         };
         """
         module = self.import_module(name='foo', body=body)
@@ -670,7 +670,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
             "%(modname)s",  /* m_name */
             NULL,           /* m_doc */
             -1,             /* m_size */
-            &methods        /* m_methods */
+            methods,        /* m_methods */
         };
         """
         module = self.import_module(name='foo', body=body)
@@ -701,7 +701,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
             "%(modname)s",  /* m_name */
             NULL,           /* m_doc */
             -1,             /* m_size */
-            &methods        /* m_methods */
+            methods,        /* m_methods */
         };
         """
         module = self.import_module(name='foo', body=body)
@@ -724,7 +724,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
             "%(modname)s",  /* m_name */
             NULL,           /* m_doc */
             -1,             /* m_size */
-            &methods        /* m_methods */
+            methods,        /* m_methods */
         };
         """
         module = self.import_module(name='foo', body=body)
@@ -780,7 +780,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
             "%(modname)s",  /* m_name */
             NULL,           /* m_doc */
             -1,             /* m_size */
-            &methods        /* m_methods */
+            methods,        /* m_methods */
         };
         """
         module = self.import_module(name='foo', body=body)
@@ -849,7 +849,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
             "%(modname)s",  /* m_name */
             NULL,           /* m_doc */
             -1,             /* m_size */
-            &methods        /* m_methods */
+            methods,        /* m_methods */
         };
         """
         module = self.import_module(name='foo', body=body)

@@ -654,7 +654,11 @@ static struct PyModuleDef moduledef = {
     "foo",
     "Module Doc",
     -1,
-    &foo_functions
+    foo_functions, 
+    NULL,
+    NULL,
+    NULL,
+    NULL,
 };
 
 /* Initialize this module. */
@@ -665,7 +669,7 @@ extern __declspec(dllexport)
 #endif
 
 PyMODINIT_FUNC
-*PyInit_foo(void)
+PyInit_foo(void)
 {
     PyObject *m, *d;
 

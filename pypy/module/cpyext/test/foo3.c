@@ -67,7 +67,7 @@ static struct PyModuleDef moduledef = {
     "foo",
     "Module Doc",
     -1,
-    &sbkMethods,
+    sbkMethods,
     NULL,
     NULL,
     NULL,

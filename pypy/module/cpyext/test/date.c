@@ -9,11 +9,11 @@ static struct PyModuleDef moduledef = {
     "date",
     "Module Doc",
     -1,
-    &date_functions
+    date_functions,
 };
 
 PyMODINIT_FUNC
-*PyInit_date(void)
+PyInit_date(void)
 {
     PyObject *module, *othermodule;
     module = PyModule_Create(&moduledef);
