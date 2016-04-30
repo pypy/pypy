@@ -253,12 +253,8 @@ def do_ufunc(space, funcs, data, types, ntypes, nin, nout, identity, name, doc,
              check_return, w_signature):
     funcs_w = [None] * ntypes
     dtypes_w = [None] * ntypes * (nin + nout)
-    # XXX For some reason funcs[i] segfaults, but this does not:
-    # cast(gufunctype, cast(CArrayPtr(CArrayPtr(gufunctype)), funcs)[i])
-    # Something is very wrong here.
-    funcs_wrong_type = rffi.cast(rffi.CArrayPtr(rffi.CArrayPtr(gufunctype)), funcs)
     for i in range(ntypes):
-        funcs_w[i] = ufuncs.W_GenericUFuncCaller(rffi.cast(gufunctype, funcs_wrong_type[i]), data)
+        funcs_w[i] = ufuncs.W_GenericUFuncCaller(funcs[i], data)
     for i in range(ntypes*(nin+nout)):
         dtypes_w[i] = get_dtype_cache(space).dtypes_by_num[ord(types[i])]
     w_funcs = space.newlist(funcs_w)
