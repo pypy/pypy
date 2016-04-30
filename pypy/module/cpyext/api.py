@@ -862,21 +862,19 @@ def make_wrapper_second_level(space, callable2name, argtypesw, restype,
 
             elif is_PyObject(restype):
                 if is_pyobj(result):
-                    retval = result
+                    assert 0, "XXX retval = result"
                 else:
-                    if result is not None:
-                        if result_borrowed:
-                            retval = as_pyobj(space, result)
-                        else:
-                            retval = make_ref(space, result)
-                        retval = rffi.cast(restype, retval)
+                    if result_borrowed:
+                        result = as_pyobj(space, result)
                     else:
-                        retval = lltype.nullptr(restype.TO)
-            elif restype is not lltype.Void:
-                retval = rffi.cast(restype, result)
+                        result = make_ref(space, result)
+                    retval = rffi.cast(restype, result)
+
         except Exception, e:
             unexpected_exception(callable2name[callable], e, tb)
+            return fatal_value
 
+        assert lltype.typeOf(retval) == restype
         rffi.stackcounter.stacks_counter -= 1
 
         # see "Handling of the GIL" above
