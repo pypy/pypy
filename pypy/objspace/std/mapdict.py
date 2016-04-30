@@ -277,7 +277,7 @@ class Terminator(AbstractAttribute):
     def copy(self, obj):
         result = Object()
         result.space = self.space
-        result._init_empty(self)
+        result._mapdict_init_empty(self)
         return result
 
     def length(self):
@@ -286,7 +286,7 @@ class Terminator(AbstractAttribute):
     def set_terminator(self, obj, terminator):
         result = Object()
         result.space = self.space
-        result._init_empty(terminator)
+        result._mapdict_init_empty(terminator)
         return result
 
     def remove_dict_entries(self, obj):
@@ -304,7 +304,7 @@ class DictTerminator(Terminator):
     def materialize_r_dict(self, space, obj, dict_w):
         result = Object()
         result.space = space
-        result._init_empty(self.devolved_dict_terminator)
+        result._mapdict_init_empty(self.devolved_dict_terminator)
         return result
 
 
@@ -417,11 +417,6 @@ class PlainAttribute(AbstractAttribute):
     def __repr__(self):
         return "<PlainAttribute %s %s %s %r>" % (self.name, self.index, self.storageindex, self.back)
 
-def _become(w_obj, new_obj):
-    # this is like the _become method, really, but we cannot use that due to
-    # RPython reasons
-    w_obj._set_mapdict_storage_and_map(new_obj.storage, new_obj.map)
-
 class MapAttrCache(object):
     def __init__(self, space):
         SIZE = 1 << space.config.objspace.std.methodcachesizeexp
@@ -457,20 +452,10 @@ class BaseUserClassMapdict:
     # everything that's needed to use mapdict for a user subclass at all.
     # This immediately makes slots possible.
 
-    # assumes presence of _init_empty, _mapdict_read_storage,
+    # assumes presence of _get_mapdict_map, _set_mapdict_map
+    # _mapdict_init_empty, _mapdict_read_storage,
     # _mapdict_write_storage, _mapdict_storage_length,
     # _set_mapdict_storage_and_map
-
-    # _____________________________________________
-    # methods needed for mapdict
-
-    def _become(self, new_obj):
-        self._set_mapdict_storage_and_map(new_obj.storage, new_obj.map)
-
-    def _get_mapdict_map(self):
-        return jit.promote(self.map)
-    def _set_mapdict_map(self, map):
-        self.map = map
 
     # _____________________________________________
     # objspace interface
@@ -482,15 +467,14 @@ class BaseUserClassMapdict:
 
     def setclass(self, space, w_cls):
         new_obj = self._get_mapdict_map().set_terminator(self, w_cls.terminator)
-        self._become(new_obj)
+        self._set_mapdict_storage_and_map(new_obj.storage, new_obj.map)
 
     def user_setup(self, space, w_subtype):
         from pypy.module.__builtin__.interp_classobj import W_InstanceObject
-        self.space = space
         assert (not self.typedef.hasdict or
                 isinstance(w_subtype.terminator, NoDictTerminator) or
                 self.typedef is W_InstanceObject.typedef)
-        self._init_empty(w_subtype.terminator)
+        self._mapdict_init_empty(w_subtype.terminator)
 
 
     # methods needed for slots
@@ -508,7 +492,7 @@ class BaseUserClassMapdict:
         new_obj = self._get_mapdict_map().delete(self, "slot", index)
         if new_obj is None:
             return False
-        self._become(new_obj)
+        self._set_mapdict_storage_and_map(new_obj.storage, new_obj.map)
         return True
 
 
@@ -549,7 +533,7 @@ class MapdictDictSupport(object):
         new_obj = self._get_mapdict_map().delete(self, attrname, DICT)
         if new_obj is None:
             return False
-        self._become(new_obj)
+        self._set_mapdict_storage_and_map(new_obj.storage, new_obj.map)
         return True
 
     def getdict(self, space):
@@ -599,7 +583,12 @@ def _obj_setdict(self, space, w_dict):
     assert flag
 
 class MapdictStorageMixin(object):
-    def _init_empty(self, map):
+    def _get_mapdict_map(self):
+        return jit.promote(self.map)
+    def _set_mapdict_map(self, map):
+        self.map = map
+
+    def _mapdict_init_empty(self, map):
         from rpython.rlib.debug import make_sure_not_resized
         self.map = map
         self.storage = make_sure_not_resized([None] * map.size_estimate())
@@ -613,6 +602,7 @@ class MapdictStorageMixin(object):
 
     def _mapdict_storage_length(self):
         return len(self.storage)
+
     def _set_mapdict_storage_and_map(self, storage, map):
         self.storage = storage
         self.map = map
@@ -643,7 +633,11 @@ def _make_storage_mixin_size_n(n=SUBCLASSES_NUM_FIELDS):
     rangenmin1 = unroll.unrolling_iterable(range(nmin1))
     valnmin1 = "_value%s" % nmin1
     class subcls(object):
-        def _init_empty(self, map):
+        def _get_mapdict_map(self):
+            return jit.promote(self.map)
+        def _set_mapdict_map(self, map):
+            self.map = map
+        def _mapdict_init_empty(self, map):
             for i in rangenmin1:
                 setattr(self, "_value%s" % i, None)
             setattr(self, valnmin1, erase_item(None))
@@ -731,7 +725,7 @@ class MapDictStrategy(DictStrategy):
     def get_empty_storage(self):
         w_result = Object()
         terminator = self.space.fromcache(get_terminator_for_dicts)
-        w_result._init_empty(terminator)
+        w_result._mapdict_init_empty(terminator)
         return self.erase(w_result)
 
     def switch_to_object_strategy(self, w_dict):
@@ -811,7 +805,7 @@ class MapDictStrategy(DictStrategy):
     def clear(self, w_dict):
         w_obj = self.unerase(w_dict.dstorage)
         new_obj = w_obj._get_mapdict_map().remove_dict_entries(w_obj)
-        _become(w_obj, new_obj)
+        w_obj._set_mapdict_storage_and_map(new_obj.storage, new_obj.map)
 
     def popitem(self, w_dict):
         curr = self.unerase(w_dict.dstorage)._get_mapdict_map().search(DICT)
@@ -836,7 +830,7 @@ class MapDictStrategy(DictStrategy):
 def materialize_r_dict(space, obj, dict_w):
     map = obj._get_mapdict_map()
     new_obj = map.materialize_r_dict(space, obj, dict_w)
-    _become(obj, new_obj)
+    obj._set_mapdict_storage_and_map(new_obj.storage, new_obj.map)
 
 class MapDictIteratorKeys(BaseKeyIterator):
     def __init__(self, space, strategy, dictimplementation):
