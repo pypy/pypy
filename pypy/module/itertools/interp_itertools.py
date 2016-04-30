@@ -836,39 +836,32 @@ def tee(space, w_iterable, n=2):
 
 class W_TeeChainedListNode(W_Root):
     def __init__(self, space):
-        self.space = space
         self.w_next = None
         self.w_obj = None
     
-    def reduce_w(self):
+    def reduce_w(self, space):
         list_w = []
         node = self
-        while node is not None:
-            if node.w_obj is not None:
-                list_w.append(node.w_obj)
-                node = node.w_next
-            else:
-                break
-        space = self.space
-        if list_w:
-            return self.space.newtuple([space.type(self),
-                                        space.newtuple([]),
-                                        space.newtuple([space.newlist(list_w)])
-                                       ])
-        else:
-            return self.space.newtuple([space.type(self),
-                                        space.newtuple([])])
+        while node is not None and node.w_obj is not None:
+            list_w.append(node.w_obj)
+            node = node.w_next
+        if not list_w:
+            return space.newtuple([space.type(self), space.newtuple([])])
+        return space.newtuple(
+            [space.type(self),
+             space.newtuple([]),
+             space.newtuple([space.newlist(list_w)])
+            ])
 
     def descr_setstate(self, space, w_state):
         state = space.unpackiterable(w_state)
         if len(state) != 1:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("invalid arguments"))
+            raise oefmt(space.w_ValueError, "invalid arguments")
         obj_list_w = space.unpackiterable(state[0])
         node = self
         for w_obj in obj_list_w:
             node.w_obj = w_obj
-            node.w_next = W_TeeChainedListNode(self.space)
+            node.w_next = W_TeeChainedListNode(space)
             node = node.w_next
 
 def W_TeeChainedListNode___new__(space, w_subtype):
@@ -883,7 +876,6 @@ W_TeeChainedListNode.typedef = TypeDef(
     __reduce__ = interp2app(W_TeeChainedListNode.reduce_w),
     __setstate__ = interp2app(W_TeeChainedListNode.descr_setstate)
 )
-
 W_TeeChainedListNode.typedef.acceptable_as_base_class = False
 
 class W_TeeIterable(W_Root):
