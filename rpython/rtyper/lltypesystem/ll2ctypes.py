@@ -231,17 +231,7 @@ def build_ctypes_array(A, delayed_builders, max_n=0):
     assert max_n >= 0
     ITEM = A.OF
     ctypes_item = get_ctypes_type(ITEM, delayed_builders)
-    # Python 2.5 ctypes can raise OverflowError on 64-bit builds
-    for n in [maxint, 2**31]:
-        MAX_SIZE = n/64
-        try:
-            PtrType = ctypes.POINTER(MAX_SIZE * ctypes_item)
-        except (OverflowError, AttributeError), e:
-            pass      #        ^^^ bah, blame ctypes
-        else:
-            break
-    else:
-        raise e
+    ctypes_item_ptr = ctypes.POINTER(ctypes_item)
 
     class CArray(ctypes.Structure):
         if is_emulated_long:
@@ -265,35 +255,9 @@ def build_ctypes_array(A, delayed_builders, max_n=0):
                 bigarray.length = n
             return bigarray
 
-        _ptrtype = None
-
-        @classmethod
-        def _get_ptrtype(cls):
-            if cls._ptrtype:
-                return cls._ptrtype
-            # ctypes can raise OverflowError on 64-bit builds
-            # on windows it raises AttributeError even for 2**31 (_length_ missing)
-            if _MS_WINDOWS:
-                other_limit = 2**31-1
-            else:
-                other_limit = 2**31
-            for n in [maxint, other_limit]:
-                cls.MAX_SIZE = n / ctypes.sizeof(ctypes_item)
-                try:
-                    cls._ptrtype = ctypes.POINTER(cls.MAX_SIZE * ctypes_item)
-                except (OverflowError, AttributeError), e:
-                    pass
-                else:
-                    break
-            else:
-                raise e
-            return cls._ptrtype
-
         def _indexable(self, index):
-            PtrType = self._get_ptrtype()
-            assert index + 1 < self.MAX_SIZE
-            p = ctypes.cast(ctypes.pointer(self.items), PtrType)
-            return p.contents
+            p = ctypes.cast(self.items, ctypes_item_ptr)
+            return p
 
         def _getitem(self, index, boundscheck=True):
             if boundscheck:
