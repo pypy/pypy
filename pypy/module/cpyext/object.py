@@ -308,7 +308,7 @@ def PyObject_RichCompareBool(space, ref1, ref2, opid):
     w_res = PyObject_RichCompare(space, ref1, ref2, opid)
     return int(space.is_true(w_res))
 
-@cpython_api([PyObject], PyObject)
+@cpython_api([PyObject], PyObject, result_is_ll=True)
 def PyObject_SelfIter(space, ref):
     """Undocumented function, this is what CPython does."""
     Py_IncRef(space, ref)

@@ -684,18 +684,21 @@ class WrapperCache(object):
     def __init__(self, space):
         self.space = space
         self.wrapper_gens = {}    # {signature: WrapperGen()}
-        self.callable2name = {}
         self.stats = [0, 0]
 
 class WrapperGen(object):
+    wrapper_second_level = None
+
     def __init__(self, space, signature):
         self.space = space
-        self.callable2name = {}
-        self.wrapper_second_level = make_wrapper_second_level(
-            self.space, self.callable2name, *signature)
+        self.signature = signature
+        self.callable2name = []
 
     def make_wrapper(self, callable):
-        self.callable2name[callable] = callable.__name__
+        self.callable2name.append((callable, callable.__name__))
+        if self.wrapper_second_level is None:
+            self.wrapper_second_level = make_wrapper_second_level(
+                self.space, self.callable2name, *self.signature)
         wrapper_second_level = self.wrapper_second_level
 
         def wrapper(*args):
@@ -747,12 +750,12 @@ def make_wrapper(space, callable, gil=None):
 @dont_inline
 def deadlock_error(funcname):
     fatalerror_notb("GIL deadlock detected when a CPython C extension "
-                    "module calls %r" % (funcname,))
+                    "module calls '%s'" % (funcname,))
 
 @dont_inline
 def no_gil_error(funcname):
     fatalerror_notb("GIL not held when a CPython C extension "
-                    "module calls %r" % (funcname,))
+                    "module calls '%s'" % (funcname,))
 
 @dont_inline
 def not_supposed_to_fail(funcname):
@@ -794,6 +797,18 @@ def make_wrapper_second_level(space, callable2name, argtypesw, restype,
     if error_value is not CANNOT_FAIL:
         assert lltype.typeOf(error_value) == lltype.typeOf(fatal_value)
 
+    def invalid(err):
+        "NOT_RPYTHON: translation-time crash if this ends up being called"
+        raise ValueError(err)
+    invalid.__name__ = 'invalid_%s' % (callable2name[0][1],)
+
+    def nameof(callable):
+        for c, n in callable2name:
+            if c is callable:
+                return n
+        return '<unknown function>'
+    nameof._dont_inline_ = True
+
     def wrapper_second_level(*args):
         from pypy.module.cpyext.pyobject import make_ref, from_ref, is_pyobj
         from pypy.module.cpyext.pyobject import as_pyobj
@@ -806,7 +821,7 @@ def make_wrapper_second_level(space, callable2name, argtypesw, restype,
         tid = rthread.get_or_make_ident()
         if gil_acquire:
             if cpyext_glob_tid_ptr[0] == tid:
-                deadlock_error(callable2name[callable])
+                deadlock_error(nameof(callable))
             rgil.acquire()
             assert cpyext_glob_tid_ptr[0] == 0
         elif pygilstate_ensure:
@@ -819,7 +834,7 @@ def make_wrapper_second_level(space, callable2name, argtypesw, restype,
                 args += (pystate.PyGILState_UNLOCKED,)
         else:
             if cpyext_glob_tid_ptr[0] != tid:
-                no_gil_error(callable2name[callable])
+                no_gil_error(nameof(callable))
             cpyext_glob_tid_ptr[0] = 0
 
         rffi.stackcounter.stacks_counter += 1
@@ -865,14 +880,16 @@ def make_wrapper_second_level(space, callable2name, argtypesw, restype,
 
             if failed:
                 if error_value is CANNOT_FAIL:
-                    raise not_supposed_to_fail(callable2name[callable])
+                    raise not_supposed_to_fail(nameof(callable))
                 retval = error_value
 
             elif is_PyObject(restype):
                 if is_pyobj(result):
-                    assert result_is_ll
+                    if not result_is_ll:
+                        raise invalid("missing result_is_ll=True")
                 else:
-                    assert not result_is_ll
+                    if result_is_ll:
+                        raise invalid("result_is_ll=True but not ll PyObject")
                     if result_borrowed:
                         result = as_pyobj(space, result)
                     else:
@@ -883,7 +900,7 @@ def make_wrapper_second_level(space, callable2name, argtypesw, restype,
                 retval = rffi.cast(restype, result)
 
         except Exception, e:
-            unexpected_exception(callable2name[callable], e, tb)
+            unexpected_exception(nameof(callable), e, tb)
             return fatal_value
 
         assert lltype.typeOf(retval) == restype
