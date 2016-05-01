@@ -85,8 +85,11 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
              '''
              ),
             ])
-        res = module.test_hash(u"xyz")
-        assert res == hash(u'xyz')
+        obj = u'xyz'
+        # CPython in particular does not precompute ->hash, so we need to call
+        # hash() first.
+        expected_hash = hash(obj)
+        assert module.test_hash(obj) == expected_hash
 
     def test_default_encoded_string(self):
         module = self.import_extension('foo', [
