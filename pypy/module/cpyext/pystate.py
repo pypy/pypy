@@ -172,8 +172,16 @@ def PyThreadState_Get(space):
         py_fatalerror("PyThreadState_Get: no current thread")
     return ts
 
-@cpython_api([], PyObject, error=CANNOT_FAIL)
+@cpython_api([], PyObject, result_is_ll=True, error=CANNOT_FAIL)
 def PyThreadState_GetDict(space):
+    """Return a dictionary in which extensions can store thread-specific state
+    information.  Each extension should use a unique key to use to store state in
+    the dictionary.  It is okay to call this function when no current thread state
+    is available. If this function returns NULL, no exception has been raised and
+    the caller should assume no current thread state is available.
+
+    Previously this could only be called when a current thread is active, and NULL
+    meant that an exception was raised."""
     state = space.fromcache(InterpreterState)
     return state.get_thread_state(space).c_dict
 

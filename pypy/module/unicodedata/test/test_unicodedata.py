@@ -78,9 +78,14 @@ class AppTestUnicodeData:
         import unicodedata
         assert unicodedata.lookup("GOTHIC LETTER FAIHU") == '\U00010346'
 
-    def test_normalize(self):
+    def test_normalize_bad_argcount(self):
         import unicodedata
         raises(TypeError, unicodedata.normalize, 'x')
+
+    def test_normalize_nonunicode(self):
+        import unicodedata
+        exc_info = raises(TypeError, unicodedata.normalize, 'NFC', b'x')
+        assert 'must be unicode, not' in str(exc_info.value)
 
     @py.test.mark.skipif("sys.maxunicode < 0x10ffff")
     def test_normalize_wide(self):
@@ -103,9 +108,10 @@ class AppTestUnicodeData:
         # For no reason, unicodedata.mirrored() returns an int, not a bool
         assert repr(unicodedata.mirrored(' ')) == '0'
 
-    def test_bidirectional(self):
+    def test_bidirectional_not_one_character(self):
         import unicodedata
-        raises(TypeError, unicodedata.bidirectional, 'xx')
+        exc_info = raises(TypeError, unicodedata.bidirectional, u'xx')
+        assert str(exc_info.value) == 'need a single Unicode character as parameter'
 
     def test_aliases(self):
         import unicodedata

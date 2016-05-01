@@ -6,7 +6,7 @@ from pypy.module.cpyext.api import (
 from pypy.module.cpyext.pyerrors import PyErr_BadArgument
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, Py_DecRef, make_ref, from_ref, track_reference,
-    make_typedescr, get_typedescr, as_pyobj, Py_IncRef)
+    make_typedescr, get_typedescr, as_pyobj, Py_IncRef, get_w_obj_and_decref)
 
 ##
 ## Implementation of PyBytesObject
@@ -124,7 +124,7 @@ def bytes_dealloc(space, py_obj):
 
 #_______________________________________________________________________
 
-@cpython_api([CONST_STRING, Py_ssize_t], PyObject)
+@cpython_api([CONST_STRING, Py_ssize_t], PyObject, result_is_ll=True)
 def PyBytes_FromStringAndSize(space, char_p, length):
     if char_p:
         s = rffi.charpsize2str(char_p, length)
@@ -221,7 +221,7 @@ def _PyBytes_Resize(space, ref, newsize):
 def _PyBytes_Eq(space, w_str1, w_str2):
     return space.eq_w(w_str1, w_str2)
 
-@cpython_api([PyObjectP, PyObject], lltype.Void)
+@cpython_api([PyObjectP, PyObject], lltype.Void, error=None)
 def PyBytes_Concat(space, ref, w_newpart):
     """Create a new string object in *string containing the contents of newpart
     appended to string; the caller will own the new reference.  The reference to
@@ -229,25 +229,25 @@ def PyBytes_Concat(space, ref, w_newpart):
     the old reference to string will still be discarded and the value of
     *string will be set to NULL; the appropriate exception will be set."""
 
-    if not ref[0]:
+    old = ref[0]
+    if not old:
         return
 
-    if w_newpart is None or not PyBytes_Check(space, ref[0]) or \
-            not PyBytes_Check(space, w_newpart):
-        Py_DecRef(space, ref[0])
-        ref[0] = lltype.nullptr(PyObject.TO)
-        return
-    w_str = from_ref(space, ref[0])
-    w_newstr = space.add(w_str, w_newpart)
-    ref[0] = make_ref(space, w_newstr)
-    Py_IncRef(space, ref[0])
+    ref[0] = lltype.nullptr(PyObject.TO)
+    w_str = get_w_obj_and_decref(space, old)
+    if w_newpart is not None and PyBytes_Check(space, old):
+        # XXX: should use buffer protocol
+        w_newstr = space.add(w_str, w_newpart)
+        ref[0] = make_ref(space, w_newstr)
 
-@cpython_api([PyObjectP, PyObject], lltype.Void)
+@cpython_api([PyObjectP, PyObject], lltype.Void, error=None)
 def PyBytes_ConcatAndDel(space, ref, newpart):
     """Create a new string object in *string containing the contents of newpart
     appended to string.  This version decrements the reference count of newpart."""
-    PyBytes_Concat(space, ref, newpart)
-    Py_DecRef(space, newpart)
+    try:
+        PyBytes_Concat(space, ref, newpart)
+    finally:
+        Py_DecRef(space, newpart)
 
 @cpython_api([PyObject, PyObject], PyObject)
 def _PyBytes_Join(space, w_sep, w_seq):

@@ -3,7 +3,7 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.bytesobject import new_empty_str, PyBytesObject
-from pypy.module.cpyext.api import PyObjectP, PyObject, Py_ssize_tP
+from pypy.module.cpyext.api import PyObjectP, PyObject, Py_ssize_tP, generic_cpy_call
 from pypy.module.cpyext.pyobject import Py_DecRef, from_ref, make_ref
 from pypy.module.cpyext.typeobjectdefs import PyTypeObjectPtr
 
@@ -145,6 +145,7 @@ class AppTestBytesObject(AppTestCpythonExtensionBase):
              """
                 PyObject ** v;
                 PyObject * left = PyTuple_GetItem(args, 0);
+                Py_INCREF(left);    /* the reference will be stolen! */
                 v = &left;
                 PyBytes_Concat(v, PyTuple_GetItem(args, 1));
                 return *v;
@@ -221,6 +222,7 @@ class TestBytes(BaseApiTest):
         assert space.bytes_w(from_ref(space, ptr[0])) == 'abcdef'
         api.PyBytes_Concat(ptr, space.w_None)
         assert not ptr[0]
+        api.PyErr_Clear()
         ptr[0] = lltype.nullptr(PyObject.TO)
         api.PyBytes_Concat(ptr, space.wrapbytes('def')) # should not crash
         lltype.free(ptr, flavor='raw')

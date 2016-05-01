@@ -24,7 +24,11 @@ that we attach to EffectInfo.  Fixes a problem we had in
 remove-objspace-options.
 
 .. branch: cpyext-for-merge
-Update cpyext C-API support:
+
+Update cpyext C-API support After this branch, we are almost able to support 
+upstream numpy via cpyext, so we created (yet another) fork of numpy at 
+github.com/pypy/numpy with the needed changes. Among the significant changes 
+to cpyext:
   - allow c-snippet tests to be run with -A so we can verify we are compatible
   - fix many edge cases exposed by fixing tests to run with -A
   - issequence() logic matches cpython
@@ -40,6 +44,20 @@ Update cpyext C-API support:
   - rewrite slot assignment for typeobjects
   - improve tracking of PyObject to rpython object mapping
   - support tp_as_{number, sequence, mapping, buffer} slots
-After this branch, we are almost able to support upstream numpy via cpyext, so
-we created (yet another) fork of numpy at github.com/pypy/numpy with the needed
-changes
+
+(makes the pypy-c bigger; this was fixed subsequently by the
+share-cpyext-cpython-api branch)
+
+.. branch: share-mapdict-methods-2
+
+Reduce generated code for subclasses by using the same function objects in all
+generated subclasses.
+
+.. branch: share-cpyext-cpython-api
+
+.. branch: cpyext-auto-gil
+
+CPyExt tweak: instead of "GIL not held when a CPython C extension module
+calls PyXxx", we now silently acquire/release the GIL.  Helps with
+CPython C extension modules that call some PyXxx() functions without
+holding the GIL (arguably, they are theorically buggy).

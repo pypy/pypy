@@ -337,7 +337,7 @@ def PyUnicode_AsUnicodeEscapeString(space, w_unicode):
 
     return unicodeobject.encode_object(space, w_unicode, 'unicode-escape', 'strict')
 
-@cpython_api([CONST_WSTRING, Py_ssize_t], PyObject)
+@cpython_api([CONST_WSTRING, Py_ssize_t], PyObject, result_is_ll=True)
 def PyUnicode_FromUnicode(space, wchar_p, length):
     """Create a Unicode Object from the Py_UNICODE buffer u of the given size. u
     may be NULL which causes the contents to be undefined. It is the user's
@@ -351,14 +351,14 @@ def PyUnicode_FromUnicode(space, wchar_p, length):
     else:
         return rffi.cast(PyObject, new_empty_unicode(space, length))
 
-@cpython_api([CONST_WSTRING, Py_ssize_t], PyObject)
+@cpython_api([CONST_WSTRING, Py_ssize_t], PyObject, result_is_ll=True)
 def PyUnicode_FromWideChar(space, wchar_p, length):
     """Create a Unicode object from the wchar_t buffer w of the given size.
     Return NULL on failure."""
     # PyPy supposes Py_UNICODE == wchar_t
     return PyUnicode_FromUnicode(space, wchar_p, length)
 
-@cpython_api([PyObject, CONST_STRING], PyObject)
+@cpython_api([PyObject, CONST_STRING], PyObject, result_is_ll=True)
 def _PyUnicode_AsDefaultEncodedString(space, w_unicode, errors):
     return PyUnicode_AsEncodedString(space, w_unicode, lltype.nullptr(rffi.CCHARP.TO), errors)
 
@@ -532,7 +532,7 @@ def PyUnicode_InternFromString(space, s):
     w_str = PyUnicode_FromString(space, s)
     return space.new_interned_w_str(w_str)
 
-@cpython_api([CONST_STRING, Py_ssize_t], PyObject)
+@cpython_api([CONST_STRING, Py_ssize_t], PyObject, result_is_ll=True)
 def PyUnicode_FromStringAndSize(space, s, size):
     """Create a Unicode Object from the char buffer u. The bytes will be
     interpreted as being UTF-8 encoded. u may also be NULL which causes the

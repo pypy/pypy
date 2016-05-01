@@ -185,6 +185,7 @@ class AppTestDictObject(AppTestCpythonExtensionBase):
                  if (!PyArg_ParseTuple(args, "O", &dict))
                      return NULL;
                  proxydict = PyDictProxy_New(dict);
+#ifdef PYPY_VERSION  // PyDictProxy_Check[Exact] are PyPy-specific.
                  if (!PyDictProxy_Check(proxydict)) {
                     Py_DECREF(proxydict);
                     PyErr_SetNone(PyExc_ValueError);
@@ -195,6 +196,7 @@ class AppTestDictObject(AppTestCpythonExtensionBase):
                     PyErr_SetNone(PyExc_ValueError);
                     return NULL;
                  }
+#endif  // PYPY_VERSION
                  i = PyObject_Size(proxydict);
                  Py_DECREF(proxydict);
                  return PyLong_FromLong(i);

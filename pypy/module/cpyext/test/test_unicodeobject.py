@@ -24,8 +24,11 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
                  if(PyUnicode_GetSize(s) != 11) {
                      result = -PyUnicode_GetSize(s);
                  }
+#ifdef PYPY_VERSION
+                 // Slightly silly test that tp_basicsize is reasonable.
                  if(s->ob_type->tp_basicsize != sizeof(void*)*6)
                      result = s->ob_type->tp_basicsize;
+#endif  // PYPY_VERSION
                  Py_DECREF(s);
                  return PyLong_FromLong(result);
              """),

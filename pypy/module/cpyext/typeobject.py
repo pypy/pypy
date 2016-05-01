@@ -701,7 +701,7 @@ def PyType_IsSubtype(space, a, b):
     w_type2 = from_ref(space, rffi.cast(PyObject, b))
     return int(abstract_issubclass_w(space, w_type1, w_type2)) #XXX correct?
 
-@cpython_api([PyTypeObjectPtr, Py_ssize_t], PyObject)
+@cpython_api([PyTypeObjectPtr, Py_ssize_t], PyObject, result_is_ll=True)
 def PyType_GenericAlloc(space, type, nitems):
     from pypy.module.cpyext.object import _PyObject_NewVar
     return _PyObject_NewVar(space, type, nitems)

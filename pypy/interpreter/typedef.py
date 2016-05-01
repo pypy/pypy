@@ -103,44 +103,63 @@ def default_identity_hash(space, w_obj):
 # we need two subclasses of the app-level type, one to add mapdict, and then one
 # to add del to not slow down the GC.
 
-def get_unique_interplevel_subclass(config, cls, needsdel=False):
+def get_unique_interplevel_subclass(space, cls, needsdel=False):
     "NOT_RPYTHON: initialization-time only"
     if hasattr(cls, '__del__') and getattr(cls, "handle_del_manually", False):
         needsdel = False
     assert cls.typedef.acceptable_as_base_class
-    key = config, cls, needsdel
+    key = space, cls, needsdel
     try:
         return _subclass_cache[key]
     except KeyError:
         # XXX can save a class if cls already has a __del__
         if needsdel:
-            cls = get_unique_interplevel_subclass(config, cls, False)
-        subcls = _getusercls(config, cls, needsdel)
+            cls = get_unique_interplevel_subclass(space, cls, False)
+        subcls = _getusercls(space, cls, needsdel)
         assert key not in _subclass_cache
         _subclass_cache[key] = subcls
         return subcls
 get_unique_interplevel_subclass._annspecialcase_ = "specialize:memo"
 _subclass_cache = {}
 
-def _getusercls(config, cls, wants_del, reallywantdict=False):
+def _getusercls(space, cls, wants_del, reallywantdict=False):
     from rpython.rlib import objectmodel
+    from pypy.objspace.std.objectobject import W_ObjectObject
+    from pypy.module.__builtin__.interp_classobj import W_InstanceObject
     from pypy.objspace.std.mapdict import (BaseUserClassMapdict,
             MapdictDictSupport, MapdictWeakrefSupport,
-            _make_storage_mixin_size_n)
+            _make_storage_mixin_size_n, MapdictStorageMixin)
     typedef = cls.typedef
     name = cls.__name__ + "User"
 
-    mixins_needed = [BaseUserClassMapdict, _make_storage_mixin_size_n()]
+    mixins_needed = []
+    if cls is W_ObjectObject or cls is W_InstanceObject:
+        mixins_needed.append(_make_storage_mixin_size_n())
+    else:
+        mixins_needed.append(MapdictStorageMixin)
+    copy_methods = [BaseUserClassMapdict]
     if reallywantdict or not typedef.hasdict:
         # the type has no dict, mapdict to provide the dict
-        mixins_needed.append(MapdictDictSupport)
+        copy_methods.append(MapdictDictSupport)
         name += "Dict"
     if not typedef.weakrefable:
         # the type does not support weakrefs yet, mapdict to provide weakref
         # support
-        mixins_needed.append(MapdictWeakrefSupport)
+        copy_methods.append(MapdictWeakrefSupport)
         name += "Weakrefable"
     if wants_del:
+        # This subclass comes with an app-level __del__.  To handle
+        # it, we make an RPython-level __del__ method.  This
+        # RPython-level method is called directly by the GC and it
+        # cannot do random things (calling the app-level __del__ would
+        # be "random things").  So instead, we just call here
+        # enqueue_for_destruction(), and the app-level __del__ will be
+        # called later at a safe point (typically between bytecodes).
+        # If there is also an inherited RPython-level __del__, it is
+        # called afterwards---not immediately!  This base
+        # RPython-level __del__ is supposed to run only when the
+        # object is not reachable any more.  NOTE: it doesn't fully
+        # work: see issue #2287.
         name += "Del"
         parent_destructor = getattr(cls, '__del__', None)
         def call_parent_del(self):
@@ -148,14 +167,14 @@ def _getusercls(config, cls, wants_del, reallywantdict=False):
             parent_destructor(self)
         def call_applevel_del(self):
             assert isinstance(self, subcls)
-            self.space.userdel(self)
+            space.userdel(self)
         class Proto(object):
             def __del__(self):
                 self.clear_all_weakrefs()
-                self.enqueue_for_destruction(self.space, call_applevel_del,
+                self.enqueue_for_destruction(space, call_applevel_del,
                                              'method __del__ of ')
                 if parent_destructor is not None:
-                    self.enqueue_for_destruction(self.space, call_parent_del,
+                    self.enqueue_for_destruction(space, call_parent_del,
                                                  'internal destructor of ')
         mixins_needed.append(Proto)
 
@@ -163,9 +182,16 @@ def _getusercls(config, cls, wants_del, reallywantdict=False):
         user_overridden_class = True
         for base in mixins_needed:
             objectmodel.import_from_mixin(base)
+    for copycls in copy_methods:
+        _copy_methods(copycls, subcls)
     del subcls.base
     subcls.__name__ = name
     return subcls
+
+def _copy_methods(copycls, subcls):
+    for key, value in copycls.__dict__.items():
+        if (not key.startswith('__') or key == '__del__'):
+            setattr(subcls, key, value)
 
 
 # ____________________________________________________________

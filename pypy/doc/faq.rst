@@ -117,13 +117,22 @@ rawrefcount_
 On which platforms does PyPy run?
 ---------------------------------
 
-PyPy is regularly and extensively tested on Linux machines. It mostly
-works on Mac and Windows: it is tested there, but most of us are running
-Linux so fixes may depend on 3rd-party contributions.  PyPy's JIT
-works on x86 (32-bit or 64-bit) and on ARM (ARMv6 or ARMv7).
-Support for POWER (64-bit) is stalled at the moment.
+PyPy currently supports:
 
-To bootstrap from sources, PyPy can use either CPython (2.6 or 2.7) or
+  * **x86** machines on most common operating systems
+    (Linux 32/64 bits, Mac OS X 64 bits, Windows 32 bits, OpenBSD, FreeBSD),
+  
+  * newer **ARM** hardware (ARMv6 or ARMv7, with VFPv3) running Linux,
+  
+  * big- and little-endian variants of **PPC64** running Linux,
+
+  * **s390x** running Linux
+
+PyPy is regularly and extensively tested on Linux machines. It
+works on Mac and Windows: it is tested there, but most of us are running
+Linux so fixes may depend on 3rd-party contributions.
+
+To bootstrap from sources, PyPy can use either CPython 2.7 or
 another (e.g. older) PyPy.  Cross-translation is not really supported:
 e.g. to build a 32-bit PyPy, you need to have a 32-bit environment.
 Cross-translation is only explicitly supported between a 32-bit Intel

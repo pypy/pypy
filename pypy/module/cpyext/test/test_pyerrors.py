@@ -355,6 +355,8 @@ class AppTestFetch(AppTestCpythonExtensionBase):
         assert "in test_PyErr_Display\n" in output
         assert "ZeroDivisionError" in output
 
+    @pytest.mark.skipif(True, reason=
+        "XXX seems to pass, but doesn't: 'py.test -s' shows errors in PyObject_Free")
     def test_GetSetExcInfo(self):
         import sys
         if self.runappdirect and (sys.version_info.major < 3 or 

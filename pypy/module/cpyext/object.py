@@ -38,11 +38,11 @@ def PyObject_Realloc(space, ptr, size):
 def PyObject_Free(space, ptr):
     lltype.free(ptr, flavor='raw')
 
-@cpython_api([PyTypeObjectPtr], PyObject)
+@cpython_api([PyTypeObjectPtr], PyObject, result_is_ll=True)
 def _PyObject_New(space, type):
     return _PyObject_NewVar(space, type, 0)
 
-@cpython_api([PyTypeObjectPtr, Py_ssize_t], PyObject)
+@cpython_api([PyTypeObjectPtr, Py_ssize_t], PyObject, result_is_ll=True)
 def _PyObject_NewVar(space, type, itemcount):
     w_type = from_ref(space, rffi.cast(PyObject, type))
     assert isinstance(w_type, W_TypeObject)
@@ -67,7 +67,7 @@ def PyObject_dealloc(space, obj):
     if pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE:
         Py_DecRef(space, rffi.cast(PyObject, pto))
 
-@cpython_api([PyTypeObjectPtr], PyObject)
+@cpython_api([PyTypeObjectPtr], PyObject, result_is_ll=True)
 def _PyObject_GC_New(space, type):
     return _PyObject_New(space, type)
 
@@ -201,7 +201,7 @@ def PyObject_DelItem(space, w_obj, w_key):
     space.delitem(w_obj, w_key)
     return 0
 
-@cpython_api([PyObject, PyTypeObjectPtr], PyObject)
+@cpython_api([PyObject, PyTypeObjectPtr], PyObject, result_is_ll=True)
 def PyObject_Init(space, obj, type):
     """Initialize a newly-allocated object op with its type and initial
     reference.  Returns the initialized object.  If type indicates that the
@@ -215,7 +215,7 @@ def PyObject_Init(space, obj, type):
     obj.c_ob_refcnt = 1
     return obj
 
-@cpython_api([PyVarObject, PyTypeObjectPtr, Py_ssize_t], PyObject)
+@cpython_api([PyVarObject, PyTypeObjectPtr, Py_ssize_t], PyObject, result_is_ll=True)
 def PyObject_InitVar(space, py_obj, type, size):
     """This does everything PyObject_Init() does, and also initializes the
     length information for a variable-size object."""
@@ -305,7 +305,7 @@ def PyObject_RichCompareBool(space, ref1, ref2, opid):
     w_res = PyObject_RichCompare(space, ref1, ref2, opid)
     return int(space.is_true(w_res))
 
-@cpython_api([PyObject], PyObject)
+@cpython_api([PyObject], PyObject, result_is_ll=True)
 def PyObject_SelfIter(space, ref):
     """Undocumented function, this is what CPython does."""
     Py_IncRef(space, ref)

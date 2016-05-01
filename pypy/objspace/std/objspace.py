@@ -374,7 +374,7 @@ class StdObjSpace(ObjSpace):
                 cls = cls.typedef.applevel_subclasses_base
             #
             subcls = get_unique_interplevel_subclass(
-                    self.config, cls, w_subtype.needsdel)
+                    self, cls, w_subtype.needsdel)
             instance = instantiate(subcls)
             assert isinstance(instance, cls)
             instance.user_setup(self, w_subtype)
