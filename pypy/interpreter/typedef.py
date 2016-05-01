@@ -113,18 +113,11 @@ def get_unique_interplevel_subclass(space, cls, needsdel=False):
         return _subclass_cache[key]
     except KeyError:
         # XXX can save a class if cls already has a __del__
-        keys = [key]
-        base_has_del = hasattr(cls, '__del__')
-        if base_has_del:
-            # if the base has a __del__, we only need one class
-            keys = [(space, cls, True), (space, cls, False)]
-            needsdel = True
-        elif needsdel:
+        if needsdel:
             cls = get_unique_interplevel_subclass(space, cls, False)
         subcls = _getusercls(space, cls, needsdel)
         assert key not in _subclass_cache
-        for key in keys:
-            _subclass_cache[key] = subcls
+        _subclass_cache[key] = subcls
         return subcls
 get_unique_interplevel_subclass._annspecialcase_ = "specialize:memo"
 _subclass_cache = {}
@@ -140,24 +133,20 @@ def _getusercls(space, cls, wants_del, reallywantdict=False):
     name = cls.__name__ + "User"
 
     mixins_needed = []
-    copy_methods = []
-    mixins_needed = []
-    name = cls.__name__
-    if not cls.user_overridden_class:
-        if cls is W_ObjectObject or cls is W_InstanceObject:
-            mixins_needed.append(_make_storage_mixin_size_n())
-        else:
-            mixins_needed.append(MapdictStorageMixin)
-        copy_methods = [BaseUserClassMapdict]
-        if reallywantdict or not typedef.hasdict:
-            # the type has no dict, mapdict to provide the dict
-            copy_methods.append(MapdictDictSupport)
-            name += "Dict"
-        if not typedef.weakrefable:
-            # the type does not support weakrefs yet, mapdict to provide weakref
-            # support
-            copy_methods.append(MapdictWeakrefSupport)
-            name += "Weakrefable"
+    if cls is W_ObjectObject or cls is W_InstanceObject:
+        mixins_needed.append(_make_storage_mixin_size_n())
+    else:
+        mixins_needed.append(MapdictStorageMixin)
+    copy_methods = [BaseUserClassMapdict]
+    if reallywantdict or not typedef.hasdict:
+        # the type has no dict, mapdict to provide the dict
+        copy_methods.append(MapdictDictSupport)
+        name += "Dict"
+    if not typedef.weakrefable:
+        # the type does not support weakrefs yet, mapdict to provide weakref
+        # support
+        copy_methods.append(MapdictWeakrefSupport)
+        name += "Weakrefable"
     if wants_del:
         # This subclass comes with an app-level __del__.  To handle
         # it, we make an RPython-level __del__ method.  This
