@@ -3,7 +3,7 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.bytesobject import new_empty_str, PyStringObject
-from pypy.module.cpyext.api import PyObjectP, PyObject, Py_ssize_tP
+from pypy.module.cpyext.api import PyObjectP, PyObject, Py_ssize_tP, generic_cpy_call
 from pypy.module.cpyext.pyobject import Py_DecRef, from_ref, make_ref
 from pypy.module.cpyext.typeobjectdefs import PyTypeObjectPtr
 
@@ -339,13 +339,16 @@ class TestString(BaseApiTest):
         c_buf = py_str.c_ob_type.c_tp_as_buffer
         assert c_buf
         py_obj = rffi.cast(PyObject, py_str)
-        assert c_buf.c_bf_getsegcount(py_obj, lltype.nullptr(Py_ssize_tP.TO)) == 1
+        assert generic_cpy_call(space, c_buf.c_bf_getsegcount,
+                                py_obj, lltype.nullptr(Py_ssize_tP.TO)) == 1
         ref = lltype.malloc(Py_ssize_tP.TO, 1, flavor='raw')
-        assert c_buf.c_bf_getsegcount(py_obj, ref) == 1
+        assert generic_cpy_call(space, c_buf.c_bf_getsegcount,
+                                py_obj, ref) == 1
         assert ref[0] == 10
         lltype.free(ref, flavor='raw')
         ref = lltype.malloc(rffi.VOIDPP.TO, 1, flavor='raw')
-        assert c_buf.c_bf_getreadbuffer(py_obj, 0, ref) == 10
+        assert generic_cpy_call(space, c_buf.c_bf_getreadbuffer,
+                                py_obj, 0, ref) == 10
         lltype.free(ref, flavor='raw')
         Py_DecRef(space, py_obj)
 
