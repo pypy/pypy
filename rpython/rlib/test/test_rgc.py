@@ -252,3 +252,118 @@ def test_register_custom_trace_hook():
     t, typer, graph = gengraph(f, [])
 
     assert typer.custom_trace_funcs == [(TP, trace_func)]
+
+
+# ____________________________________________________________
+
+
+class T_Root(object):
+    pass
+
+class T_Int(T_Root):
+    def __init__(self, x):
+        self.x = x
+
+class SimpleFQ(rgc.FinalizerQueue):
+    base_class = T_Root
+    _triggered = 0
+    def finalizer_trigger(self):
+        self._triggered += 1
+
+class TestFinalizerQueue:
+
+    def test_simple(self):
+        fq = SimpleFQ()
+        assert fq.next_dead() is None
+        assert fq._triggered == 0
+        w = T_Int(67)
+        fq.register_finalizer(w)
+        #
+        gc.collect()
+        assert fq._triggered == 0
+        assert fq.next_dead() is None
+        #
+        del w
+        gc.collect()
+        assert fq._triggered == 1
+        n = fq.next_dead()
+        assert type(n) is T_Int and n.x == 67
+        #
+        gc.collect()
+        assert fq._triggered == 1
+        assert fq.next_dead() is None
+
+    def test_del_1(self):
+        deleted = {}
+        class T_Del(T_Int):
+            def __del__(self):
+                deleted[self.x] = deleted.get(self.x, 0) + 1
+
+        fq = SimpleFQ()
+        fq.register_finalizer(T_Del(42))
+        gc.collect(); gc.collect()
+        assert deleted == {}
+        assert fq._triggered == 1
+        n = fq.next_dead()
+        assert type(n) is T_Del and n.x == 42
+        assert deleted == {}
+        del n
+        gc.collect()
+        assert fq.next_dead() is None
+        assert deleted == {42: 1}
+        assert fq._triggered == 1
+
+    def test_del_2(self):
+        deleted = {}
+        class T_Del1(T_Int):
+            def __del__(self):
+                deleted[1, self.x] = deleted.get((1, self.x), 0) + 1
+        class T_Del2(T_Del1):
+            def __del__(self):
+                deleted[2, self.x] = deleted.get((2, self.x), 0) + 1
+                T_Del1.__del__(self)
+
+        fq = SimpleFQ()
+        w = T_Del2(42)
+        fq.register_finalizer(w)
+        fq.register_finalizer(w)
+        fq.register_finalizer(w)
+        del w
+        fq.register_finalizer(T_Del1(21))
+        gc.collect(); gc.collect()
+        assert deleted == {}
+        assert fq._triggered == 2
+        a = fq.next_dead()
+        b = fq.next_dead()
+        if a.x == 21:
+            a, b = b, a
+        assert type(a) is T_Del2 and a.x == 42
+        assert type(b) is T_Del1 and b.x == 21
+        assert deleted == {}
+        del a, b
+        gc.collect()
+        assert fq.next_dead() is None
+        assert deleted == {(1, 42): 1, (2, 42): 1, (1, 21): 1}
+        assert fq._triggered == 2
+
+    def test_del_3(self):
+        deleted = {}
+        class T_Del1(T_Int):
+            def __del__(self):
+                deleted[1, self.x] = deleted.get((1, self.x), 0) + 1
+        class T_Del2(T_Del1):
+            pass
+
+        fq = SimpleFQ()
+        fq.register_finalizer(T_Del2(42))
+        gc.collect(); gc.collect()
+        assert deleted == {}
+        assert fq._triggered == 1
+        a = fq.next_dead()
+        assert type(a) is T_Del2 and a.x == 42
+        assert deleted == {}
+        del a
+        gc.collect()
+        assert fq.next_dead() is None
+        assert deleted == {(1, 42): 1}
+        assert fq._triggered == 1

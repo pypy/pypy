@@ -361,10 +361,105 @@ def no_collect(func):
     return func
 
 def must_be_light_finalizer(func):
-    func._must_be_light_finalizer_ = True
+    import warnings
+    warnings.warn("@must_be_light_finalizer is implied and has no effect "
+                  "any more", DeprecationWarning)
     return func
 
+
+class FinalizerQueue(object):
+    """A finalizer queue.  See pypy/doc/discussion/finalizer-order.rst.
+    """
+    # Must be subclassed, and the subclass needs these attributes:
+    #
+    #    base_class:
+    #        the base class (or only class) of finalized objects
+    #
+    #    def finalizer_trigger(self):
+    #        called to notify that new items have been put in the queue
+
+    def next_dead(self):
+        "NOT_RPYTHON: special-cased below"
+        try:
+            return self._queue.popleft()
+        except (AttributeError, IndexError):
+            return None
+
+    def register_finalizer(self, obj):
+        "NOT_RPYTHON: special-cased below"
+        assert isinstance(obj, self.base_class)
+
+        if hasattr(obj, '__enable_del_for_id'):
+            return    # already called
+
+        if not hasattr(self, '_queue'):
+            import collections
+            self._weakrefs = set()
+            self._queue = collections.deque()
+
+        # Fetch and check the type of 'obj'
+        objtyp = obj.__class__
+        assert isinstance(objtyp, type), (
+            "to run register_finalizer() untranslated, "
+            "the object's class must be new-style")
+        assert hasattr(obj, '__dict__'), (
+            "to run register_finalizer() untranslated, "
+            "the object must have a __dict__")
+        assert not hasattr(obj, '__slots__'), (
+            "to run register_finalizer() untranslated, "
+            "the object must not have __slots__")
+
+        # The first time, patch the method __del__ of the class, if
+        # any, so that we can disable it on the original 'obj' and
+        # enable it only on the 'newobj'
+        _fq_patch_class(objtyp)
+
+        # Build a new shadow object with the same class and dict
+        newobj = object.__new__(objtyp)
+        obj.__dict__ = obj.__dict__.copy() #PyPy: break the dict->obj dependency
+        newobj.__dict__ = obj.__dict__
+
+        # A callback that is invoked when (or after) 'obj' is deleted;
+        # 'newobj' is still kept alive here
+        def callback(wr):
+            self._weakrefs.discard(wr)
+            self._queue.append(newobj)
+            self.finalizer_trigger()
+
+        import weakref
+        wr = weakref.ref(obj, callback)
+        self._weakrefs.add(wr)
+
+        # Disable __del__ on the original 'obj' and enable it only on
+        # the 'newobj'.  Use id() and not a regular reference, because
+        # that would make a cycle between 'newobj' and 'obj.__dict__'
+        # (which is 'newobj.__dict__' too).
+        setattr(obj, '__enable_del_for_id', id(newobj))
+
+
+def _fq_patch_class(Cls):
+    if Cls in _fq_patched_classes:
+        return
+    if '__del__' in Cls.__dict__:
+        def __del__(self):
+            if not we_are_translated():
+                try:
+                    if getattr(self, '__enable_del_for_id') != id(self):
+                        return
+                except AttributeError:
+                    pass
+            original_del(self)
+        original_del = Cls.__del__
+        Cls.__del__ = __del__
+        _fq_patched_classes.add(Cls)
+    for BaseCls in Cls.__bases__:
+        _fq_patch_class(BaseCls)
+
+_fq_patched_classes = set()
+
+
 # ____________________________________________________________
+
 
 def get_rpy_roots():
     "NOT_RPYTHON"
