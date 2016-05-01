@@ -45,7 +45,12 @@ to cpyext:
   - improve tracking of PyObject to rpython object mapping
   - support tp_as_{number, sequence, mapping, buffer} slots
 
+(makes the pypy-c bigger; this was fixed subsequently by the
+share-cpyext-cpython-api branch)
+
 .. branch: share-mapdict-methods-2
 
 Reduce generated code for subclasses by using the same function objects in all
 generated subclasses.
+
+.. branch: share-cpyext-cpython-api
