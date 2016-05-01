@@ -56,12 +56,12 @@ Register_finalizer
 The interface for full finalizers is made with PyPy in mind, but should
 be generally useful.
 
-The idea is that you subclass the ``rgc.FinalizerController`` class::
+The idea is that you subclass the ``rgc.FinalizerQueue`` class::
 
 * You must give a class-level attribute ``base_class``, which is the
   base class of all instances with a finalizer.  (If you need
   finalizers on several unrelated classes, you need several unrelated
-  ``FinalizerController`` subclasses.)
+  ``FinalizerQueue`` subclasses.)
 
 * You override the ``finalizer_trigger()`` method; see below.
 
@@ -90,10 +90,10 @@ GIL to be released.
 To find the queued items, call ``fin.next_dead()`` repeatedly.  It
 returns the next queued item, or ``None`` when the queue is empty.
 
-It is not allowed to cumulate several ``FinalizerController``
-instances for objects of the same class.  Calling
-``fin.register_finalizer(obj)`` several times for the same ``obj`` is
-fine (and will only register it once).
+It is not allowed to cumulate several ``FinalizerQueue`` instances for
+objects of the same class.  Calling ``fin.register_finalizer(obj)``
+several times with the same arguments is fine (and will only register
+``obj`` once).
 
 
 Ordering of finalizers
