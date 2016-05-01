@@ -319,7 +319,7 @@ class W_ISlice(W_Root):
     def arg_int_w(self, w_obj, minimum, errormsg):
         space = self.space
         try:
-            result = space.int_w(space.int(w_obj))    # CPython allows floats as parameters
+            result = space.int_w(w_obj)
         except OperationError, e:
             if e.async(space):
                 raise
