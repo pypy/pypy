@@ -749,7 +749,7 @@ def make_wrapper(space, callable, gil=None):
         wrapper_gen = cache.wrapper_gens[signature] = WrapperGen(space,
                                                                  signature)
         cache.stats[0] += 1
-    print 'Wrapper cache [wrappers/total]:', cache.stats
+    #print 'Wrapper cache [wrappers/total]:', cache.stats
     return wrapper_gen.make_wrapper(callable)
 
 
