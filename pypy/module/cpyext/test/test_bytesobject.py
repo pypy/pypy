@@ -359,6 +359,7 @@ class TestString(BaseApiTest):
         assert space.str_w(from_ref(space, ptr[0])) == 'abcdef'
         api.PyString_Concat(ptr, space.w_None)
         assert not ptr[0]
+        api.PyErr_Clear()
         ptr[0] = lltype.nullptr(PyObject.TO)
         api.PyString_Concat(ptr, space.wrap('def')) # should not crash
         lltype.free(ptr, flavor='raw')
