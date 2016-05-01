@@ -159,6 +159,18 @@ def _getusercls(space, cls, wants_del, reallywantdict=False):
             copy_methods.append(MapdictWeakrefSupport)
             name += "Weakrefable"
     if wants_del:
+        # This subclass comes with an app-level __del__.  To handle
+        # it, we make an RPython-level __del__ method.  This
+        # RPython-level method is called directly by the GC and it
+        # cannot do random things (calling the app-level __del__ would
+        # be "random things").  So instead, we just call here
+        # enqueue_for_destruction(), and the app-level __del__ will be
+        # called later at a safe point (typically between bytecodes).
+        # If there is also an inherited RPython-level __del__, it is
+        # called afterwards---not immediately!  This base
+        # RPython-level __del__ is supposed to run only when the
+        # object is not reachable any more.  NOTE: it doesn't fully
+        # work: see issue #2287.
         name += "Del"
         parent_destructor = getattr(cls, '__del__', None)
         def call_parent_del(self):
