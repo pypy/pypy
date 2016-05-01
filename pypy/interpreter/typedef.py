@@ -125,7 +125,6 @@ _subclass_cache = {}
 def _getusercls(space, cls, wants_del, reallywantdict=False):
     from rpython.rlib import objectmodel
     from pypy.objspace.std.objectobject import W_ObjectObject
-    from pypy.module.__builtin__.interp_classobj import W_InstanceObject
     from pypy.objspace.std.mapdict import (BaseUserClassMapdict,
             MapdictDictSupport, MapdictWeakrefSupport,
             _make_storage_mixin_size_n, MapdictStorageMixin)
@@ -133,7 +132,7 @@ def _getusercls(space, cls, wants_del, reallywantdict=False):
     name = cls.__name__ + "User"
 
     mixins_needed = []
-    if cls is W_ObjectObject or cls is W_InstanceObject:
+    if cls is W_ObjectObject:
         mixins_needed.append(_make_storage_mixin_size_n())
     else:
         mixins_needed.append(MapdictStorageMixin)
