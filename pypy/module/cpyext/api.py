@@ -727,10 +727,16 @@ def make_wrapper(space, callable, gil=None):
         assert not error_value    # only support error=NULL
         error_value = 0    # because NULL is not hashable
 
+    if callable.api_func.result_is_ll:
+        result_kind = "L"
+    elif callable.api_func.result_borrowed:
+        result_kind = "B"     # note: 'result_borrowed' is ignored if we also
+    else:                     #  say 'result_is_ll=True' (in this case it's
+        result_kind = "."     #  up to you to handle refcounting anyway)
+
     signature = (tuple(argtypesw),
                  callable.api_func.restype,
-                 callable.api_func.result_borrowed,
-                 callable.api_func.result_is_ll,
+                 result_kind,
                  error_value,
                  gil)
 
@@ -780,7 +786,7 @@ def unexpected_exception(funcname, e, tb):
         assert False
 
 def make_wrapper_second_level(space, callable2name, argtypesw, restype,
-                              result_borrowed, result_is_ll, error_value, gil):
+                              result_kind, error_value, gil):
     from rpython.rlib import rgil
     argtypes_enum_ui = unrolling_iterable(enumerate(argtypesw))
     fatal_value = restype._defl()
@@ -885,12 +891,12 @@ def make_wrapper_second_level(space, callable2name, argtypesw, restype,
 
             elif is_PyObject(restype):
                 if is_pyobj(result):
-                    if not result_is_ll:
+                    if result_kind != "L":
                         raise invalid("missing result_is_ll=True")
                 else:
-                    if result_is_ll:
+                    if result_kind == "L":
                         raise invalid("result_is_ll=True but not ll PyObject")
-                    if result_borrowed:
+                    if result_kind == "B":    # borrowed
                         result = as_pyobj(space, result)
                     else:
                         result = make_ref(space, result)
