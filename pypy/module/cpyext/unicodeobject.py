@@ -358,7 +358,7 @@ def PyUnicode_FromWideChar(space, wchar_p, length):
     # PyPy supposes Py_UNICODE == wchar_t
     return PyUnicode_FromUnicode(space, wchar_p, length)
 
-@cpython_api([PyObject, CONST_STRING], PyObject, result_is_ll=True)
+@cpython_api([PyObject, CONST_STRING], PyObject)
 def _PyUnicode_AsDefaultEncodedString(space, w_unicode, errors):
     return PyUnicode_AsEncodedString(space, w_unicode, lltype.nullptr(rffi.CCHARP.TO), errors)
 

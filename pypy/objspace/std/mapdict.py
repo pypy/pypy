@@ -470,7 +470,6 @@ class BaseUserClassMapdict:
         self._set_mapdict_storage_and_map(new_obj.storage, new_obj.map)
 
     def user_setup(self, space, w_subtype):
-        self.space = space
         assert (not self.typedef.hasdict or
                 isinstance(w_subtype.terminator, NoDictTerminator))
         self._mapdict_init_empty(w_subtype.terminator)

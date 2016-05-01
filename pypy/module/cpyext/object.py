@@ -71,7 +71,7 @@ def PyObject_dealloc(space, obj):
 def _PyObject_GC_New(space, type):
     return _PyObject_New(space, type)
 
-@cpython_api([PyTypeObjectPtr, Py_ssize_t], PyObject)
+@cpython_api([PyTypeObjectPtr, Py_ssize_t], PyObject, result_is_ll=True)
 def _PyObject_GC_NewVar(space, type, itemcount):
     return _PyObject_NewVar(space, type, itemcount)
 
@@ -446,7 +446,7 @@ def PyObject_AsCharBuffer(space, obj, bufferp, sizep):
 
         bufferp[0] = rffi.cast(rffi.CCHARP, view.c_buf)
         sizep[0] = view.c_len
-            
+
         if pb.c_bf_releasebuffer:
             generic_cpy_call(space, pb.c_bf_releasebuffer,
                              obj, view)
