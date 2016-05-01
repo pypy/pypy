@@ -145,6 +145,7 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
              """
                 PyObject ** v;
                 PyObject * left = PyTuple_GetItem(args, 0);
+                Py_INCREF(left);    /* the reference will be stolen! */
                 v = &left;
                 PyString_Concat(v, PyTuple_GetItem(args, 1));
                 return *v;
