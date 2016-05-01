@@ -94,7 +94,8 @@ class SomeStatResult(annmodel.SomeObject):
         return self.__class__,
 
     def getattr(self, s_attr):
-        assert s_attr.is_constant(), "non-constant attr name in getattr()"
+        if not s_attr.is_constant():
+            raise annmodel.AnnotatorError("non-constant attr name in getattr()")
         attrname = s_attr.const
         TYPE = STAT_FIELD_TYPES[attrname]
         return lltype_to_annotation(TYPE)

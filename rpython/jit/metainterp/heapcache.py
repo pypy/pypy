@@ -209,7 +209,7 @@ class HeapCache(object):
               isinstance(argboxes[3], ConstInt) and
               isinstance(argboxes[4], ConstInt) and
               isinstance(argboxes[5], ConstInt) and
-              len(descr.get_extra_info().write_descrs_arrays) == 1):
+              descr.get_extra_info().single_write_descr_array is not None):
             # ARRAYCOPY with constant starts and constant length doesn't escape
             # its argument
             # XXX really?
@@ -299,9 +299,9 @@ class HeapCache(object):
             isinstance(argboxes[3], ConstInt) and
             isinstance(argboxes[4], ConstInt) and
             isinstance(argboxes[5], ConstInt) and
-            len(effectinfo.write_descrs_arrays) == 1
+            effectinfo.single_write_descr_array is not None
         ):
-            descr = effectinfo.write_descrs_arrays[0]
+            descr = effectinfo.single_write_descr_array
             cache = self.heap_array_cache.get(descr, None)
             srcstart = argboxes[3].getint()
             dststart = argboxes[4].getint()
@@ -328,10 +328,10 @@ class HeapCache(object):
                         idx_cache._clear_cache_on_write(seen_allocation_of_target)
             return
         elif (
-            len(effectinfo.write_descrs_arrays) == 1
+            effectinfo.single_write_descr_array is not None
         ):
             # Fish the descr out of the effectinfo
-            cache = self.heap_array_cache.get(effectinfo.write_descrs_arrays[0], None)
+            cache = self.heap_array_cache.get(effectinfo.single_write_descr_array, None)
             if cache is not None:
                 for idx, cache in cache.iteritems():
                     cache._clear_cache_on_write(seen_allocation_of_target)

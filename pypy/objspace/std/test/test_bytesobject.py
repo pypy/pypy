@@ -864,14 +864,3 @@ class AppTestBytesObject:
             def __int__(self):
                 return 42
         raises(TypeError, bytes, A())
-
-
-class AppTestPrebuilt(AppTestBytesObject):
-    spaceconfig = {"objspace.std.withprebuiltchar": True}
-
-class AppTestShare(AppTestBytesObject):
-    spaceconfig = {"objspace.std.sharesmallstr": True}
-
-class AppTestPrebuiltShare(AppTestBytesObject):
-    spaceconfig = {"objspace.std.withprebuiltchar": True,
-                   "objspace.std.sharesmallstr": True}

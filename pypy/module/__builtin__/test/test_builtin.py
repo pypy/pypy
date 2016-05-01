@@ -865,6 +865,3 @@ class AppTestGetattr:
         a.__eq__ = 42
         assert a.__eq__ == 42
 
-
-class AppTestGetattrWithGetAttributeShortcut(AppTestGetattr):
-    spaceconfig = {"objspace.std.getattributeshortcut": True}

@@ -148,6 +148,9 @@ def setup_threads(space):
     space.threadlocals.setup_threads(space)
     bootstrapper.setup(space)
 
+def threads_initialized(space):
+    return space.threadlocals.threads_initialized()
+
 
 def reinit_threads(space):
     "Called in the child process after a fork()"
@@ -160,7 +163,6 @@ def reinit_threads(space):
     w_threading = space.finditem_str(w_modules, 'threading')
     if w_threading is not None:
         space.call_method(w_threading, "_after_fork")
-
 
 def start_new_thread(space, w_callable, w_args, w_kwargs=None):
     """Start a new thread and return its identifier.  The thread will call the

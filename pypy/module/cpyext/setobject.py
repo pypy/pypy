@@ -5,11 +5,18 @@ from pypy.module.cpyext.api import (cpython_api, Py_ssize_t, CANNOT_FAIL,
 from pypy.module.cpyext.pyobject import (PyObject, PyObjectP, Py_DecRef,
     make_ref, from_ref)
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
-from pypy.objspace.std.setobject import W_SetObject, newset
+from pypy.objspace.std.setobject import W_SetObject, W_FrozensetObject, newset
 
 
 PySet_Check, PySet_CheckExact = build_type_checkers("Set")
 
+@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
+def PyAnySet_CheckExact(space, w_obj):
+    """Return true if obj is a set object or a frozenset object but
+    not an instance of a subtype."""
+    w_obj_type = space.type(w_obj)
+    return (space.is_w(w_obj_type, space.gettypefor(W_SetObject)) or 
+            space.is_w(w_obj_type, space.gettypefor(W_FrozensetObject)))
 
 @cpython_api([PyObject], PyObject)
 def PySet_New(space, w_iterable):

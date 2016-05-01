@@ -32,7 +32,8 @@ class AppTestOperator:
         a.z = 'Z'
 
         assert operator.attrgetter('x','z','y')(a) == ('X', 'Z', 'Y')
-        raises(TypeError, operator.attrgetter, ('x', (), 'y'))
+        e = raises(TypeError, operator.attrgetter, ('x', (), 'y'))
+        assert str(e.value) == "attribute name must be a string, not 'tuple'"
 
         data = list(map(str, range(20)))
         assert operator.itemgetter(2,10,5)(data) == ('2', '10', '5')

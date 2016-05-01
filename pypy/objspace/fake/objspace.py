@@ -65,6 +65,7 @@ class W_MyListObj(W_MyObject):
 
 class W_MyType(W_MyObject):
     name = "foobar"
+    flag_map_or_seq = '?'
 
     def __init__(self):
         self.mro_w = [w_some_obj(), w_some_obj()]
@@ -121,6 +122,8 @@ BUILTIN_TYPES = ['int', 'str', 'float', 'tuple', 'list', 'dict', 'bytes',
                  'set', 'frozenset', 'bytearray', 'memoryview']
 
 class FakeObjSpace(ObjSpace):
+    is_fake_objspace = True
+
     def __init__(self, config=None):
         self._seen_extras = []
         ObjSpace.__init__(self, config=config)

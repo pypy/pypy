@@ -87,7 +87,11 @@ def run_toplevel(f, *fargs, **fkwds):
     """
     try:
         # run it
-        f(*fargs, **fkwds)
+        try:
+            f(*fargs, **fkwds)
+        finally:
+            sys.settrace(None)
+            sys.setprofile(None)
     except SystemExit as e:
         handle_sys_exit(e)
     except BaseException as e:

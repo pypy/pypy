@@ -238,7 +238,7 @@ class W_RawFuncType(W_Root):
             self.nostruct_nargs = len(ctfuncptr.fargs) - (locs is not None and
                                                           locs[0] == 'R')
 
-    def unexpected_fn_type(self, ffi):
+    def repr_fn_type(self, ffi, repl=""):
         fargs, fret, ellipsis, abi = self._unpack(ffi)
         argnames = [farg.name for farg in fargs]
         if ellipsis:
@@ -246,9 +246,14 @@ class W_RawFuncType(W_Root):
         sargs = ', '.join(argnames)
         sret1 = fret.name[:fret.name_position]
         sret2 = fret.name[fret.name_position:]
+        if len(repl) > 0 and not sret1.endswith('*'):
+            repl = " " + repl
+        return '%s%s(%s)%s' % (sret1, repl, sargs, sret2)
+
+    def unexpected_fn_type(self, ffi):
         raise oefmt(ffi.w_FFIError,
-                    "the type '%s(%s)%s' is a function type, not a "
-                    "pointer-to-function type", sret1, sargs, sret2)
+                    "the type '%s' is a function type, not a "
+                    "pointer-to-function type", self.repr_fn_type(ffi))
 
 
 def realize_c_type(ffi, opcodes, index):

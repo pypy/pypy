@@ -21,7 +21,7 @@ typedef PY_UNICODE_TYPE Py_UNICODE;
 typedef struct {
     PyObject_HEAD
     Py_UNICODE *buffer;
-    Py_ssize_t size;
+    Py_ssize_t length;
     char *utf8buffer;
 } PyUnicodeObject;
 

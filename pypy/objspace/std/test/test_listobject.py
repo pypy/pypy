@@ -432,6 +432,8 @@ class TestW_ListObject(object):
 
 
 class AppTestListObject(object):
+    spaceconfig = {"objspace.std.withliststrategies": True}  # it's the default
+
     def setup_class(cls):
         import platform
         import sys

@@ -4,6 +4,8 @@
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 from pypy.interpreter.typedef import TypeDef, interp2app
+from pypy.module.cpyext.api import cpython_api, build_type_checkers
+from pypy.module.cpyext.pyobject import PyObject
 
 class W_DictProxyObject(W_Root):
     "Read-only proxy for mappings."
@@ -47,15 +49,22 @@ class W_DictProxyObject(W_Root):
 
 W_DictProxyObject.typedef = TypeDef(
     'mappingproxy',
-    __len__ = interp2app(W_DictProxyObject.descr_len),
-    __getitem__ = interp2app(W_DictProxyObject.descr_getitem),
-    __contains__ = interp2app(W_DictProxyObject.descr_contains),
-    __iter__ = interp2app(W_DictProxyObject.descr_iter),
-    __str__ = interp2app(W_DictProxyObject.descr_str),
-    __repr__ = interp2app(W_DictProxyObject.descr_repr),
-    get = interp2app(W_DictProxyObject.get_w),
-    keys = interp2app(W_DictProxyObject.keys_w),
-    values = interp2app(W_DictProxyObject.values_w),
-    items = interp2app(W_DictProxyObject.items_w),
-    copy = interp2app(W_DictProxyObject.copy_w)
-    )
+    __len__=interp2app(W_DictProxyObject.descr_len),
+    __getitem__=interp2app(W_DictProxyObject.descr_getitem),
+    __contains__=interp2app(W_DictProxyObject.descr_contains),
+    __iter__=interp2app(W_DictProxyObject.descr_iter),
+    __str__=interp2app(W_DictProxyObject.descr_str),
+    __repr__=interp2app(W_DictProxyObject.descr_repr),
+    get=interp2app(W_DictProxyObject.get_w),
+    keys=interp2app(W_DictProxyObject.keys_w),
+    values=interp2app(W_DictProxyObject.values_w),
+    items=interp2app(W_DictProxyObject.items_w),
+    copy=interp2app(W_DictProxyObject.copy_w)
+)
+
+PyDictProxy_Check, PyDictProxy_CheckExact = build_type_checkers(
+    "DictProxy", W_DictProxyObject)
+
+@cpython_api([PyObject], PyObject)
+def PyDictProxy_New(space, w_dict):
+    return space.wrap(W_DictProxyObject(w_dict))
