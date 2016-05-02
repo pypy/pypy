@@ -7,7 +7,7 @@ from pypy.interpreter import pycode
 from pypy.interpreter.pyparser import future, pyparse, error as parseerror
 from pypy.interpreter.astcompiler import (astbuilder, codegen, consts, misc,
                                           optimize, ast)
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 
 
 class AbstractCompiler(object):
@@ -116,8 +116,7 @@ class PythonAstCompiler(PyCodeCompiler):
         else:
             check = True
         if not check:
-            raise OperationError(self.space.w_TypeError, self.space.wrap(
-                "invalid node type"))
+            raise oefmt(self.space.w_TypeError, "invalid node type")
 
         fut = misc.parse_future(node, self.future_flags.compiler_features)
         f_flags, f_lineno, f_col = fut
@@ -132,8 +131,7 @@ class PythonAstCompiler(PyCodeCompiler):
             mod = optimize.optimize_ast(space, node, info)
             code = codegen.compile_ast(space, mod, info)
         except parseerror.SyntaxError, e:
-            raise OperationError(space.w_SyntaxError,
-                                 e.wrap_info(space))
+            raise OperationError(space.w_SyntaxError, e.wrap_info(space))
         return code
 
     def compile_to_ast(self, source, filename, mode, flags):
@@ -146,11 +144,9 @@ class PythonAstCompiler(PyCodeCompiler):
             parse_tree = self.parser.parse_source(source, info)
             mod = astbuilder.ast_from_node(space, parse_tree, info)
         except parseerror.IndentationError, e:
-            raise OperationError(space.w_IndentationError,
-                                 e.wrap_info(space))
+            raise OperationError(space.w_IndentationError, e.wrap_info(space))
         except parseerror.SyntaxError, e:
-            raise OperationError(space.w_SyntaxError,
-                                 e.wrap_info(space))
+            raise OperationError(space.w_SyntaxError, e.wrap_info(space))
         return mod
 
     def compile(self, source, filename, mode, flags, hidden_applevel=False):

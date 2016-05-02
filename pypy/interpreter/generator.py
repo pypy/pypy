@@ -1,5 +1,5 @@
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.pyopcode import LoopBlock
 from rpython.rlib import jit
 
@@ -76,8 +76,7 @@ return next yielded value or raise StopIteration."""
     def _send_ex(self, w_arg, operr):
         space = self.space
         if self.running:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap('generator already executing'))
+            raise oefmt(space.w_ValueError, "generator already executing")
         frame = self.frame
         if frame is None:
             # xxx a bit ad-hoc, but we don't want to go inside
@@ -89,8 +88,9 @@ return next yielded value or raise StopIteration."""
         last_instr = jit.promote(frame.last_instr)
         if last_instr == -1:
             if w_arg and not space.is_w(w_arg, space.w_None):
-                msg = "can't send non-None value to a just-started generator"
-                raise OperationError(space.w_TypeError, space.wrap(msg))
+                raise oefmt(space.w_TypeError,
+                            "can't send non-None value to a just-started "
+                            "generator")
         else:
             if not w_arg:
                 w_arg = space.w_None
@@ -151,8 +151,8 @@ return next yielded value or raise StopIteration."""
             raise
 
         if w_retval is not None:
-            msg = "generator ignored GeneratorExit"
-            raise OperationError(space.w_RuntimeError, space.wrap(msg))
+            raise oefmt(space.w_RuntimeError,
+                        "generator ignored GeneratorExit")
 
     def descr_gi_frame(self, space):
         if self.frame is not None and not self.frame.frame_finished_execution:
@@ -184,8 +184,7 @@ return next yielded value or raise StopIteration."""
             # XXX copied and simplified version of send_ex()
             space = self.space
             if self.running:
-                raise OperationError(space.w_ValueError,
-                                     space.wrap('generator already executing'))
+                raise oefmt(space.w_ValueError, "generator already executing")
             frame = self.frame
             if frame is None:    # already finished
                 return

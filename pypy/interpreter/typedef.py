@@ -253,8 +253,7 @@ def _make_descr_typecheck_wrapper(tag, func, extraargs, cls, use_closure):
 
 def unknown_objclass_getter(space):
     # NB. this is an AttributeError to make inspect.py happy
-    raise OperationError(space.w_AttributeError,
-                         space.wrap("generic property has no __objclass__"))
+    raise oefmt(space.w_AttributeError, "generic property has no __objclass__")
 
 @specialize.arg(0)
 def make_objclass_getter(tag, func, cls):
@@ -328,8 +327,7 @@ class GetSetProperty(W_Root):
         Change the value of the property of the given obj."""
         fset = self.fset
         if fset is None:
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("readonly attribute"))
+            raise oefmt(space.w_TypeError, "readonly attribute")
         try:
             fset(self, space, w_obj, w_value)
         except DescrMismatch:
@@ -344,8 +342,7 @@ class GetSetProperty(W_Root):
         Delete the value of the property from the given obj."""
         fdel = self.fdel
         if fdel is None:
-            raise OperationError(space.w_AttributeError,
-                                 space.wrap("cannot delete attribute"))
+            raise oefmt(space.w_AttributeError, "cannot delete attribute")
         try:
             fdel(self, space, w_obj)
         except DescrMismatch:
