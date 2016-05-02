@@ -85,7 +85,7 @@ class W_PyCFunctionObject(W_Root):
             if length == 0:
                 return generic_cpy_call(space, func, w_self, None)
             raise oefmt(space.w_TypeError,
-                        "() takes no arguments", self.name)
+                        "%s() takes no arguments", self.name)
         elif flags & METH_O:
             if length != 1:
                 raise oefmt(space.w_TypeError,

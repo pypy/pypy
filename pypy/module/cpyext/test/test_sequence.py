@@ -163,7 +163,7 @@ class TestCPyListStrategy(BaseApiTest):
         assert space.int_w(space.getitem(w_l, space.wrap(1))) == 2
         assert space.int_w(space.getitem(w_l, space.wrap(0))) == 1
         e = py.test.raises(OperationError, space.getitem, w_l, space.wrap(15))
-        assert "list index out of range" in e.exconly()
+        assert "list index out of range" in e.value.errorstr(space)
         assert space.int_w(space.getitem(w_l, space.wrap(-1))) == 4
         space.setitem(w_l, space.wrap(1), space.wrap(13))
         assert space.int_w(space.getitem(w_l, space.wrap(1))) == 13
