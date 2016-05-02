@@ -2034,7 +2034,7 @@ class MetaInterp(object):
         else:
             try:
                 self.compile_done_with_this_frame(resultbox)
-            except SwitchToBlackhole, stb:
+            except SwitchToBlackhole as stb:
                 self.aborted_tracing(stb.reason)
             sd = self.staticdata
             result_type = self.jitdriver_sd.result_type
@@ -2067,7 +2067,7 @@ class MetaInterp(object):
             self.popframe()
         try:
             self.compile_exit_frame_with_exception(self.last_exc_box)
-        except SwitchToBlackhole, stb:
+        except SwitchToBlackhole as stb:
             self.aborted_tracing(stb.reason)
         raise jitexc.ExitFrameWithExceptionRef(self.cpu, lltype.cast_opaque_ptr(llmemory.GCREF, excvalue))
 
@@ -2367,7 +2367,7 @@ class MetaInterp(object):
         self.seen_loop_header_for_jdindex = -1
         try:
             self.interpret()
-        except SwitchToBlackhole, stb:
+        except SwitchToBlackhole as stb:
             self.run_blackhole_interp_to_cancel_tracing(stb)
         assert False, "should always raise"
 
@@ -2404,7 +2404,7 @@ class MetaInterp(object):
             if self.resumekey_original_loop_token is None:   # very rare case
                 raise SwitchToBlackhole(Counters.ABORT_BRIDGE)
             self.interpret()
-        except SwitchToBlackhole, stb:
+        except SwitchToBlackhole as stb:
             self.run_blackhole_interp_to_cancel_tracing(stb)
         assert False, "should always raise"
 
@@ -3276,7 +3276,7 @@ def _get_opimpl_method(name, argcodes):
                 print '\tpyjitpl: %s(%s)' % (name, ', '.join(map(repr, args))),
             try:
                 resultbox = unboundmethod(self, *args)
-            except Exception, e:
+            except Exception as e:
                 if self.debug:
                     print '-> %s!' % e.__class__.__name__
                 raise

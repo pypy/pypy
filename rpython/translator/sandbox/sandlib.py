@@ -235,14 +235,14 @@ class SandboxedProc(object):
             try:
                 fnname = read_message(child_stdout)
                 args   = read_message(child_stdout)
-            except EOFError, e:
+            except EOFError as e:
                 break
             if self.log and not self.is_spam(fnname, *args):
                 self.log.call('%s(%s)' % (fnname,
                                      ', '.join([shortrepr(x) for x in args])))
             try:
                 answer, resulttype = self.handle_message(fnname, *args)
-            except Exception, e:
+            except Exception as e:
                 tb = sys.exc_info()[2]
                 write_exception(child_stdin, e, tb)
                 if self.log:
@@ -445,7 +445,7 @@ class VirtualizedSandboxedProc(SandboxedProc):
     def do_ll_os__ll_os_access(self, vpathname, mode):
         try:
             node = self.get_node(vpathname)
-        except OSError, e:
+        except OSError as e:
             if e.errno == errno.ENOENT:
                 return False
             raise
