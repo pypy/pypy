@@ -790,6 +790,8 @@ def make_wrapper_second_level(space, callable2name, argtypesw, restype,
     from rpython.rlib import rgil
     argtypes_enum_ui = unrolling_iterable(enumerate(argtypesw))
     fatal_value = restype._defl()
+    gil_auto_workaround = (gil is None)  # automatically detect when we don't
+                                         # have the GIL, and acquire/release it
     gil_acquire = (gil == "acquire" or gil == "around")
     gil_release = (gil == "release" or gil == "around")
     pygilstate_ensure = (gil == "pygilstate_ensure")
@@ -825,7 +827,8 @@ def make_wrapper_second_level(space, callable2name, argtypesw, restype,
 
         # see "Handling of the GIL" above (careful, we don't have the GIL here)
         tid = rthread.get_or_make_ident()
-        if gil_acquire:
+        _gil_auto = (gil_auto_workaround and cpyext_glob_tid_ptr[0] != tid)
+        if gil_acquire or _gil_auto:
             if cpyext_glob_tid_ptr[0] == tid:
                 deadlock_error(nameof(callable))
             rgil.acquire()
@@ -919,7 +922,7 @@ def make_wrapper_second_level(space, callable2name, argtypesw, restype,
             arg = rffi.cast(lltype.Signed, args[-1])
             unlock = (arg == pystate.PyGILState_UNLOCKED)
         else:
-            unlock = gil_release
+            unlock = gil_release or _gil_auto
         if unlock:
             rgil.release()
         else:

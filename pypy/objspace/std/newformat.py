@@ -560,7 +560,7 @@ def make_formatting_class():
                 msg = "Sign not allowed in string format specifier"
                 raise OperationError(space.w_ValueError, space.wrap(msg))
             if self._alternate:
-                msg = "Alternate form not allowed in string format specifier"
+                msg = "Alternate form (#) not allowed in string format specifier"
                 raise OperationError(space.w_ValueError, space.wrap(msg))
             if self._align == "=":
                 msg = "'=' alignment not allowed in string format specifier"
@@ -920,7 +920,7 @@ def make_formatting_class():
             flags = 0
             default_precision = 6
             if self._alternate:
-                msg = "alternate form not allowed in float formats"
+                msg = "Alternate form (#) not allowed in float formats"
                 raise OperationError(space.w_ValueError, space.wrap(msg))
             tp = self._type
             self._get_locale(tp)
@@ -998,9 +998,9 @@ def make_formatting_class():
                 raise OperationError(space.w_ValueError, space.wrap(msg))
             if self._alternate:
                 #alternate is invalid
-                msg = "Alternate form %s not allowed in complex format specifier"
+                msg = "Alternate form (#) not allowed in complex format specifier"
                 raise OperationError(space.w_ValueError,
-                                     space.wrap(msg % (self._alternate)))
+                                     space.wrap(msg))
             skip_re = 0
             add_parens = 0
             if tp == "\0":

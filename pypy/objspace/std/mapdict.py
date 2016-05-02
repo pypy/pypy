@@ -833,15 +833,14 @@ def materialize_r_dict(space, obj, dict_w):
     obj._set_mapdict_storage_and_map(new_obj.storage, new_obj.map)
 
 class MapDictIteratorKeys(BaseKeyIterator):
-    def __init__(self, space, strategy, dictimplementation):
-        BaseKeyIterator.__init__(self, space, strategy, dictimplementation)
-        w_obj = strategy.unerase(dictimplementation.dstorage)
+    def __init__(self, space, strategy, w_dict):
+        BaseKeyIterator.__init__(self, space, strategy, w_dict)
+        w_obj = strategy.unerase(w_dict.dstorage)
         self.w_obj = w_obj
         self.orig_map = self.curr_map = w_obj._get_mapdict_map()
 
     def next_key_entry(self):
-        implementation = self.dictimplementation
-        assert isinstance(implementation.get_strategy(), MapDictStrategy)
+        assert isinstance(self.w_dict.get_strategy(), MapDictStrategy)
         if self.orig_map is not self.w_obj._get_mapdict_map():
             return None
         if self.curr_map:
@@ -855,15 +854,14 @@ class MapDictIteratorKeys(BaseKeyIterator):
 
 
 class MapDictIteratorValues(BaseValueIterator):
-    def __init__(self, space, strategy, dictimplementation):
-        BaseValueIterator.__init__(self, space, strategy, dictimplementation)
-        w_obj = strategy.unerase(dictimplementation.dstorage)
+    def __init__(self, space, strategy, w_dict):
+        BaseValueIterator.__init__(self, space, strategy, w_dict)
+        w_obj = strategy.unerase(w_dict.dstorage)
         self.w_obj = w_obj
         self.orig_map = self.curr_map = w_obj._get_mapdict_map()
 
     def next_value_entry(self):
-        implementation = self.dictimplementation
-        assert isinstance(implementation.get_strategy(), MapDictStrategy)
+        assert isinstance(self.w_dict.get_strategy(), MapDictStrategy)
         if self.orig_map is not self.w_obj._get_mapdict_map():
             return None
         if self.curr_map:
@@ -876,15 +874,14 @@ class MapDictIteratorValues(BaseValueIterator):
 
 
 class MapDictIteratorItems(BaseItemIterator):
-    def __init__(self, space, strategy, dictimplementation):
-        BaseItemIterator.__init__(self, space, strategy, dictimplementation)
-        w_obj = strategy.unerase(dictimplementation.dstorage)
+    def __init__(self, space, strategy, w_dict):
+        BaseItemIterator.__init__(self, space, strategy, w_dict)
+        w_obj = strategy.unerase(w_dict.dstorage)
         self.w_obj = w_obj
         self.orig_map = self.curr_map = w_obj._get_mapdict_map()
 
     def next_item_entry(self):
-        implementation = self.dictimplementation
-        assert isinstance(implementation.get_strategy(), MapDictStrategy)
+        assert isinstance(self.w_dict.get_strategy(), MapDictStrategy)
         if self.orig_map is not self.w_obj._get_mapdict_map():
             return None, None
         if self.curr_map:

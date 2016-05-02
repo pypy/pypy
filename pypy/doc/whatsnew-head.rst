@@ -54,3 +54,10 @@ Reduce generated code for subclasses by using the same function objects in all
 generated subclasses.
 
 .. branch: share-cpyext-cpython-api
+
+.. branch: cpyext-auto-gil
+
+CPyExt tweak: instead of "GIL not held when a CPython C extension module
+calls PyXxx", we now silently acquire/release the GIL.  Helps with
+CPython C extension modules that call some PyXxx() functions without
+holding the GIL (arguably, they are theorically buggy).
