@@ -75,6 +75,22 @@ class TestFinalizerAnalyzer(object):
             lltype.free(p, flavor='raw')
 
         r = self.analyze(g, [], f, backendopt=True)
+        assert r
+
+    def test_c_call_without_release_gil(self):
+        C = rffi.CArray(lltype.Signed)
+        c = rffi.llexternal('x', [lltype.Ptr(C)], lltype.Signed,
+                            releasegil=False)
+
+        def g():
+            p = lltype.malloc(C, 3, flavor='raw')
+            f(p)
+
+        def f(p):
+            c(rffi.ptradd(p, 0))
+            lltype.free(p, flavor='raw')
+
+        r = self.analyze(g, [], f, backendopt=True)
         assert not r
 
     def test_chain(self):
