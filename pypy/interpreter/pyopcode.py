@@ -67,9 +67,9 @@ class __extend__(pyframe.PyFrame):
     def handle_bytecode(self, co_code, next_instr, ec):
         try:
             next_instr = self.dispatch_bytecode(co_code, next_instr, ec)
-        except OperationError, operr:
+        except OperationError as operr:
             next_instr = self.handle_operation_error(ec, operr)
-        except RaiseWithExplicitTraceback, e:
+        except RaiseWithExplicitTraceback as e:
             next_instr = self.handle_operation_error(ec, e.operr,
                                                      attach_tb=False)
         except KeyboardInterrupt:
@@ -78,7 +78,7 @@ class __extend__(pyframe.PyFrame):
         except MemoryError:
             next_instr = self.handle_asynchronous_error(ec,
                 self.space.w_MemoryError)
-        except rstackovf.StackOverflow, e:
+        except rstackovf.StackOverflow as e:
             # Note that this case catches AttributeError!
             rstackovf.check_stack_overflow()
             next_instr = self.handle_asynchronous_error(ec,
@@ -117,7 +117,7 @@ class __extend__(pyframe.PyFrame):
                     finally:
                         if trace is not None:
                             self.getorcreatedebug().w_f_trace = trace
-                except OperationError, e:
+                except OperationError as e:
                     operr = e
             pytraceback.record_application_traceback(
                 self.space, operr, self, self.last_instr)
@@ -844,7 +844,7 @@ class __extend__(pyframe.PyFrame):
         w_varname = self.getname_w(varindex)
         try:
             self.space.delitem(self.getorcreatedebug().w_locals, w_varname)
-        except OperationError, e:
+        except OperationError as e:
             # catch KeyErrors and turn them into NameErrors
             if not e.match(self.space, self.space.w_KeyError):
                 raise
@@ -1003,7 +1003,7 @@ class __extend__(pyframe.PyFrame):
         try:
             if space.int_w(w_flag) == -1:
                 w_flag = None
-        except OperationError, e:
+        except OperationError as e:
             if e.async(space):
                 raise
 
@@ -1040,7 +1040,7 @@ class __extend__(pyframe.PyFrame):
         w_module = self.peekvalue()
         try:
             w_obj = self.space.getattr(w_module, w_name)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(self.space, self.space.w_AttributeError):
                 raise
             raise oefmt(self.space.w_ImportError,
@@ -1099,7 +1099,7 @@ class __extend__(pyframe.PyFrame):
         w_iterator = self.peekvalue()
         try:
             w_nextitem = self.space.next(w_iterator)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(self.space, self.space.w_StopIteration):
                 raise
             # iterator exhausted

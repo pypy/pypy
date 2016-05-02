@@ -548,7 +548,7 @@ class StdObjSpace(ObjSpace):
                 try:
                     return self.get_and_call_function(w_get, w_descr, w_obj,
                                                       w_type)
-                except OperationError, e:
+                except OperationError as e:
                     if not e.match(self, self.w_AttributeError):
                         raise
             else:

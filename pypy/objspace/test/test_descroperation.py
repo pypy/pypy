@@ -582,7 +582,7 @@ class AppTest_Descroperation:
     def test_mod_failure(self):
         try:
             [] % 3
-        except TypeError, e:
+        except TypeError as e:
             assert '%' in str(e)
         else:
             assert False, "did not raise"

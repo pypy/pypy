@@ -79,13 +79,13 @@ def import_re(space):
 def matchcontext(space, ctx):
     try:
         return rsre_core.match_context(ctx)
-    except rsre_core.Error, e:
+    except rsre_core.Error as e:
         raise OperationError(space.w_RuntimeError, space.wrap(e.msg))
 
 def searchcontext(space, ctx):
     try:
         return rsre_core.search_context(ctx)
-    except rsre_core.Error, e:
+    except rsre_core.Error as e:
         raise OperationError(space.w_RuntimeError, space.wrap(e.msg))
 
 # ____________________________________________________________
@@ -244,7 +244,7 @@ class W_SRE_Pattern(W_Root):
             else:
                 try:
                     filter_as_string = space.str_w(w_ptemplate)
-                except OperationError, e:
+                except OperationError as e:
                     if e.async(space):
                         raise
                     literal = False
@@ -462,7 +462,7 @@ class W_SRE_Match(W_Root):
         while True:
             try:
                 w_key = space.next(w_iterator)
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_StopIteration):
                     raise
                 break  # done
@@ -502,13 +502,13 @@ class W_SRE_Match(W_Root):
         space = self.space
         try:
             groupnum = space.int_w(w_arg)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_TypeError) and \
                     not e.match(space, space.w_OverflowError):
                 raise
             try:
                 w_groupnum = space.getitem(self.srepat.w_groupindex, w_arg)
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_KeyError):
                     raise
                 raise OperationError(space.w_IndexError,

@@ -335,7 +335,7 @@ class TestStructure(BaseCTypesTestChecker):
         # XXX remove this, py.test.raises returns a nice inspectable object
         try:
             func(*args)
-        except Exception, detail:
+        except Exception as detail:
             return detail.__class__, str(detail)
 
 
@@ -509,7 +509,7 @@ class TestRecursiveStructure(BaseCTypesTestChecker):
 
         try:
             Recursive._fields_ = [("next", Recursive)]
-        except AttributeError, details:
+        except AttributeError as details:
             assert ("Structure or union cannot contain itself" in
                             str(details))
         else:
@@ -526,7 +526,7 @@ class TestRecursiveStructure(BaseCTypesTestChecker):
 
         try:
             Second._fields_ = [("first", First)]
-        except AttributeError, details:
+        except AttributeError as details:
             assert ("_fields_ is final" in
                             str(details))
         else:

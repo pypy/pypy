@@ -93,7 +93,7 @@ class Bootstrapper(object):
         try:
             bootstrapper.run(space, w_callable, args)
             # done
-        except Exception, e:
+        except Exception as e:
             # oups! last-level attempt to recover.
             try:
                 STDERR = 2
@@ -130,7 +130,7 @@ class Bootstrapper(object):
         space.threadlocals.enter_thread(space)
         try:
             space.call_args(w_callable, args)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_SystemExit):
                 ident = rthread.get_ident()
                 where = 'thread %d started by ' % ident

@@ -28,7 +28,7 @@ def hash_name_mapper_callback(obj_name, userdata):
         space = global_name_fetcher.space
         w_name = space.wrap(rffi.charp2str(obj_name[0].c_name))
         global_name_fetcher.meth_names.append(w_name)
-    except OperationError, e:
+    except OperationError as e:
         global_name_fetcher.w_error = e
 
 class NameFetcher:

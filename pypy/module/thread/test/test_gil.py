@@ -64,7 +64,7 @@ class GILTests(test_rthread.AbstractGCTestClass):
         def bootstrap():
             try:
                 runme()
-            except Exception, e:
+            except Exception as e:
                 assert 0
             thread.gc_thread_die()
         my_gil_threadlocals = gil.GILThreadLocals(space)

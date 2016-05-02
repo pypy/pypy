@@ -415,7 +415,7 @@ def PyUnicode_FromEncodedObject(space, w_obj, encoding, errors):
     else:
         try:
             w_meth = space.getattr(w_obj, space.wrap('decode'))
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_AttributeError):
                 raise
             w_meth = None

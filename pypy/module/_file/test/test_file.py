@@ -151,7 +151,7 @@ class AppTestFile(object):
     def test_oserror_has_filename(self):
         try:
             f = self.file("file that is clearly not there")
-        except IOError, e:
+        except IOError as e:
             assert e.filename == 'file that is clearly not there'
         else:
             raise Exception("did not raise")

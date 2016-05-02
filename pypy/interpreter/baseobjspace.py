@@ -52,7 +52,7 @@ class W_Root(object):
             try:
                 space.delitem(w_dict, space.wrap(attr))
                 return True
-            except OperationError, ex:
+            except OperationError as ex:
                 if not ex.match(space, space.w_KeyError):
                     raise
         return False
@@ -77,7 +77,7 @@ class W_Root(object):
     def getname(self, space):
         try:
             return space.str_w(space.getattr(self, space.wrap('__name__')))
-        except OperationError, e:
+        except OperationError as e:
             if e.match(space, space.w_TypeError) or e.match(space, space.w_AttributeError):
                 return '?'
             raise
@@ -318,7 +318,7 @@ class InterpIterable(object):
         space = self.space
         try:
             return space.next(self.w_iter)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_StopIteration):
                 raise
             raise StopIteration
@@ -406,7 +406,7 @@ class ObjSpace(object):
                                 self.sys.get('builtin_module_names')):
             try:
                 w_mod = self.getitem(w_modules, w_modname)
-            except OperationError, e:
+            except OperationError as e:
                 if e.match(self, self.w_KeyError):
                     continue
                 raise
@@ -440,7 +440,7 @@ class ObjSpace(object):
 
         try:
             self.call_method(w_mod, "_shutdown")
-        except OperationError, e:
+        except OperationError as e:
             e.write_unraisable(self, "threading._shutdown()")
 
     def __repr__(self):
@@ -476,7 +476,7 @@ class ObjSpace(object):
             assert reuse
             try:
                 return self.getitem(w_modules, w_name)
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(self, self.w_KeyError):
                     raise
 
@@ -764,7 +764,7 @@ class ObjSpace(object):
     def finditem(self, w_obj, w_key):
         try:
             return self.getitem(w_obj, w_key)
-        except OperationError, e:
+        except OperationError as e:
             if e.match(self, self.w_KeyError):
                 return None
             raise
@@ -772,7 +772,7 @@ class ObjSpace(object):
     def findattr(self, w_object, w_name):
         try:
             return self.getattr(w_object, w_name)
-        except OperationError, e:
+        except OperationError as e:
             # a PyPy extension: let SystemExit and KeyboardInterrupt go through
             if e.async(self):
                 raise
@@ -872,7 +872,7 @@ class ObjSpace(object):
                                                   items=items)
             try:
                 w_item = self.next(w_iterator)
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(self, self.w_StopIteration):
                     raise
                 break  # done
@@ -896,7 +896,7 @@ class ObjSpace(object):
         while True:
             try:
                 w_item = self.next(w_iterator)
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(self, self.w_StopIteration):
                     raise
                 break  # done
@@ -942,7 +942,7 @@ class ObjSpace(object):
         """
         try:
             return self.len_w(w_obj)
-        except OperationError, e:
+        except OperationError as e:
             if not (e.match(self, self.w_TypeError) or
                     e.match(self, self.w_AttributeError)):
                 raise
@@ -952,7 +952,7 @@ class ObjSpace(object):
             return default
         try:
             w_hint = self.get_and_call_function(w_descr, w_obj)
-        except OperationError, e:
+        except OperationError as e:
             if not (e.match(self, self.w_TypeError) or
                     e.match(self, self.w_AttributeError)):
                 raise
@@ -1049,7 +1049,7 @@ class ObjSpace(object):
                 else:
                     return False
             return self.exception_issubclass_w(w_exc_type, w_check_class)
-        except OperationError, e:
+        except OperationError as e:
             if e.match(self, self.w_TypeError):   # string exceptions maybe
                 return False
             raise
@@ -1167,7 +1167,7 @@ class ObjSpace(object):
                 try:
                     self.getattr(w_obj, self.wrap("__call__"))
                     return self.w_True
-                except OperationError, e:
+                except OperationError as e:
                     if not e.match(self, self.w_AttributeError):
                         raise
                     return self.w_False
@@ -1287,7 +1287,7 @@ class ObjSpace(object):
     def _next_or_none(self, w_it):
         try:
             return self.next(w_it)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(self, self.w_StopIteration):
                 raise
             return None
@@ -1365,7 +1365,7 @@ class ObjSpace(object):
         """
         try:
             w_index = self.index(w_obj)
-        except OperationError, err:
+        except OperationError as err:
             if objdescr is None or not err.match(self, self.w_TypeError):
                 raise
             raise oefmt(self.w_TypeError, "%s must be an integer, not %T",
@@ -1375,7 +1375,7 @@ class ObjSpace(object):
             # return type of __index__ is already checked by space.index(),
             # but there is no reason to allow conversions anyway
             index = self.int_w(w_index, allow_conversion=False)
-        except OperationError, err:
+        except OperationError as err:
             if not err.match(self, self.w_OverflowError):
                 raise
             if not w_exception:
@@ -1526,7 +1526,7 @@ class ObjSpace(object):
         # the unicode buffer.)
         try:
             return self.str_w(w_obj)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(self, self.w_TypeError):
                 raise
         try:
@@ -1705,7 +1705,7 @@ class ObjSpace(object):
         # instead of raising OverflowError.  For obscure cases only.
         try:
             return self.int_w(w_obj, allow_conversion)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(self, self.w_OverflowError):
                 raise
             from rpython.rlib.rarithmetic import intmask
@@ -1716,7 +1716,7 @@ class ObjSpace(object):
         # instead of raising OverflowError.
         try:
             return self.r_longlong_w(w_obj, allow_conversion)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(self, self.w_OverflowError):
                 raise
             from rpython.rlib.rarithmetic import longlongmask
@@ -1731,7 +1731,7 @@ class ObjSpace(object):
             not self.isinstance_w(w_fd, self.w_long)):
             try:
                 w_fileno = self.getattr(w_fd, self.wrap("fileno"))
-            except OperationError, e:
+            except OperationError as e:
                 if e.match(self, self.w_AttributeError):
                     raise OperationError(self.w_TypeError,
                         self.wrap("argument must be an int, or have a fileno() "
@@ -1746,7 +1746,7 @@ class ObjSpace(object):
                 )
         try:
             fd = self.c_int_w(w_fd)
-        except OperationError, e:
+        except OperationError as e:
             if e.match(self, self.w_OverflowError):
                 fd = -1
             else:

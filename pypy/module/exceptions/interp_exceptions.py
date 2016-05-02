@@ -191,7 +191,7 @@ class W_BaseException(W_Root):
         if w_dict is not None:
             try:
                 space.delitem(w_dict, space.wrap("message"))
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_KeyError):
                     raise
         self.w_message = None

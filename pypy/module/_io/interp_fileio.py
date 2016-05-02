@@ -139,7 +139,7 @@ class W_FileIO(W_RawIOBase):
         fd = -1
         try:
             fd = space.c_int_w(w_name)
-        except OperationError, e:
+        except OperationError as e:
             pass
         else:
             if fd < 0:
@@ -153,7 +153,7 @@ class W_FileIO(W_RawIOBase):
             if fd >= 0:
                 try:
                     os.fstat(fd)
-                except OSError, e:
+                except OSError as e:
                     if e.errno == errno.EBADF:
                         raise wrap_oserror(space, e)
                     # else: pass
@@ -170,7 +170,7 @@ class W_FileIO(W_RawIOBase):
                 try:
                     self.fd = dispatch_filename(rposix.open)(
                         space, w_name, flags, 0666)
-                except OSError, e:
+                except OSError as e:
                     raise wrap_oserror2(space, e, w_name,
                                         exception_name='w_IOError')
                 finally:
@@ -184,7 +184,7 @@ class W_FileIO(W_RawIOBase):
                 # (otherwise, it might be done only on the first write()).
                 try:
                     os.lseek(self.fd, 0, os.SEEK_END)
-                except OSError, e:
+                except OSError as e:
                     raise wrap_oserror(space, e, exception_name='w_IOError')
         except:
             if not fd_is_own:
@@ -237,7 +237,7 @@ class W_FileIO(W_RawIOBase):
 
         try:
             os.close(fd)
-        except OSError, e:
+        except OSError as e:
             raise wrap_oserror(space, e,
                                exception_name='w_IOError')
 
@@ -274,7 +274,7 @@ class W_FileIO(W_RawIOBase):
         self._check_closed(space)
         try:
             pos = os.lseek(self.fd, pos, whence)
-        except OSError, e:
+        except OSError as e:
             raise wrap_oserror(space, e,
                                exception_name='w_IOError')
         return space.wrap(pos)
@@ -283,7 +283,7 @@ class W_FileIO(W_RawIOBase):
         self._check_closed(space)
         try:
             pos = os.lseek(self.fd, 0, 1)
-        except OSError, e:
+        except OSError as e:
             raise wrap_oserror(space, e,
                                exception_name='w_IOError')
         return space.wrap(pos)
@@ -317,7 +317,7 @@ class W_FileIO(W_RawIOBase):
         self._check_closed(space)
         try:
             res = os.isatty(self.fd)
-        except OSError, e:
+        except OSError as e:
             raise wrap_oserror(space, e, exception_name='w_IOError')
         return space.wrap(res)
 
@@ -344,7 +344,7 @@ class W_FileIO(W_RawIOBase):
 
         try:
             n = os.write(self.fd, data)
-        except OSError, e:
+        except OSError as e:
             if e.errno == errno.EAGAIN:
                 return space.w_None
             raise wrap_oserror(space, e,
@@ -362,7 +362,7 @@ class W_FileIO(W_RawIOBase):
 
         try:
             s = os.read(self.fd, size)
-        except OSError, e:
+        except OSError as e:
             if e.errno == errno.EAGAIN:
                 return space.w_None
             raise wrap_oserror(space, e,
@@ -377,7 +377,7 @@ class W_FileIO(W_RawIOBase):
         length = rwbuffer.getlength()
         try:
             buf = os.read(self.fd, length)
-        except OSError, e:
+        except OSError as e:
             if e.errno == errno.EAGAIN:
                 return space.w_None
             raise wrap_oserror(space, e,
@@ -396,7 +396,7 @@ class W_FileIO(W_RawIOBase):
 
             try:
                 chunk = os.read(self.fd, newsize - total)
-            except OSError, e:
+            except OSError as e:
                 if e.errno == errno.EINTR:
                     space.getexecutioncontext().checksignals()
                     continue
@@ -430,7 +430,7 @@ class W_FileIO(W_RawIOBase):
 
         try:
             self._truncate(space.r_longlong_w(w_size))
-        except OSError, e:
+        except OSError as e:
             raise wrap_oserror(space, e, exception_name='w_IOError')
 
         return w_size

@@ -106,7 +106,7 @@ def strategy(space, w_obj):
 def validate_fd(space, fd):
     try:
         rposix.validate_fd(fd)
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
 
 def get_console_cp(space):

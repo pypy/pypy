@@ -310,7 +310,7 @@ def convert_to_regdata(space, w_value, typ):
                     item = space.str_w(w_item)
                     strings.append(item)
                     buflen += len(item) + 1
-                except OperationError, e:
+                except OperationError as e:
                     if not e.match(space, space.w_StopIteration):
                         raise       # re-raise other app-level exceptions
                     break
@@ -697,7 +697,7 @@ def ExpandEnvironmentStrings(space, source):
     "string = ExpandEnvironmentStrings(string) - Expand environment vars."
     try:
         return space.wrap(rwinreg.ExpandEnvironmentStrings(source))
-    except WindowsError, e:
+    except WindowsError as e:
         raise wrap_windowserror(space, e)
 
 def DisableReflectionKey(space, w_key):

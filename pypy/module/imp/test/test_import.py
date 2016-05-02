@@ -1205,7 +1205,7 @@ class AppTestImportHooks(object):
                     path = [self.path]
                 try:
                     file, filename, stuff = imp.find_module(subname, path)
-                except ImportError, e:
+                except ImportError as e:
                     return None
                 return ImpLoader(file, filename, stuff)
 

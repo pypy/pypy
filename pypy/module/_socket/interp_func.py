@@ -16,7 +16,7 @@ def gethostname(space):
     """
     try:
         res = rsocket.gethostname()
-    except SocketError, e:
+    except SocketError as e:
         raise converted_error(space, e)
     return space.wrap(res)
 
@@ -29,7 +29,7 @@ def gethostbyname(space, host):
     try:
         addr = rsocket.gethostbyname(host)
         ip = addr.get_host()
-    except SocketError, e:
+    except SocketError as e:
         raise converted_error(space, e)
     return space.wrap(ip)
 
@@ -49,7 +49,7 @@ def gethostbyname_ex(space, host):
     """
     try:
         res = rsocket.gethostbyname_ex(host)
-    except SocketError, e:
+    except SocketError as e:
         raise converted_error(space, e)
     return common_wrapgethost(space, res)
 
@@ -62,7 +62,7 @@ def gethostbyaddr(space, host):
     """
     try:
         res = rsocket.gethostbyaddr(host)
-    except SocketError, e:
+    except SocketError as e:
         raise converted_error(space, e)
     return common_wrapgethost(space, res)
 
@@ -80,7 +80,7 @@ def getservbyname(space, name, w_proto):
         proto = space.str_w(w_proto)
     try:
         port = rsocket.getservbyname(name, proto)
-    except SocketError, e:
+    except SocketError as e:
         raise converted_error(space, e)
     return space.wrap(port)
 
@@ -103,7 +103,7 @@ def getservbyport(space, port, w_proto):
 
     try:
         service = rsocket.getservbyport(port, proto)
-    except SocketError, e:
+    except SocketError as e:
         raise converted_error(space, e)
     return space.wrap(service)
 
@@ -115,7 +115,7 @@ def getprotobyname(space, name):
     """
     try:
         proto = rsocket.getprotobyname(name)
-    except SocketError, e:
+    except SocketError as e:
         raise converted_error(space, e)
     return space.wrap(proto)
 
@@ -127,7 +127,7 @@ def getnameinfo(space, w_sockaddr, flags):
     try:
         addr = ipaddr_from_object(space, w_sockaddr)
         host, servport = rsocket.getnameinfo(addr, flags)
-    except SocketError, e:
+    except SocketError as e:
         raise converted_error(space, e)
     return space.newtuple([space.wrap(host), space.wrap(servport)])
 
@@ -140,7 +140,7 @@ def fromfd(space, fd, family, type, proto=0):
     """
     try:
         sock = rsocket.fromfd(fd, family, type, proto)
-    except SocketError, e:
+    except SocketError as e:
         raise converted_error(space, e)
     return space.wrap(W_Socket(space, sock))
 
@@ -157,7 +157,7 @@ def socketpair(space, family=rsocket.socketpair_default_family,
     """
     try:
         sock1, sock2 = rsocket.socketpair(family, type, proto)
-    except SocketError, e:
+    except SocketError as e:
         raise converted_error(space, e)
     return space.newtuple([
         space.wrap(W_Socket(space, sock1)),
@@ -208,7 +208,7 @@ def inet_aton(space, ip):
     """
     try:
         buf = rsocket.inet_aton(ip)
-    except SocketError, e:
+    except SocketError as e:
         raise converted_error(space, e)
     return space.wrap(buf)
 
@@ -220,7 +220,7 @@ def inet_ntoa(space, packed):
     """
     try:
         ip = rsocket.inet_ntoa(packed)
-    except SocketError, e:
+    except SocketError as e:
         raise converted_error(space, e)
     return space.wrap(ip)
 
@@ -233,7 +233,7 @@ def inet_pton(space, family, ip):
     """
     try:
         buf = rsocket.inet_pton(family, ip)
-    except SocketError, e:
+    except SocketError as e:
         raise converted_error(space, e)
     return space.wrap(buf)
 
@@ -245,7 +245,7 @@ def inet_ntop(space, family, packed):
     """
     try:
         ip = rsocket.inet_ntop(family, packed)
-    except SocketError, e:
+    except SocketError as e:
         raise converted_error(space, e)
     except ValueError:
         raise oefmt(space.w_ValueError,
@@ -287,7 +287,7 @@ def getaddrinfo(space, w_host, w_port,
     try:
         lst = rsocket.getaddrinfo(host, port, family, socktype,
                                   proto, flags)
-    except SocketError, e:
+    except SocketError as e:
         raise converted_error(space, e)
     lst1 = [space.newtuple([space.wrap(family),
                             space.wrap(socktype),

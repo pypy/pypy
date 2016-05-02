@@ -24,7 +24,7 @@ class DictProxyStrategy(DictStrategy):
         elif space.abstract_issubclass_w(w_lookup_type, space.w_unicode):
             try:
                 w_key = space.str(w_key)
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_UnicodeEncodeError):
                     raise
                 # non-ascii unicode is never equal to a byte string
@@ -47,7 +47,7 @@ class DictProxyStrategy(DictStrategy):
         w_type = self.unerase(w_dict.dstorage)
         try:
             w_type.setdictvalue(self.space, key, w_value)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(self.space, self.space.w_TypeError):
                 raise
             if not w_type.is_cpytype():

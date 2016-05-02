@@ -563,7 +563,7 @@ class UserDelAction(AsyncAction):
         while pending is not None:
             try:
                 pending.callback(pending.w_obj)
-            except OperationError, e:
+            except OperationError as e:
                 e.write_unraisable(space, pending.descrname, pending.w_obj)
                 e.clear(space)   # break up reference cycles
             pending = pending.next

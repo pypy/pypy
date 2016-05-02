@@ -70,7 +70,7 @@ class AppTestUnicodeData:
                 char = ('\\U%08X' % i).decode('unicode-escape')
                 try:
                     unicodedata.name(char)
-                except ValueError, e:
+                except ValueError as e:
                     assert e.message == 'no such name'
                 raises(KeyError, unicodedata.lookup, charname)
 

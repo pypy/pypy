@@ -247,7 +247,7 @@ class W_CData(W_Root):
         for i in range(length):
             try:
                 w_item = space.next(w_iter)
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_StopIteration):
                     raise
                 raise oefmt(space.w_ValueError,
@@ -256,7 +256,7 @@ class W_CData(W_Root):
             target = rffi.ptradd(target, ctitemsize)
         try:
             space.next(w_iter)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_StopIteration):
                 raise
         else:

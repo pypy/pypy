@@ -116,7 +116,7 @@ class AppTestThread(AppTestCpythonExtensionBase):
             try:
                 module.test_key(key)
                 raises(ValueError, module.test_key, key)
-            except Exception, e:
+            except Exception as e:
                 result.append(e)
             else:
                 result.append(True)

@@ -69,7 +69,7 @@ class Poll(W_Root):
         self.running = True
         try:
             retval = rpoll.poll(self.fddict, timeout)
-        except rpoll.PollError, e:
+        except rpoll.PollError as e:
             w_errortype = space.fromcache(Cache).w_error
             message = e.get_msg()
             raise OperationError(w_errortype,

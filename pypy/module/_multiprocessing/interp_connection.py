@@ -317,7 +317,7 @@ class W_FileConnection(W_BaseConnection):
             data = rffi.charpsize2str(message, size)
             try:
                 count = self.WRITE(data)
-            except OSError, e:
+            except OSError as e:
                 if e.errno == EINTR:
                     space.getexecutioncontext().checksignals()
                     continue
@@ -331,7 +331,7 @@ class W_FileConnection(W_BaseConnection):
         while remaining > 0:
             try:
                 data = self.READ(remaining)
-            except OSError, e:
+            except OSError as e:
                 if e.errno == EINTR:
                     space.getexecutioncontext().checksignals()
                     continue

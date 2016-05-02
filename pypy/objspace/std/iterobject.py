@@ -64,7 +64,7 @@ class W_SeqIterObject(W_AbstractSeqIterObject):
             raise OperationError(space.w_StopIteration, space.w_None)
         try:
             w_item = space.getitem(self.w_seq, space.wrap(self.index))
-        except OperationError, e:
+        except OperationError as e:
             self.w_seq = None
             if not e.match(space, space.w_IndexError):
                 raise
@@ -152,7 +152,7 @@ class W_ReverseSeqIterObject(W_Root):
         try:
             w_item = space.getitem(self.w_seq, space.wrap(self.index))
             self.index -= 1
-        except OperationError, e:
+        except OperationError as e:
             self.w_seq = None
             if not e.match(space, space.w_IndexError):
                 raise
