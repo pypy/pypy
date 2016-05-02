@@ -198,7 +198,7 @@ class AppTestItertools:
             assert next(it) == x
         raises(StopIteration, next, it)
 
-        #Do not allow floats
+        # Do not allow floats
         raises(ValueError, itertools.islice, [1, 2, 3, 4, 5], 0.0, 3.0, 2.0)
 
         it = itertools.islice([1, 2, 3], 0, None)
