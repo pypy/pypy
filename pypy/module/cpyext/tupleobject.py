@@ -1,4 +1,4 @@
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import oefmt
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.debug import fatalerror_notb
 from pypy.module.cpyext.api import (cpython_api, Py_ssize_t, CANNOT_FAIL,
@@ -142,8 +142,7 @@ def PyTuple_SetItem(space, ref, index, py_obj):
     ref = rffi.cast(PyTupleObject, ref)
     size = ref.c_ob_size
     if index < 0 or index >= size:
-        raise OperationError(space.w_IndexError,
-                             space.wrap("tuple assignment index out of range"))
+        raise oefmt(space.w_IndexError, "tuple assignment index out of range")
     old_ref = ref.c_ob_item[index]
     ref.c_ob_item[index] = py_obj    # consumes a reference
     if old_ref:
@@ -158,8 +157,7 @@ def PyTuple_GetItem(space, ref, index):
     ref = rffi.cast(PyTupleObject, ref)
     size = ref.c_ob_size
     if index < 0 or index >= size:
-        raise OperationError(space.w_IndexError,
-                             space.wrap("tuple index out of range"))
+        raise oefmt(space.w_IndexError, "tuple index out of range")
     return ref.c_ob_item[index]     # borrowed ref
 
 @cpython_api([PyObject], Py_ssize_t, error=-1)

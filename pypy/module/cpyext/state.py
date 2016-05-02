@@ -52,8 +52,9 @@ class State:
             self.clear_exception()
             raise operror
         if always:
-            raise OperationError(self.space.w_SystemError, self.space.wrap(
-                "Function returned an error result without setting an exception"))
+            raise oefmt(self.space.w_SystemError,
+                        "Function returned an error result without setting an "
+                        "exception")
 
     def build_api(self, space):
         """NOT_RPYTHON

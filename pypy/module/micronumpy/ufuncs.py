@@ -1,5 +1,5 @@
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
 from pypy.interpreter.argument import Arguments
@@ -367,8 +367,8 @@ class W_Ufunc(W_Root):
         return self._outer(space, __args__)
 
     def _outer(self, space, __args__):
-        raise OperationError(space.w_ValueError, space.wrap(
-            "outer product only supported for binary functions"))
+        raise oefmt(space.w_ValueError,
+                    "outer product only supported for binary functions")
 
     def parse_kwargs(self, space, kwds_w):
         w_casting = kwds_w.pop('casting', None)

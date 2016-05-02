@@ -99,9 +99,7 @@ class W_Epoll(W_Root):
 
     def check_closed(self, space):
         if self.get_closed():
-            raise OperationError(space.w_ValueError,
-                space.wrap("I/O operation on closed epoll fd")
-            )
+            raise oefmt(space.w_ValueError, "I/O operation on closed epoll fd")
 
     def get_closed(self):
         return self.epfd < 0

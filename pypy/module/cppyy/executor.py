@@ -1,6 +1,6 @@
 import sys
 
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import oefmt
 
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib import jit_libffi
@@ -35,8 +35,8 @@ class FunctionExecutor(object):
         pass
 
     def execute(self, space, cppmethod, cppthis, num_args, args):
-        raise OperationError(space.w_TypeError,
-                             space.wrap('return type not available or supported'))
+        raise oefmt(space.w_TypeError,
+                    "return type not available or supported")
 
     def execute_libffi(self, space, cif_descr, funcaddr, buffer):
         from pypy.module.cppyy.interp_cppyy import FastCallNotPossible

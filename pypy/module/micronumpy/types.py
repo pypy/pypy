@@ -2472,8 +2472,8 @@ class VoidType(FlexibleType):
                 read_val = space.wrap(dtype.itemtype.to_str(read_val))
             ret_unwrapped = ret_unwrapped + [read_val,]
         if len(ret_unwrapped) == 0:
-            raise OperationError(space.w_NotImplementedError, space.wrap(
-                    "item() for Void aray with no fields not implemented"))
+            raise oefmt(space.w_NotImplementedError,
+                        "item() for Void aray with no fields not implemented")
         return space.newtuple(ret_unwrapped)
 
 class CharType(StringType):
@@ -2494,8 +2494,8 @@ def record_coerce(typ, space, dtype, w_item):
         elif w_item is not None:
             if space.isinstance_w(w_item, space.w_tuple):
                 if len(dtype.names) != space.len_w(w_item):
-                    raise OperationError(space.w_ValueError, space.wrap(
-                        "size of tuple must match number of fields."))
+                    raise oefmt(space.w_ValueError,
+                                "size of tuple must match number of fields.")
                 items_w = space.fixedview(w_item)
             elif isinstance(w_item, W_NDimArray) and w_item.is_scalar():
                 items_w = space.fixedview(w_item.get_scalar_value())

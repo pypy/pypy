@@ -3,7 +3,7 @@
 from rpython.rlib import jit
 from rpython.rlib.signature import signature, types as ann
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.interpreter.error import oefmt, OperationError
+from pypy.interpreter.error import OperationError, oefmt
 
 from pypy.module.micronumpy.base import W_NDimArray, convert_to_array
 from pypy.module.micronumpy import constants as NPY

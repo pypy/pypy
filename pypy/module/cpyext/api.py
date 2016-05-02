@@ -385,9 +385,8 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
                             ##     arg = from_ref(space,
                             ##                rffi.cast(PyObject, input_arg))
                             ## except TypeError, e:
-                            ##     err = OperationError(space.w_TypeError,
-                            ##              space.wrap(
-                            ##             "could not cast arg to PyObject"))
+                            ##     err = oefmt(space.w_TypeError,
+                            ##                 "could not cast arg to PyObject")
                             ##     if not catch_exception:
                             ##         raise err
                             ##     state = space.fromcache(State)
@@ -1644,11 +1643,13 @@ def make_generic_cpy_call(FT, expect_null):
             has_error = PyErr_Occurred(space) is not None
             has_result = ret is not None
             if has_error and has_result:
-                raise OperationError(space.w_SystemError, space.wrap(
-                    "An exception was set, but function returned a value"))
+                raise oefmt(space.w_SystemError,
+                            "An exception was set, but function returned a "
+                            "value")
             elif not expect_null and not has_error and not has_result:
-                raise OperationError(space.w_SystemError, space.wrap(
-                    "Function returned a NULL result without setting an exception"))
+                raise oefmt(space.w_SystemError,
+                            "Function returned a NULL result without setting "
+                            "an exception")
 
             if has_error:
                 state = space.fromcache(State)

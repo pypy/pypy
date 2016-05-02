@@ -156,8 +156,7 @@ def _get_relative_name(space, modulename, level, w_globals):
         except OperationError, e:
             if not e.match(space, space.w_TypeError):
                 raise
-            raise OperationError(space.w_ValueError, space.wrap(
-                "__package__ set to non-string"))
+            raise oefmt(space.w_ValueError, "__package__ set to non-string")
 
     if ctxt_package is not None:
         # __package__ is set, so use it
@@ -167,10 +166,11 @@ def _get_relative_name(space, modulename, level, w_globals):
         dot_position = _get_dot_position(ctxt_package, level - 1)
         if dot_position < 0:
             if len(ctxt_package) == 0:
-                msg = "Attempted relative import in non-package"
+                where = "in non-package"
             else:
-                msg = "Attempted relative import beyond toplevel package"
-            raise OperationError(space.w_ValueError, w(msg))
+                where = "beyond toplevel package"
+            raise oefmt(space.w_ValueError,
+                        "Attempted relative import %s", where)
 
         # Try to import parent package
         try:
@@ -179,9 +179,9 @@ def _get_relative_name(space, modulename, level, w_globals):
             if not e.match(space, space.w_ImportError):
                 raise
             if level > 0:
-                raise OperationError(space.w_SystemError, space.wrap(
-                    "Parent module '%s' not loaded, "
-                    "cannot perform relative import" % ctxt_package))
+                raise oefmt(space.w_SystemError,
+                            "Parent module '%s' not loaded, cannot perform "
+                            "relative import", ctxt_package)
             else:
                 msg = ("Parent module '%s' not found while handling absolute "
                        "import" % ctxt_package)
@@ -214,8 +214,8 @@ def _get_relative_name(space, modulename, level, w_globals):
         dot_position = _get_dot_position(ctxt_name, m)
         if dot_position < 0:
             if level > 0:
-                msg = "Attempted relative import in non-package"
-                raise OperationError(space.w_ValueError, w(msg))
+                raise oefmt(space.w_ValueError,
+                            "Attempted relative import in non-package")
             rel_modulename = ''
             rel_level = 0
         else:
@@ -248,9 +248,7 @@ def importhook(space, name, w_globals=None,
                w_locals=None, w_fromlist=None, level=-1):
     modulename = name
     if not modulename and level < 0:
-        raise OperationError(
-            space.w_ValueError,
-            space.wrap("Empty module name"))
+        raise oefmt(space.w_ValueError, "Empty module name")
     w = space.wrap
 
     if w_fromlist is not None and space.is_true(w_fromlist):
@@ -364,8 +362,8 @@ def _absolute_import(space, modulename, baselevel, fromlist_w, tentative):
     w = space.wrap
 
     if '/' in modulename or '\\' in modulename:
-        raise OperationError(space.w_ImportError, space.wrap(
-            "Import by filename is not supported."))
+        raise oefmt(space.w_ImportError,
+                    "Import by filename is not supported.")
 
     w_mod = None
     parts = modulename.split('.')
@@ -461,8 +459,7 @@ class W_NullImporter(W_Root):
     @unwrap_spec(path='str0')
     def descr_init(self, space, path):
         if not path:
-            raise OperationError(space.w_ImportError, space.wrap(
-                "empty pathname"))
+            raise oefmt(space.w_ImportError, "empty pathname")
 
         # Directory should not exist
         try:
@@ -471,8 +468,7 @@ class W_NullImporter(W_Root):
             pass
         else:
             if stat.S_ISDIR(st.st_mode):
-                raise OperationError(space.w_ImportError, space.wrap(
-                    "existing directory"))
+                raise oefmt(space.w_ImportError, "existing directory")
 
     def find_module_w(self, space, __args__):
         return space.wrap(None)
@@ -700,9 +696,7 @@ def reload(space, w_module):
     """Reload the module.
     The module must have been successfully imported before."""
     if not space.is_w(space.type(w_module), space.type(space.sys)):
-        raise OperationError(
-            space.w_TypeError,
-            space.wrap("reload() argument must be module"))
+        raise oefmt(space.w_TypeError, "reload() argument must be module")
 
     w_modulename = space.getattr(w_module, space.wrap("__name__"))
     modulename = space.str0_w(w_modulename)
@@ -806,8 +800,7 @@ class ImportRLock:
             if self.lock is None:   # CannotHaveLock occurred
                 return
             space = self.space
-            raise OperationError(space.w_RuntimeError,
-                                 space.wrap("not holding the import lock"))
+            raise oefmt(space.w_RuntimeError, "not holding the import lock")
         assert self.lockcounter > 0
         self.lockcounter -= 1
         if self.lockcounter == 0:

@@ -1,5 +1,5 @@
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import oefmt
 from rpython.rlib import rgc
 
 
@@ -39,8 +39,7 @@ def isenabled(space):
 
 def enable_finalizers(space):
     if space.user_del_action.finalizers_lock_count == 0:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("finalizers are already enabled"))
+        raise oefmt(space.w_ValueError, "finalizers are already enabled")
     space.user_del_action.finalizers_lock_count -= 1
     space.user_del_action.fire()
 
@@ -53,8 +52,7 @@ def disable_finalizers(space):
 def dump_heap_stats(space, filename):
     tb = rgc._heap_stats()
     if not tb:
-        raise OperationError(space.w_RuntimeError,
-                             space.wrap("Wrong GC"))
+        raise oefmt(space.w_RuntimeError, "Wrong GC")
     f = open(filename, mode="w")
     for i in range(len(tb)):
         f.write("%d %d " % (tb[i].count, tb[i].size))

@@ -8,7 +8,7 @@ from pypy.module.cpyext.methodobject import (
     PyMethodDef, PyDescr_NewClassMethod, PyStaticMethod_New)
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
 from pypy.module.cpyext.state import State
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import oefmt
 
 #@cpython_api([rffi.CCHARP], PyObject)
 def PyImport_AddModule(space, name):
@@ -87,16 +87,17 @@ def convert_method_defs(space, dict_w, methods, w_type, w_self=None, name=None):
 
             if w_type is None:
                 if flags & METH_CLASS or flags & METH_STATIC:
-                    raise OperationError(space.w_ValueError,
-                            space.wrap("module functions cannot set METH_CLASS or METH_STATIC"))
+                    raise oefmt(space.w_ValueError,
+                            "module functions cannot set METH_CLASS or "
+                            "METH_STATIC")
                 w_obj = space.wrap(W_PyCFunctionObject(space, method, w_self, w_name))
             else:
                 if methodname in dict_w and not (flags & METH_COEXIST):
                     continue
                 if flags & METH_CLASS:
                     if flags & METH_STATIC:
-                        raise OperationError(space.w_ValueError,
-                                space.wrap("method cannot be both class and static"))
+                        raise oefmt(space.w_ValueError,
+                                    "method cannot be both class and static")
                     w_obj = PyDescr_NewClassMethod(space, w_type, method)
                 elif flags & METH_STATIC:
                     w_func = PyCFunction_NewEx(space, method, None, None)

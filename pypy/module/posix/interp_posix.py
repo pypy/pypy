@@ -8,7 +8,8 @@ from rpython.rlib.rarithmetic import r_longlong, intmask
 from rpython.rlib.unroll import unrolling_iterable
 
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.interpreter.error import OperationError, wrap_oserror, wrap_oserror2
+from pypy.interpreter.error import (
+    OperationError, oefmt, wrap_oserror, wrap_oserror2)
 from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.module.sys.interp_encoding import getfilesystemencoding
 
@@ -32,8 +33,7 @@ if sys.maxint == 2147483647:
 else:
     def check_uid_range(space, num):
         if num < -(1<<31) or num >= (1<<32):
-            raise OperationError(space.w_OverflowError,
-                                 space.wrap("integer out of range"))
+            raise oefmt(space.w_OverflowError, "integer out of range")
 
 def fsencode_w(space, w_obj):
     if space.isinstance_w(w_obj, space.w_unicode):
@@ -494,8 +494,7 @@ def strerror(space, errno):
     try:
         text = os.strerror(errno)
     except ValueError:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("strerror() argument out of range"))
+        raise oefmt(space.w_ValueError, "strerror() argument out of range")
     return space.wrap(text)
 
 def getlogin(space):
@@ -542,8 +541,9 @@ def _convertenviron(space, w_env):
 def putenv(space, name, value):
     """Change or add an environment variable."""
     if _WIN32 and len(name) > _MAX_ENV:
-        raise OperationError(space.w_ValueError, space.wrap(
-                "the environment variable is longer than %d bytes" % _MAX_ENV))
+        raise oefmt(space.w_ValueError,
+                    "the environment variable is longer than %d bytes",
+                    _MAX_ENV)
     try:
         os.environ[name] = value
     except OSError, e:
@@ -819,14 +819,14 @@ Execute a path with arguments and environment, replacing current process.
     try:
         args_w = space.unpackiterable(w_args)
         if len(args_w) < 1:
-            w_msg = space.wrap("execv() must have at least one argument")
-            raise OperationError(space.w_ValueError, w_msg)
+            raise oefmt(space.w_ValueError,
+                        "execv() must have at least one argument")
         args = [fsencode_w(space, w_arg) for w_arg in args_w]
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
-        msg = "execv() arg 2 must be an iterable of strings"
-        raise OperationError(space.w_TypeError, space.wrap(str(msg)))
+        raise oefmt(space.w_TypeError,
+                    "execv() arg 2 must be an iterable of strings")
     #
     if w_env is None:    # when called via execv() above
         try:
@@ -876,7 +876,7 @@ second form is used, set the access and modified times to the current time.
         msg = "utime() arg 2 must be a tuple (atime, mtime) or None"
         args_w = space.fixedview(w_tuple)
         if len(args_w) != 2:
-            raise OperationError(space.w_TypeError, space.wrap(msg))
+            raise oefmt(space.w_TypeError, msg)
         actime = space.float_w(args_w[0], allow_conversion=False)
         modtime = space.float_w(args_w[1], allow_conversion=False)
         dispatch_filename(rposix.utime, 2)(space, w_path, (actime, modtime))
@@ -885,7 +885,7 @@ second form is used, set the access and modified times to the current time.
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
-        raise OperationError(space.w_TypeError, space.wrap(msg))
+        raise oefmt(space.w_TypeError, msg)
 
 def uname(space):
     """ uname() -> (sysname, nodename, release, version, machine)
@@ -1234,8 +1234,7 @@ def confname_w(space, w_name, namespace):
         try:
             num = namespace[space.str_w(w_name)]
         except KeyError:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("unrecognized configuration name"))
+            raise oefmt(space.w_ValueError, "unrecognized configuration name")
     else:
         num = space.int_w(w_name)
     return num
@@ -1311,8 +1310,7 @@ def getloadavg(space):
     try:
         load = os.getloadavg()
     except OSError:
-        raise OperationError(space.w_OSError,
-                             space.wrap("Load averages are unobtainable"))
+        raise oefmt(space.w_OSError, "Load averages are unobtainable")
     return space.newtuple([space.wrap(load[0]),
                            space.wrap(load[1]),
                            space.wrap(load[2])])
