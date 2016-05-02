@@ -88,8 +88,7 @@ class W_ExternPython(W_CData):
         ctype = self.ctype
         if not isinstance(ctype, W_CTypeFunc):
             space = self.space
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("expected a function ctype"))
+            raise oefmt(space.w_TypeError, "expected a function ctype")
         return ctype
 
     def hide_object(self):
@@ -219,8 +218,8 @@ class W_CDataCallback(W_ExternPython):
                                              invoke_callback,
                                              unique_id)
         if rffi.cast(lltype.Signed, res) != clibffi.FFI_OK:
-            raise OperationError(space.w_SystemError,
-                space.wrap("libffi failed to build this callback"))
+            raise oefmt(space.w_SystemError,
+                        "libffi failed to build this callback")
 
     def py_invoke(self, ll_res, ll_args):
         jitdriver1.jit_merge_point(callback=self,
@@ -234,9 +233,9 @@ def convert_from_object_fficallback(fresult, ll_res, w_res,
     space = fresult.space
     if isinstance(fresult, W_CTypeVoid):
         if not space.is_w(w_res, space.w_None):
-            raise OperationError(space.w_TypeError,
-                    space.wrap("callback with the return type 'void'"
-                               " must return None"))
+            raise oefmt(space.w_TypeError,
+                        "callback with the return type 'void' must return "
+                        "None")
         return
     #
     small_result = encode_result_for_libffi and fresult.size < SIZE_OF_FFI_ARG

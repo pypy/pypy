@@ -7,7 +7,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.tool.sourcetools import func_renamer
 
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.module.thread.os_lock import Lock
@@ -85,8 +85,7 @@ class W_Hash(W_Root):
     def digest_type_by_name(self, space):
         digest_type = ropenssl.EVP_get_digestbyname(self.name)
         if not digest_type:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("unknown hash function"))
+            raise oefmt(space.w_ValueError, "unknown hash function")
         return digest_type
 
     def descr_repr(self, space):

@@ -44,8 +44,7 @@ def sizeof(space, w_obj):
             raise oefmt(space.w_ValueError,
                         "ctype '%s' is of unknown size", w_obj.name)
     else:
-        raise OperationError(space.w_TypeError,
-                            space.wrap("expected a 'cdata' or 'ctype' object"))
+        raise oefmt(space.w_TypeError, "expected a 'cdata' or 'ctype' object")
     return space.wrap(size)
 
 @unwrap_spec(w_ctype=ctypeobj.W_CType)

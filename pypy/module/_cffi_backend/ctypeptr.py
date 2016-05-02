@@ -289,8 +289,8 @@ class W_CTypePointer(W_CTypePtrBase):
         try:
             datasize = ovfcheck(length * itemsize)
         except OverflowError:
-            raise OperationError(space.w_OverflowError,
-                space.wrap("array size would overflow a ssize_t"))
+            raise oefmt(space.w_OverflowError,
+                        "array size would overflow a ssize_t")
         result = lltype.malloc(rffi.CCHARP.TO, datasize,
                                flavor='raw', zero=True)
         try:
@@ -322,13 +322,12 @@ class W_CTypePointer(W_CTypePtrBase):
         space = self.space
         ctitem = self.ctitem
         if ctitem.size < 0:
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("pointer to opaque"))
+            raise oefmt(space.w_TypeError, "pointer to opaque")
         try:
             offset = ovfcheck(index * ctitem.size)
         except OverflowError:
-            raise OperationError(space.w_OverflowError,
-                    space.wrap("array offset would overflow a ssize_t"))
+            raise oefmt(space.w_OverflowError,
+                        "array offset would overflow a ssize_t")
         return ctitem, offset
 
     def rawaddressof(self, cdata, offset):
@@ -341,9 +340,8 @@ class W_CTypePointer(W_CTypePtrBase):
             ptr = rffi.ptradd(ptr, offset)
             return cdataobj.W_CData(space, ptr, self)
         else:
-            raise OperationError(space.w_TypeError,
-                    space.wrap("expected a cdata struct/union/array/pointer"
-                               " object"))
+            raise oefmt(space.w_TypeError,
+                        "expected a cdata struct/union/array/pointer object")
 
     def _fget(self, attrchar):
         if attrchar == 'i':     # item
@@ -377,8 +375,7 @@ def prepare_file_argument(space, w_fileobj):
     if w_fileobj.cffi_fileobj is None:
         fd = w_fileobj.direct_fileno()
         if fd < 0:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("file has no OS file descriptor"))
+            raise oefmt(space.w_ValueError, "file has no OS file descriptor")
         try:
             w_fileobj.cffi_fileobj = CffiFileObj(fd, w_fileobj.mode)
         except OSError, e:

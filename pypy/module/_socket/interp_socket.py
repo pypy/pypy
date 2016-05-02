@@ -123,11 +123,10 @@ def addr_from_object(family, fd, space, w_address):
         if len(pieces_w) > 4: haddr = space.str_w(pieces_w[4])
         else:                 haddr = ""
         if len(haddr) > 8:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "Hardware address must be 8 bytes or less"))
+            raise oefmt(space.w_ValueError,
+                        "Hardware address must be 8 bytes or less")
         if protocol < 0 or protocol > 0xfffff:
-            raise OperationError(space.w_OverflowError, space.wrap(
-                "protoNumber must be 0-65535."))
+            raise oefmt(space.w_OverflowError, "protoNumber must be 0-65535.")
         return rsocket.PacketAddress(ifindex, protocol, pkttype, hatype, haddr)
     raise RSocketError("unknown address family")
 
@@ -135,14 +134,12 @@ def addr_from_object(family, fd, space, w_address):
 def make_ushort_port(space, port):
     assert isinstance(port, int)
     if port < 0 or port > 0xffff:
-        raise OperationError(space.w_OverflowError, space.wrap(
-            "port must be 0-65535."))
+        raise oefmt(space.w_OverflowError, "port must be 0-65535.")
     return port
 
 def make_unsigned_flowinfo(space, flowinfo):
     if flowinfo < 0 or flowinfo > 0xfffff:
-        raise OperationError(space.w_OverflowError, space.wrap(
-            "flowinfo must be 0-1048575."))
+        raise oefmt(space.w_OverflowError, "flowinfo must be 0-1048575.")
     return rffi.cast(lltype.Unsigned, flowinfo)
 
 # XXX Hack to seperate rpython and pypy
@@ -463,8 +460,7 @@ class W_Socket(W_Root):
         else:
             timeout = space.float_w(w_timeout)
             if timeout < 0.0:
-                raise OperationError(space.w_ValueError,
-                                     space.wrap('Timeout value out of range'))
+                raise oefmt(space.w_ValueError, "Timeout value out of range")
         self.sock.settimeout(timeout)
 
     @unwrap_spec(nbytes=int, flags=int)

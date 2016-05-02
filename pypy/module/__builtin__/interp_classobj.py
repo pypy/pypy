@@ -32,8 +32,7 @@ def descr_classobj_new(space, w_subtype, w_name, w_bases, w_dict):
             if space.is_true(space.callable(w_metaclass)):
                 return space.call_function(w_metaclass, w_name,
                                            w_bases, w_dict)
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("base must be class"))
+            raise oefmt(space.w_TypeError, "base must be class")
 
     return W_ClassObject(space, w_name, bases_w, w_dict)
 
@@ -58,28 +57,23 @@ class W_ClassObject(W_Root):
 
     def setdict(self, space, w_dict):
         if not space.isinstance_w(w_dict, space.w_dict):
-            raise OperationError(
-                space.w_TypeError,
-                space.wrap("__dict__ must be a dictionary object"))
+            raise oefmt(space.w_TypeError,
+                        "__dict__ must be a dictionary object")
         self.w_dict = w_dict
 
     def setname(self, space, w_newname):
         if not space.isinstance_w(w_newname, space.w_str):
-            raise OperationError(space.w_TypeError,
-                space.wrap("__name__ must be a string object")
-            )
+            raise oefmt(space.w_TypeError, "__name__ must be a string object")
         self.name = space.str_w(w_newname)
 
     def setbases(self, space, w_bases):
         if not space.isinstance_w(w_bases, space.w_tuple):
-            raise OperationError(space.w_TypeError,
-                space.wrap("__bases__ must be a tuple object")
-            )
+            raise oefmt(space.w_TypeError, "__bases__ must be a tuple object")
         bases_w = space.fixedview(w_bases)
         for w_base in bases_w:
             if not isinstance(w_base, W_ClassObject):
-                raise OperationError(space.w_TypeError,
-                                     space.wrap("__bases__ items must be classes"))
+                raise oefmt(space.w_TypeError,
+                            "__bases__ items must be classes")
         self.bases_w = bases_w
 
     def is_subclass_of(self, other):
@@ -207,13 +201,9 @@ def class_descr_call(space, w_self, __args__):
     if w_init is not None:
         w_result = space.call_args(w_init, __args__)
         if not space.is_w(w_result, space.w_None):
-            raise OperationError(
-                space.w_TypeError,
-                space.wrap("__init__() should return None"))
+            raise oefmt(space.w_TypeError, "__init__() should return None")
     elif __args__.arguments_w or __args__.keywords:
-        raise OperationError(
-                space.w_TypeError,
-                space.wrap("this constructor takes no arguments"))
+        raise oefmt(space.w_TypeError, "this constructor takes no arguments")
     return w_inst
 
 W_ClassObject.typedef = TypeDef("classobj",
@@ -297,9 +287,7 @@ def _coerce_helper(space, w_self, w_other):
 def descr_instance_new(space, w_type, w_class, w_dict=None):
     # w_type is not used at all
     if not isinstance(w_class, W_ClassObject):
-        raise OperationError(
-            space.w_TypeError,
-            space.wrap("instance() first arg must be class"))
+        raise oefmt(space.w_TypeError, "instance() first arg must be class")
     w_result = w_class.instantiate(space)
     if not space.is_none(w_dict):
         w_result.setdict(space, w_dict)
@@ -318,9 +306,7 @@ class W_InstanceObject(W_Root):
 
     def set_oldstyle_class(self, space, w_class):
         if w_class is None or not isinstance(w_class, W_ClassObject):
-            raise OperationError(
-                space.w_TypeError,
-                space.wrap("__class__ must be set to a class"))
+            raise oefmt(space.w_TypeError, "__class__ must be set to a class")
         self.w_class = w_class
 
     def getattr_from_class(self, space, name):
@@ -453,13 +439,9 @@ class W_InstanceObject(W_Root):
         w_result = space.call_function(w_meth)
         if space.isinstance_w(w_result, space.w_int):
             if space.is_true(space.lt(w_result, space.wrap(0))):
-                raise OperationError(
-                    space.w_ValueError,
-                    space.wrap("__len__() should return >= 0"))
+                raise oefmt(space.w_ValueError, "__len__() should return >= 0")
             return w_result
-        raise OperationError(
-            space.w_TypeError,
-            space.wrap("__len__() should return an int"))
+        raise oefmt(space.w_TypeError, "__len__() should return an int")
 
     def descr_getitem(self, space, w_key):
         w_meth = self.getattr(space, '__getitem__')
@@ -479,9 +461,7 @@ class W_InstanceObject(W_Root):
             return space.call_function(w_meth)
         w_meth = self.getattr(space, '__getitem__', False)
         if w_meth is None:
-            raise OperationError(
-                space.w_TypeError,
-                space.wrap("iteration over non-sequence"))
+            raise oefmt(space.w_TypeError, "iteration over non-sequence")
         return space.newseqiter(self)
     #XXX do I really need a next method? the old implementation had one, but I
     # don't see the point
@@ -521,13 +501,10 @@ class W_InstanceObject(W_Root):
         w_result = space.call_function(w_func)
         if space.isinstance_w(w_result, space.w_int):
             if space.is_true(space.lt(w_result, space.wrap(0))):
-                raise OperationError(
-                    space.w_ValueError,
-                    space.wrap("__nonzero__() should return >= 0"))
+                raise oefmt(space.w_ValueError,
+                            "__nonzero__() should return >= 0")
             return w_result
-        raise OperationError(
-            space.w_TypeError,
-            space.wrap("__nonzero__() should return an int"))
+        raise oefmt(space.w_TypeError, "__nonzero__() should return an int")
 
     def descr_cmp(self, space, w_other): # do all the work here like CPython
         w_a, w_b = _coerce_helper(space, self, w_other)
@@ -544,9 +521,8 @@ class W_InstanceObject(W_Root):
                     res = space.int_w(w_res)
                 except OperationError, e:
                     if e.match(space, space.w_TypeError):
-                        raise OperationError(
-                            space.w_TypeError,
-                            space.wrap("__cmp__ must return int"))
+                        raise oefmt(space.w_TypeError,
+                                    "__cmp__ must return int")
                     raise
                 if res > 0:
                     return space.wrap(1)
@@ -563,9 +539,8 @@ class W_InstanceObject(W_Root):
                     res = space.int_w(w_res)
                 except OperationError, e:
                     if e.match(space, space.w_TypeError):
-                        raise OperationError(
-                            space.w_TypeError,
-                            space.wrap("__cmp__ must return int"))
+                        raise oefmt(space.w_TypeError,
+                                    "__cmp__ must return int")
                     raise
                 if res < 0:
                     return space.wrap(1)
@@ -580,16 +555,13 @@ class W_InstanceObject(W_Root):
             w_eq = self.getattr(space, '__eq__', False)
             w_cmp = self.getattr(space, '__cmp__', False)
             if w_eq is not None or w_cmp is not None:
-                raise OperationError(space.w_TypeError,
-                                     space.wrap("unhashable instance"))
+                raise oefmt(space.w_TypeError, "unhashable instance")
             else:
                 return space.wrap(compute_identity_hash(self))
         w_ret = space.call_function(w_func)
         if (not space.isinstance_w(w_ret, space.w_int) and
             not space.isinstance_w(w_ret, space.w_long)):
-            raise OperationError(
-                space.w_TypeError,
-                space.wrap("__hash__ must return int or long"))
+            raise oefmt(space.w_TypeError, "__hash__ must return int or long")
         return w_ret
 
     def descr_int(self, space):
@@ -603,9 +575,7 @@ class W_InstanceObject(W_Root):
             return space.int(w_truncated)
         except OperationError:
             # Raise a different error
-            raise OperationError(
-                space.w_TypeError,
-                space.wrap("__trunc__ returned non-Integral"))
+            raise oefmt(space.w_TypeError, "__trunc__ returned non-Integral")
 
     def descr_long(self, space):
         w_func = self.getattr(space, '__long__', False)
@@ -617,9 +587,8 @@ class W_InstanceObject(W_Root):
         w_func = self.getattr(space, '__index__', False)
         if w_func is not None:
             return space.call_function(w_func)
-        raise OperationError(
-            space.w_TypeError,
-            space.wrap("object cannot be interpreted as an index"))
+        raise oefmt(space.w_TypeError,
+                    "object cannot be interpreted as an index")
 
     def descr_contains(self, space, w_obj):
         w_func = self.getattr(space, '__contains__', False)
@@ -674,8 +643,7 @@ class W_InstanceObject(W_Root):
     def descr_next(self, space):
         w_func = self.getattr(space, 'next', False)
         if w_func is None:
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("instance has no next() method"))
+            raise oefmt(space.w_TypeError, "instance has no next() method")
         return space.call_function(w_func)
 
     def descr_del(self, space):

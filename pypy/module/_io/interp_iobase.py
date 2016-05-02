@@ -36,23 +36,17 @@ def unsupported(space, message):
 # May be called with any object
 def check_readable_w(space, w_obj):
     if not space.is_true(space.call_method(w_obj, 'readable')):
-        raise OperationError(
-            space.w_IOError,
-            space.wrap("file or stream is not readable"))
+        raise oefmt(space.w_IOError, "file or stream is not readable")
 
 # May be called with any object
 def check_writable_w(space, w_obj):
     if not space.is_true(space.call_method(w_obj, 'writable')):
-        raise OperationError(
-            space.w_IOError,
-            space.wrap("file or stream is not writable"))
+        raise oefmt(space.w_IOError, "file or stream is not writable")
 
 # May be called with any object
 def check_seekable_w(space, w_obj):
     if not space.is_true(space.call_method(w_obj, 'seekable')):
-        raise OperationError(
-            space.w_IOError,
-            space.wrap("file or stream is not seekable"))
+        raise oefmt(space.w_IOError, "file or stream is not seekable")
 
 
 class W_IOBase(W_Root):
@@ -129,9 +123,7 @@ class W_IOBase(W_Root):
 
     def flush_w(self, space):
         if self._CLOSED():
-            raise OperationError(
-                space.w_ValueError,
-                space.wrap("I/O operation on closed file"))
+            raise oefmt(space.w_ValueError, "I/O operation on closed file")
 
     def seek_w(self, space, w_offset, w_whence=None):
         self._unsupportedoperation(space, "seek")
@@ -349,8 +341,7 @@ class W_RawIOBase(W_IOBase):
                 break
 
             if not space.isinstance_w(w_data, space.w_str):
-                raise OperationError(space.w_TypeError, space.wrap(
-                    "read() should return bytes"))
+                raise oefmt(space.w_TypeError, "read() should return bytes")
             data = space.str_w(w_data)
             if not data:
                 break

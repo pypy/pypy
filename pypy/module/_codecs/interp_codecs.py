@@ -119,9 +119,7 @@ def register_codec(space, w_search_function):
     if space.is_true(space.callable(w_search_function)):
         state.codec_search_path.append(w_search_function)
     else:
-        raise OperationError(
-            space.w_TypeError,
-            space.wrap("argument must be callable"))
+        raise oefmt(space.w_TypeError, "argument must be callable")
 
 
 @unwrap_spec(encoding=str)
@@ -148,19 +146,17 @@ def _lookup_codec_loop(space, encoding, normalized_encoding):
         space.call_function(w_import, space.wrap("encodings"))
         state.codec_need_encodings = False
         if len(state.codec_search_path) == 0:
-            raise OperationError(
-                space.w_LookupError,
-                space.wrap("no codec search functions registered: "
-                           "can't find encoding"))
+            raise oefmt(space.w_LookupError,
+                        "no codec search functions registered: can't find "
+                        "encoding")
     for w_search in state.codec_search_path:
         w_result = space.call_function(w_search,
                                        space.wrap(normalized_encoding))
         if not space.is_w(w_result, space.w_None):
             if not (space.isinstance_w(w_result, space.w_tuple) and
                     space.len_w(w_result) == 4):
-                raise OperationError(
-                    space.w_TypeError,
-                    space.wrap("codec search functions must return 4-tuples"))
+                raise oefmt(space.w_TypeError,
+                            "codec search functions must return 4-tuples")
             else:
                 state.codec_search_cache[normalized_encoding] = w_result
                 state.modified()
@@ -178,22 +174,19 @@ def check_exception(space, w_exc):
     except OperationError, e:
         if not e.match(space, space.w_AttributeError):
             raise
-        raise OperationError(space.w_TypeError, space.wrap(
-            "wrong exception"))
+        raise oefmt(space.w_TypeError, "wrong exception")
 
     delta = space.int_w(w_end) - space.int_w(w_start)
     if delta < 0 or not (space.isinstance_w(w_obj, space.w_str) or
                          space.isinstance_w(w_obj, space.w_unicode)):
-        raise OperationError(space.w_TypeError, space.wrap(
-            "wrong exception"))
+        raise oefmt(space.w_TypeError, "wrong exception")
 
 def strict_errors(space, w_exc):
     check_exception(space, w_exc)
     if space.isinstance_w(w_exc, space.w_BaseException):
         raise OperationError(space.type(w_exc), w_exc)
     else:
-        raise OperationError(space.w_TypeError, space.wrap(
-            "codec must pass exception instance"))
+        raise oefmt(space.w_TypeError, "codec must pass exception instance")
 
 def ignore_errors(space, w_exc):
     check_exception(space, w_exc)
@@ -350,9 +343,8 @@ def decode(space, w_obj, w_encoding=None, errors='strict'):
     if space.is_true(w_decoder):
         w_res = space.call_function(w_decoder, w_obj, space.wrap(errors))
         if (not space.isinstance_w(w_res, space.w_tuple) or space.len_w(w_res) != 2):
-            raise OperationError(
-                space.w_TypeError,
-                space.wrap("encoder must return a tuple (object, integer)"))
+            raise oefmt(space.w_TypeError,
+                        "encoder must return a tuple (object, integer)")
         return space.getitem(w_res, space.wrap(0))
     else:
         assert 0, "XXX, what to do here?"
@@ -371,9 +363,7 @@ def register_error(space, errors, w_handler):
     if space.is_true(space.callable(w_handler)):
         state.codec_error_registry[errors] = w_handler
     else:
-        raise OperationError(
-            space.w_TypeError,
-            space.wrap("handler must be callable"))
+        raise oefmt(space.w_TypeError, "handler must be callable")
 
 # ____________________________________________________________
 # delegation to runicode
