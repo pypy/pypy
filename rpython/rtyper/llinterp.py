@@ -720,6 +720,12 @@ class LLFrame(object):
     def op_gc_add_memory_pressure(self, size):
         self.heap.add_memory_pressure(size)
 
+    def op_gc_fq_next_dead(self, fq_tag):
+        return self.heap.gc_fq_next_dead(fq_tag)
+
+    def op_gc_fq_register(self, fq_tag, obj):
+        self.heap.gc_fq_register(fq_tag, obj)
+
     def op_gc_gettypeid(self, obj):
         return lloperation.llop.combine_ushort(lltype.Signed, self.heap.gettypeid(obj), 0)
 

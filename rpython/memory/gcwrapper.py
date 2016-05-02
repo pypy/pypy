@@ -4,6 +4,7 @@ from rpython.rtyper import llinterp
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.memory import gctypelayout
 from rpython.flowspace.model import Constant
+from rpython.rlib import rgc
 
 
 class GCManagedHeap(object):
@@ -20,6 +21,7 @@ class GCManagedHeap(object):
         self.llinterp = llinterp
         self.prepare_graphs(flowgraphs)
         self.gc.setup()
+        self.finalizer_queues = {}
         self.has_write_barrier_from_array = hasattr(self.gc,
                                                     'write_barrier_from_array')
 
@@ -186,6 +188,20 @@ class GCManagedHeap(object):
 
     def thread_run(self):
         pass
+
+    def get_finalizer_queue_index(self, fq_tag):
+        assert fq_tag.expr == 'FinalizerQueue TAG'
+        fq = fq_tag.default
+        return self.finalizer_queues.setdefault(fq, len(self.finalizer_queues))
+
+    def gc_fq_next_dead(self, fq_tag):
+        index = self.get_finalizer_queue_index(fq_tag)
+        xxx
+
+    def gc_fq_register(self, fq_tag, ptr):
+        index = self.get_finalizer_queue_index(fq_tag)
+        ptr = lltype.cast_opaque_ptr(llmemory.GCREF, ptr)
+        self.gc.register_finalizer(index, ptr)
 
 # ____________________________________________________________
 

@@ -5,6 +5,7 @@ import types
 
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import we_are_translated, enforceargs, specialize
+from rpython.rlib.objectmodel import CDefinedIntSymbolic
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.lltypesystem import lltype, llmemory
 
@@ -389,7 +390,7 @@ class FinalizerQueue(object):
             from rpython.rtyper.lltypesystem.lloperation import llop
             from rpython.rtyper.rclass import OBJECTPTR
             from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
-            ptr = llop.gc_fq_next_dead(OBJECTPTR, self)
+            ptr = llop.gc_fq_next_dead(OBJECTPTR, self._get_tag())
             return cast_base_ptr_to_instance(self.Class, ptr)
         try:
             return self._queue.popleft()
@@ -404,9 +405,16 @@ class FinalizerQueue(object):
             from rpython.rtyper.rclass import OBJECTPTR
             from rpython.rtyper.annlowlevel import cast_instance_to_base_ptr
             ptr = cast_instance_to_base_ptr(obj)
-            llop.gc_fq_register(lltype.Void, self, ptr)
+            llop.gc_fq_register(lltype.Void, self._get_tag(), ptr)
             return
+        else:
+            self._untranslated_register_finalizer(obj)
 
+    @specialize.memo()
+    def _get_tag(self):
+        return CDefinedIntSymbolic('FinalizerQueue TAG', default=self)
+
+    def _untranslated_register_finalizer(self, obj):
         if hasattr(obj, '__enable_del_for_id'):
             return    # already called
 

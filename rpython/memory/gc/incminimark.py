@@ -1565,6 +1565,13 @@ class IncrementalMiniMarkGC(MovingGCBase):
             self.header(shadow).tid |= GCFLAG_VISITED
             new_shadow_object_dict.setitem(obj, shadow)
 
+    def register_finalizer(self, fq_index, gcobj):
+        from rpython.rtyper.lltypesystem import rffi
+        obj = llmemory.cast_ptr_to_adr(gcobj)
+        self.probably_young_objects_with_finalizers.append(obj)
+        fq_index = rffi.cast(llmemory.Address, fq_index)
+        self.probably_young_objects_with_finalizers.append(fq_index)
+
     # ----------
     # Nursery collection
 
@@ -2617,12 +2624,12 @@ class IncrementalMiniMarkGC(MovingGCBase):
     def deal_with_young_objects_with_finalizers(self):
         while self.probably_young_objects_with_finalizers.non_empty():
             obj = self.probably_young_objects_with_finalizers.popleft()
-            fin_nr = self.probably_young_objects_with_finalizers.popleft()
-            singleaddr.address[0] = obj
-            self._trace_drag_out1(singleaddr)
-            obj = singleaddr.address[0]
-            self.old_objects_with_light_finalizers.append(obj)
-            self.old_objects_with_light_finalizers.append(fin_nr)
+            fq_nr = self.probably_young_objects_with_finalizers.popleft()
+            self.singleaddr.address[0] = obj
+            self._trace_drag_out1(self.singleaddr)
+            obj = self.singleaddr.address[0]
+            self.old_objects_with_finalizers.append(obj)
+            self.old_objects_with_finalizers.append(fq_nr)
 
     def deal_with_objects_with_finalizers(self):
         # Walk over list of objects with finalizers.
@@ -2635,14 +2642,17 @@ class IncrementalMiniMarkGC(MovingGCBase):
         marked = self.AddressDeque()
         pending = self.AddressStack()
         self.tmpstack = self.AddressStack()
-        while self.objects_with_finalizers.non_empty():
-            x = self.objects_with_finalizers.popleft()
+        while self.old_objects_with_finalizers.non_empty():
+            x = self.old_objects_with_finalizers.popleft()
+            fq_nr = self.old_objects_with_finalizers.popleft()
             ll_assert(self._finalization_state(x) != 1,
                       "bad finalization state 1")
             if self.header(x).tid & GCFLAG_VISITED:
                 new_with_finalizer.append(x)
+                new_with_finalizer.append(fq_nr)
                 continue
             marked.append(x)
+            marked.append(fq_nr)
             pending.append(x)
             while pending.non_empty():
                 y = pending.pop()
@@ -2662,9 +2672,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
         while marked.non_empty():
             x = marked.popleft()
+            fq_nr = marked.popleft()
             state = self._finalization_state(x)
             ll_assert(state >= 2, "unexpected finalization state < 2")
             if state == 2:
+                # XXX use fq_nr here
                 self.run_finalizers.append(x)
                 # we must also fix the state from 2 to 3 here, otherwise
                 # we leave the GCFLAG_FINALIZATION_ORDERING bit behind
@@ -2672,12 +2684,13 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 self._recursively_bump_finalization_state_from_2_to_3(x)
             else:
                 new_with_finalizer.append(x)
+                new_with_finalizer.append(fq_nr)
 
         self.tmpstack.delete()
         pending.delete()
         marked.delete()
-        self.objects_with_finalizers.delete()
-        self.objects_with_finalizers = new_with_finalizer
+        self.old_objects_with_finalizers.delete()
+        self.old_objects_with_finalizers = new_with_finalizer
 
     def _append_if_nonnull(pointer, stack):
         stack.append(pointer.address[0])

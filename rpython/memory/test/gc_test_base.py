@@ -128,7 +128,7 @@ class GCTest(object):
         assert res == concat(100)
         #assert simulator.current_size - curr < 16000 * INT_SIZE / 4
 
-    def test_finalizer(self):
+    def test_destructor(self):
         class B(object):
             pass
         b = B()
@@ -146,6 +146,36 @@ class GCTest(object):
             while i < x:
                 i += 1
                 a = A()
+            llop.gc__collect(lltype.Void)
+            llop.gc__collect(lltype.Void)
+            return b.num_deleted
+        res = self.interpret(f, [5])
+        assert res == 6
+
+    def test_finalizer(self):
+        class B(object):
+            pass
+        b = B()
+        b.nextid = 0
+        b.num_deleted = 0
+        class A(object):
+            def __init__(self):
+                self.id = b.nextid
+                b.nextid += 1
+                fq.register_finalizer(self)
+        class FQ(rgc.FinalizerQueue):
+            Class = A
+            def finalizer_trigger(self):
+                while self.next_dead() is not None:
+                    b.num_deleted += 1
+        fq = FQ()
+        def f(x):
+            a = A()
+            i = 0
+            while i < x:
+                i += 1
+                a = A()
+            a = None
             llop.gc__collect(lltype.Void)
             llop.gc__collect(lltype.Void)
             return b.num_deleted
