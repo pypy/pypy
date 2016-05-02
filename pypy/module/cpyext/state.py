@@ -1,6 +1,6 @@
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rtyper.lltypesystem import rffi, lltype
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.executioncontext import AsyncAction
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.annlowlevel import llhelper
