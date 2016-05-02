@@ -143,7 +143,6 @@ class AppTestTypeObject:
         e = E()
         D.__bases__ = (C,)
         D.__bases__ = (C2,)
-        #import pdb; pdb.set_trace()
         assert d.meth() == 1
         assert e.meth() == 1
         assert d.a == 2
@@ -184,7 +183,7 @@ class AppTestTypeObject:
 
         try:
             D.__bases__ = ()
-        except TypeError, msg:
+        except TypeError as msg:
             if str(msg) == "a new-style class can't have only classic bases":
                 assert 0, "wrong error message for .__bases__ = ()"
         else:
@@ -309,7 +308,7 @@ class AppTestTypeObject:
         except TypeError:
             pass
         else:
-            raise TestFailed, "didn't catch MRO conflict"
+            raise TestFailed("didn't catch MRO conflict")
 
     def test_mutable_bases_versus_nonheap_types(self):
         class A(int):
@@ -442,7 +441,7 @@ class AppTestTypeObject:
         except TypeError:
             pass
         else:
-            raise AssertionError, "this multiple inheritance should fail"
+            raise AssertionError("this multiple inheritance should fail")
 
     def test_outer_metaclass(self):
         class OuterMetaClass(type):
@@ -512,7 +511,7 @@ class AppTestTypeObject:
         try:
             assert NoDoc.__doc__ == None
         except AttributeError:
-            raise AssertionError, "__doc__ missing!"
+            raise AssertionError("__doc__ missing!")
 
     def test_explicitdoc(self):
         class ExplicitDoc(object):
@@ -539,7 +538,7 @@ class AppTestTypeObject:
             #       we always raise AttributeError.
             pass
         else:
-            raise AssertionError, '__doc__ should not be writable'
+            raise AssertionError('__doc__ should not be writable')
 
         assert ImmutableDoc.__doc__ == 'foo'
 
@@ -1048,14 +1047,14 @@ class AppTestTypeObject:
         try:
             class E(B, A):   # "best base" is B
                 __slots__ = ("__dict__",)
-        except TypeError, e:
+        except TypeError as e:
             assert 'we already got one' in str(e)
         else:
             raise AssertionError("TypeError not raised")
         try:
             class F(B, A):   # "best base" is B
                 __slots__ = ("__weakref__",)
-        except TypeError, e:
+        except TypeError as e:
             assert 'we already got one' in str(e)
         else:
             raise AssertionError("TypeError not raised")
