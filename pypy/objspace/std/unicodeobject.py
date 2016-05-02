@@ -73,8 +73,8 @@ class W_UnicodeObject(W_Root):
         return StringBuffer(builder.build())
 
     def writebuf_w(self, space):
-        raise OperationError(space.w_TypeError, space.wrap(
-            "cannot use unicode as modifiable buffer"))
+        raise oefmt(space.w_TypeError,
+                    "cannot use unicode as modifiable buffer")
 
     charbuf_w = str_w
 

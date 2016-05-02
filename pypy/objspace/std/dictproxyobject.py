@@ -41,7 +41,8 @@ class DictProxyStrategy(DictStrategy):
         if space.is_w(space.type(w_key), space.w_str):
             self.setitem_str(w_dict, self.space.str_w(w_key), w_value)
         else:
-            raise OperationError(space.w_TypeError, space.wrap("cannot add non-string keys to dict of a type"))
+            raise oefmt(space.w_TypeError,
+                        "cannot add non-string keys to dict of a type")
 
     def setitem_str(self, w_dict, key, w_value):
         w_type = self.unerase(w_dict.dstorage)

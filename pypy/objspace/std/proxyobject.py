@@ -1,7 +1,7 @@
 """ transparent list implementation
 """
 from pypy.interpreter import baseobjspace
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 
 
 def transparent_class(name, BaseCls):
@@ -20,8 +20,9 @@ def transparent_class(name, BaseCls):
             return self.w_type
 
         def setclass(self, space, w_subtype):
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("You cannot override __class__ for transparent proxies"))
+            raise oefmt(space.w_TypeError,
+                        "You cannot override __class__ for transparent "
+                        "proxies")
 
         def getdictvalue(self, space, attr):
             try:

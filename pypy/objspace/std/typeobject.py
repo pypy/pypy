@@ -1,7 +1,7 @@
 import weakref
 from pypy.interpreter import gateway
 from pypy.interpreter.baseobjspace import W_Root, SpaceCache
-from pypy.interpreter.error import oefmt, OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.function import Function, StaticMethod
 from pypy.interpreter.typedef import weakref_descr, GetSetProperty,\
      descr_get_dict, dict_descr, Member, TypeDef
@@ -1240,8 +1240,8 @@ def mro_error(space, orderlists):
     cycle.append(candidate)
     cycle.reverse()
     names = [cls.getname(space) for cls in cycle]
-    raise OperationError(space.w_TypeError, space.wrap(
-        "cycle among base classes: " + ' < '.join(names)))
+    raise oefmt(space.w_TypeError,
+                "cycle among base classes: %s", ' < '.join(names))
 
 
 class TypeCache(SpaceCache):
