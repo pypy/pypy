@@ -1,10 +1,5 @@
-* python setup.py install in numpy does not somehow tell setuptools
-  it's installed (I bet it's about the py27 tag)
-* reduce size of generated c code from slot definitions in slotdefs.
-* fix py_string_as_string_unicode-getstringandsize_unicode which 
-  segfaults when run -A after printing '.', the same test passes cpython -A
-  and untranslated
-* export ndarrayobject objects like PyArrayObject, PyArrayDescrObject needed
+* Add ByteArrayObject
+* Export ndarrayobject objects like PyArrayObject, PyArrayDescrObject needed
   to coninue using micronumpy as a numpy 1.10 ndarray alternative
   This used to be done with pypy-specific headers which replaced upstream's
   headers, can be tested by installing matplotlib or aubio (pypy/numpy issue #47)
