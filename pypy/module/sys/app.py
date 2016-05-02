@@ -58,7 +58,7 @@ exit status will be one (i.e., failure)."""
     # note that we cannot use SystemExit(exitcode) here.
     # The comma version leads to an extra de-tupelizing
     # in normalize_exception, which is exactly like CPython's.
-    raise SystemExit, exitcode
+    raise SystemExit(exitcode)
 
 def exitfunc():
     """Placeholder for sys.exitfunc(), which is called when PyPy exits."""

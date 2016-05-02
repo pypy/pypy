@@ -163,7 +163,7 @@ class _Op(object):
         if name in opcode.opmap:
             return opcode.opmap[name]
         else:
-            raise AttributeError, name
+            raise AttributeError(name)
 
 _op_ = _Op()
 

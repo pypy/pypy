@@ -1110,7 +1110,7 @@ class __extend__(pyframe.PyFrame):
         return next_instr
 
     def FOR_LOOP(self, oparg, next_instr):
-        raise BytecodeCorruption, "old opcode, no longer in use"
+        raise BytecodeCorruption("old opcode, no longer in use")
 
     def SETUP_LOOP(self, offsettoend, next_instr):
         block = LoopBlock(self, next_instr + offsettoend, self.lastblock)
