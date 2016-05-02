@@ -82,7 +82,7 @@ def jittify_and_run(interp, graph, args, repeat=1, graph_and_interp_only=False,
                     backendopt=False, trace_limit=sys.maxint, inline=False,
                     loop_longevity=0, retrace_limit=5, function_threshold=4,
                     disable_unrolling=sys.maxint,
-                    enable_opts=ALL_OPTS_NAMES, max_retrace_guards=15, 
+                    enable_opts=ALL_OPTS_NAMES, max_retrace_guards=15,
                     max_unroll_recursion=7, vec=1, vec_all=0, vec_cost=0,
                     vec_length=60, vec_ratio=2, vec_guard_ratio=3, **kwds):
     from rpython.config.config import ConfigError
@@ -489,7 +489,7 @@ class WarmRunnerDesc(object):
         if opencoder_model == 'big':
             self.metainterp_sd.opencoder_model = BigModel
         else:
-            self.metainterp_sd.opencoder_model = Model            
+            self.metainterp_sd.opencoder_model = Model
         self.stats.metainterp_sd = self.metainterp_sd
 
     def make_virtualizable_infos(self):
@@ -934,7 +934,7 @@ class WarmRunnerDesc(object):
                         raise LLException(ts.get_typeptr(value), value)
                     else:
                         value = cast_base_ptr_to_instance(Exception, value)
-                        raise Exception, value
+                        raise value
 
         def handle_jitexception(e):
             # XXX the bulk of this function is mostly a copy-paste from above
@@ -968,7 +968,7 @@ class WarmRunnerDesc(object):
                     raise LLException(ts.get_typeptr(value), value)
                 else:
                     value = cast_base_ptr_to_instance(Exception, value)
-                    raise Exception, value
+                    raise value
 
         jd._ll_portal_runner = ll_portal_runner # for debugging
         jd.portal_runner_ptr = self.helper_func(jd._PTR_PORTAL_FUNCTYPE,

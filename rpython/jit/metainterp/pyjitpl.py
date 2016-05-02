@@ -2100,7 +2100,7 @@ class MetaInterp(object):
             guard_op = self.history.record(opnum, moreargs,
                                            lltype.nullptr(llmemory.GCREF.TO))
         else:
-            guard_op = self.history.record(opnum, moreargs, None)            
+            guard_op = self.history.record(opnum, moreargs, None)
         self.capture_resumedata(resumepc)
         # ^^^ records extra to history
         self.staticdata.profiler.count_ops(opnum, Counters.GUARDS)
@@ -2254,7 +2254,7 @@ class MetaInterp(object):
 
     def execute_raised(self, exception, constant=False):
         if isinstance(exception, jitexc.JitException):
-            raise jitexc.JitException, exception      # go through
+            raise exception      # go through
         llexception = jitexc.get_llexception(self.cpu, exception)
         self.execute_ll_raised(llexception, constant)
 

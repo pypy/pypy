@@ -1,7 +1,7 @@
 from rpython.tool.sourcetools import func_with_new_name
 
 def forbid(*args):
-    raise TypeError, "cannot mutate a frozenlist"
+    raise TypeError("cannot mutate a frozenlist")
 
 class frozenlist(list):
     __setitem__  = func_with_new_name(forbid, '__setitem__')
