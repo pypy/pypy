@@ -81,7 +81,7 @@ class W_AbstractStream(W_Root):
         """
         try:
             return self.stream.read(n)
-        except StreamErrors, e:
+        except StreamErrors as e:
             raise wrap_streamerror(self.space, e)
 
     def do_write(self, data):
@@ -92,7 +92,7 @@ class W_AbstractStream(W_Root):
         """
         try:
             self.stream.write(data)
-        except StreamErrors, e:
+        except StreamErrors as e:
             raise wrap_streamerror(self.space, e)
 
 

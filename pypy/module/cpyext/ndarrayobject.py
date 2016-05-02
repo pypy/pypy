@@ -169,7 +169,7 @@ def _PyArray_FromObject(space, w_obj, typenum, min_depth, max_depth):
     try:
         return _PyArray_FromAny(space, w_obj, dtype, min_depth, max_depth,
                             0, NULL);
-    except OperationError, e:
+    except OperationError as e:
         if e.match(space, space.w_NotImplementedError):
             errstr = space.str_w(e.get_w_value(space))
             raise oefmt(space.w_NotImplementedError,

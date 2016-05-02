@@ -244,7 +244,7 @@ class W_BaseSetObject(W_Root):
     def descr_contains(self, space, w_other):
         try:
             return space.newbool(self.has_key(w_other))
-        except OperationError, e:
+        except OperationError as e:
             if e.match(space, space.w_TypeError):
                 w_f = _convert_set_to_frozenset(space, w_other)
                 if w_f is not None:
@@ -323,7 +323,7 @@ class W_BaseSetObject(W_Root):
             w_other = others_w[i]
             try:
                 length = space.int_w(space.len(w_other))
-            except OperationError, e:
+            except OperationError as e:
                 if (e.match(space, space.w_TypeError) or
                     e.match(space, space.w_AttributeError)):
                     continue
@@ -442,7 +442,7 @@ class W_BaseSetObject(W_Root):
         """
         try:
             deleted = self.remove(w_item)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_TypeError):
                 raise
             else:
@@ -1652,7 +1652,7 @@ def _create_from_iterable(space, w_set, w_iterable):
     while True:
         try:
             w_item = space.next(w_iter)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_StopIteration):
                 raise
             return

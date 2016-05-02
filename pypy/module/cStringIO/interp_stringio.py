@@ -174,7 +174,7 @@ class W_OutputType(W_InputOutputType):
         while True:
             try:
                 w_line = space.next(w_iterator)
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_StopIteration):
                     raise
                 break  # done

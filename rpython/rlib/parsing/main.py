@@ -7,7 +7,7 @@ def make_parser_from_file(filename):
     try:
         t = py.path.local(filename).read(mode='U')
         regexs, rules, ToAST = parse_ebnf(t)
-    except ParseError, e:
+    except ParseError as e:
         print e.nice_error_message(filename=filename, source=t)
         raise
     return make_parse_function(regexs, rules, eof=True)

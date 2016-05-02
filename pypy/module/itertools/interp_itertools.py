@@ -374,7 +374,7 @@ class W_ISlice(W_Root):
         space = self.space
         try:
             result = space.int_w(space.int(w_obj))    # CPython allows floats as parameters
-        except OperationError, e:
+        except OperationError as e:
             if e.async(space):
                 raise
             result = -1
@@ -475,7 +475,7 @@ class W_Chain(W_Root):
             self._advance()
         try:
             return self.space.next(self.w_it)
-        except OperationError, e:
+        except OperationError as e:
             return self._handle_error(e)
 
     def _handle_error(self, e):
@@ -485,7 +485,7 @@ class W_Chain(W_Root):
             self._advance() # may raise StopIteration itself
             try:
                 return self.space.next(self.w_it)
-            except OperationError, e:
+            except OperationError as e:
                 pass # loop back to the start of _handle_error(e)
 
 def W_Chain___new__(space, w_subtype, args_w):
@@ -539,7 +539,7 @@ class W_IMap(W_Root):
         for iterable_w in args_w:
             try:
                 iterator_w = space.iter(iterable_w)
-            except OperationError, e:
+            except OperationError as e:
                 if e.match(self.space, self.space.w_TypeError):
                     raise oefmt(space.w_TypeError,
                                 "%s argument #%d must support iteration",
@@ -660,7 +660,7 @@ class W_IZipLongest(W_IMap):
             space = self.space
             try:
                 return space.next(w_iter)
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_StopIteration):
                     raise
                 self.active -= 1
@@ -742,7 +742,7 @@ class W_Cycle(W_Root):
         else:
             try:
                 w_obj = self.space.next(self.w_iterable)
-            except OperationError, e:
+            except OperationError as e:
                 if e.match(self.space, self.space.w_StopIteration):
                     self.exhausted = True
                     if not self.saved_w:
@@ -942,7 +942,7 @@ class W_GroupBy(W_Root):
             self.started = True
             try:
                 w_obj = self.space.next(self.w_iterable)
-            except OperationError, e:
+            except OperationError as e:
                 if e.match(self.space, self.space.w_StopIteration):
                     self.exhausted = True
                 raise
@@ -978,7 +978,7 @@ class W_GroupBy(W_Root):
 
             try:
                 w_obj = self.space.next(self.w_iterable)
-            except OperationError, e:
+            except OperationError as e:
                 if e.match(self.space, self.space.w_StopIteration):
                     self.exhausted = True
                     raise StopIteration

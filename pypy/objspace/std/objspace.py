@@ -143,7 +143,7 @@ class StdObjSpace(ObjSpace):
         if x is None:
             return self.w_None
         if isinstance(x, OperationError):
-            raise TypeError, ("attempt to wrap already wrapped exception: %s"%
+            raise TypeError("attempt to wrap already wrapped exception: %s"%
                               (x,))
         if isinstance(x, int):
             if isinstance(x, bool):
@@ -547,7 +547,7 @@ class StdObjSpace(ObjSpace):
                 try:
                     return self.get_and_call_function(w_get, w_descr, w_obj,
                                                       w_type)
-                except OperationError, e:
+                except OperationError as e:
                     if not e.match(self, self.w_AttributeError):
                         raise
             else:

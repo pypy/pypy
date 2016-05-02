@@ -171,7 +171,7 @@ def check_exception(space, w_exc):
         w_start = space.getattr(w_exc, space.wrap('start'))
         w_end = space.getattr(w_exc, space.wrap('end'))
         w_obj = space.getattr(w_exc, space.wrap('object'))
-    except OperationError, e:
+    except OperationError as e:
         if not e.match(space, space.w_AttributeError):
             raise
         raise oefmt(space.w_TypeError, "wrong exception")
@@ -523,7 +523,7 @@ class Charmap_Decode:
         else:
             try:
                 w_ch = space.getitem(self.w_mapping, space.newint(ord(ch)))
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_LookupError):
                     raise
                 return errorchar
@@ -556,7 +556,7 @@ class Charmap_Encode:
         # get the character from the mapping
         try:
             w_ch = space.getitem(self.w_mapping, space.newint(ord(ch)))
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_LookupError):
                 raise
             return errorchar
@@ -635,7 +635,7 @@ class UnicodeData_Handler:
         space = self.space
         try:
             w_code = space.call_function(self.w_getcode, space.wrap(name))
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_KeyError):
                 raise
             return -1

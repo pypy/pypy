@@ -177,12 +177,12 @@ class W_CType(W_Root):
         space = self.space
         try:
             fieldname = space.str_w(w_field_or_index)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_TypeError):
                 raise
             try:
                 index = space.int_w(w_field_or_index)
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_TypeError):
                     raise
                 raise oefmt(space.w_TypeError,

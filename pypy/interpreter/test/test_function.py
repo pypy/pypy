@@ -296,14 +296,14 @@ class AppTestFunction:
     def test_call_error_message(self):
         try:
             len()
-        except TypeError, e:
+        except TypeError as e:
             assert "len() takes exactly 1 argument (0 given)" in e.message
         else:
             assert 0, "did not raise"
 
         try:
             len(1, 2)
-        except TypeError, e:
+        except TypeError as e:
             assert "len() takes exactly 1 argument (2 given)" in e.message
         else:
             assert 0, "did not raise"

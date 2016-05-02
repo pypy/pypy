@@ -555,7 +555,7 @@ def format_num_helper_generator(fmt, digits):
         try:
             value = space.int_w(w_value)
             return fmt % (value,)
-        except OperationError, operr:
+        except OperationError as operr:
             if not operr.match(space, space.w_OverflowError):
                 raise
             num = space.bigint_w(w_value)

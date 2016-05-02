@@ -647,7 +647,7 @@ def make_array(mytype):
             unwrap = getattr(space, mytype.unwrap)
             try:
                 item = unwrap(w_item)
-            except OperationError, e:
+            except OperationError as e:
                 if space.isinstance_w(w_item, space.w_float):
                     # Odd special case from cpython
                     raise
@@ -791,7 +791,7 @@ def make_array(mytype):
                 space = self.space
                 try:
                     w_item = space.next(w_iterator)
-                except OperationError, e:
+                except OperationError as e:
                     if not e.match(space, space.w_StopIteration):
                         raise
                     break  # done
@@ -1011,7 +1011,7 @@ def make_array(mytype):
     def _mul_helper(space, self, w_repeat, is_inplace):
         try:
             repeat = space.getindex_w(w_repeat, space.w_OverflowError)
-        except OperationError, e:
+        except OperationError as e:
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
             raise

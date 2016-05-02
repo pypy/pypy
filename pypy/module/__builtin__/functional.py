@@ -78,7 +78,7 @@ get a list in decending order."""
         start = space.int_w(w_start)
         stop = space.int_w(w_stop)
         step = space.int_w(w_step)
-    except OperationError, e:
+    except OperationError as e:
         if not e.match(space, space.w_OverflowError):
             raise
         return range_with_longs(space, w_start, w_stop, w_step)
@@ -175,7 +175,7 @@ def make_min_max(unroll):
                 jitdriver.jit_merge_point(has_key=has_key, has_item=has_item, w_type=w_type)
             try:
                 w_item = space.next(w_iter)
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_StopIteration):
                     raise
                 break
@@ -353,7 +353,7 @@ class W_ReversedIterator(W_Root):
             w_index = space.wrap(self.remaining)
             try:
                 w_item = space.getitem(self.w_sequence, w_index)
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_StopIteration):
                     raise
             else:

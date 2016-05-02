@@ -77,7 +77,7 @@ class FileWriter(AbstractReaderWriter):
         try:
             self.func = space.getattr(w_f, space.wrap('write'))
             # XXX how to check if it is callable?
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_AttributeError):
                 raise
             raise oefmt(space.w_TypeError,
@@ -94,7 +94,7 @@ class FileReader(AbstractReaderWriter):
         try:
             self.func = space.getattr(w_f, space.wrap('read'))
             # XXX how to check if it is callable?
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_AttributeError):
                 raise
             raise oefmt(space.w_TypeError,

@@ -145,7 +145,7 @@ class W_ClassObject(W_Root):
                         "cannot delete attribute '%s'", name)
         try:
             space.delitem(self.w_dict, w_attr)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_KeyError):
                 raise
             raise oefmt(space.w_AttributeError,
@@ -165,7 +165,7 @@ class W_ClassObject(W_Root):
     def get_module_string(self, space):
         try:
             w_mod = self.descr_getattribute(space, "__module__")
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_AttributeError):
                 raise
             return "?"
@@ -230,7 +230,7 @@ def make_binary_returning_notimplemented_instance_method(name):
     def binaryop(self, space, w_other):
         try:
             w_meth = self.getattr(space, name, False)
-        except OperationError, e:
+        except OperationError as e:
             if e.match(space, space.w_AttributeError):
                 return space.w_NotImplemented
             raise
@@ -278,7 +278,7 @@ def make_binary_instance_method(name):
 def _coerce_helper(space, w_self, w_other):
     try:
         w_tup = space.coerce(w_self, w_other)
-    except OperationError, e:
+    except OperationError as e:
         if not e.match(space, space.w_TypeError):
             raise
         return [w_self, w_other]
@@ -336,7 +336,7 @@ class W_InstanceObject(W_Root):
         if w_meth is not None:
             try:
                 return space.call_function(w_meth, space.wrap(name))
-            except OperationError, e:
+            except OperationError as e:
                 if not exc and e.match(space, space.w_AttributeError):
                     return None     # eat the AttributeError
                 raise
@@ -519,7 +519,7 @@ class W_InstanceObject(W_Root):
                     return w_res
                 try:
                     res = space.int_w(w_res)
-                except OperationError, e:
+                except OperationError as e:
                     if e.match(space, space.w_TypeError):
                         raise oefmt(space.w_TypeError,
                                     "__cmp__ must return int")
@@ -537,7 +537,7 @@ class W_InstanceObject(W_Root):
                     return w_res
                 try:
                     res = space.int_w(w_res)
-                except OperationError, e:
+                except OperationError as e:
                     if e.match(space, space.w_TypeError):
                         raise oefmt(space.w_TypeError,
                                     "__cmp__ must return int")
@@ -599,7 +599,7 @@ class W_InstanceObject(W_Root):
         while 1:
             try:
                 w_x = space.next(w_iter)
-            except OperationError, e:
+            except OperationError as e:
                 if e.match(space, space.w_StopIteration):
                     return space.w_False
                 raise

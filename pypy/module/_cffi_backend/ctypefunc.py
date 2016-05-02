@@ -50,7 +50,7 @@ class W_CTypeFunc(W_CTypePtrBase):
             builder = CifDescrBuilder(fargs, fresult, abi)
             try:
                 builder.rawallocate(self)
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_NotImplementedError):
                     raise
                 # else, eat the NotImplementedError.  We will get the

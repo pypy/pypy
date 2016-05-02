@@ -618,14 +618,14 @@ class TestErrorHandling(object):
         space = self.space
         try:
             Arguments(space, [], w_stararg=space.wrap(42))
-        except OperationError, e:
+        except OperationError as e:
             msg = space.str_w(space.str(e.get_w_value(space)))
             assert msg == "argument after * must be a sequence, not int"
         else:
             assert 0, "did not raise"
         try:
             Arguments(space, [], w_starstararg=space.wrap(42))
-        except OperationError, e:
+        except OperationError as e:
             msg = space.str_w(space.str(e.get_w_value(space)))
             assert msg == "argument after ** must be a mapping, not int"
         else:

@@ -248,7 +248,7 @@ def set_wakeup_fd(space, fd):
     if fd != -1:
         try:
             os.fstat(fd)
-        except OSError, e:
+        except OSError as e:
             if e.errno == errno.EBADF:
                 raise oefmt(space.w_ValueError, "invalid fd")
     old_fd = pypysig_set_wakeup_fd(fd)

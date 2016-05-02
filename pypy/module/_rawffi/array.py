@@ -111,7 +111,7 @@ class W_ArrayInstance(W_DataInstance):
     def descr_setitem(self, space, w_index, w_value):
         try:
             num = space.int_w(w_index)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_TypeError):
                 raise
             self.setslice(space, w_index, w_value)
@@ -129,7 +129,7 @@ class W_ArrayInstance(W_DataInstance):
     def descr_getitem(self, space, w_index):
         try:
             num = space.int_w(w_index)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_TypeError):
                 raise
             return self.getslice(space, w_index)

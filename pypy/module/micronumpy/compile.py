@@ -243,7 +243,7 @@ class FakeSpace(ObjSpace):
             if w_dict is not None:
                 try:
                     return w_dict[index]
-                except KeyError, e:
+                except KeyError as e:
                     raise oefmt(self.w_KeyError, "key error")
 
         assert isinstance(obj, ListObject)

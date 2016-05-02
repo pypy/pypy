@@ -153,7 +153,7 @@ def _get_relative_name(space, modulename, level, w_globals):
     if ctxt_w_package is not None and ctxt_w_package is not space.w_None:
         try:
             ctxt_package = space.str0_w(ctxt_w_package)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_TypeError):
                 raise
             raise oefmt(space.w_ValueError, "__package__ set to non-string")
@@ -175,7 +175,7 @@ def _get_relative_name(space, modulename, level, w_globals):
         # Try to import parent package
         try:
             absolute_import(space, ctxt_package, 0, None, tentative=False)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_ImportError):
                 raise
             if level > 0:
@@ -201,7 +201,7 @@ def _get_relative_name(space, modulename, level, w_globals):
         if ctxt_w_name is not None:
             try:
                 ctxt_name = space.str0_w(ctxt_w_name)
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_TypeError):
                     raise
 
@@ -421,7 +421,7 @@ def _getimporter(space, w_pathitem):
         for w_hook in space.unpackiterable(space.sys.get("path_hooks")):
             try:
                 w_importer = space.call_function(w_hook, w_pathitem)
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_ImportError):
                     raise
             else:
@@ -431,7 +431,7 @@ def _getimporter(space, w_pathitem):
                 w_importer = space.call_function(
                     space.gettypefor(W_NullImporter), w_pathitem
                 )
-            except OperationError, e:
+            except OperationError as e:
                 if e.match(space, space.w_ImportError):
                     return None
                 raise
@@ -444,7 +444,7 @@ def find_in_path_hooks(space, w_modulename, w_pathitem):
     if w_importer is not None and space.is_true(w_importer):
         try:
             w_loader = space.call_method(w_importer, "find_module", w_modulename)
-        except OperationError, e:
+        except OperationError as e:
             if e.match(space, space.w_ImportError):
                 return None
             raise
@@ -601,7 +601,7 @@ def load_module(space, w_modulename, find_info, reuse=False):
         if reuse:
             try:
                 w_mod = space.getitem(space.sys.get('modules'), w_modulename)
-            except OperationError, oe:
+            except OperationError as oe:
                 if not oe.match(space, space.w_KeyError):
                     raise
         if w_mod is None:
@@ -669,7 +669,7 @@ def load_part(space, w_path, prefix, partname, w_parent, tentative):
                 try:
                     w_mod = space.getitem(space.sys.get("modules"),
                                           w_modulename)
-                except OperationError, oe:
+                except OperationError as oe:
                     if not oe.match(space, space.w_KeyError):
                         raise
                     raise OperationError(space.w_ImportError, w_modulename)
@@ -1042,7 +1042,7 @@ def write_compiled_module(space, co, cpathname, src_mode, src_mtime):
         w_str = space.call_method(w_marshal, 'dumps', space.wrap(co),
                                   space.wrap(MARSHAL_VERSION_FOR_PYC))
         strbuf = space.str_w(w_str)
-    except OperationError, e:
+    except OperationError as e:
         if e.async(space):
             raise
         #print "Problem while marshalling %s, skipping" % cpathname

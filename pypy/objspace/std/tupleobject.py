@@ -158,7 +158,7 @@ class W_AbstractTupleObject(W_Root):
     def descr_mul(self, space, w_times):
         try:
             times = space.getindex_w(w_times, space.w_OverflowError)
-        except OperationError, e:
+        except OperationError as e:
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
             raise

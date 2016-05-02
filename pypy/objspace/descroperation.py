@@ -202,7 +202,7 @@ class DescrOperation(object):
             if w_descr is None:   # obscure case
                 raise OperationError(space.w_AttributeError, space.w_None)
             return space.get_and_call_function(w_descr, w_obj, w_name)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_AttributeError):
                 raise
             w_descr = space.lookup(w_obj, '__getattr__')
@@ -405,7 +405,7 @@ class DescrOperation(object):
             contains_jitdriver.jit_merge_point(w_type=w_type)
             try:
                 w_next = space.next(w_iter)
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_StopIteration):
                     raise
                 return space.w_False
@@ -635,7 +635,7 @@ def old_slice_range_getlength(space, w_obj):
     # so this behavior is slightly different
     try:
         return space.len(w_obj)
-    except OperationError, e:
+    except OperationError as e:
         if not ((e.match(space, space.w_AttributeError) or
                  e.match(space, space.w_TypeError))):
             raise
@@ -889,4 +889,4 @@ for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:
         elif _name not in ['is_', 'id','type','issubtype', 'int',
                            # not really to be defined in DescrOperation
                            'ord', 'unichr', 'unicode']:
-            raise Exception, "missing def for operation %s" % _name
+            raise Exception("missing def for operation %s" % _name)

@@ -144,7 +144,7 @@ return next yielded value or raise StopIteration."""
         try:
             w_retval = self.throw(space.w_GeneratorExit, space.w_None,
                                   space.w_None)
-        except OperationError, e:
+        except OperationError as e:
             if e.match(space, space.w_StopIteration) or \
                     e.match(space, space.w_GeneratorExit):
                 return space.w_None
@@ -196,7 +196,7 @@ return next yielded value or raise StopIteration."""
                                               results=results, pycode=pycode)
                     try:
                         w_result = frame.execute_frame(space.w_None)
-                    except OperationError, e:
+                    except OperationError as e:
                         if not e.match(space, space.w_StopIteration):
                             raise
                         break

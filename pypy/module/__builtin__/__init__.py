@@ -102,7 +102,7 @@ class Module(MixedModule):
         space = self.space
         try:
             w_builtin = space.getitem(w_globals, space.wrap('__builtins__'))
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_KeyError):
                 raise
         else:

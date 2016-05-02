@@ -359,7 +359,7 @@ else:
                         sem_wait(self.handle)
                     else:
                         sem_timedwait(self.handle, deadline)
-                except OSError, e:
+                except OSError as e:
                     if e.errno == errno.EINTR:
                         # again
                         continue
@@ -384,7 +384,7 @@ else:
                 # make sure that already locked
                 try:
                     sem_trywait(self.handle)
-                except OSError, e:
+                except OSError as e:
                     if e.errno != errno.EAGAIN:
                         raise
                     # it is already locked as expected
@@ -418,7 +418,7 @@ else:
         if HAVE_BROKEN_SEM_GETVALUE:
             try:
                 sem_trywait(self.handle)
-            except OSError, e:
+            except OSError as e:
                 if e.errno != errno.EAGAIN:
                     raise
                 return True
@@ -455,14 +455,14 @@ class W_SemLock(W_Root):
     def is_zero(self, space):
         try:
             res = semlock_iszero(self, space)
-        except OSError, e:
+        except OSError as e:
             raise wrap_oserror(space, e)
         return space.wrap(res)
 
     def get_value(self, space):
         try:
             val = semlock_getvalue(self, space)
-        except OSError, e:
+        except OSError as e:
             raise wrap_oserror(space, e)
         return space.wrap(val)
 
@@ -475,7 +475,7 @@ class W_SemLock(W_Root):
 
         try:
             got = semlock_acquire(self, space, block, w_timeout)
-        except OSError, e:
+        except OSError as e:
             raise wrap_oserror(space, e)
 
         if got:
@@ -497,7 +497,7 @@ class W_SemLock(W_Root):
 
         try:
             semlock_release(self, space)
-        except OSError, e:
+        except OSError as e:
             raise wrap_oserror(space, e)
 
         self.count -= 1
@@ -530,7 +530,7 @@ def descr_new(space, w_subtype, kind, value, maxvalue):
 
     try:
         handle = create_semaphore(space, name, value, maxvalue)
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
 
     self = space.allocate_instance(W_SemLock, w_subtype)

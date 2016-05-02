@@ -550,7 +550,7 @@ class PyFrame(W_Root):
         where the order is according to self.pycode.signature()."""
         scope_len = len(scope_w)
         if scope_len > self.pycode.co_nlocals:
-            raise ValueError, "new fastscope is longer than the allocated area"
+            raise ValueError("new fastscope is longer than the allocated area")
         # don't assign directly to 'locals_cells_stack_w[:scope_len]' to be
         # virtualizable-friendly
         for i in range(scope_len):

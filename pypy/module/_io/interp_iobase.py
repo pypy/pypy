@@ -184,7 +184,7 @@ class W_IOBase(W_Root):
             if has_peek:
                 try:
                     w_readahead = space.call_method(self, "peek", space.wrap(1))
-                except OperationError, e:
+                except OperationError as e:
                     if trap_eintr(space, e):
                         continue
                     raise
@@ -214,7 +214,7 @@ class W_IOBase(W_Root):
 
             try:
                 w_read = space.call_method(self, "read", space.wrap(nreadahead))
-            except OperationError, e:
+            except OperationError as e:
                 if trap_eintr(space, e):
                     continue
                 raise
@@ -264,14 +264,14 @@ class W_IOBase(W_Root):
         while True:
             try:
                 w_line = space.next(w_iterator)
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_StopIteration):
                     raise
                 break  # done
             while True:
                 try:
                     space.call_method(self, "write", w_line)
-                except OperationError, e:
+                except OperationError as e:
                     if trap_eintr(space, e):
                         continue
                     raise
@@ -331,7 +331,7 @@ class W_RawIOBase(W_IOBase):
             try:
                 w_data = space.call_method(self, "read",
                                            space.wrap(DEFAULT_BUFFER_SIZE))
-            except OperationError, e:
+            except OperationError as e:
                 if trap_eintr(space, e):
                     continue
                 raise

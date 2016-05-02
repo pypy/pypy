@@ -981,7 +981,7 @@ class __extend__(W_NDimArray):
                         w_dtype, space.gettypefor(W_NDimArray))):
                     w_type = w_dtype
                     w_dtype = None
-            except OperationError, e:
+            except OperationError as e:
                 if e.match(space, space.w_TypeError):
                     pass
                 else:
@@ -1103,7 +1103,7 @@ class __extend__(W_NDimArray):
         def impl(self, space, w_other, w_out=None):
             try:
                 return ufunc(self, space, w_other, w_out)
-            except OperationError, e:
+            except OperationError as e:
                 if e.match(space, space.w_ValueError):
                     # and 'operands could not be broadcast together' in str(e.get_w_value(space)):
                     return space.w_False

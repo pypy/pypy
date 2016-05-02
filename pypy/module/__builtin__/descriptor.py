@@ -62,7 +62,7 @@ def descr_new_super(space, w_subtype, w_starttype, w_obj_or_type=None):
         else:
             try:
                 w_type = space.getattr(w_obj_or_type, space.wrap('__class__'))
-            except OperationError, o:
+            except OperationError as o:
                 if not o.match(space, space.w_AttributeError):
                     raise
                 w_type = w_objtype

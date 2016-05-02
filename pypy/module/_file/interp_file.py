@@ -56,7 +56,7 @@ class W_File(W_AbstractStream):
         assert isinstance(self, W_File)
         try:
             self.direct_close()
-        except StreamErrors, e:
+        except StreamErrors as e:
             operr = wrap_streamerror(self.space, e, self.w_name)
             raise operr
 
@@ -200,7 +200,7 @@ class W_File(W_AbstractStream):
             while n > 0:
                 try:
                     data = stream.read(n)
-                except OSError, e:
+                except OSError as e:
                     # a special-case only for read() (similar to CPython, which
                     # also loses partial data with other methods): if we get
                     # EAGAIN after already some data was received, return it.

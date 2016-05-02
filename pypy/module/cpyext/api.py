@@ -409,7 +409,7 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
                     assert not we_are_translated()
                     try:
                         res = func(space, *newargs)
-                    except OperationError, e:
+                    except OperationError as e:
                         if not hasattr(api_function, "error_value"):
                             raise
                         state = space.fromcache(State)
@@ -869,10 +869,10 @@ def make_wrapper_second_level(space, callable2name, argtypesw, restype,
                 result = callable(space, *boxed_args)
                 if not we_are_translated() and DEBUG_WRAPPER:
                     print >>sys.stderr, " DONE"
-            except OperationError, e:
+            except OperationError as e:
                 failed = True
                 state.set_exception(e)
-            except BaseException, e:
+            except BaseException as e:
                 failed = True
                 if not we_are_translated():
                     tb = sys.exc_info()[2]
@@ -907,7 +907,7 @@ def make_wrapper_second_level(space, callable2name, argtypesw, restype,
             elif restype is not lltype.Void:
                 retval = rffi.cast(restype, result)
 
-        except Exception, e:
+        except Exception as e:
             unexpected_exception(nameof(callable), e, tb)
             return fatal_value
 
@@ -1505,7 +1505,7 @@ def load_extension_module(space, path, name):
             dll = rdynload.dlopen(ll_libname)
         finally:
             lltype.free(ll_libname, flavor='raw')
-    except rdynload.DLOpenError, e:
+    except rdynload.DLOpenError as e:
         raise oefmt(space.w_ImportError,
                     "unable to load extension module '%s': %s",
                     path, e.msg)

@@ -194,7 +194,7 @@ def get_referrers(space, args_w):
 def _dump_rpy_heap(space, fd):
     try:
         ok = rgc.dump_rpy_heap(fd)
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
     if not ok:
         raise missing_operation(space)

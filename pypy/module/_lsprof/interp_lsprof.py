@@ -308,7 +308,7 @@ class W_Profiler(W_Root):
                     return space.int_w(space.call_function(self.w_callable))
                 else:
                     return space.r_longlong_w(space.call_function(self.w_callable))
-            except OperationError, e:
+            except OperationError as e:
                 e.write_unraisable(space, "timer function ",
                                    self.w_callable)
                 return timer_size_int(0)

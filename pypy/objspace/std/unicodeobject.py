@@ -451,7 +451,7 @@ def encode_object(space, w_object, encoding, errors):
                     return space.wrap(unicode_encode_utf_8(
                             u, len(u), None, errorhandler=eh,
                             allow_surrogates=True))
-            except unicodehelper.RUnicodeEncodeError, ue:
+            except unicodehelper.RUnicodeEncodeError as ue:
                 raise OperationError(space.w_UnicodeEncodeError,
                                      space.newtuple([
                     space.wrap(ue.encoding),

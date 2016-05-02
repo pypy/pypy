@@ -108,7 +108,7 @@ def _fetch_as_read_buffer(space, w_x):
     # w.r.t. buffers and memoryviews??
     try:
         buf = space.readbuf_w(w_x)
-    except OperationError, e:
+    except OperationError as e:
         if not e.match(space, space.w_TypeError):
             raise
         buf = space.buffer_w(w_x, space.BUF_SIMPLE)
@@ -117,7 +117,7 @@ def _fetch_as_read_buffer(space, w_x):
 def _fetch_as_write_buffer(space, w_x):
     try:
         buf = space.writebuf_w(w_x)
-    except OperationError, e:
+    except OperationError as e:
         if not e.match(space, space.w_TypeError):
             raise
         buf = space.buffer_w(w_x, space.BUF_WRITABLE)

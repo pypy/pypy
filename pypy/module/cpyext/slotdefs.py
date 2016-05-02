@@ -468,7 +468,7 @@ def build_slot_tp_function(space, typedef, name):
         def slot_tp_iternext(space, w_self):
             try:
                 return space.call_function(iternext_fn, w_self)
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_StopIteration):
                     raise
                 return None

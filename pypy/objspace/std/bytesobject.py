@@ -485,7 +485,7 @@ class W_BytesObject(W_AbstractBytesObject):
     def _op_val(space, w_other):
         try:
             return space.str_w(w_other)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_TypeError):
                 raise
         return space.charbuf_w(w_other)

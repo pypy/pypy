@@ -592,7 +592,7 @@ class W_TextIOWrapper(W_TextIOBase):
         self.telling = False
         try:
             return W_TextIOBase.next_w(self, space)
-        except OperationError, e:
+        except OperationError as e:
             if e.match(space, space.w_StopIteration):
                 self.telling = self.seekable
             raise
@@ -632,7 +632,7 @@ class W_TextIOWrapper(W_TextIOBase):
                 if not self._read_chunk(space):
                     # EOF
                     break
-            except OperationError, e:
+            except OperationError as e:
                 if trap_eintr(space, e):
                     continue
                 raise
@@ -659,7 +659,7 @@ class W_TextIOWrapper(W_TextIOBase):
                     if not self._read_chunk(space):
                         has_data = False
                         break
-                except OperationError, e:
+                except OperationError as e:
                     if trap_eintr(space, e):
                         continue
                     raise
@@ -800,7 +800,7 @@ class W_TextIOWrapper(W_TextIOBase):
         while True:
             try:
                 space.call_method(self.w_buffer, "write", space.wrap(pending_bytes))
-            except OperationError, e:
+            except OperationError as e:
                 if trap_eintr(space, e):
                     continue
                 raise

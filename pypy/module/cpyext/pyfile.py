@@ -124,6 +124,6 @@ def PyFile_SoftSpace(space, w_p, newflag):
         oldflag = space.int_w(space.getattr(w_p, space.wrap("softspace")))
         space.setattr(w_p, space.wrap("softspace"), w_newflag)
         return oldflag
-    except OperationError, e:
+    except OperationError as e:
         return 0
 

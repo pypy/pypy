@@ -150,7 +150,7 @@ def _do_extend_from_iterable(space, w_list, w_iterable):
                                              w_list=w_list)
         try:
             w_list.append(space.next(w_iterator))
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_StopIteration):
                 raise
             break
@@ -528,7 +528,7 @@ class W_ListObject(W_Root):
 
         try:
             self.extend(w_iterable)
-        except OperationError, e:
+        except OperationError as e:
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
             raise
@@ -537,7 +537,7 @@ class W_ListObject(W_Root):
     def descr_mul(self, space, w_times):
         try:
             times = space.getindex_w(w_times, space.w_OverflowError)
-        except OperationError, e:
+        except OperationError as e:
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
             raise
@@ -546,7 +546,7 @@ class W_ListObject(W_Root):
     def descr_inplace_mul(self, space, w_times):
         try:
             times = space.getindex_w(w_times, space.w_OverflowError)
-        except OperationError, e:
+        except OperationError as e:
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
             raise
@@ -2113,7 +2113,7 @@ class CustomCompareSort(SimpleSort):
         w_result = space.call_function(w_cmp, a, b)
         try:
             result = space.int_w(w_result)
-        except OperationError, e:
+        except OperationError as e:
             if e.match(space, space.w_TypeError):
                 raise oefmt(space.w_TypeError,
                             "comparison function must return int")

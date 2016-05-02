@@ -796,7 +796,7 @@ def exception_deduction0(x):
 def exception_deduction():
     try:
         exception_deduction0(2)
-    except Exc, e:
+    except Exc as e:
         return e
     return Exc()
 
@@ -812,7 +812,7 @@ def exception_deduction_with_raise1(x):
         exception_deduction0(2)
         if x:
             raise Exc()
-    except Exc, e:
+    except Exc as e:
         witness(e)
         return e
     return Exc()
@@ -822,7 +822,7 @@ def exception_deduction_with_raise2(x):
         exception_deduction0(2)
         if x:
             raise Exc
-    except Exc, e:
+    except Exc as e:
         witness(e)
         return e
     return Exc()
@@ -832,7 +832,7 @@ def exception_deduction_with_raise3(x):
         exception_deduction0(2)
         if x:
             raise Exc, Exc()
-    except Exc, e:
+    except Exc as e:
         witness(e)
         return e
     return Exc()
@@ -847,7 +847,7 @@ def exception_deduction_we_are_dumb():
     a = 1
     try:
         exception_deduction0(2)
-    except Exc, e:
+    except Exc as e:
         a += 1
         return e
     return Exc()
@@ -858,10 +858,10 @@ class Exc2(Exception):
 def nested_exception_deduction():
     try:
         exception_deduction0(1)
-    except Exc, e:
+    except Exc as e:
         try:
             exception_deduction0(2)
-        except Exc2, f:
+        except Exc2 as f:
             return (e, f)
         return (e, Exc2())
     return (Exc(), Exc2())
@@ -886,7 +886,7 @@ class Mod:
         s = self.s
         try:
             s.o()
-        except Exc3, e:
+        except Exc3 as e:
             return e.m()
         return 0
 
@@ -898,12 +898,12 @@ class Mod3:
         s = self.s
         try:
             s.o()
-        except Exc4, e1:
+        except Exc4 as e1:
             return e1.m()
-        except Exc3, e2:
+        except Exc3 as e2:
             try:
                 return e2.m()
-            except Exc4, e3:
+            except Exc4 as e3:
                 return e3.m()
         return 0
 

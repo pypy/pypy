@@ -77,7 +77,7 @@ if _WIN:
             try:
                 globalState.interrupt_event = rwin32.CreateEvent(
                     rffi.NULL, True, False, rffi.NULL)
-            except WindowsError, e:
+            except WindowsError as e:
                 raise wrap_windowserror(space, e)
             if not _setCtrlHandlerRoutine(globalState.interrupt_event):
                 raise wrap_windowserror(space,

@@ -159,7 +159,7 @@ def test_oserror():
     def entry_point(argv):
         try:
             os.stat("somewhere")
-        except OSError, e:
+        except OSError as e:
             os.close(e.errno)    # nonsense, just to see outside
         return 0
 

@@ -99,7 +99,7 @@ class AppTestHashlib:
         for hash_name, expected in sorted(expected_results.items()):
             try:
                 m = _hashlib.new(hash_name)
-            except ValueError, e:
+            except ValueError as e:
                 print 'skipped %s: %s' % (hash_name, e)
                 continue
             m.update(test_string)

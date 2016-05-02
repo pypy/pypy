@@ -500,7 +500,7 @@ class InstancePtrConverter(InstanceRefConverter):
     def _unwrap_object(self, space, w_obj):
         try:
             return InstanceRefConverter._unwrap_object(self, space, w_obj)
-        except OperationError, e:
+        except OperationError as e:
             # if not instance, allow certain special cases
             if is_nullpointer_specialcase(space, w_obj):
                 return capi.C_NULL_OBJECT
