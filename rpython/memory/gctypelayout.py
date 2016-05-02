@@ -17,16 +17,17 @@ class GCData(object):
 
     OFFSETS_TO_GC_PTR = lltype.Array(lltype.Signed)
 
-    # A custom tracer (CT), enumerates the addresses that contain GCREFs.
-    # It is called with the object as first argument, and the previous
-    # returned address (or NULL the first time) as the second argument.
-    FINALIZER_FUNC = lltype.FuncType([llmemory.Address], lltype.Void)
-    FINALIZER = lltype.Ptr(FINALIZER_FUNC)
+    # A CUSTOM_FUNC is either a destructor, or a custom tracer.
+    # A destructor is called when the object is about to be freed.
+    # A custom tracer (CT) enumerates the addresses that contain GCREFs.
+    # Both are called with the address of the object as only argument.
+    CUSTOM_FUNC = lltype.FuncType([llmemory.Address], lltype.Void)
+    CUSTOM_FUNC_PTR = lltype.Ptr(CUSTOM_FUNC)
 
     # structure describing the layout of a typeid
     TYPE_INFO = lltype.Struct("type_info",
         ("infobits",       lltype.Signed),    # combination of the T_xxx consts
-        ("finalizer",      FINALIZER),
+        ("customfunc",     CUSTOM_FUNC_PTR),
         ("fixedsize",      lltype.Signed),
         ("ofstoptrs",      lltype.Ptr(OFFSETS_TO_GC_PTR)),
         hints={'immutable': True},
@@ -80,16 +81,10 @@ class GCData(object):
     def q_cannot_pin(self, typeid):
         typeinfo = self.get(typeid)
         ANY = (T_HAS_GCPTR | T_IS_WEAKREF)
-        return (typeinfo.infobits & ANY) != 0 or bool(typeinfo.finalizer)
+        return (typeinfo.infobits & ANY) != 0 or bool(typeinfo.customfunc)
 
-    def q_finalizer(self, typeid):
-        return self.get(typeid).finalizer
-
-    def q_light_finalizer(self, typeid):
-        typeinfo = self.get(typeid)
-        if typeinfo.infobits & T_HAS_LIGHTWEIGHT_FINALIZER:
-            return typeinfo.finalizer
-        return lltype.nullptr(GCData.FINALIZER_FUNC)
+    def q_destructor_or_custom_trace(self, typeid):
+        return self.get(typeid).customfunc
 
     def q_offsets_to_gc_pointers(self, typeid):
         return self.get(typeid).ofstoptrs
@@ -141,8 +136,7 @@ class GCData(object):
             self.q_is_varsize,
             self.q_has_gcptr_in_varsize,
             self.q_is_gcarrayofgcptr,
-            self.q_finalizer,
-            self.q_light_finalizer,
+            self.q_destructor_or_custom_trace,
             self.q_offsets_to_gc_pointers,
             self.q_fixed_size,
             self.q_varsize_item_sizes,
@@ -170,9 +164,8 @@ T_IS_GCARRAY_OF_GCPTR       = 0x040000
 T_IS_WEAKREF                = 0x080000
 T_IS_RPYTHON_INSTANCE       = 0x100000 # the type is a subclass of OBJECT
 T_HAS_CUSTOM_TRACE          = 0x200000
-T_HAS_LIGHTWEIGHT_FINALIZER = 0x400000
-T_HAS_GCPTR                 = 0x1000000
-T_KEY_MASK                  = intmask(0xFE000000) # bug detection only
+T_HAS_GCPTR                 = 0x400000
+T_KEY_MASK                  = intmask(0xFF000000) # bug detection only
 T_KEY_VALUE                 = intmask(0x5A000000) # bug detection only
 
 def _check_valid_type_info(p):
@@ -199,11 +192,8 @@ def encode_type_shape(builder, info, TYPE, index):
     #
     fptrs = builder.special_funcptr_for_type(TYPE)
     if fptrs:
-        if "finalizer" in fptrs:
-            info.finalizer = fptrs["finalizer"]
-        if "light_finalizer" in fptrs:
-            info.finalizer = fptrs["light_finalizer"]
-            infobits |= T_HAS_LIGHTWEIGHT_FINALIZER
+        if "destructor" in fptrs:
+            info.customfunc = fptrs["destructor"]
     #
     if not TYPE._is_varsize():
         info.fixedsize = llarena.round_up_for_allocation(
@@ -373,22 +363,19 @@ class TypeLayoutBuilder(object):
     def special_funcptr_for_type(self, TYPE):
         if TYPE in self._special_funcptrs:
             return self._special_funcptrs[TYPE]
-        fptr1, is_lightweight = self.make_finalizer_funcptr_for_type(TYPE)
+        fptr1 = self.make_destructor_funcptr_for_type(TYPE)
         fptr2 = self.make_custom_trace_funcptr_for_type(TYPE)
         result = {}
         if fptr1:
-            if is_lightweight:
-                result["light_finalizer"] = fptr1
-            else:
-                result["finalizer"] = fptr1
+            result["destructor"] = fptr1
         if fptr2:
             result["custom_trace"] = fptr2
         self._special_funcptrs[TYPE] = result
         return result
 
-    def make_finalizer_funcptr_for_type(self, TYPE):
+    def make_destructor_funcptr_for_type(self, TYPE):
         # must be overridden for proper finalizer support
-        return None, False
+        return None
 
     def make_custom_trace_funcptr_for_type(self, TYPE):
         # must be overridden for proper custom tracer support

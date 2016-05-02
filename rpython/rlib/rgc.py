@@ -369,25 +369,43 @@ def must_be_light_finalizer(func):
 
 class FinalizerQueue(object):
     """A finalizer queue.  See pypy/doc/discussion/finalizer-order.rst.
+    Note: only works with the framework GCs (like minimark).  It is
+    ignored with Boehm or with refcounting (used by tests).
     """
     # Must be subclassed, and the subclass needs these attributes:
     #
-    #    base_class:
-    #        the base class (or only class) of finalized objects
+    #    Class:
+    #        the class (or base class) of finalized objects
     #
     #    def finalizer_trigger(self):
     #        called to notify that new items have been put in the queue
 
+    def _freeze_(self):
+        return True
+
+    @specialize.arg(0)
     def next_dead(self):
-        "NOT_RPYTHON: special-cased below"
+        if we_are_translated():
+            from rpython.rtyper.lltypesystem.lloperation import llop
+            from rpython.rtyper.rclass import OBJECTPTR
+            from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
+            ptr = llop.gc_fq_next_dead(OBJECTPTR, self)
+            return cast_base_ptr_to_instance(self.Class, ptr)
         try:
             return self._queue.popleft()
         except (AttributeError, IndexError):
             return None
 
+    @specialize.arg(0)
     def register_finalizer(self, obj):
-        "NOT_RPYTHON: special-cased below"
-        assert isinstance(obj, self.base_class)
+        assert isinstance(obj, self.Class)
+        if we_are_translated():
+            from rpython.rtyper.lltypesystem.lloperation import llop
+            from rpython.rtyper.rclass import OBJECTPTR
+            from rpython.rtyper.annlowlevel import cast_instance_to_base_ptr
+            ptr = cast_instance_to_base_ptr(obj)
+            llop.gc_fq_register(lltype.Void, self, ptr)
+            return
 
         if hasattr(obj, '__enable_del_for_id'):
             return    # already called

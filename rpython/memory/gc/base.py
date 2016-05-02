@@ -60,8 +60,7 @@ class GCBase(object):
 
     def set_query_functions(self, is_varsize, has_gcptr_in_varsize,
                             is_gcarrayofgcptr,
-                            getfinalizer,
-                            getlightfinalizer,
+                            destructor_or_custom_trace,
                             offsets_to_gc_pointers,
                             fixed_size, varsize_item_sizes,
                             varsize_offset_to_variable_part,
@@ -74,8 +73,7 @@ class GCBase(object):
                             fast_path_tracing,
                             has_gcptr,
                             cannot_pin):
-        self.getfinalizer = getfinalizer
-        self.getlightfinalizer = getlightfinalizer
+        self.destructor_or_custom_trace = destructor_or_custom_trace
         self.is_varsize = is_varsize
         self.has_gcptr_in_varsize = has_gcptr_in_varsize
         self.is_gcarrayofgcptr = is_gcarrayofgcptr
@@ -136,13 +134,13 @@ class GCBase(object):
         the four malloc_[fixed,var]size[_clear]() functions.
         """
         size = self.fixed_size(typeid)
-        needs_finalizer = bool(self.getfinalizer(typeid))
-        finalizer_is_light = bool(self.getlightfinalizer(typeid))
+        needs_destructor = (bool(self.destructor_or_custom_trace(typeid))
+                            and not self.has_custom_trace(typeid))
         contains_weakptr = self.weakpointer_offset(typeid) >= 0
-        assert not (needs_finalizer and contains_weakptr)
+        assert not (needs_destructor and contains_weakptr)
         if self.is_varsize(typeid):
             assert not contains_weakptr
-            assert not needs_finalizer
+            assert not needs_destructor
             itemsize = self.varsize_item_sizes(typeid)
             offset_to_length = self.varsize_offset_to_length(typeid)
             if self.malloc_zero_filled:
@@ -157,8 +155,7 @@ class GCBase(object):
                 malloc_fixedsize = self.malloc_fixedsize_clear
             else:
                 malloc_fixedsize = self.malloc_fixedsize
-            ref = malloc_fixedsize(typeid, size, needs_finalizer,
-                                   finalizer_is_light,
+            ref = malloc_fixedsize(typeid, size, needs_destructor,
                                    contains_weakptr)
         # lots of cast and reverse-cast around...
         ref = llmemory.cast_ptr_to_adr(ref)

@@ -3,8 +3,8 @@ from rpython.translator.backendopt import graphanalyze
 from rpython.rtyper.lltypesystem import lltype
 
 class FinalizerError(Exception):
-    """ __del__ marked as lightweight finalizer, but the analyzer did
-    not agree
+    """__del__() is used for lightweight RPython destructors,
+    but the FinalizerAnalyzer found that it is not lightweight.
     """
 
 class FinalizerAnalyzer(graphanalyze.BoolGraphAnalyzer):
@@ -20,12 +20,10 @@ class FinalizerAnalyzer(graphanalyze.BoolGraphAnalyzer):
                      'direct_ptradd', 'force_cast', 'track_alloc_stop',
                      'raw_free', 'adr_eq', 'adr_ne']
 
-    def analyze_light_finalizer(self, graph):
+    def check_light_finalizer(self, graph):
         result = self.analyze_direct_call(graph)
-        if (result is self.top_result() and
-            getattr(graph.func, '_must_be_light_finalizer_', False)):
+        if result is self.top_result():
             raise FinalizerError(FinalizerError.__doc__, graph)
-        return result
 
     def analyze_simple_operation(self, op, graphinfo):
         if op.opname in self.ok_operations:

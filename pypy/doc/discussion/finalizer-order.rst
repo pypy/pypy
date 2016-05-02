@@ -90,10 +90,10 @@ GIL to be released.
 To find the queued items, call ``fin.next_dead()`` repeatedly.  It
 returns the next queued item, or ``None`` when the queue is empty.
 
-It is not allowed to cumulate several ``FinalizerQueue`` instances for
-objects of the same class.  Calling ``fin.register_finalizer(obj)``
-several times with the same arguments is fine (and will only register
-``obj`` once).
+It is allowed in theory to cumulate several different
+``FinalizerQueue`` instances for objects of the same class, and
+(always in theory) the same ``obj`` could be registered several times
+in the same queue, or in several queues.  This is not tested though.
 
 
 Ordering of finalizers

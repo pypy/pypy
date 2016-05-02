@@ -1513,7 +1513,7 @@ class TransformerLayoutBuilder(gctypelayout.TypeLayoutBuilder):
         self.translator = translator
         super(TransformerLayoutBuilder, self).__init__(GCClass, lltype2vtable)
 
-    def has_finalizer(self, TYPE):
+    def has_destructor(self, TYPE):
         rtti = get_rtti(TYPE)
         return rtti is not None and getattr(rtti._obj, 'destructor_funcptr',
                                             None)
