@@ -217,7 +217,7 @@ class DescrOperation(object):
             if w_descr is None:   # obscure case
                 raise OperationError(space.w_AttributeError, space.w_None)
             return space.get_and_call_function(w_descr, w_obj, w_name)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_AttributeError):
                 raise
             w_descr = space.lookup(w_obj, '__getattr__')
@@ -395,7 +395,7 @@ class DescrOperation(object):
             contains_jitdriver.jit_merge_point(w_type=w_type)
             try:
                 w_next = space.next(w_iter)
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_StopIteration):
                     raise
                 return space.w_False
@@ -408,7 +408,7 @@ class DescrOperation(object):
         while 1:
             try:
                 w_next = space.next(w_iter)
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_StopIteration):
                     raise
                 return space.wrap(count)
@@ -421,7 +421,7 @@ class DescrOperation(object):
         while 1:
             try:
                 w_next = space.next(w_iter)
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_StopIteration):
                     raise
                 msg = "sequence.index(x): x not in sequence"

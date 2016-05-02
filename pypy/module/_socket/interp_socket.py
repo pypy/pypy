@@ -183,7 +183,7 @@ class W_Socket(W_Root):
             else:
                 sock = RSocket(family, type, proto)
             W_Socket.__init__(self, space, sock)
-        except SocketError, e:
+        except SocketError as e:
             raise converted_error(space, e)
 
     def __del__(self):
@@ -479,7 +479,7 @@ class W_Socket(W_Root):
         """
         try:
             optval = space.c_int_w(w_optval)
-        except OperationError, e:
+        except OperationError as e:
             if e.async(space):
                 raise
             optval = space.bytes_w(w_optval)

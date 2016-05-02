@@ -20,7 +20,7 @@ class MultibyteCodec(W_Root):
         try:
             output = c_codecs.decode(self.codec, input, errors,
                                      state.decode_error_handler, self.name)
-        except c_codecs.EncodeDecodeError, e:
+        except c_codecs.EncodeDecodeError as e:
             raise wrap_unicodedecodeerror(space, e, input, self.name)
         except RuntimeError:
             raise wrap_runtimeerror(space)
@@ -36,7 +36,7 @@ class MultibyteCodec(W_Root):
         try:
             output = c_codecs.encode(self.codec, input, errors,
                                      state.encode_error_handler, self.name)
-        except c_codecs.EncodeDecodeError, e:
+        except c_codecs.EncodeDecodeError as e:
             raise wrap_unicodeencodeerror(space, e, input, self.name)
         except RuntimeError:
             raise wrap_runtimeerror(space)

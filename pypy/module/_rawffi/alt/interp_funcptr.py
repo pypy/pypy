@@ -114,7 +114,7 @@ class W_FuncPtr(W_Root):
         func_caller = CallFunctionConverter(space, self.func, argchain)
         try:
             return func_caller.do_and_wrap(self.w_restype)
-        except StackCheckError, e:
+        except StackCheckError as e:
             raise OperationError(space.w_ValueError, space.wrap(e.message))
         #return self._do_call(space, argchain)
 
@@ -324,7 +324,7 @@ class W_CDLL(W_Root):
             self.name = name
         try:
             self.cdll = libffi.CDLL(name, mode)
-        except DLOpenError, e:
+        except DLOpenError as e:
             raise wrap_dlopenerror(space, e, self.name)
 
     def getfunc(self, space, w_name, w_argtypes, w_restype):
@@ -374,6 +374,6 @@ W_WinDLL.typedef = TypeDef(
 def get_libc(space):
     try:
         return space.wrap(W_CDLL(space, get_libc_name(), -1))
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
 

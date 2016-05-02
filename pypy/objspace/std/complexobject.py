@@ -369,7 +369,7 @@ class W_ComplexObject(W_Root):
     def descr_abs(self, space):
         try:
             return space.newfloat(math.hypot(self.realval, self.imagval))
-        except OverflowError, e:
+        except OverflowError as e:
             raise OperationError(space.w_OverflowError, space.wrap(str(e)))
 
     def descr_eq(self, space, w_other):
@@ -443,7 +443,7 @@ class W_ComplexObject(W_Root):
             return space.w_NotImplemented
         try:
             return self.div(w_rhs)
-        except ZeroDivisionError, e:
+        except ZeroDivisionError as e:
             raise OperationError(space.w_ZeroDivisionError, space.wrap(str(e)))
 
     def descr_rtruediv(self, space, w_lhs):
@@ -452,7 +452,7 @@ class W_ComplexObject(W_Root):
             return space.w_NotImplemented
         try:
             return w_lhs.div(self)
-        except ZeroDivisionError, e:
+        except ZeroDivisionError as e:
             raise OperationError(space.w_ZeroDivisionError, space.wrap(str(e)))
 
     def descr_floordiv(self, space, w_rhs):

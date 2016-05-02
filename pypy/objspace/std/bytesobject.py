@@ -438,7 +438,7 @@ class W_BytesObject(W_AbstractBytesObject):
             return StringMethods._single_char(space, w_other)
         try:
             return space.bytes_w(w_other)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_TypeError):
                 raise
         return space.buffer_w(w_other, space.BUF_SIMPLE).as_str()
@@ -673,7 +673,7 @@ def newbytesdata_w(space, w_source, encoding, errors):
     # Note that we're calling space.getindex_w() instead of space.int_w().
     try:
         count = space.getindex_w(w_source, space.w_OverflowError)
-    except OperationError, e:
+    except OperationError as e:
         if not e.match(space, space.w_TypeError):
             raise
     else:
@@ -709,7 +709,7 @@ def _convert_from_buffer_or_iterable(space, w_source):
     # String-like argument
     try:
         buf = space.buffer_w(w_source, space.BUF_FULL_RO)
-    except OperationError, e:
+    except OperationError as e:
         if not e.match(space, space.w_TypeError):
             raise
     else:
@@ -728,7 +728,7 @@ def _convert_from_buffer_or_iterable(space, w_source):
     while True:
         try:
             w_item = space.next(w_iter)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_StopIteration):
                 raise
             break

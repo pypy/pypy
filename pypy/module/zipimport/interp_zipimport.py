@@ -254,7 +254,7 @@ class W_ZipImporter(W_Root):
                 buf = self.zip_file.read(fname)
             except (KeyError, OSError, BadZipfile):
                 pass
-            except RZlibError, e:
+            except RZlibError as e:
                 # in this case, CPython raises the direct exception coming
                 # from the zlib module: let's to the same
                 raise zlib_error(space, e.msg)
@@ -287,7 +287,7 @@ class W_ZipImporter(W_Root):
             return space.wrapbytes(data)
         except (KeyError, OSError, BadZipfile):
             raise OperationError(space.w_IOError, space.wrap("Error reading file"))
-        except RZlibError, e:
+        except RZlibError as e:
             # in this case, CPython raises the direct exception coming
             # from the zlib module: let's to the same
             raise zlib_error(space, e.msg)
@@ -396,7 +396,7 @@ def descr_new_zipimporter(space, w_type, w_name):
     except (BadZipfile, OSError):
         raise oefmt(get_error(space), "%R seems not to be a zipfile",
                     space.wrap_fsdecoded(filename))
-    except RZlibError, e:
+    except RZlibError as e:
         # in this case, CPython raises the direct exception coming
         # from the zlib module: let's to the same
         raise zlib_error(space, e.msg)

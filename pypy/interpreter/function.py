@@ -412,7 +412,7 @@ class Function(W_Root):
     def fset_func_qualname(self, space, w_name):
         try:
             self.qualname = space.unicode_w(w_name)
-        except OperationError, e:
+        except OperationError as e:
             if e.match(space, space.w_TypeError):
                 raise OperationError(space.w_TypeError,
                                      space.wrap("__qualname__ must be set "
@@ -536,7 +536,7 @@ class Method(W_Root):
             try:
                 return space.call_method(space.w_object, '__getattribute__',
                                          space.wrap(self), w_attr)
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_AttributeError):
                     raise
         # fall-back to the attribute of the underlying 'im_func'

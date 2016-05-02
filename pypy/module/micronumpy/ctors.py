@@ -386,7 +386,7 @@ def _fromstring_text(space, s, count, sep, length, dtype):
             else:
                 try:
                     val = dtype.coerce(space, space.wrap(piece))
-                except OperationError, e:
+                except OperationError as e:
                     if not e.match(space, space.w_ValueError):
                         raise
                     gotit = False
@@ -395,7 +395,7 @@ def _fromstring_text(space, s, count, sep, length, dtype):
                         try:
                             val = dtype.coerce(space, space.wrap(piece))
                             gotit = True
-                        except OperationError, e:
+                        except OperationError as e:
                             if not e.match(space, space.w_ValueError):
                                 raise
                     if not gotit:

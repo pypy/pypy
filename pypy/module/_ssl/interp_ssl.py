@@ -1054,7 +1054,7 @@ def checkwait(space, w_sock, writing):
         timeout = int(sock_timeout * 1000 + 0.5)
         try:
             ready = rpoll.poll(fddict, timeout)
-        except rpoll.PollError, e:
+        except rpoll.PollError as e:
             message = e.get_msg()
             raise ssl_error(space, message, e.errno)
     else:

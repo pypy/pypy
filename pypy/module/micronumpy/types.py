@@ -655,7 +655,7 @@ class UInt32(BaseType, Integer):
 def _int64_coerce(self, space, w_item):
     try:
         return self._base_coerce(space, w_item)
-    except OperationError, e:
+    except OperationError as e:
         if not e.match(space, space.w_OverflowError):
             raise
     bigint = space.bigint_w(w_item)
@@ -679,7 +679,7 @@ class Int64(BaseType, Integer):
 def _uint64_coerce(self, space, w_item):
     try:
         return self._base_coerce(space, w_item)
-    except OperationError, e:
+    except OperationError as e:
         if not e.match(space, space.w_OverflowError):
             raise
     bigint = space.bigint_w(w_item)
@@ -711,7 +711,7 @@ class Long(BaseType, Integer):
 def _ulong_coerce(self, space, w_item):
     try:
         return self._base_coerce(space, w_item)
-    except OperationError, e:
+    except OperationError as e:
         if not e.match(space, space.w_OverflowError):
             raise
     bigint = space.bigint_w(w_item)

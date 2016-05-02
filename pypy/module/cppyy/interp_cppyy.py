@@ -32,7 +32,7 @@ class CPPMethodSort(CPPMethodBaseTimSort):
 def load_dictionary(space, name):
     try:
         cdll = capi.c_load_dictionary(name)
-    except rdynload.DLOpenError, e:
+    except rdynload.DLOpenError as e:
         raise OperationError(space.w_RuntimeError, space.wrap(str(e.msg)))
     return W_CPPLibrary(space, cdll)
 
@@ -202,7 +202,7 @@ class CPPMethod(object):
         if self.converters is None:
             try:
                 self._setup(cppthis)
-            except Exception, e:
+            except Exception as e:
                 pass
 
         # some calls, e.g. for ptr-ptr or reference need a local array to store data for
@@ -338,7 +338,7 @@ class CPPMethod(object):
                 if res != clibffi.FFI_OK:
                     raise FastCallNotPossible
 
-            except Exception, e:
+            except Exception as e:
                 if cif_descr:
                     lltype.free(cif_descr.atypes, flavor='raw', track_allocation=False)
                     lltype.free(cif_descr, flavor='raw', track_allocation=False)
@@ -542,13 +542,13 @@ class W_CPPOverload(W_Root):
             cppyyfunc = self.functions[i]
             try:
                 return cppyyfunc.call(cppthis, args_w)
-            except OperationError, e:
+            except OperationError as e:
                 # special case if there's just one function, to prevent clogging the error message
                 if len(self.functions) == 1:
                     raise
                 errmsg += '\n  '+cppyyfunc.signature()+' =>\n'
                 errmsg += '    '+e.errorstr(self.space)
-            except Exception, e:
+            except Exception as e:
                 # can not special case this for non-overloaded functions as we anyway need an
                 # OperationError error down from here
                 errmsg += '\n  '+cppyyfunc.signature()+' =>\n'
@@ -1057,7 +1057,7 @@ class W_CPPInstance(W_Root):
     def _get_as_builtin(self):
         try:
             return self.space.call_method(self.space.wrap(self), "_cppyy_as_builtin")
-        except OperationError, e:
+        except OperationError as e:
             if not (e.match(self.space, self.space.w_TypeError) or
                     e.match(self.space, self.space.w_AttributeError)):
                 # TODO: TypeError is raised by call_method if the method is not found;
@@ -1069,7 +1069,7 @@ class W_CPPInstance(W_Root):
         try:
             constructor_overload = self.cppclass.get_overload(self.cppclass.name)
             constructor_overload.call(self, args_w)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(self.space, self.space.w_AttributeError):
                 raise
             raise OperationError(self.space.w_TypeError,
@@ -1095,7 +1095,7 @@ class W_CPPInstance(W_Root):
                     # TODO: cache this operator (not done yet, as the above does not
                     # select all overloads)
                     return ol.call(self, [self, w_other])
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(self.space, self.space.w_TypeError):
                 raise
 

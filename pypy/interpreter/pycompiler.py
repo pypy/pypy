@@ -55,21 +55,21 @@ class AbstractCompiler(object):
         try:
             code = self.compile(source, filename, mode, flags)
             return code   # success
-        except OperationError, err:
+        except OperationError as err:
             if not err.match(space, space.w_SyntaxError):
                 raise
 
         try:
             self.compile(source + "\n", filename, mode, flags)
             return None   # expect more
-        except OperationError, err1:
+        except OperationError as err1:
             if not err1.match(space, space.w_SyntaxError):
                 raise
 
         try:
             self.compile(source + "\n\n", filename, mode, flags)
             raise     # uh? no error with \n\n.  re-raise the previous error
-        except OperationError, err2:
+        except OperationError as err2:
             if not err2.match(space, space.w_SyntaxError):
                 raise
 
@@ -132,7 +132,7 @@ class PythonAstCompiler(PyCodeCompiler):
         try:
             mod = optimize.optimize_ast(space, node, info)
             code = codegen.compile_ast(space, mod, info)
-        except parseerror.SyntaxError, e:
+        except parseerror.SyntaxError as e:
             raise OperationError(space.w_SyntaxError,
                                  e.wrap_info(space))
         return code
@@ -153,13 +153,13 @@ class PythonAstCompiler(PyCodeCompiler):
         try:
             parse_tree = self.parser.parse_source(source, info)
             mod = astbuilder.ast_from_node(space, parse_tree, info)
-        except parseerror.TabError, e:
+        except parseerror.TabError as e:
             raise OperationError(space.w_TabError,
                                  e.wrap_info(space))
-        except parseerror.IndentationError, e:
+        except parseerror.IndentationError as e:
             raise OperationError(space.w_IndentationError,
                                  e.wrap_info(space))
-        except parseerror.SyntaxError, e:
+        except parseerror.SyntaxError as e:
             raise OperationError(space.w_SyntaxError,
                                  e.wrap_info(space))
         return mod

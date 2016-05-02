@@ -165,7 +165,7 @@ class Module(MixedModule):
         w_modules = self.get('modules')
         try:
             return space.getitem(w_modules, space.wrap(name))
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_KeyError):
                 raise
             return None

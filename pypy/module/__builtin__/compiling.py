@@ -113,7 +113,7 @@ def build_class(space, w_func, w_name, __args__):
 
     try:
         w_prep = space.getattr(w_meta, space.wrap("__prepare__"))
-    except OperationError, e:
+    except OperationError as e:
         if not e.match(space, space.w_AttributeError):
             raise
         w_namespace = space.newdict()

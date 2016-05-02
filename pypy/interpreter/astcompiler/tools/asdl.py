@@ -369,7 +369,7 @@ def parse(file):
     tokens = scanner.tokenize(buf)
     try:
         return parser.parse(tokens)
-    except ASDLSyntaxError, err:
+    except ASDLSyntaxError as err:
         print err
         lines = buf.split("\n")
         print lines[err.lineno - 1] # lines starts at 0, files at 1

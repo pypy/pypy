@@ -130,7 +130,7 @@ def as_long_long(space, w_ob):
     # other types of objects.  It refuses floats.
     try:
         value = space.int_w(w_ob)
-    except OperationError, e:
+    except OperationError as e:
         if not (e.match(space, space.w_OverflowError) or
                 e.match(space, space.w_TypeError)):
             raise
@@ -138,7 +138,7 @@ def as_long_long(space, w_ob):
         return value
     try:
         bigint = space.bigint_w(w_ob, allow_conversion=False)
-    except OperationError, e:
+    except OperationError as e:
         if not e.match(space, space.w_TypeError):
             raise
         if _is_a_float(space, w_ob):
@@ -155,7 +155,7 @@ def as_long(space, w_ob):
         return space.int_w(w_ob)
     try:
         bigint = space.bigint_w(w_ob, allow_conversion=False)
-    except OperationError, e:
+    except OperationError as e:
         if not e.match(space, space.w_TypeError):
             raise
         if _is_a_float(space, w_ob):
@@ -173,7 +173,7 @@ def as_unsigned_long_long(space, w_ob, strict):
     # mask the result and round floats.
     try:
         value = space.int_w(w_ob)
-    except OperationError, e:
+    except OperationError as e:
         if not (e.match(space, space.w_OverflowError) or
                 e.match(space, space.w_TypeError)):
             raise
@@ -183,7 +183,7 @@ def as_unsigned_long_long(space, w_ob, strict):
         return r_ulonglong(value)
     try:
         bigint = space.bigint_w(w_ob, allow_conversion=False)
-    except OperationError, e:
+    except OperationError as e:
         if not e.match(space, space.w_TypeError):
             raise
         if strict and _is_a_float(space, w_ob):
@@ -203,7 +203,7 @@ def as_unsigned_long(space, w_ob, strict):
     # same as as_unsigned_long_long(), but returning just an Unsigned
     try:
         bigint = space.bigint_w(w_ob, allow_conversion=False)
-    except OperationError, e:
+    except OperationError as e:
         if not e.match(space, space.w_TypeError):
             raise
         if strict and _is_a_float(space, w_ob):

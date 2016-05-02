@@ -352,7 +352,7 @@ class W_GenericBox(W_NumpyObject):
         try:
             subclass = space.is_true(space.issubtype(
                 w_dtype, space.gettypefor(W_NDimArray)))
-        except OperationError, e:
+        except OperationError as e:
             if e.match(space, space.w_TypeError):
                 subclass = False
             else:

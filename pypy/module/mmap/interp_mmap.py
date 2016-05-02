@@ -34,7 +34,7 @@ class W_MMap(W_Root):
         self.check_valid()
         try:
             return self.space.wrap(ord(self.mmap.read_byte()))
-        except RValueError, v:
+        except RValueError as v:
             raise mmap_error(self.space, v)
 
     def readline(self):
@@ -83,7 +83,7 @@ class W_MMap(W_Root):
         self.check_valid()
         try:
             self.mmap.seek(pos, whence)
-        except RValueError, v:
+        except RValueError as v:
             raise mmap_error(self.space, v)
 
     def tell(self):
@@ -94,7 +94,7 @@ class W_MMap(W_Root):
         self.check_valid()
         try:
             return self.space.wrap(self.mmap.file_size())
-        except OSError, e:
+        except OSError as e:
             raise mmap_error(self.space, e)
 
     def write(self, w_data):
@@ -103,7 +103,7 @@ class W_MMap(W_Root):
         self.check_writeable()
         try:
             self.mmap.write(data)
-        except RValueError, v:
+        except RValueError as v:
             raise mmap_error(self.space, v)
 
     @unwrap_spec(byte=int)
@@ -112,7 +112,7 @@ class W_MMap(W_Root):
         self.check_writeable()
         try:
             self.mmap.write_byte(chr(byte))
-        except RMMapError, v:
+        except RMMapError as v:
             raise mmap_error(self.space, v)
 
     @unwrap_spec(offset=int, size=int)
@@ -120,9 +120,9 @@ class W_MMap(W_Root):
         self.check_valid()
         try:
             return self.space.wrap(self.mmap.flush(offset, size))
-        except RValueError, v:
+        except RValueError as v:
             raise mmap_error(self.space, v)
-        except OSError, e:
+        except OSError as e:
             raise mmap_error(self.space, e)
 
     @unwrap_spec(dest=int, src=int, count=int)
@@ -131,7 +131,7 @@ class W_MMap(W_Root):
         self.check_writeable()
         try:
             self.mmap.move(dest, src, count)
-        except RValueError, v:
+        except RValueError as v:
             raise mmap_error(self.space, v)
 
     @unwrap_spec(newsize=int)
@@ -140,9 +140,9 @@ class W_MMap(W_Root):
         self.check_resizeable()
         try:
             self.mmap.resize(newsize)
-        except OSError, e:
+        except OSError as e:
             raise mmap_error(self.space, e)
-        except RValueError, e:
+        except RValueError as e:
             # obscure: in this case, RValueError translates to an app-level
             # SystemError.
             raise OperationError(self.space.w_SystemError,
@@ -161,19 +161,19 @@ class W_MMap(W_Root):
     def check_valid(self):
         try:
             self.mmap.check_valid()
-        except RValueError, v:
+        except RValueError as v:
             raise mmap_error(self.space, v)
 
     def check_writeable(self):
         try:
             self.mmap.check_writeable()
-        except RMMapError, v:
+        except RMMapError as v:
             raise mmap_error(self.space, v)
 
     def check_resizeable(self):
         try:
             self.mmap.check_resizeable()
-        except RMMapError, v:
+        except RMMapError as v:
             raise mmap_error(self.space, v)
 
     def descr_getitem(self, w_index):
@@ -237,9 +237,9 @@ if rmmap._POSIX:
             W_MMap.__init__(self, space,
                             rmmap.mmap(fileno, length, flags, prot, access,
                                        offset))
-        except OSError, e:
+        except OSError as e:
             raise mmap_error(space, e)
-        except RMMapError, e:
+        except RMMapError as e:
             raise mmap_error(space, e)
         return space.wrap(self)
 
@@ -254,9 +254,9 @@ elif rmmap._MS_WINDOWS:
             W_MMap.__init__(self, space,
                             rmmap.mmap(fileno, length, tagname, access,
                                        offset))
-        except OSError, e:
+        except OSError as e:
             raise mmap_error(space, e)
-        except RMMapError, e:
+        except RMMapError as e:
             raise mmap_error(space, e)
         return space.wrap(self)
 
@@ -346,12 +346,12 @@ class MMapBuffer(Buffer):
     def check_valid(self):
         try:
             self.mmap.check_valid()
-        except RValueError, v:
+        except RValueError as v:
             raise mmap_error(self.space, v)
 
     def check_valid_writeable(self):
         try:
             self.mmap.check_valid()
             self.mmap.check_writeable()
-        except RMMapError, v:
+        except RMMapError as v:
             raise mmap_error(self.space, v)

@@ -113,7 +113,7 @@ class W_ExternPython(W_CData):
             must_leave = space.threadlocals.try_enter_thread(space)
             self.py_invoke(ll_res, ll_args)
             #
-        except Exception, e:
+        except Exception as e:
             # oups! last-level attempt to recover.
             try:
                 os.write(STDERR, "SystemError: callback raised ")
@@ -143,7 +143,7 @@ class W_ExternPython(W_CData):
             w_res = space.call(self.w_callable, w_args)
             extra_line = "Trying to convert the result back to C:\n"
             self.convert_result(ll_res, w_res)
-        except OperationError, e:
+        except OperationError as e:
             self.handle_applevel_exception(e, ll_res, extra_line)
 
     @jit.unroll_safe
@@ -188,7 +188,7 @@ class W_ExternPython(W_CData):
                 w_res = space.call_function(self.w_onerror, w_t, w_v, w_tb)
                 if not space.is_none(w_res):
                     self.convert_result(ll_res, w_res)
-            except OperationError, e2:
+            except OperationError as e2:
                 # double exception! print a double-traceback...
                 self.print_error(e, extra_line)    # original traceback
                 e2.write_unraisable(space, '', with_traceback=True,

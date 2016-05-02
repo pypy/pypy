@@ -360,7 +360,7 @@ class W_ISlice(W_Root):
         space = self.space
         try:
             result = space.int_w(space.int(w_obj))    # CPython allows floats as parameters
-        except OperationError, e:
+        except OperationError as e:
             if e.async(space):
                 raise
             result = -1
@@ -482,11 +482,11 @@ class W_Chain(W_Root):
         if not self.w_it:
             try:
                 self._advance()
-            except OperationError, e:
+            except OperationError as e:
                 raise e
         try:
             return self.space.next(self.w_it)
-        except OperationError, e:
+        except OperationError as e:
             return self._handle_error(e)
 
     def _handle_error(self, e):
@@ -495,12 +495,12 @@ class W_Chain(W_Root):
                 raise e
             try:
                 self._advance() # may raise StopIteration itself
-            except OperationError, e:
+            except OperationError as e:
                 self.w_iterables = None
                 raise e
             try:
                 return self.space.next(self.w_it)
-            except OperationError, e:
+            except OperationError as e:
                 pass # loop back to the start of _handle_error(e)
 
     def descr_reduce(self, space):
@@ -580,7 +580,7 @@ class W_ZipLongest(W_Map):
             space = self.space
             try:
                 return space.next(w_iter)
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_StopIteration):
                     raise
                 self.active -= 1
@@ -681,7 +681,7 @@ class W_Cycle(W_Root):
         else:
             try:
                 w_obj = self.space.next(self.w_iterable)
-            except OperationError, e:
+            except OperationError as e:
                 if e.match(self.space, self.space.w_StopIteration):
                     self.exhausted = True
                     if not self.saved_w:
@@ -895,7 +895,7 @@ class W_TeeIterable(W_Root):
         if w_obj is None:
             try:
                 w_obj = self.space.next(self.w_iterator)
-            except OperationError, e:
+            except OperationError as e:
                 if e.match(self.space, self.space.w_StopIteration):
                     self.w_chained_list = None
                 raise
@@ -980,7 +980,7 @@ class W_GroupBy(W_Root):
             self.started = True
             try:
                 w_obj = self.space.next(self.w_iterable)
-            except OperationError, e:
+            except OperationError as e:
                 if e.match(self.space, self.space.w_StopIteration):
                     self.exhausted = True
                 raise
@@ -1016,7 +1016,7 @@ class W_GroupBy(W_Root):
 
             try:
                 w_obj = self.space.next(self.w_iterable)
-            except OperationError, e:
+            except OperationError as e:
                 if e.match(self.space, self.space.w_StopIteration):
                     self.exhausted = True
                     raise StopIteration

@@ -27,7 +27,7 @@ def transparent_class(name, BaseCls):
             try:
                 return space.call_function(self.w_controller, space.wrap('__getattribute__'),
                    space.wrap(attr))
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_AttributeError):
                     raise
                 return None
@@ -37,7 +37,7 @@ def transparent_class(name, BaseCls):
                 space.call_function(self.w_controller, space.wrap('__setattr__'),
                    space.wrap(attr), w_value)
                 return True
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_AttributeError):
                     raise
                 return False
@@ -47,7 +47,7 @@ def transparent_class(name, BaseCls):
                 space.call_function(self.w_controller, space.wrap('__delattr__'),
                    space.wrap(attr))
                 return True
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_AttributeError):
                     raise
                 return False

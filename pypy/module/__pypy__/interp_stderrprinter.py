@@ -29,7 +29,7 @@ class W_StdErrPrinter(W_Root):
     def descr_isatty(self, space):
         try:
             res = os.isatty(self.fd)
-        except OSError, e:
+        except OSError as e:
             raise wrap_oserror(space, e)
         return space.wrap(res)
 
@@ -39,7 +39,7 @@ class W_StdErrPrinter(W_Root):
 
         try:
             n = os.write(self.fd, data)
-        except OSError, e:
+        except OSError as e:
             if e.errno == errno.EAGAIN:
                 return space.w_None
             raise wrap_oserror(space, e)

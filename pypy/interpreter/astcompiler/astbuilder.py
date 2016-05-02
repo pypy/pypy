@@ -114,7 +114,7 @@ class ASTBuilder(object):
     def check_forbidden_name(self, name, node):
         try:
             misc.check_forbidden_name(name)
-        except misc.ForbiddenNameAssignment, e:
+        except misc.ForbiddenNameAssignment as e:
             self.error("cannot assign to %s" % (e.name,), node)
 
     def new_identifier(self, name):
@@ -124,9 +124,9 @@ class ASTBuilder(object):
         """Set the context of an expression to Store or Del if possible."""
         try:
             expr.set_context(ctx)
-        except ast.UnacceptableExpressionContext, e:
+        except ast.UnacceptableExpressionContext as e:
             self.error_ast(e.msg, e.node)
-        except misc.ForbiddenNameAssignment, e:
+        except misc.ForbiddenNameAssignment as e:
             self.error_ast("cannot assign to %s" % (e.name,), e.node)
 
     def handle_del_stmt(self, del_node):
@@ -1124,7 +1124,7 @@ class ASTBuilder(object):
             return self.space.call_function(tp, w_num_str)
         try:
             return self.space.call_function(self.space.w_int, w_num_str, w_base)
-        except error.OperationError, e:
+        except error.OperationError as e:
             if not e.match(self.space, self.space.w_ValueError):
                 raise
             return self.space.call_function(self.space.w_float, w_num_str)
@@ -1144,7 +1144,7 @@ class ASTBuilder(object):
                     parsestring.parsestr(
                             space, encoding, atom_node.get_child(i).get_value())
                         for i in range(atom_node.num_children())]
-            except error.OperationError, e:
+            except error.OperationError as e:
                 if not (e.match(space, space.w_UnicodeError) or
                         e.match(space, space.w_ValueError)):
                     raise
@@ -1156,7 +1156,7 @@ class ASTBuilder(object):
             for i in range(1, len(sub_strings_w)):
                 try:
                     w_string = space.add(w_string, sub_strings_w[i])
-                except error.OperationError, e:
+                except error.OperationError as e:
                     if not e.match(space, space.w_TypeError):
                         raise
                     self.error("cannot mix bytes and nonbytes literals",

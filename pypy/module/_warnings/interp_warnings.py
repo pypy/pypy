@@ -41,14 +41,14 @@ def get_warnings_attr(space, name):
     try:
         w_module = space.getitem(space.sys.get('modules'),
                                  space.wrap('warnings'))
-    except OperationError, e:
+    except OperationError as e:
         if not e.match(space, space.w_KeyError):
             raise
         return None
 
     try:
         return space.getattr(w_module, space.wrap(name))
-    except OperationError, e:
+    except OperationError as e:
         if not e.match(space, space.w_AttributeError):
             raise
     return None
@@ -84,7 +84,7 @@ def setup_context(space, stacklevel):
     # setup registry
     try:
         w_registry = space.getitem(w_globals, space.wrap("__warningregistry__"))
-    except OperationError, e:
+    except OperationError as e:
         if not e.match(space, space.w_KeyError):
             raise
         w_registry = space.newdict()
@@ -93,7 +93,7 @@ def setup_context(space, stacklevel):
     # setup module
     try:
         w_module = space.getitem(w_globals, space.wrap("__name__"))
-    except OperationError, e:
+    except OperationError as e:
         if not e.match(space, space.w_KeyError):
             raise
         w_module = space.wrap("<string>")
@@ -102,7 +102,7 @@ def setup_context(space, stacklevel):
     try:
         w_filename = space.getitem(w_globals, space.wrap("__file__"))
         filename = space.str_w(w_filename)
-    except OperationError, e:
+    except OperationError as e:
         if space.str_w(w_module) == '__main__':
             w_argv = space.sys.getdictvalue(space, 'argv')
             if w_argv and space.len_w(w_argv) > 0:
@@ -176,7 +176,7 @@ def update_registry(space, w_registry, w_text, w_category):
 def already_warned(space, w_registry, w_key, should_set=False):
     try:
         w_warned = space.getitem(w_registry, w_key)
-    except OperationError, e:
+    except OperationError as e:
         if not e.match(space, space.w_KeyError):
             raise
         if should_set:
@@ -317,7 +317,7 @@ def get_source_line(space, w_globals, lineno):
     try:
         w_loader = space.getitem(w_globals, space.wrap("__loader__"))
         w_module_name = space.getitem(w_globals, space.wrap("__name__"))
-    except OperationError, e:
+    except OperationError as e:
         if not e.match(space, space.w_KeyError):
             raise
         return None
@@ -325,7 +325,7 @@ def get_source_line(space, w_globals, lineno):
     # Make sure the loader implements the optional get_source() method.
     try:
         w_get_source = space.getattr(w_loader, space.wrap("get_source"))
-    except OperationError, e:
+    except OperationError as e:
         if not e.match(space, space.w_AttributeError):
             raise
         return None

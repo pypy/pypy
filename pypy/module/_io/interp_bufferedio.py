@@ -217,7 +217,7 @@ class BufferedMixin:
         typename = space.type(self).name.decode('utf-8')
         try:
             w_name = space.getattr(self, space.wrap("name"))
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_Exception):
                 raise
             return space.wrap(u"<%s>" % (typename,))
@@ -359,7 +359,7 @@ class BufferedMixin:
         while True:
             try:
                 w_written = space.call_method(self.w_raw, "write", w_data)
-            except OperationError, e:
+            except OperationError as e:
                 if trap_eintr(space, e):
                     continue  # try again
                 raise
@@ -535,7 +535,7 @@ class BufferedMixin:
         while True:
             try:
                 w_size = space.call_method(self.w_raw, "readinto", w_buf)
-            except OperationError, e:
+            except OperationError as e:
                 if trap_eintr(space, e):
                     continue  # try again
                 raise
@@ -742,7 +742,7 @@ class BufferedMixin:
             # First write the current buffer
             try:
                 self._writer_flush_unlocked(space)
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_BlockingIOError):
                     raise
                 if self.readable:

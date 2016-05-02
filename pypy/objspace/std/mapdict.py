@@ -338,7 +338,7 @@ class DevolvedDictTerminator(Terminator):
             w_dict = obj.getdict(space)
             try:
                 space.delitem(w_dict, space.wrap(name))
-            except OperationError, ex:
+            except OperationError as ex:
                 if not ex.match(space, space.w_KeyError):
                     raise
             return Terminator.copy(self, obj)

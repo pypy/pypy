@@ -69,7 +69,7 @@ class DictProxyStrategy(DictStrategy):
         w_type = self.unerase(w_dict.dstorage)
         try:
             w_type.setdictvalue(self.space, key, w_value)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(self.space, self.space.w_TypeError):
                 raise
             if not w_type.is_cpytype():
@@ -153,7 +153,7 @@ class MappingProxyStrategy(DictStrategy):
     def getitem(self, w_dict, w_key):
         try:
             return self.space.getitem(self.unerase(w_dict.dstorage), w_key)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(self.space, self.space.w_KeyError):
                 raise
             return None

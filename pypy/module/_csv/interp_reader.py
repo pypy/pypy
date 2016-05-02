@@ -59,7 +59,7 @@ class W_Reader(W_Root):
         while True:
             try:
                 w_line = space.next(self.w_iter)
-            except OperationError, e:
+            except OperationError as e:
                 if e.match(space, space.w_StopIteration):
                     if (field_builder is not None and
                             state != START_RECORD and state != EAT_CRNL and

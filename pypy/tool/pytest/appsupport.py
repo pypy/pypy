@@ -74,7 +74,7 @@ class AppFrame(py.code.Frame):
     def repr(self, w_value):
         try:
             return self.space.unwrap(self.space.repr(w_value))
-        except Exception, e:
+        except Exception as e:
             return "<Sorry, exception while trying to do repr, %r>"%e
 
     def is_true(self, w_value):
@@ -257,14 +257,14 @@ def pypyraises(space, w_ExpectedException, w_expr, __args__):
         try:
             space.exec_(unicode(source).encode('utf-8'), frame.get_w_globals(),
                         w_locals, filename=filename)
-        except OperationError, e:
+        except OperationError as e:
             if e.match(space, w_ExpectedException):
                 return _exc_info(space, e)
             raise
     else:
         try:
             space.call_args(w_expr, __args__)
-        except OperationError, e:
+        except OperationError as e:
             if e.match(space, w_ExpectedException):
                 return _exc_info(space, e)
             raise
@@ -294,6 +294,6 @@ def raises_w(space, w_ExpectedException, *args, **kwds):
         if not value.match(space, w_ExpectedException):
             raise type, value, tb
         return excinfo
-    except py.test.raises.Exception, e:
+    except py.test.raises.Exception as e:
         e.tbindex = getattr(e, 'tbindex', -1) - 1
         raise

@@ -70,7 +70,7 @@ class W_UnicodeObject(W_Root):
         try:
             identifier = unicode_encode_utf_8(u, len(u), None,
                                               errorhandler=eh)
-        except unicodehelper.RUnicodeEncodeError, ue:
+        except unicodehelper.RUnicodeEncodeError as ue:
             raise wrap_encode_error(space, ue)
         self._utf8 = identifier
         return identifier
@@ -201,7 +201,7 @@ class W_UnicodeObject(W_Root):
             ylen = len(y)
             try:
                 x = space.unicode_w(w_x)
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_TypeError):
                     raise
                 raise OperationError(space.w_TypeError, space.wrap(
@@ -232,7 +232,7 @@ class W_UnicodeObject(W_Root):
             while True:
                 try:
                     w_item = space.next(w_iter)
-                except OperationError, e:
+                except OperationError as e:
                     if not e.match(space, space.w_StopIteration):
                         raise
                     break
@@ -249,7 +249,7 @@ class W_UnicodeObject(W_Root):
                     # just keep integer keys
                     try:
                         space.int_w(w_key)
-                    except OperationError, e:
+                    except OperationError as e:
                         if not e.match(space, space.w_TypeError):
                             raise
                         raise OperationError(space.w_TypeError, space.wrap(
@@ -502,7 +502,7 @@ def encode_object(space, w_object, encoding, errors):
                 eh = unicodehelper.encode_error_handler(space)
                 return space.wrapbytes(unicode_encode_ascii(
                         u, len(u), errors, errorhandler=eh))
-        except unicodehelper.RUnicodeEncodeError, ue:
+        except unicodehelper.RUnicodeEncodeError as ue:
             raise wrap_encode_error(space, ue)
 
     from pypy.module._codecs.interp_codecs import lookup_codec

@@ -700,7 +700,7 @@ with somtehing as stuff:
         """)
         try:
             self.compiler.compile(str(source), '<filename>', 'exec', 0)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(self.space, self.space.w_SyntaxError):
                 raise
         else:
@@ -710,7 +710,7 @@ with somtehing as stuff:
         code = 'def f(): (yield bar) += y'
         try:
             self.compiler.compile(code, '', 'single', 0)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(self.space, self.space.w_SyntaxError):
                 raise
         else:
@@ -720,7 +720,7 @@ with somtehing as stuff:
         code = 'dict(a = i for i in xrange(10))'
         try:
             self.compiler.compile(code, '', 'single', 0)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(self.space, self.space.w_SyntaxError):
                 raise
         else:

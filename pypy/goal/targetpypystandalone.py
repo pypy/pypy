@@ -70,7 +70,7 @@ def create_entry_point(space, w_dict):
             ##    from pypy.interpreter import main, interactive, error
             ##    con = interactive.PyPyConsole(space)
             ##    con.interact()
-            except OperationError, e:
+            except OperationError as e:
                 debug("OperationError:")
                 debug(" operror-type: " + e.w_type.getname(space).encode('utf-8'))
                 debug(" operror-value: " + space.str_w(space.str(e.get_w_value(space))))
@@ -78,7 +78,7 @@ def create_entry_point(space, w_dict):
         finally:
             try:
                 space.finish()
-            except OperationError, e:
+            except OperationError as e:
                 debug("OperationError:")
                 debug(" operror-type: " + e.w_type.getname(space).encode('utf-8'))
                 debug(" operror-value: " + space.str_w(space.str(e.get_w_value(space))))
@@ -122,7 +122,7 @@ def create_entry_point(space, w_dict):
                                     space.wrap('__import__'))
             space.call_function(import_, space.wrap('site'))
             return rffi.cast(rffi.INT, 0)
-        except OperationError, e:
+        except OperationError as e:
             if verbose:
                 debug("OperationError:")
                 debug(" operror-type: " + e.w_type.getname(space).encode('utf-8'))
@@ -174,7 +174,7 @@ def create_entry_point(space, w_dict):
                 sys._pypy_execute_source.append(glob)
                 exec(stmt, glob)
             """)
-        except OperationError, e:
+        except OperationError as e:
             debug("OperationError:")
             debug(" operror-type: " + e.w_type.getname(space).encode('utf-8'))
             debug(" operror-value: " + space.str_w(space.str(e.get_w_value(space))))

@@ -29,7 +29,7 @@ def setlocale(space, category, w_locale=None):
         locale = space.str_w(w_locale)
     try:
         result = rlocale.setlocale(category, locale)
-    except rlocale.LocaleError, e:
+    except rlocale.LocaleError as e:
         raise rewrap_error(space, e)
     return space.wrap(result)
 

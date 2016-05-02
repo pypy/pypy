@@ -106,7 +106,7 @@ def ldexp(space, w_x,  w_i):
     if space.isinstance_w(w_i, space.w_int):
         try:
             exp = space.int_w(w_i)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_OverflowError):
                 raise
             if space.is_true(space.lt(w_i, space.wrap(0))):
@@ -338,7 +338,7 @@ def fsum(space, w_iterable):
     while True:
         try:
             w_value = space.next(w_iter)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_StopIteration):
                 raise
             break

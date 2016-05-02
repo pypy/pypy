@@ -151,7 +151,7 @@ def checkinvalid(space, s):
                                 space.wrap(s),
                                 space.wrap('?'),
                                 space.wrap('exec'))
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_SyntaxError):
                 raise
         else:
@@ -727,7 +727,7 @@ if __name__ == '__main__':
     for s in VALID:
         try:
             compile(s, '?', 'exec')
-        except Exception, e:
+        except Exception as e:
             print '-'*20, 'FAILED TO COMPILE:', '-'*20
             print s
             print '%s: %s' % (e.__class__, e)
@@ -735,7 +735,7 @@ if __name__ == '__main__':
     for s in INVALID:
         try:
             raises(SyntaxError, compile, s, '?', 'exec')
-        except Exception ,e:
+        except Exception as e:
             print '-'*20, 'UNEXPECTEDLY COMPILED:', '-'*20
             print s
             print '%s: %s' % (e.__class__, e)

@@ -173,7 +173,7 @@ def fork_exec(space, w_process_args, w_executable_list,
         try:
             try:
                 pid = os.fork()
-            except OSError, e:
+            except OSError as e:
                 raise wrap_oserror(space, e)
 
             if pid == 0:

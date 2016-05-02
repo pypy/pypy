@@ -197,7 +197,7 @@ def _eval_slice_index(space, w_int):
     # otherwise you can get funny error messages
     try:
         return space.getindex_w(w_int, None) # clamp if long integer too large
-    except OperationError, err:
+    except OperationError as err:
         if not err.match(space, space.w_TypeError):
             raise
         raise OperationError(space.w_TypeError,

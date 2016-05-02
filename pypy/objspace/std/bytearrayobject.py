@@ -73,7 +73,7 @@ class W_BytearrayObject(W_Root):
             return StringMethods._single_char(space, w_other)
         try:
             return space.bytes_w(w_other)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_TypeError):
                 raise
         return space.buffer_w(w_other, space.BUF_SIMPLE).as_str()

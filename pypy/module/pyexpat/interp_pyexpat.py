@@ -339,7 +339,7 @@ def UnknownEncodingHandlerData_callback(ll_userdata, name, info):
 
     try:
         parser.UnknownEncodingHandler(space, name, info)
-    except OperationError, e:
+    except OperationError as e:
         if not parser._exc_info:
             parser._exc_info = e
         XML_StopParser(parser.itself, XML_FALSE)
@@ -497,7 +497,7 @@ getting the advantage of providing document type information to the parser.
 
         try:
             return space.getitem(self.w_intern, w_data)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_KeyError):
                 raise
         space.setitem(self.w_intern, w_data, w_data)

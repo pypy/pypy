@@ -134,7 +134,7 @@ class PyCode(eval.Code):
         if code_hook is not None:
             try:
                 self.space.call_function(code_hook, self)
-            except OperationError, e:
+            except OperationError as e:
                 e.write_unraisable(self.space, "new_code_hook()")
 
     def _initialize(self):

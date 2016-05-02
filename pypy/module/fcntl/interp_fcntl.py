@@ -101,7 +101,7 @@ def fcntl(space, w_fd, op, w_arg):
 
     try:
         arg = space.getarg_w('s#', w_arg)
-    except OperationError, e:
+    except OperationError as e:
         if not e.match(space, space.w_TypeError):
             raise
     else:
@@ -211,7 +211,7 @@ def ioctl(space, w_fd, op, w_arg, mutate_flag=-1):
 
     try:
         rwbuffer = space.writebuf_w(w_arg)
-    except OperationError, e:
+    except OperationError as e:
         if not (e.match(space, space.w_TypeError) or
                 e.match(space, space.w_BufferError)):
             raise
@@ -237,7 +237,7 @@ def ioctl(space, w_fd, op, w_arg, mutate_flag=-1):
 
     try:
         arg = space.getarg_w('s#', w_arg)
-    except OperationError, e:
+    except OperationError as e:
         if not e.match(space, space.w_TypeError):
             raise
     else:

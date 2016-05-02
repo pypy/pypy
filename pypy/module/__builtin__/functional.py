@@ -146,7 +146,7 @@ def make_min_max(unroll):
                 jitdriver.jit_merge_point(has_key=has_key, has_item=has_item, w_type=w_type)
             try:
                 w_item = space.next(w_iter)
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_StopIteration):
                     raise
                 break
@@ -322,7 +322,7 @@ class W_ReversedIterator(W_Root):
             w_index = space.wrap(self.remaining)
             try:
                 w_item = space.getitem(self.w_sequence, w_index)
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_StopIteration):
                     raise
             else:
@@ -687,7 +687,7 @@ class W_Map(W_Root):
         for iterable_w in args_w:
             try:
                 iterator_w = space.iter(iterable_w)
-            except OperationError, e:
+            except OperationError as e:
                 if e.match(self.space, self.space.w_TypeError):
                     raise OperationError(space.w_TypeError, space.wrap(self._error_name + " argument #" + str(i + 1) + " must support iteration"))
                 else:

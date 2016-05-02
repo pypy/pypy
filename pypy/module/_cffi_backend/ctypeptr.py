@@ -388,6 +388,6 @@ def prepare_file_argument(space, w_fileobj):
         mode = space.str_w(space.getattr(w_fileobj, space.wrap("mode")))
         try:
             w_fileobj.cffi_fileobj = CffiFileObj(fd, mode)
-        except OSError, e:
+        except OSError as e:
             raise wrap_oserror(space, e)
     return rffi.cast(rffi.CCHARP, w_fileobj.cffi_fileobj.llf)
