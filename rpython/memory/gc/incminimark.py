@@ -2900,7 +2900,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # force the corresponding object to be alive
             intobj = self._pyobj(pyobject).ob_pypy_link
             singleaddr.address[0] = llmemory.cast_int_to_adr(intobj)
-            self._trace_drag_out(singleaddr, llmemory.NULL)
+            self._trace_drag_out1(singleaddr)
 
     def rrc_minor_collection_free(self):
         ll_assert(self.rrc_p_dict_nurs.length() == 0, "p_dict_nurs not empty 1")
