@@ -829,7 +829,7 @@ def lltype2ctypes(llobj, normalize=True):
                         llinterp = LLInterpreter.current_interpreter
                         try:
                             llres = llinterp.eval_graph(container.graph, llargs)
-                        except LLException, lle:
+                        except LLException as lle:
                             llinterp._store_exception(lle)
                             return 0
                         #except:
@@ -838,7 +838,7 @@ def lltype2ctypes(llobj, normalize=True):
                     else:
                         try:
                             llres = container._callable(*llargs)
-                        except LLException, lle:
+                        except LLException as lle:
                             llinterp = LLInterpreter.current_interpreter
                             llinterp._store_exception(lle)
                             return 0
@@ -1152,7 +1152,7 @@ if sys.platform == 'darwin':
         finally:
             try:
                 os.unlink(ccout)
-            except OSError, e:
+            except OSError as e:
                 if e.errno != errno.ENOENT:
                     raise
         res = re.search(expr, trace)

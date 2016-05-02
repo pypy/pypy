@@ -639,13 +639,14 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # Build the object.
             llarena.arena_reserve(result, totalsize)
             obj = result + size_gc_header
-            if is_finalizer_light:
-                self.young_objects_with_light_finalizers.append(obj)
             self.init_gc_object(result, typeid, flags=0)
-            #
-            # If it is a weakref, record it (check constant-folded).
-            if contains_weakptr:
-                self.young_objects_with_weakrefs.append(obj)
+        #
+        # If it is a weakref or has a lightweight finalizer, record it
+        # (checks constant-folded).
+        if is_finalizer_light:
+            self.young_objects_with_light_finalizers.append(obj)
+        if contains_weakptr:
+            self.young_objects_with_weakrefs.append(obj)
         #
         return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
 
@@ -2899,7 +2900,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # force the corresponding object to be alive
             intobj = self._pyobj(pyobject).ob_pypy_link
             singleaddr.address[0] = llmemory.cast_int_to_adr(intobj)
-            self._trace_drag_out(singleaddr, llmemory.NULL)
+            self._trace_drag_out1(singleaddr)
 
     def rrc_minor_collection_free(self):
         ll_assert(self.rrc_p_dict_nurs.length() == 0, "p_dict_nurs not empty 1")

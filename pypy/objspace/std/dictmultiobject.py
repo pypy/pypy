@@ -749,9 +749,9 @@ def create_iterator_classes(dictimpl,
                     return None
 
     class IterClassItems(BaseItemIterator):
-        def __init__(self, space, strategy, impl):
-            self.iterator = strategy.getiteritems_with_hash(impl)
-            BaseIteratorImplementation.__init__(self, space, strategy, impl)
+        def __init__(self, space, strategy, w_dict):
+            self.iterator = strategy.getiteritems_with_hash(w_dict)
+            BaseIteratorImplementation.__init__(self, space, strategy, w_dict)
 
         if override_next_item is not None:
             next_item_entry = override_next_item
@@ -764,9 +764,9 @@ def create_iterator_classes(dictimpl,
                     return None, None
 
     class IterClassReversed(BaseKeyIterator):
-        def __init__(self, space, strategy, impl):
-            self.iterator = strategy.getiterreversed(impl)
-            BaseIteratorImplementation.__init__(self, space, strategy, impl)
+        def __init__(self, space, strategy, w_dict):
+            self.iterator = strategy.getiterreversed(w_dict)
+            BaseIteratorImplementation.__init__(self, space, strategy, w_dict)
 
         def next_key_entry(self):
             for key in self.iterator:

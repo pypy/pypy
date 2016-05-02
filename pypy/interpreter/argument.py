@@ -27,7 +27,6 @@ class Arguments(object):
         self.space = space
         assert isinstance(args_w, list)
         self.arguments_w = args_w
-        
         self.keywords = keywords
         self.keywords_w = keywords_w
         self.keyword_names_w = keyword_names_w  # matches the tail of .keywords
@@ -137,11 +136,11 @@ class Arguments(object):
         """The simplest argument parsing: get the 'argcount' arguments,
         or raise a real ValueError if the length is wrong."""
         if self.keywords:
-            raise ValueError, "no keyword arguments expected"
+            raise ValueError("no keyword arguments expected")
         if len(self.arguments_w) > argcount:
-            raise ValueError, "too many arguments (%d expected)" % argcount
+            raise ValueError("too many arguments (%d expected)" % argcount)
         elif len(self.arguments_w) < argcount:
-            raise ValueError, "not enough arguments (%d expected)" % argcount
+            raise ValueError("not enough arguments (%d expected)" % argcount)
         return self.arguments_w
 
     def firstarg(self):
@@ -520,7 +519,6 @@ class ArgErrTooMany(ArgErr):
         msg = "takes %s but %s given" % (takes_str, given_str)
         return msg
 
-
 class ArgErrMultipleValues(ArgErr):
 
     def __init__(self, argname):
@@ -529,7 +527,6 @@ class ArgErrMultipleValues(ArgErr):
     def getmsg(self):
         msg = "got multiple values for argument '%s'" % self.argname
         return msg
-
 
 class ArgErrUnknownKwds(ArgErr):
 

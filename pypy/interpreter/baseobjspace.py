@@ -476,7 +476,6 @@ class ObjSpace(object):
     def getbuiltinmodule(self, name, force_init=False, reuse=True):
         w_name = self.wrap(name)
         w_modules = self.sys.get('modules')
-
         if not force_init:
             assert reuse
             try:
