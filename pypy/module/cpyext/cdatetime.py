@@ -15,6 +15,7 @@ PyDateTime_CAPI = cpython_struct(
      ('DateTimeType', PyTypeObjectPtr),
      ('TimeType', PyTypeObjectPtr),
      ('DeltaType', PyTypeObjectPtr),
+     ('TZInfoType', PyTypeObjectPtr),
      ))
 
 @cpython_api([], lltype.Ptr(PyDateTime_CAPI))
@@ -38,6 +39,10 @@ def _PyDateTime_Import(space):
 
     w_type = space.getattr(w_datetime, space.wrap("timedelta"))
     datetimeAPI.c_DeltaType = rffi.cast(
+        PyTypeObjectPtr, make_ref(space, w_type))
+
+    w_type = space.getattr(w_datetime, space.wrap("tzinfo"))
+    datetimeAPI.c_TZInfoType = rffi.cast(
         PyTypeObjectPtr, make_ref(space, w_type))
 
     return datetimeAPI
@@ -87,6 +92,7 @@ make_check_function("PyDateTime_Check", "datetime")
 make_check_function("PyDate_Check", "date")
 make_check_function("PyTime_Check", "time")
 make_check_function("PyDelta_Check", "timedelta")
+make_check_function("PyTZInfo_Check", "tzinfo")
 
 # Constructors
 

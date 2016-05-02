@@ -436,7 +436,7 @@ class CPPTemplatedCall(CPPMethod):
             s = capi.c_resolve_name(self.space, s)
             if s != self.templ_args[i]:
                 raise OperationError(self.space.w_TypeError, self.space.wrap(
-                    "non-matching template (got %s where %s expected" % (s, self.templ_args[i])))
+                    "non-matching template (got %s where %s expected)" % (s, self.templ_args[i])))
         return W_CPPBoundMethod(cppthis, self)
 
     def bound_call(self, cppthis, args_w):

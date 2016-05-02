@@ -3,7 +3,7 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.bytesobject import new_empty_str, PyStringObject
-from pypy.module.cpyext.api import PyObjectP, PyObject, Py_ssize_tP
+from pypy.module.cpyext.api import PyObjectP, PyObject, Py_ssize_tP, generic_cpy_call
 from pypy.module.cpyext.pyobject import Py_DecRef, from_ref, make_ref
 from pypy.module.cpyext.typeobjectdefs import PyTypeObjectPtr
 
@@ -145,6 +145,7 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
              """
                 PyObject ** v;
                 PyObject * left = PyTuple_GetItem(args, 0);
+                Py_INCREF(left);    /* the reference will be stolen! */
                 v = &left;
                 PyString_Concat(v, PyTuple_GetItem(args, 1));
                 return *v;
@@ -339,13 +340,16 @@ class TestString(BaseApiTest):
         c_buf = py_str.c_ob_type.c_tp_as_buffer
         assert c_buf
         py_obj = rffi.cast(PyObject, py_str)
-        assert c_buf.c_bf_getsegcount(py_obj, lltype.nullptr(Py_ssize_tP.TO)) == 1
+        assert generic_cpy_call(space, c_buf.c_bf_getsegcount,
+                                py_obj, lltype.nullptr(Py_ssize_tP.TO)) == 1
         ref = lltype.malloc(Py_ssize_tP.TO, 1, flavor='raw')
-        assert c_buf.c_bf_getsegcount(py_obj, ref) == 1
+        assert generic_cpy_call(space, c_buf.c_bf_getsegcount,
+                                py_obj, ref) == 1
         assert ref[0] == 10
         lltype.free(ref, flavor='raw')
         ref = lltype.malloc(rffi.VOIDPP.TO, 1, flavor='raw')
-        assert c_buf.c_bf_getreadbuffer(py_obj, 0, ref) == 10
+        assert generic_cpy_call(space, c_buf.c_bf_getreadbuffer,
+                                py_obj, 0, ref) == 10
         lltype.free(ref, flavor='raw')
         Py_DecRef(space, py_obj)
 
@@ -359,6 +363,7 @@ class TestString(BaseApiTest):
         assert space.str_w(from_ref(space, ptr[0])) == 'abcdef'
         api.PyString_Concat(ptr, space.w_None)
         assert not ptr[0]
+        api.PyErr_Clear()
         ptr[0] = lltype.nullptr(PyObject.TO)
         api.PyString_Concat(ptr, space.wrap('def')) # should not crash
         lltype.free(ptr, flavor='raw')
