@@ -73,6 +73,7 @@ class __extend__(pyframe.PyFrame):
         try:
             next_instr = self.dispatch_bytecode(co_code, next_instr, ec)
         except OperationError, operr:
+            operr.record_context(self.space, self)
             next_instr = self.handle_operation_error(ec, operr)
         except RaiseWithExplicitTraceback, e:
             next_instr = self.handle_operation_error(ec, e.operr,
@@ -156,7 +157,6 @@ class __extend__(pyframe.PyFrame):
                 ec.bytecode_trace(self)
             next_instr = r_uint(self.last_instr)
             opcode = ord(co_code[next_instr])
-            #print 'executing', self.last_instr, bytecode_spec.method_names[opcode]
             next_instr += 1
 
             if opcode >= HAVE_ARGUMENT:
@@ -650,24 +650,18 @@ class __extend__(pyframe.PyFrame):
         unroller = SContinueLoop(startofloop)
         return self.unrollstack_and_jump(unroller)
 
-    @jit.unroll_safe
     def RAISE_VARARGS(self, nbargs, next_instr):
         space = self.space
         if nbargs > 2:
             raise BytecodeCorruption("bad RAISE_VARARGS oparg")
         if nbargs == 0:
-            frame = self
-            while frame:
-                if frame.last_exception is not None:
-                    operror = frame.last_exception
-                    break
-                frame = frame.f_backref()
-            else:
-                raise OperationError(space.w_RuntimeError,
-                    space.wrap("No active exception to reraise"))
+            last_operr = self._exc_info_unroll(space, for_hidden=True)
+            if last_operr is None:
+                raise oefmt(space.w_RuntimeError,
+                            "No active exception to reraise")
             # re-raise, no new traceback obj will be attached
-            self.last_exception = operror
-            raise RaiseWithExplicitTraceback(operror)
+            self.last_exception = last_operr
+            raise RaiseWithExplicitTraceback(last_operr)
         if nbargs == 2:
             w_cause = self.popvalue()
             if space.exception_is_valid_obj_as_class_w(w_cause):
@@ -905,8 +899,7 @@ class __extend__(pyframe.PyFrame):
     def LOAD_ATTR(self, nameindex, next_instr):
         "obj.attributename"
         w_obj = self.popvalue()
-        if (self.space.config.objspace.std.withmapdict
-            and not jit.we_are_jitted()):
+        if not jit.we_are_jitted():
             from pypy.objspace.std.mapdict import LOAD_ATTR_caching
             w_value = LOAD_ATTR_caching(self.getcode(), w_obj, nameindex)
         else:
@@ -1542,7 +1535,6 @@ class FinallyBlock(FrameBlock):
         return r_uint(self.handlerposition)   # jump to the handler
 
 
-
 class WithBlock(FinallyBlock):
 
     _immutable_ = True
@@ -1634,7 +1626,7 @@ def ensure_ns(space, w_globals, w_locals, funcname, caller=None):
         if caller is None:
             caller = space.getexecutioncontext().gettopframe_nohidden()
         if caller is None:
-            w_globals = space.newdict()
+            w_globals = space.newdict(module=True)
             if space.is_none(w_locals):
                 w_locals = w_globals
         else:

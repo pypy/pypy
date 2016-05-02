@@ -92,7 +92,7 @@ from pypy.interpreter.typedef import (
     TypeDef, GetSetProperty, interp_attrproperty,
     descr_get_dict, descr_set_dict, descr_del_dict)
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.error import OperationError, oefmt, setup_context
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.pytraceback import PyTraceback, check_traceback
 from rpython.rlib import rwin32
 
@@ -179,27 +179,7 @@ class W_BaseException(W_Root):
         self.suppress_context = True
 
     def descr_getcontext(self, space):
-        w_context = self.w_context
-        if w_context is None:
-            self.w_context = w_context = self._setup_context(space)
-        return w_context
-
-    def _setup_context(self, space):
-        """Lazily determine __context__ from w_traceback"""
-        # XXX: w_traceback can be overwritten: it's not necessarily the
-        # authoratative traceback!
-        last_operr = None
-        w_traceback = self.w_traceback
-        if w_traceback is not None and isinstance(w_traceback, PyTraceback):
-            ec = space.getexecutioncontext()
-            # search for __context__ beginning in the previous frame. A
-            # __context__ from the top most frame would have already
-            # been handled by OperationError.record_context
-            last_operr = ec.last_operr(space, w_traceback.frame.f_backref())
-        if last_operr is None:
-            # no __context__
-            return space.w_None
-        return setup_context(space, self, last_operr.get_w_value(space))
+        return self.w_context
 
     def descr_setcontext(self, space, w_newcontext):
         if not (space.is_w(w_newcontext, space.w_None) or

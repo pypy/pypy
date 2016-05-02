@@ -28,6 +28,8 @@ def gettestobjspace(**kwds):
 def maketestobjspace(config=None):
     if config is None:
         config = make_config(option)
+    if config.objspace.usemodules.thread:
+        config.translation.thread = True
     space = make_objspace(config)
     space.startup() # Initialize all builtin modules
     space.setitem(space.builtin.w_dict, space.wrap('AssertionError'),

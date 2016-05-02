@@ -182,9 +182,9 @@ class ZARCHRegisterManager(RegisterManager):
         """
         self._check_type(origvar)
         prev_loc = self.loc(origvar, must_exist=must_exist)
-        var2 = TempVar()
+        var2 = TempInt()
         if bindvar is None:
-            bindvar = TempVar()
+            bindvar = TempInt()
         if bind_first:
             loc, loc2 = self.force_allocate_reg_pair(bindvar, var2, self.temp_boxes)
         else:
@@ -310,20 +310,22 @@ class ZARCHRegisterManager(RegisterManager):
             # uff! in this case, we need to move a forbidden var to another register
             assert len(forbidden_vars) <= 8 # otherwise it is NOT possible to complete
             even, odd = r.r2, r.r3
-            even_var = reverse_mapping.get(even, None)
-            odd_var = reverse_mapping.get(odd, None)
-            if even_var:
-                if even_var in forbidden_vars:
-                    self._relocate_forbidden_variable(even, even_var, reverse_mapping,
+            old_even_var = reverse_mapping.get(even, None)
+            old_odd_var = reverse_mapping.get(odd, None)
+            if old_even_var:
+                if old_even_var in forbidden_vars:
+                    self._relocate_forbidden_variable(even, old_even_var, reverse_mapping,
                                                       forbidden_vars, odd)
                 else:
-                    self._sync_var(even_var)
-            if odd_var:
-                if odd_var in forbidden_vars:
-                    self._relocate_forbidden_variable(odd, odd_var, reverse_mapping,
+                    self._sync_var(old_even_var)
+                    del self.reg_bindings[old_even_var]
+            if old_odd_var:
+                if old_odd_var in forbidden_vars:
+                    self._relocate_forbidden_variable(odd, old_odd_var, reverse_mapping,
                                                       forbidden_vars, even)
                 else:
-                    self._sync_var(odd_var)
+                    self._sync_var(old_odd_var)
+                    del self.reg_bindings[old_odd_var]
 
             self.free_regs = [fr for fr in self.free_regs \
                               if fr is not even and \
@@ -335,6 +337,12 @@ class ZARCHRegisterManager(RegisterManager):
         return even, odd
 
     def _relocate_forbidden_variable(self, reg, var, reverse_mapping, forbidden_vars, forbidden_reg):
+        if len(self.free_regs) > 0:
+            candidate = self.free_regs.pop()
+            self.assembler.regalloc_mov(reg, candidate)
+            self.reg_bindings[var] = candidate
+            reverse_mapping[candidate] = var
+
         for candidate in r.MANAGED_REGS:
             # move register of var to another register
             # thus it is not allowed to bei either reg or forbidden_reg
@@ -345,9 +353,11 @@ class ZARCHRegisterManager(RegisterManager):
             if not candidate_var or candidate_var not in forbidden_vars:
                 if candidate_var is not None:
                     self._sync_var(candidate_var)
+                    del self.reg_bindings[candidate_var]
                 self.assembler.regalloc_mov(reg, candidate)
+                assert var is not None
                 self.reg_bindings[var] = candidate
-                reverse_mapping[reg] = var
+                reverse_mapping[candidate] = var
                 self.free_regs.append(reg)
                 break
         else:

@@ -4577,6 +4577,13 @@ class TestAnnotateTestCase:
         with py.test.raises(AnnotatorError):
             a.build_types(f, [float])
 
+    def test_Ellipsis_not_rpython(self):
+        def f():
+            return Ellipsis
+        a = self.RPythonAnnotator()
+        e = py.test.raises(Exception, a.build_types, f, [])
+        assert str(e.value) == "Don't know how to represent Ellipsis"
+
 
 def g(n):
     return [0, 1, 2, n]

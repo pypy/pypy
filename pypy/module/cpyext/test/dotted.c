@@ -9,11 +9,11 @@ static struct PyModuleDef moduledef = {
     "pypy.module.cpyext.test.dotted",
     "Module Doc",
     -1,
-    &dotted_functions
+    dotted_functions
 };
 
 PyMODINIT_FUNC
-*PyInit_dotted(void)
+PyInit_dotted(void)
 {
     return PyModule_Create(&moduledef);
 }

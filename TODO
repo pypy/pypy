@@ -1,0 +1,2 @@
+* reduce size of generated c code from slot definitions in slotdefs.
+* remove broken DEBUG_REFCOUNT from pyobject.py

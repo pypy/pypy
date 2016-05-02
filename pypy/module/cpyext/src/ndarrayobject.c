@@ -17,10 +17,3 @@ _PyArray_ZEROS(int nd, npy_intp* dims, int type_num, int fortran)
     return arr;
 }
 
-int 
-_PyArray_CopyInto(PyArrayObject* dest, PyArrayObject* src)
-{
-    memcpy(_PyArray_DATA(dest), _PyArray_DATA(src), _PyArray_NBYTES(dest));
-    return 0;
-}
-

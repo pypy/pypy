@@ -83,7 +83,7 @@ static struct PyModuleDef moduledef = {
 
 
 PyMODINIT_FUNC
-*PyInit_comparisons(void)
+PyInit_comparisons(void)
 {
     PyObject *m, *d;
 

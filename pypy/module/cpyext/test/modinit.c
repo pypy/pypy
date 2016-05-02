@@ -14,7 +14,7 @@ static struct PyModuleDef moduledef = {
     "modinit",
     "",
     -1,
-    &methods
+    methods
 };
 
 PyMODINIT_FUNC

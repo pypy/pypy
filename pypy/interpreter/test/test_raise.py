@@ -387,8 +387,6 @@ class AppTestRaiseContext:
         except:
             func1()
 
-    @py.test.mark.xfail(reason="A somewhat contrived case that may burden the "
-                        "JIT to fully support")
     def test_frame_spanning_cycle_broken(self):
         context = IndexError()
         def func():
@@ -399,7 +397,6 @@ class AppTestRaiseContext:
                     raise context
                 except Exception as e2:
                     assert e2.__context__ is e1
-                    # XXX:
                     assert e1.__context__ is None
             else:
                 fail('No exception raised')
@@ -419,6 +416,7 @@ class AppTestRaiseContext:
             except ValueError as exc:
                 assert exc.__cause__ is None
                 assert exc.__suppress_context__ is True
+                assert isinstance(exc.__context__, TypeError)
                 exc.__suppress_context__ = False
                 raise exc
         except ValueError as exc:
@@ -427,6 +425,43 @@ class AppTestRaiseContext:
         assert e.__suppress_context__ is False
         assert isinstance(e.__context__, TypeError)
         """
+
+    def test_context_in_builtin(self):
+        context = IndexError()
+        try:
+            try:
+                raise context
+            except:
+                compile('pass', 'foo', 'doh')
+        except ValueError as e:
+            assert e.__context__ is context
+        else:
+            fail('No exception raised')
+
+    def test_context_with_suppressed(self):
+        # XXX: requires with statement's WHY_SILENCED
+        class RaiseExc:
+            def __init__(self, exc):
+                self.exc = exc
+            def __enter__(self):
+                return self
+            def __exit__(self, *exc_details):
+                raise self.exc
+
+        class SuppressExc:
+            def __enter__(self):
+                return self
+            def __exit__(self, *exc_details):
+                return True
+
+        try:
+            with RaiseExc(IndexError):
+                with SuppressExc():
+                    with RaiseExc(ValueError):
+                        1/0
+        except IndexError as exc:
+            assert exc.__context__ is None
+
 
 class AppTestTraceback:
 

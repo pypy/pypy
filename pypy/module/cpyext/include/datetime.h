@@ -11,6 +11,7 @@ typedef struct {
     PyTypeObject *DateTimeType;
     PyTypeObject *TimeType;
     PyTypeObject *DeltaType;
+    PyTypeObject *TZInfoType;
 } PyDateTime_CAPI;
 
 PyAPI_DATA(PyDateTime_CAPI*) PyDateTimeAPI;
@@ -23,6 +24,22 @@ PyAPI_DATA(PyDateTime_CAPI*) PyDateTimeAPI;
 typedef struct {
     PyObject_HEAD
 } PyDateTime_Delta;
+
+typedef struct {
+    PyObject_HEAD
+} PyDateTime_Date;
+
+typedef struct {
+    PyObject_HEAD
+} PyDateTime_Time;
+
+typedef struct {
+    PyObject_HEAD
+} PyDateTime_DateTime;
+
+typedef struct {
+    PyObject_HEAD
+} PyDateTime_TZInfo;
 
 #ifdef __cplusplus
 }

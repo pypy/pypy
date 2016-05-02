@@ -1497,6 +1497,47 @@ class TestRPBC(BaseRtypingTest):
         res = self.interpret(f, [2])
         assert res == False
 
+    def test_is_among_functions_2(self):
+        def g1(): pass
+        def g2(): pass
+        def f(n):
+            if n > 5:
+                g = g2
+            else:
+                g = g1
+            g()
+            return g is g2
+        res = self.interpret(f, [2])
+        assert res == False
+        res = self.interpret(f, [8])
+        assert res == True
+
+    def test_is_among_functions_3(self):
+        def g0(): pass
+        def g1(): pass
+        def g2(): pass
+        def g3(): pass
+        def g4(): pass
+        def g5(): pass
+        def g6(): pass
+        def g7(): pass
+        glist = [g0, g1, g2, g3, g4, g5, g6, g7]
+        def f(n):
+            if n > 5:
+                g = g2
+            else:
+                g = g1
+            h = glist[n]
+            g()
+            h()
+            return g is h
+        res = self.interpret(f, [2])
+        assert res == False
+        res = self.interpret(f, [1])
+        assert res == True
+        res = self.interpret(f, [6])
+        assert res == False
+
     def test_shrink_pbc_set(self):
         def g1():
             return 10

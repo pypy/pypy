@@ -5,8 +5,6 @@ This module exports a set of operators as functions. E.g. operator.add(x,y) is
 equivalent to x+y.
 '''
 
-import types
-
 
 def countOf(a,b):
     'countOf(a, b) -- Return the number of times b occurs in a.'

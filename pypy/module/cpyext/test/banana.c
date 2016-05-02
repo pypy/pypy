@@ -9,11 +9,11 @@ static struct PyModuleDef moduledef = {
     "banana",
     "Module Doc",
     -1,
-    &banana_functions
+    banana_functions,
 };
 
 PyMODINIT_FUNC
-*PyInit_banana(void)
+PyInit_banana(void)
 {
     return PyModule_Create(&moduledef);
 }

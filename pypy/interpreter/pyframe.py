@@ -4,7 +4,7 @@
 from rpython.rlib import jit
 from rpython.rlib.debug import make_sure_not_resized, check_nonneg
 from rpython.rlib.jit import hint
-from rpython.rlib.objectmodel import we_are_translated, instantiate
+from rpython.rlib.objectmodel import instantiate, specialize, we_are_translated
 from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.tool.pairtype import extendabletype
 
@@ -12,7 +12,8 @@ from pypy.interpreter import pycode, pytraceback
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.astcompiler import consts
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import (
+    OperationError, get_cleared_operation_error, oefmt)
 from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.nestedscope import Cell
 from pypy.tool import stdlib_opcode
@@ -870,6 +871,22 @@ class PyFrame(W_Root):
             return space.wrap(self.builtin is not space.builtin)
         return space.w_False
 
+    @jit.unroll_safe
+    @specialize.arg(2)
+    def _exc_info_unroll(self, space, for_hidden=False):
+        """Return the most recent OperationError being handled in the
+        call stack
+        """
+        frame = self
+        while frame:
+            last = frame.last_exception
+            if last is not None:
+                if last is get_cleared_operation_error(self.space):
+                    break
+                if for_hidden or not frame.hide():
+                    return last
+            frame = frame.f_backref()
+        return None
 
 # ____________________________________________________________
 

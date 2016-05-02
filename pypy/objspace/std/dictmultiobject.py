@@ -66,10 +66,10 @@ class W_DictMultiObject(W_Root):
             w_obj = space.allocate_instance(W_ModuleDictObject, space.w_dict)
             W_ModuleDictObject.__init__(w_obj, space, strategy, storage)
             return w_obj
-        elif space.config.objspace.std.withmapdict and instance:
+        elif instance:
             from pypy.objspace.std.mapdict import MapDictStrategy
             strategy = space.fromcache(MapDictStrategy)
-        elif instance or strdict or module:
+        elif strdict or module:
             assert w_type is None
             strategy = space.fromcache(UnicodeDictStrategy)
         elif kwargs:
@@ -528,7 +528,6 @@ class EmptyDictStrategy(DictStrategy):
 
     def switch_to_correct_strategy(self, w_dict, w_key):
         from pypy.objspace.std.intobject import W_IntObject
-        withidentitydict = self.space.config.objspace.std.withidentitydict
         if type(w_key) is self.space.StringObjectCls:
             self.switch_to_bytes_strategy(w_dict)
             return
@@ -539,7 +538,7 @@ class EmptyDictStrategy(DictStrategy):
             self.switch_to_int_strategy(w_dict)
             return
         w_type = self.space.type(w_key)
-        if withidentitydict and w_type.compares_by_identity():
+        if w_type.compares_by_identity():
             self.switch_to_identity_strategy(w_dict)
         else:
             self.switch_to_object_strategy(w_dict)

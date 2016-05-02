@@ -568,7 +568,7 @@ def make_formatting_class():
                 msg = "Sign not allowed in string format specifier"
                 raise OperationError(space.w_ValueError, space.wrap(msg))
             if self._alternate:
-                msg = "Alternate form not allowed in string format specifier"
+                msg = "Alternate form (#) not allowed in string format specifier"
                 raise OperationError(space.w_ValueError, space.wrap(msg))
             if self._align == "=":
                 msg = "'=' alignment not allowed in string format specifier"

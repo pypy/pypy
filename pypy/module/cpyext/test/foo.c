@@ -155,6 +155,7 @@ foo_setattro(fooobject *self, PyObject *name, PyObject *value)
         if (v == -1 && PyErr_Occurred())
             return -1;
         self->foo = v;
+        return 0;
     }
     return PyObject_GenericSetAttr((PyObject *)self, name, value);
 }
@@ -186,7 +187,7 @@ static PyMemberDef foo_members[] = {
     {"float_member", T_FLOAT, offsetof(fooobject, foo_float), 0, NULL},
     {"double_member", T_DOUBLE, offsetof(fooobject, foo_double), 0, NULL},
     {"longlong_member", T_LONGLONG, offsetof(fooobject, foo_longlong), 0, NULL},
-    {"ulonglong_member", T_ULONGLONG, offsetof(fooobject, foo_ulonglong), 0, NULL},  
+    {"ulonglong_member", T_ULONGLONG, offsetof(fooobject, foo_ulonglong), 0, NULL},
     {"ssizet_member", T_PYSSIZET, offsetof(fooobject, foo_ssizet), 0, NULL},
     {NULL}  /* Sentinel */
 };
@@ -214,7 +215,7 @@ static PyTypeObject footype = {
     0,                       /*tp_getattro*/
     (setattrofunc)foo_setattro, /*tp_setattro*/
     0,                       /*tp_as_buffer*/
-    Py_TPFLAGS_DEFAULT,      /*tp_flags*/
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
     foo_doc,                 /*tp_doc*/
     0,                       /*tp_traverse*/
     0,                       /*tp_clear*/
@@ -375,6 +376,12 @@ PyTypeObject UnicodeSubtype2 = {
     0           /*tp_weaklist*/
 };
 
+PyTypeObject UnicodeSubtype3 = {
+    PyObject_HEAD_INIT(NULL)
+    0,
+    "foo.fuu3",
+    sizeof(UnicodeSubclassObject)
+};
 
 /* A Metatype */
 
@@ -382,7 +389,7 @@ PyTypeObject MetaType = {
     PyObject_HEAD_INIT(NULL)
     0,
     "foo.Meta",
-    sizeof(PyTypeObject),          /*tp_basicsize*/
+    sizeof(PyHeapTypeObject),/*tp_basicsize*/
     0,          /*tp_itemsize*/
     0,          /*tp_dealloc*/
     0,          /*tp_print*/
@@ -448,7 +455,7 @@ foo_new(PyObject *self, PyObject *args)
     if ((foop = newfooobject()) == NULL) {
         return NULL;
     }
-    
+
     return (PyObject *)foop;
 }
 
@@ -627,7 +634,6 @@ static PyTypeObject CustomType = {
     (destructor)custom_dealloc, /*tp_dealloc*/
 };
 
-
 static PyObject *size_of_instances(PyObject *self, PyObject *t)
 {
     return PyInt_FromLong(((PyTypeObject *)t)->tp_basicsize);
@@ -648,13 +654,22 @@ static struct PyModuleDef moduledef = {
     "foo",
     "Module Doc",
     -1,
-    &foo_functions
+    foo_functions, 
+    NULL,
+    NULL,
+    NULL,
+    NULL,
 };
 
 /* Initialize this module. */
+#ifdef __GNUC__
+extern __attribute__((visibility("default")))
+#else
+extern __declspec(dllexport)
+#endif
 
 PyMODINIT_FUNC
-*PyInit_foo(void)
+PyInit_foo(void)
 {
     PyObject *m, *d;
 
@@ -676,9 +691,21 @@ PyMODINIT_FUNC
         return NULL;
     if (PyType_Ready(&SimplePropertyType) < 0)
         return NULL;
+
+    SimplePropertyType.tp_new = PyType_GenericNew;
+    InitErrType.tp_new = PyType_GenericNew;
+
     CustomType.ob_type = &MetaType;
     if (PyType_Ready(&CustomType) < 0)
         return NULL;
+
+    UnicodeSubtype3.tp_flags = Py_TPFLAGS_DEFAULT;
+    UnicodeSubtype3.tp_base = &UnicodeSubtype;
+    UnicodeSubtype3.tp_bases = Py_BuildValue("(OO)", &UnicodeSubtype,
+                                                    &CustomType);
+    if (PyType_Ready(&UnicodeSubtype3) < 0)
+        return NULL;
+
     m = PyModule_Create(&moduledef);
     if (m == NULL)
         return NULL;
@@ -690,6 +717,8 @@ PyMODINIT_FUNC
     if (PyDict_SetItemString(d, "UnicodeSubtype", (PyObject *) &UnicodeSubtype) < 0)
         return NULL;
     if (PyDict_SetItemString(d, "UnicodeSubtype2", (PyObject *) &UnicodeSubtype2) < 0)
+        return NULL;
+    if (PyDict_SetItemString(d, "UnicodeSubtype3", (PyObject *) &UnicodeSubtype3) < 0)
         return NULL;
     if (PyDict_SetItemString(d, "MetaType", (PyObject *) &MetaType) < 0)
         return NULL;
