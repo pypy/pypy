@@ -1083,7 +1083,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
     # Simple helpers
 
     def get_type_id(self, obj):
-        tid = self.get_flags(obj)
+        tid = self.header(obj).tid
         return llop.extract_ushort(llgroup.HALFWORD, tid)
 
     def combine(self, typeid16, flags):
@@ -1384,14 +1384,13 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # 'newvalue'-less version, too.  Moreover, the incremental
             # GC nowadays relies on this fact.
             self.old_objects_pointing_to_young.append(addr_struct)
-            objhdr = self.header(addr_struct)
-            objhdr.tid &= ~GCFLAG_TRACK_YOUNG_PTRS
+            self.remove_flags(addr_struct, GCFLAG_TRACK_YOUNG_PTRS)
             #
             # Second part: if 'addr_struct' is actually a prebuilt GC
             # object and it's the first time we see a write to it, we
             # add it to the list 'prebuilt_root_objects'.
-            if objhdr.tid & GCFLAG_NO_HEAP_PTRS:
-                objhdr.tid &= ~GCFLAG_NO_HEAP_PTRS
+            if self.get_flags(addr_struct) & GCFLAG_NO_HEAP_PTRS:
+                self.remove_flags(addr_struct, GCFLAG_NO_HEAP_PTRS)
                 self.prebuilt_root_objects.append(addr_struct)
 
         remember_young_pointer._dont_inline_ = True
@@ -1409,8 +1408,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # item that is (or contains) the pointer that we write.
             # We know that 'addr_array' has GCFLAG_TRACK_YOUNG_PTRS so far.
             #
-            objhdr = self.header(addr_array)
-            if objhdr.tid & GCFLAG_HAS_CARDS == 0:
+            if self.get_flags(addr_array) & GCFLAG_HAS_CARDS == 0:
                 #
                 if DEBUG:   # note: PYPY_GC_DEBUG=1 does not enable this
                     ll_assert(self.debug_is_old_object(addr_array),
@@ -1418,9 +1416,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 #
                 # no cards, use default logic.  Mostly copied from above.
                 self.old_objects_pointing_to_young.append(addr_array)
-                objhdr.tid &= ~GCFLAG_TRACK_YOUNG_PTRS
-                if objhdr.tid & GCFLAG_NO_HEAP_PTRS:
-                    objhdr.tid &= ~GCFLAG_NO_HEAP_PTRS
+                self.remove_flags(addr_array, GCFLAG_TRACK_YOUNG_PTRS)
+                if self.get_flags(addr_array) & GCFLAG_NO_HEAP_PTRS:
+                    self.remove_flags(addr_array, GCFLAG_NO_HEAP_PTRS)
                     self.prebuilt_root_objects.append(addr_array)
                 return
             #
@@ -1442,9 +1440,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # does not take 3 arguments).
             addr_byte.char[0] = chr(byte | bitmask)
             #
-            if objhdr.tid & GCFLAG_CARDS_SET == 0:
+            if self.get_flags(addr_array) & GCFLAG_CARDS_SET == 0:
                 self.old_objects_with_cards_set.append(addr_array)
-                objhdr.tid |= GCFLAG_CARDS_SET
+                self.add_flags(addr_array, GCFLAG_CARDS_SET)
 
         remember_young_pointer_from_array2._dont_inline_ = True
         assert self.card_page_indices > 0
@@ -1457,10 +1455,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # but GCFLAG_CARDS_SET is cleared.  This tries to set
             # GCFLAG_CARDS_SET if possible; otherwise, it falls back
             # to remember_young_pointer().
-            objhdr = self.header(addr_array)
-            if objhdr.tid & GCFLAG_HAS_CARDS:
+            if self.get_flags(addr_array) & GCFLAG_HAS_CARDS:
                 self.old_objects_with_cards_set.append(addr_array)
-                objhdr.tid |= GCFLAG_CARDS_SET
+                self.add_flags(addr_array, GCFLAG_CARDS_SET)
             else:
                 self.remember_young_pointer(addr_array)
 
@@ -1493,22 +1490,22 @@ class IncrementalMiniMarkGC(MovingGCBase):
         #
         source_hdr = self.header(source_addr)
         dest_hdr = self.header(dest_addr)
-        if dest_hdr.tid & GCFLAG_TRACK_YOUNG_PTRS == 0:
+        if self.get_flags(dest_addr) & GCFLAG_TRACK_YOUNG_PTRS == 0:
             return True
         # ^^^ a fast path of write-barrier
         #
-        if source_hdr.tid & GCFLAG_HAS_CARDS != 0:
+        if self.get_flags(source_addr) & GCFLAG_HAS_CARDS != 0:
             #
-            if source_hdr.tid & GCFLAG_TRACK_YOUNG_PTRS == 0:
+            if self.get_flags(source_addr) & GCFLAG_TRACK_YOUNG_PTRS == 0:
                 # The source object may have random young pointers.
                 # Return False to mean "do it manually in ll_arraycopy".
                 return False
             #
-            if source_hdr.tid & GCFLAG_CARDS_SET == 0:
+            if self.get_flags(source_addr) & GCFLAG_CARDS_SET == 0:
                 # The source object has no young pointers at all.  Done.
                 return True
             #
-            if dest_hdr.tid & GCFLAG_HAS_CARDS == 0:
+            if self.get_flags(dest_addr) & GCFLAG_HAS_CARDS == 0:
                 # The dest object doesn't have cards.  Do it manually.
                 return False
             #
@@ -1519,14 +1516,14 @@ class IncrementalMiniMarkGC(MovingGCBase):
             self.manually_copy_card_bits(source_addr, dest_addr, length)
             return True
         #
-        if source_hdr.tid & GCFLAG_TRACK_YOUNG_PTRS == 0:
+        if self.get_flags(source_addr) & GCFLAG_TRACK_YOUNG_PTRS == 0:
             # there might be in source a pointer to a young object
             self.old_objects_pointing_to_young.append(dest_addr)
-            dest_hdr.tid &= ~GCFLAG_TRACK_YOUNG_PTRS
+            self.remove_flags(dest_addr, GCFLAG_TRACK_YOUNG_PTRS)
         #
-        if dest_hdr.tid & GCFLAG_NO_HEAP_PTRS:
-            if source_hdr.tid & GCFLAG_NO_HEAP_PTRS == 0:
-                dest_hdr.tid &= ~GCFLAG_NO_HEAP_PTRS
+        if self.get_flags(dest_addr) & GCFLAG_NO_HEAP_PTRS:
+            if self.get_flags(source_addr) & GCFLAG_NO_HEAP_PTRS == 0:
+                self.remove_flags(dest_addr, GCFLAG_NO_HEAP_PTRS)
                 self.prebuilt_root_objects.append(dest_addr)
         return True
 
@@ -1547,9 +1544,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
         #
         if anybyte:
             dest_hdr = self.header(dest_addr)
-            if dest_hdr.tid & GCFLAG_CARDS_SET == 0:
+            if self.get_flags(dest_addr) & GCFLAG_CARDS_SET == 0:
                 self.old_objects_with_cards_set.append(dest_addr)
-                dest_hdr.tid |= GCFLAG_CARDS_SET
+                self.add_flags(dest_addr, GCFLAG_CARDS_SET)
 
     def _wb_old_object_pointing_to_pinned(self, obj, ignore):
         self.write_barrier(obj)
@@ -1947,7 +1944,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
             return
             #
         elif self._is_pinned(obj):
-            hdr = self.header(obj)
             #
             # track parent of pinned object specially. This mus be done before
             # checking for GCFLAG_VISITED: it may be that the same pinned object
@@ -1963,10 +1959,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 self.updated_old_objects_pointing_to_pinned = True
                 self.set_flags(parent, GCFLAG_PINNED_OBJECT_PARENT_KNOWN)
             #
-            if hdr.tid & GCFLAG_VISITED:
+            if self.get_flags(obj) & GCFLAG_VISITED:
                 return
             #
-            hdr.tid |= GCFLAG_VISITED
+            self.add_flags(obj, GCFLAG_VISITED)
             #
             self.surviving_pinned_objects.append(
                 llarena.getfakearenaaddress(obj - size_gc_header))
@@ -2031,10 +2027,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # a bug in which dying young arrays with card marks would
         # still be scanned before being freed, keeping a lot of
         # objects unnecessarily alive.
-        hdr = self.header(obj)
-        if hdr.tid & GCFLAG_VISITED_RMY:
+        if self.get_flags(obj) & GCFLAG_VISITED_RMY:
             return
-        hdr.tid |= GCFLAG_VISITED_RMY
+        self.add_flags(obj, GCFLAG_VISITED_RMY)
         #
         # Accounting
         size_gc_header = self.gcheaderbuilder.size_gc_header
@@ -2044,12 +2039,12 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # we just made 'obj' old, so we need to add it to the correct lists
         added_somewhere = False
         #
-        if hdr.tid & GCFLAG_TRACK_YOUNG_PTRS == 0:
+        if self.get_flags(obj) & GCFLAG_TRACK_YOUNG_PTRS == 0:
             self.old_objects_pointing_to_young.append(obj)
             added_somewhere = True
         #
-        if hdr.tid & GCFLAG_HAS_CARDS != 0:
-            ll_assert(hdr.tid & GCFLAG_CARDS_SET != 0,
+        if self.get_flags(obj) & GCFLAG_HAS_CARDS != 0:
+            ll_assert(self.get_flags(obj) & GCFLAG_CARDS_SET != 0,
                       "young array: GCFLAG_HAS_CARDS without GCFLAG_CARDS_SET")
             self.old_objects_with_cards_set.append(obj)
             added_somewhere = True
@@ -2476,19 +2471,19 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # flag GCFLAG_PINNED_OBJECT_PARENT_KNOWN is used during minor
         # collections and shouldn't be set here either.
         #
-        hdr = self.header(obj)
-        ll_assert((hdr.tid & GCFLAG_PINNED) == 0,
+        flags = self.get_flags(obj)
+        ll_assert((flags & GCFLAG_PINNED) == 0,
                   "pinned object in 'objects_to_trace'")
         ll_assert(not self.is_in_nursery(obj),
                   "nursery object in 'objects_to_trace'")
-        if hdr.tid & (GCFLAG_VISITED | GCFLAG_NO_HEAP_PTRS):
+        if flags & (GCFLAG_VISITED | GCFLAG_NO_HEAP_PTRS):
             return 0
         #
         # It's the first time.  We set the flag VISITED.  The trick is
         # to also set TRACK_YOUNG_PTRS here, for the write barrier.
-        hdr.tid |= GCFLAG_VISITED | GCFLAG_TRACK_YOUNG_PTRS
+        self.add_flags(obj, GCFLAG_VISITED | GCFLAG_TRACK_YOUNG_PTRS)
 
-        if self.has_gcptr(llop.extract_ushort(llgroup.HALFWORD, hdr.tid)):
+        if self.has_gcptr(self.get_type_id(obj)):
             #
             # Trace the content of the object and put all objects it references
             # into the 'objects_to_trace' list.
@@ -2691,8 +2686,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
     def _bump_finalization_state_from_0_to_1(self, obj):
         ll_assert(self._finalization_state(obj) == 0,
                   "unexpected finalization state != 0")
-        hdr = self.header(obj)
-        hdr.tid |= GCFLAG_FINALIZATION_ORDERING
+        self.add_flags(obj, GCFLAG_FINALIZATION_ORDERING)
 
     def _recursively_bump_finalization_state_from_2_to_3(self, obj):
         ll_assert(self._finalization_state(obj) == 2,
@@ -2702,9 +2696,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
         pending.append(obj)
         while pending.non_empty():
             y = pending.pop()
-            hdr = self.header(y)
-            if hdr.tid & GCFLAG_FINALIZATION_ORDERING:     # state 2 ?
-                hdr.tid &= ~GCFLAG_FINALIZATION_ORDERING   # change to state 3
+            if self.get_flags(y) & GCFLAG_FINALIZATION_ORDERING:     # state 2 ?
+                self.remove_flags(y, GCFLAG_FINALIZATION_ORDERING)   # change to state 3
                 self.trace(y, self._append_if_nonnull, pending)
 
     def _recursively_bump_finalization_state_from_1_to_2(self, obj):
@@ -3050,10 +3043,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
         return self.header(obj).tid
 
     def set_flags(self, obj, flags):
-        self.header(obj).tid=flags
+        self.header(obj).tid = flags
 
     def add_flags(self, obj, flags):
-        self.header(obj).tid|=flags
+        self.header(obj).tid |= flags
 
     def remove_flags(self, obj, flags):
-        self.header(obj).tid&=~flags
+        self.header(obj).tid &= ~flags
