@@ -668,6 +668,9 @@ class TestIncrementalMiniMarkGCSimple(TestMiniMarkGCSimple):
         self.gc.debug_gc_step_until(incminimark.STATE_SCANNING)
         assert self.stackroots[1].x == 13
 
+class TestIncrementalMiniMarkRemoteHeaderGCSimple(TestIncrementalMiniMarkGCSimple):
+    from rpython.memory.gc.incminimark_remoteheader import IncrementalMiniMarkRemoteHeaderGC as GCClass
+
 class TestIncrementalMiniMarkGCFull(DirectGCTest):
     from rpython.memory.gc.incminimark import IncrementalMiniMarkGC as GCClass
     def test_malloc_fixedsize_no_cleanup(self):
@@ -744,4 +747,5 @@ class TestIncrementalMiniMarkGCFull(DirectGCTest):
                 assert elem.prev == lltype.nullptr(S)
                 assert elem.next == lltype.nullptr(S)
 
-            
+class TestIncrementalMiniMarkRemoteHeaderGCFull(TestIncrementalMiniMarkGCFull):
+    from rpython.memory.gc.incminimark_remoteheader import IncrementalMiniMarkRemoteHeaderGC as GCClass
