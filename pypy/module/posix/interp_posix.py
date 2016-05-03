@@ -32,7 +32,7 @@ if sys.maxint == 2147483647:
         pass
 else:
     def check_uid_range(space, num):
-        if num < -(1<<31) or num >= (1<<32):
+        if num < -(1 << 31) or num >= (1 << 32):
             raise oefmt(space.w_OverflowError, "integer out of range")
 
 def fsencode_w(space, w_obj):

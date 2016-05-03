@@ -35,7 +35,7 @@ in addition to any features explicitly specified.
 
     if mode not in ('exec', 'eval', 'single'):
         raise oefmt(space.w_ValueError,
-                    "compile() arg 3 must be 'exec' or 'eval' or 'single'")
+                    "compile() arg 3 must be 'exec', 'eval' or 'single'")
 
     if space.isinstance_w(w_source, space.gettypeobject(ast.W_AST.typedef)):
         ast_node = ast.mod.from_object(space, w_source)
