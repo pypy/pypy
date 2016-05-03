@@ -2,7 +2,7 @@ from rpython.rlib import jit
 from rpython.rlib.rstring import StringBuilder
 
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import oefmt
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.module.micronumpy import constants as NPY
@@ -72,12 +72,10 @@ class W_FlagsObject(W_Root):
             return self.descr_get_fnc(space)
         if key == "FORC":
             return self.descr_get_forc(space)
-        raise OperationError(space.w_KeyError, space.wrap(
-            "Unknown flag"))
+        raise oefmt(space.w_KeyError, "Unknown flag")
 
     def descr_setitem(self, space, w_item, w_value):
-        raise OperationError(space.w_KeyError, space.wrap(
-            "Unknown flag"))
+        raise oefmt(space.w_KeyError, "Unknown flag")
 
     def eq(self, space, w_other):
         if not isinstance(w_other, W_FlagsObject):

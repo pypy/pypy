@@ -1,4 +1,4 @@
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import oefmt
 from pypy.objspace.std.tupleobject import W_AbstractTupleObject
 from pypy.objspace.std.util import negate
 from rpython.rlib.objectmodel import compute_hash, specialize
@@ -117,8 +117,7 @@ def make_specialised_class(typetuple):
                     if typetuple[i] != object:
                         value = space.wrap(value)
                     return value
-            raise OperationError(space.w_IndexError,
-                                 space.wrap("tuple index out of range"))
+            raise oefmt(space.w_IndexError, "tuple index out of range")
 
     cls.__name__ = ('W_SpecialisedTupleObject_' +
                     ''.join([t.__name__[0] for t in typetuple]))
@@ -180,10 +179,8 @@ def _build_zipped_unspec(space, w_list1, w_list2):
 
 def specialized_zip_2_lists(space, w_list1, w_list2):
     from pypy.objspace.std.listobject import W_ListObject
-    if (not isinstance(w_list1, W_ListObject) or
-        not isinstance(w_list2, W_ListObject)):
-        raise OperationError(space.w_TypeError,
-                             space.wrap("expected two lists"))
+    if type(w_list1) is not W_ListObject or type(w_list2) is not W_ListObject:
+        raise oefmt(space.w_TypeError, "expected two exact lists")
 
     if space.config.objspace.std.withspecialisedtuple:
         intlist1 = w_list1.getitems_int()

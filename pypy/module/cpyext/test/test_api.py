@@ -59,7 +59,7 @@ class BaseApiTest(LeakCheckingTest):
         state = self.space.fromcache(State)
         try:
             state.check_and_raise_exception()
-        except OperationError, e:
+        except OperationError as e:
             print e.errorstr(self.space)
             raise
 

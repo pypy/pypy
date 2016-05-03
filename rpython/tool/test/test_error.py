@@ -55,6 +55,6 @@ def test_someobject_from_call():
 
     try:
         compile_function(fn, [int])
-    except UnionError, e:
+    except UnionError as e:
         assert 'function one' in str(e)
         assert 'function two' in str(e)

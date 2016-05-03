@@ -838,18 +838,6 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         mc.writeimm32(allocated_depth)
         mc.copy_to_raw_memory(adr)
 
-    def get_asmmemmgr_blocks(self, looptoken):
-        clt = looptoken.compiled_loop_token
-        if clt.asmmemmgr_blocks is None:
-            clt.asmmemmgr_blocks = []
-        return clt.asmmemmgr_blocks
-
-    def get_asmmemmgr_gcreftracers(self, looptoken):
-        clt = looptoken.compiled_loop_token
-        if clt.asmmemmgr_gcreftracers is None:
-            clt.asmmemmgr_gcreftracers = []
-        return clt.asmmemmgr_gcreftracers
-
     def materialize_loop(self, looptoken):
         self.datablockwrapper.done()      # finish using cpu.asmmemmgr
         self.datablockwrapper = None

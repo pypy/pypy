@@ -1,54 +1,63 @@
 =========================
-What's new in PyPy 5.0.+
+What's new in PyPy 5.1+
 =========================
 
-.. this is a revision shortly after release-5.0
-.. startrev: b238b48f9138
+.. this is a revision shortly after release-5.1
+.. startrev: aa60332382a1
 
-.. branch: s390x-backend
+.. branch: techtonik/introductionrst-simplify-explanation-abo-1460879168046
 
-The jit compiler backend implementation for the s390x architecutre.
-The backend manages 64-bit values in the literal pool of the assembly instead of loading them as immediates.
-It includes a simplification for the operation 'zero_array'. Start and length parameters are bytes instead of size.
+.. branch: gcheader-decl
 
-.. branch: remove-py-log
+Reduce the size of generated C sources.
 
-Replace py.log with something simpler, which should speed up logging
 
-.. branch: where_1_arg
+.. branch: remove-objspace-options
 
-Implemented numpy.where for 1 argument (thanks sergem)
+Remove a number of options from the build process that were never tested and
+never set. Fix a performance bug in the method cache.
 
-.. branch: fix_indexing_by_numpy_int
+.. branch: bitstring
 
-Implement yet another strange numpy indexing compatibility; indexing by a scalar 
-returns a scalar
+JIT: use bitstrings to compress the lists of read or written descrs
+that we attach to EffectInfo.  Fixes a problem we had in
+remove-objspace-options.
 
-.. branch: fix_transpose_for_list_v3
+.. branch: cpyext-for-merge
 
-Allow arguments to transpose to be sequences
+Update cpyext C-API support After this branch, we are almost able to support 
+upstream numpy via cpyext, so we created (yet another) fork of numpy at 
+github.com/pypy/numpy with the needed changes. Among the significant changes 
+to cpyext:
+  - allow c-snippet tests to be run with -A so we can verify we are compatible
+  - fix many edge cases exposed by fixing tests to run with -A
+  - issequence() logic matches cpython
+  - make PyStringObject and PyUnicodeObject field names compatible with cpython
+  - add prelminary support for PyDateTime_*
+  - support PyComplexObject, PyFloatObject, PyDict_Merge, PyDictProxy,
+    PyMemoryView_*, _Py_HashDouble, PyFile_AsFile, PyFile_FromFile,
+  - PyAnySet_CheckExact, PyUnicode_Concat
+  - improve support for PyGILState_Ensure, PyGILState_Release, and thread
+    primitives, also find a case where CPython will allow thread creation
+    before PyEval_InitThreads is run, dissallow on PyPy 
+  - create a PyObject-specific list strategy
+  - rewrite slot assignment for typeobjects
+  - improve tracking of PyObject to rpython object mapping
+  - support tp_as_{number, sequence, mapping, buffer} slots
 
-.. branch: jit-leaner-frontend
+(makes the pypy-c bigger; this was fixed subsequently by the
+share-cpyext-cpython-api branch)
 
-Improve the tracing speed in the frontend as well as heapcache by using a more compact representation
-of traces
+.. branch: share-mapdict-methods-2
 
-.. branch: win32-lib-name
+Reduce generated code for subclasses by using the same function objects in all
+generated subclasses.
 
-.. branch: remove-frame-forcing-in-executioncontext
+.. branch: share-cpyext-cpython-api
 
-.. branch: rposix-for-3
+.. branch: cpyext-auto-gil
 
-Wrap more POSIX functions in `rpython.rlib.rposix`.
-
-.. branch: cleanup-history-rewriting
-
-A local clean-up in the JIT front-end.
-
-.. branch: jit-constptr-2
-
-Remove the forced minor collection that occurs when rewriting the
-assembler at the start of the JIT backend. This is done by emitting
-the ConstPtrs in a separate table, and loading from the table.  It
-gives improved warm-up time and memory usage, and also removes
-annoying special-purpose code for pinned pointers.
+CPyExt tweak: instead of "GIL not held when a CPython C extension module
+calls PyXxx", we now silently acquire/release the GIL.  Helps with
+CPython C extension modules that call some PyXxx() functions without
+holding the GIL (arguably, they are theorically buggy).

@@ -46,11 +46,12 @@ class BoehmGCTransformer(GCTransformer):
                 ll_malloc_varsize_no_length, [lltype.Signed]*3, llmemory.Address, inline=False)
             self.malloc_varsize_ptr = self.inittime_helper(
                 ll_malloc_varsize, [lltype.Signed]*4, llmemory.Address, inline=False)
-            self.weakref_create_ptr = self.inittime_helper(
-                ll_weakref_create, [llmemory.Address], llmemory.WeakRefPtr,
-                inline=False)
-            self.weakref_deref_ptr = self.inittime_helper(
-                ll_weakref_deref, [llmemory.WeakRefPtr], llmemory.Address)
+            if self.translator.config.translation.rweakref:
+                self.weakref_create_ptr = self.inittime_helper(
+                    ll_weakref_create, [llmemory.Address], llmemory.WeakRefPtr,
+                    inline=False)
+                self.weakref_deref_ptr = self.inittime_helper(
+                    ll_weakref_deref, [llmemory.WeakRefPtr], llmemory.Address)
             self.identityhash_ptr = self.inittime_helper(
                 ll_identityhash, [llmemory.Address], lltype.Signed,
                 inline=False)

@@ -273,13 +273,3 @@ class AppTestUserObject:
             i += 1
 
 
-class AppTestWithGetAttributeShortcut(AppTestUserObject):
-    spaceconfig = {"objspace.std.getattributeshortcut": True}
-
-
-class AppTestDescriptorWithGetAttributeShortcut(
-    test_descriptor.AppTest_Descriptor):
-    # for the individual tests see
-    # ====> ../../test/test_descriptor.py
-
-    spaceconfig = {"objspace.std.getattributeshortcut": True}

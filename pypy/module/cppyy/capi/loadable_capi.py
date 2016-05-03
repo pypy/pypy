@@ -3,7 +3,7 @@ from rpython.rlib import jit, jit_libffi, libffi, rdynload, objectmodel
 from rpython.rlib.rarithmetic import r_singlefloat
 from rpython.tool import leakfinder
 
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import oefmt
 
 from pypy.module._cffi_backend import ctypefunc, ctypeprim, cdataobj, misc
 
@@ -240,8 +240,8 @@ def verify_backend(space):
         load_reflection_library(space)
     except Exception:
         if objectmodel.we_are_translated():
-            raise OperationError(space.w_ImportError,
-                                 space.wrap("missing reflection library %s" % reflection_library))
+            raise oefmt(space.w_ImportError,
+                        "missing reflection library %s", reflection_library)
         return False
     return True
 

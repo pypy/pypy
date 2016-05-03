@@ -544,6 +544,21 @@ class __extend__(pairtype(FunctionsPBCRepr, SmallFunctionSetPBCRepr)):
         ll_compress = compression_function(r_set)
         return llops.gendirectcall(ll_compress, v)
 
+class __extend__(pairtype(FunctionReprBase, FunctionReprBase)):
+    def rtype_is_((robj1, robj2), hop):
+        if hop.s_result.is_constant():
+            return inputconst(Bool, hop.s_result.const)
+        s_pbc = annmodel.unionof(robj1.s_pbc, robj2.s_pbc)
+        r_pbc = hop.rtyper.getrepr(s_pbc)
+        v1, v2 = hop.inputargs(r_pbc, r_pbc)
+        assert v1.concretetype == v2.concretetype
+        if v1.concretetype == Char:
+            return hop.genop('char_eq', [v1, v2], resulttype=Bool)
+        elif isinstance(v1.concretetype, Ptr):
+            return hop.genop('ptr_eq', [v1, v2], resulttype=Bool)
+        else:
+            raise TyperError("unknown type %r" % (v1.concretetype,))
+
 
 def conversion_table(r_from, r_to):
     if r_to in r_from._conversion_tables:

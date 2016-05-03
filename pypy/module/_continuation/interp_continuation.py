@@ -224,7 +224,7 @@ def new_stacklet_callback(h, arg):
     try:
         frame = self.bottomframe
         w_result = frame.execute_frame()
-    except Exception, e:
+    except Exception as e:
         global_state.propagate_exception = e
     else:
         global_state.w_value = w_result

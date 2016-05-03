@@ -31,7 +31,7 @@ def timeout_killer(pid, delay):
             time.sleep(0.1)
             try:
                 os.kill(pid, 0)
-            except OSError, e:
+            except OSError as e:
                 if e.errno == errno.ESRCH: # no such process
                     return
                 raise

@@ -780,7 +780,7 @@ class Transformer(object):
                 return [SpaceOperation('-live-', [], None),
                         SpaceOperation('getfield_vable_%s' % kind,
                                        [v_inst, descr], op.result)]
-        except VirtualizableArrayField, e:
+        except VirtualizableArrayField as e:
             # xxx hack hack hack
             vinfo = e.args[1]
             arrayindex = vinfo.array_field_counter[op.args[1].value]

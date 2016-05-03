@@ -13,7 +13,7 @@ class AppTestTraceBackAttributes:
         # XXX why is this called newstring?
         import sys
         def f():
-            raise TypeError, "hello"
+            raise TypeError("hello")
 
         def g():
             f()
@@ -23,7 +23,7 @@ class AppTestTraceBackAttributes:
         except:
             typ,val,tb = sys.exc_info()
         else:
-            raise AssertionError, "should have raised"
+            raise AssertionError("should have raised")
         assert hasattr(tb, 'tb_frame')
         assert hasattr(tb, 'tb_lasti')
         assert hasattr(tb, 'tb_lineno')
@@ -362,6 +362,26 @@ class TestTypeDef:
         """)
         assert seen == [1]
 
+    def test_mapdict_number_of_slots(self):
+        space = self.space
+        a, b, c = space.unpackiterable(space.appexec([], """():
+            class A(object):
+                pass
+            a = A()
+            a.x = 1
+            class B:
+                pass
+            b = B()
+            b.x = 1
+            class C(int):
+                pass
+            c = C(1)
+            c.x = 1
+            return a, b, c
+        """), 3)
+        assert not hasattr(a, "storage")
+        assert not hasattr(b, "storage")
+        assert hasattr(c, "storage")
 
 class AppTestTypeDef:
 

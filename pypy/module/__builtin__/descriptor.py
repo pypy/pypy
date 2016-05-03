@@ -1,5 +1,5 @@
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.function import StaticMethod, ClassMethod
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.typedef import (TypeDef, interp_attrproperty_w,
@@ -62,14 +62,14 @@ def descr_new_super(space, w_subtype, w_starttype, w_obj_or_type=None):
         else:
             try:
                 w_type = space.getattr(w_obj_or_type, space.wrap('__class__'))
-            except OperationError, o:
+            except OperationError as o:
                 if not o.match(space, space.w_AttributeError):
                     raise
                 w_type = w_objtype
             if not space.is_true(space.issubtype(w_type, w_starttype)):
-                raise OperationError(space.w_TypeError,
-                    space.wrap("super(type, obj): "
-                               "obj must be an instance or subtype of type"))
+                raise oefmt(space.w_TypeError,
+                            "super(type, obj): obj must be an instance or "
+                            "subtype of type")
     # XXX the details of how allocate_instance() should be used are not
     # really well defined
     w_result = space.allocate_instance(W_Super, w_subtype)
@@ -126,21 +126,18 @@ class W_Property(W_Root):
         if space.is_w(w_obj, space.w_None):
             return space.wrap(self)
         if space.is_w(self.w_fget, space.w_None):
-            raise OperationError(space.w_AttributeError, space.wrap(
-                "unreadable attribute"))
+            raise oefmt(space.w_AttributeError, "unreadable attribute")
         return space.call_function(self.w_fget, w_obj)
 
     def set(self, space, w_obj, w_value):
         if space.is_w(self.w_fset, space.w_None):
-            raise OperationError(space.w_AttributeError, space.wrap(
-                "can't set attribute"))
+            raise oefmt(space.w_AttributeError, "can't set attribute")
         space.call_function(self.w_fset, w_obj, w_value)
         return space.w_None
 
     def delete(self, space, w_obj):
         if space.is_w(self.w_fdel, space.w_None):
-            raise OperationError(space.w_AttributeError, space.wrap(
-                "can't delete attribute"))
+            raise oefmt(space.w_AttributeError, "can't delete attribute")
         space.call_function(self.w_fdel, w_obj)
         return space.w_None
 

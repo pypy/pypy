@@ -24,7 +24,7 @@ class W_Library(W_Root):
                 filename = "<None>"
             try:
                 self.handle = dlopen(ll_libname, flags)
-            except DLOpenError, e:
+            except DLOpenError as e:
                 raise wrap_dlopenerror(space, e, filename)
         self.name = filename
 

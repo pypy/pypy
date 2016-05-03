@@ -214,6 +214,7 @@ class ExecutionContext(object):
             self._trace(frame, 'exception', None, operationerr)
         #operationerr.print_detailed_traceback(self.space)
 
+    @jit.dont_look_inside
     @specialize.arg(1)
     def sys_exc_info(self, for_hidden=False):
         """Implements sys.exc_info().
@@ -225,15 +226,7 @@ class ExecutionContext(object):
         # NOTE: the result is not the wrapped sys.exc_info() !!!
 
         """
-        frame = self.gettopframe()
-        while frame:
-            if frame.last_exception is not None:
-                if ((for_hidden or not frame.hide()) or
-                        frame.last_exception is
-                            get_cleared_operation_error(self.space)):
-                    return frame.last_exception
-            frame = frame.f_backref()
-        return None
+        return self.gettopframe()._exc_info_unroll(self.space, for_hidden)
 
     def set_sys_exc_info(self, operror):
         frame = self.gettopframe_nohidden()
@@ -570,7 +563,7 @@ class UserDelAction(AsyncAction):
         while pending is not None:
             try:
                 pending.callback(pending.w_obj)
-            except OperationError, e:
+            except OperationError as e:
                 e.write_unraisable(space, pending.descrname, pending.w_obj)
                 e.clear(space)   # break up reference cycles
             pending = pending.next

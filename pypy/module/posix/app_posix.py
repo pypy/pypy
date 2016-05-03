@@ -199,10 +199,10 @@ if osname == 'posix':
             g._childpid = childpid
             return g
 
-        except Exception, e:
+        except Exception as e:
             try_close(write_end)
             try_close(read_end)
-            raise Exception, e     # bare 'raise' does not work here :-(
+            raise e     # bare 'raise' does not work here :-(
 
     def wait():
         """ wait() -> (pid, status)

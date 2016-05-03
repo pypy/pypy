@@ -49,10 +49,10 @@ class W_CType(W_Root):
     def is_unichar_ptr_or_array(self):
         return False
 
-    def unpack_list_of_int_items(self, cdata):
+    def unpack_list_of_int_items(self, ptr, length):
         return None
 
-    def unpack_list_of_float_items(self, cdata):
+    def unpack_list_of_float_items(self, ptr, length):
         return None
 
     def pack_list_of_items(self, cdata, w_ob):
@@ -127,6 +127,21 @@ class W_CType(W_Root):
         raise oefmt(space.w_TypeError,
                     "string(): unexpected cdata '%s' argument", self.name)
 
+    def unpack_ptr(self, w_ctypeptr, ptr, length):
+        # generic implementation, when the type of items is not known to
+        # be one for which a fast-case exists
+        space = self.space
+        itemsize = self.size
+        if itemsize < 0:
+            raise oefmt(space.w_ValueError,
+                        "'%s' points to items of unknown size",
+                        w_ctypeptr.name)
+        result_w = [None] * length
+        for i in range(length):
+            result_w[i] = self.convert_to_object(ptr)
+            ptr = rffi.ptradd(ptr, itemsize)
+        return space.newlist(result_w)
+
     def add(self, cdata, i):
         space = self.space
         raise oefmt(space.w_TypeError, "cannot add a cdata '%s' and a number",
@@ -162,34 +177,32 @@ class W_CType(W_Root):
         space = self.space
         try:
             fieldname = space.str_w(w_field_or_index)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_TypeError):
                 raise
             try:
                 index = space.int_w(w_field_or_index)
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_TypeError):
                     raise
-                raise OperationError(space.w_TypeError,
-                        space.wrap("field name or array index expected"))
+                raise oefmt(space.w_TypeError,
+                            "field name or array index expected")
             return self.typeoffsetof_index(index)
         else:
             return self.typeoffsetof_field(fieldname, following)
 
     def typeoffsetof_field(self, fieldname, following):
-        space = self.space
-        msg = "with a field name argument, expected a struct or union ctype"
-        raise OperationError(space.w_TypeError, space.wrap(msg))
+        raise oefmt(self.space.w_TypeError,
+                    "with a field name argument, expected a struct or union "
+                    "ctype")
 
     def typeoffsetof_index(self, index):
-        space = self.space
-        msg = "with an integer argument, expected an array or pointer ctype"
-        raise OperationError(space.w_TypeError, space.wrap(msg))
+        raise oefmt(self.space.w_TypeError,
+                    "with an integer argument, expected an array or pointer "
+                    "ctype")
 
     def rawaddressof(self, cdata, offset):
-        space = self.space
-        raise OperationError(space.w_TypeError,
-                             space.wrap("expected a pointer ctype"))
+        raise oefmt(self.space.w_TypeError, "expected a pointer ctype")
 
     def call(self, funcaddr, args_w):
         space = self.space

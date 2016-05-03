@@ -1,7 +1,7 @@
 # ____________________________________________________________
 
 import sys
-assert __version__ == "1.5.2", ("This test_c.py file is for testing a version"
+assert __version__ == "1.6.0", ("This test_c.py file is for testing a version"
                                 " of cffi that differs from the one that we"
                                 " get from 'import _cffi_backend'")
 if sys.version_info < (3,):
@@ -3514,3 +3514,72 @@ def test_get_common_types():
     d = {}
     _get_common_types(d)
     assert d['bool'] == '_Bool'
+
+def test_unpack():
+    BChar = new_primitive_type("char")
+    BArray = new_array_type(new_pointer_type(BChar), 10)   # char[10]
+    p = newp(BArray, b"abc\x00def")
+    p0 = p
+    assert unpack(p, 10) == b"abc\x00def\x00\x00\x00"
+    assert unpack(p+1, 5) == b"bc\x00de"
+    BWChar = new_primitive_type("wchar_t")
+    BArray = new_array_type(new_pointer_type(BWChar), 10)   # wchar_t[10]
+    p = newp(BArray, u"abc\x00def")
+    assert unpack(p, 10) == u"abc\x00def\x00\x00\x00"
+
+    for typename, samples in [
+            ("uint8_t",  [0, 2**8-1]),
+            ("uint16_t", [0, 2**16-1]),
+            ("uint32_t", [0, 2**32-1]),
+            ("uint64_t", [0, 2**64-1]),
+            ("int8_t",  [-2**7, 2**7-1]),
+            ("int16_t", [-2**15, 2**15-1]),
+            ("int32_t", [-2**31, 2**31-1]),
+            ("int64_t", [-2**63, 2**63-1]),
+            ("_Bool", [0, 1]),
+            ("float", [0.0, 10.5]),
+            ("double", [12.34, 56.78]),
+            ]:
+        BItem = new_primitive_type(typename)
+        BArray = new_array_type(new_pointer_type(BItem), 10)
+        p = newp(BArray, samples)
+        result = unpack(p, len(samples))
+        assert result == samples
+        for i in range(len(samples)):
+            assert result[i] == p[i] and type(result[i]) is type(p[i])
+    #
+    BInt = new_primitive_type("int")
+    py.test.raises(TypeError, unpack, p)
+    py.test.raises(TypeError, unpack, b"foobar", 6)
+    py.test.raises(TypeError, unpack, cast(BInt, 42), 1)
+    #
+    BPtr = new_pointer_type(BInt)
+    random_ptr = cast(BPtr, -424344)
+    other_ptr = cast(BPtr, 54321)
+    BArray = new_array_type(new_pointer_type(BPtr), None)
+    lst = unpack(newp(BArray, [random_ptr, other_ptr]), 2)
+    assert lst == [random_ptr, other_ptr]
+    #
+    BFunc = new_function_type((BInt, BInt), BInt, False)
+    BFuncPtr = new_pointer_type(BFunc)
+    lst = unpack(newp(new_array_type(BFuncPtr, None), 2), 2)
+    assert len(lst) == 2
+    assert not lst[0] and not lst[1]
+    assert typeof(lst[0]) is BFunc
+    #
+    BStruct = new_struct_type("foo")
+    BStructPtr = new_pointer_type(BStruct)
+    e = py.test.raises(ValueError, unpack, cast(BStructPtr, 42), 5)
+    assert str(e.value) == "'foo *' points to items of unknown size"
+    complete_struct_or_union(BStruct, [('a1', BInt, -1),
+                                       ('a2', BInt, -1)])
+    array_of_structs = newp(new_array_type(BStructPtr, None), [[4,5], [6,7]])
+    lst = unpack(array_of_structs, 2)
+    assert typeof(lst[0]) is BStruct
+    assert lst[0].a1 == 4 and lst[1].a2 == 7
+    #
+    py.test.raises(RuntimeError, unpack, cast(new_pointer_type(BChar), 0), 0)
+    py.test.raises(RuntimeError, unpack, cast(new_pointer_type(BChar), 0), 10)
+    #
+    py.test.raises(ValueError, unpack, p0, -1)
+    py.test.raises(ValueError, unpack, p, -1)

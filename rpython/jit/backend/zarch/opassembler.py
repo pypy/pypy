@@ -358,8 +358,9 @@ class CallOpAssembler(object):
                 guard_op.getopnum() == rop.GUARD_NOT_FORCED_2)
         faildescr = guard_op.getdescr()
         ofs = self.cpu.get_ofs_of_frame_field('jf_force_descr')
-        self.mc.load_imm(r.SCRATCH, rffi.cast(lltype.Signed,
-                                           cast_instance_to_gcref(faildescr)))
+        #
+        faildescrindex = self.get_gcref_from_faildescr(faildescr)
+        self.load_gcref_into(r.SCRATCH, faildescrindex)
         self.mc.STG(r.SCRATCH, l.addr(ofs, r.SPP))
 
     def _find_nearby_operation(self, regalloc, delta):
@@ -632,11 +633,18 @@ class GuardOpAssembler(object):
     def build_guard_token(self, op, frame_depth, arglocs, fcond):
         descr = op.getdescr()
         gcmap = allocate_gcmap(self, frame_depth, r.JITFRAME_FIXED_SIZE)
+        faildescrindex = self.get_gcref_from_faildescr(descr)
         token = ZARCHGuardToken(self.cpu, gcmap, descr, op.getfailargs(),
                               arglocs, op.getopnum(), frame_depth,
-                              fcond)
+                              faildescrindex, fcond)
         #token._pool_offset = self.pool.get_descr_offset(descr)
         return token
+
+    def emit_load_from_gc_table(self, op, arglocs, regalloc):
+        resloc, = arglocs
+        index = op.getarg(0).getint()
+        assert resloc.is_reg()
+        self.load_gcref_into(resloc, index)
 
     def emit_guard_true(self, op, arglocs, regalloc):
         self._emit_guard(op, arglocs)

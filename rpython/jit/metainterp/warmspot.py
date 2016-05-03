@@ -82,7 +82,7 @@ def jittify_and_run(interp, graph, args, repeat=1, graph_and_interp_only=False,
                     backendopt=False, trace_limit=sys.maxint, inline=False,
                     loop_longevity=0, retrace_limit=5, function_threshold=4,
                     disable_unrolling=sys.maxint,
-                    enable_opts=ALL_OPTS_NAMES, max_retrace_guards=15, 
+                    enable_opts=ALL_OPTS_NAMES, max_retrace_guards=15,
                     max_unroll_recursion=7, vec=1, vec_all=0, vec_cost=0,
                     vec_length=60, vec_ratio=2, vec_guard_ratio=3, **kwds):
     from rpython.config.config import ConfigError
@@ -277,6 +277,7 @@ class WarmRunnerDesc(object):
         for vinfo in vinfos:
             if vinfo is not None:
                 vinfo.finish()
+        self.metainterp_sd.finish_setup_descrs()
         if self.cpu.translate_support_code:
             self.annhelper.finish()
 
@@ -488,7 +489,7 @@ class WarmRunnerDesc(object):
         if opencoder_model == 'big':
             self.metainterp_sd.opencoder_model = BigModel
         else:
-            self.metainterp_sd.opencoder_model = Model            
+            self.metainterp_sd.opencoder_model = Model
         self.stats.metainterp_sd = self.metainterp_sd
 
     def make_virtualizable_infos(self):
@@ -542,7 +543,7 @@ class WarmRunnerDesc(object):
                 raise     # go through
             except StackOverflow:
                 raise     # go through
-            except Exception, e:
+            except Exception as e:
                 if not we_are_translated():
                     print "~~~ Crash in JIT!"
                     print '~~~ %s: %s' % (e.__class__, e)
@@ -907,7 +908,7 @@ class WarmRunnerDesc(object):
                     # want to interrupt the whole interpreter loop.
                     return support.maybe_on_top_of_llinterp(rtyper,
                                                       portal_ptr)(*args)
-                except jitexc.ContinueRunningNormally, e:
+                except jitexc.ContinueRunningNormally as e:
                     args = ()
                     for ARGTYPE, attrname, count in portalfunc_ARGS:
                         x = getattr(e, attrname)[count]
@@ -918,28 +919,28 @@ class WarmRunnerDesc(object):
                 except jitexc.DoneWithThisFrameVoid:
                     assert result_kind == 'void'
                     return
-                except jitexc.DoneWithThisFrameInt, e:
+                except jitexc.DoneWithThisFrameInt as e:
                     assert result_kind == 'int'
                     return specialize_value(RESULT, e.result)
-                except jitexc.DoneWithThisFrameRef, e:
+                except jitexc.DoneWithThisFrameRef as e:
                     assert result_kind == 'ref'
                     return specialize_value(RESULT, e.result)
-                except jitexc.DoneWithThisFrameFloat, e:
+                except jitexc.DoneWithThisFrameFloat as e:
                     assert result_kind == 'float'
                     return specialize_value(RESULT, e.result)
-                except jitexc.ExitFrameWithExceptionRef, e:
+                except jitexc.ExitFrameWithExceptionRef as e:
                     value = ts.cast_to_baseclass(e.value)
                     if not we_are_translated():
                         raise LLException(ts.get_typeptr(value), value)
                     else:
                         value = cast_base_ptr_to_instance(Exception, value)
-                        raise Exception, value
+                        raise value
 
         def handle_jitexception(e):
             # XXX the bulk of this function is mostly a copy-paste from above
             try:
                 raise e
-            except jitexc.ContinueRunningNormally, e:
+            except jitexc.ContinueRunningNormally as e:
                 args = ()
                 for ARGTYPE, attrname, count in portalfunc_ARGS:
                     x = getattr(e, attrname)[count]
@@ -952,22 +953,22 @@ class WarmRunnerDesc(object):
             except jitexc.DoneWithThisFrameVoid:
                 assert result_kind == 'void'
                 return
-            except jitexc.DoneWithThisFrameInt, e:
+            except jitexc.DoneWithThisFrameInt as e:
                 assert result_kind == 'int'
                 return e.result
-            except jitexc.DoneWithThisFrameRef, e:
+            except jitexc.DoneWithThisFrameRef as e:
                 assert result_kind == 'ref'
                 return e.result
-            except jitexc.DoneWithThisFrameFloat, e:
+            except jitexc.DoneWithThisFrameFloat as e:
                 assert result_kind == 'float'
                 return e.result
-            except jitexc.ExitFrameWithExceptionRef, e:
+            except jitexc.ExitFrameWithExceptionRef as e:
                 value = ts.cast_to_baseclass(e.value)
                 if not we_are_translated():
                     raise LLException(ts.get_typeptr(value), value)
                 else:
                     value = cast_base_ptr_to_instance(Exception, value)
-                    raise Exception, value
+                    raise value
 
         jd._ll_portal_runner = ll_portal_runner # for debugging
         jd.portal_runner_ptr = self.helper_func(jd._PTR_PORTAL_FUNCTYPE,
@@ -985,7 +986,7 @@ class WarmRunnerDesc(object):
             fail_descr = self.cpu.get_latest_descr(deadframe)
             try:
                 fail_descr.handle_fail(deadframe, self.metainterp_sd, jd)
-            except jitexc.JitException, e:
+            except jitexc.JitException as e:
                 return handle_jitexception(e)
             else:
                 assert 0, "should have raised"

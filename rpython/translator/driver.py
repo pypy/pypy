@@ -398,8 +398,8 @@ class TranslationDriver(SimpleTaskEngine):
             from rpython.translator.platform import CompilationError
             try:
                 configure_boehm(self.translator.platform)
-            except CompilationError, e:
-                i = 'Boehm GC not installed.  Try e.g. "translate.py --gc=hybrid"'
+            except CompilationError as e:
+                i = 'Boehm GC not installed.  Try e.g. "translate.py --gc=minimark"'
                 raise Exception(str(e) + '\n' + i)
 
     @taskdef([STACKCHECKINSERTION, '?'+BACKENDOPT, RTYPE, '?annotate'],

@@ -24,7 +24,7 @@ class DictProxyStrategy(DictStrategy):
         elif space.abstract_issubclass_w(w_lookup_type, space.w_unicode):
             try:
                 w_key = space.str(w_key)
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_UnicodeEncodeError):
                     raise
                 # non-ascii unicode is never equal to a byte string
@@ -41,13 +41,14 @@ class DictProxyStrategy(DictStrategy):
         if space.is_w(space.type(w_key), space.w_str):
             self.setitem_str(w_dict, self.space.str_w(w_key), w_value)
         else:
-            raise OperationError(space.w_TypeError, space.wrap("cannot add non-string keys to dict of a type"))
+            raise oefmt(space.w_TypeError,
+                        "cannot add non-string keys to dict of a type")
 
     def setitem_str(self, w_dict, key, w_value):
         w_type = self.unerase(w_dict.dstorage)
         try:
             w_type.setdictvalue(self.space, key, w_value)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(self.space, self.space.w_TypeError):
                 raise
             if not w_type.is_cpytype():
