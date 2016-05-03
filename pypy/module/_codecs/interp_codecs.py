@@ -51,13 +51,10 @@ class CodecState(object):
                 or not space.isinstance_w(
                                  space.getitem(w_res, space.wrap(0)),
                                  space.w_unicode)):
-                if decode:
-                    msg = ("decoding error handler must return "
-                           "(unicode, int) tuple, not %R")
-                else:
-                    msg = ("encoding error handler must return "
-                           "(unicode, int) tuple, not %R")
-                raise oefmt(space.w_TypeError, msg, w_res)
+                raise oefmt(space.w_TypeError,
+                            "%s error handler must return (unicode, int) "
+                            "tuple, not %R",
+                            "decoding" if decode else "encoding", w_res)
             w_replace, w_newpos = space.fixedview(w_res, 2)
             newpos = space.int_w(w_newpos)
             if newpos < 0:
