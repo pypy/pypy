@@ -103,6 +103,12 @@ class AppTestBytesObject:
             assert result == "a foo b"
             assert isinstance(result, cls)
 
+    def test_format_wrongtype(self):
+        for int_format in '%d', '%o', '%x':
+            exc_info = raises(TypeError, int_format.__mod__, '123')
+            expected = int_format + ' format: a number is required, not str'
+            assert str(exc_info.value) == expected
+
     def test_split(self):
         assert "".split() == []
         assert "".split('x') == ['']
