@@ -160,7 +160,7 @@ def _catch_bz2_error(space, bzerror):
         raise oefmt(space.w_SystemError,
                     "the bz2 library has received wrong parameters")
     elif bzerror == BZ_MEM_ERROR:
-        raise OperationError(space.w_MemoryError, space.wrap(""))
+        raise OperationError(space.w_MemoryError, space.w_None)
     elif bzerror in (BZ_DATA_ERROR, BZ_DATA_ERROR_MAGIC):
         raise oefmt(space.w_IOError, "invalid data stream")
     elif bzerror == BZ_IO_ERROR:
