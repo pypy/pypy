@@ -4,7 +4,7 @@ from pypy.interpreter.typedef import GetSetProperty, TypeDef
 from pypy.interpreter.typedef import interp_attrproperty, interp_attrproperty_w
 from pypy.interpreter.typedef import make_weakref_descr
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib import jit
 from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
@@ -97,8 +97,7 @@ class W_SRE_Pattern(W_Root):
 
     def cannot_copy_w(self):
         space = self.space
-        raise OperationError(space.w_TypeError,
-                             space.wrap("cannot copy this pattern object"))
+        raise oefmt(space.w_TypeError, "cannot copy this pattern object")
 
     def make_ctx(self, w_string, pos=0, endpos=sys.maxint):
         """Make a StrMatchContext, BufMatchContext or a UnicodeMatchContext for
@@ -443,8 +442,7 @@ class W_SRE_Match(W_Root):
 
     def cannot_copy_w(self):
         space = self.space
-        raise OperationError(space.w_TypeError,
-                             space.wrap("cannot copy this match object"))
+        raise oefmt(space.w_TypeError, "cannot copy this match object")
 
     @jit.look_inside_iff(lambda self, args_w: jit.isconstant(len(args_w)))
     def group_w(self, args_w):
@@ -527,8 +525,7 @@ class W_SRE_Match(W_Root):
             except OperationError as e:
                 if not e.match(space, space.w_KeyError):
                     raise
-                raise OperationError(space.w_IndexError,
-                                     space.wrap("no such group"))
+                raise oefmt(space.w_IndexError, "no such group")
             groupnum = space.int_w(w_groupnum)
         if groupnum == 0:
             return self.ctx.match_start, self.ctx.match_end
@@ -538,8 +535,7 @@ class W_SRE_Match(W_Root):
             assert idx >= 0
             return fmarks[idx], fmarks[idx+1]
         else:
-            raise OperationError(space.w_IndexError,
-                                 space.wrap("group index out of range"))
+            raise oefmt(space.w_IndexError, "group index out of range")
 
     def _last_index(self):
         mark = self.ctx.match_marks

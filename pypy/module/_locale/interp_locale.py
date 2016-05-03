@@ -1,7 +1,7 @@
 from rpython.rlib import rposix
 from rpython.rlib.rarithmetic import intmask
 
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec
 
 from rpython.rlib import rlocale
@@ -149,8 +149,7 @@ if rlocale.HAVE_LANGINFO:
         try:
             return space.wrap(rlocale.nl_langinfo(key))
         except ValueError:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("unsupported langinfo constant"))
+            raise oefmt(space.w_ValueError, "unsupported langinfo constant")
 
 #___________________________________________________________________
 # HAVE_LIBINTL dependence

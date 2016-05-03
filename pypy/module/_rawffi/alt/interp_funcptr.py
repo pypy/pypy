@@ -49,8 +49,8 @@ if os.name == 'nt':
 
             return W_FuncPtr(func, argtypes_w, w_restype)
         else:
-            raise OperationError(space.w_TypeError, space.wrap(
-                    'function name must be a string or integer'))
+            raise oefmt(space.w_TypeError,
+                        "function name must be a string or integer")
 else:
     @unwrap_spec(name=str)
     def _getfunc(space, CDLL, w_name, w_argtypes, w_restype):
@@ -71,8 +71,7 @@ else:
 def unwrap_ffitype(space, w_argtype, allow_void=False):
     res = w_argtype.get_ffitype()
     if res is libffi.types.void and not allow_void:
-        msg = 'void is not a valid argument type'
-        raise OperationError(space.w_TypeError, space.wrap(msg))
+        raise oefmt(space.w_TypeError, "void is not a valid argument type")
     return res
 
 

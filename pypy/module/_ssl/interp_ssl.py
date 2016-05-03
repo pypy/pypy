@@ -1594,8 +1594,8 @@ class SSLContext(W_Root):
                                 "cadata should be a ASCII string or a "
                                 "bytes-like object")
         if cafile is None and capath is None and cadata is None:
-            raise OperationError(space.w_TypeError, space.wrap(
-                    "cafile and capath cannot be both omitted"))
+            raise oefmt(space.w_TypeError,
+                        "cafile and capath cannot be both omitted")
         # load from cadata
         if cadata is not None:
             with rffi.scoped_nonmovingbuffer(cadata) as buf:

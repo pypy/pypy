@@ -1,5 +1,5 @@
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 
 def create_filter(space, w_category, action):
     return space.newtuple([
@@ -62,8 +62,8 @@ def get_category(space, w_message, w_category):
 
     # Validate category
     if not space.abstract_issubclass_w(w_category, space.w_Warning):
-        raise OperationError(space.w_ValueError, space.wrap(
-            "category is not a subclass of Warning"))
+        raise oefmt(space.w_ValueError,
+                    "category is not a subclass of Warning")
 
     return w_category
 
@@ -149,8 +149,7 @@ def get_filter(space, w_category, w_text, lineno, w_module):
 
     action = get_default_action(space)
     if not action:
-        raise OperationError(space.w_ValueError, space.wrap(
-            "warnings.defaultaction not found"))
+        raise oefmt(space.w_ValueError, "warnings.defaultaction not found")
     return action, None
 
 def get_default_action(space):
@@ -288,9 +287,9 @@ def do_warn_explicit(space, w_category, w_message, context_w,
                 err = space.str_w(space.str(w_item))
             except OperationError:
                 err = "???"
-            raise OperationError(space.w_RuntimeError, space.wrap(
-                "Unrecognized action (%s) in warnings.filters:\n %s" %
-                (action, err)))
+            raise oefmt(space.w_RuntimeError,
+                        "Unrecognized action (%s) in warnings.filters:\n %s",
+                        action, err)
 
     if warned:
         # Already warned for this module

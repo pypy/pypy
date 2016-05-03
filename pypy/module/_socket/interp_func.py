@@ -99,8 +99,7 @@ def getservbyport(space, port, w_proto):
         proto = space.str_w(w_proto)
 
     if port < 0 or port > 0xffff:
-        raise OperationError(space.w_ValueError, space.wrap(
-            "getservbyport: port must be 0-65535."))
+        raise oefmt(space.w_ValueError, "getservbyport: port must be 0-65535.")
 
     try:
         service = rsocket.getservbyport(port, proto)
@@ -286,9 +285,8 @@ def getaddrinfo(space, w_host, w_port,
         w_shost = space.call_method(w_host, "encode", space.wrap("idna"))
         host = space.bytes_w(w_shost)
     else:
-        raise OperationError(space.w_TypeError,
-                             space.wrap(
-            "getaddrinfo() argument 1 must be string or None"))
+        raise oefmt(space.w_TypeError,
+                    "getaddrinfo() argument 1 must be string or None")
 
     # port can be None, int or string
     if space.is_w(w_port, space.w_None):
@@ -300,9 +298,8 @@ def getaddrinfo(space, w_host, w_port,
     elif space.isinstance_w(w_port, space.w_unicode):
         port = space.str_w(w_port)
     else:
-        raise OperationError(space.w_TypeError,
-                             space.wrap(
-            "getaddrinfo() argument 2 must be integer or string"))
+        raise oefmt(space.w_TypeError,
+                    "getaddrinfo() argument 2 must be integer or string")
     try:
         lst = rsocket.getaddrinfo(host, port, family, socktype,
                                   proto, flags)
@@ -334,6 +331,5 @@ def setdefaulttimeout(space, w_timeout):
     else:
         timeout = space.float_w(w_timeout)
         if timeout < 0.0:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap('Timeout value out of range'))
+            raise oefmt(space.w_ValueError, "Timeout value out of range")
     rsocket.setdefaulttimeout(timeout)

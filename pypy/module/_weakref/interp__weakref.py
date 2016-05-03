@@ -1,6 +1,6 @@
 import py
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import oefmt
 from pypy.interpreter.gateway import interp2app, ObjSpace
 from pypy.interpreter.typedef import TypeDef
 from rpython.rlib import jit
@@ -188,16 +188,15 @@ class W_Weakref(W_WeakrefBase):
     def descr__init__weakref(self, space, w_obj, w_callable=None,
                              __args__=None):
         if __args__.arguments_w:
-            raise OperationError(space.w_TypeError, space.wrap(
-                "__init__ expected at most 2 arguments"))
+            raise oefmt(space.w_TypeError,
+                        "__init__ expected at most 2 arguments")
 
     def descr_hash(self):
         if self.w_hash is not None:
             return self.w_hash
         w_obj = self.dereference()
         if w_obj is None:
-            raise OperationError(self.space.w_TypeError,
-                                 self.space.wrap("weak object has gone away"))
+            raise oefmt(self.space.w_TypeError, "weak object has gone away")
         self.w_hash = self.space.hash(w_obj)
         return self.w_hash
 
@@ -249,8 +248,7 @@ def make_weakref_with_callback(space, w_subtype, w_obj, w_callable):
 def descr__new__weakref(space, w_subtype, w_obj, w_callable=None,
                         __args__=None):
     if __args__.arguments_w:
-        raise OperationError(space.w_TypeError, space.wrap(
-            "__new__ expected at most 2 arguments"))
+        raise oefmt(space.w_TypeError, "__new__ expected at most 2 arguments")
     if space.is_none(w_callable):
         return get_or_make_weakref(space, w_subtype, w_obj)
     else:
@@ -302,8 +300,7 @@ def getweakrefs(space, w_obj):
 
 class W_Proxy(W_WeakrefBase):
     def descr__hash__(self, space):
-        raise OperationError(space.w_TypeError,
-                             space.wrap("unhashable type"))
+        raise oefmt(space.w_TypeError, "unhashable type")
 
 class W_CallableProxy(W_Proxy):
     def descr__call__(self, space, __args__):
@@ -330,14 +327,11 @@ is about to be finalized."""
         return make_proxy_with_callback(space, w_obj, w_callable)
 
 def descr__new__proxy(space, w_subtype, w_obj, w_callable=None):
-    raise OperationError(
-        space.w_TypeError,
-        space.wrap("cannot create 'weakproxy' instances"))
+    raise oefmt(space.w_TypeError, "cannot create 'weakproxy' instances")
 
 def descr__new__callableproxy(space, w_subtype, w_obj, w_callable=None):
-    raise OperationError(
-        space.w_TypeError,
-        space.wrap("cannot create 'weakcallableproxy' instances"))
+    raise oefmt(space.w_TypeError,
+                "cannot create 'weakcallableproxy' instances")
 
 
 def force(space, proxy):
@@ -345,9 +339,8 @@ def force(space, proxy):
         return proxy
     w_obj = proxy.dereference()
     if w_obj is None:
-        raise OperationError(
-            space.w_ReferenceError,
-            space.wrap("weakly referenced object no longer exists"))
+        raise oefmt(space.w_ReferenceError,
+                    "weakly referenced object no longer exists")
     return w_obj
 
 proxy_typedef_dict = {}

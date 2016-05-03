@@ -61,8 +61,7 @@ def compute_slice_indices3(space, w_slice, w_length):
     else:
         w_step = space.index(w_slice.w_step)
         if space.is_true(space.eq(w_step, w_0)):
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("slice step cannot be zero"))
+            raise oefmt(space.w_ValueError, "slice step cannot be zero")
     negative_step = space.is_true(space.lt(w_step, w_0))
     if space.is_w(w_slice.w_start, space.w_None):
         if negative_step:
@@ -124,16 +123,18 @@ def make_min_max(unroll):
         elif len(args_w):
             w_sequence = args_w[0]
         else:
-            msg = "%s() expects at least one argument" % (implementation_of,)
-            raise OperationError(space.w_TypeError, space.wrap(msg))
+            raise oefmt(space.w_TypeError,
+                        "%s() expects at least one argument",
+                        implementation_of)
         w_key = None
         kwds = args.keywords
         if kwds:
             if kwds[0] == "key" and len(kwds) == 1:
                 w_key = args.keywords_w[0]
             else:
-                msg = "%s() got unexpected keyword argument" % (implementation_of,)
-                raise OperationError(space.w_TypeError, space.wrap(msg))
+                raise oefmt(space.w_TypeError,
+                            "%s() got unexpected keyword argument",
+                            implementation_of)
 
         w_iter = space.iter(w_sequence)
         w_type = space.type(w_iter)
@@ -160,8 +161,7 @@ def make_min_max(unroll):
                 w_max_item = w_item
                 w_max_val = w_compare_with
         if w_max_item is None:
-            msg = "arg is an empty sequence"
-            raise OperationError(space.w_ValueError, space.wrap(msg))
+            raise oefmt(space.w_ValueError, "arg is an empty sequence")
         return w_max_item
     if unroll:
         min_max_impl = jit.unroll_safe(min_max_impl)
@@ -297,8 +297,8 @@ class W_ReversedIterator(W_Root):
     def __init__(self, space, w_sequence):
         self.remaining = space.len_w(w_sequence) - 1
         if space.lookup(w_sequence, "__getitem__") is None:
-            msg = "reversed() argument must be a sequence"
-            raise OperationError(space.w_TypeError, space.wrap(msg))
+            raise oefmt(space.w_TypeError,
+                        "reversed() argument must be a sequence")
         self.w_sequence = w_sequence
 
     @staticmethod
@@ -419,8 +419,7 @@ class W_Range(W_Root):
             w_index = space.add(w_index, self.w_length)
         if (space.is_true(space.ge(w_index, self.w_length)) or
             space.is_true(space.lt(w_index, w_zero))):
-            raise OperationError(space.w_IndexError, space.wrap(
-                    "range object index out of range"))
+            raise oefmt(space.w_IndexError, "range object index out of range")
         return self._compute_item0(space, w_index)
 
     def _compute_slice(self, space, w_slice):

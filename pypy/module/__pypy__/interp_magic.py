@@ -87,8 +87,7 @@ def strategy(space, w_obj):
     elif isinstance(w_obj, W_BaseSetObject):
         name = w_obj.strategy.__class__.__name__
     else:
-        raise OperationError(space.w_TypeError,
-                             space.wrap("expecting dict or list or set object"))
+        raise oefmt(space.w_TypeError, "expecting dict or list or set object")
     return space.wrap(name)
 
 
@@ -102,8 +101,7 @@ def validate_fd(space, fd):
 @unwrap_spec(sizehint=int)
 def resizelist_hint(space, w_iterable, sizehint):
     if not isinstance(w_iterable, W_ListObject):
-        raise OperationError(space.w_TypeError,
-                             space.wrap("arg 1 must be a 'list'"))
+        raise oefmt(space.w_TypeError, "arg 1 must be a 'list'")
     w_iterable._resize_hint(sizehint)
 
 @unwrap_spec(sizehint=int)
@@ -160,8 +158,7 @@ def _promote(space, w_obj):
     elif space.is_w(space.type(w_obj), space.w_str):
         jit.promote_string(space.str_w(w_obj))
     elif space.is_w(space.type(w_obj), space.w_unicode):
-        raise OperationError(space.w_TypeError, space.wrap(
-                             "promoting unicode unsupported"))
+        raise oefmt(space.w_TypeError, "promoting unicode unsupported")
     else:
         jit.promote(w_obj)
     return w_obj

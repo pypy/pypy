@@ -114,8 +114,7 @@ class W_BytesIO(W_BufferedIOBase):
             size = space.r_longlong_w(w_size)
 
         if size < 0:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "negative size value"))
+            raise oefmt(space.w_ValueError, "negative size value")
 
         self.truncate(size)
         if size == pos:
@@ -141,16 +140,13 @@ class W_BytesIO(W_BufferedIOBase):
 
         if whence == 0:
             if pos < 0:
-                raise OperationError(space.w_ValueError, space.wrap(
-                    "negative seek value"))
+                raise oefmt(space.w_ValueError, "negative seek value")
         elif whence == 1:
             if pos > sys.maxint - self.tell():
-                raise OperationError(space.w_OverflowError, space.wrap(
-                    "new position too large"))
+                raise oefmt(space.w_OverflowError, "new position too large")
         elif whence == 2:
             if pos > sys.maxint - self.getsize():
-                raise OperationError(space.w_OverflowError, space.wrap(
-                    "new position too large"))
+                raise oefmt(space.w_OverflowError, "new position too large")
         else:
             raise oefmt(space.w_ValueError,
                         "whence must be between 0 and 2, not %d", whence)
@@ -195,8 +191,8 @@ class W_BytesIO(W_BufferedIOBase):
         self.write_w(space, w_content)
         pos = space.int_w(w_pos)
         if pos < 0:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "position value cannot be negative"))
+            raise oefmt(space.w_ValueError,
+                        "position value cannot be negative")
         self.seek(pos)
         if not space.is_w(w_dict, space.w_None):
             space.call_method(self.getdict(space), "update", w_dict)

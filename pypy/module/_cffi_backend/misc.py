@@ -1,6 +1,6 @@
 from __future__ import with_statement
 
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import specialize
@@ -289,8 +289,7 @@ def object_as_bool(space, w_ob):
     try:
         return _standard_object_as_bool(space, w_io)
     except _NotStandardObject:
-        raise OperationError(space.w_TypeError,
-                             space.wrap("integer/float expected"))
+        raise oefmt(space.w_TypeError, "integer/float expected")
 
 # ____________________________________________________________
 
@@ -305,8 +304,7 @@ def get_new_array_length(space, w_value):
     else:
         explicitlength = space.getindex_w(w_value, space.w_OverflowError)
         if explicitlength < 0:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("negative array length"))
+            raise oefmt(space.w_ValueError, "negative array length")
         return (space.w_None, explicitlength)
 
 # ____________________________________________________________

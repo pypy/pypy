@@ -28,8 +28,7 @@ def chr(space, code):
     try:
         c = UNICHR(code)
     except ValueError:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("chr() arg out of range"))
+        raise oefmt(space.w_ValueError, "chr() arg out of range")
     return space.wrap(c)
 
 def len(space, w_obj):

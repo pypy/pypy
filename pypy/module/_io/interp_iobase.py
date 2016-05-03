@@ -137,9 +137,7 @@ class W_IOBase(W_Root):
 
     def flush_w(self, space):
         if self._CLOSED():
-            raise OperationError(
-                space.w_ValueError,
-                space.wrap("I/O operation on closed file"))
+            raise oefmt(space.w_ValueError, "I/O operation on closed file")
 
     def seek_w(self, space, w_offset, w_whence=None):
         self._unsupportedoperation(space, "seek")
@@ -361,8 +359,7 @@ class W_RawIOBase(W_IOBase):
                 break
 
             if not space.isinstance_w(w_data, space.w_bytes):
-                raise OperationError(space.w_TypeError, space.wrap(
-                    "read() should return bytes"))
+                raise oefmt(space.w_TypeError, "read() should return bytes")
             data = space.bytes_w(w_data)
             if not data:
                 break
