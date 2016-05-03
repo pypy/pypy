@@ -33,30 +33,26 @@ class GCBase(object):
         self.config = config
         assert isinstance(translated_to_c, bool)
         self.translated_to_c = translated_to_c
+        self._finalizer_queue_objects = []
 
     def setup(self):
         # all runtime mutable values' setup should happen here
         # and in its overriden versions! for the benefit of test_transformed_gc
         self.finalizer_lock = False
-        if we_are_translated():
-            XXXXXX
-        else:
-            self._finalizer_queue_objects = []    # XXX FIX ME
 
     def register_finalizer_index(self, fq, index):
+        "NOT_RPYTHON"
         while len(self._finalizer_queue_objects) <= index:
             self._finalizer_queue_objects.append(None)
         if self._finalizer_queue_objects[index] is None:
             fq._reset()
+            fq._gc_deque = self.AddressDeque()
             self._finalizer_queue_objects[index] = fq
         else:
             assert self._finalizer_queue_objects[index] is fq
 
-    def add_finalizer_to_run(self, fq_index, obj):
-        if we_are_translated():
-            XXXXXX
-        else:
-            self._finalizer_queue_objects[fq_index]._queue.append(obj)
+    def mark_finalizer_to_run(self, fq_index, obj):
+        self._finalizer_queue_objects[fq_index]._gc_deque.append(obj)
 
     def post_setup(self):
         # More stuff that needs to be initialized when the GC is already
@@ -65,7 +61,7 @@ class GCBase(object):
         self.DEBUG = env.read_from_env('PYPY_GC_DEBUG')
 
     def _teardown(self):
-        pass
+        self._finalizer_queue_objects = []     # for tests
 
     def can_optimize_clean_setarrayitems(self):
         return True     # False in case of card marking
@@ -345,11 +341,12 @@ class GCBase(object):
     enumerate_all_roots._annspecialcase_ = 'specialize:arg(1)'
 
     def enum_pending_finalizers(self, callback, arg):
-        if we_are_translated():
-            XXXXXX            #. foreach(callback, arg)
-        for fq in self._finalizer_queue_objects:
-            for obj in fq._queue:
-                callback(obj, arg)
+        i = 0
+        while i < len(self._finalizer_queue_objects):
+            fq = self._finalizer_queue_objects[i]
+            if fq is not None:
+                fq._gc_deque.foreach(callback, arg)
+            i += 1
     enum_pending_finalizers._annspecialcase_ = 'specialize:arg(1)'
 
     def debug_check_consistency(self):
@@ -395,11 +392,12 @@ class GCBase(object):
             return  # the outer invocation of execute_finalizers() will do it
         self.finalizer_lock = True
         try:
-            if we_are_translated():
-                XXXXXX
-            for i, fq in enumerate(self._finalizer_queue_objects):
-                if len(fq._queue) > 0:
+            i = 0
+            while i < len(self._finalizer_queue_objects):
+                fq = self._finalizer_queue_objects[i]
+                if fq is not None and fq._gc_deque.non_empty():
                     self.finalizer_trigger(i)
+                i += 1
         finally:
             self.finalizer_lock = False
 

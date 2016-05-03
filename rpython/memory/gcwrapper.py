@@ -215,8 +215,9 @@ class GCManagedHeap(object):
 
     def gc_fq_next_dead(self, fq_tag):
         fq, _ = self.get_finalizer_queue_index(fq_tag)
-        addr = fq.next_dead()
-        if addr is None:
+        if fq._gc_deque.non_empty():
+            addr = fq._gc_deque.popleft()
+        else:
             addr = llmemory.NULL
         return llmemory.cast_adr_to_ptr(addr, rclass.OBJECTPTR)
 

@@ -2679,7 +2679,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             if state == 2:
                 from rpython.rtyper.lltypesystem import rffi
                 fq_index = rffi.cast(lltype.Signed, fq_nr)
-                self.add_finalizer_to_run(fq_index, x)
+                self.mark_finalizer_to_run(fq_index, x)
                 # we must also fix the state from 2 to 3 here, otherwise
                 # we leave the GCFLAG_FINALIZATION_ORDERING bit behind
                 # which will confuse the next collection
