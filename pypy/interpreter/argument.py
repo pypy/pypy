@@ -354,9 +354,7 @@ def _do_combine_starstarargs_wrapped(space, keys_w, w_starstararg, keywords,
             key = space.str_w(w_key)
         except OperationError as e:
             if e.match(space, space.w_TypeError):
-                raise OperationError(
-                    space.w_TypeError,
-                    space.wrap("keywords must be strings"))
+                raise oefmt(space.w_TypeError, "keywords must be strings")
             if e.match(space, space.w_UnicodeEncodeError):
                 # Allow this to pass through
                 key = None

@@ -8,7 +8,7 @@ import dis, imp, struct, types, new, sys, os
 
 from pypy.interpreter import eval
 from pypy.interpreter.signature import Signature
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.astcompiler.consts import (
     CO_OPTIMIZED, CO_NEWLOCALS, CO_VARARGS, CO_VARKEYWORDS, CO_NESTED,
@@ -374,14 +374,13 @@ class PyCode(eval.Code):
                           lnotab, w_freevars=None, w_cellvars=None,
                           magic=default_magic):
         if argcount < 0:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("code: argcount must not be negative"))
+            raise oefmt(space.w_ValueError,
+                        "code: argcount must not be negative")
         if nlocals < 0:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("code: nlocals must not be negative"))
+            raise oefmt(space.w_ValueError,
+                        "code: nlocals must not be negative")
         if not space.isinstance_w(w_constants, space.w_tuple):
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("Expected tuple for constants"))
+            raise oefmt(space.w_TypeError, "Expected tuple for constants")
         consts_w = space.fixedview(w_constants)
         names = unpack_str_tuple(space, w_names)
         varnames = unpack_str_tuple(space, w_varnames)
