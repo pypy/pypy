@@ -688,7 +688,7 @@ class AppTestOldstyle(object):
 
     def test_catch_attributeerror_of_descriptor(self):
         def booh(self):
-            raise this_exception, "booh"
+            raise this_exception("booh")
 
         class E:
             __eq__ = property(booh)

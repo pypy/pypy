@@ -381,6 +381,6 @@ def prepare_file_argument(space, w_fileobj):
                                  space.wrap("file has no OS file descriptor"))
         try:
             w_fileobj.cffi_fileobj = CffiFileObj(fd, w_fileobj.mode)
-        except OSError, e:
+        except OSError as e:
             raise wrap_oserror(space, e)
     return rffi.cast(rffi.CCHARP, w_fileobj.cffi_fileobj.llf)

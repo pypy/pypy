@@ -168,7 +168,7 @@ class W_CDLL(W_Root):
         w_key = space.newtuple([w_name, w_argtypes, w(resshape)])
         try:
             return space.getitem(self.w_cache, w_key)
-        except OperationError, e:
+        except OperationError as e:
             if e.match(space, space.w_KeyError):
                 pass
             else:
@@ -227,9 +227,9 @@ class W_CDLL(W_Root):
 def descr_new_cdll(space, w_type, name):
     try:
         cdll = CDLL(name)
-    except DLOpenError, e:
+    except DLOpenError as e:
         raise wrap_dlopenerror(space, e, name)
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
     return space.wrap(W_CDLL(space, name, cdll))
 
@@ -520,7 +520,7 @@ class W_FuncPtr(W_Root):
             else:
                 self.ptr.call(args_ll, lltype.nullptr(rffi.VOIDP.TO))
                 return space.w_None
-        except StackCheckError, e:
+        except StackCheckError as e:
             raise OperationError(space.w_ValueError, space.wrap(e.message))
 
 @unwrap_spec(addr=r_uint, flags=int)
@@ -623,7 +623,7 @@ def get_libc(space):
     name = get_libc_name()
     try:
         cdll = CDLL(name)
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
     return space.wrap(W_CDLL(space, name, cdll))
 

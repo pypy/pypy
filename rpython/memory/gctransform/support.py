@@ -80,7 +80,7 @@ def write(fd, string):
 def ll_call_destructor(destrptr, destr_v, typename):
     try:
         destrptr(destr_v)
-    except Exception, e:
+    except Exception as e:
         try:
             write(2, "a destructor of type ")
             write(2, typename)

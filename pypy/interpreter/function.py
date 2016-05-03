@@ -540,7 +540,7 @@ class Method(W_Root):
             try:
                 return space.call_method(space.w_object, '__getattribute__',
                                          space.wrap(self), w_attr)
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_AttributeError):
                     raise
         # fall-back to the attribute of the underlying 'im_func'

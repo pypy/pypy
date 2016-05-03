@@ -132,7 +132,7 @@ def as_long_long(space, w_ob):
         return space.int_w(w_ob)
     try:
         bigint = space.bigint_w(w_ob, allow_conversion=False)
-    except OperationError, e:
+    except OperationError as e:
         if not e.match(space, space.w_TypeError):
             raise
         if _is_a_float(space, w_ob):
@@ -149,7 +149,7 @@ def as_long(space, w_ob):
         return space.int_w(w_ob)
     try:
         bigint = space.bigint_w(w_ob, allow_conversion=False)
-    except OperationError, e:
+    except OperationError as e:
         if not e.match(space, space.w_TypeError):
             raise
         if _is_a_float(space, w_ob):
@@ -172,7 +172,7 @@ def as_unsigned_long_long(space, w_ob, strict):
         return r_ulonglong(value)
     try:
         bigint = space.bigint_w(w_ob, allow_conversion=False)
-    except OperationError, e:
+    except OperationError as e:
         if not e.match(space, space.w_TypeError):
             raise
         if strict and _is_a_float(space, w_ob):
@@ -197,7 +197,7 @@ def as_unsigned_long(space, w_ob, strict):
         return r_uint(value)
     try:
         bigint = space.bigint_w(w_ob, allow_conversion=False)
-    except OperationError, e:
+    except OperationError as e:
         if not e.match(space, space.w_TypeError):
             raise
         if strict and _is_a_float(space, w_ob):

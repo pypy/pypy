@@ -36,7 +36,7 @@ def get_file(space, w_file, filename, filemode):
     if space.is_none(w_file):
         try:
             return streamio.open_file_as_stream(filename, filemode)
-        except StreamErrors, e:
+        except StreamErrors as e:
             # XXX this is not quite the correct place, but it will do for now.
             # XXX see the issue which I'm sure exists already but whose number
             # XXX I cannot find any more...

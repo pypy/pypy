@@ -169,7 +169,7 @@ class W_Deque(W_Root):
         while True:
             try:
                 w_obj = space.next(w_iter)
-            except OperationError, e:
+            except OperationError as e:
                 if e.match(space, space.w_StopIteration):
                     break
                 raise
@@ -191,7 +191,7 @@ class W_Deque(W_Root):
         while True:
             try:
                 w_obj = space.next(w_iter)
-            except OperationError, e:
+            except OperationError as e:
                 if e.match(space, space.w_StopIteration):
                     break
                 raise

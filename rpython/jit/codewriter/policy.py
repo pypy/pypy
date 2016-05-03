@@ -103,7 +103,7 @@ def contains_unsupported_variable_type(graph, supports_floats,
                 getkind(v.concretetype, supports_floats,
                                         supports_longlong,
                                         supports_singlefloats)
-    except NotImplementedError, e:
+    except NotImplementedError as e:
         log.WARNING('%s, ignoring graph' % (e,))
         log.WARNING('  %s' % (graph,))
         return True

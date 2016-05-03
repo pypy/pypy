@@ -440,7 +440,7 @@ class ReadBZ2Filter(Stream):
                 return ""
             try:
                 w_read = self.decompressor.decompress(moredata)
-            except OperationError, e:
+            except OperationError as e:
                 if e.match(self.space, self.space.w_EOFError):
                     self.finished = True
                     return ""

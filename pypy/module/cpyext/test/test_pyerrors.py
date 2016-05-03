@@ -203,7 +203,7 @@ class AppTestFetch(AppTestCpythonExtensionBase):
                 prologue="#include <errno.h>")
         try:
             module.set_from_errno()
-        except OSError, e:
+        except OSError as e:
             assert e.errno == errno.EBADF
             assert e.strerror == os.strerror(errno.EBADF)
             assert e.filename is None
@@ -402,7 +402,7 @@ class AppTestFetch(AppTestCpythonExtensionBase):
             ])
         try:
             raise ValueError(5)
-        except ValueError, old_exc:
+        except ValueError as old_exc:
             new_exc = TypeError("TEST")
             orig_sys_exc_info = sys.exc_info()
             orig_exc_info = module.getset_exc_info(new_exc.__class__,

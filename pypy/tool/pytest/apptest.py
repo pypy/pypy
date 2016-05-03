@@ -34,7 +34,7 @@ class AppTestFunction(py.test.collect.Function):
     def execute_appex(self, space, target, *args):
         try:
             target(*args)
-        except OperationError, e:
+        except OperationError as e:
             if self.config.option.raise_operr:
                 raise
             tb = sys.exc_info()[2]

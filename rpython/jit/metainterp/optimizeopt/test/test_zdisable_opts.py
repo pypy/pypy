@@ -39,7 +39,7 @@ for optnum in range(len(allopts)):
         def raises(self, e, fn, *args):
             try:
                 fn(*args)
-            except Exception, e:
+            except Exception as e:
                 return e
 
     opt = allopts[optnum]

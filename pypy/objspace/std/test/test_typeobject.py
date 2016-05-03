@@ -241,7 +241,7 @@ class AppTestTypeObject:
                 return super(WorkOnce, self).__new__(WorkOnce, name, bases, ns)
             def mro(instance):
                 if instance.flag > 0:
-                    raise RuntimeError, "bozo"
+                    raise RuntimeError("bozo")
                 else:
                     instance.flag += 1
                     return type.mro(instance)

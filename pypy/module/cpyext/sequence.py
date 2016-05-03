@@ -219,7 +219,7 @@ def PySequence_Index(space, w_seq, w_obj):
     while True:
         try:
             w_next = space.next(w_iter)
-        except OperationError, e:
+        except OperationError as e:
             if e.match(space, space.w_StopIteration):
                 break
             raise

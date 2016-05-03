@@ -31,7 +31,7 @@ class AppTestFRAGILE:
 
         try:
             cppyy.load_reflection_info("does_not_exist.so")
-        except RuntimeError, e:
+        except RuntimeError as e:
             assert "does_not_exist.so" in str(e)
 
     def test02_missing_classes(self):
@@ -178,14 +178,14 @@ class AppTestFRAGILE:
         try:
             d.check(None)         # raises TypeError
             assert 0
-        except TypeError, e:
+        except TypeError as e:
             assert "fragile::D::check()" in str(e)
             assert "TypeError: wrong number of arguments" in str(e)
 
         try:
             d.overload(None)      # raises TypeError
             assert 0
-        except TypeError, e:
+        except TypeError as e:
             assert "fragile::D::overload()" in str(e)
             assert "TypeError: wrong number of arguments" in str(e)
             assert "fragile::D::overload(fragile::no_such_class*)" in str(e)
@@ -205,7 +205,7 @@ class AppTestFRAGILE:
         try:
             o = fragile.O()       # raises TypeError
             assert 0
-        except TypeError, e:
+        except TypeError as e:
             assert "cannot instantiate abstract class 'O'" in str(e)
 
     def test11_dir(self):

@@ -436,7 +436,7 @@ class W_Socket(W_Root):
         """
         try:
             optval = space.c_int_w(w_optval)
-        except OperationError, e:
+        except OperationError as e:
             if e.async(space):
                 raise
             optval = space.str_w(w_optval)
