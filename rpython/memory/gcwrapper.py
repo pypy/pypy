@@ -214,12 +214,9 @@ class GCManagedHeap(object):
         return (fq, index)
 
     def gc_fq_next_dead(self, fq_tag):
-        fq, _ = self.get_finalizer_queue_index(fq_tag)
-        if fq._gc_deque.non_empty():
-            addr = fq._gc_deque.popleft()
-        else:
-            addr = llmemory.NULL
-        return llmemory.cast_adr_to_ptr(addr, rclass.OBJECTPTR)
+        fq, index = self.get_finalizer_queue_index(fq_tag)
+        return lltype.cast_opaque_ptr(rclass.OBJECTPTR,
+                                      self.gc.finalizer_next_dead(index))
 
     def gc_fq_register(self, fq_tag, ptr):
         fq, index = self.get_finalizer_queue_index(fq_tag)

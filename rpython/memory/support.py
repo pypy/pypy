@@ -2,6 +2,9 @@ from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rlib.objectmodel import free_non_gc_object, we_are_translated
 from rpython.rlib.debug import ll_assert
 from rpython.tool.identity_dict import identity_dict
+from rpython.rtyper.rclass import NONGCOBJECTPTR
+from rpython.rtyper.annlowlevel import cast_nongc_instance_to_base_ptr
+from rpython.rtyper.annlowlevel import cast_base_ptr_to_nongc_instance
 
 
 def mangle_hash(i):
@@ -393,3 +396,17 @@ def copy_without_null_values(dict):
 def _null_value_checker(key, value, arg):
     if value:
         arg.setitem(key, value)
+
+# ____________________________________________________________
+
+NONGCARRAY = lltype.Array(NONGCOBJECTPTR)
+
+def make_list_of_nongc_instances(count):
+    return lltype.malloc(NONGCARRAY, count, flavor='raw', zero=True,
+                         track_allocation=False)
+
+def list_get_nongc_instance(Class, array, index):
+    return cast_base_ptr_to_nongc_instance(Class, array[index])
+
+def list_set_nongc_instance(array, index, instance):
+    array[index] = cast_nongc_instance_to_base_ptr(instance)

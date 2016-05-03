@@ -6,6 +6,9 @@ from rpython.memory.gcheader import GCHeaderBuilder
 from rpython.memory.support import DEFAULT_CHUNK_SIZE
 from rpython.memory.support import get_address_stack, get_address_deque
 from rpython.memory.support import AddressDict, null_address_dict
+from rpython.memory.support import make_list_of_nongc_instances
+from rpython.memory.support import list_set_nongc_instance
+from rpython.memory.support import list_get_nongc_instance
 from rpython.rtyper.lltypesystem.llmemory import NULL, raw_malloc_usage
 
 TYPEID_MAP = lltype.GcStruct('TYPEID_MAP', ('count', lltype.Signed),
@@ -33,7 +36,7 @@ class GCBase(object):
         self.config = config
         assert isinstance(translated_to_c, bool)
         self.translated_to_c = translated_to_c
-        self._finalizer_queue_objects = []
+        self.run_finalizer_queues = make_list_of_nongc_instances(0)
 
     def setup(self):
         # all runtime mutable values' setup should happen here
@@ -42,17 +45,23 @@ class GCBase(object):
 
     def register_finalizer_index(self, fq, index):
         "NOT_RPYTHON"
-        while len(self._finalizer_queue_objects) <= index:
-            self._finalizer_queue_objects.append(None)
-        if self._finalizer_queue_objects[index] is None:
-            fq._reset()
-            fq._gc_deque = self.AddressDeque()
-            self._finalizer_queue_objects[index] = fq
-        else:
-            assert self._finalizer_queue_objects[index] is fq
+        if len(self.run_finalizer_queues) <= index:
+            array = make_list_of_nongc_instances(index + 1)
+            for i in range(len(self.run_finalizer_queues)):
+                array[i] = self.run_finalizer_queues[i]
+            self.run_finalizer_queues = array
+        #
+        fdold = list_get_nongc_instance(self.AddressDeque,
+                                       self.run_finalizer_queues, index)
+        list_set_nongc_instance(self.run_finalizer_queues, index,
+                                self.AddressDeque())
+        if fdold is not None:
+            fdold.delete()
 
     def mark_finalizer_to_run(self, fq_index, obj):
-        self._finalizer_queue_objects[fq_index]._gc_deque.append(obj)
+        fdeque = list_get_nongc_instance(self.AddressDeque,
+                                         self.run_finalizer_queues, fq_index)
+        fdeque.append(obj)
 
     def post_setup(self):
         # More stuff that needs to be initialized when the GC is already
@@ -61,7 +70,7 @@ class GCBase(object):
         self.DEBUG = env.read_from_env('PYPY_GC_DEBUG')
 
     def _teardown(self):
-        self._finalizer_queue_objects = []     # for tests
+        pass
 
     def can_optimize_clean_setarrayitems(self):
         return True     # False in case of card marking
@@ -342,10 +351,11 @@ class GCBase(object):
 
     def enum_pending_finalizers(self, callback, arg):
         i = 0
-        while i < len(self._finalizer_queue_objects):
-            fq = self._finalizer_queue_objects[i]
-            if fq is not None:
-                fq._gc_deque.foreach(callback, arg)
+        while i < len(self.run_finalizer_queues):
+            fdeque = list_get_nongc_instance(self.AddressDeque,
+                                             self.run_finalizer_queues, i)
+            if fdeque is not None:
+                fdeque.foreach(callback, arg)
             i += 1
     enum_pending_finalizers._annspecialcase_ = 'specialize:arg(1)'
 
@@ -393,13 +403,23 @@ class GCBase(object):
         self.finalizer_lock = True
         try:
             i = 0
-            while i < len(self._finalizer_queue_objects):
-                fq = self._finalizer_queue_objects[i]
-                if fq is not None and fq._gc_deque.non_empty():
+            while i < len(self.run_finalizer_queues):
+                fdeque = list_get_nongc_instance(self.AddressDeque,
+                                                 self.run_finalizer_queues, i)
+                if fdeque is not None and fdeque.non_empty():
                     self.finalizer_trigger(i)
                 i += 1
         finally:
             self.finalizer_lock = False
+
+    def finalizer_next_dead(self, fq_index):
+        fdeque = list_get_nongc_instance(self.AddressDeque,
+                                         self.run_finalizer_queues, fq_index)
+        if fdeque.non_empty():
+            obj = fdeque.popleft()
+        else:
+            obj = llmemory.NULL
+        return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
 
 
 class MovingGCBase(GCBase):

@@ -84,10 +84,10 @@ class GCData(object):
         return (typeinfo.infobits & ANY) != 0 or bool(typeinfo.customfunc)
 
     def init_finalizer_trigger(self, finalizer_trigger):
-        self.finalizer_trigger = finalizer_trigger
+        self._finalizer_trigger = finalizer_trigger
 
     def q_finalizer_trigger(self, fq_index):
-        self.finalizer_trigger(fq_index)
+        self._finalizer_trigger(fq_index)
 
     def q_destructor_or_custom_trace(self, typeid):
         return self.get(typeid).customfunc

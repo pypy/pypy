@@ -255,6 +255,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
 
         self.layoutbuilder.encode_type_shapes_now()
         self.create_custom_trace_funcs(gcdata.gc, translator.rtyper)
+        self.create_finalizer_trigger(gcdata)
 
         annhelper.finish()   # at this point, annotate all mix-level helpers
         annhelper.backend_optimize()
@@ -301,7 +302,6 @@ class BaseFrameworkGCTransformer(GCTransformer):
                 [s_gc, s_typeid16,
                 annmodel.SomeInteger(nonneg=True),
                 annmodel.SomeBool(),
-                annmodel.SomeBool(),
                 annmodel.SomeBool()], s_gcref,
                 inline = False)
             self.malloc_varsize_ptr = getfn(
@@ -315,7 +315,6 @@ class BaseFrameworkGCTransformer(GCTransformer):
                 malloc_fixedsize_meth,
                 [s_gc, s_typeid16,
                  annmodel.SomeInteger(nonneg=True),
-                 annmodel.SomeBool(),
                  annmodel.SomeBool(),
                  annmodel.SomeBool()], s_gcref,
                 inline = False)
@@ -379,7 +378,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
                 malloc_fast,
                 [s_gc, s_typeid16,
                  annmodel.SomeInteger(nonneg=True),
-                 s_False, s_False, s_False], s_gcref,
+                 s_False, s_False], s_gcref,
                 inline = True)
         else:
             self.malloc_fast_ptr = None
@@ -597,6 +596,11 @@ class BaseFrameworkGCTransformer(GCTransformer):
                     "the custom trace hook %r for %r can cause "
                     "the GC to be called!" % (func, TP))
 
+    def create_finalizer_trigger(self, gcdata):
+        def ll_finalizer_trigger(fq_index):
+            pass #xxxxxxxxxxxxx
+        gcdata.init_finalizer_trigger(ll_finalizer_trigger)
+
     def consider_constant(self, TYPE, value):
         self.layoutbuilder.consider_constant(TYPE, value, self.gcdata.gc)
 
@@ -772,13 +776,10 @@ class BaseFrameworkGCTransformer(GCTransformer):
         info = self.layoutbuilder.get_info(type_id)
         c_size = rmodel.inputconst(lltype.Signed, info.fixedsize)
         fptrs = self.special_funcptr_for_type(TYPE)
-        has_finalizer = "finalizer" in fptrs
-        has_light_finalizer = "light_finalizer" in fptrs
-        if has_light_finalizer:
-            has_finalizer = True
-        c_has_finalizer = rmodel.inputconst(lltype.Bool, has_finalizer)
-        c_has_light_finalizer = rmodel.inputconst(lltype.Bool,
-                                                  has_light_finalizer)
+        has_destructor = "destructor" in fptrs
+        assert "finalizer" not in fptrs         # removed
+        assert "light_finalizer" not in fptrs   # removed
+        c_has_destructor = rmodel.inputconst(lltype.Bool, has_destructor)
 
         if flags.get('nonmovable'):
             assert op.opname == 'malloc'
@@ -788,16 +789,16 @@ class BaseFrameworkGCTransformer(GCTransformer):
         elif not op.opname.endswith('_varsize') and not flags.get('varsize'):
             zero = flags.get('zero', False)
             if (self.malloc_fast_ptr is not None and
-                not c_has_finalizer.value and
+                not c_has_destructor.value and
                 (self.malloc_fast_is_clearing or not zero)):
                 malloc_ptr = self.malloc_fast_ptr
             else:
                 malloc_ptr = self.malloc_fixedsize_ptr
             args = [self.c_const_gc, c_type_id, c_size,
-                    c_has_finalizer, c_has_light_finalizer,
+                    c_has_destructor,
                     rmodel.inputconst(lltype.Bool, False)]
         else:
-            assert not c_has_finalizer.value
+            assert not c_has_destructor.value
             info_varsize = self.layoutbuilder.get_info_varsize(type_id)
             v_length = op.args[-1]
             c_ofstolength = rmodel.inputconst(lltype.Signed,
@@ -933,13 +934,12 @@ class BaseFrameworkGCTransformer(GCTransformer):
     def gct_do_malloc_fixedsize(self, hop):
         # used by the JIT (see rpython.jit.backend.llsupport.gc)
         op = hop.spaceop
-        [v_typeid, v_size,
-         v_has_finalizer, v_has_light_finalizer, v_contains_weakptr] = op.args
+        [v_typeid, v_size, v_has_destructor, v_contains_weakptr] = op.args
         livevars = self.push_roots(hop)
         hop.genop("direct_call",
                   [self.malloc_fixedsize_ptr, self.c_const_gc,
                    v_typeid, v_size,
-                   v_has_finalizer, v_has_light_finalizer,
+                   v_has_destructor,
                    v_contains_weakptr],
                   resultvar=op.result)
         self.pop_roots(hop, livevars)
@@ -1047,7 +1047,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
         c_false = rmodel.inputconst(lltype.Bool, False)
         c_has_weakptr = rmodel.inputconst(lltype.Bool, True)
         args = [self.c_const_gc, c_type_id, c_size,
-                c_false, c_false, c_has_weakptr]
+                c_false, c_has_weakptr]
 
         # push and pop the current live variables *including* the argument
         # to the weakref_create operation, which must be kept alive and
@@ -1518,18 +1518,14 @@ class TransformerLayoutBuilder(gctypelayout.TypeLayoutBuilder):
         return rtti is not None and getattr(rtti._obj, 'destructor_funcptr',
                                             None)
 
-    def has_light_finalizer(self, TYPE):
-        fptrs = self.special_funcptr_for_type(TYPE)
-        return "light_finalizer" in fptrs
-
     def has_custom_trace(self, TYPE):
         rtti = get_rtti(TYPE)
         return rtti is not None and getattr(rtti._obj, 'custom_trace_funcptr',
                                             None)
 
-    def make_finalizer_funcptr_for_type(self, TYPE):
-        if not self.has_finalizer(TYPE):
-            return None, False
+    def make_destructor_funcptr_for_type(self, TYPE):
+        if not self.has_destructor(TYPE):
+            return None
         rtti = get_rtti(TYPE)
         destrptr = rtti._obj.destructor_funcptr
         DESTR_ARG = lltype.typeOf(destrptr).TO.ARGS[0]
@@ -1539,12 +1535,9 @@ class TransformerLayoutBuilder(gctypelayout.TypeLayoutBuilder):
             ll_call_destructor(destrptr, v, typename)
         fptr = self.transformer.annotate_finalizer(ll_finalizer,
                 [llmemory.Address], lltype.Void)
-        try:
-            g = destrptr._obj.graph
-            light = not FinalizerAnalyzer(self.translator).analyze_light_finalizer(g)
-        except lltype.DelayedPointer:
-            light = False    # XXX bah, too bad
-        return fptr, light
+        g = destrptr._obj.graph
+        FinalizerAnalyzer(self.translator).check_light_finalizer(g)
+        return fptr
 
     def make_custom_trace_funcptr_for_type(self, TYPE):
         if not self.has_custom_trace(TYPE):
