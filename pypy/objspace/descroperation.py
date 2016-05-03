@@ -247,8 +247,8 @@ class DescrOperation(object):
         if space.is_w(w_restype, space.w_int):
             return space.int_w(w_res) != 0
         else:
-            msg = "__nonzero__ should return bool or integer"
-            raise OperationError(space.w_TypeError, space.wrap(msg))
+            raise oefmt(space.w_TypeError,
+                        "__nonzero__ should return bool or integer")
 
     def nonzero(space, w_obj):
         if space.is_true(w_obj):
@@ -282,8 +282,7 @@ class DescrOperation(object):
         w_iter = space.get_and_call_function(w_descr, w_obj)
         w_next = space.lookup(w_iter, 'next')
         if w_next is None:
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("iter() returned non-iterator"))
+            raise oefmt(space.w_TypeError, "iter() returned non-iterator")
         return w_iter
 
     def next(space, w_obj):
@@ -382,8 +381,7 @@ class DescrOperation(object):
             if _check_notimplemented(space, w_res):
                 return w_res
 
-        raise OperationError(space.w_TypeError,
-                space.wrap("operands do not support **"))
+        raise oefmt(space.w_TypeError, "operands do not support **")
 
     def inplace_pow(space, w_lhs, w_rhs):
         w_impl = space.lookup(w_lhs, '__ipow__')
@@ -439,8 +437,8 @@ class DescrOperation(object):
             bigint = space.bigint_w(w_result)
             return space.wrap(bigint.hash())
         else:
-            raise OperationError(space.w_TypeError,
-                    space.wrap("__hash__() should return an int or long"))
+            raise oefmt(space.w_TypeError,
+                        "__hash__() should return an int or long")
 
     def userdel(space, w_obj):
         w_del = space.lookup(w_obj, '__del__')
@@ -469,8 +467,7 @@ class DescrOperation(object):
     def coerce(space, w_obj1, w_obj2):
         w_res = space.try_coerce(w_obj1, w_obj2)
         if w_res is None:
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("coercion failed"))
+            raise oefmt(space.w_TypeError, "coercion failed")
         return w_res
 
     def try_coerce(space, w_obj1, w_obj2):
@@ -494,13 +491,13 @@ class DescrOperation(object):
                 return None
             if (not space.isinstance_w(w_res, space.w_tuple) or
                 space.len_w(w_res) != 2):
-                raise OperationError(space.w_TypeError,
-                                     space.wrap("coercion should return None or 2-tuple"))
+                raise oefmt(space.w_TypeError,
+                            "coercion should return None or 2-tuple")
             w_res = space.newtuple([space.getitem(w_res, space.wrap(1)), space.getitem(w_res, space.wrap(0))])
         elif (not space.isinstance_w(w_res, space.w_tuple) or
             space.len_w(w_res) != 2):
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("coercion should return None or 2-tuple"))
+            raise oefmt(space.w_TypeError,
+                        "coercion should return None or 2-tuple")
         return w_res
 
     def issubtype(space, w_sub, w_type):
@@ -517,8 +514,7 @@ class DescrOperation(object):
     def issubtype_allow_override(space, w_sub, w_type):
         w_check = space.lookup(w_type, "__subclasscheck__")
         if w_check is None:
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("issubclass not supported here"))
+            raise oefmt(space.w_TypeError, "issubclass not supported here")
         return space.get_and_call_function(w_check, w_type, w_sub)
 
     def isinstance_allow_override(space, w_inst, w_type):

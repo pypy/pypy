@@ -563,12 +563,11 @@ def _obj_getdict(self, space):
 
 @objectmodel.dont_inline
 def _obj_setdict(self, space, w_dict):
-    from pypy.interpreter.error import OperationError
+    from pypy.interpreter.error import oefmt
     terminator = self._get_mapdict_map().terminator
     assert isinstance(terminator, DictTerminator) or isinstance(terminator, DevolvedDictTerminator)
     if not space.isinstance_w(w_dict, space.w_dict):
-        raise OperationError(space.w_TypeError,
-                space.wrap("setting dictionary to a non-dict"))
+        raise oefmt(space.w_TypeError, "setting dictionary to a non-dict")
     assert isinstance(w_dict, W_DictMultiObject)
     w_olddict = self.getdict(space)
     assert isinstance(w_olddict, W_DictMultiObject)

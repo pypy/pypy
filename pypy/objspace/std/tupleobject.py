@@ -3,7 +3,7 @@
 import sys
 
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import (
     WrappedDefault, interp2app, interpindirect2app, unwrap_spec)
 from pypy.interpreter.typedef import TypeDef
@@ -213,8 +213,7 @@ class W_AbstractTupleObject(W_Root):
             w_item = self.tolist()[i]
             if space.eq_w(w_item, w_obj):
                 return space.wrap(i)
-        raise OperationError(space.w_ValueError,
-                             space.wrap("tuple.index(x): x not in tuple"))
+        raise oefmt(space.w_ValueError, "tuple.index(x): x not in tuple")
 
 W_AbstractTupleObject.typedef = TypeDef(
     "tuple",
@@ -326,8 +325,7 @@ class W_TupleObject(W_AbstractTupleObject):
         try:
             return self.wrappeditems[index]
         except IndexError:
-            raise OperationError(space.w_IndexError,
-                                 space.wrap("tuple index out of range"))
+            raise oefmt(space.w_IndexError, "tuple index out of range")
 
 
 def wraptuple(space, list_w):

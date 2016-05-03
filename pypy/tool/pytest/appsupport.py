@@ -2,7 +2,7 @@ from inspect import CO_VARARGS, CO_VARKEYWORDS
 
 import py
 from pypy.interpreter import gateway, pycode
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 
 try:
     from _pytest.assertion.newinterpret import interpret
@@ -232,9 +232,8 @@ def pypyraises(space, w_ExpectedException, w_expr, __args__):
     args_w, kwds_w = __args__.unpack()
     if space.isinstance_w(w_expr, space.w_str):
         if args_w:
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("raises() takes no argument "
-                                            "after a string expression"))
+            raise oefmt(space.w_TypeError,
+                        "raises() takes no argument after a string expression")
         expr = space.unwrap(w_expr)
         source = py.code.Source(expr)
         frame = space.getexecutioncontext().gettopframe()
@@ -264,8 +263,7 @@ def pypyraises(space, w_ExpectedException, w_expr, __args__):
             if e.match(space, w_ExpectedException):
                 return _exc_info(space, e)
             raise
-    raise OperationError(space.w_AssertionError,
-                         space.wrap("DID NOT RAISE"))
+    raise oefmt(space.w_AssertionError, "DID NOT RAISE")
 
 app_raises = gateway.interp2app_temp(pypyraises)
 
