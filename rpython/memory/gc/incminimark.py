@@ -2587,20 +2587,23 @@ class IncrementalMiniMarkGC(MovingGCBase):
     # ----------
     # Finalizers
 
+    def call_destructor(self, obj):
+        destructor = self.destructor_or_custom_trace(self.get_type_id(obj))
+        ll_assert(bool(destructor), "no destructor found")
+        destructor(obj)
+
     def deal_with_young_objects_with_destructors(self):
         """We can reasonably assume that destructors don't do
         anything fancy and *just* call them. Among other things
         they won't resurrect objects
         """
-        while self.young_objects_with_light_finalizers.non_empty():
-            obj = self.young_objects_with_light_finalizers.pop()
+        while self.young_objects_with_destructors.non_empty():
+            obj = self.young_objects_with_destructors.pop()
             if not self.is_forwarded(obj):
-                finalizer = self.getlightfinalizer(self.get_type_id(obj))
-                ll_assert(bool(finalizer), "no light finalizer found")
-                finalizer(obj)
+                self.call_destructor(obj)
             else:
                 obj = self.get_forwarding_address(obj)
-                self.old_objects_with_light_finalizers.append(obj)
+                self.old_objects_with_destructors.append(obj)
 
     def deal_with_old_objects_with_destructors(self):
         """We can reasonably assume that destructors don't do
@@ -2608,18 +2611,16 @@ class IncrementalMiniMarkGC(MovingGCBase):
         they won't resurrect objects
         """
         new_objects = self.AddressStack()
-        while self.old_objects_with_light_finalizers.non_empty():
-            obj = self.old_objects_with_light_finalizers.pop()
+        while self.old_objects_with_destructors.non_empty():
+            obj = self.old_objects_with_destructors.pop()
             if self.header(obj).tid & GCFLAG_VISITED:
                 # surviving
                 new_objects.append(obj)
             else:
                 # dying
-                finalizer = self.getlightfinalizer(self.get_type_id(obj))
-                ll_assert(bool(finalizer), "no light finalizer found")
-                finalizer(obj)
-        self.old_objects_with_light_finalizers.delete()
-        self.old_objects_with_light_finalizers = new_objects
+                self.call_destructor(obj)
+        self.old_objects_with_destructors.delete()
+        self.old_objects_with_destructors = new_objects
 
     def deal_with_young_objects_with_finalizers(self):
         while self.probably_young_objects_with_finalizers.non_empty():

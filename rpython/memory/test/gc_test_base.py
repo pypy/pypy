@@ -282,7 +282,7 @@ class GCTest(object):
             llop.gc__collect(lltype.Void)
             aid = b.a.id
             b.a = None
-            # check that __del__ is not called again
+            # check that finalizer_trigger() is not called again
             llop.gc__collect(lltype.Void)
             llop.gc__collect(lltype.Void)
             return b.num_deleted * 10 + aid + 100 * (b.a is None)
@@ -409,23 +409,32 @@ class GCTest(object):
         res = self.interpret(f, [])
         assert res
 
-    def test_cycle_with_weakref_and_del(self):
+    def test_cycle_with_weakref_and_finalizer(self):
         import weakref
         class A(object):
             count = 0
         a = A()
         class B(object):
-            def __del__(self):
-                # when __del__ is called, the weakref to c should be dead
-                if self.ref() is None:
-                    a.count += 10  # ok
-                else:
-                    a.count = 666  # not ok
+            pass
+        class FQ(rgc.FinalizerQueue):
+            Class = B
+            def finalizer_trigger(self):
+                while True:
+                    b = self.next_dead()
+                    if b is None:
+                        break
+                    # when we are here, the weakref to c should be dead
+                    if b.ref() is None:
+                        a.count += 10  # ok
+                    else:
+                        a.count = 666  # not ok
+        fq = FQ()
         class C(object):
             pass
         def g():
             c = C()
             c.b = B()
+            fq.register_finalizer(c.b)
             ref = weakref.ref(c)
             c.b.ref = ref
             return ref
@@ -445,23 +454,32 @@ class GCTest(object):
         a = A()
         expected_invalid = self.WREF_IS_INVALID_BEFORE_DEL_IS_CALLED
         class B(object):
-            def __del__(self):
-                # when __del__ is called, the weakref to myself is still valid
+            pass
+        class FQ(rgc.FinalizerQueue):
+            Class = B
+            def finalizer_trigger(self):
+                # when we are here, the weakref to myself is still valid
                 # in RPython with most GCs.  However, this can lead to strange
                 # bugs with incminimark.  https://bugs.pypy.org/issue1687
                 # So with incminimark, we expect the opposite.
-                if expected_invalid:
-                    if self.ref() is None:
-                        a.count += 10  # ok
+                while True:
+                    b = self.next_dead()
+                    if b is None:
+                        break
+                    if expected_invalid:
+                        if b.ref() is None:
+                            a.count += 10  # ok
+                        else:
+                            a.count = 666  # not ok
                     else:
-                        a.count = 666  # not ok
-                else:
-                    if self.ref() is self:
-                        a.count += 10  # ok
-                    else:
-                        a.count = 666  # not ok
+                        if b.ref() is self:
+                            a.count += 10  # ok
+                        else:
+                            a.count = 666  # not ok
+        fq = FQ()
         def g():
             b = B()
+            fq.register_finalizer(b)
             ref = weakref.ref(b)
             b.ref = ref
             return ref
@@ -479,10 +497,19 @@ class GCTest(object):
         class A(object):
             pass
         class B(object):
-            def __del__(self):
-                self.wref().x += 1
+            pass
+        class FQ(rgc.FinalizerQueue):
+            Class = B
+            def finalizer_trigger(self):
+                while True:
+                    b = self.next_dead()
+                    if b is None:
+                        break
+                    b.wref().x += 1
+        fq = FQ()
         def g(a):
             b = B()
+            fq.register_finalizer(b)
             b.wref = weakref.ref(a)
             # the only way to reach this weakref is via B, which is an
             # object with finalizer (but the weakref itself points to
@@ -567,15 +594,24 @@ class GCTest(object):
             def __init__(self):
                 self.id = b.nextid
                 b.nextid += 1
-            def __del__(self):
-                llop.gc__collect(lltype.Void)
-                b.num_deleted += 1
-                C()
-                C()
+                fq.register_finalizer(self)
         class C(A):
-            def __del__(self):
-                b.num_deleted += 1
-                b.num_deleted_c += 1
+            pass
+        class FQ(rgc.FinalizerQueue):
+            Class = A
+            def finalizer_trigger(self):
+                while True:
+                    a = self.next_dead()
+                    if a is None:
+                        break
+                    llop.gc__collect(lltype.Void)
+                    b.num_deleted += 1
+                    if isinstance(a, C):
+                        b.num_deleted_c += 1
+                    else:
+                        C()
+                        C()
+        fq = FQ()
         def f(x, y):
             persistent_a1 = A()
             persistent_a2 = A()

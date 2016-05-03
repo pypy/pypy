@@ -53,7 +53,7 @@ class SemiSpaceGCTestDefines:
         def set_age_of(c, newvalue):
             # NB. this used to be a dictionary, but setting into a dict
             # consumes memory.  This has the effect that this test's
-            # __del__ methods can consume more memory and potentially
+            # finalizer_trigger method can consume more memory and potentially
             # cause another collection.  This would result in objects
             # being unexpectedly destroyed at the same 'state.time'.
             state.age[ord(c) - ord('a')] = newvalue
@@ -160,11 +160,22 @@ class SemiSpaceGCTestDefines:
         class B:
             count = 0
         class A:
-            def __del__(self):
-                self.b.count += 1
+            pass
+
+        class FQ(rgc.FinalizerQueue):
+            Class = A
+            def finalizer_trigger(self):
+                while True:
+                    a = self.next_dead()
+                    if a is None:
+                        break
+                    a.b.count += 1
+        fq = FQ()
+
         def g():
             b = B()
             a = A()
+            fq.register_finalizer(a)
             a.b = b
             i = 0
             lst = [None]
