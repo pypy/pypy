@@ -441,8 +441,7 @@ def PyUnicode_FSConverter(space, w_obj, result):
         w_obj = PyUnicode_FromObject(space, w_obj)
         w_output = space.fsencode(w_obj)
         if not space.isinstance_w(w_output, space.w_bytes):
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("encoder failed to return bytes"))
+            raise oefmt(space.w_TypeError, "encoder failed to return bytes")
     data = space.bytes0_w(w_output)  # Check for NUL bytes
     result[0] = make_ref(space, w_output)
     return Py_CLEANUP_SUPPORTED
@@ -465,8 +464,7 @@ def PyUnicode_FSDecoder(space, w_obj, result):
         w_obj = PyBytes_FromObject(space, w_obj)
         w_output = space.fsdecode(w_obj)
         if not space.isinstance_w(w_output, space.w_unicode):
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("decoder failed to return unicode"))
+            raise oefmt(space.w_TypeError, "decoder failed to return unicode")
     data = space.unicode0_w(w_output)  # Check for NUL bytes
     result[0] = make_ref(space, w_output)
     return Py_CLEANUP_SUPPORTED

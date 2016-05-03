@@ -172,9 +172,9 @@ class W_BaseException(W_Root):
         if space.is_w(w_newcause, space.w_None):
             w_newcause = None
         elif not space.exception_is_valid_class_w(space.type(w_newcause)):
-            raise OperationError(space.w_TypeError, space.wrap(
-                    "exception cause must be None or "
-                    "derive from BaseException"))
+            raise oefmt(space.w_TypeError,
+                        "exception cause must be None or derive from "
+                        "BaseException")
         self.w_cause = w_newcause
         self.suppress_context = True
 
@@ -184,9 +184,9 @@ class W_BaseException(W_Root):
     def descr_setcontext(self, space, w_newcontext):
         if not (space.is_w(w_newcontext, space.w_None) or
                 space.exception_is_valid_class_w(space.type(w_newcontext))):
-            raise OperationError(space.w_TypeError, space.wrap(
-                    "exception context must be None or "
-                    "derive from BaseException"))
+            raise oefmt(space.w_TypeError,
+                        "exception context must be None or derive from "
+                        "BaseException")
         self.w_context = w_newcontext
 
     def descr_gettraceback(self, space):
@@ -319,9 +319,9 @@ class W_ImportError(W_Exception):
         self.w_name = kw_w.pop('name', space.w_None)
         self.w_path = kw_w.pop('path', space.w_None)
         if kw_w:
-            raise OperationError(space.w_TypeError, space.wrap(
-                    # CPython displays this, but it's not quite right.
-                    "ImportError does not take keyword arguments"))
+            # CPython displays this, but it's not quite right.
+            raise oefmt(space.w_TypeError,
+                        "ImportError does not take keyword arguments")
         W_Exception.descr_init(self, space, args_w)
 
 
@@ -571,8 +571,7 @@ class W_OSError(W_Exception):
 
     def descr_get_written(self, space):
         if self.written == -1:
-            raise OperationError(space.w_AttributeError,
-                                 space.wrap("characters_written"))
+            raise oefmt(space.w_AttributeError, "characters_written")
         return space.wrap(self.written)
 
     def descr_set_written(self, space, w_written):

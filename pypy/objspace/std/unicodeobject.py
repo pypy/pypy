@@ -204,13 +204,13 @@ class W_UnicodeObject(W_Root):
             except OperationError as e:
                 if not e.match(space, space.w_TypeError):
                     raise
-                raise OperationError(space.w_TypeError, space.wrap(
-                        "first maketrans argument must "
-                        "be a string if there is a second argument"))
+                raise oefmt(space.w_TypeError,
+                            "first maketrans argument must be a string if "
+                            "there is a second argument")
             if len(x) != ylen:
-                raise OperationError(space.w_ValueError, space.wrap(
-                        "the first two maketrans "
-                        "arguments must have equal length"))
+                raise oefmt(space.w_ValueError,
+                            "the first two maketrans arguments must have "
+                            "equal length")
             # create entries for translating chars in x to those in y
             for i in range(len(x)):
                 w_key = space.newint(ord(x[i]))
@@ -224,9 +224,9 @@ class W_UnicodeObject(W_Root):
         else:
             # x must be a dict
             if not space.is_w(space.type(w_x), space.w_dict):
-                raise OperationError(space.w_TypeError, space.wrap(
-                        "if you give only one argument "
-                        "to maketrans it must be a dict"))
+                raise oefmt(space.w_TypeError,
+                            "if you give only one argument to maketrans it "
+                            "must be a dict")
             # copy entries into the new dict, converting string keys to int keys
             w_iter = space.iter(space.call_method(w_x, "items"))
             while True:
@@ -241,9 +241,9 @@ class W_UnicodeObject(W_Root):
                     # convert string keys to integer keys
                     key = space.unicode_w(w_key)
                     if len(key) != 1:
-                        raise OperationError(space.w_ValueError, space.wrap(
-                                "string keys in translate "
-                                "table must be of length 1"))
+                        raise oefmt(space.w_ValueError,
+                                    "string keys in translate table must be "
+                                    "of length 1")
                     w_key = space.newint(ord(key[0]))
                 else:
                     # just keep integer keys
@@ -252,9 +252,9 @@ class W_UnicodeObject(W_Root):
                     except OperationError as e:
                         if not e.match(space, space.w_TypeError):
                             raise
-                        raise OperationError(space.w_TypeError, space.wrap(
-                                "keys in translate table must "
-                                "be strings or integers"))
+                        raise oefmt(space.w_TypeError,
+                                    "keys in translate table must be strings "
+                                    "or integers")
                 space.setitem(w_new, w_key, w_value)
         return w_new
 

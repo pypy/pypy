@@ -56,30 +56,26 @@ def descr_new_super(space, w_subtype, w_starttype=None, w_obj_or_type=None):
         frame = ec.gettopframe()
         code = frame.pycode
         if not code:
-            raise OperationError(space.w_RuntimeError, space.wrap(
-                    "super(): no code object"))
+            raise oefmt(space.w_RuntimeError, "super(): no code object")
         if code.co_argcount == 0:
-            raise OperationError(space.w_RuntimeError, space.wrap(
-                    "super(): no arguments"))
+            raise oefmt(space.w_RuntimeError, "super(): no arguments")
         w_obj = frame.locals_cells_stack_w[0]
         if not w_obj:
-            raise OperationError(space.w_RuntimeError, space.wrap(
-                    "super(): arg[0] deleted"))
+            raise oefmt(space.w_RuntimeError, "super(): arg[0] deleted")
         index = 0
         for name in code.co_freevars:
             if name == "__class__":
                 break
             index += 1
         else:
-            raise OperationError(space.w_RuntimeError, space.wrap(
-                    "super(): __class__ cell not found"))
+            raise oefmt(space.w_RuntimeError,
+                        "super(): __class__ cell not found")
         # a kind of LOAD_DEREF
         cell = frame._getcell(len(code.co_cellvars) + index)
         try:
             w_starttype = cell.get()
         except ValueError:
-            raise OperationError(space.w_RuntimeError, space.wrap(
-                    "super(): empty __class__ cell"))
+            raise oefmt(space.w_RuntimeError, "super(): empty __class__ cell")
         w_obj_or_type = w_obj
 
     if space.is_none(w_obj_or_type):

@@ -468,17 +468,20 @@ def _hexstring_to_array(space, s):
         if i >= length:
             break
         if i + 1 == length:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "non-hexadecimal number found in fromhex() arg at position %d" % i))
+            raise oefmt(space.w_ValueError,
+                        "non-hexadecimal number found in fromhex() arg at "
+                        "position %d", i)
 
         top = _hex_digit_to_int(s[i])
         if top == -1:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "non-hexadecimal number found in fromhex() arg at position %d" % i))
+            raise oefmt(space.w_ValueError,
+                        "non-hexadecimal number found in fromhex() arg at "
+                        "position %d", i)
         bot = _hex_digit_to_int(s[i+1])
         if bot == -1:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "non-hexadecimal number found in fromhex() arg at position %d" % (i+1,)))
+            raise oefmt(space.w_ValueError,
+                        "non-hexadecimal number found in fromhex() arg at "
+                        "position %d", i + 1)
         data.append(chr(top*16 + bot))
     return data
 

@@ -484,25 +484,19 @@ def _checktm(space, t_ref):
     representation by some bad index (fixes bug #897625).  No check for
     year or wday since handled in _gettmarg()."""
     if not 0 <= rffi.getintfield(t_ref, 'c_tm_mon') <= 11:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("month out of range"))
+        raise oefmt(space.w_ValueError, "month out of range")
     if not 1 <= rffi.getintfield(t_ref, 'c_tm_mday') <= 31:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("day of month out of range"))
+        raise oefmt(space.w_ValueError, "day of month out of range")
     if not 0 <= rffi.getintfield(t_ref, 'c_tm_hour') <= 23:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("hour out of range"))
+        raise oefmt(space.w_ValueError, "hour out of range")
     if not 0 <= rffi.getintfield(t_ref, 'c_tm_min') <= 59:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("minute out of range"))
+        raise oefmt(space.w_ValueError, "minute out of range")
     if not 0 <= rffi.getintfield(t_ref, 'c_tm_sec') <= 61:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("seconds out of range"))
+        raise oefmt(space.w_ValueError, "seconds out of range")
     # tm_wday does not need checking: "% 7" in _gettmarg() automatically
     # restricts the range
     if not 0 <= rffi.getintfield(t_ref, 'c_tm_yday') <= 365:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("day of year out of range"))
+        raise oefmt(space.w_ValueError, "day of year out of range")
 
 def time(space):
     """time() -> floating point number

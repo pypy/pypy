@@ -239,8 +239,7 @@ if HAVE_OPENSSL_RAND:
 
     def _RAND_bytes(space, n, pseudo):
         if n < 0:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "num must be positive"))
+            raise oefmt(space.w_ValueError, "num must be positive")
 
         with rffi.scoped_alloc_buffer(n) as buf:
             if pseudo:
@@ -1378,9 +1377,9 @@ class SSLContext(W_Root):
                                   "encode", space.wrap("idna")))
 
         if hostname and not HAS_SNI:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("server_hostname is not supported "
-                                            "by your OpenSSL library"))
+            raise oefmt(space.w_ValueError,
+                        "server_hostname is not supported by your OpenSSL "
+                        "library")
 
         return new_sslobject(space, self.ctx, w_sock, server_side, hostname)
 

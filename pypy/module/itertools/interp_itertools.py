@@ -1429,8 +1429,7 @@ class W_Combinations(W_Root):
     def descr_setstate(self, space, w_state):
         indices_w = space.fixedview(w_state)
         if len(indices_w) != self.r:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "invalid arguments"))
+            raise oefmt(space.w_ValueError, "invalid arguments")
         for i in range(self.r):
             index = space.int_w(indices_w[i])
             max = self.get_maximum(i)

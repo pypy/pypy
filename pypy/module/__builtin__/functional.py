@@ -388,8 +388,8 @@ class W_Range(W_Root):
             pass  # We know it's not zero
         else:
             if step == 0:
-                raise OperationError(space.w_ValueError, space.wrap(
-                        "step argument must not be zero"))
+                raise oefmt(space.w_ValueError,
+                            "step argument must not be zero")
         w_length = compute_range_length(space, w_start, w_stop, w_step)
         obj = space.allocate_instance(W_Range, w_subtype)
         W_Range.__init__(obj, w_start, w_stop, w_step, w_length, promote_step)
@@ -688,7 +688,9 @@ class W_Map(W_Root):
                 iterator_w = space.iter(iterable_w)
             except OperationError as e:
                 if e.match(self.space, self.space.w_TypeError):
-                    raise OperationError(space.w_TypeError, space.wrap(self._error_name + " argument #" + str(i + 1) + " must support iteration"))
+                    raise oefmt(space.w_TypeError,
+                                "%s argument #%d must support iteration",
+                                self._error_name, i + 1)
                 else:
                     raise
             else:
@@ -731,8 +733,8 @@ class W_Map(W_Root):
 
 def W_Map___new__(space, w_subtype, w_fun, args_w):
     if len(args_w) == 0:
-        raise OperationError(space.w_TypeError,
-                  space.wrap("map() must have at least two arguments"))
+        raise oefmt(space.w_TypeError,
+                    "map() must have at least two arguments")
     r = space.allocate_instance(W_Map, w_subtype)
     r.__init__(space, w_fun, args_w)
     return space.wrap(r)

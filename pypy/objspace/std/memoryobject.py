@@ -164,8 +164,8 @@ class W_MemoryView(W_Root):
         if self._hash == -1:
             self._check_released(space)
             if not self.buf.readonly:
-                raise OperationError(space.w_ValueError, space.wrap(
-                        "cannot hash writable memoryview object"))
+                raise oefmt(space.w_ValueError,
+                            "cannot hash writable memoryview object")
             self._hash = compute_hash(self.buf.as_str())
         return space.wrap(self._hash)
 

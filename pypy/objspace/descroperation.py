@@ -422,8 +422,8 @@ class DescrOperation(object):
             except OperationError as e:
                 if not e.match(space, space.w_StopIteration):
                     raise
-                msg = "sequence.index(x): x not in sequence"
-                raise OperationError(space.w_ValueError, space.wrap(msg))
+                raise oefmt(space.w_ValueError,
+                            "sequence.index(x): x not in sequence")
             if space.eq_w(w_next, w_item):
                 return space.wrap(index)
             index += 1

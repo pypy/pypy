@@ -2,7 +2,7 @@ from rpython.rlib import rsocket
 from rpython.rlib.rsocket import SocketError, INVALID_SOCKET
 from rpython.rlib.rarithmetic import intmask
 
-from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import oefmt
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 from pypy.module._socket.interp_socket import (
     converted_error, W_Socket, addr_as_object, fill_from_object, get_error,
@@ -131,9 +131,8 @@ def getnameinfo(space, w_sockaddr, flags):
                                   rsocket.SOCK_DGRAM, 0,
                                   rsocket.AI_NUMERICHOST)
         if len(lst) > 1:
-            raise OperationError(
-                get_error(space, 'error'),
-                space.wrap("sockaddr resolved to multiple addresses"))
+            raise oefmt(get_error(space, 'error'),
+                        "sockaddr resolved to multiple addresses")
         addr = lst[0][4]
         fill_from_object(addr, space, w_sockaddr)
         host, servport = rsocket.getnameinfo(addr, flags)

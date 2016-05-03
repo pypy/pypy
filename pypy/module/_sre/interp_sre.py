@@ -111,8 +111,9 @@ class W_SRE_Pattern(W_Root):
             unicodestr = space.unicode_w(w_string)
             if not (space.is_none(self.w_pattern) or
                     space.isinstance_w(self.w_pattern, space.w_unicode)):
-                raise OperationError(space.w_TypeError, space.wrap(
-                        "can't use a bytes pattern on a string-like object"))
+                raise oefmt(space.w_TypeError,
+                            "can't use a bytes pattern on a string-like "
+                            "object")
             if pos > len(unicodestr):
                 pos = len(unicodestr)
             if endpos > len(unicodestr):
@@ -122,8 +123,9 @@ class W_SRE_Pattern(W_Root):
         elif space.isinstance_w(w_string, space.w_str):
             if (not space.is_none(self.w_pattern) and
                 space.isinstance_w(self.w_pattern, space.w_unicode)):
-                raise OperationError(space.w_TypeError, space.wrap(
-                        "can't use a string pattern on a bytes-like object"))
+                raise oefmt(space.w_TypeError,
+                            "can't use a string pattern on a bytes-like "
+                            "object")
             str = space.str_w(w_string)
             if pos > len(str):
                 pos = len(str)
@@ -135,8 +137,9 @@ class W_SRE_Pattern(W_Root):
             buf = space.readbuf_w(w_string)
             if (not space.is_none(self.w_pattern) and
                 space.isinstance_w(self.w_pattern, space.w_unicode)):
-                raise OperationError(space.w_TypeError, space.wrap(
-                        "can't use a string pattern on a bytes-like object"))
+                raise oefmt(space.w_TypeError,
+                            "can't use a string pattern on a bytes-like "
+                            "object")
             size = buf.getlength()
             assert size >= 0
             if pos > size:

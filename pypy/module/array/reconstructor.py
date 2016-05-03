@@ -3,7 +3,7 @@
 # from its memory representation.
 import sys
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import oefmt
 from pypy.interpreter.argument import Arguments
 from rpython.rlib import runicode, rbigint
 from rpython.rlib.rstruct import ieee
@@ -80,12 +80,10 @@ def array_reconstructor(space, w_cls, typecode, mformat_code, w_items):
             space, w_cls, typecode, Arguments(space, [w_items]))
 
     if typecode not in interp_array.types:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("invalid type code"))
+        raise oefmt(space.w_ValueError, "invalid type code")
     if (mformat_code < MACHINE_FORMAT_CODE_MIN or
         mformat_code > MACHINE_FORMAT_CODE_MAX):
-        raise OperationError(space.w_ValueError,
-                             space.wrap("invalid machine format code"))
+        raise oefmt(space.w_ValueError, "invalid machine format code")
 
     # Slow path: Decode the byte string according to the given machine
     # format code. This occurs when the computer unpickling the array

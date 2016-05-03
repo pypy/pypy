@@ -390,7 +390,7 @@ def log1p(space, w_x):
         # Python 2.x (and thus ll_math) raises a OverflowError improperly.
         if not e.match(space, space.w_OverflowError):
             raise
-        raise OperationError(space.w_ValueError, space.wrap("math domain error"))
+        raise oefmt(space.w_ValueError, "math domain error")
 
 def acosh(space, w_x):
     """Inverse hyperbolic cosine"""

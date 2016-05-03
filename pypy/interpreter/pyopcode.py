@@ -754,8 +754,7 @@ class __extend__(pyframe.PyFrame):
         w_build_class = self.get_builtin().getdictvalue(
             self.space, '__build_class__')
         if w_build_class is None:
-            raise OperationError(self.space.w_ImportError,
-                                 self.space.wrap("__build_class__ not found"))
+            raise oefmt(self.space.w_ImportError, "__build_class__ not found")
         self.pushvalue(w_build_class)
 
     def STORE_NAME(self, varindex, next_instr):
@@ -919,11 +918,9 @@ class __extend__(pyframe.PyFrame):
         if space.isinstance_w(w_2, space.w_tuple):
             for w_type in space.fixedview(w_2):
                 if not space.exception_is_valid_class_w(w_type):
-                    raise OperationError(space.w_TypeError,
-                                         space.wrap(CANNOT_CATCH_MSG))
+                    raise oefmt(space.w_TypeError, CANNOT_CATCH_MSG)
         elif not space.exception_is_valid_class_w(w_2):
-            raise OperationError(space.w_TypeError,
-                                 space.wrap(CANNOT_CATCH_MSG))
+            raise oefmt(space.w_TypeError, CANNOT_CATCH_MSG)
         return space.newbool(space.exception_match(w_1, w_2))
 
     def COMPARE_OP(self, testnum, next_instr):
@@ -970,8 +967,7 @@ class __extend__(pyframe.PyFrame):
 
         w_import = self.get_builtin().getdictvalue(space, '__import__')
         if w_import is None:
-            raise OperationError(space.w_ImportError,
-                                 space.wrap("__import__ not found"))
+            raise oefmt(space.w_ImportError, "__import__ not found")
         d = self.getdebug()
         if d is None:
             w_locals = None

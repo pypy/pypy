@@ -381,8 +381,7 @@ class Function(W_Root):
         if space.is_w(w_new, space.w_None):
             w_new = None
         elif not space.isinstance_w(w_new, space.w_dict):
-            msg = "__kwdefaults__ must be a dict"
-            raise OperationError(space.w_TypeError, space.wrap(msg))
+            raise oefmt(space.w_TypeError, "__kwdefaults__ must be a dict")
         self.w_kw_defs = w_new
 
     def fdel_func_kwdefaults(self, space):
@@ -414,9 +413,8 @@ class Function(W_Root):
             self.qualname = space.unicode_w(w_name)
         except OperationError as e:
             if e.match(space, space.w_TypeError):
-                raise OperationError(space.w_TypeError,
-                                     space.wrap("__qualname__ must be set "
-                                                "to a string object"))
+                raise oefmt(space.w_TypeError,
+                            "__qualname__ must be set to a string object")
             raise
 
     def fdel_func_doc(self, space):
@@ -471,8 +469,7 @@ class Function(W_Root):
         if space.is_w(w_new, space.w_None):
             w_new = None
         elif not space.isinstance_w(w_new, space.w_dict):
-            msg = "__annotations__ must be a dict"
-            raise OperationError(space.w_TypeError, space.wrap(msg))
+            raise oefmt(space.w_TypeError, "__annotations__ must be a dict")
         self.w_ann = w_new
 
     def fdel_func_annotations(self, space):

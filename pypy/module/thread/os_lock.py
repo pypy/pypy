@@ -88,8 +88,8 @@ but it needn't be locked by the same thread that unlocks it."""
         try:
             self.lock.release()
         except rthread.error:
-            raise OperationError(space.w_RuntimeError, space.wrap(
-                "cannot release un-acquired lock"))
+            raise oefmt(space.w_RuntimeError,
+                        "cannot release un-acquired lock")
 
     def descr_lock_locked(self, space):
         """Return whether the lock is in the locked state."""
@@ -183,8 +183,8 @@ class W_RLock(W_Root):
             try:
                 self.rlock_count = ovfcheck(self.rlock_count + 1)
             except OverflowError:
-                raise OperationError(space.w_OverflowError, space.wrap(
-                        'internal lock count overflowed'))
+                raise oefmt(space.w_OverflowError,
+                            "internal lock count overflowed")
             return space.w_True
 
         r = True
@@ -212,8 +212,8 @@ class W_RLock(W_Root):
         to be available for other threads."""
         tid = rthread.get_ident()
         if self.rlock_count == 0 or self.rlock_owner != tid:
-            raise OperationError(space.w_RuntimeError, space.wrap(
-                    "cannot release un-acquired lock"))
+            raise oefmt(space.w_RuntimeError,
+                        "cannot release un-acquired lock")
         self.rlock_count -= 1
         if self.rlock_count == 0:
             self.rlock_owner == 0
@@ -245,8 +245,8 @@ class W_RLock(W_Root):
     def release_save_w(self, space):
         """For internal use by `threading.Condition`."""
         if self.rlock_count == 0:
-            raise OperationError(space.w_RuntimeError, space.wrap(
-                "cannot release un-acquired lock"))
+            raise oefmt(space.w_RuntimeError,
+                        "cannot release un-acquired lock")
         count, self.rlock_count = self.rlock_count, 0
         owner, self.rlock_owner = self.rlock_owner, 0
         self.lock.release()

@@ -1563,8 +1563,8 @@ class ObjSpace(object):
         from rpython.rlib import rstring
         result = self.str_w(w_obj)
         if '\x00' in result:
-            raise OperationError(self.w_TypeError, self.wrap(
-                    'argument must be a string without NUL characters'))
+            raise oefmt(self.w_TypeError,
+                        "argument must be a string without NUL characters")
         return rstring.assert_str0(result)
 
     def bytes0_w(self, w_obj):
