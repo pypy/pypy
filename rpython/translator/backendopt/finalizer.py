@@ -20,7 +20,8 @@ class FinalizerAnalyzer(graphanalyze.BoolGraphAnalyzer):
     """
     ok_operations = ['ptr_nonzero', 'ptr_eq', 'ptr_ne', 'free', 'same_as',
                      'direct_ptradd', 'force_cast', 'track_alloc_stop',
-                     'raw_free', 'adr_eq', 'adr_ne']
+                     'raw_free', 'adr_eq', 'adr_ne',
+                     'debug_print']
 
     def check_light_finalizer(self, graph):
         self._origin = graph

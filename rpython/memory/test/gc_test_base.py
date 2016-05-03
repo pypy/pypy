@@ -192,18 +192,27 @@ class GCTest(object):
             def __init__(self):
                 self.id = b.nextid
                 b.nextid += 1
-            def __del__(self):
-                b.num_deleted += 1
-                C()
+                fq.register_finalizer(self)
         class C(A):
-            def __del__(self):
-                b.num_deleted += 1
+            pass
+        class FQ(rgc.FinalizerQueue):
+            Class = A
+            def finalizer_trigger(self):
+                while True:
+                    a = self.next_dead()
+                    if a is None:
+                        break
+                    b.num_deleted += 1
+                    if not isinstance(a, C):
+                        C()
+        fq = FQ()
         def f(x):
             a = A()
             i = 0
             while i < x:
                 i += 1
                 a = A()
+            a = None
             llop.gc__collect(lltype.Void)
             llop.gc__collect(lltype.Void)
             return b.num_deleted
@@ -220,15 +229,21 @@ class GCTest(object):
             def __init__(self):
                 self.id = b.nextid
                 b.nextid += 1
-            def __del__(self):
-                b.num_deleted += 1
-                llop.gc__collect(lltype.Void)
+                fq.register_finalizer(self)
+        class FQ(rgc.FinalizerQueue):
+            Class = A
+            def finalizer_trigger(self):
+                while self.next_dead() is not None:
+                    b.num_deleted += 1
+                    llop.gc__collect(lltype.Void)
+        fq = FQ()
         def f(x):
             a = A()
             i = 0
             while i < x:
                 i += 1
                 a = A()
+            a = None
             llop.gc__collect(lltype.Void)
             llop.gc__collect(lltype.Void)
             return b.num_deleted
@@ -245,15 +260,24 @@ class GCTest(object):
             def __init__(self):
                 self.id = b.nextid
                 b.nextid += 1
-            def __del__(self):
-                b.num_deleted += 1
-                b.a = self
+                fq.register_finalizer(self)
+        class FQ(rgc.FinalizerQueue):
+            Class = A
+            def finalizer_trigger(self):
+                while True:
+                    a = self.next_dead()
+                    if a is None:
+                        break
+                    b.num_deleted += 1
+                    b.a = a
+        fq = FQ()
         def f(x):
             a = A()
             i = 0
             while i < x:
                 i += 1
                 a = A()
+            a = None
             llop.gc__collect(lltype.Void)
             llop.gc__collect(lltype.Void)
             aid = b.a.id
@@ -320,7 +344,7 @@ class GCTest(object):
         res = self.interpret(f, [])
         assert res
 
-    def test_weakref_to_object_with_finalizer(self):
+    def test_weakref_to_object_with_destructor(self):
         import weakref
         class A(object):
             count = 0
@@ -330,6 +354,32 @@ class GCTest(object):
                 a.count += 1
         def g():
             b = B()
+            return weakref.ref(b)
+        def f():
+            ref = g()
+            llop.gc__collect(lltype.Void)
+            llop.gc__collect(lltype.Void)
+            result = a.count == 1 and (ref() is None)
+            return result
+        res = self.interpret(f, [])
+        assert res
+
+    def test_weakref_to_object_with_finalizer(self):
+        import weakref
+        class A(object):
+            count = 0
+        a = A()
+        class B(object):
+            pass
+        class FQ(rgc.FinalizerQueue):
+            Class = B
+            def finalizer_trigger(self):
+                while self.next_dead() is not None:
+                    a.count += 1
+        fq = FQ()
+        def g():
+            b = B()
+            fq.register_finalizer(b)
             return weakref.ref(b)
         def f():
             ref = g()
@@ -478,9 +528,14 @@ class GCTest(object):
             def __init__(self):
                 self.id = b.nextid
                 b.nextid += 1
-            def __del__(self):
-                b.num_deleted += 1
-                b.all.append(D(b.num_deleted))
+                fq.register_finalizer(self)
+        class FQ(rgc.FinalizerQueue):
+            Class = A
+            def finalizer_trigger(self):
+                while self.next_dead() is not None:
+                    b.num_deleted += 1
+                    b.all.append(D(b.num_deleted))
+        fq = FQ()
         class D(object):
             # make a big object that does not use malloc_varsize
             def __init__(self, x):
@@ -491,6 +546,7 @@ class GCTest(object):
             i = 0
             all = [None] * x
             a = A()
+            del a
             while i < x:
                 d = D(i)
                 all[i] = d

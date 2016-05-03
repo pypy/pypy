@@ -1,5 +1,6 @@
 import os, py
 from rpython.tool.udir import udir
+from rpython.rlib import rgc
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem.lloperation import llop
 
@@ -61,12 +62,21 @@ class SemiSpaceGCTestDefines:
             def __init__(self, key):
                 self.key = key
                 self.refs = []
-            def __del__(self):
+                fq.register_finalizer(self)
+
+        class FQ(rgc.FinalizerQueue):
+            Class = A
+            def finalizer_trigger(self):
                 from rpython.rlib.debug import debug_print
-                debug_print("DEL:", self.key)
-                assert age_of(self.key) == -1
-                set_age_of(self.key, state.time)
-                state.progress = True
+                while True:
+                    a = self.next_dead()
+                    if a is None:
+                        break
+                    debug_print("DEL:", a.key)
+                    assert age_of(a.key) == -1
+                    set_age_of(a.key, state.time)
+                    state.progress = True
+        fq = FQ()
 
         def build_example(input):
             state.time = 0
