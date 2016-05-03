@@ -183,6 +183,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
         gcdata.typeids_list = a_random_address           # patched in finish()
         self.gcdata = gcdata
         self.malloc_fnptr_cache = {}
+        self.finalizer_queue_indexes = {}
 
         gcdata.gc = GCClass(translator.config.translation, **GC_PARAMS)
         root_walker = self.build_root_walker()
@@ -554,6 +555,12 @@ class BaseFrameworkGCTransformer(GCTransformer):
                                            [s_gc, s_typeid16],
                                            s_gcref)
 
+        self.register_finalizer_ptr = getfn(GCClass.register_finalizer,
+                                            [s_gc,
+                                             annmodel.SomeInteger(),
+                                             s_gcref],
+                                            annmodel.s_None)
+
     def create_custom_trace_funcs(self, gc, rtyper):
         custom_trace_funcs = tuple(rtyper.custom_trace_funcs)
         rtyper.custom_trace_funcs = custom_trace_funcs
@@ -684,6 +691,9 @@ class BaseFrameworkGCTransformer(GCTransformer):
             ll_typeids_list[i] = typeids_list[i]
         ll_instance.inst_typeids_list= llmemory.cast_ptr_to_adr(ll_typeids_list)
         newgcdependencies.append(ll_typeids_list)
+        #
+        # update this field too
+        ll_instance.inst_run_finalizer_queues = self.gcdata.run_finalizer_queues
         #
         return newgcdependencies
 
@@ -1498,6 +1508,29 @@ class BaseFrameworkGCTransformer(GCTransformer):
             return None
         return getattr(obj, '_hash_cache_', None)
 
+    def get_finalizer_queue_index(self, hop):
+        fq_tag = hop.spaceop.args[0].value
+        assert fq_tag.expr == 'FinalizerQueue TAG'
+        fq = fq_tag.default
+        try:
+            index = self.finalizer_queue_indexes[fq]
+        except KeyError:
+            index = self.gcdata.register_next_finalizer_queue(
+                self.gcdata.gc.AddressDeque)
+            self.finalizer_queue_indexes[fq] = index
+        return index
+
+    def gct_gc_fq_register(self, hop):
+        index = self.get_finalizer_queue_index(hop)
+        c_index = rmodel.inputconst(lltype.Signed, index)
+        v_ptr = hop.spaceop.args[1]
+        v_ptr = hop.genop("cast_opaque_ptr", [v_ptr],
+                          resulttype=llmemory.GCREF)
+        hop.genop("direct_call", [self.register_finalizer_ptr, self.c_const_gc,
+                                  c_index, v_ptr])
+
+    def gct_gc_fq_next_dead(self, hop):
+        xxxx
 
 
 class TransformerLayoutBuilder(gctypelayout.TypeLayoutBuilder):

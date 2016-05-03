@@ -23,7 +23,7 @@ class GCManagedHeap(object):
         self.prepare_graphs(flowgraphs)
         self.gc.setup()
         self.finalizer_queue_indexes = {}
-        self.finalizer_queues = []
+        self.finalizer_queues = {}
         self.has_write_barrier_from_array = hasattr(self.gc,
                                                     'write_barrier_from_array')
 
@@ -35,6 +35,7 @@ class GCManagedHeap(object):
         self.get_type_id = layoutbuilder.get_type_id
         gcdata = layoutbuilder.initialize_gc_query_function(self.gc)
         gcdata.init_finalizer_trigger(self.finalizer_trigger)
+        self.gcdata = gcdata
 
         constants = collect_constants(flowgraphs)
         for obj in constants:
@@ -207,11 +208,10 @@ class GCManagedHeap(object):
         try:
             index = self.finalizer_queue_indexes[fq]
         except KeyError:
-            index = len(self.finalizer_queue_indexes)
-            assert index == len(self.finalizer_queues)
+            index = self.gcdata.register_next_finalizer_queue(
+                self.gc.AddressDeque)
             self.finalizer_queue_indexes[fq] = index
-            self.finalizer_queues.append(fq)
-            self.gc.register_finalizer_index(fq, index)
+            self.finalizer_queues[index] = fq
         return index
 
     def gc_fq_next_dead(self, fq_tag):

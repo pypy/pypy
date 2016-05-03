@@ -6,9 +6,6 @@ from rpython.memory.gcheader import GCHeaderBuilder
 from rpython.memory.support import DEFAULT_CHUNK_SIZE
 from rpython.memory.support import get_address_stack, get_address_deque
 from rpython.memory.support import AddressDict, null_address_dict
-from rpython.memory.support import make_list_of_nongc_instances
-from rpython.memory.support import list_set_nongc_instance
-from rpython.memory.support import list_get_nongc_instance
 from rpython.rtyper.lltypesystem.llmemory import NULL, raw_malloc_usage
 
 TYPEID_MAP = lltype.GcStruct('TYPEID_MAP', ('count', lltype.Signed),
@@ -36,31 +33,14 @@ class GCBase(object):
         self.config = config
         assert isinstance(translated_to_c, bool)
         self.translated_to_c = translated_to_c
-        self.run_finalizer_queues = make_list_of_nongc_instances(0)
 
     def setup(self):
         # all runtime mutable values' setup should happen here
         # and in its overriden versions! for the benefit of test_transformed_gc
         self.finalizer_lock = False
 
-    def register_finalizer_index(self, fq, index):
-        "NOT_RPYTHON"
-        if len(self.run_finalizer_queues) <= index:
-            array = make_list_of_nongc_instances(index + 1)
-            for i in range(len(self.run_finalizer_queues)):
-                array[i] = self.run_finalizer_queues[i]
-            self.run_finalizer_queues = array
-        #
-        fdold = list_get_nongc_instance(self.AddressDeque,
-                                       self.run_finalizer_queues, index)
-        list_set_nongc_instance(self.run_finalizer_queues, index,
-                                self.AddressDeque())
-        if fdold is not None:
-            fdold.delete()
-
     def mark_finalizer_to_run(self, fq_index, obj):
-        fdeque = list_get_nongc_instance(self.AddressDeque,
-                                         self.run_finalizer_queues, fq_index)
+        fdeque = self.get_run_finalizer_queue(self.AddressDeque, fq_index)
         fdeque.append(obj)
 
     def post_setup(self):
@@ -85,6 +65,7 @@ class GCBase(object):
     def set_query_functions(self, is_varsize, has_gcptr_in_varsize,
                             is_gcarrayofgcptr,
                             finalizer_trigger,
+                            get_run_finalizer_queue,
                             destructor_or_custom_trace,
                             offsets_to_gc_pointers,
                             fixed_size, varsize_item_sizes,
@@ -99,6 +80,7 @@ class GCBase(object):
                             has_gcptr,
                             cannot_pin):
         self.finalizer_trigger = finalizer_trigger
+        self.get_run_finalizer_queue = get_run_finalizer_queue
         self.destructor_or_custom_trace = destructor_or_custom_trace
         self.is_varsize = is_varsize
         self.has_gcptr_in_varsize = has_gcptr_in_varsize
@@ -351,11 +333,11 @@ class GCBase(object):
 
     def enum_pending_finalizers(self, callback, arg):
         i = 0
-        while i < len(self.run_finalizer_queues):
-            fdeque = list_get_nongc_instance(self.AddressDeque,
-                                             self.run_finalizer_queues, i)
-            if fdeque is not None:
-                fdeque.foreach(callback, arg)
+        while True:
+            fdeque = self.get_run_finalizer_queue(self.AddressDeque, i)
+            if fdeque is None:
+                break
+            fdeque.foreach(callback, arg)
             i += 1
     enum_pending_finalizers._annspecialcase_ = 'specialize:arg(1)'
 
@@ -403,18 +385,18 @@ class GCBase(object):
         self.finalizer_lock = True
         try:
             i = 0
-            while i < len(self.run_finalizer_queues):
-                fdeque = list_get_nongc_instance(self.AddressDeque,
-                                                 self.run_finalizer_queues, i)
-                if fdeque is not None and fdeque.non_empty():
+            while True:
+                fdeque = self.get_run_finalizer_queue(self.AddressDeque, i)
+                if fdeque is None:
+                    break
+                if fdeque.non_empty():
                     self.finalizer_trigger(i)
                 i += 1
         finally:
             self.finalizer_lock = False
 
     def finalizer_next_dead(self, fq_index):
-        fdeque = list_get_nongc_instance(self.AddressDeque,
-                                         self.run_finalizer_queues, fq_index)
+        fdeque = self.get_run_finalizer_queue(self.AddressDeque, fq_index)
         if fdeque.non_empty():
             obj = fdeque.popleft()
         else:

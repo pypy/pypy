@@ -399,7 +399,7 @@ def _null_value_checker(key, value, arg):
 
 # ____________________________________________________________
 
-NONGCARRAY = lltype.Array(NONGCOBJECTPTR)
+NONGCARRAY = lltype.Array(NONGCOBJECTPTR, hints={'nolength': True})
 
 def make_list_of_nongc_instances(count):
     return lltype.malloc(NONGCARRAY, count, flavor='raw', zero=True,

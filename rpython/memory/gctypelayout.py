@@ -4,6 +4,9 @@ from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib.debug import ll_assert
 from rpython.rlib.rarithmetic import intmask
 from rpython.tool.identity_dict import identity_dict
+from rpython.memory.support import make_list_of_nongc_instances
+from rpython.memory.support import list_set_nongc_instance
+from rpython.memory.support import list_get_nongc_instance
 
 
 class GCData(object):
@@ -47,6 +50,7 @@ class GCData(object):
         assert isinstance(type_info_group, llgroup.group)
         self.type_info_group = type_info_group
         self.type_info_group_ptr = type_info_group._as_ptr()
+        self.run_finalizer_queues = make_list_of_nongc_instances(1)
 
     def get(self, typeid):
         res = llop.get_group_member(GCData.TYPE_INFO_PTR,
@@ -86,8 +90,27 @@ class GCData(object):
     def init_finalizer_trigger(self, finalizer_trigger):
         self._finalizer_trigger = finalizer_trigger
 
+    def register_next_finalizer_queue(self, AddressDeque):
+        "NOT_RPYTHON"
+        # 'self.run_finalizer_queues' has got no length, but is NULL-terminated
+        prevlength = self.run_finalizer_queues._obj.getlength()
+        array = make_list_of_nongc_instances(prevlength + 1)
+        for i in range(prevlength):
+            array[i] = self.run_finalizer_queues[i]
+        self.run_finalizer_queues = array
+        #
+        fq_index = prevlength - 1
+        assert fq_index >= 0
+        list_set_nongc_instance(self.run_finalizer_queues, fq_index,
+                                AddressDeque())
+        return fq_index
+
     def q_finalizer_trigger(self, fq_index):
         self._finalizer_trigger(fq_index)
+
+    def q_get_run_finalizer_queue(self, AddressDeque, fq_index):
+        return list_get_nongc_instance(AddressDeque,
+                                       self.run_finalizer_queues, fq_index)
 
     def q_destructor_or_custom_trace(self, typeid):
         return self.get(typeid).customfunc
@@ -143,6 +166,7 @@ class GCData(object):
             self.q_has_gcptr_in_varsize,
             self.q_is_gcarrayofgcptr,
             self.q_finalizer_trigger,
+            self.q_get_run_finalizer_queue,
             self.q_destructor_or_custom_trace,
             self.q_offsets_to_gc_pointers,
             self.q_fixed_size,
