@@ -1,7 +1,7 @@
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.module._multibytecodec import c_codecs
 from pypy.module._codecs.interp_codecs import CodecState
 
@@ -57,8 +57,7 @@ def getcodec(space, name):
     try:
         codec = c_codecs.getcodec(name)
     except KeyError:
-        raise OperationError(space.w_LookupError,
-                             space.wrap("no such codec is supported."))
+        raise oefmt(space.w_LookupError, "no such codec is supported.")
     return space.wrap(MultibyteCodec(name, codec))
 
 
@@ -83,5 +82,4 @@ def wrap_unicodeencodeerror(space, e, input, name):
             space.wrap(e.reason)]))
 
 def wrap_runtimeerror(space):
-    raise OperationError(space.w_RuntimeError,
-                         space.wrap("internal codec error"))
+    raise oefmt(space.w_RuntimeError, "internal codec error")

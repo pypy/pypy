@@ -3,7 +3,7 @@ Interp-level implementation of the basic space operations.
 """
 
 from pypy.interpreter import gateway
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 from rpython.rlib.runicode import UNICHR
 from rpython.rlib.rfloat import isnan, isinf, round_double
@@ -19,8 +19,7 @@ def chr(space, w_ascii):
     try:
         char = __builtin__.chr(space.int_w(w_ascii))
     except ValueError:  # chr(out-of-range)
-        raise OperationError(space.w_ValueError,
-                             space.wrap("character code not in range(256)"))
+        raise oefmt(space.w_ValueError, "character code not in range(256)")
     return space.wrap(char)
 
 @unwrap_spec(code=int)
@@ -30,8 +29,7 @@ def unichr(space, code):
     try:
         c = UNICHR(code)
     except ValueError:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("unichr() arg out of range"))
+        raise oefmt(space.w_ValueError, "unichr() arg out of range")
     return space.wrap(c)
 
 def len(space, w_obj):
@@ -151,8 +149,8 @@ This always returns a floating point number.  Precision may be negative."""
     # finite x, and ndigits is not unreasonably large
     z = round_double(number, ndigits)
     if isinf(z):
-        raise OperationError(space.w_OverflowError,
-                             space.wrap("rounded value too large to represent"))
+        raise oefmt(space.w_OverflowError,
+                    "rounded value too large to represent")
     return space.wrap(z)
 
 # ____________________________________________________________
@@ -227,7 +225,7 @@ Return the string itself or the previously interned string object with the
 same value."""
     if space.is_w(space.type(w_str), space.w_str):
         return space.new_interned_w_str(w_str)
-    raise OperationError(space.w_TypeError, space.wrap("intern() argument must be string."))
+    raise oefmt(space.w_TypeError, "intern() argument must be string.")
 
 def callable(space, w_object):
     """Check whether the object appears to be callable (i.e., some kind of

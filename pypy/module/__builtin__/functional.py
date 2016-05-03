@@ -5,7 +5,7 @@ Interp-level definition of frequently used functionals.
 import sys
 
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.typedef import TypeDef
 from rpython.rlib import jit, rarithmetic
@@ -32,8 +32,7 @@ def get_len_of_range(space, lo, hi, step):
     # hi-lo-1 = M-(-M-1)-1 = 2*M.  Therefore unsigned long has enough
     # precision to compute the RHS exactly.
     if step == 0:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("step argument must not be zero"))
+        raise oefmt(space.w_ValueError, "step argument must not be zero")
     elif step < 0:
         lo, hi, step = hi, lo, -step
     if lo < hi:
@@ -42,8 +41,7 @@ def get_len_of_range(space, lo, hi, step):
         diff = uhi - ulo - 1
         n = intmask(diff // r_uint(step) + 1)
         if n < 0:
-            raise OperationError(space.w_OverflowError,
-                                 space.wrap("result has too many items"))
+            raise oefmt(space.w_OverflowError, "result has too many items")
     else:
         n = 0
     return n
@@ -63,14 +61,14 @@ get a list in decending order."""
         w_stop = w_y
 
     if space.isinstance_w(w_stop, space.w_float):
-        raise OperationError(space.w_TypeError,
-            space.wrap("range() integer end argument expected, got float."))
+        raise oefmt(space.w_TypeError,
+                    "range() integer end argument expected, got float.")
     if space.isinstance_w(w_start, space.w_float):
-        raise OperationError(space.w_TypeError,
-            space.wrap("range() integer start argument expected, got float."))
+        raise oefmt(space.w_TypeError,
+                    "range() integer start argument expected, got float.")
     if space.isinstance_w(w_step, space.w_float):
-        raise OperationError(space.w_TypeError,
-            space.wrap("range() integer step argument expected, got float."))
+        raise oefmt(space.w_TypeError,
+                    "range() integer step argument expected, got float.")
 
     w_start = space.int(w_start)
     w_stop = space.int(w_stop)
@@ -112,8 +110,7 @@ def range_with_longs(space, w_start, w_stop, w_step):
     step = st = space.bigint_w(w_step)
 
     if not step.tobool():
-        raise OperationError(space.w_ValueError,
-                             space.wrap("step argument must not be zero"))
+        raise oefmt(space.w_ValueError, "step argument must not be zero")
     elif step.sign < 0:
         lo, hi, st = hi, lo, st.neg()
 
@@ -123,8 +120,7 @@ def range_with_longs(space, w_start, w_stop, w_step):
         try:
             howmany = n.toint()
         except OverflowError:
-            raise OperationError(space.w_OverflowError,
-                                 space.wrap("result has too many items"))
+            raise oefmt(space.w_OverflowError, "result has too many items")
     else:
         howmany = 0
 
@@ -155,16 +151,18 @@ def make_min_max(unroll):
         elif len(args_w):
             w_sequence = args_w[0]
         else:
-            msg = "%s() expects at least one argument" % (implementation_of,)
-            raise OperationError(space.w_TypeError, space.wrap(msg))
+            raise oefmt(space.w_TypeError,
+                        "%s() expects at least one argument",
+                        implementation_of)
         w_key = None
         kwds = args.keywords
         if kwds:
             if kwds[0] == "key" and len(kwds) == 1:
                 w_key = args.keywords_w[0]
             else:
-                msg = "%s() got unexpected keyword argument" % (implementation_of,)
-                raise OperationError(space.w_TypeError, space.wrap(msg))
+                raise oefmt(space.w_TypeError,
+                            "%s() got unexpected keyword argument",
+                            implementation_of)
 
         w_iter = space.iter(w_sequence)
         w_type = space.type(w_iter)
@@ -191,8 +189,7 @@ def make_min_max(unroll):
                 w_max_item = w_item
                 w_max_val = w_compare_with
         if w_max_item is None:
-            msg = "arg is an empty sequence"
-            raise OperationError(space.w_ValueError, space.wrap(msg))
+            raise oefmt(space.w_ValueError, "arg is an empty sequence")
         return w_max_item
     if unroll:
         min_max_impl = jit.unroll_safe(min_max_impl)
@@ -341,8 +338,8 @@ class W_ReversedIterator(W_Root):
     def __init__(self, space, w_sequence):
         self.remaining = space.len_w(w_sequence) - 1
         if space.lookup(w_sequence, "__getitem__") is None:
-            msg = "reversed() argument must be a sequence"
-            raise OperationError(space.w_TypeError, space.wrap(msg))
+            raise oefmt(space.w_TypeError,
+                        "reversed() argument must be a sequence")
         self.w_sequence = w_sequence
 
     def descr___iter__(self, space):
@@ -439,8 +436,7 @@ class W_XRange(W_Root):
             i += len
         if 0 <= i < len:
             return space.wrap(self.start + i * self.step)
-        raise OperationError(space.w_IndexError,
-                             space.wrap("xrange object index out of range"))
+        raise oefmt(space.w_IndexError, "xrange object index out of range")
 
     def descr_iter(self):
         if self.promote_step and self.step == 1:

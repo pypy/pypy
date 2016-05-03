@@ -185,26 +185,24 @@ class W_CType(W_Root):
             except OperationError as e:
                 if not e.match(space, space.w_TypeError):
                     raise
-                raise OperationError(space.w_TypeError,
-                        space.wrap("field name or array index expected"))
+                raise oefmt(space.w_TypeError,
+                            "field name or array index expected")
             return self.typeoffsetof_index(index)
         else:
             return self.typeoffsetof_field(fieldname, following)
 
     def typeoffsetof_field(self, fieldname, following):
-        space = self.space
-        msg = "with a field name argument, expected a struct or union ctype"
-        raise OperationError(space.w_TypeError, space.wrap(msg))
+        raise oefmt(self.space.w_TypeError,
+                    "with a field name argument, expected a struct or union "
+                    "ctype")
 
     def typeoffsetof_index(self, index):
-        space = self.space
-        msg = "with an integer argument, expected an array or pointer ctype"
-        raise OperationError(space.w_TypeError, space.wrap(msg))
+        raise oefmt(self.space.w_TypeError,
+                    "with an integer argument, expected an array or pointer "
+                    "ctype")
 
     def rawaddressof(self, cdata, offset):
-        space = self.space
-        raise OperationError(space.w_TypeError,
-                             space.wrap("expected a pointer ctype"))
+        raise oefmt(self.space.w_TypeError, "expected a pointer ctype")
 
     def call(self, funcaddr, args_w):
         space = self.space

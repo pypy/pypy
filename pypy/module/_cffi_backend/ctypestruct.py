@@ -94,8 +94,7 @@ class W_CTypeStructOrUnion(W_CType):
         except KeyError:
             raise OperationError(space.w_KeyError, space.wrap(fieldname))
         if cfield.bitshift >= 0:
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("not supported for bitfields"))
+            raise oefmt(space.w_TypeError, "not supported for bitfields")
         return (cfield.ctype, cfield.offset)
 
     def _copy_from_same(self, cdata, w_ob):
@@ -243,8 +242,8 @@ class W_CField(W_Root):
                     varsize = ovfcheck(itemsize * varsizelength)
                     size = ovfcheck(self.offset + varsize)
                 except OverflowError:
-                    raise OperationError(space.w_OverflowError,
-                        space.wrap("array size would overflow a ssize_t"))
+                    raise oefmt(space.w_OverflowError,
+                                "array size would overflow a ssize_t")
                 assert size >= 0
                 return max(size, optvarsize)
             # if 'value' was only an integer, get_new_array_length() returns

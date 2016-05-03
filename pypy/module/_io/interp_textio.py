@@ -59,8 +59,8 @@ class W_IncrementalNewlineDecoder(W_Root):
     @unwrap_spec(final=int)
     def decode_w(self, space, w_input, final=False):
         if self.w_decoder is None:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "IncrementalNewlineDecoder.__init__ not called"))
+            raise oefmt(space.w_ValueError,
+                        "IncrementalNewlineDecoder.__init__ not called")
 
         # decode input (with the eventual \r from a previous pass)
         if not space.is_w(self.w_decoder, space.w_None):
@@ -70,8 +70,8 @@ class W_IncrementalNewlineDecoder(W_Root):
             w_output = w_input
 
         if not space.isinstance_w(w_output, space.w_unicode):
-            raise OperationError(space.w_TypeError, space.wrap(
-                "decoder should return a string result"))
+            raise oefmt(space.w_TypeError,
+                        "decoder should return a string result")
 
         output = space.unicode_w(w_output)
         output_len = len(output)
@@ -287,8 +287,7 @@ def _determine_encoding(space, encoding):
         if space.isinstance_w(w_encoding, space.w_str):
             return w_encoding
 
-    raise OperationError(space.w_IOError, space.wrap(
-            "could not determine default encoding"))
+    raise oefmt(space.w_IOError, "could not determine default encoding")
 
 class PositionCookie(object):
     def __init__(self, bigint):
@@ -377,8 +376,8 @@ class W_TextIOWrapper(W_TextIOBase):
             newline = space.unicode_w(w_newline)
         if newline and newline not in (u'\n', u'\r\n', u'\r'):
             r = space.str_w(space.repr(w_newline))
-            raise OperationError(space.w_ValueError, space.wrap(
-                "illegal newline value: %s" % (r,)))
+            raise oefmt(space.w_ValueError,
+                        "illegal newline value: %s", r)
 
         self.line_buffering = line_buffering
 
@@ -429,13 +428,13 @@ class W_TextIOWrapper(W_TextIOBase):
 
     def _check_init(self, space):
         if self.state == STATE_ZERO:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "I/O operation on uninitialized object"))
+            raise oefmt(space.w_ValueError,
+                        "I/O operation on uninitialized object")
 
     def _check_attached(self, space):
         if self.state == STATE_DETACHED:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "underlying buffer has been detached"))
+            raise oefmt(space.w_ValueError,
+                        "underlying buffer has been detached")
         self._check_init(space)
 
     def _check_closed(self, space, message=None):
@@ -548,7 +547,7 @@ class W_TextIOWrapper(W_TextIOBase):
         remain buffered in the decoder, yet to be converted."""
 
         if not self.w_decoder:
-            raise OperationError(space.w_IOError, space.wrap("not readable"))
+            raise oefmt(space.w_IOError, "not readable")
 
         if self.telling:
             # To prepare for tell(), we need to snapshot a point in the file
@@ -602,7 +601,7 @@ class W_TextIOWrapper(W_TextIOBase):
         self._check_attached(space)
         self._check_closed(space)
         if not self.w_decoder:
-            raise OperationError(space.w_IOError, space.wrap("not readable"))
+            raise oefmt(space.w_IOError, "not readable")
 
         size = convert_size(space, w_size)
         self._writeflush(space)
@@ -741,11 +740,11 @@ class W_TextIOWrapper(W_TextIOBase):
         self._check_closed(space)
 
         if not self.w_encoder:
-            raise OperationError(space.w_IOError, space.wrap("not writable"))
+            raise oefmt(space.w_IOError, "not writable")
 
         if not space.isinstance_w(w_text, space.w_unicode):
-            msg = "unicode argument expected, got '%T'"
-            raise oefmt(space.w_TypeError, msg, w_text)
+            raise oefmt(space.w_TypeError,
+                        "unicode argument expected, got '%T'", w_text)
 
         text = space.unicode_w(w_text)
         textlen = len(text)
@@ -845,14 +844,13 @@ class W_TextIOWrapper(W_TextIOBase):
         self._check_attached(space)
 
         if not self.seekable:
-            raise OperationError(space.w_IOError, space.wrap(
-                "underlying stream is not seekable"))
+            raise oefmt(space.w_IOError, "underlying stream is not seekable")
 
         if whence == 1:
             # seek relative to current position
             if not space.is_true(space.eq(w_pos, space.wrap(0))):
-                raise OperationError(space.w_IOError, space.wrap(
-                    "can't do nonzero cur-relative seeks"))
+                raise oefmt(space.w_IOError,
+                            "can't do nonzero cur-relative seeks")
             # Seeking to the current position should attempt to sync the
             # underlying buffer with the current position.
             w_pos = space.call_method(self, "tell")
@@ -860,8 +858,8 @@ class W_TextIOWrapper(W_TextIOBase):
         elif whence == 2:
             # seek relative to end of file
             if not space.is_true(space.eq(w_pos, space.wrap(0))):
-                raise OperationError(space.w_IOError, space.wrap(
-                    "can't do nonzero end-relative seeks"))
+                raise oefmt(space.w_IOError,
+                            "can't do nonzero end-relative seeks")
             space.call_method(self, "flush")
             self._set_decoded_chars(None)
             self.snapshot = None
@@ -871,13 +869,14 @@ class W_TextIOWrapper(W_TextIOBase):
                                      w_pos, space.wrap(whence))
 
         elif whence != 0:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "invalid whence (%d, should be 0, 1 or 2)" % (whence,)))
+            raise oefmt(space.w_ValueError,
+                        "invalid whence (%d, should be 0, 1 or 2)",
+                        whence)
 
         if space.is_true(space.lt(w_pos, space.wrap(0))):
             r = space.str_w(space.repr(w_pos))
-            raise OperationError(space.w_ValueError, space.wrap(
-                "negative seek position %s" % (r,)))
+            raise oefmt(space.w_ValueError,
+                        "negative seek position %s", r)
 
         space.call_method(self, "flush")
 
@@ -914,8 +913,8 @@ class W_TextIOWrapper(W_TextIOBase):
 
             # Skip chars_to_skip of the decoded characters
             if len(self.decoded_chars) < cookie.chars_to_skip:
-                raise OperationError(space.w_IOError, space.wrap(
-                    "can't restore logical file position"))
+                raise oefmt(space.w_IOError,
+                            "can't restore logical file position")
             self.decoded_chars_used = cookie.chars_to_skip
         else:
             self.snapshot = PositionSnapshot(cookie.dec_flags, "")
@@ -930,12 +929,11 @@ class W_TextIOWrapper(W_TextIOBase):
         self._check_closed(space)
 
         if not self.seekable:
-            raise OperationError(space.w_IOError, space.wrap(
-                "underlying stream is not seekable"))
+            raise oefmt(space.w_IOError, "underlying stream is not seekable")
 
         if not self.telling:
-            raise OperationError(space.w_IOError, space.wrap(
-                "telling position disabled by next() call"))
+            raise oefmt(space.w_IOError,
+                        "telling position disabled by next() call")
 
         self._writeflush(space)
         space.call_method(self, "flush")
@@ -1008,8 +1006,8 @@ class W_TextIOWrapper(W_TextIOBase):
                 cookie.need_eof = 1
 
                 if chars_decoded < chars_to_skip:
-                    raise OperationError(space.w_IOError, space.wrap(
-                        "can't reconstruct logical file position"))
+                    raise oefmt(space.w_IOError,
+                                "can't reconstruct logical file position")
         finally:
             space.call_method(self.w_decoder, "setstate", w_saved_state)
 
@@ -1025,9 +1023,8 @@ class W_TextIOWrapper(W_TextIOBase):
         self._check_attached(space)
         size = space.int_w(w_size)
         if size <= 0:
-            raise OperationError(space.w_ValueError,
-                space.wrap("a strictly positive integer is required")
-            )
+            raise oefmt(space.w_ValueError,
+                        "a strictly positive integer is required")
         self.chunk_size = size
 
 W_TextIOWrapper.typedef = TypeDef(

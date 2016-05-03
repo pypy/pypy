@@ -1,6 +1,7 @@
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.error import OperationError, wrap_oserror, wrap_oserror2
+from pypy.interpreter.error import (
+    OperationError, oefmt, wrap_oserror, wrap_oserror2)
 from rpython.rlib.rarithmetic import r_longlong
 from rpython.rlib.rstring import StringBuilder
 from os import O_RDONLY, O_WRONLY, O_RDWR, O_CREAT, O_TRUNC
@@ -12,8 +13,7 @@ def interp_member_w(name, cls, doc=None):
     def fget(space, obj):
         w_value = getattr(obj, name)
         if w_value is None:
-            raise OperationError(space.w_AttributeError,
-                                 space.wrap(name))
+            raise OperationError(space.w_AttributeError, space.wrap(name))
         else:
             return w_value
     def fset(space, obj, w_value):
@@ -21,8 +21,7 @@ def interp_member_w(name, cls, doc=None):
     def fdel(space, obj):
         w_value = getattr(obj, name)
         if w_value is None:
-            raise OperationError(space.w_AttributeError,
-                                 space.wrap(name))
+            raise OperationError(space.w_AttributeError, space.wrap(name))
         setattr(obj, name, None)
 
     return GetSetProperty(fget, fset, fdel, cls=cls, doc=doc)
@@ -32,8 +31,8 @@ O_BINARY = getattr(os, "O_BINARY", 0)
 O_APPEND = getattr(os, "O_APPEND", 0)
 
 def _bad_mode(space):
-    raise OperationError(space.w_ValueError, space.wrap(
-        "Must have exactly one of read/write/append mode"))
+    raise oefmt(space.w_ValueError,
+                "Must have exactly one of read/write/append mode")
 
 def decode_mode(space, mode):
     flags = 0
@@ -70,8 +69,7 @@ def decode_mode(space, mode):
             readable = writable = True
             plus = True
         else:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "invalid mode: %s" % (mode,)))
+            raise oefmt(space.w_ValueError, "invalid mode: %s", mode)
 
     if not rwa:
         _bad_mode(space)
@@ -133,8 +131,8 @@ class W_FileIO(W_RawIOBase):
     @unwrap_spec(mode=str, closefd=int)
     def descr_init(self, space, w_name, mode='r', closefd=True):
         if space.isinstance_w(w_name, space.w_float):
-            raise OperationError(space.w_TypeError, space.wrap(
-                "integer argument expected, got float"))
+            raise oefmt(space.w_TypeError,
+                        "integer argument expected, got float")
 
         fd = -1
         try:
@@ -143,8 +141,7 @@ class W_FileIO(W_RawIOBase):
             pass
         else:
             if fd < 0:
-                raise OperationError(space.w_ValueError, space.wrap(
-                    "negative file descriptor"))
+                raise oefmt(space.w_ValueError, "negative file descriptor")
 
         self.readable, self.writable, self.appending, flags = decode_mode(space, mode)
 
@@ -162,8 +159,8 @@ class W_FileIO(W_RawIOBase):
             else:
                 self.closefd = True
                 if not closefd:
-                    raise OperationError(space.w_ValueError, space.wrap(
-                        "Cannot use closefd=False with file name"))
+                    raise oefmt(space.w_ValueError,
+                                "Cannot use closefd=False with file name")
 
                 from pypy.module.posix.interp_posix import (
                     dispatch_filename, rposix)
@@ -219,15 +216,11 @@ class W_FileIO(W_RawIOBase):
 
     def _check_readable(self, space):
         if not self.readable:
-            raise OperationError(
-                space.w_ValueError,
-                space.wrap("file not open for reading"))
+            raise oefmt(space.w_ValueError, "file not open for reading")
 
     def _check_writable(self, space):
         if not self.writable:
-            raise OperationError(
-                space.w_ValueError,
-                space.wrap("file not open for writing"))
+            raise oefmt(space.w_ValueError, "file not open for writing")
 
     def _close(self, space):
         if self.fd < 0:

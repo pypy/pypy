@@ -471,5 +471,5 @@ class CifDescrBuilder(object):
         # call libffi's ffi_prep_cif() function
         res = jit_libffi.jit_ffi_prep_cif(rawmem)
         if res != clibffi.FFI_OK:
-            raise OperationError(space.w_SystemError,
-                space.wrap("libffi failed to build this function type"))
+            raise oefmt(space.w_SystemError,
+                        "libffi failed to build this function type")
