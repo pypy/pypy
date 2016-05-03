@@ -55,8 +55,7 @@ class AppTestExc(object):
 
         try:
             raise LookupError(1, 2)
-        except LookupError as xxx_todo_changeme:
-            (one, two) = xxx_todo_changeme.args
+        except LookupError, (one, two):
             assert one == 1
             assert two == 2
 
