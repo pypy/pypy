@@ -91,8 +91,8 @@ class W_Root(object):
         return space.gettypeobject(self.typedef)
 
     def setclass(self, space, w_subtype):
-        raise OperationError(space.w_TypeError,
-                             space.wrap("__class__ assignment: only for heap types"))
+        raise oefmt(space.w_TypeError,
+                    "__class__ assignment: only for heap types")
 
     def user_setup(self, space, w_subtype):
         raise NotImplementedError("only for interp-level user subclasses "
@@ -725,8 +725,7 @@ class ObjSpace(object):
         try:
             return rthread.allocate_lock()
         except rthread.error:
-            raise OperationError(self.w_RuntimeError,
-                                 self.wrap("out of resources"))
+            raise oefmt(self.w_RuntimeError, "out of resources")
 
     # Following is a friendly interface to common object space operations
     # that can be defined in term of more primitive ones.  Subclasses
@@ -986,8 +985,8 @@ class ObjSpace(object):
 
         hint = self.int_w(w_hint)
         if hint < 0:
-            raise OperationError(self.w_ValueError, self.wrap(
-                    "__length_hint__() should return >= 0"))
+            raise oefmt(self.w_ValueError,
+                        "__length_hint__() should return >= 0")
         return hint
 
     def fixedview(self, w_iterable, expected_length=-1):
@@ -1328,8 +1327,7 @@ class ObjSpace(object):
             if start < 0:
                 start += seqlength
             if not (0 <= start < seqlength):
-                raise OperationError(self.w_IndexError,
-                                     self.wrap("index out of range"))
+                raise oefmt(self.w_IndexError, "index out of range")
             stop = 0
             step = 0
         return start, stop, step
@@ -1349,8 +1347,7 @@ class ObjSpace(object):
             if start < 0:
                 start += seqlength
             if not (0 <= start < seqlength):
-                raise OperationError(self.w_IndexError,
-                                     self.wrap("index out of range"))
+                raise oefmt(self.w_IndexError, "index out of range")
             stop = 0
             step = 0
             length = 1
@@ -1406,20 +1403,17 @@ class ObjSpace(object):
         try:
             return bigint.tolonglong()
         except OverflowError:
-            raise OperationError(self.w_OverflowError,
-                                 self.wrap('integer too large'))
+            raise oefmt(self.w_OverflowError, "integer too large")
 
     def r_ulonglong_w(self, w_obj, allow_conversion=True):
         bigint = self.bigint_w(w_obj, allow_conversion)
         try:
             return bigint.toulonglong()
         except OverflowError:
-            raise OperationError(self.w_OverflowError,
-                                 self.wrap('integer too large'))
+            raise oefmt(self.w_OverflowError, "integer too large")
         except ValueError:
-            raise OperationError(self.w_ValueError,
-                                 self.wrap('cannot convert negative integer '
-                                           'to unsigned int'))
+            raise oefmt(self.w_ValueError,
+                        "cannot convert negative integer to unsigned int")
 
     BUF_SIMPLE   = 0x0000
     BUF_WRITABLE = 0x0001
@@ -1578,8 +1572,8 @@ class ObjSpace(object):
         from rpython.rlib import rstring
         result = self.bytes_w(w_obj)
         if '\x00' in result:
-            raise OperationError(self.w_TypeError, self.wrap(
-                    'argument must be a string without NUL characters'))
+            raise oefmt(self.w_TypeError,
+                        "argument must be a string without NUL characters")
         return rstring.assert_str0(result)
 
     def int_w(self, w_obj, allow_conversion=True):
@@ -1624,16 +1618,16 @@ class ObjSpace(object):
         from rpython.rlib import rstring
         result = w_obj.unicode_w(self)
         if u'\x00' in result:
-            raise OperationError(self.w_TypeError, self.wrap(
-                    'argument must be a unicode string without NUL characters'))
+            raise oefmt(self.w_TypeError,
+                        "argument must be a unicode string without NUL "
+                        "characters")
         return rstring.assert_str0(result)
 
     def realunicode_w(self, w_obj):
         # Like unicode_w, but only works if w_obj is really of type
         # 'unicode'.
         if not self.isinstance_w(w_obj, self.w_unicode):
-            raise OperationError(self.w_TypeError,
-                                 self.wrap('argument must be a unicode'))
+            raise oefmt(self.w_TypeError, "argument must be a unicode")
         return self.unicode_w(w_obj)
 
     def identifier_w(self, w_obj):
@@ -1683,8 +1677,8 @@ class ObjSpace(object):
 
     def gateway_r_uint_w(self, w_obj):
         if self.isinstance_w(w_obj, self.w_float):
-            raise OperationError(self.w_TypeError,
-                            self.wrap("integer argument expected, got float"))
+            raise oefmt(self.w_TypeError,
+                        "integer argument expected, got float")
         return self.uint_w(self.int(w_obj))
 
     def gateway_nonnegint_w(self, w_obj):
@@ -1692,8 +1686,7 @@ class ObjSpace(object):
         # the integer is negative.  Here for gateway.py.
         value = self.gateway_int_w(w_obj)
         if value < 0:
-            raise OperationError(self.w_ValueError,
-                                 self.wrap("expected a non-negative integer"))
+            raise oefmt(self.w_ValueError, "expected a non-negative integer")
         return value
 
     def c_int_w(self, w_obj):
@@ -1701,8 +1694,7 @@ class ObjSpace(object):
         # the integer does not fit in 32 bits.  Here for gateway.py.
         value = self.gateway_int_w(w_obj)
         if value < INT_MIN or value > INT_MAX:
-            raise OperationError(self.w_OverflowError,
-                                 self.wrap("expected a 32-bit integer"))
+            raise oefmt(self.w_OverflowError, "expected a 32-bit integer")
         return value
 
     def c_uint_w(self, w_obj):
@@ -1710,8 +1702,8 @@ class ObjSpace(object):
         # the integer does not fit in 32 bits.  Here for gateway.py.
         value = self.uint_w(w_obj)
         if value > UINT_MAX:
-            raise OperationError(self.w_OverflowError,
-                              self.wrap("expected an unsigned 32-bit integer"))
+            raise oefmt(self.w_OverflowError,
+                        "expected an unsigned 32-bit integer")
         return value
 
     def c_nonnegint_w(self, w_obj):
@@ -1720,11 +1712,9 @@ class ObjSpace(object):
         # for gateway.py.
         value = self.int_w(w_obj)
         if value < 0:
-            raise OperationError(self.w_ValueError,
-                                 self.wrap("expected a non-negative integer"))
+            raise oefmt(self.w_ValueError, "expected a non-negative integer")
         if value > INT_MAX:
-            raise OperationError(self.w_OverflowError,
-                                 self.wrap("expected a 32-bit integer"))
+            raise oefmt(self.w_OverflowError, "expected a 32-bit integer")
         return value
 
     def c_short_w(self, w_obj):
@@ -1779,16 +1769,14 @@ class ObjSpace(object):
                 w_fileno = self.getattr(w_fd, self.wrap("fileno"))
             except OperationError as e:
                 if e.match(self, self.w_AttributeError):
-                    raise OperationError(self.w_TypeError,
-                        self.wrap("argument must be an int, or have a fileno() "
-                            "method.")
-                    )
+                    raise oefmt(self.w_TypeError,
+                                "argument must be an int, or have a fileno() "
+                                "method.")
                 raise
             w_fd = self.call_function(w_fileno)
             if not self.isinstance_w(w_fd, self.w_int):
-                raise OperationError(self.w_TypeError,
-                    self.wrap("fileno() returned a non-integer")
-                )
+                raise oefmt(self.w_TypeError,
+                            "fileno() returned a non-integer")
         fd = self.c_int_w(w_fd)  # Can raise w_OverflowError
         if fd < 0:
             raise oefmt(self.w_ValueError,

@@ -355,7 +355,7 @@ class TestArgumentsNormal(object):
         excinfo = py.test.raises(OperationError, Arguments, space, [],
                                  ["a"], [1], w_starstararg={None: 1})
         assert excinfo.value.w_type is TypeError
-        assert excinfo.value._w_value is not None
+        assert excinfo.value._w_value is None
         excinfo = py.test.raises(OperationError, Arguments, space, [],
                                  ["a"], [1], w_starstararg={valuedummy: 1})
         assert excinfo.value.w_type is ValueError
