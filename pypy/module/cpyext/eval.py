@@ -1,4 +1,4 @@
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import oefmt
 from pypy.interpreter.astcompiler import consts
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
@@ -103,8 +103,8 @@ def compile_string(space, source, filename, start, flags=0):
     elif start == Py_single_input:
         mode = 'single'
     else:
-        raise OperationError(space.w_ValueError, space.wrap(
-            "invalid mode parameter for compilation"))
+        raise oefmt(space.w_ValueError,
+                    "invalid mode parameter for compilation")
     return compiling.compile(space, w_source, filename, mode, flags)
 
 def run_string(space, source, filename, start, w_globals, w_locals):

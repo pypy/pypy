@@ -287,7 +287,7 @@ class W_ZipImporter(W_Root):
             data = self.zip_file.read(filename)
             return w(data)
         except (KeyError, OSError, BadZipfile):
-            raise OperationError(space.w_IOError, space.wrap("Error reading file"))
+            raise oefmt(space.w_IOError, "Error reading file")
         except RZlibError as e:
             # in this case, CPython raises the direct exception coming
             # from the zlib module: let's to the same

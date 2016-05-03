@@ -1,7 +1,7 @@
 import os
 
 from rpython.rtyper.lltypesystem import rffi, lltype
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter import pytraceback
 from pypy.module.cpyext.api import cpython_api, CANNOT_FAIL, CONST_STRING
 from pypy.module.exceptions.interp_exceptions import W_RuntimeWarning
@@ -110,12 +110,11 @@ def PyErr_BadArgument(space):
     argument.  It is mostly for internal use. In CPython this function always
     raises an exception and returns 0 in all cases, hence the (ab)use of the
     error indicator."""
-    raise OperationError(space.w_TypeError,
-            space.wrap("bad argument type for built-in operation"))
+    raise oefmt(space.w_TypeError, "bad argument type for built-in operation")
 
 @cpython_api([], lltype.Void)
 def PyErr_BadInternalCall(space):
-    raise OperationError(space.w_SystemError, space.wrap("Bad internal call!"))
+    raise oefmt(space.w_SystemError, "Bad internal call!")
 
 @cpython_api([], PyObject, error=CANNOT_FAIL)
 def PyErr_NoMemory(space):

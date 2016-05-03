@@ -367,8 +367,8 @@ class W_Ufunc(W_Root):
         return self._outer(space, __args__)
 
     def _outer(self, space, __args__):
-        raise OperationError(space.w_ValueError, space.wrap(
-            "outer product only supported for binary functions"))
+        raise oefmt(space.w_ValueError,
+                    "outer product only supported for binary functions")
 
     def parse_kwargs(self, space, kwds_w):
         w_casting = kwds_w.pop('casting', None)

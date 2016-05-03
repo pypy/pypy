@@ -7,7 +7,7 @@ from rpython.rtyper.annlowlevel import llhelper
 from rpython.rtyper.lltypesystem import rffi, lltype
 
 from pypy.interpreter.baseobjspace import W_Root, DescrMismatch
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import oefmt
 from pypy.interpreter.typedef import (GetSetProperty, TypeDef,
         interp_attrproperty, interp_attrproperty, interp2app)
 from pypy.module.__builtin__.abstractinst import abstract_issubclass_w
@@ -448,8 +448,8 @@ def str_segcount(space, w_obj, ref):
 def str_getreadbuffer(space, w_str, segment, ref):
     from pypy.module.cpyext.bytesobject import PyString_AsString
     if segment != 0:
-        raise OperationError(space.w_SystemError, space.wrap
-                             ("accessing non-existent string segment"))
+        raise oefmt(space.w_SystemError,
+                    "accessing non-existent string segment")
     pyref = make_ref(space, w_str)
     ref[0] = PyString_AsString(space, pyref)
     # Stolen reference: the object has better exist somewhere else
@@ -461,8 +461,8 @@ def str_getreadbuffer(space, w_str, segment, ref):
 def str_getcharbuffer(space, w_str, segment, ref):
     from pypy.module.cpyext.bytesobject import PyString_AsString
     if segment != 0:
-        raise OperationError(space.w_SystemError, space.wrap
-                             ("accessing non-existent string segment"))
+        raise oefmt(space.w_SystemError,
+                    "accessing non-existent string segment")
     pyref = make_ref(space, w_str)
     ref[0] = PyString_AsString(space, pyref)
     # Stolen reference: the object has better exist somewhere else
@@ -474,8 +474,8 @@ def str_getcharbuffer(space, w_str, segment, ref):
 def buf_getreadbuffer(space, pyref, segment, ref):
     from pypy.module.cpyext.bufferobject import PyBufferObject
     if segment != 0:
-        raise OperationError(space.w_SystemError, space.wrap
-                             ("accessing non-existent string segment"))
+        raise oefmt(space.w_SystemError,
+                    "accessing non-existent string segment")
     py_buf = rffi.cast(PyBufferObject, pyref)
     ref[0] = py_buf.c_b_ptr
     #Py_DecRef(space, pyref)

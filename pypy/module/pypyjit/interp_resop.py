@@ -4,7 +4,7 @@ from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.interpreter.pycode import PyCode
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import oefmt
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance, hlstr
 from rpython.rtyper.rclass import OBJECT
@@ -179,12 +179,16 @@ class DebugMergePoint(WrappedOp):
     def get_pycode(self, space):
         if self.jd_name == pypyjitdriver.name:
             return space.getitem(self.w_greenkey, space.wrap(0))
-        raise OperationError(space.w_AttributeError, space.wrap("This DebugMergePoint doesn't belong to the main Python JitDriver"))
+        raise oefmt(space.w_AttributeError,
+                    "This DebugMergePoint doesn't belong to the main Python "
+                    "JitDriver")
 
     def get_bytecode_no(self, space):
         if self.jd_name == pypyjitdriver.name:
             return space.getitem(self.w_greenkey, space.wrap(1))
-        raise OperationError(space.w_AttributeError, space.wrap("This DebugMergePoint doesn't belong to the main Python JitDriver"))
+        raise oefmt(space.w_AttributeError,
+                    "This DebugMergePoint doesn't belong to the main Python "
+                    "JitDriver")
 
     def get_jitdriver_name(self, space):
         return space.wrap(self.jd_name)
@@ -283,7 +287,7 @@ class W_JitLoopInfo(W_Root):
     def descr_get_bridge_no(self, space):
         if space.is_none(self.w_green_key):
             return space.wrap(self.bridge_no)
-        raise OperationError(space.w_TypeError, space.wrap("not a bridge"))
+        raise oefmt(space.w_TypeError, "not a bridge")
 
 
 @unwrap_spec(loopno=int, asmaddr=int, asmlen=int, loop_no=int,
