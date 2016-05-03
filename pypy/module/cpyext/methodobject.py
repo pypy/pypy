@@ -73,8 +73,8 @@ class W_PyCFunctionObject(W_Root):
         flags = rffi.cast(lltype.Signed, self.ml.c_ml_flags)
         flags &= ~(METH_CLASS | METH_STATIC | METH_COEXIST)
         if space.is_true(w_kw) and not flags & METH_KEYWORDS:
-            raise OperationError(space.w_TypeError, space.wrap(
-                self.name + "() takes no keyword arguments"))
+            raise oefmt(space.w_TypeError,
+                        "%s() takes no keyword arguments", self.name)
 
         func = rffi.cast(PyCFunction, self.ml.c_ml_meth)
         length = space.int_w(space.len(w_args))
@@ -84,8 +84,8 @@ class W_PyCFunctionObject(W_Root):
         elif flags & METH_NOARGS:
             if length == 0:
                 return generic_cpy_call(space, func, w_self, None)
-            raise OperationError(space.w_TypeError, space.wrap(
-                self.name + "() takes no arguments"))
+            raise oefmt(space.w_TypeError,
+                        "%s() takes no arguments", self.name)
         elif flags & METH_O:
             if length != 1:
                 raise oefmt(space.w_TypeError,
@@ -277,7 +277,8 @@ def PyCFunction_GetFunction(space, w_obj):
         cfunction = space.interp_w(W_PyCFunctionObject, w_obj)
     except OperationError as e:
         if e.match(space, space.w_TypeError):
-            raise oefmt(space.w_SystemError, "bad argument to internal function")
+            raise oefmt(space.w_SystemError,
+                        "bad argument to internal function")
         raise
     return cfunction.ml.c_ml_meth
 

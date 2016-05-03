@@ -128,8 +128,7 @@ class Compress(ZLibObject):
         except rzlib.RZlibError as e:
             raise zlib_error(space, e.msg)
         except ValueError:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("Invalid initialization option"))
+            raise oefmt(space.w_ValueError, "Invalid initialization option")
 
     def __del__(self):
         """Automatically free the resources used by the stream."""
@@ -245,8 +244,7 @@ class Decompress(ZLibObject):
         except rzlib.RZlibError as e:
             raise zlib_error(space, e.msg)
         except ValueError:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("Invalid initialization option"))
+            raise oefmt(space.w_ValueError, "Invalid initialization option")
         self.zdict = zdict
 
     def __del__(self):

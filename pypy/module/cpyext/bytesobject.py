@@ -1,4 +1,4 @@
-from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import oefmt
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     cpython_api, cpython_struct, bootstrap_function, build_type_checkers,
@@ -171,8 +171,8 @@ def PyBytes_AsStringAndSize(space, ref, buffer, length):
         while ref_str.c_buffer[i] != '\0':
             i += 1
         if i != ref_str.c_ob_size:
-            raise OperationError(space.w_TypeError, space.wrap(
-                "expected string without null bytes"))
+            raise oefmt(space.w_TypeError,
+                        "expected string without null bytes")
     return 0
 
 @cpython_api([PyObject], Py_ssize_t, error=-1)
@@ -199,8 +199,8 @@ def _PyBytes_Resize(space, ref, newsize):
     # XXX always create a new string so far
     py_str = rffi.cast(PyBytesObject, ref[0])
     if not py_str.c_buffer:
-        raise OperationError(space.w_SystemError, space.wrap(
-            "_PyBytes_Resize called on already created string"))
+        raise oefmt(space.w_SystemError,
+                    "_PyBytes_Resize called on already created string")
     try:
         py_newstr = new_empty_str(space, newsize)
     except MemoryError:

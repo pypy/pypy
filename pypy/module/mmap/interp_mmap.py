@@ -1,4 +1,4 @@
-from pypy.interpreter.error import OperationError, wrap_oserror
+from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
@@ -202,14 +202,14 @@ class W_MMap(W_Root):
         if step == 0:  # index only
             value = space.int_w(w_value)
             if not 0 <= value < 256:
-                raise OperationError(space.w_ValueError, space.wrap(
-                        "mmap item value must be in range(0, 256)"))
+                raise oefmt(space.w_ValueError,
+                            "mmap item value must be in range(0, 256)")
             self.mmap.setitem(start, chr(value))
         else:
             value = space.bytes_w(w_value)
             if len(value) != length:
-                raise OperationError(space.w_ValueError,
-                          space.wrap("mmap slice assignment is wrong size"))
+                raise oefmt(space.w_ValueError,
+                            "mmap slice assignment is wrong size")
             if step == 1:
                 self.mmap.setslice(start, value)
             else:
@@ -296,11 +296,9 @@ ACCESS_COPY  = rmmap.ACCESS_COPY
 
 def mmap_error(space, e):
     if isinstance(e, RValueError):
-        return OperationError(space.w_ValueError,
-                              space.wrap(e.message))
+        return OperationError(space.w_ValueError, space.wrap(e.message))
     elif isinstance(e, RTypeError):
-        return OperationError(space.w_TypeError,
-                              space.wrap(e.message))
+        return OperationError(space.w_TypeError, space.wrap(e.message))
     elif isinstance(e, OSError):
         return wrap_oserror(space, e)
     else:

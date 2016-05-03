@@ -1,6 +1,6 @@
 import pypy.module.cppyy.capi as capi
 
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
 from pypy.interpreter.baseobjspace import W_Root
@@ -195,8 +195,7 @@ class CPPMethod(object):
         args_expected = len(self.arg_defs)
         args_given = len(args_w)
         if args_expected < args_given or args_given < self.args_required:
-            raise OperationError(self.space.w_TypeError,
-                                 self.space.wrap("wrong number of arguments"))
+            raise oefmt(self.space.w_TypeError, "wrong number of arguments")
 
         # initial setup of converters, executors, and libffi (if available)
         if self.converters is None:
@@ -435,8 +434,9 @@ class CPPTemplatedCall(CPPMethod):
                 s = self.space.str_w(self.space.getattr(args_w[i], self.space.wrap('__name__')))
             s = capi.c_resolve_name(self.space, s)
             if s != self.templ_args[i]:
-                raise OperationError(self.space.w_TypeError, self.space.wrap(
-                    "non-matching template (got %s where %s expected)" % (s, self.templ_args[i])))
+                raise oefmt(self.space.w_TypeError,
+                            "non-matching template (got %s where %s expected)",
+                            s, self.templ_args[i])
         return W_CPPBoundMethod(cppthis, self)
 
     def bound_call(self, cppthis, args_w):
@@ -646,14 +646,16 @@ class W_CPPDataMember(W_Root):
     def get(self, w_cppinstance, w_pycppclass):
         cppinstance = self.space.interp_w(W_CPPInstance, w_cppinstance, can_be_None=True)
         if not cppinstance:
-            raise OperationError(self.space.w_ReferenceError, self.space.wrap("attribute access requires an instance")) 
+            raise oefmt(self.space.w_ReferenceError,
+                        "attribute access requires an instance")
         offset = self._get_offset(cppinstance)
         return self.converter.from_memory(self.space, w_cppinstance, w_pycppclass, offset)
 
     def set(self, w_cppinstance, w_value):
         cppinstance = self.space.interp_w(W_CPPInstance, w_cppinstance, can_be_None=True)
         if not cppinstance:
-            raise OperationError(self.space.w_ReferenceError, self.space.wrap("attribute access requires an instance"))
+            raise oefmt(self.space.w_ReferenceError,
+                        "attribute access requires an instance")
         offset = self._get_offset(cppinstance)
         self.converter.to_memory(self.space, w_cppinstance, w_value, offset)
         return self.space.w_None
@@ -777,12 +779,12 @@ class W_CPPScope(W_Root):
         for f in overload.functions:
             if 0 < f.signature().find(sig):
                 return W_CPPOverload(self.space, self, [f])
-        raise OperationError(self.space.w_TypeError, self.space.wrap("no overload matches signature"))
+        raise oefmt(self.space.w_TypeError, "no overload matches signature")
 
     def missing_attribute_error(self, name):
-        return OperationError(
-            self.space.w_AttributeError,
-            self.space.wrap("%s '%s' has no attribute %s" % (self.kind, self.name, name)))
+        return oefmt(self.space.w_AttributeError,
+                     "%s '%s' has no attribute %s",
+                     self.kind, self.name, name)
 
     def __eq__(self, other):
         return self.handle == other.handle
@@ -1033,8 +1035,8 @@ class W_CPPInstance(W_Root):
 
     def _nullcheck(self):
         if not self._rawobject or (self.isref and not self.get_rawobject()):
-            raise OperationError(self.space.w_ReferenceError,
-                                 self.space.wrap("trying to access a NULL pointer"))
+            raise oefmt(self.space.w_ReferenceError,
+                        "trying to access a NULL pointer")
 
     # allow user to determine ownership rules on a per object level
     def fget_python_owns(self, space):
@@ -1072,8 +1074,9 @@ class W_CPPInstance(W_Root):
         except OperationError as e:
             if not e.match(self.space, self.space.w_AttributeError):
                 raise
-            raise OperationError(self.space.w_TypeError,
-                self.space.wrap("cannot instantiate abstract class '%s'" % self.cppclass.name))
+            raise oefmt(self.space.w_TypeError,
+                        "cannot instantiate abstract class '%s'",
+                        self.cppclass.name)
 
     def instance__eq__(self, w_other):
         # special case: if other is None, compare pointer-style
@@ -1122,17 +1125,15 @@ class W_CPPInstance(W_Root):
         w_as_builtin = self._get_as_builtin()
         if w_as_builtin is not None:
             return self.space.len(w_as_builtin)
-        raise OperationError(
-            self.space.w_TypeError,
-            self.space.wrap("'%s' has no length" % self.cppclass.name))
+        raise oefmt(self.space.w_TypeError,
+                    "'%s' has no length", self.cppclass.name)
 
     def instance__cmp__(self, w_other):
         w_as_builtin = self._get_as_builtin()
         if w_as_builtin is not None:
             return self.space.cmp(w_as_builtin, w_other)
-        raise OperationError(
-            self.space.w_AttributeError,
-            self.space.wrap("'%s' has no attribute __cmp__" % self.cppclass.name))
+        raise oefmt(self.space.w_AttributeError,
+                    "'%s' has no attribute __cmp__", self.cppclass.name)
 
     def instance__repr__(self):
         w_as_builtin = self._get_as_builtin()
@@ -1278,7 +1279,7 @@ def bind_object(space, w_obj, w_pycppclass, owns=False, cast=False):
     if not w_cppclass:
         w_cppclass = scope_byname(space, space.str_w(w_pycppclass))
         if not w_cppclass:
-            raise OperationError(space.w_TypeError,
-                space.wrap("no such class: %s" % space.str_w(w_pycppclass)))
+            raise oefmt(space.w_TypeError,
+                        "no such class: %s", space.str_w(w_pycppclass))
     cppclass = space.interp_w(W_CPPClass, w_cppclass, can_be_None=False)
     return wrap_cppobject(space, rawobject, cppclass, do_cast=cast, python_owns=owns)

@@ -215,7 +215,8 @@ class W_BaseException(W_Root):
 
     def setdict(self, space, w_dict):
         if not space.isinstance_w(w_dict, space.w_dict):
-            raise OperationError(space.w_TypeError, space.wrap("setting exceptions's dictionary to a non-dict"))
+            raise oefmt(space.w_TypeError,
+                        "setting exceptions's dictionary to a non-dict")
         self.w_dict = w_dict
 
     def descr_reduce(self, space):

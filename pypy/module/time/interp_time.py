@@ -337,8 +337,8 @@ if sys.platform != 'win32':
     @unwrap_spec(secs=float)
     def sleep(space, secs):
         if secs < 0:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("sleep length must be non-negative"))
+            raise oefmt(space.w_ValueError,
+                        "sleep length must be non-negative")
         rtime.sleep(secs)
 else:
     from rpython.rlib import rwin32
@@ -360,8 +360,8 @@ else:
     @unwrap_spec(secs=float)
     def sleep(space, secs):
         if secs < 0:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("sleep length must be non-negative"))
+            raise oefmt(space.w_ValueError,
+                        "sleep length must be non-negative")
         # as decreed by Guido, only the main thread can be
         # interrupted.
         main_thread = space.fromcache(State).main_thread
@@ -396,8 +396,8 @@ def _get_inttime(space, w_seconds):
     # input doesn't fit in a time_t; call it an error.
     diff = seconds - rffi.cast(lltype.Float, t)
     if diff <= -1.0 or diff >= 1.0:
-        raise OperationError(space.w_OverflowError,
-                      space.wrap("timestamp out of range for platform time_t"))
+        raise oefmt(space.w_OverflowError,
+                    "timestamp out of range for platform time_t")
     return t
 
 def _tm_to_tuple(space, t):
@@ -419,8 +419,7 @@ def _tm_to_tuple(space, t):
 def _gettmarg(space, w_tup, allowNone=True):
     if space.is_none(w_tup):
         if not allowNone:
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("tuple expected"))
+            raise oefmt(space.w_TypeError, "tuple expected")
         # default to the current local time
         tt = rffi.r_time_t(int(pytime.time()))
         t_ref = lltype.malloc(rffi.TIME_TP.TO, 1, flavor='raw')
@@ -467,8 +466,7 @@ def _gettmarg(space, w_tup, allowNone=True):
     # tm_wday does not need checking of its upper-bound since taking "%
     #  7" in _gettmarg() automatically restricts the range.
     if rffi.getintfield(glob_buf, 'c_tm_wday') < -1:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("day of week out of range"))
+        raise oefmt(space.w_ValueError, "day of week out of range")
 
     rffi.setintfield(glob_buf, 'c_tm_year', y - 1900)
     rffi.setintfield(glob_buf, 'c_tm_mon',
@@ -536,8 +534,7 @@ def ctime(space, w_seconds=None):
         t_ref[0] = seconds
         p = c_localtime(t_ref)
     if not p:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("unconvertible time"))
+        raise oefmt(space.w_ValueError, "unconvertible time")
     return _asctime(space, p)
 
 # by now w_tup is an optional argument (and not *args)
@@ -618,8 +615,7 @@ def mktime(space, w_tup):
     # A return value of -1 does not necessarily mean an error, but tm_wday
     # cannot remain set to -1 if mktime succeeds.
     if tt == -1 and rffi.getintfield(buf, "c_tm_wday") == -1:
-        raise OperationError(space.w_OverflowError,
-            space.wrap("mktime argument out of range"))
+        raise oefmt(space.w_OverflowError, "mktime argument out of range")
 
     return space.wrap(float(tt))
 
@@ -703,8 +699,7 @@ def strftime(space, format, w_tup=None):
                     # not documented by python
                     i += 1
                 if i >= length or format[i] not in "aAbBcdHIjmMpSUwWxXyYzZ%":
-                    raise OperationError(space.w_ValueError,
-                                         space.wrap("invalid format string"))
+                    raise oefmt(space.w_ValueError, "invalid format string")
             i += 1
 
     i = 1024

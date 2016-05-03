@@ -1,4 +1,4 @@
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.unicodedata import unicodedb
 from pypy.module.cpyext.api import (
@@ -234,8 +234,7 @@ def PyUnicode_AsUnicode(space, ref):
     # Don't use PyUnicode_Check, it will realize the object :-(
     w_type = from_ref(space, rffi.cast(PyObject, ref.c_ob_type))
     if not space.is_true(space.issubtype(w_type, space.w_unicode)):
-        raise OperationError(space.w_TypeError,
-                             space.wrap("expected unicode object"))
+        raise oefmt(space.w_TypeError, "expected unicode object")
     return PyUnicode_AS_UNICODE(space, ref)
 
 @cpython_api([PyObject], rffi.CCHARP)
@@ -323,8 +322,8 @@ def PyUnicode_AsEncodedString(space, w_unicode, llencoding, llerrors):
     codec."""
     w_str = PyUnicode_AsEncodedObject(space, w_unicode, llencoding, llerrors)
     if not PyBytes_Check(space, w_str):
-        raise OperationError(space.w_TypeError, space.wrap(
-            "encoder did not return a bytes object"))
+        raise oefmt(space.w_TypeError,
+                    "encoder did not return a bytes object")
     return w_str
 
 @cpython_api([PyObject], PyObject)
@@ -402,8 +401,7 @@ def PyUnicode_FromEncodedObject(space, w_obj, encoding, errors):
     All other objects, including Unicode objects, cause a TypeError to be
     set."""
     if not encoding:
-        raise OperationError(space.w_TypeError,
-                             space.wrap("decoding Unicode is not supported"))
+        raise oefmt(space.w_TypeError, "decoding Unicode is not supported")
     w_encoding = space.wrap(rffi.charp2str(encoding))
     if errors:
         w_errors = space.wrap(rffi.charp2str(errors))
@@ -422,8 +420,7 @@ def PyUnicode_FromEncodedObject(space, w_obj, encoding, errors):
                 raise
             w_meth = None
     if w_meth is None:
-        raise OperationError(space.w_TypeError,
-                             space.wrap("decoding Unicode is not supported"))
+        raise oefmt(space.w_TypeError, "decoding Unicode is not supported")
     return space.call_function(w_meth, w_encoding, w_errors)
 
 
@@ -561,8 +558,8 @@ def PyUnicode_Resize(space, ref, newsize):
     # XXX always create a new string so far
     py_uni = rffi.cast(PyUnicodeObject, ref[0])
     if not py_uni.c_buffer:
-        raise OperationError(space.w_SystemError, space.wrap(
-            "PyUnicode_Resize called on already created string"))
+        raise oefmt(space.w_SystemError,
+                    "PyUnicode_Resize called on already created string")
     try:
         py_newuni = new_empty_unicode(space, newsize)
     except MemoryError:

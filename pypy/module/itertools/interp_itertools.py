@@ -47,8 +47,7 @@ class W_Count(W_Root):
 def check_number(space, w_obj):
     if (space.lookup(w_obj, '__int__') is None and
         space.lookup(w_obj, '__float__') is None):
-        raise OperationError(space.w_TypeError,
-                             space.wrap("expected a number"))
+        raise oefmt(space.w_TypeError, "expected a number")
 
 @unwrap_spec(w_start=WrappedDefault(0), w_step=WrappedDefault(1))
 def W_Count___new__(space, w_subtype, w_start, w_step):
@@ -333,7 +332,9 @@ class W_ISlice(W_Root):
                  "Indicies for islice() must be None or non-negative integers")
             w_stop = args_w[0]
         else:
-            raise OperationError(space.w_TypeError, space.wrap("islice() takes at most 4 arguments (" + str(num_args) + " given)"))
+            raise oefmt(space.w_TypeError,
+                        "islice() takes at most 4 arguments (%d given)",
+                        num_args)
 
         if space.is_w(w_stop, space.w_None):
             stop = -1
@@ -630,8 +631,8 @@ def W_ZipLongest___new__(space, w_subtype, __args__):
             w_fillvalue = kwds_w["fillvalue"]
             del kwds_w["fillvalue"]
         if kwds_w:
-            raise OperationError(space.w_TypeError, space.wrap(
-                "zip_longest() got unexpected keyword argument(s)"))
+            raise oefmt(space.w_TypeError,
+                        "zip_longest() got unexpected keyword argument(s)")
 
     self = space.allocate_instance(W_ZipLongest, w_subtype)
     self.__init__(space, space.w_None, arguments_w)
@@ -817,7 +818,7 @@ def tee(space, w_iterable, n=2):
         return tuple([gen(it.next) for i in range(n)])
     """
     if n < 0:
-        raise OperationError(space.w_ValueError, space.wrap("n must be >= 0"))
+        raise oefmt(space.w_ValueError, "n must be >= 0")
 
     if isinstance(w_iterable, W_TeeIterable):     # optimization only
         w_chained_list = w_iterable.w_chained_list
@@ -1307,8 +1308,8 @@ def W_Product__new__(space, w_subtype, __args__):
             w_repeat = kwds_w['repeat']
             del kwds_w['repeat']
         if kwds_w:
-            raise OperationError(space.w_TypeError, space.wrap(
-                "product() got unexpected keyword argument(s)"))
+            raise oefmt(space.w_TypeError,
+                        "product() got unexpected keyword argument(s)")
 
     r = space.allocate_instance(W_Product, w_subtype)
     r.__init__(space, arguments_w, w_repeat)
@@ -1447,9 +1448,7 @@ class W_Combinations(W_Root):
 def W_Combinations__new__(space, w_subtype, w_iterable, r):
     pool_w = space.fixedview(w_iterable)
     if r < 0:
-        raise OperationError(space.w_ValueError,
-            space.wrap("r must be non-negative")
-        )
+        raise oefmt(space.w_ValueError, "r must be non-negative")
     indices = range(r)
     res = space.allocate_instance(W_Combinations, w_subtype)
     res.__init__(space, pool_w, indices, r)
@@ -1518,8 +1517,7 @@ class W_CombinationsWithReplacement(W_Combinations):
 def W_CombinationsWithReplacement__new__(space, w_subtype, w_iterable, r):
     pool_w = space.fixedview(w_iterable)
     if r < 0:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("r must be non-negative"))
+        raise oefmt(space.w_ValueError, "r must be non-negative")
     indices = [0] * r
     res = space.allocate_instance(W_CombinationsWithReplacement, w_subtype)
     res.__init__(space, pool_w, indices, r)

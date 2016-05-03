@@ -154,24 +154,24 @@ BZ2_bzDecompress = external('BZ2_bzDecompress', [bz_stream], rffi.INT)
 
 def _catch_bz2_error(space, bzerror):
     if BZ_CONFIG_ERROR and bzerror == BZ_CONFIG_ERROR:
-        raise OperationError(space.w_SystemError,
-            space.wrap("the bz2 library was not compiled correctly"))
+        raise oefmt(space.w_SystemError,
+                    "the bz2 library was not compiled correctly")
     if bzerror == BZ_PARAM_ERROR:
-        raise OperationError(space.w_SystemError,
-            space.wrap("the bz2 library has received wrong parameters"))
+        raise oefmt(space.w_SystemError,
+                    "the bz2 library has received wrong parameters")
     elif bzerror == BZ_MEM_ERROR:
         raise OperationError(space.w_MemoryError, space.wrap(""))
     elif bzerror in (BZ_DATA_ERROR, BZ_DATA_ERROR_MAGIC):
-        raise OperationError(space.w_IOError, space.wrap("invalid data stream"))
+        raise oefmt(space.w_IOError, "invalid data stream")
     elif bzerror == BZ_IO_ERROR:
-        raise OperationError(space.w_IOError, space.wrap("unknown IO error"))
+        raise oefmt(space.w_IOError, "unknown IO error")
     elif bzerror == BZ_UNEXPECTED_EOF:
-        raise OperationError(space.w_EOFError,
-            space.wrap(
-                "compressed file ended before the logical end-of-stream was detected"))
+        raise oefmt(space.w_EOFError,
+                    "compressed file ended before the logical end-of-stream "
+                    "was detected")
     elif bzerror == BZ_SEQUENCE_ERROR:
-        raise OperationError(space.w_RuntimeError,
-            space.wrap("wrong sequence of bz2 library commands used"))
+        raise oefmt(space.w_RuntimeError,
+                    "wrong sequence of bz2 library commands used")
 
 def _new_buffer_size(current_size):
     # keep doubling until we reach BIGCHUNK; then the buffer size is no
@@ -258,8 +258,8 @@ class W_BZ2Compressor(W_Root):
 
     def _init_bz2comp(self, compresslevel):
         if compresslevel < 1 or compresslevel > 9:
-            raise OperationError(self.space.w_ValueError,
-                self.space.wrap("compresslevel must be between 1 and 9"))
+            raise oefmt(self.space.w_ValueError,
+                        "compresslevel must be between 1 and 9")
 
         bzerror = intmask(BZ2_bzCompressInit(self.bzs, compresslevel, 0, 0))
         if bzerror != BZ_OK:
@@ -289,8 +289,8 @@ class W_BZ2Compressor(W_Root):
             return self.space.wrapbytes("")
 
         if not self.running:
-            raise OperationError(self.space.w_ValueError,
-                self.space.wrap("this object was already flushed"))
+            raise oefmt(self.space.w_ValueError,
+                        "this object was already flushed")
 
         in_bufsize = datasize
 
@@ -315,8 +315,8 @@ class W_BZ2Compressor(W_Root):
 
     def flush(self):
         if not self.running:
-            raise OperationError(self.space.w_ValueError,
-                self.space.wrap("this object was already flushed"))
+            raise oefmt(self.space.w_ValueError,
+                        "this object was already flushed")
         self.running = False
 
         with OutBuffer(self.bzs) as out:
@@ -396,8 +396,8 @@ class W_BZ2Decompressor(W_Root):
         unused_data attribute."""
 
         if not self.running:
-            raise OperationError(self.space.w_EOFError,
-                self.space.wrap("end of stream was already found"))
+            raise oefmt(self.space.w_EOFError,
+                        "end of stream was already found")
         if data == '':
             return self.space.wrapbytes('')
 

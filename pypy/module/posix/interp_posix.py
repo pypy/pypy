@@ -18,7 +18,7 @@ from rpython.tool.sourcetools import func_with_new_name
 from pypy.interpreter.gateway import (
     unwrap_spec, WrappedDefault, Unwrapper, kwonly)
 from pypy.interpreter.error import (
-    OperationError, wrap_oserror, oefmt, wrap_oserror2, strerror as _strerror)
+    OperationError, oefmt, wrap_oserror, wrap_oserror2, strerror as _strerror)
 from pypy.interpreter.executioncontext import ExecutionContext
 
 
@@ -41,8 +41,7 @@ if sys.maxint == 2147483647:
 else:
     def check_uid_range(space, num):
         if num < -(1 << 31) or num >= (1 << 32):
-            raise OperationError(space.w_OverflowError,
-                                 space.wrap("integer out of range"))
+            raise oefmt(space.w_OverflowError, "integer out of range")
 
 # specialize utime when called w/ None for use w/ call_rposix
 utime_now = func_with_new_name(rposix.utime, 'utime_now')
@@ -755,8 +754,7 @@ def strerror(space, errno):
     try:
         return space.wrap(_strerror(errno))
     except ValueError:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("strerror() argument out of range"))
+        raise oefmt(space.w_ValueError, "strerror() argument out of range")
 
 def getlogin(space):
     """Return the currently logged in user."""
@@ -810,9 +808,9 @@ if _WIN32:
         """Change or add an environment variable."""
         # len includes space for '=' and a trailing NUL
         if len(name) + len(value) + 2 > rwin32._MAX_ENV:
-            msg = ("the environment variable is longer than %d characters" %
-                   rwin32._MAX_ENV)
-            raise OperationError(space.w_ValueError, space.wrap(msg))
+            raise oefmt(space.w_ValueError,
+                        "the environment variable is longer than %d "
+                        "characters", rwin32._MAX_ENV)
         try:
             rwin32._wputenv(name, value)
         except OSError as e:
@@ -1460,13 +1458,13 @@ dir_fd and follow_symlinks may not be available on your platform.
         msg = "utime() arg 2 must be a tuple (atime, mtime) or None"
         args_w = space.fixedview(w_times)
         if len(args_w) != 2:
-            raise OperationError(space.w_TypeError, space.wrap(msg))
+            raise oefmt(space.w_TypeError, msg)
         actime = space.float_w(args_w[0], allow_conversion=False)
         modtime = space.float_w(args_w[1], allow_conversion=False)
     except OperationError as e:
         if not e.match(space, space.w_TypeError):
             raise
-        raise OperationError(space.w_TypeError, space.wrap(msg))
+        raise oefmt(space.w_TypeError, msg)
     try:
         call_rposix(rposix.utime, path, (actime, modtime))
     except OSError as e:
@@ -1846,8 +1844,7 @@ def confname_w(space, w_name, namespace):
         try:
             num = namespace[space.str_w(w_name)]
         except KeyError:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("unrecognized configuration name"))
+            raise oefmt(space.w_ValueError, "unrecognized configuration name")
     else:
         num = space.int_w(w_name)
     return num
@@ -1984,8 +1981,7 @@ def getloadavg(space):
     try:
         load = os.getloadavg()
     except OSError:
-        raise OperationError(space.w_OSError,
-                             space.wrap("Load averages are unobtainable"))
+        raise oefmt(space.w_OSError, "Load averages are unobtainable")
     return space.newtuple([space.wrap(load[0]),
                            space.wrap(load[1]),
                            space.wrap(load[2])])

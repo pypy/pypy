@@ -8,7 +8,7 @@ from pypy.module.thread.error import wrap_thread_error
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib.rarithmetic import r_longlong, ovfcheck
 
 # Force the declaration of the type 'thread.LockType' for RPython
@@ -21,11 +21,11 @@ RPY_LOCK_FAILURE, RPY_LOCK_ACQUIRED, RPY_LOCK_INTR = range(3)
 
 def parse_acquire_args(space, blocking, timeout):
     if not blocking and timeout != -1.0:
-        raise OperationError(space.w_ValueError, space.wrap(
-                "can't specify a timeout for a non-blocking call"))
+        raise oefmt(space.w_ValueError,
+                    "can't specify a timeout for a non-blocking call")
     if timeout < 0.0 and timeout != -1.0:
-        raise OperationError(space.w_ValueError, space.wrap(
-                "timeout value must be strictly positive"))
+        raise oefmt(space.w_ValueError,
+                    "timeout value must be strictly positive")
     if not blocking:
         microseconds = 0
     elif timeout == -1.0:
@@ -33,8 +33,7 @@ def parse_acquire_args(space, blocking, timeout):
     else:
         timeout *= 1e6
         if timeout > float(TIMEOUT_MAX):
-            raise OperationError(space.w_OverflowError, space.wrap(
-                    "timeout value is too large"))
+            raise oefmt(space.w_OverflowError, "timeout value is too large")
         microseconds = r_longlong(timeout)
     return microseconds
 

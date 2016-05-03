@@ -160,8 +160,7 @@ class ImportRLock:
             if self.lock is None:   # CannotHaveLock occurred
                 return
             space = self.space
-            raise OperationError(space.w_RuntimeError,
-                                 space.wrap("not holding the import lock"))
+            raise oefmt(space.w_RuntimeError, "not holding the import lock")
         assert self.lockcounter > 0
         self.lockcounter -= 1
         if self.lockcounter == 0:
