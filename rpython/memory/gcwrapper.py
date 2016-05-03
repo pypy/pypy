@@ -211,17 +211,17 @@ class GCManagedHeap(object):
             assert index == len(self.finalizer_queues)
             self.finalizer_queue_indexes[fq] = index
             self.finalizer_queues.append(fq)
-        return (fq, index)
+            self.gc.register_finalizer_index(fq, index)
+        return index
 
     def gc_fq_next_dead(self, fq_tag):
-        fq, index = self.get_finalizer_queue_index(fq_tag)
+        index = self.get_finalizer_queue_index(fq_tag)
         return lltype.cast_opaque_ptr(rclass.OBJECTPTR,
                                       self.gc.finalizer_next_dead(index))
 
     def gc_fq_register(self, fq_tag, ptr):
-        fq, index = self.get_finalizer_queue_index(fq_tag)
+        index = self.get_finalizer_queue_index(fq_tag)
         ptr = lltype.cast_opaque_ptr(llmemory.GCREF, ptr)
-        self.gc.register_finalizer_index(fq, index)
         self.gc.register_finalizer(index, ptr)
 
 # ____________________________________________________________
