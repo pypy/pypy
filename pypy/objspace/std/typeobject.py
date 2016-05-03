@@ -1,7 +1,7 @@
 import weakref
 from pypy.interpreter import gateway
 from pypy.interpreter.baseobjspace import W_Root, SpaceCache
-from pypy.interpreter.error import oefmt, OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.function import (
     Function, StaticMethod, ClassMethod, FunctionWithFixedCode)
 from pypy.interpreter.typedef import weakref_descr, GetSetProperty,\
