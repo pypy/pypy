@@ -581,7 +581,7 @@ class W_ZipLongest(W_Map):
             space = self.space
             try:
                 return space.next(w_iter)
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_StopIteration):
                     raise
                 self.active -= 1
