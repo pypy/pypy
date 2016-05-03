@@ -61,3 +61,8 @@ CPyExt tweak: instead of "GIL not held when a CPython C extension module
 calls PyXxx", we now silently acquire/release the GIL.  Helps with
 CPython C extension modules that call some PyXxx() functions without
 holding the GIL (arguably, they are theorically buggy).
+
+.. branch: cpyext-test-A
+
+Get the cpyext tests to pass with "-A" (i.e. when tested directly with
+CPython).
