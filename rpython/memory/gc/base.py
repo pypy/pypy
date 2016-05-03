@@ -1,6 +1,7 @@
 from rpython.rtyper.lltypesystem import lltype, llmemory, llarena, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib.debug import ll_assert
+from rpython.rlib.objectmodel import we_are_translated
 from rpython.memory.gcheader import GCHeaderBuilder
 from rpython.memory.support import DEFAULT_CHUNK_SIZE
 from rpython.memory.support import get_address_stack, get_address_deque
@@ -36,8 +37,26 @@ class GCBase(object):
     def setup(self):
         # all runtime mutable values' setup should happen here
         # and in its overriden versions! for the benefit of test_transformed_gc
-        self.finalizer_lock_count = 0
-        self.run_finalizers = self.AddressDeque()
+        self.finalizer_lock = False
+        if we_are_translated():
+            XXXXXX
+        else:
+            self._finalizer_queue_objects = []    # XXX FIX ME
+
+    def register_finalizer_index(self, fq, index):
+        while len(self._finalizer_queue_objects) <= index:
+            self._finalizer_queue_objects.append(None)
+        if self._finalizer_queue_objects[index] is None:
+            fq._reset()
+            self._finalizer_queue_objects[index] = fq
+        else:
+            assert self._finalizer_queue_objects[index] is fq
+
+    def add_finalizer_to_run(self, fq_index, obj):
+        if we_are_translated():
+            XXXXXX
+        else:
+            self._finalizer_queue_objects[fq_index]._queue.append(obj)
 
     def post_setup(self):
         # More stuff that needs to be initialized when the GC is already
@@ -60,6 +79,7 @@ class GCBase(object):
 
     def set_query_functions(self, is_varsize, has_gcptr_in_varsize,
                             is_gcarrayofgcptr,
+                            finalizer_trigger,
                             destructor_or_custom_trace,
                             offsets_to_gc_pointers,
                             fixed_size, varsize_item_sizes,
@@ -73,6 +93,7 @@ class GCBase(object):
                             fast_path_tracing,
                             has_gcptr,
                             cannot_pin):
+        self.finalizer_trigger = finalizer_trigger
         self.destructor_or_custom_trace = destructor_or_custom_trace
         self.is_varsize = is_varsize
         self.has_gcptr_in_varsize = has_gcptr_in_varsize
@@ -320,8 +341,16 @@ class GCBase(object):
         callback2, attrname = _convert_callback_formats(callback)    # :-/
         setattr(self, attrname, arg)
         self.root_walker.walk_roots(callback2, callback2, callback2)
-        self.run_finalizers.foreach(callback, arg)
+        self.enum_pending_finalizers(callback, arg)
     enumerate_all_roots._annspecialcase_ = 'specialize:arg(1)'
+
+    def enum_pending_finalizers(self, callback, arg):
+        if we_are_translated():
+            XXXXXX            #. foreach(callback, arg)
+        for fq in self._finalizer_queue_objects:
+            for obj in fq._queue:
+                callback(obj, arg)
+    enum_pending_finalizers._annspecialcase_ = 'specialize:arg(1)'
 
     def debug_check_consistency(self):
         """To use after a collection.  If self.DEBUG is set, this
@@ -362,17 +391,17 @@ class GCBase(object):
         pass
 
     def execute_finalizers(self):
-        self.finalizer_lock_count += 1
+        if self.finalizer_lock:
+            return  # the outer invocation of execute_finalizers() will do it
+        self.finalizer_lock = True
         try:
-            while self.run_finalizers.non_empty():
-                if self.finalizer_lock_count > 1:
-                    # the outer invocation of execute_finalizers() will do it
-                    break
-                obj = self.run_finalizers.popleft()
-                finalizer = self.getfinalizer(self.get_type_id(obj))
-                finalizer(obj)
+            if we_are_translated():
+                XXXXXX
+            for i, fq in enumerate(self._finalizer_queue_objects):
+                if len(fq._queue) > 0:
+                    self.finalizer_trigger(i)
         finally:
-            self.finalizer_lock_count -= 1
+            self.finalizer_lock = False
 
 
 class MovingGCBase(GCBase):

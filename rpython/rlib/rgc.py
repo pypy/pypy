@@ -390,7 +390,8 @@ class FinalizerQueue(object):
             from rpython.rtyper.lltypesystem.lloperation import llop
             from rpython.rtyper.rclass import OBJECTPTR
             from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
-            ptr = llop.gc_fq_next_dead(OBJECTPTR, self._get_tag())
+            tag = FinalizerQueue._get_tag(self)
+            ptr = llop.gc_fq_next_dead(OBJECTPTR, tag)
             return cast_base_ptr_to_instance(self.Class, ptr)
         try:
             return self._queue.popleft()
@@ -404,24 +405,27 @@ class FinalizerQueue(object):
             from rpython.rtyper.lltypesystem.lloperation import llop
             from rpython.rtyper.rclass import OBJECTPTR
             from rpython.rtyper.annlowlevel import cast_instance_to_base_ptr
+            tag = FinalizerQueue._get_tag(self)
             ptr = cast_instance_to_base_ptr(obj)
-            llop.gc_fq_register(lltype.Void, self._get_tag(), ptr)
+            llop.gc_fq_register(lltype.Void, tag, ptr)
             return
         else:
             self._untranslated_register_finalizer(obj)
 
-    @specialize.memo()
     def _get_tag(self):
-        return CDefinedIntSymbolic('FinalizerQueue TAG', default=self)
+        "NOT_RPYTHON: special-cased below"
+
+    def _reset(self):
+        import collections
+        self._weakrefs = set()
+        self._queue = collections.deque()
 
     def _untranslated_register_finalizer(self, obj):
         if hasattr(obj, '__enable_del_for_id'):
             return    # already called
 
         if not hasattr(self, '_queue'):
-            import collections
-            self._weakrefs = set()
-            self._queue = collections.deque()
+            self._reset()
 
         # Fetch and check the type of 'obj'
         objtyp = obj.__class__
@@ -482,6 +486,23 @@ def _fq_patch_class(Cls):
         _fq_patch_class(BaseCls)
 
 _fq_patched_classes = set()
+
+class FqTagEntry(ExtRegistryEntry):
+    _about_ = FinalizerQueue._get_tag.im_func
+
+    def compute_result_annotation(self, s_fq):
+        assert s_fq.is_constant()
+        fq = s_fq.const
+        s_func = self.bookkeeper.immutablevalue(fq.finalizer_trigger)
+        self.bookkeeper.emulate_pbc_call(self.bookkeeper.position_key,
+                                         s_func, [])
+        if not hasattr(fq, '_fq_tag'):
+            fq._fq_tag = CDefinedIntSymbolic('FinalizerQueue TAG', default=fq)
+        return self.bookkeeper.immutablevalue(fq._fq_tag)
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        return hop.inputconst(lltype.Signed, hop.s_result.const)
 
 
 # ____________________________________________________________

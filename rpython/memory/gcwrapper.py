@@ -1,6 +1,6 @@
 from rpython.translator.backendopt.finalizer import FinalizerAnalyzer
 from rpython.rtyper.lltypesystem import lltype, llmemory, llheap
-from rpython.rtyper import llinterp
+from rpython.rtyper import llinterp, rclass
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.memory import gctypelayout
 from rpython.flowspace.model import Constant
@@ -16,12 +16,14 @@ class GCManagedHeap(object):
                            chunk_size      = 10,
                            translated_to_c = False,
                            **GC_PARAMS)
+        self.translator = translator
         self.gc.set_root_walker(LLInterpRootWalker(self))
         self.gc.DEBUG = True
         self.llinterp = llinterp
         self.prepare_graphs(flowgraphs)
         self.gc.setup()
-        self.finalizer_queues = {}
+        self.finalizer_queue_indexes = {}
+        self.finalizer_queues = []
         self.has_write_barrier_from_array = hasattr(self.gc,
                                                     'write_barrier_from_array')
 
@@ -32,6 +34,7 @@ class GCManagedHeap(object):
                                                self.llinterp)
         self.get_type_id = layoutbuilder.get_type_id
         gcdata = layoutbuilder.initialize_gc_query_function(self.gc)
+        gcdata.init_finalizer_trigger(self.finalizer_trigger)
 
         constants = collect_constants(flowgraphs)
         for obj in constants:
@@ -189,18 +192,38 @@ class GCManagedHeap(object):
     def thread_run(self):
         pass
 
+    def finalizer_trigger(self, fq_index):
+        fq = self.finalizer_queues[fq_index]
+        graph = self.translator._graphof(fq.finalizer_trigger.im_func)
+        try:
+            self.llinterp.eval_graph(graph, [None], recursive=True)
+        except llinterp.LLException:
+            raise RuntimeError(
+                "finalizer_trigger() raised an exception, shouldn't happen")
+
     def get_finalizer_queue_index(self, fq_tag):
         assert fq_tag.expr == 'FinalizerQueue TAG'
         fq = fq_tag.default
-        return self.finalizer_queues.setdefault(fq, len(self.finalizer_queues))
+        try:
+            index = self.finalizer_queue_indexes[fq]
+        except KeyError:
+            index = len(self.finalizer_queue_indexes)
+            assert index == len(self.finalizer_queues)
+            self.finalizer_queue_indexes[fq] = index
+            self.finalizer_queues.append(fq)
+        return (fq, index)
 
     def gc_fq_next_dead(self, fq_tag):
-        index = self.get_finalizer_queue_index(fq_tag)
-        xxx
+        fq, _ = self.get_finalizer_queue_index(fq_tag)
+        addr = fq.next_dead()
+        if addr is None:
+            addr = llmemory.NULL
+        return llmemory.cast_adr_to_ptr(addr, rclass.OBJECTPTR)
 
     def gc_fq_register(self, fq_tag, ptr):
-        index = self.get_finalizer_queue_index(fq_tag)
+        fq, index = self.get_finalizer_queue_index(fq_tag)
         ptr = lltype.cast_opaque_ptr(llmemory.GCREF, ptr)
+        self.gc.register_finalizer_index(fq, index)
         self.gc.register_finalizer(index, ptr)
 
 # ____________________________________________________________

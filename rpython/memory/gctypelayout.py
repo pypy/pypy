@@ -83,6 +83,12 @@ class GCData(object):
         ANY = (T_HAS_GCPTR | T_IS_WEAKREF)
         return (typeinfo.infobits & ANY) != 0 or bool(typeinfo.customfunc)
 
+    def init_finalizer_trigger(self, finalizer_trigger):
+        self.finalizer_trigger = finalizer_trigger
+
+    def q_finalizer_trigger(self, fq_index):
+        self.finalizer_trigger(fq_index)
+
     def q_destructor_or_custom_trace(self, typeid):
         return self.get(typeid).customfunc
 
@@ -136,6 +142,7 @@ class GCData(object):
             self.q_is_varsize,
             self.q_has_gcptr_in_varsize,
             self.q_is_gcarrayofgcptr,
+            self.q_finalizer_trigger,
             self.q_destructor_or_custom_trace,
             self.q_offsets_to_gc_pointers,
             self.q_fixed_size,
@@ -374,11 +381,15 @@ class TypeLayoutBuilder(object):
         return result
 
     def make_destructor_funcptr_for_type(self, TYPE):
-        # must be overridden for proper finalizer support
+        # must be overridden for proper destructor support
         return None
 
     def make_custom_trace_funcptr_for_type(self, TYPE):
         # must be overridden for proper custom tracer support
+        return None
+
+    def make_finalizer_trigger(self):
+        # must be overridden for proper finalizer support
         return None
 
     def initialize_gc_query_function(self, gc):

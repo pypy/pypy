@@ -2422,7 +2422,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         #
         # If we are in an inner collection caused by a call to a finalizer,
         # the 'run_finalizers' objects also need to be kept alive.
-        self.run_finalizers.foreach(self._collect_obj, None)
+        self.enum_pending_finalizers(self._collect_obj, None)
 
     def enumerate_all_roots(self, callback, arg):
         self.prebuilt_root_objects.foreach(callback, arg)
@@ -2676,8 +2676,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
             state = self._finalization_state(x)
             ll_assert(state >= 2, "unexpected finalization state < 2")
             if state == 2:
-                # XXX use fq_nr here
-                self.run_finalizers.append(x)
+                from rpython.rtyper.lltypesystem import rffi
+                fq_index = rffi.cast(lltype.Signed, fq_nr)
+                self.add_finalizer_to_run(fq_index, x)
                 # we must also fix the state from 2 to 3 here, otherwise
                 # we leave the GCFLAG_FINALIZATION_ORDERING bit behind
                 # which will confuse the next collection
