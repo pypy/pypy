@@ -1,4 +1,5 @@
 from rpython.rtyper.test.test_llinterp import gengraph, interpret
+from rpython.rtyper.error import TyperError
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rlib import rgc # Force registration of gc.collect
 import gc
@@ -265,7 +266,7 @@ class T_Int(T_Root):
         self.x = x
 
 class SimpleFQ(rgc.FinalizerQueue):
-    base_class = T_Root
+    Class = T_Root
     _triggered = 0
     def finalizer_trigger(self):
         self._triggered += 1
@@ -367,3 +368,21 @@ class TestFinalizerQueue:
         assert fq.next_dead() is None
         assert deleted == {(1, 42): 1}
         assert fq._triggered == 1
+
+    def test_finalizer_trigger_calls_too_much(self):
+        from rpython.rtyper.lltypesystem import lltype, rffi
+        external_func = rffi.llexternal("foo", [], lltype.Void)
+        # ^^^ with release_gil=True
+        class X(object):
+            pass
+        class FQ(rgc.FinalizerQueue):
+            Class = X
+            def finalizer_trigger(self):
+                external_func()
+        fq = FQ()
+        def f():
+            x = X()
+            fq.register_finalizer(x)
+
+        e = py.test.raises(TyperError, gengraph, f, [])
+        assert str(e.value).startswith('the RPython-level __del__() method in')

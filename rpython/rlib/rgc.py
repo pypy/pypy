@@ -501,6 +501,12 @@ class FqTagEntry(ExtRegistryEntry):
         return self.bookkeeper.immutablevalue(fq._fq_tag)
 
     def specialize_call(self, hop):
+        from rpython.rtyper.rclass import InstanceRepr
+        translator = hop.rtyper.annotator.translator
+        fq = hop.args_s[0].const
+        graph = translator._graphof(fq.finalizer_trigger.im_func)
+        InstanceRepr.check_graph_of_del_does_not_call_too_much(hop.rtyper,
+                                                               graph)
         hop.exception_cannot_occur()
         return hop.inputconst(lltype.Signed, hop.s_result.const)
 
