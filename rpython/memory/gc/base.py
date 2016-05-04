@@ -7,6 +7,7 @@ from rpython.memory.support import DEFAULT_CHUNK_SIZE
 from rpython.memory.support import get_address_stack, get_address_deque
 from rpython.memory.support import AddressDict, null_address_dict
 from rpython.rtyper.lltypesystem.llmemory import NULL, raw_malloc_usage
+from rpython.rtyper.annlowlevel import cast_adr_to_nongc_instance
 
 TYPEID_MAP = lltype.GcStruct('TYPEID_MAP', ('count', lltype.Signed),
                              ('size', lltype.Signed),
@@ -40,8 +41,8 @@ class GCBase(object):
         self.finalizer_lock = False
 
     def mark_finalizer_to_run(self, fq_index, obj):
-        fdeque = self.get_run_finalizer_queue(self.AddressDeque, fq_index)
-        fdeque.append(obj)
+        handlers = self.finalizer_handlers()
+        self._adr2deque(handlers[fq_index].deque).append(obj)
 
     def post_setup(self):
         # More stuff that needs to be initialized when the GC is already
@@ -64,8 +65,7 @@ class GCBase(object):
 
     def set_query_functions(self, is_varsize, has_gcptr_in_varsize,
                             is_gcarrayofgcptr,
-                            finalizer_trigger,
-                            get_run_finalizer_queue,
+                            finalizer_handlers,
                             destructor_or_custom_trace,
                             offsets_to_gc_pointers,
                             fixed_size, varsize_item_sizes,
@@ -79,8 +79,7 @@ class GCBase(object):
                             fast_path_tracing,
                             has_gcptr,
                             cannot_pin):
-        self.finalizer_trigger = finalizer_trigger
-        self.get_run_finalizer_queue = get_run_finalizer_queue
+        self.finalizer_handlers = finalizer_handlers
         self.destructor_or_custom_trace = destructor_or_custom_trace
         self.is_varsize = is_varsize
         self.has_gcptr_in_varsize = has_gcptr_in_varsize
@@ -332,12 +331,10 @@ class GCBase(object):
     enumerate_all_roots._annspecialcase_ = 'specialize:arg(1)'
 
     def enum_pending_finalizers(self, callback, arg):
+        handlers = self.finalizer_handlers()
         i = 0
-        while True:
-            fdeque = self.get_run_finalizer_queue(self.AddressDeque, i)
-            if fdeque is None:
-                break
-            fdeque.foreach(callback, arg)
+        while i < len(handlers):
+            self._adr2deque(handlers[i].deque).foreach(callback, arg)
             i += 1
     enum_pending_finalizers._annspecialcase_ = 'specialize:arg(1)'
 
@@ -379,23 +376,25 @@ class GCBase(object):
     def debug_check_object(self, obj):
         pass
 
+    def _adr2deque(self, adr):
+        return cast_adr_to_nongc_instance(self.AddressDeque, adr)
+
     def execute_finalizers(self):
         if self.finalizer_lock:
             return  # the outer invocation of execute_finalizers() will do it
         self.finalizer_lock = True
         try:
+            handlers = self.finalizer_handlers()
             i = 0
-            while True:
-                fdeque = self.get_run_finalizer_queue(self.AddressDeque, i)
-                if fdeque is None:
-                    break
-                if fdeque.non_empty():
-                    self.finalizer_trigger(i)
+            while i < len(handlers):
+                if self._adr2deque(handlers[i].deque).non_empty():
+                    handlers[i].trigger()
                 i += 1
         finally:
             self.finalizer_lock = False
 
     def finalizer_next_dead(self, fq_index):
+        xxxxxxxxxxxx
         fdeque = self.get_run_finalizer_queue(self.AddressDeque, fq_index)
         if fdeque.non_empty():
             obj = fdeque.popleft()

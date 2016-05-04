@@ -396,17 +396,3 @@ def copy_without_null_values(dict):
 def _null_value_checker(key, value, arg):
     if value:
         arg.setitem(key, value)
-
-# ____________________________________________________________
-
-NONGCARRAY = lltype.Array(NONGCOBJECTPTR, hints={'nolength': True})
-
-def make_list_of_nongc_instances(count):
-    return lltype.malloc(NONGCARRAY, count, flavor='raw', zero=True,
-                         track_allocation=False)
-
-def list_get_nongc_instance(Class, array, index):
-    return cast_base_ptr_to_nongc_instance(Class, array[index])
-
-def list_set_nongc_instance(array, index, instance):
-    array[index] = cast_nongc_instance_to_base_ptr(instance)

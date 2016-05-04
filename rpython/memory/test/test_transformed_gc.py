@@ -50,6 +50,8 @@ class GCTest(object):
     taggedpointers = False
 
     def setup_class(cls):
+        if cls is not TestIncrementalMiniMarkGC:
+            py.test.skip("FOO")
         cls.marker = lltype.malloc(rffi.CArray(lltype.Signed), 1,
                                    flavor='raw', zero=True)
         funcs0 = []

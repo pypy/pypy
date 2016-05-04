@@ -526,6 +526,12 @@ def cast_gcref_to_instance(Class, ptr):
     ptr = lltype.cast_opaque_ptr(OBJECTPTR, ptr)
     return cast_base_ptr_to_instance(Class, ptr)
 
+@specialize.arg(0)
+def cast_adr_to_nongc_instance(Class, ptr):
+    from rpython.rtyper.rclass import NONGCOBJECTPTR
+    ptr = llmemory.cast_adr_to_ptr(ptr, NONGCOBJECTPTR)
+    return cast_base_ptr_to_nongc_instance(Class, ptr)
+
 class CastBasePtrToInstanceEntry(extregistry.ExtRegistryEntry):
     _about_ = cast_base_ptr_to_instance
 

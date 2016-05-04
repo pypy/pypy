@@ -1568,8 +1568,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
     def register_finalizer(self, fq_index, gcobj):
         from rpython.rtyper.lltypesystem import rffi
         obj = llmemory.cast_ptr_to_adr(gcobj)
-        self.probably_young_objects_with_finalizers.append(obj)
         fq_index = rffi.cast(llmemory.Address, fq_index)
+        self.probably_young_objects_with_finalizers.append(obj)
         self.probably_young_objects_with_finalizers.append(fq_index)
 
     # ----------
