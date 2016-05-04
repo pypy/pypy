@@ -561,8 +561,6 @@ class MiniMarkGC(MovingGCBase):
             # Build the object.
             llarena.arena_reserve(result, totalsize)
             obj = result + size_gc_header
-            if is_finalizer_light:
-                self.young_objects_with_light_finalizers.append(obj)
             self.init_gc_object(result, typeid, flags=0)
         #
         # If it is a weakref or has a lightweight destructor, record it
