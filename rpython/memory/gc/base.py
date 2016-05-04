@@ -147,15 +147,15 @@ class GCBase(object):
         the four malloc_[fixed,var]size[_clear]() functions.
         """
         size = self.fixed_size(typeid)
-        needs_destructor = (bool(self.destructor_or_custom_trace(typeid))
-                            and not self.has_custom_trace(typeid))
-        finalizer_is_light = (needs_destructor and
+        needs_finalizer = (bool(self.destructor_or_custom_trace(typeid))
+                           and not self.has_custom_trace(typeid))
+        finalizer_is_light = (needs_finalizer and
                               not self.is_old_style_finalizer(typeid))
         contains_weakptr = self.weakpointer_offset(typeid) >= 0
-        assert not (needs_destructor and contains_weakptr)
+        assert not (needs_finalizer and contains_weakptr)
         if self.is_varsize(typeid):
             assert not contains_weakptr
-            assert not needs_destructor
+            assert not needs_finalizer
             itemsize = self.varsize_item_sizes(typeid)
             offset_to_length = self.varsize_offset_to_length(typeid)
             if self.malloc_zero_filled:
@@ -170,7 +170,7 @@ class GCBase(object):
                 malloc_fixedsize = self.malloc_fixedsize_clear
             else:
                 malloc_fixedsize = self.malloc_fixedsize
-            ref = malloc_fixedsize(typeid, size, needs_destructor,
+            ref = malloc_fixedsize(typeid, size, needs_finalizer,
                                    finalizer_is_light,
                                    contains_weakptr)
         # lots of cast and reverse-cast around...

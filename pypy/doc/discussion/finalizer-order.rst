@@ -12,10 +12,15 @@ May 2016):
 
 * RPython objects can have ``__del__()``.  These are called
   immediately by the GC when the last reference to the object goes
-  away, like in CPython.  However (like "lightweight finalizers" used
-  to be), all ``__del__()`` methods must only contain simple enough
-  code, and this is checked.  We call this "destructors".  They can't
-  use operations that would resurrect the object, for example.
+  away, like in CPython.  However, the long-term goal is that all
+  ``__del__()`` methods should only contain simple enough code.  If
+  they do, we call them "destructors".  They can't use operations that
+  would resurrect the object, for example.  Use the decorator
+  ``@rgc.must_be_light_finalizer`` to ensure they are destructors.
+
+* RPython-level ``__del__()`` that are not passing the destructor test
+  are supported for backward compatibility, but deprecated.  The rest
+  of this document assumes that ``__del__()`` are all destructors.
 
 * For any more advanced usage --- in particular for any app-level
   object with a __del__ --- we don't use the RPython-level

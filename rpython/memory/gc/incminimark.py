@@ -608,7 +608,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
 
     def malloc_fixedsize(self, typeid, size,
-                               needs_destructor=False,
+                               needs_finalizer=False,
                                is_finalizer_light=False,
                                contains_weakptr=False):
         size_gc_header = self.gcheaderbuilder.size_gc_header
@@ -617,7 +617,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         #
         # If the object needs a finalizer, ask for a rawmalloc.
         # The following check should be constant-folded.
-        if needs_destructor and not is_finalizer_light:
+        if needs_finalizer and not is_finalizer_light:
             # old-style finalizers only!
             from rpython.rtyper.lltypesystem import rffi
             ll_assert(not contains_weakptr,
@@ -657,7 +657,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         #
         # If it is a weakref or has a lightweight destructor, record it
         # (checks constant-folded).
-        if needs_destructor:
+        if needs_finalizer:
             self.young_objects_with_destructors.append(obj)
         if contains_weakptr:
             self.young_objects_with_weakrefs.append(obj)
