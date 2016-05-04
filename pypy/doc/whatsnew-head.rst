@@ -66,3 +66,5 @@ holding the GIL (arguably, they are theorically buggy).
 
 Get the cpyext tests to pass with "-A" (i.e. when tested directly with
 CPython).
+
+.. branch: oefmt
