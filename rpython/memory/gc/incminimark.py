@@ -619,14 +619,12 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # The following check should be constant-folded.
         if needs_finalizer and not is_finalizer_light:
             # old-style finalizers only!
-            from rpython.rtyper.lltypesystem import rffi
             ll_assert(not contains_weakptr,
                      "'needs_finalizer' and 'contains_weakptr' both specified")
             obj = self.external_malloc(typeid, 0, alloc_young=False)
-            self.old_objects_with_finalizers.append(obj)
-            self.old_objects_with_finalizers.append(
-                rffi.cast(llmemory.Address, -1))
-            return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
+            res = llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
+            self.register_finalizer(-1, res)
+            return res
         #
         # If totalsize is greater than nonlarge_max (which should never be
         # the case in practice), ask for a rawmalloc.  The following check

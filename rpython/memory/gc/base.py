@@ -427,9 +427,7 @@ class GCBase(object):
                 i += 1
             while self.run_old_style_finalizers.non_empty():
                 obj = self.run_old_style_finalizers.popleft()
-                typeid = self.get_type_id(obj)
-                finalizer = self.destructor_or_custom_trace(typeid)
-                finalizer(obj)
+                self.call_destructor(obj)
         finally:
             self.finalizer_lock = False
 
