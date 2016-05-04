@@ -347,6 +347,32 @@ class GCBase(object):
             i += 1
     enum_pending_finalizers._annspecialcase_ = 'specialize:arg(1)'
 
+    def _copy_pending_finalizers_deque(self, deque, copy_fn):
+        tmp = self.AddressDeque()
+        while deque.non_empty():
+            obj = deque.popleft()
+            tmp.append(copy_fn(obj))
+        while tmp.non_empty():
+            deque.append(tmp.popleft())
+        tmp.delete()
+
+    def copy_pending_finalizers(self, copy_fn):
+        "NOTE: not very efficient, but only for SemiSpaceGC and subclasses"
+        self._copy_pending_finalizers_deque(
+            self.run_old_style_finalizers, copy_fn)
+        handlers = self.finalizer_handlers()
+        i = 0
+        while i < len(handlers):
+            h = handlers[i]
+            self._copy_pending_finalizers_deque(
+                self._adr2deque(h.deque), copy_fn)
+            i += 1
+
+    def call_destructor(self, obj):
+        destructor = self.destructor_or_custom_trace(self.get_type_id(obj))
+        ll_assert(bool(destructor), "no destructor found")
+        destructor(obj)
+
     def debug_check_consistency(self):
         """To use after a collection.  If self.DEBUG is set, this
         enumerates all roots and traces all objects to check if we didn't
@@ -402,8 +428,6 @@ class GCBase(object):
             while self.run_old_style_finalizers.non_empty():
                 obj = self.run_old_style_finalizers.popleft()
                 typeid = self.get_type_id(obj)
-                ll_assert(self.is_old_style_finalizer(typeid),
-                          "bogus old-style finalizer")
                 finalizer = self.destructor_or_custom_trace(typeid)
                 finalizer(obj)
         finally:

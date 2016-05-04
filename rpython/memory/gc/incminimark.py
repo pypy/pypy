@@ -2602,11 +2602,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
     # ----------
     # Finalizers
 
-    def call_destructor(self, obj):
-        destructor = self.destructor_or_custom_trace(self.get_type_id(obj))
-        ll_assert(bool(destructor), "no destructor found")
-        destructor(obj)
-
     def deal_with_young_objects_with_destructors(self):
         """We can reasonably assume that destructors don't do
         anything fancy and *just* call them. Among other things
