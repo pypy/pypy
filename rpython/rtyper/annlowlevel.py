@@ -476,6 +476,10 @@ def cast_nongc_instance_to_base_ptr(instance):
     from rpython.rtyper.rclass import NONGCOBJECTPTR
     return cast_object_to_ptr(NONGCOBJECTPTR, instance)
 
+@specialize.argtype(0)
+def cast_nongc_instance_to_adr(instance):
+    return llmemory.cast_ptr_to_adr(cast_nongc_instance_to_base_ptr(instance))
+
 class CastObjectToPtrEntry(extregistry.ExtRegistryEntry):
     _about_ = cast_object_to_ptr
 

@@ -295,6 +295,9 @@ def get_address_deque(chunk_size=DEFAULT_CHUNK_SIZE, cache={}):
                 cur = next
             free_non_gc_object(self)
 
+        def _was_freed(self):
+            return False    # otherwise, the __class__ changes
+
     cache[chunk_size] = AddressDeque
     return AddressDeque
 

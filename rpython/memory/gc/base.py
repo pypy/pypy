@@ -393,15 +393,6 @@ class GCBase(object):
         finally:
             self.finalizer_lock = False
 
-    def finalizer_next_dead(self, fq_index):
-        xxxxxxxxxxxx
-        fdeque = self.get_run_finalizer_queue(self.AddressDeque, fq_index)
-        if fdeque.non_empty():
-            obj = fdeque.popleft()
-        else:
-            obj = llmemory.NULL
-        return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
-
 
 class MovingGCBase(GCBase):
     moving_gc = True

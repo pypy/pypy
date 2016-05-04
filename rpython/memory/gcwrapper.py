@@ -1,7 +1,7 @@
 from rpython.translator.backendopt.finalizer import FinalizerAnalyzer
 from rpython.rtyper.lltypesystem import lltype, llmemory, llheap
 from rpython.rtyper import llinterp, rclass
-from rpython.rtyper.annlowlevel import llhelper
+from rpython.rtyper.annlowlevel import llhelper, cast_nongc_instance_to_adr
 from rpython.memory import gctypelayout
 from rpython.flowspace.model import Constant
 from rpython.rlib import rgc
@@ -22,8 +22,6 @@ class GCManagedHeap(object):
         self.llinterp = llinterp
         self.prepare_graphs(flowgraphs)
         self.gc.setup()
-        self.finalizer_queue_indexes = {}
-        self.finalizer_queues = {}
         self.has_write_barrier_from_array = hasattr(self.gc,
                                                     'write_barrier_from_array')
 
@@ -34,8 +32,11 @@ class GCManagedHeap(object):
                                                self.llinterp)
         self.get_type_id = layoutbuilder.get_type_id
         gcdata = layoutbuilder.initialize_gc_query_function(self.gc)
-        gcdata.init_finalizer_trigger(self.finalizer_trigger)
         self.gcdata = gcdata
+
+        self.finalizer_queue_indexes = {}
+        self.finalizer_handlers = []
+        self.update_finalizer_handlers()
 
         constants = collect_constants(flowgraphs)
         for obj in constants:
@@ -193,14 +194,27 @@ class GCManagedHeap(object):
     def thread_run(self):
         pass
 
-    def finalizer_trigger(self, fq_index):
-        fq = self.finalizer_queues[fq_index]
+    def _get_finalizer_trigger(self, fq):
         graph = self.translator._graphof(fq.finalizer_trigger.im_func)
-        try:
-            self.llinterp.eval_graph(graph, [None], recursive=True)
-        except llinterp.LLException:
-            raise RuntimeError(
-                "finalizer_trigger() raised an exception, shouldn't happen")
+        def ll_trigger():
+            try:
+                self.llinterp.eval_graph(graph, [None], recursive=True)
+            except llinterp.LLException:
+                raise RuntimeError(
+                    "finalizer_trigger() raised an exception, shouldn't happen")
+        return ll_trigger
+
+    def update_finalizer_handlers(self):
+        handlers = self.finalizer_handlers
+        ll_handlers = lltype.malloc(gctypelayout.FIN_HANDLER_ARRAY,
+                                    len(handlers), immortal=True)
+        for i in range(len(handlers)):
+            fq, deque = handlers[i]
+            ll_handlers[i].deque = cast_nongc_instance_to_adr(deque)
+            ll_handlers[i].trigger = llhelper(
+                lltype.Ptr(gctypelayout.FIN_TRIGGER_FUNC),
+                self._get_finalizer_trigger(fq))
+        self.gcdata.finalizer_handlers = llmemory.cast_ptr_to_adr(ll_handlers)
 
     def get_finalizer_queue_index(self, fq_tag):
         assert fq_tag.expr == 'FinalizerQueue TAG'
@@ -208,16 +222,21 @@ class GCManagedHeap(object):
         try:
             index = self.finalizer_queue_indexes[fq]
         except KeyError:
-            index = self.gcdata.register_next_finalizer_queue(
-                self.gc.AddressDeque)
+            index = len(self.finalizer_handlers)
             self.finalizer_queue_indexes[fq] = index
-            self.finalizer_queues[index] = fq
+            deque = self.gc.AddressDeque()
+            self.finalizer_handlers.append((fq, deque))
+            self.update_finalizer_handlers()
         return index
 
     def gc_fq_next_dead(self, fq_tag):
         index = self.get_finalizer_queue_index(fq_tag)
-        return lltype.cast_opaque_ptr(rclass.OBJECTPTR,
-                                      self.gc.finalizer_next_dead(index))
+        deque = self.finalizer_handlers[index][1]
+        if deque.non_empty():
+            obj = deque.popleft()
+        else:
+            obj = llmemory.NULL
+        return llmemory.cast_adr_to_ptr(obj, rclass.OBJECTPTR)
 
     def gc_fq_register(self, fq_tag, ptr):
         index = self.get_finalizer_queue_index(fq_tag)
