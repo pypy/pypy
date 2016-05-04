@@ -495,7 +495,9 @@ class FqTagEntry(ExtRegistryEntry):
         self.bookkeeper.emulate_pbc_call(self.bookkeeper.position_key,
                                          s_func, [])
         if not hasattr(fq, '_fq_tag'):
-            fq._fq_tag = CDefinedIntSymbolic('FinalizerQueue TAG', default=fq)
+            fq._fq_tag = CDefinedIntSymbolic(
+                '0 /*FinalizerQueue TAG for %s*/' % fq.__class__.__name__,
+                default=fq)
         return self.bookkeeper.immutablevalue(fq._fq_tag)
 
     def specialize_call(self, hop):

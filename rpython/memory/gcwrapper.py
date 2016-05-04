@@ -216,7 +216,7 @@ class GCManagedHeap(object):
         self.gcdata.finalizer_handlers = llmemory.cast_ptr_to_adr(ll_handlers)
 
     def get_finalizer_queue_index(self, fq_tag):
-        assert fq_tag.expr == 'FinalizerQueue TAG'
+        assert 'FinalizerQueue TAG' in fq_tag.expr
         fq = fq_tag.default
         try:
             index = self.finalizer_queue_indexes[fq]

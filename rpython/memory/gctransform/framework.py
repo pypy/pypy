@@ -1520,7 +1520,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
 
     def get_finalizer_queue_index(self, hop):
         fq_tag = hop.spaceop.args[0].value
-        assert fq_tag.expr == 'FinalizerQueue TAG'
+        assert 'FinalizerQueue TAG' in fq_tag.expr
         fq = fq_tag.default
         try:
             index = self.finalizer_queue_indexes[fq]
