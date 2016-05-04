@@ -362,9 +362,7 @@ def no_collect(func):
     return func
 
 def must_be_light_finalizer(func):
-    import warnings
-    warnings.warn("@must_be_light_finalizer is implied and has no effect "
-                  "any more", DeprecationWarning)
+    func._must_be_light_finalizer_ = True
     return func
 
 

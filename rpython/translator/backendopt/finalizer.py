@@ -1,6 +1,9 @@
-
 from rpython.translator.backendopt import graphanalyze
 from rpython.rtyper.lltypesystem import lltype
+from rpython.tool.ansi_print import AnsiLogger
+
+log = AnsiLogger("finalizer")
+
 
 class FinalizerError(Exception):
     """__del__() is used for lightweight RPython destructors,
@@ -23,13 +26,19 @@ class FinalizerAnalyzer(graphanalyze.BoolGraphAnalyzer):
                      'raw_free', 'adr_eq', 'adr_ne',
                      'debug_print']
 
-    def check_light_finalizer(self, graph):
-        self._origin = graph
-        result = self.analyze_direct_call(graph)
-        del self._origin
-        if result is self.top_result():
-            msg = '%s\nIn %r' % (FinalizerError.__doc__, graph)
-            raise FinalizerError(msg)
+    def analyze_light_finalizer(self, graph):
+        if getattr(graph.func, '_must_be_light_finalizer_', False):
+            self._must_be_light = graph
+            result = self.analyze_direct_call(graph)
+            del self._must_be_light
+            if result is self.top_result():
+                msg = '%s\nIn %r' % (FinalizerError.__doc__, graph)
+                raise FinalizerError(msg)
+        else:
+            result = self.analyze_direct_call(graph)
+            if result is self.top_result():
+                log.red('old-style non-light finalizer: %r' % (graph,))
+        return result
 
     def analyze_simple_operation(self, op, graphinfo):
         if op.opname in self.ok_operations:
@@ -48,9 +57,8 @@ class FinalizerAnalyzer(graphanalyze.BoolGraphAnalyzer):
                 # primitive type
                 return self.bottom_result()
 
-        if not hasattr(self, '_origin'):    # for tests
+        if not hasattr(self, '_must_be_light'):
             return self.top_result()
         msg = '%s\nFound this forbidden operation:\n%r\nin %r\nfrom %r' % (
-            FinalizerError.__doc__, op, graphinfo,
-            getattr(self, '_origin', '?'))
+            FinalizerError.__doc__, op, graphinfo, self._must_be_light)
         raise FinalizerError(msg)

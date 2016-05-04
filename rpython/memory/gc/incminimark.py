@@ -609,10 +609,24 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
     def malloc_fixedsize(self, typeid, size,
                                needs_destructor=False,
+                               is_finalizer_light=False,
                                contains_weakptr=False):
         size_gc_header = self.gcheaderbuilder.size_gc_header
         totalsize = size_gc_header + size
         rawtotalsize = raw_malloc_usage(totalsize)
+        #
+        # If the object needs a finalizer, ask for a rawmalloc.
+        # The following check should be constant-folded.
+        if needs_destructor and not is_finalizer_light:
+            # old-style finalizers only!
+            from rpython.rtyper.lltypesystem import rffi
+            ll_assert(not contains_weakptr,
+                     "'needs_finalizer' and 'contains_weakptr' both specified")
+            obj = self.external_malloc(typeid, 0, alloc_young=False)
+            self.old_objects_with_finalizers.append(obj)
+            self.old_objects_with_finalizers.append(
+                rffi.cast(llmemory.Address, -1))
+            return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
         #
         # If totalsize is greater than nonlarge_max (which should never be
         # the case in practice), ask for a rawmalloc.  The following check
@@ -850,6 +864,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
     collect_and_reserve._dont_inline_ = True
 
 
+    # XXX kill alloc_young and make it always True
     def external_malloc(self, typeid, length, alloc_young):
         """Allocate a large object using the ArenaCollection or
         raw_malloc(), possibly as an object with card marking enabled,

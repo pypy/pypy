@@ -1605,9 +1605,12 @@ class TransformerLayoutBuilder(gctypelayout.TypeLayoutBuilder):
             ll_call_destructor(destrptr, v, typename)
         fptr = self.transformer.annotate_finalizer(ll_finalizer,
                 [llmemory.Address], lltype.Void)
-        g = destrptr._obj.graph
-        FinalizerAnalyzer(self.translator).check_light_finalizer(g)
-        return fptr
+        try:
+            g = destrptr._obj.graph
+            light = not FinalizerAnalyzer(self.translator).analyze_light_finalizer(g)
+        except lltype.DelayedPointer:
+            light = False    # XXX bah, too bad
+        return fptr, light
 
     def make_custom_trace_funcptr_for_type(self, TYPE):
         if not self.has_custom_trace(TYPE):

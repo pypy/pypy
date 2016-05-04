@@ -26,12 +26,8 @@ class TestFinalizerAnalyzer(object):
             t.view()
         a = FinalizerAnalyzer(t)
         fgraph = graphof(t, func_to_analyze)
-        try:
-            a.check_light_finalizer(fgraph)
-        except FinalizerError as e:
-            print e
-            return a.top_result()   # True
-        return a.bottom_result()    # False
+        result = a.analyze_light_finalizer(fgraph)
+        return result
 
     def test_nothing(self):
         def f():

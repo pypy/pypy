@@ -152,6 +152,31 @@ class GCTest(object):
         res = self.interpret(f, [5])
         assert res == 6
 
+    def test_old_style_finalizer(self):
+        class B(object):
+            pass
+        b = B()
+        b.nextid = 0
+        b.num_deleted = 0
+        class A(object):
+            def __init__(self):
+                self.id = b.nextid
+                b.nextid += 1
+            def __del__(self):
+                llop.gc__collect(lltype.Void)
+                b.num_deleted += 1
+        def f(x):
+            a = A()
+            i = 0
+            while i < x:
+                i += 1
+                a = A()
+            llop.gc__collect(lltype.Void)
+            llop.gc__collect(lltype.Void)
+            return b.num_deleted
+        res = self.interpret(f, [5])
+        assert res == 6
+
     def test_finalizer(self):
         class B(object):
             pass

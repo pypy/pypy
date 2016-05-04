@@ -39,8 +39,12 @@ class GCBase(object):
         # all runtime mutable values' setup should happen here
         # and in its overriden versions! for the benefit of test_transformed_gc
         self.finalizer_lock = False
+        self.run_old_style_finalizers = self.AddressDeque()
 
     def mark_finalizer_to_run(self, fq_index, obj):
+        if fq_index == -1:   # backward compatibility with old-style finalizer
+            self.run_old_style_finalizers.append(obj)
+            return
         handlers = self.finalizer_handlers()
         self._adr2deque(handlers[fq_index].deque).append(obj)
 
@@ -67,6 +71,7 @@ class GCBase(object):
                             is_gcarrayofgcptr,
                             finalizer_handlers,
                             destructor_or_custom_trace,
+                            is_old_style_finalizer,
                             offsets_to_gc_pointers,
                             fixed_size, varsize_item_sizes,
                             varsize_offset_to_variable_part,
@@ -81,6 +86,7 @@ class GCBase(object):
                             cannot_pin):
         self.finalizer_handlers = finalizer_handlers
         self.destructor_or_custom_trace = destructor_or_custom_trace
+        self.is_old_style_finalizer = is_old_style_finalizer
         self.is_varsize = is_varsize
         self.has_gcptr_in_varsize = has_gcptr_in_varsize
         self.is_gcarrayofgcptr = is_gcarrayofgcptr
@@ -143,6 +149,8 @@ class GCBase(object):
         size = self.fixed_size(typeid)
         needs_destructor = (bool(self.destructor_or_custom_trace(typeid))
                             and not self.has_custom_trace(typeid))
+        finalizer_is_light = (needs_destructor and
+                              not self.is_old_style_finalizer(typeid))
         contains_weakptr = self.weakpointer_offset(typeid) >= 0
         assert not (needs_destructor and contains_weakptr)
         if self.is_varsize(typeid):
@@ -163,6 +171,7 @@ class GCBase(object):
             else:
                 malloc_fixedsize = self.malloc_fixedsize
             ref = malloc_fixedsize(typeid, size, needs_destructor,
+                                   finalizer_is_light,
                                    contains_weakptr)
         # lots of cast and reverse-cast around...
         ref = llmemory.cast_ptr_to_adr(ref)
@@ -331,6 +340,7 @@ class GCBase(object):
     enumerate_all_roots._annspecialcase_ = 'specialize:arg(1)'
 
     def enum_pending_finalizers(self, callback, arg):
+        self.run_old_style_finalizers.foreach(callback, arg)
         handlers = self.finalizer_handlers()
         i = 0
         while i < len(handlers):
@@ -390,6 +400,13 @@ class GCBase(object):
                 if self._adr2deque(handlers[i].deque).non_empty():
                     handlers[i].trigger()
                 i += 1
+            while self.run_old_style_finalizers.non_empty():
+                obj = self.run_old_style_finalizers.popleft()
+                typeid = self.get_type_id(obj)
+                ll_assert(self.is_old_style_finalizer(typeid),
+                          "bogus old-style finalizer")
+                finalizer = self.destructor_or_custom_trace(typeid)
+                finalizer(obj)
         finally:
             self.finalizer_lock = False
 
