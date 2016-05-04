@@ -1,7 +1,6 @@
 from rpython.rtyper.lltypesystem import lltype, llmemory, llarena, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib.debug import ll_assert
-from rpython.rlib.objectmodel import we_are_translated
 from rpython.memory.gcheader import GCHeaderBuilder
 from rpython.memory.support import DEFAULT_CHUNK_SIZE
 from rpython.memory.support import get_address_stack, get_address_deque

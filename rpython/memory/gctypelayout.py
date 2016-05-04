@@ -392,7 +392,7 @@ class TypeLayoutBuilder(object):
 
     def make_destructor_funcptr_for_type(self, TYPE):
         # must be overridden for proper destructor support
-        return None
+        return None, False
 
     def make_custom_trace_funcptr_for_type(self, TYPE):
         # must be overridden for proper custom tracer support

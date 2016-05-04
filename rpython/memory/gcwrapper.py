@@ -4,7 +4,6 @@ from rpython.rtyper import llinterp, rclass
 from rpython.rtyper.annlowlevel import llhelper, cast_nongc_instance_to_adr
 from rpython.memory import gctypelayout
 from rpython.flowspace.model import Constant
-from rpython.rlib import rgc
 
 
 class GCManagedHeap(object):

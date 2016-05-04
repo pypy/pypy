@@ -50,8 +50,6 @@ class GCTest(object):
     taggedpointers = False
 
     def setup_class(cls):
-        if cls is not TestIncrementalMiniMarkGC:
-            py.test.skip("FOO")
         cls.marker = lltype.malloc(rffi.CArray(lltype.Signed), 1,
                                    flavor='raw', zero=True)
         funcs0 = []
@@ -876,7 +874,7 @@ class GenericMovingGCTests(GenericGCTests):
                     op.args = [Constant(type_id, llgroup.HALFWORD),
                                Constant(llmemory.sizeof(P), lltype.Signed),
                                Constant(False, lltype.Bool), # has_finalizer
-                               Constant(False, lltype.Bool), # has_finalizer_light
+                               Constant(False, lltype.Bool), # is_finalizer_light
                                Constant(False, lltype.Bool)] # contains_weakptr
                     break
             else:
@@ -913,7 +911,7 @@ class GenericMovingGCTests(GenericGCTests):
                     op.args = [Constant(type_id, llgroup.HALFWORD),
                                Constant(llmemory.sizeof(P), lltype.Signed),
                                Constant(False, lltype.Bool), # has_finalizer
-                               Constant(False, lltype.Bool), # has_finalizer_light
+                               Constant(False, lltype.Bool), # is_finalizer_light
                                Constant(False, lltype.Bool)] # contains_weakptr
                     break
             else:
