@@ -497,7 +497,7 @@ class GCTest(object):
                         else:
                             a.count = 666  # not ok
                     else:
-                        if b.ref() is self:
+                        if b.ref() is b:
                             a.count += 10  # ok
                         else:
                             a.count = 666  # not ok
