@@ -228,6 +228,8 @@ class __extend__(pyframe.PyFrame):
                 self.BINARY_AND(oparg, next_instr)
             elif opcode == opcodedesc.BINARY_FLOOR_DIVIDE.index:
                 self.BINARY_FLOOR_DIVIDE(oparg, next_instr)
+            elif opcode == opcodedesc.BINARY_MATRIX_MULTIPLY.index:
+                self.BINARY_MATRIX_MULTIPLY(oparg, next_instr)
             elif opcode == opcodedesc.BINARY_LSHIFT.index:
                 self.BINARY_LSHIFT(oparg, next_instr)
             elif opcode == opcodedesc.BINARY_MODULO.index:
@@ -571,6 +573,7 @@ class __extend__(pyframe.PyFrame):
     BINARY_DIVIDE       = binaryoperation("div")
     # XXX BINARY_DIVIDE must fall back to BINARY_TRUE_DIVIDE with -Qnew
     BINARY_MODULO       = binaryoperation("mod")
+    BINARY_MATRIX_MULTIPLY = binaryoperation("matmul")
     BINARY_ADD      = binaryoperation("add")
     BINARY_SUBTRACT = binaryoperation("sub")
     BINARY_SUBSCR   = binaryoperation("getitem")
@@ -589,9 +592,11 @@ class __extend__(pyframe.PyFrame):
     INPLACE_MULTIPLY = binaryoperation("inplace_mul")
     INPLACE_TRUE_DIVIDE  = binaryoperation("inplace_truediv")
     INPLACE_FLOOR_DIVIDE = binaryoperation("inplace_floordiv")
+    INPLACE_FLOOR_DIVIDE = binaryoperation("inplace_matmul")
     INPLACE_DIVIDE       = binaryoperation("inplace_div")
     # XXX INPLACE_DIVIDE must fall back to INPLACE_TRUE_DIVIDE with -Qnew
     INPLACE_MODULO       = binaryoperation("inplace_mod")
+    INPLACE_MATRIX_MULTIPLY = binaryoperation("inplace_matmul")
     INPLACE_ADD      = binaryoperation("inplace_add")
     INPLACE_SUBTRACT = binaryoperation("inplace_sub")
     INPLACE_LSHIFT   = binaryoperation("inplace_lshift")

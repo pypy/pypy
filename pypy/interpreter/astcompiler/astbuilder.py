@@ -17,6 +17,7 @@ augassign_operator_map = {
     '/='  : ast.Div,
     '//=' : ast.FloorDiv,
     '%='  : ast.Mod,
+    '@='  : ast.MatMul,
     '<<='  : ast.LShift,
     '>>='  : ast.RShift,
     '&='  : ast.BitAnd,
@@ -37,7 +38,8 @@ operator_map = misc.dict_to_switch({
     tokens.STAR : ast.Mult,
     tokens.SLASH : ast.Div,
     tokens.DOUBLESLASH : ast.FloorDiv,
-    tokens.PERCENT : ast.Mod
+    tokens.PERCENT : ast.Mod,
+    tokens.AT : ast.MatMul
 })
 
 

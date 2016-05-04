@@ -28,7 +28,7 @@ class Module(MixedModule):
                     'le', 'lshift', 'lt', 'mod', 'mul',
                     'ne', 'neg', 'not_', 'or_',
                     'pos', 'pow', 'rshift', 'setitem',
-                    'sub', 'truediv', 'truth', 'xor',
+                    'sub', 'truediv', 'matmul', 'truth', 'xor',
                     'iadd', 'iand', 'iconcat', 'ifloordiv',
                     'ilshift', 'imod', 'imul', 'ior', 'ipow',
                     'irshift', 'isub', 'itruediv', 'ixor', '_length_hint',
@@ -72,6 +72,7 @@ class Module(MixedModule):
         '__sub__' : 'sub',
         '__truediv__' : 'truediv',
         '__xor__' : 'xor',
+        '__matmul__' : 'matmul',
         # in-place
         '__iadd__' : 'iadd',
         '__iand__' : 'iand',

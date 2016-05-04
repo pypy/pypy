@@ -557,7 +557,11 @@ _static_opcode_stack_effects = {
     ops.LIST_APPEND: -1,
     ops.SET_ADD: -1,
     ops.MAP_ADD: -2,
+<<<<<<< local
+=======
     # XXX 
+    ops.STORE_MAP: -2,
+>>>>>>> other
 
     ops.BINARY_POWER: -1,
     ops.BINARY_MULTIPLY: -1,
@@ -599,9 +603,19 @@ _static_opcode_stack_effects = {
 
     ops.PRINT_EXPR: -1,
 
+<<<<<<< local
     ops.WITH_CLEANUP_START: -1,
     ops.WITH_CLEANUP_FINISH: -1,  # XXX Sometimes more
+=======
+    # TODO 
+    ops.WITH_CLEANUP: -1,
+>>>>>>> other
     ops.LOAD_BUILD_CLASS: 1,
+<<<<<<< local
+=======
+    # TODO 
+    ops.STORE_LOCALS: -1,
+>>>>>>> other
     ops.POP_BLOCK: 0,
     ops.POP_EXCEPT: -1,
     ops.END_FINALLY: -4,     # assume always 4: we pretend that SETUP_FINALLY

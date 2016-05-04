@@ -65,7 +65,8 @@ binary_operations = misc.dict_to_switch({
     ast.BitOr: ops.BINARY_OR,
     ast.BitAnd: ops.BINARY_AND,
     ast.BitXor: ops.BINARY_XOR,
-    ast.FloorDiv: ops.BINARY_FLOOR_DIVIDE
+    ast.FloorDiv: ops.BINARY_FLOOR_DIVIDE,
+    ast.MatMul: ops.BINARY_MATRIX_MULTIPLY
 })
 
 inplace_operations = misc.dict_to_switch({
@@ -80,7 +81,8 @@ inplace_operations = misc.dict_to_switch({
     ast.BitOr: ops.INPLACE_OR,
     ast.BitAnd: ops.INPLACE_AND,
     ast.BitXor: ops.INPLACE_XOR,
-    ast.FloorDiv: ops.INPLACE_FLOOR_DIVIDE
+    ast.FloorDiv: ops.INPLACE_FLOOR_DIVIDE,
+    ast.MatMul: ops.INPLACE_MATRIX_MULTIPLY
 })
 
 compare_operations = misc.dict_to_switch({

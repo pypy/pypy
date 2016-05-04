@@ -1891,6 +1891,8 @@ ObjSpace.MethodTable = [
     ('set',             'set',       3, ['__set__']),
     ('delete',          'delete',    2, ['__delete__']),
     ('userdel',         'del',       1, ['__del__']),
+    ('matmul',          '@',         2, ['__matmul__', '__rmatmul__']),
+    ('inplace_matmul',  '@=',        2, ['__imatmul__']),
 ]
 
 ObjSpace.BuiltinModuleTable = [

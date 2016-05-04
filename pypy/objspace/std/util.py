@@ -15,7 +15,7 @@ CMP_OPS = dict(lt='<', le='<=', eq='==', ne='!=', gt='>', ge='>=')
 BINARY_BITWISE_OPS = {'and': '&', 'lshift': '<<', 'or': '|', 'rshift': '>>',
                       'xor': '^'}
 BINARY_OPS = dict(add='+', div='/', floordiv='//', mod='%', mul='*', sub='-',
-                  truediv='/', **BINARY_BITWISE_OPS)
+                  truediv='/', matmul='@', **BINARY_BITWISE_OPS)
 COMMUTATIVE_OPS = ('add', 'mul', 'and', 'or', 'xor')
 
 

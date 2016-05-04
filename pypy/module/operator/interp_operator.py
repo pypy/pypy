@@ -143,6 +143,10 @@ def xor(space, w_a, w_b):
     'xor(a, b) -- Same as a ^ b.'
     return space.xor(w_a, w_b)
 
+def matmul(space, w_a, w_b):
+    'matmul(a, b) -- Same as a @ b.'
+    return space.matmul(w_a, w_b)
+
 # in-place operations
 
 def iadd(space, w_obj1, w_obj2):
@@ -192,6 +196,10 @@ def itruediv(space, w_a, w_b):
 def ixor(space, w_a, w_b):
     'ixor(a, b) -- Same as a ^= b.'
     return space.inplace_xor(w_a, w_b)
+
+def imatmul(space, w_a, w_b):
+    'imatmul(a, b) -- Same as a @= b.'
+    return space.inplace_matmul(w_a, w_b)
 
 def iconcat(space, w_obj1, w_obj2):
     'iconcat(a, b) -- Same as a += b, for a and b sequences.'

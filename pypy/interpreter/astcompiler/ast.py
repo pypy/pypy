@@ -2970,6 +2970,8 @@ class operator(AST):
             return 11
         if space.isinstance_w(w_node, get(space).w_FloorDiv):
             return 12
+        if space.isinstance_w(w_node, get(space).w_MatMul):
+            return 13
         raise oefmt(space.w_TypeError,
                 "Expected operator node, got %T", w_node)
 State.ast_type('operator', 'AST', None)
@@ -3034,6 +3036,11 @@ class _FloorDiv(operator):
         return space.call_function(get(space).w_FloorDiv)
 State.ast_type('FloorDiv', 'operator', None)
 
+class _MatMul(operator):
+    def to_object(self, space):
+        return space.call_function(get(space).w_MatMul)
+State.ast_type('MatMul', 'operator', None)
+
 Add = 1
 Sub = 2
 Mult = 3
@@ -3046,6 +3053,7 @@ BitOr = 9
 BitXor = 10
 BitAnd = 11
 FloorDiv = 12
+MatMul = 13
 
 operator_to_class = [
     _Add,
@@ -3060,6 +3068,7 @@ operator_to_class = [
     _BitXor,
     _BitAnd,
     _FloorDiv,
+    _MatMul,
 ]
 
 class unaryop(AST):
