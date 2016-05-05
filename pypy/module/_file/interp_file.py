@@ -43,6 +43,7 @@ class W_File(W_AbstractStream):
 
     def __init__(self, space):
         self.space = space
+        self.register_finalizer(space)
 
     def _finalize_(self):
         # assume that the file and stream objects are only visible in the
