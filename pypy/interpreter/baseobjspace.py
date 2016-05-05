@@ -152,9 +152,34 @@ class W_Root(object):
             lifeline.clear_all_weakrefs()
 
     def _finalize_(self):
-        """The RPython-level finalizer.  
+        """The RPython-level finalizer.
 
-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"""
+        By default, it is *not called*.  See self.register_finalizer().
+        Be ready to handle the case where the object is only half
+        initialized.
+        """
+
+    def register_finalizer(self, space):
+        """Register a finalizer for this object, so that
+        self._finalize_() will be called.  You must call this method at
+        most once.  Be ready to handle in _finalize_() the case where
+        the object is half-initialized, even if you only call
+        self.register_finalizer() at the end of the initialization.
+        This is because there are cases where the finalizer is already
+        registered before: if the user makes an app-level subclass with
+        a __del__.  (In that case only, self.register_finalizer() does
+        nothing, because the finalizer is already registered in
+        allocate_instance().)
+        """
+        if self.user_overridden_class and self.getclass(space).hasuserdel:
+            # already registered by space.allocate_instance()
+            if not we_are_translated():
+                assert space.finalizer_queue._already_registered(self)
+        else:
+            if not we_are_translated():
+                # does not make sense if _finalize_ is not overridden
+                assert self._finalize_.im_func is not W_Root._finalize_.im_func
+            space.finalizer_queue.register_finalizer(self)
 
     # hooks that the mapdict implementations needs:
     def _get_mapdict_map(self):

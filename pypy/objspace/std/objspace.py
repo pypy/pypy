@@ -357,11 +357,12 @@ class StdObjSpace(ObjSpace):
             if cls.typedef.applevel_subclasses_base is not None:
                 cls = cls.typedef.applevel_subclasses_base
             #
-            subcls = get_unique_interplevel_subclass(
-                    self, cls, w_subtype.needsdel)
+            subcls = get_unique_interplevel_subclass(self, cls)
             instance = instantiate(subcls)
             assert isinstance(instance, cls)
             instance.user_setup(self, w_subtype)
+            if w_subtype.hasuserdel:
+                space.finalizer_queue.register_finalizer(instance)
         else:
             raise oefmt(self.w_TypeError,
                         "%N.__new__(%N): only for the type %N",

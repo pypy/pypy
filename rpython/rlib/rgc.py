@@ -428,9 +428,11 @@ class FinalizerQueue(object):
         self._weakrefs = set()
         self._queue = collections.deque()
 
+    def _already_registered(self, obj):
+        return hasattr(obj, '__enable_del_for_id')
+
     def _untranslated_register_finalizer(self, obj):
-        if hasattr(obj, '__enable_del_for_id'):
-            return    # already called
+        assert not self._already_registered(obj)
 
         if not hasattr(self, '_queue'):
             self._reset()
