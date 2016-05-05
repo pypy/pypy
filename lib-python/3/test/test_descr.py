@@ -1782,7 +1782,6 @@ order (MRO) for bases """
             ("__reversed__", reversed, empty_seq, set(), {}),
             ("__length_hint__", list, zero, set(),
              {"__iter__" : iden, "__next__" : stop}),
-            ("__sizeof__", sys.getsizeof, zero, set(), {}),
             ("__instancecheck__", do_isinstance, return_true, set(), {}),
             ("__missing__", do_dict_missing, some_number,
              set(("__class__",)), {}),
@@ -1798,6 +1797,8 @@ order (MRO) for bases """
             ("__ceil__", math.ceil, zero, set(), {}),
             ("__dir__", dir, empty_seq, set(), {}),
             ]
+        if not hasattr(sys, 'getsizeof') and support.check_impl_detail():
+            specials.append(("__sizeof__", sys.getsizeof, zero, set(), {}))
 
         class Checker(object):
             def __getattr__(self, attr, test=self):
@@ -1960,7 +1961,8 @@ order (MRO) for bases """
         except TypeError as msg:
             self.assertIn("weak reference", str(msg))
         else:
-            self.fail("weakref.ref(no) should be illegal")
+            if support.check_impl_detail(pypy=False):
+                self.fail("weakref.ref(no) should be illegal")
         class Weak(object):
             __slots__ = ['foo', '__weakref__']
         yes = Weak()
@@ -4300,14 +4302,10 @@ order (MRO) for bases """
         self.assertNotEqual(l.__add__, [5].__add__)
         self.assertNotEqual(l.__add__, l.__mul__)
         self.assertEqual(l.__add__.__name__, '__add__')
-        if hasattr(l.__add__, '__self__'):
+        self.assertIs(l.__add__.__self__, l)
+        if hasattr(l.__add__, '__objclass__'):
             # CPython
-            self.assertIs(l.__add__.__self__, l)
             self.assertIs(l.__add__.__objclass__, list)
-        else:
-            # Python implementations where [].__add__ is a normal bound method
-            self.assertIs(l.__add__.im_self, l)
-            self.assertIs(l.__add__.im_class, list)
         self.assertEqual(l.__add__.__doc__, list.__add__.__doc__)
         try:
             hash(l.__add__)
