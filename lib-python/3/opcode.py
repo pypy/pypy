@@ -112,7 +112,8 @@ def_op('INPLACE_AND', 77)
 def_op('INPLACE_XOR', 78)
 def_op('INPLACE_OR', 79)
 def_op('BREAK_LOOP', 80)
-def_op('WITH_CLEANUP', 81)
+def_op('WITH_CLEANUP_START', 81)
+def_op('WITH_CLEANUP_FINISH', 82)
 
 def_op('RETURN_VALUE', 83)
 def_op('IMPORT_STAR', 84)
@@ -197,6 +198,12 @@ def_op('MAP_ADD', 147)
 
 def_op('EXTENDED_ARG', 144)
 EXTENDED_ARG = 144
+
+def_op('BUILD_LIST_UNPACK', 149)
+def_op('BUILD_MAP_UNPACK', 150)
+def_op('BUILD_MAP_UNPACK_WITH_CALL', 151)
+def_op('BUILD_TUPLE_UNPACK', 152)
+def_op('BUILD_SET_UNPACK', 153)
 
 # pypy modification, experimental bytecode
 def_op('LOOKUP_METHOD', 201)          # Index in name list
