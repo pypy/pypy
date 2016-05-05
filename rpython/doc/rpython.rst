@@ -191,6 +191,12 @@ We are using
   ``__setitem__`` for slicing isn't supported. Additionally, using negative
   indices for slicing is still not support, even when using ``__getslice__``.
 
+  Note that the destructor ``__del__`` should only contain `simple
+  operations`__; for any kind of more complex destructor, consider
+  using instead ``rpython.rlib.rgc.FinalizerQueue``.
+
+.. __: garbage_collection.html
+
 This layout makes the number of types to take care about quite limited.
 
 

@@ -471,6 +471,15 @@ def cast_instance_to_gcref(instance):
     return lltype.cast_opaque_ptr(llmemory.GCREF,
                                   cast_instance_to_base_ptr(instance))
 
+@specialize.argtype(0)
+def cast_nongc_instance_to_base_ptr(instance):
+    from rpython.rtyper.rclass import NONGCOBJECTPTR
+    return cast_object_to_ptr(NONGCOBJECTPTR, instance)
+
+@specialize.argtype(0)
+def cast_nongc_instance_to_adr(instance):
+    return llmemory.cast_ptr_to_adr(cast_nongc_instance_to_base_ptr(instance))
+
 class CastObjectToPtrEntry(extregistry.ExtRegistryEntry):
     _about_ = cast_object_to_ptr
 
@@ -512,12 +521,20 @@ def cast_base_ptr_to_instance(Class, ptr):
                                   % (ptr, Class))
     return ptr
 
+cast_base_ptr_to_nongc_instance = cast_base_ptr_to_instance
+
 @specialize.arg(0)
 def cast_gcref_to_instance(Class, ptr):
     """Reverse the hacking done in cast_instance_to_gcref()."""
     from rpython.rtyper.rclass import OBJECTPTR
     ptr = lltype.cast_opaque_ptr(OBJECTPTR, ptr)
     return cast_base_ptr_to_instance(Class, ptr)
+
+@specialize.arg(0)
+def cast_adr_to_nongc_instance(Class, ptr):
+    from rpython.rtyper.rclass import NONGCOBJECTPTR
+    ptr = llmemory.cast_adr_to_ptr(ptr, NONGCOBJECTPTR)
+    return cast_base_ptr_to_nongc_instance(Class, ptr)
 
 class CastBasePtrToInstanceEntry(extregistry.ExtRegistryEntry):
     _about_ = cast_base_ptr_to_instance
