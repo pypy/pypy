@@ -564,7 +564,7 @@ class UserDelAction(AsyncAction):
             try:
                 w_obj._finalize_()
             except Exception as e:
-                self._report_error(e, "internal finalizer of ", w_obj)
+                self._report_error(e, "finalizer of ", w_obj)
 
 
 def make_finalizer_queue(W_Root, space):
