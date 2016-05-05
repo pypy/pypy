@@ -440,14 +440,16 @@ class FinalizerQueue(object):
         # Fetch and check the type of 'obj'
         objtyp = obj.__class__
         assert isinstance(objtyp, type), (
-            "to run register_finalizer() untranslated, "
-            "the object's class must be new-style")
+            "%r: to run register_finalizer() untranslated, "
+            "the object's class must be new-style" % (obj,))
         assert hasattr(obj, '__dict__'), (
-            "to run register_finalizer() untranslated, "
-            "the object must have a __dict__")
-        assert not hasattr(obj, '__slots__'), (
-            "to run register_finalizer() untranslated, "
-            "the object must not have __slots__")
+            "%r: to run register_finalizer() untranslated, "
+            "the object must have a __dict__" % (obj,))
+        assert (not hasattr(obj, '__slots__') or
+                type(obj).__slots__ == () or
+                type(obj).__slots__ == ('__weakref__',)), (
+            "%r: to run register_finalizer() untranslated, "
+            "the object must not have __slots__" % (obj,))
 
         # The first time, patch the method __del__ of the class, if
         # any, so that we can disable it on the original 'obj' and
