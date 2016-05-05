@@ -533,18 +533,6 @@ class UserDelAction(AsyncAction):
             return
         self._run_finalizers()
 
-    def _report_error(self, e, where, w_obj):
-        space = self.space
-        if isinstance(e, OperationError):
-            e.write_unraisable(space, where, w_obj)
-            e.clear(space)   # break up reference cycles
-        else:
-            addrstring = w_obj.getaddrstring(space)
-            msg = ("RPython exception %s in %s<%s at 0x%s> ignored\n" % (
-                       str(e), where, space.type(w_obj).name, addrstring))
-            space.call_method(space.sys.get('stderr'), 'write',
-                              space.wrap(msg))
-
     def _run_finalizers(self):
         while True:
             w_obj = self.space.finalizer_queue.next_dead()
@@ -558,13 +546,25 @@ class UserDelAction(AsyncAction):
             try:
                 self.space.userdel(w_obj)
             except Exception as e:
-                self._report_error(e, "method __del__ of ", w_obj)
+                report_error(self.space, e, "method __del__ of ", w_obj)
 
             # Call the RPython-level _finalize_() method.
             try:
                 w_obj._finalize_()
             except Exception as e:
-                self._report_error(e, "finalizer of ", w_obj)
+                report_error(self.space, e, "finalizer of ", w_obj)
+
+
+def report_error(space, e, where, w_obj):
+    if isinstance(e, OperationError):
+        e.write_unraisable(space, where, w_obj)
+        e.clear(space)   # break up reference cycles
+    else:
+        addrstring = w_obj.getaddrstring(space)
+        msg = ("RPython exception %s in %s<%s at 0x%s> ignored\n" % (
+                   str(e), where, space.type(w_obj).name, addrstring))
+        space.call_method(space.sys.get('stderr'), 'write',
+                          space.wrap(msg))
 
 
 def make_finalizer_queue(W_Root, space):
