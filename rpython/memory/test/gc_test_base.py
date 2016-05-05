@@ -244,6 +244,48 @@ class GCTest(object):
         res = self.interpret(f, [5])
         assert res in (3008, 4008, 5008), "res == %d" % (res,)
 
+    def test_finalizer_two_queues_in_sequence(self):
+        class B(object):
+            pass
+        b = B()
+        b.nextid = 0
+        b.num_deleted_1 = 0
+        b.num_deleted_2 = 0
+        class A(object):
+            def __init__(self):
+                self.id = b.nextid
+                b.nextid += 1
+                fq1.register_finalizer(self)
+        class FQ1(rgc.FinalizerQueue):
+            Class = A
+            def finalizer_trigger(self):
+                while True:
+                    a = self.next_dead()
+                    if a is None:
+                        break
+                    b.num_deleted_1 += 1
+                    fq2.register_finalizer(a)
+        class FQ2(rgc.FinalizerQueue):
+            Class = A
+            def finalizer_trigger(self):
+                while self.next_dead() is not None:
+                    b.num_deleted_2 += 1
+        fq1 = FQ1()
+        fq2 = FQ2()
+        def f(x):
+            A()
+            i = 0
+            while i < x:
+                i += 1
+                A()
+            llop.gc__collect(lltype.Void)
+            llop.gc__collect(lltype.Void)
+            llop.gc__collect(lltype.Void)
+            llop.gc__collect(lltype.Void)
+            return b.num_deleted_1 + b.num_deleted_2 * 1000
+        res = self.interpret(f, [5])
+        assert res == 6006
+
     def test_finalizer_calls_malloc(self):
         class B(object):
             pass
