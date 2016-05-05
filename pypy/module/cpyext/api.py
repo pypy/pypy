@@ -744,7 +744,7 @@ def make_wrapper(space, callable, gil=None):
     try:
         wrapper_gen = cache.wrapper_gens[signature]
     except KeyError:
-        print signature
+        #print signature
         wrapper_gen = cache.wrapper_gens[signature] = WrapperGen(space,
                                                                  signature)
         cache.stats[0] += 1
