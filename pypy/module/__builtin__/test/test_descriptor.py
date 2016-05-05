@@ -14,6 +14,17 @@ class AppTestBuiltinApp:
         assert d.f("abc", "def") == "abcdef"
         assert D.f("abc", "def") == "abcdef"
 
+    def test_staticmethod_dict(self):
+        sm = staticmethod(None)
+        assert sm.__dict__ == {}
+        sm.x = 42
+        assert sm.x == 42
+        assert sm.__dict__ == {"x" : 42}
+        del sm.x
+        assert not hasattr(sm, "x")
+        raises(TypeError, setattr, sm, '__dict__', [])
+        raises((AttributeError, TypeError), delattr, sm, '__dict__')
+
     def test_staticmethod_subclass(self):
         class Static(staticmethod):
             pass
@@ -265,6 +276,20 @@ class AppTestBuiltinApp:
 
         meth = classmethod(1).__get__(1)
         raises(TypeError, meth)
+
+    def test_classmethod_dict(self):
+        cm = classmethod(None)
+        assert cm.__dict__ == {}
+        cm.x = 42
+        assert cm.x == 42
+        assert cm.__dict__ == {"x": 42}
+        del cm.x
+        assert not hasattr(cm, "x")
+        cm.x = 42
+        cm.__dict__ = {}
+        assert not hasattr(cm, "x")
+        raises(TypeError, setattr, cm, '__dict__', [])
+        raises((AttributeError, TypeError), delattr, cm, '__dict__')
 
     def test_super_thisclass(self):
         class A(object):
