@@ -1746,7 +1746,7 @@ order (MRO) for bases """
             ("__format__", format, format_impl, set(), {}),
             ("__dir__", dir, empty_seq, set(), {}),
             ]
-        if not hasattr(sys, 'getsizeof') and test_support.check_impl_detail():
+        if test_support.check_impl_detail():
             specials.append(("__sizeof__", sys.getsizeof, zero, set(), {}))
 
         class Checker(object):
