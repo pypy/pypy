@@ -183,6 +183,7 @@ class Cache:
         if hasattr(space, 'is_fake_objspace'):
             # hack: with the fake objspace, we don't want to see typedef's
             # _getusercls() at all
+            self.InstanceObjectCls = W_InstanceObject
             return
 
         self.InstanceObjectCls = _getusercls(
