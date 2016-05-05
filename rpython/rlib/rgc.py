@@ -362,6 +362,16 @@ def no_collect(func):
     return func
 
 def must_be_light_finalizer(func):
+    """Mark a __del__ method as being a destructor, calling only a limited
+    set of operations.  See pypy/doc/discussion/finalizer-order.rst.  
+
+    If you use the same decorator on a class, this class and all its
+    subclasses are only allowed to have __del__ methods which are
+    similarly decorated (or no __del__ at all).  It prevents a class
+    hierarchy from having destructors in some parent classes, which are
+    overridden in subclasses with (non-light, old-style) finalizers.  
+    (This case is the original motivation for FinalizerQueue.)
+    """
     func._must_be_light_finalizer_ = True
     return func
 
