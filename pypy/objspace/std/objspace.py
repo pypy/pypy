@@ -362,7 +362,7 @@ class StdObjSpace(ObjSpace):
             assert isinstance(instance, cls)
             instance.user_setup(self, w_subtype)
             if w_subtype.hasuserdel:
-                space.finalizer_queue.register_finalizer(instance)
+                self.finalizer_queue.register_finalizer(instance)
         else:
             raise oefmt(self.w_TypeError,
                         "%N.__new__(%N): only for the type %N",
