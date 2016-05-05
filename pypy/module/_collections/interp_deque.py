@@ -529,10 +529,15 @@ class W_DequeIter(W_Root):
         self.index = ri
         return w_x
 
+    def reduce(self):
+        return self.space.newtuple([self.space.gettypefor(W_DequeIter),
+                                    self.space.newtuple([self.deque])])
+
 W_DequeIter.typedef = TypeDef("_collections.deque_iterator",
     __iter__        = interp2app(W_DequeIter.iter),
     __length_hint__ = interp2app(W_DequeIter.length),
     __next__        = interp2app(W_DequeIter.next),
+    __reduce__      = interp2app(W_DequeIter.reduce)
 )
 W_DequeIter.typedef.acceptable_as_base_class = False
 
