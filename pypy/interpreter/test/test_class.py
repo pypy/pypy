@@ -122,3 +122,4 @@ class AppTestClass:
                 pass
         assert C.__qualname__ == 'test_qualname.<locals>.C'
         assert C.D.__qualname__ == 'test_qualname.<locals>.C.D'
+        assert not hasattr(C(), '__qualname__')
