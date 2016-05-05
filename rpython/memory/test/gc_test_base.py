@@ -207,6 +207,43 @@ class GCTest(object):
         res = self.interpret(f, [5])
         assert res == 6
 
+    def test_finalizer_delaying_next_dead(self):
+        class B(object):
+            pass
+        b = B()
+        b.nextid = 0
+        class A(object):
+            def __init__(self):
+                self.id = b.nextid
+                b.nextid += 1
+                fq.register_finalizer(self)
+        class FQ(rgc.FinalizerQueue):
+            Class = A
+            def finalizer_trigger(self):
+                b.triggered += 1
+        fq = FQ()
+        def g():     # indirection to avoid leaking the result for too long
+            A()
+        def f(x):
+            b.triggered = 0
+            g()
+            i = 0
+            while i < x:
+                i += 1
+                g()
+            llop.gc__collect(lltype.Void)
+            llop.gc__collect(lltype.Void)
+            assert b.triggered > 0
+            g(); g()     # two more
+            llop.gc__collect(lltype.Void)
+            llop.gc__collect(lltype.Void)
+            num_deleted = 0
+            while fq.next_dead() is not None:
+                num_deleted += 1
+            return num_deleted + 1000 * b.triggered
+        res = self.interpret(f, [5])
+        assert res in (3008, 4008, 5008), "res == %d" % (res,)
+
     def test_finalizer_calls_malloc(self):
         class B(object):
             pass
