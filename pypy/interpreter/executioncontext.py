@@ -2,7 +2,7 @@ import sys
 from pypy.interpreter.error import OperationError, get_cleared_operation_error
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import specialize
-from rpython.rlib import jit
+from rpython.rlib import jit, rgc
 
 TICK_COUNTER_STEP = 100
 
@@ -515,75 +515,70 @@ class PeriodicAsyncAction(AsyncAction):
     """
 
 
-class UserDelCallback(object):
-    def __init__(self, w_obj, callback, descrname):
-        self.w_obj = w_obj
-        self.callback = callback
-        self.descrname = descrname
-        self.next = None
-
 class UserDelAction(AsyncAction):
     """An action that invokes all pending app-level __del__() method.
     This is done as an action instead of immediately when the
-    interp-level __del__() is invoked, because the latter can occur more
+    WRootFinalizerQueue is triggered, because the latter can occur more
     or less anywhere in the middle of code that might not be happy with
     random app-level code mutating data structures under its feet.
     """
 
     def __init__(self, space):
         AsyncAction.__init__(self, space)
-        self.dying_objects = None
-        self.dying_objects_last = None
-        self.finalizers_lock_count = 0
-        self.enabled_at_app_level = True
-
-    def register_callback(self, w_obj, callback, descrname):
-        cb = UserDelCallback(w_obj, callback, descrname)
-        if self.dying_objects_last is None:
-            self.dying_objects = cb
-        else:
-            self.dying_objects_last.next = cb
-        self.dying_objects_last = cb
-        self.fire()
+        self.finalizers_lock_count = 0        # see pypy/module/gc
+        self.enabled_at_app_level = True      # see pypy/module/gc
 
     def perform(self, executioncontext, frame):
         if self.finalizers_lock_count > 0:
             return
         self._run_finalizers()
 
-    def _run_finalizers(self):
-        # Each call to perform() first grabs the self.dying_objects
-        # and replaces it with an empty list.  We do this to try to
-        # avoid too deep recursions of the kind of __del__ being called
-        # while in the middle of another __del__ call.
-        pending = self.dying_objects
-        self.dying_objects = None
-        self.dying_objects_last = None
+    def _report_error(self, e, where, w_obj):
         space = self.space
-        while pending is not None:
+        if isinstance(e, OperationError):
+            e.write_unraisable(space, where, w_obj)
+            e.clear(space)   # break up reference cycles
+        else:
+            addrstring = w_obj.getaddrstring(space)
+            msg = ("RPython exception %s in %s<%s at 0x%s> ignored\n" % (
+                       str(e), where, space.type(w_obj).name, addrstring))
+            space.call_method(space.sys.get('stderr'), 'write',
+                              space.wrap(msg))
+
+    def _run_finalizers(self):
+        while True:
+            w_obj = self.space.finalizer_queue.next_dead()
+            if w_obj is None:
+                break
+
+            # Before calling the finalizers, clear the weakrefs, if any.
+            w_obj.clear_all_weakrefs()
+
+            # Look up and call the app-level __del__, if any.
             try:
-                pending.callback(pending.w_obj)
-            except OperationError as e:
-                e.write_unraisable(space, pending.descrname, pending.w_obj)
-                e.clear(space)   # break up reference cycles
-            pending = pending.next
-        #
-        # Note: 'dying_objects' used to be just a regular list instead
-        # of a chained list.  This was the cause of "leaks" if we have a
-        # program that constantly creates new objects with finalizers.
-        # Here is why: say 'dying_objects' is a long list, and there
-        # are n instances in it.  Then we spend some time in this
-        # function, possibly triggering more GCs, but keeping the list
-        # of length n alive.  Then the list is suddenly freed at the
-        # end, and we return to the user program.  At this point the
-        # GC limit is still very high, because just before, there was
-        # a list of length n alive.  Assume that the program continues
-        # to allocate a lot of instances with finalizers.  The high GC
-        # limit means that it could allocate a lot of instances before
-        # reaching it --- possibly more than n.  So the whole procedure
-        # repeats with higher and higher values of n.
-        #
-        # This does not occur in the current implementation because
-        # there is no list of length n: if n is large, then the GC
-        # will run several times while walking the list, but it will
-        # see lower and lower memory usage, with no lower bound of n.
+                self.space.userdel(w_obj)
+            except Exception as e:
+                self._report_error(e, "method __del__ of ", w_obj)
+
+            # Call the RPython-level _finalize_() method.
+            try:
+                w_obj._finalize_()
+            except Exception as e:
+                self._report_error(e, "internal finalizer of ", w_obj)
+
+
+def make_finalizer_queue(W_Root, space):
+    """Make a FinalizerQueue subclass which responds to GC finalizer
+    events by 'firing' the UserDelAction class above.  It does not
+    directly fetches the objects to finalize at all; they stay in the 
+    GC-managed queue, and will only be fetched by UserDelAction
+    (between bytecodes)."""
+
+    class WRootFinalizerQueue(rgc.FinalizerQueue):
+        Class = W_Root
+
+        def finalizer_trigger(self):
+            space.user_del_action.fire()
+
+    space.user_del_action = UserDelAction(space)
+    space.finalizer_queue = WRootFinalizerQueue()
