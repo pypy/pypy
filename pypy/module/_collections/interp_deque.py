@@ -536,7 +536,7 @@ class W_DequeIter(W_Root):
 def W_DequeIter__new__(space, w_subtype, w_deque):
     w_self = space.allocate_instance(W_DequeIter, w_subtype)
     if not isinstance(w_deque, W_Deque):
-        raise oefmt(space.w_TypeError, "must be collections.deque, not %T")
+        raise oefmt(space.w_TypeError, "must be collections.deque, not %T", w_deque)
         
     W_DequeIter.__init__(space.interp_w(W_DequeIter, w_self), w_deque)
     return w_self
@@ -592,7 +592,7 @@ class W_DequeRevIter(W_Root):
 def W_DequeRevIter__new__(space, w_subtype, w_deque):
     w_self = space.allocate_instance(W_DequeRevIter, w_subtype)
     if not isinstance(w_deque, W_Deque):
-        raise oefmt(space.w_TypeError, "must be collections.deque, not %T")
+        raise oefmt(space.w_TypeError, "must be collections.deque, not %T", w_deque)
         
     W_DequeRevIter.__init__(space.interp_w(W_DequeRevIter, w_self), w_deque)
     return w_self
