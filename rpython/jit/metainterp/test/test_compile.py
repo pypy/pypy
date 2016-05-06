@@ -164,7 +164,7 @@ def test_compile_tmp_callback():
     fail_descr = cpu.get_latest_descr(deadframe)
     try:
         fail_descr.handle_fail(deadframe, FakeMetaInterpSD(), None)
-    except jitexc.ExitFrameWithExceptionRef, e:
+    except jitexc.ExitFrameWithExceptionRef as e:
         assert lltype.cast_opaque_ptr(lltype.Ptr(EXC), e.value) == llexc
     else:
         assert 0, "should have raised"

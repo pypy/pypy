@@ -113,8 +113,9 @@ class W_CData(W_Root):
                 if requires_ordering:
                     if (isinstance(self.ctype, W_CTypePrimitive) or
                         isinstance(w_other.ctype, W_CTypePrimitive)):
-                        raise OperationError(space.w_TypeError, space.wrap(
-                            "cannot do comparison on a primitive cdata"))
+                        raise oefmt(space.w_TypeError,
+                                    "cannot do comparison on a primitive "
+                                    "cdata")
                     ptr1 = rffi.cast(lltype.Unsigned, ptr1)
                     ptr2 = rffi.cast(lltype.Unsigned, ptr2)
                 result = op(ptr1, ptr2)
@@ -175,22 +176,18 @@ class W_CData(W_Root):
         space = self.space
         #
         if space.is_w(w_slice.w_start, space.w_None):
-            raise OperationError(space.w_IndexError,
-                                 space.wrap("slice start must be specified"))
+            raise oefmt(space.w_IndexError, "slice start must be specified")
         start = space.int_w(w_slice.w_start)
         #
         if space.is_w(w_slice.w_stop, space.w_None):
-            raise OperationError(space.w_IndexError,
-                                 space.wrap("slice stop must be specified"))
+            raise oefmt(space.w_IndexError, "slice stop must be specified")
         stop = space.int_w(w_slice.w_stop)
         #
         if not space.is_w(w_slice.w_step, space.w_None):
-            raise OperationError(space.w_IndexError,
-                                 space.wrap("slice with step not supported"))
+            raise oefmt(space.w_IndexError, "slice with step not supported")
         #
         if start > stop:
-            raise OperationError(space.w_IndexError,
-                                 space.wrap("slice start > stop"))
+            raise oefmt(space.w_IndexError, "slice start > stop")
         #
         ctype = self.ctype._check_slice_index(self, start, stop)
         assert isinstance(ctype, W_CTypePointer)
@@ -247,7 +244,7 @@ class W_CData(W_Root):
         for i in range(length):
             try:
                 w_item = space.next(w_iter)
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_StopIteration):
                     raise
                 raise oefmt(space.w_ValueError,
@@ -256,7 +253,7 @@ class W_CData(W_Root):
             target = rffi.ptradd(target, ctitemsize)
         try:
             space.next(w_iter)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_StopIteration):
                 raise
         else:

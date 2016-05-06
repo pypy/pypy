@@ -39,7 +39,7 @@ class TestPosixFunction:
     def test_getlogin(self):
         try:
             expected = os.getlogin()
-        except OSError, e:
+        except OSError as e:
             py.test.skip("the underlying os.getlogin() failed: %s" % e)
         data = rposix.getlogin()
         assert data == expected

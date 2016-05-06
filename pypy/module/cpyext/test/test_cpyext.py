@@ -200,7 +200,7 @@ class LeakCheckingTest(object):
                         for o in gc.get_referrers(w_obj):
                             try:
                                 repr_str = repr(o)
-                            except TypeError, e:
+                            except TypeError as e:
                                 repr_str = "%s (type of o is %s)" % (str(e), type(o))
                             referrers_repr.append(repr_str)
                         referrers = ", ".join(referrers_repr)

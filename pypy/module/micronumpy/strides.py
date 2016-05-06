@@ -1,4 +1,4 @@
-from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import oefmt
 from rpython.rlib import jit
 from pypy.module.micronumpy import support, constants as NPY
 from pypy.module.micronumpy.base import W_NDimArray
@@ -227,17 +227,14 @@ def shape_agreement(space, shape1, w_arr2, broadcast_down=True):
                 return ",".join([str(x) for x in shape])
             else:
                 return '%d,' % shape[0]
-        raise OperationError(space.w_ValueError,
-            space.wrap("operands could not be broadcast together with shapes (%s) (%s)" % (
-                format_shape(shape1), format_shape(shape2)),
-            )
-        )
+        raise oefmt(space.w_ValueError,
+                    "operands could not be broadcast together with shapes "
+                    "(%s) (%s)", format_shape(shape1), format_shape(shape2))
     if not broadcast_down and len([x for x in ret if x != 1]) > len([x for x in shape2 if x != 1]):
-        raise OperationError(space.w_ValueError,
-            space.wrap("unbroadcastable shape (%s) cannot be broadcasted to (%s)" % (
-                ",".join([str(x) for x in shape1]),
-                ",".join([str(x) for x in shape2]),
-            ))
+        raise oefmt(space.w_ValueError,
+                    "unbroadcastable shape (%s) cannot be broadcasted to (%s)",
+                    ",".join([str(x) for x in shape1]),
+                    ",".join([str(x) for x in shape2])
         )
     return ret
 
@@ -288,8 +285,8 @@ def _shape_agreement(shape1, shape2):
             indices2[i + rshift] = False
         else:
             return []
-            #raise OperationError(space.w_ValueError, space.wrap(
-            #    "frames are not aligned"))
+            #raise oefmt(space.w_ValueError,
+            #    "frames are not aligned")
     for i in range(m - n):
         endshape[i] = remainder[i]
     return endshape
@@ -324,8 +321,8 @@ def get_shape_from_iterable(space, old_size, w_iterable):
             new_shape[neg_dim] = old_size / new_size
             new_size *= new_shape[neg_dim]
     if new_size != old_size:
-        raise OperationError(space.w_ValueError,
-                space.wrap("total size of new array must be unchanged"))
+        raise oefmt(space.w_ValueError,
+                    "total size of new array must be unchanged")
     return new_shape
 
 

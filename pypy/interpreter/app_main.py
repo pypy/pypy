@@ -78,7 +78,11 @@ def run_toplevel(f, *fargs, **fkwds):
     """
     try:
         # run it
-        f(*fargs, **fkwds)
+        try:
+            f(*fargs, **fkwds)
+        finally:
+            sys.settrace(None)
+            sys.setprofile(None)
 
         # we arrive here if no exception is raised.  stdout cosmetics...
         try:

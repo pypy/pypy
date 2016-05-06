@@ -10,6 +10,7 @@ from rpython.rtyper.tool import rffi_platform
 from rpython.rtyper.lltypesystem import ll2ctypes
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib.objectmodel import we_are_translated, keepalive_until_here
+from rpython.rlib.objectmodel import dont_inline
 from rpython.translator import cdir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.gensupp import NameManager
@@ -255,7 +256,7 @@ cpyext_namespace = NameManager('cpyext_')
 
 class ApiFunction:
     def __init__(self, argtypes, restype, callable, error=_NOT_SPECIFIED,
-                 c_name=None, gil=None, result_borrowed=False):
+                 c_name=None, gil=None, result_borrowed=False, result_is_ll=False):
         self.argtypes = argtypes
         self.restype = restype
         self.functype = lltype.Ptr(lltype.FuncType(argtypes, restype))
@@ -276,6 +277,9 @@ class ApiFunction:
         assert len(self.argnames) == len(self.argtypes)
         self.gil = gil
         self.result_borrowed = result_borrowed
+        self.result_is_ll = result_is_ll
+        if result_is_ll:    # means 'returns a low-level PyObject pointer'
+            assert is_PyObject(restype)
         #
         def get_llhelper(space):
             return llhelper(self.functype, self.get_wrapper(space))
@@ -297,7 +301,7 @@ class ApiFunction:
 
 DEFAULT_HEADER = 'pypy_decl.h'
 def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
-                gil=None, result_borrowed=False):
+                gil=None, result_borrowed=False, result_is_ll=False):
     """
     Declares a function to be exported.
     - `argtypes`, `restype` are lltypes and describe the function signature.
@@ -336,7 +340,8 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
             c_name = func_name
         api_function = ApiFunction(argtypes, restype, func, error,
                                    c_name=c_name, gil=gil,
-                                   result_borrowed=result_borrowed)
+                                   result_borrowed=result_borrowed,
+                                   result_is_ll=result_is_ll)
         func.api_func = api_function
 
         if error is _NOT_SPECIFIED:
@@ -380,9 +385,8 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
                             ##     arg = from_ref(space,
                             ##                rffi.cast(PyObject, input_arg))
                             ## except TypeError, e:
-                            ##     err = OperationError(space.w_TypeError,
-                            ##              space.wrap(
-                            ##             "could not cast arg to PyObject"))
+                            ##     err = oefmt(space.w_TypeError,
+                            ##                 "could not cast arg to PyObject")
                             ##     if not catch_exception:
                             ##         raise err
                             ##     state = space.fromcache(State)
@@ -405,7 +409,7 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
                     assert not we_are_translated()
                     try:
                         res = func(space, *newargs)
-                    except OperationError, e:
+                    except OperationError as e:
                         if not hasattr(api_function, "error_value"):
                             raise
                         state = space.fromcache(State)
@@ -612,6 +616,9 @@ Py_buffer = cpython_struct(
 def is_PyObject(TYPE):
     if not isinstance(TYPE, lltype.Ptr):
         return False
+    if TYPE == PyObject:
+        return True
+    assert not isinstance(TYPE.TO, lltype.ForwardReference)
     return hasattr(TYPE.TO, 'c_ob_refcnt') and hasattr(TYPE.TO, 'c_ob_type')
 
 # a pointer to PyObject
@@ -668,37 +675,161 @@ def build_type_checkers(type_name, cls=None):
 
 pypy_debug_catch_fatal_exception = rffi.llexternal('pypy_debug_catch_fatal_exception', [], lltype.Void)
 
+
+# ____________________________________________________________
+
+
+class WrapperCache(object):
+    def __init__(self, space):
+        self.space = space
+        self.wrapper_gens = {}    # {signature: WrapperGen()}
+        self.stats = [0, 0]
+
+class WrapperGen(object):
+    wrapper_second_level = None
+
+    def __init__(self, space, signature):
+        self.space = space
+        self.signature = signature
+        self.callable2name = []
+
+    def make_wrapper(self, callable):
+        self.callable2name.append((callable, callable.__name__))
+        if self.wrapper_second_level is None:
+            self.wrapper_second_level = make_wrapper_second_level(
+                self.space, self.callable2name, *self.signature)
+        wrapper_second_level = self.wrapper_second_level
+
+        def wrapper(*args):
+            # no GC here, not even any GC object
+            args += (callable,)
+            return wrapper_second_level(*args)
+
+        wrapper.__name__ = "wrapper for %r" % (callable, )
+        return wrapper
+
+
 # Make the wrapper for the cases (1) and (2)
 def make_wrapper(space, callable, gil=None):
     "NOT_RPYTHON"
+    # This logic is obscure, because we try to avoid creating one
+    # big wrapper() function for every callable.  Instead we create
+    # only one per "signature".
+
+    argnames = callable.api_func.argnames
+    argtypesw = zip(callable.api_func.argtypes,
+                    [_name.startswith("w_") for _name in argnames])
+    error_value = getattr(callable.api_func, "error_value", CANNOT_FAIL)
+    if (isinstance(callable.api_func.restype, lltype.Ptr)
+            and error_value is not CANNOT_FAIL):
+        assert lltype.typeOf(error_value) == callable.api_func.restype
+        assert not error_value    # only support error=NULL
+        error_value = 0    # because NULL is not hashable
+
+    if callable.api_func.result_is_ll:
+        result_kind = "L"
+    elif callable.api_func.result_borrowed:
+        result_kind = "B"     # note: 'result_borrowed' is ignored if we also
+    else:                     #  say 'result_is_ll=True' (in this case it's
+        result_kind = "."     #  up to you to handle refcounting anyway)
+
+    signature = (tuple(argtypesw),
+                 callable.api_func.restype,
+                 result_kind,
+                 error_value,
+                 gil)
+
+    cache = space.fromcache(WrapperCache)
+    cache.stats[1] += 1
+    try:
+        wrapper_gen = cache.wrapper_gens[signature]
+    except KeyError:
+        #print signature
+        wrapper_gen = cache.wrapper_gens[signature] = WrapperGen(space,
+                                                                 signature)
+        cache.stats[0] += 1
+    #print 'Wrapper cache [wrappers/total]:', cache.stats
+    return wrapper_gen.make_wrapper(callable)
+
+
+@dont_inline
+def deadlock_error(funcname):
+    fatalerror_notb("GIL deadlock detected when a CPython C extension "
+                    "module calls '%s'" % (funcname,))
+
+@dont_inline
+def no_gil_error(funcname):
+    fatalerror_notb("GIL not held when a CPython C extension "
+                    "module calls '%s'" % (funcname,))
+
+@dont_inline
+def not_supposed_to_fail(funcname):
+    raise SystemError("The function '%s' was not supposed to fail"
+                      % (funcname,))
+
+@dont_inline
+def unexpected_exception(funcname, e, tb):
+    print 'Fatal error in cpyext, CPython compatibility layer, calling',funcname
+    print 'Either report a bug or consider not using this particular extension'
+    if not we_are_translated():
+        if tb is None:
+            tb = sys.exc_info()[2]
+        import traceback
+        traceback.print_exc()
+        if sys.stdout == sys.__stdout__:
+            import pdb; pdb.post_mortem(tb)
+        # we can't do much here, since we're in ctypes, swallow
+    else:
+        print str(e)
+        pypy_debug_catch_fatal_exception()
+        assert False
+
+def make_wrapper_second_level(space, callable2name, argtypesw, restype,
+                              result_kind, error_value, gil):
     from rpython.rlib import rgil
-    names = callable.api_func.argnames
-    argtypes_enum_ui = unrolling_iterable(enumerate(zip(callable.api_func.argtypes,
-        [name.startswith("w_") for name in names])))
-    fatal_value = callable.api_func.restype._defl()
+    argtypes_enum_ui = unrolling_iterable(enumerate(argtypesw))
+    fatal_value = restype._defl()
+    gil_auto_workaround = (gil is None)  # automatically detect when we don't
+                                         # have the GIL, and acquire/release it
     gil_acquire = (gil == "acquire" or gil == "around")
     gil_release = (gil == "release" or gil == "around")
     pygilstate_ensure = (gil == "pygilstate_ensure")
     pygilstate_release = (gil == "pygilstate_release")
     assert (gil is None or gil_acquire or gil_release
             or pygilstate_ensure or pygilstate_release)
-    deadlock_error = ("GIL deadlock detected when a CPython C extension "
-                      "module calls %r" % (callable.__name__,))
-    no_gil_error = ("GIL not held when a CPython C extension "
-                    "module calls %r" % (callable.__name__,))
+    expected_nb_args = len(argtypesw) + pygilstate_ensure
 
-    @specialize.ll()
-    def wrapper(*args):
+    if isinstance(restype, lltype.Ptr) and error_value == 0:
+        error_value = lltype.nullptr(restype.TO)
+    if error_value is not CANNOT_FAIL:
+        assert lltype.typeOf(error_value) == lltype.typeOf(fatal_value)
+
+    def invalid(err):
+        "NOT_RPYTHON: translation-time crash if this ends up being called"
+        raise ValueError(err)
+    invalid.__name__ = 'invalid_%s' % (callable2name[0][1],)
+
+    def nameof(callable):
+        for c, n in callable2name:
+            if c is callable:
+                return n
+        return '<unknown function>'
+    nameof._dont_inline_ = True
+
+    def wrapper_second_level(*args):
         from pypy.module.cpyext.pyobject import make_ref, from_ref, is_pyobj
         from pypy.module.cpyext.pyobject import as_pyobj
         # we hope that malloc removal removes the newtuple() that is
         # inserted exactly here by the varargs specializer
+        callable = args[-1]
+        args = args[:-1]
 
         # see "Handling of the GIL" above (careful, we don't have the GIL here)
         tid = rthread.get_or_make_ident()
-        if gil_acquire:
+        _gil_auto = (gil_auto_workaround and cpyext_glob_tid_ptr[0] != tid)
+        if gil_acquire or _gil_auto:
             if cpyext_glob_tid_ptr[0] == tid:
-                fatalerror_notb(deadlock_error)
+                deadlock_error(nameof(callable))
             rgil.acquire()
             assert cpyext_glob_tid_ptr[0] == 0
         elif pygilstate_ensure:
@@ -711,7 +842,7 @@ def make_wrapper(space, callable, gil=None):
                 args += (pystate.PyGILState_UNLOCKED,)
         else:
             if cpyext_glob_tid_ptr[0] != tid:
-                fatalerror_notb(no_gil_error)
+                no_gil_error(nameof(callable))
             cpyext_glob_tid_ptr[0] = 0
 
         rffi.stackcounter.stacks_counter += 1
@@ -722,8 +853,7 @@ def make_wrapper(space, callable, gil=None):
         try:
             if not we_are_translated() and DEBUG_WRAPPER:
                 print >>sys.stderr, callable,
-            assert len(args) == (len(callable.api_func.argtypes) +
-                                 pygilstate_ensure)
+            assert len(args) == expected_nb_args
             for i, (typ, is_wrapped) in argtypes_enum_ui:
                 arg = args[i]
                 if is_PyObject(typ) and is_wrapped:
@@ -739,10 +869,10 @@ def make_wrapper(space, callable, gil=None):
                 result = callable(space, *boxed_args)
                 if not we_are_translated() and DEBUG_WRAPPER:
                     print >>sys.stderr, " DONE"
-            except OperationError, e:
+            except OperationError as e:
                 failed = True
                 state.set_exception(e)
-            except BaseException, e:
+            except BaseException as e:
                 failed = True
                 if not we_are_translated():
                     tb = sys.exc_info()[2]
@@ -757,41 +887,31 @@ def make_wrapper(space, callable, gil=None):
                 failed = False
 
             if failed:
-                error_value = callable.api_func.error_value
                 if error_value is CANNOT_FAIL:
-                    raise SystemError("The function '%s' was not supposed to fail"
-                                      % (callable.__name__,))
+                    raise not_supposed_to_fail(nameof(callable))
                 retval = error_value
 
-            elif is_PyObject(callable.api_func.restype):
+            elif is_PyObject(restype):
                 if is_pyobj(result):
-                    retval = result
+                    if result_kind != "L":
+                        raise invalid("missing result_is_ll=True")
                 else:
-                    if result is not None:
-                        if callable.api_func.result_borrowed:
-                            retval = as_pyobj(space, result)
-                        else:
-                            retval = make_ref(space, result)
-                        retval = rffi.cast(callable.api_func.restype, retval)
+                    if result_kind == "L":
+                        raise invalid("result_is_ll=True but not ll PyObject")
+                    if result_kind == "B":    # borrowed
+                        result = as_pyobj(space, result)
                     else:
-                        retval = lltype.nullptr(PyObject.TO)
-            elif callable.api_func.restype is not lltype.Void:
-                retval = rffi.cast(callable.api_func.restype, result)
-        except Exception, e:
-            print 'Fatal error in cpyext, CPython compatibility layer, calling', callable.__name__
-            print 'Either report a bug or consider not using this particular extension'
-            if not we_are_translated():
-                if tb is None:
-                    tb = sys.exc_info()[2]
-                import traceback
-                traceback.print_exc()
-                if sys.stdout == sys.__stdout__:
-                    import pdb; pdb.post_mortem(tb)
-                # we can't do much here, since we're in ctypes, swallow
-            else:
-                print str(e)
-                pypy_debug_catch_fatal_exception()
-                assert False
+                        result = make_ref(space, result)
+                retval = rffi.cast(restype, result)
+
+            elif restype is not lltype.Void:
+                retval = rffi.cast(restype, result)
+
+        except Exception as e:
+            unexpected_exception(nameof(callable), e, tb)
+            return fatal_value
+
+        assert lltype.typeOf(retval) == restype
         rffi.stackcounter.stacks_counter -= 1
 
         # see "Handling of the GIL" above
@@ -801,16 +921,16 @@ def make_wrapper(space, callable, gil=None):
             arg = rffi.cast(lltype.Signed, args[-1])
             unlock = (arg == pystate.PyGILState_UNLOCKED)
         else:
-            unlock = gil_release
+            unlock = gil_release or _gil_auto
         if unlock:
             rgil.release()
         else:
             cpyext_glob_tid_ptr[0] = tid
 
         return retval
-    callable._always_inline_ = 'try'
-    wrapper.__name__ = "wrapper for %r" % (callable, )
-    return wrapper
+
+    wrapper_second_level._dont_inline_ = True
+    return wrapper_second_level
 
 def process_va_name(name):
     return name.replace('*', '_star')
@@ -1385,7 +1505,7 @@ def load_extension_module(space, path, name):
             dll = rdynload.dlopen(ll_libname)
         finally:
             lltype.free(ll_libname, flavor='raw')
-    except rdynload.DLOpenError, e:
+    except rdynload.DLOpenError as e:
         raise oefmt(space.w_ImportError,
                     "unable to load extension module '%s': %s",
                     path, e.msg)
@@ -1523,11 +1643,13 @@ def make_generic_cpy_call(FT, expect_null):
             has_error = PyErr_Occurred(space) is not None
             has_result = ret is not None
             if has_error and has_result:
-                raise OperationError(space.w_SystemError, space.wrap(
-                    "An exception was set, but function returned a value"))
+                raise oefmt(space.w_SystemError,
+                            "An exception was set, but function returned a "
+                            "value")
             elif not expect_null and not has_error and not has_result:
-                raise OperationError(space.w_SystemError, space.wrap(
-                    "Function returned a NULL result without setting an exception"))
+                raise oefmt(space.w_SystemError,
+                            "Function returned a NULL result without setting "
+                            "an exception")
 
             if has_error:
                 state = space.fromcache(State)

@@ -348,7 +348,7 @@ class TestArgumentsNormal(object):
         excinfo = py.test.raises(OperationError, Arguments, space, [],
                                  ["a"], [1], w_starstararg={None: 1})
         assert excinfo.value.w_type is TypeError
-        assert excinfo.value._w_value is not None
+        assert excinfo.value._w_value is None
         excinfo = py.test.raises(OperationError, Arguments, space, [],
                                  ["a"], [1], w_starstararg={valuedummy: 1})
         assert excinfo.value.w_type is ValueError
@@ -618,14 +618,14 @@ class TestErrorHandling(object):
         space = self.space
         try:
             Arguments(space, [], w_stararg=space.wrap(42))
-        except OperationError, e:
+        except OperationError as e:
             msg = space.str_w(space.str(e.get_w_value(space)))
             assert msg == "argument after * must be a sequence, not int"
         else:
             assert 0, "did not raise"
         try:
             Arguments(space, [], w_starstararg=space.wrap(42))
-        except OperationError, e:
+        except OperationError as e:
             msg = space.str_w(space.str(e.get_w_value(space)))
             assert msg == "argument after ** must be a mapping, not int"
         else:

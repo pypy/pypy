@@ -24,8 +24,11 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
                  if(PyUnicode_GetSize(s) != 11) {
                      result = -PyUnicode_GetSize(s);
                  }
+#ifdef PYPY_VERSION
+                 // Slightly silly test that tp_basicsize is reasonable.
                  if(s->ob_type->tp_basicsize != sizeof(void*)*7)
                      result = s->ob_type->tp_basicsize;
+#endif  // PYPY_VERSION
                  Py_DECREF(s);
                  return PyLong_FromLong(result);
              """),
@@ -85,8 +88,11 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
              '''
              ),
             ])
-        res = module.test_hash(u"xyz")
-        assert res == hash(u'xyz')
+        obj = u'xyz'
+        # CPython in particular does not precompute ->hash, so we need to call
+        # hash() first.
+        expected_hash = hash(obj)
+        assert module.test_hash(obj) == expected_hash
 
     def test_default_encoded_string(self):
         module = self.import_extension('foo', [

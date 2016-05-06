@@ -705,7 +705,7 @@ class TestCompiler:
         """)
         try:
             self.simple_test(source, None, None)
-        except IndentationError, e:
+        except IndentationError as e:
             assert e.msg == 'unexpected indent'
         else:
             raise Exception("DID NOT RAISE")
@@ -717,7 +717,7 @@ class TestCompiler:
         """)
         try:
             self.simple_test(source, None, None)
-        except IndentationError, e:
+        except IndentationError as e:
             assert e.msg == 'expected an indented block'
         else:
             raise Exception("DID NOT RAISE")
@@ -969,7 +969,7 @@ class AppTestCompiler:
     def test_assert_with_tuple_arg(self):
         try:
             assert False, (3,)
-        except AssertionError, e:
+        except AssertionError as e:
             assert str(e) == "(3,)"
 
     # BUILD_LIST_FROM_ARG is PyPy specific

@@ -26,7 +26,7 @@ class TestInterpreter:
         wrappedfunc = space.getitem(w_glob, w(functionname))
         try:
             w_output = space.call_function(wrappedfunc, *wrappedargs)
-        except error.OperationError, e:
+        except error.OperationError as e:
             #e.print_detailed_traceback(space)
             return '<<<%s>>>' % e.errorstr(space)
         else:
@@ -331,7 +331,7 @@ class AppTestInterpreter:
         def f(): f()
         try:
             f()
-        except RuntimeError, e:
+        except RuntimeError as e:
             assert str(e) == "maximum recursion depth exceeded"
         else:
             assert 0, "should have raised!"

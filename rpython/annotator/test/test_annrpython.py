@@ -902,7 +902,7 @@ class TestAnnotateTestCase:
         def f(l):
             try:
                 l[0]
-            except (KeyError, IndexError),e:
+            except (KeyError, IndexError) as e:
                 return e
             return None
 

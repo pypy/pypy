@@ -1,4 +1,4 @@
-from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import oefmt
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     cpython_api, cpython_struct, bootstrap_function, build_type_checkers,
@@ -6,7 +6,7 @@ from pypy.module.cpyext.api import (
 from pypy.module.cpyext.pyerrors import PyErr_BadArgument
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, Py_DecRef, make_ref, from_ref, track_reference,
-    make_typedescr, get_typedescr, as_pyobj, Py_IncRef)
+    make_typedescr, get_typedescr, as_pyobj, Py_IncRef, get_w_obj_and_decref)
 
 ##
 ## Implementation of PyStringObject
@@ -124,7 +124,7 @@ def string_dealloc(space, py_obj):
 
 #_______________________________________________________________________
 
-@cpython_api([CONST_STRING, Py_ssize_t], PyObject)
+@cpython_api([CONST_STRING, Py_ssize_t], PyObject, result_is_ll=True)
 def PyString_FromStringAndSize(space, char_p, length):
     if char_p:
         s = rffi.charpsize2str(char_p, length)
@@ -183,8 +183,8 @@ def PyString_AsStringAndSize(space, ref, buffer, length):
         while ref_str.c_buffer[i] != '\0':
             i += 1
         if i != ref_str.c_ob_size:
-            raise OperationError(space.w_TypeError, space.wrap(
-                "expected string without null bytes"))
+            raise oefmt(space.w_TypeError,
+                        "expected string without null bytes")
     return 0
 
 @cpython_api([PyObject], Py_ssize_t, error=-1)
@@ -211,8 +211,8 @@ def _PyString_Resize(space, ref, newsize):
     # XXX always create a new string so far
     py_str = rffi.cast(PyStringObject, ref[0])
     if not py_str.c_buffer:
-        raise OperationError(space.w_SystemError, space.wrap(
-            "_PyString_Resize called on already created string"))
+        raise oefmt(space.w_SystemError,
+                    "_PyString_Resize called on already created string")
     try:
         py_newstr = new_empty_str(space, newsize)
     except MemoryError:
@@ -233,7 +233,7 @@ def _PyString_Resize(space, ref, newsize):
 def _PyString_Eq(space, w_str1, w_str2):
     return space.eq_w(w_str1, w_str2)
 
-@cpython_api([PyObjectP, PyObject], lltype.Void)
+@cpython_api([PyObjectP, PyObject], lltype.Void, error=None)
 def PyString_Concat(space, ref, w_newpart):
     """Create a new string object in *string containing the contents of newpart
     appended to string; the caller will own the new reference.  The reference to
@@ -241,26 +241,27 @@ def PyString_Concat(space, ref, w_newpart):
     the old reference to string will still be discarded and the value of
     *string will be set to NULL; the appropriate exception will be set."""
 
-    if not ref[0]:
+    old = ref[0]
+    if not old:
         return
 
-    if w_newpart is None or not PyString_Check(space, ref[0]) or not \
-            (space.isinstance_w(w_newpart, space.w_str) or 
-             space.isinstance_w(w_newpart, space.w_unicode)):
-        Py_DecRef(space, ref[0])
-        ref[0] = lltype.nullptr(PyObject.TO)
-        return
-    w_str = from_ref(space, ref[0])
-    w_newstr = space.add(w_str, w_newpart)
-    ref[0] = make_ref(space, w_newstr)
-    Py_IncRef(space, ref[0])
+    ref[0] = lltype.nullptr(PyObject.TO)
+    w_str = get_w_obj_and_decref(space, old)
+    if w_newpart is not None and PyString_Check(space, old):
+        # xxx if w_newpart is not a string or unicode or bytearray,
+        # this might call __radd__() on it, whereas CPython raises
+        # a TypeError in this case.
+        w_newstr = space.add(w_str, w_newpart)
+        ref[0] = make_ref(space, w_newstr)
 
-@cpython_api([PyObjectP, PyObject], lltype.Void)
+@cpython_api([PyObjectP, PyObject], lltype.Void, error=None)
 def PyString_ConcatAndDel(space, ref, newpart):
     """Create a new string object in *string containing the contents of newpart
     appended to string.  This version decrements the reference count of newpart."""
-    PyString_Concat(space, ref, newpart)
-    Py_DecRef(space, newpart)
+    try:
+        PyString_Concat(space, ref, newpart)
+    finally:
+        Py_DecRef(space, newpart)
 
 @cpython_api([PyObject, PyObject], PyObject)
 def PyString_Format(space, w_format, w_args):

@@ -96,8 +96,8 @@ class DisResult:
         for bytecode in self.bytecodes:
             if bytecode.index == index:
                 return bytecode
-        raise ValueError, "no bytecode found on index %s in code \n%s" % (
-                index, pydis(self.code))
+        raise ValueError("no bytecode found on index %s in code \n%s" % (
+                index, pydis(self.code)))
 
     def format(self):
         lastlineno = -1

@@ -144,7 +144,7 @@ class AbstractLLCPU(AbstractCPU):
                 # all other fields are empty
                 llop.gc_writebarrier(lltype.Void, new_frame)
                 return lltype.cast_opaque_ptr(llmemory.GCREF, new_frame)
-            except Exception, e:
+            except Exception as e:
                 print "Unhandled exception", e, "in realloc_frame"
                 return lltype.nullptr(llmemory.GCREF.TO)
 

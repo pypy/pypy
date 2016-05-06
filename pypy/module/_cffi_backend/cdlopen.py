@@ -21,7 +21,7 @@ class W_DlOpenLibObject(W_LibObject):
                 filename = "<None>"
             try:
                 handle = dlopen(ll_libname, flags)
-            except DLOpenError, e:
+            except DLOpenError as e:
                 raise wrap_dlopenerror(ffi.space, e, filename)
         W_LibObject.__init__(self, ffi, filename)
         self.libhandle = handle

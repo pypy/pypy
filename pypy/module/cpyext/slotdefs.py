@@ -35,8 +35,8 @@ Py_GE = 5
 def check_num_args(space, w_ob, n):
     from pypy.module.cpyext.tupleobject import PyTuple_CheckExact
     if not PyTuple_CheckExact(space, w_ob):
-        raise OperationError(space.w_SystemError,
-            space.wrap("PyArg_UnpackTuple() argument list is not a tuple"))
+        raise oefmt(space.w_SystemError,
+                    "PyArg_UnpackTuple() argument list is not a tuple")
     if n == space.len_w(w_ob):
         return
     raise oefmt(space.w_TypeError,
@@ -46,8 +46,8 @@ def check_num_args(space, w_ob, n):
 def check_num_argsv(space, w_ob, low, high):
     from pypy.module.cpyext.tupleobject import PyTuple_CheckExact
     if not PyTuple_CheckExact(space, w_ob):
-        raise OperationError(space.w_SystemError,
-            space.wrap("PyArg_UnpackTuple() argument list is not a tuple"))
+        raise oefmt(space.w_SystemError,
+                    "PyArg_UnpackTuple() argument list is not a tuple")
     if low <=space.len_w(w_ob) <= high:
         return
     raise oefmt(space.w_TypeError,
@@ -183,9 +183,7 @@ def wrap_descr_get(space, w_self, w_args, func):
     if w_type is space.w_None:
         w_type = None
     if w_obj is None and w_type is None:
-        raise OperationError(
-            space.w_TypeError,
-            space.wrap("__get__(None, None) is invalid"))
+        raise oefmt(space.w_TypeError, "__get__(None, None) is invalid")
     return generic_cpy_call(space, func_target, w_self, w_obj, w_type)
 
 def wrap_descr_set(space, w_self, w_args, func):
@@ -470,7 +468,7 @@ def build_slot_tp_function(space, typedef, name):
         def slot_tp_iternext(space, w_self):
             try:
                 return space.call_function(iternext_fn, w_self)
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_StopIteration):
                     raise
                 return None

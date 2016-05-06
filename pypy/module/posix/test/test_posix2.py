@@ -212,7 +212,7 @@ class AppTestPosix:
         posix = self.posix
         try:
             posix.open('qowieuqwoeiu', 0, 0)
-        except OSError, e:
+        except OSError as e:
             assert e.filename == 'qowieuqwoeiu'
         else:
             assert 0
@@ -226,7 +226,7 @@ class AppTestPosix:
                 func = getattr(self.posix, fname)
                 try:
                     func('qowieuqw/oeiu')
-                except OSError, e:
+                except OSError as e:
                     assert e.filename == 'qowieuqw/oeiu'
                 else:
                     assert 0
@@ -234,7 +234,7 @@ class AppTestPosix:
     def test_chmod_exception(self):
         try:
             self.posix.chmod('qowieuqw/oeiu', 0)
-        except OSError, e:
+        except OSError as e:
             assert e.filename == 'qowieuqw/oeiu'
         else:
             assert 0
@@ -243,7 +243,7 @@ class AppTestPosix:
         if hasattr(self.posix, 'chown'):
             try:
                 self.posix.chown('qowieuqw/oeiu', 0, 0)
-            except OSError, e:
+            except OSError as e:
                 assert e.filename == 'qowieuqw/oeiu'
             else:
                 assert 0
@@ -252,7 +252,7 @@ class AppTestPosix:
         for arg in [None, (0, 0)]:
             try:
                 self.posix.utime('qowieuqw/oeiu', arg)
-            except OSError, e:
+            except OSError as e:
                 assert e.filename == 'qowieuqw/oeiu'
             else:
                 assert 0
@@ -455,7 +455,7 @@ class AppTestPosix:
             for n in 3, [3, "a"]:
                 try:
                     os.execv("xxx", n)
-                except TypeError,t:
+                except TypeError as t:
                     assert str(t) == "execv() arg 2 must be an iterable of strings"
                 else:
                     py.test.fail("didn't raise")
@@ -968,7 +968,7 @@ class AppTestPosix:
             try:
                 # not very useful: os.mknod() without specifying 'mode'
                 os.mknod(self.path2 + 'test_mknod-1')
-            except OSError, e:
+            except OSError as e:
                 skip("os.mknod(): got %r" % (e,))
             st = os.lstat(self.path2 + 'test_mknod-1')
             assert stat.S_ISREG(st.st_mode)
@@ -986,7 +986,7 @@ class AppTestPosix:
                 try:
                     os.mknod(self.path2 + 'test_mknod-3', 0600 | stat.S_IFCHR,
                              0x105)
-                except OSError, e:
+                except OSError as e:
                     skip("os.mknod() with S_IFCHR: got %r" % (e,))
                 else:
                     st = os.lstat(self.path2 + 'test_mknod-3')

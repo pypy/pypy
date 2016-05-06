@@ -152,17 +152,6 @@ def get_typedescr(typedef):
 class InvalidPointerException(Exception):
     pass
 
-DEBUG_REFCOUNT = False
-
-def debug_refcount(*args, **kwargs):
-    frame_stackdepth = kwargs.pop("frame_stackdepth", 2)
-    assert not kwargs
-    frame = sys._getframe(frame_stackdepth)
-    print >>sys.stderr, "%25s" % (frame.f_code.co_name, ),
-    for arg in args:
-        print >>sys.stderr, arg,
-    print >>sys.stderr
-
 def create_ref(space, w_obj, itemcount=0):
     """
     Allocates a PyObject, and fills its fields with info from the given
@@ -192,10 +181,6 @@ def track_reference(space, py_obj, w_obj):
     # XXX looks like a PyObject_GC_TRACK
     assert py_obj.c_ob_refcnt < rawrefcount.REFCNT_FROM_PYPY
     py_obj.c_ob_refcnt += rawrefcount.REFCNT_FROM_PYPY
-    if DEBUG_REFCOUNT:
-        debug_refcount("MAKREF", py_obj, w_obj)
-        assert w_obj
-        assert py_obj
     rawrefcount.create_link_pypy(w_obj, py_obj)
 
 

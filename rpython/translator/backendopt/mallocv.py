@@ -337,10 +337,10 @@ class MallocVirtualizer(object):
         graphbuilder.start_from_a_malloc(graph, block, op.result)
         try:
             graphbuilder.propagate_specializations()
-        except CannotVirtualize, e:
+        except CannotVirtualize as e:
             self.logresult(op, 'failed', e)
             return False
-        except ForcedInline, e:
+        except ForcedInline as e:
             self.logresult(op, 'forces inlining', e)
             self.inline_and_remove[graph] = op
             self.inline_and_remove_seen[graph, op] = True
@@ -396,11 +396,11 @@ class MallocVirtualizer(object):
         self.specialized_graphs[key] = ('call', specgraph)
         try:
             graphbuilder.propagate_specializations()
-        except ForcedInline, e:
+        except ForcedInline as e:
             if self.verbose:
                 log.mallocv('%s inlined: %s' % (graph.name, e))
             self.specialized_graphs[key] = ('inline', None)
-        except CannotVirtualize, e:
+        except CannotVirtualize as e:
             if self.verbose:
                 log.mallocv('%s failing: %s' % (graph.name, e))
             self.specialized_graphs[key] = ('fail', None)
@@ -1036,7 +1036,7 @@ def try_fold_operation(opname, args_v, RESTYPE):
         pass
     except (KeyboardInterrupt, SystemExit):
         raise
-    except Exception, e:
+    except Exception as e:
         pass
         #log.WARNING('constant-folding %s%r:' % (opname, args_v))
         #log.WARNING('  %s: %s' % (e.__class__.__name__, e))

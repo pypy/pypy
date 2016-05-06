@@ -3,7 +3,7 @@ operations. This is the place to look for all the computations that iterate
 over all the array elements.
 """
 import py
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import oefmt
 from rpython.rlib import jit
 from rpython.rlib.rstring import StringBuilder
 from rpython.rtyper.lltypesystem import lltype, rffi
@@ -888,8 +888,8 @@ def choose(space, arr, choices, shape, dtype, out, mode):
         index = support.index_w(space, arr_iter.getitem(arr_state))
         if index < 0 or index >= len(iterators):
             if mode == NPY.RAISE:
-                raise OperationError(space.w_ValueError, space.wrap(
-                    "invalid entry in choice array"))
+                raise oefmt(space.w_ValueError,
+                            "invalid entry in choice array")
             elif mode == NPY.WRAP:
                 index = index % (len(iterators))
             else:

@@ -1,5 +1,5 @@
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import oefmt
 from pypy.interpreter.error import exception_from_saved_errno
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.typedef import TypeDef, generic_new_descr, GetSetProperty
@@ -134,7 +134,8 @@ class W_Kqueue(W_Root):
 
     def check_closed(self, space):
         if self.get_closed():
-            raise OperationError(space.w_ValueError, space.wrap("I/O operation on closed kqueue fd"))
+            raise oefmt(space.w_ValueError,
+                        "I/O operation on closed kqueue fd")
 
     def descr_get_closed(self, space):
         return space.wrap(self.get_closed())
@@ -310,7 +311,8 @@ class W_Kevent(W_Root):
             elif op == "ne":
                 return True
             else:
-                raise OperationError(space.w_TypeError, space.wrap('cannot compare kevent to incompatible type'))
+                raise oefmt(space.w_TypeError,
+                            "cannot compare kevent to incompatible type")
         return self._compare_all_fields(space.interp_w(W_Kevent, other), op)
 
     def descr__eq__(self, space, w_other):

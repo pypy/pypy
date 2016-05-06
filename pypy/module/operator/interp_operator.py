@@ -1,4 +1,4 @@
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.module.__builtin__.interp_classobj import W_InstanceObject
 
@@ -232,14 +232,12 @@ def irepeat(space, w_obj1, w_obj2):
     'irepeat(a, b) -- Same as a *= b, for a and b sequences.'
     if space.lookup(w_obj1, '__getitem__') is None:
         # first arg has to be a sequence
-        raise OperationError(space.w_TypeError,
-                           space.wrap("non-sequence object can't be repeated"))
+        raise oefmt(space.w_TypeError, "non-sequence object can't be repeated")
 
     if not (space.isinstance_w(w_obj2, space.w_int) or
             space.isinstance_w(w_obj2, space.w_long)):
         # second arg has to be int/long
-        raise OperationError(space.w_TypeError,
-                             space.wrap('an integer is required'))
+        raise oefmt(space.w_TypeError, "an integer is required")
 
     return space.inplace_mul(w_obj1, w_obj2)
 

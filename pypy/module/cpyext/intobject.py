@@ -1,6 +1,6 @@
 
 from rpython.rtyper.lltypesystem import rffi, lltype
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import oefmt
 from pypy.module.cpyext.api import (
     cpython_api, cpython_struct, build_type_checkers, bootstrap_function,
     PyObject, PyObjectFields, CONST_STRING, CANNOT_FAIL, Py_ssize_t)
@@ -62,8 +62,7 @@ def PyInt_AsLong(space, w_obj):
     returned, and the caller should check PyErr_Occurred() to find out whether
     there was an error, or whether the value just happened to be -1."""
     if w_obj is None:
-        raise OperationError(space.w_TypeError,
-                             space.wrap("an integer is required, got NULL"))
+        raise oefmt(space.w_TypeError, "an integer is required, got NULL")
     return space.int_w(space.int(w_obj))
 
 @cpython_api([PyObject], lltype.Unsigned, error=-1)
@@ -72,8 +71,7 @@ def PyInt_AsUnsignedLong(space, w_obj):
     If pylong is greater than ULONG_MAX, an OverflowError is
     raised."""
     if w_obj is None:
-        raise OperationError(space.w_TypeError,
-                             space.wrap("an integer is required, got NULL"))
+        raise oefmt(space.w_TypeError, "an integer is required, got NULL")
     return space.uint_w(space.int(w_obj))
 
 
@@ -118,8 +116,7 @@ def PyInt_AsSsize_t(space, w_obj):
     Py_ssize_t.
     """
     if w_obj is None:
-        raise OperationError(space.w_TypeError,
-                             space.wrap("an integer is required, got NULL"))
+        raise oefmt(space.w_TypeError, "an integer is required, got NULL")
     return space.int_w(w_obj) # XXX this is wrong on win64
 
 LONG_MAX = int(LONG_TEST - 1)

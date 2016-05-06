@@ -338,7 +338,7 @@ def UnknownEncodingHandlerData_callback(ll_userdata, name, info):
 
     try:
         parser.UnknownEncodingHandler(space, name, info)
-    except OperationError, e:
+    except OperationError as e:
         if not parser._exc_info:
             parser._exc_info = e
         XML_StopParser(parser.itself, XML_FALSE)
@@ -498,7 +498,7 @@ getting the advantage of providing document type information to the parser.
 
         try:
             return space.getitem(self.w_intern, w_data)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_KeyError):
                 raise
         space.setitem(self.w_intern, w_data, w_data)
@@ -620,8 +620,8 @@ getting the advantage of providing document type information to the parser.
 
 
     def get_namespace_prefixes(self, space):
-        raise OperationError(space.w_AttributeError,
-            space.wrap("not implemented: reading namespace_prefixes"))
+        raise oefmt(space.w_AttributeError,
+                    "not implemented: reading namespace_prefixes")
 
     @unwrap_spec(value=int)
     def set_namespace_prefixes(self, space, value):
@@ -732,8 +732,8 @@ information passed to the ExternalEntityRefHandler."""
     def set_buffer_size(self, space, w_value):
         value = space.getindex_w(w_value, space.w_TypeError)
         if value <= 0:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "buffer_size must be greater than zero"))
+            raise oefmt(space.w_ValueError,
+                        "buffer_size must be greater than zero")
         self.flush_character_buffer(space)
         self.buffer_size = value
 
@@ -821,10 +821,9 @@ Return a new XML parser object."""
         elif len(separator) == 1:
             namespace_separator = ord(separator[0])
         else:
-            raise OperationError(
-                space.w_ValueError,
-                space.wrap('namespace_separator must be at most one character,'
-                           ' omitted, or None'))
+            raise oefmt(space.w_ValueError,
+                        "namespace_separator must be at most one character, "
+                        "omitted, or None")
     else:
         raise oefmt(space.w_TypeError,
                     "ParserCreate() argument 2 must be string or None, not %T",
@@ -848,8 +847,7 @@ Return a new XML parser object."""
     # XXX: find a good estimate of the XML_ParserStruct
     rgc.add_memory_pressure(XML_Parser_SIZE + 300)
     if not xmlparser:
-        raise OperationError(space.w_RuntimeError,
-                             space.wrap('XML_ParserCreate failed'))
+        raise oefmt(space.w_RuntimeError, "XML_ParserCreate failed")
 
     parser = W_XMLParserType(space, xmlparser, w_intern)
     XML_SetUnknownEncodingHandler(

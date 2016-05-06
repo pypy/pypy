@@ -5,7 +5,7 @@ from pypy.module.cpyext.pyobject import (
     make_typedescr, track_reference, from_ref)
 from pypy.module.cpyext.floatobject import PyFloat_AsDouble
 from pypy.objspace.std.complexobject import W_ComplexObject
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import oefmt
 
 PyComplex_Check, PyComplex_CheckExact = build_type_checkers("Complex")
 
@@ -98,8 +98,8 @@ def _PyComplex_AsCComplex(space, w_obj, result):
             return 0
 
         if not PyComplex_Check(space, w_obj):
-            raise OperationError(space.w_TypeError, space.wrap(
-                "__complex__ should return a complex object"))
+            raise oefmt(space.w_TypeError,
+                        "__complex__ should return a complex object")
 
     assert isinstance(w_obj, W_ComplexObject)
     result.c_real = w_obj.realval

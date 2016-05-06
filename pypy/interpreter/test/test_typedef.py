@@ -13,7 +13,7 @@ class AppTestTraceBackAttributes:
         # XXX why is this called newstring?
         import sys
         def f():
-            raise TypeError, "hello"
+            raise TypeError("hello")
 
         def g():
             f()
@@ -23,7 +23,7 @@ class AppTestTraceBackAttributes:
         except:
             typ,val,tb = sys.exc_info()
         else:
-            raise AssertionError, "should have raised"
+            raise AssertionError("should have raised")
         assert hasattr(tb, 'tb_frame')
         assert hasattr(tb, 'tb_lasti')
         assert hasattr(tb, 'tb_lineno')
@@ -382,25 +382,6 @@ class TestTypeDef:
         assert not hasattr(a, "storage")
         assert not hasattr(b, "storage")
         assert hasattr(c, "storage")
-
-    def test_del(self):
-        space = self.space
-        a, b, c, d = space.unpackiterable(space.appexec([], """():
-            class A(object):
-                pass
-            class B(object):
-                def __del__(self):
-                    pass
-            class F(file):
-                pass
-            class G(file):
-                def __del__(self):
-                    pass
-            return A(), B(), F("xyz", "w"), G("ghi", "w")
-        """))
-        assert type(b).__base__ is type(a)
-        assert hasattr(c, "__del__")
-        assert type(d) is type(c)
 
 class AppTestTypeDef:
 

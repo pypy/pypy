@@ -151,7 +151,7 @@ def descr__repr__(space, w_obj):
         if w_module is not None:
             try:
                 modulename = space.str_w(w_module)
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_TypeError):
                     raise
             else:
@@ -198,8 +198,7 @@ def descr___format__(space, w_obj, w_format_spec):
     elif space.isinstance_w(w_format_spec, space.w_str):
         w_as_str = space.str(w_obj)
     else:
-        msg = "format_spec must be a string"
-        raise OperationError(space.w_TypeError, space.wrap(msg))
+        raise oefmt(space.w_TypeError, "format_spec must be a string")
     if space.len_w(w_format_spec) > 0:
         msg = "object.__format__ with a non-empty format string is deprecated"
         space.warn(space.wrap(msg), space.w_PendingDeprecationWarning)

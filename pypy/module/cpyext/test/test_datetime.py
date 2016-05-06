@@ -109,7 +109,7 @@ class AppTestDatetime(AppTestCpythonExtensionBase):
                  Py_RETURN_NONE;
              """
              )
-            ])
+            ], prologue='#include "datetime.h"\n')
         import datetime
         assert module.get_types() == (datetime.date,
                                       datetime.datetime,

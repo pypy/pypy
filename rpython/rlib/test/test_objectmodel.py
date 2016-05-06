@@ -764,7 +764,7 @@ def test_import_from_mixin():
         class B(object):
             a = 63
             import_from_mixin(M)
-    except Exception, e:
+    except Exception as e:
         assert ("would overwrite the value already defined locally for 'a'"
                 in str(e))
     else:

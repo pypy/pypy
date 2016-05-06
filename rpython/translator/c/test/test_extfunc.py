@@ -183,7 +183,7 @@ def test_os_stat_raises_winerror():
     def call_stat():
         try:
             os.stat("nonexistentdir/nonexistentfile")
-        except WindowsError, e:
+        except WindowsError as e:
             return e.winerror
         return 0    
     f = compile(call_stat, [])
@@ -612,7 +612,7 @@ if hasattr(os, 'getlogin'):
 
         try:
             expected = os.getlogin()
-        except OSError, e:
+        except OSError as e:
             py.test.skip("the underlying os.getlogin() failed: %s" % e)
         f1 = compile(does_stuff, [])
         assert f1() == expected
