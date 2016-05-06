@@ -989,8 +989,6 @@ def str_decode_latin_1(s, size, errors, final=False,
     return result.build(), pos
 
 
-# Specialize on the errorhandler when it's a constant
-@specialize.arg_or_var(4)
 def str_decode_ascii(s, size, errors, final=False,
                      errorhandler=None):
     if errorhandler is None:
@@ -1020,8 +1018,6 @@ def fast_str_decode_ascii(s):
     return result.build()
 
 
-# Specialize on the errorhandler when it's a constant
-@specialize.arg_or_var(3)
 def unicode_encode_ucs1_helper(p, size, errors,
                                errorhandler=None, limit=256):
     if errorhandler is None:
@@ -1064,12 +1060,10 @@ def unicode_encode_ucs1_helper(p, size, errors,
 
     return result.build()
 
-@specialize.arg_or_var(3)
 def unicode_encode_latin_1(p, size, errors, errorhandler=None):
     res = unicode_encode_ucs1_helper(p, size, errors, errorhandler, 256)
     return res
 
-@specialize.arg_or_var(3)
 def unicode_encode_ascii(p, size, errors, errorhandler=None):
     res = unicode_encode_ucs1_helper(p, size, errors, errorhandler, 128)
     return res
@@ -1194,8 +1188,6 @@ def hexescape(builder, s, pos, digits,
                 builder.append(res)
     return pos
 
-# Specialize on the errorhandler when it's a constant
-@specialize.arg_or_var(4)
 def str_decode_unicode_escape(s, size, errors, final=False,
                               errorhandler=None,
                               unicodedata_handler=None):
