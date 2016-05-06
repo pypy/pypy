@@ -40,14 +40,17 @@ class W_BaseConnection(W_Root):
     BUFFER_SIZE = 1024
     buffer = lltype.nullptr(rffi.CCHARP.TO)
 
-    def __init__(self, flags):
+    def __init__(self, space, flags):
         self.flags = flags
         self.buffer = lltype.malloc(rffi.CCHARP.TO, self.BUFFER_SIZE,
                                     flavor='raw')
+        self.register_finalizer(space)
 
-    def __del__(self):
-        if self.buffer:
-            lltype.free(self.buffer, flavor='raw')
+    def _finalize_(self):
+        buf = self.buffer
+        if buf:
+            self.buffer = lltype.nullptr(rffi.CCHARP.TO)
+            lltype.free(buf, flavor='raw')
         try:
             self.do_close()
         except OSError:
@@ -242,7 +245,7 @@ class W_FileConnection(W_BaseConnection):
     def __init__(self, space, fd, flags):
         if fd == self.INVALID_HANDLE_VALUE or fd < 0:
             raise oefmt(space.w_IOError, "invalid handle %d", fd)
-        W_BaseConnection.__init__(self, flags)
+        W_BaseConnection.__init__(self, space, flags)
         self.fd = fd
 
     @unwrap_spec(fd=int, readable=bool, writable=bool)
@@ -363,8 +366,8 @@ class W_PipeConnection(W_BaseConnection):
     if sys.platform == 'win32':
         from rpython.rlib.rwin32 import INVALID_HANDLE_VALUE
 
-    def __init__(self, handle, flags):
-        W_BaseConnection.__init__(self, flags)
+    def __init__(self, space, handle, flags):
+        W_BaseConnection.__init__(self, space, flags)
         self.handle = handle
 
     @unwrap_spec(readable=bool, writable=bool)
@@ -375,7 +378,7 @@ class W_PipeConnection(W_BaseConnection):
         flags = (readable and READABLE) | (writable and WRITABLE)
 
         self = space.allocate_instance(W_PipeConnection, w_subtype)
-        W_PipeConnection.__init__(self, handle, flags)
+        W_PipeConnection.__init__(self, space, handle, flags)
         return space.wrap(self)
 
     def descr_repr(self, space):
