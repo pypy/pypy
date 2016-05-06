@@ -906,7 +906,8 @@ class TestAstBuilder:
             ("/", ast.Div),
             ("*", ast.Mult),
             ("//", ast.FloorDiv),
-            ("%", ast.Mod)
+            ("%", ast.Mod),
+            ("@", ast.MatMul)
         )
         for op, ast_type in binops:
             bin = self.get_first_expr("a %s b" % (op,))
