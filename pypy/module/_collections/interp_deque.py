@@ -533,7 +533,16 @@ class W_DequeIter(W_Root):
         return self.space.newtuple([self.space.gettypefor(W_DequeIter),
                                     self.space.newtuple([self.deque])])
 
+def W_DequeIter__new__(space, w_subtype, w_deque):
+    w_self = space.allocate_instance(W_DequeIter, w_subtype)
+    if not isinstance(w_deque, W_Deque):
+        raise oefmt(space.w_TypeError, "must be collections.deque, not %T", w_deque)
+        
+    W_DequeIter.__init__(space.interp_w(W_DequeIter, w_self), w_deque)
+    return w_self
+
 W_DequeIter.typedef = TypeDef("_collections.deque_iterator",
+    __new__ = interp2app(W_DequeIter__new__),
     __iter__        = interp2app(W_DequeIter.iter),
     __length_hint__ = interp2app(W_DequeIter.length),
     __next__        = interp2app(W_DequeIter.next),
@@ -576,10 +585,24 @@ class W_DequeRevIter(W_Root):
         self.index = ri
         return w_x
 
+    def reduce(self):
+        return self.space.newtuple([self.space.gettypefor(W_DequeRevIter),
+                                    self.space.newtuple([self.deque])])
+
+def W_DequeRevIter__new__(space, w_subtype, w_deque):
+    w_self = space.allocate_instance(W_DequeRevIter, w_subtype)
+    if not isinstance(w_deque, W_Deque):
+        raise oefmt(space.w_TypeError, "must be collections.deque, not %T", w_deque)
+        
+    W_DequeRevIter.__init__(space.interp_w(W_DequeRevIter, w_self), w_deque)
+    return w_self
+
 W_DequeRevIter.typedef = TypeDef("_collections.deque_reverse_iterator",
+    __new__         = interp2app(W_DequeRevIter__new__),
     __iter__        = interp2app(W_DequeRevIter.iter),
     __length_hint__ = interp2app(W_DequeRevIter.length),
     __next__        = interp2app(W_DequeRevIter.next),
+    __reduce__      = interp2app(W_DequeRevIter.reduce)
 )
 W_DequeRevIter.typedef.acceptable_as_base_class = False
 
