@@ -393,6 +393,7 @@ class FinalizerQueue(object):
         return True
 
     @specialize.arg(0)
+    @jit.dont_look_inside
     def next_dead(self):
         if we_are_translated():
             from rpython.rtyper.lltypesystem.lloperation import llop
@@ -407,6 +408,7 @@ class FinalizerQueue(object):
             return None
 
     @specialize.arg(0)
+    @jit.dont_look_inside
     def register_finalizer(self, obj):
         assert isinstance(obj, self.Class)
         if we_are_translated():

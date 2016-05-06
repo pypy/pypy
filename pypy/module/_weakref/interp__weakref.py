@@ -105,7 +105,7 @@ class WeakrefLifeline(W_Root):
 
     def enable_callbacks(self):
         if not self.has_callbacks:
-            self.register_finalizer(self.space)
+            self.space.finalizer_queue.register_finalizer(self)
             self.has_callbacks = True
 
     @jit.dont_look_inside
