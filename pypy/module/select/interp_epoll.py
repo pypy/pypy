@@ -76,6 +76,7 @@ epoll_wait = rffi.llexternal(
 class W_Epoll(W_Root):
     def __init__(self, space, epfd):
         self.epfd = epfd
+        self.register_finalizer(space)
 
     @unwrap_spec(sizehint=int)
     def descr__new__(space, w_subtype, sizehint=-1):
@@ -94,7 +95,7 @@ class W_Epoll(W_Root):
     def descr_fromfd(space, w_cls, fd):
         return space.wrap(W_Epoll(space, fd))
 
-    def __del__(self):
+    def _finalize_(self):
         self.close()
 
     def check_closed(self, space):
