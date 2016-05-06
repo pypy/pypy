@@ -156,7 +156,9 @@ class W_Root(object):
 
         By default, it is *not called*.  See self.register_finalizer().
         Be ready to handle the case where the object is only half
-        initialized.
+        initialized.  Also, in some cases the object might still be
+        visible to app-level after _finalize_() is called (e.g. if
+        there is a __del__ that resurrects).
         """
 
     def register_finalizer(self, space):
