@@ -102,6 +102,9 @@ in the same queue, or in several queues.  This is not tested though.
 For now the untranslated emulation does not support registering the
 same object several times.
 
+Note that the Boehm garbage collector, used in ``rpython -O0``,
+completely ignores ``register_finalizer()``.
+
 
 Ordering of finalizers
 ----------------------
