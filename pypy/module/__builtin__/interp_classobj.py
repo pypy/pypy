@@ -650,6 +650,8 @@ class W_InstanceObject(W_Root):
         if w_func is None:
             w_func = self.getattr_from_class(space, '__del__')
         if w_func is not None:
+            if self.space.user_del_action.gc_disabled(self):
+                return
             space.call_function(w_func)
 
     def descr_exit(self, space, w_type, w_value, w_tb):

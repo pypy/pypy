@@ -440,11 +440,6 @@ class DescrOperation(object):
             raise oefmt(space.w_TypeError,
                         "__hash__() should return an int or long")
 
-    def userdel(space, w_obj):
-        w_del = space.lookup(w_obj, '__del__')
-        if w_del is not None:
-            space.get_and_call_function(w_del, w_obj)
-
     def cmp(space, w_v, w_w):
 
         if space.is_w(w_v, w_w):

@@ -533,32 +533,56 @@ class UserDelAction(AsyncAction):
         AsyncAction.__init__(self, space)
         self.finalizers_lock_count = 0        # see pypy/module/gc
         self.enabled_at_app_level = True      # see pypy/module/gc
+        self.pending_with_disabled_del = None
 
     def perform(self, executioncontext, frame):
-        if self.finalizers_lock_count > 0:
-            return
         self._run_finalizers()
 
+    @jit.dont_look_inside
     def _run_finalizers(self):
         while True:
             w_obj = self.space.finalizer_queue.next_dead()
             if w_obj is None:
                 break
+            self._call_finalizer(w_obj)
 
-            # Before calling the finalizers, clear the weakrefs, if any.
-            w_obj.clear_all_weakrefs()
+    def gc_disabled(self, w_obj):
+        # If we're running in 'gc.disable()' mode, record w_obj in the
+        # "call me later" list and return True.  Use this function
+        # from _finalize_() methods that would call app-level some
+        # things that we consider shouldn't be called in gc.disable().
+        # (The exact definition is of course a bit vague, but most
+        # importantly this includes all user-level __del__().)
+        pdd = self.pending_with_disabled_del
+        if pdd is None:
+            return False
+        else:
+            pdd.append(w_obj)
+            return True
 
-            # Look up and call the app-level __del__, if any.
+    def _call_finalizer(self, w_obj):
+        # Before calling the finalizers, clear the weakrefs, if any.
+        w_obj.clear_all_weakrefs()
+
+        # Look up and call the app-level __del__, if any.
+        space = self.space
+        if w_obj.typedef is None:
+            w_del = None       # obscure case: for WeakrefLifeline
+        else:
+            w_del = space.lookup(w_obj, '__del__')
+        if w_del is not None:
+            if self.gc_disabled(w_obj):
+                return
             try:
-                self.space.userdel(w_obj)
+                space.get_and_call_function(w_del, w_obj)
             except Exception as e:
-                report_error(self.space, e, "method __del__ of ", w_obj)
+                report_error(space, e, "method __del__ of ", w_obj)
 
-            # Call the RPython-level _finalize_() method.
-            try:
-                w_obj._finalize_()
-            except Exception as e:
-                report_error(self.space, e, "finalizer of ", w_obj)
+        # Call the RPython-level _finalize_() method.
+        try:
+            w_obj._finalize_()
+        except Exception as e:
+            report_error(space, e, "finalizer of ", w_obj)
 
 
 def report_error(space, e, where, w_obj):
