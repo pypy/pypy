@@ -65,8 +65,7 @@ class W_Hash(W_Root):
         # and use a custom lock only when needed.
         self.lock = Lock(space)
 
-        ctx = lltype.malloc(ropenssl.EVP_MD_CTX.TO, flavor='raw',
-                            track_allocation=False)
+        ctx = lltype.malloc(ropenssl.EVP_MD_CTX.TO, flavor='raw')
         rgc.add_memory_pressure(ropenssl.HASH_MALLOC_SIZE + self.digest_size)
         try:
             if copy_from:
@@ -75,7 +74,7 @@ class W_Hash(W_Root):
                 ropenssl.EVP_DigestInit(ctx, digest_type)
             self.ctx = ctx
         except:
-            lltype.free(ctx, flavor='raw', track_allocation=False)
+            lltype.free(ctx, flavor='raw')
             raise
         self.register_finalizer(space)
 
@@ -84,7 +83,7 @@ class W_Hash(W_Root):
         if ctx:
             self.ctx = lltype.nullptr(ropenssl.EVP_MD_CTX.TO)
             ropenssl.EVP_MD_CTX_cleanup(ctx)
-            lltype.free(ctx, flavor='raw', track_allocation=False)
+            lltype.free(ctx, flavor='raw')
 
     def digest_type_by_name(self, space):
         digest_type = ropenssl.EVP_get_digestbyname(self.name)

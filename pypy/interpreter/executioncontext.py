@@ -141,6 +141,12 @@ class ExecutionContext(object):
             actionflag.action_dispatcher(self, frame)     # slow path
     bytecode_trace._always_inline_ = True
 
+    def _run_finalizers_now(self):
+        # Tests only: run the actions now, to ensure that the
+        # finalizable objects are really finalized.  Used notably by
+        # pypy.tool.pytest.apptest.
+        self.space.actionflag.action_dispatcher(self, None)
+
     def bytecode_only_trace(self, frame):
         """
         Like bytecode_trace() but doesn't invoke any other events besides the

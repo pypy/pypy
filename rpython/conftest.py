@@ -82,7 +82,13 @@ class LeakFinder:
             return
         if (not getattr(item.obj, 'dont_track_allocations', False)
             and leakfinder.TRACK_ALLOCATIONS):
-            item._pypytest_leaks = leakfinder.stop_tracking_allocations(False)
+            kwds = {}
+            try:
+                kwds['do_collection'] = item.track_allocations_collect
+            except AttributeError:
+                pass
+            item._pypytest_leaks = leakfinder.stop_tracking_allocations(False,
+                                                                        **kwds)
         else:            # stop_tracking_allocations() already called
             item._pypytest_leaks = None
 
