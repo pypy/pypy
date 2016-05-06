@@ -162,7 +162,10 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
             ("string_None", "METH_VARARGS",
              '''
-             return PyString_AsString(Py_None);
+             if (PyString_AsString(Py_None)) {
+                Py_RETURN_NONE;
+             }
+             return NULL;
              '''
             )])
         raises(TypeError, module.string_None)

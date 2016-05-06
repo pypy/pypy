@@ -72,8 +72,7 @@ def compile_extension_module(space, modname, include_dirs=[], **kwds):
     else:
         kwds["link_files"] = [str(api_library + '.so')]
         if sys.platform.startswith('linux'):
-            kwds["compile_extra"]=["-Werror=implicit-function-declaration",
-                                   "-g", "-O0"]
+            kwds["compile_extra"]=["-Werror", "-g", "-O0"]
             kwds["link_extra"]=["-g"]
 
     modname = modname.split('.')[-1]
@@ -747,7 +746,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
             refcnt_after = true_obj->ob_refcnt;
             Py_DECREF(true_obj);
             Py_DECREF(true_obj);
-            fprintf(stderr, "REFCNT %i %i\\n", refcnt, refcnt_after);
+            fprintf(stderr, "REFCNT %zd %zd\\n", refcnt, refcnt_after);
             return PyBool_FromLong(refcnt_after == refcnt + 2);
         }
         static PyObject* foo_bar(PyObject* self, PyObject *args)
@@ -763,7 +762,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
                 return NULL;
             refcnt_after = true_obj->ob_refcnt;
             Py_DECREF(tup);
-            fprintf(stderr, "REFCNT2 %i %i %i\\n", refcnt, refcnt_after,
+            fprintf(stderr, "REFCNT2 %zd %zd %zd\\n", refcnt, refcnt_after,
                     true_obj->ob_refcnt);
             return PyBool_FromLong(refcnt_after == refcnt + 1 &&
                                    refcnt == true_obj->ob_refcnt);
