@@ -483,7 +483,7 @@ class StdObjSpace(ObjSpace):
         return None
 
     def view_as_kwargs(self, w_dict):
-        if type(w_dict) is W_DictObject:
+        if isinstance(w_dict, W_DictObject):
             return w_dict.view_as_kwargs()
         return (None, None)
 
