@@ -77,3 +77,5 @@ Compile c snippets with -Werror in cpyext
 
 Add rgc.FinalizerQueue, documented in pypy/doc/discussion/finalizer-order.rst.
 It is a more flexible way to make RPython finalizers.
+
+.. branch: unpacking-cpython-shortcut
