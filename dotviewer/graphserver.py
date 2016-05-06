@@ -143,6 +143,11 @@ def copy_all(io1, io2):
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
+        if len(sys.argv) == 1:
+            # start locally
+            import sshgraphserver
+            sshgraphserver.ssh_graph_server(['LOCAL'])
+            sys.exit(0)
         print >> sys.stderr, __doc__
         sys.exit(2)
     if sys.argv[1] == '--stdio':
