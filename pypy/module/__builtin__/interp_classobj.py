@@ -187,7 +187,7 @@ class Cache:
             return
 
         self.InstanceObjectCls = _getusercls(
-                space, W_InstanceObject, reallywantdict=True)
+                W_InstanceObject, reallywantdict=True)
 
 
 def class_descr_call(space, w_self, __args__):

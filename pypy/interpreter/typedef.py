@@ -108,18 +108,17 @@ def default_identity_hash(space, w_obj):
 def get_unique_interplevel_subclass(space, cls):
     "NOT_RPYTHON: initialization-time only"
     assert cls.typedef.acceptable_as_base_class
-    key = space, cls
     try:
-        return _subclass_cache[key]
+        return _unique_subclass_cache[cls]
     except KeyError:
-        subcls = _getusercls(space, cls)
-        assert key not in _subclass_cache
-        _subclass_cache[key] = subcls
+        subcls = _getusercls(cls)
+        assert cls not in _unique_subclass_cache
+        _unique_subclass_cache[cls] = subcls
         return subcls
 get_unique_interplevel_subclass._annspecialcase_ = "specialize:memo"
-_subclass_cache = {}
+_unique_subclass_cache = {}
 
-def _getusercls(space, cls, reallywantdict=False):
+def _getusercls(cls, reallywantdict=False):
     from rpython.rlib import objectmodel
     from pypy.objspace.std.objectobject import W_ObjectObject
     from pypy.module.__builtin__.interp_classobj import W_InstanceObject

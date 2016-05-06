@@ -127,10 +127,7 @@ class TestTypeDef:
                         """ % (slots, methodname, checks[0], checks[1],
                                checks[2], checks[3]))
         subclasses = {}
-        for key, subcls in typedef._subclass_cache.items():
-            if key[0] is not space.config:
-                continue
-            cls = key[1]
+        for cls, subcls in typedef._unique_subclass_cache.items():
             subclasses.setdefault(cls, {})
             prevsubcls = subclasses[cls].setdefault(subcls.__name__, subcls)
             assert subcls is prevsubcls
