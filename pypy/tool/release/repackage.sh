@@ -3,7 +3,7 @@ maj=5
 min=1
 rev=1
 branchname=release-$maj.x  # ==OR== release-$maj.$min.x
-tagname=release-$maj.$min  # ==OR== release-$maj.$min.$rev
+tagname=release-$maj.$min.$rev  # ==OR== release-$maj.$min
 
 hg log -r $branchname || exit 1
 hg log -r $tagname || exit 1

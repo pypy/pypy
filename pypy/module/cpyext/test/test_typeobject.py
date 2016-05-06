@@ -437,14 +437,14 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             ("test_tp_getattro", "METH_VARARGS",
              '''
                  PyObject *name, *obj = PyTuple_GET_ITEM(args, 0);
-                 PyIntObject *attr, *value = PyTuple_GET_ITEM(args, 1);
+                 PyIntObject *attr, *value = (PyIntObject*) PyTuple_GET_ITEM(args, 1);
                  if (!obj->ob_type->tp_getattro)
                  {
                      PyErr_SetString(PyExc_ValueError, "missing tp_getattro");
                      return NULL;
                  }
                  name = PyString_FromString("attr1");
-                 attr = obj->ob_type->tp_getattro(obj, name);
+                 attr = (PyIntObject*) obj->ob_type->tp_getattro(obj, name);
                  if (attr->ob_ival != value->ob_ival)
                  {
                      PyErr_SetString(PyExc_ValueError,
@@ -454,7 +454,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                  Py_DECREF(name);
                  Py_DECREF(attr);
                  name = PyString_FromString("attr2");
-                 attr = obj->ob_type->tp_getattro(obj, name);
+                 attr = (PyIntObject*) obj->ob_type->tp_getattro(obj, name);
                  if (attr == NULL && PyErr_ExceptionMatches(PyExc_AttributeError))
                  {
                      PyErr_Clear();
@@ -758,8 +758,9 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             } IntLikeObject;
 
             static int
-            intlike_nb_nonzero(IntLikeObject *v)
+            intlike_nb_nonzero(PyObject *o)
             {
+                IntLikeObject *v = (IntLikeObject*)o;
                 if (v->value == -42) {
                     PyErr_SetNone(PyExc_ValueError);
                     return -1;

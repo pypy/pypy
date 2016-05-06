@@ -248,7 +248,7 @@ def PyUFunc_FromFuncAndDataAndSignature(space, funcs, data, types, ntypes,
     w_signature = rffi.charp2str(signature)
     return do_ufunc(space, funcs, data, types, ntypes, nin, nout, identity, name, doc,
              check_return, w_signature)
-            
+
 
 def do_ufunc(space, funcs, data, types, ntypes, nin, nout, identity, name, doc,
              check_return, w_signature):
