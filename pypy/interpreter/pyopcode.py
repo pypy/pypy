@@ -592,7 +592,6 @@ class __extend__(pyframe.PyFrame):
     INPLACE_MULTIPLY = binaryoperation("inplace_mul")
     INPLACE_TRUE_DIVIDE  = binaryoperation("inplace_truediv")
     INPLACE_FLOOR_DIVIDE = binaryoperation("inplace_floordiv")
-    INPLACE_FLOOR_DIVIDE = binaryoperation("inplace_matmul")
     INPLACE_DIVIDE       = binaryoperation("inplace_div")
     # XXX INPLACE_DIVIDE must fall back to INPLACE_TRUE_DIVIDE with -Qnew
     INPLACE_MODULO       = binaryoperation("inplace_mod")

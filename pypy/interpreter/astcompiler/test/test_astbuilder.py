@@ -625,6 +625,7 @@ class TestAstBuilder:
             ("/=", ast.Div),
             ("//=", ast.FloorDiv),
             ("%=", ast.Mod),
+            ("@=", ast.MatMul),
             ("<<=", ast.LShift),
             (">>=", ast.RShift),
             ("&=", ast.BitAnd),
