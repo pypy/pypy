@@ -1,6 +1,6 @@
 
 class AppTestBasic:
-    spaceconfig = dict(usemodules=['_collections'])
+    spaceconfig = dict(usemodules=['_collections', 'struct'])
 
     def test_basics(self):
         from _collections import deque
@@ -301,3 +301,19 @@ class AppTestBasic:
         d.pop()
         gc.collect(); gc.collect(); gc.collect()
         assert X.freed
+
+    def test_DequeIter_pickle(self):
+        from _collections import deque
+        import pickle
+        d = deque([1,2,3])
+        iterator = iter(d)
+        copy = pickle.loads(pickle.dumps(iterator))
+        assert list(iterator) == list(copy)
+
+    def test_DequeRevIter_pickle(self):
+        from _collections import deque
+        import pickle
+        d = deque([1,2,3])
+        iterator = reversed(d)
+        copy = pickle.loads(pickle.dumps(iterator))
+        assert list(iterator) == list(copy)
