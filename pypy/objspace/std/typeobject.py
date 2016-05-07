@@ -1103,8 +1103,9 @@ def setup_user_defined_type(w_self, force_new_layout):
     layout = create_all_slots(w_self, hasoldstylebase, w_bestbase,
                               force_new_layout)
 
-    if '__qualname__' in w_self.dict_w:
-        w_self.qualname = w_self.space.unicode_w(w_self.dict_w['__qualname__'])
+    w_qualname = w_self.dict_w.pop('__qualname__', None)
+    if w_qualname is not None:
+        w_self.qualname = w_self.space.unicode_w(w_qualname)
 
     ensure_common_attributes(w_self)
     return layout
