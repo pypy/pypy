@@ -11,7 +11,7 @@ from pypy.interpreter.executioncontext import (AsyncAction, AbstractActionFlag,
     PeriodicAsyncAction)
 from pypy.interpreter.gateway import unwrap_spec
 
-from rpython.rlib import jit, rposix, rgc
+from rpython.rlib import jit, rgc
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import intmask, widen
 from rpython.rlib.rsignal import *
@@ -260,8 +260,7 @@ def set_wakeup_fd(space, fd):
 def siginterrupt(space, signum, flag):
     check_signum_in_range(space, signum)
     if rffi.cast(lltype.Signed, c_siginterrupt(signum, flag)) < 0:
-        errno = rposix.get_saved_errno()
-        raise OperationError(space.w_RuntimeError, space.wrap(errno))
+        raise exception_from_saved_errno(space, space.w_OSError)
 
 
 #__________________________________________________________
