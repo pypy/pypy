@@ -93,6 +93,18 @@ class W_CTypePrimitive(W_CType):
             return self.space.newlist_int(result)
         return W_CType.unpack_ptr(self, w_ctypeptr, ptr, length)
 
+    def nonzero(self, cdata):
+        if self.size <= rffi.sizeof(lltype.Signed):
+            value = misc.read_raw_long_data(cdata, self.size)
+            return value != 0
+        else:
+            return self._nonzero_longlong(cdata)
+
+    def _nonzero_longlong(self, cdata):
+        # in its own function: LONGLONG may make the whole function jit-opaque
+        value = misc.read_raw_signed_data(cdata, self.size)
+        return bool(value)
+
 
 class W_CTypePrimitiveCharOrUniChar(W_CTypePrimitive):
     _attrs_ = []
@@ -435,6 +447,9 @@ class W_CTypePrimitiveFloat(W_CTypePrimitive):
             return self.space.newlist_float(result)
         return W_CType.unpack_ptr(self, w_ctypeptr, ptr, length)
 
+    def nonzero(self, cdata):
+        return misc.is_nonnull_float(cdata, self.size)
+
 
 class W_CTypePrimitiveLongDouble(W_CTypePrimitiveFloat):
     _attrs_ = []
@@ -501,3 +516,7 @@ class W_CTypePrimitiveLongDouble(W_CTypePrimitiveFloat):
                                              rffi.LONGDOUBLE, rffi.LONGDOUBLEP)
             return True
         return W_CTypePrimitive.pack_list_of_items(self, cdata, w_ob)
+
+    @jit.dont_look_inside
+    def nonzero(self, cdata):
+        return misc.is_nonnull_longdouble(cdata, self.size)

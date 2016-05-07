@@ -71,7 +71,7 @@ class W_CData(W_Root):
 
     def nonzero(self):
         with self as ptr:
-            nonzero = bool(ptr)
+            nonzero = self.ctype.nonzero(ptr)
         return self.space.wrap(nonzero)
 
     def int(self, space):

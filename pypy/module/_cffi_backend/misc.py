@@ -256,7 +256,7 @@ _is_nonnull_longdouble = rffi.llexternal(
 def is_nonnull_longdouble(cdata):
     return _is_nonnull_longdouble(read_raw_longdouble_data(cdata))
 def is_nonnull_float(cdata, size):
-    return read_raw_float_data(cdata, size) != 0.0
+    return read_raw_float_data(cdata, size) != 0.0    # note: True if a NaN
 
 def object_as_bool(space, w_ob):
     # convert and cast a Python object to a boolean.  Accept an integer
