@@ -365,8 +365,16 @@ class W_CData(W_Root):
         return self.ctype.size
 
     def with_gc(self, w_destructor):
+        space = self.space
+        if space.is_none(w_destructor):
+            if isinstance(self, W_CDataGCP):
+                self.w_destructor = None
+                return space.w_None
+            raise oefmt(space.w_TypeError,
+                        "Can remove destructor only on a object "
+                        "previously returned by ffi.gc()")
         with self as ptr:
-            return W_CDataGCP(self.space, ptr, self.ctype, self, w_destructor)
+            return W_CDataGCP(space, ptr, self.ctype, self, w_destructor)
 
     def unpack(self, length):
         from pypy.module._cffi_backend.ctypeptr import W_CTypePtrOrArray
@@ -538,7 +546,7 @@ class W_CDataFromBuffer(W_CData):
 class W_CDataGCP(W_CData):
     """For ffi.gc()."""
     _attrs_ = ['w_original_cdata', 'w_destructor']
-    _immutable_fields_ = ['w_original_cdata', 'w_destructor']
+    _immutable_fields_ = ['w_original_cdata']
 
     def __init__(self, space, cdata, ctype, w_original_cdata, w_destructor):
         W_CData.__init__(self, space, cdata, ctype)
@@ -552,7 +560,10 @@ class W_CDataGCP(W_CData):
 
     def call_destructor(self):
         assert isinstance(self, W_CDataGCP)
-        self.space.call_function(self.w_destructor, self.w_original_cdata)
+        w_destructor = self.w_destructor
+        if w_destructor is not None:
+            self.w_destructor = None
+            self.space.call_function(w_destructor, self.w_original_cdata)
 
 
 W_CData.typedef = TypeDef(
