@@ -384,7 +384,7 @@ def build_slot_tp_function(space, typedef, name):
                           ]:
         if name == tp_name:
             slot_fn = w_type.getdictvalue(space, attr)
-            if int_fn is None:
+            if slot_fn is None:
                 return
 
             @cpython_api([PyObject], PyObject, header=header)
