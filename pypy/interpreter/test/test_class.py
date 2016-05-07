@@ -123,3 +123,14 @@ class AppTestClass:
         assert C.__qualname__ == 'test_qualname.<locals>.C'
         assert C.D.__qualname__ == 'test_qualname.<locals>.C.D'
         assert not hasattr(C(), '__qualname__')
+
+    def test_set_doc(self):
+        class X:
+            "elephant"
+        X.__doc__ = "banana"
+        assert X.__doc__ == "banana"
+        raises(TypeError, lambda:
+               type(list).__dict__["__doc__"].__set__(list, "blah"))
+        raises((AttributeError, TypeError), lambda:
+               type(X).__dict__["__doc__"].__delete__(X))
+        assert X.__doc__ == "banana"

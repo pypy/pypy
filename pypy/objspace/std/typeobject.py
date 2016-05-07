@@ -853,6 +853,12 @@ type(name, bases, dict) -> a new type""")
     else:
         return space.get(w_result, space.w_None, w_type)
 
+def descr_set__doc(space, w_type, w_value):
+    w_type = _check(space, w_type)
+    if not w_type.is_heaptype():
+        raise oefmt(space.w_TypeError, "can't set %N.__doc__", w_type)
+    w_type.setdictvalue(space, '__doc__', w_value)
+
 def descr__dir(space, w_type):
     from pypy.objspace.std.util import _classdir
     return space.call_function(space.w_list, _classdir(space, w_type))
@@ -928,7 +934,7 @@ W_TypeObject.typedef = TypeDef("type",
     __base__ = GetSetProperty(descr__base),
     __mro__ = GetSetProperty(descr_get__mro__),
     __dict__ = GetSetProperty(descr_get_dict),
-    __doc__ = GetSetProperty(descr__doc),
+    __doc__ = GetSetProperty(descr__doc, descr_set__doc),
     __dir__ = gateway.interp2app(descr__dir),
     mro = gateway.interp2app(descr_mro),
     __flags__ = GetSetProperty(descr__flags),
