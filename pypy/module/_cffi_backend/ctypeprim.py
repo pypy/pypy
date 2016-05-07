@@ -519,4 +519,4 @@ class W_CTypePrimitiveLongDouble(W_CTypePrimitiveFloat):
 
     @jit.dont_look_inside
     def nonzero(self, cdata):
-        return misc.is_nonnull_longdouble(cdata, self.size)
+        return misc.is_nonnull_longdouble(cdata)
