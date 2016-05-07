@@ -4,6 +4,27 @@
 extern "C" {
 #endif
 
+
+#define PyDateTime_GET_YEAR(o)  _PyDateTime_GET_YEAR((PyDateTime_Date*)(o))
+#define PyDateTime_GET_MONTH(o) _PyDateTime_GET_MONTH((PyDateTime_Date*)(o))
+#define PyDateTime_GET_DAY(o)   _PyDateTime_GET_DAY((PyDateTime_Date*)(o))
+
+#define PyDateTime_DATE_GET_HOUR(o)        _PyDateTime_DATE_GET_HOUR((PyDateTime_DateTime*)(o))
+#define PyDateTime_DATE_GET_MINUTE(o)      _PyDateTime_DATE_GET_MINUTE((PyDateTime_DateTime*)(o))
+#define PyDateTime_DATE_GET_SECOND(o)      _PyDateTime_DATE_GET_SECOND((PyDateTime_DateTime*)(o))
+#define PyDateTime_DATE_GET_MICROSECOND(o) _PyDateTime_DATE_GET_MICROSECOND((PyDateTime_DateTime*)(o))
+
+#define PyDateTime_TIME_GET_HOUR(o)        _PyDateTime_TIME_GET_HOUR((PyDateTime_Time*)(o))
+#define PyDateTime_TIME_GET_MINUTE(o)      _PyDateTime_TIME_GET_MINUTE((PyDateTime_Time*)(o))
+#define PyDateTime_TIME_GET_SECOND(o)      _PyDateTime_TIME_GET_SECOND((PyDateTime_Time*)(o))
+#define PyDateTime_TIME_GET_MICROSECOND(o) _PyDateTime_TIME_GET_MICROSECOND((PyDateTime_Time*)(o))
+
+#define PyDateTime_DELTA_GET_DAYS(o)         _PyDateTime_DELTA_GET_DAYS((PyDateTime_Delta*)(o))
+#define PyDateTime_DELTA_GET_SECONDS(o)      _PyDateTime_DELTA_GET_SECONDS((PyDateTime_Delta*)(o))
+#define PyDateTime_DELTA_GET_MICROSECONDS(o) _PyDateTime_DELTA_GET_MICROSECONDS((PyDateTime_Delta*)(o))
+
+
+
 /* Define structure for C API. */
 typedef struct {
     /* type objects */

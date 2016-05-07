@@ -23,7 +23,7 @@ def PyList_New(space, len):
 
 @cpython_api([PyObject, Py_ssize_t, PyObject], PyObject, error=CANNOT_FAIL,
              result_borrowed=True)
-def PyList_SET_ITEM(space, w_list, index, w_item):
+def _PyList_SET_ITEM(space, w_list, index, w_item):
     """Macro form of PyList_SetItem() without error checking. This is normally
     only used to fill in new lists where there is no previous content.
 
@@ -88,7 +88,7 @@ def PyList_Insert(space, w_list, index, w_item):
     return 0
 
 @cpython_api([PyObject], Py_ssize_t, error=CANNOT_FAIL)
-def PyList_GET_SIZE(space, w_list):
+def _PyList_GET_SIZE(space, w_list):
     """Macro form of PyList_Size() without error checking.
     """
     assert isinstance(w_list, W_ListObject)
@@ -102,7 +102,7 @@ def PyList_Size(space, ref):
     """
     if not PyList_Check(space, ref):
         raise oefmt(space.w_TypeError, "expected list object")
-    return PyList_GET_SIZE(space, ref)
+    return _PyList_GET_SIZE(space, ref)
 
 @cpython_api([PyObject], PyObject)
 def PyList_AsTuple(space, w_list):

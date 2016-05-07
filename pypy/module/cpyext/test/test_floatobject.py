@@ -6,7 +6,7 @@ class TestFloatObject(BaseApiTest):
     def test_floatobject(self, space, api):
         assert space.unwrap(api.PyFloat_FromDouble(3.14)) == 3.14
         assert api.PyFloat_AsDouble(space.wrap(23.45)) == 23.45
-        assert api.PyFloat_AS_DOUBLE(space.wrap(23.45)) == 23.45
+        assert api._PyFloat_AS_DOUBLE(space.wrap(23.45)) == 23.45
 
         assert api.PyFloat_AsDouble(space.w_None) == -1
         api.PyErr_Clear()
@@ -77,3 +77,19 @@ class AppTestFloatMacros(AppTestCpythonExtensionBase):
         neginf = module.return_neginf()
         assert neginf < 0
         assert math.isinf(neginf)
+
+    def test_macro_accepts_wrong_pointer_type(self):
+        import math
+
+        module = self.import_extension('foo', [
+            ("test_macros", "METH_NOARGS",
+             """
+             PyObject* o = PyFloat_FromDouble(1.0);
+             // no PyFloatObject
+             char* dumb_pointer = (char*)o;
+
+             PyFloat_AS_DOUBLE(o);
+             PyFloat_AS_DOUBLE(dumb_pointer);
+
+             Py_RETURN_NONE;"""),
+            ])

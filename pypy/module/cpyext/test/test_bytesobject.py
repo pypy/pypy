@@ -288,6 +288,24 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
         # This does not test much, but at least the refcounts are checked.
         assert module.test_intern_inplace('s') == 's'
 
+    def test_bytes_macros(self):
+        """The PyString_* macros cast, and calls expecting that build."""
+        module = self.import_extension('foo', [
+             ("test_macro_invocations", "METH_NOARGS",
+             """
+                PyObject* o = PyString_FromString("");
+                PyStringObject* u = (PyStringObject*)o;
+
+                PyString_GET_SIZE(u);
+                PyString_GET_SIZE(o);
+
+                PyString_AS_STRING(o);
+                PyString_AS_STRING(u);
+
+                return o;
+             """)])
+        assert module.test_macro_invocations() == ''
+
     def test_hash_and_state(self):
         module = self.import_extension('foo', [
             ("test_hash", "METH_VARARGS",

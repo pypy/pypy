@@ -192,23 +192,23 @@ def PyUnicode_GetMax(space):
 def PyUnicode_AS_DATA(space, ref):
     """Return a pointer to the internal buffer of the object. o has to be a
     PyUnicodeObject (not checked)."""
-    return rffi.cast(rffi.CCHARP, PyUnicode_AS_UNICODE(space, ref))
+    return rffi.cast(rffi.CCHARP, _PyUnicode_AS_UNICODE(space, ref))
 
 @cpython_api([PyObject], Py_ssize_t, error=CANNOT_FAIL)
-def PyUnicode_GET_DATA_SIZE(space, w_obj):
+def _PyUnicode_GET_DATA_SIZE(space, w_obj):
     """Return the size of the object's internal buffer in bytes.  o has to be a
     PyUnicodeObject (not checked)."""
-    return rffi.sizeof(lltype.UniChar) * PyUnicode_GET_SIZE(space, w_obj)
+    return rffi.sizeof(lltype.UniChar) * _PyUnicode_GET_SIZE(space, w_obj)
 
 @cpython_api([PyObject], Py_ssize_t, error=CANNOT_FAIL)
-def PyUnicode_GET_SIZE(space, w_obj):
+def _PyUnicode_GET_SIZE(space, w_obj):
     """Return the size of the object.  o has to be a PyUnicodeObject (not
     checked)."""
     assert isinstance(w_obj, unicodeobject.W_UnicodeObject)
     return space.len_w(w_obj)
 
 @cpython_api([PyObject], rffi.CWCHARP, error=CANNOT_FAIL)
-def PyUnicode_AS_UNICODE(space, ref):
+def _PyUnicode_AS_UNICODE(space, ref):
     """Return a pointer to the internal Py_UNICODE buffer of the object.  ref
     has to be a PyUnicodeObject (not checked)."""
     ref_unicode = rffi.cast(PyUnicodeObject, ref)
@@ -227,7 +227,7 @@ def PyUnicode_AsUnicode(space, ref):
     w_type = from_ref(space, rffi.cast(PyObject, ref.c_ob_type))
     if not space.is_true(space.issubtype(w_type, space.w_unicode)):
         raise oefmt(space.w_TypeError, "expected unicode object")
-    return PyUnicode_AS_UNICODE(space, ref)
+    return _PyUnicode_AS_UNICODE(space, ref)
 
 @cpython_api([PyObject], Py_ssize_t, error=-1)
 def PyUnicode_GetSize(space, ref):
@@ -247,7 +247,7 @@ def PyUnicode_AsWideChar(space, ref, buf, size):
     string may or may not be 0-terminated.  It is the responsibility of the caller
     to make sure that the wchar_t string is 0-terminated in case this is
     required by the application."""
-    c_str = PyUnicode_AS_UNICODE(space, rffi.cast(PyObject, ref))
+    c_str = _PyUnicode_AS_UNICODE(space, rffi.cast(PyObject, ref))
     c_length = ref.c_length
 
     # If possible, try to copy the 0-termination as well

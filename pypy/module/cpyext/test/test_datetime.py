@@ -10,9 +10,9 @@ class TestDatetime(BaseApiTest):
         assert api.PyDate_Check(w_date)
         assert api.PyDate_CheckExact(w_date)
 
-        assert api.PyDateTime_GET_YEAR(w_date) == 2010
-        assert api.PyDateTime_GET_MONTH(w_date) == 6
-        assert api.PyDateTime_GET_DAY(w_date) == 3
+        assert api._PyDateTime_GET_YEAR(w_date) == 2010
+        assert api._PyDateTime_GET_MONTH(w_date) == 6
+        assert api._PyDateTime_GET_DAY(w_date) == 3
 
     def test_time(self, space, api):
         w_time = api.PyTime_FromTime(23, 15, 40, 123456)
@@ -21,10 +21,10 @@ class TestDatetime(BaseApiTest):
         assert api.PyTime_Check(w_time)
         assert api.PyTime_CheckExact(w_time)
 
-        assert api.PyDateTime_TIME_GET_HOUR(w_time) == 23
-        assert api.PyDateTime_TIME_GET_MINUTE(w_time) == 15
-        assert api.PyDateTime_TIME_GET_SECOND(w_time) == 40
-        assert api.PyDateTime_TIME_GET_MICROSECOND(w_time) == 123456
+        assert api._PyDateTime_TIME_GET_HOUR(w_time) == 23
+        assert api._PyDateTime_TIME_GET_MINUTE(w_time) == 15
+        assert api._PyDateTime_TIME_GET_SECOND(w_time) == 40
+        assert api._PyDateTime_TIME_GET_MICROSECOND(w_time) == 123456
 
     def test_datetime(self, space, api):
         w_date = api.PyDateTime_FromDateAndTime(
@@ -36,13 +36,13 @@ class TestDatetime(BaseApiTest):
         assert api.PyDate_Check(w_date)
         assert not api.PyDate_CheckExact(w_date)
 
-        assert api.PyDateTime_GET_YEAR(w_date) == 2010
-        assert api.PyDateTime_GET_MONTH(w_date) == 6
-        assert api.PyDateTime_GET_DAY(w_date) == 3
-        assert api.PyDateTime_DATE_GET_HOUR(w_date) == 23
-        assert api.PyDateTime_DATE_GET_MINUTE(w_date) == 15
-        assert api.PyDateTime_DATE_GET_SECOND(w_date) == 40
-        assert api.PyDateTime_DATE_GET_MICROSECOND(w_date) == 123456
+        assert api._PyDateTime_GET_YEAR(w_date) == 2010
+        assert api._PyDateTime_GET_MONTH(w_date) == 6
+        assert api._PyDateTime_GET_DAY(w_date) == 3
+        assert api._PyDateTime_DATE_GET_HOUR(w_date) == 23
+        assert api._PyDateTime_DATE_GET_MINUTE(w_date) == 15
+        assert api._PyDateTime_DATE_GET_SECOND(w_date) == 40
+        assert api._PyDateTime_DATE_GET_MICROSECOND(w_date) == 123456
 
     def test_delta(self, space, api):
         w_delta = space.appexec(
@@ -57,9 +57,9 @@ class TestDatetime(BaseApiTest):
         assert api.PyDelta_Check(w_delta)
         assert api.PyDelta_CheckExact(w_delta)
 
-        assert api.PyDateTime_DELTA_GET_DAYS(w_delta) == 10
-        assert api.PyDateTime_DELTA_GET_SECONDS(w_delta) == 20
-        assert api.PyDateTime_DELTA_GET_MICROSECONDS(w_delta) == 30
+        assert api._PyDateTime_DELTA_GET_DAYS(w_delta) == 10
+        assert api._PyDateTime_DELTA_GET_SECONDS(w_delta) == 20
+        assert api._PyDateTime_DELTA_GET_MICROSECONDS(w_delta) == 30
 
     def test_fromtimestamp(self, space, api):
         w_args = space.wrap((0,))
@@ -117,3 +117,106 @@ class AppTestDatetime(AppTestCpythonExtensionBase):
                                       datetime.timedelta,
                                       datetime.tzinfo)
         module.clear_types()
+
+    def test_macros(self):
+        module = self.import_extension('foo', [
+            ("test_date_macros", "METH_NOARGS",
+             """
+                 PyDateTime_IMPORT;
+                 if (!PyDateTimeAPI) {
+                     PyErr_SetString(PyExc_RuntimeError, "No PyDateTimeAPI");
+                     return NULL;
+                 }
+                 PyObject* obj = PyDate_FromDate(2000, 6, 6);
+                 PyDateTime_Date* d = (PyDateTime_Date*)obj;
+
+                 PyDateTime_GET_YEAR(obj);
+                 PyDateTime_GET_YEAR(d);
+
+                 PyDateTime_GET_MONTH(obj);
+                 PyDateTime_GET_MONTH(d);
+
+                 PyDateTime_GET_DAY(obj);
+                 PyDateTime_GET_DAY(d);
+
+                 return obj;
+             """),
+            ("test_datetime_macros", "METH_NOARGS",
+             """
+                 PyDateTime_IMPORT;
+                 if (!PyDateTimeAPI) {
+                     PyErr_SetString(PyExc_RuntimeError, "No PyDateTimeAPI");
+                     return NULL;
+                 }
+                 PyObject* obj = PyDateTime_FromDateAndTime(2000, 6, 6, 6, 6, 6, 6);
+                 PyDateTime_DateTime* dt = (PyDateTime_DateTime*)obj;
+
+                 PyDateTime_GET_YEAR(obj);
+                 PyDateTime_GET_YEAR(dt);
+
+                 PyDateTime_GET_MONTH(obj);
+                 PyDateTime_GET_MONTH(dt);
+
+                 PyDateTime_GET_DAY(obj);
+                 PyDateTime_GET_DAY(dt);
+
+                 PyDateTime_DATE_GET_HOUR(obj);
+                 PyDateTime_DATE_GET_HOUR(dt);
+
+                 PyDateTime_DATE_GET_MINUTE(obj);
+                 PyDateTime_DATE_GET_MINUTE(dt);
+
+                 PyDateTime_DATE_GET_SECOND(obj);
+                 PyDateTime_DATE_GET_SECOND(dt);
+
+                 PyDateTime_DATE_GET_MICROSECOND(obj);
+                 PyDateTime_DATE_GET_MICROSECOND(dt);
+
+                 return obj;
+             """),
+            ("test_time_macros", "METH_NOARGS",
+             """
+                 PyDateTime_IMPORT;
+                 if (!PyDateTimeAPI) {
+                     PyErr_SetString(PyExc_RuntimeError, "No PyDateTimeAPI");
+                     return NULL;
+                 }
+                 PyObject* obj = PyTime_FromTime(6, 6, 6, 6);
+                 PyDateTime_Time* t = (PyDateTime_Time*)obj;
+
+                 PyDateTime_TIME_GET_HOUR(obj);
+                 PyDateTime_TIME_GET_HOUR(t);
+
+                 PyDateTime_TIME_GET_MINUTE(obj);
+                 PyDateTime_TIME_GET_MINUTE(t);
+
+                 PyDateTime_TIME_GET_SECOND(obj);
+                 PyDateTime_TIME_GET_SECOND(t);
+
+                 PyDateTime_TIME_GET_MICROSECOND(obj);
+                 PyDateTime_TIME_GET_MICROSECOND(t);
+
+                 return obj;
+             """),
+            ("test_delta_macros", "METH_NOARGS",
+             """
+                 PyDateTime_IMPORT;
+                 if (!PyDateTimeAPI) {
+                     PyErr_SetString(PyExc_RuntimeError, "No PyDateTimeAPI");
+                     return NULL;
+                 }
+                 PyObject* obj = PyDelta_FromDSU(6, 6, 6);
+                 PyDateTime_Delta* delta = (PyDateTime_Delta*)obj;
+
+                 PyDateTime_DELTA_GET_DAYS(obj);
+                 PyDateTime_DELTA_GET_DAYS(delta);
+
+                 PyDateTime_DELTA_GET_SECONDS(obj);
+                 PyDateTime_DELTA_GET_SECONDS(delta);
+
+                 PyDateTime_DELTA_GET_MICROSECONDS(obj);
+                 PyDateTime_DELTA_GET_MICROSECONDS(delta);
+
+                 return obj;
+             """),
+            ])

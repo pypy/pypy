@@ -87,6 +87,7 @@ typedef long Py_ssize_t;
 #include "pymath.h"
 #include "pyport.h"
 #include "warnings.h"
+#include "weakrefobject.h"
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -102,6 +103,7 @@ typedef long Py_ssize_t;
 #include "funcobject.h"
 #include "code.h"
 
+#include "abstract.h"
 #include "modsupport.h"
 #include "pythonrun.h"
 #include "pyerrors.h"
@@ -129,6 +131,7 @@ typedef long Py_ssize_t;
 #include "fileobject.h"
 #include "pysignals.h"
 #include "pythread.h"
+#include "setobject.h"
 #include "traceback.h"
 
 /* Missing definitions */

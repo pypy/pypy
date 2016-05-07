@@ -37,13 +37,6 @@ def PyWeakref_GetObject(space, w_ref):
     """
     return space.call_function(w_ref)     # borrowed ref
 
-@cpython_api([PyObject], PyObject, result_borrowed=True)
-def PyWeakref_GET_OBJECT(space, w_ref):
-    """Similar to PyWeakref_GetObject(), but implemented as a macro that does no
-    error checking.
-    """
-    return space.call_function(w_ref)     # borrowed ref
-
 @cpython_api([PyObject], PyObject)
 def PyWeakref_LockObject(space, w_ref):
     """Return the referenced object from a weak reference.  If the referent is

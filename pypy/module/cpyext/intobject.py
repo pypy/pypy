@@ -105,7 +105,7 @@ def PyInt_AsUnsignedLongLongMask(space, w_obj):
         return num.ulonglongmask()
 
 @cpython_api([PyObject], lltype.Signed, error=CANNOT_FAIL)
-def PyInt_AS_LONG(space, w_int):
+def _PyInt_AS_LONG(space, w_int):
     """Return the value of the object w_int. No error checking is performed."""
     return space.int_w(w_int)
 

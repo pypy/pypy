@@ -22,9 +22,9 @@ class TestListObject(BaseApiTest):
     
     def test_get_size(self, space, api):
         l = api.PyList_New(0)
-        assert api.PyList_GET_SIZE(l) == 0
+        assert api._PyList_GET_SIZE(l) == 0
         api.PyList_Append(l, space.wrap(3))
-        assert api.PyList_GET_SIZE(l) == 1
+        assert api._PyList_GET_SIZE(l) == 1
     
     def test_size(self, space, api):
         l = space.newlist([space.w_None, space.w_None])
@@ -136,6 +136,33 @@ class AppTestListObject(AppTestCpythonExtensionBase):
         l = [1, 2, 3]
         module.setlistitem(l,0)
         assert l == [None, 2, 3]
+
+    def test_list_macros(self):
+        """The PyList_* macros cast, and calls expecting that build."""
+        module = self.import_extension('foo', [
+            ("test_macro_invocations", "METH_NOARGS",
+             """
+             PyObject* o = PyList_New(2);
+             PyListObject* l = (PyListObject*)o;
+
+
+             Py_INCREF(o);
+             PyList_SET_ITEM(o, 0, o);
+             Py_INCREF(o);
+             PyList_SET_ITEM(l, 1, o);
+
+             PyList_GET_ITEM(o, 0);
+             PyList_GET_ITEM(l, 1);
+
+             PyList_GET_SIZE(o);
+             PyList_GET_SIZE(l);
+
+             return o;
+             """
+            )
+        ])
+        x = module.test_macro_invocations()
+        assert x[0] is x[1] is x
 
     def test_get_item_macro(self):
         module = self.import_extension('foo', [

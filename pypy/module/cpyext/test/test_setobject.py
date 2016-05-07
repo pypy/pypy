@@ -2,6 +2,7 @@ import py
 
 from pypy.module.cpyext.pyobject import PyObject, PyObjectP, make_ref, from_ref
 from pypy.module.cpyext.test.test_api import BaseApiTest
+from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from rpython.rtyper.lltypesystem import rffi, lltype
 
 
@@ -13,7 +14,7 @@ class TestTupleObject(BaseApiTest):
         w_set = space.call_function(space.w_set)
         space.call_method(w_set, 'update', space.wrap([1,2,3,4]))
         assert api.PySet_Size(w_set) == 4
-        assert api.PySet_GET_SIZE(w_set) == 4
+        assert api._PySet_GET_SIZE(w_set) == 4
         raises(TypeError, api.PySet_Size(space.newlist([])))
         api.PyErr_Clear()
 
@@ -45,3 +46,20 @@ class TestTupleObject(BaseApiTest):
         w_frozenset = space.newfrozenset([space.wrap(i) for i in [1, 2, 3, 4]])
         assert api.PyAnySet_CheckExact(w_set)
         assert api.PyAnySet_CheckExact(w_frozenset)
+
+class AppTestSetObject(AppTestCpythonExtensionBase):
+    def test_set_macro_cast(self):
+        module = self.import_extension('foo', [
+            ("test_macro_cast", "METH_NOARGS",
+             """
+             PyObject* o = PySet_New(NULL);
+             // no PySetObject
+             char* dumb_pointer = (char*) o;
+
+             PySet_GET_SIZE(o);
+             PySet_GET_SIZE(dumb_pointer);
+
+             return o;
+             """
+            )
+        ])

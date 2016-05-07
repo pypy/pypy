@@ -9,7 +9,7 @@ class TestIntObject(BaseApiTest):
         assert not api.PyInt_Check(space.wrap((1, 2, 3)))
         for i in [3, -5, -1, -sys.maxint, sys.maxint - 1]:
             x = api.PyInt_AsLong(space.wrap(i))
-            y = api.PyInt_AS_LONG(space.wrap(i))
+            y = api._PyInt_AS_LONG(space.wrap(i))
             assert x == i
             assert y == i
             w_x = api.PyInt_FromLong(x + 1)
@@ -191,3 +191,17 @@ class AppTestIntObject(AppTestCpythonExtensionBase):
         i = mod.test_int()
         assert isinstance(i, int)
         assert i == 42
+
+    def test_int_macros(self):
+        mod = self.import_extension('foo', [
+                ("test_macros", "METH_NOARGS",
+                """
+                PyObject * obj = PyInt_FromLong(42);
+                PyIntObject * i = (PyIntObject*)obj;
+                PyInt_AS_LONG(obj);
+                PyInt_AS_LONG(i);
+                Py_RETURN_NONE;
+                """
+                ),
+                ])
+

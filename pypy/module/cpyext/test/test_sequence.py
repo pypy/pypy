@@ -14,8 +14,8 @@ class TestSequence(BaseApiTest):
         w_l = space.wrap([1, 2, 3, 4])
         assert api.PySequence_Fast(w_l, "message") is w_l
 
-        assert space.int_w(api.PySequence_Fast_GET_ITEM(w_l, 1)) == 2
-        assert api.PySequence_Fast_GET_SIZE(w_l) == 4
+        assert space.int_w(api._PySequence_Fast_GET_ITEM(w_l, 1)) == 2
+        assert api._PySequence_Fast_GET_SIZE(w_l) == 4
 
         w_set = space.wrap(set((1, 2, 3, 4)))
         w_seq = api.PySequence_Fast(w_set, "message")
@@ -130,7 +130,7 @@ class TestSequence(BaseApiTest):
         result = api.PySequence_GetItem(w_l, 4)
         assert space.is_true(space.eq(result, space.wrap(4)))
 
-        result = api.PySequence_ITEM(w_l, 4)
+        result = api._PySequence_ITEM(w_l, 4)
         assert space.is_true(space.eq(result, space.wrap(4)))
 
         self.raises(space, api, IndexError, api.PySequence_GetItem, w_l, 9000)
@@ -155,6 +155,28 @@ class TestSequence(BaseApiTest):
         result = api.PySequence_Index(w_gen, w_tofind)
         assert result == 4
 
+class AppTestSetObject(AppTestCpythonExtensionBase):
+    def test_sequence_macro_cast(self):
+        module = self.import_extension('foo', [
+            ("test_macro_cast", "METH_NOARGS",
+             """
+             PyObject* o = PyList_New(0);
+             PyList_Append(o, o);
+             PyListObject* l = (PyListObject*)o;
+
+             PySequence_Fast_GET_ITEM(o, 0);
+             PySequence_Fast_GET_ITEM(l, 0);
+
+             PySequence_Fast_GET_SIZE(o);
+             PySequence_Fast_GET_SIZE(l);
+
+             PySequence_ITEM(o, 0);
+             PySequence_ITEM(l, 0);
+
+             return o;
+             """
+            )
+        ])
 class TestCPyListStrategy(BaseApiTest):
     def test_getitem_setitem(self, space, api):
         w_l = space.wrap([1, 2, 3, 4])
