@@ -802,8 +802,6 @@ def raw_unicode_escape_decode(space, w_string, errors="strict", w_final=None):
 
 @unwrap_spec(errors='str_or_None')
 def unicode_internal_decode(space, w_string, errors="strict"):
-    space.warn(space.wrap("unicode_internal codec has been deprecated"),
-               space.w_DeprecationWarning)
     if errors is None:
         errors = 'strict'
     # special case for this codec: unicodes are returned as is
@@ -811,6 +809,8 @@ def unicode_internal_decode(space, w_string, errors="strict"):
         return space.newtuple([w_string, space.len(w_string)])
 
     string = space.readbuf_w(w_string).as_str()
+    space.warn(space.wrap("unicode_internal codec has been deprecated"),
+               space.w_DeprecationWarning)
 
     if len(string) == 0:
         return space.newtuple([space.wrap(u''), space.wrap(0)])
