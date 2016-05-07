@@ -850,8 +850,7 @@ class AppTestCompiler:
         assert getattr(T, '\u03bc') == 2
         assert getattr(T, '\u87d2') == 3
         #assert getattr(T, 'x\U000E0100') == 4
-        expected = ("['__dict__', '__doc__', '__module__', "
-                    "'__qualname__', '__weakref__', "
+        expected = ("['__dict__', '__doc__', '__module__', '__weakref__', "
         #            "x󠄀", "'ä', 'μ', '蟒']")
                     "'ä', 'μ', '蟒']")
         assert expected in str(sorted(T.__dict__.keys()))
