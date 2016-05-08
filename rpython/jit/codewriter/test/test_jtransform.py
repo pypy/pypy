@@ -272,8 +272,9 @@ def test_symmetric_int_add_ovf():
     v3 = varoftype(lltype.Signed)
     for v1 in [varoftype(lltype.Signed), const(42)]:
         for v2 in [varoftype(lltype.Signed), const(43)]:
-            op = SpaceOperation('int_add_nonneg_ovf', [v1, v2], v3)
-            oplist = Transformer(FakeCPU()).rewrite_operation(op)
+            op = SpaceOperation('foobar', [v1, v2], v3)
+            oplist = Transformer(FakeCPU())._handle_int_ovf(op, 'int.add_ovf',
+                                                            [v1, v2])
             op1, op0 = oplist
             assert op0.opname == 'int_add_ovf'
             if isinstance(v1, Constant) and isinstance(v2, Variable):
