@@ -806,7 +806,6 @@ def getitem_array_int(space, arr, res, iter_shape, indexes_w, prefix_w):
     indexlen = len(indexes_w)
     dtype = arr.get_dtype()
     iter = PureShapeIter(iter_shape, indexes_w)
-    indexlen = len(indexes_w)
     while not iter.done():
         getitem_int_driver.jit_merge_point(shapelen=shapelen, indexlen=indexlen,
                                            dtype=dtype, prefixlen=prefixlen)
