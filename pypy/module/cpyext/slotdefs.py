@@ -378,7 +378,12 @@ def build_slot_tp_function(space, typedef, name):
     # unary functions
     for tp_name, attr in [('tp_as_number.c_nb_int', '__int__'),
                           ('tp_as_number.c_nb_float', '__float__'),
+                          ('tp_as_number.c_nb_negative', '__neg__'),
+                          ('tp_as_number.c_nb_positive', '__pos__'),
+                          ('tp_as_number.c_nb_absolute', '__abs__'),
+                          ('tp_as_number.c_nb_invert', '__invert__'),
                           ('tp_str', '__str__'),
+                          ('tp_repr', '__repr__'),
                           ('tp_iter', '__iter__'),
                           ('tp_iternext', 'next'),
                           ]:
@@ -391,6 +396,41 @@ def build_slot_tp_function(space, typedef, name):
             @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
             def slot_func(space, w_self):
                 return space.call_function(slot_fn, w_self)
+            api_func = slot_func.api_func
+            handled = True
+
+    # binary functions
+    for tp_name, attr in [('tp_as_number.c_nb_add', '__add__'),
+                          ('tp_as_number.c_nb_subtract', '__subtract__'),
+                          ('tp_as_number.c_nb_multiply', '__mul__'),
+                          ('tp_as_number.c_nb_divide', '__div__'),
+                          ('tp_as_number.c_nb_remainder', '__mod__'),
+                          ('tp_as_number.c_nb_divmod', '__divmod__'),
+                          ]:
+        if name == tp_name:
+            slot_fn = w_type.getdictvalue(space, attr)
+            if slot_fn is None:
+                return
+
+            @cpython_api([PyObject, PyObject], PyObject, header=header)
+            @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
+            def slot_func(space, w_self, w_arg):
+                return space.call_function(slot_fn, w_self, w_arg)
+            api_func = slot_func.api_func
+            handled = True
+
+    # ternary functions
+    for tp_name, attr in [('tp_as_number.c_nb_power', ''),
+                          ]:
+        if name == tp_name:
+            slot_fn = w_type.getdictvalue(space, attr)
+            if slot_fn is None:
+                return
+
+            @cpython_api([PyObject, PyObject, PyObject], PyObject, header=header)
+            @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
+            def slot_func(space, w_self, w_arg1, w_arg2):
+                return space.call_function(slot_fn, w_self, w_arg1, w_arg2)
             api_func = slot_func.api_func
             handled = True
 
@@ -463,7 +503,6 @@ def build_slot_tp_function(space, typedef, name):
             return space.call_args(space.get(new_fn, w_self), args)
         api_func = slot_tp_new.api_func
     else:
-        print 'unhandled slot',name,'for',w_type
         return
 
     return lambda: llhelper(api_func.functype, api_func.get_wrapper(space))
