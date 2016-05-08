@@ -61,6 +61,9 @@ class NewAxisChunk(Chunk):
     input_dim = 0
     out_dim = 1
 
+    def __init__(self):
+        pass
+
     def compute(self, space, base_length, base_stride):
         return 0, 1, 0, 0
 
