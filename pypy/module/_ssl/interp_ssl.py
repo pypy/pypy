@@ -1785,8 +1785,9 @@ SSLContext.typedef = TypeDef(
                                SSLContext.descr_set_verify_mode),
     verify_flags=GetSetProperty(SSLContext.descr_get_verify_flags,
                                 SSLContext.descr_set_verify_flags),
-    check_hostname=GetSetProperty(SSLContext.descr_get_check_hostname,
-                                  SSLContext.descr_set_check_hostname),
+    # XXX: For use by 3.4 ssl.py only
+    #check_hostname=GetSetProperty(SSLContext.descr_get_check_hostname,
+    #                              SSLContext.descr_set_check_hostname),
 )
 
 
