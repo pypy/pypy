@@ -1173,7 +1173,6 @@ class BasicTests:
 
     def test_div_overflow(self):
         import sys
-        from rpython.rtyper.lltypesystem.lloperation import llop
         myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'res'])
         def f(x, y):
             res = 0
@@ -1181,15 +1180,13 @@ class BasicTests:
                 myjitdriver.can_enter_jit(x=x, y=y, res=res)
                 myjitdriver.jit_merge_point(x=x, y=y, res=res)
                 try:
-                    res += llop.int_floordiv_ovf(lltype.Signed,
-                                                 -sys.maxint-1, x)
+                    res += ovfcheck((-sys.maxint-1) // x)
                     x += 5
                 except OverflowError:
                     res += 100
                 y -= 1
             return res
-        res = self.meta_interp(f, [-41, 16])
-        assert res == ((-sys.maxint-1) // (-41) +
+        expected =    ((-sys.maxint-1) // (-41) +
                        (-sys.maxint-1) // (-36) +
                        (-sys.maxint-1) // (-31) +
                        (-sys.maxint-1) // (-26) +
@@ -1198,10 +1195,12 @@ class BasicTests:
                        (-sys.maxint-1) // (-11) +
                        (-sys.maxint-1) // (-6) +
                        100 * 8)
+        assert f(-41, 16) == expected
+        res = self.meta_interp(f, [-41, 16])
+        assert res == expected
 
     def test_overflow_fold_if_divisor_constant(self):
         import sys
-        from rpython.rtyper.lltypesystem.lloperation import llop
         myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'res'])
         def f(x, y):
             res = 0
@@ -1209,10 +1208,8 @@ class BasicTests:
                 myjitdriver.can_enter_jit(x=x, y=y, res=res)
                 myjitdriver.jit_merge_point(x=x, y=y, res=res)
                 try:
-                    res += llop.int_floordiv_ovf(lltype.Signed,
-                                                 x, 2)
-                    res += llop.int_mod_ovf(lltype.Signed,
-                                                 x, 2)
+                    res += ovfcheck(x // 2)
+                    res += ovfcheck(x % 2)
                     x += 5
                 except OverflowError:
                     res += 100
@@ -1312,7 +1309,6 @@ class BasicTests:
 
     def test_free_object(self):
         import weakref
-        from rpython.rtyper.lltypesystem.lloperation import llop
         myjitdriver = JitDriver(greens = [], reds = ['n', 'x'])
         class X(object):
             pass
@@ -3824,7 +3820,6 @@ class BaseLLtypeTests(BasicTests):
         self.check_operations_history(guard_class=0, record_exact_class=1)
 
     def test_give_class_knowledge_to_tracer_explicitly(self):
-        from rpython.rtyper.lltypesystem.lloperation import llop
         class Base(object):
             def f(self):
                 raise NotImplementedError
