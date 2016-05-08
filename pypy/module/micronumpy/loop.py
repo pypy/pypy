@@ -199,7 +199,7 @@ call_many_to_many_driver = jit.JitDriver(
     reds='auto')
 
 def call_many_to_many(space, shape, func, in_dtypes, out_dtypes, in_args, out_args):
-    # out must hav been built. func needs no calc_type, is usually an
+    # out must have been built. func needs no calc_type, is usually an
     # external ufunc
     nin = len(in_args)
     in_iters = [None] * nin
@@ -806,7 +806,6 @@ def getitem_array_int(space, arr, res, iter_shape, indexes_w, prefix_w):
     indexlen = len(indexes_w)
     dtype = arr.get_dtype()
     iter = PureShapeIter(iter_shape, indexes_w)
-    indexlen = len(indexes_w)
     while not iter.done():
         getitem_int_driver.jit_merge_point(shapelen=shapelen, indexlen=indexlen,
                                            dtype=dtype, prefixlen=prefixlen)
