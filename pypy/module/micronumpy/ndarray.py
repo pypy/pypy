@@ -231,11 +231,11 @@ class __extend__(W_NDimArray):
                     dim = i
                     idx = c.w_idx
                     chunks.pop(i)
-                    chunks.insert(0, SliceChunk(space.newslice(space.wrap(0), 
+                    chunks.insert(0, SliceChunk(space.newslice(space.wrap(0),
                                  space.w_None, space.w_None)))
                     break
             if dim > 0:
-                view = self.implementation.swapaxes(space, self, 0, dim) 
+                view = self.implementation.swapaxes(space, self, 0, dim)
             if dim >= 0:
                 view = new_view(space, self, chunks)
                 view.setitem_filter(space, idx, val_arr)
@@ -563,7 +563,7 @@ class __extend__(W_NDimArray):
         l_w = []
         for i in range(self.get_shape()[0]):
             item_w = self.descr_getitem(space, space.wrap(i))
-            if (isinstance(item_w, W_NDimArray) or 
+            if (isinstance(item_w, W_NDimArray) or
                     isinstance(item_w, boxes.W_GenericBox)):
                 l_w.append(space.call_method(item_w, "tolist"))
             else:
@@ -740,7 +740,7 @@ class __extend__(W_NDimArray):
                         space.str_w(self.get_dtype().descr_repr(space)),
                         space.str_w(new_dtype.descr_repr(space)), casting)
         order  = order_converter(space, space.wrap(order), self.get_order())
-        if (not copy and new_dtype == self.get_dtype() 
+        if (not copy and new_dtype == self.get_dtype()
                 and (order in (NPY.KEEPORDER, NPY.ANYORDER) or order == self.get_order())
                 and (subok or type(self) is W_NDimArray)):
             return self
