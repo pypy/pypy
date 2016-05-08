@@ -258,7 +258,6 @@ class BaseConcreteArray(object):
         elif space.is_w(w_idx, space.w_None):
             return [NewAxisChunk(), EllipsisChunk()]
         result = []
-        i = 0
         has_ellipsis = False
         has_filter = False
         for w_item in space.fixedview(w_idx):
@@ -274,7 +273,6 @@ class BaseConcreteArray(object):
                 result.append(NewAxisChunk())
             elif space.isinstance_w(w_item, space.w_slice):
                 result.append(SliceChunk(w_item))
-                i += 1
             elif isinstance(w_item, W_NDimArray) and w_item.get_dtype().is_bool():
                 if has_filter:
                     # in CNumPy, the support for this is incomplete
@@ -287,7 +285,6 @@ class BaseConcreteArray(object):
                 result.append(IntegerChunk(w_item.descr_int(space)))
             else:
                 result.append(IntegerChunk(w_item))
-                i += 1
         if not has_ellipsis:
             result.append(EllipsisChunk())
         return result
