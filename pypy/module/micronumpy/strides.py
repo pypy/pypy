@@ -8,7 +8,6 @@ from pypy.module.micronumpy.base import W_NDimArray
 
 class BaseChunk(object):
     _attrs_ = ['step','out_dim']
-    pass
 
 
 class Chunk(BaseChunk):
