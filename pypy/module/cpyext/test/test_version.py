@@ -1,4 +1,6 @@
-import py
+import sys
+
+import py, pytest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 
 
