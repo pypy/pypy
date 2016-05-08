@@ -482,6 +482,22 @@ def build_slot_tp_function(space, typedef, name):
             return space.call_args(call_fn, args)
         api_func = slot_tp_call.api_func
 
+    elif name == 'tp_iternext':
+        iternext_fn = w_type.getdictvalue(space, 'next')
+        if iternext_fn is None:
+            return
+
+        @cpython_api([PyObject], PyObject, header=header)
+        @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
+        def slot_tp_iternext(space, w_self):
+            try:
+                return space.call_function(iternext_fn, w_self)
+            except OperationError as e:
+                if not e.match(space, space.w_StopIteration):
+                    raise
+                return None
+        api_func = slot_tp_iternext.api_func
+
     elif name == 'tp_init':
         init_fn = w_type.getdictvalue(space, '__init__')
         if init_fn is None:
