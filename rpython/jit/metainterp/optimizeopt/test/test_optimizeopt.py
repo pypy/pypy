@@ -5546,7 +5546,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         expected = """
         [i4, i5]
         escape_n(-1)
-        jump(i4, i5)
+        jump(i4, -1)
         """
         self.optimize_loop(ops, expected)
 
