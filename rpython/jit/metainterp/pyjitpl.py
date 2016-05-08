@@ -201,7 +201,7 @@ class MIFrame(object):
 
     # ------------------------------
 
-    for _opimpl in ['int_add', 'int_sub', 'int_mul', 'int_floordiv', 'int_mod',
+    for _opimpl in ['int_add', 'int_sub', 'int_mul', 'int_py_div', 'int_py_mod',
                     'int_and', 'int_or', 'int_xor', 'int_signext',
                     'int_rshift', 'int_lshift', 'uint_rshift',
                     'uint_lt', 'uint_le', 'uint_gt', 'uint_ge',

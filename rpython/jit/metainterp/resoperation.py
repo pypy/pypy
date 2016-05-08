@@ -955,9 +955,11 @@ _oplist = [
     'INT_ADD/2/i',
     'INT_SUB/2/i',
     'INT_MUL/2/i',
-    'INT_FLOORDIV/2/i',
+    'INT_C_DIV/2/i',      # C-style handling of negatives (backend only)
+    'INT_PY_DIV/2/i',     # Python-style handling of negatives (frontend)
     'UINT_FLOORDIV/2/i',
-    'INT_MOD/2/i',
+    'INT_C_MOD/2/i',      # C-style handling of negatives (backend only)
+    'INT_PY_MOD/2/i',     # Python-style handling of negatives (frontend)
     'INT_AND/2/i',
     'INT_OR/2/i',
     'INT_XOR/2/i',

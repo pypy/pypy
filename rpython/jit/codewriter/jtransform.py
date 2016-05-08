@@ -1903,12 +1903,15 @@ class Transformer(object):
         self.callcontrol.callinfocollection.add(oopspecindex, calldescr, func)
 
     def _handle_int_ovf(self, op, oopspec_name, args):
-        assert oopspec_name in ('int.add_ovf', 'int.sub_ovf', 'int.mul_ovf')
+        assert oopspec_name in ('int.add_ovf', 'int.sub_ovf', 'int.mul_ovf',
+                                'int.py_div', 'int.py_mod')
         op0 = SpaceOperation(oopspec_name.replace('.', '_'), args, op.result)
-        if oopspec_name != 'int.sub_ovf':
+        if oopspec_name in ('int.add_ovf', 'int.mul_ovf'):
             op0 = self._rewrite_symmetric(op0)
-        oplive = SpaceOperation('-live-', [], None)
-        return [oplive, op0]
+        oplist = [op0]
+        if oopspec_name.endswith('_ovf'):
+            oplist.insert(0, SpaceOperation('-live-', [], None))
+        return oplist
 
     def _handle_stroruni_call(self, op, oopspec_name, args):
         SoU = args[0].concretetype     # Ptr(STR) or Ptr(UNICODE)

@@ -601,7 +601,7 @@ class BasicTests:
         policy = StopAtXPolicy(externfn)
         res = self.meta_interp(f, [31], policy=policy)
         assert res == 42
-        self.check_resops(int_mul=2, int_mod=0)
+        self.check_resops(int_mul=2, int_py_mod=0, int_c_mod=0)
 
     def test_we_are_jitted(self):
         myjitdriver = JitDriver(greens = [], reds = ['y'])

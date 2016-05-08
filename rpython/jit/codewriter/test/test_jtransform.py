@@ -268,15 +268,16 @@ def test_symmetric():
                     assert op1.result == v3
                     assert op1.opname == name2[0]
 
-def test_symmetric_int_add_ovf():
+@py.test.mark.parametrize('opname', ['add_ovf', 'mul_ovf'])
+def test_symmetric_op_ovf(opname):
     v3 = varoftype(lltype.Signed)
     for v1 in [varoftype(lltype.Signed), const(42)]:
         for v2 in [varoftype(lltype.Signed), const(43)]:
             op = SpaceOperation('foobar', [v1, v2], v3)
-            oplist = Transformer(FakeCPU())._handle_int_ovf(op, 'int.add_ovf',
+            oplist = Transformer(FakeCPU())._handle_int_ovf(op, 'int.'+opname,
                                                             [v1, v2])
             op1, op0 = oplist
-            assert op0.opname == 'int_add_ovf'
+            assert op0.opname == 'int_'+opname
             if isinstance(v1, Constant) and isinstance(v2, Variable):
                 assert op0.args == [v2, v1]
                 assert op0.result == v3
@@ -286,6 +287,35 @@ def test_symmetric_int_add_ovf():
             assert op1.opname == '-live-'
             assert op1.args == []
             assert op1.result is None
+
+@py.test.mark.parametrize('opname', ['sub_ovf'])
+def test_asymmetric_op_ovf(opname):
+    v3 = varoftype(lltype.Signed)
+    for v1 in [varoftype(lltype.Signed), const(42)]:
+        for v2 in [varoftype(lltype.Signed), const(43)]:
+            op = SpaceOperation('foobar', [v1, v2], v3)
+            oplist = Transformer(FakeCPU())._handle_int_ovf(op, 'int.'+opname,
+                                                            [v1, v2])
+            op1, op0 = oplist
+            assert op0.opname == 'int_'+opname
+            assert op0.args == [v1, v2]
+            assert op0.result == v3
+            assert op1.opname == '-live-'
+            assert op1.args == []
+            assert op1.result is None
+
+@py.test.mark.parametrize('opname', ['py_div', 'py_mod'])
+def test_asymmetric_op_nonovf(opname):
+    v3 = varoftype(lltype.Signed)
+    for v1 in [varoftype(lltype.Signed), const(42)]:
+        for v2 in [varoftype(lltype.Signed), const(43)]:
+            op = SpaceOperation('foobar', [v1, v2], v3)
+            oplist = Transformer(FakeCPU())._handle_int_ovf(op, 'int.'+opname,
+                                                            [v1, v2])
+            [op0] = oplist
+            assert op0.opname == 'int_'+opname
+            assert op0.args == [v1, v2]
+            assert op0.result == v3
 
 def test_calls():
     for RESTYPE, with_void, with_i, with_r, with_f in product(

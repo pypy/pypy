@@ -598,15 +598,15 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         assert l2 is resultreg
         self.rm.possibly_free_var(tmpvar)
 
-    def consider_int_mod(self, op):
+    def consider_int_c_mod(self, op):
         self._consider_int_div_or_mod(op, edx, eax)
         self.perform(op, [eax, ecx], edx)
 
-    def consider_int_floordiv(self, op):
+    def consider_int_c_div(self, op):
         self._consider_int_div_or_mod(op, eax, edx)
         self.perform(op, [eax, ecx], eax)
 
-    consider_uint_floordiv = consider_int_floordiv
+    consider_uint_floordiv = consider_int_c_div
 
     def _consider_compop(self, op):
         vx = op.getarg(0)

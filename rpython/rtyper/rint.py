@@ -382,6 +382,7 @@ INT_MIN = int(-(1 << INT_BITS_1))
 
 # ---------- floordiv ----------
 
+@jit.oopspec("int.py_div(x, y)")
 def ll_int_floordiv(x, y):
     # Python, and RPython, assume that integer division truncates
     # towards -infinity.  However, in C, integer division truncates
@@ -447,6 +448,7 @@ def ll_lllong_floordiv_zer(x, y):
 
 # ---------- mod ----------
 
+@jit.oopspec("int.py_mod(x, y)")
 def ll_int_mod(x, y):
     r = llop.int_mod(Signed, x, y)                 # <= truncates like in C
     if y < 0: u = -r

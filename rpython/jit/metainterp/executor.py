@@ -409,6 +409,8 @@ def _make_execute_list():
                          rop.GC_STORE,
                          rop.GC_STORE_INDEXED,
                          rop.LOAD_FROM_GC_TABLE,
+                         rop.INT_C_DIV,
+                         rop.INT_C_MOD,
                          ):      # list of opcodes never executed by pyjitpl
                 continue
             if rop._VEC_PURE_FIRST <= value <= rop._VEC_PURE_LAST:
