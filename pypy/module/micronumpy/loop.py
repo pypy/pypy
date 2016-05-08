@@ -199,7 +199,7 @@ call_many_to_many_driver = jit.JitDriver(
     reds='auto')
 
 def call_many_to_many(space, shape, func, in_dtypes, out_dtypes, in_args, out_args):
-    # out must hav been built. func needs no calc_type, is usually an
+    # out must have been built. func needs no calc_type, is usually an
     # external ufunc
     nin = len(in_args)
     in_iters = [None] * nin
