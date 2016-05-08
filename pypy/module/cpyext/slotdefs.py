@@ -377,15 +377,16 @@ def build_slot_tp_function(space, typedef, name):
     handled = False
     # unary functions
     for tp_name, attr in [('tp_as_number.c_nb_int', '__int__'),
+                          ('tp_as_number.c_nb_long', '__long__'),
                           ('tp_as_number.c_nb_float', '__float__'),
                           ('tp_as_number.c_nb_negative', '__neg__'),
                           ('tp_as_number.c_nb_positive', '__pos__'),
                           ('tp_as_number.c_nb_absolute', '__abs__'),
                           ('tp_as_number.c_nb_invert', '__invert__'),
+                          ('tp_as_number.c_nb_index', '__index__'),
                           ('tp_str', '__str__'),
                           ('tp_repr', '__repr__'),
                           ('tp_iter', '__iter__'),
-                          ('tp_iternext', 'next'),
                           ]:
         if name == tp_name:
             slot_fn = w_type.getdictvalue(space, attr)
@@ -406,6 +407,11 @@ def build_slot_tp_function(space, typedef, name):
                           ('tp_as_number.c_nb_divide', '__div__'),
                           ('tp_as_number.c_nb_remainder', '__mod__'),
                           ('tp_as_number.c_nb_divmod', '__divmod__'),
+                          ('tp_as_number.c_nb_lshift', '__lshift__'),
+                          ('tp_as_number.c_nb_rshift', '__rshift__'),
+                          ('tp_as_number.c_nb_and', '__and__'),
+                          ('tp_as_number.c_nb_xor', '__xor__'),
+                          ('tp_as_number.c_nb_or', '__or__'),
                           ]:
         if name == tp_name:
             slot_fn = w_type.getdictvalue(space, attr)
@@ -503,6 +509,7 @@ def build_slot_tp_function(space, typedef, name):
             return space.call_args(space.get(new_fn, w_self), args)
         api_func = slot_tp_new.api_func
     else:
+        # missing: tp_as_number.nb_nonzero, tp_as_number.nb_coerce
         return
 
     return lambda: llhelper(api_func.functype, api_func.get_wrapper(space))
