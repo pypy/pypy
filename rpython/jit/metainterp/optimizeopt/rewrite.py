@@ -678,21 +678,23 @@ class OptRewrite(Optimization):
     def optimize_GUARD_FUTURE_CONDITION(self, op):
         self.optimizer.notice_guard_future_condition(op)
 
-    def optimize_INT_FLOORDIV(self, op):
+    def optimize_INT_PY_DIV(self, op):
         arg0 = op.getarg(0)
         b1 = self.getintbound(arg0)
         arg1 = op.getarg(1)
         b2 = self.getintbound(arg1)
 
-        if b2.is_constant() and b2.getint() == 1:
-            self.make_equal_to(op, arg0)
-            return
-        elif b1.is_constant() and b1.getint() == 0:
+        if b1.is_constant() and b1.getint() == 0:
             self.make_constant_int(op, 0)
             return
-        if b1.known_ge(IntBound(0, 0)) and b2.is_constant():
+        # This is Python's integer division: 'x // (2**shift)' can always
+        # be replaced with 'x >> shift', even for negative values of x
+        if b2.is_constant():
             val = b2.getint()
-            if val & (val - 1) == 0 and val > 0: # val == 2**shift
+            if val == 1:
+                self.make_equal_to(op, arg0)
+                return
+            elif val > 0 and val & (val - 1) == 0:   # val == 2**shift
                 op = self.replace_op_with(op, rop.INT_RSHIFT,
                             args = [op.getarg(0), ConstInt(highest_bit(val))])
         self.emit_operation(op)

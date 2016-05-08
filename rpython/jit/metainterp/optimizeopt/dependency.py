@@ -930,7 +930,7 @@ class IntegralForwardModification(object):
     exec py.code.Source(multiplicative_func_source
             .format(name='INT_MUL', op='*', tgt='mul', cop='*')).compile()
     exec py.code.Source(multiplicative_func_source
-            .format(name='INT_FLOORDIV', op='*', tgt='div', cop='/')).compile()
+            .format(name='INT_PY_DIV', op='*', tgt='div', cop='/')).compile()
     exec py.code.Source(multiplicative_func_source
             .format(name='UINT_FLOORDIV', op='*', tgt='div', cop='/')).compile()
     del multiplicative_func_source

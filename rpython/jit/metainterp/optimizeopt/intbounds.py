@@ -172,22 +172,21 @@ class OptIntBounds(Optimization):
         if b.bounded():
             r.intersect(b)
 
-    def optimize_INT_FLOORDIV(self, op):
+    def optimize_INT_PY_DIV(self, op):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
         self.emit_operation(op)
         r = self.getintbound(op)
-        r.intersect(b1.div_bound(b2))
+        r.intersect(b1.py_div_bound(b2))
 
-    def optimize_INT_MOD(self, op):
+    def optimize_INT_PY_MOD(self, op):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
-        known_nonneg = (b1.known_ge(IntBound(0, 0)) and
-                        b2.known_ge(IntBound(0, 0)))
-        if known_nonneg and b2.is_constant():
+        if b2.is_constant():
             val = b2.getint()
-            if (val & (val-1)) == 0:
-                # nonneg % power-of-two ==> nonneg & (power-of-two - 1)
+            if val > 0 and (val & (val-1)) == 0:
+                # x % power-of-two ==> x & (power-of-two - 1)
+                # with Python's modulo, this is valid even if 'x' is negative.
                 arg1 = op.getarg(0)
                 arg2 = ConstInt(val-1)
                 op = self.replace_op_with(op, rop.INT_AND,
@@ -196,15 +195,12 @@ class OptIntBounds(Optimization):
         if b2.is_constant():
             val = b2.getint()
             r = self.getintbound(op)
-            if val < 0:
-                if val == -sys.maxint-1:
-                    return     # give up
-                val = -val
-            if known_nonneg:
+            if val >= 0:        # with Python's modulo:  0 <= (x % pos) < pos
                 r.make_ge(IntBound(0, 0))
-            else:
-                r.make_gt(IntBound(-val, -val))
-            r.make_lt(IntBound(val, val))
+                r.make_lt(IntBound(val, val))
+            else:               # with Python's modulo:  neg < (x % neg) <= 0
+                r.make_gt(IntBound(val, val))
+                r.make_le(IntBound(0, 0))
 
     def optimize_INT_LSHIFT(self, op):
         arg0 = self.get_box_replacement(op.getarg(0))
@@ -613,10 +609,10 @@ class OptIntBounds(Optimization):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
         r = self.getintbound(op)
-        b = r.div_bound(b2)
+        b = r.py_div_bound(b2)
         if b1.intersect(b):
             self.propagate_bounds_backward(op.getarg(0))
-        b = r.div_bound(b1)
+        b = r.py_div_bound(b1)
         if b2.intersect(b):
             self.propagate_bounds_backward(op.getarg(1))
 
