@@ -927,13 +927,16 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             ("fetchFooType", "METH_VARARGS",
              """
                 PyObject *o;
+                Foo_Type.tp_basicsize = sizeof(FooObject);
                 Foo_Type.tp_dealloc = &dealloc_foo;
-                Foo_Type.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE;
+                Foo_Type.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_CHECKTYPES
+                                    | Py_TPFLAGS_BASETYPE;
                 Foo_Type.tp_new = &new_foo;
                 Foo_Type.tp_free = &PyObject_Del;
                 if (PyType_Ready(&Foo_Type) < 0) return NULL;
 
                 o = PyObject_New(PyObject, &Foo_Type);
+                init_foo(o);
                 Py_DECREF(o);   /* calls dealloc_foo immediately */
 
                 Py_INCREF(&Foo_Type);
@@ -944,14 +947,34 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 return PyInt_FromLong(foo_counter);
              """)], prologue=
             """
+            typedef struct {
+                PyObject_HEAD
+                int someval[99];
+            } FooObject;
             static int foo_counter = 1000;
             static void dealloc_foo(PyObject *foo) {
+                int i;
                 foo_counter += 10;
+                for (i = 0; i < 99; i++)
+                    if (((FooObject *)foo)->someval[i] != 1000 + i)
+                        foo_counter += 100000;   /* error! */
+                Py_TYPE(foo)->tp_free(foo);
+            }
+            static void init_foo(PyObject *o)
+            {
+                int i;
+                if (o->ob_type->tp_basicsize < sizeof(FooObject))
+                    abort();
+                for (i = 0; i < 99; i++)
+                    ((FooObject *)o)->someval[i] = 1000 + i;
             }
             static PyObject *new_foo(PyTypeObject *t, PyObject *a, PyObject *k)
             {
+                PyObject *o;
                 foo_counter += 1000;
-                return t->tp_alloc(t, 0);
+                o = t->tp_alloc(t, 0);
+                init_foo(o);
+                return o;
             }
             static PyTypeObject Foo_Type = {
                 PyVarObject_HEAD_INIT(NULL, 0)
