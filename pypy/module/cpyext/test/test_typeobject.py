@@ -921,3 +921,57 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                           '    multiple bases have instance lay-out conflict')
         else:
             raise AssertionError("did not get TypeError!")
+
+    def test_call_tp_dealloc_when_created_from_python(self):
+        import gc
+        module = self.import_extension('foo', [
+            ("fetchFooType", "METH_VARARGS",
+             """
+                PyObject *o;
+                Foo_Type.tp_dealloc = &dealloc_foo;
+                Foo_Type.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE;
+                Foo_Type.tp_new = &new_foo;
+                Foo_Type.tp_free = &PyObject_Del;
+                if (PyType_Ready(&Foo_Type) < 0) return NULL;
+
+                o = PyObject_New(PyObject, &Foo_Type);
+                Py_DECREF(o);   /* calls dealloc_foo immediately */
+
+                Py_INCREF(&Foo_Type);
+                return (PyObject *)&Foo_Type;
+             """),
+            ("getCounter", "METH_VARARGS",
+             """
+                return PyInt_FromLong(foo_dealloc_counter);
+             """)], prologue=
+            """
+            static int foo_dealloc_counter = -1;
+            static void dealloc_foo(PyObject *foo) {
+                foo_dealloc_counter++;
+            }
+            static PyObject *new_foo(PyTypeObject *t, PyObject *a, PyObject *k)
+            {
+                return t->tp_alloc(t, 0);
+            }
+            static PyTypeObject Foo_Type = {
+                PyVarObject_HEAD_INIT(NULL, 0)
+                "foo.foo",
+            };
+            """)
+        Foo = module.fetchFooType()
+        assert module.getCounter() == 0
+        Foo(); Foo()
+        for i in range(10):
+            if module.getCounter() >= 2:
+                break
+            gc.collect()
+        assert module.getCounter() == 2
+        #
+        class Bar(Foo):
+            pass
+        Bar(); Bar()
+        for i in range(10):
+            if module.getCounter() >= 4:
+                break
+            gc.collect()
+        assert module.getCounter() == 4
