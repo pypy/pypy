@@ -40,3 +40,25 @@ class AppTestCComplex(AppTestCpythonExtensionBase):
                  return PyComplex_FromCComplex(c);
              """)])
         assert module.test() == 1.2 + 3.4j
+
+    def test_PyComplex_to_WComplex(self):
+        module = self.import_extension('foo', [
+            ("test", "METH_NOARGS",
+             """
+                 Py_complex c = {1.2, 3.4};
+                 PyObject *obj = PyObject_Malloc(sizeof(PyComplexObject));
+                 obj = PyObject_Init(obj, &PyComplex_Type);
+                 assert(obj != NULL);
+                 ((PyComplexObject *)obj)->cval = c;
+                 return obj;
+             """)])
+        assert module.test() == 1.2 + 3.4j
+
+    def test_WComplex_to_PyComplex(self):
+        module = self.import_extension('foo', [
+            ("test", "METH_O",
+             """
+                 Py_complex c = ((PyComplexObject *)args)->cval;
+                 return Py_BuildValue("dd", c.real, c.imag);
+             """)])
+        assert module.test(1.2 + 3.4j) == (1.2, 3.4)

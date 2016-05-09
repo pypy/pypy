@@ -367,8 +367,8 @@ class W_Ufunc(W_Root):
         return self._outer(space, __args__)
 
     def _outer(self, space, __args__):
-        raise OperationError(space.w_ValueError, space.wrap(
-            "outer product only supported for binary functions"))
+        raise oefmt(space.w_ValueError,
+                    "outer product only supported for binary functions")
 
     def parse_kwargs(self, space, kwds_w):
         w_casting = kwds_w.pop('casting', None)
@@ -1521,7 +1521,7 @@ def frompyfunc(space, w_func, nin, nout, w_dtypes=None, signature='',
 # Instantiated in cpyext/ndarrayobject. It is here since ufunc calls
 # set_dims_and_steps, otherwise ufunc, ndarrayobject would have circular
 # imports
-npy_intpp = rffi.LONGP
+npy_intpp = rffi.INTPTR_T
 LONG_SIZE = LONG_BIT / 8
 CCHARP_SIZE = _get_bitsize('P') / 8
 

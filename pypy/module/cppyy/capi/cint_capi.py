@@ -173,7 +173,7 @@ def tf1_tf1(space, w_self, args_w):
         # by definition for __init__
         return None
 
-    except (OperationError, TypeError, IndexError), e:
+    except (OperationError, TypeError, IndexError) as e:
         newargs_w = args_w[1:]     # drop class
 
     # return control back to the original, unpythonized overload

@@ -141,9 +141,13 @@ def test_float_types():
     INF = 1E200 * 1E200
     for name in ["float", "double"]:
         p = new_primitive_type(name)
-        assert bool(cast(p, 0))
+        assert bool(cast(p, 0)) is False      # since 1.7
+        assert bool(cast(p, -0.0)) is False   # since 1.7
+        assert bool(cast(p, 1e-42)) is True
+        assert bool(cast(p, -1e-42)) is True
         assert bool(cast(p, INF))
         assert bool(cast(p, -INF))
+        assert bool(cast(p, float("nan")))
         assert int(cast(p, -150)) == -150
         assert int(cast(p, 61.91)) == 61
         assert long(cast(p, 61.91)) == 61
@@ -202,7 +206,8 @@ def test_complex_types():
 
 def test_character_type():
     p = new_primitive_type("char")
-    assert bool(cast(p, '\x00'))
+    assert bool(cast(p, 'A')) is True
+    assert bool(cast(p, '\x00')) is False    # since 1.7
     assert cast(p, '\x00') != cast(p, -17*256)
     assert int(cast(p, 'A')) == 65
     assert long(cast(p, 'A')) == 65
@@ -2558,7 +2563,8 @@ def test_bool():
     BBoolP = new_pointer_type(BBool)
     assert int(cast(BBool, False)) == 0
     assert int(cast(BBool, True)) == 1
-    assert bool(cast(BBool, False)) is True    # warning!
+    assert bool(cast(BBool, False)) is False    # since 1.7
+    assert bool(cast(BBool, True)) is True
     assert int(cast(BBool, 3)) == 1
     assert int(cast(BBool, long(3))) == 1
     assert int(cast(BBool, long(10)**4000)) == 1

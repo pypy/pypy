@@ -1,4 +1,4 @@
-import py
+import py, pytest
 
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
@@ -173,6 +173,9 @@ class TestObject(BaseApiTest):
             api.PyErr_Occurred() is space.w_TypeError)
         api.PyErr_Clear()
 
+    def test_hash_double(self, space, api):
+        assert api._Py_HashDouble(72.0) == 72
+
     def test_type(self, space, api):
         assert api.PyObject_Type(space.wrap(72)) is space.w_int
 
@@ -204,10 +207,53 @@ class TestObject(BaseApiTest):
         assert space.isinstance_w(w_dir, space.w_list)
         assert space.contains_w(w_dir, space.wrap('modules'))
 
+    def test_format(self, space, api):
+        w_int = space.wrap(42)
+        fmt = space.str_w(api.PyObject_Format(w_int, space.wrap('#b')))
+        assert fmt == '0b101010'
+
 class AppTestObject(AppTestCpythonExtensionBase):
     def setup_class(cls):
         AppTestCpythonExtensionBase.setup_class.im_func(cls)
-        cls.w_tmpname = cls.space.wrap(str(py.test.ensuretemp("out", dir=0)))
+        tmpname = str(py.test.ensuretemp('out', dir=0))
+        if cls.runappdirect:
+            cls.tmpname = tmpname
+        else:
+            cls.w_tmpname = cls.space.wrap(tmpname)
+
+    def test_object_malloc(self):
+        module = self.import_extension('foo', [
+            ("malloctest", "METH_NOARGS",
+             """
+                 PyObject *obj = PyObject_MALLOC(sizeof(PyIntObject));
+                 obj = PyObject_Init(obj, &PyInt_Type);
+                 if (obj != NULL)
+                     ((PyIntObject *)obj)->ob_ival = -424344;
+                 return obj;
+             """)])
+        x = module.malloctest()
+        assert type(x) is int
+        assert x == -424344
+
+    @pytest.mark.skipif(True, reason='realloc not fully implemented')
+    def test_object_realloc(self):
+        module = self.import_extension('foo', [
+            ("realloctest", "METH_NOARGS",
+             """
+                 PyObject * ret;
+                 char *copy, *orig = PyObject_MALLOC(12);
+                 memcpy(orig, "hello world", 12);
+                 copy = PyObject_REALLOC(orig, 15);
+                 if (copy == NULL)
+                     Py_RETURN_NONE;
+                 ret = PyString_FromStringAndSize(copy, 12);
+                 if (copy != orig)
+                     PyObject_Free(copy);
+                 PyObject_Free(orig);
+                 return ret;  
+             """)])
+        x = module.realloctest()
+        assert x == 'hello world\x00'
 
     def test_TypeCheck(self):
         module = self.import_extension('foo', [
@@ -390,7 +436,7 @@ class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
     PyBuffer_Release(&buf);
     Py_RETURN_NONE;
                  """)])
-        raises(ValueError, module.fillinfo)
+        raises((BufferError, ValueError), module.fillinfo)
 
 
 class AppTestPyBuffer_Release(AppTestCpythonExtensionBase):

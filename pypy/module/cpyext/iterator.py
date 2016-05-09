@@ -31,7 +31,7 @@ def PyIter_Next(space, w_obj):
     retrieving the item, returns NULL and passes along the exception."""
     try:
         return space.next(w_obj)
-    except OperationError, e:
+    except OperationError as e:
         if not e.match(space, space.w_StopIteration):
             raise
     return None

@@ -417,8 +417,11 @@ def test_open_array_in_struct():
 
 def test_math_sin_type():
     ffi = FFI()
-    ffi.cdef("double sin(double);")
-    lib = verify(ffi, 'test_math_sin_type', '#include <math.h>')
+    ffi.cdef("double sin(double); void *xxtestfunc();")
+    lib = verify(ffi, 'test_math_sin_type', """
+        #include <math.h>
+        void *xxtestfunc(void) { return 0; }
+    """)
     # 'lib.sin' is typed as a <built-in method> object on lib
     assert ffi.typeof(lib.sin).cname == "double(*)(double)"
     # 'x' is another <built-in method> object on lib, made very indirectly
@@ -428,7 +431,16 @@ def test_math_sin_type():
     # present on built-in functions on CPython; must be emulated on PyPy:
     assert lib.sin.__name__ == 'sin'
     assert lib.sin.__module__ == '_CFFI_test_math_sin_type'
-    assert lib.sin.__doc__ == 'direct call to the C function of the same name'
+    assert lib.sin.__doc__ == (
+        "double sin(double);\n"
+        "\n"
+        "CFFI C function from _CFFI_test_math_sin_type.lib")
+
+    assert ffi.typeof(lib.xxtestfunc).cname == "void *(*)()"
+    assert lib.xxtestfunc.__doc__ == (
+        "void *xxtestfunc();\n"
+        "\n"
+        "CFFI C function from _CFFI_test_math_sin_type.lib")
 
 def test_verify_anonymous_struct_with_typedef():
     ffi = FFI()
@@ -1511,7 +1523,9 @@ def test_extern_python_1():
             void boz(void);
         }
     """)
-    lib = verify(ffi, 'test_extern_python_1', "")
+    lib = verify(ffi, 'test_extern_python_1', """
+        static void baz(int, int);   /* forward */
+    """)
     assert ffi.typeof(lib.bar) == ffi.typeof("int(*)(int, int)")
     with FdWriteCapture() as f:
         res = lib.bar(4, 5)
@@ -1745,6 +1759,35 @@ def test_extern_python_stdcall():
     assert lib.mycb1(200) == 242
     assert lib.indirect_call(300) == 342
 
+def test_extern_python_plus_c():
+    ffi = FFI()
+    ffi.cdef("""
+        extern "Python+C" int foo(int);
+        extern "C +\tPython" int bar(int);
+        int call_me(int);
+    """)
+    lib = verify(ffi, 'test_extern_python_plus_c', """
+        int foo(int);
+        #ifdef __GNUC__
+        __attribute__((visibility("hidden")))
+        #endif
+        int bar(int);
+
+        static int call_me(int x) {
+            return foo(x) - bar(x);
+        }
+    """)
+    #
+    @ffi.def_extern()
+    def foo(x):
+        return x * 42
+    @ffi.def_extern()
+    def bar(x):
+        return x * 63
+    assert lib.foo(100) == 4200
+    assert lib.bar(100) == 6300
+    assert lib.call_me(100) == -2100
+
 def test_introspect_function():
     ffi = FFI()
     ffi.cdef("float f1(double);")
@@ -1855,14 +1898,14 @@ def test_introspect_included_type():
 
 def test_introspect_order():
     ffi = FFI()
-    ffi.cdef("union aaa { int a; }; typedef struct ccc { int a; } b;")
-    ffi.cdef("union g   { int a; }; typedef struct cc  { int a; } bbb;")
-    ffi.cdef("union aa  { int a; }; typedef struct a   { int a; } bb;")
+    ffi.cdef("union CFFIaaa { int a; }; typedef struct CFFIccc { int a; } CFFIb;")
+    ffi.cdef("union CFFIg   { int a; }; typedef struct CFFIcc  { int a; } CFFIbbb;")
+    ffi.cdef("union CFFIaa  { int a; }; typedef struct CFFIa   { int a; } CFFIbb;")
     verify(ffi, "test_introspect_order", """
-        union aaa { int a; }; typedef struct ccc { int a; } b;
-        union g   { int a; }; typedef struct cc  { int a; } bbb;
-        union aa  { int a; }; typedef struct a   { int a; } bb;
+        union CFFIaaa { int a; }; typedef struct CFFIccc { int a; } CFFIb;
+        union CFFIg   { int a; }; typedef struct CFFIcc  { int a; } CFFIbbb;
+        union CFFIaa  { int a; }; typedef struct CFFIa   { int a; } CFFIbb;
     """)
-    assert ffi.list_types() == (['b', 'bb', 'bbb'],
-                                    ['a', 'cc', 'ccc'],
-                                    ['aa', 'aaa', 'g'])
+    assert ffi.list_types() == (['CFFIb', 'CFFIbb', 'CFFIbbb'],
+                                ['CFFIa', 'CFFIcc', 'CFFIccc'],
+                                ['CFFIaa', 'CFFIaaa', 'CFFIg'])

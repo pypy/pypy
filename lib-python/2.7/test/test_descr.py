@@ -1735,7 +1735,6 @@ order (MRO) for bases """
             ("__reversed__", reversed, empty_seq, set(), {}),
             ("__length_hint__", list, zero, set(),
              {"__iter__" : iden, "next" : stop}),
-            ("__sizeof__", sys.getsizeof, zero, set(), {}),
             ("__instancecheck__", do_isinstance, return_true, set(), {}),
             ("__missing__", do_dict_missing, some_number,
              set(("__class__",)), {}),
@@ -1747,6 +1746,8 @@ order (MRO) for bases """
             ("__format__", format, format_impl, set(), {}),
             ("__dir__", dir, empty_seq, set(), {}),
             ]
+        if test_support.check_impl_detail():
+            specials.append(("__sizeof__", sys.getsizeof, zero, set(), {}))
 
         class Checker(object):
             def __getattr__(self, attr, test=self):
@@ -1768,10 +1769,6 @@ order (MRO) for bases """
                 raise MyException
 
         for name, runner, meth_impl, ok, env in specials:
-            if name == '__length_hint__' or name == '__sizeof__':
-                if not test_support.check_impl_detail():
-                    continue
-
             class X(Checker):
                 pass
             for attr, obj in env.iteritems():

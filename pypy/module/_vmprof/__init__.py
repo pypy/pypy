@@ -25,5 +25,5 @@ class Module(MixedModule):
 # (loaded later) replaces this method.
 try:
     import pypy.module._vmprof.interp_vmprof
-except VMProfPlatformUnsupported, e:
+except VMProfPlatformUnsupported as e:
     pass

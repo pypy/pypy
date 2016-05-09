@@ -72,6 +72,16 @@ class TestDatetime(BaseApiTest):
         date = datetime.datetime.fromtimestamp(0)
         assert space.unwrap(space.str(w_date)) == str(date)
 
+    def test_tzinfo(self, space, api):
+        w_tzinfo = space.appexec(
+            [], """():
+            from datetime import tzinfo
+            return tzinfo()
+        """)
+        assert api.PyTZInfo_Check(w_tzinfo)
+        assert api.PyTZInfo_CheckExact(w_tzinfo)
+        assert not api.PyTZInfo_Check(space.w_None)
+
 class AppTestDatetime(AppTestCpythonExtensionBase):
     def test_CAPI(self):
         module = self.import_extension('foo', [
@@ -82,11 +92,12 @@ class AppTestDatetime(AppTestCpythonExtensionBase):
                      PyErr_SetString(PyExc_RuntimeError, "No PyDateTimeAPI");
                      return NULL;
                  }
-                 return PyTuple_Pack(4,
+                 return PyTuple_Pack(5,
                                      PyDateTimeAPI->DateType,
                                      PyDateTimeAPI->DateTimeType,
                                      PyDateTimeAPI->TimeType,
-                                     PyDateTimeAPI->DeltaType);
+                                     PyDateTimeAPI->DeltaType,
+                                     PyDateTimeAPI->TZInfoType);
              """),
             ("clear_types", "METH_NOARGS",
              """
@@ -94,13 +105,15 @@ class AppTestDatetime(AppTestCpythonExtensionBase):
                  Py_DECREF(PyDateTimeAPI->DateTimeType);
                  Py_DECREF(PyDateTimeAPI->TimeType);
                  Py_DECREF(PyDateTimeAPI->DeltaType);
+                 Py_DECREF(PyDateTimeAPI->TZInfoType);
                  Py_RETURN_NONE;
              """
              )
-            ])
+            ], prologue='#include "datetime.h"\n')
         import datetime
         assert module.get_types() == (datetime.date,
                                       datetime.datetime,
                                       datetime.time,
-                                      datetime.timedelta)
+                                      datetime.timedelta,
+                                      datetime.tzinfo)
         module.clear_types()

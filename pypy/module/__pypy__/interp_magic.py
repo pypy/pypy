@@ -1,4 +1,4 @@
-from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
+from pypy.interpreter.error import oefmt, wrap_oserror
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.pycode import CodeHookCache
 from pypy.interpreter.pyframe import PyFrame
@@ -37,17 +37,15 @@ def reset_method_cache_counter(space):
     cache = space.fromcache(MethodCache)
     cache.misses = {}
     cache.hits = {}
-    if space.config.objspace.std.withmapdict:
-        cache = space.fromcache(MapAttrCache)
-        cache.misses = {}
-        cache.hits = {}
+    cache = space.fromcache(MapAttrCache)
+    cache.misses = {}
+    cache.hits = {}
 
 @unwrap_spec(name=str)
 def mapdict_cache_counter(space, name):
     """Return a tuple (index_cache_hits, index_cache_misses) for lookups
     in the mapdict cache with the given attribute name."""
     assert space.config.objspace.std.withmethodcachecounter
-    assert space.config.objspace.std.withmapdict
     cache = space.fromcache(MapAttrCache)
     return space.newtuple([space.newint(cache.hits.get(name, 0)),
                            space.newint(cache.misses.get(name, 0))])
@@ -76,8 +74,8 @@ def get_hidden_tb(space):
 def lookup_special(space, w_obj, meth):
     """Lookup up a special method on an object."""
     if space.is_oldstyle_instance(w_obj):
-        w_msg = space.wrap("this doesn't do what you want on old-style classes")
-        raise OperationError(space.w_TypeError, w_msg)
+        raise oefmt(space.w_TypeError,
+                    "this doesn't do what you want on old-style classes")
     w_descr = space.lookup(w_obj, meth)
     if w_descr is None:
         return space.w_None
@@ -99,8 +97,7 @@ def strategy(space, w_obj):
     elif isinstance(w_obj, W_BaseSetObject):
         name = w_obj.strategy.__class__.__name__
     else:
-        raise OperationError(space.w_TypeError,
-                             space.wrap("expecting dict or list or set object"))
+        raise oefmt(space.w_TypeError, "expecting dict or list or set object")
     return space.wrap(name)
 
 
@@ -108,7 +105,7 @@ def strategy(space, w_obj):
 def validate_fd(space, fd):
     try:
         rposix.validate_fd(fd)
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
 
 def get_console_cp(space):
@@ -121,8 +118,7 @@ def get_console_cp(space):
 @unwrap_spec(sizehint=int)
 def resizelist_hint(space, w_iterable, sizehint):
     if not isinstance(w_iterable, W_ListObject):
-        raise OperationError(space.w_TypeError,
-                             space.wrap("arg 1 must be a 'list'"))
+        raise oefmt(space.w_TypeError, "arg 1 must be a 'list'")
     w_iterable._resize_hint(sizehint)
 
 @unwrap_spec(sizehint=int)
@@ -183,8 +179,7 @@ def _promote(space, w_obj):
     elif space.is_w(space.type(w_obj), space.w_str):
         jit.promote_string(space.str_w(w_obj))
     elif space.is_w(space.type(w_obj), space.w_unicode):
-        raise OperationError(space.w_TypeError, space.wrap(
-                             "promoting unicode unsupported"))
+        raise oefmt(space.w_TypeError, "promoting unicode unsupported")
     else:
         jit.promote(w_obj)
     return w_obj

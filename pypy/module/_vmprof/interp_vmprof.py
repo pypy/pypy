@@ -66,7 +66,7 @@ def enable(space, fileno, period):
     #               space.w_RuntimeWarning)
     try:
         rvmprof.enable(fileno, period)
-    except rvmprof.VMProfError, e:
+    except rvmprof.VMProfError as e:
         raise VMProfError(space, e)
 
 @unwrap_spec(fileno=int)
@@ -92,5 +92,5 @@ def disable(space):
     """
     try:
         rvmprof.disable()
-    except rvmprof.VMProfError, e:
+    except rvmprof.VMProfError as e:
         raise VMProfError(space, e)

@@ -307,7 +307,6 @@ class AppTestBufferedWriter:
         class MyIO(_io.BufferedWriter):
             def __del__(self):
                 record.append(1)
-                super(MyIO, self).__del__()
             def close(self):
                 record.append(2)
                 super(MyIO, self).close()

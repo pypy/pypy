@@ -10,7 +10,7 @@ from rpython.jit.backend.llgraph import runner
 from rpython.jit.metainterp.history import (TreeLoop, AbstractDescr,
                                             JitCellToken, TargetToken)
 from rpython.jit.metainterp.optimizeopt.util import sort_descrs, equaloplists
-from rpython.jit.codewriter.effectinfo import EffectInfo
+from rpython.jit.codewriter.effectinfo import EffectInfo, compute_bitstrings
 from rpython.jit.metainterp.logger import LogOperations
 from rpython.jit.tool.oparser import OpParser, pure_parse, convert_loop_to_trace
 from rpython.jit.metainterp.quasiimmut import QuasiImmutDescr
@@ -532,6 +532,7 @@ class BaseTest(object):
             metainterp_sd.virtualref_info = self.vrefinfo
         if hasattr(self, 'callinfocollection'):
             metainterp_sd.callinfocollection = self.callinfocollection
+        compute_bitstrings(self.cpu.fetch_all_descrs())
         #
         compile_data.enable_opts = self.enable_opts
         state = optimize_trace(metainterp_sd, None, compile_data)

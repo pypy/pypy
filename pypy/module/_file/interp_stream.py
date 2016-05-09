@@ -3,7 +3,7 @@ import py
 from rpython.rlib import streamio
 from rpython.rlib.streamio import StreamErrors
 
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root, CannotHaveLock
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app
@@ -58,14 +58,12 @@ class W_AbstractStream(W_Root):
 
     def lock(self):
         if not self._try_acquire_lock():
-            raise OperationError(self.space.w_RuntimeError,
-                                 self.space.wrap("stream lock already held"))
+            raise oefmt(self.space.w_RuntimeError, "stream lock already held")
 
     def unlock(self):
         me = self.space.getexecutioncontext()   # used as thread ident
         if self.slockowner is not me:
-            raise OperationError(self.space.w_RuntimeError,
-                                 self.space.wrap("stream lock is not held"))
+            raise oefmt(self.space.w_RuntimeError, "stream lock is not held")
         self._release_lock()
 
     def _cleanup_(self):
@@ -83,7 +81,7 @@ class W_AbstractStream(W_Root):
         """
         try:
             return self.stream.read(n)
-        except StreamErrors, e:
+        except StreamErrors as e:
             raise wrap_streamerror(self.space, e)
 
     def do_write(self, data):
@@ -94,7 +92,7 @@ class W_AbstractStream(W_Root):
         """
         try:
             self.stream.write(data)
-        except StreamErrors, e:
+        except StreamErrors as e:
             raise wrap_streamerror(self.space, e)
 
 

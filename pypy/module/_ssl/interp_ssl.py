@@ -1021,7 +1021,7 @@ def checkwait(space, w_sock, writing):
         timeout = int(sock_timeout * 1000 + 0.5)
         try:
             ready = rpoll.poll(fddict, timeout)
-        except rpoll.PollError, e:
+        except rpoll.PollError as e:
             message = e.get_msg()
             raise ssl_error(space, message, e.errno)
     else:
@@ -1529,8 +1529,8 @@ class _SSLContext(W_Root):
                                 "cadata should be a ASCII string or a "
                                 "bytes-like object")
         if cafile is None and capath is None and cadata is None:
-            raise OperationError(space.w_TypeError, space.wrap(
-                    "cafile and capath cannot be both omitted"))
+            raise oefmt(space.w_TypeError,
+                        "cafile and capath cannot be both omitted")
         # load from cadata
         if cadata is not None:
             with rffi.scoped_nonmovingbuffer(cadata) as buf:

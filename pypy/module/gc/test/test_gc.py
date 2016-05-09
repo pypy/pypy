@@ -106,7 +106,6 @@ class AppTestGcDumpHeap(object):
 
 
 class AppTestGcMethodCache(object):
-    spaceconfig = {"objspace.std.withmethodcache": True}
 
     def test_clear_method_cache(self):
         import gc, weakref
@@ -126,10 +125,6 @@ class AppTestGcMethodCache(object):
         for r in rlist:
             assert r() is None
 
-
-class AppTestGcMapDictIndexCache(AppTestGcMethodCache):
-    spaceconfig = {"objspace.std.withmethodcache": True,
-                   "objspace.std.withmapdict": True}
 
     def test_clear_index_cache(self):
         import gc, weakref
