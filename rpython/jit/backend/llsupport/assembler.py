@@ -393,7 +393,7 @@ class BaseAssembler(object):
             debug_stop('jit-backend-counts')
 
         if jitlog:
-            flush_debug_counters(jitlog)
+            flush_debug_counters(jitlog.cintf)
 
     @staticmethod
     @rgc.no_collect
