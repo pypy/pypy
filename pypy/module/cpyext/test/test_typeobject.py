@@ -924,7 +924,6 @@ class AppTestSlots(AppTestCpythonExtensionBase):
 
     @pytest.mark.xfail
     def test_call_tp_dealloc_when_created_from_python(self):
-        import gc
         module = self.import_extension('foo', [
             ("fetchFooType", "METH_VARARGS",
              """
@@ -965,7 +964,9 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         for i in range(10):
             if module.getCounter() >= 2:
                 break
-            gc.collect()
+            # NB. use self.debug_collect() instead of gc.collect(),
+            # otherwise rawrefcount's dealloc callback doesn't trigger
+            self.debug_collect()
         assert module.getCounter() == 2
         #
         class Bar(Foo):
@@ -974,5 +975,5 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         for i in range(10):
             if module.getCounter() >= 4:
                 break
-            gc.collect()
+            self.debug_collect()
         assert module.getCounter() == 4
