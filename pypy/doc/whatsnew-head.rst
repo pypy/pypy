@@ -82,3 +82,5 @@ It is a more flexible way to make RPython finalizers.
 
 .. branch: cleanups
 
+.. branch: cpyext-more-slots
+
