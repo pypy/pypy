@@ -922,6 +922,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         else:
             raise AssertionError("did not get TypeError!")
 
+    @pytest.mark.xfail
     def test_call_tp_dealloc_when_created_from_python(self):
         import gc
         module = self.import_extension('foo', [
