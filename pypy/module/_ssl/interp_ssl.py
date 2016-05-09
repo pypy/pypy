@@ -278,6 +278,8 @@ class _SSLSocket(W_Root):
         sock_fd = space.int_w(space.call_method(w_sock, "fileno"))
         self.ssl = libssl_SSL_new(w_ctx.ctx)  # new ssl struct
 
+        self.register_finalizer(space)
+
         index = compute_unique_id(self)
         libssl_SSL_set_app_data(self.ssl, rffi.cast(rffi.VOIDP, index))
         SOCKET_STORAGE.set(index, self)
@@ -317,16 +319,15 @@ class _SSLSocket(W_Root):
             self.ssl_sock_weakref_w = None
         return self
 
-    def __del__(self):
-        self.enqueue_for_destruction(self.space, _SSLSocket.destructor,
-                                     '__del__() method of ')
-
-    def destructor(self):
-        assert isinstance(self, _SSLSocket)
-        if self.peer_cert:
-            libssl_X509_free(self.peer_cert)
-        if self.ssl:
-            libssl_SSL_free(self.ssl)
+    def _finalize_(self):
+        peer_cert = self.peer_cert
+        if peer_cert:
+            self.peer_cert = lltype.nullptr(X509.TO)
+            libssl_X509_free(peer_cert)
+        ssl = self.ssl
+        if ssl:
+            self.ssl = lltype.nullptr(SSL.TO)
+            libssl_SSL_free(ssl)
 
     @unwrap_spec(data='bufferstr')
     def write(self, space, data):
@@ -1285,6 +1286,7 @@ class _SSLContext(W_Root):
         self = space.allocate_instance(_SSLContext, w_subtype)
         self.ctx = ctx
         self.check_hostname = False
+        self.register_finalizer(space)
         options = SSL_OP_ALL & ~SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS
         if protocol != PY_SSL_VERSION_SSL2:
             options |= SSL_OP_NO_SSLv2
@@ -1308,8 +1310,11 @@ class _SSLContext(W_Root):
 
         return self
 
-    def __del__(self):
-        libssl_SSL_CTX_free(self.ctx)
+    def _finalize_(self):
+        ctx = self.ctx
+        if ctx:
+            self.ctx = lltype.nullptr(SSL_CTX.TO)
+            libssl_SSL_CTX_free(ctx)
 
     @unwrap_spec(server_side=int)
     def descr_wrap_socket(self, space, w_sock, server_side, w_server_hostname=None, w_ssl_sock=None):

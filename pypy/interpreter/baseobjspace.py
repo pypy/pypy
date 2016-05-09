@@ -11,7 +11,7 @@ from rpython.rlib.rarithmetic import r_uint, SHRT_MIN, SHRT_MAX, \
     INT_MIN, INT_MAX, UINT_MAX, USHRT_MAX
 
 from pypy.interpreter.executioncontext import (ExecutionContext, ActionFlag,
-    UserDelAction)
+    make_finalizer_queue)
 from pypy.interpreter.error import OperationError, new_exception_class, oefmt
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.miscutils import ThreadLocals, make_weak_value_dictionary
@@ -28,6 +28,7 @@ class W_Root(object):
     """This is the abstract root class of all wrapped objects that live
     in a 'normal' object space like StdObjSpace."""
     __slots__ = ('__weakref__',)
+    _must_be_light_finalizer_ = True
     user_overridden_class = False
 
     def getdict(self, space):
@@ -136,9 +137,8 @@ class W_Root(object):
         pass
 
     def clear_all_weakrefs(self):
-        """Call this at the beginning of interp-level __del__() methods
-        in subclasses.  It ensures that weakrefs (if any) are cleared
-        before the object is further destroyed.
+        """Ensures that weakrefs (if any) are cleared now.  This is
+        called by UserDelAction before the object is finalized further.
         """
         lifeline = self.getweakref()
         if lifeline is not None:
@@ -151,25 +151,37 @@ class W_Root(object):
             self.delweakref()
             lifeline.clear_all_weakrefs()
 
-    __already_enqueued_for_destruction = ()
+    def _finalize_(self):
+        """The RPython-level finalizer.
 
-    def enqueue_for_destruction(self, space, callback, descrname):
-        """Put the object in the destructor queue of the space.
-        At a later, safe point in time, UserDelAction will call
-        callback(self).  If that raises OperationError, prints it
-        to stderr with the descrname string.
-
-        Note that 'callback' will usually need to start with:
-            assert isinstance(self, W_SpecificClass)
+        By default, it is *not called*.  See self.register_finalizer().
+        Be ready to handle the case where the object is only half
+        initialized.  Also, in some cases the object might still be
+        visible to app-level after _finalize_() is called (e.g. if
+        there is a __del__ that resurrects).
         """
-        # this function always resurect the object, so when
-        # running on top of CPython we must manually ensure that
-        # we enqueue it only once
-        if not we_are_translated():
-            if callback in self.__already_enqueued_for_destruction:
-                return
-            self.__already_enqueued_for_destruction += (callback,)
-        space.user_del_action.register_callback(self, callback, descrname)
+
+    def register_finalizer(self, space):
+        """Register a finalizer for this object, so that
+        self._finalize_() will be called.  You must call this method at
+        most once.  Be ready to handle in _finalize_() the case where
+        the object is half-initialized, even if you only call
+        self.register_finalizer() at the end of the initialization.
+        This is because there are cases where the finalizer is already
+        registered before: if the user makes an app-level subclass with
+        a __del__.  (In that case only, self.register_finalizer() does
+        nothing, because the finalizer is already registered in
+        allocate_instance().)
+        """
+        if self.user_overridden_class and self.getclass(space).hasuserdel:
+            # already registered by space.allocate_instance()
+            if not we_are_translated():
+                assert space.finalizer_queue._already_registered(self)
+        else:
+            if not we_are_translated():
+                # does not make sense if _finalize_ is not overridden
+                assert self._finalize_.im_func is not W_Root._finalize_.im_func
+            space.finalizer_queue.register_finalizer(self)
 
     # hooks that the mapdict implementations needs:
     def _get_mapdict_map(self):
@@ -389,9 +401,9 @@ class ObjSpace(object):
         self.interned_strings = make_weak_value_dictionary(self, str, W_Root)
         self.actionflag = ActionFlag()    # changed by the signal module
         self.check_signal_action = None   # changed by the signal module
-        self.user_del_action = UserDelAction(self)
+        make_finalizer_queue(W_Root, self)
         self._code_of_sys_exc_info = None
-        
+
         # can be overridden to a subclass
         self.initialize()
 
@@ -1844,7 +1856,6 @@ ObjSpace.MethodTable = [
     ('get',             'get',       3, ['__get__']),
     ('set',             'set',       3, ['__set__']),
     ('delete',          'delete',    2, ['__delete__']),
-    ('userdel',         'del',       1, ['__del__']),
 ]
 
 ObjSpace.BuiltinModuleTable = [

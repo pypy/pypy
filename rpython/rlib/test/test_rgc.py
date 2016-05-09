@@ -327,8 +327,6 @@ class TestFinalizerQueue:
         fq = SimpleFQ()
         w = T_Del2(42)
         fq.register_finalizer(w)
-        fq.register_finalizer(w)
-        fq.register_finalizer(w)
         del w
         fq.register_finalizer(T_Del1(21))
         gc.collect(); gc.collect()

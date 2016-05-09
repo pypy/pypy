@@ -76,11 +76,14 @@ class W_Hash(W_Root):
         except:
             lltype.free(ctx, flavor='raw')
             raise
+        self.register_finalizer(space)
 
-    def __del__(self):
-        if self.ctx:
-            ropenssl.EVP_MD_CTX_cleanup(self.ctx)
-            lltype.free(self.ctx, flavor='raw')
+    def _finalize_(self):
+        ctx = self.ctx
+        if ctx:
+            self.ctx = lltype.nullptr(ropenssl.EVP_MD_CTX.TO)
+            ropenssl.EVP_MD_CTX_cleanup(ctx)
+            lltype.free(ctx, flavor='raw')
 
     def digest_type_by_name(self, space):
         digest_type = ropenssl.EVP_get_digestbyname(self.name)

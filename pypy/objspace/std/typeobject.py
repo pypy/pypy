@@ -132,7 +132,7 @@ class W_TypeObject(W_Root):
                           "flag_sequence_bug_compat",
                           "flag_map_or_seq",    # '?' or 'M' or 'S'
                           "compares_by_identity_status?",
-                          'needsdel',
+                          'hasuserdel',
                           'weakrefable',
                           'hasdict',
                           'layout',
@@ -160,7 +160,7 @@ class W_TypeObject(W_Root):
         w_self.bases_w = bases_w
         w_self.dict_w = dict_w
         w_self.hasdict = False
-        w_self.needsdel = False
+        w_self.hasuserdel = False
         w_self.weakrefable = False
         w_self.w_doc = space.w_None
         w_self.weak_subclasses = []
@@ -289,7 +289,7 @@ class W_TypeObject(W_Root):
     # compute a tuple that fully describes the instance layout
     def get_full_instance_layout(w_self):
         layout = w_self.layout
-        return (layout, w_self.hasdict, w_self.needsdel, w_self.weakrefable)
+        return (layout, w_self.hasdict, w_self.weakrefable)
 
     def compute_default_mro(w_self):
         return compute_C3_mro(w_self.space, w_self)
@@ -986,7 +986,7 @@ def copy_flags_from_bases(w_self, w_bestbase):
             hasoldstylebase = True
             continue
         w_self.hasdict = w_self.hasdict or w_base.hasdict
-        w_self.needsdel = w_self.needsdel or w_base.needsdel
+        w_self.hasuserdel = w_self.hasuserdel or w_base.hasuserdel
         w_self.weakrefable = w_self.weakrefable or w_base.weakrefable
     return hasoldstylebase
 
@@ -1028,7 +1028,7 @@ def create_all_slots(w_self, hasoldstylebase, w_bestbase, force_new_layout):
     if wantweakref:
         create_weakref_slot(w_self)
     if '__del__' in dict_w:
-        w_self.needsdel = True
+        w_self.hasuserdel = True
     #
     if index_next_extra_slot == base_layout.nslots and not force_new_layout:
         return base_layout

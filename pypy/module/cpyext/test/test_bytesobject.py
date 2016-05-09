@@ -40,7 +40,7 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
                  #endif
                  if(s->ob_type->tp_basicsize != expected_size)
                  {
-                     printf("tp_basicsize==%ld\\n", s->ob_type->tp_basicsize); 
+                     printf("tp_basicsize==%zd\\n", s->ob_type->tp_basicsize); 
                      result = 0;
                  }
                  Py_DECREF(s);

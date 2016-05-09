@@ -25,10 +25,13 @@ class W_DlOpenLibObject(W_LibObject):
                 raise wrap_dlopenerror(ffi.space, e, filename)
         W_LibObject.__init__(self, ffi, filename)
         self.libhandle = handle
+        self.register_finalizer(ffi.space)
 
-    def __del__(self):
-        if self.libhandle:
-            dlclose(self.libhandle)
+    def _finalize_(self):
+        h = self.libhandle
+        if h != rffi.cast(DLLHANDLE, 0):
+            self.libhandle = rffi.cast(DLLHANDLE, 0)
+            dlclose(h)
 
     def cdlopen_fetch(self, name):
         if not self.libhandle:

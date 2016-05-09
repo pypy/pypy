@@ -59,6 +59,8 @@ class W_IOBase(W_Root):
         self.__IOBase_closed = False
         if add_to_autoflusher:
             get_autoflusher(space).add(self)
+        if self.needs_to_finalize:
+            self.register_finalizer(space)
 
     def getdict(self, space):
         return self.w_dict
@@ -71,13 +73,7 @@ class W_IOBase(W_Root):
             return True
         return False
 
-    def __del__(self):
-        self.clear_all_weakrefs()
-        self.enqueue_for_destruction(self.space, W_IOBase.destructor,
-                                     'internal __del__ of ')
-
-    def destructor(self):
-        assert isinstance(self, W_IOBase)
+    def _finalize_(self):
         space = self.space
         w_closed = space.findattr(self, space.wrap('closed'))
         try:
@@ -90,6 +86,7 @@ class W_IOBase(W_Root):
             # equally as bad, and potentially more frequent (because of
             # shutdown issues).
             pass
+    needs_to_finalize = True
 
     def _CLOSED(self):
         # Use this macro whenever you want to check the internal `closed`

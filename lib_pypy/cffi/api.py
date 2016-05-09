@@ -397,20 +397,7 @@ class FFI(object):
         data.  Later, when this new cdata object is garbage-collected,
         'destructor(old_cdata_object)' will be called.
         """
-        try:
-            gcp = self._backend.gcp
-        except AttributeError:
-            pass
-        else:
-            return gcp(cdata, destructor)
-        #
-        with self._lock:
-            try:
-                gc_weakrefs = self.gc_weakrefs
-            except AttributeError:
-                from .gc_weakref import GcWeakrefs
-                gc_weakrefs = self.gc_weakrefs = GcWeakrefs(self)
-            return gc_weakrefs.build(cdata, destructor)
+        return self._backend.gcp(cdata, destructor)
 
     def _get_cached_btype(self, type):
         assert self._lock.acquire(False) is False
