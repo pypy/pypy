@@ -6,7 +6,7 @@
 extern "C" {
 #endif
 
-#define PySet_GET_SIZE(obj) _PySet_GET_SIZE((PyObject*)obj);
+#define PySet_GET_SIZE(obj) _PySet_GET_SIZE((PyObject*)obj)
 
 #ifdef __cplusplus
 }

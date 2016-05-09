@@ -7,7 +7,7 @@
 extern "C" {
 #endif
 
-#define PyInt_AS_LONG(obj) _PyInt_AS_LONG((PyObject*)obj);
+#define PyInt_AS_LONG(obj) _PyInt_AS_LONG((PyObject*)obj)
 
 typedef struct {
     PyObject_HEAD
