@@ -665,7 +665,7 @@ class ImplicitVirtualizableTests(object):
                 jitdriver.jit_merge_point(frame=frame)
                 try:
                     g()
-                except FooError, e:
+                except FooError as e:
                     frame.x -= e.value
                 frame.y += 1
             return frame.x

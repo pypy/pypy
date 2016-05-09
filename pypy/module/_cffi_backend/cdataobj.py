@@ -71,7 +71,7 @@ class W_CData(W_Root):
 
     def nonzero(self):
         with self as ptr:
-            nonzero = bool(ptr)
+            nonzero = self.ctype.nonzero(ptr)
         return self.space.wrap(nonzero)
 
     def int(self, space):
@@ -113,8 +113,9 @@ class W_CData(W_Root):
                 if requires_ordering:
                     if (isinstance(self.ctype, W_CTypePrimitive) or
                         isinstance(w_other.ctype, W_CTypePrimitive)):
-                        raise OperationError(space.w_TypeError, space.wrap(
-                            "cannot do comparison on a primitive cdata"))
+                        raise oefmt(space.w_TypeError,
+                                    "cannot do comparison on a primitive "
+                                    "cdata")
                     ptr1 = rffi.cast(lltype.Unsigned, ptr1)
                     ptr2 = rffi.cast(lltype.Unsigned, ptr2)
                 result = op(ptr1, ptr2)
@@ -175,22 +176,18 @@ class W_CData(W_Root):
         space = self.space
         #
         if space.is_w(w_slice.w_start, space.w_None):
-            raise OperationError(space.w_IndexError,
-                                 space.wrap("slice start must be specified"))
+            raise oefmt(space.w_IndexError, "slice start must be specified")
         start = space.int_w(w_slice.w_start)
         #
         if space.is_w(w_slice.w_stop, space.w_None):
-            raise OperationError(space.w_IndexError,
-                                 space.wrap("slice stop must be specified"))
+            raise oefmt(space.w_IndexError, "slice stop must be specified")
         stop = space.int_w(w_slice.w_stop)
         #
         if not space.is_w(w_slice.w_step, space.w_None):
-            raise OperationError(space.w_IndexError,
-                                 space.wrap("slice with step not supported"))
+            raise oefmt(space.w_IndexError, "slice with step not supported")
         #
         if start > stop:
-            raise OperationError(space.w_IndexError,
-                                 space.wrap("slice start > stop"))
+            raise oefmt(space.w_IndexError, "slice start > stop")
         #
         ctype = self.ctype._check_slice_index(self, start, stop)
         assert isinstance(ctype, W_CTypePointer)
@@ -247,7 +244,7 @@ class W_CData(W_Root):
         for i in range(length):
             try:
                 w_item = space.next(w_iter)
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_StopIteration):
                     raise
                 raise oefmt(space.w_ValueError,
@@ -256,7 +253,7 @@ class W_CData(W_Root):
             target = rffi.ptradd(target, ctitemsize)
         try:
             space.next(w_iter)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_StopIteration):
                 raise
         else:
@@ -368,8 +365,16 @@ class W_CData(W_Root):
         return self.ctype.size
 
     def with_gc(self, w_destructor):
+        space = self.space
+        if space.is_none(w_destructor):
+            if isinstance(self, W_CDataGCP):
+                self.w_destructor = None
+                return space.w_None
+            raise oefmt(space.w_TypeError,
+                        "Can remove destructor only on a object "
+                        "previously returned by ffi.gc()")
         with self as ptr:
-            return W_CDataGCP(self.space, ptr, self.ctype, self, w_destructor)
+            return W_CDataGCP(space, ptr, self.ctype, self, w_destructor)
 
     def unpack(self, length):
         from pypy.module._cffi_backend.ctypeptr import W_CTypePtrOrArray
@@ -444,22 +449,11 @@ class W_CDataNewStd(W_CDataNewOwning):
         lltype.free(self._ptr, flavor='raw')
 
 
-class W_CDataNewNonStdNoFree(W_CDataNewOwning):
-    """Subclass using a non-standard allocator, no free()"""
-    _attrs_ = ['w_raw_cdata']
+class W_CDataNewNonStd(W_CDataNewOwning):
+    """Subclass using a non-standard allocator"""
+    _attrs_ = ['w_raw_cdata', 'w_free']
 
-class W_CDataNewNonStdFree(W_CDataNewNonStdNoFree):
-    """Subclass using a non-standard allocator, with a free()"""
-    _attrs_ = ['w_free']
-
-    def __del__(self):
-        self.clear_all_weakrefs()
-        self.enqueue_for_destruction(self.space,
-                                     W_CDataNewNonStdFree.call_destructor,
-                                     'destructor of ')
-
-    def call_destructor(self):
-        assert isinstance(self, W_CDataNewNonStdFree)
+    def _finalize_(self):
         self.space.call_function(self.w_free, self.w_raw_cdata)
 
 
@@ -541,21 +535,19 @@ class W_CDataFromBuffer(W_CData):
 class W_CDataGCP(W_CData):
     """For ffi.gc()."""
     _attrs_ = ['w_original_cdata', 'w_destructor']
-    _immutable_fields_ = ['w_original_cdata', 'w_destructor']
+    _immutable_fields_ = ['w_original_cdata']
 
     def __init__(self, space, cdata, ctype, w_original_cdata, w_destructor):
         W_CData.__init__(self, space, cdata, ctype)
         self.w_original_cdata = w_original_cdata
         self.w_destructor = w_destructor
+        self.register_finalizer(space)
 
-    def __del__(self):
-        self.clear_all_weakrefs()
-        self.enqueue_for_destruction(self.space, W_CDataGCP.call_destructor,
-                                     'destructor of ')
-
-    def call_destructor(self):
-        assert isinstance(self, W_CDataGCP)
-        self.space.call_function(self.w_destructor, self.w_original_cdata)
+    def _finalize_(self):
+        w_destructor = self.w_destructor
+        if w_destructor is not None:
+            self.w_destructor = None
+            self.space.call_function(w_destructor, self.w_original_cdata)
 
 
 W_CData.typedef = TypeDef(

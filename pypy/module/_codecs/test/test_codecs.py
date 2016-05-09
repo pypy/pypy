@@ -458,7 +458,7 @@ class AppTestPartialEvaluation:
         if sys.maxunicode > 0xffff:
             try:
                 "\x00\x00\x00\x00\x00\x11\x11\x00".decode("unicode_internal")
-            except UnicodeDecodeError, ex:
+            except UnicodeDecodeError as ex:
                 assert "unicode_internal" == ex.encoding
                 assert "\x00\x00\x00\x00\x00\x11\x11\x00" == ex.object
                 assert ex.start == 4
@@ -650,7 +650,7 @@ class AppTestPartialEvaluation:
     def test_utf7_start_end_in_exception(self):
         try:
             '+IC'.decode('utf-7')
-        except UnicodeDecodeError, exc:
+        except UnicodeDecodeError as exc:
             assert exc.start == 0
             assert exc.end == 3
 

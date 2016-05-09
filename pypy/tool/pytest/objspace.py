@@ -11,7 +11,7 @@ def gettestobjspace(**kwds):
     """
     try:
         config = make_config(option,**kwds)
-    except ConflictConfigError, e:
+    except ConflictConfigError as e:
         # this exception is typically only raised if a module is not available.
         # in this case the test should be skipped
         py.test.skip(str(e))

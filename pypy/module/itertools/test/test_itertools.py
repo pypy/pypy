@@ -432,7 +432,7 @@ class AppTestItertools:
             args = [()] * x + [None] + [()] * (9 - x)
             try:
                 itertools.izip(*args)
-            except TypeError, e:
+            except TypeError as e:
                 assert str(e).find("#" + str(x + 1) + " ") >= 0
             else:
                 fail("TypeError expected")

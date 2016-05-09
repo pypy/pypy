@@ -44,7 +44,7 @@ class TestPosixStatFunctions:
     def test_statvfs(self):
         try:
             os.statvfs('.')
-        except OSError, e:
+        except OSError as e:
             py.test.skip("the underlying os.statvfs() failed: %s" % e)
         rposix_stat.statvfs('.')
 
@@ -53,7 +53,7 @@ class TestPosixStatFunctions:
     def test_fstatvfs(self):
         try:
             os.fstatvfs(0)
-        except OSError, e:
+        except OSError as e:
             py.test.skip("the underlying os.fstatvfs() failed: %s" % e)
         rposix_stat.fstatvfs(0)
 

@@ -29,7 +29,6 @@ class TestClassObject(BaseApiTest):
         assert space.unwrap(space.getattr(w_instance, space.wrap('x'))) == 1
         assert space.unwrap(space.getattr(w_instance, space.wrap('y'))) == 2
         assert space.unwrap(space.getattr(w_instance, space.wrap('args'))) == (3,)
-        
 
     def test_lookup(self, space, api):
         w_instance = space.appexec([], """():
@@ -68,7 +67,7 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
             ("get_classtype", "METH_NOARGS",
              """
                  Py_INCREF(&PyClass_Type);
-                 return &PyClass_Type;
+                 return (PyObject*)&PyClass_Type;
              """)])
         class C: pass
         assert module.get_classtype() is type(C)

@@ -5,7 +5,7 @@ import re
 import py
 from pypy.interpreter import special
 from pypy.interpreter.baseobjspace import InternalSpaceCache, W_Root, ObjSpace
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import oefmt
 from rpython.rlib.objectmodel import specialize, instantiate
 from rpython.rlib.nonconst import NonConstant
 from rpython.rlib.rarithmetic import base_int
@@ -243,8 +243,8 @@ class FakeSpace(ObjSpace):
             if w_dict is not None:
                 try:
                     return w_dict[index]
-                except KeyError, e:
-                    raise OperationError(self.w_KeyError, self.wrap("key error"))
+                except KeyError as e:
+                    raise oefmt(self.w_KeyError, "key error")
 
         assert isinstance(obj, ListObject)
         assert isinstance(index, IntObject)
@@ -275,7 +275,7 @@ class FakeSpace(ObjSpace):
         elif isinstance(w_obj, FloatObject):
             return int(w_obj.floatval)
         elif isinstance(w_obj, SliceObject):
-            raise OperationError(self.w_TypeError, self.wrap("slice."))
+            raise oefmt(self.w_TypeError, "slice.")
         raise NotImplementedError
 
     def unpackcomplex(self, w_obj):
@@ -462,7 +462,7 @@ class IterDictObject(W_Root):
     def next(self):
         space = self.space
         if self.i >= len(self.items):
-            raise OperationError(space.w_StopIteration, space.wrap("stop iteration"))
+            raise oefmt(space.w_StopIteration, "stop iteration")
         self.i += 1
         return self.items[self.i-1][0]
 

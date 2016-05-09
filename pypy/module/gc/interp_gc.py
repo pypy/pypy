@@ -1,5 +1,5 @@
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import oefmt
 from rpython.rlib import rgc
 
 
@@ -38,14 +38,23 @@ def isenabled(space):
     return space.newbool(space.user_del_action.enabled_at_app_level)
 
 def enable_finalizers(space):
-    if space.user_del_action.finalizers_lock_count == 0:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("finalizers are already enabled"))
-    space.user_del_action.finalizers_lock_count -= 1
-    space.user_del_action.fire()
+    uda = space.user_del_action
+    if uda.finalizers_lock_count == 0:
+        raise oefmt(space.w_ValueError, "finalizers are already enabled")
+    uda.finalizers_lock_count -= 1
+    if uda.finalizers_lock_count == 0:
+        pending = uda.pending_with_disabled_del
+        uda.pending_with_disabled_del = None
+        if pending is not None:
+            for i in range(len(pending)):
+                uda._call_finalizer(pending[i])
+                pending[i] = None   # clear the list as we progress
 
 def disable_finalizers(space):
-    space.user_del_action.finalizers_lock_count += 1
+    uda = space.user_del_action
+    uda.finalizers_lock_count += 1
+    if uda.pending_with_disabled_del is None:
+        uda.pending_with_disabled_del = []
 
 # ____________________________________________________________
 
@@ -53,8 +62,7 @@ def disable_finalizers(space):
 def dump_heap_stats(space, filename):
     tb = rgc._heap_stats()
     if not tb:
-        raise OperationError(space.w_RuntimeError,
-                             space.wrap("Wrong GC"))
+        raise oefmt(space.w_RuntimeError, "Wrong GC")
     f = open(filename, mode="w")
     for i in range(len(tb)):
         f.write("%d %d " % (tb[i].count, tb[i].size))

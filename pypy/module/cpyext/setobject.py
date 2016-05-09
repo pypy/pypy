@@ -1,4 +1,4 @@
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import oefmt
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (cpython_api, Py_ssize_t, CANNOT_FAIL,
                                     build_type_checkers)
@@ -85,8 +85,7 @@ def PySet_Size(space, ref):
     len(anyset).  Raises a PyExc_SystemError if anyset is not a set, frozenset,
     or an instance of a subtype."""
     if not PySet_Check(space, ref):
-        raise OperationError(space.w_TypeError,
-                             space.wrap("expected set object"))
+        raise oefmt(space.w_TypeError, "expected set object")
     return PySet_GET_SIZE(space, ref)
 
 @cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)

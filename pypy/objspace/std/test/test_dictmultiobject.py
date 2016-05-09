@@ -583,7 +583,7 @@ class AppTest_DictObject:
         for v1 in ['Q', (1,)]:
             try:
                 d[v1]
-            except KeyError, e:
+            except KeyError as e:
                 v2 = e.args[0]
                 assert v1 == v2
             else:
@@ -594,7 +594,7 @@ class AppTest_DictObject:
         for v1 in ['Q', (1,)]:
             try:
                 del d[v1]
-            except KeyError, e:
+            except KeyError as e:
                 v2 = e.args[0]
                 assert v1 == v2
             else:
@@ -605,7 +605,7 @@ class AppTest_DictObject:
         for v1 in ['Q', (1,)]:
             try:
                 d.pop(v1)
-            except KeyError, e:
+            except KeyError as e:
                 v2 = e.args[0]
                 assert v1 == v2
             else:

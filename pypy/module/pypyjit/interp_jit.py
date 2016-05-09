@@ -136,8 +136,7 @@ def set_param(space, __args__):
         try:
             jit.set_user_param(None, text)
         except ValueError:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("error in JIT parameters string"))
+            raise oefmt(space.w_ValueError, "error in JIT parameters string")
     for key, w_value in kwds_w.items():
         if key == 'enable_opts':
             jit.set_param(None, 'enable_opts', space.str_w(w_value))

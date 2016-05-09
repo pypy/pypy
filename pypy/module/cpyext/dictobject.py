@@ -224,7 +224,7 @@ def PyDict_Next(space, w_dict, ppos, pkey, pvalue):
         if pvalue:
             pvalue[0] = as_pyobj(space, w_value)
         ppos[0] += 1
-    except OperationError, e:
+    except OperationError as e:
         if not e.match(space, space.w_StopIteration):
             raise
         return 0

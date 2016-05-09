@@ -431,14 +431,14 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             ("test_tp_getattro", "METH_VARARGS",
              '''
                  PyObject *name, *obj = PyTuple_GET_ITEM(args, 0);
-                 PyIntObject *attr, *value = PyTuple_GET_ITEM(args, 1);
+                 PyIntObject *attr, *value = (PyIntObject*) PyTuple_GET_ITEM(args, 1);
                  if (!obj->ob_type->tp_getattro)
                  {
                      PyErr_SetString(PyExc_ValueError, "missing tp_getattro");
                      return NULL;
                  }
                  name = PyString_FromString("attr1");
-                 attr = obj->ob_type->tp_getattro(obj, name);
+                 attr = (PyIntObject*) obj->ob_type->tp_getattro(obj, name);
                  if (attr->ob_ival != value->ob_ival)
                  {
                      PyErr_SetString(PyExc_ValueError,
@@ -448,7 +448,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                  Py_DECREF(name);
                  Py_DECREF(attr);
                  name = PyString_FromString("attr2");
-                 attr = obj->ob_type->tp_getattro(obj, name);
+                 attr = (PyIntObject*) obj->ob_type->tp_getattro(obj, name);
                  if (attr == NULL && PyErr_ExceptionMatches(PyExc_AttributeError))
                  {
                      PyErr_Clear();
@@ -752,8 +752,9 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             } IntLikeObject;
 
             static int
-            intlike_nb_nonzero(IntLikeObject *v)
+            intlike_nb_nonzero(PyObject *o)
             {
+                IntLikeObject *v = (IntLikeObject*)o;
                 if (v->value == -42) {
                     PyErr_SetNone(PyExc_ValueError);
                     return -1;
@@ -913,3 +914,105 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                           '    multiple bases have instance lay-out conflict')
         else:
             raise AssertionError("did not get TypeError!")
+
+    def test_call_tp_dealloc_when_created_from_python(self):
+        module = self.import_extension('foo', [
+            ("fetchFooType", "METH_VARARGS",
+             """
+                PyObject *o;
+                Foo_Type.tp_basicsize = sizeof(FooObject);
+                Foo_Type.tp_dealloc = &dealloc_foo;
+                Foo_Type.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_CHECKTYPES
+                                    | Py_TPFLAGS_BASETYPE;
+                Foo_Type.tp_new = &new_foo;
+                Foo_Type.tp_free = &PyObject_Del;
+                if (PyType_Ready(&Foo_Type) < 0) return NULL;
+
+                o = PyObject_New(PyObject, &Foo_Type);
+                init_foo(o);
+                Py_DECREF(o);   /* calls dealloc_foo immediately */
+
+                Py_INCREF(&Foo_Type);
+                return (PyObject *)&Foo_Type;
+             """),
+            ("newInstance", "METH_O",
+             """
+                PyTypeObject *tp = (PyTypeObject *)args;
+                PyObject *e = PyTuple_New(0);
+                PyObject *o = tp->tp_new(tp, e, NULL);
+                Py_DECREF(e);
+                return o;
+             """),
+            ("getCounter", "METH_VARARGS",
+             """
+                return PyInt_FromLong(foo_counter);
+             """)], prologue=
+            """
+            typedef struct {
+                PyObject_HEAD
+                int someval[99];
+            } FooObject;
+            static int foo_counter = 1000;
+            static void dealloc_foo(PyObject *foo) {
+                int i;
+                foo_counter += 10;
+                for (i = 0; i < 99; i++)
+                    if (((FooObject *)foo)->someval[i] != 1000 + i)
+                        foo_counter += 100000;   /* error! */
+                Py_TYPE(foo)->tp_free(foo);
+            }
+            static void init_foo(PyObject *o)
+            {
+                int i;
+                if (o->ob_type->tp_basicsize < sizeof(FooObject))
+                    abort();
+                for (i = 0; i < 99; i++)
+                    ((FooObject *)o)->someval[i] = 1000 + i;
+            }
+            static PyObject *new_foo(PyTypeObject *t, PyObject *a, PyObject *k)
+            {
+                PyObject *o;
+                foo_counter += 1000;
+                o = t->tp_alloc(t, 0);
+                init_foo(o);
+                return o;
+            }
+            static PyTypeObject Foo_Type = {
+                PyVarObject_HEAD_INIT(NULL, 0)
+                "foo.foo",
+            };
+            """)
+        Foo = module.fetchFooType()
+        assert module.getCounter() == 1010
+        Foo(); Foo()
+        for i in range(10):
+            if module.getCounter() >= 3030:
+                break
+            # NB. use self.debug_collect() instead of gc.collect(),
+            # otherwise rawrefcount's dealloc callback doesn't trigger
+            self.debug_collect()
+        assert module.getCounter() == 3030
+        #
+        class Bar(Foo):
+            pass
+        assert Foo.__new__ is Bar.__new__
+        Bar(); Bar()
+        for i in range(10):
+            if module.getCounter() >= 5050:
+                break
+            self.debug_collect()
+        assert module.getCounter() == 5050
+        #
+        module.newInstance(Foo)
+        for i in range(10):
+            if module.getCounter() >= 6060:
+                break
+            self.debug_collect()
+        assert module.getCounter() == 6060
+        #
+        module.newInstance(Bar)
+        for i in range(10):
+            if module.getCounter() >= 7070:
+                break
+            self.debug_collect()
+        assert module.getCounter() == 7070

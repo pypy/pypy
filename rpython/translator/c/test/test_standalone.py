@@ -1162,7 +1162,7 @@ class TestThread(object):
             print >> sys.stderr, 'Trying with %d KB of stack...' % (test_kb,),
             try:
                 data = cbuilder.cmdexec(str(test_kb * 1024))
-            except Exception, e:
+            except Exception as e:
                 if e.__class__ is not Exception:
                     raise
                 print >> sys.stderr, 'segfault'

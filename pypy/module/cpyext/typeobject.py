@@ -7,7 +7,7 @@ from rpython.rtyper.annlowlevel import llhelper
 from rpython.rtyper.lltypesystem import rffi, lltype
 
 from pypy.interpreter.baseobjspace import W_Root, DescrMismatch
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import oefmt
 from pypy.interpreter.typedef import (GetSetProperty, TypeDef,
         interp_attrproperty, interp_attrproperty, interp2app)
 from pypy.module.__builtin__.abstractinst import abstract_issubclass_w
@@ -196,6 +196,10 @@ def convert_member_defs(space, dict_w, members, w_type):
 
 def update_all_slots(space, w_type, pto):
     #  XXX fill slots in pto
+    # Not very sure about it, but according to
+    # test_call_tp_dealloc_when_created_from_python, we should not
+    # overwrite slots that are already set: these ones are probably
+    # coming from a parent C type.
 
     typedef = w_type.layout.typedef
     for method_name, slot_name, slot_names, slot_func in slotdefs_for_tp_slots:
@@ -223,7 +227,8 @@ def update_all_slots(space, w_type, pto):
         # XXX special case wrapper-functions and use a "specific" slot func
 
         if len(slot_names) == 1:
-            setattr(pto, slot_names[0], slot_func_helper)
+            if not getattr(pto, slot_names[0]):
+                setattr(pto, slot_names[0], slot_func_helper)
         else:
             assert len(slot_names) == 2
             struct = getattr(pto, slot_names[0])
@@ -240,7 +245,8 @@ def update_all_slots(space, w_type, pto):
                 struct = lltype.malloc(STRUCT_TYPE, flavor='raw', zero=True)
                 setattr(pto, slot_names[0], struct)
 
-            setattr(struct, slot_names[1], slot_func_helper)
+            if not getattr(struct, slot_names[1]):
+                setattr(struct, slot_names[1], slot_func_helper)
 
 def add_operators(space, dict_w, pto):
     # XXX support PyObject_HashNotImplemented
@@ -448,8 +454,8 @@ def str_segcount(space, w_obj, ref):
 def str_getreadbuffer(space, w_str, segment, ref):
     from pypy.module.cpyext.bytesobject import PyString_AsString
     if segment != 0:
-        raise OperationError(space.w_SystemError, space.wrap
-                             ("accessing non-existent string segment"))
+        raise oefmt(space.w_SystemError,
+                    "accessing non-existent string segment")
     pyref = make_ref(space, w_str)
     ref[0] = PyString_AsString(space, pyref)
     # Stolen reference: the object has better exist somewhere else
@@ -461,8 +467,8 @@ def str_getreadbuffer(space, w_str, segment, ref):
 def str_getcharbuffer(space, w_str, segment, ref):
     from pypy.module.cpyext.bytesobject import PyString_AsString
     if segment != 0:
-        raise OperationError(space.w_SystemError, space.wrap
-                             ("accessing non-existent string segment"))
+        raise oefmt(space.w_SystemError,
+                    "accessing non-existent string segment")
     pyref = make_ref(space, w_str)
     ref[0] = PyString_AsString(space, pyref)
     # Stolen reference: the object has better exist somewhere else
@@ -474,8 +480,8 @@ def str_getcharbuffer(space, w_str, segment, ref):
 def buf_getreadbuffer(space, pyref, segment, ref):
     from pypy.module.cpyext.bufferobject import PyBufferObject
     if segment != 0:
-        raise OperationError(space.w_SystemError, space.wrap
-                             ("accessing non-existent string segment"))
+        raise oefmt(space.w_SystemError,
+                    "accessing non-existent string segment")
     py_buf = rffi.cast(PyBufferObject, pyref)
     ref[0] = py_buf.c_b_ptr
     #Py_DecRef(space, pyref)
@@ -556,7 +562,14 @@ def type_attach(space, py_obj, w_type):
     typedescr = get_typedescr(w_type.layout.typedef)
 
     # dealloc
-    pto.c_tp_dealloc = typedescr.get_dealloc(space)
+    if space.gettypeobject(w_type.layout.typedef) is w_type:
+        # only for the exact type, like 'space.w_tuple' or 'space.w_list'
+        pto.c_tp_dealloc = typedescr.get_dealloc(space)
+    else:
+        # for all subtypes, use subtype_dealloc()
+        pto.c_tp_dealloc = llhelper(
+            subtype_dealloc.api_func.functype,
+            subtype_dealloc.api_func.get_wrapper(space))
     # buffer protocol
     if space.is_w(w_type, space.w_str):
         setup_string_buffer_procs(space, pto)

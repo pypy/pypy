@@ -39,7 +39,7 @@ class W_LibObject(W_Root):
                     mod = __import__(modname, None, None, ['ffi', 'lib'])
                     return mod.lib""")
                 lib1 = space.interp_w(W_LibObject, w_lib1)
-            except OperationError, e:
+            except OperationError as e:
                 if e.async(space):
                     raise
                 raise oefmt(space.w_ImportError,

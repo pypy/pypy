@@ -35,13 +35,13 @@ def check_with_length(length):
         s = make_random_encoded_string(length, 10)
         for encoding in all_encodings:
             check_decode(encoding, s)
-    except Exception, e:
+    except Exception as e:
         print "decoding:", encoding, repr(s)
     try:
         s = make_random_unicode(length, 10)
         for encoding in all_encodings:
             check_encode(encoding, s)
-    except Exception, e:
+    except Exception as e:
         print "encoding:", encoding, repr(s)
 
 

@@ -10,7 +10,7 @@ from pypy.module.cpyext.pyobject import (
 from pypy.module.cpyext.typeobject import PyTypeObjectPtr
 from pypy.module.cpyext.pyerrors import PyErr_NoMemory, PyErr_BadInternalCall
 from pypy.objspace.std.typeobject import W_TypeObject
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 import pypy.module.__builtin__.operation as operation
 
 
@@ -382,17 +382,15 @@ def PyObject_AsFileDescriptor(space, w_obj):
         try:
             w_meth = space.getattr(w_obj, space.wrap('fileno'))
         except OperationError:
-            raise OperationError(
-                space.w_TypeError, space.wrap(
-                "argument must be an int, or have a fileno() method."))
+            raise oefmt(space.w_TypeError,
+                        "argument must be an int, or have a fileno() method.")
         else:
             w_fd = space.call_function(w_meth)
             fd = space.int_w(w_fd)
 
     if fd < 0:
-        raise OperationError(
-            space.w_ValueError, space.wrap(
-            "file descriptor cannot be a negative integer"))
+        raise oefmt(space.w_ValueError,
+                    "file descriptor cannot be a negative integer")
 
     return rffi.cast(rffi.INT_real, fd)
 
@@ -415,7 +413,7 @@ def PyObject_HashNotImplemented(space, o):
     allowing a type to explicitly indicate to the interpreter that it is not
     hashable.
     """
-    raise OperationError(space.w_TypeError, space.wrap("unhashable type"))
+    raise oefmt(space.w_TypeError, "unhashable type")
 
 @cpython_api([PyObject], PyObject)
 def PyObject_Dir(space, w_o):
@@ -438,12 +436,11 @@ def PyObject_AsCharBuffer(space, obj, bufferp, sizep):
 
     pb = pto.c_tp_as_buffer
     if not (pb and pb.c_bf_getreadbuffer and pb.c_bf_getsegcount):
-        raise OperationError(space.w_TypeError, space.wrap(
-            "expected a character buffer object"))
+        raise oefmt(space.w_TypeError, "expected a character buffer object")
     if generic_cpy_call(space, pb.c_bf_getsegcount,
                         obj, lltype.nullptr(Py_ssize_tP.TO)) != 1:
-        raise OperationError(space.w_TypeError, space.wrap(
-            "expected a single-segment buffer object"))
+        raise oefmt(space.w_TypeError,
+                    "expected a single-segment buffer object")
     size = generic_cpy_call(space, pb.c_bf_getcharbuffer,
                             obj, 0, bufferp)
     if size < 0:
@@ -486,9 +483,7 @@ def PyBuffer_FillInfo(space, view, obj, buf, length, readonly, flags):
     provides a subset of CPython's behavior.
     """
     if flags & PyBUF_WRITABLE and readonly:
-        raise OperationError(
-            space.w_ValueError, space.wrap(
-            "Object is not writable"))
+        raise oefmt(space.w_ValueError, "Object is not writable")
     view.c_buf = buf
     view.c_len = length
     view.c_obj = obj

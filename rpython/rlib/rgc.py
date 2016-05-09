@@ -5,6 +5,7 @@ import types
 
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import we_are_translated, enforceargs, specialize
+from rpython.rlib.objectmodel import CDefinedIntSymbolic
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.lltypesystem import lltype, llmemory
 
@@ -361,10 +362,173 @@ def no_collect(func):
     return func
 
 def must_be_light_finalizer(func):
+    """Mark a __del__ method as being a destructor, calling only a limited
+    set of operations.  See pypy/doc/discussion/finalizer-order.rst.  
+
+    If you use the same decorator on a class, this class and all its
+    subclasses are only allowed to have __del__ methods which are
+    similarly decorated (or no __del__ at all).  It prevents a class
+    hierarchy from having destructors in some parent classes, which are
+    overridden in subclasses with (non-light, old-style) finalizers.  
+    (This case is the original motivation for FinalizerQueue.)
+    """
     func._must_be_light_finalizer_ = True
     return func
 
+
+class FinalizerQueue(object):
+    """A finalizer queue.  See pypy/doc/discussion/finalizer-order.rst.
+    Note: only works with the framework GCs (like minimark).  It is
+    ignored with Boehm or with refcounting (used by tests).
+    """
+    # Must be subclassed, and the subclass needs these attributes:
+    #
+    #    Class:
+    #        the class (or base class) of finalized objects
+    #
+    #    def finalizer_trigger(self):
+    #        called to notify that new items have been put in the queue
+
+    def _freeze_(self):
+        return True
+
+    @specialize.arg(0)
+    @jit.dont_look_inside
+    def next_dead(self):
+        if we_are_translated():
+            from rpython.rtyper.lltypesystem.lloperation import llop
+            from rpython.rtyper.rclass import OBJECTPTR
+            from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
+            tag = FinalizerQueue._get_tag(self)
+            ptr = llop.gc_fq_next_dead(OBJECTPTR, tag)
+            return cast_base_ptr_to_instance(self.Class, ptr)
+        try:
+            return self._queue.popleft()
+        except (AttributeError, IndexError):
+            return None
+
+    @specialize.arg(0)
+    @jit.dont_look_inside
+    def register_finalizer(self, obj):
+        assert isinstance(obj, self.Class)
+        if we_are_translated():
+            from rpython.rtyper.lltypesystem.lloperation import llop
+            from rpython.rtyper.rclass import OBJECTPTR
+            from rpython.rtyper.annlowlevel import cast_instance_to_base_ptr
+            tag = FinalizerQueue._get_tag(self)
+            ptr = cast_instance_to_base_ptr(obj)
+            llop.gc_fq_register(lltype.Void, tag, ptr)
+            return
+        else:
+            self._untranslated_register_finalizer(obj)
+
+    def _get_tag(self):
+        "NOT_RPYTHON: special-cased below"
+
+    def _reset(self):
+        import collections
+        self._weakrefs = set()
+        self._queue = collections.deque()
+
+    def _already_registered(self, obj):
+        return hasattr(obj, '__enable_del_for_id')
+
+    def _untranslated_register_finalizer(self, obj):
+        assert not self._already_registered(obj)
+
+        if not hasattr(self, '_queue'):
+            self._reset()
+
+        # Fetch and check the type of 'obj'
+        objtyp = obj.__class__
+        assert isinstance(objtyp, type), (
+            "%r: to run register_finalizer() untranslated, "
+            "the object's class must be new-style" % (obj,))
+        assert hasattr(obj, '__dict__'), (
+            "%r: to run register_finalizer() untranslated, "
+            "the object must have a __dict__" % (obj,))
+        assert (not hasattr(obj, '__slots__') or
+                type(obj).__slots__ == () or
+                type(obj).__slots__ == ('__weakref__',)), (
+            "%r: to run register_finalizer() untranslated, "
+            "the object must not have __slots__" % (obj,))
+
+        # The first time, patch the method __del__ of the class, if
+        # any, so that we can disable it on the original 'obj' and
+        # enable it only on the 'newobj'
+        _fq_patch_class(objtyp)
+
+        # Build a new shadow object with the same class and dict
+        newobj = object.__new__(objtyp)
+        obj.__dict__ = obj.__dict__.copy() #PyPy: break the dict->obj dependency
+        newobj.__dict__ = obj.__dict__
+
+        # A callback that is invoked when (or after) 'obj' is deleted;
+        # 'newobj' is still kept alive here
+        def callback(wr):
+            self._weakrefs.discard(wr)
+            self._queue.append(newobj)
+            self.finalizer_trigger()
+
+        import weakref
+        wr = weakref.ref(obj, callback)
+        self._weakrefs.add(wr)
+
+        # Disable __del__ on the original 'obj' and enable it only on
+        # the 'newobj'.  Use id() and not a regular reference, because
+        # that would make a cycle between 'newobj' and 'obj.__dict__'
+        # (which is 'newobj.__dict__' too).
+        setattr(obj, '__enable_del_for_id', id(newobj))
+
+
+def _fq_patch_class(Cls):
+    if Cls in _fq_patched_classes:
+        return
+    if '__del__' in Cls.__dict__:
+        def __del__(self):
+            if not we_are_translated():
+                try:
+                    if getattr(self, '__enable_del_for_id') != id(self):
+                        return
+                except AttributeError:
+                    pass
+            original_del(self)
+        original_del = Cls.__del__
+        Cls.__del__ = __del__
+        _fq_patched_classes.add(Cls)
+    for BaseCls in Cls.__bases__:
+        _fq_patch_class(BaseCls)
+
+_fq_patched_classes = set()
+
+class FqTagEntry(ExtRegistryEntry):
+    _about_ = FinalizerQueue._get_tag.im_func
+
+    def compute_result_annotation(self, s_fq):
+        assert s_fq.is_constant()
+        fq = s_fq.const
+        s_func = self.bookkeeper.immutablevalue(fq.finalizer_trigger)
+        self.bookkeeper.emulate_pbc_call(self.bookkeeper.position_key,
+                                         s_func, [])
+        if not hasattr(fq, '_fq_tag'):
+            fq._fq_tag = CDefinedIntSymbolic(
+                '0 /*FinalizerQueue TAG for %s*/' % fq.__class__.__name__,
+                default=fq)
+        return self.bookkeeper.immutablevalue(fq._fq_tag)
+
+    def specialize_call(self, hop):
+        from rpython.rtyper.rclass import InstanceRepr
+        translator = hop.rtyper.annotator.translator
+        fq = hop.args_s[0].const
+        graph = translator._graphof(fq.finalizer_trigger.im_func)
+        InstanceRepr.check_graph_of_del_does_not_call_too_much(hop.rtyper,
+                                                               graph)
+        hop.exception_cannot_occur()
+        return hop.inputconst(lltype.Signed, hop.s_result.const)
+
+
 # ____________________________________________________________
+
 
 def get_rpy_roots():
     "NOT_RPYTHON"

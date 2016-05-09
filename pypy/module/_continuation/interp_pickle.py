@@ -69,7 +69,7 @@ def resume_trampoline_callback(h, arg):
             try:
                 w_result = post_switch(sthread, h)
                 operr = None
-            except OperationError, e:
+            except OperationError as e:
                 w_result = None
                 operr = e
             #
@@ -88,7 +88,7 @@ def resume_trampoline_callback(h, arg):
                 try:
                     w_result = frame.execute_frame(w_result, operr)
                     operr = None
-                except OperationError, e:
+                except OperationError as e:
                     w_result = None
                     operr = e
                 if exit_continulet is not None:
@@ -97,7 +97,7 @@ def resume_trampoline_callback(h, arg):
             sthread.ec.topframeref = jit.vref_None
             if operr:
                 raise operr
-    except Exception, e:
+    except Exception as e:
         global_state.propagate_exception = e
     else:
         global_state.w_value = w_result
