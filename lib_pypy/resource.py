@@ -104,7 +104,7 @@ def _setup():
     all_constants = []
     p = lib.my_rlimit_consts
     while p.name:
-        name = ffi.string(p.name)
+        name = ffi.string(p.name).decode()
         globals()[name] = int(p.value)
         all_constants.append(name)
         p += 1
