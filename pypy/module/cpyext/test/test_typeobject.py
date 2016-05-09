@@ -1002,6 +1002,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         #
         class Bar(Foo):
             pass
+        assert Foo.__new__ is Bar.__new__
         Bar(); Bar()
         for i in range(10):
             if module.getCounter() >= 5050:
@@ -1021,4 +1022,4 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             if module.getCounter() >= 7070:
                 break
             self.debug_collect()
-        #assert module.getCounter() == 7070    -- oops, bug!
+        assert module.getCounter() == 7070
