@@ -222,8 +222,19 @@ def assemble_header():
         content.append(encode_str(opname.lower()))
     return ''.join(content)
 
+
+def _log_jit_counter(cintf, struct):
+    if not cintf.jitlog_enabled():
+        return
+    le_addr = encode_le_addr(struct.number)
+    # not an address (but a number) but it is a machine word
+    le_count = encode_le_addr(struct.i)
+    out = le_addr + le_count
+    cintf.jitlog_write_marked(MARK_JITLOG_COUNTER, out, len(out))
+
 class VMProfJitLogger(object):
-    def __init__(self):
+    def __init__(self, cpu=None):
+        self.cpu = cpu
         self.cintf = cintf.setup()
         self.memo = {}
         self.trace_id = -1
@@ -265,12 +276,7 @@ class VMProfJitLogger(object):
         self.cintf.jitlog_write_marked(mark, line, len(line))
 
     def log_jit_counter(self, struct):
-        if not self.cintf.jitlog_enabled():
-            return
-        le_addr = encode_le_addr(struct.number)
-        # not an address (but a number) but it is a machine word
-        le_count = encode_le_addr(struct.i)
-        self._write_marked(MARK_JITLOG_COUNTER, le_addr + le_count)
+        _log_jit_counter(self.cintf, struct)
 
     def log_trace(self, tag, metainterp_sd, mc, memo=None):
         if not self.cintf.jitlog_enabled():
@@ -482,7 +488,7 @@ class LogTrace(BaseLogTrace):
     def copy_core_dump(self, addr, offset=0, count=-1):
         dump = []
         src = rffi.cast(rffi.CCHARP, addr)
-        end = self.get_relative_pos()
+        end = self.mc.get_relative_pos()
         if count != -1:
             end = offset + count
         for p in range(offset, end):

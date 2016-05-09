@@ -13,13 +13,8 @@ from rpython.rlib.objectmodel import specialize, compute_unique_id
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref, llhelper
 from rpython.rtyper.lltypesystem import rffi, lltype
 
-
-DEBUG_COUNTER = lltype.Struct('DEBUG_COUNTER',
-    # 'b'ridge, 'l'abel or # 'e'ntry point
-    ('i', lltype.Signed),      # first field, at offset 0
-    ('type', lltype.Char),
-    ('number', lltype.Signed)
-)
+from rpython.jit.metainterp.debug import (DEBUG_COUNTER, LOOP_RUN_COUNTERS,
+        flush_debug_counters)
 
 class GuardToken(object):
     def __init__(self, cpu, gcmap, faildescr, failargs, fail_locs,
@@ -362,10 +357,6 @@ class BaseAssembler(object):
             ResOperation(rop.INCREMENT_DEBUG_COUNTER, [c_adr]))
 
     def _register_counter(self, tp, number, token):
-        # YYY very minor leak -- we need the counters to stay alive
-        # forever, just because we want to report them at the end
-        # of the process
-
         # XXX the numbers here are ALMOST unique, but not quite, use a counter
         #     or something
         struct = lltype.malloc(DEBUG_COUNTER, flavor='raw',
@@ -377,14 +368,15 @@ class BaseAssembler(object):
         else:
             assert token
             struct.number = compute_unique_id(token)
-        self.loop_run_counters.append(struct)
+        LOOP_RUN_COUNTERS.append(struct)
         return struct
 
     def finish_once(self, jitlog):
         if self._debug:
+            # TODO remove the old logging system when jitlog is complete
             debug_start('jit-backend-counts')
-            for i in range(len(self.loop_run_counters)):
-                struct = self.loop_run_counters[i]
+            for i in range(len(LOOP_RUN_COUNTERS)):
+                struct = LOOP_RUN_COUNTERS[i]
                 if struct.type == 'l':
                     prefix = 'TargetToken(%d)' % struct.number
                 else:
@@ -401,9 +393,7 @@ class BaseAssembler(object):
             debug_stop('jit-backend-counts')
 
         if jitlog:
-            # this is always called, the jitlog knows if it is enabled
-            for i, struct in enumerate(self.loop_run_counters):
-                jitlog.log_jit_counter(struct)
+            flush_debug_counters(jitlog)
 
     @staticmethod
     @rgc.no_collect

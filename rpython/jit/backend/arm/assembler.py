@@ -14,7 +14,7 @@ from rpython.jit.backend.arm.regalloc import (Regalloc,
     CoreRegisterManager, check_imm_arg, VFPRegisterManager,
     operations as regalloc_operations)
 from rpython.jit.backend.llsupport import jitframe, rewrite
-from rpython.jit.backend.llsupport.assembler import DEBUG_COUNTER, BaseAssembler
+from rpython.jit.backend.llsupport.assembler import BaseAssembler
 from rpython.jit.backend.llsupport.regalloc import get_scale, valid_addressing_size
 from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from rpython.jit.backend.model import CompiledLoopToken

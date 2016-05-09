@@ -3,8 +3,7 @@ import os
 import py
 
 from rpython.jit.backend.llsupport import symbolic, jitframe, rewrite
-from rpython.jit.backend.llsupport.assembler import (GuardToken, BaseAssembler,
-                                                DEBUG_COUNTER, debug_bridge)
+from rpython.jit.backend.llsupport.assembler import (GuardToken, BaseAssembler, debug_bridge)
 from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.jit.metainterp.history import (Const, VOID, ConstInt)
