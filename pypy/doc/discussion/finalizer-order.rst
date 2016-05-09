@@ -33,26 +33,25 @@ We try to consistently call ``__del__()`` a destructor, to distinguish
 it from a finalizer.  A finalizer runs earlier, and in topological
 order; care must be taken that the object might still be reachable at
 this point if we're clever enough.  A destructor on the other hand runs
-last; nothing can be done with the object any more.
+last; nothing can be done with the object any more, and the GC frees it
+immediately.
 
 
 Destructors
 -----------
 
 A destructor is an RPython ``__del__()`` method that is called directly
-by the GC when there is no more reference to an object.  Intended for
-objects that just need to free a block of raw memory or close a file.
+by the GC when it is about to free the memory.  Intended for objects
+that just need to free an extra block of raw memory.
 
 There are restrictions on the kind of code you can put in ``__del__()``,
 including all other functions called by it.  These restrictions are
-checked.  In particular you cannot access fields containing GC objects;
-and if you call an external C function, it must be a "safe" function
-(e.g. not releasing the GIL; use ``releasegil=False`` in
-``rffi.llexternal()``).
+checked.  In particular you cannot access fields containing GC objects.
+Right now you can't call any external C function either.
 
-If there are several objects with destructors that die during the same
-GC cycle, they are called in a completely random order --- but that
-should not matter because destructors cannot do much anyway.
+Destructors are called precisely when the GC frees the memory of the
+object.  As long as the object exists (even in some finalizer queue or
+anywhere), its destructor is not called.
 
 
 Register_finalizer

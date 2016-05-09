@@ -548,11 +548,15 @@ class UserDelAction(AsyncAction):
 
     def gc_disabled(self, w_obj):
         # If we're running in 'gc.disable()' mode, record w_obj in the
-        # "call me later" list and return True.  Use this function
-        # from _finalize_() methods that would call app-level some
-        # things that we consider shouldn't be called in gc.disable().
-        # (The exact definition is of course a bit vague, but most
-        # importantly this includes all user-level __del__().)
+        # "call me later" list and return True.  In normal mode, return
+        # False.  Use this function from some _finalize_() methods:
+        # if a _finalize_() method would call some user-defined
+        # app-level function, like a weakref callback, then first do
+        # 'if gc.disabled(self): return'.  Another attempt at
+        # calling _finalize_() will be made after 'gc.enable()'.
+        # (The exact rule for when to use gc_disabled() or not is a bit
+        # vague, but most importantly this includes all user-level
+        # __del__().)
         pdd = self.pending_with_disabled_del
         if pdd is None:
             return False
