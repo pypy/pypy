@@ -362,6 +362,16 @@ def no_collect(func):
     return func
 
 def must_be_light_finalizer(func):
+    """Mark a __del__ method as being a destructor, calling only a limited
+    set of operations.  See pypy/doc/discussion/finalizer-order.rst.  
+
+    If you use the same decorator on a class, this class and all its
+    subclasses are only allowed to have __del__ methods which are
+    similarly decorated (or no __del__ at all).  It prevents a class
+    hierarchy from having destructors in some parent classes, which are
+    overridden in subclasses with (non-light, old-style) finalizers.  
+    (This case is the original motivation for FinalizerQueue.)
+    """
     func._must_be_light_finalizer_ = True
     return func
 
@@ -383,6 +393,7 @@ class FinalizerQueue(object):
         return True
 
     @specialize.arg(0)
+    @jit.dont_look_inside
     def next_dead(self):
         if we_are_translated():
             from rpython.rtyper.lltypesystem.lloperation import llop
@@ -397,6 +408,7 @@ class FinalizerQueue(object):
             return None
 
     @specialize.arg(0)
+    @jit.dont_look_inside
     def register_finalizer(self, obj):
         assert isinstance(obj, self.Class)
         if we_are_translated():
@@ -418,9 +430,11 @@ class FinalizerQueue(object):
         self._weakrefs = set()
         self._queue = collections.deque()
 
+    def _already_registered(self, obj):
+        return hasattr(obj, '__enable_del_for_id')
+
     def _untranslated_register_finalizer(self, obj):
-        if hasattr(obj, '__enable_del_for_id'):
-            return    # already called
+        assert not self._already_registered(obj)
 
         if not hasattr(self, '_queue'):
             self._reset()
@@ -428,14 +442,16 @@ class FinalizerQueue(object):
         # Fetch and check the type of 'obj'
         objtyp = obj.__class__
         assert isinstance(objtyp, type), (
-            "to run register_finalizer() untranslated, "
-            "the object's class must be new-style")
+            "%r: to run register_finalizer() untranslated, "
+            "the object's class must be new-style" % (obj,))
         assert hasattr(obj, '__dict__'), (
-            "to run register_finalizer() untranslated, "
-            "the object must have a __dict__")
-        assert not hasattr(obj, '__slots__'), (
-            "to run register_finalizer() untranslated, "
-            "the object must not have __slots__")
+            "%r: to run register_finalizer() untranslated, "
+            "the object must have a __dict__" % (obj,))
+        assert (not hasattr(obj, '__slots__') or
+                type(obj).__slots__ == () or
+                type(obj).__slots__ == ('__weakref__',)), (
+            "%r: to run register_finalizer() untranslated, "
+            "the object must not have __slots__" % (obj,))
 
         # The first time, patch the method __del__ of the class, if
         # any, so that we can disable it on the original 'obj' and

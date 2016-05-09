@@ -4584,6 +4584,32 @@ class TestAnnotateTestCase:
         e = py.test.raises(Exception, a.build_types, f, [])
         assert str(e.value) == "Don't know how to represent Ellipsis"
 
+    def test_must_be_light_finalizer(self):
+        from rpython.rlib import rgc
+        @rgc.must_be_light_finalizer
+        class A(object):
+            pass
+        class B(A):
+            def __del__(self):
+                pass
+        class C(A):
+            @rgc.must_be_light_finalizer
+            def __del__(self):
+                pass
+        class D(object):
+            def __del__(self):
+                pass
+        def fb():
+            B()
+        def fc():
+            C()
+        def fd():
+            D()
+        a = self.RPythonAnnotator()
+        a.build_types(fc, [])
+        a.build_types(fd, [])
+        py.test.raises(AnnotatorError, a.build_types, fb, [])
+
 
 def g(n):
     return [0, 1, 2, n]
