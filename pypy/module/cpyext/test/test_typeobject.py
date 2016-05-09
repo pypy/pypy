@@ -942,6 +942,14 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 Py_INCREF(&Foo_Type);
                 return (PyObject *)&Foo_Type;
              """),
+            ("newInstance", "METH_O",
+             """
+                PyTypeObject *tp = (PyTypeObject *)args;
+                PyObject *e = PyTuple_New(0);
+                PyObject *o = tp->tp_new(tp, e, NULL);
+                Py_DECREF(e);
+                return o;
+             """),
             ("getCounter", "METH_VARARGS",
              """
                 return PyInt_FromLong(foo_counter);
@@ -1000,3 +1008,17 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 break
             self.debug_collect()
         assert module.getCounter() == 5050
+        #
+        module.newInstance(Foo)
+        for i in range(10):
+            if module.getCounter() >= 6060:
+                break
+            self.debug_collect()
+        assert module.getCounter() == 6060
+        #
+        module.newInstance(Bar)
+        for i in range(10):
+            if module.getCounter() >= 7070:
+                break
+            self.debug_collect()
+        #assert module.getCounter() == 7070    -- oops, bug!
