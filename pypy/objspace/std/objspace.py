@@ -484,7 +484,12 @@ class StdObjSpace(ObjSpace):
         return None
 
     def view_as_kwargs(self, w_dict):
-        if type(w_dict) is W_DictObject:
+        # Tries to return (keys_list, values_list), or (None, None) if
+        # it fails.  It can fail on some dict implementations, so don't
+        # rely on it.  For dict subclasses, though, it never fails;
+        # this emulates CPython's behavior which often won't call
+        # custom __iter__() or keys() methods in dict subclasses.
+        if isinstance(w_dict, W_DictObject):
             return w_dict.view_as_kwargs()
         return (None, None)
 

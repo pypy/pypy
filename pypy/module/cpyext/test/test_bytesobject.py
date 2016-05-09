@@ -40,7 +40,7 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
                  #endif
                  if(s->ob_type->tp_basicsize != expected_size)
                  {
-                     printf("tp_basicsize==%ld\\n", s->ob_type->tp_basicsize); 
+                     printf("tp_basicsize==%zd\\n", s->ob_type->tp_basicsize); 
                      result = 0;
                  }
                  Py_DECREF(s);
@@ -162,7 +162,10 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
             ("string_None", "METH_VARARGS",
              '''
-             return PyString_AsString(Py_None);
+             if (PyString_AsString(Py_None)) {
+                Py_RETURN_NONE;
+             }
+             return NULL;
              '''
             )])
         raises(TypeError, module.string_None)

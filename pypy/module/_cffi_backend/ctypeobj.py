@@ -147,6 +147,9 @@ class W_CType(W_Root):
         raise oefmt(space.w_TypeError, "cannot add a cdata '%s' and a number",
                     self.name)
 
+    def nonzero(self, cdata):
+        return bool(cdata)
+
     def insert_name(self, extra, extra_position):
         name = '%s%s%s' % (self.name[:self.name_position],
                            extra,

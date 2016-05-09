@@ -1898,14 +1898,14 @@ def test_introspect_included_type():
 
 def test_introspect_order():
     ffi = FFI()
-    ffi.cdef("union aaa { int a; }; typedef struct ccc { int a; } b;")
-    ffi.cdef("union g   { int a; }; typedef struct cc  { int a; } bbb;")
-    ffi.cdef("union aa  { int a; }; typedef struct a   { int a; } bb;")
+    ffi.cdef("union CFFIaaa { int a; }; typedef struct CFFIccc { int a; } CFFIb;")
+    ffi.cdef("union CFFIg   { int a; }; typedef struct CFFIcc  { int a; } CFFIbbb;")
+    ffi.cdef("union CFFIaa  { int a; }; typedef struct CFFIa   { int a; } CFFIbb;")
     verify(ffi, "test_introspect_order", """
-        union aaa { int a; }; typedef struct ccc { int a; } b;
-        union g   { int a; }; typedef struct cc  { int a; } bbb;
-        union aa  { int a; }; typedef struct a   { int a; } bb;
+        union CFFIaaa { int a; }; typedef struct CFFIccc { int a; } CFFIb;
+        union CFFIg   { int a; }; typedef struct CFFIcc  { int a; } CFFIbbb;
+        union CFFIaa  { int a; }; typedef struct CFFIa   { int a; } CFFIbb;
     """)
-    assert ffi.list_types() == (['b', 'bb', 'bbb'],
-                                    ['a', 'cc', 'ccc'],
-                                    ['aa', 'aaa', 'g'])
+    assert ffi.list_types() == (['CFFIb', 'CFFIbb', 'CFFIbbb'],
+                                ['CFFIa', 'CFFIcc', 'CFFIccc'],
+                                ['CFFIaa', 'CFFIaaa', 'CFFIg'])

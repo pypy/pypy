@@ -68,3 +68,19 @@ Get the cpyext tests to pass with "-A" (i.e. when tested directly with
 CPython).
 
 .. branch: oefmt
+
+.. branch: cpyext-werror
+
+Compile c snippets with -Werror in cpyext
+
+.. branch: gc-del-3
+
+Add rgc.FinalizerQueue, documented in pypy/doc/discussion/finalizer-order.rst.
+It is a more flexible way to make RPython finalizers.
+
+.. branch: unpacking-cpython-shortcut
+
+.. branch: cleanups
+
+.. branch: cpyext-more-slots
+
