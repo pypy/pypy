@@ -449,22 +449,11 @@ class W_CDataNewStd(W_CDataNewOwning):
         lltype.free(self._ptr, flavor='raw')
 
 
-class W_CDataNewNonStdNoFree(W_CDataNewOwning):
-    """Subclass using a non-standard allocator, no free()"""
-    _attrs_ = ['w_raw_cdata']
+class W_CDataNewNonStd(W_CDataNewOwning):
+    """Subclass using a non-standard allocator"""
+    _attrs_ = ['w_raw_cdata', 'w_free']
 
-class W_CDataNewNonStdFree(W_CDataNewNonStdNoFree):
-    """Subclass using a non-standard allocator, with a free()"""
-    _attrs_ = ['w_free']
-
-    def __del__(self):
-        self.clear_all_weakrefs()
-        self.enqueue_for_destruction(self.space,
-                                     W_CDataNewNonStdFree.call_destructor,
-                                     'destructor of ')
-
-    def call_destructor(self):
-        assert isinstance(self, W_CDataNewNonStdFree)
+    def _finalize_(self):
         self.space.call_function(self.w_free, self.w_raw_cdata)
 
 
@@ -552,14 +541,9 @@ class W_CDataGCP(W_CData):
         W_CData.__init__(self, space, cdata, ctype)
         self.w_original_cdata = w_original_cdata
         self.w_destructor = w_destructor
+        self.register_finalizer(space)
 
-    def __del__(self):
-        self.clear_all_weakrefs()
-        self.enqueue_for_destruction(self.space, W_CDataGCP.call_destructor,
-                                     'destructor of ')
-
-    def call_destructor(self):
-        assert isinstance(self, W_CDataGCP)
+    def _finalize_(self):
         w_destructor = self.w_destructor
         if w_destructor is not None:
             self.w_destructor = None

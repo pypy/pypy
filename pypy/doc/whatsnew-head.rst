@@ -84,3 +84,8 @@ It is a more flexible way to make RPython finalizers.
 
 .. branch: cpyext-more-slots
 
+.. branch: use-gc-del-3
+
+Use the new rgc.FinalizerQueue mechanism to clean up the handling of
+``__del__`` methods.  Fixes notably issue #2287.  (All RPython
+subclasses of W_Root need to use FinalizerQueue now.)
