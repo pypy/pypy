@@ -556,7 +556,14 @@ def type_attach(space, py_obj, w_type):
     typedescr = get_typedescr(w_type.layout.typedef)
 
     # dealloc
-    pto.c_tp_dealloc = typedescr.get_dealloc(space)
+    if space.gettypeobject(w_type.layout.typedef) is w_type:
+        # only for the exact type, like 'space.w_tuple' or 'space.w_list'
+        pto.c_tp_dealloc = typedescr.get_dealloc(space)
+    else:
+        # for all subtypes, use subtype_dealloc()
+        pto.c_tp_dealloc = llhelper(
+            subtype_dealloc.api_func.functype,
+            subtype_dealloc.api_func.get_wrapper(space))
     # buffer protocol
     if space.is_w(w_type, space.w_str):
         setup_string_buffer_procs(space, pto)

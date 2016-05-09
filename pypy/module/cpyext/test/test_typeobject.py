@@ -922,7 +922,6 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         else:
             raise AssertionError("did not get TypeError!")
 
-    @pytest.mark.xfail
     def test_call_tp_dealloc_when_created_from_python(self):
         module = self.import_extension('foo', [
             ("fetchFooType", "METH_VARARGS",
@@ -942,15 +941,16 @@ class AppTestSlots(AppTestCpythonExtensionBase):
              """),
             ("getCounter", "METH_VARARGS",
              """
-                return PyInt_FromLong(foo_dealloc_counter);
+                return PyInt_FromLong(foo_counter);
              """)], prologue=
             """
-            static int foo_dealloc_counter = -1;
+            static int foo_counter = 1000;
             static void dealloc_foo(PyObject *foo) {
-                foo_dealloc_counter++;
+                foo_counter += 10;
             }
             static PyObject *new_foo(PyTypeObject *t, PyObject *a, PyObject *k)
             {
+                foo_counter += 1000;
                 return t->tp_alloc(t, 0);
             }
             static PyTypeObject Foo_Type = {
@@ -959,21 +959,21 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             };
             """)
         Foo = module.fetchFooType()
-        assert module.getCounter() == 0
+        assert module.getCounter() == 1010
         Foo(); Foo()
         for i in range(10):
-            if module.getCounter() >= 2:
+            if module.getCounter() >= 3030:
                 break
             # NB. use self.debug_collect() instead of gc.collect(),
             # otherwise rawrefcount's dealloc callback doesn't trigger
             self.debug_collect()
-        assert module.getCounter() == 2
+        assert module.getCounter() == 3030
         #
         class Bar(Foo):
             pass
         Bar(); Bar()
         for i in range(10):
-            if module.getCounter() >= 4:
+            if module.getCounter() >= 5050:
                 break
             self.debug_collect()
-        assert module.getCounter() == 4
+        assert module.getCounter() == 5050
