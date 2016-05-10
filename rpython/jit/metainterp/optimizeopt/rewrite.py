@@ -168,7 +168,7 @@ class OptRewrite(Optimization):
                         break
             self.emit_operation(op)
 
-    def optimize_UINT_FLOORDIV(self, op):
+    def XXX_optimize_UINT_FLOORDIV(self, op):
         b2 = self.getintbound(op.getarg(1))
 
         if b2.is_constant() and b2.getint() == 1:
@@ -678,7 +678,7 @@ class OptRewrite(Optimization):
     def optimize_GUARD_FUTURE_CONDITION(self, op):
         self.optimizer.notice_guard_future_condition(op)
 
-    def optimize_INT_PY_DIV(self, op):
+    def XXX_optimize_INT_PY_DIV(self, op):
         arg0 = op.getarg(0)
         b1 = self.getintbound(arg0)
         arg1 = op.getarg(1)

@@ -1908,9 +1908,14 @@ class Transformer(object):
             op0 = SpaceOperation(opname, args, op.result)
             if oopspec_name in ('int.add_ovf', 'int.mul_ovf'):
                 op0 = self._rewrite_symmetric(op0)
-            oplist = [op0]
-            if oopspec_name.endswith('_ovf'):
-                oplist.insert(0, SpaceOperation('-live-', [], None))
+            oplist = [SpaceOperation('-live-', [], None), op0]
+            return oplist
+        elif oopspec_name == 'int.neg_ovf':
+            [v_x] = args
+            op0 = SpaceOperation('int_sub_ovf',
+                                 [Constant(0, lltype.Signed), v_x],
+                                 op.result)
+            oplist = [SpaceOperation('-live-', [], None), op0]
             return oplist
         else:
             os = getattr(EffectInfo, 'OS_' + opname.upper())

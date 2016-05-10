@@ -929,10 +929,10 @@ class IntegralForwardModification(object):
     """
     exec py.code.Source(multiplicative_func_source
             .format(name='INT_MUL', op='*', tgt='mul', cop='*')).compile()
-    exec py.code.Source(multiplicative_func_source
-            .format(name='INT_PY_DIV', op='*', tgt='div', cop='/')).compile()
-    exec py.code.Source(multiplicative_func_source
-            .format(name='UINT_FLOORDIV', op='*', tgt='div', cop='/')).compile()
+    #exec py.code.Source(multiplicative_func_source
+    #        .format(name='INT_PY_DIV', op='*', tgt='div', cop='/')).compile()
+    #exec py.code.Source(multiplicative_func_source
+    #        .format(name='UINT_FLOORDIV', op='*', tgt='div', cop='/')).compile()
     del multiplicative_func_source
 
     array_access_source = """
@@ -1042,9 +1042,11 @@ class IndexVar(AbstractValue):
             var = ResOperation(rop.INT_MUL, args)
             opt.emit_operation(var)
         if self.coefficient_div != 1:
-            args = [var, ConstInt(self.coefficient_div)]
-            var = ResOperation(rop.INT_FLOORDIV, args)
-            opt.emit_operation(var)
+            assert 0   # XXX for now; should never be the case with handling
+                       # of INT_PY_DIV commented out in this file...
+            #args = [var, ConstInt(self.coefficient_div)]
+            #var = ResOperation(rop.INT_FLOORDIV, args)
+            #opt.emit_operation(var)
         if self.constant > 0:
             args = [var, ConstInt(self.constant)]
             var = ResOperation(rop.INT_ADD, args)

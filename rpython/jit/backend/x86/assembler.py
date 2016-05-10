@@ -1444,7 +1444,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         self.mov(imm0, resloc)
         self.mc.CMOVNS(resloc, arglocs[0])
 
-    def genop_int_c_mod(self, op, arglocs, resloc):
+    def XXX_genop_int_c_mod(self, op, arglocs, resloc):
         if IS_X86_32:
             self.mc.CDQ()
         elif IS_X86_64:
@@ -1452,9 +1452,9 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
 
         self.mc.IDIV_r(ecx.value)
 
-    genop_int_c_div = genop_int_c_mod
+    XXX_genop_int_c_div = XXX_genop_int_c_mod
 
-    def genop_uint_floordiv(self, op, arglocs, resloc):
+    def XXX_genop_uint_floordiv(self, op, arglocs, resloc):
         self.mc.XOR_rr(edx.value, edx.value)
         self.mc.DIV_r(ecx.value)
 

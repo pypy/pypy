@@ -172,14 +172,14 @@ class OptIntBounds(Optimization):
         if b.bounded():
             r.intersect(b)
 
-    def optimize_INT_PY_DIV(self, op):
+    def XXX_optimize_INT_PY_DIV(self, op):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
         self.emit_operation(op)
         r = self.getintbound(op)
         r.intersect(b1.py_div_bound(b2))
 
-    def optimize_INT_PY_MOD(self, op):
+    def XXX_optimize_INT_PY_MOD(self, op):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
         if b2.is_constant():

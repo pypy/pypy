@@ -594,9 +594,8 @@ def ll_int_lshift_ovf(x, y):
         raise OverflowError("x<<y loosing bits or changing sign")
     return result
 
+@jit.oopspec("int.neg_ovf(x)")
 def ll_int_neg_ovf(x):
-    if jit.we_are_jitted():
-        return ll_int_sub_ovf(0, x)
     if x == INT_MIN:
         raise OverflowError
     return -x

@@ -308,6 +308,19 @@ def test_asymmetric_op_ovf(opname):
             assert op1.args == []
             assert op1.result is None
 
+def test_neg_ovf():
+    v3 = varoftype(lltype.Signed)
+    for v1 in [varoftype(lltype.Signed), const(42)]:
+        op = SpaceOperation('direct_call', [Constant('neg_ovf'), v1], v3)
+        oplist = Transformer(FakeCPU())._handle_int_ovf(op, 'int.neg_ovf', [v1])
+        op1, op0 = oplist
+        assert op0.opname == 'int_sub_ovf'
+        assert op0.args == [Constant(0), v1]
+        assert op0.result == v3
+        assert op1.opname == '-live-'
+        assert op1.args == []
+        assert op1.result is None
+
 @py.test.mark.parametrize('opname', ['py_div', 'udiv', 'py_mod', 'umod'])
 def test_asymmetric_op_residual(opname):
     v3 = varoftype(lltype.Signed)
