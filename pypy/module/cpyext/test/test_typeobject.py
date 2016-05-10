@@ -1023,3 +1023,30 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 break
             self.debug_collect()
         assert module.getCounter() == 7070
+
+    def test_tp_call_reverse(self):
+        module = self.import_extension('foo', [
+           ("new_obj", "METH_NOARGS",
+            '''
+                PyObject *obj;
+                Foo_Type.tp_flags = Py_TPFLAGS_DEFAULT;
+                Foo_Type.tp_call = &my_tp_call;
+                if (PyType_Ready(&Foo_Type) < 0) return NULL;
+                obj = PyObject_New(PyObject, &Foo_Type);
+                return obj;
+            '''
+            )],
+            '''
+            static PyObject *
+            my_tp_call(PyObject *self, PyObject *args, PyObject *kwds)
+            {
+                return PyInt_FromLong(42);
+            }
+            static PyTypeObject Foo_Type = {
+                PyVarObject_HEAD_INIT(NULL, 0)
+                "foo.foo",
+            };
+            ''')
+        x = module.new_obj()
+        assert x() == 42
+        assert x(4, bar=5) == 42
