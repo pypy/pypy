@@ -26,6 +26,8 @@ ARRAY_BEHAVED_NS   = ARRAY_ALIGNED | ARRAY_WRITEABLE | ARRAY_NOTSWAPPED
 ARRAY_CARRAY       = ARRAY_C_CONTIGUOUS | ARRAY_BEHAVED
 ARRAY_DEFAULT      = ARRAY_CARRAY
 
+npy_intpp = rffi.CArrayPtr(Py_ssize_t)
+
 
 HEADER = 'pypy_numpy.h'
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL, header=HEADER)
@@ -196,15 +198,15 @@ def simple_new_from_data(space, nd, dims, typenum, data,
             order=order, owning=owning, w_subtype=w_subtype)
 
 
-@cpython_api([Py_ssize_t, rffi.LONGP, Py_ssize_t], PyObject, header=HEADER)
+@cpython_api([Py_ssize_t, npy_intpp, Py_ssize_t], PyObject, header=HEADER)
 def _PyArray_SimpleNew(space, nd, dims, typenum):
     return simple_new(space, nd, dims, typenum)
 
-@cpython_api([Py_ssize_t, rffi.LONGP, Py_ssize_t, rffi.VOIDP], PyObject, header=HEADER)
+@cpython_api([Py_ssize_t, npy_intpp, Py_ssize_t, rffi.VOIDP], PyObject, header=HEADER)
 def _PyArray_SimpleNewFromData(space, nd, dims, typenum, data):
     return simple_new_from_data(space, nd, dims, typenum, data, owning=False)
 
-@cpython_api([Py_ssize_t, rffi.LONGP, Py_ssize_t, rffi.VOIDP], PyObject, header=HEADER)
+@cpython_api([Py_ssize_t, npy_intpp, Py_ssize_t, rffi.VOIDP], PyObject, header=HEADER)
 def _PyArray_SimpleNewFromDataOwning(space, nd, dims, typenum, data):
     # Variant to take over ownership of the memory, equivalent to:
     #     PyObject *arr = PyArray_SimpleNewFromData(nd, dims, typenum, data);
@@ -212,7 +214,7 @@ def _PyArray_SimpleNewFromDataOwning(space, nd, dims, typenum, data):
     return simple_new_from_data(space, nd, dims, typenum, data, owning=True)
 
 
-@cpython_api([rffi.VOIDP, Py_ssize_t, rffi.LONGP, Py_ssize_t, rffi.LONGP,
+@cpython_api([rffi.VOIDP, Py_ssize_t, npy_intpp, Py_ssize_t, npy_intpp,
     rffi.VOIDP, Py_ssize_t, Py_ssize_t, PyObject], PyObject, header=HEADER)
 def _PyArray_New(space, subtype, nd, dims, typenum, strides, data, itemsize, flags, obj):
     if strides:
