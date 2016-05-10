@@ -175,6 +175,7 @@ marks = [
     ('MERGE_POINT',),
     ('COMMON_PREFIX',),
     ('ABORT_TRACE',),
+    ('SOURCE_CODE',),
 ]
 
 start = 0x11
