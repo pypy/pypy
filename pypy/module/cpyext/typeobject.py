@@ -486,6 +486,18 @@ def buf_getreadbuffer(space, pyref, segment, ref):
     #Py_DecRef(space, pyref)
     return py_buf.c_b_size
 
+@cpython_api([PyObject, Py_ssize_t, rffi.CCHARPP], lltype.Signed,
+             header=None, error=-1)
+def buf_getcharbuffer(space, pyref, segment, ref):
+    from pypy.module.cpyext.bufferobject import PyBufferObject
+    if segment != 0:
+        raise oefmt(space.w_SystemError,
+                    "accessing non-existent string segment")
+    py_buf = rffi.cast(PyBufferObject, pyref)
+    ref[0] = rffi.cast(rffi.CCHARP, py_buf.c_b_ptr)
+    #Py_DecRef(space, pyref)
+    return py_buf.c_b_size
+
 def setup_string_buffer_procs(space, pto):
     c_buf = lltype.malloc(PyBufferProcs, flavor='raw', zero=True)
     lltype.render_immortal(c_buf)
@@ -505,6 +517,8 @@ def setup_buffer_buffer_procs(space, pto):
                                       str_segcount.api_func.get_wrapper(space))
     c_buf.c_bf_getreadbuffer = llhelper(buf_getreadbuffer.api_func.functype,
                                  buf_getreadbuffer.api_func.get_wrapper(space))
+    c_buf.c_bf_getcharbuffer = llhelper(buf_getcharbuffer.api_func.functype,
+                                 buf_getcharbuffer.api_func.get_wrapper(space))
     pto.c_tp_as_buffer = c_buf
 
 @cpython_api([PyObject], lltype.Void, header=None)
