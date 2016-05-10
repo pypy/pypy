@@ -307,8 +307,7 @@ def _rtype_template(hop, func):
     """Write a simple operation implementing the given 'func'.
     It must be an operation that cannot raise.
     """
-    if '_ovf' in func or (func.startswith(('mod', 'floordiv'))
-                              and not hop.s_result.unsigned):
+    if '_ovf' in func or func.startswith(('mod', 'floordiv')):
         raise TyperError("%r should not be used here any more" % (func,))
 
     r_result = hop.r_result
@@ -350,8 +349,6 @@ def _rtype_call_helper(hop, func, implicit_excs=[]):
 
     if not any_implicit_exception:
         if not func.startswith(('mod', 'floordiv')):
-            return _rtype_template(hop, func)
-        if hop.s_result.unsigned:
             return _rtype_template(hop, func)
 
     repr = hop.r_result
@@ -399,11 +396,6 @@ def ll_int_floordiv_zer(x, y):
         raise ZeroDivisionError("integer division")
     return ll_int_floordiv(x, y)
 
-def ll_uint_floordiv_zer(x, y):
-    if y == 0:
-        raise ZeroDivisionError("unsigned integer division")
-    return llop.uint_floordiv(Unsigned, x, y)
-
 def ll_int_floordiv_ovf(x, y):
     # JIT: intentionally not short-circuited to produce only one guard
     # and to remove the check fully if one of the arguments is known
@@ -416,23 +408,44 @@ def ll_int_floordiv_ovf_zer(x, y):
         raise ZeroDivisionError("integer division")
     return ll_int_floordiv_ovf(x, y)
 
-def ll_llong_floordiv(x, y):
-    r = llop.llong_floordiv(SignedLongLong, x, y)  # <= truncates like in C
-    p = r * y
-    if y < 0: u = p - x
-    else:     u = x - p
-    return r + (u >> LLONG_BITS_1)
+@jit.oopspec("int.udiv(x, y)")
+def ll_uint_floordiv(x, y):
+    return llop.uint_floordiv(Unsigned, x, y)
 
-def ll_llong_floordiv_zer(x, y):
+def ll_uint_floordiv_zer(x, y):
     if y == 0:
-        raise ZeroDivisionError("longlong division")
-    return ll_llong_floordiv(x, y)
+        raise ZeroDivisionError("unsigned integer division")
+    return ll_uint_floordiv(x, y)
 
-def ll_ullong_floordiv_zer(x, y):
-    if y == 0:
-        raise ZeroDivisionError("unsigned longlong division")
-    return llop.ullong_floordiv(UnsignedLongLong, x, y)
+if SignedLongLong == Signed:
+    ll_llong_floordiv      = ll_int_floordiv
+    ll_llong_floordiv_zer  = ll_int_floordiv_zer
+    ll_ullong_floordiv     = ll_uint_floordiv
+    ll_ullong_floordiv_zer = ll_uint_floordiv_zer
+else:
+    @jit.dont_look_inside
+    def ll_llong_floordiv(x, y):
+        r = llop.llong_floordiv(SignedLongLong, x, y)  # <= truncates like in C
+        p = r * y
+        if y < 0: u = p - x
+        else:     u = x - p
+        return r + (u >> LLONG_BITS_1)
 
+    def ll_llong_floordiv_zer(x, y):
+        if y == 0:
+            raise ZeroDivisionError("longlong division")
+        return ll_llong_floordiv(x, y)
+
+    @jit.dont_look_inside
+    def ll_ullong_floordiv(x, y):
+        return llop.ullong_floordiv(UnsignedLongLong, x, y)
+
+    def ll_ullong_floordiv_zer(x, y):
+        if y == 0:
+            raise ZeroDivisionError("unsigned longlong division")
+        return ll_ullong_floordiv(x, y)
+
+@jit.dont_look_inside
 def ll_lllong_floordiv(x, y):
     r = llop.lllong_floordiv(SignedLongLongLong, x, y) # <= truncates like in C
     p = r * y
@@ -460,11 +473,6 @@ def ll_int_mod_zer(x, y):
         raise ZeroDivisionError
     return ll_int_mod(x, y)
 
-def ll_uint_mod_zer(x, y):
-    if y == 0:
-        raise ZeroDivisionError
-    return llop.uint_mod(Unsigned, x, y)
-
 def ll_int_mod_ovf(x, y):
     # see comment in ll_int_floordiv_ovf
     if (x == -sys.maxint - 1) & (y == -1):
@@ -476,22 +484,43 @@ def ll_int_mod_ovf_zer(x, y):
         raise ZeroDivisionError
     return ll_int_mod_ovf(x, y)
 
-def ll_llong_mod(x, y):
-    r = llop.llong_mod(SignedLongLong, x, y)       # <= truncates like in C
-    if y < 0: u = -r
-    else:     u = r
-    return r + (y & (u >> LLONG_BITS_1))
+@jit.oopspec("int.umod(x, y)")
+def ll_uint_mod(x, y):
+    return llop.uint_mod(Unsigned, x, y)
 
-def ll_llong_mod_zer(x, y):
+def ll_uint_mod_zer(x, y):
     if y == 0:
         raise ZeroDivisionError
-    return ll_llong_mod(x, y)
+    return ll_uint_mod(x, y)
 
-def ll_ullong_mod_zer(x, y):
-    if y == 0:
-        raise ZeroDivisionError
-    return llop.ullong_mod(UnsignedLongLong, x, y)
+if SignedLongLong == Signed:
+    ll_llong_mod      = ll_int_mod
+    ll_llong_mod_zer  = ll_int_mod_zer
+    ll_ullong_mod     = ll_uint_mod
+    ll_ullong_mod_zer = ll_uint_mod_zer
+else:
+    @jit.dont_look_inside
+    def ll_llong_mod(x, y):
+        r = llop.llong_mod(SignedLongLong, x, y)    # <= truncates like in C
+        if y < 0: u = -r
+        else:     u = r
+        return r + (y & (u >> LLONG_BITS_1))
 
+    def ll_llong_mod_zer(x, y):
+        if y == 0:
+            raise ZeroDivisionError
+        return ll_llong_mod(x, y)
+
+    @jit.dont_look_inside
+    def ll_ullong_mod(x, y):
+        return llop.ullong_mod(UnsignedLongLong, x, y)
+
+    def ll_ullong_mod_zer(x, y):
+        if y == 0:
+            raise ZeroDivisionError
+        return llop.ullong_mod(UnsignedLongLong, x, y)
+
+@jit.dont_look_inside
 def ll_lllong_mod(x, y):
     r = llop.lllong_mod(SignedLongLongLong, x, y)  # <= truncates like in C
     if y < 0: u = -r

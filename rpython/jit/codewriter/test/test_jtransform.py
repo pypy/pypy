@@ -135,6 +135,10 @@ class FakeBuiltinCallControl:
              EI.OS_RAW_MALLOC_VARSIZE_CHAR: ([INT], ARRAYPTR),
              EI.OS_RAW_FREE:             ([ARRAYPTR], lltype.Void),
              EI.OS_THREADLOCALREF_GET:   ([INT], INT),   # for example
+             EI.OS_INT_PY_DIV: ([INT, INT], INT),
+             EI.OS_INT_UDIV:   ([INT, INT], INT),
+             EI.OS_INT_PY_MOD: ([INT, INT], INT),
+             EI.OS_INT_UMOD:   ([INT, INT], INT),
             }
             argtypes = argtypes[oopspecindex]
             assert argtypes[0] == [v.concretetype for v in op.args[1:]]
@@ -273,7 +277,7 @@ def test_symmetric_op_ovf(opname):
     v3 = varoftype(lltype.Signed)
     for v1 in [varoftype(lltype.Signed), const(42)]:
         for v2 in [varoftype(lltype.Signed), const(43)]:
-            op = SpaceOperation('foobar', [v1, v2], v3)
+            op = SpaceOperation('direct_call', [Constant(opname), v1, v2], v3)
             oplist = Transformer(FakeCPU())._handle_int_ovf(op, 'int.'+opname,
                                                             [v1, v2])
             op1, op0 = oplist
@@ -293,7 +297,7 @@ def test_asymmetric_op_ovf(opname):
     v3 = varoftype(lltype.Signed)
     for v1 in [varoftype(lltype.Signed), const(42)]:
         for v2 in [varoftype(lltype.Signed), const(43)]:
-            op = SpaceOperation('foobar', [v1, v2], v3)
+            op = SpaceOperation('direct_call', [Constant(opname), v1, v2], v3)
             oplist = Transformer(FakeCPU())._handle_int_ovf(op, 'int.'+opname,
                                                             [v1, v2])
             op1, op0 = oplist
@@ -304,18 +308,19 @@ def test_asymmetric_op_ovf(opname):
             assert op1.args == []
             assert op1.result is None
 
-@py.test.mark.parametrize('opname', ['py_div', 'py_mod'])
-def test_asymmetric_op_nonovf(opname):
+@py.test.mark.parametrize('opname', ['py_div', 'udiv', 'py_mod', 'umod'])
+def test_asymmetric_op_residual(opname):
     v3 = varoftype(lltype.Signed)
+    tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
     for v1 in [varoftype(lltype.Signed), const(42)]:
         for v2 in [varoftype(lltype.Signed), const(43)]:
-            op = SpaceOperation('foobar', [v1, v2], v3)
-            oplist = Transformer(FakeCPU())._handle_int_ovf(op, 'int.'+opname,
-                                                            [v1, v2])
-            [op0] = oplist
-            assert op0.opname == 'int_'+opname
-            assert op0.args == [v1, v2]
-            assert op0.result == v3
+            op = SpaceOperation('direct_call', [Constant(opname), v1, v2], v3)
+            op0 = tr._handle_int_ovf(op, 'int.'+opname, [v1, v2])
+            assert op0.opname == 'residual_call_ir_i'
+            assert op0.args[0].value == opname  # pseudo-function as str
+            expected = ('int_' + opname).upper()
+            assert (op0.args[-1] == 'calldescr-%d' %
+                     getattr(effectinfo.EffectInfo, 'OS_' + expected))
 
 def test_calls():
     for RESTYPE, with_void, with_i, with_r, with_f in product(
