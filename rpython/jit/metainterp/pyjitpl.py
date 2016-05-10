@@ -1753,7 +1753,6 @@ class MIFrame(object):
 class MetaInterpStaticData(object):
     logger_noopt = None
     logger_ops = None
-    jitlog = None
 
     def __init__(self, cpu, options,
                  ProfilerClass=EmptyProfiler, warmrunnerdesc=None):

@@ -489,7 +489,6 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         frame_info = self.datablockwrapper.malloc_aligned(
             jitframe.JITFRAMEINFO_SIZE, alignment=WORD)
         clt.frame_info = rffi.cast(jitframe.JITFRAMEINFOPTR, frame_info)
-        clt.allgcrefs = []
         clt.frame_info.clear() # for now
 
         if log:

@@ -568,14 +568,14 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # set up extra stuff for PYPY_GC_DEBUG.
         MovingGCBase.post_setup(self)
         if self.DEBUG and llarena.has_protect:
-            # gc debug mode: allocate 23 nurseries instead of just 1,
+            # gc debug mode: allocate 7 nurseries instead of just 1,
             # and use them alternatively, while mprotect()ing the unused
             # ones to detect invalid access.
             debug_start("gc-debug")
             self.debug_rotating_nurseries = lltype.malloc(
-                NURSARRAY, 22, flavor='raw', track_allocation=False)
+                NURSARRAY, 6, flavor='raw', track_allocation=False)
             i = 0
-            while i < 22:
+            while i < 6:
                 nurs = self._alloc_nursery()
                 llarena.arena_protect(nurs, self._nursery_memory_size(), True)
                 self.debug_rotating_nurseries[i] = nurs
@@ -1731,7 +1731,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 llarena.arena_reset(prev, pinned_obj_size, 3)
             else:
                 llarena.arena_reset(prev, pinned_obj_size, 0)
-            # XXX: debug_rotate_nursery missing here
             #
             # clean up object's flags
             obj = cur + size_gc_header
@@ -1747,6 +1746,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # reset everything after the last pinned object till the end of the arena
         if self.gc_nursery_debug:
             llarena.arena_reset(prev, self.nursery + self.nursery_size - prev, 3)
+            if not nursery_barriers.non_empty():   # no pinned objects
+                self.debug_rotate_nursery()
         else:
             llarena.arena_reset(prev, self.nursery + self.nursery_size - prev, 0)
         #
@@ -1756,7 +1757,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
         self.nursery_barriers = nursery_barriers
         self.surviving_pinned_objects.delete()
         #
-        # XXX gc-minimark-pinning does a debug_rotate_nursery() here (groggi)
         self.nursery_free = self.nursery
         self.nursery_top = self.nursery_barriers.popleft()
         #

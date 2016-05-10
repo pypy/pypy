@@ -7,7 +7,11 @@ static long prepare_interval_usec = 0;
 static long profile_interval_usec = 0;
 static int opened_profile(char *interp_name);
 
-#include "vmprof_markers.h"
+#define MARKER_STACKTRACE '\x01'
+#define MARKER_VIRTUAL_IP '\x02'
+#define MARKER_TRAILER '\x03'
+#define MARKER_INTERP_NAME '\x04'   /* deprecated */
+#define MARKER_HEADER '\x05'
 
 #define VERSION_BASE '\x00'
 #define VERSION_THREAD_ID '\x01'
@@ -78,6 +82,10 @@ static int get_stack_trace(vmprof_stack_t* stack, intptr_t *result, int max_dept
     int n = 0;
     intptr_t addr = 0;
     int bottom_jitted = 0;
+
+    if (stack == NULL)
+        return 0;
+
     // check if the pc is in JIT
 #ifdef PYPY_JIT_CODEMAP
     if (pypy_find_codemap_at_addr((intptr_t)pc, &addr)) {
@@ -107,7 +115,12 @@ static int get_stack_trace(vmprof_stack_t* stack, intptr_t *result, int max_dept
 #ifndef RPYTHON_LL2CTYPES
 static vmprof_stack_t *get_vmprof_stack(void)
 {
-    return RPY_THREADLOCALREF_GET(vmprof_tl_stack);
+    struct pypy_threadlocal_s *tl;
+    _OP_THREADLOCALREF_ADDR_SIGHANDLER(tl);
+    if (tl == NULL)
+        return NULL;
+    else
+        return tl->vmprof_tl_stack;
 }
 #else
 static vmprof_stack_t *get_vmprof_stack(void)
