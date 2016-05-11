@@ -65,6 +65,36 @@ def test_find_predecessors_4():
     pred = find_precessors(graph, [(graph.returnblock, graph.getreturnvar())])
     assert summary(pred) == {'a': 4, 'c': 1, 'v': 1}
 
+def test_find_successors_1():
+    def f(a, b):
+        return a + b
+    graph = make_graph(f, [int, int])
+    succ = find_successors(graph, [(graph.startblock, graph.getargs()[0])])
+    assert summary(succ) == {'a': 1}
+
+def test_find_successors_2():
+    def f(a, b):
+        if b > 10:
+            return a + b
+        else:
+            return a - b
+    graph = make_graph(f, [int, int])
+    succ = find_successors(graph, [(graph.startblock, graph.getargs()[0])])
+    assert summary(succ) == {'a': 3}
+
+def test_find_successors_3():
+    def f(a, b):
+        if b > 10:      # 'a' condition block
+            a = a + b   # 'a' input
+            while b > 100:
+                b -= 2
+        while b > 5:    # 'a' in loop header
+            b -= 2      # 'a' in loop body
+        return a * b    # 'a' in product
+    graph = make_graph(f, [int, int])
+    succ = find_successors(graph, [(graph.startblock, graph.getargs()[0])])
+    assert summary(succ) == {'a': 5}
+
 
 def test_interesting_vars_0():
     def f(a, b):

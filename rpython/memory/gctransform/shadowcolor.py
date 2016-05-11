@@ -35,6 +35,30 @@ def find_precessors(graph, pending_pred):
     return pred
 
 
+def find_successors(graph, pending_succ):
+    """Return the set of variables where one of the 'pending_succ' can
+    end up.  'block_succ' is a list of (block, var) tuples.
+    """
+    succ = set([v for block, v in pending_succ])
+
+    def add(block, v):
+        if isinstance(v, Variable):
+            if v not in succ:
+                pending_succ.append((block, v))
+                succ.add(v)
+
+    while pending_succ:
+        block, v = pending_succ.pop()
+        for op in block.operations:
+            if op.args and v is op.args[0] and is_trivial_rewrite(op):
+                add(block, op.result)
+        for link in block.exits:
+            for i, v1 in enumerate(link.args):
+                if v1 is v:
+                    add(link.target, link.target.inputargs[i])
+    return succ
+
+
 def find_interesting_variables(graph):
     # Decide which variables are "interesting" or not.  Interesting
     # variables contain at least the ones that appear in gc_push_roots
