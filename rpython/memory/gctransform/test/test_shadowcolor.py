@@ -265,3 +265,30 @@ def test_make_bitmask(boollist):
             bitmask >>= 1
             index -= 1
     assert boollist == [True] * len(boollist)
+
+
+class FakeRegAlloc:
+    def __init__(self, **colors):
+        self.numcolors = len(colors)
+        self.getcolor = colors.__getitem__
+
+def check_expand_one_push_roots(regalloc, args):
+    got = list(expand_one_push_roots(regalloc, args))
+    result = []
+    for spaceop in got:
+        assert spaceop.opname == 'gc_save_root'
+        result.append((spaceop.args[0].value, spaceop.args[1]))
+    return result
+
+def test_expand_one_push_roots():
+    regalloc = FakeRegAlloc(a=0, b=1, c=2)
+    assert check_expand_one_push_roots(regalloc, ['a', 'b', 'c']) == [
+        (0, 'a'), (1, 'b'), (2, 'c')]
+    assert check_expand_one_push_roots(regalloc, ['a', 'c']) == [
+        (0, 'a'), (2, 'c'), (1, c_NULL)]
+    assert check_expand_one_push_roots(regalloc, ['b']) == [
+        (1, 'b'), (2, Constant(0x5, lltype.Signed))]
+    assert check_expand_one_push_roots(regalloc, ['a']) == [
+        (0, 'a'), (2, Constant(0x3, lltype.Signed))]
+    assert check_expand_one_push_roots(regalloc, []) == [
+        (2, Constant(0x7, lltype.Signed))]

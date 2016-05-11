@@ -1,5 +1,6 @@
 from rpython.rtyper.lltypesystem import lltype, llmemory
-from rpython.flowspace.model import mkentrymap, Variable, Constant
+from rpython.flowspace.model import mkentrymap
+from rpython.flowspace.model import Variable, Constant, SpaceOperation
 from rpython.tool.algo.regalloc import perform_register_allocation
 from rpython.translator.unsimplify import varoftype
 
@@ -130,6 +131,21 @@ def make_bitmask(filled):
     return (last_index, Constant(bitmask, lltype.Signed))
 
 
+def expand_one_push_roots(regalloc, args):
+    if regalloc is None:
+        assert len(args) == 0
+    else:
+        filled = [False] * regalloc.numcolors
+        for v in args:
+            index = regalloc.getcolor(v)
+            assert not filled[index]
+            filled[index] = True
+            yield _gc_save_root(index, v)
+        bitmask_index, bitmask_v = make_bitmask(filled)
+        if bitmask_index is not None:
+            yield _gc_save_root(bitmask_index, bitmask_v)
+
+
 def expand_push_roots(graph, regalloc):
     """Expand gc_push_roots into a series of gc_save_root, including
     writing a bitmask tag to mark some entries as not-in-use
@@ -139,18 +155,7 @@ def expand_push_roots(graph, regalloc):
         newops = []
         for op in block.operations:
             if op.opname == 'gc_push_roots':
-                if regalloc is None:
-                    assert len(op.args) == 0
-                else:
-                    filled = [False] * regalloc.numcolors
-                    for v in op.args:
-                        index = regalloc.getcolor(v)
-                        assert not filled[index]
-                        filled[index] = True
-                        newops.append(_gc_save_root(index, v))
-                    bitmask_index, bitmask_v = make_bitmask(filled)
-                    if bitmask_index is not None:
-                        newops.append(_gc_save_root(bitmask_index, bitmask_v))
+                newops += expand_one_push_roots(regalloc, op)
                 any_change = True
             else:
                 newops.append(op)
