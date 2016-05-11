@@ -374,7 +374,7 @@ class TestFlatten:
         def f(i):
             try:
                 g(i)
-            except FooError, e:
+            except FooError as e:
                 return e.num
             except Exception:
                 return 3

@@ -97,7 +97,7 @@ if not _WIN32:
         name = rffi.charp2str(name)
         try:
             ctypes.CDLL(name)
-        except OSError, e:
+        except OSError as e:
             return str(e)
         else:
             return ("opening %r with ctypes.CDLL() works, "

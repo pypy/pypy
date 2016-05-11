@@ -1,5 +1,8 @@
+import sys
 from rpython.rlib.rarithmetic import ovfcheck, LONG_BIT, maxint, is_valid_int
 from rpython.rlib.objectmodel import we_are_translated
+from rpython.rtyper.lltypesystem import lltype
+from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.jit.metainterp.optimizeopt.info import AbstractInfo, INFO_NONNULL,\
      INFO_UNKNOWN, INFO_NULL

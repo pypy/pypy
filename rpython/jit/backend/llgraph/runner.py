@@ -404,7 +404,7 @@ class LLGraphCPU(model.AbstractCPU):
         try:
             frame.execute(lltrace)
             assert False
-        except ExecutionFinished, e:
+        except ExecutionFinished as e:
             return e.deadframe
 
     def get_value_direct(self, deadframe, tp, index):
@@ -478,6 +478,9 @@ class LLGraphCPU(model.AbstractCPU):
             v.descr_index = len(all_descrs)
             all_descrs.append(v)
         return all_descrs
+
+    def fetch_all_descrs(self):
+        return self.descrs.values()
 
     def calldescrof(self, FUNC, ARGS, RESULT, effect_info):
         key = ('call', getkind(RESULT),
@@ -1094,7 +1097,7 @@ class LLFrame(object):
             execute = getattr(self, 'execute_' + op.getopname())
             try:
                 resval = execute(_getdescr(op), *args)
-            except Jump, j:
+            except Jump as j:
                 self.lltrace, i = j.jump_target
                 if i >= 0:
                     label_op = self.lltrace.operations[i]
@@ -1345,7 +1348,7 @@ class LLFrame(object):
         try:
             res = self.cpu.maybe_on_top_of_llinterp(func, call_args, TP.RESULT)
             self.last_exception = None
-        except LLException, lle:
+        except LLException as lle:
             self.last_exception = lle
             res = _example_res[getkind(TP.RESULT)[0]]
         return res
@@ -1441,7 +1444,7 @@ class LLFrame(object):
             assembler_helper_ptr = jd.assembler_helper_adr.ptr  # fish
             try:
                 result = assembler_helper_ptr(pframe, vable)
-            except LLException, lle:
+            except LLException as lle:
                 assert self.last_exception is None, "exception left behind"
                 self.last_exception = lle
                 # fish op

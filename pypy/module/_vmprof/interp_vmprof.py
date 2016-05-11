@@ -66,7 +66,7 @@ def enable(space, fileno, period):
     #               space.w_RuntimeWarning)
     try:
         rvmprof.enable(fileno, period)
-    except rvmprof.VMProfError, e:
+    except rvmprof.VMProfError as e:
         raise VMProfError(space, e)
 
 def write_all_code_objects(space):
@@ -80,5 +80,5 @@ def disable(space):
     """
     try:
         rvmprof.disable()
-    except rvmprof.VMProfError, e:
+    except rvmprof.VMProfError as e:
         raise VMProfError(space, e)

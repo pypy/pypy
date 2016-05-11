@@ -576,7 +576,7 @@ class AppTestFFI(BaseAppTestFFI):
         pow = libm.getfunc('pow', [types.double, types.double], types.double)
         try:
             pow(2, 3)
-        except ValueError, e:
+        except ValueError as e:
             assert e.message.startswith('Procedure called with')
         else:
             assert 0, 'test must assert, wrong calling convention'
@@ -597,7 +597,7 @@ class AppTestFFI(BaseAppTestFFI):
         wrong_sleep = wrong_kernel.getfunc('Sleep', [types.uint], types.void)
         try:
             wrong_sleep(10)
-        except ValueError, e:
+        except ValueError as e:
             assert e.message.startswith('Procedure called with')
         else:
             assert 0, 'test must assert, wrong calling convention'
@@ -613,7 +613,7 @@ class AppTestFFI(BaseAppTestFFI):
                 [types.double, types.double], types.double, FUNCFLAG_STDCALL)
         try:
             wrong_pow(2, 3) == 8
-        except ValueError, e:
+        except ValueError as e:
             assert e.message.startswith('Procedure called with')
         else:
             assert 0, 'test must assert, wrong calling convention'

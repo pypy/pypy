@@ -675,7 +675,7 @@ class TestMMapFile(BaseTestBufferingInputStreamTests):
             self.tfn = None
             try:
                 os.remove(tfn)
-            except os.error, msg:
+            except os.error as msg:
                 print "can't remove %s: %s" % (tfn, msg)
 
     def makeStream(self, tell=None, seek=None, bufsize=-1, mode="r"):

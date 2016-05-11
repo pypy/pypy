@@ -202,16 +202,15 @@ class Function(W_Root):
 
     def setdict(self, space, w_dict):
         if not space.isinstance_w(w_dict, space.w_dict):
-            raise OperationError(space.w_TypeError,
-                space.wrap("setting function's dictionary to a non-dict")
-            )
+            raise oefmt(space.w_TypeError,
+                        "setting function's dictionary to a non-dict")
         self.w_func_dict = w_dict
 
     def descr_function__new__(space, w_subtype, w_code, w_globals,
                               w_name=None, w_argdefs=None, w_closure=None):
         code = space.interp_w(Code, w_code)
         if not space.isinstance_w(w_globals, space.w_dict):
-            raise OperationError(space.w_TypeError, space.wrap("expected dict"))
+            raise oefmt(space.w_TypeError, "expected dict")
         if not space.is_none(w_name):
             name = space.str_w(w_name)
         else:
@@ -227,15 +226,15 @@ class Function(W_Root):
         if space.is_none(w_closure) and nfreevars == 0:
             closure = None
         elif not space.is_w(space.type(w_closure), space.w_tuple):
-            raise OperationError(space.w_TypeError, space.wrap("invalid closure"))
+            raise oefmt(space.w_TypeError, "invalid closure")
         else:
             from pypy.interpreter.nestedscope import Cell
             closure_w = space.unpackiterable(w_closure)
             n = len(closure_w)
             if nfreevars == 0:
-                raise OperationError(space.w_ValueError, space.wrap("no closure needed"))
+                raise oefmt(space.w_ValueError, "no closure needed")
             elif nfreevars != n:
-                raise OperationError(space.w_ValueError, space.wrap("closure is wrong size"))
+                raise oefmt(space.w_ValueError, "closure is wrong size")
             closure = [space.interp_w(Cell, w_cell) for w_cell in closure_w]
         func = space.allocate_instance(Function, w_subtype)
         Function.__init__(func, space, code, w_globals, defs_w, closure, name)
@@ -321,8 +320,8 @@ class Function(W_Root):
              w_func_dict, w_module) = args_w
         except ValueError:
             # wrong args
-            raise OperationError(space.w_ValueError,
-                         space.wrap("Wrong arguments to function.__setstate__"))
+            raise oefmt(space.w_ValueError,
+                        "Wrong arguments to function.__setstate__")
 
         self.space = space
         self.name = space.str_w(w_name)
@@ -359,7 +358,8 @@ class Function(W_Root):
             self.defs_w = []
             return
         if not space.isinstance_w(w_defaults, space.w_tuple):
-            raise OperationError(space.w_TypeError, space.wrap("func_defaults must be set to a tuple object or None"))
+            raise oefmt(space.w_TypeError,
+                        "func_defaults must be set to a tuple object or None")
         self.defs_w = space.fixedview(w_defaults)
 
     def fdel_func_defaults(self, space):
@@ -380,8 +380,8 @@ class Function(W_Root):
         if space.isinstance_w(w_name, space.w_str):
             self.name = space.str_w(w_name)
         else:
-            raise OperationError(space.w_TypeError,
-                space.wrap("__name__ must be set to a string object"))
+            raise oefmt(space.w_TypeError,
+                        "__name__ must be set to a string object")
 
     def fdel_func_doc(self, space):
         self.w_doc = space.w_None
@@ -406,8 +406,8 @@ class Function(W_Root):
     def fset_func_code(self, space, w_code):
         from pypy.interpreter.pycode import PyCode
         if not self.can_change_code:
-            raise OperationError(space.w_TypeError,
-                    space.wrap("Cannot change code attribute of builtin functions"))
+            raise oefmt(space.w_TypeError,
+                        "Cannot change code attribute of builtin functions")
         code = space.interp_w(Code, w_code)
         closure_len = 0
         if self.closure:
@@ -457,8 +457,7 @@ class Method(W_Root):
         if space.is_w(w_instance, space.w_None):
             w_instance = None
         if w_instance is None and space.is_none(w_class):
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("unbound methods must have class"))
+            raise oefmt(space.w_TypeError, "unbound methods must have class")
         method = space.allocate_instance(Method, w_subtype)
         Method.__init__(method, space, w_function, w_instance, w_class)
         return space.wrap(method)
@@ -540,7 +539,7 @@ class Method(W_Root):
             try:
                 return space.call_method(space.w_object, '__getattribute__',
                                          space.wrap(self), w_attr)
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_AttributeError):
                     raise
         # fall-back to the attribute of the underlying 'im_func'
@@ -659,8 +658,8 @@ class BuiltinFunction(Function):
         self.w_module = func.w_module
 
     def descr_builtinfunction__new__(space, w_subtype):
-        raise OperationError(space.w_TypeError,
-                     space.wrap("cannot create 'builtin_function' instances"))
+        raise oefmt(space.w_TypeError,
+                    "cannot create 'builtin_function' instances")
 
     def descr_function_repr(self):
         return self.space.wrap('<built-in function %s>' % (self.name,))

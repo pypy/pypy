@@ -118,7 +118,7 @@ class PythonParser(parser.Parser):
             if enc is not None and enc not in ('utf-8', 'iso-8859-1'):
                 try:
                     textsrc = recode_to_utf8(self.space, textsrc, enc)
-                except OperationError, e:
+                except OperationError as e:
                     # if the codec is not found, LookupError is raised.  we
                     # check using 'is_w' not to mask potential IndexError or
                     # KeyError
@@ -164,10 +164,10 @@ class PythonParser(parser.Parser):
                 for tp, value, lineno, column, line in tokens:
                     if self.add_token(tp, value, lineno, column, line):
                         break
-            except error.TokenError, e:
+            except error.TokenError as e:
                 e.filename = compile_info.filename
                 raise
-            except parser.ParseError, e:
+            except parser.ParseError as e:
                 # Catch parse errors, pretty them up and reraise them as a
                 # SyntaxError.
                 new_err = error.IndentationError

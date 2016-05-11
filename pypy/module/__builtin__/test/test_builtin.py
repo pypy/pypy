@@ -748,10 +748,6 @@ class AppTestGetattr:
         raises(TypeError, delattr, A(), 42)
 
 
-class AppTestGetattrWithGetAttributeShortcut(AppTestGetattr):
-    spaceconfig = {"objspace.std.getattributeshortcut": True}
-
-
 class TestInternal:
     def test_execfile(self, space):
         fn = str(udir.join('test_execfile'))

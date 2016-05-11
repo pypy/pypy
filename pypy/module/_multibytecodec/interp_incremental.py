@@ -20,8 +20,9 @@ class MultibyteIncrementalBase(W_Root):
         self.codec = codec.codec
         self.name = codec.name
         self._initialize()
+        self.register_finalizer(space)
 
-    def __del__(self):
+    def _finalize_(self):
         self._free()
 
     def reset_w(self):
@@ -57,7 +58,7 @@ class MultibyteIncrementalDecoder(MultibyteIncrementalBase):
             output = c_codecs.decodeex(self.decodebuf, object, self.errors,
                                        state.decode_error_handler, self.name,
                                        get_ignore_error(final))
-        except c_codecs.EncodeDecodeError, e:
+        except c_codecs.EncodeDecodeError as e:
             raise wrap_unicodedecodeerror(space, e, object, self.name)
         except RuntimeError:
             raise wrap_runtimeerror(space)
@@ -105,7 +106,7 @@ class MultibyteIncrementalEncoder(MultibyteIncrementalBase):
             output = c_codecs.encodeex(self.encodebuf, object, self.errors,
                                        state.encode_error_handler, self.name,
                                        get_ignore_error(final))
-        except c_codecs.EncodeDecodeError, e:
+        except c_codecs.EncodeDecodeError as e:
             raise wrap_unicodeencodeerror(space, e, object, self.name)
         except RuntimeError:
             raise wrap_runtimeerror(space)

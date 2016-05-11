@@ -91,7 +91,7 @@ class AbstractVirtualStateInfo(object):
             state.renum[self.position] = other.position
             try:
                 self._generate_guards(other, op, runtime_op, state)
-            except VirtualStatesCantMatch, e:
+            except VirtualStatesCantMatch as e:
                 state.bad[self] = state.bad[other] = None
                 if e.state is None:
                     e.state = state

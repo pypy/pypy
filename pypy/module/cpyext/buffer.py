@@ -1,4 +1,4 @@
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import oefmt
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     cpython_api, CANNOT_FAIL, Py_buffer)
@@ -29,8 +29,8 @@ def PyObject_GetBuffer(space, w_obj, view, flags):
     raise an error if the object can't support a simpler view of its memory.
 
     0 is returned on success and -1 on error."""
-    raise OperationError(space.w_TypeError, space.wrap(
-            'PyPy does not yet implement the new buffer interface'))
+    raise oefmt(space.w_TypeError,
+                "PyPy does not yet implement the new buffer interface")
 
 @cpython_api([lltype.Ptr(Py_buffer), lltype.Char], rffi.INT_real, error=CANNOT_FAIL)
 def PyBuffer_IsContiguous(space, view, fortran):

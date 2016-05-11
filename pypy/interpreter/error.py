@@ -214,9 +214,8 @@ class OperationError(Exception):
             w_inst = w_type
             w_instclass = self._exception_getclass(space, w_inst)
             if not space.is_w(w_value, space.w_None):
-                raise OperationError(space.w_TypeError,
-                                     space.wrap("instance exception may not "
-                                                "have a separate value"))
+                raise oefmt(space.w_TypeError,
+                            "instance exception may not have a separate value")
             w_value = w_inst
             w_type = w_instclass
 

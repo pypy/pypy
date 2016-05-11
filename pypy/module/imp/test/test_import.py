@@ -1135,7 +1135,7 @@ class AppTestImportHooks(object):
                 if fullname in self.namestoblock:
                     return self
             def load_module(self, fullname):
-                raise ImportError, "blocked"
+                raise ImportError("blocked")
 
         import sys, imp
         modname = "errno" # an arbitrary harmless builtin module
@@ -1205,7 +1205,7 @@ class AppTestImportHooks(object):
                     path = [self.path]
                 try:
                     file, filename, stuff = imp.find_module(subname, path)
-                except ImportError, e:
+                except ImportError as e:
                     return None
                 return ImpLoader(file, filename, stuff)
 

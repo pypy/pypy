@@ -735,12 +735,21 @@ from rpython.rtyper.lltypesystem import llmemory
 @typer_for(llmemory.weakref_create)
 @typer_for(weakref.ref)
 def rtype_weakref_create(hop):
-    vlist = hop.inputargs(hop.args_r[0])
+    from rpython.rtyper.rweakref import BaseWeakRefRepr
+
+    v_inst, = hop.inputargs(hop.args_r[0])
     hop.exception_cannot_occur()
-    return hop.genop('weakref_create', vlist, resulttype=llmemory.WeakRefPtr)
+    if isinstance(hop.r_result, BaseWeakRefRepr):
+        return hop.r_result._weakref_create(hop, v_inst)
+    else:
+        # low-level <PtrRepr * WeakRef>
+        assert hop.rtyper.getconfig().translation.rweakref
+        return hop.genop('weakref_create', [v_inst],
+                         resulttype=llmemory.WeakRefPtr)
 
 @typer_for(llmemory.weakref_deref)
 def rtype_weakref_deref(hop):
+    assert hop.rtyper.getconfig().translation.rweakref
     c_ptrtype, v_wref = hop.inputargs(lltype.Void, hop.args_r[1])
     assert v_wref.concretetype == llmemory.WeakRefPtr
     hop.exception_cannot_occur()
@@ -748,6 +757,7 @@ def rtype_weakref_deref(hop):
 
 @typer_for(llmemory.cast_ptr_to_weakrefptr)
 def rtype_cast_ptr_to_weakrefptr(hop):
+    assert hop.rtyper.getconfig().translation.rweakref
     vlist = hop.inputargs(hop.args_r[0])
     hop.exception_cannot_occur()
     return hop.genop('cast_ptr_to_weakrefptr', vlist,
@@ -755,6 +765,7 @@ def rtype_cast_ptr_to_weakrefptr(hop):
 
 @typer_for(llmemory.cast_weakrefptr_to_ptr)
 def rtype_cast_weakrefptr_to_ptr(hop):
+    assert hop.rtyper.getconfig().translation.rweakref
     c_ptrtype, v_wref = hop.inputargs(lltype.Void, hop.args_r[1])
     assert v_wref.concretetype == llmemory.WeakRefPtr
     hop.exception_cannot_occur()

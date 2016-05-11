@@ -224,7 +224,7 @@ class TestInteraction:
     def _spawn(self, *args, **kwds):
         try:
             import pexpect
-        except ImportError, e:
+        except ImportError as e:
             py.test.skip(str(e))
         else:
             # Version is of the style "0.999" or "2.1".  Older versions of

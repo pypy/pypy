@@ -62,29 +62,37 @@ You can enable this feature with the :config:`objspace.std.withsmalllong` option
 Dictionary Optimizations
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-Multi-Dicts
-+++++++++++
+Dict Strategies
+++++++++++++++++
 
-Multi-dicts are a special implementation of dictionaries.  It became clear that
-it is very useful to *change* the internal representation of an object during
-its lifetime.  Multi-dicts are a general way to do that for dictionaries: they
-provide generic support for the switching of internal representations for
-dicts.
+Dict strategies are an implementation approach for dictionaries (and lists)
+that make it possible to use a specialized representation of the dictionary's
+data, while still being able to switch back to a general representation should
+that become necessary later.
 
-If you just enable multi-dicts, special representations for empty dictionaries,
-for string-keyed dictionaries. In addition there are more specialized dictionary
-implementations for various purposes (see below).
+Dict strategies are always enabled, by default there are special strategies for
+dicts with just string keys, just unicode keys and just integer keys. If one of
+those specialized strategies is used, then dict lookup can use much faster
+hashing and comparison for the dict keys. There is of course also a strategy
+for general keys.
 
-This is now the default implementation of dictionaries in the Python interpreter.
+
+Identity Dicts
++++++++++++++++
+
+We also have a strategy specialized for keys that are instances of classes
+which compares "by identity", which is the default unless you override
+``__hash__``, ``__eq__`` or ``__cmp__``.  This strategy will be used only with
+new-style classes.
 
 
-Sharing Dicts
+Map Dicts
 +++++++++++++
 
-Sharing dictionaries are a special representation used together with multidicts.
-This dict representation is used only for instance dictionaries and tries to
-make instance dictionaries use less memory (in fact, in the ideal case the
-memory behaviour should be mostly like that of using __slots__).
+Map dictionaries are a special representation used together with dict strategies.
+This dict strategy is used only for instance dictionaries and tries to
+make instance dictionaries use less memory (in fact, usually memory behaviour
+should be mostly like that of using ``__slots__``).
 
 The idea is the following: Most instances of the same class have very similar
 attributes, and are even adding these keys to the dictionary in the same order
@@ -95,8 +103,6 @@ common structure object and thus save the space in the individual instance
 dicts:
 the representation of the instance dict contains only a list of values.
 
-A more advanced version of sharing dicts, called *map dicts,* is available
-with the :config:`objspace.std.withmapdict` option.
 
 
 List Optimizations
@@ -114,8 +120,8 @@ and step of the range. Only when somebody mutates the list the actual list is
 created. This gives the memory and speed behaviour of ``xrange`` and the generality
 of use of ``range``, and makes ``xrange`` essentially useless.
 
-You can enable this feature with the :config:`objspace.std.withrangelist`
-option.
+This feature is enabled by default as part of the
+:config:`objspace.std.withliststrategies` option.
 
 
 User Class Optimizations
@@ -133,8 +139,7 @@ lookup happens (this version is incremented every time the type or one of its
 base classes is changed). On subsequent lookups the cached version can be used,
 as long as the instance did not shadow any of its classes attributes.
 
-You can enable this feature with the :config:`objspace.std.withmethodcache`
-option.
+This feature is enabled by default.
 
 
 Interpreter Optimizations

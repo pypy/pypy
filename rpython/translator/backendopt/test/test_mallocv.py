@@ -205,7 +205,7 @@ class TestMallocRemoval(object):
             a.n = 10
             try:
                 g(n)       # this call should not be inlined
-            except E, e:
+            except E as e:
                 a.n = e.n
             return a.n
         self.check(f, [int], [15], 10, expected_calls=1)
@@ -222,7 +222,7 @@ class TestMallocRemoval(object):
             e1 = E(n)
             try:
                 raise e1
-            except E, e:
+            except E as e:
                 a.n = e.n
             return a.n
         self.check(f, [int], [15], 15)
@@ -308,7 +308,7 @@ class TestMallocRemoval(object):
             a.n = n
             try:
                 g(a)       # this call should be inlined
-            except E, e:
+            except E as e:
                 a.n = e.n
             return a.n
         self.check(f, [int], [15], 14, expected_calls=0)

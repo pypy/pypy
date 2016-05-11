@@ -5536,6 +5536,28 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
+    def test_division_bound_bug(self):
+        py.test.skip("XXX re-enable")
+        ops = """
+        [i4]
+        i1 = int_ge(i4, -50)
+        guard_true(i1) []
+        i2 = int_le(i4, -40)
+        guard_true(i2) []
+        # here, -50 <= i4 <= -40
+
+        i5 = int_floordiv(i4, 30)
+        # here, we know that that i5 == -1  (C-style handling of negatives!)
+        escape_n(i5)
+        jump(i4)
+        """
+        expected = """
+        [i4, i5]
+        escape_n(-1)
+        jump(i4, -1)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_subsub_ovf(self):
         ops = """
         [i0]

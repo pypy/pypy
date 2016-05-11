@@ -3,7 +3,7 @@ import py
 
 try:
     import Image
-except ImportError, e:
+except ImportError as e:
     py.test.skip(str(e))
 
 from pypy.tool.bench.htmlreport import (

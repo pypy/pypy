@@ -240,6 +240,8 @@ def test_shift_overflow():
 
 
 def test_div_bound():
+    from rpython.rtyper.lltypesystem import lltype
+    from rpython.rtyper.lltypesystem.lloperation import llop
     for _, _, b1 in some_bounds():
         for _, _, b2 in some_bounds():
             b3 = b1.py_div_bound(b2)

@@ -325,7 +325,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
         try:
             module.walkabout(self)
             top.finalize(None, {}, {})
-        except SyntaxError, e:
+        except SyntaxError as e:
             e.filename = compile_info.filename
             raise
         self.pop_scope()

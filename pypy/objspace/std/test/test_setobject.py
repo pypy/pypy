@@ -465,7 +465,7 @@ class AppTestAppSetTest:
         s = set()
         try:
             s.remove(1)
-        except KeyError, e:
+        except KeyError as e:
             assert e.args[0] == 1
         else:
             assert 0, "should raise"
@@ -519,7 +519,7 @@ class AppTestAppSetTest:
         key = set([2, 3])
         try:
             s.remove(key)
-        except KeyError, e:
+        except KeyError as e:
             assert e.args[0] is key
 
     def test_contains(self):
@@ -548,7 +548,7 @@ class AppTestAppSetTest:
         for v1 in ['Q', (1,)]:
             try:
                 s.remove(v1)
-            except KeyError, e:
+            except KeyError as e:
                 v2 = e.args[0]
                 assert v1 == v2
             else:

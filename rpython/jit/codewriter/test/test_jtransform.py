@@ -1412,7 +1412,7 @@ def test_unknown_operation():
     tr = Transformer()
     try:
         tr.rewrite_operation(op)
-    except Exception, e:
+    except Exception as e:
         assert 'foobar' in str(e)
 
 def test_likely_unlikely():

@@ -20,7 +20,7 @@ def get_function(dottedname):
     name = parts[-1]
     try:
         mod = __import__(module, {}, {}, ['__doc__'])
-    except ImportError, e:
+    except ImportError as e:
         raise Exception("Import error loading %s: %s" % (dottedname, e))
 
     try:
