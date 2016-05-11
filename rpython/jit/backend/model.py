@@ -294,7 +294,7 @@ class AbstractCPU(object):
 
 class CompiledLoopToken(object):
     asmmemmgr_blocks = None
-    asmmemmgr_gcroots = 0
+    asmmemmgr_gcreftracers = None
     _keepalive_extra = None
 
     def __init__(self, cpu, number):

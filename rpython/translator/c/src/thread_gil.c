@@ -70,7 +70,7 @@ void RPyGilAcquireSlowPath(long old_fastgil)
 {
     /* Acquires the GIL.  This assumes that we already did:
 
-          old_fastgil = lock_test_and_set(&rpy_fastgil, 1);
+          old_fastgil = pypy_lock_test_and_set(&rpy_fastgil, 1);
      */
     if (!RPY_FASTGIL_LOCKED(old_fastgil)) {
         /* The fastgil was not previously locked: success.
@@ -89,7 +89,9 @@ void RPyGilAcquireSlowPath(long old_fastgil)
              * at precisely this moment, killing the first thread.
              */
             fprintf(stderr, "Fatal RPython error: a thread is trying to wait "
-                            "for the GIL, but the GIL was not initialized\n");
+                            "for the GIL, but the GIL was not initialized\n"
+                            "(For PyPy, see "
+                            "https://bitbucket.org/pypy/pypy/issues/2274)\n");
             abort();
         }
 
@@ -122,7 +124,7 @@ void RPyGilAcquireSlowPath(long old_fastgil)
                released.
             */
             if (!RPY_FASTGIL_LOCKED(rpy_fastgil)) {
-                old_fastgil = lock_test_and_set(&rpy_fastgil, 1);
+                old_fastgil = pypy_lock_test_and_set(&rpy_fastgil, 1);
                 if (!RPY_FASTGIL_LOCKED(old_fastgil))
                     /* yes, got a non-held value!  Now we hold it. */
                     break;

@@ -172,7 +172,7 @@ class BlackholeInterpBuilder(object):
             # call the method bhimpl_xxx()
             try:
                 result = unboundmethod(*args)
-            except Exception, e:
+            except Exception as e:
                 if verbose and not we_are_translated():
                     print '-> %s!' % (e.__class__.__name__,)
                 if resulttype == 'i' or resulttype == 'r' or resulttype == 'f':
@@ -323,7 +323,7 @@ class BlackholeInterpreter(object):
                 break
             except jitexc.JitException:
                 raise     # go through
-            except Exception, e:
+            except Exception as e:
                 lle = get_llexception(self.cpu, e)
                 self.handle_exception_in_frame(lle)
 
@@ -1544,9 +1544,9 @@ class BlackholeInterpreter(object):
             # we now proceed to interpret the bytecode in this frame
             self.run()
         #
-        except jitexc.JitException, e:
+        except jitexc.JitException as e:
             raise     # go through
-        except Exception, e:
+        except Exception as e:
             # if we get an exception, return it to the caller frame
             current_exc = get_llexception(self.cpu, e)
             if not self.nextblackholeinterp:
@@ -1589,7 +1589,6 @@ class BlackholeInterpreter(object):
     def _done_with_this_frame(self):
         # rare case: we only get there if the blackhole interps all returned
         # normally (in general we get a ContinueRunningNormally exception).
-        sd = self.builder.metainterp_sd
         kind = self._return_type
         if kind == 'v':
             raise jitexc.DoneWithThisFrameVoid()
@@ -1678,7 +1677,7 @@ def _handle_jitexception(blackholeinterp, exc):
     # We have reached a recursive portal level.
     try:
         blackholeinterp._handle_jitexception_in_portal(exc)
-    except Exception, e:
+    except Exception as e:
         # It raised a general exception (it should not be a JitException here).
         lle = get_llexception(blackholeinterp.cpu, e)
     else:

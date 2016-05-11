@@ -149,7 +149,7 @@ class AppTest_Descroperation:
             def __setslice__(self, start, stop, sequence):
                 ops.append((start, stop, sequence))
             def __setitem__(self, key, value):
-                raise AssertionError, key
+                raise AssertionError(key)
             def __len__(self):
                 return 100
 
@@ -174,7 +174,7 @@ class AppTest_Descroperation:
             def __delslice__(self, start, stop):
                 ops.append((start, stop))
             def __delitem__(self, key):
-                raise AssertionError, key
+                raise AssertionError(key)
             def __len__(self):
                 return 100
 
@@ -582,7 +582,7 @@ class AppTest_Descroperation:
     def test_mod_failure(self):
         try:
             [] % 3
-        except TypeError, e:
+        except TypeError as e:
             assert '%' in str(e)
         else:
             assert False, "did not raise"

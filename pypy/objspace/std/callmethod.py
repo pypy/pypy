@@ -23,6 +23,7 @@ from pypy.objspace.std.mapdict import LOOKUP_METHOD_mapdict, \
 
 
 def LOOKUP_METHOD(f, nameindex, *ignored):
+    from pypy.objspace.std.typeobject import MutableCell
     #   stack before                 after
     #  --------------    --fast-method----fallback-case------------
     #
@@ -33,7 +34,7 @@ def LOOKUP_METHOD(f, nameindex, *ignored):
     space = f.space
     w_obj = f.popvalue()
 
-    if space.config.objspace.std.withmapdict and not jit.we_are_jitted():
+    if not jit.we_are_jitted():
         # mapdict has an extra-fast version of this function
         if LOOKUP_METHOD_mapdict(f, nameindex, w_obj):
             return
@@ -44,7 +45,7 @@ def LOOKUP_METHOD(f, nameindex, *ignored):
     safe = False
     w_descr = None
     name = None
-    if space.config.objspace.std.withmapdict and jit.we_are_jitted():
+    if jit.we_are_jitted():
         # compute safeness without reading the type
         map = w_obj._get_mapdict_map_no_promote()
         if map is not None and map._type_safe_to_do_getattr():
@@ -56,8 +57,18 @@ def LOOKUP_METHOD(f, nameindex, *ignored):
         safe = w_type.has_object_getattribute()
         if safe:
             name = space.str_w(w_name)
-            w_descr = space.lookup(w_obj, name)
-
+            # bit of a mess to use these internal functions, but it allows the
+            # mapdict caching below to work without an additional lookup
+            version_tag = w_type.version_tag()
+            if version_tag is None:
+                _, w_descr = w_type._lookup_where(name)
+                w_descr_cell = None
+            else:
+                _, w_descr_cell = w_type._pure_lookup_where_with_method_cache(
+                    name, version_tag)
+                w_descr = w_descr_cell
+                if isinstance(w_descr, MutableCell):
+                    w_descr = w_descr.unwrap_cell(space)
     if safe:
         if w_descr is None:
             # this handles directly the common case
@@ -73,12 +84,12 @@ def LOOKUP_METHOD(f, nameindex, *ignored):
                     # nothing in the instance
                     f.pushvalue(w_descr)
                     f.pushvalue(w_obj)
-                    if (space.config.objspace.std.withmapdict and
-                            not jit.we_are_jitted()):
+                    if not jit.we_are_jitted():
                         # let mapdict cache stuff
                         w_type = space.type(w_obj)
                         LOOKUP_METHOD_mapdict_fill_cache_method(
-                            space, f.getcode(), name, nameindex, w_obj, w_type)
+                            space, f.getcode(), name, nameindex, w_obj, w_type,
+                            w_descr_cell)
                     return
     if w_value is None:
         w_value = space.getattr(w_obj, w_name)
@@ -129,7 +140,8 @@ def call_method_opt(space, w_obj, methname, *arg_w):
     based on the same principle as above.
     """
     safe = False
-    if space.config.objspace.std.withmapdict:
+    w_descr = None
+    if jit.we_are_jitted():
         # compute safeness without reading the type
         map = w_obj._get_mapdict_map_no_promote()
         if map is not None and map._type_safe_to_do_getattr():
@@ -138,7 +150,8 @@ def call_method_opt(space, w_obj, methname, *arg_w):
     else:
         w_type = space.type(w_obj)
         safe = w_type.has_object_getattribute()
-        w_descr = space.lookup(w_obj, methname)
+        if safe:
+            w_descr = space.lookup(w_obj, methname)
     if safe:
         typ = type(w_descr)
         if typ is function.Function or typ is function.FunctionWithFixedCode:

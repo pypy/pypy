@@ -5,7 +5,7 @@
 import py
 
 from rpython.jit.metainterp.optimizeopt.test.test_util import BaseTest,\
-     LLtypeMixin
+     LLtypeMixin, FakeMetaInterpStaticData
 from rpython.jit.metainterp.optimizeopt.util import equaloplists
 from rpython.jit.metainterp.history import (TreeLoop, ConstInt,
                                             JitCellToken, TargetToken)
@@ -19,6 +19,7 @@ from rpython.jit.metainterp.optimizeopt.virtualstate import \
      VirtualStateInfo
 from rpython.jit.metainterp.optimizeopt import info
 from rpython.jit.codewriter import heaptracker
+from rpython.jit.tool import oparser
 
 class FakeOptimizer(object):
     optearlyforce = None
@@ -39,7 +40,7 @@ class BaseTestUnroll(BaseTest, LLtypeMixin):
     enable_opts = "intbounds:rewrite:virtualize:string:earlyforce:pure:heap:unroll"
     
     def optimize(self, ops):
-        loop = self.parse(ops, postprocess=self.postprocess)
+        loop = self.parse(ops)
         self.add_guard_future_condition(loop)
         operations =  loop.operations
         jumpop = operations[-1]
@@ -52,17 +53,15 @@ class BaseTestUnroll(BaseTest, LLtypeMixin):
         preamble = TreeLoop('preamble')
 
         token = JitCellToken()
-        start_label = ResOperation(rop.LABEL, inputargs, descr=TargetToken(token))
-        stop_label = ResOperation(rop.LABEL, jump_args, descr=token)
-        compile_data = LoopCompileData(start_label, stop_label, operations)
+        trace = oparser.convert_loop_to_trace(loop, FakeMetaInterpStaticData(self.cpu))
+        compile_data = LoopCompileData(trace, inputargs)
         start_state, newops = self._do_optimize_loop(compile_data)
         preamble.operations = newops
         preamble.inputargs = start_state.renamed_inputargs
         return start_state, loop, preamble
 
     def compare_short(self, short, expected_short):
-        expected_short = self.parse(expected_short,
-                                    postprocess=self.postprocess)
+        expected_short = self.parse(expected_short)
         remap = {}
         exp = ([ResOperation(rop.LABEL, expected_short.inputargs)] +
                expected_short.operations)

@@ -1,5 +1,4 @@
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
-from rpython.rlib import rgc
 from rpython.rlib.debug import debug_print, debug_start, debug_stop
 from rpython.jit.backend.llsupport.regalloc import FrameManager, \
         RegisterManager, TempVar, compute_vars_longevity, BaseRegalloc, \
@@ -530,7 +529,7 @@ class Regalloc(BaseRegalloc):
                             EffectInfo.OS_LLONG_AND,
                             EffectInfo.OS_LLONG_OR,
                             EffectInfo.OS_LLONG_XOR):
-                if self.cpu.cpuinfo.arch_version >= 7:
+                if self.cpu.cpuinfo.neon:
                     args = self._prepare_llong_binop_xx(op, fcond)
                     self.perform_extra(op, args, fcond)
                     return
@@ -627,16 +626,11 @@ class Regalloc(BaseRegalloc):
     def prepare_op_finish(self, op, fcond):
         # the frame is in fp, but we have to point where in the frame is
         # the potential argument to FINISH
-        descr = op.getdescr()
-        fail_descr = cast_instance_to_gcref(descr)
-        # we know it does not move, but well
-        rgc._make_sure_does_not_move(fail_descr)
-        fail_descr = rffi.cast(lltype.Signed, fail_descr)
         if op.numargs() == 1:
             loc = self.make_sure_var_in_reg(op.getarg(0))
-            locs = [loc, imm(fail_descr)]
+            locs = [loc]
         else:
-            locs = [imm(fail_descr)]
+            locs = []
         return locs
 
     def load_condition_into_cc(self, box):
@@ -891,6 +885,10 @@ class Regalloc(BaseRegalloc):
     prepare_op_same_as_i = _prepare_op_same_as
     prepare_op_same_as_r = _prepare_op_same_as
     prepare_op_same_as_f = _prepare_op_same_as
+
+    def prepare_op_load_from_gc_table(self, op, fcond):
+        resloc = self.force_allocate_reg(op)
+        return [resloc]
 
     def prepare_op_call_malloc_nursery(self, op, fcond):
         size_box = op.getarg(0)

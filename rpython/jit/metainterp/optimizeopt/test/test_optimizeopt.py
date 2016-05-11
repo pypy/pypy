@@ -48,8 +48,7 @@ class BaseTestWithUnroll(BaseTest):
     def optimize_loop(self, ops, expected, expected_preamble=None,
                       call_pure_results=None, expected_short=None,
                       jump_values=None):
-        loop = self.parse(ops, postprocess=self.postprocess)
-        self.set_values(loop.operations, jump_values)
+        loop = self.parse(ops)
         if expected != "crash!":
             expected = self.parse(expected)
         if expected_preamble:
@@ -58,7 +57,7 @@ class BaseTestWithUnroll(BaseTest):
             # the short preamble doesn't have fail descrs, they are patched in when it is used
             expected_short = self.parse(expected_short, want_fail_descr=False)
 
-        info = self.unroll_and_optimize(loop, call_pure_results)
+        info = self.unroll_and_optimize(loop, call_pure_results, jump_values)
         preamble = info.preamble
         preamble.check_consistency(check_descr=False)
 
@@ -873,7 +872,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(i1, p1, p3sub)
         """
         self.optimize_loop(ops, expected, preamble,
-                jump_values=[None, self.nodefulladdr, self.nodefulladdr, None])
+                jump_values=[None, self.nodefulladdr, self.nodefulladdr])
 
     def test_dont_delay_setfields(self):
         ops = """
@@ -3070,6 +3069,16 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i3 = int_add(i1, i2)
         guard_value(p1, NULL) [i1]
         jump(p2, i0, i1, i3, p2)
+        """
+        self.raises(InvalidLoop, self.optimize_loop, ops, ops)
+
+    def test_invalid_guard_value_after_bounds(self):
+        ops = """
+        [i0]
+        i1 = int_gt(i0, 5)
+        guard_true(i1) []
+        guard_value(i0, 2) []
+        jump()
         """
         self.raises(InvalidLoop, self.optimize_loop, ops, ops)
 
@@ -5517,6 +5526,27 @@ class OptimizeOptTest(BaseTestWithUnroll):
         guard_true(i1) []
         i16 = int_rshift(i4, 1)
         finish(i16)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_division_bound_bug(self):
+        ops = """
+        [i4]
+        i1 = int_ge(i4, -50)
+        guard_true(i1) []
+        i2 = int_le(i4, -40)
+        guard_true(i2) []
+        # here, -50 <= i4 <= -40
+
+        i5 = int_floordiv(i4, 30)
+        # here, we know that that i5 == -1  (C-style handling of negatives!)
+        escape_n(i5)
+        jump(i4)
+        """
+        expected = """
+        [i4, i5]
+        escape_n(-1)
+        jump(i4, -1)
         """
         self.optimize_loop(ops, expected)
 

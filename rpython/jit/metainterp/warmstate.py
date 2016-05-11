@@ -75,7 +75,9 @@ def wrap(cpu, value, in_const_box=False):
             if in_const_box:
                 return history.ConstPtr(value)
             else:
-                return resoperation.InputArgRef(value)
+                res = history.RefFrontendOp(0)
+                res.setref_base(value)
+                return res
         else:
             adr = llmemory.cast_ptr_to_adr(value)
             value = heaptracker.adr2int(adr)
@@ -89,7 +91,9 @@ def wrap(cpu, value, in_const_box=False):
         if in_const_box:
             return history.ConstFloat(value)
         else:
-            return resoperation.InputArgFloat(value)
+            res = history.FloatFrontendOp(0)
+            res.setfloatstorage(value)
+            return res
     elif isinstance(value, str) or isinstance(value, unicode):
         assert len(value) == 1     # must be a character
         value = ord(value)
@@ -100,7 +104,9 @@ def wrap(cpu, value, in_const_box=False):
     if in_const_box:
         return history.ConstInt(value)
     else:
-        return resoperation.InputArgInt(value)
+        res = history.IntFrontendOp(0)
+        res.setint(value)
+        return res
 
 @specialize.arg(0)
 def equal_whatever(TYPE, x, y):

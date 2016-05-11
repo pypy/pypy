@@ -97,23 +97,16 @@ class AppTestCallMethod:
             else:
                 raise Exception("did not raise?")
         """
-    
+
     def test_kwargs(self):
         exec """if 1:
             class C(object):
                 def f(self, a):
                     return a + 2
-            
+
             assert C().f(a=3) == 5
         """
 
-
-class AppTestCallMethodWithGetattributeShortcut(AppTestCallMethod):
-    spaceconfig = {"objspace.std.getattributeshortcut": True}
-
-class AppTestCallMethodWithGetattributeShortcutAndMapdict(AppTestCallMethod):
-    spaceconfig = {"objspace.std.getattributeshortcut": True,
-                   "objspace.std.withmapdict": True}
 
 class TestCallMethod:
     def test_space_call_method(self):
@@ -135,7 +128,3 @@ class TestCallMethod:
                 callmethod.LOOKUP_METHOD)
         assert (self.space.FrameClass.CALL_METHOD.im_func ==
                 callmethod.CALL_METHOD)
-
-class TestCallMethodMapDict(TestCallMethod):
-    spaceconfig = {"objspace.std.getattributeshortcut": True,
-                   "objspace.std.withmapdict": True}

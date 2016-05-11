@@ -24,9 +24,12 @@ NUMBERING = lltype.GcStruct('Numbering',
 NUMBERINGP.TO.become(NUMBERING)
 NULL_NUMBER = lltype.nullptr(NUMBERING)
 
-def create_numbering(lst):
+def create_numbering(lst, total=-1):
+    if total == -1:
+        total = len(lst)
     result = []
-    for item in lst:
+    for i in range(total):
+        item = lst[i]
         item = rffi.cast(lltype.Signed, item)
         item *= 2
         if item < 0:
@@ -64,6 +67,7 @@ def numb_next_item(numb, index):
         value = -1 - value
     value >>= 1
     return value, index
+numb_next_item._always_inline_ = True
 
 def numb_next_n_items(numb, size, index):
     for i in range(size):

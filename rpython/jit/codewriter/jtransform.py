@@ -696,6 +696,10 @@ class Transformer(object):
         ARRAY = op.args[0].concretetype.TO
         if self._array_of_voids(ARRAY):
             return []
+        if isinstance(ARRAY, lltype.FixedSizeArray):
+            raise NotImplementedError(
+                "%r uses %r, which is not supported by the JIT codewriter"
+                % (self.graph, ARRAY))
         if op.args[0] in self.vable_array_vars:     # for virtualizables
             vars = self.vable_array_vars[op.args[0]]
             (v_base, arrayfielddescr, arraydescr) = vars
@@ -726,6 +730,10 @@ class Transformer(object):
         ARRAY = op.args[0].concretetype.TO
         if self._array_of_voids(ARRAY):
             return []
+        if isinstance(ARRAY, lltype.FixedSizeArray):
+            raise NotImplementedError(
+                "%r uses %r, which is not supported by the JIT codewriter"
+                % (self.graph, ARRAY))
         if op.args[0] in self.vable_array_vars:     # for virtualizables
             vars = self.vable_array_vars[op.args[0]]
             (v_base, arrayfielddescr, arraydescr) = vars
@@ -780,7 +788,7 @@ class Transformer(object):
                 return [SpaceOperation('-live-', [], None),
                         SpaceOperation('getfield_vable_%s' % kind,
                                        [v_inst, descr], op.result)]
-        except VirtualizableArrayField, e:
+        except VirtualizableArrayField as e:
             # xxx hack hack hack
             vinfo = e.args[1]
             arrayindex = vinfo.array_field_counter[op.args[1].value]

@@ -39,7 +39,7 @@ class W_LibObject(W_Root):
                     mod = __import__(modname, None, None, ['ffi', 'lib'])
                     return mod.lib""")
                 lib1 = space.interp_w(W_LibObject, w_lib1)
-            except OperationError, e:
+            except OperationError as e:
                 if e.async(space):
                     raise
                 raise oefmt(space.w_ImportError,
@@ -64,7 +64,8 @@ class W_LibObject(W_Root):
         #
         ptr = rffi.cast(rffi.CCHARP, g.c_address)
         assert ptr
-        return W_FunctionWrapper(self.space, ptr, g.c_size_or_direct_fn,
+        return W_FunctionWrapper(self.space, self.ffi,
+                                 ptr, g.c_size_or_direct_fn,
                                  rawfunctype, fnname, self.libname)
 
     @jit.elidable_promote()

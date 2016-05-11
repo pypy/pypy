@@ -133,5 +133,5 @@ class RealFile(File):
     def open(self):
         try:
             return open(self.path, "rb")
-        except IOError, e:
+        except IOError as e:
             raise OSError(e.errno, "open failed")

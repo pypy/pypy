@@ -85,13 +85,13 @@ class LLInterpreter(object):
         try:
             try:
                 retval = llframe.eval()
-            except LLException, e:
+            except LLException as e:
                 log.error("LLEXCEPTION: %s" % (e, ))
                 self.print_traceback()
                 if self.tracer:
                     self.tracer.dump('LLException: %s\n' % (e,))
                 raise
-            except Exception, e:
+            except Exception as e:
                 if getattr(e, '_go_through_llinterp_uncaught_', False):
                     raise
                 log.error("AN ERROR OCCURED: %s" % (e, ))
@@ -307,10 +307,10 @@ class LLFrame(object):
             for i, op in enumerate(block.operations):
                 self.curr_operation_index = i
                 self.eval_operation(op)
-        except LLException, e:
+        except LLException as e:
             if op is not block.raising_op:
                 raise
-        except RuntimeError, e:
+        except RuntimeError as e:
             rstackovf.check_stack_overflow()
             # xxx fish fish fish for proper etype and evalue to use
             rtyper = self.llinterpreter.typer
@@ -416,7 +416,7 @@ class LLFrame(object):
                 vals.insert(0, operation.result.concretetype)
             try:
                 retval = ophandler(*vals)
-            except LLException, e:
+            except LLException as e:
                 # safety check check that the operation is allowed to raise that
                 # exception
                 if operation.opname in lloperation.LL_OPERATIONS:
@@ -479,9 +479,9 @@ class LLFrame(object):
         obj = fptr._obj
         try:
             return obj._callable(*args)
-        except LLException, e:
+        except LLException as e:
             raise
-        except Exception, e:
+        except Exception as e:
             if getattr(e, '_go_through_llinterp_uncaught_', False):
                 raise
             if getattr(obj, '_debugexc', False):
@@ -720,6 +720,12 @@ class LLFrame(object):
     def op_gc_add_memory_pressure(self, size):
         self.heap.add_memory_pressure(size)
 
+    def op_gc_fq_next_dead(self, fq_tag):
+        return self.heap.gc_fq_next_dead(fq_tag)
+
+    def op_gc_fq_register(self, fq_tag, obj):
+        self.heap.gc_fq_register(fq_tag, obj)
+
     def op_gc_gettypeid(self, obj):
         return lloperation.llop.combine_ushort(lltype.Signed, self.heap.gettypeid(obj), 0)
 
@@ -782,17 +788,21 @@ class LLFrame(object):
     def op_weakref_create(self, v_obj):
         def objgetter():    # special support for gcwrapper.py
             return self.getval(v_obj)
+        assert self.llinterpreter.typer.getconfig().translation.rweakref
         return self.heap.weakref_create_getlazy(objgetter)
     op_weakref_create.specialform = True
 
     def op_weakref_deref(self, PTRTYPE, obj):
+        assert self.llinterpreter.typer.getconfig().translation.rweakref
         return self.heap.weakref_deref(PTRTYPE, obj)
     op_weakref_deref.need_result_type = True
 
     def op_cast_ptr_to_weakrefptr(self, obj):
+        assert self.llinterpreter.typer.getconfig().translation.rweakref
         return llmemory.cast_ptr_to_weakrefptr(obj)
 
     def op_cast_weakrefptr_to_ptr(self, PTRTYPE, obj):
+        assert self.llinterpreter.typer.getconfig().translation.rweakref
         return llmemory.cast_weakrefptr_to_ptr(PTRTYPE, obj)
     op_cast_weakrefptr_to_ptr.need_result_type = True
 

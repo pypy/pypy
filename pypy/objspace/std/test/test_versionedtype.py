@@ -1,7 +1,6 @@
 from pypy.objspace.std.test import test_typeobject
 
 class TestVersionedType(test_typeobject.TestTypeObject):
-    spaceconfig = {"objspace.std.withtypeversion": True}
 
     def get_three_classes(self):
         space = self.space
@@ -260,9 +259,7 @@ class TestVersionedType(test_typeobject.TestTypeObject):
         assert space.float_w(cell.w_value) == 2.2
 
 
-class TestVersionedTypeMapDict(test_typeobject.TestTypeObject):
-    spaceconfig = {"objspace.std.withtypeversion": True,
-                   "objspace.std.withmapdict": True}
+class TestVersionedTypeMapDict(object):
 
     def get_three_classes_and_instances(self):
         space = self.space
@@ -322,7 +319,4 @@ class TestVersionedTypeMapDict(test_typeobject.TestTypeObject):
         all_different(get_versions(w_A, a.map), aversions)
         all_different(get_versions(w_B, b.map), bversions)
 
-
-class AppTestVersionedType(test_typeobject.AppTestTypeObject):
-    spaceconfig = {"objspace.std.withtypeversion": True}
 

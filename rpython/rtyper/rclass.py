@@ -310,10 +310,15 @@ class ClassRepr(Repr):
         # setup class attributes: for each attribute name at the level
         # of 'r_parentcls', look up its value in the class
         def assign(mangled_name, value):
-            if (isinstance(value, Constant) and
-                    isinstance(value.value, staticmethod)):
-                value = Constant(value.value.__get__(42))   # staticmethod => bare function
-            llvalue = r.convert_desc_or_const(value)
+            if value is None:
+                llvalue = r.special_uninitialized_value()
+                if llvalue is None:
+                    return
+            else:
+                if (isinstance(value, Constant) and
+                        isinstance(value.value, staticmethod)):
+                    value = Constant(value.value.__get__(42))   # staticmethod => bare function
+                llvalue = r.convert_desc_or_const(value)
             setattr(vtable, mangled_name, llvalue)
 
         for fldname in r_parentcls.clsfields:
@@ -321,8 +326,7 @@ class ClassRepr(Repr):
             if r.lowleveltype is Void:
                 continue
             value = self.classdef.classdesc.read_attribute(fldname, None)
-            if value is not None:
-                assign(mangled_name, value)
+            assign(mangled_name, value)
         # extra PBC attributes
         for (access_set, attr), (mangled_name, r) in r_parentcls.pbcfields.items():
             if self.classdef.classdesc not in access_set.descs:
@@ -330,8 +334,7 @@ class ClassRepr(Repr):
             if r.lowleveltype is Void:
                 continue
             attrvalue = self.classdef.classdesc.read_attribute(attr, None)
-            if attrvalue is not None:
-                assign(mangled_name, attrvalue)
+            assign(mangled_name, attrvalue)
 
     def fill_vtable_root(self, vtable):
         """Initialize the head of the vtable."""
@@ -584,7 +587,8 @@ class InstanceRepr(Repr):
                 assert len(s_func.descriptions) == 1
                 funcdesc, = s_func.descriptions
                 graph = funcdesc.getuniquegraph()
-                self.check_graph_of_del_does_not_call_too_much(graph)
+                self.check_graph_of_del_does_not_call_too_much(self.rtyper,
+                                                               graph)
                 FUNCTYPE = FuncType([Ptr(source_repr.object_type)], Void)
                 destrptr = functionptr(FUNCTYPE, graph.name,
                                        graph=graph,
@@ -856,7 +860,8 @@ class InstanceRepr(Repr):
     def can_ll_be_null(self, s_value):
         return s_value.can_be_none()
 
-    def check_graph_of_del_does_not_call_too_much(self, graph):
+    @staticmethod
+    def check_graph_of_del_does_not_call_too_much(rtyper, graph):
         # RPython-level __del__() methods should not do "too much".
         # In the PyPy Python interpreter, they usually do simple things
         # like file.__del__() closing the file descriptor; or if they
@@ -869,7 +874,7 @@ class InstanceRepr(Repr):
         #
         # XXX wrong complexity, but good enough because the set of
         # reachable graphs should be small
-        callgraph = self.rtyper.annotator.translator.callgraph.values()
+        callgraph = rtyper.annotator.translator.callgraph.values()
         seen = {graph: None}
         while True:
             oldlength = len(seen)

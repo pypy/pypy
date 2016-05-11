@@ -398,8 +398,8 @@ class TranslationDriver(SimpleTaskEngine):
             from rpython.translator.platform import CompilationError
             try:
                 configure_boehm(self.translator.platform)
-            except CompilationError, e:
-                i = 'Boehm GC not installed.  Try e.g. "translate.py --gc=hybrid"'
+            except CompilationError as e:
+                i = 'Boehm GC not installed.  Try e.g. "translate.py --gc=minimark"'
                 raise Exception(str(e) + '\n' + i)
 
     @taskdef([STACKCHECKINSERTION, '?'+BACKENDOPT, RTYPE, '?annotate'],
@@ -490,10 +490,12 @@ class TranslationDriver(SimpleTaskEngine):
                     # for pypy, the import library is renamed and moved to
                     # libs/python27.lib, according to the pragma in pyconfig.h
                     libname = self.config.translation.libname
-                    libname = libname or soname.new(ext='lib').basename
-                    libname = str(newsoname.dirpath().join(libname))
-                    shutil.copyfile(str(soname.new(ext='lib')), libname)
-                    self.log.info("copied: %s" % (libname,))
+                    oldlibname = soname.new(ext='lib')
+                    if not libname:
+                        libname = oldlibname.basename
+                        libname = str(newsoname.dirpath().join(libname))
+                    shutil.copyfile(str(oldlibname), libname)
+                    self.log.info("copied: %s to %s" % (oldlibname, libname,))
                     # the pdb file goes in the same place as pypy(w).exe
                     ext_to_copy = ['pdb',]
                     for ext in ext_to_copy:
@@ -550,16 +552,16 @@ class TranslationDriver(SimpleTaskEngine):
         self.log.info('usession directory: %s' % (udir,))
         return result
 
-    @staticmethod
-    def from_targetspec(targetspec_dic, config=None, args=None,
+    @classmethod
+    def from_targetspec(cls, targetspec_dic, config=None, args=None,
                         empty_translator=None,
                         disable=[],
                         default_goal=None):
         if args is None:
             args = []
 
-        driver = TranslationDriver(config=config, default_goal=default_goal,
-                                   disable=disable)
+        driver = cls(config=config, default_goal=default_goal,
+                     disable=disable)
         target = targetspec_dic['target']
         spec = target(driver, args)
 

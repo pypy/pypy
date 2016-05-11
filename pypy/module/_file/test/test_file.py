@@ -151,7 +151,7 @@ class AppTestFile(object):
     def test_oserror_has_filename(self):
         try:
             f = self.file("file that is clearly not there")
-        except IOError, e:
+        except IOError as e:
             assert e.filename == 'file that is clearly not there'
         else:
             raise Exception("did not raise")
@@ -285,6 +285,8 @@ Delivered-To: gkj@sundance.gregorykjohnson.com'''
             from posix import openpty, fdopen, write, close
         except ImportError:
             skip('no openpty on this platform')
+        if 'gnukfreebsd' in sys.platform:
+            skip('close() hangs forever on kFreeBSD')
         read_fd, write_fd = openpty()
         write(write_fd, 'Abc\n')
         close(write_fd)

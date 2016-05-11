@@ -209,7 +209,7 @@ class DescrOperation(object):
             if w_descr is None:   # obscure case
                 raise OperationError(space.w_AttributeError, space.w_None)
             return space.get_and_call_function(w_descr, w_obj, w_name)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_AttributeError):
                 raise
             w_descr = space.lookup(w_obj, '__getattr__')
@@ -254,8 +254,8 @@ class DescrOperation(object):
         if space.is_w(w_restype, space.w_int):
             return space.int_w(w_res) != 0
         else:
-            msg = "__nonzero__ should return bool or integer"
-            raise OperationError(space.w_TypeError, space.wrap(msg))
+            raise oefmt(space.w_TypeError,
+                        "__nonzero__ should return bool or integer")
 
     def nonzero(space, w_obj):
         if space.is_true(w_obj):
@@ -280,7 +280,8 @@ class DescrOperation(object):
     def iter(space, w_obj):
         w_descr = space.lookup(w_obj, '__iter__')
         if w_descr is None:
-            w_descr = space.lookup(w_obj, '__getitem__')
+            if space.type(w_obj).flag_map_or_seq != 'M':
+                w_descr = space.lookup(w_obj, '__getitem__')
             if w_descr is None:
                 raise oefmt(space.w_TypeError,
                             "'%T' object is not iterable", w_obj)
@@ -288,8 +289,7 @@ class DescrOperation(object):
         w_iter = space.get_and_call_function(w_descr, w_obj)
         w_next = space.lookup(w_iter, 'next')
         if w_next is None:
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("iter() returned non-iterator"))
+            raise oefmt(space.w_TypeError, "iter() returned non-iterator")
         return w_iter
 
     def next(space, w_obj):
@@ -388,8 +388,7 @@ class DescrOperation(object):
             if _check_notimplemented(space, w_res):
                 return w_res
 
-        raise OperationError(space.w_TypeError,
-                space.wrap("operands do not support **"))
+        raise oefmt(space.w_TypeError, "operands do not support **")
 
     def inplace_pow(space, w_lhs, w_rhs):
         w_impl = space.lookup(w_lhs, '__ipow__')
@@ -413,7 +412,7 @@ class DescrOperation(object):
             contains_jitdriver.jit_merge_point(w_type=w_type)
             try:
                 w_next = space.next(w_iter)
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_StopIteration):
                     raise
                 return space.w_False
@@ -445,13 +444,8 @@ class DescrOperation(object):
             bigint = space.bigint_w(w_result)
             return space.wrap(bigint.hash())
         else:
-            raise OperationError(space.w_TypeError,
-                    space.wrap("__hash__() should return an int or long"))
-
-    def userdel(space, w_obj):
-        w_del = space.lookup(w_obj, '__del__')
-        if w_del is not None:
-            space.get_and_call_function(w_del, w_obj)
+            raise oefmt(space.w_TypeError,
+                        "__hash__() should return an int or long")
 
     def cmp(space, w_v, w_w):
 
@@ -475,8 +469,7 @@ class DescrOperation(object):
     def coerce(space, w_obj1, w_obj2):
         w_res = space.try_coerce(w_obj1, w_obj2)
         if w_res is None:
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("coercion failed"))
+            raise oefmt(space.w_TypeError, "coercion failed")
         return w_res
 
     def try_coerce(space, w_obj1, w_obj2):
@@ -500,13 +493,13 @@ class DescrOperation(object):
                 return None
             if (not space.isinstance_w(w_res, space.w_tuple) or
                 space.len_w(w_res) != 2):
-                raise OperationError(space.w_TypeError,
-                                     space.wrap("coercion should return None or 2-tuple"))
+                raise oefmt(space.w_TypeError,
+                            "coercion should return None or 2-tuple")
             w_res = space.newtuple([space.getitem(w_res, space.wrap(1)), space.getitem(w_res, space.wrap(0))])
         elif (not space.isinstance_w(w_res, space.w_tuple) or
             space.len_w(w_res) != 2):
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("coercion should return None or 2-tuple"))
+            raise oefmt(space.w_TypeError,
+                        "coercion should return None or 2-tuple")
         return w_res
 
     def issubtype(space, w_sub, w_type):
@@ -523,8 +516,7 @@ class DescrOperation(object):
     def issubtype_allow_override(space, w_sub, w_type):
         w_check = space.lookup(w_type, "__subclasscheck__")
         if w_check is None:
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("issubclass not supported here"))
+            raise oefmt(space.w_TypeError, "issubclass not supported here")
         return space.get_and_call_function(w_check, w_type, w_sub)
 
     def isinstance_allow_override(space, w_inst, w_type):
@@ -647,7 +639,7 @@ def old_slice_range_getlength(space, w_obj):
     # so this behavior is slightly different
     try:
         return space.len(w_obj)
-    except OperationError, e:
+    except OperationError as e:
         if not ((e.match(space, space.w_AttributeError) or
                  e.match(space, space.w_TypeError))):
             raise
@@ -901,4 +893,4 @@ for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:
         elif _name not in ['is_', 'id','type','issubtype', 'int',
                            # not really to be defined in DescrOperation
                            'ord', 'unichr', 'unicode']:
-            raise Exception, "missing def for operation %s" % _name
+            raise Exception("missing def for operation %s" % _name)

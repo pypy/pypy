@@ -178,12 +178,13 @@ class ZARCHRegisterManager(RegisterManager):
             bind_first: the even register will be bound to bindvar,
                         if bind_first == False: the odd register will
                         be bound
+            NOTE: Calling ensure_even_odd_pair twice in a prepare function is NOT supported!
         """
         self._check_type(origvar)
         prev_loc = self.loc(origvar, must_exist=must_exist)
-        var2 = TempVar()
+        var2 = TempInt()
         if bindvar is None:
-            bindvar = TempVar()
+            bindvar = TempInt()
         if bind_first:
             loc, loc2 = self.force_allocate_reg_pair(bindvar, var2, self.temp_boxes)
         else:
@@ -227,9 +228,6 @@ class ZARCHRegisterManager(RegisterManager):
         i = len(self.free_regs)-1
         while i >= 0:
             even = self.free_regs[i]
-            if even.value == 13:
-                i -= 1
-                continue
             if even.is_even():
                 # found an even registers that is actually free
                 odd = r.odd_reg(even)
@@ -309,10 +307,62 @@ class ZARCHRegisterManager(RegisterManager):
             self.reg_bindings[odd_var] = odd
             break
         else:
-            # no break! this is bad. really bad
-            raise NoVariableToSpill()
+            # uff! in this case, we need to move a forbidden var to another register
+            assert len(forbidden_vars) <= 8 # otherwise it is NOT possible to complete
+            even, odd = r.r2, r.r3
+            old_even_var = reverse_mapping.get(even, None)
+            old_odd_var = reverse_mapping.get(odd, None)
+            if old_even_var:
+                if old_even_var in forbidden_vars:
+                    self._relocate_forbidden_variable(even, old_even_var, reverse_mapping,
+                                                      forbidden_vars, odd)
+                else:
+                    self._sync_var(old_even_var)
+                    del self.reg_bindings[old_even_var]
+            if old_odd_var:
+                if old_odd_var in forbidden_vars:
+                    self._relocate_forbidden_variable(odd, old_odd_var, reverse_mapping,
+                                                      forbidden_vars, even)
+                else:
+                    self._sync_var(old_odd_var)
+                    del self.reg_bindings[old_odd_var]
+
+            self.free_regs = [fr for fr in self.free_regs \
+                              if fr is not even and \
+                                 fr is not odd]
+            self.reg_bindings[even_var] = even
+            self.reg_bindings[odd_var] = odd
+            return even, odd
 
         return even, odd
+
+    def _relocate_forbidden_variable(self, reg, var, reverse_mapping, forbidden_vars, forbidden_reg):
+        if len(self.free_regs) > 0:
+            candidate = self.free_regs.pop()
+            self.assembler.regalloc_mov(reg, candidate)
+            self.reg_bindings[var] = candidate
+            reverse_mapping[candidate] = var
+
+        for candidate in r.MANAGED_REGS:
+            # move register of var to another register
+            # thus it is not allowed to bei either reg or forbidden_reg
+            if candidate is reg or candidate is forbidden_reg:
+                continue
+            # neither can we allow to move it to a register of another forbidden variable
+            candidate_var = reverse_mapping.get(candidate, None)
+            if not candidate_var or candidate_var not in forbidden_vars:
+                if candidate_var is not None:
+                    self._sync_var(candidate_var)
+                    del self.reg_bindings[candidate_var]
+                self.assembler.regalloc_mov(reg, candidate)
+                assert var is not None
+                self.reg_bindings[var] = candidate
+                reverse_mapping[candidate] = var
+                self.free_regs.append(reg)
+                break
+        else:
+            raise NoVariableToSpill
+
 
 class ZARCHFrameManager(FrameManager):
     def __init__(self, base_ofs):
@@ -476,7 +526,8 @@ class Regalloc(BaseRegalloc):
             self.assembler.mc.mark_op(op)
             self.rm.position = i
             self.fprm.position = i
-            if op.has_no_side_effect() and op not in self.longevity:
+            opnum = op.getopnum()
+            if rop.has_no_side_effect(opnum) and op not in self.longevity:
                 i += 1
                 self.possibly_free_vars_for_op(op)
                 continue
@@ -488,8 +539,7 @@ class Regalloc(BaseRegalloc):
                 else:
                     self.fprm.temp_boxes.append(box)
             #
-            opnum = op.getopnum()
-            if not we_are_translated() and opnum == -127:
+            if not we_are_translated() and opnum == rop.FORCE_SPILL:
                 self._consider_force_spill(op)
             else:
                 arglocs = prepare_oplist[opnum](self, op)
@@ -1215,18 +1265,16 @@ class Regalloc(BaseRegalloc):
                                  src_locations2, dst_locations2, fptmploc, WORD)
         return []
 
+    def prepare_load_from_gc_table(self, op):
+        resloc = self.rm.force_allocate_reg(op)
+        return [resloc]
+
     def prepare_finish(self, op):
-        descr = op.getdescr()
-        fail_descr = cast_instance_to_gcref(descr)
-        # we know it does not move, but well
-        rgc._make_sure_does_not_move(fail_descr)
-        fail_descr = rffi.cast(lltype.Signed, fail_descr)
-        assert fail_descr > 0
         if op.numargs() > 0:
             loc = self.ensure_reg(op.getarg(0))
-            locs = [loc, imm(fail_descr)]
+            locs = [loc]
         else:
-            locs = [imm(fail_descr)]
+            locs = []
         return locs
 
 def notimplemented(self, op):

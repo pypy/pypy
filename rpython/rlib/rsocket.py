@@ -933,7 +933,7 @@ class RSocket(object):
                     res = self.send_raw(p, remaining, flags)
                     p = rffi.ptradd(p, res)
                     remaining -= res
-                except CSocketError, e:
+                except CSocketError as e:
                     if e.errno != _c.EINTR:
                         raise
                 if signal_checker is not None:

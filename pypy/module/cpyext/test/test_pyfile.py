@@ -60,9 +60,17 @@ class TestFile(BaseApiTest):
                 w_file = api.PyFile_FromString(filename, mode)
         assert space.str_w(api.PyFile_Name(w_file)) == name
 
-    @pytest.mark.xfail
     def test_file_fromfile(self, space, api):
-        api.PyFile_Fromfile()
+        name = str(udir / "_test_file")
+        with rffi.scoped_str2charp(name) as filename:
+            with rffi.scoped_str2charp("wb") as mode:
+                w_file = api.PyFile_FromString(filename, mode)
+                fp = api.PyFile_AsFile(w_file)
+                assert fp is not None
+                w_file2 = api.PyFile_FromFile(fp, filename, mode, None)
+        assert w_file2 is not None
+        assert api.PyFile_Check(w_file2)
+        assert space.str_w(api.PyFile_Name(w_file2)) == name
 
     @pytest.mark.xfail
     def test_file_setbufsize(self, space, api):

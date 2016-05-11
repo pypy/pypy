@@ -520,7 +520,7 @@ class AppTestGeneratorCloning:
                 def f(): yield 42
                 f().__reduce__()
             """)
-        except TypeError, e:
+        except TypeError as e:
             if 'pickle generator' not in str(e):
                 raise
             py.test.skip("Frames can't be __reduce__()-ed")

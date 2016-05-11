@@ -1,9 +1,12 @@
-import py
+import sys
+
+import py, pytest
 
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 
 
 class AppTestThread(AppTestCpythonExtensionBase):
+    @pytest.mark.skipif('__pypy__' not in sys.builtin_module_names, reason='pypy only test')
     def test_get_thread_ident(self):
         module = self.import_extension('foo', [
             ("get_thread_ident", "METH_NOARGS",
@@ -30,6 +33,7 @@ class AppTestThread(AppTestCpythonExtensionBase):
 
         assert results[0][0] != results[1][0]
 
+    @pytest.mark.skipif('__pypy__' not in sys.builtin_module_names, reason='pypy only test')
     def test_acquire_lock(self):
         module = self.import_extension('foo', [
             ("test_acquire_lock", "METH_NOARGS",
@@ -53,13 +57,14 @@ class AppTestThread(AppTestCpythonExtensionBase):
             ])
         module.test_acquire_lock()
 
+    @pytest.mark.skipif('__pypy__' not in sys.builtin_module_names, reason='pypy only test')
     def test_release_lock(self):
         module = self.import_extension('foo', [
             ("test_release_lock", "METH_NOARGS",
              """
 #ifndef PyThread_release_lock
 #error "seems we are not accessing PyPy's functions"
-#endif           
+#endif
                  PyThread_type_lock lock = PyThread_allocate_lock();
                  PyThread_acquire_lock(lock, 1);
                  PyThread_release_lock(lock);
@@ -74,6 +79,7 @@ class AppTestThread(AppTestCpythonExtensionBase):
             ])
         module.test_release_lock()
 
+    @pytest.mark.skipif('__pypy__' not in sys.builtin_module_names, reason='pypy only test')
     def test_tls(self):
         module = self.import_extension('foo', [
             ("create_key", "METH_NOARGS",
@@ -110,7 +116,7 @@ class AppTestThread(AppTestCpythonExtensionBase):
             try:
                 module.test_key(key)
                 raises(ValueError, module.test_key, key)
-            except Exception, e:
+            except Exception as e:
                 result.append(e)
             else:
                 result.append(True)

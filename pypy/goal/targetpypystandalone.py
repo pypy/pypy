@@ -63,7 +63,7 @@ def create_entry_point(space, w_dict):
             ##    from pypy.interpreter import main, interactive, error
             ##    con = interactive.PyPyConsole(space)
             ##    con.interact()
-            except OperationError, e:
+            except OperationError as e:
                 debug("OperationError:")
                 debug(" operror-type: " + e.w_type.getname(space))
                 debug(" operror-value: " + space.str_w(space.str(e.get_w_value(space))))
@@ -71,7 +71,7 @@ def create_entry_point(space, w_dict):
         finally:
             try:
                 space.finish()
-            except OperationError, e:
+            except OperationError as e:
                 debug("OperationError:")
                 debug(" operror-type: " + e.w_type.getname(space))
                 debug(" operror-value: " + space.str_w(space.str(e.get_w_value(space))))
@@ -115,7 +115,7 @@ def create_entry_point(space, w_dict):
                                     space.wrap('__import__'))
             space.call_function(import_, space.wrap('site'))
             return rffi.cast(rffi.INT, 0)
-        except OperationError, e:
+        except OperationError as e:
             if verbose:
                 debug("OperationError:")
                 debug(" operror-type: " + e.w_type.getname(space))
@@ -167,7 +167,7 @@ def create_entry_point(space, w_dict):
                 sys._pypy_execute_source.append(glob)
                 exec stmt in glob
             """)
-        except OperationError, e:
+        except OperationError as e:
             debug("OperationError:")
             debug(" operror-type: " + e.w_type.getname(space))
             debug(" operror-value: " + space.str_w(space.str(e.get_w_value(space))))
@@ -240,8 +240,9 @@ class PyPyTarget(object):
                                 "when --shared is on (it is by default). "
                                 "See issue #1971.")
         if sys.platform == 'win32':
-            config.translation.libname = '..\\..\\libs\\python27.lib'
-            thisdir.join('..', '..', 'libs').ensure(dir=1)
+            libdir = thisdir.join('..', '..', 'libs')
+            libdir.ensure(dir=1)
+            config.translation.libname = str(libdir.join('python27.lib'))
 
         if config.translation.thread:
             config.objspace.usemodules.thread = True
@@ -339,10 +340,6 @@ class PyPyTarget(object):
         return PyPyJitPolicy(pypy_hooks)
 
     def get_entry_point(self, config):
-        from pypy.tool.lib_pypy import import_from_lib_pypy
-        rebuild = import_from_lib_pypy('ctypes_config_cache/rebuild')
-        rebuild.try_rebuild()
-
         space = make_objspace(config)
 
         # manually imports app_main.py

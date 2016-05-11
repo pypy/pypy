@@ -90,6 +90,7 @@ class Module(MixedModule):
         'save_module_content_for_future_reload':
                           'interp_magic.save_module_content_for_future_reload',
         'decode_long'               : 'interp_magic.decode_long',
+        '_promote'                   : 'interp_magic._promote',
     }
     if sys.platform == 'win32':
         interpleveldefs['get_console_cp'] = 'interp_magic.get_console_cp'
@@ -109,9 +110,8 @@ class Module(MixedModule):
                                  'interp_magic.method_cache_counter')
             self.extra_interpdef('reset_method_cache_counter',
                                  'interp_magic.reset_method_cache_counter')
-            if self.space.config.objspace.std.withmapdict:
-                self.extra_interpdef('mapdict_cache_counter',
-                                     'interp_magic.mapdict_cache_counter')
+            self.extra_interpdef('mapdict_cache_counter',
+                                 'interp_magic.mapdict_cache_counter')
         PYC_MAGIC = get_pyc_magic(self.space)
         self.extra_interpdef('PYC_MAGIC', 'space.wrap(%d)' % PYC_MAGIC)
         try:

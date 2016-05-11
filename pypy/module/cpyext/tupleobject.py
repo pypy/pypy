@@ -1,5 +1,6 @@
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import oefmt
 from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib.debug import fatalerror_notb
 from pypy.module.cpyext.api import (cpython_api, Py_ssize_t, CANNOT_FAIL,
                                     build_type_checkers, PyObjectFields,
                                     cpython_struct, bootstrap_function)
@@ -91,14 +92,22 @@ def tuple_attach(space, py_obj, w_obj):
 def tuple_realize(space, py_obj):
     """
     Creates the tuple in the interpreter. The PyTupleObject must not
-    be modified after this call.
+    be modified after this call.  We check that it does not contain
+    any NULLs at this point (which would correspond to half-broken
+    W_TupleObjects).
     """
     py_tup = rffi.cast(PyTupleObject, py_obj)
     l = py_tup.c_ob_size
     p = py_tup.c_ob_item
     items_w = [None] * l
     for i in range(l):
-        items_w[i] = from_ref(space, p[i])
+        w_item = from_ref(space, p[i])
+        if w_item is None:
+            fatalerror_notb(
+                "Fatal error in cpyext, CPython compatibility layer: "
+                "converting a PyTupleObject into a W_TupleObject, "
+                "but found NULLs as items")
+        items_w[i] = w_item
     w_obj = space.newtuple(items_w)
     track_reference(space, py_obj, w_obj)
     return w_obj
@@ -118,7 +127,7 @@ def tuple_dealloc(space, py_obj):
 
 #_______________________________________________________________________
 
-@cpython_api([Py_ssize_t], PyObject)
+@cpython_api([Py_ssize_t], PyObject, result_is_ll=True)
 def PyTuple_New(space, size):
     return rffi.cast(PyObject, new_empty_tuple(space, size))
 
@@ -133,23 +142,22 @@ def PyTuple_SetItem(space, ref, index, py_obj):
     ref = rffi.cast(PyTupleObject, ref)
     size = ref.c_ob_size
     if index < 0 or index >= size:
-        raise OperationError(space.w_IndexError,
-                             space.wrap("tuple assignment index out of range"))
+        raise oefmt(space.w_IndexError, "tuple assignment index out of range")
     old_ref = ref.c_ob_item[index]
     ref.c_ob_item[index] = py_obj    # consumes a reference
     if old_ref:
         decref(space, old_ref)
     return 0
 
-@cpython_api([PyObject, Py_ssize_t], PyObject, result_borrowed=True)
+@cpython_api([PyObject, Py_ssize_t], PyObject,
+             result_borrowed=True, result_is_ll=True)
 def PyTuple_GetItem(space, ref, index):
     if not tuple_check_ref(space, ref):
         PyErr_BadInternalCall(space)
     ref = rffi.cast(PyTupleObject, ref)
     size = ref.c_ob_size
     if index < 0 or index >= size:
-        raise OperationError(space.w_IndexError,
-                             space.wrap("tuple index out of range"))
+        raise oefmt(space.w_IndexError, "tuple index out of range")
     return ref.c_ob_item[index]     # borrowed ref
 
 @cpython_api([PyObject], Py_ssize_t, error=-1)

@@ -286,7 +286,8 @@ class Regalloc(BaseRegalloc):
             self.assembler.mc.mark_op(op)
             self.rm.position = i
             self.fprm.position = i
-            if op.has_no_side_effect() and op not in self.longevity:
+            opnum = op.opnum
+            if rop.has_no_side_effect(opnum) and op not in self.longevity:
                 i += 1
                 self.possibly_free_vars_for_op(op)
                 continue
@@ -298,8 +299,7 @@ class Regalloc(BaseRegalloc):
                 else:
                     self.fprm.temp_boxes.append(box)
             #
-            opnum = op.getopnum()
-            if not we_are_translated() and opnum == -127:
+            if not we_are_translated() and opnum == rop.FORCE_SPILL:
                 self._consider_force_spill(op)
             else:
                 arglocs = oplist[opnum](self, op)
@@ -523,17 +523,16 @@ class Regalloc(BaseRegalloc):
         return [loc1, res]
 
     def prepare_finish(self, op):
-        descr = op.getdescr()
-        fail_descr = cast_instance_to_gcref(descr)
-        # we know it does not move, but well
-        rgc._make_sure_does_not_move(fail_descr)
-        fail_descr = rffi.cast(lltype.Signed, fail_descr)
         if op.numargs() > 0:
             loc = self.ensure_reg(op.getarg(0))
-            locs = [loc, imm(fail_descr)]
+            locs = [loc]
         else:
-            locs = [imm(fail_descr)]
+            locs = []
         return locs
+
+    def prepare_load_from_gc_table(self, op):
+        res = self.rm.force_allocate_reg(op)
+        return [res]
 
     def prepare_call_malloc_gc(self, op):
         return self._prepare_call(op)

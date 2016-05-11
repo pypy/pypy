@@ -84,7 +84,7 @@ class TestGenerator(BaseRtypingTest):
         def g(c):
             try:
                 h(c)
-            except Exception, e:
+            except Exception as e:
                 if isinstance(e, ValueError):
                     raise
                 raise StopIteration

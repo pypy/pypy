@@ -3,7 +3,7 @@ from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib import rfloat, runicode
 from rpython.rtyper.lltypesystem import lltype, rffi
-from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import oefmt
 from pypy.interpreter import unicodehelper
 
 OVF_DIGITS = len(str(sys.maxint))
@@ -384,8 +384,8 @@ class JSONDecoder(object):
 
 def loads(space, w_s):
     if space.isinstance_w(w_s, space.w_unicode):
-        raise OperationError(space.w_TypeError,
-                             space.wrap("Expected utf8-encoded str, got unicode"))
+        raise oefmt(space.w_TypeError,
+                    "Expected utf8-encoded str, got unicode")
     s = space.str_w(w_s)
     decoder = JSONDecoder(space, s)
     try:
