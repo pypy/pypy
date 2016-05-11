@@ -11,11 +11,28 @@ def make_graph(f, argtypes):
         graph.show()
     return graph
 
+def nameof(v):
+    return v._name.rstrip('_')
+
 def summary(interesting_vars):
     result = {}
     for v in interesting_vars:
-        name = v._name.rstrip('_')
+        name = nameof(v)
         result[name] = result.get(name, 0) + 1
+    return result
+
+def summary_regalloc(regalloc):
+    result = []
+    for block in regalloc.graph.iterblocks():
+        print block.inputargs
+        for op in block.operations:
+            print '\t', op
+        blockvars = block.inputargs + [op.result for op in block.operations]
+        for v in blockvars:
+            if regalloc.consider_var(v):
+                result.append((nameof(v), regalloc.getcolor(v)))
+                print '\t\t%s: %s' % (v, regalloc.getcolor(v))
+    result.sort()
     return result
 
 
@@ -156,3 +173,72 @@ def test_interesting_vars_3():
         llop.gc_pop_roots(lltype.Void, a)
     graph = make_graph(f, [llmemory.GCREF, int])
     assert summary(find_interesting_variables(graph)) == {'a': 4}
+
+def test_allocate_registers_1():
+    def f(a, b):
+        llop.gc_push_roots(lltype.Void, a)
+        llop.gc_pop_roots(lltype.Void, a)
+        while b > 0:   # 'a' remains interesting across the blocks of this loop
+            b -= 5
+        llop.gc_push_roots(lltype.Void, a)
+        llop.gc_pop_roots(lltype.Void, a)
+    graph = make_graph(f, [llmemory.GCREF, int])
+    regalloc = allocate_registers(graph)
+    assert summary_regalloc(regalloc) == [('a', 0)] * 4
+
+def test_allocate_registers_2():
+    def f(a, b, c):
+        llop.gc_push_roots(lltype.Void, a)
+        llop.gc_pop_roots(lltype.Void, a)
+        while b > 0:
+            b -= 5
+        llop.gc_push_roots(lltype.Void, c)
+        llop.gc_pop_roots(lltype.Void, c)
+    graph = make_graph(f, [llmemory.GCREF, int, llmemory.GCREF])
+    regalloc = allocate_registers(graph)
+    assert summary_regalloc(regalloc) == [('a', 0), ('c', 0)]
+
+def test_allocate_registers_3():
+    def f(a, b, c):
+        llop.gc_push_roots(lltype.Void, c, a)
+        llop.gc_pop_roots(lltype.Void, c, a)
+        while b > 0:
+            b -= 5
+        llop.gc_push_roots(lltype.Void, a)
+        llop.gc_pop_roots(lltype.Void, a)
+    graph = make_graph(f, [llmemory.GCREF, int, llmemory.GCREF])
+    regalloc = allocate_registers(graph)
+    assert summary_regalloc(regalloc) == [('a', 1)] * 4 + [('c', 0)]
+
+def test_allocate_registers_4():
+    def g(a, x):
+        return x   # (or something different)
+    def f(a, b, c):
+        llop.gc_push_roots(lltype.Void, a, c) # 'a', 'c'
+        llop.gc_pop_roots(lltype.Void, a, c)
+        while b > 0:                          # 'a' only; 'c' not in push_roots
+            b -= 5
+            llop.gc_push_roots(lltype.Void, a)# 'a'
+            d = g(a, c)
+            llop.gc_pop_roots(lltype.Void, a)
+            c = d
+        return c
+    graph = make_graph(f, [llmemory.GCREF, int, llmemory.GCREF])
+    regalloc = allocate_registers(graph)
+    assert summary_regalloc(regalloc) == [('a', 1)] * 3 + [('c', 0)]
+
+def test_allocate_registers_5():
+    def g(a, x):
+        return x   # (or something different)
+    def f(a, b, c):
+        while b > 0:                          # 'a', 'c'
+            b -= 5
+            llop.gc_push_roots(lltype.Void, a, c)  # 'a', 'c'
+            g(a, c)
+            llop.gc_pop_roots(lltype.Void, a, c)
+        while b < 10:
+            b += 2
+        return c
+    graph = make_graph(f, [llmemory.GCREF, int, llmemory.GCREF])
+    regalloc = allocate_registers(graph)
+    assert summary_regalloc(regalloc) == [('a', 1)] * 2 + [('c', 0)] * 2

@@ -94,8 +94,8 @@ class RegAllocator(object):
                     self._try_coalesce(v, link.target.inputargs[i])
 
     def _try_coalesce(self, v, w):
-        if isinstance(v, Variable) and self.consider_var(v):
-            assert self.consider_var(w)
+        if isinstance(v, Variable) and self.consider_var(v)  \
+                                   and self.consider_var(w):
             dg = self._depgraph
             uf = self._unionfind
             v0 = uf.find_rep(v)

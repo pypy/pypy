@@ -1,4 +1,5 @@
 from rpython.flowspace.model import mkentrymap, Variable
+from rpython.tool.algo.regalloc import perform_register_allocation
 
 
 def is_trivial_rewrite(op):
@@ -91,6 +92,12 @@ def find_interesting_variables(graph):
     interesting_vars |= (pred & succ)
 
     return interesting_vars
+
+
+def allocate_registers(graph):
+    interesting_vars = find_interesting_variables(graph)
+    regalloc = perform_register_allocation(graph, interesting_vars.__contains__)
+    return regalloc
 
 
 def postprocess_graph(gct, graph):
