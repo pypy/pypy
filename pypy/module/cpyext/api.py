@@ -727,19 +727,17 @@ class WrapperGen(object):
     def __init__(self, space, signature):
         self.space = space
         self.signature = signature
-        self.callable2name = []
 
     def make_wrapper(self, callable):
-        self.callable2name.append((callable, callable.__name__))
         if self.wrapper_second_level is None:
             self.wrapper_second_level = make_wrapper_second_level(
-                self.space, self.callable2name, *self.signature)
+                self.space, *self.signature)
         wrapper_second_level = self.wrapper_second_level
 
+        name = callable.__name__
         def wrapper(*args):
             # no GC here, not even any GC object
-            args += (callable,)
-            return wrapper_second_level(*args)
+            return wrapper_second_level(callable, name, *args)
 
         wrapper.__name__ = "wrapper for %r" % (callable, )
         return wrapper
@@ -778,7 +776,7 @@ def unexpected_exception(funcname, e, tb):
         pypy_debug_catch_fatal_exception()
         assert False
 
-def make_wrapper_second_level(space, callable2name, argtypesw, restype,
+def make_wrapper_second_level(space, argtypesw, restype,
                               result_kind, error_value, gil):
     from rpython.rlib import rgil
     argtypes_enum_ui = unrolling_iterable(enumerate(argtypesw))
@@ -801,29 +799,20 @@ def make_wrapper_second_level(space, callable2name, argtypesw, restype,
     def invalid(err):
         "NOT_RPYTHON: translation-time crash if this ends up being called"
         raise ValueError(err)
-    invalid.__name__ = 'invalid_%s' % (callable2name[0][1],)
+    invalid.__name__ = 'invalid_%s' % name
 
-    def nameof(callable):
-        for c, n in callable2name:
-            if c is callable:
-                return n
-        return '<unknown function>'
-    nameof._dont_inline_ = True
-
-    def wrapper_second_level(*args):
+    def wrapper_second_level(callable, name, *args):
         from pypy.module.cpyext.pyobject import make_ref, from_ref, is_pyobj
         from pypy.module.cpyext.pyobject import as_pyobj
         # we hope that malloc removal removes the newtuple() that is
         # inserted exactly here by the varargs specializer
-        callable = args[-1]
-        args = args[:-1]
 
         # see "Handling of the GIL" above (careful, we don't have the GIL here)
         tid = rthread.get_or_make_ident()
         _gil_auto = (gil_auto_workaround and cpyext_glob_tid_ptr[0] != tid)
         if gil_acquire or _gil_auto:
             if cpyext_glob_tid_ptr[0] == tid:
-                deadlock_error(nameof(callable))
+                deadlock_error(name)
             rgil.acquire()
             assert cpyext_glob_tid_ptr[0] == 0
         elif pygilstate_ensure:
@@ -836,7 +825,7 @@ def make_wrapper_second_level(space, callable2name, argtypesw, restype,
                 args += (pystate.PyGILState_UNLOCKED,)
         else:
             if cpyext_glob_tid_ptr[0] != tid:
-                no_gil_error(nameof(callable))
+                no_gil_error(name)
             cpyext_glob_tid_ptr[0] = 0
 
         rffi.stackcounter.stacks_counter += 1
@@ -882,7 +871,7 @@ def make_wrapper_second_level(space, callable2name, argtypesw, restype,
 
             if failed:
                 if error_value is CANNOT_FAIL:
-                    raise not_supposed_to_fail(nameof(callable))
+                    raise not_supposed_to_fail(name)
                 retval = error_value
 
             elif is_PyObject(restype):
@@ -902,7 +891,7 @@ def make_wrapper_second_level(space, callable2name, argtypesw, restype,
                 retval = rffi.cast(restype, result)
 
         except Exception as e:
-            unexpected_exception(nameof(callable), e, tb)
+            unexpected_exception(name, e, tb)
             return fatal_value
 
         assert lltype.typeOf(retval) == restype
