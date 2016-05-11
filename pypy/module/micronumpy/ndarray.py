@@ -443,7 +443,7 @@ class __extend__(W_NDimArray):
                         'array does not have imaginary part to set')
         self.implementation.set_imag(space, self, w_value)
 
-    def reshape(self, space, w_shape, order):
+    def reshape(self, space, w_shape, order=NPY.ANYORDER):
         new_shape = get_shape_from_iterable(space, self.get_size(), w_shape)
         new_impl = self.implementation.reshape(self, new_shape, order)
         if new_impl is not None:

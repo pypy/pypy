@@ -203,46 +203,46 @@ CANNOT_FAIL = CannotFail()
 # id.  Invariant: this variable always contain 0 when the PyPy GIL is
 # released.  It should also contain 0 when regular RPython code
 # executes.  In non-cpyext-related code, it will thus always be 0.
-# 
+#
 # **make_generic_cpy_call():** RPython to C, with the GIL held.  Before
 # the call, must assert that the global variable is 0 and set the
 # current thread identifier into the global variable.  After the call,
 # assert that the global variable still contains the current thread id,
 # and reset it to 0.
-# 
+#
 # **make_wrapper():** C to RPython; by default assume that the GIL is
 # held, but accepts gil="acquire", "release", "around",
 # "pygilstate_ensure", "pygilstate_release".
-# 
+#
 # When a wrapper() is called:
-# 
+#
 # * "acquire": assert that the GIL is not currently held, i.e. the
 #   global variable does not contain the current thread id (otherwise,
 #   deadlock!).  Acquire the PyPy GIL.  After we acquired it, assert
 #   that the global variable is 0 (it must be 0 according to the
 #   invariant that it was 0 immediately before we acquired the GIL,
 #   because the GIL was released at that point).
-# 
+#
 # * gil=None: we hold the GIL already.  Assert that the current thread
 #   identifier is in the global variable, and replace it with 0.
-# 
+#
 # * "pygilstate_ensure": if the global variable contains the current
 #   thread id, replace it with 0 and set the extra arg to 0.  Otherwise,
 #   do the "acquire" and set the extra arg to 1.  Then we'll call
 #   pystate.py:PyGILState_Ensure() with this extra arg, which will do
 #   the rest of the logic.
-# 
+#
 # When a wrapper() returns, first assert that the global variable is
 # still 0, and then:
-# 
+#
 # * "release": release the PyPy GIL.  The global variable was 0 up to
 #   and including at the point where we released the GIL, but afterwards
 #   it is possible that the GIL is acquired by a different thread very
 #   quickly.
-# 
+#
 # * gil=None: we keep holding the GIL.  Set the current thread
 #   identifier into the global variable.
-# 
+#
 # * "pygilstate_release": if the argument is PyGILState_UNLOCKED,
 #   release the PyPy GIL; otherwise, set the current thread identifier
 #   into the global variable.  The rest of the logic of
@@ -254,7 +254,7 @@ cpyext_glob_tid_ptr = lltype.malloc(rffi.CArray(lltype.Signed), 1,
 
 cpyext_namespace = NameManager('cpyext_')
 
-class ApiFunction:
+class ApiFunction(object):
     def __init__(self, argtypes, restype, callable, error=_NOT_SPECIFIED,
                  c_name=None, gil=None, result_borrowed=False, result_is_ll=False):
         self.argtypes = argtypes
@@ -292,11 +292,48 @@ class ApiFunction:
     def get_wrapper(self, space):
         wrapper = getattr(self, '_wrapper', None)
         if wrapper is None:
-            wrapper = make_wrapper(space, self.callable, self.gil)
-            self._wrapper = wrapper
-            wrapper.relax_sig_check = True
-            if self.c_name is not None:
-                wrapper.c_name = cpyext_namespace.uniquename(self.c_name)
+            wrapper = self._wrapper = self._make_wrapper(space)
+        return wrapper
+
+    # Make the wrapper for the cases (1) and (2)
+    def _make_wrapper(self, space):
+        "NOT_RPYTHON"
+        # This logic is obscure, because we try to avoid creating one
+        # big wrapper() function for every callable.  Instead we create
+        # only one per "signature".
+
+        argtypesw = zip(self.argtypes,
+                        [_name.startswith("w_") for _name in self.argnames])
+        error_value = getattr(self, "error_value", CANNOT_FAIL)
+        if (isinstance(self.restype, lltype.Ptr)
+                and error_value is not CANNOT_FAIL):
+            assert lltype.typeOf(error_value) == self.restype
+            assert not error_value    # only support error=NULL
+            error_value = 0    # because NULL is not hashable
+
+        if self.result_is_ll:
+            result_kind = "L"
+        elif self.result_borrowed:
+            result_kind = "B"     # note: 'result_borrowed' is ignored if we also
+        else:                     #  say 'result_is_ll=True' (in this case it's
+            result_kind = "."     #  up to you to handle refcounting anyway)
+
+        signature = (tuple(argtypesw),
+                    self.restype,
+                    result_kind,
+                    error_value,
+                    self.gil)
+
+        cache = space.fromcache(WrapperCache)
+        try:
+            wrapper_gen = cache.wrapper_gens[signature]
+        except KeyError:
+            wrapper_gen = WrapperGen(space, signature)
+            cache.wrapper_gens[signature] = wrapper_gen
+        wrapper = wrapper_gen.make_wrapper(self.callable)
+        wrapper.relax_sig_check = True
+        if self.c_name is not None:
+            wrapper.c_name = cpyext_namespace.uniquename(self.c_name)
         return wrapper
 
 DEFAULT_HEADER = 'pypy_decl.h'
@@ -692,7 +729,6 @@ class WrapperCache(object):
     def __init__(self, space):
         self.space = space
         self.wrapper_gens = {}    # {signature: WrapperGen()}
-        self.stats = [0, 0]
 
 class WrapperGen(object):
     wrapper_second_level = None
@@ -717,48 +753,6 @@ class WrapperGen(object):
         wrapper.__name__ = "wrapper for %r" % (callable, )
         return wrapper
 
-
-# Make the wrapper for the cases (1) and (2)
-def make_wrapper(space, callable, gil=None):
-    "NOT_RPYTHON"
-    # This logic is obscure, because we try to avoid creating one
-    # big wrapper() function for every callable.  Instead we create
-    # only one per "signature".
-
-    argnames = callable.api_func.argnames
-    argtypesw = zip(callable.api_func.argtypes,
-                    [_name.startswith("w_") for _name in argnames])
-    error_value = getattr(callable.api_func, "error_value", CANNOT_FAIL)
-    if (isinstance(callable.api_func.restype, lltype.Ptr)
-            and error_value is not CANNOT_FAIL):
-        assert lltype.typeOf(error_value) == callable.api_func.restype
-        assert not error_value    # only support error=NULL
-        error_value = 0    # because NULL is not hashable
-
-    if callable.api_func.result_is_ll:
-        result_kind = "L"
-    elif callable.api_func.result_borrowed:
-        result_kind = "B"     # note: 'result_borrowed' is ignored if we also
-    else:                     #  say 'result_is_ll=True' (in this case it's
-        result_kind = "."     #  up to you to handle refcounting anyway)
-
-    signature = (tuple(argtypesw),
-                 callable.api_func.restype,
-                 result_kind,
-                 error_value,
-                 gil)
-
-    cache = space.fromcache(WrapperCache)
-    cache.stats[1] += 1
-    try:
-        wrapper_gen = cache.wrapper_gens[signature]
-    except KeyError:
-        #print signature
-        wrapper_gen = cache.wrapper_gens[signature] = WrapperGen(space,
-                                                                 signature)
-        cache.stats[0] += 1
-    #print 'Wrapper cache [wrappers/total]:', cache.stats
-    return wrapper_gen.make_wrapper(callable)
 
 
 @dont_inline
@@ -1032,7 +1026,7 @@ def build_bridge(space):
     structindex = {}
     for header, header_functions in FUNCTIONS_BY_HEADER.iteritems():
         for name, func in header_functions.iteritems():
-            if not func: 
+            if not func:
                 # added only for the macro, not the decl
                 continue
             restype, args = c_function_signature(db, func)
@@ -1046,7 +1040,7 @@ def build_bridge(space):
     RPY_EXTERN struct PyPyAPI* pypyAPI = &_pypyAPI;
     """ % dict(members=structmembers)
 
-    functions = generate_decls_and_callbacks(db, export_symbols, 
+    functions = generate_decls_and_callbacks(db, export_symbols,
                                             prefix='cpyexttest')
 
     global_objects = []
@@ -1428,7 +1422,7 @@ def setup_library(space):
 
     generate_macros(export_symbols, prefix=prefix)
 
-    functions = generate_decls_and_callbacks(db, [], api_struct=False, 
+    functions = generate_decls_and_callbacks(db, [], api_struct=False,
                                             prefix=prefix)
     code = "#include <Python.h>\n"
     if use_micronumpy:
@@ -1484,7 +1478,7 @@ def setup_library(space):
             if not func:
                 continue
             newname = mangle_name('PyPy', name) or name
-            deco = entrypoint_lowlevel("cpyext", func.argtypes, newname, 
+            deco = entrypoint_lowlevel("cpyext", func.argtypes, newname,
                                         relax=True)
             deco(func.get_wrapper(space))
 

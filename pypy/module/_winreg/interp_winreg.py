@@ -14,10 +14,11 @@ def raiseWindowsError(space, errcode, context):
                                          space.wrap(message)]))
 
 class W_HKEY(W_Root):
-    def __init__(self, hkey):
+    def __init__(self, space, hkey):
         self.hkey = hkey
+        self.register_finalizer(space)
 
-    def descr_del(self, space):
+    def _finalize_(self, space):
         self.Close(space)
 
     def as_int(self):
@@ -64,7 +65,7 @@ On 64 bit windows, the result of this function is a long integer"""
 @unwrap_spec(key=int)
 def new_HKEY(space, w_subtype, key):
     hkey = rffi.cast(rwinreg.HKEY, key)
-    return space.wrap(W_HKEY(hkey))
+    return space.wrap(W_HKEY(space, hkey))
 descr_HKEY_new = interp2app(new_HKEY)
 
 W_HKEY.typedef = TypeDef(
@@ -91,7 +92,6 @@ __nonzero__ - Handles with an open object return true, otherwise false.
 __int__ - Converting a handle to an integer returns the Win32 handle.
 __cmp__ - Handle objects are compared using the handle value.""",
     __new__ = descr_HKEY_new,
-    __del__ = interp2app(W_HKEY.descr_del),
     __repr__ = interp2app(W_HKEY.descr_repr),
     __int__ = interp2app(W_HKEY.descr_int),
     __nonzero__ = interp2app(W_HKEY.descr_nonzero),
@@ -480,7 +480,7 @@ If the function fails, an exception is raised."""
         ret = rwinreg.RegCreateKey(hkey, subkey, rethkey)
         if ret != 0:
             raiseWindowsError(space, ret, 'CreateKey')
-        return space.wrap(W_HKEY(rethkey[0]))
+        return space.wrap(W_HKEY(space, rethkey[0]))
 
 @unwrap_spec(subkey=str, res=int, sam=rffi.r_uint)
 def CreateKeyEx(space, w_hkey, subkey, res=0, sam=rwinreg.KEY_WRITE):
@@ -502,7 +502,7 @@ If the function fails, an exception is raised."""
                                      lltype.nullptr(rwin32.LPDWORD.TO))
         if ret != 0:
             raiseWindowsError(space, ret, 'CreateKeyEx')
-        return space.wrap(W_HKEY(rethkey[0]))
+        return space.wrap(W_HKEY(space, rethkey[0]))
 
 @unwrap_spec(subkey=str)
 def DeleteKey(space, w_hkey, subkey):
@@ -549,7 +549,7 @@ If the function fails, an EnvironmentError exception is raised."""
         ret = rwinreg.RegOpenKeyEx(hkey, subkey, res, sam, rethkey)
         if ret != 0:
             raiseWindowsError(space, ret, 'RegOpenKeyEx')
-        return space.wrap(W_HKEY(rethkey[0]))
+        return space.wrap(W_HKEY(space, rethkey[0]))
 
 @unwrap_spec(index=int)
 def EnumValue(space, w_hkey, index):
@@ -688,7 +688,7 @@ If the function fails, an EnvironmentError exception is raised."""
         ret = rwinreg.RegConnectRegistry(machine, hkey, rethkey)
         if ret != 0:
             raiseWindowsError(space, ret, 'RegConnectRegistry')
-        return space.wrap(W_HKEY(rethkey[0]))
+        return space.wrap(W_HKEY(space, rethkey[0]))
 
 @unwrap_spec(source=unicode)
 def ExpandEnvironmentStrings(space, source):

@@ -466,6 +466,13 @@ class AbstractActionFlag(object):
             list = self.fired_actions
             if list is not None:
                 self.fired_actions = None
+                # NB. in case there are several actions, we reset each
+                # 'action._fired' to false only when we're about to call
+                # 'action.perform()'.  This means that if
+                # 'action.fire()' happens to be called any time before
+                # the corresponding perform(), the fire() has no
+                # effect---which is the effect we want, because
+                # perform() will be called anyway.
                 for action in list:
                     action._fired = False
                     action.perform(ec, frame)
