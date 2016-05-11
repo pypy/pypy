@@ -366,9 +366,18 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
                 assert len(args) == len(api_function.argtypes)
                 for i, (ARG, is_wrapped) in types_names_enum_ui:
                     input_arg = args[i]
-                    if (is_PyObject(ARG) or ARG == rffi.VOIDP) and not is_wrapped:
+                    if is_PyObject(ARG) and not is_wrapped:
                         # build a 'PyObject *' (not holding a reference)
                         if not is_pyobj(input_arg):
+                            keepalives += (input_arg,)
+                            arg = rffi.cast(ARG, as_pyobj(space, input_arg))
+                        else:
+                            arg = rffi.cast(ARG, input_arg)
+                    elif ARG == rffi.VOIDP and not is_wrapped:
+                        # unlike is_PyObject case above, we allow any kind of
+                        # argument -- just, if it's an object, we assume the
+                        # caller meant for it to become a PyObject*.
+                        if input_arg is None or isinstance(input_arg, W_Root):
                             keepalives += (input_arg,)
                             arg = rffi.cast(ARG, as_pyobj(space, input_arg))
                         else:
