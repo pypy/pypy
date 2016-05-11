@@ -1,10 +1,14 @@
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
-
+import pytest
 
 class AppTestBufferProtocol(AppTestCpythonExtensionBase):
     """Tests for the old buffer protocol."""
+    spaceconfig = AppTestCpythonExtensionBase.spaceconfig.copy()
+    # Also allow mmap to be importable.
+    spaceconfig['usemodules'] = list(spaceconfig['usemodules']) + ['mmap']
+
     def w_get_buffer_support(self):
-        return self.import_extension('foo', [
+        return self.import_extension('buffer_support', [
             ("charbuffer_as_string", "METH_O",
              """
                  char *ptr;
@@ -55,3 +59,17 @@ class AppTestBufferProtocol(AppTestCpythonExtensionBase):
         assert s == buffer_support.readbuffer_as_string(buf)
         assert raises(TypeError, buffer_support.writebuffer_as_string, buf)
         assert s == buffer_support.charbuffer_as_string(buf)
+
+    @pytest.mark.xfail
+    def test_mmap(self):
+        import mmap
+        buffer_support = self.get_buffer_support()
+
+        s = 'a\0x'
+        mm = mmap.mmap(-1, 3)
+        mm[:] = s
+
+        assert buffer_support.check_readbuffer(mm)
+        assert s == buffer_support.readbuffer_as_string(mm)
+        assert s == buffer_support.writebuffer_as_string(mm)
+        assert s == buffer_support.charbuffer_as_string(mm)
