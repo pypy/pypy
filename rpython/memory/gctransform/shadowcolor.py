@@ -100,8 +100,35 @@ def allocate_registers(graph):
     return regalloc
 
 
+def move_pushes_earlier(graph):
+    """gc_push_roots and gc_pop_roots are pushes/pops to the shadowstack,
+    immediately enclosing the operation that needs them (typically a call).
+    Here, we try to move individual pushes earlier, in fact as early as
+    possible under the following conditions: we only move it across vars
+    that are 'interesting_vars'; and we stop when we encounter the
+    operation that produces the value, or when we encounter a gc_pop_roots
+    that pops off the same stack location.  In the latter case, if that
+    gc_pop_roots pops the same value out of the same stack location, then
+    success: we can remove the gc_push_root on that path.
+
+    If the process succeeds to remove the gc_push_root along at least
+    one path, we generate it explicitly on the other paths, and we
+    remove the original gc_push_root.  If the process doesn't succeed
+    in doing any such removal, we don't do anything.
+
+    Note that it would be possible to do exactly the same in the
+    opposite direction by exchanging the roles of "push/earlier" and
+    "pop/later".  I think doing both is pointless---one direction is
+    enough.  The direction we chose here keeps gc_pop_roots unmodified.
+    The C compiler should be better at discarding them if unused.
+    """
+    
+    x.x.x.x
+
+
 def postprocess_graph(gct, graph):
     """Collect information about the gc_push_roots and gc_pop_roots
     added in this complete graph, and replace them with real operations.
     """
+    regalloc = allocate_registers(graph)
     xxxx

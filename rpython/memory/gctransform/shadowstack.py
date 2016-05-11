@@ -33,7 +33,7 @@ class ShadowStackFrameworkGCTransformer(BaseFrameworkGCTransformer):
         return livevars
 
     def pop_roots(self, hop, livevars):
-        hop.genop("gc_pop_roots", livevars)   # even if len(livevars) == 0
+        hop.genop("gc_pop_roots", list(livevars)) # even if len(livevars) == 0
 
 
 class ShadowStackRootWalker(BaseRootWalker):
