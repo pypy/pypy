@@ -19,8 +19,6 @@ typedef struct {
     double ob_fval;
 } PyFloatObject;
 
-#define PyFloat_AS_DOUBLE(o) _PyFloat_AS_DOUBLE((PyObject*)(o))
-
 #define PyFloat_STR_PRECISION 12
 
 #ifdef Py_NAN

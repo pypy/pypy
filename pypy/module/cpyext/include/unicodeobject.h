@@ -5,10 +5,6 @@
 extern "C" {
 #endif
 
-#define PyUnicode_GET_SIZE(o) _PyUnicode_GET_SIZE((PyObject*)(o))
-#define PyUnicode_GET_DATA_SIZE(o) _PyUnicode_GET_DATA_SIZE((PyObject*)(o))
-#define PyUnicode_AS_UNICODE(o) _PyUnicode_AS_UNICODE((PyObject*)(o))
-
 
 typedef unsigned int Py_UCS4;
 #ifdef HAVE_USABLE_WCHAR_T

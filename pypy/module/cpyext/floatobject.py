@@ -49,7 +49,7 @@ def PyFloat_AsDouble(space, w_obj):
     return space.float_w(space.float(w_obj))
 
 @cpython_api([PyObject], lltype.Float, error=CANNOT_FAIL)
-def _PyFloat_AS_DOUBLE(space, w_float):
+def PyFloat_AS_DOUBLE(space, w_float):
     """Return a C double representation of the contents of w_float, but
     without error checking."""
     return space.float_w(w_float)

@@ -46,7 +46,7 @@ def PySequence_Fast(space, w_obj, m):
     members of the result.  Returns NULL on failure.  If the object is not a
     sequence, raises TypeError with m as the message text."""
     if isinstance(w_obj, W_ListObject):
-        # make sure we can return a borrowed obj from _PySequence_Fast_GET_ITEM
+        # make sure we can return a borrowed obj from PySequence_Fast_GET_ITEM    
         w_obj.convert_to_cpy_strategy(space)
         return w_obj
     try:
@@ -55,7 +55,7 @@ def PySequence_Fast(space, w_obj, m):
         raise OperationError(space.w_TypeError, space.wrap(rffi.charp2str(m)))
 
 @cpython_api([PyObject, Py_ssize_t], PyObject, result_borrowed=True)
-def _PySequence_Fast_GET_ITEM(space, w_obj, index):
+def PySequence_Fast_GET_ITEM(space, w_obj, index):
     """Return the ith element of o, assuming that o was returned by
     PySequence_Fast(), o is not NULL, and that i is within bounds.
     """
@@ -68,7 +68,7 @@ def _PySequence_Fast_GET_ITEM(space, w_obj, index):
                 "sequence")
 
 @cpython_api([PyObject], Py_ssize_t, error=CANNOT_FAIL)
-def _PySequence_Fast_GET_SIZE(space, w_obj):
+def PySequence_Fast_GET_SIZE(space, w_obj):
     """Returns the length of o, assuming that o was returned by
     PySequence_Fast() and that o is not NULL.  The size can also be
     gotten by calling PySequence_Size() on o, but
@@ -120,7 +120,7 @@ def PySequence_DelSlice(space, w_obj, start, end):
     return 0
 
 @cpython_api([PyObject, Py_ssize_t], PyObject)
-def _PySequence_ITEM(space, w_obj, i):
+def PySequence_ITEM(space, w_obj, i):
     """Return the ith element of o or NULL on failure. Macro form of
     PySequence_GetItem() but without checking that
     PySequence_Check(o)() is true and without adjustment for negative
@@ -134,7 +134,7 @@ def _PySequence_ITEM(space, w_obj, i):
 def PySequence_GetItem(space, w_obj, i):
     """Return the ith element of o, or NULL on failure. This is the equivalent of
     the Python expression o[i]."""
-    return _PySequence_ITEM(space, w_obj, i)
+    return PySequence_ITEM(space, w_obj, i)
 
 @cpython_api([PyObject], PyObject)
 def PySequence_List(space, w_obj):
