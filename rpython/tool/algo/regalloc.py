@@ -117,6 +117,13 @@ class RegAllocator(object):
                 for v in block.getvariables():
                     print '\t', v, '\t', self.getcolor(v)
 
+    def find_num_colors(self):
+        if self._coloring:
+            numcolors = max(self._coloring.values()) + 1
+        else:
+            numcolors = 0
+        self.numcolors = numcolors
+
     def getcolor(self, v):
         return self._coloring[self._unionfind.find_rep(v)]
 

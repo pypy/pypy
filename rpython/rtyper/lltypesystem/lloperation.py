@@ -513,8 +513,12 @@ LL_OPERATIONS = {
     'gc_rawrefcount_from_obj':          LLOp(sideeffects=False),
     'gc_rawrefcount_to_obj':            LLOp(sideeffects=False),
 
-    'gc_push_roots'       : LLOp(),
-    'gc_pop_roots'        : LLOp(),
+    'gc_push_roots'        : LLOp(),  # temporary: list of roots to save
+    'gc_pop_roots'         : LLOp(),  # temporary: list of roots to restore
+    'gc_enter_roots_frame' : LLOp(),  # reserve N entries, save local frame pos
+    'gc_leave_roots_frame' : LLOp(),  # restore shadowstack ptr from saved pos
+    'gc_save_root'         : LLOp(),  # save value Y in shadowstack pos X
+    'gc_restore_root'      : LLOp(),  # restore value Y from shadowstack pos X
 
     # ------- JIT & GC interaction, only for some GCs ----------
 

@@ -3,6 +3,7 @@ from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.test.test_llinterp import gengraph
 from rpython.conftest import option
 from rpython.memory.gctransform.shadowcolor import *
+from hypothesis import given, strategies
 
 
 def make_graph(f, argtypes):
@@ -242,3 +243,25 @@ def test_allocate_registers_5():
     graph = make_graph(f, [llmemory.GCREF, int, llmemory.GCREF])
     regalloc = allocate_registers(graph)
     assert summary_regalloc(regalloc) == [('a', 1)] * 2 + [('c', 0)] * 2
+
+@given(strategies.lists(strategies.booleans()))
+def test_make_bitmask(boollist):
+    index, c = make_bitmask(boollist)
+    if index is None:
+        assert c is None
+    else:
+        assert 0 <= index < len(boollist)
+        assert boollist[index] == False
+        if c == c_NULL:
+            bitmask = 1
+        else:
+            assert c.concretetype == lltype.Signed
+            bitmask = c.value
+        while bitmask:
+            if bitmask & 1:
+                assert index >= 0
+                assert boollist[index] == False
+                boollist[index] = True
+            bitmask >>= 1
+            index -= 1
+    assert boollist == [True] * len(boollist)

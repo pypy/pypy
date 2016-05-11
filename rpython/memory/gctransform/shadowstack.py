@@ -29,11 +29,14 @@ class ShadowStackFrameworkGCTransformer(BaseFrameworkGCTransformer):
     def push_roots(self, hop, keep_current_args=False):
         livevars = self.get_livevars_for_roots(hop, keep_current_args)
         self.num_pushs += len(livevars)
-        hop.genop("gc_push_roots", livevars)   # even if len(livevars) == 0
+        if livevars:
+            hop.genop("gc_push_roots", livevars)
         return livevars
 
     def pop_roots(self, hop, livevars):
-        hop.genop("gc_pop_roots", list(livevars)) # even if len(livevars) == 0
+        hop.genop("gc_pop_roots", livevars)
+        # NB. we emit it even if len(livevars) == 0; this is needed for
+        # shadowcolor.move_pushes_earlier()
 
 
 class ShadowStackRootWalker(BaseRootWalker):
