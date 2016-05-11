@@ -366,14 +366,14 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
                 assert len(args) == len(api_function.argtypes)
                 for i, (ARG, is_wrapped) in types_names_enum_ui:
                     input_arg = args[i]
-                    if is_PyObject(ARG) and not is_wrapped:
+                    if (is_PyObject(ARG) or ARG == rffi.VOIDP) and not is_wrapped:
                         # build a 'PyObject *' (not holding a reference)
                         if not is_pyobj(input_arg):
                             keepalives += (input_arg,)
                             arg = rffi.cast(ARG, as_pyobj(space, input_arg))
                         else:
                             arg = rffi.cast(ARG, input_arg)
-                    elif is_PyObject(ARG) and is_wrapped:
+                    elif (is_PyObject(ARG) or ARG == rffi.VOIDP) and is_wrapped:
                         # build a W_Root, possibly from a 'PyObject *'
                         if is_pyobj(input_arg):
                             arg = from_ref(space, input_arg)
@@ -858,6 +858,10 @@ def make_wrapper_second_level(space, callable2name, argtypesw, restype,
                 arg = args[i]
                 if is_PyObject(typ) and is_wrapped:
                     assert is_pyobj(arg)
+                    arg_conv = from_ref(space, rffi.cast(PyObject, arg))
+                elif typ == rffi.VOIDP and is_wrapped:
+                    # Many macros accept a void* so that one can pass a
+                    # PyObject* or a PySomeSubtype*.
                     arg_conv = from_ref(space, rffi.cast(PyObject, arg))
                 else:
                     arg_conv = arg

@@ -188,33 +188,33 @@ def PyUnicode_GetMax(space):
     """Get the maximum ordinal for a Unicode character."""
     return runicode.UNICHR(runicode.MAXUNICODE)
 
-@cpython_api([PyObject], rffi.CCHARP, error=CANNOT_FAIL)
-def PyUnicode_AS_DATA(space, ref):
+@cpython_api([rffi.VOIDP], rffi.CCHARP, error=CANNOT_FAIL)
+def PyUnicode_AS_DATA(space, w_obj):
     """Return a pointer to the internal buffer of the object. o has to be a
     PyUnicodeObject (not checked)."""
-    return rffi.cast(rffi.CCHARP, PyUnicode_AS_UNICODE(space, ref))
+    return rffi.cast(rffi.CCHARP, PyUnicode_AS_UNICODE(space, w_obj))
 
-@cpython_api([PyObject], Py_ssize_t, error=CANNOT_FAIL)
+@cpython_api([rffi.VOIDP], Py_ssize_t, error=CANNOT_FAIL)
 def PyUnicode_GET_DATA_SIZE(space, w_obj):
     """Return the size of the object's internal buffer in bytes.  o has to be a
     PyUnicodeObject (not checked)."""
     return rffi.sizeof(lltype.UniChar) * PyUnicode_GET_SIZE(space, w_obj)
 
-@cpython_api([PyObject], Py_ssize_t, error=CANNOT_FAIL)
+@cpython_api([rffi.VOIDP], Py_ssize_t, error=CANNOT_FAIL)
 def PyUnicode_GET_SIZE(space, w_obj):
     """Return the size of the object.  o has to be a PyUnicodeObject (not
     checked)."""
     assert isinstance(w_obj, unicodeobject.W_UnicodeObject)
     return space.len_w(w_obj)
 
-@cpython_api([PyObject], rffi.CWCHARP, error=CANNOT_FAIL)
+@cpython_api([rffi.VOIDP], rffi.CWCHARP, error=CANNOT_FAIL)
 def PyUnicode_AS_UNICODE(space, ref):
     """Return a pointer to the internal Py_UNICODE buffer of the object.  ref
     has to be a PyUnicodeObject (not checked)."""
     ref_unicode = rffi.cast(PyUnicodeObject, ref)
     if not ref_unicode.c_str:
         # Copy unicode buffer
-        w_unicode = from_ref(space, ref)
+        w_unicode = from_ref(space, rffi.cast(PyObject, ref))
         u = space.unicode_w(w_unicode)
         ref_unicode.c_str = rffi.unicode2wcharp(u)
     return ref_unicode.c_str

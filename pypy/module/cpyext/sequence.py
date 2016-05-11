@@ -54,7 +54,7 @@ def PySequence_Fast(space, w_obj, m):
     except OperationError:
         raise OperationError(space.w_TypeError, space.wrap(rffi.charp2str(m)))
 
-@cpython_api([PyObject, Py_ssize_t], PyObject, result_borrowed=True)
+@cpython_api([rffi.VOIDP, Py_ssize_t], PyObject, result_borrowed=True)
 def PySequence_Fast_GET_ITEM(space, w_obj, index):
     """Return the ith element of o, assuming that o was returned by
     PySequence_Fast(), o is not NULL, and that i is within bounds.
@@ -67,7 +67,7 @@ def PySequence_Fast_GET_ITEM(space, w_obj, index):
                 "PySequence_Fast_GET_ITEM called but object is not a list or "
                 "sequence")
 
-@cpython_api([PyObject], Py_ssize_t, error=CANNOT_FAIL)
+@cpython_api([rffi.VOIDP], Py_ssize_t, error=CANNOT_FAIL)
 def PySequence_Fast_GET_SIZE(space, w_obj):
     """Returns the length of o, assuming that o was returned by
     PySequence_Fast() and that o is not NULL.  The size can also be
@@ -82,7 +82,7 @@ def PySequence_Fast_GET_SIZE(space, w_obj):
                 "PySequence_Fast_GET_SIZE called but object is not a list or "
                 "sequence")
 
-@cpython_api([PyObject], PyObjectP)
+@cpython_api([rffi.VOIDP], PyObjectP)
 def PySequence_Fast_ITEMS(space, w_obj):
     """Return the underlying array of PyObject pointers.  Assumes that o was returned
     by PySequence_Fast() and o is not NULL.
@@ -119,7 +119,7 @@ def PySequence_DelSlice(space, w_obj, start, end):
     space.delslice(w_obj, space.wrap(start), space.wrap(end))
     return 0
 
-@cpython_api([PyObject, Py_ssize_t], PyObject)
+@cpython_api([rffi.VOIDP, Py_ssize_t], PyObject)
 def PySequence_ITEM(space, w_obj, i):
     """Return the ith element of o or NULL on failure. Macro form of
     PySequence_GetItem() but without checking that
