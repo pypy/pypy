@@ -2,7 +2,7 @@ from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.test.test_llinterp import gengraph
 from rpython.conftest import option
-from rpython.memory.gctransform.shadowcolor import find_interesting_variables
+from rpython.memory.gctransform.shadowcolor import *
 
 
 def make_graph(f, argtypes):
@@ -17,6 +17,53 @@ def summary(interesting_vars):
         name = v._name.rstrip('_')
         result[name] = result.get(name, 0) + 1
     return result
+
+
+def test_find_predecessors_1():
+    def f(a, b):
+        c = a + b
+        return c
+    graph = make_graph(f, [int, int])
+    pred = find_precessors(graph, [(graph.returnblock, graph.getreturnvar())])
+    assert summary(pred) == {'c': 1, 'v': 1}
+
+def test_find_predecessors_2():
+    def f(a, b):
+        c = a + b
+        while a > 0:
+            a -= 2
+        return c
+    graph = make_graph(f, [int, int])
+    pred = find_precessors(graph, [(graph.returnblock, graph.getreturnvar())])
+    assert summary(pred) == {'c': 3, 'v': 1}
+
+def test_find_predecessors_3():
+    def f(a, b):
+        while b > 100:
+            b -= 2
+        if b > 10:
+            c = a + b      # 'c' created in this block
+        else:
+            c = a - b      # 'c' created in this block
+        return c           # 'v' is the return var
+    graph = make_graph(f, [int, int])
+    pred = find_precessors(graph, [(graph.returnblock, graph.getreturnvar())])
+    assert summary(pred) == {'c': 2, 'v': 1}
+
+def test_find_predecessors_4():
+    def f(a, b):           # 'a' in the input block
+        while b > 100:     # 'a' in the loop header block
+            b -= 2         # 'a' in the loop body block
+        if b > 10:         # 'a' in the condition block
+            while b > 5:   # nothing
+                b -= 2     # nothing
+            c = a + b      # 'c' created in this block
+        else:
+            c = a
+        return c           # 'v' is the return var
+    graph = make_graph(f, [int, int])
+    pred = find_precessors(graph, [(graph.returnblock, graph.getreturnvar())])
+    assert summary(pred) == {'a': 4, 'c': 1, 'v': 1}
 
 
 def test_interesting_vars_0():
