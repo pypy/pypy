@@ -292,11 +292,7 @@ class ApiFunction(object):
     def get_wrapper(self, space):
         wrapper = getattr(self, '_wrapper', None)
         if wrapper is None:
-            wrapper = self._make_wrapper(space)
-            self._wrapper = wrapper
-            wrapper.relax_sig_check = True
-            if self.c_name is not None:
-                wrapper.c_name = cpyext_namespace.uniquename(self.c_name)
+            wrapper = self._wrapper = self._make_wrapper(space)
         return wrapper
 
     # Make the wrapper for the cases (1) and (2)
@@ -306,11 +302,8 @@ class ApiFunction(object):
         # big wrapper() function for every callable.  Instead we create
         # only one per "signature".
 
-        callable = self.callable
-        gil = self.gil
-        argnames = self.argnames
         argtypesw = zip(self.argtypes,
-                        [_name.startswith("w_") for _name in argnames])
+                        [_name.startswith("w_") for _name in self.argnames])
         error_value = getattr(self, "error_value", CANNOT_FAIL)
         if (isinstance(self.restype, lltype.Ptr)
                 and error_value is not CANNOT_FAIL):
@@ -329,19 +322,15 @@ class ApiFunction(object):
                     self.restype,
                     result_kind,
                     error_value,
-                    gil)
+                    self.gil)
 
         cache = space.fromcache(WrapperCache)
-        cache.stats[1] += 1
         try:
             wrapper_gen = cache.wrapper_gens[signature]
         except KeyError:
-            #print signature
-            wrapper_gen = cache.wrapper_gens[signature] = WrapperGen(space,
-                                                                    signature)
-            cache.stats[0] += 1
-        #print 'Wrapper cache [wrappers/total]:', cache.stats
-        wrapper = wrapper_gen.make_wrapper(callable)
+            wrapper_gen = WrapperGen(space, signature)
+            cache.wrapper_gens[signature] = wrapper_gen
+        wrapper = wrapper_gen.make_wrapper(self.callable)
         wrapper.relax_sig_check = True
         if self.c_name is not None:
             wrapper.c_name = cpyext_namespace.uniquename(self.c_name)
@@ -731,7 +720,6 @@ class WrapperCache(object):
     def __init__(self, space):
         self.space = space
         self.wrapper_gens = {}    # {signature: WrapperGen()}
-        self.stats = [0, 0]
 
 class WrapperGen(object):
     wrapper_second_level = None
