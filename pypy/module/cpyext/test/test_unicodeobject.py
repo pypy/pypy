@@ -133,10 +133,10 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
 
 class TestUnicode(BaseApiTest):
     def test_unicodeobject(self, space, api):
-        assert api._PyUnicode_GET_SIZE(space.wrap(u'sp�m')) == 4
+        assert api.PyUnicode_GET_SIZE(space.wrap(u'sp�m')) == 4
         assert api.PyUnicode_GetSize(space.wrap(u'sp�m')) == 4
         unichar = rffi.sizeof(Py_UNICODE)
-        assert api._PyUnicode_GET_DATA_SIZE(space.wrap(u'sp�m')) == 4 * unichar
+        assert api.PyUnicode_GET_DATA_SIZE(space.wrap(u'sp�m')) == 4 * unichar
 
         encoding = rffi.charp2str(api.PyUnicode_GetDefaultEncoding())
         w_default_encoding = space.call_function(
@@ -160,7 +160,7 @@ class TestUnicode(BaseApiTest):
     def test_AS(self, space, api):
         word = space.wrap(u'spam')
         array = rffi.cast(rffi.CWCHARP, api.PyUnicode_AS_DATA(word))
-        array2 = api._PyUnicode_AS_UNICODE(word)
+        array2 = api.PyUnicode_AS_UNICODE(word)
         array3 = api.PyUnicode_AsUnicode(word)
         for (i, char) in enumerate(space.unwrap(word)):
             assert array[i] == char
@@ -498,13 +498,13 @@ class TestUnicode(BaseApiTest):
         count1 = space.int_w(space.len(w_x))
         target_chunk = lltype.malloc(rffi.CWCHARP.TO, count1, flavor='raw')
 
-        x_chunk = api._PyUnicode_AS_UNICODE(w_x)
+        x_chunk = api.PyUnicode_AS_UNICODE(w_x)
         api.Py_UNICODE_COPY(target_chunk, x_chunk, 4)
         w_y = space.wrap(rffi.wcharpsize2unicode(target_chunk, 4))
 
         assert space.eq_w(w_y, space.wrap(u"abcd"))
 
-        size = api._PyUnicode_GET_SIZE(w_x)
+        size = api.PyUnicode_GET_SIZE(w_x)
         api.Py_UNICODE_COPY(target_chunk, x_chunk, size)
         w_y = space.wrap(rffi.wcharpsize2unicode(target_chunk, size))
 

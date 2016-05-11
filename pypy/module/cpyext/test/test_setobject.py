@@ -14,7 +14,7 @@ class TestTupleObject(BaseApiTest):
         w_set = space.call_function(space.w_set)
         space.call_method(w_set, 'update', space.wrap([1,2,3,4]))
         assert api.PySet_Size(w_set) == 4
-        assert api._PySet_GET_SIZE(w_set) == 4
+        assert api.PySet_GET_SIZE(w_set) == 4
         raises(TypeError, api.PySet_Size(space.newlist([])))
         api.PyErr_Clear()
 

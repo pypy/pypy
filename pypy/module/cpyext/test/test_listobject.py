@@ -22,9 +22,9 @@ class TestListObject(BaseApiTest):
     
     def test_get_size(self, space, api):
         l = api.PyList_New(0)
-        assert api._PyList_GET_SIZE(l) == 0
+        assert api.PyList_GET_SIZE(l) == 0
         api.PyList_Append(l, space.wrap(3))
-        assert api._PyList_GET_SIZE(l) == 1
+        assert api.PyList_GET_SIZE(l) == 1
     
     def test_size(self, space, api):
         l = space.newlist([space.w_None, space.w_None])
