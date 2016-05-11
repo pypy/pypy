@@ -24,7 +24,7 @@ def test_find_predecessors_1():
         c = a + b
         return c
     graph = make_graph(f, [int, int])
-    pred = find_precessors(graph, [(graph.returnblock, graph.getreturnvar())])
+    pred = find_predecessors(graph, [(graph.returnblock, graph.getreturnvar())])
     assert summary(pred) == {'c': 1, 'v': 1}
 
 def test_find_predecessors_2():
@@ -34,7 +34,7 @@ def test_find_predecessors_2():
             a -= 2
         return c
     graph = make_graph(f, [int, int])
-    pred = find_precessors(graph, [(graph.returnblock, graph.getreturnvar())])
+    pred = find_predecessors(graph, [(graph.returnblock, graph.getreturnvar())])
     assert summary(pred) == {'c': 3, 'v': 1}
 
 def test_find_predecessors_3():
@@ -47,7 +47,7 @@ def test_find_predecessors_3():
             c = a - b      # 'c' created in this block
         return c           # 'v' is the return var
     graph = make_graph(f, [int, int])
-    pred = find_precessors(graph, [(graph.returnblock, graph.getreturnvar())])
+    pred = find_predecessors(graph, [(graph.returnblock, graph.getreturnvar())])
     assert summary(pred) == {'c': 2, 'v': 1}
 
 def test_find_predecessors_4():
@@ -62,7 +62,7 @@ def test_find_predecessors_4():
             c = a
         return c           # 'v' is the return var
     graph = make_graph(f, [int, int])
-    pred = find_precessors(graph, [(graph.returnblock, graph.getreturnvar())])
+    pred = find_predecessors(graph, [(graph.returnblock, graph.getreturnvar())])
     assert summary(pred) == {'a': 4, 'c': 1, 'v': 1}
 
 def test_find_successors_1():

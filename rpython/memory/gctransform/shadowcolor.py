@@ -5,7 +5,7 @@ def is_trivial_rewrite(op):
     return op.opname in ('same_as', 'cast_pointer', 'cast_opaque_ptr')
 
 
-def find_precessors(graph, pending_pred):
+def find_predecessors(graph, pending_pred):
     """Return the set of variables whose content can end up inside one
     of the 'pending_pred', which is a list of (block, var) tuples.
     """
@@ -86,9 +86,10 @@ def find_interesting_variables(graph):
     # where predecessors are variables which (sometimes) end in a
     # gc_push_roots, and successors are variables which (sometimes)
     # come from a gc_pop_roots.
+    pred = find_predecessors(graph, pending_pred)
+    succ = find_successors(graph, pending_succ)
+    interesting_vars |= (pred & succ)
 
-
-    #....
     return interesting_vars
 
 
