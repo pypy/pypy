@@ -609,6 +609,9 @@ class BaseFrameworkGCTransformer(GCTransformer):
                     "the custom trace hook %r for %r can cause "
                     "the GC to be called!" % (func, TP))
 
+    def postprocess_graph(self, graph):
+        self.root_walker.postprocess_graph(self, graph)
+
     def consider_constant(self, TYPE, value):
         self.layoutbuilder.consider_constant(TYPE, value, self.gcdata.gc)
 

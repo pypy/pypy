@@ -31,28 +31,13 @@ class ShadowStackFrameworkGCTransformer(BaseFrameworkGCTransformer):
         self.num_pushs += len(livevars)
         if not livevars:
             return []
-        c_len = rmodel.inputconst(lltype.Signed, len(livevars) )
-        base_addr = hop.genop("direct_call", [self.incr_stack_ptr, c_len ],
-                              resulttype=llmemory.Address)
-        for k,var in enumerate(livevars):
-            c_k = rmodel.inputconst(lltype.Signed, k * sizeofaddr)
-            v_adr = gen_cast(hop.llops, llmemory.Address, var)
-            hop.genop("raw_store", [base_addr, c_k, v_adr])
+        hop.genop("gc_push_roots", livevars)
         return livevars
 
     def pop_roots(self, hop, livevars):
         if not livevars:
             return
-        c_len = rmodel.inputconst(lltype.Signed, len(livevars) )
-        base_addr = hop.genop("direct_call", [self.decr_stack_ptr, c_len ],
-                              resulttype=llmemory.Address)
-        if self.gcdata.gc.moving_gc:
-            # for moving collectors, reload the roots into the local variables
-            for k,var in enumerate(livevars):
-                c_k = rmodel.inputconst(lltype.Signed, k * sizeofaddr)
-                v_newaddr = hop.genop("raw_load", [base_addr, c_k],
-                                      resulttype=llmemory.Address)
-                hop.genop("gc_reload_possibly_moved", [v_newaddr, var])
+        hop.genop("gc_pop_roots", livevars)
 
 
 class ShadowStackRootWalker(BaseRootWalker):
@@ -221,6 +206,10 @@ class ShadowStackRootWalker(BaseRootWalker):
     def need_stacklet_support(self, gctransformer, getfn):
         from rpython.rlib import _stacklet_shadowstack
         _stacklet_shadowstack.complete_destrptr(gctransformer)
+
+    def postprocess_graph(self, gct, graph):
+        from rpython.memory.gctransform import shadowcolor
+        shadowcolor.postprocess_graph(gct, graph)
 
 # ____________________________________________________________
 
