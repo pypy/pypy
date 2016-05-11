@@ -272,17 +272,17 @@ def test_symmetric():
                     assert op1.result == v3
                     assert op1.opname == name2[0]
 
-@py.test.mark.parametrize('opname', ['add_ovf', 'mul_ovf'])
-def test_symmetric_op_ovf(opname):
+@py.test.mark.parametrize('opname', ['add_ovf', 'sub_ovf', 'mul_ovf'])
+def test_int_op_ovf(opname):
     v3 = varoftype(lltype.Signed)
     for v1 in [varoftype(lltype.Signed), const(42)]:
         for v2 in [varoftype(lltype.Signed), const(43)]:
-            op = SpaceOperation('direct_call', [Constant(opname), v1, v2], v3)
-            oplist = Transformer(FakeCPU())._handle_int_ovf(op, 'int.'+opname,
-                                                            [v1, v2])
+            op = SpaceOperation('int_' + opname, [v1, v2], v3)
+            oplist = Transformer(FakeCPU()).rewrite_operation(op)
             op1, op0 = oplist
-            assert op0.opname == 'int_'+opname
-            if isinstance(v1, Constant) and isinstance(v2, Variable):
+            assert op0.opname == 'int_' + opname
+            if (isinstance(v1, Constant) and isinstance(v2, Variable)
+                    and opname != 'sub_ovf'):
                 assert op0.args == [v2, v1]
                 assert op0.result == v3
             else:
@@ -292,27 +292,12 @@ def test_symmetric_op_ovf(opname):
             assert op1.args == []
             assert op1.result is None
 
-@py.test.mark.parametrize('opname', ['sub_ovf'])
-def test_asymmetric_op_ovf(opname):
-    v3 = varoftype(lltype.Signed)
-    for v1 in [varoftype(lltype.Signed), const(42)]:
-        for v2 in [varoftype(lltype.Signed), const(43)]:
-            op = SpaceOperation('direct_call', [Constant(opname), v1, v2], v3)
-            oplist = Transformer(FakeCPU())._handle_int_ovf(op, 'int.'+opname,
-                                                            [v1, v2])
-            op1, op0 = oplist
-            assert op0.opname == 'int_'+opname
-            assert op0.args == [v1, v2]
-            assert op0.result == v3
-            assert op1.opname == '-live-'
-            assert op1.args == []
-            assert op1.result is None
-
 def test_neg_ovf():
     v3 = varoftype(lltype.Signed)
     for v1 in [varoftype(lltype.Signed), const(42)]:
         op = SpaceOperation('direct_call', [Constant('neg_ovf'), v1], v3)
-        oplist = Transformer(FakeCPU())._handle_int_ovf(op, 'int.neg_ovf', [v1])
+        oplist = Transformer(FakeCPU())._handle_int_special(op, 'int.neg_ovf',
+                                                            [v1])
         op1, op0 = oplist
         assert op0.opname == 'int_sub_ovf'
         assert op0.args == [Constant(0), v1]
@@ -322,13 +307,13 @@ def test_neg_ovf():
         assert op1.result is None
 
 @py.test.mark.parametrize('opname', ['py_div', 'udiv', 'py_mod', 'umod'])
-def test_asymmetric_op_residual(opname):
+def test_int_op_residual(opname):
     v3 = varoftype(lltype.Signed)
     tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
     for v1 in [varoftype(lltype.Signed), const(42)]:
         for v2 in [varoftype(lltype.Signed), const(43)]:
             op = SpaceOperation('direct_call', [Constant(opname), v1, v2], v3)
-            op0 = tr._handle_int_ovf(op, 'int.'+opname, [v1, v2])
+            op0 = tr._handle_int_special(op, 'int.'+opname, [v1, v2])
             assert op0.opname == 'residual_call_ir_i'
             assert op0.args[0].value == opname  # pseudo-function as str
             expected = ('int_' + opname).upper()

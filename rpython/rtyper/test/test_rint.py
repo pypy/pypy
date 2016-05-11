@@ -6,6 +6,7 @@ from rpython.rlib.rarithmetic import r_int, r_uint, r_longlong, r_ulonglong
 from rpython.rlib.rarithmetic import ovfcheck, r_int64, intmask, int_between
 from rpython.rlib import objectmodel
 from rpython.rtyper.test.tool import BaseRtypingTest
+from rpython.flowspace.model import summary
 
 
 class TestSnippet(object):
@@ -380,6 +381,8 @@ class TestRint(BaseRtypingTest):
             except OverflowError:
                 return 1
             return a
+        t, rtyper, graph = self.gengraph(f, [int])
+        assert summary(graph).get('int_add_nonneg_ovf') == 2
         res = self.interpret(f, [-3])
         assert res == 144
         res = self.interpret(f, [sys.maxint-50])

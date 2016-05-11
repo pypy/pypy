@@ -219,21 +219,21 @@ class __extend__(pairtype(IntegerRepr, IntegerRepr)):
                 hop = hop.copy()
                 hop.swap_fst_snd_args()
                 func = 'add_nonneg_ovf'
-        return _rtype_call_helper(hop, func)
+        return _rtype_template(hop, func)
 
     def rtype_sub(_, hop):
         return _rtype_template(hop, 'sub')
     rtype_inplace_sub = rtype_sub
 
     def rtype_sub_ovf(_, hop):
-        return _rtype_call_helper(hop, 'sub_ovf')
+        return _rtype_template(hop, 'sub_ovf')
 
     def rtype_mul(_, hop):
         return _rtype_template(hop, 'mul')
     rtype_inplace_mul = rtype_mul
 
     def rtype_mul_ovf(_, hop):
-        return _rtype_call_helper(hop, 'mul_ovf')
+        return _rtype_template(hop, 'mul_ovf')
 
     def rtype_floordiv(_, hop):
         return _rtype_call_helper(hop, 'floordiv', [ZeroDivisionError])
@@ -307,9 +307,6 @@ def _rtype_template(hop, func):
     """Write a simple operation implementing the given 'func'.
     It must be an operation that cannot raise.
     """
-    if '_ovf' in func or func.startswith(('mod', 'floordiv')):
-        raise TyperError("%r should not be used here any more" % (func,))
-
     r_result = hop.r_result
     if r_result.lowleveltype == Bool:
         repr = signed_repr
@@ -320,9 +317,17 @@ def _rtype_template(hop, func):
     else:
         repr2 = repr
     vlist = hop.inputargs(repr, repr2)
-    hop.exception_cannot_occur()
-
     prefix = repr.opprefix
+
+    if '_ovf' in func or func.startswith(('mod', 'floordiv')):
+        if prefix+func not in ('int_add_ovf', 'int_add_nonneg_ovf',
+                               'int_sub_ovf', 'int_mul_ovf'):
+            raise TyperError("%r should not be used here any more" % (func,))
+        hop.has_implicit_exception(OverflowError)
+        hop.exception_is_here()
+    else:
+        hop.exception_cannot_occur()
+
     v_res = hop.genop(prefix+func, vlist, resulttype=repr)
     v_res = hop.llops.convertvar(v_res, repr, r_result)
     return v_res
@@ -531,59 +536,6 @@ def ll_lllong_mod_zer(x, y):
     if y == 0:
         raise ZeroDivisionError
     return ll_lllong_mod(x, y)
-
-
-# ---------- add, sub, mul ----------
-
-@jit.oopspec("int.add_ovf(x, y)")
-def ll_int_add_ovf(x, y):
-    r = intmask(r_uint(x) + r_uint(y))
-    if r^x < 0 and r^y < 0:
-        raise OverflowError("integer addition")
-    return r
-
-@jit.oopspec("int.add_ovf(x, y)")
-def ll_int_add_nonneg_ovf(x, y):     # y can be assumed >= 0
-    r = intmask(r_uint(x) + r_uint(y))
-    if r < x:
-        raise OverflowError("integer addition")
-    return r
-
-@jit.oopspec("int.sub_ovf(x, y)")
-def ll_int_sub_ovf(x, y):
-    r = intmask(r_uint(x) - r_uint(y))
-    if r^x < 0 and r^~y < 0:
-        raise OverflowError("integer subtraction")
-    return r
-
-@jit.oopspec("int.mul_ovf(a, b)")
-def ll_int_mul_ovf(a, b):
-    if INT_BITS_1 < LLONG_BITS_1:
-        rr = r_longlong(a) * r_longlong(b)
-        r = intmask(rr)
-        if r_longlong(r) != rr:
-            raise OverflowError("integer multiplication")
-        return r
-    else:
-        longprod = intmask(a * b)
-        doubleprod = float(a) * float(b)
-        doubled_longprod = float(longprod)
-
-        # Fast path for normal case:  small multiplicands, and no info
-        # is lost in either method.
-        if doubled_longprod == doubleprod:
-            return longprod
-
-        # Somebody somewhere lost info.  Close enough, or way off?  Note
-        # that a != 0 and b != 0 (else doubled_longprod == doubleprod == 0).
-        # The difference either is or isn't significant compared to the
-        # true value (of which doubleprod is a good approximation).
-        # absdiff/absprod <= 1/32 iff 32 * absdiff <= absprod -- 5 good
-        # bits is "close enough"
-        if 32.0 * abs(doubled_longprod - doubleprod) <= abs(doubleprod):
-            return longprod
-
-        raise OverflowError("integer multiplication")
 
 
 # ---------- lshift, neg, abs ----------

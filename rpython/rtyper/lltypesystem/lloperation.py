@@ -212,6 +212,12 @@ LL_OPERATIONS = {
     'int_between':          LLOp(canfold=True),   # a <= b < c
     'int_force_ge_zero':    LLOp(canfold=True),   # 0 if a < 0 else a
 
+    'int_add_ovf':          LLOp(canraise=(OverflowError,), tryfold=True),
+    'int_add_nonneg_ovf':   LLOp(canraise=(OverflowError,), tryfold=True),
+              # ^^^ more efficient version when 2nd arg is nonneg
+    'int_sub_ovf':          LLOp(canraise=(OverflowError,), tryfold=True),
+    'int_mul_ovf':          LLOp(canraise=(OverflowError,), tryfold=True),
+
     'uint_is_true':         LLOp(canfold=True),
     'uint_invert':          LLOp(canfold=True),
 

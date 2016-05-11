@@ -32,6 +32,13 @@ void RPyDebugReturnShowException(const char *msg, const char *filename,
 		RPyClearException();					\
 	} while (0)
 
+/* implementations */
+
+void _RPyRaiseSimpleException(RPYTHON_EXCEPTION rexc)
+{
+	RPyRaiseException(RPYTHON_TYPE_OF_EXC_INST(rexc), rexc);
+}
+
 
 /******************************************************************/
 #endif                                             /* HAVE_RTYPER */

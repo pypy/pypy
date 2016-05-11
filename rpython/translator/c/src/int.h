@@ -45,8 +45,35 @@
 /* addition, subtraction */
 
 #define OP_INT_ADD(x,y,r)     r = (x) + (y)
+
+/* cast to avoid undefined behaviour on overflow */
+#define OP_INT_ADD_OVF(x,y,r) \
+        r = (Signed)((Unsigned)x + y); \
+        if ((r^x) < 0 && (r^y) < 0) FAIL_OVF("integer addition")
+
+#define OP_INT_ADD_NONNEG_OVF(x,y,r)  /* y can be assumed >= 0 */ \
+        r = (Signed)((Unsigned)x + y); \
+        if ((r&~x) < 0) FAIL_OVF("integer addition")
+
 #define OP_INT_SUB(x,y,r)     r = (x) - (y)
+
+#define OP_INT_SUB_OVF(x,y,r) \
+        r = (Signed)((Unsigned)x - y); \
+        if ((r^x) < 0 && (r^~y) < 0) FAIL_OVF("integer subtraction")
+
 #define OP_INT_MUL(x,y,r)     r = (x) * (y)
+
+#if SIZEOF_LONG * 2 <= SIZEOF_LONG_LONG
+#define OP_INT_MUL_OVF(x,y,r) \
+       { \
+               long long _lr = (long long)x * y; \
+               r = (long)_lr; \
+               if (_lr != (long long)r) FAIL_OVF("integer multiplication"); \
+       }
+#else
+#define OP_INT_MUL_OVF(x,y,r) \
+       r = op_llong_mul_ovf(x, y)   /* long == long long */
+#endif
 
 /* shifting */
 

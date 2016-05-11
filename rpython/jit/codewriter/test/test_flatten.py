@@ -71,9 +71,6 @@ class FakeCallControl:
     _descr_cannot_raise = FakeDescr()
     callinfocollection = FakeCallInfoCollection()
     def guess_call_kind(self, op):
-        if op.args[0].value._obj._name.startswith(
-                ('ll_int_add_ovf', 'll_int_sub_ovf', 'll_int_mul_ovf')):
-            return 'builtin'
         return 'residual'
     def getcalldescr(self, op, oopspecindex=EffectInfo.OS_NONE,
                      extraeffect=None, extradescr=None):

@@ -1073,6 +1073,38 @@ class LLFrame(object):
     def op_track_alloc_stop(self, addr):
         checkadr(addr)
 
+    # ____________________________________________________________
+    # Overflow-detecting variants
+
+    def op_int_add_ovf(self, x, y):
+        assert isinstance(x, (int, long, llmemory.AddressOffset))
+        assert isinstance(y, (int, long, llmemory.AddressOffset))
+        try:
+            return ovfcheck(x + y)
+        except OverflowError:
+            self.make_llexception()
+
+    def op_int_add_nonneg_ovf(self, x, y):
+        if isinstance(y, int):
+            assert y >= 0
+        return self.op_int_add_ovf(x, y)
+
+    def op_int_sub_ovf(self, x, y):
+        assert isinstance(x, (int, long))
+        assert isinstance(y, (int, long))
+        try:
+            return ovfcheck(x - y)
+        except OverflowError:
+            self.make_llexception()
+
+    def op_int_mul_ovf(self, x, y):
+        assert isinstance(x, (int, long, llmemory.AddressOffset))
+        assert isinstance(y, (int, long, llmemory.AddressOffset))
+        try:
+            return ovfcheck(x * y)
+        except OverflowError:
+            self.make_llexception()
+
     def op_int_is_true(self, x):
         # special case
         if type(x) is CDefinedIntSymbolic:

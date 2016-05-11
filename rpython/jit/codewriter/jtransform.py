@@ -333,6 +333,17 @@ class Transformer(object):
     rewrite_op_float_gt  = _rewrite_symmetric
     rewrite_op_float_ge  = _rewrite_symmetric
 
+    def rewrite_op_int_add_ovf(self, op):
+        op0 = self._rewrite_symmetric(op)
+        op1 = SpaceOperation('-live-', [], None)
+        return [op1, op0]
+
+    rewrite_op_int_mul_ovf = rewrite_op_int_add_ovf
+
+    def rewrite_op_int_sub_ovf(self, op):
+        op1 = SpaceOperation('-live-', [], None)
+        return [op1, op]
+
     def _noop_rewrite(self, op):
         return op
 
@@ -426,7 +437,7 @@ class Transformer(object):
         if oopspec_name.startswith('list.') or oopspec_name.startswith('newlist'):
             prepare = self._handle_list_call
         elif oopspec_name.startswith('int.'):
-            prepare = self._handle_int_ovf
+            prepare = self._handle_int_special
         elif oopspec_name.startswith('stroruni.'):
             prepare = self._handle_stroruni_call
         elif oopspec_name == 'str.str2unicode':
@@ -1479,6 +1490,7 @@ class Transformer(object):
     for _old, _new in [('bool_not', 'int_is_zero'),
                        ('cast_bool_to_float', 'cast_int_to_float'),
 
+                       ('int_add_nonneg_ovf', 'int_add_ovf'),
                        ('keepalive', '-live-'),
 
                        ('char_lt', 'int_lt'),
@@ -1902,22 +1914,15 @@ class Transformer(object):
                 llmemory.cast_ptr_to_adr(c_func.value))
         self.callcontrol.callinfocollection.add(oopspecindex, calldescr, func)
 
-    def _handle_int_ovf(self, op, oopspec_name, args):
-        opname = oopspec_name.replace('.', '_')
-        if oopspec_name in ('int.add_ovf', 'int.sub_ovf', 'int.mul_ovf'):
-            op0 = SpaceOperation(opname, args, op.result)
-            if oopspec_name in ('int.add_ovf', 'int.mul_ovf'):
-                op0 = self._rewrite_symmetric(op0)
-            oplist = [SpaceOperation('-live-', [], None), op0]
-            return oplist
-        elif oopspec_name == 'int.neg_ovf':
+    def _handle_int_special(self, op, oopspec_name, args):
+        if oopspec_name == 'int.neg_ovf':
             [v_x] = args
             op0 = SpaceOperation('int_sub_ovf',
                                  [Constant(0, lltype.Signed), v_x],
                                  op.result)
-            oplist = [SpaceOperation('-live-', [], None), op0]
-            return oplist
+            return self.rewrite_operation(op0)
         else:
+            opname = oopspec_name.replace('.', '_')
             os = getattr(EffectInfo, 'OS_' + opname.upper())
             return self._handle_oopspec_call(op, args, os,
                                     EffectInfo.EF_ELIDABLE_CANNOT_RAISE)
