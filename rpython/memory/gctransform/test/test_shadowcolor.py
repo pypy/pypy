@@ -268,27 +268,44 @@ def test_make_bitmask(boollist):
 
 
 class FakeRegAlloc:
-    def __init__(self, **colors):
+    def __init__(self, expected_op, **colors):
+        self.expected_op = expected_op
         self.numcolors = len(colors)
         self.getcolor = colors.__getitem__
 
-def check_expand_one_push_roots(regalloc, args):
-    got = list(expand_one_push_roots(regalloc, args))
-    result = []
-    for spaceop in got:
-        assert spaceop.opname == 'gc_save_root'
-        result.append((spaceop.args[0].value, spaceop.args[1]))
-    return result
+    def check(self, got):
+        got = list(got)
+        result = []
+        for spaceop in got:
+            assert spaceop.opname == self.expected_op
+            result.append((spaceop.args[0].value, spaceop.args[1]))
+        return result
 
 def test_expand_one_push_roots():
-    regalloc = FakeRegAlloc(a=0, b=1, c=2)
-    assert check_expand_one_push_roots(regalloc, ['a', 'b', 'c']) == [
+    regalloc = FakeRegAlloc('gc_save_root', a=0, b=1, c=2)
+    assert regalloc.check(expand_one_push_roots(regalloc, ['a', 'b', 'c'])) == [
         (0, 'a'), (1, 'b'), (2, 'c')]
-    assert check_expand_one_push_roots(regalloc, ['a', 'c']) == [
+    assert regalloc.check(expand_one_push_roots(regalloc, ['a', 'c'])) == [
         (0, 'a'), (2, 'c'), (1, c_NULL)]
-    assert check_expand_one_push_roots(regalloc, ['b']) == [
+    assert regalloc.check(expand_one_push_roots(regalloc, ['b'])) == [
         (1, 'b'), (2, Constant(0x5, lltype.Signed))]
-    assert check_expand_one_push_roots(regalloc, ['a']) == [
+    assert regalloc.check(expand_one_push_roots(regalloc, ['a'])) == [
         (0, 'a'), (2, Constant(0x3, lltype.Signed))]
-    assert check_expand_one_push_roots(regalloc, []) == [
+    assert regalloc.check(expand_one_push_roots(regalloc, [])) == [
         (2, Constant(0x7, lltype.Signed))]
+
+    assert list(expand_one_push_roots(None, [])) == []
+
+def test_expand_one_pop_roots():
+    regalloc = FakeRegAlloc('gc_restore_root', a=0, b=1, c=2)
+    assert regalloc.check(expand_one_pop_roots(regalloc, ['a', 'b', 'c'])) == [
+        (0, 'a'), (1, 'b'), (2, 'c')]
+    assert regalloc.check(expand_one_pop_roots(regalloc, ['a', 'c'])) == [
+        (0, 'a'), (2, 'c')]
+    assert regalloc.check(expand_one_pop_roots(regalloc, ['b'])) == [
+        (1, 'b')]
+    assert regalloc.check(expand_one_pop_roots(regalloc, ['a'])) == [
+        (0, 'a')]
+    assert regalloc.check(expand_one_pop_roots(regalloc, [])) == []
+
+    assert list(expand_one_pop_roots(None, [])) == []

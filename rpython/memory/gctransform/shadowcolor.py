@@ -113,6 +113,11 @@ def _gc_save_root(index, var):
     return SpaceOperation('gc_save_root', [c_index, var],
                           varoftype(lltype.Void))
 
+def _gc_restore_root(index, var):
+    c_index = Constant(index, lltype.Signed)
+    return SpaceOperation('gc_restore_root', [c_index, var],
+                          varoftype(lltype.Void))
+
 c_NULL = Constant(lltype.nullptr(llmemory.GCREF.TO), llmemory.GCREF)
 
 def make_bitmask(filled):
@@ -128,6 +133,7 @@ def make_bitmask(filled):
             bitmask <<= (i - last_index)
             last_index = i
             bitmask |= 1
+    assert bitmask & 1
     return (last_index, Constant(bitmask, lltype.Signed))
 
 
@@ -141,14 +147,23 @@ def expand_one_push_roots(regalloc, args):
             assert not filled[index]
             filled[index] = True
             yield _gc_save_root(index, v)
-        bitmask_index, bitmask_v = make_bitmask(filled)
+        bitmask_index, bitmask_c = make_bitmask(filled)
         if bitmask_index is not None:
-            yield _gc_save_root(bitmask_index, bitmask_v)
+            yield _gc_save_root(bitmask_index, bitmask_c)
+
+def expand_one_pop_roots(regalloc, args):
+    if regalloc is None:
+        assert len(args) == 0
+    else:
+        for v in args:
+            index = regalloc.getcolor(v)
+            yield _gc_restore_root(index, v)
 
 
 def expand_push_roots(graph, regalloc):
     """Expand gc_push_roots into a series of gc_save_root, including
-    writing a bitmask tag to mark some entries as not-in-use
+    writing a bitmask tag to mark some entries as not-in-use.
+    (If regalloc is None, it will still remove empty gc_push_roots.)
     """
     for block in graph.iterblocks():
         any_change = False
@@ -200,18 +215,22 @@ def move_pushes_earlier(graph, regalloc):
     x.x.x.x
 
 
-def expand_push_pop_roots(graph):
-    xxxxxxxxx
+def expand_pop_roots(graph):
+    """gc_pop_roots => series of gc_restore_root; this is done after
+    move_pushes_earlier() because that one doesn't work correctly if
+    a completely-empty gc_pop_roots is removed.
+    """
     for block in graph.iterblocks():
+        any_change = False
+        newops = []
         for op in block.operations:
-            if op.opname == 'gc_push_roots':
-                for v in op.args:
-                    interesting_vars.add(v)
-                    pending_pred.append((block, v))
-            elif op.opname == 'gc_pop_roots':
-                for v in op.args:
-                    assert v in interesting_vars   # must be pushed just above
-                    pending_succ.append((block, v))
+            if op.opname == 'gc_pop_roots':
+                newops += expand_one_pop_roots(regalloc, op)
+                any_change = True
+            else:
+                newops.append(op)
+        if any_change:
+            block.operations = newops
 
 
 def postprocess_graph(gct, graph):
@@ -219,4 +238,7 @@ def postprocess_graph(gct, graph):
     added in this complete graph, and replace them with real operations.
     """
     regalloc = allocate_registers(graph)
+    expand_push_roots(graph, regalloc)
+    move_pushes_earlier(graph, regalloc)
+    expand_pop_roots(graph, regalloc)
     xxxx
