@@ -65,6 +65,19 @@ def test_find_predecessors_4():
     pred = find_predecessors(graph, [(graph.returnblock, graph.getreturnvar())])
     assert summary(pred) == {'a': 4, 'c': 1, 'v': 1}
 
+def test_find_predecessors_trivial_rewrite():
+    def f(a, b):                              # 'b' in empty startblock
+        while a > 100:                        # 'b'
+            a -= 2                            # 'b'
+        c = llop.same_as(lltype.Signed, b)    # 'c', 'b'
+        while b > 10:                         # 'c'
+            b -= 2                            # 'c'
+        d = llop.same_as(lltype.Signed, c)    # 'd', 'c'
+        return d           # 'v' is the return var
+    graph = make_graph(f, [int, int])
+    pred = find_predecessors(graph, [(graph.returnblock, graph.getreturnvar())])
+    assert summary(pred) == {'b': 4, 'c': 4, 'd': 1, 'v': 1}
+
 def test_find_successors_1():
     def f(a, b):
         return a + b
@@ -94,6 +107,19 @@ def test_find_successors_3():
     graph = make_graph(f, [int, int])
     succ = find_successors(graph, [(graph.startblock, graph.getargs()[0])])
     assert summary(succ) == {'a': 5}
+
+def test_find_successors_trivial_rewrite():
+    def f(a, b):                              # 'b' in empty startblock
+        while a > 100:                        # 'b'
+            a -= 2                            # 'b'
+        c = llop.same_as(lltype.Signed, b)    # 'c', 'b'
+        while b > 10:                         # 'c', 'b'
+            b -= 2                            # 'c', 'b'
+        d = llop.same_as(lltype.Signed, c)    # 'd', 'c'
+        return d           # 'v' is the return var
+    graph = make_graph(f, [int, int])
+    pred = find_successors(graph, [(graph.startblock, graph.getargs()[1])])
+    assert summary(pred) == {'b': 6, 'c': 4, 'd': 1, 'v': 1}
 
 
 def test_interesting_vars_0():
