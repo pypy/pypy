@@ -23,7 +23,15 @@ class BaseLinux(BasePosix):
 
     if platform.machine() == 's390x':
         # force the right target arch for s390x
-        cflags = ('-march=z196','-m64','-mzarch') + cflags
+        for cflag in cflags:
+            if cflag.startswith('-march='):
+                break
+        else:
+            # the default cpu architecture that is supported
+            # older versions are not supported
+            cflags += ('-march=z10',)
+        cflags += ('-m64','-mzarch')
+
 
     def _args_for_shared(self, args):
         return ['-shared'] + args
