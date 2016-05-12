@@ -189,7 +189,7 @@ class TestRunningAssembler(object):
     @py.test.mark.parametrize('p', [2**32,2**32+1,2**63-1,2**63-2,0,1,2,3,4,5,6,7,8,10001])
     def test_align_withroll(self, p):
         self.a.mc.load_imm(r.r2, p & 0xffffFFFFffffFFFF)
-        self.a.mc.RISBGN(r.r2, r.r2, loc.imm(0), loc.imm(0x80 | 60), loc.imm(0))
+        self.a.mc.RISBG(r.r2, r.r2, loc.imm(0), loc.imm(0x80 | 60), loc.imm(0))
         self.a.mc.BCR(con.ANY, r.r14)
         assert run_asm(self.a) == rffi.cast(rffi.ULONG,p) & ~(7)
 
@@ -214,7 +214,7 @@ class TestRunningAssembler(object):
         n = 13
         l = loc
         self.a.mc.load_imm(r.r2, 7<<n)
-        self.a.mc.RISBGN(r.r2, r.r2, l.imm(61), l.imm(0x80 | 63), l.imm(64-n))
+        self.a.mc.RISBG(r.r2, r.r2, l.imm(61), l.imm(0x80 | 63), l.imm(64-n))
         self.a.mc.BCR(con.ANY, r.r14)
         assert run_asm(self.a) == 7
 
@@ -222,7 +222,7 @@ class TestRunningAssembler(object):
         n = 16
         l = loc
         self.a.mc.load_imm(r.r2, 0xffFFffFF)
-        self.a.mc.RISBGN(r.r2, r.r2, l.imm(60), l.imm(0x80 | 63), l.imm(64-n))
+        self.a.mc.RISBG(r.r2, r.r2, l.imm(60), l.imm(0x80 | 63), l.imm(64-n))
         self.a.mc.BCR(con.ANY, r.r14)
         assert run_asm(self.a) == 15
 
