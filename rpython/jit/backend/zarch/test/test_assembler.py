@@ -155,7 +155,15 @@ class TestRunningAssembler(object):
         s64 = bin(fac_data[1])[2:]
         print(f64)
         print(s64)
+        for i,c in enumerate(f64):
+            print('index: %d is set? %s' % (i,c))
+
+        assert f64[1] == '1' # The z/Architecture architectural mode is installed.
+        assert f64[2] == '1' # The z/Architecture architectural mode is active.
         assert f64[18] == '1' # long displacement facility
+        assert f64[21] == '1' # extended immediate facility
+        assert f64[34] == '1' # general instruction facility
+        assert f64[41] == '1' # floating-point-support-enhancement
 
     def test_load_byte_zero_extend(self):
         adr = self.a.datablockwrapper.malloc_aligned(16, 16)
