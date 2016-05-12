@@ -326,6 +326,7 @@ class ZARCHRegisterManager(RegisterManager):
                     # old even var is not forbidden, sync it and be done with it
                     self._sync_var(old_even_var)
                     del self.reg_bindings[old_even_var]
+                    del reverse_mapping[odd]
             if old_odd_var:
                 if old_odd_var in forbidden_vars:
                     self._relocate_forbidden_variable(odd, old_odd_var, reverse_mapping,
@@ -333,6 +334,7 @@ class ZARCHRegisterManager(RegisterManager):
                 else:
                     self._sync_var(old_odd_var)
                     del self.reg_bindings[old_odd_var]
+                    del reverse_mapping[odd]
 
             self.reg_bindings[even_var] = even
             self.reg_bindings[odd_var] = odd
@@ -359,11 +361,11 @@ class ZARCHRegisterManager(RegisterManager):
                 if candidate_var is not None:
                     self._sync_var(candidate_var)
                     del self.reg_bindings[candidate_var]
+                    del reverse_mapping[candidate]
                 self.assembler.regalloc_mov(reg, candidate)
                 assert var is not None
                 self.reg_bindings[var] = candidate
                 reverse_mapping[candidate] = var
-                self.free_regs.append(reg)
                 break
         else:
             raise NoVariableToSpill
