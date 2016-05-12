@@ -3,7 +3,7 @@ import weakref
 import struct
 import os
 
-from rpython.rlib.rvmprof import cintf
+from rpython.rlib.rvmprof.rvmprof import CINTF
 from rpython.jit.metainterp import resoperation as resoperations
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.metainterp.history import ConstInt, ConstFloat
@@ -224,37 +224,36 @@ def assemble_header():
     return ''.join(content)
 
 
-def _log_jit_counter(cintf, struct):
-    if not cintf.jitlog_enabled():
+def _log_jit_counter(struct):
+    if not CINTF.jitlog_enabled():
         return
     le_addr = encode_le_addr(struct.number)
     # not an address (but a number) but it is a machine word
     le_count = encode_le_addr(struct.i)
     out = le_addr + le_count
-    cintf.jitlog_write_marked(MARK_JITLOG_COUNTER, out, len(out))
+    CINTF.jitlog_write_marked(MARK_JITLOG_COUNTER, out, len(out))
 
 class VMProfJitLogger(object):
     def __init__(self, cpu=None):
         self.cpu = cpu
-        self.cintf = cintf.setup()
         self.memo = {}
         self.trace_id = -1
         self.metainterp_sd = None
 
     def setup_once(self):
-        if self.cintf.jitlog_enabled():
+        if CINTF.jitlog_enabled():
             return
-        self.cintf.jitlog_try_init_using_env()
-        if not self.cintf.jitlog_enabled():
+        CINTF.jitlog_try_init_using_env()
+        if not CINTF.jitlog_enabled():
             return
         blob = assemble_header()
-        self.cintf.jitlog_write_marked(MARK_JITLOG_HEADER, blob, len(blob))
+        CINTF.jitlog_write_marked(MARK_JITLOG_HEADER, blob, len(blob))
 
     def finish(self):
-        self.cintf.jitlog_teardown()
+        CINTF.jitlog_teardown()
 
     def start_new_trace(self, metainterp_sd, faildescr=None, entry_bridge=False):
-        if not self.cintf.jitlog_enabled():
+        if not CINTF.jitlog_enabled():
             return
         self.metainterp_sd = metainterp_sd
         self.trace_id += 1
@@ -273,14 +272,14 @@ class VMProfJitLogger(object):
 
     def _write_marked(self, mark, line):
         if not we_are_translated():
-            assert self.cintf.jitlog_enabled()
-        self.cintf.jitlog_write_marked(mark, line, len(line))
+            assert CINTF.jitlog_enabled()
+        CINTF.jitlog_write_marked(mark, line, len(line))
 
     def log_jit_counter(self, struct):
-        _log_jit_counter(self.cintf, struct)
+        _log_jit_counter(CINTF, struct)
 
     def log_trace(self, tag, metainterp_sd, mc, memo=None):
-        if not self.cintf.jitlog_enabled():
+        if not CINTF.jitlog_enabled():
             return EMPTY_TRACE_LOG
         assert self.metainterp_sd is not None
         assert isinstance(tag, int)
@@ -289,7 +288,7 @@ class VMProfJitLogger(object):
         return LogTrace(tag, memo, self.metainterp_sd, mc, self)
 
     def log_patch_guard(self, descr_number, addr):
-        if not self.cintf.jitlog_enabled():
+        if not CINTF.jitlog_enabled():
             return
         le_descr_number = encode_le_addr(descr_number)
         le_addr = encode_le_addr(addr)

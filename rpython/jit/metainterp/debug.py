@@ -14,11 +14,11 @@ DEBUG_COUNTER = lltype.Struct('DEBUG_COUNTER',
     ('number', lltype.Signed)
 )
 
-def flush_debug_counters(cintf):
+def flush_debug_counters():
     # this is always called, the jitlog knows if it is enabled
     for i in range(len(LOOP_RUN_COUNTERS)):
         struct = LOOP_RUN_COUNTERS[i]
-        _log_jit_counter(cintf, struct)
+        _log_jit_counter(struct)
         # reset the counter, flush in a later point in time will
         # add up the counters!
         struct.i = 0

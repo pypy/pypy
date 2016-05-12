@@ -392,8 +392,7 @@ class BaseAssembler(object):
                 debug_print(prefix + ':' + str(struct.i))
             debug_stop('jit-backend-counts')
 
-        if jitlog:
-            flush_debug_counters(jitlog.cintf)
+        flush_debug_counters()
 
     @staticmethod
     @rgc.no_collect

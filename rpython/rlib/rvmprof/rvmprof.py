@@ -25,6 +25,8 @@ class VMProfError(Exception):
     def __str__(self):
         return self.msg
 
+CINTF = cintf.setup()
+
 class VMProf(object):
 
     _immutable_fields_ = ['is_enabled?']
@@ -35,7 +37,6 @@ class VMProf(object):
         self._gather_all_code_objs = lambda: None
         self._cleanup_()
         self._code_unique_id = 4
-        self.cintf = cintf.setup()
 
     def _cleanup_(self):
         self.is_enabled = False
@@ -112,12 +113,12 @@ class VMProf(object):
         if self.is_enabled:
             raise VMProfError("vmprof is already enabled")
 
-        p_error = self.cintf.vmprof_init(fileno, interval, "pypy")
+        p_error = CINTF.vmprof_init(fileno, interval, "pypy")
         if p_error:
             raise VMProfError(rffi.charp2str(p_error))
 
         self._gather_all_code_objs()
-        res = self.cintf.vmprof_enable()
+        res = CINTF.vmprof_enable()
         if res < 0:
             raise VMProfError(os.strerror(rposix.get_saved_errno()))
         self.is_enabled = True
@@ -125,16 +126,16 @@ class VMProf(object):
     def enable_jitlog(self, fileno):
         # initialize the jit log
         from rpython.rlib import jitlog as jl
-        p_error = self.cintf.jitlog_init(fileno)
+        p_error = CINTF.jitlog_init(fileno)
         if p_error:
             raise VMProfError(rffi.charp2str(p_error))
         blob = jl.assemble_header()
-        self.cintf.jitlog_write_marked(jl.MARK_JITLOG_HEADER, blob, len(blob))
+        CINTF.jitlog_write_marked(jl.MARK_JITLOG_HEADER, blob, len(blob))
 
     def disable_jitlog(self):
         from rpython.jit.metainterp.debug import flush_debug_counters
-        flush_debug_counters(self.cintf)
-        self.cintf.jitlog_teardown()
+        flush_debug_counters()
+        CINTF.jitlog_teardown()
 
     def disable(self):
         """Disable vmprof.
@@ -143,7 +144,7 @@ class VMProf(object):
         if not self.is_enabled:
             raise VMProfError("vmprof is not enabled")
         self.is_enabled = False
-        res = self.cintf.vmprof_disable()
+        res = CINTF.vmprof_disable()
         if res < 0:
             raise VMProfError(os.strerror(rposix.get_saved_errno()))
 
@@ -151,7 +152,7 @@ class VMProf(object):
         assert name.count(':') == 3 and len(name) <= MAX_FUNC_NAME, (
             "the name must be 'class:func_name:func_line:filename' "
             "and at most %d characters; got '%s'" % (MAX_FUNC_NAME, name))
-        if self.cintf.vmprof_register_virtual_function(name, uid, 500000) < 0:
+        if CINTF.vmprof_register_virtual_function(name, uid, 500000) < 0:
             raise VMProfError("vmprof buffers full!  disk full or too slow")
 
 def vmprof_execute_code(name, get_code_fn, result_class=None):
