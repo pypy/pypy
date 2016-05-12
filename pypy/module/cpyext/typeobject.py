@@ -196,6 +196,10 @@ def convert_member_defs(space, dict_w, members, w_type):
 
 def update_all_slots(space, w_type, pto):
     #  XXX fill slots in pto
+    # Not very sure about it, but according to
+    # test_call_tp_dealloc_when_created_from_python, we should not
+    # overwrite slots that are already set: these ones are probably
+    # coming from a parent C type.
 
     typedef = w_type.layout.typedef
     for method_name, slot_name, slot_names, slot_func in slotdefs_for_tp_slots:
@@ -223,7 +227,8 @@ def update_all_slots(space, w_type, pto):
         # XXX special case wrapper-functions and use a "specific" slot func
 
         if len(slot_names) == 1:
-            setattr(pto, slot_names[0], slot_func_helper)
+            if not getattr(pto, slot_names[0]):
+                setattr(pto, slot_names[0], slot_func_helper)
         else:
             assert len(slot_names) == 2
             struct = getattr(pto, slot_names[0])
@@ -240,7 +245,8 @@ def update_all_slots(space, w_type, pto):
                 struct = lltype.malloc(STRUCT_TYPE, flavor='raw', zero=True)
                 setattr(pto, slot_names[0], struct)
 
-            setattr(struct, slot_names[1], slot_func_helper)
+            if not getattr(struct, slot_names[1]):
+                setattr(struct, slot_names[1], slot_func_helper)
 
 def add_operators(space, dict_w, pto):
     # XXX support PyObject_HashNotImplemented
@@ -399,8 +405,7 @@ class W_PyCTypeObject(W_TypeObject):
 
         W_TypeObject.__init__(self, space, name,
             bases_w or [space.w_object], dict_w, force_new_layout=new_layout)
-        if not space.is_true(space.issubtype(self, space.w_type)):
-            self.flag_cpytype = True
+        self.flag_cpytype = True
         self.flag_heaptype = False
         # if a sequence or a mapping, then set the flag to force it
         if pto.c_tp_as_sequence and pto.c_tp_as_sequence.c_sq_item:
@@ -507,7 +512,14 @@ def type_attach(space, py_obj, w_type):
     typedescr = get_typedescr(w_type.layout.typedef)
 
     # dealloc
-    pto.c_tp_dealloc = typedescr.get_dealloc(space)
+    if space.gettypeobject(w_type.layout.typedef) is w_type:
+        # only for the exact type, like 'space.w_tuple' or 'space.w_list'
+        pto.c_tp_dealloc = typedescr.get_dealloc(space)
+    else:
+        # for all subtypes, use subtype_dealloc()
+        pto.c_tp_dealloc = llhelper(
+            subtype_dealloc.api_func.functype,
+            subtype_dealloc.api_func.get_wrapper(space))
     # buffer protocol
     if space.is_w(w_type, space.w_str):
         setup_bytes_buffer_procs(space, pto)

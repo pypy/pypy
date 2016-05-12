@@ -373,11 +373,12 @@ class StdObjSpace(ObjSpace):
             if cls.typedef.applevel_subclasses_base is not None:
                 cls = cls.typedef.applevel_subclasses_base
             #
-            subcls = get_unique_interplevel_subclass(
-                    self, cls, w_subtype.needsdel)
+            subcls = get_unique_interplevel_subclass(self, cls)
             instance = instantiate(subcls)
             assert isinstance(instance, cls)
             instance.user_setup(self, w_subtype)
+            if w_subtype.hasuserdel:
+                self.finalizer_queue.register_finalizer(instance)
         else:
             raise oefmt(self.w_TypeError,
                         "%N.__new__(%N): only for the type %N",
@@ -508,7 +509,12 @@ class StdObjSpace(ObjSpace):
         return None
 
     def view_as_kwargs(self, w_dict):
-        if type(w_dict) is W_DictObject:
+        # Tries to return (keys_list, values_list), or (None, None) if
+        # it fails.  It can fail on some dict implementations, so don't
+        # rely on it.  For dict subclasses, though, it never fails;
+        # this emulates CPython's behavior which often won't call
+        # custom __iter__() or keys() methods in dict subclasses.
+        if isinstance(w_dict, W_DictObject):
             return w_dict.view_as_kwargs()
         return (None, None)
 

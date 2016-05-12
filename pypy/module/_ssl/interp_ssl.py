@@ -108,6 +108,7 @@ constants["OPENSSL_VERSION_INFO"] = version_info
 constants["_OPENSSL_API_VERSION"] = version_info
 constants["OPENSSL_VERSION"] = SSLEAY_VERSION
 
+
 def ssl_error(space, msg, errno=0, w_errtype=None, errcode=0):
     reason_str = None
     lib_str = None
@@ -135,7 +136,6 @@ def ssl_error(space, msg, errno=0, w_errtype=None, errcode=0):
     space.setattr(w_exception, space.wrap("library"),
                   space.wrap(lib_str) if lib_str else space.w_None)
     return OperationError(w_exception_class, w_exception)
-
 
 class SSLNpnProtocols(object):
 
@@ -312,12 +312,17 @@ class SSLSocket(W_Root):
         self.peer_cert = lltype.nullptr(X509.TO)
         self.shutdown_seen_zero = False
         self.handshake_done = False
+        self.register_finalizer(space)
 
-    def __del__(self):
-        if self.peer_cert:
-            libssl_X509_free(self.peer_cert)
-        if self.ssl:
-            libssl_SSL_free(self.ssl)
+    def _finalize_(self):
+        peer_cert = self.peer_cert
+        if peer_cert:
+            self.peer_cert = lltype.nullptr(X509.TO)
+            libssl_X509_free(peer_cert)
+        ssl = self.ssl
+        if ssl:
+            self.ssl = lltype.nullptr(SSL.TO)
+            libssl_SSL_free(ssl)
 
     @unwrap_spec(data='bufferstr')
     def write(self, space, data):
@@ -932,6 +937,7 @@ def _create_tuple_for_attribute(space, name, value):
 
     return space.newtuple([w_name, w_value])
 
+
 def _get_aia_uri(space, certificate, nid):
     info = rffi.cast(AUTHORITY_INFO_ACCESS, libssl_X509_get_ext_d2i(
         certificate, NID_info_access, None, None))
@@ -1314,6 +1320,7 @@ class SSLContext(W_Root):
 
         rgc.add_memory_pressure(10 * 1024 * 1024)
         self.check_hostname = False
+        self.register_finalizer(space)
         
         # Defaults
         libssl_SSL_CTX_set_verify(self.ctx, SSL_VERIFY_NONE, None)
@@ -1339,9 +1346,11 @@ class SSLContext(W_Root):
                 finally:
                     libssl_EC_KEY_free(key)
 
-    def __del__(self):
-        if self.ctx:
-            libssl_SSL_CTX_free(self.ctx)
+    def _finalize_(self):
+        ctx = self.ctx
+        if ctx:
+            self.ctx = lltype.nullptr(SSL_CTX.TO)
+            libssl_SSL_CTX_free(ctx)
 
     @staticmethod
     @unwrap_spec(protocol=int)
@@ -1359,9 +1368,6 @@ class SSLContext(W_Root):
             # when another SSL call is done.
             libssl_ERR_clear_error()
             raise ssl_error(space, "No cipher can be selected.")
-
-    def __del__(self):
-        libssl_SSL_CTX_free(self.ctx)
 
     @unwrap_spec(server_side=int)
     def wrap_socket_w(self, space, w_sock, server_side,

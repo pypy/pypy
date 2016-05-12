@@ -61,3 +61,35 @@ CPyExt tweak: instead of "GIL not held when a CPython C extension module
 calls PyXxx", we now silently acquire/release the GIL.  Helps with
 CPython C extension modules that call some PyXxx() functions without
 holding the GIL (arguably, they are theorically buggy).
+
+.. branch: cpyext-test-A
+
+Get the cpyext tests to pass with "-A" (i.e. when tested directly with
+CPython).
+
+.. branch: oefmt
+
+.. branch: cpyext-werror
+
+Compile c snippets with -Werror in cpyext
+
+.. branch: gc-del-3
+
+Add rgc.FinalizerQueue, documented in pypy/doc/discussion/finalizer-order.rst.
+It is a more flexible way to make RPython finalizers.
+
+.. branch: unpacking-cpython-shortcut
+
+.. branch: cleanups
+
+.. branch: cpyext-more-slots
+
+.. branch: use-gc-del-3
+
+Use the new rgc.FinalizerQueue mechanism to clean up the handling of
+``__del__`` methods.  Fixes notably issue #2287.  (All RPython
+subclasses of W_Root need to use FinalizerQueue now.)
+
+.. branch: ufunc-outer
+
+Implement ufunc.outer on numpypy

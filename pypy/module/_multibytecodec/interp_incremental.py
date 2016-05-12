@@ -20,8 +20,9 @@ class MultibyteIncrementalBase(W_Root):
         self.codec = codec.codec
         self.name = codec.name
         self._initialize()
+        self.register_finalizer(space)
 
-    def __del__(self):
+    def _finalize_(self):
         self._free()
 
     def reset_w(self):

@@ -1,3 +1,4 @@
+from pypy.interpreter import gateway
 from rpython.rtyper.lltypesystem import rffi
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.test.test_api import BaseApiTest
@@ -383,6 +384,14 @@ class TestTypes(BaseApiTest):
         api.Py_DecRef(ref)
 
 class AppTestSlots(AppTestCpythonExtensionBase):
+    def setup_class(cls):
+        AppTestCpythonExtensionBase.setup_class.im_func(cls)
+        def _check_type_object(w_X):
+            assert w_X.is_cpytype()
+            assert not w_X.is_heaptype()
+        cls.w__check_type_object = cls.space.wrap(
+            gateway.interp2app(_check_type_object))
+
     def test_some_slots(self):
         module = self.import_extension('foo', [
             ("test_type", "METH_O",
@@ -737,8 +746,9 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             } IntLikeObject;
 
             static int
-            intlike_nb_bool(IntLikeObject *v)
+            intlike_nb_nonzero(PyObject *o)
             {
+                IntLikeObject *v = (IntLikeObject*)o;
                 if (v->value == -42) {
                     PyErr_SetNone(PyExc_ValueError);
                     return -1;
@@ -899,3 +909,158 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                           '    multiple bases have instance lay-out conflict')
         else:
             raise AssertionError("did not get TypeError!")
+
+    def test_call_tp_dealloc_when_created_from_python(self):
+        module = self.import_extension('foo', [
+            ("fetchFooType", "METH_VARARGS",
+             """
+                PyObject *o;
+                Foo_Type.tp_basicsize = sizeof(FooObject);
+                Foo_Type.tp_dealloc = &dealloc_foo;
+                Foo_Type.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_CHECKTYPES
+                                    | Py_TPFLAGS_BASETYPE;
+                Foo_Type.tp_new = &new_foo;
+                Foo_Type.tp_free = &PyObject_Del;
+                if (PyType_Ready(&Foo_Type) < 0) return NULL;
+
+                o = PyObject_New(PyObject, &Foo_Type);
+                init_foo(o);
+                Py_DECREF(o);   /* calls dealloc_foo immediately */
+
+                Py_INCREF(&Foo_Type);
+                return (PyObject *)&Foo_Type;
+             """),
+            ("newInstance", "METH_O",
+             """
+                PyTypeObject *tp = (PyTypeObject *)args;
+                PyObject *e = PyTuple_New(0);
+                PyObject *o = tp->tp_new(tp, e, NULL);
+                Py_DECREF(e);
+                return o;
+             """),
+            ("getCounter", "METH_VARARGS",
+             """
+                return PyInt_FromLong(foo_counter);
+             """)], prologue=
+            """
+            typedef struct {
+                PyObject_HEAD
+                int someval[99];
+            } FooObject;
+            static int foo_counter = 1000;
+            static void dealloc_foo(PyObject *foo) {
+                int i;
+                foo_counter += 10;
+                for (i = 0; i < 99; i++)
+                    if (((FooObject *)foo)->someval[i] != 1000 + i)
+                        foo_counter += 100000;   /* error! */
+                Py_TYPE(foo)->tp_free(foo);
+            }
+            static void init_foo(PyObject *o)
+            {
+                int i;
+                if (o->ob_type->tp_basicsize < sizeof(FooObject))
+                    abort();
+                for (i = 0; i < 99; i++)
+                    ((FooObject *)o)->someval[i] = 1000 + i;
+            }
+            static PyObject *new_foo(PyTypeObject *t, PyObject *a, PyObject *k)
+            {
+                PyObject *o;
+                foo_counter += 1000;
+                o = t->tp_alloc(t, 0);
+                init_foo(o);
+                return o;
+            }
+            static PyTypeObject Foo_Type = {
+                PyVarObject_HEAD_INIT(NULL, 0)
+                "foo.foo",
+            };
+            """)
+        Foo = module.fetchFooType()
+        assert module.getCounter() == 1010
+        Foo(); Foo()
+        for i in range(10):
+            if module.getCounter() >= 3030:
+                break
+            # NB. use self.debug_collect() instead of gc.collect(),
+            # otherwise rawrefcount's dealloc callback doesn't trigger
+            self.debug_collect()
+        assert module.getCounter() == 3030
+        #
+        class Bar(Foo):
+            pass
+        assert Foo.__new__ is Bar.__new__
+        Bar(); Bar()
+        for i in range(10):
+            if module.getCounter() >= 5050:
+                break
+            self.debug_collect()
+        assert module.getCounter() == 5050
+        #
+        module.newInstance(Foo)
+        for i in range(10):
+            if module.getCounter() >= 6060:
+                break
+            self.debug_collect()
+        assert module.getCounter() == 6060
+        #
+        module.newInstance(Bar)
+        for i in range(10):
+            if module.getCounter() >= 7070:
+                break
+            self.debug_collect()
+        assert module.getCounter() == 7070
+
+    def test_tp_call_reverse(self):
+        module = self.import_extension('foo', [
+           ("new_obj", "METH_NOARGS",
+            '''
+                PyObject *obj;
+                Foo_Type.tp_flags = Py_TPFLAGS_DEFAULT;
+                Foo_Type.tp_call = &my_tp_call;
+                if (PyType_Ready(&Foo_Type) < 0) return NULL;
+                obj = PyObject_New(PyObject, &Foo_Type);
+                return obj;
+            '''
+            )],
+            '''
+            static PyObject *
+            my_tp_call(PyObject *self, PyObject *args, PyObject *kwds)
+            {
+                return PyInt_FromLong(42);
+            }
+            static PyTypeObject Foo_Type = {
+                PyVarObject_HEAD_INIT(NULL, 0)
+                "foo.foo",
+            };
+            ''')
+        x = module.new_obj()
+        assert x() == 42
+        assert x(4, bar=5) == 42
+
+    def test_custom_metaclass(self):
+        module = self.import_extension('foo', [
+           ("getMetaClass", "METH_NOARGS",
+            '''
+                PyObject *obj;
+                FooType_Type.tp_flags = Py_TPFLAGS_DEFAULT;
+                FooType_Type.tp_base = &PyType_Type;
+                if (PyType_Ready(&FooType_Type) < 0) return NULL;
+                Py_INCREF(&FooType_Type);
+                return (PyObject *)&FooType_Type;
+            '''
+            )],
+            '''
+            static PyTypeObject FooType_Type = {
+                PyVarObject_HEAD_INIT(NULL, 0)
+                "foo.Type",
+            };
+            ''')
+        FooType = module.getMetaClass()
+        if not self.runappdirect:
+            self._check_type_object(FooType)
+        class X(object):
+            __metaclass__ = FooType
+        print repr(X)
+        X()

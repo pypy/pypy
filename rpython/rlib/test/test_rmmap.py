@@ -296,7 +296,7 @@ class TestMMap:
         f = open(self.tmpname + "l2", "w+")
         f.write("foobar")
         f.flush()
-        m = mmap.mmap(f.fileno(), 6, prot=~mmap.PROT_WRITE)
+        m = mmap.mmap(f.fileno(), 6, prot=mmap.PROT_READ|mmap.PROT_EXEC)
         py.test.raises(RTypeError, m.check_writeable)
         py.test.raises(RTypeError, m.check_writeable)
         m.close()

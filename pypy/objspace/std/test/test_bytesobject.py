@@ -109,6 +109,12 @@ class AppTestBytesObject:
         raises(TypeError, bytes.fromhex, True)
         raises(ValueError, bytes.fromhex, "hello world")
 
+    def test_format_wrongtype(self):
+        for int_format in '%d', '%o', '%x':
+            exc_info = raises(TypeError, int_format.__mod__, '123')
+            expected = int_format + ' format: a number is required, not str'
+            assert str(exc_info.value) == expected
+
     def test_split(self):
         assert b"".split() == []
         assert b"".split(b'x') == [b'']
