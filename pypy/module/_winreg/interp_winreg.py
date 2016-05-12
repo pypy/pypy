@@ -16,10 +16,11 @@ def raiseWindowsError(space, errcode, context):
 class W_HKEY(W_Root):
     def __init__(self, space, hkey):
         self.hkey = hkey
+        self.space = space
         self.register_finalizer(space)
 
-    def _finalize_(self, space):
-        self.Close(space)
+    def _finalize_(self):
+        self.Close(self.space)
 
     def as_int(self):
         return rffi.cast(rffi.SIZE_T, self.hkey)
