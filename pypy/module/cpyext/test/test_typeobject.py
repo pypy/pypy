@@ -321,7 +321,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
                      return NULL;
                  Py_DECREF(a1);
                  PyType_Modified(type);
-                 value = PyObject_GetAttrString(type, "a");
+                 value = PyObject_GetAttrString((PyObject *)type, "a");
                  Py_DECREF(value);
 
                  if (PyDict_SetItemString(type->tp_dict, "a",
@@ -329,7 +329,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
                      return NULL;
                  Py_DECREF(a2);
                  PyType_Modified(type);
-                 value = PyObject_GetAttrString(type, "a");
+                 value = PyObject_GetAttrString((PyObject *)type, "a");
                  return value;
              '''
              )
@@ -438,14 +438,14 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             ("test_tp_getattro", "METH_VARARGS",
              '''
                  PyObject *obj = PyTuple_GET_ITEM(args, 0);
-                 PyLongObject *value = PyTuple_GET_ITEM(args, 1);
+                 PyObject *value = PyTuple_GET_ITEM(args, 1);
                  if (!obj->ob_type->tp_getattro)
                  {
                      PyErr_SetString(PyExc_ValueError, "missing tp_getattro");
                      return NULL;
                  }
                  PyObject *name = PyUnicode_FromString("attr1");
-                 PyLongObject *attr = obj->ob_type->tp_getattro(obj, name);
+                 PyObject *attr = obj->ob_type->tp_getattro(obj, name);
                  if (PyLong_AsLong(attr) != PyLong_AsLong(value))
                  {
                      PyErr_SetString(PyExc_ValueError,
@@ -746,7 +746,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             } IntLikeObject;
 
             static int
-            intlike_nb_nonzero(PyObject *o)
+            intlike_nb_bool(PyObject *o)
             {
                 IntLikeObject *v = (IntLikeObject*)o;
                 if (v->value == -42) {
@@ -940,7 +940,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
              """),
             ("getCounter", "METH_VARARGS",
              """
-                return PyInt_FromLong(foo_counter);
+                return PyLong_FromLong(foo_counter);
              """)], prologue=
             """
             typedef struct {
@@ -1028,7 +1028,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             static PyObject *
             my_tp_call(PyObject *self, PyObject *args, PyObject *kwds)
             {
-                return PyInt_FromLong(42);
+                return PyLong_FromLong(42);
             }
             static PyTypeObject Foo_Type = {
                 PyVarObject_HEAD_INIT(NULL, 0)
@@ -1060,7 +1060,10 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         FooType = module.getMetaClass()
         if not self.runappdirect:
             self._check_type_object(FooType)
-        class X(object):
-            __metaclass__ = FooType
-        print repr(X)
+
+        # 2 vs 3 shenanigans to declare
+        # class X(object, metaclass=FooType): pass
+        X = FooType('X', (object,), {})
+
+        print(repr(X))
         X()
