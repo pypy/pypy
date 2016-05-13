@@ -68,7 +68,9 @@ def PyFloat_FromString(space, w_obj, _):
     backward compatibility."""
     return space.call_function(space.w_float, w_obj)
 
-@cpython_api([CONST_STRING, rffi.INT_real], rffi.DOUBLE, error=-1.0)
+UCHARP = lltype.Ptr(lltype.Array(
+    rffi.UCHAR, hints={'nolength':True, 'render_as_const':True}))
+@cpython_api([UCHARP, rffi.INT_real], rffi.DOUBLE, error=-1.0)
 def _PyFloat_Unpack4(space, ptr, le):
     input = rffi.charpsize2str(ptr, 4)
     if rffi.cast(lltype.Signed, le):
@@ -76,11 +78,10 @@ def _PyFloat_Unpack4(space, ptr, le):
     else:
         return runpack.runpack(">f", input)
 
-@cpython_api([CONST_STRING, rffi.INT_real], rffi.DOUBLE, error=-1.0)
+@cpython_api([UCHARP, rffi.INT_real], rffi.DOUBLE, error=-1.0)
 def _PyFloat_Unpack8(space, ptr, le):
     input = rffi.charpsize2str(ptr, 8)
     if rffi.cast(lltype.Signed, le):
         return runpack.runpack("<d", input)
     else:
         return runpack.runpack(">d", input)
-

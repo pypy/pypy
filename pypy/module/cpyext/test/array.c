@@ -1738,7 +1738,7 @@ array_reconstructor(PyObject *self, PyObject *args)
 
     typecode = (Py_UNICODE)typecode_int;
 
-    if (!PyType_Check(arraytype)) {
+    if (!PyType_Check((PyObject *)arraytype)) {
         PyErr_Format(PyExc_TypeError,
             "first argument must a type object, not %.200s",
             Py_TYPE(arraytype)->tp_name);
