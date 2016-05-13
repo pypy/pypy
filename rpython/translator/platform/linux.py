@@ -22,16 +22,8 @@ class BaseLinux(BasePosix):
     so_prefixes = ('lib', '')
 
     if platform.machine() == 's390x':
-        # force the right target arch for s390x
-        for cflag in cflags:
-            if cflag.startswith('-march='):
-                break
-        else:
-            # the default cpu architecture that is supported
-            # older versions are not supported
-            cflags += ('-march=z10',)
-        cflags += ('-m64','-mzarch')
-
+        from rpython.translator.platform.arch import s390x
+        cflags = s390x.update_cflags(cflags)
 
     def _args_for_shared(self, args):
         return ['-shared'] + args
