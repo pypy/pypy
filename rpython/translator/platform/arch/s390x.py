@@ -61,7 +61,7 @@ def s390x_cpu_revision():
     if machine == 2827 or machine == 2828:
         return "zEC12"
     if machine == 2964:
-        return "z13"
+        return "zEC12" # it would be z13, but gcc does not recognize this!
 
     # well all others are unsupported!
     return "unknown"
