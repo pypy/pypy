@@ -244,7 +244,9 @@ def get_L2cache_linux2_cpuinfo_s390x(filename="/proc/cpuinfo", label='cache2'):
             size = data[start:end]
             if size[len(size)-1] not in ('K', 'k'):    # assume kilobytes for now
                 continue
-            number = int(size[:len(size)-1])* 1024
+            last = len(size) - 1
+            assert last >= 0
+            number = int(size[:last]) * 1024
             # for now we look for the smallest of the L2 caches of the CPUs
             if number < L2cache:
                 L2cache = number
