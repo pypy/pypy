@@ -8,6 +8,7 @@ Note that this architecture is big endian.
 
 Currently supported ISAs:
 
+* z13 (released January 2015)
 * zEC12 (released September 2012)
 * z196 (released August 2010)
 * z10 (released February 2008)
