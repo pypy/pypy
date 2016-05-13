@@ -450,16 +450,30 @@ def str_segcount(space, w_obj, ref):
 
 @cpython_api([PyObject, Py_ssize_t, rffi.VOIDPP], lltype.Signed,
              header=None, error=-1)
-def str_getreadbuffer(space, w_str, segment, ref):
+def str_getreadbuffer(space, w_buf, segment, ref):
     from pypy.module.cpyext.bytesobject import PyString_AsString
     if segment != 0:
         raise oefmt(space.w_SystemError,
                     "accessing non-existent string segment")
-    pyref = make_ref(space, w_str)
-    ref[0] = PyString_AsString(space, pyref)
-    # Stolen reference: the object has better exist somewhere else
-    Py_DecRef(space, pyref)
-    return space.len_w(w_str)
+    buf = space.readbuf_w(w_buf)
+    try:
+        address = buf.get_raw_address()
+    except ValueError:
+        # convert to a string and leak some memory. :(
+        w_str = space.wrap(buf.as_str())
+        py_str = make_ref(space, w_str)
+        ref[0] = PyString_AsString(space, py_str)
+        if space.is_w(w_str, w_buf):
+            # We're reusing the string object, and it's the caller's
+            # responsibility to keep it alive.
+            Py_DecRef(space, py_str)
+        # else: we had to create a new string object to keep the
+        # bytes in, so we leak it on purpose.
+        # XXX Can we put a reference to the string object on the buffer?
+        return space.len_w(w_str)
+    else:
+        ref[0] = address
+        return len(buf)
 
 @cpython_api([PyObject, Py_ssize_t, rffi.CCHARPP], lltype.Signed,
              header=None, error=-1)
@@ -473,18 +487,6 @@ def str_getcharbuffer(space, w_str, segment, ref):
     # Stolen reference: the object has better exist somewhere else
     Py_DecRef(space, pyref)
     return space.len_w(w_str)
-
-@cpython_api([PyObject, Py_ssize_t, rffi.VOIDPP], lltype.Signed,
-             header=None, error=-1)
-def buf_getreadbuffer(space, pyref, segment, ref):
-    from pypy.module.cpyext.bufferobject import PyBufferObject
-    if segment != 0:
-        raise oefmt(space.w_SystemError,
-                    "accessing non-existent string segment")
-    py_buf = rffi.cast(PyBufferObject, pyref)
-    ref[0] = py_buf.c_b_ptr
-    #Py_DecRef(space, pyref)
-    return py_buf.c_b_size
 
 @cpython_api([PyObject, Py_ssize_t, rffi.CCHARPP], lltype.Signed,
              header=None, error=-1)
@@ -515,8 +517,8 @@ def setup_buffer_buffer_procs(space, pto):
     lltype.render_immortal(c_buf)
     c_buf.c_bf_getsegcount = llhelper(str_segcount.api_func.functype,
                                       str_segcount.api_func.get_wrapper(space))
-    c_buf.c_bf_getreadbuffer = llhelper(buf_getreadbuffer.api_func.functype,
-                                 buf_getreadbuffer.api_func.get_wrapper(space))
+    c_buf.c_bf_getreadbuffer = llhelper(str_getreadbuffer.api_func.functype,
+                                 str_getreadbuffer.api_func.get_wrapper(space))
     c_buf.c_bf_getcharbuffer = llhelper(buf_getcharbuffer.api_func.functype,
                                  buf_getcharbuffer.api_func.get_wrapper(space))
     pto.c_tp_as_buffer = c_buf

@@ -5,7 +5,8 @@ class AppTestBufferProtocol(AppTestCpythonExtensionBase):
     """Tests for the old buffer protocol."""
     spaceconfig = AppTestCpythonExtensionBase.spaceconfig.copy()
     # Also allow mmap to be importable.
-    spaceconfig['usemodules'] = list(spaceconfig['usemodules']) + ['mmap']
+    # XXX: this breaks all tests that run afterward! Not sure why yet.
+    # spaceconfig['usemodules'] = list(spaceconfig['usemodules']) + ['mmap']
 
     def w_get_buffer_support(self):
         return self.import_extension('buffer_support', [
