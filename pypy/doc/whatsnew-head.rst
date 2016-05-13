@@ -93,3 +93,9 @@ subclasses of W_Root need to use FinalizerQueue now.)
 .. branch: ufunc-outer
 
 Implement ufunc.outer on numpypy
+
+.. branch: z196-support
+
+PyPy can now be translated to specifically target z196 and z10 (older CPU revisions for s390x).
+To target z196 on a z13 machine supply CFLAGS="-march=z186" rpython/bin/rpython ...
+
