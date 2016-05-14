@@ -851,15 +851,7 @@ class TestGetcallargsFunctions(unittest.TestCase):
         else:
             self.fail('Exception not raised')
         self.assertIs(type(ex1), type(ex2))
-        try:
-            self.assertEqual(str(ex1), str(ex2))
-        except AssertionError:
-            # XXX: PyPy 3.2 produces slightly different error messages,
-            # to be fixed in 3.3
-            assert (str(ex1).startswith('<lambda>() takes ') and
-                    'non-keyword' in str(ex1) or
-                    any(name in str(ex2)
-                        for name in ('positional', 'keyword-only')))
+        self.assertEqual(str(ex1), str(ex2))
         del ex1, ex2
 
     def makeCallable(self, signature):

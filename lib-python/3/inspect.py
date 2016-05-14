@@ -1341,7 +1341,8 @@ def _get_user_defined_method(cls, method_name):
     except AttributeError:
         return
     else:
-        if not isinstance(meth, _NonUserDefinedCallables):
+        if  (meth is not getattr(type, method_name) and
+             meth is not getattr(object, method_name)):
             # Once '__signature__' will be added to 'C'-level
             # callables, this check won't be necessary
             return meth

@@ -384,6 +384,7 @@ class deque_iterator(object):
         return self
 
 class defaultdict(dict):
+    __slots__ = ["default_factory"]
     
     def __init__(self, *args, **kwds):
         if len(args) > 0:

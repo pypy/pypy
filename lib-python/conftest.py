@@ -256,7 +256,7 @@ testmap = [
     RegrTest('test_importhooks.py', core=True),
     RegrTest('test_importlib', 'XXX is a directory'),
     RegrTest('test_index.py'),
-    RegrTest('test_inspect.py'),
+    RegrTest('test_inspect.py', usemodules="struct unicodedata"),
     RegrTest('test_int.py', core=True),
     RegrTest('test_int_literal.py', core=True),
     RegrTest('test_io.py', core=True, usemodules='array binascii'),
