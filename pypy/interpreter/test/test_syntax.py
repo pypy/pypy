@@ -720,6 +720,11 @@ pass
             print_error()
             # implicit "del e" here
 
+    def test_cpython_issue2382(self):
+        code = 'Python = "\u1e54\xfd\u0163\u0125\xf2\xf1" +'
+        exc = raises(SyntaxError, compile, code, 'foo', 'exec')
+        assert exc.value.offset in (19, 20) # pypy, cpython
+
 
 if __name__ == '__main__':
     # only to check on top of CPython (you need 2.4)
