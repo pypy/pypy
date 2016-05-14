@@ -72,7 +72,7 @@ UCHARP = lltype.Ptr(lltype.Array(
     rffi.UCHAR, hints={'nolength':True, 'render_as_const':True}))
 @cpython_api([UCHARP, rffi.INT_real], rffi.DOUBLE, error=-1.0)
 def _PyFloat_Unpack4(space, ptr, le):
-    input = rffi.charpsize2str(ptr, 4)
+    input = rffi.charpsize2str(rffi.cast(CONST_STRING, ptr), 4)
     if rffi.cast(lltype.Signed, le):
         return runpack.runpack("<f", input)
     else:
@@ -80,7 +80,7 @@ def _PyFloat_Unpack4(space, ptr, le):
 
 @cpython_api([UCHARP, rffi.INT_real], rffi.DOUBLE, error=-1.0)
 def _PyFloat_Unpack8(space, ptr, le):
-    input = rffi.charpsize2str(ptr, 8)
+    input = rffi.charpsize2str(rffi.cast(CONST_STRING, ptr), 8)
     if rffi.cast(lltype.Signed, le):
         return runpack.runpack("<d", input)
     else:
