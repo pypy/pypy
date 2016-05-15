@@ -79,10 +79,14 @@ def find_interesting_variables(graph):
         for op in block.operations:
             if op.opname == 'gc_push_roots':
                 for v in op.args:
+                    if not isinstance(v, Variable):
+                        continue
                     interesting_vars.add(v)
                     pending_pred.append((block, v))
             elif op.opname == 'gc_pop_roots':
                 for v in op.args:
+                    if not isinstance(v, Variable):
+                        continue
                     assert v in interesting_vars   # must be pushed just above
                     pending_succ.append((block, v))
     if not interesting_vars:
@@ -177,7 +181,8 @@ def expand_push_roots(graph, regalloc):
         newops = []
         for op in block.operations:
             if op.opname == 'gc_push_roots':
-                newops += expand_one_push_roots(regalloc, op.args)
+                args = [v for v in op.args if isinstance(v, Variable)]
+                newops += expand_one_push_roots(regalloc, args)
                 any_change = True
             else:
                 newops.append(op)
@@ -235,7 +240,7 @@ def move_pushes_earlier(graph, regalloc):
             else:
                 continue   # no gc_pop_roots in this block
             for v in op.args:
-                if regalloc.getcolor(v) == index:
+                if isinstance(v, Variable) and regalloc.getcolor(v) == index:
                     break
             else:
                 continue   # no variable goes into index i
@@ -300,7 +305,7 @@ def move_pushes_earlier(graph, regalloc):
                         prevblock1 = link1.prevblock
                         if prevblock1 is not None:
                             w1 = link1.args[varindex]
-                            if w1 not in pred and isinstance(w1, Variable):
+                            if isinstance(w1, Variable) and w1 not in pred:
                                 pending_pred.append((prevblock1, w1,
                                                 len(prevblock1.operations)))
             U.union_list(list(pred))
@@ -357,7 +362,9 @@ def move_pushes_earlier(graph, regalloc):
                         # it is possible to have gc_pop_roots() without
                         # w in the args, if w is the result of the call
                         # that comes just before.
-                        if w in op.args and regalloc.checkcolor(w, index):
+                        if (isinstance(w, Variable) and
+                                w in op.args and
+                                regalloc.checkcolor(w, index)):
                             success_count += 1
                         else:
                             mark.append((index, link, varindex))
@@ -369,7 +376,7 @@ def move_pushes_earlier(graph, regalloc):
                             mark.append((index, link, varindex))
                             break
                 else:
-                    if w not in P:
+                    if not isinstance(w, Variable) or w not in P:
                         mark.append((index, link, varindex))
 
         if success_count > 0:
@@ -401,10 +408,12 @@ def expand_pop_roots(graph, regalloc):
         newops = []
         for op in block.operations:
             if op.opname == 'gc_pop_roots':
-                expanded = list(expand_one_pop_roots(regalloc, op.args))
+                args = [v for v in op.args if isinstance(v, Variable)]
+                expanded = list(expand_one_pop_roots(regalloc, args))
                 drop = {}
                 for op1 in expanded:
-                    drop[op1.args[1]] = op1.args[0].value
+                    if isinstance(op1.args[1], Variable):
+                        drop[op1.args[1]] = op1.args[0].value
                 newops += expanded
                 any_change = True
             elif (op.opname == 'gc_save_root' and

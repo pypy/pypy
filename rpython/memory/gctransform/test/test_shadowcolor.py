@@ -248,17 +248,14 @@ def test_allocate_registers_5():
 
 @given(strategies.lists(strategies.booleans()))
 def test_make_bitmask(boollist):
-    index, c = make_bitmask(boollist)
+    index, bitmask = make_bitmask(boollist)
     if index is None:
-        assert c is None
+        assert bitmask is None
     else:
         assert 0 <= index < len(boollist)
         assert boollist[index] == False
-        if c == c_NULL:
+        if bitmask == 0:
             bitmask = 1
-        else:
-            assert c.concretetype == lltype.Signed
-            bitmask = c.value
         while bitmask:
             if bitmask & 1:
                 assert index >= 0
@@ -282,6 +279,8 @@ class FakeRegAlloc:
             assert spaceop.opname == self.expected_op
             result.append((spaceop.args[0].value, spaceop.args[1]))
         return result
+
+c_NULL = Constant(0, lltype.Signed)
 
 def test_expand_one_push_roots():
     regalloc = FakeRegAlloc('gc_save_root', a=0, b=1, c=2)
