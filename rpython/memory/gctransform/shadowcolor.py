@@ -253,7 +253,6 @@ def move_pushes_earlier(graph, regalloc):
                         if w2 in succ:
                             continue
                         succ.add(w2)
-                        # XXX renaming
                         for op2 in block2.operations:
                             if op2.opname in ('gc_save_root', 'gc_pop_roots'):
                                 break
@@ -264,8 +263,7 @@ def move_pushes_earlier(graph, regalloc):
 
         G = defaultdict(set)
         for block in graph.iterblocks():
-            for op in block.operations:
-                # XXX handle renames
+            for opindex, op in enumerate(block.operations):
                 if op.opname == 'gc_save_root' and op.args[0].value == index:
                     break
             else:
@@ -273,21 +271,29 @@ def move_pushes_earlier(graph, regalloc):
 
             key = (block, op)
             pred = set()
-            pending_pred = [(block, op.args[1])]
+            pending_pred = [(block, op.args[1], opindex)]
             while pending_pred:
-                block1, v1 = pending_pred.pop()
-                if v1 not in block1.inputargs:
-                    # XXX handle renames
-                    pass
+                block1, v1, opindex1 = pending_pred.pop()
+                for i in range(opindex1-1, -1, -1):
+                    op1 = block1.operations[i]
+                    if op1.opname == 'gc_pop_roots':
+                        break    # stop
+                    if op1.result is v1:
+                        if not is_trivial_rewrite(op1):
+                            break   # stop
+                        v1 = op1.args[0]
                 else:
-                    pred.add(v1)
                     varindex = block1.inputargs.index(v1)
+                    if v1 in pred:
+                        continue    # already done
+                    pred.add(v1)
                     for link1 in entrymap[block1]:
                         prevblock1 = link1.prevblock
                         if prevblock1 is not None:
                             w1 = link1.args[varindex]
                             if w1 not in pred:
-                                pending_pred.append((prevblock1, w1))
+                                pending_pred.append((prevblock1, w1,
+                                                len(prevblock1.operations)))
             U.union_list(list(pred))
             for v1 in pred:
                 G[v1].add(key)
