@@ -59,10 +59,22 @@ class ShadowStackRootWalker(BaseRootWalker):
         def walk_stack_root(callback, start, end):
             gc = self.gc
             addr = end
+            skip = 0
             while addr != start:
                 addr -= sizeofaddr
-                if gc.points_to_valid_gc_object(addr):
-                    callback(gc, addr)
+                #XXX reintroduce support for tagged values?
+                #if gc.points_to_valid_gc_object(addr):
+                #    callback(gc, addr)
+
+                if skip & 1 == 0:
+                    content = addr.address[0]
+                    if content:
+                        n = llmemory.cast_adr_to_int(content)
+                        if n & 1 == 0:
+                            callback(gc, addr)  # non-0, non-odd: a regular ptr
+                        else:
+                            skip = n            # odd number: a skip bitmask
+                skip >>= 1
         self.rootstackhook = walk_stack_root
 
         self.shadow_stack_pool = ShadowStackPool(gcdata)

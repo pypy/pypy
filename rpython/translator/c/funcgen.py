@@ -33,6 +33,7 @@ class FunctionCodeGenerator(object):
     Collects information about a function which we have to generate
     from a flow graph.
     """
+    pre_return_code = None
 
     def __init__(self, graph, db, exception_policy, functionname):
         self.graph = graph
@@ -173,6 +174,12 @@ class FunctionCodeGenerator(object):
 
     def cfunction_body(self):
         graph = self.graph
+        if (len(graph.startblock.operations) >= 1 and
+            graph.startblock.operations[0].opname == 'gc_enter_roots_frame'):
+            for line in self.gcpolicy.enter_roots_frame(self,
+                                        graph.startblock.operations[0]):
+                yield line
+
         yield 'goto block0;'    # to avoid a warning "this label is not used"
 
         # generate the body of each block
@@ -193,6 +200,8 @@ class FunctionCodeGenerator(object):
                 retval = self.expr(block.inputargs[0])
                 if self.exception_policy != "exc_helper":
                     yield 'RPY_DEBUG_RETURN();'
+                if self.pre_return_code:
+                    yield self.pre_return_code
                 yield 'return %s;' % retval
                 continue
             elif block.exitswitch is None:

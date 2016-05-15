@@ -123,14 +123,12 @@ def _gc_restore_root(index, var):
     return SpaceOperation('gc_restore_root', [c_index, var],
                           varoftype(lltype.Void))
 
-c_NULL = Constant(lltype.nullptr(llmemory.GCREF.TO), llmemory.GCREF)
-
 def make_bitmask(filled):
     n = filled.count(False)
     if n == 0:
         return (None, None)
     if n == 1:
-        return (filled.index(False), c_NULL)
+        return (filled.index(False), 0)
     bitmask = 0
     last_index = 0
     for i in range(len(filled)):
@@ -139,7 +137,7 @@ def make_bitmask(filled):
             last_index = i
             bitmask |= 1
     assert bitmask & 1
-    return (last_index, Constant(bitmask, lltype.Signed))
+    return (last_index, bitmask)
 
 
 def expand_one_push_roots(regalloc, args):
@@ -152,11 +150,12 @@ def expand_one_push_roots(regalloc, args):
             assert not filled[index]
             filled[index] = True
             yield _gc_save_root(index, v)
-        bitmask_index, bitmask_c = make_bitmask(filled)
+        bitmask_index, bitmask = make_bitmask(filled)
         if bitmask_index is not None:
             # xxx we might in some cases avoid this gc_save_root
             # entirely, if we know we're after another gc_push/gc_pop
             # that wrote exactly the same mask at the same index
+            bitmask_c = Constant(bitmask, lltype.Signed)
             yield _gc_save_root(bitmask_index, bitmask_c)
 
 def expand_one_pop_roots(regalloc, args):
