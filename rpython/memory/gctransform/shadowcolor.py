@@ -6,7 +6,8 @@ from rpython.translator.unsimplify import varoftype
 
 
 def is_trivial_rewrite(op):
-    return op.opname in ('same_as', 'cast_pointer', 'cast_opaque_ptr')
+    return (op.opname in ('same_as', 'cast_pointer', 'cast_opaque_ptr')
+                and isinstance(op.args[0], Variable))
 
 
 def find_predecessors(graph, pending_pred):
@@ -193,6 +194,8 @@ def move_pushes_earlier(graph, regalloc):
     one path, we generate it explicitly on the other paths, and we
     remove the original gc_push_root.  If the process doesn't succeed
     in doing any such removal, we don't do anything.
+
+    Should run after expand_push_roots(), but before expand_pop_roots().
     """
     # Concrete example (assembler tested on x86-64 gcc 5.3 and clang 3.7):
     #
@@ -209,10 +212,47 @@ def move_pushes_earlier(graph, regalloc):
     # => the store and the       => the store is before, and gcc/clang
     # load are in the loop,      moves the load after the loop
     # even in the assembler      (the commented-out '*foo=b' is removed
-    #                            by this function, but gcc/clang would
-    #                            also remove it)
+    #                            here, but gcc/clang would also remove it)
+    
+    
+    xxxxxxxxxxxx
+    if not regalloc:
+        return
 
-    x.x.x.x
+    process = []
+    for block in graph.iterblocks():    # XXX better order?
+        for op in block.operations:
+            if op.opname == 'gc_save_root':
+                if isinstance(op.args[1], Variable):
+                    process.append((block, op))
+            else:
+                assert op.opname != 'gc_restore_root'
+
+    for initial_block, op_save in process:
+        new_block_locations = []
+        new_link_locations = []
+        num_removed = 0
+        pending = [(initial_block, op_save)]
+        while pending:
+            block, v = pending.pop()
+            
+            
+            if v in block.inputargs:
+                xxxx
+            else:
+                for op in block.operations:
+                    if op.result is v:
+                        if is_trivial_rewrite(op):
+                            pending.append((block, op.args[0]))
+                        else:
+                            new_block_locations = [(block, op)]
+                        break
+                    elif op.opname == 'gc_pop_roots':
+                        yyyyyy
+                        break
+                else:
+                    raise AssertionError("%r: no origin for %r in block %r"
+                                         % (graph, v, block))
 
 
 def expand_pop_roots(graph):
