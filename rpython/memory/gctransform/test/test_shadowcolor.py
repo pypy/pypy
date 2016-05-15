@@ -3,6 +3,7 @@ from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.test.test_llinterp import gengraph
 from rpython.conftest import option
 from rpython.memory.gctransform.shadowcolor import *
+from rpython.flowspace import model as graphmodel
 from hypothesis import given, strategies
 
 
@@ -309,3 +310,28 @@ def test_expand_one_pop_roots():
     assert regalloc.check(expand_one_pop_roots(regalloc, [])) == []
 
     assert list(expand_one_pop_roots(None, [])) == []
+
+def test_move_pushes_earlier():
+    def g(a):
+        return a - 1
+    def f(a, b):
+        while a > 10:
+            llop.gc_push_roots(lltype.Void, b)
+            a = g(a)
+            llop.gc_pop_roots(lltype.Void, b)
+        return b
+
+    graph = make_graph(f, [int, llmemory.GCREF])
+    regalloc = allocate_registers(graph)
+    expand_push_roots(graph, regalloc)
+    move_pushes_earlier(graph, regalloc)
+    expand_pop_roots(graph, regalloc)
+    assert graphmodel.summary(graph) == {
+        'gc_save_root': 1,
+        'gc_restore_root': 1,
+        'int_gt': 1,
+        'direct_call': 1,
+        }
+    assert len(graph.startblock.operations) == 1
+    assert graph.startblock.operations[0].opname == 'gc_save_root'
+    assert graph.startblock.operations[0].args[0].value == 0

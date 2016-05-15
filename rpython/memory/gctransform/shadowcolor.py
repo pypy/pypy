@@ -1,8 +1,11 @@
 from rpython.rtyper.lltypesystem import lltype, llmemory
-from rpython.flowspace.model import mkentrymap
+from rpython.flowspace.model import mkentrymap, checkgraph
 from rpython.flowspace.model import Variable, Constant, SpaceOperation
 from rpython.tool.algo.regalloc import perform_register_allocation
-from rpython.translator.unsimplify import varoftype
+from rpython.tool.algo.unionfind import UnionFind
+from rpython.translator.unsimplify import varoftype, insert_empty_block
+from rpython.translator.simplify import join_blocks
+from collections import defaultdict
 
 
 def is_trivial_rewrite(op):
@@ -171,7 +174,7 @@ def expand_push_roots(graph, regalloc):
         newops = []
         for op in block.operations:
             if op.opname == 'gc_push_roots':
-                newops += expand_one_push_roots(regalloc, op)
+                newops += expand_one_push_roots(regalloc, op.args)
                 any_change = True
             else:
                 newops.append(op)
@@ -182,20 +185,11 @@ def expand_push_roots(graph, regalloc):
 def move_pushes_earlier(graph, regalloc):
     """gc_push_roots and gc_pop_roots are pushes/pops to the shadowstack,
     immediately enclosing the operation that needs them (typically a call).
-    Here, we try to move individual pushes earlier, in fact as early as
-    possible under the following conditions: we only move it across vars
-    that are 'interesting_vars'; and we stop when we encounter the
-    operation that produces the value, or when we encounter a gc_pop_roots.
-    In the latter case, if that gc_pop_roots pops the same value out of the
-    same stack location, then success: we can remove the gc_push_root on
-    that path.
+    Here, we try to move individual pushes earlier.
 
-    If the process succeeds to remove the gc_push_root along at least
-    one path, we generate it explicitly on the other paths, and we
-    remove the original gc_push_root.  If the process doesn't succeed
-    in doing any such removal, we don't do anything.
-
-    Should run after expand_push_roots(), but before expand_pop_roots().
+    Should run after expand_push_roots(), but before expand_pop_roots(),
+    so that it sees individual 'gc_save_root' operations but bulk
+    'gc_pop_roots' operations.
     """
     # Concrete example (assembler tested on x86-64 gcc 5.3 and clang 3.7):
     #
@@ -213,49 +207,129 @@ def move_pushes_earlier(graph, regalloc):
     # load are in the loop,      moves the load after the loop
     # even in the assembler      (the commented-out '*foo=b' is removed
     #                            here, but gcc/clang would also remove it)
-    
-    
-    xxxxxxxxxxxx
+
+    # Draft of the algorithm: see shadowcolor.txt
+
     if not regalloc:
         return
 
-    process = []
-    for block in graph.iterblocks():    # XXX better order?
-        for op in block.operations:
-            if op.opname == 'gc_save_root':
-                if isinstance(op.args[1], Variable):
-                    process.append((block, op))
+    Plist = []
+
+    for i in range(regalloc.numcolors):
+        U = UnionFind()
+
+        S = set()
+        for block in graph.iterblocks():
+            for op in reversed(block.operations):
+                # XXX handle renames
+                if op.opname == 'gc_pop_roots':
+                    break
             else:
-                assert op.opname != 'gc_restore_root'
-
-    for initial_block, op_save in process:
-        new_block_locations = []
-        new_link_locations = []
-        num_removed = 0
-        pending = [(initial_block, op_save)]
-        while pending:
-            block, v = pending.pop()
-            
-            
-            if v in block.inputargs:
-                xxxx
+                continue   # no gc_pop_roots in this block
+            for v in op.args:
+                if regalloc.getcolor(v) == i:
+                    break
             else:
-                for op in block.operations:
-                    if op.result is v:
-                        if is_trivial_rewrite(op):
-                            pending.append((block, op.args[0]))
-                        else:
-                            new_block_locations = [(block, op)]
-                        break
-                    elif op.opname == 'gc_pop_roots':
-                        yyyyyy
-                        break
-                else:
-                    raise AssertionError("%r: no origin for %r in block %r"
-                                         % (graph, v, block))
+                continue   # no variable goes into index i
+            lst = list(find_successors(graph, [(block, v)]))
+            U.union_list(lst)
+            S.update(lst)
+
+        G = defaultdict(set)
+        for block in graph.iterblocks():
+            for op in block.operations:
+                # XXX handle renames
+                if op.opname == 'gc_save_root' and op.args[0].value == i:
+                    break
+            else:
+                continue   # no matching gc_save_root in this block
+            lst = list(find_predecessors(graph, [(block, op.args[1])]))
+            U.union_list(lst)
+            for v1 in lst:
+                G[v1].add((block, op))
+
+        M = S.intersection(G)
+
+        parts_target = {}
+        for v in M:
+            vp = U.find_rep(v)
+            if vp not in parts_target:
+                new_part = (i, set(), set())
+                # (index,
+                #  subset P of variables,
+                #  set of (block, gc_save_root))
+                Plist.append(new_part)
+                parts_target[vp] = new_part
+            part = parts_target[vp]
+            part[1].add(v)
+            part[2].update(G[v])
+
+    #P.sort(...heuristic?)
+
+    entrymap = mkentrymap(graph)
+    inputvars = {}    # {inputvar: (its block, its index in inputargs)}
+    for block in graph.iterblocks():
+        for i, v in enumerate(block.inputargs):
+            inputvars[v] = (block, i)
+
+    variables_along_changes = set()
+
+    for i, P, gcsaveroots in Plist:
+        if variables_along_changes.intersection(P):
+            continue
+        if any(op not in block.operations for block, op in gcsaveroots):
+            continue
+
+        success = False
+        mark = []
+
+        for v in P:
+            try:
+                block, varindex = inputvars[v]
+            except KeyError:
+                continue
+            for link in entrymap[block]:
+                w = link.args[varindex]
+                maybe_found = True   # unless proven false
+                try:
+                    if regalloc.getcolor(w) != i:
+                        maybe_found = False
+                except KeyError:
+                    maybe_found = False
+                if maybe_found:
+                    for op in reversed(link.prevblock.operations):
+                        # XXX handle renames
+                        if op.opname == 'gc_pop_roots':
+                            if w in op.args:
+                                success = True
+                            else:
+                                maybe_found = False
+                            break
+                    else:
+                        maybe_found = False
+                if not maybe_found:
+                    if w not in P:
+                        mark.append((link, varindex))
+
+        if success:
+            for block, op in gcsaveroots:
+                newops = list(block.operations)
+                newops.remove(op)
+                block.operations = newops
+
+            for link, varindex in mark:
+                newblock = insert_empty_block(link)
+                v = newblock.inputargs[varindex]
+                newblock.operations.append(_gc_save_root(i, v))
+
+            variables_along_changes.update(P)
+
+    if variables_along_changes:     # if there was any change
+        checkgraph(graph)
+        join_blocks(graph)
 
 
-def expand_pop_roots(graph):
+def expand_pop_roots(graph, regalloc):
     """gc_pop_roots => series of gc_restore_root; this is done after
     move_pushes_earlier() because that one doesn't work correctly if
     a completely-empty gc_pop_roots is removed.
@@ -265,7 +339,7 @@ def expand_pop_roots(graph):
         newops = []
         for op in block.operations:
             if op.opname == 'gc_pop_roots':
-                newops += expand_one_pop_roots(regalloc, op)
+                newops += expand_one_pop_roots(regalloc, op.args)
                 any_change = True
             else:
                 newops.append(op)
