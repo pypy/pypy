@@ -438,6 +438,81 @@ def add_enter_roots_frame(graph, regalloc, c_gcdata):
                         # new blocks made by insert_empty_block() earlier
 
 
+class PostProcessCheckError(Exception):
+    pass
+
+def postprocess_double_check(graph):
+    # Debugging only: double-check that the placement is correct.
+    # Assumes that every gc_restore_root() indicates that the variable
+    # must be saved at the given position in the shadowstack frame (in
+    # practice it may have moved because of the GC, but in theory it
+    # is still the "same" object).  So we build the set of all known
+    # valid-in-all-paths saved locations, and check that.
+
+    saved = {}  # {var-from-inputargs: location} where location is:
+                #    <unset>: we haven't seen this variable so far
+                #    set-of-indexes: says where the variable is always
+                #                    saved at the start of this block
+                #    empty-set: same as above, so: "saved nowhere"
+
+    for v in graph.startblock.inputargs:
+        saved[v] = frozenset()    # function arguments are not saved anywhere
+
+    pending = set([graph.startblock])
+    while pending:
+        block = pending.pop()
+        locsaved = {}
+        for v in block.inputargs:
+            locsaved[v] = saved[v]
+        for op in block.operations:
+            if op.opname == 'gc_restore_root':
+                if isinstance(op.args[1], Constant):
+                    continue
+                num = op.args[0].value
+                if num not in locsaved[op.args[1]]:
+                    raise PostProcessCheckError(graph, block, op, num, locsaved)
+            elif op.opname == 'gc_save_root':
+                num = op.args[0].value
+                v = op.args[1]
+                if isinstance(v, Variable):
+                    locsaved[v] = locsaved[v].union([num])
+                else:
+                    if v.concretetype != lltype.Signed:
+                        locsaved[v] = locsaved.get(v, frozenset()).union([num])
+                        continue
+                    bitmask = v.value
+                    if bitmask == 0:
+                        bitmask = 1
+                    assert bitmask & 1
+                    assert bitmask < (2<<num)
+                    nummask = [i for i in range(num+1)
+                                 if bitmask & (1<<(num-i))]
+                    assert nummask[-1] == num
+                    for v in locsaved:
+                        locsaved[v] = locsaved[v].difference(nummask)
+            elif is_trivial_rewrite(op):
+                locsaved[op.result] = locsaved[op.args[0]]
+            else:
+                locsaved[op.result] = frozenset()
+        for link in block.exits:
+            changed = False
+            for i, v in enumerate(link.args):
+                try:
+                    loc = locsaved[v]
+                except KeyError:
+                    assert isinstance(v, Constant)
+                    loc = frozenset()
+                w = link.target.inputargs[i]
+                if w in saved:
+                    if loc == saved[w]:
+                        continue      # already up-to-date
+                    loc = loc.intersection(saved[w])
+                saved[w] = loc
+                changed = True
+            if changed:
+                pending.add(link.target)
+
+
 def postprocess_graph(graph, c_gcdata):
     """Collect information about the gc_push_roots and gc_pop_roots
     added in this complete graph, and replace them with real operations.
@@ -448,3 +523,4 @@ def postprocess_graph(graph, c_gcdata):
     expand_pop_roots(graph, regalloc)
     add_enter_roots_frame(graph, regalloc, c_gcdata)
     checkgraph(graph)
+    postprocess_double_check(graph)

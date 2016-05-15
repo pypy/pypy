@@ -336,6 +336,7 @@ def test_move_pushes_earlier_1():
     assert len(graph.startblock.operations) == 1
     assert graph.startblock.operations[0].opname == 'gc_save_root'
     assert graph.startblock.operations[0].args[0].value == 0
+    postprocess_double_check(graph)
 
 def test_move_pushes_earlier_2():
     def g(a):
@@ -363,6 +364,7 @@ def test_move_pushes_earlier_2():
         'int_sub': 1,
         'direct_call': 2,
         }
+    postprocess_double_check(graph)
 
 def test_remove_intrablock_push_roots():
     def g(a):
@@ -416,6 +418,7 @@ def test_move_pushes_earlier_rename_1():
         'int_sub': 1,
         'direct_call': 2,
         }
+    postprocess_double_check(graph)
 
 def test_move_pushes_earlier_rename_2():
     def g(a):
@@ -445,6 +448,7 @@ def test_move_pushes_earlier_rename_2():
         'int_sub': 1,
         'direct_call': 2,
         }
+    postprocess_double_check(graph)
 
 def test_move_pushes_earlier_rename_3():
     def g(a):
@@ -476,6 +480,7 @@ def test_move_pushes_earlier_rename_3():
         'int_sub': 2,
         'direct_call': 2,
         }
+    postprocess_double_check(graph)
 
 def test_move_pushes_earlier_rename_4():
     def g(a):
@@ -515,3 +520,4 @@ def test_move_pushes_earlier_rename_4():
         'int_sub': 3,
         'direct_call': 2,
         }
+    postprocess_double_check(graph)
