@@ -1333,7 +1333,8 @@ _MethodWrapper = type(all.__call__)
 _NonUserDefinedCallables = (_WrapperDescriptor,
                             _MethodWrapper,
                             types.BuiltinFunctionType)
-builtin_code_type = type(dict.update.__code__)
+
+_builtin_code_type = type(dict.update.__code__)
 
 def _get_user_defined_method(cls, method_name):
     try:
@@ -1341,11 +1342,14 @@ def _get_user_defined_method(cls, method_name):
     except AttributeError:
         return
     else:
+        # The particular check cpython uses to determine if a particular method
+        # is a builtin or not doesn't work on pypy. The following code is
+        # pypy-specific.
         try:
             code = meth.__code__
         except AttributeError:
             return
-        if not isinstance(code, builtin_code_type):
+        if not isinstance(code, _builtin_code_type):
             # Once '__signature__' will be added to 'C'-level
             # callables, this check won't be necessary
             return meth
