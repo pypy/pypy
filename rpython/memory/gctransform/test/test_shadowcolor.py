@@ -4,6 +4,7 @@ from rpython.rtyper.test.test_llinterp import gengraph
 from rpython.conftest import option
 from rpython.memory.gctransform.shadowcolor import *
 from rpython.flowspace import model as graphmodel
+from rpython.translator.simplify import join_blocks
 from hypothesis import given, strategies
 
 
@@ -332,6 +333,7 @@ def test_move_pushes_earlier_1():
         'int_gt': 1,
         'direct_call': 1,
         }
+    join_blocks(graph)
     assert len(graph.startblock.operations) == 1
     assert graph.startblock.operations[0].opname == 'gc_save_root'
     assert graph.startblock.operations[0].args[0].value == 0
