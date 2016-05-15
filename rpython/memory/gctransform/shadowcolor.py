@@ -4,6 +4,7 @@ from rpython.flowspace.model import Variable, Constant, SpaceOperation
 from rpython.tool.algo.regalloc import perform_register_allocation
 from rpython.tool.algo.unionfind import UnionFind
 from rpython.translator.unsimplify import varoftype, insert_empty_block
+from rpython.translator.unsimplify import insert_empty_startblock
 from rpython.translator.simplify import join_blocks
 from collections import defaultdict
 
@@ -153,6 +154,9 @@ def expand_one_push_roots(regalloc, args):
             yield _gc_save_root(index, v)
         bitmask_index, bitmask_c = make_bitmask(filled)
         if bitmask_index is not None:
+            # xxx we might in some cases avoid this gc_save_root
+            # entirely, if we know we're after another gc_push/gc_pop
+            # that wrote exactly the same mask at the same index
             yield _gc_save_root(bitmask_index, bitmask_c)
 
 def expand_one_pop_roots(regalloc, args):
@@ -380,9 +384,8 @@ def move_pushes_earlier(graph, regalloc):
     if variables_along_changes:     # if there was any change
         for index, link, varindex in insert_gc_push_root:
             v = link.args[varindex]
-            newblock = insert_empty_block(link, newops=[
+            insert_empty_block(link, newops=[
                 _gc_save_root(index, v)])
-    return bool(variables_along_changes)
 
 
 def expand_pop_roots(graph, regalloc):
@@ -414,14 +417,25 @@ def expand_pop_roots(graph, regalloc):
             block.operations = newops
 
 
-def postprocess_graph(graph):
+def add_enter_roots_frame(graph, regalloc):
+    if regalloc is None:
+        return
+    insert_empty_startblock(graph)
+    c_num = Constant(regalloc.numcolors, lltype.Signed)
+    graph.startblock.operations.append(
+        SpaceOperation('gc_enter_roots_frame', [c_num], varoftype(lltype.Void)))
+
+    join_blocks(graph)  # for the new block just above, but also for the extra
+                        # new blocks made by insert_empty_block() earlier
+
+
+def postprocess_graph(graph, c_gcdata):
     """Collect information about the gc_push_roots and gc_pop_roots
     added in this complete graph, and replace them with real operations.
     """
     regalloc = allocate_registers(graph)
     expand_push_roots(graph, regalloc)
-    changed = move_pushes_earlier(graph, regalloc)
+    move_pushes_earlier(graph, regalloc)
     expand_pop_roots(graph, regalloc)
-    if changed:
-        join_blocks(graph)
+    add_enter_roots_frame(graph, regalloc)
     checkgraph(graph)

@@ -207,7 +207,7 @@ class ShadowStackRootWalker(BaseRootWalker):
 
     def postprocess_graph(self, gct, graph):
         from rpython.memory.gctransform import shadowcolor
-        shadowcolor.postprocess_graph(graph)
+        shadowcolor.postprocess_graph(graph, gct.c_const_gcdata)
 
 # ____________________________________________________________
 
