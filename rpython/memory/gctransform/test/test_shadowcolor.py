@@ -444,3 +444,73 @@ def test_move_pushes_earlier_rename_2():
         'int_sub': 1,
         'direct_call': 2,
         }
+
+def test_move_pushes_earlier_rename_3():
+    def g(a):
+        pass
+    def f(a, b):
+        llop.gc_push_roots(lltype.Void, b)
+        g(a)
+        llop.gc_pop_roots(lltype.Void, b)
+        while a > 10:
+            a -= 2
+        c = lltype.cast_opaque_ptr(PSTRUCT, b)
+        while a > 10:
+            a -= 2
+        llop.gc_push_roots(lltype.Void, c)
+        g(a)
+        llop.gc_pop_roots(lltype.Void, c)
+        return c
+
+    graph = make_graph(f, [int, llmemory.GCREF])
+    regalloc = allocate_registers(graph)
+    expand_push_roots(graph, regalloc)
+    move_pushes_earlier(graph, regalloc)
+    expand_pop_roots(graph, regalloc)
+    assert graphmodel.summary(graph) == {
+        'gc_save_root': 1,
+        'gc_restore_root': 2,
+        'cast_opaque_ptr': 1,
+        'int_gt': 2,
+        'int_sub': 2,
+        'direct_call': 2,
+        }
+
+def test_move_pushes_earlier_rename_4():
+    def g(a):
+        return a - 2
+    def f(a, b):
+        while a > 10:
+            b1 = lltype.cast_opaque_ptr(PSTRUCT, b)
+            while a > 100:
+                a -= 3
+            b2 = lltype.cast_opaque_ptr(llmemory.GCREF, b1)
+            llop.gc_push_roots(lltype.Void, b2)
+            a = g(a)
+            llop.gc_pop_roots(lltype.Void, b2)
+            b3 = lltype.cast_opaque_ptr(PSTRUCT, b2)
+            while a > 100:
+                a -= 4
+            b4 = lltype.cast_opaque_ptr(llmemory.GCREF, b3)
+            llop.gc_push_roots(lltype.Void, b4)
+            a = g(a)
+            llop.gc_pop_roots(lltype.Void, b4)
+            b5 = lltype.cast_opaque_ptr(PSTRUCT, b4)
+            while a > 100:
+                a -= 5
+            b = lltype.cast_opaque_ptr(llmemory.GCREF, b5)
+        return b
+
+    graph = make_graph(f, [int, llmemory.GCREF])
+    regalloc = allocate_registers(graph)
+    expand_push_roots(graph, regalloc)
+    move_pushes_earlier(graph, regalloc)
+    expand_pop_roots(graph, regalloc)
+    assert graphmodel.summary(graph) == {
+        'gc_save_root': 1,
+        'gc_restore_root': 2,
+        'cast_opaque_ptr': 6,
+        'int_gt': 4,
+        'int_sub': 3,
+        'direct_call': 2,
+        }
