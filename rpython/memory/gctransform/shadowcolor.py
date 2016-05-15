@@ -314,58 +314,70 @@ def move_pushes_earlier(graph, regalloc):
             part[1].add(v)
             part[2].update(G[v])
 
-    #P.sort(...heuristic?)
+    # Sort P so that it starts with the larger pieces, and ends with
+    # the smaller ones.  The idea is to avoid that a single small piece
+    # gets processed first and prevents larger pieces for succeeding later.
+    def heuristic((index, P, gcsaveroots)):
+        return -(len(P) + len(gcsaveroots))
+    Plist.sort(key=heuristic)
 
     variables_along_changes = set()
+    insert_gc_push_root = set()
 
-    for i, P, gcsaveroots in Plist:
+    for index, P, gcsaveroots in Plist:
+        # if this Plist entry is not valid any more because of changes
+        # done by the previous entries, drop it
         if variables_along_changes.intersection(P):
             continue
         if any(op not in block.operations for block, op in gcsaveroots):
             continue
 
-        success = False
+        success_count = 0
         mark = []
 
         for v in P:
             block, varindex = inputvars[v]
             for link in entrymap[block]:
                 w = link.args[varindex]
-                maybe_found = regalloc.checkcolor(w, i)  # unless proven false
-                if link.prevblock is None:
-                    maybe_found = False
-                if maybe_found:
-                    search = set([w])
-                    for op in reversed(link.prevblock.operations):
-                        if op.opname == 'gc_pop_roots':
-                            if search.intersection(op.args):
-                                success = True
-                            else:
-                                maybe_found = False
-                            break
-                        if (is_trivial_rewrite(op) and op.result in search
-                                and regalloc.checkcolor(op.args[0], i)):
-                            search.add(op.args[0])
-                    else:
-                        maybe_found = False
-                if not maybe_found:
+                if link.prevblock is not None:
+                    prevoperations = link.prevblock.operations
+                else:
+                    prevoperations = []
+                for op in reversed(prevoperations):
+                    if op.opname == 'gc_pop_roots':
+                        # it is possible to have gc_pop_roots() without
+                        # w in the args, if w is the result of the call
+                        # that comes just before.  But in this case,
+                        # we shouldn't see w at all here
+                        assert w in op.args
+                        if regalloc.checkcolor(w, index):
+                            success_count += 1
+                        else:
+                            mark.append((index, link, varindex))
+                        break
+                    if op.result is w:
+                        if is_trivial_rewrite(op):
+                            w = op.args[0]
+                        else:
+                            # same as above: we shouldn't see such w at all
+                            raise AssertionError
+                else:
                     if w not in P:
-                        mark.append((link, varindex))
+                        mark.append((index, link, varindex))
 
-        if success:
+        if success_count > 0:
             for block, op in gcsaveroots:
                 newops = list(block.operations)
                 newops.remove(op)
                 block.operations = newops
-
-            for link, varindex in mark:
-                newblock = insert_empty_block(link)
-                v = newblock.inputargs[varindex]
-                newblock.operations.append(_gc_save_root(i, v))
-
+            insert_gc_push_root.update(mark)
             variables_along_changes.update(P)
 
     if variables_along_changes:     # if there was any change
+        for index, link, varindex in insert_gc_push_root:
+            newblock = insert_empty_block(link)
+            v = newblock.inputargs[varindex]
+            newblock.operations.append(_gc_save_root(index, v))
         checkgraph(graph)
         join_blocks(graph)
 
