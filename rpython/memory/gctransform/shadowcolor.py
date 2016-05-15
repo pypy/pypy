@@ -332,7 +332,7 @@ def move_pushes_earlier(graph, regalloc):
     Plist.sort(key=heuristic)
 
     variables_along_changes = set()
-    insert_gc_push_root = set()
+    insert_gc_push_root = defaultdict(list)
 
     for index, P, gcsaveroots in Plist:
         # if this Plist entry is not valid any more because of changes
@@ -378,14 +378,14 @@ def move_pushes_earlier(graph, regalloc):
                 newops = list(block.operations)
                 newops.remove(op)
                 block.operations = newops
-            insert_gc_push_root.update(mark)
+            for index, link, varindex in mark:
+                insert_gc_push_root[link].append((index, varindex))
             variables_along_changes.update(P)
 
-    if variables_along_changes:     # if there was any change
-        for index, link, varindex in insert_gc_push_root:
-            v = link.args[varindex]
-            insert_empty_block(link, newops=[
-                _gc_save_root(index, v)])
+    for link in insert_gc_push_root:
+        newops = [_gc_save_root(index, link.args[varindex])
+                  for index, varindex in sorted(insert_gc_push_root[link])]
+        insert_empty_block(link, newops=newops)
 
 
 def expand_pop_roots(graph, regalloc):
@@ -417,13 +417,14 @@ def expand_pop_roots(graph, regalloc):
             block.operations = newops
 
 
-def add_enter_roots_frame(graph, regalloc):
+def add_enter_roots_frame(graph, regalloc, c_gcdata):
     if regalloc is None:
         return
     insert_empty_startblock(graph)
     c_num = Constant(regalloc.numcolors, lltype.Signed)
     graph.startblock.operations.append(
-        SpaceOperation('gc_enter_roots_frame', [c_num], varoftype(lltype.Void)))
+        SpaceOperation('gc_enter_roots_frame', [c_gcdata, c_num],
+                       varoftype(lltype.Void)))
 
     join_blocks(graph)  # for the new block just above, but also for the extra
                         # new blocks made by insert_empty_block() earlier
@@ -437,5 +438,5 @@ def postprocess_graph(graph, c_gcdata):
     expand_push_roots(graph, regalloc)
     move_pushes_earlier(graph, regalloc)
     expand_pop_roots(graph, regalloc)
-    add_enter_roots_frame(graph, regalloc)
+    add_enter_roots_frame(graph, regalloc, c_gcdata)
     checkgraph(graph)
