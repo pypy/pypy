@@ -500,22 +500,16 @@ class AppTestTypeObject:
 
         assert ImplicitDoc.__doc__ == 'foo'
 
-    def test_immutabledoc(self):
-        class ImmutableDoc(object):
-            "foo"
-
-        try:
-            ImmutableDoc.__doc__ = "bar"
-        except TypeError:
-            pass
-        except AttributeError:
-            # XXX - Python raises TypeError for several descriptors,
-            #       we always raise AttributeError.
-            pass
-        else:
-            raise AssertionError('__doc__ should not be writable')
-
-        assert ImmutableDoc.__doc__ == 'foo'
+    def test_set_doc(self):
+        class X:
+            "elephant"
+        X.__doc__ = "banana"
+        assert X.__doc__ == "banana"
+        raises(TypeError, lambda:
+               type(list).__dict__["__doc__"].__set__(list, "blah"))
+        raises((AttributeError, TypeError), lambda:
+               type(X).__dict__["__doc__"].__delete__(X))
+        assert X.__doc__ == "banana"
 
     def test_metaclass_conflict(self):
         """
@@ -763,7 +757,7 @@ class AppTestTypeObject:
         class C(metaclass=T):
             pass
         assert d
-        assert sorted(d[0].keys()) == ['__dict__', '__doc__', '__module__', '__qualname__', '__weakref__']
+        assert sorted(d[0].keys()) == ['__dict__', '__doc__', '__module__', '__weakref__']
         d = []
         class T(type):
             def mro(cls):

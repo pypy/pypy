@@ -467,12 +467,12 @@ class TestBitfield:
 
     def test_introspect_order(self):
         ffi = FFI()
-        ffi.cdef("union aaa { int a; }; typedef struct ccc { int a; } b;")
-        ffi.cdef("union g   { int a; }; typedef struct cc  { int a; } bbb;")
-        ffi.cdef("union aa  { int a; }; typedef struct a   { int a; } bb;")
-        assert ffi.list_types() == (['b', 'bb', 'bbb'],
-                                    ['a', 'cc', 'ccc'],
-                                    ['aa', 'aaa', 'g'])
+        ffi.cdef("union CFFIaaa { int a; }; typedef struct CFFIccc { int a; } CFFIb;")
+        ffi.cdef("union CFFIg   { int a; }; typedef struct CFFIcc  { int a; } CFFIbbb;")
+        ffi.cdef("union CFFIaa  { int a; }; typedef struct CFFIa   { int a; } CFFIbb;")
+        assert ffi.list_types() == (['CFFIb', 'CFFIbb', 'CFFIbbb'],
+                                    ['CFFIa', 'CFFIcc', 'CFFIccc'],
+                                    ['CFFIaa', 'CFFIaaa', 'CFFIg'])
 
     def test_unpack(self):
         ffi = FFI()

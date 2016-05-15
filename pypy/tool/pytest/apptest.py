@@ -8,7 +8,7 @@
 
 import py
 import os
-import sys, textwrap, types
+import sys, textwrap, types, gc
 from pypy.interpreter.gateway import app2interp_temp
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.function import Method
@@ -206,6 +206,7 @@ class AppTestFunction(py.test.collect.Function):
         return traceback
 
     def execute_appex(self, space, target, *args):
+        self.space = space
         try:
             target(*args)
         except OperationError as e:
@@ -238,6 +239,13 @@ class AppTestFunction(py.test.collect.Function):
     def _getdynfilename(self, func):
         code = getattr(func, 'im_func', func).func_code
         return "[%s:%s]" % (code.co_filename, code.co_firstlineno)
+
+    def track_allocations_collect(self):
+        gc.collect()
+        # must also invoke finalizers now; UserDelAction
+        # would not run at all unless invoked explicitly
+        if hasattr(self, 'space'):
+            self.space.getexecutioncontext()._run_finalizers_now()
 
 
 class AppTestMethod(AppTestFunction):

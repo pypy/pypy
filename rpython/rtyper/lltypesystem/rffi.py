@@ -475,7 +475,7 @@ for _name in 'short int long'.split():
 TYPES += ['signed char', 'unsigned char',
           'long long', 'unsigned long long',
           'size_t', 'time_t', 'wchar_t',
-          'uintptr_t', 'intptr_t',
+          'uintptr_t', 'intptr_t',    # C note: these two are _integer_ types
           'void*']    # generic pointer type
 
 # This is a bit of a hack since we can't use rffi_platform here.

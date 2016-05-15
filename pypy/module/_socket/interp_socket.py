@@ -183,14 +183,8 @@ class W_Socket(W_Root):
         except SocketError as e:
             raise converted_error(space, e)
 
-    def __del__(self):
+    def _finalize_(self):
         self.clear_all_weakrefs()
-        if self.space:
-            self.enqueue_for_destruction(self.space, W_Socket.destructor,
-                                         'internal __del__ of ')
-
-    def destructor(self):
-        assert isinstance(self, W_Socket)
         if self.sock.fd != rsocket.INVALID_SOCKET:
             try:
                 self._dealloc_warn()

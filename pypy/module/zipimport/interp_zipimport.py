@@ -200,7 +200,8 @@ class W_ZipImporter(W_Root):
         timestamp = importing._get_long(buf[4:8])
         if not self.can_use_pyc(space, filename, magic, timestamp):
             return None
-        buf = buf[8:] # XXX ugly copy, should use sequential read instead
+        # zipimport ignores the size field
+        buf = buf[12:] # XXX ugly copy, should use sequential read instead
         w_mod = w(Module(space, w(modname)))
         real_name = self.filename + os.path.sep + self.corr_zname(filename)
         space.setattr(w_mod, w('__loader__'), space.wrap(self))
@@ -305,8 +306,9 @@ class W_ZipImporter(W_Root):
                     if not self.can_use_pyc(space, filename + ext,
                                             magic, timestamp):
                         continue
+                    # zipimport ignores the size field
                     code_w = importing.read_compiled_module(
-                        space, filename + ext, source[8:])
+                        space, filename + ext, source[12:])
                 else:
                     co_filename = self.make_co_filename(filename+ext)
                     code_w = importing.parse_source_module(
@@ -327,7 +329,7 @@ class W_ZipImporter(W_Root):
                     w_data = self.get_data(space, fname)
                     # XXX CPython does not handle the coding cookie either.
                     return space.call_method(w_data, "decode",
-                                             space.wrap("utf-8")) 
+                                             space.wrap("utf-8"))
                 else:
                     found = True
         if found:

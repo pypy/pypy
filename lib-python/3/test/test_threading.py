@@ -462,11 +462,16 @@ class ThreadTests(BaseTestCase):
     def test_is_alive_after_fork(self):
         # Try hard to trigger #18418: is_alive() could sometimes be True on
         # threads that vanished after a fork.
-        old_interval = sys.getswitchinterval()
-        self.addCleanup(sys.setswitchinterval, old_interval)
+        newgil = hasattr(sys, 'getswitchinterval')
+        if newgil:
+            geti, seti = sys.getswitchinterval, sys.setswitchinterval
+        else:
+            geti, seti = sys.getcheckinterval, sys.setcheckinterval
+        old_interval = geti()
+        self.addCleanup(seti, old_interval)
 
         # Make the bug more likely to manifest.
-        sys.setswitchinterval(1e-6)
+        seti(1e-6 if newgil else 1)
 
         for i in range(20):
             t = threading.Thread(target=lambda: None)

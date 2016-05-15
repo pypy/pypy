@@ -1128,7 +1128,6 @@ class TestTemporaryDirectory(BaseTestCase):
                          "were deleted")
         d2.cleanup()
 
-    @support.cpython_only
     def test_del_on_collection(self):
         # A TemporaryDirectory is deleted when garbage collected
         dir = tempfile.mkdtemp()
@@ -1136,6 +1135,7 @@ class TestTemporaryDirectory(BaseTestCase):
             d = self.do_create(dir=dir)
             name = d.name
             del d # Rely on refcounting to invoke __del__
+            support.gc_collect()
             self.assertFalse(os.path.exists(name),
                         "TemporaryDirectory %s exists after __del__" % name)
         finally:

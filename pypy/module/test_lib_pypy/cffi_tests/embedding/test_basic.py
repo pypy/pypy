@@ -80,8 +80,21 @@ class EmbeddingTests:
             # find a solution to that: we could hack sys.path inside the
             # script run here, but we can't hack it in the same way in
             # execute().
-            output = self._run([sys.executable,
-                                os.path.join(local_dir, filename)])
+            pathname = os.path.join(path, filename)
+            with open(pathname, 'w') as g:
+                g.write('''
+# https://bugs.python.org/issue23246
+import sys
+if sys.platform == 'win32':
+    try:
+        import setuptools
+    except ImportError:
+        pass
+''')
+                with open(os.path.join(local_dir, filename), 'r') as f:
+                    g.write(f.read())
+
+            output = self._run([sys.executable, pathname])
             match = re.compile(r"\bFILENAME: (.+)").search(output)
             assert match
             dynamic_lib_name = match.group(1)

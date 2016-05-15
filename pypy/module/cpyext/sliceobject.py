@@ -64,7 +64,7 @@ def PySlice_New(space, w_start, w_stop, w_step):
         w_step = space.w_None
     return W_SliceObject(w_start, w_stop, w_step)
 
-@cpython_api([PySliceObject, Py_ssize_t, Py_ssize_tP, Py_ssize_tP, Py_ssize_tP,
+@cpython_api([PyObject, Py_ssize_t, Py_ssize_tP, Py_ssize_tP, Py_ssize_tP,
                 Py_ssize_tP], rffi.INT_real, error=-1)
 def PySlice_GetIndicesEx(space, w_slice, length, start_p, stop_p, step_p,
                          slicelength_p):
@@ -73,7 +73,7 @@ def PySlice_GetIndicesEx(space, w_slice, length, start_p, stop_p, step_p,
     length length, and store the length of the slice in slicelength.  Out
     of bounds indices are clipped in a manner consistent with the handling of
     normal slices.
-    
+
     Returns 0 on success and -1 on error with exception set."""
     if not PySlice_Check(space, w_slice):
         PyErr_BadInternalCall(space)
@@ -82,17 +82,17 @@ def PySlice_GetIndicesEx(space, w_slice, length, start_p, stop_p, step_p,
             w_slice.indices4(space, length)
     return 0
 
-@cpython_api([PySliceObject, Py_ssize_t, Py_ssize_tP, Py_ssize_tP, Py_ssize_tP],
+@cpython_api([PyObject, Py_ssize_t, Py_ssize_tP, Py_ssize_tP, Py_ssize_tP],
                 rffi.INT_real, error=-1)
 def PySlice_GetIndices(space, w_slice, length, start_p, stop_p, step_p):
     """Retrieve the start, stop and step indices from the slice object slice,
     assuming a sequence of length length. Treats indices greater than
     length as errors.
-    
+
     Returns 0 on success and -1 on error with no exception set (unless one of
     the indices was not None and failed to be converted to an integer,
     in which case -1 is returned with an exception set).
-    
+
     You probably do not want to use this function.  If you want to use slice
     objects in versions of Python prior to 2.3, you would probably do well to
     incorporate the source of PySlice_GetIndicesEx(), suitably renamed,

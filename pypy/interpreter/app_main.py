@@ -677,9 +677,11 @@ def run_command_line(interactive,
             # CPython goes to great lengths to detect other cases
             # of pyc file format, but I think it's ok not to care.
             try:
-                from _frozen_importlib import SourcelessFileLoader
+                from _frozen_importlib import (
+                    SourceFileLoader, SourcelessFileLoader)
             except ImportError:
-                from _frozen_importlib_external import SourcelessFileLoader
+                from _frozen_importlib_external import (
+                    SourceFileLoader, SourcelessFileLoader)
             if IS_WINDOWS:
                 filename = filename.lower()
             if filename.endswith('.pyc') or filename.endswith('.pyo'):
@@ -701,6 +703,10 @@ def run_command_line(interactive,
                     break
                 else:
                     # That's the normal path, "pypy stuff.py".
+                    # We don't actually load via SourceFileLoader
+                    # because we require PyCF_ACCEPT_NULL_BYTES
+                    loader = SourceFileLoader('__main__', filename)
+                    mainmodule.__loader__ = loader
                     @hidden_applevel
                     def execfile(filename, namespace):
                         with open(filename, 'rb') as f:

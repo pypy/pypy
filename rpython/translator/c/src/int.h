@@ -53,7 +53,21 @@
 /* addition, subtraction */
 
 #define OP_INT_ADD(x,y,r)     r = (x) + (y)
+#define OP_INT_SUB(x,y,r)     r = (x) - (y)
+#define OP_INT_MUL(x,y,r)     r = (x) * (y)
 
+
+#ifdef __GNUC__
+# if __GNUC__ >= 5
+#  define HAVE_BUILTIN_OVERFLOW
+# elif defined(__has_builtin)     /* clang */
+#  if __has_builtin(__builtin_mul_overflow)
+#   define HAVE_BUILTIN_OVERFLOW
+#  endif
+# endif
+#endif
+
+#ifndef HAVE_BUILTIN_OVERFLOW
 /* cast to avoid undefined behaviour on overflow */
 #define OP_INT_ADD_OVF(x,y,r) \
         r = (Signed)((Unsigned)x + y); \
@@ -63,13 +77,9 @@
         r = (Signed)((Unsigned)x + y); \
         if ((r&~x) < 0) FAIL_OVF("integer addition")
 
-#define OP_INT_SUB(x,y,r)     r = (x) - (y)
-
 #define OP_INT_SUB_OVF(x,y,r) \
         r = (Signed)((Unsigned)x - y); \
         if ((r^x) < 0 && (r^~y) < 0) FAIL_OVF("integer subtraction")
-
-#define OP_INT_MUL(x,y,r)     r = (x) * (y)
 
 #if SIZEOF_LONG * 2 <= SIZEOF_LONG_LONG && !defined(_WIN64)
 #define OP_INT_MUL_OVF(x,y,r) \
@@ -82,6 +92,17 @@
 #define OP_INT_MUL_OVF(x,y,r) \
 	r = op_llong_mul_ovf(x, y)   /* long == long long */
 #endif
+
+#else   /* HAVE_BUILTIN_OVERFLOW */
+#define OP_INT_ADD_NONNEG_OVF(x,y,r) OP_INT_ADD_OVF(x,y,r)
+#define OP_INT_ADD_OVF(x,y,r) \
+	if (__builtin_add_overflow(x, y, &r)) FAIL_OVF("integer addition")
+#define OP_INT_SUB_OVF(x,y,r) \
+	if (__builtin_sub_overflow(x, y, &r)) FAIL_OVF("integer subtraction")
+#define OP_INT_MUL_OVF(x,y,r) \
+	if (__builtin_mul_overflow(x, y, &r)) FAIL_OVF("integer multiplication")
+#endif
+
 
 /* shifting */
 

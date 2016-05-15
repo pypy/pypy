@@ -955,9 +955,15 @@ class W_BufferedRWPair(W_BufferedIOBase):
             self.w_writer = None
             raise
 
-    def __del__(self):
-        self.clear_all_weakrefs()
+    def _finalize_(self):
         # Don't call the base __del__: do not close the files!
+        # Usually the _finalize_() method is not called at all because
+        # we set 'needs_to_finalize = False' in this class, so
+        # W_IOBase.__init__() won't call register_finalizer().
+        # However, this method might still be called: if the user
+        # makes an app-level subclass and adds a custom __del__.
+        pass
+    needs_to_finalize = False
 
     # forward to reader
     for method in ['read', 'peek', 'read1', 'readinto', 'readable']:

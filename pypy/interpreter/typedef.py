@@ -24,6 +24,8 @@ class TypeDef(object):
         self.bases = bases
         self.heaptype = False
         self.hasdict = '__dict__' in rawdict
+        # no __del__: use an RPython _finalize_() method and register_finalizer
+        assert '__del__' not in rawdict
         self.weakrefable = '__weakref__' in rawdict
         self.doc = rawdict.get('__doc__', None)
         for base in bases:
@@ -103,26 +105,20 @@ def default_identity_hash(space, w_obj):
 # we need two subclasses of the app-level type, one to add mapdict, and then one
 # to add del to not slow down the GC.
 
-def get_unique_interplevel_subclass(space, cls, needsdel=False):
+def get_unique_interplevel_subclass(space, cls):
     "NOT_RPYTHON: initialization-time only"
-    if hasattr(cls, '__del__') and getattr(cls, "handle_del_manually", False):
-        needsdel = False
     assert cls.typedef.acceptable_as_base_class
-    key = space, cls, needsdel
     try:
-        return _subclass_cache[key]
+        return _unique_subclass_cache[cls]
     except KeyError:
-        # XXX can save a class if cls already has a __del__
-        if needsdel:
-            cls = get_unique_interplevel_subclass(space, cls, False)
-        subcls = _getusercls(space, cls, needsdel)
-        assert key not in _subclass_cache
-        _subclass_cache[key] = subcls
+        subcls = _getusercls(cls)
+        assert cls not in _unique_subclass_cache
+        _unique_subclass_cache[cls] = subcls
         return subcls
 get_unique_interplevel_subclass._annspecialcase_ = "specialize:memo"
-_subclass_cache = {}
+_unique_subclass_cache = {}
 
-def _getusercls(space, cls, wants_del, reallywantdict=False):
+def _getusercls(cls, reallywantdict=False):
     from rpython.rlib import objectmodel
     from pypy.objspace.std.objectobject import W_ObjectObject
     from pypy.objspace.std.mapdict import (BaseUserClassMapdict,
@@ -131,11 +127,10 @@ def _getusercls(space, cls, wants_del, reallywantdict=False):
     typedef = cls.typedef
     name = cls.__name__ + "User"
 
-    mixins_needed = []
     if cls is W_ObjectObject:
-        mixins_needed.append(_make_storage_mixin_size_n())
+        base_mixin = _make_storage_mixin_size_n()
     else:
-        mixins_needed.append(MapdictStorageMixin)
+        base_mixin = MapdictStorageMixin
     copy_methods = [BaseUserClassMapdict]
     if reallywantdict or not typedef.hasdict:
         # the type has no dict, mapdict to provide the dict
@@ -146,44 +141,12 @@ def _getusercls(space, cls, wants_del, reallywantdict=False):
         # support
         copy_methods.append(MapdictWeakrefSupport)
         name += "Weakrefable"
-    if wants_del:
-        # This subclass comes with an app-level __del__.  To handle
-        # it, we make an RPython-level __del__ method.  This
-        # RPython-level method is called directly by the GC and it
-        # cannot do random things (calling the app-level __del__ would
-        # be "random things").  So instead, we just call here
-        # enqueue_for_destruction(), and the app-level __del__ will be
-        # called later at a safe point (typically between bytecodes).
-        # If there is also an inherited RPython-level __del__, it is
-        # called afterwards---not immediately!  This base
-        # RPython-level __del__ is supposed to run only when the
-        # object is not reachable any more.  NOTE: it doesn't fully
-        # work: see issue #2287.
-        name += "Del"
-        parent_destructor = getattr(cls, '__del__', None)
-        def call_parent_del(self):
-            assert isinstance(self, subcls)
-            parent_destructor(self)
-        def call_applevel_del(self):
-            assert isinstance(self, subcls)
-            space.userdel(self)
-        class Proto(object):
-            def __del__(self):
-                self.clear_all_weakrefs()
-                self.enqueue_for_destruction(space, call_applevel_del,
-                                             'method __del__ of ')
-                if parent_destructor is not None:
-                    self.enqueue_for_destruction(space, call_parent_del,
-                                                 'internal destructor of ')
-        mixins_needed.append(Proto)
 
     class subcls(cls):
         user_overridden_class = True
-        for base in mixins_needed:
-            objectmodel.import_from_mixin(base)
+        objectmodel.import_from_mixin(base_mixin)
     for copycls in copy_methods:
         _copy_methods(copycls, subcls)
-    del subcls.base
     subcls.__name__ = name
     return subcls
 
@@ -739,6 +702,8 @@ It can be called either on the class (e.g. C.f()) or on an instance
     __new__ = interp2app(StaticMethod.descr_staticmethod__new__.im_func),
     __func__= interp_attrproperty_w('w_function', cls=StaticMethod),
     __isabstractmethod__ = GetSetProperty(StaticMethod.descr_isabstract),
+    __dict__ = GetSetProperty(descr_get_dict, descr_set_dict,
+                              cls=StaticMethod),
     )
 
 ClassMethod.typedef = TypeDef(
@@ -747,6 +712,7 @@ ClassMethod.typedef = TypeDef(
     __get__ = interp2app(ClassMethod.descr_classmethod_get),
     __func__= interp_attrproperty_w('w_function', cls=ClassMethod),
     __isabstractmethod__ = GetSetProperty(ClassMethod.descr_isabstract),
+    __dict__ = GetSetProperty(descr_get_dict, descr_set_dict, cls=ClassMethod),
     __doc__ = """classmethod(function) -> class method
 
 Convert a function to be a class method.

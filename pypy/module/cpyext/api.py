@@ -254,7 +254,7 @@ cpyext_glob_tid_ptr = lltype.malloc(rffi.CArray(lltype.Signed), 1,
 
 cpyext_namespace = NameManager('cpyext_')
 
-class ApiFunction:
+class ApiFunction(object):
     def __init__(self, argtypes, restype, callable, error=_NOT_SPECIFIED,
                  c_name=None, gil=None, result_borrowed=False, result_is_ll=False):
         self.argtypes = argtypes
@@ -295,11 +295,48 @@ class ApiFunction:
     def get_wrapper(self, space):
         wrapper = getattr(self, '_wrapper', None)
         if wrapper is None:
-            wrapper = make_wrapper(space, self.callable, self.gil)
-            self._wrapper = wrapper
-            wrapper.relax_sig_check = True
-            if self.c_name is not None:
-                wrapper.c_name = cpyext_namespace.uniquename(self.c_name)
+            wrapper = self._wrapper = self._make_wrapper(space)
+        return wrapper
+
+    # Make the wrapper for the cases (1) and (2)
+    def _make_wrapper(self, space):
+        "NOT_RPYTHON"
+        # This logic is obscure, because we try to avoid creating one
+        # big wrapper() function for every callable.  Instead we create
+        # only one per "signature".
+
+        argtypesw = zip(self.argtypes,
+                        [_name.startswith("w_") for _name in self.argnames])
+        error_value = getattr(self, "error_value", CANNOT_FAIL)
+        if (isinstance(self.restype, lltype.Ptr)
+                and error_value is not CANNOT_FAIL):
+            assert lltype.typeOf(error_value) == self.restype
+            assert not error_value    # only support error=NULL
+            error_value = 0    # because NULL is not hashable
+
+        if self.result_is_ll:
+            result_kind = "L"
+        elif self.result_borrowed:
+            result_kind = "B"     # note: 'result_borrowed' is ignored if we also
+        else:                     #  say 'result_is_ll=True' (in this case it's
+            result_kind = "."     #  up to you to handle refcounting anyway)
+
+        signature = (tuple(argtypesw),
+                    self.restype,
+                    result_kind,
+                    error_value,
+                    self.gil)
+
+        cache = space.fromcache(WrapperCache)
+        try:
+            wrapper_gen = cache.wrapper_gens[signature]
+        except KeyError:
+            wrapper_gen = WrapperGen(space, signature)
+            cache.wrapper_gens[signature] = wrapper_gen
+        wrapper = wrapper_gen.make_wrapper(self.callable)
+        wrapper.relax_sig_check = True
+        if self.c_name is not None:
+            wrapper.c_name = cpyext_namespace.uniquename(self.c_name)
         return wrapper
 
 DEFAULT_HEADER = 'pypy_decl.h'
@@ -685,7 +722,6 @@ class WrapperCache(object):
     def __init__(self, space):
         self.space = space
         self.wrapper_gens = {}    # {signature: WrapperGen()}
-        self.stats = [0, 0]
 
 class WrapperGen(object):
     wrapper_second_level = None
@@ -693,65 +729,21 @@ class WrapperGen(object):
     def __init__(self, space, signature):
         self.space = space
         self.signature = signature
-        self.callable2name = []
 
     def make_wrapper(self, callable):
-        self.callable2name.append((callable, callable.__name__))
         if self.wrapper_second_level is None:
             self.wrapper_second_level = make_wrapper_second_level(
-                self.space, self.callable2name, *self.signature)
+                self.space, *self.signature)
         wrapper_second_level = self.wrapper_second_level
 
+        name = callable.__name__
         def wrapper(*args):
             # no GC here, not even any GC object
-            args += (callable,)
-            return wrapper_second_level(*args)
+            return wrapper_second_level(callable, name, *args)
 
         wrapper.__name__ = "wrapper for %r" % (callable, )
         return wrapper
 
-
-# Make the wrapper for the cases (1) and (2)
-def make_wrapper(space, callable, gil=None):
-    "NOT_RPYTHON"
-    # This logic is obscure, because we try to avoid creating one
-    # big wrapper() function for every callable.  Instead we create
-    # only one per "signature".
-
-    argnames = callable.api_func.argnames
-    argtypesw = zip(callable.api_func.argtypes,
-                    [_name.startswith("w_") for _name in argnames])
-    error_value = getattr(callable.api_func, "error_value", CANNOT_FAIL)
-    if (isinstance(callable.api_func.restype, lltype.Ptr)
-            and error_value is not CANNOT_FAIL):
-        assert lltype.typeOf(error_value) == callable.api_func.restype
-        assert not error_value    # only support error=NULL
-        error_value = 0    # because NULL is not hashable
-
-    if callable.api_func.result_is_ll:
-        result_kind = "L"
-    elif callable.api_func.result_borrowed:
-        result_kind = "B"     # note: 'result_borrowed' is ignored if we also
-    else:                     #  say 'result_is_ll=True' (in this case it's
-        result_kind = "."     #  up to you to handle refcounting anyway)
-
-    signature = (tuple(argtypesw),
-                 callable.api_func.restype,
-                 result_kind,
-                 error_value,
-                 gil)
-
-    cache = space.fromcache(WrapperCache)
-    cache.stats[1] += 1
-    try:
-        wrapper_gen = cache.wrapper_gens[signature]
-    except KeyError:
-        print signature
-        wrapper_gen = cache.wrapper_gens[signature] = WrapperGen(space,
-                                                                 signature)
-        cache.stats[0] += 1
-    #print 'Wrapper cache [wrappers/total]:', cache.stats
-    return wrapper_gen.make_wrapper(callable)
 
 
 @dont_inline
@@ -786,7 +778,7 @@ def unexpected_exception(funcname, e, tb):
         pypy_debug_catch_fatal_exception()
         assert False
 
-def make_wrapper_second_level(space, callable2name, argtypesw, restype,
+def make_wrapper_second_level(space, argtypesw, restype,
                               result_kind, error_value, gil):
     from rpython.rlib import rgil
     argtypes_enum_ui = unrolling_iterable(enumerate(argtypesw))
@@ -809,29 +801,20 @@ def make_wrapper_second_level(space, callable2name, argtypesw, restype,
     def invalid(err):
         "NOT_RPYTHON: translation-time crash if this ends up being called"
         raise ValueError(err)
-    invalid.__name__ = 'invalid_%s' % (callable2name[0][1],)
+    invalid.__name__ = 'invalid_%s' % name
 
-    def nameof(callable):
-        for c, n in callable2name:
-            if c is callable:
-                return n
-        return '<unknown function>'
-    nameof._dont_inline_ = True
-
-    def wrapper_second_level(*args):
+    def wrapper_second_level(callable, name, *args):
         from pypy.module.cpyext.pyobject import make_ref, from_ref, is_pyobj
         from pypy.module.cpyext.pyobject import as_pyobj
         # we hope that malloc removal removes the newtuple() that is
         # inserted exactly here by the varargs specializer
-        callable = args[-1]
-        args = args[:-1]
 
         # see "Handling of the GIL" above (careful, we don't have the GIL here)
         tid = rthread.get_or_make_ident()
         _gil_auto = (gil_auto_workaround and cpyext_glob_tid_ptr[0] != tid)
         if gil_acquire or _gil_auto:
             if cpyext_glob_tid_ptr[0] == tid:
-                deadlock_error(nameof(callable))
+                deadlock_error(name)
             rgil.acquire()
             assert cpyext_glob_tid_ptr[0] == 0
         elif pygilstate_ensure:
@@ -844,7 +827,7 @@ def make_wrapper_second_level(space, callable2name, argtypesw, restype,
                 args += (pystate.PyGILState_UNLOCKED,)
         else:
             if cpyext_glob_tid_ptr[0] != tid:
-                no_gil_error(nameof(callable))
+                no_gil_error(name)
             cpyext_glob_tid_ptr[0] = 0
 
         rffi.stackcounter.stacks_counter += 1
@@ -890,7 +873,7 @@ def make_wrapper_second_level(space, callable2name, argtypesw, restype,
 
             if failed:
                 if error_value is CANNOT_FAIL:
-                    raise not_supposed_to_fail(nameof(callable))
+                    raise not_supposed_to_fail(name)
                 retval = error_value
 
             elif is_PyObject(restype):
@@ -910,7 +893,7 @@ def make_wrapper_second_level(space, callable2name, argtypesw, restype,
                 retval = rffi.cast(restype, result)
 
         except Exception as e:
-            unexpected_exception(nameof(callable), e, tb)
+            unexpected_exception(name, e, tb)
             return fatal_value
 
         assert lltype.typeOf(retval) == restype

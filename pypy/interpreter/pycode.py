@@ -188,7 +188,8 @@ class PyCode(eval.Code):
         #     <builtin>/lastdirname/basename.py
         # instead of freezing the complete translation-time path.
         filename = self.co_filename
-        if filename.startswith('<builtin>'):
+        if (filename.startswith('<builtin>') or
+            filename == '<frozen importlib._bootstrap>'):
             return
         filename = filename.lstrip('<').rstrip('>')
         if filename.lower().endswith('.pyc'):

@@ -324,19 +324,10 @@ def make_formatter_subclass(do_unicode):
         def unknown_fmtchar(self):
             space = self.space
             c = self.fmt[self.fmtpos - 1]
-            if do_unicode:
-                w_defaultencoding = space.call_function(
-                    space.sys.get('getdefaultencoding'))
-                w_s = space.call_method(space.wrap(c),
-                                        "encode",
-                                        w_defaultencoding,
-                                        space.wrap('replace'))
-                s = space.str_w(w_s)
-            else:
-                s = c
+            w_s = space.wrap(c) if do_unicode else space.wrapbytes(c)
             raise oefmt(space.w_ValueError,
-                        "unsupported format character '%s' (%s) at index %d",
-                        s, hex(ord(c)), self.fmtpos - 1)
+                        "unsupported format character %R (%s) at index %d",
+                        w_s, hex(ord(c)), self.fmtpos - 1)
 
         def std_wp(self, r):
             length = len(r)

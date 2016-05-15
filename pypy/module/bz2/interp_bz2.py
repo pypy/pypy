@@ -160,7 +160,7 @@ def _catch_bz2_error(space, bzerror):
         raise oefmt(space.w_SystemError,
                     "the bz2 library has received wrong parameters")
     elif bzerror == BZ_MEM_ERROR:
-        raise OperationError(space.w_MemoryError, space.wrap(""))
+        raise OperationError(space.w_MemoryError, space.w_None)
     elif bzerror in (BZ_DATA_ERROR, BZ_DATA_ERROR_MAGIC):
         raise oefmt(space.w_IOError, "invalid data stream")
     elif bzerror == BZ_IO_ERROR:
@@ -253,8 +253,14 @@ class W_BZ2Compressor(W_Root):
     def __init__(self, space, compresslevel):
         self.space = space
         self.bzs = lltype.malloc(bz_stream.TO, flavor='raw', zero=True)
-        self.running = False
-        self._init_bz2comp(compresslevel)
+        try:
+            self.running = False
+            self._init_bz2comp(compresslevel)
+        except:
+            lltype.free(self.bzs, flavor='raw')
+            self.bzs = lltype.nullptr(bz_stream.TO)
+            raise
+        self.register_finalizer(space)
 
     def _init_bz2comp(self, compresslevel):
         if compresslevel < 1 or compresslevel > 9:
@@ -267,9 +273,12 @@ class W_BZ2Compressor(W_Root):
 
         self.running = True
 
-    def __del__(self):
-        BZ2_bzCompressEnd(self.bzs)
-        lltype.free(self.bzs, flavor='raw')
+    def _finalize_(self):
+        bzs = self.bzs
+        if bzs:
+            self.bzs = lltype.nullptr(bz_stream.TO)
+            BZ2_bzCompressEnd(bzs)
+            lltype.free(bzs, flavor='raw')
 
     def descr_getstate(self):
         raise oefmt(self.space.w_TypeError, "cannot serialize '%T' object", self)
@@ -360,10 +369,16 @@ class W_BZ2Decompressor(W_Root):
         self.space = space
 
         self.bzs = lltype.malloc(bz_stream.TO, flavor='raw', zero=True)
-        self.running = False
-        self.unused_data = ""
+        try:
+            self.running = False
+            self.unused_data = ""
 
-        self._init_bz2decomp()
+            self._init_bz2decomp()
+        except:
+            lltype.free(self.bzs, flavor='raw')
+            self.bzs = lltype.nullptr(bz_stream.TO)
+            raise
+        self.register_finalizer(space)
 
     def _init_bz2decomp(self):
         bzerror = BZ2_bzDecompressInit(self.bzs, 0, 0)
@@ -372,9 +387,12 @@ class W_BZ2Decompressor(W_Root):
 
         self.running = True
 
-    def __del__(self):
-        BZ2_bzDecompressEnd(self.bzs)
-        lltype.free(self.bzs, flavor='raw')
+    def _finalize_(self):
+        bzs = self.bzs
+        if bzs:
+            self.bzs = lltype.nullptr(bz_stream.TO)
+            BZ2_bzDecompressEnd(bzs)
+            lltype.free(bzs, flavor='raw')
 
     def descr_getstate(self):
         raise oefmt(self.space.w_TypeError, "cannot serialize '%T' object", self)

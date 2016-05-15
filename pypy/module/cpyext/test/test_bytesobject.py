@@ -40,7 +40,7 @@ class AppTestBytesObject(AppTestCpythonExtensionBase):
                  #endif
                  if(s->ob_type->tp_basicsize != expected_size)
                  {
-                     printf("tp_basicsize==%ld\\n", s->ob_type->tp_basicsize);
+                     printf("tp_basicsize==%zd\\n", s->ob_type->tp_basicsize);
                      result = 0;
                  }
                  Py_DECREF(s);
@@ -99,7 +99,7 @@ class AppTestBytesObject(AppTestCpythonExtensionBase):
              """
                 PyObject *base;
                 PyTypeObject * type;
-                PyBytesObject *obj;
+                PyObject *obj;
                 char * p_str;
                 base = PyBytes_FromString("test");
                 if (PyBytes_GET_SIZE(base) != 4)
@@ -107,13 +107,13 @@ class AppTestBytesObject(AppTestCpythonExtensionBase):
                 type = base->ob_type;
                 if (type->tp_itemsize != 1)
                     return PyLong_FromLong(type->tp_itemsize);
-                obj = (PyBytesObject*)type->tp_alloc(type, 10);
+                obj = type->tp_alloc(type, 10);
                 if (PyBytes_GET_SIZE(obj) != 10)
                     return PyLong_FromLong(PyBytes_GET_SIZE(obj));
                 /* cannot work, there is only RO access
                 memcpy(PyBytes_AS_STRING(obj), "works", 6); */
                 Py_INCREF(obj);
-                return (PyObject*)obj;
+                return obj;
              """),
             ])
         s = module.tpalloc()
@@ -158,7 +158,10 @@ class AppTestBytesObject(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
             ("string_None", "METH_VARARGS",
              '''
-             return PyBytes_AsString(Py_None);
+             if (PyBytes_AsString(Py_None)) {
+                Py_RETURN_NONE;
+             }
+             return NULL;
              '''
             )])
         raises(TypeError, module.string_None)

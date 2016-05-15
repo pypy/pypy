@@ -454,11 +454,6 @@ class DescrOperation(object):
         assert isinstance(w_result, W_AbstractIntObject)
         return w_result.descr_hash(space)
 
-    def userdel(space, w_obj):
-        w_del = space.lookup(w_obj, '__del__')
-        if w_del is not None:
-            space.get_and_call_function(w_del, w_obj)
-
     def issubtype(space, w_sub, w_type):
         return space._type_issubtype(w_sub, w_type)
 

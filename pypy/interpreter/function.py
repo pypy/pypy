@@ -593,6 +593,19 @@ class StaticMethod(W_Root):
 
     def __init__(self, w_function):
         self.w_function = w_function
+        self.w_dict = None
+
+    def getdict(self, space):
+        if self.w_dict is None:
+            self.w_dict = space.newdict(instance=True)
+        return self.w_dict
+
+    def setdict(self, space, w_dict):
+        if not space.isinstance_w(w_dict, space.w_dict):
+            raise oefmt(space.w_TypeError,
+                        "__dict__ must be set to a dictionary, not a %T",
+                        w_dict)
+        self.w_dict = w_dict
 
     def descr_staticmethod_get(self, w_obj, w_cls=None):
         """staticmethod(x).__get__(obj[, type]) -> x"""
@@ -613,6 +626,19 @@ class ClassMethod(W_Root):
 
     def __init__(self, w_function):
         self.w_function = w_function
+        self.w_dict = None
+
+    def getdict(self, space):
+        if self.w_dict is None:
+            self.w_dict = space.newdict(instance=True)
+        return self.w_dict
+
+    def setdict(self, space, w_dict):
+        if not space.isinstance_w(w_dict, space.w_dict):
+            raise oefmt(space.w_TypeError,
+                        "__dict__ must be set to a dictionary, not a %T",
+                        w_dict)
+        self.w_dict = w_dict
 
     def descr_classmethod_get(self, space, w_obj, w_klass=None):
         if space.is_none(w_klass):

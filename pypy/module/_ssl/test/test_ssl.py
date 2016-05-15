@@ -105,7 +105,8 @@ class AppTestSSL:
              ('IP Address', '2001:DB8:0:0:0:0:0:1\n'))
 
     def test_context(self):
-        import _ssl
+        import _ssl, sys
+        py33 = sys.version_info[:2] == (3, 3)
         s = _ssl._SSLContext(_ssl.PROTOCOL_TLSv1)
         raises(ValueError, _ssl._SSLContext, -1)
 
@@ -115,10 +116,13 @@ class AppTestSSL:
         assert not s.options & _ssl.OP_NO_SSLv2
         raises(TypeError, "s.options = 2.5")
 
-        assert not s.check_hostname
-        exc = raises(ValueError, "s.check_hostname = True")
-        assert str(exc.value) == "check_hostname needs a SSL context with " \
-                                 "either CERT_OPTIONAL or CERT_REQUIRED"
+        if py33:
+            assert not hasattr(s, 'check_hostname')
+        else:
+            assert not s.check_hostname
+            exc = raises(ValueError, "s.check_hostname = True")
+            assert str(exc.value) == "check_hostname needs a SSL context " \
+                "with either CERT_OPTIONAL or CERT_REQUIRED"
 
         assert s.verify_mode == _ssl.CERT_NONE
         s.verify_mode = _ssl.CERT_REQUIRED
@@ -133,12 +137,13 @@ class AppTestSSL:
         s.verify_flags = _ssl.VERIFY_DEFAULT
         assert s.verify_flags == _ssl.VERIFY_DEFAULT
 
-        s.check_hostname = True
-        assert s.check_hostname
+        if not py33:
+            s.check_hostname = True
+            assert s.check_hostname
 
-        exc = raises(ValueError, "s.verify_mode = _ssl.CERT_NONE")
-        assert str(exc.value) == "Cannot set verify_mode to CERT_NONE " \
-                                 "when check_hostname is enabled."
+            exc = raises(ValueError, "s.verify_mode = _ssl.CERT_NONE")
+            assert str(exc.value) == "Cannot set verify_mode to CERT_NONE " \
+                                     "when check_hostname is enabled."
 
     def test_set_default_verify_paths(self):
         import _ssl

@@ -215,13 +215,6 @@ from pypy.interpreter.pycode import default_magic
 MARSHAL_VERSION_FOR_PYC = 2
 
 def get_pyc_magic(space):
-    # XXX CPython testing hack: delegate to the real imp.get_magic
-    if not we_are_translated():
-        if '__pypy__' not in space.builtin_modules:
-            import struct
-            magic = __import__('imp').get_magic()
-            return struct.unpack('<i', magic)[0]
-
     return default_magic
 
 
@@ -272,7 +265,7 @@ def make_compiled_pathname(pathname):
     for i in range(len(fname)):
         if fname[i] == '.':
             ext = fname[:i + 1]
-    
+
     result = (pathname[:lastpos] + "__pycache__" + lastsep +
               ext + PYC_TAG + '.pyc')
     return result

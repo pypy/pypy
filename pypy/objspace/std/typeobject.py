@@ -133,7 +133,7 @@ class W_TypeObject(W_Root):
                           "flag_sequence_bug_compat",
                           "flag_map_or_seq",    # '?' or 'M' or 'S'
                           "compares_by_identity_status?",
-                          'needsdel',
+                          'hasuserdel',
                           'weakrefable',
                           'hasdict',
                           'layout',
@@ -162,7 +162,7 @@ class W_TypeObject(W_Root):
         w_self.bases_w = bases_w
         w_self.dict_w = dict_w
         w_self.hasdict = False
-        w_self.needsdel = False
+        w_self.hasuserdel = False
         w_self.weakrefable = False
         w_self.w_doc = space.w_None
         w_self.weak_subclasses = []
@@ -287,7 +287,7 @@ class W_TypeObject(W_Root):
     # compute a tuple that fully describes the instance layout
     def get_full_instance_layout(w_self):
         layout = w_self.layout
-        return (layout, w_self.hasdict, w_self.needsdel, w_self.weakrefable)
+        return (layout, w_self.hasdict, w_self.weakrefable)
 
     def compute_default_mro(w_self):
         return compute_C3_mro(w_self.space, w_self)
@@ -445,7 +445,7 @@ class W_TypeObject(W_Root):
         cached_version_tag = cache.versions[method_hash]
         if cached_version_tag is version_tag:
             cached_name = cache.names[method_hash]
-            if cached_name == name:
+            if cached_name is name:
                 tup = cache.lookup_where[method_hash]
                 if space.config.objspace.std.withmethodcachecounter:
                     cache.hits[name] = cache.hits.get(name, 0) + 1
@@ -853,6 +853,12 @@ type(name, bases, dict) -> a new type""")
     else:
         return space.get(w_result, space.w_None, w_type)
 
+def descr_set__doc(space, w_type, w_value):
+    w_type = _check(space, w_type)
+    if not w_type.is_heaptype():
+        raise oefmt(space.w_TypeError, "can't set %N.__doc__", w_type)
+    w_type.setdictvalue(space, '__doc__', w_value)
+
 def descr__dir(space, w_type):
     from pypy.objspace.std.util import _classdir
     return space.call_function(space.w_list, _classdir(space, w_type))
@@ -928,7 +934,7 @@ W_TypeObject.typedef = TypeDef("type",
     __base__ = GetSetProperty(descr__base),
     __mro__ = GetSetProperty(descr_get__mro__),
     __dict__ = GetSetProperty(descr_get_dict),
-    __doc__ = GetSetProperty(descr__doc),
+    __doc__ = GetSetProperty(descr__doc, descr_set__doc),
     __dir__ = gateway.interp2app(descr__dir),
     mro = gateway.interp2app(descr_mro),
     __flags__ = GetSetProperty(descr__flags),
@@ -1001,7 +1007,7 @@ def copy_flags_from_bases(w_self, w_bestbase):
             hasoldstylebase = True
             continue
         w_self.hasdict = w_self.hasdict or w_base.hasdict
-        w_self.needsdel = w_self.needsdel or w_base.needsdel
+        w_self.hasuserdel = w_self.hasuserdel or w_base.hasuserdel
         w_self.weakrefable = w_self.weakrefable or w_base.weakrefable
     return hasoldstylebase
 
@@ -1043,7 +1049,7 @@ def create_all_slots(w_self, hasoldstylebase, w_bestbase, force_new_layout):
     if wantweakref:
         create_weakref_slot(w_self)
     if '__del__' in dict_w:
-        w_self.needsdel = True
+        w_self.hasuserdel = True
     #
     if index_next_extra_slot == base_layout.nslots and not force_new_layout:
         return base_layout
@@ -1103,8 +1109,9 @@ def setup_user_defined_type(w_self, force_new_layout):
     layout = create_all_slots(w_self, hasoldstylebase, w_bestbase,
                               force_new_layout)
 
-    if '__qualname__' in w_self.dict_w:
-        w_self.qualname = w_self.space.unicode_w(w_self.dict_w['__qualname__'])
+    w_qualname = w_self.dict_w.pop('__qualname__', None)
+    if w_qualname is not None:
+        w_self.qualname = w_self.space.unicode_w(w_qualname)
 
     ensure_common_attributes(w_self)
     return layout

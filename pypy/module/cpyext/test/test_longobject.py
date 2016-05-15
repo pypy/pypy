@@ -176,7 +176,7 @@ class AppTestLongObject(AppTestCpythonExtensionBase):
                  int little_endian, is_signed;
                  if (!PyArg_ParseTuple(args, "ii", &little_endian, &is_signed))
                      return NULL;
-                 return _PyLong_FromByteArray("\\x9A\\xBC", 2,
+                 return _PyLong_FromByteArray((unsigned char*)"\\x9A\\xBC", 2,
                                               little_endian, is_signed);
              """),
             ])
@@ -192,7 +192,7 @@ class AppTestLongObject(AppTestCpythonExtensionBase):
                  int little_endian, is_signed;
                  if (!PyArg_ParseTuple(args, "ii", &little_endian, &is_signed))
                      return NULL;
-                 return _PyLong_FromByteArray("\\x9A\\xBC\\x41", 3,
+                 return _PyLong_FromByteArray((unsigned char*)"\\x9A\\xBC\\x41", 3,
                                               little_endian, is_signed);
              """),
             ])

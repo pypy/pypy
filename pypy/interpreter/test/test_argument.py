@@ -710,3 +710,20 @@ class AppTestArgument:
         assert e.value.args[0] == "f() got an unexpected keyword argument 'ü'"
         """
 
+    def test_starstarargs_dict_subclass(self):
+        def f(**kwargs):
+            return kwargs
+        class DictSubclass(dict):
+            def __iter__(self):
+                yield 'x'
+        # CPython, as an optimization, looks directly into dict internals when
+        # passing one via **kwargs.
+        x =DictSubclass()
+        assert f(**x) == {}
+        x['a'] = 1
+        assert f(**x) == {'a': 1}
+
+    def test_starstarargs_module_dict(self):
+        def f(**kwargs):
+            return kwargs
+        assert f(**globals()) == globals()

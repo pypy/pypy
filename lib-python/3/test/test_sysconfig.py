@@ -6,7 +6,8 @@ import shutil
 from copy import copy
 
 from test.support import (run_unittest, TESTFN, unlink,
-                          captured_stdout, skip_unless_symlink)
+                          captured_stdout, impl_detail, import_module,
+                          skip_unless_symlink)
 
 import sysconfig
 from sysconfig import (get_paths, get_platform, get_config_vars,
@@ -231,7 +232,10 @@ class TestSysConfig(unittest.TestCase):
 
     def test_get_config_h_filename(self):
         config_h = sysconfig.get_config_h_filename()
-        self.assertTrue(os.path.isfile(config_h), config_h)
+        # import_module skips the test when the CPython C Extension API
+        # appears to not be supported
+        self.assertTrue(os.path.isfile(config_h) or
+                        not import_module('_testcapi'), config_h)
 
     def test_get_scheme_names(self):
         wanted = ('nt', 'nt_user', 'os2', 'os2_home', 'osx_framework_user',
@@ -288,6 +292,7 @@ class TestSysConfig(unittest.TestCase):
             _main()
         self.assertTrue(len(output.getvalue().split('\n')) > 0)
 
+    @impl_detail("PyPy lacks LDFLAGS/LDSHARED config vars", pypy=False)
     @unittest.skipIf(sys.platform == "win32", "Does not apply to Windows")
     def test_ldshared_value(self):
         ldflags = sysconfig.get_config_var('LDFLAGS')
@@ -374,6 +379,7 @@ class TestSysConfig(unittest.TestCase):
 
 class MakefileTests(unittest.TestCase):
 
+    @impl_detail("PyPy lacks sysconfig.get_makefile_filename", pypy=False)
     @unittest.skipIf(sys.platform.startswith('win'),
                      'Test is not Windows compatible')
     def test_get_makefile_filename(self):

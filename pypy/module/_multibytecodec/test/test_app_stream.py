@@ -41,7 +41,7 @@ class AppTestStreams:
                 return res
         #
         r = self.HzStreamReader(FakeFile(b"!~{abcd~}xyz~{efgh"))
-        for expected in '!\u5f95\u6c85xyz\u5f50\u73b7':
+        for expected in u'!\u5f95\u6c85xyz\u5f50\u73b7':
             c = r.read(1)
             assert c == expected
         c = r.read(1)
@@ -56,13 +56,13 @@ class AppTestStreams:
         #
         r = self.HzStreamReader(FakeFile(b"!~{a"), "replace")
         c = r.read()
-        assert c == '!\ufffd'
+        assert c == u'!\ufffd'
         #
         r = self.HzStreamReader(FakeFile(b"!~{a"))
         r.errors = "replace"
         assert r.errors == "replace"
         c = r.read()
-        assert c == '!\ufffd'
+        assert c == u'!\ufffd'
 
     def test_writer(self):
         class FakeFile:
@@ -72,7 +72,7 @@ class AppTestStreams:
                 self.output.append(data)
         #
         w = self.HzStreamWriter(FakeFile())
-        for input in '!\u5f95\u6c85xyz\u5f50\u73b7':
+        for input in u'!\u5f95\u6c85xyz\u5f50\u73b7':
             w.write(input)
         w.reset()
         assert w.stream.output == [b'!', b'~{ab', b'cd', b'~}x', b'y', b'z',
@@ -86,7 +86,19 @@ class AppTestStreams:
                 self.output.append(data)
         #
         w = self.ShiftJisx0213StreamWriter(FakeFile())
-        w.write('\u30ce')
-        w.write('\u304b')
-        w.write('\u309a')
+        w.write(u'\u30ce')
+        w.write(u'\u304b')
+        w.write(u'\u309a')
         assert w.stream.output == [b'\x83m', b'', b'\x82\xf5']
+
+    def test_writer_seek_no_empty_write(self):
+        # issue #2293: codecs.py will sometimes issue a reset()
+        # on a StreamWriter attached to a file that is not opened
+        # for writing at all.  We must not emit a "write('')"!
+        class FakeFile:
+            def write(self, data):
+                raise IOError("can't write!")
+        #
+        w = self.ShiftJisx0213StreamWriter(FakeFile())
+        w.reset()
+        # assert did not crash
