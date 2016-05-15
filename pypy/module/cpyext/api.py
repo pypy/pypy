@@ -410,7 +410,16 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
                             arg = rffi.cast(ARG, as_pyobj(space, input_arg))
                         else:
                             arg = rffi.cast(ARG, input_arg)
-                    elif is_PyObject(ARG) and is_wrapped:
+                    elif ARG == rffi.VOIDP and not is_wrapped:
+                        # unlike is_PyObject case above, we allow any kind of
+                        # argument -- just, if it's an object, we assume the
+                        # caller meant for it to become a PyObject*.
+                        if input_arg is None or isinstance(input_arg, W_Root):
+                            keepalives += (input_arg,)
+                            arg = rffi.cast(ARG, as_pyobj(space, input_arg))
+                        else:
+                            arg = rffi.cast(ARG, input_arg)
+                    elif (is_PyObject(ARG) or ARG == rffi.VOIDP) and is_wrapped:
                         # build a W_Root, possibly from a 'PyObject *'
                         if is_pyobj(input_arg):
                             arg = from_ref(space, input_arg)
@@ -841,6 +850,10 @@ def make_wrapper_second_level(space, argtypesw, restype,
                 arg = args[i]
                 if is_PyObject(typ) and is_wrapped:
                     assert is_pyobj(arg)
+                    arg_conv = from_ref(space, rffi.cast(PyObject, arg))
+                elif typ == rffi.VOIDP and is_wrapped:
+                    # Many macros accept a void* so that one can pass a
+                    # PyObject* or a PySomeSubtype*.
                     arg_conv = from_ref(space, rffi.cast(PyObject, arg))
                 else:
                     arg_conv = arg
