@@ -367,14 +367,25 @@ def expand_pop_roots(graph, regalloc):
     """gc_pop_roots => series of gc_restore_root; this is done after
     move_pushes_earlier() because that one doesn't work correctly if
     a completely-empty gc_pop_roots is removed.
+
+    Also notice in-block code sequences like gc_pop_roots(v) followed
+    by a gc_save_root(v), and drop the gc_save_root.
     """
+    drop = {}
     for block in graph.iterblocks():
         any_change = False
         newops = []
         for op in block.operations:
             if op.opname == 'gc_pop_roots':
-                newops += expand_one_pop_roots(regalloc, op.args)
+                expanded = list(expand_one_pop_roots(regalloc, op.args))
+                drop = {}
+                for op1 in expanded:
+                    drop[op1.args[1]] = op1.args[0].value
+                newops += expanded
                 any_change = True
+            elif (op.opname == 'gc_save_root' and
+                      drop.get(op.args[1]) == op.args[0].value):
+                any_change = True    # kill the operation
             else:
                 newops.append(op)
         if any_change:

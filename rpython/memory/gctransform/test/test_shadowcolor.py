@@ -362,3 +362,25 @@ def test_move_pushes_earlier_2():
         'int_sub': 1,
         'direct_call': 2,
         }
+
+def test_remove_intrablock_push_roots():
+    def g(a):
+        pass
+    def f(a, b):
+        llop.gc_push_roots(lltype.Void, b)
+        g(a)
+        llop.gc_pop_roots(lltype.Void, b)
+        llop.gc_push_roots(lltype.Void, b)
+        g(a)
+        llop.gc_pop_roots(lltype.Void, b)
+        return b
+
+    graph = make_graph(f, [int, llmemory.GCREF])
+    regalloc = allocate_registers(graph)
+    expand_push_roots(graph, regalloc)
+    expand_pop_roots(graph, regalloc)
+    assert graphmodel.summary(graph) == {
+        'gc_save_root': 1,
+        'gc_restore_root': 2,
+        'direct_call': 2,
+        }
