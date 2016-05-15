@@ -263,10 +263,16 @@ def move_pushes_earlier(graph, regalloc):
 
         G = defaultdict(set)
         for block in graph.iterblocks():
+            found = False
             for opindex, op in enumerate(block.operations):
-                if op.opname == 'gc_save_root' and op.args[0].value == index:
-                    break
-            else:
+                if op.opname == 'gc_save_root':
+                    if (isinstance(op.args[1], Constant) and
+                        op.args[1].concretetype == lltype.Signed):
+                        break
+                    elif op.args[0].value == index:
+                        found = True
+                        break
+            if not found or not isinstance(op.args[1], Variable):
                 continue   # no matching gc_save_root in this block
 
             key = (block, op)
@@ -291,7 +297,7 @@ def move_pushes_earlier(graph, regalloc):
                         prevblock1 = link1.prevblock
                         if prevblock1 is not None:
                             w1 = link1.args[varindex]
-                            if w1 not in pred:
+                            if w1 not in pred and isinstance(w1, Variable):
                                 pending_pred.append((prevblock1, w1,
                                                 len(prevblock1.operations)))
             U.union_list(list(pred))
@@ -347,10 +353,8 @@ def move_pushes_earlier(graph, regalloc):
                     if op.opname == 'gc_pop_roots':
                         # it is possible to have gc_pop_roots() without
                         # w in the args, if w is the result of the call
-                        # that comes just before.  But in this case,
-                        # we shouldn't see w at all here
-                        assert w in op.args
-                        if regalloc.checkcolor(w, index):
+                        # that comes just before.
+                        if w in op.args and regalloc.checkcolor(w, index):
                             success_count += 1
                         else:
                             mark.append((index, link, varindex))
@@ -359,8 +363,8 @@ def move_pushes_earlier(graph, regalloc):
                         if is_trivial_rewrite(op):
                             w = op.args[0]
                         else:
-                            # same as above: we shouldn't see such w at all
-                            raise AssertionError
+                            mark.append((index, link, varindex))
+                            break
                 else:
                     if w not in P:
                         mark.append((index, link, varindex))
@@ -375,11 +379,10 @@ def move_pushes_earlier(graph, regalloc):
 
     if variables_along_changes:     # if there was any change
         for index, link, varindex in insert_gc_push_root:
-            newblock = insert_empty_block(link)
-            v = newblock.inputargs[varindex]
-            newblock.operations.append(_gc_save_root(index, v))
-        checkgraph(graph)
-        join_blocks(graph)
+            v = link.args[varindex]
+            newblock = insert_empty_block(link, newops=[
+                _gc_save_root(index, v)])
+    return bool(variables_along_changes)
 
 
 def expand_pop_roots(graph, regalloc):
@@ -411,12 +414,14 @@ def expand_pop_roots(graph, regalloc):
             block.operations = newops
 
 
-def postprocess_graph(gct, graph):
+def postprocess_graph(graph):
     """Collect information about the gc_push_roots and gc_pop_roots
     added in this complete graph, and replace them with real operations.
     """
     regalloc = allocate_registers(graph)
     expand_push_roots(graph, regalloc)
-    move_pushes_earlier(graph, regalloc)
+    changed = move_pushes_earlier(graph, regalloc)
     expand_pop_roots(graph, regalloc)
-    xxxx
+    if changed:
+        join_blocks(graph)
+    checkgraph(graph)
