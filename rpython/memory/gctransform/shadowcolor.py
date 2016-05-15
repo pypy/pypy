@@ -213,9 +213,15 @@ def move_pushes_earlier(graph, regalloc):
     if not regalloc:
         return
 
+    entrymap = mkentrymap(graph)
+    inputvars = {}    # {inputvar: (its block, its index in inputargs)}
+    for block in graph.iterblocks():
+        for i, v in enumerate(block.inputargs):
+            inputvars[v] = (block, i)
+
     Plist = []
 
-    for i in range(regalloc.numcolors):
+    for index in range(regalloc.numcolors):
         U = UnionFind()
 
         S = set()
@@ -227,26 +233,61 @@ def move_pushes_earlier(graph, regalloc):
             else:
                 continue   # no gc_pop_roots in this block
             for v in op.args:
-                if regalloc.getcolor(v) == i:
+                if regalloc.getcolor(v) == index:
                     break
             else:
                 continue   # no variable goes into index i
-            lst = list(find_successors(graph, [(block, v)]))
-            U.union_list(lst)
-            S.update(lst)
+
+            succ = set()
+            pending_succ = [(link1, v) for link1 in block.exits]
+            while pending_succ:
+                link1, v1 = pending_succ.pop()
+                for i2, v2 in enumerate(link1.args):
+                    if v2 is v1:
+                        block2 = link1.target
+                        w2 = block2.inputargs[i2]
+                        if w2 in succ:
+                            continue
+                        succ.add(w2)
+                        # XXX renaming
+                        for op2 in block2.operations:
+                            if op2.opname in ('gc_save_root', 'gc_pop_roots'):
+                                break
+                        else:
+                            for link2 in block2.exits:
+                                pending_succ.append((link2, w2))
+            U.union_list(list(succ))
+            S.update(succ)
 
         G = defaultdict(set)
         for block in graph.iterblocks():
             for op in block.operations:
                 # XXX handle renames
-                if op.opname == 'gc_save_root' and op.args[0].value == i:
+                if op.opname == 'gc_save_root' and op.args[0].value == index:
                     break
             else:
                 continue   # no matching gc_save_root in this block
-            lst = list(find_predecessors(graph, [(block, op.args[1])]))
-            U.union_list(lst)
-            for v1 in lst:
-                G[v1].add((block, op))
+
+            key = (block, op)
+            pred = set()
+            pending_pred = [(block, op.args[1])]
+            while pending_pred:
+                block1, v1 = pending_pred.pop()
+                if v1 not in block1.inputargs:
+                    # XXX handle renames
+                    pass
+                else:
+                    pred.add(v1)
+                    varindex = block1.inputargs.index(v1)
+                    for link1 in entrymap[block1]:
+                        prevblock1 = link1.prevblock
+                        if prevblock1 is not None:
+                            w1 = link1.args[varindex]
+                            if w1 not in pred:
+                                pending_pred.append((prevblock1, w1))
+            U.union_list(list(pred))
+            for v1 in pred:
+                G[v1].add(key)
 
         M = S.intersection(G)
 
@@ -254,7 +295,7 @@ def move_pushes_earlier(graph, regalloc):
         for v in M:
             vp = U.find_rep(v)
             if vp not in parts_target:
-                new_part = (i, set(), set())
+                new_part = (index, set(), set())
                 # (index,
                 #  subset P of variables,
                 #  set of (block, gc_save_root))
@@ -265,12 +306,6 @@ def move_pushes_earlier(graph, regalloc):
             part[2].update(G[v])
 
     #P.sort(...heuristic?)
-
-    entrymap = mkentrymap(graph)
-    inputvars = {}    # {inputvar: (its block, its index in inputargs)}
-    for block in graph.iterblocks():
-        for i, v in enumerate(block.inputargs):
-            inputvars[v] = (block, i)
 
     variables_along_changes = set()
 
@@ -284,10 +319,7 @@ def move_pushes_earlier(graph, regalloc):
         mark = []
 
         for v in P:
-            try:
-                block, varindex = inputvars[v]
-            except KeyError:
-                continue
+            block, varindex = inputvars[v]
             for link in entrymap[block]:
                 w = link.args[varindex]
                 maybe_found = True   # unless proven false
@@ -295,6 +327,8 @@ def move_pushes_earlier(graph, regalloc):
                     if regalloc.getcolor(w) != i:
                         maybe_found = False
                 except KeyError:
+                    maybe_found = False
+                if link.prevblock is None:
                     maybe_found = False
                 if maybe_found:
                     for op in reversed(link.prevblock.operations):

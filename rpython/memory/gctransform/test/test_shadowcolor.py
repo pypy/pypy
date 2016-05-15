@@ -311,7 +311,7 @@ def test_expand_one_pop_roots():
 
     assert list(expand_one_pop_roots(None, [])) == []
 
-def test_move_pushes_earlier():
+def test_move_pushes_earlier_1():
     def g(a):
         return a - 1
     def f(a, b):
@@ -335,3 +335,30 @@ def test_move_pushes_earlier():
     assert len(graph.startblock.operations) == 1
     assert graph.startblock.operations[0].opname == 'gc_save_root'
     assert graph.startblock.operations[0].args[0].value == 0
+
+def test_move_pushes_earlier_2():
+    def g(a):
+        pass
+    def f(a, b):
+        llop.gc_push_roots(lltype.Void, b)
+        g(a)
+        llop.gc_pop_roots(lltype.Void, b)
+        while a > 10:
+            a -= 2
+        llop.gc_push_roots(lltype.Void, b)
+        g(a)
+        llop.gc_pop_roots(lltype.Void, b)
+        return b
+
+    graph = make_graph(f, [int, llmemory.GCREF])
+    regalloc = allocate_registers(graph)
+    expand_push_roots(graph, regalloc)
+    move_pushes_earlier(graph, regalloc)
+    expand_pop_roots(graph, regalloc)
+    assert graphmodel.summary(graph) == {
+        'gc_save_root': 1,
+        'gc_restore_root': 2,
+        'int_gt': 1,
+        'int_sub': 1,
+        'direct_call': 2,
+        }
