@@ -103,3 +103,5 @@ problems.
 .. branch: cpyext-macros-cast
 
 Fix some warnings when compiling CPython C extension modules
+
+.. branch: syntax_fix
