@@ -1333,7 +1333,7 @@ _MethodWrapper = type(all.__call__)
 _NonUserDefinedCallables = (_WrapperDescriptor,
                             _MethodWrapper,
                             types.BuiltinFunctionType)
-
+builtin_code_type = type(dict.update.__code__)
 
 def _get_user_defined_method(cls, method_name):
     try:
@@ -1341,8 +1341,11 @@ def _get_user_defined_method(cls, method_name):
     except AttributeError:
         return
     else:
-        if  (meth is not getattr(type, method_name) and
-             meth is not getattr(object, method_name)):
+        try:
+            code = meth.__code__
+        except AttributeError:
+            return
+        if not isinstance(code, builtin_code_type):
             # Once '__signature__' will be added to 'C'-level
             # callables, this check won't be necessary
             return meth
