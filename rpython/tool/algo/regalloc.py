@@ -127,6 +127,12 @@ class RegAllocator(object):
     def getcolor(self, v):
         return self._coloring[self._unionfind.find_rep(v)]
 
+    def checkcolor(self, v, color):
+        try:
+            return self.getcolor(v) == color
+        except KeyError:
+            return False
+
     def swapcolors(self, col1, col2):
         for key, value in self._coloring.items():
             if value == col1:

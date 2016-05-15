@@ -227,7 +227,6 @@ def move_pushes_earlier(graph, regalloc):
         S = set()
         for block in graph.iterblocks():
             for op in reversed(block.operations):
-                # XXX handle renames
                 if op.opname == 'gc_pop_roots':
                     break
             else:
@@ -239,11 +238,16 @@ def move_pushes_earlier(graph, regalloc):
                 continue   # no variable goes into index i
 
             succ = set()
-            pending_succ = [(link1, v) for link1 in block.exits]
+            pending_succ = [(block, v)]
             while pending_succ:
-                link1, v1 = pending_succ.pop()
-                for i2, v2 in enumerate(link1.args):
-                    if v2 is v1:
+                block1, v1 = pending_succ.pop()
+                for op1 in block1.operations:
+                    if is_trivial_rewrite(op1) and op1.args[0] is v1:
+                        pending_succ.append((block1, op1.result))
+                for link1 in block1.exits:
+                    for i2, v2 in enumerate(link1.args):
+                        if v2 is not v1:
+                            continue
                         block2 = link1.target
                         w2 = block2.inputargs[i2]
                         if w2 in succ:
@@ -254,8 +258,7 @@ def move_pushes_earlier(graph, regalloc):
                             if op2.opname in ('gc_save_root', 'gc_pop_roots'):
                                 break
                         else:
-                            for link2 in block2.exits:
-                                pending_succ.append((link2, w2))
+                            pending_succ.append((block2, w2))
             U.union_list(list(succ))
             S.update(succ)
 
@@ -322,23 +325,21 @@ def move_pushes_earlier(graph, regalloc):
             block, varindex = inputvars[v]
             for link in entrymap[block]:
                 w = link.args[varindex]
-                maybe_found = True   # unless proven false
-                try:
-                    if regalloc.getcolor(w) != i:
-                        maybe_found = False
-                except KeyError:
-                    maybe_found = False
+                maybe_found = regalloc.checkcolor(w, i)  # unless proven false
                 if link.prevblock is None:
                     maybe_found = False
                 if maybe_found:
+                    search = set([w])
                     for op in reversed(link.prevblock.operations):
-                        # XXX handle renames
                         if op.opname == 'gc_pop_roots':
-                            if w in op.args:
+                            if search.intersection(op.args):
                                 success = True
                             else:
                                 maybe_found = False
                             break
+                        if (is_trivial_rewrite(op) and op.result in search
+                                and regalloc.checkcolor(op.args[0], i)):
+                            search.add(op.args[0])
                     else:
                         maybe_found = False
                 if not maybe_found:
