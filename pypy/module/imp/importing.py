@@ -64,8 +64,8 @@ def importhook(space, modulename, w_globals=None, w_locals=None, w_fromlist=None
     w_mod = check_sys_modules_w(space, modulename)
     if w_mod:
         return w_mod
+    lock = getimportlock(space)
     try:
-        lock = getimportlock(space)
         lock.acquire_lock()
 
         if modulename in space.builtin_modules:
