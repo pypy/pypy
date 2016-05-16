@@ -70,3 +70,12 @@ class AppTestBufferProtocol(AppTestCpythonExtensionBase):
         assert s == buffer_support.readbuffer_as_string(mm)
         assert s == buffer_support.writebuffer_as_string(mm)
         assert s == buffer_support.charbuffer_as_string(mm)
+
+    def test_nonbuffer(self):
+        # e.g. int
+        buffer_support = self.get_buffer_support()
+
+        assert not buffer_support.check_readbuffer(42)
+        assert raises(TypeError, buffer_support.readbuffer_as_string, 42)
+        assert raises(TypeError, buffer_support.writebuffer_as_string, 42)
+        assert raises(TypeError, buffer_support.charbuffer_as_string, 42)

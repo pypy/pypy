@@ -475,13 +475,16 @@ def bf_getreadbuffer(space, w_buf, segment, ref):
         ref[0] = address
         return len(buf)
 
-
 @cpython_api([PyObject, Py_ssize_t, rffi.CCHARPP], lltype.Signed,
              header=None, error=-1)
 def bf_getcharbuffer(space, w_buf, segment, ref):
     return bf_getreadbuffer(space, w_buf, segment, rffi.cast(rffi.VOIDPP, ref))
 
-def setup_string_buffer_procs(space, pto):
+def setup_buffer_procs(space, w_type, pto):
+    bufspec = w_type.layout.typedef.buffer
+    if bufspec is None:
+        # not a buffer
+        return
     c_buf = lltype.malloc(PyBufferProcs, flavor='raw', zero=True)
     lltype.render_immortal(c_buf)
     c_buf.c_bf_getsegcount = llhelper(bf_segcount.api_func.functype,
@@ -490,19 +493,10 @@ def setup_string_buffer_procs(space, pto):
                                  bf_getreadbuffer.api_func.get_wrapper(space))
     c_buf.c_bf_getcharbuffer = llhelper(bf_getcharbuffer.api_func.functype,
                                  bf_getcharbuffer.api_func.get_wrapper(space))
+    if bufspec == 'read-write':
+        pass  # TODO: write buffer here.
     pto.c_tp_as_buffer = c_buf
     pto.c_tp_flags |= Py_TPFLAGS_HAVE_GETCHARBUFFER
-
-def setup_buffer_buffer_procs(space, pto):
-    c_buf = lltype.malloc(PyBufferProcs, flavor='raw', zero=True)
-    lltype.render_immortal(c_buf)
-    c_buf.c_bf_getsegcount = llhelper(bf_segcount.api_func.functype,
-                                      bf_segcount.api_func.get_wrapper(space))
-    c_buf.c_bf_getreadbuffer = llhelper(bf_getreadbuffer.api_func.functype,
-                                 bf_getreadbuffer.api_func.get_wrapper(space))
-    c_buf.c_bf_getcharbuffer = llhelper(bf_getcharbuffer.api_func.functype,
-                                 bf_getcharbuffer.api_func.get_wrapper(space))
-    pto.c_tp_as_buffer = c_buf
 
 @cpython_api([PyObject], lltype.Void, header=None)
 def type_dealloc(space, obj):
@@ -567,10 +561,7 @@ def type_attach(space, py_obj, w_type):
             subtype_dealloc.api_func.functype,
             subtype_dealloc.api_func.get_wrapper(space))
     # buffer protocol
-    if space.is_w(w_type, space.w_str):
-        setup_string_buffer_procs(space, pto)
-    if space.is_w(w_type, space.w_buffer):
-        setup_buffer_buffer_procs(space, pto)
+    setup_buffer_procs(space, w_type, pto)
 
     pto.c_tp_free = llhelper(PyObject_Free.api_func.functype,
             PyObject_Free.api_func.get_wrapper(space))
