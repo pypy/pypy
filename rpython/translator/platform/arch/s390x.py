@@ -7,7 +7,7 @@ def extract_s390x_cpu_ids(lines):
     re_number = re.compile("processor (\d+):")
     re_version = re.compile("version = ([0-9A-Fa-f]+)")
     re_id = re.compile("identification = ([0-9A-Fa-f]+)")
-    re_machine = re.compile("machine = ([0-9A-Fa-f+)")
+    re_machine = re.compile("machine = ([0-9A-Fa-f]+)")
     for line in lines:
         number = -1
         version = None
