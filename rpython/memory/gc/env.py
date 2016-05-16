@@ -230,7 +230,6 @@ def get_L2cache_linux2_cpuinfo_s390x(filename="/proc/cpuinfo", label='cache2'):
         data = ''.join(data)
         linepos = 0
         while True:
-            print linepos
             start = _findend(data, '\n' + label, linepos)
             if start < 0:
                 break    # done
