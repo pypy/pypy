@@ -122,13 +122,15 @@ class AppTestDatetime(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
             ("test_date_macros", "METH_NOARGS",
              """
+                 PyObject* obj;
+                 PyDateTime_Date* d;
                  PyDateTime_IMPORT;
                  if (!PyDateTimeAPI) {
                      PyErr_SetString(PyExc_RuntimeError, "No PyDateTimeAPI");
                      return NULL;
                  }
-                 PyObject* obj = PyDate_FromDate(2000, 6, 6);
-                 PyDateTime_Date* d = (PyDateTime_Date*)obj;
+                 obj = PyDate_FromDate(2000, 6, 6);
+                 d = (PyDateTime_Date*)obj;
 
                  PyDateTime_GET_YEAR(obj);
                  PyDateTime_GET_YEAR(d);

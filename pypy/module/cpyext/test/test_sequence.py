@@ -160,9 +160,10 @@ class AppTestSetObject(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
             ("test_macro_cast", "METH_NOARGS",
              """
-             PyObject* o = PyList_New(0);
+             PyObject *o = PyList_New(0);
+             PyListObject* l;
              PyList_Append(o, o);
-             PyListObject* l = (PyListObject*)o;
+             l = (PyListObject*)o;
 
              PySequence_Fast_GET_ITEM(o, 0);
              PySequence_Fast_GET_ITEM(l, 0);

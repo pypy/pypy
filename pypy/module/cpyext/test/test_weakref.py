@@ -42,10 +42,11 @@ class AppTestWeakReference(AppTestCpythonExtensionBase):
             ("test_macro_cast", "METH_NOARGS",
              """
              // PyExc_Warning is some weak-reffable PyObject*.
+             char* dumb_pointer;
              PyObject* weakref_obj = PyWeakref_NewRef(PyExc_Warning, NULL);
              if (!weakref_obj) return weakref_obj;
              // No public PyWeakReference type.
-             char* dumb_pointer = (char*) weakref_obj;
+             dumb_pointer = (char*) weakref_obj;
 
              PyWeakref_GET_OBJECT(weakref_obj);
              PyWeakref_GET_OBJECT(dumb_pointer);
