@@ -2,6 +2,7 @@ import py
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rlib.jit_hooks import LOOP_RUN_CONTAINER
 from rpython.rlib import rgc
+from rpython.jit.metainterp.debug import LOOP_RUN_COUNTERS
 from rpython.jit.backend.x86.assembler import Assembler386
 from rpython.jit.backend.x86.regalloc import gpr_reg_mgr_cls, xmm_reg_mgr_cls
 from rpython.jit.backend.x86.profagent import ProfileAgent
@@ -115,8 +116,8 @@ class AbstractX86CPU(AbstractLLCPU):
 
     def get_all_loop_runs(self):
         l = lltype.malloc(LOOP_RUN_CONTAINER,
-                          len(self.assembler.loop_run_counters))
-        for i, ll_s in enumerate(self.assembler.loop_run_counters):
+                          len(LOOP_RUN_COUNTERS))
+        for i, ll_s in enumerate(LOOP_RUN_COUNTERS):
             l[i].type = ll_s.type
             l[i].number = ll_s.number
             l[i].counter = ll_s.i

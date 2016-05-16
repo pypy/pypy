@@ -62,7 +62,7 @@ def setup():
     jitlog_try_init_using_env = rffi.llexternal("jitlog_try_init_using_env",
                                   [], lltype.Void, compilation_info=eci)
     jitlog_write_marked = rffi.llexternal("jitlog_write_marked",
-                                  [rffi.INT, rffi.CCHARP, rffi.INT],
+                                  [rffi.CCHARP, rffi.INT],
                                   lltype.Void, compilation_info=eci,
                                   releasegil=False)
     jitlog_enabled = rffi.llexternal("jitlog_enabled", [], rffi.INT,

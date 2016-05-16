@@ -61,12 +61,9 @@ void jitlog_teardown()
 }
 
 RPY_EXTERN
-void jitlog_write_marked(int tag, char * text, int length)
+void jitlog_write_marked(char * text, int length)
 {
     if (!jitlog_ready) { return; }
 
-    char header[1];
-    header[0] = tag;
-    write(jitlog_fd, (const char*)&header, 1);
     write(jitlog_fd, text, length);
 }
