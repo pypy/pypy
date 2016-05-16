@@ -65,6 +65,7 @@ def from_obj(OB_PTR_TYPE, p):
     if ob is None:
         return lltype.nullptr(OB_PTR_TYPE.TO)
     assert lltype.typeOf(ob) == OB_PTR_TYPE
+    assert ob
     return ob
 
 def to_obj(Class, ob):
