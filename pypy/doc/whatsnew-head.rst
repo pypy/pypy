@@ -96,6 +96,8 @@ Implement ufunc.outer on numpypy
 
 .. branch: z196-support
 
-PyPy can now be translated to specifically target z196 and z10 (older CPU revisions for s390x).
-To target z196 on a z13 machine supply CFLAGS="-march=z186" rpython/bin/rpython ...
+Fixes a critical issue in the register allocator and extends support on s390x. PyPy runs and translates on
+the s390x revisions z10 (released February 2008, experimental) and z196 (released August 2010)
+) in addition to zEC12 and z13. To target e.g. z196 on a zEC12 machine supply CFLAGS="-march=z196" to your
+shell environment.
 
