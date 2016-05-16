@@ -89,3 +89,19 @@ It is a more flexible way to make RPython finalizers.
 Use the new rgc.FinalizerQueue mechanism to clean up the handling of
 ``__del__`` methods.  Fixes notably issue #2287.  (All RPython
 subclasses of W_Root need to use FinalizerQueue now.)
+
+.. branch: ufunc-outer
+
+Implement ufunc.outer on numpypy
+
+.. branch: verbose-imports
+
+Support ``pypy -v``: verbose imports.  It does not log as much as
+cpython, but it should be enough to help when debugging package layout
+problems.
+
+.. branch: cpyext-macros-cast
+
+Fix some warnings when compiling CPython C extension modules
+
+.. branch: syntax_fix

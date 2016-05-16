@@ -191,3 +191,17 @@ class AppTestIntObject(AppTestCpythonExtensionBase):
         i = mod.test_int()
         assert isinstance(i, int)
         assert i == 42
+
+    def test_int_macros(self):
+        mod = self.import_extension('foo', [
+                ("test_macros", "METH_NOARGS",
+                """
+                PyObject * obj = PyInt_FromLong(42);
+                PyIntObject * i = (PyIntObject*)obj;
+                PyInt_AS_LONG(obj);
+                PyInt_AS_LONG(i);
+                Py_RETURN_NONE;
+                """
+                ),
+                ])
+

@@ -210,7 +210,7 @@ def get_L2cache_linux2_cpuinfo(filename="/proc/cpuinfo", label='cache size'):
             "Warning: cannot find your CPU L2 cache size in /proc/cpuinfo")
         return -1
 
-def get_L2cache_linux2_cpuinfo_s390x(filename="/proc/cpuinfo", label='cache3'):
+def get_L2cache_linux2_cpuinfo_s390x(filename="/proc/cpuinfo", label='cache2'):
     debug_start("gc-hardware")
     L2cache = sys.maxint
     try:
@@ -233,29 +233,19 @@ def get_L2cache_linux2_cpuinfo_s390x(filename="/proc/cpuinfo", label='cache3'):
             start = _findend(data, '\n' + label, linepos)
             if start < 0:
                 break    # done
-            linepos = _findend(data, '\n', start)
-            if linepos < 0:
-                break    # no end-of-line??
-            # *** data[start:linepos] == "   : level=2 type=Instruction scope=Private size=2048K ..."
-            start = _skipspace(data, start)
-            if data[start] != ':':
+            start = _findend(data, 'size=', start)
+            if start < 0:
+                break
+            end = _findend(data, ' ', start) - 1
+            if end < 0:
+                break
+            linepos = end
+            size = data[start:end]
+            last_char = len(size)-1
+            assert 0 <= last_char < len(size)
+            if size[last_char] not in ('K', 'k'):    # assume kilobytes for now
                 continue
-            # *** data[start:linepos] == ": level=2 type=Instruction scope=Private size=2048K ..."
-            start = _skipspace(data, start + 1)
-            # *** data[start:linepos] == "level=2 type=Instruction scope=Private size=2048K ..."
-            start += 44
-            end = start
-            while '0' <= data[end] <= '9':
-                end += 1
-            # *** data[start:end] == "2048"
-            if start == end:
-                continue
-            number = int(data[start:end])
-            # *** data[end:linepos] == " KB\n"
-            end = _skipspace(data, end)
-            if data[end] not in ('K', 'k'):    # assume kilobytes for now
-                continue
-            number = number * 1024
+            number = int(size[:last_char])* 1024
             # for now we look for the smallest of the L2 caches of the CPUs
             if number < L2cache:
                 L2cache = number

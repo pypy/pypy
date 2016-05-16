@@ -7,7 +7,11 @@ from pypy.conftest import pypydir
 
 ROOT = os.path.abspath(os.path.join(pypydir, '..'))
 RPYTHONDIR = os.path.join(ROOT, "rpython")
-EXCLUDE = {'/virt_test/lib/python2.7/site-packages/setuptools'}
+
+EXCLUDE = {'/virt_test'}
+# ^^^ don't look inside this: it is created by virtualenv on buildslaves.
+# It contains third-party installations that may include tabs in their
+# .py files.
 
 
 def test_no_tabs():

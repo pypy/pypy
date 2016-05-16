@@ -312,13 +312,21 @@ class ZARCHRegisterManager(RegisterManager):
             even, odd = r.r2, r.r3
             old_even_var = reverse_mapping.get(even, None)
             old_odd_var = reverse_mapping.get(odd, None)
+
+            # forbid r2 and r3 to be in free regs!
+            self.free_regs = [fr for fr in self.free_regs \
+                              if fr is not even and \
+                                 fr is not odd]
+
             if old_even_var:
                 if old_even_var in forbidden_vars:
                     self._relocate_forbidden_variable(even, old_even_var, reverse_mapping,
                                                       forbidden_vars, odd)
                 else:
+                    # old even var is not forbidden, sync it and be done with it
                     self._sync_var(old_even_var)
                     del self.reg_bindings[old_even_var]
+                    del reverse_mapping[odd]
             if old_odd_var:
                 if old_odd_var in forbidden_vars:
                     self._relocate_forbidden_variable(odd, old_odd_var, reverse_mapping,
@@ -326,10 +334,8 @@ class ZARCHRegisterManager(RegisterManager):
                 else:
                     self._sync_var(old_odd_var)
                     del self.reg_bindings[old_odd_var]
+                    del reverse_mapping[odd]
 
-            self.free_regs = [fr for fr in self.free_regs \
-                              if fr is not even and \
-                                 fr is not odd]
             self.reg_bindings[even_var] = even
             self.reg_bindings[odd_var] = odd
             return even, odd
@@ -342,10 +348,11 @@ class ZARCHRegisterManager(RegisterManager):
             self.assembler.regalloc_mov(reg, candidate)
             self.reg_bindings[var] = candidate
             reverse_mapping[candidate] = var
+            return # we found a location for that forbidden var!
 
         for candidate in r.MANAGED_REGS:
             # move register of var to another register
-            # thus it is not allowed to bei either reg or forbidden_reg
+            # it is NOT allowed to be a reg or forbidden_reg
             if candidate is reg or candidate is forbidden_reg:
                 continue
             # neither can we allow to move it to a register of another forbidden variable
@@ -354,11 +361,11 @@ class ZARCHRegisterManager(RegisterManager):
                 if candidate_var is not None:
                     self._sync_var(candidate_var)
                     del self.reg_bindings[candidate_var]
+                    del reverse_mapping[candidate]
                 self.assembler.regalloc_mov(reg, candidate)
                 assert var is not None
                 self.reg_bindings[var] = candidate
                 reverse_mapping[candidate] = var
-                self.free_regs.append(reg)
                 break
         else:
             raise NoVariableToSpill
