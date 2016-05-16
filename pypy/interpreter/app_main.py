@@ -2,7 +2,7 @@
 # This is pure Python code that handles the main entry point into "pypy".
 # See test/test_app_main.
 
-# Missing vs CPython: -d, -t, -v, -x, -3
+# Missing vs CPython: -d, -t, -x, -3
 USAGE1 = __doc__ = """\
 Options and arguments (and corresponding environment variables):
 -B     : don't write .py[co] files on import; also PYTHONDONTWRITEBYTECODE=x
@@ -19,6 +19,8 @@ Options and arguments (and corresponding environment variables):
 -s     : don't add user site directory to sys.path; also PYTHONNOUSERSITE
 -S     : don't imply 'import site' on initialization
 -u     : unbuffered binary stdout and stderr; also PYTHONUNBUFFERED=x
+-v     : verbose (trace import statements); also PYTHONVERBOSE=x
+         can be supplied multiple times to increase verbosity
 -V     : print the Python version number and exit (also --version)
 -W arg : warning control; arg is action:message:category:module:lineno
          also PYTHONWARNINGS=arg
@@ -529,6 +531,7 @@ def run_command_line(interactive,
                      warnoptions,
                      unbuffered,
                      ignore_environment,
+                     verbose,
                      **ignored):
     # with PyPy in top of CPython we can only have around 100
     # but we need more in the translated PyPy for the compiler package
@@ -663,6 +666,8 @@ def run_command_line(interactive,
                 inspect = True
             else:
                 # If not interactive, just read and execute stdin normally.
+                if verbose:
+                    print_banner(not no_site)
                 @hidden_applevel
                 def run_it():
                     co_stdin = compile(sys.stdin.read(), '<stdin>', 'exec',
@@ -724,10 +729,10 @@ def run_command_line(interactive,
     return status
 
 def print_banner(copyright):
-    print 'Python %s on %s' % (sys.version, sys.platform)
+    print >> sys.stderr, 'Python %s on %s' % (sys.version, sys.platform)
     if copyright:
-        print ('Type "help", "copyright", "credits" or '
-               '"license" for more information.')
+        print >> sys.stderr, ('Type "help", "copyright", "credits" or '
+                              '"license" for more information.')
 
 STDLIB_WARNING = """\
 debug: WARNING: Library path not found, using compiled-in sys.path.

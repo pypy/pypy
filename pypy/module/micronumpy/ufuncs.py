@@ -363,12 +363,18 @@ class W_Ufunc(W_Root):
                 out = space.call_method(obj, '__array_wrap__', out, space.w_None)
             return out
 
-    def descr_outer(self, space, __args__):
-        return self._outer(space, __args__)
-
-    def _outer(self, space, __args__):
-        raise oefmt(space.w_ValueError,
+    def descr_outer(self, space, args_w):
+        if self.nin != 2:
+            raise oefmt(space.w_ValueError,
                     "outer product only supported for binary functions")
+        if len(args_w) != 2:
+            raise oefmt(space.w_ValueError,
+                    "exactly two arguments expected")
+        args = [convert_to_array(space, w_obj) for w_obj in args_w]
+        w_outshape = [space.wrap(i) for i in args[0].get_shape() + [1]*args[1].ndims()]
+        args0 = args[0].reshape(space, space.newtuple(w_outshape))
+        return self.descr_call(space, Arguments.frompacked(space, 
+                                                        space.newlist([args0, args[1]])))
 
     def parse_kwargs(self, space, kwds_w):
         w_casting = kwds_w.pop('casting', None)
