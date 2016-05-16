@@ -7,7 +7,7 @@ def extract_s390x_cpu_ids(lines):
     re_number = re.compile("processor (\d+):")
     re_version = re.compile("version = ([0-9A-Fa-f]+)")
     re_id = re.compile("identification = ([0-9A-Fa-f]+)")
-    re_machine = re.compile("machine = (\d+)")
+    re_machine = re.compile("machine = ([0-9A-Fa-f+)")
     for line in lines:
         number = -1
         version = None
@@ -33,7 +33,7 @@ def extract_s390x_cpu_ids(lines):
 
         match = re_machine.search(line)
         if match:
-            machine = int(match.group(1))
+            machine = int(match.group(1), 16)
 
         ids.append((number, version, ident, machine))
 
@@ -54,14 +54,14 @@ def s390x_cpu_revision():
             assert machine == m
         machine = m
 
-    if machine == 2097 or machine == 2098:
+    if machine == 0x2097 or machine == 0x2098:
         return "z10"
-    if machine == 2817 or machine == 2818:
+    if machine == 0x2817 or machine == 0x2818:
         return "z196"
-    if machine == 2827 or machine == 2828:
+    if machine == 0x2827 or machine == 0x2828:
         return "zEC12"
-    if machine == 2964:
-        return "zEC12" # it would be z13, but gcc does not recognize this!
+    if machine == 0x2964:
+        return "z13"
 
     # well all others are unsupported!
     return "unknown"
@@ -76,6 +76,10 @@ def update_cflags(cflags):
         # the default cpu architecture that is supported
         # older versions are not supported
         revision = s390x_cpu_revision()
+        if revision == 'z13':
+            # gcc does not recognize z13 as a compiler flag!
+            revision = 'zEC12'
+
         assert revision != 'unknown'
         cflags += ('-march='+revision,)
     cflags += ('-m64','-mzarch')
