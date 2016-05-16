@@ -14,3 +14,9 @@ py3k branch
 .. branch: numpy_broadcast
 
 Add broadcast to micronumpy
+
+.. branch: z196-support
+
+Fixes a critical issue in the register allocator and extends support on s390x. PyPy runs and translates on
+the s390x revisions z10 (released February 2008, experimental) and z196 (released August 2010)
+) in addition to zEC12 and z13.
