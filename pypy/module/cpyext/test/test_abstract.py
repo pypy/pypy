@@ -57,7 +57,6 @@ class AppTestBufferProtocol(AppTestCpythonExtensionBase):
         assert raises(TypeError, buffer_support.writebuffer_as_string, buf)
         assert s == buffer_support.charbuffer_as_string(buf)
 
-    @pytest.mark.xfail
     def test_mmap(self):
         import mmap
         buffer_support = self.get_buffer_support()
@@ -70,6 +69,13 @@ class AppTestBufferProtocol(AppTestCpythonExtensionBase):
         assert s == buffer_support.readbuffer_as_string(mm)
         assert s == buffer_support.writebuffer_as_string(mm)
         assert s == buffer_support.charbuffer_as_string(mm)
+
+        s = '\0' * 3
+        ro_mm = mmap.mmap(-1, 3, access=mmap.ACCESS_READ)
+        assert buffer_support.check_readbuffer(ro_mm)
+        assert s == buffer_support.readbuffer_as_string(ro_mm)
+        assert raises(TypeError, buffer_support.writebuffer_as_string, ro_mm)
+        assert s == buffer_support.charbuffer_as_string(ro_mm)
 
     def test_nonbuffer(self):
         # e.g. int

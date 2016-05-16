@@ -453,7 +453,7 @@ def bf_segcount(space, w_obj, ref):
 def bf_getreadbuffer(space, w_buf, segment, ref):
     if segment != 0:
         raise oefmt(space.w_SystemError,
-                    "accessing non-existent string segment")
+                    "accessing non-existent buffer segment")
     buf = space.readbuf_w(w_buf)
     try:
         address = buf.get_raw_address()
@@ -480,6 +480,19 @@ def bf_getreadbuffer(space, w_buf, segment, ref):
 def bf_getcharbuffer(space, w_buf, segment, ref):
     return bf_getreadbuffer(space, w_buf, segment, rffi.cast(rffi.VOIDPP, ref))
 
+
+@cpython_api([PyObject, Py_ssize_t, rffi.VOIDPP], lltype.Signed,
+             header=None, error=-1)
+def bf_getwritebuffer(space, w_buf, segment, ref):
+    if segment != 0:
+        raise oefmt(space.w_SystemError,
+                    "accessing non-existent segment")
+
+    buf = space.writebuf_w(w_buf)
+    ref[0] = buf.get_raw_address()
+    return len(buf)
+
+
 def setup_buffer_procs(space, w_type, pto):
     bufspec = w_type.layout.typedef.buffer
     if bufspec is None:
@@ -494,7 +507,9 @@ def setup_buffer_procs(space, w_type, pto):
     c_buf.c_bf_getcharbuffer = llhelper(bf_getcharbuffer.api_func.functype,
                                  bf_getcharbuffer.api_func.get_wrapper(space))
     if bufspec == 'read-write':
-        pass  # TODO: write buffer here.
+        c_buf.c_bf_getwritebuffer = llhelper(
+            bf_getwritebuffer.api_func.functype,
+            bf_getwritebuffer.api_func.get_wrapper(space))
     pto.c_tp_as_buffer = c_buf
     pto.c_tp_flags |= Py_TPFLAGS_HAVE_GETCHARBUFFER
 
