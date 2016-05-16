@@ -484,9 +484,9 @@ def add_leave_roots_frame(graph, regalloc):
                 extra_blocks[block] = newblock
             link.target = extra_blocks[block]
 
-    # check all blocks in flagged_blocks: they might contain a gc_save_root()
-    # that writes the bitmask meaning "everything is free".  Remove such
-    # gc_save_root().
+    # check all blocks not in flagged_blocks: they might contain a
+    # gc_save_root() that writes the bitmask meaning "everything is
+    # free".  Remove such gc_save_root().
     bitmask_all_free = (1 << regalloc.numcolors) - 1
     if bitmask_all_free == 1:
         bitmask_all_free = 0
