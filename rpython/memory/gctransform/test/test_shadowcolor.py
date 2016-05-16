@@ -326,17 +326,19 @@ def test_move_pushes_earlier_1():
     expand_push_roots(graph, regalloc)
     move_pushes_earlier(graph, regalloc)
     expand_pop_roots(graph, regalloc)
+    add_leave_roots_frame(graph, regalloc)
     assert graphmodel.summary(graph) == {
         'gc_save_root': 1,
         'gc_restore_root': 1,
         'int_gt': 1,
         'direct_call': 1,
+        'gc_leave_roots_frame': 1,
         }
     join_blocks(graph)
     assert len(graph.startblock.operations) == 1
     assert graph.startblock.operations[0].opname == 'gc_save_root'
     assert graph.startblock.operations[0].args[0].value == 0
-    postprocess_double_check(graph)
+    postprocess_double_check(graph, force_frame=True)
 
 def test_move_pushes_earlier_2():
     def g(a):
@@ -364,7 +366,8 @@ def test_move_pushes_earlier_2():
         'int_sub': 1,
         'direct_call': 2,
         }
-    postprocess_double_check(graph)
+    add_leave_roots_frame(graph, regalloc)
+    postprocess_double_check(graph, force_frame=True)
 
 def test_remove_intrablock_push_roots():
     def g(a):
@@ -418,7 +421,8 @@ def test_move_pushes_earlier_rename_1():
         'int_sub': 1,
         'direct_call': 2,
         }
-    postprocess_double_check(graph)
+    add_leave_roots_frame(graph, regalloc)
+    postprocess_double_check(graph, force_frame=True)
 
 def test_move_pushes_earlier_rename_2():
     def g(a):
@@ -448,7 +452,8 @@ def test_move_pushes_earlier_rename_2():
         'int_sub': 1,
         'direct_call': 2,
         }
-    postprocess_double_check(graph)
+    add_leave_roots_frame(graph, regalloc)
+    postprocess_double_check(graph, force_frame=True)
 
 def test_move_pushes_earlier_rename_3():
     def g(a):
@@ -480,7 +485,8 @@ def test_move_pushes_earlier_rename_3():
         'int_sub': 2,
         'direct_call': 2,
         }
-    postprocess_double_check(graph)
+    add_leave_roots_frame(graph, regalloc)
+    postprocess_double_check(graph, force_frame=True)
 
 def test_move_pushes_earlier_rename_4():
     def g(a):
@@ -520,4 +526,71 @@ def test_move_pushes_earlier_rename_4():
         'int_sub': 3,
         'direct_call': 2,
         }
-    postprocess_double_check(graph)
+    add_leave_roots_frame(graph, regalloc)
+    postprocess_double_check(graph, force_frame=True)
+
+def test_add_leave_roots_frame_1():
+    def g(b):
+        pass
+    def f(a, b):
+        if a & 1:
+            llop.gc_push_roots(lltype.Void, b)
+            g(b)
+            llop.gc_pop_roots(lltype.Void, b)
+            a += 5
+        else:
+            llop.gc_push_roots(lltype.Void, b)
+            g(b)
+            llop.gc_pop_roots(lltype.Void, b)
+            a += 6
+        #...b forgotten here, even though it is pushed/popped above
+        while a > 100:
+            a -= 3
+        return a
+
+    graph = make_graph(f, [int, llmemory.GCREF])
+    regalloc = allocate_registers(graph)
+    expand_push_roots(graph, regalloc)
+    move_pushes_earlier(graph, regalloc)
+    expand_pop_roots(graph, regalloc)
+    add_leave_roots_frame(graph, regalloc)
+    join_blocks(graph)
+    assert len(graph.startblock.exits) == 2
+    for link in graph.startblock.exits:
+        assert [op.opname for op in link.target.operations] == [
+            'gc_save_root',
+            'direct_call',
+            'gc_restore_root',
+            'gc_leave_roots_frame',
+            'int_add']
+    postprocess_double_check(graph, force_frame=True)
+
+def test_add_leave_roots_frame_2():
+    def g(b):
+        pass
+    def f(a, b):
+        llop.gc_push_roots(lltype.Void, b)
+        g(b)
+        llop.gc_pop_roots(lltype.Void, b)
+        #...b forgotten here; the next push/pop is empty
+        llop.gc_push_roots(lltype.Void)
+        g(b)
+        llop.gc_pop_roots(lltype.Void)
+        while a > 100:
+            a -= 3
+        return a
+
+    graph = make_graph(f, [int, llmemory.GCREF])
+    regalloc = allocate_registers(graph)
+    expand_push_roots(graph, regalloc)
+    move_pushes_earlier(graph, regalloc)
+    expand_pop_roots(graph, regalloc)
+    add_leave_roots_frame(graph, regalloc)
+    join_blocks(graph)
+    assert [op.opname for op in graph.startblock.operations] == [
+        'gc_save_root',
+        'direct_call',
+        'gc_restore_root',
+        'gc_leave_roots_frame',
+        'direct_call']
+    postprocess_double_check(graph, force_frame=True)

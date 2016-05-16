@@ -33,8 +33,6 @@ class FunctionCodeGenerator(object):
     Collects information about a function which we have to generate
     from a flow graph.
     """
-    pre_return_code = None
-
     def __init__(self, graph, db, exception_policy, functionname):
         self.graph = graph
         self.db = db
@@ -200,8 +198,6 @@ class FunctionCodeGenerator(object):
                 retval = self.expr(block.inputargs[0])
                 if self.exception_policy != "exc_helper":
                     yield 'RPY_DEBUG_RETURN();'
-                if self.pre_return_code:
-                    yield self.pre_return_code
                 yield 'return %s;' % retval
                 continue
             elif block.exitswitch is None:

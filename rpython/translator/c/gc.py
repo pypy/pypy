@@ -407,12 +407,14 @@ class ShadowStackFrameworkGcPolicy(BasicFrameworkGcPolicy):
                    % ', '.join(['*s%d' % i for i in range(numcolors)]))
         yield 'pypy_ss_t *ss = (pypy_ss_t *)%s;' % gcpol_ss
         funcgen.gcpol_ss = gcpol_ss
-        funcgen.pre_return_code = '%s = (void *)ss;' % gcpol_ss
 
     def OP_GC_ENTER_ROOTS_FRAME(self, funcgen, op):
         if op is not funcgen.graph.startblock.operations[0]:
             raise Exception("gc_enter_roots_frame as a non-initial instruction")
         return '%s = (void *)(ss+1);' % funcgen.gcpol_ss
+
+    def OP_GC_LEAVE_ROOTS_FRAME(self, funcgen, op):
+        return '%s = (void *)ss;' % funcgen.gcpol_ss
 
     def OP_GC_SAVE_ROOT(self, funcgen, op):
         num = op.args[0].value

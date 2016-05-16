@@ -1,10 +1,10 @@
 from rpython.rtyper.lltypesystem import lltype, llmemory
-from rpython.flowspace.model import mkentrymap, checkgraph
+from rpython.flowspace.model import mkentrymap, checkgraph, Block, Link
 from rpython.flowspace.model import Variable, Constant, SpaceOperation
 from rpython.tool.algo.regalloc import perform_register_allocation
 from rpython.tool.algo.unionfind import UnionFind
 from rpython.translator.unsimplify import varoftype, insert_empty_block
-from rpython.translator.unsimplify import insert_empty_startblock
+from rpython.translator.unsimplify import insert_empty_startblock, split_block
 from rpython.translator.simplify import join_blocks
 from collections import defaultdict
 
@@ -425,6 +425,85 @@ def expand_pop_roots(graph, regalloc):
             block.operations = newops
 
 
+def add_leave_roots_frame(graph, regalloc):
+    # put the 'gc_leave_roots_frame' operations as early as possible,
+    # that is, just after the last 'gc_restore_root' reached.  This is
+    # done by putting it along a link, such that the previous block
+    # contains a 'gc_restore_root' and from the next block it is not
+    # possible to reach any extra 'gc_restore_root'; then, as doing
+    # this is not as precise as we'd like, we first break every block
+    # just after their last 'gc_restore_root'.
+    if regalloc is None:
+        return
+
+    # break blocks after their last 'gc_restore_root', unless they
+    # are already at the last position
+    for block in graph.iterblocks():
+        ops = block.operations
+        for i in range(len(ops)-1, -1, -1):
+            if ops[i].opname == 'gc_restore_root':
+                if i < len(ops) - 1:
+                    split_block(block, i + 1)
+                break
+    # done
+
+    entrymap = mkentrymap(graph)
+    flagged_blocks = set()     # blocks with 'gc_restore_root' in them,
+                               # or from which we can reach such a block
+    for block in graph.iterblocks():
+        for op in block.operations:
+            if op.opname == 'gc_restore_root':
+                flagged_blocks.add(block)
+                break    # interrupt this block, go to the next one
+
+    links = list(graph.iterlinks())
+    links.reverse()
+
+    while True:
+        prev_length = len(flagged_blocks)
+        for link in links:
+            if link.target in flagged_blocks:
+                flagged_blocks.add(link.prevblock)
+        if len(flagged_blocks) == prev_length:
+            break
+    assert graph.returnblock not in flagged_blocks
+    assert graph.startblock in flagged_blocks
+
+    extra_blocks = {}
+    for link in links:
+        block = link.target
+        if (link.prevblock in flagged_blocks and
+                block not in flagged_blocks):
+            # share the gc_leave_roots_frame if possible
+            if block not in extra_blocks:
+                newblock = Block([v.copy() for v in block.inputargs])
+                newblock.operations.append(
+                    SpaceOperation('gc_leave_roots_frame', [],
+                                   varoftype(lltype.Void)))
+                newblock.closeblock(Link(list(newblock.inputargs), block))
+                extra_blocks[block] = newblock
+            link.target = extra_blocks[block]
+
+    # check all blocks in flagged_blocks: they might contain a gc_save_root()
+    # that writes the bitmask meaning "everything is free".  Remove such
+    # gc_save_root().
+    bitmask_all_free = (1 << regalloc.numcolors) - 1
+    if bitmask_all_free == 1:
+        bitmask_all_free = 0
+    for block in graph.iterblocks():
+        if block in flagged_blocks:
+            continue
+        newops = []
+        for op in block.operations:
+            if op.opname == 'gc_save_root':
+                assert isinstance(op.args[1], Constant)
+                assert op.args[1].value == bitmask_all_free
+            else:
+                newops.append(op)
+        if len(newops) < len(block.operations):
+            block.operations = newops
+
+
 def add_enter_roots_frame(graph, regalloc, c_gcdata):
     if regalloc is None:
         return
@@ -441,7 +520,7 @@ def add_enter_roots_frame(graph, regalloc, c_gcdata):
 class PostProcessCheckError(Exception):
     pass
 
-def postprocess_double_check(graph):
+def postprocess_double_check(graph, force_frame=False):
     # Debugging only: double-check that the placement is correct.
     # Assumes that every gc_restore_root() indicates that the variable
     # must be saved at the given position in the shadowstack frame (in
@@ -455,23 +534,37 @@ def postprocess_double_check(graph):
                 #                    saved at the start of this block
                 #    empty-set: same as above, so: "saved nowhere"
 
+    left_frame = set()    # set of blocks, gc_leave_roots_frame was called
+                          # before the start of this block
+
     for v in graph.startblock.inputargs:
         saved[v] = frozenset()    # function arguments are not saved anywhere
+
+    if (len(graph.startblock.operations) == 0 or
+            graph.startblock.operations[0].opname != 'gc_enter_roots_frame'):
+        if not force_frame:
+            left_frame.add(graph.startblock)    # no frame at all here
 
     pending = set([graph.startblock])
     while pending:
         block = pending.pop()
         locsaved = {}
-        for v in block.inputargs:
-            locsaved[v] = saved[v]
+        left = (block in left_frame)
+        if not left:
+            for v in block.inputargs:
+                locsaved[v] = saved[v]
         for op in block.operations:
             if op.opname == 'gc_restore_root':
+                if left:
+                    raise PostProcessCheckError(graph, block, op, 'left!')
                 if isinstance(op.args[1], Constant):
                     continue
                 num = op.args[0].value
                 if num not in locsaved[op.args[1]]:
                     raise PostProcessCheckError(graph, block, op, num, locsaved)
             elif op.opname == 'gc_save_root':
+                if left:
+                    raise PostProcessCheckError(graph, block, op, 'left!')
                 num = op.args[0].value
                 v = op.args[1]
                 if isinstance(v, Variable):
@@ -490,27 +583,38 @@ def postprocess_double_check(graph):
                     assert nummask[-1] == num
                     for v in locsaved:
                         locsaved[v] = locsaved[v].difference(nummask)
-            elif is_trivial_rewrite(op):
+            elif op.opname == 'gc_leave_roots_frame':
+                if left:
+                    raise PostProcessCheckError(graph, block, op, 'left!')
+                left = True
+            elif is_trivial_rewrite(op) and not left:
                 locsaved[op.result] = locsaved[op.args[0]]
             else:
                 locsaved[op.result] = frozenset()
         for link in block.exits:
             changed = False
-            for i, v in enumerate(link.args):
-                try:
-                    loc = locsaved[v]
-                except KeyError:
-                    assert isinstance(v, Constant)
-                    loc = frozenset()
-                w = link.target.inputargs[i]
-                if w in saved:
-                    if loc == saved[w]:
-                        continue      # already up-to-date
-                    loc = loc.intersection(saved[w])
-                saved[w] = loc
-                changed = True
+            if left:
+                if link.target not in left_frame:
+                    left_frame.add(link.target)
+                    changed = True
+            else:
+                for i, v in enumerate(link.args):
+                    try:
+                        loc = locsaved[v]
+                    except KeyError:
+                        assert isinstance(v, Constant)
+                        loc = frozenset()
+                    w = link.target.inputargs[i]
+                    if w in saved:
+                        if loc == saved[w]:
+                            continue      # already up-to-date
+                        loc = loc.intersection(saved[w])
+                    saved[w] = loc
+                    changed = True
             if changed:
                 pending.add(link.target)
+
+    assert graph.getreturnvar() not in saved   # missing gc_leave_roots_frame?
 
 
 def postprocess_graph(graph, c_gcdata):
@@ -521,6 +625,7 @@ def postprocess_graph(graph, c_gcdata):
     expand_push_roots(graph, regalloc)
     move_pushes_earlier(graph, regalloc)
     expand_pop_roots(graph, regalloc)
+    add_leave_roots_frame(graph, regalloc)
     add_enter_roots_frame(graph, regalloc, c_gcdata)
     checkgraph(graph)
     postprocess_double_check(graph)
