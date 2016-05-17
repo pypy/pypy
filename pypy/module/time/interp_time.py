@@ -103,6 +103,14 @@ if _WIN:
         def get_interrupt_event(self):
             return globalState.interrupt_event
 
+    # Can I just use one of the state classes above?
+    # I don't really get why an instance is better than a plain module
+    # attr, but following advice from armin
+    class TimeState(object):
+        def __init__(self):
+            self.n_overflow = 0
+            self.last_ticks = 0
+    time_state = TimeState()
 
 _includes = ["time.h"]
 if _POSIX:
@@ -118,6 +126,7 @@ class CConfig:
     clock_t = platform.SimpleType("clock_t", rffi.ULONG)
     has_gettimeofday = platform.Has('gettimeofday')
     has_clock_gettime = platform.Has('clock_gettime')
+    has_gettickcount64 = platform.Has("GetTickCount64")
     CLOCK_PROF = platform.DefinedConstantInteger('CLOCK_PROF')
 
 CLOCK_CONSTANTS = ['CLOCK_HIGHRES', 'CLOCK_MONOTONIC', 'CLOCK_MONOTONIC_RAW',
@@ -185,6 +194,7 @@ if _POSIX:
 
 CLOCKS_PER_SEC = cConfig.CLOCKS_PER_SEC
 HAS_CLOCK_GETTIME = cConfig.has_clock_gettime
+HAS_GETTICKCOUNT64 = cConfig.has_gettickcount64
 clock_t = cConfig.clock_t
 tm = cConfig.tm
 glob_buf = lltype.malloc(tm, flavor='raw', zero=True, immortal=True)
@@ -503,18 +513,19 @@ def time(space):
 
     Return the current time in seconds since the Epoch.
     Fractions of a second may be present if the system clock provides them."""
-
     secs = pytime.time()
     return space.wrap(secs)
 
-def clock(space):
-    """clock() -> floating point number
-
-    Return the CPU time or real time since the start of the process or since
-    the first call to clock().  This has as much precision as the system
-    records."""
-
-    return space.wrap(pytime.clock())
+# TODO: Remember what this is for...
+def get_time_time_clock_info(space, w_info):
+    # Can't piggy back on time.time because time.time delegates to the 
+    # host python's time.time (so we can't see the internals)
+    if HAS_CLOCK_GETTIME:
+        try:
+            res = clock_getres(space, cConfig.CLOCK_REALTIME)
+        except OperationError:
+            res = 1e-9
+    #else: ???
 
 def ctime(space, w_seconds=None):
     """ctime([seconds]) -> string
@@ -717,9 +728,51 @@ def strftime(space, format, w_tup=None):
 if _WIN:
     # untested so far
     _GetTickCount64 = rwin32.winexternal('GetTickCount64', [], rffi.ULONGLONG)
+    _GetTickCount = rwin32.winexternal('GetTickCount', [], rwin32.DWORD)
+    LPDWORD = rwin32.LPDWORD
+    _GetSystemTimeAdjustment = rwin32.winexternal(
+                                            'GetSystemTimeAdjustment',
+                                            [LPDWORD, LPDWORD, rffi.INTP], 
+                                            rffi.INT)
 
-    def monotonic(space):
-        return space.wrap(_GetTickCount64() * 1e-3)
+    def monotonic(space, w_info=None):
+        result = 0
+        if HAS_GETTICKCOUNT64:
+            result = _GetTickCount64() * 1e-3
+        else:
+            ticks = _GetTickCount()
+            if ticks < time_state.last_ticks:
+                time_state.n_overflow += 1
+            time_state.last_ticks = ticks
+            result = math.ldexp(time_state.n_overflow, 32)
+            result = result + ticks
+            result = result * 1e-3
+            
+        if w_info is not None:
+            if HAS_GETTICKCOUNT64:
+                space.setattr(w_info, space.wrap("implementation"),
+                              space.wrap("GetTickCount64()"))
+            else:
+                space.setattr(w_info, space.wrap("implementation"),
+                              space.wrap("GetTickCount()"))
+            resolution = 1e-7
+            with lltype.scoped_alloc(rwin32.LPDWORD) as time_adjustment, \
+                 lltype.scoped_alloc(rwin32.LPDWORD) as time_increment, \
+                 lltype.scoped_alloc(rwin32.FILETIME) as is_time_adjustment_disabled:
+                ok = _GetSystemTimeAdjustment(time_adjustment,
+                                              time_increment,
+                                              is_time_adjustment_disabled)
+                if not ok:
+                    # Is this right? Cargo culting...
+                    raise wrap_windowserror(space,
+                        rwin32.lastSavedWindowsError("GetSystemTimeAdjustment"))
+                resolution = resolution * time_increment
+                
+            space.setattr(w_info, space.wrap("monotonic"), space.w_True)
+            space.setattr(w_info, space.wrap("adjustable"), space.w_False)
+            space.setattr(w_info, space.wrap("resolution"),
+                          space.wrap(resolution))
+        return space.wrap(result)
 
 elif _MACOSX:
     c_mach_timebase_info = external('mach_timebase_info',
@@ -730,13 +783,23 @@ elif _MACOSX:
     timebase_info = lltype.malloc(cConfig.TIMEBASE_INFO, flavor='raw',
                                   zero=True, immortal=True)
 
-    def monotonic(space):
+    def monotonic(space, w_info=None):
         if rffi.getintfield(timebase_info, 'c_denom') == 0:
             c_mach_timebase_info(timebase_info)
         time = rffi.cast(lltype.Signed, c_mach_absolute_time())
         numer = rffi.getintfield(timebase_info, 'c_numer')
         denom = rffi.getintfield(timebase_info, 'c_denom')
         nanosecs = time * numer / denom
+        if w_info is not None:
+            space.setattr(w_info, space.wrap("monotonic"), space.w_True)
+            space.setattr(w_info, space.wrap("implementation"),
+                          space.wrap("mach_absolute_time()"))
+            space.setattr(w_info, space.wrap("adjustable"), space.w_False)
+            space.setattr(w_info, space.wrap("resolution"),
+                          #Do I need to convert to float indside the division?
+                          # Looking at the C, I would say yes, but nanosecs
+                          # doesn't...
+                          space.wrap((numer / denom) * 1e-9))
         secs = nanosecs / 10**9
         rest = nanosecs % 10**9
         return space.wrap(float(secs) + float(rest) * 1e-9)
@@ -744,21 +807,49 @@ elif _MACOSX:
 else:
     assert _POSIX
     if cConfig.CLOCK_HIGHRES is not None:
-        def monotonic(space):
+        def monotonic(space, w_info=None):
+            if w_info is not None:
+                space.setattr(w_info, space.wrap("monotonic"), space.w_True)
+                space.setattr(w_info, space.wrap("implementation"),
+                              space.wrap("clock_gettime(CLOCK_HIGHRES)"))
+                space.setattr(w_info, space.wrap("adjustable"), space.w_False)
+                try:
+                    space.setattr(w_info, space.wrap("resolution"),
+                                  space.wrap(clock_getres(space, cConfig.CLOCK_HIGHRES)))
+                except OSError:
+                    space.setattr(w_info, space.wrap("resolution"),
+                                  space.wrap(1e-9))
+                
             return clock_gettime(space, cConfig.CLOCK_HIGHRES)
     else:
-        def monotonic(space):
+        def monotonic(space, w_info=None):
+            if w_info is not None:
+                space.setattr(w_info, space.wrap("monotonic"), space.w_True)
+                space.setattr(w_info, space.wrap("implementation"),
+                              space.wrap("clock_gettime(CLOCK_MONOTONIC)"))
+                space.setattr(w_info, space.wrap("adjustable"), space.w_False)
+                try:
+                    space.setattr(w_info, space.wrap("resolution"),
+                                  space.wrap(clock_getres(space, cConfig.CLOCK_MONOTONIC)))
+                except OSError:
+                    space.setattr(w_info, space.wrap("resolution"),
+                                  space.wrap(1e-9))
+
             return clock_gettime(space, cConfig.CLOCK_MONOTONIC)
 
-
 if _WIN:
-    def perf_counter(space):
+    def perf_counter(space, w_info=None):
+        # What if the windows perf counter fails?
+        # Cpython falls back to monotonic and then clock
+        # Shouldn't we?
+        # TODO: Discuss on irc
+
+        # TODO: Figure out how to get at the internals of this
         return space.wrap(win_perf_counter())
 
 else:
-    def perf_counter(space):
-        return monotonic(space)
-
+    def perf_counter(space, w_info=None):
+        return monotonic(space, w_info=w_info)
 
 if _WIN:
     # untested so far
@@ -810,3 +901,54 @@ else:
                     cpu_time = float(tms.c_tms_utime + tms.c_tms_stime)
                     return space.wrap(cpu_time / rposix.CLOCK_TICKS_PER_SECOND)
         return clock(space)
+
+if _WIN:
+    def clock(space, w_info=None):
+        """clock() -> floating point number
+
+        Return the CPU time or real time since the start of the process or since
+        the first call to clock().  This has as much precision as the system
+        records."""
+        return space.wrap(win_perf_counter(space, w_info=w_info))
+
+else:
+    _clock = external('clock', [], clock_t)
+    def clock(space, w_info=None):
+        """clock() -> floating point number
+
+        Return the CPU time or real time since the start of the process or since
+        the first call to clock().  This has as much precision as the system
+        records."""
+        value = _clock()
+        #Is this casting correct?
+        if value == rffi.cast(clock_t, -1):
+            raise RunTimeError("the processor time used is not available "
+                               "or its value cannot be represented")
+
+        print(w_info, "INFO")
+        if w_info is not None:
+            space.setattr(w_info, space.wrap("implementation"),
+                          space.wrap("clock()"))
+            space.setattr(w_info, space.wrap("resolution"),
+                          space.wrap(1.0 / CLOCKS_PER_SEC))
+            space.setattr(w_info, space.wrap("monotonic"),
+                          space.w_True)
+            space.setattr(w_info, space.wrap("adjustable"),
+                          space.w_False)
+        return space.wrap((1.0 * value) / CLOCKS_PER_SEC)
+
+
+def get_clock_info_dict(space, name):
+    if name == "time":
+        return 5#floattime(info)
+    elif name == "monotonic":
+        return monotonic(info)
+    elif name == "clock":
+        return clock(info)
+    elif name == "perf_counter":
+        return perf_counter(info)
+    elif name == "process_time":
+        return 5#process_time(info)
+    else:
+        raise ValueError("unknown clock")
+
