@@ -617,50 +617,50 @@ def test_bug_1():
         w_key = foo(a)
         llop.gc_pop_roots(lltype.Void, w_tup)
 
-        llop.gc_push_roots(lltype.Void, w_tup, w_key)
+        llop.gc_push_roots(lltype.Void, w_key)
         w_iter = foo(a)
-        llop.gc_pop_roots(lltype.Void, w_tup, w_key)
+        llop.gc_pop_roots(lltype.Void, w_key)
 
         has_key = w_key is not None
-        has_item = False
-        w_max_item = None
+        hasit = False
+        w_maxit = None
         w_max_val = None
 
         while True:
-            llop.gc_push_roots(lltype.Void, w_tup, w_key, w_max_item, w_max_val)
+            llop.gc_push_roots(lltype.Void, w_iter, w_key, w_maxit, w_max_val)
             w_item = call_next(w_iter)
-            llop.gc_pop_roots(lltype.Void, w_tup, w_key, w_max_item, w_max_val)
+            llop.gc_pop_roots(lltype.Void, w_iter, w_key, w_maxit, w_max_val)
 
             if has_key:
-                llop.gc_push_roots(lltype.Void, w_tup, w_key,
-                                       w_max_item, w_max_val, w_item)
+                llop.gc_push_roots(lltype.Void, w_iter, w_key,
+                                       w_maxit, w_max_val, w_item)
                 w_compare_with = fetch_compare(w_key, w_item)
-                llop.gc_pop_roots(lltype.Void, w_tup, w_key,
-                                       w_max_item, w_max_val, w_item)
+                llop.gc_pop_roots(lltype.Void, w_iter, w_key,
+                                       w_maxit, w_max_val, w_item)
             else:
                 w_compare_with = w_item
 
-            if has_item:
-                llop.gc_push_roots(lltype.Void, w_tup, w_key,
-                                w_max_item, w_max_val, w_item, w_compare_with)
+            if hasit:
+                llop.gc_push_roots(lltype.Void, w_iter, w_key,
+                                w_maxit, w_max_val, w_item, w_compare_with)
                 w_bool = compare(w_compare_with, w_max_val)
-                llop.gc_pop_roots(lltype.Void, w_tup, w_key,
-                                w_max_item, w_max_val, w_item, w_compare_with)
+                llop.gc_pop_roots(lltype.Void, w_iter, w_key,
+                                w_maxit, w_max_val, w_item, w_compare_with)
 
-                llop.gc_push_roots(lltype.Void, w_tup, w_key,
-                                w_max_item, w_max_val, w_item, w_compare_with)
+                llop.gc_push_roots(lltype.Void, w_iter, w_key,
+                                w_maxit, w_max_val, w_item, w_compare_with)
                 condition = is_true(a, w_bool)
-                llop.gc_pop_roots(lltype.Void, w_tup, w_key,
-                                w_max_item, w_max_val, w_item, w_compare_with)
+                llop.gc_pop_roots(lltype.Void, w_iter, w_key,
+                                w_maxit, w_max_val, w_item, w_compare_with)
             else:
                 condition = True
 
             if condition:
-                has_item = True
-                w_max_item = w_item
+                hasit = True
+                w_maxit = w_item
                 w_max_val = w_compare_with
 
-        return w_max_item
+        return w_maxit
 
     graph = make_graph(f, [int, llmemory.GCREF])
     regalloc = allocate_registers(graph)
@@ -670,4 +670,3 @@ def test_bug_1():
     add_leave_roots_frame(graph, regalloc)
     join_blocks(graph)
     postprocess_double_check(graph, force_frame=True)
-    graph.show()

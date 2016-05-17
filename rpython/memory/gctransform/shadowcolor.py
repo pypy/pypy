@@ -328,20 +328,22 @@ def move_pushes_earlier(graph, regalloc):
             part[1].add(v)
             part[2].update(G[v])
 
-    # Sort P so that it starts with the larger pieces, and ends with
-    # the smaller ones.  The idea is to avoid that a single small piece
-    # gets processed first and prevents larger pieces for succeeding later.
+    # Sort P so that it prefers places that would avoid multiple
+    # gcsaveroots (smaller 'heuristic' result, so first in sorted
+    # order); but also prefers smaller overall pieces, because it
+    # might be possible to remove several small-scale pieces instead
+    # of one big-scale one.
     def heuristic((index, P, gcsaveroots)):
-        return -(len(P) + len(gcsaveroots))
+        return float(len(P)) / len(gcsaveroots)
     Plist.sort(key=heuristic)
 
-    variables_along_changes = set()
+    live_at_start_of_block = set()   # set of (block, index)
     insert_gc_push_root = defaultdict(list)
 
     for index, P, gcsaveroots in Plist:
         # if this Plist entry is not valid any more because of changes
         # done by the previous entries, drop it
-        if variables_along_changes.intersection(P):
+        if any((inputvars[v][0], index) in live_at_start_of_block for v in P):
             continue
         if any(op not in block.operations for block, op in gcsaveroots):
             continue
@@ -386,7 +388,9 @@ def move_pushes_earlier(graph, regalloc):
                 block.operations = newops
             for index, link, varindex in mark:
                 insert_gc_push_root[link].append((index, varindex))
-            variables_along_changes.update(P)
+            for v in P:
+                block, varindex = inputvars[v]
+                live_at_start_of_block.add((block, index))
 
     for link in insert_gc_push_root:
         newops = [_gc_save_root(index, link.args[varindex])
