@@ -629,3 +629,4 @@ def postprocess_graph(graph, c_gcdata):
     add_enter_roots_frame(graph, regalloc, c_gcdata)
     checkgraph(graph)
     postprocess_double_check(graph)
+    return (regalloc is not None)

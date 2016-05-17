@@ -10,6 +10,7 @@ from rpython.rtyper.llannotation import SomeAddress
 from rpython.memory.gctransform.framework import (
      BaseFrameworkGCTransformer, BaseRootWalker, sizeofaddr)
 from rpython.rtyper.rbuiltin import gen_cast
+from rpython.memory.gctransform.log import log
 
 
 class ShadowStackFrameworkGCTransformer(BaseFrameworkGCTransformer):
@@ -219,7 +220,11 @@ class ShadowStackRootWalker(BaseRootWalker):
 
     def postprocess_graph(self, gct, graph):
         from rpython.memory.gctransform import shadowcolor
-        shadowcolor.postprocess_graph(graph, gct.c_const_gcdata)
+        use_push_pop = shadowcolor.postprocess_graph(graph, gct.c_const_gcdata)
+        if use_push_pop and graph in gct.graphs_to_inline:
+            log.WARNING("%r is marked for later inlining, "
+                        "but is using push/pop roots.  Disabled" % (graph,))
+            del gct.graphs_to_inline[graph]
 
 # ____________________________________________________________
 
