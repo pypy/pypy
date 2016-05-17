@@ -240,7 +240,7 @@ def move_pushes_earlier(graph, regalloc):
             else:
                 continue   # no gc_pop_roots in this block
             for v in op.args:
-                if isinstance(v, Variable) and regalloc.getcolor(v) == index:
+                if isinstance(v, Variable) and regalloc.checkcolor(v, index):
                     break
             else:
                 continue   # no variable goes into index i
@@ -249,16 +249,18 @@ def move_pushes_earlier(graph, regalloc):
             pending_succ = [(block, v)]
             while pending_succ:
                 block1, v1 = pending_succ.pop()
+                assert regalloc.checkcolor(v1, index)
                 for op1 in block1.operations:
                     if is_trivial_rewrite(op1) and op1.args[0] is v1:
-                        pending_succ.append((block1, op1.result))
+                        if regalloc.checkcolor(op1.result, index):
+                            pending_succ.append((block1, op1.result))
                 for link1 in block1.exits:
                     for i2, v2 in enumerate(link1.args):
                         if v2 is not v1:
                             continue
                         block2 = link1.target
                         w2 = block2.inputargs[i2]
-                        if w2 in succ:
+                        if w2 in succ or not regalloc.checkcolor(w2, index):
                             continue
                         succ.add(w2)
                         for op2 in block2.operations:
@@ -288,12 +290,15 @@ def move_pushes_earlier(graph, regalloc):
             pending_pred = [(block, op.args[1], opindex)]
             while pending_pred:
                 block1, v1, opindex1 = pending_pred.pop()
+                assert regalloc.getcolor(v1) == index
                 for i in range(opindex1-1, -1, -1):
                     op1 = block1.operations[i]
                     if op1.opname == 'gc_pop_roots':
                         break    # stop
                     if op1.result is v1:
                         if not is_trivial_rewrite(op1):
+                            break   # stop
+                        if not regalloc.checkcolor(op1.args[0], index):
                             break   # stop
                         v1 = op1.args[0]
                 else:
@@ -306,7 +311,8 @@ def move_pushes_earlier(graph, regalloc):
                         if prevblock1 is not None:
                             w1 = link1.args[varindex]
                             if isinstance(w1, Variable) and w1 not in pred:
-                                pending_pred.append((prevblock1, w1,
+                                if regalloc.checkcolor(w1, index):
+                                    pending_pred.append((prevblock1, w1,
                                                 len(prevblock1.operations)))
             U.union_list(list(pred))
             for v1 in pred:
@@ -337,6 +343,7 @@ def move_pushes_earlier(graph, regalloc):
         return float(len(P)) / len(gcsaveroots)
     Plist.sort(key=heuristic)
 
+    variables_along_changes = {}
     live_at_start_of_block = set()   # set of (block, index)
     insert_gc_push_root = defaultdict(list)
 
@@ -347,6 +354,9 @@ def move_pushes_earlier(graph, regalloc):
             continue
         if any(op not in block.operations for block, op in gcsaveroots):
             continue
+        for v in P:
+            assert regalloc.getcolor(v) == index
+            assert v not in variables_along_changes
 
         success_count = 0
         mark = []
@@ -372,7 +382,8 @@ def move_pushes_earlier(graph, regalloc):
                             mark.append((index, link, varindex))
                         break
                     if op.result is w:
-                        if is_trivial_rewrite(op):
+                        if is_trivial_rewrite(op) and (
+                                regalloc.checkcolor(op.args[0], index)):
                             w = op.args[0]
                         else:
                             mark.append((index, link, varindex))
@@ -387,14 +398,15 @@ def move_pushes_earlier(graph, regalloc):
                 newops.remove(op)
                 block.operations = newops
             for index, link, varindex in mark:
-                insert_gc_push_root[link].append((index, varindex))
+                insert_gc_push_root[link].append((index, link.args[varindex]))
             for v in P:
                 block, varindex = inputvars[v]
+                variables_along_changes[v] = block, index
                 live_at_start_of_block.add((block, index))
 
     for link in insert_gc_push_root:
-        newops = [_gc_save_root(index, link.args[varindex])
-                  for index, varindex in sorted(insert_gc_push_root[link])]
+        newops = [_gc_save_root(index, v)
+                  for index, v in sorted(insert_gc_push_root[link])]
         insert_empty_block(link, newops=newops)
 
 
