@@ -379,3 +379,21 @@ class AppTestTime:
         t2 = time.process_time()
         # process_time() should not include time spent during sleep
         assert (t2 - t1) < 0.05
+
+    def test_get_clock_info_monotonic(self):
+        import time
+        clock_info = time.get_clock_info("monotonic")
+        assert clock_info.monotonic
+        assert not clock_info.adjustable
+        # Not really sure what to test about this
+        # At least this tests that the attr exists...
+        assert clock_info.resolution > 0
+
+    def test_get_clock_info_clock(self):
+        import time
+        clock_info = time.get_clock_info("clock")
+        assert clock_info.monotonic
+        assert not clock_info.adjustable
+        # Not really sure what to test about this
+        # At least this tests that the attr exists...
+        assert clock_info.resolution > 0

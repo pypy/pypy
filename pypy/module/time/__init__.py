@@ -40,6 +40,7 @@ class Module(MixedModule):
         'struct_time': 'app_time.struct_time',
         '__doc__': 'app_time.__doc__',
         'strptime': 'app_time.strptime',
+        'get_clock_info': 'app_time.get_clock_info'
     }
 
     def startup(self, space):
