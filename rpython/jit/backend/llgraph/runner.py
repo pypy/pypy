@@ -80,6 +80,7 @@ class ExecutionFinished(Exception):
 
 class Jump(Exception):
     def __init__(self, jump_target, args):
+        assert isinstance(jump_target[0], LLTrace)
         self.jump_target = jump_target
         self.args = args
 
@@ -470,11 +471,18 @@ class LLGraphCPU(model.AbstractCPU):
         assert deadframe._saved_data is not None
         return deadframe._saved_data
 
-    def grow_guard_compatible_switch(self, compiled_loop_token, descr, ref):
+    def grow_guard_compatible_switch(self, compiled_loop_token, descr, ref, faildescr_prev=None):
+        assert descr.is_first
         assert isinstance(compiled_loop_token, model.CompiledLoopToken)
         if not hasattr(descr, '_guard_compatible_llgraph_lst'):
             descr._guard_compatible_llgraph_lst = []
-        descr._guard_compatible_llgraph_lst.append(ref)
+        if faildescr_prev is None:
+            target = None
+        else:
+            target = faildescr_prev._llgraph_bridge
+        assert target is None or isinstance(target, LLTrace)
+        descr._guard_compatible_llgraph_lst.append((ref, target))
+        descr._guard_compatible_llgraph_lst.sort()
 
 
     # ------------------------------------------------------------
@@ -1146,18 +1154,22 @@ class LLFrame(object):
             values[i] = value
             info = info.next()
 
-    def fail_guard(self, descr, saved_data=None, extra_value=None,
-                   propagate_exception=False):
-        if not propagate_exception:
-            assert self.last_exception is None
+    def _collect_failarg_values(self, descr, current_op):
         values = []
-        for box in self.current_op.getfailargs():
+        for box in current_op.getfailargs():
             if box is not None:
                 value = self.env[box]
             else:
                 value = None
             values.append(value)
-        self._accumulate(descr, self.current_op.getfailargs(), values)
+        self._accumulate(descr, current_op.getfailargs(), values)
+        return values
+
+    def fail_guard(self, descr, saved_data=None, extra_value=None,
+                   propagate_exception=False):
+        if not propagate_exception:
+            assert self.last_exception is None
+        values = self._collect_failarg_values(descr, self.current_op)
         if hasattr(descr, '_llgraph_bridge'):
             if propagate_exception:
                 assert (descr._llgraph_bridge.operations[0].opnum in
@@ -1289,13 +1301,28 @@ class LLFrame(object):
             self.fail_guard(descr)
 
     def execute_guard_compatible(self, descr, arg1, arg2):
+        # only need to execute the first operation, the others are checked
+        # implicitly and should never grow
+        # XXX this is a mess and should be done much more nicely
+        if not descr.is_first:
+            return
         if arg1 != arg2:
-            if hasattr(descr, '_guard_compatible_llgraph_lst'):
-                lst = descr._guard_compatible_llgraph_lst
-                for ref in lst:
+            for attempt in range(2):
+                # XXX binary search
+                lst = getattr(descr, '_guard_compatible_llgraph_lst', [])
+                for ref, target in lst:
                     if ref == arg1:
+                        if target:
+                            values = self._collect_failarg_values(descr, self.current_op)
+                            target = (target, -1)
+                            values = [value for value in values if value is not None]
+                            raise Jump(target, values)
                         return
-            self.fail_guard(descr, extra_value=arg1)
+                assert not attempt == 1
+                worked = descr._try_extend(arg1, self.cpu)
+                if not worked:
+                    return self.fail_guard(descr, extra_value=arg1)
+                # try the above again, it will now work
 
     def execute_int_add_ovf(self, _, x, y):
         try:

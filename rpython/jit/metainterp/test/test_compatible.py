@@ -14,6 +14,9 @@ class TestCompatible(LLJitMixin):
 
         p3 = lltype.malloc(S)
         p3.x = 6
+
+        p4 = lltype.malloc(S)
+        p4.x = 6
         driver = jit.JitDriver(greens = [], reds = ['n', 'x'])
 
         class A(object):
@@ -37,13 +40,14 @@ class TestCompatible(LLJitMixin):
             f(100, p1)
             f(100, p2)
             f(100, p3)
+            f(100, p4)
             return c.count
 
         x = self.meta_interp(main, [])
 
-        assert x < 25
-        # trace, two bridges, a finish bridge
-        self.check_trace_count(4)
+        assert x < 35
+        # trace, two bridges, two finish bridges
+        self.check_trace_count(5)
 
     def test_exception(self):
         S = lltype.GcStruct('S', ('x', lltype.Signed))
@@ -55,6 +59,9 @@ class TestCompatible(LLJitMixin):
 
         p3 = lltype.malloc(S)
         p3.x = 6
+
+        p4 = lltype.malloc(S)
+        p4.x = 6
         driver = jit.JitDriver(greens = [], reds = ['n', 'x'])
         @jit.elidable_compatible()
         def g(s):
@@ -75,9 +82,11 @@ class TestCompatible(LLJitMixin):
             f(100, p1)
             f(100, p2)
             f(100, p3)
+            f(100, p4)
 
         self.meta_interp(main, [])
-        # XXX check number of bridges
+        # trace, two bridges, two finish bridges
+        self.check_trace_count(5)
 
 
     def test_quasi_immutable(self):

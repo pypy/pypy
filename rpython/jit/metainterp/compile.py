@@ -800,10 +800,10 @@ class AbstractResumeGuardDescr(ResumeDescr):
             self._debug_subinputargs = new_loop.inputargs
             self._debug_suboperations = new_loop.operations
         propagate_original_jitcell_token(new_loop)
-        send_bridge_to_backend(metainterp.jitdriver_sd, metainterp.staticdata,
-                               self, inputargs, new_loop.operations,
-                               new_loop.original_jitcell_token,
-                               metainterp.box_names_memo)
+        return send_bridge_to_backend(metainterp.jitdriver_sd, metainterp.staticdata,
+                                      self, inputargs, new_loop.operations,
+                                      new_loop.original_jitcell_token,
+                                      metainterp.box_names_memo)
 
     def make_a_counter_per_value(self, guard_value_op, index):
         assert guard_value_op.getopnum() in (rop.GUARD_VALUE, rop.GUARD_COMPATIBLE)
@@ -1087,23 +1087,32 @@ class GuardCompatibleDescr(ResumeGuardDescr):
         # list of descrs about the same variable, potentially shared with
         # subsequent guards in bridges
         self.guard_descrs_list = [self]
+        self.is_first = True
 
-    def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
+    def _try_extend(self, refval, cpu):
+        # need to do the checking oldest to newest, to check the most specific
+        # condition first
+        prev = None
+        # grow the switch on the first guard always
+        # all others are useless
+        assert self.is_first
+        for curr in self.guard_descrs_list:
+            if curr.is_compatible(cpu, refval):
+                from rpython.jit.metainterp.blackhole import resume_in_blackhole
+                # XXX explain the prev hack
+                cpu.grow_guard_compatible_switch(
+                    self.rd_loop_token, self, refval, prev)
+                return True
+            prev = curr
+        return False
+
+    def Xhandle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         index = intmask(self.status >> self.ST_SHIFT)
         typetag = intmask(self.status & self.ST_TYPE_MASK)
         assert typetag == self.TY_REF # for now
         refval = metainterp_sd.cpu.get_value_direct(deadframe, 'r', index)
         if not we_are_translated():
             assert self in self.guard_descrs_list
-        # need to do the checking oldest to newest, to check the most specific
-        # condition first
-        for curr in self.guard_descrs_list:
-            if curr.is_compatible(metainterp_sd.cpu, refval):
-                from rpython.jit.metainterp.blackhole import resume_in_blackhole
-                metainterp_sd.cpu.grow_guard_compatible_switch(
-                    curr.rd_loop_token, curr, refval)
-                resume_in_blackhole(metainterp_sd, jitdriver_sd, self, deadframe)
-                return
         # a real failure
         return ResumeGuardDescr.handle_fail(self, deadframe, metainterp_sd, jitdriver_sd)
 
@@ -1123,15 +1132,35 @@ class GuardCompatibleDescr(ResumeGuardDescr):
         assert self.failarg_index != -1
         arg = new_loop.inputargs[self.failarg_index]
         firstop = new_loop.operations[0]
+        first = None
         if (firstop.getopnum() == rop.GUARD_COMPATIBLE and
                 firstop.getarg(0) is arg):
-            # a guard_compatible about the same box
-            newdescr = firstop.getdescr()
-            assert isinstance(newdescr, GuardCompatibleDescr)
-            newdescr.guard_descrs_list = self.guard_descrs_list
-            self.guard_descrs_list.append(newdescr)
-        ResumeGuardDescr.compile_and_attach(
+            if new_loop.inputargs != firstop.getfailargs():
+                # this should be true by construction, but let's be sure
+                import pdb; pdb.set_trace()
+            else:
+                # a guard_compatible about the same box
+                newdescr = firstop.getdescr()
+                assert isinstance(newdescr, GuardCompatibleDescr)
+                newdescr.is_first = False
+                # share the guard_descrs_list of the guard_compatibles that
+                # switch on the same object, starting from the same original guard
+                guard_descrs_list = newdescr.guard_descrs_list = self.guard_descrs_list
+                # this is slightly weird: we fish the last descr, which we
+                # conceptionally attach the trace to (otherwise all traces
+                # would be attached to the first one, which makes no sense)
+                self = guard_descrs_list[-1]
+                guard_descrs_list.append(newdescr)
+                first = self.guard_descrs_list[0]
+        result = ResumeGuardDescr.compile_and_attach(
             self, metainterp, new_loop, orig_inputargs)
+        if first:
+            refval = firstop.getarg(1).getref_base()
+            # grow the first guard to immediately jump to the new place
+            metainterp_sd = metainterp.staticdata
+            metainterp_sd.cpu.grow_guard_compatible_switch(
+                first.rd_loop_token, first, refval, self)
+        return result
 
     def make_a_counter_per_value(self, guard_value_op, index):
         self.failarg_index = guard_value_op.getfailargs().index(
