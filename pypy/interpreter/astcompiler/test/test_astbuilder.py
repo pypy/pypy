@@ -1315,3 +1315,14 @@ class TestAstBuilder:
     def test_cpython_issue12983(self):
         raises(SyntaxError, self.get_ast, r"""b'\x'""")
         raises(SyntaxError, self.get_ast, r"""b'\x0'""")
+
+    def test_matmul(self):
+        mod = self.get_ast("a @ b")
+        assert isinstance(mod, ast.Module)
+        body = mod.body
+        assert len(body) == 1
+        expr = body[0].value
+        assert expr.op == ast.MatMul
+        assert isinstance(expr.left, ast.Name)
+        assert isinstance(expr.right, ast.Name)
+        # imatmul is tested earlier search for @=
