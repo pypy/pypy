@@ -566,6 +566,10 @@ def postprocess_double_check(graph, force_frame=False):
                 if left:
                     raise PostProcessCheckError(graph, block, op, 'left!')
                 num = op.args[0].value
+                # first, cancel any other variable that would be saved in 'num'
+                for v in locsaved:
+                    locsaved[v] = locsaved[v].difference([num])
+                #
                 v = op.args[1]
                 if isinstance(v, Variable):
                     locsaved[v] = locsaved[v].union([num])
@@ -574,15 +578,16 @@ def postprocess_double_check(graph, force_frame=False):
                         locsaved[v] = locsaved.get(v, frozenset()).union([num])
                         continue
                     bitmask = v.value
-                    if bitmask == 0:
-                        bitmask = 1
-                    assert bitmask & 1
-                    assert bitmask < (2<<num)
-                    nummask = [i for i in range(num+1)
-                                 if bitmask & (1<<(num-i))]
-                    assert nummask[-1] == num
-                    for v in locsaved:
-                        locsaved[v] = locsaved[v].difference(nummask)
+                    if bitmask != 0:
+                        # cancel any variable that would be saved in any
+                        # position shown by the bitmask, not just 'num'
+                        assert bitmask & 1
+                        assert bitmask < (2<<num)
+                        nummask = [i for i in range(num+1)
+                                     if bitmask & (1<<(num-i))]
+                        assert nummask[-1] == num
+                        for v in locsaved:
+                            locsaved[v] = locsaved[v].difference(nummask)
             elif op.opname == 'gc_leave_roots_frame':
                 if left:
                     raise PostProcessCheckError(graph, block, op, 'left!')
