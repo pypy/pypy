@@ -453,7 +453,6 @@ class AppTestSocket:
         Created at \(most recent call last\):
           File ".*", line .*, in test_track_resources
           File ".*", line .*, in fn
-          File ".*", line .*, in anonymous
         """, msg)
         #
         # check with track_resources enabled in the destructor BUT with a
