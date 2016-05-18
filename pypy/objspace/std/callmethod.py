@@ -44,6 +44,7 @@ def LOOKUP_METHOD(f, nameindex, *ignored):
 
     safe = False
     w_descr = None
+    w_descr_cell = None
     name = None
     if jit.we_are_jitted():
         # compute safeness without reading the type
@@ -62,7 +63,6 @@ def LOOKUP_METHOD(f, nameindex, *ignored):
             version_tag = w_type.version_tag()
             if version_tag is None:
                 _, w_descr = w_type._lookup_where(name)
-                w_descr_cell = None
             else:
                 _, w_descr_cell = w_type._pure_lookup_where_with_method_cache(
                     name, version_tag)
