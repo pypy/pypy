@@ -57,27 +57,6 @@ class ShadowStackRootWalker(BaseRootWalker):
             return top
         self.decr_stack = decr_stack
 
-        def walk_stack_root(callback, start, end):
-            gc = self.gc
-            addr = end
-            skip = 0
-            while addr != start:
-                addr -= sizeofaddr
-                #XXX reintroduce support for tagged values?
-                #if gc.points_to_valid_gc_object(addr):
-                #    callback(gc, addr)
-
-                if skip & 1 == 0:
-                    content = addr.address[0]
-                    if content:
-                        n = llmemory.cast_adr_to_int(content)
-                        if n & 1 == 0:
-                            callback(gc, addr)  # non-0, non-odd: a regular ptr
-                        else:
-                            skip = n            # odd number: a skip bitmask
-                skip >>= 1
-        self.rootstackhook = walk_stack_root
-
         self.shadow_stack_pool = ShadowStackPool(gcdata)
         rsd = gctransformer.root_stack_depth
         if rsd is not None:
@@ -96,9 +75,36 @@ class ShadowStackRootWalker(BaseRootWalker):
         BaseRootWalker.setup_root_walker(self)
 
     def walk_stack_roots(self, collect_stack_root, is_minor=False):
+        gc = self.gc
         gcdata = self.gcdata
-        self.rootstackhook(collect_stack_root,
-                           gcdata.root_stack_base, gcdata.root_stack_top)
+        start = gcdata.root_stack_base
+        addr = gcdata.root_stack_top
+        skip = 0
+        while addr != start:
+            addr -= sizeofaddr
+            #XXX reintroduce support for tagged values?
+            #if gc.points_to_valid_gc_object(addr):
+            #    callback(gc, addr)
+
+            if skip & 1 == 0:
+                content = addr.address[0]
+                n = llmemory.cast_adr_to_int(content)
+                if n & 1 == 0:
+                    if content:   # non-0, non-odd: a regular ptr
+                        collect_stack_root(gc, addr)
+                else:
+                    # odd number: a skip bitmask
+                    if n > 0:       # initially, an unmarked value
+                        if is_minor:
+                            newcontent = llmemory.cast_int_to_adr(-n)
+                            addr.address[0] = newcontent   # mark
+                        skip = n
+                    else:
+                        # a marked value
+                        if is_minor:
+                            return
+                        skip = -n
+            skip >>= 1
 
     def need_thread_support(self, gctransformer, getfn):
         from rpython.rlib import rthread    # xxx fish

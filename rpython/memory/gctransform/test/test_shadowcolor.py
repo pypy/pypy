@@ -254,8 +254,7 @@ def test_make_bitmask(boollist):
     else:
         assert 0 <= index < len(boollist)
         assert boollist[index] == False
-        if bitmask == 0:
-            bitmask = 1
+        assert bitmask >= 1
         while bitmask:
             if bitmask & 1:
                 assert index >= 0
@@ -267,6 +266,8 @@ def test_make_bitmask(boollist):
 
 
 class FakeRegAlloc:
+    graph = '?'
+
     def __init__(self, expected_op, **colors):
         self.expected_op = expected_op
         self.numcolors = len(colors)
@@ -280,14 +281,12 @@ class FakeRegAlloc:
             result.append((spaceop.args[0].value, spaceop.args[1]))
         return result
 
-c_NULL = Constant(0, lltype.Signed)
-
 def test_expand_one_push_roots():
     regalloc = FakeRegAlloc('gc_save_root', a=0, b=1, c=2)
     assert regalloc.check(expand_one_push_roots(regalloc, ['a', 'b', 'c'])) == [
         (0, 'a'), (1, 'b'), (2, 'c')]
     assert regalloc.check(expand_one_push_roots(regalloc, ['a', 'c'])) == [
-        (0, 'a'), (2, 'c'), (1, c_NULL)]
+        (0, 'a'), (2, 'c'), (1, Constant(0x1, lltype.Signed))]
     assert regalloc.check(expand_one_push_roots(regalloc, ['b'])) == [
         (1, 'b'), (2, Constant(0x5, lltype.Signed))]
     assert regalloc.check(expand_one_push_roots(regalloc, ['a'])) == [

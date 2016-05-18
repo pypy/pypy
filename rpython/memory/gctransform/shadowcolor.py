@@ -6,6 +6,7 @@ from rpython.tool.algo.unionfind import UnionFind
 from rpython.translator.unsimplify import varoftype, insert_empty_block
 from rpython.translator.unsimplify import insert_empty_startblock, split_block
 from rpython.translator.simplify import join_blocks
+from rpython.rlib.rarithmetic import intmask
 from collections import defaultdict
 
 
@@ -113,6 +114,7 @@ def allocate_registers(graph):
     if not interesting_vars:
         return None
     regalloc = perform_register_allocation(graph, interesting_vars.__contains__)
+    assert regalloc.graph is graph
     regalloc.find_num_colors()
     return regalloc
 
@@ -127,12 +129,10 @@ def _gc_restore_root(index, var):
     return SpaceOperation('gc_restore_root', [c_index, var],
                           varoftype(lltype.Void))
 
-def make_bitmask(filled):
+def make_bitmask(filled, graph='?'):
     n = filled.count(False)
     if n == 0:
         return (None, None)
-    if n == 1:
-        return (filled.index(False), 0)
     bitmask = 0
     last_index = 0
     for i in range(len(filled)):
@@ -141,6 +141,18 @@ def make_bitmask(filled):
             last_index = i
             bitmask |= 1
     assert bitmask & 1
+    if bitmask != intmask(bitmask):
+        raise GCBitmaskTooLong("the graph %r is too complex: cannot create "
+                               "a bitmask telling than more than 31/63 "
+                               "shadowstack entries are unused" % (graph,))
+    # the mask is always a positive value, but it is replaced by a
+    # negative value during a minor collection root walking.  Then,
+    # if the next minor collection finds an already-negative value,
+    # we know we can stop.  So that's why we don't include here an
+    # optimization to not re-write a same-valued mask: it is important
+    # to re-write the value, to turn it from potentially negative back
+    # to positive, in order to mark this shadow frame as modified.
+    assert bitmask > 0
     return (last_index, bitmask)
 
 
@@ -154,7 +166,7 @@ def expand_one_push_roots(regalloc, args):
             assert not filled[index]
             filled[index] = True
             yield _gc_save_root(index, v)
-        bitmask_index, bitmask = make_bitmask(filled)
+        bitmask_index, bitmask = make_bitmask(filled, regalloc.graph)
         if bitmask_index is not None:
             # xxx we might in some cases avoid this gc_save_root
             # entirely, if we know we're after another gc_push/gc_pop
@@ -504,8 +516,6 @@ def add_leave_roots_frame(graph, regalloc):
     # gc_save_root() that writes the bitmask meaning "everything is
     # free".  Remove such gc_save_root().
     bitmask_all_free = (1 << regalloc.numcolors) - 1
-    if bitmask_all_free == 1:
-        bitmask_all_free = 0
     for block in graph.iterblocks():
         if block in flagged_blocks:
             continue
@@ -532,6 +542,9 @@ def add_enter_roots_frame(graph, regalloc, c_gcdata):
     join_blocks(graph)  # for the new block just above, but also for the extra
                         # new blocks made by insert_empty_block() earlier
 
+
+class GCBitmaskTooLong(Exception):
+    pass
 
 class PostProcessCheckError(Exception):
     pass
@@ -594,11 +607,11 @@ def postprocess_double_check(graph, force_frame=False):
                         locsaved[v] = locsaved.get(v, frozenset()).union([num])
                         continue
                     bitmask = v.value
-                    if bitmask != 0:
+                    if bitmask != 1:
                         # cancel any variable that would be saved in any
                         # position shown by the bitmask, not just 'num'
                         assert bitmask & 1
-                        assert bitmask < (2<<num)
+                        assert 1 < bitmask < (2<<num)
                         nummask = [i for i in range(num+1)
                                      if bitmask & (1<<(num-i))]
                         assert nummask[-1] == num
