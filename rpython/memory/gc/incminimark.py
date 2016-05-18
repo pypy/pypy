@@ -155,7 +155,11 @@ GCFLAG_PINNED        = first_gcflag << 9
 # 'old_objects_pointing_to_pinned' and doesn't have to be added again.
 GCFLAG_PINNED_OBJECT_PARENT_KNOWN = GCFLAG_PINNED
 
-_GCFLAG_FIRST_UNUSED = first_gcflag << 10    # the first unused bit
+# The object is dead or will be dead soon. (Only useful with separate headers
+# that might outlive the object, see incminimark_remoteheader.py)
+GCFLAG_DEAD = first_gcflag << 10
+
+_GCFLAG_FIRST_UNUSED = first_gcflag << 11    # the first unused bit
 
 
 # States for the incremental GC
@@ -2243,8 +2247,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 if self.old_objects_with_light_finalizers.non_empty():
                     self.deal_with_old_objects_with_finalizers()
                 # objects_to_trace processed fully, can move on to sweeping
-                self.ac.mass_free_prepare()
-                self.start_free_rawmalloc_objects()
+                self.start_free()
                 #
                 # get rid of objects pointing to pinned objects that were not
                 # visited
@@ -2280,8 +2283,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 # GCFLAG_VISITED on the others.  Visit at most '3 *
                 # nursery_size' bytes.
                 limit = 3 * self.nursery_size // self.ac.page_size
-                done = self.ac.mass_free_incremental(self._free_if_unvisited,
-                                                     limit)
+                done = self.free_unvisited_arena_objects_step(limit)
             # XXX tweak the limits above
             #
             if done:
@@ -2348,10 +2350,15 @@ class IncrementalMiniMarkGC(MovingGCBase):
         if self.get_flags(obj) & GCFLAG_VISITED:
             self.remove_flags(obj, GCFLAG_VISITED)
             return False     # survives
-        return True      # dies
+        # dies
+        self.finalize_header(hdr)
+        return True
 
     def _reset_gcflag_visited(self, obj, ignored):
         self.remove_flags(obj, GCFLAG_VISITED)
+
+    def free_unvisited_arena_objects_step(self, limit):
+        return self.ac.mass_free_incremental(self._free_if_unvisited, limit)
 
     def free_rawmalloced_object_if_unvisited(self, obj, check_flag):
         if self.get_flags(obj) & check_flag:
@@ -2379,6 +2386,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
             #
             llarena.arena_free(arena)
             self.rawmalloced_total_size -= r_uint(allocsize)
+
+    def start_free(self):
+        self.ac.mass_free_prepare()
+        self.start_free_rawmalloc_objects()
 
     def start_free_rawmalloc_objects(self):
         ll_assert(not self.raw_malloc_might_sweep.non_empty(),
@@ -3035,6 +3046,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
             self._rrc_free(pyobject)
 
     # Methods meant to be overridden by subclasses that store flags elsewhere.
+
+    def finalize_header(self, hdr):
+        """Clean up hdr before the object is freed."""
 
     def copy_header(self, src, dest):
         self.header(dest).tid = self.header(src).tid
