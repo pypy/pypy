@@ -4674,6 +4674,7 @@ class PTypesLongInitTest(unittest.TestCase):
 
 
 class MiscTests(unittest.TestCase):
+    @support.cpython_only
     def test_type_lookup_mro_reference(self):
         # Issue #14199: _PyType_Lookup() has to keep a strong reference to
         # the type MRO because it may be modified during the lookup, if
