@@ -306,6 +306,8 @@ class __extend__(pyframe.PyFrame):
                 self.INPLACE_FLOOR_DIVIDE(oparg, next_instr)
             elif opcode == opcodedesc.INPLACE_LSHIFT.index:
                 self.INPLACE_LSHIFT(oparg, next_instr)
+            elif opcode == opcodedesc.INPLACE_MATRIX_MULTIPLY.index:
+                self.INPLACE_MATRIX_MULTIPLY(oparg, next_instr)
             elif opcode == opcodedesc.INPLACE_MODULO.index:
                 self.INPLACE_MODULO(oparg, next_instr)
             elif opcode == opcodedesc.INPLACE_MULTIPLY.index:

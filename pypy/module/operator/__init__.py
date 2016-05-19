@@ -31,8 +31,8 @@ class Module(MixedModule):
                     'sub', 'truediv', 'matmul', 'truth', 'xor',
                     'iadd', 'iand', 'iconcat', 'ifloordiv',
                     'ilshift', 'imod', 'imul', 'ior', 'ipow',
-                    'irshift', 'isub', 'itruediv', 'ixor', '_length_hint',
-                    'indexOf']
+                    'irshift', 'isub', 'itruediv', 'imatmul', 'ixor',
+                    '_length_hint', 'indexOf']
 
     interpleveldefs = {
         '_compare_digest': 'tscmp.compare_digest',
@@ -87,5 +87,6 @@ class Module(MixedModule):
         '__isub__' : 'isub',
         '__itruediv__' : 'itruediv',
         '__ixor__' : 'ixor',
+        '__imatmul__' : 'imatmul',
     }
 
