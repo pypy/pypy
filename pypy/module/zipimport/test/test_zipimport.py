@@ -349,14 +349,23 @@ def get_file():
         assert sys.path_hooks.count(zipimport.zipimporter) == 1
 
     def w__make_unicode_filename(self):
+        if not self.testfn_unencodable:
+            import sys
+            skip("can't run this test with %s as filesystem encoding"
+                 % sys.getfilesystemencoding())
         import os
         head, tail = os.path.split(self.zipfile)
-        self.zipfile = head + os.path.sep + tail[:4] + '_ä' + tail[4:]
+        self.zipfile = (head + os.path.sep + tail[:4] +
+                        self.testfn_unencodable + tail[4:])
 
     def test_unicode_filename_notfound(self):
+        if not self.special_char:
+            import sys
+            skip("can't run this test with %s as filesystem encoding"
+                 % sys.getfilesystemencoding())
         import zipimport
         raises(zipimport.ZipImportError,
-               zipimport.zipimporter, 'caf\xe9')
+               zipimport.zipimporter, self.special_char)
 
     def test_unicode_filename_invalid_zippath(self):
         import zipimport

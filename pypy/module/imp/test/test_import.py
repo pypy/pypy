@@ -132,34 +132,11 @@ def setup_directory_structure(cls):
              line2 = "# encoding: iso-8859-1\n",
              bad = "# encoding: uft-8\n")
 
-    fsenc = sys.getfilesystemencoding()
-    # covers utf-8 and Windows ANSI code pages one non-space symbol from
-    # every page (http://en.wikipedia.org/wiki/Code_page)
-    known_locales = {
-        'utf-8' : b'\xc3\xa4',
-        'cp1250' : b'\x8C',
-        'cp1251' : b'\xc0',
-        'cp1252' : b'\xc0',
-        'cp1253' : b'\xc1',
-        'cp1254' : b'\xc0',
-        'cp1255' : b'\xe0',
-        'cp1256' : b'\xe0',
-        'cp1257' : b'\xc0',
-        'cp1258' : b'\xc0',
-        }
-
-    if sys.platform == 'darwin':
-        # Mac OS X uses the Normal Form D decomposition
-        # http://developer.apple.com/mac/library/qa/qa2001/qa1173.html
-        special_char = b'a\xcc\x88'
-    else:
-        special_char = known_locales.get(fsenc)
-
-    if special_char:
+    w_special_char = getattr(cls, 'w_special_char', None)
+    if not space.is_none(w_special_char):
+        special_char = space.unicode_w(w_special_char).encode(
+            sys.getfilesystemencoding())
         p.join(special_char + '.py').write('pass')
-        cls.w_special_char = space.wrap(special_char.decode(fsenc))
-    else:
-        cls.w_special_char = space.w_None
 
     # create a .pyw file
     p = setuppkg("windows", x = "x = 78")
@@ -781,9 +758,9 @@ class AppTestImport(BaseImportTest):
         raises(SyntaxError, imp.find_module, 'bad', encoded.__path__)
 
     def test_find_module_fsdecode(self):
-        import sys
         name = self.special_char
         if not name:
+            import sys
             skip("can't run this test with %s as filesystem encoding"
                  % sys.getfilesystemencoding())
         import imp
