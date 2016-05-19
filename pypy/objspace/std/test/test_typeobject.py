@@ -1328,15 +1328,6 @@ class AppTestNewShortcut:
 
         assert b == 1
 
-    def test_slots_with_method_in_class(self):
-        # this works in cpython...
-        class A(object):
-            __slots__ = ["f"]
-            def f(self, x):
-                return x + 1
-        a = A()
-        assert a.f(1) == 2
-
     def test_eq_returns_notimplemented(self):
         assert type.__eq__(int, 42) is NotImplemented
         assert type.__ne__(dict, 42) is NotImplemented
