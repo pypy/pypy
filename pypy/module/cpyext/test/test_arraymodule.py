@@ -67,3 +67,11 @@ class AppTestArrayModule(AppTestCpythonExtensionBase):
                                 '\x02\0\0\0'
                                 '\x03\0\0\0'
                                 '\x04\0\0\0')
+
+    def test_pickle(self):
+        import pickle
+        module = self.import_module(name='array')
+        arr = module.array('i', [1,2,3,4])
+        s = pickle.dumps(arr)
+        rra = pickle.loads(s)
+        assert arr.tolist() == rra.tolist()
