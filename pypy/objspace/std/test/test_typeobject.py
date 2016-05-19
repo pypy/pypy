@@ -1071,6 +1071,16 @@ class AppTestTypeObject:
         class D(A, B):     # "best base" is A
             __slots__ = ("__weakref__",)
 
+    def test_slot_shadows_class_variable(self):
+        try:
+            class X:
+                __slots__ = ["foo"]
+                foo = None
+        except ValueError as e:
+            assert str(e) == "'foo' in __slots__ conflicts with class variable"
+        else:
+            assert False, "ValueError expected"
+
     def test_metaclass_calc(self):
         """
         # issue1294232: correct metaclass calculation
