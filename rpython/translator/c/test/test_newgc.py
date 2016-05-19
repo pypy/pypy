@@ -1660,6 +1660,10 @@ class TestIncrementalMiniMarkGC(TestMiniMarkGC):
             assert res == 42
 
 
+class TestIncrementalMiniMarkRemoteHeadersGC(TestIncrementalMiniMarkGC):
+    gcpolicy = "incminimark_remoteheader"
+
+
 # ____________________________________________________________________
 
 class TaggedPointersTest(object):
@@ -1754,4 +1758,7 @@ class TestMiniMarkGCMostCompact(TaggedPointersTest, TestMiniMarkGC):
     removetypeptr = True
 
 class TestIncrementalMiniMarkGCMostCompact(TaggedPointersTest, TestIncrementalMiniMarkGC):
+    removetypeptr = True
+
+class TestIncrementalMiniMarkGCMostCompact(TaggedPointersTest, TestIncrementalMiniMarkRemoteHeadersGC):
     removetypeptr = True

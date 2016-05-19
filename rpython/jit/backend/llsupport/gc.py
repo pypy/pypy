@@ -361,7 +361,8 @@ class GcLLDescr_framework(GcLLDescription):
         # we need the hybrid or minimark GC for rgc._make_sure_does_not_move()
         # to work.  'hybrid' could work but isn't tested with the JIT.
         if self.gcdescr.config.translation.gc not in ('minimark',
-                                                      'incminimark'):
+                                                      'incminimark',
+                                                      'incminimark_remoteheader'):
             raise NotImplementedError("--gc=%s not implemented with the JIT" %
                                       (self.gcdescr.config.translation.gc,))
 
