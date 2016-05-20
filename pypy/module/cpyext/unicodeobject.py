@@ -267,7 +267,8 @@ def PyUnicode_AsWideChar(space, ref, buf, size):
     string may or may not be 0-terminated.  It is the responsibility of the caller
     to make sure that the wchar_t string is 0-terminated in case this is
     required by the application."""
-    c_str = PyUnicode_AS_UNICODE(space, rffi.cast(rffi.VOIDP, ref))
+    ref = rffi.cast(PyUnicodeObject, ref)
+    c_buffer = PyUnicode_AS_UNICODE(space, rffi.cast(rffi.VOIDP, ref))
     c_length = ref.c_length
 
     # If possible, try to copy the 0-termination as well
