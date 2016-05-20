@@ -195,7 +195,7 @@ class BaseBackendTest(Runner):
         def find_compatible(cpu, arg):
             assert cpu is self.cpu
             seen.append(arg)
-            return -1
+            return -1      # means "continue running on the same trace"
         t1_box, T1_box, d1 = self.alloc_instance(self.T)
         t2_box, T2_box, d2 = self.alloc_instance(self.T)
         t3_box, T3_box, d3 = self.alloc_instance(self.T)
@@ -230,6 +230,41 @@ class BaseBackendTest(Runner):
             fail = self.cpu.get_latest_descr(deadframe)
             assert fail.identifier == 2
             assert seen == [t2_box._resref, t3_box._resref]
+
+    def test_extend_guard_compatible_2(self):
+        seen = []
+        def find_compatible(cpu, arg):
+            assert cpu is self.cpu
+            seen.append(arg)
+            return 0     # means "fail the guard"
+        t1_box, T1_box, d1 = self.alloc_instance(self.T)
+        t2_box, T2_box, d2 = self.alloc_instance(self.T)
+        t3_box, T3_box, d3 = self.alloc_instance(self.T)
+        faildescr1 = BasicFailDescr(1)
+        faildescr1.find_compatible = find_compatible
+        loop = parse("""
+        [p0]
+        guard_compatible(p0, ConstPtr(t1), descr=faildescr1) []
+        finish(p0, descr=fdescr)
+        """, namespace={'fdescr': BasicFinalDescr(2),
+                        'faildescr1': faildescr1,
+                        't1': t1_box._resref})
+        looptoken = JitCellToken()
+        self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+        assert seen == []
+
+        t_list = [t1_box._resref, t2_box._resref, t3_box._resref]
+        expected = []
+        for t in t_list * 2:
+            # find_compatible() returns 0: the guard fails
+            deadframe = self.cpu.execute_token(looptoken, t)
+            fail = self.cpu.get_latest_descr(deadframe)
+            if t == t1_box._resref:
+                assert fail.identifier == 2
+            else:
+                assert fail.identifier == 1
+                expected.append(t)
+            assert seen == expected
 
     def test_compile_with_holes_in_fail_args(self):
         targettoken = TargetToken()
