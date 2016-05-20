@@ -24,6 +24,7 @@ class LLAsmInfo(object):
     def __init__(self, lltrace):
         self.ops_offset = None
         self.lltrace = lltrace
+        self.asmaddr = lltrace
 
 class LLTrace(object):
     has_been_freed = False
@@ -356,10 +357,13 @@ class LLGraphCPU(model.AbstractCPU):
 
     def compile_bridge(self, faildescr, inputargs, operations,
                        original_loop_token, log=True, logger=None):
+        from rpython.jit.metainterp.compile import GuardCompatibleDescr
         clt = original_loop_token.compiled_loop_token
         clt.compiling_a_bridge()
         lltrace = LLTrace(inputargs, operations)
-        faildescr._llgraph_bridge = lltrace
+        if not isinstance(faildescr, GuardCompatibleDescr):
+            # don't patch GuardCompatibleDescr
+            faildescr._llgraph_bridge = lltrace
         clt._llgraph_alltraces.append(lltrace)
         self._record_labels(lltrace)
         return LLAsmInfo(lltrace)
@@ -469,12 +473,6 @@ class LLGraphCPU(model.AbstractCPU):
     def get_savedata_ref(self, deadframe):
         assert deadframe._saved_data is not None
         return deadframe._saved_data
-
-    def grow_guard_compatible_switch(self, compiled_loop_token, descr, ref):
-        assert isinstance(compiled_loop_token, model.CompiledLoopToken)
-        if not hasattr(descr, '_guard_compatible_llgraph_lst'):
-            descr._guard_compatible_llgraph_lst = []
-        descr._guard_compatible_llgraph_lst.append(ref)
 
 
     # ------------------------------------------------------------
@@ -1292,9 +1290,19 @@ class LLFrame(object):
         if arg1 != arg2:
             if hasattr(descr, '_guard_compatible_llgraph_lst'):
                 lst = descr._guard_compatible_llgraph_lst
-                for ref in lst:
+                for ref, target in lst:
                     if ref == arg1:
-                        return
+                        if target == -1:
+                            return
+                        XXX
+            else:
+                descr._guard_compatible_llgraph_lst = []
+            target = descr.find_compatible(self.cpu, arg1)
+            if target:
+                descr._guard_compatible_llgraph_lst.append((arg1, target))
+                if target == -1:
+                    return
+                XXX
             self.fail_guard(descr, extra_value=arg1)
 
     def execute_int_add_ovf(self, _, x, y):

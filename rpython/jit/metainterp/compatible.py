@@ -30,6 +30,8 @@ class CompatibilityCondition(object):
         self.known_valid = ptr
         self.conditions = []
         self.last_quasi_immut_field_op = None
+        # -1 means "stay on the original trace"
+        self.jump_target = -1
 
     def record_condition(self, cond, res, optimizer):
         for oldcond in self.conditions:
@@ -43,7 +45,7 @@ class CompatibilityCondition(object):
     def register_quasi_immut_field(self, op):
         self.last_quasi_immut_field_op = op
 
-    def check_compat(self, cpu, ref, loop_token):
+    def check_compat_and_activate(self, cpu, ref, loop_token):
         for cond in self.conditions:
             if not cond.check(cpu, ref):
                 return False

@@ -4,10 +4,10 @@ from rpython.translator.tool.make_dot import DotGen
 from rpython.jit.metainterp.resoperation import rop
 
 class SubGraph:
-    def __init__(self, op):
+    def __init__(self, op, inputargs, suboperations):
         self.failargs = op.getfailargs()
-        self.subinputargs = op.getdescr()._debug_subinputargs
-        self.suboperations = op.getdescr()._debug_suboperations
+        self.subinputargs = inputargs
+        self.suboperations = suboperations
     def get_operations(self):
         return self.suboperations
     def get_display_text(self, memo):
@@ -26,13 +26,14 @@ def display_procedures(procedures, errmsg=None, highlight_procedures={}, metaint
               for procedure in procedures]
     for graph, highlight in graphs:
         for op in graph.get_operations():
-            if is_interesting_guard(op):
-                graphs.append((SubGraph(op), highlight))
+            bridges = getattr(op.getdescr(), '_debug_bridges', [])
+            for inputargs, suboperations in bridges:
+                graphs.append((SubGraph(op, inputargs, suboperations), highlight))
     graphpage = ResOpGraphPage(graphs, errmsg, metainterp_sd)
     graphpage.display()
 
 def is_interesting_guard(op):
-    return hasattr(op.getdescr(), '_debug_suboperations')
+    return hasattr(op.getdescr(), '_debug_bridges')
 
 def getdescr(op):
     if op._descr is not None:
@@ -178,8 +179,9 @@ class ResOpGen(object):
                     s = s.replace(',', '.') # we use comma for argument splitting
                     op_repr = "debug_merge_point(%d, %d, '%s')" % (op.getarg(1).getint(), op.getarg(2).getint(), s)
             lines.append(op_repr)
-            if is_interesting_guard(op):
-                tgt = op.getdescr()._debug_suboperations[0]
+            bridges = getattr(op.getdescr(), '_debug_bridges', [])
+            for inputargs, suboperations in bridges:
+                tgt = suboperations[0]
                 tgt_g, tgt_i = self.all_operations[tgt]
                 self.genedge((graphindex, opstartindex),
                              (tgt_g, tgt_i),

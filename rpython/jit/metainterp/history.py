@@ -548,9 +548,9 @@ class TreeLoop(object):
                     assert box in seen
             if op.is_guard() and check_descr:
                 assert op.getdescr() is not None
-                if hasattr(op.getdescr(), '_debug_suboperations'):
-                    ops = op.getdescr()._debug_suboperations
-                    TreeLoop.check_consistency_of_branch(ops, seen.copy())
+                if hasattr(op.getdescr(), '_debug_bridges'):
+                    for _, ops in op.getdescr()._debug_bridges:
+                        TreeLoop.check_consistency_of_branch(ops, seen.copy())
                 for box in op.getfailargs() or []:
                     if box is not None:
                         assert not isinstance(box, Const)
@@ -600,9 +600,9 @@ def _list_all_operations(result, operations, omit_finish=True):
     result.extend(operations)
     for op in operations:
         if op.is_guard() and op.getdescr():
-            if hasattr(op.getdescr(), '_debug_suboperations'):
-                ops = op.getdescr()._debug_suboperations
-                _list_all_operations(result, ops, omit_finish)
+            if hasattr(op.getdescr(), '_debug_bridges'):
+                for _, ops in op.getdescr()._debug_bridges:
+                    _list_all_operations(result, ops, omit_finish)
 
 # ____________________________________________________________
 

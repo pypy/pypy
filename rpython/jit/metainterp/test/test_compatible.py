@@ -41,7 +41,7 @@ class TestCompatible(LLJitMixin):
 
         x = self.meta_interp(main, [])
 
-        assert x < 25
+        assert x < 30
         # trace, two bridges, a finish bridge
         self.check_trace_count(4)
 
