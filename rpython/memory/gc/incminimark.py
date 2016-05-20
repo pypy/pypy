@@ -1961,7 +1961,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 #
                 self.old_objects_pointing_to_pinned.append(parent)
                 self.updated_old_objects_pointing_to_pinned = True
-                self.set_flags(parent, GCFLAG_PINNED_OBJECT_PARENT_KNOWN)
+                self.add_flags(parent, GCFLAG_PINNED_OBJECT_PARENT_KNOWN)
             #
             if self.get_flags(obj) & GCFLAG_VISITED:
                 return
