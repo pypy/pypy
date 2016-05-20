@@ -190,12 +190,17 @@ class BaseBackendTest(Runner):
         res = self.cpu.get_int_value(deadframe, 0)
         assert res == 10
 
-    def test_extend_guard_compatible(self):
-        import weakref, gc
-
+    def test_extend_guard_compatible_1(self):
+        seen = []
+        def find_compatible(cpu, arg):
+            assert cpu is self.cpu
+            seen.append(arg)
+            return -1
         t1_box, T1_box, d1 = self.alloc_instance(self.T)
         t2_box, T2_box, d2 = self.alloc_instance(self.T)
+        t3_box, T3_box, d3 = self.alloc_instance(self.T)
         faildescr1 = BasicFailDescr(1)
+        faildescr1.find_compatible = find_compatible
         loop = parse("""
         [p0]
         guard_compatible(p0, ConstPtr(t1), descr=faildescr1) []
@@ -209,24 +214,22 @@ class BaseBackendTest(Runner):
                                            t1_box._resref)
         fail = self.cpu.get_latest_descr(deadframe)
         assert fail.identifier == 2
+        assert seen == []
 
-        deadframe = self.cpu.execute_token(looptoken,
-                                           t2_box._resref)
-        fail = self.cpu.get_latest_descr(deadframe)
-        assert fail.identifier == 1
-
-        self.cpu.grow_guard_compatible_switch(looptoken.compiled_loop_token,
-                                              faildescr1, t2_box._resref)
-        for retry in range(5):
+        for i in range(3):
+            # find_compatible() returns -1: continue on the main trace
             deadframe = self.cpu.execute_token(looptoken,
                                                t2_box._resref)
             fail = self.cpu.get_latest_descr(deadframe)
             assert fail.identifier == 2
+            assert seen == [t2_box._resref]
 
-        wr = weakref.ref(t2_box.getref_base())
-        del t2_box, T2_box, d2
-        gc.collect(); gc.collect()
-        assert wr() is not None    # kept alive by grow_guard_compatible_switch
+        for t_box in [t3_box, t1_box, t2_box] * 2:
+            deadframe = self.cpu.execute_token(looptoken,
+                                               t_box._resref)
+            fail = self.cpu.get_latest_descr(deadframe)
+            assert fail.identifier == 2
+            assert seen == [t2_box._resref, t3_box._resref]
 
     def test_compile_with_holes_in_fail_args(self):
         targettoken = TargetToken()
