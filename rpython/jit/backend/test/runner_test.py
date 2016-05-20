@@ -23,7 +23,11 @@ from rpython.jit.backend.detect_cpu import autodetect
 from rpython.jit.backend.llsupport import jitframe
 from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
 from rpython.jit.backend.llsupport.rewrite import GcRewriterAssembler
+from rpython.jit.metainterp.compile import GuardCompatibleDescr
 
+
+class BasicCompatDescr(BasicFailDescr, GuardCompatibleDescr):
+    pass
 
 IS_32_BIT = sys.maxint < 2**32
 IS_64_BIT = sys.maxint > 2**32
@@ -199,7 +203,7 @@ class BaseBackendTest(Runner):
         t1_box, T1_box, d1 = self.alloc_instance(self.T)
         t2_box, T2_box, d2 = self.alloc_instance(self.T)
         t3_box, T3_box, d3 = self.alloc_instance(self.T)
-        faildescr1 = BasicFailDescr(1)
+        faildescr1 = BasicCompatDescr(1)
         faildescr1.find_compatible = find_compatible
         loop = parse("""
         [p0]
@@ -240,7 +244,7 @@ class BaseBackendTest(Runner):
         t1_box, T1_box, d1 = self.alloc_instance(self.T)
         t2_box, T2_box, d2 = self.alloc_instance(self.T)
         t3_box, T3_box, d3 = self.alloc_instance(self.T)
-        faildescr1 = BasicFailDescr(1)
+        faildescr1 = BasicCompatDescr(1)
         faildescr1.find_compatible = find_compatible
         loop = parse("""
         [p0]
@@ -270,6 +274,7 @@ class BaseBackendTest(Runner):
         seen = []
         def find_compatible(cpu, arg):
             assert cpu is self.cpu
+            seen.append(arg)
             if arg == t2_box._resref:
                 return asminfo43.asmaddr
             if arg == t3_box._resref:
@@ -278,11 +283,11 @@ class BaseBackendTest(Runner):
         t1_box, T1_box, d1 = self.alloc_instance(self.T)
         t2_box, T2_box, d2 = self.alloc_instance(self.T)
         t3_box, T3_box, d3 = self.alloc_instance(self.T)
-        faildescr1 = BasicFailDescr(1)
+        faildescr1 = BasicCompatDescr(1)
         faildescr1.find_compatible = find_compatible
         loop = parse("""
         [p0]
-        guard_compatible(p0, ConstPtr(t1), descr=faildescr1) []
+        guard_compatible(p0, ConstPtr(t1), descr=faildescr1) [p0]
         finish(p0, descr=fdescr)
         """, namespace={'fdescr': BasicFinalDescr(2),
                         'faildescr1': faildescr1,
@@ -291,14 +296,14 @@ class BaseBackendTest(Runner):
         self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
 
         bridge43 = parse("""
-        []
+        [p0]
         finish(p0, descr=fdescr43)
         """, namespace={'fdescr43': BasicFinalDescr(43)})
         asminfo43 = self.cpu.compile_bridge(faildescr1, bridge43.inputargs,
                                             bridge43.operations, looptoken)
 
         bridge44 = parse("""
-        []
+        [p0]
         finish(p0, descr=fdescr44)
         """, namespace={'fdescr44': BasicFinalDescr(44)})
         asminfo44 = self.cpu.compile_bridge(faildescr1, bridge44.inputargs,
@@ -311,6 +316,7 @@ class BaseBackendTest(Runner):
         for t in t_list * 2:
             # find_compatible() returns a bridge's address: switch goes there
             deadframe = self.cpu.execute_token(looptoken, t)
+            assert self.cpu.get_ref_value(deadframe, 0) == t
             fail = self.cpu.get_latest_descr(deadframe)
             if t == t1_box._resref:
                 assert fail.identifier == 2

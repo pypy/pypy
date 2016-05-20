@@ -1145,7 +1145,7 @@ class LLFrame(object):
             info = info.next()
 
     def fail_guard(self, descr, saved_data=None, extra_value=None,
-                   propagate_exception=False):
+                   propagate_exception=False, force_bridge=None):
         if not propagate_exception:
             assert self.last_exception is None
         values = []
@@ -1156,12 +1156,14 @@ class LLFrame(object):
                 value = None
             values.append(value)
         self._accumulate(descr, self.current_op.getfailargs(), values)
-        if hasattr(descr, '_llgraph_bridge'):
+        if force_bridge is None:
+            force_bridge = getattr(descr, '_llgraph_bridge', None)
+        if force_bridge is not None:
             if propagate_exception:
-                assert (descr._llgraph_bridge.operations[0].opnum in
+                assert (force_bridge.operations[0].opnum in
                         (rop.SAVE_EXC_CLASS, rop.GUARD_EXCEPTION,
                          rop.GUARD_NO_EXCEPTION))
-            target = (descr._llgraph_bridge, -1)
+            target = (force_bridge, -1)
             values = [value for value in values if value is not None]
             raise Jump(target, values)
         else:
@@ -1288,22 +1290,25 @@ class LLFrame(object):
 
     def execute_guard_compatible(self, descr, arg1, arg2):
         if arg1 != arg2:
-            if hasattr(descr, '_guard_compatible_llgraph_lst'):
+            assert not hasattr(descr, '_llgraph_bridge')
+            try:
                 lst = descr._guard_compatible_llgraph_lst
-                for ref, target in lst:
-                    if ref == arg1:
-                        if target == -1:
-                            return
-                        XXX
+            except AttributeError:
+                lst = descr._guard_compatible_llgraph_lst = []
+            for ref, target in lst:
+                if ref == arg1:
+                    break
             else:
-                descr._guard_compatible_llgraph_lst = []
-            target = descr.find_compatible(self.cpu, arg1)
-            if target:
+                target = descr.find_compatible(self.cpu, arg1)
+                if target == 0:
+                    self.fail_guard(descr, extra_value=arg1)
+                    assert 0, "fail_guard should raise"
                 descr._guard_compatible_llgraph_lst.append((arg1, target))
-                if target == -1:
-                    return
-                XXX
-            self.fail_guard(descr, extra_value=arg1)
+            #
+            if target == -1:
+                return
+            else:
+                self.fail_guard(descr, force_bridge=target)
 
     def execute_int_add_ovf(self, _, x, y):
         try:
