@@ -46,15 +46,13 @@ def setuppkg(pkgname, **entries):
     if pkgname:
         p = p.join(*pkgname.split('.'))
     p.ensure(dir=1)
-    f = p.join("__init__.py").open('w')
-    print >> f, "# package"
-    f.close()
+    with p.join("__init__.py").open('w') as f:
+        print >> f, "# package"
     for filename, content in entries.items():
         filename += '.py'
-        f = p.join(filename).open('w')
-        print >> f, '#', filename
-        print >> f, content
-        f.close()
+        with p.join(filename).open('w') as f:
+            print >> f, '#', filename
+            print >> f, content
     return p
 
 def setup_directory_structure(cls):
@@ -123,6 +121,9 @@ def setup_directory_structure(cls):
         'a=5\nb=6\rc="""hello\r\nworld"""\r', mode='wb')
     p.join('mod.py').write(
         'a=15\nb=16\rc="""foo\r\nbar"""\r', mode='wb')
+    setuppkg("verbose1pkg", verbosemod='a = 1729')
+    setuppkg("verbose2pkg", verbosemod='a = 1729')
+    setuppkg("verbose0pkg", verbosemod='a = 1729')
     setuppkg("test_bytecode",
              a = '',
              b = '',
@@ -565,9 +566,8 @@ class AppTestImport(BaseImportTest):
         import test_reload
         import time, imp
         time.sleep(1)
-        f = open(test_reload.__file__, "w")
-        f.write("a = 10 // 0\n")
-        f.close()
+        with open(test_reload.__file__, "w") as f:
+            f.write("a = 10 // 0\n")
 
         # A failing reload should leave the previous module in sys.modules
         raises(ZeroDivisionError, imp.reload, test_reload)
@@ -710,7 +710,8 @@ class AppTestImport(BaseImportTest):
         import pkg
         import os
         pathname = os.path.join(os.path.dirname(pkg.__file__), 'a.py')
-        module = imp.load_module('a', open(pathname),
+        with open(pathname) as fid:
+            module = imp.load_module('a', fid,
                                  'invalid_path_name', ('.py', 'r', imp.PY_SOURCE))
         assert module.__name__ == 'a'
         assert module.__file__ == 'invalid_path_name'
@@ -744,6 +745,68 @@ class AppTestImport(BaseImportTest):
                 pass    # 'int' object does not support indexing
             else:
                 raise AssertionError("should have failed")
+
+    def test_verbose_flag_1(self):
+        output = []
+        class StdErr(object):
+            def write(self, line):
+                output.append(line)
+
+        import sys, imp
+        old_flags = sys.flags
+
+        class Flags(object):
+            verbose = 1
+            def __getattr__(self, name):
+                return getattr(old_flags, name)
+
+        sys.flags = Flags()
+        sys.stderr = StdErr()
+        try:
+            import verbose1pkg.verbosemod
+        finally:
+            imp.reload(sys)
+        assert 'import verbose1pkg # ' in output[-2]
+        assert 'import verbose1pkg.verbosemod # ' in output[-1]
+
+    def test_verbose_flag_2(self):
+        output = []
+        class StdErr(object):
+            def write(self, line):
+                output.append(line)
+
+        import sys, imp
+        old_flags = sys.flags
+
+        class Flags(object):
+            verbose = 2
+            def __getattr__(self, name):
+                return getattr(old_flags, name)
+
+        sys.flags = Flags()
+        sys.stderr = StdErr()
+        try:
+            import verbose2pkg.verbosemod
+        finally:
+            imp.reload(sys)
+        assert any('import verbose2pkg # ' in line
+                   for line in output[:-2])
+        assert output[-2].startswith('# trying')
+        assert 'import verbose2pkg.verbosemod # ' in output[-1]
+
+    def test_verbose_flag_0(self):
+        output = []
+        class StdErr(object):
+            def write(self, line):
+                output.append(line)
+
+        import sys, imp
+        sys.stderr = StdErr()
+        try:
+            import verbose0pkg.verbosemod
+        finally:
+            imp.reload(sys)
+        assert not output
 
     def test_source_encoding(self):
         import imp

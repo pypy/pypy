@@ -526,6 +526,7 @@ def run_command_line(interactive,
                      unbuffered,
                      ignore_environment,
                      quiet,
+                     verbose,
                      **ignored):
     # with PyPy in top of CPython we can only have around 100
     # but we need more in the translated PyPy for the compiler package
@@ -658,6 +659,8 @@ def run_command_line(interactive,
                 inspect = True
             else:
                 # If not interactive, just read and execute stdin normally.
+                if verbose:
+                    print_banner(not no_site)
                 @hidden_applevel
                 def run_it():
                     co_stdin = compile(sys.stdin.read(), '<stdin>', 'exec',
@@ -741,10 +744,10 @@ def run_command_line(interactive,
     return status
 
 def print_banner(copyright):
-    print('Python %s on %s' % (sys.version, sys.platform))
+    print('Python %s on %s' % (sys.version, sys.platform), file=sys.stderr)
     if copyright:
         print('Type "help", "copyright", "credits" or '
-              '"license" for more information.')
+              '"license" for more information.', file=sys.stderr)
 
 STDLIB_WARNING = """\
 debug: WARNING: Library path not found, using compiled-in sys.path.
