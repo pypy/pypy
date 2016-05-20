@@ -1289,8 +1289,8 @@ class LLFrame(object):
             self.fail_guard(descr)
 
     def execute_guard_compatible(self, descr, arg1, arg2):
+        assert not hasattr(descr, '_llgraph_bridge')
         if arg1 != arg2:
-            assert not hasattr(descr, '_llgraph_bridge')
             try:
                 lst = descr._guard_compatible_llgraph_lst
             except AttributeError:
@@ -1308,7 +1308,8 @@ class LLFrame(object):
             if target == -1:
                 return
             else:
-                self.fail_guard(descr, force_bridge=target)
+                self.fail_guard(descr, extra_value='should not be used',
+                                force_bridge=target)
 
     def execute_int_add_ovf(self, _, x, y):
         try:
