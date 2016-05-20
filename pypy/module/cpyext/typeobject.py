@@ -470,7 +470,7 @@ def bf_getcharbuffer(space, w_buf, segment, ref):
 def bf_getwritebuffer(space, w_buf, segment, ref):
     if segment != 0:
         raise oefmt(space.w_SystemError,
-                    "accessing non-existent segment")
+                    "accessing non-existent buffer segment")
 
     buf = space.writebuf_w(w_buf)
     ref[0] = buf.get_raw_address()
