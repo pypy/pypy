@@ -45,6 +45,8 @@ def make_win32_traits(traits):
             'INVALID_FILE_ATTRIBUTES')
         ERROR_SHARING_VIOLATION = platform.ConstantInteger(
             'ERROR_SHARING_VIOLATION')
+        MOVEFILE_REPLACE_EXISTING = platform.ConstantInteger(
+            'MOVEFILE_REPLACE_EXISTING')
         _S_IFDIR = platform.ConstantInteger('_S_IFDIR')
         _S_IFREG = platform.ConstantInteger('_S_IFREG')
         _S_IFCHR = platform.ConstantInteger('_S_IFCHR')
@@ -103,7 +105,7 @@ def make_win32_traits(traits):
                        FILE_WRITE_ATTRIBUTES OPEN_EXISTING FILE_FLAG_BACKUP_SEMANTICS
                        VOLUME_NAME_DOS VOLUME_NAME_NT
                        ERROR_FILE_NOT_FOUND ERROR_NO_MORE_FILES
-                       ERROR_SHARING_VIOLATION
+                       ERROR_SHARING_VIOLATION MOVEFILE_REPLACE_EXISTING
                     '''.split():
             locals()[name] = config[name]
         LPWIN32_FIND_DATA    = lltype.Ptr(WIN32_FIND_DATA)
@@ -199,9 +201,9 @@ def make_win32_traits(traits):
             rwin32.BOOL,
             save_err=rffi.RFFI_SAVE_LASTERROR)
 
-        MoveFile = external(
-            'MoveFile' + suffix,
-            [traits.CCHARP, traits.CCHARP],
+        MoveFileEx = external(
+            'MoveFileEx' + suffix,
+            [traits.CCHARP, traits.CCHARP, rwin32.DWORD],
             rwin32.BOOL,
             save_err=rffi.RFFI_SAVE_LASTERROR)
 

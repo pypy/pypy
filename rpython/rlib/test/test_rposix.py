@@ -334,6 +334,11 @@ class BasePosixUnicodeOrAscii:
             self.path  = UnicodeWithEncoding(self.ufilename)
             self.path2 = UnicodeWithEncoding(self.ufilename + ".new")
 
+    def _teardown_method(self, method):
+        for path in [self.ufilename + ".new", self.ufilename]:
+            if os.path.exists(path):
+                os.unlink(path)
+
     def test_open(self):
         def f():
             try:
@@ -385,6 +390,14 @@ class BasePosixUnicodeOrAscii:
     def test_rename(self):
         def f():
             return rposix.rename(self.path, self.path2)
+
+        interpret(f, [])
+        assert not os.path.exists(self.ufilename)
+        assert os.path.exists(self.ufilename + '.new')
+
+    def test_replace(self):
+        def f():
+            return rposix.replace(self.path, self.path2)
 
         interpret(f, [])
         assert not os.path.exists(self.ufilename)
