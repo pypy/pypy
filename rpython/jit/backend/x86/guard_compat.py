@@ -9,6 +9,130 @@ from rpython.jit.metainterp.compile import GuardCompatibleDescr
 from rpython.jit.metainterp.history import BasicFailDescr
 
 
+#
+# GUARD_COMPATIBLE(reg, const-ptr) produces the following assembler.
+# It uses a special version of the failure recovery stub code written
+# by generate_quick_failure(), which saves a few things at different
+# locations and then jumps to the tree-searching algo, as described
+# later.  We also have the normal failure code at <failure_recovery>,
+# see below.  In the following code, ofs(x) means the offset in the GC
+# table of the constant pointer 'x':
+#
+#     MOV reg2, [RIP + ofs(_backend_choices)]
+#     CMP reg, [reg2 + bc_most_recent]
+#     JNE <failure_and_search_tree>
+#     JMP *[reg2 + bc_most_recent + 8]
+#    sequel:
+#
+# The faildescr for this guard is a GuardCompatibleDescr.  The
+# '_backend_choices' (which is added as a field to
+# GuardCompatibleDescr only when not translated) has the following
+# structure:
+#
+#     - bc_gcmap: a copy of the gcmap at this point
+#     - bc_faildescr: a copy of the faildescr of that guard
+#     - bc_most_recent: 1 pair (gcref, asmaddr)
+#     - bc_tree: N pairs (gcref, asmaddr)
+#
+# The tree contains all items for which find_compatible() was called and
+# returned non-zero.  It caches the non-zero result in 'asmaddr'.  The
+# separate most_recent entry caches the last value seen, along with
+# the result of find_compatible().  If this find_compatible() returned
+# zero, then the cache entry contains the 'fail_guard' label below
+# as the 'asmaddr' value (such a value is never found inside the tree,
+# only in the most_recent entry).
+#
+# The tree is a binary-search tree with a value at every node and leaf.
+# The length N of the array is equal to '2**D - 1', where D is the depth
+# of the tree.  There are '2**(D-1) - 1' nodes and '2**(D-1)' leaves.
+# Trees start at D=1 and grows by one every time they need to be
+# reallocated.  A tree of depth D has always all its nodes used, but
+# some leaves may be unused; such leaves store a pair (NULL, zero).
+# For now we assume that NULL is never received by guard_compatible().
+#
+# Tree organization: the root is at index 0.  Starting at a node at
+# index i, the left child is at i+1, and the right child is at i+w,
+# where 'w' is computed as follows: start from the length of the whole
+# array; divide it by two and round the (non-integer) result upwards
+# for every level you see; you get 'w'.  When you reach 'w=1', you are
+# at the level of leaves.
+#
+# The special value 'asmaddr=-1' is replaced with the actual address
+# of the 'sequel' label above inside the tree, so that we don't have
+# to special-case it here.  The special value 'asmaddr=0' in
+# 'most_recent' is replaced with the <failure_recovery> address
+# introduced above.
+#
+# Here is the modified <failure_and_search_tree> code:
+#
+#     PUSH RAX        # save
+#     PUSH RDX        # save
+#     MOV RAX, reg    # the value to search for
+#     MOV RDX, reg2   # _backend_choices object
+#     JMP search_tree
+#
+# Here is the x86-64 runtime code to walk the tree:
+#
+#   search_tree:
+#     MOV [RSP+16], RDX                    # save
+#     MOV R11, [RDX + bc_tree.length]
+#     LEA RDX, [RDX + bc_tree.items]
+#     JMP entry
+#   right:
+#     LEA RDX, [RDX + 8*R11 + 8]
+#   loop:
+#     SHR R11, 1
+#     JZ not_found
+#   entry:
+#     CMP RAX, [RDX]
+#     JA right
+#     JE found
+#     ADD RDX, 16
+#     JMP loop
+#
+#   found:
+#     MOV R11, [RDX + 8]
+#     MOV RDX, [RSP+16]
+#     MOV [RDX + bc_most_recent], RAX
+#     MOV [RDX + bc_most_recent + 8], R11
+#     POP RAX
+#     POP RDX
+#     JMP *R11
+#
+#   not_found:
+#     MOV RDX, [RSP+16]
+#     MOV R11, [RDX + bc_gcmap]
+#     MOV [RBP + jf_gcmap], R11
+#     <save all registers to the jitframe RBP,
+#         reading and popping RAX and RDX off the stack>
+#     <call invoke_find_compatible(_backend_choices=RDX, value=RAX)>
+#     <_reload_frame_if_necessary>
+#     MOV R11, RAX
+#     <restore the non-saved registers>
+#     JMP *R11
+#
+#
+# invoke_find_compatible(_backend_choices, value):
+#     try:
+#         descr = _backend_choices.bc_faildescr
+#         result = descr.find_compatible(cpu, value)
+#         if result == 0:
+#             result = <failure_recovery>
+#         else:
+#             if result == -1:
+#                 result = <sequel>
+#             _backend_choices = add_in_tree(_backend_choices, value, result)
+#         _backend_choices.bc_most_recent.gcref = value
+#         _backend_choices.bc_most_recent.asmaddr = result
+#         return result
+#     except:             # oops!
+#         return <failure_recovery>
+#
+# ____________________________________________________________
+
+
+
+
 # uses the raw structure COMPATINFO, which is informally defined like this:
 # it starts with a negative 'small_ofs' value (see in the code)
 # then there is an array containing all the expected values that should pass

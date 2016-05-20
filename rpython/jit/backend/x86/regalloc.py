@@ -478,8 +478,6 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         y = self.loc(op.getarg(1))
         self.perform_guard(op, [x, y], None)
 
-    consider_guard_compatible = consider_guard_value
-
     def consider_guard_class(self, op):
         assert not isinstance(op.getarg(0), Const)
         x = self.rm.make_sure_var_in_reg(op.getarg(0))
@@ -488,6 +486,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
 
     consider_guard_nonnull_class = consider_guard_class
     consider_guard_gc_type = consider_guard_class
+    consider_guard_compatible = consider_guard_class
 
     def consider_guard_is_object(self, op):
         x = self.make_sure_var_in_reg(op.getarg(0))
