@@ -12,8 +12,8 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.typedef import (
-    GetSetProperty, TypeDef, interp_attrproperty, make_weakref_descr
-)
+    GetSetProperty, TypeDef, generic_new_descr, interp_attrproperty,
+    make_weakref_descr)
 
 
 # XXX Hack to seperate rpython and pypy
@@ -159,15 +159,14 @@ def ipaddr_from_object(space, w_sockaddr):
 
 
 class W_Socket(W_Root):
-    def __init__(self, space, sock):
+    def __init__(self, space, sock=None):
         self.space = space
-        self.sock = sock
-        register_socket(space, sock)
-
-    def descr_new(space, w_subtype, __args__):
-        sock = space.allocate_instance(W_Socket, w_subtype)
-        W_Socket.__init__(sock, space, RSocket.empty_rsocket())
-        return space.wrap(sock)
+        if sock is None:
+            self.sock = RSocket.empty_rsocket()
+        else:
+            register_socket(space, sock)
+            self.sock = sock
+            self.register_finalizer(space)
 
     @unwrap_spec(family=int, type=int, proto=int,
                  w_fileno=WrappedDefault(None))
@@ -184,12 +183,15 @@ class W_Socket(W_Root):
             raise converted_error(space, e)
 
     def _finalize_(self):
-        self.clear_all_weakrefs()
-        if self.sock.fd != rsocket.INVALID_SOCKET:
+        sock = self.sock
+        if sock.fd != rsocket.INVALID_SOCKET:
             try:
                 self._dealloc_warn()
             finally:
-                self.close_w(self.space)
+                try:
+                    sock.close()
+                except SocketError:
+                    pass
 
     def get_type_w(self, space):
         return space.wrap(self.sock.type)
@@ -734,7 +736,7 @@ settimeout(None | float) -- set or clear the timeout
 shutdown(how) -- shut down traffic in one or both directions
 
  [*] not available on all platforms!""",
-    __new__ = interp2app(W_Socket.descr_new.im_func),
+    __new__ = generic_new_descr(W_Socket),
     __init__ = interp2app(W_Socket.descr_init),
     __repr__ = interp2app(W_Socket.descr_repr),
     type = GetSetProperty(W_Socket.get_type_w),
