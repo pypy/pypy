@@ -1861,6 +1861,7 @@ ObjSpace.MethodTable = [
     ('and_',            '&',         2, ['__and__', '__rand__']),
     ('or_',             '|',         2, ['__or__', '__ror__']),
     ('xor',             '^',         2, ['__xor__', '__rxor__']),
+    ('matmul',          '@',         2, ['__matmul__', '__rmatmul__']),
     ('int',             'int',       1, ['__int__']),
     ('index',           'index',     1, ['__index__']),
     ('float',           'float',     1, ['__float__']),
@@ -1877,6 +1878,7 @@ ObjSpace.MethodTable = [
     ('inplace_and',     '&=',        2, ['__iand__']),
     ('inplace_or',      '|=',        2, ['__ior__']),
     ('inplace_xor',     '^=',        2, ['__ixor__']),
+    ('inplace_matmul',  '@=',        2, ['__imatmul__']),
     ('lt',              '<',         2, ['__lt__', '__gt__']),
     ('le',              '<=',        2, ['__le__', '__ge__']),
     ('eq',              '==',        2, ['__eq__', '__eq__']),
@@ -1891,8 +1893,6 @@ ObjSpace.MethodTable = [
     ('set',             'set',       3, ['__set__']),
     ('delete',          'delete',    2, ['__delete__']),
     ('userdel',         'del',       1, ['__del__']),
-    ('matmul',          '@',         2, ['__matmul__', '__rmatmul__']),
-    ('inplace_matmul',  '@=',        2, ['__imatmul__']),
 ]
 
 ObjSpace.BuiltinModuleTable = [
