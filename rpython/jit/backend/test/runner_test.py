@@ -263,8 +263,7 @@ class BaseBackendTest(Runner):
                 assert fail.identifier == 2
             else:
                 assert fail.identifier == 1
-                if t not in expected:
-                    expected.append(t)
+                expected.append(t)     # never cache returns of 0
             assert seen == expected
 
     def test_extend_guard_compatible_3(self):
