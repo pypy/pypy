@@ -1045,15 +1045,23 @@ def rename(path1, path2):
         win32traits = make_win32_traits(traits)
         path1 = traits.as_str0(path1)
         path2 = traits.as_str0(path2)
-        if not win32traits.MoveFile(path1, path2):
+        if not win32traits.MoveFileEx(path1, path2, 0):
             raise rwin32.lastSavedWindowsError()
 
 @specialize.argtype(0, 1)
 def replace(path1, path2):
-    if os.name == 'nt':
-        raise NotImplementedError(
-            'On windows, os.replace() should overwrite the destination')
-    return rename(path1, path2)
+    if _WIN32:
+        traits = _preferred_traits(path1)
+        win32traits = make_win32_traits(traits)
+        path1 = traits.as_str0(path1)
+        path2 = traits.as_str0(path2)
+        ret = win32traits.MoveFileEx(path1, path2,
+                     win32traits.MOVEFILE_REPLACE_EXISTING)
+        if not ret:
+            raise rwin32.lastSavedWindowsError()
+    else:
+        ret = rename(path1, path2)
+    return ret
 
 #___________________________________________________________________
 
