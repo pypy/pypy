@@ -34,6 +34,18 @@ class AppTestBufferProtocol(AppTestCpythonExtensionBase):
                      return NULL;
                  return PyString_FromStringAndSize((char*)ptr, size);
              """),
+            ("zero_out_writebuffer", "METH_O",
+             """
+                 void *ptr;
+                 Py_ssize_t size;
+                 if (PyObject_AsWriteBuffer(args, &ptr, &size) < 0)
+                     return NULL;
+                 Py_ssize_t i;
+                 for (i = 0; i < size; i++) {
+                     ((char*)ptr)[i] = 0;
+                 }
+                 Py_RETURN_NONE;
+             """),
             ])
 
     def test_string(self):
@@ -66,6 +78,13 @@ class AppTestBufferProtocol(AppTestCpythonExtensionBase):
         mm[:] = s
 
         assert buffer_support.check_readbuffer(mm)
+        assert s == buffer_support.readbuffer_as_string(mm)
+        assert s == buffer_support.writebuffer_as_string(mm)
+        assert s == buffer_support.charbuffer_as_string(mm)
+
+        s = '\0' * 3
+        buffer_support.zero_out_writebuffer(mm)
+        assert s == ''.join(mm)
         assert s == buffer_support.readbuffer_as_string(mm)
         assert s == buffer_support.writebuffer_as_string(mm)
         assert s == buffer_support.charbuffer_as_string(mm)
