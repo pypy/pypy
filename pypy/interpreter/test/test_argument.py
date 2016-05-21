@@ -677,9 +677,9 @@ class AppTestArgument:
         exc = raises(TypeError, (lambda: 0), b=3)
         assert str(exc.value) == "<lambda>() got an unexpected keyword argument 'b'"
         exc = raises(TypeError, (lambda a, b: 0), 1, 2, 3, a=1)
-        assert str(exc.value) == "<lambda>() takes 2 positional arguments but 3 were given"
+        assert str(exc.value) == "<lambda>() got multiple values for argument 'a'"
         exc = raises(TypeError, (lambda a, b=1: 0), 1, 2, 3, a=1)
-        assert str(exc.value) == "<lambda>() takes from 1 to 2 positional arguments but 3 were given"
+        assert str(exc.value) == "<lambda>() got multiple values for argument 'a'"
         exc = raises(TypeError, (lambda a, **kw: 0), 1, 2, 3)
         assert str(exc.value) == "<lambda>() takes 1 positional argument but 3 were given"
         exc = raises(TypeError, (lambda a, b=1, **kw: 0), 1, 2, 3)

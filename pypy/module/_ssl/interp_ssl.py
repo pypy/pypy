@@ -137,6 +137,11 @@ def ssl_error(space, msg, errno=0, w_errtype=None, errcode=0):
                   space.wrap(lib_str) if lib_str else space.w_None)
     return OperationError(w_exception_class, w_exception)
 
+def timeout_error(space, msg):
+    w_exc_class = interp_socket.get_error(space, 'timeout')
+    w_exc = space.call_function(w_exc_class, space.wrap(msg))
+    return OperationError(w_exc_class, w_exc)
+
 class SSLNpnProtocols(object):
 
     def __init__(self, ctx, protos):
@@ -334,7 +339,7 @@ class SSLSocket(W_Root):
 
         sockstate = checkwait(space, w_socket, True)
         if sockstate == SOCKET_HAS_TIMED_OUT:
-            raise ssl_error(space, "The write operation timed out")
+            raise timeout_error(space, "The write operation timed out")
         elif sockstate == SOCKET_HAS_BEEN_CLOSED:
             raise ssl_error(space, "Underlying socket has been closed.")
         elif sockstate == SOCKET_TOO_LARGE_FOR_SELECT:
@@ -355,7 +360,7 @@ class SSLSocket(W_Root):
                 sockstate = SOCKET_OPERATION_OK
 
             if sockstate == SOCKET_HAS_TIMED_OUT:
-                raise ssl_error(space, "The write operation timed out")
+                raise timeout_error(space, "The write operation timed out")
             elif sockstate == SOCKET_HAS_BEEN_CLOSED:
                 raise ssl_error(space, "Underlying socket has been closed.")
             elif sockstate == SOCKET_IS_NONBLOCKING:
@@ -392,7 +397,7 @@ class SSLSocket(W_Root):
         if not count:
             sockstate = checkwait(space, w_socket, False)
             if sockstate == SOCKET_HAS_TIMED_OUT:
-                raise ssl_error(space, "The read operation timed out")
+                raise timeout_error(space, "The read operation timed out")
             elif sockstate == SOCKET_TOO_LARGE_FOR_SELECT:
                 raise ssl_error(space,
                                 "Underlying socket too large for select().")
@@ -432,7 +437,7 @@ class SSLSocket(W_Root):
                     sockstate = SOCKET_OPERATION_OK
 
                 if sockstate == SOCKET_HAS_TIMED_OUT:
-                    raise ssl_error(space, "The read operation timed out")
+                    raise timeout_error(space, "The read operation timed out")
                 elif sockstate == SOCKET_IS_NONBLOCKING:
                     break
 
@@ -481,7 +486,7 @@ class SSLSocket(W_Root):
             else:
                 sockstate = SOCKET_OPERATION_OK
             if sockstate == SOCKET_HAS_TIMED_OUT:
-                raise ssl_error(space, "The handshake operation timed out")
+                raise timeout_error(space, "The handshake operation timed out")
             elif sockstate == SOCKET_HAS_BEEN_CLOSED:
                 raise ssl_error(space, "Underlying socket has been closed.")
             elif sockstate == SOCKET_TOO_LARGE_FOR_SELECT:
@@ -549,9 +554,9 @@ class SSLSocket(W_Root):
 
             if sockstate == SOCKET_HAS_TIMED_OUT:
                 if ssl_err == SSL_ERROR_WANT_READ:
-                    raise ssl_error(space, "The read operation timed out")
+                    raise timeout_error(space, "The read operation timed out")
                 else:
-                    raise ssl_error(space, "The write operation timed out")
+                    raise timeout_error(space, "The write operation timed out")
             elif sockstate == SOCKET_TOO_LARGE_FOR_SELECT:
                 raise ssl_error(space,
                                 "Underlying socket too large for select().")

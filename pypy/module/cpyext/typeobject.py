@@ -18,8 +18,9 @@ from pypy.module.cpyext.api import (
     Py_TPFLAGS_HEAPTYPE, METH_VARARGS, METH_KEYWORDS, CANNOT_FAIL,
     Py_TPFLAGS_HAVE_GETCHARBUFFER, build_type_checkers, StaticObjectBuilder,
     PyObjectFields, Py_TPFLAGS_BASETYPE, Py_buffer)
-from pypy.module.cpyext.methodobject import (
-    PyDescr_NewWrapper, PyCFunction_NewEx, PyCFunction_typedef, PyMethodDef)
+from pypy.module.cpyext.methodobject import (W_PyCClassMethodObject,
+    PyDescr_NewWrapper, PyCFunction_NewEx, PyCFunction_typedef, PyMethodDef,
+    W_PyCMethodObject, W_PyCFunctionObject)
 from pypy.module.cpyext.modsupport import convert_method_defs
 from pypy.module.cpyext.pyobject import (
     PyObject, make_ref, create_ref, from_ref, get_typedescr, make_typedescr,
@@ -125,6 +126,14 @@ PyGetSetDescrObjectFields = PyDescrObjectFields + (
 cpython_struct("PyGetSetDescrObject", PyGetSetDescrObjectFields,
                PyGetSetDescrObjectStruct, level=2)
 
+PyMethodDescrObjectStruct = lltype.ForwardReference()
+PyMethodDescrObject = lltype.Ptr(PyMethodDescrObjectStruct)
+PyMethodDescrObjectFields = PyDescrObjectFields + (
+    ("d_method", lltype.Ptr(PyMethodDef)),
+    )
+cpython_struct("PyMethodDescrObject", PyMethodDescrObjectFields,
+               PyMethodDescrObjectStruct, level=2)
+
 @bootstrap_function
 def init_memberdescrobject(space):
     make_typedescr(W_MemberDescr.typedef,
@@ -135,6 +144,16 @@ def init_memberdescrobject(space):
     make_typedescr(W_GetSetPropertyEx.typedef,
                    basestruct=PyGetSetDescrObject.TO,
                    attach=getsetdescr_attach,
+                   )
+    make_typedescr(W_PyCClassMethodObject.typedef,
+                   basestruct=PyMethodDescrObject.TO,
+                   attach=methoddescr_attach,
+                   realize=classmethoddescr_realize,
+                   )
+    make_typedescr(W_PyCMethodObject.typedef,
+                   basestruct=PyMethodDescrObject.TO,
+                   attach=methoddescr_attach,
+                   realize=methoddescr_realize,
                    )
 
 def memberdescr_attach(space, py_obj, w_obj):
@@ -165,6 +184,30 @@ def getsetdescr_attach(space, py_obj, w_obj):
     # XXX assign to d_dname, d_type?
     assert isinstance(w_obj, W_GetSetPropertyEx)
     py_getsetdescr.c_d_getset = w_obj.getset
+
+def methoddescr_attach(space, py_obj, w_obj):
+    py_methoddescr = rffi.cast(PyMethodDescrObject, py_obj)
+    # XXX assign to d_dname, d_type?
+    assert isinstance(w_obj, W_PyCFunctionObject)
+    py_methoddescr.c_d_method = w_obj.ml
+
+def classmethoddescr_realize(space, obj):
+    # XXX NOT TESTED When is this ever called? 
+    method = rffi.cast(lltype.Ptr(PyMethodDef), obj)
+    w_type = from_ref(space, rffi.cast(PyObject, obj.c_ob_type))
+    w_obj = space.allocate_instance(W_PyCClassMethodObject, w_type)
+    w_obj.__init__(space, method, w_type)
+    track_reference(space, obj, w_obj)
+    return w_obj
+
+def methoddescr_realize(space, obj):
+    # XXX NOT TESTED When is this ever called? 
+    method = rffi.cast(lltype.Ptr(PyMethodDef), obj)
+    w_type = from_ref(space, rffi.cast(PyObject, obj.c_ob_type))
+    w_obj = space.allocate_instance(W_PyCMethodObject, w_type)
+    w_obj.__init__(space, method, w_type)
+    track_reference(space, obj, w_obj)
+    return w_obj
 
 def convert_getset_defs(space, dict_w, getsets, w_type):
     getsets = rffi.cast(rffi.CArrayPtr(PyGetSetDef), getsets)
