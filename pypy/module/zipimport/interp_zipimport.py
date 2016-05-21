@@ -364,6 +364,28 @@ class W_ZipImporter(W_Root):
         space = self.space
         return space.wrap_fsdecoded(self.filename)
 
+    def _find_loader(self, space, fullname):
+        filename = self.make_filename(fullname)
+        for _, _, ext in ENUMERATE_EXTS:
+            if self.have_modulefile(space, filename + ext):
+                return True, None
+        # See if this is a directory (part of a namespace pkg)
+        dirpath = self.prefix + fullname
+        if self.have_modulefile(space, dirpath + ZIPSEP):
+            return True, self.filename + os.path.sep + self.corr_zname(dirpath)
+        return False, None
+
+    @unwrap_spec(fullname='str0')
+    def find_loader(self, space, fullname, w_path=None):
+        found, ns_portion = self._find_loader(space, fullname)
+        if not found:
+            result = [space.w_None, space.newlist([])]
+        elif not ns_portion:
+            result = [self, space.newlist([])]
+        else:
+            result = [space.w_None, space.newlist([space.wrap(ns_portion)])]
+        return space.newtuple(result)
+
 def descr_new_zipimporter(space, w_type, w_name):
     name = space.fsencode_w(w_name)
     ok = False
@@ -422,6 +444,7 @@ W_ZipImporter.typedef = TypeDef(
     get_filename = interp2app(W_ZipImporter.get_filename),
     is_package  = interp2app(W_ZipImporter.is_package),
     load_module = interp2app(W_ZipImporter.load_module),
+    find_loader = interp2app(W_ZipImporter.find_loader),
     archive     = GetSetProperty(W_ZipImporter.getarchive),
     prefix      = GetSetProperty(W_ZipImporter.getprefix),
 )
