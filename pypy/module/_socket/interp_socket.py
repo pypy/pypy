@@ -39,7 +39,7 @@ def addr_as_object(addr, fd, space):
             # Linux abstract namespace
             return space.wrapbytes(path)
         else:
-            return space.wrap(path)
+            return space.wrap_fsdecoded(path)
     elif rsocket.HAS_AF_NETLINK and isinstance(addr, rsocket.NETLINKAddress):
         return space.newtuple([space.wrap(addr.get_pid()),
                                space.wrap(addr.get_groups())])
