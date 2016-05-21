@@ -233,10 +233,9 @@ class W_CType(W_Root):
     # __________ app-level attributes __________
     def dir(self):
         space = self.space
-        w_self = space.wrap(self)
         lst = [space.wrap(name)
                   for name in _name_of_attributes
-                  if space.findattr(w_self, space.wrap(name)) is not None]
+                  if space.findattr(self, space.wrap(name)) is not None]
         return space.newlist(lst)
 
     def _fget(self, attrchar):
