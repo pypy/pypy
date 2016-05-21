@@ -19,7 +19,7 @@ else:
     canSaveKey = True
 
 class AppTestHKey:
-    spaceconfig = dict(usemodules=('_winreg',))
+    #spaceconfig = dict(usemodules=('_winreg',))
 
     def test_repr(self):
         import winreg
@@ -27,7 +27,7 @@ class AppTestHKey:
         assert str(k) == "<PyHKEY:0x123>"
 
 class AppTestFfi:
-    spaceconfig = dict(usemodules=('_winreg',))
+    #spaceconfig = dict(usemodules=('_winreg',))
 
     def setup_class(cls):
         import _winreg
@@ -53,9 +53,9 @@ class AppTestFfi:
         w_test_data.append(w_btest)
 
     def teardown_class(cls):
-        import _winreg
+        import winreg
         try:
-            _winreg.DeleteKey(cls.root_key, cls.test_key_name)
+            winreg.DeleteKey(cls.root_key, cls.test_key_name)
         except WindowsError:
             pass
 
