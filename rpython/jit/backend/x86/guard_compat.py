@@ -1,94 +1,100 @@
 from rpython.rlib import rgc
 from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.rarithmetic import r_uint
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.jit.backend.x86.arch import WORD, IS_X86_32, IS_X86_64
 from rpython.jit.backend.x86 import rx86, codebuf, valgrind
 from rpython.jit.backend.x86.regloc import X86_64_SCRATCH_REG, imm, eax, edx
 from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
+from rpython.jit.backend.llsupport.jitframe import GCMAP
 from rpython.jit.metainterp.compile import GuardCompatibleDescr
 from rpython.jit.metainterp.history import BasicFailDescr
 
 
 #
 # GUARD_COMPATIBLE(reg, const-ptr) produces the following assembler.
-# It uses a special version of the failure recovery stub code written
-# by generate_quick_failure(), which saves a few things at different
-# locations and then jumps to the tree-searching algo, as described
-# later.  We also have the normal failure code at <failure_recovery>,
-# see below.  In the following code, ofs(x) means the offset in the GC
-# table of the constant pointer 'x':
+# We also have the normal failure code at <failure_recovery>, which is
+# not put in the assembler but only in a field of the descr.  In the
+# following code, ofs(x) means the offset in the GC table of the
+# pointer 'x':
 #
 #     MOV reg2, [RIP + ofs(_backend_choices)]
 #     CMP reg, [reg2 + bc_most_recent]
-#     JNE <failure_and_search_tree>
+#     JNE slow_case
 #     JMP *[reg2 + bc_most_recent + 8]
-#    sequel:
-#
-# The faildescr for this guard is a GuardCompatibleDescr.  The
-# '_backend_choices' (which is added as a field to
-# GuardCompatibleDescr only when not translated) has the following
-# structure:
-#
-#     - bc_gcmap: a copy of the gcmap at this point
-#     - bc_faildescr: a copy of the faildescr of that guard
-#     - bc_most_recent: 1 pair (gcref, asmaddr)
-#     - bc_tree: N pairs (gcref, asmaddr)
-#
-# The tree contains all items for which find_compatible() was called and
-# returned non-zero.  It caches the non-zero result in 'asmaddr'.  The
-# separate most_recent entry caches the last value seen, along with
-# the result of find_compatible().  If this find_compatible() returned
-# zero, then the cache entry contains the 'fail_guard' label below
-# as the 'asmaddr' value (such a value is never found inside the tree,
-# only in the most_recent entry).
-#
-# The tree is a binary-search tree with a value at every node and leaf.
-# The length N of the array is equal to '2**D - 1', where D is the depth
-# of the tree.  There are '2**(D-1) - 1' nodes and '2**(D-1)' leaves.
-# Trees start at D=1 and grows by one every time they need to be
-# reallocated.  A tree of depth D has always all its nodes used, but
-# some leaves may be unused; such leaves store a pair (NULL, zero).
-# For now we assume that NULL is never received by guard_compatible().
-#
-# Tree organization: the root is at index 0.  Starting at a node at
-# index i, the left child is at i+1, and the right child is at i+w,
-# where 'w' is computed as follows: start from the length of the whole
-# array; divide it by two and round the (non-integer) result upwards
-# for every level you see; you get 'w'.  When you reach 'w=1', you are
-# at the level of leaves.
-#
-# The special value 'asmaddr=-1' is replaced with the actual address
-# of the 'sequel' label above inside the tree, so that we don't have
-# to special-case it here.  The special value 'asmaddr=0' in
-# 'most_recent' is replaced with the <failure_recovery> address
-# introduced above.
-#
-# Here is the modified <failure_and_search_tree> code:
-#
+#   slow_case:
 #     PUSH RAX        # save
 #     PUSH RDX        # save
 #     MOV RAX, reg    # the value to search for
 #     MOV RDX, reg2   # _backend_choices object
-#     JMP search_tree
+#     JMP search_tree    # see below
+#   sequel:
+#
+# The faildescr for this guard is a GuardCompatibleDescr.  We add to
+# them a few fields:
+#
+#     - _backend_choices_addr: points inside the GC table, to
+#                              ofs(_backend_choices)
+#     - _backend_sequel_label: points to the <sequel> label
+#     - _backend_failure_recovery: points to the <failure_recovery> label
+#
+# The '_backend_choices' object itself is a separate GC struct/array
+# with the following fields:
+#
+#     - bc_gcmap: a copy of the gcmap at this point
+#     - bc_faildescr: a copy of the faildescr of that guard
+#     - bc_most_recent: 1 pair (gcref, asmaddr)
+#     - bc_list: N pairs (gcref, asmaddr) sorted according to gcref
+#
+# It has a custom trace hook that keeps the bc_list sorted if the
+# gcrefs move, and ignores the tail of bc_list which contains the
+# invalid gcref of value -1.
+#
+# Initially, the _backend_choices contains a list of length 1, and
+# both bc_most_recent and bc_list[0] contain the same pair (gcref,
+# sequel), where 'gcref' is the 2nd argument to guard_compatible() and
+# <sequel> is the address of the label above.
+#
+# In general, the list can grow to contain all items for which
+# find_compatible() was called and returned non-zero.  Every entry
+# caches the result in 'asmaddr'.  The separate 'most_recent' entry
+# caches the last value seen, along with the result of
+# find_compatible().  If this find_compatible() returned zero, then
+# the cache entry contains the 'fail_guard' label below as the
+# 'asmaddr' value (such a value is never found inside bc_list, only in
+# bc_most_recent).
+#
+# The list is sorted, so we can search it using binary search.  The
+# length N of the list is equal to '2**D - 1', where D is the depth of
+# the tree algo.  Lists start with 1 item (D=1) and grow to the next
+# power-of-two-minus-one every time they need to be reallocated.  The
+# list is over-allocated, and the tail contains pairs (-1, ?), with -1
+# being the largest unsigned value (and never a valid GC pointer).
+#
+# When find_compatible() returns -1, we replace it with the address of
+# the 'sequel' label above, so that we don't have to special-case it
+# any more.  When find_compatible() returns 0, it is not stored in the
+# list, but still stored in bc_most_recent, with the 0 replaced with
+# the <failure_recovery> address introduced above.
 #
 # Here is the x86-64 runtime code to walk the tree:
 #
 #   search_tree:
 #     MOV [RSP+16], RDX                    # save
-#     MOV R11, [RDX + bc_tree.length]
-#     LEA RDX, [RDX + bc_tree.items]
-#     JMP entry
+#     MOV R11, [RDX + bc_list.length]      # a power of two minus one
+#     ADD RDX, $bc_list.items
+#     JMP loop
+#
 #   right:
 #     LEA RDX, [RDX + 8*R11 + 8]
-#   loop:
+#   left:
 #     SHR R11, 1
 #     JZ not_found
-#   entry:
-#     CMP RAX, [RDX]
+#   loop:
+#     # search for the item at addresses between RDX and RDX+16*R11, included
+#     CMP RAX, [RDX + 8*R11 - 8]      # R11 = ...31, 15, 7, 3, 1
 #     JA right
-#     JE found
-#     ADD RDX, 16
-#     JMP loop
+#     JNE left
 #
 #   found:
 #     MOV R11, [RDX + 8]
@@ -100,11 +106,11 @@ from rpython.jit.metainterp.history import BasicFailDescr
 #     JMP *R11
 #
 #   not_found:
-#     MOV RDX, [RSP+16]
+#     <save all registers to the jitframe RBP,
+#         reading and popping the original RAX and RDX off the stack>
+#     MOV RDX, [RSP]
 #     MOV R11, [RDX + bc_gcmap]
 #     MOV [RBP + jf_gcmap], R11
-#     <save all registers to the jitframe RBP,
-#         reading and popping RAX and RDX off the stack>
 #     <call invoke_find_compatible(_backend_choices=RDX, value=RAX)>
 #     <_reload_frame_if_necessary>
 #     MOV R11, RAX
@@ -112,47 +118,99 @@ from rpython.jit.metainterp.history import BasicFailDescr
 #     JMP *R11
 #
 #
-# invoke_find_compatible(_backend_choices, value):
+# invoke_find_compatible(bchoices, new_gcref):
+#     descr = bchoices.bc_faildescr
 #     try:
-#         descr = _backend_choices.bc_faildescr
-#         result = descr.find_compatible(cpu, value)
+#         result = descr.find_compatible(cpu, new_gcref)
 #         if result == 0:
-#             result = <failure_recovery>
+#             result = descr._backend_failure_recovery
 #         else:
 #             if result == -1:
-#                 result = <sequel>
-#             _backend_choices = add_in_tree(_backend_choices, value, result)
-#         _backend_choices.bc_most_recent.gcref = value
-#         _backend_choices.bc_most_recent.asmaddr = result
+#                 result = descr._backend_sequel_label
+#             bchoices = add_in_tree(bchoices, new_gcref, result)
+#             descr.bchoices_addr[0] = bchoices  # GC table
+#         bchoices.bc_most_recent.gcref = new_gcref
+#         bchoices.bc_most_recent.asmaddr = result
 #         return result
 #     except:             # oops!
-#         return <failure_recovery>
+#         return descr._backend_failure_recovery
+#
+# add_in_tree(bchoices, new_gcref, new_addr):
+#     if bchoices.bc_list[len(bchoices.bc_list) - 1] != -1:
+#         ...reallocate...
+#     bchoices.bc_list[len(bchoices.bc_list) - 1].gcref = new_gcref
+#     bchoices.bc_list[len(bchoices.bc_list) - 1].asmaddr = new_addr
+#     quicksort(bchoices.bc_list)
+#     return bchoices
+#
+# Other issues: compile_bridge() called on a GuardCompatibleDescr must
+# not to do any patching, but instead it needs to clear
+# bchoices.bc_most_recent.  Otherwise, we will likely directly jump to
+# <failure_recovery> next time, if the newly added gcref is still in
+# bc_most_recent.gcref.  (We can't add it to bc_most_recent or bc_list
+# from compile_bridge(), because we don't know what the gcref should
+# be, but it doesn't matter.)
 #
 # ____________________________________________________________
 
 
+PAIR = lltype.Struct('PAIR', ('gcref', llmemory.GCREF,
+                              'asmaddr', lltype.Signed))
+BACKEND_CHOICES = lltype.GcStruct('BACKEND_CHOICES',
+                        ('bc_gcmap', lltype.Ptr(jitframe.GCMAP)),
+                        ('bc_faildescr', llmemory.GCREF),
+                        ('bc_most_recent', PAIR),
+                        ('bc_list', lltype.Array(PAIR)))
 
 
-# uses the raw structure COMPATINFO, which is informally defined like this:
-# it starts with a negative 'small_ofs' value (see in the code)
-# then there is an array containing all the expected values that should pass
-# the guard, ending in -1.
+def invoke_find_compatible(bchoices, new_gcref):
+    descr = bchoices.bc_faildescr
+    try:
+        result = descr.find_compatible(cpu, new_gcref)
+        if result == 0:
+            result = descr._backend_failure_recovery
+        else:
+            if result == -1:
+                result = descr._backend_sequel_label
+            bchoices = add_in_tree(bchoices, new_gcref, result)
+            descr._backend_choices_addr[0] = bchoices  # GC table
+        bchoices.bc_most_recent.gcref = new_gcref
+        bchoices.bc_most_recent.asmaddr = result
+        return result
+    except:             # oops!
+        return descr._backend_failure_recovery
+
+def add_in_tree(bchoices, new_gcref, new_asmaddr):
+    length = len(bchoices.bc_list)
+    if bchoices.bc_list[length - 1] != -1:
+        # reallocate
+        new_bchoices = lltype.malloc(BACKEND_CHOICES, length * 2 + 1)
+        new_bchoices.bc_gcmap = bchoices.bc_gcmap
+        new_bchoices.bc_faildescr = bchoices.bc_faildescr
+        new_bchoices.bc_most_recent.gcref = bchoices.bc_most_recent.gcref
+        new_bchoices.bc_most_recent.asmaddr = bchoices.bc_most_recent.asmaddr
+        i = 0
+        while i < length:
+            new_bchoices.bc_list[i].gcref = bchoices.bc_list[i].gcref
+            new_bchoices.bc_list[i].asmaddr = bchoices.bc_list[i].asmaddr
+            i += 1
+        # fill the new pairs with the invalid gcref value -1
+        length *= 2
+        gcref_base = lltype.cast_opaque_ptr(llmemory.GCREF, new_bchoices)
+        ofs = (llmemory.offsetof(BACKEND_CHOICES, 'bc_list') +
+               llmemory.itemoffsetof(BACKEND_CHOICES.bc_list))
+        while i < length:
+            llop.raw_store(lltype.Void, gcref_base, ofs, r_uint(-1))
+            ofs += llmemory.sizeof(PAIR)
+            i += 1
+    #
+    bchoices.bc_list[length - 1].gcref = new_gcref
+    bchoices.bc_list[length - 1].asmaddr = new_addr
+    quicksort(bchoices)
+    return bchoices
 
 
-# --tweakable parameters (you get the effect closest to before we had
-# guard-compat by setting GROW_POSITION to 1 and UPDATE_ASM to 0)--
 
-# where grow_switch puts the new value:
-#   0 = at the beginning of the list
-#   1 = at position N-1, just before the initial value which stays last
-#   2 = at the end
-GROW_POSITION = 2
-
-# when guard_compatible's slow path is called and finds a value, when
-# should we update the machine code to make this value the fast-path?
-#   0 = never
-#   another value = after about this many calls to the slow-path
-UPDATE_ASM = 1291
 
 
 def generate_guard_compatible(assembler, guard_token, loc_reg, initial_value):
