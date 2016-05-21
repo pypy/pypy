@@ -98,8 +98,10 @@ def descr__new__(space, w_type, __args__):
         w_parent_init, _ = space.lookup_in_type_where(w_type, '__init__')
         if (w_parent_new is not space.w_object and
             w_parent_init is not space.w_object):
-            space.warn(space.wrap("object() takes no parameters"),
-                       space.w_DeprecationWarning, 1)
+            #space.warn(space.wrap("object() takes no parameters"),
+            #           space.w_DeprecationWarning, 1)
+            raise oefmt(space.w_TypeError,
+                        "!!object() takes no parameters")
         elif (w_parent_new is not space.w_object or
               w_parent_init is space.w_object):
             raise oefmt(space.w_TypeError,
@@ -121,8 +123,10 @@ def descr__init__(space, w_obj, __args__):
         w_parent_new, _ = space.lookup_in_type_where(w_type, '__new__')
         if (w_parent_init is not space.w_object and
             w_parent_new is not space.w_object):
-            space.warn(space.wrap("object.__init__() takes no parameters"),
-                       space.w_DeprecationWarning, 1)
+            #space.warn(space.wrap("object.__init__() takes no parameters"),
+            #           space.w_DeprecationWarning, 1)
+            raise oefmt(space.w_TypeError,
+                        "!!!!object.__init__() takes no parameters")
         elif (w_parent_init is not space.w_object or
               w_parent_new is space.w_object):
             raise oefmt(space.w_TypeError,
