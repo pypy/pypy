@@ -1041,7 +1041,8 @@ def create_all_slots(w_self, hasoldstylebase, w_bestbase, force_new_layout):
                                 "__weakref__ slot disallowed: we already got one")
                 wantweakref = True
             else:
-                index_next_extra_slot = create_slot(w_self, slot_name,
+                index_next_extra_slot = create_slot(w_self, w_slot_name,
+                                                    slot_name,
                                                     index_next_extra_slot)
     wantdict = wantdict or hasoldstylebase
     if wantdict:
@@ -1057,13 +1058,17 @@ def create_all_slots(w_self, hasoldstylebase, w_bestbase, force_new_layout):
         return Layout(base_layout.typedef, index_next_extra_slot,
                       base_layout=base_layout)
 
-def create_slot(w_self, slot_name, index_next_extra_slot):
+def create_slot(w_self, w_slot_name, slot_name, index_next_extra_slot):
     space = w_self.space
     if not valid_slot_name(slot_name):
         raise oefmt(space.w_TypeError, "__slots__ must be identifiers")
     # create member
     slot_name = mangle(slot_name, w_self.name)
-    if slot_name not in w_self.dict_w:
+    if slot_name in w_self.dict_w:
+        raise oefmt(space.w_ValueError,
+                    "%R in __slots__ conflicts with class variable",
+                    w_slot_name)
+    else:
         # Force interning of slot names.
         slot_name = space.str_w(space.new_interned_str(slot_name))
         # in cpython it is ignored less, but we probably don't care
