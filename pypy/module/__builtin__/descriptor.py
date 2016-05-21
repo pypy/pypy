@@ -8,10 +8,20 @@ from pypy.objspace.descroperation import object_getattribute
 
 class W_Super(W_Root):
 
-    def __init__(self, space, w_starttype, w_objtype, w_self):
+    def __init__(self, space):
+        self.w_starttype = None
+        self.w_objtype = None
+        self.w_self = None
+
+    def descr_init(self, space, w_starttype, w_obj_or_type=None):
+        if space.is_none(w_obj_or_type):
+            w_type = None  # unbound super object
+            w_obj_or_type = space.w_None
+        else:
+            w_type = _supercheck(space, w_starttype, w_obj_or_type)
         self.w_starttype = w_starttype
-        self.w_objtype = w_objtype
-        self.w_self = w_self
+        self.w_objtype = w_type
+        self.w_self = w_obj_or_type
 
     def get(self, space, w_obj, w_type=None):
         if self.w_self is None or space.is_w(w_obj, space.w_None):
@@ -45,37 +55,35 @@ class W_Super(W_Root):
         # fallback to object.__getattribute__()
         return space.call_function(object_getattribute(space), self, w_name)
 
-def descr_new_super(space, w_subtype, w_starttype, w_obj_or_type=None):
-    if space.is_none(w_obj_or_type):
-        w_type = None  # unbound super object
-        w_obj_or_type = space.w_None
-    else:
-        w_objtype = space.type(w_obj_or_type)
-        if (space.is_true(space.issubtype(w_objtype, space.w_type)) and
-            space.is_true(space.issubtype(w_obj_or_type, w_starttype))):
-            w_type = w_obj_or_type # special case for class methods
-        elif space.is_true(space.issubtype(w_objtype, w_starttype)):
-            w_type = w_objtype # normal case
-        else:
-            try:
-                w_type = space.getattr(w_obj_or_type, space.wrap('__class__'))
-            except OperationError as o:
-                if not o.match(space, space.w_AttributeError):
-                    raise
-                w_type = w_objtype
-            if not space.is_true(space.issubtype(w_type, w_starttype)):
-                raise oefmt(space.w_TypeError,
-                            "super(type, obj): obj must be an instance or "
-                            "subtype of type")
-    # XXX the details of how allocate_instance() should be used are not
-    # really well defined
-    w_result = space.allocate_instance(W_Super, w_subtype)
-    W_Super.__init__(w_result, space, w_starttype, w_type, w_obj_or_type)
-    return w_result
+def _supercheck(space, w_starttype, w_obj_or_type):
+    """Check that the super() call makes sense. Returns a type"""
+    w_objtype = space.type(w_obj_or_type)
+
+    if (space.is_true(space.issubtype(w_objtype, space.w_type)) and
+        space.is_true(space.issubtype(w_obj_or_type, w_starttype))):
+        # special case for class methods
+        return w_obj_or_type
+
+    if space.is_true(space.issubtype(w_objtype, w_starttype)):
+        # normal case
+        return w_objtype
+
+    try:
+        w_type = space.getattr(w_obj_or_type, space.wrap('__class__'))
+    except OperationError as e:
+        if not e.match(space, space.w_AttributeError):
+            raise
+        w_type = w_objtype
+
+    if space.is_true(space.issubtype(w_type, w_starttype)):
+        return w_type
+    raise oefmt(space.w_TypeError,
+                "super(type, obj): obj must be an instance or subtype of type")
 
 W_Super.typedef = TypeDef(
     'super',
-    __new__          = interp2app(descr_new_super),
+    __new__          = generic_new_descr(W_Super),
+    __init__         = interp2app(W_Super.descr_init),
     __thisclass__    = interp_attrproperty_w("w_starttype", W_Super),
     __getattribute__ = interp2app(W_Super.getattribute),
     __get__          = interp2app(W_Super.get),
