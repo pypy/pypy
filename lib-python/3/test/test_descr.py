@@ -4526,6 +4526,10 @@ order (MRO) for bases """
 
         # make sure we have an example of each type of descriptor
         for d, n in zip(descriptors, types):
+            if (support.check_impl_detail(pypy=True) and
+                n in ('method', 'member', 'wrapper')):
+                # PyPy doesn't have these
+                continue
             self.assertEqual(type(d).__name__, n + '_descriptor')
 
         for d in descriptors:
@@ -4539,7 +4543,7 @@ order (MRO) for bases """
 
         class X:
             pass
-        with self.assertRaises(TypeError):
+        with self.assertRaises((AttributeError, TypeError)):
             del X.__qualname__
 
         self.assertRaises(TypeError, type.__dict__['__qualname__'].__set__,
