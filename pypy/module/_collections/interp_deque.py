@@ -389,20 +389,18 @@ class W_Deque(W_Root):
     def copy(self):
         "Return a shallow copy of a deque."
         space = self.space
-        w_self = space.wrap(self)
         if self.maxlen == sys.maxint:
-            return space.call_function(space.type(w_self), w_self)
+            return space.call_function(space.type(self), self)
         else:
-            return space.call_function(space.type(w_self), w_self,
+            return space.call_function(space.type(self), self,
                                        space.wrap(self.maxlen))
 
     def reduce(self):
         "Return state information for pickling."
         space = self.space
-        w_self = space.wrap(self)
-        w_type = space.type(w_self)
-        w_dict = space.findattr(w_self, space.wrap('__dict__'))
-        w_list = space.call_function(space.w_list, w_self)
+        w_type = space.type(self)
+        w_dict = space.findattr(self, space.wrap('__dict__'))
+        w_list = space.call_function(space.w_list, self)
         if w_dict is None:
             if self.maxlen == sys.maxint:
                 result = [

@@ -440,6 +440,12 @@ def get_co_filename():
         self.writefile('x1test/__init__.py', 'raise ValueError')
         raises(ValueError, __import__, 'x1test', None, None, [])
 
+    def test_namespace_pkg(self):
+        self.writefile('foo/', '')
+        self.writefile('foo/one.py', "attr = 'portion1 foo one'\n")
+        foo = __import__('foo.one', None, None, [])
+        assert foo.one.attr == 'portion1 foo one'
+
 
 if os.sep != '/':
     class AppTestNativePathSep(AppTestZipimport):

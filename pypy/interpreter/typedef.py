@@ -263,6 +263,7 @@ class GetSetProperty(W_Root):
         self.doc = doc
         self.reqcls = cls
         self.name = '<generic property>'
+        self.qualname = None
         self.objclass_getter = objclass_getter
         self.use_closure = use_closure
 
@@ -313,6 +314,21 @@ class GetSetProperty(W_Root):
                 self.reqcls, Arguments(space, [w_obj,
                                                space.wrap(self.name)]))
 
+    def descr_get_qualname(self, space):
+        if self.qualname is None:
+            self.qualname = self._calculate_qualname(space)
+        return self.qualname
+
+    def _calculate_qualname(self, space):
+        if self.reqcls is None:
+            type_qualname = u'?'
+        else:
+            w_type = space.gettypeobject(self.reqcls.typedef)
+            type_qualname = space.unicode_w(
+                space.getattr(w_type, space.wrap('__qualname__')))
+        qualname = u"%s.%s" % (type_qualname, self.name.decode('utf-8'))
+        return space.wrap(qualname)
+
     def descr_get_objclass(space, property):
         return property.objclass_getter(space)
 
@@ -351,6 +367,7 @@ GetSetProperty.typedef = TypeDef(
     __set__ = interp2app(GetSetProperty.descr_property_set),
     __delete__ = interp2app(GetSetProperty.descr_property_del),
     __name__ = interp_attrproperty('name', cls=GetSetProperty),
+    __qualname__ = GetSetProperty(GetSetProperty.descr_get_qualname),
     __objclass__ = GetSetProperty(GetSetProperty.descr_get_objclass),
     __doc__ = interp_attrproperty('doc', cls=GetSetProperty),
     )
