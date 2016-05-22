@@ -277,7 +277,16 @@ def initstdio(encoding=None, unbuffered=False):
     if StdErrPrinter is not None:
         sys.stderr = sys.__stderr__ = StdErrPrinter(2)
 
-    if 1:  # keep indentation
+    # Hack to avoid recursion issues during bootstrapping: pre-import
+    # the utf-8 and latin-1 codecs
+    encerr = None
+    try:
+        import encodings.utf_8
+        import encodings.latin_1
+    except ImportError as e:
+        encerr = e
+
+    try:
         if encoding and ':' in encoding:
             encoding, errors = encoding.split(':', 1)
         else:
@@ -296,6 +305,10 @@ def initstdio(encoding=None, unbuffered=False):
             print("Python error: <stdin> is a directory, cannot continue",
                   file=sys.stderr)
             os._exit(1)
+    finally:
+        if encerr:
+            display_exception(encerr)
+            del encerr
 
 def create_stdio(fd, writing, name, encoding, errors, unbuffered):
     import io
