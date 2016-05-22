@@ -495,8 +495,11 @@ class DescrOperation(object):
                         "coercion should return None or 2-tuple")
         return w_res
 
-    def issubtype(space, w_sub, w_type):
+    def issubtype_w(space, w_sub, w_type):
         return space._type_issubtype(w_sub, w_type)
+
+    def issubtype(space, w_sub, w_type):
+        return space.wrap(space._type_issubtype(w_sub, w_type))
 
     @specialize.arg_or_var(2)
     def isinstance_w(space, w_inst, w_type):
