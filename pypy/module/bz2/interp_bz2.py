@@ -349,7 +349,7 @@ W_BZ2Compressor.typedef = TypeDef("_bz2.BZ2Compressor",
     compress = interp2app(W_BZ2Compressor.compress),
     flush = interp2app(W_BZ2Compressor.flush),
 )
-
+W_BZ2Compressor.typedef.acceptable_as_base_class = False
 
 def descr_decompressor__new__(space, w_subtype):
     x = space.allocate_instance(W_BZ2Decompressor, w_subtype)
@@ -457,3 +457,4 @@ W_BZ2Decompressor.typedef = TypeDef("_bz2.BZ2Decompressor",
     eof = GetSetProperty(W_BZ2Decompressor.eof_w),
     decompress = interp2app(W_BZ2Decompressor.decompress),
 )
+W_BZ2Decompressor.typedef.acceptable_as_base_class = False

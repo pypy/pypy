@@ -141,8 +141,6 @@ class AppTestCodecs:
 
 class AppTestPartialEvaluation:
     spaceconfig = dict(usemodules=['array',])
-    if sys.platform == 'win32':
-        spaceconfig['usemodules'].append('_winreg')
 
     def test_partial_utf8(self):
         import _codecs
@@ -767,7 +765,7 @@ class AppTestPartialEvaluation:
         try:
             # test for non-latin1 codepage, more general test needed
             import winreg
-            key = winreg.OpenKey(_winreg.HKEY_LOCAL_MACHINE,
+            key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,
                         r'System\CurrentControlSet\Control\Nls\CodePage')
             if winreg.QueryValueEx(key, 'ACP')[0] == u'1255':  # non-latin1
                 toencode = u'caf\xbf',b'caf\xbf'

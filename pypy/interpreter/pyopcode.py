@@ -1138,12 +1138,14 @@ class __extend__(pyframe.PyFrame):
             old_last_exception = self.last_exception
             self.last_exception = operr
             w_traceback = self.space.wrap(operr.get_traceback())
-            w_suppress = self.call_contextmanager_exit_function(
-                w_exitfunc,
-                operr.w_type,
-                operr.get_w_value(self.space),
-                w_traceback)
-            self.last_exception = old_last_exception
+            try:
+                w_suppress = self.call_contextmanager_exit_function(
+                    w_exitfunc,
+                    operr.w_type,
+                    operr.get_w_value(self.space),
+                    w_traceback)
+            finally:
+                self.last_exception = old_last_exception
             if self.space.is_true(w_suppress):
                 # __exit__() returned True -> Swallow the exception.
                 self.settopvalue(self.space.w_None)
