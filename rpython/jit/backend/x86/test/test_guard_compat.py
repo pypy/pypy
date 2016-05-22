@@ -3,7 +3,7 @@ from rpython.jit.backend.x86.guard_compat import *
 
 def test_invalidate_cache():
     b = lltype.malloc(BACKEND_CHOICES, 4)
-    invalidate_cache(b)
+    invalidate_pair(b, BCMOSTRECENT)
     x = b.bc_most_recent.gcref
     assert rffi.cast(lltype.Unsigned, x) == r_uint(-1)
 
