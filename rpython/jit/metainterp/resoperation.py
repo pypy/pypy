@@ -330,7 +330,7 @@ class AbstractResOp(AbstractResOpOrInputArg):
         if descr is DONT_CHANGE:
             descr = None
         return ResOperation(opnum, args, descr)
-        newop.rpyfunc = self.rpyfunc
+        newop.rpyfunc = self.rpyfunc     # XXXXXXXXXXX after 'return'? really?
 
     def repr(self, memo, graytext=False):
         # RPython-friendly version
