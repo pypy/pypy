@@ -266,7 +266,7 @@ def makePyEndDFAMap ():
         for rawPrefix in ("", "r", "R"):
             prefix = uniPrefix + rawPrefix
             map[prefix + "'''"] = (single3DFA, states_single3DFA)
-            map[prefix + '"""'] = (double3DFA, states_doubleDFA)
+            map[prefix + '"""'] = (double3DFA, states_double3DFA)
     return map
 
 # ______________________________________________________________________
@@ -318,7 +318,7 @@ def output(name, dfa_class, dfa, states):
             lines.append('\n')
             i += 1
     lines.append("    ]\n")
-    lines.append("%s = automata.%s(states, accepts)\n\n" % (name, dfa_class))
+    lines.append("%s = automata.%s(states, accepts)\n" % (name, dfa_class))
     return ''.join(lines)
 
 def main ():
