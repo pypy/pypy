@@ -936,6 +936,9 @@ def lltype2ctypes(llobj, normalize=True):
             elif isinstance(llobj, llmemory.ArrayItemsOffset):
                 CARRAY = get_ctypes_type(llobj.TYPE)
                 llobj = CARRAY.items.offset
+            elif isinstance(llobj, llmemory.ArrayLengthOffset):
+                CARRAY = get_ctypes_type(llobj.TYPE)
+                llobj = CARRAY.length.offset
             else:
                 raise NotImplementedError(llobj)  # don't know about symbolic value
 

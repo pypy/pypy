@@ -3,11 +3,14 @@ from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
-from rpython.rtyper.annlowlevel import cast_instance_to_gcref
+from rpython.rtyper.annlowlevel import cast_instance_to_gcref, llhelper
 from rpython.rtyper.annlowlevel import cast_gcref_to_instance
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
-from rpython.jit.backend.llsupport import jitframe
 from rpython.jit.metainterp.compile import GuardCompatibleDescr
+from rpython.jit.backend.llsupport import jitframe
+from rpython.jit.backend.x86 import rx86, codebuf, regloc
+from rpython.jit.backend.x86.regalloc import gpr_reg_mgr_cls
+from rpython.jit.backend.x86.arch import WORD, DEFAULT_FRAME_BYTES
 
 
 #
@@ -22,10 +25,10 @@ from rpython.jit.metainterp.compile import GuardCompatibleDescr
 #     JNE slow_case
 #     JMP *[reg2 + bc_most_recent + 8]
 #   slow_case:
-#     PUSH RAX        # save
 #     PUSH RDX        # save
-#     MOV RAX, reg    # the value to search for
-#     MOV RDX, reg2   # _backend_choices object
+#     PUSH RAX        # save
+#     MOV RDX=reg2, RAX=reg
+#            RDX is the _backend_choices object, RAX is the value to search for
 #     JMP search_tree    # see below
 #   sequel:
 #
@@ -96,7 +99,7 @@ from rpython.jit.metainterp.compile import GuardCompatibleDescr
 #     JNE left
 #
 #   found:
-#     MOV R11, [RDX + 8]
+#     MOV R11, [RDX + 8*R11]
 #     MOV RDX, [RSP+16]
 #     MOV [RDX + bc_most_recent], RAX
 #     MOV [RDX + bc_most_recent + 8], R11
@@ -107,10 +110,10 @@ from rpython.jit.metainterp.compile import GuardCompatibleDescr
 #   not_found:
 #     <save all registers to the jitframe RBP,
 #         reading and popping the original RAX and RDX off the stack>
-#     MOV RDX, [RSP]
-#     MOV R11, [RDX + bc_gcmap]
+#     MOV RDI, [RSP]
+#     MOV R11, [RDI + bc_gcmap]
 #     MOV [RBP + jf_gcmap], R11
-#     <call invoke_find_compatible(_backend_choices=RDX, value=RAX)>
+#     <call invoke_find_compatible(_backend_choices=RDI, value=RAX)>
 #     <_reload_frame_if_necessary>
 #     MOV R11, RAX
 #     <restore the non-saved registers>
@@ -161,9 +164,13 @@ BACKEND_CHOICES = lltype.GcStruct('BACKEND_CHOICES',
                         ('bc_most_recent', PAIR),
                         ('bc_list', lltype.Array(PAIR)))
 
-@specialize.memo()
-def getofs(name):
+def _getofs(name):
     return llmemory.offsetof(BACKEND_CHOICES, name)
+BCGCMAP = _getofs('bc_gcmap')
+BCFAILDESCR = _getofs('bc_faildescr')
+BCMOSTRECENT = _getofs('bc_most_recent')
+BCLIST = _getofs('bc_list')
+del _getofs
 BCLISTLENGTHOFS = llmemory.arraylengthoffset(BACKEND_CHOICES.bc_list)
 BCLISTITEMSOFS = llmemory.itemoffsetof(BACKEND_CHOICES.bc_list, 0)
 PAIRSIZE = llmemory.sizeof(PAIR)
@@ -180,10 +187,10 @@ def bchoices_pair(gc, pair_addr, callback, arg):
     return old != new
 
 def bchoices_trace(gc, obj_addr, callback, arg):
-    gc._trace_callback(callback, arg, obj_addr + getofs('bc_faildescr'))
-    bchoices_pair(gc, obj_addr + getofs('bc_most_recent'), callback, arg)
-    length = (obj_addr + getofs('bc_list') + BCLISTLENGTHOFS).signed[0]
-    array_addr = obj_addr + getofs('bc_list') + BCLISTITEMSOFS
+    gc._trace_callback(callback, arg, obj_addr + BCFAILDESCR)
+    bchoices_pair(gc, obj_addr + BCMOSTRECENT, callback, arg)
+    length = (obj_addr + BCLIST + BCLISTLENGTHOFS).signed[0]
+    array_addr = obj_addr + BCLIST + BCLISTITEMSOFS
     item_addr = array_addr
     i = 0
     changes = False
@@ -219,10 +226,15 @@ pairs_quicksort = rffi.llexternal('pypy_pairs_quicksort',
                                   compilation_info=eci)
 
 
+INVOKE_FIND_COMPATIBLE_FUNC = lltype.Ptr(lltype.FuncType(
+                [lltype.Ptr(BACKEND_CHOICES), llmemory.GCREF],
+                lltype.Signed))
+
 def invoke_find_compatible(bchoices, new_gcref):
     descr = bchoices.bc_faildescr
     descr = cast_gcref_to_instance(GuardCompatibleDescr, descr)
     try:
+        xxx # temp
         result = descr.find_compatible(cpu, new_gcref)
         if result == 0:
             result = descr._backend_failure_recovery
@@ -235,6 +247,9 @@ def invoke_find_compatible(bchoices, new_gcref):
         bchoices.bc_most_recent.asmaddr = result
         return result
     except:             # oops!
+        if not we_are_translated():
+            import sys, pdb
+            pdb.post_mortem(sys.exc_info()[2])
         return descr._backend_failure_recovery
 
 def add_in_tree(bchoices, new_gcref, new_asmaddr):
@@ -242,7 +257,7 @@ def add_in_tree(bchoices, new_gcref, new_asmaddr):
     length = len(bchoices.bc_list)
     #
     gcref_base = lltype.cast_opaque_ptr(llmemory.GCREF, bchoices)
-    ofs = getofs('bc_list') + BCLISTITEMSOFS
+    ofs = BCLIST + BCLISTITEMSOFS
     ofs += (length - 1) * llmemory.sizeof(PAIR)
     ofs = _real_number(ofs)
     if llop.raw_load(lltype.Unsigned, gcref_base, ofs) != r_uint(-1):
@@ -273,7 +288,7 @@ def add_in_tree(bchoices, new_gcref, new_asmaddr):
     bchoices.bc_list[length - 1].asmaddr = new_asmaddr
     # --- no GC above ---
     addr = llmemory.cast_ptr_to_adr(bchoices)
-    addr += getofs('bc_list') + BCLISTITEMSOFS
+    addr += BCLIST + BCLISTITEMSOFS
     pairs_quicksort(addr, length)
     return bchoices
 
@@ -307,11 +322,98 @@ def invalidate_pair(bchoices, pair_ofs):
 
 def invalidate_cache(bchoices):
     """Write -1 inside bchoices.bc_most_recent.gcref."""
-    ofs = llmemory.offsetof(BACKEND_CHOICES, 'bc_most_recent')
-    invalidate_pair(bchoices, ofs)
+    invalidate_pair(bchoices, BCMOSTRECENT)
+
+
+def _fix_forward_label(mc, jmp_location):
+    offset = mc.get_relative_pos() - jmp_location
+    assert 0 < offset <= 127
+    mc.overwrite(jmp_location-1, chr(offset))
+
+def setup_once(assembler):
+    rax = regloc.eax.value
+    rdx = regloc.edx.value
+    rdi = regloc.edi.value
+    r11 = regloc.r11.value
+    frame_size = DEFAULT_FRAME_BYTES + 2 * WORD
+    # contains two extra words on the stack:
+    #    - saved RDX
+    #    - saved RAX
+
+    mc = codebuf.MachineCodeBlockWrapper()
+    mc.force_frame_size(frame_size)
+
+    ofs1 = _real_number(BCLIST + BCLISTLENGTHOFS)
+    ofs2 = _real_number(BCLIST + BCLISTITEMSOFS)
+    mc.MOV_sr(16, rdx)                      # MOV [RSP+16], RDX
+    mc.MOV_rm(r11, (rdx, ofs1))             # MOV R11, [RDX + bc_list.length]
+    mc.ADD_ri(rdx, ofs2)                    # ADD RDX, $bc_list.items
+    mc.JMP_l8(0)                            # JMP loop
+    jmp_location = mc.get_relative_pos()
+    mc.force_frame_size(frame_size)
+
+    right_label = mc.get_relative_pos()
+    mc.LEA_ra(rdx, (rdx, r11, 3, 8))        # LEA RDX, [RDX + 8*R11 + 8]
+    left_label = mc.get_relative_pos()
+    mc.SHR_ri(r11, 1)                       # SHR R11, 1
+    mc.J_il8(rx86.Conditions['Z'], 0)       # JZ not_found
+    jz_location = mc.get_relative_pos()
+
+    _fix_forward_label(mc, jmp_location)    # loop:
+    mc.CMP_ra(rax, (rdx, r11, 3, -8))       # CMP RAX, [RDX + 8*R11 - 8]
+    mc.J_il8(rx86.Conditions['A'], right_label - (mc.get_relative_pos() + 2))
+    mc.J_il8(rx86.Conditions['NE'], left_label - (mc.get_relative_pos() + 2))
+
+    mc.MOV_ra(r11, (rdx, r11, 3, 0))        # MOV R11, [RDX + 8*R11]
+    mc.MOV_rs(rdx, 16)                      # MOV RDX, [RSP+16]
+    ofs = _real_number(BCMOSTRECENT)
+    mc.MOV_mr((rdx, ofs), rax)              # MOV [RDX+bc_most_recent], RAX
+    mc.MOV_mr((rdx, ofs + 8), r11)          # MOV [RDX+bc_most_recent+8], R11
+    mc.POP_r(rax)                           # POP RAX
+    mc.POP_r(rdx)                           # POP RDX
+    mc.JMP_r(r11)                           # JMP *R11
+    mc.force_frame_size(frame_size)
+
+    _fix_forward_label(mc, jz_location)     # not_found:
+
+    # read and pop the original RAX and RDX off the stack
+    base_ofs = assembler.cpu.get_baseofs_of_frame_field()
+    v = gpr_reg_mgr_cls.all_reg_indexes[rdx]
+    mc.POP_b(v * WORD + base_ofs)           # POP [RBP + saved_rdx]
+    v = gpr_reg_mgr_cls.all_reg_indexes[rax]
+    mc.POP_b(v * WORD + base_ofs)           # POP [RBP + saved_rax]
+    # save all other registers to the jitframe RBP
+    assembler._push_all_regs_to_frame(mc, [regloc.eax, regloc.edx],
+                                      withfloats=True)
+
+    bc_gcmap = _real_number(BCGCMAP)
+    jf_gcmap = assembler.cpu.get_ofs_of_frame_field('jf_gcmap')
+    mc.MOV_rs(rdi, 0)                       # MOV RDI, [RSP]
+    mc.MOV_rr(regloc.esi.value, rax)        # MOV RSI, RAX
+    mc.MOV_rm(r11, (rdi, bc_gcmap))         # MOV R11, [RDI + bc_gcmap]
+    mc.MOV_br(jf_gcmap, r11)                # MOV [RBP + jf_gcmap], R11
+    llfunc = llhelper(INVOKE_FIND_COMPATIBLE_FUNC, invoke_find_compatible)
+    llfunc = assembler.cpu.cast_ptr_to_int(llfunc)
+    mc.CALL(regloc.imm(llfunc))             # CALL invoke_find_compatible
+    assembler._reload_frame_if_necessary(mc)
+    mc.MOV_bi(jf_gcmap, 0)                  # MOV [RBP + jf_gcmap], 0
+
+    mc.MOV_rr(r11, rax)                     # MOV R11, RAX
+
+    # restore the registers that the CALL has clobbered.  Other other
+    # registers are saved above, for the gcmap, but don't need to be
+    # restored here.  (We restore RAX and RDX too.)
+    assembler._pop_all_regs_from_frame(mc, [], withfloats=True,
+                                       callee_only=True)
+    mc.JMP_r(r11)                           # JMP *R11
+
+    assembler.guard_compat_search_tree = mc.materialize(assembler.cpu, [])
 
 
 
+
+
+# ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
 def generate_guard_compatible(assembler, guard_token, loc_reg, initial_value):
     # fast-path check
@@ -422,11 +524,6 @@ def grow_switch(cpu, compiled_loop_token, guarddescr, gcref):
 
     # the machine code is not updated here.  We leave it to the actual
     # guard_compatible to update it if needed.
-
-
-def setup_once(assembler):
-    nb_registers = WORD * 2
-    assembler._guard_compat_checkers = [0] * nb_registers
 
 
 def _build_inner_loop(mc, regnum, tmp, immediate_return):
