@@ -265,20 +265,25 @@ def makePyEndDFAMap ():
 
 def output(name, dfa_class, dfa):
     import textwrap
+    lines = []
     i = 0
     for line in textwrap.wrap(repr(dfa.accepts), width = 50):
         if i == 0:
-            print "accepts =", line
+            lines.append("accepts = ")
         else:
-            print "          ", line
+            lines.append("          ")
+        lines.append(line)
+        lines.append("\n")
         i += 1
     import StringIO
-    print "states = ["
+    lines.append("states = [\n")
     for numstate, state in enumerate(dfa.states):
-        print "    #", numstate
+        lines.append("    #")
+        lines.append(str(numstate))
+        lines.append('\n')
         s = StringIO.StringIO()
         i = 0
-        for k, v in sorted(state.items()):
+        for k, v in enumerate(state):
             i += 1
             if k == '\x00default':
                 k = "automata.DEFAULT"
@@ -298,22 +303,24 @@ def output(name, dfa_class, dfa):
         for line in text:
             line = line.replace('::', ': ')
             if i == 0:
-                print '    {' + line
+                lines.append('    {')
             else:
-                print '     ' + line
+                lines.append('     ')
+            lines.append(line)
+            lines.append('\n')
             i += 1
-    print "    ]"
-    print "%s = automata.%s(states, accepts)" % (name, dfa_class)
-    print
+    lines.append("    ]\n")
+    lines.append("%s = automata.%s(states, accepts)\n\n" % (name, dfa_class))
+    return ''.join(lines)
 
 def main ():
     pseudoDFA = makePyPseudoDFA()
-    output("pseudoDFA", "DFA", pseudoDFA)
+    print output("pseudoDFA", "DFA", pseudoDFA)
     endDFAMap = makePyEndDFAMap()
-    output("double3DFA", "NonGreedyDFA", endDFAMap['"""'])
-    output("single3DFA", "NonGreedyDFA", endDFAMap["'''"])
-    output("singleDFA", "DFA", endDFAMap["'"])
-    output("doubleDFA", "DFA", endDFAMap['"'])
+    print output("double3DFA", "NonGreedyDFA", endDFAMap['"""'])
+    print output("single3DFA", "NonGreedyDFA", endDFAMap["'''"])
+    print output("singleDFA", "DFA", endDFAMap["'"])
+    print output("doubleDFA", "DFA", endDFAMap['"'])
 
 # ______________________________________________________________________
 
