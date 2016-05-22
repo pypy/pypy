@@ -4533,6 +4533,9 @@ order (MRO) for bases """
             self.assertEqual(type(d).__name__, n + '_descriptor')
 
         for d in descriptors:
+            if (support.check_impl_detail(pypy=True) and
+                not hasattr(d, '__objclass__')):
+                continue
             qualname = d.__objclass__.__qualname__ + '.' + d.__name__
             self.assertEqual(d.__qualname__, qualname)
 
