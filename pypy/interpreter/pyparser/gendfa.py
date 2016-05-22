@@ -138,7 +138,7 @@ def makePyPseudoDFA ():
                            chainStr(states, "//"),
                            maybe(states, newArcPair(states, "="))),
                      chain(states,
-                           groupStr(states, "+-*/%&|^=<>"),
+                           groupStr(states, "+-*/%&|^=<>@"),
                            maybe(states, newArcPair(states, "="))),
                      newArcPair(states, "~"))
     bracket = groupStr(states, "[](){}")
