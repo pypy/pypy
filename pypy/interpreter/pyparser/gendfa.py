@@ -268,7 +268,7 @@ def makePyEndDFAMap ():
     return {"'" : (singleDFA, states_singleDFA),
             '"' : (doubleDFA, states_doubleDFA),
             "'''": (single3DFA, states_single3DFA),
-            '"""': (double3DFA, states_doubleDFA)}
+            '"""': (double3DFA, states_double3DFA)}
 
 # ______________________________________________________________________
 
@@ -319,7 +319,7 @@ def output(name, dfa_class, dfa, states):
             lines.append('\n')
             i += 1
     lines.append("    ]\n")
-    lines.append("%s = automata.%s(states, accepts)\n\n" % (name, dfa_class))
+    lines.append("%s = automata.%s(states, accepts)\n" % (name, dfa_class))
     return ''.join(lines)
 
 def main ():
@@ -338,7 +338,7 @@ def main ():
     print output("single3DFA", "NonGreedyDFA", dfa, states)
     dfa, states = endDFAMap["'"]
     print output("singleDFA", "DFA", dfa, states)
-    dfa, states = endDFAMap["\""]
+    dfa, states = endDFAMap['"']
     print output("doubleDFA", "DFA", dfa, states)
 
 # ______________________________________________________________________
