@@ -18,7 +18,7 @@ class W_Super(W_Root):
             w_type = None  # unbound super object
             w_obj_or_type = space.w_None
         else:
-            w_type = _supercheck(space, w_starttype, w_obj_or_type)
+            w_type = _super_check(space, w_starttype, w_obj_or_type)
         self.w_starttype = w_starttype
         self.w_objtype = w_type
         self.w_self = w_obj_or_type
@@ -55,7 +55,7 @@ class W_Super(W_Root):
         # fallback to object.__getattribute__()
         return space.call_function(object_getattribute(space), self, w_name)
 
-def _supercheck(space, w_starttype, w_obj_or_type):
+def _super_check(space, w_starttype, w_obj_or_type):
     """Check that the super() call makes sense. Returns a type"""
     w_objtype = space.type(w_obj_or_type)
 
