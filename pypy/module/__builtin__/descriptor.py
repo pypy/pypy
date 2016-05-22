@@ -20,7 +20,7 @@ class W_Super(W_Root):
             w_type = None  # unbound super object
             w_obj_or_type = space.w_None
         else:
-            w_type = _supercheck(space, w_starttype, w_obj_or_type)
+            w_type = _super_check(space, w_starttype, w_obj_or_type)
         self.w_starttype = w_starttype
         self.w_objtype = w_type
         self.w_self = w_obj_or_type
@@ -83,16 +83,16 @@ def _super_from_frame(space):
         raise oefmt(space.w_RuntimeError, "super(): empty __class__ cell")
     return w_starttype, w_obj
 
-def _supercheck(space, w_starttype, w_obj_or_type):
+def _super_check(space, w_starttype, w_obj_or_type):
     """Check that the super() call makes sense. Returns a type"""
     w_objtype = space.type(w_obj_or_type)
 
-    if (space.is_true(space.issubtype(w_objtype, space.w_type)) and
-        space.is_true(space.issubtype(w_obj_or_type, w_starttype))):
+    if (space.issubtype_w(w_objtype, space.w_type) and
+        space.issubtype_w(w_obj_or_type, w_starttype)):
         # special case for class methods
         return w_obj_or_type
 
-    if space.is_true(space.issubtype(w_objtype, w_starttype)):
+    if space.issubtype_w(w_objtype, w_starttype):
         # normal case
         return w_objtype
 
@@ -103,7 +103,7 @@ def _supercheck(space, w_starttype, w_obj_or_type):
             raise
         w_type = w_objtype
 
-    if space.is_true(space.issubtype(w_type, w_starttype)):
+    if space.issubtype_w(w_type, w_starttype):
         return w_type
     raise oefmt(space.w_TypeError,
                 "super(type, obj): obj must be an instance or subtype of type")
