@@ -15,7 +15,9 @@ class W_Super(W_Root):
 
     def descr_init(self, space, w_starttype=None, w_obj_or_type=None):
         if space.is_none(w_starttype):
-            w_starttype, w_obj_or_type = _super_from_frame(space)
+            frame = space.getexecutioncontext().gettopframe()
+            w_starttype, w_obj_or_type = _super_from_frame(space, frame)
+
         if space.is_none(w_obj_or_type):
             w_type = None  # unbound super object
             w_obj_or_type = space.w_None
@@ -57,11 +59,10 @@ class W_Super(W_Root):
         # fallback to object.__getattribute__()
         return space.call_function(object_getattribute(space), self, w_name)
 
-def _super_from_frame(space):
+def _super_from_frame(space, frame):
     """super() without args -- fill in from __class__ and first local
     variable on the stack.
     """
-    frame = space.getexecutioncontext().gettopframe()
     code = frame.pycode
     if not code:
         raise oefmt(space.w_RuntimeError, "super(): no code object")
@@ -70,8 +71,9 @@ def _super_from_frame(space):
     w_obj = frame.locals_cells_stack_w[0]
     if not w_obj:
         raise oefmt(space.w_RuntimeError, "super(): arg[0] deleted")
+
     for index, name in enumerate(code.co_freevars):
-        if name == "__class__":
+        if name == '__class__':
             break
     else:
         raise oefmt(space.w_RuntimeError, "super(): __class__ cell not found")
