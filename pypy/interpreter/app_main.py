@@ -390,7 +390,6 @@ cmdline_options = {
     'E': (simple_option, 'ignore_environment'),
     'i': (simple_option, 'interactive'),
     'O': (simple_option, 'optimize'),
-    'R': (ignore_option, 'hash_randomization'),
     's': (simple_option, 'no_user_site'),
     'S': (simple_option, 'no_site'),
     'u': (simple_option, 'unbuffered'),
@@ -410,6 +409,7 @@ cmdline_options = {
     '--jit':     (set_jit_option,  Ellipsis),
     '-funroll-loops': (funroll_loops, None),
     '--':        (end_options,     None),
+    'R':         (ignore_option,   None),      # previously hash_randomization
     }
 
 def handle_argument(c, options, iterargv, iterarg=iter(())):
