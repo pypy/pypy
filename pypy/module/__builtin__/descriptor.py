@@ -70,11 +70,9 @@ def _super_from_frame(space):
     w_obj = frame.locals_cells_stack_w[0]
     if not w_obj:
         raise oefmt(space.w_RuntimeError, "super(): arg[0] deleted")
-    index = 0
-    for name in code.co_freevars:
+    for index, name in enumerate(code.co_freevars):
         if name == "__class__":
             break
-        index += 1
     else:
         raise oefmt(space.w_RuntimeError, "super(): __class__ cell not found")
     # a kind of LOAD_DEREF
