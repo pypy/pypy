@@ -732,14 +732,16 @@ if _WIN:
     LPDWORD = rwin32.LPDWORD
     _GetSystemTimeAdjustment = rwin32.winexternal(
                                             'GetSystemTimeAdjustment',
-                                            [LPDWORD, LPDWORD, rffi.LPBOOL], 
+                                            [LPDWORD, LPDWORD, rwin32.LPBOOL], 
                                             rffi.INT)
 
     def monotonic(space, w_info=None):
         result = 0
         if HAS_GETTICKCOUNT64:
+            print('has count64'.encode('ascii')) 
             result = _GetTickCount64() * 1e-3
         else:
+            print("nocount64")
             ticks = _GetTickCount()
             if ticks < time_state.last_ticks:
                 time_state.n_overflow += 1
@@ -756,9 +758,11 @@ if _WIN:
                 space.setattr(w_info, space.wrap("implementation"),
                               space.wrap("GetTickCount()"))
             resolution = 1e-7
-            with lltype.scoped_alloc(rwin32.LPDWORD) as time_adjustment, \
-                 lltype.scoped_alloc(rwin32.LPDWORD) as time_increment, \
-                 lltype.scoped_alloc(rwin32.LPBOOL) as is_time_adjustment_disabled:
+            print("creating a thing".encode("ascii"))
+            with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as time_adjustment, \
+                 lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as time_increment, \
+                 lltype.scoped_alloc(rwin32.LPBOOL.TO, 1) as is_time_adjustment_disabled:
+                print("CREATED".encode("ascii"))
                 ok = _GetSystemTimeAdjustment(time_adjustment,
                                               time_increment,
                                               is_time_adjustment_disabled)
@@ -766,8 +770,8 @@ if _WIN:
                     # Is this right? Cargo culting...
                     raise wrap_windowserror(space,
                         rwin32.lastSavedWindowsError("GetSystemTimeAdjustment"))
-                resolution = resolution * time_increment
-                
+                resolution = resolution * time_increment[0]
+            print("out of with".encode("ascii"))
             space.setattr(w_info, space.wrap("monotonic"), space.w_True)
             space.setattr(w_info, space.wrap("adjustable"), space.w_False)
             space.setattr(w_info, space.wrap("resolution"),
