@@ -1,5 +1,5 @@
 from rpython.rlib import rgc
-from rpython.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
@@ -20,7 +20,7 @@ from rpython.jit.backend.x86.arch import WORD, DEFAULT_FRAME_BYTES
 # following code, ofs(x) means the offset in the GC table of the
 # pointer 'x':
 #
-#     MOV reg2, [RIP + ofs(_backend_choices)]
+#     MOV reg2, [RIP + ofs(_backend_choices)]    # LOAD_FROM_GC_TABLE
 #     CMP reg, [reg2 + bc_most_recent]
 #     JNE slow_case
 #     JMP *[reg2 + bc_most_recent + 8]
@@ -230,27 +230,33 @@ INVOKE_FIND_COMPATIBLE_FUNC = lltype.Ptr(lltype.FuncType(
                 [lltype.Ptr(BACKEND_CHOICES), llmemory.GCREF],
                 lltype.Signed))
 
-def invoke_find_compatible(bchoices, new_gcref):
-    descr = bchoices.bc_faildescr
-    descr = cast_gcref_to_instance(GuardCompatibleDescr, descr)
-    try:
-        xxx # temp
-        result = descr.find_compatible(cpu, new_gcref)
-        if result == 0:
-            result = descr._backend_failure_recovery
-        else:
-            if result == -1:
-                result = descr._backend_sequel_label
-            bchoices = add_in_tree(bchoices, new_gcref, result)
-            descr._backend_choices_addr[0] = bchoices  # GC table
-        bchoices.bc_most_recent.gcref = new_gcref
-        bchoices.bc_most_recent.asmaddr = result
-        return result
-    except:             # oops!
-        if not we_are_translated():
-            import sys, pdb
-            pdb.post_mortem(sys.exc_info()[2])
-        return descr._backend_failure_recovery
+@specialize.memo()
+def make_invoke_find_compatible(cpu):
+    def invoke_find_compatible(bchoices, new_gcref):
+        descr = bchoices.bc_faildescr
+        descr = cast_gcref_to_instance(GuardCompatibleDescr, descr)
+        try:
+            result = descr.find_compatible(cpu, new_gcref)
+            if result == 0:
+                result = descr._backend_failure_recovery
+            else:
+                if result == -1:
+                    result = descr._backend_sequel_label
+                bchoices = add_in_tree(bchoices, new_gcref, result)
+                # ---no GC operation---
+                choices_addr = descr._backend_choices_addr  # GC table
+                bchoices_int = rffi.cast(lltype.Signed, bchoices)
+                llop.raw_store(lltype.Void, choices_addr, 0, bchoices_int)
+                # ---no GC operation end---
+            bchoices.bc_most_recent.gcref = new_gcref
+            bchoices.bc_most_recent.asmaddr = result
+            return result
+        except:             # oops!
+            if not we_are_translated():
+                import sys, pdb
+                pdb.post_mortem(sys.exc_info()[2])
+            return descr._backend_failure_recovery
+    return invoke_find_compatible
 
 def add_in_tree(bchoices, new_gcref, new_asmaddr):
     rgc.register_custom_trace_hook(BACKEND_CHOICES, lambda_bchoices_trace)
@@ -292,26 +298,38 @@ def add_in_tree(bchoices, new_gcref, new_asmaddr):
     pairs_quicksort(addr, length)
     return bchoices
 
-def initial_bchoices(guard_compat_descr, initial_gcref, gcmap):
+def initial_bchoices(guard_compat_descr, initial_gcref):
     bchoices = lltype.malloc(BACKEND_CHOICES, 1)
-    bchoices.bc_gcmap = gcmap
+    # bchoices.bc_gcmap: patch_guard_compatible()
     bchoices.bc_faildescr = cast_instance_to_gcref(guard_compat_descr)
     bchoices.bc_most_recent.gcref = initial_gcref
-    # bchoices.bc_most_recent.asmaddr: later
+    # bchoices.bc_most_recent.asmaddr: patch_guard_compatible()
     bchoices.bc_list[0].gcref = initial_gcref
-    # bchoices.bc_list[0].asmaddr: later
+    # bchoices.bc_list[0].asmaddr: patch_guard_compatible()
     return bchoices
 
-def finish_guard_compatible_descr(guard_compat_descr,
-            choices_addr,      # points to bchoices in the GC table
-            sequel_label,      # "sequel:" label above
-            failure_recovery): # failure recovery address
+def patch_guard_compatible(guard_token, sequel_label, gc_table_addr):
+    # go to the address in the gctable, number 'bindex'
+    bindex = guard_token.guard_compat_bindex
+    choices_addr = gc_table_addr + WORD * bindex
+    failure_recovery = guard_token.pos_recovery_stub
+    gcmap = guard_token.gcmap
+    # choices_addr:     points to bchoices in the GC table
+    # sequel_label:     "sequel:" label above
+    # failure_recovery: failure recovery address
+    guard_compat_descr = guard_token.faildescr
+    assert isinstance(guard_compat_descr, GuardCompatibleDescr)
     guard_compat_descr._backend_choices_addr = choices_addr
     guard_compat_descr._backend_sequel_label = sequel_label
     guard_compat_descr._backend_failure_recovery = failure_recovery
-    bchoices = rffi.cast(lltype.Ptr(BACKEND_CHOICES), choices_addr[0])
+    # ---no GC operation---
+    bchoices = llop.raw_load(lltype.Signed, choices_addr, 0)
+    bchoices = rffi.cast(lltype.Ptr(BACKEND_CHOICES), bchoices)
+    # ---no GC operation end---
     assert len(bchoices.bc_list) == 1
-    assert bchoices.bc_faildescr == cast_instance_to_gcref(guard_compat_descr)
+    assert (cast_gcref_to_instance(GuardCompatibleDescr, bchoices.bc_faildescr)
+            is guard_compat_descr)
+    bchoices.bc_gcmap = gcmap
     bchoices.bc_most_recent.asmaddr = sequel_label
     bchoices.bc_list[0].asmaddr = sequel_label
 
@@ -392,6 +410,7 @@ def setup_once(assembler):
     mc.MOV_rr(regloc.esi.value, rax)        # MOV RSI, RAX
     mc.MOV_rm(r11, (rdi, bc_gcmap))         # MOV R11, [RDI + bc_gcmap]
     mc.MOV_br(jf_gcmap, r11)                # MOV [RBP + jf_gcmap], R11
+    invoke_find_compatible = make_invoke_find_compatible(assembler.cpu)
     llfunc = llhelper(INVOKE_FIND_COMPATIBLE_FUNC, invoke_find_compatible)
     llfunc = assembler.cpu.cast_ptr_to_int(llfunc)
     mc.CALL(regloc.imm(llfunc))             # CALL invoke_find_compatible
@@ -408,3 +427,43 @@ def setup_once(assembler):
     mc.JMP_r(r11)                           # JMP *R11
 
     assembler.guard_compat_search_tree = mc.materialize(assembler.cpu, [])
+
+
+def generate_guard_compatible(assembler, guard_token, reg, bindex, reg2):
+    mc = assembler.mc
+    rax = regloc.eax.value
+    rdx = regloc.edx.value
+    frame_size = DEFAULT_FRAME_BYTES
+
+    ofs = _real_number(BCMOSTRECENT)
+    mc.CMP_rm(reg, (reg2, ofs))             # CMP reg, [reg2 + bc_most_recent]
+    mc.J_il8(rx86.Conditions['NE'], 0)      # JNE slow_case
+    jne_location = mc.get_relative_pos()
+
+    mc.JMP_m((reg2, ofs + WORD))            # JMP *[reg2 + bc_most_recent + 8]
+    mc.force_frame_size(frame_size)
+
+    _fix_forward_label(mc, jne_location)    # slow_case:
+    mc.PUSH_r(rdx)                          # PUSH RDX
+    mc.PUSH_r(rax)                          # PUSH RAX
+    # manually move reg to RAX and reg2 to RDX
+    if reg2 == rax:
+        if reg == rdx:
+            mc.XCHG_rr(rax, rdx)
+            reg = rax
+        else:
+            mc.MOV_rr(rdx, rax)
+        reg2 = rdx
+    if reg != rax:
+        assert reg2 != rax
+        mc.MOV_rr(rax, reg)
+    if reg2 != rdx:
+        mc.MOV_rr(rdx, reg2)
+
+    mc.JMP(regloc.imm(assembler.guard_compat_search_tree))
+    mc.force_frame_size(frame_size)
+
+    # abuse this field to store the 'sequel' relative offset
+    guard_token.pos_jump_offset = mc.get_relative_pos()
+    guard_token.guard_compat_bindex = bindex
+    assembler.pending_guard_tokens.append(guard_token)

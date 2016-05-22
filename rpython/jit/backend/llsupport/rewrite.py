@@ -371,6 +371,9 @@ class GcRewriterAssembler(object):
             if OpHelpers.is_call_assembler(op.getopnum()):
                 self.handle_call_assembler(op)
                 continue
+            if op.getopnum() == rop.GUARD_COMPATIBLE:
+                self.handle_guard_compatible(op)
+                continue
             if op.getopnum() == rop.JUMP or op.getopnum() == rop.FINISH:
                 self.emit_pending_zeros()
             #
@@ -985,3 +988,16 @@ class GcRewriterAssembler(object):
             self._newops.append(load_op)
             self.gcrefs_recently_loaded[index] = load_op
         return load_op
+
+    def handle_guard_compatible(self, op):
+        from rpython.jit.backend.x86 import guard_compat    # XXX
+        c = op.getarg(1)
+        assert isinstance(c, ConstPtr)
+        descr = op.getdescr()
+        bchoices = guard_compat.initial_bchoices(descr, c.value)
+        bcindex = len(self.gcrefs_output_list)
+        gcref = lltype.cast_opaque_ptr(llmemory.GCREF, bchoices)
+        self.gcrefs_output_list.append(gcref)
+        new_op = op.copy_and_change(rop.GUARD_COMPATIBLE,
+                                    [op.getarg(0), ConstInt(bcindex)])
+        self.emit_op(new_op)

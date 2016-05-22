@@ -472,21 +472,31 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
     consider_guard_not_forced  = consider_guard_no_exception
 
     def consider_guard_value(self, op):
-        x = self.make_sure_var_in_reg(op.getarg(0))
+        x = self.make_sure_var_in_reg(op.getarg(0), [op.getarg(1)])
         loc = self.assembler.cpu.all_reg_indexes[x.value]
         op.getdescr().make_a_counter_per_value(op, loc)
         y = self.loc(op.getarg(1))
         self.perform_guard(op, [x, y], None)
 
+    def consider_guard_compatible(self, op):
+        args = op.getarglist()
+        assert args[0].type == REF             # only supported case for now
+        assert isinstance(args[1], ConstInt)   # by rewrite.py
+        tmp_box = TempVar()
+        x = self.rm.make_sure_var_in_reg(args[0])
+        y = self.loc(args[1])
+        z = self.rm.force_allocate_reg(tmp_box, args)
+        self.rm.possibly_free_var(tmp_box)
+        self.perform_guard(op, [x, y, z], None)
+
     def consider_guard_class(self, op):
         assert not isinstance(op.getarg(0), Const)
-        x = self.rm.make_sure_var_in_reg(op.getarg(0))
+        x = self.rm.make_sure_var_in_reg(op.getarg(0), [op.getarg(1)])
         y = self.loc(op.getarg(1))
         self.perform_guard(op, [x, y], None)
 
     consider_guard_nonnull_class = consider_guard_class
     consider_guard_gc_type = consider_guard_class
-    consider_guard_compatible = consider_guard_class
 
     def consider_guard_is_object(self, op):
         x = self.make_sure_var_in_reg(op.getarg(0))

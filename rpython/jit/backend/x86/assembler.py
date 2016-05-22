@@ -743,6 +743,10 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         clt = self.current_clt
         for tok in self.pending_guard_tokens:
             addr = rawstart + tok.pos_jump_offset
+            if tok.guard_compatible():
+                guard_compat.patch_guard_compatible(tok, addr,
+                                                    self.gc_table_addr)
+                continue
             tok.faildescr.adr_jump_offset = addr
             descr = tok.faildescr
             if descr.loop_version():
@@ -754,8 +758,6 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
                 mc = codebuf.MachineCodeBlockWrapper()
                 mc.writeimm32(relative_target)
                 mc.copy_to_raw_memory(addr)
-                if tok.guard_compatible():
-                    guard_compat.patch_guard_compatible(rawstart, tok)
             else:
                 # GUARD_NOT_INVALIDATED, record an entry in
                 # clt.invalidate_positions of the form:
@@ -854,6 +856,9 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         return res
 
     def patch_jump_for_descr(self, faildescr, adr_new_target):
+        if isinstance(faildescr, guard_compat.GuardCompatibleDescr):
+            xxxxxxxxxx
+            return
         adr_jump_offset = faildescr.adr_jump_offset
         assert adr_jump_offset != 0
         offset = adr_new_target - (adr_jump_offset + 4)
@@ -1433,14 +1438,24 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         assert IS_X86_32
         return self.gc_table_addr + index * WORD
 
+    def load_reg_from_gc_table(self, resvalue, index):
+        if IS_X86_64:
+            self.mc.MOV_rp(resvalue, 0)    # %rip-relative
+            self._patch_load_from_gc_table(index)
+        elif IS_X86_32:
+            self.mc.MOV_rj(resvalue, self._addr_from_gc_table(index))
+
+    def push_from_gc_table(self, index):
+        if IS_X86_64:
+            self.mc.PUSH_p(0)     # %rip-relative
+            self._patch_load_from_gc_table(index)
+        elif IS_X86_32:
+            self.mc.PUSH_j(self._addr_from_gc_table(index))
+
     def genop_load_from_gc_table(self, op, arglocs, resloc):
         index = op.getarg(0).getint()
         assert isinstance(resloc, RegLoc)
-        if IS_X86_64:
-            self.mc.MOV_rp(resloc.value, 0)    # %rip-relative
-            self._patch_load_from_gc_table(index)
-        elif IS_X86_32:
-            self.mc.MOV_rj(resloc.value, self._addr_from_gc_table(index))
+        self._load_reg_from_gc_table(resloc.value, index)
 
     def genop_int_force_ge_zero(self, op, arglocs, resloc):
         self.mc.TEST(arglocs[0], arglocs[0])
@@ -1810,13 +1825,14 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         self.implement_guard(guard_token)
 
     def genop_guard_guard_compatible(self, guard_op, guard_token, locs, ign):
-        assert guard_op.getarg(0).type == REF    # only supported case for now
-        assert guard_op.getarg(1).type == REF
-        loc_reg, loc_imm = locs
+        loc_reg, loc_imm, loc_reg2 = locs
         assert isinstance(loc_reg, RegLoc)
-        assert isinstance(loc_imm, ImmedLoc)
+        assert isinstance(loc_imm, ImmedLoc)    # index of 'backend_choices'
+        assert isinstance(loc_reg2, RegLoc)
+        self.load_reg_from_gc_table(loc_reg2.value, loc_imm.value)
         guard_compat.generate_guard_compatible(self, guard_token,
-                                               loc_reg, loc_imm.value)
+                                               loc_reg.value, loc_imm.value,
+                                               loc_reg2.value)
 
     def _cmp_guard_class(self, locs):
         loc_ptr = locs[0]
@@ -1947,11 +1963,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
                              guardtok.faildescr, regalloc)
         #
         faildescrindex, target = self.store_info_on_descr(startpos, guardtok)
-        if IS_X86_64:
-            self.mc.PUSH_p(0)     # %rip-relative
-            self._patch_load_from_gc_table(faildescrindex)
-        elif IS_X86_32:
-            self.mc.PUSH_j(self._addr_from_gc_table(faildescrindex))
+        self.push_from_gc_table(faildescrindex)
         self.push_gcmap(self.mc, guardtok.gcmap, push=True)
         self.mc.JMP(imm(target))
         return startpos
@@ -2066,11 +2078,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         
         descr = op.getdescr()
         faildescrindex = self.get_gcref_from_faildescr(descr)
-        if IS_X86_64:
-            self.mc.MOV_rp(eax.value, 0)
-            self._patch_load_from_gc_table(faildescrindex)
-        elif IS_X86_32:
-            self.mc.MOV_rj(eax.value, self._addr_from_gc_table(faildescrindex))
+        self.load_reg_from_gc_table(eax.value, faildescrindex)
         self.mov(eax, RawEbpLoc(ofs))
 
         arglist = op.getarglist()
@@ -2145,12 +2153,12 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
 
         faildescrindex = self.get_gcref_from_faildescr(faildescr)
         if IS_X86_64:
-            self.mc.MOV_rp(X86_64_SCRATCH_REG.value, 0)
-            self._patch_load_from_gc_table(faildescrindex)
+            self.load_reg_from_gc_table(X86_64_SCRATCH_REG.value,
+                                        faildescrindex)
             self.mc.MOV(raw_stack(ofs), X86_64_SCRATCH_REG)
         elif IS_X86_32:
             # XXX need a scratch reg here for efficiency; be more clever
-            self.mc.PUSH_j(self._addr_from_gc_table(faildescrindex))
+            self.push_from_gc_table(faildescrindex)
             self.mc.POP(raw_stack(ofs))
 
     def _find_nearby_operation(self, delta):
