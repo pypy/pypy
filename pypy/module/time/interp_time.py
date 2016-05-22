@@ -732,7 +732,7 @@ if _WIN:
     LPDWORD = rwin32.LPDWORD
     _GetSystemTimeAdjustment = rwin32.winexternal(
                                             'GetSystemTimeAdjustment',
-                                            [LPDWORD, LPDWORD, rffi.INTP], 
+                                            [LPDWORD, LPDWORD, rffi.LPBOOL], 
                                             rffi.INT)
 
     def monotonic(space, w_info=None):
@@ -758,7 +758,7 @@ if _WIN:
             resolution = 1e-7
             with lltype.scoped_alloc(rwin32.LPDWORD) as time_adjustment, \
                  lltype.scoped_alloc(rwin32.LPDWORD) as time_increment, \
-                 lltype.scoped_alloc(rwin32.FILETIME) as is_time_adjustment_disabled:
+                 lltype.scoped_alloc(rwin32.LPBOOL) as is_time_adjustment_disabled:
                 ok = _GetSystemTimeAdjustment(time_adjustment,
                                               time_increment,
                                               is_time_adjustment_disabled)
