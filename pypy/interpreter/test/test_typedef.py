@@ -60,6 +60,7 @@ class AppTestTraceBackAttributes:
     def test_descr_getsetproperty(self):
         from types import FrameType
         assert FrameType.f_lineno.__name__ == 'f_lineno'
+        assert FrameType.f_lineno.__qualname__ == 'frame.f_lineno'
         assert FrameType.f_lineno.__objclass__ is FrameType
         class A(object):
             pass
