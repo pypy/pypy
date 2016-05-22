@@ -697,9 +697,9 @@ def _create_new_type(space, w_typetype, w_name, w_bases, w_dict):
         w_typ = space.type(base)
         if space.is_w(w_typ, space.w_classobj):
             continue # special-case old-style classes
-        if space.is_true(space.issubtype(w_winner, w_typ)):
+        if space.issubtype_w(w_winner, w_typ):
             continue
-        if space.is_true(space.issubtype(w_typ, w_winner)):
+        if space.issubtype_w(w_typ, w_winner):
             w_winner = w_typ
             continue
         raise oefmt(space.w_TypeError,

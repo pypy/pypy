@@ -706,7 +706,7 @@ def build_type_checkers(type_name, cls=None):
         w_obj_type = space.type(w_obj)
         w_type = get_w_type(space)
         return (space.is_w(w_obj_type, w_type) or
-                space.is_true(space.issubtype(w_obj_type, w_type)))
+                space.issubtype_w(w_obj_type, w_type))
     def check_exact(space, w_obj):
         "Implements the Py_Xxx_CheckExact function"
         w_obj_type = space.type(w_obj)
