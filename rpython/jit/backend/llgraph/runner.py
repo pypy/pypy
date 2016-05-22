@@ -364,6 +364,10 @@ class LLGraphCPU(model.AbstractCPU):
         if not isinstance(faildescr, GuardCompatibleDescr):
             # don't patch GuardCompatibleDescr
             faildescr._llgraph_bridge = lltrace
+        else:
+            # invalidate the cache
+            if hasattr(faildescr, '_guard_compatible_llgraph_lst'):
+                faildescr._guard_compatible_llgraph_lst[0] = (None, None)
         clt._llgraph_alltraces.append(lltrace)
         self._record_labels(lltrace)
         return LLAsmInfo(lltrace)
@@ -1159,6 +1163,7 @@ class LLFrame(object):
         if force_bridge is None:
             force_bridge = getattr(descr, '_llgraph_bridge', None)
         if force_bridge is not None:
+            assert isinstance(force_bridge, LLTrace)
             if propagate_exception:
                 assert (force_bridge.operations[0].opnum in
                         (rop.SAVE_EXC_CLASS, rop.GUARD_EXCEPTION,
@@ -1294,22 +1299,30 @@ class LLFrame(object):
             try:
                 lst = descr._guard_compatible_llgraph_lst
             except AttributeError:
-                lst = descr._guard_compatible_llgraph_lst = []
+                lst = descr._guard_compatible_llgraph_lst = [(None, None)]
             for ref, target in lst:
-                if ref == arg1:
+                if ref is not None and ref == arg1:
                     break
             else:
                 target = descr.find_compatible(self.cpu, arg1)
-                if target == 0:
-                    self.fail_guard(descr, extra_value=arg1)
-                    assert 0, "fail_guard should raise"
-                descr._guard_compatible_llgraph_lst.append((arg1, target))
+                # we use list item 0 as the cache, which caches
+                # the most recent find_compatible() result even if
+                # it returned zero.  For non-zero results, we also
+                # save them away in another non-overwritable entry.
+                pair = (arg1, target)
+                descr._guard_compatible_llgraph_lst[0] = pair
+                if target != 0:
+                    descr._guard_compatible_llgraph_lst.append(pair)
             #
             if target == -1:
                 return
+            elif target == 0:
+                self.fail_guard(descr, extra_value=arg1)
+                assert 0, "fail_guard should raise"
             else:
                 self.fail_guard(descr, extra_value='should not be used',
                                 force_bridge=target)
+                assert 0, "fail_guard should raise"
 
     def execute_int_add_ovf(self, _, x, y):
         try:

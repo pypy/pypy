@@ -257,8 +257,11 @@ class BaseBackendTest(Runner):
         self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
         assert seen == []
 
-        t_list = [t1_box._resref, t2_box._resref, t3_box._resref]
+        t_list = [t1_box._resref, t1_box._resref,
+                  t2_box._resref, t2_box._resref,
+                  t3_box._resref, t3_box._resref]
         expected = []
+        prev_t = None
         for t in t_list * 2:
             # find_compatible() returns 0: the guard fails
             deadframe = self.cpu.execute_token(looptoken, t)
@@ -267,8 +270,12 @@ class BaseBackendTest(Runner):
                 assert fail.identifier == 2
             else:
                 assert fail.identifier == 1
-                expected.append(t)     # never cache returns of 0
+                # returns of 0 are only cached if they are the most recent
+                # return, not longer
+                if t != prev_t:
+                    expected.append(t)
             assert seen == expected
+            prev_t = t
 
     def test_extend_guard_compatible_3(self):
         seen = []
