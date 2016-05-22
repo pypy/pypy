@@ -1,31 +1,41 @@
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.interpreter.function import StaticMethod, ClassMethod
-from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
+from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
 from pypy.interpreter.typedef import (
-    TypeDef, interp_attrproperty_w, generic_new_descr, GetSetProperty)
+    GetSetProperty, TypeDef, generic_new_descr, interp_attrproperty_w)
 from pypy.objspace.descroperation import object_getattribute
 
 
 class W_Super(W_Root):
-    def __init__(self, space, w_starttype, w_objtype, w_self):
+
+    def __init__(self, space):
+        self.w_starttype = None
+        self.w_objtype = None
+        self.w_self = None
+
+    def descr_init(self, space, w_starttype=None, w_obj_or_type=None):
+        if space.is_none(w_starttype):
+            w_starttype, w_obj_or_type = _super_from_frame(space)
+        if space.is_none(w_obj_or_type):
+            w_type = None  # unbound super object
+            w_obj_or_type = space.w_None
+        else:
+            w_type = _supercheck(space, w_starttype, w_obj_or_type)
         self.w_starttype = w_starttype
-        self.w_objtype = w_objtype
-        self.w_self = w_self
+        self.w_objtype = w_type
+        self.w_self = w_obj_or_type
 
     def get(self, space, w_obj, w_type=None):
-        w = space.wrap
         if self.w_self is None or space.is_w(w_obj, space.w_None):
-            return w(self)
+            return self
         else:
             # if type(self) is W_Super:
             #     XXX write a fast path for this common case
-            w_selftype = space.type(w(self))
+            w_selftype = space.type(self)
             return space.call_function(w_selftype, self.w_starttype, w_obj)
 
-    @unwrap_spec(name=str)
-    def getattribute(self, space, name):
-        w = space.wrap
+    def getattribute(self, space, w_name):
+        name = space.str_w(w_name)
         # only use a special logic for bound super objects and not for
         # getting the __class__ of the super object itself.
         if self.w_objtype is not None and name != '__class__':
@@ -45,73 +55,70 @@ class W_Super(W_Root):
                 return space.get_and_call_function(w_get, w_value,
                                                    w_obj, self.w_objtype)
         # fallback to object.__getattribute__()
-        return space.call_function(object_getattribute(space),
-                                   w(self), w(name))
+        return space.call_function(object_getattribute(space), self, w_name)
 
-def descr_new_super(space, w_subtype, w_starttype=None, w_obj_or_type=None):
-    if space.is_none(w_starttype):
-        # Call super(), without args -- fill in from __class__
-        # and first local variable on the stack.
-        ec = space.getexecutioncontext()
-        frame = ec.gettopframe()
-        code = frame.pycode
-        if not code:
-            raise oefmt(space.w_RuntimeError, "super(): no code object")
-        if code.co_argcount == 0:
-            raise oefmt(space.w_RuntimeError, "super(): no arguments")
-        w_obj = frame.locals_cells_stack_w[0]
-        if not w_obj:
-            raise oefmt(space.w_RuntimeError, "super(): arg[0] deleted")
-        index = 0
-        for name in code.co_freevars:
-            if name == "__class__":
-                break
-            index += 1
-        else:
-            raise oefmt(space.w_RuntimeError,
-                        "super(): __class__ cell not found")
-        # a kind of LOAD_DEREF
-        cell = frame._getcell(len(code.co_cellvars) + index)
-        try:
-            w_starttype = cell.get()
-        except ValueError:
-            raise oefmt(space.w_RuntimeError, "super(): empty __class__ cell")
-        w_obj_or_type = w_obj
-
-    if space.is_none(w_obj_or_type):
-        w_type = None  # unbound super object
-        w_obj_or_type = space.w_None
+def _super_from_frame(space):
+    """super() without args -- fill in from __class__ and first local
+    variable on the stack.
+    """
+    frame = space.getexecutioncontext().gettopframe()
+    code = frame.pycode
+    if not code:
+        raise oefmt(space.w_RuntimeError, "super(): no code object")
+    if code.co_argcount == 0:
+        raise oefmt(space.w_RuntimeError, "super(): no arguments")
+    w_obj = frame.locals_cells_stack_w[0]
+    if not w_obj:
+        raise oefmt(space.w_RuntimeError, "super(): arg[0] deleted")
+    index = 0
+    for name in code.co_freevars:
+        if name == "__class__":
+            break
+        index += 1
     else:
-        w_objtype = space.type(w_obj_or_type)
-        if space.is_true(space.issubtype(w_objtype, space.w_type)) and \
-            space.is_true(space.issubtype(w_obj_or_type, w_starttype)):
-            w_type = w_obj_or_type # special case for class methods
-        elif space.is_true(space.issubtype(w_objtype, w_starttype)):
-            w_type = w_objtype # normal case
-        else:
-            try:
-                w_type = space.getattr(w_obj_or_type, space.wrap('__class__'))
-            except OperationError as o:
-                if not o.match(space, space.w_AttributeError):
-                    raise
-                w_type = w_objtype
-            if not space.is_true(space.issubtype(w_type, w_starttype)):
-                raise oefmt(space.w_TypeError,
-                            "super(type, obj): obj must be an instance or "
-                            "subtype of type")
-    # XXX the details of how allocate_instance() should be used are not
-    # really well defined
-    w_result = space.allocate_instance(W_Super, w_subtype)
-    W_Super.__init__(w_result, space, w_starttype, w_type, w_obj_or_type)
-    return w_result
+        raise oefmt(space.w_RuntimeError, "super(): __class__ cell not found")
+    # a kind of LOAD_DEREF
+    cell = frame._getcell(len(code.co_cellvars) + index)
+    try:
+        w_starttype = cell.get()
+    except ValueError:
+        raise oefmt(space.w_RuntimeError, "super(): empty __class__ cell")
+    return w_starttype, w_obj
+
+def _supercheck(space, w_starttype, w_obj_or_type):
+    """Check that the super() call makes sense. Returns a type"""
+    w_objtype = space.type(w_obj_or_type)
+
+    if (space.is_true(space.issubtype(w_objtype, space.w_type)) and
+        space.is_true(space.issubtype(w_obj_or_type, w_starttype))):
+        # special case for class methods
+        return w_obj_or_type
+
+    if space.is_true(space.issubtype(w_objtype, w_starttype)):
+        # normal case
+        return w_objtype
+
+    try:
+        w_type = space.getattr(w_obj_or_type, space.wrap('__class__'))
+    except OperationError as e:
+        if not e.match(space, space.w_AttributeError):
+            raise
+        w_type = w_objtype
+
+    if space.is_true(space.issubtype(w_type, w_starttype)):
+        return w_type
+    raise oefmt(space.w_TypeError,
+                "super(type, obj): obj must be an instance or subtype of type")
 
 W_Super.typedef = TypeDef(
     'super',
-    __new__          = interp2app(descr_new_super),
+    __new__          = generic_new_descr(W_Super),
+    __init__         = interp2app(W_Super.descr_init),
     __thisclass__    = interp_attrproperty_w("w_starttype", W_Super),
     __getattribute__ = interp2app(W_Super.getattribute),
     __get__          = interp2app(W_Super.get),
-    __doc__          =     """super(type) -> unbound super object
+    __doc__          =     """\
+super(type) -> unbound super object
 super(type, obj) -> bound super object; requires isinstance(obj, type)
 super(type, type2) -> bound super object; requires issubclass(type2, type)
 
@@ -129,10 +136,10 @@ class W_Property(W_Root):
     def __init__(self, space):
         pass
 
-    @unwrap_spec(w_fget = WrappedDefault(None),
-                 w_fset = WrappedDefault(None),
-                 w_fdel = WrappedDefault(None),
-                 w_doc = WrappedDefault(None))
+    @unwrap_spec(w_fget=WrappedDefault(None),
+                 w_fset=WrappedDefault(None),
+                 w_fdel=WrappedDefault(None),
+                 w_doc=WrappedDefault(None))
     def init(self, space, w_fget=None, w_fset=None, w_fdel=None, w_doc=None):
         self.w_fget = w_fget
         self.w_fset = w_fset
@@ -142,18 +149,17 @@ class W_Property(W_Root):
         # our __doc__ comes from the getter if we don't have an explicit one
         if (space.is_w(self.w_doc, space.w_None) and
             not space.is_w(self.w_fget, space.w_None)):
-            w_getter_doc = space.findattr(self.w_fget, space.wrap("__doc__"))
+            w_getter_doc = space.findattr(self.w_fget, space.wrap('__doc__'))
             if w_getter_doc is not None:
                 if type(self) is W_Property:
                     self.w_doc = w_getter_doc
                 else:
-                    space.setattr(space.wrap(self), space.wrap("__doc__"),
-                                  w_getter_doc)
+                    space.setattr(self, space.wrap('__doc__'), w_getter_doc)
                 self.getter_doc = True
 
     def get(self, space, w_obj, w_objtype=None):
         if space.is_w(w_obj, space.w_None):
-            return space.wrap(self)
+            return self
         if space.is_w(self.w_fget, space.w_None):
             raise oefmt(space.w_AttributeError, "unreadable attribute")
         return space.call_function(self.w_fget, w_obj)
@@ -191,7 +197,8 @@ class W_Property(W_Root):
         else:
             w_doc = self.w_doc
         w_type = self.getclass(space)
-        return space.call_function(w_type, w_getter, w_setter, w_deleter, w_doc)
+        return space.call_function(w_type, w_getter, w_setter, w_deleter,
+                                   w_doc)
 
     def descr_isabstract(self, space):
         return space.newbool(space.isabstractmethod_w(self.w_fget) or
@@ -200,7 +207,8 @@ class W_Property(W_Root):
 
 W_Property.typedef = TypeDef(
     'property',
-    __doc__ = '''property(fget=None, fset=None, fdel=None, doc=None) -> property attribute
+    __doc__ = '''\
+property(fget=None, fset=None, fdel=None, doc=None) -> property attribute
 
 fget is a function to be used for getting an attribute value, and likewise
 fset is a function for setting, and fdel a function for deleting, an
