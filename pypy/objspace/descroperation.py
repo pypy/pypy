@@ -582,7 +582,7 @@ def _make_comparison_impl(symbol, specialnames):
             # if the type is the same, then don't reverse: try
             # left first, right next.
             pass
-        elif space.is_true(space.issubtype(w_typ2, w_typ1)):
+        elif space.issubtype_w(w_typ2, w_typ1):
             # if typ2 is a subclass of typ1.
             w_obj1, w_obj2 = w_obj2, w_obj1
             w_left_impl, w_right_impl = w_right_impl, w_left_impl
