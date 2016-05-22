@@ -308,11 +308,12 @@ def initial_bchoices(guard_compat_descr, initial_gcref):
     # bchoices.bc_list[0].asmaddr: patch_guard_compatible()
     return bchoices
 
-def patch_guard_compatible(guard_token, sequel_label, gc_table_addr):
+def patch_guard_compatible(guard_token, rawstart, gc_table_addr):
     # go to the address in the gctable, number 'bindex'
     bindex = guard_token.guard_compat_bindex
     choices_addr = gc_table_addr + WORD * bindex
-    failure_recovery = guard_token.pos_recovery_stub
+    sequel_label = rawstart + guard_token.pos_jump_offset
+    failure_recovery = rawstart + guard_token.pos_recovery_stub
     gcmap = guard_token.gcmap
     # choices_addr:     points to bchoices in the GC table
     # sequel_label:     "sequel:" label above

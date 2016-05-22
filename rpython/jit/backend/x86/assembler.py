@@ -742,11 +742,11 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         # the field in question to point (initially) to the recovery stub
         clt = self.current_clt
         for tok in self.pending_guard_tokens:
-            addr = rawstart + tok.pos_jump_offset
             if tok.guard_compatible():
-                guard_compat.patch_guard_compatible(tok, addr,
+                guard_compat.patch_guard_compatible(tok, rawstart,
                                                     self.gc_table_addr)
                 continue
+            addr = rawstart + tok.pos_jump_offset
             tok.faildescr.adr_jump_offset = addr
             descr = tok.faildescr
             if descr.loop_version():
