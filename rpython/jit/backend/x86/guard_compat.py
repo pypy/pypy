@@ -1,14 +1,13 @@
 from rpython.rlib import rgc
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import r_uint
-from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.jit.backend.x86.arch import WORD, IS_X86_32, IS_X86_64
-from rpython.jit.backend.x86 import rx86, codebuf, valgrind
-from rpython.jit.backend.x86.regloc import X86_64_SCRATCH_REG, imm, eax, edx
-from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
-from rpython.jit.backend.llsupport.jitframe import GCMAP
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rtyper.lltypesystem.lloperation import llop
+from rpython.rtyper.annlowlevel import cast_instance_to_gcref
+from rpython.rtyper.annlowlevel import cast_gcref_to_instance
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.jit.backend.llsupport import jitframe
 from rpython.jit.metainterp.compile import GuardCompatibleDescr
-from rpython.jit.metainterp.history import BasicFailDescr
 
 
 #
@@ -154,17 +153,75 @@ from rpython.jit.metainterp.history import BasicFailDescr
 # ____________________________________________________________
 
 
-PAIR = lltype.Struct('PAIR', ('gcref', llmemory.GCREF,
-                              'asmaddr', lltype.Signed))
+PAIR = lltype.Struct('PAIR', ('gcref', llmemory.GCREF),
+                             ('asmaddr', lltype.Signed))
 BACKEND_CHOICES = lltype.GcStruct('BACKEND_CHOICES',
                         ('bc_gcmap', lltype.Ptr(jitframe.GCMAP)),
                         ('bc_faildescr', llmemory.GCREF),
                         ('bc_most_recent', PAIR),
                         ('bc_list', lltype.Array(PAIR)))
 
+@specialize.memo()
+def getofs(name):
+    return llmemory.offsetof(BACKEND_CHOICES, name)
+BCLISTLENGTHOFS = llmemory.arraylengthoffset(BACKEND_CHOICES.bc_list)
+BCLISTITEMSOFS = llmemory.itemoffsetof(BACKEND_CHOICES.bc_list, 0)
+PAIRSIZE = llmemory.sizeof(PAIR)
+
+def _real_number(ofs):    # hack
+    return rffi.cast(lltype.Signed, rffi.cast(lltype.Unsigned, ofs))
+
+def bchoices_pair(gc, pair_addr, callback, arg):
+    gcref_addr = pair_addr + llmemory.offsetof(PAIR, 'gcref')
+    old = gcref_addr.unsigned[0]
+    if old != r_uint(-1):
+        gc._trace_callback(callback, arg, gcref_addr)
+    new = gcref_addr.unsigned[0]
+    return old != new
+
+def bchoices_trace(gc, obj_addr, callback, arg):
+    gc._trace_callback(callback, arg, obj_addr + getofs('bc_faildescr'))
+    bchoices_pair(gc, obj_addr + getofs('bc_most_recent'), callback, arg)
+    length = (obj_addr + getofs('bc_list') + BCLISTLENGTHOFS).signed[0]
+    array_addr = obj_addr + getofs('bc_list') + BCLISTITEMSOFS
+    item_addr = array_addr
+    i = 0
+    changes = False
+    while i < length:
+        changes |= bchoices_pair(gc, item_addr, callback, arg)
+        item_addr += PAIRSIZE
+    if changes:
+        pairs_quicksort(array_addr, length)
+lambda_bchoices_trace = lambda: bchoices_trace
+
+eci = ExternalCompilationInfo(separate_module_sources=["""
+
+static int _pairs_compare(const void *p1, const void *p2)
+{
+    if (*(Unsigned *const *)p1 < *(Unsigned *const *)p2)
+        return -1;
+    else if (*(Unsigned *const *)p1 == *(Unsigned *const *)p2)
+        return 0;
+    else
+        return 1;
+}
+RPY_EXTERN
+void pypy_pairs_quicksort(void *base_addr, Signed length)
+{
+    qsort(base_addr, length, 2 * sizeof(void *), _pairs_compare);
+}
+"""])
+pairs_quicksort = rffi.llexternal('pypy_pairs_quicksort',
+                                  [llmemory.Address, lltype.Signed],
+                                  lltype.Void,
+                                  sandboxsafe=True,
+                                  _nowrapper=True,
+                                  compilation_info=eci)
+
 
 def invoke_find_compatible(bchoices, new_gcref):
     descr = bchoices.bc_faildescr
+    descr = cast_gcref_to_instance(GuardCompatibleDescr, descr)
     try:
         result = descr.find_compatible(cpu, new_gcref)
         if result == 0:
@@ -181,10 +238,17 @@ def invoke_find_compatible(bchoices, new_gcref):
         return descr._backend_failure_recovery
 
 def add_in_tree(bchoices, new_gcref, new_asmaddr):
+    rgc.register_custom_trace_hook(BACKEND_CHOICES, lambda_bchoices_trace)
     length = len(bchoices.bc_list)
-    if bchoices.bc_list[length - 1] != -1:
+    #
+    gcref_base = lltype.cast_opaque_ptr(llmemory.GCREF, bchoices)
+    ofs = getofs('bc_list') + BCLISTITEMSOFS
+    ofs += (length - 1) * llmemory.sizeof(PAIR)
+    ofs = _real_number(ofs)
+    if llop.raw_load(lltype.Unsigned, gcref_base, ofs) != r_uint(-1):
         # reallocate
-        new_bchoices = lltype.malloc(BACKEND_CHOICES, length * 2 + 1)
+        new_bchoices = lltype.malloc(BACKEND_CHOICES, length * 2 + 1, zero=True)
+        # --- no GC below: it would mess up the order of bc_list ---
         new_bchoices.bc_gcmap = bchoices.bc_gcmap
         new_bchoices.bc_faildescr = bchoices.bc_faildescr
         new_bchoices.bc_most_recent.gcref = bchoices.bc_most_recent.gcref
@@ -195,20 +259,56 @@ def add_in_tree(bchoices, new_gcref, new_asmaddr):
             new_bchoices.bc_list[i].asmaddr = bchoices.bc_list[i].asmaddr
             i += 1
         # fill the new pairs with the invalid gcref value -1
-        length *= 2
-        gcref_base = lltype.cast_opaque_ptr(llmemory.GCREF, new_bchoices)
+        length = len(new_bchoices.bc_list)
         ofs = (llmemory.offsetof(BACKEND_CHOICES, 'bc_list') +
-               llmemory.itemoffsetof(BACKEND_CHOICES.bc_list))
+               llmemory.itemoffsetof(BACKEND_CHOICES.bc_list) +
+               i * llmemory.sizeof(PAIR))
         while i < length:
-            llop.raw_store(lltype.Void, gcref_base, ofs, r_uint(-1))
+            invalidate_pair(new_bchoices, ofs)
             ofs += llmemory.sizeof(PAIR)
             i += 1
+        bchoices = new_bchoices
     #
     bchoices.bc_list[length - 1].gcref = new_gcref
-    bchoices.bc_list[length - 1].asmaddr = new_addr
-    quicksort(bchoices)
+    bchoices.bc_list[length - 1].asmaddr = new_asmaddr
+    # --- no GC above ---
+    addr = llmemory.cast_ptr_to_adr(bchoices)
+    addr += getofs('bc_list') + BCLISTITEMSOFS
+    pairs_quicksort(addr, length)
     return bchoices
 
+def initial_bchoices(guard_compat_descr, initial_gcref, gcmap):
+    bchoices = lltype.malloc(BACKEND_CHOICES, 1)
+    bchoices.bc_gcmap = gcmap
+    bchoices.bc_faildescr = cast_instance_to_gcref(guard_compat_descr)
+    bchoices.bc_most_recent.gcref = initial_gcref
+    # bchoices.bc_most_recent.asmaddr: later
+    bchoices.bc_list[0].gcref = initial_gcref
+    # bchoices.bc_list[0].asmaddr: later
+    return bchoices
+
+def finish_guard_compatible_descr(guard_compat_descr,
+            choices_addr,      # points to bchoices in the GC table
+            sequel_label,      # "sequel:" label above
+            failure_recovery): # failure recovery address
+    guard_compat_descr._backend_choices_addr = choices_addr
+    guard_compat_descr._backend_sequel_label = sequel_label
+    guard_compat_descr._backend_failure_recovery = failure_recovery
+    bchoices = rffi.cast(lltype.Ptr(BACKEND_CHOICES), choices_addr[0])
+    assert len(bchoices.bc_list) == 1
+    assert bchoices.bc_faildescr == cast_instance_to_gcref(guard_compat_descr)
+    bchoices.bc_most_recent.asmaddr = sequel_label
+    bchoices.bc_list[0].asmaddr = sequel_label
+
+def invalidate_pair(bchoices, pair_ofs):
+    gcref_base = lltype.cast_opaque_ptr(llmemory.GCREF, bchoices)
+    llop.raw_store(lltype.Void, gcref_base, _real_number(pair_ofs), r_uint(-1))
+    llop.raw_store(lltype.Void, gcref_base, _real_number(pair_ofs), r_uint(-1))
+
+def invalidate_cache(bchoices):
+    """Write -1 inside bchoices.bc_most_recent.gcref."""
+    ofs = llmemory.offsetof(BACKEND_CHOICES, 'bc_most_recent')
+    invalidate_pair(bchoices, ofs)
 
 
 

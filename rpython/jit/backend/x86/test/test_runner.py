@@ -13,7 +13,6 @@ from rpython.jit.metainterp.executor import execute
 from rpython.jit.backend.test.runner_test import LLtypeBackendTest
 from rpython.jit.tool.oparser import parse
 import ctypes
-from hypothesis import strategies, given
 
 CPU = getcpuclass()
 
@@ -556,52 +555,6 @@ class TestX86(LLtypeBackendTest):
             assert self.cpu.get_int_value(deadframe, 1) == 42
             assert self.cpu.get_int_value(deadframe, 2) == 42
             assert self.cpu.get_int_value(deadframe, 3) == 42
-
-    @given(strategies.integers(min_value=0, max_value=2),
-           strategies.integers(min_value=0, max_value=15),
-           strategies.lists(strategies.integers()))
-    def test_guard_compatible_extra(self, grow_position, update_asm, lst):
-        from rpython.jit.backend.x86 import guard_compat
-        saved = guard_compat.GROW_POSITION, guard_compat.UPDATE_ASM
-        try:
-            guard_compat.GROW_POSITION = grow_position
-            guard_compat.UPDATE_ASM = update_asm
-
-            t1_box, T1_box, d1 = self.alloc_instance(self.T)
-            faildescr1 = BasicFailDescr(1)
-            loop = parse("""
-            [p0]
-            guard_compatible(p0, ConstPtr(t1), descr=faildescr1) []
-            finish(p0, descr=fdescr)
-            """, namespace={'fdescr': BasicFinalDescr(2),
-                            'faildescr1': faildescr1,
-                            't1': t1_box._resref})
-            looptoken = JitCellToken()
-            self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
-
-            def run(box):
-                deadframe = self.cpu.execute_token(looptoken,
-                                                   box._resref)
-                fail = self.cpu.get_latest_descr(deadframe)
-                return fail.identifier
-
-            choices = {0: t1_box}
-
-            for operation in lst:
-                if operation >= 0 or (-operation) in choices:
-                    if operation in choices:
-                        assert run(choices[operation]) == 2
-                    else:
-                        t2_box, T2_box, d2 = self.alloc_instance(self.T)
-                        assert run(t2_box) == 1
-                else:
-                    t2_box, T2_box, d2 = self.alloc_instance(self.T)
-                    self.cpu.grow_guard_compatible_switch(
-                        looptoken.compiled_loop_token,
-                        faildescr1, t2_box._resref)
-                    choices[-operation] = t2_box
-        finally:
-            guard_compat.GROW_POSITION, guard_compat.UPDATE_ASM = saved
 
 
 class TestDebuggingAssembler(object):
