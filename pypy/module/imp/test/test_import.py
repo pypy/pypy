@@ -746,54 +746,6 @@ class AppTestImport(BaseImportTest):
             else:
                 raise AssertionError("should have failed")
 
-    def test_verbose_flag_1(self):
-        output = []
-        class StdErr(object):
-            def write(self, line):
-                output.append(line)
-
-        import sys, imp
-        old_flags = sys.flags
-
-        class Flags(object):
-            verbose = 1
-            def __getattr__(self, name):
-                return getattr(old_flags, name)
-
-        sys.flags = Flags()
-        sys.stderr = StdErr()
-        try:
-            import verbose1pkg.verbosemod
-        finally:
-            imp.reload(sys)
-        assert 'import verbose1pkg # ' in output[-2]
-        assert 'import verbose1pkg.verbosemod # ' in output[-1]
-
-    def test_verbose_flag_2(self):
-        output = []
-        class StdErr(object):
-            def write(self, line):
-                output.append(line)
-
-        import sys, imp
-        old_flags = sys.flags
-
-        class Flags(object):
-            verbose = 2
-            def __getattr__(self, name):
-                return getattr(old_flags, name)
-
-        sys.flags = Flags()
-        sys.stderr = StdErr()
-        try:
-            import verbose2pkg.verbosemod
-        finally:
-            imp.reload(sys)
-        assert any('import verbose2pkg # ' in line
-                   for line in output[:-2])
-        assert output[-2].startswith('# trying')
-        assert 'import verbose2pkg.verbosemod # ' in output[-1]
-
     def test_verbose_flag_0(self):
         output = []
         class StdErr(object):
