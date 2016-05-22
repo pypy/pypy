@@ -280,14 +280,14 @@ def output(name, dfa_class, dfa, states):
         if i == 0:
             lines.append("accepts = ")
         else:
-            lines.append("          ")
+            lines.append("           ")
         lines.append(line)
         lines.append("\n")
         i += 1
     import StringIO
     lines.append("states = [\n")
     for numstate, state in enumerate(states):
-        lines.append("    #")
+        lines.append("    # ")
         lines.append(str(numstate))
         lines.append("\n")
         s = StringIO.StringIO()
