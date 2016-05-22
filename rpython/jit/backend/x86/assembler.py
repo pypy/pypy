@@ -742,12 +742,12 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         # the field in question to point (initially) to the recovery stub
         clt = self.current_clt
         for tok in self.pending_guard_tokens:
+            addr = rawstart + tok.pos_jump_offset
+            tok.faildescr.adr_jump_offset = addr
             if tok.guard_compatible():
                 guard_compat.patch_guard_compatible(tok, rawstart,
                                                     self.gc_table_addr)
                 continue
-            addr = rawstart + tok.pos_jump_offset
-            tok.faildescr.adr_jump_offset = addr
             descr = tok.faildescr
             if descr.loop_version():
                 continue # patch them later
@@ -857,7 +857,12 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
 
     def patch_jump_for_descr(self, faildescr, adr_new_target):
         if isinstance(faildescr, guard_compat.GuardCompatibleDescr):
-            xxxxxxxxxx
+            # We must not patch the failure recovery stub of a
+            # GUARD_COMPATIBLE.  Instead, the new bridge just compiled
+            # is not attached, but will be later returned by a call to
+            # find_compatible().  Here, we must only invalidate the
+            # cache in the guard's bchoices.
+            guard_compat.invalidate_cache(faildescr)
             return
         adr_jump_offset = faildescr.adr_jump_offset
         assert adr_jump_offset != 0

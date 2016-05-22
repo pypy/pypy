@@ -308,6 +308,14 @@ def initial_bchoices(guard_compat_descr, initial_gcref):
     # bchoices.bc_list[0].asmaddr: patch_guard_compatible()
     return bchoices
 
+def descr_to_bchoices(descr):
+    assert isinstance(descr, GuardCompatibleDescr)
+    # ---no GC operation---
+    bchoices = llop.raw_load(lltype.Signed, descr._backend_choices_addr, 0)
+    bchoices = rffi.cast(lltype.Ptr(BACKEND_CHOICES), bchoices)
+    # ---no GC operation end---
+    return bchoices
+
 def patch_guard_compatible(guard_token, rawstart, gc_table_addr):
     # go to the address in the gctable, number 'bindex'
     bindex = guard_token.guard_compat_bindex
@@ -323,10 +331,8 @@ def patch_guard_compatible(guard_token, rawstart, gc_table_addr):
     guard_compat_descr._backend_choices_addr = choices_addr
     guard_compat_descr._backend_sequel_label = sequel_label
     guard_compat_descr._backend_failure_recovery = failure_recovery
-    # ---no GC operation---
-    bchoices = llop.raw_load(lltype.Signed, choices_addr, 0)
-    bchoices = rffi.cast(lltype.Ptr(BACKEND_CHOICES), bchoices)
-    # ---no GC operation end---
+    #
+    bchoices = descr_to_bchoices(guard_compat_descr)
     assert len(bchoices.bc_list) == 1
     assert (cast_gcref_to_instance(GuardCompatibleDescr, bchoices.bc_faildescr)
             is guard_compat_descr)
@@ -339,8 +345,9 @@ def invalidate_pair(bchoices, pair_ofs):
     llop.raw_store(lltype.Void, gcref_base, _real_number(pair_ofs), r_uint(-1))
     llop.raw_store(lltype.Void, gcref_base, _real_number(pair_ofs), r_uint(-1))
 
-def invalidate_cache(bchoices):
+def invalidate_cache(faildescr):
     """Write -1 inside bchoices.bc_most_recent.gcref."""
+    bchoices = descr_to_bchoices(faildescr)
     invalidate_pair(bchoices, BCMOSTRECENT)
 
 
