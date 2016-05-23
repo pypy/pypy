@@ -10,7 +10,8 @@ from rpython.jit.metainterp.compile import GuardCompatibleDescr
 from rpython.jit.backend.llsupport import jitframe
 from rpython.jit.backend.x86 import rx86, codebuf, regloc
 from rpython.jit.backend.x86.regalloc import gpr_reg_mgr_cls
-from rpython.jit.backend.x86.arch import WORD, DEFAULT_FRAME_BYTES
+from rpython.jit.backend.x86.arch import WORD, IS_X86_64, IS_X86_32
+from rpython.jit.backend.x86.arch import DEFAULT_FRAME_BYTES
 
 
 #
@@ -383,6 +384,7 @@ def _fix_forward_label(mc, jmp_location):
     mc.overwrite(jmp_location-1, chr(offset))
 
 def setup_once(assembler):
+    """Generate the 'search_tree' block of code"""
     rax = regloc.eax.value
     rdx = regloc.edx.value
     rdi = regloc.edi.value
@@ -394,39 +396,52 @@ def setup_once(assembler):
 
     mc = codebuf.MachineCodeBlockWrapper()
     mc.force_frame_size(frame_size)
+    if IS_X86_32:    # save edi as an extra scratch register
+        mc.MOV_sr(3*WORD, rdi)
+        r11 = rdi    # r11 doesn't exist on 32-bit, use "edi" instead
 
     ofs1 = _real_number(BCLIST + BCLISTLENGTHOFS)
     ofs2 = _real_number(BCLIST + BCLISTITEMSOFS)
-    mc.MOV_sr(16, rdx)                      # MOV [RSP+16], RDX
+    mc.MOV_sr(2*WORD, rdx)                  # MOV [RSP+16], RDX
     mc.MOV_rm(r11, (rdx, ofs1))             # MOV R11, [RDX + bc_list.length]
     mc.ADD_ri(rdx, ofs2)                    # ADD RDX, $bc_list.items
     mc.JMP_l8(0)                            # JMP loop
     jmp_location = mc.get_relative_pos()
     mc.force_frame_size(frame_size)
 
+    SH = 3 if IS_X86_64 else 2
+
     right_label = mc.get_relative_pos()
-    mc.LEA_ra(rdx, (rdx, r11, 3, 8))        # LEA RDX, [RDX + 8*R11 + 8]
+    mc.LEA_ra(rdx, (rdx, r11, SH, WORD))    # LEA RDX, [RDX + 8*R11 + 8]
     left_label = mc.get_relative_pos()
     mc.SHR_ri(r11, 1)                       # SHR R11, 1
     mc.J_il8(rx86.Conditions['Z'], 0)       # JZ not_found
     jz_location = mc.get_relative_pos()
 
     _fix_forward_label(mc, jmp_location)    # loop:
-    mc.CMP_ra(rax, (rdx, r11, 3, -8))       # CMP RAX, [RDX + 8*R11 - 8]
+    mc.CMP_ra(rax, (rdx, r11, SH, -WORD))   # CMP RAX, [RDX + 8*R11 - 8]
     mc.J_il8(rx86.Conditions['A'], right_label - (mc.get_relative_pos() + 2))
     mc.J_il8(rx86.Conditions['NE'], left_label - (mc.get_relative_pos() + 2))
 
-    mc.MOV_ra(r11, (rdx, r11, 3, 0))        # MOV R11, [RDX + 8*R11]
-    mc.MOV_rs(rdx, 16)                      # MOV RDX, [RSP+16]
+    mc.MOV_ra(r11, (rdx, r11, SH, 0))       # MOV R11, [RDX + 8*R11]
+    mc.MOV_rs(rdx, 2*WORD)                  # MOV RDX, [RSP+16]
     ofs = _real_number(BCMOSTRECENT)
     mc.MOV_mr((rdx, ofs), rax)              # MOV [RDX+bc_most_recent], RAX
-    mc.MOV_mr((rdx, ofs + 8), r11)          # MOV [RDX+bc_most_recent+8], R11
+    mc.MOV_mr((rdx, ofs+WORD), r11)         # MOV [RDX+bc_most_recent+8], R11
     mc.POP_r(rax)                           # POP RAX
     mc.POP_r(rdx)                           # POP RDX
-    mc.JMP_r(r11)                           # JMP *R11
+    if IS_X86_64:
+        mc.JMP_r(r11)                       # JMP *R11
+    elif IS_X86_32:
+        mc.MOV_sr(0, r11) # r11==rdi here
+        mc.MOV_rs(rdi, WORD)
+        mc.JMP_s(0)
     mc.force_frame_size(frame_size)
 
     _fix_forward_label(mc, jz_location)     # not_found:
+
+    if IS_X86_32:
+        mc.MOV_rs(rdi, 3*WORD)
 
     # read and pop the original RAX and RDX off the stack
     base_ofs = assembler.cpu.get_baseofs_of_frame_field()
@@ -438,22 +453,34 @@ def setup_once(assembler):
     assembler._push_all_regs_to_frame(mc, [regloc.eax, regloc.edx],
                                       withfloats=True)
 
-    mc.MOV_rs(rdi, 0)                       # MOV RDI, [RSP]
-    mc.MOV_rr(regloc.esi.value, rax)        # MOV RSI, RAX
-    mc.MOV_rr(regloc.edx.value,             # MOV RDX, RBP
-              regloc.ebp.value)
+    if IS_X86_64:
+        mc.MOV_rs(rdi, 0)                   # MOV RDI, [RSP]
+        mc.MOV_rr(regloc.esi.value, rax)    # MOV RSI, RAX
+        mc.MOV_rr(regloc.edx.value,         # MOV RDX, RBP
+                  regloc.ebp.value)
+    elif IS_X86_32:
+        # argument #1 is already in [ESP]
+        mc.MOV_sr(1 * WORD, rax)
+        mc.MOV_sr(2 * WORD, regloc.ebp.value)
+
     invoke_find_compatible = make_invoke_find_compatible(assembler.cpu)
     llfunc = llhelper(INVOKE_FIND_COMPATIBLE_FUNC, invoke_find_compatible)
     llfunc = assembler.cpu.cast_ptr_to_int(llfunc)
     mc.CALL(regloc.imm(llfunc))             # CALL invoke_find_compatible
     assembler._reload_frame_if_necessary(mc)
-    mc.MOV_rr(r11, rax)                     # MOV R11, RAX
+    if IS_X86_64:
+        mc.MOV_rr(r11, rax)                 # MOV R11, RAX
+    elif IS_X86_32:
+        mc.MOV_sr(0, rax)
 
     # restore the registers that the CALL has clobbered, plus the ones
     # containing GC pointers that may have moved.  That means we just
-    # restore them all.  (We restore RAX and RDX too.)
+    # restore them all.  (We restore RAX and RDX and RDI too.)
     assembler._pop_all_regs_from_frame(mc, [], withfloats=True)
-    mc.JMP_r(r11)                           # JMP *R11
+    if IS_X86_64:
+        mc.JMP_r(r11)                       # JMP *R11
+    elif IS_X86_32:
+        mc.JMP_s(0)
 
     assembler.guard_compat_search_tree = mc.materialize(assembler.cpu, [])
 

@@ -671,6 +671,7 @@ class AbstractX86CodeBuilder(object):
     JM1_l = insn('\xE9', relative(1))
     JM1_r = insn(rex_nw, '\xFF', orbyte(4<<3), register(1), '\xC0')
     JM1_m = insn(rex_nw, '\xFF', orbyte(4<<3), mem_reg_plus_const(1))
+    JM1_s = insn(rex_nw, '\xFF', orbyte(4<<3), stack_sp(1))
     # FIXME: J_il8 and JMP_l8 assume the caller will do the appropriate
     # calculation to find the displacement, but J_il does it for the caller.
     # We need to be consistent.
@@ -690,6 +691,11 @@ class AbstractX86CodeBuilder(object):
 
     def JMP_m(self, mem):
         self.JM1_m(mem)
+        if not we_are_translated():
+            self._frame_size = None
+
+    def JMP_s(self, ofs):
+        self.JM1_s(ofs)
         if not we_are_translated():
             self._frame_size = None
 

@@ -77,14 +77,19 @@ def test_guard_compat():
     for i in range(4 * WORD):
         mc.writechar('\x00')   # 4 gctable entries; 'bchoices' will be #3
     #
+    if IS_X86_64:
+        mc.MOV(regloc.edx, regloc.edi)
+        mc.MOV(regloc.eax, regloc.esi)
+    elif IS_X86_32:
+        mc.MOV_rs(regloc.edx.value, 4)
+        mc.MOV_rs(regloc.eax.value, 8)
+    #
     mc.PUSH(regloc.ebp)
     mc.SUB(regloc.esp, regloc.imm(448 - 2*WORD)) # make a frame, and align stack
     mc.LEA_rs(regloc.ebp.value, 48)
     #
     mc.PUSH(regloc.imm(0xdddd))
     mc.PUSH(regloc.imm(0xaaaa))
-    mc.MOV(regloc.edx, regloc.edi)
-    mc.MOV(regloc.eax, regloc.esi)
     mc.JMP(regloc.imm(cpu.assembler.guard_compat_search_tree))
     sequel = mc.get_relative_pos()
     #
