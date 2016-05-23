@@ -187,7 +187,7 @@ class W_Root(object):
     def _get_mapdict_map(self):
         return None
     def _get_mapdict_map_no_promote(self):
-        return None
+        raise TypeError
     def _set_mapdict_map(self, map):
         raise NotImplementedError
     def _mapdict_read_storage(self, index):

@@ -1104,7 +1104,7 @@ class GuardCompatibleDescr(ResumeGuardDescr):
         for _compatibility_conditions in self.other_compat_conditions:
             if _compatibility_conditions.check_compat_and_activate(
                     cpu, ref, self.rd_loop_token):
-                return self._compatibility_conditions.jump_target
+                return _compatibility_conditions.jump_target
         return 0
 
     def compile_and_attach(self, metainterp, new_loop, orig_inputargs):

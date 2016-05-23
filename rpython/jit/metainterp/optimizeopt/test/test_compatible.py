@@ -32,6 +32,22 @@ class TestCompatible(BaseTestBasic, LLtypeMixin):
         """
         self.optimize_loop(ops, expected)
 
+    def test_guard_compatible_and_guard_nonnull(self):
+        ops = """
+        [p1]
+        guard_nonnull(p1, ConstClass(node_vtable)) []
+        guard_compatible(p1, ConstPtr(myptr)) []
+        guard_nonnull(p1, ConstClass(node_vtable)) []
+        jump(ConstPtr(myptr))
+        """
+        expected = """
+        [p1]
+        guard_nonnull(p1, ConstClass(node_vtable)) []
+        guard_compatible(p1, ConstPtr(myptr)) []
+        jump(ConstPtr(myptr))
+        """
+        self.optimize_loop(ops, expected)
+
     def test_guard_compatible_and_guard_class(self):
         ops = """
         [p1]

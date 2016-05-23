@@ -17,6 +17,8 @@ erase_item, unerase_item = rerased.new_erasing_pair("mapdict storage item")
 erase_map,  unerase_map = rerased.new_erasing_pair("map")
 erase_list, unerase_list = rerased.new_erasing_pair("mapdict storage list")
 
+def check_not_none(s_arg, bk):
+    assert not s_arg.can_be_none()
 
 # ____________________________________________________________
 # attribute shapes
@@ -698,13 +700,15 @@ class MapdictStorageMixin(object):
     def _get_mapdict_map(self):
         return jit.promote(self.map)
     def _get_mapdict_map_no_promote(self):
+        debug.check_annotation(self.map, check_not_none)
         return self.map
     def _set_mapdict_map(self, map):
+        assert map is not None
         self.map = map
 
     def _mapdict_init_empty(self, map):
         from rpython.rlib.debug import make_sure_not_resized
-        self.map = map
+        self._set_mapdict_map(map)
         self.storage = make_sure_not_resized([None] * map.size_estimate())
 
     def _mapdict_read_storage(self, storageindex):
@@ -719,7 +723,7 @@ class MapdictStorageMixin(object):
 
     def _set_mapdict_storage_and_map(self, storage, map):
         self.storage = storage
-        self.map = map
+        self._set_mapdict_map(map)
 
 class ObjectWithoutDict(W_Root):
     # mainly for tests
@@ -750,14 +754,16 @@ def _make_storage_mixin_size_n(n=SUBCLASSES_NUM_FIELDS):
         def _get_mapdict_map(self):
             return jit.promote(self.map)
         def _get_mapdict_map_no_promote(self):
+            debug.check_annotation(self.map, check_not_none)
             return self.map
         def _set_mapdict_map(self, map):
+            assert map is not None
             self.map = map
         def _mapdict_init_empty(self, map):
             for i in rangenmin1:
                 setattr(self, "_value%s" % i, None)
             setattr(self, valnmin1, erase_item(None))
-            self.map = map
+            self._set_mapdict_map(map)
 
         def _has_storage_list(self):
             return self.map._length_larger_than(n)
@@ -793,7 +799,7 @@ def _make_storage_mixin_size_n(n=SUBCLASSES_NUM_FIELDS):
             return n
 
         def _set_mapdict_storage_and_map(self, storage, map):
-            self.map = map
+            self._set_mapdict_map(map)
             len_storage = len(storage)
             for i in rangenmin1:
                 if i < len_storage:
@@ -1151,17 +1157,18 @@ def LOOKUP_METHOD_mapdict_fill_cache_method(space, pycode, name, nameindex,
 @objectmodel.specialize.arg_or_var(2)
 def mapdict_lookup(space, w_obj, name):
     if we_are_jitted():
-        map = w_obj._get_mapdict_map_no_promote()
-        if map is not None:
+        if w_obj.user_overridden_class:
+            map = w_obj._get_mapdict_map_no_promote()
             return map._type_lookup(name)
     return space._lookup(w_obj, name)
 
 
 def mapdict_type_isinstance(space, w_obj, w_type):
     if we_are_jitted():
-        map = w_obj._get_mapdict_map_no_promote()
-        if map is not None and map.version is not None:
-            version_tag = w_type.version_tag()
-            if version_tag is not None:
-                return map._type_issubtype(w_type)
+        if w_obj.user_overridden_class:
+            map = w_obj._get_mapdict_map_no_promote()
+            if map.version is not None:
+                version_tag = w_type.version_tag()
+                if version_tag is not None:
+                    return map._type_issubtype(w_type)
     return space.type(w_obj).issubtype(w_type)

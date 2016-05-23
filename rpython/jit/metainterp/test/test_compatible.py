@@ -45,6 +45,51 @@ class TestCompatible(LLJitMixin):
         # trace, two bridges, a finish bridge
         self.check_trace_count(4)
 
+    def test_simple_check_values(self):
+        S = lltype.GcStruct('S', ('x', lltype.Signed))
+        p1 = lltype.malloc(S)
+        p1.x = 5
+
+        p2 = lltype.malloc(S)
+        p2.x = 5
+
+        p3 = lltype.malloc(S)
+        p3.x = 6
+        driver = jit.JitDriver(greens = [], reds = ['n', 's', 'x'])
+
+        class A(object):
+            pass
+
+        c = A()
+        c.count = 0
+        @jit.elidable_compatible()
+        def g(s, ignored):
+            c.count += 1
+            return s.x
+
+        def f(n, x):
+            s = 0
+            while n > 0:
+                driver.can_enter_jit(n=n, x=x, s=s)
+                driver.jit_merge_point(n=n, x=x, s=s)
+                diff = g(x, "abc")
+                n -= 1
+                s += diff
+            return s
+
+        def main():
+            g(p1, "def") # make annotator not make argument constant
+            n = f(100, p1)
+            n += f(100, p2)
+            n += f(100, p3)
+            return n
+
+        x = self.meta_interp(main, [])
+
+        assert x == main()
+        # trace, two bridges, a finish bridge
+        self.check_trace_count(4)
+
     def test_exception(self):
         S = lltype.GcStruct('S', ('x', lltype.Signed))
         p1 = lltype.malloc(S)
