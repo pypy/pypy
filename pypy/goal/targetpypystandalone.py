@@ -350,7 +350,15 @@ class PyPyTarget(object):
         filename = os.path.join(pypydir, 'interpreter', 'app_main.py')
         app = gateway.applevel(open(filename).read(), 'app_main.py', 'app_main')
         app.hidden_applevel = False
-        w_dict = app.getwdict(space)
+        try:
+            w_dict = app.getwdict(space)
+        except OperationError as e:
+            # XXX:
+            debug("OperationError:")
+            debug(" operror-type: " + e.w_type.getname(space).encode('utf-8'))
+            debug(" operror-value: " + space.str_w(space.str(e.get_w_value(space))))
+            e.print_detailed_traceback(space)
+            raise
         entry_point, _ = create_entry_point(space, w_dict)
 
         return entry_point, None, PyPyAnnotatorPolicy()
