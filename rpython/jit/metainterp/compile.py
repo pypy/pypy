@@ -1081,6 +1081,9 @@ class GuardCompatibleDescr(ResumeGuardDescr):
     """ A descr for guard_compatible. All the conditions that a value should
     fulfil need to be attached to this descr by optimizeopt. """
 
+    _compatibility_conditions = None
+    other_compat_conditions = []
+
     def __init__(self):
         # XXX think about what is being kept alive here
         self._compatibility_conditions = None
