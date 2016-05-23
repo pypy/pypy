@@ -216,6 +216,7 @@ def bchoices_trace(gc, obj_addr, callback, arg):
     while i < length:
         changes |= bchoices_pair(gc, item_addr, callback, arg)
         item_addr += PAIRSIZE
+        i += 1
     if changes:
         pairs_quicksort(array_addr, length)
 lambda_bchoices_trace = lambda: bchoices_trace
@@ -328,9 +329,9 @@ def initial_bchoices(guard_compat_descr, initial_gcref):
     bchoices = lltype.malloc(BACKEND_CHOICES, 1)
     bchoices.bc_faildescr = cast_instance_to_gcref(guard_compat_descr)
     bchoices.bc_most_recent.gcref = gcref_to_unsigned(initial_gcref)
-    # bchoices.bc_most_recent.asmaddr: patch_guard_compatible()
+    bchoices.bc_most_recent.asmaddr = -43  # patch_guard_compatible()
     bchoices.bc_list[0].gcref = gcref_to_unsigned(initial_gcref)
-    # bchoices.bc_list[0].asmaddr: patch_guard_compatible()
+    bchoices.bc_list[0].asmaddr = -43  # patch_guard_compatible()
     llop.gc_writebarrier(lltype.Void, bchoices)
     return bchoices
 
