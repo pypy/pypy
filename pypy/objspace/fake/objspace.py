@@ -291,6 +291,11 @@ class FakeObjSpace(ObjSpace):
     def type(self, w_obj):
         return w_some_type()
 
+    def issubtype_w(self, w_sub, w_type):
+        is_root(w_sub)
+        is_root(w_type)
+        return NonConstant(True)
+
     def isinstance_w(self, w_inst, w_type):
         is_root(w_inst)
         is_root(w_type)

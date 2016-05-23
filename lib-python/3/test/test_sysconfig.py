@@ -239,7 +239,7 @@ class TestSysConfig(unittest.TestCase):
 
     def test_get_scheme_names(self):
         wanted = ('nt', 'nt_user', 'os2', 'os2_home', 'osx_framework_user',
-                  'posix_home', 'posix_prefix', 'posix_user')
+                  'posix_home', 'posix_prefix', 'posix_user', 'pypy')
         self.assertEqual(get_scheme_names(), wanted)
 
     @skip_unless_symlink
@@ -345,6 +345,7 @@ class TestSysConfig(unittest.TestCase):
             self.assertEqual(status, 0)
             self.assertEqual(my_platform, test_platform)
 
+    @impl_detail("Test is not PyPy compatible", pypy=False)
     def test_srcdir(self):
         # See Issues #15322, #15364.
         srcdir = sysconfig.get_config_var('srcdir')
@@ -379,7 +380,7 @@ class TestSysConfig(unittest.TestCase):
 
 class MakefileTests(unittest.TestCase):
 
-    @impl_detail("PyPy lacks sysconfig.get_makefile_filename", pypy=False)
+    @impl_detail("Test is not PyPy compatible", pypy=False)
     @unittest.skipIf(sys.platform.startswith('win'),
                      'Test is not Windows compatible')
     def test_get_makefile_filename(self):

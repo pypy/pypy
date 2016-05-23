@@ -539,8 +539,6 @@ class UserDelAction(AsyncAction):
         self.pending_with_disabled_del = None
 
     def perform(self, executioncontext, frame):
-        if self.finalizers_lock_count > 0:
-            return
         self._run_finalizers()
 
     @jit.dont_look_inside

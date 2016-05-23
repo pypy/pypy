@@ -595,7 +595,7 @@ class ObjSpace(object):
         bootstrap_modules = set(('sys', 'imp', 'builtins', 'exceptions'))
         if sys.platform.startswith("win"):
             self.setbuiltinmodule('_winreg')
-            bootstrap_modules.add('winreg')
+            bootstrap_modules.add('_winreg')
         installed_builtin_modules = list(bootstrap_modules)
 
         exception_types_w = self.export_builtin_exceptions()
@@ -1206,7 +1206,7 @@ class ObjSpace(object):
 
     def abstract_issubclass_w(self, w_cls1, w_cls2):
         # Equivalent to 'issubclass(cls1, cls2)'.
-        return self.is_true(self.issubtype(w_cls1, w_cls2))
+        return self.issubtype_w(w_cls1, w_cls2)
 
     def abstract_isinstance_w(self, w_obj, w_cls):
         # Equivalent to 'isinstance(obj, cls)'.
@@ -1236,16 +1236,16 @@ class ObjSpace(object):
     def exception_is_valid_obj_as_class_w(self, w_obj):
         if not self.isinstance_w(w_obj, self.w_type):
             return False
-        return self.is_true(self.issubtype(w_obj, self.w_BaseException))
+        return self.issubtype_w(w_obj, self.w_BaseException)
 
     def exception_is_valid_class_w(self, w_cls):
-        return self.is_true(self.issubtype(w_cls, self.w_BaseException))
+        return self.issubtype_w(w_cls, self.w_BaseException)
 
     def exception_getclass(self, w_obj):
         return self.type(w_obj)
 
     def exception_issubclass_w(self, w_cls1, w_cls2):
-        return self.is_true(self.issubtype(w_cls1, w_cls2))
+        return self.issubtype_w(w_cls1, w_cls2)
 
     def new_exception_class(self, *args, **kwargs):
         "NOT_RPYTHON; convenience method to create excceptions in modules"

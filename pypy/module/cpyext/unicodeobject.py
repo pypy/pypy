@@ -233,7 +233,7 @@ def PyUnicode_AsUnicode(space, ref):
     buffer, NULL if unicode is not a Unicode object."""
     # Don't use PyUnicode_Check, it will realize the object :-(
     w_type = from_ref(space, rffi.cast(PyObject, ref.c_ob_type))
-    if not space.is_true(space.issubtype(w_type, space.w_unicode)):
+    if not space.issubtype_w(w_type, space.w_unicode):
         raise oefmt(space.w_TypeError, "expected unicode object")
     return PyUnicode_AS_UNICODE(space, rffi.cast(rffi.VOIDP, ref))
 

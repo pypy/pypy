@@ -445,7 +445,7 @@ class W_TypeObject(W_Root):
         cached_version_tag = cache.versions[method_hash]
         if cached_version_tag is version_tag:
             cached_name = cache.names[method_hash]
-            if cached_name is name:
+            if cached_name == name:
                 tup = cache.lookup_where[method_hash]
                 if space.config.objspace.std.withmethodcachecounter:
                     cache.hits[name] = cache.hits.get(name, 0) + 1
@@ -710,9 +710,9 @@ def _calculate_metaclass(space, w_metaclass, bases_w):
     w_winner = w_metaclass
     for base in bases_w:
         w_typ = space.type(base)
-        if space.is_true(space.issubtype(w_winner, w_typ)):
+        if space.issubtype_w(w_winner, w_typ):
             continue
-        if space.is_true(space.issubtype(w_typ, w_winner)):
+        if space.issubtype_w(w_typ, w_winner):
             w_winner = w_typ
             continue
         msg = ("metaclass conflict: the metaclass of a derived class must be "

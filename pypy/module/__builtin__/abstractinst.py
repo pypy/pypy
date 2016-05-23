@@ -73,11 +73,10 @@ def abstract_isinstance_w(space, w_obj, w_klass_or_tuple, allow_override=False):
         try:
             if space.is_w(w_pretendtype, space.type(w_obj)):
                 return False     # common case: obj.__class__ is type(obj)
-            if allow_override:
-                w_result = space.issubtype_allow_override(w_pretendtype,
-                                                          w_klass_or_tuple)
-            else:
-                w_result = space.issubtype(w_pretendtype, w_klass_or_tuple)
+            if not allow_override:
+                return space.issubtype_w(w_pretendtype, w_klass_or_tuple)
+            w_result = space.issubtype_allow_override(w_pretendtype,
+                                                      w_klass_or_tuple)
         except OperationError as e:
             if e.async(space):
                 raise
@@ -130,11 +129,9 @@ def abstract_issubclass_w(space, w_derived, w_klass_or_tuple,
 
     # -- case (type, type)
     try:
-        if allow_override:
-            w_result = space.issubtype_allow_override(w_derived,
-                                                      w_klass_or_tuple)
-        else:
-            w_result = space.issubtype(w_derived, w_klass_or_tuple)
+        if not allow_override:
+            return space.issubtype_w(w_derived, w_klass_or_tuple)
+        w_result = space.issubtype_allow_override(w_derived, w_klass_or_tuple)
     except OperationError as e:   # if one of the args was not a type, ignore it
         if not e.match(space, space.w_TypeError):
             raise       # propagate other errors
