@@ -585,12 +585,13 @@ The mode argument can be F_OK to test existence, or the inclusive-OR
             raise argument_unavailable(space, "access", "effective_ids")
 
     try:
-        if dir_fd == DEFAULT_DIR_FD and follow_symlinks and not effective_ids:
-            ok = dispatch_filename(rposix.access)(space, w_path, mode)
-        else:
+        if (rposix.HAVE_FACCESSAT and
+            dir_fd != DEFAULT_DIR_FD or not follow_symlinks or effective_ids):
             path = space.fsencode_w(w_path)
             ok = rposix.faccessat(path, mode,
                 dir_fd, effective_ids, follow_symlinks)
+        else:
+            ok = dispatch_filename(rposix.access)(space, w_path, mode)
     except OSError as e:
         raise wrap_oserror2(space, e, w_path)
     else:
@@ -635,11 +636,11 @@ If dir_fd is not None, it should be a file descriptor open to a directory,
 dir_fd may not be implemented on your platform.
   If it is unavailable, using it will raise a NotImplementedError."""
     try:
-        if dir_fd == DEFAULT_DIR_FD:
-            dispatch_filename(rposix.unlink)(space, w_path)
-        else:
+        if rposix.HAVE_UNLINKAT and dir_fd != DEFAULT_DIR_FD:
             path = space.fsencode_w(w_path)
             rposix.unlinkat(path, dir_fd, removedir=False)
+        else:
+            dispatch_filename(rposix.unlink)(space, w_path)
     except OSError as e:
         raise wrap_oserror2(space, e, w_path)
 
@@ -654,11 +655,11 @@ If dir_fd is not None, it should be a file descriptor open to a directory,
 dir_fd may not be implemented on your platform.
   If it is unavailable, using it will raise a NotImplementedError."""
     try:
-        if dir_fd == DEFAULT_DIR_FD:
-            dispatch_filename(rposix.unlink)(space, w_path)
-        else:
+        if rposix.HAVE_UNLINKAT and dir_fd != DEFAULT_DIR_FD:
             path = space.fsencode_w(w_path)
             rposix.unlinkat(path, dir_fd, removedir=False)
+        else:
+            dispatch_filename(rposix.unlink)(space, w_path)
     except OSError as e:
         raise wrap_oserror2(space, e, w_path)
 
@@ -721,11 +722,11 @@ dir_fd may not be implemented on your platform.
 
 The mode argument is ignored on Windows."""
     try:
-        if dir_fd == DEFAULT_DIR_FD:
-            dispatch_filename(rposix.mkdir)(space, w_path, mode)
-        else:
+        if rposix.HAVE_MKDIRAT and dir_fd != DEFAULT_DIR_FD:
             path = space.fsencode_w(w_path)
             rposix.mkdirat(path, mode, dir_fd)
+        else:
+            dispatch_filename(rposix.mkdir)(space, w_path, mode)
     except OSError as e:
         raise wrap_oserror2(space, e, w_path)
 
@@ -976,7 +977,8 @@ If either src_dir_fd or dst_dir_fd is not None, it should be a file
 src_dir_fd and dst_dir_fd, may not be implemented on your platform.
   If they are unavailable, using them will raise a NotImplementedError."""
     try:
-        if (src_dir_fd != DEFAULT_DIR_FD or dst_dir_fd != DEFAULT_DIR_FD):
+        if (rposix.HAVE_RENAMEAT and
+            (src_dir_fd != DEFAULT_DIR_FD or dst_dir_fd != DEFAULT_DIR_FD)):
             src = space.fsencode_w(w_src)
             dst = space.fsencode_w(w_dst)
             rposix.renameat(src, dst, src_dir_fd, dst_dir_fd)
@@ -999,7 +1001,8 @@ If either src_dir_fd or dst_dir_fd is not None, it should be a file
 src_dir_fd and dst_dir_fd, may not be implemented on your platform.
   If they are unavailable, using them will raise a NotImplementedError."""
     try:
-        if (src_dir_fd != DEFAULT_DIR_FD or dst_dir_fd != DEFAULT_DIR_FD):
+        if (rposix.HAVE_RENAMEAT and
+            (src_dir_fd != DEFAULT_DIR_FD or dst_dir_fd != DEFAULT_DIR_FD)):
             src = space.fsencode_w(w_src)
             dst = space.fsencode_w(w_dst)
             rposix.renameat(src, dst, src_dir_fd, dst_dir_fd)
@@ -1110,8 +1113,9 @@ src_dir_fd, dst_dir_fd, and follow_symlinks may not be implemented on your
   platform.  If they are unavailable, using them will raise a
   NotImplementedError."""
     try:
-        if (src_dir_fd != DEFAULT_DIR_FD or dst_dir_fd != DEFAULT_DIR_FD
-                or not follow_symlinks):
+        if (rposix.HAVE_LINKAT and
+            (src_dir_fd != DEFAULT_DIR_FD or dst_dir_fd != DEFAULT_DIR_FD
+             or not follow_symlinks)):
             rposix.linkat(src, dst, src_dir_fd, dst_dir_fd, follow_symlinks)
         else:
             rposix.link(src, dst)
