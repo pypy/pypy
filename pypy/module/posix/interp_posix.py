@@ -1136,12 +1136,12 @@ If dir_fd is not None, it should be a file descriptor open to a directory,
 dir_fd may not be implemented on your platform.
   If it is unavailable, using it will raise a NotImplementedError."""
     try:
-        if dir_fd == DEFAULT_DIR_FD:
-            dispatch_filename_2(rposix.symlink)(space, w_src, w_dst)
-        else:
+        if rposix.HAVE_SYMLINKAT and dir_fd != DEFAULT_DIR_FD:
             src = space.fsencode_w(w_src)
             dst = space.fsencode_w(w_dst)
             rposix.symlinkat(src, dst, dir_fd)
+        else:
+            dispatch_filename_2(rposix.symlink)(space, w_src, w_dst)
     except OSError as e:
         raise wrap_oserror(space, e)
 
@@ -1159,10 +1159,10 @@ If dir_fd is not None, it should be a file descriptor open to a directory,
 dir_fd may not be implemented on your platform.
   If it is unavailable, using it will raise a NotImplementedError."""
     try:
-        if dir_fd == DEFAULT_DIR_FD:
-            result = call_rposix(rposix.readlink, path)
-        else:
+        if rposix.HAVE_READLINKAT and dir_fd != DEFAULT_DIR_FD:
             result = call_rposix(rposix.readlinkat, path, dir_fd)
+        else:
+            result = call_rposix(rposix.readlink, path)
     except OSError as e:
         raise wrap_oserror2(space, e, path.w_path)
     w_result = space.wrapbytes(result)
