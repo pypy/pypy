@@ -195,6 +195,7 @@ PAIRSIZE = llmemory.sizeof(PAIR)
 def _real_number(ofs):    # hack
     return rffi.cast(lltype.Signed, rffi.cast(lltype.Unsigned, ofs))
 
+@specialize.arg(2)
 def bchoices_pair(gc, pair_addr, callback, arg):
     gcref_addr = pair_addr + llmemory.offsetof(PAIR, 'gcref')
     old = gcref_addr.unsigned[0]
@@ -218,7 +219,10 @@ def bchoices_trace(gc, obj_addr, callback, arg):
         pairs_quicksort(array_addr, length)
 lambda_bchoices_trace = lambda: bchoices_trace
 
-eci = ExternalCompilationInfo(separate_module_sources=["""
+eci = ExternalCompilationInfo(post_include_bits=["""
+RPY_EXTERN void pypy_pairs_quicksort(void *base_addr, Signed length);
+"""], separate_module_sources=["""
+#include <stdlib.h>
 
 static int _pairs_compare(const void *p1, const void *p2)
 {

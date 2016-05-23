@@ -204,3 +204,120 @@ def test_guards_translated_with_gctypeptr():
 
 def test_guards_translated_without_gctypeptr():
     run_guards_translated(gcremovetypeptr=True)
+
+
+# ____________________________________________________________
+
+
+def test_guard_compatible_translated():
+    from rpython.jit.metainterp.compile import GuardCompatibleDescr
+
+    def main(argv):
+        return 0
+
+    t = TranslationContext()
+    t.config.translation.gc = "minimark"
+    ann = t.buildannotator()
+    ann.build_types(main, [s_list_of_strings], main_entry_point=True)
+    rtyper = t.buildrtyper()
+    rtyper.specialize()
+
+    CPU = getcpuclass()
+    cpu = CPU(rtyper, NoStats(),
+              translate_support_code=True,
+              gcdescr=get_description(t.config))
+    execute_token = cpu.make_execute_token(llmemory.GCREF)
+    finaldescr = BasicFinalDescr()
+
+    class Global:
+        pass
+    glob = Global()
+
+    class BasicCompatibleDescr(GuardCompatibleDescr):
+        def find_compatible(self, cpu, value):
+            glob.seen = value
+            if self._r_is_compatible:
+                print 'find_compatible() returning -1'
+                return -1       # continue running in the main loop
+            else:
+                print 'find_compatible() returning 0'
+                return 0        # fail
+        def make_a_counter_per_value(self, *args):
+            pass
+    guardcompatdescr_yes = BasicCompatibleDescr()
+    guardcompatdescr_no = BasicCompatibleDescr()
+    guardcompatdescr_yes._r_is_compatible = True
+    guardcompatdescr_no._r_is_compatible = False
+
+    A = lltype.GcStruct('A')
+    prebuilt_A = lltype.malloc(A, immortal=True)
+    gcref_prebuilt_A = lltype.cast_opaque_ptr(llmemory.GCREF, prebuilt_A)
+    never_A = lltype.malloc(A, immortal=True)
+    gcref_never_A = lltype.cast_opaque_ptr(llmemory.GCREF, prebuilt_A)
+
+    loop1 = parse("""
+    [p0]
+    guard_compatible(p0, ConstPtr(prebuilt_A), descr=guardcompatdescr) [p0]
+    finish(p0, descr=finaldescr)
+    """, namespace={'finaldescr': finaldescr,
+                    'guardcompatdescr': guardcompatdescr_yes,
+                    'prebuilt_A': gcref_prebuilt_A})
+
+    loop2 = parse("""
+    [p0]
+    guard_compatible(p0, ConstPtr(prebuilt_A), descr=guardcompatdescr) [p0]
+    finish(p0, descr=finaldescr)
+    """, namespace={'finaldescr': finaldescr,
+                    'guardcompatdescr': guardcompatdescr_no,
+                    'prebuilt_A': gcref_prebuilt_A})
+
+    def g():
+        cpu.setup_once()
+        token1 = JitCellToken()
+        token2 = JitCellToken()
+        cpu.compile_loop(loop1.inputargs, loop1.operations, token1)
+        cpu.compile_loop(loop2.inputargs, loop2.operations, token2)
+
+        for token in [token1, token2]:
+            for a in [prebuilt_A, lltype.nullptr(A), lltype.malloc(A)]:
+                glob.seen = gcref_never_A
+                p0 = lltype.cast_opaque_ptr(llmemory.GCREF, a)
+                frame = execute_token(token, p0)
+                assert cpu.get_ref_value(frame, 0) == p0
+                descr = cpu.get_latest_descr(frame)
+                if descr is finaldescr:
+                    print 'match'
+                elif descr is guardcompatdescr_no:
+                    print 'fail'
+                else:
+                    print '???'
+                if glob.seen != gcref_never_A:
+                    if glob.seen == p0:
+                        print 'seen ok'
+                    else:
+                        print 'seen BAD VALUE!'
+
+
+    call_initial_function(t, g)
+
+    cbuilder = genc.CStandaloneBuilder(t, main, t.config)
+    cbuilder.generate_source(defines=cbuilder.DEBUG_DEFINES)
+    cbuilder.compile()
+
+    data = cbuilder.cmdexec('')
+    assert data == ('match\n'
+                    'find_compatible() returning -1\n'
+                    'match\n'
+                    'seen ok\n'
+                    'find_compatible() returning -1\n'
+                    'match\n'
+                    'seen ok\n'
+
+                    'match\n'
+                    'find_compatible() returning 0\n'
+                    'fail\n'
+                    'seen ok\n'
+                    'find_compatible() returning 0\n'
+                    'fail\n'
+                    'seen ok\n'
+                    )
