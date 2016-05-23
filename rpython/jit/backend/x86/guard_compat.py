@@ -419,10 +419,10 @@ def setup_once(assembler):
 
     # read and pop the original RAX and RDX off the stack
     base_ofs = assembler.cpu.get_baseofs_of_frame_field()
-    v = gpr_reg_mgr_cls.all_reg_indexes[rdx]
-    mc.POP_b(v * WORD + base_ofs)           # POP [RBP + saved_rdx]
     v = gpr_reg_mgr_cls.all_reg_indexes[rax]
     mc.POP_b(v * WORD + base_ofs)           # POP [RBP + saved_rax]
+    v = gpr_reg_mgr_cls.all_reg_indexes[rdx]
+    mc.POP_b(v * WORD + base_ofs)           # POP [RBP + saved_rdx]
     # save all other registers to the jitframe RBP
     assembler._push_all_regs_to_frame(mc, [regloc.eax, regloc.edx],
                                       withfloats=True)
