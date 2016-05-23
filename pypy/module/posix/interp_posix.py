@@ -1449,7 +1449,18 @@ dir_fd and follow_symlinks may not be available on your platform.
             raise wrap_oserror(space, e)
 
     if not follow_symlinks:
-        raise argument_unavailable(space, "utime", "follow_symlinks")
+        if not rposix.HAVE_LUTIMES:
+            raise argument_unavailable(space, "utime", "follow_symlinks")
+        path_b = path.as_bytes
+        if path_b is None:
+            raise oefmt(space.w_NotImplementedError,
+                        "utime: unsupported value for 'path'")
+        try:
+            rposix.lutimes(path_b, (atime_s, atime_ns))
+            return
+        except OSError as e:
+            # see comment above
+            raise wrap_oserror(space, e)
 
     if not space.is_w(w_ns, space.w_None):
         raise oefmt(space.w_NotImplementedError,
@@ -1457,6 +1468,7 @@ dir_fd and follow_symlinks may not be available on your platform.
     if now:
         try:
             call_rposix(utime_now, path, None)
+            return
         except OSError as e:
             # see comment above
             raise wrap_oserror(space, e)
