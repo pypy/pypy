@@ -5,11 +5,13 @@ from rpython.jit.metainterp.history import BasicFailDescr, TreeLoop, BasicFinalD
 from rpython.jit.metainterp.history import INT, ConstInt, JitCellToken
 from rpython.jit.metainterp.history import REF, ConstPtr, TargetToken
 from rpython.jit.metainterp.history import FLOAT, ConstFloat, Const, VOID
+from rpython.jit.metainterp.history import CONST_NULL
 from rpython.jit.metainterp.resoperation import ResOperation, rop
 from rpython.jit.metainterp.resoperation import InputArgInt, InputArgRef
 from rpython.jit.metainterp.resoperation import InputArgFloat
 from rpython.jit.metainterp.executor import _execute_arglist, wrap_constant
 from rpython.jit.metainterp.resoperation import opname
+from rpython.jit.metainterp.compile import GuardCompatibleDescr
 from rpython.jit.codewriter import longlong
 from rpython.rtyper.lltypesystem import lltype, llmemory, rstr
 from rpython.rtyper import rclass
@@ -314,9 +316,11 @@ class OperationBuilder(object):
         self.names = names
         s.flush()
 
-    def getfaildescr(self, is_finish=False):
+    def getfaildescr(self, is_finish=False, is_compatible=False):
         if is_finish:
             descr = BasicFinalDescr()
+        elif is_compatible:
+            descr = BasicCompatibleDescr()
         else:
             descr = BasicFailDescr()
         self.cpu._faildescr_keepalive.append(descr)
@@ -490,7 +494,8 @@ class GuardOperation(AbstractOperation):
     def produce_into(self, builder, r):
         op, passing = self.gen_guard(builder, r)
         builder.loop.operations.append(op)
-        op.setdescr(builder.getfaildescr())
+        if op.getdescr() is None:
+            op.setdescr(builder.getfaildescr())
         op.setfailargs(builder.subset_of_intvars(r))
         if not passing:
             builder.should_fail_by = op
@@ -521,6 +526,34 @@ class GuardValueOperation(GuardOperation):
             other = ConstInt(value)
         op = ResOperation(self.opnum, [v, other])
         return op, (getint(v) == getint(other))
+
+class GuardCompatibleOperation(GuardOperation):
+    def gen_guard(self, builder, r):
+        # limited version: always emit GUARD_COMPATIBLE(v, null),
+        # which always fails and calls find_compatible().  Then either
+        # find_compatible() says "no" and we attach a new bridge, or
+        # it says "yes" (i.e. the value is "compatible" with NULL)
+        # and we continue running in the main loop.
+        if not builder.ptrvars:
+            raise CannotProduceOperation
+        v, _ = r.choice(builder.ptrvars)
+        descr = builder.getfaildescr(is_compatible=True)
+        descr._r_is_compatible = r.random() < 0.5
+        op = ResOperation(self.opnum, [v, CONST_NULL], descr=descr)
+        return op, descr._r_is_compatible
+
+class BasicCompatibleDescr(GuardCompatibleDescr):
+    _r_bridge = None
+    def find_compatible(self, cpu, value):
+        if self._r_is_compatible:
+            return -1       # continue running in the main loop
+        else:
+            if self._r_bridge is None:
+                return 0    # fail
+            else:
+                return self._r_bridge.asmaddr
+    def make_a_counter_per_value(self, *args):
+        pass
 
 # ____________________________________________________________
 
@@ -561,6 +594,7 @@ OPERATIONS.append(GuardOperation(rop.GUARD_FALSE))
 OPERATIONS.append(GuardPtrOperation(rop.GUARD_NONNULL))
 OPERATIONS.append(GuardPtrOperation(rop.GUARD_ISNULL))
 OPERATIONS.append(GuardValueOperation(rop.GUARD_VALUE))
+OPERATIONS.append(GuardCompatibleOperation(rop.GUARD_COMPATIBLE))
 
 for _op in [rop.INT_NEG,
             rop.INT_INVERT,
@@ -942,9 +976,11 @@ class RandomLoop(object):
         if r.random() < .05:
             return False
         dump(subloop)
-        self.builder.cpu.compile_bridge(fail_descr, fail_args,
-                                        subloop.operations,
-                                        self.loop._jitcelltoken)
+        asminfo = self.builder.cpu.compile_bridge(fail_descr, fail_args,
+                                                  subloop.operations,
+                                                  self.loop._jitcelltoken)
+        if isinstance(fail_descr, BasicCompatibleDescr):
+            fail_descr._r_bridge = asminfo
 
         if self.output:
             bridge_builder.print_loop(self.output, fail_descr, fail_args)
