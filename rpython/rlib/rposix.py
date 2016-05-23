@@ -1219,21 +1219,14 @@ def utime(path, times):
         if times is None:
             error = c_utime(path, lltype.nullptr(UTIMBUFP.TO))
         else:
-            actime, modtime = times
             if HAVE_UTIMES:
-                import math
-                l_times = lltype.malloc(TIMEVAL2P.TO, 2, flavor='raw')
-                fracpart, intpart = math.modf(actime)
-                rffi.setintfield(l_times[0], 'c_tv_sec', int(intpart))
-                rffi.setintfield(l_times[0], 'c_tv_usec', int(fracpart * 1e6))
-                fracpart, intpart = math.modf(modtime)
-                rffi.setintfield(l_times[1], 'c_tv_sec', int(intpart))
-                rffi.setintfield(l_times[1], 'c_tv_usec', int(fracpart * 1e6))
-                error = c_utimes(path, l_times)
-                lltype.free(l_times, flavor='raw')
+                with lltype.scoped_alloc(TIMEVAL2P.TO, 2) as l_timeval2p:
+                    times_to_timeval2p(times, l_timeval2p)
+                    error = c_utimes(path, l_timeval2p)
             else:
                 # we only have utime(), which does not allow
                 # sub-second resolution
+                actime, modtime = times
                 l_utimbuf = lltype.malloc(UTIMBUFP.TO, flavor='raw')
                 l_utimbuf.c_actime  = rffi.r_time_t(actime)
                 l_utimbuf.c_modtime = rffi.r_time_t(modtime)
@@ -1275,6 +1268,17 @@ def utime(path, times):
             rwin32.CloseHandle(hFile)
             lltype.free(atime, flavor='raw')
             lltype.free(mtime, flavor='raw')
+
+def times_to_timeval2p(times, l_timeval2p):
+    actime, modtime = times
+    _time_to_timeval(actime, l_timeval2p[0])
+    _time_to_timeval(modtime, l_timeval2p[1])
+
+def _time_to_timeval(t, l_timeval):
+    import math
+    fracpart, intpart = math.modf(t)
+    rffi.setintfield(l_timeval, 'c_tv_sec', int(intpart))
+    rffi.setintfield(l_timeval, 'c_tv_usec', int(fracpart * 1e6))
 
 if not _WIN32:
     TMSP = lltype.Ptr(TMS)
@@ -1763,6 +1767,7 @@ class EnvironExtRegistry(ControllerEntryForPrebuilt):
 class CConfig:
     _compilation_info_ = ExternalCompilationInfo(
         includes=['sys/stat.h',
+                  'sys/time.h',
                   'unistd.h',
                   'fcntl.h'],
     )
@@ -1917,6 +1922,20 @@ if HAVE_UTIMENSAT:
         error = c_utimensat(dir_fd, pathname, l_times, flag)
         lltype.free(l_times, flavor='raw')
         handle_posix_error('utimensat', error)
+
+if HAVE_LUTIMES:
+    c_lutimes = external('lutimes',
+        [rffi.CCHARP, TIMEVAL2P], rffi.INT,
+        save_err=rffi.RFFI_SAVE_ERRNO)
+
+    def lutimes(pathname, times):
+        if times is None:
+            error = c_lutimes(pathname, lltype.nullptr(TIMEVAL2P.TO))
+        else:
+            with lltype.scoped_alloc(TIMEVAL2P.TO, 2) as l_timeval2p:
+                times_to_timeval2p(times, l_timeval2p)
+                error = c_lutimes(pathname, l_timeval2p)
+        handle_posix_error('lutimes', error)
 
 if HAVE_MKDIRAT:
     c_mkdirat = external('mkdirat',
