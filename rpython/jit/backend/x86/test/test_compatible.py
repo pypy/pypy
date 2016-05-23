@@ -1,6 +1,8 @@
 import random
 from rpython.jit.backend.x86.guard_compat import *
+from rpython.jit.backend.x86.test.test_basic import Jit386Mixin
 from rpython.jit.backend.detect_cpu import getcpuclass
+from rpython.jit.metainterp.test import test_compatible
 
 CPU = getcpuclass()
 
@@ -173,3 +175,7 @@ def test_guard_compat():
             assert res == expected_res
             assert bchoices.bc_most_recent.gcref == gcref
             assert bchoices.bc_most_recent.asmaddr == expected_asmaddr
+
+
+class TestCompatible(Jit386Mixin, test_compatible.TestCompatible):
+    pass
