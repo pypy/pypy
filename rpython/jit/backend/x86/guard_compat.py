@@ -121,29 +121,23 @@ from rpython.jit.backend.x86.arch import DEFAULT_FRAME_BYTES
 #
 #
 # invoke_find_compatible(bchoices, new_gcref, jitframe):
-#     descr = bchoices.bc_faildescr
-#     try:
-#         jitframe.jf_gcmap = descr._backend_gcmap
-#         result = descr.find_compatible(cpu, new_gcref)
-#         if result == 0:
-#             result = descr._backend_failure_recovery
-#         else:
-#             if result == -1:
-#                 result = descr._backend_sequel_label
-#             bchoices = add_in_tree(bchoices, new_gcref, result)
-#             descr.bchoices_addr[0] = bchoices  # GC table
-#         bchoices.bc_most_recent.gcref = new_gcref
-#         bchoices.bc_most_recent.asmaddr = result
-#         jitframe.jf_gcmap = 0
-#         return result
-#     except:             # oops!
-#         return descr._backend_failure_recovery
+#     IN PSEUDO-CODE:
+#     result = bchoices.bc_faildescr.find_compatible(cpu, new_gcref)
+#     if result == 0:
+#         result = descr._backend_failure_recovery
+#     else:
+#         if result == -1:
+#             result = descr._backend_sequel_label
+#         bchoices = add_in_tree(bchoices, new_gcref, result)
+#         <if bchoices changed, update the GC table>
+#     bchoices.bc_most_recent.gcref = new_gcref
+#     bchoices.bc_most_recent.asmaddr = result
+#     return result
 #
 # add_in_tree(bchoices, new_gcref, new_addr):
-#     if bchoices.bc_list[len(bchoices.bc_list) - 1] != -1:
-#         ...reallocate...
-#     bchoices.bc_list[len(bchoices.bc_list) - 1].gcref = new_gcref
-#     bchoices.bc_list[len(bchoices.bc_list) - 1].asmaddr = new_addr
+#     if bchoices.bc_list does not end in -1, reallocate a bigger one
+#     bchoices.bc_list[last].gcref = new_gcref
+#     bchoices.bc_list[last].asmaddr = new_addr
 #     quicksort(bchoices.bc_list)
 #     return bchoices
 #
@@ -255,15 +249,17 @@ def gcref_to_unsigned(gcref):
 
 
 INVOKE_FIND_COMPATIBLE_FUNC = lltype.Ptr(lltype.FuncType(
-                [lltype.Ptr(BACKEND_CHOICES), llmemory.GCREF],
+                [lltype.Ptr(BACKEND_CHOICES), llmemory.GCREF,
+                 lltype.Ptr(jitframe.JITFRAME)],
                 lltype.Signed))
 
 @specialize.memo()
 def make_invoke_find_compatible(cpu):
-    def invoke_find_compatible(bchoices, new_gcref):
+    def invoke_find_compatible(bchoices, new_gcref, jitframe):
         descr = bchoices.bc_faildescr
         descr = cast_gcref_to_instance(GuardCompatibleDescr, descr)
         try:
+            jitframe.jf_gcmap = descr._backend_gcmap
             result = descr.find_compatible(cpu, new_gcref)
             if result == 0:
                 result = descr._backend_failure_recovery
@@ -280,12 +276,13 @@ def make_invoke_find_compatible(cpu):
             bchoices.bc_most_recent.gcref = gcref_to_unsigned(new_gcref)
             bchoices.bc_most_recent.asmaddr = result
             llop.gc_writebarrier(lltype.Void, bchoices)
-            return result
         except:             # oops!
             if not we_are_translated():
                 import sys, pdb
                 pdb.post_mortem(sys.exc_info()[2])
-            return descr._backend_failure_recovery
+            result = descr._backend_failure_recovery
+        jitframe.jf_gcmap = lltype.nullptr(lltype.typeOf(jitframe.jf_gcmap).TO)
+        return result
     return invoke_find_compatible
 
 def add_in_tree(bchoices, new_gcref, new_asmaddr):
