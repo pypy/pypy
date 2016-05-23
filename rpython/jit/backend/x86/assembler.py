@@ -1460,7 +1460,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
     def genop_load_from_gc_table(self, op, arglocs, resloc):
         index = op.getarg(0).getint()
         assert isinstance(resloc, RegLoc)
-        self._load_reg_from_gc_table(resloc.value, index)
+        self.load_reg_from_gc_table(resloc.value, index)
 
     def genop_int_force_ge_zero(self, op, arglocs, resloc):
         self.mc.TEST(arglocs[0], arglocs[0])
