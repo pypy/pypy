@@ -166,7 +166,8 @@ class _JustPath(Unwrapper):
 def path_or_fd(allow_fd=True):
     return _PathOrFd if allow_fd else _JustPath
 
-DEFAULT_DIR_FD = getattr(rposix, 'AT_FDCWD', -100)
+_HAVE_AT_FDCWD = getattr(rposix, 'AT_FDCWD', None) is not None
+DEFAULT_DIR_FD = rposix.AT_FDCWD if _HAVE_AT_FDCWD else -100
 DIR_FD_AVAILABLE = False
 
 @specialize.arg(2)
