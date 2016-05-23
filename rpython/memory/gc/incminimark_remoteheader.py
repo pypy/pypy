@@ -7,15 +7,17 @@ from rpython.rtyper.lltypesystem import rffi, lltype, llmemory
 
 SIGNEDP = lltype.Ptr(lltype.FixedSizeArray(lltype.Signed, 1))
 
-class IncrementalMiniMarkRemoteHeaderGC(incminimark.IncrementalMiniMarkGC):
+class IncrementalMiniMarkRemoteHeaderGC(incminimark.IncrementalMiniMarkGCBase):
     # The GC header is similar to incminimark, except that the flags can be
     # placed anywhere, not just in the bits of tid.
     HDR = lltype.Struct('header',
                         ('tid', lltype.Signed),
                         ('remote_flags', SIGNEDP))
+    minimal_size_in_nursery = (
+        llmemory.sizeof(HDR) + llmemory.sizeof(llmemory.Address))
 
     def __init__(self, config, **kwargs):
-        super(IncrementalMiniMarkRemoteHeaderGC, self).__init__(config, **kwargs)
+        incminimark.IncrementalMiniMarkGCBase.__init__(self, config, **kwargs)
         ArenaCollectionClass = kwargs.get('ArenaCollectionClass', None)
         if ArenaCollectionClass is None:
             from rpython.memory.gc import minimarkpage
@@ -28,7 +30,7 @@ class IncrementalMiniMarkRemoteHeaderGC(incminimark.IncrementalMiniMarkGC):
                 small_request_threshold=LONG_BIT)
 
     def init_gc_object(self, adr, typeid16, flags=0):
-        super(IncrementalMiniMarkRemoteHeaderGC, self).init_gc_object(adr, typeid16, flags)
+        incminimark.IncrementalMiniMarkGCBase.init_gc_object(self, adr, typeid16, flags)
         hdr = llmemory.cast_adr_to_ptr(adr, lltype.Ptr(self.HDR))
         hdr.remote_flags = lltype.direct_fieldptr(hdr, 'tid')
 
@@ -36,7 +38,7 @@ class IncrementalMiniMarkRemoteHeaderGC(incminimark.IncrementalMiniMarkGC):
         assert (self.header(obj).remote_flags
                 == lltype.direct_fieldptr(self.header(obj), 'tid')), \
             "Nursery objects should not have separately-allocated flags."
-        super(IncrementalMiniMarkRemoteHeaderGC, self).make_forwardstub(obj, forward_to)
+        incminimark.IncrementalMiniMarkGCBase.make_forwardstub(self, obj, forward_to)
         hdr = self.header(obj)
         hdr.remote_flags = lltype.direct_fieldptr(hdr, 'tid')
 
@@ -72,13 +74,13 @@ class IncrementalMiniMarkRemoteHeaderGC(incminimark.IncrementalMiniMarkGC):
         return flag_ptr[0] & incminimark.GCFLAG_DEAD
 
     def free_unvisited_arena_objects_step(self, limit):
-        done = super(IncrementalMiniMarkRemoteHeaderGC, self).free_unvisited_arena_objects_step(limit)
+        done = incminimark.IncrementalMiniMarkGCBase.free_unvisited_arena_objects_step(self, limit)
         self.__ac_for_flags.mass_free_incremental(
             self.__free_flags_if_finalized, done)
         return done
 
     def start_free(self):
-        super(IncrementalMiniMarkRemoteHeaderGC, self).start_free()
+        incminimark.IncrementalMiniMarkGCBase.start_free(self)
         self.__ac_for_flags.mass_free_prepare()
 
     # Manipulate flags through a pointer.

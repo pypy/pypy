@@ -189,7 +189,7 @@ NURSARRAY = lltype.Array(llmemory.Address)
 
 # ____________________________________________________________
 
-class IncrementalMiniMarkGC(MovingGCBase):
+class IncrementalMiniMarkGCBase(MovingGCBase):
     _alloc_flavor_ = "raw"
     inline_simple_malloc = True
     inline_simple_malloc_varsize = True
@@ -203,21 +203,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
     # a word.  This word is divided in two halves: the lower half contains
     # the typeid, and the upper half contains various flags, as defined
     # by GCFLAG_xxx above.
-    HDR = lltype.Struct('header', ('tid', lltype.Signed))
+    # Moved to subclass: HDR = lltype.Struct('header', ('tid', lltype.Signed))
     typeid_is_in_field = 'tid'
     withhash_flag_is_in_field = 'tid', GCFLAG_HAS_SHADOW
     # ^^^ prebuilt objects may have the flag GCFLAG_HAS_SHADOW;
     #     then they are one word longer, the extra word storing the hash.
-
-
-    # During a minor collection, the objects in the nursery that are
-    # moved outside are changed in-place: their header is replaced with
-    # the value -42, and the following word is set to the address of
-    # where the object was moved.  This means that all objects in the
-    # nursery need to be at least 2 words long, but objects outside the
-    # nursery don't need to.
-    minimal_size_in_nursery = (
-        llmemory.sizeof(HDR) + llmemory.sizeof(llmemory.Address))
 
 
     TRANSLATION_PARAMS = {
@@ -3064,3 +3054,14 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
     def remove_flags(self, obj, flags):
         self.header(obj).tid &= ~flags
+
+class IncrementalMiniMarkGC(IncrementalMiniMarkGCBase):
+    HDR = lltype.Struct('header', ('tid', lltype.Signed))
+    # During a minor collection, the objects in the nursery that are
+    # moved outside are changed in-place: their header is replaced with
+    # the value -42, and the following word is set to the address of
+    # where the object was moved.  This means that all objects in the
+    # nursery need to be at least 2 words long, but objects outside the
+    # nursery don't need to.
+    minimal_size_in_nursery = (
+        llmemory.sizeof(HDR) + llmemory.sizeof(llmemory.Address))
