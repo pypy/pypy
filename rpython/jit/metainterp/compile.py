@@ -1133,7 +1133,9 @@ class GuardCompatibleDescr(ResumeGuardDescr):
     def make_a_counter_per_value(self, guard_value_op, index):
         self.failarg_index = guard_value_op.getfailargs().index(
                 guard_value_op.getarg(0))
-        ResumeGuardDescr.make_a_counter_per_value(self, guard_value_op, index)
+        # this is not actually enabling the counter_per_value logic,
+        # which right now gives bad results with a GUARD_COMPATIBLE
+        #ResumeGuardDescr.make_a_counter_per_value(self, guard_value_op, index)
 
     def repr_of_conditions(self, argrepr="?"):
         if self._compatibility_conditions:
