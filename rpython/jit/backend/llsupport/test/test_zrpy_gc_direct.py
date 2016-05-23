@@ -10,6 +10,7 @@ from rpython.rtyper.rclass import getclassrepr, getinstancerepr
 from rpython.translator.unsimplify import call_initial_function
 from rpython.translator.translator import TranslationContext
 from rpython.translator.c import genc
+from rpython.rlib import rgc
 
 
 def run_guards_translated(gcremovetypeptr):
@@ -296,6 +297,7 @@ def test_guard_compatible_translated():
                         print 'seen ok'
                     else:
                         print 'seen BAD VALUE!'
+        rgc.collect()
 
 
     call_initial_function(t, g)
