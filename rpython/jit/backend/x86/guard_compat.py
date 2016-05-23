@@ -175,7 +175,7 @@ from rpython.jit.backend.x86.arch import WORD, DEFAULT_FRAME_BYTES
 # ____________________________________________________________
 
 
-PAIR = lltype.Struct('PAIR', ('gcref', llmemory.GCREF),
+PAIR = lltype.Struct('PAIR', ('gcref', lltype.Unsigned),   # a GC ref or -1
                              ('asmaddr', lltype.Signed))
 BACKEND_CHOICES = lltype.GcStruct('BACKEND_CHOICES',
                         ('bc_faildescr', llmemory.GCREF),
@@ -246,6 +246,9 @@ pairs_quicksort = rffi.llexternal('pypy_pairs_quicksort',
                                   _nowrapper=True,
                                   compilation_info=eci)
 
+def gcref_to_unsigned(gcref):
+    return rffi.cast(lltype.Unsigned, gcref)
+
 
 INVOKE_FIND_COMPATIBLE_FUNC = lltype.Ptr(lltype.FuncType(
                 [lltype.Ptr(BACKEND_CHOICES), llmemory.GCREF],
@@ -269,8 +272,9 @@ def make_invoke_find_compatible(cpu):
                 bchoices_int = rffi.cast(lltype.Signed, bchoices)
                 llop.raw_store(lltype.Void, choices_addr, 0, bchoices_int)
                 # ---no GC operation end---
-            bchoices.bc_most_recent.gcref = new_gcref
+            bchoices.bc_most_recent.gcref = gcref_to_unsigned(new_gcref)
             bchoices.bc_most_recent.asmaddr = result
+            llop.gc_writebarrier(lltype.Void, bchoices)
             return result
         except:             # oops!
             if not we_are_translated():
@@ -289,7 +293,7 @@ def add_in_tree(bchoices, new_gcref, new_asmaddr):
     ofs = _real_number(ofs)
     if llop.raw_load(lltype.Unsigned, gcref_base, ofs) != r_uint(-1):
         # reallocate
-        new_bchoices = lltype.malloc(BACKEND_CHOICES, length * 2 + 1, zero=True)
+        new_bchoices = lltype.malloc(BACKEND_CHOICES, length * 2 + 1)
         # --- no GC below: it would mess up the order of bc_list ---
         new_bchoices.bc_faildescr = bchoices.bc_faildescr
         new_bchoices.bc_most_recent.gcref = bchoices.bc_most_recent.gcref
@@ -310,8 +314,9 @@ def add_in_tree(bchoices, new_gcref, new_asmaddr):
             i += 1
         bchoices = new_bchoices
     #
-    bchoices.bc_list[length - 1].gcref = new_gcref
+    bchoices.bc_list[length - 1].gcref = gcref_to_unsigned(new_gcref)
     bchoices.bc_list[length - 1].asmaddr = new_asmaddr
+    llop.gc_writebarrier(lltype.Void, bchoices)
     # --- no GC above ---
     addr = llmemory.cast_ptr_to_adr(bchoices)
     addr += BCLIST + BCLISTITEMSOFS
@@ -321,10 +326,11 @@ def add_in_tree(bchoices, new_gcref, new_asmaddr):
 def initial_bchoices(guard_compat_descr, initial_gcref):
     bchoices = lltype.malloc(BACKEND_CHOICES, 1)
     bchoices.bc_faildescr = cast_instance_to_gcref(guard_compat_descr)
-    bchoices.bc_most_recent.gcref = initial_gcref
+    bchoices.bc_most_recent.gcref = gcref_to_unsigned(initial_gcref)
     # bchoices.bc_most_recent.asmaddr: patch_guard_compatible()
-    bchoices.bc_list[0].gcref = initial_gcref
+    bchoices.bc_list[0].gcref = gcref_to_unsigned(initial_gcref)
     # bchoices.bc_list[0].asmaddr: patch_guard_compatible()
+    llop.gc_writebarrier(lltype.Void, bchoices)
     return bchoices
 
 def descr_to_bchoices(descr):
@@ -362,7 +368,8 @@ def patch_guard_compatible(guard_token, rawstart, gc_table_addr):
 def invalidate_pair(bchoices, pair_ofs):
     gcref_base = lltype.cast_opaque_ptr(llmemory.GCREF, bchoices)
     llop.raw_store(lltype.Void, gcref_base, _real_number(pair_ofs), r_uint(-1))
-    llop.raw_store(lltype.Void, gcref_base, _real_number(pair_ofs), r_uint(-1))
+    ofs = pair_ofs + llmemory.sizeof(lltype.Unsigned)
+    llop.raw_store(lltype.Void, gcref_base, _real_number(ofs), -1)
 
 def invalidate_cache(faildescr):
     """Write -1 inside bchoices.bc_most_recent.gcref."""
