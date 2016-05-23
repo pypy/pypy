@@ -127,7 +127,8 @@ def test_guard_compat():
         faildescr = guard_compat_descr
     guard_token = FakeGuardToken()
 
-    patch_guard_compatible(guard_token, rawstart, rawstart)
+    patch_guard_compatible(guard_token, rawstart, rawstart,
+                           lltype.nullptr(llmemory.GCREF.TO))
 
     # ---- ready ----
 

@@ -40,10 +40,14 @@ def make_framework_tracer(array_base_addr, gcrefs):
     # --no GC until here--
     return tr
 
+A = lltype.GcArray(llmemory.GCREF)
+
 def make_boehm_tracer(array_base_addr, gcrefs):
-    # copy the addresses, but return 'gcrefs' as the object that must be
-    # kept alive
+    # copy the addresses, but return 'gcrefs' as a low-level array
+    # object that must be kept alive
+    agcrefs = lltype.malloc(A, len(gcrefs))
     for i in range(len(gcrefs)):
         p = rffi.cast(rffi.SIGNEDP, array_base_addr + i * WORD)
         p[0] = rffi.cast(lltype.Signed, gcrefs[i])
-    return gcrefs
+        agcrefs[i] = gcrefs[i]
+    return agcrefs

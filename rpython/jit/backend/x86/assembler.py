@@ -721,6 +721,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         gcreftracers = self.get_asmmemmgr_gcreftracers(looptoken)
         gcreftracers.append(tracer)    # keepalive
         self.teardown_gcrefs_list()
+        self.gc_table_tracer = tracer
 
     def write_pending_failure_recoveries(self, regalloc):
         # for each pending guard, generate the code of the recovery stub
@@ -746,7 +747,8 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             tok.faildescr.adr_jump_offset = addr
             if tok.guard_compatible():
                 guard_compat.patch_guard_compatible(tok, rawstart,
-                                                    self.gc_table_addr)
+                                                    self.gc_table_addr,
+                                                    self.gc_table_tracer)
                 continue
             descr = tok.faildescr
             if descr.loop_version():
