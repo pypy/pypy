@@ -73,5 +73,5 @@ class AppTestArrayModule(AppTestCpythonExtensionBase):
         module = self.import_module(name='array')
         arr = module.array('i', [1,2,3,4])
         s = pickle.dumps(arr)
-        rra = pickle.loads(s)
+        rra = pickle.loads(s) # rra is arr backwards
         assert arr.tolist() == rra.tolist()
