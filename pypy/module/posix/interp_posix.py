@@ -196,7 +196,7 @@ class _DirFD(Unwrapper):
 
 class _DirFD_Unavailable(Unwrapper):
     def unwrap(self, space, w_value):
-        dir_fd = unwrap_fd(space, w_value)
+        dir_fd = _unwrap_dirfd(space, w_value)
         if dir_fd == DEFAULT_DIR_FD:
             return dir_fd
         raise oefmt(space.w_NotImplementedError,
