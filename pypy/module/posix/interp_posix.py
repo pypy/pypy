@@ -222,11 +222,11 @@ If dir_fd is not None, it should be a file descriptor open to a directory,
 dir_fd may not be implemented on your platform.
   If it is unavailable, using it will raise a NotImplementedError."""
     try:
-        if dir_fd == DEFAULT_DIR_FD:
-            fd = dispatch_filename(rposix.open)(space, w_path, flags, mode)
-        else:
+        if rposix.HAVE_OPENAT and dir_fd != DEFAULT_DIR_FD:
             path = space.fsencode_w(w_path)
             fd = rposix.openat(path, flags, mode, dir_fd)
+        else:
+            fd = dispatch_filename(rposix.open)(space, w_path, flags, mode)
     except OSError as e:
         raise wrap_oserror2(space, e, w_path)
     return space.wrap(fd)
@@ -741,11 +741,11 @@ If dir_fd is not None, it should be a file descriptor open to a directory,
 dir_fd may not be implemented on your platform.
   If it is unavailable, using it will raise a NotImplementedError."""
     try:
-        if dir_fd == DEFAULT_DIR_FD:
-            dispatch_filename(rposix.rmdir)(space, w_path)
-        else:
+        if rposix.HAVE_UNLINKAT and dir_fd != DEFAULT_DIR_FD:
             path = space.fsencode_w(w_path)
             rposix.unlinkat(path, dir_fd, removedir=True)
+        else:
+            dispatch_filename(rposix.rmdir)(space, w_path)
     except OSError as e:
         raise wrap_oserror2(space, e, w_path)
 
