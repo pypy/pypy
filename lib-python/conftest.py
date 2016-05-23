@@ -417,7 +417,7 @@ testmap = [
     RegrTest('test_threading.py', usemodules="thread", core=True),
     RegrTest('test_threading_local.py', usemodules="thread", core=True),
     RegrTest('test_threadsignals.py', usemodules="thread"),
-    RegrTest('test_time.py', core=True),
+    RegrTest('test_time.py', core=True, usemodules="struct"),
     RegrTest('test_timeit.py'),
     RegrTest('test_timeout.py'),
     RegrTest('test_tk.py'),
