@@ -114,7 +114,7 @@ from rpython.jit.backend.x86.arch import WORD, DEFAULT_FRAME_BYTES
 #                                  jitframe=RBP>
 #     <_reload_frame_if_necessary>
 #     MOV R11, RAX
-#     <restore the non-saved registers>
+#     <restore all registers>
 #     JMP *R11
 #
 #
@@ -438,11 +438,10 @@ def setup_once(assembler):
     assembler._reload_frame_if_necessary(mc)
     mc.MOV_rr(r11, rax)                     # MOV R11, RAX
 
-    # restore the registers that the CALL has clobbered.  Other other
-    # registers are saved above, for the gcmap, but don't need to be
-    # restored here.  (We restore RAX and RDX too.)
-    assembler._pop_all_regs_from_frame(mc, [], withfloats=True,
-                                       callee_only=True)
+    # restore the registers that the CALL has clobbered, plus the ones
+    # containing GC pointers that may have moved.  That means we just
+    # restore them all.  (We restore RAX and RDX too.)
+    assembler._pop_all_regs_from_frame(mc, [], withfloats=True)
     mc.JMP_r(r11)                           # JMP *R11
 
     assembler.guard_compat_search_tree = mc.materialize(assembler.cpu, [])
