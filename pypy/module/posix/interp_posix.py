@@ -587,7 +587,8 @@ The mode argument can be F_OK to test existence, or the inclusive-OR
 
     try:
         if (rposix.HAVE_FACCESSAT and
-            dir_fd != DEFAULT_DIR_FD or not follow_symlinks or effective_ids):
+            (dir_fd != DEFAULT_DIR_FD or not follow_symlinks or
+             effective_ids)):
             path = space.fsencode_w(w_path)
             ok = rposix.faccessat(path, mode,
                 dir_fd, effective_ids, follow_symlinks)
