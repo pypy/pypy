@@ -595,7 +595,7 @@ class ObjSpace(object):
         bootstrap_modules = set(('sys', 'imp', 'builtins', 'exceptions'))
         if sys.platform.startswith("win"):
             self.setbuiltinmodule('_winreg')
-            bootstrap_modules.add('winreg')
+            bootstrap_modules.add('_winreg')
         installed_builtin_modules = list(bootstrap_modules)
 
         exception_types_w = self.export_builtin_exceptions()
