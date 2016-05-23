@@ -39,11 +39,11 @@ from rpython.jit.backend.x86.arch import WORD, DEFAULT_FRAME_BYTES
 #                              ofs(_backend_choices)
 #     - _backend_sequel_label: points to the <sequel> label
 #     - _backend_failure_recovery: points to the <failure_recovery> label
+#     - _backend_gcmap: a copy of the gcmap at this point
 #
 # The '_backend_choices' object itself is a separate GC struct/array
 # with the following fields:
 #
-#     - bc_gcmap: a copy of the gcmap at this point
 #     - bc_faildescr: a copy of the faildescr of that guard
 #     - bc_most_recent: 1 pair (gcref, asmaddr)
 #     - bc_list: N pairs (gcref, asmaddr) sorted according to gcref
@@ -110,19 +110,18 @@ from rpython.jit.backend.x86.arch import WORD, DEFAULT_FRAME_BYTES
 #   not_found:
 #     <save all registers to the jitframe RBP,
 #         reading and popping the original RAX and RDX off the stack>
-#     MOV RDI, [RSP]
-#     MOV R11, [RDI + bc_gcmap]
-#     MOV [RBP + jf_gcmap], R11
-#     <call invoke_find_compatible(_backend_choices=RDI, value=RAX)>
+#     <call invoke_find_compatible(_backend_choices=[RSP], value=RAX),
+#                                  jitframe=RBP>
 #     <_reload_frame_if_necessary>
 #     MOV R11, RAX
 #     <restore the non-saved registers>
 #     JMP *R11
 #
 #
-# invoke_find_compatible(bchoices, new_gcref):
+# invoke_find_compatible(bchoices, new_gcref, jitframe):
 #     descr = bchoices.bc_faildescr
 #     try:
+#         jitframe.jf_gcmap = descr._backend_gcmap
 #         result = descr.find_compatible(cpu, new_gcref)
 #         if result == 0:
 #             result = descr._backend_failure_recovery
@@ -133,6 +132,7 @@ from rpython.jit.backend.x86.arch import WORD, DEFAULT_FRAME_BYTES
 #             descr.bchoices_addr[0] = bchoices  # GC table
 #         bchoices.bc_most_recent.gcref = new_gcref
 #         bchoices.bc_most_recent.asmaddr = result
+#         jitframe.jf_gcmap = 0
 #         return result
 #     except:             # oops!
 #         return descr._backend_failure_recovery
@@ -155,18 +155,35 @@ from rpython.jit.backend.x86.arch import WORD, DEFAULT_FRAME_BYTES
 #
 # ____________________________________________________________
 
+# Possible optimization: GUARD_COMPATIBLE(reg, const-ptr) could emit
+# first assembler that is similar to a GUARD_VALUE.  As soon as a
+# second case is seen, this assembler is patched (once) to turn it
+# into the general switching version above.  The entry in the GC table
+# at ofs(_backend_choices) starts with the regular const-ptr, and the
+# BACKEND_CHOICES object is only allocated when the assembler is
+# patched.  The original assembler can be similar to a GUARD_VALUE:
+#
+#     MOV reg2, [RIP + ofs(const-ptr)]    # == ofs(_backend_choices)
+#     CMP reg, reg2
+#     JE sequel
+#     PUSH [RIP + ofs(guard_compatible_descr)]
+#     JMP guard_compat_second_case
+#     <padding to make the code large enough for patching>
+#     <ends with one byte which tells the size of this block>
+#   sequel:
+#
+# ____________________________________________________________
+
 
 PAIR = lltype.Struct('PAIR', ('gcref', llmemory.GCREF),
                              ('asmaddr', lltype.Signed))
 BACKEND_CHOICES = lltype.GcStruct('BACKEND_CHOICES',
-                        ('bc_gcmap', lltype.Ptr(jitframe.GCMAP)),
                         ('bc_faildescr', llmemory.GCREF),
                         ('bc_most_recent', PAIR),
                         ('bc_list', lltype.Array(PAIR)))
 
 def _getofs(name):
     return llmemory.offsetof(BACKEND_CHOICES, name)
-BCGCMAP = _getofs('bc_gcmap')
 BCFAILDESCR = _getofs('bc_faildescr')
 BCMOSTRECENT = _getofs('bc_most_recent')
 BCLIST = _getofs('bc_list')
@@ -270,7 +287,6 @@ def add_in_tree(bchoices, new_gcref, new_asmaddr):
         # reallocate
         new_bchoices = lltype.malloc(BACKEND_CHOICES, length * 2 + 1, zero=True)
         # --- no GC below: it would mess up the order of bc_list ---
-        new_bchoices.bc_gcmap = bchoices.bc_gcmap
         new_bchoices.bc_faildescr = bchoices.bc_faildescr
         new_bchoices.bc_most_recent.gcref = bchoices.bc_most_recent.gcref
         new_bchoices.bc_most_recent.asmaddr = bchoices.bc_most_recent.asmaddr
@@ -300,7 +316,6 @@ def add_in_tree(bchoices, new_gcref, new_asmaddr):
 
 def initial_bchoices(guard_compat_descr, initial_gcref):
     bchoices = lltype.malloc(BACKEND_CHOICES, 1)
-    # bchoices.bc_gcmap: patch_guard_compatible()
     bchoices.bc_faildescr = cast_instance_to_gcref(guard_compat_descr)
     bchoices.bc_most_recent.gcref = initial_gcref
     # bchoices.bc_most_recent.asmaddr: patch_guard_compatible()
@@ -331,12 +346,12 @@ def patch_guard_compatible(guard_token, rawstart, gc_table_addr):
     guard_compat_descr._backend_choices_addr = choices_addr
     guard_compat_descr._backend_sequel_label = sequel_label
     guard_compat_descr._backend_failure_recovery = failure_recovery
+    guard_compat_descr._backend_gcmap = gcmap
     #
     bchoices = descr_to_bchoices(guard_compat_descr)
     assert len(bchoices.bc_list) == 1
     assert (cast_gcref_to_instance(GuardCompatibleDescr, bchoices.bc_faildescr)
             is guard_compat_descr)
-    bchoices.bc_gcmap = gcmap
     bchoices.bc_most_recent.asmaddr = sequel_label
     bchoices.bc_list[0].asmaddr = sequel_label
 
@@ -412,19 +427,15 @@ def setup_once(assembler):
     assembler._push_all_regs_to_frame(mc, [regloc.eax, regloc.edx],
                                       withfloats=True)
 
-    bc_gcmap = _real_number(BCGCMAP)
-    jf_gcmap = assembler.cpu.get_ofs_of_frame_field('jf_gcmap')
     mc.MOV_rs(rdi, 0)                       # MOV RDI, [RSP]
     mc.MOV_rr(regloc.esi.value, rax)        # MOV RSI, RAX
-    mc.MOV_rm(r11, (rdi, bc_gcmap))         # MOV R11, [RDI + bc_gcmap]
-    mc.MOV_br(jf_gcmap, r11)                # MOV [RBP + jf_gcmap], R11
+    mc.MOV_rr(regloc.edx.value,             # MOV RDX, RBP
+              regloc.ebp.value)
     invoke_find_compatible = make_invoke_find_compatible(assembler.cpu)
     llfunc = llhelper(INVOKE_FIND_COMPATIBLE_FUNC, invoke_find_compatible)
     llfunc = assembler.cpu.cast_ptr_to_int(llfunc)
     mc.CALL(regloc.imm(llfunc))             # CALL invoke_find_compatible
     assembler._reload_frame_if_necessary(mc)
-    mc.MOV_bi(jf_gcmap, 0)                  # MOV [RBP + jf_gcmap], 0
-
     mc.MOV_rr(r11, rax)                     # MOV R11, RAX
 
     # restore the registers that the CALL has clobbered.  Other other
