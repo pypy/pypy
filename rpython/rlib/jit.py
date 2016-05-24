@@ -1209,7 +1209,9 @@ class Entry(ExtRegistryEntry):
         return hop.gendirectcall(ll_record_exact_class, v_inst, v_cls)
 
 def _jit_conditional_call(condition, function, *args):
-    pass
+    "NOT_RPYTHON"
+    if condition:
+        function(*args)
 
 @specialize.call_location()
 def conditional_call(condition, function, *args):
