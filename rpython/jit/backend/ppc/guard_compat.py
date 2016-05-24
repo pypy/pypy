@@ -21,6 +21,11 @@ def build_once(assembler):
     # and r0 containing the actual value of the guard
 
     mc = PPCBuilder()
+    r0 = r.SCRATCH
+    r2 = r.SCRATCH2
+    r3 = r.r3
+    r4 = r.r4
+    r5 = r.r5
     r7 = r.r7
     r10 = r.r10
 
@@ -95,7 +100,7 @@ def build_once(assembler):
     invoke_find_compatible = make_invoke_find_compatible(assembler.cpu)
     llfunc = llhelper(INVOKE_FIND_COMPATIBLE_FUNC, invoke_find_compatible)
     llfunc = assembler.cpu.cast_ptr_to_int(llfunc)
-    assembler.load_imm(mc.RAW_CALL_REG, llfunc)
+    mc.load_imm(mc.RAW_CALL_REG, llfunc)
     mc.raw_call()                           # mtctr / bctrl
     assembler._reload_frame_if_necessary(mc)
     mc.mtctr(r3.value)                      # mtctr r3
@@ -104,14 +109,14 @@ def build_once(assembler):
     # containing GC pointers that may have moved.  That means we just
     # restore them all.
     assembler._pop_core_regs_from_jitframe(mc)
-    assembler._pop_fp_regs_to_jitframe(mc)
+    assembler._pop_fp_regs_from_jitframe(mc)
 
     mc.bctr()                               # jump to the old r3
 
     assembler.guard_compat_search_tree = mc.materialize(assembler.cpu, [])
 
 
-def generate_guard_compatible(assembler, token, l0, bindex):
+def generate_guard_compatible(assembler, guard_token, l0, bindex):
     mc = assembler.mc
     r0 = r.SCRATCH
     r2 = r.SCRATCH2
@@ -134,7 +139,7 @@ def generate_guard_compatible(assembler, token, l0, bindex):
     pmc.bne(mc.currpos() - bne_location)    # jump here if l0 != r0
     pmc.overwrite()
 
-    assembler.load_imm(r0, assembler.guard_compat_search_tree)
+    mc.load_imm(r0, assembler.guard_compat_search_tree)
     mc.mtctr(r0.value)
     mc.mr(r0.value, l0.value)
     mc.bctr()

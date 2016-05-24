@@ -4,6 +4,7 @@ import rpython.jit.backend.ppc.condition as c
 import rpython.jit.backend.ppc.register as r
 from rpython.jit.backend.ppc.locations import imm
 from rpython.jit.backend.ppc.locations import imm as make_imm_loc
+from rpython.jit.backend.ppc import guard_compat
 from rpython.jit.backend.ppc.arch import (IS_PPC_32, IS_PPC_64, WORD,
                                           MAX_REG_PARAMS, MAX_FREG_PARAMS,
                                           PARAM_SAVE_AREA_OFFSET,
