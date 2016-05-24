@@ -158,15 +158,6 @@ class AbstractCPU(object):
         """
         pass
 
-    def grow_guard_compatible_switch(self, compiled_loop_token,
-                                     guarddescr, gcref):
-        """ This method is called to add another case to a guard_compatible.
-        guard_compatible starts like a guard_value, but can grow to check more
-        cases. The guard should only fail if the argument is unequal to all the
-        cases added so far.
-        """
-        raise NotImplementedError
-
     def sizeof(self, S):
         raise NotImplementedError
 

@@ -6,7 +6,7 @@ from rpython.jit.backend.x86.assembler import Assembler386
 from rpython.jit.backend.x86.regalloc import gpr_reg_mgr_cls, xmm_reg_mgr_cls
 from rpython.jit.backend.x86.profagent import ProfileAgent
 from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
-from rpython.jit.backend.x86 import regloc, guard_compat
+from rpython.jit.backend.x86 import regloc
 
 import sys
 
@@ -121,10 +121,6 @@ class AbstractX86CPU(AbstractLLCPU):
             l[i].number = ll_s.number
             l[i].counter = ll_s.i
         return l
-
-    def grow_guard_compatible_switch(self, compiled_loop_token,
-                                     guarddescr, gcref):
-        guard_compat.grow_switch(self, compiled_loop_token, guarddescr, gcref)
 
 
 class CPU386(AbstractX86CPU):
