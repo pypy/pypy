@@ -143,6 +143,8 @@ class BaseAssembler(object):
                                               track_allocation=False)
         self.gcmap_for_finish[0] = r_uint(1)
 
+        self._build_guard_compat_slowpath()
+
     def setup(self, looptoken):
         if self.cpu.HAS_CODEMAP:
             self.codemap_builder = CodemapBuilder()

@@ -69,7 +69,6 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
 
     def setup_once(self):
         BaseAssembler.setup_once(self)
-        guard_compat.setup_once(self)
         if self.cpu.supports_floats:
             support.ensure_sse2_floats()
             self._build_float_constants()
@@ -2071,6 +2070,9 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         rawstart = mc.materialize(self.cpu, [])
         self.failure_recovery_code[exc + 2 * withfloats] = rawstart
         self.mc = None
+
+    def _build_guard_compat_slowpath(self):
+        guard_compat.build_once(self)
 
     def genop_finish(self, op, arglocs, result_loc):
         base_ofs = self.cpu.get_baseofs_of_frame_field()

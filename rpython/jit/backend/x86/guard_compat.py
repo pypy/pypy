@@ -174,7 +174,7 @@ def _fix_forward_label(mc, jmp_location):
     assert 0 < offset <= 127
     mc.overwrite(jmp_location-1, chr(offset))
 
-def setup_once(assembler):
+def build_once(assembler):
     """Generate the 'search_tree' block of code"""
     rax = regloc.eax.value
     rdx = regloc.edx.value
