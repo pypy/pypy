@@ -736,6 +736,10 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         if WORD == 8 and len(self.pending_memoryerror_trampoline_from) > 0:
             self.error_trampoline_64 = self.generate_propagate_error_64()
 
+    def _get_addr_in_gc_table(self, index):
+        # return the address of the slot in the gctable, number 'index'
+        return self.gc_table_addr + index * WORD
+
     def patch_pending_failure_recoveries(self, rawstart):
         # after we wrote the assembler to raw memory, set up
         # tok.faildescr.adr_jump_offset to contain the raw address of
@@ -747,7 +751,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             tok.faildescr.adr_jump_offset = addr
             if tok.guard_compatible():
                 guard_compat.patch_guard_compatible(tok, rawstart,
-                                                    self.gc_table_addr,
+                                                    self._get_addr_in_gc_table,
                                                     self.gc_table_tracer)
                 continue
             descr = tok.faildescr

@@ -990,7 +990,7 @@ class GcRewriterAssembler(object):
         return load_op
 
     def handle_guard_compatible(self, op):
-        from rpython.jit.backend.x86 import guard_compat    # XXX
+        from rpython.jit.backend.llsupport import guard_compat
         c = op.getarg(1)
         assert isinstance(c, ConstPtr)
         descr = op.getdescr()

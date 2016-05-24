@@ -1414,3 +1414,22 @@ class TestFramework(RewriteTests):
             jump()
         """)
         assert len(self.gcrefs) == 2
+
+    def test_guard_compatible(self):
+        from rpython.jit.backend.llsupport import guard_compat
+        self.check_rewrite("""
+            [p0]
+            guard_compatible(p0, ConstPtr(myR1)) []
+            guard_compatible(p0, ConstPtr(myR1)) []
+            jump()
+        """, """
+            [p0]
+            guard_compatible(p0, 0) []
+            guard_compatible(p0, 2) []    # no sharing the number
+            jump()
+        """)
+        assert len(self.gcrefs) == 4
+        for i in [0, 2]:
+            # type-checking
+            x = self.gcrefs[i]
+            lltype.cast_opaque_ptr(lltype.Ptr(guard_compat.BACKEND_CHOICES), x)
