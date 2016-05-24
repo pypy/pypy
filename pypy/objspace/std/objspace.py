@@ -535,11 +535,15 @@ class StdObjSpace(ObjSpace):
         safe = False
         if jit.we_are_jitted():
             # compute safeness without reading the type
-            map = w_obj._get_mapdict_map_no_promote()
-            if map is not None and map._type_safe_to_do_getattr():
-                safe = True
-                name = self.str_w(w_name)
-                w_descr = map._type_lookup_safe(name)
+            try:
+                map = w_obj._get_mapdict_map_no_promote()
+            except TypeError:
+                pass
+            else:
+                if map._type_safe_to_do_getattr():
+                    safe = True
+                    name = self.str_w(w_name)
+                    w_descr = map._type_lookup_safe(name)
 
         if not safe:
             w_type = self.type(w_obj)
