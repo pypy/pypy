@@ -554,6 +554,7 @@ class ASTBuilder(object):
                 break
             if arg_type == tokens.DOUBLESTAR:
                 break
+            #TODO: scan further
             if arg_type == syms.vfpdef or arg_type == syms.tfpdef:
                 n_pos += 1
             if arg_type == tokens.EQUAL:
@@ -1193,6 +1194,7 @@ class ASTBuilder(object):
             return self.handle_listcomp(second_child)
         elif first_child_type == tokens.LBRACE:
             maker = atom_node.get_child(1)
+            #TODO: check STAR and DOUBLESTAR
             if maker.type == tokens.RBRACE:
                 return ast.Dict(None, None, atom_node.get_lineno(), atom_node.get_column())
             n_maker_children = maker.num_children()
