@@ -466,7 +466,6 @@ class ASTBuilder(object):
                              classdef_node.get_column())
         call = self.handle_call(classdef_node.get_child(3), call_name)
         body = self.handle_suite(classdef_node.get_child(6))
-        #TODO: any order
         return ast.ClassDef(
             name, call.args, call.keywords, call.starargs, call.kwargs,
             body, decorators, classdef_node.get_lineno(), classdef_node.get_column())
@@ -1199,7 +1198,8 @@ class ASTBuilder(object):
             if maker.type == tokens.RBRACE:
                 return ast.Dict(None, None, atom_node.get_lineno(), atom_node.get_column())
             n_maker_children = maker.num_children()
-            if n_maker_children == 1 or maker.get_child(1).type == tokens.COMMA or maker.get_child(0).type == tokens.STAR:
+            # or maker.get_child(0).type == tokens.STAR
+            if n_maker_children == 1 or maker.get_child(1).type == tokens.COMMA:
                 elts = []
                 for i in range(0, n_maker_children, 2):
                     elts.append(self.handle_expr(maker.get_child(i)))
