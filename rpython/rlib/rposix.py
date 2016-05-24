@@ -1928,6 +1928,7 @@ if HAVE_LUTIMES:
         [rffi.CCHARP, TIMEVAL2P], rffi.INT,
         save_err=rffi.RFFI_SAVE_ERRNO)
 
+    @specialize.argtype(1)
     def lutimes(pathname, times):
         if times is None:
             error = c_lutimes(pathname, lltype.nullptr(TIMEVAL2P.TO))
