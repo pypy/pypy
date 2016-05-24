@@ -15,6 +15,7 @@ from rpython.jit.backend.ppc.helper.regalloc import _check_imm_arg
 import rpython.jit.backend.ppc.register as r
 import rpython.jit.backend.ppc.condition as c
 from rpython.jit.backend.ppc.register import JITFRAME_FIXED_SIZE
+from rpython.jit.backend.ppc import guard_compat
 from rpython.jit.metainterp.history import AbstractFailDescr
 from rpython.jit.backend.llsupport import jitframe, rewrite
 from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
@@ -616,6 +617,9 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         self.propagate_exception_path = rawstart
         self.mc = None
 
+    def _build_guard_compat_slowpath(self):
+        guard_compat.build_once(self)
+
     def _call_header(self):
         if IS_PPC_64 and IS_BIG_ENDIAN:
             # Reserve space for a function descriptor, 3 words
@@ -889,6 +893,7 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         gcreftracers = self.get_asmmemmgr_gcreftracers(looptoken)
         gcreftracers.append(tracer)    # keepalive
         self.teardown_gcrefs_list()
+        self.gc_table_tracer = tracer
 
     def teardown(self):
         self.pending_guard_tokens = None
@@ -974,6 +979,12 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
             # XXX see patch_jump_for_descr()
             tok.faildescr.adr_jump_offset = rawstart + tok.pos_recovery_stub
             #
+            if tok.guard_compatible():
+                guard_compat.patch_guard_compatible(tok, rawstart,
+                                                    self._addr_from_gc_table,
+                                                    self.gc_table_tracer)
+                continue
+            #
             relative_target = tok.pos_recovery_stub - tok.pos_jump_offset
             #
             if not tok.guard_not_invalidated():
@@ -996,6 +1007,9 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         # patch it inplace, and instead we patch the quick failure code
         # (which should be at least 6 instructions, so enough).
         # --- XXX for now we always use the second solution ---
+        if isinstance(faildescr, guard_compat.GuardCompatibleDescr):
+            guard_compat.invalidate_cache(faildescr)
+            return
         mc = PPCBuilder()
         mc.b_abs(adr_new_target)
         mc.copy_to_raw_memory(faildescr.adr_jump_offset)

@@ -273,8 +273,9 @@ class GuardOpAssembler(object):
 
     _mixin_ = True
 
-    def _emit_guard(self, op, arglocs, is_guard_not_invalidated=False):
-        if is_guard_not_invalidated:
+    def _emit_guard(self, op, arglocs, is_guard_not_invalidated=False,
+                    is_guard_compatible=False):
+        if is_guard_not_invalidated or is_guard_compatible:
             fcond = c.cond_none
         else:
             fcond = self.guard_success_cc
@@ -284,9 +285,11 @@ class GuardOpAssembler(object):
         token = self.build_guard_token(op, arglocs[0].value, arglocs[1:], fcond)
         token.pos_jump_offset = self.mc.currpos()
         assert token.guard_not_invalidated() == is_guard_not_invalidated
-        if not is_guard_not_invalidated:
+        assert token.guard_compatible() == is_guard_compatible
+        if not is_guard_compatible and not is_guard_not_invalidated:
             self.mc.trap()     # has to be patched later on
         self.pending_guard_tokens.append(token)
+        return token
 
     def build_guard_token(self, op, frame_depth, arglocs, fcond):
         descr = op.getdescr()
@@ -328,6 +331,13 @@ class GuardOpAssembler(object):
             self.mc.cmp_op(0, l0.value, l1.value, fp=True)
         self.guard_success_cc = c.EQ
         self._emit_guard(op, failargs)
+
+    def emit_guard_compatible(self, op, arglocs, regalloc):
+        l0 = arglocs[0]
+        assert l0.is_reg()
+        bindex = op.getarg(1).getint()
+        token = self._emit_guard(op, arglocs[1:], is_guard_compatible=True)
+        guard_compat.generate_guard_compatible(self, token, l0, bindex)
 
     emit_guard_nonnull = emit_guard_true
     emit_guard_isnull = emit_guard_false
@@ -588,9 +598,12 @@ class MiscOpAssembler(object):
         mc.store(r.SCRATCH.value, r.SCRATCH2.value, 0)
         mc.store(r.SCRATCH.value, r.SCRATCH2.value, diff)
 
+    def _addr_from_gc_table(self, index):
+        return self.gc_table_addr + index * WORD
+
     def _load_from_gc_table(self, rD, rT, index):
         # rT is a temporary, may be equal to rD, must be != r0
-        addr = self.gc_table_addr + index * WORD
+        addr = self._addr_from_gc_table(index)
         self.mc.load_from_addr(rD, rT, addr)
 
     def emit_load_from_gc_table(self, op, arglocs, regalloc):
