@@ -556,7 +556,7 @@ def dup2(space, old_fd, new_fd):
     dir_fd=DirFD(rposix.HAVE_FACCESSAT), effective_ids=kwonly(bool),
     follow_symlinks=kwonly(bool))
 def access(space, w_path, mode,
-        dir_fd=DEFAULT_DIR_FD, effective_ids=True, follow_symlinks=True):
+        dir_fd=DEFAULT_DIR_FD, effective_ids=False, follow_symlinks=True):
     """\
 access(path, mode, *, dir_fd=None, effective_ids=False, follow_symlinks=True)
 
