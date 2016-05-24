@@ -616,8 +616,7 @@ class Regalloc(BaseRegalloc):
         assert args[0].type == REF             # only supported case for now
         assert isinstance(args[1], ConstInt)   # by rewrite.py
         x = self.ensure_reg(args[0])
-        y = self.loc(args[1])
-        arglocs = self._prepare_guard(op, [x, y])
+        arglocs = self._prepare_guard(op, [x])
         return arglocs
 
     def prepare_guard_class(self, op):

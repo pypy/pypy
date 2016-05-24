@@ -37,8 +37,8 @@ def build_once(assembler):
 
     ofs1 = _real_number(BCLIST + BCLISTLENGTHOFS)
     ofs2 = _real_number(BCLIST + BCLISTITEMSOFS)
-    mc.ld(r10.value, r2.value, ofs1)        # ld  r10, [r2 + bc_list.length]
-    mc.addi(r2.value, r2.value, ofs2 - 8)   # add r2, r2, $bc_list.items - 8
+    assert ofs2 - 8 == ofs1
+    mc.ldu(r10.value, r2.value, ofs1)       # ldu  r10, [r2 + bc_list.length]
     mc.sldi(r10.value, r10.value, 3)        # sldi r10, r10, 3
     b_location = mc.get_relative_pos()
     mc.trap()                               # b loop
@@ -47,7 +47,8 @@ def build_once(assembler):
     mc.add(r2.value, r2.value, r10.value)   # add r2, r2, r10
     mc.addi(r2.value, r2.value, WORD)       # addi r2, r2, 8
     left_label = mc.get_relative_pos()
-    mc.srdi(r10.value, r10.value, 1)        # srdi r10, r10, 1
+    mc.rldicr(r10.value, r10.value, 63, 60) # rldicr r10, r10, 63, 60
+    # ^^ note: this does r10 = (r10 >> 1) & ~7
     mc.cmp_op(0, r10.value, 8, imm=True)    # cmp r10, 8
     blt_location = mc.get_relative_pos()
     mc.trap()                               # beq not_found
@@ -114,6 +115,9 @@ def build_once(assembler):
     mc.bctr()                               # jump to the old r3
 
     assembler.guard_compat_search_tree = mc.materialize(assembler.cpu, [])
+
+    #print hex(assembler.guard_compat_search_tree)
+    #raw_input('press enter...')
 
 
 def generate_guard_compatible(assembler, guard_token, l0, bindex):
