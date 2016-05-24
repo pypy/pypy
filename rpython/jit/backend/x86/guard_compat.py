@@ -195,7 +195,9 @@ def build_once(assembler):
     ofs2 = _real_number(BCLIST + BCLISTITEMSOFS)
     mc.MOV_sr(2*WORD, rdx)                  # MOV [RSP+16], RDX
     mc.MOV_rm(r11, (rdx, ofs1))             # MOV R11, [RDX + bc_list.length]
-    mc.ADD_ri(rdx, ofs2)                    # ADD RDX, $bc_list.items
+    # in the sequel, "RDX + bc_list.items" is a pointer to the leftmost
+    # array item of the range still under consideration.  The length of
+    # this range is R11, which is always a power-of-two-minus-1.
     mc.JMP_l8(0)                            # JMP loop
     jmp_location = mc.get_relative_pos()
     mc.force_frame_size(frame_size)
@@ -210,11 +212,12 @@ def build_once(assembler):
     jz_location = mc.get_relative_pos()
 
     _fix_forward_label(mc, jmp_location)    # loop:
-    mc.CMP_ra(rax, (rdx, r11, SH, -WORD))   # CMP RAX, [RDX + 8*R11 - 8]
+    mc.CMP_ra(rax, (rdx, r11, SH, ofs2-WORD))
+                                            # CMP RAX, [RDX + items + 8*R11 - 8]
     mc.J_il8(rx86.Conditions['A'], right_label - (mc.get_relative_pos() + 2))
     mc.J_il8(rx86.Conditions['NE'], left_label - (mc.get_relative_pos() + 2))
 
-    mc.MOV_ra(r11, (rdx, r11, SH, 0))       # MOV R11, [RDX + 8*R11]
+    mc.MOV_ra(r11, (rdx, r11, SH, ofs2))    # MOV R11, [RDX + items + 8*R11]
     mc.MOV_rs(rdx, 2*WORD)                  # MOV RDX, [RSP+16]
     ofs = _real_number(BCMOSTRECENT)
     mc.MOV_mr((rdx, ofs), rax)              # MOV [RDX+bc_most_recent], RAX
