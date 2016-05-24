@@ -732,6 +732,29 @@ class TestAstBuilder:
             assert isinstance(elt, ast.Num)
             assert self.space.eq_w(elt.n, self.space.wrap(i))
 
+    def test_set_unpack(self):
+        s = self.get_first_expr("{*{1}}")
+        assert isinstance(s, ast.Set)
+        assert len(s.elts) == 1
+        sta0 = s.elts[0]
+        assert isinstance(sta0, ast.Starred)
+        s0 = sta0.value
+        assert isinstance(s0, ast.Set)
+        assert len(s0.elts) == 1
+        assert isinstance(s0.elts[0], ast.Num)
+        assert self.space.eq_w(s0.elts[0].n, self.space.wrap(1))
+        s = self.get_first_expr("{*{0, 1, 2, 3, 4, 5}}")
+        assert isinstance(s, ast.Set)
+        assert len(s.elts) == 1
+        sta0 = s.elts[0]
+        assert isinstance(sta0, ast.Starred)
+        s0 = sta0.value
+        assert isinstance(s0, ast.Set)
+        assert len(s0.elts) == 6
+        for i, elt in enumerate(s0.elts):
+            assert isinstance(elt, ast.Num)
+            assert self.space.eq_w(elt.n, self.space.wrap(i))
+
     def test_set_context(self):
         tup = self.get_ast("(a, b) = c").body[0].targets[0]
         assert all(elt.ctx == ast.Store for elt in tup.elts)
