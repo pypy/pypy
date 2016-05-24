@@ -40,6 +40,9 @@ def build_once(assembler):
     assert ofs2 - 8 == ofs1
     mc.ldu(r10.value, r2.value, ofs1)       # ldu  r10, [r2 + bc_list.length]
     mc.sldi(r10.value, r10.value, 3)        # sldi r10, r10, 3
+    # in the sequel, "r2 + 8" is a pointer to the leftmost array item of
+    # the range still under consideration.  The length of this range,
+    # which is always a power-of-two-minus-1, is equal to "r10 / 8".
     b_location = mc.get_relative_pos()
     mc.trap()                               # b loop
 
@@ -47,10 +50,10 @@ def build_once(assembler):
     mc.add(r2.value, r2.value, r10.value)   # add r2, r2, r10
     mc.addi(r2.value, r2.value, WORD)       # addi r2, r2, 8
     left_label = mc.get_relative_pos()
-    mc.rldicr(r10.value, r10.value, 63, 60) # rldicr r10, r10, 63, 60
-    # ^^ note: this does r10 = (r10 >> 1) & ~7
-    mc.cmp_op(0, r10.value, 8, imm=True)    # cmp r10, 8
-    blt_location = mc.get_relative_pos()
+    mc.rldicrx(r10.value, r10.value, 63, 60)# rldicrx r10, r10, 63, 60
+    # ^^ note: this does r10 = (r10 >> 1) & ~7, and sets the "EQ" flag
+    # if the result is equal to zero
+    beq_location = mc.get_relative_pos()
     mc.trap()                               # beq not_found
     #                                     loop:
     pmc = OverwritingBuilder(mc, b_location, 1)
@@ -82,8 +85,8 @@ def build_once(assembler):
     # ----------
 
     #                                     not_found:
-    pmc = OverwritingBuilder(mc, blt_location, 1)
-    pmc.blt(mc.currpos() - blt_location)    # jump here if r10 < 8
+    pmc = OverwritingBuilder(mc, beq_location, 1)
+    pmc.beq(mc.currpos() - beq_location)    # jump here if r10 < 8
     pmc.overwrite()
 
     # save all other registers to the jitframe SPP, in addition to
