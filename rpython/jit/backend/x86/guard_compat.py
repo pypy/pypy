@@ -90,6 +90,8 @@ from rpython.jit.backend.llsupport.guard_compat import _real_number
 #     JZ not_found
 #   loop:
 #     # search for the item at addresses between RDX and RDX+16*R11, included
+#     # (note that R11 is always odd here; even though we use 8*R11 in the
+#     # following instruction, we're really accessing 16-bytes-sized items)
 #     CMP RAX, [RDX + 8*R11 - 8]      # R11 = ...31, 15, 7, 3, 1
 #     JA right
 #     JNE left
