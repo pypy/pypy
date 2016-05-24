@@ -4,8 +4,10 @@ class BaseImportTest:
 
     def setup_class(cls):
         space = cls.space
-        cls.w_testfn_unencodable = space.wrap(get_unencodable())
-        cls.w_special_char = space.wrap(get_special_char())
+        cls.testfn_unencodable = get_unencodable()
+        cls.w_testfn_unencodable = space.wrap(cls.testfn_unencodable)
+        cls.special_char = get_special_char()
+        cls.w_special_char = space.wrap(cls.special_char)
 
 def get_unencodable():
     """Copy of the stdlib's support.TESTFN_UNENCODABLE:
