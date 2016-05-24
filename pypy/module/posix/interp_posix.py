@@ -1448,43 +1448,32 @@ dir_fd and follow_symlinks may not be available on your platform.
             # see comment above
             raise wrap_oserror(space, e)
 
-    if not follow_symlinks:
-        if not rposix.HAVE_LUTIMES:
-            raise argument_unavailable(space, "utime", "follow_symlinks")
+    if (rposix.HAVE_LUTIMES and
+        (dir_fd == DEFAULT_DIR_FD and not follow_symlinks)):
         path_b = path.as_bytes
         if path_b is None:
             raise oefmt(space.w_NotImplementedError,
                         "utime: unsupported value for 'path'")
         try:
-            rposix.lutimes(path_b, (atime_s, atime_ns))
+            if now:
+                rposix.lutimes(path_b, None)
+            else:
+                rposix.lutimes(path_b, (atime_s, atime_ns))
             return
         except OSError as e:
             # see comment above
             raise wrap_oserror(space, e)
 
-    if not space.is_w(w_ns, space.w_None):
-        raise oefmt(space.w_NotImplementedError,
-            "utime: 'ns' unsupported on this platform on PyPy")
-    if now:
-        try:
+    # XXX: missing utime_dir_fd support
+
+    if not follow_symlinks:
+        raise argument_unavailable(space, "utime", "follow_symlinks")
+
+    try:
+        if now:
             call_rposix(utime_now, path, None)
-            return
-        except OSError as e:
-            # see comment above
-            raise wrap_oserror(space, e)
-    try:
-        msg = "utime() arg 2 must be a tuple (atime, mtime) or None"
-        args_w = space.fixedview(w_times)
-        if len(args_w) != 2:
-            raise oefmt(space.w_TypeError, msg)
-        actime = space.float_w(args_w[0], allow_conversion=False)
-        modtime = space.float_w(args_w[1], allow_conversion=False)
-    except OperationError as e:
-        if not e.match(space, space.w_TypeError):
-            raise
-        raise oefmt(space.w_TypeError, msg)
-    try:
-        call_rposix(rposix.utime, path, (actime, modtime))
+        else:
+            call_rposix(rposix.utime, path, (atime_s, mtime_s))
     except OSError as e:
         # see comment above
         raise wrap_oserror(space, e)
