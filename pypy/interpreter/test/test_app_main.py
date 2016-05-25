@@ -6,21 +6,19 @@ import py
 import sys, os, re, runpy, subprocess
 from rpython.tool.udir import udir
 from contextlib import contextmanager
-from pypy.conftest import pypydir
+from pypy.conftest import PYTHON3, pypydir
+from pypy.interpreter.test.conftest import banner
 from lib_pypy._pypy_interact import irc_header
-
-
-python3 = os.environ.get("PYTHON3", "python3")
-
-def get_banner():
-    p = subprocess.Popen([python3, "-c",
-                          "import sys; print(sys.version.splitlines()[0])"],
-                         stdout=subprocess.PIPE)
-    return p.stdout.read().rstrip()
-banner = get_banner()
 
 app_main = os.path.join(os.path.realpath(os.path.dirname(__file__)), os.pardir, 'app_main.py')
 app_main = os.path.abspath(app_main)
+
+def get_python3():
+    if PYTHON3:
+        return PYTHON3
+    import py.test
+    py.test.fail("Test requires 'python3' (not found in PATH) or a PYTHON3 "
+                 "environment variable set")
 
 _counter = 0
 def _get_next_path(ext='.py'):
@@ -37,7 +35,7 @@ def getscript(source):
 def getscript_pyc(space, source):
     p = _get_next_path()
     p.write(str(py.code.Source(source)))
-    subprocess.check_call([python3, "-c", "import " + p.purebasename],
+    subprocess.check_call([get_python3(), "-c", "import " + p.purebasename],
                           env={'PYTHONPATH': str(p.dirpath())})
     # the .pyc file should have been created above
     pycache = p.dirpath('__pycache__')
@@ -99,7 +97,7 @@ class TestParseCommandLine:
                     "option %r has unexpectedly the value %r" % (key, value))
 
     def check(self, argv, env, **expected):
-        p = subprocess.Popen([python3, app_main,
+        p = subprocess.Popen([get_python3(), app_main,
                               '--argparse-only'] + list(argv),
                              stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                              env=env)
@@ -240,7 +238,7 @@ class TestInteraction:
     def spawn(self, argv, env=None):
         # make sure that when we do 'import pypy' we get the correct package
         with setpythonpath():
-            return self._spawn(python3, [app_main] + argv, env=env)
+            return self._spawn(get_python3(), [app_main] + argv, env=env)
 
     def test_interactive(self):
         child = self.spawn([])
@@ -529,7 +527,7 @@ class TestInteraction:
         if sys.platform == "win32":
             skip("close_fds is not supported on Windows platforms")
         import subprocess, select, os
-        pipe = subprocess.Popen([python3, app_main, "-u", "-i"],
+        pipe = subprocess.Popen([get_python3(), app_main, "-u", "-i"],
                                 stdout=subprocess.PIPE,
                                 stdin=subprocess.PIPE,
                                 stderr=subprocess.STDOUT,
@@ -624,7 +622,7 @@ class TestNonInteractive:
                 import __pypy__
             except:
                 py.test.skip('app_main cannot run on non-pypy for windows')
-        cmdline = '%s %s "%s" %s' % (python3, python_flags,
+        cmdline = '%s %s "%s" %s' % (get_python3(), python_flags,
                                      app_main, cmdline)
         print 'POPEN:', cmdline
         process = subprocess.Popen(
@@ -813,7 +811,7 @@ class TestNonInteractive:
             time.sleep(1)
             # stdout flushed automatically here
             """)
-        cmdline = '%s -E "%s" %s' % (python3, app_main, path)
+        cmdline = '%s -E "%s" %s' % (get_python3(), app_main, path)
         print 'POPEN:', cmdline
         child_in, child_out_err = os.popen4(cmdline)
         data = child_out_err.read(11)
@@ -840,7 +838,7 @@ class TestNonInteractive:
             if 'stderr' in streams:
                 os.close(2)
         p = subprocess.Popen(
-            [python3, app_main, "-E", "-c", code],
+            [get_python3(), app_main, "-E", "-c", code],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,

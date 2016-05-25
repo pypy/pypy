@@ -34,6 +34,7 @@ import io as _io
 import os as _os
 import shutil as _shutil
 import errno as _errno
+import weakref as _weakref
 from random import Random as _Random
 
 try:
@@ -686,6 +687,7 @@ class TemporaryDirectory(object):
 
     def __init__(self, suffix="", prefix=template, dir=None):
         self.name = mkdtemp(suffix, prefix, dir)
+        _tmpdirs.add(self)
 
     def __repr__(self):
         return "<{} {!r}>".format(self.__class__.__name__, self.name)
@@ -714,6 +716,7 @@ class TemporaryDirectory(object):
 
     def __exit__(self, exc, value, tb):
         self.cleanup()
+        _tmpdirs.discard(self)
 
     def __del__(self):
         # Issue a ResourceWarning if implicit cleanup needed
@@ -736,10 +739,23 @@ class TemporaryDirectory(object):
         except _OSError:
             pass
 
+_tmpdirs = _weakref.WeakSet()
 _is_running = True
+
+def _tmpdir_cleanup():
+    while _tmpdirs:
+        try:
+            tmpdir = _tmpdirs.pop()
+        except KeyError:
+            break
+        try:
+            tmpdir.cleanup(_warn=True)
+        except:
+            pass
 
 def _on_shutdown():
     global _is_running
+    _tmpdir_cleanup()
     _is_running = False
 
 _atexit.register(_on_shutdown)

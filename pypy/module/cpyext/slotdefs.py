@@ -78,8 +78,7 @@ def wrap_binaryfunc_l(space, w_self, w_args, func):
     args_w = space.fixedview(w_args)
     ref = make_ref(space, w_self)
     if (not ref.c_ob_type.c_tp_flags & Py_TPFLAGS_CHECKTYPES and
-        not space.is_true(space.issubtype(space.type(args_w[0]),
-                                         space.type(w_self)))):
+        not space.issubtype_w(space.type(args_w[0]), space.type(w_self))):
         return space.w_NotImplemented
     Py_DecRef(space, ref)
     return generic_cpy_call(space, func_binary, w_self, args_w[0])
@@ -90,8 +89,7 @@ def wrap_binaryfunc_r(space, w_self, w_args, func):
     args_w = space.fixedview(w_args)
     ref = make_ref(space, w_self)
     if (not ref.c_ob_type.c_tp_flags & Py_TPFLAGS_CHECKTYPES and
-        not space.is_true(space.issubtype(space.type(args_w[0]),
-                                         space.type(w_self)))):
+        not space.issubtype_w(space.type(args_w[0]), space.type(w_self))):
         return space.w_NotImplemented
     Py_DecRef(space, ref)
     return generic_cpy_call(space, func_binary, args_w[0], w_self)
@@ -113,8 +111,7 @@ def wrap_ternaryfunc_r(space, w_self, w_args, func):
     args_w = space.fixedview(w_args)
     ref = make_ref(space, w_self)
     if (not ref.c_ob_type.c_tp_flags & Py_TPFLAGS_CHECKTYPES and
-        not space.is_true(space.issubtype(space.type(args_w[0]),
-                                         space.type(w_self)))):
+        not space.issubtype_w(space.type(args_w[0]), space.type(w_self))):
         return space.w_NotImplemented
     Py_DecRef(space, ref)
     arg3 = space.w_None
@@ -346,8 +343,7 @@ def wrap_cmpfunc(space, w_self, w_args, func):
     check_num_args(space, w_args, 1)
     w_other, = space.fixedview(w_args)
 
-    if not space.is_true(space.issubtype(space.type(w_self),
-                                         space.type(w_other))):
+    if not space.issubtype_w(space.type(w_self), space.type(w_other)):
         raise oefmt(space.w_TypeError,
                     "%T.__cmp__(x,y) requires y to be a '%T', not a '%T'",
                     w_self, w_self, w_other)

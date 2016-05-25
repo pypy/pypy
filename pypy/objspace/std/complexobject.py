@@ -509,7 +509,7 @@ def complexwprop(name, doc):
         if not isinstance(w_obj, W_ComplexObject):
             raise oefmt(space.w_TypeError, "descriptor is for 'complex'")
         return space.newfloat(getattr(w_obj, name))
-    return GetSetProperty(fget, doc=doc)
+    return GetSetProperty(fget, doc=doc, cls=W_ComplexObject)
 
 W_ComplexObject.typedef = TypeDef("complex",
     __doc__ = """complex(real[, imag]) -> complex number

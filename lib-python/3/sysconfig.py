@@ -42,6 +42,16 @@ _INSTALL_SCHEMES = {
         'scripts': '{base}/bin',
         'data': '{base}',
         },
+    'pypy': {
+        'stdlib': '{installed_base}/lib-python',
+        'platstdlib': '{base}/lib-python',
+        'purelib': '{base}/lib-python',
+        'platlib': '{base}/lib-python',
+        'include': '{installed_base}/include',
+        'platinclude': '{installed_base}/include',
+        'scripts': '{base}/bin',
+        'data'   : '{base}',
+        },
     'nt': {
         'stdlib': '{installed_base}/Lib',
         'platstdlib': '{base}/Lib',
@@ -198,7 +208,9 @@ def _expand_vars(scheme, vars):
 
 
 def _get_default_scheme():
-    if os.name == 'posix':
+    if '__pypy__' in sys.builtin_module_names:
+        return 'pypy'
+    elif os.name == 'posix':
         # the default scheme for posix is posix_prefix
         return 'posix_prefix'
     return os.name
