@@ -111,6 +111,13 @@ if _WIN:
             self.n_overflow = 0
             self.last_ticks = 0
     time_state = TimeState()
+    from rpython.rlib.rdynload import GetModuleHandle, dlsym
+    hKernel32 = GetModuleHandle("KERNEL32")
+    try:
+        dlsym(hKernel32, 'GetFinalPathNameByHandleW')
+        HAS_GETTICKCOUNT64 = True
+    except KeyError:
+        HAS_GETTICKCOUNT64 = False
 
 _includes = ["time.h"]
 if _POSIX:
@@ -194,7 +201,6 @@ if _POSIX:
 
 CLOCKS_PER_SEC = cConfig.CLOCKS_PER_SEC
 HAS_CLOCK_GETTIME = cConfig.has_clock_gettime
-HAS_GETTICKCOUNT64 = cConfig.has_gettickcount64
 clock_t = cConfig.clock_t
 tm = cConfig.tm
 glob_buf = lltype.malloc(tm, flavor='raw', zero=True, immortal=True)
