@@ -76,6 +76,7 @@ data_proc_imm = {
     'AND_ri': {'op': 0, 'result': True, 'base': True},
     'EOR_ri': {'op': 0x2, 'result': True, 'base': True},
     'SUB_ri': {'op': 0x4, 'result': True, 'base': True},
+    'SUBS_ri':{'op': 0x5, 'result': True, 'base': True},
     'RSB_ri': {'op': 0x6, 'result': True, 'base': True},
     'ADD_ri': {'op': 0x8, 'result': True, 'base': True},
     'ADC_ri': {'op': 0xA, 'result': True, 'base': True},

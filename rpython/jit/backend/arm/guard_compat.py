@@ -1,6 +1,8 @@
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.jit.backend.arm import conditions as c
 from rpython.jit.backend.arm import registers as r
+from rpython.jit.backend.arm.arch import WORD
+from rpython.jit.backend.arm.codebuilder import InstrBuilder, OverwritingBuilder
 from rpython.jit.backend.llsupport.guard_compat import *
 from rpython.jit.backend.llsupport.guard_compat import _real_number
 
@@ -16,9 +18,11 @@ def build_once(assembler):
     # pushed on the stack as well (the same values as the one passed
     # in).
 
-    mc = PPCBuilder()
+    mc = InstrBuilder(assembler.cpu.cpuinfo.arch_version)
     r0 = r.r0
     r1 = r.r1
+    r2 = r.r2
+    r3 = r.r3
     lr = r.lr
     ip = r.ip
 
@@ -39,36 +43,34 @@ def build_once(assembler):
     mc.ADD_ri(lr.value, lr.value, WORD)    # ADD lr, lr, 4
     left_label = mc.get_relative_pos()
     mc.LSR_ri(r0.value, r0.value, 1)       # LSR r0, r0, 1
-    mc.SUBS_ri(r0.value, r0.value, 4)      # SUBS r0, r0, 4
+    mc.SUBS_ri(r0.value, r0.value, 2)      # SUBS r0, r0, 2
     beq_location = mc.get_relative_pos()
-    mc.trap()                              # BEQ not_found
+    mc.BKPT()                              # BEQ not_found
     #                                     loop:
     pmc = OverwritingBuilder(mc, b_location, WORD)
     pmc.B_offs(mc.currpos(), c.AL)
     mc.LDR_rr(ip.value, lr.value, r0.value)# LDR ip, [lr + r0]
     mc.CMP_rr(r1.value, ip.value)          # CMP r1, ip
-    mc.B_offs(right_label - mc.currpos(), c.GT)  # BGT right_label
-    mc.B_offs(left_label - mc.currpos(), c.NE)   # BNE left_label
+    mc.B_offs(right_label, c.GT)           # BGT right_label
+    mc.B_offs(left_label, c.NE)            # BNE left_label
 
     #                                  found:
     mc.ADD_rr(ip.value, lr.value, r0.value)# ADD ip, lr, r0
+    mc.LDR_ri(lr.value, r.sp.value, 2*WORD)# LDR lr, [sp + 8]
     mc.LDR_ri(ip.value, ip.value, WORD)    # LDR ip, [ip + 4]
 
-    mc.POP([lr.value])                     # POP {lr}
-
     ofs = _real_number(BCMOSTRECENT)
-    mc.STR(r1.value, lr.value, ofs)        # STR r1, [lr + bc_most_recent]
-    mc.STR(ip.value, lr.value, ofs + WORD) # STR ip, [lr + bc_most_recent + 4]
+    mc.STR_ri(r1.value, lr.value, ofs)     # STR r1, [lr + bc_most_recent]
+    mc.STR_ri(ip.value, lr.value, ofs+WORD)# STR ip, [lr + bc_most_recent + 4]
 
-    mc.POP([r0.value, r1.value])           # POP {r0, r1}
+    mc.POP([r0.value, r1.value, lr.value]) # POP {r0, r1, lr}
     mc.BX(ip.value)                        # BX ip
 
     # ----------
 
-    #                                     not_found:
-    pmc = OverwritingBuilder(mc, beq_location, 1)
-    pmc.B(mc.currpos() - beq_location, cond.EQ)    # jump here if r0 is now 0
-    pmc.overwrite()
+    #                                    not_found:
+    pmc = OverwritingBuilder(mc, beq_location, WORD)
+    pmc.B_offs(mc.currpos(), c.EQ)         # jump here if r0 is now 0
 
     # save all registers to the jitframe, expect r0 and r1
     assembler._push_all_regs_to_jitframe(mc, [r0, r1], withfloats=True)
@@ -108,15 +110,16 @@ def build_once(assembler):
 
     assembler.guard_compat_search_tree = mc.materialize(assembler.cpu, [])
 
-    print hex(assembler.guard_compat_search_tree)
-    raw_input('press enter...')
+    #print hex(assembler.guard_compat_search_tree)
+    #raw_input('press enter...')
 
 
 def generate_guard_compatible(assembler, guard_token, l0, bindex):
     mc = assembler.mc
+    r0 = r.r0
+    r1 = r.r1
     ip = r.ip
     lr = r.lr
-    r4 = r.r4
 
     assembler.load_from_gc_table(lr.value, bindex)  # LDR lr, [gctbl at bindex]
 
@@ -126,11 +129,12 @@ def generate_guard_compatible(assembler, guard_token, l0, bindex):
 
     mc.LDR_ri(ip.value, lr.value,           # LDR.EQ ip, [lr + most_recent + 8]
               ofs + WORD, cond=c.EQ)
-    mc.BR(ip.value, cond=c.EQ)              # BR.EQ ip
+    mc.BX(ip.value, c=c.EQ)                 # BX.EQ ip
 
     mc.PUSH([r0.value, r1.value, lr.value]) # PUSH {r0, r1, lr}
-    mc.MOV_rr(r1.value, l0.value)           # MOV r1, l0
-    mc.BL(assembler.guard_compat_search_tree)   # MOVW/MOVT ip, BLX ip
+    if l0 is not r1:
+        mc.MOV_rr(r1.value, l0.value)       # MOV r1, l0
+    mc.B(assembler.guard_compat_search_tree)   # MOVW/MOVT ip, BX ip
 
     # abuse this field to store the 'sequel' relative offset
     guard_token.pos_jump_offset = mc.get_relative_pos()

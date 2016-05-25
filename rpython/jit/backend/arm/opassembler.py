@@ -248,6 +248,7 @@ class ResOpAssembler(BaseAssembler):
         bindex = op.getarg(1).getint()
         token = self._emit_guard(op, arglocs[1:], is_guard_compatible=True)
         guard_compat.generate_guard_compatible(self, token, l0, bindex)
+        return fcond
 
     emit_op_guard_nonnull = emit_op_guard_true
     emit_op_guard_isnull = emit_op_guard_false
