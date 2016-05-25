@@ -6,9 +6,6 @@
 #define Py_ISDIGIT isdigit
 #define Py_ISALPHA isalpha
 
-#define PyObject_Malloc malloc
-#define PyObject_Free free
-
 static void
 makefmt(char *fmt, int longflag, int longlongflag, int size_tflag,
         int zeropad, int width, int precision, char c)
