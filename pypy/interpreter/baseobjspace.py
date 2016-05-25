@@ -1196,8 +1196,7 @@ class ObjSpace(object):
         elif flag == 'S':
             return False
         else:
-            return (self.lookup(w_obj, '__getitem__') is not None and
-                    self.lookup(w_obj, '__getslice__') is None)
+            return self.lookup(w_obj, '__getitem__') is not None
 
     # The code below only works
     # for the simple case (new-style instance).
