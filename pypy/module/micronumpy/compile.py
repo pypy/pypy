@@ -125,7 +125,7 @@ class FakeSpace(ObjSpace):
         return None
 
     def issubtype_w(self, w_sub, w_type):
-        return True
+        return w_sub is w_type
 
     def isinstance_w(self, w_obj, w_tp):
         try:
