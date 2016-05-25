@@ -111,13 +111,6 @@ if _WIN:
             self.n_overflow = 0
             self.last_ticks = 0
     time_state = TimeState()
-    from rpython.rlib.rdynload import GetModuleHandle, dlsym
-    hKernel32 = GetModuleHandle("KERNEL32")
-    try:
-        dlsym(hKernel32, 'GetFinalPathNameByHandleW')
-        HAS_GETTICKCOUNT64 = True
-    except KeyError:
-        HAS_GETTICKCOUNT64 = False
 
 _includes = ["time.h"]
 if _POSIX:
@@ -733,13 +726,19 @@ def strftime(space, format, w_tup=None):
 
 if _WIN:
     # untested so far
-    _GetTickCount64 = rwin32.winexternal('GetTickCount64', [], rffi.ULONGLONG)
     _GetTickCount = rwin32.winexternal('GetTickCount', [], rwin32.DWORD)
     LPDWORD = rwin32.LPDWORD
     _GetSystemTimeAdjustment = rwin32.winexternal(
                                             'GetSystemTimeAdjustment',
                                             [LPDWORD, LPDWORD, rwin32.LPBOOL], 
                                             rffi.INT)
+    from rpython.rlib.rdynload import GetModuleHandle, dlsym
+    hKernel32 = GetModuleHandle("KERNEL32")
+    try:
+        _GetTickCount64 = dlsym(hKernel32, 'GetTickCount64')
+        HAS_GETTICKCOUNT64 = True
+    except KeyError:
+        HAS_GETTICKCOUNT64 = False
 
     def monotonic(space, w_info=None):
         result = 0
