@@ -763,9 +763,6 @@ else:
 if _WIN:
     # untested so far
     def process_time(space):
-        process_times = _time.GetProcessTimes(handle)
-        return (process_times['UserTime'] + process_times['KernelTime']) * 1e-7
-
         from rpython.rlib.rposix import GetCurrentProcess, GetProcessTimes
         current_process = GetCurrentProcess()
         with lltype.scoped_alloc(rwin32.FILETIME) as creation_time, \
