@@ -73,5 +73,6 @@ class AppTestArrayModule(AppTestCpythonExtensionBase):
         module = self.import_module(name='array')
         arr = module.array('i', [1,2,3,4])
         s = pickle.dumps(arr)
+        assert s == "carray\n_reconstruct\np0\n(S'i'\np1\n(lp2\nI1\naI2\naI3\naI4\natp3\nRp4\n."
         rra = pickle.loads(s) # rra is arr backwards
         assert arr.tolist() == rra.tolist()
