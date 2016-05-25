@@ -39,7 +39,9 @@ if _WIN:
         includes = ['windows.h'],
         post_include_bits = [
             "RPY_EXTERN\n"
-            "BOOL pypy_timemodule_setCtrlHandler(HANDLE event);"],
+            "BOOL pypy_timemodule_setCtrlHandler(HANDLE event);"
+            "ULONGLONG pypy_GetTickCount64(FARPROC address);"
+            "],
         separate_module_sources=['''
             static HANDLE interrupt_event;
 
@@ -60,6 +62,12 @@ if _WIN:
                 return SetConsoleCtrlHandler(CtrlHandlerRoutine, TRUE);
             }
 
+            ULONGLONG pypy_GetTickCount64(FARPROC address) {
+                ULONGLONG (WINAPI *func)();
+                *(FARPROC*)&func = address;
+                return func();
+            }   
+
         '''],
         )
     _setCtrlHandlerRoutine = rffi.llexternal(
@@ -68,6 +76,21 @@ if _WIN:
         compilation_info=eci,
         save_err=rffi.RFFI_SAVE_LASTERROR)
 
+    pypy_GetTickCount64 = rffi.llexternal(
+        'pypy_GetTickCount64',
+        [rffi.VOIDP],
+        rffi.ULONGLONG, compilation_info=eci)
+
+    try:
+        hKernel32 = GetModuleHandle("KERNEL32")
+        try:
+            _GetTickCount64_handle = dlsym(hKernel32, 'GetTickCount64')
+            def _GetTickCount64():
+                return pypy_GetTickCount64(_GetTickCount64_handle)
+        except KeyError:
+            _GetTickCount64_handle = lltype.nullptr(rffi.VOIDP.TO))
+
+    HAS_GETTICKCOUNT64 = pypy_GetTickCount64 != lltype.nullptr(rffi.VOIDP.TO))
     class GlobalState:
         def __init__(self):
             self.init()
@@ -732,14 +755,6 @@ if _WIN:
                                             'GetSystemTimeAdjustment',
                                             [LPDWORD, LPDWORD, rwin32.LPBOOL], 
                                             rffi.INT)
-    from rpython.rlib.rdynload import GetModuleHandle, dlsym
-    hKernel32 = GetModuleHandle("KERNEL32")
-    try:
-        _GetTickCount64 = dlsym(hKernel32, 'GetTickCount64')
-        HAS_GETTICKCOUNT64 = True
-    except KeyError:
-        HAS_GETTICKCOUNT64 = False
-
     def monotonic(space, w_info=None):
         result = 0
         if HAS_GETTICKCOUNT64:
