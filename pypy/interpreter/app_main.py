@@ -2,7 +2,7 @@
 # This is pure Python code that handles the main entry point into "pypy".
 # See test/test_app_main.
 
-# Missing vs CPython: -b, -d, -x, -3
+# Missing vs CPython: -b, -d, -x
 from __future__ import print_function, unicode_literals
 USAGE1 = __doc__ = """\
 Options and arguments (and corresponding environment variables):
@@ -16,10 +16,10 @@ Options and arguments (and corresponding environment variables):
 -O     : skip assert statements; also PYTHONOPTIMIZE=x
 -OO    : remove docstrings when importing modules in addition to -O
 -q     : don't print version and copyright messages on interactive startup
--R     : ignored (see http://bugs.python.org/issue14621)
 -s     : don't add user site directory to sys.path; also PYTHONNOUSERSITE
 -S     : don't imply 'import site' on initialization
--u     : unbuffered binary stdout and stderr; also PYTHONUNBUFFERED=x
+-u     : unbuffered binary stdout and stderr, stdin always buffered;
+         also PYTHONUNBUFFERED=x
 -v     : verbose (trace import statements); also PYTHONVERBOSE=x
          can be supplied multiple times to increase verbosity
 -V     : print the Python version number and exit (also --version)
@@ -379,6 +379,9 @@ def W_option(options, warnoption, iterargv):
 def end_options(options, _, iterargv):
     return list(iterargv)
 
+def ignore_option(*args):
+    pass
+
 cmdline_options = {
     # simple options just increment the counter of the options listed above
     'b': (simple_option, 'bytes_warning'),
@@ -387,7 +390,6 @@ cmdline_options = {
     'E': (simple_option, 'ignore_environment'),
     'i': (simple_option, 'interactive'),
     'O': (simple_option, 'optimize'),
-    'R': (simple_option, 'hash_randomization'),
     's': (simple_option, 'no_user_site'),
     'S': (simple_option, 'no_site'),
     'u': (simple_option, 'unbuffered'),
@@ -407,6 +409,7 @@ cmdline_options = {
     '--jit':     (set_jit_option,  Ellipsis),
     '-funroll-loops': (funroll_loops, None),
     '--':        (end_options,     None),
+    'R':         (ignore_option,   None),      # previously hash_randomization
     }
 
 def handle_argument(c, options, iterargv, iterarg=iter(())):

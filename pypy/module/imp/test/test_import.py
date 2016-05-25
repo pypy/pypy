@@ -133,10 +133,9 @@ def setup_directory_structure(cls):
              line2 = "# encoding: iso-8859-1\n",
              bad = "# encoding: uft-8\n")
 
-    w_special_char = getattr(cls, 'w_special_char', None)
-    if not space.is_none(w_special_char):
-        special_char = space.unicode_w(w_special_char).encode(
-            sys.getfilesystemencoding())
+    special_char = cls.special_char
+    if special_char is not None:
+        special_char = special_char.encode(sys.getfilesystemencoding())
         p.join(special_char + '.py').write('pass')
 
     # create a .pyw file
@@ -745,54 +744,6 @@ class AppTestImport(BaseImportTest):
                 pass    # 'int' object does not support indexing
             else:
                 raise AssertionError("should have failed")
-
-    def test_verbose_flag_1(self):
-        output = []
-        class StdErr(object):
-            def write(self, line):
-                output.append(line)
-
-        import sys, imp
-        old_flags = sys.flags
-
-        class Flags(object):
-            verbose = 1
-            def __getattr__(self, name):
-                return getattr(old_flags, name)
-
-        sys.flags = Flags()
-        sys.stderr = StdErr()
-        try:
-            import verbose1pkg.verbosemod
-        finally:
-            imp.reload(sys)
-        assert 'import verbose1pkg # ' in output[-2]
-        assert 'import verbose1pkg.verbosemod # ' in output[-1]
-
-    def test_verbose_flag_2(self):
-        output = []
-        class StdErr(object):
-            def write(self, line):
-                output.append(line)
-
-        import sys, imp
-        old_flags = sys.flags
-
-        class Flags(object):
-            verbose = 2
-            def __getattr__(self, name):
-                return getattr(old_flags, name)
-
-        sys.flags = Flags()
-        sys.stderr = StdErr()
-        try:
-            import verbose2pkg.verbosemod
-        finally:
-            imp.reload(sys)
-        assert any('import verbose2pkg # ' in line
-                   for line in output[:-2])
-        assert output[-2].startswith('# trying')
-        assert 'import verbose2pkg.verbosemod # ' in output[-1]
 
     def test_verbose_flag_0(self):
         output = []

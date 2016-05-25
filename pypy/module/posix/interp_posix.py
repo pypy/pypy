@@ -166,7 +166,8 @@ class _JustPath(Unwrapper):
 def path_or_fd(allow_fd=True):
     return _PathOrFd if allow_fd else _JustPath
 
-DEFAULT_DIR_FD = getattr(rposix, 'AT_FDCWD', -100)
+_HAVE_AT_FDCWD = getattr(rposix, 'AT_FDCWD', None) is not None
+DEFAULT_DIR_FD = rposix.AT_FDCWD if _HAVE_AT_FDCWD else -100
 DIR_FD_AVAILABLE = False
 
 @specialize.arg(2)
@@ -196,7 +197,7 @@ class _DirFD(Unwrapper):
 
 class _DirFD_Unavailable(Unwrapper):
     def unwrap(self, space, w_value):
-        dir_fd = unwrap_fd(space, w_value)
+        dir_fd = _unwrap_dirfd(space, w_value)
         if dir_fd == DEFAULT_DIR_FD:
             return dir_fd
         raise oefmt(space.w_NotImplementedError,
@@ -222,11 +223,11 @@ If dir_fd is not None, it should be a file descriptor open to a directory,
 dir_fd may not be implemented on your platform.
   If it is unavailable, using it will raise a NotImplementedError."""
     try:
-        if dir_fd == DEFAULT_DIR_FD:
-            fd = dispatch_filename(rposix.open)(space, w_path, flags, mode)
-        else:
+        if rposix.HAVE_OPENAT and dir_fd != DEFAULT_DIR_FD:
             path = space.fsencode_w(w_path)
             fd = rposix.openat(path, flags, mode, dir_fd)
+        else:
+            fd = dispatch_filename(rposix.open)(space, w_path, flags, mode)
     except OSError as e:
         raise wrap_oserror2(space, e, w_path)
     return space.wrap(fd)
@@ -555,7 +556,7 @@ def dup2(space, old_fd, new_fd):
     dir_fd=DirFD(rposix.HAVE_FACCESSAT), effective_ids=kwonly(bool),
     follow_symlinks=kwonly(bool))
 def access(space, w_path, mode,
-        dir_fd=DEFAULT_DIR_FD, effective_ids=True, follow_symlinks=True):
+        dir_fd=DEFAULT_DIR_FD, effective_ids=False, follow_symlinks=True):
     """\
 access(path, mode, *, dir_fd=None, effective_ids=False, follow_symlinks=True)
 
@@ -585,12 +586,14 @@ The mode argument can be F_OK to test existence, or the inclusive-OR
             raise argument_unavailable(space, "access", "effective_ids")
 
     try:
-        if dir_fd == DEFAULT_DIR_FD and follow_symlinks and not effective_ids:
-            ok = dispatch_filename(rposix.access)(space, w_path, mode)
-        else:
+        if (rposix.HAVE_FACCESSAT and
+            (dir_fd != DEFAULT_DIR_FD or not follow_symlinks or
+             effective_ids)):
             path = space.fsencode_w(w_path)
             ok = rposix.faccessat(path, mode,
                 dir_fd, effective_ids, follow_symlinks)
+        else:
+            ok = dispatch_filename(rposix.access)(space, w_path, mode)
     except OSError as e:
         raise wrap_oserror2(space, e, w_path)
     else:
@@ -635,11 +638,11 @@ If dir_fd is not None, it should be a file descriptor open to a directory,
 dir_fd may not be implemented on your platform.
   If it is unavailable, using it will raise a NotImplementedError."""
     try:
-        if dir_fd == DEFAULT_DIR_FD:
-            dispatch_filename(rposix.unlink)(space, w_path)
-        else:
+        if rposix.HAVE_UNLINKAT and dir_fd != DEFAULT_DIR_FD:
             path = space.fsencode_w(w_path)
             rposix.unlinkat(path, dir_fd, removedir=False)
+        else:
+            dispatch_filename(rposix.unlink)(space, w_path)
     except OSError as e:
         raise wrap_oserror2(space, e, w_path)
 
@@ -654,11 +657,11 @@ If dir_fd is not None, it should be a file descriptor open to a directory,
 dir_fd may not be implemented on your platform.
   If it is unavailable, using it will raise a NotImplementedError."""
     try:
-        if dir_fd == DEFAULT_DIR_FD:
-            dispatch_filename(rposix.unlink)(space, w_path)
-        else:
+        if rposix.HAVE_UNLINKAT and dir_fd != DEFAULT_DIR_FD:
             path = space.fsencode_w(w_path)
             rposix.unlinkat(path, dir_fd, removedir=False)
+        else:
+            dispatch_filename(rposix.unlink)(space, w_path)
     except OSError as e:
         raise wrap_oserror2(space, e, w_path)
 
@@ -721,11 +724,11 @@ dir_fd may not be implemented on your platform.
 
 The mode argument is ignored on Windows."""
     try:
-        if dir_fd == DEFAULT_DIR_FD:
-            dispatch_filename(rposix.mkdir)(space, w_path, mode)
-        else:
+        if rposix.HAVE_MKDIRAT and dir_fd != DEFAULT_DIR_FD:
             path = space.fsencode_w(w_path)
             rposix.mkdirat(path, mode, dir_fd)
+        else:
+            dispatch_filename(rposix.mkdir)(space, w_path, mode)
     except OSError as e:
         raise wrap_oserror2(space, e, w_path)
 
@@ -740,11 +743,11 @@ If dir_fd is not None, it should be a file descriptor open to a directory,
 dir_fd may not be implemented on your platform.
   If it is unavailable, using it will raise a NotImplementedError."""
     try:
-        if dir_fd == DEFAULT_DIR_FD:
-            dispatch_filename(rposix.rmdir)(space, w_path)
-        else:
+        if rposix.HAVE_UNLINKAT and dir_fd != DEFAULT_DIR_FD:
             path = space.fsencode_w(w_path)
             rposix.unlinkat(path, dir_fd, removedir=True)
+        else:
+            dispatch_filename(rposix.rmdir)(space, w_path)
     except OSError as e:
         raise wrap_oserror2(space, e, w_path)
 
@@ -976,7 +979,8 @@ If either src_dir_fd or dst_dir_fd is not None, it should be a file
 src_dir_fd and dst_dir_fd, may not be implemented on your platform.
   If they are unavailable, using them will raise a NotImplementedError."""
     try:
-        if (src_dir_fd != DEFAULT_DIR_FD or dst_dir_fd != DEFAULT_DIR_FD):
+        if (rposix.HAVE_RENAMEAT and
+            (src_dir_fd != DEFAULT_DIR_FD or dst_dir_fd != DEFAULT_DIR_FD)):
             src = space.fsencode_w(w_src)
             dst = space.fsencode_w(w_dst)
             rposix.renameat(src, dst, src_dir_fd, dst_dir_fd)
@@ -999,7 +1003,8 @@ If either src_dir_fd or dst_dir_fd is not None, it should be a file
 src_dir_fd and dst_dir_fd, may not be implemented on your platform.
   If they are unavailable, using them will raise a NotImplementedError."""
     try:
-        if (src_dir_fd != DEFAULT_DIR_FD or dst_dir_fd != DEFAULT_DIR_FD):
+        if (rposix.HAVE_RENAMEAT and
+            (src_dir_fd != DEFAULT_DIR_FD or dst_dir_fd != DEFAULT_DIR_FD)):
             src = space.fsencode_w(w_src)
             dst = space.fsencode_w(w_dst)
             rposix.renameat(src, dst, src_dir_fd, dst_dir_fd)
@@ -1110,8 +1115,9 @@ src_dir_fd, dst_dir_fd, and follow_symlinks may not be implemented on your
   platform.  If they are unavailable, using them will raise a
   NotImplementedError."""
     try:
-        if (src_dir_fd != DEFAULT_DIR_FD or dst_dir_fd != DEFAULT_DIR_FD
-                or not follow_symlinks):
+        if (rposix.HAVE_LINKAT and
+            (src_dir_fd != DEFAULT_DIR_FD or dst_dir_fd != DEFAULT_DIR_FD
+             or not follow_symlinks)):
             rposix.linkat(src, dst, src_dir_fd, dst_dir_fd, follow_symlinks)
         else:
             rposix.link(src, dst)
@@ -1136,12 +1142,12 @@ If dir_fd is not None, it should be a file descriptor open to a directory,
 dir_fd may not be implemented on your platform.
   If it is unavailable, using it will raise a NotImplementedError."""
     try:
-        if dir_fd == DEFAULT_DIR_FD:
-            dispatch_filename_2(rposix.symlink)(space, w_src, w_dst)
-        else:
+        if rposix.HAVE_SYMLINKAT and dir_fd != DEFAULT_DIR_FD:
             src = space.fsencode_w(w_src)
             dst = space.fsencode_w(w_dst)
             rposix.symlinkat(src, dst, dir_fd)
+        else:
+            dispatch_filename_2(rposix.symlink)(space, w_src, w_dst)
     except OSError as e:
         raise wrap_oserror(space, e)
 
@@ -1159,10 +1165,10 @@ If dir_fd is not None, it should be a file descriptor open to a directory,
 dir_fd may not be implemented on your platform.
   If it is unavailable, using it will raise a NotImplementedError."""
     try:
-        if dir_fd == DEFAULT_DIR_FD:
-            result = call_rposix(rposix.readlink, path)
-        else:
+        if rposix.HAVE_READLINKAT and dir_fd != DEFAULT_DIR_FD:
             result = call_rposix(rposix.readlinkat, path, dir_fd)
+        else:
+            result = call_rposix(rposix.readlink, path)
     except OSError as e:
         raise wrap_oserror2(space, e, path.w_path)
     w_result = space.wrapbytes(result)
@@ -1442,31 +1448,32 @@ dir_fd and follow_symlinks may not be available on your platform.
             # see comment above
             raise wrap_oserror(space, e)
 
-    if not follow_symlinks:
-        raise argument_unavailable(space, "utime", "follow_symlinks")
-
-    if not space.is_w(w_ns, space.w_None):
-        raise oefmt(space.w_NotImplementedError,
-            "utime: 'ns' unsupported on this platform on PyPy")
-    if now:
+    if (rposix.HAVE_LUTIMES and
+        (dir_fd == DEFAULT_DIR_FD and not follow_symlinks)):
+        path_b = path.as_bytes
+        if path_b is None:
+            raise oefmt(space.w_NotImplementedError,
+                        "utime: unsupported value for 'path'")
         try:
-            call_rposix(utime_now, path, None)
+            if now:
+                rposix.lutimes(path_b, None)
+            else:
+                rposix.lutimes(path_b, (atime_s, atime_ns))
+            return
         except OSError as e:
             # see comment above
             raise wrap_oserror(space, e)
+
+    # XXX: missing utime_dir_fd support
+
+    if not follow_symlinks:
+        raise argument_unavailable(space, "utime", "follow_symlinks")
+
     try:
-        msg = "utime() arg 2 must be a tuple (atime, mtime) or None"
-        args_w = space.fixedview(w_times)
-        if len(args_w) != 2:
-            raise oefmt(space.w_TypeError, msg)
-        actime = space.float_w(args_w[0], allow_conversion=False)
-        modtime = space.float_w(args_w[1], allow_conversion=False)
-    except OperationError as e:
-        if not e.match(space, space.w_TypeError):
-            raise
-        raise oefmt(space.w_TypeError, msg)
-    try:
-        call_rposix(rposix.utime, path, (actime, modtime))
+        if now:
+            call_rposix(utime_now, path, None)
+        else:
+            call_rposix(rposix.utime, path, (atime_s, mtime_s))
     except OSError as e:
         # see comment above
         raise wrap_oserror(space, e)
