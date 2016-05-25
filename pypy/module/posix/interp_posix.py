@@ -1448,6 +1448,15 @@ dir_fd and follow_symlinks may not be available on your platform.
             # see comment above
             raise wrap_oserror(space, e)
 
+    if now:
+        # satisfy the translator
+        atime = mtime = 0.0
+    else:
+        # convert back to utimes style floats. loses precision of
+        # nanoseconds but utimes only support microseconds anyway
+        atime = atime_s + (atime_ns / 1e9)
+        mtime = mtime_s + (mtime_ns / 1e9)
+
     if (rposix.HAVE_LUTIMES and
         (dir_fd == DEFAULT_DIR_FD and not follow_symlinks)):
         path_b = path.as_bytes
@@ -1458,13 +1467,11 @@ dir_fd and follow_symlinks may not be available on your platform.
             if now:
                 rposix.lutimes(path_b, None)
             else:
-                rposix.lutimes(path_b, (atime_s, atime_ns))
+                rposix.lutimes(path_b, (atime, mtime))
             return
         except OSError as e:
             # see comment above
             raise wrap_oserror(space, e)
-
-    # XXX: missing utime_dir_fd support
 
     if not follow_symlinks:
         raise argument_unavailable(space, "utime", "follow_symlinks")
@@ -1473,7 +1480,7 @@ dir_fd and follow_symlinks may not be available on your platform.
         if now:
             call_rposix(utime_now, path, None)
         else:
-            call_rposix(rposix.utime, path, (atime_s, mtime_s))
+            call_rposix(rposix.utime, path, (atime, mtime))
     except OSError as e:
         # see comment above
         raise wrap_oserror(space, e)
