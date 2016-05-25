@@ -175,10 +175,8 @@ def unwrap_fd(space, w_value, allowed_types='integer'):
         result = space.c_int_w(w_value)
     except OperationError as e:
         if not e.match(space, space.w_OverflowError):
-            import traceback
-            traceback.print_stack()
             raise oefmt(space.w_TypeError,
-                "!argument should be %s, not %T", allowed_types, w_value)
+                "argument should be %s, not %T", allowed_types, w_value)
         else:
             raise
     if result == -1:
