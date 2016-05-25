@@ -18,9 +18,9 @@ for i in range(32):
 
 # aliases for registers
 fp = r11
-ip = r12
+ip = r12      # ip is used as a general scratch register
 sp = r13
-lr = r14
+lr = r14      # lr is used as a general scratch register
 pc = r15
 vfp_ip = d15
 svfp_ip = s31

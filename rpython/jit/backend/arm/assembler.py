@@ -28,6 +28,7 @@ from rpython.rlib.rarithmetic import r_uint
 from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_gcref
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.jit.backend.arm import callbuilder
+from rpython.jit.backend.arm import guard_compat
 from rpython.rtyper.lltypesystem.lloperation import llop
 
 class AssemblerARM(ResOpAssembler):
@@ -479,6 +480,9 @@ class AssemblerARM(ResOpAssembler):
         rawstart = mc.materialize(self.cpu, [])
         self.failure_recovery_code[exc + 2 * withfloats] = rawstart
 
+    def _build_guard_compat_slowpath(self):
+        guard_compat.build_once(self)
+
     def generate_quick_failure(self, guardtok):
         startpos = self.mc.currpos()
         faildescrindex, target = self.store_info_on_descr(startpos, guardtok)
@@ -759,11 +763,16 @@ class AssemblerARM(ResOpAssembler):
 
     def patch_gcref_table(self, looptoken, rawstart):
         # the gc table is at the start of the machine code.  Fill it now
+        self.gc_table_addr = rawstart
         tracer = self.cpu.gc_ll_descr.make_gcref_tracer(rawstart,
                                                         self._allgcrefs)
         gcreftracers = self.get_asmmemmgr_gcreftracers(looptoken)
         gcreftracers.append(tracer)    # keepalive
         self.teardown_gcrefs_list()
+        self.gc_table_tracer = tracer
+
+    def _addr_from_gc_table(self, index):
+        return self.gc_table_addr + index * WORD
 
     def load_from_gc_table(self, regnum, index):
         """emits either:
@@ -985,6 +994,13 @@ class AssemblerARM(ResOpAssembler):
             assert isinstance(descr, AbstractFailDescr)
             failure_recovery_pos = block_start + tok.pos_recovery_stub
             descr.adr_jump_offset = failure_recovery_pos
+            #
+            if tok.guard_compatible():
+                guard_compat.patch_guard_compatible(tok, block_start,
+                                                    self._addr_from_gc_table,
+                                                    self.gc_table_tracer)
+                continue
+            #
             relative_offset = tok.pos_recovery_stub - tok.offset
             guard_pos = block_start + tok.offset
             if not tok.guard_not_invalidated():
@@ -1037,6 +1053,9 @@ class AssemblerARM(ResOpAssembler):
         return fcond
 
     def patch_trace(self, faildescr, looptoken, bridge_addr, regalloc):
+        if isinstance(faildescr, guard_compat.GuardCompatibleDescr):
+            guard_compat.invalidate_cache(faildescr)
+            return
         b = InstrBuilder(self.cpu.cpuinfo.arch_version)
         patch_addr = faildescr.adr_jump_offset
         assert patch_addr != 0

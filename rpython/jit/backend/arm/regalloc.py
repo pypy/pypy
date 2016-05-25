@@ -665,7 +665,18 @@ class Regalloc(BaseRegalloc):
         else:
             l1 = self.convert_to_imm(a1)
         arglocs = self._prepare_guard(op, [l0, l1])
-        self.possibly_free_vars(op.getarglist())
+        self.possibly_free_vars(boxes)
+        self.possibly_free_vars(op.getfailargs())
+        return arglocs
+
+    def prepare_op_guard_compatible(self, op, fcond):
+        op.getdescr().make_a_counter_per_value(op, -1)   # -1 not used here
+        args = op.getarglist()
+        assert args[0].type == REF             # only supported case for now
+        assert isinstance(args[1], ConstInt)   # by rewrite.py
+        x = self.make_sure_var_in_reg(args[0], args)
+        arglocs = self._prepare_guard(op, [x])
+        self.possibly_free_vars(args)
         self.possibly_free_vars(op.getfailargs())
         return arglocs
 

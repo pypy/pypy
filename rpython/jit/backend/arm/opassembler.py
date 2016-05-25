@@ -17,6 +17,7 @@ from rpython.jit.backend.arm.codebuilder import InstrBuilder, OverwritingBuilder
 from rpython.jit.backend.arm.jump import remap_frame_layout
 from rpython.jit.backend.arm.regalloc import TempVar
 from rpython.jit.backend.arm.locations import imm, RawSPStackLocation
+from rpython.jit.backend.arm import guard_compat
 from rpython.jit.backend.llsupport import symbolic
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.jit.backend.llsupport.assembler import GuardToken, BaseAssembler
@@ -190,8 +191,9 @@ class ResOpAssembler(BaseAssembler):
                                     fcond=fcond)
         return token
 
-    def _emit_guard(self, op, arglocs, is_guard_not_invalidated=False):
-        if is_guard_not_invalidated:
+    def _emit_guard(self, op, arglocs, is_guard_not_invalidated=False,
+                    is_guard_compatible=False):
+        if is_guard_not_invalidated or is_guard_compatible:
             fcond = c.cond_none
         else:
             fcond = self.guard_success_cc
@@ -204,20 +206,22 @@ class ResOpAssembler(BaseAssembler):
         # For all guards that are not GUARD_NOT_INVALIDATED we emit a
         # breakpoint to ensure the location is patched correctly. In the case
         # of GUARD_NOT_INVALIDATED we use just a NOP, because it is only
-        # eventually patched at a later point.
-        if is_guard_not_invalidated:
-            self.mc.NOP()
-        else:
-            self.mc.BKPT()
-        return c.AL
+        # eventually patched at a later point.  For GUARD_COMPATIBLE, we
+        # use a completely different mechanism.
+        if not is_guard_compatible:
+            if is_guard_not_invalidated:
+                self.mc.NOP()
+            else:
+                self.mc.BKPT()
+        return token
 
     def emit_op_guard_true(self, op, arglocs, regalloc, fcond):
-        fcond = self._emit_guard(op, arglocs)
+        self._emit_guard(op, arglocs)
         return fcond
 
     def emit_op_guard_false(self, op, arglocs, regalloc, fcond):
         self.guard_success_cc = c.get_opposite_of(self.guard_success_cc)
-        fcond = self._emit_guard(op, arglocs)
+        self._emit_guard(op, arglocs)
         return fcond
 
     def emit_op_guard_value(self, op, arglocs, regalloc, fcond):
@@ -235,8 +239,15 @@ class ResOpAssembler(BaseAssembler):
             self.mc.VCMP(l0.value, l1.value)
             self.mc.VMRS(cond=fcond)
         self.guard_success_cc = c.EQ
-        fcond = self._emit_guard(op, failargs)
+        self._emit_guard(op, failargs)
         return fcond
+
+    def emit_op_guard_compatible(self, op, arglocs, regalloc, fcond):
+        l0 = arglocs[0]
+        assert l0.is_core_reg()
+        bindex = op.getarg(1).getint()
+        token = self._emit_guard(op, arglocs[1:], is_guard_compatible=True)
+        guard_compat.generate_guard_compatible(self, token, l0, bindex)
 
     emit_op_guard_nonnull = emit_op_guard_true
     emit_op_guard_isnull = emit_op_guard_false
@@ -348,7 +359,8 @@ class ResOpAssembler(BaseAssembler):
         return fcond
 
     def emit_op_guard_not_invalidated(self, op, locs, regalloc, fcond):
-        return self._emit_guard(op, locs, is_guard_not_invalidated=True)
+        self._emit_guard(op, locs, is_guard_not_invalidated=True)
+        return fcond
 
     def emit_op_label(self, op, arglocs, regalloc, fcond):
         self._check_frame_depth_debug(self.mc)
@@ -487,7 +499,7 @@ class ResOpAssembler(BaseAssembler):
         self.mc.LDR_ri(loc.value, loc.value)
         self.mc.CMP_ri(loc.value, 0)
         self.guard_success_cc = c.EQ
-        fcond = self._emit_guard(op, failargs)
+        self._emit_guard(op, failargs)
         # If the previous operation was a COND_CALL, overwrite its conditional
         # jump to jump over this GUARD_NO_EXCEPTION as well, if we can
         if self._find_nearby_operation(-1).getopnum() == rop.COND_CALL:
