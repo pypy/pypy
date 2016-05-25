@@ -771,10 +771,10 @@ if _WIN:
              lltype.scoped_alloc(rwin32.FILETIME) as user_time:
             GetProcessTimes(current_process, creation_time, exit_time,
                             kernel_time, user_time)
-            kernel_time2 = (kernel_time.dwLowDateTime |
-                            kernel_time.dwHighDateTime << 32)
-            user_time2 = (user_time.dwLowDateTime |
-                          user_time.dwHighDateTime << 32)
+            kernel_time2 = (kernel_time.c_dwLowDateTime |
+                            kernel_time.c_dwHighDateTime << 32)
+            user_time2 = (user_time.c_dwLowDateTime |
+                          user_time.c_dwHighDateTime << 32)
         return space.wrap((float(kernel_time2) + float(user_time2)) * 1e-7)
 
 else:
