@@ -585,29 +585,6 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
     consider_int_rshift  = consider_int_lshift
     consider_uint_rshift = consider_int_lshift
 
-    def _consider_int_div_or_mod(self, op, resultreg, trashreg):
-        l0 = self.rm.make_sure_var_in_reg(op.getarg(0), selected_reg=eax)
-        l1 = self.rm.make_sure_var_in_reg(op.getarg(1), selected_reg=ecx)
-        l2 = self.rm.force_allocate_reg(op, selected_reg=resultreg)
-        # the register (eax or edx) not holding what we are looking for
-        # will be just trash after that operation
-        tmpvar = TempVar()
-        self.rm.force_allocate_reg(tmpvar, selected_reg=trashreg)
-        assert l0 is eax
-        assert l1 is ecx
-        assert l2 is resultreg
-        self.rm.possibly_free_var(tmpvar)
-
-    def XXX_consider_int_c_mod(self, op):
-        self._consider_int_div_or_mod(op, edx, eax)
-        self.perform(op, [eax, ecx], edx)
-
-    def XXX_consider_int_c_div(self, op):
-        self._consider_int_div_or_mod(op, eax, edx)
-        self.perform(op, [eax, ecx], eax)
-
-    XXX_consider_uint_floordiv = XXX_consider_int_c_div
-
     def _consider_compop(self, op):
         vx = op.getarg(0)
         vy = op.getarg(1)
