@@ -53,7 +53,7 @@ _GetStdHandle = _kernel32.GetStdHandle
 _GetStdHandle.argtypes = [ctypes.c_int]
 _GetStdHandle.restype = ctypes.c_int
 
-_GetModuleFileNameW = kernel32.GetModuleFileNameW
+_GetModuleFileNameW = _kernel32.GetModuleFileNameW
 _GetModuleFileNameW.argtypes = [ctypes.c_int, ctypes.c_wchar_p, ctypes.c_uint]
 _GetModuleFileNameW.restype = ctypes.c_int
 
