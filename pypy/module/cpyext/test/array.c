@@ -2034,6 +2034,12 @@ array_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
     return NULL;
 }
 
+static PyObject *
+_reconstruct(PyTypeObject *type, PyObject *args)
+{
+    return array_new(type, args, NULL);
+}
+
 PyDoc_STRVAR(module_doc,
 "This module defines an object type which can efficiently represent\n\
 an array of basic values: characters, integers, floating point\n\
@@ -2239,7 +2245,7 @@ static PyTypeObject PyArrayIter_Type = {
 
 /* No functions in array module. */
 static PyMethodDef a_methods[] = {
-    {"_reconstruct",   (PyCFunction)array_new, METH_VARARGS, NULL},
+    {"_reconstruct",   (PyCFunction)_reconstruct, METH_VARARGS, NULL},
     {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 
