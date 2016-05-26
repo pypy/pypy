@@ -1448,39 +1448,47 @@ dir_fd and follow_symlinks may not be available on your platform.
             # see comment above
             raise wrap_oserror(space, e)
 
-    if now:
-        # satisfy the translator
-        atime = mtime = 0.0
-    else:
-        # convert back to utimes style floats. loses precision of
-        # nanoseconds but utimes only support microseconds anyway
-        atime = atime_s + (atime_ns / 1e9)
-        mtime = mtime_s + (mtime_ns / 1e9)
-
     if (rposix.HAVE_LUTIMES and
         (dir_fd == DEFAULT_DIR_FD and not follow_symlinks)):
-        path_b = path.as_bytes
-        if path_b is None:
+        if path.as_bytes is None:
             raise oefmt(space.w_NotImplementedError,
                         "utime: unsupported value for 'path'")
-        try:
-            if now:
-                rposix.lutimes(path_b, None)
-            else:
-                rposix.lutimes(path_b, (atime, mtime))
-            return
-        except OSError as e:
-            # see comment above
-            raise wrap_oserror(space, e)
+        do_utimes(space, rposix.lutimes, path.as_bytes,
+                  atime_s, atime_ns, mtime_s, mtime_ns, now)
+        return
 
     if not follow_symlinks:
         raise argument_unavailable(space, "utime", "follow_symlinks")
 
+    do_utimes(space, rposix.utime, path,
+              atime_s, atime_ns, mtime_s, mtime_ns, now)
+
+
+@specialize.arg(1)
+def do_utimes(space, func, arg, atime_s, atime_ns, mtime_s, mtime_ns, now):
+    """Common implementation for f/l/utimes"""
+    # convert back to utimes style floats. loses precision of
+    # nanoseconds but utimes only support microseconds anyway
+    if now:
+        # satisfy the translator
+        atime = mtime = 0.0
+    else:
+        atime = atime_s + (atime_ns / 1e9)
+        mtime = mtime_s + (mtime_ns / 1e9)
+
     try:
-        if now:
-            call_rposix(utime_now, path, None)
+        if func is rposix.utime:
+            # XXX: specialize rposix.utime taking a Path (call_rposix)
+            # for win32 (unicode filenames) support
+            if now:
+                call_rposix(utime_now, arg, None)
+            else:
+                call_rposix(rposix.utime, arg, (atime, mtime))
         else:
-            call_rposix(rposix.utime, path, (atime, mtime))
+            if now:
+                func(arg, None)
+            else:
+                func(arg, (atime, mtime))
     except OSError as e:
         # see comment above
         raise wrap_oserror(space, e)
