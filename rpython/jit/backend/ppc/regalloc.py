@@ -605,6 +605,8 @@ class Regalloc(BaseRegalloc):
     def prepare_guard_value(self, op):
         l0 = self.ensure_reg(op.getarg(0))
         l1 = self.ensure_reg_or_16bit_imm(op.getarg(1))
+        op.getdescr().make_a_counter_per_value(op,
+            self.cpu.all_reg_indexes[l0.value])
         arglocs = self._prepare_guard(op, [l0, l1])
         return arglocs
 
