@@ -53,6 +53,10 @@ _GetStdHandle = _kernel32.GetStdHandle
 _GetStdHandle.argtypes = [ctypes.c_int]
 _GetStdHandle.restype = ctypes.c_int
 
+_GetModuleFileNameW = kernel32.GetModuleFileNameW
+_GetModuleFileNameW.argtypes = [ctypes.c_int, ctypes.c_wchar_p, ctypes.c_uint]
+_GetModuleFileNameW.restype = ctypes.c_int
+
 class _STARTUPINFO(ctypes.Structure):
     _fields_ = [('cb',         ctypes.c_int),
                 ('lpReserved', ctypes.c_void_p),
@@ -202,6 +206,20 @@ def GetStdHandle(stdhandle):
     else:
         return res
 
+def CloseHandle(handle):
+    res = _CloseHandle(handle)
+
+    if not res:
+        raise _WinError()
+
+def GetModuleFileName(module):
+    buf = ctypes.create_unicode_buffer(_MAX_PATH)
+    res = _GetModuleFileNameW(module, buf, _MAX_PATH)
+
+    if not res:
+        raise _WinError()
+    return buf.value
+
 STD_INPUT_HANDLE = -10
 STD_OUTPUT_HANDLE = -11
 STD_ERROR_HANDLE = -12
@@ -211,7 +229,9 @@ STARTF_USESHOWWINDOW = 0x001
 SW_HIDE = 0
 INFINITE = 0xffffffff
 WAIT_OBJECT_0 = 0
+WAIT_TIMEOUT = 0x102
 CREATE_NEW_CONSOLE = 0x010
 CREATE_NEW_PROCESS_GROUP = 0x200
 CREATE_UNICODE_ENVIRONMENT = 0x400
 STILL_ACTIVE = 259
+_MAX_PATH = 260
