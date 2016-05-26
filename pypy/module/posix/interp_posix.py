@@ -1354,7 +1354,7 @@ def spawnve(space, mode, path, w_args, w_env):
 
 
 @unwrap_spec(
-    path=path_or_fd(allow_fd=rposix.HAVE_FUTIMENS),
+    path=path_or_fd(allow_fd=rposix.HAVE_FUTIMENS or rposix.HAVE_FUTIMES),
     w_times=WrappedDefault(None), w_ns=kwonly(WrappedDefault(None)),
     dir_fd=DirFD(rposix.HAVE_UTIMENSAT), follow_symlinks=kwonly(bool))
 def utime(space, path, w_times, w_ns, dir_fd=DEFAULT_DIR_FD,
@@ -1408,26 +1408,34 @@ dir_fd and follow_symlinks may not be available on your platform.
         atime_s, atime_ns = convert_ns(space, args_w[0])
         mtime_s, mtime_ns = convert_ns(space, args_w[1])
 
-    if rposix.HAVE_FUTIMENS and path.as_fd != -1:
+    if path.as_fd != -1:
         if dir_fd != DEFAULT_DIR_FD:
             raise oefmt(space.w_ValueError,
                         "utime: can't specify both dir_fd and fd")
         if not follow_symlinks:
             raise oefmt(space.w_ValueError,
                         "utime: cannot use fd and follow_symlinks together")
-        if now:
-            atime_ns = mtime_ns = rposix.UTIME_NOW
-        try:
-            rposix.futimens(path.as_fd, atime_s, atime_ns, mtime_s, mtime_ns)
+        if rposix.HAVE_FUTIMENS:
+            if now:
+                atime_ns = mtime_ns = rposix.UTIME_NOW
+            try:
+                rposix.futimens(path.as_fd,
+                                atime_s, atime_ns, mtime_s, mtime_ns)
+                return
+            except OSError as e:
+                # CPython's Modules/posixmodule.c::posix_utime() has
+                # this comment:
+                # /* Avoid putting the file name into the error here,
+                #    as that may confuse the user into believing that
+                #    something is wrong with the file, when it also
+                #    could be the time stamp that gives a problem. */
+                # so we use wrap_oserror() instead of wrap_oserror2()
+                # here
+                raise wrap_oserror(space, e)
+        elif rposix.HAVE_FUTIMES:
+            do_utimes(space, rposix.futimes, path.as_fd,
+                      atime_s, atime_ns, mtime_s, mtime_ns, now)
             return
-        except OSError as e:
-            # CPython's Modules/posixmodule.c::posix_utime() has this comment:
-            # /* Avoid putting the file name into the error here,
-            #    as that may confuse the user into believing that
-            #    something is wrong with the file, when it also
-            #    could be the time stamp that gives a problem. */
-            # so we use wrap_oserror() instead of wrap_oserror2() here
-            raise wrap_oserror(space, e)
 
     if rposix.HAVE_UTIMENSAT:
         path_b = path.as_bytes
