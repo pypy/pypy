@@ -23,11 +23,9 @@ def test_remove_ovfcheck_1():
             return ovfcheck(x*2)
         except OverflowError:
             return -42
-    graph, _ = translate(f, [int], backend_optimize=False)
+    graph, _ = translate(f, [int])
     assert len(graph.startblock.operations) == 1
-    assert graph.startblock.operations[0].opname == 'direct_call'
-    assert 'll_int_mul_ovf' in repr(
-        graph.startblock.operations[0].args[0].value)
+    assert graph.startblock.operations[0].opname == 'int_mul_ovf'
     assert len(graph.startblock.exits) == 2
     assert [link.target.operations for link in graph.startblock.exits] == \
            [(), ()]
@@ -38,9 +36,9 @@ def test_remove_ovfcheck_bug():
     from rpython.rlib.rarithmetic import ovfcheck
     def f(x):
         return ovfcheck(x*2) - 1
-    graph, _ = translate(f, [int], backend_optimize=False)
+    graph, _ = translate(f, [int])
     assert len(graph.startblock.operations) == 2
-    assert graph.startblock.operations[0].opname == 'direct_call'
+    assert graph.startblock.operations[0].opname == 'int_mul_ovf'
     assert graph.startblock.operations[1].opname == 'int_sub'
 
 def test_remove_ovfcheck_floordiv():
