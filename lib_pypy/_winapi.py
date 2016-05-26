@@ -85,7 +85,7 @@ _CreateProcess.restype = ctypes.c_int
 
 del ctypes
 
-# Now the _subprocess module implementation
+# Now the _winapi module implementation
 
 from ctypes import c_int as _c_int, byref as _byref, WinError as _WinError
 
