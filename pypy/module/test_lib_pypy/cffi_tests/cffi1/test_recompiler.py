@@ -1168,8 +1168,8 @@ def test_import_from_lib():
     assert MYFOO == 42
     assert hasattr(lib, '__dict__')
     assert lib.__all__ == ['MYFOO', 'mybar']   # but not 'myvar'
-    assert lib.__name__ == repr(lib)
-    assert lib.__class__ is type(lib)
+    assert lib.__name__ == '_CFFI_test_import_from_lib.lib'
+    assert lib.__class__ is type(sys)   # !! hack for help()
 
 def test_macro_var_callback():
     ffi = FFI()

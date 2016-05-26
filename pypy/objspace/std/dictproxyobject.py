@@ -12,8 +12,8 @@ class DictProxyStrategy(DictStrategy):
     erase = staticmethod(erase)
     unerase = staticmethod(unerase)
 
-    def __init__(w_self, space):
-        DictStrategy.__init__(w_self, space)
+    def __init__(self, space):
+        DictStrategy.__init__(self, space)
 
     def getitem(self, w_dict, w_key):
         space = self.space
