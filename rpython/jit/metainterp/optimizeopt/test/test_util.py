@@ -421,6 +421,20 @@ class LLtypeMixin(object):
     jvr_vtable_adr = llmemory.cast_ptr_to_adr(jit_virtual_ref_vtable)
     vref_descr = cpu.sizeof(vrefinfo.JIT_VIRTUAL_REF, jit_virtual_ref_vtable)
 
+    FUNC = lltype.FuncType([lltype.Signed, lltype.Signed], lltype.Signed)
+    ei = EffectInfo([], [], [], [], [], [], EffectInfo.EF_CANNOT_RAISE,
+                    can_invalidate=False,
+                    oopspecindex=EffectInfo.OS_INT_PY_DIV)
+    int_py_div_descr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT, ei)
+    ei = EffectInfo([], [], [], [], [], [], EffectInfo.EF_CANNOT_RAISE,
+                    can_invalidate=False,
+                    oopspecindex=EffectInfo.OS_INT_UDIV)
+    int_udiv_descr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT, ei)
+    ei = EffectInfo([], [], [], [], [], [], EffectInfo.EF_CANNOT_RAISE,
+                    can_invalidate=False,
+                    oopspecindex=EffectInfo.OS_INT_PY_MOD)
+    int_py_mod_descr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT, ei)
+
     namespace = locals()
 
 # ____________________________________________________________

@@ -1922,6 +1922,7 @@ class Transformer(object):
                                  op.result)
             return self.rewrite_operation(op0)
         else:
+            # int.py_div, int.udiv, int.py_mod, int.umod
             opname = oopspec_name.replace('.', '_')
             os = getattr(EffectInfo, 'OS_' + opname.upper())
             return self._handle_oopspec_call(op, args, os,

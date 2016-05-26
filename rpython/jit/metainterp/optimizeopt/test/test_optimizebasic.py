@@ -1849,14 +1849,24 @@ class BaseTestOptimizeBasic(BaseTestBasic):
 
         ops = """
         [i0]
-        i1 = int_py_div(0, i0)
+        i1 = int_mul(0, i0)
         jump(i1)
         """
         expected = """
         [i0]
         jump(0)
         """
-        py.test.skip("XXX re-enable")
+        self.optimize_loop(ops, expected)
+
+        ops = """
+        [i0]
+        i1 = int_mul(1, i0)
+        jump(i1)
+        """
+        expected = """
+        [i0]
+        jump(i0)
+        """
         self.optimize_loop(ops, expected)
 
     def test_fold_partially_constant_ops_ovf(self):
@@ -4643,16 +4653,31 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_strunicode_loop(ops, expected)
 
+    def test_intdiv_bounds(self):
+        ops = """
+        [i0]
+        i2 = call_pure_i(321, i0, 3, descr=int_py_div_descr)
+        i3 = int_add_ovf(i2, 50)
+        guard_no_overflow() []
+        jump(i3)
+        """
+        expected = """
+        [i0]
+        i2 = call_i(321, i0, 3, descr=int_py_div_descr)
+        i3 = int_add(i2, 50)
+        jump(i3)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_intmod_bounds(self):
-        py.test.skip("XXX re-enable")
         ops = """
         [i0, i1]
-        i2 = int_py_mod(i0, 12)
+        i2 = call_pure_i(321, i0, 12, descr=int_py_mod_descr)
         i3 = int_ge(i2, 12)
         guard_false(i3) []
         i4 = int_lt(i2, 0)
         guard_false(i4) []
-        i5 = int_py_mod(i1, -12)
+        i5 = call_pure_i(321, i1, -12, descr=int_py_mod_descr)
         i6 = int_le(i5, -12)
         guard_false(i6) []
         i7 = int_gt(i5, 0)
@@ -4661,8 +4686,8 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         expected = """
         [i0, i1]
-        i2 = int_py_mod(i0, 12)
-        i5 = int_py_mod(i1, -12)
+        i2 = call_i(321, i0, 12, descr=int_py_mod_descr)
+        i5 = call_i(321, i1, -12, descr=int_py_mod_descr)
         jump(i2, i5)
         """
         self.optimize_loop(ops, expected)
@@ -4672,25 +4697,27 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         ops = """
         [i8, i9]
         i0 = escape_i()
-        i2 = int_py_mod(i0, 12)
+        i2 = call_pure_i(321, i0, 12, descr=int_py_mod_descr)
         i3 = int_ge(i2, 11)
         guard_false(i3) []
         i4 = int_lt(i2, 1)
         guard_false(i4) []
         i1 = escape_i()
-        i5 = int_py_mod(i1, -12)
+        i5 = call_pure_i(321, i1, -12, descr=int_py_mod_descr)
         i6 = int_le(i5, -11)
         guard_false(i6) []
         i7 = int_gt(i5, -1)
         guard_false(i7) []
         jump(i2, i5)
         """
-        self.optimize_loop(ops, ops)
+        self.optimize_loop(ops, ops.replace('call_pure_i', 'call_i'))
 
-        # 'n % power-of-two' can always be turned into int_and()
+        # 'n % power-of-two' can always be turned into int_and(), even
+        # if n is possibly negative.  That's by we handle 'int_py_mod'
+        # and not C-like mod.
         ops = """
         [i0]
-        i1 = int_py_mod(i0, 8)
+        i1 = call_pure_i(321, i0, 8, descr=int_py_mod_descr)
         finish(i1)
         """
         expected = """
@@ -4701,15 +4728,14 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         self.optimize_loop(ops, expected)
 
     def test_intmod_bounds_bug1(self):
-        py.test.skip("XXX re-enable")
         ops = """
         [i0]
-        i1 = int_py_mod(i0, %d)
+        i1 = call_pure_i(321, i0, %d, descr=int_py_mod_descr)
         i2 = int_eq(i1, 0)
         guard_false(i2) []
         finish()
         """ % (-(1<<(LONG_BIT-1)),)
-        self.optimize_loop(ops, ops)
+        self.optimize_loop(ops, ops.replace('call_pure_i', 'call_i'))
 
     def test_bounded_lazy_setfield(self):
         ops = """
