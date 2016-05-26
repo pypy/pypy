@@ -4,6 +4,9 @@ Currently, this extension module is only required when using the
 subprocess module on Windows.
 """
 
+import sys
+if sys.platform != 'win32':
+    raise ImportError("The '_subprocess' module is only available on Windows")
 
 # Declare external Win32 functions
 
