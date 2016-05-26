@@ -1514,15 +1514,15 @@ class Context(object):
     if _sys.maxsize < 2**63-1:
         def _unsafe_setprec(self, value):
             _unsafe_check('prec', 1, 1070000000, value)
-            self.ctx.prec = value
+            self._ctx.prec = value
 
         def _unsafe_setemin(self, value):
             _unsafe_check('emin', -1070000000, 0, value)
-            self.ctx.emin = value
+            self._ctx.emin = value
 
         def _unsafe_setemax(self, value):
             _unsafe_check('emax', 0, 1070000000, value)
-            self.ctx.emax = value
+            self._ctx.emax = value
 
 
 class _SignalDict(_collections.abc.MutableMapping):
