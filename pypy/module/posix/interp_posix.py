@@ -1430,8 +1430,8 @@ dir_fd and follow_symlinks may not be available on your platform.
                 # here
                 raise wrap_oserror(space, e)
         elif rposix.HAVE_FUTIMES:
-            do_utimes(space, rposix.futimes, path.as_fd,
-                      atime_s, atime_ns, mtime_s, mtime_ns, now)
+            do_utimes(space, rposix.futimes, path.as_fd, now,
+                      atime_s, atime_ns, mtime_s, mtime_ns)
             return
 
     if rposix.HAVE_UTIMENSAT:
@@ -1458,15 +1458,15 @@ dir_fd and follow_symlinks may not be available on your platform.
         if path.as_bytes is None:
             raise oefmt(space.w_NotImplementedError,
                         "utime: unsupported value for 'path'")
-        do_utimes(space, rposix.lutimes, path.as_bytes,
-                  atime_s, atime_ns, mtime_s, mtime_ns, now)
+        do_utimes(space, rposix.lutimes, path.as_bytes, now,
+                  atime_s, atime_ns, mtime_s, mtime_ns)
         return
 
     if not follow_symlinks:
         raise argument_unavailable(space, "utime", "follow_symlinks")
 
-    do_utimes(space, _dispatch_utime, path,
-              atime_s, atime_ns, mtime_s, mtime_ns, now)
+    do_utimes(space, _dispatch_utime, path, now,
+              atime_s, atime_ns, mtime_s, mtime_ns)
 
 @specialize.argtype(1)
 def _dispatch_utime(path, times):
@@ -1480,7 +1480,7 @@ def _dispatch_utime(path, times):
         return rposix.utime(path.as_bytes, times)
 
 @specialize.arg(1)
-def do_utimes(space, func, arg, atime_s, atime_ns, mtime_s, mtime_ns, now):
+def do_utimes(space, func, arg, now, atime_s, atime_ns, mtime_s, mtime_ns):
     """Common implementation for f/l/utimes"""
     try:
         if now:
