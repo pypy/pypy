@@ -43,9 +43,6 @@ else:
         if num < -(1 << 31) or num >= (1 << 32):
             raise oefmt(space.w_OverflowError, "integer out of range")
 
-# specialize utime when called w/ None for use w/ call_rposix
-utime_now = func_with_new_name(rposix.utime, 'utime_now')
-
 class FileEncoder(object):
     is_unicode = True
 
@@ -1468,35 +1465,32 @@ dir_fd and follow_symlinks may not be available on your platform.
     if not follow_symlinks:
         raise argument_unavailable(space, "utime", "follow_symlinks")
 
-    do_utimes(space, rposix.utime, path,
+    do_utimes(space, _dispatch_utime, path,
               atime_s, atime_ns, mtime_s, mtime_ns, now)
 
+@specialize.argtype(1)
+def _dispatch_utime(path, times):
+    # XXX: a dup. of call_rposix to specialize rposix.utime taking a
+    # Path for win32 support w/ do_utimes
+    if path.as_unicode is not None:
+        return rposix.utime(path.as_unicode, times)
+    else:
+        path_b = path.as_bytes
+        assert path_b is not None
+        return rposix.utime(path.as_bytes, times)
 
 @specialize.arg(1)
 def do_utimes(space, func, arg, atime_s, atime_ns, mtime_s, mtime_ns, now):
     """Common implementation for f/l/utimes"""
-    # convert back to utimes style floats. loses precision of
-    # nanoseconds but utimes only support microseconds anyway
-    if now:
-        # satisfy the translator
-        atime = mtime = 0.0
-    else:
-        atime = atime_s + (atime_ns / 1e9)
-        mtime = mtime_s + (mtime_ns / 1e9)
-
     try:
-        if func is rposix.utime:
-            # XXX: specialize rposix.utime taking a Path (call_rposix)
-            # for win32 (unicode filenames) support
-            if now:
-                call_rposix(utime_now, arg, None)
-            else:
-                call_rposix(rposix.utime, arg, (atime, mtime))
+        if now:
+            func(arg, None)
         else:
-            if now:
-                func(arg, None)
-            else:
-                func(arg, (atime, mtime))
+            # convert back to utimes style floats. loses precision of
+            # nanoseconds but utimes only support microseconds anyway
+            atime = atime_s + (atime_ns / 1e9)
+            mtime = mtime_s + (mtime_ns / 1e9)
+            func(arg, (atime, mtime))
     except OSError as e:
         # see comment above
         raise wrap_oserror(space, e)
