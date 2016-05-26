@@ -1938,6 +1938,21 @@ if HAVE_LUTIMES:
                 error = c_lutimes(pathname, l_timeval2p)
         handle_posix_error('lutimes', error)
 
+if HAVE_FUTIMES:
+    c_futimes = external('futimes',
+        [rffi.INT, TIMEVAL2P], rffi.INT,
+        save_err=rffi.RFFI_SAVE_ERRNO)
+
+    @specialize.argtype(1)
+    def futimes(fd, times):
+        if times is None:
+            error = c_futimes(fd, lltype.nullptr(TIMEVAL2P.TO))
+        else:
+            with lltype.scoped_alloc(TIMEVAL2P.TO, 2) as l_timeval2p:
+                times_to_timeval2p(times, l_timeval2p)
+                error = c_futimes(fd, l_timeval2p)
+        handle_posix_error('futimes', error)
+
 if HAVE_MKDIRAT:
     c_mkdirat = external('mkdirat',
         [rffi.INT, rffi.CCHARP, rffi.INT], rffi.INT,
