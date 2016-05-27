@@ -1,5 +1,6 @@
-import py
+import py, sys
 from rpython.rlib.objectmodel import instantiate
+from rpython.rlib.rarithmetic import intmask
 from rpython.jit.metainterp.optimizeopt.test.test_util import (
     LLtypeMixin, BaseTest, FakeMetaInterpStaticData, convert_old_style_to_targets)
 from rpython.jit.metainterp.history import TargetToken, JitCellToken
@@ -4659,6 +4660,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         self.optimize_loop(ops, expected)
 
     def test_intmod_bounds(self):
+        from rpython.jit.metainterp.optimizeopt.intdiv import magic_numbers
         ops = """
         [i0, i1]
         i2 = call_pure_i(321, i0, 12, descr=int_py_mod_descr)
@@ -4673,31 +4675,32 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         guard_false(i7) []
         jump(i2, i5)
         """
+        kk, ii = magic_numbers(12)
         expected = """
         [i0, i1]
-        i2 = call_i(321, i0, 12, descr=int_py_mod_descr)
+        i4 = int_rshift(i0, %d)
+        i6 = int_xor(i0, i4)
+        i8 = uint_mul_high(i6, %d)
+        i9 = uint_rshift(i8, %d)
+        i10 = int_xor(i9, i4)
+        i11 = int_mul(i10, 12)
+        i2 = int_sub(i0, i11)
         i5 = call_i(321, i1, -12, descr=int_py_mod_descr)
         jump(i2, i5)
-        """
+        """ % (63 if sys.maxint > 2**32 else 31, intmask(kk), ii)
         self.optimize_loop(ops, expected)
 
-        # same as above, but all guards are shifted by one so that they
-        # must stay
+        # same as above (2nd case), but all guards are shifted by one so
+        # that they must stay
         ops = """
-        [i8, i9]
-        i0 = escape_i()
-        i2 = call_pure_i(321, i0, 12, descr=int_py_mod_descr)
-        i3 = int_ge(i2, 11)
-        guard_false(i3) []
-        i4 = int_lt(i2, 1)
-        guard_false(i4) []
+        [i9]
         i1 = escape_i()
         i5 = call_pure_i(321, i1, -12, descr=int_py_mod_descr)
         i6 = int_le(i5, -11)
         guard_false(i6) []
         i7 = int_gt(i5, -1)
         guard_false(i7) []
-        jump(i2, i5)
+        jump(i5)
         """
         self.optimize_loop(ops, ops.replace('call_pure_i', 'call_i'))
 

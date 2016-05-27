@@ -673,6 +673,9 @@ class OptRewrite(Optimization):
         elif oopspecindex == EffectInfo.OS_INT_PY_DIV:
             if self._optimize_CALL_INT_PY_DIV(op):
                 return
+        elif oopspecindex == EffectInfo.OS_INT_PY_MOD:
+            if self._optimize_CALL_INT_PY_MOD(op):
+                return
         self.emit_operation(op)
     optimize_CALL_PURE_R = optimize_CALL_PURE_I
     optimize_CALL_PURE_F = optimize_CALL_PURE_I
@@ -720,6 +723,46 @@ class OptRewrite(Optimization):
             from rpython.jit.metainterp.optimizeopt import intdiv
             known_nonneg = b1.known_ge(IntBound(0, 0))
             operations = intdiv.division_operations(arg1, val, known_nonneg)
+            newop = None
+            for newop in operations:
+                self.optimizer.send_extra_operation(newop)
+            self.make_equal_to(op, newop)
+            return True
+
+    def _optimize_CALL_INT_PY_MOD(self, op):
+        arg1 = op.getarg(1)
+        b1 = self.getintbound(arg1)
+        arg2 = op.getarg(2)
+        b2 = self.getintbound(arg2)
+
+        if b1.is_constant() and b1.getint() == 0:
+            self.make_constant_int(op, 0)
+            self.last_emitted_operation = REMOVED
+            return True
+        # This is Python's integer division: 'x // (2**shift)' can always
+        # be replaced with 'x >> shift', even for negative values of x
+        if not b2.is_constant():
+            return False
+        val = b2.getint()
+        if val <= 0:
+            return False
+        if val == 1:
+            self.make_constant_int(op, 0)
+            self.last_emitted_operation = REMOVED
+            return True
+        elif val & (val - 1) == 0:   # val == 2**shift
+            from rpython.jit.metainterp.history import DONT_CHANGE
+            # x % power-of-two ==> x & (power-of-two - 1)
+            # with Python's modulo, this is valid even if 'x' is negative.
+            op = self.replace_op_with(op, rop.INT_AND,
+                        args=[arg1, ConstInt(val - 1)],
+                        descr=DONT_CHANGE)  # <- xxx rename? means "kill"
+            self.optimizer.send_extra_operation(op)
+            return True
+        else:
+            from rpython.jit.metainterp.optimizeopt import intdiv
+            known_nonneg = b1.known_ge(IntBound(0, 0))
+            operations = intdiv.modulo_operations(arg1, val, known_nonneg)
             newop = None
             for newop in operations:
                 self.optimizer.send_extra_operation(newop)
