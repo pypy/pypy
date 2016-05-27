@@ -62,6 +62,12 @@ class IntOpAssembler(object):
         else:
             self.mc.mulld(res.value, l0.value, l1.value)
 
+    def emit_uint_mul_high(self, op, arglocs, regalloc):
+        l0, l1, res = arglocs
+        assert not l0.is_imm()
+        assert not l1.is_imm()
+        self.mc.mulhdu(res.value, l0.value, l1.value)
+
     def do_emit_int_binary_ovf(self, op, arglocs):
         l0, l1, res = arglocs[0], arglocs[1], arglocs[2]
         self.mc.load_imm(r.SCRATCH, 0)
