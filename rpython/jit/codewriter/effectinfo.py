@@ -28,6 +28,11 @@ class EffectInfo(object):
     OS_THREADLOCALREF_GET       = 5    # llop.threadlocalref_get
     OS_NOT_IN_TRACE             = 8    # for calls not recorded in the jit trace
     #
+    OS_INT_PY_DIV               = 12   # python signed division (neg. corrected)
+    OS_INT_UDIV                 = 13   # regular unsigned division
+    OS_INT_PY_MOD               = 14   # python signed modulo (neg. corrected)
+    OS_INT_UMOD                 = 15   # regular unsigned modulo
+    #
     OS_STR_CONCAT               = 22   # "stroruni.concat"
     OS_STR_SLICE                = 23   # "stroruni.slice"
     OS_STR_EQUAL                = 24   # "stroruni.equal"

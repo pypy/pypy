@@ -47,26 +47,24 @@ class TestShift(BaseTestPyPyC):
             res = 0
             a = 0
             while a < 300:
-                assert a >= 0
-                assert 0 <= b <= 10
-                res = a/b     # ID: div
+                res1 = a/b     # ID: div
+                res2 = a/2     # ID: shift
+                res += res1 + res2
                 a += 1
             return res
         #
         log = self.run(main, [3])
-        assert log.result == 99
+        assert log.result == main(3)
         loop, = log.loops_by_filename(self.filepath)
-        if sys.maxint == 2147483647:
-            SHIFT = 31
-        else:
-            SHIFT = 63
         assert loop.match_by_id('div', """
-            i10 = int_floordiv(i6, i7)
-            i11 = int_mul(i10, i7)
-            i12 = int_sub(i6, i11)
-            i14 = int_rshift(i12, %d)
-            i15 = int_add(i10, i14)
-        """ % SHIFT)
+            i56 = int_eq(i48, %d)
+            i57 = int_and(i56, i37)
+            guard_false(i57, descr=...)
+            i1 = call_i(_, i48, i3, descr=...)
+        """ % (-sys.maxint-1,))
+        assert loop.match_by_id('shift', """
+            i1 = int_rshift(i2, 1)
+        """)
 
     def test_division_to_rshift_allcases(self):
         """

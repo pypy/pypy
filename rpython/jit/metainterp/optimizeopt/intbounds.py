@@ -8,6 +8,7 @@ from rpython.jit.metainterp.optimizeopt.optimizer import (Optimization, CONST_1,
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.resoperation import rop, AbstractResOp
 from rpython.jit.metainterp.optimizeopt import vstring
+from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.rlib.rarithmetic import intmask
 
 def get_integer_min(is_unsigned, byte_size):
@@ -172,39 +173,50 @@ class OptIntBounds(Optimization):
         if b.bounded():
             r.intersect(b)
 
-    def optimize_INT_FLOORDIV(self, op):
-        b1 = self.getintbound(op.getarg(0))
-        b2 = self.getintbound(op.getarg(1))
+    def optimize_CALL_PURE_I(self, op):
+        # dispatch based on 'oopspecindex' to a method that handles
+        # specifically the given oopspec call.
+        effectinfo = op.getdescr().get_extra_info()
+        oopspecindex = effectinfo.oopspecindex
+        if oopspecindex == EffectInfo.OS_INT_PY_DIV:
+            self.opt_call_INT_PY_DIV(op)
+            return
+        elif oopspecindex == EffectInfo.OS_INT_PY_MOD:
+            self.opt_call_INT_PY_MOD(op)
+            return
+        self.emit_operation(op)
+
+    def opt_call_INT_PY_DIV(self, op):
+        b1 = self.getintbound(op.getarg(1))
+        b2 = self.getintbound(op.getarg(2))
         self.emit_operation(op)
         r = self.getintbound(op)
-        r.intersect(b1.div_bound(b2))
+        r.intersect(b1.py_div_bound(b2))
 
-    def optimize_INT_MOD(self, op):
-        b1 = self.getintbound(op.getarg(0))
-        b2 = self.getintbound(op.getarg(1))
-        known_nonneg = (b1.known_ge(IntBound(0, 0)) and
-                        b2.known_ge(IntBound(0, 0)))
-        if known_nonneg and b2.is_constant():
+    def opt_call_INT_PY_MOD(self, op):
+        b1 = self.getintbound(op.getarg(1))
+        b2 = self.getintbound(op.getarg(2))
+        if b2.is_constant():
             val = b2.getint()
-            if (val & (val-1)) == 0:
-                # nonneg % power-of-two ==> nonneg & (power-of-two - 1)
-                arg1 = op.getarg(0)
+            if val > 0 and (val & (val-1)) == 0:
+                # x % power-of-two ==> x & (power-of-two - 1)
+                # with Python's modulo, this is valid even if 'x' is negative.
+                from rpython.jit.metainterp.history import DONT_CHANGE
+                arg1 = op.getarg(1)
                 arg2 = ConstInt(val-1)
                 op = self.replace_op_with(op, rop.INT_AND,
-                                          args=[arg1, arg2])
+                                          args=[arg1, arg2],
+                                          descr=DONT_CHANGE)  # <- xxx rename?
         self.emit_operation(op)
         if b2.is_constant():
             val = b2.getint()
             r = self.getintbound(op)
-            if val < 0:
-                if val == -sys.maxint-1:
-                    return     # give up
-                val = -val
-            if known_nonneg:
+            if val >= 0:        # with Python's modulo:  0 <= (x % pos) < pos
                 r.make_ge(IntBound(0, 0))
-            else:
-                r.make_gt(IntBound(-val, -val))
-            r.make_lt(IntBound(val, val))
+                r.make_lt(IntBound(val, val))
+            else:               # with Python's modulo:  neg < (x % neg) <= 0
+                r.make_gt(IntBound(val, val))
+                r.make_le(IntBound(0, 0))
 
     def optimize_INT_LSHIFT(self, op):
         arg0 = self.get_box_replacement(op.getarg(0))
@@ -613,10 +625,10 @@ class OptIntBounds(Optimization):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
         r = self.getintbound(op)
-        b = r.div_bound(b2)
+        b = r.py_div_bound(b2)
         if b1.intersect(b):
             self.propagate_bounds_backward(op.getarg(0))
-        b = r.div_bound(b1)
+        b = r.py_div_bound(b1)
         if b2.intersect(b):
             self.propagate_bounds_backward(op.getarg(1))
 

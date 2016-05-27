@@ -46,20 +46,6 @@ def gen_emit_op_ri(name, opname):
     f.__name__ = 'emit_op_%s' % name
     return f
 
-def gen_emit_op_by_helper_call(name, opname):
-    helper = getattr(InstrBuilder, opname)
-    def f(self, op, arglocs, regalloc, fcond):
-        assert fcond is not None
-        if op.type != 'v':
-            regs = r.caller_resp[1:] + [r.ip]
-        else:
-            regs = r.caller_resp
-        with saved_registers(self.mc, regs, r.caller_vfp_resp):
-            helper(self.mc, fcond)
-        return fcond
-    f.__name__ = 'emit_op_%s' % name
-    return f
-
 def gen_emit_cmp_op(name, true_cond):
     def f(self, op, arglocs, regalloc, fcond):
         l0, l1, res = arglocs

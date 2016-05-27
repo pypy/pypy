@@ -80,24 +80,6 @@ class IntOpAssembler(object):
         else:
             self.mc.mulldox(*self.do_emit_int_binary_ovf(op, arglocs))
 
-    def emit_int_floordiv(self, op, arglocs, regalloc):
-        l0, l1, res = arglocs
-        if IS_PPC_32:
-            self.mc.divw(res.value, l0.value, l1.value)
-        else:
-            self.mc.divd(res.value, l0.value, l1.value)
-
-    def emit_int_mod(self, op, arglocs, regalloc):
-        l0, l1, res = arglocs
-        if IS_PPC_32:
-            self.mc.divw(r.r0.value, l0.value, l1.value)
-            self.mc.mullw(r.r0.value, r.r0.value, l1.value)
-        else:
-            self.mc.divd(r.r0.value, l0.value, l1.value)
-            self.mc.mulld(r.r0.value, r.r0.value, l1.value)
-        self.mc.subf(r.r0.value, r.r0.value, l0.value)
-        self.mc.mr(res.value, r.r0.value)
-
     def emit_int_and(self, op, arglocs, regalloc):
         l0, l1, res = arglocs
         self.mc.and_(res.value, l0.value, l1.value)
@@ -130,13 +112,6 @@ class IntOpAssembler(object):
             self.mc.srw(res.value, l0.value, l1.value)
         else:
             self.mc.srd(res.value, l0.value, l1.value)
-    
-    def emit_uint_floordiv(self, op, arglocs, regalloc):
-        l0, l1, res = arglocs
-        if IS_PPC_32:
-            self.mc.divwu(res.value, l0.value, l1.value)
-        else:
-            self.mc.divdu(res.value, l0.value, l1.value)
 
     emit_int_le = gen_emit_cmp_op(c.LE)
     emit_int_lt = gen_emit_cmp_op(c.LT)

@@ -430,19 +430,6 @@ class BlackholeInterpreter(object):
             return 0, label
 
     @arguments("i", "i", returns="i")
-    def bhimpl_int_floordiv(a, b):
-        return llop.int_floordiv(lltype.Signed, a, b)
-
-    @arguments("i", "i", returns="i")
-    def bhimpl_uint_floordiv(a, b):
-        c = llop.uint_floordiv(lltype.Unsigned, r_uint(a), r_uint(b))
-        return intmask(c)
-
-    @arguments("i", "i", returns="i")
-    def bhimpl_int_mod(a, b):
-        return llop.int_mod(lltype.Signed, a, b)
-
-    @arguments("i", "i", returns="i")
     def bhimpl_int_and(a, b):
         return a & b
 

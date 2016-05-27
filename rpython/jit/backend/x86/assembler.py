@@ -1444,20 +1444,6 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         self.mov(imm0, resloc)
         self.mc.CMOVNS(resloc, arglocs[0])
 
-    def genop_int_mod(self, op, arglocs, resloc):
-        if IS_X86_32:
-            self.mc.CDQ()
-        elif IS_X86_64:
-            self.mc.CQO()
-
-        self.mc.IDIV_r(ecx.value)
-
-    genop_int_floordiv = genop_int_mod
-
-    def genop_uint_floordiv(self, op, arglocs, resloc):
-        self.mc.XOR_rr(edx.value, edx.value)
-        self.mc.DIV_r(ecx.value)
-
     genop_llong_add = _binaryop("PADDQ")
     genop_llong_sub = _binaryop("PSUBQ")
     genop_llong_and = _binaryop("PAND")
