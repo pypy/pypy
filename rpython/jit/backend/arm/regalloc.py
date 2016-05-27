@@ -467,6 +467,8 @@ class Regalloc(BaseRegalloc):
         self.possibly_free_var(op)
         return [reg1, reg2, res]
 
+    prepare_op_uint_mul_high = prepare_op_int_mul
+
     def prepare_op_int_force_ge_zero(self, op, fcond):
         argloc = self.make_sure_var_in_reg(op.getarg(0))
         resloc = self.force_allocate_reg(op, [op.getarg(0)])
