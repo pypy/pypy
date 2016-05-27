@@ -220,7 +220,7 @@ class W_ZipImporter(W_Root):
         except KeyError:
             return False
 
-    @unwrap_spec(fullname='str0')
+    @unwrap_spec(fullname='fsencode')
     def find_module(self, space, fullname, w_path=None):
         filename = self.make_filename(fullname)
         for _, _, ext in ENUMERATE_EXTS:
@@ -245,9 +245,8 @@ class W_ZipImporter(W_Root):
         """
         return self.filename + os.path.sep + filename
 
-    @unwrap_spec(fullname='str0')
-    def load_module(self, space, fullname):
-        w = space.wrap
+    def load_module(self, space, w_fullname):
+        fullname = space.fsencode_w(w_fullname)
         filename = self.make_filename(fullname)
         for compiled, is_package, ext in ENUMERATE_EXTS:
             fname = filename + ext
@@ -276,11 +275,11 @@ class W_ZipImporter(W_Root):
                                                    buf, pkgpath)
                 except:
                     w_mods = space.sys.get('modules')
-                    space.call_method(w_mods, 'pop', w(fullname), space.w_None)
+                    space.call_method(w_mods, 'pop', w_fullname, space.w_None)
                     raise
-        raise oefmt(get_error(space), "can't find module '%s'", fullname)
+        raise oefmt(get_error(space), "can't find module %R", w_fullname)
 
-    @unwrap_spec(filename='str0')
+    @unwrap_spec(filename='fsencode')
     def get_data(self, space, filename):
         filename = self._find_relative_path(filename)
         try:
@@ -293,7 +292,7 @@ class W_ZipImporter(W_Root):
             # from the zlib module: let's to the same
             raise zlib_error(space, e.msg)
 
-    @unwrap_spec(fullname='str0')
+    @unwrap_spec(fullname='fsencode')
     def get_code(self, space, fullname):
         filename = self.make_filename(fullname)
         for compiled, _, ext in ENUMERATE_EXTS:
@@ -318,7 +317,7 @@ class W_ZipImporter(W_Root):
                     "Cannot find source or code for %s in %R",
                     filename, space.wrap_fsdecoded(self.name))
 
-    @unwrap_spec(fullname='str0')
+    @unwrap_spec(fullname='fsencode')
     def get_source(self, space, fullname):
         filename = self.make_filename(fullname)
         found = False
@@ -339,26 +338,26 @@ class W_ZipImporter(W_Root):
                     "Cannot find source for %s in %R", filename,
                     space.wrap_fsdecoded(self.name))
 
-    @unwrap_spec(fullname='str0')
-    def get_filename(self, space, fullname):
+    def get_filename(self, space, w_fullname):
+        fullname = space.fsencode_w(w_fullname)
         filename = self.make_filename(fullname)
         for _, is_package, ext in ENUMERATE_EXTS:
             if self.have_modulefile(space, filename + ext):
                 return space.wrap_fsdecoded(self.filename + os.path.sep +
                                             self.corr_zname(filename + ext))
         raise oefmt(get_error(space),
-                    "Cannot find module %s in %R", filename,
-                    space.wrap_fsdecoded(self.name))
+                    "Cannot find module %R in %R",
+                    w_filename, space.wrap_fsdecoded(self.name))
 
-    @unwrap_spec(fullname='str0')
-    def is_package(self, space, fullname):
+    def is_package(self, space, w_fullname):
+        fullname = space.fsencode_w(w_fullname)
         filename = self.make_filename(fullname)
         for _, is_package, ext in ENUMERATE_EXTS:
             if self.have_modulefile(space, filename + ext):
                 return space.wrap(is_package)
         raise oefmt(get_error(space),
-                    "Cannot find module %s in %R", filename,
-                    space.wrap_fsdecoded(self.name))
+                    "Cannot find module %R in %R",
+                    w_filename, space.wrap_fsdecoded(self.name))
 
     def getarchive(self, space):
         space = self.space
@@ -375,7 +374,7 @@ class W_ZipImporter(W_Root):
             return True, self.filename + os.path.sep + self.corr_zname(dirpath)
         return False, None
 
-    @unwrap_spec(fullname='str0')
+    @unwrap_spec(fullname='fsencode')
     def find_loader(self, space, fullname, w_path=None):
         found, ns_portion = self._find_loader(space, fullname)
         if not found:
