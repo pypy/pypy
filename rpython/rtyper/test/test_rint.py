@@ -390,6 +390,22 @@ class TestRint(BaseRtypingTest):
         res = self.interpret(f, [sys.maxint])
         assert res == 0
 
+    def test_int_floordiv_nonnegargs(self):
+        def f(x, y):
+            assert x >= 0
+            assert y >= 0
+            return x // y
+        res = self.interpret(f, [1234567, 123])
+        assert res == 1234567 // 123
+
+    def test_int_mod_nonnegargs(self):
+        def f(x, y):
+            assert x >= 0
+            assert y >= 0
+            return x % y
+        res = self.interpret(f, [1234567, 123])
+        assert res == 1234567 % 123
+
     def test_cast_to_float_exc_check(self):
         def f(x):
             try:

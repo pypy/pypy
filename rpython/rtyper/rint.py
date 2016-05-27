@@ -370,7 +370,10 @@ def _rtype_call_helper(hop, func, implicit_excs=[]):
     else:
         hop.exception_cannot_occur()
 
-    llfunc = globals()['ll_' + repr.opprefix + func]
+    funcname = 'll_' + repr.opprefix + func
+    llfunc = globals()[funcname]
+    if all(s_arg.nonneg for s_arg in hop.args_s):
+        llfunc = globals().get(funcname + '_nonnegargs', llfunc)
     v_result = hop.gendirectcall(llfunc, *vlist)
     assert v_result.concretetype == repr.lowleveltype
     return v_result
@@ -395,6 +398,13 @@ def ll_int_floordiv(x, y):
     if y < 0: u = p - x
     else:     u = x - p
     return r + (u >> INT_BITS_1)
+
+@jit.oopspec("int.py_div(x, y)")
+def ll_int_floordiv_nonnegargs(x, y):
+    from rpython.rlib.debug import ll_assert
+    r = llop.int_floordiv(Signed, x, y)            # <= truncates like in C
+    ll_assert(r >= 0, "int_floordiv_nonnegargs(): one arg is negative")
+    return r
 
 def ll_int_floordiv_zer(x, y):
     if y == 0:
@@ -472,6 +482,13 @@ def ll_int_mod(x, y):
     if y < 0: u = -r
     else:     u = r
     return r + (y & (u >> INT_BITS_1))
+
+@jit.oopspec("int.py_mod(x, y)")
+def ll_int_mod_nonnegargs(x, y):
+    from rpython.rlib.debug import ll_assert
+    r = llop.int_mod(Signed, x, y)                 # <= truncates like in C
+    ll_assert(r >= 0, "int_mod_nonnegargs(): one arg is negative")
+    return r
 
 def ll_int_mod_zer(x, y):
     if y == 0:
