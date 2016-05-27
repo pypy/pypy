@@ -39,9 +39,9 @@ if _WIN:
         includes = ['windows.h'],
         post_include_bits = [
             "RPY_EXTERN\n"
-            "BOOL pypy_timemodule_setCtrlHandler(HANDLE event);"
-            "ULONGLONG pypy_GetTickCount64(FARPROC address);"
-            "],
+            "BOOL pypy_timemodule_setCtrlHandler(HANDLE event);\n"
+            "RPY_EXTERN ULONGLONG pypy_GetTickCount64(FARPROC address);"
+        ],
         separate_module_sources=['''
             static HANDLE interrupt_event;
 
@@ -81,16 +81,16 @@ if _WIN:
         [rffi.VOIDP],
         rffi.ULONGLONG, compilation_info=eci)
 
+    from rpython.rlib.rdynload import GetModuleHandle, dlsym
+    hKernel32 = GetModuleHandle("KERNEL32")
     try:
-        hKernel32 = GetModuleHandle("KERNEL32")
-        try:
-            _GetTickCount64_handle = dlsym(hKernel32, 'GetTickCount64')
-            def _GetTickCount64():
-                return pypy_GetTickCount64(_GetTickCount64_handle)
-        except KeyError:
-            _GetTickCount64_handle = lltype.nullptr(rffi.VOIDP.TO))
+        _GetTickCount64_handle = dlsym(hKernel32, 'GetTickCount64')
+        def _GetTickCount64():
+            return pypy_GetTickCount64(_GetTickCount64_handle)
+    except KeyError:
+        _GetTickCount64_handle = lltype.nullptr(rffi.VOIDP.TO)
 
-    HAS_GETTICKCOUNT64 = pypy_GetTickCount64 != lltype.nullptr(rffi.VOIDP.TO))
+    HAS_GETTICKCOUNT64 = _GetTickCount64_handle != lltype.nullptr(rffi.VOIDP.TO)
     class GlobalState:
         def __init__(self):
             self.init()
@@ -149,7 +149,6 @@ class CConfig:
     clock_t = platform.SimpleType("clock_t", rffi.ULONG)
     has_gettimeofday = platform.Has('gettimeofday')
     has_clock_gettime = platform.Has('clock_gettime')
-    has_gettickcount64 = platform.Has("GetTickCount64")
     CLOCK_PROF = platform.DefinedConstantInteger('CLOCK_PROF')
 
 CLOCK_CONSTANTS = ['CLOCK_HIGHRES', 'CLOCK_MONOTONIC', 'CLOCK_MONOTONIC_RAW',
@@ -178,6 +177,13 @@ if _POSIX:
 elif _WIN:
     calling_conv = 'win'
     CConfig.tm = platform.Struct("struct tm", [("tm_sec", rffi.INT),
+        ("tm_min", rffi.INT), ("tm_hour", rffi.INT), ("tm_mday", rffi.INT),
+        ("tm_mon", rffi.INT), ("tm_year", rffi.INT), ("tm_wday", rffi.INT),
+        ("tm_yday", rffi.INT), ("tm_isdst", rffi.INT)])
+
+    # TODO: Figure out how to implement this...
+    CConfig.ULARGE_INTEGER = platform.Struct("struct ULARGE_INTEGER", [
+        ("tm_sec", rffi.INT),
         ("tm_min", rffi.INT), ("tm_hour", rffi.INT), ("tm_mday", rffi.INT),
         ("tm_mon", rffi.INT), ("tm_year", rffi.INT), ("tm_wday", rffi.INT),
         ("tm_yday", rffi.INT), ("tm_isdst", rffi.INT)])
@@ -222,7 +228,41 @@ tm = cConfig.tm
 glob_buf = lltype.malloc(tm, flavor='raw', zero=True, immortal=True)
 
 if cConfig.has_gettimeofday:
-    c_gettimeofday = external('gettimeofday', [rffi.VOIDP, rffi.VOIDP], rffi.INT)
+    
+    c_gettimeofday = external('gettimeofday', 
+                              [CConfig.timeval,
+rffi.VOIDP], 
+                              rffi.INT)
+    if _WIN:
+       GetSystemTimeAsFileTime = external('GetSystemTimeAsFileTime', 
+                                          [rwin32.FILETIME], 
+                                          lltype.VOID)
+        def gettimeofday(space, w_info=None):
+            with lltype.scoped_alloc(rwin32.FILETIME) as system_time, 
+                GetSystemTimeAsFileTime(system_time)
+                
+
+                seconds = float(timeval.tv_sec) + timeval.tv_usec * 1e-6
+
+            return space.wrap(seconds)
+    else:
+        def gettimeofday(space, w_info=None):
+            with lltype.scoped_alloc(CConfig.timeval) as timeval:
+                ret = c_gettimeofday(timeval, rffi.NULL)
+                if ret != 0:
+                    raise exception_from_saved_errno(space, space.w_OSError)
+                
+                space.setattr(w_info, space.wrap("implementation"),
+                              space.wrap("gettimeofday()"))
+                space.setattr(w_info, space.wrap("resolution"), 1e-6)
+                space.setattr(w_info, space.wrap("monotonic"), space.w_False)
+                space.setattr(w_info, space.wrap("adjustable"), space.w_True)
+
+                seconds = float(timeval.tv_sec) + timeval.tv_usec * 1e-6
+            return space.wrap(seconds)
+        
+
+u
 TM_P = lltype.Ptr(tm)
 c_time = external('time', [rffi.TIME_TP], rffi.TIME_T)
 c_gmtime = external('gmtime', [rffi.TIME_TP], TM_P,
@@ -538,16 +578,30 @@ def time(space):
     secs = pytime.time()
     return space.wrap(secs)
 
-# TODO: Remember what this is for...
 def get_time_time_clock_info(space, w_info):
     # Can't piggy back on time.time because time.time delegates to the 
     # host python's time.time (so we can't see the internals)
     if HAS_CLOCK_GETTIME:
-        try:
-            res = clock_getres(space, cConfig.CLOCK_REALTIME)
-        except OperationError:
-            res = 1e-9
-    #else: ???
+        with lltype.scoped_alloc(TIMESPEC) as timespec:
+            ret = c_clock_gettime(cConfig.CLOCK_REALTIME, timespec)
+            if ret != 0:
+                raise exception_from_saved_errno(space, space.w_OSError)
+            space.setattr(w_info, space.wrap("monotonic"), space.w_False)
+            space.setattr(w_info, space.wrap("implementation"),
+                          space.wrap("clock_gettime(CLOCK_REALTIME)"))
+            space.setattr(w_info, space.wrap("adjustable"), space.w_True)
+            try:
+                res = clock_getres(space, cConfig.CLOCK_REALTIME)
+            except OperationError:
+                res = 1e-9
+           
+            space.setattr(w_info, space.wrap("resolution"),
+                          res)
+            secs = _timespec_to_seconds(timespec)
+            return secs
+    else:
+        return gettimeofday(w_info)
+        
 
 def ctime(space, w_seconds=None):
     """ctime([seconds]) -> string
@@ -840,7 +894,7 @@ else:
                 try:
                     space.setattr(w_info, space.wrap("resolution"),
                                   space.wrap(clock_getres(space, cConfig.CLOCK_HIGHRES)))
-                except OSError:
+                except OperationError:
                     space.setattr(w_info, space.wrap("resolution"),
                                   space.wrap(1e-9))
                 
@@ -855,7 +909,7 @@ else:
                 try:
                     space.setattr(w_info, space.wrap("resolution"),
                                   space.wrap(clock_getres(space, cConfig.CLOCK_MONOTONIC)))
-                except OSError:
+                except OperationError:
                     space.setattr(w_info, space.wrap("resolution"),
                                   space.wrap(1e-9))
 
