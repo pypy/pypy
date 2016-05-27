@@ -46,36 +46,39 @@ class W_ZipCache(W_Root):
     # I don't care about speed of those, they're obscure anyway
     # THIS IS A TERRIBLE HACK TO BE CPYTHON COMPATIBLE
 
-    @unwrap_spec(name=str)
-    def getitem(self, space, name):
+    def getitem(self, space, w_name):
+        return self._getitem(space, space.fsencode_w(w_name))
+
+    def _getitem(self, space, name):
         try:
             w_zipimporter = self.cache[name]
         except KeyError:
-            raise OperationError(space.w_KeyError, space.wrap(name))
+            raise OperationError(space.w_KeyError, space.wrap_fsdecoded(name))
         assert isinstance(w_zipimporter, W_ZipImporter)
         w = space.wrap
+        w_fs = space.wrap_fsdecoded
         w_d = space.newdict()
         for key, info in w_zipimporter.zip_file.NameToInfo.iteritems():
             if ZIPSEP != os.path.sep:
                 key = key.replace(ZIPSEP, os.path.sep)
-            space.setitem(w_d, w(key), space.newtuple([
-                w(info.filename), w(info.compress_type), w(info.compress_size),
+            space.setitem(w_d, w_fs(key), space.newtuple([
+                w_fs(info.filename), w(info.compress_type), w(info.compress_size),
                 w(info.file_size), w(info.file_offset), w(info.dostime),
                 w(info.dosdate), w(info.CRC)]))
         return w_d
 
     def keys(self, space):
-        return space.newlist([space.wrap(s)
+        return space.newlist([space.wrap_fsdecoded(s)
                               for s in self.cache.keys()])
 
     def values(self, space):
         keys = self.cache.keys()
-        values_w = [self.getitem(space, key) for key in keys]
+        values_w = [self._getitem(space, key) for key in keys]
         return space.newlist(values_w)
 
     def items(self, space):
-        w = space.wrap
-        items_w = [space.newtuple([w(key), self.getitem(space, key)])
+        w_fs = space.wrap_fsdecoded
+        items_w = [space.newtuple([w_fs(key), self._getitem(space, key)])
                    for key in self.cache.keys()]
         return space.newlist(items_w)
 
@@ -88,14 +91,14 @@ class W_ZipCache(W_Root):
     def iteritems(self, space):
         return space.iter(self.items(space))
 
-    @unwrap_spec(name=str)
+    @unwrap_spec(name='fsencode')
     def contains(self, space, name):
         return space.newbool(name in self.cache)
 
     def clear(self, space):
         self.cache = {}
 
-    @unwrap_spec(name=str)
+    @unwrap_spec(name='fsencode')
     def delitem(self, space, name):
         del self.cache[name]
 
