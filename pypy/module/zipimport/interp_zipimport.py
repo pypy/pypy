@@ -129,8 +129,8 @@ class W_ZipImporter(W_Root):
 
     def getprefix(self, space):
         if ZIPSEP == os.path.sep:
-            return space.wrap(self.prefix)
-        return space.wrap(self.prefix.replace(ZIPSEP, os.path.sep))
+            return space.wrap_fsdecoded(self.prefix)
+        return space.wrap_fsdecoded(self.prefix.replace(ZIPSEP, os.path.sep))
 
     def _find_relative_path(self, filename):
         if filename.startswith(self.filename):
@@ -388,7 +388,8 @@ class W_ZipImporter(W_Root):
         elif not ns_portion:
             result = [self, space.newlist([])]
         else:
-            result = [space.w_None, space.newlist([space.wrap(ns_portion)])]
+            result = [space.w_None,
+                      space.newlist([space.wrap_fsdecoded(ns_portion)])]
         return space.newtuple(result)
 
 def descr_new_zipimporter(space, w_type, w_name):
