@@ -54,12 +54,25 @@ class TestString(BaseTestPyPyC):
         log = self.run(main, [1100], import_site=True)
         assert log.result == main(1100)
         loop, = log.loops_by_filename(self.filepath)
+        if sys.maxint > 2**32:
+            args = (63, -3689348814741910323, 3)
+        else:
+            args = (31, -858993459, 3)
         assert loop.match("""
             i11 = int_lt(i6, i7)
             guard_true(i11, descr=...)
             guard_not_invalidated(descr=...)
             i13 = int_eq(i6, %d)         # value provided below
-            i19 = call_i(ConstClass(ll_int_mod__Signed_Signed), i6, 10, descr=<Calli . ii EF=0 OS=14>)
+
+            # "mod 10" block:
+            i79 = int_rshift(i6, %d)
+            i80 = int_xor(i6, i79)
+            i82 = uint_mul_high(i80, %d)
+            i84 = uint_rshift(i82, %d)
+            i85 = int_xor(i84, i79)
+            i87 = int_mul(i85, 10)
+            i19 = int_sub(i6, i87)
+
             i23 = strgetitem(p10, i19)
             p25 = newstr(1)
             strsetitem(p25, 0, i23)
@@ -74,7 +87,7 @@ class TestString(BaseTestPyPyC):
             guard_no_overflow(descr=...)
             --TICK--
             jump(..., descr=...)
-        """ % (-sys.maxint-1,))
+        """ % ((-sys.maxint-1,)+args))
 
     def test_str_mod(self):
         def main(n):
