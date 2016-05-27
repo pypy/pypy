@@ -1441,7 +1441,7 @@ def parse_utime_args(space, w_times, w_ns):
 
 def do_utimens(space, func, arg, utime, *args):
     """Common implementation for futimens/utimensat etc."""
-    _, atime_s, atime_ns, mtime_s, mtime_ns = utime
+    now, atime_s, atime_ns, mtime_s, mtime_ns = utime
     if now:
         atime_ns = mtime_ns = rposix.UTIME_NOW
     try:
