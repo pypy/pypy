@@ -158,6 +158,10 @@ def _int_binary_operations():
         (rop.UINT_RSHIFT, [(-1, 4, intmask(r_uint(-1) >> r_uint(4))),
                            ( 1, 4, intmask(r_uint(1) >> r_uint(4))),
                            ( 3, 3, 0)]),
+        (rop.UINT_MUL_HIGH, [(5, 6, 0),
+                             (0xffff, 0xffff, 0),
+                             (-1, -1, -2),
+                             (-1, 123, 122)]),
         ]:
         for x, y, z in testcases:
             yield opnum, [x, y], z

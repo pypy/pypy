@@ -532,6 +532,7 @@ for _op in [rop.INT_ADD,
             rop.INT_AND,
             rop.INT_OR,
             rop.INT_XOR,
+            rop.UINT_MUL_HIGH,
             ]:
     OPERATIONS.append(BinaryOperation(_op))
 
