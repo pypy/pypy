@@ -700,19 +700,31 @@ class OptRewrite(Optimization):
             return True
         # This is Python's integer division: 'x // (2**shift)' can always
         # be replaced with 'x >> shift', even for negative values of x
-        if b2.is_constant():
-            val = b2.getint()
-            if val == 1:
-                self.make_equal_to(op, arg1)
-                self.last_emitted_operation = REMOVED
-                return True
-            elif val > 0 and val & (val - 1) == 0:   # val == 2**shift
-                from rpython.jit.metainterp.history import DONT_CHANGE
-                op = self.replace_op_with(op, rop.INT_RSHIFT,
-                            args=[arg1, ConstInt(highest_bit(val))],
-                            descr=DONT_CHANGE)  # <- xxx rename? means "kill"
-        self.emit_operation(op)
-        return True
+        if not b2.is_constant():
+            return False
+        val = b2.getint()
+        if val <= 0:
+            return False
+        if val == 1:
+            self.make_equal_to(op, arg1)
+            self.last_emitted_operation = REMOVED
+            return True
+        elif val & (val - 1) == 0:   # val == 2**shift
+            from rpython.jit.metainterp.history import DONT_CHANGE
+            op = self.replace_op_with(op, rop.INT_RSHIFT,
+                        args=[arg1, ConstInt(highest_bit(val))],
+                        descr=DONT_CHANGE)  # <- xxx rename? means "kill"
+            self.optimizer.send_extra_operation(op)
+            return True
+        else:
+            from rpython.jit.metainterp.optimizeopt import intdiv
+            known_nonneg = b1.known_ge(IntBound(0, 0))
+            operations = intdiv.division_operations(arg1, val, known_nonneg)
+            newop = None
+            for newop in operations:
+                self.optimizer.send_extra_operation(newop)
+            self.make_equal_to(op, newop)
+            return True
 
     def optimize_CAST_PTR_TO_INT(self, op):
         self.optimizer.pure_reverse(op)

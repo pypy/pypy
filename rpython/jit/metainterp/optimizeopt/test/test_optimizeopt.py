@@ -1,5 +1,6 @@
 import py, sys
 from rpython.rlib.objectmodel import instantiate
+from rpython.rlib.rarithmetic import intmask
 from rpython.rtyper.lltypesystem import lltype
 from rpython.jit.metainterp import compile, resume
 from rpython.jit.metainterp.history import AbstractDescr, ConstInt, TreeLoop
@@ -5327,9 +5328,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i10 = call_pure_i(327, i1, 0, descr=int_py_div_descr)
         i11 = call_pure_i(328, i1, 1, descr=int_py_div_descr)
         i5 = call_pure_i(329, i1, 2, descr=int_py_div_descr)
-        i7 = call_pure_i(330, i1, 3, descr=int_py_div_descr)
         i9 = call_pure_i(331, i1, 4, descr=int_py_div_descr)
-        i9d = call_pure_i(332, i1, 6, descr=int_py_div_descr)
         jump(i5, i9)
         """
         expected = """
@@ -5343,12 +5342,49 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i10 = call_i(327, i1, 0, descr=int_py_div_descr)
         # i11 = i1
         i5 = int_rshift(i1, 1)
-        i7 = call_i(330, i1, 3, descr=int_py_div_descr)
         i9 = int_rshift(i1, 2)
-        i9d = call_i(332, i1, 6, descr=int_py_div_descr)
         jump(i5, i9)
         """
         self.optimize_loop(ops, expected)
+
+    def test_division_to_mul_high_nonneg(self):
+        from rpython.jit.metainterp.optimizeopt.intdiv import magic_numbers
+        for divisor in [3, 5, 12]:
+            kk, ii = magic_numbers(divisor)
+            ops = """
+            [i1]
+            i3 = int_ge(i1, 0)
+            guard_true(i3) []
+            i2 = call_pure_i(321, i1, %d, descr=int_py_div_descr)
+            jump(i2)
+            """ % divisor
+            expected = """
+            [i1]
+            i4 = uint_mul_high(i1, %d)
+            i2 = uint_rshift(i4, %d)
+            jump(i2)
+            """ % (intmask(kk), ii)
+            self.optimize_loop(ops, expected)
+
+    def test_division_to_mul_high(self):
+        from rpython.jit.metainterp.optimizeopt.intdiv import magic_numbers
+        for divisor in [3, 5, 12]:
+            kk, ii = magic_numbers(divisor)
+            ops = """
+            [i1]
+            i2 = call_pure_i(321, i1, %d, descr=int_py_div_descr)
+            jump(i2)
+            """ % divisor
+            expected = """
+            [i1]
+            i3 = int_rshift(i1, %d)
+            i4 = int_xor(i1, i3)
+            i5 = uint_mul_high(i4, %d)
+            i6 = uint_rshift(i5, %d)
+            i2 = int_xor(i6, i3)
+            jump(i2)
+            """ % (63 if sys.maxint > 2**32 else 31, intmask(kk), ii)
+            self.optimize_loop(ops, expected)
 
     def test_mul_to_lshift(self):
         ops = """
