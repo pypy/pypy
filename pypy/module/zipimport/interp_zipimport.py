@@ -351,7 +351,8 @@ class W_ZipImporter(W_Root):
                                             self.corr_zname(filename + ext))
         raise oefmt(get_error(space),
                     "Cannot find module %R in %R",
-                    w_filename, space.wrap_fsdecoded(self.name))
+                    space.wrap_fsdecoded(filename),
+                    space.wrap_fsdecoded(self.name))
 
     def is_package(self, space, w_fullname):
         fullname = space.fsencode_w(w_fullname)
@@ -361,7 +362,8 @@ class W_ZipImporter(W_Root):
                 return space.wrap(is_package)
         raise oefmt(get_error(space),
                     "Cannot find module %R in %R",
-                    w_fullname, space.wrap_fsdecoded(self.name))
+                    space.wrap_fsdecoded(filename),
+                    space.wrap_fsdecoded(self.name))
 
     def getarchive(self, space):
         space = self.space
