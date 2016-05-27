@@ -1289,6 +1289,9 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
     genop_float_mul = _binaryop('MULSD')
     genop_float_truediv = _binaryop('DIVSD')
 
+    def genop_uint_mul_high(self, op, arglocs, result_loc):
+        self.mc.MUL(arglocs[0])
+
     def genop_int_and(self, op, arglocs, result_loc):
         arg1 = arglocs[1]
         if IS_X86_64 and (isinstance(arg1, ImmedLoc) and

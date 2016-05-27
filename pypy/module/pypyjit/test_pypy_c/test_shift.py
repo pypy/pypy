@@ -49,7 +49,8 @@ class TestShift(BaseTestPyPyC):
             while a < 300:
                 res1 = a/b     # ID: div
                 res2 = a/2     # ID: shift
-                res += res1 + res2
+                res3 = a/11    # ID: mul
+                res += res1 + res2 + res3
                 a += 1
             return res
         #
@@ -65,6 +66,17 @@ class TestShift(BaseTestPyPyC):
         assert loop.match_by_id('shift', """
             i1 = int_rshift(i2, 1)
         """)
+        if sys.maxint > 2**32:
+            args = (63, -5030930201920786804, 3)
+        else:
+            args = (31, -1171354717, 3)
+        assert loop.match_by_id('mul', """
+            i2 = int_rshift(i1, %d)
+            i3 = int_xor(i1, i2)
+            i4 = uint_mul_high(i3, %d)
+            i5 = uint_rshift(i4, %d)
+            i6 = int_xor(i5, i2)
+        """ % args)
 
     def test_division_to_rshift_allcases(self):
         """

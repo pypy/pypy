@@ -4640,17 +4640,21 @@ class BaseTestOptimizeBasic(BaseTestBasic):
 
     def test_intdiv_bounds(self):
         ops = """
-        [i0]
-        i2 = call_pure_i(321, i0, 3, descr=int_py_div_descr)
+        [i0, i1]
+        i4 = int_ge(i1, 3)
+        guard_true(i4) []
+        i2 = call_pure_i(321, i0, i1, descr=int_py_div_descr)
         i3 = int_add_ovf(i2, 50)
         guard_no_overflow() []
-        jump(i3)
+        jump(i3, i1)
         """
         expected = """
-        [i0]
-        i2 = call_i(321, i0, 3, descr=int_py_div_descr)
+        [i0, i1]
+        i4 = int_ge(i1, 3)
+        guard_true(i4) []
+        i2 = call_i(321, i0, i1, descr=int_py_div_descr)
         i3 = int_add(i2, 50)
-        jump(i3)
+        jump(i3, i1)
         """
         self.optimize_loop(ops, expected)
 

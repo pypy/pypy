@@ -561,6 +561,27 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
     consider_int_sub_ovf = _consider_binop
     consider_int_add_ovf = _consider_binop_symm
 
+    def consider_uint_mul_high(self, op):
+        arg1, arg2 = op.getarglist()
+        # should support all cases, but is optimized for (box, const)
+        if isinstance(arg1, Const):
+            arg1, arg2 = arg2, arg1
+        self.rm.make_sure_var_in_reg(arg2, selected_reg=eax)
+        l1 = self.loc(arg1)
+        # l1 is a register != eax, or stack_bp; or, just possibly, it
+        # can be == eax if arg1 is arg2
+        assert not isinstance(l1, ImmedLoc)
+        assert l1 is not eax or arg1 is arg2
+        #
+        # eax will be trash after the operation
+        self.rm.possibly_free_var(arg2)
+        tmpvar = TempVar()
+        self.rm.force_allocate_reg(tmpvar, selected_reg=eax)
+        self.rm.possibly_free_var(tmpvar)
+        #
+        self.rm.force_allocate_reg(op, selected_reg=edx)
+        self.perform(op, [l1], edx)
+
     def consider_int_neg(self, op):
         res = self.rm.force_result_in_reg(op, op.getarg(0))
         self.perform(op, [res], res)

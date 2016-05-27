@@ -408,6 +408,14 @@ class BlackholeInterpreter(object):
     def bhimpl_int_mul(a, b):
         return intmask(a * b)
 
+    @arguments("i", "i", returns="i")
+    def bhimpl_uint_mul_high(a, b):
+        from rpython.jit.metainterp.optimizeopt import intdiv
+        a = r_uint(a)
+        b = r_uint(b)
+        c = intdiv.unsigned_mul_high(a, b)
+        return intmask(c)
+
     @arguments("L", "i", "i", returns="iL")
     def bhimpl_int_add_jump_if_ovf(label, a, b):
         try:
