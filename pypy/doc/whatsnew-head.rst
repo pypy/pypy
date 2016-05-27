@@ -105,3 +105,11 @@ problems.
 Fix some warnings when compiling CPython C extension modules
 
 .. branch: syntax_fix
+
+.. branch: remove-raisingops
+
+Remove most of the _ovf, _zer and _val operations from RPython.  Kills
+quite some code internally, and allows the JIT to do better
+optimizations: for example, app-level code like ``x / 2`` or ``x % 2``
+can now be turned into ``x >> 1`` or ``x & 1``, even if x is possibly
+negative.
