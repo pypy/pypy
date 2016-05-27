@@ -944,6 +944,7 @@ class CacheEntry(object):
             if version_tag is self.version_tag:
                 # everything matches, it's incredibly fast
                 if map.space.config.objspace.std.withmethodcachecounter:
+                    assert not map.space.config.translation.stm
                     self.success_counter += 1
                 return True
         return False
@@ -966,7 +967,7 @@ def init_mapdict_cache(pycode):
     # pycode._mapdict_caches = [INVALID_CACHE_ENTRY] * num_entries
     pycode._mapdict_caches = NULL_MAPDICTCACHE
 
-def lazy_init_mapdict_cache(pycode):
+def lazy_alloc_mapdict_cache(pycode):
     assert we_are_translated()
     num_entries = len(pycode.co_names_w)
     if pycode.space.config.translation.stm:
@@ -991,10 +992,11 @@ def _fill_cache(pycode, nameindex, map, version_tag, storageindex, w_method=None
     if not we_are_translated():
         return
     if pycode._mapdict_caches is NULL_MAPDICTCACHE:
-        lazy_init_mapdict_cache(pycode)
+        lazy_alloc_mapdict_cache(pycode)
     #
     entry = annlowlevel.cast_gcref_to_instance(CacheEntry, pycode._mapdict_caches[nameindex])
-    if entry is pycode._mapdict_cache_invalid:
+    if entry is pycode._mapdict_cache_invalid or pycode.space.config.translation.stm:
+        # always a new entry for STM (CacheEntry is not no-conflict (XXX?))
         entry = CacheEntry()
         pycode._mapdict_caches[nameindex] = annlowlevel.cast_instance_to_gcref(entry)
     entry.map_wref = weakref.ref(map)
@@ -1010,7 +1012,7 @@ def LOAD_ATTR_caching(pycode, w_obj, nameindex):
     if not we_are_translated():
         return LOAD_ATTR_slowpath(pycode, w_obj, nameindex, w_obj._get_mapdict_map())
     if pycode._mapdict_caches is NULL_MAPDICTCACHE:
-        lazy_init_mapdict_cache(pycode)
+        lazy_alloc_mapdict_cache(pycode)
     #
     entry = annlowlevel.cast_gcref_to_instance(CacheEntry, pycode._mapdict_caches[nameindex])
     map = w_obj._get_mapdict_map()
@@ -1073,7 +1075,7 @@ def LOOKUP_METHOD_mapdict(f, nameindex, w_obj):
     if not we_are_translated():
         return False
     if pycode._mapdict_caches is NULL_MAPDICTCACHE:
-        lazy_init_mapdict_cache(pycode)
+        lazy_alloc_mapdict_cache(pycode)
     #
     entry = annlowlevel.cast_gcref_to_instance(CacheEntry, pycode._mapdict_caches[nameindex])
     if entry.is_valid_for_obj(w_obj):
