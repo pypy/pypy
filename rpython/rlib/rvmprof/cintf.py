@@ -72,7 +72,8 @@ PVMPROFSTACK = lltype.Ptr(VMPROFSTACK)
 VMPROFSTACK.become(rffi.CStruct("vmprof_stack_s",
                                 ('next', PVMPROFSTACK),
                                 ('value', lltype.Signed),
-                                ('kind', lltype.Signed)))
+                                ('kind', lltype.Signed),
+                                hints={'stm_dont_track_raw_accesses': True}))
 # ----------
 
 
