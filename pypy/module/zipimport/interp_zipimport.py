@@ -338,7 +338,8 @@ class W_ZipImporter(W_Root):
             # We have the module, but no source.
             return space.w_None
         raise oefmt(get_error(space),
-                    "Cannot find source for %s in %R", filename,
+                    "Cannot find source for %R in %R",
+                    space.wrap_fsdecoded(filename),
                     space.wrap_fsdecoded(self.name))
 
     def get_filename(self, space, w_fullname):
@@ -360,7 +361,7 @@ class W_ZipImporter(W_Root):
                 return space.wrap(is_package)
         raise oefmt(get_error(space),
                     "Cannot find module %R in %R",
-                    w_filename, space.wrap_fsdecoded(self.name))
+                    w_fullname, space.wrap_fsdecoded(self.name))
 
     def getarchive(self, space):
         space = self.space
@@ -413,8 +414,8 @@ def descr_new_zipimporter(space, w_type, w_name):
         w_result = zip_cache.get(filename)
         if w_result is None:
             raise oefmt(get_error(space),
-                        "Cannot import %s from zipfile, recursion detected or"
-                        "already tried and failed", name)
+                        "Cannot import %R from zipfile, recursion detected or"
+                        "already tried and failed", w_name)
     except KeyError:
         zip_cache.cache[filename] = None
     try:
