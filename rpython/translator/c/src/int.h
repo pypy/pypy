@@ -73,16 +73,16 @@
         r = (Signed)((Unsigned)x - y); \
         if ((r^x) < 0 && (r^~y) < 0) FAIL_OVF("integer subtraction")
 
-#if SIZEOF_LONG * 2 <= SIZEOF_LONG_LONG
+#if SIZEOF_SIGNED * 2 <= SIZEOF_LONG_LONG
 #define OP_INT_MUL_OVF(x,y,r) \
        { \
                long long _lr = (long long)x * y; \
-               r = (long)_lr; \
+               r = (Signed)_lr; \
                if (_lr != (long long)r) FAIL_OVF("integer multiplication"); \
        }
 #else
 #define OP_INT_MUL_OVF(x,y,r) \
-       r = op_llong_mul_ovf(x, y)   /* long == long long */
+       r = op_llong_mul_ovf(x, y)   /* Signed == long long */
 #endif
 
 #else   /* HAVE_BUILTIN_OVERFLOW */

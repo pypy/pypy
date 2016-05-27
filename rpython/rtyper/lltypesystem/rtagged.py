@@ -3,7 +3,6 @@ from rpython.rtyper.rclass import (
     InstanceRepr, CLASSTYPE, ll_inst_type, MissingRTypeAttribute,
     ll_issubclass_const, getclassrepr, getinstancerepr, get_type_repr)
 from rpython.rtyper.rmodel import TyperError, inputconst
-from rpython.rlib.rarithmetic import r_uint, intmask
 
 
 class TaggedInstanceRepr(InstanceRepr):
@@ -41,8 +40,12 @@ class TaggedInstanceRepr(InstanceRepr):
             raise TyperError("must instantiate %r with a simple class call" % (
                 self.classdef,))
         v_value = hop.inputarg(lltype.Signed, arg=1)
+        c_one = hop.inputconst(lltype.Signed, 1)
         hop.exception_is_here()
-        v2p1 = hop.gendirectcall(ll_times_two_plus_one, v_value)
+        v2 = hop.genop('int_add_ovf', [v_value, v_value],
+                       resulttype = lltype.Signed)
+        v2p1 = hop.genop('int_add', [v2, c_one],
+                         resulttype = lltype.Signed)
         v_instance =  hop.genop('cast_int_to_ptr', [v2p1],
                                 resulttype = self.lowleveltype)
         return v_instance, False   # don't call __init__
@@ -137,11 +140,6 @@ class TaggedInstanceRepr(InstanceRepr):
         return hop.gendirectcall(ll_unboxed_isinstance_const, v_obj,
                                  minid, maxid, c_answer_if_unboxed)
 
-def ll_times_two_plus_one(x):
-    r = intmask(r_uint(x) << 1)
-    if r^x < 0:
-        raise OverflowError("integer addition")
-    return r + 1
 
 def ll_int_to_unboxed(PTRTYPE, value):
     return lltype.cast_int_to_ptr(PTRTYPE, value*2+1)

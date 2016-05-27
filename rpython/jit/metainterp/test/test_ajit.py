@@ -936,11 +936,11 @@ class BasicTests:
                 myjitdriver.can_enter_jit(x=x, y=y, n=n)
                 myjitdriver.jit_merge_point(x=x, y=y, n=n)
                 n -= ovfcheck(x % y)
+                x += 1
             return n
         res = self.meta_interp(f, [20, 1, 2])
         assert res == 0
-        py.test.skip("XXX re-enable")
-        self.check_resops(call_i=0, call_r=0)
+        self.check_resops(call_i=2, int_eq=3, int_and=2)
 
     def test_abs(self):
         myjitdriver = JitDriver(greens = [], reds = ['i', 't'])

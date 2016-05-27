@@ -710,7 +710,7 @@ class OptRewrite(Optimization):
                 from rpython.jit.metainterp.history import DONT_CHANGE
                 op = self.replace_op_with(op, rop.INT_RSHIFT,
                             args=[arg1, ConstInt(highest_bit(val))],
-                            descr=DONT_CHANGE)  # <- xxx rename?
+                            descr=DONT_CHANGE)  # <- xxx rename? means "kill"
         self.emit_operation(op)
         return True
 

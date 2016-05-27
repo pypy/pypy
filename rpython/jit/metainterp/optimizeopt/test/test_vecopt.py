@@ -725,7 +725,7 @@ class BaseTestVectorize(VecTestHelper):
         ops = """
         [p0,i0]
         i1 = int_add(i0,4)
-        i2 = int_sub(i1,3)   # XXX used to be "divide by 4", not sure about it
+        i2 = int_sub(i1,3)   # XXX used to be "divide by 2", not sure about it
         i3 = raw_load_i(p0,i2,descr=chararraydescr)
         i4 = int_add(i0,2)
         i5 = int_mul(i4,2)
