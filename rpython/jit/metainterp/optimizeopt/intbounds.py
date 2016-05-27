@@ -196,17 +196,6 @@ class OptIntBounds(Optimization):
     def opt_call_INT_PY_MOD(self, op):
         b1 = self.getintbound(op.getarg(1))
         b2 = self.getintbound(op.getarg(2))
-        if b2.is_constant():
-            val = b2.getint()
-            if val > 0 and (val & (val-1)) == 0:
-                # x % power-of-two ==> x & (power-of-two - 1)
-                # with Python's modulo, this is valid even if 'x' is negative.
-                from rpython.jit.metainterp.history import DONT_CHANGE
-                arg1 = op.getarg(1)
-                arg2 = ConstInt(val-1)
-                op = self.replace_op_with(op, rop.INT_AND,
-                                          args=[arg1, arg2],
-                                          descr=DONT_CHANGE)  # <- xxx rename?
         self.emit_operation(op)
         if b2.is_constant():
             val = b2.getint()

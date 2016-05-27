@@ -90,6 +90,14 @@ def division_operations(n_box, m, known_nonneg=False):
         return [mul_box, sh_box]
 
 
+def modulo_operations(n_box, m, known_nonneg=False):
+    operations = division_operations(n_box, m, known_nonneg)
+
+    mul_box = ResOperation(rop.INT_MUL, [operations[-1], ConstInt(m)])
+    diff_box = ResOperation(rop.INT_SUB, [n_box, mul_box])
+    return operations + [mul_box, diff_box]
+
+
 def unsigned_mul_high(a, b):
     DIGIT = LONG_BIT / 2
     MASK = (1 << DIGIT) - 1
