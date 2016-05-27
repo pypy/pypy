@@ -1399,7 +1399,7 @@ dir_fd and follow_symlinks may not be available on your platform.
             raise oefmt(space.w_NotImplementedError,
                         "utime: unsupported value for 'path'")
         do_utimens(space, rposix.utimensat, path.as_bytes, utime,
-                   dir_fd=dir_fd, follow_symlinks=follow_symlinks)
+                   dir_fd, follow_symlinks)
     elif rposix.HAVE_LUTIMES and not follow_symlinks:
         if path.as_bytes is None:
             raise oefmt(space.w_NotImplementedError,
