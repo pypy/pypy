@@ -292,8 +292,8 @@ class W_ZipImporter(W_Root):
             # from the zlib module: let's to the same
             raise zlib_error(space, e.msg)
 
-    @unwrap_spec(fullname='fsencode')
-    def get_code(self, space, fullname):
+    def get_code(self, space, w_fullname):
+        fullname = space.fsencode_w(w_fullname)
         filename = self.make_filename(fullname)
         for compiled, _, ext in ENUMERATE_EXTS:
             if self.have_modulefile(space, filename + ext):
@@ -314,8 +314,8 @@ class W_ZipImporter(W_Root):
                         space, co_filename, source)
                 return space.wrap(code_w)
         raise oefmt(get_error(space),
-                    "Cannot find source or code for %s in %R",
-                    filename, space.wrap_fsdecoded(self.name))
+                    "Cannot find source or code for %R in %R",
+                    w_fullname, space.wrap_fsdecoded(self.name))
 
     @unwrap_spec(fullname='fsencode')
     def get_source(self, space, fullname):
