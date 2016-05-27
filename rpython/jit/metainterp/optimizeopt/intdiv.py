@@ -109,8 +109,7 @@ def unsigned_mul_high(a, b):
 
     r1 = r_uint(r1)
     r2 = r_uint(r1 + rlh)
-    borrow = (r2 < r1) << DIGIT
+    borrow = r_uint(r2 < r1) << DIGIT
 
-    r3 = (r2 >> DIGIT) + borrow + rhh
-    assert r3 == r_uint(r3)
+    r3 = (r2 >> DIGIT) + borrow + r_uint(rhh)
     return r3
