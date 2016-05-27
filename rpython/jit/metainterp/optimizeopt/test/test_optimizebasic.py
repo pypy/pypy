@@ -4122,21 +4122,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
 
     # ----------
     def optimize_strunicode_loop_extradescrs(self, ops, optops):
-        class FakeCallInfoCollection:
-            def callinfo_for_oopspec(self, oopspecindex):
-                calldescrtype = type(LLtypeMixin.strequaldescr)
-                effectinfotype = type(LLtypeMixin.strequaldescr.get_extra_info())
-                for value in LLtypeMixin.__dict__.values():
-                    if isinstance(value, calldescrtype):
-                        extra = value.get_extra_info()
-                        if (extra and isinstance(extra, effectinfotype) and
-                            extra.oopspecindex == oopspecindex):
-                            # returns 0 for 'func' in this test
-                            return value, 0
-                raise AssertionError("not found: oopspecindex=%d" %
-                                     oopspecindex)
-        #
-        self.callinfocollection = FakeCallInfoCollection()
         self.optimize_strunicode_loop(ops, optops)
 
     def test_str_equal_noop1(self):

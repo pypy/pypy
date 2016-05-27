@@ -422,20 +422,41 @@ class LLtypeMixin(object):
     vref_descr = cpu.sizeof(vrefinfo.JIT_VIRTUAL_REF, jit_virtual_ref_vtable)
 
     FUNC = lltype.FuncType([lltype.Signed, lltype.Signed], lltype.Signed)
-    ei = EffectInfo([], [], [], [], [], [], EffectInfo.EF_CANNOT_RAISE,
+    ei = EffectInfo([], [], [], [], [], [], EffectInfo.EF_ELIDABLE_CANNOT_RAISE,
                     can_invalidate=False,
                     oopspecindex=EffectInfo.OS_INT_PY_DIV)
     int_py_div_descr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT, ei)
-    ei = EffectInfo([], [], [], [], [], [], EffectInfo.EF_CANNOT_RAISE,
+    ei = EffectInfo([], [], [], [], [], [], EffectInfo.EF_ELIDABLE_CANNOT_RAISE,
                     can_invalidate=False,
                     oopspecindex=EffectInfo.OS_INT_UDIV)
     int_udiv_descr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT, ei)
-    ei = EffectInfo([], [], [], [], [], [], EffectInfo.EF_CANNOT_RAISE,
+    ei = EffectInfo([], [], [], [], [], [], EffectInfo.EF_ELIDABLE_CANNOT_RAISE,
                     can_invalidate=False,
                     oopspecindex=EffectInfo.OS_INT_PY_MOD)
     int_py_mod_descr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT, ei)
 
     namespace = locals()
+
+
+class FakeCallInfoCollection:
+    def callinfo_for_oopspec(self, oopspecindex):
+        calldescrtype = type(LLtypeMixin.strequaldescr)
+        effectinfotype = type(LLtypeMixin.strequaldescr.get_extra_info())
+        for value in LLtypeMixin.__dict__.values():
+            if isinstance(value, calldescrtype):
+                extra = value.get_extra_info()
+                if (extra and isinstance(extra, effectinfotype) and
+                    extra.oopspecindex == oopspecindex):
+                    # returns 0 for 'func' in this test
+                    return value, 0
+        raise AssertionError("not found: oopspecindex=%d" %
+                             oopspecindex)
+
+    calldescr_udiv = LLtypeMixin.int_udiv_descr
+    #calldescr_umod = LLtypeMixin.int_umod_descr
+
+LLtypeMixin.callinfocollection = FakeCallInfoCollection()
+
 
 # ____________________________________________________________
 
