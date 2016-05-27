@@ -1049,10 +1049,11 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.emit_op_arg(op, elt_count)
 
     def visit_Starred(self, star):
-        if star.ctx != ast.Store:
-            self.error("can use starred expression only as assignment target",
-                       star)
-        self.error("starred assignment target must be in a list or tuple", star)
+        if star.ctx != ast.Load:
+            if star.ctx != ast.Store:
+                self.error("can use starred expression only as assignment target",
+                           star)
+            self.error("starred assignment target must be in a list or tuple", star)
 
     def visit_Tuple(self, tup):
         self.update_position(tup.lineno)

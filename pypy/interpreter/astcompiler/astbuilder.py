@@ -1194,11 +1194,10 @@ class ASTBuilder(object):
             return self.handle_listcomp(second_child)
         elif first_child_type == tokens.LBRACE:
             maker = atom_node.get_child(1)
-            #TODO: check STAR and DOUBLESTAR
             if maker.type == tokens.RBRACE:
                 return ast.Dict(None, None, atom_node.get_lineno(), atom_node.get_column())
             n_maker_children = maker.num_children()
-            # or maker.get_child(0).type == tokens.STAR
+            #import pdb;pdb.set_trace()
             if n_maker_children == 1 or maker.get_child(1).type == tokens.COMMA:
                 elts = []
                 for i in range(0, n_maker_children, 2):
