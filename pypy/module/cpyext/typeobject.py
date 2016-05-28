@@ -486,18 +486,45 @@ def subtype_dealloc(space, obj):
 
 @cpython_api([PyObject, Py_ssize_tP], lltype.Signed, header=None,
              error=CANNOT_FAIL)
-def str_segcount(space, w_obj, ref):
+def bf_segcount(space, w_obj, ref):
     if ref:
         ref[0] = space.len_w(w_obj)
     return 1
 
 @cpython_api([PyObject, Py_ssize_t, rffi.VOIDPP], lltype.Signed,
              header=None, error=-1)
+def bf_getreadbuffer(space, w_buf, segment, ref):
+    if segment != 0:
+        raise oefmt(space.w_SystemError,
+                    "accessing non-existent segment")
+    buf = space.readbuf_w(w_buf)
+    address = buf.get_raw_address()
+    ref[0] = address
+    return len(buf)
+
+@cpython_api([PyObject, Py_ssize_t, rffi.CCHARPP], lltype.Signed,
+             header=None, error=-1)
+def bf_getcharbuffer(space, w_buf, segment, ref):
+    return bf_getreadbuffer(space, w_buf, segment, rffi.cast(rffi.VOIDPP, ref))
+
+@cpython_api([PyObject, Py_ssize_t, rffi.VOIDPP], lltype.Signed,
+             header=None, error=-1)
+def bf_getwritebuffer(space, w_buf, segment, ref):
+    if segment != 0:
+        raise oefmt(space.w_SystemError,
+                    "accessing non-existent segment")
+
+    buf = space.writebuf_w(w_buf)
+    ref[0] = buf.get_raw_address()
+    return len(buf)
+
+@cpython_api([PyObject, Py_ssize_t, rffi.VOIDPP], lltype.Signed,
+             header=None, error=-1)
 def str_getreadbuffer(space, w_str, segment, ref):
     from pypy.module.cpyext.bytesobject import PyString_AsString
     if segment != 0:
-        raise oefmt(space.w_SystemError,
-                    "accessing non-existent string segment")
+        raise OperationError(space.w_SystemError, space.wrap
+                             ("accessing non-existent string segment"))
     pyref = make_ref(space, w_str)
     ref[0] = PyString_AsString(space, pyref)
     # Stolen reference: the object has better exist somewhere else
@@ -506,16 +533,8 @@ def str_getreadbuffer(space, w_str, segment, ref):
 
 @cpython_api([PyObject, Py_ssize_t, rffi.CCHARPP], lltype.Signed,
              header=None, error=-1)
-def str_getcharbuffer(space, w_str, segment, ref):
-    from pypy.module.cpyext.bytesobject import PyString_AsString
-    if segment != 0:
-        raise oefmt(space.w_SystemError,
-                    "accessing non-existent string segment")
-    pyref = make_ref(space, w_str)
-    ref[0] = PyString_AsString(space, pyref)
-    # Stolen reference: the object has better exist somewhere else
-    Py_DecRef(space, pyref)
-    return space.len_w(w_str)
+def str_getcharbuffer(space, w_buf, segment, ref):
+    return str_getreadbuffer(space, w_buf, segment, rffi.cast(rffi.VOIDPP, ref))
 
 @cpython_api([PyObject, Py_ssize_t, rffi.VOIDPP], lltype.Signed,
              header=None, error=-1)
@@ -523,32 +542,58 @@ def buf_getreadbuffer(space, pyref, segment, ref):
     from pypy.module.cpyext.bufferobject import PyBufferObject
     if segment != 0:
         raise oefmt(space.w_SystemError,
-                    "accessing non-existent string segment")
+                    "accessing non-existent buffer segment")
     py_buf = rffi.cast(PyBufferObject, pyref)
     ref[0] = py_buf.c_b_ptr
-    #Py_DecRef(space, pyref)
     return py_buf.c_b_size
 
-def setup_string_buffer_procs(space, pto):
+@cpython_api([PyObject, Py_ssize_t, rffi.CCHARPP], lltype.Signed,
+             header=None, error=-1)
+def buf_getcharbuffer(space, w_buf, segment, ref):
+    return buf_getreadbuffer(space, w_buf, segment, rffi.cast(rffi.VOIDPP, ref))
+
+def setup_buffer_procs(space, w_type, pto):
+    bufspec = w_type.layout.typedef.buffer
+    if bufspec is None:
+        # not a buffer
+        return
     c_buf = lltype.malloc(PyBufferProcs, flavor='raw', zero=True)
     lltype.render_immortal(c_buf)
-    c_buf.c_bf_getsegcount = llhelper(str_segcount.api_func.functype,
-                                      str_segcount.api_func.get_wrapper(space))
-    c_buf.c_bf_getreadbuffer = llhelper(str_getreadbuffer.api_func.functype,
-                                 str_getreadbuffer.api_func.get_wrapper(space))
-    c_buf.c_bf_getcharbuffer = llhelper(str_getcharbuffer.api_func.functype,
-                                 str_getcharbuffer.api_func.get_wrapper(space))
+    c_buf.c_bf_getsegcount = llhelper(bf_segcount.api_func.functype,
+                                      bf_segcount.api_func.get_wrapper(space))
+    if space.is_w(w_type, space.w_str):
+        # Special case: str doesn't support get_raw_address(), so we have a
+        # custom get*buffer that instead gives the address of the char* in the
+        # PyStringObject*!
+        c_buf.c_bf_getreadbuffer = llhelper(
+            str_getreadbuffer.api_func.functype,
+            str_getreadbuffer.api_func.get_wrapper(space))
+        c_buf.c_bf_getcharbuffer = llhelper(
+            str_getcharbuffer.api_func.functype,
+            str_getcharbuffer.api_func.get_wrapper(space))
+    elif space.is_w(w_type, space.w_buffer):
+        # Special case: we store a permanent address on the cpyext wrapper,
+        # so we'll reuse that.
+        # Note: we could instead store a permanent address on the buffer object,
+        # and use get_raw_address()
+        c_buf.c_bf_getreadbuffer = llhelper(
+            buf_getreadbuffer.api_func.functype,
+            buf_getreadbuffer.api_func.get_wrapper(space))
+        c_buf.c_bf_getcharbuffer = llhelper(
+            buf_getcharbuffer.api_func.functype,
+            buf_getcharbuffer.api_func.get_wrapper(space))
+    else:
+        # use get_raw_address()
+        c_buf.c_bf_getreadbuffer = llhelper(bf_getreadbuffer.api_func.functype,
+                                    bf_getreadbuffer.api_func.get_wrapper(space))
+        c_buf.c_bf_getcharbuffer = llhelper(bf_getcharbuffer.api_func.functype,
+                                    bf_getcharbuffer.api_func.get_wrapper(space))
+        if bufspec == 'read-write':
+            c_buf.c_bf_getwritebuffer = llhelper(
+                bf_getwritebuffer.api_func.functype,
+                bf_getwritebuffer.api_func.get_wrapper(space))
     pto.c_tp_as_buffer = c_buf
     pto.c_tp_flags |= Py_TPFLAGS_HAVE_GETCHARBUFFER
-
-def setup_buffer_buffer_procs(space, pto):
-    c_buf = lltype.malloc(PyBufferProcs, flavor='raw', zero=True)
-    lltype.render_immortal(c_buf)
-    c_buf.c_bf_getsegcount = llhelper(str_segcount.api_func.functype,
-                                      str_segcount.api_func.get_wrapper(space))
-    c_buf.c_bf_getreadbuffer = llhelper(buf_getreadbuffer.api_func.functype,
-                                 buf_getreadbuffer.api_func.get_wrapper(space))
-    pto.c_tp_as_buffer = c_buf
 
 @cpython_api([PyObject], lltype.Void, header=None)
 def type_dealloc(space, obj):
@@ -613,10 +658,7 @@ def type_attach(space, py_obj, w_type):
             subtype_dealloc.api_func.functype,
             subtype_dealloc.api_func.get_wrapper(space))
     # buffer protocol
-    if space.is_w(w_type, space.w_str):
-        setup_string_buffer_procs(space, pto)
-    if space.is_w(w_type, space.w_buffer):
-        setup_buffer_buffer_procs(space, pto)
+    setup_buffer_procs(space, w_type, pto)
 
     pto.c_tp_free = llhelper(PyObject_Free.api_func.functype,
             PyObject_Free.api_func.get_wrapper(space))
