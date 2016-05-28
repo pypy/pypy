@@ -250,8 +250,8 @@ if cConfig.has_gettimeofday:
                     raise exception_from_saved_errno(space, space.w_OSError)
 
                 if w_info is not None:
-                    fill_clock_info(space, w_info, "gettimeofday()",
-                                    1e-6, False, True)
+                    _setinfo(space, w_info,
+                             "gettimeofday()", 1e-6, False, True)
 
                 seconds = float(timeval.tv_sec) + timeval.tv_usec * 1e-6
             return space.wrap(seconds)
@@ -581,9 +581,8 @@ def time(space, w_info=None):
                             res = _timespec_to_seconds(tsres)
                         else:
                             res = 1e-9
-                        fill_clock_info(space, w_info,
-                                    "clock_gettime(CLOCK_REALTIME)",
-                                    res, False, True)
+                        _setinfo(space, w_info, "clock_gettime(CLOCK_REALTIME)",
+                                 res, False, True)
                 return space.wrap(_timespec_to_seconds(timespec))
 
     # XXX: rewrite the final fallback into gettimeofday w/ windows
@@ -598,8 +597,7 @@ def time(space, w_info=None):
         else: # assume using ftime(3)
             implementation = "ftime()"
             resolution = 1e-3
-        fill_clock_info(space, w_info, implementation,
-                        resolution, False, True)
+        _setinfo(space, w_info, implementation, resolution, False, True)
     return space.wrap(secs)
 
 
@@ -844,8 +842,7 @@ if _WIN:
                         rwin32.lastSavedWindowsError("GetSystemTimeAdjustment"))
                 resolution = resolution * time_increment[0]
             print("out of with".encode("ascii"))
-            fill_clock_info(space, w_info, implementation,
-                            resolution, True, False)
+            _setinfo(space, w_info, implementation, resolution, True, False)
         return space.wrap(result)
 
 elif _MACOSX:
@@ -869,8 +866,7 @@ elif _MACOSX:
               # Looking at the C, I would say yes, but nanosecs
               # doesn't...
             res = (numer / denom) * 1e-9
-            fill_clock_info(space, w_info, "mach_absolute_time()",
-                            res, True, False)
+            _setinfo(space, w_info, "mach_absolute_time()", res, True, False)
         secs = nanosecs / 10**9
         rest = nanosecs % 10**9
         return space.wrap(float(secs) + float(rest) * 1e-9)
@@ -892,8 +888,7 @@ else:
                     res = _timespec_to_seconds(tsres)
                 else:
                     res = 1e-9
-            fill_clock_info(space, w_info, implementation,
-                            res, True, False)
+            _setinfo(space, w_info, implementation, res, True, False)
         return w_result
 
 if _WIN:
@@ -926,8 +921,7 @@ if _WIN:
             user_time2 = (user_time.c_dwLowDateTime |
                           user_time.c_dwHighDateTime << 32)
         if w_info is not None:
-            fill_clock_info(space, w_info,
-                            "GetProcessTimes()", 1e-7, True, False)
+            _setinfo(space, w_info, "GetProcessTimes()", 1e-7, True, False)
         return space.wrap((float(kernel_time2) + float(user_time2)) * 1e-7)
 
 else:
@@ -953,8 +947,8 @@ else:
                                 res = _timespec_to_seconds(tsres)
                             else:
                                 res = 1e-9
-                        fill_clock_info(space, w_info, implementation,
-                                        res, True, False)
+                        _setinfo(space, w_info,
+                                 implementation, res, True, False)
                     return space.wrap(_timespec_to_seconds(timespec))
 
         if True: # XXX available except if it isn't?
@@ -964,9 +958,8 @@ else:
                 ret = c_getrusage(RUSAGE_SELF, rusage)
                 if ret == 0:
                     if w_info is not None:
-                        fill_clock_info(space, w_info,
-                                        "getrusage(RUSAGE_SELF)",
-                                        1e-6, True, False)
+                        _setinfo(space, w_info,
+                                 "getrusage(RUSAGE_SELF)", 1e-6, True, False)
                     return space.wrap(decode_timeval(rusage.c_ru_utime) +
                                       decode_timeval(rusage.c_ru_stime))
         if have_times:
@@ -975,9 +968,9 @@ else:
                 if rffi.cast(lltype.Signed, ret) != -1:
                     cpu_time = float(tms.c_tms_utime + tms.c_tms_stime)
                     if w_info is not None:
-                        fill_clock_info(space, w_info, "times()",
-                                        1.0 / rposix.CLOCK_TICKS_PER_SECOND,
-                                        True, False)
+                        _setinfo(space, w_info, "times()",
+                                 1.0 / rposix.CLOCK_TICKS_PER_SECOND,
+                                 True, False)
                     return space.wrap(cpu_time / rposix.CLOCK_TICKS_PER_SECOND)
         return clock(space)
 
@@ -1005,12 +998,12 @@ else:
                         "the processor time used is not available or its value"
                         "cannot be represented")
         if w_info is not None:
-            fill_clock_info(space, w_info, "clock()",
-                            1.0 / CLOCKS_PER_SEC, True, False)
+            _setinfo(space, w_info,
+                     "clock()", 1.0 / CLOCKS_PER_SEC, True, False)
         return space.wrap((1.0 * value) / CLOCKS_PER_SEC)
 
 
-def fill_clock_info(space, w_info, impl, res, mono, adj):
+def _setinfo(space, w_info, impl, res, mono, adj):
     space.setattr(w_info, space.wrap('implementation'), space.wrap(impl))
     space.setattr(w_info, space.wrap('resolution'), space.wrap(res))
     space.setattr(w_info, space.wrap('monotonic'), space.wrap(mono))
