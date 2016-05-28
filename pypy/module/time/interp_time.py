@@ -967,7 +967,7 @@ else:
                         with lltype.scoped_alloc(TIMESPEC) as tsres:
                             ret = c_clock_gettime(clk_id, tsres)
                             if ret == 0:
-                                res = tsres.c_tv_sec + tsres.c_tv_nsec * 1e-9
+                                res = _timespec_to_seconds(tsres)
                             else:
                                 res = 1e-9
                         fill_clock_info(space, w_info, function,
@@ -1016,11 +1016,11 @@ else:
         the first call to clock().  This has as much precision as the system
         records."""
         value = _clock()
-        #Is this casting correct?
+        # Is this casting correct?
         if value == rffi.cast(clock_t, -1):
-            raise RunTimeError("the processor time used is not available "
-                               "or its value cannot be represented")
-
+            raise oefmt(space.w_RuntimeError,
+                        "the processor time used is not available or its value"
+                        "cannot be represented")
         if w_info is not None:
             fill_clock_info(space, w_info, "clock()",
                             1.0 / CLOCKS_PER_SEC, True, False)
