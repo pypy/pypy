@@ -1032,19 +1032,3 @@ def fill_clock_info(space, w_info, impl, res, mono, adj):
     space.setattr(w_info, space.wrap('resolution'), space.wrap(res))
     space.setattr(w_info, space.wrap('monotonic'), space.wrap(mono))
     space.setattr(w_info, space.wrap('adjustable'), space.wrap(adj))
-
-
-def get_clock_info_dict(space, name):
-    if name == "time":
-        return 5#floattime(info)
-    elif name == "monotonic":
-        return monotonic(info)
-    elif name == "clock":
-        return clock(info)
-    elif name == "perf_counter":
-        return perf_counter(info)
-    elif name == "process_time":
-        return 5#process_time(info)
-    else:
-        raise ValueError("unknown clock")
-
