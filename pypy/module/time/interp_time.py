@@ -576,8 +576,24 @@ def time(space, w_info=None):
 
     Return the current time in seconds since the Epoch.
     Fractions of a second may be present if the system clock provides them."""
-    # XXX: support clock_gettime
+    if HAS_CLOCK_GETTIME:
+        with lltype.scoped_alloc(TIMESPEC) as timespec:
+            ret = c_clock_gettime(cConfig.CLOCK_REALTIME, timespec)
+            if ret == 0:
+                if w_info is not None:
+                    with lltype.scoped_alloc(TIMESPEC) as tsres:
+                        ret = c_clock_gettime(cConfig.CLOCK_REALTIME, tsres)
+                        if ret == 0:
+                            res = _timespec_to_seconds(tsres)
+                        else:
+                            res = 1e-9
+                        fill_clock_info(space, w_info,
+                                    "clock_gettime(CLOCK_REALTIME)",
+                                    res, False, True)
+                return space.wrap(_timespec_to_seconds(timespec))
 
+    # XXX: rewrite the final fallback into gettimeofday w/ windows
+    # GetSystemTimeAsFileTime() support
     secs = pytime.time()
     if w_info is not None:
         # XXX: time.time delegates to the host python's time.time
@@ -591,30 +607,6 @@ def time(space, w_info=None):
         fill_clock_info(space, w_info, implementation,
                         resolution, False, True)
     return space.wrap(secs)
-
-def get_time_time_clock_info(space, w_info):
-    # Can't piggy back on time.time because time.time delegates to the 
-    # host python's time.time (so we can't see the internals)
-    if HAS_CLOCK_GETTIME:
-        with lltype.scoped_alloc(TIMESPEC) as timespec:
-            ret = c_clock_gettime(cConfig.CLOCK_REALTIME, timespec)
-            if ret != 0:
-                raise exception_from_saved_errno(space, space.w_OSError)
-            space.setattr(w_info, space.wrap("monotonic"), space.w_False)
-            space.setattr(w_info, space.wrap("implementation"),
-                          space.wrap("clock_gettime(CLOCK_REALTIME)"))
-            space.setattr(w_info, space.wrap("adjustable"), space.w_True)
-            try:
-                res = clock_getres(space, cConfig.CLOCK_REALTIME)
-            except OperationError:
-                res = 1e-9
-           
-            space.setattr(w_info, space.wrap("resolution"),
-                          res)
-            secs = _timespec_to_seconds(timespec)
-            return secs
-    else:
-        return gettimeofday(w_info)
         
 
 def ctime(space, w_seconds=None):
