@@ -378,3 +378,18 @@ class AppTestTime:
         t2 = time.process_time()
         # process_time() should not include time spent during sleep
         assert (t2 - t1) < 0.05
+
+    def test_get_clock_info(self):
+        import time
+        clocks = ['clock', 'perf_counter', 'process_time', 'time']
+        if hasattr(time, 'monotonic'):
+            clocks.append('monotonic')
+        for name in clocks:
+            info = time.get_clock_info(name)
+            assert isinstance(info.implementation, str)
+            assert info.implementation != ''
+            assert isinstance(info.monotonic, bool)
+            assert isinstance(info.resolution, float)
+            assert info.resolution > 0.0
+            assert info.resolution <= 1.0
+            assert isinstance(info.adjustable, bool)
