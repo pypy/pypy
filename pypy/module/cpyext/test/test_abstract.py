@@ -38,9 +38,9 @@ class AppTestBufferProtocol(AppTestCpythonExtensionBase):
              """
                  void *ptr;
                  Py_ssize_t size;
+                 Py_ssize_t i;
                  if (PyObject_AsWriteBuffer(args, &ptr, &size) < 0)
                      return NULL;
-                 Py_ssize_t i;
                  for (i = 0; i < size; i++) {
                      ((char*)ptr)[i] = 0;
                  }
