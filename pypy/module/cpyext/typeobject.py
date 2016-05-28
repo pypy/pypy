@@ -453,7 +453,7 @@ def bf_segcount(space, w_obj, ref):
 def bf_getreadbuffer(space, w_buf, segment, ref):
     if segment != 0:
         raise oefmt(space.w_SystemError,
-                    "accessing non-existent buffer segment")
+                    "accessing non-existent segment")
     buf = space.readbuf_w(w_buf)
     address = buf.get_raw_address()
     ref[0] = address
@@ -464,18 +464,16 @@ def bf_getreadbuffer(space, w_buf, segment, ref):
 def bf_getcharbuffer(space, w_buf, segment, ref):
     return bf_getreadbuffer(space, w_buf, segment, rffi.cast(rffi.VOIDPP, ref))
 
-
 @cpython_api([PyObject, Py_ssize_t, rffi.VOIDPP], lltype.Signed,
              header=None, error=-1)
 def bf_getwritebuffer(space, w_buf, segment, ref):
     if segment != 0:
         raise oefmt(space.w_SystemError,
-                    "accessing non-existent buffer segment")
+                    "accessing non-existent segment")
 
     buf = space.writebuf_w(w_buf)
     ref[0] = buf.get_raw_address()
     return len(buf)
-
 
 @cpython_api([PyObject, Py_ssize_t, rffi.VOIDPP], lltype.Signed,
              header=None, error=-1)
@@ -490,12 +488,26 @@ def str_getreadbuffer(space, w_str, segment, ref):
     Py_DecRef(space, pyref)
     return space.len_w(w_str)
 
-
 @cpython_api([PyObject, Py_ssize_t, rffi.CCHARPP], lltype.Signed,
              header=None, error=-1)
 def str_getcharbuffer(space, w_buf, segment, ref):
     return str_getreadbuffer(space, w_buf, segment, rffi.cast(rffi.VOIDPP, ref))
 
+@cpython_api([PyObject, Py_ssize_t, rffi.VOIDPP], lltype.Signed,
+             header=None, error=-1)
+def buf_getreadbuffer(space, pyref, segment, ref):
+    from pypy.module.cpyext.bufferobject import PyBufferObject
+    if segment != 0:
+        raise oefmt(space.w_SystemError,
+                    "accessing non-existent buffer segment")
+    py_buf = rffi.cast(PyBufferObject, pyref)
+    ref[0] = py_buf.c_b_ptr
+    return py_buf.c_b_size
+
+@cpython_api([PyObject, Py_ssize_t, rffi.CCHARPP], lltype.Signed,
+             header=None, error=-1)
+def buf_getcharbuffer(space, w_buf, segment, ref):
+    return buf_getreadbuffer(space, w_buf, segment, rffi.cast(rffi.VOIDPP, ref))
 
 def setup_buffer_procs(space, w_type, pto):
     bufspec = w_type.layout.typedef.buffer
@@ -516,6 +528,17 @@ def setup_buffer_procs(space, w_type, pto):
         c_buf.c_bf_getcharbuffer = llhelper(
             str_getcharbuffer.api_func.functype,
             str_getcharbuffer.api_func.get_wrapper(space))
+    elif space.is_w(w_type, space.w_buffer):
+        # Special case: we store a permanent address on the cpyext wrapper,
+        # so we'll reuse that.
+        # Note: we could instead store a permanent address on the buffer object,
+        # and use get_raw_address()
+        c_buf.c_bf_getreadbuffer = llhelper(
+            buf_getreadbuffer.api_func.functype,
+            buf_getreadbuffer.api_func.get_wrapper(space))
+        c_buf.c_bf_getcharbuffer = llhelper(
+            buf_getcharbuffer.api_func.functype,
+            buf_getcharbuffer.api_func.get_wrapper(space))
     else:
         # use get_raw_address()
         c_buf.c_bf_getreadbuffer = llhelper(bf_getreadbuffer.api_func.functype,

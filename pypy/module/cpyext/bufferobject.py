@@ -1,4 +1,4 @@
-from rpython.rlib.buffer import Buffer, StringBuffer, SubBuffer
+from rpython.rlib.buffer import StringBuffer, SubBuffer
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.interpreter.error import oefmt
 from pypy.module.cpyext.api import (
@@ -7,54 +7,6 @@ from pypy.module.cpyext.api import (
 from pypy.module.cpyext.pyobject import make_typedescr, Py_DecRef, make_ref
 from pypy.module.array.interp_array import ArrayBuffer
 from pypy.objspace.std.bufferobject import W_Buffer
-
-
-class LeakedBuffer(Buffer):
-    __slots__ = ['buf','ptr']
-    _immutable_ = True
-
-    def __init__(self, buffer):
-        if not buffer.readonly:
-            raise ValueError("Can only leak a copy of a readonly buffer.")
-        self.buf = buffer
-        self.readonly = True
-        self.ptr = rffi.cast(rffi.VOIDP, rffi.str2charp(self.buf.as_str()))
-
-    def getlength(self):
-        return self.buf.getlength()
-
-    def as_str(self):
-        return self.buf.as_str()
-
-    def as_str_and_offset_maybe(self):
-        return self.buf.as_str_and_offset_maybe()
-
-    def getitem(self, index):
-        return self.buf.getitem(index)
-
-    def getslice(self, start, stop, step, size):
-        return self.buf.getslice(start, stop, step, size)
-
-    def setitem(self, index, char):
-        return self.buf.setitem(index)
-
-    def setslice(self, start, string):
-        return self.buf.setslice(start, string)
-
-    def get_raw_address(self):
-        return self.ptr
-
-
-def leak_stringbuffer(buf):
-    if isinstance(buf, StringBuffer):
-        return LeakedBuffer(buf)
-    elif isinstance(buf, SubBuffer):
-        leaked = leak_stringbuffer(buf.buffer)
-        if leaked is None:
-            return leaked
-        return SubBuffer(leaked, buf.offset, buf.size)
-    else:
-        return None
 
 
 PyBufferObjectStruct = lltype.ForwardReference()
@@ -91,19 +43,17 @@ def buffer_attach(space, py_obj, w_obj):
     assert isinstance(w_obj, W_Buffer)
     buf = w_obj.buf
 
-    w_obj.buf = buf = leak_stringbuffer(buf) or buf
-    # Now, if it was backed by a StringBuffer, it is now a LeakedBuffer.
-    # We deliberately copy the string so that we can have a pointer to it,
-    # and we make it accessible in the buffer through get_raw_address(), so that
-    # we can reuse it elsewhere in the C API.
-
     if isinstance(buf, SubBuffer):
         py_buf.c_b_offset = buf.offset
         buf = buf.buffer
 
-    if isinstance(buf, LeakedBuffer):
+    # If buf already allocated a fixed buffer, use it, and keep a
+    # reference to buf.
+    # Otherwise, b_base stays NULL, and we own the b_ptr.
+
+    if isinstance(buf, StringBuffer):
         py_buf.c_b_base = lltype.nullptr(PyObject.TO)
-        py_buf.c_b_ptr = buf.get_raw_address()
+        py_buf.c_b_ptr = rffi.cast(rffi.VOIDP, rffi.str2charp(buf.value))
         py_buf.c_b_size = buf.getlength()
     elif isinstance(buf, ArrayBuffer):
         w_base = buf.array
