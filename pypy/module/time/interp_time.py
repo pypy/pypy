@@ -582,7 +582,7 @@ def time(space, w_info=None):
             if ret == 0:
                 if w_info is not None:
                     with lltype.scoped_alloc(TIMESPEC) as tsres:
-                        ret = c_clock_gettime(cConfig.CLOCK_REALTIME, tsres)
+                        ret = c_clock_getres(cConfig.CLOCK_REALTIME, tsres)
                         if ret == 0:
                             res = _timespec_to_seconds(tsres)
                         else:
@@ -897,7 +897,7 @@ else:
         w_result = clock_gettime(space, clk_id)
         if w_info is not None:
             with lltype.scoped_alloc(TIMESPEC) as tsres:
-                ret = c_clock_gettime(clk_id, tsres)
+                ret = c_clock_getres(clk_id, tsres)
                 if ret == 0:
                     res = _timespec_to_seconds(tsres)
                 else:
@@ -958,7 +958,7 @@ else:
                 if ret == 0:
                     if w_info is not None:
                         with lltype.scoped_alloc(TIMESPEC) as tsres:
-                            ret = c_clock_gettime(clk_id, tsres)
+                            ret = c_clock_getres(clk_id, tsres)
                             if ret == 0:
                                 res = _timespec_to_seconds(tsres)
                             else:
