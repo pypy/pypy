@@ -113,3 +113,12 @@ quite some code internally, and allows the JIT to do better
 optimizations: for example, app-level code like ``x / 2`` or ``x % 2``
 can now be turned into ``x >> 1`` or ``x & 1``, even if x is possibly
 negative.
+
+.. branch: cpyext-old-buffers
+
+Generalize cpyext old-style buffers to more than just str/buffer, add support for mmap
+
+.. branch: numpy-includes
+
+Move _numpypy headers into a directory so they are not picked up by upstream numpy, scipy
+This allows building upstream numpy and scipy in pypy via cpyext
