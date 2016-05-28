@@ -571,12 +571,25 @@ def _checktm(space, t_ref):
     if not 0 <= rffi.getintfield(t_ref, 'c_tm_yday') <= 365:
         raise oefmt(space.w_ValueError, "day of year out of range")
 
-def time(space):
+def time(space, w_info=None):
     """time() -> floating point number
 
     Return the current time in seconds since the Epoch.
     Fractions of a second may be present if the system clock provides them."""
+    # XXX: support clock_gettime
+
     secs = pytime.time()
+    if w_info is not None:
+        # XXX: time.time delegates to the host python's time.time
+        # (rtime.time) so duplicate its internals for now
+        if rtime.HAVE_GETTIMEOFDAY:
+            implementation = "gettimeofday()"
+            resolution = 1e-6
+        else: # assume using ftime(3)
+            implementation = "ftime()"
+            resolution = 1e-3
+        fill_clock_info(space, w_info, implementation,
+                        resolution, False, True)
     return space.wrap(secs)
 
 def get_time_time_clock_info(space, w_info):
