@@ -230,21 +230,24 @@ glob_buf = lltype.malloc(tm, flavor='raw', zero=True, immortal=True)
 if cConfig.has_gettimeofday:
     
     c_gettimeofday = external('gettimeofday', 
-                              [CConfig.timeval,
+                              [cConfig.timeval,
 rffi.VOIDP], 
                               rffi.INT)
     if _WIN:
        GetSystemTimeAsFileTime = external('GetSystemTimeAsFileTime', 
                                           [rwin32.FILETIME], 
                                           lltype.VOID)
-        def gettimeofday(space, w_info=None):
-            with lltype.scoped_alloc(rwin32.FILETIME) as system_time, 
+       def gettimeofday(space, w_info=None):
+           return space.w_None
+       """
+           with lltype.scoped_alloc(rwin32.FILETIME) as system_time,
                 GetSystemTimeAsFileTime(system_time)
                 
 
                 seconds = float(timeval.tv_sec) + timeval.tv_usec * 1e-6
 
             return space.wrap(seconds)
+       """
     else:
         def gettimeofday(space, w_info=None):
             with lltype.scoped_alloc(CConfig.timeval) as timeval:
@@ -262,7 +265,7 @@ rffi.VOIDP],
             return space.wrap(seconds)
         
 
-u
+
 TM_P = lltype.Ptr(tm)
 c_time = external('time', [rffi.TIME_TP], rffi.TIME_T)
 c_gmtime = external('gmtime', [rffi.TIME_TP], TM_P,
