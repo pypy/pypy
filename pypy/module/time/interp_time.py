@@ -890,10 +890,10 @@ else:
     def monotonic(space, w_info=None):
         if cConfig.CLOCK_HIGHRES is not None:
             clk_id = cConfig.CLOCK_HIGHRES
-            function = "clock_gettime(CLOCK_HIGHRES)"
+            implementation = "clock_gettime(CLOCK_HIGHRES)"
         else:
             clk_id = cConfig.CLOCK_MONOTONIC
-            function = "clock_gettime(CLOCK_MONOTONIC)"
+            implementation = "clock_gettime(CLOCK_MONOTONIC)"
         w_result = clock_gettime(space, clk_id)
         if w_info is not None:
             with lltype.scoped_alloc(TIMESPEC) as tsres:
@@ -902,7 +902,7 @@ else:
                     res = _timespec_to_seconds(tsres)
                 else:
                     res = 1e-9
-            fill_clock_info(space, w_info, function,
+            fill_clock_info(space, w_info, implementation,
                             res, True, False)
         return w_result
 
@@ -949,10 +949,10 @@ else:
                 cConfig.CLOCK_PROCESS_CPUTIME_ID is not None):
             if cConfig.CLOCK_PROF is not None:
                 clk_id = cConfig.CLOCK_PROF
-                function = "clock_gettime(CLOCK_PROF)"
+                implementation = "clock_gettime(CLOCK_PROF)"
             else:
                 clk_id = cConfig.CLOCK_PROCESS_CPUTIME_ID
-                function = "clock_gettime(CLOCK_PROCESS_CPUTIME_ID)"
+                implementation = "clock_gettime(CLOCK_PROCESS_CPUTIME_ID)"
             with lltype.scoped_alloc(TIMESPEC) as timespec:
                 ret = c_clock_gettime(clk_id, timespec)
                 if ret == 0:
@@ -963,7 +963,7 @@ else:
                                 res = _timespec_to_seconds(tsres)
                             else:
                                 res = 1e-9
-                        fill_clock_info(space, w_info, function,
+                        fill_clock_info(space, w_info, implementation,
                                         res, True, False)
                     return space.wrap(_timespec_to_seconds(timespec))
 
