@@ -397,3 +397,10 @@ class AppTestTime:
         # Not really sure what to test about this
         # At least this tests that the attr exists...
         assert clock_info.resolution > 0
+
+    def test_get_clock_info_process_time(self):
+        import time
+        clock_info = time.get_clock_info("process_time")
+        assert clock_info.monotonic
+        assert not clock_info.adjustable
+        assert clock_info.resolution > 0

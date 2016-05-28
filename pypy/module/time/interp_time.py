@@ -934,7 +934,7 @@ else:
 
 if _WIN:
     # untested so far
-    def process_time(space):
+    def process_time(space, w_info=None):
         from rpython.rlib.rposix import GetCurrentProcess, GetProcessTimes
         current_process = GetCurrentProcess()
         with lltype.scoped_alloc(rwin32.FILETIME) as creation_time, \
@@ -947,29 +947,48 @@ if _WIN:
                             kernel_time.c_dwHighDateTime << 32)
             user_time2 = (user_time.c_dwLowDateTime |
                           user_time.c_dwHighDateTime << 32)
+        if w_info is not None:
+            fill_clock_info(space, w_info,
+                            "GetProcessTimes()", 1e-7, True, False)
         return space.wrap((float(kernel_time2) + float(user_time2)) * 1e-7)
 
 else:
     have_times = hasattr(rposix, 'c_times')
 
-    def process_time(space):
+    def process_time(space, w_info=None):
         if HAS_CLOCK_GETTIME and (
                 cConfig.CLOCK_PROF is not None or
                 cConfig.CLOCK_PROCESS_CPUTIME_ID is not None):
             if cConfig.CLOCK_PROF is not None:
                 clk_id = cConfig.CLOCK_PROF
+                function = "clock_gettime(CLOCK_PROF)"
             else:
                 clk_id = cConfig.CLOCK_PROCESS_CPUTIME_ID
+                function = "clock_gettime(CLOCK_PROCESS_CPUTIME_ID)"
             with lltype.scoped_alloc(TIMESPEC) as timespec:
                 ret = c_clock_gettime(clk_id, timespec)
                 if ret == 0:
+                    if w_info is not None:
+                        with lltype.scoped_alloc(TIMESPEC) as tsres:
+                            ret = c_clock_gettime(clk_id, tsres)
+                            if ret == 0:
+                                res = tsres.c_tv_sec + tsres.c_tv_nsec * 1e-9
+                            else:
+                                res = 1e-9
+                        fill_clock_info(space, w_info, function,
+                                        res, True, False)
                     return space.wrap(_timespec_to_seconds(timespec))
+
         if True: # XXX available except if it isn't?
             from rpython.rlib.rtime import (c_getrusage, RUSAGE, RUSAGE_SELF,
                                             decode_timeval)
             with lltype.scoped_alloc(RUSAGE) as rusage:
                 ret = c_getrusage(RUSAGE_SELF, rusage)
                 if ret == 0:
+                    if w_info is not None:
+                        fill_clock_info(space, w_info,
+                                        "getrusage(RUSAGE_SELF)",
+                                        1e-6, True, False)
                     return space.wrap(decode_timeval(rusage.c_ru_utime) +
                                       decode_timeval(rusage.c_ru_stime))
         if have_times:
@@ -977,6 +996,10 @@ else:
                 ret = rposix.c_times(tms)
                 if rffi.cast(lltype.Signed, ret) != -1:
                     cpu_time = float(tms.c_tms_utime + tms.c_tms_stime)
+                    if w_info is not None:
+                        fill_clock_info(space, w_info, "times()",
+                                        1.0 / rposix.CLOCK_TICKS_PER_SECOND,
+                                        True, False)
                     return space.wrap(cpu_time / rposix.CLOCK_TICKS_PER_SECOND)
         return clock(space)
 
@@ -1014,6 +1037,13 @@ else:
             space.setattr(w_info, space.wrap("adjustable"),
                           space.w_False)
         return space.wrap((1.0 * value) / CLOCKS_PER_SEC)
+
+
+def fill_clock_info(space, w_info, impl, res, mono, adj):
+    space.setattr(w_info, space.wrap('implementation'), space.wrap(impl))
+    space.setattr(w_info, space.wrap('resolution'), space.wrap(res))
+    space.setattr(w_info, space.wrap('monotonic'), space.wrap(mono))
+    space.setattr(w_info, space.wrap('adjustable'), space.wrap(adj))
 
 
 def get_clock_info_dict(space, name):
