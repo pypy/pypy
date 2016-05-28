@@ -408,6 +408,12 @@ class ShadowStackFrameworkGcPolicy(BasicFrameworkGcPolicy):
         yield 'pypy_ss_t *ss = (pypy_ss_t *)%s;' % gcpol_ss
         funcgen.gcpol_ss = gcpol_ss
 
+    def OP_GC_PUSH_ROOTS(self, funcgen, op):
+        raise Exception("gc_push_roots should be removed by postprocess_graph")
+
+    def OP_GC_POP_ROOTS(self, funcgen, op):
+        raise Exception("gc_pop_roots should be removed by postprocess_graph")
+
     def OP_GC_ENTER_ROOTS_FRAME(self, funcgen, op):
         if op is not funcgen.graph.startblock.operations[0]:
             raise Exception("gc_enter_roots_frame as a non-initial instruction")
