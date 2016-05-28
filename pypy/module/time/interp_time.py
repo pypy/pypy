@@ -66,7 +66,7 @@ if _WIN:
                 ULONGLONG (WINAPI *func)();
                 *(FARPROC*)&func = address;
                 return func();
-            }   
+            }
 
         '''],
         )
@@ -228,21 +228,21 @@ tm = cConfig.tm
 glob_buf = lltype.malloc(tm, flavor='raw', zero=True, immortal=True)
 
 if cConfig.has_gettimeofday:
-    
-    c_gettimeofday = external('gettimeofday', 
+
+    c_gettimeofday = external('gettimeofday',
                               [cConfig.timeval,
-rffi.VOIDP], 
+rffi.VOIDP],
                               rffi.INT)
     if _WIN:
-       GetSystemTimeAsFileTime = external('GetSystemTimeAsFileTime', 
-                                          [rwin32.FILETIME], 
+       GetSystemTimeAsFileTime = external('GetSystemTimeAsFileTime',
+                                          [rwin32.FILETIME],
                                           lltype.VOID)
        def gettimeofday(space, w_info=None):
            return space.w_None
        """
            with lltype.scoped_alloc(rwin32.FILETIME) as system_time,
                 GetSystemTimeAsFileTime(system_time)
-                
+
 
                 seconds = float(timeval.tv_sec) + timeval.tv_usec * 1e-6
 
@@ -261,7 +261,7 @@ rffi.VOIDP],
 
                 seconds = float(timeval.tv_sec) + timeval.tv_usec * 1e-6
             return space.wrap(seconds)
-        
+
 
 
 TM_P = lltype.Ptr(tm)
@@ -607,7 +607,7 @@ def time(space, w_info=None):
         fill_clock_info(space, w_info, implementation,
                         resolution, False, True)
     return space.wrap(secs)
-        
+
 
 def ctime(space, w_seconds=None):
     """ctime([seconds]) -> string
@@ -813,12 +813,12 @@ if _WIN:
     LPDWORD = rwin32.LPDWORD
     _GetSystemTimeAdjustment = rwin32.winexternal(
                                             'GetSystemTimeAdjustment',
-                                            [LPDWORD, LPDWORD, rwin32.LPBOOL], 
+                                            [LPDWORD, LPDWORD, rwin32.LPBOOL],
                                             rffi.INT)
     def monotonic(space, w_info=None):
         result = 0
         if HAS_GETTICKCOUNT64:
-            print('has count64'.encode('ascii')) 
+            print('has count64'.encode('ascii'))
             result = _GetTickCount64() * 1e-3
         else:
             print("nocount64")
@@ -829,7 +829,7 @@ if _WIN:
             result = math.ldexp(time_state.n_overflow, 32)
             result = result + ticks
             result = result * 1e-3
-            
+
         if w_info is not None:
             if HAS_GETTICKCOUNT64:
                 space.setattr(w_info, space.wrap("implementation"),
