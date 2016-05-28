@@ -35,10 +35,9 @@ class AppTestTime:
         assert t1 != t2       # the resolution should be at least 0.01 secs
 
     def test_clock_realtime(self):
-        import os
-        if os.name != "posix":
-            skip("clock_gettime available only under Unix")
         import time
+        if not hasattr(time, 'clock_gettime'):
+            skip("need time.clock_gettime()")
         t1 = time.clock_gettime(time.CLOCK_REALTIME)
         assert isinstance(t1, float)
         time.sleep(time.clock_getres(time.CLOCK_REALTIME))
@@ -46,10 +45,10 @@ class AppTestTime:
         assert t1 != t2
 
     def test_clock_monotonic(self):
-        import os
-        if os.name != "posix":
-            skip("clock_gettime available only under Unix")
         import time
+        if not (hasattr(time, 'clock_gettime') and
+                hasattr(time, 'CLOCK_MONOTONIC')):
+            skip("need time.clock_gettime()/CLOCK_MONOTONIC")
         t1 = time.clock_gettime(time.CLOCK_MONOTONIC)
         assert isinstance(t1, float)
         time.sleep(time.clock_getres(time.CLOCK_MONOTONIC))
