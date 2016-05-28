@@ -523,8 +523,8 @@ def bf_getwritebuffer(space, w_buf, segment, ref):
 def str_getreadbuffer(space, w_str, segment, ref):
     from pypy.module.cpyext.bytesobject import PyString_AsString
     if segment != 0:
-        raise OperationError(space.w_SystemError, space.wrap
-                             ("accessing non-existent string segment"))
+        raise oefmt(space.w_SystemError,
+                    "accessing non-existent string segment")
     pyref = make_ref(space, w_str)
     ref[0] = PyString_AsString(space, pyref)
     # Stolen reference: the object has better exist somewhere else
