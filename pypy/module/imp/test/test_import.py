@@ -133,7 +133,7 @@ def setup_directory_structure(cls):
              line2 = "# encoding: iso-8859-1\n",
              bad = "# encoding: uft-8\n")
 
-    special_char = cls.special_char
+    special_char = getattr(cls, 'special_char', None)
     if special_char is not None:
         special_char = special_char.encode(sys.getfilesystemencoding())
         p.join(special_char + '.py').write('pass')

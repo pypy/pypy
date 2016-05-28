@@ -161,6 +161,15 @@ def _handle_decimaldigits(exc):
 _codecs.register_error('_decimal_encode', _handle_decimaldigits)
 
 
+def _unsafe_check(name, lo, hi, value):
+    if not -_sys.maxsize-1 <= value <= _sys.maxsize:
+        raise OverflowError(
+            "Python int too large to convert to C ssize_t")
+    if not lo <= value <= hi:
+        raise ValueError("valid range for unsafe %s is [%d, %d]" %
+                         (name, lo, hi))
+
+
 # Decimal class
 
 _DEC_MINALLOC = 4
@@ -298,7 +307,8 @@ class Decimal(object):
                 raise ValueError("exponent must be an integer")
             if not -_sys.maxsize-1 <= exponent <= _sys.maxsize:
                 # Compatibility with CPython
-                raise OverflowError()
+                raise OverflowError(
+                    "Python int too large to convert to C ssize_t")
 
         # coefficients
         if not digits and not is_special:
@@ -1500,6 +1510,19 @@ class Context(object):
         finally:
             _mpdec.mpd_free(output)
         return result.decode()
+
+    if _sys.maxsize < 2**63-1:
+        def _unsafe_setprec(self, value):
+            _unsafe_check('prec', 1, 1070000000, value)
+            self._ctx.prec = value
+
+        def _unsafe_setemin(self, value):
+            _unsafe_check('emin', -1070000000, 0, value)
+            self._ctx.emin = value
+
+        def _unsafe_setemax(self, value):
+            _unsafe_check('emax', 0, 1070000000, value)
+            self._ctx.emax = value
 
 
 class _SignalDict(_collections.abc.MutableMapping):

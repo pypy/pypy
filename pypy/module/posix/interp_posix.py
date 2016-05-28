@@ -43,9 +43,6 @@ else:
         if num < -(1 << 31) or num >= (1 << 32):
             raise oefmt(space.w_OverflowError, "integer out of range")
 
-# specialize utime when called w/ None for use w/ call_rposix
-utime_now = func_with_new_name(rposix.utime, 'utime_now')
-
 class FileEncoder(object):
     is_unicode = True
 
@@ -142,7 +139,7 @@ def _unwrap_path(space, w_value, allow_fd=True):
             "can't specify None for path argument")
     if _WIN32:
         try:
-            path_u = space.unicode_w(w_value)
+            path_u = space.unicode0_w(w_value)
             return Path(-1, None, path_u, w_value)
         except OperationError:
             pass
@@ -1354,7 +1351,7 @@ def spawnve(space, mode, path, w_args, w_env):
 
 
 @unwrap_spec(
-    path=path_or_fd(allow_fd=rposix.HAVE_FUTIMENS),
+    path=path_or_fd(allow_fd=rposix.HAVE_FUTIMENS or rposix.HAVE_FUTIMES),
     w_times=WrappedDefault(None), w_ns=kwonly(WrappedDefault(None)),
     dir_fd=DirFD(rposix.HAVE_UTIMENSAT), follow_symlinks=kwonly(bool))
 def utime(space, path, w_times, w_ns, dir_fd=DEFAULT_DIR_FD,
@@ -1384,15 +1381,48 @@ It is an error to use dir_fd or follow_symlinks when specifying path
   as an open file descriptor.
 dir_fd and follow_symlinks may not be available on your platform.
   If they are unavailable, using them will raise a NotImplementedError."""
+    utime = parse_utime_args(space, w_times, w_ns)
+
+    if path.as_fd != -1:
+        if dir_fd != DEFAULT_DIR_FD:
+            raise oefmt(space.w_ValueError,
+                        "utime: can't specify both dir_fd and fd")
+        if not follow_symlinks:
+            raise oefmt(space.w_ValueError,
+                        "utime: cannot use fd and follow_symlinks together")
+        if rposix.HAVE_FUTIMENS:
+            do_utimens(space, rposix.futimens, path.as_fd, utime)
+        elif rposix.HAVE_FUTIMES:
+            do_utimes(space, rposix.futimes, path.as_fd, utime)
+    elif rposix.HAVE_UTIMENSAT:
+        if path.as_bytes is None:
+            raise oefmt(space.w_NotImplementedError,
+                        "utime: unsupported value for 'path'")
+        do_utimens(space, rposix.utimensat, path.as_bytes, utime,
+                   dir_fd, follow_symlinks)
+    elif rposix.HAVE_LUTIMES and not follow_symlinks:
+        if path.as_bytes is None:
+            raise oefmt(space.w_NotImplementedError,
+                        "utime: unsupported value for 'path'")
+        do_utimes(space, rposix.lutimes, path.as_bytes, utime)
+    elif follow_symlinks:
+        do_utimes(space, _dispatch_utime, path, utime)
+    else:
+        raise argument_unavailable(space, "utime", "follow_symlinks")
+
+def parse_utime_args(space, w_times, w_ns):
+    """Parse utime's times/ns arguments into a 5-item tuple of a "now"
+    flag and 2 "TIMESPEC" like 2-item s/ns values
+    """
     if (not space.is_w(w_times, space.w_None) and
             not space.is_w(w_ns, space.w_None)):
         raise oefmt(space.w_ValueError,
             "utime: you may specify either 'times' or 'ns' but not both")
     now = False
     if space.is_w(w_times, space.w_None) and space.is_w(w_ns, space.w_None):
+        now = True
         atime_s = mtime_s = 0
         atime_ns = mtime_ns = 0
-        now = True
     elif not space.is_w(w_times, space.w_None):
         times_w = space.fixedview(w_times)
         if len(times_w) != 2:
@@ -1407,76 +1437,52 @@ dir_fd and follow_symlinks may not be available on your platform.
                 "utime: 'ns' must be a tuple of two ints")
         atime_s, atime_ns = convert_ns(space, args_w[0])
         mtime_s, mtime_ns = convert_ns(space, args_w[1])
+    return now, atime_s, atime_ns, mtime_s, mtime_ns
 
-    if rposix.HAVE_FUTIMENS and path.as_fd != -1:
-        if dir_fd != DEFAULT_DIR_FD:
-            raise oefmt(space.w_ValueError,
-                        "utime: can't specify both dir_fd and fd")
-        if not follow_symlinks:
-            raise oefmt(space.w_ValueError,
-                        "utime: cannot use fd and follow_symlinks together")
-        if now:
-            atime_ns = mtime_ns = rposix.UTIME_NOW
-        try:
-            rposix.futimens(path.as_fd, atime_s, atime_ns, mtime_s, mtime_ns)
-            return
-        except OSError as e:
-            # CPython's Modules/posixmodule.c::posix_utime() has this comment:
-            # /* Avoid putting the file name into the error here,
-            #    as that may confuse the user into believing that
-            #    something is wrong with the file, when it also
-            #    could be the time stamp that gives a problem. */
-            # so we use wrap_oserror() instead of wrap_oserror2() here
-            raise wrap_oserror(space, e)
+def do_utimens(space, func, arg, utime, *args):
+    """Common implementation for futimens/utimensat etc."""
+    now, atime_s, atime_ns, mtime_s, mtime_ns = utime
+    if now:
+        atime_ns = mtime_ns = rposix.UTIME_NOW
+    try:
+        func(arg, atime_s, atime_ns, mtime_s, mtime_ns, *args)
+    except OSError as e:
+        # CPython's Modules/posixmodule.c::posix_utime() has this
+        # comment:
+        # /* Avoid putting the file name into the error here,
+        #    as that may confuse the user into believing that
+        #    something is wrong with the file, when it also
+        #    could be the time stamp that gives a problem. */
+        # so we use wrap_oserror() instead of wrap_oserror2() here
+        raise wrap_oserror(space, e)
 
-    if rposix.HAVE_UTIMENSAT:
-        path_b = path.as_bytes
-        if path_b is None:
-            raise oefmt(space.w_NotImplementedError,
-                        "utime: unsupported value for 'path'")
-        try:
-            if now:
-                rposix.utimensat(
-                    path_b, 0, rposix.UTIME_NOW, 0, rposix.UTIME_NOW,
-                    dir_fd=dir_fd, follow_symlinks=follow_symlinks)
-            else:
-                rposix.utimensat(
-                    path_b, atime_s, atime_ns, mtime_s, mtime_ns,
-                    dir_fd=dir_fd, follow_symlinks=follow_symlinks)
-            return
-        except OSError as e:
-            # see comment above
-            raise wrap_oserror(space, e)
-
-    if (rposix.HAVE_LUTIMES and
-        (dir_fd == DEFAULT_DIR_FD and not follow_symlinks)):
-        path_b = path.as_bytes
-        if path_b is None:
-            raise oefmt(space.w_NotImplementedError,
-                        "utime: unsupported value for 'path'")
-        try:
-            if now:
-                rposix.lutimes(path_b, None)
-            else:
-                rposix.lutimes(path_b, (atime_s, atime_ns))
-            return
-        except OSError as e:
-            # see comment above
-            raise wrap_oserror(space, e)
-
-    # XXX: missing utime_dir_fd support
-
-    if not follow_symlinks:
-        raise argument_unavailable(space, "utime", "follow_symlinks")
-
+@specialize.arg(1)
+def do_utimes(space, func, arg, utime):
+    """Common implementation for f/l/utimes"""
+    now, atime_s, atime_ns, mtime_s, mtime_ns = utime
     try:
         if now:
-            call_rposix(utime_now, path, None)
+            func(arg, None)
         else:
-            call_rposix(rposix.utime, path, (atime_s, mtime_s))
+            # convert back to utimes style floats. loses precision of
+            # nanoseconds but utimes only support microseconds anyway
+            atime = atime_s + (atime_ns / 1e9)
+            mtime = mtime_s + (mtime_ns / 1e9)
+            func(arg, (atime, mtime))
     except OSError as e:
         # see comment above
         raise wrap_oserror(space, e)
+
+@specialize.argtype(1)
+def _dispatch_utime(path, times):
+    # XXX: a dup. of call_rposix to specialize rposix.utime taking a
+    # Path for win32 support w/ do_utimes
+    if path.as_unicode is not None:
+        return rposix.utime(path.as_unicode, times)
+    else:
+        path_b = path.as_bytes
+        assert path_b is not None
+        return rposix.utime(path.as_bytes, times)
 
 
 def convert_seconds(space, w_time):

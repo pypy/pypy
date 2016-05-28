@@ -215,7 +215,7 @@ def PyUnicode_IS_READY(space, w_obj):
     # PyPy is always ready.
     return space.w_True
 
-@cpython_api([PyObject], rffi.CWCHARP, error=CANNOT_FAIL)
+@cpython_api([rffi.VOIDP], rffi.CWCHARP, error=CANNOT_FAIL)
 def PyUnicode_AS_UNICODE(space, ref):
     """Return a pointer to the internal Py_UNICODE buffer of the object.  ref
     has to be a PyUnicodeObject (not checked)."""

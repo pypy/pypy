@@ -196,6 +196,7 @@ testmap = [
     RegrTest('test_dummy_threading.py', core=True),
     RegrTest('test_dynamic.py'),
     RegrTest('test_email', skip="XXX is a directory"),
+    RegrTest('test_ensurepip.py'),
     RegrTest('test_enumerate.py', core=True),
     RegrTest('test_eof.py', core=True),
     RegrTest('test_epoll.py'),
