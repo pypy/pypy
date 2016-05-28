@@ -1324,6 +1324,7 @@ class __extend__(pyframe.PyFrame):
             self.space.call_method(w_set, 'add', w_item)
         self.pushvalue(w_set)
 
+    #BUILD_SET_UNPACK (and undo LOAD permit in codegen visit_starred)
 
 ### ____________________________________________________________ ###
 
