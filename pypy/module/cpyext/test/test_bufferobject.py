@@ -1,8 +1,6 @@
-from rpython.rlib.buffer import StringBuffer, SubBuffer
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
-from pypy.module.cpyext.bufferobject import leak_stringbuffer
 from pypy.module.cpyext.api import PyObject
 from pypy.module.cpyext.pyobject import Py_DecRef
 
@@ -65,34 +63,4 @@ class AppTestBufferObject(AppTestCpythonExtensionBase):
         a = array.array('c', 'text')
         b = buffer(a)
         assert module.roundtrip(b) == 'text'
-
-
-def test_leaked_buffer():
-    s = 'hello world'
-    buf = leak_stringbuffer(StringBuffer(s))
-    assert buf.getitem(4) == 'o'
-    assert buf.getitem(4) == buf[4]
-    assert buf.getlength() == 11
-    assert buf.getlength() == len(buf)
-    assert buf.getslice(1, 6, 1, 5) == 'ello '
-    assert buf.getslice(1, 6, 1, 5) == buf[1:6]
-    assert buf.getslice(1, 6, 2, 3) == 'el '
-    assert buf.as_str() == 'hello world'
-    assert s == rffi.charp2str(buf.get_raw_address())
-    rffi.free_charp(buf.get_raw_address())
-
-
-def test_leaked_subbuffer():
-    s = 'hello world'
-    buf = leak_stringbuffer(SubBuffer(StringBuffer(s), 1, 10))
-    assert buf.getitem(4) == ' '
-    assert buf.getitem(4) == buf[4]
-    assert buf.getlength() == 10
-    assert buf.getlength() == len(buf)
-    assert buf.getslice(1, 6, 1, 5) == 'llo w'
-    assert buf.getslice(1, 6, 1, 5) == buf[1:6]
-    assert buf.getslice(1, 6, 2, 3) == 'low'
-    assert buf.as_str() == 'ello world'
-    assert s[1:] == rffi.charp2str(buf.get_raw_address())
-    rffi.free_charp(buf.buffer.get_raw_address())
-
+        
