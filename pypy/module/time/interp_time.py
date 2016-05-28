@@ -887,31 +887,24 @@ elif _MACOSX:
 
 else:
     assert _POSIX
-    if cConfig.CLOCK_HIGHRES is not None:
-        def monotonic(space, w_info=None):
-            # XXX: merge w/ below version
-            if w_info is not None:
-                with lltype.scoped_alloc(TIMESPEC) as tsres:
-                    ret = c_clock_getres(cConfig.CLOCK_HIGHRES, tsres)
-                    if ret == 0:
-                        res = _timespec_to_seconds(tsres)
-                    else:
-                        res = 1e-9
-                fill_clock_info(space, w_info, "clock_gettime(CLOCK_HIGHRES)",
-                                res, True, False)
-            return clock_gettime(space, cConfig.CLOCK_HIGHRES)
-    else:
-        def monotonic(space, w_info=None):
-            if w_info is not None:
-                with lltype.scoped_alloc(TIMESPEC) as tsres:
-                    ret = c_clock_getres(cConfig.CLOCK_MONOTONIC, tsres)
-                    if ret == 0:
-                        res = _timespec_to_seconds(tsres)
-                    else:
-                        res = 1e-9
-                fill_clock_info(space, w_info, "clock_gettime(CLOCK_MONOTONIC)",
-                                res, True, False)
-            return clock_gettime(space, cConfig.CLOCK_MONOTONIC)
+    def monotonic(space, w_info=None):
+        if cConfig.CLOCK_HIGHRES is not None:
+            clk_id = cConfig.CLOCK_HIGHRES
+            function = "clock_gettime(CLOCK_HIGHRES)"
+        else:
+            clk_id = cConfig.CLOCK_MONOTONIC
+            function = "clock_gettime(CLOCK_MONOTONIC)"
+        w_result = clock_gettime(space, clk_id)
+        if w_info is not None:
+            with lltype.scoped_alloc(TIMESPEC) as tsres:
+                ret = c_clock_gettime(clk_id, tsres)
+                if ret == 0:
+                    res = _timespec_to_seconds(tsres)
+                else:
+                    res = 1e-9
+            fill_clock_info(space, w_info, function,
+                            res, True, False)
+        return w_result
 
 if _WIN:
     def perf_counter(space, w_info=None):
