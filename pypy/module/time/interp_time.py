@@ -126,7 +126,7 @@ if _WIN:
         def get_interrupt_event(self):
             return globalState.interrupt_event
 
-    # Can I just use one of the state classes above?
+    # XXX: Can I just use one of the state classes above?
     # I don't really get why an instance is better than a plain module
     # attr, but following advice from armin
     class TimeState(object):
@@ -229,26 +229,19 @@ tm = cConfig.tm
 glob_buf = lltype.malloc(tm, flavor='raw', zero=True, immortal=True)
 
 if cConfig.has_gettimeofday:
-
     c_gettimeofday = external('gettimeofday',
-                              [cConfig.timeval,
-rffi.VOIDP],
-                              rffi.INT)
+                              [cConfig.timeval, rffi.VOIDP], rffi.INT)
     if _WIN:
-       GetSystemTimeAsFileTime = external('GetSystemTimeAsFileTime',
-                                          [rwin32.FILETIME],
-                                          lltype.VOID)
-       def gettimeofday(space, w_info=None):
-           return space.w_None
-       """
-           with lltype.scoped_alloc(rwin32.FILETIME) as system_time,
+        GetSystemTimeAsFileTime = external('GetSystemTimeAsFileTime',
+                                           [rwin32.FILETIME],
+                                           lltype.VOID)
+        def gettimeofday(space, w_info=None):
+            with lltype.scoped_alloc(rwin32.FILETIME) as system_time:
                 GetSystemTimeAsFileTime(system_time)
-
-
-                seconds = float(timeval.tv_sec) + timeval.tv_usec * 1e-6
-
-            return space.wrap(seconds)
-       """
+                # XXX:
+                #seconds = float(timeval.tv_sec) + timeval.tv_usec * 1e-6
+                # XXX: w_info
+            return space.w_None
     else:
         def gettimeofday(space, w_info=None):
             with lltype.scoped_alloc(CConfig.timeval) as timeval:
@@ -833,11 +826,9 @@ if _WIN:
 
         if w_info is not None:
             if HAS_GETTICKCOUNT64:
-                space.setattr(w_info, space.wrap("implementation"),
-                              space.wrap("GetTickCount64()"))
+                implementation = "GetTickCount64()"
             else:
-                space.setattr(w_info, space.wrap("implementation"),
-                              space.wrap("GetTickCount()"))
+                implementation = "GetTickCount()"
             resolution = 1e-7
             print("creating a thing".encode("ascii"))
             with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as time_adjustment, \
@@ -853,10 +844,8 @@ if _WIN:
                         rwin32.lastSavedWindowsError("GetSystemTimeAdjustment"))
                 resolution = resolution * time_increment[0]
             print("out of with".encode("ascii"))
-            space.setattr(w_info, space.wrap("monotonic"), space.w_True)
-            space.setattr(w_info, space.wrap("adjustable"), space.w_False)
-            space.setattr(w_info, space.wrap("resolution"),
-                          space.wrap(resolution))
+            fill_clock_info(space, w_info, implementation,
+                            resolution, True, False)
         return space.wrap(result)
 
 elif _MACOSX:
