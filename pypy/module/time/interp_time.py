@@ -143,7 +143,8 @@ if _MACOSX:
 
 class CConfig:
     _compilation_info_ = ExternalCompilationInfo(
-        includes = _includes
+        includes=_includes,
+        libraries=rtime.libraries
     )
     CLOCKS_PER_SEC = platform.ConstantInteger("CLOCKS_PER_SEC")
     clock_t = platform.SimpleType("clock_t", rffi.ULONG)
