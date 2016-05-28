@@ -254,12 +254,10 @@ rffi.VOIDP],
                 ret = c_gettimeofday(timeval, rffi.NULL)
                 if ret != 0:
                     raise exception_from_saved_errno(space, space.w_OSError)
-                
-                space.setattr(w_info, space.wrap("implementation"),
-                              space.wrap("gettimeofday()"))
-                space.setattr(w_info, space.wrap("resolution"), 1e-6)
-                space.setattr(w_info, space.wrap("monotonic"), space.w_False)
-                space.setattr(w_info, space.wrap("adjustable"), space.w_True)
+
+                if w_info is not None:
+                    fill_clock_info(space, w_info, "gettimeofday()",
+                                    1e-6, False, True)
 
                 seconds = float(timeval.tv_sec) + timeval.tv_usec * 1e-6
             return space.wrap(seconds)
@@ -872,15 +870,12 @@ elif _MACOSX:
         denom = rffi.getintfield(timebase_info, 'c_denom')
         nanosecs = time * numer / denom
         if w_info is not None:
-            space.setattr(w_info, space.wrap("monotonic"), space.w_True)
-            space.setattr(w_info, space.wrap("implementation"),
-                          space.wrap("mach_absolute_time()"))
-            space.setattr(w_info, space.wrap("adjustable"), space.w_False)
-            space.setattr(w_info, space.wrap("resolution"),
-                          #Do I need to convert to float indside the division?
-                          # Looking at the C, I would say yes, but nanosecs
-                          # doesn't...
-                          space.wrap((numer / denom) * 1e-9))
+              # Do I need to convert to float indside the division?
+              # Looking at the C, I would say yes, but nanosecs
+              # doesn't...
+            res = (numer / denom) * 1e-9
+            fill_clock_info(space, w_info, "mach_absolute_time()",
+                            res, True, False)
         secs = nanosecs / 10**9
         rest = nanosecs % 10**9
         return space.wrap(float(secs) + float(rest) * 1e-9)
@@ -889,33 +884,28 @@ else:
     assert _POSIX
     if cConfig.CLOCK_HIGHRES is not None:
         def monotonic(space, w_info=None):
+            # XXX: merge w/ below version
             if w_info is not None:
-                space.setattr(w_info, space.wrap("monotonic"), space.w_True)
-                space.setattr(w_info, space.wrap("implementation"),
-                              space.wrap("clock_gettime(CLOCK_HIGHRES)"))
-                space.setattr(w_info, space.wrap("adjustable"), space.w_False)
-                try:
-                    space.setattr(w_info, space.wrap("resolution"),
-                                  space.wrap(clock_getres(space, cConfig.CLOCK_HIGHRES)))
-                except OperationError:
-                    space.setattr(w_info, space.wrap("resolution"),
-                                  space.wrap(1e-9))
-                
+                with lltype.scoped_alloc(TIMESPEC) as tsres:
+                    ret = c_clock_getres(cConfig.CLOCK_HIGHRES, tsres)
+                    if ret == 0:
+                        res = _timespec_to_seconds(tsres)
+                    else:
+                        res = 1e-9
+                fill_clock_info(space, w_info, "clock_gettime(CLOCK_HIGHRES)",
+                                res, True, False)
             return clock_gettime(space, cConfig.CLOCK_HIGHRES)
     else:
         def monotonic(space, w_info=None):
             if w_info is not None:
-                space.setattr(w_info, space.wrap("monotonic"), space.w_True)
-                space.setattr(w_info, space.wrap("implementation"),
-                              space.wrap("clock_gettime(CLOCK_MONOTONIC)"))
-                space.setattr(w_info, space.wrap("adjustable"), space.w_False)
-                try:
-                    space.setattr(w_info, space.wrap("resolution"),
-                                  space.wrap(clock_getres(space, cConfig.CLOCK_MONOTONIC)))
-                except OperationError:
-                    space.setattr(w_info, space.wrap("resolution"),
-                                  space.wrap(1e-9))
-
+                with lltype.scoped_alloc(TIMESPEC) as tsres:
+                    ret = c_clock_getres(cConfig.CLOCK_MONOTONIC, tsres)
+                    if ret == 0:
+                        res = _timespec_to_seconds(tsres)
+                    else:
+                        res = 1e-9
+                fill_clock_info(space, w_info, "clock_gettime(CLOCK_MONOTONIC)",
+                                res, True, False)
             return clock_gettime(space, cConfig.CLOCK_MONOTONIC)
 
 if _WIN:
@@ -1026,16 +1016,9 @@ else:
             raise RunTimeError("the processor time used is not available "
                                "or its value cannot be represented")
 
-        print(w_info, "INFO")
         if w_info is not None:
-            space.setattr(w_info, space.wrap("implementation"),
-                          space.wrap("clock()"))
-            space.setattr(w_info, space.wrap("resolution"),
-                          space.wrap(1.0 / CLOCKS_PER_SEC))
-            space.setattr(w_info, space.wrap("monotonic"),
-                          space.w_True)
-            space.setattr(w_info, space.wrap("adjustable"),
-                          space.w_False)
+            fill_clock_info(space, w_info, "clock()",
+                            1.0 / CLOCKS_PER_SEC, True, False)
         return space.wrap((1.0 * value) / CLOCKS_PER_SEC)
 
 
