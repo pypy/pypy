@@ -182,11 +182,12 @@ elif _WIN:
         ("tm_yday", rffi.INT), ("tm_isdst", rffi.INT)])
 
     # TODO: Figure out how to implement this...
+    u = platform.Struct("struct u", [("LowPart", rwin32.DWORD),
+        ("HighPart", rwin32.DWORD)])
+
     CConfig.ULARGE_INTEGER = platform.Struct("struct ULARGE_INTEGER", [
-        ("tm_sec", rffi.INT),
-        ("tm_min", rffi.INT), ("tm_hour", rffi.INT), ("tm_mday", rffi.INT),
-        ("tm_mon", rffi.INT), ("tm_year", rffi.INT), ("tm_wday", rffi.INT),
-        ("tm_yday", rffi.INT), ("tm_isdst", rffi.INT)])
+        ("LowPart", rwin32.DWORD), ("HighPart", rwin32.DWORD),
+        ("u", u), ("QuadPart", rffi.ULONGLONG)])
 
 if _MACOSX:
     CConfig.TIMEBASE_INFO = platform.Struct("struct mach_timebase_info", [
@@ -234,17 +235,38 @@ if cConfig.has_gettimeofday:
 rffi.VOIDP], 
                               rffi.INT)
     if _WIN:
-       GetSystemTimeAsFileTime = external('GetSystemTimeAsFileTime', 
+        GetSystemTimeAsFileTime = external('GetSystemTimeAsFileTime', 
                                           [rwin32.FILETIME], 
                                           lltype.VOID)
+        LPDWORD = rwin32.LPDWORD
+        _GetSystemTimeAdjustment = rwin32.winexternal(
+                                                'GetSystemTimeAdjustment',
+                                                [LPDWORD, LPDWORD, rwin32.LPBOOL], 
+                                                rffi.INT)
         def gettimeofday(space, w_info=None):
-            with lltype.scoped_alloc(rwin32.FILETIME) as system_time, 
+            with lltype.scoped_alloc(rwin32.FILETIME) as system_time, \
+                 lltype.scoped_alloc(CConfig.ULARGE_INTEGER) as large, \
+                 lltype.scoped_alloc(rffi.ULONGLONG) as microseconds:
+
                 GetSystemTimeAsFileTime(system_time)
-                
+                large.u.LowPart = system_time.dwLowDateTime
+                large.u.HighPart = system_time.dwHighDateTime
+                microseconds = system_time.Quadpart / (10 - 11644473600000000)
+                tp.tv_sec = microseconds / 1000000
+                tp.tv_usec = microseconds % 1000000
+                if w_info:
+                    with lltype.scoped_alloc(rwin32.DWORD) as time_adjustment, \
+                         lltype.scoped_alloc(rwin32.DWORD) as time_increment, \
+                         lltype.scoped_alloc(rwin32.BOOL) as is_time_adjustmentDisabled:
+                        w_info.implementation = "GetSystemTimeAsFileTime()"
+                        w_info.monotonic = space.w_False
+                        _GetSystemTimeAdjustment(time_adjustment, time_increment,
+                                                is_time_adjustment_disabled)
+                        w_info.resolution = time_increment * 1e-7
+                        w_info.adjustable = space.w_True
+            # TODO: Find docs for ftime
+            return space.wrap(1)
 
-                seconds = float(timeval.tv_sec) + timeval.tv_usec * 1e-6
-
-            return space.wrap(seconds)
     else:
         def gettimeofday(space, w_info=None):
             with lltype.scoped_alloc(CConfig.timeval) as timeval:
@@ -581,7 +603,7 @@ def time(space):
 def get_time_time_clock_info(space, w_info):
     # Can't piggy back on time.time because time.time delegates to the 
     # host python's time.time (so we can't see the internals)
-    if HAS_CLOCK_GETTIME:
+    if HAS_CLOCK_GETTIME and False:
         with lltype.scoped_alloc(TIMESPEC) as timespec:
             ret = c_clock_gettime(cConfig.CLOCK_REALTIME, timespec)
             if ret != 0:
@@ -804,11 +826,6 @@ def strftime(space, format, w_tup=None):
 if _WIN:
     # untested so far
     _GetTickCount = rwin32.winexternal('GetTickCount', [], rwin32.DWORD)
-    LPDWORD = rwin32.LPDWORD
-    _GetSystemTimeAdjustment = rwin32.winexternal(
-                                            'GetSystemTimeAdjustment',
-                                            [LPDWORD, LPDWORD, rwin32.LPBOOL], 
-                                            rffi.INT)
     def monotonic(space, w_info=None):
         result = 0
         if HAS_GETTICKCOUNT64:
