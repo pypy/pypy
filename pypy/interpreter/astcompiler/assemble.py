@@ -676,6 +676,9 @@ def _compute_BUILD_LIST(arg):
 def _compute_BUILD_SET(arg):
     return 1 - arg
 
+def _compute_BUILD_SET_UNPACK(arg):
+    return 1 - arg
+
 def _compute_BUILD_MAP(arg):
     return 1 - 2 * arg
 
