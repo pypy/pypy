@@ -210,7 +210,7 @@ class ShadowStackRootWalker(BaseRootWalker):
 
         self.thread_setup = thread_setup
         self.thread_run_ptr = getfn(thread_run, [], annmodel.s_None,
-                                    inline=True, minimal_transform=False)
+                                    minimal_transform=False)
         self.thread_die_ptr = getfn(thread_die, [], annmodel.s_None,
                                     minimal_transform=False)
         # no thread_before_fork_ptr here
