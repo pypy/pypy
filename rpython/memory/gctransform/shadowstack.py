@@ -224,8 +224,10 @@ class ShadowStackRootWalker(BaseRootWalker):
         from rpython.rlib import _stacklet_shadowstack
         _stacklet_shadowstack.complete_destrptr(gctransformer)
 
-    def postprocess_graph(self, gct, graph):
+    def postprocess_graph(self, gct, graph, any_inlining):
         from rpython.memory.gctransform import shadowcolor
+        if any_inlining:
+            shadowcolor.postprocess_inlining(graph)
         use_push_pop = shadowcolor.postprocess_graph(graph, gct.c_const_gcdata)
         if use_push_pop and graph in gct.graphs_to_inline:
             log.WARNING("%r is marked for later inlining, "

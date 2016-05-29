@@ -664,3 +664,69 @@ def postprocess_graph(graph, c_gcdata):
     checkgraph(graph)
     postprocess_double_check(graph)
     return (regalloc is not None)
+
+
+def postprocess_inlining(graph):
+    """We first write calls to GC functions with gc_push_roots(...) and
+    gc_pop_roots(...) around.  Then we inline some of these functions.
+    As a result, the gc_push_roots and gc_pop_roots are no longer in
+    the same block.  Fix that by moving the gc_push_roots/gc_pop_roots
+    inside the inlined portion of the graph, around every call.
+
+    We could also get a correct result by doing things in a different
+    order, e.g. first postprocess_graph() and then inlining.  However,
+    this order brings an important benefit: if the inlined graph has a
+    fast-path, like malloc_fixedsize(), then there are no gc_push_roots
+    and gc_pop_roots left along the fast-path.
+    """
+    for block in graph.iterblocks():
+        for i in range(len(block.operations)-1, -1, -1):
+            op = block.operations[i]
+            if op.opname == 'gc_pop_roots':
+                break
+            if op.opname == 'gc_push_roots':
+                _fix_graph_after_inlining(graph, block, i)
+                break
+
+def _fix_graph_after_inlining(graph, initial_block, initial_index):
+    op = initial_block.operations.pop(initial_index)
+    assert op.opname == 'gc_push_roots'
+    seen = set()
+    pending = [(initial_block, initial_index, op.args)]
+    while pending:
+        block, start_index, track_args = pending.pop()
+        if block in seen:
+            continue
+        seen.add(block)
+        assert block.operations != ()     # did not find the gc_pop_roots?
+        new_operations = block.operations[:start_index]
+        stop = False
+        for i in range(start_index, len(block.operations)):
+            op = block.operations[i]
+            if op.opname == 'gc_push_roots':
+                raise Exception("%r: seems to have inlined another graph "
+                                "which also uses GC roots" % (graph,))
+            if op.opname == 'gc_pop_roots':
+                # end of the inlined graph, drop gc_pop_roots, keep the tail
+                new_operations += block.operations[i + 1:]
+                stop = True
+                break
+            if op.opname in ('direct_call', 'indirect_call'):
+                new_operations.append(SpaceOperation('gc_push_roots',
+                                                     track_args[:],
+                                                     varoftype(lltype.Void)))
+                new_operations.append(op)
+                new_operations.append(SpaceOperation('gc_pop_roots',
+                                                     track_args[:],
+                                                     varoftype(lltype.Void)))
+            else:
+                new_operations.append(op)
+        block.operations = new_operations
+        if not stop:
+            for link in block.exits:
+                track_next = []
+                for v in track_args:
+                    i = link.args.index(v)   # should really be here
+                    w = link.target.inputargs[i]
+                    track_next.append(w)
+                pending.append((link.target, 0, track_next))
