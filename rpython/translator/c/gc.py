@@ -397,9 +397,8 @@ class ShadowStackFrameworkGcPolicy(BasicFrameworkGcPolicy):
         from rpython.memory.gctransform import shadowstack
         return shadowstack.ShadowStackFrameworkGCTransformer(translator)
 
-    def enter_roots_frame(self, funcgen, op):
-        numcolors = op.args[1].value
-        c_gcdata = op.args[0]
+    def enter_roots_frame(self, funcgen, (c_gcdata, c_numcolors)):
+        numcolors = c_numcolors.value
         # XXX hard-code the field name here
         gcpol_ss = '%s->gcd_inst_root_stack_top' % funcgen.expr(c_gcdata)
         #
@@ -415,8 +414,6 @@ class ShadowStackFrameworkGcPolicy(BasicFrameworkGcPolicy):
         raise Exception("gc_pop_roots should be removed by postprocess_graph")
 
     def OP_GC_ENTER_ROOTS_FRAME(self, funcgen, op):
-        if op is not funcgen.graph.startblock.operations[0]:
-            raise Exception("gc_enter_roots_frame as a non-initial instruction")
         return '%s = (void *)(ss+1);' % funcgen.gcpol_ss
 
     def OP_GC_LEAVE_ROOTS_FRAME(self, funcgen, op):

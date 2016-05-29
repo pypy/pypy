@@ -453,7 +453,10 @@ def expand_pop_roots(graph, regalloc):
             block.operations = newops
 
 
-def add_leave_roots_frame(graph, regalloc):
+def add_enter_leave_roots_frame(graph, regalloc, c_gcdata):
+    # put 'gc_enter_roots_frame' as late as possible, but before the
+    # first 'gc_save_root' is reached.
+    #
     # put the 'gc_leave_roots_frame' operations as early as possible,
     # that is, just after the last 'gc_restore_root' reached.  This is
     # done by putting it along a link, such that the previous block
@@ -475,138 +478,126 @@ def add_leave_roots_frame(graph, regalloc):
                 break
     # done
 
+    insert_empty_startblock(graph)
     entrymap = mkentrymap(graph)
-    flagged_blocks = set()     # blocks with 'gc_restore_root' in them,
-                               # or from which we can reach such a block
+
+    # helpers
+
+    def is_interesting_op(op):
+        if op.opname == 'gc_restore_root':
+            return True
+        if op.opname == 'gc_save_root':
+            # ignore saves that say "everything is free"
+            return not (isinstance(op.args[1], Constant) and
+                        isinstance(op.args[1].value, int) and
+                        op.args[1].value == bitmask_all_free)
+        return False
+    bitmask_all_free = (1 << regalloc.numcolors) - 1
+
+    def insert_along_link(link, opname, args, cache):
+        b2 = link.target
+        if b2 not in cache:
+            newblock = Block([v.copy() for v in b2.inputargs])
+            newblock.operations.append(
+                SpaceOperation(opname, args, varoftype(lltype.Void)))
+            newblock.closeblock(Link(list(newblock.inputargs), b2))
+            cache[b2] = newblock
+        link.target = cache[b2]
+
+    # make a list of blocks with gc_save_root/gc_restore_root in them
+    interesting_blocks = []
     for block in graph.iterblocks():
         for op in block.operations:
-            if op.opname == 'gc_restore_root':
-                flagged_blocks.add(block)
+            if is_interesting_op(op):
+                assert block is not graph.startblock
+                assert block is not graph.returnblock
+                interesting_blocks.append(block)
                 break    # interrupt this block, go to the next one
 
-    links = list(graph.iterlinks())
-    links.reverse()
-
-    while True:
-        prev_length = len(flagged_blocks)
-        for link in links:
-            if link.target in flagged_blocks:
-                flagged_blocks.add(link.prevblock)
-        if len(flagged_blocks) == prev_length:
-            break
-    assert graph.returnblock not in flagged_blocks
-    assert graph.startblock in flagged_blocks
-
-    extra_blocks = {}
-    for link in links:
-        block = link.target
-        if (link.prevblock in flagged_blocks and
-                block not in flagged_blocks):
-            # share the gc_leave_roots_frame if possible
-            if block not in extra_blocks:
-                newblock = Block([v.copy() for v in block.inputargs])
-                newblock.operations.append(
-                    SpaceOperation('gc_leave_roots_frame', [],
-                                   varoftype(lltype.Void)))
-                newblock.closeblock(Link(list(newblock.inputargs), block))
-                extra_blocks[block] = newblock
-            link.target = extra_blocks[block]
-
-    # check all blocks not in flagged_blocks: they might contain a
-    # gc_save_root() that writes the bitmask meaning "everything is
-    # free".  Remove such gc_save_root().
-    bitmask_all_free = (1 << regalloc.numcolors) - 1
-    for block in graph.iterblocks():
-        if block in flagged_blocks:
-            continue
-        newops = []
-        for op in block.operations:
-            if op.opname == 'gc_save_root':
-                assert isinstance(op.args[1], Constant)
-                assert op.args[1].value == bitmask_all_free
-            else:
-                newops.append(op)
-        if len(newops) < len(block.operations):
-            block.operations = newops
-
-
-def add_enter_roots_frame(graph, regalloc, c_gcdata):
-    # symmetrical operation from add_leave_roots_frame(): put
-    # 'gc_enter_roots_frame' as late as possible, but before the
-    # first 'gc_save_root' and not in any loop.
-    if regalloc is None:
-        return
-
-    flagged_blocks = {}     # blocks with 'gc_save_root' in them,
-                            # or which can be reached from such a block
-    bitmask_all_free = (1 << regalloc.numcolors) - 1
-    for block in graph.iterblocks():
-        for i, op in enumerate(block.operations):
-            if op.opname == 'gc_save_root':
-                if (isinstance(op.args[1], Constant) and
-                    isinstance(op.args[1].value, int) and
-                    op.args[1].value == bitmask_all_free):
-                    pass     # ignore saves that say "everything is free"
-                else:
-                    flagged_blocks[block] = i
-                    break    # interrupt this block, go to the next one
-
-    pending = flagged_blocks.keys()
+    # compute the blocks such that 'gc_save_root/gc_restore_root'
+    # exist anywhere before the start of this block
+    before_blocks = set()
+    pending = list(interesting_blocks)
+    seen = set(pending)
     while pending:
         block = pending.pop()
         for link in block.exits:
-            if link.target not in flagged_blocks:
+            before_blocks.add(link.target)
+            if link.target not in seen:
+                seen.add(link.target)
                 pending.append(link.target)
-            flagged_blocks[link.target] = -1
-    #assert flagged_blocks[graph.returnblock] == -1, except if the
-    #   returnblock is never reachable at all
+    assert graph.startblock not in before_blocks
 
+    # compute the blocks such that 'gc_save_root/gc_restore_root'
+    # exist anywhere after the start of this block
+    after_blocks = set(interesting_blocks)
+    pending = list(interesting_blocks)
+    while pending:
+        block = pending.pop()
+        for link in entrymap[block]:
+            if link.prevblock is not None:
+                if link.prevblock not in after_blocks:
+                    after_blocks.add(link.prevblock)
+                    pending.append(link.prevblock)
+    assert graph.returnblock not in after_blocks
+
+    # this is the set of blocks such that, at the start of the block,
+    # we're "in frame", i.e. there are 'gc_save_root/gc_restore_root'
+    # both before and after the start of the block.
+    inside_blocks = before_blocks & after_blocks
+    inside_or_interesting_blocks = set(interesting_blocks) | inside_blocks
+
+    # if a block contains gc_save_root/gc_restore_root but is not
+    # an "inside_block", then add gc_enter_roots_frame where needed
     c_num = Constant(regalloc.numcolors, lltype.Signed)
-    extra_blocks = {}
-    for link in list(graph.iterlinks()):
-        block = link.target
-        if (link.prevblock not in flagged_blocks and
-                block in flagged_blocks and
-                flagged_blocks[block] == -1):
-            # share the gc_enter_roots_frame if possible
-            if block not in extra_blocks:
-                newblock = Block([v.copy() for v in block.inputargs])
-                newblock.operations.append(
-                    SpaceOperation('gc_enter_roots_frame', [c_gcdata, c_num],
-                                   varoftype(lltype.Void)))
-                newblock.closeblock(Link(list(newblock.inputargs), block))
-                extra_blocks[block] = newblock
-            link.target = extra_blocks[block]
-
-    for block, i in flagged_blocks.items():
-        if i >= 0:
+    for block in interesting_blocks:
+        if block not in inside_blocks:
+            i = 0
+            while not is_interesting_op(block.operations[i]):
+                i += 1
             block.operations.insert(i,
                 SpaceOperation('gc_enter_roots_frame', [c_gcdata, c_num],
                                varoftype(lltype.Void)))
 
-    # check all blocks not in flagged_blocks, or before the
-    # gc_enter_roots_frame: they might contain a gc_save_root() that writes
-    # the bitmask meaning "everything is free".  Remove such gc_save_root().
-    bitmask_all_free = (1 << regalloc.numcolors) - 1
-    for block in graph.iterblocks():
-        # 'operations-up-to-limit' are the operations that occur before
-        # gc_enter_roots_frame.  If flagged_blocks contains -1, then none
-        # are; if flagged_blocks does not contain block, then all are.
-        limit = flagged_blocks.get(block, len(block.operations))
-        if limit < 0:
-            continue
-        newops = []
-        for op in block.operations[:limit]:
-            if op.opname == 'gc_save_root':
-                assert isinstance(op.args[1], Constant)
-                assert op.args[1].value == bitmask_all_free
-            else:
-                newops.append(op)
-        if len(newops) < limit:
-            block.operations = newops + block.operations[limit:]
+    # If a link goes from a "non-inside, non-interesting block"
+    # straight to an "inside_block", insert a gc_enter_roots_frame
+    # along the link.  Similarly, if a block is a "inside-or-
+    # interesting_block" and exits with a link going to a
+    # "non-inside_block", then insert a gc_leave_roots_frame along the
+    # link.
+    cache1 = {}
+    cache2 = {}
+    for block in list(graph.iterblocks()):
+        if block not in inside_or_interesting_blocks:
+            for link in block.exits:
+                if link.target in inside_blocks:
+                    insert_along_link(link, 'gc_enter_roots_frame',
+                                      [c_gcdata, c_num], cache1)
+        else:
+            for link in block.exits:
+                if link.target not in inside_blocks:
+                    insert_along_link(link, 'gc_leave_roots_frame',
+                                      [], cache2)
 
-    join_blocks(graph)  # for the extra new blocks made in this function as
-                        # well as in earlier functions
+    # check all blocks not in "inside_block": they might contain a
+    # gc_save_root() that writes the bitmask meaning "everything is
+    # free".  Look only before gc_enter_roots_frame, if there is one
+    # in that block.  Remove these out-of-frame gc_save_root().
+    for block in graph.iterblocks():
+        if block not in inside_blocks:
+            newops = []
+            for i, op in enumerate(block.operations):
+                if op.opname == 'gc_enter_roots_frame':
+                    newops.extend(block.operations[i:])
+                    break
+                if op.opname == 'gc_save_root' and not is_interesting_op(op):
+                    pass   # don't add in newops
+                else:
+                    newops.append(op)
+            if len(newops) < len(block.operations):
+                block.operations = newops
+
+    join_blocks(graph)  # for the extra new blocks made in this function
 
 
 class GCBitmaskTooLong(Exception):
@@ -686,7 +677,7 @@ def postprocess_double_check(graph):
                     locsaved[v] = frozenset()
             elif op.opname == 'gc_leave_roots_frame':
                 if not currently_in_frame:
-                    raise PostProcessCheckError(graph, block, op,'double leave')
+                    raise PostProcessCheckError(graph, block, op, 'not entered')
                 currently_in_frame = False
             elif is_trivial_rewrite(op) and currently_in_frame:
                 locsaved[op.result] = locsaved[op.args[0]]
@@ -731,8 +722,7 @@ def postprocess_graph(graph, c_gcdata):
     expand_push_roots(graph, regalloc)
     move_pushes_earlier(graph, regalloc)
     expand_pop_roots(graph, regalloc)
-    add_leave_roots_frame(graph, regalloc)
-    add_enter_roots_frame(graph, regalloc, c_gcdata)
+    add_enter_leave_roots_frame(graph, regalloc, c_gcdata)
     checkgraph(graph)
     postprocess_double_check(graph)
     return (regalloc is not None)

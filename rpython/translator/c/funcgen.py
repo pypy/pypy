@@ -172,11 +172,19 @@ class FunctionCodeGenerator(object):
 
     def cfunction_body(self):
         graph = self.graph
-        if (len(graph.startblock.operations) >= 1 and
-            graph.startblock.operations[0].opname == 'gc_enter_roots_frame'):
-            for line in self.gcpolicy.enter_roots_frame(self,
-                                        graph.startblock.operations[0]):
+
+        # ----- for gc_enter_roots_frame
+        _seen = set()
+        for block in graph.iterblocks():
+            for op in block.operations:
+                if op.opname == 'gc_enter_roots_frame':
+                    _seen.add(tuple(op.args))
+        if _seen:
+            assert len(_seen) == 1, (
+                "multiple different gc_enter_roots_frame in %r" % (graph,))
+            for line in self.gcpolicy.enter_roots_frame(self, list(_seen)[0]):
                 yield line
+        # ----- done
 
         yield 'goto block0;'    # to avoid a warning "this label is not used"
 

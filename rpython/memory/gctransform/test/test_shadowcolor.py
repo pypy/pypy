@@ -326,8 +326,7 @@ def test_move_pushes_earlier_1():
     expand_push_roots(graph, regalloc)
     move_pushes_earlier(graph, regalloc)
     expand_pop_roots(graph, regalloc)
-    add_leave_roots_frame(graph, regalloc)
-    add_enter_roots_frame(graph, regalloc, Constant('fake gcdata'))
+    add_enter_leave_roots_frame(graph, regalloc, Constant('fake gcdata'))
     assert graphmodel.summary(graph) == {
         'int_mul': 1,
         'gc_enter_roots_frame': 1,
@@ -370,8 +369,7 @@ def test_move_pushes_earlier_2():
         'int_sub': 1,
         'direct_call': 2,
         }
-    add_leave_roots_frame(graph, regalloc)
-    add_enter_roots_frame(graph, regalloc, Constant('fake gcdata'))
+    add_enter_leave_roots_frame(graph, regalloc, Constant('fake gcdata'))
     postprocess_double_check(graph)
 
 def test_remove_intrablock_push_roots():
@@ -426,8 +424,7 @@ def test_move_pushes_earlier_rename_1():
         'int_sub': 1,
         'direct_call': 2,
         }
-    add_leave_roots_frame(graph, regalloc)
-    add_enter_roots_frame(graph, regalloc, Constant('fake gcdata'))
+    add_enter_leave_roots_frame(graph, regalloc, Constant('fake gcdata'))
     postprocess_double_check(graph)
 
 def test_move_pushes_earlier_rename_2():
@@ -458,8 +455,7 @@ def test_move_pushes_earlier_rename_2():
         'int_sub': 1,
         'direct_call': 2,
         }
-    add_leave_roots_frame(graph, regalloc)
-    add_enter_roots_frame(graph, regalloc, Constant('fake gcdata'))
+    add_enter_leave_roots_frame(graph, regalloc, Constant('fake gcdata'))
     postprocess_double_check(graph)
 
 def test_move_pushes_earlier_rename_3():
@@ -492,8 +488,7 @@ def test_move_pushes_earlier_rename_3():
         'int_sub': 2,
         'direct_call': 2,
         }
-    add_leave_roots_frame(graph, regalloc)
-    add_enter_roots_frame(graph, regalloc, Constant('fake gcdata'))
+    add_enter_leave_roots_frame(graph, regalloc, Constant('fake gcdata'))
     postprocess_double_check(graph)
 
 def test_move_pushes_earlier_rename_4():
@@ -534,8 +529,7 @@ def test_move_pushes_earlier_rename_4():
         'int_sub': 3,
         'direct_call': 2,
         }
-    add_leave_roots_frame(graph, regalloc)
-    add_enter_roots_frame(graph, regalloc, Constant('fake gcdata'))
+    add_enter_leave_roots_frame(graph, regalloc, Constant('fake gcdata'))
     postprocess_double_check(graph)
 
 def test_add_leave_roots_frame_1():
@@ -562,8 +556,7 @@ def test_add_leave_roots_frame_1():
     expand_push_roots(graph, regalloc)
     move_pushes_earlier(graph, regalloc)
     expand_pop_roots(graph, regalloc)
-    add_leave_roots_frame(graph, regalloc)
-    add_enter_roots_frame(graph, regalloc, Constant('fake gcdata'))
+    add_enter_leave_roots_frame(graph, regalloc, Constant('fake gcdata'))
     assert len(graph.startblock.exits) == 2
     for link in graph.startblock.exits:
         assert [op.opname for op in link.target.operations] == [
@@ -595,8 +588,7 @@ def test_add_leave_roots_frame_2():
     expand_push_roots(graph, regalloc)
     move_pushes_earlier(graph, regalloc)
     expand_pop_roots(graph, regalloc)
-    add_leave_roots_frame(graph, regalloc)
-    add_enter_roots_frame(graph, regalloc, Constant('fake gcdata'))
+    add_enter_leave_roots_frame(graph, regalloc, Constant('fake gcdata'))
     assert [op.opname for op in graph.startblock.operations] == [
         'gc_enter_roots_frame',
         'gc_save_root',
@@ -676,8 +668,7 @@ def test_bug_1():
     expand_push_roots(graph, regalloc)
     move_pushes_earlier(graph, regalloc)
     expand_pop_roots(graph, regalloc)
-    add_leave_roots_frame(graph, regalloc)
-    add_enter_roots_frame(graph, regalloc, Constant('fake gcdata'))
+    add_enter_leave_roots_frame(graph, regalloc, Constant('fake gcdata'))
     postprocess_double_check(graph)
 
 def test_add_enter_roots_frame_remove_empty():
@@ -708,8 +699,7 @@ def test_add_enter_roots_frame_remove_empty():
     expand_push_roots(graph, regalloc)
     move_pushes_earlier(graph, regalloc)
     expand_pop_roots(graph, regalloc)
-    add_leave_roots_frame(graph, regalloc)
-    add_enter_roots_frame(graph, regalloc, Constant('fake gcdata'))
+    add_enter_leave_roots_frame(graph, regalloc, Constant('fake gcdata'))
     assert [op.opname for op in graph.startblock.operations] == [
         "direct_call",
         "gc_enter_roots_frame",
@@ -720,6 +710,35 @@ def test_add_enter_roots_frame_remove_empty():
         "direct_call",
         "direct_call",
         ]
+    postprocess_double_check(graph)
+
+def test_add_enter_roots_frame_avoided():
+    def g(x):
+        return x
+    def f(x, n):
+        if n > 100:
+            llop.gc_push_roots(lltype.Void, x)
+            g(x)
+            llop.gc_pop_roots(lltype.Void, x)
+        return x
+
+    graph = make_graph(f, [llmemory.GCREF, int])
+    regalloc = allocate_registers(graph)
+    expand_push_roots(graph, regalloc)
+    move_pushes_earlier(graph, regalloc)
+    expand_pop_roots(graph, regalloc)
+    add_enter_leave_roots_frame(graph, regalloc, Constant('fake gcdata'))
+    assert [op.opname for op in graph.startblock.operations] == [
+        'int_gt', 'same_as']
+    [fastpath, slowpath] = graph.startblock.exits
+    assert fastpath.target is graph.returnblock
+    block2 = slowpath.target
+    assert [op.opname for op in block2.operations] == [
+        'gc_enter_roots_frame',
+        'gc_save_root',
+        'direct_call',
+        'gc_restore_root',
+        'gc_leave_roots_frame']
     postprocess_double_check(graph)
 
 def test_fix_graph_after_inlining():
