@@ -531,16 +531,82 @@ def add_leave_roots_frame(graph, regalloc):
 
 
 def add_enter_roots_frame(graph, regalloc, c_gcdata):
+    # symmetrical operation from add_leave_roots_frame(): put
+    # 'gc_enter_roots_frame' as late as possible, but before the
+    # first 'gc_save_root' and not in any loop.
     if regalloc is None:
         return
-    insert_empty_startblock(graph)
-    c_num = Constant(regalloc.numcolors, lltype.Signed)
-    graph.startblock.operations.append(
-        SpaceOperation('gc_enter_roots_frame', [c_gcdata, c_num],
-                       varoftype(lltype.Void)))
 
-    join_blocks(graph)  # for the new block just above, but also for the extra
-                        # new blocks made by insert_empty_block() earlier
+    flagged_blocks = {}     # blocks with 'gc_save_root' in them,
+                            # or which can be reached from such a block
+    bitmask_all_free = (1 << regalloc.numcolors) - 1
+    for block in graph.iterblocks():
+        for i, op in enumerate(block.operations):
+            if op.opname == 'gc_save_root':
+                if (isinstance(op.args[1], Constant) and
+                    isinstance(op.args[1].value, int) and
+                    op.args[1].value == bitmask_all_free):
+                    pass     # ignore saves that say "everything is free"
+                else:
+                    flagged_blocks[block] = i
+                    break    # interrupt this block, go to the next one
+
+    pending = flagged_blocks.keys()
+    while pending:
+        block = pending.pop()
+        for link in block.exits:
+            if link.target not in flagged_blocks:
+                pending.append(link.target)
+            flagged_blocks[link.target] = -1
+    #assert flagged_blocks[graph.returnblock] == -1, except if the
+    #   returnblock is never reachable at all
+
+    c_num = Constant(regalloc.numcolors, lltype.Signed)
+    extra_blocks = {}
+    for link in list(graph.iterlinks()):
+        block = link.target
+        if (link.prevblock not in flagged_blocks and
+                block in flagged_blocks and
+                flagged_blocks[block] == -1):
+            # share the gc_enter_roots_frame if possible
+            if block not in extra_blocks:
+                newblock = Block([v.copy() for v in block.inputargs])
+                newblock.operations.append(
+                    SpaceOperation('gc_enter_roots_frame', [c_gcdata, c_num],
+                                   varoftype(lltype.Void)))
+                newblock.closeblock(Link(list(newblock.inputargs), block))
+                extra_blocks[block] = newblock
+            link.target = extra_blocks[block]
+
+    for block, i in flagged_blocks.items():
+        if i >= 0:
+            block.operations.insert(i,
+                SpaceOperation('gc_enter_roots_frame', [c_gcdata, c_num],
+                               varoftype(lltype.Void)))
+
+    # check all blocks not in flagged_blocks, or before the
+    # gc_enter_roots_frame: they might contain a gc_save_root() that writes
+    # the bitmask meaning "everything is free".  Remove such gc_save_root().
+    bitmask_all_free = (1 << regalloc.numcolors) - 1
+    for block in graph.iterblocks():
+        # 'operations-up-to-limit' are the operations that occur before
+        # gc_enter_roots_frame.  If flagged_blocks contains -1, then none
+        # are; if flagged_blocks does not contain block, then all are.
+        limit = flagged_blocks.get(block, len(block.operations))
+        if limit < 0:
+            continue
+        newops = []
+        for op in block.operations[:limit]:
+            if op.opname == 'gc_save_root':
+                assert isinstance(op.args[1], Constant)
+                assert op.args[1].value == bitmask_all_free
+            else:
+                newops.append(op)
+        if len(newops) < limit:
+            block.operations = newops + block.operations[limit:]
+
+    join_blocks(graph)  # for the extra new blocks made in this function as
+                        # well as in earlier functions
 
 
 class GCBitmaskTooLong(Exception):
@@ -549,7 +615,7 @@ class GCBitmaskTooLong(Exception):
 class PostProcessCheckError(Exception):
     pass
 
-def postprocess_double_check(graph, force_frame=False):
+def postprocess_double_check(graph):
     # Debugging only: double-check that the placement is correct.
     # Assumes that every gc_restore_root() indicates that the variable
     # must be saved at the given position in the shadowstack frame (in
@@ -563,37 +629,30 @@ def postprocess_double_check(graph, force_frame=False):
                 #                    saved at the start of this block
                 #    empty-set: same as above, so: "saved nowhere"
 
-    left_frame = set()    # set of blocks, gc_leave_roots_frame was called
-                          # before the start of this block
+    in_frame = {}   # {block: bool}, tells if, at the start of this block,
+                    # we're in status "frame entered" or not
 
-    for v in graph.startblock.inputargs:
-        saved[v] = frozenset()    # function arguments are not saved anywhere
-
-    if (len(graph.startblock.operations) == 0 or
-            graph.startblock.operations[0].opname != 'gc_enter_roots_frame'):
-        if not force_frame:
-            left_frame.add(graph.startblock)    # no frame at all here
-
+    in_frame[graph.startblock] = False
     pending = set([graph.startblock])
     while pending:
         block = pending.pop()
         locsaved = {}
-        left = (block in left_frame)
-        if not left:
+        currently_in_frame = in_frame[block]
+        if currently_in_frame:
             for v in block.inputargs:
                 locsaved[v] = saved[v]
         for op in block.operations:
             if op.opname == 'gc_restore_root':
-                if left:
-                    raise PostProcessCheckError(graph, block, op, 'left!')
+                if not currently_in_frame:
+                    raise PostProcessCheckError(graph, block, op, 'no frame!')
                 if isinstance(op.args[1], Constant):
                     continue
                 num = op.args[0].value
                 if num not in locsaved[op.args[1]]:
                     raise PostProcessCheckError(graph, block, op, num, locsaved)
             elif op.opname == 'gc_save_root':
-                if left:
-                    raise PostProcessCheckError(graph, block, op, 'left!')
+                if not currently_in_frame:
+                    raise PostProcessCheckError(graph, block, op, 'no frame!')
                 num = op.args[0].value
                 # first, cancel any other variable that would be saved in 'num'
                 for v in locsaved:
@@ -617,21 +676,32 @@ def postprocess_double_check(graph, force_frame=False):
                         assert nummask[-1] == num
                         for v in locsaved:
                             locsaved[v] = locsaved[v].difference(nummask)
+            elif op.opname == 'gc_enter_roots_frame':
+                if currently_in_frame:
+                    raise PostProcessCheckError(graph, block, op,'double enter')
+                currently_in_frame = True
+                # initialize all local variables so far with "not seen anywhere"
+                # (already done, apart from block.inputargs)
+                for v in block.inputargs:
+                    locsaved[v] = frozenset()
             elif op.opname == 'gc_leave_roots_frame':
-                if left:
-                    raise PostProcessCheckError(graph, block, op, 'left!')
-                left = True
-            elif is_trivial_rewrite(op) and not left:
+                if not currently_in_frame:
+                    raise PostProcessCheckError(graph, block, op,'double leave')
+                currently_in_frame = False
+            elif is_trivial_rewrite(op) and currently_in_frame:
                 locsaved[op.result] = locsaved[op.args[0]]
             else:
                 locsaved[op.result] = frozenset()
         for link in block.exits:
             changed = False
-            if left:
-                if link.target not in left_frame:
-                    left_frame.add(link.target)
-                    changed = True
+            if link.target not in in_frame:
+                in_frame[link.target] = currently_in_frame
+                changed = True
             else:
+                if in_frame[link.target] != currently_in_frame:
+                    raise PostProcessCheckError(graph, link.target,
+                                                'inconsistent in_frame')
+            if currently_in_frame:
                 for i, v in enumerate(link.args):
                     try:
                         loc = locsaved[v]
@@ -648,6 +718,8 @@ def postprocess_double_check(graph, force_frame=False):
             if changed:
                 pending.add(link.target)
 
+    if in_frame.get(graph.returnblock, False):
+        raise PostProcessCheckError(graph, 'missing gc_leave_roots_frame')
     assert graph.getreturnvar() not in saved   # missing gc_leave_roots_frame?
 
 
