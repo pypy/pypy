@@ -91,7 +91,8 @@ def create_package(basedir, options, _fake=False):
                 add the --without-{0} option to skip packaging this
                 binary CFFI extension, or say --without-cffi.""".format(key)
         if len(failures) > 0:
-            return 1, None
+            pass
+            #return 1, None
 
     if sys.platform == 'win32' and not rename_pypy_c.lower().endswith('.exe'):
         rename_pypy_c += '.exe'
