@@ -603,6 +603,11 @@ def run_command_line(interactive,
                 ((inspect or (readenv and real_getenv('PYTHONINSPECT')))
                  and sys.stdin.isatty()))
 
+    try:
+        from _ast import PyCF_ACCEPT_NULL_BYTES
+    except ImportError:
+        PyCF_ACCEPT_NULL_BYTES = 0
+    future_flags = [0]
     success = True
 
     try:
@@ -613,7 +618,9 @@ def run_command_line(interactive,
 
             @hidden_applevel
             def run_it():
-                exec run_command in mainmodule.__dict__
+                co_cmd = compile(run_command, '<module>', 'exec')
+                exec co_cmd in mainmodule.__dict__
+                future_flags[0] = co_cmd.co_flags
             success = run_toplevel(run_it)
         elif run_module:
             # handle the "-m" command
@@ -624,11 +631,6 @@ def run_command_line(interactive,
         elif run_stdin:
             # handle the case where no command/filename/module is specified
             # on the command-line.
-
-            try:
-                from _ast import PyCF_ACCEPT_NULL_BYTES
-            except ImportError:
-                PyCF_ACCEPT_NULL_BYTES = 0
 
             # update sys.path *after* loading site.py, in case there is a
             # "site.py" file in the script's directory. Only run this if we're
@@ -656,6 +658,7 @@ def run_command_line(interactive,
                                                         'exec',
                                                         PyCF_ACCEPT_NULL_BYTES)
                             exec co_python_startup in mainmodule.__dict__
+                            future_flags[0] = co_python_startup.co_flags
                         mainmodule.__file__ = python_startup
                         run_toplevel(run_it)
                         try:
@@ -673,6 +676,7 @@ def run_command_line(interactive,
                     co_stdin = compile(sys.stdin.read(), '<stdin>', 'exec',
                                        PyCF_ACCEPT_NULL_BYTES)
                     exec co_stdin in mainmodule.__dict__
+                    future_flags[0] = co_stdin.co_flags
                 mainmodule.__file__ = '<stdin>'
                 success = run_toplevel(run_it)
         else:
@@ -702,7 +706,20 @@ def run_command_line(interactive,
                     args = (runpy._run_module_as_main, '__main__', False)
                 else:
                     # no.  That's the normal path, "pypy stuff.py".
-                    args = (execfile, filename, mainmodule.__dict__)
+                    # This includes the logic from execfile(), tweaked
+                    # to grab the future_flags at the end.
+                    @hidden_applevel
+                    def run_it():
+                        f = file(filename, 'rU')
+                        try:
+                            source = f.read()
+                        finally:
+                            f.close()
+                        co_main = compile(source.rstrip()+"\n", filename,
+                                          'exec', PyCF_ACCEPT_NULL_BYTES)
+                        exec co_main in mainmodule.__dict__
+                        future_flags[0] = co_main.co_flags
+                    args = (run_it,)
             success = run_toplevel(*args)
 
     except SystemExit as e:
@@ -715,12 +732,20 @@ def run_command_line(interactive,
     # start a prompt if requested
     if inspect_requested():
         try:
+            import __future__
             from _pypy_interact import interactive_console
             pypy_version_info = getattr(sys, 'pypy_version_info', sys.version_info)
             irc_topic = pypy_version_info[3] != 'final' or (
                             readenv and os.getenv('PYPY_IRC_TOPIC'))
+            flags = 0
+            for fname in __future__.all_feature_names:
+                if future_flags[0] & getattr(__future__, fname).compiler_flag:
+                    flags |= feature.compiler_flag
+            kwds = {}
+            if flags:
+                kwds['future_flags'] = flags
             success = run_toplevel(interactive_console, mainmodule,
-                                   quiet=not irc_topic)
+                                   quiet=not irc_topic, **kwds)
         except SystemExit as e:
             status = e.code
         else:
