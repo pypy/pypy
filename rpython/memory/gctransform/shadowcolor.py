@@ -687,6 +687,7 @@ def postprocess_inlining(graph):
             if op.opname == 'gc_push_roots':
                 _fix_graph_after_inlining(graph, block, i)
                 break
+    checkgraph(graph)
 
 def _fix_graph_after_inlining(graph, initial_block, initial_index):
     op = initial_block.operations.pop(initial_index)
@@ -704,8 +705,8 @@ def _fix_graph_after_inlining(graph, initial_block, initial_index):
         for i in range(start_index, len(block.operations)):
             op = block.operations[i]
             if op.opname == 'gc_push_roots':
-                raise Exception("%r: seems to have inlined another graph "
-                                "which also uses GC roots" % (graph,))
+                raise Exception("%r: seems to have inlined inside it another "
+                                "graph which also uses GC roots" % (graph,))
             if op.opname == 'gc_pop_roots':
                 # end of the inlined graph, drop gc_pop_roots, keep the tail
                 new_operations += block.operations[i + 1:]

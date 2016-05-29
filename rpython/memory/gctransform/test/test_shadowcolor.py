@@ -4,7 +4,7 @@ from rpython.rtyper.test.test_llinterp import gengraph
 from rpython.conftest import option
 from rpython.memory.gctransform.shadowcolor import *
 from rpython.flowspace import model as graphmodel
-from rpython.translator.simplify import join_blocks
+from rpython.translator.simplify import join_blocks, cleanup_graph
 from hypothesis import given, strategies
 
 
@@ -669,3 +669,32 @@ def test_bug_1():
     add_leave_roots_frame(graph, regalloc)
     join_blocks(graph)
     postprocess_double_check(graph, force_frame=True)
+
+def test_fix_graph_after_inlining():
+    # the graph of f looks like it inlined another graph, which itself
+    # would be "if x > 100: foobar()".  The foobar() function is supposed
+    # to be the big slow-path.
+    def foobar():
+        print 42
+    def f(x):
+        llop.gc_push_roots(lltype.Void, x)
+        if x > 100:  # slow-path
+            foobar()
+        llop.gc_pop_roots(lltype.Void, x)
+        return x
+    graph = make_graph(f, [int])
+    postprocess_inlining(graph)
+    cleanup_graph(graph)
+    assert [op.opname for op in graph.startblock.operations] == [
+        'int_gt', 'same_as']
+    [fastpath, slowpath] = graph.startblock.exits
+    assert fastpath.target is graph.returnblock
+    block2 = slowpath.target
+    [v] = block2.inputargs
+    assert block2.operations[0].opname == 'gc_push_roots'
+    assert block2.operations[0].args == [v]
+    assert block2.operations[1].opname == 'direct_call'   # -> foobar
+    assert block2.operations[2].opname == 'gc_pop_roots'
+    assert block2.operations[2].args == [v]
+    assert len(block2.exits) == 1
+    assert block2.exits[0].target is graph.returnblock
