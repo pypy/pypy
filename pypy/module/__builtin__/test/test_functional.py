@@ -587,9 +587,9 @@ class AppTestMinMax:
         raises(TypeError, min, 1, 2, key=lambda x: x, bar=2)
         assert type(min(1, 1.0)) is int
         assert type(min(1.0, 1)) is float
-        assert type(min(1, 1.0, 1L)) is int
-        assert type(min(1.0, 1L, 1)) is float
-        assert type(min(1L, 1, 1.0)) is long
+        assert type(min(1, 1.0, 1)) is int
+        assert type(min(1.0, 1, 1)) is float
+        assert type(min(1, 1, 1.0)) is int
 
     def test_max(self):
         assert max(1, 2) == 2
@@ -599,6 +599,6 @@ class AppTestMinMax:
         raises(TypeError, max, 1, 2, key=lambda x: x, bar=2)
         assert type(max(1, 1.0)) is int
         assert type(max(1.0, 1)) is float
-        assert type(max(1, 1.0, 1L)) is int
-        assert type(max(1.0, 1L, 1)) is float
-        assert type(max(1L, 1, 1.0)) is long
+        assert type(max(1, 1.0, 1)) is int
+        assert type(max(1.0, 1, 1)) is float
+        assert type(max(1, 1, 1.0)) is int
