@@ -1,16 +1,16 @@
 ===================
-PyPy3 5.1.1 alpha 1
+PyPy3 v5.2 alpha 1
 ===================
 
-We're pleased to announce the first alpha release of PyPy3 5.1.1. This is the
-first release of PyPy which targets Python 3 (3.3.5) compatibility.
+We're pleased to announce the first alpha release of PyPy3.3 5.2. This is the
+first release of PyPy which targets Python 3.3 (3.3.5) compatibility.
 
 We would like to thank all of the people who donated_ to the `py3k proposal`_
 for supporting the work that went into this and future releases.
 
-You can download the PyPy3 5.1.1 alpha 1 release here:
+You can download the PyPy3.3 v5.2 alpha 1 release here:
 
-    http://pypy.org/download.html#pypy3-2-1-beta-1 XXX
+    http://pypy.org/download.html#pypy3.3-v5.2-alpha-1 XXX
 
 Highlights
 ==========
