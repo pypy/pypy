@@ -33,7 +33,6 @@ def get_clock_info(name):
     info.monotonic = 0
     info.adjustable = 0
     info.resolution = 1.0
-    print(id(info), "id in app")
 
     if name == "time":
         time.time(info)

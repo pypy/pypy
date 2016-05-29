@@ -5,6 +5,7 @@ class TestMapping(BaseApiTest):
     def test_check(self, space, api):
         assert api.PyMapping_Check(space.newdict())
         assert not api.PyMapping_Check(space.newlist([]))
+        assert not api.PyMapping_Check(space.newtuple([]))
 
     def test_size(self, space, api):
         w_d = space.newdict()

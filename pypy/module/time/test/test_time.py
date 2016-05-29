@@ -35,10 +35,9 @@ class AppTestTime:
         assert t1 != t2       # the resolution should be at least 0.01 secs
 
     def test_clock_realtime(self):
-        import os
-        if os.name != "posix":
-            skip("clock_gettime available only under Unix")
         import time
+        if not hasattr(time, 'clock_gettime'):
+            skip("need time.clock_gettime()")
         t1 = time.clock_gettime(time.CLOCK_REALTIME)
         assert isinstance(t1, float)
         time.sleep(time.clock_getres(time.CLOCK_REALTIME))
@@ -46,10 +45,10 @@ class AppTestTime:
         assert t1 != t2
 
     def test_clock_monotonic(self):
-        import os
-        if os.name != "posix":
-            skip("clock_gettime available only under Unix")
         import time
+        if not (hasattr(time, 'clock_gettime') and
+                hasattr(time, 'CLOCK_MONOTONIC')):
+            skip("need time.clock_gettime()/CLOCK_MONOTONIC")
         t1 = time.clock_gettime(time.CLOCK_MONOTONIC)
         assert isinstance(t1, float)
         time.sleep(time.clock_getres(time.CLOCK_MONOTONIC))
@@ -380,20 +379,17 @@ class AppTestTime:
         # process_time() should not include time spent during sleep
         assert (t2 - t1) < 0.05
 
-    def test_get_clock_info_monotonic(self):
+    def test_get_clock_info(self):
         import time
-        clock_info = time.get_clock_info("monotonic")
-        assert clock_info.monotonic
-        assert not clock_info.adjustable
-        # Not really sure what to test about this
-        # At least this tests that the attr exists...
-        assert clock_info.resolution > 0
-
-    def test_get_clock_info_clock(self):
-        import time
-        clock_info = time.get_clock_info("clock")
-        assert clock_info.monotonic
-        assert not clock_info.adjustable
-        # Not really sure what to test about this
-        # At least this tests that the attr exists...
-        assert clock_info.resolution > 0
+        clocks = ['clock', 'perf_counter', 'process_time', 'time']
+        if hasattr(time, 'monotonic'):
+            clocks.append('monotonic')
+        for name in clocks:
+            info = time.get_clock_info(name)
+            assert isinstance(info.implementation, str)
+            assert info.implementation != ''
+            assert isinstance(info.monotonic, bool)
+            assert isinstance(info.resolution, float)
+            assert info.resolution > 0.0
+            assert info.resolution <= 1.0
+            assert isinstance(info.adjustable, bool)
