@@ -528,3 +528,56 @@ class TestStringToInt:
             py.test.raises(ParseStringError, string_to_int, s+'  ', base)
             py.test.raises(ParseStringError, string_to_int, '+'+s, base)
             py.test.raises(ParseStringError, string_to_int, '-'+s, base)
+
+class TestExplicitIntsizes:
+
+    _32_max =            2147483647
+    _32_min =           -2147483648
+    _32_umax =           4294967295
+    _64_max =   9223372036854775807
+    _64_min =  -9223372036854775808
+    _64_umax = 18446744073709551615
+
+    def test_explicit_32(self):
+
+        assert type(r_int32(0)) == r_int32
+        assert type(r_int32(self._32_max)) == r_int32
+        assert type(r_int32(self._32_min)) == r_int32
+
+        assert type(r_uint32(0)) == r_uint32
+        assert type(r_uint32(self._32_umax)) == r_uint32
+
+        with py.test.raises(OverflowError):
+            ovfcheck(r_int32(self._32_max) + r_int32(1))
+            ovfcheck(r_int32(self._32_min) - r_int32(1))
+
+        assert most_pos_value_of_same_type(r_int32(1)) == self._32_max
+        assert most_neg_value_of_same_type(r_int32(1)) == self._32_min
+
+        assert most_pos_value_of_same_type(r_uint32(1)) == self._32_umax
+        assert most_neg_value_of_same_type(r_uint32(1)) == 0
+
+        assert r_uint32(self._32_umax) + r_uint32(1) == r_uint32(0)
+        assert r_uint32(0) - r_uint32(1) == r_uint32(self._32_umax)
+
+    def test_explicit_64(self):
+
+        assert type(r_int64(0)) == r_int64
+        assert type(r_int64(self._64_max)) == r_int64
+        assert type(r_int64(self._64_min)) == r_int64
+
+        assert type(r_uint64(0)) == r_uint64
+        assert type(r_uint64(self._64_umax)) == r_uint64
+
+        with py.test.raises(OverflowError):
+            ovfcheck(r_int64(self._64_max) + r_int64(1))
+            ovfcheck(r_int64(self._64_min) - r_int64(1))
+
+        assert most_pos_value_of_same_type(r_int64(1)) == self._64_max
+        assert most_neg_value_of_same_type(r_int64(1)) == self._64_min
+
+        assert most_pos_value_of_same_type(r_uint64(1)) == self._64_umax
+        assert most_neg_value_of_same_type(r_uint64(1)) == 0
+
+        assert r_uint64(self._64_umax) + r_uint64(1) == r_uint64(0)
+        assert r_uint64(0) - r_uint64(1) == r_uint64(self._64_umax)
