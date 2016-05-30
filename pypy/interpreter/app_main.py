@@ -739,7 +739,8 @@ def run_command_line(interactive,
                             readenv and os.getenv('PYPY_IRC_TOPIC'))
             flags = 0
             for fname in __future__.all_feature_names:
-                if future_flags[0] & getattr(__future__, fname).compiler_flag:
+                feature = getattr(__future__, fname)
+                if future_flags[0] & feature.compiler_flag:
                     flags |= feature.compiler_flag
             kwds = {}
             if flags:
