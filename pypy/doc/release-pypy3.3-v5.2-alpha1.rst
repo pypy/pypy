@@ -17,9 +17,11 @@ Highlights
 
 * Python 3.3.5 support!
 
-  - Being an early alpha release, there are `known issues`_ including
-    performance regressions (e.g. issue `#2305`_). The focus for this release
-    has been updating to 3.3 compatibility.
+  - Being an early alpha release, there are some `missing features`_ such as a
+    `PEP 393-like space efficient string representation`_ and `known issues`_
+    including performance regressions (e.g. issue `#2305`_). The focus for this
+    release has been updating to 3.3 compatibility. Windows is also not yet
+    supported.
 
 * `ensurepip`_ is also included (it's only included in CPython 3 >= 3.4).
 
@@ -35,8 +37,8 @@ We also welcome developers of other
 
 This release supports:
 
-  * **x86** machines on most common operating systems
-    (Linux 32/64, Mac OS X 64, Windows 32, OpenBSD, FreeBSD),
+  * **x86** machines on most common operating systems except Windows
+    (Linux 32/64, Mac OS X 64, OpenBSD, FreeBSD),
 
   * newer **ARM** hardware (ARMv6 or ARMv7, with VFPv3) running Linux,
 
@@ -59,6 +61,8 @@ The PyPy Team
 
 .. _donated: http://morepypy.blogspot.com/2012/01/py3k-and-numpy-first-stage-thanks-to.html
 .. _`py3k proposal`: http://pypy.org/py3donate.html
+.. _`PEP 393-like space efficient string representation`: https://bitbucket.org/pypy/pypy/issues/2309/optimized-unicode-representation
+.. _`missing features`: https://bitbucket.org/pypy/pypy/issues?status=new&status=open&component=PyPy3+%28running+Python+3.x%29&kind=enhancement
 .. _`known issues`: https://bitbucket.org/pypy/pypy/issues?status=new&status=open&component=PyPy3%20%28running%20Python%203.x%29
 .. _`#2305`: https://bitbucket.org/pypy/pypy/issues/2305
 .. _`ensurepip`: https://docs.python.org/3/library/ensurepip.html#module-ensurepip
