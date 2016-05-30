@@ -67,10 +67,11 @@ def fsdecode(space, w_string):
         uni = runicode.str_decode_utf_8(
             bytes, len(bytes), 'surrogateescape',
             errorhandler=state.decode_error_handler)[0]
-    elif state.codec_need_encodings:
-        # bootstrap check: if the filesystem codec is implemented in
-        # Python we cannot use it before the codecs are ready. use the
-        # locale codec instead
+    elif space.sys.filesystemencoding is None or state.codec_need_encodings:
+        # bootstrap check: if the filesystemencoding isn't initialized
+        # or the filesystem codec is implemented in Python we cannot
+        # use it before the codecs are ready. use the locale codec
+        # instead
         from pypy.module._codecs.locale import (
             str_decode_locale_surrogateescape)
         bytes = space.bytes_w(w_string)
@@ -95,10 +96,11 @@ def fsencode(space, w_uni):
         bytes = runicode.unicode_encode_utf_8(
             uni, len(uni), 'surrogateescape',
             errorhandler=state.encode_error_handler)
-    elif state.codec_need_encodings:
-        # bootstrap check: if the filesystem codec is implemented in
-        # Python we cannot use it before the codecs are ready. use the
-        # locale codec instead
+    elif space.sys.filesystemencoding is None or state.codec_need_encodings:
+        # bootstrap check: if the filesystemencoding isn't initialized
+        # or the filesystem codec is implemented in Python we cannot
+        # use it before the codecs are ready. use the locale codec
+        # instead
         from pypy.module._codecs.locale import (
             unicode_encode_locale_surrogateescape)
         uni = space.unicode_w(w_uni)
