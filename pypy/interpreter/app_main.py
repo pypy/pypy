@@ -583,10 +583,10 @@ def run_command_line(interactive,
         if hasattr(signal, 'SIGXFSZ'):
             signal.signal(signal.SIGXFSZ, signal.SIG_IGN)
 
-    # Pre-load the default encoder (controlled by PYTHONIOENCODING)
-    # now.  This is needed before someone mucks up with sys.path (or
-    # even adds a unicode string to it, leading to infnite recursion).
-    # Note: very obscure.  Issue #2314.
+    # Pre-load the default encoder (controlled by PYTHONIOENCODING) now.
+    # This is needed before someone mucks up with sys.path (or even adds
+    # a unicode string to it, leading to infinite recursion when we try
+    # to encode it during importing).  Note: very obscure.  Issue #2314.
     str(u'')
 
     def inspect_requested():
