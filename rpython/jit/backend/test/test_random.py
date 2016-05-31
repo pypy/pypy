@@ -532,6 +532,7 @@ for _op in [rop.INT_ADD,
             rop.INT_AND,
             rop.INT_OR,
             rop.INT_XOR,
+            rop.UINT_MUL_HIGH,
             ]:
     OPERATIONS.append(BinaryOperation(_op))
 
@@ -548,8 +549,8 @@ for _op in [rop.INT_LT,
             ]:
     OPERATIONS.append(BinaryOperation(_op, boolres=True))
 
-OPERATIONS.append(BinaryOperation(rop.INT_FLOORDIV, ~3, 2))
-OPERATIONS.append(BinaryOperation(rop.INT_MOD, ~3, 2))
+#OPERATIONS.append(BinaryOperation(rop.INT_FLOORDIV, ~3, 2))
+#OPERATIONS.append(BinaryOperation(rop.INT_MOD, ~3, 2))
 OPERATIONS.append(BinaryOperation(rop.INT_RSHIFT, LONG_BIT-1))
 OPERATIONS.append(BinaryOperation(rop.INT_LSHIFT, LONG_BIT-1))
 OPERATIONS.append(BinaryOperation(rop.UINT_RSHIFT, LONG_BIT-1))

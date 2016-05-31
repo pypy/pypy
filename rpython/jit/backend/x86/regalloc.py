@@ -561,6 +561,27 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
     consider_int_sub_ovf = _consider_binop
     consider_int_add_ovf = _consider_binop_symm
 
+    def consider_uint_mul_high(self, op):
+        arg1, arg2 = op.getarglist()
+        # should support all cases, but is optimized for (box, const)
+        if isinstance(arg1, Const):
+            arg1, arg2 = arg2, arg1
+        self.rm.make_sure_var_in_reg(arg2, selected_reg=eax)
+        l1 = self.loc(arg1)
+        # l1 is a register != eax, or stack_bp; or, just possibly, it
+        # can be == eax if arg1 is arg2
+        assert not isinstance(l1, ImmedLoc)
+        assert l1 is not eax or arg1 is arg2
+        #
+        # eax will be trash after the operation
+        self.rm.possibly_free_var(arg2)
+        tmpvar = TempVar()
+        self.rm.force_allocate_reg(tmpvar, selected_reg=eax)
+        self.rm.possibly_free_var(tmpvar)
+        #
+        self.rm.force_allocate_reg(op, selected_reg=edx)
+        self.perform(op, [l1], edx)
+
     def consider_int_neg(self, op):
         res = self.rm.force_result_in_reg(op, op.getarg(0))
         self.perform(op, [res], res)
@@ -584,29 +605,6 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
 
     consider_int_rshift  = consider_int_lshift
     consider_uint_rshift = consider_int_lshift
-
-    def _consider_int_div_or_mod(self, op, resultreg, trashreg):
-        l0 = self.rm.make_sure_var_in_reg(op.getarg(0), selected_reg=eax)
-        l1 = self.rm.make_sure_var_in_reg(op.getarg(1), selected_reg=ecx)
-        l2 = self.rm.force_allocate_reg(op, selected_reg=resultreg)
-        # the register (eax or edx) not holding what we are looking for
-        # will be just trash after that operation
-        tmpvar = TempVar()
-        self.rm.force_allocate_reg(tmpvar, selected_reg=trashreg)
-        assert l0 is eax
-        assert l1 is ecx
-        assert l2 is resultreg
-        self.rm.possibly_free_var(tmpvar)
-
-    def consider_int_mod(self, op):
-        self._consider_int_div_or_mod(op, edx, eax)
-        self.perform(op, [eax, ecx], edx)
-
-    def consider_int_floordiv(self, op):
-        self._consider_int_div_or_mod(op, eax, edx)
-        self.perform(op, [eax, ecx], eax)
-
-    consider_uint_floordiv = consider_int_floordiv
 
     def _consider_compop(self, op):
         vx = op.getarg(0)

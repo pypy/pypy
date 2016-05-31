@@ -7,7 +7,7 @@ from rpython.jit.backend.arm import registers as r
 from rpython.jit.backend.arm import conditions as c
 from rpython.jit.backend.arm import locations
 from rpython.jit.backend.arm.locations import imm, get_fp_offset
-from rpython.jit.backend.arm.helper.regalloc import (prepare_op_by_helper_call,
+from rpython.jit.backend.arm.helper.regalloc import (
                                                     prepare_unary_cmp,
                                                     prepare_op_ri,
                                                     prepare_int_cmp,
@@ -467,6 +467,8 @@ class Regalloc(BaseRegalloc):
         self.possibly_free_var(op)
         return [reg1, reg2, res]
 
+    prepare_op_uint_mul_high = prepare_op_int_mul
+
     def prepare_op_int_force_ge_zero(self, op, fcond):
         argloc = self.make_sure_var_in_reg(op.getarg(0))
         resloc = self.force_allocate_reg(op, [op.getarg(0)])
@@ -477,10 +479,6 @@ class Regalloc(BaseRegalloc):
         numbytes = op.getarg(1).getint()
         resloc = self.force_allocate_reg(op)
         return [argloc, imm(numbytes), resloc]
-
-    prepare_op_int_floordiv = prepare_op_by_helper_call('int_floordiv')
-    prepare_op_int_mod = prepare_op_by_helper_call('int_mod')
-    prepare_op_uint_floordiv = prepare_op_by_helper_call('unit_floordiv')
 
     prepare_op_int_and = prepare_op_ri('int_and')
     prepare_op_int_or = prepare_op_ri('int_or')

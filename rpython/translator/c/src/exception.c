@@ -36,7 +36,6 @@ void RPyDebugReturnShowException(const char *msg, const char *filename,
 
 void _RPyRaiseSimpleException(RPYTHON_EXCEPTION rexc)
 {
-	/* XXX msg is ignored */
 	RPyRaiseException(RPYTHON_TYPE_OF_EXC_INST(rexc), rexc);
 }
 
