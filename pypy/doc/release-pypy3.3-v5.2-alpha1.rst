@@ -2,7 +2,7 @@
 PyPy3 v5.2 alpha 1
 ===================
 
-We're pleased to announce the first alpha release of PyPy3.3 5.2. This is the
+We're pleased to announce the first alpha release of PyPy3.3 v5.2. This is the
 first release of PyPy which targets Python 3.3 (3.3.5) compatibility.
 
 We would like to thank all of the people who donated_ to the `py3k proposal`_
@@ -10,7 +10,7 @@ for supporting the work that went into this and future releases.
 
 You can download the PyPy3.3 v5.2 alpha 1 release here:
 
-    http://pypy.org/download.html#pypy3.3-v5.2-alpha-1 XXX
+    http://pypy.org/download.html#python-3-3-5-compatible-pypy3-3-v5-2
 
 Highlights
 ==========
@@ -32,8 +32,8 @@ PyPy is a very compliant Python interpreter, almost a drop-in replacement for
 CPython 2.7.10 and one day 3.3.5. It's fast due to its integrated tracing JIT
 compiler.
 
-We also welcome developers of other
-`dynamic languages`_ to see what RPython can do for them.
+We also welcome developers of other `dynamic languages`_ to see what RPython
+can do for them.
 
 This release supports:
 
@@ -46,8 +46,8 @@ This release supports:
 
   * **s390x** running Linux
 
-Please try it out and let us know what you think. We welcome feedback,
-we know you are using PyPy, please tell us about it!
+Please try it out and let us know what you think. We welcome feedback, we know
+you are using PyPy, please tell us about it!
 
 We'd especially like to thank these people for their contributions to this
 release:

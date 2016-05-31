@@ -122,3 +122,7 @@ Generalize cpyext old-style buffers to more than just str/buffer, add support fo
 
 Move _numpypy headers into a directory so they are not picked up by upstream numpy, scipy
 This allows building upstream numpy and scipy in pypy via cpyext
+
+.. branch: traceviewer-common-merge-point-formats
+
+Teach RPython JIT's off-line traceviewer the most common ``debug_merge_point`` formats.
