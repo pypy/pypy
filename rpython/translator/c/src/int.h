@@ -112,15 +112,19 @@
 						r = Py_ARITHMETIC_RIGHT_SHIFT(PY_LONG_LONG,x, (y))
 #define OP_ULLONG_RSHIFT(x,y,r) CHECK_SHIFT_RANGE(y, PYPY_LONGLONG_BIT); \
 						r = (x) >> (y)
-#define OP_LLLONG_RSHIFT(x,y,r)  r = x >> y
+#define OP_LLLONG_RSHIFT(x,y,r) CHECK_SHIFT_RANGE(y, 128); r = (x) >> (y)
 
+/* left-shift of a signed value: C99 makes the result undefined if the
+   value is negative.  Force the left-shift to occur on unsigned instead. */
 #define OP_INT_LSHIFT(x,y,r)    CHECK_SHIFT_RANGE(y, PYPY_LONG_BIT); \
-							r = (x) << (y)
-#define OP_UINT_LSHIFT(x,y,r)   CHECK_SHIFT_RANGE(y, PYPY_LONG_BIT); \
-							r = (x) << (y)
+                                    r = (Signed)(((Unsigned)(x)) << (y))
 #define OP_LLONG_LSHIFT(x,y,r)  CHECK_SHIFT_RANGE(y, PYPY_LONGLONG_BIT); \
+                       r = (long long)(((unsigned long long)(x)) << (y))
+#define OP_LLLONG_LSHIFT(x,y,r) CHECK_SHIFT_RANGE(y, 128); \
+                         r = (__int128)(((unsigned __int128)(x)) << (y))
+
+#define OP_UINT_LSHIFT(x,y,r)   CHECK_SHIFT_RANGE(y, PYPY_LONG_BIT);    \
 							r = (x) << (y)
-#define OP_LLLONG_LSHIFT(x,y,r)  r = x << y
 #define OP_ULLONG_LSHIFT(x,y,r) CHECK_SHIFT_RANGE(y, PYPY_LONGLONG_BIT); \
 							r = (x) << (y)
 
