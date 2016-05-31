@@ -99,6 +99,8 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
             ("getbytearray", "METH_NOARGS",
              """
                  PyObject* s1 = PyByteArray_FromStringAndSize("test", 4);
+                 if (s1 == NULL)
+                     return NULL;
                  char* c = PyByteArray_AsString(s1);
                  PyObject* s2 = PyByteArray_FromStringAndSize(c, 4);
                  Py_DECREF(s1);
@@ -151,6 +153,8 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
              }
              
              ba = PyByteArray_FromObject(obj);
+             if (ba == NULL)
+                 return NULL;
              oldsize = PyByteArray_Size(ba);
              if (oldsize == 0)
              {
