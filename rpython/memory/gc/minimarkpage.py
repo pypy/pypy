@@ -3,6 +3,7 @@ from rpython.rtyper.lltypesystem import lltype, llmemory, llarena, rffi
 from rpython.rlib.rarithmetic import LONG_BIT, r_uint
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.debug import ll_assert, fatalerror
+from rpython.rlib.objectmodel import specialize
 
 WORD = LONG_BIT // 8
 NULL = llmemory.NULL
@@ -334,9 +335,10 @@ class ArenaCollection(object):
             size_class -= 1
 
 
-    def mass_free_incremental(self, ok_to_free_func, max_pages):
-        """For each object, if ok_to_free_func(obj) returns True, then free
-        the object.  This returns True if complete, or False if the limit
+    @specialize.arg(1)
+    def mass_free_incremental(self, ok_to_free_func, func_arg, max_pages):
+        """For each object, if ok_to_free_func(obj, func_arg) returns True, then
+        free the object.  This returns True if complete, or False if the limit
         'max_pages' is reached.
         """
         size_class = self.size_class_with_old_pages
@@ -350,7 +352,7 @@ class ArenaCollection(object):
             # not completely freed are re-chained either in
             # 'full_page_for_size[]' or 'page_for_size[]'.
             max_pages = self.mass_free_in_pages(size_class, ok_to_free_func,
-                                                max_pages)
+                                                func_arg, max_pages)
             if max_pages <= 0:
                 self.size_class_with_old_pages = size_class
                 return False
@@ -364,13 +366,14 @@ class ArenaCollection(object):
         return True
 
 
-    def mass_free(self, ok_to_free_func):
-        """For each object, if ok_to_free_func(obj) returns True, then free
-        the object.
+    @specialize.arg(1)
+    def mass_free(self, ok_to_free_func, func_arg):
+        """For each object, if ok_to_free_func(obj, func_arg) returns True, then
+        free the object.
         """
         self.mass_free_prepare()
         #
-        res = self.mass_free_incremental(ok_to_free_func, sys.maxint)
+        res = self.mass_free_incremental(ok_to_free_func, func_arg, sys.maxint)
         ll_assert(res, "non-incremental mass_free_in_pages() returned False")
 
 
@@ -412,7 +415,9 @@ class ArenaCollection(object):
         self.min_empty_nfreepages = 1
 
 
-    def mass_free_in_pages(self, size_class, ok_to_free_func, max_pages):
+    @specialize.arg(2)
+    def mass_free_in_pages(self, size_class, ok_to_free_func, func_arg,
+                           max_pages):
         nblocks = self.nblocks_for_size[size_class]
         block_size = size_class * WORD
         remaining_partial_pages = self.page_for_size[size_class]
@@ -430,7 +435,8 @@ class ArenaCollection(object):
             while page != PAGE_NULL:
                 #
                 # Collect the page.
-                surviving = self.walk_page(page, block_size, ok_to_free_func)
+                surviving = self.walk_page(
+                    page, block_size, ok_to_free_func, func_arg)
                 nextpage = page.nextpage
                 #
                 if surviving == nblocks:
@@ -491,7 +497,8 @@ class ArenaCollection(object):
         arena.freepages = pageaddr
 
 
-    def walk_page(self, page, block_size, ok_to_free_func):
+    @specialize.arg(3)
+    def walk_page(self, page, block_size, ok_to_free_func, func_arg):
         """Walk over all objects in a page, and ask ok_to_free_func()."""
         #
         # 'freeblock' is the next free block
@@ -528,7 +535,7 @@ class ArenaCollection(object):
                 ll_assert(freeblock > obj,
                           "freeblocks are linked out of order")
                 #
-                if ok_to_free_func(obj):
+                if ok_to_free_func(obj, func_arg):
                     #
                     # The object should die.
                     llarena.arena_reset(obj, _dummy_size(block_size), 0)

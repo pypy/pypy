@@ -68,15 +68,10 @@ class IncrementalMiniMarkRemoteHeaderGC(incminimark.IncrementalMiniMarkGCBase):
             # __free_flags_if_finalized.
             hdr.remote_flags[0] |= incminimark.GCFLAG_DEAD
 
-    def __free_flags_if_finalized(self, adr):
-        flag_ptr = llmemory.cast_adr_to_ptr(adr, SIGNEDP)
-        # If -42, it was set in finalize_header and the object was freed.
-        return flag_ptr[0] & incminimark.GCFLAG_DEAD
-
     def free_unvisited_arena_objects_step(self, limit):
         done = incminimark.IncrementalMiniMarkGCBase.free_unvisited_arena_objects_step(self, limit)
         self.__ac_for_flags.mass_free_incremental(
-            self.__free_flags_if_finalized, done)
+            _free_flags_if_finalized, None, done)
         return done
 
     def start_free(self):
@@ -96,3 +91,9 @@ class IncrementalMiniMarkRemoteHeaderGC(incminimark.IncrementalMiniMarkGCBase):
 
     def remove_flags(self, obj, flags):
         self.header(obj).remote_flags[0] &= ~flags
+
+
+def _free_flags_if_finalized(adr, unused_arg):
+    flag_ptr = llmemory.cast_adr_to_ptr(adr, SIGNEDP)
+    # If -42, it was set in finalize_header and the object was freed.
+    return bool(flag_ptr[0] & incminimark.GCFLAG_DEAD)

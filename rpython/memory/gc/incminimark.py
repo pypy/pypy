@@ -1760,9 +1760,9 @@ class IncrementalMiniMarkGCBase(MovingGCBase):
         # GcStruct is in the list self.old_objects_pointing_to_young.
         debug_start("gc-minor-walkroots")
         if self.gc_state == STATE_MARKING:
-            callback = IncrementalMiniMarkGC._trace_drag_out1_marking_phase
+            callback = IncrementalMiniMarkGCBase._trace_drag_out1_marking_phase
         else:
-            callback = IncrementalMiniMarkGC._trace_drag_out1
+            callback = IncrementalMiniMarkGCBase._trace_drag_out1
         #
         # Note a subtlety: if the nursery contains pinned objects "from
         # earlier", i.e. created earlier than the previous minor
@@ -2334,21 +2334,11 @@ class IncrementalMiniMarkGCBase(MovingGCBase):
         if self.get_flags(obj) & GCFLAG_VISITED:
             new_list.append(obj)
 
-    def _free_if_unvisited(self, hdr):
-        size_gc_header = self.gcheaderbuilder.size_gc_header
-        obj = hdr + size_gc_header
-        if self.get_flags(obj) & GCFLAG_VISITED:
-            self.remove_flags(obj, GCFLAG_VISITED)
-            return False     # survives
-        # dies
-        self.finalize_header(hdr)
-        return True
-
     def _reset_gcflag_visited(self, obj, ignored):
         self.remove_flags(obj, GCFLAG_VISITED)
 
     def free_unvisited_arena_objects_step(self, limit):
-        return self.ac.mass_free_incremental(self._free_if_unvisited, limit)
+        return self.ac.mass_free_incremental(_free_if_unvisited, self, limit)
 
     def free_rawmalloced_object_if_unvisited(self, obj, check_flag):
         if self.get_flags(obj) & check_flag:
@@ -2405,8 +2395,8 @@ class IncrementalMiniMarkGCBase(MovingGCBase):
         #
         # Add the roots from the other sources.
         self.root_walker.walk_roots(
-            IncrementalMiniMarkGC._collect_ref_stk, # stack roots
-            IncrementalMiniMarkGC._collect_ref_stk, # static in prebuilt non-gc structures
+            IncrementalMiniMarkGCBase._collect_ref_stk, # stack roots
+            IncrementalMiniMarkGCBase._collect_ref_stk, # static in prebuilt non-gc structures
             None)   # we don't need the static in all prebuilt gc objects
         #
         # If we are in an inner collection caused by a call to a finalizer,
@@ -3054,6 +3044,18 @@ class IncrementalMiniMarkGCBase(MovingGCBase):
 
     def remove_flags(self, obj, flags):
         self.header(obj).tid &= ~flags
+
+
+def _free_if_unvisited(hdr, gc):
+    size_gc_header = gc.gcheaderbuilder.size_gc_header
+    obj = hdr + size_gc_header
+    if gc.get_flags(obj) & GCFLAG_VISITED:
+        gc.remove_flags(obj, GCFLAG_VISITED)
+        return False     # survives
+    # dies
+    gc.finalize_header(hdr)
+    return True
+
 
 class IncrementalMiniMarkGC(IncrementalMiniMarkGCBase):
     HDR = lltype.Struct('header', ('tid', lltype.Signed))

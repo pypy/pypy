@@ -1632,7 +1632,7 @@ class MiniMarkGC(MovingGCBase):
         # Ask the ArenaCollection to visit all objects.  Free the ones
         # that have not been visited above, and reset GCFLAG_VISITED on
         # the others.
-        self.ac.mass_free(self._free_if_unvisited)
+        self.ac.mass_free(_free_if_unvisited, self)
         #
         # We also need to reset the GCFLAG_VISITED on prebuilt GC objects.
         self.prebuilt_root_objects.foreach(self._reset_gcflag_visited, None)
@@ -1681,15 +1681,6 @@ class MiniMarkGC(MovingGCBase):
         # listed in 'run_finalizers'.  Note that this will typically do
         # more allocations.
         self.execute_finalizers()
-
-
-    def _free_if_unvisited(self, hdr):
-        size_gc_header = self.gcheaderbuilder.size_gc_header
-        obj = hdr + size_gc_header
-        if self.header(obj).tid & GCFLAG_VISITED:
-            self.header(obj).tid &= ~GCFLAG_VISITED
-            return False     # survives
-        return True      # dies
 
     def _reset_gcflag_visited(self, obj, ignored):
         self.header(obj).tid &= ~GCFLAG_VISITED
@@ -2077,3 +2068,12 @@ class MiniMarkGC(MovingGCBase):
                 (obj + offset).address[0] = llmemory.NULL
         self.old_objects_with_weakrefs.delete()
         self.old_objects_with_weakrefs = new_with_weakref
+
+
+def _free_if_unvisited(hdr, gc):
+    size_gc_header = gc.gcheaderbuilder.size_gc_header
+    obj = hdr + size_gc_header
+    if gc.header(obj).tid & GCFLAG_VISITED:
+        gc.header(obj).tid &= ~GCFLAG_VISITED
+        return False     # survives
+    return True      # dies

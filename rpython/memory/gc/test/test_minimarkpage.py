@@ -260,7 +260,7 @@ class OkToFree(object):
         self.lastnum = 0.0
         self.seen = {}
 
-    def __call__(self, addr):
+    def __call__(self, addr, arg):
         if callable(self.answer):
             ok_to_free = self.answer(addr)
         else:
@@ -280,7 +280,7 @@ def test_mass_free_partial_remains():
     pagesize = hdrsize + 7*WORD
     ac = arena_collection_for_test(pagesize, "2", fill_with_objects=2)
     ok_to_free = OkToFree(ac, False)
-    ac.mass_free(ok_to_free)
+    ac.mass_free(ok_to_free, None)
     assert ok_to_free.seen == {hdrsize + 0*WORD: False,
                                hdrsize + 2*WORD: False}
     page = getpage(ac, 0)
@@ -295,7 +295,7 @@ def test_mass_free_emptied_page():
     pagesize = hdrsize + 7*WORD
     ac = arena_collection_for_test(pagesize, "2", fill_with_objects=2)
     ok_to_free = OkToFree(ac, True)
-    ac.mass_free(ok_to_free)
+    ac.mass_free(ok_to_free, None)
     assert ok_to_free.seen == {hdrsize + 0*WORD: True,
                                hdrsize + 2*WORD: True}
     pageaddr = pagenum(ac, 0)
@@ -307,7 +307,7 @@ def test_mass_free_full_remains_full():
     pagesize = hdrsize + 7*WORD
     ac = arena_collection_for_test(pagesize, "#", fill_with_objects=2)
     ok_to_free = OkToFree(ac, False)
-    ac.mass_free(ok_to_free)
+    ac.mass_free(ok_to_free, None)
     assert ok_to_free.seen == {hdrsize + 0*WORD: False,
                                hdrsize + 2*WORD: False,
                                hdrsize + 4*WORD: False}
@@ -323,7 +323,7 @@ def test_mass_free_full_is_partially_emptied():
     pagesize = hdrsize + 9*WORD
     ac = arena_collection_for_test(pagesize, "#", fill_with_objects=2)
     ok_to_free = OkToFree(ac, 0.5)
-    ac.mass_free(ok_to_free)
+    ac.mass_free(ok_to_free, None)
     assert ok_to_free.seen == {hdrsize + 0*WORD: False,
                                hdrsize + 2*WORD: True,
                                hdrsize + 4*WORD: False,
@@ -348,7 +348,7 @@ def test_mass_free_half_page_remains():
     assert page.nfree == 4
     #
     ok_to_free = OkToFree(ac, False)
-    ac.mass_free(ok_to_free)
+    ac.mass_free(ok_to_free, None)
     assert ok_to_free.seen == {hdrsize +  0*WORD: False,
                                hdrsize +  4*WORD: False,
                                hdrsize +  8*WORD: False,
@@ -376,7 +376,7 @@ def test_mass_free_half_page_becomes_more_free():
     assert page.nfree == 4
     #
     ok_to_free = OkToFree(ac, 0.5)
-    ac.mass_free(ok_to_free)
+    ac.mass_free(ok_to_free, None)
     assert ok_to_free.seen == {hdrsize +  0*WORD: False,
                                hdrsize +  4*WORD: True,
                                hdrsize +  8*WORD: False,
@@ -449,10 +449,10 @@ def test_random(incremental=False):
             live_objects_extra = {}
             fresh_extra = 0
             if not incremental:
-                ac.mass_free(ok_to_free)
+                ac.mass_free(ok_to_free, None)
             else:
                 ac.mass_free_prepare()
-                while not ac.mass_free_incremental(ok_to_free,
+                while not ac.mass_free_incremental(ok_to_free, None,
                                                    random.randrange(1, 3)):
                     print '[]'
                     prev = ac.total_memory_used
