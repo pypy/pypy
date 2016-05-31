@@ -285,10 +285,6 @@ class Pickler(object):
         if f:
             f(self, obj) # Call unbound method with explicit self
             return
-        elif 'builtin' in str(t):
-            # specifically cpyext builtin types
-            self.save_global(obj)
-            return
         # Check copy_reg.dispatch_table
         reduce = dispatch_table.get(t)
         if reduce:
