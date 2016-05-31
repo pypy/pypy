@@ -22,7 +22,7 @@ class Module(MixedModule):
     def startup(self, space):
         space.fromcache(State).startup(space)
         method = pypy.module.cpyext.typeobject.get_new_method_def(space)
-        w_obj = pypy.module.cpyext.methodobject.W_PyCFunctionObject(space, method, '')
+        w_obj = pypy.module.cpyext.methodobject.W_PyCFunctionObject(space, method, space.wrap(''))
         add_pickle_key(space, space.type(w_obj))
 
     def register_atexit(self, function):
