@@ -11,9 +11,6 @@ module Python
 
     stmt = FunctionDef(identifier name, arguments args,
                        stmt* body, expr* decorator_list, expr? returns)
-          | AsyncFunctionDef(identifier name, arguments args,
-                             stmt* body, expr* decorator_list, expr? returns)
-
           | ClassDef(identifier name,
              expr* bases,
              keyword* keywords,
@@ -27,11 +24,9 @@ module Python
 
           -- use 'orelse' because else is a keyword in target languages
           | For(expr target, expr iter, stmt* body, stmt* orelse)
-          | AsyncFor(expr target, expr iter, stmt* body, stmt* orelse)
           | While(expr test, stmt* body, stmt* orelse)
           | If(expr test, stmt* body, stmt* orelse)
           | With(withitem* items, stmt* body)
-          | AsyncWith(withitem* items, stmt* body)
 
           | Raise(expr? exc, expr? cause)
           | Try(stmt* body, excepthandler* handlers, stmt* orelse, stmt* finalbody)
@@ -62,7 +57,6 @@ module Python
          | DictComp(expr key, expr value, comprehension* generators)
          | GeneratorExp(expr elt, comprehension* generators)
          -- the grammar constrains where yield expressions can occur
-         | Await(expr value)
          | Yield(expr? value)
          | YieldFrom(expr value)
          -- need sequences for compare to distinguish between
@@ -83,6 +77,9 @@ module Python
          | List(expr* elts, expr_context ctx)
          | Tuple(expr* elts, expr_context ctx)
 
+         -- PyPy modification
+         | Const(object value)
+
           -- col_offset is the byte offset in the utf8 string the parser uses
           attributes (int lineno, int col_offset)
 
@@ -94,8 +91,8 @@ module Python
 
     boolop = And | Or
 
-    operator = Add | Sub | Mult | MatMul | Div | Mod | Pow | LShift
-                 | RShift | BitOr | BitXor | BitAnd | FloorDiv
+    operator = Add | Sub | Mult | Div | Mod | Pow | LShift 
+                 | RShift | BitOr | BitXor | BitAnd | FloorDiv | MatMul
 
     unaryop = Invert | Not | UAdd | USub
 
