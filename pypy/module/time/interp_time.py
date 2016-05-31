@@ -150,6 +150,7 @@ class CConfig:
     clock_t = platform.SimpleType("clock_t", rffi.ULONG)
     has_gettimeofday = platform.Has('gettimeofday')
     has_clock_gettime = platform.Has('clock_gettime')
+    has_ftime = platform.Has('ftime')
     CLOCK_PROF = platform.DefinedConstantInteger('CLOCK_PROF')
 
 CLOCK_CONSTANTS = ['CLOCK_HIGHRES', 'CLOCK_MONOTONIC', 'CLOCK_MONOTONIC_RAW',
@@ -178,13 +179,6 @@ if _POSIX:
 elif _WIN:
     calling_conv = 'win'
     CConfig.tm = platform.Struct("struct tm", [("tm_sec", rffi.INT),
-        ("tm_min", rffi.INT), ("tm_hour", rffi.INT), ("tm_mday", rffi.INT),
-        ("tm_mon", rffi.INT), ("tm_year", rffi.INT), ("tm_wday", rffi.INT),
-        ("tm_yday", rffi.INT), ("tm_isdst", rffi.INT)])
-
-    # TODO: Figure out how to implement this...
-    CConfig.ULARGE_INTEGER = platform.Struct("struct ULARGE_INTEGER", [
-        ("tm_sec", rffi.INT),
         ("tm_min", rffi.INT), ("tm_hour", rffi.INT), ("tm_mday", rffi.INT),
         ("tm_mon", rffi.INT), ("tm_year", rffi.INT), ("tm_wday", rffi.INT),
         ("tm_yday", rffi.INT), ("tm_isdst", rffi.INT)])
@@ -224,61 +218,11 @@ if _POSIX:
 
 CLOCKS_PER_SEC = cConfig.CLOCKS_PER_SEC
 HAS_CLOCK_GETTIME = cConfig.has_clock_gettime
+HAS_FTIME = cConfig.has_ftime
 clock_t = cConfig.clock_t
 tm = cConfig.tm
 glob_buf = lltype.malloc(tm, flavor='raw', zero=True, immortal=True)
 
-if cConfig.has_gettimeofday:
-    c_gettimeofday = external('gettimeofday',
-                              [cConfig.timeval, rffi.VOIDP], rffi.INT)
-    if _WIN:
-        GetSystemTimeAsFileTime = external('GetSystemTimeAsFileTime',
-                                          [rwin32.FILETIME],
-                                           lltype.VOID)
-        LPDWORD = rwin32.LPDWORD
-        _GetSystemTimeAdjustment = rwin32.winexternal(
-                                                'GetSystemTimeAdjustment',
-                                                [LPDWORD, LPDWORD, rwin32.LPBOOL], 
-                                                rffi.INT)
-        def gettimeofday(space, w_info=None):
-            with lltype.scoped_alloc(rwin32.FILETIME) as system_time, \
-                 lltype.scoped_alloc(CConfig.ULARGE_INTEGER) as large, \
-                 lltype.scoped_alloc(rffi.ULONGLONG) as microseconds:
-
-                GetSystemTimeAsFileTime(system_time)
-                large.u.LowPart = system_time.dwLowDateTime
-                large.u.HighPart = system_time.dwHighDateTime
-                microseconds = system_time.Quadpart / (10 - 11644473600000000)
-                tp.tv_sec = microseconds / 1000000
-                tp.tv_usec = microseconds % 1000000
-                if w_info:
-                    with lltype.scoped_alloc(rwin32.DWORD) as time_adjustment, \
-                         lltype.scoped_alloc(rwin32.DWORD) as time_increment, \
-                         lltype.scoped_alloc(rwin32.BOOL) as is_time_adjustmentDisabled:
-                        w_info.implementation = "GetSystemTimeAsFileTime()"
-                        w_info.monotonic = space.w_False
-                        _GetSystemTimeAdjustment(time_adjustment, time_increment,
-                                                is_time_adjustment_disabled)
-                        w_info.resolution = time_increment * 1e-7
-                        w_info.adjustable = space.w_True
-            # TODO: Find docs for ftime
-            return space.wrap(1)
-
-    else:
-        def gettimeofday(space, w_info=None):
-            with lltype.scoped_alloc(CConfig.timeval) as timeval:
-                ret = c_gettimeofday(timeval, rffi.NULL)
-                if ret != 0:
-                    raise exception_from_saved_errno(space, space.w_OSError)
-                
-                space.setattr(w_info, space.wrap("implementation"),
-                              space.wrap("gettimeofday()"))
-                space.setattr(w_info, space.wrap("resolution"), 1e-6)
-                space.setattr(w_info, space.wrap("monotonic"), space.w_False)
-                space.setattr(w_info, space.wrap("adjustable"), space.w_True)
-
-                seconds = float(timeval.tv_sec) + timeval.tv_usec * 1e-6
-            return space.wrap(seconds)
 
 TM_P = lltype.Ptr(tm)
 c_time = external('time', [rffi.TIME_TP], rffi.TIME_T)
@@ -287,6 +231,56 @@ c_gmtime = external('gmtime', [rffi.TIME_TP], TM_P,
 c_mktime = external('mktime', [TM_P], rffi.TIME_T)
 c_localtime = external('localtime', [rffi.TIME_TP], TM_P,
                        save_err=rffi.RFFI_SAVE_ERRNO)
+
+if _WIN:
+    GetSystemTimeAsFileTime = external('GetSystemTimeAsFileTime',
+                                      [rwin32.FILETIME],
+                                       rffi.VOIDP)
+    LPDWORD = rwin32.LPDWORD
+    _GetSystemTimeAdjustment = rwin32.winexternal(
+                                            'GetSystemTimeAdjustment',
+                                            [LPDWORD, LPDWORD, rwin32.LPBOOL], 
+                                            rffi.INT)
+    def gettimeofday(space, w_info=None):
+        with lltype.scoped_alloc(rwin32.FILETIME) as system_time:#, \
+             #lltype.scoped_alloc(rffi.ULONGLONG) as microseconds:
+
+            GetSystemTimeAsFileTime(system_time)
+            quad_part = (system_time.c_dwLowDateTime |
+                         system_time.c_dwHighDateTime << 32)
+            microseconds = quad_part / 10 - 11644473600000000
+            tv_sec = microseconds / 1000000
+            tv_usec = microseconds % 1000000
+            if w_info:
+                with lltype.scoped_alloc(rwin32.DWORD) as time_adjustment, \
+                     lltype.scoped_alloc(rwin32.DWORD) as time_increment, \
+                     lltype.scoped_alloc(rwin32.BOOL) as is_time_adjustment_disabled:
+                    w_info.implementation = "GetSystemTimeAsFileTime()"
+                    w_info.monotonic = space.w_False
+                    _GetSystemTimeAdjustment(time_adjustment, time_increment,
+                                             is_time_adjustment_disabled)
+                    w_info.resolution = time_increment * 1e-7
+                    w_info.adjustable = space.w_True
+                    # TODO: Check that the 'casting' is correct here
+                    return space.wrap(tv_sec + tv_usec * 1e-6)
+
+else:
+    c_gettimeofday = external('gettimeofday',
+                              [cConfig.timeval, rffi.VOIDP], rffi.INT)
+    def gettimeofday(space, w_info=None):
+        with lltype.scoped_alloc(Cconfig.timeval) as timeval:
+            ret = c_gettimeofday(timeval, rffi.NULL)
+            if ret == 0:
+                _setinfo(space, w_info, "gettimeofday()", 1e-6, False, True)
+                return space.wrap(timeval.tv_sec + timeval.usec * 1e-6)
+        #TODO: Figure out ftime
+        if HAS_FTIME:
+            pass
+        else:
+            if w_info:
+                _setinfo(space, w_info, "time()", 1.0, False, True)
+            return space.wrap(c_time(lltype.nullptr(rffi.TIME_TP.TO)))
+
 if HAS_CLOCK_GETTIME:
     from rpython.rlib.rtime import TIMESPEC, c_clock_gettime
     c_clock_settime = external('clock_settime',
@@ -587,16 +581,12 @@ def _checktm(space, t_ref):
     if not 0 <= rffi.getintfield(t_ref, 'c_tm_yday') <= 365:
         raise oefmt(space.w_ValueError, "day of year out of range")
 
-def time(space):
+def time(space, w_info=None):
     """time() -> floating point number
 
     Return the current time in seconds since the Epoch.
     Fractions of a second may be present if the system clock provides them."""
 
-    secs = pytime.time()
-    return space.wrap(secs)
-
-def get_time_time_clock_info(space, w_info):
     # Can't piggy back on time.time because time.time delegates to the 
     # host python's time.time (so we can't see the internals)
     if HAS_CLOCK_GETTIME and False:
@@ -828,15 +818,12 @@ def strftime(space, format, w_tup=None):
 
 
 if _WIN:
-    # untested so far
     _GetTickCount = rwin32.winexternal('GetTickCount', [], rwin32.DWORD)
     def monotonic(space, w_info=None):
         result = 0
         if HAS_GETTICKCOUNT64:
-            print('has count64'.encode('ascii'))
             result = _GetTickCount64() * 1e-3
         else:
-            print("nocount64")
             ticks = _GetTickCount()
             if ticks < time_state.last_ticks:
                 time_state.n_overflow += 1
@@ -851,11 +838,9 @@ if _WIN:
             else:
                 implementation = "GetTickCount()"
             resolution = 1e-7
-            print("creating a thing".encode("ascii"))
             with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as time_adjustment, \
                  lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as time_increment, \
                  lltype.scoped_alloc(rwin32.LPBOOL.TO, 1) as is_time_adjustment_disabled:
-                print("CREATED".encode("ascii"))
                 ok = _GetSystemTimeAdjustment(time_adjustment,
                                               time_increment,
                                               is_time_adjustment_disabled)
@@ -864,11 +849,11 @@ if _WIN:
                     raise wrap_windowserror(space,
                         rwin32.lastSavedWindowsError("GetSystemTimeAdjustment"))
                 resolution = resolution * time_increment[0]
-            print("out of with".encode("ascii"))
             _setinfo(space, w_info, implementation, resolution, True, False)
         return space.wrap(result)
 
 elif _MACOSX:
+    # Completely untested afaik
     c_mach_timebase_info = external('mach_timebase_info',
                                     [lltype.Ptr(cConfig.TIMEBASE_INFO)],
                                     lltype.Void)
@@ -903,6 +888,9 @@ else:
         else:
             clk_id = cConfig.CLOCK_MONOTONIC
             implementation = "clock_gettime(CLOCK_MONOTONIC)"
+        # Will the exception bubble up appropriately or do we
+        # need to add an explicit try/except block to reraise it?
+        # TODO: Ask on irc
         w_result = clock_gettime(space, clk_id)
         if w_info is not None:
             with lltype.scoped_alloc(TIMESPEC) as tsres:
@@ -1004,7 +992,7 @@ if _WIN:
         Return the CPU time or real time since the start of the process or since
         the first call to clock().  This has as much precision as the system
         records."""
-        return space.wrap(win_perf_counter(space, w_info=w_info))
+        return space.wrap(perf_counter(space, w_info=w_info))
 
 else:
     _clock = external('clock', [], clock_t)
