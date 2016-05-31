@@ -423,8 +423,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.load_const(self.space.wrap(cls.name.decode('utf-8')))
         # 5. generate the rest of the code for the call
         self._make_call(2,
-                        cls.bases, cls.keywords,
-                        cls.starargs, cls.kwargs)
+                        cls.bases, cls.keywords)
         # 6. apply decorators
         if cls.decorator_list:
             for i in range(len(cls.decorator_list)):
@@ -1101,12 +1100,45 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         keyword.value.walkabout(self)
 
     def _make_call(self, n, # args already pushed
-                   args, keywords, starargs, kwargs):
+                   args, keywords):
+        #, starargs, kwargs
         if args is not None:
             arg = len(args) + n
         else:
             arg = n
         call_type = 0
+        # the number of tuples and dictionaries on the stack
+        nsubargs = 0
+        nsubkwargs = 0
+        nkw = 0
+        nseen = 0 # the number of positional arguments on the stack
+        for elt in args:
+            if isinstance(elt.kind, ast.Starred):
+                # A star-arg. If we've seen positional arguments,
+                # pack the positional arguments into a
+                # tuple.
+                if nseen != 0:
+                    ops.BUILD_TUPLE(nseen)
+                    nseen = 0
+                    nsubargs += 1
+                self.visit(elt.value) # probably wrong, elt->v.Starred.value
+                nsubargs += 1
+            elif nsubargs != 0:
+                # We've seen star-args already, so we
+                # count towards items-to-pack-into-tuple.
+                self.visit(elt)
+                nseen += 1
+            else:
+                # Positional arguments before star-arguments
+                # are left on the stack.
+                self.visit(elt)
+                n += 1
+        if nseen != 0:
+            # Pack up any trailing positional arguments.
+            ops.BUILD_TUPLE(nseen)
+            nsubargs += 1
+        #TODO
+        #------------old
         self.visit_sequence(args)
         if keywords:
             self.visit_sequence(keywords)
@@ -1134,8 +1166,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             return
         call.func.walkabout(self)
         self._make_call(0,
-                        call.args, call.keywords,
-                        call.starargs, call.kwargs)
+                        call.args, call.keywords)
     
     def _call_has_no_star_args(self, call):
         return not call.starargs and not call.kwargs
