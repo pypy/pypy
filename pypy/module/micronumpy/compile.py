@@ -124,6 +124,10 @@ class FakeSpace(ObjSpace):
             return w_obj.getdictvalue(self, w_attr)
         return None
 
+    def issubtype_w(self, w_sub, w_type):
+        is_root(w_type)
+        return NonConstant(True)
+
     def isinstance_w(self, w_obj, w_tp):
         try:
             return w_obj.tp == w_tp
@@ -410,6 +414,10 @@ class FakeSpace(ObjSpace):
 
     def warn(self, w_msg, w_warn_type):
         pass
+
+def is_root(w_obj):
+    assert isinstance(w_obj, W_Root)
+is_root.expecting = W_Root
 
 class FloatObject(W_Root):
     tp = FakeSpace.w_float

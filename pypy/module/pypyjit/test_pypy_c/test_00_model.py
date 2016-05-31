@@ -262,7 +262,7 @@ class TestOpMatcher_(object):
             [i0]
             i1 = int_add(i0, 1)
             i2 = int_sub(i1, 10)
-            i3 = int_floordiv(i2, 100)
+            i3 = int_xor(i2, 100)
             i4 = int_mul(i1, 1000)
             jump(i4)
         """
@@ -298,7 +298,7 @@ class TestOpMatcher_(object):
             [i0]
             i1 = int_add(i0, 1)
             i2 = int_sub(i1, 10)
-            i3 = int_floordiv(i2, 100)
+            i3 = int_xor(i2, 100)
             i4 = int_mul(i1, 1000)
             jump(i4)
         """

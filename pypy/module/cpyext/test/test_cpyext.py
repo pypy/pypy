@@ -136,7 +136,7 @@ class LeakCheckingTest(object):
     """Base class for all cpyext tests."""
     spaceconfig = dict(usemodules=['cpyext', 'thread', '_rawffi', 'array',
                                    'itertools', 'time', 'binascii',
-                                   'micronumpy',
+                                   'micronumpy', 'mmap'
                                    ])
 
     enable_leak_checking = True

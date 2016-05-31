@@ -443,7 +443,7 @@ class __extend__(W_NDimArray):
                         'array does not have imaginary part to set')
         self.implementation.set_imag(space, self, w_value)
 
-    def reshape(self, space, w_shape, order):
+    def reshape(self, space, w_shape, order=NPY.ANYORDER):
         new_shape = get_shape_from_iterable(space, self.get_size(), w_shape)
         new_impl = self.implementation.reshape(self, new_shape, order)
         if new_impl is not None:
@@ -977,8 +977,7 @@ class __extend__(W_NDimArray):
     def descr_view(self, space, w_dtype=None, w_type=None):
         if not w_type and w_dtype:
             try:
-                if space.is_true(space.issubtype(
-                        w_dtype, space.gettypefor(W_NDimArray))):
+                if space.issubtype_w(w_dtype, space.gettypefor(W_NDimArray)):
                     w_type = w_dtype
                     w_dtype = None
             except OperationError as e:

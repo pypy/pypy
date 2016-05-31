@@ -89,3 +89,40 @@ It is a more flexible way to make RPython finalizers.
 Use the new rgc.FinalizerQueue mechanism to clean up the handling of
 ``__del__`` methods.  Fixes notably issue #2287.  (All RPython
 subclasses of W_Root need to use FinalizerQueue now.)
+
+.. branch: ufunc-outer
+
+Implement ufunc.outer on numpypy
+
+.. branch: verbose-imports
+
+Support ``pypy -v``: verbose imports.  It does not log as much as
+cpython, but it should be enough to help when debugging package layout
+problems.
+
+.. branch: cpyext-macros-cast
+
+Fix some warnings when compiling CPython C extension modules
+
+.. branch: syntax_fix
+
+.. branch: remove-raisingops
+
+Remove most of the _ovf, _zer and _val operations from RPython.  Kills
+quite some code internally, and allows the JIT to do better
+optimizations: for example, app-level code like ``x / 2`` or ``x % 2``
+can now be turned into ``x >> 1`` or ``x & 1``, even if x is possibly
+negative.
+
+.. branch: cpyext-old-buffers
+
+Generalize cpyext old-style buffers to more than just str/buffer, add support for mmap
+
+.. branch: numpy-includes
+
+Move _numpypy headers into a directory so they are not picked up by upstream numpy, scipy
+This allows building upstream numpy and scipy in pypy via cpyext
+
+.. branch: traceviewer-common-merge-point-formats
+
+Teach RPython JIT's off-line traceviewer the most common ``debug_merge_point`` formats.

@@ -1,3 +1,4 @@
+from pypy.interpreter import gateway
 from rpython.rtyper.lltypesystem import rffi
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.test.test_api import BaseApiTest
@@ -385,6 +386,14 @@ class TestTypes(BaseApiTest):
         api.Py_DecRef(ref)
 
 class AppTestSlots(AppTestCpythonExtensionBase):
+    def setup_class(cls):
+        AppTestCpythonExtensionBase.setup_class.im_func(cls)
+        def _check_type_object(w_X):
+            assert w_X.is_cpytype()
+            assert not w_X.is_heaptype()
+        cls.w__check_type_object = cls.space.wrap(
+            gateway.interp2app(_check_type_object))
+
     def test_some_slots(self):
         module = self.import_extension('foo', [
             ("test_type", "METH_O",
@@ -729,7 +738,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 int intval;
                 PyObject *name;
 
-                if (!PyArg_ParseTuple(args, "l", &intval))
+                if (!PyArg_ParseTuple(args, "i", &intval))
                     return NULL;
 
                 IntLike_Type.tp_flags |= Py_TPFLAGS_DEFAULT;
@@ -1016,3 +1025,56 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 break
             self.debug_collect()
         assert module.getCounter() == 7070
+
+    def test_tp_call_reverse(self):
+        module = self.import_extension('foo', [
+           ("new_obj", "METH_NOARGS",
+            '''
+                PyObject *obj;
+                Foo_Type.tp_flags = Py_TPFLAGS_DEFAULT;
+                Foo_Type.tp_call = &my_tp_call;
+                if (PyType_Ready(&Foo_Type) < 0) return NULL;
+                obj = PyObject_New(PyObject, &Foo_Type);
+                return obj;
+            '''
+            )],
+            '''
+            static PyObject *
+            my_tp_call(PyObject *self, PyObject *args, PyObject *kwds)
+            {
+                return PyInt_FromLong(42);
+            }
+            static PyTypeObject Foo_Type = {
+                PyVarObject_HEAD_INIT(NULL, 0)
+                "foo.foo",
+            };
+            ''')
+        x = module.new_obj()
+        assert x() == 42
+        assert x(4, bar=5) == 42
+
+    def test_custom_metaclass(self):
+        module = self.import_extension('foo', [
+           ("getMetaClass", "METH_NOARGS",
+            '''
+                PyObject *obj;
+                FooType_Type.tp_flags = Py_TPFLAGS_DEFAULT;
+                FooType_Type.tp_base = &PyType_Type;
+                if (PyType_Ready(&FooType_Type) < 0) return NULL;
+                Py_INCREF(&FooType_Type);
+                return (PyObject *)&FooType_Type;
+            '''
+            )],
+            '''
+            static PyTypeObject FooType_Type = {
+                PyVarObject_HEAD_INIT(NULL, 0)
+                "foo.Type",
+            };
+            ''')
+        FooType = module.getMetaClass()
+        if not self.runappdirect:
+            self._check_type_object(FooType)
+        class X(object):
+            __metaclass__ = FooType
+        print repr(X)
+        X()

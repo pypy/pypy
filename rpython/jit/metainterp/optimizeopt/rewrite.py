@@ -168,13 +168,13 @@ class OptRewrite(Optimization):
                         break
             self.emit_operation(op)
 
-    def optimize_UINT_FLOORDIV(self, op):
-        b2 = self.getintbound(op.getarg(1))
-
+    def _optimize_CALL_INT_UDIV(self, op):
+        b2 = self.getintbound(op.getarg(2))
         if b2.is_constant() and b2.getint() == 1:
-            self.make_equal_to(op, op.getarg(0))
-        else:
-            self.emit_operation(op)
+            self.make_equal_to(op, op.getarg(1))
+            self.last_emitted_operation = REMOVED
+            return True
+        return False
 
     def optimize_INT_LSHIFT(self, op):
         b1 = self.getintbound(op.getarg(0))
@@ -663,6 +663,19 @@ class OptRewrite(Optimization):
             self.make_constant(op, result)
             self.last_emitted_operation = REMOVED
             return
+        # dispatch based on 'oopspecindex' to a method that handles
+        # specifically the given oopspec call.
+        effectinfo = op.getdescr().get_extra_info()
+        oopspecindex = effectinfo.oopspecindex
+        if oopspecindex == EffectInfo.OS_INT_UDIV:
+            if self._optimize_CALL_INT_UDIV(op):
+                return
+        elif oopspecindex == EffectInfo.OS_INT_PY_DIV:
+            if self._optimize_CALL_INT_PY_DIV(op):
+                return
+        elif oopspecindex == EffectInfo.OS_INT_PY_MOD:
+            if self._optimize_CALL_INT_PY_MOD(op):
+                return
         self.emit_operation(op)
     optimize_CALL_PURE_R = optimize_CALL_PURE_I
     optimize_CALL_PURE_F = optimize_CALL_PURE_I
@@ -678,24 +691,83 @@ class OptRewrite(Optimization):
     def optimize_GUARD_FUTURE_CONDITION(self, op):
         self.optimizer.notice_guard_future_condition(op)
 
-    def optimize_INT_FLOORDIV(self, op):
-        arg0 = op.getarg(0)
-        b1 = self.getintbound(arg0)
+    def _optimize_CALL_INT_PY_DIV(self, op):
         arg1 = op.getarg(1)
-        b2 = self.getintbound(arg1)
+        b1 = self.getintbound(arg1)
+        arg2 = op.getarg(2)
+        b2 = self.getintbound(arg2)
 
-        if b2.is_constant() and b2.getint() == 1:
-            self.make_equal_to(op, arg0)
-            return
-        elif b1.is_constant() and b1.getint() == 0:
+        if b1.is_constant() and b1.getint() == 0:
             self.make_constant_int(op, 0)
-            return
-        if b1.known_ge(IntBound(0, 0)) and b2.is_constant():
-            val = b2.getint()
-            if val & (val - 1) == 0 and val > 0: # val == 2**shift
-                op = self.replace_op_with(op, rop.INT_RSHIFT,
-                            args = [op.getarg(0), ConstInt(highest_bit(val))])
-        self.emit_operation(op)
+            self.last_emitted_operation = REMOVED
+            return True
+        # This is Python's integer division: 'x // (2**shift)' can always
+        # be replaced with 'x >> shift', even for negative values of x
+        if not b2.is_constant():
+            return False
+        val = b2.getint()
+        if val <= 0:
+            return False
+        if val == 1:
+            self.make_equal_to(op, arg1)
+            self.last_emitted_operation = REMOVED
+            return True
+        elif val & (val - 1) == 0:   # val == 2**shift
+            from rpython.jit.metainterp.history import DONT_CHANGE
+            op = self.replace_op_with(op, rop.INT_RSHIFT,
+                        args=[arg1, ConstInt(highest_bit(val))],
+                        descr=DONT_CHANGE)  # <- xxx rename? means "kill"
+            self.optimizer.send_extra_operation(op)
+            return True
+        else:
+            from rpython.jit.metainterp.optimizeopt import intdiv
+            known_nonneg = b1.known_ge(IntBound(0, 0))
+            operations = intdiv.division_operations(arg1, val, known_nonneg)
+            newop = None
+            for newop in operations:
+                self.optimizer.send_extra_operation(newop)
+            self.make_equal_to(op, newop)
+            return True
+
+    def _optimize_CALL_INT_PY_MOD(self, op):
+        arg1 = op.getarg(1)
+        b1 = self.getintbound(arg1)
+        arg2 = op.getarg(2)
+        b2 = self.getintbound(arg2)
+
+        if b1.is_constant() and b1.getint() == 0:
+            self.make_constant_int(op, 0)
+            self.last_emitted_operation = REMOVED
+            return True
+        # This is Python's integer division: 'x // (2**shift)' can always
+        # be replaced with 'x >> shift', even for negative values of x
+        if not b2.is_constant():
+            return False
+        val = b2.getint()
+        if val <= 0:
+            return False
+        if val == 1:
+            self.make_constant_int(op, 0)
+            self.last_emitted_operation = REMOVED
+            return True
+        elif val & (val - 1) == 0:   # val == 2**shift
+            from rpython.jit.metainterp.history import DONT_CHANGE
+            # x % power-of-two ==> x & (power-of-two - 1)
+            # with Python's modulo, this is valid even if 'x' is negative.
+            op = self.replace_op_with(op, rop.INT_AND,
+                        args=[arg1, ConstInt(val - 1)],
+                        descr=DONT_CHANGE)  # <- xxx rename? means "kill"
+            self.optimizer.send_extra_operation(op)
+            return True
+        else:
+            from rpython.jit.metainterp.optimizeopt import intdiv
+            known_nonneg = b1.known_ge(IntBound(0, 0))
+            operations = intdiv.modulo_operations(arg1, val, known_nonneg)
+            newop = None
+            for newop in operations:
+                self.optimizer.send_extra_operation(newop)
+            self.make_equal_to(op, newop)
+            return True
 
     def optimize_CAST_PTR_TO_INT(self, op):
         self.optimizer.pure_reverse(op)

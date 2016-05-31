@@ -533,11 +533,15 @@ longlongmax = r_longlong(LONGLONG_TEST - 1)
 
 if r_longlong is not r_int:
     r_int64 = r_longlong
+    r_uint64 = r_ulonglong
+    r_int32 = int # XXX: what about r_int
+    r_uint32 = r_uint
 else:
-    r_int64 = int
+    r_int64 = int # XXX: what about r_int
+    r_uint64 = r_uint # is r_ulonglong
+    r_int32 = build_int('r_int32', True, 32)     # also needed for rposix_stat.time_t_to_FILE_TIME in the 64 bit case
+    r_uint32 = build_int('r_uint32', False, 32)
 
-# needed for rposix_stat.time_t_to_FILE_TIME in the 64 bit case
-r_uint32 = build_int('r_uint32', False, 32)
 
 SHRT_MIN = -2**(_get_bitsize('h') - 1)
 SHRT_MAX = 2**(_get_bitsize('h') - 1) - 1

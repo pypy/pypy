@@ -76,6 +76,11 @@ crashing_demo_script = getscript("""
     print 'Goodbye2'   # should not be reached
     """)
 
+script_with_future = getscript("""
+    from __future__ import division
+    from __future__ import print_function
+    """)
+
 
 class TestParseCommandLine:
     def check_options(self, options, sys_argv, **expected):
@@ -444,6 +449,31 @@ class TestInteraction:
             assert index == 1      # no traceback
         finally:
             os.environ['PYTHONSTARTUP'] = old
+
+    def test_future_in_executed_script(self):
+        child = self.spawn(['-i', script_with_future])
+        child.expect('>>> ')
+        child.sendline('x=1; print(x/2, 3/4)')
+        child.expect('0.5 0.75')
+
+    def test_future_in_python_startup(self, monkeypatch):
+        monkeypatch.setenv('PYTHONSTARTUP', script_with_future)
+        child = self.spawn([])
+        child.expect('>>> ')
+        child.sendline('x=1; print(x/2, 3/4)')
+        child.expect('0.5 0.75')
+
+    def test_future_in_cmd(self):
+        child = self.spawn(['-i', '-c', 'from __future__ import division'])
+        child.expect('>>> ')
+        child.sendline('x=1; x/2; 3/4')
+        child.expect('0.5')
+        child.expect('0.75')
+
+    def test_cmd_co_name(self):
+        child = self.spawn(['-c',
+                    'import sys; print sys._getframe(0).f_code.co_name'])
+        child.expect('<module>')
 
     def test_ignore_python_inspect(self):
         os.environ['PYTHONINSPECT_'] = '1'

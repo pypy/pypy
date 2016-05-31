@@ -193,32 +193,6 @@ class TestRunningAssembler(object):
         self.a.gen_func_epilog()
         assert run_asm(self.a) == 61
 
-    def test_DIV(self):
-        self.a.gen_func_prolog()
-        self.a.mc.MOV_ri(r.r0.value, 123)
-        self.a.mc.MOV_ri(r.r1.value, 2)
-        self.a.mc.DIV()
-        self.a.gen_func_epilog()
-        assert run_asm(self.a) == 61
-
-    def test_DIV2(self):
-        self.a.gen_func_prolog()
-        self.a.mc.gen_load_int(r.r0.value, -110)
-        self.a.mc.gen_load_int(r.r1.value, 3)
-        self.a.mc.DIV()
-        self.a.gen_func_epilog()
-        assert run_asm(self.a) == -36
-
-    def test_DIV3(self):
-        self.a.gen_func_prolog()
-        self.a.mc.gen_load_int(r.r8.value, 110)
-        self.a.mc.gen_load_int(r.r9.value, -3)
-        self.a.mc.MOV_rr(r.r0.value, r.r8.value)
-        self.a.mc.MOV_rr(r.r1.value, r.r9.value)
-        self.a.mc.DIV()
-        self.a.gen_func_epilog()
-        assert run_asm(self.a) == -36
-
     def test_bl_with_conditional_exec(self):
         functype = lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Signed))
         call_addr = rffi.cast(lltype.Signed, llhelper(functype, callme))

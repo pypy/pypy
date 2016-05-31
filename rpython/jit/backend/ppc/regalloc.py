@@ -432,15 +432,13 @@ class Regalloc(BaseRegalloc):
     prepare_int_mul = helper.prepare_int_add_or_mul
     prepare_nursery_ptr_increment = prepare_int_add
 
-    prepare_int_floordiv = helper.prepare_binary_op
-    prepare_int_mod = helper.prepare_binary_op
     prepare_int_and = helper.prepare_binary_op
     prepare_int_or = helper.prepare_binary_op
     prepare_int_xor = helper.prepare_binary_op
     prepare_int_lshift = helper.prepare_binary_op
     prepare_int_rshift = helper.prepare_binary_op
     prepare_uint_rshift = helper.prepare_binary_op
-    prepare_uint_floordiv = helper.prepare_binary_op
+    prepare_uint_mul_high = helper.prepare_binary_op
 
     prepare_int_add_ovf = helper.prepare_binary_op
     prepare_int_sub_ovf = helper.prepare_binary_op
@@ -605,6 +603,8 @@ class Regalloc(BaseRegalloc):
     def prepare_guard_value(self, op):
         l0 = self.ensure_reg(op.getarg(0))
         l1 = self.ensure_reg_or_16bit_imm(op.getarg(1))
+        op.getdescr().make_a_counter_per_value(op,
+            self.cpu.all_reg_indexes[l0.value])
         arglocs = self._prepare_guard(op, [l0, l1])
         return arglocs
 

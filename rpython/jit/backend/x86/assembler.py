@@ -1289,6 +1289,9 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
     genop_float_mul = _binaryop('MULSD')
     genop_float_truediv = _binaryop('DIVSD')
 
+    def genop_uint_mul_high(self, op, arglocs, result_loc):
+        self.mc.MUL(arglocs[0])
+
     def genop_int_and(self, op, arglocs, result_loc):
         arg1 = arglocs[1]
         if IS_X86_64 and (isinstance(arg1, ImmedLoc) and
@@ -1443,20 +1446,6 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         self.mc.TEST(arglocs[0], arglocs[0])
         self.mov(imm0, resloc)
         self.mc.CMOVNS(resloc, arglocs[0])
-
-    def genop_int_mod(self, op, arglocs, resloc):
-        if IS_X86_32:
-            self.mc.CDQ()
-        elif IS_X86_64:
-            self.mc.CQO()
-
-        self.mc.IDIV_r(ecx.value)
-
-    genop_int_floordiv = genop_int_mod
-
-    def genop_uint_floordiv(self, op, arglocs, resloc):
-        self.mc.XOR_rr(edx.value, edx.value)
-        self.mc.DIV_r(ecx.value)
 
     genop_llong_add = _binaryop("PADDQ")
     genop_llong_sub = _binaryop("PSUBQ")

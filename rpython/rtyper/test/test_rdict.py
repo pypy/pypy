@@ -1231,7 +1231,7 @@ class MappingSM(GenericStateMachine):
             self.st_keys = ann2strategy(self.space.s_key)
             self.st_values = ann2strategy(self.space.s_value)
             return
-        with signal_timeout(1):  # catches infinite loops
+        with signal_timeout(10):  # catches infinite loops
             action.execute(self.space)
 
     def teardown(self):

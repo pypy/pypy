@@ -359,7 +359,7 @@ class DescrOperation(object):
             w_right_src, w_right_impl = space.lookup_in_type_where(w_typ2, '__rpow__')
             # sse binop_impl
             if (w_left_src is not w_right_src
-                and space.is_true(space.issubtype(w_typ2, w_typ1))):
+                and space.issubtype_w(w_typ2, w_typ1)):
                 if (w_left_src and w_right_src and
                     not space.abstract_issubclass_w(w_left_src, w_right_src) and
                     not space.abstract_issubclass_w(w_typ1, w_right_src)):
@@ -475,7 +475,7 @@ class DescrOperation(object):
         else:
             w_right_src, w_right_impl = space.lookup_in_type_where(w_typ2, '__coerce__')
             if (w_left_src is not w_right_src
-                and space.is_true(space.issubtype(w_typ2, w_typ1))):
+                and space.issubtype_w(w_typ2, w_typ1)):
                 w_obj1, w_obj2 = w_obj2, w_obj1
                 w_left_impl, w_right_impl = w_right_impl, w_left_impl
 
@@ -495,8 +495,11 @@ class DescrOperation(object):
                         "coercion should return None or 2-tuple")
         return w_res
 
-    def issubtype(space, w_sub, w_type):
+    def issubtype_w(space, w_sub, w_type):
         return space._type_issubtype(w_sub, w_type)
+
+    def issubtype(space, w_sub, w_type):
+        return space.wrap(space._type_issubtype(w_sub, w_type))
 
     @specialize.arg_or_var(2)
     def isinstance_w(space, w_inst, w_type):
@@ -553,7 +556,7 @@ def _cmp(space, w_obj1, w_obj2, symbol):
     else:
         w_right_src, w_right_impl = space.lookup_in_type_where(w_typ2, '__cmp__')
         if (w_left_src is not w_right_src
-            and space.is_true(space.issubtype(w_typ2, w_typ1))):
+            and space.issubtype_w(w_typ2, w_typ1)):
             w_obj1, w_obj2 = w_obj2, w_obj1
             w_left_impl, w_right_impl = w_right_impl, w_left_impl
             do_neg1, do_neg2 = do_neg2, do_neg1
@@ -690,7 +693,7 @@ def _make_binop_impl(symbol, specialnames):
                 if ((seq_bug_compat and w_typ1.flag_sequence_bug_compat
                                     and not w_typ2.flag_sequence_bug_compat)
                         # the non-bug-compat part is the following check:
-                        or space.is_true(space.issubtype(w_typ2, w_typ1))):
+                        or space.issubtype_w(w_typ2, w_typ1)):
                     if (not space.abstract_issubclass_w(w_left_src, w_right_src) and
                         not space.abstract_issubclass_w(w_typ1, w_right_src)):
                         w_obj1, w_obj2 = w_obj2, w_obj1
@@ -729,7 +732,7 @@ def _make_comparison_impl(symbol, specialnames):
                 # if the type is the same, *or* if both are old-style classes,
                 # then don't reverse: try left first, right next.
                 pass
-            elif space.is_true(space.issubtype(w_typ2, w_typ1)):
+            elif space.issubtype_w(w_typ2, w_typ1):
                 # for new-style classes, if typ2 is a subclass of typ1.
                 w_obj1, w_obj2 = w_obj2, w_obj1
                 w_left_impl, w_right_impl = w_right_impl, w_left_impl
