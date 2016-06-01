@@ -213,6 +213,8 @@ def compute_restype(self_type, other_type):
         return self_type
     if self_type in (bool, int, long):
         return other_type
+    if self_type is float or other_type is float:
+        return float
     if self_type.SIGNED == other_type.SIGNED:
         return build_int(None, self_type.SIGNED, max(self_type.BITS, other_type.BITS))
     raise AssertionError("Merging these types (%s, %s) is not supported" % (self_type, other_type))
@@ -297,6 +299,7 @@ class base_int(long):
     def _widen(self, other, value):
         """
         if one argument is int or long, the other type wins.
+        if one argument is float, the result is float.
         otherwise, produce the largest class to hold the result.
         """
         self_type = type(self)
