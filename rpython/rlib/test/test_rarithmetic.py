@@ -18,11 +18,11 @@ while i == l and type(i) is int:
 
 class Test_r_int:
     def test__add__(self):
-        self.binary_test(lambda x, y: x + y)
+        self.binary_test(lambda x, y: x + y, includes_floats=True)
     def test__sub__(self):
-        self.binary_test(lambda x, y: x - y)
+        self.binary_test(lambda x, y: x - y, includes_floats=True)
     def test__mul__(self):
-        self.binary_test(lambda x, y: x * y)
+        self.binary_test(lambda x, y: x * y, includes_floats=True)
         x = 3; y = [2]
         assert x*y == r_int(x)*y
         assert y*x == y*r_int(x)
@@ -58,12 +58,15 @@ class Test_r_int:
             cmp = f(r_int(arg))
             assert res == cmp
 
-    def binary_test(self, f, rargs = None):
+    def binary_test(self, f, rargs=None, includes_floats=False):
         if not rargs:
             rargs = (-10, -1, 3, 55)
+        types_list = [(int, r_int), (r_int, int), (r_int, r_int)]
+        if includes_floats:
+            types_list += [(float, r_int), (r_int, float)]
         for larg in (-10, -1, 0, 3, 1234):
             for rarg in rargs:
-                for types in ((int, r_int), (r_int, int), (r_int, r_int)):
+                for types in types_list:
                     res = f(larg, rarg)
                     left, right = types
                     cmp = f(left(larg), right(rarg))
