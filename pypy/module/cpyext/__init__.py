@@ -1,4 +1,5 @@
 from pypy.interpreter.mixedmodule import MixedModule
+from pypy.interpreter import gateway
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext import api
 
@@ -14,6 +15,11 @@ class Module(MixedModule):
 
     def startup(self, space):
         space.fromcache(State).startup(space)
+        w_obj = space.gettypefor(pypy.module.cpyext.methodobject.W_PyCFunctionObject)
+        space.appexec([w_obj], """(methodtype):
+            from pickle import Pickler 
+            Pickler.dispatch[methodtype] = Pickler.save_global
+        """)
 
     def register_atexit(self, function):
         if len(self.atexit_funcs) >= 32:
@@ -65,6 +71,7 @@ import pypy.module.cpyext.codecs
 import pypy.module.cpyext.pyfile
 import pypy.module.cpyext.pystrtod
 import pypy.module.cpyext.pytraceback
+import pypy.module.cpyext.methodobject
 
 # now that all rffi_platform.Struct types are registered, configure them
 api.configure_types()
