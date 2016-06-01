@@ -22,7 +22,7 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
                      result = 1;
                  }
                  #ifdef PYPY_VERSION
-                    expected_size = sizeof(void*)*7;
+                    expected_size = sizeof(void*)*3;
                  #elif defined Py_DEBUG
                     expected_size = 64;
                  #else
@@ -62,6 +62,8 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
                     return NULL;
                  Py_DECREF(t);
                  c = PyByteArray_AsString(s);
+                 if (c == NULL)
+                    return NULL;
                  c[0] = 'a';
                  c[1] = 'b';
                  c[2] = 0;
@@ -78,7 +80,7 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
             ("mutable", "METH_NOARGS",
              """
                 PyObject *base;
-                PyByteArrayObject *obj;
+                PyObject *obj;
                 char * p_str;
                 base = PyByteArray_FromStringAndSize("test", 10);
                 if (PyByteArray_GET_SIZE(base) != 10)
@@ -118,6 +120,22 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
                        PyTuple_GetItem(args, 0)), 4);
              '''
             ),
+            ("str_from_bytearray", "METH_VARARGS",
+             '''
+                char * buf;
+                int n;
+                PyObject * obj;
+                obj = PyTuple_GetItem(args, 0);
+                buf = PyByteArray_AsString(obj);
+                if (buf == NULL)
+                {
+                    PyErr_SetString(PyExc_ValueError, "non-null bytearray object expected");
+                    return NULL;
+                }
+                n = PyByteArray_Size(obj);
+                return PyString_FromStringAndSize(buf, n);
+             '''
+            ),
             ("concat", "METH_VARARGS",
              """
                 PyObject * ret, *right, *left;
@@ -136,6 +154,8 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
                 return ret;
              """)])
         assert module.bytearray_from_string("huheduwe") == "huhe"
+        assert module.str_from_bytearray(bytearray('abc')) == 'abc'
+        raises(ValueError, module.str_from_bytearray, 4.0)
         ret = module.concat('abc', 'def')
         assert ret == 'abcdef'
         assert not isinstance(ret, str)

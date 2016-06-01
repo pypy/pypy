@@ -1,5 +1,6 @@
 from pypy.interpreter.error import OperationError, oefmt
 from rpython.rtyper.lltypesystem import rffi, lltype
+from pypy.objspace.std.bytearrayobject import new_bytearray
 from pypy.module.cpyext.api import (
     cpython_api, cpython_struct, bootstrap_function, build_type_checkers,
     PyVarObjectFields, Py_ssize_t, CONST_STRING, CANNOT_FAIL)
@@ -25,18 +26,18 @@ from pypy.module.cpyext.pyobject import (
 
 PyByteArrayObjectStruct = lltype.ForwardReference()
 PyByteArrayObject = lltype.Ptr(PyByteArrayObjectStruct)
-PyByteArrayObjectFields = PyVarObjectFields + \
-    (("ob_exports", rffi.INT), ("ob_alloc", rffi.LONG), ("ob_bytes", rffi.CCHARP))
+PyByteArrayObjectFields = PyVarObjectFields 
+#    (("ob_exports", rffi.INT), ("ob_alloc", rffi.LONG), ("ob_bytes", rffi.CCHARP))
 cpython_struct("PyByteArrayObject", PyByteArrayObjectFields, PyByteArrayObjectStruct)
 
 @bootstrap_function
 def init_bytearrayobject(space):
     "Type description of PyByteArrayObject"
-    make_typedescr(space.w_str.layout.typedef,
-                   basestruct=PyByteArrayObject.TO,
-                   attach=bytearray_attach,
-                   dealloc=bytearray_dealloc,
-                   realize=bytearray_realize)
+    #make_typedescr(space.w_bytearray.layout.typedef,
+    #               basestruct=PyByteArrayObject.TO,
+    #               attach=bytearray_attach,
+    #               dealloc=bytearray_dealloc,
+    #               realize=bytearray_realize)
 
 PyByteArray_Check, PyByteArray_CheckExact = build_type_checkers("ByteArray", "w_bytearray")
 
@@ -83,11 +84,16 @@ def PyByteArray_FromObject(space, o):
     XXX expand about the buffer protocol, at least somewhere"""
     raise NotImplementedError
 
-@cpython_api([rffi.CCHARP, Py_ssize_t], PyObject)
-def PyByteArray_FromStringAndSize(space, string, len):
+@cpython_api([rffi.CCHARP, Py_ssize_t], PyObject, result_is_ll=True)
+def PyByteArray_FromStringAndSize(space, char_p, length):
     """Create a new bytearray object from string and its length, len.  On
     failure, NULL is returned."""
-    raise NotImplementedError
+    if char_p:
+        s = rffi.charpsize2str(char_p, length)
+    else:
+        s = length
+    w_buffer = space.call_function(space.w_bytearray, space.wrap(s))
+    return make_ref(space, w_buffer)
 
 @cpython_api([PyObject, PyObject], PyObject)
 def PyByteArray_Concat(space, a, b):
@@ -95,12 +101,14 @@ def PyByteArray_Concat(space, a, b):
     raise NotImplementedError
 
 @cpython_api([PyObject], Py_ssize_t, error=-1)
-def PyByteArray_Size(space, bytearray):
+def PyByteArray_Size(space, w_obj):
     """Return the size of bytearray after checking for a NULL pointer."""
-    raise NotImplementedError
+    if not w_obj:
+        return 0
+    return space.len_w(w_obj)
 
-@cpython_api([PyObject], rffi.CCHARP)
-def PyByteArray_AsString(space, bytearray):
+@cpython_api([PyObject], rffi.CCHARP, error=0)
+def PyByteArray_AsString(space, w_obj):
     """Return the contents of bytearray as a char array after checking for a
     NULL pointer."""
     raise NotImplementedError

@@ -14,17 +14,17 @@ extern "C" {
  * Bytes are not characters; they may be used to encode characters.
  * The only way to go between bytes and str/unicode is via encoding
  * and decoding.
- * For the convenience of C programmers, the bytes type is considered
- * to contain a char pointer, not an unsigned char pointer.
+ * While CPython exposes interfaces to this object, pypy does not
  */
 
 /* Object layout */
 typedef struct {
     PyObject_VAR_HEAD
-    /* XXX(nnorwitz): should ob_exports be Py_ssize_t? */
+#if 0
     int ob_exports; /* how many buffer exports */
     Py_ssize_t ob_alloc; /* How many bytes allocated */
     char *ob_bytes;
+#endif
 } PyByteArrayObject;
 
 #ifdef __cplusplus
