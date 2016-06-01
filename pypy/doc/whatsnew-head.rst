@@ -126,3 +126,8 @@ This allows building upstream numpy and scipy in pypy via cpyext
 .. branch: traceviewer-common-merge-point-formats
 
 Teach RPython JIT's off-line traceviewer the most common ``debug_merge_point`` formats.
+
+.. branch: cpyext-pickle
+
+Enable pickling of W_PyCFunctionObject by monkeypatching pickle.Pickler.dispatch
+at cpyext import time
