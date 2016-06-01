@@ -1,6 +1,7 @@
 from rpython.jit.backend.llsupport.regalloc import (RegisterManager, FrameManager,
                                                     TempVar, compute_vars_longevity,
                                                     BaseRegalloc)
+from rpython.jit.backend.llsupport.descr import CallDescr
 from rpython.jit.backend.ppc.arch import (WORD, MY_COPY_OF_REGS, IS_PPC_32)
 from rpython.jit.codewriter import longlong
 from rpython.jit.backend.ppc.jump import (remap_frame_layout,
