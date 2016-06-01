@@ -3,12 +3,6 @@ from pypy.interpreter import gateway
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext import api
 
-add_pickle_key = gateway.applevel('''
-    def add_pickle_key(methodtype):
-        from pickle import Pickler 
-        Pickler.dispatch[methodtype] = Pickler.save_global
-''', filename=__file__).interphook('add_pickle_key')
-
 class Module(MixedModule):
     interpleveldefs = {
         'load_module': 'api.load_extension_module',
@@ -23,7 +17,10 @@ class Module(MixedModule):
         space.fromcache(State).startup(space)
         method = pypy.module.cpyext.typeobject.get_new_method_def(space)
         w_obj = pypy.module.cpyext.methodobject.W_PyCFunctionObject(space, method, space.wrap(''))
-        add_pickle_key(space, space.type(w_obj))
+        space.appexec([space.type(w_obj)], """(methodtype):
+            from pickle import Pickler 
+            Pickler.dispatch[methodtype] = Pickler.save_global
+        """)
 
     def register_atexit(self, function):
         if len(self.atexit_funcs) >= 32:
