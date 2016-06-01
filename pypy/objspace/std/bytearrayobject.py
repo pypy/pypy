@@ -5,6 +5,7 @@ from rpython.rlib.objectmodel import (
 from rpython.rlib.buffer import Buffer
 from rpython.rlib.rstring import StringBuilder, ByteListBuilder
 from rpython.rlib.debug import check_list_of_chars
+from rpython.rtyper.lltypesystem import rffi
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
@@ -41,6 +42,9 @@ class W_BytearrayObject(W_Root):
 
     def charbuf_w(self, space):
         return ''.join(self.data)
+
+    def nonmovable_carray(self, space):
+        return rffi.cast(rffi.CCHARP, 0)
 
     def _new(self, value):
         if value is self.data:

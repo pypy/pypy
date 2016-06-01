@@ -111,7 +111,11 @@ def PyByteArray_Size(space, w_obj):
 def PyByteArray_AsString(space, w_obj):
     """Return the contents of bytearray as a char array after checking for a
     NULL pointer."""
-    raise NotImplementedError
+    if space.isinstance_w(w_obj, space.w_bytearray):
+        return w_obj.nonmovable_carray(space)
+    else:
+        raise oefmt(space.w_TypeError,
+                    "expected bytearray object, %T found", w_obj)
 
 @cpython_api([PyObject, Py_ssize_t], rffi.INT_real, error=-1)
 def PyByteArray_Resize(space, bytearray, len):
