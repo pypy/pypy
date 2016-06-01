@@ -31,8 +31,11 @@ class IncrementalMiniMarkRemoteHeaderGC(incminimark.IncrementalMiniMarkGCBase):
 
     def init_gc_object(self, adr, typeid16, flags=0):
         incminimark.IncrementalMiniMarkGCBase.init_gc_object(self, adr, typeid16, flags)
-        hdr = llmemory.cast_adr_to_ptr(adr, lltype.Ptr(self.HDR))
-        hdr.remote_flags = lltype.direct_fieldptr(hdr, 'tid')
+        # This gets compiled to nonsense like (&pypy_g_header_1433.h_tid)
+        # at the top level (global variable initialization). Instead, we leave
+        # it as NULL and lazily initialize it later.
+        #hdr = llmemory.cast_adr_to_ptr(adr, lltype.Ptr(self.HDR))
+        #hdr.remote_flags = lltype.direct_fieldptr(hdr, 'tid')
 
     def make_forwardstub(self, obj, forward_to):
         assert (self.header(obj).remote_flags
@@ -80,17 +83,31 @@ class IncrementalMiniMarkRemoteHeaderGC(incminimark.IncrementalMiniMarkGCBase):
 
     # Manipulate flags through a pointer.
 
+    def __lazy_init_flags(self, hdr):
+        # XXX Is there anywhere I can initialize this only once without having
+        #     to check for null on EVERY access?
+        if hdr.remote_flags == lltype.nullptr(SIGNEDP.TO):
+            hdr.remote_flags = lltype.direct_fieldptr(hdr, 'tid')
+
     def get_flags(self, obj):
-        return self.header(obj).remote_flags[0]
+        hdr = self.header(obj)
+        self.__lazy_init_flags(hdr)
+        return hdr.remote_flags[0]
 
     def set_flags(self, obj, flags):
-        self.header(obj).remote_flags[0] = flags
+        hdr = self.header(obj)
+        self.__lazy_init_flags(hdr)
+        hdr.remote_flags[0] = flags
 
     def add_flags(self, obj, flags):
-        self.header(obj).remote_flags[0] |= flags
+        hdr = self.header(obj)
+        self.__lazy_init_flags(hdr)
+        hdr.remote_flags[0] |= flags
 
     def remove_flags(self, obj, flags):
-        self.header(obj).remote_flags[0] &= ~flags
+        hdr = self.header(obj)
+        self.__lazy_init_flags(hdr)
+        hdr.remote_flags[0] &= ~flags
 
 
 def _free_flags_if_finalized(adr, unused_arg):
