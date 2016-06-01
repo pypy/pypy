@@ -795,22 +795,22 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         else:
             self._consider_call(op)
 
-    def _call(self, op, arglocs, force_store=[], guard_not_forced=False):
+    def _call(self, op, arglocs, gc_level):
         # we need to save registers on the stack:
         #
         #  - at least the non-callee-saved registers
         #
-        #  - we assume that any call can collect, and we
-        #    save also the callee-saved registers that contain GC pointers
+        #  - if gc_level > 0, we save also the callee-saved registers that
+        #    contain GC pointers
         #
-        #  - for CALL_MAY_FORCE or CALL_ASSEMBLER, we have to save all regs
-        #    anyway, in case we need to do cpu.force().  The issue is that
-        #    grab_frame_values() would not be able to locate values in
-        #    callee-saved registers.
+        #  - gc_level == 2 for CALL_MAY_FORCE or CALL_ASSEMBLER.  We
+        #    have to save all regs anyway, in case we need to do
+        #    cpu.force().  The issue is that grab_frame_values() would
+        #    not be able to locate values in callee-saved registers.
         #
-        save_all_regs = guard_not_forced
-        self.xrm.before_call(force_store, save_all_regs=save_all_regs)
-        if not save_all_regs:
+        save_all_regs = gc_level == 2
+        self.xrm.before_call(save_all_regs=save_all_regs)
+        if gc_level == 1:
             gcrootmap = self.assembler.cpu.gc_ll_descr.gcrootmap
             # we save all the registers for shadowstack and asmgcc for now
             # --- for asmgcc too: we can't say "register x is a gc ref"
@@ -818,7 +818,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
             # more for now.
             if gcrootmap: # and gcrootmap.is_shadow_stack:
                 save_all_regs = 2
-        self.rm.before_call(force_store, save_all_regs=save_all_regs)
+        self.rm.before_call(save_all_regs=save_all_regs)
         if op.type != 'v':
             if op.type == FLOAT:
                 resloc = self.xrm.after_call(op)
@@ -838,9 +838,18 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
             sign_loc = imm1
         else:
             sign_loc = imm0
+        #
+        effectinfo = calldescr.get_extra_info()
+        if guard_not_forced:
+            gc_level = 2
+        elif effectinfo is None or effectinfo.check_can_collect():
+            gc_level = 1
+        else:
+            gc_level = 0
+        #
         self._call(op, [imm(size), sign_loc] +
                        [self.loc(op.getarg(i)) for i in range(op.numargs())],
-                   guard_not_forced=guard_not_forced)
+                   gc_level=gc_level)
 
     def _consider_real_call(self, op):
         effectinfo = op.getdescr().get_extra_info()
@@ -899,7 +908,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
 
     def _consider_call_assembler(self, op):
         locs = self.locs_for_call_assembler(op)
-        self._call(op, locs, guard_not_forced=True)
+        self._call(op, locs, gc_level=2)
     consider_call_assembler_i = _consider_call_assembler
     consider_call_assembler_r = _consider_call_assembler
     consider_call_assembler_f = _consider_call_assembler
