@@ -1,6 +1,6 @@
 from rpython.rtyper.test.test_llinterp import gengraph, interpret
 from rpython.rtyper.error import TyperError
-from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rlib import rgc # Force registration of gc.collect
 import gc
 import py, sys
@@ -254,6 +254,36 @@ def test_register_custom_trace_hook():
 
     assert typer.custom_trace_funcs == [(TP, trace_func)]
 
+def test_nonmoving_raw_ptr_for_resizable_list():
+    def f(n):
+        lst = ['a', 'b', 'c']
+        lst = rgc.ListSupportingRawPtr(lst)
+        lst.append(chr(n))
+        assert lst[3] == chr(n)
+        assert lst[-1] == chr(n)
+        #
+        ptr = rgc.nonmoving_raw_ptr_for_resizable_list(lst)
+        assert lst[:] == ['a', 'b', 'c', chr(n)]
+        assert lltype.typeOf(ptr) == rffi.CArrayPtr(lltype.Char)
+        assert [ptr[i] for i in range(4)] == ['a', 'b', 'c', chr(n)]
+        #
+        lst[-3] = 'X'
+        assert ptr[1] == 'X'
+        ptr[2] = 'Y'
+        assert lst[-2] == 'Y'
+        #
+        addr = rffi.cast(lltype.Signed, ptr)
+        ptr = rffi.cast(rffi.CArrayPtr(lltype.Char), addr)
+        lst[-4] = 'g'
+        assert ptr[0] == 'g'
+        ptr[3] = 'H'
+        assert lst[-1] == 'H'
+        return lst
+    #
+    # direct untranslated run
+    lst = f(35)
+    assert isinstance(lst, rgc.ListSupportingRawPtr)
+
 
 # ____________________________________________________________
 
@@ -368,7 +398,6 @@ class TestFinalizerQueue:
         assert fq._triggered == 1
 
     def test_finalizer_trigger_calls_too_much(self):
-        from rpython.rtyper.lltypesystem import lltype, rffi
         external_func = rffi.llexternal("foo", [], lltype.Void)
         # ^^^ with release_gil=True
         class X(object):
