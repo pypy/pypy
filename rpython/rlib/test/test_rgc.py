@@ -286,6 +286,22 @@ def test_nonmoving_raw_ptr_for_resizable_list():
     #
     # llinterp run
     interpret(f, [35])
+    #
+    # compilation with the GC transformer
+    import subprocess
+    from rpython.translator.interactive import Translation
+    #
+    def main(argv):
+        f(len(argv))
+        print "OK!"
+        return 0
+    #
+    t = Translation(main, gc="incminimark")
+    t.disable(['backendopt'])
+    t.set_backend_extra_options(c_debug_defines=True)
+    exename = t.compile()
+    data = subprocess.check_output([str(exename), '.', '.', '.'])
+    assert data.strip().endswith('OK!')
 
 
 # ____________________________________________________________
