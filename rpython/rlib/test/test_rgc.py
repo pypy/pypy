@@ -274,6 +274,7 @@ def test_nonmoving_raw_ptr_for_resizable_list():
         #
         addr = rffi.cast(lltype.Signed, ptr)
         ptr = rffi.cast(rffi.CCHARP, addr)
+        rgc.collect()    # should not move lst.items
         lst[-4] = 'g'
         assert ptr[0] == 'g'
         ptr[3] = 'H'
