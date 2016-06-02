@@ -557,9 +557,10 @@ class BaseFrameworkGCTransformer(GCTransformer):
                                              getfn(func,
                                                    [SomeAddress()],
                                                    annmodel.s_None)
-        self.malloc_nonmovable_ptr = getfn(GCClass.malloc_fixedsize_nonmovable,
-                                           [s_gc, s_typeid16],
-                                           s_gcref)
+        self.malloc_nonmovable_ptr = getfn(
+            GCClass.malloc_fixed_or_varsize_nonmovable,
+            [s_gc, s_typeid16, annmodel.SomeInteger()],
+            s_gcref)
 
         self.register_finalizer_ptr = getfn(GCClass.register_finalizer,
                                             [s_gc,
@@ -800,12 +801,16 @@ class BaseFrameworkGCTransformer(GCTransformer):
         c_has_light_finalizer = rmodel.inputconst(lltype.Bool,
                                                   has_light_finalizer)
 
+        is_varsize = op.opname.endswith('_varsize') or flags.get('varsize')
+
         if flags.get('nonmovable'):
-            assert op.opname == 'malloc'
-            assert not flags.get('varsize')
+            if not is_varsize:
+                v_length = rmodel.inputconst(lltype.Signed, 0)
+            else:
+                v_length = op.args[-1]
             malloc_ptr = self.malloc_nonmovable_ptr
-            args = [self.c_const_gc, c_type_id]
-        elif not op.opname.endswith('_varsize') and not flags.get('varsize'):
+            args = [self.c_const_gc, c_type_id, v_length]
+        elif not is_varsize:
             zero = flags.get('zero', False)
             if (self.malloc_fast_ptr is not None and
                 not c_has_finalizer.value and
