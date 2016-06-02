@@ -257,14 +257,14 @@ def test_register_custom_trace_hook():
 def test_nonmoving_raw_ptr_for_resizable_list():
     def f(n):
         lst = ['a', 'b', 'c']
-        lst = rgc.ListSupportingRawPtr(lst)
+        lst = rgc.resizable_list_supporting_raw_ptr(lst)
         lst.append(chr(n))
         assert lst[3] == chr(n)
         assert lst[-1] == chr(n)
         #
         ptr = rgc.nonmoving_raw_ptr_for_resizable_list(lst)
         assert lst[:] == ['a', 'b', 'c', chr(n)]
-        assert lltype.typeOf(ptr) == rffi.CArrayPtr(lltype.Char)
+        assert lltype.typeOf(ptr) == rffi.CCHARP
         assert [ptr[i] for i in range(4)] == ['a', 'b', 'c', chr(n)]
         #
         lst[-3] = 'X'
@@ -273,7 +273,7 @@ def test_nonmoving_raw_ptr_for_resizable_list():
         assert lst[-2] == 'Y'
         #
         addr = rffi.cast(lltype.Signed, ptr)
-        ptr = rffi.cast(rffi.CArrayPtr(lltype.Char), addr)
+        ptr = rffi.cast(rffi.CCHARP, addr)
         lst[-4] = 'g'
         assert ptr[0] == 'g'
         ptr[3] = 'H'
@@ -282,7 +282,10 @@ def test_nonmoving_raw_ptr_for_resizable_list():
     #
     # direct untranslated run
     lst = f(35)
-    assert isinstance(lst, rgc.ListSupportingRawPtr)
+    assert isinstance(lst, rgc._ResizableListSupportingRawPtr)
+    #
+    # llinterp run
+    interpret(f, [35])
 
 
 # ____________________________________________________________

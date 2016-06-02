@@ -1010,13 +1010,15 @@ class _rawptr_missing_item(object):
 _rawptr_missing_item = _rawptr_missing_item()
 
 
-class ListSupportingRawPtr(list):
-    """Calling this class is a no-op after translation.  Before
-    translation, it returns a new instance of ListSupportingRawPtr,
-    on which rgc.nonmoving_raw_ptr_for_resizable_list() might be
+class _ResizableListSupportingRawPtr(list):
+    """Calling this class is a no-op after translation.
+
+    Before translation, it returns a new instance of
+    _ResizableListSupportingRawPtr, on which
+    rgc.nonmoving_raw_ptr_for_resizable_list() might be
     used if needed.  For now, only supports lists of chars.
     """
-    __slots__ = ('_raw_items',)   # either None or a rffi.CArray(Char)
+    __slots__ = ('_raw_items',)   # either None or a rffi.CCHARP
 
     def __init__(self, lst):
         self._raw_items = None
@@ -1141,7 +1143,8 @@ class ListSupportingRawPtr(list):
         return list.__imul__(self, other)
 
     def __repr__(self):
-        return 'ListSupportingRawPtr(%s)' % (list.__repr__(self.__as_list()),)
+        return '_ResizableListSupportingRawPtr(%s)' % (
+            list.__repr__(self.__as_list()),)
 
     def append(self, object):
         self.__resize()
@@ -1183,12 +1186,71 @@ class ListSupportingRawPtr(list):
         if self._raw_items is None:
             existing_items = list(self)
             from rpython.rtyper.lltypesystem import lltype, rffi
-            self._raw_items = lltype.malloc(rffi.CArray(lltype.Char), len(self),
+            self._raw_items = lltype.malloc(rffi.CCHARP.TO, len(self),
                                            flavor='raw', immortal=True)
             self.__from_list(existing_items)
             assert self._raw_items is not None
         return self._raw_items
 
+def resizable_list_supporting_raw_ptr(lst):
+    return _ResizableListSupportingRawPtr(lst)
+
 def nonmoving_raw_ptr_for_resizable_list(lst):
-    assert isinstance(lst, ListSupportingRawPtr)
+    assert isinstance(lst, _ResizableListSupportingRawPtr)
     return lst._nonmoving_raw_ptr_for_resizable_list()
+
+
+def _check_resizable_list_of_chars(s_list):
+    from rpython.annotator import model as annmodel
+    from rpython.rlib import debug
+    if annmodel.s_None.contains(s_list):
+        return    # "None", will likely be generalized later
+    if not isinstance(s_list, annmodel.SomeList):
+        raise Exception("not a list, got %r" % (s_list,))
+    if not isinstance(s_list.listdef.listitem.s_value,
+                      (annmodel.SomeChar, annmodel.SomeImpossibleValue)):
+        raise debug.NotAListOfChars
+    s_list.listdef.resize()    # must be resizable
+
+class Entry(ExtRegistryEntry):
+    _about_ = resizable_list_supporting_raw_ptr
+
+    def compute_result_annotation(self, s_list):
+        _check_resizable_list_of_chars(s_list)
+        return s_list
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        return hop.inputarg(hop.args_r[0], 0)
+
+class Entry(ExtRegistryEntry):
+    _about_ = nonmoving_raw_ptr_for_resizable_list
+
+    def compute_result_annotation(self, s_list):
+        from rpython.rtyper.lltypesystem import lltype, rffi
+        from rpython.rtyper.llannotation import SomePtr
+        _check_resizable_list_of_chars(s_list)
+        return SomePtr(rffi.CCHARP)
+
+    def specialize_call(self, hop):
+        v_list = hop.inputarg(hop.args_r[0], 0)
+        hop.exception_cannot_occur()   # ignoring MemoryError
+        return hop.gendirectcall(ll_nonmovable_raw_ptr_for_resizable_list,
+                                 v_list)
+
+def ll_nonmovable_raw_ptr_for_resizable_list(ll_list):
+    from rpython.rtyper.lltypesystem import lltype, rffi
+    array = ll_list.items
+    if can_move(array):
+        length = ll_list.length
+        new_array = lltype.malloc(lltype.typeOf(ll_list).TO.items.TO, length,
+                                  nonmovable=True)
+        i = 0
+        while i < length:
+            new_array[i] = array[i]
+            i += 1
+        ll_list.items = new_array
+        array = new_array
+    ptr = lltype.direct_arrayitems(array)
+    # ptr is a Ptr(FixedSizeArray(Char, 1)).  Cast it to a rffi.CCHARP
+    return rffi.cast(rffi.CCHARP, ptr)
