@@ -1324,8 +1324,29 @@ class __extend__(pyframe.PyFrame):
             self.space.call_method(w_set, 'add', w_item)
         self.pushvalue(w_set)
 
-    #BUILD_SET_UNPACK (also as opcode)
+    def BUILD_SET_UNPACK(self, itemcount, next_instr):
+        w_sum = self.space.newset()
+        for i in range(itemcount):
+            self.space.updateset() #implement?
+            w_item = self.popvalue()
+            self.space.call_method(w_set, 'add', w_item)
+        self.pushvalue(w_set)
 
+    def BUILD_TUPLE_UNPACK(self, itemcount, next_instr):
+        w_sum = self.space.newset()
+        self.pushvalue(w_set)
+        
+    def BUILD_LIST_UNPACK(self, itemcount, next_instr):
+        w_sum = self.space.newset()
+        self.pushvalue(w_set)
+        
+    def BUILD_MAP_UNPACK_WITH_CALL(self, itemcount, next_instr):
+        w_sum = self.space.newset()
+        self.pushvalue(w_set)
+        
+    def BUILD_MAP_UNPACK(self, itemcount, next_instr):
+        w_sum = self.space.newset()
+        self.pushvalue(w_set)
 ### ____________________________________________________________ ###
 
 class ExitFrame(Exception):
