@@ -1760,5 +1760,5 @@ class TestMiniMarkGCMostCompact(TaggedPointersTest, TestMiniMarkGC):
 class TestIncrementalMiniMarkGCMostCompact(TaggedPointersTest, TestIncrementalMiniMarkGC):
     removetypeptr = True
 
-class TestIncrementalMiniMarkGCMostCompact(TaggedPointersTest, TestIncrementalMiniMarkRemoteHeadersGC):
+class TestIncrementalMiniMarkRemoteHeadersGCMostCompact(TaggedPointersTest, TestIncrementalMiniMarkRemoteHeadersGC):
     removetypeptr = True

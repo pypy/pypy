@@ -31,11 +31,12 @@ class IncrementalMiniMarkRemoteHeaderGC(incminimark.IncrementalMiniMarkGCBase):
 
     def init_gc_object(self, adr, typeid16, flags=0):
         incminimark.IncrementalMiniMarkGCBase.init_gc_object(self, adr, typeid16, flags)
+        hdr = llmemory.cast_adr_to_ptr(adr, lltype.Ptr(self.HDR))
         # This gets compiled to nonsense like (&pypy_g_header_1433.h_tid)
-        # at the top level (global variable initialization). Instead, we leave
-        # it as NULL and lazily initialize it later.
-        #hdr = llmemory.cast_adr_to_ptr(adr, lltype.Ptr(self.HDR))
-        #hdr.remote_flags = lltype.direct_fieldptr(hdr, 'tid')
+        # at the top level (global variable initialization). Instead, we set
+        # it to NULL and lazily initialize it later.
+        ## hdr.remote_flags = lltype.direct_fieldptr(hdr, 'tid')
+        hdr.remote_flags = lltype.nullptr(SIGNEDP.TO)
 
     def make_forwardstub(self, obj, forward_to):
         assert (self.header(obj).remote_flags
