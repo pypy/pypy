@@ -105,3 +105,29 @@ problems.
 Fix some warnings when compiling CPython C extension modules
 
 .. branch: syntax_fix
+
+.. branch: remove-raisingops
+
+Remove most of the _ovf, _zer and _val operations from RPython.  Kills
+quite some code internally, and allows the JIT to do better
+optimizations: for example, app-level code like ``x / 2`` or ``x % 2``
+can now be turned into ``x >> 1`` or ``x & 1``, even if x is possibly
+negative.
+
+.. branch: cpyext-old-buffers
+
+Generalize cpyext old-style buffers to more than just str/buffer, add support for mmap
+
+.. branch: numpy-includes
+
+Move _numpypy headers into a directory so they are not picked up by upstream numpy, scipy
+This allows building upstream numpy and scipy in pypy via cpyext
+
+.. branch: traceviewer-common-merge-point-formats
+
+Teach RPython JIT's off-line traceviewer the most common ``debug_merge_point`` formats.
+
+.. branch: cpyext-pickle
+
+Enable pickling of W_PyCFunctionObject by monkeypatching pickle.Pickler.dispatch
+at cpyext import time

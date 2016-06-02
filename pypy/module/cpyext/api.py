@@ -161,12 +161,13 @@ def copy_header_files(dstdir, copy_numpy_headers):
 
     if copy_numpy_headers:
         try:
-            dstdir.mkdir('numpy')
+            dstdir.mkdir('_numpypy')
+            dstdir.mkdir('_numpypy/numpy')
         except py.error.EEXIST:
             pass
-        numpy_dstdir = dstdir / 'numpy'
+        numpy_dstdir = dstdir / '_numpypy' / 'numpy'
 
-        numpy_include_dir = include_dir / 'numpy'
+        numpy_include_dir = include_dir / '_numpypy' / 'numpy'
         numpy_headers = numpy_include_dir.listdir('*.h') + numpy_include_dir.listdir('*.inl')
         _copy_header_files(numpy_headers, numpy_dstdir)
 

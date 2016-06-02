@@ -243,45 +243,6 @@ def _ll_1_jit_force_virtual(inst):
     return llop.jit_force_virtual(lltype.typeOf(inst), inst)
 
 
-def _ll_2_int_floordiv_ovf_zer(x, y):
-    if y == 0:
-        raise ZeroDivisionError
-    return _ll_2_int_floordiv_ovf(x, y)
-
-def _ll_2_int_floordiv_ovf(x, y):
-    # intentionally not short-circuited to produce only one guard
-    # and to remove the check fully if one of the arguments is known
-    if (x == -sys.maxint - 1) & (y == -1):
-        raise OverflowError
-    return llop.int_floordiv(lltype.Signed, x, y)
-
-def _ll_2_int_floordiv_zer(x, y):
-    if y == 0:
-        raise ZeroDivisionError
-    return llop.int_floordiv(lltype.Signed, x, y)
-
-def _ll_2_int_mod_ovf_zer(x, y):
-    if y == 0:
-        raise ZeroDivisionError
-    return _ll_2_int_mod_ovf(x, y)
-
-def _ll_2_int_mod_ovf(x, y):
-    #see comment in _ll_2_int_floordiv_ovf
-    if (x == -sys.maxint - 1) & (y == -1):
-        raise OverflowError
-    return llop.int_mod(lltype.Signed, x, y)
-
-def _ll_2_int_mod_zer(x, y):
-    if y == 0:
-        raise ZeroDivisionError
-    return llop.int_mod(lltype.Signed, x, y)
-
-def _ll_2_int_lshift_ovf(x, y):
-    result = x << y
-    if (result >> y) != x:
-        raise OverflowError
-    return result
-
 def _ll_1_int_abs(x):
     # this version doesn't branch
     mask = x >> (LONG_BIT - 1)
@@ -452,51 +413,9 @@ def _ll_1_llong_abs(xll):
     else:
         return xll
 
-def _ll_2_llong_floordiv(xll, yll):
-    return llop.llong_floordiv(lltype.SignedLongLong, xll, yll)
-
-def _ll_2_llong_floordiv_zer(xll, yll):
-    if yll == 0:
-        raise ZeroDivisionError
-    return llop.llong_floordiv(lltype.SignedLongLong, xll, yll)
-
-def _ll_2_llong_mod(xll, yll):
-    return llop.llong_mod(lltype.SignedLongLong, xll, yll)
-
-def _ll_2_llong_mod_zer(xll, yll):
-    if yll == 0:
-        raise ZeroDivisionError
-    return llop.llong_mod(lltype.SignedLongLong, xll, yll)
-
-def _ll_2_ullong_floordiv(xll, yll):
-    return llop.ullong_floordiv(lltype.UnsignedLongLong, xll, yll)
-
-def _ll_2_ullong_floordiv_zer(xll, yll):
-    if yll == 0:
-        raise ZeroDivisionError
-    return llop.ullong_floordiv(lltype.UnsignedLongLong, xll, yll)
-
-def _ll_2_ullong_mod(xll, yll):
-    return llop.ullong_mod(lltype.UnsignedLongLong, xll, yll)
-
-def _ll_2_ullong_mod_zer(xll, yll):
-    if yll == 0:
-        raise ZeroDivisionError
-    return llop.ullong_mod(lltype.UnsignedLongLong, xll, yll)
-
-def _ll_2_uint_mod(xll, yll):
-    return llop.uint_mod(lltype.Unsigned, xll, yll)
-
 
 # in the following calls to builtins, the JIT is allowed to look inside:
 inline_calls_to = [
-    ('int_floordiv_ovf_zer', [lltype.Signed, lltype.Signed], lltype.Signed),
-    ('int_floordiv_ovf',     [lltype.Signed, lltype.Signed], lltype.Signed),
-    ('int_floordiv_zer',     [lltype.Signed, lltype.Signed], lltype.Signed),
-    ('int_mod_ovf_zer',      [lltype.Signed, lltype.Signed], lltype.Signed),
-    ('int_mod_ovf',          [lltype.Signed, lltype.Signed], lltype.Signed),
-    ('int_mod_zer',          [lltype.Signed, lltype.Signed], lltype.Signed),
-    ('int_lshift_ovf',       [lltype.Signed, lltype.Signed], lltype.Signed),
     ('int_abs',              [lltype.Signed],                lltype.Signed),
     ('ll_math.ll_math_sqrt', [lltype.Float],                 lltype.Float),
 ]

@@ -99,9 +99,9 @@ class TestPosixFunction:
 
     def test_mkdir(self):
         filename = str(udir.join('test_mkdir.dir'))
-        rposix.mkdir(filename, 0)
+        rposix.mkdir(filename, 0777)
         with py.test.raises(OSError) as excinfo:
-            rposix.mkdir(filename, 0)
+            rposix.mkdir(filename, 0777)
         assert excinfo.value.errno == errno.EEXIST
         if sys.platform == 'win32':
             assert excinfo.type is WindowsError
@@ -112,9 +112,9 @@ class TestPosixFunction:
         filename = str(udir.join(relpath))
         dirfd = os.open(os.path.dirname(filename), os.O_RDONLY)
         try:
-            rposix.mkdirat(relpath, 0, dir_fd=dirfd)
+            rposix.mkdirat(relpath, 0777, dir_fd=dirfd)
             with py.test.raises(OSError) as excinfo:
-                rposix.mkdirat(relpath, 0, dir_fd=dirfd)
+                rposix.mkdirat(relpath, 0777, dir_fd=dirfd)
             assert excinfo.value.errno == errno.EEXIST
         finally:
             os.close(dirfd)
