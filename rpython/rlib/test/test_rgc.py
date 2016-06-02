@@ -304,6 +304,103 @@ def test_nonmoving_raw_ptr_for_resizable_list():
     data = subprocess.check_output([str(exename), '.', '.', '.'])
     assert data.strip().endswith('OK!')
 
+def test_ListSupportingRawPtr_direct():
+    lst = ['a', 'b', 'c']
+    lst = rgc.resizable_list_supporting_raw_ptr(lst)
+
+    def check_nonresizing():
+        assert lst[1] == lst[-2] == 'b'
+        lst[1] = 'X'
+        assert lst[1] == 'X'
+        lst[-1] = 'Y'
+        assert lst[1:3] == ['X', 'Y']
+        assert lst[-2:9] == ['X', 'Y']
+        lst[1:2] = 'B'
+        assert lst[:] == ['a', 'B', 'Y']
+        assert list(iter(lst)) == ['a', 'B', 'Y']
+        assert list(reversed(lst)) == ['Y', 'B', 'a']
+        assert 'B' in lst
+        assert 'b' not in lst
+        assert p[0] == 'a'
+        assert p[1] == 'B'
+        assert p[2] == 'Y'
+        assert lst + ['*'] == ['a', 'B', 'Y', '*']
+        assert ['*'] + lst == ['*', 'a', 'B', 'Y']
+        assert lst + lst == ['a', 'B', 'Y', 'a', 'B', 'Y']
+        base = ['8']
+        base += lst
+        assert base == ['8', 'a', 'B', 'Y']
+        assert lst == ['a', 'B', 'Y']
+        assert ['a', 'B', 'Y'] == lst
+        assert ['a', 'B', 'Z'] != lst
+        assert ['a', 'B', 'Z'] >  lst
+        assert ['a', 'B', 'Z'] >= lst
+        assert lst * 2 == ['a', 'B', 'Y', 'a', 'B', 'Y']
+        assert 2 * lst == ['a', 'B', 'Y', 'a', 'B', 'Y']
+        assert lst.count('B') == 1
+        assert lst.index('Y') == 2
+        lst.reverse()
+        assert lst == ['Y', 'B', 'a']
+        lst.sort()
+        assert lst == ['B', 'Y', 'a']
+        lst.sort(reverse=True)
+        assert lst == ['a', 'Y', 'B']
+        lst[1] = 'b'
+        lst[2] = 'c'
+        assert list(lst) == ['a', 'b', 'c']
+
+    p = lst
+    check_nonresizing()
+    assert lst._raw_items is None
+    lst._nonmoving_raw_ptr_for_resizable_list()
+    p = lst._raw_items
+    check_nonresizing()
+    assert lst._raw_items == p
+    assert p[0] == 'a'
+    assert p[1] == 'b'
+    assert p[2] == 'c'
+
+    def do_resizing_operation():
+        del lst[1]
+        yield ['a', 'c']
+
+        lst[:2] = ['X']
+        yield ['X', 'c']
+
+        del lst[:2]
+        yield ['c']
+
+        x = lst
+        x += ['t']
+        yield ['a', 'b', 'c', 't']
+
+        x = lst
+        x *= 3
+        yield ['a', 'b', 'c'] * 3
+
+        lst.append('f')
+        yield ['a', 'b', 'c', 'f']
+
+        lst.extend('fg')
+        yield ['a', 'b', 'c', 'f', 'g']
+
+        lst.insert(1, 'k')
+        yield ['a', 'k', 'b', 'c']
+
+        n = lst.pop(1)
+        assert n == 'b'
+        yield ['a', 'c']
+
+        lst.remove('c')
+        yield ['a', 'b']
+
+    assert lst == ['a', 'b', 'c']
+    for expect in do_resizing_operation():
+        assert lst == expect
+        assert lst._raw_items is None
+        lst = ['a', 'b', 'c']
+        lst = rgc.resizable_list_supporting_raw_ptr(lst)
+        lst._nonmoving_raw_ptr_for_resizable_list()
 
 # ____________________________________________________________
 

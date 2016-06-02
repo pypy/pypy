@@ -1109,11 +1109,14 @@ class _ResizableListSupportingRawPtr(list):
         return list.__contains__(self.__as_list(), item)
 
     def __add__(self, other):
+        if isinstance(other, _ResizableListSupportingRawPtr):
+            other = other.__as_list()
         return list.__add__(self.__as_list(), other)
 
     def __radd__(self, other):
-        other = list(other)
-        return list.__add__(other, self)
+        if isinstance(other, _ResizableListSupportingRawPtr):
+            other = other.__as_list()
+        return list.__add__(other, self.__as_list())
 
     def __iadd__(self, other):
         self.__resize()
