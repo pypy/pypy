@@ -15,8 +15,9 @@ class Module(MixedModule):
 
     def startup(self, space):
         space.fromcache(State).startup(space)
-        w_obj = space.gettypefor(pypy.module.cpyext.methodobject.W_PyCFunctionObject)
-        space.appexec([w_obj], """(methodtype):
+        method = pypy.module.cpyext.typeobject.get_new_method_def(space)
+        w_obj = pypy.module.cpyext.methodobject.W_PyCFunctionObject(space, method, space.wrap(''))
+        space.appexec([space.type(w_obj)], """(methodtype):
             from pickle import Pickler 
             Pickler.dispatch[methodtype] = Pickler.save_global
         """)
