@@ -63,7 +63,10 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
                  Py_DECREF(t);
                  c = PyByteArray_AsString(s);
                  if (c == NULL)
-                    return NULL;
+                 {
+                     PyErr_SetString(PyExc_ValueError, "non-null bytearray object expected");
+                     return NULL;
+                 }
                  c[0] = 'a';
                  c[1] = 'b';
                  c[2] = 0;
@@ -80,13 +83,11 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
             ("mutable", "METH_NOARGS",
              """
                 PyObject *base;
-                PyObject *obj;
                 char * p_str;
                 base = PyByteArray_FromStringAndSize("test", 10);
                 if (PyByteArray_GET_SIZE(base) != 10)
                     return PyLong_FromLong(-PyByteArray_GET_SIZE(base));
-                obj = (PyByteArrayObject*)base;
-                memcpy(PyByteArray_AS_STRING(obj), "works", 6); 
+                memcpy(PyByteArray_AS_STRING(base), "works", 6); 
                 Py_INCREF(base);
                 return base;
              """),
