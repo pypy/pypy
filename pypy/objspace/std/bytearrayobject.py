@@ -44,7 +44,7 @@ class W_BytearrayObject(W_Root):
         return ''.join(self.data)
 
     def nonmovable_carray(self, space):
-        return rffi.cast(rffi.CCHARP, 0)
+        return BytearrayBuffer(self.data, False).get_raw_address()
 
     def _new(self, value):
         if value is self.data:
@@ -991,7 +991,7 @@ class BytearrayDocstrings:
 
 
 W_BytearrayObject.typedef = TypeDef(
-    "bytearray",
+    "bytearray", None, None, "read-write",
     __doc__ = BytearrayDocstrings.__doc__,
     __new__ = interp2app(W_BytearrayObject.descr_new),
     __hash__ = None,
@@ -1250,6 +1250,9 @@ class BytearrayBuffer(Buffer):
         for i in range(len(string)):
             self.data[start + i] = string[i]
 
+    def get_raw_address(self):
+        return rffi.cast(rffi.CCHARP, 0)
+        
 
 @specialize.argtype(1)
 def _memcmp(selfvalue, buffer, length):
