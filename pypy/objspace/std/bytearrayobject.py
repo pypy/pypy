@@ -180,22 +180,12 @@ class W_BytearrayObject(W_Root):
         # we ignore w_type and always return a bytearray
         return new_bytearray(space, space.w_bytearray, data)
 
-    def descr_init(self, space, __args__):
-        # this is on the silly side
-        w_source, w_encoding, w_errors = __args__.parse_obj(
-                None, 'bytearray', init_signature, init_defaults)
-
+    @unwrap_spec(encoding='str_or_None', errors='str_or_None')
+    def descr_init(self, space, w_source=None, encoding=None, errors=None):
         if w_source is None:
             w_source = space.wrap('')
-
-        # Unicode argument
-        if w_encoding is not None:
-            from pypy.objspace.std.unicodeobject import (
-                _get_encoding_and_errors, encode_object
-            )
-            encoding, errors = _get_encoding_and_errors(space, w_encoding,
-                                                        w_errors)
-
+        if encoding is not None:
+            from pypy.objspace.std.unicodeobject import encode_object
             # if w_source is an integer this correctly raises a
             # TypeError the CPython error message is: "encoding or
             # errors without a string argument" ours is: "expected
@@ -546,6 +536,8 @@ def _hex_digit_to_int(d):
     val = ord(d)
     if 47 < val < 58:
         return val - 48
+    if 64 < val < 71:
+        return val - 55
     if 96 < val < 103:
         return val - 87
     return -1
@@ -553,7 +545,6 @@ def _hex_digit_to_int(d):
 NON_HEX_MSG = "non-hexadecimal number found in fromhex() arg at position %d"
 
 def _hexstring_to_array(space, s):
-    s = s.lower()
     data = []
     length = len(s)
     i = 0
@@ -1143,9 +1134,6 @@ W_BytearrayObject.typedef = TypeDef(
                          doc=BytearrayDocstrings.reverse.__doc__),
 )
 W_BytearrayObject.typedef.flag_sequence_bug_compat = True
-
-init_signature = Signature(['source', 'encoding', 'errors'], None, None)
-init_defaults = [None, None, None]
 
 
 # XXX share the code again with the stuff in listobject.py
