@@ -460,9 +460,8 @@ def _hex_digit_to_int(d):
 def _hexstring_to_array(space, s):
     data = []
     length = len(s)
-    i = -2
+    i = 0
     while True:
-        i += 2
         while i < length and s[i] == ' ':
             i += 1
         if i >= length:
@@ -483,6 +482,7 @@ def _hexstring_to_array(space, s):
                         "non-hexadecimal number found in fromhex() arg at "
                         "position %d", i + 1)
         data.append(chr(top*16 + bot))
+        i += 2
     return data
 
 
