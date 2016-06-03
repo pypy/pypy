@@ -245,10 +245,17 @@ class W_CData(W_Root):
                     raise oefmt(space.w_ValueError,
                                 "need a bytearray of length %d, got %d",
                                 length, len(value))
-                for i in range(length):
-                    target[i] = value[i]
+                self._copy_list_of_chars_to_raw(value, target, length)
                 return
         #
+        self._do_setslice_iterate(space, ctitem, w_value, target, ctitemsize,
+                                  length)
+
+    @staticmethod
+    def _do_setslice_iterate(space, ctitem, w_value, target, ctitemsize,
+                             length):
+        # general case, contains a loop
+        # (XXX is it worth adding a jitdriver here?)
         w_iter = space.iter(w_value)
         for i in range(length):
             try:
@@ -268,6 +275,12 @@ class W_CData(W_Root):
         else:
             raise oefmt(space.w_ValueError,
                         "got more than %d values to unpack", length)
+
+    @staticmethod
+    def _copy_list_of_chars_to_raw(value, target, length):
+        # contains a loop, moved out of _do_setslice()
+        for i in range(length):
+            target[i] = value[i]
 
     def _add_or_sub(self, w_other, sign):
         space = self.space
