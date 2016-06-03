@@ -17,6 +17,9 @@ extern "C" {
  * While CPython exposes interfaces to this object, pypy does not
  */
 
+#define PyByteArray_GET_SIZE(op) PyByteArray_Size((PyObject*)(op))
+#define PyByteArray_AS_STRING(op) PyByteArray_AsString((PyObject*)(op))
+
 /* Object layout */
 typedef struct {
     PyObject_VAR_HEAD

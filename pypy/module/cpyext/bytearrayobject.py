@@ -17,12 +17,10 @@ from pypy.module.cpyext.pyobject import (
 # For the convenience of C programmers, the bytes type is considered
 # to contain a char pointer, not an unsigned char pointer.
 
-# XXX The underlying data array is mutable, cpython gives direct access
-# to ob_bytes as a RW pointer to bytes. How can we do this?
-# One proposal is to make W_Bytearray.data into a nonmovable gc list
-# as part of as_pyobj(), and expose data only through PyByteArray_AS_STRING
-# Under this strategy ob_bytes could possibly not reflect the current state
-# of the object
+# Expose data as a rw cchar* only through PyByteArray_AsString
+# Under this strategy the pointer could loose its synchronization with
+# the underlying space.w_bytearray if PyByteArray_Resize is called, so
+# hopefully the use of the pointer is short-lived
 
 PyByteArrayObjectStruct = lltype.ForwardReference()
 PyByteArrayObject = lltype.Ptr(PyByteArrayObjectStruct)
@@ -121,15 +119,4 @@ def PyByteArray_AsString(space, w_obj):
 def PyByteArray_Resize(space, bytearray, len):
     """Resize the internal buffer of bytearray to len."""
     raise NotImplementedError
-
-@cpython_api([PyObject], rffi.CCHARP)
-def PyByteArray_AS_STRING(space, bytearray):
-    """Macro version of PyByteArray_AsString()."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], Py_ssize_t, error=-1)
-def PyByteArray_GET_SIZE(space, bytearray):
-    """Macro version of PyByteArray_Size()."""
-    raise NotImplementedError
-
 

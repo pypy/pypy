@@ -6,6 +6,8 @@ from rpython.rlib.buffer import Buffer
 from rpython.rlib.rstring import StringBuilder, ByteListBuilder
 from rpython.rlib.debug import check_list_of_chars
 from rpython.rtyper.lltypesystem import rffi
+from rpython.rlib.rgc import (resizable_list_supporting_raw_ptr,
+        nonmoving_raw_ptr_for_resizable_list)
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
@@ -25,7 +27,7 @@ class W_BytearrayObject(W_Root):
 
     def __init__(self, data):
         check_list_of_chars(data)
-        self.data = data
+        self.data = resizable_list_supporting_raw_ptr(data)
 
     def __repr__(self):
         """representation for debugging purposes"""
@@ -227,11 +229,11 @@ class W_BytearrayObject(W_Root):
         else:
             if count < 0:
                 raise oefmt(space.w_ValueError, "bytearray negative count")
-            self.data = ['\0'] * count
+            self.data = resizable_list_supporting_raw_ptr(['\0'] * count)
             return
 
         data = makebytearraydata_w(space, w_source)
-        self.data = data
+        self.data = resizable_list_supporting_raw_ptr(data)
 
     def descr_repr(self, space):
         s = self.data
@@ -1251,7 +1253,7 @@ class BytearrayBuffer(Buffer):
             self.data[start + i] = string[i]
 
     def get_raw_address(self):
-        return rffi.cast(rffi.CCHARP, 0)
+        return nonmoving_raw_ptr_for_resizable_list(self.data)
         
 
 @specialize.argtype(1)
