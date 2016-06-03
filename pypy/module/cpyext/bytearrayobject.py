@@ -73,8 +73,8 @@ PyByteArray_Check, PyByteArray_CheckExact = build_type_checkers("ByteArray", "w_
 #        lltype.free(py_ba.c_ob_bytes, flavor="raw")
 #    from pypy.module.cpyext.object import PyObject_dealloc
 #    PyObject_dealloc(space, py_obj)
-#
-_______________________________________________________________________
+
+#_______________________________________________________________________
 
 @cpython_api([PyObject], PyObject, result_is_ll=True)
 def PyByteArray_FromObject(space, w_obj):
