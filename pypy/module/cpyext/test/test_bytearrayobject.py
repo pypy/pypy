@@ -185,11 +185,15 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
              if (ret != 0)
              {
                   printf("ret, oldsize, newsize= %d, %d, %d\\n", ret, oldsize, newsize);
-                  return PyString_FromString("ret != 0");
+                  return NULL;
              } 
              return ba;
              '''
             )])
         ret = module.bytearray_resize('abc', 6)
         assert len(ret) == 6,"%s, len=%d" % (ret, len(ret))
+        assert ret == 'abc\x00\x00\x00'
+        ret = module.bytearray_resize('abcdefghi', 4)
+        assert len(ret) == 4,"%s, len=%d" % (ret, len(ret))
+        assert ret == 'abcd'
 

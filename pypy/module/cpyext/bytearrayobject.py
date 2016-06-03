@@ -1,5 +1,6 @@
-from pypy.interpreter.error import OperationError, oefmt
 from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib.objectmodel import specialize, we_are_translated
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.objspace.std.bytearrayobject import new_bytearray
 from pypy.module.cpyext.api import (
     cpython_api, cpython_struct, bootstrap_function, build_type_checkers,
@@ -74,29 +75,30 @@ def bytearray_dealloc(space, py_obj):
 
 #_______________________________________________________________________
 
-@cpython_api([PyObject], PyObject)
-def PyByteArray_FromObject(space, o):
+@cpython_api([PyObject], PyObject, result_is_ll=True)
+def PyByteArray_FromObject(space, w_obj):
     """Return a new bytearray object from any object, o, that implements the
     buffer protocol.
 
     XXX expand about the buffer protocol, at least somewhere"""
-    raise NotImplementedError
+    w_buffer = space.call_function(space.w_bytearray, w_obj)
+    return make_ref(space, w_buffer)
 
 @cpython_api([rffi.CCHARP, Py_ssize_t], PyObject, result_is_ll=True)
 def PyByteArray_FromStringAndSize(space, char_p, length):
     """Create a new bytearray object from string and its length, len.  On
     failure, NULL is returned."""
     if char_p:
-        s = rffi.charpsize2str(char_p, length)
+        w_s = space.wrap(rffi.charpsize2str(char_p, length))
     else:
-        s = length
-    w_buffer = space.call_function(space.w_bytearray, space.wrap(s))
+        w_s = space.wrap(length)
+    w_buffer = space.call_function(space.w_bytearray, w_s)
     return make_ref(space, w_buffer)
 
 @cpython_api([PyObject, PyObject], PyObject)
-def PyByteArray_Concat(space, a, b):
+def PyByteArray_Concat(space, w_left, w_right):
     """Concat bytearrays a and b and return a new bytearray with the result."""
-    raise NotImplementedError
+    return space.call_method(w_left, '__add__', w_right)
 
 @cpython_api([PyObject], Py_ssize_t, error=-1)
 def PyByteArray_Size(space, w_obj):
@@ -116,7 +118,16 @@ def PyByteArray_AsString(space, w_obj):
                     "expected bytearray object, %T found", w_obj)
 
 @cpython_api([PyObject, Py_ssize_t], rffi.INT_real, error=-1)
-def PyByteArray_Resize(space, bytearray, len):
+def PyByteArray_Resize(space, w_obj, newlen):
     """Resize the internal buffer of bytearray to len."""
-    raise NotImplementedError
-
+    if space.isinstance_w(w_obj, space.w_bytearray):
+        oldlen = space.len_w(w_obj)
+        if newlen > oldlen:
+            space.call_method(w_obj, 'extend', space.wrap('\x00' * (newlen - oldlen)))
+        elif oldlen > newlen:
+            assert newlen >= 0
+            space.delitem(w_obj, space.wrap(slice(newlen, None, 1)))
+        return 0
+    else:
+        raise oefmt(space.w_TypeError,
+                    "expected bytearray object, %T found", w_obj)
