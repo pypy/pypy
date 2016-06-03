@@ -5,6 +5,9 @@ from rpython.rlib.objectmodel import (
 from rpython.rlib.buffer import Buffer
 from rpython.rlib.rstring import StringBuilder, ByteListBuilder
 from rpython.rlib.debug import check_list_of_chars
+from rpython.rtyper.lltypesystem import rffi
+from rpython.rlib.rgc import (resizable_list_supporting_raw_ptr,
+        nonmoving_raw_ptr_for_resizable_list)
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
@@ -24,7 +27,7 @@ class W_BytearrayObject(W_Root):
 
     def __init__(self, data):
         check_list_of_chars(data)
-        self.data = data
+        self.data = resizable_list_supporting_raw_ptr(data)
 
     def __repr__(self):
         """representation for debugging purposes"""
@@ -41,6 +44,12 @@ class W_BytearrayObject(W_Root):
 
     def charbuf_w(self, space):
         return ''.join(self.data)
+
+    def bytearray_list_of_chars_w(self, space):
+        return self.data
+
+    def nonmovable_carray(self, space):
+        return BytearrayBuffer(self.data, False).get_raw_address()
 
     def _new(self, value):
         if value is self.data:
@@ -223,11 +232,11 @@ class W_BytearrayObject(W_Root):
         else:
             if count < 0:
                 raise oefmt(space.w_ValueError, "bytearray negative count")
-            self.data = ['\0'] * count
+            self.data = resizable_list_supporting_raw_ptr(['\0'] * count)
             return
 
         data = makebytearraydata_w(space, w_source)
-        self.data = data
+        self.data = resizable_list_supporting_raw_ptr(data)
 
     def descr_repr(self, space):
         s = self.data
@@ -987,7 +996,7 @@ class BytearrayDocstrings:
 
 
 W_BytearrayObject.typedef = TypeDef(
-    "bytearray",
+    "bytearray", None, None, "read-write",
     __doc__ = BytearrayDocstrings.__doc__,
     __new__ = interp2app(W_BytearrayObject.descr_new),
     __hash__ = None,
@@ -1246,6 +1255,9 @@ class BytearrayBuffer(Buffer):
         for i in range(len(string)):
             self.data[start + i] = string[i]
 
+    def get_raw_address(self):
+        return nonmoving_raw_ptr_for_resizable_list(self.data)
+        
 
 @specialize.argtype(1)
 def _memcmp(selfvalue, buffer, length):

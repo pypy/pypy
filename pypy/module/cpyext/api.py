@@ -1429,7 +1429,7 @@ def setup_library(space):
                                             prefix=prefix)
     code = "#include <Python.h>\n"
     if use_micronumpy:
-        code += "#include <pypy_numpy.h> /* api.py line 1290 */"
+        code += "#include <pypy_numpy.h> /* api.py line 1290 */\n"
     code  += "\n".join(functions)
 
     eci = build_eci(False, export_symbols, code, use_micronumpy)
