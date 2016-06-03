@@ -19,7 +19,6 @@ from pypy.objspace.std.stringmethods import StringMethods, _get_buffer
 from pypy.objspace.std.bytesobject import W_BytesObject
 from pypy.objspace.std.util import get_positive_index
 
-NON_HEX_MSG = "non-hexadecimal number found in fromhex() arg at position %d"
 
 
 class W_BytearrayObject(W_Root):
@@ -176,27 +175,7 @@ class W_BytearrayObject(W_Root):
     @staticmethod
     def descr_fromhex(space, w_bytearraytype, w_hexstring):
         hexstring = space.str_w(w_hexstring)
-        hexstring = hexstring.lower()
-        data = []
-        length = len(hexstring)
-        i = 0
-        while True:
-            while i < length and hexstring[i] == ' ':
-                i += 1
-            if i >= length:
-                break
-            if i + 1 == length:
-                raise oefmt(space.w_ValueError, NON_HEX_MSG, i)
-
-            top = _hex_digit_to_int(hexstring[i])
-            if top == -1:
-                raise oefmt(space.w_ValueError, NON_HEX_MSG, i)
-            bot = _hex_digit_to_int(hexstring[i+1])
-            if bot == -1:
-                raise oefmt(space.w_ValueError, NON_HEX_MSG, i + 1)
-            data.append(chr(top*16 + bot))
-            i += 2
-
+        data = _hexstring_to_array(space, hexstring)
         # in CPython bytearray.fromhex is a staticmethod, so
         # we ignore w_type and always return a bytearray
         return new_bytearray(space, space.w_bytearray, data)
@@ -570,6 +549,31 @@ def _hex_digit_to_int(d):
     if 96 < val < 103:
         return val - 87
     return -1
+
+NON_HEX_MSG = "non-hexadecimal number found in fromhex() arg at position %d"
+
+def _hexstring_to_array(space, s):
+    s = s.lower()
+    data = []
+    length = len(s)
+    i = 0
+    while True:
+        while i < length and s[i] == ' ':
+            i += 1
+        if i >= length:
+            break
+        if i + 1 == length:
+            raise oefmt(space.w_ValueError, NON_HEX_MSG, i)
+
+        top = _hex_digit_to_int(s[i])
+        if top == -1:
+            raise oefmt(space.w_ValueError, NON_HEX_MSG, i)
+        bot = _hex_digit_to_int(s[i + 1])
+        if bot == -1:
+            raise oefmt(space.w_ValueError, NON_HEX_MSG, i + 1)
+        data.append(chr(top * 16 + bot))
+        i += 2
+    return data
 
 
 class BytearrayDocstrings:
@@ -1257,7 +1261,7 @@ class BytearrayBuffer(Buffer):
 
     def get_raw_address(self):
         return nonmoving_raw_ptr_for_resizable_list(self.data)
-        
+
 
 @specialize.argtype(1)
 def _memcmp(selfvalue, buffer, length):
