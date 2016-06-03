@@ -190,6 +190,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         del x, y
 
     def test_metaclass_compatible2(self):
+        skip('fails even with -A, fooType has BASETYPE flag')
         # XXX FIX - must raise since fooType (which is a base type)
         # does not have flag Py_TPFLAGS_BASETYPE
         module = self.import_module(name='foo')
