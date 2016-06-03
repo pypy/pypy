@@ -1113,7 +1113,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         nkw = 0
         nseen = 0 # the number of positional arguments on the stack
         for elt in args:
-            if isinstance(elt.kind, ast.Starred):
+            if isinstance(elt.func, ast.Starred):
                 # A star-arg. If we've seen positional arguments,
                 # pack the positional arguments into a tuple.
                 if nseen != 0:
