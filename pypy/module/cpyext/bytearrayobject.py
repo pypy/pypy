@@ -40,40 +40,41 @@ def init_bytearrayobject(space):
 
 PyByteArray_Check, PyByteArray_CheckExact = build_type_checkers("ByteArray", "w_bytearray")
 
-def bytearray_attach(space, py_obj, w_obj):
-    """
-    Fills a newly allocated PyByteArrayObject with the given bytearray object
-    """
-    py_ba = rffi.cast(PyByteArrayObject, py_obj)
-    py_ba.c_ob_size = len(space.str_w(w_obj))
-    py_ba.c_ob_bytes = lltype.nullptr(rffi.CCHARP.TO)
-    py_ba.c_ob_exports = rffi.cast(rffi.INT, 0)
+# XXX dead code to be removed
+#def bytearray_attach(space, py_obj, w_obj):
+#    """
+#    Fills a newly allocated PyByteArrayObject with the given bytearray object
+#    """
+#    py_ba = rffi.cast(PyByteArrayObject, py_obj)
+#    py_ba.c_ob_size = len(space.str_w(w_obj))
+#    py_ba.c_ob_bytes = lltype.nullptr(rffi.CCHARP.TO)
+#    py_ba.c_ob_exports = rffi.cast(rffi.INT, 0)
 
-def bytearray_realize(space, py_obj):
-    """
-    Creates the bytearray in the interpreter. 
-    """
-    py_ba = rffi.cast(PyByteArrayObject, py_obj)
-    if not py_ba.c_ob_bytes:
-        py_ba.c_buffer = lltype.malloc(rffi.CCHARP.TO, py_ba.c_ob_size + 1,
-                                    flavor='raw', zero=True)
-    s = rffi.charpsize2str(py_ba.c_ob_bytes, py_ba.c_ob_size)
-    w_obj = space.wrap(s)
-    py_ba.c_ob_exports = rffi.cast(rffi.INT, 0)
-    track_reference(space, py_obj, w_obj)
-    return w_obj
+#def bytearray_realize(space, py_obj):
+#    """
+#    Creates the bytearray in the interpreter. 
+#    """
+#    py_ba = rffi.cast(PyByteArrayObject, py_obj)
+#    if not py_ba.c_ob_bytes:
+#        py_ba.c_buffer = lltype.malloc(rffi.CCHARP.TO, py_ba.c_ob_size + 1,
+#                                    flavor='raw', zero=True)
+#    s = rffi.charpsize2str(py_ba.c_ob_bytes, py_ba.c_ob_size)
+#    w_obj = space.wrap(s)
+#    py_ba.c_ob_exports = rffi.cast(rffi.INT, 0)
+#    track_reference(space, py_obj, w_obj)
+#    return w_obj
 
-@cpython_api([PyObject], lltype.Void, header=None)
-def bytearray_dealloc(space, py_obj):
-    """Frees allocated PyByteArrayObject resources.
-    """
-    py_ba = rffi.cast(PyByteArrayObject, py_obj)
-    if py_ba.c_ob_bytes:
-        lltype.free(py_ba.c_ob_bytes, flavor="raw")
-    from pypy.module.cpyext.object import PyObject_dealloc
-    PyObject_dealloc(space, py_obj)
-
-#_______________________________________________________________________
+#@cpython_api([PyObject], lltype.Void, header=None)
+#def bytearray_dealloc(space, py_obj):
+#    """Frees allocated PyByteArrayObject resources.
+#    """
+#    py_ba = rffi.cast(PyByteArrayObject, py_obj)
+#    if py_ba.c_ob_bytes:
+#        lltype.free(py_ba.c_ob_bytes, flavor="raw")
+#    from pypy.module.cpyext.object import PyObject_dealloc
+#    PyObject_dealloc(space, py_obj)
+#
+_______________________________________________________________________
 
 @cpython_api([PyObject], PyObject, result_is_ll=True)
 def PyByteArray_FromObject(space, w_obj):
