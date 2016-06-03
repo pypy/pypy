@@ -222,7 +222,10 @@ class W_CData(W_Root):
                 w_value.get_array_length() == length):
                 # fast path: copying from exactly the correct type
                 with w_value as source:
-                    rffi.c_memcpy(target, source, ctitemsize * length)
+                    source = rffi.cast(rffi.VOIDP, source)
+                    target = rffi.cast(rffi.VOIDP, target)
+                    size = rffi.cast(rffi.SIZE_T, ctitemsize * length)
+                    rffi.c_memcpy(target, source, size)
                 return
         #
         # A fast path for <char[]>[0:N] = "somestring" or some bytearray.
