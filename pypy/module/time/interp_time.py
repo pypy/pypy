@@ -3,8 +3,9 @@ from rpython.rtyper.lltypesystem import rffi
 from pypy.interpreter.error import OperationError, oefmt, strerror as _strerror, exception_from_saved_errno
 from pypy.interpreter.gateway import unwrap_spec
 from rpython.rtyper.lltypesystem import lltype
-from rpython.rlib.rarithmetic import intmask
-from rpython.rlib.rtime import win_perf_counter
+from rpython.rlib.rarithmetic import intmask, r_ulonglong, r_longfloat
+from rpython.rlib.rtime import (win_perf_counter, TIMEB, c_ftime,
+                                GETTIMEOFDAY_NO_TZ, TIMEVAL)
 from rpython.rlib import rposix, rtime
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 import math
@@ -234,48 +235,68 @@ c_localtime = external('localtime', [rffi.TIME_TP], TM_P,
 
 if _WIN:
     GetSystemTimeAsFileTime = external('GetSystemTimeAsFileTime',
-                                      [rwin32.FILETIME],
-                                       rffi.VOIDP)
+                                      [lltype.Ptr(rwin32.FILETIME)],
+                                       lltype.Void)
     LPDWORD = rwin32.LPDWORD
     _GetSystemTimeAdjustment = rwin32.winexternal(
                                             'GetSystemTimeAdjustment',
                                             [LPDWORD, LPDWORD, rwin32.LPBOOL], 
                                             rffi.INT)
     def gettimeofday(space, w_info=None):
-        with lltype.scoped_alloc(rwin32.FILETIME) as system_time:#, \
-             #lltype.scoped_alloc(rffi.ULONGLONG) as microseconds:
-
+        with lltype.scoped_alloc(rwin32.FILETIME) as system_time:
             GetSystemTimeAsFileTime(system_time)
             quad_part = (system_time.c_dwLowDateTime |
-                         system_time.c_dwHighDateTime << 32)
-            microseconds = quad_part / 10 - 11644473600000000
+                         (r_ulonglong(system_time.c_dwHighDateTime) << 32))
+            # 11,644,473,600,000,000: number of microseconds between
+            # the 1st january 1601 and the 1st january 1970 (369 years + 80 leap
+            # days).
+            offset = (r_ulonglong(16384) * r_ulonglong(27) * r_ulonglong(390625)
+                     * r_ulonglong(79) * r_ulonglong(853))
+            microseconds = quad_part / 10 - offset
             tv_sec = microseconds / 1000000
             tv_usec = microseconds % 1000000
             if w_info:
-                with lltype.scoped_alloc(rwin32.DWORD) as time_adjustment, \
-                     lltype.scoped_alloc(rwin32.DWORD) as time_increment, \
-                     lltype.scoped_alloc(rwin32.BOOL) as is_time_adjustment_disabled:
-                    w_info.implementation = "GetSystemTimeAsFileTime()"
-                    w_info.monotonic = space.w_False
+                with lltype.scoped_alloc(LPDWORD.TO, 1) as time_adjustment, \
+                     lltype.scoped_alloc(LPDWORD.TO, 1) as time_increment, \
+                     lltype.scoped_alloc(rwin32.LPBOOL.TO, 1) as is_time_adjustment_disabled:
                     _GetSystemTimeAdjustment(time_adjustment, time_increment,
                                              is_time_adjustment_disabled)
-                    w_info.resolution = time_increment * 1e-7
-                    w_info.adjustable = space.w_True
-                    # TODO: Check that the 'casting' is correct here
-                    return space.wrap(tv_sec + tv_usec * 1e-6)
-
+                    
+                    _setinfo(space, w_info, "GetSystemTimeAsFileTime()",
+                             time_increment[0] * 1e-7, False, True)
+            # The explicit float call can be eliminated once we merge in
+            # 9f2746f3765c from default
+            return space.wrap(float(tv_sec) + tv_usec * 1e-6)
 else:
-    c_gettimeofday = external('gettimeofday',
-                              [cConfig.timeval, rffi.VOIDP], rffi.INT)
+    if GETTIMEOFDAY_NO_TZ:
+        c_gettimeofday = external('gettimeofday',
+                                  [lltype.Ptr(TIMEVAL)], rffi.INT)
+    else:
+        c_gettimeofday = external('gettimeofday',
+                                  [lltype.Ptr(TIMEVAL), rffi.VOIDP], rffi.INT)
     def gettimeofday(space, w_info=None):
-        with lltype.scoped_alloc(Cconfig.timeval) as timeval:
-            ret = c_gettimeofday(timeval, rffi.NULL)
-            if ret == 0:
-                _setinfo(space, w_info, "gettimeofday()", 1e-6, False, True)
-                return space.wrap(timeval.tv_sec + timeval.usec * 1e-6)
-        #TODO: Figure out ftime
+        void = lltype.nullptr(rffi.VOIDP.TO)
+        if False:
+            with lltype.scoped_alloc(Cconfig.timeval) as timeval:
+                if GETTIMEOFDAY_NO_TZ:
+                    errcode = c_gettimeofday(t)
+                else:
+                    errcode = c_gettimeofday(t, void)
+                if rffi.cast(rffi.LONG, errcode) == 0:
+                    _setinfo(space, w_info, "gettimeofday()", 1e-6, False, True)
+                    return space.wrap(timeval.tv_sec + timeval.usec * 1e-6)
         if HAS_FTIME:
-            pass
+            with lltype.scoped_alloc(TIMEB) as t:
+                c_ftime(t)
+                # The cpython code multiplies by 1000, but rtime.py multiplies
+                # by .001 instead. Why? 
+                # TODO: Get this clarified.
+                result = (float(intmask(t.c_time)) +
+                          float(intmask(t.c_millitm)) * 0.001)
+                if w_info is not None:
+                    _setinfo(space, w_info, "ftime()", 1e-3,
+                             space.w_False, space.w_True) 
+            return space.wrap(result)
         else:
             if w_info:
                 _setinfo(space, w_info, "time()", 1.0, False, True)
@@ -589,7 +610,7 @@ def time(space, w_info=None):
 
     # Can't piggy back on time.time because time.time delegates to the 
     # host python's time.time (so we can't see the internals)
-    if HAS_CLOCK_GETTIME and False:
+    if HAS_CLOCK_GETTIME:
         with lltype.scoped_alloc(TIMESPEC) as timespec:
             ret = c_clock_gettime(cConfig.CLOCK_REALTIME, timespec)
             if ret != 0:
@@ -608,7 +629,7 @@ def time(space, w_info=None):
             secs = _timespec_to_seconds(timespec)
             return secs
     else:
-        return gettimeofday(w_info)
+        return gettimeofday(space, w_info)
 
 def clock(space):
     """clock() -> floating point number
