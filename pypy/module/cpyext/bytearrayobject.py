@@ -98,7 +98,7 @@ def PyByteArray_FromStringAndSize(space, char_p, length):
 @cpython_api([PyObject, PyObject], PyObject)
 def PyByteArray_Concat(space, w_left, w_right):
     """Concat bytearrays a and b and return a new bytearray with the result."""
-    return space.call_method(w_left, '__add__', w_right)
+    return space.add(w_left, w_right)
 
 @cpython_api([PyObject], Py_ssize_t, error=-1)
 def PyByteArray_Size(space, w_obj):
@@ -126,7 +126,7 @@ def PyByteArray_Resize(space, w_obj, newlen):
             space.call_method(w_obj, 'extend', space.wrap('\x00' * (newlen - oldlen)))
         elif oldlen > newlen:
             assert newlen >= 0
-            space.delitem(w_obj, space.wrap(slice(newlen, None, 1)))
+            space.delslice(w_obj, space.wrap(newlen), space.wrap(oldlen))
         return 0
     else:
         raise oefmt(space.w_TypeError,
