@@ -225,20 +225,29 @@ class W_CData(W_Root):
                     rffi.c_memcpy(target, source, ctitemsize * length)
                 return
         #
-        # A fast path for <char[]>[0:N] = "somestring".
+        # A fast path for <char[]>[0:N] = "somestring" or some bytearray.
         from pypy.module._cffi_backend import ctypeprim
         space = self.space
-        if (space.isinstance_w(w_value, space.w_str) and
-                isinstance(ctitem, ctypeprim.W_CTypePrimitiveChar)):
-            from rpython.rtyper.annlowlevel import llstr
-            from rpython.rtyper.lltypesystem.rstr import copy_string_to_raw
-            value = space.str_w(w_value)
-            if len(value) != length:
-                raise oefmt(space.w_ValueError,
-                            "need a string of length %d, got %d",
-                            length, len(value))
-            copy_string_to_raw(llstr(value), target, 0, length)
-            return
+        if isinstance(ctitem, ctypeprim.W_CTypePrimitive) and ctitem.size == 1:
+            if space.isinstance_w(w_value, space.w_str):
+                from rpython.rtyper.annlowlevel import llstr
+                from rpython.rtyper.lltypesystem.rstr import copy_string_to_raw
+                value = space.str_w(w_value)
+                if len(value) != length:
+                    raise oefmt(space.w_ValueError,
+                                "need a string of length %d, got %d",
+                                length, len(value))
+                copy_string_to_raw(llstr(value), target, 0, length)
+                return
+            if space.isinstance_w(w_value, space.w_bytearray):
+                value = w_value.bytearray_list_of_chars_w(space)
+                if len(value) != length:
+                    raise oefmt(space.w_ValueError,
+                                "need a bytearray of length %d, got %d",
+                                length, len(value))
+                for i in range(length):
+                    target[i] = value[i]
+                return
         #
         w_iter = space.iter(w_value)
         for i in range(length):

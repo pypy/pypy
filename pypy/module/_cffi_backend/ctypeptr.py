@@ -29,9 +29,6 @@ class W_CTypePtrOrArray(W_CType):
         self.ctitem = ctitem
         self.can_cast_anything = could_cast_anything and ctitem.cast_anything
 
-    def is_char_ptr_or_array(self):
-        return isinstance(self.ctitem, ctypeprim.W_CTypePrimitiveChar)
-
     def is_unichar_ptr_or_array(self):
         return isinstance(self.ctitem, ctypeprim.W_CTypePrimitiveUniChar)
 

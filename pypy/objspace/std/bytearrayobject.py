@@ -45,6 +45,9 @@ class W_BytearrayObject(W_Root):
     def charbuf_w(self, space):
         return ''.join(self.data)
 
+    def bytearray_list_of_chars_w(self, space):
+        return self.data
+
     def nonmovable_carray(self, space):
         return BytearrayBuffer(self.data, False).get_raw_address()
 
