@@ -397,9 +397,9 @@ class Regalloc(BaseRegalloc):
         else:
             self.rm.force_spill_var(var)
 
-    def before_call(self, force_store=[], save_all_regs=False):
-        self.rm.before_call(force_store, save_all_regs)
-        self.vfprm.before_call(force_store, save_all_regs)
+    def before_call(self, save_all_regs=False):
+        self.rm.before_call(save_all_regs)
+        self.vfprm.before_call(save_all_regs)
 
     def _sync_var(self, v):
         if v.type == FLOAT:
@@ -552,8 +552,7 @@ class Regalloc(BaseRegalloc):
     prepare_op_call_f = _prepare_op_call
     prepare_op_call_n = _prepare_op_call
 
-    def _prepare_call(self, op, force_store=[], save_all_regs=False,
-                      first_arg_index=1):
+    def _prepare_call(self, op, save_all_regs=False, first_arg_index=1):
         args = [None] * (op.numargs() + 3)
         calldescr = op.getdescr()
         assert isinstance(calldescr, CallDescr)
@@ -571,17 +570,27 @@ class Regalloc(BaseRegalloc):
         args[1] = imm(size)
         args[2] = sign_loc
 
-        args[0] = self._call(op, args, force_store, save_all_regs)
+        effectinfo = calldescr.get_extra_info()
+        if save_all_regs:
+            gc_level = 2
+        elif effectinfo is None or effectinfo.check_can_collect():
+            gc_level = 1
+        else:
+            gc_level = 0
+
+        args[0] = self._call(op, args, gc_level)
         return args
 
-    def _call(self, op, arglocs, force_store=[], save_all_regs=False):
-        # spill variables that need to be saved around calls
-        self.vfprm.before_call(force_store, save_all_regs=save_all_regs)
-        if not save_all_regs:
-            gcrootmap = self.cpu.gc_ll_descr.gcrootmap
-            if gcrootmap and gcrootmap.is_shadow_stack:
-                save_all_regs = 2
-        self.rm.before_call(force_store, save_all_regs=save_all_regs)
+    def _call(self, op, arglocs, gc_level):
+        # spill variables that need to be saved around calls:
+        # gc_level == 0: callee cannot invoke the GC
+        # gc_level == 1: can invoke GC, save all regs that contain pointers
+        # gc_level == 2: can force, save all regs
+        save_all_regs = gc_level == 2
+        self.vfprm.before_call(save_all_regs=save_all_regs)
+        if gc_level == 1 and self.cpu.gc_ll_descr.gcrootmap:
+            save_all_regs = 2
+        self.rm.before_call(save_all_regs=save_all_regs)
         resloc = self.after_call(op)
         return resloc
 
@@ -1068,7 +1077,7 @@ class Regalloc(BaseRegalloc):
     def _prepare_op_call_assembler(self, op, fcond):
         locs = self.locs_for_call_assembler(op)
         tmploc = self.get_scratch_reg(INT, selected_reg=r.r0)
-        resloc = self._call(op, locs + [tmploc], save_all_regs=True)
+        resloc = self._call(op, locs + [tmploc], gc_level=2)
         return locs + [resloc, tmploc]
 
     prepare_op_call_assembler_i = _prepare_op_call_assembler

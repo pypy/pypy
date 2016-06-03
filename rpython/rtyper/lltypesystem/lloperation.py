@@ -470,6 +470,7 @@ LL_OPERATIONS = {
     'gc_pin'              : LLOp(canrun=True),
     'gc_unpin'            : LLOp(canrun=True),
     'gc__is_pinned'        : LLOp(canrun=True),
+    'gc_bit'              : LLOp(sideeffects=False, canrun=True),
 
     'gc_get_rpy_roots'    : LLOp(),
     'gc_get_rpy_referents': LLOp(),

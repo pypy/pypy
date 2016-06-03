@@ -176,9 +176,8 @@ class W_BytearrayObject(W_Root):
         hexstring = hexstring.lower()
         data = []
         length = len(hexstring)
-        i = -2
+        i = 0
         while True:
-            i += 2
             while i < length and hexstring[i] == ' ':
                 i += 1
             if i >= length:
@@ -193,6 +192,7 @@ class W_BytearrayObject(W_Root):
             if bot == -1:
                 raise oefmt(space.w_ValueError, NON_HEX_MSG, i + 1)
             data.append(chr(top*16 + bot))
+            i += 2
 
         # in CPython bytearray.fromhex is a staticmethod, so
         # we ignore w_type and always return a bytearray

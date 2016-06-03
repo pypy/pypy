@@ -603,7 +603,11 @@ class CallOpAssembler(object):
             assert saveerrloc.is_imm()
             cb.emit_call_release_gil(saveerrloc.value)
         else:
-            cb.emit()
+            effectinfo = descr.get_extra_info()
+            if effectinfo is None or effectinfo.check_can_collect():
+                cb.emit()
+            else:
+                cb.emit_no_collect()
 
     def _genop_call(self, op, arglocs, regalloc):
         oopspecindex = regalloc.get_oopspecindex(op)

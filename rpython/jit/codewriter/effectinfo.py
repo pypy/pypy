@@ -116,7 +116,8 @@ class EffectInfo(object):
                 oopspecindex=OS_NONE,
                 can_invalidate=False,
                 call_release_gil_target=_NO_CALL_RELEASE_GIL_TARGET,
-                extradescrs=None):
+                extradescrs=None,
+                can_collect=True):
         readonly_descrs_fields = frozenset_or_none(readonly_descrs_fields)
         readonly_descrs_arrays = frozenset_or_none(readonly_descrs_arrays)
         readonly_descrs_interiorfields = frozenset_or_none(
@@ -133,7 +134,8 @@ class EffectInfo(object):
                write_descrs_interiorfields,
                extraeffect,
                oopspecindex,
-               can_invalidate)
+               can_invalidate,
+               can_collect)
         tgt_func, tgt_saveerr = call_release_gil_target
         if tgt_func:
             key += (object(),)    # don't care about caching in this case
@@ -184,6 +186,7 @@ class EffectInfo(object):
         #
         result.extraeffect = extraeffect
         result.can_invalidate = can_invalidate
+        result.can_collect = can_collect
         result.oopspecindex = oopspecindex
         result.extradescrs = extradescrs
         result.call_release_gil_target = call_release_gil_target
@@ -230,6 +233,9 @@ class EffectInfo(object):
     def check_can_invalidate(self):
         return self.can_invalidate
 
+    def check_can_collect(self):
+        return self.can_collect
+
     def check_is_elidable(self):
         return (self.extraeffect == self.EF_ELIDABLE_CAN_RAISE or
                 self.extraeffect == self.EF_ELIDABLE_OR_MEMORYERROR or
@@ -268,7 +274,8 @@ def effectinfo_from_writeanalyze(effects, cpu,
                                  can_invalidate=False,
                                  call_release_gil_target=
                                      EffectInfo._NO_CALL_RELEASE_GIL_TARGET,
-                                 extradescr=None):
+                                 extradescr=None,
+                                 can_collect=True):
     from rpython.translator.backendopt.writeanalyze import top_set
     if effects is top_set or extraeffect == EffectInfo.EF_RANDOM_EFFECTS:
         readonly_descrs_fields = None
@@ -343,6 +350,9 @@ def effectinfo_from_writeanalyze(effects, cpu,
             else:
                 assert 0
     #
+    if extraeffect >= EffectInfo.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE:
+        can_collect = True
+    #
     return EffectInfo(readonly_descrs_fields,
                       readonly_descrs_arrays,
                       readonly_descrs_interiorfields,
@@ -353,7 +363,8 @@ def effectinfo_from_writeanalyze(effects, cpu,
                       oopspecindex,
                       can_invalidate,
                       call_release_gil_target,
-                      extradescr)
+                      extradescr,
+                      can_collect)
 
 def consider_struct(TYPE, fieldname):
     if fieldType(TYPE, fieldname) is lltype.Void:

@@ -2112,7 +2112,11 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             assert isinstance(saveerrloc, ImmedLoc)
             cb.emit_call_release_gil(saveerrloc.value)
         else:
-            cb.emit()
+            effectinfo = descr.get_extra_info()
+            if effectinfo is None or effectinfo.check_can_collect():
+                cb.emit()
+            else:
+                cb.emit_no_collect()
 
     def _store_force_index(self, guard_op):
         assert (guard_op.getopnum() == rop.GUARD_NOT_FORCED or

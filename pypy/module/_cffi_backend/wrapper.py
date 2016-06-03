@@ -100,6 +100,11 @@ class W_FunctionWrapper(W_Root):
         doc = '%s;\n\nCFFI C function from %s.lib' % (doc, self.modulename)
         return space.wrap(doc)
 
+    def descr_get(self, space, w_obj, w_type=None):
+        # never bind anything, but a __get__ is still present so that
+        # pydoc displays useful information (namely, the __repr__)
+        return self
+
 
 @jit.unroll_safe
 def prepare_args(space, rawfunctype, args_w, start_index):
@@ -136,5 +141,6 @@ W_FunctionWrapper.typedef = TypeDef(
         __name__ = interp_attrproperty('fnname', cls=W_FunctionWrapper),
         __module__ = interp_attrproperty('modulename', cls=W_FunctionWrapper),
         __doc__ = GetSetProperty(W_FunctionWrapper.descr_get_doc),
+        __get__ = interp2app(W_FunctionWrapper.descr_get),
         )
 W_FunctionWrapper.typedef.acceptable_as_base_class = False
