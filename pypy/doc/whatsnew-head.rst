@@ -131,3 +131,15 @@ Teach RPython JIT's off-line traceviewer the most common ``debug_merge_point`` f
 
 Enable pickling of W_PyCFunctionObject by monkeypatching pickle.Pickler.dispatch
 at cpyext import time
+
+.. branch: nonmovable-list
+
+Add a way to ask "give me a raw pointer to this list's
+items".  Only for resizable lists of primitives.  Turns the GcArray
+nonmovable, possibly making a copy of it first.
+
+.. branch: cpyext-ext
+
+Finish the work already partially merged in cpyext-for-merge. Adds support
+for ByteArrayObject using the nonmovable-list, which also enables
+buffer(bytearray(<some-list>)) 
