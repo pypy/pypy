@@ -1326,11 +1326,12 @@ class __extend__(pyframe.PyFrame):
 
     def BUILD_SET_UNPACK(self, itemcount, next_instr):
         w_sum = self.space.newset()
-        for i in range(itemcount):
-            self.space.updateset() #implement?
-            w_item = self.popvalue()
-            self.space.call_method(w_set, 'add', w_item)
-        self.pushvalue(w_set)
+        for i in range(itemcount, 0, -1):
+            self.space.call_method(w_sum, 'update', self.space.peek(i))
+        while itemcount != 0:
+            self.popvalue()
+            itemcount -= 1
+        self.pushvalue(w_sum)
 
     def BUILD_TUPLE_UNPACK(self, itemcount, next_instr):
         w_sum = self.space.newset()
