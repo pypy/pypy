@@ -1,4 +1,5 @@
 import py
+import os
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from rpython.rtyper.lltypesystem import rffi, lltype
@@ -238,8 +239,10 @@ class AppTestNDArray(AppTestCpythonExtensionBase):
             except:
                 skip('numpy not importable')
         else:
-            cls.w_numpy_include = cls.space.wrap([])
-
+            numpy_incl = os.path.abspath(os.path.dirname(__file__) + 
+                                         '/../include/_numpypy')
+            assert os.path.exists(numpy_incl)
+            cls.w_numpy_include = cls.space.wrap([numpy_incl])
 
     def test_ndarray_object_c(self):
         mod = self.import_extension('foo', [

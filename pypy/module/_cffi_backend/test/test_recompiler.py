@@ -1784,3 +1784,9 @@ class AppTestRecompiler:
         assert ffi.list_types() == (['CFFIb', 'CFFIbb', 'CFFIbbb'],
                                     ['CFFIa', 'CFFIcc', 'CFFIccc'],
                                     ['CFFIaa', 'CFFIaaa', 'CFFIg'])
+
+    def test_FFIFunctionWrapper(self):
+        ffi, lib = self.prepare("void f(void);", "test_FFIFunctionWrapper",
+                                "void f(void) { }")
+        assert lib.f.__get__(42) is lib.f
+        assert lib.f.__get__(42, int) is lib.f

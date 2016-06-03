@@ -7,6 +7,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib import rstring, runicode, rlocale, rfloat, jit
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rfloat import copysign, formatd
+from rpython.rlib.rarithmetic import r_uint, intmask
 
 
 @specialize.argtype(1)
@@ -836,33 +837,37 @@ def make_formatting_class():
                 return s
             # This part is slow.
             negative = value < 0
-            value = abs(value)
+            base = r_uint(base)
+            value = r_uint(value)
+            if negative:   # change the sign on the unsigned number: otherwise,
+                value = -value   #   we'd risk overflow if value==-sys.maxint-1
+            #
             buf = ["\0"] * (8 * 8 + 6) # Too much on 32 bit, but who cares?
             i = len(buf) - 1
             while True:
-                div = value // base
-                mod = value - div * base
-                digit = abs(mod)
+                div = value // base         # unsigned
+                mod = value - div * base    # unsigned, always in range(0,base)
+                digit = intmask(mod)
                 digit += ord("0") if digit < 10 else ord("a") - 10
                 buf[i] = chr(digit)
-                value = div
+                value = div                 # unsigned
                 i -= 1
                 if not value:
                     break
-            if base == 2:
+            if base == r_uint(2):
                 buf[i] = "b"
                 buf[i - 1] = "0"
-            elif base == 8:
+            elif base == r_uint(8):
                 buf[i] = "o"
                 buf[i - 1] = "0"
-            elif base == 16:
+            elif base == r_uint(16):
                 buf[i] = "x"
                 buf[i - 1] = "0"
             else:
                 buf[i] = "#"
-                buf[i - 1] = chr(ord("0") + base % 10)
-                if base > 10:
-                    buf[i - 2] = chr(ord("0") + base // 10)
+                buf[i - 1] = chr(ord("0") + intmask(base % r_uint(10)))
+                if base > r_uint(10):
+                    buf[i - 2] = chr(ord("0") + intmask(base // r_uint(10)))
                     i -= 1
             i -= 1
             if negative:

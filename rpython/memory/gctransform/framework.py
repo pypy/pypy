@@ -5,7 +5,7 @@ from rpython.rlib.objectmodel import specialize
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper import rmodel, annlowlevel
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, llgroup
-from rpython.rtyper.lltypesystem.lloperation import LL_OPERATIONS, llop
+from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.memory import gctypelayout
 from rpython.memory.gctransform.log import log
 from rpython.memory.gctransform.support import get_rtti, ll_call_destructor
@@ -14,7 +14,7 @@ from rpython.memory.gctransform.transform import GCTransformer
 from rpython.memory.gctypelayout import ll_weakref_deref, WEAKREF, WEAKREFPTR
 from rpython.memory.gctypelayout import FIN_TRIGGER_FUNC, FIN_HANDLER_ARRAY
 from rpython.tool.sourcetools import func_with_new_name
-from rpython.translator.backendopt import graphanalyze
+from rpython.translator.backendopt.collectanalyze import CollectAnalyzer
 from rpython.translator.backendopt.finalizer import FinalizerAnalyzer
 from rpython.translator.backendopt.support import var_needsgc
 import types
@@ -22,33 +22,6 @@ import types
 
 TYPE_ID = llgroup.HALFWORD
 
-
-class CollectAnalyzer(graphanalyze.BoolGraphAnalyzer):
-
-    def analyze_direct_call(self, graph, seen=None):
-        try:
-            func = graph.func
-        except AttributeError:
-            pass
-        else:
-            if getattr(func, '_gctransformer_hint_cannot_collect_', False):
-                return False
-            if getattr(func, '_gctransformer_hint_close_stack_', False):
-                return True
-        return graphanalyze.BoolGraphAnalyzer.analyze_direct_call(self, graph,
-                                                                  seen)
-    def analyze_external_call(self, funcobj, seen=None):
-        if funcobj.random_effects_on_gcobjs:
-            return True
-        return graphanalyze.BoolGraphAnalyzer.analyze_external_call(
-            self, funcobj, seen)
-    def analyze_simple_operation(self, op, graphinfo):
-        if op.opname in ('malloc', 'malloc_varsize'):
-            flags = op.args[1].value
-            return flags['flavor'] == 'gc'
-        else:
-            return (op.opname in LL_OPERATIONS and
-                    LL_OPERATIONS[op.opname].canmallocgc)
 
 def propagate_no_write_barrier_needed(result, block, mallocvars,
                                       collect_analyzer, entrymap,

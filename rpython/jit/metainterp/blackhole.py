@@ -408,6 +408,14 @@ class BlackholeInterpreter(object):
     def bhimpl_int_mul(a, b):
         return intmask(a * b)
 
+    @arguments("i", "i", returns="i")
+    def bhimpl_uint_mul_high(a, b):
+        from rpython.jit.metainterp.optimizeopt import intdiv
+        a = r_uint(a)
+        b = r_uint(b)
+        c = intdiv.unsigned_mul_high(a, b)
+        return intmask(c)
+
     @arguments("L", "i", "i", returns="iL")
     def bhimpl_int_add_jump_if_ovf(label, a, b):
         try:
@@ -428,19 +436,6 @@ class BlackholeInterpreter(object):
             return ovfcheck(a * b), -1
         except OverflowError:
             return 0, label
-
-    @arguments("i", "i", returns="i")
-    def bhimpl_int_floordiv(a, b):
-        return llop.int_floordiv(lltype.Signed, a, b)
-
-    @arguments("i", "i", returns="i")
-    def bhimpl_uint_floordiv(a, b):
-        c = llop.uint_floordiv(lltype.Unsigned, r_uint(a), r_uint(b))
-        return intmask(c)
-
-    @arguments("i", "i", returns="i")
-    def bhimpl_int_mod(a, b):
-        return llop.int_mod(lltype.Signed, a, b)
 
     @arguments("i", "i", returns="i")
     def bhimpl_int_and(a, b):
