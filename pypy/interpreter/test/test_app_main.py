@@ -6,7 +6,7 @@ import py
 import sys, os, re, runpy, subprocess
 from rpython.tool.udir import udir
 from contextlib import contextmanager
-from pypy.conftest import pypydir
+from pypy import pypydir
 from lib_pypy._pypy_interact import irc_header
 
 try:
@@ -291,7 +291,7 @@ class TestInteraction:
         child.expect('>>>')   # banner
         if irc_topic:
             assert irc_header in child.before
-        else:    
+        else:
             assert irc_header not in child.before
 
     def test_help(self):
@@ -1074,4 +1074,4 @@ class AppTestAppMain:
             # assert it did not crash
         finally:
             sys.path[:] = old_sys_path
-    
+

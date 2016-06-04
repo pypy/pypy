@@ -1,6 +1,6 @@
 
 import py
-from pypy.conftest import pypydir
+from pypy import pypydir
 from pypy.tool.release import package
 from pypy.module.sys.version import  CPYTHON_VERSION
 from rpython.tool.udir import udir
