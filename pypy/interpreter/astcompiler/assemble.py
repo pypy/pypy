@@ -670,7 +670,13 @@ def _compute_UNPACK_EX(arg):
 def _compute_BUILD_TUPLE(arg):
     return 1 - arg
 
+def _compute_BUILD_TUPLE_UNPACK(arg):
+    return 1 - arg
+
 def _compute_BUILD_LIST(arg):
+    return 1 - arg
+
+def _compute_BUILD_LIST_UNPACK(arg):
     return 1 - arg
 
 def _compute_BUILD_SET(arg):
@@ -684,6 +690,9 @@ def _compute_BUILD_MAP(arg):
 
 def _compute_BUILD_MAP_UNPACK(arg):
     return 1 - arg
+
+def _compute_BUILD_MAP_UNPACK_WITH_CALL(arg):
+    return 1 - (arg & 0xFF)
 
 def _compute_MAKE_CLOSURE(arg):
     return -2 - _num_args(arg) - ((arg >> 16) & 0xFFFF)
