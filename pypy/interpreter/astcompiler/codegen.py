@@ -1046,6 +1046,30 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.visit_sequence(elts)
         if ctx == ast.Load:
             self.emit_op_arg(op, elt_count)
+    
+    #TODO
+    def _visit_starunpack(self, node, elts, ctx, single_op, innter_op, outer_op):
+        elt_count = len(elts) if elts else 0
+        if ctx == ast.Store:
+            seen_star = False
+            for i in range(elt_count):
+                elt = elts[i]
+                is_starred = isinstance(elt, ast.Starred)
+                if is_starred and not seen_star:
+                    if i >= 1 << 8 or elt_count - i - 1 >= (C_INT_MAX >> 8):
+                        self.error("too many expressions in star-unpacking "
+                                   "assignment", node)
+                    self.emit_op_arg(ops.UNPACK_EX,
+                                     i + ((elt_count - i - 1) << 8))
+                    seen_star = True
+                    elts[i] = elt.value
+                elif is_starred:
+                    self.error("two starred expressions in assignment", node)
+            if not seen_star:
+                self.emit_op_arg(ops.UNPACK_SEQUENCE, elt_count)
+        self.visit_sequence(elts)
+        if ctx == ast.Load:
+            self.emit_op_arg(op, elt_count)
 
     def visit_Starred(self, star):
         if star.ctx != ast.Store:
@@ -1120,17 +1144,17 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                     ops.BUILD_TUPLE(nseen)
                     nseen = 0
                     nsubargs += 1
-                self.visit(elt.value) # probably wrong, elt->v.Starred.value
+                elt.walkabout(self) #self.visit(elt.value) # probably wrong, elt->v.Starred.value
                 nsubargs += 1
             elif nsubargs != 0:
                 # We've seen star-args already, so we
                 # count towards items-to-pack-into-tuple.
-                self.visit(elt)
+                elt.walkabout(self)
                 nseen += 1
             else:
                 # Positional arguments before star-arguments
                 # are left on the stack.
-                self.visit(elt)
+                elt.walkabout(self)
                 n += 1
         if nseen != 0:
             # Pack up any trailing positional arguments.
@@ -1145,34 +1169,35 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         
         # Repeat procedure for keyword args
         nseen = 0 # the number of keyword arguments on the stack following
-        for kw in keywords:
-            if kw.arg is None:
-                # A keyword argument unpacking.
-                if nseen != 0:
-                    ops.BUILD_MAP(nseen)
-                    nseen = 0
+        if keywords is not None:
+            for kw in keywords:
+                if kw.arg is None:
+                    # A keyword argument unpacking.
+                    if nseen != 0:
+                        ops.BUILD_MAP(nseen)
+                        nseen = 0
+                        nsubkwargs += 1
+                    self.visit_sequence(kw.value) # probably wrong, elt->v.Starred.value
                     nsubkwargs += 1
-                self.visit(kw.value) # probably wrong, elt->v.Starred.value
+                elif nsubkwargs != 0:
+                    # A keyword argument and we already have a dict.
+                    ops.LOAD_CONST(kw.arg, consts)
+                    self.visit_sequence(kw.value)
+                    nseen += 1
+                else:
+                    # keyword argument
+                    self.visit_sequence(kw)
+                    nkw += 1
+            if nseen != 0:
+                # Pack up any trailing keyword arguments.
+                ops.BUILD_MAP(nseen)
                 nsubkwargs += 1
-            elif nsubkwargs != 0:
-                # A keyword argument and we already have a dict.
-                ops.LOAD_CONST(kw.arg, consts)
-                self.visit(kw.value)
-                nseen += 1
-            else:
-                # keyword argument
-                self.visit(kw)
-                nkw += 1
-        if nseen != 0:
-            # Pack up any trailing keyword arguments.
-            ops.BUILD_MAP(nseen)
-            nsubkwargs += 1
-        if nsubargs != 0:
-            call_type |= 2
-            if nsubkwargs > 1:
-                # Pack it all up
-                function_pos = n + (code & 1) + nkw + 1
-                ops.BUILD_MAP_UNPACK_WITH_CALL(nsubkwargs | (function_pos << 8))
+            if nsubargs != 0:
+                call_type |= 2
+                if nsubkwargs > 1:
+                    # Pack it all up
+                    function_pos = n + (code & 1) + nkw + 1
+                    ops.BUILD_MAP_UNPACK_WITH_CALL(nsubkwargs | (function_pos << 8))
         
         assert n < 1<<8
         assert nkw < 1<<24
