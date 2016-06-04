@@ -159,5 +159,5 @@ class AppTestMemoryView:
 
     def test_pypy_raw_address_base(self):
         raises(ValueError, memoryview(b"foobar")._pypy_raw_address)
-        e = raises(ValueError, memoryview(bytearray(b"foobar"))._pypy_raw_address)
-        assert 'BytearrayBuffer' in str(e.value)
+        a = memoryview(bytearray(b"foobar"))._pypy_raw_address()
+        assert a != 0

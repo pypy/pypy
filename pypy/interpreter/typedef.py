@@ -23,6 +23,7 @@ class TypeDef(object):
         else:
             bases = [__base]
         self.bases = bases
+        # Used in cpyext to fill tp_as_buffer slots
         assert __buffer in {None, 'read-write', 'read'}, "Unknown value for __buffer"
         self.buffer = __buffer
         self.heaptype = False

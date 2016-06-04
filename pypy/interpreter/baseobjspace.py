@@ -251,6 +251,9 @@ class W_Root(object):
     def identifier_w(self, space):
         self._typed_unwrap_error(space, "string")
 
+    def bytearray_list_of_chars_w(self, space):
+        self._typed_unwrap_error(space, "bytearray")
+
     def int_w(self, space, allow_conversion=True):
         # note that W_IntObject.int_w has a fast path and W_FloatObject.int_w
         # raises w_TypeError
