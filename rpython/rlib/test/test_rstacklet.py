@@ -4,7 +4,7 @@ import platform
 from rpython.rtyper.tool.rffi_platform import CompilationError
 try:
     from rpython.rlib import rstacklet
-except CompilationError, e:
+except CompilationError as e:
     py.test.skip("cannot import rstacklet: %s" % e)
 
 from rpython.config.translationoption import DEFL_ROOTFINDER_WITHJIT

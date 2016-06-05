@@ -14,7 +14,7 @@ PYPY_VERSION               = (5, 1, 2, "final", 0)    #XXX # sync patchlevel.h
 
 
 import pypy
-pypydir = os.path.dirname(os.path.abspath(pypy.__file__))
+pypydir = pypy.pypydir
 pypyroot = os.path.dirname(pypydir)
 del pypy
 from rpython.tool.version import get_repo_version_info

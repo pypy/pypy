@@ -120,13 +120,13 @@ class AppTestUfuncs(BaseNumpyAppTest):
                 try:
                     retVal = c_pow(*map(space.unwrap, args_w))
                     return space.wrap(retVal)
-                except ZeroDivisionError, e:
+                except ZeroDivisionError as e:
                     raise OperationError(cls.space.w_ZeroDivisionError,
                             cls.space.wrap(e.message))
-                except OverflowError, e:
+                except OverflowError as e:
                     raise OperationError(cls.space.w_OverflowError,
                             cls.space.wrap(e.message))
-                except ValueError, e:
+                except ValueError as e:
                     raise OperationError(cls.space.w_ValueError,
                             cls.space.wrap(e.message))
             cls.w_c_pow = cls.space.wrap(interp2app(cls_c_pow))

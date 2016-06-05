@@ -1,5 +1,6 @@
 import py, sys
 from rpython.rlib.objectmodel import instantiate
+from rpython.rlib.rarithmetic import intmask
 from rpython.rtyper.lltypesystem import lltype
 from rpython.jit.metainterp import compile, resume
 from rpython.jit.metainterp.history import AbstractDescr, ConstInt, TreeLoop
@@ -3493,7 +3494,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_fold_partially_constant_uint_floordiv(self):
         ops = """
         [i0]
-        i1 = uint_floordiv(i0, 1)
+        i1 = call_pure_i(321, i0, 1, descr=int_udiv_descr)
         jump(i1)
         """
         expected = """
@@ -5247,13 +5248,13 @@ class OptimizeOptTest(BaseTestWithUnroll):
         guard_true(it1) []
         it2 = int_gt(i2, 0)
         guard_true(it2) []
-        ix2 = int_floordiv(i0, i1)
+        ix2 = call_pure_i(321, i0, i1, descr=int_py_div_descr)
         ix2t = int_ge(ix2, 0)
         guard_true(ix2t) []
-        ix3 = int_floordiv(i1, i0)
+        ix3 = call_pure_i(321, i1, i0, descr=int_py_div_descr)
         ix3t = int_ge(ix3, 0)
         guard_true(ix3t) []
-        ix4 = int_floordiv(i1, i2)
+        ix4 = call_pure_i(321, i1, i2, descr=int_py_div_descr)
         ix4t = int_ge(ix4, 0)
         guard_true(ix4t) []
         jump(i0, i1, i2)
@@ -5264,13 +5265,14 @@ class OptimizeOptTest(BaseTestWithUnroll):
         guard_true(it1) []
         it2 = int_gt(i2, 0)
         guard_true(it2) []
-        ix2 = int_floordiv(i0, i1)
+        ix2 = call_i(321, i0, i1, descr=int_py_div_descr)
         ix2t = int_ge(ix2, 0)
         guard_true(ix2t) []
-        ix3 = int_floordiv(i1, i0)
+        ix3 = call_i(321, i1, i0, descr=int_py_div_descr)
         ix3t = int_ge(ix3, 0)
         guard_true(ix3t) []
-        ix4 = int_floordiv(i1, i2)
+        ix4 = call_i(321, i1, i2, descr=int_py_div_descr)
+        # <== the check that ix4 is nonnegative was removed
         jump(i0, i1, i2)
         """
         expected = """
@@ -5314,94 +5316,75 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected, preamble)
 
-    def test_division(self):
-        ops = """
-        [i7, i6, i8]
-        it1 = int_gt(i7, 0)
-        guard_true(it1) []
-        it2 = int_gt(i6, 0)
-        guard_true(it2) []
-        i13 = int_is_zero(i6)
-        guard_false(i13) []
-        i15 = int_and(i8, i6)
-        i17 = int_eq(i15, -1)
-        guard_false(i17) []
-        i18 = int_floordiv(i7, i6)
-        i19 = int_xor(i7, i6)
-        i21 = int_lt(i19, 0)
-        i22 = int_mod(i7, i6)
-        i23 = int_is_true(i22)
-        i24 = int_and(i21, i23)
-        i25 = int_sub(i18, i24)
-        jump(i7, i25, i8)
-        """
-        preamble = """
-        [i7, i6, i8]
-        it1 = int_gt(i7, 0)
-        guard_true(it1) []
-        it2 = int_gt(i6, 0)
-        guard_true(it2) []
-        i15 = int_and(i8, i6)
-        i17 = int_eq(i15, -1)
-        guard_false(i17) []
-        i18 = int_floordiv(i7, i6)
-        i19 = int_xor(i7, i6)
-        i22 = int_mod(i7, i6)
-        i23 = int_is_true(i22)
-        jump(i7, i18, i8)
-        """
-        expected = """
-        [i7, i6, i8]
-        it2 = int_gt(i6, 0)
-        guard_true(it2) []
-        i15 = int_and(i8, i6)
-        i17 = int_eq(i15, -1)
-        guard_false(i17) []
-        i18 = int_floordiv(i7, i6)
-        i19 = int_xor(i7, i6)
-        i22 = int_mod(i7, i6)
-        i23 = int_is_true(i22)
-        jump(i7, i18, i8)
-        """
-        self.optimize_loop(ops, expected, preamble)
-
     def test_division_to_rshift(self):
         ops = """
         [i1, i2]
-        it = int_gt(i1, 0)
-        guard_true(it)[]
-        i3 = int_floordiv(i1, i2)
-        i4 = int_floordiv(2, i2)
-        i5 = int_floordiv(i1, 2)
-        i6 = int_floordiv(3, i2)
-        i7 = int_floordiv(i1, 3)
-        i8 = int_floordiv(4, i2)
-        i9 = int_floordiv(i1, 4)
-        i10 = int_floordiv(i1, 0)
-        i11 = int_floordiv(i1, 1)
-        i12 = int_floordiv(i2, 2)
-        i13 = int_floordiv(i2, 3)
-        i14 = int_floordiv(i2, 4)
-        jump(i5, i14)
+        i3 = call_pure_i(321, i1, i2, descr=int_py_div_descr)
+        i4 = call_pure_i(322, 2, i2, descr=int_py_div_descr)
+        i6 = call_pure_i(323, 3, i2, descr=int_py_div_descr)
+        i8 = call_pure_i(324, 4, i2, descr=int_py_div_descr)
+        i9b = call_pure_i(325, i1, -2, descr=int_py_div_descr)
+        i9c = call_pure_i(326, i1, -1, descr=int_py_div_descr)
+        i10 = call_pure_i(327, i1, 0, descr=int_py_div_descr)
+        i11 = call_pure_i(328, i1, 1, descr=int_py_div_descr)
+        i5 = call_pure_i(329, i1, 2, descr=int_py_div_descr)
+        i9 = call_pure_i(331, i1, 4, descr=int_py_div_descr)
+        jump(i5, i9)
         """
         expected = """
         [i1, i2]
-        it = int_gt(i1, 0)
-        guard_true(it)[]
-        i3 = int_floordiv(i1, i2)
-        i4 = int_floordiv(2, i2)
+        i3 = call_i(321, i1, i2, descr=int_py_div_descr)
+        i4 = call_i(322, 2, i2, descr=int_py_div_descr)
+        i6 = call_i(323, 3, i2, descr=int_py_div_descr)
+        i8 = call_i(324, 4, i2, descr=int_py_div_descr)
+        i9b = call_i(325, i1, -2, descr=int_py_div_descr)
+        i9c = call_i(326, i1, -1, descr=int_py_div_descr)
+        i10 = call_i(327, i1, 0, descr=int_py_div_descr)
+        # i11 = i1
         i5 = int_rshift(i1, 1)
-        i6 = int_floordiv(3, i2)
-        i7 = int_floordiv(i1, 3)
-        i8 = int_floordiv(4, i2)
         i9 = int_rshift(i1, 2)
-        i10 = int_floordiv(i1, 0)
-        i12 = int_floordiv(i2, 2)
-        i13 = int_floordiv(i2, 3)
-        i14 = int_floordiv(i2, 4)
-        jump(i5, i14)
+        jump(i5, i9)
         """
         self.optimize_loop(ops, expected)
+
+    def test_division_to_mul_high_nonneg(self):
+        from rpython.jit.metainterp.optimizeopt.intdiv import magic_numbers
+        for divisor in [3, 5, 12]:
+            kk, ii = magic_numbers(divisor)
+            ops = """
+            [i1]
+            i3 = int_ge(i1, 0)
+            guard_true(i3) []
+            i2 = call_pure_i(321, i1, %d, descr=int_py_div_descr)
+            jump(i2)
+            """ % divisor
+            expected = """
+            [i1]
+            i4 = uint_mul_high(i1, %d)
+            i2 = uint_rshift(i4, %d)
+            jump(i2)
+            """ % (intmask(kk), ii)
+            self.optimize_loop(ops, expected)
+
+    def test_division_to_mul_high(self):
+        from rpython.jit.metainterp.optimizeopt.intdiv import magic_numbers
+        for divisor in [3, 5, 12]:
+            kk, ii = magic_numbers(divisor)
+            ops = """
+            [i1]
+            i2 = call_pure_i(321, i1, %d, descr=int_py_div_descr)
+            jump(i2)
+            """ % divisor
+            expected = """
+            [i1]
+            i3 = int_rshift(i1, %d)
+            i4 = int_xor(i1, i3)
+            i5 = uint_mul_high(i4, %d)
+            i6 = uint_rshift(i5, %d)
+            i2 = int_xor(i6, i3)
+            jump(i2)
+            """ % (63 if sys.maxint > 2**32 else 31, intmask(kk), ii)
+            self.optimize_loop(ops, expected)
 
     def test_mul_to_lshift(self):
         ops = """
@@ -5475,7 +5458,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_int_div_1(self):
         ops = """
         [i0]
-        i1 = int_floordiv(i0, 1)
+        i1 = call_pure_i(321, i0, 1, descr=int_py_div_descr)
         jump(i1)
         """
         expected = """
@@ -5484,48 +5467,37 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
-    def test_division_nonneg(self):
-        py.test.skip("harder")
-        # this is how an app-level division turns into right now
         ops = """
-        [i4]
-        i1 = int_ge(i4, 0)
-        guard_true(i1) []
-        i16 = int_floordiv(i4, 3)
-        i18 = int_mul(i16, 3)
-        i19 = int_sub(i4, i18)
-        i21 = int_rshift(i19, %d)
-        i22 = int_add(i16, i21)
-        finish(i22)
-        """ % (LONG_BIT-1)
+        [i0]
+        i1 = call_pure_i(321, 0, i0, descr=int_py_div_descr)
+        escape_n(i1)
+        jump(i0)
+        """
         expected = """
-        [i4]
-        i1 = int_ge(i4, 0)
-        guard_true(i1) []
-        i16 = int_floordiv(i4, 3)
-        finish(i16)
+        [i0]
+        escape_n(0)
+        jump(i0)
         """
         self.optimize_loop(ops, expected)
 
-    def test_division_by_2(self):
-        py.test.skip("harder")
+    def test_division_bound_bug(self):
         ops = """
         [i4]
-        i1 = int_ge(i4, 0)
+        i1 = int_ge(i4, -50)
         guard_true(i1) []
-        i16 = int_floordiv(i4, 2)
-        i18 = int_mul(i16, 2)
-        i19 = int_sub(i4, i18)
-        i21 = int_rshift(i19, %d)
-        i22 = int_add(i16, i21)
-        finish(i22)
-        """ % (LONG_BIT-1)
+        i2 = int_le(i4, -40)
+        guard_true(i2) []
+        # here, -50 <= i4 <= -40
+
+        i5 = call_pure_i(321, i4, 30, descr=int_py_div_descr)
+        # here, we know that that i5 == -2  (Python-style handling of negatives)
+        escape_n(i5)
+        jump(i4)
+        """
         expected = """
-        [i4]
-        i1 = int_ge(i4, 0)
-        guard_true(i1) []
-        i16 = int_rshift(i4, 1)
-        finish(i16)
+        [i4, i5]
+        escape_n(-2)
+        jump(i4, -2)
         """
         self.optimize_loop(ops, expected)
 
@@ -6761,21 +6733,6 @@ class OptimizeOptTest(BaseTestWithUnroll):
 
     # ----------
     def optimize_strunicode_loop_extradescrs(self, ops, optops, preamble):
-        class FakeCallInfoCollection:
-            def callinfo_for_oopspec(self, oopspecindex):
-                calldescrtype = type(LLtypeMixin.strequaldescr)
-                effectinfotype = type(LLtypeMixin.strequaldescr.get_extra_info())
-                for value in LLtypeMixin.__dict__.values():
-                    if isinstance(value, calldescrtype):
-                        extra = value.get_extra_info()
-                        if (extra and isinstance(extra, effectinfotype) and
-                                extra.oopspecindex == oopspecindex):
-                            # returns 0 for 'func' in this test
-                            return value, 0
-                raise AssertionError("not found: oopspecindex=%d" %
-                                     oopspecindex)
-        #
-        self.callinfocollection = FakeCallInfoCollection()
         self.optimize_strunicode_loop(ops, optops, preamble)
 
     def test_str_equal_noop1(self):

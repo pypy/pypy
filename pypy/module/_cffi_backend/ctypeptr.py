@@ -29,9 +29,6 @@ class W_CTypePtrOrArray(W_CType):
         self.ctitem = ctitem
         self.can_cast_anything = could_cast_anything and ctitem.cast_anything
 
-    def is_char_ptr_or_array(self):
-        return isinstance(self.ctitem, ctypeprim.W_CTypePrimitiveChar)
-
     def is_unichar_ptr_or_array(self):
         return isinstance(self.ctitem, ctypeprim.W_CTypePrimitiveUniChar)
 
@@ -54,12 +51,8 @@ class W_CTypePtrOrArray(W_CType):
             value = rffi.cast(rffi.CCHARP, value)
         return cdataobj.W_CData(space, value, self)
 
-    def _convert_array_from_listview(self, cdata, w_ob):
-        if self.ctitem.pack_list_of_items(cdata, w_ob):   # fast path
-            return
-        #
+    def _convert_array_from_listview(self, cdata, lst_w):
         space = self.space
-        lst_w = space.listview(w_ob)
         if self.length >= 0 and len(lst_w) > self.length:
             raise oefmt(space.w_IndexError,
                         "too many initializers for '%s' (got %d)",
@@ -73,7 +66,10 @@ class W_CTypePtrOrArray(W_CType):
         space = self.space
         if (space.isinstance_w(w_ob, space.w_list) or
             space.isinstance_w(w_ob, space.w_tuple)):
-            self._convert_array_from_listview(cdata, w_ob)
+            if self.ctitem.pack_list_of_items(cdata, w_ob):   # fast path
+                pass
+            else:
+                self._convert_array_from_listview(cdata, space.listview(w_ob))
         elif (self.can_cast_anything or
               (self.ctitem.is_primitive_integer and
                self.ctitem.size == rffi.sizeof(lltype.Char))):
@@ -289,8 +285,8 @@ class W_CTypePointer(W_CTypePtrBase):
         try:
             datasize = ovfcheck(length * itemsize)
         except OverflowError:
-            raise OperationError(space.w_OverflowError,
-                space.wrap("array size would overflow a ssize_t"))
+            raise oefmt(space.w_OverflowError,
+                        "array size would overflow a ssize_t")
         result = lltype.malloc(rffi.CCHARP.TO, datasize,
                                flavor='raw', zero=True)
         try:
@@ -322,13 +318,12 @@ class W_CTypePointer(W_CTypePtrBase):
         space = self.space
         ctitem = self.ctitem
         if ctitem.size < 0:
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("pointer to opaque"))
+            raise oefmt(space.w_TypeError, "pointer to opaque")
         try:
             offset = ovfcheck(index * ctitem.size)
         except OverflowError:
-            raise OperationError(space.w_OverflowError,
-                    space.wrap("array offset would overflow a ssize_t"))
+            raise oefmt(space.w_OverflowError,
+                        "array offset would overflow a ssize_t")
         return ctitem, offset
 
     def rawaddressof(self, cdata, offset):
@@ -341,9 +336,8 @@ class W_CTypePointer(W_CTypePtrBase):
             ptr = rffi.ptradd(ptr, offset)
             return cdataobj.W_CData(space, ptr, self)
         else:
-            raise OperationError(space.w_TypeError,
-                    space.wrap("expected a cdata struct/union/array/pointer"
-                               " object"))
+            raise oefmt(space.w_TypeError,
+                        "expected a cdata struct/union/array/pointer object")
 
     def _fget(self, attrchar):
         if attrchar == 'i':     # item
@@ -377,10 +371,9 @@ def prepare_file_argument(space, w_fileobj):
     if w_fileobj.cffi_fileobj is None:
         fd = w_fileobj.direct_fileno()
         if fd < 0:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("file has no OS file descriptor"))
+            raise oefmt(space.w_ValueError, "file has no OS file descriptor")
         try:
             w_fileobj.cffi_fileobj = CffiFileObj(fd, w_fileobj.mode)
-        except OSError, e:
+        except OSError as e:
             raise wrap_oserror(space, e)
     return rffi.cast(rffi.CCHARP, w_fileobj.cffi_fileobj.llf)

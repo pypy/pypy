@@ -1502,7 +1502,7 @@ an array of some other type.");
 static PyObject *
 array_reduce(arrayobject *array)
 {
-    PyObject *dict, *result, *list;
+    PyObject *dict, *result, *list, *mod, *obj;
 
     dict = PyObject_GetAttrString((PyObject *)array, "__dict__");
     if (dict == NULL) {
@@ -1511,6 +1511,18 @@ array_reduce(arrayobject *array)
         PyErr_Clear();
         dict = Py_None;
         Py_INCREF(dict);
+    }
+    /* Return a tuple of (callable object, typecode, values, state) */
+    mod = PyImport_ImportModule("array");
+    if (mod == NULL) {
+        Py_DECREF(dict);
+        return NULL;
+    }
+    obj = PyObject_GetAttrString(mod, "_reconstruct");
+    Py_DECREF(mod);
+    if (obj == NULL) {
+        Py_DECREF(dict);
+        return NULL;
     }
     /* Unlike in Python 3.x, we never use the more efficient memory
      * representation of an array for pickling.  This is unfortunately
@@ -1524,7 +1536,7 @@ array_reduce(arrayobject *array)
         return NULL;
     }
     result = Py_BuildValue(
-        "O(cO)O", Py_TYPE(array), array->ob_descr->typecode, list, dict);
+        "O(cO)O", obj, array->ob_descr->typecode, list, dict);
     Py_DECREF(list);
     Py_DECREF(dict);
     return result;
@@ -1916,6 +1928,11 @@ array_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
     char c;
     PyObject *initial = NULL, *it = NULL;
     struct arraydescr *descr;
+    if (type == NULL)
+    {
+        /* when called from _reconstruct */
+        type = &Arraytype;
+    }
 
     if (type == &Arraytype && !_PyArg_NoKeywords("array.array()", kwds))
         return NULL;
@@ -2017,6 +2034,11 @@ array_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
     return NULL;
 }
 
+static PyObject *
+_reconstruct(PyTypeObject *type, PyObject *args)
+{
+    return array_new(type, args, NULL);
+}
 
 PyDoc_STRVAR(module_doc,
 "This module defines an object type which can efficiently represent\n\
@@ -2223,9 +2245,15 @@ static PyTypeObject PyArrayIter_Type = {
 
 /* No functions in array module. */
 static PyMethodDef a_methods[] = {
+    {"_reconstruct",   (PyCFunction)_reconstruct, METH_VARARGS, NULL},
     {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 
+#ifdef __GNUC__
+extern __attribute__((visibility("default")))
+#else
+extern __declspec(dllexport)
+#endif
 
 PyMODINIT_FUNC
 initarray(void)
@@ -2239,6 +2267,8 @@ initarray(void)
         return;
 
     Py_INCREF((PyObject *)&Arraytype);
+    if (PyType_Ready(&Arraytype) < 0)
+        return;
     PyModule_AddObject(m, "ArrayType", (PyObject *)&Arraytype);
     Py_INCREF((PyObject *)&Arraytype);
     PyModule_AddObject(m, "array", (PyObject *)&Arraytype);

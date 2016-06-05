@@ -53,6 +53,13 @@ RPY_EXTERN __thread struct pypy_threadlocal_s pypy_threadlocal;
             r = _RPython_ThreadLocals_Build();  \
     } while (0)
 
+#define _OP_THREADLOCALREF_ADDR_SIGHANDLER(r)   \
+    do {                                        \
+        r = (char *)&pypy_threadlocal;          \
+        if (pypy_threadlocal.ready != 42)       \
+            r = NULL;                           \
+    } while (0)
+
 #define RPY_THREADLOCALREF_ENSURE()             \
     if (pypy_threadlocal.ready != 42)           \
         (void)_RPython_ThreadLocals_Build();
@@ -85,6 +92,11 @@ typedef DWORD pthread_key_t;
         r = (char *)_RPy_ThreadLocals_Get();    \
         if (!r)                                 \
             r = _RPython_ThreadLocals_Build();  \
+    } while (0)
+
+#define _OP_THREADLOCALREF_ADDR_SIGHANDLER(r)   \
+    do {                                        \
+        r = (char *)_RPy_ThreadLocals_Get();    \
     } while (0)
 
 #define RPY_THREADLOCALREF_ENSURE()             \

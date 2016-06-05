@@ -136,3 +136,74 @@ class AppTestListObject(AppTestCpythonExtensionBase):
         l = [1, 2, 3]
         module.setlistitem(l,0)
         assert l == [None, 2, 3]
+
+    def test_list_macros(self):
+        """The PyList_* macros cast, and calls expecting that build."""
+        module = self.import_extension('foo', [
+            ("test_macro_invocations", "METH_NOARGS",
+             """
+             PyObject* o = PyList_New(2);
+             PyListObject* l = (PyListObject*)o;
+
+
+             Py_INCREF(o);
+             PyList_SET_ITEM(o, 0, o);
+             Py_INCREF(o);
+             PyList_SET_ITEM(l, 1, o);
+
+             PyList_GET_ITEM(o, 0);
+             PyList_GET_ITEM(l, 1);
+
+             PyList_GET_SIZE(o);
+             PyList_GET_SIZE(l);
+
+             return o;
+             """
+            )
+        ])
+        x = module.test_macro_invocations()
+        assert x[0] is x[1] is x
+
+    def test_get_item_macro(self):
+        module = self.import_extension('foo', [
+             ("test_get_item", "METH_NOARGS",
+             """
+                PyObject* o, *o2, *o3;
+                o = PyList_New(1);
+
+                o2 = PyInt_FromLong(0);
+                PyList_SET_ITEM(o, 0, o2);
+                o2 = NULL;
+
+                o3 = PyList_GET_ITEM(o, 0);
+                Py_INCREF(o3);
+                Py_CLEAR(o);
+                return o3;
+             """)])
+        assert module.test_get_item() == 0
+
+    def test_set_item_macro(self):
+        """PyList_SET_ITEM leaks a reference to the target."""
+        module = self.import_extension('foo', [
+             ("test_refcount_diff_after_setitem", "METH_NOARGS",
+             """
+                PyObject* o = PyList_New(0);
+                PyObject* o2 = PyList_New(0);
+                Py_ssize_t refcount, new_refcount;
+
+                PyList_Append(o, o2);  // does not steal o2
+
+                refcount = Py_REFCNT(o2);
+
+                // Steal a reference to o2, but leak the old reference to o2.
+                // The net result should be no change in refcount.
+                PyList_SET_ITEM(o, 0, o2);
+
+                new_refcount = Py_REFCNT(o2);
+
+                Py_CLEAR(o);
+                Py_DECREF(o2); // append incref'd.
+                // Py_CLEAR(o2);  // naive implementation would fail here.
+                return PyLong_FromSsize_t(new_refcount - refcount);
+             """)])
+        assert module.test_refcount_diff_after_setitem() == 0

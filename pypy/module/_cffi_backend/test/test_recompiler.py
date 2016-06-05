@@ -1039,8 +1039,8 @@ class AppTestRecompiler:
         assert MYFOO == 42
         assert hasattr(lib, '__dict__')
         assert lib.__all__ == ['MYFOO', 'mybar']   # but not 'myvar'
-        assert lib.__name__ == repr(lib)
-        assert lib.__class__ is type(lib)
+        assert lib.__name__ == '_CFFI_test_import_from_lib.lib'
+        assert lib.__class__ is type(sys)   # !! hack for help()
 
     def test_macro_var_callback(self):
         ffi, lib = self.prepare(
@@ -1773,14 +1773,20 @@ class AppTestRecompiler:
 
     def test_introspect_order(self):
         ffi, lib = self.prepare("""
-            union aaa { int a; }; typedef struct ccc { int a; } b;
-            union g   { int a; }; typedef struct cc  { int a; } bbb;
-            union aa  { int a; }; typedef struct a   { int a; } bb;
+            union CFFIaaa { int a; }; typedef struct CFFIccc { int a; } CFFIb;
+            union CFFIg   { int a; }; typedef struct CFFIcc  { int a; } CFFIbbb;
+            union CFFIaa  { int a; }; typedef struct CFFIa   { int a; } CFFIbb;
         """, "test_introspect_order", """
-            union aaa { int a; }; typedef struct ccc { int a; } b;
-            union g   { int a; }; typedef struct cc  { int a; } bbb;
-            union aa  { int a; }; typedef struct a   { int a; } bb;
+            union CFFIaaa { int a; }; typedef struct CFFIccc { int a; } CFFIb;
+            union CFFIg   { int a; }; typedef struct CFFIcc  { int a; } CFFIbbb;
+            union CFFIaa  { int a; }; typedef struct CFFIa   { int a; } CFFIbb;
         """)
-        assert ffi.list_types() == (['b', 'bb', 'bbb'],
-                                        ['a', 'cc', 'ccc'],
-                                        ['aa', 'aaa', 'g'])
+        assert ffi.list_types() == (['CFFIb', 'CFFIbb', 'CFFIbbb'],
+                                    ['CFFIa', 'CFFIcc', 'CFFIccc'],
+                                    ['CFFIaa', 'CFFIaaa', 'CFFIg'])
+
+    def test_FFIFunctionWrapper(self):
+        ffi, lib = self.prepare("void f(void);", "test_FFIFunctionWrapper",
+                                "void f(void) { }")
+        assert lib.f.__get__(42) is lib.f
+        assert lib.f.__get__(42, int) is lib.f

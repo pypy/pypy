@@ -1,6 +1,6 @@
 import pypy.module.cppyy.capi as capi
 
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
 from pypy.interpreter.baseobjspace import W_Root
@@ -32,7 +32,7 @@ class CPPMethodSort(CPPMethodBaseTimSort):
 def load_dictionary(space, name):
     try:
         cdll = capi.c_load_dictionary(name)
-    except rdynload.DLOpenError, e:
+    except rdynload.DLOpenError as e:
         raise OperationError(space.w_RuntimeError, space.wrap(str(e.msg)))
     return W_CPPLibrary(space, cdll)
 
@@ -195,14 +195,13 @@ class CPPMethod(object):
         args_expected = len(self.arg_defs)
         args_given = len(args_w)
         if args_expected < args_given or args_given < self.args_required:
-            raise OperationError(self.space.w_TypeError,
-                                 self.space.wrap("wrong number of arguments"))
+            raise oefmt(self.space.w_TypeError, "wrong number of arguments")
 
         # initial setup of converters, executors, and libffi (if available)
         if self.converters is None:
             try:
                 self._setup(cppthis)
-            except Exception, e:
+            except Exception as e:
                 pass
 
         # some calls, e.g. for ptr-ptr or reference need a local array to store data for
@@ -338,7 +337,7 @@ class CPPMethod(object):
                 if res != clibffi.FFI_OK:
                     raise FastCallNotPossible
 
-            except Exception, e:
+            except Exception as e:
                 if cif_descr:
                     lltype.free(cif_descr.atypes, flavor='raw', track_allocation=False)
                     lltype.free(cif_descr, flavor='raw', track_allocation=False)
@@ -435,8 +434,9 @@ class CPPTemplatedCall(CPPMethod):
                 s = self.space.str_w(self.space.getattr(args_w[i], self.space.wrap('__name__')))
             s = capi.c_resolve_name(self.space, s)
             if s != self.templ_args[i]:
-                raise OperationError(self.space.w_TypeError, self.space.wrap(
-                    "non-matching template (got %s where %s expected" % (s, self.templ_args[i])))
+                raise oefmt(self.space.w_TypeError,
+                            "non-matching template (got %s where %s expected)",
+                            s, self.templ_args[i])
         return W_CPPBoundMethod(cppthis, self)
 
     def bound_call(self, cppthis, args_w):
@@ -542,13 +542,13 @@ class W_CPPOverload(W_Root):
             cppyyfunc = self.functions[i]
             try:
                 return cppyyfunc.call(cppthis, args_w)
-            except OperationError, e:
+            except OperationError as e:
                 # special case if there's just one function, to prevent clogging the error message
                 if len(self.functions) == 1:
                     raise
                 errmsg += '\n  '+cppyyfunc.signature()+' =>\n'
                 errmsg += '    '+e.errorstr(self.space)
-            except Exception, e:
+            except Exception as e:
                 # can not special case this for non-overloaded functions as we anyway need an
                 # OperationError error down from here
                 errmsg += '\n  '+cppyyfunc.signature()+' =>\n'
@@ -646,14 +646,16 @@ class W_CPPDataMember(W_Root):
     def get(self, w_cppinstance, w_pycppclass):
         cppinstance = self.space.interp_w(W_CPPInstance, w_cppinstance, can_be_None=True)
         if not cppinstance:
-            raise OperationError(self.space.w_ReferenceError, self.space.wrap("attribute access requires an instance")) 
+            raise oefmt(self.space.w_ReferenceError,
+                        "attribute access requires an instance")
         offset = self._get_offset(cppinstance)
         return self.converter.from_memory(self.space, w_cppinstance, w_pycppclass, offset)
 
     def set(self, w_cppinstance, w_value):
         cppinstance = self.space.interp_w(W_CPPInstance, w_cppinstance, can_be_None=True)
         if not cppinstance:
-            raise OperationError(self.space.w_ReferenceError, self.space.wrap("attribute access requires an instance"))
+            raise oefmt(self.space.w_ReferenceError,
+                        "attribute access requires an instance")
         offset = self._get_offset(cppinstance)
         self.converter.to_memory(self.space, w_cppinstance, w_value, offset)
         return self.space.w_None
@@ -777,12 +779,12 @@ class W_CPPScope(W_Root):
         for f in overload.functions:
             if 0 < f.signature().find(sig):
                 return W_CPPOverload(self.space, self, [f])
-        raise OperationError(self.space.w_TypeError, self.space.wrap("no overload matches signature"))
+        raise oefmt(self.space.w_TypeError, "no overload matches signature")
 
     def missing_attribute_error(self, name):
-        return OperationError(
-            self.space.w_AttributeError,
-            self.space.wrap("%s '%s' has no attribute %s" % (self.kind, self.name, name)))
+        return oefmt(self.space.w_AttributeError,
+                     "%s '%s' has no attribute %s",
+                     self.kind, self.name, name)
 
     def __eq__(self, other):
         return self.handle == other.handle
@@ -1018,8 +1020,11 @@ W_CPPTemplateType.typedef.acceptable_as_base_class = False
 
 
 class W_CPPInstance(W_Root):
-    _attrs_ = ['space', 'cppclass', '_rawobject', 'isref', 'python_owns']
+    _attrs_ = ['space', 'cppclass', '_rawobject', 'isref', 'python_owns',
+               'finalizer_registered']
     _immutable_fields_ = ["cppclass", "isref"]
+
+    finalizer_registered = False
 
     def __init__(self, space, cppclass, rawobject, isref, python_owns):
         self.space = space
@@ -1030,11 +1035,17 @@ class W_CPPInstance(W_Root):
         assert not isref or not python_owns
         self.isref = isref
         self.python_owns = python_owns
+        self._opt_register_finalizer()
+
+    def _opt_register_finalizer(self):
+        if self.python_owns and not self.finalizer_registered:
+            self.register_finalizer(self.space)
+            self.finalizer_registered = True
 
     def _nullcheck(self):
         if not self._rawobject or (self.isref and not self.get_rawobject()):
-            raise OperationError(self.space.w_ReferenceError,
-                                 self.space.wrap("trying to access a NULL pointer"))
+            raise oefmt(self.space.w_ReferenceError,
+                        "trying to access a NULL pointer")
 
     # allow user to determine ownership rules on a per object level
     def fget_python_owns(self, space):
@@ -1043,6 +1054,7 @@ class W_CPPInstance(W_Root):
     @unwrap_spec(value=bool)
     def fset_python_owns(self, space, value):
         self.python_owns = space.is_true(value)
+        self._opt_register_finalizer()
 
     def get_cppthis(self, calling_scope):
         return self.cppclass.get_cppthis(self, calling_scope)
@@ -1057,7 +1069,7 @@ class W_CPPInstance(W_Root):
     def _get_as_builtin(self):
         try:
             return self.space.call_method(self.space.wrap(self), "_cppyy_as_builtin")
-        except OperationError, e:
+        except OperationError as e:
             if not (e.match(self.space, self.space.w_TypeError) or
                     e.match(self.space, self.space.w_AttributeError)):
                 # TODO: TypeError is raised by call_method if the method is not found;
@@ -1069,11 +1081,12 @@ class W_CPPInstance(W_Root):
         try:
             constructor_overload = self.cppclass.get_overload(self.cppclass.name)
             constructor_overload.call(self, args_w)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(self.space, self.space.w_AttributeError):
                 raise
-            raise OperationError(self.space.w_TypeError,
-                self.space.wrap("cannot instantiate abstract class '%s'" % self.cppclass.name))
+            raise oefmt(self.space.w_TypeError,
+                        "cannot instantiate abstract class '%s'",
+                        self.cppclass.name)
 
     def instance__eq__(self, w_other):
         # special case: if other is None, compare pointer-style
@@ -1095,7 +1108,7 @@ class W_CPPInstance(W_Root):
                     # TODO: cache this operator (not done yet, as the above does not
                     # select all overloads)
                     return ol.call(self, [self, w_other])
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(self.space, self.space.w_TypeError):
                 raise
 
@@ -1122,17 +1135,15 @@ class W_CPPInstance(W_Root):
         w_as_builtin = self._get_as_builtin()
         if w_as_builtin is not None:
             return self.space.len(w_as_builtin)
-        raise OperationError(
-            self.space.w_TypeError,
-            self.space.wrap("'%s' has no length" % self.cppclass.name))
+        raise oefmt(self.space.w_TypeError,
+                    "'%s' has no length", self.cppclass.name)
 
     def instance__cmp__(self, w_other):
         w_as_builtin = self._get_as_builtin()
         if w_as_builtin is not None:
             return self.space.cmp(w_as_builtin, w_other)
-        raise OperationError(
-            self.space.w_AttributeError,
-            self.space.wrap("'%s' has no attribute __cmp__" % self.cppclass.name))
+        raise oefmt(self.space.w_AttributeError,
+                    "'%s' has no attribute __cmp__", self.cppclass.name)
 
     def instance__repr__(self):
         w_as_builtin = self._get_as_builtin()
@@ -1142,16 +1153,14 @@ class W_CPPInstance(W_Root):
                                (self.cppclass.name, rffi.cast(rffi.ULONG, self.get_rawobject())))
 
     def destruct(self):
-        assert isinstance(self, W_CPPInstance)
         if self._rawobject and not self.isref:
             memory_regulator.unregister(self)
             capi.c_destruct(self.space, self.cppclass, self._rawobject)
             self._rawobject = capi.C_NULL_OBJECT
 
-    def __del__(self):
+    def _finalize_(self):
         if self.python_owns:
-            self.enqueue_for_destruction(self.space, W_CPPInstance.destruct,
-                                         '__del__() method of ')
+            self.destruct()
 
 W_CPPInstance.typedef = TypeDef(
     'CPPInstance',
@@ -1278,7 +1287,7 @@ def bind_object(space, w_obj, w_pycppclass, owns=False, cast=False):
     if not w_cppclass:
         w_cppclass = scope_byname(space, space.str_w(w_pycppclass))
         if not w_cppclass:
-            raise OperationError(space.w_TypeError,
-                space.wrap("no such class: %s" % space.str_w(w_pycppclass)))
+            raise oefmt(space.w_TypeError,
+                        "no such class: %s", space.str_w(w_pycppclass))
     cppclass = space.interp_w(W_CPPClass, w_cppclass, can_be_None=False)
     return wrap_cppobject(space, rawobject, cppclass, do_cast=cast, python_owns=owns)

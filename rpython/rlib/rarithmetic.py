@@ -213,6 +213,8 @@ def compute_restype(self_type, other_type):
         return self_type
     if self_type in (bool, int, long):
         return other_type
+    if self_type is float or other_type is float:
+        return float
     if self_type.SIGNED == other_type.SIGNED:
         return build_int(None, self_type.SIGNED, max(self_type.BITS, other_type.BITS))
     raise AssertionError("Merging these types (%s, %s) is not supported" % (self_type, other_type))
@@ -297,6 +299,7 @@ class base_int(long):
     def _widen(self, other, value):
         """
         if one argument is int or long, the other type wins.
+        if one argument is float, the result is float.
         otherwise, produce the largest class to hold the result.
         """
         self_type = type(self)
@@ -533,11 +536,15 @@ longlongmax = r_longlong(LONGLONG_TEST - 1)
 
 if r_longlong is not r_int:
     r_int64 = r_longlong
+    r_uint64 = r_ulonglong
+    r_int32 = int # XXX: what about r_int
+    r_uint32 = r_uint
 else:
-    r_int64 = int
+    r_int64 = int # XXX: what about r_int
+    r_uint64 = r_uint # is r_ulonglong
+    r_int32 = build_int('r_int32', True, 32)     # also needed for rposix_stat.time_t_to_FILE_TIME in the 64 bit case
+    r_uint32 = build_int('r_uint32', False, 32)
 
-# needed for rposix_stat.time_t_to_FILE_TIME in the 64 bit case
-r_uint32 = build_int('r_uint32', False, 32)
 
 SHRT_MIN = -2**(_get_bitsize('h') - 1)
 SHRT_MAX = 2**(_get_bitsize('h') - 1) - 1

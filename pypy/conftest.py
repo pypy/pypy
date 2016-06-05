@@ -1,4 +1,4 @@
-import py, pytest, sys, os, textwrap
+import py, pytest, sys, textwrap
 from inspect import isclass
 
 # pytest settings
@@ -9,8 +9,6 @@ rsyncignore = ['_cache']
 # to py.test's standard options)
 #
 option = None
-
-pypydir = os.path.realpath(os.path.dirname(__file__))
 
 def braindead_deindent(self):
     """monkeypatch that wont end up doing stupid in the python tokenizer"""

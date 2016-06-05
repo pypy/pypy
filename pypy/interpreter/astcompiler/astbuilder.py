@@ -115,16 +115,16 @@ class ASTBuilder(object):
     def check_forbidden_name(self, name, node):
         try:
             misc.check_forbidden_name(name)
-        except misc.ForbiddenNameAssignment, e:
+        except misc.ForbiddenNameAssignment as e:
             self.error("cannot assign to %s" % (e.name,), node)
 
     def set_context(self, expr, ctx):
         """Set the context of an expression to Store or Del if possible."""
         try:
             expr.set_context(ctx)
-        except ast.UnacceptableExpressionContext, e:
+        except ast.UnacceptableExpressionContext as e:
             self.error_ast(e.msg, e.node)
-        except misc.ForbiddenNameAssignment, e:
+        except misc.ForbiddenNameAssignment as e:
             self.error_ast("cannot assign to %s" % (e.name,), e.node)
 
     def handle_print_stmt(self, print_node):
@@ -1080,7 +1080,7 @@ class ASTBuilder(object):
             return self.space.call_function(tp, w_num_str)
         try:
             return self.space.call_function(self.space.w_int, w_num_str, w_base)
-        except error.OperationError, e:
+        except error.OperationError as e:
             if not e.match(self.space, self.space.w_ValueError):
                 raise
             return self.space.call_function(self.space.w_float, w_num_str)
@@ -1100,7 +1100,7 @@ class ASTBuilder(object):
                 sub_strings_w = [parsestring.parsestr(space, encoding, atom_node.get_child(i).get_value(),
                                                       unicode_literals)
                                  for i in range(atom_node.num_children())]
-            except error.OperationError, e:
+            except error.OperationError as e:
                 if not e.match(space, space.w_UnicodeError):
                     raise
                 # UnicodeError in literal: turn into SyntaxError

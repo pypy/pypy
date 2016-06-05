@@ -1,9 +1,10 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
-    cpython_api, CANNOT_FAIL, CONST_STRING, FILEP, build_type_checkers)
+    cpython_api, CANNOT_FAIL, CONST_STRING, FILEP, build_type_checkers, fdopen)
 from pypy.module.cpyext.pyobject import PyObject
 from pypy.module.cpyext.object import Py_PRINT_RAW
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import (OperationError, oefmt, 
+    exception_from_saved_errno)
 from pypy.module._file.interp_file import W_File
 
 PyFile_Check, PyFile_CheckExact = build_type_checkers("File", W_File)
@@ -22,9 +23,8 @@ def PyFile_GetLine(space, w_obj, n):
     try:
         w_readline = space.getattr(w_obj, space.wrap('readline'))
     except OperationError:
-        raise OperationError(
-            space.w_TypeError, space.wrap(
-            "argument must be a file, or have a readline() method."))
+        raise oefmt(space.w_TypeError, 
+            "argument must be a file, or have a readline() method.")
 
     n = rffi.cast(lltype.Signed, n)
     if space.is_true(space.gt(space.wrap(n), space.wrap(0))):
@@ -45,12 +45,43 @@ def PyFile_FromString(space, filename, mode):
     w_mode = space.wrap(rffi.charp2str(mode))
     return space.call_method(space.builtin, 'file', w_filename, w_mode)
 
+@cpython_api([PyObject], FILEP, error=lltype.nullptr(FILEP.TO))
+def PyFile_AsFile(space, w_p):
+    """Return the file object associated with p as a FILE*.
+    
+    If the caller will ever use the returned FILE* object while
+    the GIL is released it must also call the PyFile_IncUseCount() and
+    PyFile_DecUseCount() functions as appropriate."""
+    if not PyFile_Check(space, w_p):
+        raise oefmt(space.w_IOError, 'first argument must be an open file')
+    assert isinstance(w_p, W_File)
+    try:
+        fd = space.int_w(space.call_method(w_p, 'fileno'))
+        mode = w_p.mode
+    except OperationError as e:
+        raise oefmt(space.w_IOError, 'could not call fileno') 
+    if (fd < 0 or not mode or mode[0] not in ['r', 'w', 'a', 'U'] or
+        ('U' in mode and ('w' in mode or 'a' in mode))):
+        raise oefmt(space.w_IOError, 'invalid fileno or mode') 
+    ret = fdopen(fd, mode)
+    if not ret:
+        raise exception_from_saved_errno(space, space.w_IOError)
+    return ret
+        
+
 @cpython_api([FILEP, CONST_STRING, CONST_STRING, rffi.VOIDP], PyObject)
 def PyFile_FromFile(space, fp, name, mode, close):
     """Create a new PyFileObject from the already-open standard C file
     pointer, fp.  The function close will be called when the file should be
     closed.  Return NULL on failure."""
-    raise NotImplementedError
+    if close:
+        raise oefmt(space.w_NotImplementedError, 
+            'PyFromFile(..., close) with close function not implemented')
+    w_ret = space.allocate_instance(W_File, space.gettypefor(W_File))
+    w_ret.w_name = space.wrap(rffi.charp2str(name))
+    w_ret.check_mode_ok(rffi.charp2str(mode))
+    w_ret.fp = fp
+    return w_ret
 
 @cpython_api([PyObject, rffi.INT_real], lltype.Void)
 def PyFile_SetBufSize(space, w_file, n):
@@ -106,6 +137,6 @@ def PyFile_SoftSpace(space, w_p, newflag):
         oldflag = space.int_w(space.getattr(w_p, space.wrap("softspace")))
         space.setattr(w_p, space.wrap("softspace"), w_newflag)
         return oldflag
-    except OperationError, e:
+    except OperationError as e:
         return 0
 

@@ -1,6 +1,6 @@
 from rpython.rtyper.lltypesystem import rffi
 
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import oefmt
 from pypy.module.mmap.interp_mmap import W_MMap
 
 def address_of_buffer(space, w_obj):
@@ -10,5 +10,4 @@ def address_of_buffer(space, w_obj):
         return space.newtuple([space.wrap(address),
                                space.wrap(mmap.mmap.size)])
     else:
-        raise OperationError(space.w_TypeError, space.wrap(
-            "cannot get address of buffer"))
+        raise oefmt(space.w_TypeError, "cannot get address of buffer")

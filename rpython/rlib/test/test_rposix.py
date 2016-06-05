@@ -39,7 +39,7 @@ class TestPosixFunction:
     def test_getlogin(self):
         try:
             expected = os.getlogin()
-        except OSError, e:
+        except OSError as e:
             py.test.skip("the underlying os.getlogin() failed: %s" % e)
         data = rposix.getlogin()
         assert data == expected
@@ -99,9 +99,9 @@ class TestPosixFunction:
 
     def test_mkdir(self):
         filename = str(udir.join('test_mkdir.dir'))
-        rposix.mkdir(filename, 0)
+        rposix.mkdir(filename, 0777)
         with py.test.raises(OSError) as excinfo:
-            rposix.mkdir(filename, 0)
+            rposix.mkdir(filename, 0777)
         assert excinfo.value.errno == errno.EEXIST
         if sys.platform == 'win32':
             assert excinfo.type is WindowsError
@@ -112,9 +112,9 @@ class TestPosixFunction:
         filename = str(udir.join(relpath))
         dirfd = os.open(os.path.dirname(filename), os.O_RDONLY)
         try:
-            rposix.mkdirat(relpath, 0, dir_fd=dirfd)
+            rposix.mkdirat(relpath, 0777, dir_fd=dirfd)
             with py.test.raises(OSError) as excinfo:
-                rposix.mkdirat(relpath, 0, dir_fd=dirfd)
+                rposix.mkdirat(relpath, 0777, dir_fd=dirfd)
             assert excinfo.value.errno == errno.EEXIST
         finally:
             os.close(dirfd)
@@ -334,6 +334,11 @@ class BasePosixUnicodeOrAscii:
             self.path  = UnicodeWithEncoding(self.ufilename)
             self.path2 = UnicodeWithEncoding(self.ufilename + ".new")
 
+    def _teardown_method(self, method):
+        for path in [self.ufilename + ".new", self.ufilename]:
+            if os.path.exists(path):
+                os.unlink(path)
+
     def test_open(self):
         def f():
             try:
@@ -385,6 +390,14 @@ class BasePosixUnicodeOrAscii:
     def test_rename(self):
         def f():
             return rposix.rename(self.path, self.path2)
+
+        interpret(f, [])
+        assert not os.path.exists(self.ufilename)
+        assert os.path.exists(self.ufilename + '.new')
+
+    def test_replace(self):
+        def f():
+            return rposix.replace(self.path, self.path2)
 
         interpret(f, [])
         assert not os.path.exists(self.ufilename)

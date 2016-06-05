@@ -621,9 +621,10 @@ class TestStandalone(StandaloneTests):
         lines = err.strip().splitlines()
         idx = lines.index('Fatal RPython error: ValueError')   # assert found
         lines = lines[:idx+1]
-        assert len(lines) >= 4
-        l0, l1, l2 = lines[-4:-1]
+        assert len(lines) >= 5
+        l0, lx, l1, l2 = lines[-5:-1]
         assert l0 == 'RPython traceback:'
+        # lx is a bit strange with reference counting, ignoring it
         assert re.match(r'  File "\w+.c", line \d+, in entry_point', l1)
         assert re.match(r'  File "\w+.c", line \d+, in g', l2)
         #
@@ -632,8 +633,9 @@ class TestStandalone(StandaloneTests):
         lines2 = err2.strip().splitlines()
         idx = lines2.index('Fatal RPython error: KeyError')    # assert found
         lines2 = lines2[:idx+1]
-        l0, l1, l2 = lines2[-4:-1]
+        l0, lx, l1, l2 = lines2[-5:-1]
         assert l0 == 'RPython traceback:'
+        # lx is a bit strange with reference counting, ignoring it
         assert re.match(r'  File "\w+.c", line \d+, in entry_point', l1)
         assert re.match(r'  File "\w+.c", line \d+, in g', l2)
         assert lines2[-2] != lines[-2]    # different line number
@@ -660,9 +662,10 @@ class TestStandalone(StandaloneTests):
         lines = err.strip().splitlines()
         idx = lines.index('Fatal RPython error: KeyError')    # assert found
         lines = lines[:idx+1]
-        assert len(lines) >= 5
-        l0, l1, l2, l3 = lines[-5:-1]
+        assert len(lines) >= 6
+        l0, lx, l1, l2, l3 = lines[-6:-1]
         assert l0 == 'RPython traceback:'
+        # lx is a bit strange with reference counting, ignoring it
         assert re.match(r'  File "\w+.c", line \d+, in entry_point', l1)
         assert re.match(r'  File "\w+.c", line \d+, in h', l2)
         assert re.match(r'  File "\w+.c", line \d+, in g', l3)
@@ -697,9 +700,10 @@ class TestStandalone(StandaloneTests):
         lines = err.strip().splitlines()
         idx = lines.index('Fatal RPython error: KeyError')     # assert found
         lines = lines[:idx+1]
-        assert len(lines) >= 5
-        l0, l1, l2, l3 = lines[-5:-1]
+        assert len(lines) >= 6
+        l0, lx, l1, l2, l3 = lines[-6:-1]
         assert l0 == 'RPython traceback:'
+        # lx is a bit strange with reference counting, ignoring it
         assert re.match(r'  File "\w+.c", line \d+, in entry_point', l1)
         assert re.match(r'  File "\w+.c", line \d+, in h', l2)
         assert re.match(r'  File "\w+.c", line \d+, in g', l3)
@@ -733,9 +737,10 @@ class TestStandalone(StandaloneTests):
         lines = err.strip().splitlines()
         idx = lines.index('Fatal RPython error: ValueError')    # assert found
         lines = lines[:idx+1]
-        assert len(lines) >= 5
-        l0, l1, l2, l3 = lines[-5:-1]
+        assert len(lines) >= 6
+        l0, lx, l1, l2, l3 = lines[-6:-1]
         assert l0 == 'RPython traceback:'
+        # lx is a bit strange with reference counting, ignoring it
         assert re.match(r'  File "\w+.c", line \d+, in entry_point', l1)
         assert re.match(r'  File "\w+.c", line \d+, in h', l2)
         assert re.match(r'  File "\w+.c", line \d+, in raiseme', l3)
@@ -1162,7 +1167,7 @@ class TestThread(object):
             print >> sys.stderr, 'Trying with %d KB of stack...' % (test_kb,),
             try:
                 data = cbuilder.cmdexec(str(test_kb * 1024))
-            except Exception, e:
+            except Exception as e:
                 if e.__class__ is not Exception:
                     raise
                 print >> sys.stderr, 'segfault'

@@ -152,7 +152,7 @@ def test_simple_tcp():
             sock.bind(INETAddress('127.0.0.1', port))
             print 'works'
             break
-        except SocketError, e:   # should get a "Permission denied"
+        except SocketError as e:   # should get a "Permission denied"
             print e
     else:
         raise e
@@ -212,7 +212,7 @@ def test_simple_udp():
             s1.bind(INETAddress('127.0.0.1', port))
             print 'works'
             break
-        except SocketError, e:   # should get a "Permission denied"
+        except SocketError as e:   # should get a "Permission denied"
             print e
     else:
         raise e
@@ -247,7 +247,7 @@ def test_nonblocking():
             sock.bind(INETAddress('127.0.0.1', port))
             print 'works'
             break
-        except SocketError, e:   # should get a "Permission denied"
+        except SocketError as e:   # should get a "Permission denied"
             print e
     else:
         raise e

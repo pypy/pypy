@@ -172,7 +172,7 @@ class BlackholeInterpBuilder(object):
             # call the method bhimpl_xxx()
             try:
                 result = unboundmethod(*args)
-            except Exception, e:
+            except Exception as e:
                 if verbose and not we_are_translated():
                     print '-> %s!' % (e.__class__.__name__,)
                 if resulttype == 'i' or resulttype == 'r' or resulttype == 'f':
@@ -323,7 +323,7 @@ class BlackholeInterpreter(object):
                 break
             except jitexc.JitException:
                 raise     # go through
-            except Exception, e:
+            except Exception as e:
                 lle = get_llexception(self.cpu, e)
                 self.handle_exception_in_frame(lle)
 
@@ -408,6 +408,14 @@ class BlackholeInterpreter(object):
     def bhimpl_int_mul(a, b):
         return intmask(a * b)
 
+    @arguments("i", "i", returns="i")
+    def bhimpl_uint_mul_high(a, b):
+        from rpython.jit.metainterp.optimizeopt import intdiv
+        a = r_uint(a)
+        b = r_uint(b)
+        c = intdiv.unsigned_mul_high(a, b)
+        return intmask(c)
+
     @arguments("L", "i", "i", returns="iL")
     def bhimpl_int_add_jump_if_ovf(label, a, b):
         try:
@@ -428,19 +436,6 @@ class BlackholeInterpreter(object):
             return ovfcheck(a * b), -1
         except OverflowError:
             return 0, label
-
-    @arguments("i", "i", returns="i")
-    def bhimpl_int_floordiv(a, b):
-        return llop.int_floordiv(lltype.Signed, a, b)
-
-    @arguments("i", "i", returns="i")
-    def bhimpl_uint_floordiv(a, b):
-        c = llop.uint_floordiv(lltype.Unsigned, r_uint(a), r_uint(b))
-        return intmask(c)
-
-    @arguments("i", "i", returns="i")
-    def bhimpl_int_mod(a, b):
-        return llop.int_mod(lltype.Signed, a, b)
 
     @arguments("i", "i", returns="i")
     def bhimpl_int_and(a, b):
@@ -1540,9 +1535,9 @@ class BlackholeInterpreter(object):
             # we now proceed to interpret the bytecode in this frame
             self.run()
         #
-        except jitexc.JitException, e:
+        except jitexc.JitException as e:
             raise     # go through
-        except Exception, e:
+        except Exception as e:
             # if we get an exception, return it to the caller frame
             current_exc = get_llexception(self.cpu, e)
             if not self.nextblackholeinterp:
@@ -1673,7 +1668,7 @@ def _handle_jitexception(blackholeinterp, exc):
     # We have reached a recursive portal level.
     try:
         blackholeinterp._handle_jitexception_in_portal(exc)
-    except Exception, e:
+    except Exception as e:
         # It raised a general exception (it should not be a JitException here).
         lle = get_llexception(blackholeinterp.cpu, e)
     else:

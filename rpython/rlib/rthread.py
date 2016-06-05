@@ -100,8 +100,11 @@ def get_ident():
         return thread.get_ident()
 
 def get_or_make_ident():
-    assert we_are_translated()
-    return tlfield_thread_ident.get_or_make_raw()
+    if we_are_translated():
+        return tlfield_thread_ident.get_or_make_raw()
+    else:
+        import thread
+        return thread.get_ident()
 
 @specialize.arg(0)
 def start_new_thread(x, y):

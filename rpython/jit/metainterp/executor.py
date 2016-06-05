@@ -51,28 +51,28 @@ def _do_call(cpu, metainterp, argboxes, descr, rettype):
     if rettype == INT:
         try:
             result = cpu.bh_call_i(func, args_i, args_r, args_f, descr)
-        except Exception, e:
+        except Exception as e:
             metainterp.execute_raised(e)
             result = 0
         return result
     if rettype == REF:
         try:
             result = cpu.bh_call_r(func, args_i, args_r, args_f, descr)
-        except Exception, e:
+        except Exception as e:
             metainterp.execute_raised(e)
             result = NULL
         return result
     if rettype == FLOAT:
         try:
             result = cpu.bh_call_f(func, args_i, args_r, args_f, descr)
-        except Exception, e:
+        except Exception as e:
             metainterp.execute_raised(e)
             result = longlong.ZEROF
         return result
     if rettype == VOID:
         try:
             cpu.bh_call_v(func, args_i, args_r, args_f, descr)
-        except Exception, e:
+        except Exception as e:
             metainterp.execute_raised(e)
         return None
     raise AssertionError("bad rettype")

@@ -56,7 +56,7 @@ def PyLong_AsUnsignedLong(space, w_long):
     raised."""
     try:
         return rffi.cast(rffi.ULONG, space.uint_w(w_long))
-    except OperationError, e:
+    except OperationError as e:
         if e.match(space, space.w_ValueError):
             e.w_type = space.w_OverflowError
         raise
@@ -100,7 +100,7 @@ def PyLong_AsUnsignedLongLong(space, w_long):
     raised."""
     try:
         return rffi.cast(rffi.ULONGLONG, space.r_ulonglong_w(w_long))
-    except OperationError, e:
+    except OperationError as e:
         if e.match(space, space.w_ValueError):
             e.w_type = space.w_OverflowError
         raise
@@ -126,7 +126,7 @@ def PyLong_AsLongAndOverflow(space, w_long, overflow_ptr):
     overflow_ptr[0] = rffi.cast(rffi.INT_real, 0)
     try:
         return space.int_w(w_long)
-    except OperationError, e:
+    except OperationError as e:
         if not e.match(space, space.w_OverflowError):
             raise
     if space.is_true(space.gt(w_long, space.wrap(0))):
@@ -147,7 +147,7 @@ def PyLong_AsLongLongAndOverflow(space, w_long, overflow_ptr):
     overflow_ptr[0] = rffi.cast(rffi.INT_real, 0)
     try:
         return rffi.cast(rffi.LONGLONG, space.r_longlong_w(w_long))
-    except OperationError, e:
+    except OperationError as e:
         if not e.match(space, space.w_OverflowError):
             raise
     if space.is_true(space.gt(w_long, space.wrap(0))):

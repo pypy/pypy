@@ -50,7 +50,7 @@ class W_CTypeFunc(W_CTypePtrBase):
             builder = CifDescrBuilder(fargs, fresult, abi)
             try:
                 builder.rawallocate(self)
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_NotImplementedError):
                     raise
                 # else, eat the NotImplementedError.  We will get the
@@ -471,5 +471,5 @@ class CifDescrBuilder(object):
         # call libffi's ffi_prep_cif() function
         res = jit_libffi.jit_ffi_prep_cif(rawmem)
         if res != clibffi.FFI_OK:
-            raise OperationError(space.w_SystemError,
-                space.wrap("libffi failed to build this function type"))
+            raise oefmt(space.w_SystemError,
+                        "libffi failed to build this function type")

@@ -2,7 +2,7 @@
 # This is pure Python code that handles the main entry point into "pypy".
 # See test/test_app_main.
 
-# Missing vs CPython: -d, -t, -v, -x, -3
+# Missing vs CPython: -d, -t, -x, -3
 USAGE1 = __doc__ = """\
 Options and arguments (and corresponding environment variables):
 -B     : don't write .py[co] files on import; also PYTHONDONTWRITEBYTECODE=x
@@ -19,6 +19,8 @@ Options and arguments (and corresponding environment variables):
 -s     : don't add user site directory to sys.path; also PYTHONNOUSERSITE
 -S     : don't imply 'import site' on initialization
 -u     : unbuffered binary stdout and stderr; also PYTHONUNBUFFERED=x
+-v     : verbose (trace import statements); also PYTHONVERBOSE=x
+         can be supplied multiple times to increase verbosity
 -V     : print the Python version number and exit (also --version)
 -W arg : warning control; arg is action:message:category:module:lineno
          also PYTHONWARNINGS=arg
@@ -78,7 +80,11 @@ def run_toplevel(f, *fargs, **fkwds):
     """
     try:
         # run it
-        f(*fargs, **fkwds)
+        try:
+            f(*fargs, **fkwds)
+        finally:
+            sys.settrace(None)
+            sys.setprofile(None)
 
         # we arrive here if no exception is raised.  stdout cosmetics...
         try:
@@ -525,6 +531,7 @@ def run_command_line(interactive,
                      warnoptions,
                      unbuffered,
                      ignore_environment,
+                     verbose,
                      **ignored):
     # with PyPy in top of CPython we can only have around 100
     # but we need more in the translated PyPy for the compiler package
@@ -576,6 +583,12 @@ def run_command_line(interactive,
         if hasattr(signal, 'SIGXFSZ'):
             signal.signal(signal.SIGXFSZ, signal.SIG_IGN)
 
+    # Pre-load the default encoder (controlled by PYTHONIOENCODING) now.
+    # This is needed before someone mucks up with sys.path (or even adds
+    # a unicode string to it, leading to infinite recursion when we try
+    # to encode it during importing).  Note: very obscure.  Issue #2314.
+    str(u'')
+
     def inspect_requested():
         # We get an interactive prompt in one of the following three cases:
         #
@@ -596,6 +609,11 @@ def run_command_line(interactive,
                 ((inspect or (readenv and real_getenv('PYTHONINSPECT')))
                  and sys.stdin.isatty()))
 
+    try:
+        from _ast import PyCF_ACCEPT_NULL_BYTES
+    except ImportError:
+        PyCF_ACCEPT_NULL_BYTES = 0
+    future_flags = [0]
     success = True
 
     try:
@@ -606,7 +624,9 @@ def run_command_line(interactive,
 
             @hidden_applevel
             def run_it():
-                exec run_command in mainmodule.__dict__
+                co_cmd = compile(run_command, '<module>', 'exec')
+                exec co_cmd in mainmodule.__dict__
+                future_flags[0] = co_cmd.co_flags
             success = run_toplevel(run_it)
         elif run_module:
             # handle the "-m" command
@@ -617,11 +637,6 @@ def run_command_line(interactive,
         elif run_stdin:
             # handle the case where no command/filename/module is specified
             # on the command-line.
-
-            try:
-                from _ast import PyCF_ACCEPT_NULL_BYTES
-            except ImportError:
-                PyCF_ACCEPT_NULL_BYTES = 0
 
             # update sys.path *after* loading site.py, in case there is a
             # "site.py" file in the script's directory. Only run this if we're
@@ -649,6 +664,7 @@ def run_command_line(interactive,
                                                         'exec',
                                                         PyCF_ACCEPT_NULL_BYTES)
                             exec co_python_startup in mainmodule.__dict__
+                            future_flags[0] = co_python_startup.co_flags
                         mainmodule.__file__ = python_startup
                         run_toplevel(run_it)
                         try:
@@ -659,11 +675,14 @@ def run_command_line(interactive,
                 inspect = True
             else:
                 # If not interactive, just read and execute stdin normally.
+                if verbose:
+                    print_banner(not no_site)
                 @hidden_applevel
                 def run_it():
                     co_stdin = compile(sys.stdin.read(), '<stdin>', 'exec',
                                        PyCF_ACCEPT_NULL_BYTES)
                     exec co_stdin in mainmodule.__dict__
+                    future_flags[0] = co_stdin.co_flags
                 mainmodule.__file__ = '<stdin>'
                 success = run_toplevel(run_it)
         else:
@@ -693,7 +712,20 @@ def run_command_line(interactive,
                     args = (runpy._run_module_as_main, '__main__', False)
                 else:
                     # no.  That's the normal path, "pypy stuff.py".
-                    args = (execfile, filename, mainmodule.__dict__)
+                    # This includes the logic from execfile(), tweaked
+                    # to grab the future_flags at the end.
+                    @hidden_applevel
+                    def run_it():
+                        f = file(filename, 'rU')
+                        try:
+                            source = f.read()
+                        finally:
+                            f.close()
+                        co_main = compile(source.rstrip()+"\n", filename,
+                                          'exec', PyCF_ACCEPT_NULL_BYTES)
+                        exec co_main in mainmodule.__dict__
+                        future_flags[0] = co_main.co_flags
+                    args = (run_it,)
             success = run_toplevel(*args)
 
     except SystemExit as e:
@@ -706,12 +738,21 @@ def run_command_line(interactive,
     # start a prompt if requested
     if inspect_requested():
         try:
+            import __future__
             from _pypy_interact import interactive_console
             pypy_version_info = getattr(sys, 'pypy_version_info', sys.version_info)
             irc_topic = pypy_version_info[3] != 'final' or (
                             readenv and os.getenv('PYPY_IRC_TOPIC'))
+            flags = 0
+            for fname in __future__.all_feature_names:
+                feature = getattr(__future__, fname)
+                if future_flags[0] & feature.compiler_flag:
+                    flags |= feature.compiler_flag
+            kwds = {}
+            if flags:
+                kwds['future_flags'] = flags
             success = run_toplevel(interactive_console, mainmodule,
-                                   quiet=not irc_topic)
+                                   quiet=not irc_topic, **kwds)
         except SystemExit as e:
             status = e.code
         else:
@@ -720,10 +761,10 @@ def run_command_line(interactive,
     return status
 
 def print_banner(copyright):
-    print 'Python %s on %s' % (sys.version, sys.platform)
+    print >> sys.stderr, 'Python %s on %s' % (sys.version, sys.platform)
     if copyright:
-        print ('Type "help", "copyright", "credits" or '
-               '"license" for more information.')
+        print >> sys.stderr, ('Type "help", "copyright", "credits" or '
+                              '"license" for more information.')
 
 STDLIB_WARNING = """\
 debug: WARNING: Library path not found, using compiled-in sys.path.

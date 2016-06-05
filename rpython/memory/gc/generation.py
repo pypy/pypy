@@ -355,6 +355,7 @@ class GenerationGC(SemiSpaceGC):
             scan = beginning = self.free
             self.collect_oldrefs_to_nursery()
             self.collect_roots_in_nursery()
+            self.collect_young_objects_with_finalizers()
             scan = self.scan_objects_just_copied_out_of_nursery(scan)
             # at this point, all static and old objects have got their
             # GCFLAG_NO_YOUNG_PTRS set again by trace_and_drag_out_of_nursery
@@ -421,6 +422,19 @@ class GenerationGC(SemiSpaceGC):
         obj = root.address[0]
         if self.is_in_nursery(obj):
             root.address[0] = self.copy(obj)
+
+    def collect_young_objects_with_finalizers(self):
+        # XXX always walk the whole 'objects_with_finalizers' list here
+        new = self.AddressDeque()
+        while self.objects_with_finalizers.non_empty():
+            obj = self.objects_with_finalizers.popleft()
+            fq_nr = self.objects_with_finalizers.popleft()
+            if self.is_in_nursery(obj):
+                obj = self.copy(obj)
+            new.append(obj)
+            new.append(fq_nr)
+        self.objects_with_finalizers.delete()
+        self.objects_with_finalizers = new
 
     def scan_objects_just_copied_out_of_nursery(self, scan):
         while scan < self.free:

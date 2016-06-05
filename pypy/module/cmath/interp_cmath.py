@@ -1,7 +1,7 @@
 import math
 from rpython.rlib.objectmodel import specialize
 from rpython.tool.sourcetools import func_with_new_name
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import oefmt
 from pypy.module.cmath import names_and_docstrings
 from rpython.rlib import rcomplex
 
@@ -14,11 +14,9 @@ def call_c_func(c_func, space, x, y):
     try:
         result = c_func(x, y)
     except ValueError:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("math domain error"))
+        raise oefmt(space.w_ValueError, "math domain error")
     except OverflowError:
-        raise OperationError(space.w_OverflowError,
-                             space.wrap("math range error"))
+        raise oefmt(space.w_OverflowError, "math range error")
     return result
 
 
