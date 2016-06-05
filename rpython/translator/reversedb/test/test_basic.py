@@ -66,17 +66,21 @@ class TestBasic(object):
         #
         got = []
         for i in range(3):
-            rdb.next()    # ignore the address of argv[i]
+            rdb.next()    # this is from "p = argv[i]"
             s = []
+            # first we determine the length of the "char *p"
             while True:
                 c = rdb.next()
                 if c == 0:
                     break
                 s.append(chr(c))
+            # then we really read the "char *" and copy it into a rpy string
+            # (that's why this time we don't read the final \0)
             for c1 in s:
                 c2 = rdb.next()
                 assert c2 == ord(c1)
             got.append(''.join(s))
+        # that's all that should get from this simple example
         assert rdb.cur == len(rdb.items)
         #
         assert got == [self.exename, 'abc', 'd']
