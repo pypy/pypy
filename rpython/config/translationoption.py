@@ -276,6 +276,13 @@ translation_optiondescription = OptionDescription(
                  suggests={"arm": [("translation.gcrootfinder", "shadowstack"),
                                    ("translation.jit_backend", "arm")]}),
 
+    BoolOption("split_gc_address_space",
+               "Ensure full separation of GC and non-GC pointers", default=False),
+    BoolOption("reversedb",
+               "Give an executable that writes a log file for reverse debugging",
+               default=False, cmdline='--reversedb',
+               requires=[('translation.split_gc_address_space', True),
+                         ('translation.jit', False)]),
 ])
 
 def get_combined_translation_config(other_optdescr=None,

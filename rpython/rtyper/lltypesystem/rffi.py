@@ -825,14 +825,19 @@ def make_string_mappings(strtype):
         count = len(data)
 
         pinned = False
-        if rgc.can_move(data):
+        fallback = False
+        if rgc.must_split_gc_address_space():
+            fallback = True
+        elif rgc.can_move(data):
             if rgc.pin(data):
                 pinned = True
             else:
-                buf = lltype.malloc(TYPEP.TO, count, flavor='raw')
-                copy_string_to_raw(lldata, buf, 0, count)
-                return buf, pinned, True
-                # ^^^ raw malloc used to get a nonmovable copy
+                fallback = True
+        if fallback:
+            buf = lltype.malloc(TYPEP.TO, count, flavor='raw')
+            copy_string_to_raw(lldata, buf, 0, count)
+            return buf, pinned, True
+            # ^^^ raw malloc used to get a nonmovable copy
         #
         # following code is executed if:
         # - rgc.can_move(data) and rgc.pin(data) both returned true
@@ -878,12 +883,17 @@ def make_string_mappings(strtype):
         """
         new_buf = mallocfn(count)
         pinned = 0
-        if rgc.can_move(new_buf):
+        fallback = False
+        if rgc.must_split_gc_address_space():
+            fallback = True
+        elif rgc.can_move(new_buf):
             if rgc.pin(new_buf):
                 pinned = 1
             else:
-                raw_buf = lltype.malloc(TYPEP.TO, count, flavor='raw')
-                return raw_buf, new_buf, 2
+                fallback = True
+        if fallback:
+            raw_buf = lltype.malloc(TYPEP.TO, count, flavor='raw')
+            return raw_buf, new_buf, 2
         #
         # following code is executed if:
         # - rgc.can_move(data) and rgc.pin(data) both returned true

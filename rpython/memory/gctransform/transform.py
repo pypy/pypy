@@ -444,7 +444,7 @@ def mallocHelpers():
 
     def ll_malloc_varsize(length, size, itemsize, lengthoffset):
         result = mh.ll_malloc_varsize_no_length(length, size, itemsize)
-        (result + lengthoffset).signed[0] = length
+        llop.raw_store(lltype.Void, result, lengthoffset, length)
         return result
     mh.ll_malloc_varsize = ll_malloc_varsize
 
@@ -471,9 +471,9 @@ class GCTransformer(BaseGCTransformer):
         ll_raw_malloc_varsize = mh.ll_malloc_varsize
         ll_raw_malloc_varsize_no_length_zero  = mh.ll_malloc_varsize_no_length_zero
 
-        stack_mh = mallocHelpers()
-        stack_mh.allocate = lambda size: llop.stack_malloc(llmemory.Address, size)
-        ll_stack_malloc_fixedsize = stack_mh._ll_malloc_fixedsize
+        ## stack_mh = mallocHelpers()
+        ## stack_mh.allocate = lambda size: llop.stack_malloc(llmemory.GCREF, size)
+        ## ll_stack_malloc_fixedsize = stack_mh._ll_malloc_fixedsize
 
         if self.translator:
             self.raw_malloc_fixedsize_ptr = self.inittime_helper(
@@ -485,8 +485,8 @@ class GCTransformer(BaseGCTransformer):
             self.raw_malloc_varsize_no_length_zero_ptr = self.inittime_helper(
                 ll_raw_malloc_varsize_no_length_zero, [lltype.Signed]*3, llmemory.Address, inline=False)
 
-            self.stack_malloc_fixedsize_ptr = self.inittime_helper(
-                ll_stack_malloc_fixedsize, [lltype.Signed], llmemory.Address)
+            ## self.stack_malloc_fixedsize_ptr = self.inittime_helper(
+            ##     ll_stack_malloc_fixedsize, [lltype.Signed], llmemory.Address)
 
     def gct_malloc(self, hop, add_flags=None):
         TYPE = hop.spaceop.result.concretetype.TO
@@ -509,11 +509,12 @@ class GCTransformer(BaseGCTransformer):
         return v_raw
 
     def gct_fv_stack_malloc(self, hop, flags, TYPE, c_size):
-        v_raw = hop.genop("direct_call", [self.stack_malloc_fixedsize_ptr, c_size],
-                          resulttype=llmemory.Address)
-        if flags.get('zero'):
-            hop.genop("raw_memclear", [v_raw, c_size])
-        return v_raw
+        raise Exception("not supported any more")
+        ## v_raw = hop.genop("direct_call", [self.stack_malloc_fixedsize_ptr, c_size],
+        ##                   resulttype=llmemory.Address)
+        ## if flags.get('zero'):
+        ##     hop.genop("raw_memclear", [v_raw, c_size])
+        ## return v_raw
 
     def gct_malloc_varsize(self, hop, add_flags=None):
         flags = hop.spaceop.args[1].value

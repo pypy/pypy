@@ -1,7 +1,7 @@
 from weakref import WeakValueDictionary
 
 from rpython.annotator import model as annmodel
-from rpython.rlib import jit, types
+from rpython.rlib import jit, types, rgc
 from rpython.rlib.objectmodel import (malloc_zero_filled, we_are_translated,
     _hash_string, keepalive_until_here, specialize, enforceargs)
 from rpython.rlib.signature import signature
@@ -88,6 +88,17 @@ def _new_copy_contents_fun(SRC_TP, DST_TP, CHAR_TP, name):
         ll_assert(srcstart + length <= len(src.chars), "copystrc: src ovf")
         ll_assert(dststart >= 0, "copystrc: negative dststart")
         ll_assert(dststart + length <= len(dst.chars), "copystrc: dst ovf")
+        #
+        # If the 'split_gc_address_space' option is set, we must copy
+        # manually, character-by-character
+        if rgc.must_split_gc_address_space():
+            i = 0
+            while i < length:
+                dst.chars[dststart + i] = src.chars[srcstart + i]
+                i += 1
+            return
+        #  
+        #
         # from here, no GC operations can happen
         asrc = _get_raw_buf(SRC_TP, src, srcstart)
         adst = _get_raw_buf(DST_TP, dst, dststart)
@@ -108,6 +119,16 @@ def _new_copy_contents_fun(SRC_TP, DST_TP, CHAR_TP, name):
         """
         # xxx Warning: same note as above apply: don't do this at home
         assert length >= 0
+        #
+        # If the 'split_gc_address_space' option is set, we must copy
+        # manually, character-by-character
+        if rgc.must_split_gc_address_space():
+            i = 0
+            while i < length:
+                ptrdst[i] = src.chars[srcstart + i]
+                i += 1
+            return
+        #
         # from here, no GC operations can happen
         asrc = _get_raw_buf(SRC_TP, src, srcstart)
         adst = llmemory.cast_ptr_to_adr(ptrdst)
@@ -124,6 +145,16 @@ def _new_copy_contents_fun(SRC_TP, DST_TP, CHAR_TP, name):
     def copy_raw_to_string(ptrsrc, dst, dststart, length):
         # xxx Warning: same note as above apply: don't do this at home
         assert length >= 0
+        #
+        # If the 'split_gc_address_space' option is set, we must copy
+        # manually, character-by-character
+        if rgc.must_split_gc_address_space():
+            i = 0
+            while i < length:
+                dst.chars[dststart + i] = ptrsrc[i]
+                i += 1
+            return
+        #
         # from here, no GC operations can happen
         adst = _get_raw_buf(SRC_TP, dst, dststart)
         asrc = llmemory.cast_ptr_to_adr(ptrsrc)
@@ -1221,6 +1252,16 @@ class LLHelpers(AbstractLLHelpers):
         SRC = typeOf(src).TO     # STR or UNICODE
         DST = typeOf(dst).TO     # GcArray
         assert DST.OF is SRC.chars.OF
+        #
+        # If the 'split_gc_address_space' option is set, we must copy
+        # manually, character-by-character
+        if rgc.must_split_gc_address_space():
+            i = 0
+            while i < length:
+                dst[i] = src.chars[i]
+                i += 1
+            return lst
+        #
         # from here, no GC operations can happen
         asrc = llmemory.cast_ptr_to_adr(src) + (
             llmemory.offsetof(SRC, 'chars') +

@@ -19,6 +19,13 @@ def set_max_heap_size(nbytes):
     """
     pass
 
+def must_split_gc_address_space():
+    """Returns True if we have a "split GC address space", i.e. if
+    we are translating with an option that doesn't support taking raw
+    addresses inside GC objects and "hacking" at them.  This is
+    notably the case with --reversedb."""
+    return False
+
 # for test purposes we allow objects to be pinned and use
 # the following list to keep track of the pinned objects
 _pinned_objects = []
@@ -146,6 +153,18 @@ def can_move(p):
     move any more.
     """
     return True
+
+class SplitAddrSpaceEntry(ExtRegistryEntry):
+    _about_ = must_split_gc_address_space
+ 
+    def compute_result_annotation(self):
+        config = self.bookkeeper.annotator.translator.config
+        result = config.translation.split_gc_address_space
+        return self.bookkeeper.immutablevalue(result)
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        return hop.inputconst(lltype.Bool, hop.s_result.const)
 
 class CanMoveEntry(ExtRegistryEntry):
     _about_ = can_move
@@ -280,18 +299,25 @@ def ll_arraycopy(source, dest, source_start, dest_start, length):
 
     TP = lltype.typeOf(source).TO
     assert TP == lltype.typeOf(dest).TO
-    if _contains_gcptr(TP.OF):
+
+    slowpath = False
+    if must_split_gc_address_space():
+        slowpath = True
+    elif _contains_gcptr(TP.OF):
         # perform a write barrier that copies necessary flags from
         # source to dest
         if not llop.gc_writebarrier_before_copy(lltype.Bool, source, dest,
                                                 source_start, dest_start,
                                                 length):
-            # if the write barrier is not supported, copy by hand
-            i = 0
-            while i < length:
-                copy_item(source, dest, i + source_start, i + dest_start)
-                i += 1
-            return
+            slowpath = True
+    if slowpath:
+        # if the write barrier is not supported, or if we translate with
+        # the option 'split_gc_address_space', then copy by hand
+        i = 0
+        while i < length:
+            copy_item(source, dest, i + source_start, i + dest_start)
+            i += 1
+        return
     source_addr = llmemory.cast_ptr_to_adr(source)
     dest_addr   = llmemory.cast_ptr_to_adr(dest)
     cp_source_addr = (source_addr + llmemory.itemoffsetof(TP, 0) +
@@ -325,6 +351,14 @@ def ll_shrink_array(p, smallerlength):
     field = getattr(p, TP._names[0])
     setattr(newp, TP._names[0], field)
 
+    if must_split_gc_address_space():
+        # do the copying element by element
+        i = 0
+        while i < smallerlength:
+            newp.chars[i] = p.chars[i]
+            i += 1
+        return newp
+
     ARRAY = getattr(TP, TP._arrayfld)
     offset = (llmemory.offsetof(TP, TP._arrayfld) +
               llmemory.itemoffsetof(ARRAY, 0))
@@ -345,9 +379,18 @@ def ll_arrayclear(p):
 
     length = len(p)
     ARRAY = lltype.typeOf(p).TO
-    offset = llmemory.itemoffsetof(ARRAY, 0)
-    dest_addr = llmemory.cast_ptr_to_adr(p) + offset
-    llmemory.raw_memclear(dest_addr, llmemory.sizeof(ARRAY.OF) * length)
+    if must_split_gc_address_space():
+        # do the clearing element by element
+        from rpython.rtyper.lltypesystem import rffi
+        ZERO = rffi.cast(ARRAY.OF, 0)
+        i = 0
+        while i < length:
+            p[i] = ZERO
+            i += 1
+    else:
+        offset = llmemory.itemoffsetof(ARRAY, 0)
+        dest_addr = llmemory.cast_ptr_to_adr(p) + offset
+        llmemory.raw_memclear(dest_addr, llmemory.sizeof(ARRAY.OF) * length)
     keepalive_until_here(p)
 
 

@@ -131,7 +131,9 @@ class CBuilder(object):
                               gcpolicyclass=gcpolicyclass,
                               exctransformer=exctransformer,
                               thread_enabled=self.config.translation.thread,
-                              sandbox=self.config.translation.sandbox)
+                              sandbox=self.config.translation.sandbox,
+                              split_gc_address_space=
+                                 self.config.translation.split_gc_address_space)
         self.db = db
 
         # give the gc a chance to register interest in the start-up functions it

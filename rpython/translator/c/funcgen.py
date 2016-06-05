@@ -606,7 +606,23 @@ class FunctionCodeGenerator(object):
                 self.expr(op.args[0]),
                 self.expr(op.args[1]))
 
+    def _check_split_gc_address_space(self, op):
+        if self.db.split_gc_address_space:
+            TYPE = self.lltypemap(op.result)
+            TSRC = self.lltypemap(op.args[0])
+            gcdst = isinstance(TYPE, Ptr) and TYPE.TO._gckind == 'gc'
+            gcsrc = isinstance(TSRC, Ptr) and TSRC.TO._gckind == 'gc'
+            if gcsrc != gcdst:
+                raise Exception(
+                  "cast between pointer types changes the address space,\n"
+                  "but the 'split_gc_address_space' option is enabled:\n"
+                  "  func: %s\n"
+                  "    op: %s\n"
+                  "  from: %s\n"
+                  "    to: %s" % (self.graph, op, TSRC, TYPE))
+
     def OP_CAST_POINTER(self, op):
+        self._check_split_gc_address_space(op)
         TYPE = self.lltypemap(op.result)
         typename = self.db.gettype(TYPE)
         result = []
@@ -625,6 +641,7 @@ class FunctionCodeGenerator(object):
             % (self.expr(op.result), self.expr(op.args[0])))
 
     def OP_CAST_INT_TO_PTR(self, op):
+        self._check_split_gc_address_space(op)
         TYPE = self.lltypemap(op.result)
         typename = self.db.gettype(TYPE)
         return "%s = (%s)%s;" % (self.expr(op.result), cdecl(typename, ""),
@@ -690,6 +707,7 @@ class FunctionCodeGenerator(object):
           % locals())
 
     def OP_CAST_PRIMITIVE(self, op):
+        self._check_split_gc_address_space(op)
         TYPE = self.lltypemap(op.result)
         val =  self.expr(op.args[0])
         result = self.expr(op.result)
