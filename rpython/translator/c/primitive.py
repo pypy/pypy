@@ -224,6 +224,10 @@ PrimitiveName = {
     GCREF:    name_gcref,
     }
 PRIMITIVE_FLOATS = set([Float, SingleFloat, LongFloat])
+if SignedLongLong is Signed:
+    PRIMITIVE_TWO_LONGS = set([])
+else:
+    PRIMITIVE_TWO_LONGS = set([SignedLongLong, UnsignedLongLong])
 
 PrimitiveType = {
     SignedLongLong:   'long long @',

@@ -2,7 +2,7 @@ import sys
 from rpython.translator.c.support import cdecl
 from rpython.translator.c.support import llvalue_from_constant, gen_assignments
 from rpython.translator.c.support import c_string_constant, barebonearray
-from rpython.translator.c.primitive import PRIMITIVE_FLOATS
+from rpython.translator.c.primitive import PRIMITIVE_FLOATS, PRIMITIVE_TWO_LONGS
 from rpython.flowspace.model import Variable, Constant
 from rpython.rtyper.lltypesystem.lltype import (Ptr, Void, Bool, Signed, Unsigned,
     SignedLongLong, Float, UnsignedLongLong, Char, UniChar, ContainerType,
@@ -430,6 +430,8 @@ class FunctionCodeGenerator(object):
             return '/* rpy_reverse_db_emit_void(%s); */' % (value,)
         elif T in PRIMITIVE_FLOATS:
             return 'rpy_reverse_db_emit_float(%s);' % (value,)
+        elif T in PRIMITIVE_TWO_LONGS:
+            return 'rpy_reverse_db_emit_two_longs(%s);' % (value,)
         else:
             return 'rpy_reverse_db_emit((Signed)%s);' % (value,)
 
@@ -441,7 +443,8 @@ class FunctionCodeGenerator(object):
         if T is Void:
             result = '/* %s */' % result
         if self.db.reversedb:
-            if self.lltypemap(op.args[0]).TO._gckind != 'gc':
+            S = self.lltypemap(op.args[0]).TO
+            if S._gckind != 'gc' and not S._hints.get('is_excdata'):
                 result += '\t' + self._reverse_db_emit(T, newvalue)
         return result
 
