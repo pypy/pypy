@@ -1,5 +1,5 @@
 =========================
-What's new in PyPy 5.1+
+What's new in PyPy2.7 5.3
 =========================
 
 .. this is a revision shortly after release-5.1
