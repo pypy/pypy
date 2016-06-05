@@ -1242,6 +1242,19 @@ class Entry(ExtRegistryEntry):
                                  v_list)
 
 def ll_nonmovable_raw_ptr_for_resizable_list(ll_list):
+    """
+    WARNING: dragons ahead.
+    Return the address of the internal char* buffer of 'll_list', which
+    must be a resizable list of chars.
+
+    This makes sure that the list items are non-moving, if necessary by
+    first copying the GcArray inside 'll_list.items' outside the GC
+    nursery.  The returned 'char *' pointer is guaranteed to be valid
+    until one of these occurs:
+
+       * 'll_list' gets garbage-collected; or
+       * you do an operation on 'll_list' that changes its size.
+    """
     from rpython.rtyper.lltypesystem import lltype, rffi
     array = ll_list.items
     if can_move(array):
