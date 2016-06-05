@@ -37,6 +37,7 @@ RPython.
 
    arm
    logging
+   s390x
 
 
 Writing your own interpreter in RPython
@@ -60,7 +61,6 @@ RPython internals
    getting-started
    dir-reference
    jit/index
-   arch/index
    translation
    rtyper
    garbage_collection
