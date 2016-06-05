@@ -1335,19 +1335,39 @@ class __extend__(pyframe.PyFrame):
 
     def BUILD_TUPLE_UNPACK(self, itemcount, next_instr):
         w_sum = self.space.newset()
-        self.pushvalue(w_set)
+        for i in range(itemcount, 0, -1):
+            self.space.call_method(w_sum, 'update', self.space.peek(i))
+        while itemcount != 0:
+            self.popvalue()
+            itemcount -= 1
+        self.pushvalue(w_sum)
         
     def BUILD_LIST_UNPACK(self, itemcount, next_instr):
         w_sum = self.space.newset()
-        self.pushvalue(w_set)
+        for i in range(itemcount, 0, -1):
+            self.space.call_method(w_sum, 'update', self.space.peek(i))
+        while itemcount != 0:
+            self.popvalue()
+            itemcount -= 1
+        self.pushvalue(w_sum)
         
     def BUILD_MAP_UNPACK_WITH_CALL(self, itemcount, next_instr):
         w_sum = self.space.newset()
-        self.pushvalue(w_set)
+        for i in range(itemcount, 0, -1):
+            self.space.call_method(w_sum, 'update', self.space.peek(i))
+        while itemcount != 0:
+            self.popvalue()
+            itemcount -= 1
+        self.pushvalue(w_sum)
         
     def BUILD_MAP_UNPACK(self, itemcount, next_instr):
         w_sum = self.space.newset()
-        self.pushvalue(w_set)
+        for i in range(itemcount, 0, -1):
+            self.space.call_method(w_sum, 'update', self.space.peek(i))
+        while itemcount != 0:
+            self.popvalue()
+            itemcount -= 1
+        self.pushvalue(w_sum)
 ### ____________________________________________________________ ###
 
 class ExitFrame(Exception):
