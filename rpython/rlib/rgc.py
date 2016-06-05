@@ -1261,10 +1261,7 @@ def ll_nonmovable_raw_ptr_for_resizable_list(ll_list):
         length = ll_list.length
         new_array = lltype.malloc(lltype.typeOf(ll_list).TO.items.TO, length,
                                   nonmovable=True)
-        i = 0
-        while i < length:
-            new_array[i] = array[i]
-            i += 1
+        ll_arraycopy(array, new_array, 0, 0, length)
         ll_list.items = new_array
         array = new_array
     ptr = lltype.direct_arrayitems(array)
