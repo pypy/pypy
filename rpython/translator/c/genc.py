@@ -115,6 +115,8 @@ class CBuilder(object):
     def get_eci(self):
         pypy_include_dir = py.path.local(__file__).join('..')
         include_dirs = [pypy_include_dir]
+        if self.config.translation.reversedb:
+            include_dirs.append(pypy_include_dir.join('..', 'reversedb'))
         return ExternalCompilationInfo(include_dirs=include_dirs)
 
     def build_database(self):
@@ -133,7 +135,8 @@ class CBuilder(object):
                               thread_enabled=self.config.translation.thread,
                               sandbox=self.config.translation.sandbox,
                               split_gc_address_space=
-                                 self.config.translation.split_gc_address_space)
+                                 self.config.translation.split_gc_address_space,
+                              reversedb=self.config.translation.reversedb)
         self.db = db
 
         # give the gc a chance to register interest in the start-up functions it
@@ -215,6 +218,8 @@ class CBuilder(object):
             defines['COUNT_OP_MALLOCS'] = 1
         if self.config.translation.sandbox:
             defines['RPY_SANDBOXED'] = 1
+        if self.config.translation.reversedb:
+            defines['RPY_REVERSE_DB'] = 1
         if CBuilder.have___thread is None:
             CBuilder.have___thread = self.translator.platform.check___thread()
         if not self.standalone:
@@ -822,7 +827,7 @@ def commondefs(defines):
     defines['PYPY_LONG_BIT'] = LONG_BIT
     defines['PYPY_LONGLONG_BIT'] = LONGLONG_BIT
 
-def add_extra_files(eci):
+def add_extra_files(database, eci):
     srcdir = py.path.local(__file__).join('..', 'src')
     files = [
         srcdir / 'entrypoint.c',       # ifdef PYPY_STANDALONE
@@ -841,6 +846,9 @@ def add_extra_files(eci):
     ]
     if _CYGWIN:
         files.append(srcdir / 'cygwin_wait.c')
+    if database.reversedb:
+        from rpython.translator.reversedb import rdb_genc
+        files += rdb_genc.extra_files()
     return eci.merge(ExternalCompilationInfo(separate_module_files=files))
 
 
@@ -889,6 +897,6 @@ def gen_source(database, modulename, targetdir,
         print >>fi, "#define PYPY_INSTRUMENT_NCOUNTER %d" % n
         fi.close()
 
-    eci = add_extra_files(eci)
+    eci = add_extra_files(database, eci)
     eci = eci.convert_sources_to_files()
     return eci, filename, sg.getextrafiles(), headers_to_precompile

@@ -223,6 +223,7 @@ PrimitiveName = {
     Address:  name_address,
     GCREF:    name_gcref,
     }
+PRIMITIVE_FLOATS = set([Float, SingleFloat, LongFloat])
 
 PrimitiveType = {
     SignedLongLong:   'long long @',
