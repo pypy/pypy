@@ -47,7 +47,7 @@ We also welcome developers of other
 This release supports: 
 
   * **x86** machines on most common operating systems
-    (Linux 32/64, Mac OS X 64, Windows 32, OpenBSD, FreeBSD),
+    (Linux 32/64 bits, Mac OS X 64 bits, Windows 32 bits, OpenBSD, FreeBSD)
   
   * newer **ARM** hardware (ARMv6 or ARMv7, with VFPv3) running Linux,
   
@@ -72,7 +72,7 @@ Other Highlights (since 5.1 released in April 2016)
       - add prelminary support for PyDateTime_*
       - support PyComplexObject, PyFloatObject, PyDict_Merge, PyDictProxy,
         PyMemoryView_*, _Py_HashDouble, PyFile_AsFile, PyFile_FromFile,
-      - PyAnySet_CheckExact, PyUnicode_Concat
+        PyAnySet_CheckExact, PyUnicode_Concat, PyDateTime_TZInfo
       - improve support for PyGILState_Ensure, PyGILState_Release, and thread
         primitives, also find a case where CPython will allow thread creation
         before PyEval_InitThreads is run, dissallow on PyPy 
@@ -80,6 +80,10 @@ Other Highlights (since 5.1 released in April 2016)
       - rewrite slot assignment for typeobjects
       - improve tracking of PyObject to rpython object mapping
       - support tp_as_{number, sequence, mapping, buffer} slots
+      - support ByteArrayObject via the new resizable_list_supporting_raw_ptr
+      - implement PyList_SET_ITEM with CPython's behavior, instead of SetItem's
+      - fix the signature of PyUFunc_FromFuncAndDataAndSignature
+      - implement many PyWhatever_FOO() as a macro taking a `void *`
 
   * CPyExt tweak: instead of "GIL not held when a CPython C extension module
     calls PyXxx", we now silently acquire/release the GIL.  Helps with
@@ -93,7 +97,43 @@ Other Highlights (since 5.1 released in April 2016)
   * Generalize cpyext old-style buffers to more than just str/buffer, add
     support for mmap
 
+  * Support command line -v to trace import statements
+
+  * Add rposix functions for PyPy3.3 support
+
+  * Give super an __init__ and a simple __new__ for CPython compatibility
+
+  * Revive traceviewer, a tool to use pygame to view traces
+
+  * Update to cffi/847bbc0297f8 which improves help() on cffi objects
+
 * Bug Fixes
+
+   * Fix issue #2277: only special-case two exact lists in zip(), not list
+     subclasses, because an overridden __iter__() should be called (probably)
+
+  * Fix issue #2226: Another tweak in the incremental GC- this should ensure
+    that progress in the major GC occurs quickly enough in all cases.
+
+  * Clarify and refactor documentation on http://doc.pypy.org
+
+  * Use "must be unicode, not %T" in unicodedata TypeErrors.
+
+  * Manually reset sys.settrace() and sys.setprofile() when we're done running.
+    This is not exactly what CPython does, but if we get an exception, unlike
+    CPython, we call functions from the 'traceback' module, and these would
+    call more the trace/profile function.  That's unexpected and can lead
+    to more crashes at this point.
+
+  * Use the appropriate tp_dealloc on a subclass of a builtin type, and call
+    tp_new for a python-sublcass of a C-API type
+
+  * Fix for issue #2285 - rare vmprof segfaults on OS/X
+
+  * Fixed issue #2172 - where a test specified an invalid parameter to mmap on powerpc
+
+  * Fix issue #2311 - grab the `__future__` flags imported in the main script, in
+    `-c`, or in `PYTHON_STARTUP`, and expose them to the `-i` console
 
   * Issues reported with our previous release were resolved_ after reports from users on
     our issue tracker at https://bitbucket.org/pypy/pypy/issues or on IRC at
@@ -102,6 +142,9 @@ Other Highlights (since 5.1 released in April 2016)
 * Numpy_:
 
   * Implement ufunc.outer on numpypy
+
+  * Move PyPy-specific numpy headers to a subdirectory (also changed pypy/numpy
+    accordingly)
 
 * Performance improvements:
 
@@ -114,17 +157,29 @@ Other Highlights (since 5.1 released in April 2016)
     can now be turned into ``x >> 1`` or ``x & 1``, even if x is possibly
     negative.
 
+  * Copy CPython's 'optimization': ignore __iter__ etc. for `f(**dict_subclass())`
+
+  * Use the __builtin_add_overflow built-ins if they are available
+
+  * Rework the way registers are moved/spilled in before_call()
 
 * Internal refactorings:
 
+  * Refactor code to better support Python3-compatible syntax
+
+  * Document and refactor OperationError -> oefmt
+
   * Reduce the size of generated C sources during translation by 
-    refactoring function declarations
+    eliminating many many unused struct declarations (Issue #2281)
 
   * Remove a number of translation-time options that were not tested and
     never used. Also fix a performance bug in the method cache
 
   * Reduce the size of generated code by using the same function objects in
     all generated subclasses
+
+ * Share cpyext Py* function wrappers according to the signature, shrining the
+   translated libpypy.so by about 
 
   * Compile c snippets with -Werror, and fix warnings it exposed
 
