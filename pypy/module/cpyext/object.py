@@ -1,7 +1,7 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     cpython_api, generic_cpy_call, CANNOT_FAIL, Py_ssize_t, Py_ssize_tP,
-    PyVarObject, Py_buffer,
+    PyVarObject, Py_buffer, size_t,
     Py_TPFLAGS_HEAPTYPE, Py_LT, Py_LE, Py_EQ, Py_NE, Py_GT,
     Py_GE, CONST_STRING, FILEP, fwrite)
 from pypy.module.cpyext.pyobject import (
@@ -14,14 +14,14 @@ from pypy.interpreter.error import OperationError, oefmt
 import pypy.module.__builtin__.operation as operation
 
 
-@cpython_api([Py_ssize_t], rffi.VOIDP)
+@cpython_api([size_t], rffi.VOIDP)
 def PyObject_Malloc(space, size):
     # returns non-zero-initialized memory, like CPython
     return lltype.malloc(rffi.VOIDP.TO, size,
                          flavor='raw',
                          add_memory_pressure=True)
 
-@cpython_api([rffi.VOIDP, Py_ssize_t], rffi.VOIDP)
+@cpython_api([rffi.VOIDP, size_t], rffi.VOIDP)
 def PyObject_Realloc(space, ptr, size):
     if not lltype.cast_ptr_to_int(ptr):
         return lltype.malloc(rffi.VOIDP.TO, size,
