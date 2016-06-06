@@ -398,8 +398,8 @@ class Regalloc(BaseRegalloc):
             self.rm.force_spill_var(var)
 
     def before_call(self, save_all_regs=False):
-        self.rm.before_call(save_all_regs)
-        self.vfprm.before_call(save_all_regs)
+        self.rm.before_call(save_all_regs=save_all_regs)
+        self.vfprm.before_call(save_all_regs=save_all_regs)
 
     def _sync_var(self, v):
         if v.type == FLOAT:

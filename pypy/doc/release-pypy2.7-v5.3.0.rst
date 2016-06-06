@@ -2,11 +2,12 @@
 PyPy2.7 v5.3
 ============
 
-We have released PyPy2.7 v5.3, about six weeks after PyPy 5.1. 
-This release includes further improvements for the CAPI compatibility layer
-which we call cpyext. In addtion to complete support for lxml, we now pass
-most (more than 90%) of the upstream numpy test suite, and much of SciPy is
-supported as well.
+We have released PyPy2.7 v5.3, about six weeks after PyPy 5.1 and a week after
+`PyPy3.3 v5.2 alpha 1`_, the first PyPy release targetting 3.3
+compatibility. This new PyPy2.7 release includes further improvements for the
+CAPI compatibility layer which we call cpyext. In addtion to complete support
+for lxml, we now pass most (more than 90%) of the upstream numpy test suite,
+and much of SciPy is supported as well.
 
 We also improved the speed of ... and ...
 
@@ -65,6 +66,7 @@ Other Highlights (since 5.1 released in April 2016)
 
   * Merge a major expansion of the C-API support in cpyext, here are some of
     the highlights:
+
       - allow c-snippet tests to be run with -A so we can verify we are compatible
       - fix many edge cases exposed by fixing tests to run with -A
       - issequence() logic matches cpython
@@ -183,6 +185,7 @@ Other Highlights (since 5.1 released in April 2016)
 
   * Compile c snippets with -Werror, and fix warnings it exposed
 
+.. _`PyPy3.3 v5.2 alpha 1`: http://morepypy.blogspot.com/2016/05/pypy33-v52-alpha-1-released.html
 .. _resolved: http://doc.pypy.org/en/latest/whatsnew-5.3.0.html
 .. _Numpy: https://bitbucket.org/pypy/numpy
 

@@ -7,27 +7,6 @@ from rpython.rtyper.lltypesystem.rstr import STR, mallocstr
 from rpython.translator.c.support import cdecl
 
 
-def predeclare_common_types(db, rtyper):
-    # Common types
-    yield ('RPyString', STR)
-
-def predeclare_utility_functions(db, rtyper):
-    # Common utility functions
-    def RPyString_New(length=lltype.Signed):
-        return mallocstr(length)
-
-    for fname, f in locals().items():
-        if isinstance(f, types.FunctionType):
-            # XXX this is painful :(
-            if fname in db.helpers:
-                yield (fname, db.helpers[fname])
-            else:
-                # hack: the defaults give the type of the arguments
-                graph = rtyper.annotate_helper(f, f.func_defaults)
-                db.helpers[fname] = graph
-                yield (fname, graph)
-
-
 def predeclare_exception_data(exctransformer, rtyper):
     # Exception-related types and constants
     exceptiondata = rtyper.exceptiondata
@@ -56,11 +35,8 @@ def predeclare_exception_data(exctransformer, rtyper):
 
 
 def predeclare_all(db, rtyper):
-    for fn in [predeclare_common_types,
-               predeclare_utility_functions,
-               ]:
-        for t in fn(db, rtyper):
-            yield t
+    # Common types
+    yield ('RPyString', STR)
 
     exctransformer = db.exctransformer
     for t in predeclare_exception_data(exctransformer, rtyper):
