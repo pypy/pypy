@@ -11,7 +11,9 @@ and much of SciPy is supported as well.
 
 We also improved the speed of ... and ...
 
-We updated cffi_ to ...
+We updated cffi_ to version 1.7 (small changes, documented here__).
+
+.. __: http://cffi.readthedocs.io/en/latest/whatsnew.html
 
 You can download the PyPy2.7 v5.3 release here:
 
