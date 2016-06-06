@@ -1,11 +1,11 @@
-from pytest import config
+from pypy.conftest import option
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 from pypy.interpreter.gateway import interp2app
 
 class BaseAppTestDtypes(BaseNumpyAppTest):
     def setup_class(cls):
         BaseNumpyAppTest.setup_class.im_func(cls)
-        if config.option.runappdirect:
+        if option.runappdirect:
             import platform
             bits, linkage = platform.architecture()
             ptr_size = int(bits[:-3]) // 8
@@ -372,8 +372,8 @@ class AppTestDtypes(BaseAppTestDtypes):
         a = np.array(data, dtype=b)
         x = pickle.loads(pickle.dumps(a))
         assert (x == a).all()
-        assert x.dtype == a.dtype
-
+        assert x.dtype == a.dtype 
+        
     def test_index(self):
         import numpy as np
         for dtype in [np.int8, np.int16, np.int32, np.int64]:
@@ -1088,7 +1088,7 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
     spaceconfig = dict(usemodules=["micronumpy", "struct", "binascii"])
     def setup_class(cls):
         BaseNumpyAppTest.setup_class.im_func(cls)
-        if config.option.runappdirect:
+        if option.runappdirect:
             cls.w_test_for_core_internal = cls.space.wrap(True)
         else:
             cls.w_test_for_core_internal = cls.space.wrap(False)
@@ -1459,7 +1459,7 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
                      "'offsets':[0,76800], "
                      "'itemsize':80000, "
                      "'aligned':True}")
-
+        
         assert dt == np.dtype(eval(str(dt)))
 
         dt = np.dtype({'names': ['r', 'g', 'b'], 'formats': ['u1', 'u1', 'u1'],
@@ -1515,7 +1515,7 @@ class AppTestNotDirect(BaseNumpyAppTest):
             else:
                 assert stor2[1] == '\x01'
                 assert stor2[0] == '\x00'
-        if config.option.runappdirect:
+        if option.runappdirect:
             cls.w_check_non_native = lambda *args : None
         else:
             cls.w_check_non_native = cls.space.wrap(interp2app(check_non_native))

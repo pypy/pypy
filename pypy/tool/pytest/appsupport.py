@@ -184,6 +184,7 @@ def build_pytest_assertion(space):
                 source = str(source).strip()
             except py.error.ENOENT:
                 source = None
+            from pypy import conftest
             if source and py.test.config._assertstate.mode != "off":
                 msg = interpret(source, runner, should_fail=True)
                 space.setattr(w_self, space.wrap('args'),

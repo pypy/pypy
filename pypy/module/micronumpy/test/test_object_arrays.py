@@ -1,8 +1,13 @@
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
+from pypy.conftest import option
 
 
 class AppTestObjectDtypes(BaseNumpyAppTest):
     spaceconfig = dict(usemodules=["micronumpy", "struct", "binascii"])
+
+    def setup_class(cls):
+        BaseNumpyAppTest.setup_class.im_func(cls)
+        cls.w_runappdirect = cls.space.wrap(option.runappdirect)
 
     def test_scalar_from_object(self):
         from numpy import array
@@ -195,7 +200,7 @@ class AppTestObjectDtypes(BaseNumpyAppTest):
         from numpy import arange, dtype
         from cPickle import loads, dumps
         import sys
-
+        
         a = arange(15).astype(object)
         if '__pypy__' in sys.builtin_module_names:
             raises(NotImplementedError, dumps, a)
@@ -206,4 +211,4 @@ class AppTestObjectDtypes(BaseNumpyAppTest):
         a = arange(15).astype(object).reshape((3, 5))
         b = loads(dumps(a))
         assert (a == b).all()
-
+        

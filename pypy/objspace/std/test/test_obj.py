@@ -1,4 +1,5 @@
-from pytest import config
+from __future__ import with_statement
+from pypy.conftest import option
 
 class AppTestObject:
 
@@ -6,13 +7,13 @@ class AppTestObject:
         from pypy.interpreter import gateway
         import sys
 
-        cpython_behavior = (not config.option.runappdirect
+        cpython_behavior = (not option.runappdirect
                             or not hasattr(sys, 'pypy_translation_info'))
 
         space = cls.space
         cls.w_cpython_behavior = space.wrap(cpython_behavior)
         cls.w_cpython_version = space.wrap(tuple(sys.version_info))
-        cls.w_appdirect = space.wrap(config.option.runappdirect)
+        cls.w_appdirect = space.wrap(option.runappdirect)
         cls.w_cpython_apptest = space.wrap(option.runappdirect and not hasattr(sys, 'pypy_translation_info'))
 
         def w_unwrap_wrap_unicode(space, w_obj):

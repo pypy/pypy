@@ -13,7 +13,7 @@ import tempfile, marshal
 
 from pypy.module.imp import importing
 
-from pytest import config
+from pypy import conftest
 
 def setuppkg(pkgname, **entries):
     p = udir.join('impsubdir')
@@ -106,7 +106,7 @@ def setup_directory_structure(space):
 
     # create compiled/x.py and a corresponding pyc file
     p = setuppkg("compiled", x = "x = 84")
-    if config.option.runappdirect:
+    if conftest.option.runappdirect:
         import marshal, stat, struct, os, imp
         code = py.code.Source(p.join("x.py").read()).compile()
         s3 = marshal.dumps(code)
@@ -143,7 +143,7 @@ def setup_directory_structure(space):
 def _setup(space):
     dn = setup_directory_structure(space)
     return space.appexec([space.wrap(dn)], """
-        (dn):
+        (dn): 
             import sys
             path = list(sys.path)
             sys.path.insert(0, dn)
@@ -168,7 +168,7 @@ class AppTestImport:
     }
 
     def setup_class(cls):
-        cls.w_runappdirect = cls.space.wrap(config.option.runappdirect)
+        cls.w_runappdirect = cls.space.wrap(conftest.option.runappdirect)
         cls.saved_modules = _setup(cls.space)
         #XXX Compile class
 
@@ -1017,7 +1017,7 @@ class TestPycStuff:
 
         cpathname = udir.join('test.pyc')
         assert not cpathname.check()
-
+        
     def test_load_source_module_importerror(self):
         # the .pyc file is created before executing the module
         space = self.space
@@ -1126,11 +1126,11 @@ class TestPycStuff:
                     stream.close()
 
 
-def test_PYTHONPATH_takes_precedence(space):
+def test_PYTHONPATH_takes_precedence(space): 
     if sys.platform == "win32":
         py.test.skip("unresolved issues with win32 shell quoting rules")
-    from pypy.interpreter.test.test_zpy import pypypath
-    extrapath = udir.ensure("pythonpath", dir=1)
+    from pypy.interpreter.test.test_zpy import pypypath 
+    extrapath = udir.ensure("pythonpath", dir=1) 
     extrapath.join("sched.py").write("print 42\n")
     old = os.environ.get('PYTHONPATH', None)
     oldlang = os.environ.pop('LANG', None)
@@ -1494,6 +1494,8 @@ class AppTestMultithreadedImp(object):
     spaceconfig = dict(usemodules=['thread', 'time'])
 
     def setup_class(cls):
+        #if not conftest.option.runappdirect:
+        #    py.test.skip("meant as an -A test")
         tmpfile = udir.join('test_multithreaded_imp.py')
         tmpfile.write('''if 1:
             x = 666
