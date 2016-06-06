@@ -9,11 +9,11 @@ CAPI compatibility layer which we call cpyext. In addtion to complete support
 for lxml, we now pass most (more than 90%) of the upstream numpy test suite,
 and much of SciPy is supported as well.
 
-We also improved the speed of ... and ...
+We updated cffi_ to version 1.7 (small changes, documented here_).
 
-We updated cffi_ to version 1.7 (small changes, documented here__).
-
-.. __: http://cffi.readthedocs.io/en/latest/whatsnew.html
+.. _`PyPy3.3 v5.2 alpha 1`: http://morepypy.blogspot.com/2016/05/pypy33-v52-alpha-1-released.html
+.. _cffi: https://cffi.readthedocs.org
+.. _here: http://cffi.readthedocs.io/en/latest/whatsnew.html
 
 You can download the PyPy2.7 v5.3 release here:
 
@@ -32,10 +32,6 @@ with making RPython's JIT even better.
 .. _`RPython`: https://rpython.readthedocs.org
 .. _`modules`: http://doc.pypy.org/en/latest/project-ideas.html#make-more-python-modules-pypy-friendly
 .. _`help`: http://doc.pypy.org/en/latest/project-ideas.html
-.. _`numpy`: https://bitbucket.org/pypy/numpy
-.. _cffi: https://cffi.readthedocs.org
-.. _`fully support for the IBM s390x`: http://morepypy.blogspot.com/2016/04/pypy-enterprise-edition.html
-.. _`blog post`: http://morepypy.blogspot.com/2016/04/warmup-improvements-more-efficient.html
 
 What is PyPy?
 =============
@@ -44,8 +40,8 @@ PyPy is a very compliant Python interpreter, almost a drop-in replacement for
 CPython 2.7. It's fast (`PyPy and CPython 2.7.x`_ performance comparison)
 due to its integrated tracing JIT compiler.
 
-We also welcome developers of other
-`dynamic languages`_ to see what RPython can do for them.
+We also welcome developers of other `dynamic languages`_ to see what RPython
+can do for them.
 
 This release supports: 
 
@@ -145,7 +141,7 @@ Other Highlights (since 5.1 released in April 2016)
 
   * Implement ufunc.outer on numpypy
 
-  * Move PyPy-specific numpy headers to a subdirectory (also changed pypy/numpy
+  * Move PyPy-specific numpy headers to a subdirectory (also changed `the repo`_
     accordingly)
 
 * Performance improvements:
@@ -185,9 +181,9 @@ Other Highlights (since 5.1 released in April 2016)
 
   * Compile c snippets with -Werror, and fix warnings it exposed
 
-.. _`PyPy3.3 v5.2 alpha 1`: http://morepypy.blogspot.com/2016/05/pypy33-v52-alpha-1-released.html
 .. _resolved: http://doc.pypy.org/en/latest/whatsnew-5.3.0.html
 .. _Numpy: https://bitbucket.org/pypy/numpy
+.. _`the repo`: https://bitbucket.org/pypy/numpy
 
 Please update, and continue to help us make PyPy better.
 
