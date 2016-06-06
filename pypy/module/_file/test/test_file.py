@@ -516,12 +516,11 @@ class AppTestFile25:
             assert s == 'bar\n'
 
 def test_flush_at_exit():
-    from pypy import conftest
     from pypy.tool.option import make_config, make_objspace
     from rpython.tool.udir import udir
 
     tmpfile = udir.join('test_flush_at_exit')
-    config = make_config(conftest.option)
+    config = make_config(py.test.config.option)
     space = make_objspace(config)
     space.appexec([space.wrap(str(tmpfile))], """(tmpfile):
         f = open(tmpfile, 'w')

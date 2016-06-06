@@ -89,8 +89,7 @@ class Runner(object):
 class AppTestWrapper:
     def setup_class(cls):
         "Run test_various_depths() when we are run with 'pypy py.test -A'."
-        from pypy.conftest import option
-        if not option.runappdirect:
+        if not py.test.config.option.runappdirect:
             py.test.skip("meant only for -A run")
 
 def _setup():

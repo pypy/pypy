@@ -5,7 +5,7 @@ from pypy.objspace.std.test.test_proxy_internals import AppProxy
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app
 from pypy.objspace.std.transparent import register_proxyable
-from pypy.conftest import option
+from pytest import config
 
 
 class W_Wrapped(W_Root):
@@ -25,7 +25,7 @@ W_Wrapped.typedef = TypeDef(
 
 class AppTestProxyNewtype(AppProxy):
     def setup_class(cls):
-        if option.runappdirect:
+        if config.option.runappdirect:
             py.test.skip("Impossible to run on appdirect")
         AppProxy.setup_class.im_func(cls)
         cls.w_wrapped = cls.space.wrap(W_Wrapped())
