@@ -160,20 +160,15 @@ def pytest_runtest_setup(__multicall__, item):
             if spaceconfig is not None:
                 from pypy.tool.pytest.objspace import gettestobjspace
                 appclass.obj.space = gettestobjspace(**spaceconfig)
+            else:
+                appclass.obj.space = LazyObjSpaceGetter()
             appclass.obj.runappdirect = option.runappdirect
 
     __multicall__.execute()
 
 
 class PyPyClassCollector(py.test.collect.Class):
-    # All pypy Test classes have a "space" member.
-    def setup(self):
-        cls = self.obj
-        if not hasattr(cls, 'spaceconfig'):
-            cls.space = LazyObjSpaceGetter()
-        else:
-            assert hasattr(cls, 'space') # set by pytest_runtest_setup
-        super(PyPyClassCollector, self).setup()
+    pass
 
 
 def pytest_ignore_collect(path):
