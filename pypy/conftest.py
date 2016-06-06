@@ -23,11 +23,10 @@ py.code.Source.deindent = braindead_deindent
 def pytest_report_header():
     return "pytest-%s from %s" % (pytest.__version__, pytest.__file__)
 
-def pytest_addhooks(pluginmanager):
-    from rpython.conftest import LeakFinder
-    pluginmanager.register(LeakFinder())
-
 def pytest_configure(config):
+    if not config.option.runappdirect:
+        from rpython.conftest import LeakFinder
+        config.pluginmanager.register(LeakFinder())
     global option
     option = config.option
 
