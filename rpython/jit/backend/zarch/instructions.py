@@ -29,6 +29,7 @@ arith_mnemonic_codes = {
     'MGHI':    ('ri',    ['\xA7','\x0D']),
     'MSGFI':   ('ril',   ['\xC2','\x00']),
     'MLGR':    ('rre',   ['\xB9','\x86'], 'eo,r'),
+    'MLG':     ('rxy',   ['\xE3','\x86'], 'eo,bid'),
     # div/mod
     'DSGR':    ('rre',   ['\xB9','\x0D'], 'eo,r'),
     'DSG':     ('rxy',   ['\xE3','\x0D'], 'eo,bidl'),
