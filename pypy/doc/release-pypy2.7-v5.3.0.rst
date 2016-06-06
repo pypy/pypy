@@ -109,12 +109,10 @@ Other Highlights (since 5.1 released in April 2016)
 
   * Revive traceviewer, a tool to use pygame to view traces
 
-  * Update to cffi/847bbc0297f8 which improves help() on cffi objects
-
 * Bug Fixes
 
-   * Fix issue #2277: only special-case two exact lists in zip(), not list
-     subclasses, because an overridden __iter__() should be called (probably)
+  * Fix issue #2277: only special-case two exact lists in zip(), not list
+    subclasses, because an overridden __iter__() should be called (probably)
 
   * Fix issue #2226: Another tweak in the incremental GC- this should ensure
     that progress in the major GC occurs quickly enough in all cases.
