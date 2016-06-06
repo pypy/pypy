@@ -9,7 +9,7 @@ def extra_files():
         srcdir / 'revdb.c',
     ]
 
-def emit(tp, value):
+def emit(normal_code, tp, value):
     if tp == 'void @':
-        return '/* void */'
-    return 'rpy_reverse_db_EMIT(%s=%s);' % (cdecl(tp, '_e'), value)
+        return 'RPY_REVDB_EMIT_VOID(%s);' % (normal_code,)
+    return 'RPY_REVDB_EMIT(%s, %s, %s);' % (normal_code, cdecl(tp, '_e'), value)

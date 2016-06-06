@@ -400,7 +400,7 @@ class FunctionCodeGenerator(object):
                     break
         elif self.db.reverse_debugger:
             from rpython.translator.revdb import revdb_genc
-            line += '\n' + revdb_genc.emit(self.lltypename(v_result), r)
+            line = revdb_genc.emit(line, self.lltypename(v_result), r)
         return line
 
     def OP_DIRECT_CALL(self, op):
@@ -440,8 +440,8 @@ class FunctionCodeGenerator(object):
             S = self.lltypemap(op.args[0]).TO
             if S._gckind != 'gc' and not S._hints.get('is_excdata'):
                 from rpython.translator.revdb import revdb_genc
-                result += '\t' + revdb_genc.emit(self.lltypename(op.result),
-                                                 newvalue)
+                result = revdb_genc.emit(result, self.lltypename(op.result),
+                                         newvalue)
         return result
 
     def generic_set(self, op, targetexpr):

@@ -86,3 +86,6 @@ class TestBasic(object):
         assert rdb.done()
         #
         assert got == [self.exename, 'abc', 'd']
+        #
+        # Now try the replay mode
+        xxx

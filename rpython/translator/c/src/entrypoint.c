@@ -37,6 +37,10 @@ int pypy_main_function(int argc, char *argv[]) __attribute__((__noinline__));
 # include <src/thread.h>
 #endif
 
+#ifdef RPY_REVERSE_DEBUGGER
+# include <rdb-src/revdb_include.h>
+#endif
+
 RPY_EXPORTED
 void rpython_startup_code(void)
 {
@@ -83,7 +87,7 @@ int pypy_main_function(int argc, char *argv[])
     instrument_setup();
 
 #ifdef RPY_REVERSE_DEBUGGER
-    rpy_reverse_db_setup(argc, argv);
+    rpy_reverse_db_setup(&argc, &argv);
 #endif
 
 #ifndef MS_WINDOWS
@@ -98,6 +102,10 @@ int pypy_main_function(int argc, char *argv[])
     RPython_StartupCode();
 
     exitcode = STANDALONE_ENTRY_POINT(argc, argv);
+
+#ifdef RPY_REVERSE_DEBUGGER
+    rpy_reverse_db_teardown();
+#endif
 
     pypy_debug_alloc_results();
 
