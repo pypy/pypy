@@ -1,6 +1,6 @@
 import py
 
-from pytest import config
+from pypy.conftest import option
 from pypy.interpreter.error import OperationError
 
 def import_lib_pypy(space, name, skipmsg=None):
@@ -9,7 +9,7 @@ def import_lib_pypy(space, name, skipmsg=None):
 
     Raises a pytest Skip on ImportError if a skip message was specified.
     """
-    if config.option.runappdirect:
+    if option.runappdirect:
         try:
             mod = __import__('lib_pypy.' + name)
         except ImportError as e:

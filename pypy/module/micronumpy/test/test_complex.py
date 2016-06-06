@@ -2,6 +2,7 @@ from __future__ import with_statement
 
 import sys
 
+from pypy.conftest import option
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
@@ -22,13 +23,13 @@ def rAlmostEqual(a, b, rel_err=2e-15, abs_err=5e-323, msg=''):
     # special values testing
     if isnan(a):
         if isnan(b):
-            return True, ''
+            return True,''
         raise AssertionError(msg + '%r should be nan' % (b,))
 
     if isinf(a):
         if a == b:
-            return True, ''
-        raise AssertionError(msg + 'finite result where infinity expected: '
+            return True,''
+        raise AssertionError(msg + 'finite result where infinity expected: '+ \
                           'expected %r, got %r' % (a, b))
 
     # if both a and b are zero, check whether they have the same sign
@@ -38,7 +39,7 @@ def rAlmostEqual(a, b, rel_err=2e-15, abs_err=5e-323, msg=''):
     if not a and not b:
         # only check it if we are running on top of CPython >= 2.6
         if sys.version_info >= (2, 6) and copysign(1., a) != copysign(1., b):
-            raise AssertionError(msg +
+            raise AssertionError( msg + \
                     'zero has wrong sign: expected %r, got %r' % (a, b))
 
     # if a-b overflows, or b is infinite, return False.  Again, in
@@ -95,6 +96,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         cls.w_testcases128 = cls.space.wrap(list(parse_testfile(fname128)))
         cls.w_testcases64 = cls.space.wrap(list(parse_testfile(fname64)))
 
+        cls.w_runAppDirect = cls.space.wrap(option.runappdirect)
         cls.w_isWindows = cls.space.wrap(os.name == 'nt')
 
         if cls.runappdirect:

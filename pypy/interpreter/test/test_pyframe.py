@@ -1,5 +1,5 @@
-import pytest
 from rpython.tool import udir
+from pypy.conftest import option
 from pypy.interpreter.gateway import interp2app
 
 def check_no_w_locals(space, w_frame):
@@ -11,7 +11,7 @@ class AppTestPyFrame:
         space = cls.space
         cls.w_udir = cls.space.wrap(str(udir.udir))
         cls.w_tempfile1 = cls.space.wrap(str(udir.udir.join('tempfile1')))
-        if not pytest.config.option.runappdirect:
+        if not option.runappdirect:
             w_call_further = cls.space.appexec([], """():
                 def call_further(f):
                     return f()

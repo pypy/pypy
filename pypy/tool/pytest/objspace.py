@@ -3,13 +3,14 @@ import sys
 from rpython.config.config import ConflictConfigError
 from pypy.tool.option import make_config, make_objspace
 from pypy.tool.pytest import appsupport
+from pypy.conftest import option
 
 _SPACECACHE={}
 def gettestobjspace(**kwds):
     """ helper for instantiating and caching space's for testing.
     """
     try:
-        config = make_config(py.test.config.option,**kwds)
+        config = make_config(option,**kwds)
     except ConflictConfigError as e:
         # this exception is typically only raised if a module is not available.
         # in this case the test should be skipped
@@ -18,7 +19,7 @@ def gettestobjspace(**kwds):
     try:
         return _SPACECACHE[key]
     except KeyError:
-        if getattr(py.test.config.option, 'runappdirect', None):
+        if getattr(option, 'runappdirect', None):
             return TinyObjSpace(**kwds)
         space = maketestobjspace(config)
         _SPACECACHE[key] = space
@@ -26,7 +27,7 @@ def gettestobjspace(**kwds):
 
 def maketestobjspace(config=None):
     if config is None:
-        config = make_config(py.test.config.option)
+        config = make_config(option)
     if config.objspace.usemodules.thread:
         config.translation.thread = True
     space = make_objspace(config)

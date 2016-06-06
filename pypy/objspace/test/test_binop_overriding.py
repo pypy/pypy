@@ -1,5 +1,5 @@
 # test about the binop operation rule, see issue 412
-from pytest import config
+from pypy.conftest import option
 
 class AppTestBinopCombinations:
 
@@ -83,7 +83,7 @@ class AppTestBinopCombinations:
     return Base, do_test
 """)
         cls.w_helpers = w_helpers
-        cls.w_appdirect = cls.space.wrap(config.option.runappdirect)
+        cls.w_appdirect = cls.space.wrap(option.runappdirect)
 
     def test_overriding_base_binop_explict(self):
         class MulBase(object):

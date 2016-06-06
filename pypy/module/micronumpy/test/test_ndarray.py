@@ -2,7 +2,7 @@
 import py
 import sys
 
-from pytest import config
+from pypy.conftest import option
 from pypy.module.micronumpy.appbridge import get_appbridge_cache
 from pypy.module.micronumpy.strides import Chunk, new_view, EllipsisChunk
 from pypy.module.micronumpy.ndarray import W_NDimArray
@@ -3850,7 +3850,7 @@ class AppTestSupport(BaseNumpyAppTest):
 
 class AppTestRepr(BaseNumpyAppTest):
     def setup_class(cls):
-        if config.option.runappdirect:
+        if option.runappdirect:
             py.test.skip("Can't be run directly.")
         BaseNumpyAppTest.setup_class.im_func(cls)
         cache = get_appbridge_cache(cls.space)
@@ -3867,7 +3867,7 @@ class AppTestRepr(BaseNumpyAppTest):
         assert repr(array(1.5).real) == "array(1.5)"
 
     def teardown_class(cls):
-        if config.option.runappdirect:
+        if option.runappdirect:
             return
         cache = get_appbridge_cache(cls.space)
         cache.w_array_repr = cls.old_array_repr
@@ -4343,7 +4343,7 @@ class AppTestRecordDtype(BaseNumpyAppTest):
 
 class AppTestPyPy(BaseNumpyAppTest):
     def setup_class(cls):
-        if config.option.runappdirect and '__pypy__' not in sys.builtin_module_names:
+        if option.runappdirect and '__pypy__' not in sys.builtin_module_names:
             py.test.skip("pypy only test")
         BaseNumpyAppTest.setup_class.im_func(cls)
 

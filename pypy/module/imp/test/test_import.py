@@ -13,7 +13,7 @@ import tempfile, marshal
 
 from pypy.module.imp import importing
 
-from pytest import config
+from pypy import conftest
 
 def setuppkg(pkgname, **entries):
     p = udir.join('impsubdir')
@@ -106,7 +106,7 @@ def setup_directory_structure(space):
 
     # create compiled/x.py and a corresponding pyc file
     p = setuppkg("compiled", x = "x = 84")
-    if config.option.runappdirect:
+    if conftest.option.runappdirect:
         import marshal, stat, struct, os, imp
         code = py.code.Source(p.join("x.py").read()).compile()
         s3 = marshal.dumps(code)
@@ -168,7 +168,7 @@ class AppTestImport:
     }
 
     def setup_class(cls):
-        cls.w_runappdirect = cls.space.wrap(config.option.runappdirect)
+        cls.w_runappdirect = cls.space.wrap(conftest.option.runappdirect)
         cls.saved_modules = _setup(cls.space)
         #XXX Compile class
 
@@ -1494,6 +1494,8 @@ class AppTestMultithreadedImp(object):
     spaceconfig = dict(usemodules=['thread', 'time'])
 
     def setup_class(cls):
+        #if not conftest.option.runappdirect:
+        #    py.test.skip("meant as an -A test")
         tmpfile = udir.join('test_multithreaded_imp.py')
         tmpfile.write('''if 1:
             x = 666
