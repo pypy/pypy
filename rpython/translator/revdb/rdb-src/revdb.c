@@ -62,14 +62,28 @@ void rpy_reverse_db_flush(void)
 {
     /* write the current buffer content to the OS */
 
-    ssize_t size = rpy_revdb.buf_p - rpy_rev_buffer;
+    ssize_t wsize, size = rpy_revdb.buf_p - rpy_rev_buffer;
+    char *p;
     rpy_revdb.buf_p = rpy_rev_buffer;
-    if (size > 0 && rpy_rev_fileno >= 0) {
-        if (write(rpy_rev_fileno, rpy_rev_buffer, size) != size) {
+    if (size == 0 || rpy_rev_fileno < 0)
+        return;
+
+    p = rpy_rev_buffer;
+ retry:
+    wsize = write(rpy_rev_fileno, p, size);
+    if (wsize >= size)
+        return;
+    if (wsize <= 0) {
+        if (wsize == 0)
+            fprintf(stderr, "Writing to PYPYREVDB file: "
+                            "unexpected non-blocking mode\n");
+        else
             fprintf(stderr, "Fatal error: writing to PYPYREVDB file: %m\n");
-            abort();
-        }
+        abort();
     }
+    p += wsize;
+    size -= wsize;
+    goto retry;
 }
 
 
