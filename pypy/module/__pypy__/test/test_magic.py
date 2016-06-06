@@ -60,3 +60,22 @@ def f():
             pass
         a = A()
         assert _promote(a) is a
+
+    def test_unroll_safe(self):
+        from __pypy__ import _unroll_safe
+        import opcode
+        def f(x):
+            r = 0
+            for i in range(x):
+                r += i
+            return r
+        assert chr(opcode.opmap['JUMP_ABSOLUTE_UNROLL']) not in f.func_code.co_code
+        f1 = _unroll_safe(f)
+        assert chr(opcode.opmap['JUMP_ABSOLUTE_UNROLL']) in f1.func_code.co_code
+        assert f(10) == f1(10)
+
+        def decorate_no_loop():
+            @_unroll_safe
+            def f(x):
+                pass
+        raises(TypeError, decorate_no_loop)

@@ -657,6 +657,7 @@ _static_opcode_stack_effects = {
 
     ops.JUMP_FORWARD: 0,
     ops.JUMP_ABSOLUTE: 0,
+    ops.JUMP_ABSOLUTE_UNROLL: 0,
     ops.JUMP_IF_TRUE_OR_POP: 0,
     ops.JUMP_IF_FALSE_OR_POP: 0,
     ops.POP_JUMP_IF_TRUE: -1,

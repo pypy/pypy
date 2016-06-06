@@ -198,6 +198,8 @@ class __extend__(pyframe.PyFrame):
                 return next_instr
             elif opcode == opcodedesc.JUMP_ABSOLUTE.index:
                 return self.jump_absolute(oparg, ec)
+            elif opcode == opcodedesc.JUMP_ABSOLUTE_UNROLL.index:
+                return self.jump_absolute_unroll(oparg, ec)
             elif opcode == opcodedesc.BREAK_LOOP.index:
                 next_instr = self.BREAK_LOOP(oparg, next_instr)
             elif opcode == opcodedesc.CONTINUE_LOOP.index:
@@ -1052,6 +1054,10 @@ class __extend__(pyframe.PyFrame):
 
     def jump_absolute(self, jumpto, ec):
         # this function is overridden by pypy.module.pypyjit.interp_jit
+        check_nonneg(jumpto)
+        return jumpto
+
+    def jump_absolute_unroll(self, jumpto, ec):
         check_nonneg(jumpto)
         return jumpto
 

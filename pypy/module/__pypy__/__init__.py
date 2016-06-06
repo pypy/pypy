@@ -59,6 +59,7 @@ class OsModule(MixedModule):
 
 class Module(MixedModule):
     appleveldefs = {
+        '_unroll_safe'              : 'app_magic._unroll_safe',
     }
 
     interpleveldefs = {
@@ -90,7 +91,7 @@ class Module(MixedModule):
         'save_module_content_for_future_reload':
                           'interp_magic.save_module_content_for_future_reload',
         'decode_long'               : 'interp_magic.decode_long',
-        '_promote'                   : 'interp_magic._promote',
+        '_promote'                  : 'interp_magic._promote',
     }
     if sys.platform == 'win32':
         interpleveldefs['get_console_cp'] = 'interp_magic.get_console_cp'
