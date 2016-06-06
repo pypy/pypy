@@ -2,7 +2,6 @@ import sys
 from rpython.translator.c.support import cdecl
 from rpython.translator.c.support import llvalue_from_constant, gen_assignments
 from rpython.translator.c.support import c_string_constant, barebonearray
-from rpython.translator.c.primitive import PRIMITIVE_FLOATS, PRIMITIVE_TWO_LONGS
 from rpython.flowspace.model import Variable, Constant
 from rpython.rtyper.lltypesystem.lltype import (Ptr, Void, Bool, Signed, Unsigned,
     SignedLongLong, Float, UnsignedLongLong, Char, UniChar, ContainerType,
@@ -425,16 +424,6 @@ class FunctionCodeGenerator(object):
     def OP_JIT_CONDITIONAL_CALL(self, op):
         return 'abort();  /* jit_conditional_call */'
 
-    def _reverse_db_emit(self, T, value):
-        if T is Void:
-            return '/* rpy_reverse_db_emit_void(%s); */' % (value,)
-        elif T in PRIMITIVE_FLOATS:
-            return 'rpy_reverse_db_emit_float(%s);' % (value,)
-        elif T in PRIMITIVE_TWO_LONGS:
-            return 'rpy_reverse_db_emit_two_longs(%s);' % (value,)
-        else:
-            return 'rpy_reverse_db_emit((Signed)%s);' % (value,)
-
     # low-level operations
     def generic_get(self, op, sourceexpr):
         T = self.lltypemap(op.result)
@@ -442,10 +431,12 @@ class FunctionCodeGenerator(object):
         result = '%s = %s;' % (newvalue, sourceexpr)
         if T is Void:
             result = '/* %s */' % result
-        if self.db.reversedb:
+        if self.db.reverse_debugger:
             S = self.lltypemap(op.args[0]).TO
             if S._gckind != 'gc' and not S._hints.get('is_excdata'):
-                result += '\t' + self._reverse_db_emit(T, newvalue)
+                from rpython.translator.revdb import revdb_genc
+                result += '\t' + revdb_genc.emit(self.lltypename(op.result),
+                                                 newvalue)
         return result
 
     def generic_set(self, op, targetexpr):

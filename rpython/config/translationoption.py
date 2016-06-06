@@ -278,9 +278,9 @@ translation_optiondescription = OptionDescription(
 
     BoolOption("split_gc_address_space",
                "Ensure full separation of GC and non-GC pointers", default=False),
-    BoolOption("reversedb",
+    BoolOption("reverse_debugger",
                "Give an executable that writes a log file for reverse debugging",
-               default=False, cmdline='--reversedb',
+               default=False, cmdline='--revdb',
                requires=[('translation.split_gc_address_space', True),
                          ('translation.jit', False)]),
 ])

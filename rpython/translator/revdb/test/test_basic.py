@@ -3,37 +3,36 @@ import os
 import array, struct
 from rpython.tool.udir import udir
 from rpython.translator.interactive import Translation
+from rpython.rlib.rarithmetic import LONG_BIT
 
 
 class RDB(object):
     def __init__(self, filename):
-        f = open(filename, 'rb')
-        f.seek(0, 2)
-        filesize = f.tell()
-        f.seek(0, 0)
-        self.items = array.array("l")
-        self.items.fromfile(f, filesize / struct.calcsize("l"))
-        f.close()
+        with open(filename, 'rb') as f:
+            self.buffer = f.read()
         #
-        assert self.items[0] == 0x0A424452
-        assert self.items[1] == 0x00FF0001
-        assert self.items[2] == 0
-        assert self.items[3] == 0
-        self.argc = self.items[4]
-        self.argv = self.items[5]
-        self.cur = 6
+        self.cur = 0
+        x = self.next(); assert x == 0x0A424452
+        x = self.next(); assert x == 0x00FF0001
+        x = self.next(); assert x == 0
+        x = self.next(); assert x == 0
+        self.argc = self.next()
+        self.argv = self.next()
 
-    def next(self):
-        n = self.cur
-        self.cur = n + 1
-        return self.items[n]
+    def next(self, mode='P'):
+        p = self.cur
+        self.cur = p + struct.calcsize(mode)
+        return struct.unpack_from(mode, self.buffer, p)[0]
+
+    def done(self):
+        return self.cur == len(self.buffer)
 
 
 class TestBasic(object):
 
     def getcompiled(self, entry_point, argtypes, backendopt=True):
         t = Translation(entry_point, None, gc="boehm")
-        t.config.translation.reversedb = True
+        t.config.translation.reverse_debugger = True
         t.config.translation.rweakref = False
         if not backendopt:
             t.disable(["backendopt_lltype"])
@@ -47,7 +46,7 @@ class TestBasic(object):
 
         def run(*argv):
             env = os.environ.copy()
-            env['PYPYRDB'] = self.rdbname
+            env['PYPYREVDB'] = self.rdbname
             stdout = t.driver.cbuilder.cmdexec(' '.join(argv), env=env)
             return stdout
         return run
@@ -70,17 +69,17 @@ class TestBasic(object):
             s = []
             # first we determine the length of the "char *p"
             while True:
-                c = rdb.next()
-                if c == 0:
+                c = rdb.next('c')
+                if c == '\x00':
                     break
-                s.append(chr(c))
+                s.append(c)
             # then we really read the "char *" and copy it into a rpy string
             # (that's why this time we don't read the final \0)
             for c1 in s:
-                c2 = rdb.next()
-                assert c2 == ord(c1)
+                c2 = rdb.next('c')
+                assert c2 == c1
             got.append(''.join(s))
         # that's all that should get from this simple example
-        assert rdb.cur == len(rdb.items)
+        assert rdb.done()
         #
         assert got == [self.exename, 'abc', 'd']

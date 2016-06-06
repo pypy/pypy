@@ -51,6 +51,6 @@
 #include "src/cygwin_wait.h"
 #endif
 
-#ifdef RPY_REVERSE_DB
-#include "rdb-src/rdb_include.h"
+#ifdef RPY_REVERSE_DEBUGGER
+#include "rdb-src/revdb_include.h"
 #endif

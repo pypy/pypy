@@ -115,8 +115,8 @@ class CBuilder(object):
     def get_eci(self):
         pypy_include_dir = py.path.local(__file__).join('..')
         include_dirs = [pypy_include_dir]
-        if self.config.translation.reversedb:
-            include_dirs.append(pypy_include_dir.join('..', 'reversedb'))
+        if self.config.translation.reverse_debugger:
+            include_dirs.append(pypy_include_dir.join('..', 'revdb'))
         return ExternalCompilationInfo(include_dirs=include_dirs)
 
     def build_database(self):
@@ -136,7 +136,8 @@ class CBuilder(object):
                               sandbox=self.config.translation.sandbox,
                               split_gc_address_space=
                                  self.config.translation.split_gc_address_space,
-                              reversedb=self.config.translation.reversedb)
+                              reverse_debugger=
+                                 self.config.translation.reverse_debugger)
         self.db = db
 
         # give the gc a chance to register interest in the start-up functions it
@@ -218,8 +219,8 @@ class CBuilder(object):
             defines['COUNT_OP_MALLOCS'] = 1
         if self.config.translation.sandbox:
             defines['RPY_SANDBOXED'] = 1
-        if self.config.translation.reversedb:
-            defines['RPY_REVERSE_DB'] = 1
+        if self.config.translation.reverse_debugger:
+            defines['RPY_REVERSE_DEBUGGER'] = 1
         if CBuilder.have___thread is None:
             CBuilder.have___thread = self.translator.platform.check___thread()
         if not self.standalone:
@@ -846,9 +847,9 @@ def add_extra_files(database, eci):
     ]
     if _CYGWIN:
         files.append(srcdir / 'cygwin_wait.c')
-    if database.reversedb:
-        from rpython.translator.reversedb import rdb_genc
-        files += rdb_genc.extra_files()
+    if database.reverse_debugger:
+        from rpython.translator.revdb import revdb_genc
+        files += revdb_genc.extra_files()
     return eci.merge(ExternalCompilationInfo(separate_module_files=files))
 
 

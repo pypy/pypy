@@ -82,7 +82,7 @@ int pypy_main_function(int argc, char *argv[])
     pypy_asm_stack_bottom();
     instrument_setup();
 
-#ifdef RPY_REVERSE_DB
+#ifdef RPY_REVERSE_DEBUGGER
     rpy_reverse_db_setup(argc, argv);
 #endif
 
