@@ -1,6 +1,7 @@
 import py
 import pytest
 
+@pytest.mark.trylast
 def pytest_configure(config):
     from pypy.tool.pytest.objspace import gettestobjspace
     # For some reason (probably a ll2ctypes cache issue on linux64)
