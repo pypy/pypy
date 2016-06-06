@@ -79,6 +79,9 @@ class TestBasic(object):
                 c2 = rdb.next('c')
                 assert c2 == c1
             got.append(''.join(s))
+        # write() call
+        x = rdb.next(); assert x == len('[abc, d]\n')
+        x = rdb.next('i'); assert x == 0      # errno
         # that's all that should get from this simple example
         assert rdb.done()
         #

@@ -391,11 +391,16 @@ class FunctionCodeGenerator(object):
             # skip assignment of 'void' return value
             r = self.expr(v_result)
             line = '%s = %s' % (r, line)
-        if targets:
+        else:
+            r = None
+        if targets is not None:
             for graph in targets:
                 if getattr(graph, 'inhibit_tail_call', False):
                     line += '\nPYPY_INHIBIT_TAIL_CALL();'
                     break
+        elif self.db.reverse_debugger:
+            from rpython.translator.revdb import revdb_genc
+            line += '\n' + revdb_genc.emit(self.lltypename(v_result), r)
         return line
 
     def OP_DIRECT_CALL(self, op):
