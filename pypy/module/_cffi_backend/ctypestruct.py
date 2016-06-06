@@ -171,6 +171,12 @@ class W_CTypeStructOrUnion(W_CType):
                 pass
         return W_CType.getcfield(self, attr)
 
+    def cdata_dir(self):
+        if self.size < 0:
+            return []
+        self.force_lazy_struct()
+        return self._fields_dict.keys()
+
 
 class W_CTypeStruct(W_CTypeStructOrUnion):
     kind = "struct"

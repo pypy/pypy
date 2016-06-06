@@ -1,4 +1,4 @@
-from pypy.conftest import option
+from pytest import config
 from pypy.module.micronumpy import constants as NPY
 
 
@@ -7,7 +7,7 @@ class BaseNumpyAppTest(object):
 
     @classmethod
     def setup_class(cls):
-        if option.runappdirect:
+        if config.option.runappdirect:
             import sys
             if '__pypy__' not in sys.builtin_module_names:
                 import numpy

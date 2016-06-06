@@ -256,6 +256,9 @@ class W_CType(W_Root):
     def fget_elements(self, space): return self._fget('e')
     def fget_relements(self, space):return self._fget('R')
 
+    def cdata_dir(self):
+        return []
+
 
 W_CType.typedef = TypeDef(
     '_cffi_backend.CTypeDescr',

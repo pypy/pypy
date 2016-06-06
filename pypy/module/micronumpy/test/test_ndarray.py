@@ -2,7 +2,7 @@
 import py
 import sys
 
-from pypy.conftest import option
+from pytest import config
 from pypy.module.micronumpy.appbridge import get_appbridge_cache
 from pypy.module.micronumpy.strides import Chunk, new_view, EllipsisChunk
 from pypy.module.micronumpy.ndarray import W_NDimArray
@@ -1878,7 +1878,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert map(isnan, e) == [False, False, False, True, False]
         assert map(isinf, e) == [False, False, True, False, False]
         assert e.argmax() == 3
-        # numpy preserves value for uint16 -> cast_as_float16 -> 
+        # numpy preserves value for uint16 -> cast_as_float16 ->
         #     convert_to_float64 -> convert_to_float16 -> uint16
         #  even for float16 various float16 nans
         all_f16 = arange(0xfe00, 0xffff, dtype='uint16')
@@ -2608,7 +2608,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = np.arange(6).reshape(2,3)
         i = np.dtype('int32').type(0)
         assert (a[0] == a[i]).all()
-        
+
 
     def test_ellipsis_indexing(self):
         import numpy as np
@@ -3850,7 +3850,7 @@ class AppTestSupport(BaseNumpyAppTest):
 
 class AppTestRepr(BaseNumpyAppTest):
     def setup_class(cls):
-        if option.runappdirect:
+        if config.option.runappdirect:
             py.test.skip("Can't be run directly.")
         BaseNumpyAppTest.setup_class.im_func(cls)
         cache = get_appbridge_cache(cls.space)
@@ -3867,7 +3867,7 @@ class AppTestRepr(BaseNumpyAppTest):
         assert repr(array(1.5).real) == "array(1.5)"
 
     def teardown_class(cls):
-        if option.runappdirect:
+        if config.option.runappdirect:
             return
         cache = get_appbridge_cache(cls.space)
         cache.w_array_repr = cls.old_array_repr
@@ -4343,7 +4343,7 @@ class AppTestRecordDtype(BaseNumpyAppTest):
 
 class AppTestPyPy(BaseNumpyAppTest):
     def setup_class(cls):
-        if option.runappdirect and '__pypy__' not in sys.builtin_module_names:
+        if config.option.runappdirect and '__pypy__' not in sys.builtin_module_names:
             py.test.skip("pypy only test")
         BaseNumpyAppTest.setup_class.im_func(cls)
 

@@ -420,6 +420,14 @@ class W_CData(W_Root):
             w_result = ctype.ctitem.unpack_ptr(ctype, ptr, length)
         return w_result
 
+    def dir(self, space):
+        from pypy.module._cffi_backend.ctypeptr import W_CTypePointer
+        ct = self.ctype
+        if isinstance(ct, W_CTypePointer):
+            ct = ct.ctitem
+        lst = ct.cdata_dir()
+        return space.newlist([space.wrap(s) for s in lst])
+
 
 class W_CDataMem(W_CData):
     """This is used only by the results of cffi.cast('int', x)
@@ -602,5 +610,6 @@ W_CData.typedef = TypeDef(
     __call__ = interp2app(W_CData.call),
     __iter__ = interp2app(W_CData.iter),
     __weakref__ = make_weakref_descr(W_CData),
+    __dir__ = interp2app(W_CData.dir),
     )
 W_CData.typedef.acceptable_as_base_class = False

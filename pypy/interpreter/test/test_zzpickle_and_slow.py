@@ -1,9 +1,8 @@
 import py
-from pypy import conftest
 from pypy.interpreter import gateway
 from rpython.rlib.jit import non_virtual_ref, vref_None
 
-class AppTestSlow:    
+class AppTestSlow:
     spaceconfig = dict(usemodules=['itertools'])
 
     def setup_class(cls):
@@ -64,7 +63,7 @@ def _attach_helpers(space):
     space.setitem(space.builtin.w_dict,
                   space.wrap('read_exc_type'),
                   space.wrap(read_exc_type_gw))
-    
+
 def _detach_helpers(space):
     space.delitem(space.builtin.w_dict,
                   space.wrap('hide_top_frame'))
@@ -92,7 +91,7 @@ class AppTestInterpObjectPickling:
         pckl = pickle.dumps(code)
         result = pickle.loads(pckl)
         assert code == result
-    
+
     def test_pickle_global_func(self):
         import new
         mod = new.module('mod')
@@ -109,7 +108,7 @@ class AppTestInterpObjectPickling:
             assert func is result
         finally:
             del sys.modules['mod']
-    
+
     def test_pickle_not_imported_module(self):
         import new
         mod = new.module('mod')
@@ -119,13 +118,13 @@ class AppTestInterpObjectPickling:
         result = pickle.loads(pckl)
         assert mod.__name__ == result.__name__
         assert mod.__dict__ == result.__dict__
-    
+
     def test_pickle_builtin_func(self):
         import pickle
         pckl = pickle.dumps(map)
         result = pickle.loads(pckl)
         assert map is result
-    
+
     def test_pickle_non_top_reachable_func(self):
         def func():
             return 42
@@ -142,7 +141,7 @@ class AppTestInterpObjectPickling:
         assert func.func_dict     == result.func_dict
         assert func.func_doc      == result.func_doc
         assert func.func_globals  == result.func_globals
-    
+
     def test_pickle_cell(self):
         def g():
             x = [42]
@@ -171,7 +170,7 @@ class AppTestInterpObjectPickling:
         f1     = f()
         saved = hide_top_frame(f1)
         pckl   = pickle.dumps(f1)
-        restore_top_frame(f1, saved) 
+        restore_top_frame(f1, saved)
         f2     = pickle.loads(pckl)
 
         assert type(f1) is type(f2)
@@ -223,7 +222,7 @@ class AppTestInterpObjectPickling:
         f1     = f()
         saved = hide_top_frame(f1)
         pckl   = pickle.dumps(f1)
-        restore_top_frame(f1, saved) 
+        restore_top_frame(f1, saved)
         f2     = pickle.loads(pckl)
 
     def test_frame_setstate_crash(self):
@@ -257,21 +256,21 @@ class AppTestInterpObjectPickling:
         pckl   = pickle.dumps(mod)
         result = pickle.loads(pckl)
         assert mod is result
-    
+
     def test_pickle_moduledict(self):
         import pickle
         moddict  = pickle.__dict__
         pckl     = pickle.dumps(moddict)
         result   = pickle.loads(pckl)
         assert moddict is result
-    
+
     def test_pickle_bltins_module(self):
         import pickle
         mod  = __builtins__
         pckl     = pickle.dumps(mod)
         result   = pickle.loads(pckl)
         assert mod is result
-    
+
     def test_pickle_buffer(self):
         skip("Can't pickle buffer objects on top of CPython either.  "
              "Do we really need it?")
@@ -280,14 +279,14 @@ class AppTestInterpObjectPickling:
         pckl     = pickle.dumps(a)
         result   = pickle.loads(pckl)
         assert a == result
-    
+
     def test_pickle_complex(self):
         import pickle
         a = complex(1.23,4.567)
         pckl     = pickle.dumps(a)
         result   = pickle.loads(pckl)
         assert a == result
-    
+
     def test_pickle_method(self):
         class myclass(object):
             def f(self):
@@ -308,7 +307,7 @@ class AppTestInterpObjectPickling:
             assert method() == result()
         finally:
             del sys.modules['mod']
-    
+
     def test_pickle_staticmethod(self):
         class myclass(object):
             def f():
@@ -319,7 +318,7 @@ class AppTestInterpObjectPickling:
         pckl     = pickle.dumps(method)
         result   = pickle.loads(pckl)
         assert method() == result()
-    
+
     def test_pickle_classmethod(self):
         class myclass(object):
             def f(cls):
@@ -337,7 +336,7 @@ class AppTestInterpObjectPickling:
             assert method() == result()
         finally:
             del sys.modules['mod']
-    
+
     def test_pickle_sequenceiter(self):
         '''
         In PyPy there is no distinction here between listiterator and
