@@ -1136,36 +1136,37 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         nsubkwargs = 0
         nkw = 0
         nseen = 0 # the number of positional arguments on the stack
-        for elt in args:
-            if isinstance(elt, ast.Starred):
-                # A star-arg. If we've seen positional arguments,
-                # pack the positional arguments into a tuple.
-                if nseen != 0:
-                    ops.BUILD_TUPLE(nseen)
-                    nseen = 0
+        if args is not None:
+            for elt in args:
+                if isinstance(elt, ast.Starred):
+                    # A star-arg. If we've seen positional arguments,
+                    # pack the positional arguments into a tuple.
+                    if nseen != 0:
+                        self.emit_op_arg(ops.BUILD_TUPLE, nseen)
+                        nseen = 0
+                        nsubargs += 1
+                    elt.value.walkabout(self) #self.visit(elt.value) # check orig, elt->v.Starred.value
                     nsubargs += 1
-                elt.walkabout(self) #self.visit(elt.value) # probably wrong, elt->v.Starred.value
+                elif nsubargs != 0:
+                    # We've seen star-args already, so we
+                    # count towards items-to-pack-into-tuple.
+                    elt.walkabout(self)
+                    nseen += 1
+                else:
+                    # Positional arguments before star-arguments
+                    # are left on the stack.
+                    elt.walkabout(self)
+                    n += 1
+            if nseen != 0:
+                # Pack up any trailing positional arguments.
+                self.emit_op_arg(ops.BUILD_TUPLE, nseen)
                 nsubargs += 1
-            elif nsubargs != 0:
-                # We've seen star-args already, so we
-                # count towards items-to-pack-into-tuple.
-                elt.walkabout(self)
-                nseen += 1
-            else:
-                # Positional arguments before star-arguments
-                # are left on the stack.
-                elt.walkabout(self)
-                n += 1
-        if nseen != 0:
-            # Pack up any trailing positional arguments.
-            ops.BUILD_TUPLE(nseen)
-            nsubargs += 1
-        if nsubargs != 0:
-            call_type |= 1
-            if nsubargs > 1:
-                # If we ended up with more than one stararg, we need
-                # to concatenate them into a single sequence.
-                ops.BUILD_LIST_UNPACK(nsubargs)
+            if nsubargs != 0:
+                call_type |= 1
+                if nsubargs > 1:
+                    # If we ended up with more than one stararg, we need
+                    # to concatenate them into a single sequence.
+                    self.emit_op_arg(ops.BUILD_LIST_UNPACK, nsubargs)
         
         # Repeat procedure for keyword args
         nseen = 0 # the number of keyword arguments on the stack following
@@ -1174,30 +1175,30 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 if kw.arg is None:
                     # A keyword argument unpacking.
                     if nseen != 0:
-                        ops.BUILD_MAP(nseen)
+                        self.emit_op_arg(ops.BUILD_MAP, nseen)
                         nseen = 0
                         nsubkwargs += 1
-                    self.visit_sequence(kw.value) # probably wrong, elt->v.Starred.value
+                    kw.value.walkabout(self) #self.visit_sequence(kw.value) # probably wrong, elt->v.Starred.value
                     nsubkwargs += 1
                 elif nsubkwargs != 0:
                     # A keyword argument and we already have a dict.
-                    ops.LOAD_CONST(kw.arg, consts)
-                    self.visit_sequence(kw.value)
+                    self.load_const(kw.arg)
+                    kw.value.walkabout(self)
                     nseen += 1
                 else:
                     # keyword argument
-                    self.visit_sequence(kw)
+                    kw.walkabout(self)
                     nkw += 1
             if nseen != 0:
                 # Pack up any trailing keyword arguments.
-                ops.BUILD_MAP(nseen)
+                self.emit_op_arg(ops.BUILD_MAP,nseen)
                 nsubkwargs += 1
             if nsubargs != 0:
                 call_type |= 2
                 if nsubkwargs > 1:
                     # Pack it all up
                     function_pos = n + (code & 1) + nkw + 1
-                    ops.BUILD_MAP_UNPACK_WITH_CALL(nsubkwargs | (function_pos << 8))
+                    self.emit_op_arg(ops.BUILD_MAP_UNPACK_WITH_CALL, (nsubkwargs | (function_pos << 8)))
         
         assert n < 1<<8
         assert nkw < 1<<24
@@ -1213,7 +1214,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         elif call_type == 3:
             op = ops.CALL_FUNCTION_VAR_KW
         self.emit_op_arg(op, arg)
-        #TODO emip_op_arg on each call
 
     def visit_Call(self, call):
         self.update_position(call.lineno)
