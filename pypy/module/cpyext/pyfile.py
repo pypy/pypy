@@ -1,10 +1,10 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
-    cpython_api, CANNOT_FAIL, CONST_STRING, FILEP, build_type_checkers, fdopen,
-    fileno)
+    cpython_api, CANNOT_FAIL, CONST_STRING, FILEP, build_type_checkers, fdopen)
 from pypy.module.cpyext.pyobject import PyObject
 from pypy.module.cpyext.object import Py_PRINT_RAW
-from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import (OperationError, oefmt, 
+    exception_from_saved_errno)
 from pypy.module._file.interp_file import W_File
 
 PyFile_Check, PyFile_CheckExact = build_type_checkers("File", W_File)
@@ -45,16 +45,29 @@ def PyFile_FromString(space, filename, mode):
     w_mode = space.wrap(rffi.charp2str(mode))
     return space.call_method(space.builtin, 'file', w_filename, w_mode)
 
-@cpython_api([PyObject], FILEP, error=CANNOT_FAIL)
+@cpython_api([PyObject], FILEP, error=lltype.nullptr(FILEP.TO))
 def PyFile_AsFile(space, w_p):
     """Return the file object associated with p as a FILE*.
     
     If the caller will ever use the returned FILE* object while
     the GIL is released it must also call the PyFile_IncUseCount() and
     PyFile_DecUseCount() functions as appropriate."""
+    if not PyFile_Check(space, w_p):
+        raise oefmt(space.w_IOError, 'first argument must be an open file')
     assert isinstance(w_p, W_File)
-    return fdopen(space.int_w(space.call_method(w_p, 'fileno')), 
-                     w_p.mode)
+    try:
+        fd = space.int_w(space.call_method(w_p, 'fileno'))
+        mode = w_p.mode
+    except OperationError as e:
+        raise oefmt(space.w_IOError, 'could not call fileno') 
+    if (fd < 0 or not mode or mode[0] not in ['r', 'w', 'a', 'U'] or
+        ('U' in mode and ('w' in mode or 'a' in mode))):
+        raise oefmt(space.w_IOError, 'invalid fileno or mode') 
+    ret = fdopen(fd, mode)
+    if not ret:
+        raise exception_from_saved_errno(space, space.w_IOError)
+    return ret
+        
 
 @cpython_api([FILEP, CONST_STRING, CONST_STRING, rffi.VOIDP], PyObject)
 def PyFile_FromFile(space, fp, name, mode, close):

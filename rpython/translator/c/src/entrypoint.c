@@ -62,7 +62,6 @@ int pypy_main_function(int argc, char *argv[])
 {
     char *errmsg;
     int i, exitcode;
-    RPyListOfString *list;
 
 #if defined(MS_WINDOWS) && defined(RPY_SANDBOXED)
     _setmode(0, _O_BINARY);
@@ -94,15 +93,7 @@ int pypy_main_function(int argc, char *argv[])
 
     RPython_StartupCode();
 
-    list = _RPyListOfString_New(argc);
-    if (RPyExceptionOccurred()) goto memory_out;
-    for (i=0; i<argc; i++) {
-        RPyString *s = RPyString_FromString(argv[i]);
-        if (RPyExceptionOccurred()) goto memory_out;
-        _RPyListOfString_SetItem(list, i, s);
-    }
-
-    exitcode = STANDALONE_ENTRY_POINT(list);
+    exitcode = STANDALONE_ENTRY_POINT(argc, argv);
 
     pypy_debug_alloc_results();
 

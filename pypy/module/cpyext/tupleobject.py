@@ -47,7 +47,7 @@ PyTuple_Check, PyTuple_CheckExact = build_type_checkers("Tuple")
 def tuple_check_ref(space, ref):
     w_type = from_ref(space, rffi.cast(PyObject, ref.c_ob_type))
     return (w_type is space.w_tuple or
-            space.is_true(space.issubtype(w_type, space.w_tuple)))
+            space.issubtype_w(w_type, space.w_tuple))
 
 def new_empty_tuple(space, length):
     """

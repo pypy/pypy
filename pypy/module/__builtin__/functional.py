@@ -145,8 +145,17 @@ def make_min_max(unroll):
         else:
             compare = space.lt
             jitdriver = min_jitdriver
+        any_kwds = bool(args.keywords)
         args_w = args.arguments_w
         if len(args_w) > 1:
+            if unroll and len(args_w) == 2 and not any_kwds:
+                # a fast path for the common case, useful for interpreted
+                # mode and to reduce the length of the jit trace
+                w0, w1 = args_w
+                if space.is_true(compare(w1, w0)):
+                    return w1
+                else:
+                    return w0
             w_sequence = space.newtuple(args_w)
         elif len(args_w):
             w_sequence = args_w[0]
@@ -155,8 +164,8 @@ def make_min_max(unroll):
                         "%s() expects at least one argument",
                         implementation_of)
         w_key = None
-        kwds = args.keywords
-        if kwds:
+        if any_kwds:
+            kwds = args.keywords
             if kwds[0] == "key" and len(kwds) == 1:
                 w_key = args.keywords_w[0]
             else:

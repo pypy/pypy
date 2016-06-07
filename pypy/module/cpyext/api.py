@@ -4,7 +4,7 @@ import atexit
 
 import py
 
-from pypy.conftest import pypydir
+from pypy import pypydir
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.tool import rffi_platform
 from rpython.rtyper.lltypesystem import ll2ctypes
@@ -161,12 +161,13 @@ def copy_header_files(dstdir, copy_numpy_headers):
 
     if copy_numpy_headers:
         try:
-            dstdir.mkdir('numpy')
+            dstdir.mkdir('_numpypy')
+            dstdir.mkdir('_numpypy/numpy')
         except py.error.EEXIST:
             pass
-        numpy_dstdir = dstdir / 'numpy'
+        numpy_dstdir = dstdir / '_numpypy' / 'numpy'
 
-        numpy_include_dir = include_dir / 'numpy'
+        numpy_include_dir = include_dir / '_numpypy' / 'numpy'
         numpy_headers = numpy_include_dir.listdir('*.h') + numpy_include_dir.listdir('*.inl')
         _copy_header_files(numpy_headers, numpy_dstdir)
 
@@ -410,7 +411,16 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
                             arg = rffi.cast(ARG, as_pyobj(space, input_arg))
                         else:
                             arg = rffi.cast(ARG, input_arg)
-                    elif is_PyObject(ARG) and is_wrapped:
+                    elif ARG == rffi.VOIDP and not is_wrapped:
+                        # unlike is_PyObject case above, we allow any kind of
+                        # argument -- just, if it's an object, we assume the
+                        # caller meant for it to become a PyObject*.
+                        if input_arg is None or isinstance(input_arg, W_Root):
+                            keepalives += (input_arg,)
+                            arg = rffi.cast(ARG, as_pyobj(space, input_arg))
+                        else:
+                            arg = rffi.cast(ARG, input_arg)
+                    elif (is_PyObject(ARG) or ARG == rffi.VOIDP) and is_wrapped:
                         # build a W_Root, possibly from a 'PyObject *'
                         if is_pyobj(input_arg):
                             arg = from_ref(space, input_arg)
@@ -697,7 +707,7 @@ def build_type_checkers(type_name, cls=None):
         w_obj_type = space.type(w_obj)
         w_type = get_w_type(space)
         return (space.is_w(w_obj_type, w_type) or
-                space.is_true(space.issubtype(w_obj_type, w_type)))
+                space.issubtype_w(w_obj_type, w_type))
     def check_exact(space, w_obj):
         "Implements the Py_Xxx_CheckExact function"
         w_obj_type = space.type(w_obj)
@@ -723,23 +733,26 @@ class WrapperCache(object):
 
 class WrapperGen(object):
     wrapper_second_level = None
+    A = lltype.Array(lltype.Char)
 
     def __init__(self, space, signature):
         self.space = space
         self.signature = signature
-        self.callable2name = []
 
     def make_wrapper(self, callable):
-        self.callable2name.append((callable, callable.__name__))
         if self.wrapper_second_level is None:
             self.wrapper_second_level = make_wrapper_second_level(
-                self.space, self.callable2name, *self.signature)
+                self.space, *self.signature)
         wrapper_second_level = self.wrapper_second_level
+
+        name = callable.__name__
+        pname = lltype.malloc(self.A, len(name), flavor='raw', immortal=True)
+        for i in range(len(name)):
+            pname[i] = name[i]
 
         def wrapper(*args):
             # no GC here, not even any GC object
-            args += (callable,)
-            return wrapper_second_level(*args)
+            return wrapper_second_level(callable, pname, *args)
 
         wrapper.__name__ = "wrapper for %r" % (callable, )
         return wrapper
@@ -747,22 +760,31 @@ class WrapperGen(object):
 
 
 @dont_inline
+def _unpack_name(pname):
+    return ''.join([pname[i] for i in range(len(pname))])
+
+@dont_inline
 def deadlock_error(funcname):
+    funcname = _unpack_name(funcname)
     fatalerror_notb("GIL deadlock detected when a CPython C extension "
                     "module calls '%s'" % (funcname,))
 
 @dont_inline
 def no_gil_error(funcname):
+    funcname = _unpack_name(funcname)
     fatalerror_notb("GIL not held when a CPython C extension "
                     "module calls '%s'" % (funcname,))
 
 @dont_inline
 def not_supposed_to_fail(funcname):
-    raise SystemError("The function '%s' was not supposed to fail"
-                      % (funcname,))
+    funcname = _unpack_name(funcname)
+    print "Error in cpyext, CPython compatibility layer:"
+    print "The function", funcname, "was not supposed to fail"
+    raise SystemError
 
 @dont_inline
 def unexpected_exception(funcname, e, tb):
+    funcname = _unpack_name(funcname)
     print 'Fatal error in cpyext, CPython compatibility layer, calling',funcname
     print 'Either report a bug or consider not using this particular extension'
     if not we_are_translated():
@@ -778,7 +800,7 @@ def unexpected_exception(funcname, e, tb):
         pypy_debug_catch_fatal_exception()
         assert False
 
-def make_wrapper_second_level(space, callable2name, argtypesw, restype,
+def make_wrapper_second_level(space, argtypesw, restype,
                               result_kind, error_value, gil):
     from rpython.rlib import rgil
     argtypes_enum_ui = unrolling_iterable(enumerate(argtypesw))
@@ -801,29 +823,19 @@ def make_wrapper_second_level(space, callable2name, argtypesw, restype,
     def invalid(err):
         "NOT_RPYTHON: translation-time crash if this ends up being called"
         raise ValueError(err)
-    invalid.__name__ = 'invalid_%s' % (callable2name[0][1],)
 
-    def nameof(callable):
-        for c, n in callable2name:
-            if c is callable:
-                return n
-        return '<unknown function>'
-    nameof._dont_inline_ = True
-
-    def wrapper_second_level(*args):
+    def wrapper_second_level(callable, pname, *args):
         from pypy.module.cpyext.pyobject import make_ref, from_ref, is_pyobj
         from pypy.module.cpyext.pyobject import as_pyobj
         # we hope that malloc removal removes the newtuple() that is
         # inserted exactly here by the varargs specializer
-        callable = args[-1]
-        args = args[:-1]
 
         # see "Handling of the GIL" above (careful, we don't have the GIL here)
         tid = rthread.get_or_make_ident()
         _gil_auto = (gil_auto_workaround and cpyext_glob_tid_ptr[0] != tid)
         if gil_acquire or _gil_auto:
             if cpyext_glob_tid_ptr[0] == tid:
-                deadlock_error(nameof(callable))
+                deadlock_error(pname)
             rgil.acquire()
             assert cpyext_glob_tid_ptr[0] == 0
         elif pygilstate_ensure:
@@ -836,7 +848,7 @@ def make_wrapper_second_level(space, callable2name, argtypesw, restype,
                 args += (pystate.PyGILState_UNLOCKED,)
         else:
             if cpyext_glob_tid_ptr[0] != tid:
-                no_gil_error(nameof(callable))
+                no_gil_error(pname)
             cpyext_glob_tid_ptr[0] = 0
 
         rffi.stackcounter.stacks_counter += 1
@@ -852,6 +864,10 @@ def make_wrapper_second_level(space, callable2name, argtypesw, restype,
                 arg = args[i]
                 if is_PyObject(typ) and is_wrapped:
                     assert is_pyobj(arg)
+                    arg_conv = from_ref(space, rffi.cast(PyObject, arg))
+                elif typ == rffi.VOIDP and is_wrapped:
+                    # Many macros accept a void* so that one can pass a
+                    # PyObject* or a PySomeSubtype*.
                     arg_conv = from_ref(space, rffi.cast(PyObject, arg))
                 else:
                     arg_conv = arg
@@ -882,7 +898,7 @@ def make_wrapper_second_level(space, callable2name, argtypesw, restype,
 
             if failed:
                 if error_value is CANNOT_FAIL:
-                    raise not_supposed_to_fail(nameof(callable))
+                    raise not_supposed_to_fail(pname)
                 retval = error_value
 
             elif is_PyObject(restype):
@@ -902,7 +918,7 @@ def make_wrapper_second_level(space, callable2name, argtypesw, restype,
                 retval = rffi.cast(restype, result)
 
         except Exception as e:
-            unexpected_exception(nameof(callable), e, tb)
+            unexpected_exception(pname, e, tb)
             return fatal_value
 
         assert lltype.typeOf(retval) == restype
@@ -1413,7 +1429,7 @@ def setup_library(space):
                                             prefix=prefix)
     code = "#include <Python.h>\n"
     if use_micronumpy:
-        code += "#include <pypy_numpy.h> /* api.py line 1290 */"
+        code += "#include <pypy_numpy.h> /* api.py line 1290 */\n"
     code  += "\n".join(functions)
 
     eci = build_eci(False, export_symbols, code, use_micronumpy)

@@ -718,8 +718,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
         return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
 
 
-    def malloc_fixedsize_nonmovable(self, typeid):
-        obj = self.external_malloc(typeid, 0, alloc_young=True)
+    def malloc_fixed_or_varsize_nonmovable(self, typeid, length):
+        # length==0 for fixedsize
+        obj = self.external_malloc(typeid, length, alloc_young=True)
         return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
 
 
@@ -1357,11 +1358,14 @@ class IncrementalMiniMarkGC(MovingGCBase):
         return cls.minimal_size_in_nursery
 
     def write_barrier(self, addr_struct):
-        if self.header(addr_struct).tid & GCFLAG_TRACK_YOUNG_PTRS:
+        # see OP_GC_BIT in translator/c/gc.py
+        if llop.gc_bit(lltype.Signed, self.header(addr_struct),
+                       GCFLAG_TRACK_YOUNG_PTRS):
             self.remember_young_pointer(addr_struct)
 
     def write_barrier_from_array(self, addr_array, index):
-        if self.header(addr_array).tid & GCFLAG_TRACK_YOUNG_PTRS:
+        if llop.gc_bit(lltype.Signed, self.header(addr_array),
+                       GCFLAG_TRACK_YOUNG_PTRS):
             if self.card_page_indices > 0:
                 self.remember_young_pointer_from_array2(addr_array, index)
             else:

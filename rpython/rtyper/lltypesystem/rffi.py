@@ -804,6 +804,7 @@ def make_string_mappings(strtype):
         while cp[size] != lastchar:
             size += 1
         return assert_str0(charpsize2str(cp, size))
+    charp2str._annenforceargs_ = [lltype.SomePtr(TYPEP)]
 
     # str -> char*, bool, bool
     # Can't inline this because of the raw address manipulation.

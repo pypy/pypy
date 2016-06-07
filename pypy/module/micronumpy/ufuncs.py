@@ -66,10 +66,10 @@ def array_priority(space, w_lhs, w_rhs):
     lhs_for_subtype = w_lhs
     rhs_for_subtype = w_rhs
     #it may be something like a FlatIter, which is not an ndarray
-    if not space.is_true(space.issubtype(lhs_type, w_ndarray)):
+    if not space.issubtype_w(lhs_type, w_ndarray):
         lhs_type = space.type(w_lhs.base)
         lhs_for_subtype = w_lhs.base
-    if not space.is_true(space.issubtype(rhs_type, w_ndarray)):
+    if not space.issubtype_w(rhs_type, w_ndarray):
         rhs_type = space.type(w_rhs.base)
         rhs_for_subtype = w_rhs.base
 

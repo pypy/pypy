@@ -288,6 +288,24 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
         # This does not test much, but at least the refcounts are checked.
         assert module.test_intern_inplace('s') == 's'
 
+    def test_bytes_macros(self):
+        """The PyString_* macros cast, and calls expecting that build."""
+        module = self.import_extension('foo', [
+             ("test_macro_invocations", "METH_NOARGS",
+             """
+                PyObject* o = PyString_FromString("");
+                PyStringObject* u = (PyStringObject*)o;
+
+                PyString_GET_SIZE(u);
+                PyString_GET_SIZE(o);
+
+                PyString_AS_STRING(o);
+                PyString_AS_STRING(u);
+
+                return o;
+             """)])
+        assert module.test_macro_invocations() == ''
+
     def test_hash_and_state(self):
         module = self.import_extension('foo', [
             ("test_hash", "METH_VARARGS",
@@ -397,12 +415,15 @@ class TestString(BaseApiTest):
         lenp = lltype.malloc(Py_ssize_tP.TO, 1, flavor='raw')
 
         w_text = space.wrap("text")
-        assert api.PyObject_AsCharBuffer(w_text, bufp, lenp) == 0
+        ref = make_ref(space, w_text)
+        prev_refcnt = ref.c_ob_refcnt
+        assert api.PyObject_AsCharBuffer(ref, bufp, lenp) == 0
+        assert ref.c_ob_refcnt == prev_refcnt
         assert lenp[0] == 4
         assert rffi.charp2str(bufp[0]) == 'text'
-
         lltype.free(bufp, flavor='raw')
         lltype.free(lenp, flavor='raw')
+        api.Py_DecRef(ref)
 
     def test_intern(self, space, api):
         buf = rffi.str2charp("test")

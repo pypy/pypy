@@ -561,6 +561,27 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
     consider_int_sub_ovf = _consider_binop
     consider_int_add_ovf = _consider_binop_symm
 
+    def consider_uint_mul_high(self, op):
+        arg1, arg2 = op.getarglist()
+        # should support all cases, but is optimized for (box, const)
+        if isinstance(arg1, Const):
+            arg1, arg2 = arg2, arg1
+        self.rm.make_sure_var_in_reg(arg2, selected_reg=eax)
+        l1 = self.loc(arg1)
+        # l1 is a register != eax, or stack_bp; or, just possibly, it
+        # can be == eax if arg1 is arg2
+        assert not isinstance(l1, ImmedLoc)
+        assert l1 is not eax or arg1 is arg2
+        #
+        # eax will be trash after the operation
+        self.rm.possibly_free_var(arg2)
+        tmpvar = TempVar()
+        self.rm.force_allocate_reg(tmpvar, selected_reg=eax)
+        self.rm.possibly_free_var(tmpvar)
+        #
+        self.rm.force_allocate_reg(op, selected_reg=edx)
+        self.perform(op, [l1], edx)
+
     def consider_int_neg(self, op):
         res = self.rm.force_result_in_reg(op, op.getarg(0))
         self.perform(op, [res], res)
@@ -584,29 +605,6 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
 
     consider_int_rshift  = consider_int_lshift
     consider_uint_rshift = consider_int_lshift
-
-    def _consider_int_div_or_mod(self, op, resultreg, trashreg):
-        l0 = self.rm.make_sure_var_in_reg(op.getarg(0), selected_reg=eax)
-        l1 = self.rm.make_sure_var_in_reg(op.getarg(1), selected_reg=ecx)
-        l2 = self.rm.force_allocate_reg(op, selected_reg=resultreg)
-        # the register (eax or edx) not holding what we are looking for
-        # will be just trash after that operation
-        tmpvar = TempVar()
-        self.rm.force_allocate_reg(tmpvar, selected_reg=trashreg)
-        assert l0 is eax
-        assert l1 is ecx
-        assert l2 is resultreg
-        self.rm.possibly_free_var(tmpvar)
-
-    def consider_int_mod(self, op):
-        self._consider_int_div_or_mod(op, edx, eax)
-        self.perform(op, [eax, ecx], edx)
-
-    def consider_int_floordiv(self, op):
-        self._consider_int_div_or_mod(op, eax, edx)
-        self.perform(op, [eax, ecx], eax)
-
-    consider_uint_floordiv = consider_int_floordiv
 
     def _consider_compop(self, op):
         vx = op.getarg(0)
@@ -797,22 +795,22 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         else:
             self._consider_call(op)
 
-    def _call(self, op, arglocs, force_store=[], guard_not_forced=False):
+    def _call(self, op, arglocs, gc_level):
         # we need to save registers on the stack:
         #
         #  - at least the non-callee-saved registers
         #
-        #  - we assume that any call can collect, and we
-        #    save also the callee-saved registers that contain GC pointers
+        #  - if gc_level > 0, we save also the callee-saved registers that
+        #    contain GC pointers
         #
-        #  - for CALL_MAY_FORCE or CALL_ASSEMBLER, we have to save all regs
-        #    anyway, in case we need to do cpu.force().  The issue is that
-        #    grab_frame_values() would not be able to locate values in
-        #    callee-saved registers.
+        #  - gc_level == 2 for CALL_MAY_FORCE or CALL_ASSEMBLER.  We
+        #    have to save all regs anyway, in case we need to do
+        #    cpu.force().  The issue is that grab_frame_values() would
+        #    not be able to locate values in callee-saved registers.
         #
-        save_all_regs = guard_not_forced
-        self.xrm.before_call(force_store, save_all_regs=save_all_regs)
-        if not save_all_regs:
+        save_all_regs = gc_level == 2
+        self.xrm.before_call(save_all_regs=save_all_regs)
+        if gc_level == 1:
             gcrootmap = self.assembler.cpu.gc_ll_descr.gcrootmap
             # we save all the registers for shadowstack and asmgcc for now
             # --- for asmgcc too: we can't say "register x is a gc ref"
@@ -820,7 +818,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
             # more for now.
             if gcrootmap: # and gcrootmap.is_shadow_stack:
                 save_all_regs = 2
-        self.rm.before_call(force_store, save_all_regs=save_all_regs)
+        self.rm.before_call(save_all_regs=save_all_regs)
         if op.type != 'v':
             if op.type == FLOAT:
                 resloc = self.xrm.after_call(op)
@@ -840,9 +838,18 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
             sign_loc = imm1
         else:
             sign_loc = imm0
+        #
+        effectinfo = calldescr.get_extra_info()
+        if guard_not_forced:
+            gc_level = 2
+        elif effectinfo is None or effectinfo.check_can_collect():
+            gc_level = 1
+        else:
+            gc_level = 0
+        #
         self._call(op, [imm(size), sign_loc] +
                        [self.loc(op.getarg(i)) for i in range(op.numargs())],
-                   guard_not_forced=guard_not_forced)
+                   gc_level=gc_level)
 
     def _consider_real_call(self, op):
         effectinfo = op.getdescr().get_extra_info()
@@ -901,7 +908,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
 
     def _consider_call_assembler(self, op):
         locs = self.locs_for_call_assembler(op)
-        self._call(op, locs, guard_not_forced=True)
+        self._call(op, locs, gc_level=2)
     consider_call_assembler_i = _consider_call_assembler
     consider_call_assembler_r = _consider_call_assembler
     consider_call_assembler_f = _consider_call_assembler

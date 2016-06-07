@@ -113,6 +113,7 @@ class GCTest(object):
 
         cbuild = CStandaloneBuilder(t, entrypoint, config=t.config,
                                     gcpolicy=cls.gcpolicy)
+        cbuild.make_entrypoint_wrapper = False
         db = cbuild.build_database()
         entrypointptr = cbuild.getentrypointptr()
         entrygraph = entrypointptr._obj.graph

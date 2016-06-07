@@ -200,7 +200,7 @@ class AppTestObjectDtypes(BaseNumpyAppTest):
         from numpy import arange, dtype
         from cPickle import loads, dumps
         import sys
-        
+
         a = arange(15).astype(object)
         if '__pypy__' in sys.builtin_module_names:
             raises(NotImplementedError, dumps, a)
@@ -211,4 +211,4 @@ class AppTestObjectDtypes(BaseNumpyAppTest):
         a = arange(15).astype(object).reshape((3, 5))
         b = loads(dumps(a))
         assert (a == b).all()
-        
+

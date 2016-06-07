@@ -280,7 +280,7 @@ elif rmmap._MS_WINDOWS:
             raise mmap_error(space, e)
         return space.wrap(self)
 
-W_MMap.typedef = TypeDef("mmap.mmap",
+W_MMap.typedef = TypeDef("mmap.mmap", None, None, "read-write",
     __new__ = interp2app(mmap),
     close = interp2app(W_MMap.close),
     read_byte = interp2app(W_MMap.read_byte),

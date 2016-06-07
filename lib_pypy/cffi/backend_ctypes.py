@@ -205,9 +205,7 @@ class CTypesGenericPtr(CTypesData):
 
     def __nonzero__(self):
         return bool(self._address)
-    
-    def __bool__(self):
-        return bool(self._address)
+    __bool__ = __nonzero__
 
     @classmethod
     def _to_ctypes(cls, value):
@@ -465,6 +463,7 @@ class CTypesBackend(object):
             else:
                 def __nonzero__(self):
                     return self._value != 0
+            __bool__ = __nonzero__
 
             if kind == 'float':
                 @staticmethod

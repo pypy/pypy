@@ -334,3 +334,37 @@ def test_raise_elidable_no_result():
     assert call_op.opname == 'direct_call'
     with py.test.raises(Exception):
         call_descr = cc.getcalldescr(call_op)
+
+def test_can_or_cannot_collect():
+    from rpython.jit.backend.llgraph.runner import LLGraphCPU
+    prebuilts = [[5], [6]]
+    l = []
+    def f1(n):
+        if n > 1:
+            raise IndexError
+        return prebuilts[n]    # cannot collect
+    f1._dont_inline_ = True
+
+    def f2(n):
+        return [n]         # can collect
+    f2._dont_inline_ = True
+
+    def f(n):
+        a = f1(n)
+        b = f2(n)
+        return len(a) + len(b)
+
+    rtyper = support.annotate(f, [1])
+    jitdriver_sd = FakeJitDriverSD(rtyper.annotator.translator.graphs[0])
+    cc = CallControl(LLGraphCPU(rtyper), jitdrivers_sd=[jitdriver_sd])
+    res = cc.find_all_graphs(FakePolicy())
+    [f_graph] = [x for x in res if x.func is f]
+    for index, expected in [
+            (0, False),    # f1()
+            (1, True),     # f2()
+            (2, False),    # len()
+            (3, False)]:   # len()
+        call_op = f_graph.startblock.operations[index]
+        assert call_op.opname == 'direct_call'
+        call_descr = cc.getcalldescr(call_op)
+        assert call_descr.extrainfo.check_can_collect() == expected

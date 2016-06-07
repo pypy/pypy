@@ -219,19 +219,78 @@ def splitloops(loops):
         counter += loop.count("\n") + 2
     return real_loops, allloops
 
+
+def find_name_key(l):
+    m = re.search("debug_merge_point\((?:\d+,\ )*'(.*)'(?:, \d+)*\)", l.content)
+    if m is None:
+        # default fallback
+        return '?', '?'
+    info = m.group(1)
+
+    # PyPy (pypy/module/pypyjit/interp_jit.py, pypy/interpreter/generator.py)
+    # '<code object f5. file 'f.py'. line 34> #63 GET_ITER'
+    # '<code object f5. file 'f.py'. line 34> <generator>'
+    m = re.search("^(<code object (.*?)> (.*?))$", info)
+    if m:
+        return m.group(2) + " " + m.group(3), m.group(1)
+
+    # PyPy cffi (pypy/module/_cffi_backend/ccallback.py)
+    # 'cffi_callback <code object f5. file 'f.py'. line 34>', 'cffi_callback <?>'
+    # 'cffi_call_python somestr'
+    m = re.search("^((cffi_callback) <code object (.*?)>)$", info)
+    if m:
+        return "%s (%s)" %(m.group(3), m.group(2)), m.group(1)
+    m = re.search("^((cffi_callback) <\?>)$", info)
+    if m:
+        return "? (%s)" %(m.group(2)), m.group(1)
+    m = re.search("^((cffi_call_python) (.*))$", info)
+    if m:
+        return "%s (%s)" %(m.group(3), m.group(2)), m.group(1)
+
+    # RSqueak/lang-smalltalk (spyvm/interpreter.py)
+    # '(SequenceableCollection >> #replaceFrom:to:with:startingAt:) [8]: <0x14>pushTemporaryVariableBytecode(4)'
+    m = re.search("^(\(((.+?) >> )?(#.*)\) \[(\d+)\].+?>(.*?)(?:\(\d+\))?)$", info)
+    if m:
+        if m.group(3):
+            return "%s>>%s @ %s <%s>" % (m.group(3), m.group(4), m.group(5), m.group(6)), m.group(1)
+        else:
+            return "%s @ %s <%s>" % (m.group(4), m.group(5), m.group(6)), m.group(1)
+
+    # lang-js (js/jscode.py)
+    # '54: LOAD LIST 4'
+    # '44: LOAD_MEMBER_DOT function: barfoo'
+    # '87: end of opcodes'
+    m = re.search("^((\d+): (.+?)(:? function: (.+?))?)$", info)
+    if m:
+        if m.group(5):
+            return "%s @ %s <%s>" % (m.group(5), m.group(2), m.group(3)), m.group(1)
+        else:
+            return "? @ %s <%s>" % (m.group(2), m.group(3)), m.group(1)
+
+    # pycket (pycket/interpreter.py) [sorted down because the s-exp is very generic]
+    # 'Green_Ast is None'
+    # 'Label(safe_return_multi_vals:pycket.interpreter:565)'
+    # '(*node2 item AppRand1_289 AppRand2_116)'
+    if info[0] == '(' and info[-1] == ')':
+        if len(info) > 64: #s-exp can be quite long
+            return info[:64] +'...', info
+
+    # info fallback (eg, rsre_jit, qoppy, but also
+    #  pyhaskell (pyhaskell/interpreter/haskell.py)
+    #  pyrolog (prolog/interpreter/continuation.py)
+    #  RPySOM/RTruffleSom (src/som/interpreter/interpreter.py)
+    #  Topaz (topaz/interpreter.py)
+    #  hippyvm (hippy/interpreter.py)
+    return info, info
+
 def postprocess_loop(loop, loops, memo, counts):
+
     if loop in memo:
         return
     memo.add(loop)
     if loop is None:
         return
-    m = re.search("debug_merge_point\((?:\d+,\ )*'(<code object (.*?)> (.*?))'", loop.content)
-    if m is None:
-        name = '?'
-        loop.key = '?'
-    else:
-        name = m.group(2) + " " + m.group(3)
-        loop.key = m.group(1)
+    name, loop.key = find_name_key(loop)
     opsno = loop.content.count("\n")
     lastline = loop.content[loop.content.rfind("\n", 0, len(loop.content) - 2):]
     m = re.search('descr=<Loop(\d+)', lastline)

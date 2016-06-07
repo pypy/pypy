@@ -5,7 +5,7 @@ from __future__ import with_statement
 from pypy.objspace.std import StdObjSpace
 from rpython.tool.udir import udir
 from pypy.tool.pytest.objspace import gettestobjspace
-from pypy.conftest import pypydir
+from pypy import pypydir
 from rpython.translator.c.test.test_extfunc import need_sparse_files
 from rpython.rlib import rposix
 import os
