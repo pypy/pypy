@@ -224,15 +224,6 @@ clock_t = cConfig.clock_t
 tm = cConfig.tm
 glob_buf = lltype.malloc(tm, flavor='raw', zero=True, immortal=True)
 
-
-TM_P = lltype.Ptr(tm)
-c_time = external('time', [rffi.TIME_TP], rffi.TIME_T)
-c_gmtime = external('gmtime', [rffi.TIME_TP], TM_P,
-                    save_err=rffi.RFFI_SAVE_ERRNO)
-c_mktime = external('mktime', [TM_P], rffi.TIME_T)
-c_localtime = external('localtime', [rffi.TIME_TP], TM_P,
-                       save_err=rffi.RFFI_SAVE_ERRNO)
-
 if _WIN:
     GetSystemTimeAsFileTime = external('GetSystemTimeAsFileTime',
                                       [lltype.Ptr(rwin32.FILETIME)],
@@ -301,6 +292,14 @@ else:
             if w_info:
                 _setinfo(space, w_info, "time()", 1.0, False, True)
             return space.wrap(c_time(lltype.nullptr(rffi.TIME_TP.TO)))
+
+TM_P = lltype.Ptr(tm)
+c_time = external('time', [rffi.TIME_TP], rffi.TIME_T)
+c_gmtime = external('gmtime', [rffi.TIME_TP], TM_P,
+                    save_err=rffi.RFFI_SAVE_ERRNO)
+c_mktime = external('mktime', [TM_P], rffi.TIME_T)
+c_localtime = external('localtime', [rffi.TIME_TP], TM_P,
+                       save_err=rffi.RFFI_SAVE_ERRNO)
 
 if HAS_CLOCK_GETTIME:
     from rpython.rlib.rtime import TIMESPEC, c_clock_gettime
@@ -608,26 +607,21 @@ def time(space, w_info=None):
     Return the current time in seconds since the Epoch.
     Fractions of a second may be present if the system clock provides them."""
 
-    # Can't piggy back on time.time because time.time delegates to the 
-    # host python's time.time (so we can't see the internals)
     if HAS_CLOCK_GETTIME:
         with lltype.scoped_alloc(TIMESPEC) as timespec:
             ret = c_clock_gettime(cConfig.CLOCK_REALTIME, timespec)
-            if ret != 0:
-                raise exception_from_saved_errno(space, space.w_OSError)
-            space.setattr(w_info, space.wrap("monotonic"), space.w_False)
-            space.setattr(w_info, space.wrap("implementation"),
-                          space.wrap("clock_gettime(CLOCK_REALTIME)"))
-            space.setattr(w_info, space.wrap("adjustable"), space.w_True)
-            try:
-                res = clock_getres(space, cConfig.CLOCK_REALTIME)
-            except OperationError:
-                res = 1e-9
-           
-            space.setattr(w_info, space.wrap("resolution"),
-                          res)
-            secs = _timespec_to_seconds(timespec)
-            return secs
+            if ret == 0:
+                if w_info is not None:
+                    with lltype.scoped_alloc(TIMESPEC) as tsres:
+                        ret = c_clock_getres(cConfig.CLOCK_REALTIME, tsres)
+                        if ret == 0:
+                            res = _timespec_to_seconds(tsres)
+                        else:
+                            res = 1e-9
+ 
+                        _setinfo(space, w_info, "clock_gettime(CLOCK_REALTIME)",
+                                 res, False, True)
+                return space.wrap(_timespec_to_seconds(timespec))
     else:
         return gettimeofday(space, w_info)
 
@@ -874,7 +868,6 @@ if _WIN:
         return space.wrap(result)
 
 elif _MACOSX:
-    # Completely untested afaik
     c_mach_timebase_info = external('mach_timebase_info',
                                     [lltype.Ptr(cConfig.TIMEBASE_INFO)],
                                     lltype.Void)
