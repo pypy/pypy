@@ -1183,8 +1183,8 @@ class AppTestPosixUnicode:
             except UnicodeEncodeError:
                 py.test.skip("encoding not good enough")
         else:
-            cls.save_fs_encoding = space.sys.filesystemencoding
-            space.sys.filesystemencoding = "utf-8"
+            cls.save_fs_encoding = cls.space.sys.filesystemencoding
+            cls.space.sys.filesystemencoding = "utf-8"
 
     def teardown_class(cls):
         try:
