@@ -151,3 +151,6 @@ PyPy runs and translates on the s390x revisions z10 (released February 2008, exp
 and z196 (released August 2010) in addition to zEC12 and z13.
 To target e.g. z196 on a zEC12 machine supply CFLAGS="-march=z196" to your shell environment.
 
+.. branch: s390x-5.3-catchup
+
+Implement the backend related changes for s390x.
