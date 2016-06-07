@@ -15,14 +15,10 @@ rpy_revdb_t rpy_revdb;
 static char rpy_rev_buffer[16384];
 static int rpy_rev_fileno = -1;
 
-#ifndef rpy_rdb_replay
-bool_t rpy_rdb_replay;
-#endif
-
 
 static void setup_record_mode(int argc, char *argv[]);
 static void setup_replay_mode(int *argc_p, char **argv_p[]);
-static void check_at_end(int exitcode, int *exitcode_p);
+static void check_at_end(int exitcode, int *exitcode_p, uint64_t stop_points);
 
 RPY_EXTERN
 void rpy_reverse_db_setup(int *argc_p, char **argv_p[])
@@ -31,17 +27,17 @@ void rpy_reverse_db_setup(int *argc_p, char **argv_p[])
 
     int replay_asked = (*argc_p >= 2 && !strcmp((*argv_p)[1], "--replay"));
 
-#ifdef rpy_rdb_replay
-    if (replay_asked != rpy_rdb_replay) {
+#ifdef RPY_RDB_DYNAMIC_REPLAY
+    RPY_RDB_REPLAY = replay_asked;
+#else
+    if (replay_asked != RPY_RDB_REPLAY) {
         fprintf(stderr, "This executable was only compiled for %s mode.",
-                rpy_rdb_replay ? "replay" : "record");
+                RPY_RDB_REPLAY ? "replay" : "record");
         exit(1);
     }
-#else
-    rpy_rdb_replay = replay_asked;
 #endif
 
-    if (rpy_rdb_replay)
+    if (RPY_RDB_REPLAY)
         setup_replay_mode(argc_p, argv_p);
     else
         setup_record_mode(*argc_p, *argv_p);
@@ -51,12 +47,15 @@ RPY_EXTERN
 void rpy_reverse_db_teardown(int *exitcode_p)
 {
     int exitcode;
+    uint64_t stop_points;
     RPY_REVDB_EMIT(exitcode = *exitcode_p; , int _e, exitcode);
+    RPY_REVDB_EMIT(stop_points = rpy_revdb.stop_point_seen; ,
+                   uint64_t _e, stop_points);
 
-    if (!rpy_rdb_replay)
+    if (!RPY_RDB_REPLAY)
         rpy_reverse_db_flush();
     else
-        check_at_end(exitcode, exitcode_p);
+        check_at_end(exitcode, exitcode_p, stop_points);
 }
 
 
@@ -70,7 +69,7 @@ static void setup_record_mode(int argc, char *argv[])
     char *filename = getenv("PYPYREVDB");
     Signed x;
 
-    assert(!rpy_rdb_replay);
+    assert(RPY_RDB_REPLAY == 0);
     rpy_revdb.buf_p = rpy_rev_buffer;
     rpy_revdb.buf_limit = rpy_rev_buffer + sizeof(rpy_rev_buffer) - 32;
 
@@ -132,19 +131,23 @@ void rpy_reverse_db_flush(void)
 static void setup_replay_mode(int *argc_p, char **argv_p[])
 {
     Signed x;
-    char *filename = (*argc_p) <= 2 ? "-" : (*argv_p)[2];
+    int argc = *argc_p;
+    char **argv = *argv_p;
+    char *filename;
 
-    if (!strcmp(filename, "-")) {
-        rpy_rev_fileno = 0;   /* stdin */
+    if (argc != 3) {
+        fprintf(stderr, "syntax: %s --replay <RevDB-file>\n", argv[0]);
+        exit(2);
     }
-    else {
-        rpy_rev_fileno = open(filename, O_RDONLY | O_NOCTTY);
-        if (rpy_rev_fileno < 0) {
-            fprintf(stderr, "Can't open file '%s': %m\n", filename);
-            exit(1);
-        }
+    filename = argv[2];
+
+    rpy_rev_fileno = open(filename, O_RDONLY | O_NOCTTY);
+    if (rpy_rev_fileno < 0) {
+        fprintf(stderr, "Can't open file '%s': %m\n", filename);
+        exit(1);
     }
-    assert(rpy_rdb_replay);
+
+    assert(RPY_RDB_REPLAY == 1);
     rpy_revdb.buf_p = rpy_rev_buffer;
     rpy_revdb.buf_limit = rpy_rev_buffer;
 
@@ -171,13 +174,15 @@ static void setup_replay_mode(int *argc_p, char **argv_p[])
 
     RPY_REVDB_EMIT(abort();, Signed _e, x);
     *argv_p = (char **)x;
+
+    rpy_revdb.stop_point_break = 1;
 }
 
-static void check_at_end(int exitcode, int *exitcode_p)
+static void check_at_end(int exitcode, int *exitcode_p, uint64_t stop_points)
 {
     char dummy[1];
-    if (*exitcode_p != exitcode) {
-        fprintf(stderr, "Bogus exit code\n");
+    if (stop_points != rpy_revdb.stop_point_seen) {
+        fprintf(stderr, "Bad number of stop points\n");
         exit(1);
     }
     if (rpy_revdb.buf_p != rpy_revdb.buf_limit ||
@@ -185,8 +190,12 @@ static void check_at_end(int exitcode, int *exitcode_p)
         fprintf(stderr, "RevDB file error: corrupted file (too much data?)\n");
         exit(1);
     }
-    printf("Replaying finished.\n");
-    rpy_reverse_db_stop_point(0);
+    if (*exitcode_p != exitcode) {
+        fprintf(stderr, "Bogus exit code\n");
+        exit(1);
+    }
+    printf("Replaying finished (exit code %d)\n", exitcode);
+    rpy_reverse_db_break(0);
     *exitcode_p = 0;
 }
 
@@ -219,9 +228,10 @@ char *rpy_reverse_db_fetch(int expected_size)
 }
 
 RPY_EXTERN
-void rpy_reverse_db_stop_point(long stop_point)
+void rpy_reverse_db_break(long stop_point)
 {
-    printf("stop_point %ld\n", stop_point);
+    printf("break #%ld after %lld stop points\n", stop_point,
+           (long long)rpy_revdb.stop_point_seen);
 }
 
 

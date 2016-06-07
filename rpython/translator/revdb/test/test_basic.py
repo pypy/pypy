@@ -25,6 +25,9 @@ class RDB(object):
         self.cur = p + struct.calcsize(mode)
         return struct.unpack_from(mode, self.buffer, p)[0]
 
+    def number_of_stop_points(self):
+        return struct.unpack_from("q", self.buffer, len(self.buffer) - 8)[0]
+
     def done(self):
         return self.cur == len(self.buffer)
 
@@ -91,6 +94,7 @@ class TestBasic(object):
         x = rdb.next(); assert x == len('[abc, d]\n')
         x = rdb.next('i'); assert x == 0      # errno
         x = rdb.next('i'); assert x == 9      # exitcode
+        x = rdb.next('q'); assert x == 0      # number of stop points
         # that's all that should get from this simple example
         assert rdb.done()
         #
@@ -98,8 +102,8 @@ class TestBasic(object):
         #
         # Now try the replay mode (just "doesn't crash" for now)
         out = replay()
-        assert out == ("Replaying finished.\n"
-                       "stop_point 0\n")
+        assert out == ("Replaying finished (exit code 9)\n"
+                       "break #0 after 0 stop points\n")
 
     def test_simple_interpreter(self):
         def main(argv):
@@ -108,9 +112,9 @@ class TestBasic(object):
                 print op
             return 9
         fn, replay = self.getcompiled(main, [], backendopt=False)
-        assert fn('abc d') == 'abc\nd\n'
+        assert fn('abc d ef') == 'abc\nd\nef\n'
+        assert self.fetch_rdb().number_of_stop_points() == 3
         out = replay()
-        assert out == ("stop_point 42\n"
-                       "stop_point 42\n"
-                       "Replaying finished.\n"
-                       "stop_point 0\n")
+        assert out == ("break #42 after 1 stop points\n"
+                       "Replaying finished (exit code 9)\n"
+                       "break #0 after 3 stop points\n")
