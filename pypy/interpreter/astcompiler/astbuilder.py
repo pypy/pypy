@@ -511,7 +511,7 @@ class ASTBuilder(object):
         if decorator_node.num_children() == 3:
             dec = dec_name
         elif decorator_node.num_children() == 5:
-            dec = ast.Call(dec_name, None, None, None, None,
+            dec = ast.Call(dec_name, None, None,
                            decorator_node.get_lineno(), decorator_node.get_column())
         else:
             dec = self.handle_call(decorator_node.get_child(3), dec_name)
@@ -984,7 +984,7 @@ class ASTBuilder(object):
         first_child = trailer_node.get_child(0)
         if first_child.type == tokens.LPAR:
             if trailer_node.num_children() == 2:
-                return ast.Call(left_expr, None, None, None, None,
+                return ast.Call(left_expr, None, None,
                                 trailer_node.get_lineno(), trailer_node.get_column())
             else:
                 return self.handle_call(trailer_node.get_child(1), left_expr)
@@ -1017,6 +1017,7 @@ class ASTBuilder(object):
             return ast.Subscript(left_expr, ast.Index(tup), ast.Load,
                                  middle.get_lineno(), middle.get_column())
 
+    #fix this method
     def handle_call(self, args_node, callable_expr):
         arg_count = 0
         keyword_count = 0
