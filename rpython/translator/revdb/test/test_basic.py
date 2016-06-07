@@ -87,5 +87,6 @@ class TestBasic(object):
         #
         assert got == [self.exename, 'abc', 'd']
         #
-        # Now try the replay mode
-        xxx
+        # Now try the replay mode (just "doesn't crash" for now)
+        stdout = fn("--replay '%s'" % (self.rdbname,))
+        assert stdout == "Replaying finished.\n"

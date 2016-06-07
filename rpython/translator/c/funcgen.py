@@ -450,6 +450,11 @@ class FunctionCodeGenerator(object):
         T = self.lltypemap(op.args[-1])
         if T is Void:
             result = '/* %s */' % result
+        if self.db.reverse_debugger:
+            S = self.lltypemap(op.args[0]).TO
+            if S._gckind != 'gc' and not S._hints.get('is_excdata'):
+                from rpython.translator.revdb import revdb_genc
+                result = revdb_genc.emit_void(result)
         return result
 
     def OP_GETFIELD(self, op, ampersand=''):

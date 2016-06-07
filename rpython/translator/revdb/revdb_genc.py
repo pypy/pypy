@@ -9,7 +9,10 @@ def extra_files():
         srcdir / 'revdb.c',
     ]
 
+def emit_void(normal_code):
+    return 'RPY_REVDB_EMIT_VOID(%s);' % (normal_code,)
+
 def emit(normal_code, tp, value):
     if tp == 'void @':
-        return 'RPY_REVDB_EMIT_VOID(%s);' % (normal_code,)
+        return emit_void(normal_code)
     return 'RPY_REVDB_EMIT(%s, %s, %s);' % (normal_code, cdecl(tp, '_e'), value)
