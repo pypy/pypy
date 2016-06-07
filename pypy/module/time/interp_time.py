@@ -254,9 +254,7 @@ if _WIN:
                     
                     _setinfo(space, w_info, "GetSystemTimeAsFileTime()",
                              time_increment[0] * 1e-7, False, True)
-            # The explicit float call can be eliminated once we merge in
-            # 9f2746f3765c from default
-            return space.wrap(float(tv_sec) + tv_usec * 1e-6)
+            return space.wrap(tv_sec + tv_usec * 1e-6)
 else:
     if HAVE_GETTIMEOFDAY:
         if GETTIMEOFDAY_NO_TZ:
