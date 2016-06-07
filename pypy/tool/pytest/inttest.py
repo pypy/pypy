@@ -6,13 +6,8 @@ import py
 from pypy.conftest import PyPyClassCollector
 
 
-marker = py.test.mark.interplevel
-
-
 class IntTestFunction(py.test.collect.Function):
-    def __init__(self, *args, **kwargs):
-        super(IntTestFunction, self).__init__(*args, **kwargs)
-        self._request.applymarker(marker)
+    pass
 
 
 class IntInstanceCollector(py.test.collect.Instance):

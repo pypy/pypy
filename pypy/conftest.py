@@ -76,6 +76,17 @@ def pytest_sessionstart(session):
 def pytest_pycollect_makemodule(path, parent):
     return PyPyModule(path, parent)
 
+def is_applevel(item):
+    from pypy.tool.pytest.apptest import AppTestFunction
+    return isinstance(item, AppTestFunction)
+
+def pytest_collection_modifyitems(config, items):
+    if config.option.runappdirect:
+        return
+    for item in items:
+        if isinstance(item, py.test.Function) and not is_applevel(item):
+            item.add_marker('interplevel')
+
 class PyPyModule(py.test.collect.Module):
     """ we take care of collecting classes both at app level
         and at interp-level (because we need to stick a space
