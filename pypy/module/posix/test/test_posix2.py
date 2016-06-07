@@ -13,14 +13,15 @@ import py
 import sys
 import signal
 
+USEMODULES = ['binascii', 'posix', 'struct', 'time']
+if os.name != 'nt':
+    USEMODULES += ['fcntl']
+else:
+    # On windows, os.popen uses the subprocess module
+    USEMODULES += ['_rawffi', 'thread', 'signal']
+
 def setup_module(mod):
-    usemodules = ['binascii', 'posix', 'struct', 'time']
-    if os.name != 'nt':
-        usemodules += ['fcntl']
-    else:
-        # On windows, os.popen uses the subprocess module
-        usemodules += ['_rawffi', 'thread', 'signal']
-    mod.space = gettestobjspace(usemodules=usemodules)
+    mod.space = gettestobjspace(usemodules=USEMODULES)
     mod.path = udir.join('posixtestfile.txt')
     mod.path.write("this is a test")
     mod.path2 = udir.join('test_posix2-')
@@ -49,9 +50,10 @@ GET_POSIX = "(): import %s as m ; return m" % os.name
 
 
 class AppTestPosix:
+    spaceconfig = {'usemodules': USEMODULES}
 
     def setup_class(cls):
-        cls.space = space
+        space = cls.space
         cls.w_runappdirect = space.wrap(cls.runappdirect)
         cls.w_posix = space.appexec([], GET_POSIX)
         cls.w_path = space.wrap(str(path))
@@ -1145,14 +1147,10 @@ class AppTestPosix:
 
 class AppTestEnvironment(object):
     def setup_class(cls):
-        cls.space = space
-        cls.w_posix = space.appexec([], "(): import %s as m ; return m" % os.name)
-        cls.w_os = space.appexec([], "(): import os; return os")
         cls.w_path = space.wrap(str(path))
 
     def test_environ(self):
-        posix = self.posix
-        os = self.os
+        import posix
         assert posix.environ['PATH']
         del posix.environ['PATH']
         def fn(): posix.environ['PATH']
@@ -1160,7 +1158,7 @@ class AppTestEnvironment(object):
 
     if hasattr(__import__(os.name), "unsetenv"):
         def test_unsetenv_nonexisting(self):
-            os = self.os
+            import os
             os.unsetenv("XYZABC") #does not raise
             try:
                 os.environ["ABCABC"]
@@ -1178,8 +1176,6 @@ class AppTestEnvironment(object):
 
 class AppTestPosixUnicode:
     def setup_class(cls):
-        cls.space = space
-        cls.w_posix = space.appexec([], GET_POSIX)
         if cls.runappdirect:
             # Can't change encoding
             try:
@@ -1198,22 +1194,25 @@ class AppTestPosixUnicode:
 
     def test_stat_unicode(self):
         # test that passing unicode would not raise UnicodeDecodeError
+        import posix
         try:
-            self.posix.stat(u"ą")
+            posix.stat(u"ą")
         except OSError:
             pass
 
     def test_open_unicode(self):
         # Ensure passing unicode doesn't raise UnicodeEncodeError
+        import posix
         try:
-            self.posix.open(u"ą", self.posix.O_WRONLY)
+            posix.open(u"ą", posix.O_WRONLY)
         except OSError:
             pass
 
     def test_remove_unicode(self):
         # See 2 above ;)
+        import posix
         try:
-            self.posix.remove(u"ą")
+            posix.remove(u"ą")
         except OSError:
             pass
 
