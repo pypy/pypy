@@ -1,7 +1,7 @@
 #include <string.h>
 
 RPY_EXTERN void rpy_reverse_db_setup(int *argc_p, char **argv_p[]);
-RPY_EXTERN void rpy_reverse_db_teardown(void);
+RPY_EXTERN void rpy_reverse_db_teardown(int *exitcode_p);
 
 typedef struct { char *buf_p, *buf_limit; } rpy_revdb_t;
 RPY_EXTERN rpy_revdb_t rpy_revdb;
@@ -47,8 +47,12 @@ RPY_EXTERN bool_t rpy_rdb_replay;
 #define RPY_REVDB_EMIT_VOID(normal_code)                                \
     if (!rpy_rdb_replay) { normal_code } else { }
 
+#define OP_REVDB_STOP_POINT(stop_point, r)                              \
+    if (rpy_rdb_replay) rpy_reverse_db_stop_point(stop_point);
+
 RPY_EXTERN void rpy_reverse_db_flush(void);
 RPY_EXTERN char *rpy_reverse_db_fetch(int expected_size);
+RPY_EXTERN void rpy_reverse_db_stop_point(long stop_point);
 
 
 /* ------------------------------------------------------------ */

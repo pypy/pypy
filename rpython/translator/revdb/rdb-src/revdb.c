@@ -22,7 +22,7 @@ bool_t rpy_rdb_replay;
 
 static void setup_record_mode(int argc, char *argv[]);
 static void setup_replay_mode(int *argc_p, char **argv_p[]);
-static void check_at_end(void);
+static void check_at_end(int exitcode, int *exitcode_p);
 
 RPY_EXTERN
 void rpy_reverse_db_setup(int *argc_p, char **argv_p[])
@@ -48,12 +48,15 @@ void rpy_reverse_db_setup(int *argc_p, char **argv_p[])
 }
 
 RPY_EXTERN
-void rpy_reverse_db_teardown(void)
+void rpy_reverse_db_teardown(int *exitcode_p)
 {
+    int exitcode;
+    RPY_REVDB_EMIT(exitcode = *exitcode_p; , int _e, exitcode);
+
     if (!rpy_rdb_replay)
         rpy_reverse_db_flush();
     else
-        check_at_end();
+        check_at_end(exitcode, exitcode_p);
 }
 
 
@@ -170,15 +173,21 @@ static void setup_replay_mode(int *argc_p, char **argv_p[])
     *argv_p = (char **)x;
 }
 
-static void check_at_end(void)
+static void check_at_end(int exitcode, int *exitcode_p)
 {
     char dummy[1];
+    if (*exitcode_p != exitcode) {
+        fprintf(stderr, "Bogus exit code\n");
+        exit(1);
+    }
     if (rpy_revdb.buf_p != rpy_revdb.buf_limit ||
             read(rpy_rev_fileno, dummy, 1) > 0) {
         fprintf(stderr, "RevDB file error: corrupted file (too much data?)\n");
         exit(1);
     }
     printf("Replaying finished.\n");
+    rpy_reverse_db_stop_point(0);
+    *exitcode_p = 0;
 }
 
 RPY_EXTERN
@@ -207,6 +216,12 @@ char *rpy_reverse_db_fetch(int expected_size)
         goto retry;
 
     return rpy_rev_buffer;
+}
+
+RPY_EXTERN
+void rpy_reverse_db_stop_point(long stop_point)
+{
+    printf("stop_point %ld\n", stop_point);
 }
 
 

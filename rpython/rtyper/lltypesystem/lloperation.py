@@ -564,6 +564,8 @@ LL_OPERATIONS = {
 
     # __________ instrumentation _________
     'instrument_count':     LLOp(),
+
+    'revdb_stop_point':     LLOp(),
 }
 # ***** Run test_lloperation after changes. *****
 

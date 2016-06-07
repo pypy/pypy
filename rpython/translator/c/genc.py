@@ -350,6 +350,9 @@ class CStandaloneBuilder(CBuilder):
             SetErrorMode(old_mode)
         if res.returncode != 0:
             if expect_crash:
+                if type(expect_crash) is int and expect_crash != res.returncode:
+                    raise Exception("Returned %d, but expected %d" % (
+                        res.returncode, expect_crash))
                 return res.out, res.err
             print >> sys.stderr, res.err
             raise Exception("Returned %d" % (res.returncode,))

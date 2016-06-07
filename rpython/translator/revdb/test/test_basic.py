@@ -1,9 +1,10 @@
 import py
-import os
+import os, sys
 import array, struct
 from rpython.tool.udir import udir
 from rpython.translator.interactive import Translation
 from rpython.rlib.rarithmetic import LONG_BIT
+from rpython.rlib import revdb
 
 
 class RDB(object):
@@ -47,9 +48,16 @@ class TestBasic(object):
         def run(*argv):
             env = os.environ.copy()
             env['PYPYREVDB'] = self.rdbname
-            stdout = t.driver.cbuilder.cmdexec(' '.join(argv), env=env)
+            stdout, stderr = t.driver.cbuilder.cmdexec(' '.join(argv), env=env,
+                                                       expect_crash=9)
+            print >> sys.stderr, stderr
             return stdout
-        return run
+
+        def replay():
+            stdout = t.driver.cbuilder.cmdexec("--replay '%s'" % self.rdbname)
+            return stdout
+
+        return run, replay
 
     def fetch_rdb(self):
         return RDB(self.rdbname)
@@ -57,8 +65,8 @@ class TestBasic(object):
     def test_simple(self):
         def main(argv):
             print argv[1:]
-            return 0
-        fn = self.getcompiled(main, [], backendopt=False)
+            return 9
+        fn, replay = self.getcompiled(main, [], backendopt=False)
         assert fn('abc d') == '[abc, d]\n'
         rdb = self.fetch_rdb()
         assert rdb.argc == 3
@@ -82,11 +90,27 @@ class TestBasic(object):
         # write() call
         x = rdb.next(); assert x == len('[abc, d]\n')
         x = rdb.next('i'); assert x == 0      # errno
+        x = rdb.next('i'); assert x == 9      # exitcode
         # that's all that should get from this simple example
         assert rdb.done()
         #
         assert got == [self.exename, 'abc', 'd']
         #
         # Now try the replay mode (just "doesn't crash" for now)
-        stdout = fn("--replay '%s'" % (self.rdbname,))
-        assert stdout == "Replaying finished.\n"
+        out = replay()
+        assert out == ("Replaying finished.\n"
+                       "stop_point 0\n")
+
+    def test_simple_interpreter(self):
+        def main(argv):
+            for op in argv[1:]:
+                revdb.stop_point(42)
+                print op
+            return 9
+        fn, replay = self.getcompiled(main, [], backendopt=False)
+        assert fn('abc d') == 'abc\nd\n'
+        out = replay()
+        assert out == ("stop_point 42\n"
+                       "stop_point 42\n"
+                       "Replaying finished.\n"
+                       "stop_point 0\n")
