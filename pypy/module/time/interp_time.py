@@ -5,7 +5,8 @@ from pypy.interpreter.gateway import unwrap_spec
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.rarithmetic import intmask, r_ulonglong, r_longfloat
 from rpython.rlib.rtime import (win_perf_counter, TIMEB, c_ftime,
-                                GETTIMEOFDAY_NO_TZ, TIMEVAL, HAVE_GETTIMEOFDAY)
+                                GETTIMEOFDAY_NO_TZ, TIMEVAL,
+                                HAVE_GETTIMEOFDAY, HAVE_FTIME)
 from rpython.rlib import rposix, rtime
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 import math
@@ -151,7 +152,6 @@ class CConfig:
     clock_t = platform.SimpleType("clock_t", rffi.ULONG)
     has_gettimeofday = platform.Has('gettimeofday')
     has_clock_gettime = platform.Has('clock_gettime')
-    has_ftime = platform.Has('ftime')
     CLOCK_PROF = platform.DefinedConstantInteger('CLOCK_PROF')
 
 CLOCK_CONSTANTS = ['CLOCK_HIGHRES', 'CLOCK_MONOTONIC', 'CLOCK_MONOTONIC_RAW',
@@ -219,7 +219,6 @@ if _POSIX:
 
 CLOCKS_PER_SEC = cConfig.CLOCKS_PER_SEC
 HAS_CLOCK_GETTIME = cConfig.has_clock_gettime
-HAS_FTIME = cConfig.has_ftime
 clock_t = cConfig.clock_t
 tm = cConfig.tm
 glob_buf = lltype.malloc(tm, flavor='raw', zero=True, immortal=True)
@@ -277,7 +276,7 @@ else:
                 if rffi.cast(rffi.LONG, errcode) == 0:
                     _setinfo(space, w_info, "gettimeofday()", 1e-6, False, True)
                     return space.wrap(timeval.tv_sec + timeval.usec * 1e-6)
-        if HAS_FTIME:
+        if HAVE_FTIME:
             with lltype.scoped_alloc(TIMEB) as t:
                 c_ftime(t)
                 # The cpython code multiplies by 1000, but rtime.py multiplies
@@ -616,21 +615,12 @@ def time(space, w_info=None):
                         if ret == 0:
                             res = _timespec_to_seconds(tsres)
                         else:
-                            res = 1e-9 
+                            res = 1e-9
                         _setinfo(space, w_info, "clock_gettime(CLOCK_REALTIME)",
                                  res, False, True)
                 return space.wrap(_timespec_to_seconds(timespec))
     else:
         return gettimeofday(space, w_info)
-
-def clock(space):
-    """clock() -> floating point number
-
-    Return the CPU time or real time since the start of the process or since
-    the first call to clock().  This has as much precision as the system
-    records."""
-
-    return space.wrap(pytime.clock())
 
 def ctime(space, w_seconds=None):
     """ctime([seconds]) -> string
