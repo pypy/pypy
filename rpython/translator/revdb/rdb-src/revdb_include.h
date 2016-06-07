@@ -26,7 +26,7 @@ RPY_EXTERN rpy_revdb_t rpy_revdb;
 /* ------------------------------------------------------------ */
 
 RPY_EXTERN void rpy_reverse_db_setup(int *argc_p, char **argv_p[]);
-RPY_EXTERN void rpy_reverse_db_teardown(int *exitcode_p);
+RPY_EXTERN void rpy_reverse_db_teardown(void);
 
 
 #define RPY_REVDB_EMIT(normal_code, decl_e, variable)                   \

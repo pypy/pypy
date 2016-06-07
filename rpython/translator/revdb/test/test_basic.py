@@ -93,17 +93,15 @@ class TestBasic(object):
         # write() call
         x = rdb.next(); assert x == len('[abc, d]\n')
         x = rdb.next('i'); assert x == 0      # errno
-        x = rdb.next('i'); assert x == 9      # exitcode
         x = rdb.next('q'); assert x == 0      # number of stop points
-        # that's all that should get from this simple example
+        # that's all we should get from this simple example
         assert rdb.done()
         #
         assert got == [self.exename, 'abc', 'd']
         #
         # Now try the replay mode (just "doesn't crash" for now)
         out = replay()
-        assert out == ("Replaying finished (exit code 9)\n"
-                       "break #0 after 0 stop points\n")
+        assert out == "Replaying finished, 0 stop points\n"
 
     def test_simple_interpreter(self):
         def main(argv):
@@ -116,5 +114,4 @@ class TestBasic(object):
         assert self.fetch_rdb().number_of_stop_points() == 3
         out = replay()
         assert out == ("break #42 after 1 stop points\n"
-                       "Replaying finished (exit code 9)\n"
-                       "break #0 after 3 stop points\n")
+                       "Replaying finished, 3 stop points\n")
