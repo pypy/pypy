@@ -452,12 +452,12 @@ class ASTBuilder(object):
         if classdef_node.num_children() == 4:
             # class NAME ':' suite
             body = self.handle_suite(classdef_node.get_child(3))
-            return ast.ClassDef(name, None, None, None, None, body, decorators,
+            return ast.ClassDef(name, None, None, body, decorators,
                                 classdef_node.get_lineno(), classdef_node.get_column())
         if classdef_node.get_child(3).type == tokens.RPAR:
             # class NAME '(' ')' ':' suite
             body = self.handle_suite(classdef_node.get_child(5))
-            return ast.ClassDef(name, None, None, None, None, body, decorators,
+            return ast.ClassDef(name, None, None, body, decorators,
                                 classdef_node.get_lineno(), classdef_node.get_column())
 
         # class NAME '(' arglist ')' ':' suite
@@ -467,7 +467,7 @@ class ASTBuilder(object):
         call = self.handle_call(classdef_node.get_child(3), call_name)
         body = self.handle_suite(classdef_node.get_child(6))
         return ast.ClassDef(
-            name, call.args, call.keywords, call.starargs, call.kwargs,
+            name, call.args, call.keywords,
             body, decorators, classdef_node.get_lineno(), classdef_node.get_column())
 
     def handle_class_bases(self, bases_node):
