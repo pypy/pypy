@@ -643,6 +643,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
             #
             # Get the memory from the nursery.  If there is not enough space
             # there, do a collect first.
+            ll_assert(self.nursery_free != llmemory.NULL,
+                      "uninitialized nursery")
             result = self.nursery_free
             self.nursery_free = new_free = result + totalsize
             if new_free > self.nursery_top:
@@ -702,6 +704,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
             #
             # Get the memory from the nursery.  If there is not enough space
             # there, do a collect first.
+            ll_assert(self.nursery_free != llmemory.NULL,
+                      "uninitialized nursery")
             result = self.nursery_free
             self.nursery_free = new_free = result + totalsize
             if new_free > self.nursery_top:
