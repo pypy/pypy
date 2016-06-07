@@ -121,9 +121,6 @@ class PyPyModule(py.test.collect.Module):
             if name.startswith('AppTest'):
                 from pypy.tool.pytest.apptest import AppClassCollector
                 return AppClassCollector(name, parent=self)
-            else:
-                from pypy.tool.pytest.inttest import IntClassCollector
-                return IntClassCollector(name, parent=self)
 
         elif hasattr(obj, 'func_code') and self.funcnamefilter(name):
             if name.startswith('app_test_'):
@@ -131,11 +128,7 @@ class PyPyModule(py.test.collect.Module):
                     "generator app level functions? you must be joking"
                 from pypy.tool.pytest.apptest import AppTestFunction
                 return AppTestFunction(name, parent=self)
-            elif obj.func_code.co_flags & 32: # generator function
-                return pytest.Generator(name, parent=self)
-            else:
-                from pypy.tool.pytest.inttest import IntTestFunction
-                return IntTestFunction(name, parent=self)
+        return super(PyPyModule, self).makeitem(name, obj)
 
 def skip_on_missing_buildoption(**ropts):
     __tracebackhide__ = True
@@ -164,7 +157,7 @@ class LazyObjSpaceGetter(object):
 
 def pytest_runtest_setup(__multicall__, item):
     if isinstance(item, py.test.collect.Function):
-        appclass = item.getparent(PyPyClassCollector)
+        appclass = item.getparent(py.test.Class)
         if appclass is not None:
             # Make cls.space and cls.runappdirect available in tests.
             spaceconfig = getattr(appclass.obj, 'spaceconfig', None)
