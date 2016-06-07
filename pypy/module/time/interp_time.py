@@ -5,7 +5,7 @@ from pypy.interpreter.gateway import unwrap_spec
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.rarithmetic import intmask, r_ulonglong, r_longfloat
 from rpython.rlib.rtime import (win_perf_counter, TIMEB, c_ftime,
-                                GETTIMEOFDAY_NO_TZ, TIMEVAL)
+                                GETTIMEOFDAY_NO_TZ, TIMEVAL, HAVE_GETTIMEOFDAY)
 from rpython.rlib import rposix, rtime
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 import math
@@ -259,20 +259,21 @@ if _WIN:
             # 9f2746f3765c from default
             return space.wrap(float(tv_sec) + tv_usec * 1e-6)
 else:
-    if GETTIMEOFDAY_NO_TZ:
-        c_gettimeofday = external('gettimeofday',
-                                  [lltype.Ptr(TIMEVAL)], rffi.INT)
-    else:
-        c_gettimeofday = external('gettimeofday',
-                                  [lltype.Ptr(TIMEVAL), rffi.VOIDP], rffi.INT)
+    if HAVE_GETTIMEOFDAY:
+        if GETTIMEOFDAY_NO_TZ:
+            c_gettimeofday = external('gettimeofday',
+                                      [lltype.Ptr(TIMEVAL)], rffi.INT)
+        else:
+            c_gettimeofday = external('gettimeofday',
+                                      [lltype.Ptr(TIMEVAL), rffi.VOIDP], rffi.INT)
     def gettimeofday(space, w_info=None):
         void = lltype.nullptr(rffi.VOIDP.TO)
-        if False:
+        if HAVE_GETTIMEOFDAY:
             with lltype.scoped_alloc(Cconfig.timeval) as timeval:
                 if GETTIMEOFDAY_NO_TZ:
-                    errcode = c_gettimeofday(t)
+                    errcode = c_gettimeofday(timeval)
                 else:
-                    errcode = c_gettimeofday(t, void)
+                    errcode = c_gettimeofday(timeval, void)
                 if rffi.cast(rffi.LONG, errcode) == 0:
                     _setinfo(space, w_info, "gettimeofday()", 1e-6, False, True)
                     return space.wrap(timeval.tv_sec + timeval.usec * 1e-6)
@@ -300,7 +301,6 @@ c_gmtime = external('gmtime', [rffi.TIME_TP], TM_P,
 c_mktime = external('mktime', [TM_P], rffi.TIME_T)
 c_localtime = external('localtime', [rffi.TIME_TP], TM_P,
                        save_err=rffi.RFFI_SAVE_ERRNO)
-
 if HAS_CLOCK_GETTIME:
     from rpython.rlib.rtime import TIMESPEC, c_clock_gettime
     c_clock_settime = external('clock_settime',
@@ -606,7 +606,6 @@ def time(space, w_info=None):
 
     Return the current time in seconds since the Epoch.
     Fractions of a second may be present if the system clock provides them."""
-
     if HAS_CLOCK_GETTIME:
         with lltype.scoped_alloc(TIMESPEC) as timespec:
             ret = c_clock_gettime(cConfig.CLOCK_REALTIME, timespec)
@@ -617,8 +616,7 @@ def time(space, w_info=None):
                         if ret == 0:
                             res = _timespec_to_seconds(tsres)
                         else:
-                            res = 1e-9
- 
+                            res = 1e-9 
                         _setinfo(space, w_info, "clock_gettime(CLOCK_REALTIME)",
                                  res, False, True)
                 return space.wrap(_timespec_to_seconds(timespec))
