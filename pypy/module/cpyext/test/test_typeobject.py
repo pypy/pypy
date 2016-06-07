@@ -5,8 +5,8 @@ from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.pyobject import make_ref, from_ref
 from pypy.module.cpyext.typeobject import PyTypeObjectPtr
 
-import pytest
 import sys
+import pytest
 
 class AppTestTypeObject(AppTestCpythonExtensionBase):
     def test_typeobject(self):
@@ -124,7 +124,6 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         obj = module.fooType.classmeth()
         assert obj is module.fooType
 
-    @pytest.mark.skipif('__pypy__' not in sys.builtin_module_names, reason='cpython segfaults')
     def test_new(self):
         # XXX cpython segfaults but if run singly (with -k test_new) this passes
         module = self.import_module(name='foo')
@@ -179,8 +178,6 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         x = module.MetaType('name', (), {})
         assert isinstance(x, type)
         assert isinstance(x, module.MetaType)
-        if self.runappdirect and '__pypy__' in sys.builtin_module_names:
-            skip('x is not callable when runappdirect??')
         x()
 
     def test_metaclass_compatible(self):
@@ -190,13 +187,11 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         assert type(module.fooType).__mro__ == (type, object)
         y = module.MetaType('other', (module.MetaType,), {})
         assert isinstance(y, module.MetaType)
-        if self.runappdirect and '__pypy__' in sys.builtin_module_names:
-            skip('y is not callable when runappdirect??')
         x = y('something', (type(y),), {})
         del x, y
 
     def test_metaclass_compatible2(self):
-        skip('type.__new__ does not check acceptable_as_base_class')
+        skip('fails even with -A, fooType has BASETYPE flag')
         # XXX FIX - must raise since fooType (which is a base type)
         # does not have flag Py_TPFLAGS_BASETYPE
         module = self.import_module(name='foo')
@@ -880,7 +875,6 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         #print('calling module.footype()...')
         module.footype("X", (object,), {})
 
-    @pytest.mark.skipif('__pypy__' not in sys.builtin_module_names, reason='cpython fails')
     def test_app_subclass_of_c_type(self):
         # on cpython, the size changes (6 bytes added)
         module = self.import_module(name='foo')

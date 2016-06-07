@@ -6,7 +6,6 @@ from pypy.module.cpyext.pyobject import Py_DecRef
 
 class AppTestStructSeq(AppTestCpythonExtensionBase):
     def test_StructSeq(self):
-        skip("XXX: https://bugs.pypy.org/issue1557")
         module = self.import_extension('foo',
         prologue="""
             #include <structseq.h>

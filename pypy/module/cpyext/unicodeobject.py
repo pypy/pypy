@@ -792,7 +792,7 @@ def PyUnicode_Compare(space, w_left, w_right):
 @cpython_api([PyObject, PyObject], PyObject)
 def PyUnicode_Concat(space, w_left, w_right):
     """Concat two strings giving a new Unicode string."""
-    return space.call_method(w_left, '__add__', w_right)
+    return space.add(w_left, w_right)
 
 @cpython_api([PyObject, CONST_STRING], rffi.INT_real, error=CANNOT_FAIL)
 def PyUnicode_CompareWithASCIIString(space, w_uni, string):

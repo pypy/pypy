@@ -2174,7 +2174,8 @@ class _opaque(_parentable):
 
 
 def malloc(T, n=None, flavor='gc', immortal=False, zero=False,
-           track_allocation=True, add_memory_pressure=False):
+           track_allocation=True, add_memory_pressure=False,
+           nonmovable=False):
     assert flavor in ('gc', 'raw')
     if zero or immortal:
         initialization = 'example'
@@ -2200,7 +2201,8 @@ def malloc(T, n=None, flavor='gc', immortal=False, zero=False,
 
 @analyzer_for(malloc)
 def ann_malloc(s_T, s_n=None, s_flavor=None, s_zero=None,
-               s_track_allocation=None, s_add_memory_pressure=None):
+               s_track_allocation=None, s_add_memory_pressure=None,
+               s_nonmovable=None):
     assert (s_n is None or s_n.knowntype == int
             or issubclass(s_n.knowntype, base_int))
     assert s_T.is_constant()
@@ -2218,6 +2220,7 @@ def ann_malloc(s_T, s_n=None, s_flavor=None, s_zero=None,
         assert s_track_allocation is None or s_track_allocation.is_constant()
         assert (s_add_memory_pressure is None or
                 s_add_memory_pressure.is_constant())
+        assert s_nonmovable is None or s_nonmovable.is_constant()
         # not sure how to call malloc() for the example 'p' in the
         # presence of s_extraargs
         r = SomePtr(Ptr(s_T.const))

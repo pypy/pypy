@@ -43,9 +43,6 @@ class W_CType(W_Root):
         else:
             return 'NULL'
 
-    def is_char_ptr_or_array(self):
-        return False
-
     def is_unichar_ptr_or_array(self):
         return False
 
