@@ -84,7 +84,7 @@ def pytest_collection_modifyitems(config, items):
     if config.option.runappdirect:
         return
     for item in items:
-        if isinstance(item, py.test.Function)
+        if isinstance(item, py.test.Function):
             if is_applevel(item):
                 item.add_marker('applevel')
             else:
