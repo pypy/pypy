@@ -26,7 +26,7 @@ else:
 
 if _MAC_OS:
     pre_include_bits = ['#define MACOSX']
-else: 
+else:
     pre_include_bits = []
 
 if _FREEBSD or _NETBSD or _WIN32:
@@ -145,14 +145,17 @@ if not _WIN32:
         else:
             return lltype.nullptr(rffi.VOIDP.TO)
 
-    def dlopen(name, mode=-1):
+    def _dlopen_default_mode():
+        """ The default dlopen mode if it hasn't been changed by the user.
+        """
+        mode = RTLD_NOW
+        if RTLD_LOCAL is not None:
+            mode |= RTLD_LOCAL
+        return mode
+
+    def dlopen(name, mode):
         """ Wrapper around C-level dlopen
         """
-        if mode == -1:
-            if RTLD_LOCAL is not None:
-                mode = RTLD_LOCAL
-            else:
-                mode = 0
         if (mode & (RTLD_LAZY | RTLD_NOW)) == 0:
             mode |= RTLD_NOW
         res = c_dlopen(name, rffi.cast(rffi.INT, mode))
@@ -193,7 +196,12 @@ else:  # _WIN32
     DLLHANDLE = rwin32.HMODULE
     RTLD_GLOBAL = None
 
-    def dlopen(name, mode=-1):
+    def _dlopen_default_mode():
+        """ The default dlopen mode if it hasn't been changed by the user.
+        """
+        return 0
+
+    def dlopen(name, mode):
         # mode is unused on windows, but a consistant signature
         res = rwin32.LoadLibrary(name)
         if not res:
