@@ -20,13 +20,8 @@ class AppError(Exception):
     def __init__(self, excinfo):
         self.excinfo = excinfo
 
-marker = py.test.mark.applevel
 
 class AppTestFunction(py.test.collect.Function):
-    def __init__(self, *args, **kwargs):
-        super(AppTestFunction, self).__init__(*args, **kwargs)
-        self._request.applymarker(marker)
-
     def _prunetraceback(self, traceback):
         return traceback
 

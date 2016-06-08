@@ -84,8 +84,11 @@ def pytest_collection_modifyitems(config, items):
     if config.option.runappdirect:
         return
     for item in items:
-        if isinstance(item, py.test.Function) and not is_applevel(item):
-            item.add_marker('interplevel')
+        if isinstance(item, py.test.Function)
+            if is_applevel(item):
+                item.add_marker('applevel')
+            else:
+                item.add_marker('interplevel')
 
 class PyPyModule(py.test.collect.Module):
     """ we take care of collecting classes both at app level
