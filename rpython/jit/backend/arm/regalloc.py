@@ -955,7 +955,7 @@ class Regalloc(BaseRegalloc):
         length_box = op.getarg(2)
         assert not isinstance(length_box, Const) # we cannot have a const here!
         # can only use spill_or_move_registers_before_call() as a hint if
-        # we are sure that length_box stays alive and won't be overridden
+        # we are sure that length_box stays alive and won't be freed now
         # (it should always be the case, see below, but better safe than sorry)
         if self.rm.stays_alive(length_box):
             self.rm.spill_or_move_registers_before_call([r.r0, r.r1])
