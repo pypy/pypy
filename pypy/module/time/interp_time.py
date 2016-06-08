@@ -277,9 +277,6 @@ else:
         if HAVE_FTIME:
             with lltype.scoped_alloc(TIMEB) as t:
                 c_ftime(t)
-                # The cpython code multiplies by 1000, but rtime.py multiplies
-                # by .001 instead. Why? 
-                # TODO: Get this clarified.
                 result = (float(intmask(t.c_time)) +
                           float(intmask(t.c_millitm)) * 0.001)
                 if w_info is not None:
@@ -888,10 +885,10 @@ else:
         else:
             clk_id = cConfig.CLOCK_MONOTONIC
             implementation = "clock_gettime(CLOCK_MONOTONIC)"
-        # Will the exception bubble up appropriately or do we
-        # need to add an explicit try/except block to reraise it?
-        # TODO: Ask on irc
-        w_result = clock_gettime(space, clk_id)
+        try:
+            w_result = clock_gettime(space, clk_id)
+        except OperationError as error:
+            raise error
         if w_info is not None:
             with lltype.scoped_alloc(TIMESPEC) as tsres:
                 ret = c_clock_getres(clk_id, tsres)
