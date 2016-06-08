@@ -972,6 +972,41 @@ class BasicTests:
         assert res == expected
         # should contain a call_i(..., OS=OS_INT_PY_DIV)
 
+    def test_int_c_mod(self):
+        from rpython.rlib.rarithmetic import int_c_mod
+        myjitdriver = JitDriver(greens = [], reds = ['i', 't'])
+        def f(i):
+            t = 0
+            while i < 10:
+                myjitdriver.can_enter_jit(i=i, t=t)
+                myjitdriver.jit_merge_point(i=i, t=t)
+                t += int_c_mod(-100, i)
+                i += 1
+            return t
+        expected = -sum([100 % n for n in range(1, 10)])
+        assert f(1) == expected
+        res = self.meta_interp(f, [1])
+        assert res == expected
+        # should contain a call_i(..., OS=OS_INT_PY_MOD)
+
+    def test_positive_c_div_mod(self):
+        from rpython.rlib.rarithmetic import int_c_div, int_c_mod
+        myjitdriver = JitDriver(greens = [], reds = ['i', 't'])
+        def f(i):
+            t = 0
+            while i < 10:
+                myjitdriver.can_enter_jit(i=i, t=t)
+                myjitdriver.jit_merge_point(i=i, t=t)
+                assert i > 0
+                t += int_c_div(100, i) - int_c_mod(100, i)
+                i += 1
+            return t
+        expected = sum([100 // n - 100 % n for n in range(1, 10)])
+        assert f(1) == expected
+        res = self.meta_interp(f, [1])
+        assert res == expected
+        # all the correction code should be dead now, xxx test that
+
     def test_float(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'res'])
         def f(x, y):
