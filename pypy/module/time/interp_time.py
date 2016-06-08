@@ -226,7 +226,7 @@ glob_buf = lltype.malloc(tm, flavor='raw', zero=True, immortal=True)
 if _WIN:
     _GetSystemTimeAsFileTime = rwin32.winexternal('GetSystemTimeAsFileTime',
                                                   [lltype.Ptr(rwin32.FILETIME)],
-                                                  lltype.Void)
+                                                  lltype.Void)
     LPDWORD = rwin32.LPDWORD
     _GetSystemTimeAdjustment = rwin32.winexternal(
                                             'GetSystemTimeAdjustment',
