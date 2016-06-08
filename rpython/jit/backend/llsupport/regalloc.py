@@ -579,10 +579,25 @@ class RegisterManager(object):
         new_free_regs.append(self.reg_bindings.pop(v))
 
     def before_call(self, force_store=[], save_all_regs=0):
-        """Spill or move some registers before a call.  By default,
-        this means: for every register in 'self.save_around_call_regs',
+        self.spill_or_move_registers_before_call(self.save_around_call_regs,
+                                                 force_store, save_all_regs)
+
+    def spill_or_move_registers_before_call(self, save_sublist,
+                                            force_store=[], save_all_regs=0):
+        """Spill or move some registers before a call.
+
+        By default, this means: for every register in 'save_sublist',
         if there is a variable there and it survives longer than
         the current operation, then it is spilled/moved somewhere else.
+
+        WARNING: this might do the equivalent of possibly_free_vars()
+        on variables dying in the current operation.  It won't
+        immediately overwrite registers that used to be occupied by
+        these variables, though.  Use this function *after* you finished
+        calling self.loc() or self.make_sure_var_in_reg(), i.e. when you
+        know the location of all input arguments.  These locations stay
+        valid, but only *if they are in self.save_around_call_regs,*
+        not if they are callee-saved registers!
 
         'save_all_regs' can be 0 (default set of registers), 1 (do that
         for all registers), or 2 (default + gc ptrs).
@@ -612,6 +627,16 @@ class RegisterManager(object):
         anyway, as a local hack in this function, because on x86 CPUs
         such register-register moves are almost free.
         """
+        if not we_are_translated():
+            # 'save_sublist' is either the whole
+            # 'self.save_around_call_regs', or a sublist thereof, and
+            # then only those registers are spilled/moved.  But when
+            # we move them, we never move them to other registers in
+            # 'self.save_around_call_regs', to avoid ping-pong effects
+            # where the same value is constantly moved around.
+            for reg in save_sublist:
+                assert reg in self.save_around_call_regs
+
         new_free_regs = []
         move_or_spill = []
 
@@ -631,7 +656,7 @@ class RegisterManager(object):
                 # we need to spill all GC ptrs in this mode
                 self._bc_spill(v, new_free_regs)
                 #
-            elif reg not in self.save_around_call_regs:
+            elif reg not in save_sublist:
                 continue  # in a register like ebx/rbx: it is fine where it is
                 #
             else:
@@ -663,6 +688,7 @@ class RegisterManager(object):
                 if not we_are_translated():
                     if move_or_spill:
                         assert max_age <= min([_a for _, _a in move_or_spill])
+                    assert reg in save_sublist
                     assert reg in self.save_around_call_regs
                     assert new_reg not in self.save_around_call_regs
                 self.assembler.regalloc_mov(reg, new_reg)
