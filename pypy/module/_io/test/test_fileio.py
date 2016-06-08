@@ -222,10 +222,14 @@ class AppTestFileIO:
         assert not closed[0]  # flush() called before file closed
         os.close(fd)
 
-def test_flush_at_exit(space):
+def test_flush_at_exit():
+    from pypy import conftest
+    from pypy.tool.option import make_config, make_objspace
     from rpython.tool.udir import udir
 
     tmpfile = udir.join('test_flush_at_exit')
+    config = make_config(conftest.option)
+    space = make_objspace(config)
     space.appexec([space.wrap(str(tmpfile))], """(tmpfile):
         import io
         f = io.open(tmpfile, 'w', encoding='ascii')
@@ -237,7 +241,12 @@ def test_flush_at_exit(space):
     assert tmpfile.read() == '42'
 
 
-def test_flush_at_exit_IOError_and_ValueError(space):
+def test_flush_at_exit_IOError_and_ValueError():
+    from pypy import conftest
+    from pypy.tool.option import make_config, make_objspace
+
+    config = make_config(conftest.option)
+    space = make_objspace(config)
     space.appexec([], """():
         import io
         class MyStream(io.IOBase):

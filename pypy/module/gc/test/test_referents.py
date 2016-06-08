@@ -1,4 +1,4 @@
-from pytest import option
+from pypy.conftest import option
 
 
 class AppTestReferents(object):

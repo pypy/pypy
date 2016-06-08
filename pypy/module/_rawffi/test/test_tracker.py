@@ -1,5 +1,5 @@
 import py
-from pytest import option
+from pypy.conftest import option
 from pypy.module._rawffi.tracker import Tracker
 
 
@@ -44,3 +44,4 @@ class AppTestTracker:
 
     def teardown_class(cls):
         Tracker.DO_TRACING = False
+

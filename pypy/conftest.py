@@ -164,13 +164,6 @@ def pytest_runtest_setup(__multicall__, item):
 
     __multicall__.execute()
 
-def pytest_runtest_teardown(__multicall__, item):
-    __multicall__.execute()
-
-    if 'pygame' in sys.modules:
-        assert option.view, ("should not invoke Pygame "
-                             "if conftest.option.view is False")
-
 
 class PyPyClassCollector(py.test.collect.Class):
     # All pypy Test classes have a "space" member.

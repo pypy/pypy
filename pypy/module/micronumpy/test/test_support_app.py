@@ -3,12 +3,11 @@ import sys
 import py
 
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
-from pytest import config
+from pypy.conftest import option
 
 class AppTestSupport(BaseNumpyAppTest):
     def setup_class(cls):
-        if (config.option.runappdirect and
-                '__pypy__' not in sys.builtin_module_names):
+        if option.runappdirect and '__pypy__' not in sys.builtin_module_names:
             py.test.skip("pypy only test")
         BaseNumpyAppTest.setup_class.im_func(cls)
 

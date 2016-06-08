@@ -733,9 +733,6 @@ class Regalloc(BaseRegalloc):
     prepare_int_sub_ovf = helper.prepare_int_sub
     prepare_int_mul = helper.prepare_int_mul
     prepare_int_mul_ovf = helper.prepare_int_mul_ovf
-    prepare_int_floordiv = helper.prepare_int_div
-    prepare_uint_floordiv = helper.prepare_int_div
-    prepare_int_mod = helper.prepare_int_mod
     prepare_nursery_ptr_increment = prepare_int_add
 
     prepare_int_and = helper.prepare_int_logic
@@ -745,6 +742,18 @@ class Regalloc(BaseRegalloc):
     prepare_int_rshift  = helper.prepare_int_shift
     prepare_int_lshift  = helper.prepare_int_shift
     prepare_uint_rshift = helper.prepare_int_shift
+
+    def prepare_uint_mul_high(self, op):
+        a0 = op.getarg(0)
+        a1 = op.getarg(1)
+        if a0.is_constant():
+            a0, a1 = a1, a0
+        if helper.check_imm32(a1):
+            l1 = self.ensure_reg(a1)
+        else:
+            l1 = self.ensure_reg_or_pool(a1)
+        lr,lq = self.rm.ensure_even_odd_pair(a0, op, bind_first=True)
+        return [lr, lq, l1]
 
     prepare_int_le = helper.generate_cmp_op()
     prepare_int_lt = helper.generate_cmp_op()
