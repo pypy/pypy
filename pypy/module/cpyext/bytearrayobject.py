@@ -85,7 +85,7 @@ def PyByteArray_FromObject(space, w_obj):
     w_buffer = space.call_function(space.w_bytearray, w_obj)
     return make_ref(space, w_buffer)
 
-@cpython_api([rffi.CCHARP, Py_ssize_t], PyObject, result_is_ll=True)
+@cpython_api([CONST_STRING, Py_ssize_t], PyObject, result_is_ll=True)
 def PyByteArray_FromStringAndSize(space, char_p, length):
     """Create a new bytearray object from string and its length, len.  On
     failure, NULL is returned."""

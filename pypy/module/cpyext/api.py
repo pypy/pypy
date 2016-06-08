@@ -4,7 +4,7 @@ import atexit
 
 import py
 
-from pypy.conftest import pypydir
+from pypy import pypydir
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.tool import rffi_platform
 from rpython.rtyper.lltypesystem import ll2ctypes

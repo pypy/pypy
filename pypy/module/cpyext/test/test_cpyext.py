@@ -4,7 +4,7 @@ import os
 
 import py, pytest
 
-from pypy.conftest import pypydir
+from pypy import pypydir
 from pypy.interpreter import gateway
 from rpython.rtyper.lltypesystem import lltype, ll2ctypes
 from rpython.translator.tool.cbuild import ExternalCompilationInfo

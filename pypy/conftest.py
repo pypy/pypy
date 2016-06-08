@@ -18,8 +18,6 @@ rsyncignore = ['_cache']
 #
 option = None
 
-pypydir = os.path.realpath(os.path.dirname(__file__))
-
 def braindead_deindent(self):
     """monkeypatch that wont end up doing stupid in the python tokenizer"""
     text = '\n'.join(self.lines)
@@ -182,9 +180,6 @@ def pytest_runtest_setup(__multicall__, item):
                 appclass.obj.space = gettestobjspace(**spaceconfig)
             appclass.obj.runappdirect = option.runappdirect
 
-    __multicall__.execute()
-
-def pytest_runtest_teardown(__multicall__, item):
     __multicall__.execute()
 
 

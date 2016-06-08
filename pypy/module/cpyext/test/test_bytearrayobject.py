@@ -30,7 +30,8 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
                  #endif
                  if(s->ob_type->tp_basicsize != expected_size)
                  {
-                     printf("tp_basicsize==%ld\\n", s->ob_type->tp_basicsize);
+                     printf("tp_basicsize==%ld\\n",
+                            (long)s->ob_type->tp_basicsize); 
                      result = 0;
                  }
                  Py_DECREF(s);
@@ -104,7 +105,7 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
                  PyObject* s1 = PyByteArray_FromStringAndSize("test", 4);
                  if (s1 == NULL)
                      return NULL;
-                 char* c = PyByteArray_AsString(s1);
+                 const char* c = PyByteArray_AsString(s1);
                  PyObject* s2 = PyByteArray_FromStringAndSize(c, 4);
                  Py_DECREF(s1);
                  return s2;

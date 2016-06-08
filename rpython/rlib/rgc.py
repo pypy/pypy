@@ -1241,17 +1241,28 @@ class Entry(ExtRegistryEntry):
         return hop.gendirectcall(ll_nonmovable_raw_ptr_for_resizable_list,
                                  v_list)
 
+@jit.dont_look_inside
 def ll_nonmovable_raw_ptr_for_resizable_list(ll_list):
+    """
+    WARNING: dragons ahead.
+    Return the address of the internal char* buffer of 'll_list', which
+    must be a resizable list of chars.
+
+    This makes sure that the list items are non-moving, if necessary by
+    first copying the GcArray inside 'll_list.items' outside the GC
+    nursery.  The returned 'char *' pointer is guaranteed to be valid
+    until one of these occurs:
+
+       * 'll_list' gets garbage-collected; or
+       * you do an operation on 'll_list' that changes its size.
+    """
     from rpython.rtyper.lltypesystem import lltype, rffi
     array = ll_list.items
     if can_move(array):
         length = ll_list.length
         new_array = lltype.malloc(lltype.typeOf(ll_list).TO.items.TO, length,
                                   nonmovable=True)
-        i = 0
-        while i < length:
-            new_array[i] = array[i]
-            i += 1
+        ll_arraycopy(array, new_array, 0, 0, length)
         ll_list.items = new_array
         array = new_array
     ptr = lltype.direct_arrayitems(array)

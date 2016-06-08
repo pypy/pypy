@@ -521,6 +521,7 @@ class Transformer(object):
     # XXX some of the following functions should not become residual calls
     # but be really compiled
     rewrite_op_int_abs                = _do_builtin_call
+    rewrite_op_int_floordiv           = _do_builtin_call
     rewrite_op_llong_abs              = _do_builtin_call
     rewrite_op_llong_floordiv         = _do_builtin_call
     rewrite_op_llong_mod              = _do_builtin_call
