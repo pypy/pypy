@@ -390,7 +390,7 @@ class TestRint(BaseRtypingTest):
         res = self.interpret(f, [sys.maxint])
         assert res == 0
 
-    def test_int_floordiv_nonnegargs(self):
+    def test_int_py_div_nonnegargs(self):
         def f(x, y):
             assert x >= 0
             assert y >= 0
@@ -398,7 +398,7 @@ class TestRint(BaseRtypingTest):
         res = self.interpret(f, [1234567, 123])
         assert res == 1234567 // 123
 
-    def test_int_mod_nonnegargs(self):
+    def test_int_py_mod_nonnegargs(self):
         def f(x, y):
             assert x >= 0
             assert y >= 0

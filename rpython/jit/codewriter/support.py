@@ -252,7 +252,7 @@ def _ll_1_int_abs(x):
 def _ll_2_int_floordiv(x, y):
     # this is used only if the RPython program uses llop.int_floordiv()
     # explicitly.  For 'a // b', see _handle_int_special() in jtransform.py.
-    # This is the reverse of rpython.rtyper.rint.ll_int_floordiv(), i.e.
+    # This is the reverse of rpython.rtyper.rint.ll_int_py_div(), i.e.
     # the same logic as rpython.rtyper.lltypesystem.opimpl.op_int_floordiv
     # but written in a no-branch style.
     r = x // y
