@@ -1007,6 +1007,23 @@ class BasicTests:
         assert res == expected
         # all the correction code should be dead now, xxx test that
 
+    def test_int_c_div_by_constant(self):
+        from rpython.rlib.rarithmetic import int_c_div
+        myjitdriver = JitDriver(greens = ['k'], reds = ['i', 't'])
+        def f(i, k):
+            t = 0
+            while i < 100:
+                myjitdriver.can_enter_jit(i=i, t=t, k=k)
+                myjitdriver.jit_merge_point(i=i, t=t, k=k)
+                t += int_c_div(i, k)
+                i += 1
+            return t
+        expected = sum([i // 10 for i in range(51, 100)])
+        assert f(-50, 10) == expected
+        res = self.meta_interp(f, [-50, 10])
+        assert res == expected
+        self.check_resops(call=0, uint_mul_high=2)
+
     def test_float(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'res'])
         def f(x, y):
