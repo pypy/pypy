@@ -1085,8 +1085,7 @@ class ASTBuilder(object):
             args = None
         if not keywords:
             keywords = None
-        return ast.Call(callable_expr, args, keywords, variable_arg,
-                        keywords_arg, callable_expr.lineno,
+        return ast.Call(callable_expr, args, keywords, callable_expr.lineno,
                         callable_expr.col_offset)
 
     def parse_number(self, raw):
