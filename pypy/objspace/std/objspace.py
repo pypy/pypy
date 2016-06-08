@@ -90,6 +90,8 @@ class StdObjSpace(ObjSpace):
             setattr(self, 'w_' + typedef.name, w_type)
             self._interplevel_classes[w_type] = cls
         self.w_dict.flag_map_or_seq = 'M'
+        self.w_list.flag_map_or_seq = 'S'
+        self.w_tuple.flag_map_or_seq = 'S'
         self.w_unicode = self.w_str
         self.w_text = self.w_str
         self.w_str = self.w_bytes
@@ -142,7 +144,7 @@ class StdObjSpace(ObjSpace):
         if x is None:
             return self.w_None
         if isinstance(x, OperationError):
-            raise TypeError, ("attempt to wrap already wrapped exception: %s"%
+            raise TypeError("attempt to wrap already wrapped exception: %s"%
                               (x,))
         if isinstance(x, int):
             if isinstance(x, bool):
@@ -373,11 +375,12 @@ class StdObjSpace(ObjSpace):
             if cls.typedef.applevel_subclasses_base is not None:
                 cls = cls.typedef.applevel_subclasses_base
             #
-            subcls = get_unique_interplevel_subclass(
-                    self, cls, w_subtype.needsdel)
+            subcls = get_unique_interplevel_subclass(self, cls)
             instance = instantiate(subcls)
             assert isinstance(instance, cls)
             instance.user_setup(self, w_subtype)
+            if w_subtype.hasuserdel:
+                self.finalizer_queue.register_finalizer(instance)
         else:
             raise oefmt(self.w_TypeError,
                         "%N.__new__(%N): only for the type %N",
@@ -508,7 +511,12 @@ class StdObjSpace(ObjSpace):
         return None
 
     def view_as_kwargs(self, w_dict):
-        if type(w_dict) is W_DictObject:
+        # Tries to return (keys_list, values_list), or (None, None) if
+        # it fails.  It can fail on some dict implementations, so don't
+        # rely on it.  For dict subclasses, though, it never fails;
+        # this emulates CPython's behavior which often won't call
+        # custom __iter__() or keys() methods in dict subclasses.
+        if isinstance(w_dict, W_DictObject):
             return w_dict.view_as_kwargs()
         return (None, None)
 
@@ -532,8 +540,7 @@ class StdObjSpace(ObjSpace):
         w_tup = self.call_function(w_indices, w_length)
         l_w = self.unpackiterable(w_tup)
         if not len(l_w) == 3:
-            raise OperationError(self.w_ValueError,
-                                 self.wrap("Expected tuple of length 3"))
+            raise oefmt(self.w_ValueError, "Expected tuple of length 3")
         return self.int_w(l_w[0]), self.int_w(l_w[1]), self.int_w(l_w[2])
 
     _DescrOperation_is_true = is_true
@@ -581,7 +588,7 @@ class StdObjSpace(ObjSpace):
                 try:
                     return self.get_and_call_function(w_get, w_descr, w_obj,
                                                       w_type)
-                except OperationError, e:
+                except OperationError as e:
                     if not e.match(self, self.w_AttributeError):
                         raise
             else:
@@ -645,14 +652,13 @@ class StdObjSpace(ObjSpace):
 
     def _type_issubtype(self, w_sub, w_type):
         if isinstance(w_sub, W_TypeObject) and isinstance(w_type, W_TypeObject):
-            return self.wrap(w_sub.issubtype(w_type))
-        raise OperationError(self.w_TypeError, self.wrap("need type objects"))
+            return w_sub.issubtype(w_type)
+        raise oefmt(self.w_TypeError, "need type objects")
 
     @specialize.arg_or_var(2)
     def _type_isinstance(self, w_inst, w_type):
         if not isinstance(w_type, W_TypeObject):
-            raise OperationError(self.w_TypeError,
-                                 self.wrap("need type object"))
+            raise oefmt(self.w_TypeError, "need type object")
         if is_annotation_constant(w_type):
             cls = self._get_interplevel_cls(w_type)
             if cls is not None:

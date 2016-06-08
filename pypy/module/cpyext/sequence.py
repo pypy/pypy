@@ -54,7 +54,7 @@ def PySequence_Fast(space, w_obj, m):
     except OperationError:
         raise OperationError(space.w_TypeError, space.wrap(rffi.charp2str(m)))
 
-@cpython_api([PyObject, Py_ssize_t], PyObject, result_borrowed=True)
+@cpython_api([rffi.VOIDP, Py_ssize_t], PyObject, result_borrowed=True)
 def PySequence_Fast_GET_ITEM(space, w_obj, index):
     """Return the ith element of o, assuming that o was returned by
     PySequence_Fast(), o is not NULL, and that i is within bounds.
@@ -63,10 +63,11 @@ def PySequence_Fast_GET_ITEM(space, w_obj, index):
         return w_obj.getitem(index)
     elif isinstance(w_obj, tupleobject.W_TupleObject):
         return w_obj.wrappeditems[index]
-    raise OperationError(space.w_TypeError, space.wrap(
-        'PySequence_Fast_GET_ITEM called but object is not a list or sequence'))
+    raise oefmt(space.w_TypeError,
+                "PySequence_Fast_GET_ITEM called but object is not a list or "
+                "sequence")
 
-@cpython_api([PyObject], Py_ssize_t, error=CANNOT_FAIL)
+@cpython_api([rffi.VOIDP], Py_ssize_t, error=CANNOT_FAIL)
 def PySequence_Fast_GET_SIZE(space, w_obj):
     """Returns the length of o, assuming that o was returned by
     PySequence_Fast() and that o is not NULL.  The size can also be
@@ -77,10 +78,11 @@ def PySequence_Fast_GET_SIZE(space, w_obj):
         return w_obj.length()
     elif isinstance(w_obj, tupleobject.W_TupleObject):
         return len(w_obj.wrappeditems)
-    raise OperationError(space.w_TypeError, space.wrap( 
-        'PySequence_Fast_GET_SIZE called but object is not a list or sequence'))
+    raise oefmt(space.w_TypeError,
+                "PySequence_Fast_GET_SIZE called but object is not a list or "
+                "sequence")
 
-@cpython_api([PyObject], PyObjectP)
+@cpython_api([rffi.VOIDP], PyObjectP)
 def PySequence_Fast_ITEMS(space, w_obj):
     """Return the underlying array of PyObject pointers.  Assumes that o was returned
     by PySequence_Fast() and o is not NULL.
@@ -93,8 +95,9 @@ def PySequence_Fast_ITEMS(space, w_obj):
         cpy_strategy = space.fromcache(CPyListStrategy)
         if w_obj.strategy is cpy_strategy:
             return w_obj.get_raw_items() # asserts it's a cpyext strategy
-    raise OperationError(space.w_TypeError, space.wrap( 
-            'PySequence_Fast_ITEMS called but object is not the result of PySequence_Fast'))
+    raise oefmt(space.w_TypeError,
+                "PySequence_Fast_ITEMS called but object is not the result of "
+                "PySequence_Fast")
 
 @cpython_api([PyObject, Py_ssize_t, Py_ssize_t], PyObject)
 def PySequence_GetSlice(space, w_obj, start, end):
@@ -116,7 +119,7 @@ def PySequence_DelSlice(space, w_obj, start, end):
     space.delslice(w_obj, space.wrap(start), space.wrap(end))
     return 0
 
-@cpython_api([PyObject, Py_ssize_t], PyObject)
+@cpython_api([rffi.VOIDP, Py_ssize_t], PyObject)
 def PySequence_ITEM(space, w_obj, i):
     """Return the ith element of o or NULL on failure. Macro form of
     PySequence_GetItem() but without checking that
@@ -219,7 +222,7 @@ def PySequence_Index(space, w_seq, w_obj):
     while True:
         try:
             w_next = space.next(w_iter)
-        except OperationError, e:
+        except OperationError as e:
             if e.match(space, space.w_StopIteration):
                 break
             raise
@@ -227,8 +230,7 @@ def PySequence_Index(space, w_seq, w_obj):
             return idx
         idx += 1
 
-    raise OperationError(space.w_ValueError, space.wrap(
-        "sequence.index(x): x not in sequence"))
+    raise oefmt(space.w_ValueError, "sequence.index(x): x not in sequence")
 
 class CPyListStrategy(ListStrategy):
     erase, unerase = rerased.new_erasing_pair("empty")
@@ -263,8 +265,8 @@ class CPyListStrategy(ListStrategy):
 
     def getslice(self, w_list, start, stop, step, length):
         #storage = self.unerase(w_list.lstorage)
-        raise OperationError(w_list.space.w_NotImplementedError, w_list.space.wrap(
-            "settting a slice of a PySequence_Fast is not supported"))
+        raise oefmt(w_list.space.w_NotImplementedError,
+                    "settting a slice of a PySequence_Fast is not supported")
 
     def getitems(self, w_list):
         # called when switching list strategy, so convert storage

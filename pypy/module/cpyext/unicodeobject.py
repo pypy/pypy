@@ -1,4 +1,4 @@
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.unicodedata import unicodedb
 from pypy.module.cpyext.api import (
@@ -183,19 +183,19 @@ def PyUnicode_GetMax(space):
     """Get the maximum ordinal for a Unicode character."""
     return runicode.UNICHR(runicode.MAXUNICODE)
 
-@cpython_api([PyObject], rffi.CCHARP, error=CANNOT_FAIL)
+@cpython_api([rffi.VOIDP], rffi.CCHARP, error=CANNOT_FAIL)
 def PyUnicode_AS_DATA(space, ref):
     """Return a pointer to the internal buffer of the object. o has to be a
     PyUnicodeObject (not checked)."""
     return rffi.cast(rffi.CCHARP, PyUnicode_AS_UNICODE(space, ref))
 
-@cpython_api([PyObject], Py_ssize_t, error=CANNOT_FAIL)
+@cpython_api([rffi.VOIDP], Py_ssize_t, error=CANNOT_FAIL)
 def PyUnicode_GET_DATA_SIZE(space, w_obj):
     """Return the size of the object's internal buffer in bytes.  o has to be a
     PyUnicodeObject (not checked)."""
     return rffi.sizeof(lltype.UniChar) * PyUnicode_GET_SIZE(space, w_obj)
 
-@cpython_api([PyObject], Py_ssize_t, error=CANNOT_FAIL)
+@cpython_api([rffi.VOIDP], Py_ssize_t, error=CANNOT_FAIL)
 def PyUnicode_GET_SIZE(space, w_obj):
     """Return the size of the object.  o has to be a PyUnicodeObject (not
     checked)."""
@@ -215,14 +215,14 @@ def PyUnicode_IS_READY(space, w_obj):
     # PyPy is always ready.
     return space.w_True
 
-@cpython_api([PyObject], rffi.CWCHARP, error=CANNOT_FAIL)
+@cpython_api([rffi.VOIDP], rffi.CWCHARP, error=CANNOT_FAIL)
 def PyUnicode_AS_UNICODE(space, ref):
     """Return a pointer to the internal Py_UNICODE buffer of the object.  ref
     has to be a PyUnicodeObject (not checked)."""
     ref_unicode = rffi.cast(PyUnicodeObject, ref)
     if not ref_unicode.c_buffer:
         # Copy unicode buffer
-        w_unicode = from_ref(space, ref)
+        w_unicode = from_ref(space, rffi.cast(PyObject, ref))
         u = space.unicode_w(w_unicode)
         ref_unicode.c_buffer = rffi.unicode2wcharp(u)
     return ref_unicode.c_buffer
@@ -233,10 +233,9 @@ def PyUnicode_AsUnicode(space, ref):
     buffer, NULL if unicode is not a Unicode object."""
     # Don't use PyUnicode_Check, it will realize the object :-(
     w_type = from_ref(space, rffi.cast(PyObject, ref.c_ob_type))
-    if not space.is_true(space.issubtype(w_type, space.w_unicode)):
-        raise OperationError(space.w_TypeError,
-                             space.wrap("expected unicode object"))
-    return PyUnicode_AS_UNICODE(space, ref)
+    if not space.issubtype_w(w_type, space.w_unicode):
+        raise oefmt(space.w_TypeError, "expected unicode object")
+    return PyUnicode_AS_UNICODE(space, rffi.cast(rffi.VOIDP, ref))
 
 @cpython_api([PyObject], rffi.CCHARP)
 def _PyUnicode_AsString(space, ref):
@@ -268,8 +267,8 @@ def PyUnicode_AsWideChar(space, ref, buf, size):
     string may or may not be 0-terminated.  It is the responsibility of the caller
     to make sure that the wchar_t string is 0-terminated in case this is
     required by the application."""
-    c_buffer = PyUnicode_AS_UNICODE(space, ref)
     ref = rffi.cast(PyUnicodeObject, ref)
+    c_buffer = PyUnicode_AS_UNICODE(space, rffi.cast(rffi.VOIDP, ref))
     c_length = ref.c_length
 
     # If possible, try to copy the 0-termination as well
@@ -323,8 +322,8 @@ def PyUnicode_AsEncodedString(space, w_unicode, llencoding, llerrors):
     codec."""
     w_str = PyUnicode_AsEncodedObject(space, w_unicode, llencoding, llerrors)
     if not PyBytes_Check(space, w_str):
-        raise OperationError(space.w_TypeError, space.wrap(
-            "encoder did not return a bytes object"))
+        raise oefmt(space.w_TypeError,
+                    "encoder did not return a bytes object")
     return w_str
 
 @cpython_api([PyObject], PyObject)
@@ -402,8 +401,7 @@ def PyUnicode_FromEncodedObject(space, w_obj, encoding, errors):
     All other objects, including Unicode objects, cause a TypeError to be
     set."""
     if not encoding:
-        raise OperationError(space.w_TypeError,
-                             space.wrap("decoding Unicode is not supported"))
+        raise oefmt(space.w_TypeError, "decoding Unicode is not supported")
     w_encoding = space.wrap(rffi.charp2str(encoding))
     if errors:
         w_errors = space.wrap(rffi.charp2str(errors))
@@ -417,13 +415,12 @@ def PyUnicode_FromEncodedObject(space, w_obj, encoding, errors):
     else:
         try:
             w_meth = space.getattr(w_obj, space.wrap('decode'))
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_AttributeError):
                 raise
             w_meth = None
     if w_meth is None:
-        raise OperationError(space.w_TypeError,
-                             space.wrap("decoding Unicode is not supported"))
+        raise oefmt(space.w_TypeError, "decoding Unicode is not supported")
     return space.call_function(w_meth, w_encoding, w_errors)
 
 
@@ -444,8 +441,7 @@ def PyUnicode_FSConverter(space, w_obj, result):
         w_obj = PyUnicode_FromObject(space, w_obj)
         w_output = space.fsencode(w_obj)
         if not space.isinstance_w(w_output, space.w_bytes):
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("encoder failed to return bytes"))
+            raise oefmt(space.w_TypeError, "encoder failed to return bytes")
     data = space.bytes0_w(w_output)  # Check for NUL bytes
     result[0] = make_ref(space, w_output)
     return Py_CLEANUP_SUPPORTED
@@ -468,8 +464,7 @@ def PyUnicode_FSDecoder(space, w_obj, result):
         w_obj = PyBytes_FromObject(space, w_obj)
         w_output = space.fsdecode(w_obj)
         if not space.isinstance_w(w_output, space.w_unicode):
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("decoder failed to return unicode"))
+            raise oefmt(space.w_TypeError, "decoder failed to return unicode")
     data = space.unicode0_w(w_output)  # Check for NUL bytes
     result[0] = make_ref(space, w_output)
     return Py_CLEANUP_SUPPORTED
@@ -561,8 +556,8 @@ def PyUnicode_Resize(space, ref, newsize):
     # XXX always create a new string so far
     py_uni = rffi.cast(PyUnicodeObject, ref[0])
     if not py_uni.c_buffer:
-        raise OperationError(space.w_SystemError, space.wrap(
-            "PyUnicode_Resize called on already created string"))
+        raise oefmt(space.w_SystemError,
+                    "PyUnicode_Resize called on already created string")
     try:
         py_newuni = new_empty_unicode(space, newsize)
     except MemoryError:
@@ -797,7 +792,7 @@ def PyUnicode_Compare(space, w_left, w_right):
 @cpython_api([PyObject, PyObject], PyObject)
 def PyUnicode_Concat(space, w_left, w_right):
     """Concat two strings giving a new Unicode string."""
-    return space.call_method(w_left, '__add__', w_right)
+    return space.add(w_left, w_right)
 
 @cpython_api([PyObject, CONST_STRING], rffi.INT_real, error=CANNOT_FAIL)
 def PyUnicode_CompareWithASCIIString(space, w_uni, string):

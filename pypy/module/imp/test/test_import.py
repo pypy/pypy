@@ -46,15 +46,13 @@ def setuppkg(pkgname, **entries):
     if pkgname:
         p = p.join(*pkgname.split('.'))
     p.ensure(dir=1)
-    f = p.join("__init__.py").open('w')
-    print >> f, "# package"
-    f.close()
+    with p.join("__init__.py").open('w') as f:
+        print >> f, "# package"
     for filename, content in entries.items():
         filename += '.py'
-        f = p.join(filename).open('w')
-        print >> f, '#', filename
-        print >> f, content
-        f.close()
+        with p.join(filename).open('w') as f:
+            print >> f, '#', filename
+            print >> f, content
     return p
 
 def setup_directory_structure(cls):
@@ -123,6 +121,9 @@ def setup_directory_structure(cls):
         'a=5\nb=6\rc="""hello\r\nworld"""\r', mode='wb')
     p.join('mod.py').write(
         'a=15\nb=16\rc="""foo\r\nbar"""\r', mode='wb')
+    setuppkg("verbose1pkg", verbosemod='a = 1729')
+    setuppkg("verbose2pkg", verbosemod='a = 1729')
+    setuppkg("verbose0pkg", verbosemod='a = 1729')
     setuppkg("test_bytecode",
              a = '',
              b = '',
@@ -132,34 +133,10 @@ def setup_directory_structure(cls):
              line2 = "# encoding: iso-8859-1\n",
              bad = "# encoding: uft-8\n")
 
-    fsenc = sys.getfilesystemencoding()
-    # covers utf-8 and Windows ANSI code pages one non-space symbol from
-    # every page (http://en.wikipedia.org/wiki/Code_page)
-    known_locales = {
-        'utf-8' : b'\xc3\xa4',
-        'cp1250' : b'\x8C',
-        'cp1251' : b'\xc0',
-        'cp1252' : b'\xc0',
-        'cp1253' : b'\xc1',
-        'cp1254' : b'\xc0',
-        'cp1255' : b'\xe0',
-        'cp1256' : b'\xe0',
-        'cp1257' : b'\xc0',
-        'cp1258' : b'\xc0',
-        }
-
-    if sys.platform == 'darwin':
-        # Mac OS X uses the Normal Form D decomposition
-        # http://developer.apple.com/mac/library/qa/qa2001/qa1173.html
-        special_char = b'a\xcc\x88'
-    else:
-        special_char = known_locales.get(fsenc)
-
-    if special_char:
+    special_char = getattr(cls, 'special_char', None)
+    if special_char is not None:
+        special_char = special_char.encode(sys.getfilesystemencoding())
         p.join(special_char + '.py').write('pass')
-        cls.w_special_char = space.wrap(special_char.decode(fsenc))
-    else:
-        cls.w_special_char = space.w_None
 
     # create a .pyw file
     p = setuppkg("windows", x = "x = 78")
@@ -588,9 +565,8 @@ class AppTestImport(BaseImportTest):
         import test_reload
         import time, imp
         time.sleep(1)
-        f = open(test_reload.__file__, "w")
-        f.write("a = 10 // 0\n")
-        f.close()
+        with open(test_reload.__file__, "w") as f:
+            f.write("a = 10 // 0\n")
 
         # A failing reload should leave the previous module in sys.modules
         raises(ZeroDivisionError, imp.reload, test_reload)
@@ -733,7 +709,8 @@ class AppTestImport(BaseImportTest):
         import pkg
         import os
         pathname = os.path.join(os.path.dirname(pkg.__file__), 'a.py')
-        module = imp.load_module('a', open(pathname),
+        with open(pathname) as fid:
+            module = imp.load_module('a', fid,
                                  'invalid_path_name', ('.py', 'r', imp.PY_SOURCE))
         assert module.__name__ == 'a'
         assert module.__file__ == 'invalid_path_name'
@@ -768,6 +745,20 @@ class AppTestImport(BaseImportTest):
             else:
                 raise AssertionError("should have failed")
 
+    def test_verbose_flag_0(self):
+        output = []
+        class StdErr(object):
+            def write(self, line):
+                output.append(line)
+
+        import sys, imp
+        sys.stderr = StdErr()
+        try:
+            import verbose0pkg.verbosemod
+        finally:
+            imp.reload(sys)
+        assert not output
+
     def test_source_encoding(self):
         import imp
         import encoded
@@ -781,9 +772,9 @@ class AppTestImport(BaseImportTest):
         raises(SyntaxError, imp.find_module, 'bad', encoded.__path__)
 
     def test_find_module_fsdecode(self):
-        import sys
         name = self.special_char
         if not name:
+            import sys
             skip("can't run this test with %s as filesystem encoding"
                  % sys.getfilesystemencoding())
         import imp

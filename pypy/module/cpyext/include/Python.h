@@ -114,6 +114,7 @@ typedef long Py_ssize_t;
 #include "pythonrun.h"
 #include "pyerrors.h"
 #include "sysmodule.h"
+#include "bytearrayobject.h"
 #include "descrobject.h"
 #include "tupleobject.h"
 #include "dictobject.h"

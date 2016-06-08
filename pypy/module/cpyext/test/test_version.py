@@ -1,4 +1,6 @@
-import py
+import sys
+
+import py, pytest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 
 
@@ -31,6 +33,7 @@ class AppTestVersion(AppTestCpythonExtensionBase):
             PyModule_AddIntConstant(m, "py_micro_version", PY_MICRO_VERSION);
             return m;
         }
+        Py_RETURN_NONE;
         """
         module = self.import_module(name='foo', init=init)
         assert module.py_version == '%d.%d.%d' % sys.version_info[:3]
@@ -47,6 +50,7 @@ class AppTestVersion(AppTestCpythonExtensionBase):
             PyModule_AddStringConstant(m, "pypy_version", PYPY_VERSION);
             PyModule_AddIntConstant(m, "pypy_version_num", PYPY_VERSION_NUM);
         }
+        Py_RETURN_NONE;
         """
         module = self.import_module(name='foo', init=init)
         v = sys.pypy_version_info

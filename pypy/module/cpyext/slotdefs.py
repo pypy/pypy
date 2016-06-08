@@ -35,8 +35,8 @@ Py_GE = 5
 def check_num_args(space, w_ob, n):
     from pypy.module.cpyext.tupleobject import PyTuple_CheckExact
     if not PyTuple_CheckExact(space, w_ob):
-        raise OperationError(space.w_SystemError,
-            space.wrap("PyArg_UnpackTuple() argument list is not a tuple"))
+        raise oefmt(space.w_SystemError,
+                    "PyArg_UnpackTuple() argument list is not a tuple")
     if n == space.len_w(w_ob):
         return
     raise oefmt(space.w_TypeError,
@@ -46,8 +46,8 @@ def check_num_args(space, w_ob, n):
 def check_num_argsv(space, w_ob, low, high):
     from pypy.module.cpyext.tupleobject import PyTuple_CheckExact
     if not PyTuple_CheckExact(space, w_ob):
-        raise OperationError(space.w_SystemError,
-            space.wrap("PyArg_UnpackTuple() argument list is not a tuple"))
+        raise oefmt(space.w_SystemError,
+                    "PyArg_UnpackTuple() argument list is not a tuple")
     if low <=space.len_w(w_ob) <= high:
         return
     raise oefmt(space.w_TypeError,
@@ -78,8 +78,7 @@ def wrap_binaryfunc_l(space, w_self, w_args, func):
     args_w = space.fixedview(w_args)
     ref = make_ref(space, w_self)
     if (not ref.c_ob_type.c_tp_flags & Py_TPFLAGS_CHECKTYPES and
-        not space.is_true(space.issubtype(space.type(args_w[0]),
-                                         space.type(w_self)))):
+        not space.issubtype_w(space.type(args_w[0]), space.type(w_self))):
         return space.w_NotImplemented
     Py_DecRef(space, ref)
     return generic_cpy_call(space, func_binary, w_self, args_w[0])
@@ -90,8 +89,7 @@ def wrap_binaryfunc_r(space, w_self, w_args, func):
     args_w = space.fixedview(w_args)
     ref = make_ref(space, w_self)
     if (not ref.c_ob_type.c_tp_flags & Py_TPFLAGS_CHECKTYPES and
-        not space.is_true(space.issubtype(space.type(args_w[0]),
-                                         space.type(w_self)))):
+        not space.issubtype_w(space.type(args_w[0]), space.type(w_self))):
         return space.w_NotImplemented
     Py_DecRef(space, ref)
     return generic_cpy_call(space, func_binary, args_w[0], w_self)
@@ -113,8 +111,7 @@ def wrap_ternaryfunc_r(space, w_self, w_args, func):
     args_w = space.fixedview(w_args)
     ref = make_ref(space, w_self)
     if (not ref.c_ob_type.c_tp_flags & Py_TPFLAGS_CHECKTYPES and
-        not space.is_true(space.issubtype(space.type(args_w[0]),
-                                         space.type(w_self)))):
+        not space.issubtype_w(space.type(args_w[0]), space.type(w_self))):
         return space.w_NotImplemented
     Py_DecRef(space, ref)
     arg3 = space.w_None
@@ -183,9 +180,7 @@ def wrap_descr_get(space, w_self, w_args, func):
     if w_type is space.w_None:
         w_type = None
     if w_obj is None and w_type is None:
-        raise OperationError(
-            space.w_TypeError,
-            space.wrap("__get__(None, None) is invalid"))
+        raise oefmt(space.w_TypeError, "__get__(None, None) is invalid")
     return generic_cpy_call(space, func_target, w_self, w_obj, w_type)
 
 def wrap_descr_set(space, w_self, w_args, func):
@@ -348,8 +343,7 @@ def wrap_cmpfunc(space, w_self, w_args, func):
     check_num_args(space, w_args, 1)
     w_other, = space.fixedview(w_args)
 
-    if not space.is_true(space.issubtype(space.type(w_self),
-                                         space.type(w_other))):
+    if not space.issubtype_w(space.type(w_self), space.type(w_other)):
         raise oefmt(space.w_TypeError,
                     "%T.__cmp__(x,y) requires y to be a '%T', not a '%T'",
                     w_self, w_self, w_other)
@@ -376,7 +370,75 @@ def build_slot_tp_function(space, typedef, name):
     header = pypy_decl
     if mangle_name('', typedef.name) is None:
         header = None
-    if name == 'tp_setattro':
+    handled = False
+    # unary functions
+    for tp_name, attr in [('tp_as_number.c_nb_int', '__int__'),
+                          ('tp_as_number.c_nb_long', '__long__'),
+                          ('tp_as_number.c_nb_float', '__float__'),
+                          ('tp_as_number.c_nb_negative', '__neg__'),
+                          ('tp_as_number.c_nb_positive', '__pos__'),
+                          ('tp_as_number.c_nb_absolute', '__abs__'),
+                          ('tp_as_number.c_nb_invert', '__invert__'),
+                          ('tp_as_number.c_nb_index', '__index__'),
+                          ('tp_str', '__str__'),
+                          ('tp_repr', '__repr__'),
+                          ('tp_iter', '__iter__'),
+                          ]:
+        if name == tp_name:
+            slot_fn = w_type.getdictvalue(space, attr)
+            if slot_fn is None:
+                return
+
+            @cpython_api([PyObject], PyObject, header=header)
+            @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
+            def slot_func(space, w_self):
+                return space.call_function(slot_fn, w_self)
+            api_func = slot_func.api_func
+            handled = True
+
+    # binary functions
+    for tp_name, attr in [('tp_as_number.c_nb_add', '__add__'),
+                          ('tp_as_number.c_nb_subtract', '__subtract__'),
+                          ('tp_as_number.c_nb_multiply', '__mul__'),
+                          ('tp_as_number.c_nb_divide', '__div__'),
+                          ('tp_as_number.c_nb_remainder', '__mod__'),
+                          ('tp_as_number.c_nb_divmod', '__divmod__'),
+                          ('tp_as_number.c_nb_lshift', '__lshift__'),
+                          ('tp_as_number.c_nb_rshift', '__rshift__'),
+                          ('tp_as_number.c_nb_and', '__and__'),
+                          ('tp_as_number.c_nb_xor', '__xor__'),
+                          ('tp_as_number.c_nb_or', '__or__'),
+                          ]:
+        if name == tp_name:
+            slot_fn = w_type.getdictvalue(space, attr)
+            if slot_fn is None:
+                return
+
+            @cpython_api([PyObject, PyObject], PyObject, header=header)
+            @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
+            def slot_func(space, w_self, w_arg):
+                return space.call_function(slot_fn, w_self, w_arg)
+            api_func = slot_func.api_func
+            handled = True
+
+    # ternary functions
+    for tp_name, attr in [('tp_as_number.c_nb_power', ''),
+                          ]:
+        if name == tp_name:
+            slot_fn = w_type.getdictvalue(space, attr)
+            if slot_fn is None:
+                return
+
+            @cpython_api([PyObject, PyObject, PyObject], PyObject, header=header)
+            @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
+            def slot_func(space, w_self, w_arg1, w_arg2):
+                return space.call_function(slot_fn, w_self, w_arg1, w_arg2)
+            api_func = slot_func.api_func
+            handled = True
+
+    if handled:
+        pass
+    elif name == 'tp_setattro':
         setattr_fn = w_type.getdictvalue(space, '__setattr__')
         delattr_fn = w_type.getdictvalue(space, '__delattr__')
         if setattr_fn is None:
@@ -403,28 +465,6 @@ def build_slot_tp_function(space, typedef, name):
             return space.call_function(getattr_fn, w_self, w_name)
         api_func = slot_tp_getattro.api_func
 
-    elif name == 'tp_as_number.c_nb_int':
-        int_fn = w_type.getdictvalue(space, '__int__')
-        if int_fn is None:
-            return
-
-        @cpython_api([PyObject], PyObject, header=header)
-        @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
-        def slot_nb_int(space, w_self):
-            return space.call_function(int_fn, w_self)
-        api_func = slot_nb_int.api_func
-
-    elif name == 'tp_as_number.c_nb_float':
-        float_fn = w_type.getdictvalue(space, '__float__')
-        if float_fn is None:
-            return
-
-        @cpython_api([PyObject], PyObject, header=header)
-        @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
-        def slot_nb_float(space, w_self):
-            return space.call_function(float_fn, w_self)
-        api_func = slot_nb_float.api_func
-
     elif name == 'tp_call':
         call_fn = w_type.getdictvalue(space, '__call__')
         if call_fn is None:
@@ -438,28 +478,6 @@ def build_slot_tp_function(space, typedef, name):
             return space.call_args(call_fn, args)
         api_func = slot_tp_call.api_func
 
-    elif name == 'tp_str':
-        str_fn = w_type.getdictvalue(space, '__str__')
-        if str_fn is None:
-            return
-
-        @cpython_api([PyObject], PyObject, header=header)
-        @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
-        def slot_tp_str(space, w_self):
-            return space.call_function(str_fn, w_self)
-        api_func = slot_tp_str.api_func
-
-    elif name == 'tp_iter':
-        iter_fn = w_type.getdictvalue(space, '__iter__')
-        if iter_fn is None:
-            return
-
-        @cpython_api([PyObject], PyObject, header=header)
-        @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
-        def slot_tp_iter(space, w_self):
-            return space.call_function(iter_fn, w_self)
-        api_func = slot_tp_iter.api_func
-
     elif name == 'tp_iternext':
         iternext_fn = w_type.getdictvalue(space, '__next__')
         if iternext_fn is None:
@@ -470,7 +488,7 @@ def build_slot_tp_function(space, typedef, name):
         def slot_tp_iternext(space, w_self):
             try:
                 return space.call_function(iternext_fn, w_self)
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_StopIteration):
                     raise
                 return None
@@ -503,6 +521,7 @@ def build_slot_tp_function(space, typedef, name):
             return space.call_args(space.get(new_fn, w_self), args)
         api_func = slot_tp_new.api_func
     else:
+        # missing: tp_as_number.nb_nonzero, tp_as_number.nb_coerce
         return
 
     return lambda: llhelper(api_func.functype, api_func.get_wrapper(space))

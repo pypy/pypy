@@ -51,6 +51,11 @@ def mapdict_cache_counter(space, name):
                            space.newint(cache.misses.get(name, 0))])
 
 def builtinify(space, w_func):
+    """To implement at app-level modules that are, in CPython,
+    implemented in C: this decorator protects a function from being ever
+    bound like a method.  Useful because some tests do things like put
+    a "built-in" function on a class and access it via the instance.
+    """
     from pypy.interpreter.function import Function, BuiltinFunction
     func = space.interp_w(Function, w_func)
     bltn = BuiltinFunction(func)
@@ -87,8 +92,7 @@ def strategy(space, w_obj):
     elif isinstance(w_obj, W_BaseSetObject):
         name = w_obj.strategy.__class__.__name__
     else:
-        raise OperationError(space.w_TypeError,
-                             space.wrap("expecting dict or list or set object"))
+        raise oefmt(space.w_TypeError, "expecting dict or list or set object")
     return space.wrap(name)
 
 
@@ -96,14 +100,13 @@ def strategy(space, w_obj):
 def validate_fd(space, fd):
     try:
         rposix.validate_fd(fd)
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
 
 @unwrap_spec(sizehint=int)
 def resizelist_hint(space, w_iterable, sizehint):
     if not isinstance(w_iterable, W_ListObject):
-        raise OperationError(space.w_TypeError,
-                             space.wrap("arg 1 must be a 'list'"))
+        raise oefmt(space.w_TypeError, "arg 1 must be a 'list'")
     w_iterable._resize_hint(sizehint)
 
 @unwrap_spec(sizehint=int)
@@ -160,8 +163,7 @@ def _promote(space, w_obj):
     elif space.is_w(space.type(w_obj), space.w_str):
         jit.promote_string(space.str_w(w_obj))
     elif space.is_w(space.type(w_obj), space.w_unicode):
-        raise OperationError(space.w_TypeError, space.wrap(
-                             "promoting unicode unsupported"))
+        raise oefmt(space.w_TypeError, "promoting unicode unsupported")
     else:
         jit.promote(w_obj)
     return w_obj

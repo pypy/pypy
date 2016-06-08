@@ -149,7 +149,7 @@ def _do_extend_from_iterable(space, w_list, w_iterable):
                                              w_list=w_list)
         try:
             w_list.append(space.next(w_iterator))
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_StopIteration):
                 raise
             break
@@ -527,7 +527,7 @@ class W_ListObject(W_Root):
 
         try:
             self.extend(w_iterable)
-        except OperationError, e:
+        except OperationError as e:
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
             raise
@@ -536,7 +536,7 @@ class W_ListObject(W_Root):
     def descr_mul(self, space, w_times):
         try:
             times = space.getindex_w(w_times, space.w_OverflowError)
-        except OperationError, e:
+        except OperationError as e:
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
             raise
@@ -545,7 +545,7 @@ class W_ListObject(W_Root):
     def descr_inplace_mul(self, space, w_times):
         try:
             times = space.getindex_w(w_times, space.w_OverflowError)
-        except OperationError, e:
+        except OperationError as e:
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
             raise
@@ -565,8 +565,7 @@ class W_ListObject(W_Root):
             index = space.getindex_w(w_index, space.w_IndexError, "list index")
             return self.getitem(index)
         except IndexError:
-            raise OperationError(space.w_IndexError,
-                                 space.wrap("list index out of range"))
+            raise oefmt(space.w_IndexError, "list index out of range")
 
     def descr_setitem(self, space, w_index, w_any):
         if isinstance(w_index, W_SliceObject):
@@ -584,8 +583,7 @@ class W_ListObject(W_Root):
         try:
             self.setitem(idx, w_any)
         except IndexError:
-            raise OperationError(space.w_IndexError,
-                                 space.wrap("list index out of range"))
+            raise oefmt(space.w_IndexError, "list index out of range")
 
     def descr_delitem(self, space, w_idx):
         if isinstance(w_idx, W_SliceObject):
@@ -600,8 +598,7 @@ class W_ListObject(W_Root):
         try:
             self.pop(idx)
         except IndexError:
-            raise OperationError(space.w_IndexError,
-                                 space.wrap("list index out of range"))
+            raise oefmt(space.w_IndexError, "list index out of range")
 
     def descr_reversed(self, space):
         'L.__reversed__() -- return a reverse iterator over the list'
@@ -636,8 +633,7 @@ class W_ListObject(W_Root):
         index (default last)'''
         length = self.length()
         if length == 0:
-            raise OperationError(space.w_IndexError,
-                                 space.wrap("pop from empty list"))
+            raise oefmt(space.w_IndexError, "pop from empty list")
         # clearly differentiate between list.pop() and list.pop(index)
         if index == -1:
             return self.pop_end()  # cannot raise because list is not empty
@@ -646,8 +642,7 @@ class W_ListObject(W_Root):
         try:
             return self.pop(index)
         except IndexError:
-            raise OperationError(space.w_IndexError,
-                                 space.wrap("pop index out of range"))
+            raise oefmt(space.w_IndexError, "pop index out of range")
 
     def descr_clear(self, space):
         '''L.clear() -- remove all items'''
@@ -748,8 +743,7 @@ class W_ListObject(W_Root):
             self.__init__(space, sorter.list)
 
         if mucked:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("list modified during sort"))
+            raise oefmt(space.w_ValueError, "list modified during sort")
 
 find_jmp = jit.JitDriver(greens = ['tp'], reds = 'auto', name = 'list.find')
 
@@ -1468,14 +1462,15 @@ class AbstractUnwrappedStrategy(object):
 
     def setslice(self, w_list, start, step, slicelength, w_other):
         assert slicelength >= 0
+        space = self.space
 
-        if self is self.space.fromcache(ObjectListStrategy):
+        if self is space.fromcache(ObjectListStrategy):
             w_other = w_other._temporarily_as_objects()
         elif not self.list_is_correct_type(w_other) and w_other.length() != 0:
             w_list.switch_to_object_strategy()
             w_other_as_object = w_other._temporarily_as_objects()
             assert (w_other_as_object.strategy is
-                    self.space.fromcache(ObjectListStrategy))
+                    space.fromcache(ObjectListStrategy))
             w_list.setslice(start, step, slicelength, w_other_as_object)
             return
 
@@ -1501,7 +1496,7 @@ class AbstractUnwrappedStrategy(object):
                 assert start >= 0
                 del items[start:start + delta]
         elif len2 != slicelength:  # No resize for extended slices
-            raise oefmt(self.space.w_ValueError,
+            raise oefmt(space.w_ValueError,
                         "attempt to assign sequence of size %d to extended "
                         "slice of size %d", len2, slicelength)
 
@@ -2097,10 +2092,10 @@ class CustomCompareSort(SimpleSort):
         w_result = space.call_function(w_cmp, a, b)
         try:
             result = space.int_w(w_result)
-        except OperationError, e:
+        except OperationError as e:
             if e.match(space, space.w_TypeError):
-                raise OperationError(space.w_TypeError,
-                    space.wrap("comparison function must return int"))
+                raise oefmt(space.w_TypeError,
+                            "comparison function must return int")
             raise
         return result < 0
 

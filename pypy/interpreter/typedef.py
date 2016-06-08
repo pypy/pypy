@@ -12,7 +12,8 @@ from rpython.tool.sourcetools import compile2, func_with_new_name
 
 
 class TypeDef(object):
-    def __init__(self, __name, __base=None, __total_ordering__=None, **rawdict):
+    def __init__(self, __name, __base=None, __total_ordering__=None,
+                 __buffer=None, **rawdict):
         "NOT_RPYTHON: initialization-time only"
         self.name = __name
         if __base is None:
@@ -22,8 +23,13 @@ class TypeDef(object):
         else:
             bases = [__base]
         self.bases = bases
+        # Used in cpyext to fill tp_as_buffer slots
+        assert __buffer in {None, 'read-write', 'read'}, "Unknown value for __buffer"
+        self.buffer = __buffer
         self.heaptype = False
         self.hasdict = '__dict__' in rawdict
+        # no __del__: use an RPython _finalize_() method and register_finalizer
+        assert '__del__' not in rawdict
         self.weakrefable = '__weakref__' in rawdict
         self.doc = rawdict.get('__doc__', None)
         for base in bases:
@@ -103,26 +109,20 @@ def default_identity_hash(space, w_obj):
 # we need two subclasses of the app-level type, one to add mapdict, and then one
 # to add del to not slow down the GC.
 
-def get_unique_interplevel_subclass(space, cls, needsdel=False):
+def get_unique_interplevel_subclass(space, cls):
     "NOT_RPYTHON: initialization-time only"
-    if hasattr(cls, '__del__') and getattr(cls, "handle_del_manually", False):
-        needsdel = False
     assert cls.typedef.acceptable_as_base_class
-    key = space, cls, needsdel
     try:
-        return _subclass_cache[key]
+        return _unique_subclass_cache[cls]
     except KeyError:
-        # XXX can save a class if cls already has a __del__
-        if needsdel:
-            cls = get_unique_interplevel_subclass(space, cls, False)
-        subcls = _getusercls(space, cls, needsdel)
-        assert key not in _subclass_cache
-        _subclass_cache[key] = subcls
+        subcls = _getusercls(cls)
+        assert cls not in _unique_subclass_cache
+        _unique_subclass_cache[cls] = subcls
         return subcls
 get_unique_interplevel_subclass._annspecialcase_ = "specialize:memo"
-_subclass_cache = {}
+_unique_subclass_cache = {}
 
-def _getusercls(space, cls, wants_del, reallywantdict=False):
+def _getusercls(cls, reallywantdict=False):
     from rpython.rlib import objectmodel
     from pypy.objspace.std.objectobject import W_ObjectObject
     from pypy.objspace.std.mapdict import (BaseUserClassMapdict,
@@ -131,11 +131,10 @@ def _getusercls(space, cls, wants_del, reallywantdict=False):
     typedef = cls.typedef
     name = cls.__name__ + "User"
 
-    mixins_needed = []
     if cls is W_ObjectObject:
-        mixins_needed.append(_make_storage_mixin_size_n())
+        base_mixin = _make_storage_mixin_size_n()
     else:
-        mixins_needed.append(MapdictStorageMixin)
+        base_mixin = MapdictStorageMixin
     copy_methods = [BaseUserClassMapdict]
     if reallywantdict or not typedef.hasdict:
         # the type has no dict, mapdict to provide the dict
@@ -146,44 +145,12 @@ def _getusercls(space, cls, wants_del, reallywantdict=False):
         # support
         copy_methods.append(MapdictWeakrefSupport)
         name += "Weakrefable"
-    if wants_del:
-        # This subclass comes with an app-level __del__.  To handle
-        # it, we make an RPython-level __del__ method.  This
-        # RPython-level method is called directly by the GC and it
-        # cannot do random things (calling the app-level __del__ would
-        # be "random things").  So instead, we just call here
-        # enqueue_for_destruction(), and the app-level __del__ will be
-        # called later at a safe point (typically between bytecodes).
-        # If there is also an inherited RPython-level __del__, it is
-        # called afterwards---not immediately!  This base
-        # RPython-level __del__ is supposed to run only when the
-        # object is not reachable any more.  NOTE: it doesn't fully
-        # work: see issue #2287.
-        name += "Del"
-        parent_destructor = getattr(cls, '__del__', None)
-        def call_parent_del(self):
-            assert isinstance(self, subcls)
-            parent_destructor(self)
-        def call_applevel_del(self):
-            assert isinstance(self, subcls)
-            space.userdel(self)
-        class Proto(object):
-            def __del__(self):
-                self.clear_all_weakrefs()
-                self.enqueue_for_destruction(space, call_applevel_del,
-                                             'method __del__ of ')
-                if parent_destructor is not None:
-                    self.enqueue_for_destruction(space, call_parent_del,
-                                                 'internal destructor of ')
-        mixins_needed.append(Proto)
 
     class subcls(cls):
         user_overridden_class = True
-        for base in mixins_needed:
-            objectmodel.import_from_mixin(base)
+        objectmodel.import_from_mixin(base_mixin)
     for copycls in copy_methods:
         _copy_methods(copycls, subcls)
-    del subcls.base
     subcls.__name__ = name
     return subcls
 
@@ -252,8 +219,7 @@ def _make_descr_typecheck_wrapper(tag, func, extraargs, cls, use_closure):
 
 def unknown_objclass_getter(space):
     # NB. this is an AttributeError to make inspect.py happy
-    raise OperationError(space.w_AttributeError,
-                         space.wrap("generic property has no __objclass__"))
+    raise oefmt(space.w_AttributeError, "generic property has no __objclass__")
 
 @specialize.arg(0)
 def make_objclass_getter(tag, func, cls):
@@ -301,6 +267,7 @@ class GetSetProperty(W_Root):
         self.doc = doc
         self.reqcls = cls
         self.name = '<generic property>'
+        self.qualname = None
         self.objclass_getter = objclass_getter
         self.use_closure = use_closure
 
@@ -327,8 +294,7 @@ class GetSetProperty(W_Root):
         Change the value of the property of the given obj."""
         fset = self.fset
         if fset is None:
-            raise OperationError(space.w_AttributeError,
-                                 space.wrap("readonly attribute"))
+            raise oefmt(space.w_AttributeError, "readonly attribute")
         try:
             fset(self, space, w_obj, w_value)
         except DescrMismatch:
@@ -343,8 +309,7 @@ class GetSetProperty(W_Root):
         Delete the value of the property from the given obj."""
         fdel = self.fdel
         if fdel is None:
-            raise OperationError(space.w_AttributeError,
-                                 space.wrap("cannot delete attribute"))
+            raise oefmt(space.w_AttributeError, "cannot delete attribute")
         try:
             fdel(self, space, w_obj)
         except DescrMismatch:
@@ -352,6 +317,21 @@ class GetSetProperty(W_Root):
                 space, '__delattr__',
                 self.reqcls, Arguments(space, [w_obj,
                                                space.wrap(self.name)]))
+
+    def descr_get_qualname(self, space):
+        if self.qualname is None:
+            self.qualname = self._calculate_qualname(space)
+        return self.qualname
+
+    def _calculate_qualname(self, space):
+        if self.reqcls is None:
+            type_qualname = u'?'
+        else:
+            w_type = space.gettypeobject(self.reqcls.typedef)
+            type_qualname = space.unicode_w(
+                space.getattr(w_type, space.wrap('__qualname__')))
+        qualname = u"%s.%s" % (type_qualname, self.name.decode('utf-8'))
+        return space.wrap(qualname)
 
     def descr_get_objclass(space, property):
         return property.objclass_getter(space)
@@ -391,6 +371,7 @@ GetSetProperty.typedef = TypeDef(
     __set__ = interp2app(GetSetProperty.descr_property_set),
     __delete__ = interp2app(GetSetProperty.descr_property_del),
     __name__ = interp_attrproperty('name', cls=GetSetProperty),
+    __qualname__ = GetSetProperty(GetSetProperty.descr_get_qualname),
     __objclass__ = GetSetProperty(GetSetProperty.descr_get_objclass),
     __doc__ = interp_attrproperty('doc', cls=GetSetProperty),
     )
@@ -742,6 +723,8 @@ It can be called either on the class (e.g. C.f()) or on an instance
     __new__ = interp2app(StaticMethod.descr_staticmethod__new__.im_func),
     __func__= interp_attrproperty_w('w_function', cls=StaticMethod),
     __isabstractmethod__ = GetSetProperty(StaticMethod.descr_isabstract),
+    __dict__ = GetSetProperty(descr_get_dict, descr_set_dict,
+                              cls=StaticMethod),
     )
 
 ClassMethod.typedef = TypeDef(
@@ -750,6 +733,7 @@ ClassMethod.typedef = TypeDef(
     __get__ = interp2app(ClassMethod.descr_classmethod_get),
     __func__= interp_attrproperty_w('w_function', cls=ClassMethod),
     __isabstractmethod__ = GetSetProperty(ClassMethod.descr_isabstract),
+    __dict__ = GetSetProperty(descr_get_dict, descr_set_dict, cls=ClassMethod),
     __doc__ = """classmethod(function) -> class method
 
 Convert a function to be a class method.

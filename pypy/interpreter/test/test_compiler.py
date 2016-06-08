@@ -700,7 +700,7 @@ with somtehing as stuff:
         """)
         try:
             self.compiler.compile(str(source), '<filename>', 'exec', 0)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(self.space, self.space.w_SyntaxError):
                 raise
         else:
@@ -710,7 +710,7 @@ with somtehing as stuff:
         code = 'def f(): (yield bar) += y'
         try:
             self.compiler.compile(code, '', 'single', 0)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(self.space, self.space.w_SyntaxError):
                 raise
         else:
@@ -720,7 +720,7 @@ with somtehing as stuff:
         code = 'dict(a = i for i in xrange(10))'
         try:
             self.compiler.compile(code, '', 'single', 0)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(self.space, self.space.w_SyntaxError):
                 raise
         else:
@@ -850,8 +850,7 @@ class AppTestCompiler:
         assert getattr(T, '\u03bc') == 2
         assert getattr(T, '\u87d2') == 3
         #assert getattr(T, 'x\U000E0100') == 4
-        expected = ("['__dict__', '__doc__', '__module__', "
-                    "'__qualname__', '__weakref__', "
+        expected = ("['__dict__', '__doc__', '__module__', '__weakref__', "
         #            "x󠄀", "'ä', 'μ', '蟒']")
                     "'ä', 'μ', '蟒']")
         assert expected in str(sorted(T.__dict__.keys()))

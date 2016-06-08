@@ -60,7 +60,7 @@ def compress(space, string, level=rzlib.Z_DEFAULT_COMPRESSION):
             result = rzlib.compress(stream, string, rzlib.Z_FINISH)
         finally:
             rzlib.deflateEnd(stream)
-    except rzlib.RZlibError, e:
+    except rzlib.RZlibError as e:
         raise zlib_error(space, e.msg)
     return space.wrapbytes(result)
 
@@ -82,7 +82,7 @@ def decompress(space, string, wbits=rzlib.MAX_WBITS, bufsize=0):
             result, _, _ = rzlib.decompress(stream, string, rzlib.Z_FINISH)
         finally:
             rzlib.inflateEnd(stream)
-    except rzlib.RZlibError, e:
+    except rzlib.RZlibError as e:
         raise zlib_error(space, e.msg)
     return space.wrapbytes(result)
 
@@ -125,13 +125,13 @@ class Compress(ZLibObject):
                                             memLevel, strategy)
             if zdict is not None:
                 rzlib.deflateSetDictionary(self.stream, zdict)
-        except rzlib.RZlibError, e:
+        except rzlib.RZlibError as e:
             raise zlib_error(space, e.msg)
         except ValueError:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("Invalid initialization option"))
+            raise oefmt(space.w_ValueError, "Invalid initialization option")
+        self.register_finalizer(space)
 
-    def __del__(self):
+    def _finalize_(self):
         """Automatically free the resources used by the stream."""
         if self.stream:
             rzlib.deflateEnd(self.stream)
@@ -156,7 +156,7 @@ class Compress(ZLibObject):
                 result = rzlib.compress(self.stream, data)
             finally:
                 self.unlock()
-        except rzlib.RZlibError, e:
+        except rzlib.RZlibError as e:
             raise zlib_error(space, e.msg)
         return space.wrapbytes(result)
 
@@ -185,7 +185,7 @@ class Compress(ZLibObject):
                     self.stream = rzlib.null_stream
             finally:
                 self.unlock()
-        except rzlib.RZlibError, e:
+        except rzlib.RZlibError as e:
             raise zlib_error(space, e.msg)
         return space.wrapbytes(result)
 
@@ -242,14 +242,14 @@ class Decompress(ZLibObject):
         self.eof = False
         try:
             self.stream = rzlib.inflateInit(wbits)
-        except rzlib.RZlibError, e:
+        except rzlib.RZlibError as e:
             raise zlib_error(space, e.msg)
         except ValueError:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("Invalid initialization option"))
+            raise oefmt(space.w_ValueError, "Invalid initialization option")
         self.zdict = zdict
+        self.register_finalizer(space)
 
-    def __del__(self):
+    def _finalize_(self):
         """Automatically free the resources used by the stream."""
         if self.stream:
             rzlib.inflateEnd(self.stream)
@@ -288,7 +288,7 @@ class Decompress(ZLibObject):
                                           zdict=self.zdict)
             finally:
                 self.unlock()
-        except rzlib.RZlibError, e:
+        except rzlib.RZlibError as e:
             raise zlib_error(space, e.msg)
 
         string, finished, unused_len = result

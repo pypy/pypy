@@ -31,8 +31,7 @@ in addition to any features explicitly specified.
     if flags & ~(ec.compiler.compiler_flags | consts.PyCF_ONLY_AST |
                  consts.PyCF_DONT_IMPLY_DEDENT | consts.PyCF_SOURCE_IS_UTF8 |
                  consts.PyCF_ACCEPT_NULL_BYTES):
-        raise OperationError(space.w_ValueError,
-                             space.wrap("compile() unrecognized flags"))
+        raise oefmt(space.w_ValueError, "compile() unrecognized flags")
 
     if not dont_inherit:
         caller = ec.gettopframe_nohidden()
@@ -40,9 +39,8 @@ in addition to any features explicitly specified.
             flags |= ec.compiler.getcodeflags(caller.getcode())
 
     if mode not in ('exec', 'eval', 'single'):
-        raise OperationError(
-            space.w_ValueError,
-            space.wrap("compile() arg 3 must be 'exec', 'eval' or 'single'"))
+        raise oefmt(space.w_ValueError,
+                    "compile() arg 3 must be 'exec', 'eval' or 'single'")
 
     if space.isinstance_w(w_source, space.gettypeobject(ast.W_AST.typedef)):
         ast_node = ast.mod.from_object(space, w_source)
@@ -116,7 +114,7 @@ def build_class(space, w_func, w_name, __args__):
 
     try:
         w_prep = space.getattr(w_meta, space.wrap("__prepare__"))
-    except OperationError, e:
+    except OperationError as e:
         if not e.match(space, space.w_AttributeError):
             raise
         w_namespace = space.newdict()

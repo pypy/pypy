@@ -80,8 +80,8 @@ def parsestr(space, encoding, s):
         # Disallow non-ascii characters (but not escapes)
         for c in substr:
             if ord(c) > 0x80:
-                raise OperationError(space.w_SyntaxError, space.wrap(
-                        'bytes can only contain ASCII literal characters.'))
+                raise oefmt(space.w_SyntaxError,
+                            "bytes can only contain ASCII literal characters.")
 
     if rawmode or '\\' not in substr:
         if not unicode_literal:

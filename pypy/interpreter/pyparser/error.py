@@ -13,17 +13,23 @@ class SyntaxError(Exception):
 
     def wrap_info(self, space):
         w_text = w_filename = space.w_None
+        offset = self.offset
         if self.text is not None:
             from rpython.rlib.runicode import str_decode_utf_8
-            # self.text may not be UTF-8 in case of decoding errors
-            w_text = space.wrap(str_decode_utf_8(self.text, len(self.text),
-                                                 'replace')[0])
+            # self.text may not be UTF-8 in case of decoding errors.
+            # adjust the encoded text offset to a decoded offset
+            text, _ = str_decode_utf_8(self.text, offset, 'replace')
+            offset = len(text)
+            if len(self.text) != offset:
+                text, _ = str_decode_utf_8(self.text, len(self.text),
+                                           'replace')
+            w_text = space.wrap(text)
         if self.filename is not None:
             w_filename = space.fsdecode(space.wrapbytes(self.filename))
         return space.newtuple([space.wrap(self.msg),
                                space.newtuple([w_filename,
                                                space.wrap(self.lineno),
-                                               space.wrap(self.offset),
+                                               space.wrap(offset),
                                                w_text,
                                                space.wrap(self.lastlineno)])])
 

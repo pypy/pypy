@@ -1840,7 +1840,6 @@ order (MRO) for bases """
             ("__reversed__", reversed, empty_seq, set(), {}),
             ("__length_hint__", list, zero, set(),
              {"__iter__" : iden, "__next__" : stop}),
-            ("__sizeof__", sys.getsizeof, zero, set(), {}),
             ("__instancecheck__", do_isinstance, return_true, set(), {}),
             ("__missing__", do_dict_missing, some_number,
              set(("__class__",)), {}),
@@ -1857,6 +1856,8 @@ order (MRO) for bases """
             ("__dir__", dir, empty_seq, set(), {}),
             ("__round__", round, zero, set(), {}),
             ]
+        if support.check_impl_detail():
+            specials.append(("__sizeof__", sys.getsizeof, zero, set(), {}))
 
         class Checker(object):
             def __getattr__(self, attr, test=self):
@@ -2019,7 +2020,8 @@ order (MRO) for bases """
         except TypeError as msg:
             self.assertIn("weak reference", str(msg))
         else:
-            self.fail("weakref.ref(no) should be illegal")
+            if support.check_impl_detail(pypy=False):
+                self.fail("weakref.ref(no) should be illegal")
         class Weak(object):
             __slots__ = ['foo', '__weakref__']
         yes = Weak()
@@ -4213,14 +4215,10 @@ order (MRO) for bases """
         self.assertNotEqual(l.__add__, [5].__add__)
         self.assertNotEqual(l.__add__, l.__mul__)
         self.assertEqual(l.__add__.__name__, '__add__')
-        if hasattr(l.__add__, '__self__'):
+        self.assertIs(l.__add__.__self__, l)
+        if hasattr(l.__add__, '__objclass__'):
             # CPython
-            self.assertIs(l.__add__.__self__, l)
             self.assertIs(l.__add__.__objclass__, list)
-        else:
-            # Python implementations where [].__add__ is a normal bound method
-            self.assertIs(l.__add__.im_self, l)
-            self.assertIs(l.__add__.im_class, list)
         self.assertEqual(l.__add__.__doc__, list.__add__.__doc__)
         try:
             hash(l.__add__)
@@ -4430,9 +4428,9 @@ order (MRO) for bases """
         with self.assertRaises(TypeError) as cm:
             type(list).__dict__["__doc__"].__set__(list, "blah")
         self.assertIn("can't set list.__doc__", str(cm.exception))
-        with self.assertRaises(TypeError) as cm:
+        with self.assertRaises((AttributeError, TypeError)) as cm:
             type(X).__dict__["__doc__"].__delete__(X)
-        self.assertIn("can't delete X.__doc__", str(cm.exception))
+        self.assertIn("delete", str(cm.exception))
         self.assertEqual(X.__doc__, "banana")
 
     def test_qualname(self):
@@ -4441,9 +4439,16 @@ order (MRO) for bases """
 
         # make sure we have an example of each type of descriptor
         for d, n in zip(descriptors, types):
+            if (support.check_impl_detail(pypy=True) and
+                n in ('method', 'member', 'wrapper')):
+                # PyPy doesn't have these
+                continue
             self.assertEqual(type(d).__name__, n + '_descriptor')
 
         for d in descriptors:
+            if (support.check_impl_detail(pypy=True) and
+                not hasattr(d, '__objclass__')):
+                continue
             qualname = d.__objclass__.__qualname__ + '.' + d.__name__
             self.assertEqual(d.__qualname__, qualname)
 
@@ -4454,7 +4459,7 @@ order (MRO) for bases """
 
         class X:
             pass
-        with self.assertRaises(TypeError):
+        with self.assertRaises((AttributeError, TypeError)):
             del X.__qualname__
 
         self.assertRaises(TypeError, type.__dict__['__qualname__'].__set__,
@@ -4492,6 +4497,8 @@ order (MRO) for bases """
         for o in gc.get_objects():
             self.assertIsNot(type(o), X)
 
+    @unittest.skipIf(support.check_impl_detail(pypy=True),
+                     "https://bitbucket.org/pypy/pypy/issues/2306")
     def test_object_new_and_init_with_parameters(self):
         # See issue #1683368
         class OverrideNeither:
@@ -4659,6 +4666,7 @@ class PTypesLongInitTest(unittest.TestCase):
 
 
 class MiscTests(unittest.TestCase):
+    @support.cpython_only
     def test_type_lookup_mro_reference(self):
         # Issue #14199: _PyType_Lookup() has to keep a strong reference to
         # the type MRO because it may be modified during the lookup, if

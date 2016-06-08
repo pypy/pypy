@@ -12,8 +12,8 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.typedef import (
-    GetSetProperty, TypeDef, interp_attrproperty, make_weakref_descr
-)
+    GetSetProperty, TypeDef, generic_new_descr, interp_attrproperty,
+    make_weakref_descr)
 
 
 # XXX Hack to seperate rpython and pypy
@@ -39,7 +39,7 @@ def addr_as_object(addr, fd, space):
             # Linux abstract namespace
             return space.wrapbytes(path)
         else:
-            return space.wrap(path)
+            return space.wrap_fsdecoded(path)
     elif rsocket.HAS_AF_NETLINK and isinstance(addr, rsocket.NETLINKAddress):
         return space.newtuple([space.wrap(addr.get_pid()),
                                space.wrap(addr.get_groups())])
@@ -131,11 +131,10 @@ def addr_from_object(family, fd, space, w_address):
         if len(pieces_w) > 4: haddr = space.str_w(pieces_w[4])
         else:                 haddr = ""
         if len(haddr) > 8:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "Hardware address must be 8 bytes or less"))
+            raise oefmt(space.w_ValueError,
+                        "Hardware address must be 8 bytes or less")
         if protocol < 0 or protocol > 0xfffff:
-            raise OperationError(space.w_OverflowError, space.wrap(
-                "protoNumber must be 0-65535."))
+            raise oefmt(space.w_OverflowError, "protoNumber must be 0-65535.")
         return rsocket.PacketAddress(ifindex, protocol, pkttype, hatype, haddr)
     raise RSocketError("unknown address family")
 
@@ -143,14 +142,12 @@ def addr_from_object(family, fd, space, w_address):
 def make_ushort_port(space, port):
     assert isinstance(port, int)
     if port < 0 or port > 0xffff:
-        raise OperationError(space.w_OverflowError, space.wrap(
-            "port must be 0-65535."))
+        raise oefmt(space.w_OverflowError, "port must be 0-65535.")
     return port
 
 def make_unsigned_flowinfo(space, flowinfo):
     if flowinfo < 0 or flowinfo > 0xfffff:
-        raise OperationError(space.w_OverflowError, space.wrap(
-            "flowinfo must be 0-1048575."))
+        raise oefmt(space.w_OverflowError, "flowinfo must be 0-1048575.")
     return rffi.cast(lltype.Unsigned, flowinfo)
 
 # XXX Hack to seperate rpython and pypy
@@ -162,15 +159,14 @@ def ipaddr_from_object(space, w_sockaddr):
 
 
 class W_Socket(W_Root):
-    def __init__(self, space, sock):
+    def __init__(self, space, sock=None):
         self.space = space
-        self.sock = sock
-        register_socket(space, sock)
-
-    def descr_new(space, w_subtype, __args__):
-        sock = space.allocate_instance(W_Socket, w_subtype)
-        W_Socket.__init__(sock, space, RSocket.empty_rsocket())
-        return space.wrap(sock)
+        if sock is None:
+            self.sock = RSocket.empty_rsocket()
+        else:
+            register_socket(space, sock)
+            self.sock = sock
+            self.register_finalizer(space)
 
     @unwrap_spec(family=int, type=int, proto=int,
                  w_fileno=WrappedDefault(None))
@@ -183,22 +179,19 @@ class W_Socket(W_Root):
             else:
                 sock = RSocket(family, type, proto)
             W_Socket.__init__(self, space, sock)
-        except SocketError, e:
+        except SocketError as e:
             raise converted_error(space, e)
 
-    def __del__(self):
-        self.clear_all_weakrefs()
-        if self.space:
-            self.enqueue_for_destruction(self.space, W_Socket.destructor,
-                                         'internal __del__ of ')
-
-    def destructor(self):
-        assert isinstance(self, W_Socket)
-        if self.sock.fd != rsocket.INVALID_SOCKET:
+    def _finalize_(self):
+        sock = self.sock
+        if sock.fd != rsocket.INVALID_SOCKET:
             try:
                 self._dealloc_warn()
             finally:
-                self.close_w(self.space)
+                try:
+                    sock.close()
+                except SocketError:
+                    pass
 
     def get_type_w(self, space):
         return space.wrap(self.sock.type)
@@ -479,7 +472,7 @@ class W_Socket(W_Root):
         """
         try:
             optval = space.c_int_w(w_optval)
-        except OperationError, e:
+        except OperationError as e:
             if e.async(space):
                 raise
             optval = space.bytes_w(w_optval)
@@ -506,8 +499,7 @@ class W_Socket(W_Root):
         else:
             timeout = space.float_w(w_timeout)
             if timeout < 0.0:
-                raise OperationError(space.w_ValueError,
-                                     space.wrap('Timeout value out of range'))
+                raise oefmt(space.w_ValueError, "Timeout value out of range")
         self.sock.settimeout(timeout)
 
     @unwrap_spec(nbytes=int, flags=int)
@@ -744,7 +736,7 @@ settimeout(None | float) -- set or clear the timeout
 shutdown(how) -- shut down traffic in one or both directions
 
  [*] not available on all platforms!""",
-    __new__ = interp2app(W_Socket.descr_new.im_func),
+    __new__ = generic_new_descr(W_Socket),
     __init__ = interp2app(W_Socket.descr_init),
     __repr__ = interp2app(W_Socket.descr_repr),
     type = GetSetProperty(W_Socket.get_type_w),

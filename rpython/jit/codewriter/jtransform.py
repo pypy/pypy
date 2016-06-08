@@ -436,6 +436,8 @@ class Transformer(object):
         # dispatch to various implementations depending on the oopspec_name
         if oopspec_name.startswith('list.') or oopspec_name.startswith('newlist'):
             prepare = self._handle_list_call
+        elif oopspec_name.startswith('int.'):
+            prepare = self._handle_int_special
         elif oopspec_name.startswith('stroruni.'):
             prepare = self._handle_stroruni_call
         elif oopspec_name == 'str.str2unicode':
@@ -518,23 +520,13 @@ class Transformer(object):
 
     # XXX some of the following functions should not become residual calls
     # but be really compiled
-    rewrite_op_int_floordiv_ovf_zer   = _do_builtin_call
-    rewrite_op_int_floordiv_ovf       = _do_builtin_call
-    rewrite_op_int_floordiv_zer       = _do_builtin_call
-    rewrite_op_int_mod_ovf_zer        = _do_builtin_call
-    rewrite_op_int_mod_ovf            = _do_builtin_call
-    rewrite_op_int_mod_zer            = _do_builtin_call
-    rewrite_op_int_lshift_ovf         = _do_builtin_call
     rewrite_op_int_abs                = _do_builtin_call
+    rewrite_op_int_floordiv           = _do_builtin_call
     rewrite_op_llong_abs              = _do_builtin_call
     rewrite_op_llong_floordiv         = _do_builtin_call
-    rewrite_op_llong_floordiv_zer     = _do_builtin_call
     rewrite_op_llong_mod              = _do_builtin_call
-    rewrite_op_llong_mod_zer          = _do_builtin_call
     rewrite_op_ullong_floordiv        = _do_builtin_call
-    rewrite_op_ullong_floordiv_zer    = _do_builtin_call
     rewrite_op_ullong_mod             = _do_builtin_call
-    rewrite_op_ullong_mod_zer         = _do_builtin_call
     rewrite_op_gc_identityhash        = _do_builtin_call
     rewrite_op_gc_id                  = _do_builtin_call
     rewrite_op_gc_pin                 = _do_builtin_call
@@ -780,7 +772,7 @@ class Transformer(object):
                 return [SpaceOperation('-live-', [], None),
                         SpaceOperation('getfield_vable_%s' % kind,
                                        [v_inst, descr], op.result)]
-        except VirtualizableArrayField, e:
+        except VirtualizableArrayField as e:
             # xxx hack hack hack
             vinfo = e.args[1]
             arrayindex = vinfo.array_field_counter[op.args[1].value]
@@ -1532,12 +1524,6 @@ class Transformer(object):
                 return self.rewrite_operation(op1)
         ''' % (_old, _new)).compile()
 
-    def rewrite_op_int_neg_ovf(self, op):
-        op1 = SpaceOperation('int_sub_ovf',
-                             [Constant(0, lltype.Signed), op.args[0]],
-                             op.result)
-        return self.rewrite_operation(op1)
-
     def rewrite_op_float_is_true(self, op):
         op1 = SpaceOperation('float_ne',
                              [op.args[0], Constant(0.0, lltype.Float)],
@@ -1928,6 +1914,20 @@ class Transformer(object):
             func = heaptracker.adr2int(
                 llmemory.cast_ptr_to_adr(c_func.value))
         self.callcontrol.callinfocollection.add(oopspecindex, calldescr, func)
+
+    def _handle_int_special(self, op, oopspec_name, args):
+        if oopspec_name == 'int.neg_ovf':
+            [v_x] = args
+            op0 = SpaceOperation('int_sub_ovf',
+                                 [Constant(0, lltype.Signed), v_x],
+                                 op.result)
+            return self.rewrite_operation(op0)
+        else:
+            # int.py_div, int.udiv, int.py_mod, int.umod
+            opname = oopspec_name.replace('.', '_')
+            os = getattr(EffectInfo, 'OS_' + opname.upper())
+            return self._handle_oopspec_call(op, args, os,
+                                    EffectInfo.EF_ELIDABLE_CANNOT_RAISE)
 
     def _handle_stroruni_call(self, op, oopspec_name, args):
         SoU = args[0].concretetype     # Ptr(STR) or Ptr(UNICODE)

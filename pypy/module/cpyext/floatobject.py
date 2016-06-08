@@ -48,7 +48,7 @@ def PyFloat_FromDouble(space, value):
 def PyFloat_AsDouble(space, w_obj):
     return space.float_w(space.float(w_obj))
 
-@cpython_api([PyObject], lltype.Float, error=CANNOT_FAIL)
+@cpython_api([rffi.VOIDP], lltype.Float, error=CANNOT_FAIL)
 def PyFloat_AS_DOUBLE(space, w_float):
     """Return a C double representation of the contents of w_float, but
     without error checking."""
@@ -68,19 +68,20 @@ def PyFloat_FromString(space, w_obj, _):
     backward compatibility."""
     return space.call_function(space.w_float, w_obj)
 
-@cpython_api([CONST_STRING, rffi.INT_real], rffi.DOUBLE, error=-1.0)
+UCHARP = lltype.Ptr(lltype.Array(
+    rffi.UCHAR, hints={'nolength':True, 'render_as_const':True}))
+@cpython_api([UCHARP, rffi.INT_real], rffi.DOUBLE, error=-1.0)
 def _PyFloat_Unpack4(space, ptr, le):
-    input = rffi.charpsize2str(ptr, 4)
+    input = rffi.charpsize2str(rffi.cast(CONST_STRING, ptr), 4)
     if rffi.cast(lltype.Signed, le):
         return runpack.runpack("<f", input)
     else:
         return runpack.runpack(">f", input)
 
-@cpython_api([CONST_STRING, rffi.INT_real], rffi.DOUBLE, error=-1.0)
+@cpython_api([UCHARP, rffi.INT_real], rffi.DOUBLE, error=-1.0)
 def _PyFloat_Unpack8(space, ptr, le):
-    input = rffi.charpsize2str(ptr, 8)
+    input = rffi.charpsize2str(rffi.cast(CONST_STRING, ptr), 8)
     if rffi.cast(lltype.Signed, le):
         return runpack.runpack("<d", input)
     else:
         return runpack.runpack(">d", input)
-

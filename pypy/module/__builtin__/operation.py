@@ -28,8 +28,7 @@ def chr(space, code):
     try:
         c = UNICHR(code)
     except ValueError:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("chr() arg out of range"))
+        raise oefmt(space.w_ValueError, "chr() arg out of range")
     return space.wrap(c)
 
 def len(space, w_obj):
@@ -62,7 +61,7 @@ getattr(x, 'y') is equivalent to ``x.y''."""
     w_name = checkattrname(space, w_name)
     try:
         return space.getattr(w_object, w_name)
-    except OperationError, e:
+    except OperationError as e:
         if w_defvalue is not None:
             if e.match(space, space.w_AttributeError):
                 return w_defvalue
@@ -74,7 +73,7 @@ def hasattr(space, w_object, w_name):
     w_name = checkattrname(space, w_name)
     try:
         space.getattr(w_object, w_name)
-    except OperationError, e:
+    except OperationError as e:
         if e.match(space, space.w_AttributeError):
             return space.w_False
         raise
@@ -149,7 +148,7 @@ Return the next item from the iterator. If default is given and the iterator
 is exhausted, it is returned instead of raising StopIteration."""
     try:
         return space.next(w_iterator)
-    except OperationError, e:
+    except OperationError as e:
         if w_default is not None and e.match(space, space.w_StopIteration):
             return w_default
         raise

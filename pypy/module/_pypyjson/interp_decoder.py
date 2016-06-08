@@ -3,7 +3,7 @@ from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib import rfloat, runicode
 from rpython.rtyper.lltypesystem import lltype, rffi
-from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import oefmt
 from pypy.interpreter import unicodehelper
 
 OVF_DIGITS = len(str(sys.maxint))

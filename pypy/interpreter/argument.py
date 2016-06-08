@@ -27,7 +27,6 @@ class Arguments(object):
         self.space = space
         assert isinstance(args_w, list)
         self.arguments_w = args_w
-        
         self.keywords = keywords
         self.keywords_w = keywords_w
         self.keyword_names_w = keyword_names_w  # matches the tail of .keywords
@@ -87,7 +86,7 @@ class Arguments(object):
         space = self.space
         try:
             args_w = space.fixedview(w_stararg)
-        except OperationError, e:
+        except OperationError as e:
             if e.match(space, space.w_TypeError):
                 raise oefmt(space.w_TypeError,
                             "argument after * must be a sequence, not %T",
@@ -114,7 +113,7 @@ class Arguments(object):
         else:
             try:
                 w_keys = space.call_method(w_starstararg, "keys")
-            except OperationError, e:
+            except OperationError as e:
                 if e.match(space, space.w_AttributeError):
                     raise oefmt(space.w_TypeError,
                                 "argument after ** must be a mapping, not %T",
@@ -137,11 +136,11 @@ class Arguments(object):
         """The simplest argument parsing: get the 'argcount' arguments,
         or raise a real ValueError if the length is wrong."""
         if self.keywords:
-            raise ValueError, "no keyword arguments expected"
+            raise ValueError("no keyword arguments expected")
         if len(self.arguments_w) > argcount:
-            raise ValueError, "too many arguments (%d expected)" % argcount
+            raise ValueError("too many arguments (%d expected)" % argcount)
         elif len(self.arguments_w) < argcount:
-            raise ValueError, "not enough arguments (%d expected)" % argcount
+            raise ValueError("not enough arguments (%d expected)" % argcount)
         return self.arguments_w
 
     def firstarg(self):
@@ -168,6 +167,7 @@ class Arguments(object):
         # that the length of the defaults_w does not vary too much.
         co_argcount = signature.num_argnames() # expected formal arguments, without */**
         co_kwonlyargcount = signature.num_kwonlyargnames()
+        too_many_args = False
 
         # put the special w_firstarg into the scope, if it exists
         if w_firstarg is not None:
@@ -198,6 +198,7 @@ class Arguments(object):
             input_argcount += take
 
         # collect extra positional arguments into the *vararg
+        kwonly_given = 0
         if signature.has_vararg():
             args_left = co_argcount - upfront
             if args_left < 0:  # check required by rpython
@@ -211,13 +212,10 @@ class Arguments(object):
             loc = co_argcount + co_kwonlyargcount
             scope_w[loc] = self.space.newtuple(starargs_w)
         elif avail > co_argcount:
-            kwonly_given = 0
             for i in range(co_argcount, co_argcount + co_kwonlyargcount):
                 if scope_w[i] is None:
                     kwonly_given += 1
-            raise ArgErrTooMany(signature.num_argnames(),
-                                0 if defaults_w is None else len(defaults_w),
-                                avail, kwonly_given)
+            too_many_args = True
 
         # if a **kwargs argument is needed, create the dict
         w_kwds = None
@@ -252,6 +250,10 @@ class Arguments(object):
                 else:
                     raise ArgErrUnknownKwds(self.space, num_remainingkwds, keywords,
                                             kwds_mapping, self.keyword_names_w)
+        if too_many_args:
+            raise ArgErrTooMany(signature.num_argnames(),
+                                0 if defaults_w is None else len(defaults_w),
+                                avail, kwonly_given)
 
         # check for missing arguments and fill them from the kwds,
         # or with defaults, if available
@@ -311,7 +313,7 @@ class Arguments(object):
             self._match_signature(w_firstarg,
                                   scope_w, signature, defaults_w,
                                   w_kw_defs, 0)
-        except ArgErr, e:
+        except ArgErr as e:
             raise oefmt(self.space.w_TypeError, "%s() %8", fnname, e.getmsg())
         return signature.scope_length()
 
@@ -335,7 +337,7 @@ class Arguments(object):
         try:
             return self._parse(w_firstarg, signature, defaults_w, w_kw_defs,
                                blindargs)
-        except ArgErr, e:
+        except ArgErr as e:
             raise oefmt(self.space.w_TypeError, "%s() %8", fnname, e.getmsg())
 
     @staticmethod
@@ -386,11 +388,9 @@ def _do_combine_starstarargs_wrapped(space, keys_w, w_starstararg, keywords,
     for w_key in keys_w:
         try:
             key = space.identifier_w(w_key)
-        except OperationError, e:
+        except OperationError as e:
             if e.match(space, space.w_TypeError):
-                raise OperationError(
-                    space.w_TypeError,
-                    space.wrap("keywords must be strings"))
+                raise oefmt(space.w_TypeError, "keywords must be strings")
             if e.match(space, space.w_UnicodeEncodeError):
                 # Allow this to pass through
                 key = None
@@ -520,7 +520,6 @@ class ArgErrTooMany(ArgErr):
         msg = "takes %s but %s given" % (takes_str, given_str)
         return msg
 
-
 class ArgErrMultipleValues(ArgErr):
 
     def __init__(self, argname):
@@ -529,7 +528,6 @@ class ArgErrMultipleValues(ArgErr):
     def getmsg(self):
         msg = "got multiple values for argument '%s'" % self.argname
         return msg
-
 
 class ArgErrUnknownKwds(ArgErr):
 

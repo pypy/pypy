@@ -13,17 +13,17 @@ appropriate measure but it's something)::
   Samuele Pedroni
   Matti Picus
   Alex Gaynor
-  Brian Kearns
   Philip Jenvey
-  Michael Hudson
+  Brian Kearns
   Ronan Lamy
-  David Schneider
+  Michael Hudson
   Manuel Jacob
+  David Schneider
   Holger Krekel
   Christian Tismer
   Hakan Ardo
-  Benjamin Peterson
   Richard Plangger
+  Benjamin Peterson
   Anders Chrigstrom
   Eric van Riet Paap
   Wim Lavrijsen
@@ -63,9 +63,9 @@ appropriate measure but it's something)::
   stian
   Jan de Mooij
   Tyler Wade
+  Vincent Legoll
   Michael Foord
   Stephan Diehl
-  Vincent Legoll
   Stefan Schwarzer
   Valentino Volonghi
   Tomek Meka
@@ -74,31 +74,34 @@ appropriate measure but it's something)::
   Bruno Gola
   David Malcolm
   Jean-Paul Calderone
+  Mark Young
   Timo Paulssen
   Squeaky
+  Devin Jeanpierre
   Marius Gedminas
   Alexandre Fayolle
   Simon Burton
+  Stefano Rivera
   Martin Matusiak
   Konstantin Lopuhin
-  Stefano Rivera
   Wenzhu Man
   John Witulski
   Laurence Tratt
+  Raffael Tfirst
   Ivan Sichmann Freitas
   Greg Price
   Dario Bertini
   Mark Pearse
   Simon Cross
-  Andreas Stührk
   Edd Barrett
+  Andreas Stührk
+  Tobias Pape
   Jean-Philippe St. Pierre
   Guido van Rossum
   Pavel Vinogradov
   Spenser Bauman
   Jeremy Thurgood
   Paweł Piotr Przeradowski
-  Tobias Pape
   Paul deGrandis
   Ilya Osadchiy
   marky1991
@@ -110,7 +113,6 @@ appropriate measure but it's something)::
   Georg Brandl
   Bert Freudenberg
   Stian Andreassen
-  Mark Young
   Wanja Saatkamp
   Gerald Klix
   Mike Blume
@@ -126,11 +128,13 @@ appropriate measure but it's something)::
   Dusty Phillips
   Lukas Renggli
   Guenter Jantzen
+  William Leslie
   Ned Batchelder
   Tim Felgentreff
   Anton Gulenko
   Amit Regmi
   Ben Young
+  Sergey Matyunin
   Nicolas Chauvat
   Andrew Durdin
   Andrew Chambers
@@ -141,9 +145,9 @@ appropriate measure but it's something)::
   Yichao Yu
   Rocco Moretti
   Gintautas Miliauskas
-  Devin Jeanpierre
   Michael Twomey
   Lucian Branescu Mihaila
+  anatoly techtonik
   Gabriel Lavoie
   Olivier Dormond
   Jared Grubb
@@ -153,8 +157,6 @@ appropriate measure but it's something)::
   Brian Dorsey
   Victor Stinner
   Andrews Medina
-  anatoly techtonik
-  Sergey Matyunin
   Stuart Williams
   Jasper Schulz
   Christian Hudon
@@ -178,11 +180,11 @@ appropriate measure but it's something)::
   Alex Perry
   Vaibhav Sood
   Alan McIntyre
-  William Leslie
   Alexander Sedov
   Attila Gobi
   Jasper.Schulz
   Christopher Pope
+  Florin Papa
   Christian Tismer 
   Marc Abramowitz
   Dan Stromberg
@@ -198,7 +200,6 @@ appropriate measure but it's something)::
   Lukas Vacek
   Kunal Grover
   Andrew Dalke
-  Florin Papa
   Sylvain Thenault
   Jakub Stasiak
   Nathan Taylor
@@ -240,8 +241,9 @@ appropriate measure but it's something)::
   Yury V. Zaytsev
   Anna Katrina Dominguez
   Bobby Impollonia
-  timo@eistee.fritz.box
+  Vasantha Ganesh K
   Andrew Thompson
+  florinpapa
   Yusei Tahara
   Aaron Tubbs
   Ben Darnell
@@ -265,9 +267,9 @@ appropriate measure but it's something)::
   Akira Li
   Gustavo Niemeyer
   Stephan Busemann
-  florinpapa
   Rafał Gałczyński
   Matt Bogosian
+  timo
   Christian Muirhead
   Berker Peksag
   James Lan

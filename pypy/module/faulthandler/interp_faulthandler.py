@@ -114,11 +114,11 @@ def sigfpe():
 def sigabrt():
     pypy_faulthandler_sigabrt()
 
-def sigbus():
-    pypy_faulthandler_sigbus()
+#def sigbus():
+#    pypy_faulthandler_sigbus()
 
-def sigill():
-    pypy_faulthandler_sigill()
+#def sigill():
+#    pypy_faulthandler_sigill()
 
 @unwrap_spec(msg=str)
 def fatal_error(space, msg):

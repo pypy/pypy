@@ -54,10 +54,10 @@ class W_STType(W_Root):
         try:
             ast = ast_from_node(space, self.tree, info)
             result = compile_ast(space, ast, info)
-        except error.IndentationError, e:
+        except error.IndentationError as e:
             raise OperationError(space.w_IndentationError,
                                  e.wrap_info(space))
-        except error.SyntaxError, e:
+        except error.SyntaxError as e:
             raise OperationError(space.w_SyntaxError,
                                  e.wrap_info(space))
         return space.wrap(result)
@@ -76,10 +76,10 @@ def parse_python(space, source, mode):
     parser = pyparse.PythonParser(space)
     try:
         tree = parser.parse_source(source, info)
-    except error.IndentationError, e:
+    except error.IndentationError as e:
         raise OperationError(space.w_IndentationError,
                              e.wrap_info(space))
-    except error.SyntaxError, e:
+    except error.SyntaxError as e:
         raise OperationError(space.w_SyntaxError,
                              e.wrap_info(space))
     return space.wrap(W_STType(tree, mode))

@@ -13,7 +13,7 @@ from http.cookies import SimpleCookie
 
 from test.support import (
     TestFailed, TESTFN, run_with_locale, no_tracing,
-    _2G, _4G, bigmemtest, check_impl_detail
+    _2G, _4G, bigmemtest, check_impl_detail, impl_detail
     )
 
 from pickle import bytes_types
@@ -1781,6 +1781,7 @@ class AbstractPickleTests(unittest.TestCase):
                 loaded = self.loads(dumped)
                 self.assert_is_copy(obj, loaded)
 
+    @impl_detail("pypy does not store attribute names", pypy=False)
     def test_attribute_name_interning(self):
         # Test that attribute names of pickled objects are interned when
         # unpickling.
@@ -1795,6 +1796,7 @@ class AbstractPickleTests(unittest.TestCase):
             for x_key, y_key in zip(x_keys, y_keys):
                 self.assertIs(x_key, y_key)
 
+    @impl_detail("This test is too strong indeed", pypy=False)
     def test_pickle_to_2x(self):
         # Pickle non-trivial data with protocol 2, expecting that it yields
         # the same result as Python 2.x did.

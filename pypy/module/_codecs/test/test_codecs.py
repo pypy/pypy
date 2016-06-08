@@ -141,8 +141,6 @@ class AppTestCodecs:
 
 class AppTestPartialEvaluation:
     spaceconfig = dict(usemodules=['array',])
-    if sys.platform == 'win32':
-        spaceconfig['usemodules'].append('_winreg')
 
     def test_partial_utf8(self):
         import _codecs
@@ -767,7 +765,7 @@ class AppTestPartialEvaluation:
         try:
             # test for non-latin1 codepage, more general test needed
             import winreg
-            key = winreg.OpenKey(_winreg.HKEY_LOCAL_MACHINE,
+            key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,
                         r'System\CurrentControlSet\Control\Nls\CodePage')
             if winreg.QueryValueEx(key, 'ACP')[0] == u'1255':  # non-latin1
                 toencode = u'caf\xbf',b'caf\xbf'
@@ -805,3 +803,38 @@ class AppTestPartialEvaluation:
         assert _codecs.unicode_escape_decode(b) == (u'', 0)
         assert _codecs.raw_unicode_escape_decode(b) == (u'', 0)
         assert _codecs.unicode_internal_decode(b) == (u'', 0)
+
+    def test_unicode_internal_warnings(self):
+        import codecs, warnings
+        warnings.simplefilter("always")
+        encoder = codecs.getencoder("unicode_internal")
+        decoder = codecs.getdecoder("unicode_internal")
+        warning_msg = "unicode_internal codec has been deprecated"
+        with warnings.catch_warnings(record=True) as w:
+            try:
+                encoder(42)
+            except TypeError:
+                pass
+            assert len(w) == 1
+            assert str(w[0].message) == warning_msg
+            assert w[0].category == DeprecationWarning
+
+        with warnings.catch_warnings(record=True) as w:
+            try:
+                decoder(42)
+            except TypeError:
+                pass
+            assert len(w) == 0
+
+        with warnings.catch_warnings(record=True) as w:
+            encoded_abc = encoder("abc")[0]
+            assert len(w) == 1
+            assert str(w[0].message)== warning_msg
+            assert w[0].category == DeprecationWarning
+
+        with warnings.catch_warnings(record=True) as w:
+            print(type(encoded_abc))
+            decoder(encoded_abc)
+            assert len(w) == 1
+            assert str(w[0].message) == warning_msg
+            assert w[0].category == DeprecationWarning

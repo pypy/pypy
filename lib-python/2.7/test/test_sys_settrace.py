@@ -328,8 +328,8 @@ class TraceTestCase(unittest.TestCase):
 
     def test_13_genexp(self):
         if self.using_gc:
-            test_support.gc_collect()
             gc.enable()
+            test_support.gc_collect()
         try:
             self.run_test(generator_example)
             # issue1265: if the trace function contains a generator,

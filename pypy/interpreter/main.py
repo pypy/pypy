@@ -8,7 +8,7 @@ def ensure__main__(space):
     w_modules = space.sys.get('modules')
     try:
         return space.getitem(w_modules, w_main)
-    except OperationError, e:
+    except OperationError as e:
         if not e.match(space, space.w_KeyError):
             raise
     mainmodule = module.Module(space, w_main)
@@ -54,7 +54,7 @@ def _run_eval_string(source, filename, space, eval):
         else:
             return
 
-    except OperationError, operationerr:
+    except OperationError as operationerr:
         operationerr.record_interpreter_traceback()
         raise
 
@@ -106,7 +106,7 @@ def run_toplevel(space, f, verbose=False):
     try:
         # run it
         f()
-    except OperationError, operationerr:
+    except OperationError as operationerr:
         operationerr.normalize_exception(space)
         w_type = operationerr.w_type
         w_value = operationerr.get_w_value(space)
@@ -150,7 +150,7 @@ def run_toplevel(space, f, verbose=False):
                     space.call_function(w_hook, w_type, w_value, w_traceback)
                     return False   # done
 
-        except OperationError, err2:
+        except OperationError as err2:
             # XXX should we go through sys.get('stderr') ?
             print >> sys.stderr, 'Error calling sys.excepthook:'
             err2.print_application_traceback(space)

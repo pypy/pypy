@@ -72,10 +72,10 @@ class __extend__(pyframe.PyFrame):
     def handle_bytecode(self, co_code, next_instr, ec):
         try:
             next_instr = self.dispatch_bytecode(co_code, next_instr, ec)
-        except OperationError, operr:
+        except OperationError as operr:
             operr.record_context(self.space, self)
             next_instr = self.handle_operation_error(ec, operr)
-        except RaiseWithExplicitTraceback, e:
+        except RaiseWithExplicitTraceback as e:
             next_instr = self.handle_operation_error(ec, e.operr,
                                                      attach_tb=False)
         except KeyboardInterrupt:
@@ -84,7 +84,7 @@ class __extend__(pyframe.PyFrame):
         except MemoryError:
             next_instr = self.handle_asynchronous_error(ec,
                 self.space.w_MemoryError)
-        except rstackovf.StackOverflow, e:
+        except rstackovf.StackOverflow as e:
             # Note that this case catches AttributeError!
             rstackovf.check_stack_overflow()
             next_instr = self.handle_asynchronous_error(ec,
@@ -123,7 +123,7 @@ class __extend__(pyframe.PyFrame):
                     finally:
                         if trace is not None:
                             self.getorcreatedebug().w_f_trace = trace
-                except OperationError, e:
+                except OperationError as e:
                     operr = e
             pytraceback.record_application_traceback(
                 self.space, operr, self, self.last_instr)
@@ -755,8 +755,7 @@ class __extend__(pyframe.PyFrame):
         w_build_class = self.get_builtin().getdictvalue(
             self.space, '__build_class__')
         if w_build_class is None:
-            raise OperationError(self.space.w_ImportError,
-                                 self.space.wrap("__build_class__ not found"))
+            raise oefmt(self.space.w_ImportError, "__build_class__ not found")
         self.pushvalue(w_build_class)
 
     def STORE_NAME(self, varindex, next_instr):
@@ -769,7 +768,7 @@ class __extend__(pyframe.PyFrame):
         w_varname = self.getname_w(varindex)
         try:
             self.space.delitem(self.getorcreatedebug().w_locals, w_varname)
-        except OperationError, e:
+        except OperationError as e:
             # catch KeyErrors and turn them into NameErrors
             if not e.match(self.space, self.space.w_KeyError):
                 raise
@@ -920,11 +919,9 @@ class __extend__(pyframe.PyFrame):
         if space.isinstance_w(w_2, space.w_tuple):
             for w_type in space.fixedview(w_2):
                 if not space.exception_is_valid_class_w(w_type):
-                    raise OperationError(space.w_TypeError,
-                                         space.wrap(CANNOT_CATCH_MSG))
+                    raise oefmt(space.w_TypeError, CANNOT_CATCH_MSG)
         elif not space.exception_is_valid_class_w(w_2):
-            raise OperationError(space.w_TypeError,
-                                 space.wrap(CANNOT_CATCH_MSG))
+            raise oefmt(space.w_TypeError, CANNOT_CATCH_MSG)
         return space.newbool(space.exception_match(w_1, w_2))
 
     def COMPARE_OP(self, testnum, next_instr):
@@ -965,14 +962,13 @@ class __extend__(pyframe.PyFrame):
         try:
             if space.int_w(w_flag) == -1:
                 w_flag = None
-        except OperationError, e:
+        except OperationError as e:
             if e.async(space):
                 raise
 
         w_import = self.get_builtin().getdictvalue(space, '__import__')
         if w_import is None:
-            raise OperationError(space.w_ImportError,
-                                 space.wrap("__import__ not found"))
+            raise oefmt(space.w_ImportError, "__import__ not found")
         d = self.getdebug()
         if d is None:
             w_locals = None
@@ -1001,7 +997,7 @@ class __extend__(pyframe.PyFrame):
         w_module = self.peekvalue()
         try:
             w_obj = self.space.getattr(w_module, w_name)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(self.space, self.space.w_AttributeError):
                 raise
             raise oefmt(self.space.w_ImportError,
@@ -1088,7 +1084,7 @@ class __extend__(pyframe.PyFrame):
         w_iterator = self.peekvalue()
         try:
             w_nextitem = self.space.next(w_iterator)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(self.space, self.space.w_StopIteration):
                 raise
             # iterator exhausted
@@ -1099,7 +1095,7 @@ class __extend__(pyframe.PyFrame):
         return next_instr
 
     def FOR_LOOP(self, oparg, next_instr):
-        raise BytecodeCorruption, "old opcode, no longer in use"
+        raise BytecodeCorruption("old opcode, no longer in use")
 
     def SETUP_LOOP(self, offsettoend, next_instr):
         block = LoopBlock(self.valuestackdepth,

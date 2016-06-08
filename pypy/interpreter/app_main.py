@@ -2,7 +2,7 @@
 # This is pure Python code that handles the main entry point into "pypy".
 # See test/test_app_main.
 
-# Missing vs CPython: -b, -d, -x, -3
+# Missing vs CPython: -b, -d, -x
 from __future__ import print_function, unicode_literals
 USAGE1 = __doc__ = """\
 Options and arguments (and corresponding environment variables):
@@ -16,10 +16,10 @@ Options and arguments (and corresponding environment variables):
 -O     : skip assert statements; also PYTHONOPTIMIZE=x
 -OO    : remove docstrings when importing modules in addition to -O
 -q     : don't print version and copyright messages on interactive startup
--R     : ignored (see http://bugs.python.org/issue14621)
 -s     : don't add user site directory to sys.path; also PYTHONNOUSERSITE
 -S     : don't imply 'import site' on initialization
--u     : unbuffered binary stdout and stderr; also PYTHONUNBUFFERED=x
+-u     : unbuffered binary stdout and stderr, stdin always buffered;
+         also PYTHONUNBUFFERED=x
 -v     : verbose (trace import statements); also PYTHONVERBOSE=x
          can be supplied multiple times to increase verbosity
 -V     : print the Python version number and exit (also --version)
@@ -277,7 +277,16 @@ def initstdio(encoding=None, unbuffered=False):
     if StdErrPrinter is not None:
         sys.stderr = sys.__stderr__ = StdErrPrinter(2)
 
-    if 1:  # keep indentation
+    # Hack to avoid recursion issues during bootstrapping: pre-import
+    # the utf-8 and latin-1 codecs
+    encerr = None
+    try:
+        import encodings.utf_8
+        import encodings.latin_1
+    except ImportError as e:
+        encerr = e
+
+    try:
         if encoding and ':' in encoding:
             encoding, errors = encoding.split(':', 1)
         else:
@@ -296,6 +305,10 @@ def initstdio(encoding=None, unbuffered=False):
             print("Python error: <stdin> is a directory, cannot continue",
                   file=sys.stderr)
             os._exit(1)
+    finally:
+        if encerr:
+            display_exception(encerr)
+            del encerr
 
 def create_stdio(fd, writing, name, encoding, errors, unbuffered):
     import io
@@ -366,6 +379,9 @@ def W_option(options, warnoption, iterargv):
 def end_options(options, _, iterargv):
     return list(iterargv)
 
+def ignore_option(*args):
+    pass
+
 cmdline_options = {
     # simple options just increment the counter of the options listed above
     'b': (simple_option, 'bytes_warning'),
@@ -374,7 +390,6 @@ cmdline_options = {
     'E': (simple_option, 'ignore_environment'),
     'i': (simple_option, 'interactive'),
     'O': (simple_option, 'optimize'),
-    'R': (simple_option, 'hash_randomization'),
     's': (simple_option, 'no_user_site'),
     'S': (simple_option, 'no_site'),
     'u': (simple_option, 'unbuffered'),
@@ -394,6 +409,7 @@ cmdline_options = {
     '--jit':     (set_jit_option,  Ellipsis),
     '-funroll-loops': (funroll_loops, None),
     '--':        (end_options,     None),
+    'R':         (ignore_option,   None),      # previously hash_randomization
     }
 
 def handle_argument(c, options, iterargv, iterarg=iter(())):
@@ -526,6 +542,7 @@ def run_command_line(interactive,
                      unbuffered,
                      ignore_environment,
                      quiet,
+                     verbose,
                      **ignored):
     # with PyPy in top of CPython we can only have around 100
     # but we need more in the translated PyPy for the compiler package
@@ -658,6 +675,8 @@ def run_command_line(interactive,
                 inspect = True
             else:
                 # If not interactive, just read and execute stdin normally.
+                if verbose:
+                    print_banner(not no_site)
                 @hidden_applevel
                 def run_it():
                     co_stdin = compile(sys.stdin.read(), '<stdin>', 'exec',
@@ -677,9 +696,11 @@ def run_command_line(interactive,
             # CPython goes to great lengths to detect other cases
             # of pyc file format, but I think it's ok not to care.
             try:
-                from _frozen_importlib import SourcelessFileLoader
+                from _frozen_importlib import (
+                    SourceFileLoader, SourcelessFileLoader)
             except ImportError:
-                from _frozen_importlib_external import SourcelessFileLoader
+                from _frozen_importlib_external import (
+                    SourceFileLoader, SourcelessFileLoader)
             if IS_WINDOWS:
                 filename = filename.lower()
             if filename.endswith('.pyc') or filename.endswith('.pyo'):
@@ -701,6 +722,10 @@ def run_command_line(interactive,
                     break
                 else:
                     # That's the normal path, "pypy stuff.py".
+                    # We don't actually load via SourceFileLoader
+                    # because we require PyCF_ACCEPT_NULL_BYTES
+                    loader = SourceFileLoader('__main__', filename)
+                    mainmodule.__loader__ = loader
                     @hidden_applevel
                     def execfile(filename, namespace):
                         with open(filename, 'rb') as f:
@@ -735,10 +760,10 @@ def run_command_line(interactive,
     return status
 
 def print_banner(copyright):
-    print('Python %s on %s' % (sys.version, sys.platform))
+    print('Python %s on %s' % (sys.version, sys.platform), file=sys.stderr)
     if copyright:
         print('Type "help", "copyright", "credits" or '
-              '"license" for more information.')
+              '"license" for more information.', file=sys.stderr)
 
 STDLIB_WARNING = """\
 debug: WARNING: Library path not found, using compiled-in sys.path.

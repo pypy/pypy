@@ -61,9 +61,6 @@ typedef struct {
 #define PyString_CHECK_INTERNED(op) (((PyStringObject *)(op))->ob_sstate)
 
 
-#define PyByteArray_Check(obj) \
-    PyObject_IsInstance(obj, (PyObject *)&PyByteArray_Type)
-
 #ifdef __cplusplus
 }
 #endif

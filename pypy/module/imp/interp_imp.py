@@ -1,7 +1,7 @@
 from pypy.module.imp import importing
 from rpython.rlib import streamio
 from rpython.rlib.streamio import StreamErrors
-from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import oefmt
 from pypy.interpreter.module import Module
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.pycode import PyCode
@@ -38,7 +38,7 @@ def get_file(space, w_file, filename, filemode):
     if space.is_none(w_file):
         try:
             return streamio.open_file_as_stream(filename, filemode)
-        except streamio.StreamErrors, e:
+        except streamio.StreamErrors as e:
             # XXX this is not quite the correct place, but it will do for now.
             # XXX see the issue which I'm sure exists already but whose number
             # XXX I cannot find any more...
@@ -53,8 +53,7 @@ def get_file(space, w_file, filename, filemode):
 @unwrap_spec(filename='fsencode')
 def load_dynamic(space, w_modulename, filename, w_file=None):
     if not importing.has_so_extension(space):
-        raise OperationError(space.w_ImportError, space.wrap(
-            "Not implemented"))
+        raise oefmt(space.w_ImportError, "Not implemented")
 
     # the next line is mandatory to init cpyext
     space.getbuiltinmodule("cpyext")

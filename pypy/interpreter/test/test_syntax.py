@@ -151,7 +151,7 @@ def checkinvalid(space, s):
                                 space.wrap(s),
                                 space.wrap('?'),
                                 space.wrap('exec'))
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_SyntaxError):
                 raise
         else:
@@ -720,6 +720,11 @@ pass
             print_error()
             # implicit "del e" here
 
+    def test_cpython_issue2382(self):
+        code = 'Python = "\u1e54\xfd\u0163\u0125\xf2\xf1" +'
+        exc = raises(SyntaxError, compile, code, 'foo', 'exec')
+        assert exc.value.offset in (19, 20) # pypy, cpython
+
 
 if __name__ == '__main__':
     # only to check on top of CPython (you need 2.4)
@@ -727,7 +732,7 @@ if __name__ == '__main__':
     for s in VALID:
         try:
             compile(s, '?', 'exec')
-        except Exception, e:
+        except Exception as e:
             print '-'*20, 'FAILED TO COMPILE:', '-'*20
             print s
             print '%s: %s' % (e.__class__, e)
@@ -735,7 +740,7 @@ if __name__ == '__main__':
     for s in INVALID:
         try:
             raises(SyntaxError, compile, s, '?', 'exec')
-        except Exception ,e:
+        except Exception as e:
             print '-'*20, 'UNEXPECTEDLY COMPILED:', '-'*20
             print s
             print '%s: %s' % (e.__class__, e)

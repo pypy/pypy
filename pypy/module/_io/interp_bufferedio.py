@@ -40,8 +40,7 @@ class TryLock(object):
         ##     self.lock.free()
         self.lock = space.allocate_lock()
         self.owner = 0
-        self.operr = OperationError(space.w_RuntimeError,
-                                    space.wrap("reentrant call"))
+        self.operr = oefmt(space.w_RuntimeError, "reentrant call")
 
     def __enter__(self):
         if not self.lock.acquire(False):
@@ -80,8 +79,7 @@ class W_BufferedIOBase(W_IOBase):
         w_data = space.call_method(self, "read", space.wrap(length))
 
         if not space.isinstance_w(w_data, space.w_str):
-            raise OperationError(space.w_TypeError, space.wrap(
-                "read() should return bytes"))
+            raise oefmt(space.w_TypeError, "read() should return bytes")
         data = space.bytes_w(w_data)
         if len(data) > length:
             raise oefmt(space.w_ValueError,
@@ -151,8 +149,8 @@ class BufferedMixin:
 
     def _init(self, space):
         if self.buffer_size <= 0:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "buffer size must be strictly positive"))
+            raise oefmt(space.w_ValueError,
+                        "buffer size must be strictly positive")
 
         self.buffer = ['\0'] * self.buffer_size
 
@@ -165,11 +163,10 @@ class BufferedMixin:
 
     def _check_init(self, space):
         if self.state == STATE_ZERO:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "I/O operation on uninitialized object"))
+            raise oefmt(space.w_ValueError,
+                        "I/O operation on uninitialized object")
         elif self.state == STATE_DETACHED:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "raw stream has been detached"))
+            raise oefmt(space.w_ValueError, "raw stream has been detached")
 
     def _check_closed(self, space, message=None):
         self._check_init(space)
@@ -179,8 +176,8 @@ class BufferedMixin:
         w_pos = space.call_method(self.w_raw, "tell")
         pos = space.r_longlong_w(w_pos)
         if pos < 0:
-            raise OperationError(space.w_IOError, space.wrap(
-                "raw stream returned invalid position"))
+            raise oefmt(space.w_IOError,
+                        "raw stream returned invalid position")
 
         self.abs_pos = pos
         return pos
@@ -217,7 +214,7 @@ class BufferedMixin:
         typename = space.type(self).name.decode('utf-8')
         try:
             w_name = space.getattr(self, space.wrap("name"))
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_Exception):
                 raise
             return space.wrap(u"<%s>" % (typename,))
@@ -292,8 +289,8 @@ class BufferedMixin:
                                   space.wrap(pos), space.wrap(whence))
         pos = space.r_longlong_w(w_pos)
         if pos < 0:
-            raise OperationError(space.w_IOError, space.wrap(
-                "Raw stream returned invalid position"))
+            raise oefmt(space.w_IOError,
+                        "Raw stream returned invalid position")
         self.abs_pos = pos
         return pos
 
@@ -359,7 +356,7 @@ class BufferedMixin:
         while True:
             try:
                 w_written = space.call_method(self.w_raw, "write", w_data)
-            except OperationError, e:
+            except OperationError as e:
                 if trap_eintr(space, e):
                     continue  # try again
                 raise
@@ -372,8 +369,7 @@ class BufferedMixin:
 
         written = space.getindex_w(w_written, space.w_IOError)
         if not 0 <= written <= len(data):
-            raise OperationError(space.w_IOError, space.wrap(
-                "raw write() returned invalid length"))
+            raise oefmt(space.w_IOError, "raw write() returned invalid length")
         if self.abs_pos != -1:
             self.abs_pos += written
         return written
@@ -426,8 +422,8 @@ class BufferedMixin:
                 with self.lock:
                     res = self._read_generic(space, size)
         else:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "read length must be positive or -1"))
+            raise oefmt(space.w_ValueError,
+                        "read length must be positive or -1")
         return space.wrapbytes(res)
 
     @unwrap_spec(size=int)
@@ -463,8 +459,7 @@ class BufferedMixin:
         self._check_closed(space, "read of closed file")
 
         if size < 0:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "read length must be positive"))
+            raise oefmt(space.w_ValueError, "read length must be positive")
         if size == 0:
             return space.wrapbytes("")
 
@@ -535,7 +530,7 @@ class BufferedMixin:
         while True:
             try:
                 w_size = space.call_method(self.w_raw, "readinto", w_buf)
-            except OperationError, e:
+            except OperationError as e:
                 if trap_eintr(space, e):
                     continue  # try again
                 raise
@@ -546,9 +541,9 @@ class BufferedMixin:
             raise BlockingIOError()
         size = space.int_w(w_size)
         if size < 0 or size > length:
-            raise OperationError(space.w_IOError, space.wrap(
-                "raw readinto() returned invalid length %d "
-                "(should have been between 0 and %d)" % (size, length)))
+            raise oefmt(space.w_IOError,
+                        "raw readinto() returned invalid length %d (should "
+                        "have been between 0 and %d)", size, length)
         if self.abs_pos != -1:
             self.abs_pos += size
         return size
@@ -742,7 +737,7 @@ class BufferedMixin:
             # First write the current buffer
             try:
                 self._writer_flush_unlocked(space)
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_BlockingIOError):
                     raise
                 if self.readable:
@@ -960,9 +955,15 @@ class W_BufferedRWPair(W_BufferedIOBase):
             self.w_writer = None
             raise
 
-    def __del__(self):
-        self.clear_all_weakrefs()
+    def _finalize_(self):
         # Don't call the base __del__: do not close the files!
+        # Usually the _finalize_() method is not called at all because
+        # we set 'needs_to_finalize = False' in this class, so
+        # W_IOBase.__init__() won't call register_finalizer().
+        # However, this method might still be called: if the user
+        # makes an app-level subclass and adds a custom __del__.
+        pass
+    needs_to_finalize = False
 
     # forward to reader
     for method in ['read', 'peek', 'read1', 'readinto', 'readable']:

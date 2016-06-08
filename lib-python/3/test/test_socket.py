@@ -748,10 +748,11 @@ class GeneralModuleTests(unittest.TestCase):
         # wrong number of args
         with self.assertRaises(TypeError) as cm:
             s.sendto(b'foo')
-        self.assertIn('(1 given)', str(cm.exception))
+        if support.check_impl_detail():
+            self.assertIn(' given)', str(cm.exception))
         with self.assertRaises(TypeError) as cm:
             s.sendto(b'foo', 0, sockname, 4)
-        self.assertIn('(4 given)', str(cm.exception))
+        self.assertIn(' given', str(cm.exception))
 
     def testCrucialConstants(self):
         # Testing for mission critical constants

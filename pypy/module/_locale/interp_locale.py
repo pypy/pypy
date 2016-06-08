@@ -1,7 +1,7 @@
 from rpython.rlib import rposix
 from rpython.rlib.rarithmetic import intmask
 
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec
 
 from rpython.rlib import rlocale
@@ -29,7 +29,7 @@ def setlocale(space, category, w_locale=None):
         locale = space.str_w(w_locale)
     try:
         result = rlocale.setlocale(category, locale)
-    except rlocale.LocaleError, e:
+    except rlocale.LocaleError as e:
         raise rewrap_error(space, e)
     return space.wrap(result)
 
@@ -149,8 +149,7 @@ if rlocale.HAVE_LANGINFO:
         try:
             return space.wrap(rlocale.nl_langinfo(key))
         except ValueError:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("unsupported langinfo constant"))
+            raise oefmt(space.w_ValueError, "unsupported langinfo constant")
 
 #___________________________________________________________________
 # HAVE_LIBINTL dependence

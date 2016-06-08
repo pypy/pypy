@@ -67,7 +67,7 @@ class CodecState(object):
             w_replace, w_newpos = space.fixedview(w_res, 2)
             try:
                 newpos = space.int_w(w_newpos)
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_OverflowError):
                     raise
                 newpos = -1
@@ -138,9 +138,7 @@ def register_codec(space, w_search_function):
     if space.is_true(space.callable(w_search_function)):
         state.codec_search_path.append(w_search_function)
     else:
-        raise OperationError(
-            space.w_TypeError,
-            space.wrap("argument must be callable"))
+        raise oefmt(space.w_TypeError, "argument must be callable")
 
 
 @unwrap_spec(encoding=str)
@@ -174,19 +172,17 @@ def _lookup_codec_loop(space, encoding, normalized_encoding):
                                                  normalized_base))
         state.codec_need_encodings = False
         if len(state.codec_search_path) == 0:
-            raise OperationError(
-                space.w_LookupError,
-                space.wrap("no codec search functions registered: "
-                           "can't find encoding"))
+            raise oefmt(space.w_LookupError,
+                        "no codec search functions registered: can't find "
+                        "encoding")
     for w_search in state.codec_search_path:
         w_result = space.call_function(w_search,
                                        space.wrap(normalized_encoding))
         if not space.is_w(w_result, space.w_None):
             if not (space.isinstance_w(w_result, space.w_tuple) and
                     space.len_w(w_result) == 4):
-                raise OperationError(
-                    space.w_TypeError,
-                    space.wrap("codec search functions must return 4-tuples"))
+                raise oefmt(space.w_TypeError,
+                            "codec search functions must return 4-tuples")
             else:
                 state.codec_search_cache[normalized_encoding] = w_result
                 state.modified()
@@ -201,25 +197,22 @@ def check_exception(space, w_exc):
         w_start = space.getattr(w_exc, space.wrap('start'))
         w_end = space.getattr(w_exc, space.wrap('end'))
         w_obj = space.getattr(w_exc, space.wrap('object'))
-    except OperationError, e:
+    except OperationError as e:
         if not e.match(space, space.w_AttributeError):
             raise
-        raise OperationError(space.w_TypeError, space.wrap(
-            "wrong exception"))
+        raise oefmt(space.w_TypeError, "wrong exception")
 
     delta = space.int_w(w_end) - space.int_w(w_start)
     if delta < 0 or not (space.isinstance_w(w_obj, space.w_str) or
                          space.isinstance_w(w_obj, space.w_unicode)):
-        raise OperationError(space.w_TypeError, space.wrap(
-            "wrong exception"))
+        raise oefmt(space.w_TypeError, "wrong exception")
 
 def strict_errors(space, w_exc):
     check_exception(space, w_exc)
     if space.isinstance_w(w_exc, space.w_BaseException):
         raise OperationError(space.type(w_exc), w_exc)
     else:
-        raise OperationError(space.w_TypeError, space.wrap(
-            "codec must pass exception instance"))
+        raise oefmt(space.w_TypeError, "codec must pass exception instance")
 
 def ignore_errors(space, w_exc):
     check_exception(space, w_exc)
@@ -454,9 +447,8 @@ def decode(space, w_obj, w_encoding=None, errors='strict'):
     if space.is_true(w_decoder):
         w_res = space.call_function(w_decoder, w_obj, space.wrap(errors))
         if (not space.isinstance_w(w_res, space.w_tuple) or space.len_w(w_res) != 2):
-            raise OperationError(
-                space.w_TypeError,
-                space.wrap("encoder must return a tuple (object, integer)"))
+            raise oefmt(space.w_TypeError,
+                        "encoder must return a tuple (object, integer)")
         return space.getitem(w_res, space.wrap(0))
     else:
         assert 0, "XXX, what to do here?"
@@ -475,9 +467,7 @@ def register_error(space, errors, w_handler):
     if space.is_true(space.callable(w_handler)):
         state.codec_error_registry[errors] = w_handler
     else:
-        raise OperationError(
-            space.w_TypeError,
-            space.wrap("handler must be callable"))
+        raise oefmt(space.w_TypeError, "handler must be callable")
 
 # ____________________________________________________________
 # delegation to runicode
@@ -657,7 +647,7 @@ class Charmap_Decode:
         else:
             try:
                 w_ch = space.getitem(self.w_mapping, space.newint(ord(ch)))
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_LookupError):
                     raise
                 return errorchar
@@ -690,7 +680,7 @@ class Charmap_Encode:
         # get the character from the mapping
         try:
             w_ch = space.getitem(self.w_mapping, space.newint(ord(ch)))
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_LookupError):
                 raise
             return errorchar
@@ -769,7 +759,7 @@ class UnicodeData_Handler:
         space = self.space
         try:
             w_code = space.call_function(self.w_getcode, space.wrap(name))
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_KeyError):
                 raise
             return -1
@@ -812,8 +802,6 @@ def raw_unicode_escape_decode(space, w_string, errors="strict", w_final=None):
 
 @unwrap_spec(errors='str_or_None')
 def unicode_internal_decode(space, w_string, errors="strict"):
-    space.warn(space.wrap("unicode_internal codec has been deprecated"),
-               space.w_DeprecationWarning)
     if errors is None:
         errors = 'strict'
     # special case for this codec: unicodes are returned as is
@@ -821,6 +809,8 @@ def unicode_internal_decode(space, w_string, errors="strict"):
         return space.newtuple([w_string, space.len(w_string)])
 
     string = space.readbuf_w(w_string).as_str()
+    space.warn(space.wrap("unicode_internal codec has been deprecated"),
+               space.w_DeprecationWarning)
 
     if len(string) == 0:
         return space.newtuple([space.wrap(u''), space.wrap(0)])

@@ -50,7 +50,7 @@ class DictProxyStrategy(DictStrategy):
     def getitem(self, w_dict, w_key):
         space = self.space
         w_lookup_type = space.type(w_key)
-        if space.is_true(space.issubtype(w_lookup_type, space.w_unicode)):
+        if space.issubtype_w(w_lookup_type, space.w_unicode):
             return self.getitem_str(w_dict, space.str_w(w_key))
         else:
             return None
@@ -63,13 +63,14 @@ class DictProxyStrategy(DictStrategy):
         if space.is_w(space.type(w_key), space.w_unicode):
             self.setitem_str(w_dict, self.space.str_w(w_key), w_value)
         else:
-            raise OperationError(space.w_TypeError, space.wrap("cannot add non-string keys to dict of a type"))
+            raise oefmt(space.w_TypeError,
+                        "cannot add non-string keys to dict of a type")
 
     def setitem_str(self, w_dict, key, w_value):
         w_type = self.unerase(w_dict.dstorage)
         try:
             w_type.setdictvalue(self.space, key, w_value)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(self.space, self.space.w_TypeError):
                 raise
             if not w_type.is_cpytype():
@@ -153,7 +154,7 @@ class MappingProxyStrategy(DictStrategy):
     def getitem(self, w_dict, w_key):
         try:
             return self.space.getitem(self.unerase(w_dict.dstorage), w_key)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(self.space, self.space.w_KeyError):
                 raise
             return None

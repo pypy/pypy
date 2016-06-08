@@ -1,7 +1,8 @@
 # NOT_RPYTHON
 
 from _structseq import structseqtype, structseqfield
-
+from types import SimpleNamespace
+import time
 class struct_time(metaclass=structseqtype):
     __module__ = 'time'
     name = 'time.struct_time'
@@ -25,6 +26,27 @@ def strptime(string, format="%a %b %d %H:%M:%S %Y"):
 
     import _strptime     # from the CPython standard library
     return _strptime._strptime_time(string, format)
+
+def get_clock_info(name):
+    info = SimpleNamespace()
+    info.implementation = ""
+    info.monotonic = 0
+    info.adjustable = 0
+    info.resolution = 1.0
+
+    if name == "time":
+        time.time(info)
+    elif name == "monotonic":
+        time.monotonic(info)
+    elif name == "clock":
+        time.clock(info)
+    elif name == "perf_counter":
+        time.perf_counter(info)
+    elif name == "process_time":
+        time.process_time(info)
+    else:
+        raise ValueError("unknown clock")
+    return info
 
 __doc__ = """This module provides various functions to manipulate time values.
 

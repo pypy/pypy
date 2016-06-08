@@ -61,8 +61,7 @@ def compute_slice_indices3(space, w_slice, w_length):
     else:
         w_step = space.index(w_slice.w_step)
         if space.is_true(space.eq(w_step, w_0)):
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("slice step cannot be zero"))
+            raise oefmt(space.w_ValueError, "slice step cannot be zero")
     negative_step = space.is_true(space.lt(w_step, w_0))
     if space.is_w(w_slice.w_start, space.w_None):
         if negative_step:
@@ -118,22 +117,33 @@ def make_min_max(unroll):
         else:
             compare = space.lt
             jitdriver = min_jitdriver
+        any_kwds = bool(args.keywords)
         args_w = args.arguments_w
         if len(args_w) > 1:
+            if unroll and len(args_w) == 2 and not any_kwds:
+                # a fast path for the common case, useful for interpreted
+                # mode and to reduce the length of the jit trace
+                w0, w1 = args_w
+                if space.is_true(compare(w1, w0)):
+                    return w1
+                else:
+                    return w0
             w_sequence = space.newtuple(args_w)
         elif len(args_w):
             w_sequence = args_w[0]
         else:
-            msg = "%s() expects at least one argument" % (implementation_of,)
-            raise OperationError(space.w_TypeError, space.wrap(msg))
+            raise oefmt(space.w_TypeError,
+                        "%s() expects at least one argument",
+                        implementation_of)
         w_key = None
-        kwds = args.keywords
-        if kwds:
+        if any_kwds:
+            kwds = args.keywords
             if kwds[0] == "key" and len(kwds) == 1:
                 w_key = args.keywords_w[0]
             else:
-                msg = "%s() got unexpected keyword argument" % (implementation_of,)
-                raise OperationError(space.w_TypeError, space.wrap(msg))
+                raise oefmt(space.w_TypeError,
+                            "%s() got unexpected keyword argument",
+                            implementation_of)
 
         w_iter = space.iter(w_sequence)
         w_type = space.type(w_iter)
@@ -146,7 +156,7 @@ def make_min_max(unroll):
                 jitdriver.jit_merge_point(has_key=has_key, has_item=has_item, w_type=w_type)
             try:
                 w_item = space.next(w_iter)
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_StopIteration):
                     raise
                 break
@@ -160,8 +170,7 @@ def make_min_max(unroll):
                 w_max_item = w_item
                 w_max_val = w_compare_with
         if w_max_item is None:
-            msg = "arg is an empty sequence"
-            raise OperationError(space.w_ValueError, space.wrap(msg))
+            raise oefmt(space.w_ValueError, "arg is an empty sequence")
         return w_max_item
     if unroll:
         min_max_impl = jit.unroll_safe(min_max_impl)
@@ -297,8 +306,8 @@ class W_ReversedIterator(W_Root):
     def __init__(self, space, w_sequence):
         self.remaining = space.len_w(w_sequence) - 1
         if space.lookup(w_sequence, "__getitem__") is None:
-            msg = "reversed() argument must be a sequence"
-            raise OperationError(space.w_TypeError, space.wrap(msg))
+            raise oefmt(space.w_TypeError,
+                        "reversed() argument must be a sequence")
         self.w_sequence = w_sequence
 
     @staticmethod
@@ -322,7 +331,7 @@ class W_ReversedIterator(W_Root):
             w_index = space.wrap(self.remaining)
             try:
                 w_item = space.getitem(self.w_sequence, w_index)
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_StopIteration):
                     raise
             else:
@@ -388,8 +397,8 @@ class W_Range(W_Root):
             pass  # We know it's not zero
         else:
             if step == 0:
-                raise OperationError(space.w_ValueError, space.wrap(
-                        "step argument must not be zero"))
+                raise oefmt(space.w_ValueError,
+                            "step argument must not be zero")
         w_length = compute_range_length(space, w_start, w_stop, w_step)
         obj = space.allocate_instance(W_Range, w_subtype)
         W_Range.__init__(obj, w_start, w_stop, w_step, w_length, promote_step)
@@ -419,8 +428,7 @@ class W_Range(W_Root):
             w_index = space.add(w_index, self.w_length)
         if (space.is_true(space.ge(w_index, self.w_length)) or
             space.is_true(space.lt(w_index, w_zero))):
-            raise OperationError(space.w_IndexError, space.wrap(
-                    "range object index out of range"))
+            raise oefmt(space.w_IndexError, "range object index out of range")
         return self._compute_item0(space, w_index)
 
     def _compute_slice(self, space, w_slice):
@@ -687,9 +695,11 @@ class W_Map(W_Root):
         for iterable_w in args_w:
             try:
                 iterator_w = space.iter(iterable_w)
-            except OperationError, e:
+            except OperationError as e:
                 if e.match(self.space, self.space.w_TypeError):
-                    raise OperationError(space.w_TypeError, space.wrap(self._error_name + " argument #" + str(i + 1) + " must support iteration"))
+                    raise oefmt(space.w_TypeError,
+                                "%s argument #%d must support iteration",
+                                self._error_name, i + 1)
                 else:
                     raise
             else:
@@ -732,8 +742,8 @@ class W_Map(W_Root):
 
 def W_Map___new__(space, w_subtype, w_fun, args_w):
     if len(args_w) == 0:
-        raise OperationError(space.w_TypeError,
-                  space.wrap("map() must have at least two arguments"))
+        raise oefmt(space.w_TypeError,
+                    "map() must have at least two arguments")
     r = space.allocate_instance(W_Map, w_subtype)
     r.__init__(space, w_fun, args_w)
     return space.wrap(r)

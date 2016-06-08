@@ -1,7 +1,7 @@
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.error import OperationError, oefmt
-from pypy.interpreter.error import wrap_oserror, wrap_oserror2
+from pypy.interpreter.error import (
+    OperationError, oefmt, wrap_oserror, wrap_oserror2)
 from rpython.rlib.rarithmetic import r_longlong
 from rpython.rlib.rstring import StringBuilder
 from os import O_RDONLY, O_WRONLY, O_RDWR, O_CREAT, O_TRUNC, O_EXCL
@@ -13,8 +13,7 @@ def interp_member_w(name, cls, doc=None):
     def fget(space, obj):
         w_value = getattr(obj, name)
         if w_value is None:
-            raise OperationError(space.w_AttributeError,
-                                 space.wrap(name))
+            raise OperationError(space.w_AttributeError, space.wrap(name))
         else:
             return w_value
     def fset(space, obj, w_value):
@@ -22,8 +21,7 @@ def interp_member_w(name, cls, doc=None):
     def fdel(space, obj):
         w_value = getattr(obj, name)
         if w_value is None:
-            raise OperationError(space.w_AttributeError,
-                                 space.wrap(name))
+            raise OperationError(space.w_AttributeError, space.wrap(name))
         setattr(obj, name, None)
 
     return GetSetProperty(fget, fset, fdel, cls=cls, doc=doc)
@@ -33,8 +31,8 @@ O_BINARY = getattr(os, "O_BINARY", 0)
 O_APPEND = getattr(os, "O_APPEND", 0)
 
 def _bad_mode(space):
-    raise OperationError(space.w_ValueError, space.wrap(
-        "Must have exactly one of read/write/create/append mode"))
+    raise oefmt(space.w_ValueError,
+                "Must have exactly one of read/write/create/append mode")
 
 def decode_mode(space, mode):
     flags = 0
@@ -79,8 +77,7 @@ def decode_mode(space, mode):
             readable = writable = True
             plus = True
         else:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "invalid mode: %s" % (mode,)))
+            raise oefmt(space.w_ValueError, "invalid mode: %s", mode)
 
     if not rwa:
         _bad_mode(space)
@@ -143,18 +140,17 @@ class W_FileIO(W_RawIOBase):
     @unwrap_spec(mode=str, closefd=int)
     def descr_init(self, space, w_name, mode='r', closefd=True, w_opener=None):
         if space.isinstance_w(w_name, space.w_float):
-            raise OperationError(space.w_TypeError, space.wrap(
-                "integer argument expected, got float"))
+            raise oefmt(space.w_TypeError,
+                        "integer argument expected, got float")
 
         fd = -1
         try:
             fd = space.c_int_w(w_name)
-        except OperationError, e:
+        except OperationError as e:
             pass
         else:
             if fd < 0:
-                raise OperationError(space.w_ValueError, space.wrap(
-                    "negative file descriptor"))
+                raise oefmt(space.w_ValueError, "negative file descriptor")
 
         self.readable, self.writable, self.created, self.appending, flags = decode_mode(space, mode)
 
@@ -163,7 +159,7 @@ class W_FileIO(W_RawIOBase):
             if fd >= 0:
                 try:
                     os.fstat(fd)
-                except OSError, e:
+                except OSError as e:
                     if e.errno == errno.EBADF:
                         raise wrap_oserror(space, e)
                     # else: pass
@@ -172,15 +168,15 @@ class W_FileIO(W_RawIOBase):
             elif space.is_none(w_opener):
                 self.closefd = True
                 if not closefd:
-                    raise OperationError(space.w_ValueError, space.wrap(
-                        "Cannot use closefd=False with file name"))
+                    raise oefmt(space.w_ValueError,
+                                "Cannot use closefd=False with file name")
 
                 from pypy.module.posix.interp_posix import (
                     dispatch_filename, rposix)
                 try:
                     self.fd = dispatch_filename(rposix.open)(
                         space, w_name, flags, 0666)
-                except OSError, e:
+                except OSError as e:
                     raise wrap_oserror2(space, e, w_name,
                                         exception_name='w_IOError')
                 finally:
@@ -205,7 +201,7 @@ class W_FileIO(W_RawIOBase):
                 # (otherwise, it might be done only on the first write()).
                 try:
                     os.lseek(self.fd, 0, os.SEEK_END)
-                except OSError, e:
+                except OSError as e:
                     raise wrap_oserror(space, e, exception_name='w_IOError')
         except:
             if not fd_is_own:
@@ -259,7 +255,7 @@ class W_FileIO(W_RawIOBase):
 
         try:
             os.close(fd)
-        except OSError, e:
+        except OSError as e:
             raise wrap_oserror(space, e,
                                exception_name='w_IOError')
 
@@ -307,7 +303,7 @@ class W_FileIO(W_RawIOBase):
         self._check_closed(space)
         try:
             pos = os.lseek(self.fd, pos, whence)
-        except OSError, e:
+        except OSError as e:
             raise wrap_oserror(space, e,
                                exception_name='w_IOError')
         return space.wrap(pos)
@@ -316,7 +312,7 @@ class W_FileIO(W_RawIOBase):
         self._check_closed(space)
         try:
             pos = os.lseek(self.fd, 0, 1)
-        except OSError, e:
+        except OSError as e:
             raise wrap_oserror(space, e,
                                exception_name='w_IOError')
         return space.wrap(pos)
@@ -350,7 +346,7 @@ class W_FileIO(W_RawIOBase):
         self._check_closed(space)
         try:
             res = os.isatty(self.fd)
-        except OSError, e:
+        except OSError as e:
             raise wrap_oserror(space, e, exception_name='w_IOError')
         return space.wrap(res)
 
@@ -377,7 +373,7 @@ class W_FileIO(W_RawIOBase):
 
         try:
             n = os.write(self.fd, data)
-        except OSError, e:
+        except OSError as e:
             if e.errno == errno.EAGAIN:
                 return space.w_None
             raise wrap_oserror(space, e,
@@ -395,7 +391,7 @@ class W_FileIO(W_RawIOBase):
 
         try:
             s = os.read(self.fd, size)
-        except OSError, e:
+        except OSError as e:
             if e.errno == errno.EAGAIN:
                 return space.w_None
             raise wrap_oserror(space, e,
@@ -410,7 +406,7 @@ class W_FileIO(W_RawIOBase):
         length = rwbuffer.getlength()
         try:
             buf = os.read(self.fd, length)
-        except OSError, e:
+        except OSError as e:
             if e.errno == errno.EAGAIN:
                 return space.w_None
             raise wrap_oserror(space, e,
@@ -429,7 +425,7 @@ class W_FileIO(W_RawIOBase):
 
             try:
                 chunk = os.read(self.fd, newsize - total)
-            except OSError, e:
+            except OSError as e:
                 if e.errno == errno.EINTR:
                     space.getexecutioncontext().checksignals()
                     continue
@@ -463,7 +459,7 @@ class W_FileIO(W_RawIOBase):
 
         try:
             self._truncate(space.r_longlong_w(w_size))
-        except OSError, e:
+        except OSError as e:
             raise wrap_oserror(space, e, exception_name='w_IOError')
 
         return w_size

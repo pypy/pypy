@@ -47,8 +47,7 @@ class W_Count(W_Root):
 def check_number(space, w_obj):
     if (space.lookup(w_obj, '__int__') is None and
         space.lookup(w_obj, '__float__') is None):
-        raise OperationError(space.w_TypeError,
-                             space.wrap("expected a number"))
+        raise oefmt(space.w_TypeError, "expected a number")
 
 @unwrap_spec(w_start=WrappedDefault(0), w_step=WrappedDefault(1))
 def W_Count___new__(space, w_subtype, w_start, w_step):
@@ -333,7 +332,9 @@ class W_ISlice(W_Root):
                  "Indicies for islice() must be None or non-negative integers")
             w_stop = args_w[0]
         else:
-            raise OperationError(space.w_TypeError, space.wrap("islice() takes at most 4 arguments (" + str(num_args) + " given)"))
+            raise oefmt(space.w_TypeError,
+                        "islice() takes at most 4 arguments (%d given)",
+                        num_args)
 
         if space.is_w(w_stop, space.w_None):
             stop = -1
@@ -359,8 +360,8 @@ class W_ISlice(W_Root):
     def arg_int_w(self, w_obj, minimum, errormsg):
         space = self.space
         try:
-            result = space.int_w(space.int(w_obj))    # CPython allows floats as parameters
-        except OperationError, e:
+            result = space.int_w(w_obj)
+        except OperationError as e:
             if e.async(space):
                 raise
             result = -1
@@ -482,11 +483,11 @@ class W_Chain(W_Root):
         if not self.w_it:
             try:
                 self._advance()
-            except OperationError, e:
+            except OperationError as e:
                 raise e
         try:
             return self.space.next(self.w_it)
-        except OperationError, e:
+        except OperationError as e:
             return self._handle_error(e)
 
     def _handle_error(self, e):
@@ -495,12 +496,12 @@ class W_Chain(W_Root):
                 raise e
             try:
                 self._advance() # may raise StopIteration itself
-            except OperationError, e:
+            except OperationError as e:
                 self.w_iterables = None
                 raise e
             try:
                 return self.space.next(self.w_it)
-            except OperationError, e:
+            except OperationError as e:
                 pass # loop back to the start of _handle_error(e)
 
     def descr_reduce(self, space):
@@ -580,7 +581,7 @@ class W_ZipLongest(W_Map):
             space = self.space
             try:
                 return space.next(w_iter)
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_StopIteration):
                     raise
                 self.active -= 1
@@ -630,8 +631,8 @@ def W_ZipLongest___new__(space, w_subtype, __args__):
             w_fillvalue = kwds_w["fillvalue"]
             del kwds_w["fillvalue"]
         if kwds_w:
-            raise OperationError(space.w_TypeError, space.wrap(
-                "zip_longest() got unexpected keyword argument(s)"))
+            raise oefmt(space.w_TypeError,
+                        "zip_longest() got unexpected keyword argument(s)")
 
     self = space.allocate_instance(W_ZipLongest, w_subtype)
     self.__init__(space, space.w_None, arguments_w)
@@ -681,7 +682,7 @@ class W_Cycle(W_Root):
         else:
             try:
                 w_obj = self.space.next(self.w_iterable)
-            except OperationError, e:
+            except OperationError as e:
                 if e.match(self.space, self.space.w_StopIteration):
                     self.exhausted = True
                     if not self.saved_w:
@@ -817,7 +818,7 @@ def tee(space, w_iterable, n=2):
         return tuple([gen(it.next) for i in range(n)])
     """
     if n < 0:
-        raise OperationError(space.w_ValueError, space.wrap("n must be >= 0"))
+        raise oefmt(space.w_ValueError, "n must be >= 0")
 
     if isinstance(w_iterable, W_TeeIterable):     # optimization only
         w_chained_list = w_iterable.w_chained_list
@@ -895,7 +896,7 @@ class W_TeeIterable(W_Root):
         if w_obj is None:
             try:
                 w_obj = self.space.next(self.w_iterator)
-            except OperationError, e:
+            except OperationError as e:
                 if e.match(self.space, self.space.w_StopIteration):
                     self.w_chained_list = None
                 raise
@@ -980,7 +981,7 @@ class W_GroupBy(W_Root):
             self.started = True
             try:
                 w_obj = self.space.next(self.w_iterable)
-            except OperationError, e:
+            except OperationError as e:
                 if e.match(self.space, self.space.w_StopIteration):
                     self.exhausted = True
                 raise
@@ -1016,7 +1017,7 @@ class W_GroupBy(W_Root):
 
             try:
                 w_obj = self.space.next(self.w_iterable)
-            except OperationError, e:
+            except OperationError as e:
                 if e.match(self.space, self.space.w_StopIteration):
                     self.exhausted = True
                     raise StopIteration
@@ -1307,8 +1308,8 @@ def W_Product__new__(space, w_subtype, __args__):
             w_repeat = kwds_w['repeat']
             del kwds_w['repeat']
         if kwds_w:
-            raise OperationError(space.w_TypeError, space.wrap(
-                "product() got unexpected keyword argument(s)"))
+            raise oefmt(space.w_TypeError,
+                        "product() got unexpected keyword argument(s)")
 
     r = space.allocate_instance(W_Product, w_subtype)
     r.__init__(space, arguments_w, w_repeat)
@@ -1428,8 +1429,7 @@ class W_Combinations(W_Root):
     def descr_setstate(self, space, w_state):
         indices_w = space.fixedview(w_state)
         if len(indices_w) != self.r:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "invalid arguments"))
+            raise oefmt(space.w_ValueError, "invalid arguments")
         for i in range(self.r):
             index = space.int_w(indices_w[i])
             max = self.get_maximum(i)
@@ -1447,9 +1447,7 @@ class W_Combinations(W_Root):
 def W_Combinations__new__(space, w_subtype, w_iterable, r):
     pool_w = space.fixedview(w_iterable)
     if r < 0:
-        raise OperationError(space.w_ValueError,
-            space.wrap("r must be non-negative")
-        )
+        raise oefmt(space.w_ValueError, "r must be non-negative")
     indices = range(r)
     res = space.allocate_instance(W_Combinations, w_subtype)
     res.__init__(space, pool_w, indices, r)
@@ -1518,8 +1516,7 @@ class W_CombinationsWithReplacement(W_Combinations):
 def W_CombinationsWithReplacement__new__(space, w_subtype, w_iterable, r):
     pool_w = space.fixedview(w_iterable)
     if r < 0:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("r must be non-negative"))
+        raise oefmt(space.w_ValueError, "r must be non-negative")
     indices = [0] * r
     res = space.allocate_instance(W_CombinationsWithReplacement, w_subtype)
     res.__init__(space, pool_w, indices, r)

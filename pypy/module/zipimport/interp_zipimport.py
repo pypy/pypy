@@ -46,36 +46,39 @@ class W_ZipCache(W_Root):
     # I don't care about speed of those, they're obscure anyway
     # THIS IS A TERRIBLE HACK TO BE CPYTHON COMPATIBLE
 
-    @unwrap_spec(name=str)
-    def getitem(self, space, name):
+    def getitem(self, space, w_name):
+        return self._getitem(space, space.fsencode_w(w_name))
+
+    def _getitem(self, space, name):
         try:
             w_zipimporter = self.cache[name]
         except KeyError:
-            raise OperationError(space.w_KeyError, space.wrap(name))
+            raise OperationError(space.w_KeyError, space.wrap_fsdecoded(name))
         assert isinstance(w_zipimporter, W_ZipImporter)
         w = space.wrap
+        w_fs = space.wrap_fsdecoded
         w_d = space.newdict()
         for key, info in w_zipimporter.zip_file.NameToInfo.iteritems():
             if ZIPSEP != os.path.sep:
                 key = key.replace(ZIPSEP, os.path.sep)
-            space.setitem(w_d, w(key), space.newtuple([
-                w(info.filename), w(info.compress_type), w(info.compress_size),
+            space.setitem(w_d, w_fs(key), space.newtuple([
+                w_fs(info.filename), w(info.compress_type), w(info.compress_size),
                 w(info.file_size), w(info.file_offset), w(info.dostime),
                 w(info.dosdate), w(info.CRC)]))
         return w_d
 
     def keys(self, space):
-        return space.newlist([space.wrap(s)
+        return space.newlist([space.wrap_fsdecoded(s)
                               for s in self.cache.keys()])
 
     def values(self, space):
         keys = self.cache.keys()
-        values_w = [self.getitem(space, key) for key in keys]
+        values_w = [self._getitem(space, key) for key in keys]
         return space.newlist(values_w)
 
     def items(self, space):
-        w = space.wrap
-        items_w = [space.newtuple([w(key), self.getitem(space, key)])
+        w_fs = space.wrap_fsdecoded
+        items_w = [space.newtuple([w_fs(key), self._getitem(space, key)])
                    for key in self.cache.keys()]
         return space.newlist(items_w)
 
@@ -88,14 +91,14 @@ class W_ZipCache(W_Root):
     def iteritems(self, space):
         return space.iter(self.items(space))
 
-    @unwrap_spec(name=str)
+    @unwrap_spec(name='fsencode')
     def contains(self, space, name):
         return space.newbool(name in self.cache)
 
     def clear(self, space):
         self.cache = {}
 
-    @unwrap_spec(name=str)
+    @unwrap_spec(name='fsencode')
     def delitem(self, space, name):
         del self.cache[name]
 
@@ -126,8 +129,8 @@ class W_ZipImporter(W_Root):
 
     def getprefix(self, space):
         if ZIPSEP == os.path.sep:
-            return space.wrap(self.prefix)
-        return space.wrap(self.prefix.replace(ZIPSEP, os.path.sep))
+            return space.wrap_fsdecoded(self.prefix)
+        return space.wrap_fsdecoded(self.prefix.replace(ZIPSEP, os.path.sep))
 
     def _find_relative_path(self, filename):
         if filename.startswith(self.filename):
@@ -200,7 +203,8 @@ class W_ZipImporter(W_Root):
         timestamp = importing._get_long(buf[4:8])
         if not self.can_use_pyc(space, filename, magic, timestamp):
             return None
-        buf = buf[8:] # XXX ugly copy, should use sequential read instead
+        # zipimport ignores the size field
+        buf = buf[12:] # XXX ugly copy, should use sequential read instead
         w_mod = w(Module(space, w(modname)))
         real_name = self.filename + os.path.sep + self.corr_zname(filename)
         space.setattr(w_mod, w('__loader__'), space.wrap(self))
@@ -219,7 +223,7 @@ class W_ZipImporter(W_Root):
         except KeyError:
             return False
 
-    @unwrap_spec(fullname='str0')
+    @unwrap_spec(fullname='fsencode')
     def find_module(self, space, fullname, w_path=None):
         filename = self.make_filename(fullname)
         for _, _, ext in ENUMERATE_EXTS:
@@ -244,9 +248,8 @@ class W_ZipImporter(W_Root):
         """
         return self.filename + os.path.sep + filename
 
-    @unwrap_spec(fullname='str0')
-    def load_module(self, space, fullname):
-        w = space.wrap
+    def load_module(self, space, w_fullname):
+        fullname = space.fsencode_w(w_fullname)
         filename = self.make_filename(fullname)
         for compiled, is_package, ext in ENUMERATE_EXTS:
             fname = filename + ext
@@ -254,7 +257,7 @@ class W_ZipImporter(W_Root):
                 buf = self.zip_file.read(fname)
             except (KeyError, OSError, BadZipfile):
                 pass
-            except RZlibError, e:
+            except RZlibError as e:
                 # in this case, CPython raises the direct exception coming
                 # from the zlib module: let's to the same
                 raise zlib_error(space, e.msg)
@@ -275,25 +278,25 @@ class W_ZipImporter(W_Root):
                                                    buf, pkgpath)
                 except:
                     w_mods = space.sys.get('modules')
-                    space.call_method(w_mods, 'pop', w(fullname), space.w_None)
+                    space.call_method(w_mods, 'pop', w_fullname, space.w_None)
                     raise
-        raise oefmt(get_error(space), "can't find module '%s'", fullname)
+        raise oefmt(get_error(space), "can't find module %R", w_fullname)
 
-    @unwrap_spec(filename='str0')
+    @unwrap_spec(filename='fsencode')
     def get_data(self, space, filename):
         filename = self._find_relative_path(filename)
         try:
             data = self.zip_file.read(filename)
             return space.wrapbytes(data)
         except (KeyError, OSError, BadZipfile):
-            raise OperationError(space.w_IOError, space.wrap("Error reading file"))
-        except RZlibError, e:
+            raise oefmt(space.w_IOError, "Error reading file")
+        except RZlibError as e:
             # in this case, CPython raises the direct exception coming
             # from the zlib module: let's to the same
             raise zlib_error(space, e.msg)
 
-    @unwrap_spec(fullname='str0')
-    def get_code(self, space, fullname):
+    def get_code(self, space, w_fullname):
+        fullname = space.fsencode_w(w_fullname)
         filename = self.make_filename(fullname)
         for compiled, _, ext in ENUMERATE_EXTS:
             if self.have_modulefile(space, filename + ext):
@@ -305,18 +308,19 @@ class W_ZipImporter(W_Root):
                     if not self.can_use_pyc(space, filename + ext,
                                             magic, timestamp):
                         continue
+                    # zipimport ignores the size field
                     code_w = importing.read_compiled_module(
-                        space, filename + ext, source[8:])
+                        space, filename + ext, source[12:])
                 else:
                     co_filename = self.make_co_filename(filename+ext)
                     code_w = importing.parse_source_module(
                         space, co_filename, source)
                 return space.wrap(code_w)
         raise oefmt(get_error(space),
-                    "Cannot find source or code for %s in %R",
-                    filename, space.wrap_fsdecoded(self.name))
+                    "Cannot find source or code for %R in %R",
+                    w_fullname, space.wrap_fsdecoded(self.name))
 
-    @unwrap_spec(fullname='str0')
+    @unwrap_spec(fullname='fsencode')
     def get_source(self, space, fullname):
         filename = self.make_filename(fullname)
         found = False
@@ -327,40 +331,66 @@ class W_ZipImporter(W_Root):
                     w_data = self.get_data(space, fname)
                     # XXX CPython does not handle the coding cookie either.
                     return space.call_method(w_data, "decode",
-                                             space.wrap("utf-8")) 
+                                             space.wrap("utf-8"))
                 else:
                     found = True
         if found:
             # We have the module, but no source.
             return space.w_None
         raise oefmt(get_error(space),
-                    "Cannot find source for %s in %R", filename,
+                    "Cannot find source for %R in %R",
+                    space.wrap_fsdecoded(filename),
                     space.wrap_fsdecoded(self.name))
 
-    @unwrap_spec(fullname='str0')
-    def get_filename(self, space, fullname):
+    def get_filename(self, space, w_fullname):
+        fullname = space.fsencode_w(w_fullname)
         filename = self.make_filename(fullname)
         for _, is_package, ext in ENUMERATE_EXTS:
             if self.have_modulefile(space, filename + ext):
                 return space.wrap_fsdecoded(self.filename + os.path.sep +
                                             self.corr_zname(filename + ext))
         raise oefmt(get_error(space),
-                    "Cannot find module %s in %R", filename,
+                    "Cannot find module %R in %R",
+                    space.wrap_fsdecoded(filename),
                     space.wrap_fsdecoded(self.name))
 
-    @unwrap_spec(fullname='str0')
-    def is_package(self, space, fullname):
+    def is_package(self, space, w_fullname):
+        fullname = space.fsencode_w(w_fullname)
         filename = self.make_filename(fullname)
         for _, is_package, ext in ENUMERATE_EXTS:
             if self.have_modulefile(space, filename + ext):
                 return space.wrap(is_package)
         raise oefmt(get_error(space),
-                    "Cannot find module %s in %R", filename,
+                    "Cannot find module %R in %R",
+                    space.wrap_fsdecoded(filename),
                     space.wrap_fsdecoded(self.name))
 
     def getarchive(self, space):
         space = self.space
         return space.wrap_fsdecoded(self.filename)
+
+    def _find_loader(self, space, fullname):
+        filename = self.make_filename(fullname)
+        for _, _, ext in ENUMERATE_EXTS:
+            if self.have_modulefile(space, filename + ext):
+                return True, None
+        # See if this is a directory (part of a namespace pkg)
+        dirpath = self.prefix + fullname
+        if self.have_modulefile(space, dirpath + ZIPSEP):
+            return True, self.filename + os.path.sep + self.corr_zname(dirpath)
+        return False, None
+
+    @unwrap_spec(fullname='fsencode')
+    def find_loader(self, space, fullname, w_path=None):
+        found, ns_portion = self._find_loader(space, fullname)
+        if not found:
+            result = [space.w_None, space.newlist([])]
+        elif not ns_portion:
+            result = [self, space.newlist([])]
+        else:
+            result = [space.w_None,
+                      space.newlist([space.wrap_fsdecoded(ns_portion)])]
+        return space.newtuple(result)
 
 def descr_new_zipimporter(space, w_type, w_name):
     name = space.fsencode_w(w_name)
@@ -387,8 +417,8 @@ def descr_new_zipimporter(space, w_type, w_name):
         w_result = zip_cache.get(filename)
         if w_result is None:
             raise oefmt(get_error(space),
-                        "Cannot import %s from zipfile, recursion detected or"
-                        "already tried and failed", name)
+                        "Cannot import %R from zipfile, recursion detected or"
+                        "already tried and failed", w_name)
     except KeyError:
         zip_cache.cache[filename] = None
     try:
@@ -396,7 +426,7 @@ def descr_new_zipimporter(space, w_type, w_name):
     except (BadZipfile, OSError):
         raise oefmt(get_error(space), "%R seems not to be a zipfile",
                     space.wrap_fsdecoded(filename))
-    except RZlibError, e:
+    except RZlibError as e:
         # in this case, CPython raises the direct exception coming
         # from the zlib module: let's to the same
         raise zlib_error(space, e.msg)
@@ -420,6 +450,7 @@ W_ZipImporter.typedef = TypeDef(
     get_filename = interp2app(W_ZipImporter.get_filename),
     is_package  = interp2app(W_ZipImporter.is_package),
     load_module = interp2app(W_ZipImporter.load_module),
+    find_loader = interp2app(W_ZipImporter.find_loader),
     archive     = GetSetProperty(W_ZipImporter.getarchive),
     prefix      = GetSetProperty(W_ZipImporter.getprefix),
 )

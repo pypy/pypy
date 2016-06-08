@@ -18,7 +18,7 @@ from rpython.tool.sourcetools import func_with_new_name
 from pypy.interpreter.gateway import (
     unwrap_spec, WrappedDefault, Unwrapper, kwonly)
 from pypy.interpreter.error import (
-    OperationError, wrap_oserror, oefmt, wrap_oserror2, strerror as _strerror)
+    OperationError, oefmt, wrap_oserror, wrap_oserror2, strerror as _strerror)
 from pypy.interpreter.executioncontext import ExecutionContext
 
 
@@ -41,11 +41,7 @@ if sys.maxint == 2147483647:
 else:
     def check_uid_range(space, num):
         if num < -(1 << 31) or num >= (1 << 32):
-            raise OperationError(space.w_OverflowError,
-                                 space.wrap("integer out of range"))
-
-# specialize utime when called w/ None for use w/ call_rposix
-utime_now = func_with_new_name(rposix.utime, 'utime_now')
+            raise oefmt(space.w_OverflowError, "integer out of range")
 
 class FileEncoder(object):
     is_unicode = True
@@ -143,7 +139,7 @@ def _unwrap_path(space, w_value, allow_fd=True):
             "can't specify None for path argument")
     if _WIN32:
         try:
-            path_u = space.unicode_w(w_value)
+            path_u = space.unicode0_w(w_value)
             return Path(-1, None, path_u, w_value)
         except OperationError:
             pass
@@ -167,7 +163,8 @@ class _JustPath(Unwrapper):
 def path_or_fd(allow_fd=True):
     return _PathOrFd if allow_fd else _JustPath
 
-DEFAULT_DIR_FD = getattr(rposix, 'AT_FDCWD', -100)
+_HAVE_AT_FDCWD = getattr(rposix, 'AT_FDCWD', None) is not None
+DEFAULT_DIR_FD = rposix.AT_FDCWD if _HAVE_AT_FDCWD else -100
 DIR_FD_AVAILABLE = False
 
 @specialize.arg(2)
@@ -197,7 +194,7 @@ class _DirFD(Unwrapper):
 
 class _DirFD_Unavailable(Unwrapper):
     def unwrap(self, space, w_value):
-        dir_fd = unwrap_fd(space, w_value)
+        dir_fd = _unwrap_dirfd(space, w_value)
         if dir_fd == DEFAULT_DIR_FD:
             return dir_fd
         raise oefmt(space.w_NotImplementedError,
@@ -223,11 +220,11 @@ If dir_fd is not None, it should be a file descriptor open to a directory,
 dir_fd may not be implemented on your platform.
   If it is unavailable, using it will raise a NotImplementedError."""
     try:
-        if dir_fd == DEFAULT_DIR_FD:
-            fd = dispatch_filename(rposix.open)(space, w_path, flags, mode)
-        else:
+        if rposix.HAVE_OPENAT and dir_fd != DEFAULT_DIR_FD:
             path = space.fsencode_w(w_path)
             fd = rposix.openat(path, flags, mode, dir_fd)
+        else:
+            fd = dispatch_filename(rposix.open)(space, w_path, flags, mode)
     except OSError as e:
         raise wrap_oserror2(space, e, w_path)
     return space.wrap(fd)
@@ -239,7 +236,7 @@ If how == 0, 'pos' is relative to the start of the file; if how == 1, to the
 current position; if how == 2, to the end."""
     try:
         pos = os.lseek(fd, pos, how)
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
     else:
         return space.wrap(pos)
@@ -250,7 +247,7 @@ def isatty(space, fd):
 slave end of a terminal."""
     try:
         res = os.isatty(fd)
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
     else:
         return space.wrap(res)
@@ -260,7 +257,7 @@ def read(space, fd, buffersize):
     """Read data from a file descriptor."""
     try:
         s = os.read(fd, buffersize)
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
     else:
         return space.wrapbytes(s)
@@ -272,7 +269,7 @@ actually written, which may be smaller than len(data)."""
     data = space.getarg_w('y*', w_data)
     try:
         res = os.write(fd, data.as_str())
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
     else:
         return space.wrap(res)
@@ -282,7 +279,7 @@ def close(space, fd):
     """Close a file descriptor (for low level IO)."""
     try:
         os.close(fd)
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
 
 @unwrap_spec(fd_low=c_int, fd_high=c_int)
@@ -295,7 +292,7 @@ def ftruncate(space, fd, length):
     """Truncate a file (by file descriptor) to a specified length."""
     try:
         os.ftruncate(fd, length)
-    except IOError, e:
+    except IOError as e:
         if not objectmodel.we_are_translated():
             # Python 2.6 raises an IOError here. Let's not repeat that mistake.
             w_error = space.call_function(space.w_OSError, space.wrap(e.errno),
@@ -303,7 +300,7 @@ def ftruncate(space, fd, length):
                                           space.wrap(e.filename))
             raise OperationError(space.w_OSError, w_error)
         raise AssertionError
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
 
 def truncate(space, w_path, w_length):
@@ -330,7 +327,7 @@ def fsync(space, w_fd):
     fd = space.c_filedescriptor_w(w_fd)
     try:
         os.fsync(fd)
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
 
 def fdatasync(space, w_fd):
@@ -339,7 +336,7 @@ Does not force update of metadata."""
     fd = space.c_filedescriptor_w(w_fd)
     try:
         os.fdatasync(fd)
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
 
 def fchdir(space, w_fd):
@@ -348,7 +345,7 @@ opened on a directory, not a file."""
     fd = space.c_filedescriptor_w(w_fd)
     try:
         os.fchdir(fd)
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
 
 # ____________________________________________________________
@@ -422,7 +419,7 @@ def fstat(space, fd):
 file descriptor."""
     try:
         st = rposix_stat.fstat(fd)
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
     else:
         return build_stat_result(space, st)
@@ -539,7 +536,7 @@ def dup(space, fd):
 descriptor."""
     try:
         newfd = os.dup(fd)
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
     else:
         return space.wrap(newfd)
@@ -549,14 +546,14 @@ def dup2(space, old_fd, new_fd):
     """Duplicate a file descriptor."""
     try:
         os.dup2(old_fd, new_fd)
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
 
 @unwrap_spec(mode=c_int,
     dir_fd=DirFD(rposix.HAVE_FACCESSAT), effective_ids=kwonly(bool),
     follow_symlinks=kwonly(bool))
 def access(space, w_path, mode,
-        dir_fd=DEFAULT_DIR_FD, effective_ids=True, follow_symlinks=True):
+        dir_fd=DEFAULT_DIR_FD, effective_ids=False, follow_symlinks=True):
     """\
 access(path, mode, *, dir_fd=None, effective_ids=False, follow_symlinks=True)
 
@@ -586,12 +583,14 @@ The mode argument can be F_OK to test existence, or the inclusive-OR
             raise argument_unavailable(space, "access", "effective_ids")
 
     try:
-        if dir_fd == DEFAULT_DIR_FD and follow_symlinks and not effective_ids:
-            ok = dispatch_filename(rposix.access)(space, w_path, mode)
-        else:
+        if (rposix.HAVE_FACCESSAT and
+            (dir_fd != DEFAULT_DIR_FD or not follow_symlinks or
+             effective_ids)):
             path = space.fsencode_w(w_path)
             ok = rposix.faccessat(path, mode,
                 dir_fd, effective_ids, follow_symlinks)
+        else:
+            ok = dispatch_filename(rposix.access)(space, w_path, mode)
     except OSError as e:
         raise wrap_oserror2(space, e, w_path)
     else:
@@ -606,7 +605,7 @@ def times(space):
     """
     try:
         times = os.times()
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
     else:
         return space.newtuple([space.wrap(times[0]),
@@ -620,7 +619,7 @@ def system(space, cmd):
     """Execute the command (a string) in a subshell."""
     try:
         rc = os.system(cmd)
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
     else:
         return space.wrap(rc)
@@ -636,11 +635,11 @@ If dir_fd is not None, it should be a file descriptor open to a directory,
 dir_fd may not be implemented on your platform.
   If it is unavailable, using it will raise a NotImplementedError."""
     try:
-        if dir_fd == DEFAULT_DIR_FD:
-            dispatch_filename(rposix.unlink)(space, w_path)
-        else:
+        if rposix.HAVE_UNLINKAT and dir_fd != DEFAULT_DIR_FD:
             path = space.fsencode_w(w_path)
             rposix.unlinkat(path, dir_fd, removedir=False)
+        else:
+            dispatch_filename(rposix.unlink)(space, w_path)
     except OSError as e:
         raise wrap_oserror2(space, e, w_path)
 
@@ -655,11 +654,11 @@ If dir_fd is not None, it should be a file descriptor open to a directory,
 dir_fd may not be implemented on your platform.
   If it is unavailable, using it will raise a NotImplementedError."""
     try:
-        if dir_fd == DEFAULT_DIR_FD:
-            dispatch_filename(rposix.unlink)(space, w_path)
-        else:
+        if rposix.HAVE_UNLINKAT and dir_fd != DEFAULT_DIR_FD:
             path = space.fsencode_w(w_path)
             rposix.unlinkat(path, dir_fd, removedir=False)
+        else:
+            dispatch_filename(rposix.unlink)(space, w_path)
     except OSError as e:
         raise wrap_oserror2(space, e, w_path)
 
@@ -674,7 +673,7 @@ def _getfullpathname(space, w_path):
             path = space.str0_w(w_path)
             fullpath = rposix.getfullpathname(path)
             w_fullpath = space.wrapbytes(fullpath)
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror2(space, e, w_path)
     else:
         return w_fullpath
@@ -683,7 +682,7 @@ def getcwdb(space):
     """Return the current working directory."""
     try:
         cur = os.getcwd()
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
     else:
         return space.wrapbytes(cur)
@@ -693,7 +692,7 @@ if _WIN32:
         """Return the current working directory as a string."""
         try:
             cur = os.getcwdu()
-        except OSError, e:
+        except OSError as e:
             raise wrap_oserror(space, e)
         else:
             return space.wrap(cur)
@@ -706,7 +705,7 @@ def chdir(space, w_path):
     """Change the current working directory to the specified path."""
     try:
         dispatch_filename(rposix.chdir)(space, w_path)
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror2(space, e, w_path)
 
 @unwrap_spec(mode=c_int, dir_fd=DirFD(rposix.HAVE_MKDIRAT))
@@ -722,11 +721,11 @@ dir_fd may not be implemented on your platform.
 
 The mode argument is ignored on Windows."""
     try:
-        if dir_fd == DEFAULT_DIR_FD:
-            dispatch_filename(rposix.mkdir)(space, w_path, mode)
-        else:
+        if rposix.HAVE_MKDIRAT and dir_fd != DEFAULT_DIR_FD:
             path = space.fsencode_w(w_path)
             rposix.mkdirat(path, mode, dir_fd)
+        else:
+            dispatch_filename(rposix.mkdir)(space, w_path, mode)
     except OSError as e:
         raise wrap_oserror2(space, e, w_path)
 
@@ -741,11 +740,11 @@ If dir_fd is not None, it should be a file descriptor open to a directory,
 dir_fd may not be implemented on your platform.
   If it is unavailable, using it will raise a NotImplementedError."""
     try:
-        if dir_fd == DEFAULT_DIR_FD:
-            dispatch_filename(rposix.rmdir)(space, w_path)
-        else:
+        if rposix.HAVE_UNLINKAT and dir_fd != DEFAULT_DIR_FD:
             path = space.fsencode_w(w_path)
             rposix.unlinkat(path, dir_fd, removedir=True)
+        else:
+            dispatch_filename(rposix.rmdir)(space, w_path)
     except OSError as e:
         raise wrap_oserror2(space, e, w_path)
 
@@ -755,14 +754,13 @@ def strerror(space, errno):
     try:
         return space.wrap(_strerror(errno))
     except ValueError:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("strerror() argument out of range"))
+        raise oefmt(space.w_ValueError, "strerror() argument out of range")
 
 def getlogin(space):
     """Return the currently logged in user."""
     try:
         cur = os.getlogin()
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
     return space.fsdecode(space.wrapbytes(cur))
 
@@ -810,12 +808,12 @@ if _WIN32:
         """Change or add an environment variable."""
         # len includes space for '=' and a trailing NUL
         if len(name) + len(value) + 2 > rwin32._MAX_ENV:
-            msg = ("the environment variable is longer than %d characters" %
-                   rwin32._MAX_ENV)
-            raise OperationError(space.w_ValueError, space.wrap(msg))
+            raise oefmt(space.w_ValueError,
+                        "the environment variable is longer than %d "
+                        "characters", rwin32._MAX_ENV)
         try:
             rwin32._wputenv(name, value)
-        except OSError, e:
+        except OSError as e:
             raise wrap_oserror(space, e)
 else:
     def _convertenviron(space, w_env):
@@ -826,7 +824,7 @@ else:
         """Change or add an environment variable."""
         try:
             dispatch_filename_2(rposix.putenv)(space, w_name, w_value)
-        except OSError, e:
+        except OSError as e:
             raise wrap_oserror(space, e)
 
     def unsetenv(space, w_name):
@@ -835,7 +833,7 @@ else:
             dispatch_filename(rposix.unsetenv)(space, w_name)
         except KeyError:
             pass
-        except OSError, e:
+        except OSError as e:
             raise wrap_oserror(space, e)
 
 
@@ -894,7 +892,7 @@ def pipe(space):
     "Create a pipe.  Returns (read_end, write_end)."
     try:
         fd1, fd2 = os.pipe()
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
     return space.newtuple([space.wrap(fd1), space.wrap(fd2)])
 
@@ -978,13 +976,14 @@ If either src_dir_fd or dst_dir_fd is not None, it should be a file
 src_dir_fd and dst_dir_fd, may not be implemented on your platform.
   If they are unavailable, using them will raise a NotImplementedError."""
     try:
-        if (src_dir_fd != DEFAULT_DIR_FD or dst_dir_fd != DEFAULT_DIR_FD):
+        if (rposix.HAVE_RENAMEAT and
+            (src_dir_fd != DEFAULT_DIR_FD or dst_dir_fd != DEFAULT_DIR_FD)):
             src = space.fsencode_w(w_src)
             dst = space.fsencode_w(w_dst)
             rposix.renameat(src, dst, src_dir_fd, dst_dir_fd)
         else:
             dispatch_filename_2(rposix.rename)(space, w_src, w_dst)
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
 
 @unwrap_spec(src_dir_fd=DirFD(rposix.HAVE_RENAMEAT),
@@ -1001,7 +1000,8 @@ If either src_dir_fd or dst_dir_fd is not None, it should be a file
 src_dir_fd and dst_dir_fd, may not be implemented on your platform.
   If they are unavailable, using them will raise a NotImplementedError."""
     try:
-        if (src_dir_fd != DEFAULT_DIR_FD or dst_dir_fd != DEFAULT_DIR_FD):
+        if (rposix.HAVE_RENAMEAT and
+            (src_dir_fd != DEFAULT_DIR_FD or dst_dir_fd != DEFAULT_DIR_FD)):
             src = space.fsencode_w(w_src)
             dst = space.fsencode_w(w_dst)
             rposix.renameat(src, dst, src_dir_fd, dst_dir_fd)
@@ -1063,7 +1063,7 @@ def getpid(space):
     "Return the current process id."
     try:
         pid = os.getpid()
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
     return space.wrap(pid)
 
@@ -1072,7 +1072,7 @@ def kill(space, pid, sig):
     "Kill a process with a signal."
     try:
         rposix.kill(pid, sig)
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
 
 @unwrap_spec(pgid=c_int, sig=c_int)
@@ -1080,7 +1080,7 @@ def killpg(space, pgid, sig):
     "Kill a process group with a signal."
     try:
         os.killpg(pgid, sig)
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
 
 def abort(space):
@@ -1112,8 +1112,9 @@ src_dir_fd, dst_dir_fd, and follow_symlinks may not be implemented on your
   platform.  If they are unavailable, using them will raise a
   NotImplementedError."""
     try:
-        if (src_dir_fd != DEFAULT_DIR_FD or dst_dir_fd != DEFAULT_DIR_FD
-                or not follow_symlinks):
+        if (rposix.HAVE_LINKAT and
+            (src_dir_fd != DEFAULT_DIR_FD or dst_dir_fd != DEFAULT_DIR_FD
+             or not follow_symlinks)):
             rposix.linkat(src, dst, src_dir_fd, dst_dir_fd, follow_symlinks)
         else:
             rposix.link(src, dst)
@@ -1138,12 +1139,12 @@ If dir_fd is not None, it should be a file descriptor open to a directory,
 dir_fd may not be implemented on your platform.
   If it is unavailable, using it will raise a NotImplementedError."""
     try:
-        if dir_fd == DEFAULT_DIR_FD:
-            dispatch_filename_2(rposix.symlink)(space, w_src, w_dst)
-        else:
+        if rposix.HAVE_SYMLINKAT and dir_fd != DEFAULT_DIR_FD:
             src = space.fsencode_w(w_src)
             dst = space.fsencode_w(w_dst)
             rposix.symlinkat(src, dst, dir_fd)
+        else:
+            dispatch_filename_2(rposix.symlink)(space, w_src, w_dst)
     except OSError as e:
         raise wrap_oserror(space, e)
 
@@ -1161,10 +1162,10 @@ If dir_fd is not None, it should be a file descriptor open to a directory,
 dir_fd may not be implemented on your platform.
   If it is unavailable, using it will raise a NotImplementedError."""
     try:
-        if dir_fd == DEFAULT_DIR_FD:
-            result = call_rposix(rposix.readlink, path)
-        else:
+        if rposix.HAVE_READLINKAT and dir_fd != DEFAULT_DIR_FD:
             result = call_rposix(rposix.readlinkat, path, dir_fd)
+        else:
+            result = call_rposix(rposix.readlink, path)
     except OSError as e:
         raise wrap_oserror2(space, e, path.w_path)
     w_result = space.wrapbytes(result)
@@ -1208,7 +1209,7 @@ def _run_forking_function(space, kind):
             pid, master_fd = os.forkpty()
         else:
             raise AssertionError
-    except OSError, e:
+    except OSError as e:
         try:
             run_fork_hooks('parent', space)
         except:
@@ -1229,7 +1230,7 @@ def openpty(space):
     "Open a pseudo-terminal, returning open fd's for both master and slave end."
     try:
         master_fd, slave_fd = os.openpty()
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
     return space.newtuple([space.wrap(master_fd), space.wrap(slave_fd)])
 
@@ -1246,7 +1247,7 @@ def waitpid(space, pid, options):
     """
     try:
         pid, status = os.waitpid(pid, options)
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
     return space.newtuple([space.wrap(pid), space.wrap(status)])
 
@@ -1269,7 +1270,7 @@ Execute an executable path with arguments, replacing current process.
             raise oefmt(space.w_ValueError,
                 "execv() arg 2 must not be empty")
         args = [space.fsencode_w(w_arg) for w_arg in args_w]
-    except OperationError, e:
+    except OperationError as e:
         if not e.match(space, space.w_TypeError):
             raise
         raise oefmt(space.w_TypeError,
@@ -1334,7 +1335,7 @@ def spawnv(space, mode, path, w_args):
     args = [space.fsencode_w(w_arg) for w_arg in space.unpackiterable(w_args)]
     try:
         ret = os.spawnv(mode, path, args)
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
     return space.wrap(ret)
 
@@ -1344,13 +1345,13 @@ def spawnve(space, mode, path, w_args, w_env):
     env = _env2interp(space, w_env)
     try:
         ret = os.spawnve(mode, path, args, env)
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
     return space.wrap(ret)
 
 
 @unwrap_spec(
-    path=path_or_fd(allow_fd=rposix.HAVE_FUTIMENS),
+    path=path_or_fd(allow_fd=rposix.HAVE_FUTIMENS or rposix.HAVE_FUTIMES),
     w_times=WrappedDefault(None), w_ns=kwonly(WrappedDefault(None)),
     dir_fd=DirFD(rposix.HAVE_UTIMENSAT), follow_symlinks=kwonly(bool))
 def utime(space, path, w_times, w_ns, dir_fd=DEFAULT_DIR_FD,
@@ -1380,15 +1381,48 @@ It is an error to use dir_fd or follow_symlinks when specifying path
   as an open file descriptor.
 dir_fd and follow_symlinks may not be available on your platform.
   If they are unavailable, using them will raise a NotImplementedError."""
+    utime = parse_utime_args(space, w_times, w_ns)
+
+    if path.as_fd != -1:
+        if dir_fd != DEFAULT_DIR_FD:
+            raise oefmt(space.w_ValueError,
+                        "utime: can't specify both dir_fd and fd")
+        if not follow_symlinks:
+            raise oefmt(space.w_ValueError,
+                        "utime: cannot use fd and follow_symlinks together")
+        if rposix.HAVE_FUTIMENS:
+            do_utimens(space, rposix.futimens, path.as_fd, utime)
+        elif rposix.HAVE_FUTIMES:
+            do_utimes(space, rposix.futimes, path.as_fd, utime)
+    elif rposix.HAVE_UTIMENSAT:
+        if path.as_bytes is None:
+            raise oefmt(space.w_NotImplementedError,
+                        "utime: unsupported value for 'path'")
+        do_utimens(space, rposix.utimensat, path.as_bytes, utime,
+                   dir_fd, follow_symlinks)
+    elif rposix.HAVE_LUTIMES and not follow_symlinks:
+        if path.as_bytes is None:
+            raise oefmt(space.w_NotImplementedError,
+                        "utime: unsupported value for 'path'")
+        do_utimes(space, rposix.lutimes, path.as_bytes, utime)
+    elif follow_symlinks:
+        do_utimes(space, _dispatch_utime, path, utime)
+    else:
+        raise argument_unavailable(space, "utime", "follow_symlinks")
+
+def parse_utime_args(space, w_times, w_ns):
+    """Parse utime's times/ns arguments into a 5-item tuple of a "now"
+    flag and 2 "TIMESPEC" like 2-item s/ns values
+    """
     if (not space.is_w(w_times, space.w_None) and
             not space.is_w(w_ns, space.w_None)):
         raise oefmt(space.w_ValueError,
             "utime: you may specify either 'times' or 'ns' but not both")
     now = False
     if space.is_w(w_times, space.w_None) and space.is_w(w_ns, space.w_None):
+        now = True
         atime_s = mtime_s = 0
         atime_ns = mtime_ns = 0
-        now = True
     elif not space.is_w(w_times, space.w_None):
         times_w = space.fixedview(w_times)
         if len(times_w) != 2:
@@ -1403,75 +1437,52 @@ dir_fd and follow_symlinks may not be available on your platform.
                 "utime: 'ns' must be a tuple of two ints")
         atime_s, atime_ns = convert_ns(space, args_w[0])
         mtime_s, mtime_ns = convert_ns(space, args_w[1])
+    return now, atime_s, atime_ns, mtime_s, mtime_ns
 
-    if rposix.HAVE_FUTIMENS and path.as_fd != -1:
-        if dir_fd != DEFAULT_DIR_FD:
-            raise oefmt(space.w_ValueError,
-                        "utime: can't specify both dir_fd and fd")
-        if not follow_symlinks:
-            raise oefmt(space.w_ValueError,
-                        "utime: cannot use fd and follow_symlinks together")
-        if now:
-            atime_ns = mtime_ns = rposix.UTIME_NOW
-        try:
-            rposix.futimens(path.as_fd, atime_s, atime_ns, mtime_s, mtime_ns)
-            return
-        except OSError as e:
-            # CPython's Modules/posixmodule.c::posix_utime() has this comment:
-            # /* Avoid putting the file name into the error here,
-            #    as that may confuse the user into believing that
-            #    something is wrong with the file, when it also
-            #    could be the time stamp that gives a problem. */
-            # so we use wrap_oserror() instead of wrap_oserror2() here
-            raise wrap_oserror(space, e)
-
-    if rposix.HAVE_UTIMENSAT:
-        path_b = path.as_bytes
-        if path_b is None:
-            raise oefmt(space.w_NotImplementedError,
-                        "utime: unsupported value for 'path'")
-        try:
-            if now:
-                rposix.utimensat(
-                    path_b, 0, rposix.UTIME_NOW, 0, rposix.UTIME_NOW,
-                    dir_fd=dir_fd, follow_symlinks=follow_symlinks)
-            else:
-                rposix.utimensat(
-                    path_b, atime_s, atime_ns, mtime_s, mtime_ns,
-                    dir_fd=dir_fd, follow_symlinks=follow_symlinks)
-            return
-        except OSError as e:
-            # see comment above
-            raise wrap_oserror(space, e)
-
-    if not follow_symlinks:
-        raise argument_unavailable(space, "utime", "follow_symlinks")
-
-    if not space.is_w(w_ns, space.w_None):
-        raise oefmt(space.w_NotImplementedError,
-            "utime: 'ns' unsupported on this platform on PyPy")
+def do_utimens(space, func, arg, utime, *args):
+    """Common implementation for futimens/utimensat etc."""
+    now, atime_s, atime_ns, mtime_s, mtime_ns = utime
     if now:
-        try:
-            call_rposix(utime_now, path, None)
-        except OSError as e:
-            # see comment above
-            raise wrap_oserror(space, e)
+        atime_ns = mtime_ns = rposix.UTIME_NOW
     try:
-        msg = "utime() arg 2 must be a tuple (atime, mtime) or None"
-        args_w = space.fixedview(w_times)
-        if len(args_w) != 2:
-            raise OperationError(space.w_TypeError, space.wrap(msg))
-        actime = space.float_w(args_w[0], allow_conversion=False)
-        modtime = space.float_w(args_w[1], allow_conversion=False)
-    except OperationError, e:
-        if not e.match(space, space.w_TypeError):
-            raise
-        raise OperationError(space.w_TypeError, space.wrap(msg))
+        func(arg, atime_s, atime_ns, mtime_s, mtime_ns, *args)
+    except OSError as e:
+        # CPython's Modules/posixmodule.c::posix_utime() has this
+        # comment:
+        # /* Avoid putting the file name into the error here,
+        #    as that may confuse the user into believing that
+        #    something is wrong with the file, when it also
+        #    could be the time stamp that gives a problem. */
+        # so we use wrap_oserror() instead of wrap_oserror2() here
+        raise wrap_oserror(space, e)
+
+@specialize.arg(1)
+def do_utimes(space, func, arg, utime):
+    """Common implementation for f/l/utimes"""
+    now, atime_s, atime_ns, mtime_s, mtime_ns = utime
     try:
-        call_rposix(rposix.utime, path, (actime, modtime))
+        if now:
+            func(arg, None)
+        else:
+            # convert back to utimes style floats. loses precision of
+            # nanoseconds but utimes only support microseconds anyway
+            atime = atime_s + (atime_ns / 1e9)
+            mtime = mtime_s + (mtime_ns / 1e9)
+            func(arg, (atime, mtime))
     except OSError as e:
         # see comment above
         raise wrap_oserror(space, e)
+
+@specialize.argtype(1)
+def _dispatch_utime(path, times):
+    # XXX: a dup. of call_rposix to specialize rposix.utime taking a
+    # Path for win32 support w/ do_utimes
+    if path.as_unicode is not None:
+        return rposix.utime(path.as_unicode, times)
+    else:
+        path_b = path.as_bytes
+        assert path_b is not None
+        return rposix.utime(path.as_bytes, times)
 
 
 def convert_seconds(space, w_time):
@@ -1502,7 +1513,7 @@ def uname(space):
     """
     try:
         r = os.uname()
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
     l_w = [space.fsdecode(space.wrapbytes(i))
            for i in [r[0], r[1], r[2], r[3], r[4]]]
@@ -1527,7 +1538,7 @@ def setuid(space, arg):
     check_uid_range(space, arg)
     try:
         os.setuid(arg)
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
     return space.w_None
 
@@ -1540,7 +1551,7 @@ def seteuid(space, arg):
     check_uid_range(space, arg)
     try:
         os.seteuid(arg)
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
     return space.w_None
 
@@ -1553,7 +1564,7 @@ def setgid(space, arg):
     check_uid_range(space, arg)
     try:
         os.setgid(arg)
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
     return space.w_None
 
@@ -1566,7 +1577,7 @@ def setegid(space, arg):
     check_uid_range(space, arg)
     try:
         os.setegid(arg)
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
     return space.w_None
 
@@ -1578,7 +1589,7 @@ def chroot(space, path):
     """
     try:
         os.chroot(path)
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e, path)
     return space.w_None
 
@@ -1610,7 +1621,7 @@ def getgroups(space):
     """
     try:
         list = os.getgroups()
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
     return space.newlist([space.wrap(e) for e in list])
 
@@ -1626,7 +1637,7 @@ def setgroups(space, w_list):
         list.append(gid)
     try:
         os.setgroups(list[:])
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
 
 @unwrap_spec(username=str, gid=c_gid_t)
@@ -1639,7 +1650,7 @@ def initgroups(space, username, gid):
     """
     try:
         os.initgroups(username, gid)
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
 
 def getpgrp(space):
@@ -1656,7 +1667,7 @@ def setpgrp(space):
     """
     try:
         os.setpgrp()
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
     return space.w_None
 
@@ -1675,7 +1686,7 @@ def getpgid(space, pid):
     """
     try:
         pgid = os.getpgid(pid)
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
     return space.wrap(pgid)
 
@@ -1687,7 +1698,7 @@ def setpgid(space, pid, pgrp):
     """
     try:
         os.setpgid(pid, pgrp)
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
     return space.w_None
 
@@ -1701,7 +1712,7 @@ def setreuid(space, ruid, euid):
     check_uid_range(space, euid)
     try:
         os.setreuid(ruid, euid)
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
     return space.w_None
 
@@ -1715,7 +1726,7 @@ def setregid(space, rgid, egid):
     check_uid_range(space, egid)
     try:
         os.setregid(rgid, egid)
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
     return space.w_None
 
@@ -1727,7 +1738,7 @@ def getsid(space, pid):
     """
     try:
         sid = os.getsid(pid)
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
     return space.wrap(sid)
 
@@ -1738,7 +1749,7 @@ def setsid(space):
     """
     try:
         os.setsid()
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
     return space.w_None
 
@@ -1750,7 +1761,7 @@ def tcgetpgrp(space, fd):
     """
     try:
         pgid = os.tcgetpgrp(fd)
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
     return space.wrap(pgid)
 
@@ -1762,7 +1773,7 @@ def tcsetpgrp(space, fd, pgid):
     """
     try:
         os.tcsetpgrp(fd, pgid)
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
 
 def getresuid(space):
@@ -1772,7 +1783,7 @@ def getresuid(space):
     """
     try:
         (ruid, euid, suid) = os.getresuid()
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
     return space.newtuple([space.wrap(ruid),
                            space.wrap(euid),
@@ -1785,7 +1796,7 @@ def getresgid(space):
     """
     try:
         (rgid, egid, sgid) = os.getresgid()
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
     return space.newtuple([space.wrap(rgid),
                            space.wrap(egid),
@@ -1799,7 +1810,7 @@ def setresuid(space, ruid, euid, suid):
     """
     try:
         os.setresuid(ruid, euid, suid)
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
 
 @unwrap_spec(rgid=c_gid_t, egid=c_gid_t, sgid=c_gid_t)
@@ -1810,7 +1821,7 @@ def setresgid(space, rgid, egid, sgid):
     """
     try:
         os.setresgid(rgid, egid, sgid)
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
 
 def declare_new_w_star(name):
@@ -1836,7 +1847,7 @@ for name in rposix.WAIT_MACROS:
 def ttyname(space, fd):
     try:
         return space.fsdecode(space.wrapbytes(os.ttyname(fd)))
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
 
 
@@ -1846,8 +1857,7 @@ def confname_w(space, w_name, namespace):
         try:
             num = namespace[space.str_w(w_name)]
         except KeyError:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("unrecognized configuration name"))
+            raise oefmt(space.w_ValueError, "unrecognized configuration name")
     else:
         num = space.int_w(w_name)
     return num
@@ -1856,7 +1866,7 @@ def sysconf(space, w_name):
     num = confname_w(space, w_name, os.sysconf_names)
     try:
         res = os.sysconf(num)
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
     return space.wrap(res)
 
@@ -1865,7 +1875,7 @@ def fpathconf(space, fd, w_name):
     num = confname_w(space, w_name, os.pathconf_names)
     try:
         res = os.fpathconf(fd, num)
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
     return space.wrap(res)
 
@@ -1875,12 +1885,12 @@ def pathconf(space, path, w_name):
     if path.as_fd != -1:
         try:
             res = os.fpathconf(path.as_fd, num)
-        except OSError, e:
+        except OSError as e:
             raise wrap_oserror(space, e)
     else:
         try:
             res = os.pathconf(path.as_bytes, num)
-        except OSError, e:
+        except OSError as e:
             raise wrap_oserror2(space, e, path.w_path)
     return space.wrap(res)
 
@@ -1888,7 +1898,7 @@ def confstr(space, w_name):
     num = confname_w(space, w_name, os.confstr_names)
     try:
         res = os.confstr(num)
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
     return space.wrap(res)
 
@@ -1963,7 +1973,7 @@ Equivalent to os.chown(path, uid, gid, follow_symlinks=False)."""
     check_uid_range(space, gid)
     try:
         os.lchown(path, uid, gid)
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e, path)
 
 @unwrap_spec(uid=c_uid_t, gid=c_gid_t)
@@ -1977,15 +1987,14 @@ fd to the numeric uid and gid.  Equivalent to os.chown(fd, uid, gid)."""
     check_uid_range(space, gid)
     try:
         os.fchown(fd, uid, gid)
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
 
 def getloadavg(space):
     try:
         load = os.getloadavg()
     except OSError:
-        raise OperationError(space.w_OSError,
-                             space.wrap("Load averages are unobtainable"))
+        raise oefmt(space.w_OSError, "Load averages are unobtainable")
     return space.newtuple([space.wrap(load[0]),
                            space.wrap(load[1]),
                            space.wrap(load[2])])
@@ -2010,7 +2019,7 @@ def nice(space, inc):
     "Decrease the priority of process by inc and return the new priority."
     try:
         res = os.nice(inc)
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
     return space.wrap(res)
 
@@ -2023,7 +2032,7 @@ def urandom(space, n):
     context = get(space).random_context
     try:
         return space.wrapbytes(rurandom.urandom(context, n))
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
 
 def ctermid(space):

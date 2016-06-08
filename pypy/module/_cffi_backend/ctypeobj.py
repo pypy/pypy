@@ -43,9 +43,6 @@ class W_CType(W_Root):
         else:
             return 'NULL'
 
-    def is_char_ptr_or_array(self):
-        return False
-
     def is_unichar_ptr_or_array(self):
         return False
 
@@ -147,6 +144,9 @@ class W_CType(W_Root):
         raise oefmt(space.w_TypeError, "cannot add a cdata '%s' and a number",
                     self.name)
 
+    def nonzero(self, cdata):
+        return bool(cdata)
+
     def insert_name(self, extra, extra_position):
         name = '%s%s%s' % (self.name[:self.name_position],
                            extra,
@@ -177,34 +177,32 @@ class W_CType(W_Root):
         space = self.space
         try:
             fieldname = space.str_w(w_field_or_index)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_TypeError):
                 raise
             try:
                 index = space.int_w(w_field_or_index)
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_TypeError):
                     raise
-                raise OperationError(space.w_TypeError,
-                        space.wrap("field name or array index expected"))
+                raise oefmt(space.w_TypeError,
+                            "field name or array index expected")
             return self.typeoffsetof_index(index)
         else:
             return self.typeoffsetof_field(fieldname, following)
 
     def typeoffsetof_field(self, fieldname, following):
-        space = self.space
-        msg = "with a field name argument, expected a struct or union ctype"
-        raise OperationError(space.w_TypeError, space.wrap(msg))
+        raise oefmt(self.space.w_TypeError,
+                    "with a field name argument, expected a struct or union "
+                    "ctype")
 
     def typeoffsetof_index(self, index):
-        space = self.space
-        msg = "with an integer argument, expected an array or pointer ctype"
-        raise OperationError(space.w_TypeError, space.wrap(msg))
+        raise oefmt(self.space.w_TypeError,
+                    "with an integer argument, expected an array or pointer "
+                    "ctype")
 
     def rawaddressof(self, cdata, offset):
-        space = self.space
-        raise OperationError(space.w_TypeError,
-                             space.wrap("expected a pointer ctype"))
+        raise oefmt(self.space.w_TypeError, "expected a pointer ctype")
 
     def call(self, funcaddr, args_w):
         space = self.space
@@ -232,10 +230,9 @@ class W_CType(W_Root):
     # __________ app-level attributes __________
     def dir(self):
         space = self.space
-        w_self = space.wrap(self)
         lst = [space.wrap(name)
                   for name in _name_of_attributes
-                  if space.findattr(w_self, space.wrap(name)) is not None]
+                  if space.findattr(self, space.wrap(name)) is not None]
         return space.newlist(lst)
 
     def _fget(self, attrchar):
@@ -258,6 +255,9 @@ class W_CType(W_Root):
     def fget_abi(self, space):      return self._fget('A')
     def fget_elements(self, space): return self._fget('e')
     def fget_relements(self, space):return self._fget('R')
+
+    def cdata_dir(self):
+        return []
 
 
 W_CType.typedef = TypeDef(

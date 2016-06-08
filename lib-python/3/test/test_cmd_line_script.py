@@ -42,7 +42,11 @@ from importlib.machinery import BuiltinImporter
 _loader = __loader__ if __loader__ is BuiltinImporter else type(__loader__)
 print('__loader__==%a' % _loader)
 print('__file__==%a' % __file__)
-print('__cached__==%a' % __cached__)
+if __cached__ is not None:
+    # XXX: test_script_compiled on PyPy
+    assertEqual(__file__, __cached__)
+    if not __cached__.endswith(('pyc', 'pyo')):
+        raise AssertionError('has __cached__ but not compiled')
 print('__package__==%r' % __package__)
 # Check PEP 451 details
 import os.path
@@ -224,8 +228,9 @@ class CmdLineTest(unittest.TestCase):
     def test_basic_script(self):
         with support.temp_dir() as script_dir:
             script_name = _make_test_script(script_dir, 'script')
+            package = '' if support.check_impl_detail(pypy=True) else None
             self._check_script(script_name, script_name, script_name,
-                               script_dir, None,
+                               script_dir, package,
                                importlib.machinery.SourceFileLoader)
 
     def test_script_compiled(self):
@@ -234,8 +239,9 @@ class CmdLineTest(unittest.TestCase):
             py_compile.compile(script_name, doraise=True)
             os.remove(script_name)
             pyc_file = support.make_legacy_pyc(script_name)
+            package = '' if support.check_impl_detail(pypy=True) else None
             self._check_script(pyc_file, pyc_file,
-                               pyc_file, script_dir, None,
+                               pyc_file, script_dir, package,
                                importlib.machinery.SourcelessFileLoader)
 
     def test_directory(self):

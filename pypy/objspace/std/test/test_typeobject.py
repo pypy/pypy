@@ -500,22 +500,16 @@ class AppTestTypeObject:
 
         assert ImplicitDoc.__doc__ == 'foo'
 
-    def test_immutabledoc(self):
-        class ImmutableDoc(object):
-            "foo"
-
-        try:
-            ImmutableDoc.__doc__ = "bar"
-        except TypeError:
-            pass
-        except AttributeError:
-            # XXX - Python raises TypeError for several descriptors,
-            #       we always raise AttributeError.
-            pass
-        else:
-            raise AssertionError('__doc__ should not be writable')
-
-        assert ImmutableDoc.__doc__ == 'foo'
+    def test_set_doc(self):
+        class X:
+            "elephant"
+        X.__doc__ = "banana"
+        assert X.__doc__ == "banana"
+        raises(TypeError, lambda:
+               type(list).__dict__["__doc__"].__set__(list, "blah"))
+        raises((AttributeError, TypeError), lambda:
+               type(X).__dict__["__doc__"].__delete__(X))
+        assert X.__doc__ == "banana"
 
     def test_metaclass_conflict(self):
         """
@@ -763,7 +757,7 @@ class AppTestTypeObject:
         class C(metaclass=T):
             pass
         assert d
-        assert sorted(d[0].keys()) == ['__dict__', '__doc__', '__module__', '__qualname__', '__weakref__']
+        assert sorted(d[0].keys()) == ['__dict__', '__doc__', '__module__', '__weakref__']
         d = []
         class T(type):
             def mro(cls):
@@ -1077,6 +1071,16 @@ class AppTestTypeObject:
         class D(A, B):     # "best base" is A
             __slots__ = ("__weakref__",)
 
+    def test_slot_shadows_class_variable(self):
+        try:
+            class X:
+                __slots__ = ["foo"]
+                foo = None
+        except ValueError as e:
+            assert str(e) == "'foo' in __slots__ conflicts with class variable"
+        else:
+            assert False, "ValueError expected"
+
     def test_metaclass_calc(self):
         """
         # issue1294232: correct metaclass calculation
@@ -1323,15 +1327,6 @@ class AppTestNewShortcut:
         b = B()
 
         assert b == 1
-
-    def test_slots_with_method_in_class(self):
-        # this works in cpython...
-        class A(object):
-            __slots__ = ["f"]
-            def f(self, x):
-                return x + 1
-        a = A()
-        assert a.f(1) == 2
 
     def test_eq_returns_notimplemented(self):
         assert type.__eq__(int, 42) is NotImplemented

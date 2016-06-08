@@ -48,10 +48,10 @@ class AppTestPyFrame:
             return f.f_code
         assert g() is g.__code__
 
-    def test_f_trace_del(self): 
+    def test_f_trace_del(self):
         import sys
-        f = sys._getframe() 
-        del f.f_trace 
+        f = sys._getframe()
+        del f.f_trace
         assert f.f_trace is None
 
     def test_f_lineno(self):
@@ -120,7 +120,7 @@ class AppTestPyFrame:
         def f():
             assert sys._getframe().f_code.co_name == g()
         def g():
-            return sys._getframe().f_back.f_code.co_name 
+            return sys._getframe().f_back.f_code.co_name
         f()
 
     def test_f_back_virtualref(self):
@@ -237,7 +237,7 @@ class AppTestPyFrame:
     def test_trace_exc(self):
         import sys
         l = []
-        def ltrace(a,b,c): 
+        def ltrace(a,b,c):
             if b == 'exception':
                 l.append(c)
             return ltrace
@@ -300,7 +300,7 @@ class AppTestPyFrame:
     def test_trace_return_exc(self):
         import sys
         l = []
-        def trace(a,b,c): 
+        def trace(a,b,c):
             if b in ('exception', 'return'):
                 l.append((b, c))
             return trace
@@ -420,7 +420,7 @@ class AppTestPyFrame:
     def test_dont_trace_on_reraise(self):
         import sys
         l = []
-        def ltrace(a,b,c): 
+        def ltrace(a,b,c):
             if b == 'exception':
                 l.append(c)
             return ltrace

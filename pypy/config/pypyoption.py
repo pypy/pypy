@@ -18,6 +18,8 @@ essential_modules = set([
     "exceptions", "_io", "sys", "builtins", "posix", "_warnings",
     "itertools", "_frozen_importlib",
 ])
+if sys.platform == "win32":
+    essential_modules.add("_winreg")
 
 default_modules = essential_modules.copy()
 default_modules.update([
@@ -60,7 +62,6 @@ translation_modules.update([
 # XXX this should move somewhere else, maybe to platform ("is this posixish"
 #     check or something)
 if sys.platform == "win32":
-    working_modules.add("_winreg")
     # unix only modules
     for name in ["crypt", "fcntl", "pwd", "termios", "_minimal_curses",
                  "_posixsubprocess"]:

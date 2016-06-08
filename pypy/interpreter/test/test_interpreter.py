@@ -27,7 +27,7 @@ class TestInterpreter:
         wrappedfunc = space.getitem(w_glob, w(functionname))
         try:
             w_output = space.call(wrappedfunc, wrappedargs, wrappedkwargs)
-        except error.OperationError, e:
+        except error.OperationError as e:
             #e.print_detailed_traceback(space)
             return '<<<%s>>>' % e.errorstr(space)
         else:

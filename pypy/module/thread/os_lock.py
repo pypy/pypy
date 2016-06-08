@@ -8,7 +8,7 @@ from pypy.module.thread.error import wrap_thread_error
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib.rarithmetic import r_longlong, ovfcheck
 
 # Force the declaration of the type 'thread.LockType' for RPython
@@ -21,11 +21,11 @@ RPY_LOCK_FAILURE, RPY_LOCK_ACQUIRED, RPY_LOCK_INTR = range(3)
 
 def parse_acquire_args(space, blocking, timeout):
     if not blocking and timeout != -1.0:
-        raise OperationError(space.w_ValueError, space.wrap(
-                "can't specify a timeout for a non-blocking call"))
+        raise oefmt(space.w_ValueError,
+                    "can't specify a timeout for a non-blocking call")
     if timeout < 0.0 and timeout != -1.0:
-        raise OperationError(space.w_ValueError, space.wrap(
-                "timeout value must be strictly positive"))
+        raise oefmt(space.w_ValueError,
+                    "timeout value must be strictly positive")
     if not blocking:
         microseconds = 0
     elif timeout == -1.0:
@@ -33,8 +33,7 @@ def parse_acquire_args(space, blocking, timeout):
     else:
         timeout *= 1e6
         if timeout > float(TIMEOUT_MAX):
-            raise OperationError(space.w_OverflowError, space.wrap(
-                    "timeout value is too large"))
+            raise oefmt(space.w_OverflowError, "timeout value is too large")
         microseconds = r_longlong(timeout)
     return microseconds
 
@@ -89,8 +88,8 @@ but it needn't be locked by the same thread that unlocks it."""
         try:
             self.lock.release()
         except rthread.error:
-            raise OperationError(space.w_RuntimeError, space.wrap(
-                "cannot release un-acquired lock"))
+            raise oefmt(space.w_RuntimeError,
+                        "cannot release un-acquired lock")
 
     def descr_lock_locked(self, space):
         """Return whether the lock is in the locked state."""
@@ -184,8 +183,8 @@ class W_RLock(W_Root):
             try:
                 self.rlock_count = ovfcheck(self.rlock_count + 1)
             except OverflowError:
-                raise OperationError(space.w_OverflowError, space.wrap(
-                        'internal lock count overflowed'))
+                raise oefmt(space.w_OverflowError,
+                            "internal lock count overflowed")
             return space.w_True
 
         r = True
@@ -213,8 +212,8 @@ class W_RLock(W_Root):
         to be available for other threads."""
         tid = rthread.get_ident()
         if self.rlock_count == 0 or self.rlock_owner != tid:
-            raise OperationError(space.w_RuntimeError, space.wrap(
-                    "cannot release un-acquired lock"))
+            raise oefmt(space.w_RuntimeError,
+                        "cannot release un-acquired lock")
         self.rlock_count -= 1
         if self.rlock_count == 0:
             self.rlock_owner == 0
@@ -246,8 +245,8 @@ class W_RLock(W_Root):
     def release_save_w(self, space):
         """For internal use by `threading.Condition`."""
         if self.rlock_count == 0:
-            raise OperationError(space.w_RuntimeError, space.wrap(
-                "cannot release un-acquired lock"))
+            raise oefmt(space.w_RuntimeError,
+                        "cannot release un-acquired lock")
         count, self.rlock_count = self.rlock_count, 0
         owner, self.rlock_owner = self.rlock_owner, 0
         self.lock.release()

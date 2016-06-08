@@ -155,6 +155,29 @@ class TestSequence(BaseApiTest):
         result = api.PySequence_Index(w_gen, w_tofind)
         assert result == 4
 
+class AppTestSetObject(AppTestCpythonExtensionBase):
+    def test_sequence_macro_cast(self):
+        module = self.import_extension('foo', [
+            ("test_macro_cast", "METH_NOARGS",
+             """
+             PyObject *o = PyList_New(0);
+             PyListObject* l;
+             PyList_Append(o, o);
+             l = (PyListObject*)o;
+
+             PySequence_Fast_GET_ITEM(o, 0);
+             PySequence_Fast_GET_ITEM(l, 0);
+
+             PySequence_Fast_GET_SIZE(o);
+             PySequence_Fast_GET_SIZE(l);
+
+             PySequence_ITEM(o, 0);
+             PySequence_ITEM(l, 0);
+
+             return o;
+             """
+            )
+        ])
 class TestCPyListStrategy(BaseApiTest):
     def test_getitem_setitem(self, space, api):
         w_l = space.wrap([1, 2, 3, 4])
@@ -163,7 +186,7 @@ class TestCPyListStrategy(BaseApiTest):
         assert space.int_w(space.getitem(w_l, space.wrap(1))) == 2
         assert space.int_w(space.getitem(w_l, space.wrap(0))) == 1
         e = py.test.raises(OperationError, space.getitem, w_l, space.wrap(15))
-        assert "list index out of range" in e.exconly()
+        assert "list index out of range" in e.value.errorstr(space)
         assert space.int_w(space.getitem(w_l, space.wrap(-1))) == 4
         space.setitem(w_l, space.wrap(1), space.wrap(13))
         assert space.int_w(space.getitem(w_l, space.wrap(1))) == 13

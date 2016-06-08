@@ -109,6 +109,9 @@ RPY_EXTERN void boehm_gc_finalizer_notifier(void);
 #define OP_GC__ENABLE_FINALIZERS(r)  (boehm_gc_finalizer_lock--,	\
 				      boehm_gc_finalizer_notifier())
 
+#define OP_GC_FQ_REGISTER(tag, obj, r)   /* ignored so far */
+#define OP_GC_FQ_NEXT_DEAD(tag, r)       (r = NULL)
+
 #endif /* PYPY_USING_BOEHM_GC */
 
 
@@ -121,6 +124,8 @@ RPY_EXTERN void boehm_gc_finalizer_notifier(void);
 #define GC_REGISTER_FINALIZER(a, b, c, d, e)  /* nothing */
 #define GC_gcollect()  /* nothing */
 #define GC_set_max_heap_size(a)  /* nothing */
+#define OP_GC_FQ_REGISTER(tag, obj, r)   /* nothing */
+#define OP_GC_FQ_NEXT_DEAD(tag, r)       (r = NULL)
 #endif
 
 /************************************************************/

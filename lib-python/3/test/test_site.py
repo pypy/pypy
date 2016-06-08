@@ -6,7 +6,8 @@ executing have not been removed.
 """
 import unittest
 import test.support
-from test.support import captured_stderr, TESTFN, EnvironmentVarGuard
+from test.support import (
+    captured_stderr, check_impl_detail, TESTFN, EnvironmentVarGuard)
 import builtins
 import os
 import sys
@@ -230,7 +231,11 @@ class HelperFunctionsTests(unittest.TestCase):
         site.PREFIXES = ['xoxo']
         dirs = site.getsitepackages()
 
-        if (sys.platform == "darwin" and
+        if check_impl_detail(pypy=True):
+            self.assertEqual(len(dirs), 1)
+            wanted = os.path.join('xoxo', 'site-packages')
+            self.assertEqual(dirs[0], wanted)
+        elif (sys.platform == "darwin" and
             sysconfig.get_config_var("PYTHONFRAMEWORK")):
             # OS X framework builds
             site.PREFIXES = ['Python.framework']
@@ -346,8 +351,10 @@ class ImportSideEffectTests(unittest.TestCase):
 
         self.assertEqual(proc.returncode, 0)
         os__file__, os__cached__ = stdout.splitlines()[:2]
-        self.assertFalse(os.path.isabs(os__file__))
-        self.assertFalse(os.path.isabs(os__cached__))
+        if check_impl_detail(cpython=True):
+            # XXX: should probably match cpython
+            self.assertFalse(os.path.isabs(os__file__))
+            self.assertFalse(os.path.isabs(os__cached__))
         # Now, with 'import site', it works.
         proc = subprocess.Popen([sys.executable, '-c', command],
                                 env=env,

@@ -280,6 +280,14 @@ class TestDist(object):
             pass
         with open("setup.py", "w") as f:
             f.write("""if 1:
+                # https://bugs.python.org/issue23246
+                import sys
+                if sys.platform == 'win32':
+                    try:
+                        import setuptools
+                    except ImportError:
+                        pass
+
                 import cffi
                 ffi = cffi.FFI()
                 ffi.set_source("pack1.mymod", "/*code would be here*/")

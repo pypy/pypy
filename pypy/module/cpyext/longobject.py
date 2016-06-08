@@ -55,7 +55,7 @@ def PyLong_AsUnsignedLong(space, w_long):
     raised."""
     try:
         return rffi.cast(rffi.ULONG, space.uint_w(w_long))
-    except OperationError, e:
+    except OperationError as e:
         if e.match(space, space.w_ValueError):
             e.w_type = space.w_OverflowError
         raise
@@ -88,7 +88,7 @@ def PyLong_AsSsize_t(space, w_long):
 def PyLong_AsSize_t(space, w_long):
     """Return a C size_t representation of of pylong.  pylong must be
     an instance of PyLongObject.
-    
+
     Raise OverflowError if the value of pylong is out of range for a
     size_t."""
     return space.uint_w(w_long)
@@ -109,7 +109,7 @@ def PyLong_AsUnsignedLongLong(space, w_long):
     raised."""
     try:
         return rffi.cast(rffi.ULONGLONG, space.r_ulonglong_w(w_long))
-    except OperationError, e:
+    except OperationError as e:
         if e.match(space, space.w_ValueError):
             e.w_type = space.w_OverflowError
         raise
@@ -135,7 +135,7 @@ def PyLong_AsLongAndOverflow(space, w_long, overflow_ptr):
     overflow_ptr[0] = rffi.cast(rffi.INT_real, 0)
     try:
         return space.int_w(w_long)
-    except OperationError, e:
+    except OperationError as e:
         if not e.match(space, space.w_OverflowError):
             raise
     if space.is_true(space.gt(w_long, space.wrap(0))):
@@ -156,7 +156,7 @@ def PyLong_AsLongLongAndOverflow(space, w_long, overflow_ptr):
     overflow_ptr[0] = rffi.cast(rffi.INT_real, 0)
     try:
         return rffi.cast(rffi.LONGLONG, space.r_longlong_w(w_long))
-    except OperationError, e:
+    except OperationError as e:
         if not e.match(space, space.w_OverflowError):
             raise
     if space.is_true(space.gt(w_long, space.wrap(0))):
@@ -232,7 +232,8 @@ def _PyLong_Sign(space, w_long):
     assert isinstance(w_long, W_LongObject)
     return w_long.num.sign
 
-UCHARP = rffi.CArrayPtr(rffi.UCHAR)
+UCHARP = lltype.Ptr(lltype.Array(
+    rffi.UCHAR, hints={'nolength':True, 'render_as_const':True}))
 @cpython_api([UCHARP, rffi.SIZE_T, rffi.INT_real, rffi.INT_real], PyObject)
 def _PyLong_FromByteArray(space, bytes, n, little_endian, signed):
     little_endian = rffi.cast(lltype.Signed, little_endian)

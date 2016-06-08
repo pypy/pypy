@@ -220,9 +220,9 @@ class PyFrame(W_Root):
                 return            # no cells needed - fast path
         elif outer_func is None:
             space = self.space
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("directly executed code object "
-                                            "may not contain free variables"))
+            raise oefmt(space.w_TypeError,
+                        "directly executed code object may not contain free "
+                        "variables")
         if outer_func and outer_func.closure:
             closure_size = len(outer_func.closure)
         else:
@@ -241,12 +241,8 @@ class PyFrame(W_Root):
     def run(self):
         """Start this frame's execution."""
         if self.getcode().co_flags & pycode.CO_GENERATOR:
-            if self.getcode().co_flags & pycode.CO_YIELD_INSIDE_TRY:
-                from pypy.interpreter.generator import GeneratorIteratorWithDel
-                return self.space.wrap(GeneratorIteratorWithDel(self))
-            else:
-                from pypy.interpreter.generator import GeneratorIterator
-                return self.space.wrap(GeneratorIterator(self))
+            from pypy.interpreter.generator import GeneratorIterator
+            return self.space.wrap(GeneratorIterator(self))
         else:
             return self.execute_frame()
 
@@ -513,7 +509,7 @@ class PyFrame(W_Root):
         self.locals_cells_stack_w = values_w[:]
         valuestackdepth = space.int_w(w_stackdepth)
         if not self._check_stack_index(valuestackdepth):
-            raise OperationError(space.w_ValueError, space.wrap("invalid stackdepth"))
+            raise oefmt(space.w_ValueError, "invalid stackdepth")
         assert valuestackdepth >= 0
         self.valuestackdepth = valuestackdepth
         if space.is_w(w_exc_value, space.w_None):
@@ -550,7 +546,7 @@ class PyFrame(W_Root):
         where the order is according to self.pycode.signature()."""
         scope_len = len(scope_w)
         if scope_len > self.pycode.co_nlocals:
-            raise ValueError, "new fastscope is longer than the allocated area"
+            raise ValueError("new fastscope is longer than the allocated area")
         # don't assign directly to 'locals_cells_stack_w[:scope_len]' to be
         # virtualizable-friendly
         for i in range(scope_len):
@@ -686,12 +682,11 @@ class PyFrame(W_Root):
         try:
             new_lineno = space.int_w(w_new_lineno)
         except OperationError:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("lineno must be an integer"))
+            raise oefmt(space.w_ValueError, "lineno must be an integer")
 
         if self.get_w_f_trace() is None:
-            raise OperationError(space.w_ValueError,
-                  space.wrap("f_lineno can only be set by a trace function."))
+            raise oefmt(space.w_ValueError,
+                        "f_lineno can only be set by a trace function.")
 
         line = self.pycode.co_firstlineno
         if new_lineno < line:
@@ -718,8 +713,8 @@ class PyFrame(W_Root):
         # Don't jump to a line with an except in it.
         code = self.pycode.co_code
         if ord(code[new_lasti]) in (DUP_TOP, POP_TOP):
-            raise OperationError(space.w_ValueError,
-                  space.wrap("can't jump to 'except' line as there's no exception"))
+            raise oefmt(space.w_ValueError,
+                        "can't jump to 'except' line as there's no exception")
 
         # Don't jump into or out of a finally block.
         f_lasti_setup_addr = -1
@@ -800,8 +795,8 @@ class PyFrame(W_Root):
             new_iblock = f_iblock - delta_iblock
 
         if new_iblock > min_iblock:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("can't jump into the middle of a block"))
+            raise oefmt(space.w_ValueError,
+                        "can't jump into the middle of a block")
 
         while f_iblock > new_iblock:
             block = self.pop_block()

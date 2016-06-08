@@ -438,7 +438,7 @@ class W_BytesObject(W_AbstractBytesObject):
             return StringMethods._single_char(space, w_other)
         try:
             return space.bytes_w(w_other)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_TypeError):
                 raise
         return space.buffer_w(w_other, space.BUF_SIMPLE).as_str()
@@ -650,16 +650,15 @@ def getbytevalue(space, w_value):
     value = space.getindex_w(w_value, None)
     if not 0 <= value < 256:
         # this includes the OverflowError in case the long is too large
-        raise OperationError(space.w_ValueError, space.wrap(
-            "byte must be in range(0, 256)"))
+        raise oefmt(space.w_ValueError, "byte must be in range(0, 256)")
     return chr(value)
 
 def newbytesdata_w(space, w_source, encoding, errors):
     # None value
     if w_source is None:
         if encoding is not None or errors is not None:
-            raise OperationError(space.w_TypeError, space.wrap(
-                    "encoding or errors without string argument"))
+            raise oefmt(space.w_TypeError,
+                        "encoding or errors without string argument")
         return []
     # Some object with __bytes__ special method
     w_bytes_method = space.lookup(w_source, "__bytes__")
@@ -673,22 +672,21 @@ def newbytesdata_w(space, w_source, encoding, errors):
     # Note that we're calling space.getindex_w() instead of space.int_w().
     try:
         count = space.getindex_w(w_source, space.w_OverflowError)
-    except OperationError, e:
+    except OperationError as e:
         if not e.match(space, space.w_TypeError):
             raise
     else:
         if count < 0:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("negative count"))
+            raise oefmt(space.w_ValueError, "negative count")
         if encoding is not None or errors is not None:
-            raise OperationError(space.w_TypeError, space.wrap(
-                    "encoding or errors without string argument"))
+            raise oefmt(space.w_TypeError,
+                        "encoding or errors without string argument")
         return ['\0'] * count
     # Unicode with encoding
     if space.isinstance_w(w_source, space.w_unicode):
         if encoding is None:
-            raise OperationError(space.w_TypeError, space.wrap(
-                    "string argument without an encoding"))
+            raise oefmt(space.w_TypeError,
+                        "string argument without an encoding")
         from pypy.objspace.std.unicodeobject import encode_object
         w_source = encode_object(space, w_source, encoding, errors)
         # and continue with the encoded string
@@ -709,16 +707,15 @@ def _convert_from_buffer_or_iterable(space, w_source):
     # String-like argument
     try:
         buf = space.buffer_w(w_source, space.BUF_FULL_RO)
-    except OperationError, e:
+    except OperationError as e:
         if not e.match(space, space.w_TypeError):
             raise
     else:
         return [c for c in buf.as_str()]
 
     if space.isinstance_w(w_source, space.w_unicode):
-        raise OperationError(
-            space.w_TypeError,
-            space.wrap("cannot convert unicode object to bytes"))
+        raise oefmt(space.w_TypeError,
+                    "cannot convert unicode object to bytes")
 
     # sequence of bytes
     w_iter = space.iter(w_source)
@@ -728,7 +725,7 @@ def _convert_from_buffer_or_iterable(space, w_source):
     while True:
         try:
             w_item = space.next(w_iter)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_StopIteration):
                 raise
             break

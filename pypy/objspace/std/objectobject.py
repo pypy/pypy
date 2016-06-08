@@ -84,23 +84,23 @@ class W_ObjectObject(W_Root):
     'object()' call."""
 
 
+def _excess_args(__args__):
+    return bool(__args__.arguments_w) or bool(__args__.keywords)
+
 def descr__new__(space, w_type, __args__):
-    from pypy.objspace.std.objectobject import W_ObjectObject
     from pypy.objspace.std.typeobject import _precheck_for_new
+    w_type = _precheck_for_new(space, w_type)
+
     # don't allow arguments if the default object.__init__() is about
     # to be called
-    w_type = _precheck_for_new(space, w_type)
-    w_parentinit, _ = w_type.lookup_where('__init__')
-    if w_parentinit is space.w_object:
-        try:
-            __args__.fixedunpack(0)
-        except ValueError:
+    if _excess_args(__args__):
+        w_parent_init, _ = space.lookup_in_type_where(w_type, '__init__')
+        if w_parent_init is space.w_object:
             raise oefmt(space.w_TypeError,
-                        "default __new__ takes no parameters")
+                        "object() takes no parameters")
     if w_type.is_abstract():
         _abstract_method_error(space, w_type)
-    w_obj = space.allocate_instance(W_ObjectObject, w_type)
-    return w_obj
+    return space.allocate_instance(W_ObjectObject, w_type)
 
 
 def descr___subclasshook__(space, __args__):
@@ -109,12 +109,10 @@ def descr___subclasshook__(space, __args__):
 
 def descr__init__(space, w_obj, __args__):
     # don't allow arguments unless __new__ is overridden
-    w_type = space.type(w_obj)
-    w_parent_new, _ = space.lookup_in_type_where(w_type, '__new__')
-    if w_parent_new is space.w_object:
-        try:
-            __args__.fixedunpack(0)
-        except ValueError:
+    if _excess_args(__args__):
+        w_type = space.type(w_obj)
+        w_parent_new, _ = space.lookup_in_type_where(w_type, '__new__')
+        if w_parent_new is space.w_object:
             raise oefmt(space.w_TypeError,
                         "object.__init__() takes no parameters")
 
@@ -151,7 +149,7 @@ def descr__repr__(space, w_obj):
         if w_module is not None:
             try:
                 modulename = space.unicode_w(w_module)
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_TypeError):
                     raise
             else:
@@ -195,8 +193,7 @@ def descr___format__(space, w_obj, w_format_spec):
     elif space.isinstance_w(w_format_spec, space.w_str):
         w_as_str = space.str(w_obj)
     else:
-        msg = "format_spec must be a string"
-        raise OperationError(space.w_TypeError, space.wrap(msg))
+        raise oefmt(space.w_TypeError, "format_spec must be a string")
     if space.len_w(w_format_spec) > 0:
         msg = "object.__format__ with a non-empty format string is deprecated"
         space.warn(space.wrap(msg), space.w_DeprecationWarning)

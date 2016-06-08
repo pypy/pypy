@@ -338,7 +338,7 @@ class DevolvedDictTerminator(Terminator):
             w_dict = obj.getdict(space)
             try:
                 space.delitem(w_dict, space.wrap(name))
-            except OperationError, ex:
+            except OperationError as ex:
                 if not ex.match(space, space.w_KeyError):
                     raise
             return Terminator.copy(self, obj)
@@ -561,12 +561,11 @@ def _obj_getdict(self, space):
 
 @objectmodel.dont_inline
 def _obj_setdict(self, space, w_dict):
-    from pypy.interpreter.error import OperationError
+    from pypy.interpreter.error import oefmt
     terminator = self._get_mapdict_map().terminator
     assert isinstance(terminator, DictTerminator) or isinstance(terminator, DevolvedDictTerminator)
     if not space.isinstance_w(w_dict, space.w_dict):
-        raise OperationError(space.w_TypeError,
-                space.wrap("setting dictionary to a non-dict"))
+        raise oefmt(space.w_TypeError, "setting dictionary to a non-dict")
     assert isinstance(w_dict, W_DictMultiObject)
     w_olddict = self.getdict(space)
     assert isinstance(w_olddict, W_DictMultiObject)
@@ -838,8 +837,7 @@ class MapDictIteratorKeys(BaseKeyIterator):
         self.orig_map = self.curr_map = w_obj._get_mapdict_map()
 
     def next_key_entry(self):
-        implementation = self.w_dict
-        assert isinstance(implementation.get_strategy(), MapDictStrategy)
+        assert isinstance(self.w_dict.get_strategy(), MapDictStrategy)
         if self.orig_map is not self.w_obj._get_mapdict_map():
             return None
         if self.curr_map:
@@ -860,8 +858,7 @@ class MapDictIteratorValues(BaseValueIterator):
         self.orig_map = self.curr_map = w_obj._get_mapdict_map()
 
     def next_value_entry(self):
-        implementation = self.w_dict
-        assert isinstance(implementation.get_strategy(), MapDictStrategy)
+        assert isinstance(self.w_dict.get_strategy(), MapDictStrategy)
         if self.orig_map is not self.w_obj._get_mapdict_map():
             return None
         if self.curr_map:
@@ -881,8 +878,7 @@ class MapDictIteratorItems(BaseItemIterator):
         self.orig_map = self.curr_map = w_obj._get_mapdict_map()
 
     def next_item_entry(self):
-        implementation = self.w_dict
-        assert isinstance(implementation.get_strategy(), MapDictStrategy)
+        assert isinstance(self.w_dict.get_strategy(), MapDictStrategy)
         if self.orig_map is not self.w_obj._get_mapdict_map():
             return None, None
         if self.curr_map:

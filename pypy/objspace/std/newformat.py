@@ -7,6 +7,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib import rstring, runicode, rlocale, rfloat, jit
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rfloat import copysign, formatd
+from rpython.rlib.rarithmetic import r_uint, intmask
 
 
 @specialize.argtype(1)
@@ -64,8 +65,7 @@ def make_template_formatting_class():
             else:
                 out = rstring.StringBuilder()
             if not level:
-                raise OperationError(space.w_ValueError,
-                                     space.wrap("Recursion depth exceeded"))
+                raise oefmt(space.w_ValueError, "Recursion depth exceeded")
             level -= 1
             s = self.template
             return self._do_build_string(start, end, level, out, s)
@@ -83,14 +83,12 @@ def make_template_formatting_class():
                     markup_follows = True
                     if c == "}":
                         if at_end or s[i] != "}":
-                            raise OperationError(space.w_ValueError,
-                                                 space.wrap("Single '}'"))
+                            raise oefmt(space.w_ValueError, "Single '}'")
                         i += 1
                         markup_follows = False
                     if c == "{":
                         if at_end:
-                            raise OperationError(space.w_ValueError,
-                                                 space.wrap("Single '{'"))
+                            raise oefmt(space.w_ValueError, "Single '{'")
                         if s[i] == "{":
                             i += 1
                             markup_follows = False
@@ -122,8 +120,7 @@ def make_template_formatting_class():
                                 break
                         i += 1
                     if nested:
-                        raise OperationError(space.w_ValueError,
-                                             space.wrap("Unmatched '{'"))
+                        raise oefmt(space.w_ValueError, "Unmatched '{'")
                     rendered = self._render_field(field_start, i, recursive, level)
                     out.append(rendered)
                     i += 1
@@ -145,16 +142,15 @@ def make_template_formatting_class():
                     if c == "!":
                         i += 1
                         if i == end:
-                            w_msg = self.space.wrap("expected conversion")
-                            raise OperationError(self.space.w_ValueError, w_msg)
+                            raise oefmt(self.space.w_ValueError,
+                                        "expected conversion")
                         conversion = s[i]
                         i += 1
                         if i < end:
                             if s[i] != ':':
-                                w_msg = self.space.wrap("expected ':' after"
-                                                        " format specifier")
-                                raise OperationError(self.space.w_ValueError,
-                                                     w_msg)
+                                raise oefmt(self.space.w_ValueError,
+                                            "expected ':' after format "
+                                            "specifier")
                             i += 1
                     else:
                         conversion = None
@@ -190,13 +186,12 @@ def make_template_formatting_class():
             if use_numeric:
                 if self.auto_numbering_state == ANS_MANUAL:
                     if empty:
-                        msg = "switching from manual to automatic numbering"
-                        raise OperationError(space.w_ValueError,
-                                             space.wrap(msg))
+                        raise oefmt(space.w_ValueError,
+                                    "switching from manual to automatic "
+                                    "numbering")
                 elif not empty:
-                    msg = "switching from automatic to manual numbering"
-                    raise OperationError(space.w_ValueError,
-                                         space.wrap(msg))
+                    raise oefmt(space.w_ValueError,
+                                "switching from automatic to manual numbering")
             if empty:
                 index = self.auto_numbering
                 self.auto_numbering += 1
@@ -219,8 +214,7 @@ def make_template_formatting_class():
                 try:
                     w_arg = self.args[index]
                 except IndexError:
-                    w_msg = space.wrap("index out of range")
-                    raise OperationError(space.w_IndexError, w_msg)
+                    raise oefmt(space.w_IndexError, "out of range")
             return self._resolve_lookups(w_arg, name, i, end)
 
         @jit.unroll_safe
@@ -239,8 +233,8 @@ def make_template_formatting_class():
                             break
                         i += 1
                     if start == i:
-                        w_msg = space.wrap("Empty attribute in format string")
-                        raise OperationError(space.w_ValueError, w_msg)
+                        raise oefmt(space.w_ValueError,
+                                    "Empty attribute in format string")
                     w_attr = space.wrap(name[start:i])
                     if w_obj is not None:
                         w_obj = space.getattr(w_obj, w_attr)
@@ -258,8 +252,7 @@ def make_template_formatting_class():
                             break
                         i += 1
                     if not got_bracket:
-                        raise OperationError(space.w_ValueError,
-                                             space.wrap("Missing ']'"))
+                        raise oefmt(space.w_ValueError, "Missing ']'")
                     index, reached = _parse_int(self.space, name, start, i)
                     if index != -1 and reached == i:
                         w_item = space.wrap(index)
@@ -272,8 +265,8 @@ def make_template_formatting_class():
                         self.parser_list_w.append(space.newtuple([
                             space.w_False, w_item]))
                 else:
-                    msg = "Only '[' and '.' may follow ']'"
-                    raise OperationError(space.w_ValueError, space.wrap(msg))
+                    raise oefmt(space.w_ValueError,
+                                "Only '[' and '.' may follow ']'")
             return w_obj
 
         def formatter_field_name_split(self):
@@ -316,8 +309,7 @@ def make_template_formatting_class():
                 from pypy.objspace.std.unicodeobject import ascii_from_object
                 return ascii_from_object(space, w_obj)
             else:
-                raise OperationError(self.space.w_ValueError,
-                                     self.space.wrap("invalid conversion"))
+                raise oefmt(space.w_ValueError, "invalid conversion")
 
         def _render_field(self, start, end, recursive, level):
             name, conversion, spec_start = self._parse_field(start, end)
@@ -476,19 +468,17 @@ def make_formatting_class():
                 i += 1
                 self._precision, i = _parse_int(self.space, spec, i, length)
                 if self._precision == -1:
-                    raise OperationError(space.w_ValueError,
-                                         space.wrap("no precision given"))
+                    raise oefmt(space.w_ValueError, "no precision given")
             if length - i > 1:
-                raise OperationError(space.w_ValueError,
-                                     space.wrap("invalid format spec"))
+                raise oefmt(space.w_ValueError, "invalid format spec")
             if length - i == 1:
                 presentation_type = spec[i]
                 if self.is_unicode:
                     try:
                         the_type = spec[i].encode("ascii")[0]
                     except UnicodeEncodeError:
-                        raise OperationError(space.w_ValueError,
-                                             space.wrap("invalid presentation type"))
+                        raise oefmt(space.w_ValueError,
+                                    "invalid presentation type")
                 else:
                     the_type = presentation_type
                 i += 1
@@ -507,8 +497,7 @@ def make_formatting_class():
                     # ok
                     pass
                 else:
-                    raise OperationError(space.w_ValueError,
-                                         space.wrap("invalid type with ','"))
+                    raise oefmt(space.w_ValueError, "invalid type with ','")
             return False
 
         def _calc_padding(self, string, length):
@@ -551,9 +540,8 @@ def make_formatting_class():
                 return rstring.StringBuilder()
 
         def _unknown_presentation(self, tp):
-            msg = "unknown presentation for %s: '%s'"
-            w_msg = self.space.wrap(msg  % (tp, self._type))
-            raise OperationError(self.space.w_ValueError, w_msg)
+            raise oefmt(self.space.w_ValueError,
+                        "unknown presentation for %s: '%s'", tp, self._type)
 
         def format_string(self, w_string):
             space = self.space
@@ -565,14 +553,16 @@ def make_formatting_class():
             if self._type != "s":
                 self._unknown_presentation("string")
             if self._sign != "\0":
-                msg = "Sign not allowed in string format specifier"
-                raise OperationError(space.w_ValueError, space.wrap(msg))
+                raise oefmt(space.w_ValueError,
+                            "Sign not allowed in string format specifier")
             if self._alternate:
-                msg = "Alternate form (#) not allowed in string format specifier"
-                raise OperationError(space.w_ValueError, space.wrap(msg))
+                raise oefmt(space.w_ValueError,
+                            "Alternate form (#) not allowed in string format "
+                            "specifier")
             if self._align == "=":
-                msg = "'=' alignment not allowed in string format specifier"
-                raise OperationError(space.w_ValueError, space.wrap(msg))
+                raise oefmt(space.w_ValueError,
+                            "'=' alignment not allowed in string format "
+                            "specifier")
             length = len(string)
             precision = self._precision
             if precision != -1 and length >= precision:
@@ -770,14 +760,14 @@ def make_formatting_class():
         def _format_int_or_long(self, w_num, kind):
             space = self.space
             if self._precision != -1:
-                msg = "precision not allowed in integer type"
-                raise OperationError(space.w_ValueError, space.wrap(msg))
+                raise oefmt(space.w_ValueError,
+                            "precision not allowed in integer type")
             sign_char = "\0"
             tp = self._type
             if tp == "c":
                 if self._sign != "\0":
-                    msg = "sign not allowed with 'c' presentation type"
-                    raise OperationError(space.w_ValueError, space.wrap(msg))
+                    raise oefmt(space.w_ValueError,
+                                "sign not allowed with 'c' presentation type")
                 value = space.int_w(w_num)
                 if self.is_unicode:
                     result = runicode.UNICHR(value)
@@ -847,33 +837,37 @@ def make_formatting_class():
                 return s
             # This part is slow.
             negative = value < 0
-            value = abs(value)
+            base = r_uint(base)
+            value = r_uint(value)
+            if negative:   # change the sign on the unsigned number: otherwise,
+                value = -value   #   we'd risk overflow if value==-sys.maxint-1
+            #
             buf = ["\0"] * (8 * 8 + 6) # Too much on 32 bit, but who cares?
             i = len(buf) - 1
             while True:
-                div = value // base
-                mod = value - div * base
-                digit = abs(mod)
+                div = value // base         # unsigned
+                mod = value - div * base    # unsigned, always in range(0,base)
+                digit = intmask(mod)
                 digit += ord("0") if digit < 10 else ord("a") - 10
                 buf[i] = chr(digit)
-                value = div
+                value = div                 # unsigned
                 i -= 1
                 if not value:
                     break
-            if base == 2:
+            if base == r_uint(2):
                 buf[i] = "b"
                 buf[i - 1] = "0"
-            elif base == 8:
+            elif base == r_uint(8):
                 buf[i] = "o"
                 buf[i - 1] = "0"
-            elif base == 16:
+            elif base == r_uint(16):
                 buf[i] = "x"
                 buf[i - 1] = "0"
             else:
                 buf[i] = "#"
-                buf[i - 1] = chr(ord("0") + base % 10)
-                if base > 10:
-                    buf[i - 2] = chr(ord("0") + base // 10)
+                buf[i - 1] = chr(ord("0") + intmask(base % r_uint(10)))
+                if base > r_uint(10):
+                    buf[i - 2] = chr(ord("0") + intmask(base // r_uint(10)))
                     i -= 1
             i -= 1
             if negative:
@@ -1000,13 +994,14 @@ def make_formatting_class():
             default_precision = 6
             if self._align == "=":
                 # '=' alignment is invalid
-                msg = ("'=' alignment flag is not allowed in"
-                       " complex format specifier")
-                raise OperationError(space.w_ValueError, space.wrap(msg))
+                raise oefmt(space.w_ValueError,
+                            "'=' alignment flag is not allowed in complex "
+                            "format specifier")
             if self._fill_char == "0":
-                #zero padding is invalid
-                msg = "Zero padding is not allowed in complex format specifier"
-                raise OperationError(space.w_ValueError, space.wrap(msg))
+                # zero padding is invalid
+                raise oefmt(space.w_ValueError,
+                            "Zero padding is not allowed in complex format "
+                            "specifier")
             if self._alternate:
                 flags |= rfloat.DTSF_ALT
 

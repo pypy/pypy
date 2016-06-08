@@ -26,23 +26,23 @@ class W_UnicodeObject(W_Root):
     import_from_mixin(StringMethods)
     _immutable_fields_ = ['_value', '_utf8?']
 
-    def __init__(w_self, unistr):
+    def __init__(self, unistr):
         assert isinstance(unistr, unicode)
-        w_self._value = unistr
-        w_self._utf8 = None
+        self._value = unistr
+        self._utf8 = None
 
-    def __repr__(w_self):
+    def __repr__(self):
         """representation for debugging purposes"""
-        return "%s(%r)" % (w_self.__class__.__name__, w_self._value)
+        return "%s(%r)" % (self.__class__.__name__, self._value)
 
-    def unwrap(w_self, space):
+    def unwrap(self, space):
         # for testing
-        return w_self._value
+        return self._value
 
-    def create_if_subclassed(w_self):
-        if type(w_self) is W_UnicodeObject:
-            return w_self
-        return W_UnicodeObject(w_self._value)
+    def create_if_subclassed(self):
+        if type(self) is W_UnicodeObject:
+            return self
+        return W_UnicodeObject(self._value)
 
     def is_w(self, space, w_other):
         if not isinstance(w_other, W_UnicodeObject):
@@ -70,13 +70,13 @@ class W_UnicodeObject(W_Root):
         try:
             identifier = unicode_encode_utf_8(u, len(u), None,
                                               errorhandler=eh)
-        except unicodehelper.RUnicodeEncodeError, ue:
+        except unicodehelper.RUnicodeEncodeError as ue:
             raise wrap_encode_error(space, ue)
         self._utf8 = identifier
         return identifier
 
-    def listview_unicode(w_self):
-        return _create_list_from_unicode(w_self._value)
+    def listview_unicode(self):
+        return _create_list_from_unicode(self._value)
 
     def ord(self, space):
         if len(self._value) != 1:
@@ -201,16 +201,16 @@ class W_UnicodeObject(W_Root):
             ylen = len(y)
             try:
                 x = space.unicode_w(w_x)
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_TypeError):
                     raise
-                raise OperationError(space.w_TypeError, space.wrap(
-                        "first maketrans argument must "
-                        "be a string if there is a second argument"))
+                raise oefmt(space.w_TypeError,
+                            "first maketrans argument must be a string if "
+                            "there is a second argument")
             if len(x) != ylen:
-                raise OperationError(space.w_ValueError, space.wrap(
-                        "the first two maketrans "
-                        "arguments must have equal length"))
+                raise oefmt(space.w_ValueError,
+                            "the first two maketrans arguments must have "
+                            "equal length")
             # create entries for translating chars in x to those in y
             for i in range(len(x)):
                 w_key = space.newint(ord(x[i]))
@@ -224,15 +224,15 @@ class W_UnicodeObject(W_Root):
         else:
             # x must be a dict
             if not space.is_w(space.type(w_x), space.w_dict):
-                raise OperationError(space.w_TypeError, space.wrap(
-                        "if you give only one argument "
-                        "to maketrans it must be a dict"))
+                raise oefmt(space.w_TypeError,
+                            "if you give only one argument to maketrans it "
+                            "must be a dict")
             # copy entries into the new dict, converting string keys to int keys
             w_iter = space.iter(space.call_method(w_x, "items"))
             while True:
                 try:
                     w_item = space.next(w_iter)
-                except OperationError, e:
+                except OperationError as e:
                     if not e.match(space, space.w_StopIteration):
                         raise
                     break
@@ -241,20 +241,20 @@ class W_UnicodeObject(W_Root):
                     # convert string keys to integer keys
                     key = space.unicode_w(w_key)
                     if len(key) != 1:
-                        raise OperationError(space.w_ValueError, space.wrap(
-                                "string keys in translate "
-                                "table must be of length 1"))
+                        raise oefmt(space.w_ValueError,
+                                    "string keys in translate table must be "
+                                    "of length 1")
                     w_key = space.newint(ord(key[0]))
                 else:
                     # just keep integer keys
                     try:
                         space.int_w(w_key)
-                    except OperationError, e:
+                    except OperationError as e:
                         if not e.match(space, space.w_TypeError):
                             raise
-                        raise OperationError(space.w_TypeError, space.wrap(
-                                "keys in translate table must "
-                                "be strings or integers"))
+                        raise oefmt(space.w_TypeError,
+                                    "keys in translate table must be strings "
+                                    "or integers")
                 space.setitem(w_new, w_key, w_value)
         return w_new
 
@@ -502,7 +502,7 @@ def encode_object(space, w_object, encoding, errors):
                 eh = unicodehelper.encode_error_handler(space)
                 return space.wrapbytes(unicode_encode_ascii(
                         u, len(u), errors, errorhandler=eh))
-        except unicodehelper.RUnicodeEncodeError, ue:
+        except unicodehelper.RUnicodeEncodeError as ue:
             raise wrap_encode_error(space, ue)
 
     from pypy.module._codecs.interp_codecs import lookup_codec

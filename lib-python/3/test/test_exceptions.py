@@ -158,11 +158,12 @@ class ExceptionTests(unittest.TestCase):
             self.assertEqual(cm.exception.lineno, lineno)
             self.assertEqual(cm.exception.offset, offset)
 
+        is_pypy = check_impl_detail(pypy=True)
         check('def fact(x):\n\treturn x!\n', 2, 10)
-        check('1 +\n', 1, 4)
-        check('def spam():\n  print(1)\n print(2)', 3, 10)
-        check('Python = "Python" +', 1, 20)
-        check('Python = "\u1e54\xfd\u0163\u0125\xf2\xf1" +', 1, 20)
+        check('1 +\n', 1, 4 - is_pypy)
+        check('def spam():\n  print(1)\n print(2)', 3, 0 if is_pypy else 10)
+        check('Python = "Python" +', 1, 20 - is_pypy)
+        check('Python = "\u1e54\xfd\u0163\u0125\xf2\xf1" +', 1, 20 - is_pypy)
 
     @cpython_only
     def testSettingException(self):
@@ -417,10 +418,11 @@ class ExceptionTests(unittest.TestCase):
             self.fail("No exception raised")
 
     def testInvalidAttrs(self):
+        delerrs = (AttributeError, TypeError)
         self.assertRaises(TypeError, setattr, Exception(), '__cause__', 1)
-        self.assertRaises(TypeError, delattr, Exception(), '__cause__')
+        self.assertRaises(delerrs, delattr, Exception(), '__cause__')
         self.assertRaises(TypeError, setattr, Exception(), '__context__', 1)
-        self.assertRaises(TypeError, delattr, Exception(), '__context__')
+        self.assertRaises(delerrs, delattr, Exception(), '__context__')
 
     def testNoneClearsTracebackAttr(self):
         try:

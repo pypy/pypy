@@ -93,8 +93,9 @@ def get_name():
 def get_file():
     return __file__"""
         data = marshal.dumps(compile(source, 'uuu.py', 'exec'))
+        size = len(data).to_bytes(4, 'little', signed=True)
 
-        return imp.get_magic() + mtimeb + data
+        return imp.get_magic() + mtimeb + size + data
 
     def w_now_in_the_future(self, delta):
         self.now += delta
@@ -348,14 +349,23 @@ def get_file():
         assert sys.path_hooks.count(zipimport.zipimporter) == 1
 
     def w__make_unicode_filename(self):
+        if not self.testfn_unencodable:
+            import sys
+            skip("can't run this test with %s as filesystem encoding"
+                 % sys.getfilesystemencoding())
         import os
         head, tail = os.path.split(self.zipfile)
-        self.zipfile = head + os.path.sep + tail[:4] + '_ä' + tail[4:]
+        self.zipfile = (head + os.path.sep + tail[:4] +
+                        self.testfn_unencodable + tail[4:])
 
     def test_unicode_filename_notfound(self):
+        if not self.special_char:
+            import sys
+            skip("can't run this test with %s as filesystem encoding"
+                 % sys.getfilesystemencoding())
         import zipimport
         raises(zipimport.ZipImportError,
-               zipimport.zipimporter, 'caf\xe9')
+               zipimport.zipimporter, self.special_char)
 
     def test_unicode_filename_invalid_zippath(self):
         import zipimport
@@ -429,6 +439,12 @@ def get_co_filename():
         self.writefile('x1test.py', '1/0')
         self.writefile('x1test/__init__.py', 'raise ValueError')
         raises(ValueError, __import__, 'x1test', None, None, [])
+
+    def test_namespace_pkg(self):
+        self.writefile('foo/', '')
+        self.writefile('foo/one.py', "attr = 'portion1 foo one'\n")
+        foo = __import__('foo.one', None, None, [])
+        assert foo.one.attr == 'portion1 foo one'
 
 
 if os.sep != '/':

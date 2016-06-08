@@ -18,6 +18,7 @@ else:
 
 class PythonAPITestCase(unittest.TestCase):
 
+    @xfail
     def test_PyBytes_FromStringAndSize(self):
         PyBytes_FromStringAndSize = pythonapi.PyBytes_FromStringAndSize
 
@@ -67,6 +68,7 @@ class PythonAPITestCase(unittest.TestCase):
         del pyobj
         self.assertEqual(grc(s), ref)
 
+    @xfail
     def test_PyOS_snprintf(self):
         PyOS_snprintf = pythonapi.PyOS_snprintf
         PyOS_snprintf.argtypes = POINTER(c_char), c_size_t, c_char_p
@@ -81,6 +83,7 @@ class PythonAPITestCase(unittest.TestCase):
         # not enough arguments
         self.assertRaises(TypeError, PyOS_snprintf, buf)
 
+    @xfail
     def test_pyobject_repr(self):
         self.assertEqual(repr(py_object()), "py_object(<NULL>)")
         self.assertEqual(repr(py_object(42)), "py_object(42)")

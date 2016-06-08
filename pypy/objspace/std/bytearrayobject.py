@@ -5,6 +5,9 @@ from rpython.rlib.objectmodel import (
 from rpython.rlib.buffer import Buffer
 from rpython.rlib.rstring import StringBuilder, ByteListBuilder
 from rpython.rlib.debug import check_list_of_chars
+from rpython.rtyper.lltypesystem import rffi
+from rpython.rlib.rgc import (resizable_list_supporting_raw_ptr,
+        nonmoving_raw_ptr_for_resizable_list)
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
@@ -25,7 +28,7 @@ class W_BytearrayObject(W_Root):
 
     def __init__(self, data):
         check_list_of_chars(data)
-        self.data = data
+        self.data = resizable_list_supporting_raw_ptr(data)
 
     def __repr__(self):
         """representation for debugging purposes"""
@@ -33,6 +36,12 @@ class W_BytearrayObject(W_Root):
 
     def buffer_w(self, space, flags):
         return BytearrayBuffer(self.data, False)
+
+    def bytearray_list_of_chars_w(self, space):
+        return self.data
+
+    def nonmovable_carray(self, space):
+        return BytearrayBuffer(self.data, False).get_raw_address()
 
     def _new(self, value):
         if value is self.data:
@@ -73,7 +82,7 @@ class W_BytearrayObject(W_Root):
             return StringMethods._single_char(space, w_other)
         try:
             return space.bytes_w(w_other)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_TypeError):
                 raise
         return space.buffer_w(w_other, space.BUF_SIMPLE).as_str()
@@ -176,7 +185,8 @@ class W_BytearrayObject(W_Root):
     @unwrap_spec(encoding='str_or_None', errors='str_or_None')
     def descr_init(self, space, w_source=None, encoding=None, errors=None):
         assert isinstance(self, W_BytearrayObject)
-        self.data = newbytesdata_w(space, w_source, encoding, errors)
+        data = newbytesdata_w(space, w_source, encoding, errors)
+        self.data = resizable_list_supporting_raw_ptr(data)
 
     def descr_repr(self, space):
         s = self.data
@@ -457,29 +467,28 @@ def _hex_digit_to_int(d):
         return val - 87
     return -1
 
+NON_HEX_MSG = "non-hexadecimal number found in fromhex() arg at position %d"
+
 def _hexstring_to_array(space, s):
     data = []
     length = len(s)
-    i = -2
+    i = 0
     while True:
-        i += 2
         while i < length and s[i] == ' ':
             i += 1
         if i >= length:
             break
         if i + 1 == length:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "non-hexadecimal number found in fromhex() arg at position %d" % i))
+            raise oefmt(space.w_ValueError, NON_HEX_MSG, i)
 
         top = _hex_digit_to_int(s[i])
         if top == -1:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "non-hexadecimal number found in fromhex() arg at position %d" % i))
-        bot = _hex_digit_to_int(s[i+1])
+            raise oefmt(space.w_ValueError, NON_HEX_MSG, i)
+        bot = _hex_digit_to_int(s[i + 1])
         if bot == -1:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "non-hexadecimal number found in fromhex() arg at position %d" % (i+1,)))
-        data.append(chr(top*16 + bot))
+            raise oefmt(space.w_ValueError, NON_HEX_MSG, i + 1)
+        data.append(chr(top * 16 + bot))
+        i += 2
     return data
 
 
@@ -1180,6 +1189,9 @@ class BytearrayBuffer(Buffer):
         # No bounds checks.
         for i in range(len(string)):
             self.data[start + i] = string[i]
+
+    def get_raw_address(self):
+        return nonmoving_raw_ptr_for_resizable_list(self.data)
 
 
 @specialize.argtype(1)

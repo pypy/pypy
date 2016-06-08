@@ -41,6 +41,14 @@ def get_so_extension(space):
 
     return '.' + soabi + SO
 
+def log_pyverbose(space, level, message):
+    if space.sys.w_initialdict is None:
+        return # sys module not initialised, avoid recursion
+    verbose = space.sys.get_flag('verbose')
+    if verbose >= level:
+        w_stderr = space.sys.get('stderr')
+        space.call_method(w_stderr, "write", space.wrap(message))
+
 def has_so_extension(space):
     return (space.config.objspace.usemodules.cpyext or
             space.config.objspace.usemodules._cffi_backend)
@@ -160,8 +168,7 @@ class ImportRLock:
             if self.lock is None:   # CannotHaveLock occurred
                 return
             space = self.space
-            raise OperationError(space.w_RuntimeError,
-                                 space.wrap("not holding the import lock"))
+            raise oefmt(space.w_RuntimeError, "not holding the import lock")
         assert self.lockcounter > 0
         self.lockcounter -= 1
         if self.lockcounter == 0:
@@ -216,13 +223,6 @@ from pypy.interpreter.pycode import default_magic
 MARSHAL_VERSION_FOR_PYC = 2
 
 def get_pyc_magic(space):
-    # XXX CPython testing hack: delegate to the real imp.get_magic
-    if not we_are_translated():
-        if '__pypy__' not in space.builtin_modules:
-            import struct
-            magic = __import__('imp').get_magic()
-            return struct.unpack('<i', magic)[0]
-
     return default_magic
 
 
@@ -273,7 +273,7 @@ def make_compiled_pathname(pathname):
     for i in range(len(fname)):
         if fname[i] == '.':
             ext = fname[:i + 1]
-    
+
     result = (pathname[:lastpos] + "__pycache__" + lastsep +
               ext + PYC_TAG + '.pyc')
     return result
@@ -362,6 +362,9 @@ def load_compiled_module(space, w_modulename, w_mod, cpathname, magic,
     Load a module from a compiled file, execute it, and return its
     module object.
     """
+    log_pyverbose(space, 1, "import %s # compiled from %s\n" %
+                  (space.str_w(w_modulename), cpathname))
+
     if magic != get_pyc_magic(space):
         raise oefmt(space.w_ImportError, "Bad magic number in %s", cpathname)
     #print "loading pyc file:", cpathname

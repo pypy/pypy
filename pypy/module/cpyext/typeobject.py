@@ -7,7 +7,7 @@ from rpython.rtyper.annlowlevel import llhelper
 from rpython.rtyper.lltypesystem import rffi, lltype
 
 from pypy.interpreter.baseobjspace import W_Root, DescrMismatch
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import oefmt
 from pypy.interpreter.typedef import (GetSetProperty, TypeDef,
         interp_attrproperty, interp_attrproperty, interp2app)
 from pypy.module.__builtin__.abstractinst import abstract_issubclass_w
@@ -18,8 +18,9 @@ from pypy.module.cpyext.api import (
     Py_TPFLAGS_HEAPTYPE, METH_VARARGS, METH_KEYWORDS, CANNOT_FAIL,
     Py_TPFLAGS_HAVE_GETCHARBUFFER, build_type_checkers, StaticObjectBuilder,
     PyObjectFields, Py_TPFLAGS_BASETYPE, Py_buffer)
-from pypy.module.cpyext.methodobject import (
-    PyDescr_NewWrapper, PyCFunction_NewEx, PyCFunction_typedef, PyMethodDef)
+from pypy.module.cpyext.methodobject import (W_PyCClassMethodObject,
+    PyDescr_NewWrapper, PyCFunction_NewEx, PyCFunction_typedef, PyMethodDef,
+    W_PyCMethodObject, W_PyCFunctionObject)
 from pypy.module.cpyext.modsupport import convert_method_defs
 from pypy.module.cpyext.pyobject import (
     PyObject, make_ref, create_ref, from_ref, get_typedescr, make_typedescr,
@@ -125,6 +126,14 @@ PyGetSetDescrObjectFields = PyDescrObjectFields + (
 cpython_struct("PyGetSetDescrObject", PyGetSetDescrObjectFields,
                PyGetSetDescrObjectStruct, level=2)
 
+PyMethodDescrObjectStruct = lltype.ForwardReference()
+PyMethodDescrObject = lltype.Ptr(PyMethodDescrObjectStruct)
+PyMethodDescrObjectFields = PyDescrObjectFields + (
+    ("d_method", lltype.Ptr(PyMethodDef)),
+    )
+cpython_struct("PyMethodDescrObject", PyMethodDescrObjectFields,
+               PyMethodDescrObjectStruct, level=2)
+
 @bootstrap_function
 def init_memberdescrobject(space):
     make_typedescr(W_MemberDescr.typedef,
@@ -135,6 +144,16 @@ def init_memberdescrobject(space):
     make_typedescr(W_GetSetPropertyEx.typedef,
                    basestruct=PyGetSetDescrObject.TO,
                    attach=getsetdescr_attach,
+                   )
+    make_typedescr(W_PyCClassMethodObject.typedef,
+                   basestruct=PyMethodDescrObject.TO,
+                   attach=methoddescr_attach,
+                   realize=classmethoddescr_realize,
+                   )
+    make_typedescr(W_PyCMethodObject.typedef,
+                   basestruct=PyMethodDescrObject.TO,
+                   attach=methoddescr_attach,
+                   realize=methoddescr_realize,
                    )
 
 def memberdescr_attach(space, py_obj, w_obj):
@@ -166,6 +185,30 @@ def getsetdescr_attach(space, py_obj, w_obj):
     assert isinstance(w_obj, W_GetSetPropertyEx)
     py_getsetdescr.c_d_getset = w_obj.getset
 
+def methoddescr_attach(space, py_obj, w_obj):
+    py_methoddescr = rffi.cast(PyMethodDescrObject, py_obj)
+    # XXX assign to d_dname, d_type?
+    assert isinstance(w_obj, W_PyCFunctionObject)
+    py_methoddescr.c_d_method = w_obj.ml
+
+def classmethoddescr_realize(space, obj):
+    # XXX NOT TESTED When is this ever called? 
+    method = rffi.cast(lltype.Ptr(PyMethodDef), obj)
+    w_type = from_ref(space, rffi.cast(PyObject, obj.c_ob_type))
+    w_obj = space.allocate_instance(W_PyCClassMethodObject, w_type)
+    w_obj.__init__(space, method, w_type)
+    track_reference(space, obj, w_obj)
+    return w_obj
+
+def methoddescr_realize(space, obj):
+    # XXX NOT TESTED When is this ever called? 
+    method = rffi.cast(lltype.Ptr(PyMethodDef), obj)
+    w_type = from_ref(space, rffi.cast(PyObject, obj.c_ob_type))
+    w_obj = space.allocate_instance(W_PyCMethodObject, w_type)
+    w_obj.__init__(space, method, w_type)
+    track_reference(space, obj, w_obj)
+    return w_obj
+
 def convert_getset_defs(space, dict_w, getsets, w_type):
     getsets = rffi.cast(rffi.CArrayPtr(PyGetSetDef), getsets)
     if getsets:
@@ -196,6 +239,10 @@ def convert_member_defs(space, dict_w, members, w_type):
 
 def update_all_slots(space, w_type, pto):
     #  XXX fill slots in pto
+    # Not very sure about it, but according to
+    # test_call_tp_dealloc_when_created_from_python, we should not
+    # overwrite slots that are already set: these ones are probably
+    # coming from a parent C type.
 
     typedef = w_type.layout.typedef
     for method_name, slot_name, slot_names, slot_func in slotdefs_for_tp_slots:
@@ -223,7 +270,8 @@ def update_all_slots(space, w_type, pto):
         # XXX special case wrapper-functions and use a "specific" slot func
 
         if len(slot_names) == 1:
-            setattr(pto, slot_names[0], slot_func_helper)
+            if not getattr(pto, slot_names[0]):
+                setattr(pto, slot_names[0], slot_func_helper)
         else:
             assert len(slot_names) == 2
             struct = getattr(pto, slot_names[0])
@@ -240,7 +288,8 @@ def update_all_slots(space, w_type, pto):
                 struct = lltype.malloc(STRUCT_TYPE, flavor='raw', zero=True)
                 setattr(pto, slot_names[0], struct)
 
-            setattr(struct, slot_names[1], slot_func_helper)
+            if not getattr(struct, slot_names[1]):
+                setattr(struct, slot_names[1], slot_func_helper)
 
 def add_operators(space, dict_w, pto):
     # XXX support PyObject_HashNotImplemented
@@ -399,8 +448,7 @@ class W_PyCTypeObject(W_TypeObject):
 
         W_TypeObject.__init__(self, space, name,
             bases_w or [space.w_object], dict_w, force_new_layout=new_layout)
-        if not space.is_true(space.issubtype(self, space.w_type)):
-            self.flag_cpytype = True
+        self.flag_cpytype = True
         self.flag_heaptype = False
         # if a sequence or a mapping, then set the flag to force it
         if pto.c_tp_as_sequence and pto.c_tp_as_sequence.c_sq_item:
@@ -507,7 +555,14 @@ def type_attach(space, py_obj, w_type):
     typedescr = get_typedescr(w_type.layout.typedef)
 
     # dealloc
-    pto.c_tp_dealloc = typedescr.get_dealloc(space)
+    if space.gettypeobject(w_type.layout.typedef) is w_type:
+        # only for the exact type, like 'space.w_tuple' or 'space.w_list'
+        pto.c_tp_dealloc = typedescr.get_dealloc(space)
+    else:
+        # for all subtypes, use subtype_dealloc()
+        pto.c_tp_dealloc = llhelper(
+            subtype_dealloc.api_func.functype,
+            subtype_dealloc.api_func.get_wrapper(space))
     # buffer protocol
     if space.is_w(w_type, space.w_str):
         setup_bytes_buffer_procs(space, pto)

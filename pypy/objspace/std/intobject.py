@@ -893,7 +893,7 @@ def _new_int(space, w_inttype, w_x, w_base=None):
     else:
         try:
             base = space.int_w(w_base)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_OverflowError):
                 raise
             base = 37 # this raises the right error in string_to_bigint()
