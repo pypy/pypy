@@ -15,7 +15,7 @@ def test_read_processor_info():
 processor 0: machine = 12345
 processor 1: version = FF, identification = AF
     """.splitlines())
-    assert ids == [(0, None, None, 12345),
+    assert ids == [(0, None, None, 0x12345),
                    (1, 'FF', 'AF', 0),
                   ]
 
