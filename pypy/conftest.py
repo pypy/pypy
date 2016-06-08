@@ -171,9 +171,5 @@ def pytest_runtest_setup(__multicall__, item):
     __multicall__.execute()
 
 
-class PyPyClassCollector(py.test.collect.Class):
-    pass
-
-
 def pytest_ignore_collect(path):
     return path.check(link=1)

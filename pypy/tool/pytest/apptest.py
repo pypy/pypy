@@ -13,7 +13,6 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.function import Method
 from pypy.tool.pytest import appsupport
 from pypy.tool.pytest.objspace import gettestobjspace
-from pypy.conftest import PyPyClassCollector
 from inspect import getmro
 
 
@@ -122,7 +121,7 @@ class AppClassInstance(py.test.collect.Instance):
             self.w_instance = space.call_function(w_class)
 
 
-class AppClassCollector(PyPyClassCollector):
+class AppClassCollector(py.test.Class):
     Instance = AppClassInstance
 
     def setup(self):
