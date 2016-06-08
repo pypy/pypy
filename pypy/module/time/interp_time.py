@@ -224,9 +224,9 @@ tm = cConfig.tm
 glob_buf = lltype.malloc(tm, flavor='raw', zero=True, immortal=True)
 
 if _WIN:
-    GetSystemTimeAsFileTime = external('GetSystemTimeAsFileTime',
-                                      [lltype.Ptr(rwin32.FILETIME)],
-                                       lltype.Void)
+    _GetSystemTimeAsFileTime = rwin32.winexternal('GetSystemTimeAsFileTime',
+                                                  [lltype.Ptr(rwin32.FILETIME)],
+                                                  lltype.Void)
     LPDWORD = rwin32.LPDWORD
     _GetSystemTimeAdjustment = rwin32.winexternal(
                                             'GetSystemTimeAdjustment',
@@ -234,12 +234,16 @@ if _WIN:
                                             rffi.INT)
     def gettimeofday(space, w_info=None):
         with lltype.scoped_alloc(rwin32.FILETIME) as system_time:
-            GetSystemTimeAsFileTime(system_time)
+            _GetSystemTimeAsFileTime(system_time)
             quad_part = (system_time.c_dwLowDateTime |
                          (r_ulonglong(system_time.c_dwHighDateTime) << 32))
             # 11,644,473,600,000,000: number of microseconds between
             # the 1st january 1601 and the 1st january 1970 (369 years + 80 leap
             # days).
+
+            # We can't use that big number when translating for
+            # 32-bit system (which windows always is currently)
+            # XXX: Need to come up with a better solution
             offset = (r_ulonglong(16384) * r_ulonglong(27) * r_ulonglong(390625)
                      * r_ulonglong(79) * r_ulonglong(853))
             microseconds = quad_part / 10 - offset
@@ -264,16 +268,17 @@ else:
             c_gettimeofday = external('gettimeofday',
                                       [lltype.Ptr(TIMEVAL), rffi.VOIDP], rffi.INT)
     def gettimeofday(space, w_info=None):
-        void = lltype.nullptr(rffi.VOIDP.TO)
         if HAVE_GETTIMEOFDAY:
-            with lltype.scoped_alloc(Cconfig.timeval) as timeval:
+            with lltype.scoped_alloc(TIMEVAL) as timeval:
                 if GETTIMEOFDAY_NO_TZ:
                     errcode = c_gettimeofday(timeval)
                 else:
+                    void = lltype.nullptr(rffi.VOIDP.TO)
                     errcode = c_gettimeofday(timeval, void)
                 if rffi.cast(rffi.LONG, errcode) == 0:
-                    _setinfo(space, w_info, "gettimeofday()", 1e-6, False, True)
-                    return space.wrap(timeval.tv_sec + timeval.usec * 1e-6)
+                    if w_info is not None:
+                        _setinfo(space, w_info, "gettimeofday()", 1e-6, False, True)
+                    return space.wrap(timeval.c_tv_sec + timeval.c_tv_usec * 1e-6)
         if HAVE_FTIME:
             with lltype.scoped_alloc(TIMEB) as t:
                 c_ftime(t)
@@ -281,7 +286,7 @@ else:
                           float(intmask(t.c_millitm)) * 0.001)
                 if w_info is not None:
                     _setinfo(space, w_info, "ftime()", 1e-3,
-                             space.w_False, space.w_True) 
+                             False, True) 
             return space.wrap(result)
         else:
             if w_info:
@@ -885,10 +890,7 @@ else:
         else:
             clk_id = cConfig.CLOCK_MONOTONIC
             implementation = "clock_gettime(CLOCK_MONOTONIC)"
-        try:
-            w_result = clock_gettime(space, clk_id)
-        except OperationError as error:
-            raise error
+        w_result = clock_gettime(space, clk_id)
         if w_info is not None:
             with lltype.scoped_alloc(TIMESPEC) as tsres:
                 ret = c_clock_getres(clk_id, tsres)
