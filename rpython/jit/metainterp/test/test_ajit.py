@@ -955,6 +955,23 @@ class BasicTests:
         res = self.meta_interp(f, [-5])
         assert res == 5+4+3+2+1+0+1+2+3+4+5+6+7+8+9
 
+    def test_int_c_div(self):
+        from rpython.rlib.rarithmetic import int_c_div
+        myjitdriver = JitDriver(greens = [], reds = ['i', 't'])
+        def f(i):
+            t = 0
+            while i < 10:
+                myjitdriver.can_enter_jit(i=i, t=t)
+                myjitdriver.jit_merge_point(i=i, t=t)
+                t += int_c_div(-100, i)
+                i += 1
+            return t
+        expected = -sum([100 // n for n in range(1, 10)])
+        assert f(1) == expected
+        res = self.meta_interp(f, [1])
+        assert res == expected
+        # should contain a call_i(..., OS=OS_INT_PY_DIV)
+
     def test_float(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'res'])
         def f(x, y):

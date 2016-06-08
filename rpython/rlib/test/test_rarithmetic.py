@@ -2,6 +2,7 @@ from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rtyper.test.test_llinterp import interpret
 from rpython.rlib.rarithmetic import *
 from rpython.rlib.rstring import ParseStringError, ParseStringOverflowError
+from hypothesis import given, strategies
 import sys
 import py
 
@@ -392,6 +393,18 @@ def test_int_between():
     assert not int_between(1, 5, 2)
     assert not int_between(1, 2, 2)
     assert not int_between(1, 1, 1)
+
+def test_int_force_ge_zero():
+    assert int_force_ge_zero(42) == 42
+    assert int_force_ge_zero(0) == 0
+    assert int_force_ge_zero(-42) == 0
+
+@given(strategies.integers(min_value=0, max_value=sys.maxint),
+       strategies.integers(min_value=1, max_value=sys.maxint))
+def test_int_c_div(x, y):
+    assert int_c_div(~x, y) == -(abs(~x) // y)
+    assert int_c_div( x,-y) == -(x // y)
+    assert int_c_div(~x,-y) == +(abs(~x) // y)
 
 # these can't be prebuilt on 32bit
 U1 = r_ulonglong(0x0102030405060708L)
