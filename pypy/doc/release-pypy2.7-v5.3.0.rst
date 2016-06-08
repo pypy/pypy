@@ -176,10 +176,10 @@ Other Highlights (since 5.1 released in April 2016)
   * Reduce the size of generated code by using the same function objects in
     all generated subclasses
 
- * Share cpyext Py* function wrappers according to the signature, shrinking the
-   translated libpypy.so by about 10% (measured without the JIT)
+  * Share cpyext Py* function wrappers according to the signature, shrinking the
+    translated libpypy.so by about 10% (measured without the JIT)
 
- * Compile c snippets with -Werror, and fix warnings it exposed
+  * Compile c snippets with -Werror, and fix warnings it exposed
 
 .. _resolved: http://doc.pypy.org/en/latest/whatsnew-5.3.0.html
 .. _Numpy: https://bitbucket.org/pypy/numpy
