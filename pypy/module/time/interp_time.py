@@ -83,16 +83,6 @@ if _WIN:
         [rffi.VOIDP],
         rffi.ULONGLONG, compilation_info=eci)
 
-    from rpython.rlib.rdynload import GetModuleHandle, dlsym
-    hKernel32 = GetModuleHandle("KERNEL32")
-    try:
-        _GetTickCount64_handle = dlsym(hKernel32, 'GetTickCount64')
-        def _GetTickCount64():
-            return pypy_GetTickCount64(_GetTickCount64_handle)
-    except KeyError:
-        _GetTickCount64_handle = lltype.nullptr(rffi.VOIDP.TO)
-
-    HAS_GETTICKCOUNT64 = _GetTickCount64_handle != lltype.nullptr(rffi.VOIDP.TO)
     class GlobalState:
         def __init__(self):
             self.init()
@@ -132,9 +122,28 @@ if _WIN:
     # I don't really get why an instance is better than a plain module
     # attr, but following advice from armin
     class TimeState(object):
+        GetTickCount64_handle = lltype.nullptr(rffi.VOIDP.TO)
         def __init__(self):
             self.n_overflow = 0
             self.last_ticks = 0
+        def check_GetTickCount64(self, *args):
+            if (self.GetTickCount64_handle !=
+                lltype.nullptr(rffi.VOIDP.TO)):
+                return True
+            from rpython.rlib.rdynload import GetModuleHandle, dlsym
+            hKernel32 = GetModuleHandle("KERNEL32")
+            try:
+                GetTickCount64_handle = dlsym(hKernel32, 'GetTickCount64')
+            except KeyError:
+                return False
+            self.GetTickCount64_handle = GetTickCount64_handle
+
+        def GetTickCount64(self, *args):
+            assert (self.GetTickCount64_handle !=
+                    lltype.nullptr(rffi.VOIDP.TO))
+            return pypy_GetTickCount64(
+                self.GetTickCount64_handle, *args)
+
     time_state = TimeState()
 
 _includes = ["time.h"]
@@ -824,8 +833,9 @@ if _WIN:
     _GetTickCount = rwin32.winexternal('GetTickCount', [], rwin32.DWORD)
     def monotonic(space, w_info=None):
         result = 0
+        HAS_GETTICKCOUNT64 = time_state.check_GetTickCount64()
         if HAS_GETTICKCOUNT64:
-            result = _GetTickCount64() * 1e-3
+            result = time_state.GetTickCount64() * 1e-3
         else:
             ticks = _GetTickCount()
             if ticks < time_state.last_ticks:
