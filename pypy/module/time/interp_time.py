@@ -118,14 +118,12 @@ if _WIN:
         def get_interrupt_event(self):
             return globalState.interrupt_event
 
-    # XXX: Can I just use one of the state classes above?
-    # I don't really get why an instance is better than a plain module
-    # attr, but following advice from armin
     class TimeState(object):
         GetTickCount64_handle = lltype.nullptr(rffi.VOIDP.TO)
         def __init__(self):
             self.n_overflow = 0
             self.last_ticks = 0
+
         def check_GetTickCount64(self, *args):
             if (self.GetTickCount64_handle !=
                 lltype.nullptr(rffi.VOIDP.TO)):
@@ -137,6 +135,7 @@ if _WIN:
             except KeyError:
                 return False
             self.GetTickCount64_handle = GetTickCount64_handle
+            return True
 
         def GetTickCount64(self, *args):
             assert (self.GetTickCount64_handle !=
