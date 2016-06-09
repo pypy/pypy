@@ -295,8 +295,8 @@ def package(*args, **kwds):
     options = parser.parse_args(args)
 
     # Handle positional arguments, choke if both methods are used
-    for i,target, default in ([1, 'name', ''], [2, 'pypy_c', pypy_exe],
-                              [3, 'targetdir', ''], [4,'override_pypy_c', '']):
+    for i,target, default in ([0, 'name', ''], [1, 'pypy_c', pypy_exe],
+                              [2, 'targetdir', ''], [3,'override_pypy_c', '']):
         if len(options.extra_args)>i:
             if getattr(options, target) != default:
                 print 'positional argument',i,target,'already has value',getattr(options, target)
