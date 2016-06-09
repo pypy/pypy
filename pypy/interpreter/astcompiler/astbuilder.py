@@ -17,7 +17,7 @@ augassign_operator_map = {
     '/='  : ast.Div,
     '//=' : ast.FloorDiv,
     '%='  : ast.Mod,
-    '@='  : ast.MatMul,
+    '@='  : ast.MatMult,
     '<<='  : ast.LShift,
     '>>='  : ast.RShift,
     '&='  : ast.BitAnd,
@@ -39,7 +39,7 @@ operator_map = misc.dict_to_switch({
     tokens.SLASH : ast.Div,
     tokens.DOUBLESLASH : ast.FloorDiv,
     tokens.PERCENT : ast.Mod,
-    tokens.AT : ast.MatMul
+    tokens.AT : ast.MatMult
 })
 
 
@@ -533,8 +533,7 @@ class ASTBuilder(object):
         # and varargslist (lambda definition).
         if arguments_node.type == syms.parameters:
             if arguments_node.num_children() == 2:
-                return ast.arguments(None, None, None, None, None, None, None,
-                                     None)
+                return ast.arguments(None, None, None, None, None, None)
             arguments_node = arguments_node.get_child(1)
         i = 0
         child_count = arguments_node.num_children()
