@@ -21,6 +21,7 @@ class GCBase(object):
     can_usually_pin_objects = False
     object_minimal_size = 0
     gcflag_extra = 0   # or a real GC flag that is always 0 when not collecting
+    has_remote_flags = False
 
     def __init__(self, config, chunk_size=DEFAULT_CHUNK_SIZE,
                  translated_to_c=True):

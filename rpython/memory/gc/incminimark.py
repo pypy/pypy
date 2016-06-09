@@ -625,6 +625,7 @@ class IncrementalMiniMarkGCBase(MovingGCBase):
             #
             # Get the memory from the nursery.  If there is not enough space
             # there, do a collect first.
+            ll_assert(self.nursery_free != llmemory.NULL, "malloc_fixedsize() with uninitialized nursery")
             result = self.nursery_free
             self.nursery_free = new_free = result + totalsize
             if new_free > self.nursery_top:
@@ -685,6 +686,7 @@ class IncrementalMiniMarkGCBase(MovingGCBase):
             #
             # Get the memory from the nursery.  If there is not enough space
             # there, do a collect first.
+            ll_assert(self.nursery_free != llmemory.NULL, "malloc_varsize() without initializing nursery")
             result = self.nursery_free
             self.nursery_free = new_free = result + totalsize
             if new_free > self.nursery_top:
@@ -1088,6 +1090,7 @@ class IncrementalMiniMarkGCBase(MovingGCBase):
         # have been chosen to allow 'flags' to be zero in the common
         # case (hence the 'NO' in their name).
         hdr = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(self.HDR))
+        ll_assert(hdr != lltype.nullptr(self.HDR), "init_gc_object(): addr==NULL")
         hdr.tid = self.combine(typeid16, flags)
 
     def init_gc_object_immortal(self, addr, typeid16, flags=0):
@@ -1120,7 +1123,8 @@ class IncrementalMiniMarkGCBase(MovingGCBase):
         Implemented a bit obscurely by checking an unrelated flag
         that can never be set on a young object -- except if tid == -42.
         """
-        assert self.is_in_nursery(obj)
+        ll_assert(self.is_in_nursery(obj), "is_forwarded(): object not in nursery!")
+
         tid = self.get_flags(obj)
         result = (tid & GCFLAG_FINALIZATION_ORDERING != 0)
         if result:
@@ -1439,7 +1443,8 @@ class IncrementalMiniMarkGCBase(MovingGCBase):
                 self.add_flags(addr_array, GCFLAG_CARDS_SET)
 
         remember_young_pointer_from_array2._dont_inline_ = True
-        assert self.card_page_indices > 0
+        ll_assert(self.card_page_indices > 0,
+                  "_init_writebarrier_with_card_marker(): card_page_indices <= 0")
         self.remember_young_pointer_from_array2 = (
             remember_young_pointer_from_array2)
 
@@ -1523,7 +1528,8 @@ class IncrementalMiniMarkGCBase(MovingGCBase):
 
     def manually_copy_card_bits(self, source_addr, dest_addr, length):
         # manually copy the individual card marks from source to dest
-        assert self.card_page_indices > 0
+        ll_assert(self.card_page_indices > 0,
+                  "_init_writebarrier_with_card_marker(): card_page_indices <= 0")
         bytes = self.card_marking_bytes_for_length(length)
         #
         anybyte = 0
@@ -1684,12 +1690,13 @@ class IncrementalMiniMarkGCBase(MovingGCBase):
         nursery_barriers = self.AddressDeque()
         prev = self.nursery
         self.surviving_pinned_objects.sort()
-        assert self.pinned_objects_in_nursery == \
-            self.surviving_pinned_objects.length()
+        ll_assert(self.pinned_objects_in_nursery == \
+            self.surviving_pinned_objects.length(),
+            "_minor_collection(): self.pinned_objects_in_nursery != self.surviving_pinned_objects.length()")
         while self.surviving_pinned_objects.non_empty():
             #
             cur = self.surviving_pinned_objects.pop()
-            assert cur >= prev
+            ll_assert(cur >= prev, "_minor_collection(): cur < prev")
             #
             # clear the arena between the last pinned object (or arena start)
             # and the pinned object
@@ -1747,7 +1754,7 @@ class IncrementalMiniMarkGCBase(MovingGCBase):
         debug_stop("gc-minor")
 
     def _reset_flag_old_objects_pointing_to_pinned(self, obj, ignore):
-        assert self.get_flags(obj) & GCFLAG_PINNED_OBJECT_PARENT_KNOWN
+        ll_assert(self.get_flags(obj) & GCFLAG_PINNED_OBJECT_PARENT_KNOWN, "_reset_flag_old_objects_pointing_to_pinned(): not GCFLAG_PINNED_OBJECT_PARENT_KNOWN")
         self.remove_flags(obj, GCFLAG_PINNED_OBJECT_PARENT_KNOWN)
 
     def _visit_old_objects_pointing_to_pinned(self, obj, ignore):
@@ -3055,7 +3062,6 @@ def _free_if_unvisited(hdr, gc):
     # dies
     gc.finalize_header(hdr)
     return True
-
 
 class IncrementalMiniMarkGC(IncrementalMiniMarkGCBase):
     HDR = lltype.Struct('header', ('tid', lltype.Signed))

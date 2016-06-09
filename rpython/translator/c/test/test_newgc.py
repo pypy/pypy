@@ -1660,7 +1660,7 @@ class TestIncrementalMiniMarkGC(TestMiniMarkGC):
             assert res == 42
 
 
-class TestIncrementalMiniMarkRemoteHeadersGC(TestIncrementalMiniMarkGC):
+class TestIncrementalMiniMarkRemoteHeaderGC(TestIncrementalMiniMarkGC):
     gcpolicy = "incminimark_remoteheader"
 
 
@@ -1760,5 +1760,5 @@ class TestMiniMarkGCMostCompact(TaggedPointersTest, TestMiniMarkGC):
 class TestIncrementalMiniMarkGCMostCompact(TaggedPointersTest, TestIncrementalMiniMarkGC):
     removetypeptr = True
 
-class TestIncrementalMiniMarkRemoteHeadersGCMostCompact(TaggedPointersTest, TestIncrementalMiniMarkRemoteHeadersGC):
+class TestIncrementalMiniMarkRemoteHeaderGCMostCompact(TaggedPointersTest, TestIncrementalMiniMarkRemoteHeaderGC):
     removetypeptr = True

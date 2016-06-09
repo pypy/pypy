@@ -868,6 +868,11 @@ class GcRewriterAssembler(object):
             # produce a SETFIELD to initialize the GC header
             self.emit_setfield(v_newgcobj, ConstInt(tid),
                                descr=self.gc_ll_descr.fielddescr_tid)
+        if self.gc_ll_descr.fielddescr_remote_flags is not None:
+            # produce a SETFIELD to initialize the rest of the GC header
+            # (Only present in _remoteheader GC)
+            self.emit_setfield(v_newgcobj, ConstInt(0),
+                               descr=self.gc_ll_descr.fielddescr_remote_flags)
 
     def gen_initialize_len(self, v_newgcobj, v_length, arraylen_descr):
         # produce a SETFIELD to initialize the array length

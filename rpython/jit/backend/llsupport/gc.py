@@ -146,6 +146,7 @@ class GcLLDescr_boehm(GcLLDescription):
     round_up              = False
     write_barrier_descr   = None
     fielddescr_tid        = None
+    fielddescr_remote_flags  = None
     gcrootmap             = None
     str_type_id           = 0
     unicode_type_id       = 0
@@ -393,6 +394,10 @@ class GcLLDescr_framework(GcLLDescription):
 
     def _setup_tid(self):
         self.fielddescr_tid = get_field_descr(self, self.GCClass.HDR, 'tid')
+        if self.GCClass.has_remote_flags:
+            self.fielddescr_remote_flags = get_field_descr(self, self.GCClass.HDR, 'remote_flags')
+        else:
+            self.fielddescr_remote_flags = None
         frame_tid = self.layoutbuilder.get_type_id(jitframe.JITFRAME)
         self.translator._jit2gc['frame_tid'] = frame_tid
 

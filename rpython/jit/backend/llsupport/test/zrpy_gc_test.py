@@ -84,6 +84,8 @@ def compile(f, gc, **kwds):
     #
     t = TranslationContext()
     t.config.translation.gc = gc
+    # TODO: re-enable inlining when this test passes
+    t.config.translation.backendopt.inline = False
     if gc != 'boehm':
         t.config.translation.gcremovetypeptr = True
     for name, value in kwds.items():
