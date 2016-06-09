@@ -85,7 +85,7 @@ class ASTNodeVisitor(ASDLVisitor):
             self.emit("class %s(AST):" % (base,))
             if sum.attributes:
                 self.emit("")
-                args = ", ".join(attr.name.value for attr in sum.attributes)
+                args = ", ".join(attr.name for attr in sum.attributes)
                 self.emit("def __init__(self, %s):" % (args,), 1)
                 for attr in sum.attributes:
                     self.visit(attr)
@@ -123,39 +123,39 @@ class ASTNodeVisitor(ASDLVisitor):
         self.emit("")
 
     def get_value_converter(self, field, value):
-        if field.type.value in self.data.simple_types:
+        if field.type in self.data.simple_types:
             return "%s_to_class[%s - 1]().to_object(space)" % (field.type, value)
-        elif field.type.value == "identifier":
+        elif field.type == "identifier":
             wrapper = "space.wrap(%s.decode('utf-8'))" % (value,)
             if field.opt:
                 wrapper += " if %s is not None else space.w_None" % (value,)
             return wrapper
-        elif field.type.value in ("object", "string"):
+        elif field.type in ("object", "string"):
             return value
-        elif field.type.value in ("int", "bool"):
+        elif field.type in ("int", "bool"):
             return "space.wrap(%s)" % (value,)
         else:
             wrapper = "%s.to_object(space)" % (value,)
             # XXX: kw_defaults, unlike other sequences, allows None
             # values
-            if field.opt or field.name.value == 'kw_defaults':
+            if field.opt or field.name == 'kw_defaults':
                 wrapper += " if %s is not None else space.w_None" % (value,)
             return wrapper
         
     def get_value_extractor(self, field, value):
-        if field.type.value in self.data.simple_types:
+        if field.type in self.data.simple_types:
             return "%s.from_object(space, %s)" % (field.type, value)
-        elif field.type.value in ("object",):
+        elif field.type in ("object",):
             return value
-        elif field.type.value in ("string",):
+        elif field.type in ("string",):
             return "check_string(space, %s)" % (value,)
-        elif field.type.value in ("identifier",):
+        elif field.type in ("identifier",):
             if field.opt:
                 return "space.str_or_None_w(%s)" % (value,)
             return "space.identifier_w(%s)" % (value,)
-        elif field.type.value in ("int",):
+        elif field.type in ("int",):
             return "space.int_w(%s)" % (value,)
-        elif field.type.value in ("bool",):
+        elif field.type in ("bool",):
             return "space.bool_w(%s)" % (value,)
         else:
             extractor = "%s.from_object(space, %s)" % (field.type, value)
@@ -189,7 +189,7 @@ class ASTNodeVisitor(ASDLVisitor):
         else:
             value = self.get_value_extractor(field, "w_%s" % (field.name,))
             lines = ["_%s = %s" % (field.name, value)]
-            if not field.opt and field.type.value not in ("int",):
+            if not field.opt and field.type not in ("int",):
                 lines.append("if _%s is None:" % (field.name,))
                 lines.append("    raise_required_value(space, w_node, '%s')"
                              % (field.name,))
@@ -235,8 +235,8 @@ class ASTNodeVisitor(ASDLVisitor):
     def make_mutate_over(self, cons, name):
         self.emit("def mutate_over(self, visitor):", 1)
         for field in cons.fields:
-            if (field.type.value not in asdl.builtin_types and
-                field.type.value not in self.data.simple_types):
+            if (field.type not in asdl.builtin_types and
+                field.type not in self.data.simple_types):
                 if field.opt or field.seq:
                     level = 3
                     self.emit("if self.%s:" % (field.name,), 2)
@@ -342,8 +342,8 @@ class GenericASTVisitorVisitor(ASDLVisitor):
         self.emit("")
 
     def visitField(self, field):
-        if (field.type.value not in asdl.builtin_types and 
-            field.type.value not in self.data.simple_types):
+        if (field.type not in asdl.builtin_types and 
+            field.type not in self.data.simple_types):
             level = 2
             template = "node.%s.walkabout(self)"
             if field.seq:
@@ -384,7 +384,7 @@ class ASDLData(object):
             if isinstance(tp.value, asdl.Sum):
                 sum = tp.value
                 if is_simple_sum(sum):
-                    simple_types.add(tp.name.value)
+                    simple_types.add(tp.name)
                 else:
                     attrs = [field for field in sum.attributes]
                     for cons in sum.types:
@@ -392,7 +392,7 @@ class ASDLData(object):
                         cons_attributes[cons] = attrs
             else:
                 prod = tp.value
-                prod_simple.add(tp.name.value)
+                prod_simple.add(tp.name)
                 add_masks(prod.fields, prod)
         prod_simple.update(simple_types)
         self.cons_attributes = cons_attributes
