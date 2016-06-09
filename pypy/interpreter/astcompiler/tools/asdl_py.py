@@ -101,7 +101,7 @@ class ASTNodeVisitor(ASDLVisitor):
                           % (typ.name,), 3)
             self.emit("raise oefmt(space.w_TypeError,", 2)
             self.emit("        \"Expected %s node, got %%T\", w_node)" % (base,), 2)
-            self.emit("State.ast_type('%r', 'AST', None, %s)" %
+            self.emit("State.ast_type(%r, 'AST', None, %s)" %
                       (base, [repr(attr.name) for attr in sum.attributes]))
             self.emit("")
             for cons in sum.types:
@@ -118,7 +118,7 @@ class ASTNodeVisitor(ASDLVisitor):
         self.emit("visitor.visit_%s(self)" % (name,), 2)
         self.emit("")
         self.make_converters(product.fields, name)
-        self.emit("State.ast_type('%r', 'AST', %s)" %
+        self.emit("State.ast_type(%r, 'AST', %s)" %
                   (name, [repr(f.name) for f in product.fields]))
         self.emit("")
 
@@ -262,7 +262,7 @@ class ASTNodeVisitor(ASDLVisitor):
         self.emit("")
         self.make_mutate_over(cons, cons.name)
         self.make_converters(cons.fields, cons.name, extra_attributes)
-        self.emit("State.ast_type('%r', '%s', %s)" % 
+        self.emit("State.ast_type(%r, '%s', %s)" % 
                   (cons.name, base, [repr(f.name) for f in cons.fields]))
         self.emit("")
 

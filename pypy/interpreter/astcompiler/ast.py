@@ -172,7 +172,7 @@ class mod(AST):
             return Suite.from_object(space, w_node)
         raise oefmt(space.w_TypeError,
                 "Expected mod node, got %T", w_node)
-State.ast_type(''mod'', 'AST', None, [])
+State.ast_type('mod', 'AST', None, [])
 
 class Module(mod):
 
@@ -204,7 +204,7 @@ class Module(mod):
         _body = [stmt.from_object(space, w_item) for w_item in body_w]
         return Module(_body)
 
-State.ast_type(''Module'', 'mod', ["'body'"])
+State.ast_type('Module', 'mod', ["'body'"])
 
 
 class Interactive(mod):
@@ -237,7 +237,7 @@ class Interactive(mod):
         _body = [stmt.from_object(space, w_item) for w_item in body_w]
         return Interactive(_body)
 
-State.ast_type(''Interactive'', 'mod', ["'body'"])
+State.ast_type('Interactive', 'mod', ["'body'"])
 
 
 class Expression(mod):
@@ -266,7 +266,7 @@ class Expression(mod):
             raise_required_value(space, w_node, 'body')
         return Expression(_body)
 
-State.ast_type(''Expression'', 'mod', ["'body'"])
+State.ast_type('Expression', 'mod', ["'body'"])
 
 
 class Suite(mod):
@@ -299,7 +299,7 @@ class Suite(mod):
         _body = [stmt.from_object(space, w_item) for w_item in body_w]
         return Suite(_body)
 
-State.ast_type(''Suite'', 'mod', ["'body'"])
+State.ast_type('Suite', 'mod', ["'body'"])
 
 
 class stmt(AST):
@@ -356,7 +356,7 @@ class stmt(AST):
             return Continue.from_object(space, w_node)
         raise oefmt(space.w_TypeError,
                 "Expected stmt node, got %T", w_node)
-State.ast_type(''stmt'', 'AST', None, ["'lineno'", "'col_offset'"])
+State.ast_type('stmt', 'AST', None, ["'lineno'", "'col_offset'"])
 
 class FunctionDef(stmt):
 
@@ -431,7 +431,7 @@ class FunctionDef(stmt):
         _col_offset = space.int_w(w_col_offset)
         return FunctionDef(_name, _args, _body, _decorator_list, _returns, _lineno, _col_offset)
 
-State.ast_type(''FunctionDef'', 'stmt', ["'name'", "'args'", "'body'", "'decorator_list'", "'returns'"])
+State.ast_type('FunctionDef', 'stmt', ["'name'", "'args'", "'body'", "'decorator_list'", "'returns'"])
 
 
 class ClassDef(stmt):
@@ -516,7 +516,7 @@ class ClassDef(stmt):
         _col_offset = space.int_w(w_col_offset)
         return ClassDef(_name, _bases, _keywords, _body, _decorator_list, _lineno, _col_offset)
 
-State.ast_type(''ClassDef'', 'stmt', ["'name'", "'bases'", "'keywords'", "'body'", "'decorator_list'"])
+State.ast_type('ClassDef', 'stmt', ["'name'", "'bases'", "'keywords'", "'body'", "'decorator_list'"])
 
 
 class Return(stmt):
@@ -553,7 +553,7 @@ class Return(stmt):
         _col_offset = space.int_w(w_col_offset)
         return Return(_value, _lineno, _col_offset)
 
-State.ast_type(''Return'', 'stmt', ["'value'"])
+State.ast_type('Return', 'stmt', ["'value'"])
 
 
 class Delete(stmt):
@@ -595,7 +595,7 @@ class Delete(stmt):
         _col_offset = space.int_w(w_col_offset)
         return Delete(_targets, _lineno, _col_offset)
 
-State.ast_type(''Delete'', 'stmt', ["'targets'"])
+State.ast_type('Delete', 'stmt', ["'targets'"])
 
 
 class Assign(stmt):
@@ -645,7 +645,7 @@ class Assign(stmt):
         _col_offset = space.int_w(w_col_offset)
         return Assign(_targets, _value, _lineno, _col_offset)
 
-State.ast_type(''Assign'', 'stmt', ["'targets'", "'value'"])
+State.ast_type('Assign', 'stmt', ["'targets'", "'value'"])
 
 
 class AugAssign(stmt):
@@ -698,7 +698,7 @@ class AugAssign(stmt):
         _col_offset = space.int_w(w_col_offset)
         return AugAssign(_target, _op, _value, _lineno, _col_offset)
 
-State.ast_type(''AugAssign'', 'stmt', ["'target'", "'op'", "'value'"])
+State.ast_type('AugAssign', 'stmt', ["'target'", "'op'", "'value'"])
 
 
 class For(stmt):
@@ -768,7 +768,7 @@ class For(stmt):
         _col_offset = space.int_w(w_col_offset)
         return For(_target, _iter, _body, _orelse, _lineno, _col_offset)
 
-State.ast_type(''For'', 'stmt', ["'target'", "'iter'", "'body'", "'orelse'"])
+State.ast_type('For', 'stmt', ["'target'", "'iter'", "'body'", "'orelse'"])
 
 
 class While(stmt):
@@ -830,7 +830,7 @@ class While(stmt):
         _col_offset = space.int_w(w_col_offset)
         return While(_test, _body, _orelse, _lineno, _col_offset)
 
-State.ast_type(''While'', 'stmt', ["'test'", "'body'", "'orelse'"])
+State.ast_type('While', 'stmt', ["'test'", "'body'", "'orelse'"])
 
 
 class If(stmt):
@@ -892,7 +892,7 @@ class If(stmt):
         _col_offset = space.int_w(w_col_offset)
         return If(_test, _body, _orelse, _lineno, _col_offset)
 
-State.ast_type(''If'', 'stmt', ["'test'", "'body'", "'orelse'"])
+State.ast_type('If', 'stmt', ["'test'", "'body'", "'orelse'"])
 
 
 class With(stmt):
@@ -946,7 +946,7 @@ class With(stmt):
         _col_offset = space.int_w(w_col_offset)
         return With(_items, _body, _lineno, _col_offset)
 
-State.ast_type(''With'', 'stmt', ["'items'", "'body'"])
+State.ast_type('With', 'stmt', ["'items'", "'body'"])
 
 
 class Raise(stmt):
@@ -990,7 +990,7 @@ class Raise(stmt):
         _col_offset = space.int_w(w_col_offset)
         return Raise(_exc, _cause, _lineno, _col_offset)
 
-State.ast_type(''Raise'', 'stmt', ["'exc'", "'cause'"])
+State.ast_type('Raise', 'stmt', ["'exc'", "'cause'"])
 
 
 class Try(stmt):
@@ -1068,7 +1068,7 @@ class Try(stmt):
         _col_offset = space.int_w(w_col_offset)
         return Try(_body, _handlers, _orelse, _finalbody, _lineno, _col_offset)
 
-State.ast_type(''Try'', 'stmt', ["'body'", "'handlers'", "'orelse'", "'finalbody'"])
+State.ast_type('Try', 'stmt', ["'body'", "'handlers'", "'orelse'", "'finalbody'"])
 
 
 class Assert(stmt):
@@ -1113,7 +1113,7 @@ class Assert(stmt):
         _col_offset = space.int_w(w_col_offset)
         return Assert(_test, _msg, _lineno, _col_offset)
 
-State.ast_type(''Assert'', 'stmt', ["'test'", "'msg'"])
+State.ast_type('Assert', 'stmt', ["'test'", "'msg'"])
 
 
 class Import(stmt):
@@ -1155,7 +1155,7 @@ class Import(stmt):
         _col_offset = space.int_w(w_col_offset)
         return Import(_names, _lineno, _col_offset)
 
-State.ast_type(''Import'', 'stmt', ["'names'"])
+State.ast_type('Import', 'stmt', ["'names'"])
 
 
 class ImportFrom(stmt):
@@ -1207,7 +1207,7 @@ class ImportFrom(stmt):
         _col_offset = space.int_w(w_col_offset)
         return ImportFrom(_module, _names, _level, _lineno, _col_offset)
 
-State.ast_type(''ImportFrom'', 'stmt', ["'module'", "'names'", "'level'"])
+State.ast_type('ImportFrom', 'stmt', ["'module'", "'names'", "'level'"])
 
 
 class Global(stmt):
@@ -1247,7 +1247,7 @@ class Global(stmt):
         _col_offset = space.int_w(w_col_offset)
         return Global(_names, _lineno, _col_offset)
 
-State.ast_type(''Global'', 'stmt', ["'names'"])
+State.ast_type('Global', 'stmt', ["'names'"])
 
 
 class Nonlocal(stmt):
@@ -1287,7 +1287,7 @@ class Nonlocal(stmt):
         _col_offset = space.int_w(w_col_offset)
         return Nonlocal(_names, _lineno, _col_offset)
 
-State.ast_type(''Nonlocal'', 'stmt', ["'names'"])
+State.ast_type('Nonlocal', 'stmt', ["'names'"])
 
 
 class Expr(stmt):
@@ -1325,7 +1325,7 @@ class Expr(stmt):
         _col_offset = space.int_w(w_col_offset)
         return Expr(_value, _lineno, _col_offset)
 
-State.ast_type(''Expr'', 'stmt', ["'value'"])
+State.ast_type('Expr', 'stmt', ["'value'"])
 
 
 class Pass(stmt):
@@ -1355,7 +1355,7 @@ class Pass(stmt):
         _col_offset = space.int_w(w_col_offset)
         return Pass(_lineno, _col_offset)
 
-State.ast_type(''Pass'', 'stmt', [])
+State.ast_type('Pass', 'stmt', [])
 
 
 class Break(stmt):
@@ -1385,7 +1385,7 @@ class Break(stmt):
         _col_offset = space.int_w(w_col_offset)
         return Break(_lineno, _col_offset)
 
-State.ast_type(''Break'', 'stmt', [])
+State.ast_type('Break', 'stmt', [])
 
 
 class Continue(stmt):
@@ -1415,7 +1415,7 @@ class Continue(stmt):
         _col_offset = space.int_w(w_col_offset)
         return Continue(_lineno, _col_offset)
 
-State.ast_type(''Continue'', 'stmt', [])
+State.ast_type('Continue', 'stmt', [])
 
 
 class expr(AST):
@@ -1484,7 +1484,7 @@ class expr(AST):
             return Const.from_object(space, w_node)
         raise oefmt(space.w_TypeError,
                 "Expected expr node, got %T", w_node)
-State.ast_type(''expr'', 'AST', None, ["'lineno'", "'col_offset'"])
+State.ast_type('expr', 'AST', None, ["'lineno'", "'col_offset'"])
 
 class BoolOp(expr):
 
@@ -1532,7 +1532,7 @@ class BoolOp(expr):
         _col_offset = space.int_w(w_col_offset)
         return BoolOp(_op, _values, _lineno, _col_offset)
 
-State.ast_type(''BoolOp'', 'expr', ["'op'", "'values'"])
+State.ast_type('BoolOp', 'expr', ["'op'", "'values'"])
 
 
 class BinOp(expr):
@@ -1585,7 +1585,7 @@ class BinOp(expr):
         _col_offset = space.int_w(w_col_offset)
         return BinOp(_left, _op, _right, _lineno, _col_offset)
 
-State.ast_type(''BinOp'', 'expr', ["'left'", "'op'", "'right'"])
+State.ast_type('BinOp', 'expr', ["'left'", "'op'", "'right'"])
 
 
 class UnaryOp(expr):
@@ -1630,7 +1630,7 @@ class UnaryOp(expr):
         _col_offset = space.int_w(w_col_offset)
         return UnaryOp(_op, _operand, _lineno, _col_offset)
 
-State.ast_type(''UnaryOp'', 'expr', ["'op'", "'operand'"])
+State.ast_type('UnaryOp', 'expr', ["'op'", "'operand'"])
 
 
 class Lambda(expr):
@@ -1676,7 +1676,7 @@ class Lambda(expr):
         _col_offset = space.int_w(w_col_offset)
         return Lambda(_args, _body, _lineno, _col_offset)
 
-State.ast_type(''Lambda'', 'expr', ["'args'", "'body'"])
+State.ast_type('Lambda', 'expr', ["'args'", "'body'"])
 
 
 class IfExp(expr):
@@ -1730,7 +1730,7 @@ class IfExp(expr):
         _col_offset = space.int_w(w_col_offset)
         return IfExp(_test, _body, _orelse, _lineno, _col_offset)
 
-State.ast_type(''IfExp'', 'expr', ["'test'", "'body'", "'orelse'"])
+State.ast_type('IfExp', 'expr', ["'test'", "'body'", "'orelse'"])
 
 
 class Dict(expr):
@@ -1784,7 +1784,7 @@ class Dict(expr):
         _col_offset = space.int_w(w_col_offset)
         return Dict(_keys, _values, _lineno, _col_offset)
 
-State.ast_type(''Dict'', 'expr', ["'keys'", "'values'"])
+State.ast_type('Dict', 'expr', ["'keys'", "'values'"])
 
 
 class Set(expr):
@@ -1826,7 +1826,7 @@ class Set(expr):
         _col_offset = space.int_w(w_col_offset)
         return Set(_elts, _lineno, _col_offset)
 
-State.ast_type(''Set'', 'expr', ["'elts'"])
+State.ast_type('Set', 'expr', ["'elts'"])
 
 
 class ListComp(expr):
@@ -1876,7 +1876,7 @@ class ListComp(expr):
         _col_offset = space.int_w(w_col_offset)
         return ListComp(_elt, _generators, _lineno, _col_offset)
 
-State.ast_type(''ListComp'', 'expr', ["'elt'", "'generators'"])
+State.ast_type('ListComp', 'expr', ["'elt'", "'generators'"])
 
 
 class SetComp(expr):
@@ -1926,7 +1926,7 @@ class SetComp(expr):
         _col_offset = space.int_w(w_col_offset)
         return SetComp(_elt, _generators, _lineno, _col_offset)
 
-State.ast_type(''SetComp'', 'expr', ["'elt'", "'generators'"])
+State.ast_type('SetComp', 'expr', ["'elt'", "'generators'"])
 
 
 class DictComp(expr):
@@ -1984,7 +1984,7 @@ class DictComp(expr):
         _col_offset = space.int_w(w_col_offset)
         return DictComp(_key, _value, _generators, _lineno, _col_offset)
 
-State.ast_type(''DictComp'', 'expr', ["'key'", "'value'", "'generators'"])
+State.ast_type('DictComp', 'expr', ["'key'", "'value'", "'generators'"])
 
 
 class GeneratorExp(expr):
@@ -2034,7 +2034,7 @@ class GeneratorExp(expr):
         _col_offset = space.int_w(w_col_offset)
         return GeneratorExp(_elt, _generators, _lineno, _col_offset)
 
-State.ast_type(''GeneratorExp'', 'expr', ["'elt'", "'generators'"])
+State.ast_type('GeneratorExp', 'expr', ["'elt'", "'generators'"])
 
 
 class Yield(expr):
@@ -2071,7 +2071,7 @@ class Yield(expr):
         _col_offset = space.int_w(w_col_offset)
         return Yield(_value, _lineno, _col_offset)
 
-State.ast_type(''Yield'', 'expr', ["'value'"])
+State.ast_type('Yield', 'expr', ["'value'"])
 
 
 class YieldFrom(expr):
@@ -2109,7 +2109,7 @@ class YieldFrom(expr):
         _col_offset = space.int_w(w_col_offset)
         return YieldFrom(_value, _lineno, _col_offset)
 
-State.ast_type(''YieldFrom'', 'expr', ["'value'"])
+State.ast_type('YieldFrom', 'expr', ["'value'"])
 
 
 class Compare(expr):
@@ -2169,7 +2169,7 @@ class Compare(expr):
         _col_offset = space.int_w(w_col_offset)
         return Compare(_left, _ops, _comparators, _lineno, _col_offset)
 
-State.ast_type(''Compare'', 'expr', ["'left'", "'ops'", "'comparators'"])
+State.ast_type('Compare', 'expr', ["'left'", "'ops'", "'comparators'"])
 
 
 class Call(expr):
@@ -2231,7 +2231,7 @@ class Call(expr):
         _col_offset = space.int_w(w_col_offset)
         return Call(_func, _args, _keywords, _lineno, _col_offset)
 
-State.ast_type(''Call'', 'expr', ["'func'", "'args'", "'keywords'"])
+State.ast_type('Call', 'expr', ["'func'", "'args'", "'keywords'"])
 
 
 class Num(expr):
@@ -2268,7 +2268,7 @@ class Num(expr):
         _col_offset = space.int_w(w_col_offset)
         return Num(_n, _lineno, _col_offset)
 
-State.ast_type(''Num'', 'expr', ["'n'"])
+State.ast_type('Num', 'expr', ["'n'"])
 
 
 class Str(expr):
@@ -2305,7 +2305,7 @@ class Str(expr):
         _col_offset = space.int_w(w_col_offset)
         return Str(_s, _lineno, _col_offset)
 
-State.ast_type(''Str'', 'expr', ["'s'"])
+State.ast_type('Str', 'expr', ["'s'"])
 
 
 class Bytes(expr):
@@ -2342,7 +2342,7 @@ class Bytes(expr):
         _col_offset = space.int_w(w_col_offset)
         return Bytes(_s, _lineno, _col_offset)
 
-State.ast_type(''Bytes'', 'expr', ["'s'"])
+State.ast_type('Bytes', 'expr', ["'s'"])
 
 
 class NameConstant(expr):
@@ -2379,7 +2379,7 @@ class NameConstant(expr):
         _col_offset = space.int_w(w_col_offset)
         return NameConstant(_value, _lineno, _col_offset)
 
-State.ast_type(''NameConstant'', 'expr', ["'value'"])
+State.ast_type('NameConstant', 'expr', ["'value'"])
 
 
 class Ellipsis(expr):
@@ -2409,7 +2409,7 @@ class Ellipsis(expr):
         _col_offset = space.int_w(w_col_offset)
         return Ellipsis(_lineno, _col_offset)
 
-State.ast_type(''Ellipsis'', 'expr', [])
+State.ast_type('Ellipsis', 'expr', [])
 
 
 class Attribute(expr):
@@ -2461,7 +2461,7 @@ class Attribute(expr):
         _col_offset = space.int_w(w_col_offset)
         return Attribute(_value, _attr, _ctx, _lineno, _col_offset)
 
-State.ast_type(''Attribute'', 'expr', ["'value'", "'attr'", "'ctx'"])
+State.ast_type('Attribute', 'expr', ["'value'", "'attr'", "'ctx'"])
 
 
 class Subscript(expr):
@@ -2514,7 +2514,7 @@ class Subscript(expr):
         _col_offset = space.int_w(w_col_offset)
         return Subscript(_value, _slice, _ctx, _lineno, _col_offset)
 
-State.ast_type(''Subscript'', 'expr', ["'value'", "'slice'", "'ctx'"])
+State.ast_type('Subscript', 'expr', ["'value'", "'slice'", "'ctx'"])
 
 
 class Starred(expr):
@@ -2559,7 +2559,7 @@ class Starred(expr):
         _col_offset = space.int_w(w_col_offset)
         return Starred(_value, _ctx, _lineno, _col_offset)
 
-State.ast_type(''Starred'', 'expr', ["'value'", "'ctx'"])
+State.ast_type('Starred', 'expr', ["'value'", "'ctx'"])
 
 
 class Name(expr):
@@ -2603,7 +2603,7 @@ class Name(expr):
         _col_offset = space.int_w(w_col_offset)
         return Name(_id, _ctx, _lineno, _col_offset)
 
-State.ast_type(''Name'', 'expr', ["'id'", "'ctx'"])
+State.ast_type('Name', 'expr', ["'id'", "'ctx'"])
 
 
 class List(expr):
@@ -2652,7 +2652,7 @@ class List(expr):
         _col_offset = space.int_w(w_col_offset)
         return List(_elts, _ctx, _lineno, _col_offset)
 
-State.ast_type(''List'', 'expr', ["'elts'", "'ctx'"])
+State.ast_type('List', 'expr', ["'elts'", "'ctx'"])
 
 
 class Tuple(expr):
@@ -2701,7 +2701,7 @@ class Tuple(expr):
         _col_offset = space.int_w(w_col_offset)
         return Tuple(_elts, _ctx, _lineno, _col_offset)
 
-State.ast_type(''Tuple'', 'expr', ["'elts'", "'ctx'"])
+State.ast_type('Tuple', 'expr', ["'elts'", "'ctx'"])
 
 
 class Const(expr):
@@ -2738,7 +2738,7 @@ class Const(expr):
         _col_offset = space.int_w(w_col_offset)
         return Const(_value, _lineno, _col_offset)
 
-State.ast_type(''Const'', 'expr', ["'value'"])
+State.ast_type('Const', 'expr', ["'value'"])
 
 
 class expr_context(AST):
@@ -2819,7 +2819,7 @@ class slice(AST):
             return Index.from_object(space, w_node)
         raise oefmt(space.w_TypeError,
                 "Expected slice node, got %T", w_node)
-State.ast_type(''slice'', 'AST', None, [])
+State.ast_type('slice', 'AST', None, [])
 
 class Slice(slice):
 
@@ -2860,7 +2860,7 @@ class Slice(slice):
         _step = expr.from_object(space, w_step) if w_step is not None else None
         return Slice(_lower, _upper, _step)
 
-State.ast_type(''Slice'', 'slice', ["'lower'", "'upper'", "'step'"])
+State.ast_type('Slice', 'slice', ["'lower'", "'upper'", "'step'"])
 
 
 class ExtSlice(slice):
@@ -2893,7 +2893,7 @@ class ExtSlice(slice):
         _dims = [slice.from_object(space, w_item) for w_item in dims_w]
         return ExtSlice(_dims)
 
-State.ast_type(''ExtSlice'', 'slice', ["'dims'"])
+State.ast_type('ExtSlice', 'slice', ["'dims'"])
 
 
 class Index(slice):
@@ -2922,7 +2922,7 @@ class Index(slice):
             raise_required_value(space, w_node, 'value')
         return Index(_value)
 
-State.ast_type(''Index'', 'slice', ["'value'"])
+State.ast_type('Index', 'slice', ["'value'"])
 
 
 class boolop(AST):
@@ -3276,7 +3276,7 @@ class comprehension(AST):
         _ifs = [expr.from_object(space, w_item) for w_item in ifs_w]
         return comprehension(_target, _iter, _ifs)
 
-State.ast_type(''comprehension'', 'AST', ["'target'", "'iter'", "'ifs'"])
+State.ast_type('comprehension', 'AST', ["'target'", "'iter'", "'ifs'"])
 
 class excepthandler(AST):
 
@@ -3292,7 +3292,7 @@ class excepthandler(AST):
             return ExceptHandler.from_object(space, w_node)
         raise oefmt(space.w_TypeError,
                 "Expected excepthandler node, got %T", w_node)
-State.ast_type(''excepthandler'', 'AST', None, ["'lineno'", "'col_offset'"])
+State.ast_type('excepthandler', 'AST', None, ["'lineno'", "'col_offset'"])
 
 class ExceptHandler(excepthandler):
 
@@ -3345,7 +3345,7 @@ class ExceptHandler(excepthandler):
         _col_offset = space.int_w(w_col_offset)
         return ExceptHandler(_type, _name, _body, _lineno, _col_offset)
 
-State.ast_type(''ExceptHandler'', 'excepthandler', ["'type'", "'name'", "'body'"])
+State.ast_type('ExceptHandler', 'excepthandler', ["'type'", "'name'", "'body'"])
 
 
 class arguments(AST):
@@ -3428,7 +3428,7 @@ class arguments(AST):
         _defaults = [expr.from_object(space, w_item) for w_item in defaults_w]
         return arguments(_args, _vararg, _kwonlyargs, _kw_defaults, _kwarg, _defaults)
 
-State.ast_type(''arguments'', 'AST', ["'args'", "'vararg'", "'kwonlyargs'", "'kw_defaults'", "'kwarg'", "'defaults'"])
+State.ast_type('arguments', 'AST', ["'args'", "'vararg'", "'kwonlyargs'", "'kw_defaults'", "'kwarg'", "'defaults'"])
 
 class arg(AST):
 
@@ -3462,7 +3462,7 @@ class arg(AST):
         _annotation = expr.from_object(space, w_annotation) if w_annotation is not None else None
         return arg(_arg, _annotation)
 
-State.ast_type(''arg'', 'AST', ["'arg'", "'annotation'"])
+State.ast_type('arg', 'AST', ["'arg'", "'annotation'"])
 
 class keyword(AST):
 
@@ -3495,7 +3495,7 @@ class keyword(AST):
             raise_required_value(space, w_node, 'value')
         return keyword(_arg, _value)
 
-State.ast_type(''keyword'', 'AST', ["'arg'", "'value'"])
+State.ast_type('keyword', 'AST', ["'arg'", "'value'"])
 
 class alias(AST):
 
@@ -3527,7 +3527,7 @@ class alias(AST):
         _asname = space.str_or_None_w(w_asname)
         return alias(_name, _asname)
 
-State.ast_type(''alias'', 'AST', ["'name'", "'asname'"])
+State.ast_type('alias', 'AST', ["'name'", "'asname'"])
 
 class withitem(AST):
 
@@ -3562,7 +3562,7 @@ class withitem(AST):
         _optional_vars = expr.from_object(space, w_optional_vars) if w_optional_vars is not None else None
         return withitem(_context_expr, _optional_vars)
 
-State.ast_type(''withitem'', 'AST', ["'context_expr'", "'optional_vars'"])
+State.ast_type('withitem', 'AST', ["'context_expr'", "'optional_vars'"])
 
 class ASTVisitor(object):
 
