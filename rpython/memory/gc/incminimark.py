@@ -644,9 +644,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
             #
             # Get the memory from the nursery.  If there is not enough space
             # there, do a collect first.
-            ll_assert(self.nursery_free != llmemory.NULL,
-                      "uninitialized nursery")
             result = self.nursery_free
+            ll_assert(result != llmemory.NULL, "uninitialized nursery")
             self.nursery_free = new_free = result + totalsize
             if new_free > self.nursery_top:
                 result = self.collect_and_reserve(totalsize)
@@ -705,9 +704,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
             #
             # Get the memory from the nursery.  If there is not enough space
             # there, do a collect first.
-            ll_assert(self.nursery_free != llmemory.NULL,
-                      "uninitialized nursery")
             result = self.nursery_free
+            ll_assert(result != llmemory.NULL, "uninitialized nursery")
             self.nursery_free = new_free = result + totalsize
             if new_free > self.nursery_top:
                 result = self.collect_and_reserve(totalsize)
@@ -1520,7 +1518,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
             return True
         # ^^^ a fast path of write-barrier
         #
-        if source_hdr.tid & GCFLAG_HAS_CARDS != 0:
+        if (self.card_page_indices > 0 and     # check constant-folded
+            source_hdr.tid & GCFLAG_HAS_CARDS != 0):
             #
             if source_hdr.tid & GCFLAG_TRACK_YOUNG_PTRS == 0:
                 # The source object may have random young pointers.
@@ -1795,7 +1794,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         debug_stop("gc-minor")
 
     def _reset_flag_old_objects_pointing_to_pinned(self, obj, ignore):
-        ll_assert(self.header(obj).tid & GCFLAG_PINNED_OBJECT_PARENT_KNOWN,
+        ll_assert(self.header(obj).tid & GCFLAG_PINNED_OBJECT_PARENT_KNOWN != 0,
                   "!GCFLAG_PINNED_OBJECT_PARENT_KNOWN, but requested to reset.")
         self.header(obj).tid &= ~GCFLAG_PINNED_OBJECT_PARENT_KNOWN
 
