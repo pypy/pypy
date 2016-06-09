@@ -21,7 +21,7 @@ class TestPackaging:
 
     def test_dir_structure(self, test='test'):
         retval, builddir = package.package(
-            '--without-cffi', str(py.path.local(pypydir).dirpath()),
+            '--without-cffi',
             test, self.rename_pypy_c, _fake=True)
         assert retval == 0
         prefix = builddir.join(test)
