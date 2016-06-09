@@ -627,8 +627,8 @@ class ASTBuilder(object):
                 i += 3
             else:
                 raise AssertionError("unknown node in argument list")
-        return ast.arguments(pos, vararg, varargann, kwonly, kwarg,
-                             kwargann, posdefaults, kwdefaults)
+        return ast.arguments(pos, vararg, kwonly, kwdefaults, kwarg,
+                             posdefaults)
 
     def handle_keywordonly_args(self, arguments_node, i, kwonly, kwdefaults):
         if kwonly is None:
