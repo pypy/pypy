@@ -11,16 +11,19 @@ except ImportError:
 
 # ____________________________________________________________
 
-def app_hypothesis_given(arg1):
+def app_hypothesis_given(*args):
     from hypothesis import given
+    from hypothesis import strategies
     def decorator(func):
-        @given(arg1)
-        def inner(space, original, arg1):
-            return original(space, space.wrap(arg1))
+        tuple_stategy = strategies.tuples(*args)
+        @given(tuple_stategy)
+        def inner(space, original, arg_tuple):
+            args_w = [space.wrap(arg) for arg in arg_tuple]
+            return original(space, *args_w)
 
-        @given(arg1)
-        def appdirect(arg1):
-            return func(arg1)
+        @given(tuple_stategy)
+        def appdirect(arg_tuple):
+            return func(*arg_tuple)
         appdirect.hypothesis_inner = inner
         appdirect.original_function = func
         return appdirect
