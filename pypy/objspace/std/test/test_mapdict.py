@@ -1,5 +1,6 @@
 from pypy.objspace.std.test.test_dictmultiobject import FakeSpace, W_DictObject
 from pypy.objspace.std.mapdict import *
+from pypy.tool.pytest.appsupport import app_hypothesis_given
 
 class Config:
     class objspace:

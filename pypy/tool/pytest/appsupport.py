@@ -11,6 +11,21 @@ except ImportError:
 
 # ____________________________________________________________
 
+def app_hypothesis_given(arg1):
+    from hypothesis import given
+    def decorator(func):
+        @given(arg1)
+        def inner(space, original, arg1):
+            return original(space, space.wrap(arg1))
+
+        @given(arg1)
+        def appdirect(arg1):
+            return func(arg1)
+        appdirect.hypothesis_inner = inner
+        appdirect.original_function = func
+        return appdirect
+    return decorator
+
 class AppCode(object):
     def __init__(self, space, pycode):
         self.code = pycode

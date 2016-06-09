@@ -51,10 +51,17 @@ class AppTestFunction(py.test.collect.Function):
         if self.config.option.runappdirect:
             return target()
         space = gettestobjspace()
-        filename = self._getdynfilename(target)
-        func = app2interp_temp(target, filename=filename)
+        if hasattr(target, 'hypothesis_inner'):
+            filename = self._getdynfilename(target.original_function)
+            original = app2interp_temp(target.original_function, filename=filename)
+            func = target.hypothesis_inner
+            args = (space, original)
+        else:
+            filename = self._getdynfilename(target)
+            args = (space, )
+            func = app2interp_temp(target, filename=filename)
         print "executing", func
-        self.execute_appex(space, func, space)
+        self.execute_appex(space, func, *args)
 
     def repr_failure(self, excinfo):
         if excinfo.errisinstance(AppError):
