@@ -5,6 +5,7 @@
 #include <sys/types.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <ctype.h>
 
 #include "rdb-src/revdb_include.h"
 
@@ -107,14 +108,14 @@ static void setup_record_mode(int argc, char *argv[])
             abort();
         }
         atexit(rpy_reverse_db_flush);
-    }
 
-    memset(&h, 0, sizeof(h));
-    h.signature = RDB_SIGNATURE;
-    h.version = RDB_VERSION;
-    h.argc = argc;
-    h.argv = argv;
-    write_all((const char *)&h, sizeof(h));
+        memset(&h, 0, sizeof(h));
+        h.signature = RDB_SIGNATURE;
+        h.version = RDB_VERSION;
+        h.argc = argc;
+        h.argv = argv;
+        write_all((const char *)&h, sizeof(h));
+    }
 }
 
 RPY_EXTERN
@@ -184,6 +185,7 @@ static int frozen_pipe_signal[2];
 
 enum { PK_MAIN_PROCESS, PK_FROZEN_PROCESS, PK_DEBUG_PROCESS };
 static int process_kind = PK_MAIN_PROCESS;
+static uint64_t latest_fork;
 
 static uint64_t total_stop_points;
 
@@ -294,18 +296,16 @@ struct action_s {
     void (*act)(char *);
 };
 
-static void process_input(struct action_s actions[])
+static void process_input(char *input, const char *kind,
+                          struct action_s actions[])
 {
-    char input[256], *p;
+    char *p;
     struct action_s *a;
 
-    if (fgets(input, sizeof(input), stdin) != input) {
-        fprintf(stderr, "\n");
-        strcpy(input, "exit");
-    }
-
+    while (isspace(*input))
+        input++;
     p = input;
-    while (*p > ' ')
+    while (*p != 0 && !isspace(*p))
         p++;
     if (*p != 0) {
         *p = 0;
@@ -320,14 +320,15 @@ static void process_input(struct action_s actions[])
     }
     else if (strcmp(input, "help") == 0) {
         a = actions;
-        printf("available commands:\n");
+        printf("select %s:\n", kind);
         while (a->name != NULL) {
-            printf("\t%s\n", a->name);
+            if (*a->name != 0)
+                printf("\t%s\n", a->name);
             a++;
         }
     }
-    else if (input[0] != 0) {
-        printf("bad command '%s', try 'help'\n", input);
+    else {
+        printf("bad %s '%s', try 'help'\n", kind, input);
     }
 }
 
@@ -430,6 +431,7 @@ static void run_frozen_process(int frozen_pipe_fd)
             /* in the child: this is a debug process */
             process_kind = PK_DEBUG_PROCESS;
             assert(target_time >= rpy_revdb.stop_point_seen);
+            latest_fork = rpy_revdb.stop_point_seen;
             rpy_revdb.stop_point_break = target_time;
             /* continue "running" the RPython program until we reach
                exactly the specified target_time */
@@ -505,7 +507,7 @@ static void make_new_frozen_process(void)
     }
 }
 
-static void act_exit(char *p)
+static void act_quit(char *p)
 {
     uint64_t target_time = (uint64_t)-1;
     write_pipe(frozen_pipe_signal[WR_SIDE], &target_time,
@@ -525,17 +527,42 @@ static void act_go(char *p)
     exit(0);
 }
 
+static void act_info_fork(char *p)
+{
+    printf("latest_fork=%llu\n", (unsigned long long)latest_fork);
+}
+
+static void act_info(char *p)
+{
+    static struct action_s actions_info[] = {
+        { "fork", act_info_fork },
+        { NULL }
+    };
+    process_input(p, "category", actions_info);
+}
+
+static void act_nop(char *p)
+{
+}
+
 static void run_debug_process(void)
 {
     static struct action_s actions_1[] = {
         { "go", act_go },
-        { "exit", act_exit },
+        { "info", act_info },
+        { "quit", act_quit },
+        { "", act_nop },
         { NULL }
     };
     while (1) {
+        char input[256];
         printf("(%llu)$ ", (unsigned long long)rpy_revdb.stop_point_seen);
         fflush(stdout);
-        process_input(actions_1);
+        if (fgets(input, sizeof(input), stdin) != input) {
+            fprintf(stderr, "\n");
+            strcpy(input, "exit");
+        }
+        process_input(input, "command", actions_1);
     }
 }
 
