@@ -22,7 +22,9 @@ class TestPackaging:
     def test_dir_structure(self, test='test'):
         retval, builddir = package.package(
             '--without-cffi',
-            test, self.rename_pypy_c, _fake=True)
+            '--archive-name', test,
+            '--rename_pypy_c', self.rename_pypy_c,
+            _fake=True)
         assert retval == 0
         prefix = builddir.join(test)
         cpyver = '%d.%d' % CPYTHON_VERSION[:2]
@@ -71,7 +73,9 @@ class TestPackaging:
         builddir = udir.ensure("build", dir=True)
         retval, builddir = package.package(
             '--without-cffi', '--builddir', str(builddir),
-            test, self.rename_pypy_c, _fake=True)
+            '--archive-name', test,
+            '--rename_pypy_c', self.rename_pypy_c,
+            _fake=True)
 
     def test_with_zipfile_module(self):
         prev = package.USE_ZIPFILE_MODULE
