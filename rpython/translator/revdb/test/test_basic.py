@@ -1,6 +1,6 @@
 import py
 import os, sys
-import array, struct
+import re, array, struct
 from rpython.tool.udir import udir
 from rpython.translator.interactive import Translation
 from rpython.rlib.rarithmetic import LONG_BIT
@@ -32,10 +32,11 @@ class RDB(object):
         return self.cur == len(self.buffer)
 
 
-class TestBasic(object):
+class BaseTests(object):
 
-    def getcompiled(self, entry_point, argtypes, backendopt=True):
+    def compile(self, entry_point, argtypes, backendopt=True):
         t = Translation(entry_point, None, gc="boehm")
+        self.t = t
         t.config.translation.reverse_debugger = True
         t.config.translation.rweakref = False
         if not backendopt:
@@ -48,29 +49,27 @@ class TestBasic(object):
         self.rdbname = os.path.join(os.path.dirname(str(self.exename)),
                                     'log.rdb')
 
-        def run(*argv):
-            env = os.environ.copy()
-            env['PYPYREVDB'] = self.rdbname
-            stdout, stderr = t.driver.cbuilder.cmdexec(' '.join(argv), env=env,
-                                                       expect_crash=9)
-            print >> sys.stderr, stderr
-            return stdout
-
-        def replay():
-            stdout = t.driver.cbuilder.cmdexec("--replay '%s'" % self.rdbname)
-            return stdout
-
-        return run, replay
+    def run(self, *argv):
+        env = os.environ.copy()
+        env['PYPYREVDB'] = self.rdbname
+        t = self.t
+        stdout, stderr = t.driver.cbuilder.cmdexec(' '.join(argv), env=env,
+                                                   expect_crash=9)
+        print >> sys.stderr, stderr
+        return stdout
 
     def fetch_rdb(self):
         return RDB(self.rdbname)
+
+
+class TestRecording(BaseTests):
 
     def test_simple(self):
         def main(argv):
             print argv[1:]
             return 9
-        fn, replay = self.getcompiled(main, [], backendopt=False)
-        assert fn('abc d') == '[abc, d]\n'
+        self.compile(main, [], backendopt=False)
+        assert self.run('abc d') == '[abc, d]\n'
         rdb = self.fetch_rdb()
         assert rdb.argc == 3
         #
@@ -98,10 +97,21 @@ class TestBasic(object):
         assert rdb.done()
         #
         assert got == [self.exename, 'abc', 'd']
-        #
-        # Now try the replay mode (just "doesn't crash" for now)
-        out = replay()
-        assert out == "Replaying finished, 0 stop points\n"
+
+
+class TestInteraction(BaseTests):
+    """
+    These tests require pexpect (UNIX-only).
+    http://pexpect.sourceforge.net/
+    """
+    def replay(self, **kwds):
+        import pexpect
+        self.EOF = pexpect.EOF
+        kwds.setdefault('timeout', 10)
+        child = pexpect.spawn(str(self.exename),
+                              ['--replay', str(self.rdbname)], **kwds)
+        child.logfile = sys.stdout
+        return child
 
     def test_simple_interpreter(self):
         def main(argv):
@@ -109,9 +119,30 @@ class TestBasic(object):
                 revdb.stop_point(42)
                 print op
             return 9
-        fn, replay = self.getcompiled(main, [], backendopt=False)
-        assert fn('abc d ef') == 'abc\nd\nef\n'
+        self.compile(main, [], backendopt=False)
+        assert self.run('abc d ef') == 'abc\nd\nef\n'
         assert self.fetch_rdb().number_of_stop_points() == 3
-        out = replay()
-        assert out == ("break #42 after 1 stop points\n"
-                       "Replaying finished, 3 stop points\n")
+
+        child = self.replay()
+
+        def wait(s):
+            child.expect(re.escape(s))
+
+        wait('stop_points=3\r\n')
+        wait('(3)$ ')
+        child.sendline('go 1')
+        wait('(1)$ ')
+        child.sendline('')
+        wait('(1)$ ')
+        child.sendline('go 52')
+        wait('(3)$ ')
+        child.sendline('help')
+        wait('select command:\r\n')
+        # ...
+        wait('(3)$ ')
+        child.sendline('info')
+        wait("bad category '', try 'help'\r\n")
+        child.sendline('info fork')
+        wait('latest_fork=3\r\n')
+        child.sendline('quit')
+        child.expect(self.EOF)
