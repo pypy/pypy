@@ -445,10 +445,6 @@ class AppTestSysModulePortedFromCPython:
 
     def test_dlopenflags(self):
         import sys
-        if not hasattr(sys, "setdlopenflags"):
-            skip('dlopen flags are not available.')
-
-        assert hasattr(sys, "getdlopenflags")
         raises(TypeError, sys.getdlopenflags, 42)
         oldflags = sys.getdlopenflags()
         raises(TypeError, sys.setdlopenflags)
