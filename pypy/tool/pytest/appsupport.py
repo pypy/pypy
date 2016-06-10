@@ -15,7 +15,11 @@ def app_hypothesis_given(*args):
     from hypothesis import given
     from hypothesis import strategies
     def decorator(func):
+        # this is a bit of a mess, because @given does not work on functions
+        # with *args
         tuple_stategy = strategies.tuples(*args)
+
+        # two versions of the function, one for applevel, one appdirect
         @given(tuple_stategy)
         def inner(space, original, arg_tuple):
             args_w = [space.wrap(arg) for arg in arg_tuple]
@@ -24,8 +28,20 @@ def app_hypothesis_given(*args):
         @given(tuple_stategy)
         def appdirect(arg_tuple):
             return func(*arg_tuple)
+
+        # two versions that work on methods
+        @given(tuple_stategy)
+        def inner_method(space, w_instance, original, arg_tuple):
+            args_w = [space.wrap(arg) for arg in arg_tuple]
+            return original(space, w_instance, *args_w)
+
+        @given(tuple_stategy)
+        def appdirect_method(instance, arg_tuple):
+            return func(instance, *arg_tuple)
         appdirect.hypothesis_inner = inner
         appdirect.original_function = func
+        appdirect.hypothesis_method = inner_method
+        appdirect.appdirect_method = appdirect_method
         return appdirect
     return decorator
 

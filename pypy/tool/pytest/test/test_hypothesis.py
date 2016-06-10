@@ -16,4 +16,8 @@ def app_test_2_floats(f, g):
     assert f == f # not a NaN
     assert g == g # not a NaN
 
-
+class AppTest(object):
+    @app_hypothesis_given(strategies.floats(min_value=1.0, max_value=2.0))
+    def test_floats(self, f):
+        assert 1.0 <= f <= 2.0
+        assert f == f # not a NaN

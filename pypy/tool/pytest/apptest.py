@@ -107,12 +107,22 @@ class AppTestMethod(AppTestFunction):
     def runtest(self):
         target = self.obj
         if self.config.option.runappdirect:
+            if hasattr(target.im_func, 'appdirect_method'):
+                return target.im_func.appdirect_method(target.im_self)
             return target()
         space = target.im_self.space
-        filename = self._getdynfilename(target)
-        func = app2interp_temp(target.im_func, filename=filename)
+        func = target.im_func
         w_instance = self.parent.w_instance
-        self.execute_appex(space, func, space, w_instance)
+        if hasattr(func, 'hypothesis_inner'):
+            filename = self._getdynfilename(func.original_function)
+            original = app2interp_temp(func.original_function, filename=filename)
+            func = func.hypothesis_method
+            args = (space, w_instance, original)
+        else:
+            filename = self._getdynfilename(target)
+            func = app2interp_temp(func, filename=filename)
+            args = (space, w_instance)
+        self.execute_appex(space, func, *args)
 
 
 class AppClassInstance(py.test.collect.Instance):
