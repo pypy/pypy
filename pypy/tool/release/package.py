@@ -61,6 +61,7 @@ def create_package(basedir, options, _fake=False):
     name = options.name
     if not name:
         name = 'pypy-nightly'
+    assert '/' not in name
     rename_pypy_c = options.pypy_c
     override_pypy_c = options.override_pypy_c
 

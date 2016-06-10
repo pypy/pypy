@@ -71,7 +71,6 @@ class TestPackaging:
         builddir = udir.ensure("build", dir=True)
         retval, builddir = package.package(
             '--without-cffi', '--builddir', str(builddir),
-            str(py.path.local(pypydir).dirpath()),
             test, self.rename_pypy_c, _fake=True)
 
     def test_with_zipfile_module(self):
