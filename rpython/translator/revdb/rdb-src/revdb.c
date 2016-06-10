@@ -154,32 +154,21 @@ void rpy_reverse_db_flush(void)
         ...
         [frozen process n]
 
-   When all frozen processes are made, the main process enters
-   interactive mode.  In interactive mode, the main process reads from
-   stdin a version number to go to.  It picks the correct frozen
-   process (the closest one that is before in time); let's say it is
-   process #p.  It sends the version number to it by writing to pipe
-   #p.  The corresponding frozen process wakes up, and forks again
-   into a debugging process.  The main and the frozen process then
-   block.
+   The main process's job, once reloading is finished, is only to
+   active debugging processes, one at a time.  To go to a specific
+   target time, it activates the right frozen process by sending
+   'target_time' over the corresponding pipe.  The frozen process
+   forks the debugging process, and the debugging process goes forward
+   until it reaches 'target_time'.
 
-   The debugging process first goes forward in time until it reaches
-   the right version number.  Then it interacts with the user (or a
-   pdb-like program outside) on stdin/stdout.  This goes on until an
-   "exit" command is received and the debugging process dies.  At that
-   point its parent (the frozen process) continues and signals its own
-   parent (the main process) by writing to a separate signalling pipe.
-   The main process then wakes up again, and the loop closes: it reads
-   on stdin the next version number that we're interested in, and asks
-   the right frozen process to make a debugging process again.
+   The debugging process is then interacting with the user on
+   stdin/stdout.
 
-   Note how we have, over time, several processes that read and
-   process stdin; it should work because they are strictly doing that
-   in sequence, never concurrently.  To avoid the case where stdin is
-   buffered inside one process but a different process should read it,
-   we write markers to stdout when such switches occur.  The outside
-   controlling program must wait until it sees these markers before
-   writing more data.
+   A few commands like 'go <target_time>' will cause the debugging
+   process to send the 'target_time' back over a signalling pipe to
+   the main process, and then finish.  The main process receives that
+   'target_time', and the loop closes: it activates the right frozen
+   process, which will go forward and re-enter interactive mode.
 */
 
 #define NUM_FROZEN_PROCESSES   30
