@@ -553,7 +553,6 @@ class ASTBuilder(object):
                 break
             if arg_type == tokens.DOUBLESTAR:
                 break
-            #TODO: scan further
             if arg_type == syms.vfpdef or arg_type == syms.tfpdef:
                 n_pos += 1
             if arg_type == tokens.EQUAL:
@@ -1016,11 +1015,11 @@ class ASTBuilder(object):
             return ast.Subscript(left_expr, ast.Index(tup), ast.Load,
                                  middle.get_lineno(), middle.get_column())
 
-    #fix this method
     def handle_call(self, args_node, callable_expr):
-        arg_count = 0
-        keyword_count = 0
-        generator_count = 0
+        arg_count = 0 # position args + iterable args unpackings
+        keyword_count = 0 # keyword args + keyword args unpackings
+        doublestars_count = 0 # just keyword argument unpackings
+        generator_count = 0 
         for i in range(args_node.num_children()):
             argument = args_node.get_child(i)
             if argument.type == syms.argument:
@@ -1028,7 +1027,11 @@ class ASTBuilder(object):
                     arg_count += 1
                 elif argument.get_child(1).type == syms.comp_for:
                     generator_count += 1
+                elif argument.get_child(0).type == tokens.STAR:
+                    arg_count += 1
                 else:
+                    # argument.get_child(0).type == tokens.DOUBLESTAR
+                    # or keyword arg
                     keyword_count += 1
         if generator_count > 1 or \
                 (generator_count and (keyword_count or arg_count)):
@@ -1039,22 +1042,27 @@ class ASTBuilder(object):
         args = []
         keywords = []
         used_keywords = {}
-        variable_arg = None
-        keywords_arg = None
         child_count = args_node.num_children()
         i = 0
         while i < child_count:
             argument = args_node.get_child(i)
             if argument.type == syms.argument:
+                expr_node = argument.get_child(0)
                 if argument.num_children() == 1:
-                    expr_node = argument.get_child(0)
+                    # a positional argument
                     if keywords:
-                        self.error("non-keyword arg after keyword arg",
-                                   expr_node)
-                    if variable_arg:
-                        self.error("only named arguments may follow "
-                                   "*expression", expr_node)
+                        if doublestars_count:
+                            self.error("positional argument follows "
+                                       "keyword argument unpacking",
+                                       expr_node)
+                        else
+                            self.error("positional argument follows "
+                                       "keyword argument",
+                                       expr_node)
                     args.append(self.handle_expr(expr_node))
+                elif expr_node.type == tokens.STAR
+                    # an iterable argument unpacking
+                    # continue here
                 elif argument.get_child(1).type == syms.comp_for:
                     args.append(self.handle_genexp(argument))
                 else:
