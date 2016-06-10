@@ -204,20 +204,20 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
 
     def _build_malloc_slowpath(self, kind):
         """ While arriving on slowpath, we have a gcpattern on stack 0.
-        The arguments are passed in eax and edi, as follows:
+        The arguments are passed in ecx and edx, as follows:
 
-        kind == 'fixed': nursery_head in eax and the size in edi - eax.
+        kind == 'fixed': nursery_head in ecx and the size in (edx - ecx).
 
-        kind == 'str/unicode': length of the string to allocate in edi.
+        kind == 'str/unicode': length of the string to allocate in edx.
 
-        kind == 'var': length to allocate in edi, tid in eax,
+        kind == 'var': length to allocate in edx, tid in ecx,
                        and itemsize in the stack 1 (position esp+WORD).
 
-        This function must preserve all registers apart from eax and edi.
+        This function must preserve all registers apart from ecx and edx.
         """
         assert kind in ['fixed', 'str', 'unicode', 'var']
         mc = codebuf.MachineCodeBlockWrapper()
-        self._push_all_regs_to_frame(mc, [eax, edi], self.cpu.supports_floats)
+        self._push_all_regs_to_frame(mc, [ecx, edx], self.cpu.supports_floats)
         # the caller already did push_gcmap(store=True)
         #
         if kind == 'fixed':
@@ -231,32 +231,32 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         mc.SUB_ri(esp.value, 16 - WORD)  # restore 16-byte alignment
         # magically, the above is enough on X86_32 to reserve 3 stack places
         if kind == 'fixed':
-            mc.SUB_rr(edi.value, eax.value) # compute the size we want
-            # the arg is already in edi
+            mc.SUB_rr(edx.value, ecx.value) # compute the size we want
             if IS_X86_32:
-                mc.MOV_sr(0, edi.value)
+                mc.MOV_sr(0, edx.value)     # store the length
                 if hasattr(self.cpu.gc_ll_descr, 'passes_frame'):
-                    mc.MOV_sr(WORD, ebp.value)
-            elif hasattr(self.cpu.gc_ll_descr, 'passes_frame'):
-                # for tests only
-                mc.MOV_rr(esi.value, ebp.value)
+                    mc.MOV_sr(WORD, ebp.value)        # for tests only
+            else:
+                mc.MOV_rr(edi.value, edx.value)   # length argument
+                if hasattr(self.cpu.gc_ll_descr, 'passes_frame'):
+                    mc.MOV_rr(esi.value, ebp.value)   # for tests only
         elif kind == 'str' or kind == 'unicode':
             if IS_X86_32:
                 # stack layout: [---][---][---][ret].. with 3 free stack places
-                mc.MOV_sr(0, edi.value)     # store the length
-            else:
-                pass                        # length already in edi
+                mc.MOV_sr(0, edx.value)     # store the length
+            elif IS_X86_64:
+                mc.MOV_rr(edi.value, edx.value)   # length argument
         else:
             if IS_X86_32:
                 # stack layout: [---][---][---][ret][gcmap][itemsize]...
-                mc.MOV_sr(WORD * 2, edi.value)  # store the length
-                mc.MOV_sr(WORD * 1, eax.value)  # store the tid
-                mc.MOV_rs(edi.value, WORD * 5)  # load the itemsize
-                mc.MOV_sr(WORD * 0, edi.value)  # store the itemsize
+                mc.MOV_sr(WORD * 2, edx.value)  # store the length
+                mc.MOV_sr(WORD * 1, ecx.value)  # store the tid
+                mc.MOV_rs(edx.value, WORD * 5)  # load the itemsize
+                mc.MOV_sr(WORD * 0, edx.value)  # store the itemsize
             else:
                 # stack layout: [---][ret][gcmap][itemsize]...
-                mc.MOV_rr(edx.value, edi.value) # length
-                mc.MOV_rr(esi.value, eax.value) # tid
+                # (already in edx)              # length
+                mc.MOV_rr(esi.value, ecx.value) # tid
                 mc.MOV_rs(edi.value, WORD * 3)  # load the itemsize
         self.set_extra_stack_depth(mc, 16)
         mc.CALL(imm(follow_jump(addr)))
@@ -267,10 +267,11 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         mc.TEST_rr(eax.value, eax.value)
         mc.J_il(rx86.Conditions['Z'], 0xfffff) # patched later
         jz_location = mc.get_relative_pos()
+        mc.MOV_rr(ecx.value, eax.value)
         #
         nursery_free_adr = self.cpu.gc_ll_descr.get_nursery_free_addr()
-        self._pop_all_regs_from_frame(mc, [eax, edi], self.cpu.supports_floats)
-        mc.MOV(edi, heap(nursery_free_adr))   # load this in EDI
+        self._pop_all_regs_from_frame(mc, [ecx, edx], self.cpu.supports_floats)
+        mc.MOV(edx, heap(nursery_free_adr))   # load this in EDX
         self.pop_gcmap(mc)   # push_gcmap(store=True) done by the caller
         mc.RET()
         #
@@ -2441,9 +2442,9 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
 
     def malloc_cond(self, nursery_free_adr, nursery_top_adr, size, gcmap):
         assert size & (WORD-1) == 0     # must be correctly aligned
-        self.mc.MOV(eax, heap(nursery_free_adr))
-        self.mc.LEA_rm(edi.value, (eax.value, size))
-        self.mc.CMP(edi, heap(nursery_top_adr))
+        self.mc.MOV(ecx, heap(nursery_free_adr))
+        self.mc.LEA_rm(edx.value, (ecx.value, size))
+        self.mc.CMP(edx, heap(nursery_top_adr))
         self.mc.J_il8(rx86.Conditions['NA'], 0) # patched later
         jmp_adr = self.mc.get_relative_pos()
         # save the gcmap
@@ -2452,19 +2453,19 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         offset = self.mc.get_relative_pos() - jmp_adr
         assert 0 < offset <= 127
         self.mc.overwrite(jmp_adr-1, chr(offset))
-        self.mc.MOV(heap(nursery_free_adr), edi)
+        self.mc.MOV(heap(nursery_free_adr), edx)
 
     def malloc_cond_varsize_frame(self, nursery_free_adr, nursery_top_adr,
                                   sizeloc, gcmap):
-        if sizeloc is eax:
-            self.mc.MOV(edi, sizeloc)
-            sizeloc = edi
-        self.mc.MOV(eax, heap(nursery_free_adr))
-        if sizeloc is edi:
-            self.mc.ADD_rr(edi.value, eax.value)
+        if sizeloc is ecx:
+            self.mc.MOV(edx, sizeloc)
+            sizeloc = edx
+        self.mc.MOV(ecx, heap(nursery_free_adr))
+        if sizeloc is edx:
+            self.mc.ADD_rr(edx.value, ecx.value)
         else:
-            self.mc.LEA_ra(edi.value, (eax.value, sizeloc.value, 0, 0))
-        self.mc.CMP(edi, heap(nursery_top_adr))
+            self.mc.LEA_ra(edx.value, (ecx.value, sizeloc.value, 0, 0))
+        self.mc.CMP(edx, heap(nursery_top_adr))
         self.mc.J_il8(rx86.Conditions['NA'], 0) # patched later
         jmp_adr = self.mc.get_relative_pos()
         # save the gcmap
@@ -2473,7 +2474,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         offset = self.mc.get_relative_pos() - jmp_adr
         assert 0 < offset <= 127
         self.mc.overwrite(jmp_adr-1, chr(offset))
-        self.mc.MOV(heap(nursery_free_adr), edi)
+        self.mc.MOV(heap(nursery_free_adr), edx)
 
     def malloc_cond_varsize(self, kind, nursery_free_adr, nursery_top_adr,
                             lengthloc, itemsize, maxlength, gcmap,
@@ -2482,39 +2483,39 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         assert isinstance(arraydescr, ArrayDescr)
 
         # lengthloc is the length of the array, which we must not modify!
-        assert lengthloc is not eax and lengthloc is not edi
+        assert lengthloc is not ecx and lengthloc is not edx
         if isinstance(lengthloc, RegLoc):
             varsizeloc = lengthloc
         else:
-            self.mc.MOV(edi, lengthloc)
-            varsizeloc = edi
+            self.mc.MOV(edx, lengthloc)
+            varsizeloc = edx
 
         self.mc.CMP(varsizeloc, imm(maxlength))
         self.mc.J_il8(rx86.Conditions['A'], 0) # patched later
         jmp_adr0 = self.mc.get_relative_pos()
 
-        self.mc.MOV(eax, heap(nursery_free_adr))
+        self.mc.MOV(ecx, heap(nursery_free_adr))
         if valid_addressing_size(itemsize):
             shift = get_scale(itemsize)
         else:
-            shift = self._imul_const_scaled(self.mc, edi.value,
+            shift = self._imul_const_scaled(self.mc, edx.value,
                                             varsizeloc.value, itemsize)
-            varsizeloc = edi
+            varsizeloc = edx
 
-        # now varsizeloc is a register != eax.  The size of
+        # now varsizeloc is a register != ecx.  The size of
         # the variable part of the array is (varsizeloc << shift)
         assert arraydescr.basesize >= self.gc_minimal_size_in_nursery
         constsize = arraydescr.basesize + self.gc_size_of_header
         force_realignment = (itemsize % WORD) != 0
         if force_realignment:
             constsize += WORD - 1
-        self.mc.LEA_ra(edi.value, (eax.value, varsizeloc.value, shift,
+        self.mc.LEA_ra(edx.value, (ecx.value, varsizeloc.value, shift,
                                    constsize))
         if force_realignment:
-            self.mc.AND_ri(edi.value, ~(WORD - 1))
-        # now edi contains the total size in bytes, rounded up to a multiple
+            self.mc.AND_ri(edx.value, ~(WORD - 1))
+        # now edx contains the total size in bytes, rounded up to a multiple
         # of WORD, plus nursery_free_adr
-        self.mc.CMP(edi, heap(nursery_top_adr))
+        self.mc.CMP(edx, heap(nursery_top_adr))
         self.mc.J_il8(rx86.Conditions['NA'], 0) # patched later
         jmp_adr1 = self.mc.get_relative_pos()
         #
@@ -2525,8 +2526,8 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         self.push_gcmap(self.mc, gcmap, store=True)
         if kind == rewrite.FLAG_ARRAY:
             self.mc.MOV_si(WORD, itemsize)
-            self.mc.MOV(edi, lengthloc)
-            self.mc.MOV_ri(eax.value, arraydescr.tid)
+            self.mc.MOV(edx, lengthloc)
+            self.mc.MOV_ri(ecx.value, arraydescr.tid)
             addr = self.malloc_slowpath_varsize
         else:
             if kind == rewrite.FLAG_STR:
@@ -2534,7 +2535,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             else:
                 assert kind == rewrite.FLAG_UNICODE
                 addr = self.malloc_slowpath_unicode
-            self.mc.MOV(edi, lengthloc)
+            self.mc.MOV(edx, lengthloc)
         self.mc.CALL(imm(follow_jump(addr)))
         self.mc.JMP_l8(0)      # jump to done, patched later
         jmp_location = self.mc.get_relative_pos()
@@ -2544,9 +2545,9 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         self.mc.overwrite(jmp_adr1-1, chr(offset))
         self.mc.force_frame_size(DEFAULT_FRAME_BYTES)
         # write down the tid, but not if it's the result of the CALL
-        self.mc.MOV(mem(eax, 0), imm(arraydescr.tid))
+        self.mc.MOV(mem(ecx, 0), imm(arraydescr.tid))
         # while we're at it, this line is not needed if we've done the CALL
-        self.mc.MOV(heap(nursery_free_adr), edi)
+        self.mc.MOV(heap(nursery_free_adr), edx)
         #
         offset = self.mc.get_relative_pos() - jmp_location
         assert 0 < offset <= 127

@@ -97,17 +97,14 @@ class OptIntBounds(Optimization):
         self.emit_operation(op)
 
         r = self.getintbound(op)
-        if b2.is_constant():
-            val = b2.lower
-            if val >= 0:
-                r.intersect(IntBound(0, val))
-        elif b1.is_constant():
-            val = b1.lower
-            if val >= 0:
-                r.intersect(IntBound(0, val))
-        elif b1.known_ge(IntBound(0, 0)) and b2.known_ge(IntBound(0, 0)):
-            lesser = min(b1.upper, b2.upper)
-            r.intersect(IntBound(0, next_pow2_m1(lesser)))
+        pos1 = b1.known_ge(IntBound(0, 0))
+        pos2 = b2.known_ge(IntBound(0, 0))
+        if pos1 or pos2:
+            r.make_ge(IntBound(0, 0))
+        if pos1:
+            r.make_le(b1)
+        if pos2:
+            r.make_le(b2)
 
     def optimize_INT_SUB(self, op):
         self.emit_operation(op)

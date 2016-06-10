@@ -521,6 +521,8 @@ class Transformer(object):
     # XXX some of the following functions should not become residual calls
     # but be really compiled
     rewrite_op_int_abs                = _do_builtin_call
+    rewrite_op_int_floordiv           = _do_builtin_call
+    rewrite_op_int_mod                = _do_builtin_call
     rewrite_op_llong_abs              = _do_builtin_call
     rewrite_op_llong_floordiv         = _do_builtin_call
     rewrite_op_llong_mod              = _do_builtin_call
@@ -530,7 +532,6 @@ class Transformer(object):
     rewrite_op_gc_id                  = _do_builtin_call
     rewrite_op_gc_pin                 = _do_builtin_call
     rewrite_op_gc_unpin               = _do_builtin_call
-    rewrite_op_uint_mod               = _do_builtin_call
     rewrite_op_cast_float_to_uint     = _do_builtin_call
     rewrite_op_cast_uint_to_float     = _do_builtin_call
     rewrite_op_weakref_create         = _do_builtin_call

@@ -4610,6 +4610,19 @@ class TestAnnotateTestCase:
         a.build_types(fd, [])
         py.test.raises(AnnotatorError, a.build_types, fb, [])
 
+    def test_annotate_generator_with_unreachable_yields(self):
+        def f(n):
+            if n < 0:
+                yield 42
+            yield n
+            yield n
+        def main(n):
+            for x in f(abs(n)):
+                pass
+        #
+        a = self.RPythonAnnotator()
+        a.build_types(main, [int])
+
 
 def g(n):
     return [0, 1, 2, n]

@@ -2825,6 +2825,7 @@ class LLtypeBackendTest(BaseBackendTest):
         from rpython.rlib.rarithmetic import r_singlefloat
         from rpython.translator.c import primitive
 
+
         def same_as_for_box(b):
             if b.type == 'i':
                 return rop.SAME_AS_I
@@ -2835,6 +2836,8 @@ class LLtypeBackendTest(BaseBackendTest):
 
         cpu = self.cpu
         rnd = random.Random(525)
+        seed = py.test.config.option.randomseed
+        print("random seed %d" % seed)
 
         ALL_TYPES = [
             (types.ulong,  lltype.Unsigned),

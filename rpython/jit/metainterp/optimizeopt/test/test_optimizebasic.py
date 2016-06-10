@@ -5188,6 +5188,25 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, ops)
 
+    def test_int_and_positive(self):
+        ops = """
+        [i0, i1]
+        i2 = int_ge(i1, 0)
+        guard_true(i2) []
+        i3 = int_and(i0, i1)
+        i4 = int_ge(i3, 0)
+        guard_true(i4) []
+        jump(i3)
+        """
+        expected = """
+        [i0, i1]
+        i2 = int_ge(i1, 0)
+        guard_true(i2) []
+        i3 = int_and(i0, i1)
+        jump(i3)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_int_or_cmp_above_bounds(self):
         ops = """
         [p0,p1]
@@ -5251,6 +5270,47 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         jump(i2)
         """
         self.optimize_loop(ops, ops)
+
+    def test_int_xor_positive_is_positive(self):
+        ops = """
+        [i0, i1]
+        i2 = int_lt(i0, 0)
+        guard_false(i2) []
+        i3 = int_lt(i1, 0)
+        guard_false(i3) []
+        i4 = int_xor(i0, i1)
+        i5 = int_lt(i4, 0)
+        guard_false(i5) []
+        jump(i4, i0)
+        """
+        expected = """
+        [i0, i1]
+        i2 = int_lt(i0, 0)
+        guard_false(i2) []
+        i3 = int_lt(i1, 0)
+        guard_false(i3) []
+        i4 = int_xor(i0, i1)
+        jump(i4, i0)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_positive_rshift_bits_minus_1(self):
+        ops = """
+        [i0]
+        i2 = int_lt(i0, 0)
+        guard_false(i2) []
+        i3 = int_rshift(i2, %d)
+        escape_n(i3)
+        jump(i0)
+        """ % (LONG_BIT - 1,)
+        expected = """
+        [i0]
+        i2 = int_lt(i0, 0)
+        guard_false(i2) []
+        escape_n(0)
+        jump(i0)
+        """
+        self.optimize_loop(ops, expected)
 
     def test_int_or_same_arg(self):
         ops = """
