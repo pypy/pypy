@@ -10,15 +10,15 @@ from pypy.tool.pytest.objspace import gettestobjspace
 from rpython.translator.c.test.test_extfunc import need_sparse_files
 from rpython.rlib import rposix
 
+USEMODULES = ['binascii', 'posix', 'signal', 'struct', 'time']
+# py3k os.open uses subprocess, requiring the following per platform
+if os.name != 'nt':
+    USEMODULES += ['fcntl', 'select', '_posixsubprocess']
+else:
+    USEMODULES += ['_rawffi', 'thread']
 
 def setup_module(mod):
-    usemodules = ['binascii', 'posix', 'signal', 'struct', 'time']
-    # py3k os.open uses subprocess, requiring the following per platform
-    if os.name != 'nt':
-        usemodules += ['fcntl', 'select', '_posixsubprocess']
-    else:
-        usemodules += ['_rawffi', 'thread']
-    mod.space = gettestobjspace(usemodules=usemodules)
+    mod.space = gettestobjspace(usemodules=USEMODULES)
     mod.path = udir.join('posixtestfile.txt')
     mod.path.write("this is a test")
     mod.path2 = udir.join('test_posix2-')
@@ -48,9 +48,10 @@ GET_POSIX = "(): import %s as m ; return m" % os.name
 
 
 class AppTestPosix:
+    spaceconfig = {'usemodules': USEMODULES}
 
     def setup_class(cls):
-        cls.space = space
+        space = cls.space
         cls.w_runappdirect = space.wrap(cls.runappdirect)
         cls.w_posix = space.appexec([], GET_POSIX)
         cls.w_os = space.appexec([], "(): import os as m ; return m")
@@ -1128,14 +1129,11 @@ class AppTestPosix:
 
 class AppTestEnvironment(object):
     def setup_class(cls):
-        cls.space = space
-        cls.w_posix = space.appexec([], "(): import %s as m ; return m" % os.name)
-        cls.w_os = space.appexec([], "(): import os; return os")
         cls.w_path = space.wrap(str(path))
 
     def test_environ(self):
-        import sys
-        environ = self.posix.environ
+        import sys, posix
+        environ = posix.environ
         item_type = str if sys.platform.startswith('win') else bytes
         for k, v in environ.items():
             assert type(k) is item_type
@@ -1147,7 +1145,7 @@ class AppTestEnvironment(object):
 
     @py.test.mark.dont_track_allocations('putenv intentionally keeps strings alive')
     def test_environ_nonascii(self):
-        import sys
+        import sys, os
         name, value = 'PYPY_TEST_日本', 'foobar日本'
         if not sys.platform == 'win32':
             fsencoding = sys.getfilesystemencoding()
@@ -1158,7 +1156,6 @@ class AppTestEnvironment(object):
                     skip("Requires %s.encode(sys.getfilesystemencoding(), "
                          "'surogateescape') to succeed (or win32)" % ascii(s))
 
-        os = self.os
         os.environ[name] = value
         assert os.environ[name] == value
         assert os.getenv(name) == value
@@ -1168,7 +1165,7 @@ class AppTestEnvironment(object):
 
     if hasattr(__import__(os.name), "unsetenv"):
         def test_unsetenv_nonexisting(self):
-            os = self.os
+            import os
             os.unsetenv("XYZABC") #does not raise
             try:
                 os.environ["ABCABC"]
@@ -1186,8 +1183,6 @@ class AppTestEnvironment(object):
 
 class AppTestPosixUnicode:
     def setup_class(cls):
-        cls.space = space
-        cls.w_posix = space.appexec([], GET_POSIX)
         if cls.runappdirect:
             # Can't change encoding
             try:
@@ -1195,8 +1190,8 @@ class AppTestPosixUnicode:
             except UnicodeEncodeError:
                 py.test.skip("encoding not good enough")
         else:
-            cls.save_fs_encoding = space.sys.filesystemencoding
-            space.sys.filesystemencoding = "utf-8"
+            cls.save_fs_encoding = cls.space.sys.filesystemencoding
+            cls.space.sys.filesystemencoding = "utf-8"
 
     def teardown_class(cls):
         try:
@@ -1206,22 +1201,25 @@ class AppTestPosixUnicode:
 
     def test_stat_unicode(self):
         # test that passing unicode would not raise UnicodeDecodeError
+        import posix
         try:
-            self.posix.stat("ą")
+            posix.stat(u"ą")
         except OSError:
             pass
 
     def test_open_unicode(self):
         # Ensure passing unicode doesn't raise UnicodeEncodeError
+        import posix
         try:
-            self.posix.open("ą", self.posix.O_WRONLY)
+            posix.open(u"ą", posix.O_WRONLY)
         except OSError:
             pass
 
     def test_remove_unicode(self):
         # See 2 above ;)
+        import posix
         try:
-            self.posix.remove("ą")
+            posix.remove(u"ą")
         except OSError:
             pass
 
