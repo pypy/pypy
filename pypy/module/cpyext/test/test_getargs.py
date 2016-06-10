@@ -123,7 +123,6 @@ class AppTestGetargs(AppTestCpythonExtensionBase):
             return result;
             ''')
         assert 'foo\0bar\0baz' == pybuffer('foo\0bar\0baz')
-        skip('PyByteArrayObject not implemented yet')
         assert 'foo\0bar\0baz' == pybuffer(bytearray('foo\0bar\0baz'))
 
 

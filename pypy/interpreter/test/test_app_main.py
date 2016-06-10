@@ -6,7 +6,7 @@ import py
 import sys, os, re, runpy, subprocess
 from rpython.tool.udir import udir
 from contextlib import contextmanager
-from pypy.conftest import pypydir
+from pypy import pypydir
 from lib_pypy._pypy_interact import irc_header
 
 try:
@@ -74,6 +74,11 @@ crashing_demo_script = getscript("""
     ooups
     myvalue2 = 22
     print 'Goodbye2'   # should not be reached
+    """)
+
+script_with_future = getscript("""
+    from __future__ import division
+    from __future__ import print_function
     """)
 
 
@@ -286,7 +291,7 @@ class TestInteraction:
         child.expect('>>>')   # banner
         if irc_topic:
             assert irc_header in child.before
-        else:    
+        else:
             assert irc_header not in child.before
 
     def test_help(self):
@@ -444,6 +449,31 @@ class TestInteraction:
             assert index == 1      # no traceback
         finally:
             os.environ['PYTHONSTARTUP'] = old
+
+    def test_future_in_executed_script(self):
+        child = self.spawn(['-i', script_with_future])
+        child.expect('>>> ')
+        child.sendline('x=1; print(x/2, 3/4)')
+        child.expect('0.5 0.75')
+
+    def test_future_in_python_startup(self, monkeypatch):
+        monkeypatch.setenv('PYTHONSTARTUP', script_with_future)
+        child = self.spawn([])
+        child.expect('>>> ')
+        child.sendline('x=1; print(x/2, 3/4)')
+        child.expect('0.5 0.75')
+
+    def test_future_in_cmd(self):
+        child = self.spawn(['-i', '-c', 'from __future__ import division'])
+        child.expect('>>> ')
+        child.sendline('x=1; x/2; 3/4')
+        child.expect('0.5')
+        child.expect('0.75')
+
+    def test_cmd_co_name(self):
+        child = self.spawn(['-c',
+                    'import sys; print sys._getframe(0).f_code.co_name'])
+        child.expect('<module>')
 
     def test_ignore_python_inspect(self):
         os.environ['PYTHONINSPECT_'] = '1'
@@ -1044,4 +1074,4 @@ class AppTestAppMain:
             # assert it did not crash
         finally:
             sys.path[:] = old_sys_path
-    
+

@@ -1,7 +1,7 @@
 # ____________________________________________________________
 
 import sys
-assert __version__ == "1.6.0", ("This test_c.py file is for testing a version"
+assert __version__ == "1.7.0", ("This test_c.py file is for testing a version"
                                 " of cffi that differs from the one that we"
                                 " get from 'import _cffi_backend'")
 if sys.version_info < (3,):
@@ -77,8 +77,8 @@ def test_new_primitive_type():
     assert repr(p) == "<ctype 'signed char'>"
 
 def check_dir(p, expected):
-    got = set(name for name in dir(p) if not name.startswith('_'))
-    assert got == set(expected)
+    got = [name for name in dir(p) if not name.startswith('_')]
+    assert got == sorted(expected)
 
 def test_inspect_primitive_type():
     p = new_primitive_type("signed char")
@@ -2686,10 +2686,19 @@ def test_newp_from_bytearray_doesnt_work():
     BCharArray = new_array_type(
         new_pointer_type(new_primitive_type("char")), None)
     py.test.raises(TypeError, newp, BCharArray, bytearray(b"foo"))
-    p = newp(BCharArray, 4)
-    buffer(p)[:] = bytearray(b"foo\x00")
-    assert len(p) == 4
-    assert list(p) == [b"f", b"o", b"o", b"\x00"]
+    p = newp(BCharArray, 5)
+    buffer(p)[:] = bytearray(b"foo.\x00")
+    assert len(p) == 5
+    assert list(p) == [b"f", b"o", b"o", b".", b"\x00"]
+    p[1:3] = bytearray(b"XY")
+    assert list(p) == [b"f", b"X", b"Y", b".", b"\x00"]
+
+def test_string_assignment_to_byte_array():
+    BByteArray = new_array_type(
+        new_pointer_type(new_primitive_type("unsigned char")), None)
+    p = newp(BByteArray, 5)
+    p[0:3] = bytearray(b"XYZ")
+    assert list(p) == [ord("X"), ord("Y"), ord("Z"), 0, 0]
 
 # XXX hack
 if sys.version_info >= (3,):
@@ -3317,13 +3326,12 @@ def test_from_buffer():
     cast(p, c)[1] += 500
     assert list(a) == [10000, 20500, 30000]
 
-def test_from_buffer_not_str_unicode_bytearray():
+def test_from_buffer_not_str_unicode():
     BChar = new_primitive_type("char")
     BCharP = new_pointer_type(BChar)
     BCharA = new_array_type(BCharP, None)
     py.test.raises(TypeError, from_buffer, BCharA, b"foo")
     py.test.raises(TypeError, from_buffer, BCharA, u+"foo")
-    py.test.raises(TypeError, from_buffer, BCharA, bytearray(b"foo"))
     try:
         from __builtin__ import buffer
     except ImportError:
@@ -3331,16 +3339,27 @@ def test_from_buffer_not_str_unicode_bytearray():
     else:
         py.test.raises(TypeError, from_buffer, BCharA, buffer(b"foo"))
         py.test.raises(TypeError, from_buffer, BCharA, buffer(u+"foo"))
-        py.test.raises(TypeError, from_buffer, BCharA,
-                       buffer(bytearray(b"foo")))
     try:
         from __builtin__ import memoryview
     except ImportError:
         pass
     else:
         py.test.raises(TypeError, from_buffer, BCharA, memoryview(b"foo"))
-        py.test.raises(TypeError, from_buffer, BCharA,
-                       memoryview(bytearray(b"foo")))
+
+def test_from_buffer_bytearray():
+    a = bytearray(b"xyz")
+    BChar = new_primitive_type("char")
+    BCharP = new_pointer_type(BChar)
+    BCharA = new_array_type(BCharP, None)
+    p = from_buffer(BCharA, a)
+    assert typeof(p) is BCharA
+    assert len(p) == 3
+    assert repr(p) == "<cdata 'char[]' buffer len 3 from 'bytearray' object>"
+    assert p[2] == b"z"
+    p[2] = b"."
+    assert a[2] == ord(".")
+    a[2] = ord("?")
+    assert p[2] == b"?"
 
 def test_from_buffer_more_cases():
     try:
@@ -3589,3 +3608,23 @@ def test_unpack():
     #
     py.test.raises(ValueError, unpack, p0, -1)
     py.test.raises(ValueError, unpack, p, -1)
+
+def test_cdata_dir():
+    BInt = new_primitive_type("int")
+    p = cast(BInt, 42)
+    check_dir(p, [])
+    p = newp(new_array_type(new_pointer_type(BInt), None), 5)
+    check_dir(p, [])
+    BStruct = new_struct_type("foo")
+    p = cast(new_pointer_type(BStruct), 0)
+    check_dir(p, [])    # opaque
+    complete_struct_or_union(BStruct, [('a2', BInt, -1),
+                                       ('a1', BInt, -1)])
+    check_dir(p, ['a1', 'a2'])   # always sorted
+    p = newp(new_pointer_type(BStruct), None)
+    check_dir(p, ['a1', 'a2'])
+    check_dir(p[0], ['a1', 'a2'])
+    pp = newp(new_pointer_type(new_pointer_type(BStruct)), p)
+    check_dir(pp, [])
+    check_dir(pp[0], ['a1', 'a2'])
+    check_dir(pp[0][0], ['a1', 'a2'])

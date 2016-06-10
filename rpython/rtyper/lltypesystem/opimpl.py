@@ -1,3 +1,4 @@
+import random, sys
 from rpython.flowspace.operation import op
 from rpython.rlib import debug
 from rpython.rlib.rarithmetic import is_valid_int
@@ -679,6 +680,11 @@ def op_get_member_index(memberoffset):
 
 def op_gc_writebarrier(addr):
     pass
+
+def op_gc_bit(hdr, bitmask):
+    if hdr.tid & bitmask:
+        return random.randrange(1, sys.maxint)
+    return 0
 
 def op_shrink_array(array, smallersize):
     return False

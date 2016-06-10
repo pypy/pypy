@@ -605,7 +605,7 @@ class JitDriver(object):
                  can_never_inline=None, should_unroll_one_iteration=None,
                  name='jitdriver', check_untranslated=True, vectorize=False,
                  get_unique_id=None, is_recursive=False, get_location=None):
-        """
+        """ NOT_RPYTHON
             get_location:
               The return value is designed to provide enough information to express the
               state of an interpreter when invoking jit_merge_point.

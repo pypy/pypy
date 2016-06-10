@@ -220,6 +220,11 @@ class W_CDataCallback(W_ExternPython):
         if rffi.cast(lltype.Signed, res) != clibffi.FFI_OK:
             raise oefmt(space.w_SystemError,
                         "libffi failed to build this callback")
+        if closure_ptr.c_user_data != unique_id:
+            raise oefmt(space.w_SystemError,
+                "ffi_prep_closure(): bad user_data (it seems that the "
+                "version of the libffi library seen at runtime is "
+                "different from the 'ffi.h' file seen at compile-time)")
 
     def py_invoke(self, ll_res, ll_args):
         jitdriver1.jit_merge_point(callback=self,

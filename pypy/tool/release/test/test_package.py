@@ -1,6 +1,6 @@
 
 import py
-from pypy.conftest import pypydir
+from pypy import pypydir
 from pypy.tool.release import package
 from pypy.module.sys.version import  CPYTHON_VERSION
 from rpython.tool.udir import udir
@@ -21,7 +21,7 @@ class TestPackaging:
 
     def test_dir_structure(self, test='test'):
         retval, builddir = package.package(
-            '--without-cffi', str(py.path.local(pypydir).dirpath()),
+            '--without-cffi',
             test, self.rename_pypy_c, _fake=True)
         assert retval == 0
         prefix = builddir.join(test)

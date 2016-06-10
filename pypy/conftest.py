@@ -1,4 +1,4 @@
-import py, pytest, sys, os, textwrap
+import py, pytest, sys, textwrap
 from inspect import isclass
 
 # pytest settings
@@ -9,8 +9,6 @@ rsyncignore = ['_cache']
 # to py.test's standard options)
 #
 option = None
-
-pypydir = os.path.realpath(os.path.dirname(__file__))
 
 def braindead_deindent(self):
     """monkeypatch that wont end up doing stupid in the python tokenizer"""
@@ -165,13 +163,6 @@ def pytest_runtest_setup(__multicall__, item):
             appclass.obj.runappdirect = option.runappdirect
 
     __multicall__.execute()
-
-def pytest_runtest_teardown(__multicall__, item):
-    __multicall__.execute()
-
-    if 'pygame' in sys.modules:
-        assert option.view, ("should not invoke Pygame "
-                             "if conftest.option.view is False")
 
 
 class PyPyClassCollector(py.test.collect.Class):

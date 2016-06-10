@@ -621,3 +621,41 @@ class TestInline(BaseRtypingTest):
         assert len(collect_called_graphs(f_graph, t)) == 1
         auto_inline_graphs(t, [f_graph], 32, inline_graph_from_anywhere=True)
         assert len(collect_called_graphs(f_graph, t)) == 0
+
+    def test_inline_all(self):
+        def g(x):
+            return x + 1
+        def f(x):
+            return g(x) * g(x+1) * g(x+2) * g(x+3) * g(x+4) * g(x+5)
+        t = self.translate(f, [int])
+        sanity_check(t)    # also check before inlining (so we don't blame it)
+        simple_inline_function(t, graphof(t, g), graphof(t, f))
+        sanity_check(t)
+        assert summary(graphof(t, f)) == {'int_add': 11, 'int_mul': 5}
+        interp = LLInterpreter(t.rtyper)
+        result = interp.eval_graph(graphof(t, f), [10])
+        assert result == f(10)
+
+    def test_inline_all_exc(self):
+        def g(x):
+            if x < -100:
+                raise ValueError
+            return x + 1
+        def f(x):
+            n1 = g(x) * g(x+1)
+            try:
+                n2 = g(x+2) * g(x+3)
+            except ValueError:
+                n2 = 1
+            n3 = g(x+4) * g(x+5)
+            return n1 * n2 * n3
+        t = self.translate(f, [int])
+        sanity_check(t)    # also check before inlining (so we don't blame it)
+        simple_inline_function(t, graphof(t, g), graphof(t, f))
+        sanity_check(t)
+        assert summary(graphof(t, f)) == {'int_add': 11, 'int_mul': 5,
+                                          'cast_pointer': 12, 'getfield': 6,
+                                          'int_lt': 6}
+        interp = LLInterpreter(t.rtyper)
+        result = interp.eval_graph(graphof(t, f), [10])
+        assert result == f(10)

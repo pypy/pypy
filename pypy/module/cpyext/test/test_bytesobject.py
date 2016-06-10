@@ -415,12 +415,15 @@ class TestString(BaseApiTest):
         lenp = lltype.malloc(Py_ssize_tP.TO, 1, flavor='raw')
 
         w_text = space.wrap("text")
-        assert api.PyObject_AsCharBuffer(w_text, bufp, lenp) == 0
+        ref = make_ref(space, w_text)
+        prev_refcnt = ref.c_ob_refcnt
+        assert api.PyObject_AsCharBuffer(ref, bufp, lenp) == 0
+        assert ref.c_ob_refcnt == prev_refcnt
         assert lenp[0] == 4
         assert rffi.charp2str(bufp[0]) == 'text'
-
         lltype.free(bufp, flavor='raw')
         lltype.free(lenp, flavor='raw')
+        api.Py_DecRef(ref)
 
     def test_intern(self, space, api):
         buf = rffi.str2charp("test")

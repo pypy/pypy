@@ -225,7 +225,7 @@ def PyUnicode_AsUnicode(space, ref):
     buffer, NULL if unicode is not a Unicode object."""
     # Don't use PyUnicode_Check, it will realize the object :-(
     w_type = from_ref(space, rffi.cast(PyObject, ref.c_ob_type))
-    if not space.is_true(space.issubtype(w_type, space.w_unicode)):
+    if not space.issubtype_w(w_type, space.w_unicode):
         raise oefmt(space.w_TypeError, "expected unicode object")
     return PyUnicode_AS_UNICODE(space, rffi.cast(rffi.VOIDP, ref))
 
@@ -671,7 +671,7 @@ def PyUnicode_Compare(space, w_left, w_right):
 @cpython_api([PyObject, PyObject], PyObject)
 def PyUnicode_Concat(space, w_left, w_right):
     """Concat two strings giving a new Unicode string."""
-    return space.call_method(w_left, '__add__', w_right)
+    return space.add(w_left, w_right)
 
 @cpython_api([rffi.CWCHARP, rffi.CWCHARP, Py_ssize_t], lltype.Void)
 def Py_UNICODE_COPY(space, target, source, length):

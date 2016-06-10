@@ -201,6 +201,9 @@ def memmove(space, w_dest, w_src, n):
         else:
             copy_string_to_raw(llstr(src_string), dest_data, 0, n)
     else:
+        # nowadays this case should be rare or impossible: as far as
+        # I know, all common types implementing the *writable* buffer
+        # interface now support get_raw_address()
         if src_is_ptr:
             for i in range(n):
                 dest_buf.setitem(i, src_data[i])

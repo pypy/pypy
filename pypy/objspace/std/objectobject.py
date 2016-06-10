@@ -84,23 +84,23 @@ class W_ObjectObject(W_Root):
     'object()' call."""
 
 
+def _excess_args(__args__):
+    return bool(__args__.arguments_w) or bool(__args__.keywords)
+
 def descr__new__(space, w_type, __args__):
-    from pypy.objspace.std.objectobject import W_ObjectObject
     from pypy.objspace.std.typeobject import _precheck_for_new
+    w_type = _precheck_for_new(space, w_type)
+
     # don't allow arguments if the default object.__init__() is about
     # to be called
-    w_type = _precheck_for_new(space, w_type)
-    w_parentinit, _ = w_type.lookup_where('__init__')
-    if w_parentinit is space.w_object:
-        try:
-            __args__.fixedunpack(0)
-        except ValueError:
+    if _excess_args(__args__):
+        w_parent_init, _ = space.lookup_in_type_where(w_type, '__init__')
+        if w_parent_init is space.w_object:
             raise oefmt(space.w_TypeError,
-                        "default __new__ takes no parameters")
+                        "object() takes no parameters")
     if w_type.is_abstract():
         _abstract_method_error(space, w_type)
-    w_obj = space.allocate_instance(W_ObjectObject, w_type)
-    return w_obj
+    return space.allocate_instance(W_ObjectObject, w_type)
 
 
 def descr___subclasshook__(space, __args__):
@@ -109,12 +109,10 @@ def descr___subclasshook__(space, __args__):
 
 def descr__init__(space, w_obj, __args__):
     # don't allow arguments unless __new__ is overridden
-    w_type = space.type(w_obj)
-    w_parent_new, _ = space.lookup_in_type_where(w_type, '__new__')
-    if w_parent_new is space.w_object:
-        try:
-            __args__.fixedunpack(0)
-        except ValueError:
+    if _excess_args(__args__):
+        w_type = space.type(w_obj)
+        w_parent_new, _ = space.lookup_in_type_where(w_type, '__new__')
+        if w_parent_new is space.w_object:
             raise oefmt(space.w_TypeError,
                         "object.__init__() takes no parameters")
 
@@ -182,7 +180,13 @@ def descr__reduce_ex__(space, w_obj, proto=0):
     if w_reduce is not None:
         w_cls = space.getattr(w_obj, space.wrap('__class__'))
         w_cls_reduce_meth = space.getattr(w_cls, w_st_reduce)
-        w_cls_reduce = space.getattr(w_cls_reduce_meth, space.wrap('im_func'))
+        try:
+            w_cls_reduce = space.getattr(w_cls_reduce_meth, space.wrap('im_func'))
+        except OperationError as e:
+            # i.e. PyCFunction from cpyext
+            if not e.match(space, space.w_AttributeError):
+                raise
+            w_cls_reduce = space.w_None
         w_objtype = space.w_object
         w_obj_dict = space.getattr(w_objtype, space.wrap('__dict__'))
         w_obj_reduce = space.getitem(w_obj_dict, w_st_reduce)

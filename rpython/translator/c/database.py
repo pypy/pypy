@@ -48,7 +48,6 @@ class LowLevelDatabase(object):
         self.delayedfunctionptrs = []
         self.completedcontainers = 0
         self.containerstats = {}
-        self.helpers = OrderedDict()
 
         # late_initializations is for when the value you want to
         # assign to a constant object is something C doesn't think is

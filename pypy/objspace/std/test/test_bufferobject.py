@@ -201,5 +201,5 @@ class AppTestBuffer:
     def test_pypy_raw_address_base(self):
         raises(ValueError, buffer("foobar")._pypy_raw_address)
         raises(ValueError, buffer(u"foobar")._pypy_raw_address)
-        e = raises(ValueError, buffer(bytearray("foobar"))._pypy_raw_address)
-        assert 'BytearrayBuffer' in str(e.value)
+        a = buffer(bytearray("foobar"))._pypy_raw_address()
+        assert a != 0
