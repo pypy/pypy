@@ -153,10 +153,12 @@ if not _WIN32:
             mode |= RTLD_LOCAL
         return mode
 
-    def dlopen(name, mode):
+    def dlopen(name, mode=-1):
         """ Wrapper around C-level dlopen
         """
-        if (mode & (RTLD_LAZY | RTLD_NOW)) == 0:
+        if mode == -1:
+            mode = _dlopen_default_mode()
+        elif (mode & (RTLD_LAZY | RTLD_NOW)) == 0:
             mode |= RTLD_NOW
         res = c_dlopen(name, rffi.cast(rffi.INT, mode))
         if not res:
@@ -201,7 +203,7 @@ else:  # _WIN32
         """
         return 0
 
-    def dlopen(name, mode):
+    def dlopen(name, mode=-1):
         # mode is unused on windows, but a consistant signature
         res = rwin32.LoadLibrary(name)
         if not res:
