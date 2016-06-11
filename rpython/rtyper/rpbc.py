@@ -243,7 +243,7 @@ class FunctionsPBCRepr(CanBeNull, FunctionReprBase):
         fields = []
         for row in self.uniquerows:
             fields.append((row.attrname, row.fntype))
-        kwds = {'hints': {'immutable': True}}
+        kwds = {'hints': {'immutable': True, 'static_immutable': True}}
         return Ptr(Struct('specfunc', *fields, **kwds))
 
     def create_specfunc(self):
@@ -658,7 +658,7 @@ class MultipleUnrelatedFrozenPBCRepr(MultipleFrozenPBCReprBase):
     """For a SomePBC of frozen PBCs that have no common access set.
     The only possible operation on such a thing is comparison with 'is'."""
     lowleveltype = llmemory.Address
-    EMPTY = Struct('pbc', hints={'immutable': True})
+    EMPTY = Struct('pbc', hints={'immutable': True, 'static_immutable': True})
 
     def __init__(self, rtyper):
         self.rtyper = rtyper
@@ -719,7 +719,7 @@ class MultipleFrozenPBCRepr(MultipleFrozenPBCReprBase):
 
     def _setup_repr(self):
         llfields = self._setup_repr_fields()
-        kwds = {'hints': {'immutable': True}}
+        kwds = {'hints': {'immutable': True, 'static_immutable': True}}
         self.pbc_type.become(Struct('pbc', *llfields, **kwds))
 
     def create_instance(self):

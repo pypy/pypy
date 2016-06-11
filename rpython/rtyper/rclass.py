@@ -172,7 +172,8 @@ OBJECT_VTABLE.become(Struct('object_vtable',
                             ('name', Ptr(rstr.STR)),
                             ('hash', Signed),
                             ('instantiate', Ptr(FuncType([], OBJECTPTR))),
-                            hints={'immutable': True}))
+                            hints={'immutable': True,
+                                   'static_immutable': True}))
 # non-gc case
 NONGCOBJECT = Struct('nongcobject', ('typeptr', CLASSTYPE))
 NONGCOBJECTPTR = Ptr(NONGCOBJECT)
@@ -273,7 +274,7 @@ class ClassRepr(Repr):
         #
         self.rbase = getclassrepr(self.rtyper, self.classdef.basedef)
         self.rbase.setup()
-        kwds = {'hints': {'immutable': True}}
+        kwds = {'hints': {'immutable': True, 'static_immutable': True}}
         vtable_type = Struct('%s_vtable' % self.classdef.name,
                                 ('super', self.rbase.vtable_type),
                                 *llfields, **kwds)

@@ -40,7 +40,7 @@ RPY_EXTERN void rpy_reverse_db_teardown(void);
         normal_code                                                     \
         {                                                               \
             decl_e = variable;                                          \
-            _RPY_REVDB_PRINT((stderr, "%s:%d: write %*llx\n",           \
+            _RPY_REVDB_PRINT((stderr, "%s:%d: write %0*llx\n",          \
                               __FILE__, __LINE__,                       \
                               2 * sizeof(_e), (unsigned long long)_e)); \
             memcpy(rpy_revdb.buf_p, &_e, sizeof(_e));                   \
@@ -57,7 +57,7 @@ RPY_EXTERN void rpy_reverse_db_teardown(void);
             }                                                           \
             rpy_revdb.buf_p = _end1;                                    \
             memcpy(&_e, _src, sizeof(_e));                              \
-            _RPY_REVDB_PRINT((stderr, "%s:%d: read %*llx\n",            \
+            _RPY_REVDB_PRINT((stderr, "%s:%d: read %0*llx\n",           \
                               __FILE__, __LINE__,                       \
                               2 * sizeof(_e), (unsigned long long)_e)); \
             variable = _e;                                              \

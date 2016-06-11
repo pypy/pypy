@@ -127,6 +127,51 @@ class TestRecording(object):
         x = rdb.next('q'); assert x == 0      # number of stop points
         assert rdb.done()
 
+    def test_dont_record_vtable_reads(self):
+        class A(object):
+            x = 42
+        class B(A):
+            x = 43
+        lst = [A(), B()]
+        def main(argv):
+            print lst[len(argv) & 1].x
+            return 9
+        self.compile(main, [], backendopt=False)
+        out = self.run('Xx')
+        assert out == '42\n'
+        rdb = self.fetch_rdb()
+        rdb.read_check_argv([self.exename, 'Xx'])
+        # write() call (it used to be the case that vtable reads where
+        # recorded too; the single byte fetched from the vtable from
+        # the '.x' in main() would appear here)
+        x = rdb.next(); assert x == len(out)
+        x = rdb.next('i'); assert x == 0      # errno
+        # done
+        x = rdb.next('q'); assert x == 0      # number of stop points
+        assert rdb.done()
+
+    def test_dont_record_pbc_reads(self):
+        class MyPBC:
+            def _freeze_(self):
+                return True
+        pbc1 = MyPBC(); pbc1.x = 41
+        pbc2 = MyPBC(); pbc2.x = 42
+        lst = [pbc1, pbc2]
+        def main(argv):
+            print lst[len(argv) & 1].x
+            return 9
+        self.compile(main, [], backendopt=False)
+        out = self.run('Xx')
+        assert out == '41\n'
+        rdb = self.fetch_rdb()
+        rdb.read_check_argv([self.exename, 'Xx'])
+        # write() call
+        x = rdb.next(); assert x == len(out)
+        x = rdb.next('i'); assert x == 0      # errno
+        # done
+        x = rdb.next('q'); assert x == 0      # number of stop points
+        assert rdb.done()
+
 
 class InteractiveTests(object):
     EOF = pexpect.EOF
