@@ -184,7 +184,8 @@ static uint64_t frozen_time[NUM_FROZEN_PROCESSES];
 static int frozen_pipe_signal[2];
 
 enum { PK_MAIN_PROCESS, PK_FROZEN_PROCESS, PK_DEBUG_PROCESS };
-static int process_kind = PK_MAIN_PROCESS;
+static unsigned char process_kind = PK_MAIN_PROCESS;
+static unsigned char flag_exit_run_debug_process;
 static uint64_t latest_fork;
 
 static uint64_t total_stop_points;
@@ -316,6 +317,8 @@ static void process_input(char *input, const char *kind,
         a++;
     }
     if (a->name != NULL) {
+        while (isspace(*p))
+            p++;
         a->act(p);
     }
     else if (strcmp(input, "help") == 0) {
@@ -356,10 +359,24 @@ static int write_pipe(int fd, const void *buf, ssize_t count)
     return 0;
 }
 
+static void cmd_go(uint64_t target_time)
+{
+    assert(process_kind == PK_DEBUG_PROCESS);
+    write_pipe(frozen_pipe_signal[WR_SIDE], &target_time,
+               sizeof(target_time));
+    exit(0);
+}
+
 static void check_at_end(uint64_t stop_points)
 {
     char dummy[1];
     uint64_t target_time;
+
+    if (process_kind == PK_DEBUG_PROCESS) {
+        printf("At end.\n");
+        cmd_go(rpy_revdb.stop_point_seen);
+        abort();   /* unreachable */
+    }
 
     if (process_kind != PK_MAIN_PROCESS) {
         fprintf(stderr, "[%d] Unexpectedly falling off the end\n",
@@ -502,6 +519,8 @@ static void make_new_frozen_process(void)
             rpy_revdb.stop_point_break = total_stop_points;
         else
             rpy_revdb.stop_point_break += delta;
+        if (rpy_revdb.stop_point_seen == rpy_revdb.stop_point_break)
+            rpy_revdb.stop_point_break++;
         close(fds[RD_SIDE]);
         fds[RD_SIDE] = -1;
     }
@@ -509,22 +528,17 @@ static void make_new_frozen_process(void)
 
 static void act_quit(char *p)
 {
-    uint64_t target_time = (uint64_t)-1;
-    write_pipe(frozen_pipe_signal[WR_SIDE], &target_time,
-               sizeof(target_time));
-    exit(0);
+    cmd_go((uint64_t)-1);
 }
 
 static void act_go(char *p)
 {
-    uint64_t target_time = strtoull(p, NULL, 10);
-    if (target_time == 0) {
-        printf("usage: go <target time>\n");
+    int64_t target_time = strtoll(p, NULL, 10);
+    if (target_time <= 0) {
+        printf("usage: go <target_time>\n");
         return;
     }
-    write_pipe(frozen_pipe_signal[WR_SIDE], &target_time,
-               sizeof(target_time));
-    exit(0);
+    cmd_go(target_time);
 }
 
 static void act_info_fork(char *p)
@@ -545,16 +559,30 @@ static void act_nop(char *p)
 {
 }
 
+static void act_forward(char *p)
+{
+    int64_t delta = strtoll(p, NULL, 10);
+    if (delta <= 0) {
+        if (delta < 0 || *p == 0)
+            printf("usage: forward <time_steps>\n");
+        return;
+    }
+    rpy_revdb.stop_point_break = rpy_revdb.stop_point_seen + delta;
+    flag_exit_run_debug_process = 1;
+}
+
 static void run_debug_process(void)
 {
     static struct action_s actions_1[] = {
         { "go", act_go },
+        { "forward", act_forward },
         { "info", act_info },
         { "quit", act_quit },
         { "", act_nop },
         { NULL }
     };
-    while (1) {
+    flag_exit_run_debug_process = 0;
+    while (!flag_exit_run_debug_process) {
         char input[256];
         printf("(%llu)$ ", (unsigned long long)rpy_revdb.stop_point_seen);
         fflush(stdout);
@@ -569,12 +597,13 @@ static void run_debug_process(void)
 RPY_EXTERN
 void rpy_reverse_db_break(long stop_point)
 {
-    if (process_kind == PK_MAIN_PROCESS)
+    if (process_kind == PK_MAIN_PROCESS) {
         make_new_frozen_process();
-
-    if (process_kind == PK_DEBUG_PROCESS)
-        if (rpy_revdb.stop_point_seen == rpy_revdb.stop_point_break)
-            run_debug_process();
+        if (rpy_revdb.stop_point_seen != rpy_revdb.stop_point_break)
+            return;
+    }
+    assert(process_kind == PK_DEBUG_PROCESS);
+    run_debug_process();
 }
 
 
