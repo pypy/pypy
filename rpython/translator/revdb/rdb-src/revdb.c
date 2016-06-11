@@ -28,6 +28,7 @@ typedef struct {
 rpy_revdb_t rpy_revdb;
 static char rpy_rev_buffer[16384];
 static int rpy_rev_fileno = -1;
+static unsigned char flag_io_disabled;
 
 
 static void setup_record_mode(int argc, char *argv[]);
@@ -147,7 +148,10 @@ Signed rpy_reverse_db_identityhash(struct pypy_header0 *obj)
            we read it from the record.  In both cases, we cache the
            hash in the object, so that we record/replay only once per
            object. */
-        RPY_REVDB_EMIT(h = ~((Signed)obj);, Signed _e, h);
+        if (flag_io_disabled)
+            h = ~((Signed)obj);
+        else
+            RPY_REVDB_EMIT(h = ~((Signed)obj);, Signed _e, h);
         assert(h != 0);
         obj->h_hash = h;
     }
@@ -208,7 +212,6 @@ static int frozen_pipe_signal[2];
 enum { PK_MAIN_PROCESS, PK_FROZEN_PROCESS, PK_DEBUG_PROCESS };
 static unsigned char process_kind = PK_MAIN_PROCESS;
 static unsigned char flag_exit_run_debug_process;
-static unsigned char flag_io_disabled;
 static jmp_buf jmp_buf_cancel_execution;
 static uint64_t latest_fork;
 
@@ -303,7 +306,7 @@ static void setup_replay_mode(int *argc_p, char **argv_p[])
 }
 
 RPY_EXTERN
-char *rpy_reverse_db_fetch(int expected_size)
+char *rpy_reverse_db_fetch(int expected_size, const char *file, int line)
 {
     if (!flag_io_disabled) {
         ssize_t rsize, keep = rpy_revdb.buf_limit - rpy_revdb.buf_p;
@@ -321,7 +324,8 @@ char *rpy_reverse_db_fetch(int expected_size)
            running some custom code now, and we can't just perform I/O
            or access raw memory---because there is no raw memory! 
         */
-        printf("Attempted to do I/O or access raw memory\n");
+        printf("%s:%d: Attempted to do I/O or access raw memory\n",
+               file, line);
         longjmp(jmp_buf_cancel_execution, 1);
     }
 }
@@ -474,8 +478,9 @@ static void check_at_end(uint64_t stop_points)
     }
     if (stop_points != rpy_revdb.stop_point_seen) {
         fprintf(stderr, "Bad number of stop points "
-                "(seen %llu, recorded %llu)\n", rpy_revdb.stop_point_seen,
-                stop_points);
+                "(seen %llu, recorded %llu)\n",
+                (unsigned long long)rpy_revdb.stop_point_seen,
+                (unsigned long long)stop_points);
         exit(1);
     }
     if (rpy_revdb.buf_p != rpy_revdb.buf_limit ||

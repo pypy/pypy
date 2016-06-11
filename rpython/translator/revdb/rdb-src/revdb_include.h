@@ -52,7 +52,8 @@ RPY_EXTERN void rpy_reverse_db_teardown(void);
             char *_src = rpy_revdb.buf_p;                               \
             char *_end1 = _src + sizeof(_e);                            \
             if (_end1 > rpy_revdb.buf_limit) {                          \
-                _src = rpy_reverse_db_fetch(sizeof(_e));                \
+                _src = rpy_reverse_db_fetch(sizeof(_e),                 \
+                                            __FILE__, __LINE__);        \
                 _end1 = _src + sizeof(_e);                              \
             }                                                           \
             rpy_revdb.buf_p = _end1;                                    \
@@ -77,7 +78,8 @@ RPY_EXTERN void rpy_reverse_db_teardown(void);
     r = rpy_reverse_db_identityhash((struct pypy_header0 *)(obj))
 
 RPY_EXTERN void rpy_reverse_db_flush(void);
-RPY_EXTERN char *rpy_reverse_db_fetch(int expected_size);
+RPY_EXTERN char *rpy_reverse_db_fetch(int expected_size,
+                                      const char *file, int line);
 RPY_EXTERN void rpy_reverse_db_break(long stop_point);
 RPY_EXTERN void rpy_reverse_db_send_output(RPyString *output);
 RPY_EXTERN Signed rpy_reverse_db_identityhash(struct pypy_header0 *obj);
