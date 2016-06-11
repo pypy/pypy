@@ -283,7 +283,9 @@ translation_optiondescription = OptionDescription(
                default=False, cmdline='--revdb',
                requires=[('translation.split_gc_address_space', True),
                          ('translation.jit', False),
-                         ('translation.gc', 'boehm')]),
+                         ('translation.gc', 'boehm'),
+                         ('translation.thread', False),
+                         ('translation.continuation', False)]),
 ])
 
 def get_combined_translation_config(other_optdescr=None,
