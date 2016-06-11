@@ -566,6 +566,7 @@ LL_OPERATIONS = {
     'instrument_count':     LLOp(),
 
     'revdb_stop_point':     LLOp(),
+    'revdb_send_output':    LLOp(),
 }
 # ***** Run test_lloperation after changes. *****
 

@@ -159,6 +159,10 @@ class CBuilder(object):
 
             self.c_entrypoint_name = pfname
 
+        if self.config.translation.reverse_debugger:
+            from rpython.translator.revdb import revdb_genc
+            revdb_genc.prepare_database(db)
+
         for obj in exports.EXPORTS_obj2name.keys():
             db.getcontainernode(obj)
         exports.clear()

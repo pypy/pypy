@@ -181,3 +181,29 @@ class TestSimpleInterpreter(InteractiveTests):
         child.expectx('(3)$ ')
         child.sendline('info fork')
         child.expectx('latest_fork=3\r\n')
+
+
+class TestDebugCommands(InteractiveTests):
+
+    def setup_class(cls):
+        #
+        def blip(cmdline):
+            revdb.send_output('<<<' + cmdline + '>>>\n')
+            revdb.send_output('blipped\n')
+        lambda_blip = lambda: blip
+        #
+        def main(argv):
+            revdb.register_debug_command('r', lambda_blip)
+            for op in argv[1:]:
+                revdb.stop_point(42)
+                print op
+            return 9
+        compile(cls, main, [], backendopt=False)
+        assert run(cls, 'abc d ef') == 'abc\nd\nef\n'
+
+    def test_run_blip(self):
+        child = self.replay()
+        child.expectx('(3)$ ')
+        child.sendline('r  foo  bar  baz  ')
+        child.expectx('<<<foo  bar  baz>>>\r\nblipped\r\n')
+        child.expectx('(3)$ ')

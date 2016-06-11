@@ -1125,6 +1125,13 @@ class LLFrame(object):
         exc_data.exc_value = lltype.typeOf(evalue)._defl()
         return bool(etype)
 
+    def op_revdb_stop_point(self, *args):
+        pass
+
+    def op_revdb_send_output(self, ll_string):
+        from rpython.rtyper.annlowlevel import hlstr
+        sys.stdout.write(hlstr(ll_string))
+
 
 class Tracer(object):
     Counter = 0

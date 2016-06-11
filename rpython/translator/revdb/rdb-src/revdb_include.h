@@ -56,11 +56,15 @@ RPY_EXTERN void rpy_reverse_db_teardown(void);
 
 #define OP_REVDB_STOP_POINT(stop_point, r)                              \
     if (++rpy_revdb.stop_point_seen == rpy_revdb.stop_point_break)      \
-        rpy_reverse_db_break(stop_point);
+        rpy_reverse_db_break(stop_point)
+
+#define OP_REVDB_SEND_OUTPUT(ll_string, r)                              \
+    rpy_reverse_db_send_output(ll_string)
 
 RPY_EXTERN void rpy_reverse_db_flush(void);
 RPY_EXTERN char *rpy_reverse_db_fetch(int expected_size);
 RPY_EXTERN void rpy_reverse_db_break(long stop_point);
+RPY_EXTERN void rpy_reverse_db_send_output(RPyString *output);
 
 
 /* ------------------------------------------------------------ */
