@@ -606,12 +606,10 @@ static void make_new_frozen_process(void)
         /* in the main process: continue reloading the revdb log */
         uint64_t delta = total_stop_points - rpy_revdb.stop_point_break;
         delta = (uint64_t)(delta * (1 - GOLDEN_RATIO));
-        if (delta == 0)
+        if (delta == 0 || frozen_num_pipes == NUM_FROZEN_PROCESSES - 1)
             rpy_revdb.stop_point_break = total_stop_points;
         else
             rpy_revdb.stop_point_break += delta;
-        if (rpy_revdb.stop_point_seen == rpy_revdb.stop_point_break)
-            rpy_revdb.stop_point_break++;
         close(fds[RD_SIDE]);
         fds[RD_SIDE] = -1;
     }
@@ -691,6 +689,8 @@ void rpy_reverse_db_break(long stop_point)
 {
     if (process_kind == PK_MAIN_PROCESS) {
         make_new_frozen_process();
+        if (process_kind == PK_MAIN_PROCESS)
+            return;
         if (rpy_revdb.stop_point_seen != rpy_revdb.stop_point_break)
             return;
     }
