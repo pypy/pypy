@@ -282,7 +282,8 @@ translation_optiondescription = OptionDescription(
                "Give an executable that writes a log file for reverse debugging",
                default=False, cmdline='--revdb',
                requires=[('translation.split_gc_address_space', True),
-                         ('translation.jit', False)]),
+                         ('translation.jit', False),
+                         ('translation.gc', 'boehm')]),
 ])
 
 def get_combined_translation_config(other_optdescr=None,

@@ -136,6 +136,24 @@ void rpy_reverse_db_flush(void)
     write_all(rpy_rev_buffer, size);
 }
 
+RPY_EXTERN
+Signed rpy_reverse_db_identityhash(struct pypy_header0 *obj)
+{
+    /* Boehm only */
+    if (obj->h_hash == 0) {
+        Signed h;
+        /* When recording, we get the hash the normal way from the
+           pointer casted to an int, and record that.  When replaying,
+           we read it from the record.  In both cases, we cache the
+           hash in the object, so that we record/replay only once per
+           object. */
+        RPY_REVDB_EMIT(h = ~((Signed)obj);, Signed _e, h);
+        assert(h != 0);
+        obj->h_hash = h;
+    }
+    return obj->h_hash;
+}
+
 
 /* ------------------------------------------------------------ */
 /* Replaying mode                                               */
@@ -190,7 +208,7 @@ static int frozen_pipe_signal[2];
 enum { PK_MAIN_PROCESS, PK_FROZEN_PROCESS, PK_DEBUG_PROCESS };
 static unsigned char process_kind = PK_MAIN_PROCESS;
 static unsigned char flag_exit_run_debug_process;
-static unsigned char flag_executing_rpython_code;
+static unsigned char flag_io_disabled;
 static jmp_buf jmp_buf_cancel_execution;
 static uint64_t latest_fork;
 
@@ -287,7 +305,7 @@ static void setup_replay_mode(int *argc_p, char **argv_p[])
 RPY_EXTERN
 char *rpy_reverse_db_fetch(int expected_size)
 {
-    if (!flag_executing_rpython_code) {
+    if (!flag_io_disabled) {
         ssize_t rsize, keep = rpy_revdb.buf_limit - rpy_revdb.buf_p;
         assert(keep >= 0);
         memmove(rpy_rev_buffer, rpy_revdb.buf_p, keep);
@@ -313,12 +331,12 @@ static void disable_io(rpy_revdb_t *dinfo)
     *dinfo = rpy_revdb;   /* save the complete struct */
     rpy_revdb.buf_p = NULL;
     rpy_revdb.buf_limit = NULL;
-    flag_executing_rpython_code = 1;
+    flag_io_disabled = 1;
 }
 
 static void enable_io(rpy_revdb_t *dinfo)
 {
-    flag_executing_rpython_code = 0;
+    flag_io_disabled = 0;
     rpy_revdb = *dinfo;
 }
 

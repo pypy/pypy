@@ -4,7 +4,8 @@ import re, array, struct
 from rpython.tool.udir import udir
 from rpython.translator.interactive import Translation
 from rpython.rlib.rarithmetic import LONG_BIT
-from rpython.rlib import revdb
+from rpython.rlib import objectmodel, revdb
+from rpython.rlib.rarithmetic import intmask
 """
 These tests require pexpect (UNIX-only).
 http://pexpect.sourceforge.net/
@@ -29,6 +30,24 @@ class RDB(object):
         p = self.cur
         self.cur = p + struct.calcsize(mode)
         return struct.unpack_from(mode, self.buffer, p)[0]
+
+    def read_check_argv(self, expected):
+        assert self.argc == len(expected)
+        for i in range(self.argc):
+            self.next()    # this is from "p = argv[i]"
+            s = []
+            # first we determine the length of the "char *p"
+            while True:
+                c = self.next('c')
+                if c == '\x00':
+                    break
+                s.append(c)
+            # then we really read the "char *" and copy it into a rpy string
+            # (that's why this time we don't read the final \0)
+            for c1 in s:
+                c2 = self.next('c')
+                assert c2 == c1
+            assert ''.join(s) == expected[i]
 
     def number_of_stop_points(self):
         return struct.unpack_from("q", self.buffer, len(self.buffer) - 8)[0]
@@ -66,13 +85,10 @@ def fetch_rdb(self):
     return RDB(self.rdbname)
 
 
-class BaseTests(object):
+class TestRecording(object):
     compile = compile
     run = run
     fetch_rdb = fetch_rdb
-
-
-class TestRecording(BaseTests):
 
     def test_simple(self):
         def main(argv):
@@ -81,32 +97,35 @@ class TestRecording(BaseTests):
         self.compile(main, [], backendopt=False)
         assert self.run('abc d') == '[abc, d]\n'
         rdb = self.fetch_rdb()
-        assert rdb.argc == 3
-        #
-        got = []
-        for i in range(3):
-            rdb.next()    # this is from "p = argv[i]"
-            s = []
-            # first we determine the length of the "char *p"
-            while True:
-                c = rdb.next('c')
-                if c == '\x00':
-                    break
-                s.append(c)
-            # then we really read the "char *" and copy it into a rpy string
-            # (that's why this time we don't read the final \0)
-            for c1 in s:
-                c2 = rdb.next('c')
-                assert c2 == c1
-            got.append(''.join(s))
+        rdb.read_check_argv([self.exename, 'abc', 'd'])
         # write() call
         x = rdb.next(); assert x == len('[abc, d]\n')
         x = rdb.next('i'); assert x == 0      # errno
         x = rdb.next('q'); assert x == 0      # number of stop points
         # that's all we should get from this simple example
         assert rdb.done()
-        #
-        assert got == [self.exename, 'abc', 'd']
+
+    def test_identityhash(self):
+        def main(argv):
+            print [objectmodel.compute_identity_hash(argv),
+                   objectmodel.compute_identity_hash(argv),
+                   objectmodel.compute_identity_hash(argv)]
+            return 9
+        self.compile(main, [], backendopt=False)
+        out = self.run('Xx')
+        match = re.match(r'\[(-?\d+), \1, \1]\n', out)
+        assert match
+        hash_value = int(match.group(1))
+        rdb = self.fetch_rdb()
+        rdb.read_check_argv([self.exename, 'Xx'])
+        # compute_identity_hash() call, but only the first one
+        x = rdb.next(); assert intmask(x) == intmask(hash_value)
+        # write() call
+        x = rdb.next(); assert x == len(out)
+        x = rdb.next('i'); assert x == 0      # errno
+        # done
+        x = rdb.next('q'); assert x == 0      # number of stop points
+        assert rdb.done()
 
 
 class InteractiveTests(object):

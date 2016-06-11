@@ -630,8 +630,8 @@ class FunctionCodeGenerator(object):
             gcsrc = isinstance(TSRC, Ptr) and TSRC.TO._gckind == 'gc'
             if gcsrc != gcdst:
                 raise Exception(
-                  "cast between pointer types changes the address space,\n"
-                  "but the 'split_gc_address_space' option is enabled:\n"
+                  "cast between pointer types changes the address\n"
+                  "space, but the 'split_gc_address_space' option is enabled:\n"
                   "  func: %s\n"
                   "    op: %s\n"
                   "  from: %s\n"
