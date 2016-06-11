@@ -25,3 +25,9 @@ Implement the backend related changes for s390x.
 
 .. branch: incminimark-ll_assert
 .. branch: vmprof-openbsd
+
+.. branch: testing-cleanup
+
+Simplify handling of interp-level tests and make it more forward-
+compatible.
+
