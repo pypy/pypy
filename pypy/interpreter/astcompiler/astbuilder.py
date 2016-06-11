@@ -1055,14 +1055,21 @@ class ASTBuilder(object):
                             self.error("positional argument follows "
                                        "keyword argument unpacking",
                                        expr_node)
-                        else
+                        else:
                             self.error("positional argument follows "
                                        "keyword argument",
                                        expr_node)
                     args.append(self.handle_expr(expr_node))
-                elif expr_node.type == tokens.STAR
+                elif expr_node.type == tokens.STAR:
                     # an iterable argument unpacking
-                    # continue here
+                    if ndoublestars:
+                        self.error("iterable argument unpacking follows "
+                                   "keyword argument unpacking",
+                                   expr_node)
+                    expr = self.handle_expr(argument.get_child(1))
+                    args.append(ast.Starred(expr, ast.Load,
+                                            expr_node.get_lineno(),
+                                            expr_node.get_column()))
                 elif argument.get_child(1).type == syms.comp_for:
                     args.append(self.handle_genexp(argument))
                 else:
