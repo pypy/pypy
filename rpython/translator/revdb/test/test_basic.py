@@ -74,7 +74,7 @@ def compile(self, entry_point, argtypes, backendopt=True):
 
 def run(self, *argv):
     env = os.environ.copy()
-    env['PYPYREVDB'] = self.rdbname
+    env['PYPYRDB'] = self.rdbname
     t = self.t
     stdout, stderr = t.driver.cbuilder.cmdexec(' '.join(argv), env=env,
                                                expect_crash=9)

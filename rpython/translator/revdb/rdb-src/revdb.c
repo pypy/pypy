@@ -95,7 +95,7 @@ static void write_all(const void *buf, ssize_t count)
 
 static void setup_record_mode(int argc, char *argv[])
 {
-    char *filename = getenv("PYPYREVDB");
+    char *filename = getenv("PYPYRDB");
     rdb_header_t h;
 
     assert(RPY_RDB_REPLAY == 0);
@@ -103,11 +103,11 @@ static void setup_record_mode(int argc, char *argv[])
     rpy_revdb.buf_limit = rpy_rev_buffer + sizeof(rpy_rev_buffer) - 32;
 
     if (filename && *filename) {
-        putenv("PYPYREVDB=");
+        putenv("PYPYRDB=");
         rpy_rev_fileno = open(filename, O_WRONLY | O_CLOEXEC |
                               O_CREAT | O_NOCTTY | O_TRUNC, 0600);
         if (rpy_rev_fileno < 0) {
-            fprintf(stderr, "Fatal error: can't create PYPYREVDB file '%s'\n",
+            fprintf(stderr, "Fatal error: can't create PYPYRDB file '%s'\n",
                     filename);
             abort();
         }
@@ -473,7 +473,9 @@ static void check_at_end(uint64_t stop_points)
         exit(1);
     }
     if (stop_points != rpy_revdb.stop_point_seen) {
-        fprintf(stderr, "Bad number of stop points\n");
+        fprintf(stderr, "Bad number of stop points "
+                "(seen %llu, recorded %llu)\n", rpy_revdb.stop_point_seen,
+                stop_points);
         exit(1);
     }
     if (rpy_revdb.buf_p != rpy_revdb.buf_limit ||

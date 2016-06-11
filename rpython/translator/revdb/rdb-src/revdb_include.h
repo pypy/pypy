@@ -28,12 +28,21 @@ RPY_EXTERN rpy_revdb_t rpy_revdb;
 RPY_EXTERN void rpy_reverse_db_setup(int *argc_p, char **argv_p[]);
 RPY_EXTERN void rpy_reverse_db_teardown(void);
 
+#if 0    /* enable to print locations to stderr of all the EMITs */
+#  define _RPY_REVDB_PRINT(args)  fprintf args
+#else
+#  define _RPY_REVDB_PRINT(args)  /* nothing */
+#endif
+
 
 #define RPY_REVDB_EMIT(normal_code, decl_e, variable)                   \
     if (!RPY_RDB_REPLAY) {                                              \
         normal_code                                                     \
         {                                                               \
             decl_e = variable;                                          \
+            _RPY_REVDB_PRINT((stderr, "%s:%d: write %*llx\n",           \
+                              __FILE__, __LINE__,                       \
+                              2 * sizeof(_e), (unsigned long long)_e)); \
             memcpy(rpy_revdb.buf_p, &_e, sizeof(_e));                   \
             if ((rpy_revdb.buf_p += sizeof(_e)) > rpy_revdb.buf_limit)  \
                 rpy_reverse_db_flush();                                 \
@@ -48,6 +57,9 @@ RPY_EXTERN void rpy_reverse_db_teardown(void);
             }                                                           \
             rpy_revdb.buf_p = _end1;                                    \
             memcpy(&_e, _src, sizeof(_e));                              \
+            _RPY_REVDB_PRINT((stderr, "%s:%d: read %*llx\n",            \
+                              __FILE__, __LINE__,                       \
+                              2 * sizeof(_e), (unsigned long long)_e)); \
             variable = _e;                                              \
     }
 

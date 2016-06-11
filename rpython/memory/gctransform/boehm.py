@@ -102,6 +102,9 @@ class BoehmGCTransformer(GCTransformer):
             destrptr = None
             DESTR_ARG = None
 
+        if self.translator.config.translation.reverse_debugger:
+            destrptr = None    # XXX for now
+
         if destrptr:
             EXC_INSTANCE_TYPE = self.translator.rtyper.exceptiondata.lltype_of_exception_value
             typename = TYPE.__name__
