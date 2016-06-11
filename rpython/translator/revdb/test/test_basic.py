@@ -189,6 +189,9 @@ class TestDebugCommands(InteractiveTests):
         #
         def blip(cmdline):
             revdb.send_output('<<<' + cmdline + '>>>\n')
+            if cmdline == 'oops':
+                for i in range(1000):
+                    print 42     # I/O not permitted
             revdb.send_output('blipped\n')
         lambda_blip = lambda: blip
         #
@@ -206,4 +209,23 @@ class TestDebugCommands(InteractiveTests):
         child.expectx('(3)$ ')
         child.sendline('r  foo  bar  baz  ')
         child.expectx('<<<foo  bar  baz>>>\r\nblipped\r\n')
+        child.expectx('(3)$ ')
+
+    def test_io_not_permitted(self):
+        child = self.replay()
+        child.expectx('(3)$ ')
+        child.sendline('r oops')
+        child.expectx('<<<oops>>>\r\nAttempted to do I/O or access raw memory')
+        child.expectx('(3)$ ')
+
+    def test_interaction_with_forward(self):
+        child = self.replay()
+        child.expectx('(3)$ ')
+        child.sendline('go 1')
+        child.expectx('(1)$ ')
+        child.sendline('r oops')
+        child.expectx('<<<oops>>>\r\nAttempted to do I/O or access raw memory')
+        child.expectx('(1)$ ')
+        child.sendline('forward 50')
+        child.expectx('At end.\r\n')
         child.expectx('(3)$ ')
