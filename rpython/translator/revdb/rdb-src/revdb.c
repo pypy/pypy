@@ -200,7 +200,7 @@ Signed rpy_reverse_db_identityhash(struct pypy_header0 *obj)
 */
 
 #define NUM_FROZEN_PROCESSES   30
-#define GOLDEN_RATIO           0.618034
+#define STEP_RATIO             0.25
 
 #define RD_SIDE   0
 #define WR_SIDE   1
@@ -624,9 +624,14 @@ static void make_new_frozen_process(void)
     }
     else {
         /* in the main process: continue reloading the revdb log */
-        uint64_t delta = total_stop_points - rpy_revdb.stop_point_break;
-        delta = (uint64_t)(delta * (1 - GOLDEN_RATIO));
-        if (delta == 0 || frozen_num_pipes == NUM_FROZEN_PROCESSES - 1)
+        uint64_t remaining = total_stop_points - rpy_revdb.stop_point_break;
+        uint64_t delta;
+        double step = STEP_RATIO;
+        int remaining_freezes = NUM_FROZEN_PROCESSES - frozen_num_pipes;
+        if (step * remaining_freezes < 1.0)
+            step = 1.0 / remaining_freezes;
+        delta = (uint64_t)(remaining * step);
+        if (delta == 0 || delta > remaining || remaining_freezes == 1)
             rpy_revdb.stop_point_break = total_stop_points;
         else
             rpy_revdb.stop_point_break += delta;
