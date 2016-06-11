@@ -8,8 +8,9 @@
 #include <ctype.h>
 #include <setjmp.h>
 
-#include "preimpl.h"
 #include "structdef.h"
+#include "forwarddecl.h"
+#include "preimpl.h"
 #include "src/rtyper.h"
 #include "rdb-src/revdb_include.h"
 
@@ -367,8 +368,22 @@ static void execute_rpy_command(long index, char *arguments)
     memcpy(_RPyString_AsString(s), arguments, length);
 
     disable_io(&dinfo);
-    if (setjmp(jmp_buf_cancel_execution) == 0)
+    if (setjmp(jmp_buf_cancel_execution) == 0) {
+        void *saved_t = pypy_g_ExcData.ed_exc_type;
+        void *saved_v = pypy_g_ExcData.ed_exc_value;
+        pypy_g_ExcData.ed_exc_type = NULL;
+        pypy_g_ExcData.ed_exc_value = NULL;
+
         rpy_revdb_command_funcs[index](s);
+
+        if (pypy_g_ExcData.ed_exc_type != NULL) {
+            printf("Command crashed with %.*s\n",
+                   (int)(pypy_g_ExcData.ed_exc_type->ov_name->rs_chars.length),
+                   pypy_g_ExcData.ed_exc_type->ov_name->rs_chars.items);
+        }
+        pypy_g_ExcData.ed_exc_type = saved_t;
+        pypy_g_ExcData.ed_exc_value = saved_v;
+    }
     enable_io(&dinfo);
 }
 

@@ -251,11 +251,23 @@ class TestDebugCommands(InteractiveTests):
 
     def setup_class(cls):
         #
+        def g(cmdline):
+            if len(cmdline) > 5:
+                raise ValueError
+        g._dont_inline_ = True
+        #
         def blip(cmdline):
             revdb.send_output('<<<' + cmdline + '>>>\n')
             if cmdline == 'oops':
                 for i in range(1000):
                     print 42     # I/O not permitted
+            if cmdline == 'raise-and-catch':
+                try:
+                    g(cmdline)
+                except ValueError:
+                    pass
+            if cmdline == 'crash':
+                raise ValueError
             revdb.send_output('blipped\n')
         lambda_blip = lambda: blip
         #
@@ -279,7 +291,8 @@ class TestDebugCommands(InteractiveTests):
         child = self.replay()
         child.expectx('(3)$ ')
         child.sendline('r oops')
-        child.expectx('<<<oops>>>\r\nAttempted to do I/O or access raw memory')
+        child.expectx('<<<oops>>>\r\n')
+        child.expectx('Attempted to do I/O or access raw memory')
         child.expectx('(3)$ ')
 
     def test_interaction_with_forward(self):
@@ -288,8 +301,23 @@ class TestDebugCommands(InteractiveTests):
         child.sendline('go 1')
         child.expectx('(1)$ ')
         child.sendline('r oops')
-        child.expectx('<<<oops>>>\r\nAttempted to do I/O or access raw memory')
+        child.expectx('<<<oops>>>\r\n')
+        child.expectx('Attempted to do I/O or access raw memory')
         child.expectx('(1)$ ')
         child.sendline('forward 50')
         child.expectx('At end.\r\n')
+        child.expectx('(3)$ ')
+
+    def test_raise_and_catch(self):
+        child = self.replay()
+        child.expectx('(3)$ ')
+        child.sendline('r raise-and-catch')
+        child.expectx('<<<raise-and-catch>>>\r\nblipped\r\n')
+        child.expectx('(3)$ ')
+
+    def test_crash(self):
+        child = self.replay()
+        child.expectx('(3)$ ')
+        child.sendline('r crash')
+        child.expectx('<<<crash>>>\r\nCommand crashed with ValueError')
         child.expectx('(3)$ ')
