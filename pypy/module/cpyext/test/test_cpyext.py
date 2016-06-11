@@ -31,6 +31,16 @@ class TestApi:
         assert 'PyModule_Check' in api.FUNCTIONS
         assert api.FUNCTIONS['PyModule_Check'].argtypes == [api.PyObject]
 
+def create_so(modname, **kwds):
+    eci = ExternalCompilationInfo(**kwds)
+    eci = eci.convert_sources_to_files()
+    dirname = (udir/uniquemodulename('module')).ensure(dir=1)
+    soname = platform.platform.compile(
+        [], eci,
+        outputfilename=str(dirname/modname),
+        standalone=False)
+    return soname
+
 def compile_extension_module(space, modname, include_dirs=[], **kwds):
     """
     Build an extension module and return the filename of the resulting native
@@ -57,20 +67,12 @@ def compile_extension_module(space, modname, include_dirs=[], **kwds):
     else:
         kwds["link_files"] = [str(api_library + '.so')]
         if sys.platform.startswith('linux'):
-            kwds["compile_extra"]=["-Werror", "-g", "-O0"]
-            kwds["link_extra"]=["-g"]
+            kwds["compile_extra"] = ["-Werror", "-g", "-O0"]
+            kwds["link_extra"] = ["-g"]
+    kwds['include_dirs'] = api.include_dirs + include_dirs
 
     modname = modname.split('.')[-1]
-    eci = ExternalCompilationInfo(
-        include_dirs=api.include_dirs + include_dirs,
-        **kwds
-        )
-    eci = eci.convert_sources_to_files()
-    dirname = (udir/uniquemodulename('module')).ensure(dir=1)
-    soname = platform.platform.compile(
-        [], eci,
-        outputfilename=str(dirname/modname),
-        standalone=False)
+    soname = create_so(modname, **kwds)
     from pypy.module.imp.importing import get_so_extension
     pydname = soname.new(purebasename=modname, ext=get_so_extension(space))
     soname.rename(pydname)
@@ -94,18 +96,10 @@ def compile_extension_module_applevel(space, modname, include_dirs=[], **kwds):
         pass
     elif sys.platform.startswith('linux'):
             kwds["compile_extra"]=["-O0", "-g","-Werror=implicit-function-declaration"]
+    kwds['include_dirs'] = [space.include_dir] + include_dirs
 
     modname = modname.split('.')[-1]
-    eci = ExternalCompilationInfo(
-        include_dirs = [space.include_dir] + include_dirs,
-        **kwds
-        )
-    eci = eci.convert_sources_to_files()
-    dirname = (udir/uniquemodulename('module')).ensure(dir=1)
-    soname = platform.platform.compile(
-        [], eci,
-        outputfilename=str(dirname/modname),
-        standalone=False)
+    soname = create_so(modname, **kwds)
     return str(soname)
 
 def freeze_refcnts(self):
