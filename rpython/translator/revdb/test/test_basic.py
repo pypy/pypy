@@ -234,13 +234,13 @@ class TestSimpleInterpreter(InteractiveTests):
         child = self.replay()
         child.sendline('go 1')
         child.expectx('(1)$ ')
-        child.sendline('forward 1')
+        child.sendline('__forward 1')
         child.expectx('(2)$ ')
-        child.sendline('forward 1')
+        child.sendline('__forward 1')
         child.expectx('(3)$ ')
         child.sendline('info fork')
         child.expectx('most_recent_fork=1\r\n')
-        child.sendline('forward 1')
+        child.sendline('__forward 1')
         child.expectx('At end.\r\n'
                       '(3)$ ')
         child.sendline('info fork')
@@ -324,7 +324,7 @@ class TestDebugCommands(InteractiveTests):
         child.expectx('<<<oops>>>\r\n')
         child.expectx('Attempted to do I/O or access raw memory\r\n'
                       '(1)$ ')
-        child.sendline('forward 50')
+        child.sendline('__forward 50')
         child.expectx('At end.\r\n'
                       '(3)$ ')
 

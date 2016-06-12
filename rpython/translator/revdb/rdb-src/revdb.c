@@ -776,9 +776,9 @@ static void run_debug_process(void)
 {
     static struct action_s actions_1[] = {
         { "go", act_go },
-        { "forward", act_forward },
         { "info", act_info },
         { "quit", act_quit },
+        { "__forward", act_forward },
         { "", act_nop },
         { NULL }
     };
