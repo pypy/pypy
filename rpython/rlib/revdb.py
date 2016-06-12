@@ -60,7 +60,7 @@ def jump_in_time(target_time, callback, arg_string):
 # ____________________________________________________________
 
 
-@specialize.arg(1)
+@specialize.arg(2)
 def _change_time(mode, time, callback, arg_string):
     callback_wrapper = _make_callback(callback)
     ll_callback = llhelper(_CALLBACK_ARG_FNPTR, callback_wrapper)
