@@ -14,17 +14,20 @@ import pexpect
 
 
 class RDB(object):
-    def __init__(self, filename):
+    def __init__(self, filename, expected_argv):
         with open(filename, 'rb') as f:
+            header = f.readline()
             self.buffer = f.read()
+        assert header == 'RDB: ' + ' '.join(expected_argv) + '\n'
         #
         self.cur = 0
-        x = self.next(); assert x == 0x0A424452
+        x = self.next('c'); assert x == '\x00'
         x = self.next(); assert x == 0x00FF0001
         x = self.next(); assert x == 0
         x = self.next(); assert x == 0
         self.argc = self.next()
         self.argv = self.next()
+        self.read_check_argv(expected_argv)
 
     def next(self, mode='P'):
         p = self.cur
@@ -81,8 +84,8 @@ def run(self, *argv):
     print >> sys.stderr, stderr
     return stdout
 
-def fetch_rdb(self):
-    return RDB(self.rdbname)
+def fetch_rdb(self, expected_argv):
+    return RDB(self.rdbname, map(str, expected_argv))
 
 
 class TestRecording(object):
@@ -96,8 +99,7 @@ class TestRecording(object):
             return 9
         self.compile(main, [], backendopt=False)
         assert self.run('abc d') == '[abc, d]\n'
-        rdb = self.fetch_rdb()
-        rdb.read_check_argv([self.exename, 'abc', 'd'])
+        rdb = self.fetch_rdb([self.exename, 'abc', 'd'])
         # write() call
         x = rdb.next(); assert x == len('[abc, d]\n')
         x = rdb.next('i'); assert x == 0      # errno
@@ -116,8 +118,7 @@ class TestRecording(object):
         match = re.match(r'\[(-?\d+), \1, \1]\n', out)
         assert match
         hash_value = int(match.group(1))
-        rdb = self.fetch_rdb()
-        rdb.read_check_argv([self.exename, 'Xx'])
+        rdb = self.fetch_rdb([self.exename, 'Xx'])
         # compute_identity_hash() call, but only the first one
         x = rdb.next(); assert intmask(x) == intmask(hash_value)
         # write() call
@@ -139,8 +140,7 @@ class TestRecording(object):
         self.compile(main, [], backendopt=False)
         out = self.run('Xx')
         assert out == '42\n'
-        rdb = self.fetch_rdb()
-        rdb.read_check_argv([self.exename, 'Xx'])
+        rdb = self.fetch_rdb([self.exename, 'Xx'])
         # write() call (it used to be the case that vtable reads where
         # recorded too; the single byte fetched from the vtable from
         # the '.x' in main() would appear here)
@@ -163,8 +163,7 @@ class TestRecording(object):
         self.compile(main, [], backendopt=False)
         out = self.run('Xx')
         assert out == '41\n'
-        rdb = self.fetch_rdb()
-        rdb.read_check_argv([self.exename, 'Xx'])
+        rdb = self.fetch_rdb([self.exename, 'Xx'])
         # write() call
         x = rdb.next(); assert x == len(out)
         x = rdb.next('i'); assert x == 0      # errno
@@ -198,7 +197,8 @@ class TestSimpleInterpreter(InteractiveTests):
             return 9
         compile(cls, main, [], backendopt=False)
         assert run(cls, 'abc d ef') == 'abc\nd\nef\n'
-        assert fetch_rdb(cls).number_of_stop_points() == 3
+        rdb = fetch_rdb(cls, [cls.exename, 'abc', 'd', 'ef'])
+        assert rdb.number_of_stop_points() == 3
 
     def test_go(self):
         child = self.replay()

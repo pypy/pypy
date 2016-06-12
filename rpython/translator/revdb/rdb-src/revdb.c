@@ -14,12 +14,12 @@
 #include "src/rtyper.h"
 #include "rdb-src/revdb_include.h"
 
-#define RDB_SIGNATURE   0x0A424452    /* "RDB\n" */
+#define RDB_SIGNATURE   "RDB:"
 #define RDB_VERSION     0x00FF0001
 
 
 typedef struct {
-    Signed signature, version;
+    Signed version;
     Signed reserved1, reserved2;
     int argc;
     char **argv;
@@ -99,6 +99,7 @@ static void setup_record_mode(int argc, char *argv[])
 {
     char *filename = getenv("PYPYRDB");
     rdb_header_t h;
+    int i;
 
     assert(RPY_RDB_REPLAY == 0);
     rpy_revdb.buf_p = rpy_rev_buffer;
@@ -115,8 +116,14 @@ static void setup_record_mode(int argc, char *argv[])
         }
         atexit(rpy_reverse_db_flush);
 
+        write_all(RDB_SIGNATURE, strlen(RDB_SIGNATURE));
+        for (i = 0; i < argc; i++) {
+            write_all(" ", 1);
+            write_all(argv[i], strlen(argv[i]));
+        }
+        write_all("\n\0", 2);
+
         memset(&h, 0, sizeof(h));
-        h.signature = RDB_SIGNATURE;
         h.version = RDB_VERSION;
         h.argc = argc;
         h.argv = argv;
@@ -258,6 +265,8 @@ static void setup_replay_mode(int *argc_p, char **argv_p[])
     char **argv = *argv_p;
     char *filename;
     rdb_header_t h;
+    char input[sizeof(rdb_header_t)];
+    ssize_t count;
 
     if (argc != 3) {
         fprintf(stderr, "syntax: %s --replay <RevDB-file>\n", argv[0]);
@@ -273,13 +282,23 @@ static void setup_replay_mode(int *argc_p, char **argv_p[])
 
     assert(RPY_RDB_REPLAY == 1);
 
-    read_all(&h, sizeof(h));
-
-    if (h.signature != RDB_SIGNATURE) {
+    read_all(input, strlen(RDB_SIGNATURE));
+    if (strncmp(input, RDB_SIGNATURE, strlen(RDB_SIGNATURE)) != 0) {
         fprintf(stderr, "'%s' is not a RevDB file (or wrong platform)\n",
                 filename);
         exit(1);
     }
+    fprintf(stderr, "%s", RDB_SIGNATURE);
+    do {
+        count = read_at_least(input, 1, sizeof(input) - 1);
+        input[count] = 0;
+        fprintf(stderr, "%s", input);
+    } while (strlen(input) == count);
+
+    count -= (strlen(input) + 1);
+    memcpy(&h, input + strlen(input) + 1, count);
+
+    read_all(((char *)&h) + count, sizeof(h) - count);
     if (h.version != RDB_VERSION) {
         fprintf(stderr, "RevDB file version mismatch (got %lx, expected %lx)\n",
                 (long)h.version, (long)RDB_VERSION);
@@ -288,10 +307,12 @@ static void setup_replay_mode(int *argc_p, char **argv_p[])
     *argc_p = h.argc;
     *argv_p = h.argv;
 
-    if (lseek(rpy_rev_fileno, -sizeof(uint64_t), SEEK_END) < 0 ||
+    count = lseek(rpy_rev_fileno, 0, SEEK_CUR);
+    if (count < 0 ||
+            lseek(rpy_rev_fileno, -sizeof(uint64_t), SEEK_END) < 0 ||
             read(rpy_rev_fileno, &total_stop_points,
                  sizeof(uint64_t)) != sizeof(uint64_t) ||
-            lseek(rpy_rev_fileno, sizeof(h), SEEK_SET) != sizeof(h)) {
+            lseek(rpy_rev_fileno, count, SEEK_SET) != count) {
         fprintf(stderr, "%s: %m\n", filename);
         exit(1);
     }
