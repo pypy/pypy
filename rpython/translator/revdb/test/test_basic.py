@@ -256,10 +256,16 @@ class TestDebugCommands(InteractiveTests):
                 raise ValueError
         g._dont_inline_ = True
         #
-        def went_fw():
-            revdb.send_output('went-fw -> %d\n' % revdb.current_time())
+        def went_fw(arg):
+            revdb.send_output('went-fw %s -> %d\n' % (arg,
+                                                      revdb.current_time()))
             if revdb.current_time() != revdb.total_time():
-                revdb.go_forward(1, went_fw)
+                revdb.go_forward(1, went_fw, "yy")
+        def changed_time(arg):
+            revdb.send_output('changed-time %s -> %d\n' % (arg,
+                                                      revdb.current_time()))
+            if revdb.current_time() != revdb.total_time():
+                revdb.go_forward(1, went_fw, "zz")
         #
         def blip(cmdline):
             revdb.send_output('<<<' + cmdline + '>>>\n')
@@ -278,7 +284,9 @@ class TestDebugCommands(InteractiveTests):
                                                   revdb.most_recent_fork(),
                                                   revdb.total_time()))
             if cmdline == 'go-fw':
-                revdb.go_forward(1, went_fw)
+                revdb.go_forward(1, went_fw, "xx")
+            if cmdline == 'change-time':
+                revdb.jump_in_time(2, changed_time, "xyzzy")
             revdb.send_output('blipped\n')
         lambda_blip = lambda: blip
         #
@@ -355,6 +363,15 @@ class TestDebugCommands(InteractiveTests):
         child.sendline('r go-fw')
         child.expectx('<<<go-fw>>>\r\n'
                       'blipped\r\n'
-                      'went-fw -> 2\r\n'
-                      'went-fw -> 3\r\n'
+                      'went-fw xx -> 2\r\n'
+                      'went-fw yy -> 3\r\n'
+                      '(3)$ ')
+
+    def test_change_time(self):
+        child = self.replay()
+        child.expectx('(3)$ ')
+        child.sendline('r change-time')
+        child.expectx('<<<change-time>>>\r\n'
+                      'changed-time xyzzy -> 2\r\n'
+                      'went-fw zz -> 3\r\n'
                       '(3)$ ')
