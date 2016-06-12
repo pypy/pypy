@@ -1079,27 +1079,20 @@ class ASTBuilder(object):
                     args.append(self.handle_genexp(argument))
                 else:
                     # a keyword argument
-                    keyword_node = argument.get_child(0)
-                    keyword_expr = self.handle_expr(keyword_node)
+                    keyword_expr = self.handle_expr(expr_node)
                     if isinstance(keyword_expr, ast.Lambda):
                         self.error("lambda cannot contain assignment",
-                                   keyword_node)
+                                   expr_node)
                     elif not isinstance(keyword_expr, ast.Name):
                         self.error("keyword can't be an expression",
-                                   keyword_node)
+                                   expr_node)
                     keyword = keyword_expr.id
                     if keyword in used_keywords:
-                        self.error("keyword argument repeated", keyword_node)
+                        self.error("keyword argument repeated", expr_node)
                     used_keywords[keyword] = None
-                    self.check_forbidden_name(keyword, keyword_node)
+                    self.check_forbidden_name(keyword, expr_node)
                     keyword_value = self.handle_expr(argument.get_child(2))
                     keywords.append(ast.keyword(keyword, keyword_value))
-            elif argument.type == tokens.STAR:
-                variable_arg = self.handle_expr(args_node.get_child(i + 1))
-                i += 1
-            elif argument.type == tokens.DOUBLESTAR:
-                keywords_arg = self.handle_expr(args_node.get_child(i + 1))
-                i += 1
             i += 1
         if not args:
             args = None
