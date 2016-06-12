@@ -1062,7 +1062,7 @@ class ASTBuilder(object):
                     args.append(self.handle_expr(expr_node))
                 elif expr_node.type == tokens.STAR:
                     # an iterable argument unpacking
-                    if ndoublestars:
+                    if doublestars_count:
                         self.error("iterable argument unpacking follows "
                                    "keyword argument unpacking",
                                    expr_node)
@@ -1074,6 +1074,7 @@ class ASTBuilder(object):
                     # a keyword argument unpacking
                     expr = self.handle_expr(argument.get_child(1))
                     args.append(ast.keyword(None, expr))
+                    doublestars_count += 1
                 elif argument.get_child(1).type == syms.comp_for:
                     # the lone generator expression
                     args.append(self.handle_genexp(argument))
