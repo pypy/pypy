@@ -74,6 +74,12 @@ RPY_EXTERN void rpy_reverse_db_teardown(void);
 #define OP_REVDB_SEND_OUTPUT(ll_string, r)                              \
     rpy_reverse_db_send_output(ll_string)
 
+#define OP_REVDB_GO_FORWARD(time_delta, callback, r)                    \
+    rpy_reverse_db_go_forward(time_delta, callback)
+
+#define OP_REVDB_GET_VALUE(value_id, r)                                 \
+    r = rpy_reverse_db_get_value(value_id)
+
 #define OP_REVDB_IDENTITYHASH(obj, r)                                   \
     r = rpy_reverse_db_identityhash((struct pypy_header0 *)(obj))
 
@@ -83,6 +89,8 @@ RPY_EXTERN char *rpy_reverse_db_fetch(int expected_size,
 RPY_EXTERN void rpy_reverse_db_break(long stop_point);
 RPY_EXTERN void rpy_reverse_db_send_output(RPyString *output);
 RPY_EXTERN Signed rpy_reverse_db_identityhash(struct pypy_header0 *obj);
+RPY_EXTERN void rpy_reverse_db_go_forward(Signed steps, void callback(void));
+RPY_EXTERN Signed rpy_reverse_db_get_value(char value_id);
 
 
 /* ------------------------------------------------------------ */

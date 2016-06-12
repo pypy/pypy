@@ -567,6 +567,8 @@ LL_OPERATIONS = {
 
     'revdb_stop_point':     LLOp(),
     'revdb_send_output':    LLOp(),
+    'revdb_go_forward':     LLOp(),
+    'revdb_get_value':      LLOp(sideeffects=False),
     'revdb_identityhash':   LLOp(),
 }
 # ***** Run test_lloperation after changes. *****

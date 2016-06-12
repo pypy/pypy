@@ -18,7 +18,7 @@ class RDB(object):
         with open(filename, 'rb') as f:
             header = f.readline()
             self.buffer = f.read()
-        assert header == 'RDB: ' + ' '.join(expected_argv) + '\n'
+        assert header == 'RevDB: ' + ' '.join(expected_argv) + '\n'
         #
         self.cur = 0
         x = self.next('c'); assert x == '\x00'
@@ -178,7 +178,7 @@ class InteractiveTests(object):
     def replay(self, **kwds):
         kwds.setdefault('timeout', 10)
         child = pexpect.spawn(str(self.exename),
-                              ['--replay', str(self.rdbname)], **kwds)
+                              ['--revdb-replay', str(self.rdbname)], **kwds)
         child.logfile = sys.stdout
         def expectx(s):
             child.expect(re.escape(s))
@@ -202,8 +202,8 @@ class TestSimpleInterpreter(InteractiveTests):
 
     def test_go(self):
         child = self.replay()
-        child.expectx('stop_points=3\r\n')
-        child.expectx('(3)$ ')
+        child.expectx('stop_points=3\r\n'
+                      '(3)$ ')
         child.sendline('go 1')
         child.expectx('(1)$ ')
         child.sendline('')
@@ -223,7 +223,7 @@ class TestSimpleInterpreter(InteractiveTests):
     def test_info_fork(self):
         child = self.replay()
         child.sendline('info fork')
-        child.expectx('latest_fork=3\r\n')
+        child.expectx('most_recent_fork=3\r\n')
 
     def test_quit(self):
         child = self.replay()
@@ -239,12 +239,12 @@ class TestSimpleInterpreter(InteractiveTests):
         child.sendline('forward 1')
         child.expectx('(3)$ ')
         child.sendline('info fork')
-        child.expectx('latest_fork=1\r\n')
+        child.expectx('most_recent_fork=1\r\n')
         child.sendline('forward 1')
-        child.expectx('At end.\r\n')
-        child.expectx('(3)$ ')
+        child.expectx('At end.\r\n'
+                      '(3)$ ')
         child.sendline('info fork')
-        child.expectx('latest_fork=3\r\n')
+        child.expectx('most_recent_fork=3\r\n')
 
 
 class TestDebugCommands(InteractiveTests):
@@ -255,6 +255,11 @@ class TestDebugCommands(InteractiveTests):
             if len(cmdline) > 5:
                 raise ValueError
         g._dont_inline_ = True
+        #
+        def went_fw():
+            revdb.send_output('went-fw -> %d\n' % revdb.current_time())
+            if revdb.current_time() != revdb.total_time():
+                revdb.go_forward(1, went_fw)
         #
         def blip(cmdline):
             revdb.send_output('<<<' + cmdline + '>>>\n')
@@ -268,6 +273,12 @@ class TestDebugCommands(InteractiveTests):
                     pass
             if cmdline == 'crash':
                 raise ValueError
+            if cmdline == 'get-value':
+                revdb.send_output('%d,%d,%d\n' % (revdb.current_time(),
+                                                  revdb.most_recent_fork(),
+                                                  revdb.total_time()))
+            if cmdline == 'go-fw':
+                revdb.go_forward(1, went_fw)
             revdb.send_output('blipped\n')
         lambda_blip = lambda: blip
         #
@@ -284,16 +295,17 @@ class TestDebugCommands(InteractiveTests):
         child = self.replay()
         child.expectx('(3)$ ')
         child.sendline('r  foo  bar  baz  ')
-        child.expectx('<<<foo  bar  baz>>>\r\nblipped\r\n')
-        child.expectx('(3)$ ')
+        child.expectx('<<<foo  bar  baz>>>\r\n'
+                      'blipped\r\n'
+                      '(3)$ ')
 
     def test_io_not_permitted(self):
         child = self.replay()
         child.expectx('(3)$ ')
         child.sendline('r oops')
         child.expectx('<<<oops>>>\r\n')
-        child.expectx('Attempted to do I/O or access raw memory')
-        child.expectx('(3)$ ')
+        child.expectx(': Attempted to do I/O or access raw memory\r\n'
+                      '(3)$ ')
 
     def test_interaction_with_forward(self):
         child = self.replay()
@@ -302,22 +314,47 @@ class TestDebugCommands(InteractiveTests):
         child.expectx('(1)$ ')
         child.sendline('r oops')
         child.expectx('<<<oops>>>\r\n')
-        child.expectx('Attempted to do I/O or access raw memory')
-        child.expectx('(1)$ ')
+        child.expectx('Attempted to do I/O or access raw memory\r\n'
+                      '(1)$ ')
         child.sendline('forward 50')
-        child.expectx('At end.\r\n')
-        child.expectx('(3)$ ')
+        child.expectx('At end.\r\n'
+                      '(3)$ ')
 
     def test_raise_and_catch(self):
         child = self.replay()
         child.expectx('(3)$ ')
         child.sendline('r raise-and-catch')
-        child.expectx('<<<raise-and-catch>>>\r\nblipped\r\n')
-        child.expectx('(3)$ ')
+        child.expectx('<<<raise-and-catch>>>\r\n'
+                      'blipped\r\n'
+                      '(3)$ ')
 
     def test_crash(self):
         child = self.replay()
         child.expectx('(3)$ ')
         child.sendline('r crash')
-        child.expectx('<<<crash>>>\r\nCommand crashed with ValueError')
+        child.expectx('<<<crash>>>\r\n'
+                      'Command crashed with ValueError\r\n'
+                      '(3)$ ')
+
+    def test_get_value(self):
+        child = self.replay()
         child.expectx('(3)$ ')
+        child.sendline('go 2')
+        child.expectx('(2)$ ')
+        child.sendline('r get-value')
+        child.expectx('<<<get-value>>>\r\n'
+                      '2,1,3\r\n'
+                      'blipped\r\n'
+                      '(2)$ ')
+
+    def test_go_fw(self):
+        child = self.replay()
+        child.expectx('(3)$ ')
+        child.sendline('go 1')
+        child.expectx('(1)$ ')
+        child.sendline('r go-fw')
+        child.expectx('<<<go-fw>>>\r\n'
+                      'blipped\r\n'
+                      'went-fw -> 2\r\n'
+                      'went-fw -> 3\r\n'
+                      '(3)$ ')
