@@ -1183,7 +1183,6 @@ class AppTestEnvironment(object):
 
 class AppTestPosixUnicode:
     def setup_class(cls):
-        cls.w_posix = cls.space.appexec([], GET_POSIX)
         if cls.runappdirect:
             # Can't change encoding
             try:
@@ -1202,22 +1201,25 @@ class AppTestPosixUnicode:
 
     def test_stat_unicode(self):
         # test that passing unicode would not raise UnicodeDecodeError
+        import posix
         try:
-            self.posix.stat(u"ą")
+            posix.stat(u"ą")
         except OSError:
             pass
 
     def test_open_unicode(self):
         # Ensure passing unicode doesn't raise UnicodeEncodeError
+        import posix
         try:
-            self.posix.open(u"ą", self.posix.O_WRONLY)
+            posix.open(u"ą", posix.O_WRONLY)
         except OSError:
             pass
 
     def test_remove_unicode(self):
         # See 2 above ;)
+        import posix
         try:
-            self.posix.remove(u"ą")
+            posix.remove(u"ą")
         except OSError:
             pass
 
