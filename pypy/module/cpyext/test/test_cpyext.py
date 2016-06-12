@@ -31,10 +31,28 @@ class TestApi:
         assert 'PyModule_Check' in api.FUNCTIONS
         assert api.FUNCTIONS['PyModule_Check'].argtypes == [api.PyObject]
 
-def create_so(modname, **kwds):
-    eci = ExternalCompilationInfo(**kwds)
-    eci = eci.convert_sources_to_files()
+def convert_sources_to_files(sources, dirname):
+    files = []
+    for i, source in enumerate(sources):
+        filename = dirname / ('source_%d.c' % i)
+        with filename.open('w') as f:
+            f.write(str(source))
+        files.append(filename)
+    return files
+
+def create_so(modname, include_dirs,
+        separate_module_sources=None,
+        separate_module_files=None,
+        **kwds):
     dirname = (udir/uniquemodulename('module')).ensure(dir=1)
+    if separate_module_sources:
+        assert not separate_module_files
+        files = convert_sources_to_files(separate_module_sources, dirname)
+        separate_module_files = files
+    eci = ExternalCompilationInfo(
+        include_dirs=include_dirs,
+        separate_module_files=separate_module_files,
+        **kwds)
     soname = platform.platform.compile(
         [], eci,
         outputfilename=str(dirname/modname),
@@ -69,10 +87,11 @@ def compile_extension_module(space, modname, include_dirs=[], **kwds):
         if sys.platform.startswith('linux'):
             kwds["compile_extra"] = ["-Werror", "-g", "-O0"]
             kwds["link_extra"] = ["-g"]
-    kwds['include_dirs'] = api.include_dirs + include_dirs
 
     modname = modname.split('.')[-1]
-    soname = create_so(modname, **kwds)
+    soname = create_so(modname,
+            include_dirs=api.include_dirs + include_dirs,
+            **kwds)
     from pypy.module.imp.importing import get_so_extension
     pydname = soname.new(purebasename=modname, ext=get_so_extension(space))
     soname.rename(pydname)
@@ -95,11 +114,12 @@ def compile_extension_module_applevel(space, modname, include_dirs=[], **kwds):
     elif sys.platform == 'darwin':
         pass
     elif sys.platform.startswith('linux'):
-            kwds["compile_extra"]=["-O0", "-g","-Werror=implicit-function-declaration"]
-    kwds['include_dirs'] = [space.include_dir] + include_dirs
+        kwds["compile_extra"] = ["-O0", "-g","-Werror=implicit-function-declaration"]
 
     modname = modname.split('.')[-1]
-    soname = create_so(modname, **kwds)
+    soname = create_so(modname,
+            include_dirs=[space.include_dir] + include_dirs,
+            **kwds)
     return str(soname)
 
 def freeze_refcnts(self):
@@ -294,6 +314,11 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
                 /* fix for cpython 2.7 Python.h if running tests with -A
                    since pypy compiles with -fvisibility-hidden */
                 #undef PyMODINIT_FUNC
+                #ifdef __GNUC__
+                #  define RPY_EXPORTED extern __attribute__((visibility("default")))
+                #else
+                #  define RPY_EXPORTED extern __declspec(dllexport)
+                #endif
                 #define PyMODINIT_FUNC RPY_EXPORTED void
 
                 %(body)s
