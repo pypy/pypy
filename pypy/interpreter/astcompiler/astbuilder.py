@@ -1070,9 +1070,15 @@ class ASTBuilder(object):
                     args.append(ast.Starred(expr, ast.Load,
                                             expr_node.get_lineno(),
                                             expr_node.get_column()))
+                elif expr_node.type == tokens.DOUBLESTAR:
+                    # a keyword argument unpacking
+                    expr = self.handle_expr(argument.get_child(1))
+                    args.append(ast.keyword(None, expr))
                 elif argument.get_child(1).type == syms.comp_for:
+                    # the lone generator expression
                     args.append(self.handle_genexp(argument))
                 else:
+                    # a keyword argument
                     keyword_node = argument.get_child(0)
                     keyword_expr = self.handle_expr(keyword_node)
                     if isinstance(keyword_expr, ast.Lambda):
