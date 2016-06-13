@@ -325,11 +325,41 @@ class Entry(ExtRegistryEntry):
         hop.exception_cannot_occur()
         return hop.genop('hint', [v, c_hint], resulttype=v.concretetype)
 
-
 def we_are_jitted():
     """ Considered as true during tracing and blackholing,
     so its consquences are reflected into jitted code """
+    global _hypothesis_data
+    if _hypothesis_data is not None:
+        if _hypothesis_data.data.frozen:
+            # outside of test, reset
+            _hypothesis_data = None
+        else:
+            import hypothesis.strategies as strategies
+            return _hypothesis_data.draw(strategies.booleans())
     return False
+
+def _randomize_we_are_jitted_from(data):
+    global _hypothesis_data
+    _hypothesis_data = data
+    return None
+
+def randomized_we_are_jitted_strategy():
+    """ a Hypothesis strategy to test functions that rely on we_are_jitted().
+    At runtime, we_are_jitted() can either return True of False, in a somewhat
+    hard to predict way. The functionality of the interpreter should never
+    really depend on the value of the returned bool. To test this, hypothesis
+    can be used with this strategy, in the following way:
+
+    @given(randomized_we_are_jitted_strategy())
+    def test_something(_ignored):
+        # in here, we_are_jitted() randomly returns True or False.
+        # the test is run many times to try to make it fail.
+
+    (the implementation, however, is a bit of a hack).
+    """
+    from hypothesis import strategies
+    return strategies.builds(_randomize_we_are_jitted_from, strategies.data())
+
 
 _we_are_jitted = CDefinedIntSymbolic('0 /* we are not jitted here */',
                                      default=0)

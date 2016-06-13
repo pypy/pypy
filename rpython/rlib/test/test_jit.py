@@ -5,7 +5,7 @@ from rpython.annotator.model import UnionError
 from rpython.rlib.jit import (hint, we_are_jitted, JitDriver, elidable_promote,
     JitHintError, oopspec, isconstant, conditional_call,
     elidable, unroll_safe, dont_look_inside,
-    enter_portal_frame, leave_portal_frame)
+    enter_portal_frame, leave_portal_frame, randomized_we_are_jitted_strategy)
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rtyper.lltypesystem import lltype
@@ -114,6 +114,32 @@ def test_invalid_hint_combinations_error():
         @dont_look_inside
         def f():
             pass
+
+def test_randomized_we_are_jitted():
+    from hypothesis import given
+    def good():
+        if we_are_jitted():
+            return 1
+        return 1
+    counter = [0]
+    def bad():
+        if we_are_jitted():
+            return 2
+        return 1
+    @given(randomized_we_are_jitted_strategy())
+    def test_random_good(_):
+        assert good() == 1
+    test_random_good()
+
+    @given(randomized_we_are_jitted_strategy())
+    def test_random_bad(_):
+        assert bad() == 1
+    try:
+        test_random_bad()
+    except AssertionError:
+        pass
+    else:
+        assert 0, "should have failed!"
 
 class TestJIT(BaseRtypingTest):
     def test_hint(self):
