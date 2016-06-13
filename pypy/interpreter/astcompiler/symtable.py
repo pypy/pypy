@@ -532,10 +532,6 @@ class SymtableBuilder(ast.GenericASTVisitor):
         assert isinstance(args, ast.arguments)
         if args.args:
             self._visit_arg_annotations(args.args)
-        if args.varargannotation:
-            args.varargannotation.walkabout(self)
-        if args.kwargannotation:
-            args.kwargannotation.walkabout(self)
         if args.kwonlyargs:
             self._visit_arg_annotations(args.kwonlyargs)
         if func.returns:
