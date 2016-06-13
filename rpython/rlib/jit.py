@@ -1,4 +1,5 @@
 import sys
+import random
 
 import py
 
@@ -381,7 +382,9 @@ class Entry(ExtRegistryEntry):
 def we_are_jitted():
     """ Considered as true during tracing and blackholing,
     so its consquences are reflected into jitted code """
-    return False
+    # during testing we return something randomly, to emulate the real
+    # behaviour where you can switch to tracing a arbitrary points.
+    return random.random() > 0.5
 
 _we_are_jitted = CDefinedIntSymbolic('0 /* we are not jitted here */',
                                      default=0)
