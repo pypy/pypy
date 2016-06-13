@@ -204,6 +204,14 @@ class AppTestObject:
             skip("cannot run this test as apptest")
         assert id(()) == (258 << 4) | 11     # always
 
+    def test_id_of_frozensets(self):
+        x = frozenset([4])
+        assert id(x) != id(frozenset([4]))          # no caching at all
+        if self.appdirect:
+            skip("cannot run this test as apptest")
+        assert id(frozenset()) == (259 << 4) | 11     # always
+        assert id(frozenset([])) == (259 << 4) | 11   # always
+
     def test_identity_vs_id_primitives(self):
         import sys
         l = range(-10, 10, 2)
@@ -218,12 +226,14 @@ class AppTestObject:
             l.append(1 + i * 1j)
             l.append(1 - i * 1j)
             l.append((i,))
+            l.append(frozenset([i]))
         l.append(-0.0)
         l.append(None)
         l.append(True)
         l.append(False)
         l.append(())
         l.append(tuple([]))
+        l.append(frozenset())
 
         for i, a in enumerate(l):
             for b in l[i:]:
