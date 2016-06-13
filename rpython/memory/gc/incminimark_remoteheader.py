@@ -8,6 +8,16 @@ from rpython.rlib.debug import ll_assert
 
 SIGNEDP = lltype.Ptr(lltype.FixedSizeArray(lltype.Signed, 1))
 
+# HACK: because GCFLAG_CARDS_SET is checked in some ugly assembler, and the
+#       assembler is hardcoded to check the tid field. We special case that flag
+#       alone so that it can still be stored in tid!
+#       This should not really impact memory, because if a card is set, then the
+#       page was already mutated to add a young ptr, so there is no harm. It
+#       might mess with performance a little though. :)
+# TODO: but why GCFLAG_TRACK_YOUNG_PTRS?
+#       (Only figured that one out by trial/error
+NONREMOTE_FLAGS = incminimark.GCFLAG_TRACK_YOUNG_PTRS | incminimark.GCFLAG_CARDS_SET
+
 class IncrementalMiniMarkRemoteHeaderGC(incminimark.IncrementalMiniMarkGCBase):
     # The GC header is similar to incminimark, except that the flags can be
     # placed anywhere, not just in the bits of tid.
@@ -96,19 +106,29 @@ class IncrementalMiniMarkRemoteHeaderGC(incminimark.IncrementalMiniMarkGCBase):
 
     def get_flags(self, obj):
         self.__lazy_init_flags(obj)
-        return self.header(obj).remote_flags[0]
+        hdr = self.header(obj)
+        return hdr.remote_flags[0] | (hdr.tid & NONREMOTE_FLAGS)
 
     def set_flags(self, obj, flags):
         self.__lazy_init_flags(obj)
-        self.header(obj).remote_flags[0] = flags
+        hdr = self.header(obj)
+        hdr.remote_flags[0] = flags & ~incminimark.GCFLAG_CARDS_SET
+        if flags & NONREMOTE_FLAGS:
+            hdr.tid = (hdr.tid & ~NONREMOTE_FLAGS ) | (flags & NONREMOTE_FLAGS )
 
     def add_flags(self, obj, flags):
         self.__lazy_init_flags(obj)
-        self.header(obj).remote_flags[0] |= flags
+        hdr = self.header(obj)
+        hdr.remote_flags[0] |= flags
+        if flags & NONREMOTE_FLAGS:
+            self.header(obj).tid |= (flags & NONREMOTE_FLAGS )
 
     def remove_flags(self, obj, flags):
         self.__lazy_init_flags(obj)
-        self.header(obj).remote_flags[0] &= ~flags
+        hdr = self.header(obj)
+        hdr.remote_flags[0] &= ~flags
+        if flags & NONREMOTE_FLAGS:
+            self.header(obj).tid &= ~(flags & NONREMOTE_FLAGS )
 
 
 def _free_flags_if_finalized(adr, unused_arg):
