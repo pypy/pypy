@@ -27,11 +27,11 @@ def test_pypy_collection(testdir):
     result = testdir.runpytest("--collectonly")
     assert result.ret == 0
     result.stdout.fnmatch_lines([
-        "*IntTestFunction*test_func*",
-        "*IntClassCollector*TestClassInt*",
-        "*IntTestFunction*test_method*",
+        "*Function*test_func*",
+        "*Class*TestClassInt*",
+        "*Function*test_method*",
         "*AppClassCollector*AppTestClass*",
-        "*AppTestMethod*", 
+        "*AppTestMethod*",
     ])
 
 class TestSpaceConfig:
@@ -133,5 +133,5 @@ def app_test_raises():
 
     x = 43
     info = raises(ZeroDivisionError, "x/0")
-    assert info.type is ZeroDivisionError    
-    assert isinstance(info.value, ZeroDivisionError)    
+    assert info.type is ZeroDivisionError
+    assert isinstance(info.value, ZeroDivisionError)
