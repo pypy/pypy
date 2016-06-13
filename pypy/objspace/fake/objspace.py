@@ -417,11 +417,11 @@ class FakePyCode(W_Root):
 class FakeModule(W_Root):
     def __init__(self):
         self.w_dict = w_some_obj()
-
     def get(self, name):
         name + "xx"   # check that it's a string
         return w_some_obj()
 FakeObjSpace.sys = FakeModule()
 FakeObjSpace.sys.filesystemencoding = 'foobar'
 FakeObjSpace.sys.defaultencoding = 'ascii'
+FakeObjSpace.sys.dlopenflags = 123
 FakeObjSpace.builtin = FakeModule()
