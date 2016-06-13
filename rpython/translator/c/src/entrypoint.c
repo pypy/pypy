@@ -38,7 +38,7 @@ int pypy_main_function(int argc, char *argv[]) __attribute__((__noinline__));
 #endif
 
 #ifdef RPY_REVERSE_DEBUGGER
-# include <rdb-src/revdb_include.h>
+# include <src-revdb/revdb_include.h>
 #endif
 
 RPY_EXPORTED

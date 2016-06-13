@@ -12,7 +12,7 @@
 #include "forwarddecl.h"
 #include "preimpl.h"
 #include "src/rtyper.h"
-#include "rdb-src/revdb_include.h"
+#include "src-revdb/revdb_include.h"
 
 #define RDB_SIGNATURE   "RevDB:"
 #define RDB_VERSION     0x00FF0001

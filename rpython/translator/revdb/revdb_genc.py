@@ -5,7 +5,7 @@ from rpython.rlib import exports
 
 
 def extra_files():
-    srcdir = py.path.local(__file__).join('..', 'rdb-src')
+    srcdir = py.path.local(__file__).join('..', 'src-revdb')
     return [
         srcdir / 'revdb.c',
     ]

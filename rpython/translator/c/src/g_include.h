@@ -52,5 +52,5 @@
 #endif
 
 #ifdef RPY_REVERSE_DEBUGGER
-#include "rdb-src/revdb_include.h"
+#include "src-revdb/revdb_include.h"
 #endif
