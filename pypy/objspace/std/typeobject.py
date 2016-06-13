@@ -241,7 +241,7 @@ class W_TypeObject(W_Root):
         self._version_tag = version_tag
         self.terminator.mutated_w_cls_version(version_tag)
 
-    def getattribute_if_not_from_object(w_self):
+    def getattribute_if_not_from_object(self):
         """ this method returns the applevel __getattribute__ if that is not
         the one from object, in which case it returns None """
         from pypy.objspace.descroperation import object_getattribute
