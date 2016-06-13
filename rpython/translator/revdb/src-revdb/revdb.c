@@ -224,6 +224,7 @@ static unsigned char process_kind = PK_MAIN_PROCESS;
 static jmp_buf jmp_buf_cancel_execution;
 static uint64_t most_recent_fork;
 static uint64_t total_stop_points;
+static uint64_t stopped_time;
 
 static void (*invoke_after_forward)(RPyString *);
 static RPyString *invoke_argument;
@@ -552,7 +553,7 @@ static void check_at_end(uint64_t stop_points)
 
     if (process_kind == PK_DEBUG_PROCESS) {
         printf("At end.\n");
-        cmd_go(rpy_revdb.stop_point_seen, NULL, NULL);
+        cmd_go(stop_points, NULL, NULL);
         abort();   /* unreachable */
     }
 
@@ -779,12 +780,13 @@ static void run_debug_process(void)
         { NULL }
     };
     while (rpy_revdb.stop_point_break == rpy_revdb.stop_point_seen) {
+        stopped_time = rpy_revdb.stop_point_seen;
         if (invoke_after_forward != NULL) {
             execute_rpy_function(invoke_after_forward, invoke_argument);
         }
         else {
             char input[256];
-            printf("(%llu)$ ", (unsigned long long)rpy_revdb.stop_point_seen);
+            printf("(%llu)$ ", (unsigned long long)stopped_time);
             fflush(stdout);
             if (fgets(input, sizeof(input), stdin) != input) {
                 fprintf(stderr, "\n");
@@ -793,6 +795,7 @@ static void run_debug_process(void)
             }
             process_input(input, "command", 1, actions_1);
         }
+        stopped_time = 0;
     }
 }
 
@@ -825,7 +828,11 @@ void rpy_reverse_db_change_time(char mode, long long time,
             fprintf(stderr, "revdb.go_forward(): negative amount of steps\n");
             exit(1);
         }
-        rpy_revdb.stop_point_break = rpy_revdb.stop_point_seen + time;
+        if (stopped_time == 0) {
+            fprintf(stderr, "revdb.go_forward(): not from a debug command\n");
+            exit(1);
+        }
+        rpy_revdb.stop_point_break = stopped_time + time;
         invoke_after_forward = callback;
         invoke_argument = arg;
         break;
@@ -844,7 +851,7 @@ long long rpy_reverse_db_get_value(char value_id)
 {
     switch (value_id) {
     case 'c':       /* current_time() */
-        return rpy_revdb.stop_point_seen;
+        return stopped_time ? stopped_time : rpy_revdb.stop_point_seen;
     case 'f':       /* most_recent_fork() */
         return most_recent_fork;
     case 't':       /* total_time() */
