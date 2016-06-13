@@ -1180,25 +1180,19 @@ class AppTestEnvironment(object):
             res = os.system(cmd)
             assert res == 0
 
+@py.test.fixture
+def check_fsencoding(space, pytestconfig):
+    if pytestconfig.getvalue('runappdirect'):
+        fsencoding = sys.getfilesystemencoding()
+    else:
+        fsencoding = space.sys.filesystemencoding
+    try:
+        u"ą".encode(fsencoding)
+    except UnicodeEncodeError:
+        py.test.skip("encoding not good enough")
 
+@py.test.mark.usefixtures('check_fsencoding')
 class AppTestPosixUnicode:
-    def setup_class(cls):
-        if cls.runappdirect:
-            # Can't change encoding
-            try:
-                u"ą".encode(sys.getfilesystemencoding())
-            except UnicodeEncodeError:
-                py.test.skip("encoding not good enough")
-        else:
-            cls.save_fs_encoding = cls.space.sys.filesystemencoding
-            cls.space.sys.filesystemencoding = "utf-8"
-
-    def teardown_class(cls):
-        try:
-            cls.space.sys.filesystemencoding = cls.save_fs_encoding
-        except AttributeError:
-            pass
-
     def test_stat_unicode(self):
         # test that passing unicode would not raise UnicodeDecodeError
         import posix
