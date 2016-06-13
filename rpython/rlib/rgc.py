@@ -1284,6 +1284,7 @@ class Entry(ExtRegistryEntry):
         return hop.gendirectcall(ll_nonmovable_raw_ptr_for_resizable_list,
                                  v_list)
 
+@jit.dont_look_inside
 def ll_nonmovable_raw_ptr_for_resizable_list(ll_list):
     """
     WARNING: dragons ahead.

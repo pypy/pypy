@@ -1,7 +1,7 @@
 # ____________________________________________________________
 
 import sys
-assert __version__ == "1.6.0", ("This test_c.py file is for testing a version"
+assert __version__ == "1.7.0", ("This test_c.py file is for testing a version"
                                 " of cffi that differs from the one that we"
                                 " get from 'import _cffi_backend'")
 if sys.version_info < (3,):
@@ -77,8 +77,8 @@ def test_new_primitive_type():
     assert repr(p) == "<ctype 'signed char'>"
 
 def check_dir(p, expected):
-    got = set(name for name in dir(p) if not name.startswith('_'))
-    assert got == set(expected)
+    got = [name for name in dir(p) if not name.startswith('_')]
+    assert got == sorted(expected)
 
 def test_inspect_primitive_type():
     p = new_primitive_type("signed char")
@@ -3608,3 +3608,23 @@ def test_unpack():
     #
     py.test.raises(ValueError, unpack, p0, -1)
     py.test.raises(ValueError, unpack, p, -1)
+
+def test_cdata_dir():
+    BInt = new_primitive_type("int")
+    p = cast(BInt, 42)
+    check_dir(p, [])
+    p = newp(new_array_type(new_pointer_type(BInt), None), 5)
+    check_dir(p, [])
+    BStruct = new_struct_type("foo")
+    p = cast(new_pointer_type(BStruct), 0)
+    check_dir(p, [])    # opaque
+    complete_struct_or_union(BStruct, [('a2', BInt, -1),
+                                       ('a1', BInt, -1)])
+    check_dir(p, ['a1', 'a2'])   # always sorted
+    p = newp(new_pointer_type(BStruct), None)
+    check_dir(p, ['a1', 'a2'])
+    check_dir(p[0], ['a1', 'a2'])
+    pp = newp(new_pointer_type(new_pointer_type(BStruct)), p)
+    check_dir(pp, [])
+    check_dir(pp[0], ['a1', 'a2'])
+    check_dir(pp[0][0], ['a1', 'a2'])

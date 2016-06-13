@@ -23,7 +23,7 @@ class TestString(BaseTestPyPyC):
             guard_true(i14, descr=...)
             guard_not_invalidated(descr=...)
             i16 = int_eq(i6, %d)
-            i19 = call_i(ConstClass(ll_int_mod__Signed_Signed), i6, i10, descr=<Calli . ii EF=0 OS=14>)
+            i19 = call_i(ConstClass(ll_int_py_mod__Signed_Signed), i6, i10, descr=<Calli . ii EF=0 OS=14>)
             i21 = int_lt(i19, 0)
             guard_false(i21, descr=...)
             i22 = int_ge(i19, i10)

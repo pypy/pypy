@@ -650,6 +650,26 @@ def int_force_ge_zero(n):
     from rpython.rtyper.lltypesystem.lloperation import llop
     return llop.int_force_ge_zero(lltype.Signed, n)
 
+def int_c_div(x, y):
+    """Return the result of the C-style 'x / y'.  This differs from the
+    Python-style division if (x < 0  xor y < 0).  The JIT implements it
+    with a Python-style division followed by correction code.  This
+    is not that bad, because the JIT removes the correction code if
+    x and y are both nonnegative, and if y is any nonnegative constant
+    then the division turns into a rshift or a mul.
+    """
+    from rpython.rtyper.lltypesystem import lltype
+    from rpython.rtyper.lltypesystem.lloperation import llop
+    return llop.int_floordiv(lltype.Signed, x, y)
+
+def int_c_mod(x, y):
+    """Return the result of the C-style 'x % y'.  This differs from the
+    Python-style division if (x < 0  xor y < 0).
+    """
+    from rpython.rtyper.lltypesystem import lltype
+    from rpython.rtyper.lltypesystem.lloperation import llop
+    return llop.int_mod(lltype.Signed, x, y)
+
 @objectmodel.specialize.ll()
 def byteswap(arg):
     """ Convert little->big endian and the opposite

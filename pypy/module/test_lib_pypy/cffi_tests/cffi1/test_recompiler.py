@@ -1909,3 +1909,10 @@ def test_introspect_order():
     assert ffi.list_types() == (['CFFIb', 'CFFIbb', 'CFFIbbb'],
                                 ['CFFIa', 'CFFIcc', 'CFFIccc'],
                                 ['CFFIaa', 'CFFIaaa', 'CFFIg'])
+
+def test_bool_in_cpp():
+    # this works when compiled as C, but in cffi < 1.7 it fails as C++
+    ffi = FFI()
+    ffi.cdef("bool f(void);")
+    lib = verify(ffi, "test_bool_in_cpp", "char f(void) { return 2; }")
+    assert lib.f() == 1

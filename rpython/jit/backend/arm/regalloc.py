@@ -398,8 +398,8 @@ class Regalloc(BaseRegalloc):
             self.rm.force_spill_var(var)
 
     def before_call(self, save_all_regs=False):
-        self.rm.before_call(save_all_regs)
-        self.vfprm.before_call(save_all_regs)
+        self.rm.before_call(save_all_regs=save_all_regs)
+        self.vfprm.before_call(save_all_regs=save_all_regs)
 
     def _sync_var(self, v):
         if v.type == FLOAT:
@@ -901,6 +901,8 @@ class Regalloc(BaseRegalloc):
         size_box = op.getarg(0)
         assert isinstance(size_box, ConstInt)
         size = size_box.getint()
+        # hint: try to move unrelated registers away from r0 and r1 now
+        self.rm.spill_or_move_registers_before_call([r.r0, r.r1])
 
         self.rm.force_allocate_reg(op, selected_reg=r.r0)
         t = TempInt()
@@ -924,6 +926,7 @@ class Regalloc(BaseRegalloc):
         # sizeloc must be in a register, but we can free it now
         # (we take care explicitly of conflicts with r0 or r1)
         sizeloc = self.rm.make_sure_var_in_reg(size_box)
+        self.rm.spill_or_move_registers_before_call([r.r0, r.r1]) # sizeloc safe
         self.rm.possibly_free_var(size_box)
         #
         self.rm.force_allocate_reg(op, selected_reg=r.r0)
@@ -951,6 +954,11 @@ class Regalloc(BaseRegalloc):
         arraydescr = op.getdescr()
         length_box = op.getarg(2)
         assert not isinstance(length_box, Const) # we cannot have a const here!
+        # can only use spill_or_move_registers_before_call() as a hint if
+        # we are sure that length_box stays alive and won't be freed now
+        # (it should always be the case, see below, but better safe than sorry)
+        if self.rm.stays_alive(length_box):
+            self.rm.spill_or_move_registers_before_call([r.r0, r.r1])
         # the result will be in r0
         self.rm.force_allocate_reg(op, selected_reg=r.r0)
         # we need r1 as a temporary
