@@ -335,9 +335,8 @@ only to the particular cases described above.  The ``str``, ``unicode``,
 ``tuple`` and ``frozenset`` rules were added in PyPy 5.4; before that, a
 test like ``if x is "?"`` or ``if x is ()`` could fail even if ``x`` was
 equal to ``"?"`` or ``()``.  The new behavior added in PyPy 5.4 is
-closer to CPython's, which caches precisely the empty
-string/unicode/tuple/frozenset, and (sometimes!) the single-character
-strings and unicodes.
+closer to CPython's, which caches precisely the empty tuple/frozenset,
+and (generally but not always) the strings and unicodes of length <= 1.
 
 Note that for floats there "``is``" only one object per "bit pattern"
 of the float.  So ``float('nan') is float('nan')`` is true on PyPy,
