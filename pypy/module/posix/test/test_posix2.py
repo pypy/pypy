@@ -443,7 +443,7 @@ class AppTestPosix:
             if not hasattr(os, "fork"):
                 skip("Need fork() to test execv()")
             try:
-                output = "caf\xe9 \u1234\n".encode(sys.getfilesystemencoding())
+                output = u"caf\xe9 \u1234\n".encode(sys.getfilesystemencoding())
             except UnicodeEncodeError:
                 skip("encoding not good enough")
             pid = os.fork()

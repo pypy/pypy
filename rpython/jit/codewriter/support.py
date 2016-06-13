@@ -252,13 +252,20 @@ def _ll_1_int_abs(x):
 def _ll_2_int_floordiv(x, y):
     # this is used only if the RPython program uses llop.int_floordiv()
     # explicitly.  For 'a // b', see _handle_int_special() in jtransform.py.
-    # This is the reverse of rpython.rtyper.rint.ll_int_floordiv(), i.e.
+    # This is the reverse of rpython.rtyper.rint.ll_int_py_div(), i.e.
     # the same logic as rpython.rtyper.lltypesystem.opimpl.op_int_floordiv
     # but written in a no-branch style.
     r = x // y
     p = r * y
     # the JIT knows that if x and y are both positive, this is just 'r'
     return r + (((x ^ y) >> (LONG_BIT - 1)) & (p != x))
+
+def _ll_2_int_mod(x, y):
+    # same comments as _ll_2_int_floordiv()
+    r = x % y
+    # the JIT knows that if x and y are both positive, this doesn't change 'r'
+    r -= y & (((x ^ y) & (r | -r)) >> (LONG_BIT - 1))
+    return r
 
 
 def _ll_1_cast_uint_to_float(x):
@@ -431,6 +438,7 @@ def _ll_1_llong_abs(xll):
 inline_calls_to = [
     ('int_abs',              [lltype.Signed],                lltype.Signed),
     ('int_floordiv',         [lltype.Signed, lltype.Signed], lltype.Signed),
+    ('int_mod',              [lltype.Signed, lltype.Signed], lltype.Signed),
     ('ll_math.ll_math_sqrt', [lltype.Float],                 lltype.Float),
 ]
 

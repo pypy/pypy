@@ -5,6 +5,9 @@ What's new in PyPy2.7 5.3+
 .. this is a revision shortly after release-pypy2.7-v5.3
 .. startrev: 873218a739f1
 
+.. pull request #455
+Add sys.{get,set}dlopenflags, for cpyext extensions.
+
 .. branch: fix-gen-dfa
 
 Resolves an issue with the generator script to build the dfa for Python syntax.
@@ -19,3 +22,12 @@ To target e.g. z196 on a zEC12 machine supply CFLAGS="-march=z196" to your shell
 .. branch: s390x-5.3-catchup
 
 Implement the backend related changes for s390x.
+
+.. branch: incminimark-ll_assert
+.. branch: vmprof-openbsd
+
+.. branch: testing-cleanup
+
+Simplify handling of interp-level tests and make it more forward-
+compatible.
+

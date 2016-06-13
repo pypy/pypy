@@ -181,6 +181,7 @@ class StringMethods(object):
             return space.newint(value.count(sub, start, end))
         else:
             res = count(value, sub, start, end)
+            assert res >= 0
             return space.wrap(max(res, 0))
 
     def descr_decode(self, space, w_encoding=None, w_errors=None):

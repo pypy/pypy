@@ -662,6 +662,14 @@ def int_c_div(x, y):
     from rpython.rtyper.lltypesystem.lloperation import llop
     return llop.int_floordiv(lltype.Signed, x, y)
 
+def int_c_mod(x, y):
+    """Return the result of the C-style 'x % y'.  This differs from the
+    Python-style division if (x < 0  xor y < 0).
+    """
+    from rpython.rtyper.lltypesystem import lltype
+    from rpython.rtyper.lltypesystem.lloperation import llop
+    return llop.int_mod(lltype.Signed, x, y)
+
 @objectmodel.specialize.ll()
 def byteswap(arg):
     """ Convert little->big endian and the opposite

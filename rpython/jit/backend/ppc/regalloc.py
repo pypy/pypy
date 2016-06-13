@@ -439,7 +439,7 @@ class Regalloc(BaseRegalloc):
     prepare_int_lshift = helper.prepare_binary_op
     prepare_int_rshift = helper.prepare_binary_op
     prepare_uint_rshift = helper.prepare_binary_op
-    prepare_uint_mul_high = helper.prepare_int_mul_ovf
+    prepare_uint_mul_high = helper.prepare_binary_op
 
     prepare_int_add_ovf = helper.prepare_binary_op
     prepare_int_sub_ovf = helper.prepare_binary_op
