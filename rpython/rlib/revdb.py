@@ -5,6 +5,8 @@ from rpython.rtyper.lltypesystem import lltype, rstr
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.annlowlevel import llhelper, hlstr
+from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
+from rpython.rtyper.rclass import OBJECTPTR
 
 
 def stop_point():
@@ -51,6 +53,15 @@ def creation_time_of(x):
     point number t+1, but does not exist yet at the stop point number t.
     """
     return llop.revdb_creation_time_of(lltype.SignedLongLong, x)
+
+@specialize.argtype(0)
+def object_to_id(x):
+    return llop.revdb_object_to_id(lltype.Signed, x)
+
+@specialize.arg(0)
+def id_to_object(Class, object_id):
+    x = llop.revdb_id_to_object(OBJECTPTR, object_id)
+    return cast_base_ptr_to_instance(Class, x)
 
 @specialize.arg(1)
 def go_forward(time_delta, callback, arg_string):

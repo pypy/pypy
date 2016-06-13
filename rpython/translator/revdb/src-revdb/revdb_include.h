@@ -79,7 +79,7 @@ RPY_EXTERN void rpy_reverse_db_teardown(void);
 #define OP_REVDB_SEND_OUTPUT(ll_string, r)                              \
     rpy_reverse_db_send_output(ll_string)
 
-#define OP_REVDB_CHANGE_TIME(mode, time, callback, ll_string, r)   \
+#define OP_REVDB_CHANGE_TIME(mode, time, callback, ll_string, r)        \
     rpy_reverse_db_change_time(mode, time, callback, ll_string)
 
 #define OP_REVDB_GET_VALUE(value_id, r)                                 \
@@ -88,8 +88,14 @@ RPY_EXTERN void rpy_reverse_db_teardown(void);
 #define OP_REVDB_IDENTITYHASH(obj, r)                                   \
     r = rpy_reverse_db_identityhash((struct pypy_header0 *)(obj))
 
-#define OP_REVDB_CREATION_TIME_OF(x, r) \
+#define OP_REVDB_CREATION_TIME_OF(x, r)                                 \
     r = ((struct pypy_header0 *)x)->h_ctime
+
+#define OP_REVDB_OBJECT_TO_ID(x, r)                                     \
+    r = (Signed)x
+
+#define OP_REVDB_ID_TO_OBJECT(x, r)                                     \
+    r = (void *)x
 
 RPY_EXTERN void rpy_reverse_db_flush(void);
 RPY_EXTERN char *rpy_reverse_db_fetch(int expected_size,

@@ -572,6 +572,8 @@ LL_OPERATIONS = {
     'revdb_set_value':      LLOp(),
     'revdb_identityhash':   LLOp(),
     'revdb_creation_time_of': LLOp(sideeffects=False),
+    'revdb_object_to_id':   LLOp(sideeffects=False),
+    'revdb_id_to_object':   LLOp(sideeffects=False),
 }
 # ***** Run test_lloperation after changes. *****
 

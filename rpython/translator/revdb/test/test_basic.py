@@ -292,6 +292,9 @@ class TestDebugCommands(InteractiveTests):
 
     def setup_class(cls):
         #
+        class Stuff:
+            pass
+        #
         def g(cmdline):
             if len(cmdline) > 5:
                 raise ValueError
@@ -333,6 +336,12 @@ class TestDebugCommands(InteractiveTests):
                 revdb.jump_in_time(2, changed_time, "xyzzy")
             if cmdline == 'set-break-after-0':
                 dbstate.break_after = 0
+            if cmdline == 'print-id':
+                revdb.send_output('%d\n' % (revdb.object_to_id(dbstate.stuff),))
+            if cmdline.startswith('check-id '):
+                obj_id = int(cmdline[len('check-id '):])
+                revdb.send_output("%d\n" %
+                    int(revdb.id_to_object(Stuff, obj_id) is dbstate.stuff))
             revdb.send_output('blipped\n')
         lambda_blip = lambda: blip
         #
@@ -341,6 +350,7 @@ class TestDebugCommands(InteractiveTests):
         dbstate = DBState()
         #
         def main(argv):
+            dbstate.stuff = Stuff()
             revdb.register_debug_command('r', lambda_blip)
             for i, op in enumerate(argv[1:]):
                 revdb.stop_point()
@@ -439,3 +449,22 @@ class TestDebugCommands(InteractiveTests):
         child.sendline('__forward 5')
         child.expectx('breakpoint!\r\n'
                       '(2)$ ')
+
+    def test_object_to_id(self):
+        child = self.replay()
+        child.expectx('(3)$ ')
+        child.sendline('r print-id')
+        child.expect(re.escape('<<<print-id>>>\r\n')
+                     + r'(-?\d+)'
+                     + re.escape('\r\n'
+                                 'blipped\r\n'
+                                 '(3)$ '))
+        object_id = child.match.group(1)
+        for at_time in [1, 2, 3]:
+            child.sendline('__go %d' % at_time)
+            child.expectx('(%d)$ ' % at_time)
+            child.sendline('r check-id ' + object_id)
+            child.expectx('<<<check-id %s>>>\r\n' % (object_id,) +
+                          '1\r\n' +
+                          'blipped\r\n' +
+                          '(%d)$ ' % at_time)
