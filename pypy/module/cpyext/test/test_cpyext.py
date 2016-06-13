@@ -4,7 +4,7 @@ import os
 
 import py, pytest
 
-from pypy.conftest import pypydir
+from pypy import pypydir
 from pypy.interpreter import gateway
 from rpython.rtyper.lltypesystem import lltype, ll2ctypes
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
@@ -136,7 +136,7 @@ class LeakCheckingTest(object):
     """Base class for all cpyext tests."""
     spaceconfig = dict(usemodules=['cpyext', 'thread', '_rawffi', 'array',
                                    'itertools', 'time', 'binascii',
-                                   'micronumpy',
+                                   'micronumpy', 'mmap'
                                    ])
 
     enable_leak_checking = True

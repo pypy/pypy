@@ -3,7 +3,7 @@ import py
 import sys, os
 from rpython.rlib import exports
 from rpython.rtyper.lltypesystem.lltype import getfunctionptr
-from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper.lltypesystem import lltype
 from rpython.tool import runsubprocess
 from rpython.tool.nullpath import NullPyPathLocal
 from rpython.tool.udir import udir
@@ -252,6 +252,8 @@ class CStandaloneBuilder(CBuilder):
     split = True
     executable_name = None
     shared_library_name = None
+    _entrypoint_wrapper = None
+    make_entrypoint_wrapper = True    # for tests
 
     def getprofbased(self):
         profbased = None
@@ -277,8 +279,39 @@ class CStandaloneBuilder(CBuilder):
     def getentrypointptr(self):
         # XXX check that the entrypoint has the correct
         # signature:  list-of-strings -> int
-        bk = self.translator.annotator.bookkeeper
-        return getfunctionptr(bk.getdesc(self.entrypoint).getuniquegraph())
+        if not self.make_entrypoint_wrapper:
+            bk = self.translator.annotator.bookkeeper
+            return getfunctionptr(bk.getdesc(self.entrypoint).getuniquegraph())
+        if self._entrypoint_wrapper is not None:
+            return self._entrypoint_wrapper
+        #
+        from rpython.annotator import model as annmodel
+        from rpython.rtyper.lltypesystem import rffi
+        from rpython.rtyper.annlowlevel import MixLevelHelperAnnotator
+        from rpython.rtyper.llannotation import lltype_to_annotation
+        entrypoint = self.entrypoint
+        #
+        def entrypoint_wrapper(argc, argv):
+            """This is a wrapper that takes "Signed argc" and "char **argv"
+            like the C main function, and puts them inside an RPython list
+            of strings before invoking the real entrypoint() function.
+            """
+            list = [""] * argc
+            i = 0
+            while i < argc:
+                list[i] = rffi.charp2str(argv[i])
+                i += 1
+            return entrypoint(list)
+        #
+        mix = MixLevelHelperAnnotator(self.translator.rtyper)
+        args_s = [annmodel.SomeInteger(),
+                  lltype_to_annotation(rffi.CCHARPP)]
+        s_result = annmodel.SomeInteger()
+        graph = mix.getgraph(entrypoint_wrapper, args_s, s_result)
+        mix.finish()
+        res = getfunctionptr(graph)
+        self._entrypoint_wrapper = res
+        return res
 
     def cmdexec(self, args='', env=None, err=False, expect_crash=False, exe=None):
         assert self._compiled

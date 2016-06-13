@@ -449,7 +449,6 @@ class WarmRunnerDesc(object):
                               graphs=graphs,
                               merge_if_blocks=True,
                               constfold=True,
-                              raisingop2direct_call=False,
                               remove_asserts=True,
                               really_remove_asserts=True)
 

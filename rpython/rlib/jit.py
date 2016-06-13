@@ -657,6 +657,7 @@ class JitDriver(object):
                  can_never_inline=None, should_unroll_one_iteration=None,
                  name='jitdriver', check_untranslated=True, vectorize=False,
                  get_unique_id=None, is_recursive=False):
+        "NOT_RPYTHON"
         if greens is not None:
             self.greens = greens
         self.name = name

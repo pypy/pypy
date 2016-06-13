@@ -634,7 +634,7 @@ class StdObjSpace(ObjSpace):
 
     def _type_issubtype(self, w_sub, w_type):
         if isinstance(w_sub, W_TypeObject) and isinstance(w_type, W_TypeObject):
-            return self.wrap(w_sub.issubtype(w_type))
+            return w_sub.issubtype(w_type)
         raise oefmt(self.w_TypeError, "need type objects")
 
     @specialize.arg_or_var(2)

@@ -391,6 +391,34 @@ class BasicFrameworkGcPolicy(BasicGcPolicy):
             raise AssertionError(subopnum)
         return ' '.join(parts)
 
+    def OP_GC_BIT(self, funcgen, op):
+        # This is a two-arguments operation (x, y) where x is a
+        # pointer and y is a constant power of two.  It returns 0 if
+        # "(*(Signed*)x) & y == 0", and non-zero if it is "== y".
+        #
+        # On x86-64, emitting this is better than emitting a load
+        # followed by an INT_AND for the case where y doesn't fit in
+        # 32 bits.  I've seen situations where a register was wasted
+        # to contain the constant 2**32 throughout a complete messy
+        # function; the goal of this GC_BIT is to avoid that.
+        #
+        # Don't abuse, though.  If you need to check several bits in
+        # sequence, then it's likely better to load the whole Signed
+        # first; using GC_BIT would result in multiple accesses to
+        # memory.
+        #
+        bitmask = op.args[1].value
+        assert bitmask > 0 and (bitmask & (bitmask - 1)) == 0
+        offset = 0
+        while bitmask >= 0x100:
+            offset += 1
+            bitmask >>= 8
+        if sys.byteorder == 'big':
+            offset = 'sizeof(Signed)-%s' % (offset+1)
+        return '%s = ((char *)%s)[%s] & %d;' % (funcgen.expr(op.result),
+                                                funcgen.expr(op.args[0]),
+                                                offset, bitmask)
+
 class ShadowStackFrameworkGcPolicy(BasicFrameworkGcPolicy):
 
     def gettransformer(self, translator):

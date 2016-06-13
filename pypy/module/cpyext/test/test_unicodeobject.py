@@ -111,6 +111,26 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
         assert isinstance(res, str)
         assert res == 'caf?'
 
+    def test_unicode_macros(self):
+        """The PyUnicode_* macros cast, and calls expecting that build."""
+        module = self.import_extension('foo', [
+             ("test_macro_invocations", "METH_NOARGS",
+             """
+                PyObject* o = PyUnicode_FromString("");
+                PyUnicodeObject* u = (PyUnicodeObject*)o;
+
+                PyUnicode_GET_SIZE(u);
+                PyUnicode_GET_SIZE(o);
+
+                PyUnicode_GET_DATA_SIZE(u);
+                PyUnicode_GET_DATA_SIZE(o);
+
+                PyUnicode_AS_UNICODE(o);
+                PyUnicode_AS_UNICODE(u);
+                return o;
+             """)])
+        assert module.test_macro_invocations() == u''
+
 class TestUnicode(BaseApiTest):
     def test_unicodeobject(self, space, api):
         assert api.PyUnicode_GET_SIZE(space.wrap(u'sp�m')) == 4

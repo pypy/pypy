@@ -957,9 +957,7 @@ _oplist = [
     'INT_ADD/2/i',
     'INT_SUB/2/i',
     'INT_MUL/2/i',
-    'INT_FLOORDIV/2/i',
-    'UINT_FLOORDIV/2/i',
-    'INT_MOD/2/i',
+    'UINT_MUL_HIGH/2/i',       # a * b as a double-word, keep the high word
     'INT_AND/2/i',
     'INT_OR/2/i',
     'INT_XOR/2/i',

@@ -58,3 +58,9 @@ def get_long_info(space):
 
 def get_float_repr_style(space):
     return space.wrap("short")
+
+def getdlopenflags(space):
+    return space.wrap(space.sys.dlopenflags)
+
+def setdlopenflags(space, w_flags):
+    space.sys.dlopenflags = space.int_w(w_flags)

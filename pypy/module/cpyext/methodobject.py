@@ -44,8 +44,8 @@ def init_methodobject(space):
                    dealloc=cfunction_dealloc)
 
 def cfunction_attach(space, py_obj, w_obj):
-    py_func = rffi.cast(PyCFunctionObject, py_obj)
     assert isinstance(w_obj, W_PyCFunctionObject)
+    py_func = rffi.cast(PyCFunctionObject, py_obj)
     py_func.c_m_ml = w_obj.ml
     py_func.c_m_self = make_ref(space, w_obj.w_self)
     py_func.c_m_module = make_ref(space, w_obj.w_module)

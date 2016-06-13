@@ -5,7 +5,7 @@ from rpython.jit.metainterp.optimizeopt.intutils import IntBound,\
      ConstIntBound, MININT, MAXINT, IntUnbounded
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.resoperation import rop, AbstractResOp, GuardResOp,\
-     OpHelpers, ResOperation
+     OpHelpers
 from rpython.jit.metainterp.optimizeopt import info
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.typesystem import llhelper

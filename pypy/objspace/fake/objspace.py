@@ -281,6 +281,11 @@ class FakeObjSpace(ObjSpace):
     def type(self, w_obj):
         return w_some_type()
 
+    def issubtype_w(self, w_sub, w_type):
+        is_root(w_sub)
+        is_root(w_type)
+        return NonConstant(True)
+
     def isinstance_w(self, w_inst, w_type):
         is_root(w_inst)
         is_root(w_type)
@@ -412,11 +417,11 @@ class FakePyCode(W_Root):
 class FakeModule(W_Root):
     def __init__(self):
         self.w_dict = w_some_obj()
-
     def get(self, name):
         name + "xx"   # check that it's a string
         return w_some_obj()
 FakeObjSpace.sys = FakeModule()
 FakeObjSpace.sys.filesystemencoding = 'foobar'
 FakeObjSpace.sys.defaultencoding = 'ascii'
+FakeObjSpace.sys.dlopenflags = 123
 FakeObjSpace.builtin = FakeModule()

@@ -1,4 +1,5 @@
-# Empty
+import os
+pypydir = os.path.realpath(os.path.dirname(__file__))
 
 # XXX Should be empty again, soon.
 # XXX hack for win64:

@@ -196,9 +196,13 @@ class W_LibObject(W_Root):
                 if is_getattr and attr == '__dict__':
                     return self.full_dict_copy()
                 if is_getattr and attr == '__class__':
-                    return self.space.type(self)
+                    # used to be space.type(self).  But HAAAAAACK!
+                    # That makes help() behave correctly.  I couldn't
+                    # find a more reasonable way.  Urgh.
+                    from pypy.interpreter.module import Module
+                    return self.space.gettypeobject(Module.typedef)
                 if is_getattr and attr == '__name__':
-                    return self.descr_repr()
+                    return self.space.wrap("%s.lib" % self.libname)
                 raise oefmt(self.space.w_AttributeError,
                             "cffi library '%s' has no function, constant "
                             "or global variable named '%s'",

@@ -160,11 +160,15 @@ class IntOpAssembler(object):
         omc.BRC(c.ANY, l.imm(label_end - jmp_neither_lqlr_overflow))
         omc.overwrite()
 
-    emit_int_floordiv = gen_emit_div_mod('DSGR', 'DSG')
-    emit_uint_floordiv = gen_emit_div_mod('DLGR', 'DLG')
-    # NOTE division sets one register with the modulo value, thus
-    # the regalloc ensures the right register survives.
-    emit_int_mod = gen_emit_div_mod('DSGR', 'DSG')
+    def emit_uint_mul_high(self, op, arglocs, regalloc):
+        r0, _, a1 = arglocs
+        # _ carries the value, contents of r0 are ignored
+        assert not r0.is_imm()
+        assert not a1.is_imm()
+        if a1.is_core_reg():
+            self.mc.MLGR(r0, a1)
+        else:
+            self.mc.MLG(r0, a1)
 
     def emit_int_invert(self, op, arglocs, regalloc):
         l0, = arglocs
