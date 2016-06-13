@@ -315,13 +315,26 @@ integers ``x``. The rule applies for the following types:
 
  - ``complex``
 
+ - ``str`` (empty or single-character strings only)
+
+ - ``unicode`` (empty or single-character strings only)
+
+ - ``tuple`` (empty tuples only)
+
 This change requires some changes to ``id`` as well. ``id`` fulfills the
 following condition: ``x is y <=> id(x) == id(y)``. Therefore ``id`` of the
 above types will return a value that is computed from the argument, and can
 thus be larger than ``sys.maxint`` (i.e. it can be an arbitrary long).
 
-Notably missing from the list above are ``str`` and ``unicode``.  If your
-code relies on comparing strings with ``is``, then it might break in PyPy.
+Note that strings of length 2 or greater can be equal without being
+identical.  Similarly, ``x is (2,)`` is not necessarily true even if
+``x`` contains a tuple and ``x == (2,)``.  The uniqueness rules apply
+only to the particular cases described above.  The ``str``, ``unicode``
+and ``tuple`` rules were added in PyPy 5.4; before that, a test like
+``if x is "?"`` or ``if x is ()`` could fail even if ``x`` was equal to
+``"?"`` or ``()``.  The new behavior added in PyPy 5.4 is closer to
+CPython's, which caches precisely the empty string, unicode and tuple,
+and (sometimes!) the single-character strings and unicodes.
 
 Note that for floats there "``is``" only one object per "bit pattern"
 of the float.  So ``float('nan') is float('nan')`` is true on PyPy,
