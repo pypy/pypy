@@ -570,9 +570,7 @@ class ASTBuilder(object):
         kwonly = [] if n_kwdonly else None
         kwdefaults = []
         kwarg = None
-        kwargann = None
         vararg = None
-        varargann = None
         if n_pos + n_kwdonly > 255:
             self.error("more than 255 arguments", arguments_node)
         # process args
@@ -604,11 +602,7 @@ class ASTBuilder(object):
                     i = self.handle_keywordonly_args(arguments_node, i, kwonly,
                                                      kwdefaults)
                 else:
-                    vararg = name_node.get_child(0).get_value()
-                    vararg = self.new_identifier(vararg)
-                    self.check_forbidden_name(vararg, name_node)
-                    if name_node.num_children() > 1:
-                        varargann = self.handle_expr(name_node.get_child(2))
+                    vararg = self.handle_arg(name_node)
                     i += 3
                     if i < child_count:
                         next_arg_type = arguments_node.get_child(i).type
@@ -618,11 +612,7 @@ class ASTBuilder(object):
                                                              kwonly, kwdefaults)
             elif arg_type == tokens.DOUBLESTAR:
                 name_node = arguments_node.get_child(i + 1)
-                kwarg = name_node.get_child(0).get_value()
-                kwarg = self.new_identifier(kwarg)
-                self.check_forbidden_name(kwarg, name_node)
-                if name_node.num_children() > 1:
-                    kwargann = self.handle_expr(name_node.get_child(2))
+                kwarg = self.handle_arg(name_node)
                 i += 3
             else:
                 raise AssertionError("unknown node in argument list")
