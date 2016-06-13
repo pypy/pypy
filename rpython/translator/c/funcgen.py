@@ -578,13 +578,22 @@ class FunctionCodeGenerator(object):
                                      self.expr(op.args[0]),
                                      self.expr(op.args[1]))
 
+    def _op_boehm_malloc(self, op, is_atomic):
+        expr_result = self.expr(op.result)
+        res = 'OP_BOEHM_ZERO_MALLOC(%s, %s, void*, %d, 0);' % (
+            self.expr(op.args[0]),
+            expr_result,
+            is_atomic)
+        if self.db.reverse_debugger:
+            from rpython.translator.revdb import revdb_genc
+            res += revdb_genc.record_malloc_ctime(expr_result)
+        return res
+
     def OP_BOEHM_MALLOC(self, op):
-        return 'OP_BOEHM_ZERO_MALLOC(%s, %s, void*, 0, 0);' % (self.expr(op.args[0]),
-                                                               self.expr(op.result))
+        return self._op_boehm_malloc(op, 0)
 
     def OP_BOEHM_MALLOC_ATOMIC(self, op):
-        return 'OP_BOEHM_ZERO_MALLOC(%s, %s, void*, 1, 0);' % (self.expr(op.args[0]),
-                                                               self.expr(op.result))
+        return self._op_boehm_malloc(op, 1)
 
     def OP_BOEHM_REGISTER_FINALIZER(self, op):
         return 'GC_REGISTER_FINALIZER(%s, (GC_finalization_proc)%s, NULL, NULL, NULL);' \

@@ -18,6 +18,9 @@ def emit(normal_code, tp, value):
         return emit_void(normal_code)
     return 'RPY_REVDB_EMIT(%s, %s, %s);' % (normal_code, cdecl(tp, '_e'), value)
 
+def record_malloc_ctime(expr):
+    return ' RPY_REVDB_REC_CTIME(%s);' % (expr,)
+
 
 def prepare_database(db):
     FUNCPTR = lltype.Ptr(lltype.FuncType([lltype.Ptr(rstr.STR)], lltype.Void))

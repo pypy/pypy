@@ -43,6 +43,14 @@ def total_time():
     as the total number of stop-points)."""
     return llop.revdb_get_value(lltype.SignedLongLong, 't')
 
+@specialize.argtype(0)
+def creation_time_of(x):
+    """Returns the time at which the object 'x' was created.
+    More precisely, returns t such that object 'x' was created when
+    current_time()==t; this means that the object exists from time t+1.
+    """
+    return llop.revdb_creation_time_of(lltype.SignedLongLong, x)
+
 @specialize.arg(1)
 def go_forward(time_delta, callback, arg_string):
     """For RPython debug commands: tells that after this function finishes,

@@ -10,7 +10,6 @@ from rpython.rtyper import rmodel
 class BoehmGCTransformer(GCTransformer):
     malloc_zero_filled = True
     FINALIZER_PTR = lltype.Ptr(lltype.FuncType([llmemory.Address], lltype.Void))
-    HDR = lltype.Struct("header", ("hash", lltype.Signed))
 
     def __init__(self, translator, inline=False):
         super(BoehmGCTransformer, self).__init__(translator, inline=inline)
@@ -28,6 +27,10 @@ class BoehmGCTransformer(GCTransformer):
         ll_malloc_varsize_no_length = mh.ll_malloc_varsize_no_length
         ll_malloc_varsize = mh.ll_malloc_varsize
 
+        fields = [("hash", lltype.Signed)]
+        if translator.config.translation.reverse_debugger:
+            fields.append(("ctime", lltype.SignedLongLong))
+        self.HDR = lltype.Struct("header", *fields)
         HDRPTR = lltype.Ptr(self.HDR)
 
         if self.translator:
@@ -167,7 +170,7 @@ class BoehmGCTransformer(GCTransformer):
         hop.genop('int_invert', [v_int], resultvar=hop.spaceop.result)
 
     def gcheader_initdata(self, obj):
-        hdr = lltype.malloc(self.HDR, immortal=True)
+        hdr = lltype.malloc(self.HDR, immortal=True, zero=True)
         hdr.hash = lltype.identityhash_nocache(obj._as_ptr())
         return hdr._obj
 

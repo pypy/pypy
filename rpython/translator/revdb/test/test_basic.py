@@ -191,12 +191,16 @@ class TestSimpleInterpreter(InteractiveTests):
 
     def setup_class(cls):
         def main(argv):
+            lst = [argv[0], 'prebuilt']
             for op in argv[1:]:
                 revdb.stop_point()
                 print op
+                lst.append(op + '??')   # create a new string here
+            for x in lst:
+                print revdb.creation_time_of(x)
             return 9
         compile(cls, main, [], backendopt=False)
-        assert run(cls, 'abc d ef') == 'abc\nd\nef\n'
+        assert run(cls, 'abc d ef') == 'abc\nd\nef\n0\n0\n1\n2\n3\n'
         rdb = fetch_rdb(cls, [cls.exename, 'abc', 'd', 'ef'])
         assert rdb.number_of_stop_points() == 3
 

@@ -67,6 +67,11 @@ RPY_EXTERN void rpy_reverse_db_teardown(void);
 #define RPY_REVDB_EMIT_VOID(normal_code)                                \
     if (!RPY_RDB_REPLAY) { normal_code } else { }
 
+#define RPY_REVDB_REC_CTIME(expr)                                       \
+    if (expr)                                                           \
+        ((struct pypy_header0 *)expr)->h_ctime = rpy_revdb.stop_point_seen
+
+
 #define OP_REVDB_STOP_POINT(r)                                          \
     if (++rpy_revdb.stop_point_seen == rpy_revdb.stop_point_break)      \
         rpy_reverse_db_stop_point()
@@ -82,6 +87,9 @@ RPY_EXTERN void rpy_reverse_db_teardown(void);
 
 #define OP_REVDB_IDENTITYHASH(obj, r)                                   \
     r = rpy_reverse_db_identityhash((struct pypy_header0 *)(obj))
+
+#define OP_REVDB_CREATION_TIME_OF(x, r) \
+    r = ((struct pypy_header0 *)x)->h_ctime
 
 RPY_EXTERN void rpy_reverse_db_flush(void);
 RPY_EXTERN char *rpy_reverse_db_fetch(int expected_size,
