@@ -325,6 +325,8 @@ class Entry(ExtRegistryEntry):
         hop.exception_cannot_occur()
         return hop.genop('hint', [v, c_hint], resulttype=v.concretetype)
 
+_hypothesis_data = None
+
 def we_are_jitted():
     """ Considered as true during tracing and blackholing,
     so its consquences are reflected into jitted code """

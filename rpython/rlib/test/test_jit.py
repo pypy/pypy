@@ -121,11 +121,12 @@ def test_randomized_we_are_jitted():
         if we_are_jitted():
             return 1
         return 1
-    counter = [0]
     def bad():
         if we_are_jitted():
             return 2
         return 1
+    assert good() == 1
+    assert bad() == 1
     @given(randomized_we_are_jitted_strategy())
     def test_random_good(_):
         assert good() == 1
