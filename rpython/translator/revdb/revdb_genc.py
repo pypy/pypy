@@ -23,7 +23,7 @@ def prepare_database(db):
     FUNCPTR = lltype.Ptr(lltype.FuncType([lltype.Ptr(rstr.STR)], lltype.Void))
 
     bk = db.translator.annotator.bookkeeper
-    cmds = getattr(db.translator, 'revdb_commands', {}).items()
+    cmds = getattr(db.translator, 'revdb_commands', [])
 
     array_names = lltype.malloc(rffi.CArray(rffi.CCHARP), len(cmds) + 1,
                                 flavor='raw', immortal=True, zero=True)

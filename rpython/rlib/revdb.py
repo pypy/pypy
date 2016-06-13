@@ -7,14 +7,14 @@ from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.annlowlevel import llhelper, hlstr
 
 
-def stop_point(n):
+def stop_point():
     """Indicates a point in the execution of the RPython program where
     the reverse-debugger can stop.  When reverse-debugging, we see
     the "time" as the index of the stop-point that happened.
     """
     if we_are_translated():
         if fetch_translated_config().translation.reverse_debugger:
-            llop.revdb_stop_point(lltype.Void, n)
+            llop.revdb_stop_point(lltype.Void)
 
 def register_debug_command(command, lambda_func):
     """Register the extra RPython-implemented debug command."""
@@ -25,18 +25,23 @@ def send_output(string):
 
 def current_time():
     """For RPython debug commands: returns the current time."""
-    return llop.revdb_get_value(lltype.Signed, 'c')
+    return llop.revdb_get_value(lltype.SignedLongLong, 'c')
+
+def current_break_time():
+    """Returns the time configured for the next break.  When going forward,
+    this is the target time at which we'll stop going forward."""
+    return llop.revdb_get_value(lltype.SignedLongLong, 'b')
 
 def most_recent_fork():
     """For RPython debug commands: returns the time of the most
     recent fork.  Going back to that time is fast; going back to a time
     just before is slow."""
-    return llop.revdb_get_value(lltype.Signed, 'm')
+    return llop.revdb_get_value(lltype.SignedLongLong, 'f')
 
 def total_time():
     """For RPython debug commands: returns the total time (measured
     as the total number of stop-points)."""
-    return llop.revdb_get_value(lltype.Signed, 't')
+    return llop.revdb_get_value(lltype.SignedLongLong, 't')
 
 @specialize.arg(1)
 def go_forward(time_delta, callback, arg_string):
@@ -89,8 +94,8 @@ class RegisterDebugCommand(ExtRegistryEntry):
             try:
                 cmds = t.revdb_commands
             except AttributeError:
-                cmds = t.revdb_commands = {}
-            cmds[command] = func
+                cmds = t.revdb_commands = []
+            cmds.append((command, func))
             s_func = self.bookkeeper.immutablevalue(func)
             self.bookkeeper.emulate_pbc_call(self.bookkeeper.position_key,
                                              s_func, [annmodel.s_Str0])

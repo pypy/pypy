@@ -192,7 +192,7 @@ class TestSimpleInterpreter(InteractiveTests):
     def setup_class(cls):
         def main(argv):
             for op in argv[1:]:
-                revdb.stop_point(42)
+                revdb.stop_point()
                 print op
             return 9
         compile(cls, main, [], backendopt=False)
@@ -204,11 +204,11 @@ class TestSimpleInterpreter(InteractiveTests):
         child = self.replay()
         child.expectx('stop_points=3\r\n'
                       '(3)$ ')
-        child.sendline('go 1')
+        child.sendline('__go 1')
         child.expectx('(1)$ ')
         child.sendline('')
         child.expectx('(1)$ ')
-        child.sendline('go 52')
+        child.sendline('__go 52')
         child.expectx('(3)$ ')
 
     def test_help(self):
@@ -218,12 +218,12 @@ class TestSimpleInterpreter(InteractiveTests):
         # ...
         child.expectx('(3)$ ')
         child.sendline('info')
-        child.expectx("bad category '', try 'help'\r\n")
+        child.expectx("info ?=-1\r\n")
 
     def test_info_fork(self):
         child = self.replay()
         child.sendline('info fork')
-        child.expectx('most_recent_fork=3\r\n')
+        child.expectx('info f=3\r\n')
 
     def test_quit(self):
         child = self.replay()
@@ -232,19 +232,19 @@ class TestSimpleInterpreter(InteractiveTests):
 
     def test_forward(self):
         child = self.replay()
-        child.sendline('go 1')
+        child.sendline('__go 1')
         child.expectx('(1)$ ')
         child.sendline('__forward 1')
         child.expectx('(2)$ ')
         child.sendline('__forward 1')
         child.expectx('(3)$ ')
         child.sendline('info fork')
-        child.expectx('most_recent_fork=1\r\n')
+        child.expectx('info f=1\r\n')
         child.sendline('__forward 1')
         child.expectx('At end.\r\n'
                       '(3)$ ')
         child.sendline('info fork')
-        child.expectx('most_recent_fork=3\r\n')
+        child.expectx('info f=3\r\n')
 
 
 class TestDebugCommands(InteractiveTests):
@@ -267,6 +267,9 @@ class TestDebugCommands(InteractiveTests):
             if revdb.current_time() != revdb.total_time():
                 revdb.go_forward(1, went_fw, "zz")
         #
+        def _nothing(arg):
+            pass
+        #
         def blip(cmdline):
             revdb.send_output('<<<' + cmdline + '>>>\n')
             if cmdline == 'oops':
@@ -287,13 +290,22 @@ class TestDebugCommands(InteractiveTests):
                 revdb.go_forward(1, went_fw, "xx")
             if cmdline == 'change-time':
                 revdb.jump_in_time(2, changed_time, "xyzzy")
+            if cmdline == 'set-break-after-0':
+                dbstate.break_after = 0
             revdb.send_output('blipped\n')
         lambda_blip = lambda: blip
         #
+        class DBState:
+            break_after = -1
+        dbstate = DBState()
+        #
         def main(argv):
             revdb.register_debug_command('r', lambda_blip)
-            for op in argv[1:]:
-                revdb.stop_point(42)
+            for i, op in enumerate(argv[1:]):
+                revdb.stop_point()
+                if i == dbstate.break_after:
+                    revdb.send_output('breakpoint!\n')
+                    revdb.go_forward(1, _nothing, "")
                 print op
             return 9
         compile(cls, main, [], backendopt=False)
@@ -318,7 +330,7 @@ class TestDebugCommands(InteractiveTests):
     def test_interaction_with_forward(self):
         child = self.replay()
         child.expectx('(3)$ ')
-        child.sendline('go 1')
+        child.sendline('__go 1')
         child.expectx('(1)$ ')
         child.sendline('r oops')
         child.expectx('<<<oops>>>\r\n')
@@ -347,7 +359,7 @@ class TestDebugCommands(InteractiveTests):
     def test_get_value(self):
         child = self.replay()
         child.expectx('(3)$ ')
-        child.sendline('go 2')
+        child.sendline('__go 2')
         child.expectx('(2)$ ')
         child.sendline('r get-value')
         child.expectx('<<<get-value>>>\r\n'
@@ -358,7 +370,7 @@ class TestDebugCommands(InteractiveTests):
     def test_go_fw(self):
         child = self.replay()
         child.expectx('(3)$ ')
-        child.sendline('go 1')
+        child.sendline('__go 1')
         child.expectx('(1)$ ')
         child.sendline('r go-fw')
         child.expectx('<<<go-fw>>>\r\n'
@@ -375,3 +387,14 @@ class TestDebugCommands(InteractiveTests):
                       'changed-time xyzzy -> 2\r\n'
                       'went-fw zz -> 3\r\n'
                       '(3)$ ')
+
+    def test_dynamic_breakpoint(self):
+        child = self.replay()
+        child.expectx('(3)$ ')
+        child.sendline('__go 1')
+        child.expectx('(1)$ ')
+        child.sendline('r set-break-after-0')
+        child.expectx('(1)$ ')
+        child.sendline('__forward 5')
+        child.expectx('breakpoint!\r\n'
+                      '(2)$ ')

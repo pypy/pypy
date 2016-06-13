@@ -151,15 +151,17 @@ Signed rpy_reverse_db_identityhash(struct pypy_header0 *obj)
     /* Boehm only */
     if (obj->h_hash == 0) {
         Signed h;
+        if (flag_io_disabled) {
+            /* This is when running debug commands.  Don't cache the
+               hash on the object at all. */
+            return ~((Signed)obj);
+        }
         /* When recording, we get the hash the normal way from the
            pointer casted to an int, and record that.  When replaying,
            we read it from the record.  In both cases, we cache the
            hash in the object, so that we record/replay only once per
            object. */
-        if (flag_io_disabled)
-            h = ~((Signed)obj);
-        else
-            RPY_REVDB_EMIT(h = ~((Signed)obj);, Signed _e, h);
+        RPY_REVDB_EMIT(h = ~((Signed)obj);, Signed _e, h);
         assert(h != 0);
         obj->h_hash = h;
     }
@@ -297,7 +299,7 @@ static void setup_replay_mode(int *argc_p, char **argv_p[])
     }
     fprintf(stderr, "%s", RDB_SIGNATURE);
     while ((read_all(input, 1), input[0] != 0))
-        fwrite(input, 1, 1, stderr);
+        fputc(input[0], stderr);
 
     read_all(&h, sizeof(h));
     if (h.version != RDB_VERSION) {
@@ -743,18 +745,12 @@ static void act_go(char *p)
     cmd_go(target_time, NULL, NULL);
 }
 
-static void act_info_fork(char *p)
-{
-    printf("most_recent_fork=%llu\n", (unsigned long long)most_recent_fork);
-}
-
 static void act_info(char *p)
 {
-    static struct action_s actions_info[] = {
-        { "fork", act_info_fork },
-        { NULL }
-    };
-    process_input(p, "category", 0, actions_info);
+    char cmd = *p;
+    if (cmd == 0)
+        cmd = '?';
+    printf("info %c=%lld\n", cmd, (long long)rpy_reverse_db_get_value(cmd));
 }
 
 static void act_nop(char *p)
@@ -775,9 +771,9 @@ static void act_forward(char *p)
 static void run_debug_process(void)
 {
     static struct action_s actions_1[] = {
-        { "go", act_go },
         { "info", act_info },
         { "quit", act_quit },
+        { "__go", act_go },
         { "__forward", act_forward },
         { "", act_nop },
         { NULL }
@@ -801,7 +797,7 @@ static void run_debug_process(void)
 }
 
 RPY_EXTERN
-void rpy_reverse_db_break(long stop_point)
+void rpy_reverse_db_stop_point(void)
 {
     if (process_kind == PK_MAIN_PROCESS) {
         make_new_frozen_process();
@@ -819,7 +815,7 @@ void rpy_reverse_db_send_output(RPyString *output)
 }
 
 RPY_EXTERN
-void rpy_reverse_db_change_time(char mode, Signed time,
+void rpy_reverse_db_change_time(char mode, long long time,
                                 void callback(RPyString *), RPyString *arg)
 {
     switch (mode) {
@@ -844,15 +840,17 @@ void rpy_reverse_db_change_time(char mode, Signed time,
 }
 
 RPY_EXTERN
-Signed rpy_reverse_db_get_value(char value_id)
+long long rpy_reverse_db_get_value(char value_id)
 {
     switch (value_id) {
     case 'c':       /* current_time() */
         return rpy_revdb.stop_point_seen;
-    case 'm':       /* most_recent_fork() */
+    case 'f':       /* most_recent_fork() */
         return most_recent_fork;
     case 't':       /* total_time() */
         return total_stop_points;
+    case 'b':
+        return rpy_revdb.stop_point_break;
     default:
         return -1;
     }
