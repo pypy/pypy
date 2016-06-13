@@ -47,7 +47,8 @@ def total_time():
 def creation_time_of(x):
     """Returns the time at which the object 'x' was created.
     More precisely, returns t such that object 'x' was created when
-    current_time()==t; this means that the object exists from time t+1.
+    current_time()==t; this means that the object exists at the stop
+    point number t+1, but does not exist yet at the stop point number t.
     """
     return llop.revdb_creation_time_of(lltype.SignedLongLong, x)
 

@@ -59,12 +59,15 @@ class RDB(object):
         return self.cur == len(self.buffer)
 
 
-def compile(self, entry_point, argtypes, backendopt=True):
+def compile(self, entry_point, argtypes, backendopt=True,
+            withsmallfuncsets=None):
     t = Translation(entry_point, None, gc="boehm")
     self.t = t
     t.config.translation.reverse_debugger = True
     t.config.translation.rweakref = False
     t.config.translation.lldebug0 = True
+    if withsmallfuncsets is not None:
+        t.config.translation.withsmallfuncsets = withsmallfuncsets
     if not backendopt:
         t.disable(["backendopt_lltype"])
     t.annotate()
@@ -170,6 +173,40 @@ class TestRecording(object):
         # done
         x = rdb.next('q'); assert x == 0      # number of stop points
         assert rdb.done()
+
+    @py.test.mark.parametrize('limit', [3, 5])
+    def test_dont_record_small_funcset_conversions(self, limit):
+        def f1():
+            return 111
+        def f2():
+            return 222
+        def f3():
+            return 333
+        def g(n):
+            if n & 1:
+                return f1
+            else:
+                return f2
+        def main(argv):
+            x = g(len(argv))    # can be f1 or f2
+            if len(argv) > 5:
+                x = f3  # now can be f1 or f2 or f3
+            print x()
+            return 9
+        self.compile(main, [], backendopt=False, withsmallfuncsets=limit)
+        for input, expected_output in [
+                ('2 3', '111\n'),
+                ('2 3 4', '222\n'),
+                ('2 3 4 5 6 7', '333\n'),
+                ]:
+            out = self.run(input)
+            assert out == expected_output
+            rdb = self.fetch_rdb([self.exename] + input.split())
+            # write() call
+            x = rdb.next(); assert x == len(out)
+            x = rdb.next('i'); assert x == 0      # errno
+            x = rdb.next('q'); assert x == 0      # number of stop points
+            assert rdb.done()
 
 
 class InteractiveTests(object):
