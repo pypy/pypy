@@ -352,13 +352,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         space = self.space
         names = []
         self._visit_arg_annotations(args.args, names)
-        if args.varargannotation:
-            self._visit_arg_annotation(args.vararg, args.varargannotation,
-                                       names)
         self._visit_arg_annotations(args.kwonlyargs, names)
-        if args.kwargannotation:
-            self._visit_arg_annotation(args.kwarg, args.kwargannotation,
-                                       names)
         self._visit_arg_annotation("return", returns, names)
         l = len(names)
         if l:

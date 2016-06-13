@@ -516,10 +516,10 @@ class SymtableBuilder(ast.GenericASTVisitor):
         if arguments.kwonlyargs:
             self._handle_params(arguments.kwonlyargs, True)
         if arguments.vararg:
-            self.note_symbol(arguments.vararg, SYM_PARAM)
+            self.note_symbol(arguments.vararg.arg, SYM_PARAM)
             scope.note_variable_arg(arguments.vararg)
         if arguments.kwarg:
-            self.note_symbol(arguments.kwarg, SYM_PARAM)
+            self.note_symbol(arguments.kwarg.arg, SYM_PARAM)
             scope.note_keywords_arg(arguments.kwarg)
 
     def _handle_params(self, params, is_toplevel):
