@@ -439,8 +439,7 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
             ''')
 
         a = module.newsubstr('abc')
-        typ = str(type(a))
-        assert  'bar.string_' in typ
+        assert type(a).__name__ == 'string_'
         assert a == 'abc'
 
 class TestString(BaseApiTest):

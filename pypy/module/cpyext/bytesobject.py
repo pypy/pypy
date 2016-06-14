@@ -8,6 +8,7 @@ from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, Py_DecRef, make_ref, from_ref, track_reference,
     make_typedescr, get_typedescr, as_pyobj, Py_IncRef, get_w_obj_and_decref,
     pyobj_has_w_obj)
+from pypy.objspace.std.bytesobject import W_BytesObject
 
 ##
 ## Implementation of PyStringObject
@@ -110,7 +111,9 @@ def string_realize(space, py_obj):
         py_str.c_buffer = lltype.malloc(rffi.CCHARP.TO, py_str.c_ob_size + 1,
                                     flavor='raw', zero=True)
     s = rffi.charpsize2str(py_str.c_buffer, py_str.c_ob_size)
-    w_obj = space.wrap(s)
+    w_type = from_ref(space, rffi.cast(PyObject, py_obj.c_ob_type))
+    w_obj = space.allocate_instance(W_BytesObject, w_type)
+    w_obj.__init__(s)
     py_str.c_ob_shash = space.hash_w(w_obj)
     py_str.c_ob_sstate = rffi.cast(rffi.INT, 1) # SSTATE_INTERNED_MORTAL
     track_reference(space, py_obj, w_obj)
