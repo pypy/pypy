@@ -8,7 +8,6 @@ from pypy import pypydir
 from pypy.interpreter import gateway
 from rpython.rtyper.lltypesystem import lltype, ll2ctypes
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
-from rpython.translator.platform.distutils_platform import DistutilsPlatform
 from rpython.translator.gensupp import uniquemodulename
 from rpython.tool.udir import udir
 from pypy.module.cpyext import api
@@ -18,7 +17,7 @@ from rpython.tool.identity_dict import identity_dict
 from rpython.tool import leakfinder
 from rpython.rlib import rawrefcount
 
-rpy_platform = DistutilsPlatform()
+from .support import c_compile
 
 @api.cpython_api([], api.PyObject)
 def PyPy_Crash1(space):
@@ -52,7 +51,7 @@ def create_so(modname, include_dirs,
         files = convert_sources_to_files(source_strings, dirname)
         source_files = files
     eci = ExternalCompilationInfo(include_dirs=include_dirs, **kwds)
-    soname = rpy_platform.compile(source_files, eci,
+    soname = c_compile(source_files, eci,
         outputfilename=str(dirname/modname),
         standalone=False)
     return soname
