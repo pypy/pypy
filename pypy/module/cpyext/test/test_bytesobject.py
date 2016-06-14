@@ -25,14 +25,13 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
             ("test_Size", "METH_NOARGS",
              """
                  PyObject* s = PyString_FromString("Hello world");
-                 int result = 0;
+                 int result;
                  size_t expected_size;
 
-                 if(PyString_Size(s) == 11) {
-                     result = 1;
-                 }
+                 result = PyString_Size(s);
+                
                  #ifdef PYPY_VERSION
-                    expected_size = sizeof(void*)*7;
+                    expected_size = 48;
                  #elif defined Py_DEBUG
                     expected_size = 53;
                  #else
@@ -44,7 +43,7 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
                      result = 0;
                  }
                  Py_DECREF(s);
-                 return PyBool_FromLong(result);
+                 return PyLong_FromLong(result);
              """),
             ("test_Size_exception", "METH_NOARGS",
              """
@@ -60,7 +59,7 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
              """)], prologue='#include <stdlib.h>')
         assert module.get_hello1() == 'Hello world'
         assert module.get_hello2() == 'Hello world'
-        assert module.test_Size()
+        assert module.test_Size() == 11
         raises(TypeError, module.test_Size_exception)
 
         assert module.test_is_string("")

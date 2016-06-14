@@ -40,12 +40,11 @@ typedef struct {
     PyObject_VAR_HEAD
     long ob_shash;
     int ob_sstate;
-    char * buffer; /* change the name from cpython so all non-api c access is thwarted */
+    char ob_sval[1]; 
 
     /* Invariants 
-     * (not relevant in PyPy, all stringobjects are backed by a pypy object)
-     *     buffer contains space for 'ob_size+1' elements.
-     *     buffer[ob_size] == 0.
+     *     ob_sval contains space for 'ob_size+1' elements.
+     *     ob_sval[ob_size] == 0.
      *     ob_shash is the hash of the string or -1 if not computed yet.
      *     ob_sstate != 0 iff the string object is in stringobject.c's
      *       'interned' dictionary; in this case the two references
