@@ -53,14 +53,16 @@ def go_forward(time_delta, callback, arg_string):
     _change_time('f', time_delta, callback, arg_string)
 
 @specialize.arg(1)
-def jump_in_time(target_time, callback, arg_string):
+def jump_in_time(target_time, callback, arg_string, exact=True):
     """For RPython debug commands: the debugger should run the
     'go <target_time>' command.  This will reset the memory and fork again,
     so you can't save any RPython state and read it back.  You can only
     encode the state you want to save into a string.  In the reloaded
-    process, 'callback(arg_string)' is called.
+    process, 'callback(arg_string)' is called.  If 'exact' is False, go to
+    the fork point before target_time but don't go_forward to exactly
+    target_time afterwards.
     """
-    _change_time('g', target_time, callback, arg_string)
+    _change_time('g' if exact else 'b', target_time, callback, arg_string)
 
 def currently_created_objects():
     """For RPython debug commands: returns the current value of

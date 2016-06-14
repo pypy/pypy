@@ -334,6 +334,8 @@ class TestDebugCommands(InteractiveTests):
                 revdb.go_forward(1, went_fw, "xx")
             if cmdline == 'change-time':
                 revdb.jump_in_time(2, changed_time, "xyzzy")
+            if cmdline == 'change-time-non-exact':
+                revdb.jump_in_time(2, changed_time, "nonx", exact=False)
             if cmdline == 'set-break-after-0':
                 dbstate.break_after = 0
             if cmdline == 'print-id':
@@ -440,6 +442,16 @@ class TestDebugCommands(InteractiveTests):
         child.expectx('<<<change-time>>>\r\n'
                       'changed-time xyzzy -> 2\r\n'
                       'went-fw zz -> 3\r\n'
+                      '(3)$ ')
+
+    def test_change_time_non_exact(self):
+        child = self.replay()
+        child.expectx('(3)$ ')
+        child.sendline('r change-time-non-exact')
+        child.expectx('<<<change-time-non-exact>>>\r\n'
+                      'changed-time nonx -> 1\r\n'
+                      'went-fw zz -> 2\r\n'
+                      'went-fw yy -> 3\r\n'
                       '(3)$ ')
 
     def test_dynamic_breakpoint(self):

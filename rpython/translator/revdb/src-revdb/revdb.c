@@ -233,6 +233,7 @@ static RPyString *invoke_argument;
 
 struct jump_in_time_s {
     uint64_t target_time;
+    char mode;
     void *callback;
     size_t arg_length;
 };
@@ -531,11 +532,12 @@ static int copy_pipe(int dst_fd, int src_fd, ssize_t count)
 }
 
 static void cmd_go(uint64_t target_time, void callback(RPyString *),
-                   RPyString *arg)
+                   RPyString *arg, char mode)
 {
     struct jump_in_time_s header;
 
     header.target_time = target_time;
+    header.mode = mode;
     header.callback = callback;    /* may be NULL */
     /* ^^^ assumes the fn address is the same in the various forks */
     header.arg_length = arg == NULL ? 0 : RPyString_Size(arg);
@@ -556,7 +558,7 @@ static void check_at_end(uint64_t stop_points)
 
     if (process_kind == PK_DEBUG_PROCESS) {
         printf("At end.\n");
-        cmd_go(stop_points, NULL, NULL);
+        cmd_go(stop_points, NULL, NULL, 'g');
         abort();   /* unreachable */
     }
 
@@ -641,7 +643,13 @@ static void run_frozen_process(int frozen_pipe_fd)
             process_kind = PK_DEBUG_PROCESS;
             assert(jump_in_time.target_time >= rpy_revdb.stop_point_seen);
             most_recent_fork = rpy_revdb.stop_point_seen;
-            rpy_revdb.stop_point_break = jump_in_time.target_time;
+            switch (jump_in_time.mode) {
+            case 'b':    /* go non-exact: stay at most_recent_fork */
+                rpy_revdb.stop_point_break = most_recent_fork;
+                break;
+            default:     /* other modes: go exact */
+                rpy_revdb.stop_point_break = jump_in_time.target_time;
+            }
 
             if (jump_in_time.callback == NULL) {
                 assert(jump_in_time.arg_length == 0);
@@ -671,7 +679,7 @@ static void run_frozen_process(int frozen_pipe_fd)
                 ;     /* normal exit */
             else {
                 fprintf(stderr, "debugging subprocess died\n");
-                cmd_go((uint64_t)-1, NULL, NULL);
+                cmd_go((uint64_t)-1, NULL, NULL, 'q');
                 abort();    /* unreachable */
             }
         }
@@ -736,7 +744,7 @@ static void make_new_frozen_process(void)
 
 static void act_quit(char *p)
 {
-    cmd_go((uint64_t)-1, NULL, NULL);
+    cmd_go((uint64_t)-1, NULL, NULL, 'q');
 }
 
 static void act_go(char *p)
@@ -746,7 +754,7 @@ static void act_go(char *p)
         printf("usage: go <target_time>\n");
         return;
     }
-    cmd_go(target_time, NULL, NULL);
+    cmd_go(target_time, NULL, NULL, 'g');
 }
 
 static void act_info(char *p)
@@ -844,10 +852,10 @@ void rpy_reverse_db_change_time(char mode, long long time,
         invoke_argument = arg;
         break;
     }
-    case 'g': {      /* go */
-        cmd_go(time >= 1 ? time : 1, callback, arg);
+    case 'g':       /* go */
+    case 'b':       /* go non exact */
+        cmd_go(time >= 1 ? time : 1, callback, arg, mode);
         abort();    /* unreachable */
-    }
     default:
         abort();    /* unreachable */
     }
