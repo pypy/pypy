@@ -268,7 +268,6 @@ class BasicPPCAssembler(object):
     lwbrx = XD(31, XO1=534)
     lwzux = XD(31, XO1=55)
     lwzx  = XD(31, XO1=23)
-    lxvd2x = XX1(31, XO1=844)
 
     mcrfs  = Form("crfD", "crfS", "XO1")(63, XO1=64)
     mcrxr  = Form("crfD", "XO1")(31, XO1=512)
@@ -571,7 +570,21 @@ class BasicPPCAssembler(object):
     xor = XS(31, XO1=316, Rc=0)
     xorx = XS(31, XO1=316, Rc=1)
 
-class PPCAssembler(BasicPPCAssembler):
+    #
+
+class PPCVSXAssembler(object):
+    _mixin_ = True
+
+    # load
+    lxvdsx = XX1(31, XO1=332) # splat first element
+    lxvd2x = XX1(31, XO1=844)
+    lxvw4x = XX1(31, XO1=780)
+
+    # store
+    stxvd2x = XX1(31, XO1=972)
+    stxvw4x = XX1(31, XO1=908)
+
+class PPCAssembler(BasicPPCAssembler, PPCVSXAssembler):
     BA = BasicPPCAssembler
 
     # awkward mnemonics:

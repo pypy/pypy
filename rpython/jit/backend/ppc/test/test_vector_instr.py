@@ -58,10 +58,19 @@ class TestAssemble(object):
         if cpu not in ["ppc", "ppc64", "ppc-64"]:
             py.test.skip("can't test all of ppcgen on non-PPC!")
 
-    @vec_asmtest(memory=[(8, signed, [0,0])])
+    @vec_asmtest(memory=[(16, signed, [0,0])])
     def test_unaligned_load(self, a, mem):
         a.load_imm(r15, mem)
         a.lxvd2x(vr0.value, 0, r15.value)
         a.blr()
         return [ (0, signed, mem), (0, signed, mem+8) ]
+
+    @vec_asmtest(memory=[(16, signed, [1,2]), (16, signed, [0,0])])
+    def test_unaligned_load_and_store(self, a, mem_l, mem_t):
+        a.load_imm(r15, mem_l)
+        a.load_imm(r14, mem_t)
+        a.lxvd2x(vr0.value, 0, r15.value)
+        a.stxvd2x(vr0.value, 0, r14.value)
+        a.blr()
+        return [ (1, signed, mem_t), (2, signed, mem_t+8) ]
 
