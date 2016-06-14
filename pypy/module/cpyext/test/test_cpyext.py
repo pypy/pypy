@@ -41,25 +41,22 @@ def convert_sources_to_files(sources, dirname):
     return files
 
 def create_so(modname, include_dirs,
-        separate_module_sources=None,
-        separate_module_files=None,
+        source_strings=None,
+        source_files=None,
         **kwds):
     dirname = (udir/uniquemodulename('module')).ensure(dir=1)
-    if separate_module_sources:
-        assert not separate_module_files
-        files = convert_sources_to_files(separate_module_sources, dirname)
-        separate_module_files = files
-    eci = ExternalCompilationInfo(
-        include_dirs=include_dirs,
-        separate_module_files=separate_module_files,
-        **kwds)
-    soname = platform.platform.compile(
-        [], eci,
+    if source_strings:
+        assert not source_files
+        files = convert_sources_to_files(source_strings, dirname)
+        source_files = files
+    eci = ExternalCompilationInfo(include_dirs=include_dirs, **kwds)
+    soname = platform.platform.compile(source_files, eci,
         outputfilename=str(dirname/modname),
         standalone=False)
     return soname
 
-def compile_extension_module(space, modname, include_dirs=[], **kwds):
+def compile_extension_module(space, modname, include_dirs=[],
+        source_files=None, source_strings=None):
     """
     Build an extension module and return the filename of the resulting native
     code file.
@@ -70,6 +67,7 @@ def compile_extension_module(space, modname, include_dirs=[], **kwds):
     Any extra keyword arguments are passed on to ExternalCompilationInfo to
     build the module (so specify your source with one of those).
     """
+    kwds = {}
     state = space.fromcache(State)
     api_library = state.api_lib
     if sys.platform == 'win32':
@@ -91,13 +89,16 @@ def compile_extension_module(space, modname, include_dirs=[], **kwds):
     modname = modname.split('.')[-1]
     soname = create_so(modname,
             include_dirs=api.include_dirs + include_dirs,
+            source_files=source_files,
+            source_strings=source_strings,
             **kwds)
     from pypy.module.imp.importing import get_so_extension
     pydname = soname.new(purebasename=modname, ext=get_so_extension(space))
     soname.rename(pydname)
     return str(pydname)
 
-def compile_extension_module_applevel(space, modname, include_dirs=[], **kwds):
+def compile_extension_module_applevel(space, modname, include_dirs=[],
+        source_files=None, source_strings=None):
     """
     Build an extension module and return the filename of the resulting native
     code file.
@@ -108,6 +109,7 @@ def compile_extension_module_applevel(space, modname, include_dirs=[], **kwds):
     Any extra keyword arguments are passed on to ExternalCompilationInfo to
     build the module (so specify your source with one of those).
     """
+    kwds = {}
     if sys.platform == 'win32':
         kwds["compile_extra"] = ["/we4013"]
         kwds["link_extra"] = ["/LIBPATH:" + os.path.join(sys.exec_prefix, 'libs')]
@@ -119,6 +121,8 @@ def compile_extension_module_applevel(space, modname, include_dirs=[], **kwds):
     modname = modname.split('.')[-1]
     soname = create_so(modname,
             include_dirs=[space.include_dir] + include_dirs,
+            source_files=source_files,
+            source_strings=source_strings,
             **kwds)
     return str(soname)
 
@@ -284,8 +288,8 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
                 separate_module_sources = []
             pydname = self.compile_extension_module(
                 space, name,
-                separate_module_files=separate_module_files,
-                separate_module_sources=separate_module_sources)
+                source_files=separate_module_files,
+                source_strings=separate_module_sources)
             return space.wrap(pydname)
 
         @gateway.unwrap_spec(name=str, init='str_or_None', body=str,
@@ -330,16 +334,16 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
                 """ % dict(name=name, init=init, body=body,
                            PY_SSIZE_T_CLEAN='#define PY_SSIZE_T_CLEAN'
                                             if PY_SSIZE_T_CLEAN else '')
-                kwds = dict(separate_module_sources=[code])
+                kwds = dict(source_strings=[code])
             else:
                 assert not PY_SSIZE_T_CLEAN
                 if filename is None:
                     filename = name
                 filename = py.path.local(pypydir) / 'module' \
                         / 'cpyext'/ 'test' / (filename + ".c")
-                kwds = dict(separate_module_files=[filename])
-            kwds['include_dirs'] = include_dirs
-            mod = self.compile_extension_module(space, name, **kwds)
+                kwds = dict(source_files=[filename])
+            mod = self.compile_extension_module(space, name,
+                    include_dirs=include_dirs, **kwds)
 
             if load_it:
                 if self.runappdirect:
