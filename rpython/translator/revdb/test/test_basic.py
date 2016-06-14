@@ -339,13 +339,17 @@ class TestDebugCommands(InteractiveTests):
             if cmdline == 'set-break-after-0':
                 dbstate.break_after = 0
             if cmdline == 'print-id':
-                revdb.send_output('%d %d\n' % (
+                revdb.send_output('obj.x=%d %d %d\n' % (
+                    dbstate.stuff.x,
                     revdb.get_unique_id(dbstate.stuff),
                     revdb.currently_created_objects()))
-            #if cmdline.startswith('check-id '):
-            #    obj_id = int(cmdline[len('check-id '):])
-            #    revdb.send_output("%d\n" %
-            #        int(revdb.id_to_object(Stuff, obj_id) is dbstate.stuff))
+            if cmdline.startswith('track-object '):
+                uid = int(cmdline[len('track-object '):])
+                revdb.track_object(uid)
+            if cmdline == 'get-tracked-object':
+                obj = revdb.get_tracked_object(Stuff)
+                revdb.send_output('None\n' if obj is None else
+                                  ('obj.x=%d\n' % obj.x))
             revdb.send_output('blipped\n')
         lambda_blip = lambda: blip
         #
@@ -466,24 +470,96 @@ class TestDebugCommands(InteractiveTests):
         child.expectx('breakpoint!\r\n'
                       '(2)$ ')
 
-    def test_get_unique_id(self):
+    def test_get_unique_id_and_track_object(self):
         child = self.replay()
         child.expectx('(3)$ ')
         child.sendline('r print-id')
         child.expect(re.escape('<<<print-id>>>\r\n')
-                     + r'(\d+) (\d+)'
+                     + r'obj.x=1002 (\d+) (\d+)'
                      + re.escape('\r\n'
                                  'blipped\r\n'
                                  '(3)$ '))
-        object_id = int(child.match.group(1))
-        currenty_created_objects = int(child.match.group(2))
-        assert 0 < object_id < currenty_created_objects
-        XXX
-        for at_time in [1, 2, 3]:
-            child.sendline('__go %d' % at_time)
-            child.expectx('(%d)$ ' % at_time)
-            child.sendline('r check-id ' + object_id)
-            child.expectx('<<<check-id %s>>>\r\n' % (object_id,) +
-                          '1\r\n' +
-                          'blipped\r\n' +
-                          '(%d)$ ' % at_time)
+        object_id_3rd = int(child.match.group(1))
+        created_objects_3rd = int(child.match.group(2))
+        assert 0 < object_id_3rd < created_objects_3rd
+        #
+        child.sendline('__go 1')
+        child.expectx('(1)$ ')
+        child.sendline('r print-id')
+        child.expect(re.escape('<<<print-id>>>\r\n')
+                     + r'obj.x=1000 (\d+) (\d+)'
+                     + re.escape('\r\n'
+                                 'blipped\r\n'
+                                 '(1)$ '))
+        object_id_1st = int(child.match.group(1))
+        created_objects_1st = int(child.match.group(2))
+        assert 0 < object_id_1st < created_objects_1st
+        assert created_objects_1st <= object_id_3rd   # only created afterwards
+        #
+        child.sendline('r track-object %d' % object_id_3rd)
+        child.expectx('<<<track-object %d>>>\r\n' % object_id_3rd +
+                      'blipped\r\n'
+                      '(1)$ ')
+        prev_time = 1
+        for i in [1, 2, 3]:
+            child.sendline('r get-tracked-object')
+            child.expectx('<<<get-tracked-object>>>\r\n'
+                          'None\r\n'
+                          'blipped\r\n'
+                          '(%d)$ ' % prev_time)
+            child.sendline('__forward %d' % (i - prev_time))
+            child.expectx('(%d)$ ' % i)
+            prev_time = i
+            child.sendline('r print-id')
+            child.expect(re.escape('<<<print-id>>>\r\n')
+                         + r'obj.x=%d (\d+) (\d+)' % (1000 + prev_time - 1)
+                         + re.escape('\r\n'
+                                     'blipped\r\n'
+                                     '(%d)$ ' % prev_time))
+        child.sendline('r get-tracked-object')
+        child.expectx('<<<get-tracked-object>>>\r\n'
+                      'obj.x=1002\r\n'
+                      'blipped\r\n'
+                      '(3)$ ')
+        child.sendline('__go 3')
+        child.expectx('(3)$ ')
+        child.sendline('r get-tracked-object')
+        child.expectx('<<<get-tracked-object>>>\r\n'
+                      'None\r\n'
+                      'blipped\r\n'
+                      '(3)$ ')
+        #
+        child.sendline('__go 2')
+        child.expectx('(2)$ ')
+        child.sendline('r print-id')
+        child.expect(re.escape('<<<print-id>>>\r\n')
+                     + r'obj.x=1001 (\d+) (\d+)'
+                     + re.escape('\r\n'
+                                 'blipped\r\n'
+                                 '(2)$ '))
+        object_id_2nd = int(child.match.group(1))
+        created_objects_2nd = int(child.match.group(2))
+        #
+        child.sendline('r track-object %d' % object_id_2nd)
+        child.expectx('<<<track-object %d>>>\r\n' % object_id_2nd +
+                    'cannot track the creation of an object already created\r\n'
+                      'blipped\r\n'
+                      '(2)$ ')
+        child.sendline('r track-object 0')
+        child.expectx('<<<track-object 0>>>\r\n'
+                      'cannot track a prebuilt or debugger-created object\r\n'
+                      'blipped\r\n'
+                      '(2)$ ')
+        child.sendline('__go 1')
+        child.expectx('(1)$ ')
+        child.sendline('r track-object %d' % object_id_2nd)
+        child.expectx('<<<track-object %d>>>\r\n' % object_id_2nd +
+                      'blipped\r\n'
+                      '(1)$ ')
+        child.sendline('__forward 5')
+        child.expectx('(2)$ ')
+        child.sendline('r get-tracked-object')
+        child.expectx('<<<get-tracked-object>>>\r\n'
+                      'obj.x=1001\r\n'
+                      'blipped\r\n'
+                      '(2)$ ')

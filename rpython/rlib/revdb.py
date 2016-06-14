@@ -81,14 +81,15 @@ def get_unique_id(x):
     """
     return llop.revdb_get_unique_id(lltype.SignedLongLong, x)
 
-def track_objects(unique_id):
+def track_object(unique_id):
     """Track the creation of the object given by its unique_id, which must
     be in the future (i.e. >= currently_created_objects()).  Call this
     before go_forward().  If go_forward() goes over the creation of this
     object, then afterwards, get_tracked_object() returns the object.
     Going forward is also interrupted at the following stop point.
+    Object tracking is lost by jump_in_time(), like everything else.
     """
-    return llop.revdb_track_object(lltype.Bool, x)
+    llop.revdb_track_object(lltype.Void, unique_id)
 
 @specialize.arg(0)
 def get_tracked_object(Class=llmemory.GCREF):   # or an RPython class

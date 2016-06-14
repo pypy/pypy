@@ -96,6 +96,12 @@ RPY_EXTERN void rpy_reverse_db_teardown(void);
 #define OP_REVDB_GET_UNIQUE_ID(x, r)                                    \
     r = ((struct pypy_header0 *)x)->h_uid
 
+#define OP_REVDB_TRACK_OBJECT(uid, r)                                   \
+    rpy_reverse_db_track_object(uid)
+
+#define OP_REVDB_GET_TRACKED_OBJECT(r)                                  \
+    r = rpy_reverse_db_get_tracked_object()
+
 RPY_EXTERN void rpy_reverse_db_flush(void);
 RPY_EXTERN char *rpy_reverse_db_fetch(int expected_size,
                                       const char *file, int line);
@@ -107,6 +113,8 @@ RPY_EXTERN void rpy_reverse_db_change_time(char mode, long long time,
                                            RPyString *arg);
 RPY_EXTERN long long rpy_reverse_db_get_value(char value_id);
 RPY_EXTERN uint64_t rpy_reverse_db_unique_id_break(void *new_object);
+RPY_EXTERN void rpy_reverse_db_track_object(long long unique_id);
+RPY_EXTERN void *rpy_reverse_db_get_tracked_object(void);
 
 
 /* ------------------------------------------------------------ */
