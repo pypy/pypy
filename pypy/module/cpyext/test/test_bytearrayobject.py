@@ -31,7 +31,7 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
                  if(s->ob_type->tp_basicsize != expected_size)
                  {
                      printf("tp_basicsize==%ld\\n",
-                            (long)s->ob_type->tp_basicsize); 
+                            (long)s->ob_type->tp_basicsize);
                      result = 0;
                  }
                  Py_DECREF(s);
@@ -53,7 +53,6 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
              """
                  PyObject *s, *t;
                  char* c;
-                 Py_ssize_t len;
 
                  s = PyByteArray_FromStringAndSize(NULL, 4);
                  if (s == NULL)
@@ -84,11 +83,10 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
             ("mutable", "METH_NOARGS",
              """
                 PyObject *base;
-                char * p_str;
                 base = PyByteArray_FromStringAndSize("test", 10);
                 if (PyByteArray_GET_SIZE(base) != 10)
                     return PyLong_FromLong(-PyByteArray_GET_SIZE(base));
-                memcpy(PyByteArray_AS_STRING(base), "works", 6); 
+                memcpy(PyByteArray_AS_STRING(base), "works", 6);
                 Py_INCREF(base);
                 return base;
              """),
@@ -141,9 +139,9 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
             ("concat", "METH_VARARGS",
              """
                 PyObject * ret, *right, *left;
-                PyObject *ba1, *ba2; 
+                PyObject *ba1, *ba2;
                 if (!PyArg_ParseTuple(args, "OO", &left, &right)) {
-                    return PyString_FromString("parse failed"); 
+                    return PyString_FromString("parse failed");
                 }
                 ba1 = PyByteArray_FromObject(left);
                 ba2 = PyByteArray_FromObject(right);
@@ -171,9 +169,9 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
              PyObject *obj, *ba;
              int newsize, oldsize, ret;
              if (!PyArg_ParseTuple(args, "Oi", &obj, &newsize)) {
-                 return PyString_FromString("parse failed"); 
+                 return PyString_FromString("parse failed");
              }
-             
+
              ba = PyByteArray_FromObject(obj);
              if (ba == NULL)
                  return NULL;
@@ -187,7 +185,7 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
              {
                   printf("ret, oldsize, newsize= %d, %d, %d\\n", ret, oldsize, newsize);
                   return NULL;
-             } 
+             }
              return ba;
              '''
             )])

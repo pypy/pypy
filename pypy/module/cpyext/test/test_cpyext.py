@@ -8,7 +8,7 @@ from pypy import pypydir
 from pypy.interpreter import gateway
 from rpython.rtyper.lltypesystem import lltype, ll2ctypes
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
-from rpython.translator import platform
+from rpython.translator.platform.distutils_platform import DistutilsPlatform
 from rpython.translator.gensupp import uniquemodulename
 from rpython.tool.udir import udir
 from pypy.module.cpyext import api
@@ -17,6 +17,8 @@ from pypy.module.cpyext.pyobject import Py_DecRef
 from rpython.tool.identity_dict import identity_dict
 from rpython.tool import leakfinder
 from rpython.rlib import rawrefcount
+
+rpy_platform = DistutilsPlatform()
 
 @api.cpython_api([], api.PyObject)
 def PyPy_Crash1(space):
@@ -50,7 +52,7 @@ def create_so(modname, include_dirs,
         files = convert_sources_to_files(source_strings, dirname)
         source_files = files
     eci = ExternalCompilationInfo(include_dirs=include_dirs, **kwds)
-    soname = platform.platform.compile(source_files, eci,
+    soname = rpy_platform.compile(source_files, eci,
         outputfilename=str(dirname/modname),
         standalone=False)
     return soname
@@ -83,7 +85,7 @@ def compile_extension_module(space, modname, include_dirs=[],
     else:
         kwds["link_files"] = [str(api_library + '.so')]
         if sys.platform.startswith('linux'):
-            kwds["compile_extra"] = ["-Werror", "-g", "-O0"]
+            kwds["compile_extra"] = ["-Werror", "-g", "-O0", "-fPIC"]
             kwds["link_extra"] = ["-g"]
 
     modname = modname.split('.')[-1]
@@ -116,7 +118,8 @@ def compile_extension_module_applevel(space, modname, include_dirs=[],
     elif sys.platform == 'darwin':
         pass
     elif sys.platform.startswith('linux'):
-        kwds["compile_extra"] = ["-O0", "-g","-Werror=implicit-function-declaration"]
+        kwds["compile_extra"] = [
+            "-O0", "-g", "-Werror=implicit-function-declaration", "-fPIC"]
 
     modname = modname.split('.')[-1]
     soname = create_so(modname,

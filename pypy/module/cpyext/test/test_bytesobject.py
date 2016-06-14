@@ -40,7 +40,7 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
                  #endif
                  if(s->ob_type->tp_basicsize != expected_size)
                  {
-                     printf("tp_basicsize==%zd\\n", s->ob_type->tp_basicsize); 
+                     printf("tp_basicsize==%zd\\n", s->ob_type->tp_basicsize);
                      result = 0;
                  }
                  Py_DECREF(s);
@@ -49,7 +49,7 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
             ("test_Size_exception", "METH_NOARGS",
              """
                  PyObject* f = PyFloat_FromDouble(1.0);
-                 Py_ssize_t size = PyString_Size(f);
+                 PyString_Size(f);
 
                  Py_DECREF(f);
                  return NULL;
@@ -72,7 +72,6 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
              """
                  PyObject *s, *t;
                  char* c;
-                 Py_ssize_t len;
 
                  s = PyString_FromStringAndSize(NULL, 4);
                  if (s == NULL)
@@ -100,7 +99,6 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
                 PyObject *base;
                 PyTypeObject * type;
                 PyStringObject *obj;
-                char * p_str;
                 base = PyString_FromString("test");
                 if (PyString_GET_SIZE(base) != 4)
                     return PyLong_FromLong(-PyString_GET_SIZE(base));
@@ -312,17 +310,17 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
              '''
                 PyObject* obj = (PyTuple_GetItem(args, 0));
                 long hash = ((PyStringObject*)obj)->ob_shash;
-                return PyLong_FromLong(hash);  
+                return PyLong_FromLong(hash);
              '''
              ),
             ("test_sstate", "METH_NOARGS",
              '''
                 PyObject *s = PyString_FromString("xyz");
-                int sstate = ((PyStringObject*)s)->ob_sstate;
-                /*printf("sstate now %d\\n", sstate);*/
+                /*int sstate = ((PyStringObject*)s)->ob_sstate;
+                printf("sstate now %d\\n", sstate);*/
                 PyString_InternInPlace(&s);
-                sstate = ((PyStringObject*)s)->ob_sstate;
-                /*printf("sstate now %d\\n", sstate);*/
+                /*sstate = ((PyStringObject*)s)->ob_sstate;
+                printf("sstate now %d\\n", sstate);*/
                 Py_DECREF(s);
                 return PyBool_FromLong(1);
              '''),
