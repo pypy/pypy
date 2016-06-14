@@ -341,6 +341,107 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
         # doesn't really test, but if printf is enabled will prove sstate
         assert module.test_sstate()
 
+    def test_subclass(self):
+        # taken from PyStringArrType_Type in numpy's scalartypes.c.src
+        module = self.import_extension('bar', [
+            ("newsubstr", "METH_O",
+             """
+                PyObject * obj;
+                char * data;
+                int len;
+                PyType_Ready(&PyStringArrType_Type);
+                
+                data = PyString_AS_STRING(args);
+                len = PyString_GET_SIZE(args);
+                if (data == NULL || len < 1)
+                    Py_RETURN_NONE;
+                obj = PyArray_Scalar(data, len);
+                return obj;
+             """),
+            ], prologue="""
+                #include <Python.h>
+                PyTypeObject PyStringArrType_Type = {
+                    PyObject_HEAD_INIT(NULL)
+                    0,                            /* ob_size */
+                    "bar.string_",                /* tp_name*/
+                    sizeof(PyStringObject), /* tp_basicsize*/
+                    0                             /* tp_itemsize */
+                    };
+
+                    static PyObject *
+                    stringtype_repr(PyObject *self)
+                    {
+                        const char *dptr, *ip;
+                        int len;
+                        PyObject *new;
+                        PyObject *ret;
+
+                        ip = dptr = PyString_AS_STRING(self);
+                        len = PyString_GET_SIZE(self);
+                        dptr += len-1;
+                        while(len > 0 && *dptr-- == 0) {
+                            len--;
+                        }
+                        new = PyString_FromStringAndSize(ip, len);
+                        if (new == NULL) {
+                            return PyString_FromString("");
+                        }
+                        return new;
+                    }
+
+                    static PyObject *
+                    stringtype_str(PyObject *self)
+                    {
+                        const char *dptr, *ip;
+                        int len;
+                        PyObject *new;
+                        PyObject *ret;
+
+                        ip = dptr = PyString_AS_STRING(self);
+                        len = PyString_GET_SIZE(self);
+                        dptr += len-1;
+                        while(len > 0 && *dptr-- == 0) {
+                            len--;
+                        }
+                        new = PyString_FromStringAndSize(ip, len);
+                        if (new == NULL) {
+                            return PyString_FromString("");
+                        }
+                        return new;
+                    }
+
+                    PyObject *
+                    PyArray_Scalar(char *data, int n)
+                    {
+                        PyTypeObject *type = &PyStringArrType_Type;
+                        PyObject *obj;
+                        void *destptr;
+                        int type_num;
+                        int itemsize = n;
+                        obj = type->tp_alloc(type, itemsize);
+                        if (obj == NULL) {
+                            return NULL;
+                        }
+                        destptr = PyString_AS_STRING(obj);
+                        ((PyStringObject *)obj)->ob_shash = -1;
+                        memcpy(destptr, data, itemsize);
+                        return obj;
+                    }
+            """, more_init = '''
+                PyStringArrType_Type.tp_alloc = NULL;
+                PyStringArrType_Type.tp_free = NULL;
+
+                PyStringArrType_Type.tp_repr = stringtype_repr;
+                PyStringArrType_Type.tp_str = stringtype_str;
+                PyStringArrType_Type.tp_flags = Py_TPFLAGS_DEFAULT|Py_TPFLAGS_BASETYPE;
+                PyStringArrType_Type.tp_itemsize = sizeof(char);
+                PyStringArrType_Type.tp_base = &PyString_Type;
+            ''')
+
+        a = module.newsubstr('abc')
+        typ = str(type(a))
+        assert  'bar.string_' in typ
+        assert a == 'abc'
 
 class TestString(BaseApiTest):
     def test_string_resize(self, space, api):
