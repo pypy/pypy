@@ -12,4 +12,4 @@ A bug-fix release, merging these changes:
 
   * Make vmprof build on OpenBSD, from pull request #456
 
-  * Fix bytearray().replace('a', 'ab'), issue #2324
+  * Fix ``bytearray('').replace('a', 'ab')``, issue #2324
