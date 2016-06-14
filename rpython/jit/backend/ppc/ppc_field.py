@@ -43,6 +43,7 @@ fields = { # bit margins are *inclusive*! (and bit 0 is
     "spr":    (11, 20),
     "TO":     ( 6, 10),
     "UIMM":   (16, 31),
+    "vrT":    (6,  31, 'unsigned', regname._V, 'overlap'),
     "XO1":    (21, 30),
     "XO2":    (22, 30),
     "XO3":    (26, 30),
@@ -100,6 +101,17 @@ class sh(Field):
     def decode(self, inst):
         value = super(sh, self).decode(inst)
         return (value & 32) << 5 | (value >> 10 & 31)
+
+class tx(Field):
+    def encode(self, value):
+        value = (value & 31) << 20 | (value & 32) >> 5
+        return super(tx, self).encode(value)
+    def decode(self, inst):
+        value = super(tx, self).decode(inst)
+        return (value & 32) << 5 | (value >> 20 & 31)
+    def r(self):
+        import pdb; pdb.set_trace()
+        return super(tx, self).r()
 # other special fields?
 
 ppc_fields = {
@@ -109,6 +121,7 @@ ppc_fields = {
     "mbe": mbe("mbe",   *fields["mbe"]),
     "sh":  sh("sh",     *fields["sh"]),
     "spr": spr("spr",   *fields["spr"]),
+    "vrT": tx("vrT",    *fields["vrT"]),
 }
 
 for f in fields:

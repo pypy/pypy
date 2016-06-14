@@ -1,4 +1,4 @@
-from rpython.jit.metainterp.history import INT, FLOAT
+from rpython.jit.metainterp.history import INT, FLOAT, VECTOR
 import sys
 
 # cannot import from arch.py, currently we have a circular import
@@ -74,6 +74,24 @@ class FPRegisterLocation(RegisterLocation):
 
     def as_key(self):
         return self.value + 100
+
+class VectorRegisterLocation(AssemblerLocation):
+    _immutable_ = True
+    width = WORD
+    type = VECTOR
+
+    def __init__(self, value):
+        self.value = value
+
+    def __repr__(self):
+        return 'vr%d' % self.value
+
+    def is_reg(self):
+        return True
+
+    def as_key(self):
+        return self.value + 132
+
 
 class ImmLocation(AssemblerLocation):
     _immutable_ = True

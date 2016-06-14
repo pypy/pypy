@@ -1,4 +1,5 @@
 import os
+
 from rpython.jit.backend.ppc.ppc_form import PPCForm as Form
 from rpython.jit.backend.ppc.locations import RegisterLocation
 from rpython.jit.backend.ppc.ppc_field import ppc_fields
@@ -60,6 +61,7 @@ XL2 = Form("crbD", "XO1", "Rc")
 XFL = Form("FM", "frB", "XO1", "Rc")
 XFX = Form("CRM", "rS", "XO1")
 XLL = Form("LL", "XO1")
+XX1 = Form("vrT", "rA", "rB", "XO1")
 
 MI = Form("rA", "rS", "SH", "MB", "ME", "Rc")
 MB = Form("rA", "rS", "rB", "MB", "ME", "Rc")
@@ -266,6 +268,7 @@ class BasicPPCAssembler(object):
     lwbrx = XD(31, XO1=534)
     lwzux = XD(31, XO1=55)
     lwzx  = XD(31, XO1=23)
+    lxvd2x = XX1(31, XO1=844)
 
     mcrfs  = Form("crfD", "crfS", "XO1")(63, XO1=64)
     mcrxr  = Form("crfD", "XO1")(31, XO1=512)

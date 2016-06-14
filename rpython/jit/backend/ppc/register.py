@@ -1,8 +1,9 @@
 from rpython.jit.backend.ppc.locations import (RegisterLocation,
-                                               FPRegisterLocation)
+       FPRegisterLocation, VectorRegisterLocation)
 
 ALL_REGS        = [RegisterLocation(i) for i in range(32)]
 ALL_FLOAT_REGS  = [FPRegisterLocation(i) for i in range(32)]
+ALL_VECTOR_REGS = [VectorRegisterLocation(i) for i in range(64)]
 
 r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15, r16,\
     r17, r18, r19, r20, r21, r22, r23, r24, r25, r26, r27, r28, r29, r30, r31\
@@ -11,6 +12,13 @@ r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15, r16,\
 f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16,\
     f17, f18, f19, f20, f21, f22, f23, f24, f25, f26, f27, f28, f29, f30, f31\
     = ALL_FLOAT_REGS
+
+vr0, vr1, vr2, vr3, vr4, vr5, vr6, vr7, vr8, vr9, vr10, vr11, vr12, vr13, \
+     vr14, vr15, vr16, vr17, vr18, vr19, vr20, vr21, vr22, vr23, vr24, vr25, \
+     vr26, vr27, vr28, vr29, vr30, vr31, vr32, vr33, vr34, vr35, vr36, vr37, \
+     vr38, vr39, vr40, vr41, vr42, vr43, vr44, vr45, vr46, vr47, vr48, \
+     vr49, vr50, vr51, vr52, vr53, vr54, vr55, vr56, vr57, vr58, vr59, vr60, \
+     vr61, vr62, vr63 = ALL_VECTOR_REGS
 
 NONVOLATILES        = [r14, r15, r16, r17, r18, r19, r20, r21, r22, r23,
                     r24, r25, r26, r27, r28, r29, r30, r31]

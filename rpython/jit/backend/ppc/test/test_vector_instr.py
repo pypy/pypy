@@ -30,8 +30,8 @@ def vec_asmtest(memory=[]):
             expected = test(self, a, *[rffi.cast(lltype.Signed, m) for m in memory_ptrs])
             f = a.get_assembler_function()
             f()
-            for type, expect, ptr in expected:
-                value = rffi.cast(lltype.CArrayPtr(type), ptr)[0]
+            for expect, type, ptr in expected:
+                value = rffi.cast(rffi.CArrayPtr(type), ptr)[0]
                 assert value == expect
 
             while memory_ptrs:
@@ -61,7 +61,7 @@ class TestAssemble(object):
     @vec_asmtest(memory=[(8, signed, [0,0])])
     def test_unaligned_load(self, a, mem):
         a.load_imm(r15, mem)
-        a.lxvd2x(0, 15, mem)
+        a.lxvd2x(vr0.value, 0, r15.value)
         a.blr()
         return [ (0, signed, mem), (0, signed, mem+8) ]
 
