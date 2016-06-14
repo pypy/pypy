@@ -79,11 +79,9 @@ def new_empty_str(space, length):
     called.  Refcount of the result is 1.
     """
     typedescr = get_typedescr(space.w_str.layout.typedef)
-    py_obj = typedescr.allocate(space, space.w_str)
+    py_obj = typedescr.allocate(space, space.w_str, length)
     py_str = rffi.cast(PyStringObject, py_obj)
-
-    buflen = length + 1
-    py_str.c_ob_size = length
+    py_str.c_ob_shash = -1
     py_str.c_ob_sstate = rffi.cast(rffi.INT, 0) # SSTATE_NOT_INTERNED
     return py_str
 
@@ -223,7 +221,6 @@ def _PyString_Resize(space, ref, newsize):
     # XXX always create a new string so far
     py_str = rffi.cast(PyStringObject, ref[0])
     if pyobj_has_w_obj(py_str):
-        import pdb;pdb.set_trace()
         raise oefmt(space.w_SystemError,
                     "_PyString_Resize called on already created string")
     try:

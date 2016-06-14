@@ -445,22 +445,22 @@ class TestString(BaseApiTest):
     def test_string_resize(self, space, api):
         py_str = new_empty_str(space, 10)
         ar = lltype.malloc(PyObjectP.TO, 1, flavor='raw')
-        py_str.c_sval[0] = 'a'
-        py_str.c_sval[1] = 'b'
-        py_str.c_sval[2] = 'c'
+        py_str.c_ob_sval[0] = 'a'
+        py_str.c_ob_sval[1] = 'b'
+        py_str.c_ob_sval[2] = 'c'
         ar[0] = rffi.cast(PyObject, py_str)
         api._PyString_Resize(ar, 3)
         py_str = rffi.cast(PyStringObject, ar[0])
         assert py_str.c_ob_size == 3
-        assert py_str.c_sval[1] == 'b'
-        assert py_str.c_sval[3] == '\x00'
+        assert py_str.c_ob_sval[1] == 'b'
+        assert py_str.c_ob_sval[3] == '\x00'
         # the same for growing
         ar[0] = rffi.cast(PyObject, py_str)
         api._PyString_Resize(ar, 10)
         py_str = rffi.cast(PyStringObject, ar[0])
         assert py_str.c_ob_size == 10
-        assert py_str.c_sval[1] == 'b'
-        assert py_str.c_sval[10] == '\x00'
+        assert py_str.c_ob_sval[1] == 'b'
+        assert py_str.c_ob_sval[10] == '\x00'
         Py_DecRef(space, ar[0])
         lltype.free(ar, flavor='raw')
 
