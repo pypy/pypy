@@ -10,7 +10,6 @@ extern "C" {
 #include <stdarg.h>
 
 #define PyString_GET_SIZE(op) PyString_Size((PyObject*)(op))
-#define PyString_AS_STRING(op) PyString_AsString((PyObject*)(op))
 /*
 Type PyStringObject represents a character string.  An extra zero byte is
 reserved at the end to ensure it is zero-terminated, but a size is

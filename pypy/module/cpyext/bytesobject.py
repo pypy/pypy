@@ -6,7 +6,8 @@ from pypy.module.cpyext.api import (
 from pypy.module.cpyext.pyerrors import PyErr_BadArgument
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, Py_DecRef, make_ref, from_ref, track_reference,
-    make_typedescr, get_typedescr, as_pyobj, Py_IncRef, get_w_obj_and_decref)
+    make_typedescr, get_typedescr, as_pyobj, Py_IncRef, get_w_obj_and_decref,
+    pyobj_has_w_obj)
 
 ##
 ## Implementation of PyStringObject
@@ -40,6 +41,9 @@ from pypy.module.cpyext.pyobject import (
 ##   corresponding object in pypy.  When from_ref() or Py_INCREF() is called,
 ##   the pypy string is created, and added to the global map of tracked
 ##   objects.  The buffer is then supposed to be immutable.
+##
+##-  A buffer obtained from PyString_AS_STRING() could be mutable iff
+##   there is no corresponding pypy object for the string
 ##
 ## - _PyString_Resize() works only on not-yet-pypy'd strings, and returns a
 ##   similar object.
@@ -139,6 +143,9 @@ def PyString_FromString(space, char_p):
 
 @cpython_api([PyObject], rffi.CCHARP, error=0)
 def PyString_AsString(space, ref):
+    return _PyString_AsString(space, ref)
+
+def _PyString_AsString(space, ref):
     if from_ref(space, rffi.cast(PyObject, ref.c_ob_type)) is space.w_str:
         pass    # typecheck returned "ok" without forcing 'ref' at all
     elif not PyString_Check(space, ref):   # otherwise, use the alternate way
@@ -157,6 +164,19 @@ def PyString_AsString(space, ref):
         s = space.str_w(w_str)
         ref_str.c_buffer = rffi.str2charp(s)
     return ref_str.c_buffer
+
+@cpython_api([rffi.VOIDP], rffi.CCHARP, error=0)
+def PyString_AS_STRING(space, void_ref):
+    ref = rffi.cast(PyObject, void_ref)
+    # if no w_str is associated with this ref,
+    # return the c-level ptr as RW
+    if not pyobj_has_w_obj(ref):
+        py_str = rffi.cast(PyStringObject, ref)
+        if not py_str.c_buffer:
+            py_str.c_buffer = lltype.malloc(rffi.CCHARP.TO, py_str.c_ob_size + 1,
+                                        flavor='raw', zero=True)
+        return py_str.c_buffer
+    return _PyString_AsString(space, ref)
 
 @cpython_api([PyObject, rffi.CCHARPP, rffi.CArrayPtr(Py_ssize_t)], rffi.INT_real, error=-1)
 def PyString_AsStringAndSize(space, ref, buffer, length):

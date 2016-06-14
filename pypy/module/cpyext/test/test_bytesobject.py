@@ -110,14 +110,23 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
                 obj = (PyStringObject*)type->tp_alloc(type, 10);
                 if (PyString_GET_SIZE(obj) != 10)
                     return PyLong_FromLong(PyString_GET_SIZE(obj));
-                /* cannot work, there is only RO access
-                memcpy(PyString_AS_STRING(obj), "works", 6); */
+                /* cannot work, there is only RO access */
+                memcpy(PyString_AS_STRING(obj), "works", 6);
                 Py_INCREF(obj);
                 return (PyObject*)obj;
              """),
+            ('alloc_rw', "METH_NOARGS",
+             '''
+                PyObject *obj = _PyObject_NewVar(&PyString_Type, 10);
+                char * buf = PyString_AS_STRING(obj);
+                memcpy(PyString_AS_STRING(obj), "works", 6);
+                return (PyObject*)obj;
+             '''),
             ])
+        s = module.alloc_rw()
+        assert s == 'works' + '\x00' * 5
         s = module.tpalloc()
-        assert s == '\x00' * 10
+        assert s == 'works' + '\x00' * 5
 
     def test_AsString(self):
         module = self.import_extension('foo', [
