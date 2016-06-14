@@ -1,12 +1,11 @@
 import sys
 from rpython.rlib.objectmodel import we_are_translated, fetch_translated_config
 from rpython.rlib.objectmodel import specialize
-from rpython.rtyper.lltypesystem import lltype, rstr
+from rpython.rtyper.lltypesystem import lltype, llmemory, rstr
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.annlowlevel import llhelper, hlstr
-from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
-from rpython.rtyper.rclass import OBJECTPTR
+from rpython.rtyper.annlowlevel import cast_gcref_to_instance
 
 
 def stop_point():
@@ -45,24 +44,6 @@ def total_time():
     as the total number of stop-points)."""
     return llop.revdb_get_value(lltype.SignedLongLong, 't')
 
-@specialize.argtype(0)
-def creation_time_of(x):
-    """Returns the time at which the object 'x' was created.
-    More precisely, returns t such that object 'x' was created when
-    current_time()==t; this means that the object exists at the stop
-    point number t+1, but does not exist yet at the stop point number t.
-    """
-    return llop.revdb_creation_time_of(lltype.SignedLongLong, x)
-
-@specialize.argtype(0)
-def object_to_id(x):
-    return llop.revdb_object_to_id(lltype.Signed, x)
-
-@specialize.arg(0)
-def id_to_object(Class, object_id):
-    x = llop.revdb_id_to_object(OBJECTPTR, object_id)
-    return cast_base_ptr_to_instance(Class, x)
-
 @specialize.arg(1)
 def go_forward(time_delta, callback, arg_string):
     """For RPython debug commands: tells that after this function finishes,
@@ -80,6 +61,46 @@ def jump_in_time(target_time, callback, arg_string):
     process, 'callback(arg_string)' is called.
     """
     _change_time('g', target_time, callback, arg_string)
+
+def currently_created_objects():
+    """For RPython debug commands: returns the current value of
+    the object creation counter.  All objects created so far have
+    a lower unique id; all objects created afterwards will have a
+    unique id greater or equal."""
+    return llop.revdb_get_value(lltype.SignedLongLong, 'u')
+
+@specialize.argtype(0)
+def get_unique_id(x):
+    """Returns the creation number of the object 'x'.  For objects created
+    by the program, it is globally unique, monotonic, and reproducible
+    among multiple processes.  For objects created by a debug command,
+    this returns a (random) negative number.  Right now, this returns 0
+    for all prebuilt objects.
+    """
+    return llop.revdb_get_unique_id(lltype.SignedLongLong, x)
+
+def track_objects(unique_id):
+    """Track the creation of the object given by its unique_id, which must
+    be in the future (i.e. >= currently_created_objects()).  Call this
+    before go_forward().  If go_forward() goes over the creation of this
+    object, then afterwards, get_tracked_object() returns the object.
+    Going forward is also interrupted at the following stop point.
+    """
+    return llop.revdb_track_object(lltype.Bool, x)
+
+@specialize.arg(0)
+def get_tracked_object(Class=llmemory.GCREF):   # or an RPython class
+    """Get the tracked object if it was created during the last go_forward().
+    Otherwise, returns None.  (Note: this API is minimal: to get an
+    object from its unique id, you need first to search backward for a
+    time where currently_created_objects() is lower than the unique_id,
+    then use track_object() and go_forward() to come back.  You can't
+    really track several objects, only one.)
+    """
+    x = llop.revdb_get_tracked_object(llmemory.GCREF)
+    if Class is llmemory.GCREF:
+        return x
+    return cast_gcref_to_instance(Class, x)
 
 
 # ____________________________________________________________

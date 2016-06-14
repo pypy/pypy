@@ -18,8 +18,8 @@ def emit(normal_code, tp, value):
         return emit_void(normal_code)
     return 'RPY_REVDB_EMIT(%s, %s, %s);' % (normal_code, cdecl(tp, '_e'), value)
 
-def record_malloc_ctime(expr):
-    return ' RPY_REVDB_REC_CTIME(%s);' % (expr,)
+def record_malloc_uid(expr):
+    return ' RPY_REVDB_REC_UID(%s);' % (expr,)
 
 
 def prepare_database(db):

@@ -586,7 +586,7 @@ class FunctionCodeGenerator(object):
             is_atomic)
         if self.db.reverse_debugger:
             from rpython.translator.revdb import revdb_genc
-            res += revdb_genc.record_malloc_ctime(expr_result)
+            res += revdb_genc.record_malloc_uid(expr_result)
         return res
 
     def OP_BOEHM_MALLOC(self, op):

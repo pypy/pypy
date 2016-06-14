@@ -29,7 +29,7 @@ class BoehmGCTransformer(GCTransformer):
 
         fields = [("hash", lltype.Signed)]
         if translator.config.translation.reverse_debugger:
-            fields.append(("ctime", lltype.SignedLongLong))
+            fields.append(("uid", lltype.SignedLongLong))
         self.HDR = lltype.Struct("header", *fields)
         HDRPTR = lltype.Ptr(self.HDR)
 

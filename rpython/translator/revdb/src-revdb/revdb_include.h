@@ -18,6 +18,7 @@ typedef struct {
 #endif
     char *buf_p, *buf_limit;
     uint64_t stop_point_seen, stop_point_break;
+    uint64_t unique_id_seen, unique_id_break;
 } rpy_revdb_t;
 
 RPY_EXTERN rpy_revdb_t rpy_revdb;
@@ -67,10 +68,14 @@ RPY_EXTERN void rpy_reverse_db_teardown(void);
 #define RPY_REVDB_EMIT_VOID(normal_code)                                \
     if (!RPY_RDB_REPLAY) { normal_code } else { }
 
-#define RPY_REVDB_REC_CTIME(expr)                                       \
-    if (expr)                                                           \
-        ((struct pypy_header0 *)expr)->h_ctime = rpy_revdb.stop_point_seen
-
+#define RPY_REVDB_REC_UID(expr)                                         \
+    do {                                                                \
+        uint64_t uid = rpy_revdb.unique_id_seen;                        \
+        if (uid == rpy_revdb.unique_id_break || !expr)                  \
+            uid = rpy_reverse_db_unique_id_break(expr);                 \
+        rpy_revdb.unique_id_seen = uid + 1;                             \
+        ((struct pypy_header0 *)expr)->h_uid = uid;                     \
+    } while (0)
 
 #define OP_REVDB_STOP_POINT(r)                                          \
     if (++rpy_revdb.stop_point_seen == rpy_revdb.stop_point_break)      \
@@ -88,14 +93,8 @@ RPY_EXTERN void rpy_reverse_db_teardown(void);
 #define OP_REVDB_IDENTITYHASH(obj, r)                                   \
     r = rpy_reverse_db_identityhash((struct pypy_header0 *)(obj))
 
-#define OP_REVDB_CREATION_TIME_OF(x, r)                                 \
-    r = ((struct pypy_header0 *)x)->h_ctime
-
-#define OP_REVDB_OBJECT_TO_ID(x, r)                                     \
-    r = (Signed)x
-
-#define OP_REVDB_ID_TO_OBJECT(x, r)                                     \
-    r = (void *)x
+#define OP_REVDB_GET_UNIQUE_ID(x, r)                                    \
+    r = ((struct pypy_header0 *)x)->h_uid
 
 RPY_EXTERN void rpy_reverse_db_flush(void);
 RPY_EXTERN char *rpy_reverse_db_fetch(int expected_size,
@@ -107,6 +106,7 @@ RPY_EXTERN void rpy_reverse_db_change_time(char mode, long long time,
                                            void callback(RPyString *),
                                            RPyString *arg);
 RPY_EXTERN long long rpy_reverse_db_get_value(char value_id);
+RPY_EXTERN uint64_t rpy_reverse_db_unique_id_break(void *new_object);
 
 
 /* ------------------------------------------------------------ */

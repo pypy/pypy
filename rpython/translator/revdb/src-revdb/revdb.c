@@ -104,6 +104,7 @@ static void setup_record_mode(int argc, char *argv[])
     assert(RPY_RDB_REPLAY == 0);
     rpy_revdb.buf_p = rpy_rev_buffer;
     rpy_revdb.buf_limit = rpy_rev_buffer + sizeof(rpy_rev_buffer) - 32;
+    rpy_revdb.unique_id_seen = 1;
 
     if (filename && *filename) {
         putenv("PYPYRDB=");
@@ -225,6 +226,7 @@ static jmp_buf jmp_buf_cancel_execution;
 static uint64_t most_recent_fork;
 static uint64_t total_stop_points;
 static uint64_t stopped_time;
+static uint64_t stopped_uid;
 
 static void (*invoke_after_forward)(RPyString *);
 static RPyString *invoke_argument;
@@ -324,6 +326,7 @@ static void setup_replay_mode(int *argc_p, char **argv_p[])
     rpy_revdb.buf_p = rpy_rev_buffer;
     rpy_revdb.buf_limit = rpy_rev_buffer;
     rpy_revdb.stop_point_break = 1;
+    rpy_revdb.unique_id_seen = 1;
 
     if (pipe(frozen_pipe_signal) < 0) {
         perror("pipe");
@@ -781,6 +784,8 @@ static void run_debug_process(void)
     };
     while (rpy_revdb.stop_point_break == rpy_revdb.stop_point_seen) {
         stopped_time = rpy_revdb.stop_point_seen;
+        stopped_uid = rpy_revdb.unique_id_seen;
+        rpy_revdb.unique_id_seen = (-1ULL) << 63;
         if (invoke_after_forward != NULL) {
             execute_rpy_function(invoke_after_forward, invoke_argument);
         }
@@ -795,7 +800,9 @@ static void run_debug_process(void)
             }
             process_input(input, "command", 1, actions_1);
         }
+        rpy_revdb.unique_id_seen = stopped_uid;
         stopped_time = 0;
+        stopped_uid = 0;
     }
 }
 
@@ -856,11 +863,20 @@ long long rpy_reverse_db_get_value(char value_id)
         return most_recent_fork;
     case 't':       /* total_time() */
         return total_stop_points;
-    case 'b':
+    case 'b':       /* current_break_time() */
         return rpy_revdb.stop_point_break;
+    case 'u':       /* currently_created_objects() */
+        return stopped_uid ? stopped_uid : rpy_revdb.unique_id_seen;
     default:
         return -1;
     }
+}
+
+RPY_EXTERN
+uint64_t rpy_reverse_db_unique_id_break(void *new_object)
+{
+    fprintf(stderr, "PING\n");
+    abort();
 }
 
 

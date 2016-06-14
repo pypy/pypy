@@ -337,11 +337,13 @@ class TestDebugCommands(InteractiveTests):
             if cmdline == 'set-break-after-0':
                 dbstate.break_after = 0
             if cmdline == 'print-id':
-                revdb.send_output('%d\n' % (revdb.object_to_id(dbstate.stuff),))
-            if cmdline.startswith('check-id '):
-                obj_id = int(cmdline[len('check-id '):])
-                revdb.send_output("%d\n" %
-                    int(revdb.id_to_object(Stuff, obj_id) is dbstate.stuff))
+                revdb.send_output('%d %d\n' % (
+                    revdb.get_unique_id(dbstate.stuff),
+                    revdb.currently_created_objects()))
+            #if cmdline.startswith('check-id '):
+            #    obj_id = int(cmdline[len('check-id '):])
+            #    revdb.send_output("%d\n" %
+            #        int(revdb.id_to_object(Stuff, obj_id) is dbstate.stuff))
             revdb.send_output('blipped\n')
         lambda_blip = lambda: blip
         #
@@ -350,9 +352,10 @@ class TestDebugCommands(InteractiveTests):
         dbstate = DBState()
         #
         def main(argv):
-            dbstate.stuff = Stuff()
             revdb.register_debug_command('r', lambda_blip)
             for i, op in enumerate(argv[1:]):
+                dbstate.stuff = Stuff()
+                dbstate.stuff.x = i + 1000
                 revdb.stop_point()
                 if i == dbstate.break_after:
                     revdb.send_output('breakpoint!\n')
@@ -440,6 +443,7 @@ class TestDebugCommands(InteractiveTests):
                       '(3)$ ')
 
     def test_dynamic_breakpoint(self):
+        py.test.skip("unsure if that's needed")
         child = self.replay()
         child.expectx('(3)$ ')
         child.sendline('__go 1')
@@ -450,16 +454,19 @@ class TestDebugCommands(InteractiveTests):
         child.expectx('breakpoint!\r\n'
                       '(2)$ ')
 
-    def test_object_to_id(self):
+    def test_get_unique_id(self):
         child = self.replay()
         child.expectx('(3)$ ')
         child.sendline('r print-id')
         child.expect(re.escape('<<<print-id>>>\r\n')
-                     + r'(-?\d+)'
+                     + r'(\d+) (\d+)'
                      + re.escape('\r\n'
                                  'blipped\r\n'
                                  '(3)$ '))
-        object_id = child.match.group(1)
+        object_id = int(child.match.group(1))
+        currenty_created_objects = int(child.match.group(2))
+        assert 0 < object_id < currenty_created_objects
+        XXX
         for at_time in [1, 2, 3]:
             child.sendline('__go %d' % at_time)
             child.expectx('(%d)$ ' % at_time)
