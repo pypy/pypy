@@ -35,14 +35,14 @@ class TestCompatible(BaseTestBasic, LLtypeMixin):
     def test_guard_compatible_and_guard_nonnull(self):
         ops = """
         [p1]
-        guard_nonnull(p1, ConstClass(node_vtable)) []
+        guard_nonnull(p1) []
         guard_compatible(p1, ConstPtr(myptr)) []
-        guard_nonnull(p1, ConstClass(node_vtable)) []
+        guard_nonnull(p1) []
         jump(ConstPtr(myptr))
         """
         expected = """
         [p1]
-        guard_nonnull(p1, ConstClass(node_vtable)) []
+        guard_nonnull(p1) []
         guard_compatible(p1, ConstPtr(myptr)) []
         jump(ConstPtr(myptr))
         """
@@ -125,6 +125,37 @@ class TestCompatible(BaseTestBasic, LLtypeMixin):
             assert descr._compatibility_conditions is not None
             assert descr._compatibility_conditions.known_valid.same_constant(ConstPtr(self.myptr))
             assert len(descr._compatibility_conditions.conditions) == 2
+
+    def test_guard_compatible_call_pure_late_constant(self):
+        call_pure_results = {
+            (ConstInt(123), ConstPtr(self.myptr), ConstInt(5)): ConstInt(5),
+            (ConstInt(124), ConstPtr(self.myptr), ConstInt(5)): ConstInt(7),
+        }
+        ops = """
+        [p1]
+        pvirtual = new_with_vtable(descr=nodesize)
+        setfield_gc(pvirtual, 5, descr=valuedescr)
+        i1 = getfield_gc_i(pvirtual, descr=valuedescr)
+        guard_compatible(p1, ConstPtr(myptr)) []
+        i3 = call_pure_i(123, p1, i1, descr=plaincalldescr)
+        escape_n(i3)
+        i5 = call_pure_i(124, p1, i1, descr=plaincalldescr)
+        escape_n(i5)
+        jump(ConstPtr(myptr))
+        """
+        expected = """
+        [p1]
+        guard_compatible(p1, ConstPtr(myptr)) []
+        escape_n(5)
+        escape_n(7)
+        jump(ConstPtr(myptr))
+        """
+        self.optimize_loop(ops, expected, call_pure_results=call_pure_results)
+        # whitebox-test the guard_compatible descr a bit
+        descr = self.loop.operations[1].getdescr()
+        assert descr._compatibility_conditions is not None
+        assert descr._compatibility_conditions.known_valid.same_constant(ConstPtr(self.myptr))
+        assert len(descr._compatibility_conditions.conditions) == 2
 
     def test_deduplicate_conditions(self):
         call_pure_results = {

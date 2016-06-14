@@ -56,6 +56,13 @@ class CompatibilityCondition(object):
 
     def prepare_const_arg_call(self, op, optimizer):
         from rpython.jit.metainterp.quasiimmut import QuasiImmutDescr
+        # replace further arguments by constants, if the optimizer knows them
+        # already
+        for i in range(2, op.numargs()):
+            arg = op.getarg(i)
+            constarg = optimizer.get_constant_box(arg)
+            if constarg is not None:
+                op.setarg(i, constarg)
         copied_op = op.copy()
         copied_op.setarg(1, self.known_valid)
         if op.numargs() == 2:
@@ -147,11 +154,17 @@ class Condition(object):
         return "<huh?>"
 
 class PureCallCondition(Condition):
+    const_args_start_at = 2
+
     def __init__(self, op, optimizer):
+        from rpython.jit.metainterp.history import Const
         Condition.__init__(self, optimizer)
         args = op.getarglist()[:]
         args[1] = None
         self.args = args
+        for index in range(self.const_args_start_at, len(args)):
+            arg = args[index]
+            assert isinstance(arg, Const)
         self.descr = op.getdescr()
         self.rpyfunc = op.rpyfunc
 
@@ -210,14 +223,11 @@ class PureCallCondition(Condition):
 
 
 class QuasiimmutGetfieldAndPureCallCondition(PureCallCondition):
+    const_args_start_at = 3
+
     def __init__(self, op, qmutdescr, optimizer):
-        Condition.__init__(self, optimizer)
-        args = op.getarglist()[:]
-        args[1] = None
-        args[2] = None
-        self.args = args
-        self.descr = op.getdescr()
-        self.rpyfunc = op.rpyfunc
+        PureCallCondition.__init__(self, op, optimizer)
+        self.args[2] = None
         self.qmut = qmutdescr.qmut
         self.mutatefielddescr = qmutdescr.mutatefielddescr
         self.fielddescr = qmutdescr.fielddescr

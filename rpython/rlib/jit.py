@@ -384,7 +384,7 @@ def we_are_jitted():
     so its consquences are reflected into jitted code """
     # during testing we return something randomly, to emulate the real
     # behaviour where you can switch to tracing a arbitrary points.
-    return random.random() > 0.5
+    return False
 
 _we_are_jitted = CDefinedIntSymbolic('0 /* we are not jitted here */',
                                      default=0)
