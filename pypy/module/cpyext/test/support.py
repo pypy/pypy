@@ -13,8 +13,6 @@ def log_spawned_cmd(spawn):
         return spawn(cmd, *args, **kwds)
     return spawn_and_log
 
-CFLAGS = ['-O3']
-
 if os.name != 'nt':
     so_ext = 'so'
 else:
@@ -22,7 +20,6 @@ else:
 
 def c_compile(cfilenames, eci, outputfilename, standalone=True):
     self = rpy_platform
-    self._ensure_correct_math()
     self.cfilenames = cfilenames
     if standalone:
         ext = ''
@@ -38,15 +35,8 @@ def c_compile(cfilenames, eci, outputfilename, standalone=True):
     if not self.name in ('win32', 'darwin', 'cygwin'): # xxx
         if 'm' not in self.libraries:
             self.libraries.append('m')
-        self.compile_extra += CFLAGS + ['-fomit-frame-pointer']
         if 'pthread' not in self.libraries:
             self.libraries.append('pthread')
-        if self.name != 'sunos5':
-            self.compile_extra += ['-pthread']
-            self.link_extra += ['-pthread']
-        else:
-            self.compile_extra += ['-pthreads']
-            self.link_extra += ['-lpthread']
     if self.name == 'win32':
         self.link_extra += ['/DEBUG'] # generate .pdb file
     if self.name == 'darwin':
@@ -58,7 +48,6 @@ def c_compile(cfilenames, eci, outputfilename, standalone=True):
             if s + 'lib' not in self.library_dirs and \
                 os.path.exists(s + 'lib'):
                 self.library_dirs.append(s + 'lib')
-        self.compile_extra += CFLAGS + ['-fomit-frame-pointer']
         for framework in self.frameworks:
             self.link_extra += ['-framework', framework]
 
