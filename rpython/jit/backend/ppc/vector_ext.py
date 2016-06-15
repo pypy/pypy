@@ -17,7 +17,7 @@ def not_implemented(msg):
         llop.debug_print(lltype.Void, msg)
     raise NotImplementedError(msg)
 
-class PPCVectorAssemblerMixin(object):
+class VectorAssembler(object):
     _mixin_ = True
 
     #def genop_guard_vec_guard_true(self, guard_op, guard_token, locs, resloc):
@@ -510,30 +510,36 @@ class PPCVectorAssemblerMixin(object):
     #def genop_vec_cast_singlefloat_to_float(self, op, arglocs, resloc):
     #    self.mc.CVTPS2PD(resloc, arglocs[0])
 
-clas#s VectorRegallocMixin(object):
-    #_mixin_ = True
+class VectorRegalloc(object):
+    _mixin_ = True
 
-    #def _consider_vec_getarrayitem(self, op):
-    #    descr = op.getdescr()
-    #    assert isinstance(descr, ArrayDescr)
-    #    assert not descr.is_array_of_pointers() and \
-    #           not descr.is_array_of_structs()
-    #    itemsize, ofs, _ = unpack_arraydescr(descr)
-    #    integer = not (descr.is_array_of_floats() or descr.getconcrete_type() == FLOAT)
-    #    aligned = False
-    #    args = op.getarglist()
-    #    base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
-    #    ofs_loc = self.rm.make_sure_var_in_reg(op.getarg(1), args)
-    #    result_loc = self.force_allocate_reg(op)
-    #    self.perform(op, [base_loc, ofs_loc, imm(itemsize), imm(ofs),
-    #                      imm(integer), imm(aligned)], result_loc)
+    def force_allocate_vector_reg(self, op):
+        forbidden_vars = self.vrm.temp_boxes
+        self.vrm.force_allocate_reg(op, forbidden_vars)
 
-    #consider_vec_getarrayitem_raw_i = _consider_vec_getarrayitem
-    #consider_vec_getarrayitem_raw_f = _consider_vec_getarrayitem
-    #consider_vec_getarrayitem_gc_i = _consider_vec_getarrayitem
-    #consider_vec_getarrayitem_gc_f = _consider_vec_getarrayitem
-    #consider_vec_raw_load_i = _consider_vec_getarrayitem
-    #consider_vec_raw_load_f = _consider_vec_getarrayitem
+    def _consider_load(self, op):
+        descr = op.getdescr()
+        assert isinstance(descr, ArrayDescr)
+        assert not descr.is_array_of_pointers() and \
+               not descr.is_array_of_structs()
+        itemsize, ofs, _ = unpack_arraydescr(descr)
+        integer = not (descr.is_array_of_floats() or descr.getconcrete_type() == FLOAT)
+        aligned = False
+        args = op.getarglist()
+        a0 = op.getarg(0)
+        a1 = op.getarg(1)
+        base_loc = self.ensure_reg(a0)
+        ofs_loc = self.ensure_reg(a1)
+        result_loc = self.force_allocate_vector_reg(op)
+        self.perform(op, [base_loc, ofs_loc, imm(itemsize), imm(ofs),
+                          imm(integer), imm(aligned)], result_loc)
+
+    consider_vec_getarrayitem_raw_i = _consider_load
+    consider_vec_getarrayitem_raw_f = _consider_load
+    consider_vec_getarrayitem_gc_i = _consider_load
+    consider_vec_getarrayitem_gc_f = _consider_load
+    consider_vec_raw_load_i = _consider_load
+    consider_vec_raw_load_f = _consider_load
 
     #def _consider_vec_setarrayitem(self, op):
     #    descr = op.getdescr()

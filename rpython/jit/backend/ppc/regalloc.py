@@ -27,6 +27,7 @@ from rpython.rlib.debug import debug_print
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.rlib import rgc
 from rpython.rlib.rarithmetic import r_uint
+from rpython.jit.backend.ppc.vector_ext import VectorRegalloc
 
 LIMIT_LOOP_BREAK = 15000      # should be much smaller than 32 KB
 
@@ -135,6 +136,17 @@ class PPCRegisterManager(RegisterManager):
         self.temp_boxes.append(box)
         return reg
 
+class VectorRegisterManager(RegisterManager):
+    all_regs              = r.MANAGED_VECTOR_REGS
+    box_types             = [INT, FLOAT]
+    save_around_call_regs = [] # ??? lookup the ABI
+    assert set(save_around_call_regs).issubset(all_regs)
+
+    def __init__(self, longevity, frame_manager=None, assembler=None):
+        RegisterManager.__init__(self, longevity, frame_manager, assembler)
+
+    def ensure_reg(self, box):
+        raise NotImplementedError
 
 class PPCFrameManager(FrameManager):
     def __init__(self, base_ofs):
@@ -155,8 +167,7 @@ class PPCFrameManager(FrameManager):
         assert isinstance(loc, locations.StackLocation)
         return loc.position
 
-
-class Regalloc(BaseRegalloc):
+class Regalloc(BaseRegalloc, VectorRegalloc):
 
     def __init__(self, assembler=None):
         self.cpu = assembler.cpu
@@ -179,6 +190,8 @@ class Regalloc(BaseRegalloc):
                                      frame_manager = self.fm,
                                      assembler = self.assembler)
         self.fprm = FPRegisterManager(self.longevity, frame_manager = self.fm,
+                                      assembler = self.assembler)
+        self.vrm = VectorRegisterManager(self.longevity, frame_manager = self.fm,
                                       assembler = self.assembler)
         return operations
 
@@ -287,6 +300,7 @@ class Regalloc(BaseRegalloc):
             self.assembler.mc.mark_op(op)
             self.rm.position = i
             self.fprm.position = i
+            self.vrm.position = i
             opnum = op.opnum
             if rop.has_no_side_effect(opnum) and op not in self.longevity:
                 i += 1
@@ -297,6 +311,8 @@ class Regalloc(BaseRegalloc):
                 box = op.getarg(j)
                 if box.type != FLOAT:
                     self.rm.temp_boxes.append(box)
+                elif box.is_vector():
+                    self.vrm.temp_boxes.append(box)
                 else:
                     self.fprm.temp_boxes.append(box)
             #
@@ -309,6 +325,7 @@ class Regalloc(BaseRegalloc):
             self.possibly_free_var(op)
             self.rm._check_invariants()
             self.fprm._check_invariants()
+            self.vrm._check_invariants()
             if self.assembler.mc.get_relative_pos() > self.limit_loop_break:
                 self.assembler.break_long_loop()
                 self.limit_loop_break = (self.assembler.mc.get_relative_pos() +
