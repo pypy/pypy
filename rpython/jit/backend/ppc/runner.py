@@ -11,6 +11,10 @@ from rpython.jit.backend.ppc import register as r
 
 class PPC_CPU(AbstractLLCPU):
 
+    vector_extension = False # may be set to true in setup
+    vector_register_size = 16
+    vector_horizontal_operations = False
+
     supports_floats = True
     # missing: supports_singlefloats
 
@@ -38,6 +42,9 @@ class PPC_CPU(AbstractLLCPU):
 
     def setup(self):
         self.assembler = AssemblerPPC(self)
+        if detect_vsx():
+            self.vector_extension = True
+            # ??? self.vector_horizontal_operations = True
 
     @rgc.no_release_gil
     def setup_once(self):
