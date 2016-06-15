@@ -1217,7 +1217,15 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                         call.args, call.keywords)
     
     def _call_has_no_star_args(self, call):
-        return not call.starargs and not call.kwargs
+        if call.args is not None:
+            for elt in call.args:
+                if isinstance(elt, ast.Starred):
+                    return False
+        if call.keywords is not None:
+            for kw in call.keywords:
+                if kw.arg is None:
+                    return False
+        return True
 
     def _call_has_simple_args(self, call):
         return self._call_has_no_star_args(call) and not call.keywords
