@@ -20,7 +20,7 @@ if os.name != 'nt':
 else:
     so_ext = 'dll'
 
-def c_compile(cfilenames, eci, outputfilename=None, standalone=True):
+def c_compile(cfilenames, eci, outputfilename, standalone=True):
     self = rpy_platform
     self._ensure_correct_math()
     self.cfilenames = cfilenames
@@ -62,10 +62,7 @@ def c_compile(cfilenames, eci, outputfilename=None, standalone=True):
         for framework in self.frameworks:
             self.link_extra += ['-framework', framework]
 
-    if outputfilename is None:
-        self.outputfilename = py.path.local(cfilenames[0]).new(ext=ext)
-    else:
-        self.outputfilename = py.path.local(outputfilename)
+    self.outputfilename = py.path.local(outputfilename).new(ext=ext)
     self.eci = eci
     import distutils.errors
     basename = self.outputfilename.new(ext='')
