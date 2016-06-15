@@ -58,11 +58,14 @@ class CompatibilityCondition(object):
         from rpython.jit.metainterp.quasiimmut import QuasiImmutDescr
         # replace further arguments by constants, if the optimizer knows them
         # already
+        last_nonconst_index = -1
         for i in range(2, op.numargs()):
             arg = op.getarg(i)
             constarg = optimizer.get_constant_box(arg)
             if constarg is not None:
                 op.setarg(i, constarg)
+            else:
+                last_nonconst_index = i
         copied_op = op.copy()
         copied_op.setarg(1, self.known_valid)
         if op.numargs() == 2:
@@ -70,7 +73,11 @@ class CompatibilityCondition(object):
         arg2 = copied_op.getarg(2)
         if arg2.is_constant():
             # already a constant, can just use PureCallCondition
+            if last_nonconst_index != -1:
+                return None, None # a non-constant argument, can't optimize
             return copied_op, PureCallCondition(op, optimizer)
+        if last_nonconst_index != 2:
+            return None, None
 
         # really simple-minded pattern matching
         # the order of things is like this:

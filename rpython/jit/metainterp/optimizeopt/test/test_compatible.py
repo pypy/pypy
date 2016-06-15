@@ -157,6 +157,34 @@ class TestCompatible(BaseTestBasic, LLtypeMixin):
         assert descr._compatibility_conditions.known_valid.same_constant(ConstPtr(self.myptr))
         assert len(descr._compatibility_conditions.conditions) == 2
 
+    def test_guard_compatible_call_pure_not_const(self):
+        call_pure_results = {
+            (ConstInt(123), ConstPtr(self.myptr), ConstInt(5), ConstInt(5)): ConstInt(5),
+            (ConstInt(124), ConstPtr(self.myptr), ConstInt(5), ConstInt(5)): ConstInt(7),
+        }
+        ops = """
+        [p1, i2]
+        pvirtual = new_with_vtable(descr=nodesize)
+        setfield_gc(pvirtual, 5, descr=valuedescr)
+        i1 = getfield_gc_i(pvirtual, descr=valuedescr)
+        guard_compatible(p1, ConstPtr(myptr)) []
+        i3 = call_pure_i(123, p1, i1, i2, descr=plaincalldescr)
+        escape_n(i3)
+        i5 = call_pure_i(124, p1, i1, i2, descr=plaincalldescr)
+        escape_n(i5)
+        jump(ConstPtr(myptr), 5)
+        """
+        expected = """
+        [p1, i2]
+        guard_compatible(p1, ConstPtr(myptr)) []
+        i3 = call_i(123, p1, 5, i2, descr=plaincalldescr)
+        escape_n(i3)
+        i5 = call_i(124, p1, 5, i2, descr=plaincalldescr)
+        escape_n(i5)
+        jump(ConstPtr(myptr), 5)
+        """
+        self.optimize_loop(ops, expected, call_pure_results=call_pure_results)
+
     def test_deduplicate_conditions(self):
         call_pure_results = {
             (ConstInt(123), ConstPtr(self.myptr)): ConstInt(5),
@@ -222,3 +250,31 @@ class TestCompatible(BaseTestBasic, LLtypeMixin):
         assert descr._compatibility_conditions is not None
         assert descr._compatibility_conditions.known_valid.same_constant(ConstPtr(self.quasiptr))
         assert len(descr._compatibility_conditions.conditions) == 1
+
+    def test_quasiimmut_nonconst(self):
+        ops = """
+        [p1, i5]
+        guard_compatible(p1, ConstPtr(quasiptr)) []
+        quasiimmut_field(p1, descr=quasiimmutdescr)
+        guard_not_invalidated() []
+        i0 = getfield_gc_i(p1, descr=quasifielddescr)
+        i1 = call_pure_i(123, p1, i0, i5, descr=nonwritedescr)
+        i4 = call_pure_i(123, p1, i0, i5, descr=nonwritedescr)
+        escape_n(i1)
+        escape_n(i4)
+        jump(p1, i5)
+        """
+        expected = """
+        [p1, i5]
+        guard_compatible(p1, ConstPtr(quasiptr)) []
+        guard_not_invalidated() []
+        i0 = getfield_gc_i(p1, descr=quasifielddescr) # will be removed by the backend
+        i1 = call_i(123, p1, i0, i5, descr=nonwritedescr)
+        escape_n(i1)
+        escape_n(i1)
+        jump(p1, i5)
+        """
+        call_pure_results = {
+            (ConstInt(123), ConstPtr(self.quasiptr), ConstInt(-4247)): ConstInt(5),
+        }
+        self.optimize_loop(ops, expected, call_pure_results)
