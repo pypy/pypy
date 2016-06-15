@@ -51,9 +51,7 @@ def create_so(modname, include_dirs,
         files = convert_sources_to_files(source_strings, dirname)
         source_files = files
     eci = ExternalCompilationInfo(include_dirs=include_dirs, **kwds)
-    soname = c_compile(source_files, eci,
-        outputfilename=str(dirname/modname),
-        standalone=False)
+    soname = c_compile(source_files, eci, outputfilename=str(dirname/modname))
     return soname
 
 def compile_extension_module(space, modname, include_dirs=[],

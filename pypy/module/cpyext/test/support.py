@@ -18,14 +18,10 @@ if os.name != 'nt':
 else:
     so_ext = 'dll'
 
-def c_compile(cfilenames, eci, outputfilename, standalone=True):
+def c_compile(cfilenames, eci, outputfilename):
     self = rpy_platform
     self.cfilenames = cfilenames
-    if standalone:
-        ext = ''
-    else:
-        ext = so_ext
-    self.standalone = standalone
+    ext = so_ext
     self.libraries = list(eci.libraries)
     self.include_dirs = list(eci.include_dirs)
     self.library_dirs = list(eci.library_dirs)
@@ -60,7 +56,7 @@ def c_compile(cfilenames, eci, outputfilename, standalone=True):
         saved_environ = os.environ.copy()
         c = stdoutcapture.Capture(mixed_out_err=True)
         try:
-            self._build()
+            _build(self)
         finally:
             # workaround for a distutils bugs where some env vars can
             # become longer and longer every time it is used
@@ -85,12 +81,7 @@ def _build(self):
     from distutils.ccompiler import new_compiler
     from distutils import sysconfig
     compiler = new_compiler(force=1)
-    if self.cc is not None:
-        for c in '''compiler compiler_so compiler_cxx
-                    linker_exe linker_so'''.split():
-            compiler.executables[c][0] = self.cc
-    if not self.standalone:
-        sysconfig.customize_compiler(compiler) # XXX
+    sysconfig.customize_compiler(compiler) # XXX
     compiler.spawn = log_spawned_cmd(compiler.spawn)
     objects = []
     for cfile in self.cfilenames:
@@ -109,11 +100,7 @@ def _build(self):
         finally:
             old.chdir()
 
-    if self.standalone:
-        cmd = compiler.link_executable
-    else:
-        cmd = compiler.link_shared_object
-    cmd(objects, str(self.outputfilename),
+    compiler.link_shared_object(objects, str(self.outputfilename),
         libraries=self.eci.libraries,
         extra_preargs=self.link_extra,
         library_dirs=self.eci.library_dirs)
