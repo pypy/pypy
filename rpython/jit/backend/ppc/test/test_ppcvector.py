@@ -1,6 +1,7 @@
 import py
 from rpython.jit.backend.ppc.test import test_basic
 from rpython.jit.metainterp.test import test_vector
+from rpython.jit.backend.ppc.detect_feature import detect_vsx
 
 
 class TestBasic(test_basic.JitPPCMixin, test_vector.VectorizeTests):
@@ -14,6 +15,9 @@ class TestBasic(test_basic.JitPPCMixin, test_vector.VectorizeTests):
             cpu.supports_guard_gc_type = True
             return cpu
         self.CPUClass = init
+
+    def supports_vector_ext(self):
+        return detect_vsx()
 
     def test_list_vectorize(self):
         pass # needs support_guard_gc_type, disable for now

@@ -16,8 +16,6 @@ from rpython.rlib.objectmodel import specialize, is_annotation_constant
 from rpython.jit.backend.detect_cpu import getcpuclass
 
 CPU = getcpuclass()
-if not CPU.vector_extension:
-    py.test.skip("this cpu %s has no implemented vector backend" % CPU)
 
 @specialize.argtype(0,1)
 def malloc(T,n):
@@ -29,7 +27,8 @@ class VectorizeTests:
     enable_opts = 'intbounds:rewrite:virtualize:string:earlyforce:pure:heap:unroll'
 
     def setup_method(self, method):
-        print "RUNNING", method.__name__
+        if not self.supports_vector_ext():
+            py.test.skip("this cpu %s has no implemented vector backend" % CPU)
 
     def meta_interp(self, f, args, policy=None, vec=True, vec_all=False):
         return ll_meta_interp(f, args, enable_opts=self.enable_opts,

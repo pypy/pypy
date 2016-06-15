@@ -6,7 +6,6 @@ from rpython.jit.backend.x86.test.test_assembler import \
 from rpython.jit.metainterp.test import test_vector
 from rpython.rtyper.lltypesystem import lltype
 
-
 class TestBasic(test_basic.Jit386Mixin, test_vector.VectorizeTests):
     # for the individual tests see
     # ====> ../../../metainterp/test/test_basic.py
@@ -18,6 +17,9 @@ class TestBasic(test_basic.Jit386Mixin, test_vector.VectorizeTests):
             cpu.supports_guard_gc_type = True
             return cpu
         self.CPUClass = init
+
+    def supports_vector_ext(self):
+        return self.CPUClass.vector_extension
 
     def test_list_vectorize(self):
         pass # needs support_guard_gc_type, disable for now

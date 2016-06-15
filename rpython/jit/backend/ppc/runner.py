@@ -7,7 +7,7 @@ from rpython.jit.backend.ppc.ppc_assembler import AssemblerPPC
 from rpython.jit.backend.ppc.arch import WORD
 from rpython.jit.backend.ppc.codebuilder import PPCBuilder
 from rpython.jit.backend.ppc import register as r
-
+from rpython.jit.backend.ppc.detect_feature import detect_vsx
 
 class PPC_CPU(AbstractLLCPU):
 
