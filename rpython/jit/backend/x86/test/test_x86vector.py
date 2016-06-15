@@ -3,11 +3,7 @@ from rpython.jit.backend.x86.regloc import *
 from rpython.jit.backend.x86.test import test_basic
 from rpython.jit.backend.x86.test.test_assembler import \
         (TestRegallocPushPop as BaseTestAssembler)
-from rpython.jit.backend.detect_cpu import getcpuclass
-from rpython.jit.metainterp.history import ConstFloat
-from rpython.jit.metainterp.test import support, test_vector
-from rpython.jit.metainterp.warmspot import ll_meta_interp
-from rpython.rlib.jit import JitDriver
+from rpython.jit.metainterp.test import test_vector
 from rpython.rtyper.lltypesystem import lltype
 
 

@@ -42,13 +42,13 @@ class PPC_CPU(AbstractLLCPU):
 
     def setup(self):
         self.assembler = AssemblerPPC(self)
-        if detect_vsx():
-            self.vector_extension = True
-            # ??? self.vector_horizontal_operations = True
 
     @rgc.no_release_gil
     def setup_once(self):
         self.assembler.setup_once()
+        if detect_vsx():
+            self.vector_extension = True
+            # ??? self.vector_horizontal_operations = True
 
     @rgc.no_release_gil
     def finish_once(self):
