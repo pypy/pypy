@@ -227,6 +227,7 @@ static uint64_t most_recent_fork;
 static uint64_t total_stop_points;
 static uint64_t stopped_time;
 static uint64_t stopped_uid;
+static uint64_t first_created_uid;
 
 static void (*invoke_after_forward)(RPyString *);
 static RPyString *invoke_argument;
@@ -698,6 +699,8 @@ static void make_new_frozen_process(void)
         fprintf(stderr, "stop_point_break overflow?\n");
         exit(1);
     }
+    if (frozen_num_pipes == 0)
+        first_created_uid = rpy_revdb.unique_id_seen;
 
     fprintf(stderr, "[%llu]",
             (unsigned long long)rpy_revdb.stop_point_seen);
@@ -877,6 +880,8 @@ long long rpy_reverse_db_get_value(char value_id)
         return rpy_revdb.stop_point_break;
     case 'u':       /* currently_created_objects() */
         return stopped_uid ? stopped_uid : rpy_revdb.unique_id_seen;
+    case '1':       /* first_created_object_uid() */
+        return first_created_uid;
     default:
         return -1;
     }

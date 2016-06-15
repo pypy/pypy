@@ -71,6 +71,12 @@ def currently_created_objects():
     unique id greater or equal."""
     return llop.revdb_get_value(lltype.SignedLongLong, 'u')
 
+def first_created_object_uid():
+    """Returns the creation number of the first object dynamically created
+    by the program.  Older objects are either prebuilt or created before
+    the first stop point."""
+    return llop.revdb_get_value(lltype.SignedLongLong, '1')
+
 @specialize.argtype(0)
 def get_unique_id(x):
     """Returns the creation number of the object 'x'.  For objects created

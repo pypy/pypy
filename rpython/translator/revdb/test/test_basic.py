@@ -350,6 +350,9 @@ class TestDebugCommands(InteractiveTests):
                 obj = revdb.get_tracked_object(Stuff)
                 revdb.send_output('None\n' if obj is None else
                                   ('obj.x=%d\n' % obj.x))
+            if cmdline == 'first-created-uid':
+                revdb.send_output('first-created-uid=%d\n' % (
+                    revdb.first_created_object_uid(),))
             revdb.send_output('blipped\n')
         lambda_blip = lambda: blip
         #
@@ -563,3 +566,22 @@ class TestDebugCommands(InteractiveTests):
                       'obj.x=1001\r\n'
                       'blipped\r\n'
                       '(2)$ ')
+
+    def test_first_created_uid(self):
+        child = self.replay()
+        child.expectx('(3)$ ')
+        child.sendline('r first-created-uid')
+        child.expectx('<<<first-created-uid>>>\r\n')
+        child.expect('first-created-uid=(\d+)\r\n')
+        first_created_id = int(child.match.group(1))
+        child.expectx('blipped\r\n'
+                      '(3)$ ')
+        child.sendline('__go 1')
+        child.expectx('(1)$ ')
+        child.sendline('r print-id')
+        child.expect(re.escape('<<<print-id>>>\r\n')
+                     + r'obj.x=1000 (\d+) (\d+)'
+                     + re.escape('\r\n'
+                                 'blipped\r\n'
+                                 '(1)$ '))
+        assert int(child.match.group(2)) == first_created_id
