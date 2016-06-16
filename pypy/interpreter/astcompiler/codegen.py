@@ -1072,7 +1072,12 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def visit_Tuple(self, tup):
         self.update_position(tup.lineno)
-        self._visit_list_or_tuple(tup, tup.elts, tup.ctx, ops.BUILD_TUPLE)
+        if l.ctx == ast.Store:
+            self._visit_list_or_tuple_assignment(l, l.elts)
+        elif l.ctx == ast.Load:
+            self._visit_list_or_tuple_starunpack(tup, tup.elts, tup.ctx, ops.BUILD_TUPLE)
+        else
+            self.visit_sequence(l.elts)
 
     def visit_List(self, l):
         self.update_position(l.lineno)
