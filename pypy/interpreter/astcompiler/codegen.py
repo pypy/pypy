@@ -1017,7 +1017,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         ifexp.orelse.walkabout(self)
         self.use_next_block(end)
 
-    def _visit_list_or_tuple(self, node, elts, ctx, op):
+    def _visit_list_or_tuple_starunpack(self, node, elts, ctx, op):
         #TODO
         elt_count = len(elts) if elts else 0
         if ctx == ast.Store:
@@ -1041,7 +1041,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         if ctx == ast.Load:
             self.emit_op_arg(op, elt_count)
     
-    def _visit_starunpack(self, node, elts, ctx, single_op, innter_op, outer_op):
+    #_visit_starunpack
+    def _visit_list_or_tuple_assignment(self, node, elts, ctx, single_op, innter_op, outer_op):
         elt_count = len(elts) if elts else 0
         if ctx == ast.Store:
             seen_star = False
@@ -1061,8 +1062,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             if not seen_star:
                 self.emit_op_arg(ops.UNPACK_SEQUENCE, elt_count)
         self.visit_sequence(elts)
-        if ctx == ast.Load:
-            self.emit_op_arg(op, elt_count)
+        #if ctx == ast.Load:
+        #    self.emit_op_arg(op, elt_count)
 
     def visit_Starred(self, star):
         if star.ctx != ast.Store:
@@ -1076,7 +1077,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self._visit_list_or_tuple_assignment(l, l.elts)
         elif l.ctx == ast.Load:
             self._visit_list_or_tuple_starunpack(tup, tup.elts, tup.ctx, ops.BUILD_TUPLE)
-        else
+        else:
             self.visit_sequence(l.elts)
 
     def visit_List(self, l):
@@ -1085,7 +1086,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self._visit_list_or_tuple_assignment(l, l.elts)
         elif l.ctx == ast.Load:
             self._visit_list_or_tuple_starunpack(l, l.elts, l.ctx, ops.BUILD_LIST)
-        else
+        else:
             self.visit_sequence(l.elts)
 
     def visit_Dict(self, d):
