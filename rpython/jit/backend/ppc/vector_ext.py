@@ -10,6 +10,7 @@ from rpython.jit.metainterp.resoperation import (rop, ResOperation,
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.lltypesystem import lltype
+from rpython.jit.backend.ppc.locations import imm
 
 def not_implemented(msg):
     msg = '[ppc/vector_ext] %s\n' % msg
@@ -19,6 +20,48 @@ def not_implemented(msg):
 
 class VectorAssembler(object):
     _mixin_ = True
+
+    def _emit_getitem(self, op, arglocs, regalloc):
+        # prepares item scale (raw_load does not)
+        resloc, base_loc, ofs_loc, size_loc, ofs, integer_loc, aligned_loc = arglocs
+        scale = get_scale(size_loc.value)
+        xxx
+        src_addr = addr_add(base_loc, ofs_loc, ofs.value, scale)
+        self._vec_load(resloc, src_addr, integer_loc.value,
+                       size_loc.value, aligned_loc.value)
+    
+    emit_vec_getarrayitem_raw_i = _emit_getitem
+    emit_vec_getarrayitem_raw_f = _emit_getitem
+
+    emit_vec_getarrayitem_gc_i = _emit_getitem
+    emit_vec_getarrayitem_gc_f = _emit_getitem
+
+    def _emit_load(self, op, arglocs, regalloc):
+        resloc, base_loc, ofs_loc, size_loc, ofs, integer_loc, aligned_loc = arglocs
+        #src_addr = addr_add(base_loc, ofs_loc, ofs.value, 0)
+        assert ofs.value == 0
+        self._vec_load(resloc, base_loc, ofs_loc, integer_loc.value,
+                       size_loc.value, aligned_loc.value)
+
+    emit_vec_raw_load_i = _emit_load
+    emit_vec_raw_load_f = _emit_load
+
+    def _vec_load(self, resloc, baseloc, indexloc, integer, itemsize, aligned):
+        if integer:
+            if itemsize == 4:
+                self.mc.lxvd2x(resloc.value, indexloc.value, baseloc.value)
+            elif itemsize == 8:
+                self.mc.lxvw4x(resloc.value, indexloc.value, baseloc.value)
+            else:
+                raise NotImplementedError
+        else:
+            if itemsize == 4:
+                self.mc.MOVUPS(resloc, src_addr)
+            elif itemsize == 8:
+                self.mc.MOVUPD(resloc, src_addr)
+            else:
+                raise NotImplementedError
+
 
     #def genop_guard_vec_guard_true(self, guard_op, guard_token, locs, resloc):
     #    self.implement_guard(guard_token)
@@ -124,43 +167,8 @@ class VectorAssembler(object):
 
     #    not_implemented("reduce sum for %s not impl." % arg)
 
-    #def _genop_vec_getarrayitem(self, op, arglocs, resloc):
-    #    # considers item scale (raw_load does not)
-    #    base_loc, ofs_loc, size_loc, ofs, integer_loc, aligned_loc = arglocs
-    #    scale = get_scale(size_loc.value)
-    #    src_addr = addr_add(base_loc, ofs_loc, ofs.value, scale)
-    #    self._vec_load(resloc, src_addr, integer_loc.value,
-    #                   size_loc.value, aligned_loc.value)
-    #
-    #genop_vec_getarrayitem_raw_i = _genop_vec_getarrayitem
-    #genop_vec_getarrayitem_raw_f = _genop_vec_getarrayitem
-    #
-    #genop_vec_getarrayitem_gc_i = _genop_vec_getarrayitem
-    #genop_vec_getarrayitem_gc_f = _genop_vec_getarrayitem
-
-    #def _genop_vec_raw_load(self, op, arglocs, resloc):
-    #    base_loc, ofs_loc, size_loc, ofs, integer_loc, aligned_loc = arglocs
-    #    src_addr = addr_add(base_loc, ofs_loc, ofs.value, 0)
-    #    self._vec_load(resloc, src_addr, integer_loc.value,
-    #                   size_loc.value, aligned_loc.value)
-
-    #genop_vec_raw_load_i = _genop_vec_raw_load
-    #genop_vec_raw_load_f = _genop_vec_raw_load
-
-    #def _vec_load(self, resloc, src_addr, integer, itemsize, aligned):
-    #    if integer:
-    #        if aligned:
-    #            self.mc.MOVDQA(resloc, src_addr)
-    #        else:
-    #            self.mc.MOVDQU(resloc, src_addr)
-    #    else:
-    #        if itemsize == 4:
-    #            self.mc.MOVUPS(resloc, src_addr)
-    #        elif itemsize == 8:
-    #            self.mc.MOVUPD(resloc, src_addr)
-
     #def _genop_discard_vec_setarrayitem(self, op, arglocs):
-    #    # considers item scale (raw_store does not)
+    #    # prepares item scale (raw_store does not)
     #    base_loc, ofs_loc, value_loc, size_loc, baseofs, integer_loc, aligned_loc = arglocs
     #    scale = get_scale(size_loc.value)
     #    dest_loc = addr_add(base_loc, ofs_loc, baseofs.value, scale)
@@ -515,9 +523,9 @@ class VectorRegalloc(object):
 
     def force_allocate_vector_reg(self, op):
         forbidden_vars = self.vrm.temp_boxes
-        self.vrm.force_allocate_reg(op, forbidden_vars)
+        return self.vrm.force_allocate_reg(op, forbidden_vars)
 
-    def _consider_load(self, op):
+    def _prepare_load(self, op):
         descr = op.getdescr()
         assert isinstance(descr, ArrayDescr)
         assert not descr.is_array_of_pointers() and \
@@ -531,17 +539,17 @@ class VectorRegalloc(object):
         base_loc = self.ensure_reg(a0)
         ofs_loc = self.ensure_reg(a1)
         result_loc = self.force_allocate_vector_reg(op)
-        self.perform(op, [base_loc, ofs_loc, imm(itemsize), imm(ofs),
-                          imm(integer), imm(aligned)], result_loc)
+        return [result_loc, base_loc, ofs_loc, imm(itemsize), imm(ofs),
+                imm(integer), imm(aligned)]
 
-    consider_vec_getarrayitem_raw_i = _consider_load
-    consider_vec_getarrayitem_raw_f = _consider_load
-    consider_vec_getarrayitem_gc_i = _consider_load
-    consider_vec_getarrayitem_gc_f = _consider_load
-    consider_vec_raw_load_i = _consider_load
-    consider_vec_raw_load_f = _consider_load
+    prepare_vec_getarrayitem_raw_i = _prepare_load
+    prepare_vec_getarrayitem_raw_f = _prepare_load
+    prepare_vec_getarrayitem_gc_i = _prepare_load
+    prepare_vec_getarrayitem_gc_f = _prepare_load
+    prepare_vec_raw_load_i = _prepare_load
+    prepare_vec_raw_load_f = _prepare_load
 
-    #def _consider_vec_setarrayitem(self, op):
+    #def _prepare_vec_setarrayitem(self, op):
     #    descr = op.getdescr()
     #    assert isinstance(descr, ArrayDescr)
     #    assert not descr.is_array_of_pointers() and \
@@ -557,11 +565,11 @@ class VectorRegalloc(object):
     #    self.perform_discard(op, [base_loc, ofs_loc, value_loc,
     #                             imm(itemsize), imm(ofs), imm(integer), imm(aligned)])
 
-    #consider_vec_setarrayitem_raw = _consider_vec_setarrayitem
-    #consider_vec_setarrayitem_gc = _consider_vec_setarrayitem
-    #consider_vec_raw_store = _consider_vec_setarrayitem
+    #prepare_vec_setarrayitem_raw = _prepare_vec_setarrayitem
+    #prepare_vec_setarrayitem_gc = _prepare_vec_setarrayitem
+    #prepare_vec_raw_store = _prepare_vec_setarrayitem
 
-    #def consider_vec_arith(self, op):
+    #def prepare_vec_arith(self, op):
     #    lhs = op.getarg(0)
     #    assert isinstance(op, VectorOp)
     #    size = op.bytesize
@@ -570,27 +578,27 @@ class VectorRegalloc(object):
     #    loc0 = self.xrm.force_result_in_reg(op, op.getarg(0), args)
     #    self.perform(op, [loc0, loc1, imm(size)], loc0)
 
-    #consider_vec_int_add = consider_vec_arith
-    #consider_vec_int_sub = consider_vec_arith
-    #consider_vec_int_mul = consider_vec_arith
-    #consider_vec_float_add = consider_vec_arith
-    #consider_vec_float_sub = consider_vec_arith
-    #consider_vec_float_mul = consider_vec_arith
-    #consider_vec_float_truediv = consider_vec_arith
-    #del consider_vec_arith
+    #prepare_vec_int_add = prepare_vec_arith
+    #prepare_vec_int_sub = prepare_vec_arith
+    #prepare_vec_int_mul = prepare_vec_arith
+    #prepare_vec_float_add = prepare_vec_arith
+    #prepare_vec_float_sub = prepare_vec_arith
+    #prepare_vec_float_mul = prepare_vec_arith
+    #prepare_vec_float_truediv = prepare_vec_arith
+    #del prepare_vec_arith
 
-    #def consider_vec_arith_unary(self, op):
+    #def prepare_vec_arith_unary(self, op):
     #    lhs = op.getarg(0)
     #    assert isinstance(lhs, VectorOp)
     #    args = op.getarglist()
     #    res = self.xrm.force_result_in_reg(op, op.getarg(0), args)
     #    self.perform(op, [res, imm(lhs.bytesize)], res)
 
-    #consider_vec_float_neg = consider_vec_arith_unary
-    #consider_vec_float_abs = consider_vec_arith_unary
-    #del consider_vec_arith_unary
+    #prepare_vec_float_neg = prepare_vec_arith_unary
+    #prepare_vec_float_abs = prepare_vec_arith_unary
+    #del prepare_vec_arith_unary
 
-    #def consider_vec_logic(self, op):
+    #def prepare_vec_logic(self, op):
     #    lhs = op.getarg(0)
     #    assert isinstance(lhs, VectorOp)
     #    args = op.getarglist()
@@ -598,7 +606,7 @@ class VectorRegalloc(object):
     #    result = self.xrm.force_result_in_reg(op, op.getarg(0), args)
     #    self.perform(op, [source, imm(lhs.bytesize)], result)
 
-    #def consider_vec_float_eq(self, op):
+    #def prepare_vec_float_eq(self, op):
     #    assert isinstance(op, VectorOp)
     #    lhs = op.getarg(0)
     #    assert isinstance(lhs, VectorOp)
@@ -607,16 +615,16 @@ class VectorRegalloc(object):
     #    lhsloc = self.xrm.force_result_in_reg(op, op.getarg(0), args)
     #    self.perform(op, [lhsloc, rhsloc, imm(lhs.bytesize)], lhsloc)
 
-    #consider_vec_float_ne = consider_vec_float_eq
-    #consider_vec_int_eq = consider_vec_float_eq
-    #consider_vec_int_ne = consider_vec_float_eq
+    #prepare_vec_float_ne = prepare_vec_float_eq
+    #prepare_vec_int_eq = prepare_vec_float_eq
+    #prepare_vec_int_ne = prepare_vec_float_eq
 
-    #consider_vec_int_and = consider_vec_logic
-    #consider_vec_int_or = consider_vec_logic
-    #consider_vec_int_xor = consider_vec_logic
-    #del consider_vec_logic
+    #prepare_vec_int_and = prepare_vec_logic
+    #prepare_vec_int_or = prepare_vec_logic
+    #prepare_vec_int_xor = prepare_vec_logic
+    #del prepare_vec_logic
 
-    #def consider_vec_pack_i(self, op):
+    #def prepare_vec_pack_i(self, op):
     #    # new_res = vec_pack_i(res, src, index, count)
     #    assert isinstance(op, VectorOp)
     #    arg = op.getarg(1)
@@ -633,9 +641,9 @@ class VectorRegalloc(object):
     #               imm(count.value), imm(op.bytesize)]
     #    self.perform(op, arglocs, resloc)
 
-    #consider_vec_pack_f = consider_vec_pack_i
+    #prepare_vec_pack_f = prepare_vec_pack_i
 
-    #def consider_vec_unpack_i(self, op):
+    #def prepare_vec_unpack_i(self, op):
     #    assert isinstance(op, VectorOp)
     #    index = op.getarg(1)
     #    count = op.getarg(2)
@@ -657,9 +665,9 @@ class VectorRegalloc(object):
     #    arglocs = [resloc, srcloc, imm(residx), imm(index.value), imm(count.value), imm(size)]
     #    self.perform(op, arglocs, resloc)
 
-    #consider_vec_unpack_f = consider_vec_unpack_i
+    #prepare_vec_unpack_f = prepare_vec_unpack_i
 
-    #def consider_vec_expand_f(self, op):
+    #def prepare_vec_expand_f(self, op):
     #    assert isinstance(op, VectorOp)
     #    arg = op.getarg(0)
     #    args = op.getarglist()
@@ -671,7 +679,7 @@ class VectorRegalloc(object):
     #        srcloc = resloc
     #    self.perform(op, [srcloc, imm(op.bytesize)], resloc)
 
-    #def consider_vec_expand_i(self, op):
+    #def prepare_vec_expand_i(self, op):
     #    assert isinstance(op, VectorOp)
     #    arg = op.getarg(0)
     #    args = op.getarglist()
@@ -682,7 +690,7 @@ class VectorRegalloc(object):
     #    resloc = self.xrm.force_allocate_reg(op, args)
     #    self.perform(op, [srcloc, imm(op.bytesize)], resloc)
 
-    #def consider_vec_int_signext(self, op):
+    #def prepare_vec_int_signext(self, op):
     #    assert isinstance(op, VectorOp)
     #    args = op.getarglist()
     #    resloc = self.xrm.force_result_in_reg(op, op.getarg(0), args)
@@ -692,7 +700,7 @@ class VectorRegalloc(object):
     #    assert size > 0
     #    self.perform(op, [resloc, imm(size), imm(op.bytesize)], resloc)
 
-    #def consider_vec_int_is_true(self, op):
+    #def prepare_vec_int_is_true(self, op):
     #    args = op.getarglist()
     #    arg = op.getarg(0)
     #    assert isinstance(arg, VectorOp)
@@ -700,30 +708,30 @@ class VectorRegalloc(object):
     #    resloc = self.xrm.force_result_in_reg(op, arg, args)
     #    self.perform(op, [resloc,imm(arg.bytesize)], None)
 
-    #def _consider_vec(self, op):
+    #def _prepare_vec(self, op):
     #    # pseudo instruction, needed to create a new variable
     #    self.xrm.force_allocate_reg(op)
 
-    #consider_vec_i = _consider_vec
-    #consider_vec_f = _consider_vec
+    #prepare_vec_i = _prepare_vec
+    #prepare_vec_f = _prepare_vec
 
-    #def consider_vec_cast_float_to_int(self, op):
+    #def prepare_vec_cast_float_to_int(self, op):
     #    args = op.getarglist()
     #    srcloc = self.make_sure_var_in_reg(op.getarg(0), args)
     #    resloc = self.xrm.force_result_in_reg(op, op.getarg(0), args)
     #    self.perform(op, [srcloc], resloc)
 
-    #consider_vec_cast_int_to_float = consider_vec_cast_float_to_int
-    #consider_vec_cast_float_to_singlefloat = consider_vec_cast_float_to_int
-    #consider_vec_cast_singlefloat_to_float = consider_vec_cast_float_to_int
+    #prepare_vec_cast_int_to_float = prepare_vec_cast_float_to_int
+    #prepare_vec_cast_float_to_singlefloat = prepare_vec_cast_float_to_int
+    #prepare_vec_cast_singlefloat_to_float = prepare_vec_cast_float_to_int
 
-    #def consider_vec_guard_true(self, op):
+    #def prepare_vec_guard_true(self, op):
     #    arg = op.getarg(0)
     #    loc = self.loc(arg)
     #    self.assembler.guard_vector(op, self.loc(arg), True)
     #    self.perform_guard(op, [], None)
 
-    #def consider_vec_guard_false(self, op):
+    #def prepare_vec_guard_false(self, op):
     #    arg = op.getarg(0)
     #    loc = self.loc(arg)
     #    self.assembler.guard_vector(op, self.loc(arg), False)
