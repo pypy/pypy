@@ -219,10 +219,10 @@ def _PyString_Resize(space, ref, newsize):
     set to NULL, a memory exception is set, and -1 is returned.
     """
     # XXX always create a new string so far
-    py_str = rffi.cast(PyStringObject, ref[0])
-    if pyobj_has_w_obj(py_str):
+    if pyobj_has_w_obj(ref[0]):
         raise oefmt(space.w_SystemError,
                     "_PyString_Resize called on already created string")
+    py_str = rffi.cast(PyStringObject, ref[0])
     try:
         py_newstr = new_empty_str(space, newsize)
     except MemoryError:
