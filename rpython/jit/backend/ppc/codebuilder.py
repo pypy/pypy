@@ -62,6 +62,7 @@ XFL = Form("FM", "frB", "XO1", "Rc")
 XFX = Form("CRM", "rS", "XO1")
 XLL = Form("LL", "XO1")
 XX1 = Form("vrT", "rA", "rB", "XO1")
+VX = Form("lvrT", "lvrA", "lvrB", "XO8")
 
 MI = Form("rA", "rS", "SH", "MB", "ME", "Rc")
 MB = Form("rA", "rS", "rB", "MB", "ME", "Rc")
@@ -583,6 +584,9 @@ class PPCVSXAssembler(object):
     # store
     stxvd2x = XX1(31, XO1=972)
     stxvw4x = XX1(31, XO1=908)
+
+    # integer
+    vaddudm = VX(4, XO8=192)
 
 class PPCAssembler(BasicPPCAssembler, PPCVSXAssembler):
     BA = BasicPPCAssembler

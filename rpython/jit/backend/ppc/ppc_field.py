@@ -44,6 +44,13 @@ fields = { # bit margins are *inclusive*! (and bit 0 is
     "TO":     ( 6, 10),
     "UIMM":   (16, 31),
     "vrT":    (6,  31, 'unsigned', regname._V, 'overlap'),
+    # low vector register T (low in a sense:
+    # can only address 32 vector registers)
+    "lvrT":   (6,  10, 'unsigned', regname._V),
+    # low vector register A
+    "lvrA":   (11, 15, 'unsigned', regname._V),
+    # low vector register B
+    "lvrB":   (16, 20, 'unsigned', regname._V),
     "XO1":    (21, 30),
     "XO2":    (22, 30),
     "XO3":    (26, 30),
@@ -51,6 +58,7 @@ fields = { # bit margins are *inclusive*! (and bit 0 is
     "XO5":    (27, 29),
     "XO6":    (21, 29),
     "XO7":    (27, 30),
+    "XO8":    (21, 31),
     "LL":     ( 9, 10),
 }
 
@@ -102,16 +110,16 @@ class sh(Field):
         value = super(sh, self).decode(inst)
         return (value & 32) << 5 | (value >> 10 & 31)
 
-class tx(Field):
-    def encode(self, value):
-        value = (value & 31) << 20 | (value & 32) >> 5
-        return super(tx, self).encode(value)
-    def decode(self, inst):
-        value = super(tx, self).decode(inst)
-        return (value & 32) << 5 | (value >> 20 & 31)
-    def r(self):
-        import pdb; pdb.set_trace()
-        return super(tx, self).r()
+# ??? class tx(Field):
+# ???     def encode(self, value):
+# ???         value = (value & 31) << 20 | (value & 32) >> 5
+# ???         return super(tx, self).encode(value)
+# ???     def decode(self, inst):
+# ???         value = super(tx, self).decode(inst)
+# ???         return (value & 32) << 5 | (value >> 20 & 31)
+# ???     def r(self):
+# ???         import pdb; pdb.set_trace()
+# ???         return super(tx, self).r()
 # other special fields?
 
 ppc_fields = {
@@ -121,7 +129,7 @@ ppc_fields = {
     "mbe": mbe("mbe",   *fields["mbe"]),
     "sh":  sh("sh",     *fields["sh"]),
     "spr": spr("spr",   *fields["spr"]),
-    "vrT": tx("vrT",    *fields["vrT"]),
+    # ??? "vrT": tx("vrT",    *fields["vrT"]),
 }
 
 for f in fields:

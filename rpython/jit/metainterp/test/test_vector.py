@@ -1,5 +1,6 @@
 import py
 
+from hypothesis import given, note, strategies as st
 from rpython.jit.metainterp.warmspot import ll_meta_interp, get_stats
 from rpython.jit.metainterp.test.support import LLJitMixin
 from rpython.jit.codewriter.policy import StopAtXPolicy
@@ -23,6 +24,8 @@ def malloc(T,n):
 def free(mem):
     lltype.free(mem, flavor='raw')
 
+integers_64bit = st.integers(min_value=-2**63, max_value=2**63-1)
+
 class VectorizeTests:
     enable_opts = 'intbounds:rewrite:virtualize:string:earlyforce:pure:heap:unroll'
 
@@ -37,21 +40,26 @@ class VectorizeTests:
                               type_system=self.type_system,
                               vec=vec, vec_all=vec_all)
 
-    @py.test.mark.parametrize('i',[3,4,5,6,7,8,9,50])
-    def test_vectorize_simple_load_arith_store_int_add_index(self,i):
+    @given(st.lists(integers_64bit, min_size=5, max_size=50),
+           st.lists(integers_64bit, min_size=5, max_size=50))
+    def test_vector_simple(self, la, lb):
         myjitdriver = JitDriver(greens = [],
                                 reds = 'auto',
                                 vectorize=True)
+        i = min(len(la), len(lb))
+        la = la[:i]
+        lb = lb[:i]
+        bc = i*rffi.sizeof(rffi.SIGNED)
+        vc = alloc_raw_storage(bc, zero=True)
+        size = rffi.sizeof(rffi.SIGNED)
         def f(d):
-            bc = d*rffi.sizeof(rffi.SIGNED)
             va = alloc_raw_storage(bc, zero=True)
             vb = alloc_raw_storage(bc, zero=True)
-            vc = alloc_raw_storage(bc, zero=True)
             x = 1
             for i in range(d):
-                j = i*rffi.sizeof(rffi.SIGNED)
-                raw_storage_setitem(va, j, rffi.cast(rffi.SIGNED,i))
-                raw_storage_setitem(vb, j, rffi.cast(rffi.SIGNED,i))
+                j = i*size
+                raw_storage_setitem(va, j, rffi.cast(rffi.SIGNED,la[i]))
+                raw_storage_setitem(vb, j, rffi.cast(rffi.SIGNED,lb[i]))
             i = 0
             while i < bc:
                 myjitdriver.jit_merge_point()
@@ -59,17 +67,15 @@ class VectorizeTests:
                 b = raw_storage_getitem(rffi.SIGNED,vb,i)
                 c = a+b
                 raw_storage_setitem(vc, i, rffi.cast(rffi.SIGNED,c))
-                i += 1*rffi.sizeof(rffi.SIGNED)
-            res = 0
-            for i in range(d):
-                res += raw_storage_getitem(rffi.SIGNED,vc,i*rffi.sizeof(rffi.SIGNED))
+                i += 1*size
 
             free_raw_storage(va)
             free_raw_storage(vb)
-            free_raw_storage(vc)
-            return res
-        res = self.meta_interp(f, [i])
-        assert res == f(i)
+        self.meta_interp(f, [i])
+        for p in range(i):
+            c = raw_storage_getitem(rffi.SIGNED,vc,p*size)
+            assert intmask(la[p] + lb[p]) == c
+        free_raw_storage(vc)
 
     @py.test.mark.parametrize('i',[1,2,3,8,17,128,130,131,142,143])
     def test_vectorize_array_get_set(self,i):

@@ -256,6 +256,8 @@ class Regalloc(BaseRegalloc, VectorRegalloc):
         if var is not None:
             if var.type == FLOAT:
                 self.fprm.possibly_free_var(var)
+            elif var.is_vector() and var.type != VOID:
+                self.vrm.possibly_free_var(var)
             else:
                 self.rm.possibly_free_var(var)
 
@@ -309,10 +311,10 @@ class Regalloc(BaseRegalloc, VectorRegalloc):
             #
             for j in range(op.numargs()):
                 box = op.getarg(j)
-                if box.type != FLOAT:
-                    self.rm.temp_boxes.append(box)
-                elif box.is_vector():
+                if box.is_vector():
                     self.vrm.temp_boxes.append(box)
+                elif box.type != FLOAT:
+                    self.rm.temp_boxes.append(box)
                 else:
                     self.fprm.temp_boxes.append(box)
             #
@@ -436,6 +438,7 @@ class Regalloc(BaseRegalloc, VectorRegalloc):
         # temporary boxes and all the current operation's arguments
         self.rm.free_temp_vars()
         self.fprm.free_temp_vars()
+        self.vrm.free_temp_vars()
 
     # ******************************************************
     # *         P R E P A R E  O P E R A T I O N S         * 

@@ -49,9 +49,9 @@ class VectorAssembler(object):
     def _vec_load(self, resloc, baseloc, indexloc, integer, itemsize, aligned):
         if integer:
             if itemsize == 4:
-                self.mc.lxvd2x(resloc.value, indexloc.value, baseloc.value)
-            elif itemsize == 8:
                 self.mc.lxvw4x(resloc.value, indexloc.value, baseloc.value)
+            elif itemsize == 8:
+                self.mc.lxvd2x(resloc.value, indexloc.value, baseloc.value)
             else:
                 raise NotImplementedError
         else:
@@ -62,6 +62,48 @@ class VectorAssembler(object):
             else:
                 raise NotImplementedError
 
+    def _emit_vec_setitem(self, op, arglocs, regalloc):
+        # prepares item scale (raw_store does not)
+        base_loc, ofs_loc, value_loc, size_loc, baseofs, integer_loc, aligned_loc = arglocs
+        scale = get_scale(size_loc.value)
+        dest_loc = addr_add(base_loc, ofs_loc, baseofs.value, scale)
+        self._vec_store(dest_loc, value_loc, integer_loc.value,
+                        size_loc.value, aligned_loc.value)
+
+    genop_discard_vec_setarrayitem_raw = _emit_vec_setitem
+    genop_discard_vec_setarrayitem_gc = _emit_vec_setitem
+
+    def emit_vec_raw_store(self, op, arglocs, regalloc):
+        baseloc, ofsloc, valueloc, size_loc, baseofs, \
+            integer_loc, aligned_loc = arglocs
+        #dest_loc = addr_add(base_loc, ofs_loc, baseofs.value, 0)
+        assert baseofs.value == 0
+        self._vec_store(baseloc, ofsloc, valueloc, integer_loc.value,
+                        size_loc.value, aligned_loc.value)
+
+    def _vec_store(self, baseloc, indexloc, valueloc, integer, itemsize, aligned):
+        if integer:
+            if itemsize == 4:
+                self.mc.stxvw4x(valueloc.value, indexloc.value, baseloc.value)
+            elif itemsize == 8:
+                self.mc.stxvd2x(valueloc.value, indexloc.value, baseloc.value)
+            else:
+                raise NotImplementedError
+        else:
+            raise NotImplementedError
+
+
+    def emit_vec_int_add(self, op, arglocs, regalloc):
+        resloc, loc0, loc1, size_loc = arglocs
+        size = size_loc.value
+        if size == 1:
+            raise NotImplementedError
+        elif size == 2:
+            raise NotImplementedError
+        elif size == 4:
+            raise NotImplementedError
+        elif size == 8:
+            self.mc.vaddudm(resloc.value, loc0.value, loc1.value)
 
     #def genop_guard_vec_guard_true(self, guard_op, guard_token, locs, resloc):
     #    self.implement_guard(guard_token)
@@ -167,35 +209,6 @@ class VectorAssembler(object):
 
     #    not_implemented("reduce sum for %s not impl." % arg)
 
-    #def _genop_discard_vec_setarrayitem(self, op, arglocs):
-    #    # prepares item scale (raw_store does not)
-    #    base_loc, ofs_loc, value_loc, size_loc, baseofs, integer_loc, aligned_loc = arglocs
-    #    scale = get_scale(size_loc.value)
-    #    dest_loc = addr_add(base_loc, ofs_loc, baseofs.value, scale)
-    #    self._vec_store(dest_loc, value_loc, integer_loc.value,
-    #                    size_loc.value, aligned_loc.value)
-
-    #genop_discard_vec_setarrayitem_raw = _genop_discard_vec_setarrayitem
-    #genop_discard_vec_setarrayitem_gc = _genop_discard_vec_setarrayitem
-
-    #def genop_discard_vec_raw_store(self, op, arglocs):
-    #    base_loc, ofs_loc, value_loc, size_loc, baseofs, integer_loc, aligned_loc = arglocs
-    #    dest_loc = addr_add(base_loc, ofs_loc, baseofs.value, 0)
-    #    self._vec_store(dest_loc, value_loc, integer_loc.value,
-    #                    size_loc.value, aligned_loc.value)
-
-    #def _vec_store(self, dest_loc, value_loc, integer, itemsize, aligned):
-    #    if integer:
-    #        if aligned:
-    #            self.mc.MOVDQA(dest_loc, value_loc)
-    #        else:
-    #            self.mc.MOVDQU(dest_loc, value_loc)
-    #    else:
-    #        if itemsize == 4:
-    #            self.mc.MOVUPS(dest_loc, value_loc)
-    #        elif itemsize == 8:
-    #            self.mc.MOVUPD(dest_loc, value_loc)
-
     #def genop_vec_int_is_true(self, op, arglocs, resloc):
     #    loc, sizeloc = arglocs
     #    temp = X86_64_XMM_SCRATCH_REG
@@ -218,18 +231,6 @@ class VectorAssembler(object):
     #        # NOTE see http://stackoverflow.com/questions/8866973/can-long-integer-routines-benefit-from-sse/8867025#8867025
     #        # There is no 64x64 bit packed mul. For 8 bit either. It is questionable if it gives any benefit?
     #        not_implemented("int8/64 mul")
-
-    #def genop_vec_int_add(self, op, arglocs, resloc):
-    #    loc0, loc1, size_loc = arglocs
-    #    size = size_loc.value
-    #    if size == 1:
-    #        self.mc.PADDB(loc0, loc1)
-    #    elif size == 2:
-    #        self.mc.PADDW(loc0, loc1)
-    #    elif size == 4:
-    #        self.mc.PADDD(loc0, loc1)
-    #    elif size == 8:
-    #        self.mc.PADDQ(loc0, loc1)
 
     #def genop_vec_int_sub(self, op, arglocs, resloc):
     #    loc0, loc1, size_loc = arglocs
@@ -525,6 +526,11 @@ class VectorRegalloc(object):
         forbidden_vars = self.vrm.temp_boxes
         return self.vrm.force_allocate_reg(op, forbidden_vars)
 
+    def ensure_vector_reg(self, box):
+        loc = self.vrm.make_sure_var_in_reg(box,
+                           forbidden_vars=self.vrm.temp_boxes)
+        return loc
+
     def _prepare_load(self, op):
         descr = op.getdescr()
         assert isinstance(descr, ArrayDescr)
@@ -549,43 +555,49 @@ class VectorRegalloc(object):
     prepare_vec_raw_load_i = _prepare_load
     prepare_vec_raw_load_f = _prepare_load
 
-    #def _prepare_vec_setarrayitem(self, op):
-    #    descr = op.getdescr()
-    #    assert isinstance(descr, ArrayDescr)
-    #    assert not descr.is_array_of_pointers() and \
-    #           not descr.is_array_of_structs()
-    #    itemsize, ofs, _ = unpack_arraydescr(descr)
-    #    args = op.getarglist()
-    #    base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
-    #    value_loc = self.make_sure_var_in_reg(op.getarg(2), args)
-    #    ofs_loc = self.rm.make_sure_var_in_reg(op.getarg(1), args)
+    def prepare_vec_arith(self, op):
+        a0 = op.getarg(0)
+        a1 = op.getarg(1)
+        assert isinstance(op, VectorOp)
+        size = op.bytesize
+        args = op.getarglist()
+        loc0 = self.ensure_vector_reg(a0)
+        loc1 = self.ensure_vector_reg(a1)
+        resloc = self.force_allocate_vector_reg(op)
+        return [resloc, loc0, loc1, imm(size)]
 
-    #    integer = not (descr.is_array_of_floats() or descr.getconcrete_type() == FLOAT)
-    #    aligned = False
-    #    self.perform_discard(op, [base_loc, ofs_loc, value_loc,
-    #                             imm(itemsize), imm(ofs), imm(integer), imm(aligned)])
-
-    #prepare_vec_setarrayitem_raw = _prepare_vec_setarrayitem
-    #prepare_vec_setarrayitem_gc = _prepare_vec_setarrayitem
-    #prepare_vec_raw_store = _prepare_vec_setarrayitem
-
-    #def prepare_vec_arith(self, op):
-    #    lhs = op.getarg(0)
-    #    assert isinstance(op, VectorOp)
-    #    size = op.bytesize
-    #    args = op.getarglist()
-    #    loc1 = self.make_sure_var_in_reg(op.getarg(1), args)
-    #    loc0 = self.xrm.force_result_in_reg(op, op.getarg(0), args)
-    #    self.perform(op, [loc0, loc1, imm(size)], loc0)
-
-    #prepare_vec_int_add = prepare_vec_arith
+    prepare_vec_int_add = prepare_vec_arith
     #prepare_vec_int_sub = prepare_vec_arith
     #prepare_vec_int_mul = prepare_vec_arith
     #prepare_vec_float_add = prepare_vec_arith
     #prepare_vec_float_sub = prepare_vec_arith
     #prepare_vec_float_mul = prepare_vec_arith
     #prepare_vec_float_truediv = prepare_vec_arith
-    #del prepare_vec_arith
+    del prepare_vec_arith
+
+    def _prepare_vec_store(self, op):
+        descr = op.getdescr()
+        assert isinstance(descr, ArrayDescr)
+        assert not descr.is_array_of_pointers() and \
+               not descr.is_array_of_structs()
+        itemsize, ofs, _ = unpack_arraydescr(descr)
+        a0 = op.getarg(0)
+        a1 = op.getarg(1)
+        a2 = op.getarg(2)
+        baseloc = self.ensure_reg(a0)
+        ofsloc = self.ensure_reg(a1)
+        valueloc = self.ensure_vector_reg(a2)
+
+        integer = not (descr.is_array_of_floats() or descr.getconcrete_type() == FLOAT)
+        aligned = False
+        return [baseloc, ofsloc, valueloc,
+                imm(itemsize), imm(ofs), imm(integer), imm(aligned)]
+
+    prepare_vec_setarrayitem_raw = _prepare_vec_store
+    prepare_vec_setarrayitem_gc = _prepare_vec_store
+    prepare_vec_raw_store = _prepare_vec_store
+    del _prepare_vec_store
+
 
     #def prepare_vec_arith_unary(self, op):
     #    lhs = op.getarg(0)
