@@ -20,8 +20,6 @@ else:
 
 def c_compile(cfilenames, eci, outputfilename):
     self = rpy_platform
-    self.cfilenames = cfilenames
-    ext = so_ext
     self.libraries = list(eci.libraries)
     self.include_dirs = list(eci.include_dirs)
     self.library_dirs = list(eci.library_dirs)
@@ -47,16 +45,18 @@ def c_compile(cfilenames, eci, outputfilename):
         for framework in self.frameworks:
             self.link_extra += ['-framework', framework]
 
-    self.outputfilename = py.path.local(outputfilename).new(ext=ext)
-    self.eci = eci
+    outputfilename = py.path.local(outputfilename).new(ext=so_ext)
     import distutils.errors
-    basename = self.outputfilename.new(ext='')
+    basename = outputfilename.new(ext='')
     data = ''
     try:
         saved_environ = os.environ.copy()
         c = stdoutcapture.Capture(mixed_out_err=True)
         try:
-            _build(self)
+            _build(
+                cfilenames, outputfilename,
+                list(eci.compile_extra), self.link_extra,
+                self.include_dirs, self.libraries, self.library_dirs)
         finally:
             # workaround for a distutils bugs where some env vars can
             # become longer and longer every time it is used
@@ -75,23 +75,22 @@ def c_compile(cfilenames, eci, outputfilename):
     except:
         print >>sys.stderr, data
         raise
-    return self.outputfilename
+    return outputfilename
 
-def _build(self):
+def _build(cfilenames, outputfilename, compile_extra, link_extra,
+        include_dirs, libraries, library_dirs):
     from distutils.ccompiler import new_compiler
     from distutils import sysconfig
     compiler = new_compiler(force=1)
     sysconfig.customize_compiler(compiler) # XXX
     compiler.spawn = log_spawned_cmd(compiler.spawn)
     objects = []
-    for cfile in self.cfilenames:
+    for cfile in cfilenames:
         cfile = py.path.local(cfile)
-        compile_extra = self.compile_extra[:]
-
         old = cfile.dirpath().chdir()
         try:
             res = compiler.compile([cfile.basename],
-                                    include_dirs=self.eci.include_dirs,
+                                    include_dirs=include_dirs,
                                     extra_preargs=compile_extra)
             assert len(res) == 1
             cobjfile = py.path.local(res[0])
@@ -100,7 +99,8 @@ def _build(self):
         finally:
             old.chdir()
 
-    compiler.link_shared_object(objects, str(self.outputfilename),
-        libraries=self.eci.libraries,
-        extra_preargs=self.link_extra,
-        library_dirs=self.eci.library_dirs)
+    compiler.link_shared_object(
+        objects, str(outputfilename),
+        libraries=libraries,
+        extra_preargs=link_extra,
+        library_dirs=library_dirs)
