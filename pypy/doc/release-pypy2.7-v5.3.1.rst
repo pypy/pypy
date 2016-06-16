@@ -7,7 +7,7 @@ due to issues_ reported by users.
 
 Thanks to those who reported the issues.
 
-.. _issues http://doc.pypy.org/en/latest/whatsnew-pypy2-5.3.1.html
+.. _issues: http://doc.pypy.org/en/latest/whatsnew-pypy2-5.3.1.html
 
 What is PyPy?
 =============
