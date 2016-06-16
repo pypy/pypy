@@ -657,6 +657,8 @@ def type_attach(space, py_obj, w_type):
         pto.c_tp_dealloc = llhelper(
             subtype_dealloc.api_func.functype,
             subtype_dealloc.api_func.get_wrapper(space))
+    if space.is_w(w_type, space.w_str):
+        pto.c_tp_itemsize = 1
     # buffer protocol
     setup_buffer_procs(space, w_type, pto)
 
