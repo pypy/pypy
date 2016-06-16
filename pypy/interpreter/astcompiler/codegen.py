@@ -1018,6 +1018,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.use_next_block(end)
 
     def _visit_list_or_tuple(self, node, elts, ctx, op):
+        #TODO
         elt_count = len(elts) if elts else 0
         if ctx == ast.Store:
             seen_star = False
@@ -1040,7 +1041,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         if ctx == ast.Load:
             self.emit_op_arg(op, elt_count)
     
-    #TODO
     def _visit_starunpack(self, node, elts, ctx, single_op, innter_op, outer_op):
         elt_count = len(elts) if elts else 0
         if ctx == ast.Store:
@@ -1076,7 +1076,12 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def visit_List(self, l):
         self.update_position(l.lineno)
-        self._visit_list_or_tuple(l, l.elts, l.ctx, ops.BUILD_LIST)
+        if l.ctx == ast.Store:
+            self._visit_list_or_tuple_assignment(l, l.elts)
+        elif l.ctx == ast.Load:
+            self._visit_list_or_tuple_starunpack(l, l.elts, l.ctx, ops.BUILD_LIST)
+        else
+            self.visit_sequence(l.elts)
 
     def visit_Dict(self, d):
         self.update_position(d.lineno)
