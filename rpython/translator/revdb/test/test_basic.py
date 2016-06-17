@@ -6,6 +6,8 @@ from rpython.translator.interactive import Translation
 from rpython.rlib.rarithmetic import LONG_BIT
 from rpython.rlib import objectmodel, revdb
 from rpython.rlib.rarithmetic import intmask
+from rpython.rtyper.annlowlevel import cast_gcref_to_instance
+from rpython.rtyper.lltypesystem import lltype, llmemory
 """
 These tests require pexpect (UNIX-only).
 http://pexpect.sourceforge.net/
@@ -314,6 +316,10 @@ class TestDebugCommands(InteractiveTests):
         def _nothing(arg):
             pass
         #
+        def callback_track_obj(gcref):
+            revdb.send_output("callback_track_obj\n")
+            dbstate.gcref = gcref
+        #
         def blip(cmdline):
             revdb.send_output('<<<' + cmdline + '>>>\n')
             if cmdline == 'oops':
@@ -345,11 +351,14 @@ class TestDebugCommands(InteractiveTests):
                     revdb.currently_created_objects()))
             if cmdline.startswith('track-object '):
                 uid = int(cmdline[len('track-object '):])
-                revdb.track_object(uid)
+                dbstate.gcref = lltype.nullptr(llmemory.GCREF.TO)
+                revdb.track_object(uid, callback_track_obj)
             if cmdline == 'get-tracked-object':
-                obj = revdb.get_tracked_object(Stuff)
-                revdb.send_output('None\n' if obj is None else
-                                  ('obj.x=%d\n' % obj.x))
+                if dbstate.gcref:
+                    revdb.send_output('got obj.x=%d\n' % (
+                        cast_gcref_to_instance(Stuff, dbstate.gcref).x,))
+                else:
+                    revdb.send_output('none\n')
             if cmdline == 'first-created-uid':
                 revdb.send_output('first-created-uid=%d\n' % (
                     revdb.first_created_object_uid(),))
@@ -503,32 +512,24 @@ class TestDebugCommands(InteractiveTests):
         child.expectx('<<<track-object %d>>>\r\n' % object_id_3rd +
                       'blipped\r\n'
                       '(1)$ ')
-        prev_time = 1
-        for i in [1, 2, 3]:
+        for i in [1, 2]:
             child.sendline('r get-tracked-object')
             child.expectx('<<<get-tracked-object>>>\r\n'
-                          'None\r\n'
+                          'none\r\n'
                           'blipped\r\n'
-                          '(%d)$ ' % prev_time)
-            child.sendline('__forward %d' % (i - prev_time))
-            child.expectx('(%d)$ ' % i)
-            prev_time = i
-            child.sendline('r print-id')
-            child.expect(re.escape('<<<print-id>>>\r\n')
-                         + r'obj.x=%d (\d+) (\d+)' % (1000 + prev_time - 1)
-                         + re.escape('\r\n'
-                                     'blipped\r\n'
-                                     '(%d)$ ' % prev_time))
+                          '(%d)$ ' % i)
+            child.sendline('__forward 1')
+            child.expectx('(%d)$ ' % (i + 1))
         child.sendline('r get-tracked-object')
         child.expectx('<<<get-tracked-object>>>\r\n'
-                      'obj.x=1002\r\n'
+                      'got obj.x=1002\r\n'
                       'blipped\r\n'
                       '(3)$ ')
         child.sendline('__go 3')
         child.expectx('(3)$ ')
         child.sendline('r get-tracked-object')
         child.expectx('<<<get-tracked-object>>>\r\n'
-                      'None\r\n'
+                      'none\r\n'
                       'blipped\r\n'
                       '(3)$ ')
         #
@@ -559,13 +560,21 @@ class TestDebugCommands(InteractiveTests):
         child.expectx('<<<track-object %d>>>\r\n' % object_id_2nd +
                       'blipped\r\n'
                       '(1)$ ')
-        child.sendline('__forward 5')
-        child.expectx('(2)$ ')
+        child.sendline('__forward 2')
+        child.expectx('(3)$ ')
         child.sendline('r get-tracked-object')
         child.expectx('<<<get-tracked-object>>>\r\n'
-                      'obj.x=1001\r\n'
+                      'got obj.x=1001\r\n'
                       'blipped\r\n'
-                      '(2)$ ')
+                      '(3)$ ')
+        child.sendline('__forward 1')
+        child.expectx('At end.\r\n'
+                      '(3)$ ')
+        child.sendline('r get-tracked-object')
+        child.expectx('<<<get-tracked-object>>>\r\n'
+                      'none\r\n'
+                      'blipped\r\n'
+                      '(3)$ ')
 
     def test_first_created_uid(self):
         child = self.replay()

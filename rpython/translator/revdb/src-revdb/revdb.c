@@ -900,23 +900,22 @@ long long rpy_reverse_db_get_value(char value_id)
     }
 }
 
-static void *tracked_object;
+static void (*unique_id_callback)(void *);
 
 RPY_EXTERN
 uint64_t rpy_reverse_db_unique_id_break(void *new_object)
 {
     rpy_revdb.unique_id_break = 0;
-    tracked_object = new_object;
-    rpy_revdb.stop_point_break = rpy_revdb.stop_point_seen + 1;
+    unique_id_callback(new_object);
     return rpy_revdb.unique_id_seen;
 }
 
 RPY_EXTERN
-void rpy_reverse_db_track_object(long long unique_id)
+void rpy_reverse_db_track_object(long long unique_id, void callback(void *))
 {
     if (stopped_uid <= 0) {
         fprintf(stderr, "stopped_uid should not be <= 0\n");
-        exit(1);
+        return;
     }
     if (unique_id <= 0) {
         printf("cannot track a prebuilt or debugger-created object\n");
@@ -926,14 +925,9 @@ void rpy_reverse_db_track_object(long long unique_id)
         printf("cannot track the creation of an object already created\n");
         return;
     }
+    assert(callback != NULL);
+    unique_id_callback = callback;
     rpy_revdb.unique_id_break = unique_id;
-    tracked_object = NULL;
-}
-
-RPY_EXTERN
-void *rpy_reverse_db_get_tracked_object(void)
-{
-    return tracked_object;
 }
 
 

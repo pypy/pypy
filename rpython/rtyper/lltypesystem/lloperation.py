@@ -573,7 +573,6 @@ LL_OPERATIONS = {
     'revdb_identityhash':   LLOp(),
     'revdb_get_unique_id':  LLOp(sideeffects=False),
     'revdb_track_object':   LLOp(),
-    'revdb_get_tracked_object': LLOp(sideeffects=False),
 }
 # ***** Run test_lloperation after changes. *****
 

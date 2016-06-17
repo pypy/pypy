@@ -91,29 +91,20 @@ def get_unique_id(x):
     """
     return llop.revdb_get_unique_id(lltype.SignedLongLong, x)
 
-def track_object(unique_id):
+def track_object(unique_id, callback):
     """Track the creation of the object given by its unique_id, which must
     be in the future (i.e. >= currently_created_objects()).  Call this
     before go_forward().  If go_forward() goes over the creation of this
-    object, then afterwards, get_tracked_object() returns the object.
-    Going forward is also interrupted at the following stop point.
-    Object tracking is lost by jump_in_time(), like everything else.
+    object, then 'callback(gcref)' is called.  Careful in callback(),
+    gcref is not fully initialized and should not be immediately read from,
+    only stored for later.  The purpose of callback() is to possibly
+    call track_object() again to track the next object, and/or to call
+    breakpoint().  Note: object tracking remains activated until one of:
+    (1) we reach the creation time in go_forward(); (2) we call
+    track_object() to track a different object; (3) we call jump_in_time().
     """
-    llop.revdb_track_object(lltype.Void, unique_id)
-
-@specialize.arg(0)
-def get_tracked_object(Class=llmemory.GCREF):   # or an RPython class
-    """Get the tracked object if it was created during the last go_forward().
-    Otherwise, returns None.  (Note: this API is minimal: to get an
-    object from its unique id, you need first to search backward for a
-    time where currently_created_objects() is lower than the unique_id,
-    then use track_object() and go_forward() to come back.  You can't
-    really track several objects, only one.)
-    """
-    x = llop.revdb_get_tracked_object(llmemory.GCREF)
-    if Class is llmemory.GCREF:
-        return x
-    return cast_gcref_to_instance(Class, x)
+    ll_callback = llhelper(_CALLBACK_GCREF_FNPTR, callback)
+    llop.revdb_track_object(lltype.Void, unique_id, ll_callback)
 
 
 # ____________________________________________________________
@@ -132,6 +123,8 @@ def _make_callback(callback):
     return callback_wrapper
 _CALLBACK_ARG_FNPTR = lltype.Ptr(lltype.FuncType([lltype.Ptr(rstr.STR)],
                                                  lltype.Void))
+_CALLBACK_GCREF_FNPTR = lltype.Ptr(lltype.FuncType([llmemory.GCREF],
+                                                   lltype.Void))
 
 
 class RegisterDebugCommand(ExtRegistryEntry):
