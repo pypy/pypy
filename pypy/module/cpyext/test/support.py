@@ -1,17 +1,9 @@
 import os
-import sys
 import py
-from rpython.translator.platform import log, CompilationError
-from rpython.translator.tool import stdoutcapture
+from rpython.translator.platform import log
 from rpython.translator.platform.distutils_platform import DistutilsPlatform
 
 rpy_platform = DistutilsPlatform()
-
-def log_spawned_cmd(spawn):
-    def spawn_and_log(cmd, *args, **kwds):
-        log.execute(' '.join(cmd))
-        return spawn(cmd, *args, **kwds)
-    return spawn_and_log
 
 if os.name != 'nt':
     so_ext = 'so'
@@ -46,35 +38,18 @@ def c_compile(cfilenames, eci, outputfilename):
             self.link_extra += ['-framework', framework]
 
     outputfilename = py.path.local(outputfilename).new(ext=so_ext)
-    import distutils.errors
-    basename = outputfilename.new(ext='')
-    data = ''
+    saved_environ = os.environ.copy()
     try:
-        saved_environ = os.environ.copy()
-        c = stdoutcapture.Capture(mixed_out_err=True)
-        try:
-            _build(
-                cfilenames, outputfilename,
-                list(eci.compile_extra), self.link_extra,
-                self.include_dirs, self.libraries, self.library_dirs)
-        finally:
-            # workaround for a distutils bugs where some env vars can
-            # become longer and longer every time it is used
-            for key, value in saved_environ.items():
-                if os.environ.get(key) != value:
-                    os.environ[key] = value
-            foutput, foutput = c.done()
-            data = foutput.read()
-            if data:
-                fdump = basename.new(ext='errors').open("wb")
-                fdump.write(data)
-                fdump.close()
-    except (distutils.errors.CompileError,
-            distutils.errors.LinkError):
-        raise CompilationError('', data)
-    except:
-        print >>sys.stderr, data
-        raise
+        _build(
+            cfilenames, outputfilename,
+            list(eci.compile_extra), self.link_extra,
+            self.include_dirs, self.libraries, self.library_dirs)
+    finally:
+        # workaround for a distutils bugs where some env vars can
+        # become longer and longer every time it is used
+        for key, value in saved_environ.items():
+            if os.environ.get(key) != value:
+                os.environ[key] = value
     return outputfilename
 
 def _build(cfilenames, outputfilename, compile_extra, link_extra,
@@ -83,7 +58,6 @@ def _build(cfilenames, outputfilename, compile_extra, link_extra,
     from distutils import sysconfig
     compiler = new_compiler(force=1)
     sysconfig.customize_compiler(compiler) # XXX
-    compiler.spawn = log_spawned_cmd(compiler.spawn)
     objects = []
     for cfile in cfilenames:
         cfile = py.path.local(cfile)
