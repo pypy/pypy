@@ -569,9 +569,7 @@ LL_OPERATIONS = {
     'revdb_send_answer':    LLOp(),
     'revdb_change_time':    LLOp(),
     'revdb_get_value':      LLOp(sideeffects=False),
-    ## 'revdb_set_value':      LLOp(),
-    ## 'revdb_identityhash':   LLOp(),
-    ## 'revdb_get_unique_id':  LLOp(sideeffects=False),
+    'revdb_get_unique_id':  LLOp(sideeffects=False),
     ## 'revdb_track_object':   LLOp(),
 }
 # ***** Run test_lloperation after changes. *****

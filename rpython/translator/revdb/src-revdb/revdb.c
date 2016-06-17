@@ -529,12 +529,11 @@ static void command_fork(void)
 
 static void command_forward(rpy_revdb_command_t *cmd)
 {
-    if (cmd->arg1 < rpy_revdb.stop_point_seen) {
-        fprintf(stderr, "CMD_FORWARD: target time %lld < current time %lld\n",
-                (long long)cmd->arg1, (long long)rpy_revdb.stop_point_seen);
+    if (cmd->arg1 < 0) {
+        fprintf(stderr, "CMD_FORWARD: negative step\n");
         exit(1);
     }
-    rpy_revdb.stop_point_break = cmd->arg1;
+    rpy_revdb.stop_point_break = stopped_time + cmd->arg1;
     pending_after_forward = &answer_std;
 }
 

@@ -1,5 +1,5 @@
 import py
-import os, sys
+import os, sys, subprocess
 import re, array, struct
 from rpython.tool.udir import udir
 from rpython.translator.interactive import Translation
@@ -8,11 +8,8 @@ from rpython.rlib import objectmodel, revdb
 from rpython.rlib.rarithmetic import intmask
 from rpython.rtyper.annlowlevel import cast_gcref_to_instance
 from rpython.rtyper.lltypesystem import lltype, llmemory
-"""
-These tests require pexpect (UNIX-only).
-http://pexpect.sourceforge.net/
-"""
-import pexpect
+
+from rpython.translator.revdb.revmsg import *
 
 
 class RDB(object):
@@ -211,19 +208,18 @@ class TestRecording(object):
             assert rdb.done()
 
 
-class InteractiveTests(object):
-    EOF = pexpect.EOF
 
-    def replay(self, **kwds):
-        kwds.setdefault('timeout', 10)
-        child = pexpect.spawn(str(self.exename),
-                              ['--revdb-replay', str(self.rdbname)], **kwds)
-        child.logfile = sys.stdout
-        def expectx(s):
-            child.expect(re.escape(s))
-        assert not hasattr(child, 'expectx')
-        child.expectx = expectx
-        return child
+
+
+
+class InteractiveTests(object):
+
+    def replay(self):
+        child = subprocess.Popen(
+            [str(self.exename), '--revdb-replay', str(self.rdbname)],
+            stdin  = subprocess.PIPE,
+            stdout = subprocess.PIPE)
+        return ReplayProcess(child.stdin, child.stdout)
 
 
 class TestSimpleInterpreter(InteractiveTests):
@@ -246,14 +242,12 @@ class TestSimpleInterpreter(InteractiveTests):
 
     def test_go(self):
         child = self.replay()
-        child.expectx('stop_points=3\r\n'
-                      '(3)$ ')
-        child.sendline('__go 1')
-        child.expectx('(1)$ ')
-        child.sendline('')
-        child.expectx('(1)$ ')
-        child.sendline('__go 52')
-        child.expectx('(3)$ ')
+        child.expect(ANSWER_INIT, INIT_VERSION_NUMBER, 3)
+        child.expect(ANSWER_STD, 1, Ellipsis)
+        child.send(Message(CMD_FORWARD, 2))
+        child.expect(ANSWER_STD, 3, Ellipsis)
+        child.send(Message(CMD_FORWARD, 2))
+        child.expect(ANSWER_AT_END)
 
     def test_help(self):
         child = self.replay()
