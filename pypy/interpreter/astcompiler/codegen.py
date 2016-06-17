@@ -1073,19 +1073,19 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def visit_Tuple(self, tup):
         self.update_position(tup.lineno)
-        if l.ctx == ast.Store:
-            self._visit_list_or_tuple_assignment(l, l.elts)
-        elif l.ctx == ast.Load:
-            self._visit_list_or_tuple_starunpack(tup, tup.elts, tup.ctx, ops.BUILD_TUPLE)
+        if tup.ctx == ast.Store:
+            self._visit_list_or_tuple_assignment(tup, tup.elts, tup.ctx)
+        elif tup.ctx == ast.Load:
+            self._visit_list_or_tuple_starunpack(tup, tup.elts, tup.ctx, ops.BUILD_TUPLE, ops.BUILD_TUPLE, ops.BUILD_TUPLE_UNPACK)
         else:
-            self.visit_sequence(l.elts)
+            self.visit_sequence(tup.elts)
 
     def visit_List(self, l):
         self.update_position(l.lineno)
         if l.ctx == ast.Store:
-            self._visit_list_or_tuple_assignment(l, l.elts)
+            self._visit_list_or_tuple_assignment(l, l.elts, l.ctx)
         elif l.ctx == ast.Load:
-            self._visit_list_or_tuple_starunpack(l, l.elts, l.ctx, ops.BUILD_LIST)
+            self._visit_list_or_tuple_starunpack(l, l.elts, l.ctx, ops.BUILD_LIST, ops.BUILD_TUPLE, ops.BUILD_LIST_UNPACK)
         else:
             self.visit_sequence(l.elts)
 
