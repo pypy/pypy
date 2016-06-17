@@ -19,6 +19,7 @@ typedef struct {
     char *buf_p, *buf_limit;
     uint64_t stop_point_seen, stop_point_break;
     uint64_t unique_id_seen, unique_id_break;
+    void *saved_exc[2];
 } rpy_revdb_t;
 
 RPY_EXTERN rpy_revdb_t rpy_revdb;
