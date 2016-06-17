@@ -208,18 +208,15 @@ class TestRecording(object):
             assert rdb.done()
 
 
-
-
-
-
 class InteractiveTests(object):
 
     def replay(self):
-        child = subprocess.Popen(
+        subproc = subprocess.Popen(
             [str(self.exename), '--revdb-replay', str(self.rdbname)],
             stdin  = subprocess.PIPE,
             stdout = subprocess.PIPE)
-        return ReplayProcess(child.stdin, child.stdout)
+        self.subproc = subproc
+        return ReplayProcess(subproc.stdin, subproc.stdout)
 
 
 class TestSimpleInterpreter(InteractiveTests):
@@ -249,40 +246,12 @@ class TestSimpleInterpreter(InteractiveTests):
         child.send(Message(CMD_FORWARD, 2))
         child.expect(ANSWER_AT_END)
 
-    def test_help(self):
-        child = self.replay()
-        child.sendline('help')
-        child.expectx('select command:\r\n')
-        # ...
-        child.expectx('(3)$ ')
-        child.sendline('info')
-        child.expectx("info ?=-1\r\n")
-
-    def test_info_fork(self):
-        child = self.replay()
-        child.sendline('info fork')
-        child.expectx('info f=3\r\n')
-
     def test_quit(self):
         child = self.replay()
-        child.sendline('quit')
-        child.expect(self.EOF)
-
-    def test_forward(self):
-        child = self.replay()
-        child.sendline('__go 1')
-        child.expectx('(1)$ ')
-        child.sendline('__forward 1')
-        child.expectx('(2)$ ')
-        child.sendline('__forward 1')
-        child.expectx('(3)$ ')
-        child.sendline('info fork')
-        child.expectx('info f=1\r\n')
-        child.sendline('__forward 1')
-        child.expectx('At end.\r\n'
-                      '(3)$ ')
-        child.sendline('info fork')
-        child.expectx('info f=3\r\n')
+        child.expect(ANSWER_INIT, INIT_VERSION_NUMBER, 3)
+        child.expect(ANSWER_STD, 1, Ellipsis)
+        child.send(Message(CMD_QUIT))
+        assert self.subproc.wait() == 0
 
 
 class TestDebugCommands(InteractiveTests):
