@@ -52,6 +52,10 @@ def go_forward(time_delta, callback, arg_string):
     """
     _change_time('f', time_delta, callback, arg_string)
 
+@specialize.arg(0)
+def breakpoint(callback, arg_string):
+    _change_time('k', 1, callback, arg_string)
+
 @specialize.arg(1)
 def jump_in_time(target_time, callback, arg_string, exact=True):
     """For RPython debug commands: the debugger should run the

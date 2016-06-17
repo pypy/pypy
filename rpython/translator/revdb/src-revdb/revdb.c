@@ -861,6 +861,19 @@ void rpy_reverse_db_change_time(char mode, long long time,
     case 'b':       /* go non exact */
         cmd_go(time >= 1 ? time : 1, callback, arg, mode);
         abort();    /* unreachable */
+
+    case 'k':       /* breakpoint */
+        assert(time > 0);
+        if (stopped_time != 0) {
+            fprintf(stderr, "revdb.breakpoint(): cannot be called from a "
+                            "debug command\n");
+            exit(1);
+        }
+        rpy_revdb.stop_point_break = rpy_revdb.stop_point_seen + time;
+        invoke_after_forward = callback;
+        invoke_argument = arg;
+        break;
+
     default:
         abort();    /* unreachable */
     }
@@ -892,6 +905,7 @@ static void *tracked_object;
 RPY_EXTERN
 uint64_t rpy_reverse_db_unique_id_break(void *new_object)
 {
+    rpy_revdb.unique_id_break = 0;
     tracked_object = new_object;
     rpy_revdb.stop_point_break = rpy_revdb.stop_point_seen + 1;
     return rpy_revdb.unique_id_seen;
