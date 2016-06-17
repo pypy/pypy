@@ -1,9 +1,6 @@
 import os
 import py
-from rpython.translator.platform import log
-from rpython.translator.platform.distutils_platform import DistutilsPlatform
-
-rpy_platform = DistutilsPlatform()
+from sys import platform
 
 if os.name != 'nt':
     so_ext = 'so'
@@ -18,15 +15,14 @@ def c_compile(cfilenames, outputfilename,
     include_dirs = include_dirs or []
     libraries = libraries or []
     library_dirs = library_dirs or []
-    self = rpy_platform
-    if not self.name in ('win32', 'darwin', 'cygwin'): # xxx
+    if not platform in ('win32', 'darwin', 'cygwin'): # xxx
         if 'm' not in libraries:
             libraries.append('m')
         if 'pthread' not in libraries:
             libraries.append('pthread')
-    if self.name == 'win32':
+    if platform == 'win32':
         link_extra = link_extra + ['/DEBUG'] # generate .pdb file
-    if self.name == 'darwin':
+    if platform == 'darwin':
         # support Fink & Darwinports
         for s in ('/sw/', '/opt/local/'):
             if (s + 'include' not in include_dirs
