@@ -1,11 +1,13 @@
 import sys
 from rpython.rlib.objectmodel import we_are_translated, fetch_translated_config
 from rpython.rlib.objectmodel import specialize
+from rpython.rlib.rarithmetic import r_longlong
 from rpython.rtyper.lltypesystem import lltype, llmemory, rstr
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.annlowlevel import llhelper, hlstr
 from rpython.rtyper.annlowlevel import cast_gcref_to_instance
+from rpython.rtyper.lltypesystem import rffi
 
 
 def stop_point():
@@ -20,9 +22,9 @@ def stop_point():
 def register_debug_command(command, lambda_func):
     """Register the extra RPython-implemented debug command."""
 
-def send_output(string):
-    """For RPython debug commands: writes the string to stdout."""
-    llop.revdb_send_output(lltype.Void, string)
+def send_answer(cmd, arg1=0, arg2=0, arg3=0, extra=""):
+    """For RPython debug commands: writes an answer block to stdout"""
+    llop.revdb_send_answer(lltype.Void, cmd, arg1, arg2, arg3, extra)
 
 def current_time():
     """For RPython debug commands: returns the current time."""
@@ -33,40 +35,10 @@ def current_break_time():
     this is the target time at which we'll stop going forward."""
     return llop.revdb_get_value(lltype.SignedLongLong, 'b')
 
-def most_recent_fork():
-    """For RPython debug commands: returns the time of the most
-    recent fork.  Going back to that time is fast; going back to a time
-    just before is slow."""
-    return llop.revdb_get_value(lltype.SignedLongLong, 'f')
-
 def total_time():
     """For RPython debug commands: returns the total time (measured
     as the total number of stop-points)."""
     return llop.revdb_get_value(lltype.SignedLongLong, 't')
-
-@specialize.arg(1)
-def go_forward(time_delta, callback, arg_string):
-    """For RPython debug commands: tells that after this function finishes,
-    the debugger should run the 'forward <time_delta>' command and then
-    invoke the 'callback' with no argument.
-    """
-    _change_time('f', time_delta, callback, arg_string)
-
-@specialize.arg(0)
-def breakpoint(callback, arg_string):
-    _change_time('k', 1, callback, arg_string)
-
-@specialize.arg(1)
-def jump_in_time(target_time, callback, arg_string, exact=True):
-    """For RPython debug commands: the debugger should run the
-    'go <target_time>' command.  This will reset the memory and fork again,
-    so you can't save any RPython state and read it back.  You can only
-    encode the state you want to save into a string.  In the reloaded
-    process, 'callback(arg_string)' is called.  If 'exact' is False, go to
-    the fork point before target_time but don't go_forward to exactly
-    target_time afterwards.
-    """
-    _change_time('g' if exact else 'b', target_time, callback, arg_string)
 
 def currently_created_objects():
     """For RPython debug commands: returns the current value of
@@ -75,11 +47,13 @@ def currently_created_objects():
     unique id greater or equal."""
     return llop.revdb_get_value(lltype.SignedLongLong, 'u')
 
-def first_created_object_uid():
-    """Returns the creation number of the first object dynamically created
-    by the program.  Older objects are either prebuilt or created before
-    the first stop point."""
-    return llop.revdb_get_value(lltype.SignedLongLong, '1')
+@specialize.arg(1)
+def go_forward(time_delta, callback):
+    """For RPython debug commands: tells that after this function finishes,
+    the debugger should run the 'forward <time_delta>' command and then
+    invoke the 'callback' with no argument.
+    """
+    _change_time('f', time_delta, callback)
 
 @specialize.argtype(0)
 def get_unique_id(x):
@@ -111,10 +85,10 @@ def track_object(unique_id, callback):
 
 
 @specialize.arg(2)
-def _change_time(mode, time, callback, arg_string):
+def _change_time(mode, time, callback):
     callback_wrapper = _make_callback(callback)
     ll_callback = llhelper(_CALLBACK_ARG_FNPTR, callback_wrapper)
-    llop.revdb_change_time(lltype.Void, mode, time, ll_callback, arg_string)
+    llop.revdb_change_time(lltype.Void, mode, time, ll_callback)
 
 @specialize.memo()
 def _make_callback(callback):
@@ -125,16 +99,23 @@ _CALLBACK_ARG_FNPTR = lltype.Ptr(lltype.FuncType([lltype.Ptr(rstr.STR)],
                                                  lltype.Void))
 _CALLBACK_GCREF_FNPTR = lltype.Ptr(lltype.FuncType([llmemory.GCREF],
                                                    lltype.Void))
+_CMDPTR = rffi.CStructPtr('rpy_revdb_command_s',
+                          ('cmd', rffi.INT),
+                          ('arg1', lltype.SignedLongLong),
+                          ('arg2', lltype.SignedLongLong),
+                          ('arg3', lltype.SignedLongLong))
 
 
 class RegisterDebugCommand(ExtRegistryEntry):
     _about_ = register_debug_command
 
-    def compute_result_annotation(self, s_command, s_lambda_func):
+    def compute_result_annotation(self, s_command_num, s_lambda_func):
         from rpython.annotator import model as annmodel
-        command = s_command.const
+        from rpython.rtyper import llannotation
+
+        command_num = s_command_num.const
         lambda_func = s_lambda_func.const
-        assert isinstance(command, str)
+        assert isinstance(command_num, int)
         t = self.bookkeeper.annotator.translator
         if t.config.translation.reverse_debugger:
             func = lambda_func()
@@ -142,10 +123,12 @@ class RegisterDebugCommand(ExtRegistryEntry):
                 cmds = t.revdb_commands
             except AttributeError:
                 cmds = t.revdb_commands = []
-            cmds.append((command, func))
+            cmds.append((command_num, func))
             s_func = self.bookkeeper.immutablevalue(func)
+            s_ptr1 = llannotation.SomePtr(ll_ptrtype=_CMDPTR)
+            s_ptr2 = llannotation.SomePtr(ll_ptrtype=rffi.CCHARP)
             self.bookkeeper.emulate_pbc_call(self.bookkeeper.position_key,
-                                             s_func, [annmodel.s_Str0])
+                                             s_func, [s_ptr1, s_ptr2])
 
     def specialize_call(self, hop):
         hop.exception_cannot_occur()

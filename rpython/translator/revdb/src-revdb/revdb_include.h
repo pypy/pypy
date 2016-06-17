@@ -1,5 +1,4 @@
 #include <string.h>
-#include <stdint.h>
 
 /* By default, this makes an executable which supports both recording
    and replaying.  It should help avoid troubles like using for
@@ -85,8 +84,8 @@ RPY_EXTERN void rpy_reverse_db_teardown(void);
 #define OP_REVDB_SEND_OUTPUT(ll_string, r)                              \
     rpy_reverse_db_send_output(ll_string)
 
-#define OP_REVDB_CHANGE_TIME(mode, time, callback, ll_string, r)        \
-    rpy_reverse_db_change_time(mode, time, callback, ll_string)
+#define OP_REVDB_CHANGE_TIME(mode, time, callback, r)                   \
+    rpy_reverse_db_change_time(mode, time, callback)
 
 #define OP_REVDB_GET_VALUE(value_id, r)                                 \
     r = rpy_reverse_db_get_value(value_id)
@@ -107,8 +106,7 @@ RPY_EXTERN void rpy_reverse_db_stop_point(void);
 RPY_EXTERN void rpy_reverse_db_send_output(RPyString *output);
 RPY_EXTERN Signed rpy_reverse_db_identityhash(struct pypy_header0 *obj);
 RPY_EXTERN void rpy_reverse_db_change_time(char mode, long long time,
-                                           void callback(RPyString *),
-                                           RPyString *arg);
+                                           void callback(void));
 RPY_EXTERN long long rpy_reverse_db_get_value(char value_id);
 RPY_EXTERN uint64_t rpy_reverse_db_unique_id_break(void *new_object);
 RPY_EXTERN void rpy_reverse_db_track_object(long long unique_id,

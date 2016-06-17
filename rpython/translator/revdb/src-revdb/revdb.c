@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <ctype.h>
 #include <setjmp.h>
+#include <signal.h>
 
 #include "structdef.h"
 #include "forwarddecl.h"
@@ -175,70 +176,42 @@ Signed rpy_reverse_db_identityhash(struct pypy_header0 *obj)
 /* ------------------------------------------------------------ */
 
 
-/* How it works: the main process reads the RevDB file and
-   reconstructs the GC objects, in effect replaying their content, for
-   the complete duration of the original program.  During this
-   replaying, it forks a fixed number of frozen processes which sit
-   around, each keeping the version of the GC objects contents at some
-   known version.  We have one pipe for every frozen process, which
-   the frozen process is blocked reading.
-
-    [main process]
-        [frozen process 1]
-        [frozen process 2]
-            [debugging process]
-        [frozen process 3]
-        [frozen process 4]
-        ...
-        [frozen process n]
-
-   The main process's job, once reloading is finished, is only to
-   active debugging processes, one at a time.  To go to a specific
-   target time, it activates the right frozen process by sending
-   'target_time' over the corresponding pipe.  The frozen process
-   forks the debugging process, and the debugging process goes forward
-   until it reaches 'target_time'.
-
-   The debugging process is then interacting with the user on
-   stdin/stdout.
-
-   A few commands like 'go <target_time>' will cause the debugging
-   process to send the 'target_time' back over a signalling pipe to
-   the main process, and then finish.  The main process receives that
-   'target_time', and the loop closes: it activates the right frozen
-   process, which will go forward and re-enter interactive mode.
+/* How it works: we run the same executable with different flags to
+   run it in "replay" mode.  In this mode, it reads commands from
+   stdin (in binary format) and writes the results to stdout.
+   Notably, there is a command to ask it to fork, passing a new pair
+   of pipes to the forked copy as its new stdin/stdout.  This is how
+   we implement the illusion of going backward: we throw away the
+   current fork, start from an earlier fork, make a new fork again,
+   and go forward by the correct number of steps.  This is all
+   controlled by a pure Python wrapper that is roughly generic
+   (i.e. able to act as a debugger for any language).
 */
 
-#define NUM_FROZEN_PROCESSES   30
-#define STEP_RATIO             0.25
+#include "src-revdb/fd_recv.c"
 
-#define RD_SIDE   0
-#define WR_SIDE   1
+#define INIT_VERSION_NUMBER   0xd80100
 
-static int frozen_num_pipes = 0;
-static int frozen_pipes[NUM_FROZEN_PROCESSES][2];
-static uint64_t frozen_time[NUM_FROZEN_PROCESSES];
-static int frozen_pipe_signal[2];
+#define CMD_FORK     (-1)
+#define CMD_QUIT     (-2)
+#define CMD_FORWARD  (-3)
 
-enum { PK_MAIN_PROCESS, PK_FROZEN_PROCESS, PK_DEBUG_PROCESS };
-static unsigned char process_kind = PK_MAIN_PROCESS;
-static jmp_buf jmp_buf_cancel_execution;
-static uint64_t most_recent_fork;
-static uint64_t total_stop_points;
+#define ANSWER_INIT    (-20)
+#define ANSWER_STD     (-21)
+#define ANSWER_FORKED  (-22)
+#define ANSWER_AT_END  (-23)
+
+#define RDB_STDIN   0
+#define RDB_STDOUT  1
+
+typedef void (*rpy_revdb_command_fn)(rpy_revdb_command_t *, char *);
+
+static const char *rpy_rev_filename;
 static uint64_t stopped_time;
 static uint64_t stopped_uid;
-static uint64_t first_created_uid;
-
-static void (*invoke_after_forward)(RPyString *);
-static RPyString *invoke_argument;
-
-struct jump_in_time_s {
-    uint64_t target_time;
-    char mode;
-    void *callback;
-    size_t arg_length;
-};
-
+static uint64_t total_stop_points;
+static jmp_buf jmp_buf_cancel_execution;
+static void (*pending_after_forward)(void);
 
 static void attach_gdb(void)
 {
@@ -256,11 +229,9 @@ static ssize_t read_at_least(void *buf, ssize_t count_min, ssize_t count_max)
         ssize_t rsize = read(rpy_rev_fileno, buf + result, count_max - result);
         if (rsize <= 0) {
             if (rsize == 0)
-                fprintf(stderr, "[%d] RevDB file appears truncated\n",
-                        process_kind);
+                fprintf(stderr, "RevDB file appears truncated\n");
             else
-                fprintf(stderr, "[%d] RevDB file read error: %m\n",
-                        process_kind);
+                fprintf(stderr, "RevDB file read error: %m\n");
             exit(1);
         }
         result += rsize;
@@ -273,11 +244,63 @@ static void read_all(void *buf, ssize_t count)
     (void)read_at_least(buf, count, count);
 }
 
+
+static void read_pipe(int fd, void *buf, ssize_t count)
+{
+    while (count > 0) {
+        ssize_t got = read(fd, buf, count);
+        if (got <= 0) {
+            fprintf(stderr, "subprocess: cannot read pipe %d\n", fd);
+            exit(1);
+        }
+        count -= got;
+        buf += got;
+    }
+}
+
+static void write_pipe(int fd, const void *buf, ssize_t count)
+{
+    while (count > 0) {
+        ssize_t wrote = write(fd, buf, count);
+        if (wrote <= 0) {
+            fprintf(stderr, "subprocess: cannot write to pipe %d\n", fd);
+            exit(1);
+        }
+        count -= wrote;
+        buf += wrote;
+    }
+}
+
+static void write_answer(int cmd, int64_t arg1, int64_t arg2, int64_t arg3)
+{
+    rpy_revdb_command_t c;
+    memset(&c, 0, sizeof(c));
+    c.cmd = cmd;
+    c.arg1 = arg1;
+    c.arg2 = arg2;
+    c.arg3 = arg3;
+    write_pipe(RDB_STDOUT, &c, sizeof(c));
+}
+
+static void answer_std(void)
+{
+    write_answer(ANSWER_STD, rpy_revdb.stop_point_seen,
+                 rpy_revdb.unique_id_seen, 0);
+}
+
+static void reopen_revdb_file(const char *filename)
+{
+    rpy_rev_fileno = open(filename, O_RDONLY | O_NOCTTY);
+    if (rpy_rev_fileno < 0) {
+        fprintf(stderr, "Can't open file '%s': %m\n", filename);
+        exit(1);
+    }
+}
+
 static void setup_replay_mode(int *argc_p, char **argv_p[])
 {
     int argc = *argc_p;
     char **argv = *argv_p;
-    char *filename;
     rdb_header_t h;
     char input[16];
     ssize_t count;
@@ -286,20 +309,15 @@ static void setup_replay_mode(int *argc_p, char **argv_p[])
         fprintf(stderr, "syntax: %s --revdb-replay <RevDB-file>\n", argv[0]);
         exit(2);
     }
-    filename = argv[2];
-
-    rpy_rev_fileno = open(filename, O_RDONLY | O_NOCTTY);
-    if (rpy_rev_fileno < 0) {
-        fprintf(stderr, "Can't open file '%s': %m\n", filename);
-        exit(1);
-    }
+    rpy_rev_filename = argv[2];
+    reopen_revdb_file(rpy_rev_filename);
 
     assert(RPY_RDB_REPLAY == 1);
 
     read_all(input, strlen(RDB_SIGNATURE));
     if (strncmp(input, RDB_SIGNATURE, strlen(RDB_SIGNATURE)) != 0) {
         fprintf(stderr, "'%s' is not a RevDB file (or wrong platform)\n",
-                filename);
+                rpy_rev_filename);
         exit(1);
     }
     fprintf(stderr, "%s", RDB_SIGNATURE);
@@ -321,7 +339,7 @@ static void setup_replay_mode(int *argc_p, char **argv_p[])
             read(rpy_rev_fileno, &total_stop_points,
                  sizeof(uint64_t)) != sizeof(uint64_t) ||
             lseek(rpy_rev_fileno, count, SEEK_SET) != count) {
-        fprintf(stderr, "%s: %m\n", filename);
+        fprintf(stderr, "%s: %m\n", rpy_rev_filename);
         exit(1);
     }
 
@@ -330,10 +348,12 @@ static void setup_replay_mode(int *argc_p, char **argv_p[])
     rpy_revdb.stop_point_break = 1;
     rpy_revdb.unique_id_seen = 1;
 
-    if (pipe(frozen_pipe_signal) < 0) {
-        perror("pipe");
-        exit(1);
-    }
+    write_answer(ANSWER_INIT, INIT_VERSION_NUMBER, total_stop_points, 0);
+    pending_after_forward = &answer_std;
+
+    /* ignore the SIGCHLD signals so that child processes don't become
+       zombies */
+    signal(SIGCHLD, SIG_IGN);
 }
 
 RPY_EXTERN
@@ -379,9 +399,10 @@ static void enable_io(rpy_revdb_t *dinfo)
     flag_io_disabled = 0;
 
     if (pypy_g_ExcData.ed_exc_type != NULL) {
-        printf("Command crashed with %.*s\n",
-               (int)(pypy_g_ExcData.ed_exc_type->ov_name->rs_chars.length),
-               pypy_g_ExcData.ed_exc_type->ov_name->rs_chars.items);
+        fprintf(stderr, "Command crashed with %.*s\n",
+                (int)(pypy_g_ExcData.ed_exc_type->ov_name->rs_chars.length),
+                pypy_g_ExcData.ed_exc_type->ov_name->rs_chars.items);
+        exit(1);
     }
     /* restore the complete struct, with the exception of '*_break' */
     v1 = rpy_revdb.stop_point_break;
@@ -393,24 +414,7 @@ static void enable_io(rpy_revdb_t *dinfo)
     pypy_g_ExcData.ed_exc_value = dinfo->saved_exc[1];
 }
 
-/* generated by RPython */
-extern char *rpy_revdb_command_names[];
-extern void (*rpy_revdb_command_funcs[])(RPyString *);
-
-static RPyString *make_rpy_string(size_t length)
-{
-    RPyString *s = malloc(sizeof(RPyString) + length);
-    if (s == NULL) {
-        fprintf(stderr, "out of memory for a string of %llu chars\n",
-                (unsigned long long)length);
-        exit(1);
-    }
-    /* xxx assumes Boehm here for now */
-    memset(s, 0, sizeof(RPyString));
-    RPyString_Size(s) = length;
-    return s;
-}
-
+/*
 static void execute_rpy_function(void func(RPyString *), RPyString *arg);
 
 static void execute_rpy_command(long index, char *arguments)
@@ -425,152 +429,27 @@ static void execute_rpy_command(long index, char *arguments)
 
     execute_rpy_function(rpy_revdb_command_funcs[index], s);
 }
+*/
 
-static void execute_rpy_function(void func(RPyString *), RPyString *arg)
+static void execute_rpy_function(rpy_revdb_command_fn func,
+                                 rpy_revdb_command_t *cmd,
+                                 char *extra)
 {
     rpy_revdb_t dinfo;
     disable_io(&dinfo);
-    invoke_after_forward = NULL;
-    invoke_argument = NULL;
     if (setjmp(jmp_buf_cancel_execution) == 0)
-        func(arg);
+        func(cmd, extra);
     enable_io(&dinfo);
-}
-
-struct action_s {
-    const char *name;
-    void (*act)(char *);
-};
-
-static void process_input(char *input, const char *kind, int rpycmd,
-                          struct action_s actions[])
-{
-    char *p;
-    struct action_s *a;
-
-    while (isspace(*input))
-        input++;
-    p = input;
-    while (*p != 0 && !isspace(*p))
-        p++;
-    if (*p != 0) {
-        *p = 0;
-        do {
-            p++;
-        } while (isspace(*p));
-    }
-
-    if (rpycmd) {
-        long i;
-        for (i = 0; rpy_revdb_command_names[i] != NULL; i++) {
-            if (strcmp(rpy_revdb_command_names[i], input) == 0) {
-                execute_rpy_command(i, p);
-                return;
-            }
-        }
-    }
-
-    for (a = actions; a->name != NULL; a++) {
-        if (strcmp(a->name, input) == 0) {
-            a->act(p);
-            return;
-        }
-    }
-    if (strcmp(input, "help") == 0) {
-        printf("select %s:\n", kind);
-        if (rpycmd) {
-            char **p;
-            for (p = rpy_revdb_command_names; *p != NULL; p++)
-                printf("\t%s\n", *p);
-        }
-        for (a = actions; a->name != NULL; a++) {
-            if (*a->name != 0)
-                printf("\t%s\n", a->name);
-        }
-    }
-    else {
-        printf("bad %s '%s', try 'help'\n", kind, input);
-    }
-}
-
-static int read_pipe(int fd, void *buf, ssize_t count)
-{
-    while (count > 0) {
-        ssize_t got = read(fd, buf, count);
-        if (got <= 0)
-            return -1;
-        count -= got;
-        buf += got;
-    }
-    return 0;
-}
-
-static int write_pipe(int fd, const void *buf, ssize_t count)
-{
-    while (count > 0) {
-        ssize_t wrote = write(fd, buf, count);
-        if (wrote <= 0)
-            return -1;
-        count -= wrote;
-        buf += wrote;
-    }
-    return 0;
-}
-
-static int copy_pipe(int dst_fd, int src_fd, ssize_t count)
-{
-    char buffer[16384];
-    while (count > 0) {
-        ssize_t count1 = count > sizeof(buffer) ? sizeof(buffer) : count;
-        if (read_pipe(src_fd, buffer, count1) < 0 ||
-            write_pipe(dst_fd, buffer, count1) < 0)
-            return -1;
-        count -= count1;
-    }
-    return 0;
-}
-
-static void cmd_go(uint64_t target_time, void callback(RPyString *),
-                   RPyString *arg, char mode)
-{
-    struct jump_in_time_s header;
-
-    header.target_time = target_time;
-    header.mode = mode;
-    header.callback = callback;    /* may be NULL */
-    /* ^^^ assumes the fn address is the same in the various forks */
-    header.arg_length = arg == NULL ? 0 : RPyString_Size(arg);
-
-    assert(process_kind == PK_DEBUG_PROCESS);
-    write_pipe(frozen_pipe_signal[WR_SIDE], &header, sizeof(header));
-    if (header.arg_length > 0) {
-        write_pipe(frozen_pipe_signal[WR_SIDE], _RPyString_AsString(arg),
-                   header.arg_length);
-    }
-    exit(0);
 }
 
 static void check_at_end(uint64_t stop_points)
 {
     char dummy[1];
-    struct jump_in_time_s jump_in_time;
-
-    if (process_kind == PK_DEBUG_PROCESS) {
-        printf("At end.\n");
-        cmd_go(stop_points, NULL, NULL, 'g');
-        abort();   /* unreachable */
-    }
-
-    if (process_kind != PK_MAIN_PROCESS) {
-        fprintf(stderr, "[%d] Unexpectedly falling off the end\n",
-                process_kind);
-        exit(1);
-    }
     if (stop_points != rpy_revdb.stop_point_seen) {
         fprintf(stderr, "Bad number of stop points "
-                "(seen %llu, recorded %llu)\n",
-                (unsigned long long)rpy_revdb.stop_point_seen,
-                (unsigned long long)stop_points);
+                "(seen %lld, recorded %lld)\n",
+                (long long)rpy_revdb.stop_point_seen,
+                (long long)stop_points);
         exit(1);
     }
     if (rpy_revdb.buf_p != rpy_revdb.buf_limit ||
@@ -582,134 +461,21 @@ static void check_at_end(uint64_t stop_points)
         fprintf(stderr, "RevDB file modified while reading?\n");
         exit(1);
     }
-    if (frozen_num_pipes == 0) {
-        fprintf(stderr, "RevDB file does not contain any stop points\n");
-        exit(1);
-    }
 
-    fprintf(stderr, "\n");
-    fflush(stderr);
-    printf("Replaying finished\n");
-    printf("stop_points=%lld\n", (long long)stop_points);
-
-    close(frozen_pipe_signal[WR_SIDE]);
-    frozen_pipe_signal[WR_SIDE] = -1;
-
-    memset(&jump_in_time, 0, sizeof(jump_in_time));
-    jump_in_time.target_time = frozen_time[frozen_num_pipes-1];
-
-    while (jump_in_time.target_time != (uint64_t)-1) {
-        int p = frozen_num_pipes - 1;
-        if (jump_in_time.target_time > frozen_time[p])
-            jump_in_time.target_time = frozen_time[p];
-        while (frozen_time[p] > jump_in_time.target_time)
-            p--;
-        if (write_pipe(frozen_pipes[p][WR_SIDE],
-                       &jump_in_time, sizeof(jump_in_time)) < 0 ||
-            copy_pipe(frozen_pipes[p][WR_SIDE],
-                      frozen_pipe_signal[RD_SIDE],
-                      jump_in_time.arg_length) < 0) {
-            fprintf(stderr, "broken pipe to frozen subprocess\n");
-            exit(1);
-        }
-        /* blocking here while the p'th frozen process spawns a debug process
-           and the user interacts with it; then: */
-        if (read_pipe(frozen_pipe_signal[RD_SIDE], &jump_in_time,
-                      sizeof(jump_in_time)) < 0) {
-            fprintf(stderr, "broken signal pipe\n");
-            exit(1);
-        }
-    }
+    write_answer(ANSWER_AT_END, 0, 0, 0);
     exit(0);
 }
 
-static void run_frozen_process(int frozen_pipe_fd)
+static void command_fork(void)
 {
-    struct jump_in_time_s jump_in_time;
-    pid_t child_pid;
+    int child_pipes[2];
+    int child_pid;
+    off_t rev_offset = lseek(rpy_rev_fileno, 0, SEEK_CUR);
 
-    while (1) {
-        if (read_pipe(frozen_pipe_fd, &jump_in_time, sizeof(jump_in_time)) < 0)
-            exit(1);
-
-        child_pid = fork();
-        if (child_pid == -1) {
-            perror("fork");
-            exit(1);
-        }
-        if (child_pid == 0) {
-            /* in the child: this is a debug process */
-            process_kind = PK_DEBUG_PROCESS;
-            assert(jump_in_time.target_time >= rpy_revdb.stop_point_seen);
-            most_recent_fork = rpy_revdb.stop_point_seen;
-            switch (jump_in_time.mode) {
-            case 'b':    /* go non-exact: stay at most_recent_fork */
-                rpy_revdb.stop_point_break = most_recent_fork;
-                break;
-            default:     /* other modes: go exact */
-                rpy_revdb.stop_point_break = jump_in_time.target_time;
-            }
-
-            if (jump_in_time.callback == NULL) {
-                assert(jump_in_time.arg_length == 0);
-                assert(invoke_after_forward == NULL);
-            }
-            else {
-                RPyString *s = make_rpy_string(jump_in_time.arg_length);
-                if (read_pipe(frozen_pipe_fd, _RPyString_AsString(s),
-                              jump_in_time.arg_length) < 0) {
-                    fprintf(stderr, "broken pipe to debug subprocess\n");
-                    exit(1);
-                }
-                invoke_after_forward = jump_in_time.callback;
-                invoke_argument = s;
-            }
-            /* continue "running" the RPython program until we reach
-               exactly the specified target_time */
-            break;
-        }
-        else {
-            /* in the parent: the frozen process, which waits for
-               the debug process to finish to reclaim the pid,
-               and then loops to wait for the next wake-up */
-            int status;
-            waitpid(child_pid, &status, 0);
-            if (WIFEXITED(status) && WEXITSTATUS(status) == 0)
-                ;     /* normal exit */
-            else {
-                fprintf(stderr, "debugging subprocess died\n");
-                cmd_go((uint64_t)-1, NULL, NULL, 'q');
-                abort();    /* unreachable */
-            }
-        }
-    }
-}
-
-static void make_new_frozen_process(void)
-{
-    pid_t child_pid;
-    int *fds;
-    off_t fileno_offset;
-
-    if (frozen_num_pipes >= NUM_FROZEN_PROCESSES) {
-        fprintf(stderr, "stop_point_break overflow?\n");
+    if (ancil_recv_fds(RDB_STDIN, child_pipes, 2) != 2) {
+        fprintf(stderr, "cannot read child stdin/stdout pipes\n");
         exit(1);
     }
-    if (frozen_num_pipes == 0)
-        first_created_uid = rpy_revdb.unique_id_seen;
-
-    fprintf(stderr, "[%llu]",
-            (unsigned long long)rpy_revdb.stop_point_seen);
-
-    fds = frozen_pipes[frozen_num_pipes];
-    if (pipe(fds) < 0) {
-        perror("pipe");
-        exit(1);
-    }
-    frozen_time[frozen_num_pipes] = rpy_revdb.stop_point_seen;
-    frozen_num_pipes += 1;
-
-    fileno_offset = lseek(rpy_rev_fileno, 0, SEEK_CUR);
 
     child_pid = fork();
     if (child_pid == -1) {
@@ -717,97 +483,113 @@ static void make_new_frozen_process(void)
         exit(1);
     }
     if (child_pid == 0) {
-        /* in the child: this is a frozen process */
-        process_kind = PK_FROZEN_PROCESS;
-        close(fds[WR_SIDE]);
-        fds[WR_SIDE] = -1;
-        run_frozen_process(fds[RD_SIDE]);
-        /* when we reach that point, we are in the debugging process */
-        lseek(rpy_rev_fileno, fileno_offset, SEEK_SET);
+        /* in the child */
+        if (dup2(child_pipes[0], RDB_STDIN) < 0 ||
+            dup2(child_pipes[1], RDB_STDOUT) < 0) {
+            perror("dup2");
+            exit(1);
+        }
+        /* Close and re-open the revdb log file in the child process.
+           This is the simplest way I found to give 'rpy_rev_fileno'
+           its own offset, independent from the parent.  It assumes
+           that the revdb log file is still the same.  So for Linux,
+           we try to open "/proc/self/fd/%d" instead. */
+        char fd_filename[48];
+        struct stat st;
+        const char *filename;
+        int old_fd = rpy_rev_fileno;
+
+        sprintf(fd_filename, "/proc/self/fd/%d", old_fd);
+        if (lstat(fd_filename, &st) == 0)
+            filename = fd_filename;
+        else
+            filename = rpy_rev_filename;
+        reopen_revdb_file(filename);
+
+        if (close(old_fd) < 0) {
+            perror("close");
+            exit(1);
+        }
+        if (lseek(rpy_rev_fileno, rev_offset, SEEK_SET) < 0) {
+            perror("lseek");
+            exit(1);
+        }
     }
     else {
-        /* in the main process: continue reloading the revdb log */
-        uint64_t remaining = total_stop_points - rpy_revdb.stop_point_break;
-        uint64_t delta;
-        double step = STEP_RATIO;
-        int remaining_freezes = NUM_FROZEN_PROCESSES - frozen_num_pipes;
-        if (step * remaining_freezes < 1.0)
-            step = 1.0 / remaining_freezes;
-        delta = (uint64_t)(remaining * step);
-        if (delta == 0 || delta > remaining || remaining_freezes == 1)
-            rpy_revdb.stop_point_break = total_stop_points;
-        else
-            rpy_revdb.stop_point_break += delta;
-        close(fds[RD_SIDE]);
-        fds[RD_SIDE] = -1;
+        /* in the parent */
+        write_answer(ANSWER_FORKED, child_pid, 0, 0);
+    }
+    /* common code in the parent and the child */
+    if (close(child_pipes[0]) < 0 ||
+        close(child_pipes[1]) < 0) {
+        perror("close");
+        exit(1);
     }
 }
 
-static void act_quit(char *p)
+static void command_forward(rpy_revdb_command_t *cmd)
 {
-    cmd_go((uint64_t)-1, NULL, NULL, 'q');
-}
-
-static void act_go(char *p)
-{
-    int64_t target_time = strtoll(p, NULL, 10);
-    if (target_time <= 0) {
-        printf("usage: go <target_time>\n");
-        return;
+    if (cmd->arg1 < rpy_revdb.stop_point_seen) {
+        fprintf(stderr, "CMD_FORWARD: target time %lld < current time %lld\n",
+                (long long)cmd->arg1, (long long)rpy_revdb.stop_point_seen);
+        exit(1);
     }
-    cmd_go(target_time, NULL, NULL, 'g');
+    rpy_revdb.stop_point_break = cmd->arg1;
+    pending_after_forward = &answer_std;
 }
 
-static void act_info(char *p)
+static void command_default(rpy_revdb_command_t *cmd, char *extra)
 {
-    char cmd = *p;
-    if (cmd == 0)
-        cmd = '?';
-    printf("info %c=%lld\n", cmd, (long long)rpy_reverse_db_get_value(cmd));
-}
-
-static void act_nop(char *p)
-{
-}
-
-static void act_forward(char *p)
-{
-    int64_t delta = strtoll(p, NULL, 10);
-    if (delta <= 0) {
-        if (delta < 0 || *p == 0)
-            printf("usage: forward <time_steps>\n");
-        return;
+    int i;
+    for (i = 0; rpy_revdb_command_names[i] != cmd->cmd; i++) {
+        if (rpy_revdb_command_names[i] == 0) {
+            fprintf(stderr, "unknown command %d\n", cmd->cmd);
+            exit(1);
+        }
     }
-    rpy_revdb.stop_point_break = rpy_revdb.stop_point_seen + delta;
+    execute_rpy_function(rpy_revdb_command_funcs[i], cmd, extra);
 }
 
-static void run_debug_process(void)
+RPY_EXTERN
+void rpy_reverse_db_stop_point(void)
 {
-    static struct action_s actions_1[] = {
-        { "info", act_info },
-        { "quit", act_quit },
-        { "__go", act_go },
-        { "__forward", act_forward },
-        { "", act_nop },
-        { NULL }
-    };
     while (rpy_revdb.stop_point_break == rpy_revdb.stop_point_seen) {
         stopped_time = rpy_revdb.stop_point_seen;
         stopped_uid = rpy_revdb.unique_id_seen;
         rpy_revdb.unique_id_seen = (-1ULL) << 63;
-        if (invoke_after_forward != NULL) {
-            execute_rpy_function(invoke_after_forward, invoke_argument);
+
+        if (pending_after_forward) {
+            void (*fn)(void) = pending_after_forward;
+            pending_after_forward = NULL;
+            fn();
         }
         else {
-            char input[256];
-            printf("(%llu)$ ", (unsigned long long)stopped_time);
-            fflush(stdout);
-            if (fgets(input, sizeof(input), stdin) != input) {
-                fprintf(stderr, "\n");
-                act_quit("");
-                abort();   /* unreachable */
+            rpy_revdb_command_t cmd;
+            read_pipe(RDB_STDIN, &cmd, sizeof(cmd));
+
+            char extra[cmd.extra_size + 1];
+            extra[cmd.extra_size] = 0;
+            if (cmd.extra_size > 0)
+                read_pipe(RDB_STDIN, extra, cmd.extra_size);
+
+            switch (cmd.cmd) {
+
+            case CMD_FORK:
+                command_fork();
+                break;
+
+            case CMD_QUIT:
+                exit(0);
+                break;
+
+            case CMD_FORWARD:
+                command_forward(&cmd);
+                break;
+
+            default:
+                command_default(&cmd, extra);
+                break;
             }
-            process_input(input, "command", 1, actions_1);
         }
         rpy_revdb.unique_id_seen = stopped_uid;
         stopped_time = 0;
@@ -816,30 +598,28 @@ static void run_debug_process(void)
 }
 
 RPY_EXTERN
-void rpy_reverse_db_stop_point(void)
+void rpy_reverse_db_send_answer(int cmd, int64_t arg1, int64_t arg2,
+                                int64_t arg3, RPyString *extra)
 {
-    if (process_kind == PK_MAIN_PROCESS) {
-        make_new_frozen_process();
-        if (process_kind == PK_MAIN_PROCESS)
-            return;
-    }
-    assert(process_kind == PK_DEBUG_PROCESS);
-    run_debug_process();
-}
-
-RPY_EXTERN
-void rpy_reverse_db_send_output(RPyString *output)
-{
-    fwrite(_RPyString_AsString(output), 1, RPyString_Size(output), stdout);
+    rpy_revdb_command_t c;
+    memset(&c, 0, sizeof(c));
+    c.cmd = cmd;
+    c.extra_size = RPyString_Size(extra);
+    c.arg1 = arg1;
+    c.arg2 = arg2;
+    c.arg3 = arg3;
+    write_pipe(RDB_STDOUT, &c, sizeof(c));
+    if (c.extra_size > 0)
+        write_pipe(RDB_STDOUT, _RPyString_AsString(extra), c.extra_size);
 }
 
 RPY_EXTERN
 void rpy_reverse_db_change_time(char mode, long long time,
-                                void callback(RPyString *), RPyString *arg)
+                                void callback(void))
 {
     switch (mode) {
 
-    case 'f': {      /* forward */
+    case 'f':        /* forward */
         if (time < 0) {
             fprintf(stderr, "revdb.go_forward(): negative amount of steps\n");
             exit(1);
@@ -849,25 +629,22 @@ void rpy_reverse_db_change_time(char mode, long long time,
             exit(1);
         }
         rpy_revdb.stop_point_break = stopped_time + time;
-        invoke_after_forward = callback;
-        invoke_argument = arg;
+        pending_after_forward = callback;
         break;
-    }
-    case 'g':       /* go */
-    case 'b':       /* go non exact */
-        cmd_go(time >= 1 ? time : 1, callback, arg, mode);
-        abort();    /* unreachable */
 
     case 'k':       /* breakpoint */
-        assert(time > 0);
+        if (time <= 0) {
+            fprintf(stderr, "revdb.breakpoint(): non-positive amount of "
+                            "steps\n");
+            exit(1);
+        }
         if (stopped_time != 0) {
             fprintf(stderr, "revdb.breakpoint(): cannot be called from a "
                             "debug command\n");
             exit(1);
         }
         rpy_revdb.stop_point_break = rpy_revdb.stop_point_seen + time;
-        invoke_after_forward = callback;
-        invoke_argument = arg;
+        pending_after_forward = callback;
         break;
 
     default:
@@ -881,16 +658,12 @@ long long rpy_reverse_db_get_value(char value_id)
     switch (value_id) {
     case 'c':       /* current_time() */
         return stopped_time ? stopped_time : rpy_revdb.stop_point_seen;
-    case 'f':       /* most_recent_fork() */
-        return most_recent_fork;
     case 't':       /* total_time() */
         return total_stop_points;
     case 'b':       /* current_break_time() */
         return rpy_revdb.stop_point_break;
     case 'u':       /* currently_created_objects() */
         return stopped_uid ? stopped_uid : rpy_revdb.unique_id_seen;
-    case '1':       /* first_created_object_uid() */
-        return first_created_uid;
     default:
         return -1;
     }
