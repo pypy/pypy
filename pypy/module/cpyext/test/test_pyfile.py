@@ -142,9 +142,5 @@ class AppTestPyFile(AppTestCpythonExtensionBase):
             t_py = fid.tell()
             assert t_py == 80
             t_c = module.get_c_tell(fid)
-        # XXX currently fails since rlib/streamio BufferingInputStream has 
-        #     an internal readahead buffer self.buf and its self.pos can be 
-        #     out of sync with the underlying c-level FILE * (it's not called
-        #     a BufferingInputStream for nothing)
         assert t_c == t_py
 
