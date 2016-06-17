@@ -55,6 +55,7 @@ def PyFile_AsFile(space, w_p):
     if not PyFile_Check(space, w_p):
         raise oefmt(space.w_IOError, 'first argument must be an open file')
     assert isinstance(w_p, W_File)
+    w_p.stream.flush_buffers()
     try:
         fd = space.int_w(space.call_method(w_p, 'fileno'))
         mode = w_p.mode
