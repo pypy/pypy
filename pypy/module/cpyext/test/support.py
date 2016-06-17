@@ -10,31 +10,30 @@ if os.name != 'nt':
 else:
     so_ext = 'dll'
 
-def c_compile(cfilenames, eci, outputfilename):
+def c_compile(cfilenames, outputfilename,
+        compile_extra=None, link_extra=None,
+        include_dirs=None, libraries=None, library_dirs=None):
+    compile_extra = compile_extra or []
+    link_extra = link_extra or []
+    include_dirs = include_dirs or []
+    libraries = libraries or []
+    library_dirs = library_dirs or []
     self = rpy_platform
-    libraries = list(eci.libraries)
-    include_dirs = list(eci.include_dirs)
-    library_dirs = list(eci.library_dirs)
-    compile_extra = list(eci.compile_extra)
-    link_extra = list(eci.link_extra)
-    frameworks = list(eci.frameworks)
     if not self.name in ('win32', 'darwin', 'cygwin'): # xxx
         if 'm' not in libraries:
             libraries.append('m')
         if 'pthread' not in libraries:
             libraries.append('pthread')
     if self.name == 'win32':
-        link_extra += ['/DEBUG'] # generate .pdb file
+        link_extra = link_extra + ['/DEBUG'] # generate .pdb file
     if self.name == 'darwin':
         # support Fink & Darwinports
         for s in ('/sw/', '/opt/local/'):
-            if s + 'include' not in include_dirs and \
-                os.path.exists(s + 'include'):
+            if (s + 'include' not in include_dirs
+                    and os.path.exists(s + 'include')):
                 include_dirs.append(s + 'include')
             if s + 'lib' not in library_dirs and os.path.exists(s + 'lib'):
                 library_dirs.append(s + 'lib')
-        for framework in frameworks:
-            link_extra += ['-framework', framework]
 
     outputfilename = py.path.local(outputfilename).new(ext=so_ext)
     saved_environ = os.environ.copy()

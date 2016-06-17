@@ -7,7 +7,6 @@ import py, pytest
 from pypy import pypydir
 from pypy.interpreter import gateway
 from rpython.rtyper.lltypesystem import lltype, ll2ctypes
-from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.gensupp import uniquemodulename
 from rpython.tool.udir import udir
 from pypy.module.cpyext import api
@@ -41,17 +40,17 @@ def convert_sources_to_files(sources, dirname):
         files.append(filename)
     return files
 
-def create_so(modname, include_dirs,
-        source_strings=None,
-        source_files=None,
-        **kwds):
+def create_so(modname, include_dirs, source_strings=None, source_files=None,
+        compile_extra=None, link_extra=None, libraries=None):
     dirname = (udir/uniquemodulename('module')).ensure(dir=1)
     if source_strings:
         assert not source_files
         files = convert_sources_to_files(source_strings, dirname)
         source_files = files
-    eci = ExternalCompilationInfo(include_dirs=include_dirs, **kwds)
-    soname = c_compile(source_files, eci, outputfilename=str(dirname/modname))
+    soname = c_compile(source_files, outputfilename=str(dirname/modname),
+        compile_extra=compile_extra, link_extra=link_extra,
+        include_dirs=include_dirs,
+        libraries=libraries)
     return soname
 
 def compile_extension_module(space, modname, include_dirs=[],
@@ -66,31 +65,32 @@ def compile_extension_module(space, modname, include_dirs=[],
     Any extra keyword arguments are passed on to ExternalCompilationInfo to
     build the module (so specify your source with one of those).
     """
-    kwds = {}
     state = space.fromcache(State)
     api_library = state.api_lib
     if sys.platform == 'win32':
-        kwds["libraries"] = [api_library]
+        libraries = [api_library]
         # '%s' undefined; assuming extern returning int
-        kwds["compile_extra"] = ["/we4013"]
+        compile_extra = ["/we4013"]
         # prevent linking with PythonXX.lib
         w_maj, w_min = space.fixedview(space.sys.get('version_info'), 5)[:2]
-        kwds["link_extra"] = ["/NODEFAULTLIB:Python%d%d.lib" %
+        link_extra = ["/NODEFAULTLIB:Python%d%d.lib" %
                               (space.int_w(w_maj), space.int_w(w_min))]
-    elif sys.platform == 'darwin':
-        kwds["link_files"] = [str(api_library + '.dylib')]
     else:
-        kwds["link_files"] = [str(api_library + '.so')]
+        libraries = []
         if sys.platform.startswith('linux'):
-            kwds["compile_extra"] = ["-Werror", "-g", "-O0", "-fPIC"]
-            kwds["link_extra"] = ["-g"]
+            compile_extra = ["-Werror", "-g", "-O0", "-fPIC"]
+            link_extra = ["-g"]
+        else:
+            compile_extra = link_extra = None
 
     modname = modname.split('.')[-1]
     soname = create_so(modname,
             include_dirs=api.include_dirs + include_dirs,
             source_files=source_files,
             source_strings=source_strings,
-            **kwds)
+            compile_extra=compile_extra,
+            link_extra=link_extra,
+            libraries=libraries)
     from pypy.module.imp.importing import get_so_extension
     pydname = soname.new(purebasename=modname, ext=get_so_extension(space))
     soname.rename(pydname)
@@ -108,22 +108,24 @@ def compile_extension_module_applevel(space, modname, include_dirs=[],
     Any extra keyword arguments are passed on to ExternalCompilationInfo to
     build the module (so specify your source with one of those).
     """
-    kwds = {}
     if sys.platform == 'win32':
-        kwds["compile_extra"] = ["/we4013"]
-        kwds["link_extra"] = ["/LIBPATH:" + os.path.join(sys.exec_prefix, 'libs')]
+        compile_extra = ["/we4013"]
+        link_extra = ["/LIBPATH:" + os.path.join(sys.exec_prefix, 'libs')]
     elif sys.platform == 'darwin':
+        compile_extra = link_extra = None
         pass
     elif sys.platform.startswith('linux'):
-        kwds["compile_extra"] = [
+        compile_extra = [
             "-O0", "-g", "-Werror=implicit-function-declaration", "-fPIC"]
+        link_extra = None
 
     modname = modname.split('.')[-1]
     soname = create_so(modname,
             include_dirs=[space.include_dir] + include_dirs,
             source_files=source_files,
             source_strings=source_strings,
-            **kwds)
+            compile_extra=compile_extra,
+            link_extra=link_extra)
     return str(soname)
 
 def freeze_refcnts(self):
