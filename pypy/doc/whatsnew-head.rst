@@ -35,3 +35,5 @@ Implement the backend related changes for s390x.
 Simplify handling of interp-level tests and make it more forward-
 compatible.
 
+.. branch: pyfile-tell
+Sync w_file with the c-level FILE* before returning FILE* in PyFile_AsFile
