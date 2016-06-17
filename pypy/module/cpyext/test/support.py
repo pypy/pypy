@@ -12,38 +12,37 @@ else:
 
 def c_compile(cfilenames, eci, outputfilename):
     self = rpy_platform
-    self.libraries = list(eci.libraries)
-    self.include_dirs = list(eci.include_dirs)
-    self.library_dirs = list(eci.library_dirs)
-    self.compile_extra = list(eci.compile_extra)
-    self.link_extra = list(eci.link_extra)
-    self.frameworks = list(eci.frameworks)
+    libraries = list(eci.libraries)
+    include_dirs = list(eci.include_dirs)
+    library_dirs = list(eci.library_dirs)
+    compile_extra = list(eci.compile_extra)
+    link_extra = list(eci.link_extra)
+    frameworks = list(eci.frameworks)
     if not self.name in ('win32', 'darwin', 'cygwin'): # xxx
-        if 'm' not in self.libraries:
-            self.libraries.append('m')
-        if 'pthread' not in self.libraries:
-            self.libraries.append('pthread')
+        if 'm' not in libraries:
+            libraries.append('m')
+        if 'pthread' not in libraries:
+            libraries.append('pthread')
     if self.name == 'win32':
-        self.link_extra += ['/DEBUG'] # generate .pdb file
+        link_extra += ['/DEBUG'] # generate .pdb file
     if self.name == 'darwin':
         # support Fink & Darwinports
         for s in ('/sw/', '/opt/local/'):
-            if s + 'include' not in self.include_dirs and \
+            if s + 'include' not in include_dirs and \
                 os.path.exists(s + 'include'):
-                self.include_dirs.append(s + 'include')
-            if s + 'lib' not in self.library_dirs and \
-                os.path.exists(s + 'lib'):
-                self.library_dirs.append(s + 'lib')
-        for framework in self.frameworks:
-            self.link_extra += ['-framework', framework]
+                include_dirs.append(s + 'include')
+            if s + 'lib' not in library_dirs and os.path.exists(s + 'lib'):
+                library_dirs.append(s + 'lib')
+        for framework in frameworks:
+            link_extra += ['-framework', framework]
 
     outputfilename = py.path.local(outputfilename).new(ext=so_ext)
     saved_environ = os.environ.copy()
     try:
         _build(
             cfilenames, outputfilename,
-            list(eci.compile_extra), self.link_extra,
-            self.include_dirs, self.libraries, self.library_dirs)
+            compile_extra, link_extra,
+            include_dirs, libraries, library_dirs)
     finally:
         # workaround for a distutils bugs where some env vars can
         # become longer and longer every time it is used
@@ -64,8 +63,7 @@ def _build(cfilenames, outputfilename, compile_extra, link_extra,
         old = cfile.dirpath().chdir()
         try:
             res = compiler.compile([cfile.basename],
-                                    include_dirs=include_dirs,
-                                    extra_preargs=compile_extra)
+                include_dirs=include_dirs, extra_preargs=compile_extra)
             assert len(res) == 1
             cobjfile = py.path.local(res[0])
             assert cobjfile.check()
