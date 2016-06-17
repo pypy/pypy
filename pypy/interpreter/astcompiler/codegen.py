@@ -1017,32 +1017,33 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         ifexp.orelse.walkabout(self)
         self.use_next_block(end)
 
-    def _visit_list_or_tuple_starunpack(self, node, elts, ctx, op):
-        #TODO
+    def _visit_list_or_tuple_starunpack(self, node, elts, ctx, single_op, inner_op, outer_op):
         elt_count = len(elts) if elts else 0
-        if ctx == ast.Store:
-            seen_star = False
-            for i in range(elt_count):
-                elt = elts[i]
-                is_starred = isinstance(elt, ast.Starred)
-                if is_starred and not seen_star:
-                    if i >= 1 << 8 or elt_count - i - 1 >= (C_INT_MAX >> 8):
-                        self.error("too many expressions in star-unpacking "
-                                   "assignment", node)
-                    self.emit_op_arg(ops.UNPACK_EX,
-                                     i + ((elt_count - i - 1) << 8))
-                    seen_star = True
-                    elts[i] = elt.value
-                elif is_starred:
-                    self.error("two starred expressions in assignment", node)
-            if not seen_star:
-                self.emit_op_arg(ops.UNPACK_SEQUENCE, elt_count)
-        self.visit_sequence(elts)
-        if ctx == ast.Load:
-            self.emit_op_arg(op, elt_count)
+        seen_star = 0
+        elt_subitems = 0
+        for i in range(elt_count):
+            elt = elts[i]
+            is_starred = isinstance(elt, ast.Starred)
+            if is_starred:
+                if seen_star:
+                    self.emit_op_arg(inner_op, seen_star)
+                    seen_star = 0
+                    elt_subitems += 1
+                elt.value.walkabout(self)
+                elt_subitems += 1
+            else:
+                elt.walkabout(self)
+                seen_star += 1
+        if elt_subitems:
+            if seen_star:
+                self.emit_op_arg(inner_op, seen_star)
+                elt_subitems += 1
+            self.emit_op_arg(outer_op, elt_subitems)
+        else:
+            self.emit_op_arg(single_op, seen_star)
     
     #_visit_starunpack
-    def _visit_list_or_tuple_assignment(self, node, elts, ctx, single_op, innter_op, outer_op):
+    def _visit_list_or_tuple_assignment(self, node, elts, ctx):
         elt_count = len(elts) if elts else 0
         if ctx == ast.Store:
             seen_star = False
@@ -1062,8 +1063,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             if not seen_star:
                 self.emit_op_arg(ops.UNPACK_SEQUENCE, elt_count)
         self.visit_sequence(elts)
-        #if ctx == ast.Load:
-        #    self.emit_op_arg(op, elt_count)
 
     def visit_Starred(self, star):
         if star.ctx != ast.Store:
