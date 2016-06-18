@@ -22,6 +22,11 @@ class Message(object):
         self.arg3 = arg3
         self.extra = extra
 
+    def __repr__(self):
+        return 'Message(%d, %d, %d, %d, %r)' % (self.cmd, self.arg1,
+                                                self.arg2, self.arg3,
+                                                self.extra)
+
     def __eq__(self, other):
         return (self.cmd == other.cmd and
                 self.arg1 == other.arg1 and

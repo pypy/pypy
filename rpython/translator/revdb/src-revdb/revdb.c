@@ -201,7 +201,7 @@ Signed rpy_reverse_db_identityhash(struct pypy_header0 *obj)
 #define ANSWER_FORKED  (-22)
 #define ANSWER_AT_END  (-23)
 
-typedef void (*rpy_revdb_command_fn)(rpy_revdb_command_t *, char *);
+typedef void (*rpy_revdb_command_fn)(rpy_revdb_command_t *, RPyString *);
 
 static int rpy_rev_sockfd;
 static const char *rpy_rev_filename;
@@ -210,6 +210,7 @@ static uint64_t stopped_uid;
 static uint64_t total_stop_points;
 static jmp_buf jmp_buf_cancel_execution;
 static void (*pending_after_forward)(void);
+static RPyString *empty_string;
 
 static void attach_gdb(void)
 {
@@ -285,6 +286,20 @@ static void answer_std(void)
                  rpy_revdb.unique_id_seen, 0);
 }
 
+static RPyString *make_rpy_string(size_t length)
+{
+    RPyString *s = malloc(sizeof(RPyString) + length);
+    if (s == NULL) {
+        fprintf(stderr, "out of memory for a string of %llu chars\n",
+                (unsigned long long)length);
+        exit(1);
+    }
+    /* xxx assumes Boehm here for now */
+    memset(s, 0, sizeof(RPyString));
+    RPyString_Size(s) = length;
+    return s;
+}
+
 static void reopen_revdb_file(const char *filename)
 {
     rpy_rev_fileno = open(filename, O_RDONLY | O_NOCTTY);
@@ -347,6 +362,8 @@ static void setup_replay_mode(int *argc_p, char **argv_p[])
     rpy_revdb.stop_point_break = 1;
     rpy_revdb.unique_id_seen = 1;
 
+    empty_string = make_rpy_string(0);
+
     write_answer(ANSWER_INIT, INIT_VERSION_NUMBER, total_stop_points, 0);
     pending_after_forward = &answer_std;
 
@@ -374,8 +391,8 @@ char *rpy_reverse_db_fetch(int expected_size, const char *file, int line)
            running some custom code now, and we can't just perform I/O
            or access raw memory---because there is no raw memory! 
         */
-        printf("%s:%d: Attempted to do I/O or access raw memory\n",
-               file, line);
+        fprintf(stderr, "%s:%d: Attempted to do I/O or access raw memory\n",
+                file, line);
         longjmp(jmp_buf_cancel_execution, 1);
     }
 }
@@ -413,26 +430,9 @@ static void enable_io(rpy_revdb_t *dinfo)
     pypy_g_ExcData.ed_exc_value = dinfo->saved_exc[1];
 }
 
-/*
-static void execute_rpy_function(void func(RPyString *), RPyString *arg);
-
-static void execute_rpy_command(long index, char *arguments)
-{
-    size_t length = strlen(arguments);
-    RPyString *s;
-
-    while (length > 0 && isspace(arguments[length - 1]))
-        length--;
-    s = make_rpy_string(length);
-    memcpy(_RPyString_AsString(s), arguments, length);
-
-    execute_rpy_function(rpy_revdb_command_funcs[index], s);
-}
-*/
-
 static void execute_rpy_function(rpy_revdb_command_fn func,
                                  rpy_revdb_command_t *cmd,
-                                 char *extra)
+                                 RPyString *extra)
 {
     rpy_revdb_t dinfo;
     disable_io(&dinfo);
@@ -533,6 +533,7 @@ static void command_forward(rpy_revdb_command_t *cmd)
 
 static void command_default(rpy_revdb_command_t *cmd, char *extra)
 {
+    RPyString *s;
     int i;
     for (i = 0; rpy_revdb_command_names[i] != cmd->cmd; i++) {
         if (rpy_revdb_command_names[i] == 0) {
@@ -540,7 +541,15 @@ static void command_default(rpy_revdb_command_t *cmd, char *extra)
             exit(1);
         }
     }
-    execute_rpy_function(rpy_revdb_command_funcs[i], cmd, extra);
+
+    if (cmd->extra_size == 0) {
+        s = empty_string;
+    }
+    else {
+        s = make_rpy_string(cmd->extra_size);
+        memcpy(_RPyString_AsString(s), extra, cmd->extra_size);
+    }
+    execute_rpy_function(rpy_revdb_command_funcs[i], cmd, s);
 }
 
 RPY_EXTERN
@@ -688,11 +697,11 @@ void rpy_reverse_db_track_object(long long unique_id, void callback(void *))
         return;
     }
     if (unique_id <= 0) {
-        printf("cannot track a prebuilt or debugger-created object\n");
+        fprintf(stderr, "cannot track a prebuilt or debugger-created object\n");
         return;
     }
     if (unique_id < stopped_uid) {
-        printf("cannot track the creation of an object already created\n");
+        fprintf(stderr, "cannot track the creation of an object already created\n");
         return;
     }
     assert(callback != NULL);

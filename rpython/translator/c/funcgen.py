@@ -439,7 +439,8 @@ class FunctionCodeGenerator(object):
         if self.db.reverse_debugger:
             S = self.lltypemap(op.args[0]).TO
             if (S._gckind != 'gc' and not S._hints.get('is_excdata')
-                    and not S._hints.get('static_immutable')):
+                    and not S._hints.get('static_immutable')
+                    and not S._hints.get('ignore_revdb')):
                 from rpython.translator.revdb import revdb_genc
                 result = revdb_genc.emit(result, self.lltypename(op.result),
                                          newvalue)

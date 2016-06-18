@@ -24,7 +24,7 @@ def record_malloc_uid(expr):
 
 def prepare_database(db):
     FUNCPTR = lltype.Ptr(lltype.FuncType([revdb._CMDPTR,
-                                          rffi.CCHARP], lltype.Void))
+                                          lltype.Ptr(rstr.STR)], lltype.Void))
 
     bk = db.translator.annotator.bookkeeper
     cmds = getattr(db.translator, 'revdb_commands', [])

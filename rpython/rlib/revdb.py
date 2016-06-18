@@ -103,7 +103,8 @@ _CMDPTR = rffi.CStructPtr('rpy_revdb_command_s',
                           ('cmd', rffi.INT),
                           ('arg1', lltype.SignedLongLong),
                           ('arg2', lltype.SignedLongLong),
-                          ('arg3', lltype.SignedLongLong))
+                          ('arg3', lltype.SignedLongLong),
+                          hints={'ignore_revdb': True})
 
 
 class RegisterDebugCommand(ExtRegistryEntry):
@@ -126,9 +127,9 @@ class RegisterDebugCommand(ExtRegistryEntry):
             cmds.append((command_num, func))
             s_func = self.bookkeeper.immutablevalue(func)
             s_ptr1 = llannotation.SomePtr(ll_ptrtype=_CMDPTR)
-            s_ptr2 = llannotation.SomePtr(ll_ptrtype=rffi.CCHARP)
+            s_str2 = annmodel.SomeString()
             self.bookkeeper.emulate_pbc_call(self.bookkeeper.position_key,
-                                             s_func, [s_ptr1, s_ptr2])
+                                             s_func, [s_ptr1, s_str2])
 
     def specialize_call(self, hop):
         hop.exception_cannot_occur()

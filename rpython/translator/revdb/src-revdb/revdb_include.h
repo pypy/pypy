@@ -81,8 +81,8 @@ RPY_EXTERN void rpy_reverse_db_teardown(void);
     if (++rpy_revdb.stop_point_seen == rpy_revdb.stop_point_break)      \
         rpy_reverse_db_stop_point()
 
-#define OP_REVDB_SEND_OUTPUT(ll_string, r)                              \
-    rpy_reverse_db_send_output(ll_string)
+#define OP_REVDB_SEND_ANSWER(cmd, arg1, arg2, arg3, ll_string, r)       \
+    rpy_reverse_db_send_answer(cmd, arg1, arg2, arg3, ll_string)
 
 #define OP_REVDB_CHANGE_TIME(mode, time, callback, r)                   \
     rpy_reverse_db_change_time(mode, time, callback)
@@ -103,7 +103,8 @@ RPY_EXTERN void rpy_reverse_db_flush(void);
 RPY_EXTERN char *rpy_reverse_db_fetch(int expected_size,
                                       const char *file, int line);
 RPY_EXTERN void rpy_reverse_db_stop_point(void);
-RPY_EXTERN void rpy_reverse_db_send_output(RPyString *output);
+RPY_EXTERN void rpy_reverse_db_send_answer(int cmd, int64_t arg1, int64_t arg2,
+                                           int64_t arg3, RPyString *extra);
 RPY_EXTERN Signed rpy_reverse_db_identityhash(struct pypy_header0 *obj);
 RPY_EXTERN void rpy_reverse_db_change_time(char mode, long long time,
                                            void callback(void));

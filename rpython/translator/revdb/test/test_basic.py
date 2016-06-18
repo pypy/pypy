@@ -3,9 +3,9 @@ import os, sys, subprocess, socket
 import re, array, struct
 from rpython.tool.udir import udir
 from rpython.translator.interactive import Translation
-from rpython.rlib.rarithmetic import LONG_BIT
+from rpython.rlib.rarithmetic import LONG_BIT, intmask
 from rpython.rlib import objectmodel, revdb
-from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.debug import debug_print
 from rpython.rtyper.annlowlevel import cast_gcref_to_instance
 from rpython.rtyper.lltypesystem import lltype, llmemory
 
@@ -210,14 +210,18 @@ class TestRecording(object):
 
 class InteractiveTests(object):
 
-    def replay(self):
+    def replay(self, **kwds):
         s1, s2 = socket.socketpair()
         subproc = subprocess.Popen(
             [str(self.exename), '--revdb-replay', str(self.rdbname),
-             str(s2.fileno())])
+             str(s2.fileno())], **kwds)
         s2.close()
         self.subproc = subproc
-        return ReplayProcess(subproc.pid, s1)
+        child = ReplayProcess(subproc.pid, s1)
+        child.expect(ANSWER_INIT, INIT_VERSION_NUMBER, 3)
+        msg = child.expect(ANSWER_STD, 1, Ellipsis)
+        self.total_stop_points = msg.arg2
+        return child
 
 
 class TestSimpleInterpreter(InteractiveTests):
@@ -240,8 +244,6 @@ class TestSimpleInterpreter(InteractiveTests):
 
     def test_go(self):
         child = self.replay()
-        child.expect(ANSWER_INIT, INIT_VERSION_NUMBER, 3)
-        child.expect(ANSWER_STD, 1, Ellipsis)
         child.send(Message(CMD_FORWARD, 2))
         child.expect(ANSWER_STD, 3, Ellipsis)
         child.send(Message(CMD_FORWARD, 2))
@@ -249,15 +251,11 @@ class TestSimpleInterpreter(InteractiveTests):
 
     def test_quit(self):
         child = self.replay()
-        child.expect(ANSWER_INIT, INIT_VERSION_NUMBER, 3)
-        child.expect(ANSWER_STD, 1, Ellipsis)
         child.send(Message(CMD_QUIT))
         assert self.subproc.wait() == 0
 
     def test_fork(self):
         child = self.replay()
-        child.expect(ANSWER_INIT, INIT_VERSION_NUMBER, 3)
-        child.expect(ANSWER_STD, 1, Ellipsis)
         child2 = child.fork()
         child.send(Message(CMD_FORWARD, 2))
         child.expect(ANSWER_STD, 3, Ellipsis)
@@ -298,49 +296,50 @@ class TestDebugCommands(InteractiveTests):
             revdb.send_output("callback_track_obj\n")
             dbstate.gcref = gcref
         #
-        def blip(cmdline):
-            revdb.send_output('<<<' + cmdline + '>>>\n')
-            if cmdline == 'oops':
+        def blip(cmd, extra):
+            debug_print('<<<', cmd.c_cmd, cmd.c_arg1,
+                               cmd.c_arg2, cmd.c_arg3, extra, '>>>')
+            if extra == 'oops':
                 for i in range(1000):
                     print 42     # I/O not permitted
-            if cmdline == 'raise-and-catch':
-                try:
-                    g(cmdline)
-                except ValueError:
-                    pass
-            if cmdline == 'crash':
-                raise ValueError
-            if cmdline == 'get-value':
-                revdb.send_output('%d,%d,%d\n' % (revdb.current_time(),
-                                                  revdb.most_recent_fork(),
-                                                  revdb.total_time()))
-            if cmdline == 'go-fw':
-                revdb.go_forward(1, went_fw, "xx")
-            if cmdline == 'change-time':
-                revdb.jump_in_time(2, changed_time, "xyzzy")
-            if cmdline == 'change-time-non-exact':
-                revdb.jump_in_time(2, changed_time, "nonx", exact=False)
-            if cmdline == 'set-break-after-0':
-                dbstate.break_after = 0
-            if cmdline == 'print-id':
-                revdb.send_output('obj.x=%d %d %d\n' % (
-                    dbstate.stuff.x,
-                    revdb.get_unique_id(dbstate.stuff),
-                    revdb.currently_created_objects()))
-            if cmdline.startswith('track-object '):
-                uid = int(cmdline[len('track-object '):])
-                dbstate.gcref = lltype.nullptr(llmemory.GCREF.TO)
-                revdb.track_object(uid, callback_track_obj)
-            if cmdline == 'get-tracked-object':
-                if dbstate.gcref:
-                    revdb.send_output('got obj.x=%d\n' % (
-                        cast_gcref_to_instance(Stuff, dbstate.gcref).x,))
-                else:
-                    revdb.send_output('none\n')
-            if cmdline == 'first-created-uid':
-                revdb.send_output('first-created-uid=%d\n' % (
-                    revdb.first_created_object_uid(),))
-            revdb.send_output('blipped\n')
+            ## if cmdline == 'raise-and-catch':
+            ##     try:
+            ##         g(cmdline)
+            ##     except ValueError:
+            ##         pass
+            ## if cmdline == 'crash':
+            ##     raise ValueError
+            ## if cmdline == 'get-value':
+            ##     revdb.send_output('%d,%d,%d\n' % (revdb.current_time(),
+            ##                                       revdb.most_recent_fork(),
+            ##                                       revdb.total_time()))
+            ## if cmdline == 'go-fw':
+            ##     revdb.go_forward(1, went_fw, "xx")
+            ## if cmdline == 'change-time':
+            ##     revdb.jump_in_time(2, changed_time, "xyzzy")
+            ## if cmdline == 'change-time-non-exact':
+            ##     revdb.jump_in_time(2, changed_time, "nonx", exact=False)
+            ## if cmdline == 'set-break-after-0':
+            ##     dbstate.break_after = 0
+            ## if cmdline == 'print-id':
+            ##     revdb.send_output('obj.x=%d %d %d\n' % (
+            ##         dbstate.stuff.x,
+            ##         revdb.get_unique_id(dbstate.stuff),
+            ##         revdb.currently_created_objects()))
+            ## if cmdline.startswith('track-object '):
+            ##     uid = int(cmdline[len('track-object '):])
+            ##     dbstate.gcref = lltype.nullptr(llmemory.GCREF.TO)
+            ##     revdb.track_object(uid, callback_track_obj)
+            ## if cmdline == 'get-tracked-object':
+            ##     if dbstate.gcref:
+            ##         revdb.send_output('got obj.x=%d\n' % (
+            ##             cast_gcref_to_instance(Stuff, dbstate.gcref).x,))
+            ##     else:
+            ##         revdb.send_output('none\n')
+            ## if cmdline == 'first-created-uid':
+            ##     revdb.send_output('first-created-uid=%d\n' % (
+            ##         revdb.first_created_object_uid(),))
+            revdb.send_answer(42, cmd.c_cmd, -43, -44, "foo")
         lambda_blip = lambda: blip
         #
         class DBState:
@@ -348,14 +347,14 @@ class TestDebugCommands(InteractiveTests):
         dbstate = DBState()
         #
         def main(argv):
-            revdb.register_debug_command('r', lambda_blip)
+            revdb.register_debug_command(1, lambda_blip)
             for i, op in enumerate(argv[1:]):
                 dbstate.stuff = Stuff()
                 dbstate.stuff.x = i + 1000
                 revdb.stop_point()
-                if i == dbstate.break_after:
-                    revdb.send_output('breakpoint!\n')
-                    revdb.go_forward(1, _nothing, "")
+                ## if i == dbstate.break_after:
+                ##     revdb.send_output('breakpoint!\n')
+                ##     revdb.go_forward(1, _nothing, "")
                 print op
             return 9
         compile(cls, main, [], backendopt=False)
@@ -363,19 +362,15 @@ class TestDebugCommands(InteractiveTests):
 
     def test_run_blip(self):
         child = self.replay()
-        child.expectx('(3)$ ')
-        child.sendline('r  foo  bar  baz  ')
-        child.expectx('<<<foo  bar  baz>>>\r\n'
-                      'blipped\r\n'
-                      '(3)$ ')
+        child.send(Message(1, extra=''))
+        child.expect(42, 1, -43, -44, "foo")
 
     def test_io_not_permitted(self):
-        child = self.replay()
-        child.expectx('(3)$ ')
-        child.sendline('r oops')
-        child.expectx('<<<oops>>>\r\n')
-        child.expectx(': Attempted to do I/O or access raw memory\r\n'
-                      '(3)$ ')
+        child = self.replay(stderr=subprocess.PIPE)
+        child.send(Message(1, extra='oops'))
+        child.close()
+        line = self.subproc.stderr.read()
+        assert line.endswith(': Attempted to do I/O or access raw memory\n')
 
     def test_interaction_with_forward(self):
         child = self.replay()
