@@ -219,8 +219,7 @@ class InteractiveTests(object):
         self.subproc = subproc
         child = ReplayProcess(subproc.pid, s1)
         child.expect(ANSWER_INIT, INIT_VERSION_NUMBER, 3)
-        msg = child.expect(ANSWER_STD, 1, Ellipsis)
-        self.total_stop_points = msg.arg2
+        child.expect(ANSWER_STD, 1, Ellipsis)
         return child
 
 
@@ -278,16 +277,10 @@ class TestDebugCommands(InteractiveTests):
                 raise ValueError
         g._dont_inline_ = True
         #
-        def went_fw(arg):
-            revdb.send_output('went-fw %s -> %d\n' % (arg,
-                                                      revdb.current_time()))
+        def went_fw():
+            revdb.send_answer(120, revdb.current_time())
             if revdb.current_time() != revdb.total_time():
-                revdb.go_forward(1, went_fw, "yy")
-        def changed_time(arg):
-            revdb.send_output('changed-time %s -> %d\n' % (arg,
-                                                      revdb.current_time()))
-            if revdb.current_time() != revdb.total_time():
-                revdb.go_forward(1, went_fw, "zz")
+                revdb.go_forward(1, went_fw)
         #
         def _nothing(arg):
             pass
@@ -309,16 +302,11 @@ class TestDebugCommands(InteractiveTests):
                     pass
             if extra == 'crash':
                 raise ValueError
-            ## if cmdline == 'get-value':
-            ##     revdb.send_output('%d,%d,%d\n' % (revdb.current_time(),
-            ##                                       revdb.most_recent_fork(),
-            ##                                       revdb.total_time()))
-            ## if cmdline == 'go-fw':
-            ##     revdb.go_forward(1, went_fw, "xx")
-            ## if cmdline == 'change-time':
-            ##     revdb.jump_in_time(2, changed_time, "xyzzy")
-            ## if cmdline == 'change-time-non-exact':
-            ##     revdb.jump_in_time(2, changed_time, "nonx", exact=False)
+            if extra == 'get-value':
+                revdb.send_answer(100, revdb.current_time(),
+                                       revdb.total_time())
+            if extra == 'go-fw':
+                revdb.go_forward(1, went_fw)
             ## if cmdline == 'set-break-after-0':
             ##     dbstate.break_after = 0
             ## if cmdline == 'print-id':
@@ -343,7 +331,7 @@ class TestDebugCommands(InteractiveTests):
         lambda_blip = lambda: blip
         #
         class DBState:
-            break_after = -1
+            pass
         dbstate = DBState()
         #
         def main(argv):
@@ -352,9 +340,6 @@ class TestDebugCommands(InteractiveTests):
                 dbstate.stuff = Stuff()
                 dbstate.stuff.x = i + 1000
                 revdb.stop_point()
-                ## if i == dbstate.break_after:
-                ##     revdb.send_output('breakpoint!\n')
-                ##     revdb.go_forward(1, _nothing, "")
                 print op
             return 9
         compile(cls, main, [], backendopt=False)
@@ -392,57 +377,17 @@ class TestDebugCommands(InteractiveTests):
 
     def test_get_value(self):
         child = self.replay()
-        child.expectx('(3)$ ')
-        child.sendline('__go 2')
-        child.expectx('(2)$ ')
-        child.sendline('r get-value')
-        child.expectx('<<<get-value>>>\r\n'
-                      '2,1,3\r\n'
-                      'blipped\r\n'
-                      '(2)$ ')
+        child.send(Message(1, extra='get-value'))
+        child.expect(100, 1, 3)
 
     def test_go_fw(self):
         child = self.replay()
-        child.expectx('(3)$ ')
-        child.sendline('__go 1')
-        child.expectx('(1)$ ')
-        child.sendline('r go-fw')
-        child.expectx('<<<go-fw>>>\r\n'
-                      'blipped\r\n'
-                      'went-fw xx -> 2\r\n'
-                      'went-fw yy -> 3\r\n'
-                      '(3)$ ')
-
-    def test_change_time(self):
-        child = self.replay()
-        child.expectx('(3)$ ')
-        child.sendline('r change-time')
-        child.expectx('<<<change-time>>>\r\n'
-                      'changed-time xyzzy -> 2\r\n'
-                      'went-fw zz -> 3\r\n'
-                      '(3)$ ')
-
-    def test_change_time_non_exact(self):
-        child = self.replay()
-        child.expectx('(3)$ ')
-        child.sendline('r change-time-non-exact')
-        child.expectx('<<<change-time-non-exact>>>\r\n'
-                      'changed-time nonx -> 1\r\n'
-                      'went-fw zz -> 2\r\n'
-                      'went-fw yy -> 3\r\n'
-                      '(3)$ ')
-
-    def test_dynamic_breakpoint(self):
-        py.test.skip("unsure if that's needed")
-        child = self.replay()
-        child.expectx('(3)$ ')
-        child.sendline('__go 1')
-        child.expectx('(1)$ ')
-        child.sendline('r set-break-after-0')
-        child.expectx('(1)$ ')
-        child.sendline('__forward 5')
-        child.expectx('breakpoint!\r\n'
-                      '(2)$ ')
+        child.send(Message(1, extra='go-fw'))
+        child.expect(42, 1, -43, -44, 'go-fw')
+        child.expect(120, 2)
+        child.expect(120, 3)
+        child.send(Message(CMD_FORWARD, 0))
+        child.expect(ANSWER_STD, 3, Ellipsis)
 
     def test_get_unique_id_and_track_object(self):
         child = self.replay()

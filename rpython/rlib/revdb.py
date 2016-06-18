@@ -86,17 +86,9 @@ def track_object(unique_id, callback):
 
 @specialize.arg(2)
 def _change_time(mode, time, callback):
-    callback_wrapper = _make_callback(callback)
-    ll_callback = llhelper(_CALLBACK_ARG_FNPTR, callback_wrapper)
+    ll_callback = llhelper(_CALLBACK_NOARG_FNPTR, callback)
     llop.revdb_change_time(lltype.Void, mode, time, ll_callback)
-
-@specialize.memo()
-def _make_callback(callback):
-    def callback_wrapper(ll_string):
-        callback(hlstr(ll_string))
-    return callback_wrapper
-_CALLBACK_ARG_FNPTR = lltype.Ptr(lltype.FuncType([lltype.Ptr(rstr.STR)],
-                                                 lltype.Void))
+_CALLBACK_NOARG_FNPTR = lltype.Ptr(lltype.FuncType([], lltype.Void))
 _CALLBACK_GCREF_FNPTR = lltype.Ptr(lltype.FuncType([llmemory.GCREF],
                                                    lltype.Void))
 _CMDPTR = rffi.CStructPtr('rpy_revdb_command_s',
