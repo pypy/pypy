@@ -1091,30 +1091,34 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.update_position(d.lineno)
         containers = 0
         elements = 0
+        is_unpacking = False
         if d.values:
             for i in range(len(d.values)):
-                if elements == 0xFFFF:
+                key = d.keys[i]
+                if key is None:
+                    is_unpacking = True
+                if elements == 0xFFFF or (elements and is_unpacking):
                     self.emit_op_arg(ops.BUILD_MAP, elements)
                     containers += 1
                     elements = 0
-                d.values[i].walkabout(self)
-                d.keys[i].walkabout(self)
-                elements += 1
+                if is_unpacking:
+                    d.values[i].walkabout(self)
+                    containers += 1
+                else:
+                    d.values[i].walkabout(self)
+                    d.keys[i].walkabout(self)
+                    elements += 1
         if elements or containers == 0:
             self.emit_op_arg(ops.BUILD_MAP, elements)
             containers += 1
         # If there is more than one dict, they need to be merged into
-        # a new dict.
-        while containers > 1:
+        # a new dict. If there is one dict and it's an unpacking, then
+        #it needs to be copied into a new dict.
+        while containers > 1 or is_unpacking:
             oparg = max(containers, 255)
             self.emit_op_arg(ops.BUILD_MAP_UNPACK, oparg)
             containers -= (oparg - 1)
-
-    #def visit_Set(self, s):
-    #    self.update_position(s.lineno)
-    #    elt_count = len(s.elts) if s.elts is not None else 0
-    #    self.visit_sequence(s.elts)
-    #    self.emit_op_arg(ops.BUILD_SET, elt_count)
+            is_unpacking = 0
     
     def visit_Set(self, s):
         self._visit_starunpack(s, s.elts, s.ctx, ops.BUILD_SET, ops.BUILD_SET, ops.BUILD_SET_UNPACK)
