@@ -201,11 +201,9 @@ Signed rpy_reverse_db_identityhash(struct pypy_header0 *obj)
 #define ANSWER_FORKED  (-22)
 #define ANSWER_AT_END  (-23)
 
-#define RDB_STDIN   0
-#define RDB_STDOUT  1
-
 typedef void (*rpy_revdb_command_fn)(rpy_revdb_command_t *, char *);
 
+static int rpy_rev_sockfd;
 static const char *rpy_rev_filename;
 static uint64_t stopped_time;
 static uint64_t stopped_uid;
@@ -244,13 +242,12 @@ static void read_all(void *buf, ssize_t count)
     (void)read_at_least(buf, count, count);
 }
 
-
-static void read_pipe(int fd, void *buf, ssize_t count)
+static void read_sock(void *buf, ssize_t count)
 {
     while (count > 0) {
-        ssize_t got = read(fd, buf, count);
+        ssize_t got = read(rpy_rev_sockfd, buf, count);
         if (got <= 0) {
-            fprintf(stderr, "subprocess: cannot read pipe %d\n", fd);
+            fprintf(stderr, "subprocess: cannot read from control socket\n");
             exit(1);
         }
         count -= got;
@@ -258,12 +255,12 @@ static void read_pipe(int fd, void *buf, ssize_t count)
     }
 }
 
-static void write_pipe(int fd, const void *buf, ssize_t count)
+static void write_sock(const void *buf, ssize_t count)
 {
     while (count > 0) {
-        ssize_t wrote = write(fd, buf, count);
+        ssize_t wrote = write(rpy_rev_sockfd, buf, count);
         if (wrote <= 0) {
-            fprintf(stderr, "subprocess: cannot write to pipe %d\n", fd);
+            fprintf(stderr, "subprocess: cannot write to control socket\n");
             exit(1);
         }
         count -= wrote;
@@ -279,7 +276,7 @@ static void write_answer(int cmd, int64_t arg1, int64_t arg2, int64_t arg3)
     c.arg1 = arg1;
     c.arg2 = arg2;
     c.arg3 = arg3;
-    write_pipe(RDB_STDOUT, &c, sizeof(c));
+    write_sock(&c, sizeof(c));
 }
 
 static void answer_std(void)
@@ -305,12 +302,14 @@ static void setup_replay_mode(int *argc_p, char **argv_p[])
     char input[16];
     ssize_t count;
 
-    if (argc != 3) {
-        fprintf(stderr, "syntax: %s --revdb-replay <RevDB-file>\n", argv[0]);
+    if (argc != 4) {
+        fprintf(stderr, "syntax: %s --revdb-replay <RevDB-file> <socket_fd>\n",
+                argv[0]);
         exit(2);
     }
     rpy_rev_filename = argv[2];
     reopen_revdb_file(rpy_rev_filename);
+    rpy_rev_sockfd = atoi(argv[3]);
 
     assert(RPY_RDB_REPLAY == 1);
 
@@ -468,15 +467,14 @@ static void check_at_end(uint64_t stop_points)
 
 static void command_fork(void)
 {
-    int child_pipes[2];
+    int child_sockfd;
     int child_pid;
     off_t rev_offset = lseek(rpy_rev_fileno, 0, SEEK_CUR);
 
-    if (ancil_recv_fds(RDB_STDIN, child_pipes, 2) != 2) {
-        fprintf(stderr, "cannot read child stdin/stdout pipes\n");
+    if (ancil_recv_fd(rpy_rev_sockfd, &child_sockfd) < 0) {
+        fprintf(stderr, "cannot fetch child control socket: %m\n");
         exit(1);
     }
-
     child_pid = fork();
     if (child_pid == -1) {
         perror("fork");
@@ -484,11 +482,12 @@ static void command_fork(void)
     }
     if (child_pid == 0) {
         /* in the child */
-        if (dup2(child_pipes[0], RDB_STDIN) < 0 ||
-            dup2(child_pipes[1], RDB_STDOUT) < 0) {
-            perror("dup2");
+        if (close(rpy_rev_sockfd) < 0) {
+            perror("close");
             exit(1);
         }
+        rpy_rev_sockfd = child_sockfd;
+
         /* Close and re-open the revdb log file in the child process.
            This is the simplest way I found to give 'rpy_rev_fileno'
            its own offset, independent from the parent.  It assumes
@@ -518,12 +517,7 @@ static void command_fork(void)
     else {
         /* in the parent */
         write_answer(ANSWER_FORKED, child_pid, 0, 0);
-    }
-    /* common code in the parent and the child */
-    if (close(child_pipes[0]) < 0 ||
-        close(child_pipes[1]) < 0) {
-        perror("close");
-        exit(1);
+        close(child_sockfd);
     }
 }
 
@@ -564,12 +558,12 @@ void rpy_reverse_db_stop_point(void)
         }
         else {
             rpy_revdb_command_t cmd;
-            read_pipe(RDB_STDIN, &cmd, sizeof(cmd));
+            read_sock(&cmd, sizeof(cmd));
 
             char extra[cmd.extra_size + 1];
             extra[cmd.extra_size] = 0;
             if (cmd.extra_size > 0)
-                read_pipe(RDB_STDIN, extra, cmd.extra_size);
+                read_sock(extra, cmd.extra_size);
 
             switch (cmd.cmd) {
 
@@ -601,15 +595,19 @@ void rpy_reverse_db_send_answer(int cmd, int64_t arg1, int64_t arg2,
                                 int64_t arg3, RPyString *extra)
 {
     rpy_revdb_command_t c;
-    memset(&c, 0, sizeof(c));
+    size_t extra_size = RPyString_Size(extra);
     c.cmd = cmd;
-    c.extra_size = RPyString_Size(extra);
+    c.extra_size = extra_size;
+    if (c.extra_size != extra_size) {
+        fprintf(stderr, "string too large (more than 4GB)\n");
+        exit(1);
+    }
     c.arg1 = arg1;
     c.arg2 = arg2;
     c.arg3 = arg3;
-    write_pipe(RDB_STDOUT, &c, sizeof(c));
-    if (c.extra_size > 0)
-        write_pipe(RDB_STDOUT, _RPyString_AsString(extra), c.extra_size);
+    write_sock(&c, sizeof(c));
+    if (extra_size > 0)
+        write_sock(_RPyString_AsString(extra), extra_size);
 }
 
 RPY_EXTERN

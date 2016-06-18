@@ -1,5 +1,5 @@
 import py
-import os, sys, subprocess
+import os, sys, subprocess, socket
 import re, array, struct
 from rpython.tool.udir import udir
 from rpython.translator.interactive import Translation
@@ -211,12 +211,13 @@ class TestRecording(object):
 class InteractiveTests(object):
 
     def replay(self):
+        s1, s2 = socket.socketpair()
         subproc = subprocess.Popen(
-            [str(self.exename), '--revdb-replay', str(self.rdbname)],
-            stdin  = subprocess.PIPE,
-            stdout = subprocess.PIPE)
+            [str(self.exename), '--revdb-replay', str(self.rdbname),
+             str(s2.fileno())])
+        s2.close()
         self.subproc = subproc
-        return ReplayProcess(subproc.stdin, subproc.stdout)
+        return ReplayProcess(subproc.pid, s1)
 
 
 class TestSimpleInterpreter(InteractiveTests):
@@ -252,6 +253,19 @@ class TestSimpleInterpreter(InteractiveTests):
         child.expect(ANSWER_STD, 1, Ellipsis)
         child.send(Message(CMD_QUIT))
         assert self.subproc.wait() == 0
+
+    def test_fork(self):
+        child = self.replay()
+        child.expect(ANSWER_INIT, INIT_VERSION_NUMBER, 3)
+        child.expect(ANSWER_STD, 1, Ellipsis)
+        child2 = child.fork()
+        child.send(Message(CMD_FORWARD, 2))
+        child.expect(ANSWER_STD, 3, Ellipsis)
+        child2.send(Message(CMD_FORWARD, 1))
+        child2.expect(ANSWER_STD, 2, Ellipsis)
+        #
+        child.close()
+        child2.close()
 
 
 class TestDebugCommands(InteractiveTests):

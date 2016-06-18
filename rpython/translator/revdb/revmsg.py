@@ -1,4 +1,5 @@
-import struct
+import os, struct, socket, errno
+from rpython.translator.revdb import ancillary
 
 
 INIT_VERSION_NUMBER   = 0xd80100
@@ -33,19 +34,29 @@ class Message(object):
 
 
 class ReplayProcess(object):
-    def __init__(self, stdin, stdout):
-        self.stdin = stdin
-        self.stdout = stdout
+    def __init__(self, pid, control_socket):
+        self.pid = pid
+        self.control_socket = control_socket
+
+    def _recv_all(self, size):
+        pieces = []
+        while size > 0:
+            data = self.control_socket.recv(size)
+            if not data:
+                raise EOFError
+            size -= len(data)
+            pieces.append(data)
+        return ''.join(pieces)
 
     def send(self, msg):
-        binary = struct.pack("iLqqq", msg.cmd, len(msg.extra),
+        binary = struct.pack("iIqqq", msg.cmd, len(msg.extra),
                              msg.arg1, msg.arg2, msg.arg3)
-        self.stdin.write(binary + msg.extra)
+        self.control_socket.sendall(binary + msg.extra)
 
     def recv(self):
-        binary = self.stdout.read(struct.calcsize("iLqqq"))
-        cmd, size, arg1, arg2, arg3 = struct.unpack("iLqqq", binary)
-        extra = self.stdout.read(size) if size > 0 else ""
+        binary = self._recv_all(struct.calcsize("iIqqq"))
+        cmd, size, arg1, arg2, arg3 = struct.unpack("iIqqq", binary)
+        extra = self._recv_all(size)
         return Message(cmd, arg1, arg2, arg3, extra)
 
     def expect(self, cmd, arg1=0, arg2=0, arg3=0, extra=""):
@@ -60,3 +71,15 @@ class ReplayProcess(object):
         if extra is not Ellipsis:
             assert msg.extra == extra
         return msg
+
+    def fork(self):
+        self.send(Message(CMD_FORK))
+        s1, s2 = socket.socketpair()
+        ancillary.send_fds(self.control_socket.fileno(), [s2.fileno()])
+        s2.close()
+        msg = self.expect(ANSWER_FORKED, Ellipsis)
+        child_pid = msg.arg1
+        return ReplayProcess(child_pid, s1)
+
+    def close(self):
+        self.send(Message(CMD_QUIT))
