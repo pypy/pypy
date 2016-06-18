@@ -9,7 +9,7 @@ from rpython.rlib.debug import debug_print
 from rpython.rtyper.annlowlevel import cast_gcref_to_instance
 from rpython.rtyper.lltypesystem import lltype, llmemory
 
-from rpython.translator.revdb.revmsg import *
+from rpython.translator.revdb.message import *
 
 
 class RDB(object):
@@ -17,7 +17,7 @@ class RDB(object):
         with open(filename, 'rb') as f:
             header = f.readline()
             self.buffer = f.read()
-        assert header == 'RevDB: ' + ' '.join(expected_argv) + '\n'
+        assert header == 'RevDB:\t' + '\t'.join(expected_argv) + '\n'
         #
         self.cur = 0
         x = self.next('c'); assert x == '\x00'

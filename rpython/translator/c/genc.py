@@ -160,8 +160,8 @@ class CBuilder(object):
             self.c_entrypoint_name = pfname
 
         if self.config.translation.reverse_debugger:
-            from rpython.translator.revdb import revdb_genc
-            revdb_genc.prepare_database(db)
+            from rpython.translator.revdb import gencsupp
+            gencsupp.prepare_database(db)
 
         for obj in exports.EXPORTS_obj2name.keys():
             db.getcontainernode(obj)
@@ -855,8 +855,8 @@ def add_extra_files(database, eci):
     if _CYGWIN:
         files.append(srcdir / 'cygwin_wait.c')
     if database.reverse_debugger:
-        from rpython.translator.revdb import revdb_genc
-        files += revdb_genc.extra_files()
+        from rpython.translator.revdb import gencsupp
+        files += gencsupp.extra_files()
     return eci.merge(ExternalCompilationInfo(separate_module_files=files))
 
 

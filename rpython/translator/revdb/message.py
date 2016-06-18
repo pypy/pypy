@@ -88,3 +88,13 @@ class ReplayProcess(object):
 
     def close(self):
         self.send(Message(CMD_QUIT))
+
+    def forward(self, steps):
+        self.send(Message(CMD_FORWARD, steps))
+        return self.expect(ANSWER_STD, Ellipsis, Ellipsis)
+
+    def current_time(self):
+        return self.forward(0).arg1
+
+    def currently_created_objects(self):
+        return self.forward(0).arg2

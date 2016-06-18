@@ -120,7 +120,7 @@ static void setup_record_mode(int argc, char *argv[])
 
         write_all(RDB_SIGNATURE, strlen(RDB_SIGNATURE));
         for (i = 0; i < argc; i++) {
-            write_all(" ", 1);
+            write_all("\t", 1);
             write_all(argv[i], strlen(argv[i]));
         }
         write_all("\n\0", 2);
@@ -336,7 +336,7 @@ static void setup_replay_mode(int *argc_p, char **argv_p[])
     }
     fprintf(stderr, "%s", RDB_SIGNATURE);
     while ((read_all(input, 1), input[0] != 0))
-        fputc(input[0], stderr);
+        fputc(input[0] == '\t' ? ' ' : input[0], stderr);
 
     read_all(&h, sizeof(h));
     if (h.version != RDB_VERSION) {

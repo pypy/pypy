@@ -1,5 +1,5 @@
+import py
 import os, sys
-from rpython.tool.udir import udir
 
 
 def build(tmpdir):
@@ -22,8 +22,12 @@ def build(tmpdir):
 
     ffibuilder.compile(tmpdir=tmpdir, verbose=True)
 
-def import_():
-    tmpdir = str(udir.ensure('ancillary', dir=1))
+def import_(verbose=False):
+    import rpython
+    basedir = py.path.local(rpython.__file__).dirpath()
+    tmpdir = str(basedir.ensure('_cache', 'ancillary', dir=1))
+    if verbose:
+        print tmpdir
     old_sys_path = sys.path[:]
     sys.path.insert(0, tmpdir)
     try:
@@ -50,4 +54,4 @@ def recv_fds(pipe_num, fd_count):
 
 
 if __name__ == '__main__':
-    import_()
+    import_(verbose=True)

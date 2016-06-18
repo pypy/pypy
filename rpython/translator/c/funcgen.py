@@ -399,8 +399,8 @@ class FunctionCodeGenerator(object):
                     line += '\nPYPY_INHIBIT_TAIL_CALL();'
                     break
         elif self.db.reverse_debugger:
-            from rpython.translator.revdb import revdb_genc
-            line = revdb_genc.emit(line, self.lltypename(v_result), r)
+            from rpython.translator.revdb import gencsupp
+            line = gencsupp.emit(line, self.lltypename(v_result), r)
         return line
 
     def OP_DIRECT_CALL(self, op):
@@ -441,9 +441,9 @@ class FunctionCodeGenerator(object):
             if (S._gckind != 'gc' and not S._hints.get('is_excdata')
                     and not S._hints.get('static_immutable')
                     and not S._hints.get('ignore_revdb')):
-                from rpython.translator.revdb import revdb_genc
-                result = revdb_genc.emit(result, self.lltypename(op.result),
-                                         newvalue)
+                from rpython.translator.revdb import gencsupp
+                result = gencsupp.emit(result, self.lltypename(op.result),
+                                       newvalue)
         return result
 
     def generic_set(self, op, targetexpr):
@@ -455,8 +455,8 @@ class FunctionCodeGenerator(object):
         if self.db.reverse_debugger:
             S = self.lltypemap(op.args[0]).TO
             if S._gckind != 'gc' and not S._hints.get('is_excdata'):
-                from rpython.translator.revdb import revdb_genc
-                result = revdb_genc.emit_void(result)
+                from rpython.translator.revdb import gencsupp
+                result = gencsupp.emit_void(result)
         return result
 
     def OP_GETFIELD(self, op, ampersand=''):
@@ -586,8 +586,8 @@ class FunctionCodeGenerator(object):
             expr_result,
             is_atomic)
         if self.db.reverse_debugger:
-            from rpython.translator.revdb import revdb_genc
-            res += revdb_genc.record_malloc_uid(expr_result)
+            from rpython.translator.revdb import gencsupp
+            res += gencsupp.record_malloc_uid(expr_result)
         return res
 
     def OP_BOEHM_MALLOC(self, op):
