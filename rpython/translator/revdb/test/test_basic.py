@@ -302,13 +302,13 @@ class TestDebugCommands(InteractiveTests):
             if extra == 'oops':
                 for i in range(1000):
                     print 42     # I/O not permitted
-            ## if cmdline == 'raise-and-catch':
-            ##     try:
-            ##         g(cmdline)
-            ##     except ValueError:
-            ##         pass
-            ## if cmdline == 'crash':
-            ##     raise ValueError
+            if extra == 'raise-and-catch':
+                try:
+                    g(extra)
+                except ValueError:
+                    pass
+            if extra == 'crash':
+                raise ValueError
             ## if cmdline == 'get-value':
             ##     revdb.send_output('%d,%d,%d\n' % (revdb.current_time(),
             ##                                       revdb.most_recent_fork(),
@@ -339,7 +339,7 @@ class TestDebugCommands(InteractiveTests):
             ## if cmdline == 'first-created-uid':
             ##     revdb.send_output('first-created-uid=%d\n' % (
             ##         revdb.first_created_object_uid(),))
-            revdb.send_answer(42, cmd.c_cmd, -43, -44, "foo")
+            revdb.send_answer(42, cmd.c_cmd, -43, -44, extra)
         lambda_blip = lambda: blip
         #
         class DBState:
@@ -362,44 +362,33 @@ class TestDebugCommands(InteractiveTests):
 
     def test_run_blip(self):
         child = self.replay()
-        child.send(Message(1, extra=''))
-        child.expect(42, 1, -43, -44, "foo")
+        child.send(Message(1, extra='foo'))
+        child.expect(42, 1, -43, -44, 'foo')
 
     def test_io_not_permitted(self):
         child = self.replay(stderr=subprocess.PIPE)
         child.send(Message(1, extra='oops'))
         child.close()
-        line = self.subproc.stderr.read()
-        assert line.endswith(': Attempted to do I/O or access raw memory\n')
+        err = self.subproc.stderr.read()
+        assert err.endswith(': Attempted to do I/O or access raw memory\n')
 
     def test_interaction_with_forward(self):
         child = self.replay()
-        child.expectx('(3)$ ')
-        child.sendline('__go 1')
-        child.expectx('(1)$ ')
-        child.sendline('r oops')
-        child.expectx('<<<oops>>>\r\n')
-        child.expectx('Attempted to do I/O or access raw memory\r\n'
-                      '(1)$ ')
-        child.sendline('__forward 50')
-        child.expectx('At end.\r\n'
-                      '(3)$ ')
+        child.send(Message(1, extra='oops'))
+        child.send(Message(CMD_FORWARD, 50))
+        child.expect(ANSWER_AT_END)
 
     def test_raise_and_catch(self):
         child = self.replay()
-        child.expectx('(3)$ ')
-        child.sendline('r raise-and-catch')
-        child.expectx('<<<raise-and-catch>>>\r\n'
-                      'blipped\r\n'
-                      '(3)$ ')
+        child.send(Message(1, extra='raise-and-catch'))
+        child.expect(42, 1, -43, -44, 'raise-and-catch')
 
     def test_crash(self):
-        child = self.replay()
-        child.expectx('(3)$ ')
-        child.sendline('r crash')
-        child.expectx('<<<crash>>>\r\n'
-                      'Command crashed with ValueError\r\n'
-                      '(3)$ ')
+        child = self.replay(stderr=subprocess.PIPE)
+        child.send(Message(1, extra='crash'))
+        child.close()
+        err = self.subproc.stderr.read()
+        assert err.endswith('Command crashed with ValueError\n')
 
     def test_get_value(self):
         child = self.replay()
