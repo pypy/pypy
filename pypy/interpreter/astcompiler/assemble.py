@@ -397,6 +397,7 @@ class PythonCodeMaker(ast.ASTVisitor):
         for block in blocks:
             depth = self._do_stack_depth_walk(block)
             if block.auto_inserted_return and depth != 0:
+                #depth is 1, import pdb;pdb.pm()
                 os.write(2, "StackDepthComputationError in %s at %s:%s\n" % (
                     self.compile_info.filename, self.name, self.first_lineno))
                 raise StackDepthComputationError   # fatal error

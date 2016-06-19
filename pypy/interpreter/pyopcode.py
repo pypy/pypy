@@ -1353,8 +1353,9 @@ class __extend__(pyframe.PyFrame):
         w_sum = self.space.newset()
         num_maps = itemcount & 0xff
         function_location = (itemcount >> 8) & 0xff
-        for i in range(itemcount, 0, -1):
+        for i in range(num_maps, 0, -1):
             arg = self.space.peek(i)
+            # intersection = _dictviews_and(w_sum, arg) #check after bugs are done
             self.space.call_method(w_sum, 'update', self.space.peek(i))
         while itemcount != 0:
             self.popvalue()
