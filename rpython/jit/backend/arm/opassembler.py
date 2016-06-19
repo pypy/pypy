@@ -179,7 +179,15 @@ class ResOpAssembler(BaseAssembler):
         descr = op.getdescr()
         assert isinstance(descr, AbstractFailDescr)
 
-        gcmap = allocate_gcmap(self, frame_depth, JITFRAME_FIXED_SIZE)
+        if op.getopnum() == rop.GUARD_COMPATIBLE:
+            # In this case, we might stop at the guard but continue
+            # running anyway.  So we must make sure that the gcmap
+            # ensures that all gcrefs stay alive.
+            gcmap = self._regalloc.get_gcmap()
+        else:
+            # Common case: get an empty gcmap.  It will be filled
+            # with compute_gcmap() in llsupport.assembler.
+            gcmap = allocate_gcmap(self, frame_depth, JITFRAME_FIXED_SIZE)
         faildescrindex = self.get_gcref_from_faildescr(descr)
         token = ArmGuardToken(self.cpu, gcmap,
                                     descr,

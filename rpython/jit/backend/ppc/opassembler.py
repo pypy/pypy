@@ -275,7 +275,15 @@ class GuardOpAssembler(object):
 
     def build_guard_token(self, op, frame_depth, arglocs, fcond):
         descr = op.getdescr()
-        gcmap = allocate_gcmap(self, frame_depth, r.JITFRAME_FIXED_SIZE)
+        if op.getopnum() == rop.GUARD_COMPATIBLE:
+            # In this case, we might stop at the guard but continue
+            # running anyway.  So we must make sure that the gcmap
+            # ensures that all gcrefs stay alive.
+            gcmap = self._regalloc.get_gcmap()
+        else:
+            # Common case: get an empty gcmap.  It will be filled
+            # with compute_gcmap() in llsupport.assembler.
+            gcmap = allocate_gcmap(self, frame_depth, r.JITFRAME_FIXED_SIZE)
         faildescrindex = self.get_gcref_from_faildescr(descr)
         token = PPCGuardToken(self.cpu, gcmap, descr, op.getfailargs(),
                               arglocs, op.getopnum(), frame_depth,
