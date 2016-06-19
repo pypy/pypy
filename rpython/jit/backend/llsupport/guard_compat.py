@@ -25,6 +25,7 @@ BACKEND_CHOICES = lltype.GcStruct('BACKEND_CHOICES',
 def _getofs(name):
     return llmemory.offsetof(BACKEND_CHOICES, name)
 BCFAILDESCR = _getofs('bc_faildescr')
+BCGCTABLETRACER = _getofs('bc_gc_table_tracer')
 BCMOSTRECENT = _getofs('bc_most_recent')
 BCLIST = _getofs('bc_list')
 del _getofs
@@ -46,6 +47,7 @@ def bchoices_pair(gc, pair_addr, callback, arg):
 
 def bchoices_trace(gc, obj_addr, callback, arg):
     gc._trace_callback(callback, arg, obj_addr + BCFAILDESCR)
+    gc._trace_callback(callback, arg, obj_addr + BCGCTABLETRACER)
     bchoices_pair(gc, obj_addr + BCMOSTRECENT, callback, arg)
     length = (obj_addr + BCLIST + BCLISTLENGTHOFS).signed[0]
     array_addr = obj_addr + BCLIST + BCLISTITEMSOFS

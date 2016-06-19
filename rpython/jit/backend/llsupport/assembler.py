@@ -49,7 +49,8 @@ class GuardToken(object):
     def compute_gcmap(self, gcmap, failargs, fail_locs, frame_depth):
         # note that regalloc has a very similar compute, but
         # one that does iteration over all bindings, so slightly different,
-        # eh
+        # eh.  Also: for GUARD_COMPATIBLE, the gcmap we receive is not
+        # empty.  Make sure we only add some bits, but don't remove any.
         input_i = 0
         for i in range(len(failargs)):
             arg = failargs[i]

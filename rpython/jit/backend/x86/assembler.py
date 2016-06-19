@@ -1937,7 +1937,15 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
 
     def implement_guard_recovery(self, guard_opnum, faildescr, failargs,
                                  fail_locs, frame_depth):
-        gcmap = allocate_gcmap(self, frame_depth, JITFRAME_FIXED_SIZE)
+        if guard_opnum == rop.GUARD_COMPATIBLE:
+            # In this case, we might stop at the guard but continue
+            # running anyway.  So we must make sure that the gcmap
+            # ensures that all gcrefs stay alive.
+            gcmap = self._regalloc.get_gcmap()
+        else:
+            # Common case: get an empty gcmap.  It will be filled
+            # with compute_gcmap() in llsupport.assembler.
+            gcmap = allocate_gcmap(self, frame_depth, JITFRAME_FIXED_SIZE)
         faildescrindex = self.get_gcref_from_faildescr(faildescr)
         return GuardToken(self.cpu, gcmap, faildescr, failargs, fail_locs,
                           guard_opnum, frame_depth, faildescrindex)
