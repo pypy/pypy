@@ -985,7 +985,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
             ('bar', 'METH_NOARGS',
              '''
              /* reuse a name that is #defined in structmember.h */
-             int RO;
+             int RO = 0; (void)RO;
              Py_RETURN_NONE;
              '''
              ),
