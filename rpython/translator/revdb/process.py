@@ -3,6 +3,9 @@ from rpython.translator.revdb import ancillary
 from rpython.translator.revdb.message import *
 
 
+maxint64 = int(2**63 - 1)
+
+
 class Breakpoint(Exception):
     def __init__(self, num):
         self.num = num
@@ -183,3 +186,9 @@ class ReplayProcessGroup(object):
         # else, start from a fork
         self._resume(max(time for time in self.paused if time <= target_time))
         self.go_forward(target_time - self.get_current_time())
+
+    def close(self):
+        """Close all subprocesses.
+        """
+        for subp in [self.active] + self.paused.values():
+            subp.close()

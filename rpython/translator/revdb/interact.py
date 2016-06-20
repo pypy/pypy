@@ -1,7 +1,7 @@
 import sys, re
 import subprocess, socket
 import traceback
-from rpython.translator.revdb.message import *
+from rpython.translator.revdb.process import ReplayProcessGroup, maxint64
 
 r_cmdline = re.compile(r"(\S+)\s*(.*)")
 
@@ -17,38 +17,17 @@ class RevDebugControl(object):
                 revdb_log_filename,))
         if executable is None:
             executable = fields[1]
-        #
-        s1, s2 = socket.socketpair()
-        subproc = subprocess.Popen(
-            [executable, '--revdb-replay', revdb_log_filename,
-             str(s2.fileno())])
-        s2.close()
-        self.subproc = subproc
-        child = ReplayProcess(subproc.pid, s1)
-        msg = child.expect(ANSWER_INIT, INIT_VERSION_NUMBER, Ellipsis)
-        self.total_stop_points = msg.arg2
-        msg = child.expect(ANSWER_STD, 1, Ellipsis)
-        child.update_times(msg)
-        self.active_child = child
-        self.paused_children = []
-        #
-        # fixed time division for now
-        if self.total_stop_points < 1:
-            raise ValueError("no stop points recorded in %r" % (
-                revdb_log_filename,))
-        self.fork_points = {1: child.clone()}
-        p = 1
-        while p < self.total_stop_points and len(self.fork_points) < 30:
-            p += int((self.total_stop_points - p) * 0.25) + 1
-            self.fork_points[p] = None
+        self.pgroup = ReplayProcessGroup(executable, revdb_log_filename)
 
     def interact(self):
         last_command = ''
         while True:
-            last_time = self.active_child.current_time
+            last_time = self.pgroup.get_current_time()
             prompt = '(%d)$ ' % last_time
+            sys.stdout.write(prompt)
+            sys.stdout.flush()
             try:
-                cmdline = raw_input(prompt).strip()
+                cmdline = raw_input().strip()
             except EOFError:
                 print
                 cmdline = 'quit'
@@ -57,6 +36,7 @@ class RevDebugControl(object):
             match = r_cmdline.match(cmdline)
             if not match:
                 continue
+            last_command = cmdline
             command, argument = match.groups()
             try:
                 runner = getattr(self, 'command_' + command)
@@ -67,7 +47,6 @@ class RevDebugControl(object):
                     runner(argument)
                 except Exception as e:
                     traceback.print_exc()
-                last_command = cmdline
 
     def command_help(self, argument):
         """Display commands summary"""
@@ -76,29 +55,42 @@ class RevDebugControl(object):
             if name.startswith('command_'):
                 command = name[len('command_'):]
                 docstring = getattr(self, name).__doc__ or 'undocumented'
-                print '\t%s\t%s' % (command, docstring)
+                print '\t%-12s %s' % (command, docstring)
 
     def command_quit(self, argument):
         """Exit the debugger"""
+        self.pgroup.close()
         sys.exit(0)
 
-    def change_child(self, target_time):
-        """If 'target_time' is not soon after 'self.active_child',
-        close it and fork another child."""
-        assert 1 <= target_time <= self.total_stop_points
-        best = max([key for key in self.fork_points if key <= target_time])
-        if best < self.active_child.current_time <= target_time:
-            pass     # keep 'active_child'
-        else:
-            self.active_child.close()
-            self.active_child = self.fork_points[best].clone()
-
     def command_go(self, argument):
-        """Go to time ARG"""
-        target_time = int(argument)
-        if target_time < 1:
-            target_time = 1
-        if target_time > self.total_stop_points:
-            target_time = self.total_stop_points
-        self.change_child(target_time)
-        self.active_child.forward(target_time - self.active_child.current_time)
+        """Jump to time ARG"""
+        self.pgroup.jump_in_time(int(argument))
+
+    def command_info(self, argument):
+        """Display various info ('info help' for more)"""
+        display = getattr(self, 'cmd_info_' + argument, self.cmd_info_help)
+        return display()
+
+    def cmd_info_help(self):
+        """Display info topics summary"""
+        print 'Available info topics:'
+        for name in dir(self):
+            if name.startswith('cmd_info_'):
+                command = name[len('cmd_info_'):]
+                docstring = getattr(self, name).__doc__ or 'undocumented'
+                print '\tinfo %-12s %s' % (command, docstring)
+
+    def cmd_info_paused(self):
+        """List current paused subprocesses"""
+        lst = [str(n) for n in sorted(self.pgroup.paused)]
+        print ', '.join(lst)
+
+    def command_step(self, argument):
+        """Run forward ARG steps (default 1)"""
+        self.pgroup.go_forward(int(argument or '1'))
+    command_s = command_step
+
+    def command_continue(self, argument):
+        """Run forward"""
+        self.pgroup.go_forward(maxint64)
+    command_c = command_continue
