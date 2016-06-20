@@ -401,7 +401,6 @@ class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
                  """
     Py_buffer buf;
     PyObject *str = PyBytes_FromString("hello, world.");
-    PyObject *result;
 
     if (PyBuffer_FillInfo(&buf, str, PyBytes_AsString(str), 13,
                           1, PyBUF_WRITABLE)) {

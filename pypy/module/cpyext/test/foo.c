@@ -48,15 +48,6 @@ newfooobject(void)
 
 /* foo methods */
 
-static void
-foo_dealloc(fooobject *foop)
-{
-    PyObject_Del(foop);
-}
-
-
-/* foo methods-as-attributes */
-
 static PyObject *
 foo_copy(fooobject *self)
 {
@@ -200,7 +191,7 @@ static PyTypeObject footype = {
     sizeof(fooobject),       /*tp_size*/
     0,                       /*tp_itemsize*/
     /* methods */
-    (destructor)foo_dealloc, /*tp_dealloc*/
+    0,                       /*tp_dealloc*/
     0,                       /*tp_print*/
     0,                       /*tp_getattr*/
     0,                       /*tp_setattr*/
@@ -468,9 +459,9 @@ static int initerrtype_init(PyObject *self, PyObject *args, PyObject *kwargs) {
 PyTypeObject InitErrType = {
     PyObject_HEAD_INIT(NULL)
     0,
-    "foo.InitErr",
-    sizeof(PyObject),
-    0,
+    "foo.InitErrType",
+    sizeof(PyObject),/*tp_basicsize*/
+    0,          /*tp_itemsize*/
     0,          /*tp_dealloc*/
     0,          /*tp_print*/
     0,          /*tp_getattr*/
@@ -513,12 +504,12 @@ PyTypeObject InitErrType = {
     0,          /*tp_dictoffset*/
 
     initerrtype_init,          /*tp_init*/
-    0,          /*tp_alloc  will be set to PyType_GenericAlloc in module init*/
+    0,          /*tp_alloc*/
     0,          /*tp_new*/
-    0,          /*tp_free  Low-level free-memory routine */
-    0,          /*tp_is_gc For PyObject_IS_GC */
+    0,          /*tp_free*/
+    0,          /*tp_is_gc*/
     0,          /*tp_bases*/
-    0,          /*tp_mro method resolution order */
+    0,          /*tp_mro*/
     0,          /*tp_cache*/
     0,          /*tp_subclasses*/
     0           /*tp_weaklist*/

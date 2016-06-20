@@ -35,7 +35,7 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
             ("test_GetSize_exception", "METH_NOARGS",
              """
                  PyObject* f = PyFloat_FromDouble(1.0);
-                 Py_ssize_t size = PyUnicode_GetSize(f);
+                 PyUnicode_GetSize(f);
 
                  Py_DECREF(f);
                  return NULL;
@@ -57,7 +57,6 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
              """
                  PyObject *s, *t;
                  Py_UNICODE* c;
-                 Py_ssize_t len;
 
                  s = PyUnicode_FromUnicode(NULL, 4);
                  if (s == NULL)

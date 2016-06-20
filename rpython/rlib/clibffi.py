@@ -148,7 +148,8 @@ class CConfig:
                                                  ('elements', FFI_TYPE_PP)])
 
     ffi_cif = rffi_platform.Struct('ffi_cif', [])
-    ffi_closure = rffi_platform.Struct('ffi_closure', [])
+    ffi_closure = rffi_platform.Struct('ffi_closure',
+                                       [('user_data', rffi.VOIDP)])
 
 def add_simple_type(type_name):
     for name in ['size', 'alignment', 'type']:
