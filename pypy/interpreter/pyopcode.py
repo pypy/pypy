@@ -258,6 +258,16 @@ class __extend__(pyframe.PyFrame):
                 self.BUILD_MAP(oparg, next_instr)
             elif opcode == opcodedesc.BUILD_SET.index:
                 self.BUILD_SET(oparg, next_instr)
+            elif opcode == opcodedesc.BUILD_SET_UNPACK.index:
+                self.BUILD_SET_UNPACK(oparg, next_instr)
+            elif opcode == opcodedesc.BUILD_TUPLE_UNPACK.index:
+                self.BUILD_TUPLE_UNPACK(oparg, next_instr)
+            elif opcode == opcodedesc.BUILD_LIST_UNPACK.index:
+                self.BUILD_LIST_UNPACK(oparg, next_instr)
+            elif opcode == opcodedesc.BUILD_MAP_UNPACK.index:
+                self.BUILD_MAP_UNPACK(oparg, next_instr)
+            elif opcode == opcodedesc.BUILD_MAP_UNPACK_WITH_CALL.index:
+                self.BUILD_MAP_UNPACK_WITH_CALL(oparg, next_instr)
             elif opcode == opcodedesc.BUILD_SLICE.index:
                 self.BUILD_SLICE(oparg, next_instr)
             elif opcode == opcodedesc.BUILD_TUPLE.index:

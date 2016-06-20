@@ -1128,7 +1128,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.name_op(name.id, name.ctx)
 
     def visit_keyword(self, keyword):
-        self.load_const(self.space.wrap(keyword.arg.decode('utf-8')))
+        if keyword.arg is not None:
+            self.load_const(self.space.wrap(keyword.arg.decode('utf-8')))
         keyword.value.walkabout(self)
 
     def _make_call(self, n, # args already pushed
