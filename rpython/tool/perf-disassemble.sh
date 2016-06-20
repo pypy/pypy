@@ -12,10 +12,12 @@
 # $ dolphin-emu -P /tmp -b -e $game
 # $ perf top -p $(pidof dolphin-emu) --objdump ./Tools/perf-disassemble.sh
 
-flavor=att
-raw=r
+flavor=intel
+#raw=r
+raw=
 src=
 
+echo $@ > ~/bla
 
 [[ "${@: -1}" != /tmp/perf-*.map ]] && { objdump "$@"; exit; }
 
@@ -47,4 +49,4 @@ for a in "$@"; do
             ;;
     esac
 done
-gdb -q -p $pid -ex "set disassembly $flavor" -ex "disas /$raw$src $start,$stop" -ex q -batch
+gdb -q -p $pid -ex "set disassembly $flavor" -ex "disas /$raw$src $start,$stop" -ex q -batch | sed "s/=>/  /g"
