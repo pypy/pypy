@@ -1524,7 +1524,7 @@ def load_extension_module(space, path, name):
     try:
         ll_libname = rffi.str2charp(path)
         try:
-            dll = rdynload.dlopen(ll_libname)
+            dll = rdynload.dlopen(ll_libname, space.sys.dlopenflags)
         finally:
             lltype.free(ll_libname, flavor='raw')
     except rdynload.DLOpenError as e:
