@@ -10,7 +10,7 @@ from rpython.jit.backend.ppc.locations import imm, get_fp_offset
 from rpython.jit.backend.ppc.helper.regalloc import _check_imm_arg, check_imm_box
 from rpython.jit.backend.ppc.helper import regalloc as helper
 from rpython.jit.metainterp.history import (Const, ConstInt, ConstFloat, ConstPtr,
-                                            INT, REF, FLOAT, VOID)
+                                            INT, REF, FLOAT, VOID, VECTOR)
 from rpython.jit.metainterp.history import JitCellToken, TargetToken
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.backend.ppc import locations
@@ -50,6 +50,11 @@ class TempFloat(TempVar):
     def __repr__(self):
         return "<TempFloat at %s>" % (id(self),)
 
+class TempVector(TempVar):
+    type = VECTOR
+
+    def __repr__(self):
+        return "<TempVector at %s>" % (id(self),)
 
 class FPRegisterManager(RegisterManager):
     all_regs              = r.MANAGED_FP_REGS
@@ -136,9 +141,9 @@ class PPCRegisterManager(RegisterManager):
         self.temp_boxes.append(box)
         return reg
 
-class VectorRegisterManager(RegisterManager):
-    all_regs              = r.MANAGED_VECTOR_REGS
-    box_types             = [INT, FLOAT]
+class IntegerVectorRegisterManager(RegisterManager):
+    all_regs              = r.MANAGED_INTEGER_VECTOR_REGS
+    box_types             = [INT]
     save_around_call_regs = [] # ??? lookup the ABI
     assert set(save_around_call_regs).issubset(all_regs)
 
@@ -147,6 +152,30 @@ class VectorRegisterManager(RegisterManager):
 
     def ensure_reg(self, box):
         raise NotImplementedError
+
+    def get_scratch_reg(self):
+        box = TempInt()
+        reg = self.force_allocate_reg(box, forbidden_vars=self.temp_boxes)
+        self.temp_boxes.append(box)
+        return reg
+
+class FloatVectorRegisterManager(IntegerVectorRegisterManager):
+    all_regs              = r.MANAGED_FLOAT_VECTOR_REGS
+    box_types             = [FLOAT]
+    save_around_call_regs = [] # ??? lookup the ABI
+    assert set(save_around_call_regs).issubset(all_regs)
+
+    def __init__(self, longevity, frame_manager=None, assembler=None):
+        RegisterManager.__init__(self, longevity, frame_manager, assembler)
+
+    def ensure_reg(self, box):
+        raise NotImplementedError
+
+    def get_scratch_reg(self):
+        box = TempFloat()
+        reg = self.force_allocate_reg(box, forbidden_vars=self.temp_boxes)
+        self.temp_boxes.append(box)
+        return reg
 
 class PPCFrameManager(FrameManager):
     def __init__(self, base_ofs):
@@ -191,7 +220,9 @@ class Regalloc(BaseRegalloc, VectorRegalloc):
                                      assembler = self.assembler)
         self.fprm = FPRegisterManager(self.longevity, frame_manager = self.fm,
                                       assembler = self.assembler)
-        self.vrm = VectorRegisterManager(self.longevity, frame_manager = self.fm,
+        self.vrm = FloatVectorRegisterManager(self.longevity, frame_manager = self.fm,
+                                      assembler = self.assembler)
+        self.ivrm = IntegerVectorRegisterManager(self.longevity, frame_manager = self.fm,
                                       assembler = self.assembler)
         return operations
 
@@ -255,11 +286,15 @@ class Regalloc(BaseRegalloc, VectorRegalloc):
     def possibly_free_var(self, var):
         if var is not None:
             if var.type == FLOAT:
-                self.fprm.possibly_free_var(var)
-            elif var.is_vector() and var.type != VOID:
-                self.vrm.possibly_free_var(var)
-            else:
-                self.rm.possibly_free_var(var)
+                if var.is_vector():
+                    self.vrm.possibly_free_var(var)
+                else:
+                    self.fprm.possibly_free_var(var)
+            elif var.type == INT:
+                if var.is_vector():
+                    self.ivrm.possibly_free_var(var)
+                else:
+                    self.rm.possibly_free_var(var)
 
     def possibly_free_vars(self, vars):
         for var in vars:
@@ -303,6 +338,7 @@ class Regalloc(BaseRegalloc, VectorRegalloc):
             self.rm.position = i
             self.fprm.position = i
             self.vrm.position = i
+            self.ivrm.position = i
             opnum = op.opnum
             if rop.has_no_side_effect(opnum) and op not in self.longevity:
                 i += 1
@@ -311,12 +347,16 @@ class Regalloc(BaseRegalloc, VectorRegalloc):
             #
             for j in range(op.numargs()):
                 box = op.getarg(j)
-                if box.is_vector():
-                    self.vrm.temp_boxes.append(box)
-                elif box.type != FLOAT:
-                    self.rm.temp_boxes.append(box)
+                if box.type != FLOAT:
+                    if box.is_vector():
+                        self.ivrm.temp_boxes.append(box)
+                    else:
+                        self.rm.temp_boxes.append(box)
                 else:
-                    self.fprm.temp_boxes.append(box)
+                    if box.is_vector():
+                        self.vrm.temp_boxes.append(box)
+                    else:
+                        self.fprm.temp_boxes.append(box)
             #
             if not we_are_translated() and opnum == rop.FORCE_SPILL:
                 self._consider_force_spill(op)
@@ -328,6 +368,7 @@ class Regalloc(BaseRegalloc, VectorRegalloc):
             self.rm._check_invariants()
             self.fprm._check_invariants()
             self.vrm._check_invariants()
+            self.ivrm._check_invariants()
             if self.assembler.mc.get_relative_pos() > self.limit_loop_break:
                 self.assembler.break_long_loop()
                 self.limit_loop_break = (self.assembler.mc.get_relative_pos() +
@@ -439,6 +480,7 @@ class Regalloc(BaseRegalloc, VectorRegalloc):
         self.rm.free_temp_vars()
         self.fprm.free_temp_vars()
         self.vrm.free_temp_vars()
+        self.ivrm.free_temp_vars()
 
     # ******************************************************
     # *         P R E P A R E  O P E R A T I O N S         * 

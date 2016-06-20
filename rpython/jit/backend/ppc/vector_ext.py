@@ -36,24 +36,30 @@ class VectorAssembler(object):
     emit_vec_getarrayitem_gc_i = _emit_getitem
     emit_vec_getarrayitem_gc_f = _emit_getitem
 
-    def _emit_load(self, op, arglocs, regalloc):
-        resloc, base_loc, ofs_loc, size_loc, ofs, integer_loc, aligned_loc = arglocs
+    def emit_vec_raw_load_f(self, op, arglocs, regalloc):
+        resloc, baseloc, indexloc, size_loc, ofs, integer_loc, aligned_loc = arglocs
+        #src_addr = addr_add(baseloc, ofs_loc, ofs.value, 0)
+        assert ofs.value == 0
+        itemsize = size_loc.value
+        if itemsize == 4:
+            self.mc.lxvw4x(resloc.value, indexloc.value, baseloc.value)
+        elif itemsize == 8:
+            self.mc.lxvd2x(resloc.value, indexloc.value, baseloc.value)
+
+    def emit_vec_raw_load_i(self, op, arglocs, regalloc):
+        resloc, baseloc, indexloc, size_loc, ofs, \
+            Vhiloc, Vloloc, Vploc, tloc = arglocs
         #src_addr = addr_add(base_loc, ofs_loc, ofs.value, 0)
         assert ofs.value == 0
-        self._vec_load(resloc, base_loc, ofs_loc, integer_loc.value,
-                       size_loc.value, aligned_loc.value)
-
-    emit_vec_raw_load_i = _emit_load
-    emit_vec_raw_load_f = _emit_load
-
-    def _vec_load(self, resloc, baseloc, indexloc, integer, itemsize, aligned):
-        if integer:
-            raise NotImplementedError
-        else:
-            if itemsize == 4:
-                self.mc.lxvw4x(resloc.value, indexloc.value, baseloc.value)
-            elif itemsize == 8:
-                self.mc.lxvd2x(resloc.value, indexloc.value, baseloc.value)
+        Vlo = Vloloc.value
+        Vhi = Vhiloc.value
+        self.mc.lvx(Vhi, indexloc.value, baseloc.value)
+        Vp = Vploc.value
+        t = tloc.value
+        self.mc.lvsl(Vp, indexloc.value, baseloc.value)
+        self.mc.addi(t, baseloc.value, 16)
+        self.mc.lvx(Vlo, indexloc.value, t)
+        self.mc.vperm(resloc.value, Vhi, Vlo, Vp)
 
     def _emit_vec_setitem(self, op, arglocs, regalloc):
         # prepares item scale (raw_store does not)
@@ -72,11 +78,41 @@ class VectorAssembler(object):
         #dest_loc = addr_add(base_loc, ofs_loc, baseofs.value, 0)
         assert baseofs.value == 0
         self._vec_store(baseloc, ofsloc, valueloc, integer_loc.value,
-                        size_loc.value, aligned_loc.value)
+                        size_loc.value, regalloc)
 
-    def _vec_store(self, baseloc, indexloc, valueloc, integer, itemsize, aligned):
+    def _vec_store(self, baseloc, indexloc, valueloc, integer, itemsize, regalloc):
         if integer:
-            raise NotImplementedError
+            Vloloc = regalloc.ivrm.get_scratch_reg()
+            Vhiloc = regalloc.ivrm.get_scratch_reg()
+            Vploc = regalloc.ivrm.get_scratch_reg()
+            tloc = regalloc.rm.get_scratch_reg()
+            V1sloc = regalloc.ivrm.get_scratch_reg()
+            V1s = V1sloc.value
+            V0sloc = regalloc.ivrm.get_scratch_reg()
+            V0s = V0sloc.value
+            Vmaskloc = regalloc.ivrm.get_scratch_reg()
+            Vmask = Vmaskloc.value
+            Vlo = Vhiloc.value
+            Vhi = Vloloc.value
+            Vp = Vploc.value
+            t = tloc.value
+            Vs = valueloc.value
+            # UFF, that is a lot of code for storing unaligned!
+            # probably a lot of room for improvement (not locally,
+            # but in general for the algorithm)
+            self.mc.lvx(Vhi, indexloc.value, baseloc.value)
+            self.mc.lvsr(Vp, indexloc.value, baseloc.value)
+            self.mc.addi(t, baseloc.value, 16)
+            self.mc.lvx(Vlo, indexloc.value, t)
+            self.mc.vspltisb(V1s, -1)
+            self.mc.vspltisb(V0s, 0)
+            self.mc.vperm(Vmask, V0s, V1s, Vp)
+            self.mc.vperm(Vs, Vs, Vs, Vp)
+            self.mc.vsel(Vlo, Vs, Vlo, Vmask)
+            self.mc.vsel(Vhi, Vhi, Vs, Vmask)
+            self.mc.stvx(Vlo, indexloc.value, baseloc.value)
+            self.mc.addi(t, baseloc.value, -16)
+            self.mc.stvx(Vhi, indexloc.value, t)
         else:
             if itemsize == 4:
                 self.mc.stxvw4x(valueloc.value, indexloc.value, baseloc.value)
@@ -94,7 +130,6 @@ class VectorAssembler(object):
         elif size == 4:
             raise NotImplementedError
         elif size == 8:
-            raise NotImplementedError # need value in another register!
             self.mc.vaddudm(resloc.value, loc0.value, loc1.value)
 
     def emit_vec_float_add(self, op, arglocs, resloc):
@@ -531,12 +566,18 @@ class VectorRegalloc(object):
 
     def force_allocate_vector_reg(self, op):
         forbidden_vars = self.vrm.temp_boxes
-        return self.vrm.force_allocate_reg(op, forbidden_vars)
+        if op.type == FLOAT:
+            return self.vrm.force_allocate_reg(op, forbidden_vars)
+        else:
+            return self.ivrm.force_allocate_reg(op, forbidden_vars)
 
     def ensure_vector_reg(self, box):
-        loc = self.vrm.make_sure_var_in_reg(box,
-                           forbidden_vars=self.vrm.temp_boxes)
-        return loc
+        if box.type == FLOAT:
+            return self.vrm.make_sure_var_in_reg(box,
+                               forbidden_vars=self.vrm.temp_boxes)
+        else:
+            return self.ivrm.make_sure_var_in_reg(box,
+                               forbidden_vars=self.ivrm.temp_boxes)
 
     def _prepare_load(self, op):
         descr = op.getdescr()
@@ -555,11 +596,30 @@ class VectorRegalloc(object):
         return [result_loc, base_loc, ofs_loc, imm(itemsize), imm(ofs),
                 imm(integer), imm(aligned)]
 
-    prepare_vec_getarrayitem_raw_i = _prepare_load
+    def _prepare_load_i(self, op):
+        descr = op.getdescr()
+        assert isinstance(descr, ArrayDescr)
+        assert not descr.is_array_of_pointers() and \
+               not descr.is_array_of_structs()
+        itemsize, ofs, _ = unpack_arraydescr(descr)
+        args = op.getarglist()
+        a0 = op.getarg(0)
+        a1 = op.getarg(1)
+        base_loc = self.ensure_reg(a0)
+        ofs_loc = self.ensure_reg(a1)
+        result_loc = self.force_allocate_vector_reg(op)
+        tloc = self.rm.get_scratch_reg()
+        Vhiloc = self.ivrm.get_scratch_reg()
+        Vloloc = self.ivrm.get_scratch_reg()
+        Vploc = self.ivrm.get_scratch_reg()
+        return [result_loc, base_loc, ofs_loc, imm(itemsize), imm(ofs),
+                Vhiloc, Vloloc, Vploc, tloc]
+
+    prepare_vec_getarrayitem_raw_i = _prepare_load_i
     prepare_vec_getarrayitem_raw_f = _prepare_load
-    prepare_vec_getarrayitem_gc_i = _prepare_load
+    prepare_vec_getarrayitem_gc_i = _prepare_load_i
     prepare_vec_getarrayitem_gc_f = _prepare_load
-    prepare_vec_raw_load_i = _prepare_load
+    prepare_vec_raw_load_i = _prepare_load_i
     prepare_vec_raw_load_f = _prepare_load
 
     def prepare_vec_arith(self, op):

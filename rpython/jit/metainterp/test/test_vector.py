@@ -61,6 +61,15 @@ def rawstorage(request):
 integers_64bit = st.integers(min_value=-2**63, max_value=2**63-1)
 floats = st.floats()
 
+def rdiv(v1,v2):
+    # TODO unused, interpeting this on top of llgraph does not work correctly
+    try:
+        return v1 / v2
+    except ZeroDivisionError:
+        if v1 == v2 == 0.0:
+            return rfloat.NAN
+        return rfloat.copysign(rfloat.INFINITY, v1 * v2)
+
 class VectorizeTests:
     enable_opts = 'intbounds:rewrite:virtualize:string:earlyforce:pure:heap:unroll'
 
@@ -75,19 +84,9 @@ class VectorizeTests:
                               type_system=self.type_system,
                               vec=vec, vec_all=vec_all)
 
-    @staticmethod
-    def rdiv(v1,v2):
-        try:
-            return v1 / v2
-        except ZeroDivisionError:
-            if v1 == v2 == 0.0:
-                return rfloat.NAN
-            return rfloat.copysign(rfloat.INFINITY, v1 * v2)
-
     @given(data=st.data())
     @pytest.mark.parametrize('func', [lambda a,b: a+b,
-        lambda a,b: a*b, lambda a,b: a-b,
-        lambda a,b: VectorizeTests.rdiv(a,b)])
+        lambda a,b: a*b, lambda a,b: a-b])
     def test_vector_simple_float(self, func, data):
         func = always_inline(func)
 
@@ -144,7 +143,7 @@ class VectorizeTests:
 
         rawstorage = RawStorage()
         #la = data.draw(st.lists(integers_64bit, min_size=10, max_size=150))
-        la = [0] * 10
+        la = [1] * 10
         l = len(la)
         #lb = data.draw(st.lists(integers_64bit, min_size=l, max_size=l))
         lb = [0] * 10

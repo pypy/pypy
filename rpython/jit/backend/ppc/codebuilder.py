@@ -63,7 +63,11 @@ XFX = Form("CRM", "rS", "XO1")
 XLL = Form("LL", "XO1")
 XX1 = Form("fvrT", "rA", "rB", "XO1")
 XX3 = Form("fvrT", "fvrA", "fvrB", "XO9")
-VX = Form("lvrT", "lvrA", "lvrB", "XO8")
+XV = Form("ivrT", "rA", "rB", "XO1")
+VX = Form("ivrT", "ivrA", "ivrB", "XO8")
+VXI = Form("ivrT", "SIM", "XO8")
+VA = Form("ivrT", "ivrA", "ivrB", "ivrC", "XO10")
+
 
 MI = Form("rA", "rS", "SH", "MB", "ME", "Rc")
 MB = Form("rA", "rS", "rB", "MB", "ME", "Rc")
@@ -609,7 +613,26 @@ class PPCVSXAssembler(object):
 
     # INTEGER
     # -------
+
+    # load & store
+    lvx = XV(31, XO1=103)
+    stvx = XV(31, XO1=231)
+
+    # arith & logic
     vaddudm = VX(4, XO8=192)
+
+    # shift, perm and select
+    lvsl = XV(31, XO1=6)
+    lvsr = XV(31, XO1=38)
+    vperm = VA(4, XO10=43)
+    vsel = VA(4, XO10=42) 
+    vspltisb = VXI(4, XO8=780)
+
+
+
+
+
+
 
 class PPCAssembler(BasicPPCAssembler, PPCVSXAssembler):
     BA = BasicPPCAssembler

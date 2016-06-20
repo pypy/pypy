@@ -48,11 +48,12 @@ fields = { # bit margins are *inclusive*! (and bit 0 is
     "fvrB":   (16, 31, 'unsigned', regname._V, 'overlap'),
     # low vector register T (low in a sense:
     # can only address 32 vector registers)
-    "lvrT":   (6,  10, 'unsigned', regname._V),
+    "ivrT":   (6,  10, 'unsigned', regname._V),
     # low vector register A
-    "lvrA":   (11, 15, 'unsigned', regname._V),
+    "ivrA":   (11, 15, 'unsigned', regname._V),
     # low vector register B
-    "lvrB":   (16, 20, 'unsigned', regname._V),
+    "ivrB":   (16, 20, 'unsigned', regname._V),
+    "ivrC":   (21, 25, 'unsigned', regname._V),
     "XO1":    (21, 30),
     "XO2":    (22, 30),
     "XO3":    (26, 30),
@@ -62,7 +63,9 @@ fields = { # bit margins are *inclusive*! (and bit 0 is
     "XO7":    (27, 30),
     "XO8":    (21, 31),
     "XO9":    (21, 28),
+    "XO10":   (26, 31),
     "LL":     ( 9, 10),
+    "SIM":    (11, 15),
 }
 
 
