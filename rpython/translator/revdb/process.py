@@ -1,5 +1,4 @@
 import sys, os, struct, socket, errno, subprocess
-from contextlib import contextmanager
 from rpython.translator.revdb import ancillary
 from rpython.translator.revdb.message import *
 
@@ -8,7 +7,8 @@ maxint64 = int(2**63 - 1)
 
 
 class Breakpoint(Exception):
-    def __init__(self, num):
+    def __init__(self, time, num):
+        self.time = time
         self.num = num
 
 
@@ -58,8 +58,8 @@ class ReplayProcess(object):
             assert msg.extra == extra
         return msg
 
-    def expect_std(self):
-        msg = self.expect(ANSWER_STD, Ellipsis, Ellipsis)
+    def expect_ready(self):
+        msg = self.expect(ANSWER_READY, Ellipsis, Ellipsis)
         self.update_times(msg)
 
     def update_times(self, msg):
@@ -74,12 +74,12 @@ class ReplayProcess(object):
         s1, s2 = socket.socketpair()
         ancillary.send_fds(self.control_socket.fileno(), [s2.fileno()])
         s2.close()
-        msg = self.expect(ANSWER_FORKED, Ellipsis, Ellipsis, Ellipsis)
-        self.update_times(msg)
+        msg = self.expect(ANSWER_FORKED, Ellipsis)
         child_pid = msg.arg3
+        self.expect_ready()
         other = ReplayProcess(child_pid, s1,
                               breakpoints_cache=self.breakpoints_cache)
-        other.update_times(msg)
+        other.expect_ready()
         return other
 
     def close(self):
@@ -89,23 +89,25 @@ class ReplayProcess(object):
         except socket.error:
             pass
 
-    def forward(self, steps):
-        """Move this subprocess forward in time."""
+    def forward(self, steps, breakpoint_mode='b'):
+        """Move this subprocess forward in time.
+        Returns the Breakpoint or None.
+        """
         assert not self.tainted
-        self.send(Message(CMD_FORWARD, steps))
+        self.send(Message(CMD_FORWARD, steps, ord(breakpoint_mode)))
         #
-        msg = self.recv()
-        if msg.cmd == ANSWER_BREAKPOINT:
-            bkpt_num = msg.arg3
+        # record the first ANSWER_BREAKPOINT, drop the others
+        # (in corner cases only could we get more than one)
+        bkpt = None
+        while True:
             msg = self.recv()
-        else:
-            bkpt_num = None
-        assert msg.cmd == ANSWER_STD
+            if msg.cmd != ANSWER_BREAKPOINT:
+                break
+            if bkpt is None:
+                bkpt = Breakpoint(msg.arg1, msg.arg3)
+        assert msg.cmd == ANSWER_READY
         self.update_times(msg)
-        #
-        if bkpt_num is not None:
-            raise Breakpoint(bkpt_num)
-        return msg
+        return bkpt
 
     def print_text_answer(self):
         while True:
@@ -113,7 +115,7 @@ class ReplayProcess(object):
             if msg.cmd == ANSWER_TEXT:
                 sys.stdout.write(msg.extra)
                 sys.stdout.flush()
-            elif msg.cmd == ANSWER_STD:
+            elif msg.cmd == ANSWER_READY:
                 self.update_times(msg)
                 break
             else:
@@ -136,7 +138,7 @@ class ReplayProcessGroup(object):
         child = ReplayProcess(initial_subproc.pid, s1)
         msg = child.expect(ANSWER_INIT, INIT_VERSION_NUMBER, Ellipsis)
         self.total_stop_points = msg.arg2
-        child.expect_std()
+        child.expect_ready()
 
         self.active = child
         self.paused = {1: child.clone()}     # {time: subprocess}
@@ -148,7 +150,7 @@ class ReplayProcessGroup(object):
     def _check_current_time(self, time):
         assert self.get_current_time() == time
         self.active.send(Message(CMD_FORWARD, 0))
-        return self.active.expect(ANSWER_STD, time, Ellipsis)
+        return self.active.expect(ANSWER_READY, time, Ellipsis)
 
     def get_max_time(self):
         return self.total_stop_points
@@ -165,15 +167,21 @@ class ReplayProcessGroup(object):
     def is_tainted(self):
         return self.active.tainted
 
-    def go_forward(self, steps):
+    def go_forward(self, steps, breakpoint_mode='b'):
         """Go forward, for the given number of 'steps' of time.
 
         If needed, it will leave clones at intermediate times.
         Does not close the active subprocess.  Note that
         is_tainted() must return false in order to use this.
+
+        breakpoint_mode:
+          'b' = regular mode where hitting a breakpoint stops
+          'i' = ignore breakpoints
+          'r' = record the occurrence of a breakpoint but continue
         """
         assert steps >= 0
         self.update_breakpoints()
+        latest_bkpt = None
         while True:
             cur_time = self.get_current_time()
             if cur_time + steps > self.total_stop_points:
@@ -184,11 +192,50 @@ class ReplayProcessGroup(object):
                 break
             assert rel_next_clone >= 0
             if rel_next_clone > 0:
-                self.active.forward(rel_next_clone)
+                bkpt = self.active.forward(rel_next_clone, breakpoint_mode)
+                if breakpoint_mode == 'r':
+                    latest_bkpt = bkpt or latest_bkpt
+                elif bkpt:
+                    raise bkpt
                 steps -= rel_next_clone
             clone = self.active.clone()
             self.paused[clone.current_time] = clone
-        self.active.forward(steps)
+        bkpt = self.active.forward(steps, breakpoint_mode)
+        if breakpoint_mode == 'r':
+            bkpt = bkpt or latest_bkpt
+        if bkpt:
+            raise bkpt
+
+    def go_backward(self, steps):
+        """Go backward, for the given number of 'steps' of time.
+
+        Closes the active process.  Implemented as jump_in_time()
+        and then forward-searching for breakpoint locations (if any).
+        """
+        assert steps >= 0
+        initial_time = self.get_current_time()
+        if not self.breakpoints:
+            self.jump_in_time(initial_time - steps)
+        else:
+            self._backward_search_forward(initial_time - 957, initial_time)
+
+    def _backward_search_forward(self, search_start_time, search_stop_time):
+        while True:
+            self.jump_in_time(search_start_time)
+            search_start_time = self.get_current_time()
+            time_range_to_search = search_stop_time - search_start_time
+            if time_range_to_search <= 0:
+                print "[not found]"
+                return
+            print "[searching %d..%d]\n" % (search_start_time,
+                                            search_stop_time)
+            self.go_forward(time_range_to_search, breakpoint_mode='r')
+            # If at least one breakpoint was found, the Breakpoint
+            # exception is raised with the *last* such breakpoint.
+            # Otherwise, we continue here.  Search farther along a
+            # 3-times-bigger range.
+            search_stop_time = search_start_time
+            search_start_time -= time_range_to_search * 3
 
     def update_breakpoints(self):
         if self.active.breakpoints_cache != self.breakpoints:
@@ -200,7 +247,7 @@ class ReplayProcessGroup(object):
             extra = '\x00'.join(breakpoints)
             self.active.breakpoints_cache = None
             self.active.send(Message(CMD_BREAKPOINTS, extra=extra))
-            self.active.expect_std()
+            self.active.expect_ready()
             self.active.breakpoints_cache = self.breakpoints.copy()
 
     def _resume(self, from_time):
@@ -218,17 +265,8 @@ class ReplayProcessGroup(object):
         if target_time > self.total_stop_points:
             target_time = self.total_stop_points
         self._resume(max(time for time in self.paused if time <= target_time))
-        with self._breakpoints_disabled():
-            self.go_forward(target_time - self.get_current_time())
-
-    @contextmanager
-    def _breakpoints_disabled(self):
-        old =  self.breakpoints
-        self.breakpoints = {}
-        try:
-            yield
-        finally:
-            self.breakpoints = old
+        self.go_forward(target_time - self.get_current_time(),
+                        breakpoint_mode='i')
 
     def close(self):
         """Close all subprocesses.

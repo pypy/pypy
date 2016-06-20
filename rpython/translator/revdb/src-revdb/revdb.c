@@ -197,7 +197,7 @@ Signed rpy_reverse_db_identityhash(struct pypy_header0 *obj)
 #define CMD_FORWARD  (-3)
 
 #define ANSWER_INIT       (-20)
-#define ANSWER_STD        (-21)
+#define ANSWER_READY      (-21)
 #define ANSWER_FORKED     (-22)
 #define ANSWER_AT_END     (-23)
 #define ANSWER_BREAKPOINT (-24)
@@ -212,6 +212,9 @@ static uint64_t total_stop_points;
 static jmp_buf jmp_buf_cancel_execution;
 static void (*pending_after_forward)(void);
 static RPyString *empty_string;
+static uint64_t last_recorded_breakpoint_loc;
+static int last_recorded_breakpoint_num;
+static char breakpoint_mode;
 
 static void attach_gdb(void)
 {
@@ -279,13 +282,6 @@ static void write_answer(int cmd, int64_t arg1, int64_t arg2, int64_t arg3)
     c.arg2 = arg2;
     c.arg3 = arg3;
     write_sock(&c, sizeof(c));
-}
-
-static void answer_std(void)
-{
-    assert(stopped_time != 0);
-    assert(stopped_uid != 0);
-    write_answer(ANSWER_STD, stopped_time, stopped_uid, 0);
 }
 
 static RPyString *make_rpy_string(size_t length)
@@ -367,7 +363,6 @@ static void setup_replay_mode(int *argc_p, char **argv_p[])
     empty_string = make_rpy_string(0);
 
     write_answer(ANSWER_INIT, INIT_VERSION_NUMBER, total_stop_points, 0);
-    pending_after_forward = &answer_std;
 
     /* ignore the SIGCHLD signals so that child processes don't become
        zombies */
@@ -518,8 +513,16 @@ static void command_fork(void)
     }
     else {
         /* in the parent */
-        write_answer(ANSWER_FORKED, stopped_time, stopped_uid, child_pid);
+        write_answer(ANSWER_FORKED, child_pid, 0, 0);
         close(child_sockfd);
+    }
+}
+
+static void answer_recorded_breakpoint(void)
+{
+    if (last_recorded_breakpoint_loc != 0) {
+        write_answer(ANSWER_BREAKPOINT, last_recorded_breakpoint_loc,
+                     0, last_recorded_breakpoint_num);
     }
 }
 
@@ -530,7 +533,11 @@ static void command_forward(rpy_revdb_command_t *cmd)
         exit(1);
     }
     rpy_revdb.stop_point_break = stopped_time + cmd->arg1;
-    pending_after_forward = &answer_std;
+    breakpoint_mode = (char)cmd->arg2;
+    if (breakpoint_mode == 'r') {
+        last_recorded_breakpoint_loc = 0;
+        pending_after_forward = &answer_recorded_breakpoint;
+    }
 }
 
 static void command_default(rpy_revdb_command_t *cmd, char *extra)
@@ -551,7 +558,6 @@ static void command_default(rpy_revdb_command_t *cmd, char *extra)
         s = make_rpy_string(cmd->extra_size);
         memcpy(_RPyString_AsString(s), extra, cmd->extra_size);
     }
-    pending_after_forward = &answer_std;
     execute_rpy_function(rpy_revdb_command_funcs[i], cmd, s);
 }
 
@@ -562,6 +568,7 @@ void rpy_reverse_db_stop_point(void)
         stopped_time = rpy_revdb.stop_point_seen;
         stopped_uid = rpy_revdb.unique_id_seen;
         rpy_revdb.unique_id_seen = (-1ULL) << 63;
+        breakpoint_mode = 0;
 
         if (pending_after_forward) {
             void (*fn)(void) = pending_after_forward;
@@ -570,6 +577,7 @@ void rpy_reverse_db_stop_point(void)
         }
         else {
             rpy_revdb_command_t cmd;
+            write_answer(ANSWER_READY, stopped_time, stopped_uid, 0);
             read_sock(&cmd, sizeof(cmd));
 
             char extra[cmd.extra_size + 1];
@@ -655,8 +663,20 @@ void rpy_reverse_db_breakpoint(int64_t num)
                         "debug command\n");
         exit(1);
     }
-    rpy_revdb.stop_point_break = rpy_revdb.stop_point_seen + 1;
-    write_answer(ANSWER_BREAKPOINT, rpy_revdb.stop_point_break, 0, num);
+
+    switch (breakpoint_mode) {
+    case 'i':
+        return;   /* ignored breakpoints */
+
+    case 'r':     /* record the breakpoint but continue */
+        last_recorded_breakpoint_loc = rpy_revdb.stop_point_seen + 1;
+        last_recorded_breakpoint_num = num;
+        return;
+
+    default:      /* 'b' or '\0' for default handling of breakpoints */
+        rpy_revdb.stop_point_break = rpy_revdb.stop_point_seen + 1;
+        write_answer(ANSWER_BREAKPOINT, rpy_revdb.stop_point_break, 0, num);
+    }
 }
 
 RPY_EXTERN

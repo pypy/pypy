@@ -57,13 +57,13 @@ def currently_created_objects():
     unique id greater or equal."""
     return llop.revdb_get_value(lltype.SignedLongLong, 'u')
 
-@specialize.arg(1)
-def go_forward(time_delta, callback):
-    """For RPython debug commands: tells that after this function finishes,
-    the debugger should run the 'forward <time_delta>' command and then
-    invoke the 'callback' with no argument.
-    """
-    _change_time('f', time_delta, callback)
+## @specialize.arg(1)
+## def go_forward(time_delta, callback):
+##     """For RPython debug commands: tells that after this function finishes,
+##     the debugger should run the 'forward <time_delta>' command and then
+##     invoke the 'callback' with no argument.
+##     """
+##     _change_time('f', time_delta, callback)
 
 def breakpoint(num):
     llop.revdb_breakpoint(lltype.Void, num)

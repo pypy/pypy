@@ -88,6 +88,23 @@ class RevDebugControl(object):
         lst = [str(n) for n in sorted(self.pgroup.paused)]
         print ', '.join(lst)
 
+    def move_forward(self, steps):
+        try:
+            self.pgroup.go_forward(steps)
+        except Breakpoint as b:
+            self.hit_breakpoint(b)
+
+    def move_backward(self, steps):
+        try:
+            self.pgroup.go_backward(steps)
+        except Breakpoint as b:
+            self.hit_breakpoint(b)
+
+    def hit_breakpoint(self, b):
+        print 'Hit breakpoint %d' % (b.num,)
+        if self.pgroup.get_current_time() != b.time:
+            self.pgroup.jump_in_time(b.time)
+
     def command_step(self, argument):
         """Run forward ARG steps (default 1)"""
         arg = int(argument or '1')
@@ -97,16 +114,10 @@ class RevDebugControl(object):
         self.move_forward(arg)
     command_s = command_step
 
-    def move_forward(self, steps):
-        try:
-            self.pgroup.go_forward(steps)
-        except Breakpoint as b:
-            print 'Hit breakpoint %d' % (b.num,)
-
     def command_bstep(self, argument):
         """Run backward ARG steps (default 1)"""
         arg = int(argument or '1')
-        self.pgroup.jump_in_time(self.pgroup.get_current_time() - arg)
+        self.move_backward(arg)
     command_bs = command_bstep
 
     def command_continue(self, argument):
@@ -114,6 +125,11 @@ class RevDebugControl(object):
         self.move_forward(self.pgroup.get_max_time() -
                           self.pgroup.get_current_time())
     command_c = command_continue
+
+    def command_bcontinue(self, argument):
+        """Run backward"""
+        self.move_backward(self.pgroup.get_current_time() - 1)
+    command_bc = command_bcontinue
 
     def command_print(self, argument):
         """Print an expression"""

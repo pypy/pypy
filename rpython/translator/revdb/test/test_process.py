@@ -16,7 +16,7 @@ class TestReplayProcessGroup:
             pass
 
         class DBState:
-            break_loop = -1
+            break_loop = -2
         dbstate = DBState()
 
         def blip(cmd, extra):
@@ -32,7 +32,7 @@ class TestReplayProcessGroup:
             for i, op in enumerate(argv[1:]):
                 dbstate.stuff = Stuff()
                 dbstate.stuff.x = i + 1000
-                if dbstate.break_loop == i:
+                if i == dbstate.break_loop or i == dbstate.break_loop + 1:
                     revdb.breakpoint(99)
                 revdb.stop_point()
                 print op
@@ -61,11 +61,29 @@ class TestReplayProcessGroup:
             group.jump_in_time(target_time)
             group._check_current_time(target_time)
 
-    def test_breakpoint(self):
+    def test_breakpoint_b(self):
         group = ReplayProcessGroup(str(self.exename), self.rdbname)
         group.active.send(Message(1, 6, extra='set-breakpoint'))
         group.active.expect(42, 1, -43, -44, 'set-breakpoint')
-        group.active.expect(ANSWER_STD, 1, Ellipsis)
-        e = py.test.raises(Breakpoint, group.go_forward, 10)
+        group.active.expect(ANSWER_READY, 1, Ellipsis)
+        e = py.test.raises(Breakpoint, group.go_forward, 10, 'b')
+        assert e.value.time == 7
         assert e.value.num == 99
         group._check_current_time(7)
+
+    def test_breakpoint_r(self):
+        group = ReplayProcessGroup(str(self.exename), self.rdbname)
+        group.active.send(Message(1, 6, extra='set-breakpoint'))
+        group.active.expect(42, 1, -43, -44, 'set-breakpoint')
+        group.active.expect(ANSWER_READY, 1, Ellipsis)
+        e = py.test.raises(Breakpoint, group.go_forward, 10, 'r')
+        assert e.value.time == 8
+        assert e.value.num == 99
+        group._check_current_time(10)
+
+    def test_breakpoint_i(self):
+        group = ReplayProcessGroup(str(self.exename), self.rdbname)
+        group.active.send(Message(1, 6, extra='set-breakpoint'))
+        group.active.expect(42, 1, -43, -44, 'set-breakpoint')
+        group.active.expect(ANSWER_READY, 1, Ellipsis)
+        group.go_forward(10, 'i')    # does not raise Breakpoint

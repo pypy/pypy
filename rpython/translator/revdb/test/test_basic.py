@@ -220,7 +220,7 @@ class InteractiveTests(object):
         self.subproc = subproc
         child = ReplayProcess(subproc.pid, s1)
         child.expect(ANSWER_INIT, INIT_VERSION_NUMBER, 3)
-        child.expect(ANSWER_STD, 1, Ellipsis)
+        child.expect(ANSWER_READY, 1, Ellipsis)
         return child
 
 
@@ -245,7 +245,7 @@ class TestSimpleInterpreter(InteractiveTests):
     def test_go(self):
         child = self.replay()
         child.send(Message(CMD_FORWARD, 2))
-        child.expect(ANSWER_STD, 3, Ellipsis)
+        child.expect(ANSWER_READY, 3, Ellipsis)
         child.send(Message(CMD_FORWARD, 2))
         child.expect(ANSWER_AT_END)
 
@@ -258,9 +258,9 @@ class TestSimpleInterpreter(InteractiveTests):
         child = self.replay()
         child2 = child.clone()
         child.send(Message(CMD_FORWARD, 2))
-        child.expect(ANSWER_STD, 3, Ellipsis)
+        child.expect(ANSWER_READY, 3, Ellipsis)
         child2.send(Message(CMD_FORWARD, 1))
-        child2.expect(ANSWER_STD, 2, Ellipsis)
+        child2.expect(ANSWER_READY, 2, Ellipsis)
         #
         child.close()
         child2.close()
@@ -306,8 +306,8 @@ class TestDebugCommands(InteractiveTests):
             if extra == 'get-value':
                 revdb.send_answer(100, revdb.current_time(),
                                        revdb.total_time())
-            if extra == 'go-fw':
-                revdb.go_forward(1, went_fw)
+            ## if extra == 'go-fw':
+            ##     revdb.go_forward(1, went_fw)
             ## if cmdline == 'set-break-after-0':
             ##     dbstate.break_after = 0
             ## if cmdline == 'print-id':
@@ -380,11 +380,11 @@ class TestDebugCommands(InteractiveTests):
         child.send(Message(1, extra='get-value'))
         child.expect(100, 1, 3)
 
-    def test_go_fw(self):
-        child = self.replay()
-        child.send(Message(1, extra='go-fw'))
-        child.expect(42, 1, -43, -44, 'go-fw')
-        child.expect(120, 2)
-        child.expect(120, 3)
-        child.send(Message(CMD_FORWARD, 0))
-        child.expect(ANSWER_STD, 3, Ellipsis)
+    ## def test_go_fw(self):
+    ##     child = self.replay()
+    ##     child.send(Message(1, extra='go-fw'))
+    ##     child.expect(42, 1, -43, -44, 'go-fw')
+    ##     child.expect(120, 2)
+    ##     child.expect(120, 3)
+    ##     child.send(Message(CMD_FORWARD, 0))
+    ##     child.expect(ANSWER_READY, 3, Ellipsis)
