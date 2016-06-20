@@ -2,6 +2,7 @@ import sys, re
 import subprocess, socket
 import traceback
 from rpython.translator.revdb.process import ReplayProcessGroup, maxint64
+from rpython.translator.revdb.process import Breakpoint
 
 r_cmdline = re.compile(r"(\S+)\s*(.*)")
 
@@ -91,10 +92,16 @@ class RevDebugControl(object):
         """Run forward ARG steps (default 1)"""
         arg = int(argument or '1')
         if self.pgroup.is_tainted():
-            self.pgroup.jump_in_time(self.pgroup.get_current_time() + arg)
-        else:
-            self.pgroup.go_forward(arg)
+            self.pgroup.jump_in_time(self.pgroup.get_current_time())
+            assert not self.pgroup.is_tainted()
+        self.move_forward(arg)
     command_s = command_step
+
+    def move_forward(self, steps):
+        try:
+            self.pgroup.go_forward(steps)
+        except Breakpoint as b:
+            print 'Hit breakpoint %d' % (b.num,)
 
     def command_bstep(self, argument):
         """Run backward ARG steps (default 1)"""
@@ -104,7 +111,8 @@ class RevDebugControl(object):
 
     def command_continue(self, argument):
         """Run forward"""
-        self.pgroup.jump_in_time(maxint64)
+        self.move_forward(self.pgroup.get_max_time() -
+                          self.pgroup.get_current_time())
     command_c = command_continue
 
     def command_print(self, argument):
@@ -120,3 +128,21 @@ class RevDebugControl(object):
     def command_locals(self, argument):
         """Show the locals"""
         self.pgroup.show_locals()
+
+    def command_break(self, argument):
+        """Add a breakpoint"""
+        new = 1
+        while new in self.pgroup.breakpoints:
+            new += 1
+        self.pgroup.breakpoints[new] = argument
+        print "Breakpoint %d added" % (new,)
+    command_b = command_break
+
+    def command_delete(self, argument):
+        """Delete a breakpoint"""
+        arg = int(argument)
+        if arg not in self.pgroup.breakpoints:
+            print "No breakpoint number %d" % (new,)
+        else:
+            del self.pgroup.breakpoints[arg]
+            print "Breakpoint %d deleted" % (new,)

@@ -1,4 +1,5 @@
 import sys, os, struct, socket, errno, subprocess
+from contextlib import contextmanager
 from rpython.translator.revdb import ancillary
 from rpython.translator.revdb.message import *
 
@@ -17,10 +18,11 @@ class ReplayProcess(object):
     It can be either the one started with --revdb-replay, or a fork.
     """
 
-    def __init__(self, pid, control_socket):
+    def __init__(self, pid, control_socket, breakpoints_cache={}):
         self.pid = pid
         self.control_socket = control_socket
         self.tainted = False
+        self.breakpoints_cache = breakpoints_cache    # don't change this dict
 
     def _recv_all(self, size):
         pieces = []
@@ -56,6 +58,10 @@ class ReplayProcess(object):
             assert msg.extra == extra
         return msg
 
+    def expect_std(self):
+        msg = self.expect(ANSWER_STD, Ellipsis, Ellipsis)
+        self.update_times(msg)
+
     def update_times(self, msg):
         self.current_time = msg.arg1
         self.currently_created_objects = msg.arg2
@@ -71,7 +77,8 @@ class ReplayProcess(object):
         msg = self.expect(ANSWER_FORKED, Ellipsis, Ellipsis, Ellipsis)
         self.update_times(msg)
         child_pid = msg.arg3
-        other = ReplayProcess(child_pid, s1)
+        other = ReplayProcess(child_pid, s1,
+                              breakpoints_cache=self.breakpoints_cache)
         other.update_times(msg)
         return other
 
@@ -129,11 +136,11 @@ class ReplayProcessGroup(object):
         child = ReplayProcess(initial_subproc.pid, s1)
         msg = child.expect(ANSWER_INIT, INIT_VERSION_NUMBER, Ellipsis)
         self.total_stop_points = msg.arg2
-        msg = child.expect(ANSWER_STD, 1, Ellipsis)
-        child.update_times(msg)
+        child.expect_std()
 
         self.active = child
         self.paused = {1: child.clone()}     # {time: subprocess}
+        self.breakpoints = {}
 
     def get_current_time(self):
         return self.active.current_time
@@ -166,6 +173,7 @@ class ReplayProcessGroup(object):
         is_tainted() must return false in order to use this.
         """
         assert steps >= 0
+        self.update_breakpoints()
         while True:
             cur_time = self.get_current_time()
             if cur_time + steps > self.total_stop_points:
@@ -182,6 +190,19 @@ class ReplayProcessGroup(object):
             self.paused[clone.current_time] = clone
         self.active.forward(steps)
 
+    def update_breakpoints(self):
+        if self.active.breakpoints_cache != self.breakpoints:
+            if self.breakpoints:
+                breakpoints = [self.breakpoints.get(n, '')
+                               for n in range(max(self.breakpoints) + 1)]
+            else:
+                breakpoints = []
+            extra = '\x00'.join(breakpoints)
+            self.active.breakpoints_cache = None
+            self.active.send(Message(CMD_BREAKPOINTS, extra=extra))
+            self.active.expect_std()
+            self.active.breakpoints_cache = self.breakpoints.copy()
+
     def _resume(self, from_time):
         clone_me = self.paused[from_time]
         self.active.close()
@@ -197,7 +218,17 @@ class ReplayProcessGroup(object):
         if target_time > self.total_stop_points:
             target_time = self.total_stop_points
         self._resume(max(time for time in self.paused if time <= target_time))
-        self.go_forward(target_time - self.get_current_time())
+        with self._breakpoints_disabled():
+            self.go_forward(target_time - self.get_current_time())
+
+    @contextmanager
+    def _breakpoints_disabled(self):
+        old =  self.breakpoints
+        self.breakpoints = {}
+        try:
+            yield
+        finally:
+            self.breakpoints = old
 
     def close(self):
         """Close all subprocesses.

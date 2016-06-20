@@ -6,9 +6,10 @@ CMD_QUIT     = -2
 CMD_FORWARD  = -3
 # extra commands which are not handled by revdb.c, but
 # by revdb.register_debug_command()
-CMD_PRINT     = 1
-CMD_BACKTRACE = 2
-CMD_LOCALS    = 3
+CMD_PRINT       = 1
+CMD_BACKTRACE   = 2
+CMD_LOCALS      = 3
+CMD_BREAKPOINTS = 4
 
 ANSWER_INIT       = -20
 ANSWER_STD        = -21
