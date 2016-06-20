@@ -1133,11 +1133,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def _make_call(self, n, # args already pushed
                    args, keywords):
-        #, starargs, kwargs
-        if args is not None:
-            arg = len(args) + n
-        else:
-            arg = n
         call_type = 0
         # the number of tuples and dictionaries on the stack
         nsubargs = 0
@@ -1207,11 +1202,11 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                     # Pack it all up
                     function_pos = n + (code & 1) + nkw + 1
                     self.emit_op_arg(ops.BUILD_MAP_UNPACK_WITH_CALL, (nsubkwargs | (function_pos << 8)))
-        
+
         assert n < 1<<8
         assert nkw < 1<<24
         n |= nkw << 8;
-        
+
         op = 0
         if call_type == 0:
             op = ops.CALL_FUNCTION
@@ -1221,7 +1216,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             op = ops.CALL_FUNCTION_KW
         elif call_type == 3:
             op = ops.CALL_FUNCTION_VAR_KW
-        self.emit_op_arg(op, arg)
+        self.emit_op_arg(op, n)
 
     def visit_Call(self, call):
         self.update_position(call.lineno)

@@ -1306,3 +1306,9 @@ class TestOptimizations:
             counts = self.count_instructions(source)
             assert ops.BUILD_SET not in counts
             assert ops.LOAD_CONST in counts
+
+    def test_call_function_var(self):
+        source = """call(*me)"""
+        code, blocks = generate_function_code(source, self.space)
+        # there is a stack computation error
+        assert blocks[0].instructions[3].arg == 0
