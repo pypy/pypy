@@ -260,9 +260,10 @@ class BaseTestGenerateGuards(BaseTest):
         self.check_no_guards(unknown_info, knownclass_info)
 
         # unknown constant
-        self.check_no_guards(unknown_info, constant_info,
+        unknown_info_int = not_virtual(self.cpu, 'i', None)
+        self.check_no_guards(unknown_info_int, constant_info,
                              ConstInt(1), ConstIntBound(1))
-        self.check_no_guards(unknown_info, constant_info)
+        self.check_no_guards(unknown_info_int, constant_info)
 
 
         # nonnull unknown
@@ -293,11 +294,11 @@ class BaseTestGenerateGuards(BaseTest):
         const_nonnull = ConstPtr(self.nodeaddr)
         const_nonnull2 = ConstPtr(self.node2addr)
         const_null = ConstPtr(lltype.nullptr(llmemory.GCREF.TO))
-        self.check_no_guards(nonnull_info, constant_info, const_nonnull,
+        self.check_no_guards(nonnull_info, constant_ptr_info, const_nonnull,
                              info.ConstPtrInfo(const_nonnull))
         self.check_invalid(nonnull_info, constantnull_info, const_null,
                            info.ConstPtrInfo(const_null))
-        self.check_no_guards(nonnull_info, constant_info)
+        self.check_no_guards(nonnull_info, constant_ptr_info)
         self.check_invalid(nonnull_info, constantnull_info)
 
 
@@ -706,7 +707,7 @@ class BaseTestGenerateGuards(BaseTest):
 
         assert not vstate2.generalization_of(vstate1, FakeOptimizer(self.cpu))
         assert not vstate1.generalization_of(vstate2, FakeOptimizer(self.cpu))
-        
+
     def test_nonvirtual_is_not_virtual(self):
         info1 = VirtualStateInfo(ConstInt(42), [1, 2])
         classbox = self.cpu.ts.cls_of_box(InputArgRef(self.nodeaddr))
