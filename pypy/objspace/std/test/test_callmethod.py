@@ -1,4 +1,6 @@
-class AppTestCallMethod:
+from rpython.rlib import jit
+
+class AppTestCallMethod(jit.RandomWeAreJittedTestMixin):
     # The exec hacking is needed to have the code snippets compiled
     # by our own compiler, not CPython's
 

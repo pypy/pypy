@@ -378,16 +378,37 @@ class Entry(ExtRegistryEntry):
         hop.exception_cannot_occur()
         return hop.genop('hint', [v, c_hint], resulttype=v.concretetype)
 
+def _we_are_jitted_interpreted():
+    return False # for monkey-patching
 
 def we_are_jitted():
     """ Considered as true during tracing and blackholing,
     so its consquences are reflected into jitted code """
     # during testing we return something randomly, to emulate the real
     # behaviour where you can switch to tracing a arbitrary points.
-    return False
+    return _we_are_jitted_interpreted()
 
 _we_are_jitted = CDefinedIntSymbolic('0 /* we are not jitted here */',
                                      default=0)
+
+
+class RandomWeAreJittedTestMixin(object):
+    def setup_method(self, meth):
+        global _we_are_jitted_interpreted
+        seed = random.random()
+        print "seed", seed
+        random.seed(seed)
+        self.orig_we_are_jitted = _we_are_jitted_interpreted
+        def _we_are_jitted_interpreted_random():
+            result = random.random() > 0.5
+            return result
+        _we_are_jitted_interpreted = _we_are_jitted_interpreted_random
+
+    def teardown_method(self, meth):
+        global _we_are_jitted_interpreted
+        _we_are_jitted_interpreted = self.orig_we_are_jitted
+
+
 
 def _get_virtualizable_token(frame):
     """ An obscure API to get vable token.

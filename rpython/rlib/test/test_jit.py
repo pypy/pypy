@@ -5,7 +5,8 @@ from rpython.annotator.model import UnionError
 from rpython.rlib.jit import (hint, we_are_jitted, JitDriver, elidable_promote,
     JitHintError, oopspec, isconstant, conditional_call,
     elidable, unroll_safe, dont_look_inside,
-    enter_portal_frame, leave_portal_frame, elidable_compatible)
+    enter_portal_frame, leave_portal_frame, elidable_compatible,
+    RandomWeAreJittedTestMixin)
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rtyper.lltypesystem import lltype
@@ -335,3 +336,19 @@ class TestJIT(BaseRtypingTest):
             leave_portal_frame()
         t = Translation(g, [])
         t.compile_c() # does not crash
+
+class Test_we_are_jitted(RandomWeAreJittedTestMixin):
+    def test_bad_we_are_jitted(self):
+        def bad(x):
+            if we_are_jitted():
+                return x + 1
+            else:
+                return x + 2
+
+        try:
+            for i in range(100):
+                assert bad(1) == 3
+        except AssertionError:
+            pass
+        else:
+            assert 0, "should have failed"

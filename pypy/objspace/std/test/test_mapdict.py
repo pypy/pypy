@@ -1,6 +1,9 @@
 import pytest
 from pypy.objspace.std.test.test_dictmultiobject import FakeSpace, W_DictObject
 from pypy.objspace.std.mapdict import *
+from rpython.rlib import jit
+import random
+
 
 class Config:
     class objspace:
@@ -662,7 +665,7 @@ def test_specialized_class():
 
 # XXX write more
 
-class AppTestWithMapDict(object):
+class AppTestWithMapDict(jit.RandomWeAreJittedTestMixin):
 
     def test_simple(self):
         class A(object):

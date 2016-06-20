@@ -1,6 +1,5 @@
 """The builtin str implementation"""
 
-from rpython.rlib.jit import we_are_jitted
 from rpython.rlib.objectmodel import (
     compute_hash, compute_unique_id, import_from_mixin)
 from rpython.rlib.buffer import StringBuffer

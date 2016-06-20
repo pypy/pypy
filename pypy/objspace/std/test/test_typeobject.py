@@ -2,6 +2,7 @@ import py
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef
+from rpython.rlib import jit
 
 
 class TestTypeObject:
@@ -59,7 +60,7 @@ class TestTypeObject:
         assert len(warnings) == 2
 
 
-class AppTestTypeObject:
+class AppTestTypeObject(jit.RandomWeAreJittedTestMixin):
     def test_abstract_methods(self):
         class X(object):
             pass
