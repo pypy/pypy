@@ -103,12 +103,14 @@ class RevDebugControl(object):
             self.pgroup.go_backward(steps)
             return True
         except Breakpoint as b:
-            self.hit_breakpoint(b)
+            self.hit_breakpoint(b, backward=True)
             return False
 
-    def hit_breakpoint(self, b):
+    def hit_breakpoint(self, b, backward=False):
         if b.num != -1:
             print 'Hit breakpoint %d' % (b.num,)
+        elif backward:
+            b.time -= 1
         if self.pgroup.get_current_time() != b.time:
             self.pgroup.jump_in_time(b.time)
 
@@ -166,8 +168,6 @@ class RevDebugControl(object):
                 # If, after running one bstep, the stack depth is greater
                 # than before, then bcontinue until it is back to what it was.
                 with self._stack_depth_break(depth1 + 1):
-                    # XXX check: 'bnext' stops at the first opcode *inside* the
-                    # function, should stop just before
                     self.command_bcontinue('')
     command_bn = command_bnext
 
@@ -177,8 +177,6 @@ class RevDebugControl(object):
             self.command_continue('')
 
     def command_bfinish(self, argument):
-        # XXX check: 'bfinish' stops at the first opcode *inside* the
-        # function, should stop just before
         with self._stack_depth_break(self.pgroup.get_stack_depth()):
             self.command_bcontinue('')
 
@@ -209,6 +207,9 @@ class RevDebugControl(object):
 
     def command_break(self, argument):
         """Add a breakpoint"""
+        if not argument:
+            print "Break where?"
+            return
         b = self.pgroup.edit_breakpoints()
         new = 1
         while new in b.num2name:
