@@ -254,24 +254,24 @@ class __extend__(pyframe.PyFrame):
                 self.BUILD_LIST(oparg, next_instr)
             elif opcode == opcodedesc.BUILD_LIST_FROM_ARG.index:
                 self.BUILD_LIST_FROM_ARG(oparg, next_instr)
-            elif opcode == opcodedesc.BUILD_MAP.index:
-                self.BUILD_MAP(oparg, next_instr)
-            elif opcode == opcodedesc.BUILD_SET.index:
-                self.BUILD_SET(oparg, next_instr)
-            elif opcode == opcodedesc.BUILD_SET_UNPACK.index:
-                self.BUILD_SET_UNPACK(oparg, next_instr)
-            elif opcode == opcodedesc.BUILD_TUPLE_UNPACK.index:
-                self.BUILD_TUPLE_UNPACK(oparg, next_instr)
             elif opcode == opcodedesc.BUILD_LIST_UNPACK.index:
                 self.BUILD_LIST_UNPACK(oparg, next_instr)
+            elif opcode == opcodedesc.BUILD_MAP.index:
+                self.BUILD_MAP(oparg, next_instr)
             elif opcode == opcodedesc.BUILD_MAP_UNPACK.index:
                 self.BUILD_MAP_UNPACK(oparg, next_instr)
             elif opcode == opcodedesc.BUILD_MAP_UNPACK_WITH_CALL.index:
                 self.BUILD_MAP_UNPACK_WITH_CALL(oparg, next_instr)
+            elif opcode == opcodedesc.BUILD_SET.index:
+                self.BUILD_SET(oparg, next_instr)
+            elif opcode == opcodedesc.BUILD_SET_UNPACK.index:
+                self.BUILD_SET_UNPACK(oparg, next_instr)
             elif opcode == opcodedesc.BUILD_SLICE.index:
                 self.BUILD_SLICE(oparg, next_instr)
             elif opcode == opcodedesc.BUILD_TUPLE.index:
                 self.BUILD_TUPLE(oparg, next_instr)
+            elif opcode == opcodedesc.BUILD_TUPLE_UNPACK.index:
+                self.BUILD_TUPLE_UNPACK(oparg, next_instr)
             elif opcode == opcodedesc.CALL_FUNCTION.index:
                 self.CALL_FUNCTION(oparg, next_instr)
             elif opcode == opcodedesc.CALL_FUNCTION_KW.index:
@@ -1333,34 +1333,40 @@ class __extend__(pyframe.PyFrame):
     def BUILD_SET_UNPACK(self, itemcount, next_instr):
         w_sum = self.space.newset()
         for i in range(itemcount, 0, -1):
-            self.space.call_method(w_sum, 'update', self.space.peek(i))
-        while itemcount != 0:
-            self.popvalue()
-            itemcount -= 1
+            w_item = self.popvalue()
+            #self.space.peek(i)
+            self.space.call_method(w_sum, 'update', w_item)
+        #while itemcount != 0:
+        #    self.popvalue()
+        #    itemcount -= 1
         self.pushvalue(w_sum)
 
     def BUILD_TUPLE_UNPACK(self, itemcount, next_instr):
-        w_sum = self.space.newset()
+        w_sum = self.space.newtuple()
         for i in range(itemcount, 0, -1):
-            self.space.call_method(w_sum, 'update', self.space.peek(i))
-        while itemcount != 0:
-            self.popvalue()
-            itemcount -= 1
+            w_item = self.popvalue()
+            #self.space.peek(i)
+            self.space.call_method(w_sum, 'update', w_item)
+        #while itemcount != 0:
+        #    self.popvalue()
+        #    itemcount -= 1
         self.pushvalue(w_sum)
         
     def BUILD_LIST_UNPACK(self, itemcount, next_instr):
-        w_sum = self.space.newset()
+        w_sum = self.space.newlist()
         for i in range(itemcount, 0, -1):
-            self.space.call_method(w_sum, 'update', self.space.peek(i))
-        while itemcount != 0:
-            self.popvalue()
-            itemcount -= 1
+            w_item = self.popvalue()
+            #self.space.peek(i)
+            self.space.call_method(w_sum, 'update', w_item)
+        #while itemcount != 0:
+        #    self.popvalue()
+        #    itemcount -= 1
         self.pushvalue(w_sum)
         
     #TODO
     #get intersection, store as setentry
     def BUILD_MAP_UNPACK_WITH_CALL(self, itemcount, next_instr):
-        w_sum = self.space.newset()
+        w_sum = self.space.newdict()
         num_maps = itemcount & 0xff
         function_location = (itemcount >> 8) & 0xff
         for i in range(num_maps, 0, -1):
@@ -1373,12 +1379,14 @@ class __extend__(pyframe.PyFrame):
         self.pushvalue(w_sum)
         
     def BUILD_MAP_UNPACK(self, itemcount, next_instr):
-        w_sum = self.space.newset()
+        w_sum = self.space.newdict()
         for i in range(itemcount, 0, -1):
-            self.space.call_method(w_sum, 'update', self.space.peek(i))
-        while itemcount != 0:
-            self.popvalue()
-            itemcount -= 1
+            w_item = self.popvalue()
+            #self.space.peek(i)
+            self.space.call_method(w_sum, 'update', w_item)
+        #while itemcount != 0:
+        #    self.popvalue()
+        #    itemcount -= 1
         self.pushvalue(w_sum)
 ### ____________________________________________________________ ###
 
