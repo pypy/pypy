@@ -620,9 +620,25 @@ static PyTypeObject CustomType = {
     (destructor)custom_dealloc, /*tp_dealloc*/
 };
 
+static PyTypeObject TupleLike = {
+    PyObject_HEAD_INIT(NULL)
+    0,
+    "foo.TupleLike",         /*tp_name*/
+    sizeof(PyObject),        /*tp_size*/
+};
+
+
 static PyObject *size_of_instances(PyObject *self, PyObject *t)
 {
     return PyInt_FromLong(((PyTypeObject *)t)->tp_basicsize);
+}
+
+
+static PyObject * is_TupleLike(PyObject *self, PyObject * t)
+{
+    int tf = t->ob_type == &TupleLike;
+    Py_DECREF(t);
+    return PyInt_FromLong(tf);
 }
 
 /* List of functions exported by this module */
@@ -631,6 +647,7 @@ static PyMethodDef foo_functions[] = {
     {"new",        (PyCFunction)foo_new, METH_NOARGS, NULL},
     {"newCustom",  (PyCFunction)newCustom, METH_NOARGS, NULL},
     {"size_of_instances", (PyCFunction)size_of_instances, METH_O, NULL},
+    {"is_TupleLike", (PyCFunction)is_TupleLike, METH_O, NULL},
     {NULL,        NULL}    /* Sentinel */
 };
 
@@ -680,6 +697,10 @@ initfoo(void)
     if (PyType_Ready(&UnicodeSubtype3) < 0)
         return;
 
+    TupleLike.tp_base = &PyTuple_Type;
+    if (PyType_Ready(&TupleLike) < 0)
+        return;
+
     m = Py_InitModule("foo", foo_functions);
     if (m == NULL)
         return;
@@ -701,5 +722,7 @@ initfoo(void)
     if (PyDict_SetItemString(d, "Property", (PyObject *) &SimplePropertyType) < 0)
         return;
     if (PyDict_SetItemString(d, "Custom", (PyObject *) &CustomType) < 0)
+        return;
+    if (PyDict_SetItemString(d, "TupleLike", (PyObject *) &TupleLike) < 0)
         return;
 }

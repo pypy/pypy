@@ -108,7 +108,9 @@ def tuple_realize(space, py_obj):
                 "converting a PyTupleObject into a W_TupleObject, "
                 "but found NULLs as items")
         items_w[i] = w_item
-    w_obj = space.newtuple(items_w)
+    w_type = from_ref(space, rffi.cast(PyObject, py_obj.c_ob_type))
+    w_obj = space.allocate_instance(W_TupleObject, w_type)
+    w_obj.__init__(items_w)
     track_reference(space, py_obj, w_obj)
     return w_obj
 
