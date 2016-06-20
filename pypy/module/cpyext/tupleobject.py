@@ -142,6 +142,7 @@ def PyTuple_SetItem(space, ref, index, py_obj):
     ref = rffi.cast(PyTupleObject, ref)
     size = ref.c_ob_size
     if index < 0 or index >= size:
+        decref(space, py_obj)
         raise oefmt(space.w_IndexError, "tuple assignment index out of range")
     old_ref = ref.c_ob_item[index]
     ref.c_ob_item[index] = py_obj    # consumes a reference
