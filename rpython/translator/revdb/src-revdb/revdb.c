@@ -282,8 +282,9 @@ static void write_answer(int cmd, int64_t arg1, int64_t arg2, int64_t arg3)
 
 static void answer_std(void)
 {
-    write_answer(ANSWER_STD, rpy_revdb.stop_point_seen,
-                 rpy_revdb.unique_id_seen, 0);
+    assert(stopped_time != 0);
+    assert(stopped_uid != 0);
+    write_answer(ANSWER_STD, stopped_time, stopped_uid, 0);
 }
 
 static RPyString *make_rpy_string(size_t length)
@@ -516,7 +517,7 @@ static void command_fork(void)
     }
     else {
         /* in the parent */
-        write_answer(ANSWER_FORKED, child_pid, 0, 0);
+        write_answer(ANSWER_FORKED, stopped_time, stopped_uid, child_pid);
         close(child_sockfd);
     }
 }
@@ -593,6 +594,7 @@ void rpy_reverse_db_stop_point(void)
                 break;
             }
         }
+        rpy_revdb.stop_point_seen = stopped_time;
         rpy_revdb.unique_id_seen = stopped_uid;
         stopped_time = 0;
         stopped_uid = 0;

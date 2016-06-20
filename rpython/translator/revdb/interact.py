@@ -27,14 +27,26 @@ class RevDebugControl(object):
         child = ReplayProcess(subproc.pid, s1)
         msg = child.expect(ANSWER_INIT, INIT_VERSION_NUMBER, Ellipsis)
         self.total_stop_points = msg.arg2
-        child.expect(ANSWER_STD, 1, Ellipsis)
+        msg = child.expect(ANSWER_STD, 1, Ellipsis)
+        child.update_times(msg)
         self.active_child = child
-        self.paused_children = {}
+        self.paused_children = []
+        #
+        # fixed time division for now
+        if self.total_stop_points < 1:
+            raise ValueError("no stop points recorded in %r" % (
+                revdb_log_filename,))
+        self.fork_points = {1: child.clone()}
+        p = 1
+        while p < self.total_stop_points and len(self.fork_points) < 30:
+            p += int((self.total_stop_points - p) * 0.25) + 1
+            self.fork_points[p] = None
 
     def interact(self):
         last_command = ''
         while True:
-            prompt = '(%d)$ ' % self.active_child.current_time()
+            last_time = self.active_child.current_time
+            prompt = '(%d)$ ' % last_time
             try:
                 cmdline = raw_input(prompt).strip()
             except EOFError:
@@ -54,8 +66,7 @@ class RevDebugControl(object):
                 try:
                     runner(argument)
                 except Exception as e:
-                    for line in traceback.format_exception_only(type(e), e):
-                        sys.stderr.write(line)
+                    traceback.print_exc()
                 last_command = cmdline
 
     def command_help(self, argument):
@@ -68,9 +79,26 @@ class RevDebugControl(object):
                 print '\t%s\t%s' % (command, docstring)
 
     def command_quit(self, argument):
-        """Exit the reverse debugger"""
+        """Exit the debugger"""
         sys.exit(0)
+
+    def change_child(self, target_time):
+        """If 'target_time' is not soon after 'self.active_child',
+        close it and fork another child."""
+        assert 1 <= target_time <= self.total_stop_points
+        best = max([key for key in self.fork_points if key <= target_time])
+        if best < self.active_child.current_time <= target_time:
+            pass     # keep 'active_child'
+        else:
+            self.active_child.close()
+            self.active_child = self.fork_points[best].clone()
 
     def command_go(self, argument):
         """Go to time ARG"""
         target_time = int(argument)
+        if target_time < 1:
+            target_time = 1
+        if target_time > self.total_stop_points:
+            target_time = self.total_stop_points
+        self.change_child(target_time)
+        self.active_child.forward(target_time - self.active_child.current_time)

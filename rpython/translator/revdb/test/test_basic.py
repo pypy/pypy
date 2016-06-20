@@ -10,6 +10,7 @@ from rpython.rtyper.annlowlevel import cast_gcref_to_instance
 from rpython.rtyper.lltypesystem import lltype, llmemory
 
 from rpython.translator.revdb.message import *
+from rpython.translator.revdb.process import ReplayProcess
 
 
 class RDB(object):

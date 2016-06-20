@@ -10,7 +10,7 @@ if __name__ == '__main__':
     parser.add_argument('-x', '--executable', dest='executable',
                         help='name of the executable file '
                              'that recorded the log')
-    options = parser.parse_args(sys.argv[1:])
+    options = parser.parse_args()
 
     sys.path.insert(0, os.path.abspath(
         os.path.join(__file__, '..', '..', '..', '..')))
