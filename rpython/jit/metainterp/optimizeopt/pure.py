@@ -228,7 +228,7 @@ class OptPure(Optimization):
             if not ccond.known_valid.same_constant(op.getarg(1)):
                 r = self.optimizer.metainterp_sd.logger_ops.repr_of_resop(
                     op)
-                raise InvalidLoop('A GUARD_VALUE (%s) '
+                raise InvalidLoop('A GUARD_COMPATIBLE (%s) '
                                   'was proven to always fail' % r)
             return
         else:
