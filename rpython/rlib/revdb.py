@@ -55,6 +55,9 @@ def go_forward(time_delta, callback):
     """
     _change_time('f', time_delta, callback)
 
+def breakpoint(num):
+    llop.revdb_breakpoint(lltype.Void, num)
+
 @specialize.argtype(0)
 def get_unique_id(x):
     """Returns the creation number of the object 'x'.  For objects created

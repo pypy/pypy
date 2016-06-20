@@ -5,10 +5,11 @@ CMD_FORK     = -1
 CMD_QUIT     = -2
 CMD_FORWARD  = -3
 
-ANSWER_INIT    = -20
-ANSWER_STD     = -21
-ANSWER_FORKED  = -22
-ANSWER_AT_END  = -23
+ANSWER_INIT       = -20
+ANSWER_STD        = -21
+ANSWER_FORKED     = -22
+ANSWER_AT_END     = -23
+ANSWER_BREAKPOINT = -24
 
 
 class Message(object):

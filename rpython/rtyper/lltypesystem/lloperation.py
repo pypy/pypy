@@ -568,6 +568,7 @@ LL_OPERATIONS = {
     'revdb_stop_point':     LLOp(),
     'revdb_send_answer':    LLOp(),
     'revdb_change_time':    LLOp(),
+    'revdb_breakpoint':     LLOp(),
     'revdb_get_value':      LLOp(sideeffects=False),
     'revdb_get_unique_id':  LLOp(sideeffects=False),
     ## 'revdb_track_object':   LLOp(),

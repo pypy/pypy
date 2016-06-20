@@ -3,6 +3,11 @@ from rpython.translator.revdb import ancillary
 from rpython.translator.revdb.message import *
 
 
+class Breakpoint(Exception):
+    def __init__(self, num):
+        self.num = num
+
+
 class ReplayProcess(object):
     """Represent one replaying subprocess.
 
@@ -73,8 +78,18 @@ class ReplayProcess(object):
     def forward(self, steps):
         """Move this subprocess forward in time."""
         self.send(Message(CMD_FORWARD, steps))
-        msg = self.expect(ANSWER_STD, Ellipsis, Ellipsis)
+        #
+        msg = self.recv()
+        if msg.cmd == ANSWER_BREAKPOINT:
+            bkpt_num = msg.arg3
+            msg = self.recv()
+        else:
+            bkpt_num = None
+        assert msg.cmd == ANSWER_STD
         self.update_times(msg)
+        #
+        if bkpt_num is not None:
+            raise Breakpoint(bkpt_num)
         return msg
 
 
@@ -83,7 +98,7 @@ class ReplayProcessGroup(object):
     """
     MAX_SUBPROCESSES = 31       # maximum number of subprocesses
     STEP_RATIO = 0.25           # subprocess n is between subprocess n-1
-                                #   and the end, at this time fraction
+                                #   and the end, at this fraction of interval
 
     def __init__(self, executable, revdb_log_filename):
         s1, s2 = socket.socketpair()
@@ -120,7 +135,7 @@ class ReplayProcessGroup(object):
             next_time = latest_done + int(self.STEP_RATIO * range_not_done) + 1
         return next_time
 
-    def forward(self, steps):
+    def go_forward(self, steps):
         """Go forward, for the given number of 'steps' of time.
 
         If needed, it will leave clones at intermediate times.
@@ -151,7 +166,9 @@ class ReplayProcessGroup(object):
     def jump_in_time(self, target_time):
         """Jump in time at the given 'target_time'.
 
-        This function can close the active subprocess.
+        This function can close the active subprocess.  But you should
+        remove the breakpoints first, in case the same subprocess remains
+        active.
         """
         if target_time < 1:
             target_time = 1
@@ -161,8 +178,8 @@ class ReplayProcessGroup(object):
         cur_time = self.get_current_time()
         if target_time >= cur_time:    # can go forward
             if cur_time >= max(self.paused):  # current time is past all forks
-                self.forward(target_time - cur_time)
+                self.go_forward(target_time - cur_time)
                 return
         # else, start from a fork
         self._resume(max(time for time in self.paused if time <= target_time))
-        self.forward(target_time - self.get_current_time())
+        self.go_forward(target_time - self.get_current_time())

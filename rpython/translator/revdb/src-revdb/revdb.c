@@ -196,10 +196,11 @@ Signed rpy_reverse_db_identityhash(struct pypy_header0 *obj)
 #define CMD_QUIT     (-2)
 #define CMD_FORWARD  (-3)
 
-#define ANSWER_INIT    (-20)
-#define ANSWER_STD     (-21)
-#define ANSWER_FORKED  (-22)
-#define ANSWER_AT_END  (-23)
+#define ANSWER_INIT       (-20)
+#define ANSWER_STD        (-21)
+#define ANSWER_FORKED     (-22)
+#define ANSWER_AT_END     (-23)
+#define ANSWER_BREAKPOINT (-24)
 
 typedef void (*rpy_revdb_command_fn)(rpy_revdb_command_t *, RPyString *);
 
@@ -640,24 +641,21 @@ void rpy_reverse_db_change_time(char mode, long long time,
         pending_after_forward = callback;
         break;
 
-    case 'k':       /* breakpoint */
-        if (time <= 0) {
-            fprintf(stderr, "revdb.breakpoint(): non-positive amount of "
-                            "steps\n");
-            exit(1);
-        }
-        if (stopped_time != 0) {
-            fprintf(stderr, "revdb.breakpoint(): cannot be called from a "
-                            "debug command\n");
-            exit(1);
-        }
-        rpy_revdb.stop_point_break = rpy_revdb.stop_point_seen + time;
-        pending_after_forward = callback;
-        break;
-
     default:
         abort();    /* unreachable */
     }
+}
+
+RPY_EXTERN
+void rpy_reverse_db_breakpoint(int64_t num)
+{
+    if (stopped_time != 0) {
+        fprintf(stderr, "revdb.breakpoint(): cannot be called from a "
+                        "debug command\n");
+        exit(1);
+    }
+    rpy_revdb.stop_point_break = rpy_revdb.stop_point_seen + 1;
+    write_answer(ANSWER_BREAKPOINT, rpy_revdb.stop_point_break, 0, num);
 }
 
 RPY_EXTERN

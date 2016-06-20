@@ -87,6 +87,9 @@ RPY_EXTERN void rpy_reverse_db_teardown(void);
 #define OP_REVDB_CHANGE_TIME(mode, time, callback, r)                   \
     rpy_reverse_db_change_time(mode, time, callback)
 
+#define OP_REVDB_BREAKPOINT(num, r)                                     \
+    rpy_reverse_db_breakpoint(num)
+
 #define OP_REVDB_GET_VALUE(value_id, r)                                 \
     r = rpy_reverse_db_get_value(value_id)
 
@@ -108,6 +111,7 @@ RPY_EXTERN void rpy_reverse_db_send_answer(int cmd, int64_t arg1, int64_t arg2,
 RPY_EXTERN Signed rpy_reverse_db_identityhash(struct pypy_header0 *obj);
 RPY_EXTERN void rpy_reverse_db_change_time(char mode, long long time,
                                            void callback(void));
+RPY_EXTERN void rpy_reverse_db_breakpoint(int64_t num);
 RPY_EXTERN long long rpy_reverse_db_get_value(char value_id);
 RPY_EXTERN uint64_t rpy_reverse_db_unique_id_break(void *new_object);
 RPY_EXTERN void rpy_reverse_db_track_object(long long unique_id,
