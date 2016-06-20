@@ -4,12 +4,18 @@ INIT_VERSION_NUMBER = 0xd80100
 CMD_FORK     = -1
 CMD_QUIT     = -2
 CMD_FORWARD  = -3
+# extra commands which are not handled by revdb.c, but
+# by revdb.register_debug_command()
+CMD_PRINT     = 1
+CMD_BACKTRACE = 2
 
 ANSWER_INIT       = -20
 ANSWER_STD        = -21
 ANSWER_FORKED     = -22
 ANSWER_AT_END     = -23
 ANSWER_BREAKPOINT = -24
+
+ANSWER_TEXT       = 20
 
 
 class Message(object):

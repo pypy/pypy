@@ -551,6 +551,7 @@ static void command_default(rpy_revdb_command_t *cmd, char *extra)
         s = make_rpy_string(cmd->extra_size);
         memcpy(_RPyString_AsString(s), extra, cmd->extra_size);
     }
+    pending_after_forward = &answer_std;
     execute_rpy_function(rpy_revdb_command_funcs[i], cmd, s);
 }
 

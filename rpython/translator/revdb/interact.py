@@ -61,6 +61,7 @@ class RevDebugControl(object):
         """Exit the debugger"""
         self.pgroup.close()
         sys.exit(0)
+    command_q = command_quit
 
     def command_go(self, argument):
         """Jump to time ARG"""
@@ -87,10 +88,27 @@ class RevDebugControl(object):
 
     def command_step(self, argument):
         """Run forward ARG steps (default 1)"""
-        self.pgroup.go_forward(int(argument or '1'))
+        arg = int(argument or '1')
+        self.pgroup.go_forward(arg)
     command_s = command_step
+
+    def command_bstep(self, argument):
+        """Run backward ARG steps (default 1)"""
+        arg = int(argument or '1')
+        self.pgroup.jump_in_time(self.pgroup.get_current_time() - arg)
+    command_bs = command_bstep
 
     def command_continue(self, argument):
         """Run forward"""
         self.pgroup.go_forward(maxint64)
     command_c = command_continue
+
+    def command_print(self, argument):
+        """Print an expression"""
+        self.pgroup.print_cmd(argument)
+    command_p = command_print
+
+    def command_backtrace(self, argument):
+        """Show the backtrace"""
+        self.pgroup.show_backtrace()
+    command_bt = command_backtrace

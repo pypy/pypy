@@ -10,6 +10,11 @@ from rpython.rtyper.annlowlevel import cast_gcref_to_instance
 from rpython.rtyper.lltypesystem import rffi
 
 
+CMD_PRINT = 1
+CMD_BACKTRACE = 2
+ANSWER_TEXT = 20
+
+
 def stop_point():
     """Indicates a point in the execution of the RPython program where
     the reverse-debugger can stop.  When reverse-debugging, we see
@@ -25,6 +30,9 @@ def register_debug_command(command, lambda_func):
 def send_answer(cmd, arg1=0, arg2=0, arg3=0, extra=""):
     """For RPython debug commands: writes an answer block to stdout"""
     llop.revdb_send_answer(lltype.Void, cmd, arg1, arg2, arg3, extra)
+
+def send_output(text):
+    send_answer(ANSWER_TEXT, extra=text)
 
 def current_time():
     """For RPython debug commands: returns the current time."""

@@ -76,7 +76,10 @@ class ReplayProcess(object):
 
     def close(self):
         """Close this subprocess."""
-        self.send(Message(CMD_QUIT))
+        try:
+            self.send(Message(CMD_QUIT))
+        except socket.error:
+            pass
 
     def forward(self, steps):
         """Move this subprocess forward in time."""
@@ -94,6 +97,17 @@ class ReplayProcess(object):
         if bkpt_num is not None:
             raise Breakpoint(bkpt_num)
         return msg
+
+    def print_text_answer(self):
+        while True:
+            msg = self.recv()
+            if msg.cmd == ANSWER_TEXT:
+                print msg.extra
+            elif msg.cmd == ANSWER_STD:
+                self.update_times(msg)
+                break
+            else:
+                print >> sys.stderr, "unexpected message %d" % (msg.cmd,)
 
 
 class ReplayProcessGroup(object):
@@ -169,21 +183,12 @@ class ReplayProcessGroup(object):
     def jump_in_time(self, target_time):
         """Jump in time at the given 'target_time'.
 
-        This function can close the active subprocess.  But you should
-        remove the breakpoints first, in case the same subprocess remains
-        active.
+        This function always closes the active subprocess.
         """
         if target_time < 1:
             target_time = 1
         if target_time > self.total_stop_points:
             target_time = self.total_stop_points
-
-        cur_time = self.get_current_time()
-        if target_time >= cur_time:    # can go forward
-            if cur_time >= max(self.paused):  # current time is past all forks
-                self.go_forward(target_time - cur_time)
-                return
-        # else, start from a fork
         self._resume(max(time for time in self.paused if time <= target_time))
         self.go_forward(target_time - self.get_current_time())
 
@@ -192,3 +197,15 @@ class ReplayProcessGroup(object):
         """
         for subp in [self.active] + self.paused.values():
             subp.close()
+
+    def print_cmd(self, expression):
+        """Print an expression.
+        """
+        self.active.send(Message(CMD_PRINT, extra=expression))
+        self.active.print_text_answer()
+
+    def show_backtrace(self):
+        """Show the backtrace.
+        """
+        self.active.send(Message(CMD_BACKTRACE))
+        self.active.print_text_answer()
