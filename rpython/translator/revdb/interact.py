@@ -20,7 +20,7 @@ class RevDebugControl(object):
         self.pgroup = ReplayProcessGroup(executable, revdb_log_filename)
 
     def interact(self):
-        last_command = ''
+        last_command = 'help'
         while True:
             last_time = self.pgroup.get_current_time()
             prompt = '(%d)$ ' % last_time
@@ -65,7 +65,8 @@ class RevDebugControl(object):
 
     def command_go(self, argument):
         """Jump to time ARG"""
-        self.pgroup.jump_in_time(int(argument))
+        arg = int(argument or self.pgroup.get_current_time())
+        self.pgroup.jump_in_time(arg)
 
     def command_info(self, argument):
         """Display various info ('info help' for more)"""
@@ -89,7 +90,10 @@ class RevDebugControl(object):
     def command_step(self, argument):
         """Run forward ARG steps (default 1)"""
         arg = int(argument or '1')
-        self.pgroup.go_forward(arg)
+        if self.pgroup.is_tainted():
+            self.pgroup.jump_in_time(self.pgroup.get_current_time() + arg)
+        else:
+            self.pgroup.go_forward(arg)
     command_s = command_step
 
     def command_bstep(self, argument):
@@ -100,7 +104,7 @@ class RevDebugControl(object):
 
     def command_continue(self, argument):
         """Run forward"""
-        self.pgroup.go_forward(maxint64)
+        self.pgroup.jump_in_time(maxint64)
     command_c = command_continue
 
     def command_print(self, argument):

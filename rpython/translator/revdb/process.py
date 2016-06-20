@@ -20,6 +20,7 @@ class ReplayProcess(object):
     def __init__(self, pid, control_socket):
         self.pid = pid
         self.control_socket = control_socket
+        self.tainted = False
 
     def _recv_all(self, size):
         pieces = []
@@ -83,6 +84,7 @@ class ReplayProcess(object):
 
     def forward(self, steps):
         """Move this subprocess forward in time."""
+        assert not self.tainted
         self.send(Message(CMD_FORWARD, steps))
         #
         msg = self.recv()
@@ -152,11 +154,15 @@ class ReplayProcessGroup(object):
             next_time = latest_done + int(self.STEP_RATIO * range_not_done) + 1
         return next_time
 
+    def is_tainted(self):
+        return self.active.tainted
+
     def go_forward(self, steps):
         """Go forward, for the given number of 'steps' of time.
 
         If needed, it will leave clones at intermediate times.
-        Does not close the active subprocess.
+        Does not close the active subprocess.  Note that
+        is_tainted() must return false in order to use this.
         """
         assert steps >= 0
         while True:
@@ -201,6 +207,7 @@ class ReplayProcessGroup(object):
     def print_cmd(self, expression):
         """Print an expression.
         """
+        self.active.tainted = True
         self.active.send(Message(CMD_PRINT, extra=expression))
         self.active.print_text_answer()
 
