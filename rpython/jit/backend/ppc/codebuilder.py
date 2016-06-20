@@ -61,7 +61,8 @@ XL2 = Form("crbD", "XO1", "Rc")
 XFL = Form("FM", "frB", "XO1", "Rc")
 XFX = Form("CRM", "rS", "XO1")
 XLL = Form("LL", "XO1")
-XX1 = Form("vrT", "rA", "rB", "XO1")
+XX1 = Form("fvrT", "rA", "rB", "XO1")
+XX3 = Form("fvrT", "fvrA", "fvrB", "XO9")
 VX = Form("lvrT", "lvrA", "lvrB", "XO8")
 
 MI = Form("rA", "rS", "SH", "MB", "ME", "Rc")
@@ -576,6 +577,12 @@ class BasicPPCAssembler(object):
 class PPCVSXAssembler(object):
     _mixin_ = True
 
+    # floating point operations (ppc got it's own vector
+    # unit for double/single precision floating points
+
+    # FLOAT
+    # -----
+
     # load
     lxvdsx = XX1(31, XO1=332) # splat first element
     lxvd2x = XX1(31, XO1=844)
@@ -585,7 +592,23 @@ class PPCVSXAssembler(object):
     stxvd2x = XX1(31, XO1=972)
     stxvw4x = XX1(31, XO1=908)
 
-    # integer
+    # arith
+
+    # add
+    xvadddp = XX3(60, XO9=96)
+    xvaddsp = XX3(60, XO9=64)
+    # sub
+    xvsubdp = XX3(60, XO9=104)
+    xvsubsp = XX3(60, XO9=72)
+    # mul
+    xvmuldp = XX3(60, XO9=112)
+    xvmulsp = XX3(60, XO9=80)
+    # div
+    xvdivdp = XX3(60, XO9=102)
+    xvdivsp = XX3(60, XO9=88)
+
+    # INTEGER
+    # -------
     vaddudm = VX(4, XO8=192)
 
 class PPCAssembler(BasicPPCAssembler, PPCVSXAssembler):

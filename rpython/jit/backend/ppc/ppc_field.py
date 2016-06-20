@@ -43,7 +43,9 @@ fields = { # bit margins are *inclusive*! (and bit 0 is
     "spr":    (11, 20),
     "TO":     ( 6, 10),
     "UIMM":   (16, 31),
-    "vrT":    (6,  31, 'unsigned', regname._V, 'overlap'),
+    "fvrT":   (6,  31, 'unsigned', regname._V, 'overlap'),
+    "fvrA":   (11, 31, 'unsigned', regname._V, 'overlap'),
+    "fvrB":   (16, 31, 'unsigned', regname._V, 'overlap'),
     # low vector register T (low in a sense:
     # can only address 32 vector registers)
     "lvrT":   (6,  10, 'unsigned', regname._V),
@@ -59,6 +61,7 @@ fields = { # bit margins are *inclusive*! (and bit 0 is
     "XO6":    (21, 29),
     "XO7":    (27, 30),
     "XO8":    (21, 31),
+    "XO9":    (21, 28),
     "LL":     ( 9, 10),
 }
 
@@ -110,18 +113,6 @@ class sh(Field):
         value = super(sh, self).decode(inst)
         return (value & 32) << 5 | (value >> 10 & 31)
 
-# ??? class tx(Field):
-# ???     def encode(self, value):
-# ???         value = (value & 31) << 20 | (value & 32) >> 5
-# ???         return super(tx, self).encode(value)
-# ???     def decode(self, inst):
-# ???         value = super(tx, self).decode(inst)
-# ???         return (value & 32) << 5 | (value >> 20 & 31)
-# ???     def r(self):
-# ???         import pdb; pdb.set_trace()
-# ???         return super(tx, self).r()
-# other special fields?
-
 ppc_fields = {
     "LI":  IField("LI", *fields["LI"]),
     "BD":  IField("BD", *fields["BD"]),
@@ -129,7 +120,6 @@ ppc_fields = {
     "mbe": mbe("mbe",   *fields["mbe"]),
     "sh":  sh("sh",     *fields["sh"]),
     "spr": spr("spr",   *fields["spr"]),
-    # ??? "vrT": tx("vrT",    *fields["vrT"]),
 }
 
 for f in fields:

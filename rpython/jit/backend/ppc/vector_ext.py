@@ -48,19 +48,12 @@ class VectorAssembler(object):
 
     def _vec_load(self, resloc, baseloc, indexloc, integer, itemsize, aligned):
         if integer:
+            raise NotImplementedError
+        else:
             if itemsize == 4:
                 self.mc.lxvw4x(resloc.value, indexloc.value, baseloc.value)
             elif itemsize == 8:
                 self.mc.lxvd2x(resloc.value, indexloc.value, baseloc.value)
-            else:
-                raise NotImplementedError
-        else:
-            if itemsize == 4:
-                self.mc.MOVUPS(resloc, src_addr)
-            elif itemsize == 8:
-                self.mc.MOVUPD(resloc, src_addr)
-            else:
-                raise NotImplementedError
 
     def _emit_vec_setitem(self, op, arglocs, regalloc):
         # prepares item scale (raw_store does not)
@@ -83,14 +76,12 @@ class VectorAssembler(object):
 
     def _vec_store(self, baseloc, indexloc, valueloc, integer, itemsize, aligned):
         if integer:
+            raise NotImplementedError
+        else:
             if itemsize == 4:
                 self.mc.stxvw4x(valueloc.value, indexloc.value, baseloc.value)
             elif itemsize == 8:
                 self.mc.stxvd2x(valueloc.value, indexloc.value, baseloc.value)
-            else:
-                raise NotImplementedError
-        else:
-            raise NotImplementedError
 
 
     def emit_vec_int_add(self, op, arglocs, regalloc):
@@ -103,7 +94,40 @@ class VectorAssembler(object):
         elif size == 4:
             raise NotImplementedError
         elif size == 8:
+            raise NotImplementedError # need value in another register!
             self.mc.vaddudm(resloc.value, loc0.value, loc1.value)
+
+    def emit_vec_float_add(self, op, arglocs, resloc):
+        resloc, loc0, loc1, itemsize_loc = arglocs
+        itemsize = itemsize_loc.value
+        if itemsize == 4:
+            self.mc.xvaddsp(resloc.value, loc0.value, loc1.value)
+        elif itemsize == 8:
+            self.mc.xvadddp(resloc.value, loc0.value, loc1.value)
+
+    def emit_vec_float_sub(self, op, arglocs, resloc):
+        resloc, loc0, loc1, itemsize_loc = arglocs
+        itemsize = itemsize_loc.value
+        if itemsize == 4:
+            self.mc.xvsubsp(resloc.value, loc0.value, loc1.value)
+        elif itemsize == 8:
+            self.mc.xvsubdp(resloc.value, loc0.value, loc1.value)
+
+    def emit_vec_float_mul(self, op, arglocs, resloc):
+        resloc, loc0, loc1, itemsize_loc = arglocs
+        itemsize = itemsize_loc.value
+        if itemsize == 4:
+            self.mc.xvmulsp(resloc.value, loc0.value, loc1.value)
+        elif itemsize == 8:
+            self.mc.xvmuldp(resloc.value, loc0.value, loc1.value)
+
+    def emit_vec_float_truediv(self, op, arglocs, resloc):
+        resloc, loc0, loc1, itemsize_loc = arglocs
+        itemsize = itemsize_loc.value
+        if itemsize == 4:
+            self.mc.xvdivsp(resloc.value, loc0.value, loc1.value)
+        elif itemsize == 8:
+            self.mc.xvdivdp(resloc.value, loc0.value, loc1.value)
 
     #def genop_guard_vec_guard_true(self, guard_op, guard_token, locs, resloc):
     #    self.implement_guard(guard_token)
@@ -252,23 +276,6 @@ class VectorAssembler(object):
 
     #def genop_vec_int_xor(self, op, arglocs, resloc):
     #    self.mc.PXOR(resloc, arglocs[0])
-
-    #genop_vec_float_arith = """
-    #def genop_vec_float_{type}(self, op, arglocs, resloc):
-    #    loc0, loc1, itemsize_loc = arglocs
-    #    itemsize = itemsize_loc.value
-    #    if itemsize == 4:
-    #        self.mc.{p_op_s}(loc0, loc1)
-    #    elif itemsize == 8:
-    #        self.mc.{p_op_d}(loc0, loc1)
-    #"""
-    #for op in ['add','mul','sub']:
-    #    OP = op.upper()
-    #    _source = genop_vec_float_arith.format(type=op,
-    #                                           p_op_s=OP+'PS',
-    #                                           p_op_d=OP+'PD')
-    #    exec py.code.Source(_source).compile()
-    #del genop_vec_float_arith
 
     #def genop_vec_float_truediv(self, op, arglocs, resloc):
     #    loc0, loc1, sizeloc = arglocs
@@ -569,10 +576,10 @@ class VectorRegalloc(object):
     prepare_vec_int_add = prepare_vec_arith
     #prepare_vec_int_sub = prepare_vec_arith
     #prepare_vec_int_mul = prepare_vec_arith
-    #prepare_vec_float_add = prepare_vec_arith
-    #prepare_vec_float_sub = prepare_vec_arith
-    #prepare_vec_float_mul = prepare_vec_arith
-    #prepare_vec_float_truediv = prepare_vec_arith
+    prepare_vec_float_add = prepare_vec_arith
+    prepare_vec_float_sub = prepare_vec_arith
+    prepare_vec_float_mul = prepare_vec_arith
+    prepare_vec_float_truediv = prepare_vec_arith
     del prepare_vec_arith
 
     def _prepare_vec_store(self, op):

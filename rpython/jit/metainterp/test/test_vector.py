@@ -1,5 +1,6 @@
 import py
-
+import pytest
+import math
 from hypothesis import given, note, strategies as st
 from rpython.jit.metainterp.warmspot import ll_meta_interp, get_stats
 from rpython.jit.metainterp.test.support import LLJitMixin
@@ -13,7 +14,8 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rlib.rawstorage import (alloc_raw_storage, raw_storage_setitem,
                                      free_raw_storage, raw_storage_getitem)
-from rpython.rlib.objectmodel import specialize, is_annotation_constant
+from rpython.rlib.objectmodel import (specialize, is_annotation_constant,
+        always_inline)
 from rpython.jit.backend.detect_cpu import getcpuclass
 
 CPU = getcpuclass()
@@ -24,7 +26,40 @@ def malloc(T,n):
 def free(mem):
     lltype.free(mem, flavor='raw')
 
+def isclose(a, b, rel_tol=1e-09, abs_tol=0.0):
+    return abs(a-b) <= max(rel_tol * max(abs(a), abs(b)), abs_tol)
+
+class RawStorage(object):
+    def __init__(self):
+        self.arrays = []
+
+    def new(self, values, type, size=None, zero=True):
+        bytecount = rffi.sizeof(type)
+        if not values:
+            array = alloc_raw_storage(size*bytecount, zero=zero)
+            self.arrays.append(array)
+            return array
+        else:
+            size = len(values)*bytecount
+            array = alloc_raw_storage(size, zero=zero)
+            for i,v in enumerate(values):
+                raw_storage_setitem(array, i*bytecount, rffi.cast(type,v))
+            self.arrays.append(array)
+            return array
+
+    def clear(self):
+        while self.arrays:
+            array = self.arrays.pop()
+            free_raw_storage(array)
+
+@pytest.fixture(scope='session')
+def rawstorage(request):
+    rs = RawStorage()
+    request.addfinalizer(rs.clear)
+    return rs
+
 integers_64bit = st.integers(min_value=-2**63, max_value=2**63-1)
+floats = st.floats()
 
 class VectorizeTests:
     enable_opts = 'intbounds:rewrite:virtualize:string:earlyforce:pure:heap:unroll'
@@ -40,42 +75,80 @@ class VectorizeTests:
                               type_system=self.type_system,
                               vec=vec, vec_all=vec_all)
 
-    @given(st.lists(integers_64bit, min_size=5, max_size=50),
-           st.lists(integers_64bit, min_size=5, max_size=50))
-    def test_vector_simple(self, la, lb):
-        myjitdriver = JitDriver(greens = [],
-                                reds = 'auto',
-                                vectorize=True)
-        i = min(len(la), len(lb))
-        la = la[:i]
-        lb = lb[:i]
-        bc = i*rffi.sizeof(rffi.SIGNED)
-        vc = alloc_raw_storage(bc, zero=True)
-        size = rffi.sizeof(rffi.SIGNED)
-        def f(d):
-            va = alloc_raw_storage(bc, zero=True)
-            vb = alloc_raw_storage(bc, zero=True)
-            x = 1
-            for i in range(d):
-                j = i*size
-                raw_storage_setitem(va, j, rffi.cast(rffi.SIGNED,la[i]))
-                raw_storage_setitem(vb, j, rffi.cast(rffi.SIGNED,lb[i]))
-            i = 0
-            while i < bc:
-                myjitdriver.jit_merge_point()
-                a = raw_storage_getitem(rffi.SIGNED,va,i)
-                b = raw_storage_getitem(rffi.SIGNED,vb,i)
-                c = a+b
-                raw_storage_setitem(vc, i, rffi.cast(rffi.SIGNED,c))
-                i += 1*size
+    @given(data=st.data())
+    @pytest.mark.parametrize('func', [lambda a,b: a+b,
+        lambda a,b: a*b, lambda a,b: a-b, lambda a,b: a / b])
+    def test_vector_simple_float(self, func, data):
+        func = always_inline(func)
 
-            free_raw_storage(va)
-            free_raw_storage(vb)
-        self.meta_interp(f, [i])
-        for p in range(i):
-            c = raw_storage_getitem(rffi.SIGNED,vc,p*size)
-            assert intmask(la[p] + lb[p]) == c
-        free_raw_storage(vc)
+        type = rffi.DOUBLE
+        size = rffi.sizeof(rffi.DOUBLE)
+        myjitdriver = JitDriver(greens = [], reds = 'auto', vectorize=True)
+        def f(bytecount, va, vb, vc):
+            i = 0
+            while i < bytecount:
+                myjitdriver.jit_merge_point()
+                a = raw_storage_getitem(type,va,i)
+                b = raw_storage_getitem(type,vb,i)
+                c = func(a,b)
+                raw_storage_setitem(vc, i, rffi.cast(type,c))
+                i += size
+
+        la = data.draw(st.lists(floats, min_size=10, max_size=150))
+        #la = [0.0,0.0,0.0,0.0,0.0,0.0,0.0]
+        #lb = [0.0,0.0,0.0,0.0,1.7976931348623157e+308,0.0,0.0]
+        l = len(la)
+        lb = data.draw(st.lists(floats, min_size=l, max_size=l))
+
+        rawstorage = RawStorage()
+        va = rawstorage.new(la, type)
+        vb = rawstorage.new(lb, type)
+        vc = rawstorage.new(None, type, size=l)
+        self.meta_interp(f, [l*size, va, vb, vc])
+
+        for i in range(l):
+            c = raw_storage_getitem(type,vc,i*size)
+            r = func(la[i], lb[i])
+            assert isclose(r, c) or (math.isnan(r) and math.isnan(c)) or \
+                   (math.isinf(r) and math.isinf(c) and \
+                    (r < 0.0 and c < 0.0) or \
+                    (r > 0.0 and c > 0.0))
+
+        rawstorage.clear()
+
+    #@given(st.data())
+    def test_vector_simple_int(self):
+
+        type = rffi.SIGNED
+        size = rffi.sizeof(rffi.SIGNED)
+        myjitdriver = JitDriver(greens = [], reds = 'auto', vectorize=True)
+        def f(bytecount, va, vb, vc):
+            i = 0
+            while i < bytecount:
+                myjitdriver.jit_merge_point()
+                a = raw_storage_getitem(type,va,i)
+                b = raw_storage_getitem(type,vb,i)
+                c = a+b
+                raw_storage_setitem(vc, i, rffi.cast(type,c))
+                i += size
+
+        rawstorage = RawStorage()
+        #la = data.draw(st.lists(integers_64bit, min_size=10, max_size=150))
+        la = [0] * 10
+        l = len(la)
+        #lb = data.draw(st.lists(integers_64bit, min_size=l, max_size=l))
+        lb = [0] * 10
+
+        va = rawstorage.new(la, lltype.Signed)
+        vb = rawstorage.new(lb, lltype.Signed)
+        vc = rawstorage.new(None, lltype.Signed, size=l)
+        self.meta_interp(f, [l*size, va, vb, vc])
+
+        for i in range(l):
+            c = raw_storage_getitem(type,vc,i*size)
+            assert intmask(la[i] + lb[i]) == c
+
+        rawstorage.clear()
 
     @py.test.mark.parametrize('i',[1,2,3,8,17,128,130,131,142,143])
     def test_vectorize_array_get_set(self,i):
