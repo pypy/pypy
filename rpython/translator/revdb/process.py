@@ -217,18 +217,22 @@ class ReplayProcessGroup(object):
         if not self.breakpoints:
             self.jump_in_time(initial_time - steps)
         else:
-            self._backward_search_forward(initial_time - 957, initial_time)
+            self._backward_search_forward(
+                search_start_time       = initial_time - 957,
+                search_stop_time        = initial_time - 1,
+                search_go_on_until_time = initial_time - steps)
 
-    def _backward_search_forward(self, search_start_time, search_stop_time):
+    def _backward_search_forward(self, search_start_time, search_stop_time,
+                                 search_go_on_until_time=1):
         while True:
-            self.jump_in_time(search_start_time)
+            self.jump_in_time(max(search_start_time, search_go_on_until_time))
             search_start_time = self.get_current_time()
             time_range_to_search = search_stop_time - search_start_time
             if time_range_to_search <= 0:
                 print "[not found]"
                 return
-            print "[searching %d..%d]\n" % (search_start_time,
-                                            search_stop_time)
+            print "[searching %d..%d]" % (search_start_time,
+                                          search_stop_time)
             self.go_forward(time_range_to_search, breakpoint_mode='r')
             # If at least one breakpoint was found, the Breakpoint
             # exception is raised with the *last* such breakpoint.
