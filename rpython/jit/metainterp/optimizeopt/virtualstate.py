@@ -350,21 +350,25 @@ class VArrayStructStateInfo(AbstractVirtualStateInfo):
     def debug_header(self, indent):
         debug_print(indent + 'VArrayStructStateInfo(%d):' % self.position)
 
+
+def not_virtual(cpu, type, info):
+    if type == 'i':
+        return NotVirtualStateInfoInt(cpu, type, info)
+    return NotVirtualStateInfo(cpu, type, info)
+
+
 class NotVirtualStateInfo(AbstractVirtualStateInfo):
     lenbound = None
-    intbound = None
     level = LEVEL_UNKNOWN
     constbox = None
     known_class = None
-    
+
     def __init__(self, cpu, type, info):
         if info and info.is_constant():
             self.level = LEVEL_CONSTANT
             self.constbox = info.getconst()
             if type == 'r':
                 self.known_class = info.get_known_class(cpu)
-            elif type == 'i':
-                self.intbound = info
         elif type == 'r':
             if info:
                 self.known_class = info.get_known_class(cpu)
@@ -373,13 +377,6 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
                 elif info.is_nonnull():
                     self.level = LEVEL_NONNULL
                 self.lenbound = info.getlenbound(None)
-        elif type == 'i':
-            if isinstance(info, IntBound):
-                if info.lower < MININT / 2:
-                    info.lower = MININT
-                if info.upper > MAXINT / 2:
-                    info.upper = MAXINT
-                self.intbound = info
         elif type == 'f':
             if info and info.is_constant():
                 self.level = LEVEL_CONSTANT
@@ -412,11 +409,9 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
                 raise VirtualStatesCantMatch("length bound does not match")
 
         if self.level == LEVEL_UNKNOWN:
-            # confusingly enough, this is done also for pointers
-            # which have the full range as the "bound", so it always works
-            return self._generate_guards_intbounds(other, box, runtime_box,
-                                                   extra_guards,
-                                                   state.optimizer)
+            return self._generate_guards_unkown(other, box, runtime_box,
+                                                extra_guards,
+                                                state.optimizer)
 
         # the following conditions often peek into the runtime value that the
         # box had when tracing. This value is only used as an educated guess.
@@ -485,19 +480,9 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
                 raise VirtualStatesCantMatch("other not constant")
         assert 0, "unreachable"
 
-    def _generate_guards_intbounds(self, other, box, runtime_box, extra_guards,
-                                   optimizer):
-        if self.intbound is None:
-            return
-        if self.intbound.contains_bound(other.intbound):
-            return
-        if (runtime_box is not None and
-            self.intbound.contains(runtime_box.getint())):
-            # this may generate a few more guards than needed, but they are
-            # optimized away when emitting them
-            self.intbound.make_guards(box, extra_guards, optimizer)
-            return
-        raise VirtualStatesCantMatch("intbounds don't match")
+    def _generate_guards_unkown(self, other, box, runtime_box, extra_guards,
+                                optimizer):
+        return
 
     def enum_forced_boxes(self, boxes, box, optimizer, force_boxes=False):
         if self.level == LEVEL_CONSTANT:
@@ -553,8 +538,46 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
         if self.lenbound:
             lb = ', ' + self.lenbound.bound.__repr__()
 
-        debug_print(indent + mark + 'NotVirtualInfo(%d' % self.position +
-                    ', ' + l + ', ' + self.intbound.__repr__() + lb + ')')
+        result = indent + mark + 'NotVirtualStateInfo(%d' % self.position + ', ' + l
+        extra = self._extra_repr()
+        if extra:
+            result += ', ' + extra
+        result += lb + ')'
+        debug_print(result)
+
+class NotVirtualStateInfoInt(NotVirtualStateInfo):
+    intbound = None
+
+    def __init__(self, cpu, type, info):
+        NotVirtualStateInfo.__init__(self, cpu, type, info)
+        assert type == 'i'
+        if isinstance(info, IntBound):
+            if info.lower < MININT / 2:
+                info.lower = MININT
+            if info.upper > MAXINT / 2:
+                info.upper = MAXINT
+            self.intbound = info
+
+    def _generate_guards_unkown(self, other, box, runtime_box, extra_guards,
+                                optimizer):
+        other_intbound = None
+        if isinstance(other, NotVirtualStateInfoInt):
+            other_intbound = other.intbound
+        if self.intbound is None:
+            return
+        if self.intbound.contains_bound(other_intbound):
+            return
+        if (runtime_box is not None and
+            self.intbound.contains(runtime_box.getint())):
+            # this may generate a few more guards than needed, but they are
+            # optimized away when emitting them
+            self.intbound.make_guards(box, extra_guards, optimizer)
+            return
+        raise VirtualStatesCantMatch("intbounds don't match")
+
+    def _extra_repr(self):
+        return self.intbound.__repr__()
+
 
 
 class VirtualState(object):
@@ -678,8 +701,8 @@ class VirtualStateConstructor(VirtualVisitor):
         return VirtualState(state)
 
     def visit_not_virtual(self, box):
-        return NotVirtualStateInfo(self.optimizer.cpu, box.type,
-                                   self.optimizer.getinfo(box))
+        return not_virtual(self.optimizer.cpu, box.type,
+                           self.optimizer.getinfo(box))
 
     def visit_virtual(self, descr, fielddescrs):
         known_class = ConstInt(descr.get_vtable())
