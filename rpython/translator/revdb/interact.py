@@ -1,6 +1,8 @@
 import sys, re
 import subprocess, socket
 import traceback
+from contextlib import contextmanager
+
 from rpython.translator.revdb.process import ReplayProcessGroup, maxint64
 from rpython.translator.revdb.process import Breakpoint
 
@@ -128,6 +130,16 @@ class RevDebugControl(object):
         self.move_backward(arg)
     command_bs = command_bstep
 
+    @contextmanager
+    def _stack_depth_break(self, range_stop):
+        # add temporarily a breakpoint for "stack_depth < range_stop"
+        b = self.pgroup.edit_breakpoints()
+        b.stack_depth = range_stop
+        try:
+            yield
+        finally:
+            b.stack_depth = 0
+
     def command_next(self, argument):
         """Run forward for one step, skipping calls"""
         self.remove_tainting()
@@ -141,12 +153,8 @@ class RevDebugControl(object):
                 # stack_depth is only checked for on function enters and
                 # returns (which simplifies and speeds up things for the
                 # RPython code).
-                b = self.pgroup.edit_breakpoints()
-                b.stack_depth = depth1 + 1   # must be < depth1+1
-                try:
+                with self._stack_depth_break(depth1 + 1):
                     self.command_continue('')
-                finally:
-                    b.stack_depth = 0
     command_n = command_next
 
     def command_bnext(self, argument):
@@ -157,13 +165,22 @@ class RevDebugControl(object):
             if depth2 > depth1:
                 # If, after running one bstep, the stack depth is greater
                 # than before, then bcontinue until it is back to what it was.
-                b = self.pgroup.edit_breakpoints()
-                b.stack_depth = depth1 + 1   # must be < depth1+1
-                try:
+                with self._stack_depth_break(depth1 + 1):
+                    # XXX check: 'bnext' stops at the first opcode *inside* the
+                    # function, should stop just before
                     self.command_bcontinue('')
-                finally:
-                    b.stack_depth = 0
     command_bn = command_bnext
+
+    def command_finish(self, argument):
+        self.remove_tainting()
+        with self._stack_depth_break(self.pgroup.get_stack_depth()):
+            self.command_continue('')
+
+    def command_bfinish(self, argument):
+        # XXX check: 'bfinish' stops at the first opcode *inside* the
+        # function, should stop just before
+        with self._stack_depth_break(self.pgroup.get_stack_depth()):
+            self.command_bcontinue('')
 
     def command_continue(self, argument):
         """Run forward"""
