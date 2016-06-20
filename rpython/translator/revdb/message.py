@@ -12,8 +12,9 @@ CMD_FORWARD  = -3      # Message(CMD_FORWARD, steps, breakpoint_mode)
 CMD_PRINT       = 1    # Message(CMD_PRINT, extra=expression)
 CMD_BACKTRACE   = 2    # Message(CMD_BACKTRACE)
 CMD_LOCALS      = 3    # Message(CMD_LOCALS)
-CMD_BREAKPOINTS = 4    # Message(CMD_BREAKPOINTS, extra="\0-separated names")
-
+CMD_BREAKPOINTS = 4    # Message(CMD_BREAKPOINTS, stack_depth,
+                       #         extra="\0-separated names")
+CMD_MOREINFO    = 5    # Message(CMD_MOREINFO)
 
 
 # the first message sent by the first child:
@@ -44,6 +45,10 @@ ANSWER_BREAKPOINT = -24
 # print text to the console, for CMD_PRINT and others
 #    Message(ANSWER_TEXT, extra=text)
 ANSWER_TEXT       = 20
+
+# sent after CMD_MOREINFO:
+#    Message(ANSWER_MOREINFO, stack_depth)
+ANSWER_MOREINFO   = 21
 
 
 # ____________________________________________________________

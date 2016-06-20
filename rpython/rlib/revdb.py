@@ -14,7 +14,9 @@ CMD_PRINT       = 1
 CMD_BACKTRACE   = 2
 CMD_LOCALS      = 3
 CMD_BREAKPOINTS = 4
+CMD_MOREINFO    = 5
 ANSWER_TEXT     = 20
+ANSWER_MOREINFO = 21
 
 
 def stop_point():

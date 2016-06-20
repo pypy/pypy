@@ -91,26 +91,34 @@ class RevDebugControl(object):
     def move_forward(self, steps):
         try:
             self.pgroup.go_forward(steps)
+            return True
         except Breakpoint as b:
             self.hit_breakpoint(b)
+            return False
 
     def move_backward(self, steps):
         try:
             self.pgroup.go_backward(steps)
+            return True
         except Breakpoint as b:
             self.hit_breakpoint(b)
+            return False
 
     def hit_breakpoint(self, b):
-        print 'Hit breakpoint %d' % (b.num,)
+        if b.num != -1:
+            print 'Hit breakpoint %d' % (b.num,)
         if self.pgroup.get_current_time() != b.time:
             self.pgroup.jump_in_time(b.time)
+
+    def remove_tainting(self):
+        if self.pgroup.is_tainted():
+            self.pgroup.jump_in_time(self.pgroup.get_current_time())
+            assert not self.pgroup.is_tainted()
 
     def command_step(self, argument):
         """Run forward ARG steps (default 1)"""
         arg = int(argument or '1')
-        if self.pgroup.is_tainted():
-            self.pgroup.jump_in_time(self.pgroup.get_current_time())
-            assert not self.pgroup.is_tainted()
+        self.remove_tainting()
         self.move_forward(arg)
     command_s = command_step
 
@@ -119,6 +127,43 @@ class RevDebugControl(object):
         arg = int(argument or '1')
         self.move_backward(arg)
     command_bs = command_bstep
+
+    def command_next(self, argument):
+        """Run forward for one step, skipping calls"""
+        self.remove_tainting()
+        depth1 = self.pgroup.get_stack_depth()
+        if self.move_forward(1):
+            depth2 = self.pgroup.get_stack_depth()
+            if depth2 > depth1:
+                # If, after running one step, the stack depth is greater
+                # than before, then continue until it is back to what it was.
+                # Can't do it more directly because the "breakpoint" of
+                # stack_depth is only checked for on function enters and
+                # returns (which simplifies and speeds up things for the
+                # RPython code).
+                b = self.pgroup.edit_breakpoints()
+                b.stack_depth = depth1 + 1   # must be < depth1+1
+                try:
+                    self.command_continue('')
+                finally:
+                    b.stack_depth = 0
+    command_n = command_next
+
+    def command_bnext(self, argument):
+        """Run backward for one step, skipping calls"""
+        depth1 = self.pgroup.get_stack_depth()
+        if self.move_backward(1):
+            depth2 = self.pgroup.get_stack_depth()
+            if depth2 > depth1:
+                # If, after running one bstep, the stack depth is greater
+                # than before, then bcontinue until it is back to what it was.
+                b = self.pgroup.edit_breakpoints()
+                b.stack_depth = depth1 + 1   # must be < depth1+1
+                try:
+                    self.command_bcontinue('')
+                finally:
+                    b.stack_depth = 0
+    command_bn = command_bnext
 
     def command_continue(self, argument):
         """Run forward"""
@@ -147,18 +192,20 @@ class RevDebugControl(object):
 
     def command_break(self, argument):
         """Add a breakpoint"""
+        b = self.pgroup.edit_breakpoints()
         new = 1
-        while new in self.pgroup.breakpoints:
+        while new in b.num2name:
             new += 1
-        self.pgroup.breakpoints[new] = argument
+        b.num2name[new] = argument
         print "Breakpoint %d added" % (new,)
     command_b = command_break
 
     def command_delete(self, argument):
         """Delete a breakpoint"""
         arg = int(argument)
-        if arg not in self.pgroup.breakpoints:
-            print "No breakpoint number %d" % (new,)
+        b = self.pgroup.edit_breakpoints()
+        if arg not in b.num2name:
+            print "No breakpoint number %d" % (arg,)
         else:
-            del self.pgroup.breakpoints[arg]
-            print "Breakpoint %d deleted" % (new,)
+            del b.num2name[arg]
+            print "Breakpoint %d deleted" % (arg,)

@@ -11,6 +11,35 @@ class Breakpoint(Exception):
         self.time = time
         self.num = num
 
+    def __repr__(self):
+        return 'Breakpoint(%d, %d)' % (self.time, self.num)
+
+
+class AllBreakpoints(object):
+
+    def __init__(self):
+        self.num2name = {}    # {small number: function name}
+        self.stack_depth = 0     # breaks if the depth becomes lower than this
+
+    def __repr__(self):
+        return 'AllBreakpoints(%r, %d)' % (self.num2name, self.stack_depth)
+
+    def __eq__(self, other):
+        return (self.num2name == other.num2name and
+                self.stack_depth == other.stack_depth)
+
+    def __ne__(self, other):
+        return not (self == other)
+
+    def is_empty(self):
+        return len(self.num2name) == 0 and self.stack_depth == 0
+
+    def duplicate(self):
+        a = AllBreakpoints()
+        a.num2name.update(self.num2name)
+        a.stack_depth = self.stack_depth
+        return a
+
 
 class ReplayProcess(object):
     """Represent one replaying subprocess.
@@ -18,11 +47,11 @@ class ReplayProcess(object):
     It can be either the one started with --revdb-replay, or a fork.
     """
 
-    def __init__(self, pid, control_socket, breakpoints_cache={}):
+    def __init__(self, pid, control_socket, breakpoints_cache=AllBreakpoints()):
         self.pid = pid
         self.control_socket = control_socket
         self.tainted = False
-        self.breakpoints_cache = breakpoints_cache    # don't change this dict
+        self.breakpoints_cache = breakpoints_cache    # don't mutate this
 
     def _recv_all(self, size):
         pieces = []
@@ -75,7 +104,7 @@ class ReplayProcess(object):
         ancillary.send_fds(self.control_socket.fileno(), [s2.fileno()])
         s2.close()
         msg = self.expect(ANSWER_FORKED, Ellipsis)
-        child_pid = msg.arg3
+        child_pid = msg.arg1
         self.expect_ready()
         other = ReplayProcess(child_pid, s1,
                               breakpoints_cache=self.breakpoints_cache)
@@ -142,7 +171,7 @@ class ReplayProcessGroup(object):
 
         self.active = child
         self.paused = {1: child.clone()}     # {time: subprocess}
-        self.breakpoints = {}
+        self.all_breakpoints = AllBreakpoints()
 
     def get_current_time(self):
         return self.active.current_time
@@ -214,7 +243,7 @@ class ReplayProcessGroup(object):
         """
         assert steps >= 0
         initial_time = self.get_current_time()
-        if not self.breakpoints:
+        if self.all_breakpoints.is_empty():
             self.jump_in_time(initial_time - steps)
         else:
             self._backward_search_forward(
@@ -242,17 +271,19 @@ class ReplayProcessGroup(object):
             search_start_time -= time_range_to_search * 3
 
     def update_breakpoints(self):
-        if self.active.breakpoints_cache != self.breakpoints:
-            if self.breakpoints:
-                breakpoints = [self.breakpoints.get(n, '')
-                               for n in range(max(self.breakpoints) + 1)]
-            else:
-                breakpoints = []
-            extra = '\x00'.join(breakpoints)
-            self.active.breakpoints_cache = None
-            self.active.send(Message(CMD_BREAKPOINTS, extra=extra))
-            self.active.expect_ready()
-            self.active.breakpoints_cache = self.breakpoints.copy()
+        if self.active.breakpoints_cache == self.all_breakpoints:
+            return
+        num2name = self.all_breakpoints.num2name
+        flat = []
+        if num2name:
+            flat = [num2name.get(n, '') for n in range(max(num2name) + 1)]
+        arg1 = self.all_breakpoints.stack_depth
+        extra = '\x00'.join(flat)
+        #
+        self.active.breakpoints_cache = None
+        self.active.send(Message(CMD_BREAKPOINTS, arg1, extra=extra))
+        self.active.expect_ready()
+        self.active.breakpoints_cache = self.all_breakpoints.duplicate()
 
     def _resume(self, from_time):
         clone_me = self.paused[from_time]
@@ -296,3 +327,12 @@ class ReplayProcessGroup(object):
         """
         self.active.send(Message(CMD_LOCALS))
         self.active.print_text_answer()
+
+    def edit_breakpoints(self):
+        return self.all_breakpoints
+
+    def get_stack_depth(self):
+        self.active.send(Message(CMD_MOREINFO))
+        msg = self.active.expect(ANSWER_MOREINFO, Ellipsis)
+        self.active.expect_ready()
+        return msg.arg1
