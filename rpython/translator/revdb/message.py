@@ -8,6 +8,7 @@ CMD_FORWARD  = -3
 # by revdb.register_debug_command()
 CMD_PRINT     = 1
 CMD_BACKTRACE = 2
+CMD_LOCALS    = 3
 
 ANSWER_INIT       = -20
 ANSWER_STD        = -21

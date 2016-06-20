@@ -116,3 +116,7 @@ class RevDebugControl(object):
         """Show the backtrace"""
         self.pgroup.show_backtrace()
     command_bt = command_backtrace
+
+    def command_locals(self, argument):
+        """Show the locals"""
+        self.pgroup.show_locals()

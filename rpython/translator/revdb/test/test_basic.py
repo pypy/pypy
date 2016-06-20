@@ -360,7 +360,6 @@ class TestDebugCommands(InteractiveTests):
 
     def test_interaction_with_forward(self):
         child = self.replay()
-        child.send(Message(1, extra='oops'))
         child.send(Message(CMD_FORWARD, 50))
         child.expect(ANSWER_AT_END)
 

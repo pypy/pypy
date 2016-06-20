@@ -1,4 +1,4 @@
-import os, struct, socket, errno, subprocess
+import sys, os, struct, socket, errno, subprocess
 from rpython.translator.revdb import ancillary
 from rpython.translator.revdb.message import *
 
@@ -104,7 +104,8 @@ class ReplayProcess(object):
         while True:
             msg = self.recv()
             if msg.cmd == ANSWER_TEXT:
-                print msg.extra
+                sys.stdout.write(msg.extra)
+                sys.stdout.flush()
             elif msg.cmd == ANSWER_STD:
                 self.update_times(msg)
                 break
@@ -215,4 +216,10 @@ class ReplayProcessGroup(object):
         """Show the backtrace.
         """
         self.active.send(Message(CMD_BACKTRACE))
+        self.active.print_text_answer()
+
+    def show_locals(self):
+        """Show the locals.
+        """
+        self.active.send(Message(CMD_LOCALS))
         self.active.print_text_answer()

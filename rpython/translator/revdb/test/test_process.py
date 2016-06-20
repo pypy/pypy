@@ -65,6 +65,7 @@ class TestReplayProcessGroup:
         group = ReplayProcessGroup(str(self.exename), self.rdbname)
         group.active.send(Message(1, 6, extra='set-breakpoint'))
         group.active.expect(42, 1, -43, -44, 'set-breakpoint')
+        group.active.expect(ANSWER_STD, 1, Ellipsis)
         e = py.test.raises(Breakpoint, group.go_forward, 10)
         assert e.value.num == 99
         group._check_current_time(7)

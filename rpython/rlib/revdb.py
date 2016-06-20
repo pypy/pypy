@@ -10,9 +10,10 @@ from rpython.rtyper.annlowlevel import cast_gcref_to_instance
 from rpython.rtyper.lltypesystem import rffi
 
 
-CMD_PRINT = 1
+CMD_PRINT     = 1
 CMD_BACKTRACE = 2
-ANSWER_TEXT = 20
+CMD_LOCALS    = 3
+ANSWER_TEXT   = 20
 
 
 def stop_point():
