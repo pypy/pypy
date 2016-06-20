@@ -1331,37 +1331,40 @@ class __extend__(pyframe.PyFrame):
         self.pushvalue(w_set)
 
     def BUILD_SET_UNPACK(self, itemcount, next_instr):
-        w_sum = self.space.newset()
-        for i in range(itemcount, 0, -1):
-            w_item = self.popvalue()
-            #self.space.peek(i)
-            self.space.call_method(w_sum, 'update', w_item)
-        #while itemcount != 0:
-        #    self.popvalue()
-        #    itemcount -= 1
-        self.pushvalue(w_sum)
+        self.BUILD_SET(itemcount, next_instr)
+        #w_sum = self.space.newset()
+        #for i in range(itemcount, 0, -1):
+        #    w_item = self.popvalue()
+        #    #self.space.peek(i)
+        #    self.space.call_method(w_sum, 'update', w_item)
+        ##while itemcount != 0:
+        ##    self.popvalue()
+        ##    itemcount -= 1
+        #self.pushvalue(w_sum)
 
     def BUILD_TUPLE_UNPACK(self, itemcount, next_instr):
-        w_sum = self.space.newtuple()
-        for i in range(itemcount, 0, -1):
-            w_item = self.popvalue()
-            #self.space.peek(i)
-            self.space.call_method(w_sum, 'update', w_item)
-        #while itemcount != 0:
-        #    self.popvalue()
-        #    itemcount -= 1
-        self.pushvalue(w_sum)
+        self.BUILD_TUPLE(itemcount, next_instr)
+        #w_sum = self.space.newtuple()
+        #for i in range(itemcount, 0, -1):
+        #    w_item = self.popvalue()
+        #    #self.space.peek(i)
+        #    self.space.call_method(w_sum, 'update', w_item)
+        ##while itemcount != 0:
+        ##    self.popvalue()
+        ##    itemcount -= 1
+        #self.pushvalue(w_sum)
         
     def BUILD_LIST_UNPACK(self, itemcount, next_instr):
-        w_sum = self.space.newlist()
-        for i in range(itemcount, 0, -1):
-            w_item = self.popvalue()
-            #self.space.peek(i)
-            self.space.call_method(w_sum, 'update', w_item)
-        #while itemcount != 0:
-        #    self.popvalue()
-        #    itemcount -= 1
-        self.pushvalue(w_sum)
+        self.BUILD_LIST(itemcount, next_instr)
+        #w_sum = self.space.newlist()
+        #for i in range(itemcount, 0, -1):
+        #    w_item = self.popvalue()
+        #    #self.space.peek(i)
+        #    self.space.call_method(w_sum, 'update', w_item)
+        ##while itemcount != 0:
+        ##    self.popvalue()
+        ##    itemcount -= 1
+        #self.pushvalue(w_sum)
         
     #TODO
     #get intersection, store as setentry
@@ -1379,15 +1382,16 @@ class __extend__(pyframe.PyFrame):
         self.pushvalue(w_sum)
         
     def BUILD_MAP_UNPACK(self, itemcount, next_instr):
-        w_sum = self.space.newdict()
-        for i in range(itemcount, 0, -1):
-            w_item = self.popvalue()
-            #self.space.peek(i)
-            self.space.call_method(w_sum, 'update', w_item)
-        #while itemcount != 0:
-        #    self.popvalue()
-        #    itemcount -= 1
-        self.pushvalue(w_sum)
+        self.BUILD_MAP(itemcount, next_instr)
+        #w_sum = self.space.newdict()
+        #for i in range(itemcount, 0, -1):
+        #    w_item = self.popvalue()
+        #    #self.space.peek(i)
+        #    self.space.call_method(w_sum, 'update', w_item)
+        ##while itemcount != 0:
+        ##    self.popvalue()
+        ##    itemcount -= 1
+        #self.pushvalue(w_sum)
 ### ____________________________________________________________ ###
 
 class ExitFrame(Exception):
