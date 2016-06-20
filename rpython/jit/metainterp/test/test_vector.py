@@ -75,9 +75,19 @@ class VectorizeTests:
                               type_system=self.type_system,
                               vec=vec, vec_all=vec_all)
 
+    @staticmethod
+    def rdiv(v1,v2):
+        try:
+            return v1 / v2
+        except ZeroDivisionError:
+            if v1 == v2 == 0.0:
+                return rfloat.NAN
+            return rfloat.copysign(rfloat.INFINITY, v1 * v2)
+
     @given(data=st.data())
     @pytest.mark.parametrize('func', [lambda a,b: a+b,
-        lambda a,b: a*b, lambda a,b: a-b, lambda a,b: a / b])
+        lambda a,b: a*b, lambda a,b: a-b,
+        lambda a,b: VectorizeTests.rdiv(a,b)])
     def test_vector_simple_float(self, func, data):
         func = always_inline(func)
 
