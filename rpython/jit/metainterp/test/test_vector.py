@@ -52,10 +52,11 @@ class RawStorage(object):
             array = self.arrays.pop()
             free_raw_storage(array)
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope='function')
 def rawstorage(request):
     rs = RawStorage()
     request.addfinalizer(rs.clear)
+    request.cls.a
     return rs
 
 integers_64bit = st.integers(min_value=-2**63, max_value=2**63-1)
@@ -70,7 +71,7 @@ def rdiv(v1,v2):
             return rfloat.NAN
         return rfloat.copysign(rfloat.INFINITY, v1 * v2)
 
-class VectorizeTests:
+class VectorizeTests(object):
     enable_opts = 'intbounds:rewrite:virtualize:string:earlyforce:pure:heap:unroll'
 
     def setup_method(self, method):
@@ -126,10 +127,20 @@ class VectorizeTests:
         rawstorage.clear()
 
     #@given(st.data())
-    def test_vector_simple_int(self):
+    @pytest.mark.parametrize('func,type', [
+        (lambda a,b: intmask(a+b), rffi.SIGNED),
+        (lambda a,b: intmask(a+b), rffi.UNSIGNED),
+        (lambda a,b: intmask(a+b), rffi.INT),
+        (lambda a,b: intmask(a+b), rffi.UINT),
+        (lambda a,b: intmask(a+b), rffi.SHORT),
+        (lambda a,b: intmask(a+b), rffi.USHORT),
+        (lambda a,b: intmask(a+b), rffi.CHAR),
+        (lambda a,b: intmask(a+b), rffi.UCHAR),
+    ])
+    def test_vector_simple_int(self, func, type):
+        func = always_inline(func)
 
-        type = rffi.SIGNED
-        size = rffi.sizeof(rffi.SIGNED)
+        size = rffi.sizeof(type)
         myjitdriver = JitDriver(greens = [], reds = 'auto', vectorize=True)
         def f(bytecount, va, vb, vc):
             i = 0
@@ -137,25 +148,25 @@ class VectorizeTests:
                 myjitdriver.jit_merge_point()
                 a = raw_storage_getitem(type,va,i)
                 b = raw_storage_getitem(type,vb,i)
-                c = a+b
+                c = func(a,b)
                 raw_storage_setitem(vc, i, rffi.cast(type,c))
                 i += size
 
-        rawstorage = RawStorage()
         #la = data.draw(st.lists(integers_64bit, min_size=10, max_size=150))
         la = [1] * 10
         l = len(la)
         #lb = data.draw(st.lists(integers_64bit, min_size=l, max_size=l))
         lb = [0] * 10
 
-        va = rawstorage.new(la, lltype.Signed)
-        vb = rawstorage.new(lb, lltype.Signed)
-        vc = rawstorage.new(None, lltype.Signed, size=l)
+        rawstorage = RawStorage()
+        va = rawstorage.new(la, type)
+        vb = rawstorage.new(lb, type)
+        vc = rawstorage.new(None, type, size=l)
         self.meta_interp(f, [l*size, va, vb, vc])
 
         for i in range(l):
             c = raw_storage_getitem(type,vc,i*size)
-            assert intmask(la[i] + lb[i]) == c
+            assert func(la[i], lb[i]) == c
 
         rawstorage.clear()
 

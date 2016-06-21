@@ -178,6 +178,29 @@ class VectorAssembler(object):
         elif itemsize == 8:
             self.mc.xvdivdp(resloc.value, loc0.value, loc1.value)
 
+    def emit_vec_int_mul(self, op, arglocs, resloc):
+        loc0, loc1, itemsize_loc = arglocs
+        itemsize = itemsize_loc.value
+        if itemsize == 1:
+            self.mc.PMULLW(loc0, loc1)
+        elif itemsize == 2:
+            self.mc.PMULLW(loc0, loc1)
+        elif itemsize == 4:
+            self.mc.PMULLD(loc0, loc1)
+        else:
+            # NOTE see http://stackoverflow.com/questions/8866973/can-long-integer-routines-benefit-from-sse/8867025#8867025
+            # There is no 64x64 bit packed mul. For 8 bit either. It is questionable if it gives any benefit?
+            not_implemented("int8/64 mul")
+
+    def emit_vec_int_and(self, op, arglocs, resloc):
+        self.mc.PAND(resloc, arglocs[0])
+
+    def emit_vec_int_or(self, op, arglocs, resloc):
+        self.mc.POR(resloc, arglocs[0])
+
+    def emit_vec_int_xor(self, op, arglocs, resloc):
+        self.mc.PXOR(resloc, arglocs[0])
+
     #def genop_guard_vec_guard_true(self, guard_op, guard_token, locs, resloc):
     #    self.implement_guard(guard_token)
 
@@ -292,47 +315,6 @@ class VectorAssembler(object):
     #    # a second time -> every zero entry (corresponding to non zero
     #    # entries before) become ones
     #    self.mc.PCMPEQ(loc, temp, sizeloc.value)
-
-    #def genop_vec_int_mul(self, op, arglocs, resloc):
-    #    loc0, loc1, itemsize_loc = arglocs
-    #    itemsize = itemsize_loc.value
-    #    if itemsize == 2:
-    #        self.mc.PMULLW(loc0, loc1)
-    #    elif itemsize == 4:
-    #        self.mc.PMULLD(loc0, loc1)
-    #    else:
-    #        # NOTE see http://stackoverflow.com/questions/8866973/can-long-integer-routines-benefit-from-sse/8867025#8867025
-    #        # There is no 64x64 bit packed mul. For 8 bit either. It is questionable if it gives any benefit?
-    #        not_implemented("int8/64 mul")
-
-    #def genop_vec_int_sub(self, op, arglocs, resloc):
-    #    loc0, loc1, size_loc = arglocs
-    #    size = size_loc.value
-    #    if size == 1:
-    #        self.mc.PSUBB(loc0, loc1)
-    #    elif size == 2:
-    #        self.mc.PSUBW(loc0, loc1)
-    #    elif size == 4:
-    #        self.mc.PSUBD(loc0, loc1)
-    #    elif size == 8:
-    #        self.mc.PSUBQ(loc0, loc1)
-
-    #def genop_vec_int_and(self, op, arglocs, resloc):
-    #    self.mc.PAND(resloc, arglocs[0])
-
-    #def genop_vec_int_or(self, op, arglocs, resloc):
-    #    self.mc.POR(resloc, arglocs[0])
-
-    #def genop_vec_int_xor(self, op, arglocs, resloc):
-    #    self.mc.PXOR(resloc, arglocs[0])
-
-    #def genop_vec_float_truediv(self, op, arglocs, resloc):
-    #    loc0, loc1, sizeloc = arglocs
-    #    size = sizeloc.value
-    #    if size == 4:
-    #        self.mc.DIVPS(loc0, loc1)
-    #    elif size == 8:
-    #        self.mc.DIVPD(loc0, loc1)
 
     #def genop_vec_float_abs(self, op, arglocs, resloc):
     #    src, sizeloc = arglocs
@@ -648,12 +630,17 @@ class VectorRegalloc(object):
         return [resloc, loc0, loc1, imm(size)]
 
     prepare_vec_int_add = prepare_vec_arith
-    #prepare_vec_int_sub = prepare_vec_arith
-    #prepare_vec_int_mul = prepare_vec_arith
+    prepare_vec_int_sub = prepare_vec_arith
+    prepare_vec_int_mul = prepare_vec_arith
     prepare_vec_float_add = prepare_vec_arith
     prepare_vec_float_sub = prepare_vec_arith
     prepare_vec_float_mul = prepare_vec_arith
     prepare_vec_float_truediv = prepare_vec_arith
+
+    # logic functions
+    prepare_vec_int_and = prepare_vec_arith
+    prepare_vec_int_or = prepare_vec_arith
+    prepare_vec_int_xor = prepare_vec_arith
     del prepare_vec_arith
 
     def _prepare_vec_store(self, op):
@@ -691,13 +678,6 @@ class VectorRegalloc(object):
     #prepare_vec_float_abs = prepare_vec_arith_unary
     #del prepare_vec_arith_unary
 
-    #def prepare_vec_logic(self, op):
-    #    lhs = op.getarg(0)
-    #    assert isinstance(lhs, VectorOp)
-    #    args = op.getarglist()
-    #    source = self.make_sure_var_in_reg(op.getarg(1), args)
-    #    result = self.xrm.force_result_in_reg(op, op.getarg(0), args)
-    #    self.perform(op, [source, imm(lhs.bytesize)], result)
 
     #def prepare_vec_float_eq(self, op):
     #    assert isinstance(op, VectorOp)
@@ -711,11 +691,6 @@ class VectorRegalloc(object):
     #prepare_vec_float_ne = prepare_vec_float_eq
     #prepare_vec_int_eq = prepare_vec_float_eq
     #prepare_vec_int_ne = prepare_vec_float_eq
-
-    #prepare_vec_int_and = prepare_vec_logic
-    #prepare_vec_int_or = prepare_vec_logic
-    #prepare_vec_int_xor = prepare_vec_logic
-    #del prepare_vec_logic
 
     #def prepare_vec_pack_i(self, op):
     #    # new_res = vec_pack_i(res, src, index, count)
