@@ -1210,8 +1210,6 @@ class StaticObjectBuilder:
         cpyext_type_init = self.cpyext_type_init
         self.cpyext_type_init = None
         for pto, w_type in cpyext_type_init:
-            if space.is_w(w_type, space.w_str):
-                pto.c_tp_itemsize = 1
             finish_type_1(space, pto)
             finish_type_2(space, pto, w_type)
 
@@ -1520,7 +1518,7 @@ def load_extension_module(space, path, name):
     try:
         ll_libname = rffi.str2charp(path)
         try:
-            dll = rdynload.dlopen(ll_libname)
+            dll = rdynload.dlopen(ll_libname, space.sys.dlopenflags)
         finally:
             lltype.free(ll_libname, flavor='raw')
     except rdynload.DLOpenError as e:

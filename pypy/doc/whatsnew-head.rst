@@ -1,9 +1,16 @@
-=========================
+==========================
 What's new in PyPy2.7 5.3+
-=========================
+==========================
 
 .. this is a revision shortly after release-pypy2.7-v5.3
 .. startrev: 873218a739f1
+
+.. 418b05f95db5
+Improve CPython compatibility for ``is``. Now code like ``if x is ():``
+works the same way as it does on CPython.  See http://pypy.readthedocs.io/en/latest/cpython_differences.html#object-identity-of-primitive-values-is-and-id .
+
+.. pull request #455
+Add sys.{get,set}dlopenflags, for cpyext extensions.
 
 .. branch: fix-gen-dfa
 
@@ -22,3 +29,16 @@ Implement the backend related changes for s390x.
 
 .. branch: incminimark-ll_assert
 .. branch: vmprof-openbsd
+
+.. branch: testing-cleanup
+
+Simplify handling of interp-level tests and make it more forward-
+compatible.
+
+.. branch: pyfile-tell
+Sync w_file with the c-level FILE* before returning FILE* in PyFile_AsFile
+
+.. branch: rw-PyString_AS_STRING
+Allow rw access to the char* returned from PyString_AS_STRING, also refactor
+PyStringObject to look like cpython's and allow subclassing PyString_Type and
+PyUnicode_Type
