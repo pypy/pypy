@@ -13,6 +13,7 @@ from pypy.interpreter.gateway import (
     WrappedDefault, interp2app, interpindirect2app, unwrap_spec)
 from pypy.interpreter.typedef import TypeDef
 from pypy.objspace.std.stringmethods import StringMethods
+from pypy.objspace.std.util import IDTAG_SPECIAL, IDTAG_SHIFT
 
 
 class W_AbstractBytesObject(W_Root):
@@ -25,12 +26,26 @@ class W_AbstractBytesObject(W_Root):
             return True
         if self.user_overridden_class or w_other.user_overridden_class:
             return False
-        return space.bytes_w(self) is space.bytes_w(w_other)
+        s1 = space.str_w(self)
+        s2 = space.str_w(w_other)
+        if len(s2) > 1:
+            return s1 is s2
+        else:            # strings of len <= 1 are unique-ified
+            return s1 == s2
 
     def immutable_unique_id(self, space):
         if self.user_overridden_class:
             return None
-        return space.wrap(compute_unique_id(space.bytes_w(self)))
+        s = space.str_w(self)
+        if len(s) > 1:
+            uid = compute_unique_id(s)
+        else:            # strings of len <= 1 are unique-ified
+            if len(s) == 1:
+                base = ord(s[0])     # base values 0-255
+            else:
+                base = 256           # empty string: base value 256
+            uid = (base << IDTAG_SHIFT) | IDTAG_SPECIAL
+        return space.wrap(uid)
 
     def descr_add(self, space, w_other):
         """x.__add__(y) <==> x+y"""

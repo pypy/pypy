@@ -113,7 +113,15 @@ class AppTestBytesObject(AppTestCpythonExtensionBase):
                 Py_INCREF(obj);
                 return obj;
              """),
+            ('alloc_rw', "METH_NOARGS",
+             '''
+                PyObject *obj = _PyObject_NewVar(&PyBytes_Type, 10);
+                memcpy(PyBytes_AS_STRING(obj), "works", 6);
+                return (PyObject*)obj;
+             '''),
             ])
+        s = module.alloc_rw()
+        assert s == b'works' + b'\x00' * 5
         s = module.tpalloc()
         assert s == b'\x00' * 10
 
@@ -194,22 +202,22 @@ class TestBytes(BaseApiTest):
     def test_bytes_resize(self, space, api):
         py_str = new_empty_str(space, 10)
         ar = lltype.malloc(PyObjectP.TO, 1, flavor='raw')
-        py_str.c_buffer[0] = 'a'
-        py_str.c_buffer[1] = 'b'
-        py_str.c_buffer[2] = 'c'
+        py_str.c_ob_sval[0] = 'a'
+        py_str.c_ob_sval[1] = 'b'
+        py_str.c_ob_sval[2] = 'c'
         ar[0] = rffi.cast(PyObject, py_str)
         api._PyBytes_Resize(ar, 3)
         py_str = rffi.cast(PyBytesObject, ar[0])
         assert py_str.c_ob_size == 3
-        assert py_str.c_buffer[1] == 'b'
-        assert py_str.c_buffer[3] == '\x00'
+        assert py_str.c_ob_sval[1] == 'b'
+        assert py_str.c_ob_sval[3] == '\x00'
         # the same for growing
         ar[0] = rffi.cast(PyObject, py_str)
         api._PyBytes_Resize(ar, 10)
         py_str = rffi.cast(PyBytesObject, ar[0])
         assert py_str.c_ob_size == 10
-        assert py_str.c_buffer[1] == 'b'
-        assert py_str.c_buffer[10] == '\x00'
+        assert py_str.c_ob_sval[1] == 'b'
+        assert py_str.c_ob_sval[10] == '\x00'
         Py_DecRef(space, ar[0])
         lltype.free(ar, flavor='raw')
 

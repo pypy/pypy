@@ -1,5 +1,6 @@
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 
+
 class AppTestStringObject(AppTestCpythonExtensionBase):
     def test_basic(self):
         module = self.import_extension('foo', [

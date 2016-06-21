@@ -10,6 +10,12 @@ IDTAG_LONG    = 3
 IDTAG_FLOAT   = 5
 IDTAG_COMPLEX = 7
 IDTAG_METHOD  = 9
+IDTAG_SPECIAL = 11    # -1 - (-maxunicode-1): unichar
+                      # 0 - 255: char
+                      # 256: empty string
+                      # 257: empty unicode
+                      # 258: empty tuple
+                      # 259: empty frozenset
 
 CMP_OPS = dict(lt='<', le='<=', eq='==', ne='!=', gt='>', ge='>=')
 BINARY_BITWISE_OPS = {'and': '&', 'lshift': '<<', 'or': '|', 'rshift': '>>',

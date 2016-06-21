@@ -72,7 +72,10 @@ def unicode_realize(space, py_obj):
     """
     py_uni = rffi.cast(PyUnicodeObject, py_obj)
     s = rffi.wcharpsize2unicode(py_uni.c_buffer, py_uni.c_length)
-    w_obj = space.wrap(s)
+    w_type = from_ref(space, rffi.cast(PyObject, py_obj.c_ob_type))
+    w_obj = space.allocate_instance(unicodeobject.W_UnicodeObject, w_type)
+    w_obj.__init__(s)
+    py_uni.c_hash = space.hash_w(w_obj)
     track_reference(space, py_obj, w_obj)
     return w_obj
 
