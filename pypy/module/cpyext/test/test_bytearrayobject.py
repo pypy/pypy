@@ -31,7 +31,7 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
                  if(s->ob_type->tp_basicsize != expected_size)
                  {
                      printf("tp_basicsize==%ld\\n",
-                            (long)s->ob_type->tp_basicsize); 
+                            (long)s->ob_type->tp_basicsize);
                      result = 0;
                  }
                  Py_DECREF(s);
@@ -53,7 +53,6 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
              """
                  PyObject *s, *t;
                  char* c;
-                 Py_ssize_t len;
 
                  s = PyByteArray_FromStringAndSize(NULL, 4);
                  if (s == NULL)
@@ -84,7 +83,6 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
             ("mutable", "METH_NOARGS",
              """
                 PyObject *base;
-                char * p_str;
                 base = PyByteArray_FromStringAndSize("test", 10);
                 if (PyByteArray_GET_SIZE(base) != 10)
                     return PyLong_FromLong(-PyByteArray_GET_SIZE(base));

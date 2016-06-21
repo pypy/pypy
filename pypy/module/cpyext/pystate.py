@@ -211,6 +211,7 @@ def PyEval_ReleaseThread(space, tstate):
 PyGILState_STATE = rffi.INT
 PyGILState_LOCKED = 0
 PyGILState_UNLOCKED = 1
+PyGILState_IGNORE = 2
 
 ExecutionContext.cpyext_gilstate_counter_noleave = 0
 

@@ -49,7 +49,7 @@ class AppTestBytesObject(AppTestCpythonExtensionBase):
             ("test_Size_exception", "METH_NOARGS",
              """
                  PyObject* f = PyFloat_FromDouble(1.0);
-                 Py_ssize_t size = PyBytes_Size(f);
+                 PyBytes_Size(f);
 
                  Py_DECREF(f);
                  return NULL;
@@ -72,7 +72,6 @@ class AppTestBytesObject(AppTestCpythonExtensionBase):
              """
                  PyObject *s, *t;
                  char* c;
-                 Py_ssize_t len;
 
                  s = PyBytes_FromStringAndSize(NULL, 4);
                  if (s == NULL)
@@ -100,7 +99,6 @@ class AppTestBytesObject(AppTestCpythonExtensionBase):
                 PyObject *base;
                 PyTypeObject * type;
                 PyObject *obj;
-                char * p_str;
                 base = PyBytes_FromString("test");
                 if (PyBytes_GET_SIZE(base) != 4)
                     return PyLong_FromLong(-PyBytes_GET_SIZE(base));
@@ -258,7 +256,6 @@ class TestBytes(BaseApiTest):
         assert ref.c_ob_refcnt == prev_refcnt
         assert lenp[0] == 4
         assert rffi.charp2str(bufp[0]) == 'text'
-
         lltype.free(bufp, flavor='raw')
         lltype.free(lenp, flavor='raw')
         api.Py_DecRef(ref)

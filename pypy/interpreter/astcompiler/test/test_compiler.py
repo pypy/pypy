@@ -1203,7 +1203,7 @@ class TestOptimizations:
 
     def test_const_fold_unicode_subscr(self, monkeypatch):
         source = """def f():
-        return u"abc"[0]
+        return "abc"[0]
         """
         counts = self.count_instructions(source)
         if 0:   # xxx later?
@@ -1211,14 +1211,14 @@ class TestOptimizations:
 
         # getitem outside of the BMP should not be optimized
         source = """def f():
-        return u"\U00012345"[0]
+        return "\U00012345"[0]
         """
         counts = self.count_instructions(source)
         assert counts == {ops.LOAD_CONST: 2, ops.BINARY_SUBSCR: 1,
                           ops.RETURN_VALUE: 1}
 
         source = """def f():
-        return u"\U00012345abcdef"[3]
+        return "\U00012345abcdef"[3]
         """
         counts = self.count_instructions(source)
         assert counts == {ops.LOAD_CONST: 2, ops.BINARY_SUBSCR: 1,
@@ -1226,7 +1226,7 @@ class TestOptimizations:
 
         monkeypatch.setattr(optimize, "MAXUNICODE", 0xFFFF)
         source = """def f():
-        return u"\uE01F"[0]
+        return "\uE01F"[0]
         """
         counts = self.count_instructions(source)
         if 0:   # xxx later?
@@ -1236,7 +1236,7 @@ class TestOptimizations:
         # getslice is not yet optimized.
         # Still, check a case which yields the empty string.
         source = """def f():
-        return u"abc"[:0]
+        return "abc"[:0]
         """
         counts = self.count_instructions(source)
         assert counts == {ops.LOAD_CONST: 3, ops.BUILD_SLICE: 1,

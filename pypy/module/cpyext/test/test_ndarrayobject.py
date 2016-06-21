@@ -239,7 +239,7 @@ class AppTestNDArray(AppTestCpythonExtensionBase):
             except:
                 skip('numpy not importable')
         else:
-            numpy_incl = os.path.abspath(os.path.dirname(__file__) + 
+            numpy_incl = os.path.abspath(os.path.dirname(__file__) +
                                          '/../include/_numpypy')
             assert os.path.exists(numpy_incl)
             cls.w_numpy_include = cls.space.wrap([numpy_incl])
@@ -302,7 +302,7 @@ class AppTestNDArray(AppTestCpythonExtensionBase):
                 ),
                 ("test_DescrFromType", "METH_O",
                 """
-                    Signed typenum = PyLong_AsLong(args);
+                    long typenum = PyInt_AsLong(args);
                     return PyArray_DescrFromType(typenum);
                 """
                 ),
