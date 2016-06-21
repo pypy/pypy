@@ -114,8 +114,5 @@ RPY_EXTERN void rpy_reverse_db_change_time(char mode, long long time,
 RPY_EXTERN void rpy_reverse_db_breakpoint(int64_t num);
 RPY_EXTERN long long rpy_reverse_db_get_value(char value_id);
 RPY_EXTERN uint64_t rpy_reverse_db_unique_id_break(void *new_object);
-RPY_EXTERN void rpy_reverse_db_track_object(long long unique_id,
-                                            void callback(void *));
-
 
 /* ------------------------------------------------------------ */

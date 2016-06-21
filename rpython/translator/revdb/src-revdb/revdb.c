@@ -192,9 +192,10 @@ Signed rpy_reverse_db_identityhash(struct pypy_header0 *obj)
 
 #define INIT_VERSION_NUMBER   0xd80100
 
-#define CMD_FORK     (-1)
-#define CMD_QUIT     (-2)
-#define CMD_FORWARD  (-3)
+#define CMD_FORK      (-1)
+#define CMD_QUIT      (-2)
+#define CMD_FORWARD   (-3)
+#define CMD_FUTUREIDS (-4)
 
 #define ANSWER_INIT       (-20)
 #define ANSWER_READY      (-21)
@@ -215,6 +216,7 @@ static RPyString *empty_string;
 static uint64_t last_recorded_breakpoint_loc;
 static int last_recorded_breakpoint_num;
 static char breakpoint_mode;
+static uint64_t *future_ids, *future_next_id;
 
 static void attach_gdb(void)
 {
@@ -540,12 +542,33 @@ static void command_forward(rpy_revdb_command_t *cmd)
     }
 }
 
+static void command_future_ids(rpy_revdb_command_t *cmd, char *extra)
+{
+    free(future_ids);
+    if (cmd->extra_size == 0) {
+        future_ids = NULL;
+        rpy_revdb.unique_id_break = 0;
+    }
+    else {
+        assert(cmd->extra_size % sizeof(uint64_t) == 0);
+        future_ids = malloc(cmd->extra_size + sizeof(uint64_t));
+        if (future_ids == NULL) {
+            fprintf(stderr, "out of memory for a buffer of %llu chars\n",
+                    (unsigned long long)cmd->extra_size);
+            exit(1);
+        }
+        memcpy(future_ids, extra, cmd->extra_size);
+        future_ids[cmd->extra_size / sizeof(uint64_t)] = 0;
+    }
+    future_next_id = future_ids;
+}
+
 static void command_default(rpy_revdb_command_t *cmd, char *extra)
 {
     RPyString *s;
     int i;
-    for (i = 0; rpy_revdb_command_names[i] != cmd->cmd; i++) {
-        if (rpy_revdb_command_names[i] == 0) {
+    for (i = 0; rpy_revdb_commands.rp_names[i] != cmd->cmd; i++) {
+        if (rpy_revdb_commands.rp_names[i] == 0) {
             fprintf(stderr, "unknown command %d\n", cmd->cmd);
             exit(1);
         }
@@ -558,16 +581,29 @@ static void command_default(rpy_revdb_command_t *cmd, char *extra)
         s = make_rpy_string(cmd->extra_size);
         memcpy(_RPyString_AsString(s), extra, cmd->extra_size);
     }
-    execute_rpy_function(rpy_revdb_command_funcs[i], cmd, s);
+    execute_rpy_function(rpy_revdb_commands.rp_funcs[i], cmd, s);
+}
+
+static void save_state(void)
+{
+    stopped_time = rpy_revdb.stop_point_seen;
+    stopped_uid = rpy_revdb.unique_id_seen;
+    rpy_revdb.unique_id_seen = (-1ULL) << 63;
+}
+
+static void restore_state(void)
+{
+    rpy_revdb.stop_point_seen = stopped_time;
+    rpy_revdb.unique_id_seen = stopped_uid;
+    stopped_time = 0;
+    stopped_uid = 0;
 }
 
 RPY_EXTERN
 void rpy_reverse_db_stop_point(void)
 {
     while (rpy_revdb.stop_point_break == rpy_revdb.stop_point_seen) {
-        stopped_time = rpy_revdb.stop_point_seen;
-        stopped_uid = rpy_revdb.unique_id_seen;
-        rpy_revdb.unique_id_seen = (-1ULL) << 63;
+        save_state();
         breakpoint_mode = 0;
 
         if (pending_after_forward) {
@@ -599,15 +635,16 @@ void rpy_reverse_db_stop_point(void)
                 command_forward(&cmd);
                 break;
 
+            case CMD_FUTUREIDS:
+                command_future_ids(&cmd, extra);
+                break;
+
             default:
                 command_default(&cmd, extra);
                 break;
             }
         }
-        rpy_revdb.stop_point_seen = stopped_time;
-        rpy_revdb.unique_id_seen = stopped_uid;
-        stopped_time = 0;
-        stopped_uid = 0;
+        restore_state();
     }
 }
 
@@ -696,38 +733,20 @@ long long rpy_reverse_db_get_value(char value_id)
     }
 }
 
-static void (*unique_id_callback)(void *);
-
 RPY_EXTERN
 uint64_t rpy_reverse_db_unique_id_break(void *new_object)
 {
-    rpy_revdb_t dinfo;
-    rpy_revdb.unique_id_break = 0;
-    disable_io(&dinfo);
-    if (setjmp(jmp_buf_cancel_execution) == 0)
-        unique_id_callback(new_object);
-    enable_io(&dinfo);
+    if (!new_object) {
+        fprintf(stderr, "out of memory: allocation failed, cannot continue\n");
+        exit(1);
+    }
+    if (rpy_revdb_commands.rp_alloc) {
+        save_state();
+        rpy_revdb_commands.rp_alloc(rpy_revdb.unique_id_seen, new_object);
+        restore_state();
+    }
+    rpy_revdb.unique_id_break = *future_next_id++;
     return rpy_revdb.unique_id_seen;
-}
-
-RPY_EXTERN
-void rpy_reverse_db_track_object(long long unique_id, void callback(void *))
-{
-    if (stopped_uid <= 0) {
-        fprintf(stderr, "stopped_uid should not be <= 0\n");
-        return;
-    }
-    if (unique_id <= 0) {
-        fprintf(stderr, "cannot track a prebuilt or debugger-created object\n");
-        return;
-    }
-    if (unique_id < stopped_uid) {
-        fprintf(stderr, "cannot track the creation of an object already created\n");
-        return;
-    }
-    assert(callback != NULL);
-    unique_id_callback = callback;
-    rpy_revdb.unique_id_break = unique_id;
 }
 
 

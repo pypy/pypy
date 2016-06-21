@@ -4,9 +4,11 @@ INIT_VERSION_NUMBER = 0xd80100
 
 # See the corresponding answers for details about messages.
 
-CMD_FORK     = -1      # Message(CMD_FORK)
-CMD_QUIT     = -2      # Message(CMD_QUIT)
-CMD_FORWARD  = -3      # Message(CMD_FORWARD, steps, breakpoint_mode)
+CMD_FORK      = -1     # Message(CMD_FORK)
+CMD_QUIT      = -2     # Message(CMD_QUIT)
+CMD_FORWARD   = -3     # Message(CMD_FORWARD, steps, breakpoint_mode)
+CMD_FUTUREIDS = -4     # Message(CMD_FUTUREIDS, extra=list-of-8bytes-uids)
+CMD_ALLOCATING= -5     # Message(CMD_CREATING, uid, addr)
 # extra commands which are not handled by revdb.c, but
 # by revdb.register_debug_command()
 CMD_PRINT       = 1    # Message(CMD_PRINT, extra=expression)
@@ -49,6 +51,10 @@ ANSWER_TEXT       = 20
 # sent after CMD_MOREINFO:
 #    Message(ANSWER_MOREINFO, stack_depth)
 ANSWER_MOREINFO   = 21
+
+# sent from CMD_PRINT to record the existence of a recallable object
+#    Message(ANSWER_NEXTNID, unique-id)
+ANSWER_NEXTNID    = 22
 
 
 # ____________________________________________________________

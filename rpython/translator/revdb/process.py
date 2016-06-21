@@ -172,6 +172,7 @@ class ReplayProcessGroup(object):
         self.active = child
         self.paused = {1: child.clone()}     # {time: subprocess}
         self.all_breakpoints = AllBreakpoints()
+        self.all_printed_objects = []
 
     def get_current_time(self):
         return self.active.current_time
@@ -313,7 +314,8 @@ class ReplayProcessGroup(object):
         """Print an expression.
         """
         self.active.tainted = True
-        self.active.send(Message(CMD_PRINT, extra=expression))
+        next_nid = len(self.all_printed_objects)
+        self.active.send(Message(CMD_PRINT, next_nid, extra=expression))
         self.active.print_text_answer()
 
     def show_backtrace(self):

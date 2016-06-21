@@ -1,5 +1,5 @@
 import py
-from rpython.rtyper.lltypesystem import lltype, rffi, rstr
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rstr
 from rpython.translator.c.support import cdecl
 from rpython.rlib import exports, revdb
 
@@ -23,25 +23,31 @@ def record_malloc_uid(expr):
 
 
 def prepare_database(db):
-    FUNCPTR = lltype.Ptr(lltype.FuncType([revdb._CMDPTR,
-                                          lltype.Ptr(rstr.STR)], lltype.Void))
+    FUNCPTR = lltype.Ptr(lltype.FuncType([revdb._CMDPTR, lltype.Ptr(rstr.STR)],
+                                         lltype.Void))
+    ALLOCFUNCPTR = lltype.Ptr(lltype.FuncType([rffi.LONGLONG, llmemory.GCREF],
+                                              lltype.Void))
 
     bk = db.translator.annotator.bookkeeper
     cmds = getattr(db.translator, 'revdb_commands', [])
 
-    array_names = lltype.malloc(rffi.CArray(rffi.INT), len(cmds) + 1,
-                                flavor='raw', immortal=True, zero=True)
-    array_funcs = lltype.malloc(rffi.CArray(FUNCPTR), len(cmds),
-                                flavor='raw', immortal=True, zero=True)
+    S = lltype.Struct('RPY_REVDB_COMMANDS',
+                      ('names', lltype.FixedSizeArray(rffi.INT, len(cmds) + 1)),
+                      ('funcs', lltype.FixedSizeArray(FUNCPTR, len(cmds))),
+                      ('alloc', ALLOCFUNCPTR))
+    s = lltype.malloc(S, flavor='raw', immortal=True, zero=True)
 
     for i, (name, func) in enumerate(cmds):
         fnptr = lltype.getfunctionptr(bk.getdesc(func).getuniquegraph())
         assert lltype.typeOf(fnptr) == FUNCPTR
         assert isinstance(name, int) and name != 0
-        array_names[i] = rffi.cast(rffi.INT, name)
-        array_funcs[i] = fnptr
+        s.names[i] = rffi.cast(rffi.INT, name)
+        s.funcs[i] = fnptr
 
-    exports.EXPORTS_obj2name[array_names._as_obj()] = 'rpy_revdb_command_names'
-    exports.EXPORTS_obj2name[array_funcs._as_obj()] = 'rpy_revdb_command_funcs'
-    db.get(array_names)
-    db.get(array_funcs)
+    allocation_cmd = getattr(db.translator, 'revdb_allocation_cmd', None)
+    if allocation_cmd is not None:
+        s.alloc = lltype.getfunctionptr(
+            bk.getdesc(allocation_cmd).getuniquegraph())
+
+    exports.EXPORTS_obj2name[s._as_obj()] = 'rpy_revdb_commands'
+    db.get(s)
