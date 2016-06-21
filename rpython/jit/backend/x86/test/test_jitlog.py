@@ -30,7 +30,7 @@ class TestLogger(Jit386Mixin):
         assert os.path.exists(file.strpath)
         with file.open('rb') as f:
             # check the file header
-            assert f.read(3) == chr(jl.MARK_JITLOG_HEADER) + JITLOG_VERSION_16BIT_LE
+            assert f.read(3) == jl.MARK_JITLOG_HEADER + JITLOG_VERSION_16BIT_LE
             assert len(f.read()) > 0
 
     def test_env(self, monkeypatch, tmpdir):
@@ -41,7 +41,7 @@ class TestLogger(Jit386Mixin):
         assert os.path.exists(file.strpath)
         with file.open('rb') as fd:
             # check the file header
-            assert fd.read(3) == chr(jl.MARK_JITLOG_HEADER) + JITLOG_VERSION_16BIT_LE
+            assert fd.read(3) == jl.MARK_JITLOG_HEADER + JITLOG_VERSION_16BIT_LE
             assert len(fd.read()) > 0
 
     def test_version(self, monkeypatch, tmpdir):
@@ -53,7 +53,7 @@ class TestLogger(Jit386Mixin):
         assert os.path.exists(file.strpath)
         with file.open('rb') as fd:
             # check the file header
-            assert fd.read(3) == chr(jl.MARK_JITLOG_HEADER) + '\xff\xfe'
+            assert fd.read(3) == jl.MARK_JITLOG_HEADER + '\xff\xfe'
             assert len(fd.read()) > 0
 
     def test_version(self, monkeypatch, tmpdir):
@@ -65,7 +65,7 @@ class TestLogger(Jit386Mixin):
         assert os.path.exists(file.strpath)
         with file.open('rb') as fd:
             # check the file header
-            assert fd.read(3) == chr(jl.MARK_JITLOG_HEADER) + '\xff\xfe'
+            assert fd.read(3) == jl.MARK_JITLOG_HEADER + '\xff\xfe'
             assert len(fd.read()) > 0
 
     def run_sample_loop(self, func, myjitdriver = None):

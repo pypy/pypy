@@ -335,13 +335,8 @@ class BaseAssembler(object):
     @specialize.argtype(1)
     def _inject_debugging_code(self, looptoken, operations, tp, number):
         if self._debug:
-            s = 0
-            for op in operations:
-                s += op.getopnum()
-
             newoperations = []
-            self._append_debugging_code(newoperations, tp, number,
-                                        None)
+            self._append_debugging_code(newoperations, tp, number, None)
             for op in operations:
                 newoperations.append(op)
                 if op.getopnum() == rop.LABEL:
@@ -371,7 +366,7 @@ class BaseAssembler(object):
         LOOP_RUN_COUNTERS.append(struct)
         return struct
 
-    def finish_once(self, jitlog):
+    def finish_once(self):
         if self._debug:
             # TODO remove the old logging system when jitlog is complete
             debug_start('jit-backend-counts')

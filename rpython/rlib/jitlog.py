@@ -269,6 +269,8 @@ class VMProfJitLogger(object):
         self._write_marked(MARK_START_TRACE, ''.join(content))
 
     def trace_aborted(self):
+        if not self.cintf.jitlog_enabled():
+            return
         self._write_marked(MARK_ABORT_TRACE, encode_le_64bit(self.trace_id))
 
     def _write_marked(self, mark, line):
@@ -283,7 +285,6 @@ class VMProfJitLogger(object):
         if not self.cintf.jitlog_enabled():
             return EMPTY_TRACE_LOG
         assert self.metainterp_sd is not None
-        assert isinstance(tag, int)
         if memo is None:
             memo = {}
         return LogTrace(tag, memo, self.metainterp_sd, mc, self)

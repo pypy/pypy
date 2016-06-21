@@ -66,8 +66,8 @@ class AbstractX86CPU(AbstractLLCPU):
         self.assembler.setup_once()
 
     @rgc.no_release_gil
-    def finish_once(self, jitlog=None):
-        self.assembler.finish_once(jitlog)
+    def finish_once(self):
+        self.assembler.finish_once()
         self.profile_agent.shutdown()
 
     def dump_loop_token(self, looptoken):

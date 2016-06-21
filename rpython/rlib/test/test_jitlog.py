@@ -12,7 +12,7 @@ class FakeLog(object):
         self.values = []
 
     def _write_marked(self, id, text):
-        self.values.append(chr(id) + text)
+        self.values.append(id + text)
 
 def _get_location(greenkey_list):
     assert len(greenkey_list) == 0
@@ -56,12 +56,12 @@ class TestLogger(object):
         fd.close()
         logger.finish()
         binary = file.read()
-        assert binary == chr(jl.MARK_START_TRACE) + jl.encode_le_addr(0) + \
+        assert binary == (jl.MARK_START_TRACE) + jl.encode_le_addr(0) + \
                          jl.encode_str('loop') + jl.encode_le_addr(0) + \
-                         chr(jl.MARK_TRACE) + jl.encode_le_addr(0) + \
-                         chr(jl.MARK_INPUT_ARGS) + jl.encode_str('') + \
-                         chr(jl.MARK_INIT_MERGE_POINT) + b'\x05\x00\x01s\x00i\x08s\x00i\x10s' + \
-                         chr(jl.MARK_MERGE_POINT) + \
+                         (jl.MARK_TRACE) + jl.encode_le_addr(0) + \
+                         (jl.MARK_INPUT_ARGS) + jl.encode_str('') + \
+                         (jl.MARK_INIT_MERGE_POINT) + b'\x05\x00\x01s\x00i\x08s\x00i\x10s' + \
+                         (jl.MARK_MERGE_POINT) + \
                          b'\xff' + encode_str('/home/pypy/jit.py') + \
                          b'\x00' + encode_le_64bit(0) + \
                          b'\xff' + encode_str('enclosed') + \
@@ -78,12 +78,12 @@ class TestLogger(object):
         #
         result = jl.encode_merge_point(fakelog, compressor, [jl.StringValue(0x0,'s','hello')])
         assert result == b"\xef"
-        assert fakelog.values == [chr(jl.MARK_COMMON_PREFIX) + "\x00\x05\x00\x00\x00hello"]
+        assert fakelog.values == [(jl.MARK_COMMON_PREFIX) + "\x00\x05\x00\x00\x00hello"]
         #
         fakelog.values = []
         result = jl.encode_merge_point(fakelog, compressor, [jl.StringValue(0x0,'s','heiter')])
         assert result == b"\x00\x04\x00\x00\x00iter"
-        assert fakelog.values == [chr(jl.MARK_COMMON_PREFIX) + "\x00\x02\x00\x00\x00he"]
+        assert fakelog.values == [(jl.MARK_COMMON_PREFIX) + "\x00\x02\x00\x00\x00he"]
         #
         fakelog.values = []
         result = jl.encode_merge_point(fakelog, compressor, [jl.StringValue(0x0,'s','heute')])
@@ -98,7 +98,7 @@ class TestLogger(object):
         fakelog.values = []
         result = jl.encode_merge_point(fakelog, compressor, [jl.StringValue(0x0,'s','welle')])
         assert result == b"\x00\x02\x00\x00\x00le"
-        assert fakelog.values == [chr(jl.MARK_COMMON_PREFIX) + "\x00\x03\x00\x00\x00wel"]
+        assert fakelog.values == [(jl.MARK_COMMON_PREFIX) + "\x00\x03\x00\x00\x00wel"]
 
     def test_common_prefix_func(self):
         assert jl.commonprefix("","") == ""
