@@ -71,7 +71,7 @@ class ReplayProcess(object):
         return ''.join(pieces)
 
     def send(self, msg):
-        print 'SENT:', self.pid, msg
+        #print 'SENT:', self.pid, msg
         binary = struct.pack("iIqqq", msg.cmd, len(msg.extra),
                              msg.arg1, msg.arg2, msg.arg3)
         self.control_socket.sendall(binary + msg.extra)
@@ -81,7 +81,7 @@ class ReplayProcess(object):
         cmd, size, arg1, arg2, arg3 = struct.unpack("iIqqq", binary)
         extra = self._recv_all(size)
         msg = Message(cmd, arg1, arg2, arg3, extra)
-        print 'RECV:', self.pid, msg
+        #print 'RECV:', self.pid, msg
         return msg
 
     def expect(self, cmd, arg1=0, arg2=0, arg3=0, extra=""):
@@ -355,29 +355,27 @@ class ReplayProcessGroup(object):
         """Ensure that all the given unique_ids are loaded in the active
         child, if necessary by forking another child from earlier.
         """
-        import pdb;pdb.set_trace()
         initial_time = self.get_current_time()
-        must_go_forward_again = False
+        child = self.active
         while True:
-            uid_limit = self.get_currently_created_objects()
+            uid_limit = child.currently_created_objects
             missing_uids = [uid for uid in uids
                                 if uid < uid_limit
-                                   and uid not in self.active.printed_objects]
+                                   and uid not in child.printed_objects]
             if not missing_uids:
                 break
-
-            # we need to start with an older fork
-            start_time = self.get_current_time()
+            # pick the earlier fork
+            start_time = child.current_time
             stop_time = max(time for time in self.paused if time < start_time)
-            self._resume(stop_time)
-            must_go_forward_again = True
+            child = self.paused[stop_time]
 
         # No missing_uids left: all uids are either already in
         # self.active.printed_objects, or in the future.
         future_uids = [uid for uid in uids if uid >= uid_limit]
-        if not must_go_forward_again:
+        if child is self.active:
             assert not future_uids
         else:
+            self._resume(stop_time)
             future_uids.sort()
             pack_uids = [struct.pack('q', uid) for uid in future_uids]
             self.active.send(Message(CMD_FUTUREIDS, extra=''.join(pack_uids)))
@@ -391,25 +389,24 @@ class ReplayProcessGroup(object):
     def print_cmd(self, expression, nids=[]):
         """Print an expression.
         """
+        uids = []
         if nids:
-            uids = []
-            for nid in nids:
+            for nid in set(nids):
                 try:
                     uid = self.all_printed_objects_lst[nid]
                 except IndexError:
-                    print >> sys.stderr, ("no print command printed any "
-                                          "value for '$%d'" % nid)
-                    return
+                    continue
                 if uid >= self.get_currently_created_objects():
-                    print >> sys.stderr, ("'$%d' refers to an object that is "
-                                          "only created later in time" % nid)
-                    return
+                    print >> sys.stderr, (
+                        "note: '$%d' refers to an object that is "
+                        "only created later in time" % nid)
+                    continue
                 uids.append(uid)
             self.ensure_printed_objects(uids)
         #
         self.active.tainted = True
-        for nid in nids:
-            uid = self.all_printed_objects_lst[nid]
+        for uid in uids:
+            nid = self.all_printed_objects[uid]
             self.active.send(Message(CMD_ATTACHID, nid, uid))
             self.active.expect_ready()
         self.active.send(Message(CMD_PRINT, extra=expression))

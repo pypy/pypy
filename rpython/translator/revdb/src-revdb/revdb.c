@@ -559,6 +559,7 @@ static void command_future_ids(rpy_revdb_command_t *cmd, char *extra)
         }
         memcpy(future_ids, extra, cmd->extra_size);
         future_ids[cmd->extra_size / sizeof(uint64_t)] = 0;
+        rpy_revdb.unique_id_break = *future_ids;
     }
     future_next_id = future_ids;
 }
@@ -736,17 +737,22 @@ long long rpy_reverse_db_get_value(char value_id)
 RPY_EXTERN
 uint64_t rpy_reverse_db_unique_id_break(void *new_object)
 {
+    uint64_t uid = rpy_revdb.unique_id_seen;
     if (!new_object) {
         fprintf(stderr, "out of memory: allocation failed, cannot continue\n");
         exit(1);
     }
     if (rpy_revdb_commands.rp_alloc) {
+        rpy_revdb_t dinfo;
         save_state();
-        rpy_revdb_commands.rp_alloc(rpy_revdb.unique_id_seen, new_object);
+        disable_io(&dinfo);
+        if (setjmp(jmp_buf_cancel_execution) == 0)
+            rpy_revdb_commands.rp_alloc(uid, new_object);
+        enable_io(&dinfo);
         restore_state();
     }
     rpy_revdb.unique_id_break = *future_next_id++;
-    return rpy_revdb.unique_id_seen;
+    return uid;
 }
 
 
