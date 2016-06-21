@@ -624,6 +624,13 @@ class PPCVSXAssembler(object):
     vadduhm = VX(4, XO8=64)
     vaddubm = VX(4, XO8=0)
 
+    vsubudm = VX(4, XO8=1216)
+    vsubuwm = VX(4, XO8=1152)
+    vsubuhm = VX(4, XO8=1088)
+    vsububm = VX(4, XO8=1024)
+
+
+
     # shift, perm and select
     lvsl = XV(31, XO1=6)
     lvsr = XV(31, XO1=38)

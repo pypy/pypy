@@ -131,6 +131,21 @@ class VectorAssembler(object):
         elif size == 8:
             self.mc.vaddudm(resloc.value, loc0.value, loc1.value)
 
+    def emit_vec_int_sub(self, op, arglocs, regalloc):
+        resloc, loc0, loc1, size_loc = arglocs
+        size = size_loc.value
+        if size == 1:
+            # TODO verify if unsigned subtract is the wanted feature
+            self.mc.vsububm(resloc.value, loc0.value, loc1.value)
+        elif size == 2:
+            # TODO verify if unsigned subtract is the wanted feature
+            self.mc.vsubuhm(resloc.value, loc0.value, loc1.value)
+        elif size == 4:
+            # TODO verify if unsigned subtract is the wanted feature
+            self.mc.vsubuwm(resloc.value, loc0.value, loc1.value)
+        elif size == 8:
+            self.mc.vsubudm(resloc.value, loc0.value, loc1.value)
+
     def emit_vec_float_add(self, op, arglocs, resloc):
         resloc, loc0, loc1, itemsize_loc = arglocs
         itemsize = itemsize_loc.value
