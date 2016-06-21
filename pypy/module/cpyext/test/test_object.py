@@ -127,12 +127,12 @@ class TestObject(BaseApiTest):
         test_compare(1, 2)
         test_compare(2, 2)
         test_compare('2', '1')
-        
+
         w_i = space.wrap(1)
         assert api.PyObject_RichCompareBool(w_i, w_i, 123456) == -1
         assert api.PyErr_Occurred() is space.w_SystemError
         api.PyErr_Clear()
-        
+
     def test_IsInstance(self, space, api):
         assert api.PyObject_IsInstance(space.wrap(1), space.w_int) == 1
         assert api.PyObject_IsInstance(space.wrap(1), space.w_float) == 0
@@ -165,7 +165,7 @@ class TestObject(BaseApiTest):
             return File""")
         w_f = space.call_function(w_File)
         assert api.PyObject_AsFileDescriptor(w_f) == 42
-    
+
     def test_hash(self, space, api):
         assert api.PyObject_Hash(space.wrap(72)) == 72
         assert api.PyObject_Hash(space.wrap(-1)) == -1
@@ -250,7 +250,7 @@ class AppTestObject(AppTestCpythonExtensionBase):
                  if (copy != orig)
                      PyObject_Free(copy);
                  PyObject_Free(orig);
-                 return ret;  
+                 return ret;
              """)])
         x = module.realloctest()
         assert x == 'hello world\x00'
@@ -425,7 +425,6 @@ class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
                  """
     Py_buffer buf;
     PyObject *str = PyString_FromString("hello, world.");
-    PyObject *result;
 
     if (PyBuffer_FillInfo(&buf, str, PyString_AsString(str), 13,
                           1, PyBUF_WRITABLE)) {

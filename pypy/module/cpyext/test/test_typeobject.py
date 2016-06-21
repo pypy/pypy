@@ -735,7 +735,6 @@ class AppTestSlots(AppTestCpythonExtensionBase):
              """
                 IntLikeObject *intObj;
                 int intval;
-                PyObject *name;
 
                 if (!PyArg_ParseTuple(args, "i", &intval))
                     return NULL;
@@ -1060,7 +1059,6 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
            ("getMetaClass", "METH_NOARGS",
             '''
-                PyObject *obj;
                 FooType_Type.tp_flags = Py_TPFLAGS_DEFAULT;
                 FooType_Type.tp_base = &PyType_Type;
                 if (PyType_Ready(&FooType_Type) < 0) return NULL;

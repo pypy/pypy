@@ -54,7 +54,6 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
              """
                  PyObject *s, *t;
                  char* c;
-                 Py_ssize_t len;
 
                  s = PyByteArray_FromStringAndSize(NULL, 4);
                  if (s == NULL)
@@ -85,7 +84,6 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
             ("mutable", "METH_NOARGS",
              """
                 PyObject *base;
-                char * p_str;
                 base = PyByteArray_FromStringAndSize("test", 10);
                 if (PyByteArray_GET_SIZE(base) != 10)
                     return PyLong_FromLong(-PyByteArray_GET_SIZE(base));

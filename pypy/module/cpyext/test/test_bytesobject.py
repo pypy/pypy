@@ -29,7 +29,7 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
                  size_t expected_size;
 
                  result = PyString_Size(s);
-                
+
                  #ifdef PYPY_VERSION
                     expected_size = 48;
                  #elif defined Py_DEBUG
@@ -39,7 +39,7 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
                  #endif
                  if(s->ob_type->tp_basicsize != expected_size)
                  {
-                     printf("tp_basicsize==%zd\\n", s->ob_type->tp_basicsize); 
+                     printf("tp_basicsize==%zd\\n", s->ob_type->tp_basicsize);
                      result = 0;
                  }
                  Py_DECREF(s);
@@ -48,7 +48,7 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
             ("test_Size_exception", "METH_NOARGS",
              """
                  PyObject* f = PyFloat_FromDouble(1.0);
-                 Py_ssize_t size = PyString_Size(f);
+                 PyString_Size(f);
 
                  Py_DECREF(f);
                  return NULL;
@@ -71,7 +71,6 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
              """
                  PyObject *s, *t;
                  char* c;
-                 Py_ssize_t len;
 
                  s = PyString_FromStringAndSize(NULL, 4);
                  if (s == NULL)
@@ -99,7 +98,6 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
                 PyObject *base;
                 PyTypeObject * type;
                 PyStringObject *obj;
-                char * p_str;
                 base = PyString_FromString("test");
                 if (PyString_GET_SIZE(base) != 4)
                     return PyLong_FromLong(-PyString_GET_SIZE(base));
@@ -117,7 +115,6 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
             ('alloc_rw', "METH_NOARGS",
              '''
                 PyObject *obj = _PyObject_NewVar(&PyString_Type, 10);
-                char * buf = PyString_AS_STRING(obj);
                 memcpy(PyString_AS_STRING(obj), "works", 6);
                 return (PyObject*)obj;
              '''),
@@ -320,17 +317,17 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
              '''
                 PyObject* obj = (PyTuple_GetItem(args, 0));
                 long hash = ((PyStringObject*)obj)->ob_shash;
-                return PyLong_FromLong(hash);  
+                return PyLong_FromLong(hash);
              '''
              ),
             ("test_sstate", "METH_NOARGS",
              '''
                 PyObject *s = PyString_FromString("xyz");
-                int sstate = ((PyStringObject*)s)->ob_sstate;
-                /*printf("sstate now %d\\n", sstate);*/
+                /*int sstate = ((PyStringObject*)s)->ob_sstate;
+                printf("sstate now %d\\n", sstate);*/
                 PyString_InternInPlace(&s);
-                sstate = ((PyStringObject*)s)->ob_sstate;
-                /*printf("sstate now %d\\n", sstate);*/
+                /*sstate = ((PyStringObject*)s)->ob_sstate;
+                printf("sstate now %d\\n", sstate);*/
                 Py_DECREF(s);
                 return PyBool_FromLong(1);
              '''),
@@ -349,7 +346,7 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
                 char * data;
                 int len;
                 PyType_Ready(&PyStringArrType_Type);
-                
+
                 data = PyString_AS_STRING(args);
                 len = PyString_GET_SIZE(args);
                 if (data == NULL || len < 1)
@@ -373,7 +370,6 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
                         const char *dptr, *ip;
                         int len;
                         PyObject *new;
-                        PyObject *ret;
 
                         ip = dptr = PyString_AS_STRING(self);
                         len = PyString_GET_SIZE(self);
@@ -394,7 +390,6 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
                         const char *dptr, *ip;
                         int len;
                         PyObject *new;
-                        PyObject *ret;
 
                         ip = dptr = PyString_AS_STRING(self);
                         len = PyString_GET_SIZE(self);
@@ -415,7 +410,6 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
                         PyTypeObject *type = &PyStringArrType_Type;
                         PyObject *obj;
                         void *destptr;
-                        int type_num;
                         int itemsize = n;
                         obj = type->tp_alloc(type, itemsize);
                         if (obj == NULL) {
