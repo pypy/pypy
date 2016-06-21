@@ -142,7 +142,7 @@ class AppTestDatetime(AppTestCpythonExtensionBase):
                     2000, 6, 6, 6, 6, 6, 6, Py_None,
                     PyDateTimeAPI->DateTimeType);
              """),
-        ])
+        ], prologue='#include "datetime.h"\n')
         import datetime
         assert module.new_date() == datetime.date(2000, 6, 6)
         assert module.new_time() == datetime.time(6, 6, 6, 6)
@@ -241,6 +241,9 @@ class AppTestDatetime(AppTestCpythonExtensionBase):
                  PyObject* obj = PyDelta_FromDSU(6, 6, 6);
                  PyDateTime_Delta* delta = (PyDateTime_Delta*)obj;
 
+#if defined(PYPY_VERSION) || PY_VERSION_HEX >= 0x03030000
+                 // These macros are only defined in CPython 3.x and PyPy.
+                 // See: http://bugs.python.org/issue13727
                  PyDateTime_DELTA_GET_DAYS(obj);
                  PyDateTime_DELTA_GET_DAYS(delta);
 
@@ -249,10 +252,10 @@ class AppTestDatetime(AppTestCpythonExtensionBase):
 
                  PyDateTime_DELTA_GET_MICROSECONDS(obj);
                  PyDateTime_DELTA_GET_MICROSECONDS(delta);
-
+#endif
                  return obj;
              """),
-            ])
+            ], prologue='#include "datetime.h"\n')
         import datetime
         assert module.test_date_macros() == datetime.date(2000, 6, 6)
         assert module.test_datetime_macros() == datetime.datetime(

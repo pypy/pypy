@@ -324,17 +324,19 @@ class TestMallocFastpath(BaseTestRegalloc):
         def check(frame):
             expected_size = 1
             idx = 0
+            fixed_size = self.cpu.JITFRAME_FIXED_SIZE
             if self.cpu.backend_name.startswith('arm'):
                 # jitframe fixed part is larger here
                 expected_size = 2
                 idx = 1
+                fixed_size -= 32
             assert len(frame.jf_gcmap) == expected_size
-            if self.cpu.IS_64_BIT:
-                exp_idx = self.cpu.JITFRAME_FIXED_SIZE + 1  # +1 from i0
-            else:
-                assert frame.jf_gcmap[idx]
-                exp_idx = self.cpu.JITFRAME_FIXED_SIZE - 32 * idx + 1 # +1 from i0
-            assert frame.jf_gcmap[idx] == (1 << (exp_idx + 1)) | (1 << exp_idx)
+            # check that we have two bits set, and that they are in two
+            # registers (p0 and p1 are moved away when doing p2, but not
+            # spilled, just moved to different registers)
+            bits = [n for n in range(fixed_size)
+                      if frame.jf_gcmap[idx] & (1<<n)]
+            assert len(bits) == 2
 
         self.cpu = self.getcpu(check)
         ops = '''
