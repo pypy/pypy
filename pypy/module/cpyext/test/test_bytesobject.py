@@ -49,7 +49,7 @@ class AppTestBytesObject(AppTestCpythonExtensionBase):
             ("test_Size_exception", "METH_NOARGS",
              """
                  PyObject* f = PyFloat_FromDouble(1.0);
-                 Py_ssize_t size = PyBytes_Size(f);
+                 PyBytes_Size(f);
 
                  Py_DECREF(f);
                  return NULL;
