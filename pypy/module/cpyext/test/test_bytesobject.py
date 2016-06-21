@@ -29,7 +29,7 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
                  size_t expected_size;
 
                  result = PyString_Size(s);
-                
+
                  #ifdef PYPY_VERSION
                     expected_size = 48;
                  #elif defined Py_DEBUG
@@ -115,7 +115,6 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
             ('alloc_rw', "METH_NOARGS",
              '''
                 PyObject *obj = _PyObject_NewVar(&PyString_Type, 10);
-                char * buf = PyString_AS_STRING(obj);
                 memcpy(PyString_AS_STRING(obj), "works", 6);
                 return (PyObject*)obj;
              '''),
@@ -347,7 +346,7 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
                 char * data;
                 int len;
                 PyType_Ready(&PyStringArrType_Type);
-                
+
                 data = PyString_AS_STRING(args);
                 len = PyString_GET_SIZE(args);
                 if (data == NULL || len < 1)
@@ -371,7 +370,6 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
                         const char *dptr, *ip;
                         int len;
                         PyObject *new;
-                        PyObject *ret;
 
                         ip = dptr = PyString_AS_STRING(self);
                         len = PyString_GET_SIZE(self);
@@ -392,7 +390,6 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
                         const char *dptr, *ip;
                         int len;
                         PyObject *new;
-                        PyObject *ret;
 
                         ip = dptr = PyString_AS_STRING(self);
                         len = PyString_GET_SIZE(self);
@@ -413,7 +410,6 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
                         PyTypeObject *type = &PyStringArrType_Type;
                         PyObject *obj;
                         void *destptr;
-                        int type_num;
                         int itemsize = n;
                         obj = type->tp_alloc(type, itemsize);
                         if (obj == NULL) {
