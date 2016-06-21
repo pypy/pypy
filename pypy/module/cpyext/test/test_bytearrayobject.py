@@ -1,5 +1,7 @@
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 
+import sys
+
 class AppTestStringObject(AppTestCpythonExtensionBase):
     def test_basic(self):
         module = self.import_extension('foo', [
@@ -157,7 +159,9 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
              """)])
         assert module.bytearray_from_string("huheduwe") == "huhe"
         assert module.str_from_bytearray(bytearray('abc')) == 'abc'
-        raises(ValueError, module.str_from_bytearray, 4.0)
+        if '__pypy__' in sys.builtin_module_names:
+            # CPython only makes an assert.
+            raises(ValueError, module.str_from_bytearray, 4.0)
         ret = module.concat('abc', 'def')
         assert ret == 'abcdef'
         assert not isinstance(ret, str)
