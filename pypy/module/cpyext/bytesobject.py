@@ -6,7 +6,9 @@ from pypy.module.cpyext.api import (
 from pypy.module.cpyext.pyerrors import PyErr_BadArgument
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, Py_DecRef, make_ref, from_ref, track_reference,
-    make_typedescr, get_typedescr, as_pyobj, Py_IncRef, get_w_obj_and_decref)
+    make_typedescr, get_typedescr, as_pyobj, Py_IncRef, get_w_obj_and_decref,
+    pyobj_has_w_obj)
+from pypy.objspace.std.bytesobject import W_BytesObject
 
 ##
 ## Implementation of PyBytesObject
@@ -93,7 +95,7 @@ def bytes_attach(space, py_obj, w_obj):
     if py_str.c_ob_size  < len(s):
         raise oefmt(space.w_ValueError,
             "bytes_attach called on object with ob_size %d but trying to store %d",
-            py_str.c_ob_size, len(s)) 
+            py_str.c_ob_size, len(s))
     rffi.c_memcpy(py_str.c_ob_sval, rffi.str2charp(s), len(s))
     py_str.c_ob_sval[len(s)] = '\0'
     py_str.c_ob_shash = space.hash_w(w_obj)
