@@ -5,8 +5,6 @@ from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.pyobject import make_ref, from_ref
 from pypy.module.cpyext.typeobject import PyTypeObjectPtr
 
-import sys
-
 class AppTestTypeObject(AppTestCpythonExtensionBase):
     def test_typeobject(self):
         import sys
@@ -897,6 +895,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         module.footype("X", (object,), {})
 
     def test_app_subclass_of_c_type(self):
+        import sys
         module = self.import_module(name='foo')
         size = module.size_of_instances(module.fooType)
         class f1(object):
