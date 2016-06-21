@@ -110,9 +110,8 @@ class VectorAssembler(object):
             self.mc.vperm(Vs, Vs, Vs, Vp)
             self.mc.vsel(Vlo, Vs, Vlo, Vmask)
             self.mc.vsel(Vhi, Vhi, Vs, Vmask)
-            self.mc.stvx(Vlo, indexloc.value, baseloc.value)
-            self.mc.addi(t, baseloc.value, -16)
-            self.mc.stvx(Vhi, indexloc.value, t)
+            self.mc.stvx(Vlo, indexloc.value, t)
+            self.mc.stvx(Vhi, indexloc.value, baseloc.value)
         else:
             if itemsize == 4:
                 self.mc.stxvw4x(valueloc.value, indexloc.value, baseloc.value)
