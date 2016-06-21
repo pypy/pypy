@@ -123,11 +123,11 @@ class VectorAssembler(object):
         resloc, loc0, loc1, size_loc = arglocs
         size = size_loc.value
         if size == 1:
-            raise NotImplementedError
+            self.mc.vaddubm(resloc.value, loc0.value, loc1.value)
         elif size == 2:
-            raise NotImplementedError
+            self.mc.vadduhm(resloc.value, loc0.value, loc1.value)
         elif size == 4:
-            raise NotImplementedError
+            self.mc.vadduwm(resloc.value, loc0.value, loc1.value)
         elif size == 8:
             self.mc.vaddudm(resloc.value, loc0.value, loc1.value)
 

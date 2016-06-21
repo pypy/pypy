@@ -620,6 +620,9 @@ class PPCVSXAssembler(object):
 
     # arith & logic
     vaddudm = VX(4, XO8=192)
+    vadduwm = VX(4, XO8=128)
+    vadduhm = VX(4, XO8=64)
+    vaddubm = VX(4, XO8=0)
 
     # shift, perm and select
     lvsl = XV(31, XO1=6)
