@@ -332,6 +332,9 @@ class BaseAssembler(object):
         # Here we join Path A and Path B again
         self._call_assembler_patch_jmp(jmp_location)
 
+    def get_loop_run_counters(self, index):
+        return LOOP_RUN_COUNTERS[index]
+
     @specialize.argtype(1)
     def _inject_debugging_code(self, looptoken, operations, tp, number):
         if self._debug:
