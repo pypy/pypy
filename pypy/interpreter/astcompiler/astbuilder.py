@@ -1136,6 +1136,17 @@ class ASTBuilder(object):
                 raise
             return self.space.call_function(self.space.w_float, w_num_str)
 
+    def handle_dictelement(self, node, i):
+        if node.get_child(i).type == tokens.DOUBLESTAR:
+            key = None
+            value = self.handle_expr(node.get_child(i+1))
+            i += 2
+        else:
+            key = self.handle_expr(node.get_child(i))
+            value = self.handle_expr(node.get_child(i+2))
+            i += 3
+        return [i,key,value]
+    
     def handle_atom(self, atom_node):
         first_child = atom_node.get_child(0)
         first_child_type = first_child.type
@@ -1198,26 +1209,31 @@ class ASTBuilder(object):
             return self.handle_listcomp(second_child)
         elif first_child_type == tokens.LBRACE:
             maker = atom_node.get_child(1)
-            if maker.type == tokens.RBRACE:
-                return ast.Dict(None, None, atom_node.get_lineno(), atom_node.get_column())
             n_maker_children = maker.num_children()
-            #import pdb;pdb.set_trace()
-            if n_maker_children == 1 or maker.get_child(1).type == tokens.COMMA:
-                elts = []
-                for i in range(0, n_maker_children, 2):
-                    elts.append(self.handle_expr(maker.get_child(i)))
-                return ast.Set(elts, atom_node.get_lineno(), atom_node.get_column())
-            if maker.get_child(1).type == syms.comp_for:
-                return self.handle_setcomp(maker)
-            if (n_maker_children > 3 and
-                maker.get_child(3).type == syms.comp_for):
-                return self.handle_dictcomp(maker)
-            keys = []
-            values = []
-            for i in range(0, n_maker_children, 4):
-                keys.append(self.handle_expr(maker.get_child(i)))
-                values.append(self.handle_expr(maker.get_child(i + 2)))
-            return ast.Dict(keys, values, atom_node.get_lineno(), atom_node.get_column())
+            if maker.type == tokens.RBRACE:
+                # an empty dict
+                return ast.Dict(None, None, atom_node.get_lineno(), atom_node.get_column())
+            else:
+                is_dict = maker.get_child(0).type == tokens.DOUBLESTAR
+                if (n_maker_children == 1 or
+                    (n_maker_children > 1 and
+                     maker.get_child(1).type == tokens.COMMA)):
+                    # a set display
+                    return handle_setdisplay(maker)
+                elif n_maker_children > 1 and maker.get_child(1).type == syms.comp_for:
+                    # a set comprehension
+                    return self.handle_setcomp(maker)
+                elif (n_maker_children > 3 - is_dict and
+                      maker.get_child(3-is_dict).type == syms.comp_for):
+                    # a dictionary comprehension
+                    if is_dict:
+                        raise self.error("dict unpacking cannot be used in "
+                                         "dict comprehension", atom_node)
+                    
+                    return self.handle_dictcomp(maker)
+                else:
+                    # a dictionary display
+                    return handle_dictdisplay(maker)
         else:
             raise AssertionError("unknown atom")
 
@@ -1316,11 +1332,19 @@ class ASTBuilder(object):
                            set_maker.get_column())
 
     def handle_dictcomp(self, dict_maker):
-        key = self.handle_expr(dict_maker.get_child(0))
-        value = self.handle_expr(dict_maker.get_child(2))
-        comps = self.comprehension_helper(dict_maker.get_child(3))
+        i = 0
+        dictelement = self.handle_dictelement(dict_maker, i)
+        i = dictelement[0]
+        key = dictelement[1]
+        value = dictelement[2]
+        comps = self.comprehension_helper(dict_maker.get_child(i))
         return ast.DictComp(key, value, comps, dict_maker.get_lineno(),
                             dict_maker.get_column())
+    
+    def handle_dictdisplay(self, node):
+        size = (node.num_children()+1) / 3
+        
+        return ast.Dict(keys, values, node.get_lineno(), node.get_column())
 
     def handle_exprlist(self, exprlist, context):
         exprs = []
