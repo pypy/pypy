@@ -8,7 +8,6 @@ CMD_FORK      = -1     # Message(CMD_FORK)
 CMD_QUIT      = -2     # Message(CMD_QUIT)
 CMD_FORWARD   = -3     # Message(CMD_FORWARD, steps, breakpoint_mode)
 CMD_FUTUREIDS = -4     # Message(CMD_FUTUREIDS, extra=list-of-8bytes-uids)
-CMD_ALLOCATING= -5     # Message(CMD_CREATING, uid, addr)
 # extra commands which are not handled by revdb.c, but
 # by revdb.register_debug_command()
 CMD_PRINT       = 1    # Message(CMD_PRINT, extra=expression)
@@ -17,6 +16,7 @@ CMD_LOCALS      = 3    # Message(CMD_LOCALS)
 CMD_BREAKPOINTS = 4    # Message(CMD_BREAKPOINTS, stack_depth,
                        #         extra="\0-separated names")
 CMD_MOREINFO    = 5    # Message(CMD_MOREINFO)
+CMD_ATTACHID    = 6    # Message(CMD_ATTACHID, small-num, unique-id)
 
 
 # the first message sent by the first child:
@@ -73,7 +73,13 @@ class Message(object):
         self.extra = extra
 
     def __repr__(self):
-        return 'Message(%d, %d, %d, %d, %r)' % (self.cmd, self.arg1,
+        cmd = self.cmd
+        for key, value in globals().items():
+            if (key.startswith('CMD_') or key.startswith('ANSWER_')) and (
+                    value == cmd):
+                cmd = key
+                break
+        return 'Message(%s, %d, %d, %d, %r)' % (cmd, self.arg1,
                                                 self.arg2, self.arg3,
                                                 self.extra)
 

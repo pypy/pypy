@@ -7,6 +7,7 @@ from rpython.translator.revdb.process import ReplayProcessGroup, maxint64
 from rpython.translator.revdb.process import Breakpoint
 
 r_cmdline = re.compile(r"(\S+)\s*(.*)")
+r_dollar_num = re.compile(r"\$(\d+)\b")
 
 
 class RevDebugControl(object):
@@ -193,7 +194,9 @@ class RevDebugControl(object):
 
     def command_print(self, argument):
         """Print an expression"""
-        self.pgroup.print_cmd(argument)
+        # locate which $NUM appear used in the expression
+        nids = map(int, r_dollar_num.findall(argument))
+        self.pgroup.print_cmd(argument, nids=nids)
     command_p = command_print
 
     def command_backtrace(self, argument):

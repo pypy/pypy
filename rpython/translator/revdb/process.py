@@ -47,11 +47,18 @@ class ReplayProcess(object):
     It can be either the one started with --revdb-replay, or a fork.
     """
 
-    def __init__(self, pid, control_socket, breakpoints_cache=AllBreakpoints()):
+    def __init__(self, pid, control_socket,
+                 breakpoints_cache=AllBreakpoints(),
+                 printed_objects=frozenset()):
         self.pid = pid
         self.control_socket = control_socket
         self.tainted = False
         self.breakpoints_cache = breakpoints_cache    # don't mutate this
+        self.printed_objects = printed_objects        # don't mutate this
+        # ^^^ frozenset containing the uids of the objects that are
+        #     either already discovered in this child
+        #     (if uid < currently_created_objects), or that will
+        #     automatically be discovered when we move forward
 
     def _recv_all(self, size):
         pieces = []
@@ -64,6 +71,7 @@ class ReplayProcess(object):
         return ''.join(pieces)
 
     def send(self, msg):
+        print 'SENT:', self.pid, msg
         binary = struct.pack("iIqqq", msg.cmd, len(msg.extra),
                              msg.arg1, msg.arg2, msg.arg3)
         self.control_socket.sendall(binary + msg.extra)
@@ -72,7 +80,9 @@ class ReplayProcess(object):
         binary = self._recv_all(struct.calcsize("iIqqq"))
         cmd, size, arg1, arg2, arg3 = struct.unpack("iIqqq", binary)
         extra = self._recv_all(size)
-        return Message(cmd, arg1, arg2, arg3, extra)
+        msg = Message(cmd, arg1, arg2, arg3, extra)
+        print 'RECV:', self.pid, msg
+        return msg
 
     def expect(self, cmd, arg1=0, arg2=0, arg3=0, extra=""):
         msg = self.recv()
@@ -107,7 +117,8 @@ class ReplayProcess(object):
         child_pid = msg.arg1
         self.expect_ready()
         other = ReplayProcess(child_pid, s1,
-                              breakpoints_cache=self.breakpoints_cache)
+                              breakpoints_cache=self.breakpoints_cache,
+                              printed_objects=self.printed_objects)
         other.expect_ready()
         return other
 
@@ -138,7 +149,7 @@ class ReplayProcess(object):
         self.update_times(msg)
         return bkpt
 
-    def print_text_answer(self):
+    def print_text_answer(self, pgroup=None):
         while True:
             msg = self.recv()
             if msg.cmd == ANSWER_TEXT:
@@ -147,6 +158,16 @@ class ReplayProcess(object):
             elif msg.cmd == ANSWER_READY:
                 self.update_times(msg)
                 break
+            elif msg.cmd == ANSWER_NEXTNID and pgroup is not None:
+                uid = msg.arg1
+                if uid < pgroup.initial_uid:
+                    continue     # created before the first stop point, ignore
+                self.printed_objects = self.printed_objects.union([uid])
+                new_nid = len(pgroup.all_printed_objects_lst)
+                nid = pgroup.all_printed_objects.setdefault(uid, new_nid)
+                if nid == new_nid:
+                    pgroup.all_printed_objects_lst.append(uid)
+                sys.stdout.write('$%d = ' % nid)
             else:
                 print >> sys.stderr, "unexpected message %d" % (msg.cmd,)
 
@@ -168,14 +189,19 @@ class ReplayProcessGroup(object):
         msg = child.expect(ANSWER_INIT, INIT_VERSION_NUMBER, Ellipsis)
         self.total_stop_points = msg.arg2
         child.expect_ready()
+        self.initial_uid = child.currently_created_objects
 
         self.active = child
         self.paused = {1: child.clone()}     # {time: subprocess}
         self.all_breakpoints = AllBreakpoints()
-        self.all_printed_objects = []
+        self.all_printed_objects = {}
+        self.all_printed_objects_lst = []
 
     def get_current_time(self):
         return self.active.current_time
+
+    def get_currently_created_objects(self):
+        return self.active.currently_created_objects
 
     def _check_current_time(self, time):
         assert self.get_current_time() == time
@@ -186,6 +212,19 @@ class ReplayProcessGroup(object):
         return self.total_stop_points
 
     def get_next_clone_time(self):
+        # if 'active' has more printed_objects than the next process
+        # already in 'paused', then we re-clone 'active'.
+        cur_time = self.get_current_time()
+        future = [time for time in self.paused if time > cur_time]
+        if future:
+            for futime in sorted(future):
+                if (self.paused[futime].printed_objects !=
+                        frozenset(self.all_printed_objects_lst)):
+                    # 'futime' is the time of the first "future" childs
+                    # with an incomplete 'printed_objects'.  This will
+                    # be re-cloned.
+                    return futime
+        #
         if len(self.paused) >= self.MAX_SUBPROCESSES:
             next_time = self.total_stop_points + 1
         else:
@@ -228,6 +267,8 @@ class ReplayProcessGroup(object):
                 elif bkpt:
                     raise bkpt
                 steps -= rel_next_clone
+            if self.active.current_time in self.paused:
+                self.paused[self.active.current_time].close()
             clone = self.active.clone()
             self.paused[clone.current_time] = clone
         bkpt = self.active.forward(steps, breakpoint_mode)
@@ -310,13 +351,69 @@ class ReplayProcessGroup(object):
         for subp in [self.active] + self.paused.values():
             subp.close()
 
-    def print_cmd(self, expression):
+    def ensure_printed_objects(self, uids):
+        """Ensure that all the given unique_ids are loaded in the active
+        child, if necessary by forking another child from earlier.
+        """
+        import pdb;pdb.set_trace()
+        initial_time = self.get_current_time()
+        must_go_forward_again = False
+        while True:
+            uid_limit = self.get_currently_created_objects()
+            missing_uids = [uid for uid in uids
+                                if uid < uid_limit
+                                   and uid not in self.active.printed_objects]
+            if not missing_uids:
+                break
+
+            # we need to start with an older fork
+            start_time = self.get_current_time()
+            stop_time = max(time for time in self.paused if time < start_time)
+            self._resume(stop_time)
+            must_go_forward_again = True
+
+        # No missing_uids left: all uids are either already in
+        # self.active.printed_objects, or in the future.
+        future_uids = [uid for uid in uids if uid >= uid_limit]
+        if not must_go_forward_again:
+            assert not future_uids
+        else:
+            future_uids.sort()
+            pack_uids = [struct.pack('q', uid) for uid in future_uids]
+            self.active.send(Message(CMD_FUTUREIDS, extra=''.join(pack_uids)))
+            self.active.expect_ready()
+            self.active.printed_objects = (
+                self.active.printed_objects.union(future_uids))
+            self.go_forward(initial_time - self.get_current_time(),
+                            breakpoint_mode='i')
+        assert self.active.printed_objects.issuperset(uids)
+
+    def print_cmd(self, expression, nids=[]):
         """Print an expression.
         """
+        if nids:
+            uids = []
+            for nid in nids:
+                try:
+                    uid = self.all_printed_objects_lst[nid]
+                except IndexError:
+                    print >> sys.stderr, ("no print command printed any "
+                                          "value for '$%d'" % nid)
+                    return
+                if uid >= self.get_currently_created_objects():
+                    print >> sys.stderr, ("'$%d' refers to an object that is "
+                                          "only created later in time" % nid)
+                    return
+                uids.append(uid)
+            self.ensure_printed_objects(uids)
+        #
         self.active.tainted = True
-        next_nid = len(self.all_printed_objects)
-        self.active.send(Message(CMD_PRINT, next_nid, extra=expression))
-        self.active.print_text_answer()
+        for nid in nids:
+            uid = self.all_printed_objects_lst[nid]
+            self.active.send(Message(CMD_ATTACHID, nid, uid))
+            self.active.expect_ready()
+        self.active.send(Message(CMD_PRINT, extra=expression))
+        self.active.print_text_answer(pgroup=self)
 
     def show_backtrace(self):
         """Show the backtrace.
