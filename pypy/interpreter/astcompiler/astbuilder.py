@@ -1220,7 +1220,7 @@ class ASTBuilder(object):
                     (n_maker_children > 1 and
                      maker.get_child(1).type == tokens.COMMA)):
                     # a set display
-                    return handle_setdisplay(maker)
+                    return self.handle_setdisplay(maker)
                 elif n_maker_children > 1 and maker.get_child(1).type == syms.comp_for:
                     # a set comprehension
                     return self.handle_setcomp(maker)
@@ -1234,7 +1234,7 @@ class ASTBuilder(object):
                     return self.handle_dictcomp(maker)
                 else:
                     # a dictionary display
-                    return handle_dictdisplay(maker)
+                    return self.handle_dictdisplay(maker)
         else:
             raise AssertionError("unknown atom")
 
