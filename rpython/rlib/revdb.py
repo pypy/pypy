@@ -116,11 +116,11 @@ def restore_state():
 # ____________________________________________________________
 
 
-@specialize.arg(2)
-def _change_time(mode, time, callback):
-    ll_callback = llhelper(_CALLBACK_NOARG_FNPTR, callback)
-    llop.revdb_change_time(lltype.Void, mode, time, ll_callback)
-_CALLBACK_NOARG_FNPTR = lltype.Ptr(lltype.FuncType([], lltype.Void))
+## @specialize.arg(2)
+## def _change_time(mode, time, callback):
+##     ll_callback = llhelper(_CALLBACK_NOARG_FNPTR, callback)
+##     llop.revdb_change_time(lltype.Void, mode, time, ll_callback)
+## _CALLBACK_NOARG_FNPTR = lltype.Ptr(lltype.FuncType([], lltype.Void))
 _CALLBACK_GCREF_FNPTR = lltype.Ptr(lltype.FuncType([llmemory.GCREF],
                                                    lltype.Void))
 _CMDPTR = rffi.CStructPtr('rpy_revdb_command_s',

@@ -31,6 +31,7 @@ class RevDebugControl(object):
             last_time = self.pgroup.get_current_time()
             if last_time != previous_time:
                 print
+                self.pgroup.update_watch_values()
             if self.print_extra_pending_info:
                 print self.print_extra_pending_info
                 self.print_extra_pending_info = None
@@ -117,16 +118,15 @@ class RevDebugControl(object):
         else:
             return '?????point'
 
-    def _bp_new(self, break_at, watchvalue=None):
+    def _bp_new(self, break_at):
         b = self.pgroup.edit_breakpoints()
         new = 1
         while new in b.num2name:
             new += 1
         b.num2name[new] = break_at
-        if watchvalue is not None:
-            b.watchvalues[new] = watchvalue
+        if break_at.startswith('W'):
+            b.watchvalues[new] = ''
         print "%s %d added" % (self._bp_kind(break_at).capitalize(), new)
-        return new
 
     def cmd_info_breakpoints(self):
         """List current breakpoints and watchpoints"""
@@ -288,5 +288,5 @@ class RevDebugControl(object):
             print text
             print 'Watchpoint not added'
         else:
-            print 'Current value:', text
-            self._bp_new('W' + argument, watchvalue=text)
+            self._bp_new('W' + argument)
+            self.pgroup.update_watch_values()

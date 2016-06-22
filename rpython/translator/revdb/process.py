@@ -75,7 +75,7 @@ class ReplayProcess(object):
         return ''.join(pieces)
 
     def send(self, msg):
-        print 'SENT:', self.pid, msg
+        #print 'SENT:', self.pid, msg
         binary = struct.pack("iIqqq", msg.cmd, len(msg.extra),
                              msg.arg1, msg.arg2, msg.arg3)
         self.control_socket.sendall(binary + msg.extra)
@@ -85,7 +85,7 @@ class ReplayProcess(object):
         cmd, size, arg1, arg2, arg3 = struct.unpack("iIqqq", binary)
         extra = self._recv_all(size)
         msg = Message(cmd, arg1, arg2, arg3, extra)
-        print 'RECV:', self.pid, msg
+        #print 'RECV:', self.pid, msg
         return msg
 
     def expect(self, cmd, arg1=0, arg2=0, arg3=0, extra=""):
@@ -133,7 +133,7 @@ class ReplayProcess(object):
         except socket.error:
             pass
 
-    def forward(self, steps, breakpoint_mode, all_breakpoints):
+    def forward(self, steps, breakpoint_mode):
         """Move this subprocess forward in time.
         Returns the Breakpoint or None.
         """
@@ -149,8 +149,6 @@ class ReplayProcess(object):
                 break
             if bkpt is None:
                 bkpt = Breakpoint(msg.arg1, msg.arg3)
-                all_breakpoints.watchvalues = dict.fromkeys(
-                    all_breakpoints.watchvalues)    # set all values to None
         assert msg.cmd == ANSWER_READY
         self.update_times(msg)
         return bkpt
@@ -175,7 +173,7 @@ class ReplayProcess(object):
                     pgroup.all_printed_objects_lst.append(uid)
                 sys.stdout.write('$%d = ' % nid)
             else:
-                print >> sys.stderr, "unexpected message %d" % (msg.cmd,)
+                print >> sys.stderr, "unexpected %r" % (msg,)
 
 
 class ReplayProcessGroup(object):
@@ -268,8 +266,7 @@ class ReplayProcessGroup(object):
                 break
             assert rel_next_clone >= 0
             if rel_next_clone > 0:
-                bkpt = self.active.forward(rel_next_clone, breakpoint_mode,
-                                           self.all_breakpoints)
+                bkpt = self.active.forward(rel_next_clone, breakpoint_mode)
                 if breakpoint_mode == 'r':
                     latest_bkpt = bkpt or latest_bkpt
                 elif bkpt:
@@ -279,8 +276,7 @@ class ReplayProcessGroup(object):
                 self.paused[self.active.current_time].close()
             clone = self.active.clone()
             self.paused[clone.current_time] = clone
-        bkpt = self.active.forward(steps, breakpoint_mode,
-                                   self.all_breakpoints)
+        bkpt = self.active.forward(steps, breakpoint_mode)
         if breakpoint_mode == 'r':
             bkpt = bkpt or latest_bkpt
         if bkpt:
@@ -349,17 +345,24 @@ class ReplayProcessGroup(object):
                 name = num2name.get(n, '')
                 if name.startswith('W'):
                     text = watchvalues[n]
-                    if text is None:
-                        _, text = self.check_watchpoint_expr(name[1:])
-                        print 'updating watchpoint value: %s => %s' % (
-                            name[1:], text)
-                        watchvalues[n] = text
                 flat.append(text)
             extra = '\x00'.join(flat)
             self.active.send(Message(CMD_WATCHVALUES, extra=extra))
             self.active.expect_ready()
 
         self.active.breakpoints_cache = self.all_breakpoints.duplicate()
+
+    def update_watch_values(self):
+        seen = set()
+        for num, name in self.all_breakpoints.num2name.items():
+            if name.startswith('W'):
+                _, text = self.check_watchpoint_expr(name[1:])
+                if text != self.all_breakpoints.watchvalues[num]:
+                    print 'updating watchpoint value: %s => %s' % (
+                        name[1:], text)
+                    self.all_breakpoints.watchvalues[num] = text
+                seen.add(num)
+        assert set(self.all_breakpoints.watchvalues) == seen
 
     def check_watchpoint_expr(self, expr):
         self.active.send(Message(CMD_CHECKWATCH, extra=expr))

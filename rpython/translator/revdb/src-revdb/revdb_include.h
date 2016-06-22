@@ -18,7 +18,6 @@ typedef struct {
     char *buf_p, *buf_limit;
     uint64_t stop_point_seen, stop_point_break;
     uint64_t unique_id_seen, unique_id_break;
-    void *saved_exc[2];
 } rpy_revdb_t;
 
 RPY_EXTERN rpy_revdb_t rpy_revdb;
@@ -84,9 +83,6 @@ RPY_EXTERN void rpy_reverse_db_teardown(void);
 #define OP_REVDB_SEND_ANSWER(cmd, arg1, arg2, arg3, ll_string, r)       \
     rpy_reverse_db_send_answer(cmd, arg1, arg2, arg3, ll_string)
 
-#define OP_REVDB_CHANGE_TIME(mode, time, callback, r)                   \
-    rpy_reverse_db_change_time(mode, time, callback)
-
 #define OP_REVDB_BREAKPOINT(num, r)                                     \
     rpy_reverse_db_breakpoint(num)
 
@@ -115,8 +111,6 @@ RPY_EXTERN void rpy_reverse_db_stop_point(void);
 RPY_EXTERN void rpy_reverse_db_send_answer(int cmd, int64_t arg1, int64_t arg2,
                                            int64_t arg3, RPyString *extra);
 RPY_EXTERN Signed rpy_reverse_db_identityhash(struct pypy_header0 *obj);
-RPY_EXTERN void rpy_reverse_db_change_time(char mode, long long time,
-                                           void callback(void));
 RPY_EXTERN void rpy_reverse_db_breakpoint(int64_t num);
 RPY_EXTERN long long rpy_reverse_db_get_value(char value_id);
 RPY_EXTERN uint64_t rpy_reverse_db_unique_id_break(void *new_object);

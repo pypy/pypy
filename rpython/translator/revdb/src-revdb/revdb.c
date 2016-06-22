@@ -396,11 +396,18 @@ char *rpy_reverse_db_fetch(int expected_size, const char *file, int line)
     }
 }
 
-static void disable_io(rpy_revdb_t *dinfo)
+static rpy_revdb_t disabled_state;
+static void *disabled_exc[2];
+
+static void disable_io(void)
 {
-    *dinfo = rpy_revdb;   /* save the complete struct */
-    dinfo->saved_exc[0] = pypy_g_ExcData.ed_exc_type;
-    dinfo->saved_exc[1] = pypy_g_ExcData.ed_exc_value;
+    if (flag_io_disabled) {
+        fprintf(stderr, "unexpected recursive disable_io()\n");
+        exit(1);
+    }
+    disabled_state = rpy_revdb;   /* save the complete struct */
+    disabled_exc[0] = pypy_g_ExcData.ed_exc_type;
+    disabled_exc[1] = pypy_g_ExcData.ed_exc_value;
     pypy_g_ExcData.ed_exc_type = NULL;
     pypy_g_ExcData.ed_exc_value = NULL;
     rpy_revdb.buf_p = NULL;
@@ -408,9 +415,13 @@ static void disable_io(rpy_revdb_t *dinfo)
     flag_io_disabled = 1;
 }
 
-static void enable_io(rpy_revdb_t *dinfo)
+static void enable_io(int restore_breaks)
 {
     uint64_t v1, v2;
+    if (!flag_io_disabled) {
+        fprintf(stderr, "unexpected enable_io()\n");
+        exit(1);
+    }
     flag_io_disabled = 0;
 
     if (pypy_g_ExcData.ed_exc_type != NULL) {
@@ -422,22 +433,23 @@ static void enable_io(rpy_revdb_t *dinfo)
     /* restore the complete struct, with the exception of '*_break' */
     v1 = rpy_revdb.stop_point_break;
     v2 = rpy_revdb.unique_id_break;
-    rpy_revdb = *dinfo;
-    rpy_revdb.stop_point_break = v1;
-    rpy_revdb.unique_id_break = v2;
-    pypy_g_ExcData.ed_exc_type = dinfo->saved_exc[0];
-    pypy_g_ExcData.ed_exc_value = dinfo->saved_exc[1];
+    rpy_revdb = disabled_state;
+    if (!restore_breaks) {
+        rpy_revdb.stop_point_break = v1;
+        rpy_revdb.unique_id_break = v2;
+    }
+    pypy_g_ExcData.ed_exc_type = disabled_exc[0];
+    pypy_g_ExcData.ed_exc_value = disabled_exc[1];
 }
 
 static void execute_rpy_function(rpy_revdb_command_fn func,
                                  rpy_revdb_command_t *cmd,
                                  RPyString *extra)
 {
-    rpy_revdb_t dinfo;
-    disable_io(&dinfo);
+    disable_io();
     if (setjmp(jmp_buf_cancel_execution) == 0)
         func(cmd, extra);
-    enable_io(&dinfo);
+    enable_io(0);
 }
 
 static void check_at_end(uint64_t stop_points)
@@ -585,13 +597,29 @@ static void command_default(rpy_revdb_command_t *cmd, char *extra)
     execute_rpy_function(rpy_revdb_commands.rp_funcs[i], cmd, s);
 }
 
+static void save_state(void)
+{
+    stopped_time = rpy_revdb.stop_point_seen;
+    stopped_uid = rpy_revdb.unique_id_seen;
+    rpy_revdb.unique_id_seen = (-1ULL) << 63;
+}
+
+static void restore_state(void)
+{
+    rpy_revdb.stop_point_seen = stopped_time;
+    rpy_revdb.unique_id_seen = stopped_uid;
+    stopped_time = 0;
+    stopped_uid = 0;
+}
+
 RPY_EXTERN
 bool_t rpy_reverse_db_save_state(void)
 {
     if (stopped_time == 0) {
-        stopped_time = rpy_revdb.stop_point_seen;
-        stopped_uid = rpy_revdb.unique_id_seen;
-        rpy_revdb.unique_id_seen = (-1ULL) << 63;
+        save_state();
+        disable_io();
+        rpy_revdb.stop_point_break = 0;
+        rpy_revdb.unique_id_break = 0;
         return 1;
     }
     else
@@ -601,17 +629,15 @@ bool_t rpy_reverse_db_save_state(void)
 RPY_EXTERN
 void rpy_reverse_db_restore_state(void)
 {
-    rpy_revdb.stop_point_seen = stopped_time;
-    rpy_revdb.unique_id_seen = stopped_uid;
-    stopped_time = 0;
-    stopped_uid = 0;
+    enable_io(1);
+    restore_state();
 }
 
 RPY_EXTERN
 void rpy_reverse_db_stop_point(void)
 {
     while (rpy_revdb.stop_point_break == rpy_revdb.stop_point_seen) {
-        rpy_reverse_db_save_state();
+        save_state();
         breakpoint_mode = 0;
 
         if (pending_after_forward) {
@@ -621,6 +647,8 @@ void rpy_reverse_db_stop_point(void)
         }
         else {
             rpy_revdb_command_t cmd;
+            if (((int64_t)stopped_uid) < 0)
+                attach_gdb();
             write_answer(ANSWER_READY, stopped_time, stopped_uid, 0);
             read_sock(&cmd, sizeof(cmd));
 
@@ -652,7 +680,7 @@ void rpy_reverse_db_stop_point(void)
                 break;
             }
         }
-        rpy_reverse_db_restore_state();
+        restore_state();
     }
 }
 
@@ -674,30 +702,6 @@ void rpy_reverse_db_send_answer(int cmd, int64_t arg1, int64_t arg2,
     write_sock(&c, sizeof(c));
     if (extra_size > 0)
         write_sock(_RPyString_AsString(extra), extra_size);
-}
-
-RPY_EXTERN
-void rpy_reverse_db_change_time(char mode, long long time,
-                                void callback(void))
-{
-    switch (mode) {
-
-    case 'f':        /* forward */
-        if (time < 0) {
-            fprintf(stderr, "revdb.go_forward(): negative amount of steps\n");
-            exit(1);
-        }
-        if (stopped_time == 0) {
-            fprintf(stderr, "revdb.go_forward(): not from a debug command\n");
-            exit(1);
-        }
-        rpy_revdb.stop_point_break = stopped_time + time;
-        pending_after_forward = callback;
-        break;
-
-    default:
-        abort();    /* unreachable */
-    }
 }
 
 RPY_EXTERN
@@ -750,12 +754,12 @@ uint64_t rpy_reverse_db_unique_id_break(void *new_object)
         exit(1);
     }
     if (rpy_revdb_commands.rp_alloc) {
-        rpy_revdb_t dinfo;
-        rpy_reverse_db_save_state();
-        disable_io(&dinfo);
+        if (!rpy_reverse_db_save_state()) {
+            fprintf(stderr, "unexpected recursive unique_id_break\n");
+            exit(1);
+        }
         if (setjmp(jmp_buf_cancel_execution) == 0)
             rpy_revdb_commands.rp_alloc(uid, new_object);
-        enable_io(&dinfo);
         rpy_reverse_db_restore_state();
     }
     rpy_revdb.unique_id_break = *future_next_id++;
