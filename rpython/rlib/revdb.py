@@ -16,9 +16,12 @@ CMD_LOCALS      = 3
 CMD_BREAKPOINTS = 4
 CMD_MOREINFO    = 5
 CMD_ATTACHID    = 6
+CMD_WATCH       = 7
+CMD_EXPECTED    = 8
 ANSWER_TEXT     = 20
 ANSWER_MOREINFO = 21
 ANSWER_NEXTNID  = 22
+ANSWER_COMPILED = 23
 
 
 def stop_point():
@@ -32,9 +35,6 @@ def stop_point():
 
 def register_debug_command(command, lambda_func):
     """Register the extra RPython-implemented debug command."""
-
-def register_allocation_command(lambda_func):
-    """Register the extra RPython-implemented callback for allocation."""
 
 def send_answer(cmd, arg1=0, arg2=0, arg3=0, extra=""):
     """For RPython debug commands: writes an answer block to stdout"""
@@ -126,55 +126,38 @@ class RegisterDebugCommand(ExtRegistryEntry):
     _about_ = register_debug_command
 
     def compute_result_annotation(self, s_command_num, s_lambda_func):
-        from rpython.annotator import model as annmodel
-        from rpython.rtyper import llannotation
-
         command_num = s_command_num.const
         lambda_func = s_lambda_func.const
-        assert isinstance(command_num, int)
+        assert isinstance(command_num, (int, str))
         t = self.bookkeeper.annotator.translator
         if t.config.translation.reverse_debugger:
             func = lambda_func()
             try:
                 cmds = t.revdb_commands
             except AttributeError:
-                cmds = t.revdb_commands = []
-            for old_num, old_func in cmds:
-                if old_num == command_num:
-                    assert old_func is func
-                    break
-            else:
-                cmds.append((command_num, func))
+                cmds = t.revdb_commands = {}
+            old_func = cmds.setdefault(command_num, func)
+            assert old_func is func
             s_func = self.bookkeeper.immutablevalue(func)
-            s_ptr1 = llannotation.SomePtr(ll_ptrtype=_CMDPTR)
-            s_str2 = annmodel.SomeString()
+            arg_getter = getattr(self, 'arguments_' + str(command_num),
+                                 self.default_arguments)
             self.bookkeeper.emulate_pbc_call(self.bookkeeper.position_key,
-                                             s_func, [s_ptr1, s_str2])
+                                             s_func, arg_getter())
 
-    def specialize_call(self, hop):
-        hop.exception_cannot_occur()
-
-
-class RegisterAllocationCommand(ExtRegistryEntry):
-    _about_ = register_allocation_command
-
-    def compute_result_annotation(self, s_lambda_func):
+    def default_arguments(self):
         from rpython.annotator import model as annmodel
         from rpython.rtyper import llannotation
+        return [llannotation.SomePtr(ll_ptrtype=_CMDPTR),
+                annmodel.SomeString()]
 
-        lambda_func = s_lambda_func.const
-        t = self.bookkeeper.annotator.translator
-        if t.config.translation.reverse_debugger:
-            func = lambda_func()
-            try:
-                assert t.revdb_allocation_cmd is func
-            except AttributeError:
-                t.revdb_allocation_cmd = func
-            s_func = self.bookkeeper.immutablevalue(func)
-            s_int1 = annmodel.SomeInteger(knowntype=r_longlong)
-            s_ref2 = llannotation.lltype_to_annotation(llmemory.GCREF)
-            self.bookkeeper.emulate_pbc_call(self.bookkeeper.position_key,
-                                             s_func, [s_int1, s_ref2])
+    def arguments_ALLOCATING(self):
+        from rpython.annotator import model as annmodel
+        from rpython.rtyper import llannotation
+        return [annmodel.SomeInteger(knowntype=r_longlong),
+                llannotation.lltype_to_annotation(llmemory.GCREF)]
+
+    def arguments_WATCHING(self):
+        return []
 
     def specialize_call(self, hop):
         hop.exception_cannot_occur()

@@ -109,6 +109,15 @@ class RevDebugControl(object):
         lst = [str(n) for n in sorted(self.pgroup.paused)]
         print ', '.join(lst)
 
+    def cmd_info_breakpoints(self):
+        """List current breakpoints"""
+        lst = self.pgroup.all_breakpoints.num2name.items()
+        if lst:
+            for num, name in sorted(lst):
+                print '%8d: %s' % (num, name)
+        else:
+            print 'no breakpoints.'
+
     def move_forward(self, steps):
         self.remove_tainting()
         try:

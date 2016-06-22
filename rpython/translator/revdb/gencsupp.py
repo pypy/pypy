@@ -27,27 +27,35 @@ def prepare_database(db):
                                          lltype.Void))
     ALLOCFUNCPTR = lltype.Ptr(lltype.FuncType([rffi.LONGLONG, llmemory.GCREF],
                                               lltype.Void))
+    WATCHFUNCPTR = lltype.Ptr(lltype.FuncType([], lltype.Signed))
 
     bk = db.translator.annotator.bookkeeper
-    cmds = getattr(db.translator, 'revdb_commands', [])
+    cmds = getattr(db.translator, 'revdb_commands', {})
+    numcmds = [(num, func) for (num, func) in cmds.items()
+                           if isinstance(num, int)]
 
     S = lltype.Struct('RPY_REVDB_COMMANDS',
-                      ('names', lltype.FixedSizeArray(rffi.INT, len(cmds) + 1)),
-                      ('funcs', lltype.FixedSizeArray(FUNCPTR, len(cmds))),
-                      ('alloc', ALLOCFUNCPTR))
+                  ('names', lltype.FixedSizeArray(rffi.INT, len(numcmds) + 1)),
+                  ('funcs', lltype.FixedSizeArray(FUNCPTR, len(numcmds))),
+                  ('alloc', ALLOCFUNCPTR),
+                  ('watch', WATCHFUNCPTR))
     s = lltype.malloc(S, flavor='raw', immortal=True, zero=True)
 
-    for i, (name, func) in enumerate(cmds):
+    i = 0
+    for name, func in cmds.items():
         fnptr = lltype.getfunctionptr(bk.getdesc(func).getuniquegraph())
-        assert lltype.typeOf(fnptr) == FUNCPTR
-        assert isinstance(name, int) and name != 0
-        s.names[i] = rffi.cast(rffi.INT, name)
-        s.funcs[i] = fnptr
-
-    allocation_cmd = getattr(db.translator, 'revdb_allocation_cmd', None)
-    if allocation_cmd is not None:
-        s.alloc = lltype.getfunctionptr(
-            bk.getdesc(allocation_cmd).getuniquegraph())
+        if isinstance(name, int):
+            assert name != 0
+            s.names[i] = rffi.cast(rffi.INT, name)
+            s.funcs[i] = fnptr
+            i += 1
+        elif name == "ALLOCATING":
+            s.alloc = fnptr
+        elif name == "WATCHING":
+            s.watch = fnptr
+        else:
+            raise AssertionError("bad tag in register_debug_command(): %r"
+                                 % (name,))
 
     exports.EXPORTS_obj2name[s._as_obj()] = 'rpy_revdb_commands'
     db.get(s)
