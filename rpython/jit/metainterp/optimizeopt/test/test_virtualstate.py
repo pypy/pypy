@@ -26,6 +26,8 @@ class FakeOptimizer(Optimizer):
     def __init__(self, cpu):
         self.cpu = cpu
         self.optearlyforce = None
+        self.metainterp_sd = None
+        self._last_debug_merge_point = None
 
 class BaseTestGenerateGuards(BaseTest):
     def setup_class(self):
@@ -462,6 +464,45 @@ class BaseTestGenerateGuards(BaseTest):
         expected = """
         [p0]
         guard_nonnull(p0) []
+        """
+        self.compare(guards, expected, [box])
+
+    def test_guard_compatible(self):
+        from rpython.jit.metainterp.compatible import CompatibilityCondition
+        value1 = info.PtrInfo()
+        ptr = "fakeptr"
+        value1._compatibility_conditions = CompatibilityCondition(
+                ConstPtr(self.myptr))
+        box = InputArgRef()
+        guards = []
+        value1.make_guards(box, guards, FakeOptimizer(self.cpu))
+        expected = """
+        [p0]
+        guard_compatible(p0, ConstPtr(myptr)) []
+        """
+        self.compare(guards, expected, [box])
+
+    def test_guard_compatible_with_conditions(self):
+        from rpython.jit.metainterp.compatible import CompatibilityCondition
+        optimizer = FakeOptimizer(self.cpu)
+        value1 = info.PtrInfo()
+        ptr = "fakeptr"
+        ccond = value1._compatibility_conditions = CompatibilityCondition(
+                ConstPtr(self.myptr))
+        op = ResOperation(
+                rop.CALL_PURE_I, [ConstInt(123), ConstPtr(self.myptr)],
+                descr=self.plaincalldescr)
+        copied_op, cond = ccond.prepare_const_arg_call(
+                op, optimizer)
+        ccond.record_condition(cond, ConstInt(5), optimizer)
+        box = InputArgRef()
+        guards = []
+        value1.make_guards(box, guards, FakeOptimizer(self.cpu))
+        expected = """
+        [p0]
+        guard_compatible(p0, ConstPtr(myptr)) []
+        i1 = call_pure_i(123, p0, descr=plaincalldescr)
+        guard_value(i1, 5) []
         """
         self.compare(guards, expected, [box])
 

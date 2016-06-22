@@ -24,6 +24,7 @@ def do_call(cpu, argboxes, descr):
         return None
     raise AssertionError("bad rettype")
 
+
 class CompatibilityCondition(object):
     """ A collections of conditions that an object needs to fulfil. """
     def __init__(self, ptr):
@@ -105,8 +106,15 @@ class CompatibilityCondition(object):
         return copied_op, QuasiimmutGetfieldAndPureCallCondition(
                 op, qmutdescr, optimizer)
 
+    def emit_conditions(self, op, short, optimizer):
+        """ re-emit the conditions about variable op into the short preamble
+        """
+        for cond in self.conditions:
+            cond.emit_condition(op, short, optimizer)
+
     def repr_of_conditions(self, argrepr="?"):
         return "\n".join([cond.repr(argrepr) for cond in self.conditions])
+
 
 
 class Condition(object):
@@ -137,6 +145,9 @@ class Condition(object):
 
     def repr(self):
         return ""
+
+    def emit_condition(self, op, short, optimizer):
+        raise NotImplementedError("abstract base class")
 
     def _repr_const(self, arg):
         from rpython.jit.metainterp.history import ConstInt, ConstFloat, ConstPtr
@@ -210,6 +221,30 @@ class PureCallCondition(Condition):
             if not self.args[i].same_constant(other.args[i]):
                 return False
         return True
+
+    def emit_condition(self, op, short, optimizer):
+        from rpython.jit.metainterp.history import INT, REF, FLOAT, VOID
+        from rpython.jit.metainterp.resoperation import rop, ResOperation
+        # woah, mess
+        args = self.args[:]
+        args[1] = op
+        descr = self.descr
+        rettype = descr.get_result_type()
+        if rettype == INT:
+            call_op = ResOperation(rop.CALL_PURE_I, args, descr)
+        elif rettype == FLOAT:
+            call_op = ResOperation(rop.CALL_PURE_F, args, descr)
+        elif rettype == REF:
+            call_op = ResOperation(rop.CALL_PURE_R, args, descr)
+        else:
+            assert rettype == VOID
+            # XXX maybe we should forbid this
+            call_op = ResOperation(rop.CALL_PURE_R, args, descr)
+            short.append(call_op)
+            return
+        short.append(call_op)
+        short.append(ResOperation(rop.GUARD_VALUE, [call_op, self.res]))
+
 
     def repr(self, argrepr="?"):
         addr = self.args[0].getaddr()
