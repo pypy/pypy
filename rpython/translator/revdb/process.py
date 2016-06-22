@@ -277,7 +277,7 @@ class ReplayProcessGroup(object):
         if bkpt:
             raise bkpt
 
-    def go_backward(self, steps):
+    def go_backward(self, steps, ignore_breakpoints=False):
         """Go backward, for the given number of 'steps' of time.
 
         Closes the active process.  Implemented as jump_in_time()
@@ -285,7 +285,7 @@ class ReplayProcessGroup(object):
         """
         assert steps >= 0
         initial_time = self.get_current_time()
-        if self.all_breakpoints.is_empty():
+        if self.all_breakpoints.is_empty() or ignore_breakpoints:
             self.jump_in_time(initial_time - steps)
         else:
             self._backward_search_forward(
@@ -300,7 +300,7 @@ class ReplayProcessGroup(object):
             search_start_time = self.get_current_time()
             time_range_to_search = search_stop_time - search_start_time
             if time_range_to_search <= 0:
-                print "[not found]"
+                print "[search end]"
                 return
             print "[searching %d..%d]" % (search_start_time,
                                           search_stop_time)

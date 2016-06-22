@@ -22,6 +22,7 @@ class RevDebugControl(object):
         if executable is None:
             executable = fields[1]
         self.pgroup = ReplayProcessGroup(executable, revdb_log_filename)
+        self.print_extra_pending_info = None
 
     def interact(self):
         last_command = 'help'
@@ -30,6 +31,10 @@ class RevDebugControl(object):
             last_time = self.pgroup.get_current_time()
             if last_time != previous_time:
                 print
+            if self.print_extra_pending_info:
+                print self.print_extra_pending_info
+                self.print_extra_pending_info = None
+            if last_time != previous_time:
                 self.pgroup.show_backtrace(complete=0)
                 previous_time = last_time
             prompt = '(%d)$ ' % last_time
@@ -115,7 +120,7 @@ class RevDebugControl(object):
 
     def move_backward(self, steps):
         try:
-            self.pgroup.go_backward(steps)
+            self.pgroup.go_backward(steps, ignore_breakpoints=(steps==1))
             return True
         except Breakpoint as b:
             self.hit_breakpoint(b, backward=True)
@@ -123,7 +128,7 @@ class RevDebugControl(object):
 
     def hit_breakpoint(self, b, backward=False):
         if b.num != -1:
-            print 'Hit breakpoint %d' % (b.num,)
+            self.print_extra_pending_info = 'Hit breakpoint %d' % (b.num,)
         elif backward:
             b.time -= 1
         if self.pgroup.get_current_time() != b.time:
