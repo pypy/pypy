@@ -1145,13 +1145,13 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 if isinstance(elt, ast.Starred):
                     # A star-arg. If we've seen positional arguments,
                     # pack the positional arguments into a tuple.
-                    if nseen != 0:
+                    if nseen:
                         self.emit_op_arg(ops.BUILD_TUPLE, nseen)
                         nseen = 0
                         nsubargs += 1
-                    elt.value.walkabout(self) #self.visit(elt.value) # check orig, elt->v.Starred.value
+                    elt.value.walkabout(self)
                     nsubargs += 1
-                elif nsubargs != 0:
+                elif nsubargs:
                     # We've seen star-args already, so we
                     # count towards items-to-pack-into-tuple.
                     elt.walkabout(self)
@@ -1161,11 +1161,11 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                     # are left on the stack.
                     elt.walkabout(self)
                     n += 1
-            if nseen != 0:
+            if nseen:
                 # Pack up any trailing positional arguments.
                 self.emit_op_arg(ops.BUILD_TUPLE, nseen)
                 nsubargs += 1
-            if nsubargs != 0:
+            if nsubargs:
                 call_type |= 1
                 if nsubargs > 1:
                     # If we ended up with more than one stararg, we need
@@ -1178,13 +1178,13 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             for kw in keywords:
                 if kw.arg is None:
                     # A keyword argument unpacking.
-                    if nseen != 0:
+                    if nseen:
                         self.emit_op_arg(ops.BUILD_MAP, nseen)
                         nseen = 0
                         nsubkwargs += 1
-                    kw.value.walkabout(self) #self.visit_sequence(kw.value) # probably wrong, elt->v.Starred.value
+                    kw.value.walkabout(self)
                     nsubkwargs += 1
-                elif nsubkwargs != 0:
+                elif nsubkwargs:
                     # A keyword argument and we already have a dict.
                     self.load_const(kw.arg)
                     kw.value.walkabout(self)
@@ -1193,11 +1193,11 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                     # keyword argument
                     kw.walkabout(self)
                     nkw += 1
-            if nseen != 0:
+            if nseen:
                 # Pack up any trailing keyword arguments.
                 self.emit_op_arg(ops.BUILD_MAP,nseen)
                 nsubkwargs += 1
-            if nsubargs != 0:
+            if nsubargs:
                 call_type |= 2
                 if nsubkwargs > 1:
                     # Pack it all up
