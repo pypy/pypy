@@ -808,6 +808,8 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         #    name = "Loop # %s: %s" % (looptoken.number, loopname)
         #    self.cpu.profile_agent.native_code_written(name,
         #                                               rawstart, full_size)
+        #print(hex(rawstart))
+        #import pdb; pdb.set_trace()
         return AsmInfo(ops_offset, rawstart + looppos,
                        size_excluding_failure_stuff - looppos)
 
@@ -1044,6 +1046,10 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
                 self.mc.lfd(reg, r.SPP.value, offset)
                 return
             assert 0, "not supported location"
+        elif prev_loc.is_vector_reg():
+            assert loc.is_vector_reg()
+            self.mc.vmr(loc.value, prev_loc.value, prev_loc.value)
+            return
         elif prev_loc.is_reg():
             reg = prev_loc.value
             # move to another register

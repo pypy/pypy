@@ -1,6 +1,7 @@
 import py
 import pytest
 import math
+import functools
 from hypothesis import given, note, strategies as st
 from rpython.jit.metainterp.warmspot import ll_meta_interp, get_stats
 from rpython.jit.metainterp.test.support import LLJitMixin
@@ -11,7 +12,7 @@ from rpython.rlib.jit import JitDriver, hint, set_param
 from rpython.rlib.objectmodel import compute_hash
 from rpython.rlib import rfloat
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rlib.rarithmetic import r_uint, intmask
+from rpython.rlib.rarithmetic import r_uint, intmask, r_int
 from rpython.rlib.rawstorage import (alloc_raw_storage, raw_storage_setitem,
                                      free_raw_storage, raw_storage_getitem)
 from rpython.rlib.objectmodel import (specialize, is_annotation_constant,
@@ -59,8 +60,6 @@ def rawstorage(request):
     request.cls.a
     return rs
 
-integers_64bit = st.integers(min_value=-2**63, max_value=2**63-1)
-floats = st.floats()
 
 def rdiv(v1,v2):
     # TODO unused, interpeting this on top of llgraph does not work correctly
@@ -104,11 +103,11 @@ class VectorizeTests(object):
                 raw_storage_setitem(vc, i, rffi.cast(type,c))
                 i += size
 
-        la = data.draw(st.lists(floats, min_size=10, max_size=150))
+        la = data.draw(st.lists(st.floats(), min_size=10, max_size=150))
         #la = [0.0,0.0,0.0,0.0,0.0,0.0,0.0]
         #lb = [0.0,0.0,0.0,0.0,1.7976931348623157e+308,0.0,0.0]
         l = len(la)
-        lb = data.draw(st.lists(floats, min_size=l, max_size=l))
+        lb = data.draw(st.lists(st.floats(), min_size=l, max_size=l))
 
         rawstorage = RawStorage()
         va = rawstorage.new(la, type)
@@ -126,18 +125,7 @@ class VectorizeTests(object):
 
         rawstorage.clear()
 
-    #@given(st.data())
-    @pytest.mark.parametrize('func,type', [
-        (lambda a,b: intmask(a+b), rffi.SIGNED),
-        (lambda a,b: intmask(a+b), rffi.UNSIGNED),
-        (lambda a,b: intmask(a+b), rffi.INT),
-        (lambda a,b: intmask(a+b), rffi.UINT),
-        (lambda a,b: intmask(a+b), rffi.SHORT),
-        (lambda a,b: intmask(a+b), rffi.USHORT),
-        (lambda a,b: intmask(a+b), rffi.CHAR),
-        (lambda a,b: intmask(a+b), rffi.UCHAR),
-    ])
-    def test_vector_simple_int(self, func, type):
+    def _vector_simple_int(self, func, type, data):
         func = always_inline(func)
 
         size = rffi.sizeof(type)
@@ -152,11 +140,13 @@ class VectorizeTests(object):
                 raw_storage_setitem(vc, i, rffi.cast(type,c))
                 i += size
 
-        #la = data.draw(st.lists(integers_64bit, min_size=10, max_size=150))
-        la = [1] * 10
+        bits = size*8
+        integers = st.integers(min_value=-2**(bits-1), max_value=2**(bits-1)-1)
+        la = data.draw(st.lists(integers, min_size=10, max_size=150))
+        #la = [1,2,3,4,5,6,7,8,9,10,11,12,13]
         l = len(la)
-        #lb = data.draw(st.lists(integers_64bit, min_size=l, max_size=l))
-        lb = [0] * 10
+        #lb = [1,2,3,4,5,6,7,8,9,10,11,12,13]
+        lb = data.draw(st.lists(integers, min_size=l, max_size=l))
 
         rawstorage = RawStorage()
         va = rawstorage.new(la, type)
@@ -166,9 +156,30 @@ class VectorizeTests(object):
 
         for i in range(l):
             c = raw_storage_getitem(type,vc,i*size)
-            assert func(la[i], lb[i]) == c
+            assert rffi.cast(type, func(la[i], lb[i])) == c
 
         rawstorage.clear()
+
+    def vec_int_arith(test_func, arith_func, type):
+        return pytest.mark.parametrize('func,type', [
+            (arith_func, type)
+        ])(given(data=st.data())(test_func))
+
+    vec_int_arith = functools.partial(vec_int_arith, _vector_simple_int)
+
+    test_vector_signed_add = \
+        vec_int_arith(lambda a,b: intmask(a+b), rffi.SIGNED)
+    test_vector_int_add = \
+        vec_int_arith(lambda a,b: r_int(a)+r_int(b), rffi.INT)
+    test_vector_short_add = \
+        vec_int_arith(lambda a,b: r_int(a)+r_int(b), rffi.SHORT)
+
+    test_vector_signed_sub = \
+        vec_int_arith(lambda a,b: r_int(a)-r_int(b), rffi.SIGNED)
+    test_vector_int_sub = \
+        vec_int_arith(lambda a,b: r_int(a)-r_int(b), rffi.INT)
+    test_vector_short_sub = \
+        vec_int_arith(lambda a,b: r_int(a)-r_int(b), rffi.SHORT)
 
     @py.test.mark.parametrize('i',[1,2,3,8,17,128,130,131,142,143])
     def test_vectorize_array_get_set(self,i):

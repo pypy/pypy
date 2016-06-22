@@ -30,6 +30,9 @@ class AssemblerLocation(object):
     def is_fp_reg(self):
         return False
 
+    def is_vector_reg(self):
+        return False
+
     def is_imm_float(self):
         return False
 
@@ -77,7 +80,7 @@ class FPRegisterLocation(RegisterLocation):
 
 class VectorRegisterLocation(AssemblerLocation):
     _immutable_ = True
-    width = WORD
+    width = WORD * 2
     type = VECTOR
 
     def __init__(self, value):
@@ -91,6 +94,9 @@ class VectorRegisterLocation(AssemblerLocation):
 
     def as_key(self):
         return self.value + 132
+
+    def is_vector_reg(self):
+        return True
 
 
 class ImmLocation(AssemblerLocation):

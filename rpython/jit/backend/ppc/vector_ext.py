@@ -11,6 +11,7 @@ from rpython.rlib.objectmodel import we_are_translated
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.lltypesystem import lltype
 from rpython.jit.backend.ppc.locations import imm
+from rpython.jit.backend.ppc.arch import IS_BIG_ENDIAN
 
 def not_implemented(msg):
     msg = '[ppc/vector_ext] %s\n' % msg
@@ -46,6 +47,34 @@ class VectorAssembler(object):
         elif itemsize == 8:
             self.mc.lxvd2x(resloc.value, indexloc.value, baseloc.value)
 
+    def dispatch_vector_load(self, size, Vt, index, addr):
+        self.mc.lvx(Vt, index, addr)
+        return
+        if size == 8:
+            self.mc.lvx(Vt, index, addr)
+        elif size == 4:
+            self.mc.lvewx(Vt, index, addr)
+        elif size == 2:
+            self.mc.lvehx(Vt, index, addr)
+        elif size == 1:
+            self.mc.lvehx(Vt, index, addr)
+        else:
+            notimplemented("[ppc/assembler] dispatch vector load of size %d" % size)
+
+    def dispatch_vector_store(self, size, Vt, index, addr):
+        self.mc.stvx(Vt, index, addr)
+        return
+        if size == 8:
+            self.mc.stvx(Vt, index, addr)
+        elif size == 4:
+            self.mc.stvewx(Vt, index, addr)
+        elif size == 2:
+            self.mc.stvehx(Vt, index, addr)
+        elif size == 1:
+            self.mc.stvehx(Vt, index, addr)
+        else:
+            notimplemented("[ppc/assembler] dispatch vector load of size %d" % size)
+
     def emit_vec_raw_load_i(self, op, arglocs, regalloc):
         resloc, baseloc, indexloc, size_loc, ofs, \
             Vhiloc, Vloloc, Vploc, tloc = arglocs
@@ -56,10 +85,17 @@ class VectorAssembler(object):
         self.mc.lvx(Vhi, indexloc.value, baseloc.value)
         Vp = Vploc.value
         t = tloc.value
-        self.mc.lvsl(Vp, indexloc.value, baseloc.value)
+        if IS_BIG_ENDIAN:
+            self.mc.lvsl(Vp, indexloc.value, baseloc.value)
+        else:
+            self.mc.lvsr(Vp, indexloc.value, baseloc.value)
         self.mc.addi(t, baseloc.value, 16)
         self.mc.lvx(Vlo, indexloc.value, t)
-        self.mc.vperm(resloc.value, Vhi, Vlo, Vp)
+        if IS_BIG_ENDIAN:
+            self.mc.vperm(resloc.value, Vhi, Vlo, Vp)
+        else:
+            self.mc.vperm(resloc.value, Vlo, Vhi, Vp)
+        #self.mc.trap()
 
     def _emit_vec_setitem(self, op, arglocs, regalloc):
         # prepares item scale (raw_store does not)
@@ -101,12 +137,19 @@ class VectorAssembler(object):
             # probably a lot of room for improvement (not locally,
             # but in general for the algorithm)
             self.mc.lvx(Vhi, indexloc.value, baseloc.value)
-            self.mc.lvsr(Vp, indexloc.value, baseloc.value)
+            #self.mc.lvsr(Vp, indexloc.value, baseloc.value)
+            if IS_BIG_ENDIAN:
+                self.mc.lvsr(Vp, indexloc.value, baseloc.value)
+            else:
+                self.mc.lvsl(Vp, indexloc.value, baseloc.value)
             self.mc.addi(t, baseloc.value, 16)
             self.mc.lvx(Vlo, indexloc.value, t)
             self.mc.vspltisb(V1s, -1)
             self.mc.vspltisb(V0s, 0)
-            self.mc.vperm(Vmask, V0s, V1s, Vp)
+            if IS_BIG_ENDIAN:
+                self.mc.vperm(Vmask, V0s, V1s, Vp)
+            else:
+                self.mc.vperm(Vmask, V1s, V0s, Vp)
             self.mc.vperm(Vs, Vs, Vs, Vp)
             self.mc.vsel(Vlo, Vs, Vlo, Vmask)
             self.mc.vsel(Vhi, Vhi, Vs, Vmask)
@@ -179,27 +222,24 @@ class VectorAssembler(object):
             self.mc.xvdivdp(resloc.value, loc0.value, loc1.value)
 
     def emit_vec_int_mul(self, op, arglocs, resloc):
-        loc0, loc1, itemsize_loc = arglocs
-        itemsize = itemsize_loc.value
-        if itemsize == 1:
-            self.mc.PMULLW(loc0, loc1)
-        elif itemsize == 2:
-            self.mc.PMULLW(loc0, loc1)
-        elif itemsize == 4:
-            self.mc.PMULLD(loc0, loc1)
-        else:
-            # NOTE see http://stackoverflow.com/questions/8866973/can-long-integer-routines-benefit-from-sse/8867025#8867025
-            # There is no 64x64 bit packed mul. For 8 bit either. It is questionable if it gives any benefit?
-            not_implemented("int8/64 mul")
+        pass # TODO
 
-    def emit_vec_int_and(self, op, arglocs, resloc):
-        self.mc.PAND(resloc, arglocs[0])
+    def emit_vec_int_and(self, op, arglocs, regalloc):
+        resloc, loc0, loc1 = arglocs
+        self.mc.vand(resloc.value, loc0.value, loc1.value)
 
-    def emit_vec_int_or(self, op, arglocs, resloc):
-        self.mc.POR(resloc, arglocs[0])
+    def emit_vec_int_or(self, op, arglocs, regalloc):
+        resloc, loc0, loc1 = arglocs
+        self.mc.vor(resloc.value, loc0.value, loc1.value)
 
-    def emit_vec_int_xor(self, op, arglocs, resloc):
-        self.mc.PXOR(resloc, arglocs[0])
+    def emit_vec_int_xor(self, op, arglocs, regalloc):
+        resloc, loc0, loc1 = arglocs
+        self.mc.veqv(resloc.value, loc0.value, loc1.value)
+
+    def emit_vec_int_signext(self, op, arglocs, regalloc):
+        resloc, loc0 = arglocs
+        # TODO
+        self.regalloc_mov(loc0, resloc)
 
     #def genop_guard_vec_guard_true(self, guard_op, guard_token, locs, resloc):
     #    self.implement_guard(guard_token)
@@ -366,34 +406,6 @@ class VectorAssembler(object):
     #    # 11 11 11 11
     #    # ----------- pxor
     #    # 00 11 00 00
-
-    #def genop_vec_int_signext(self, op, arglocs, resloc):
-    #    srcloc, sizeloc, tosizeloc = arglocs
-    #    size = sizeloc.value
-    #    tosize = tosizeloc.value
-    #    if size == tosize:
-    #        return # already the right size
-    #    if size == 4 and tosize == 8:
-    #        scratch = X86_64_SCRATCH_REG.value
-    #        self.mc.PEXTRD_rxi(scratch, srcloc.value, 1)
-    #        self.mc.PINSRQ_xri(resloc.value, scratch, 1)
-    #        self.mc.PEXTRD_rxi(scratch, srcloc.value, 0)
-    #        self.mc.PINSRQ_xri(resloc.value, scratch, 0)
-    #    elif size == 8 and tosize == 4:
-    #        # is there a better sequence to move them?
-    #        scratch = X86_64_SCRATCH_REG.value
-    #        self.mc.PEXTRQ_rxi(scratch, srcloc.value, 0)
-    #        self.mc.PINSRD_xri(resloc.value, scratch, 0)
-    #        self.mc.PEXTRQ_rxi(scratch, srcloc.value, 1)
-    #        self.mc.PINSRD_xri(resloc.value, scratch, 1)
-    #    else:
-    #        # note that all other conversions are not implemented
-    #        # on purpose. it needs many x86 op codes to implement
-    #        # the missing combinations. even if they are implemented
-    #        # the speedup might only be modest...
-    #        # the optimization does not emit such code!
-    #        msg = "vec int signext (%d->%d)" % (size, tosize)
-    #        not_implemented(msg)
 
     #def genop_vec_expand_f(self, op, arglocs, resloc):
     #    srcloc, sizeloc = arglocs
@@ -666,6 +678,14 @@ class VectorRegalloc(object):
     prepare_vec_raw_store = _prepare_vec_store
     del _prepare_vec_store
 
+    def prepare_vec_int_signext(self, op):
+        assert isinstance(op, VectorOp)
+        a0 = op.getarg(0)
+        loc0 = self.ensure_vector_reg(a0)
+        resloc = self.force_allocate_vector_reg(op)
+        return [resloc, loc0]
+
+
 
     #def prepare_vec_arith_unary(self, op):
     #    lhs = op.getarg(0)
@@ -757,16 +777,6 @@ class VectorRegalloc(object):
     #        srcloc = self.make_sure_var_in_reg(arg, args)
     #    resloc = self.xrm.force_allocate_reg(op, args)
     #    self.perform(op, [srcloc, imm(op.bytesize)], resloc)
-
-    #def prepare_vec_int_signext(self, op):
-    #    assert isinstance(op, VectorOp)
-    #    args = op.getarglist()
-    #    resloc = self.xrm.force_result_in_reg(op, op.getarg(0), args)
-    #    arg = op.getarg(0)
-    #    assert isinstance(arg, VectorOp)
-    #    size = arg.bytesize
-    #    assert size > 0
-    #    self.perform(op, [resloc, imm(size), imm(op.bytesize)], resloc)
 
     #def prepare_vec_int_is_true(self, op):
     #    args = op.getarglist()

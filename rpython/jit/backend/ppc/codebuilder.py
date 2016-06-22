@@ -614,11 +614,18 @@ class PPCVSXAssembler(object):
     # INTEGER
     # -------
 
-    # load & store
+    # load
     lvx = XV(31, XO1=103)
+    lvewx = XV(31, XO1=71)
+    lvehx = XV(31, XO1=39)
+    lvebx = XV(31, XO1=7)
+    # store
     stvx = XV(31, XO1=231)
+    stvewx = XV(31, XO1=199)
+    stvehx = XV(31, XO1=167)
+    stvebx = XV(31, XO1=135)
 
-    # arith & logic
+    # arith
     vaddudm = VX(4, XO8=192)
     vadduwm = VX(4, XO8=128)
     vadduhm = VX(4, XO8=64)
@@ -628,6 +635,14 @@ class PPCVSXAssembler(object):
     vsubuwm = VX(4, XO8=1152)
     vsubuhm = VX(4, XO8=1088)
     vsububm = VX(4, XO8=1024)
+
+    # logic
+    vand = VX(4, XO8=1028)
+    vor = VX(4, XO8=1156)
+    veqv = VX(4, XO8=1668)
+
+    # vector move register is alias to vector or
+    vmr = vor
 
 
 
