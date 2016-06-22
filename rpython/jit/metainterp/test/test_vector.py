@@ -84,6 +84,49 @@ class VectorizeTests(object):
                               type_system=self.type_system,
                               vec=vec, vec_all=vec_all)
 
+    def _vector_float_unary(self, func, type, data):
+        func = always_inline(func)
+
+        size = rffi.sizeof(type)
+        myjitdriver = JitDriver(greens = [], reds = 'auto', vectorize=True)
+        def f(bytecount, va, vc):
+            i = 0
+            while i < bytecount:
+                myjitdriver.jit_merge_point()
+                a = raw_storage_getitem(type,va,i)
+                c = func(a)
+                raw_storage_setitem(vc, i, rffi.cast(type,c))
+                i += size
+
+        la = data.draw(st.lists(st.floats(), min_size=10, max_size=150))
+        l = len(la)
+
+        rawstorage = RawStorage()
+        va = rawstorage.new(la, type)
+        vc = rawstorage.new(None, type, size=l)
+        self.meta_interp(f, [l*size, va, vc])
+
+        for i in range(l):
+            c = raw_storage_getitem(type,vc,i*size)
+            r = func(la[i])
+            assert isclose(r, c) or (math.isnan(r) and math.isnan(c)) or \
+                   (math.isinf(r) and math.isinf(c) and \
+                    (r < 0.0 and c < 0.0) or \
+                    (r > 0.0 and c > 0.0))
+
+        rawstorage.clear()
+
+    def vec_int_unary(test_func, unary_func, type):
+        return pytest.mark.parametrize('func,type', [
+            (unary_func, type)
+        ])(given(data=st.data())(test_func))
+
+    vec_float_unary = functools.partial(vec_int_unary, _vector_float_unary)
+
+    test_vec_abs_float = \
+            vec_float_unary(lambda v: abs(v), rffi.DOUBLE)
+
+
     @given(data=st.data())
     @pytest.mark.parametrize('func', [lambda a,b: a+b,
         lambda a,b: a*b, lambda a,b: a-b])
