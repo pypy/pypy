@@ -1338,8 +1338,7 @@ class ASTBuilder(object):
                            set_maker.get_column())
 
     def handle_dictcomp(self, dict_maker):
-        i = 0
-        dictelement = self.handle_dictelement(dict_maker, i)
+        dictelement = self.handle_dictelement(dict_maker, 0)
         i = dictelement[0]
         key = dictelement[1]
         value = dictelement[2]
@@ -1348,8 +1347,15 @@ class ASTBuilder(object):
                             dict_maker.get_column())
     
     def handle_dictdisplay(self, node):
-        size = (node.num_children()+1) / 3
-        
+        keys = []
+        values = []
+        i = 0
+        while i < node.num_children():
+            dictelement = self.handle_dictelement(node, i)
+            i = dictelement[0]
+            keys.append(dictelement[1])
+            values.append(dictelement[2])
+            i += 1
         return ast.Dict(keys, values, node.get_lineno(), node.get_column())
 
     def handle_exprlist(self, exprlist, context):
