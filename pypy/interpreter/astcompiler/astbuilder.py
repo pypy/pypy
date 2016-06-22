@@ -1008,7 +1008,6 @@ class ASTBuilder(object):
     def handle_call(self, args_node, callable_expr):
         arg_count = 0 # position args + iterable args unpackings
         keyword_count = 0 # keyword args + keyword args unpackings
-        doublestars_count = 0 # just keyword argument unpackings
         generator_count = 0 
         for i in range(args_node.num_children()):
             argument = args_node.get_child(i)
@@ -1032,6 +1031,7 @@ class ASTBuilder(object):
         args = []
         keywords = []
         used_keywords = {}
+        doublestars_count = 0 # just keyword argument unpackings
         child_count = args_node.num_children()
         i = 0
         while i < child_count:
@@ -1062,8 +1062,9 @@ class ASTBuilder(object):
                                             expr_node.get_column()))
                 elif expr_node.type == tokens.DOUBLESTAR:
                     # a keyword argument unpacking
+                    i += 1
                     expr = self.handle_expr(argument.get_child(1))
-                    args.append(ast.keyword(None, expr))
+                    keywords.append(ast.keyword(None, expr))
                     doublestars_count += 1
                 elif argument.get_child(1).type == syms.comp_for:
                     # the lone generator expression
@@ -1223,7 +1224,7 @@ class ASTBuilder(object):
                 elif n_maker_children > 1 and maker.get_child(1).type == syms.comp_for:
                     # a set comprehension
                     return self.handle_setcomp(maker)
-                elif (n_maker_children > 3 - is_dict and
+                elif (n_maker_children > (3-is_dict) and
                       maker.get_child(3-is_dict).type == syms.comp_for):
                     # a dictionary comprehension
                     if is_dict:
