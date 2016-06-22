@@ -3,6 +3,8 @@ from rpython.jit.metainterp.optimizeopt.test.test_util import (
     LLtypeMixin)
 from rpython.jit.metainterp.optimizeopt.test.test_optimizebasic import (
     BaseTestBasic)
+from rpython.jit.metainterp.optimizeopt.test.test_optimizeopt import (
+    BaseTestWithUnroll)
 from rpython.jit.metainterp.history import ConstInt, ConstPtr
 from rpython.jit.metainterp.optimize import InvalidLoop
 
@@ -278,3 +280,25 @@ class TestCompatible(BaseTestBasic, LLtypeMixin):
             (ConstInt(123), ConstPtr(self.quasiptr), ConstInt(-4247)): ConstInt(5),
         }
         self.optimize_loop(ops, expected, call_pure_results)
+
+
+class TestCompatibleUnroll(BaseTestWithUnroll, LLtypeMixin):
+
+    def test_remove_guard_compatible(self):
+        ops = """
+        [p0]
+        guard_compatible(p0, ConstPtr(myptr)) []
+        guard_compatible(p0, ConstPtr(myptr)) []
+        jump(p0)
+        """
+        preamble = """
+        [p0]
+        guard_compatible(p0, ConstPtr(myptr)) []
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        jump(p0)
+        """
+        self.optimize_loop(ops, expected, expected_preamble=preamble)
+

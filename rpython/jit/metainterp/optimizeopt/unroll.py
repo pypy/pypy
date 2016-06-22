@@ -85,6 +85,10 @@ class UnrollableOptimizer(Optimizer):
                 op.set_forwarded(str_info)
             if preamble_info.is_nonnull():
                 self.make_nonnull(op)
+            if preamble_info._compatibility_conditions:
+                info_in_loop = op.get_forwarded()
+                if info_in_loop is not None:
+                    info_in_loop._compatibility_conditions = preamble_info._compatibility_conditions
         elif isinstance(preamble_info, intutils.IntBound):
             if preamble_info.lower > MININT/2 or preamble_info.upper < MAXINT/2:
                 intbound = self.getintbound(op)
