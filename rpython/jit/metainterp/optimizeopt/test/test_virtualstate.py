@@ -28,6 +28,7 @@ class FakeOptimizer(Optimizer):
         self.optearlyforce = None
         self.metainterp_sd = None
         self._last_debug_merge_point = None
+        self.quasi_immutable_deps = None
 
 class BaseTestGenerateGuards(BaseTest):
     def setup_class(self):
@@ -488,21 +489,43 @@ class BaseTestGenerateGuards(BaseTest):
         value1 = info.PtrInfo()
         ptr = "fakeptr"
         ccond = value1._compatibility_conditions = CompatibilityCondition(
-                ConstPtr(self.myptr))
+                ConstPtr(self.quasiptr))
+
+        # regular call
         op = ResOperation(
-                rop.CALL_PURE_I, [ConstInt(123), ConstPtr(self.myptr)],
+                rop.CALL_PURE_I, [ConstInt(123), ConstPtr(self.quasiptr)],
                 descr=self.plaincalldescr)
         copied_op, cond = ccond.prepare_const_arg_call(
                 op, optimizer)
         ccond.record_condition(cond, ConstInt(5), optimizer)
+
+        # call with quasi-immut
+        box = InputArgRef()
+        ccond.register_quasi_immut_field(
+            ResOperation(rop.QUASIIMMUT_FIELD, [box], self.quasiimmutdescr))
+        getfield_op = ResOperation(
+                rop.GETFIELD_GC_I, [box], self.quasifielddescr)
+        op = ResOperation(
+                rop.CALL_PURE_I,
+                [ConstInt(123), ConstPtr(self.quasiptr), getfield_op],
+                descr=self.nonwritedescr)
+        copied_op, cond = ccond.prepare_const_arg_call(
+                op, optimizer)
+        ccond.record_condition(cond, ConstInt(5), optimizer)
+
         box = InputArgRef()
         guards = []
         value1.make_guards(box, guards, FakeOptimizer(self.cpu))
         expected = """
         [p0]
-        guard_compatible(p0, ConstPtr(myptr)) []
+        guard_compatible(p0, ConstPtr(quasiptr)) []
         i1 = call_pure_i(123, p0, descr=plaincalldescr)
         guard_value(i1, 5) []
+        quasiimmut_field(p0, descr=quasiimmutdescr)
+        guard_not_invalidated() []
+        i0 = getfield_gc_i(p0, descr=quasifielddescr)
+        i2 = call_pure_i(123, p0, i0, descr=nonwritedescr)
+        guard_value(i2, 5) []
         """
         self.compare(guards, expected, [box])
 

@@ -270,6 +270,8 @@ class QuasiimmutGetfieldAndPureCallCondition(PureCallCondition):
     def __init__(self, op, qmutdescr, optimizer):
         PureCallCondition.__init__(self, op, optimizer)
         self.args[2] = None
+        # XXX not 100% sure whether it's save to store the whole descr
+        self.qmutdescr = qmutdescr
         self.qmut = qmutdescr.qmut
         self.mutatefielddescr = qmutdescr.mutatefielddescr
         self.fielddescr = qmutdescr.fielddescr
@@ -329,6 +331,33 @@ class QuasiimmutGetfieldAndPureCallCondition(PureCallCondition):
             if not self.args[i].same_constant(other.args[i]):
                 return False
         return True
+
+    def emit_condition(self, op, short, optimizer):
+        from rpython.jit.metainterp.resoperation import rop, ResOperation
+        # more mess
+        fielddescr = self.fielddescr
+        if fielddescr.is_pointer_field():
+            getfield_op = ResOperation(
+                rop.GETFIELD_GC_R, [op], fielddescr)
+        elif fielddescr.is_float_field():
+            getfield_op = ResOperation(
+                rop.GETFIELD_GC_F, [op], fielddescr)
+        else:
+            getfield_op = ResOperation(
+                rop.GETFIELD_GC_I, [op], fielddescr)
+        short.extend([
+            ResOperation(
+                rop.QUASIIMMUT_FIELD, [op], self.qmutdescr),
+            ResOperation(
+                rop.GUARD_NOT_INVALIDATED, []),
+            getfield_op])
+        index = len(short)
+        PureCallCondition.emit_condition(self, op, short, optimizer)
+        call_op = short[index]
+        assert call_op.opnum in (
+                rop.CALL_PURE_I, rop.CALL_PURE_R,
+                rop.CALL_PURE_F, rop.CALL_PURE_N)
+        call_op.setarg(2, getfield_op)
 
     def repr(self, argrepr="?"):
         addr = self.args[0].getaddr()
