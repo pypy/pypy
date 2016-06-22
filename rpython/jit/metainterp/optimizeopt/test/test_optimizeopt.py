@@ -60,6 +60,7 @@ class BaseTestWithUnroll(BaseTest):
 
         info = self.unroll_and_optimize(loop, call_pure_results, jump_values)
         preamble = info.preamble
+        self.preamble = preamble
         preamble.check_consistency(check_descr=False)
 
         #

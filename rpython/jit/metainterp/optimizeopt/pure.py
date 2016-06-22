@@ -147,10 +147,12 @@ class OptPure(Optimization):
                         if copied_op:
                             result = self._can_optimize_call_pure(copied_op)
                             if result is not None:
-                                self.make_constant(op, result)
-                                self.last_emitted_operation = REMOVED
-                                ccond.record_condition(cond, result, self.optimizer)
-                                return
+                                recorded = ccond.record_condition(
+                                        cond, result, self.optimizer)
+                                if recorded:
+                                    self.make_constant(op, result)
+                                    self.last_emitted_operation = REMOVED
+                                    return
 
         # Step 1: check if all arguments are constant
         for arg in op.getarglist():

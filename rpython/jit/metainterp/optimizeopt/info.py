@@ -121,8 +121,8 @@ class NonNullPtrInfo(PtrInfo):
         assert self.get_last_guard(optimizer).is_guard()
 
     def make_guards(self, op, short, optimizer):
-        op = ResOperation(rop.GUARD_NONNULL, [op])
-        short.append(op)
+        guard_op = ResOperation(rop.GUARD_NONNULL, [op])
+        short.append(guard_op)
         return PtrInfo.make_guards(self, op, short, optimizer)
 
 class AbstractVirtualPtrInfo(NonNullPtrInfo):

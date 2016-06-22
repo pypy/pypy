@@ -33,15 +33,26 @@ class CompatibilityCondition(object):
         self.last_quasi_immut_field_op = None
         # -1 means "stay on the original trace"
         self.jump_target = -1
+        self.frozen = False
+
+    def frozen_copy(self):
+        res = CompatibilityCondition(self.known_valid)
+        res.conditions = self.conditions[:]
+        assert self.jump_target == -1
+        res.frozen = True
+        return res
 
     def record_condition(self, cond, res, optimizer):
         for oldcond in self.conditions:
             if oldcond.same_cond(cond, res):
-                return
+                return True
+        if self.frozen:
+            False
         cond.activate(res, optimizer)
         if self.conditions and self.conditions[-1].debug_mp_str == cond.debug_mp_str:
             cond.debug_mp_str = ''
         self.conditions.append(cond)
+        return True
 
     def register_quasi_immut_field(self, op):
         self.last_quasi_immut_field_op = op
