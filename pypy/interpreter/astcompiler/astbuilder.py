@@ -1357,6 +1357,15 @@ class ASTBuilder(object):
             values.append(dictelement[2])
             i += 1
         return ast.Dict(keys, values, node.get_lineno(), node.get_column())
+    
+    def handle_setdisplay(self, node):
+        elts = []
+        i = 0
+        while i < node.num_children():
+            expr = self.handle_expr(node.get_child(i))
+            elts.append(expr)
+            i += 2
+        return ast.Set(elts, node.get_lineno(), node.get_column())
 
     def handle_exprlist(self, exprlist, context):
         exprs = []
