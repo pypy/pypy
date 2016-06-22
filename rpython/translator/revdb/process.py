@@ -412,10 +412,10 @@ class ReplayProcessGroup(object):
         self.active.send(Message(CMD_PRINT, extra=expression))
         self.active.print_text_answer(pgroup=self)
 
-    def show_backtrace(self):
+    def show_backtrace(self, complete=1):
         """Show the backtrace.
         """
-        self.active.send(Message(CMD_BACKTRACE))
+        self.active.send(Message(CMD_BACKTRACE, complete))
         self.active.print_text_answer()
 
     def show_locals(self):

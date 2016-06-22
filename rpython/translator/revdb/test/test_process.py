@@ -28,7 +28,7 @@ class TestReplayProcessGroup:
         lambda_blip = lambda: blip
 
         def main(argv):
-            revdb.register_debug_command(1, lambda_blip)
+            revdb.register_debug_command(100, lambda_blip)
             for i, op in enumerate(argv[1:]):
                 dbstate.stuff = Stuff()
                 dbstate.stuff.x = i + 1000
@@ -63,8 +63,8 @@ class TestReplayProcessGroup:
 
     def test_breakpoint_b(self):
         group = ReplayProcessGroup(str(self.exename), self.rdbname)
-        group.active.send(Message(1, 6, extra='set-breakpoint'))
-        group.active.expect(42, 1, -43, -44, 'set-breakpoint')
+        group.active.send(Message(100, 6, extra='set-breakpoint'))
+        group.active.expect(42, 100, -43, -44, 'set-breakpoint')
         group.active.expect(ANSWER_READY, 1, Ellipsis)
         e = py.test.raises(Breakpoint, group.go_forward, 10, 'b')
         assert e.value.time == 7
@@ -73,8 +73,8 @@ class TestReplayProcessGroup:
 
     def test_breakpoint_r(self):
         group = ReplayProcessGroup(str(self.exename), self.rdbname)
-        group.active.send(Message(1, 6, extra='set-breakpoint'))
-        group.active.expect(42, 1, -43, -44, 'set-breakpoint')
+        group.active.send(Message(100, 6, extra='set-breakpoint'))
+        group.active.expect(42, 100, -43, -44, 'set-breakpoint')
         group.active.expect(ANSWER_READY, 1, Ellipsis)
         e = py.test.raises(Breakpoint, group.go_forward, 10, 'r')
         assert e.value.time == 8
@@ -83,7 +83,7 @@ class TestReplayProcessGroup:
 
     def test_breakpoint_i(self):
         group = ReplayProcessGroup(str(self.exename), self.rdbname)
-        group.active.send(Message(1, 6, extra='set-breakpoint'))
-        group.active.expect(42, 1, -43, -44, 'set-breakpoint')
+        group.active.send(Message(100, 6, extra='set-breakpoint'))
+        group.active.expect(42, 100, -43, -44, 'set-breakpoint')
         group.active.expect(ANSWER_READY, 1, Ellipsis)
         group.go_forward(10, 'i')    # does not raise Breakpoint

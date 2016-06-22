@@ -25,8 +25,13 @@ class RevDebugControl(object):
 
     def interact(self):
         last_command = 'help'
+        previous_time = None
         while True:
             last_time = self.pgroup.get_current_time()
+            if last_time != previous_time:
+                print
+                self.pgroup.show_backtrace(complete=0)
+                previous_time = last_time
             prompt = '(%d)$ ' % last_time
             sys.stdout.write(prompt)
             sys.stdout.flush()
@@ -55,11 +60,19 @@ class RevDebugControl(object):
     def command_help(self, argument):
         """Display commands summary"""
         print 'Available commands:'
-        for name in dir(self):
-            if name.startswith('command_'):
-                command = name[len('command_'):]
-                docstring = getattr(self, name).__doc__ or 'undocumented'
-                print '\t%-12s %s' % (command, docstring)
+        lst = dir(self)
+        commands = [(name[len('command_'):], getattr(self, name))
+                    for name in lst
+                        if name.startswith('command_')]
+        seen = {}
+        for name, func in commands:
+            seen.setdefault(func, []).append(name)
+        for _, func in commands:
+            if func in seen:
+                names = seen.pop(func)
+                names.sort(key=len, reverse=True)
+                docstring = func.__doc__ or 'undocumented'
+                print '\t%-16s %s' % (', '.join(names), docstring)
 
     def command_quit(self, argument):
         """Exit the debugger"""
@@ -92,6 +105,7 @@ class RevDebugControl(object):
         print ', '.join(lst)
 
     def move_forward(self, steps):
+        self.remove_tainting()
         try:
             self.pgroup.go_forward(steps)
             return True
@@ -123,7 +137,6 @@ class RevDebugControl(object):
     def command_step(self, argument):
         """Run forward ARG steps (default 1)"""
         arg = int(argument or '1')
-        self.remove_tainting()
         self.move_forward(arg)
     command_s = command_step
 
@@ -145,7 +158,6 @@ class RevDebugControl(object):
 
     def command_next(self, argument):
         """Run forward for one step, skipping calls"""
-        self.remove_tainting()
         depth1 = self.pgroup.get_stack_depth()
         if self.move_forward(1):
             depth2 = self.pgroup.get_stack_depth()
@@ -173,11 +185,12 @@ class RevDebugControl(object):
     command_bn = command_bnext
 
     def command_finish(self, argument):
-        self.remove_tainting()
+        """Run forward until the current function finishes"""
         with self._stack_depth_break(self.pgroup.get_stack_depth()):
             self.command_continue('')
 
     def command_bfinish(self, argument):
+        """Run backward until the current function is called"""
         with self._stack_depth_break(self.pgroup.get_stack_depth()):
             self.command_bcontinue('')
 
@@ -201,7 +214,7 @@ class RevDebugControl(object):
 
     def command_backtrace(self, argument):
         """Show the backtrace"""
-        self.pgroup.show_backtrace()
+        self.pgroup.show_backtrace(complete=1)
     command_bt = command_backtrace
 
     def command_locals(self, argument):
