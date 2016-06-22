@@ -230,6 +230,8 @@ class OptPure(Optimization):
                     op)
                 raise InvalidLoop('A GUARD_COMPATIBLE (%s) '
                                   'was proven to always fail' % r)
+            # XXX check that the runtime constant matches the previous set of
+            # conditions too
             return
         else:
             info._compatibility_conditions = CompatibilityCondition(
