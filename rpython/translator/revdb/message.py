@@ -17,6 +17,8 @@ CMD_BREAKPOINTS = 4    # Message(CMD_BREAKPOINTS, stack_depth,
                        #         extra="\0-separated names")
 CMD_MOREINFO    = 5    # Message(CMD_MOREINFO)
 CMD_ATTACHID    = 6    # Message(CMD_ATTACHID, small-num, unique-id)
+CMD_CHECKWATCH  = 7    # Message(CMD_CHECKWATCH, extra=expression)
+CMD_WATCHVALUES = 8    # Message(CMD_WATCHVALUES, extra=texts)
 
 
 # the first message sent by the first child:
@@ -55,6 +57,10 @@ ANSWER_MOREINFO   = 21
 # sent from CMD_PRINT to record the existence of a recallable object
 #    Message(ANSWER_NEXTNID, unique-id)
 ANSWER_NEXTNID    = 22
+
+# sent after CMD_CHECKWATCH:
+#    Message(ANSWER_WATCH, ok_flag, extra=result_of_expr)
+ANSWER_WATCH      = 23
 
 
 # ____________________________________________________________

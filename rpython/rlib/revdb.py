@@ -16,12 +16,12 @@ CMD_LOCALS      = 3
 CMD_BREAKPOINTS = 4
 CMD_MOREINFO    = 5
 CMD_ATTACHID    = 6
-CMD_WATCH       = 7
-CMD_EXPECTED    = 8
+CMD_CHECKWATCH  = 7
+CMD_WATCHVALUES = 8
 ANSWER_TEXT     = 20
 ANSWER_MOREINFO = 21
 ANSWER_NEXTNID  = 22
-ANSWER_COMPILED = 23
+ANSWER_WATCH    = 23
 
 
 def stop_point():
@@ -45,6 +45,9 @@ def send_output(text):
 
 def send_nextnid(unique_id):
     send_answer(ANSWER_NEXTNID, unique_id)
+
+def send_watch(text, ok_flag):
+    send_answer(ANSWER_WATCH, ok_flag, extra=text)
 
 def current_time():
     """For RPython debug commands: returns the current time."""
@@ -103,6 +106,12 @@ def track_object(unique_id, callback):
     ll_callback = llhelper(_CALLBACK_GCREF_FNPTR, callback)
     llop.revdb_track_object(lltype.Void, unique_id, ll_callback)
 
+def save_state():
+    return llop.revdb_save_state(lltype.Bool)
+
+def restore_state():
+    llop.revdb_restore_state(lltype.Void)
+
 
 # ____________________________________________________________
 
@@ -157,7 +166,7 @@ class RegisterDebugCommand(ExtRegistryEntry):
                 llannotation.lltype_to_annotation(llmemory.GCREF)]
 
     def arguments_WATCHING(self):
-        return []
+        raise Exception("XXX remove me")
 
     def specialize_call(self, hop):
         hop.exception_cannot_occur()

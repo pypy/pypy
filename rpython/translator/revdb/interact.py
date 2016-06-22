@@ -109,14 +109,34 @@ class RevDebugControl(object):
         lst = [str(n) for n in sorted(self.pgroup.paused)]
         print ', '.join(lst)
 
+    def _bp_kind(self, name):
+        if name[0] == 'B':
+            return 'breakpoint'
+        elif name[0] == 'W':
+            return 'watchpoint'
+        else:
+            return '?????point'
+
+    def _bp_new(self, break_at, watchvalue=None):
+        b = self.pgroup.edit_breakpoints()
+        new = 1
+        while new in b.num2name:
+            new += 1
+        b.num2name[new] = break_at
+        if watchvalue is not None:
+            b.watchvalues[new] = watchvalue
+        print "%s %d added" % (self._bp_kind(break_at).capitalize(), new)
+        return new
+
     def cmd_info_breakpoints(self):
-        """List current breakpoints"""
+        """List current breakpoints and watchpoints"""
         lst = self.pgroup.all_breakpoints.num2name.items()
         if lst:
             for num, name in sorted(lst):
-                print '%8d: %s' % (num, name)
+                print '\t%s %d: %s' % (self._bp_kind(name), num, name[1:])
         else:
             print 'no breakpoints.'
+    cmd_info_watchpoints = cmd_info_breakpoints
 
     def move_forward(self, steps):
         self.remove_tainting()
@@ -137,7 +157,10 @@ class RevDebugControl(object):
 
     def hit_breakpoint(self, b, backward=False):
         if b.num != -1:
-            self.print_extra_pending_info = 'Hit breakpoint %d' % (b.num,)
+            name = self.pgroup.all_breakpoints.num2name.get(b.num, '??')
+            kind = self._bp_kind(name)
+            self.print_extra_pending_info = 'Hit %s %d: %s' % (kind, b.num,
+                                                               name[1:])
         elif backward:
             b.time -= 1
         if self.pgroup.get_current_time() != b.time:
@@ -240,20 +263,30 @@ class RevDebugControl(object):
         if not argument:
             print "Break where?"
             return
-        b = self.pgroup.edit_breakpoints()
-        new = 1
-        while new in b.num2name:
-            new += 1
-        b.num2name[new] = argument
-        print "Breakpoint %d added" % (new,)
+        self._bp_new('B' + argument)
     command_b = command_break
 
     def command_delete(self, argument):
-        """Delete a breakpoint"""
+        """Delete a breakpoint/watchpoint"""
         arg = int(argument)
         b = self.pgroup.edit_breakpoints()
         if arg not in b.num2name:
-            print "No breakpoint number %d" % (arg,)
+            print "No breakpoint/watchpoint number %d" % (arg,)
         else:
-            del b.num2name[arg]
-            print "Breakpoint %d deleted" % (arg,)
+            name = b.num2name.pop(arg)
+            b.watchvalues.pop(arg, '')
+            kind = self._bp_kind(name)
+            print "%s %d deleted: %s" % (kind.capitalize(), arg, name[1:])
+
+    def command_watch(self, argument):
+        """Add a watchpoint (use $NUM in the expression to watch)"""
+        if not argument:
+            print "Watch what?"
+            return
+        ok_flag, text = self.pgroup.check_watchpoint_expr(argument)
+        if not ok_flag:
+            print text
+            print 'Watchpoint not added'
+        else:
+            print 'Current value:', text
+            self._bp_new('W' + argument, watchvalue=text)

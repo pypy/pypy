@@ -18,18 +18,22 @@ class Breakpoint(Exception):
 class AllBreakpoints(object):
 
     def __init__(self):
-        self.num2name = {}    # {small number: function name}
-        self.stack_depth = 0     # breaks if the depth becomes lower than this
+        self.num2name = {}     # {small number: break/watchpoint}
+        self.watchvalues = {}  # {small number: resulting text}
+        self.stack_depth = 0   # breaks if the depth becomes lower than this
 
     def __repr__(self):
         return 'AllBreakpoints(%r, %d)' % (self.num2name, self.stack_depth)
 
-    def __eq__(self, other):
-        return (self.num2name == other.num2name and
-                self.stack_depth == other.stack_depth)
-
-    def __ne__(self, other):
-        return not (self == other)
+    def compare(self, other):
+        if (self.num2name == other.num2name and
+            self.stack_depth == other.stack_depth):
+            if self.watchvalues == other.watchvalues:
+                return 2     # completely equal
+            else:
+                return 1     # equal, but watchvalues out-of-date
+        else:
+            return 0     # different
 
     def is_empty(self):
         return len(self.num2name) == 0 and self.stack_depth == 0
@@ -71,7 +75,7 @@ class ReplayProcess(object):
         return ''.join(pieces)
 
     def send(self, msg):
-        #print 'SENT:', self.pid, msg
+        print 'SENT:', self.pid, msg
         binary = struct.pack("iIqqq", msg.cmd, len(msg.extra),
                              msg.arg1, msg.arg2, msg.arg3)
         self.control_socket.sendall(binary + msg.extra)
@@ -81,7 +85,7 @@ class ReplayProcess(object):
         cmd, size, arg1, arg2, arg3 = struct.unpack("iIqqq", binary)
         extra = self._recv_all(size)
         msg = Message(cmd, arg1, arg2, arg3, extra)
-        #print 'RECV:', self.pid, msg
+        print 'RECV:', self.pid, msg
         return msg
 
     def expect(self, cmd, arg1=0, arg2=0, arg3=0, extra=""):
@@ -129,7 +133,7 @@ class ReplayProcess(object):
         except socket.error:
             pass
 
-    def forward(self, steps, breakpoint_mode='b'):
+    def forward(self, steps, breakpoint_mode, all_breakpoints):
         """Move this subprocess forward in time.
         Returns the Breakpoint or None.
         """
@@ -145,6 +149,8 @@ class ReplayProcess(object):
                 break
             if bkpt is None:
                 bkpt = Breakpoint(msg.arg1, msg.arg3)
+                all_breakpoints.watchvalues = dict.fromkeys(
+                    all_breakpoints.watchvalues)    # set all values to None
         assert msg.cmd == ANSWER_READY
         self.update_times(msg)
         return bkpt
@@ -249,7 +255,8 @@ class ReplayProcessGroup(object):
           'r' = record the occurrence of a breakpoint but continue
         """
         assert steps >= 0
-        self.update_breakpoints()
+        if breakpoint_mode != 'i':
+            self.update_breakpoints()
         latest_bkpt = None
         while True:
             cur_time = self.get_current_time()
@@ -261,7 +268,8 @@ class ReplayProcessGroup(object):
                 break
             assert rel_next_clone >= 0
             if rel_next_clone > 0:
-                bkpt = self.active.forward(rel_next_clone, breakpoint_mode)
+                bkpt = self.active.forward(rel_next_clone, breakpoint_mode,
+                                           self.all_breakpoints)
                 if breakpoint_mode == 'r':
                     latest_bkpt = bkpt or latest_bkpt
                 elif bkpt:
@@ -271,7 +279,8 @@ class ReplayProcessGroup(object):
                 self.paused[self.active.current_time].close()
             clone = self.active.clone()
             self.paused[clone.current_time] = clone
-        bkpt = self.active.forward(steps, breakpoint_mode)
+        bkpt = self.active.forward(steps, breakpoint_mode,
+                                   self.all_breakpoints)
         if breakpoint_mode == 'r':
             bkpt = bkpt or latest_bkpt
         if bkpt:
@@ -313,19 +322,50 @@ class ReplayProcessGroup(object):
             search_start_time -= time_range_to_search * 3
 
     def update_breakpoints(self):
-        if self.active.breakpoints_cache == self.all_breakpoints:
-            return
-        num2name = self.all_breakpoints.num2name
-        flat = []
-        if num2name:
-            flat = [num2name.get(n, '') for n in range(max(num2name) + 1)]
-        arg1 = self.all_breakpoints.stack_depth
-        extra = '\x00'.join(flat)
-        #
+        cmp = self.all_breakpoints.compare(self.active.breakpoints_cache)
+        print 'compare:', cmp, self.all_breakpoints.watchvalues
+        if cmp == 2:
+            return      # up-to-date
+
+        # update the breakpoints/watchpoints
         self.active.breakpoints_cache = None
-        self.active.send(Message(CMD_BREAKPOINTS, arg1, extra=extra))
-        self.active.expect_ready()
+        num2name = self.all_breakpoints.num2name
+        N = (max(num2name) + 1) if num2name else 0
+        if cmp == 0:
+            flat = [num2name.get(n, '') for n in range(N)]
+            arg1 = self.all_breakpoints.stack_depth
+            extra = '\x00'.join(flat)
+            self.active.send(Message(CMD_BREAKPOINTS, arg1, extra=extra))
+            self.active.expect_ready()
+        else:
+            assert cmp == 1
+
+        # update the watchpoint values
+        if any(name.startswith('W') for name in num2name.values()):
+            watchvalues = self.all_breakpoints.watchvalues
+            flat = []
+            for n in range(N):
+                text = ''
+                name = num2name.get(n, '')
+                if name.startswith('W'):
+                    text = watchvalues[n]
+                    if text is None:
+                        _, text = self.check_watchpoint_expr(name[1:])
+                        print 'updating watchpoint value: %s => %s' % (
+                            name[1:], text)
+                        watchvalues[n] = text
+                flat.append(text)
+            extra = '\x00'.join(flat)
+            self.active.send(Message(CMD_WATCHVALUES, extra=extra))
+            self.active.expect_ready()
+
         self.active.breakpoints_cache = self.all_breakpoints.duplicate()
+
+    def check_watchpoint_expr(self, expr):
+        self.active.send(Message(CMD_CHECKWATCH, extra=expr))
+        msg = self.active.expect(ANSWER_WATCH, Ellipsis, extra=Ellipsis)
+        self.active.expect_ready()
+        return msg.arg1, msg.extra
 
     def _resume(self, from_time):
         clone_me = self.paused[from_time]

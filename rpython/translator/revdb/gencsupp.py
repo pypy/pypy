@@ -27,7 +27,6 @@ def prepare_database(db):
                                          lltype.Void))
     ALLOCFUNCPTR = lltype.Ptr(lltype.FuncType([rffi.LONGLONG, llmemory.GCREF],
                                               lltype.Void))
-    WATCHFUNCPTR = lltype.Ptr(lltype.FuncType([], lltype.Signed))
 
     bk = db.translator.annotator.bookkeeper
     cmds = getattr(db.translator, 'revdb_commands', {})
@@ -37,8 +36,7 @@ def prepare_database(db):
     S = lltype.Struct('RPY_REVDB_COMMANDS',
                   ('names', lltype.FixedSizeArray(rffi.INT, len(numcmds) + 1)),
                   ('funcs', lltype.FixedSizeArray(FUNCPTR, len(numcmds))),
-                  ('alloc', ALLOCFUNCPTR),
-                  ('watch', WATCHFUNCPTR))
+                  ('alloc', ALLOCFUNCPTR))
     s = lltype.malloc(S, flavor='raw', immortal=True, zero=True)
 
     i = 0
@@ -51,8 +49,6 @@ def prepare_database(db):
             i += 1
         elif name == "ALLOCATING":
             s.alloc = fnptr
-        elif name == "WATCHING":
-            s.watch = fnptr
         else:
             raise AssertionError("bad tag in register_debug_command(): %r"
                                  % (name,))

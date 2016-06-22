@@ -102,6 +102,12 @@ RPY_EXTERN void rpy_reverse_db_teardown(void);
 #define OP_REVDB_TRACK_OBJECT(uid, callback, r)                         \
     rpy_reverse_db_track_object(uid, callback)
 
+#define OP_REVDB_SAVE_STATE(r)                                          \
+    r = rpy_reverse_db_save_state()
+
+#define OP_REVDB_RESTORE_STATE(r)                                       \
+    rpy_reverse_db_restore_state()
+
 RPY_EXTERN void rpy_reverse_db_flush(void);
 RPY_EXTERN char *rpy_reverse_db_fetch(int expected_size,
                                       const char *file, int line);
@@ -114,5 +120,7 @@ RPY_EXTERN void rpy_reverse_db_change_time(char mode, long long time,
 RPY_EXTERN void rpy_reverse_db_breakpoint(int64_t num);
 RPY_EXTERN long long rpy_reverse_db_get_value(char value_id);
 RPY_EXTERN uint64_t rpy_reverse_db_unique_id_break(void *new_object);
+RPY_EXTERN bool_t rpy_reverse_db_save_state(void);
+RPY_EXTERN void rpy_reverse_db_restore_state(void);
 
 /* ------------------------------------------------------------ */
