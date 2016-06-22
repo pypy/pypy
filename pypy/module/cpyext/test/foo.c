@@ -637,7 +637,8 @@ static PyObject *size_of_instances(PyObject *self, PyObject *t)
 static PyObject * is_TupleLike(PyObject *self, PyObject * t)
 {
     int tf = t->ob_type == &TupleLike;
-    Py_DECREF(t);
+    if (t->ob_type->tp_itemsize == 0)
+        return PyInt_FromLong(-1);
     return PyInt_FromLong(tf);
 }
 

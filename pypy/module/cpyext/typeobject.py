@@ -371,6 +371,8 @@ def inherit_special(space, pto, base_pto):
     # (minimally, if tp_basicsize is zero we copy it from the base)
     if not pto.c_tp_basicsize:
         pto.c_tp_basicsize = base_pto.c_tp_basicsize
+    if pto.c_tp_itemsize < base_pto.c_tp_itemsize:
+        pto.c_tp_itemsize = base_pto.c_tp_itemsize
     flags = rffi.cast(lltype.Signed, pto.c_tp_flags)
     base_object_pyo = make_ref(space, space.w_object)
     base_object_pto = rffi.cast(PyTypeObjectPtr, base_object_pyo)
