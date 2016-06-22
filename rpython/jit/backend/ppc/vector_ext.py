@@ -213,6 +213,26 @@ class VectorAssembler(object):
         # TODO
         self.regalloc_mov(loc0, resloc)
 
+    def emit_vec_float_abs(self, op, arglocs, resloc):
+        resloc, argloc, sizeloc = arglocs
+        size = sizeloc.value
+        if size == 4:
+            self.mc.xvabssp(resloc.value, argloc.value)
+        elif size == 8:
+            self.mc.xvabsdp(resloc.value, argloc.value)
+        else:
+            notimplemented("[ppc/assembler] float abs for size %d" % size)
+
+    def emit_vec_float_neg(self, op, arglocs, resloc):
+        resloc, argloc, sizeloc = arglocs
+        size = sizeloc.value
+        if size == 4:
+            self.mc.xvnegsp(resloc.value, argloc.value)
+        elif size == 8:
+            self.mc.xvnegdp(resloc.value, argloc.value)
+        else:
+            notimplemented("[ppc/assembler] float neg for size %d" % size)
+
     #def genop_guard_vec_guard_true(self, guard_op, guard_token, locs, resloc):
     #    self.implement_guard(guard_token)
 
@@ -327,22 +347,6 @@ class VectorAssembler(object):
     #    # a second time -> every zero entry (corresponding to non zero
     #    # entries before) become ones
     #    self.mc.PCMPEQ(loc, temp, sizeloc.value)
-
-    #def genop_vec_float_abs(self, op, arglocs, resloc):
-    #    src, sizeloc = arglocs
-    #    size = sizeloc.value
-    #    if size == 4:
-    #        self.mc.ANDPS(src, heap(self.single_float_const_abs_addr))
-    #    elif size == 8:
-    #        self.mc.ANDPD(src, heap(self.float_const_abs_addr))
-
-    #def genop_vec_float_neg(self, op, arglocs, resloc):
-    #    src, sizeloc = arglocs
-    #    size = sizeloc.value
-    #    if size == 4:
-    #        self.mc.XORPS(src, heap(self.single_float_const_neg_addr))
-    #    elif size == 8:
-    #        self.mc.XORPD(src, heap(self.float_const_neg_addr))
 
     #def genop_vec_float_eq(self, op, arglocs, resloc):
     #    _, rhsloc, sizeloc = arglocs
@@ -659,17 +663,16 @@ class VectorRegalloc(object):
 
 
 
-    #def prepare_vec_arith_unary(self, op):
-    #    lhs = op.getarg(0)
-    #    assert isinstance(lhs, VectorOp)
-    #    args = op.getarglist()
-    #    res = self.xrm.force_result_in_reg(op, op.getarg(0), args)
-    #    self.perform(op, [res, imm(lhs.bytesize)], res)
+    def prepare_vec_arith_unary(self, op):
+        a0 = op.getarg(0)
+        loc0 = self.ensure_vector_reg(a0)
+        resloc = self.force_allocate_vector_reg(op)
+        sizeloc = imm(op.bytesize)
+        return [resloc, loc0, sizeloc]
 
-    #prepare_vec_float_neg = prepare_vec_arith_unary
-    #prepare_vec_float_abs = prepare_vec_arith_unary
-    #del prepare_vec_arith_unary
-
+    prepare_vec_float_neg = prepare_vec_arith_unary
+    prepare_vec_float_abs = prepare_vec_arith_unary
+    del prepare_vec_arith_unary
 
     #def prepare_vec_float_eq(self, op):
     #    assert isinstance(op, VectorOp)

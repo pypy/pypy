@@ -62,6 +62,7 @@ XFL = Form("FM", "frB", "XO1", "Rc")
 XFX = Form("CRM", "rS", "XO1")
 XLL = Form("LL", "XO1")
 XX1 = Form("fvrT", "rA", "rB", "XO1")
+XX2 = Form("fvrT", "fvrB", "XO5")
 XX3 = Form("fvrT", "fvrA", "fvrB", "XO9")
 XV = Form("ivrT", "rA", "rB", "XO1")
 VX = Form("ivrT", "ivrA", "ivrB", "XO8")
@@ -611,6 +612,14 @@ class PPCVSXAssembler(object):
     xvdivdp = XX3(60, XO9=102)
     xvdivsp = XX3(60, XO9=88)
 
+    # neg
+    xvnegdp = XX2(60, XO5=505)
+    xvabssp = XX2(60, XO5=441)
+
+    # abs
+    xvabsdp = XX2(60, XO5=473)
+    xvabssp = XX2(60, XO5=409)
+
     # INTEGER
     # -------
 
@@ -643,8 +652,6 @@ class PPCVSXAssembler(object):
 
     # vector move register is alias to vector or
     vmr = vor
-
-
 
     # shift, perm and select
     lvsl = XV(31, XO1=6)
