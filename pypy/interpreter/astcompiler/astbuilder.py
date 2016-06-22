@@ -1315,25 +1315,28 @@ class ASTBuilder(object):
         return comps
 
     def handle_genexp(self, genexp_node):
-        elt = self.handle_expr(genexp_node.get_child(0))
-        if elt.type == syms.star_expr:
-            self.error("iterable unpacking cannot be used in comprehension", elt)
+        ch = genexp_node.get_child(0)
+        elt = self.handle_expr(ch)
+        if isinstance(elt, ast.Starred):
+            self.error("iterable unpacking cannot be used in comprehension", ch)
         comps = self.comprehension_helper(genexp_node.get_child(1))
         return ast.GeneratorExp(elt, comps, genexp_node.get_lineno(),
                                 genexp_node.get_column())
 
     def handle_listcomp(self, listcomp_node):
-        elt = self.handle_expr(listcomp_node.get_child(0))
-        if elt.type == syms.star_expr:
-            self.error("iterable unpacking cannot be used in comprehension", elt)
+        ch = listcomp_node.get_child(0)
+        elt = self.handle_expr(ch)
+        if isinstance(elt, ast.Starred):
+            self.error("iterable unpacking cannot be used in comprehension", ch)
         comps = self.comprehension_helper(listcomp_node.get_child(1))
         return ast.ListComp(elt, comps, listcomp_node.get_lineno(),
                             listcomp_node.get_column())
 
     def handle_setcomp(self, set_maker):
-        elt = self.handle_expr(set_maker.get_child(0))
-        if elt.type == syms.star_expr:
-            self.error("iterable unpacking cannot be used in comprehension", elt)
+        ch = set_maker.get_child(0)
+        elt = self.handle_expr(ch)
+        if isinstance(elt, ast.Starred):
+            self.error("iterable unpacking cannot be used in comprehension", ch)
         comps = self.comprehension_helper(set_maker.get_child(1))
         return ast.SetComp(elt, comps, set_maker.get_lineno(),
                            set_maker.get_column())
