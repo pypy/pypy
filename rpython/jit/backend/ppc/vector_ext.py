@@ -47,34 +47,6 @@ class VectorAssembler(object):
         elif itemsize == 8:
             self.mc.lxvd2x(resloc.value, indexloc.value, baseloc.value)
 
-    def dispatch_vector_load(self, size, Vt, index, addr):
-        self.mc.lvx(Vt, index, addr)
-        return
-        if size == 8:
-            self.mc.lvx(Vt, index, addr)
-        elif size == 4:
-            self.mc.lvewx(Vt, index, addr)
-        elif size == 2:
-            self.mc.lvehx(Vt, index, addr)
-        elif size == 1:
-            self.mc.lvehx(Vt, index, addr)
-        else:
-            notimplemented("[ppc/assembler] dispatch vector load of size %d" % size)
-
-    def dispatch_vector_store(self, size, Vt, index, addr):
-        self.mc.stvx(Vt, index, addr)
-        return
-        if size == 8:
-            self.mc.stvx(Vt, index, addr)
-        elif size == 4:
-            self.mc.stvewx(Vt, index, addr)
-        elif size == 2:
-            self.mc.stvehx(Vt, index, addr)
-        elif size == 1:
-            self.mc.stvehx(Vt, index, addr)
-        else:
-            notimplemented("[ppc/assembler] dispatch vector load of size %d" % size)
-
     def emit_vec_raw_load_i(self, op, arglocs, regalloc):
         resloc, baseloc, indexloc, size_loc, ofs, \
             Vhiloc, Vloloc, Vploc, tloc = arglocs
@@ -225,15 +197,15 @@ class VectorAssembler(object):
         pass # TODO
 
     def emit_vec_int_and(self, op, arglocs, regalloc):
-        resloc, loc0, loc1 = arglocs
+        resloc, loc0, loc1, sizeloc = arglocs
         self.mc.vand(resloc.value, loc0.value, loc1.value)
 
     def emit_vec_int_or(self, op, arglocs, regalloc):
-        resloc, loc0, loc1 = arglocs
+        resloc, loc0, loc1, sizeloc = arglocs
         self.mc.vor(resloc.value, loc0.value, loc1.value)
 
     def emit_vec_int_xor(self, op, arglocs, regalloc):
-        resloc, loc0, loc1 = arglocs
+        resloc, loc0, loc1, sizeloc = arglocs
         self.mc.veqv(resloc.value, loc0.value, loc1.value)
 
     def emit_vec_int_signext(self, op, arglocs, regalloc):

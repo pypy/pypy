@@ -181,6 +181,27 @@ class VectorizeTests(object):
     test_vector_short_sub = \
         vec_int_arith(lambda a,b: r_int(a)-r_int(b), rffi.SHORT)
 
+    test_vector_signed_and = \
+        vec_int_arith(lambda a,b: intmask(a)&intmask(b), rffi.SIGNED)
+    test_vector_int_and = \
+        vec_int_arith(lambda a,b: intmask(a)&intmask(b), rffi.INT)
+    test_vector_short_and = \
+        vec_int_arith(lambda a,b: intmask(a)&intmask(b), rffi.SHORT)
+
+    test_vector_or_signed = \
+        vec_int_arith(lambda a,b: intmask(a)|intmask(b), rffi.SIGNED)
+    test_vector_or_int = \
+        vec_int_arith(lambda a,b: intmask(a)|intmask(b), rffi.INT)
+    test_vector_or_short = \
+        vec_int_arith(lambda a,b: intmask(a)|intmask(b), rffi.SHORT)
+
+    test_vector_xor_signed = \
+        vec_int_arith(lambda a,b: intmask(a)^intmask(b), rffi.SIGNED)
+    test_vector_xor_int = \
+        vec_int_arith(lambda a,b: intmask(a)^intmask(b), rffi.INT)
+    test_vector_xor_short = \
+        vec_int_arith(lambda a,b: intmask(a)^intmask(b), rffi.SHORT)
+
     @py.test.mark.parametrize('i',[1,2,3,8,17,128,130,131,142,143])
     def test_vectorize_array_get_set(self,i):
         myjitdriver = JitDriver(greens = [],
