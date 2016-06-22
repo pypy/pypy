@@ -454,6 +454,17 @@ class BaseTestGenerateGuards(BaseTest):
         """
         self.compare(guards, expected, [box])
 
+    def test_guard_nonnull(self):
+        value1 = info.NonNullPtrInfo()
+        box = InputArgRef()
+        guards = []
+        value1.make_guards(box, guards, FakeOptimizer(self.cpu))
+        expected = """
+        [p0]
+        guard_nonnull(p0) []
+        """
+        self.compare(guards, expected, [box])
+
     def test_equal_inputargs(self):
         classbox = self.cpu.ts.cls_of_box(InputArgRef(self.nodeaddr))
         value = info.InstancePtrInfo(None, classbox)

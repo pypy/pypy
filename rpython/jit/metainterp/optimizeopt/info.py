@@ -117,6 +117,7 @@ class NonNullPtrInfo(PtrInfo):
     def make_guards(self, op, short, optimizer):
         op = ResOperation(rop.GUARD_NONNULL, [op])
         short.append(op)
+        return PtrInfo.make_guards(self, op, short, optimizer)
 
 class AbstractVirtualPtrInfo(NonNullPtrInfo):
     _attrs_ = ('_cached_vinfo', 'descr', '_is_virtual')
@@ -327,20 +328,17 @@ class InstancePtrInfo(AbstractStructPtrInfo):
         return visitor.visit_virtual(self.descr, fielddescrs)
 
     def make_guards(self, op, short, optimizer):
+        AbstractStructPtrInfo.make_guards(self, op, short, optimizer)
         if self._known_class is not None:
-            short.append(ResOperation(rop.GUARD_NONNULL, [op]))
             if not optimizer.cpu.remove_gctypeptr:
                 short.append(ResOperation(rop.GUARD_IS_OBJECT, [op]))
             short.append(ResOperation(rop.GUARD_CLASS,
                                       [op, self._known_class]))
         elif self.descr is not None:
-            short.append(ResOperation(rop.GUARD_NONNULL, [op]))
             if not optimizer.cpu.remove_gctypeptr:
                 short.append(ResOperation(rop.GUARD_IS_OBJECT, [op]))
             short.append(ResOperation(rop.GUARD_SUBCLASS, [op,
                             ConstInt(self.descr.get_vtable())]))
-        else:
-            AbstractStructPtrInfo.make_guards(self, op, short, optimizer)
 
 class StructPtrInfo(AbstractStructPtrInfo):
     def __init__(self, descr, is_virtual=False):
@@ -348,12 +346,10 @@ class StructPtrInfo(AbstractStructPtrInfo):
         self._is_virtual = is_virtual
 
     def make_guards(self, op, short, optimizer):
+        AbstractStructPtrInfo.make_guards(self, op, short, optimizer)
         if self.descr is not None:
             c_typeid = ConstInt(self.descr.get_type_id())
-            short.extend([
-                ResOperation(rop.GUARD_NONNULL, [op]),
-                ResOperation(rop.GUARD_GC_TYPE, [op, c_typeid])
-            ])
+            short.append(ResOperation(rop.GUARD_GC_TYPE, [op, c_typeid]))
 
     @specialize.argtype(1)
     def visitor_dispatch_virtual_type(self, visitor):
@@ -675,6 +671,8 @@ class ConstPtrInfo(PtrInfo):
         return self._const
 
     def make_guards(self, op, short, optimizer):
+        # don't call base method, all other guards are irrelevant if it's a
+        # constant
         short.append(ResOperation(rop.GUARD_VALUE, [op, self._const]))
 
     def _get_info(self, descr, optheap):
