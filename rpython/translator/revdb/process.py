@@ -20,7 +20,7 @@ class AllBreakpoints(object):
     def __init__(self):
         self.num2name = {}     # {small number: break/watchpoint}
         self.watchvalues = {}  # {small number: resulting text}
-        self.watchdollars = {} # {small number: [nids]}
+        self.watchuids = {}    # {small number: [uid...]}
         self.stack_depth = 0   # breaks if the depth becomes lower than this
 
     def __repr__(self):
@@ -319,8 +319,13 @@ class ReplayProcessGroup(object):
             search_start_time -= time_range_to_search * 3
 
     def update_breakpoints(self):
+        if self.all_breakpoints.watchuids:
+            uids = set()
+            uids.update(*self.all_breakpoints.watchuids.values())
+            self.attach_printed_objects(uids, watch_env=True)
+
         cmp = self.all_breakpoints.compare(self.active.breakpoints_cache)
-        print 'compare:', cmp, self.all_breakpoints.watchvalues
+        #print 'compare:', cmp, self.all_breakpoints.watchvalues
         if cmp == 2:
             return      # up-to-date
 
@@ -365,7 +370,10 @@ class ReplayProcessGroup(object):
                 seen.add(num)
         assert set(self.all_breakpoints.watchvalues) == seen
 
-    def check_watchpoint_expr(self, expr):
+    def check_watchpoint_expr(self, expr, nids=None):
+        if nids:
+            uids = self.nids_to_uids(nids)
+            self.attach_printed_objects(uids, watch_env=True)
         self.active.send(Message(CMD_CHECKWATCH, extra=expr))
         msg = self.active.expect(ANSWER_WATCH, Ellipsis, extra=Ellipsis)
         self.active.expect_ready()
@@ -385,9 +393,9 @@ class ReplayProcessGroup(object):
             target_time = 1
         if target_time > self.total_stop_points:
             target_time = self.total_stop_points
-        self._resume(max(time for time in self.paused if time <= target_time))
-        self.go_forward(target_time - self.get_current_time(),
-                        breakpoint_mode='i')
+        uids = set()
+        uids.update(*self.all_breakpoints.watchuids.values())
+        self.ensure_printed_objects(uids, forced_time = target_time)
 
     def close(self):
         """Close all subprocesses.
@@ -395,12 +403,19 @@ class ReplayProcessGroup(object):
         for subp in [self.active] + self.paused.values():
             subp.close()
 
-    def ensure_printed_objects(self, uids):
+    def ensure_printed_objects(self, uids, forced_time=None):
         """Ensure that all the given unique_ids are loaded in the active
         child, if necessary by forking another child from earlier.
         """
-        initial_time = self.get_current_time()
-        child = self.active
+        if forced_time is None:
+            initial_time = self.get_current_time()
+            child = self.active
+        else:
+            initial_time = forced_time
+            stop_time = max(time for time in self.paused
+                                 if time <= initial_time)
+            child = self.paused[stop_time]
+
         while True:
             uid_limit = child.currently_created_objects
             missing_uids = [uid for uid in uids
@@ -420,39 +435,48 @@ class ReplayProcessGroup(object):
             assert not future_uids
         else:
             self._resume(stop_time)
-            future_uids.sort()
-            pack_uids = [struct.pack('q', uid) for uid in future_uids]
-            self.active.send(Message(CMD_FUTUREIDS, extra=''.join(pack_uids)))
-            self.active.expect_ready()
-            self.active.printed_objects = (
-                self.active.printed_objects.union(future_uids))
+            if future_uids:
+                future_uids.sort()
+                pack_uids = [struct.pack('q', uid) for uid in future_uids]
+                pack_uids = ''.join(pack_uids)
+                self.active.send(Message(CMD_FUTUREIDS, extra=pack_uids))
+                self.active.expect_ready()
+                self.active.printed_objects = (
+                    self.active.printed_objects.union(future_uids))
             self.go_forward(initial_time - self.get_current_time(),
                             breakpoint_mode='i')
         assert self.active.printed_objects.issuperset(uids)
+
+    def nids_to_uids(self, nids):
+        uids = []
+        for nid in set(nids):
+            try:
+                uid = self.all_printed_objects_lst[nid]
+            except IndexError:
+                continue
+            if uid >= self.get_currently_created_objects():
+                print >> sys.stderr, (
+                    "note: '$%d' refers to an object that is "
+                    "only created later in time" % nid)
+            uids.append(uid)
+        return uids
+
+    def attach_printed_objects(self, uids, watch_env=False):
+        for uid in uids:
+            nid = self.all_printed_objects[uid]
+            self.active.send(Message(CMD_ATTACHID, nid, uid, int(watch_env)))
+            self.active.expect_ready()
 
     def print_cmd(self, expression, nids=[]):
         """Print an expression.
         """
         uids = []
         if nids:
-            for nid in set(nids):
-                try:
-                    uid = self.all_printed_objects_lst[nid]
-                except IndexError:
-                    continue
-                if uid >= self.get_currently_created_objects():
-                    print >> sys.stderr, (
-                        "note: '$%d' refers to an object that is "
-                        "only created later in time" % nid)
-                    continue
-                uids.append(uid)
+            uids = self.nids_to_uids(nids)
             self.ensure_printed_objects(uids)
         #
         self.active.tainted = True
-        for uid in uids:
-            nid = self.all_printed_objects[uid]
-            self.active.send(Message(CMD_ATTACHID, nid, uid))
-            self.active.expect_ready()
+        self.attach_printed_objects(uids)
         self.active.send(Message(CMD_PRINT, extra=expression))
         self.active.print_text_answer(pgroup=self)
 

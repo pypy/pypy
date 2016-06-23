@@ -118,7 +118,7 @@ class RevDebugControl(object):
         else:
             return '?????point'
 
-    def _bp_new(self, break_at):
+    def _bp_new(self, break_at, nids=None):
         b = self.pgroup.edit_breakpoints()
         new = 1
         while new in b.num2name:
@@ -126,8 +126,8 @@ class RevDebugControl(object):
         b.num2name[new] = break_at
         if break_at.startswith('W'):
             b.watchvalues[new] = ''
-            nids = map(int, r_dollar_num.findall(break_at[1:]))
-            b.watchdollars[new] = nids
+            if nids:
+                b.watchuids[new] = self.pgroup.nids_to_uids(nids)
         print "%s %d added" % (self._bp_kind(break_at).capitalize(), new)
 
     def cmd_info_breakpoints(self):
@@ -277,7 +277,7 @@ class RevDebugControl(object):
         else:
             name = b.num2name.pop(arg)
             b.watchvalues.pop(arg, '')
-            b.watchdollars.pop(arg, '')
+            b.watchuids.pop(arg, '')
             kind = self._bp_kind(name)
             print "%s %d deleted: %s" % (kind.capitalize(), arg, name[1:])
 
@@ -286,10 +286,11 @@ class RevDebugControl(object):
         if not argument:
             print "Watch what?"
             return
-        ok_flag, text = self.pgroup.check_watchpoint_expr(argument)
+        nids = map(int, r_dollar_num.findall(argument))
+        ok_flag, text = self.pgroup.check_watchpoint_expr(argument, nids)
         if not ok_flag:
             print text
             print 'Watchpoint not added'
         else:
-            self._bp_new('W' + argument)
+            self._bp_new('W' + argument, nids=nids)
             self.pgroup.update_watch_values()
