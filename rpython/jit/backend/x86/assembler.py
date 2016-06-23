@@ -544,6 +544,11 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         if logger:
             log = logger.log_trace(MARK_TRACE_ASM, None, self.mc)
             log.write(inputargs, operations, ops_offset=ops_offset)
+
+            # legacy
+            if log.logger_ops:
+                log.logger_ops.log_loop(inputargs, operations, 0, "rewritten",
+                                        name=loopname, ops_offset=ops_offset)
         
         self.fixup_target_tokens(rawstart)
         self.teardown()
@@ -613,6 +618,11 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             log.write(inputargs, operations, ops_offset)
             # log that the already written bridge is stitched to a descr!
             logger.log_patch_guard(descr_number, rawstart)
+
+            # legacy
+            if log.logger_ops:
+                log.logger_ops.log_bridge(inputargs, operations, "rewritten",
+                                          faildescr, ops_offset=ops_offset)
         self.fixup_target_tokens(rawstart)
         self.update_frame_depth(frame_depth)
         self.teardown()

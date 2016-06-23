@@ -240,6 +240,9 @@ class VMProfJitLogger(object):
         self.trace_id = -1
         self.metainterp_sd = None
         self.cintf = _get_vmprof().cintf
+        # legacy
+        self.logger_ops = None
+        self.logger_noopt = None
 
     def setup_once(self):
         if self.cintf.jitlog_enabled():

@@ -485,6 +485,9 @@ def propagate_original_jitcell_token(trace):
 
 def do_compile_loop(jd_id, unique_id, metainterp_sd, inputargs, operations,
                     looptoken, log=True, name='', memo=None):
+    # legacy
+    metainterp_sd.logger_ops.log_loop(inputargs, operations, -2,
+                                      'compiling', None, name, memo)
     _log = metainterp_sd.jitlog.log_trace(MARK_TRACE_OPT, metainterp_sd, None)
     _log.write(inputargs, operations)
     return metainterp_sd.cpu.compile_loop(inputargs,
@@ -495,6 +498,9 @@ def do_compile_loop(jd_id, unique_id, metainterp_sd, inputargs, operations,
 
 def do_compile_bridge(metainterp_sd, faildescr, inputargs, operations,
                       original_loop_token, log=True, memo=None):
+    # legacy
+    metainterp_sd.logger_ops.log_bridge(inputargs, operations, "compiling",
+                                        memo=memo)
     _log = metainterp_sd.jitlog.log_trace(MARK_TRACE_OPT, metainterp_sd, None)
     _log.write(inputargs, operations)
     assert isinstance(faildescr, AbstractFailDescr)

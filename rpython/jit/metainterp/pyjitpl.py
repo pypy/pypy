@@ -1761,6 +1761,9 @@ class MetaInterpStaticData(object):
         self.jitlog = jl.VMProfJitLogger(self.cpu)
         self.logger_noopt = Logger(self)
         self.logger_ops = Logger(self, guard_number=True)
+        # legacy loggers
+        self.jitlog.logger_noopt = self.logger_noopt
+        self.jitlog.logger_ops = self.logger_ops
 
         self.profiler = ProfilerClass()
         self.profiler.cpu = cpu
