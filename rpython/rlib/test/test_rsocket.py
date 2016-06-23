@@ -1,4 +1,4 @@
-import py, pytest, errno, sys
+import py, errno, sys
 from rpython.rlib import rsocket
 from rpython.rlib.rsocket import *
 import socket as cpy_socket
