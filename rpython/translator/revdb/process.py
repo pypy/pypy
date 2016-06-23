@@ -294,8 +294,12 @@ class ReplayProcessGroup(object):
         if self.all_breakpoints.is_empty() or ignore_breakpoints:
             self.jump_in_time(initial_time - steps)
         else:
+            if self.all_breakpoints.watchvalues:
+                first_steps = 97    # use smaller steps, because that's costly
+            else:
+                first_steps = 957
             self._backward_search_forward(
-                search_start_time       = initial_time - 957,
+                search_start_time       = initial_time - first_steps,
                 search_stop_time        = initial_time - 1,
                 search_go_on_until_time = initial_time - steps)
 
@@ -318,12 +322,14 @@ class ReplayProcessGroup(object):
             search_stop_time = search_start_time
             search_start_time -= time_range_to_search * 3
 
-    def update_breakpoints(self):
+    def _update_watchpoints_uids(self):
         if self.all_breakpoints.watchuids:
             uids = set()
             uids.update(*self.all_breakpoints.watchuids.values())
             self.attach_printed_objects(uids, watch_env=True)
 
+    def update_breakpoints(self):
+        self._update_watchpoints_uids()
         cmp = self.all_breakpoints.compare(self.active.breakpoints_cache)
         #print 'compare:', cmp, self.all_breakpoints.watchvalues
         if cmp == 2:
@@ -359,6 +365,7 @@ class ReplayProcessGroup(object):
         self.active.breakpoints_cache = self.all_breakpoints.duplicate()
 
     def update_watch_values(self):
+        self._update_watchpoints_uids()
         seen = set()
         for num, name in self.all_breakpoints.num2name.items():
             if name.startswith('W'):
@@ -447,21 +454,22 @@ class ReplayProcessGroup(object):
                             breakpoint_mode='i')
         assert self.active.printed_objects.issuperset(uids)
 
-    def nids_to_uids(self, nids):
+    def nids_to_uids(self, nids, skip_futures=False):
         uids = []
         for nid in set(nids):
             try:
                 uid = self.all_printed_objects_lst[nid]
             except IndexError:
                 continue
-            if uid >= self.get_currently_created_objects():
+            if skip_futures and uid >= self.get_currently_created_objects():
                 print >> sys.stderr, (
                     "note: '$%d' refers to an object that is "
                     "only created later in time" % nid)
+                continue
             uids.append(uid)
         return uids
 
-    def attach_printed_objects(self, uids, watch_env=False):
+    def attach_printed_objects(self, uids, watch_env):
         for uid in uids:
             nid = self.all_printed_objects[uid]
             self.active.send(Message(CMD_ATTACHID, nid, uid, int(watch_env)))
@@ -472,11 +480,11 @@ class ReplayProcessGroup(object):
         """
         uids = []
         if nids:
-            uids = self.nids_to_uids(nids)
+            uids = self.nids_to_uids(nids, skip_futures=True)
             self.ensure_printed_objects(uids)
         #
         self.active.tainted = True
-        self.attach_printed_objects(uids)
+        self.attach_printed_objects(uids, watch_env=False)
         self.active.send(Message(CMD_PRINT, extra=expression))
         self.active.print_text_answer(pgroup=self)
 
