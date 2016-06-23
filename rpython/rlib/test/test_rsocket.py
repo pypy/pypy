@@ -599,5 +599,4 @@ def test_socket_saves_errno(tmpdir):
 
     e = pytest.raises(CSocketError,
                       RSocket, family=AF_INET, type=SOCK_STREAM, proto=SOL_UDP)
-    # TODO: windows??
     assert e.value.errno in (errno.EPROTOTYPE, errno.EPROTONOSUPPORT)
