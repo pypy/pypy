@@ -130,7 +130,7 @@ class AppTestTuple(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
             ("run", "METH_NOARGS",
              """
-                long prev, next;
+                long prev;
                 PyObject *t = PyTuple_New(1);
                 prev = Py_True->ob_refcnt;
                 Py_INCREF(Py_True);

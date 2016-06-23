@@ -1,5 +1,6 @@
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 
+
 class AppTestStringObject(AppTestCpythonExtensionBase):
     def test_basic(self):
         module = self.import_extension('foo', [
@@ -31,7 +32,7 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
                  if(s->ob_type->tp_basicsize != expected_size)
                  {
                      printf("tp_basicsize==%ld\\n",
-                            (long)s->ob_type->tp_basicsize); 
+                            (long)s->ob_type->tp_basicsize);
                      result = 0;
                  }
                  Py_DECREF(s);
@@ -53,7 +54,6 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
              """
                  PyObject *s, *t;
                  char* c;
-                 Py_ssize_t len;
 
                  s = PyByteArray_FromStringAndSize(NULL, 4);
                  if (s == NULL)
@@ -84,11 +84,10 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
             ("mutable", "METH_NOARGS",
              """
                 PyObject *base;
-                char * p_str;
                 base = PyByteArray_FromStringAndSize("test", 10);
                 if (PyByteArray_GET_SIZE(base) != 10)
                     return PyLong_FromLong(-PyByteArray_GET_SIZE(base));
-                memcpy(PyByteArray_AS_STRING(base), "works", 6); 
+                memcpy(PyByteArray_AS_STRING(base), "works", 6);
                 Py_INCREF(base);
                 return base;
              """),
@@ -115,6 +114,7 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
         assert s == 'test'
 
     def test_manipulations(self):
+        import sys
         module = self.import_extension('foo', [
             ("bytearray_from_string", "METH_VARARGS",
              '''
@@ -141,9 +141,9 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
             ("concat", "METH_VARARGS",
              """
                 PyObject * ret, *right, *left;
-                PyObject *ba1, *ba2; 
+                PyObject *ba1, *ba2;
                 if (!PyArg_ParseTuple(args, "OO", &left, &right)) {
-                    return PyString_FromString("parse failed"); 
+                    return PyString_FromString("parse failed");
                 }
                 ba1 = PyByteArray_FromObject(left);
                 ba2 = PyByteArray_FromObject(right);
@@ -157,7 +157,9 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
              """)])
         assert module.bytearray_from_string("huheduwe") == "huhe"
         assert module.str_from_bytearray(bytearray('abc')) == 'abc'
-        raises(ValueError, module.str_from_bytearray, 4.0)
+        if '__pypy__' in sys.builtin_module_names:
+            # CPython only makes an assert.
+            raises(ValueError, module.str_from_bytearray, 4.0)
         ret = module.concat('abc', 'def')
         assert ret == 'abcdef'
         assert not isinstance(ret, str)
@@ -171,9 +173,9 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
              PyObject *obj, *ba;
              int newsize, oldsize, ret;
              if (!PyArg_ParseTuple(args, "Oi", &obj, &newsize)) {
-                 return PyString_FromString("parse failed"); 
+                 return PyString_FromString("parse failed");
              }
-             
+
              ba = PyByteArray_FromObject(obj);
              if (ba == NULL)
                  return NULL;
@@ -187,7 +189,7 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
              {
                   printf("ret, oldsize, newsize= %d, %d, %d\\n", ret, oldsize, newsize);
                   return NULL;
-             } 
+             }
              return ba;
              '''
             )])

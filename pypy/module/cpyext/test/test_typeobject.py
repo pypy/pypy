@@ -5,8 +5,6 @@ from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.pyobject import make_ref, from_ref
 from pypy.module.cpyext.typeobject import PyTypeObjectPtr
 
-import sys
-
 class AppTestTypeObject(AppTestCpythonExtensionBase):
     def test_typeobject(self):
         import sys
@@ -737,7 +735,6 @@ class AppTestSlots(AppTestCpythonExtensionBase):
              """
                 IntLikeObject *intObj;
                 int intval;
-                PyObject *name;
 
                 if (!PyArg_ParseTuple(args, "i", &intval))
                     return NULL;
@@ -897,7 +894,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         module.footype("X", (object,), {})
 
     def test_app_subclass_of_c_type(self):
-        # on cpython, the size changes (6 bytes added)
+        import sys
         module = self.import_module(name='foo')
         size = module.size_of_instances(module.fooType)
         class f1(object):
@@ -907,7 +904,11 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         class bar(f1, f2):
             pass
         assert bar.__base__ is f2
-        assert module.size_of_instances(bar) == size
+        # On cpython, the size changes.
+        if '__pypy__' in sys.builtin_module_names:
+            assert module.size_of_instances(bar) == size
+        else:
+            assert module.size_of_instances(bar) >= size
 
     def test_app_cant_subclass_two_types(self):
         module = self.import_module(name='foo')
@@ -1058,7 +1059,6 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
            ("getMetaClass", "METH_NOARGS",
             '''
-                PyObject *obj;
                 FooType_Type.tp_flags = Py_TPFLAGS_DEFAULT;
                 FooType_Type.tp_base = &PyType_Type;
                 if (PyType_Ready(&FooType_Type) < 0) return NULL;

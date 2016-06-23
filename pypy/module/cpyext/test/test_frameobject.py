@@ -13,7 +13,7 @@ class AppTestFrameObject(AppTestCpythonExtensionBase):
                  PyObject *empty_string = PyString_FromString("");
                  PyObject *empty_tuple = PyTuple_New(0);
                  PyCodeObject *py_code;
-                 PyFrameObject *py_frame;
+                 PyFrameObject *py_frame = NULL;
 
                  py_code = PyCode_New(
                      0,            /*int argcount,*/
@@ -75,7 +75,7 @@ class AppTestFrameObject(AppTestCpythonExtensionBase):
              """
                  int check;
                  PyObject *type, *value, *tb;
-                 PyObject *ret = PyRun_String("XXX", Py_eval_input, 
+                 PyObject *ret = PyRun_String("XXX", Py_eval_input,
                                               Py_None, Py_None);
                  if (ret) {
                      Py_DECREF(ret);
