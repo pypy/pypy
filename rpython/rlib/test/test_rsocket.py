@@ -593,10 +593,11 @@ def test_translate_netdb_lock_thread():
 def test_socket_saves_errno(tmpdir):
     # ensure errno is set to a known value...
     unconnected_sock = RSocket()
-    pytest.raises(CSocketError, unconnected_sock.recv, 1024)
+    e = py.test.raises(CSocketError, unconnected_sock.recv, 1024)
     # ...which is ENOTCONN
     assert e.value.errno == errno.ENOTCONN
 
-    e = pytest.raises(CSocketError,
-                      RSocket, family=AF_INET, type=SOCK_STREAM, proto=SOL_UDP)
+    e = py.test.raises(CSocketError,
+                       RSocket,
+                       family=AF_INET, type=SOCK_STREAM, proto=SOL_UDP)
     assert e.value.errno in (errno.EPROTOTYPE, errno.EPROTONOSUPPORT)
