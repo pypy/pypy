@@ -106,11 +106,11 @@ def track_object(unique_id, callback):
     ll_callback = llhelper(_CALLBACK_GCREF_FNPTR, callback)
     llop.revdb_track_object(lltype.Void, unique_id, ll_callback)
 
-def save_state():
-    return llop.revdb_save_state(lltype.Bool)
+def watch_save_state():
+    return llop.revdb_watch_save_state(lltype.Bool)
 
-def restore_state():
-    llop.revdb_restore_state(lltype.Void)
+def watch_restore_state(any_watch_point):
+    llop.revdb_watch_restore_state(lltype.Void, any_watch_point)
 
 
 # ____________________________________________________________

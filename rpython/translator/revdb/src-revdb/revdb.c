@@ -552,6 +552,7 @@ static void command_forward(rpy_revdb_command_t *cmd)
         last_recorded_breakpoint_loc = 0;
         pending_after_forward = &answer_recorded_breakpoint;
     }
+    rpy_revdb.watch_enabled = (breakpoint_mode != 'i');
 }
 
 static void command_future_ids(rpy_revdb_command_t *cmd, char *extra)
@@ -602,6 +603,7 @@ static void save_state(void)
     stopped_time = rpy_revdb.stop_point_seen;
     stopped_uid = rpy_revdb.unique_id_seen;
     rpy_revdb.unique_id_seen = (-1ULL) << 63;
+    rpy_revdb.watch_enabled = 0;
 }
 
 static void restore_state(void)
@@ -613,24 +615,25 @@ static void restore_state(void)
 }
 
 RPY_EXTERN
-bool_t rpy_reverse_db_save_state(void)
+void rpy_reverse_db_watch_save_state(void)
 {
-    if (stopped_time == 0) {
-        save_state();
-        disable_io();
-        rpy_revdb.stop_point_break = 0;
-        rpy_revdb.unique_id_break = 0;
-        return 1;
+    if (stopped_time != 0) {
+        fprintf(stderr, "unexpected recursive watch_save_state\n");
+        exit(1);
     }
-    else
-        return 0;
+    save_state();
+    disable_io();
+    rpy_revdb.stop_point_break = 0;
+    rpy_revdb.unique_id_break = 0;
 }
 
 RPY_EXTERN
-void rpy_reverse_db_restore_state(void)
+void rpy_reverse_db_watch_restore_state(bool_t any_watch_point)
 {
     enable_io(1);
     restore_state();
+    assert(!rpy_revdb.watch_enabled);
+    rpy_revdb.watch_enabled = any_watch_point;
 }
 
 RPY_EXTERN
@@ -754,13 +757,11 @@ uint64_t rpy_reverse_db_unique_id_break(void *new_object)
         exit(1);
     }
     if (rpy_revdb_commands.rp_alloc) {
-        if (!rpy_reverse_db_save_state()) {
-            fprintf(stderr, "unexpected recursive unique_id_break\n");
-            exit(1);
-        }
+        bool_t watch_enabled = rpy_revdb.watch_enabled;
+        rpy_reverse_db_watch_save_state();
         if (setjmp(jmp_buf_cancel_execution) == 0)
             rpy_revdb_commands.rp_alloc(uid, new_object);
-        rpy_reverse_db_restore_state();
+        rpy_reverse_db_watch_restore_state(watch_enabled);
     }
     rpy_revdb.unique_id_break = *future_next_id++;
     return uid;

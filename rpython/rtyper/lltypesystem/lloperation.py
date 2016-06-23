@@ -570,8 +570,8 @@ LL_OPERATIONS = {
     'revdb_breakpoint':     LLOp(),
     'revdb_get_value':      LLOp(sideeffects=False),
     'revdb_get_unique_id':  LLOp(sideeffects=False),
-    'revdb_save_state':     LLOp(),
-    'revdb_restore_state':  LLOp(),
+    'revdb_watch_save_state':    LLOp(),
+    'revdb_watch_restore_state': LLOp(),
 }
 # ***** Run test_lloperation after changes. *****
 

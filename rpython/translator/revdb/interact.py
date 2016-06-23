@@ -126,6 +126,8 @@ class RevDebugControl(object):
         b.num2name[new] = break_at
         if break_at.startswith('W'):
             b.watchvalues[new] = ''
+            nids = map(int, r_dollar_num.findall(break_at[1:]))
+            b.watchdollars[new] = nids
         print "%s %d added" % (self._bp_kind(break_at).capitalize(), new)
 
     def cmd_info_breakpoints(self):
@@ -275,6 +277,7 @@ class RevDebugControl(object):
         else:
             name = b.num2name.pop(arg)
             b.watchvalues.pop(arg, '')
+            b.watchdollars.pop(arg, '')
             kind = self._bp_kind(name)
             print "%s %d deleted: %s" % (kind.capitalize(), arg, name[1:])
 

@@ -15,6 +15,7 @@ typedef struct {
 #define RPY_RDB_REPLAY   rpy_revdb.replay
 #define RPY_RDB_DYNAMIC_REPLAY
 #endif
+    bool_t watch_enabled;
     char *buf_p, *buf_limit;
     uint64_t stop_point_seen, stop_point_break;
     uint64_t unique_id_seen, unique_id_break;
@@ -98,11 +99,13 @@ RPY_EXTERN void rpy_reverse_db_teardown(void);
 #define OP_REVDB_TRACK_OBJECT(uid, callback, r)                         \
     rpy_reverse_db_track_object(uid, callback)
 
-#define OP_REVDB_SAVE_STATE(r)                                          \
-    r = rpy_reverse_db_save_state()
+#define OP_REVDB_WATCH_SAVE_STATE(r)   do {                             \
+        r = rpy_revdb.watch_enabled;                                    \
+        if (r) rpy_reverse_db_watch_save_state();                       \
+    } while (0)
 
-#define OP_REVDB_RESTORE_STATE(r)                                       \
-    rpy_reverse_db_restore_state()
+#define OP_REVDB_WATCH_RESTORE_STATE(any_watch_point, r)                \
+    rpy_reverse_db_watch_restore_state(any_watch_point)
 
 RPY_EXTERN void rpy_reverse_db_flush(void);
 RPY_EXTERN char *rpy_reverse_db_fetch(int expected_size,
@@ -114,7 +117,7 @@ RPY_EXTERN Signed rpy_reverse_db_identityhash(struct pypy_header0 *obj);
 RPY_EXTERN void rpy_reverse_db_breakpoint(int64_t num);
 RPY_EXTERN long long rpy_reverse_db_get_value(char value_id);
 RPY_EXTERN uint64_t rpy_reverse_db_unique_id_break(void *new_object);
-RPY_EXTERN bool_t rpy_reverse_db_save_state(void);
-RPY_EXTERN void rpy_reverse_db_restore_state(void);
+RPY_EXTERN void rpy_reverse_db_watch_save_state(void);
+RPY_EXTERN void rpy_reverse_db_watch_restore_state(bool_t any_watch_point);
 
 /* ------------------------------------------------------------ */
