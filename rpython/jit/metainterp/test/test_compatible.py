@@ -319,5 +319,46 @@ class TestCompatible(LLJitMixin):
         x = self.meta_interp(main, [])
 
         # trace, two bridges, a finish bridge
+        self.check_trace_count(3)
+        assert x < 30
+
+    def test_merge(self):
+        S = lltype.GcStruct('S', ('x', lltype.Signed))
+        p1 = lltype.malloc(S)
+        p1.x = 1
+
+        p2 = lltype.malloc(S)
+        p2.x = 1
+
+        driver = jit.JitDriver(greens = [], reds = ['n', 'x'])
+
+        class A(object):
+            pass
+
+        c = A()
+        c.count = 0
+        @jit.elidable_compatible()
+        def g(s, ignored):
+            c.count += 1
+            return s.x
+
+        def f(n, x):
+            while n > 0:
+                driver.can_enter_jit(n=n, x=x)
+                driver.jit_merge_point(n=n, x=x)
+                n -= g(x, "abc")
+                if n & 2:
+                    n -= 2
+
+        def main():
+            g(p1, "def") # make annotator not make argument constant
+            f(1000, p1)
+            f(1000, p2)
+            return c.count
+
+        x = self.meta_interp(main, [])
+
+        assert x < 30
+        # trace, two bridges, a finish bridge
         self.check_trace_count(4)
-        assert x < 50
+

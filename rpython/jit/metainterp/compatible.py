@@ -131,6 +131,10 @@ class CompatibilityCondition(object):
     def emit_conditions(self, op, short, optimizer):
         """ re-emit the conditions about variable op into the short preamble
         """
+        from rpython.jit.metainterp.resoperation import rop, ResOperation
+        short.append(
+            ResOperation(rop.GUARD_COMPATIBLE, [
+                op, self.known_valid]))
         for cond in self.conditions:
             cond.emit_condition(op, short, optimizer)
 
@@ -140,13 +144,22 @@ class CompatibilityCondition(object):
         do nothing. If it is not, check whether ref matches the condition. If
         not return False, otherwise emit guards for the condition. Return True
         at the end. """
+        from rpython.jit.metainterp.resoperation import rop, ResOperation
+        have_guard = False
         for cond in self.conditions:
             if other is None or not other.contains_condition(cond):
                 if const is None:
                     return False
                 ref = const.getref_base()
                 if cond.check(cpu, ref):
-                    cond.emit_condition(op, short, optimizer)
+                    if not have_guard:
+                        # NB: the guard_compatible here needs to use const,
+                        # otherwise the optimizer will just complain
+                        extra_guards.append(ResOperation(
+                            rop.GUARD_COMPATIBLE,
+                                [op, const]))
+                        have_guard = True
+                    cond.emit_condition(op, extra_guards, optimizer, const)
                 else:
                     return False
         return True
@@ -185,7 +198,7 @@ class Condition(object):
     def repr(self):
         return ""
 
-    def emit_condition(self, op, short, optimizer):
+    def emit_condition(self, op, short, optimizer, const=None):
         raise NotImplementedError("abstract base class")
 
     def _repr_const(self, arg):
@@ -263,7 +276,7 @@ class PureCallCondition(Condition):
                 return False
         return True
 
-    def emit_condition(self, op, short, optimizer):
+    def emit_condition(self, op, short, optimizer, const=None):
         from rpython.jit.metainterp.history import INT, REF, FLOAT, VOID
         from rpython.jit.metainterp.resoperation import rop, ResOperation
         # woah, mess
@@ -283,6 +296,11 @@ class PureCallCondition(Condition):
             call_op = ResOperation(rop.CALL_PURE_R, args, descr)
             short.append(call_op)
             return
+        # add result to call_pure_results
+        if const is not None:
+            args = args[:]
+            args[1] = const
+            optimizer.call_pure_results[args] = self.res
         short.append(call_op)
         short.append(ResOperation(rop.GUARD_VALUE, [call_op, self.res]))
 
@@ -375,7 +393,7 @@ class QuasiimmutGetfieldAndPureCallCondition(PureCallCondition):
                 return False
         return True
 
-    def emit_condition(self, op, short, optimizer):
+    def emit_condition(self, op, short, optimizer, const=None):
         from rpython.jit.metainterp.resoperation import rop, ResOperation
         # more mess
         fielddescr = self.fielddescr
@@ -395,12 +413,18 @@ class QuasiimmutGetfieldAndPureCallCondition(PureCallCondition):
                 rop.GUARD_NOT_INVALIDATED, []),
             getfield_op])
         index = len(short)
-        PureCallCondition.emit_condition(self, op, short, optimizer)
+        PureCallCondition.emit_condition(self, op, short, optimizer, const)
         call_op = short[index]
+        # puh, not pretty
+        args = call_op.getarglist()
+        if const is not None:
+            del optimizer.call_pure_results[args]
         assert call_op.opnum in (
                 rop.CALL_PURE_I, rop.CALL_PURE_R,
                 rop.CALL_PURE_F, rop.CALL_PURE_N)
         call_op.setarg(2, getfield_op)
+        if const is not None:
+            optimizer.call_pure_results[call_op.getarglist()] = self.res
 
     def repr(self, argrepr="?"):
         addr = self.args[0].getaddr()

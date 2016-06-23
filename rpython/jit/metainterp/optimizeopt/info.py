@@ -81,9 +81,6 @@ class PtrInfo(AbstractInfo):
         compat_cond = self._compatibility_conditions
         if compat_cond is None:
             return
-        short.append(
-            ResOperation(rop.GUARD_COMPATIBLE, [
-                op, compat_cond.known_valid]))
         compat_cond.emit_conditions(op, short, optimizer)
 
     @specialize.arg(2)

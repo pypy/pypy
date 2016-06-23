@@ -310,7 +310,10 @@ class UnrollOptimizer(Optimization):
                 for guard in extra_guards.extra_guards:
                     if isinstance(guard, GuardResOp):
                         guard.rd_resume_position = patchguardop.rd_resume_position
-                        guard.setdescr(compile.ResumeAtPositionDescr())
+                        if guard.opnum == rop.GUARD_COMPATIBLE:
+                            guard.setdescr(compile.GuardCompatibleDescr())
+                        else:
+                            guard.setdescr(compile.ResumeAtPositionDescr())
                     self.send_extra_operation(guard)
             except VirtualStatesCantMatch:
                 continue
@@ -375,8 +378,12 @@ class UnrollOptimizer(Optimization):
                 sop = short[i]
                 arglist = self._map_args(mapping, sop.getarglist())
                 if sop.is_guard():
+                    if sop.opnum == rop.GUARD_COMPATIBLE:
+                        descr = compile.GuardCompatibleDescr()
+                    else:
+                        descr = compile.ResumeAtPositionDescr()
                     op = sop.copy_and_change(sop.getopnum(), arglist,
-                                    descr=compile.ResumeAtPositionDescr())
+                                    descr=descr)
                     assert isinstance(op, GuardResOp)
                     op.rd_resume_position = patchguardop.rd_resume_position
                 else:

@@ -355,7 +355,7 @@ def not_virtual(cpu, type, info):
     if type == 'i':
         return NotVirtualStateInfoInt(cpu, type, info)
     if type == 'r':
-        if info._compatibility_conditions is not None:
+        if info is not None and info._compatibility_conditions is not None:
             return NotVirtualStateInfoPtrCompatible(cpu, type, info)
         return NotVirtualStateInfoPtr(cpu, type, info)
     return NotVirtualStateInfo(cpu, type, info)
