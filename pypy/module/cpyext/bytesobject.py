@@ -79,7 +79,7 @@ def new_empty_str(space, length):
     called.  Refcount of the result is 1.
     """
     typedescr = get_typedescr(space.w_bytes.layout.typedef)
-    py_obj = typedescr.allocate(space, space.w_bytes)
+    py_obj = typedescr.allocate(space, space.w_bytes, length)
     py_str = rffi.cast(PyBytesObject, py_obj)
     py_str.c_ob_shash = -1
     py_str.c_ob_sstate = rffi.cast(rffi.INT, 0) # SSTATE_NOT_INTERNED

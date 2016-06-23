@@ -32,7 +32,7 @@ class AppTestBytesObject(AppTestCpythonExtensionBase):
                      result = 1;
                  }
                  #ifdef PYPY_VERSION
-                    expected_size = sizeof(void*)*7;
+                    expected_size = 48;
                  #elif defined Py_DEBUG
                     expected_size = 53;
                  #else
