@@ -122,8 +122,8 @@ def tuple_dealloc(space, py_obj):
     for i in range(py_tup.c_ob_size):
         if p[i] and p[i].c_ob_refcnt > 0:
             decref(space, p[i])
-    while py_obj.c_ob_refcnt > 0:
-        decref(space, py_obj)
+    from pypy.module.cpyext.object import _dealloc
+    _dealloc(space, py_obj)
 
 #_______________________________________________________________________
 
