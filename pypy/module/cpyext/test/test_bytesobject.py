@@ -80,7 +80,7 @@ class AppTestBytesObject(AppTestCpythonExtensionBase):
                  if (t == NULL)
                     return NULL;
                  Py_DECREF(t);
-                 c = PyBytes_AsString(s);
+                 c = PyBytes_AS_STRING(s);
                  c[0] = 'a';
                  c[1] = 'b';
                  c[2] = 0;
