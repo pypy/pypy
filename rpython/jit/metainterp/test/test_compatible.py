@@ -42,8 +42,8 @@ class TestCompatible(LLJitMixin):
         x = self.meta_interp(main, [])
 
         assert x < 30
-        # trace, two bridges, a finish bridge
-        self.check_trace_count(4)
+        # trace, one bridge, a finish bridge
+        self.check_trace_count(3)
 
     def test_simple_check_values(self):
         S = lltype.GcStruct('S', ('x', lltype.Signed))
@@ -87,8 +87,8 @@ class TestCompatible(LLJitMixin):
         x = self.meta_interp(main, [])
 
         assert x == main()
-        # trace, two bridges, a finish bridge
-        self.check_trace_count(4)
+        # trace, a bridge, a finish bridge
+        self.check_trace_count(3)
 
     def test_exception(self):
         S = lltype.GcStruct('S', ('x', lltype.Signed))
@@ -122,7 +122,7 @@ class TestCompatible(LLJitMixin):
             f(100, p3)
 
         self.meta_interp(main, [])
-        # XXX check number of bridges
+        self.check_trace_count(3)
 
 
     def test_quasi_immutable(self):
@@ -197,7 +197,7 @@ class TestCompatible(LLJitMixin):
 
         x = self.meta_interp(main, [False])
         assert x < 30
-        # XXX check number of bridges
+        self.check_trace_count(4)
 
 
     def test_dont_record_repeated_guard_compatible(self):
@@ -264,8 +264,8 @@ class TestCompatible(LLJitMixin):
         x = self.meta_interp(main, [])
 
         assert x < 30
-        # trace, two bridges, a finish bridge
-        self.check_trace_count(4)
+        # trace, one bridge, a finish bridge
+        self.check_trace_count(3)
 
 
     def test_order_of_chained_guards(self):

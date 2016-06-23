@@ -42,12 +42,17 @@ class CompatibilityCondition(object):
         res.frozen = True
         return res
 
-    def record_condition(self, cond, res, optimizer):
+    def contains_condition(self, cond, res=None):
         for oldcond in self.conditions:
             if oldcond.same_cond(cond, res):
                 return True
+        return False
+
+    def record_condition(self, cond, res, optimizer):
+        if self.contains_condition(cond, res):
+            return True
         if self.frozen:
-            False
+            return False
         cond.activate(res, optimizer)
         if self.conditions and self.conditions[-1].debug_mp_str == cond.debug_mp_str:
             cond.debug_mp_str = ''
@@ -57,11 +62,17 @@ class CompatibilityCondition(object):
     def register_quasi_immut_field(self, op):
         self.last_quasi_immut_field_op = op
 
-    def check_compat_and_activate(self, cpu, ref, loop_token):
+    def check_compat(self, cpu, ref):
         for cond in self.conditions:
             if not cond.check(cpu, ref):
                 return False
-        # need to tell all conditions, in case a quasi-immut needs to be registered
+        return True
+
+    def check_compat_and_activate(self, cpu, ref, loop_token):
+        if not self.check_compat(cpu, ref):
+            return False
+        # need to tell all conditions, in case a quasi-immut needs to be
+        # registered
         for cond in self.conditions:
             cond.activate_secondary(ref, loop_token)
         return True
@@ -123,6 +134,23 @@ class CompatibilityCondition(object):
         for cond in self.conditions:
             cond.emit_condition(op, short, optimizer)
 
+    def emit_needed_conditions_if_const_matches(
+            self, other, const, op, extra_guards, optimizer, cpu):
+        """ go through self.conditions. if the condition is present in other,
+        do nothing. If it is not, check whether ref matches the condition. If
+        not return False, otherwise emit guards for the condition. Return True
+        at the end. """
+        for cond in self.conditions:
+            if other is None or not other.contains_condition(cond):
+                if const is None:
+                    return False
+                ref = const.getref_base()
+                if cond.check(cpu, ref):
+                    cond.emit_condition(op, short, optimizer)
+                else:
+                    return False
+        return True
+
     def repr_of_conditions(self, argrepr="?"):
         return "\n".join([cond.repr(argrepr) for cond in self.conditions])
 
@@ -151,7 +179,7 @@ class Condition(object):
     def activate_secondary(self, ref, loop_token):
         pass
 
-    def same_cond(self, other, res):
+    def same_cond(self, other, res=None):
         return False
 
     def repr(self):
@@ -216,11 +244,13 @@ class PureCallCondition(Condition):
             return False
         return True
 
-    def same_cond(self, other, res):
+    def same_cond(self, other, res=None):
         if type(other) is not PureCallCondition:
             return False
         if len(self.args) != len(other.args):
             return False
+        if res is None:
+            res = other.res
         if not self.res.same_constant(res):
             return False
         if self.descr is not other.descr:
@@ -321,11 +351,13 @@ class QuasiimmutGetfieldAndPureCallCondition(PureCallCondition):
             return False
         return True
 
-    def same_cond(self, other, res):
+    def same_cond(self, other, res=None):
         if type(other) is not QuasiimmutGetfieldAndPureCallCondition:
             return False
         if len(self.args) != len(other.args):
             return False
+        if res is None:
+            res = other.res
         if not self.res.same_constant(res):
             return False
         if self.descr is not other.descr:

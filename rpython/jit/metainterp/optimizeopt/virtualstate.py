@@ -355,6 +355,8 @@ def not_virtual(cpu, type, info):
     if type == 'i':
         return NotVirtualStateInfoInt(cpu, type, info)
     if type == 'r':
+        if info._compatibility_conditions is not None:
+            return NotVirtualStateInfoPtrCompatible(cpu, type, info)
         return NotVirtualStateInfoPtr(cpu, type, info)
     return NotVirtualStateInfo(cpu, type, info)
 
@@ -596,6 +598,29 @@ class NotVirtualStateInfoPtr(NotVirtualStateInfo):
                 pass
             else:
                 raise VirtualStatesCantMatch("classes don't match")
+
+class NotVirtualStateInfoPtrCompatible(NotVirtualStateInfoPtr):
+    def __init__(self, cpu, type, info):
+        ccond = info._compatibility_conditions
+        self._compatibility_conditions = ccond.frozen_copy()
+        NotVirtualStateInfoPtr.__init__(self, cpu, type, info)
+
+    def _generate_guards(self, other, box, runtime_box, state):
+        NotVirtualStateInfoPtr._generate_guards(
+            self, other, box, runtime_box, state)
+        ccond_self = self._compatibility_conditions
+        if isinstance(other, NotVirtualStateInfoPtrCompatible):
+            ccond_other = other._compatibility_conditions
+        else:
+            ccond_other = None
+        const = None
+        if runtime_box is not None:
+            const = runtime_box.constbox()
+        if ccond_self.emit_needed_conditions_if_const_matches(
+                ccond_other, const, box, state.extra_guards,
+                state.optimizer, state.cpu):
+            return
+        raise VirtualStatesCantMatch("target compatibility conditions aren't met")
 
 
 class VirtualState(object):
