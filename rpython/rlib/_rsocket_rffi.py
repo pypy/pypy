@@ -487,7 +487,9 @@ if _POSIX:
 #hstrerror.argtypes = [c_int]
 #hstrerror.restype = c_char_p
 
-socket = external('socket', [rffi.INT, rffi.INT, rffi.INT], socketfd_type)
+socket = external('socket', [rffi.INT, rffi.INT, rffi.INT], socketfd_type,
+                  save_err=SAVE_ERR)
+
 
 if WIN32:
     socketclosename = 'closesocket'

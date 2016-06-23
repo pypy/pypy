@@ -1,4 +1,4 @@
-import py, errno, sys
+import py, pytest, errno, sys
 from rpython.rlib import rsocket
 from rpython.rlib.rsocket import *
 import socket as cpy_socket
@@ -589,3 +589,15 @@ def test_translate_netdb_lock_thread():
         return 0
     fc = compile(f, [], thread=True)
     assert fc() == 0
+
+def test_socket_saves_errno(tmpdir):
+    # ensure errno is set to a known value...
+    unconnected_sock = RSocket()
+    pytest.raises(CSocketError, unconnected_sock.recv, 1024)
+    # ...which is ENOTCONN
+    assert e.value.errno == errno.ENOTCONN
+
+    e = pytest.raises(CSocketError,
+                      RSocket, family=AF_INET, type=SOCK_STREAM, proto=SOL_UDP)
+    # TODO: windows??
+    assert e.value.errno in (errno.EPROTOTYPE, errno.EPROTONOSUPPORT)
