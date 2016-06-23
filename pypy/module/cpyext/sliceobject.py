@@ -44,8 +44,8 @@ def slice_dealloc(space, py_obj):
     Py_DecRef(space, py_slice.c_start)
     Py_DecRef(space, py_slice.c_stop)
     Py_DecRef(space, py_slice.c_step)
-    from pypy.module.cpyext.object import PyObject_dealloc
-    PyObject_dealloc(space, py_obj)
+    from pypy.module.cpyext.object import _dealloc
+    _dealloc(space, py_obj)
 
 PySlice_Check, PySlice_CheckExact = build_type_checkers("Slice")
 

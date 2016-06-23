@@ -90,8 +90,8 @@ def unicode_dealloc(space, py_obj):
     Py_DecRef(space, py_unicode.c_defenc)
     if py_unicode.c_str:
         lltype.free(py_unicode.c_str, flavor="raw")
-    from pypy.module.cpyext.object import PyObject_dealloc
-    PyObject_dealloc(space, py_obj)
+    from pypy.module.cpyext.object import _dealloc
+    _dealloc(space, py_obj)
 
 @cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
 def Py_UNICODE_ISSPACE(space, ch):
