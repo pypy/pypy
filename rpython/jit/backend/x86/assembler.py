@@ -546,8 +546,8 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             log.write(inputargs, operations, ops_offset=ops_offset)
 
             # legacy
-            if log.logger_ops:
-                log.logger_ops.log_loop(inputargs, operations, 0, "rewritten",
+            if logger.logger_ops:
+                logger.logger_ops.log_loop(inputargs, operations, 0, "rewritten",
                                         name=loopname, ops_offset=ops_offset)
         
         self.fixup_target_tokens(rawstart)
@@ -620,8 +620,8 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             logger.log_patch_guard(descr_number, rawstart)
 
             # legacy
-            if log.logger_ops:
-                log.logger_ops.log_bridge(inputargs, operations, "rewritten",
+            if logger.logger_ops:
+                logger.logger_ops.log_bridge(inputargs, operations, "rewritten",
                                           faildescr, ops_offset=ops_offset)
         self.fixup_target_tokens(rawstart)
         self.update_frame_depth(frame_depth)
