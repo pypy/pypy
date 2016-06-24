@@ -11,8 +11,8 @@
 #else
     #define PyThing_FromStringAndSize PyString_FromStringAndSize
     #define PyThing_FromString PyString_FromString
-    # defin PyThing_Check PyString_Check
-    #define _PyThing_AsString _PyString_AsString
+    #define PyThing_Check PyString_Check
+    #define _PyThing_AsString PyString_AsString
 #endif
 
 typedef struct {
@@ -692,7 +692,7 @@ PyInit_foo(void)
 
 #else
 
-#define INITERROR return NULL
+#define INITERROR return
 
 /* Initialize this module. */
 #ifdef __GNUC__
