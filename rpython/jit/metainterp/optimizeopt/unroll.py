@@ -88,6 +88,7 @@ class UnrollableOptimizer(Optimizer):
             if preamble_info._compatibility_conditions:
                 info_in_loop = op.get_forwarded()
                 if info_in_loop is not None:
+                    assert isinstance(info_in_loop, info.PtrInfo)
                     ccond = preamble_info._compatibility_conditions
                     ccond = ccond.frozen_copy()
                     info_in_loop._compatibility_conditions = ccond

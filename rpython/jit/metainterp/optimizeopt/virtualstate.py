@@ -1,7 +1,7 @@
 from rpython.jit.metainterp.walkvirtual import VirtualVisitor
 from rpython.jit.metainterp.history import ConstInt, ConstPtr, ConstFloat
 from rpython.jit.metainterp.optimizeopt.info import ArrayPtrInfo,\
-     ArrayStructInfo, AbstractStructPtrInfo
+     ArrayStructInfo, AbstractStructPtrInfo, PtrInfo
 from rpython.jit.metainterp.optimizeopt.intutils import \
      MININT, MAXINT, IntBound, IntLowerBound
 from rpython.jit.metainterp.resoperation import rop, ResOperation,\
@@ -355,6 +355,7 @@ def not_virtual(cpu, type, info):
     if type == 'i':
         return NotVirtualStateInfoInt(cpu, type, info)
     if type == 'r':
+        assert isinstance(info, PtrInfo)
         if info is not None and info._compatibility_conditions is not None:
             return NotVirtualStateInfoPtrCompatible(cpu, type, info)
         return NotVirtualStateInfoPtr(cpu, type, info)
