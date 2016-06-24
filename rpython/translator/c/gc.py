@@ -222,12 +222,10 @@ class BoehmGcPolicy(BasicGcPolicy):
         yield 'boehm_gc_startup_code();'
 
     def get_real_weakref_type(self):
-        from rpython.memory.gctransform import boehm
-        return boehm.WEAKLINK
+        return self.db.gctransformer.WEAKLINK
 
     def convert_weakref_to(self, ptarget):
-        from rpython.memory.gctransform import boehm
-        return boehm.convert_weakref_to(ptarget)
+        return self.db.gctransformer.convert_weakref_to(ptarget)
 
     def OP_GC__COLLECT(self, funcgen, op):
         return 'GC_gcollect();'

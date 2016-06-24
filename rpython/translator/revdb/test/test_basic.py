@@ -64,7 +64,6 @@ def compile(self, entry_point, argtypes, backendopt=True,
     t = Translation(entry_point, None, gc="boehm")
     self.t = t
     t.config.translation.reverse_debugger = True
-    t.config.translation.rweakref = False
     t.config.translation.lldebug0 = True
     if withsmallfuncsets is not None:
         t.config.translation.withsmallfuncsets = withsmallfuncsets
@@ -91,10 +90,13 @@ def fetch_rdb(self, expected_argv):
     return RDB(self.rdbname, map(str, expected_argv))
 
 
-class TestRecording(object):
+class BaseRecordingTests(object):
     compile = compile
     run = run
     fetch_rdb = fetch_rdb
+
+
+class TestRecording(BaseRecordingTests):
 
     def test_simple(self):
         def main(argv):

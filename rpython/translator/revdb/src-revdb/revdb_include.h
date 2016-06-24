@@ -107,6 +107,12 @@ RPY_EXTERN void rpy_reverse_db_teardown(void);
 #define OP_REVDB_WATCH_RESTORE_STATE(any_watch_point, r)                \
     rpy_reverse_db_watch_restore_state(any_watch_point)
 
+#define OP_REVDB_WEAKREF_CREATE(target, r)                              \
+    r = rpy_reverse_db_weakref_create(target)
+
+#define OP_REVDB_WEAKREF_DEREF(weakref, r)                              \
+    r = rpy_reverse_db_weakref_deref(weakref)
+
 RPY_EXTERN void rpy_reverse_db_flush(void);
 RPY_EXTERN char *rpy_reverse_db_fetch(int expected_size,
                                       const char *file, int line);
@@ -119,5 +125,7 @@ RPY_EXTERN long long rpy_reverse_db_get_value(char value_id);
 RPY_EXTERN uint64_t rpy_reverse_db_unique_id_break(void *new_object);
 RPY_EXTERN void rpy_reverse_db_watch_save_state(void);
 RPY_EXTERN void rpy_reverse_db_watch_restore_state(bool_t any_watch_point);
+RPY_EXTERN void *rpy_reverse_db_weakref_create(void *target);
+RPY_EXTERN void *rpy_reverse_db_weakref_deref(void *weakref);
 
 /* ------------------------------------------------------------ */

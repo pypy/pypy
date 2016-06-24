@@ -1,6 +1,8 @@
 #include "common_header.h"
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
+#include <assert.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <fcntl.h>
@@ -13,10 +15,14 @@
 #include "forwarddecl.h"
 #include "preimpl.h"
 #include "src/rtyper.h"
+#include "src/mem.h"
 #include "src-revdb/revdb_include.h"
 
 #define RDB_SIGNATURE   "RevDB:"
 #define RDB_VERSION     0x00FF0001
+
+#define WEAKREF_AFTERWARDS_DEAD    ((char)0xf2)
+#define WEAKREF_AFTERWARDS_ALIVE   ((char)0xeb)
 
 
 typedef struct {
@@ -168,6 +174,124 @@ Signed rpy_reverse_db_identityhash(struct pypy_header0 *obj)
         obj->h_hash = h;
     }
     return obj->h_hash;
+}
+
+static int64_t recording_offset(void)
+{
+    off_t base_offset;
+    ssize_t extra_size = rpy_revdb.buf_p - rpy_rev_buffer;
+
+    if (rpy_rev_buffer < 0)
+        return -1;
+    base_offset = lseek(rpy_rev_fileno, 0, SEEK_CUR);
+    if (base_offset < 0) {
+        perror("lseek");
+        exit(1);
+    }
+    return base_offset + extra_size;
+}
+
+static void patch_prev_offset(int64_t offset, char old, char new)
+{
+    off_t base_offset;
+    if (rpy_rev_fileno < 0)
+        return;
+    base_offset = lseek(rpy_rev_fileno, 0, SEEK_CUR);
+    if (base_offset < 0) {
+        perror("lseek");
+        exit(1);
+    }
+    if (offset < base_offset) {
+        char got;
+        if (pread(rpy_rev_fileno, &got, 1, offset) != 1) {
+            fprintf(stderr, "can't read log position %lld for checking: %m\n",
+                    (long long)offset);
+            exit(1);
+        }
+        if (got != old) {
+            fprintf(stderr,
+                    "bad byte at log position %lld (%d instead of %d)\n",
+                    (long long)offset, got, old);
+            exit(1);
+        }
+        if (pwrite(rpy_rev_fileno, &new, 1, offset) != 1) {
+            fprintf(stderr, "can't patch log position %lld\n", offset);
+            exit(1);
+        }
+    }
+    else {
+        ssize_t buffered_size = rpy_revdb.buf_p - rpy_rev_buffer;
+        int64_t buf_ofs = offset - base_offset;
+        if (buf_ofs >= buffered_size) {
+            fprintf(stderr, "invalid patch position %lld\n",
+                    (long long)offset);
+            exit(1);
+        }
+        if (rpy_rev_buffer[buf_ofs] != old) {
+            fprintf(stderr,
+                    "bad byte at log position %lld (%d instead of %d)\n",
+                    (long long)offset, rpy_rev_buffer[buf_ofs], old);
+            exit(1);
+        }
+        rpy_rev_buffer[buf_ofs] = new;
+    }
+}
+
+RPY_EXTERN
+void *rpy_reverse_db_weakref_create(void *target)
+{
+    /* see comments in ../test/test_weak.py */
+    struct pypy_REVDB_WEAKLINK0 *r;
+    r = malloc(sizeof(struct pypy_REVDB_WEAKLINK0));
+    if (!r) {
+        fprintf(stderr, "out of memory for a weakref\n");
+        exit(1);
+    }
+    r->re_addr = target;
+    r->re_off_prev = 0;
+
+    if (!flag_io_disabled) {
+        char alive;
+        /* Emit WEAKREF_AFTERWARDS_DEAD, but remember where we emit it.
+           If we deref the weakref and it is still alive, we will patch
+           it with WEAKREF_AFTERWARDS_ALIVE. */
+        if (!RPY_RDB_REPLAY)
+            r->re_off_prev = recording_offset();
+
+        RPY_REVDB_EMIT(alive = WEAKREF_AFTERWARDS_DEAD;, char _e, alive);
+
+        if (!RPY_RDB_REPLAY) {
+            OP_BOEHM_DISAPPEARING_LINK(r, target, /*nothing*/);
+        }
+        else if (alive == WEAKREF_AFTERWARDS_DEAD)
+            r->re_addr = NULL;
+    }
+    return r;
+}
+
+RPY_EXTERN
+void *rpy_reverse_db_weakref_deref(void *weakref)
+{
+    struct pypy_REVDB_WEAKLINK0 *r = (struct pypy_REVDB_WEAKLINK0 *)weakref;
+    void *result = r->re_addr;
+    if (result && !flag_io_disabled) {
+        char alive;
+        if (!RPY_RDB_REPLAY) {
+            if (r->re_off_prev <= 0) {
+                fprintf(stderr, "bug in weakrefs: bad previous offset %lld\n",
+                        (long long)r->re_off_prev);
+                exit(1);
+            }
+            patch_prev_offset(r->re_off_prev, WEAKREF_AFTERWARDS_DEAD,
+                                              WEAKREF_AFTERWARDS_ALIVE);
+            r->re_off_prev = recording_offset();
+        }
+        RPY_REVDB_EMIT(alive = WEAKREF_AFTERWARDS_DEAD;, char _e, alive);
+
+        if (RPY_RDB_REPLAY && alive == WEAKREF_AFTERWARDS_DEAD)
+            r->re_addr = NULL;
+    }
+    return result;
 }
 
 

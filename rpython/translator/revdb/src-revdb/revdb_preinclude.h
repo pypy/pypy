@@ -6,4 +6,5 @@ typedef struct rpy_revdb_command_s {
     int64_t arg1;
     int64_t arg2;
     int64_t arg3;
+    /* char extra[extra_size]; */
 } rpy_revdb_command_t;

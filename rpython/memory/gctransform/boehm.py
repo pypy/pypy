@@ -43,11 +43,14 @@ class BoehmGCTransformer(GCTransformer):
             self.malloc_varsize_ptr = self.inittime_helper(
                 ll_malloc_varsize, [lltype.Signed]*4, llmemory.GCREF, inline=False)
             if self.translator.config.translation.rweakref:
+                (ll_weakref_create, ll_weakref_deref,
+                 self.WEAKLINK, self.convert_weakref_to
+                        ) = build_weakref(self.translator.config)
                 self.weakref_create_ptr = self.inittime_helper(
                     ll_weakref_create, [llmemory.Address], llmemory.WeakRefPtr,
                     inline=False)
                 self.weakref_deref_ptr = self.inittime_helper(
-                    ll_weakref_deref, [llmemory.WeakRefPtr], llmemory.Address)
+                    ll_weakref_deref, [llmemory.WeakRefPtr], llmemory.GCREF)
 
             if not translator.config.translation.reverse_debugger:
                 def ll_identityhash(addr):
@@ -125,10 +128,10 @@ class BoehmGCTransformer(GCTransformer):
 
     def gct_weakref_create(self, hop):
         v_instance, = hop.spaceop.args
-        v_addr = hop.genop("cast_ptr_to_adr", [v_instance],
-                           resulttype=llmemory.Address)
+        v_gcref = hop.genop("cast_opaque_ptr", [v_instance],
+                            resulttype=llmemory.GCREF)
         v_wref = hop.genop("direct_call",
-                           [self.weakref_create_ptr, v_addr],
+                           [self.weakref_create_ptr, v_gcref],
                            resulttype=llmemory.WeakRefPtr)
         hop.cast_result(v_wref)
 
@@ -140,10 +143,10 @@ class BoehmGCTransformer(GCTransformer):
 
     def gct_weakref_deref(self, hop):
         v_wref, = hop.spaceop.args
-        v_addr = hop.genop("direct_call",
-                           [self.weakref_deref_ptr, v_wref],
-                           resulttype=llmemory.Address)
-        hop.cast_result(v_addr)
+        v_gcref = hop.genop("direct_call",
+                            [self.weakref_deref_ptr, v_wref],
+                            resulttype=llmemory.GCREF)
+        hop.cast_result(v_gcref)
 
     def gct_gc_writebarrier_before_copy(self, hop):
         # no write barrier needed
@@ -180,32 +183,50 @@ class BoehmGCTransformer(GCTransformer):
 # disappearing link.  We don't have to hide the link's value with
 # HIDE_POINTER(), because we explicitly use GC_MALLOC_ATOMIC().
 
-WEAKLINK = lltype.FixedSizeArray(llmemory.Address, 1)
-sizeof_weakreflink = llmemory.sizeof(WEAKLINK)
-empty_weaklink = lltype.malloc(WEAKLINK, immortal=True)
-empty_weaklink[0] = llmemory.NULL
-
-def ll_weakref_create(targetaddr):
-    link = llop.boehm_malloc_atomic(llmemory.Address, sizeof_weakreflink)
-    if not link:
-        raise MemoryError
-    plink = llmemory.cast_adr_to_ptr(link, lltype.Ptr(WEAKLINK))
-    plink[0] = targetaddr
-    llop.boehm_disappearing_link(lltype.Void, link, targetaddr)
-    return llmemory.cast_ptr_to_weakrefptr(plink)
-
-def ll_weakref_deref(wref):
-    plink = llmemory.cast_weakrefptr_to_ptr(lltype.Ptr(WEAKLINK), wref)
-    return plink[0]
-
-def convert_weakref_to(targetptr):
-    # Prebuilt weakrefs don't really need to be weak at all,
-    # but we need to emulate the structure expected by ll_weakref_deref().
-    # This is essentially the same code as in ll_weakref_create(), but I'm
-    # not sure trying to share it is worth the hassle...
-    if not targetptr:
-        return empty_weaklink
+def build_weakref(config):
+    revdb = config.translation.reverse_debugger
+    if not revdb:
+        WEAKLINK = lltype.Struct('WEAKLINK',
+                                 ('addr', llmemory.Address))
     else:
-        plink = lltype.malloc(WEAKLINK, immortal=True)
-        plink[0] = llmemory.cast_ptr_to_adr(targetptr)
-        return plink
+        WEAKLINK = lltype.Struct('REVDB_WEAKLINK',
+                                 ('addr', llmemory.Address),
+                                 ('off_prev', lltype.SignedLongLong))
+    sizeof_weakreflink = llmemory.sizeof(WEAKLINK)
+    empty_weaklink = lltype.malloc(WEAKLINK, immortal=True, zero=True)
+
+    def ll_weakref_create(target_gcref):
+        if revdb:
+            plink = llop.revdb_weakref_create(lltype.Ptr(WEAKLINK),
+                                              target_gcref)
+        else:
+            link = llop.boehm_malloc_atomic(llmemory.Address,
+                                            sizeof_weakreflink)
+            if not link:
+                raise MemoryError
+            plink = llmemory.cast_adr_to_ptr(link, lltype.Ptr(WEAKLINK))
+            plink.addr = llmemory.cast_ptr_to_adr(target_gcref)
+            llop.boehm_disappearing_link(lltype.Void, link, target_gcref)
+        return llmemory.cast_ptr_to_weakrefptr(plink)
+
+    def ll_weakref_deref(wref):
+        plink = llmemory.cast_weakrefptr_to_ptr(lltype.Ptr(WEAKLINK), wref)
+        if revdb:
+            result = llop.revdb_weakref_deref(llmemory.GCREF, plink)
+        else:
+            result = llmemory.cast_adr_to_ptr(plink.addr, llmemory.GCREF)
+        return result
+
+    def convert_weakref_to(targetptr):
+        # Prebuilt weakrefs don't really need to be weak at all,
+        # but we need to emulate the structure expected by ll_weakref_deref().
+        # This is essentially the same code as in ll_weakref_create(), but I'm
+        # not sure trying to share it is worth the hassle...
+        if not targetptr:
+            return empty_weaklink
+        else:
+            plink = lltype.malloc(WEAKLINK, immortal=True, zero=True)
+            plink.addr = llmemory.cast_ptr_to_adr(targetptr)
+            return plink
+
+    return ll_weakref_create, ll_weakref_deref, WEAKLINK, convert_weakref_to
