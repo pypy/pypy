@@ -481,7 +481,7 @@ class NotVirtualStateInfoInt(NotVirtualStateInfo):
             self.intbound = info
 
     def _generate_guards_unkown(self, other, box, runtime_box, extra_guards,
-                                optimizer):
+                                state):
         other_intbound = None
         if isinstance(other, NotVirtualStateInfoInt):
             other_intbound = other.intbound
@@ -493,7 +493,7 @@ class NotVirtualStateInfoInt(NotVirtualStateInfo):
             self.intbound.contains(runtime_box.getint())):
             # this may generate a few more guards than needed, but they are
             # optimized away when emitting them
-            self.intbound.make_guards(box, extra_guards, optimizer)
+            self.intbound.make_guards(box, extra_guards, state.optimizer)
             return
         raise VirtualStatesCantMatch("intbounds don't match")
 

@@ -1,4 +1,4 @@
-import py
+import os
 import pytest
 
 def pytest_configure(config):
@@ -21,3 +21,14 @@ def pytest_funcarg__space(request):
 def pytest_funcarg__api(request):
     return request.cls.api
 
+if os.name == 'nt':
+    @pytest.yield_fixture(autouse=True, scope='session')
+    def prevent_dialog_box():
+        """Do not open dreaded dialog box on segfault on Windows"""
+        import ctypes
+        SEM_NOGPFAULTERRORBOX = 0x0002  # From MSDN
+        old_err_mode = ctypes.windll.kernel32.GetErrorMode()
+        new_err_mode = old_err_mode | SEM_NOGPFAULTERRORBOX
+        ctypes.windll.kernel32.SetErrorMode(new_err_mode)
+        yield
+        ctypes.windll.kernel32.SetErrorMode(old_err_mode)
