@@ -629,7 +629,8 @@ class Optimizer(Optimization):
                                              self._last_guard_op)
         else:
             op = self.store_final_boxes_in_guard(guard_op, pendingfields)
-            self._last_guard_op = op
+            if opnum == rop.GUARD_COMPATIBLE:
+                self._last_guard_op = op # XXX don't share the next one either
             # for unrolling
             for farg in op.getfailargs():
                 if farg:

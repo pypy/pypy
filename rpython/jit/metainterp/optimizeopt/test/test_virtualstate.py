@@ -482,7 +482,7 @@ class BaseTestGenerateGuards(BaseTest):
         """
         self.compare(guards, expected, [box])
 
-    def make_ccond(self):
+    def make_ccond_info(self):
         from rpython.jit.metainterp.compatible import CompatibilityCondition
         optimizer = FakeOptimizer(self.cpu)
         ccond = CompatibilityCondition(ConstPtr(self.quasiptr))
@@ -507,13 +507,12 @@ class BaseTestGenerateGuards(BaseTest):
         copied_op, cond = ccond.prepare_const_arg_call(
                 op, optimizer)
         ccond.record_condition(cond, ConstInt(5), optimizer)
-
-        return ccond
+        value = info.PtrInfo()
+        value._compatibility_conditions = ccond
+        return value
 
     def test_info_make_guards_guard_compatible_with_conditions(self):
-        value1 = info.PtrInfo()
-        ccond = self.make_ccond()
-        value1._compatibility_conditions = ccond
+        value1 = self.make_ccond_info()
 
         box = InputArgRef()
         guards = []
@@ -532,12 +531,8 @@ class BaseTestGenerateGuards(BaseTest):
         self.compare(guards, expected, [box])
 
     def test_virtualstate_guard_compatible(self):
-        value1 = info.PtrInfo()
-        ccond1 = self.make_ccond()
-        value1._compatibility_conditions = ccond1
-        value2 = info.PtrInfo()
-        ccond2 = self.make_ccond()
-        value2._compatibility_conditions = ccond2
+        value1 = self.make_ccond_info()
+        value2 = self.make_ccond_info()
 
         state1 = not_virtual(self.cpu, 'r', value1)
         state2 = not_virtual(self.cpu, 'r', value2)
@@ -551,6 +546,26 @@ class BaseTestGenerateGuards(BaseTest):
         self.check_no_guards(state1, state2)
 
         ccond1.conditions = []
+        self.check_no_guards(state1, state2)
+
+    def test_virtualstate_guard_compatible_make_guards(self):
+        value1 = self.make_ccond_info()
+        value2 = self.make_ccond_info()
+
+        state1 = not_virtual(self.cpu, 'r', value1)
+        state2 = not_virtual(self.cpu, 'r', value2)
+
+
+        cond = ccond2.conditions[:]
+        ccond2.conditions = [cond[0]]
+        box = InputArgRef(self.nodeaddr)
+        self.guards(state1, state2)
+
+        ccond2.conditions = [cond[1]]
+        self.check_no_guards(state1, state2)
+
+        ccond2.conditions = []
+        self.check_no_guards(state1, state2)
         self.check_no_guards(state1, state2)
 
 

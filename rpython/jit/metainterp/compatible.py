@@ -395,6 +395,7 @@ class QuasiimmutGetfieldAndPureCallCondition(PureCallCondition):
 
     def emit_condition(self, op, short, optimizer, const=None):
         from rpython.jit.metainterp.resoperation import rop, ResOperation
+        from rpython.jit.metainterp.quasiimmut import QuasiImmutDescr
         # more mess
         fielddescr = self.fielddescr
         if fielddescr.is_pointer_field():
@@ -406,9 +407,15 @@ class QuasiimmutGetfieldAndPureCallCondition(PureCallCondition):
         else:
             getfield_op = ResOperation(
                 rop.GETFIELD_GC_I, [op], fielddescr)
+        if const is not None:
+            ref = const.getref_base()
+            qmutdescr = QuasiImmutDescr(
+                    optimizer.cpu, ref, self.fielddescr, self.mutatefielddescr)
+        else:
+            qmutdescr = self.qmutdescr
         short.extend([
             ResOperation(
-                rop.QUASIIMMUT_FIELD, [op], self.qmutdescr),
+                rop.QUASIIMMUT_FIELD, [op], qmutdescr),
             ResOperation(
                 rop.GUARD_NOT_INVALIDATED, []),
             getfield_op])
@@ -416,15 +423,19 @@ class QuasiimmutGetfieldAndPureCallCondition(PureCallCondition):
         PureCallCondition.emit_condition(self, op, short, optimizer, const)
         call_op = short[index]
         # puh, not pretty
-        args = call_op.getarglist()
+        args = call_op.getarglist()[:]
         if const is not None:
+            args[1] = const
             del optimizer.call_pure_results[args]
         assert call_op.opnum in (
                 rop.CALL_PURE_I, rop.CALL_PURE_R,
                 rop.CALL_PURE_F, rop.CALL_PURE_N)
         call_op.setarg(2, getfield_op)
         if const is not None:
-            optimizer.call_pure_results[call_op.getarglist()] = self.res
+            ref = const.getref_base()
+            args[2] = QuasiImmutDescr._get_fieldvalue(
+                self.fielddescr, ref, optimizer.cpu)
+            optimizer.call_pure_results[args] = self.res
 
     def repr(self, argrepr="?"):
         addr = self.args[0].getaddr()
