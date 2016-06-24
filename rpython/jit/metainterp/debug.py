@@ -5,7 +5,11 @@ from rpython.rlib.jitlog import _log_jit_counter
 # forever, just because we want to report them at the end
 # of the process
 
-LOOP_RUN_COUNTERS = []
+class DebugStaticData(object):
+    def __init__(self):
+        self.loop_run_counters = []
+
+debug_sd = DebugStaticData()
 
 DEBUG_COUNTER = lltype.Struct('DEBUG_COUNTER',
     # 'b'ridge, 'l'abel or # 'e'ntry point
@@ -16,8 +20,9 @@ DEBUG_COUNTER = lltype.Struct('DEBUG_COUNTER',
 
 def flush_debug_counters():
     # this is always called, the jitlog knows if it is enabled
-    for i in range(len(LOOP_RUN_COUNTERS)):
-        struct = LOOP_RUN_COUNTERS[i]
+    length = len(debug_sd.loop_run_counters)
+    for i in range(length):
+        struct = debug_sd.loop_run_counters[i]
         _log_jit_counter(struct)
         # reset the counter, flush in a later point in time will
         # add up the counters!

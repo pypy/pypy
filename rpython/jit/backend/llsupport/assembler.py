@@ -13,7 +13,7 @@ from rpython.rlib.objectmodel import specialize, compute_unique_id
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref, llhelper
 from rpython.rtyper.lltypesystem import rffi, lltype
 
-from rpython.jit.metainterp.debug import (DEBUG_COUNTER, LOOP_RUN_COUNTERS,
+from rpython.jit.metainterp.debug import (DEBUG_COUNTER, debug_sd,
         flush_debug_counters)
 
 class GuardToken(object):
@@ -333,7 +333,7 @@ class BaseAssembler(object):
         self._call_assembler_patch_jmp(jmp_location)
 
     def get_loop_run_counters(self, index):
-        return LOOP_RUN_COUNTERS[index]
+        return debug_sd.loop_run_counters[index]
 
     @specialize.argtype(1)
     def _inject_debugging_code(self, looptoken, operations, tp, number):
@@ -366,15 +366,16 @@ class BaseAssembler(object):
         else:
             assert token
             struct.number = compute_unique_id(token)
-        LOOP_RUN_COUNTERS.append(struct)
+        debug_sd.loop_run_counters.append(struct)
         return struct
 
     def finish_once(self):
         if self._debug:
             # TODO remove the old logging system when jitlog is complete
             debug_start('jit-backend-counts')
-            for i in range(len(LOOP_RUN_COUNTERS)):
-                struct = LOOP_RUN_COUNTERS[i]
+            length = len(debug_sd.loop_run_counters)
+            for i in range(length):
+                struct = debug_sd.loop_run_counters[i]
                 if struct.type == 'l':
                     prefix = 'TargetToken(%d)' % struct.number
                 else:
