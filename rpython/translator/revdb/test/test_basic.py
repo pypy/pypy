@@ -221,12 +221,14 @@ class InteractiveTests(object):
         s2.close()
         self.subproc = subproc
         child = ReplayProcess(subproc.pid, s1)
-        child.expect(ANSWER_INIT, INIT_VERSION_NUMBER, 3)
+        child.expect(ANSWER_INIT, INIT_VERSION_NUMBER,
+                     self.expected_stop_points)
         child.expect(ANSWER_READY, 1, Ellipsis)
         return child
 
 
 class TestSimpleInterpreter(InteractiveTests):
+    expected_stop_points = 3
 
     def setup_class(cls):
         def main(argv):

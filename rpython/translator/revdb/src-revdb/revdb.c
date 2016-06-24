@@ -115,7 +115,7 @@ static void setup_record_mode(int argc, char *argv[])
 
     if (filename && *filename) {
         putenv("PYPYRDB=");
-        rpy_rev_fileno = open(filename, O_WRONLY | O_CLOEXEC |
+        rpy_rev_fileno = open(filename, O_RDWR | O_CLOEXEC |
                               O_CREAT | O_NOCTTY | O_TRUNC, 0600);
         if (rpy_rev_fileno < 0) {
             fprintf(stderr, "Fatal error: can't create PYPYRDB file '%s'\n",
@@ -181,8 +181,8 @@ static int64_t recording_offset(void)
     off_t base_offset;
     ssize_t extra_size = rpy_revdb.buf_p - rpy_rev_buffer;
 
-    if (rpy_rev_buffer < 0)
-        return -1;
+    if (rpy_rev_fileno < 0)
+        return 1;
     base_offset = lseek(rpy_rev_fileno, 0, SEEK_CUR);
     if (base_offset < 0) {
         perror("lseek");
@@ -242,7 +242,11 @@ void *rpy_reverse_db_weakref_create(void *target)
 {
     /* see comments in ../test/test_weak.py */
     struct pypy_REVDB_WEAKLINK0 *r;
-    r = malloc(sizeof(struct pypy_REVDB_WEAKLINK0));
+    if (!RPY_RDB_REPLAY)
+        r = GC_MALLOC_ATOMIC(sizeof(struct pypy_REVDB_WEAKLINK0));
+    else
+        r = GC_MALLOC(sizeof(struct pypy_REVDB_WEAKLINK0));
+
     if (!r) {
         fprintf(stderr, "out of memory for a weakref\n");
         exit(1);
@@ -261,10 +265,23 @@ void *rpy_reverse_db_weakref_create(void *target)
         RPY_REVDB_EMIT(alive = WEAKREF_AFTERWARDS_DEAD;, char _e, alive);
 
         if (!RPY_RDB_REPLAY) {
-            OP_BOEHM_DISAPPEARING_LINK(r, target, /*nothing*/);
+            OP_BOEHM_DISAPPEARING_LINK(&r->re_addr, target, /*nothing*/);
         }
-        else if (alive == WEAKREF_AFTERWARDS_DEAD)
-            r->re_addr = NULL;
+        else {
+            /* replaying: we don't make the weakref actually weak at all,
+               but instead we always know if we're going to need the 
+               weakref value later or not */
+            switch (alive) {
+            case WEAKREF_AFTERWARDS_DEAD:
+                r->re_addr = NULL;
+                break;
+            case WEAKREF_AFTERWARDS_ALIVE:
+                break;
+            default:
+                fprintf(stderr, "bad weakref_create byte in log\n");
+                exit(1);
+            }
+        }
     }
     return r;
 }
@@ -288,8 +305,18 @@ void *rpy_reverse_db_weakref_deref(void *weakref)
         }
         RPY_REVDB_EMIT(alive = WEAKREF_AFTERWARDS_DEAD;, char _e, alive);
 
-        if (RPY_RDB_REPLAY && alive == WEAKREF_AFTERWARDS_DEAD)
-            r->re_addr = NULL;
+        if (RPY_RDB_REPLAY) {
+            switch (alive) {
+            case WEAKREF_AFTERWARDS_DEAD:
+                r->re_addr = NULL;
+                break;
+            case WEAKREF_AFTERWARDS_ALIVE:
+                break;
+            default:
+                fprintf(stderr, "bad weakref_deref byte in log\n");
+                exit(1);
+            }
+        }
     }
     return result;
 }
