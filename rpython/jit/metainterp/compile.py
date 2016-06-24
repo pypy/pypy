@@ -1114,19 +1114,19 @@ class GuardCompatibleDescr(ResumeGuardDescr):
         # if new_loop starts with another guard_compatible on the same argument
         # (which is most of the time) we have to connect the new guard's descr
         # to this descr
-        assert self.failarg_index != -1
-        arg = new_loop.inputargs[self.failarg_index]
-        firstop = new_loop.operations[0]
         compat_cond = None
-        if (firstop.getopnum() == rop.GUARD_COMPATIBLE and
-                firstop.getarg(0) is arg):
-            # a guard_compatible about the same box
-            # remove it, it doesn't have to be checked in the bridge
-            del new_loop.operations[0]
-            newdescr = firstop.getdescr()
-            assert isinstance(newdescr, GuardCompatibleDescr)
-            compat_cond = newdescr._compatibility_conditions
-            self.other_compat_conditions.append(compat_cond)
+        if self.failarg_index != -1:
+            arg = new_loop.inputargs[self.failarg_index]
+            firstop = new_loop.operations[0]
+            if (firstop.getopnum() == rop.GUARD_COMPATIBLE and
+                    firstop.getarg(0) is arg):
+                # a guard_compatible about the same box
+                # remove it, it doesn't have to be checked in the bridge
+                del new_loop.operations[0]
+                newdescr = firstop.getdescr()
+                assert isinstance(newdescr, GuardCompatibleDescr)
+                compat_cond = newdescr._compatibility_conditions
+                self.other_compat_conditions.append(compat_cond)
         asminfo = ResumeGuardDescr.compile_and_attach(
             self, metainterp, new_loop, orig_inputargs)
         if compat_cond:
@@ -1134,8 +1134,12 @@ class GuardCompatibleDescr(ResumeGuardDescr):
         return asminfo
 
     def make_a_counter_per_value(self, guard_value_op, index):
-        self.failarg_index = guard_value_op.getfailargs().index(
-                guard_value_op.getarg(0))
+        try:
+            self.failarg_index = guard_value_op.getfailargs().index(
+                    guard_value_op.getarg(0))
+        except ValueError:
+            pass # we don't set the failarg_index, too bad
+
         # this is not actually enabling the counter_per_value logic,
         # which right now gives bad results with a GUARD_COMPATIBLE
         #ResumeGuardDescr.make_a_counter_per_value(self, guard_value_op, index)

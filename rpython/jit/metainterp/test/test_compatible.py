@@ -362,6 +362,53 @@ class TestCompatible(LLJitMixin):
         # trace, two bridges, a finish bridge
         self.check_trace_count(4)
 
+    def test_merge_obj_not_in_failargs(self):
+        S = lltype.GcStruct('S', ('x', lltype.Signed))
+        p1 = lltype.malloc(S)
+        p1.x = 1
+
+        p2 = lltype.malloc(S)
+        p2.x = 1
+
+        driver = jit.JitDriver(greens = [], reds = ['n'])
+
+        class A(object):
+            pass
+
+        c = A()
+        c.count = 0
+        @jit.elidable_compatible()
+        def g(s, ignored):
+            c.count += 1
+            return s.x
+
+        class B(object):
+            pass
+
+        glob_b = B()
+
+        def f(n):
+            while n > 0:
+                driver.can_enter_jit(n=n)
+                driver.jit_merge_point(n=n)
+                x = glob_b.x
+                n -= g(x, "abc")
+                if n & 2:
+                    n -= 2
+
+        def main():
+            g(p1, "def") # make annotator not make argument constant
+            glob_b.x = p1
+            f(1000)
+            glob_b.x = p2
+            f(1000)
+            return c.count
+
+        x = self.meta_interp(main, [])
+
+        # trace, two bridges, a finish bridge
+        self.check_trace_count(4)
+
     def test_merge_switch_object(self):
         S = lltype.GcStruct('S', ('x', lltype.Signed))
         p1 = lltype.malloc(S)
