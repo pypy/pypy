@@ -471,7 +471,6 @@ class BaseTestGenerateGuards(BaseTest):
     def test_guard_compatible(self):
         from rpython.jit.metainterp.compatible import CompatibilityCondition
         value1 = info.PtrInfo()
-        ptr = "fakeptr"
         value1._compatibility_conditions = CompatibilityCondition(
                 ConstPtr(self.myptr))
         box = InputArgRef()
@@ -483,14 +482,10 @@ class BaseTestGenerateGuards(BaseTest):
         """
         self.compare(guards, expected, [box])
 
-    def test_guard_compatible_with_conditions(self):
+    def make_ccond(self):
         from rpython.jit.metainterp.compatible import CompatibilityCondition
         optimizer = FakeOptimizer(self.cpu)
-        value1 = info.PtrInfo()
-        ptr = "fakeptr"
-        ccond = value1._compatibility_conditions = CompatibilityCondition(
-                ConstPtr(self.quasiptr))
-
+        ccond = CompatibilityCondition(ConstPtr(self.quasiptr))
         # regular call
         op = ResOperation(
                 rop.CALL_PURE_I, [ConstInt(123), ConstPtr(self.quasiptr)],
@@ -513,6 +508,13 @@ class BaseTestGenerateGuards(BaseTest):
                 op, optimizer)
         ccond.record_condition(cond, ConstInt(5), optimizer)
 
+        return ccond
+
+    def test_info_make_guards_guard_compatible_with_conditions(self):
+        value1 = info.PtrInfo()
+        ccond = self.make_ccond()
+        value1._compatibility_conditions = ccond
+
         box = InputArgRef()
         guards = []
         value1.make_guards(box, guards, FakeOptimizer(self.cpu))
@@ -528,6 +530,29 @@ class BaseTestGenerateGuards(BaseTest):
         guard_value(i2, 5) []
         """
         self.compare(guards, expected, [box])
+
+    def test_virtualstate_guard_compatible(self):
+        value1 = info.PtrInfo()
+        ccond1 = self.make_ccond()
+        value1._compatibility_conditions = ccond1
+        value2 = info.PtrInfo()
+        ccond2 = self.make_ccond()
+        value2._compatibility_conditions = ccond2
+
+        state1 = not_virtual(self.cpu, 'r', value1)
+        state2 = not_virtual(self.cpu, 'r', value2)
+        self.check_no_guards(state1, state2)
+
+        cond = ccond1.conditions[:]
+        ccond1.conditions = [cond[0]]
+        self.check_no_guards(state1, state2)
+
+        ccond1.conditions = [cond[1]]
+        self.check_no_guards(state1, state2)
+
+        ccond1.conditions = []
+        self.check_no_guards(state1, state2)
+
 
     def test_equal_inputargs(self):
         classbox = self.cpu.ts.cls_of_box(InputArgRef(self.nodeaddr))
