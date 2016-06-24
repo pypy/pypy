@@ -271,6 +271,7 @@ class TestSimpleInterpreter(InteractiveTests):
 
 
 class TestDebugCommands(InteractiveTests):
+    expected_stop_points = 3
 
     def setup_class(cls):
         #

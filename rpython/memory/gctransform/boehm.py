@@ -189,6 +189,7 @@ def build_weakref(config):
         WEAKLINK = lltype.Struct('WEAKLINK',
                                  ('addr', llmemory.Address))
     else:
+        # keep in sync with 'struct WEAKLINK' in revdb.c
         WEAKLINK = lltype.Struct('REVDB_WEAKLINK',
                                  ('addr', llmemory.Address),
                                  ('off_prev', lltype.SignedLongLong))

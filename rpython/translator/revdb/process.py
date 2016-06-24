@@ -76,7 +76,7 @@ class ReplayProcess(object):
         return ''.join(pieces)
 
     def send(self, msg):
-        print 'SENT:', self.pid, msg
+        #print 'SENT:', self.pid, msg
         binary = struct.pack("iIqqq", msg.cmd, len(msg.extra),
                              msg.arg1, msg.arg2, msg.arg3)
         self.control_socket.sendall(binary + msg.extra)
@@ -86,7 +86,7 @@ class ReplayProcess(object):
         cmd, size, arg1, arg2, arg3 = struct.unpack("iIqqq", binary)
         extra = self._recv_all(size)
         msg = Message(cmd, arg1, arg2, arg3, extra)
-        print 'RECV:', self.pid, msg
+        #print 'RECV:', self.pid, msg
         return msg
 
     def expect(self, cmd, arg1=0, arg2=0, arg3=0, extra=""):

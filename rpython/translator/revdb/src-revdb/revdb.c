@@ -237,15 +237,21 @@ static void patch_prev_offset(int64_t offset, char old, char new)
     }
 }
 
+/* keep in sync with 'REVDB_WEAKLINK' in rpython.memory.gctransform.boehm */
+struct WEAKLINK {
+    void *re_addr;
+    long long re_off_prev;
+};
+
 RPY_EXTERN
 void *rpy_reverse_db_weakref_create(void *target)
 {
     /* see comments in ../test/test_weak.py */
-    struct pypy_REVDB_WEAKLINK0 *r;
+    struct WEAKLINK *r;
     if (!RPY_RDB_REPLAY)
-        r = GC_MALLOC_ATOMIC(sizeof(struct pypy_REVDB_WEAKLINK0));
+        r = GC_MALLOC_ATOMIC(sizeof(struct WEAKLINK));
     else
-        r = GC_MALLOC(sizeof(struct pypy_REVDB_WEAKLINK0));
+        r = GC_MALLOC(sizeof(struct WEAKLINK));
 
     if (!r) {
         fprintf(stderr, "out of memory for a weakref\n");
@@ -289,7 +295,7 @@ void *rpy_reverse_db_weakref_create(void *target)
 RPY_EXTERN
 void *rpy_reverse_db_weakref_deref(void *weakref)
 {
-    struct pypy_REVDB_WEAKLINK0 *r = (struct pypy_REVDB_WEAKLINK0 *)weakref;
+    struct WEAKLINK *r = (struct WEAKLINK *)weakref;
     void *result = r->re_addr;
     if (result && !flag_io_disabled) {
         char alive;
