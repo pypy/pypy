@@ -844,7 +844,7 @@ class ASTBuilder(object):
     def handle_lambdef(self, lambdef_node):
         expr = self.handle_expr(lambdef_node.get_child(-1))
         if lambdef_node.num_children() == 3:
-            args = ast.arguments(None, None, None, None, None, None, None, None)
+            args = ast.arguments(None, None, None, None, None, None)
         else:
             args = self.handle_arguments(lambdef_node.get_child(1))
         return ast.Lambda(args, expr, lambdef_node.get_lineno(), lambdef_node.get_column())
