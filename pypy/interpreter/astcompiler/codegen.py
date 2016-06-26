@@ -1201,7 +1201,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 call_type |= 2
                 if nsubkwargs > 1:
                     # Pack it all up
-                    function_pos = n + (code & 1) + nkw + 1
+                    function_pos = n + (call_type & 1) + nkw + 1
                     self.emit_op_arg(ops.BUILD_MAP_UNPACK_WITH_CALL, (nsubkwargs | (function_pos << 8)))
 
         assert n < 1<<8
