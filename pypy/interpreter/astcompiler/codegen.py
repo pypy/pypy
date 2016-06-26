@@ -1017,7 +1017,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         ifexp.orelse.walkabout(self)
         self.use_next_block(end)
 
-    def _visit_starunpack(self, node, elts, ctx, single_op, inner_op, outer_op):
+    def _visit_starunpack(self, node, elts, single_op, inner_op, outer_op):
         elt_count = len(elts) if elts else 0
         seen_star = 0
         elt_subitems = 0
@@ -1074,7 +1074,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         if tup.ctx == ast.Store:
             self._visit_assignment(tup, tup.elts, tup.ctx)
         elif tup.ctx == ast.Load:
-            self._visit_starunpack(tup, tup.elts, tup.ctx, ops.BUILD_TUPLE, ops.BUILD_TUPLE, ops.BUILD_TUPLE_UNPACK)
+            self._visit_starunpack(tup, tup.elts, ops.BUILD_TUPLE, ops.BUILD_TUPLE, ops.BUILD_TUPLE_UNPACK)
         else:
             self.visit_sequence(tup.elts)
 
@@ -1083,7 +1083,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         if l.ctx == ast.Store:
             self._visit_assignment(l, l.elts, l.ctx)
         elif l.ctx == ast.Load:
-            self._visit_starunpack(l, l.elts, l.ctx, ops.BUILD_LIST, ops.BUILD_TUPLE, ops.BUILD_LIST_UNPACK)
+            self._visit_starunpack(l, l.elts, ops.BUILD_LIST, ops.BUILD_TUPLE, ops.BUILD_LIST_UNPACK)
         else:
             self.visit_sequence(l.elts)
 
@@ -1121,7 +1121,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             is_unpacking = 0
     
     def visit_Set(self, s):
-        self._visit_starunpack(s, s.elts, s.ctx, ops.BUILD_SET, ops.BUILD_SET, ops.BUILD_SET_UNPACK)
+        self._visit_starunpack(s, s.elts, ops.BUILD_SET, ops.BUILD_SET, ops.BUILD_SET_UNPACK)
 
     def visit_Name(self, name):
         self.update_position(name.lineno)
