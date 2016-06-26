@@ -135,7 +135,6 @@
 #define OP_LLONG_FLOORDIV(x,y,r)  r = (x) / (y)
 #define OP_ULLONG_FLOORDIV(x,y,r) r = (x) / (y)
 #define OP_LLLONG_FLOORDIV(x,y,r)  r = (x) / (y)
-#define OP_LONG2_FLOORDIV(x,y,r)  r = (x) / (y)
 
 /* modulus */
 

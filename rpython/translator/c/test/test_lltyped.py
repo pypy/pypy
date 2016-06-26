@@ -1,7 +1,6 @@
-import py, sys, random
+import py
 from rpython.rtyper.lltypesystem.lltype import *
 from rpython.rtyper.lltypesystem import rffi
-from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.translator.c.test.test_genc import compile
 from rpython.tool.sourcetools import func_with_new_name
 
@@ -1024,27 +1023,3 @@ class TestLowLevelType(object):
         assert fn(r_longlong(1)) == True
         assert fn(r_longlong(256)) == True
         assert fn(r_longlong(2**32)) == True
-
-    def test_long2_floordiv(self):
-        def f(a, b):
-            return llop.long2_floordiv(Signed, a, b)
-        fn = self.getcompiled(f, [int, int])
-        assert fn(100, 3) == 33
-        #
-        if sys.maxint > 2**32:
-            HUGE = getattr(rffi, '__INT128_T', None)
-            bits = 128
-        else:
-            HUGE = SignedLongLong
-            bits = 64
-        if HUGE is not None:
-            def f(a, b, c):
-                ab = (rffi.cast(HUGE, a) << (bits//2)) | b
-                return llop.long2_floordiv(Signed, ab, c)
-            fn = self.getcompiled(f, [int, int, int])
-            for i in range(100):
-                a = random.randrange(0, 10)
-                b = random.randrange(0, sys.maxint+1)
-                c = random.randrange(2*a+2, 25)
-                print a, b, c
-                assert fn(a, b, c) == ((a << (bits//2)) | b) // c

@@ -319,9 +319,6 @@ LL_OPERATIONS = {
     'lllong_rshift':         LLOp(canfold=True),  # args (r_longlonglong, int)
     'lllong_xor':            LLOp(canfold=True),
 
-    'long2_floordiv':       LLOp(canfold=True),  # r = x / y: r and y Signed,
-                                                 # x can have 2x the size
-
     'cast_primitive':       LLOp(canfold=True),
     'cast_bool_to_int':     LLOp(canfold=True),
     'cast_bool_to_uint':    LLOp(canfold=True),
