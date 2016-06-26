@@ -1838,7 +1838,7 @@ def _inplace_divrem1(pout, pin, n, size=0):
         rem = (rem << SHIFT) | pin.widedigit(size)
         hi = llop.long2_floordiv(lltype.Signed, rem, n)
         pout.setdigit(size, hi)
-        rem -= hi * n
+        rem -= _widen_digit(hi) * n
         size -= 1
     return rffi.cast(lltype.Signed, rem)
 
