@@ -1197,7 +1197,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 # Pack up any trailing keyword arguments.
                 self.emit_op_arg(ops.BUILD_MAP,nseen)
                 nsubkwargs += 1
-            if nsubargs:
+            if nsubkwargs:
                 call_type |= 2
                 if nsubkwargs > 1:
                     # Pack it all up
