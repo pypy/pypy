@@ -111,6 +111,8 @@ RPY_EXTERN void pypy_x86_check_sse2(void);
 #undef OP_LONG2_FLOORDIV
 /* assumes that 'y' and 'r' fit in a signed word, 
    but 'x' takes up to two words */
-#define OP_LONG2_FLOORDIV(x, y, r)                              \
-    __asm__("idiv %1" : "=a"(r) :                               \
-            "r"((long)y), "A"((long long)x));
+#define OP_LONG2_FLOORDIV(x, y, r)   do {               \
+        long ignored;                                   \
+        __asm__("idiv %2" : "=a"(r), "=d"(ignored) :    \
+                "r"((long)y), "A"((long long)x));       \
+    } while (0)
