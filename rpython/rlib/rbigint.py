@@ -1964,8 +1964,6 @@ def _v_rshift(z, a, m, d):
 
 def _x_divrem(v1, w1):
     """ Unsigned bigint division with remainder -- the algorithm """
-    from rpython.rtyper.lltypesystem.lloperation import llop
-
     size_v = v1.numdigits()
     size_w = w1.numdigits()
     assert size_v >= size_w and size_w > 1
@@ -1996,7 +1994,6 @@ def _x_divrem(v1, w1):
     assert k > 0
     a = rbigint([NULLDIGIT] * k, 1, k)
 
-    wm1s = w.digit(abs(size_w-1))
     wm1 = w.widedigit(abs(size_w-1))
     wm2 = w.widedigit(abs(size_w-2))
 
@@ -2014,7 +2011,7 @@ def _x_divrem(v1, w1):
             vtop = v.widedigit(j)
         assert vtop <= wm1
         vv = (vtop << SHIFT) | v.widedigit(abs(j-1))
-        q = llop.long2_floordiv(lltype.Signed, vv, wm1s)
+        q = vv // wm1      # can't use long2_floordiv(), q may not fit
         r = vv - wm1 * q
         while wm2 * q > ((r << SHIFT) | v.widedigit(abs(j-2))):
             q -= 1
