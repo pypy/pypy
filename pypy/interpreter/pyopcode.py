@@ -1355,16 +1355,18 @@ class __extend__(pyframe.PyFrame):
         #self.pushvalue(w_sum)
         
     def BUILD_LIST_UNPACK(self, itemcount, next_instr):
-        self.BUILD_LIST(itemcount, next_instr)
-        #w_sum = self.space.newlist()
-        #for i in range(itemcount, 0, -1):
-        #    w_item = self.popvalue()
-        #    #self.space.peek(i)
-        #    self.space.call_method(w_sum, 'update', w_item)
-        ##while itemcount != 0:
-        ##    self.popvalue()
-        ##    itemcount -= 1
-        #self.pushvalue(w_sum)
+        w_sum = []
+        for i in range(itemcount, 0, -1):
+        #for i in range(0, itemcount):
+            #w_item = self.popvalue()
+            w_item = self.peekvalue(i-1)
+            items = self.space.fixedview(w_item)
+            w_sum.extend(items)
+            #w_sum.append(w_item)
+        while itemcount != 0:
+            self.popvalue()
+            itemcount -= 1
+        self.pushvalue(self.space.newlist(w_sum))
         
     #TODO
     #get intersection, store as setentry
