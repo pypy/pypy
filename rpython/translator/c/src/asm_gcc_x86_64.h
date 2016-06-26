@@ -6,3 +6,10 @@
     asm volatile("rdtsc" : "=a"(_rax), "=d"(_rdx)); \
     val = (_rdx << 32) | _rax;                          \
 } while (0)
+
+#undef OP_LONG2_FLOORDIV
+/* assumes that 'y' and 'r' fit in a signed word, 
+   but 'x' takes up to two words */
+#define OP_LONG2_FLOORDIV(x, y, r)                              \
+    __asm__("idiv %1" : "=a"(r) :                               \
+            "r"((long)y), "a"((long)x), "d"((long)((x >> 32) >> 32)))

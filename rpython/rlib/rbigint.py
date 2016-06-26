@@ -1827,6 +1827,8 @@ def _inplace_divrem1(pout, pin, n, size=0):
     Divide bigint pin by non-zero digit n, storing quotient
     in pout, and returning the remainder. It's OK for pin == pout on entry.
     """
+    from rpython.rtyper.lltypesystem.lloperation import llop
+
     rem = _widen_digit(0)
     assert n > 0 and n <= MASK
     if not size:
@@ -1834,7 +1836,7 @@ def _inplace_divrem1(pout, pin, n, size=0):
     size -= 1
     while size >= 0:
         rem = (rem << SHIFT) | pin.widedigit(size)
-        hi = rem // n
+        hi = llop.long2_floordiv(lltype.Signed, rem, n)
         pout.setdigit(size, hi)
         rem -= hi * n
         size -= 1
@@ -1924,6 +1926,7 @@ def _muladd1(a, n, extra=0):
     z._normalize()
     return z
 _muladd1._annspecialcase_ = "specialize:argtype(2)"
+
 def _v_lshift(z, a, m, d):
     """ Shift digit vector a[0:m] d bits left, with 0 <= d < SHIFT. Put
         * result in z[0:m], and return the d bits shifted out of the top.
@@ -1961,6 +1964,8 @@ def _v_rshift(z, a, m, d):
 
 def _x_divrem(v1, w1):
     """ Unsigned bigint division with remainder -- the algorithm """
+    from rpython.rtyper.lltypesystem.lloperation import llop
+
     size_v = v1.numdigits()
     size_w = w1.numdigits()
     assert size_v >= size_w and size_w > 1
@@ -1991,6 +1996,7 @@ def _x_divrem(v1, w1):
     assert k > 0
     a = rbigint([NULLDIGIT] * k, 1, k)
 
+    wm1s = w.digit(abs(size_w-1))
     wm1 = w.widedigit(abs(size_w-1))
     wm2 = w.widedigit(abs(size_w-2))
 
@@ -2008,7 +2014,7 @@ def _x_divrem(v1, w1):
             vtop = v.widedigit(j)
         assert vtop <= wm1
         vv = (vtop << SHIFT) | v.widedigit(abs(j-1))
-        q = vv / wm1
+        q = llop.long2_floordiv(lltype.Signed, vv, wm1s)
         r = vv - wm1 * q
         while wm2 * q > ((r << SHIFT) | v.widedigit(abs(j-2))):
             q -= 1

@@ -16,7 +16,7 @@ ops_returning_a_bool = {'gt': True, 'ge': True,
                         'bool': True, 'is_true':True}
 
 # global synonyms for some types
-from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.rarithmetic import intmask, base_int
 from rpython.rlib.rarithmetic import r_int, r_uint, r_longlong, r_ulonglong, r_longlonglong
 from rpython.rtyper.lltypesystem.llmemory import AddressAsInt
 
@@ -732,6 +732,16 @@ def op_likely(x):
 def op_unlikely(x):
     assert isinstance(x, bool)
     return x
+
+def op_long2_floordiv(x, y):
+    if lltype.typeOf(x) != lltype.Signed:
+        assert isinstance(x, base_int)
+        assert x.BITS == 2 * r_int.BITS
+        assert x.SIGNED
+    assert lltype.typeOf(y) is lltype.Signed
+    result = int(x) // y
+    assert result == intmask(result), "overflow in long2_floordiv"
+    return result
 
 # ____________________________________________________________
 
