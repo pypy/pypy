@@ -120,8 +120,8 @@ def string_realize(space, py_obj):
 def string_dealloc(space, py_obj):
     """Frees allocated PyStringObject resources.
     """
-    from pypy.module.cpyext.object import PyObject_dealloc
-    PyObject_dealloc(space, py_obj)
+    from pypy.module.cpyext.object import _dealloc
+    _dealloc(space, py_obj)
 
 #_______________________________________________________________________
 

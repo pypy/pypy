@@ -55,8 +55,8 @@ def cfunction_dealloc(space, py_obj):
     py_func = rffi.cast(PyCFunctionObject, py_obj)
     Py_DecRef(space, py_func.c_m_self)
     Py_DecRef(space, py_func.c_m_module)
-    from pypy.module.cpyext.object import PyObject_dealloc
-    PyObject_dealloc(space, py_obj)
+    from pypy.module.cpyext.object import _dealloc
+    _dealloc(space, py_obj)
 
 
 class W_PyCFunctionObject(W_Root):
