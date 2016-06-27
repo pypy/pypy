@@ -28,7 +28,7 @@ class AppTestBytesObject(AppTestCpythonExtensionBase):
                  int result = PyBytes_Size(s);
 
                  Py_DECREF(s);
-                 return PyBool_FromLong(result);
+                 return PyLong_FromLong(result);
              """),
             ("test_Size_exception", "METH_NOARGS",
              """
