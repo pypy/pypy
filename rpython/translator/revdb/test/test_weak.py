@@ -308,3 +308,18 @@ class TestReplayingFinalizerQueue(InteractiveTests):
         child = self.replay()
         child.send(Message(CMD_FORWARD, 3001))
         child.expect(ANSWER_AT_END)
+
+
+class TestReplayingOldStyleFinalizer(InteractiveTests):
+    expected_stop_points = 3000
+
+    def setup_class(cls):
+        from rpython.translator.revdb.test.test_basic import compile, run
+        main = get_old_style_finalizer_main()
+        compile(cls, main, backendopt=False)
+        run(cls, '')
+
+    def test_replaying_old_style_finalizer(self):
+        child = self.replay()
+        child.send(Message(CMD_FORWARD, 3001))
+        child.expect(ANSWER_AT_END)

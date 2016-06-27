@@ -77,18 +77,23 @@ def write(fd, string):
     from rpython.rlib.rposix import c_write
     return c_write(fd, string, len(string))
 
+def destructor_failed(typename, e):
+    try:
+        write(2, "a destructor of type ")
+        write(2, typename)
+        write(2, " raised an exception ")
+        write(2, str(e))
+        write(2, " ignoring it\n")
+    except:
+        pass
+destructor_failed._dont_inline_ = True
+
 def ll_call_destructor(destrptr, destr_v, typename):
     try:
         destrptr(destr_v)
     except Exception as e:
-        try:
-            write(2, "a destructor of type ")
-            write(2, typename)
-            write(2, " raised an exception ")
-            write(2, str(e))
-            write(2, " ignoring it\n")
-        except:
-            pass
+        destructor_failed(typename, e)
+ll_call_destructor._revdb_do_all_calls_ = True
 
 def ll_report_finalizer_error(e):
     try:

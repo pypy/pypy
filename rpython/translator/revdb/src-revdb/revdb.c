@@ -1226,14 +1226,15 @@ static void replay_call_destructors(void)
     finalizer_trigger_saved_break = 0;
     fq_trigger();
 
-    /* Re-enable fetching more, and fetch the uid's of objects
-       with old-style destructors that die now. 
+    /* Re-enable fetching (disabled when we saw ASYNC_FINALIZER_TRIGGER),
+       and fetch the uid's of dying objects with old-style destructors.
     */
     rpy_reverse_db_fetch(__FILE__, __LINE__);
     while (1) {
         int64_t uid;
         struct destructor_s d_dummy, *entry, **item;
         struct pypy_header0 o_dummy;
+
         RPY_REVDB_EMIT(abort();, int64_t _e, uid);
         if (uid == -1)
             break;
@@ -1242,7 +1243,7 @@ static void replay_call_destructors(void)
         o_dummy.h_uid = uid;
         item = tfind(&d_dummy, &destructor_tree, _dtree_compare);
         if (item == NULL) {
-            fprintf(stderr, "next_dead: object not found\n");
+            fprintf(stderr, "replay_call_destructors: object not found\n");
             exit(1);
         }
         entry = *item;

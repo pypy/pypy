@@ -399,8 +399,13 @@ class FunctionCodeGenerator(object):
                     line += '\nPYPY_INHIBIT_TAIL_CALL();'
                     break
         elif self.db.reverse_debugger:
-            from rpython.translator.revdb import gencsupp
-            line = gencsupp.emit(line, self.lltypename(v_result), r)
+            if getattr(getattr(self.graph, 'func', None),
+                       '_revdb_do_all_calls_', False):
+                pass   # a hack for ll_call_destructor() to mean
+                       # that the calls should really be done
+            else:
+                from rpython.translator.revdb import gencsupp
+                line = gencsupp.emit(line, self.lltypename(v_result), r)
         return line
 
     def OP_DIRECT_CALL(self, op):
