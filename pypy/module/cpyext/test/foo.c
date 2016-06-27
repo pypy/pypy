@@ -6,7 +6,7 @@
     #define PyInt_AsLong PyLong_AsLong
     #define PyThing_FromStringAndSize PyUnicode_FromStringAndSize
     #define PyThing_FromString PyUnicode_FromString
-    # defin PyThing_Check PyUnicode_Check
+    #define PyThing_Check PyUnicode_Check
     #define _PyThing_AsString _PyUnicode_AsString
 #else
     #define PyThing_FromStringAndSize PyString_FromStringAndSize
@@ -749,7 +749,7 @@ initfoo(void)
 
     TupleLike.tp_base = &PyTuple_Type;
     if (PyType_Ready(&TupleLike) < 0)
-        return;
+        INITERROR;
 
 
     d = PyModule_GetDict(module);
