@@ -152,6 +152,9 @@ class TestRecording(BaseRecordingTests):
         assert rdb.done()
 
     def test_finalizer_light_ignored(self):
+        py.test.skip("lightweight finalizers could be skipped, but that "
+                     "requires also skipping (instead of recording) any "
+                     "external call they do")
         class X:
             @rgc.must_be_light_finalizer
             def __del__(self):
@@ -182,6 +185,7 @@ class TestRecording(BaseRecordingTests):
             if rdb.is_special_packet():
                 time, = rdb.special_packet(ASYNC_FINALIZER_TRIGGER, 'q')
                 assert time == i + 1
+                y = intmask(rdb.next('q')); assert y == -1
                 triggered = True
             j = rdb.next()
             assert j == i + 1000000 * triggered

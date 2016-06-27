@@ -186,14 +186,6 @@ void rpy_reverse_db_flush(void)
     }
 }
 
-/*
-RPY_EXTERN
-void rpy_reverse_db_register_finalizer(void *obj, void (*finalizer)(void *))
-{
-    ...;
-}
-*/
-
 void boehm_gc_finalizer_notifier(void)
 {
     /* This is called by Boehm when there are pending finalizers.
