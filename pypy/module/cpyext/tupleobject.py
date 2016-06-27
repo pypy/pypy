@@ -5,7 +5,7 @@ from pypy.module.cpyext.api import (cpython_api, Py_ssize_t, CANNOT_FAIL,
                                     build_type_checkers, PyVarObjectFields,
                                     cpython_struct, bootstrap_function)
 from pypy.module.cpyext.pyobject import (PyObject, PyObjectP, Py_DecRef,
-    make_ref, from_ref, decref, pyobj_has_w_obj,
+    make_ref, from_ref, decref, incref, pyobj_has_w_obj,
     track_reference, make_typedescr, get_typedescr)
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
 from pypy.objspace.std.tupleobject import W_TupleObject
@@ -83,7 +83,9 @@ def tuple_attach(space, py_obj, w_obj):
     except:
         while i > 0:
             i -= 1
-            decref(space, py_tup.c_ob_item[i])
+            ob = py_tup.c_ob_item[i]
+            py_tup.c_ob_item[i] = lltype.nullptr(PyObject.TO)
+            decref(space, ob)
         raise
 
 def tuple_realize(space, py_obj):
@@ -98,9 +100,7 @@ def tuple_realize(space, py_obj):
     p = py_tup.c_ob_item
     items_w = [None] * l
     for i in range(l):
-        w_item = None
-        if p[i]:
-            w_item = from_ref(space, p[i])
+        w_item = from_ref(space, p[i])
         if w_item is None:
             fatalerror_notb(
                 "Fatal error in cpyext, CPython compatibility layer: "
@@ -120,8 +120,7 @@ def tuple_dealloc(space, py_obj):
     py_tup = rffi.cast(PyTupleObject, py_obj)
     p = py_tup.c_ob_item
     for i in range(py_tup.c_ob_size):
-        if p[i] and p[i].c_ob_refcnt > 0:
-            decref(space, p[i])
+        decref(space, p[i])
     from pypy.module.cpyext.object import _dealloc
     _dealloc(space, py_obj)
 
@@ -195,7 +194,9 @@ def _PyTuple_Resize(space, p_ref, newsize):
         else:
             to_cp = newsize
         for i in range(to_cp):
-            newref.c_ob_item[i] = oldref.c_ob_item[i]
+            ob = oldref.c_ob_item[i]
+            incref(space, ob)
+            newref.c_ob_item[i] = ob
     except:
         decref(space, p_ref[0])
         p_ref[0] = lltype.nullptr(PyObject.TO)
