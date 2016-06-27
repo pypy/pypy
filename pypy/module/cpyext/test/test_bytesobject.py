@@ -10,22 +10,22 @@ from pypy.module.cpyext.typeobjectdefs import PyTypeObjectPtr
 import py
 import sys
 
-class AppTestStringObject(AppTestCpythonExtensionBase):
-    def test_stringobject(self):
+class AppTestBytesObject(AppTestCpythonExtensionBase):
+    def test_bytesobject(self):
         module = self.import_extension('foo', [
             ("get_hello1", "METH_NOARGS",
              """
-                 return PyString_FromStringAndSize(
+                 return PyBytes_FromStringAndSize(
                      "Hello world<should not be included>", 11);
              """),
             ("get_hello2", "METH_NOARGS",
              """
-                 return PyString_FromString("Hello world");
+                 return PyBytes_FromString("Hello world");
              """),
             ("test_Size", "METH_NOARGS",
              """
-                 PyObject* s = PyString_FromString("Hello world");
-                 int result = PyString_Size(s);
+                 PyObject* s = PyBytes_FromString("Hello world");
+                 int result = PyBytes_Size(s);
 
                  Py_DECREF(s);
                  return PyLong_FromLong(result);
@@ -33,38 +33,38 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
             ("test_Size_exception", "METH_NOARGS",
              """
                  PyObject* f = PyFloat_FromDouble(1.0);
-                 PyString_Size(f);
+                 PyBytes_Size(f);
 
                  Py_DECREF(f);
                  return NULL;
              """),
-             ("test_is_string", "METH_VARARGS",
+             ("test_is_bytes", "METH_VARARGS",
              """
-                return PyBool_FromLong(PyString_Check(PyTuple_GetItem(args, 0)));
+                return PyBool_FromLong(PyBytes_Check(PyTuple_GetItem(args, 0)));
              """)], prologue='#include <stdlib.h>')
-        assert module.get_hello1() == 'Hello world'
-        assert module.get_hello2() == 'Hello world'
+        assert module.get_hello1() == b'Hello world'
+        assert module.get_hello2() == b'Hello world'
         assert module.test_Size() == 11
         raises(TypeError, module.test_Size_exception)
 
-        assert module.test_is_string("")
-        assert not module.test_is_string(())
+        assert module.test_is_bytes(b"")
+        assert not module.test_is_bytes(())
 
-    def test_string_buffer_init(self):
+    def test_bytes_buffer_init(self):
         module = self.import_extension('foo', [
-            ("getstring", "METH_NOARGS",
+            ("getbytes", "METH_NOARGS",
              """
                  PyObject *s, *t;
                  char* c;
 
-                 s = PyString_FromStringAndSize(NULL, 4);
+                 s = PyBytes_FromStringAndSize(NULL, 4);
                  if (s == NULL)
                     return NULL;
-                 t = PyString_FromStringAndSize(NULL, 3);
+                 t = PyBytes_FromStringAndSize(NULL, 3);
                  if (t == NULL)
                     return NULL;
                  Py_DECREF(t);
-                 c = PyString_AS_STRING(s);
+                 c = PyBytes_AS_STRING(s);
                  c[0] = 'a';
                  c[1] = 'b';
                  c[2] = 0;
@@ -72,62 +72,62 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
                  return s;
              """),
             ])
-        s = module.getstring()
+        s = module.getbytes()
         assert len(s) == 4
-        assert s == 'ab\x00c'
+        assert s == b'ab\x00c'
 
-    def test_string_tp_alloc(self):
+    def test_bytes_tp_alloc(self):
         module = self.import_extension('foo', [
             ("tpalloc", "METH_NOARGS",
              """
                 PyObject *base;
                 PyTypeObject * type;
                 PyStringObject *obj;
-                base = PyString_FromString("test");
-                if (PyString_GET_SIZE(base) != 4)
-                    return PyLong_FromLong(-PyString_GET_SIZE(base));
+                base = PyBytes_FromString("test");
+                if (PyBytes_GET_SIZE(base) != 4)
+                    return PyLong_FromLong(-PyBytes_GET_SIZE(base));
                 type = base->ob_type;
                 if (type->tp_itemsize != 1)
                     return PyLong_FromLong(type->tp_itemsize);
                 obj = (PyStringObject*)type->tp_alloc(type, 10);
-                if (PyString_GET_SIZE(obj) != 10)
-                    return PyLong_FromLong(PyString_GET_SIZE(obj));
-                /* cannot work, there is only RO access */
-                memcpy(PyString_AS_STRING(obj), "works", 6);
+                if (PyBytes_GET_SIZE(obj) != 10)
+                    return PyLong_FromLong(PyBytes_GET_SIZE(obj));
+                /* cannot work, there is only RO access
+                memcpy(PyBytes_AS_STRING(obj), "works", 6); */
                 Py_INCREF(obj);
                 return (PyObject*)obj;
              """),
             ('alloc_rw', "METH_NOARGS",
              '''
-                PyObject *obj = _PyObject_NewVar(&PyString_Type, 10);
-                memcpy(PyString_AS_STRING(obj), "works", 6);
+                PyObject *obj = _PyObject_NewVar(&PyBytes_Type, 10);
+                memcpy(PyBytes_AS_STRING(obj), "works", 6);
                 return (PyObject*)obj;
              '''),
             ])
         s = module.alloc_rw()
-        assert s == 'works' + '\x00' * 5
+        assert s == b'works' + b'\x00' * 5
         s = module.tpalloc()
-        assert s == 'works' + '\x00' * 5
+        assert s == b'\x00' * 10
 
     def test_AsString(self):
         module = self.import_extension('foo', [
-            ("getstring", "METH_NOARGS",
+            ("getbytes", "METH_NOARGS",
              """
-                 PyObject* s1 = PyString_FromStringAndSize("test", 4);
-                 char* c = PyString_AsString(s1);
-                 PyObject* s2 = PyString_FromStringAndSize(c, 4);
+                 PyObject* s1 = PyBytes_FromStringAndSize("test", 4);
+                 char* c = PyBytes_AsString(s1);
+                 PyObject* s2 = PyBytes_FromStringAndSize(c, 4);
                  Py_DECREF(s1);
                  return s2;
              """),
             ])
-        s = module.getstring()
-        assert s == 'test'
+        s = module.getbytes()
+        assert s == b'test'
 
     def test_manipulations(self):
         module = self.import_extension('foo', [
-            ("string_as_string", "METH_VARARGS",
+            ("bytes_as_string", "METH_VARARGS",
              '''
-             return PyString_FromStringAndSize(PyString_AsString(
+             return PyBytes_FromStringAndSize(PyBytes_AsString(
                        PyTuple_GetItem(args, 0)), 4);
              '''
             ),
@@ -137,22 +137,22 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
                 PyObject * left = PyTuple_GetItem(args, 0);
                 Py_INCREF(left);    /* the reference will be stolen! */
                 v = &left;
-                PyString_Concat(v, PyTuple_GetItem(args, 1));
+                PyBytes_Concat(v, PyTuple_GetItem(args, 1));
                 return *v;
              """)])
-        assert module.string_as_string("huheduwe") == "huhe"
-        ret = module.concat('abc', 'def')
-        assert ret == 'abcdef'
+        assert module.bytes_as_string(b"huheduwe") == b"huhe"
+        ret = module.concat(b'abc', b'def')
+        assert ret == b'abcdef'
         ret = module.concat('abc', u'def')
         assert not isinstance(ret, str)
         assert isinstance(ret, unicode)
         assert ret == 'abcdef'
 
-    def test_py_string_as_string_None(self):
+    def test_py_bytes_as_string_None(self):
         module = self.import_extension('foo', [
             ("string_None", "METH_VARARGS",
              '''
-             if (PyString_AsString(Py_None)) {
+             if (PyBytes_AsString(Py_None)) {
                 Py_RETURN_NONE;
              }
              return NULL;
@@ -162,18 +162,18 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
 
     def test_AsStringAndSize(self):
         module = self.import_extension('foo', [
-            ("getstring", "METH_NOARGS",
+            ("getbytes", "METH_NOARGS",
              """
-                 PyObject* s1 = PyString_FromStringAndSize("te\\0st", 5);
+                 PyObject* s1 = PyBytes_FromStringAndSize("te\\0st", 5);
                  char *buf;
                  Py_ssize_t len;
-                 if (PyString_AsStringAndSize(s1, &buf, &len) < 0)
+                 if (PyBytes_AsStringAndSize(s1, &buf, &len) < 0)
                      return NULL;
                  if (len != 5) {
                      PyErr_SetString(PyExc_AssertionError, "Bad Length");
                      return NULL;
                  }
-                 if (PyString_AsStringAndSize(s1, &buf, NULL) >= 0) {
+                 if (PyBytes_AsStringAndSize(s1, &buf, NULL) >= 0) {
                      PyErr_SetString(PyExc_AssertionError, "Should Have failed");
                      return NULL;
                  }
@@ -183,7 +183,7 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
                  return Py_None;
              """),
             ])
-        module.getstring()
+        module.getbytes()
 
     def test_py_string_as_string_Unicode(self):
         module = self.import_extension('foo', [
@@ -420,8 +420,8 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
         assert type(a).__name__ == 'string_'
         assert a == 'abc'
 
-class TestString(BaseApiTest):
-    def test_string_resize(self, space, api):
+class TestBytes(BaseApiTest):
+    def test_bytes_resize(self, space, api):
         py_str = new_empty_str(space, 10)
         ar = lltype.malloc(PyObjectP.TO, 1, flavor='raw')
         py_str.c_ob_sval[0] = 'a'
