@@ -1,6 +1,7 @@
 #include "common_header.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include <stddef.h>
 #include <string.h>
 #include <assert.h>
 #include <sys/stat.h>
@@ -24,17 +25,19 @@
 #define WEAKREF_AFTERWARDS_DEAD    ((char)0xf2)
 #define WEAKREF_AFTERWARDS_ALIVE   ((char)0xeb)
 
+//#define ASYNC_FINALIZER       ((int16_t)0xff46)
+
 
 typedef struct {
     Signed version;
-    Signed reserved1, reserved2;
+    uint64_t reserved1, reserved2;
     int argc;
     char **argv;
 } rdb_header_t;
 
 
 rpy_revdb_t rpy_revdb;
-static char rpy_rev_buffer[16384];
+static char rpy_rev_buffer[16384];    /* max. 32768 */
 static int rpy_rev_fileno = -1;
 static unsigned char flag_io_disabled;
 
@@ -109,9 +112,6 @@ static void setup_record_mode(int argc, char *argv[])
     int i;
 
     assert(RPY_RDB_REPLAY == 0);
-    rpy_revdb.buf_p = rpy_rev_buffer;
-    rpy_revdb.buf_limit = rpy_rev_buffer + sizeof(rpy_rev_buffer) - 32;
-    rpy_revdb.unique_id_seen = 1;
 
     if (filename && *filename) {
         putenv("PYPYRDB=");
@@ -137,20 +137,29 @@ static void setup_record_mode(int argc, char *argv[])
         h.argv = argv;
         write_all((const char *)&h, sizeof(h));
     }
+    rpy_revdb.buf_p = rpy_rev_buffer + sizeof(int16_t);
+    rpy_revdb.buf_limit = rpy_rev_buffer + sizeof(rpy_rev_buffer) - 32;
+    rpy_revdb.unique_id_seen = 1;
+}
+
+static void flush_buffer(void)
+{
+    /* write the current buffer content to the OS */
+    ssize_t size = rpy_revdb.buf_p - rpy_rev_buffer;
+    rpy_revdb.buf_p = rpy_rev_buffer + sizeof(int16_t);
+    if (rpy_rev_fileno >= 0)
+        write_all(rpy_rev_buffer, size);
 }
 
 RPY_EXTERN
 void rpy_reverse_db_flush(void)
 {
-    /* write the current buffer content to the OS */
-
-    ssize_t wsize, size = rpy_revdb.buf_p - rpy_rev_buffer;
-    char *p;
-    rpy_revdb.buf_p = rpy_rev_buffer;
-    if (size == 0 || rpy_rev_fileno < 0)
-        return;
-
-    write_all(rpy_rev_buffer, size);
+    ssize_t packet_size = rpy_revdb.buf_p - (rpy_rev_buffer + sizeof(int16_t));
+    if (packet_size != 0) {
+        assert(0 < packet_size && packet_size <= 32767);
+        *(int16_t *)rpy_rev_buffer = packet_size;
+        flush_buffer();
+    }
 }
 
 RPY_EXTERN
@@ -176,7 +185,7 @@ Signed rpy_reverse_db_identityhash(struct pypy_header0 *obj)
     return obj->h_hash;
 }
 
-static int64_t recording_offset(void)
+static uint64_t recording_offset(void)
 {
     off_t base_offset;
     ssize_t extra_size = rpy_revdb.buf_p - rpy_rev_buffer;
@@ -516,6 +525,7 @@ static void setup_replay_mode(int *argc_p, char **argv_p[])
 
     rpy_revdb.buf_p = rpy_rev_buffer;
     rpy_revdb.buf_limit = rpy_rev_buffer;
+    rpy_revdb.buf_readend = rpy_rev_buffer;
     rpy_revdb.stop_point_break = 1;
     rpy_revdb.unique_id_seen = 1;
 
@@ -528,19 +538,44 @@ static void setup_replay_mode(int *argc_p, char **argv_p[])
     signal(SIGCHLD, SIG_IGN);
 }
 
+static void fetch_more(ssize_t keep, ssize_t expected_size)
+{
+    ssize_t rsize;
+    if (rpy_revdb.buf_p != rpy_rev_buffer)
+        memmove(rpy_rev_buffer, rpy_revdb.buf_p, keep);
+    rsize = read_at_least(rpy_rev_buffer + keep,
+                          expected_size - keep,
+                          sizeof(rpy_rev_buffer) - keep);
+    rpy_revdb.buf_p = rpy_rev_buffer;
+    rpy_revdb.buf_readend = rpy_rev_buffer + keep + rsize;
+    /* rpy_revdb.buf_limit is not set */
+}
+
 RPY_EXTERN
-char *rpy_reverse_db_fetch(int expected_size, const char *file, int line)
+char *rpy_reverse_db_fetch(const char *file, int line)
 {
     if (!flag_io_disabled) {
-        ssize_t rsize, keep = rpy_revdb.buf_limit - rpy_revdb.buf_p;
+        ssize_t keep;
+        ssize_t full_packet_size;
+        if (rpy_revdb.buf_limit != rpy_revdb.buf_p) {
+            fprintf(stderr, "bad log format: incomplete packet\n");
+            exit(1);
+        }
+        keep = rpy_revdb.buf_readend - rpy_revdb.buf_p;
         assert(keep >= 0);
-        memmove(rpy_rev_buffer, rpy_revdb.buf_p, keep);
-        rsize = read_at_least(rpy_rev_buffer + keep,
-                              expected_size - keep,
-                              sizeof(rpy_rev_buffer) - keep);
-        rpy_revdb.buf_p = rpy_rev_buffer;
-        rpy_revdb.buf_limit = rpy_rev_buffer + keep + rsize;
-        return rpy_rev_buffer;
+
+        if (keep < sizeof(int16_t)) {
+            /* 'keep' does not even contain the next packet header */
+            fetch_more(keep, sizeof(int16_t));
+            keep = rpy_revdb.buf_readend - rpy_rev_buffer;
+        }
+        full_packet_size = sizeof(int16_t) + *(int16_t *)rpy_revdb.buf_p;
+        if (keep < full_packet_size) {
+            fetch_more(keep, full_packet_size);
+        }
+        rpy_revdb.buf_limit = rpy_revdb.buf_p + full_packet_size;
+        rpy_revdb.buf_p += sizeof(int16_t);
+        return rpy_revdb.buf_p;
     }
     else {
         /* this is called when we are in execute_rpy_command(): we are

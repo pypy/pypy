@@ -1,5 +1,5 @@
-import weakref, gc
-from rpython.rlib import revdb
+import weakref
+from rpython.rlib import revdb, rgc
 from rpython.rlib.debug import debug_print
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.translator.revdb.message import *
@@ -23,7 +23,7 @@ WEAKREF_AFTERWARDS_DEAD  = chr(0xf2)
 WEAKREF_AFTERWARDS_ALIVE = chr(0xeb)
 
 
-class TestRecordingWeakref(BaseRecordingTests):
+class TestRecording(BaseRecordingTests):
 
     def test_weakref_create(self):
         class X:
@@ -71,8 +71,25 @@ class TestRecordingWeakref(BaseRecordingTests):
         x = rdb.next('q'); assert x == 0      # number of stop points
         assert rdb.done()
 
+    def test_finalizer_light_ignored(self):
+        class X:
+            @rgc.must_be_light_finalizer
+            def __del__(self):
+                pass
+        def main(argv):
+            lst = [X() for i in range(3000)]
+            for i in range(3000):
+                lst[i] = None
+                revdb.stop_point()
+            return 9
+        self.compile(main, [], backendopt=False)
+        out = self.run('Xx')
+        rdb = self.fetch_rdb([self.exename, 'Xx'])
+        x = rdb.next('q'); assert x == 3000    # number of stop points
+        assert rdb.done()
 
-class TestReplayingWeakref(InteractiveTests):
+
+class TestReplaying(InteractiveTests):
     expected_stop_points = 1
 
     def setup_class(cls):
@@ -108,7 +125,7 @@ class TestReplayingWeakref(InteractiveTests):
                 print ''.join(outp)
                 if (j % 1000) == 999:
                     debug_print('============= COLLECT ===========')
-                    gc.collect()
+                    rgc.collect()
                 debug_print('------ done', j, '.')
             assert not dead[0]
             assert not dead[-1]

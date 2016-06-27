@@ -16,7 +16,7 @@ typedef struct {
 #define RPY_RDB_DYNAMIC_REPLAY
 #endif
     bool_t watch_enabled;
-    char *buf_p, *buf_limit;
+    char *buf_p, *buf_limit, *buf_readend;
     uint64_t stop_point_seen, stop_point_break;
     uint64_t unique_id_seen, unique_id_break;
 } rpy_revdb_t;
@@ -53,8 +53,7 @@ RPY_EXTERN void rpy_reverse_db_teardown(void);
             char *_src = rpy_revdb.buf_p;                               \
             char *_end1 = _src + sizeof(_e);                            \
             if (_end1 > rpy_revdb.buf_limit) {                          \
-                _src = rpy_reverse_db_fetch(sizeof(_e),                 \
-                                            __FILE__, __LINE__);        \
+                _src = rpy_reverse_db_fetch(__FILE__, __LINE__);        \
                 _end1 = _src + sizeof(_e);                              \
             }                                                           \
             rpy_revdb.buf_p = _end1;                                    \
@@ -114,8 +113,7 @@ RPY_EXTERN void rpy_reverse_db_teardown(void);
     r = rpy_reverse_db_weakref_deref(weakref)
 
 RPY_EXTERN void rpy_reverse_db_flush(void);
-RPY_EXTERN char *rpy_reverse_db_fetch(int expected_size,
-                                      const char *file, int line);
+RPY_EXTERN char *rpy_reverse_db_fetch(const char *file, int line);
 RPY_EXTERN void rpy_reverse_db_stop_point(void);
 RPY_EXTERN void rpy_reverse_db_send_answer(int cmd, int64_t arg1, int64_t arg2,
                                            int64_t arg3, RPyString *extra);

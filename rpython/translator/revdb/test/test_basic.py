@@ -21,18 +21,28 @@ class RDB(object):
         assert header == 'RevDB:\t' + '\t'.join(expected_argv) + '\n'
         #
         self.cur = 0
-        x = self.next('c'); assert x == '\x00'
-        x = self.next(); assert x == 0x00FF0001
-        x = self.next(); assert x == 0
-        x = self.next(); assert x == 0
-        self.argc = self.next()
-        self.argv = self.next()
+        x = self.read1('c'); assert x == '\x00'
+        x = self.read1('P'); assert x == 0x00FF0001
+        x = self.read1('P'); assert x == 0
+        x = self.read1('P'); assert x == 0
+        self.argc = self.read1('P')
+        self.argv = self.read1('P')
+        self.current_packet_end = self.cur
         self.read_check_argv(expected_argv)
 
-    def next(self, mode='P'):
+    def read1(self, mode):
         p = self.cur
         self.cur = p + struct.calcsize(mode)
         return struct.unpack_from(mode, self.buffer, p)[0]
+
+    def next(self, mode='P'):
+        if self.current_packet_end == self.cur:
+            packet_size = self.read1('h')
+            assert packet_size > 0
+            self.current_packet_end = self.cur + packet_size
+        result = self.read1(mode)
+        assert self.cur <= self.current_packet_end
+        return result
 
     def read_check_argv(self, expected):
         assert self.argc == len(expected)
