@@ -1369,8 +1369,19 @@ class __extend__(pyframe.PyFrame):
         self.pushvalue(w_sum)
         
     def BUILD_MAP_UNPACK(self, itemcount, next_instr):
-        w_sum = self.unpack_helper(itemcount, next_instr)
-        self.pushvalue(self.space.newdict(w_sum))
+        w_dict = self.space.newdict()
+        for i in range(itemcount, 0, -1):
+            w_item = self.peekvalue(i-1)
+            num_items = w_item.length()
+            for j in range(num_items):
+                (w_key, w_value) = w_item.popitem()
+                self.space.setitem(w_dict, w_key, w_value)
+        while itemcount != 0:
+            self.popvalue()
+            itemcount -= 1
+        self.pushvalue(w_dict)
+        
+        
 ### ____________________________________________________________ ###
 
 class ExitFrame(Exception):
