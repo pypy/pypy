@@ -21,7 +21,7 @@
 #include "src-revdb/revdb_include.h"
 
 #define RDB_SIGNATURE   "RevDB:"
-#define RDB_VERSION     0x00FF0001
+#define RDB_VERSION     0x00FF0002
 
 #define WEAKREF_AFTERWARDS_DEAD    ((char)0xf2)
 #define WEAKREF_AFTERWARDS_ALIVE   ((char)0xeb)
@@ -58,7 +58,7 @@ void rpy_reverse_db_setup(int *argc_p, char **argv_p[])
     RPY_RDB_REPLAY = replay_asked;
 #else
     if (replay_asked != RPY_RDB_REPLAY) {
-        fprintf(stderr, "This executable was only compiled for %s mode.",
+        fprintf(stderr, "This executable was only compiled for %s mode.\n",
                 RPY_RDB_REPLAY ? "replay" : "record");
         exit(1);
     }
@@ -154,7 +154,14 @@ static void setup_record_mode(int argc, char *argv[])
         h.argc = argc;
         h.argv = argv;
         write_all((const char *)&h, sizeof(h));
+        fprintf(stderr, "PID %d: recording revdb log to '%s'\n",
+                        (int)getpid(), filename);
     }
+    else {
+        fprintf(stderr, "PID %d starting, log file disabled "
+                        "(use PYPYRDB=logfile)\n", (int)getpid());
+    }
+
     rpy_revdb.buf_p = rpy_rev_buffer + sizeof(int16_t);
     rpy_revdb.buf_limit = rpy_rev_buffer + sizeof(rpy_rev_buffer) - 32;
     rpy_revdb.unique_id_seen = 1;
@@ -710,7 +717,7 @@ void rpy_reverse_db_fetch(const char *file, int line)
                 return;
 
             default:
-                fprintf(stderr, "bad packet header %d", (int)header);
+                fprintf(stderr, "bad packet header %d\n", (int)header);
                 exit(1);
             }
         }

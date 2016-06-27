@@ -22,7 +22,7 @@ class RDB(object):
         #
         self.cur = 0
         x = self.read1('c'); assert x == '\x00'
-        x = self.read1('P'); assert x == 0x00FF0001
+        x = self.read1('P'); assert x == 0x00FF0002
         x = self.read1('P'); assert x == 0
         x = self.read1('P'); assert x == 0
         self.argc = self.read1('P')
