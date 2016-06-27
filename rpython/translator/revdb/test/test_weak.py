@@ -2,6 +2,7 @@ import weakref
 from rpython.rlib import revdb, rgc
 from rpython.rlib.debug import debug_print
 from rpython.rlib.objectmodel import keepalive_until_here
+from rpython.rlib.rarithmetic import intmask
 from rpython.translator.revdb.message import *
 from rpython.translator.revdb.test.test_basic import BaseRecordingTests
 from rpython.translator.revdb.test.test_basic import InteractiveTests
@@ -21,6 +22,8 @@ from rpython.translator.revdb.test.test_basic import InteractiveTests
 
 WEAKREF_AFTERWARDS_DEAD  = chr(0xf2)
 WEAKREF_AFTERWARDS_ALIVE = chr(0xeb)
+
+ASYNC_FINALIZER_TRIGGER  = 0xff46 - 2**16
 
 
 class TestRecording(BaseRecordingTests):
@@ -80,11 +83,131 @@ class TestRecording(BaseRecordingTests):
             lst = [X() for i in range(3000)]
             for i in range(3000):
                 lst[i] = None
+                if i % 300 == 150:
+                    rgc.collect()
                 revdb.stop_point()
             return 9
         self.compile(main, [], backendopt=False)
         out = self.run('Xx')
         rdb = self.fetch_rdb([self.exename, 'Xx'])
+        x = rdb.next('q'); assert x == 3000    # number of stop points
+        assert rdb.done()
+
+    def test_finalizer_queue(self):
+        from rpython.rtyper.lltypesystem import lltype, rffi
+        from rpython.translator.tool.cbuild import ExternalCompilationInfo
+        eci = ExternalCompilationInfo(
+            pre_include_bits=["#define foobar(x) x\n"])
+        foobar = rffi.llexternal('foobar', [lltype.Signed], lltype.Signed,
+                                 compilation_info=eci)
+        class Glob:
+            pass
+        glob = Glob()
+        class X:
+            pass
+        class MyFinalizerQueue(rgc.FinalizerQueue):
+            Class = X
+            def finalizer_trigger(self):
+                glob.ping = True
+        fq = MyFinalizerQueue()
+        #
+        def main(argv):
+            glob.ping = False
+            lst1 = [X() for i in range(256)]
+            lst = [X() for i in range(3000)]
+            for i, x in enumerate(lst):
+                x.baz = i
+                fq.register_finalizer(x)
+            for i in range(3000):
+                lst[i] = None
+                if i % 300 == 150:
+                    rgc.collect()
+                revdb.stop_point()
+                j = i + glob.ping * 1000000
+                assert foobar(j) == j
+                if glob.ping:
+                    glob.ping = False
+                    total = 0
+                    while True:
+                        x = fq.next_dead()
+                        if x is None:
+                            break
+                        total = intmask(total * 3 + x.baz)
+                    assert foobar(total) == total
+            keepalive_until_here(lst1)
+            return 9
+        self.compile(main, [], backendopt=False)
+        out = self.run('Xx')
+        rdb = self.fetch_rdb([self.exename, 'Xx'])
+        uid_seen = set()
+        totals = []
+        for i in range(3000):
+            triggered = False
+            if rdb.is_special_packet():
+                time, = rdb.special_packet(ASYNC_FINALIZER_TRIGGER, 'q')
+                assert time == i + 1
+                triggered = True
+            j = rdb.next()
+            assert j == i + 1000000 * triggered
+            if triggered:
+                lst = []
+                while True:
+                    uid = intmask(rdb.next())
+                    if uid == -1:
+                        break
+                    assert uid > 0 and uid not in uid_seen
+                    uid_seen.add(uid)
+                    lst.append(uid)
+                totals.append((lst, intmask(rdb.next())))
+        x = rdb.next('q'); assert x == 3000    # number of stop points
+        #
+        assert 1500 <= len(uid_seen) <= 3000
+        d = dict(zip(sorted(uid_seen), range(len(uid_seen))))
+        for lst, expected in totals:
+            total = 0
+            for uid in lst:
+                total = intmask(total * 3 + d[uid])
+            assert total == expected
+
+    def test_finalizer_recorded(self):
+        py.test.skip("in-progress")
+        from rpython.rtyper.lltypesystem import lltype, rffi
+        from rpython.translator.tool.cbuild import ExternalCompilationInfo
+        eci = ExternalCompilationInfo(
+            pre_include_bits=["#define foobar(x) x\n"])
+        foobar = rffi.llexternal('foobar', [lltype.Signed], lltype.Signed,
+                                 compilation_info=eci)
+        class Glob:
+            pass
+        glob = Glob()
+        class X:
+            def __del__(self):
+                glob.count += 1
+        def main(argv):
+            glob.count = 0
+            lst = [X() for i in range(3000)]
+            x = -1
+            for i in range(3000):
+                lst[i] = None
+                if i % 300 == 150:
+                    rgc.collect()
+                revdb.stop_point()
+                x = glob.count
+                assert foobar(x) == x
+            print x
+            return 9
+        self.compile(main, [], backendopt=False)
+        out = self.run('Xx')
+        assert 1500 < int(out) <= 3000
+        rdb = self.fetch_rdb([self.exename, 'Xx'])
+        counts = [rdb.next() for i in range(3000)]
+        assert counts[0] >= 0
+        for i in range(len(counts)-1):
+            assert counts[i] <= counts[i + 1]
+        assert counts[-1] == int(out)
+        # write() call
+        x = rdb.next(); assert x == len(out)
+        x = rdb.next('i'); assert x == 0      # errno
         x = rdb.next('q'); assert x == 3000    # number of stop points
         assert rdb.done()
 

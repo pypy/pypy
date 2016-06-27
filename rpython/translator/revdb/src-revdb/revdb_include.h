@@ -112,6 +112,9 @@ RPY_EXTERN void rpy_reverse_db_teardown(void);
 #define OP_REVDB_WEAKREF_DEREF(weakref, r)                              \
     r = rpy_reverse_db_weakref_deref(weakref)
 
+#define OP_REVDB_CALL_DESTRUCTOR(obj, r)                                \
+    rpy_reverse_db_call_destructor(obj)
+
 RPY_EXTERN void rpy_reverse_db_flush(void);
 RPY_EXTERN char *rpy_reverse_db_fetch(const char *file, int line);
 RPY_EXTERN void rpy_reverse_db_stop_point(void);
@@ -125,5 +128,7 @@ RPY_EXTERN void rpy_reverse_db_watch_save_state(void);
 RPY_EXTERN void rpy_reverse_db_watch_restore_state(bool_t any_watch_point);
 RPY_EXTERN void *rpy_reverse_db_weakref_create(void *target);
 RPY_EXTERN void *rpy_reverse_db_weakref_deref(void *weakref);
+//RPY_EXTERN void rpy_reverse_db_call_destructor(void *obj);
+RPY_EXTERN void rpy_reverse_db_next_dead(void *result);
 
 /* ------------------------------------------------------------ */

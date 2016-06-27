@@ -80,6 +80,9 @@ struct boehm_fq_s {
 RPY_EXTERN void (*boehm_fq_trigger[])(void);
 
 int boehm_gc_finalizer_lock = 0;
+void boehm_gc_finalizer_notifier(void);
+
+#ifndef RPY_REVERSE_DEBUGGER
 void boehm_gc_finalizer_notifier(void)
 {
     int i;
@@ -101,6 +104,10 @@ void boehm_gc_finalizer_notifier(void)
 
     boehm_gc_finalizer_lock--;
 }
+#else
+/* see revdb.c */
+RPY_EXTERN void rpy_reverse_db_next_dead(void *);
+#endif
 
 static void mem_boehm_ignore(char *msg, GC_word arg)
 {
@@ -128,12 +135,17 @@ void boehm_fq_callback(void *obj, void *rawfqueue)
 void *boehm_fq_next_dead(struct boehm_fq_s **fqueue)
 {
     struct boehm_fq_s *node = *fqueue;
+    void *result;
     if (node != NULL) {
         *fqueue = node->next;
-        return node->obj;
+        result = node->obj;
     }
     else
-        return NULL;
+        result = NULL;
+#ifdef RPY_REVERSE_DEBUGGER
+    rpy_reverse_db_next_dead(result);
+#endif
+    return result;
 }
 #endif /* BOEHM GC */
 

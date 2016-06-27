@@ -25,7 +25,7 @@
 #define WEAKREF_AFTERWARDS_DEAD    ((char)0xf2)
 #define WEAKREF_AFTERWARDS_ALIVE   ((char)0xeb)
 
-//#define ASYNC_FINALIZER       ((int16_t)0xff46)
+#define ASYNC_FINALIZER_TRIGGER    ((int16_t)0xff46)
 
 
 typedef struct {
@@ -80,6 +80,18 @@ void rpy_reverse_db_teardown(void)
         rpy_reverse_db_flush();
     else
         check_at_end(stop_points);
+}
+
+static void record_stop_point(void);
+static void replay_stop_point(void);
+
+RPY_EXTERN
+void rpy_reverse_db_stop_point(void)
+{
+    if (!RPY_RDB_REPLAY)
+        record_stop_point();
+    else
+        replay_stop_point();
 }
 
 
@@ -145,21 +157,79 @@ static void setup_record_mode(int argc, char *argv[])
 static void flush_buffer(void)
 {
     /* write the current buffer content to the OS */
-    ssize_t size = rpy_revdb.buf_p - rpy_rev_buffer;
+    ssize_t full_size = rpy_revdb.buf_p - rpy_rev_buffer;
     rpy_revdb.buf_p = rpy_rev_buffer + sizeof(int16_t);
     if (rpy_rev_fileno >= 0)
-        write_all(rpy_rev_buffer, size);
+        write_all(rpy_rev_buffer, full_size);
+}
+
+static ssize_t current_packet_size(void)
+{
+    return rpy_revdb.buf_p - (rpy_rev_buffer + sizeof(int16_t));
 }
 
 RPY_EXTERN
 void rpy_reverse_db_flush(void)
 {
-    ssize_t packet_size = rpy_revdb.buf_p - (rpy_rev_buffer + sizeof(int16_t));
-    if (packet_size != 0) {
-        assert(0 < packet_size && packet_size <= 32767);
-        *(int16_t *)rpy_rev_buffer = packet_size;
+    ssize_t content_size = current_packet_size();
+    if (content_size != 0) {
+        assert(0 < content_size && content_size <= 32767);
+        *(int16_t *)rpy_rev_buffer = content_size;
         flush_buffer();
     }
+}
+
+/*
+RPY_EXTERN
+void rpy_reverse_db_register_finalizer(void *obj, void (*finalizer)(void *))
+{
+    ...;
+}
+*/
+
+void boehm_gc_finalizer_notifier(void)
+{
+    /* This is called by Boehm when there are pending finalizers.
+       They are only invoked when we call GC_invoke_finalizers(),
+       which we only do at stop points in the case of revdb. 
+    */
+    assert(rpy_revdb.stop_point_break <= rpy_revdb.stop_point_seen + 1);
+    rpy_revdb.stop_point_break = rpy_revdb.stop_point_seen + 1;
+}
+
+static void record_stop_point(void)
+{
+    /* Invoke the finalizers now.  This will call boehm_fq_callback(),
+       which will enqueue the objects in the correct FinalizerQueue.
+       Then, call boehm_fq_trigger(), which calls finalizer_trigger().
+    */
+    int i;
+    rpy_reverse_db_flush();
+
+    GC_invoke_finalizers();
+    i = 0;
+    while (boehm_fq_trigger[i])
+        boehm_fq_trigger[i++]();
+
+    /* This should all be done without emitting anything to the rdb
+       log.  We check that, and emit just a ASYNC_FINALIZER_TRIGGER.
+    */
+    if (current_packet_size() != 0) {
+        fprintf(stderr,
+                "record_stop_point emitted unexpectedly to the rdb log\n");
+        exit(1);
+    }
+    *(int16_t *)rpy_rev_buffer = ASYNC_FINALIZER_TRIGGER;
+    memcpy(rpy_revdb.buf_p, &rpy_revdb.stop_point_seen, sizeof(uint64_t));
+    rpy_revdb.buf_p += sizeof(uint64_t);
+    flush_buffer();
+}
+
+RPY_EXTERN
+void rpy_reverse_db_next_dead(void *result)
+{
+    int64_t uid = result ? ((struct pypy_header0 *)result)->h_uid : -1;
+    RPY_REVDB_EMIT(/* nothing */, int64_t _e, uid);
 }
 
 RPY_EXTERN
@@ -828,8 +898,7 @@ void rpy_reverse_db_watch_restore_state(bool_t any_watch_point)
     rpy_revdb.watch_enabled = any_watch_point;
 }
 
-RPY_EXTERN
-void rpy_reverse_db_stop_point(void)
+static void replay_stop_point(void)
 {
     while (rpy_revdb.stop_point_break == rpy_revdb.stop_point_seen) {
         save_state();

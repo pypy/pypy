@@ -44,6 +44,21 @@ class RDB(object):
         assert self.cur <= self.current_packet_end
         return result
 
+    def is_special_packet(self):
+        if self.current_packet_end != self.cur:
+            assert self.current_packet_end > self.cur
+            return False
+        next_header = struct.unpack_from('h', self.buffer, self.cur)[0]
+        return (next_header & 0xFF00) == 0xFF00
+
+    def special_packet(self, expected, fmt):
+        assert self.current_packet_end == self.cur
+        next_id = self.read1('h')
+        assert next_id == expected
+        p = self.cur
+        self.cur = self.current_packet_end = p + struct.calcsize(fmt)
+        return struct.unpack_from(fmt, self.buffer, p)
+
     def read_check_argv(self, expected):
         assert self.argc == len(expected)
         for i in range(self.argc):
