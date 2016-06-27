@@ -3569,7 +3569,8 @@ class ASTVisitor(object):
     def visit_sequence(self, seq):
         if seq is not None:
             for node in seq:
-                node.walkabout(self)
+                if node is not None:
+                    node.walkabout(self)
 
     def visit_kwonlydefaults(self, seq):
         if seq is not None:

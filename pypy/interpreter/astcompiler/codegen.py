@@ -1115,7 +1115,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         # a new dict. If there is one dict and it's an unpacking, then
         #it needs to be copied into a new dict.
         while containers > 1 or is_unpacking:
-            oparg = max(containers, 255)
+            oparg = min(containers, 255)
             self.emit_op_arg(ops.BUILD_MAP_UNPACK, oparg)
             containers -= (oparg - 1)
             is_unpacking = 0
