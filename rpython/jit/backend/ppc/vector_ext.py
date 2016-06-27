@@ -26,22 +26,7 @@ class AltiVectorExt(VectorExt):
 class VectorAssembler(object):
     _mixin_ = True
 
-    def _emit_getitem(self, op, arglocs, regalloc):
-        # prepares item scale (raw_load does not)
-        resloc, base_loc, ofs_loc, size_loc, ofs, integer_loc, aligned_loc = arglocs
-        scale = get_scale(size_loc.value)
-        xxx
-        src_addr = addr_add(base_loc, ofs_loc, ofs.value, scale)
-        self._vec_load(resloc, src_addr, integer_loc.value,
-                       size_loc.value, aligned_loc.value)
-    
-    emit_vec_getarrayitem_raw_i = _emit_getitem
-    emit_vec_getarrayitem_raw_f = _emit_getitem
-
-    emit_vec_getarrayitem_gc_i = _emit_getitem
-    emit_vec_getarrayitem_gc_f = _emit_getitem
-
-    def emit_vec_raw_load_f(self, op, arglocs, regalloc):
+    def emit_vec_load_f(self, op, arglocs, regalloc):
         resloc, baseloc, indexloc, size_loc, ofs, integer_loc, aligned_loc = arglocs
         #src_addr = addr_add(baseloc, ofs_loc, ofs.value, 0)
         assert ofs.value == 0
@@ -51,7 +36,7 @@ class VectorAssembler(object):
         elif itemsize == 8:
             self.mc.lxvd2x(resloc.value, indexloc.value, baseloc.value)
 
-    def emit_vec_raw_load_i(self, op, arglocs, regalloc):
+    def emit_vec_load_i(self, op, arglocs, regalloc):
         resloc, baseloc, indexloc, size_loc, ofs, \
             Vhiloc, Vloloc, Vploc, tloc = arglocs
         #src_addr = addr_add(base_loc, ofs_loc, ofs.value, 0)
@@ -84,15 +69,15 @@ class VectorAssembler(object):
     genop_discard_vec_setarrayitem_raw = _emit_vec_setitem
     genop_discard_vec_setarrayitem_gc = _emit_vec_setitem
 
-    def emit_vec_raw_store(self, op, arglocs, regalloc):
+    def emit_vec_store(self, op, arglocs, regalloc):
         baseloc, ofsloc, valueloc, size_loc, baseofs, \
             integer_loc, aligned_loc = arglocs
         #dest_loc = addr_add(base_loc, ofs_loc, baseofs.value, 0)
         assert baseofs.value == 0
-        self._vec_store(baseloc, ofsloc, valueloc, integer_loc.value,
-                        size_loc.value, regalloc)
+    #    self._vec_store(baseloc, ofsloc, valueloc, integer_loc.value,
+    #                    size_loc.value, regalloc)
 
-    def _vec_store(self, baseloc, indexloc, valueloc, integer, itemsize, regalloc):
+    #def _vec_store(self, baseloc, indexloc, valueloc, integer, itemsize, regalloc):
         if integer:
             Vloloc = regalloc.ivrm.get_scratch_reg()
             Vhiloc = regalloc.ivrm.get_scratch_reg()
@@ -136,7 +121,6 @@ class VectorAssembler(object):
                 self.mc.stxvw4x(valueloc.value, indexloc.value, baseloc.value)
             elif itemsize == 8:
                 self.mc.stxvd2x(valueloc.value, indexloc.value, baseloc.value)
-
 
     def emit_vec_int_add(self, op, arglocs, regalloc):
         resloc, loc0, loc1, size_loc = arglocs
@@ -601,12 +585,8 @@ class VectorRegalloc(object):
         return [result_loc, base_loc, ofs_loc, imm(itemsize), imm(ofs),
                 Vhiloc, Vloloc, Vploc, tloc]
 
-    prepare_vec_getarrayitem_raw_i = _prepare_load_i
-    prepare_vec_getarrayitem_raw_f = _prepare_load
-    prepare_vec_getarrayitem_gc_i = _prepare_load_i
-    prepare_vec_getarrayitem_gc_f = _prepare_load
-    prepare_vec_raw_load_i = _prepare_load_i
-    prepare_vec_raw_load_f = _prepare_load
+    prepare_vec_load_i = _prepare_load_i
+    prepare_vec_load_f = _prepare_load
 
     def prepare_vec_arith(self, op):
         a0 = op.getarg(0)
@@ -639,7 +619,7 @@ class VectorRegalloc(object):
     del prepare_vec_arith
 
 
-    def _prepare_vec_store(self, op):
+    def prepare_vec_store(self, op):
         descr = op.getdescr()
         assert isinstance(descr, ArrayDescr)
         assert not descr.is_array_of_pointers() and \
@@ -656,11 +636,6 @@ class VectorRegalloc(object):
         aligned = False
         return [baseloc, ofsloc, valueloc,
                 imm(itemsize), imm(ofs), imm(integer), imm(aligned)]
-
-    prepare_vec_setarrayitem_raw = _prepare_vec_store
-    prepare_vec_setarrayitem_gc = _prepare_vec_store
-    prepare_vec_raw_store = _prepare_vec_store
-    del _prepare_vec_store
 
     def prepare_vec_int_signext(self, op):
         assert isinstance(op, VectorOp)

@@ -3,6 +3,7 @@ from rpython.jit.backend.llsupport.descr import (unpack_arraydescr,
 from rpython.rlib.objectmodel import specialize, always_inline
 from rpython.jit.metainterp.history import (VECTOR, FLOAT, INT)
 from rpython.jit.metainterp.resoperation import rop
+from rpython.jit.metainterp.optimizeopt.schedule import forwarded_vecinfo
 
 class TypeRestrict(object):
     ANY_TYPE = '\x00'

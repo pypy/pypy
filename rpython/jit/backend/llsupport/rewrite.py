@@ -158,10 +158,10 @@ class GcRewriterAssembler(object):
 
     def _emit_mul_if_factor_offset_not_supported(self, index_box,
                                                  factor, offset):
-        factor, offset, index_box = cpu_simplify_scale(self.cpu, indexbox, factor, offset)
-        if index_box:
+        factor, offset, new_index_box = cpu_simplify_scale(self.cpu, index_box, factor, offset)
+        if index_box is not new_index_box:
             self.emit_op(index_box)
-        return factor, offset, index_box
+        return factor, offset, new_index_box
 
     def emit_gc_load_or_indexed(self, op, ptr_box, index_box, itemsize,
                                 factor, offset, sign, type='i'):
