@@ -25,31 +25,15 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
             ("test_Size", "METH_NOARGS",
              """
                  PyObject* s = PyString_FromString("Hello world");
-                 int result = 0;
-                 size_t expected_size;
+                 int result = PyString_Size(s);
 
-                 if(PyString_Size(s) == 11) {
-                     result = 1;
-                 }
-                 #ifdef PYPY_VERSION
-                    expected_size = sizeof(void*)*7;
-                 #elif defined Py_DEBUG
-                    expected_size = 53;
-                 #else
-                    expected_size = 37;
-                 #endif
-                 if(s->ob_type->tp_basicsize != expected_size)
-                 {
-                     printf("tp_basicsize==%zd\\n", s->ob_type->tp_basicsize); 
-                     result = 0;
-                 }
                  Py_DECREF(s);
-                 return PyBool_FromLong(result);
+                 return PyLong_FromLong(result);
              """),
             ("test_Size_exception", "METH_NOARGS",
              """
                  PyObject* f = PyFloat_FromDouble(1.0);
-                 Py_ssize_t size = PyString_Size(f);
+                 PyString_Size(f);
 
                  Py_DECREF(f);
                  return NULL;
@@ -60,7 +44,7 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
              """)], prologue='#include <stdlib.h>')
         assert module.get_hello1() == 'Hello world'
         assert module.get_hello2() == 'Hello world'
-        assert module.test_Size()
+        assert module.test_Size() == 11
         raises(TypeError, module.test_Size_exception)
 
         assert module.test_is_string("")
@@ -72,7 +56,6 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
              """
                  PyObject *s, *t;
                  char* c;
-                 Py_ssize_t len;
 
                  s = PyString_FromStringAndSize(NULL, 4);
                  if (s == NULL)
@@ -81,7 +64,7 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
                  if (t == NULL)
                     return NULL;
                  Py_DECREF(t);
-                 c = PyString_AsString(s);
+                 c = PyString_AS_STRING(s);
                  c[0] = 'a';
                  c[1] = 'b';
                  c[2] = 0;
@@ -100,7 +83,6 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
                 PyObject *base;
                 PyTypeObject * type;
                 PyStringObject *obj;
-                char * p_str;
                 base = PyString_FromString("test");
                 if (PyString_GET_SIZE(base) != 4)
                     return PyLong_FromLong(-PyString_GET_SIZE(base));
@@ -110,14 +92,22 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
                 obj = (PyStringObject*)type->tp_alloc(type, 10);
                 if (PyString_GET_SIZE(obj) != 10)
                     return PyLong_FromLong(PyString_GET_SIZE(obj));
-                /* cannot work, there is only RO access
-                memcpy(PyString_AS_STRING(obj), "works", 6); */
+                /* cannot work, there is only RO access */
+                memcpy(PyString_AS_STRING(obj), "works", 6);
                 Py_INCREF(obj);
                 return (PyObject*)obj;
              """),
+            ('alloc_rw', "METH_NOARGS",
+             '''
+                PyObject *obj = _PyObject_NewVar(&PyString_Type, 10);
+                memcpy(PyString_AS_STRING(obj), "works", 6);
+                return (PyObject*)obj;
+             '''),
             ])
+        s = module.alloc_rw()
+        assert s == 'works' + '\x00' * 5
         s = module.tpalloc()
-        assert s == '\x00' * 10
+        assert s == 'works' + '\x00' * 5
 
     def test_AsString(self):
         module = self.import_extension('foo', [
@@ -312,17 +302,17 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
              '''
                 PyObject* obj = (PyTuple_GetItem(args, 0));
                 long hash = ((PyStringObject*)obj)->ob_shash;
-                return PyLong_FromLong(hash);  
+                return PyLong_FromLong(hash);
              '''
              ),
             ("test_sstate", "METH_NOARGS",
              '''
                 PyObject *s = PyString_FromString("xyz");
-                int sstate = ((PyStringObject*)s)->ob_sstate;
-                /*printf("sstate now %d\\n", sstate);*/
+                /*int sstate = ((PyStringObject*)s)->ob_sstate;
+                printf("sstate now %d\\n", sstate);*/
                 PyString_InternInPlace(&s);
-                sstate = ((PyStringObject*)s)->ob_sstate;
-                /*printf("sstate now %d\\n", sstate);*/
+                /*sstate = ((PyStringObject*)s)->ob_sstate;
+                printf("sstate now %d\\n", sstate);*/
                 Py_DECREF(s);
                 return PyBool_FromLong(1);
              '''),
@@ -332,27 +322,124 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
         # doesn't really test, but if printf is enabled will prove sstate
         assert module.test_sstate()
 
+    def test_subclass(self):
+        # taken from PyStringArrType_Type in numpy's scalartypes.c.src
+        module = self.import_extension('bar', [
+            ("newsubstr", "METH_O",
+             """
+                PyObject * obj;
+                char * data;
+                int len;
+                PyType_Ready(&PyStringArrType_Type);
+
+                data = PyString_AS_STRING(args);
+                len = PyString_GET_SIZE(args);
+                if (data == NULL || len < 1)
+                    Py_RETURN_NONE;
+                obj = PyArray_Scalar(data, len);
+                return obj;
+             """),
+            ], prologue="""
+                #include <Python.h>
+                PyTypeObject PyStringArrType_Type = {
+                    PyObject_HEAD_INIT(NULL)
+                    0,                            /* ob_size */
+                    "bar.string_",                /* tp_name*/
+                    sizeof(PyStringObject), /* tp_basicsize*/
+                    0                             /* tp_itemsize */
+                    };
+
+                    static PyObject *
+                    stringtype_repr(PyObject *self)
+                    {
+                        const char *dptr, *ip;
+                        int len;
+                        PyObject *new;
+
+                        ip = dptr = PyString_AS_STRING(self);
+                        len = PyString_GET_SIZE(self);
+                        dptr += len-1;
+                        while(len > 0 && *dptr-- == 0) {
+                            len--;
+                        }
+                        new = PyString_FromStringAndSize(ip, len);
+                        if (new == NULL) {
+                            return PyString_FromString("");
+                        }
+                        return new;
+                    }
+
+                    static PyObject *
+                    stringtype_str(PyObject *self)
+                    {
+                        const char *dptr, *ip;
+                        int len;
+                        PyObject *new;
+
+                        ip = dptr = PyString_AS_STRING(self);
+                        len = PyString_GET_SIZE(self);
+                        dptr += len-1;
+                        while(len > 0 && *dptr-- == 0) {
+                            len--;
+                        }
+                        new = PyString_FromStringAndSize(ip, len);
+                        if (new == NULL) {
+                            return PyString_FromString("");
+                        }
+                        return new;
+                    }
+
+                    PyObject *
+                    PyArray_Scalar(char *data, int n)
+                    {
+                        PyTypeObject *type = &PyStringArrType_Type;
+                        PyObject *obj;
+                        void *destptr;
+                        int itemsize = n;
+                        obj = type->tp_alloc(type, itemsize);
+                        if (obj == NULL) {
+                            return NULL;
+                        }
+                        destptr = PyString_AS_STRING(obj);
+                        ((PyStringObject *)obj)->ob_shash = -1;
+                        memcpy(destptr, data, itemsize);
+                        return obj;
+                    }
+            """, more_init = '''
+                PyStringArrType_Type.tp_alloc = NULL;
+                PyStringArrType_Type.tp_free = NULL;
+
+                PyStringArrType_Type.tp_repr = stringtype_repr;
+                PyStringArrType_Type.tp_str = stringtype_str;
+                PyStringArrType_Type.tp_flags = Py_TPFLAGS_DEFAULT|Py_TPFLAGS_BASETYPE;
+                PyStringArrType_Type.tp_itemsize = sizeof(char);
+                PyStringArrType_Type.tp_base = &PyString_Type;
+            ''')
+
+        a = module.newsubstr('abc')
+        assert type(a).__name__ == 'string_'
+        assert a == 'abc'
 
 class TestString(BaseApiTest):
     def test_string_resize(self, space, api):
         py_str = new_empty_str(space, 10)
         ar = lltype.malloc(PyObjectP.TO, 1, flavor='raw')
-        py_str.c_buffer[0] = 'a'
-        py_str.c_buffer[1] = 'b'
-        py_str.c_buffer[2] = 'c'
+        py_str.c_ob_sval[0] = 'a'
+        py_str.c_ob_sval[1] = 'b'
+        py_str.c_ob_sval[2] = 'c'
         ar[0] = rffi.cast(PyObject, py_str)
         api._PyString_Resize(ar, 3)
         py_str = rffi.cast(PyStringObject, ar[0])
         assert py_str.c_ob_size == 3
-        assert py_str.c_buffer[1] == 'b'
-        assert py_str.c_buffer[3] == '\x00'
+        assert py_str.c_ob_sval[1] == 'b'
+        assert py_str.c_ob_sval[3] == '\x00'
         # the same for growing
         ar[0] = rffi.cast(PyObject, py_str)
         api._PyString_Resize(ar, 10)
         py_str = rffi.cast(PyStringObject, ar[0])
         assert py_str.c_ob_size == 10
-        assert py_str.c_buffer[1] == 'b'
-        assert py_str.c_buffer[10] == '\x00'
+        assert py_str.c_ob_sval[1] == 'b'
+        assert py_str.c_ob_sval[10] == '\x00'
         Py_DecRef(space, ar[0])
         lltype.free(ar, flavor='raw')
 
