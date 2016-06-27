@@ -37,7 +37,7 @@ class TestReplayProcessGroup:
                 revdb.stop_point()
                 print op
             return 9
-        compile(cls, main, [], backendopt=False)
+        compile(cls, main, backendopt=False)
         assert run(cls, 'abc d ef g h i j k l m') == (
             'abc\nd\nef\ng\nh\ni\nj\nk\nl\nm\n')
 

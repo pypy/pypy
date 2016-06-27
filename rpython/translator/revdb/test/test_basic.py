@@ -84,10 +84,11 @@ class RDB(object):
         return self.cur == len(self.buffer)
 
 
-def compile(self, entry_point, argtypes, backendopt=True,
+def compile(self, entry_point, backendopt=True,
             withsmallfuncsets=None):
     t = Translation(entry_point, None, gc="boehm")
     self.t = t
+    t.set_backend_extra_options(c_debug_defines=True)
     t.config.translation.reverse_debugger = True
     t.config.translation.lldebug0 = True
     if withsmallfuncsets is not None:
@@ -127,7 +128,7 @@ class TestRecording(BaseRecordingTests):
         def main(argv):
             print argv[1:]
             return 9
-        self.compile(main, [], backendopt=False)
+        self.compile(main, backendopt=False)
         assert self.run('abc d') == '[abc, d]\n'
         rdb = self.fetch_rdb([self.exename, 'abc', 'd'])
         # write() call
@@ -143,7 +144,7 @@ class TestRecording(BaseRecordingTests):
                    objectmodel.compute_identity_hash(argv),
                    objectmodel.compute_identity_hash(argv)]
             return 9
-        self.compile(main, [], backendopt=False)
+        self.compile(main, backendopt=False)
         out = self.run('Xx')
         match = re.match(r'\[(-?\d+), \1, \1]\n', out)
         assert match
@@ -167,7 +168,7 @@ class TestRecording(BaseRecordingTests):
         def main(argv):
             print lst[len(argv) & 1].x
             return 9
-        self.compile(main, [], backendopt=False)
+        self.compile(main, backendopt=False)
         out = self.run('Xx')
         assert out == '42\n'
         rdb = self.fetch_rdb([self.exename, 'Xx'])
@@ -190,7 +191,7 @@ class TestRecording(BaseRecordingTests):
         def main(argv):
             print lst[len(argv) & 1].x
             return 9
-        self.compile(main, [], backendopt=False)
+        self.compile(main, backendopt=False)
         out = self.run('Xx')
         assert out == '41\n'
         rdb = self.fetch_rdb([self.exename, 'Xx'])
@@ -220,7 +221,7 @@ class TestRecording(BaseRecordingTests):
                 x = f3  # now can be f1 or f2 or f3
             print x()
             return 9
-        self.compile(main, [], backendopt=False, withsmallfuncsets=limit)
+        self.compile(main, backendopt=False, withsmallfuncsets=limit)
         for input, expected_output in [
                 ('2 3', '111\n'),
                 ('2 3 4', '222\n'),
@@ -265,7 +266,7 @@ class TestSimpleInterpreter(InteractiveTests):
             for x in lst:
                 print revdb.get_unique_id(x)
             return 9
-        compile(cls, main, [], backendopt=False)
+        compile(cls, main, backendopt=False)
         assert run(cls, 'abc d ef') == ('abc\nd\nef\n'
                                         '3\n0\n12\n15\n17\n')
         rdb = fetch_rdb(cls, [cls.exename, 'abc', 'd', 'ef'])
@@ -324,8 +325,7 @@ class TestDebugCommands(InteractiveTests):
             debug_print('<<<', cmd.c_cmd, cmd.c_arg1,
                                cmd.c_arg2, cmd.c_arg3, extra, '>>>')
             if extra == 'oops':
-                for i in range(1000):
-                    print 42     # I/O not permitted
+                print 42     # I/O not permitted
             if extra == 'raise-and-catch':
                 try:
                     g(extra)
@@ -373,7 +373,7 @@ class TestDebugCommands(InteractiveTests):
                 revdb.stop_point()
                 print op
             return 9
-        compile(cls, main, [], backendopt=False)
+        compile(cls, main, backendopt=False)
         assert run(cls, 'abc d ef') == 'abc\nd\nef\n'
 
     def test_run_blip(self):

@@ -1,4 +1,4 @@
-import sys, re
+import sys, os, re
 import subprocess, socket
 import traceback
 from contextlib import contextmanager
@@ -15,12 +15,15 @@ class RevDebugControl(object):
     def __init__(self, revdb_log_filename, executable=None):
         with open(revdb_log_filename, 'rb') as f:
             header = f.readline()
-        fields = header.split('\t')
+        assert header.endswith('\n')
+        fields = header[:-1].split('\t')
         if len(fields) < 2 or fields[0] != 'RevDB:':
             raise ValueError("file %r is not a RevDB log" % (
                 revdb_log_filename,))
         if executable is None:
             executable = fields[1]
+        if not os.path.isfile(executable):
+            raise ValueError("executable %r not found" % (executable,))
         self.pgroup = ReplayProcessGroup(executable, revdb_log_filename)
         self.print_extra_pending_info = None
 

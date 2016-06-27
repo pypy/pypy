@@ -52,15 +52,13 @@ RPY_EXTERN void rpy_reverse_db_teardown(void);
             decl_e;                                                     \
             char *_src = rpy_revdb.buf_p;                               \
             char *_end1 = _src + sizeof(_e);                            \
-            if (_end1 > rpy_revdb.buf_limit) {                          \
-                _src = rpy_reverse_db_fetch(__FILE__, __LINE__);        \
-                _end1 = _src + sizeof(_e);                              \
-            }                                                           \
-            rpy_revdb.buf_p = _end1;                                    \
             memcpy(&_e, _src, sizeof(_e));                              \
+            rpy_revdb.buf_p = _end1;                                    \
             _RPY_REVDB_PRINT((stderr, "%s:%d: read %0*llx\n",           \
                               __FILE__, __LINE__,                       \
                               2 * sizeof(_e), (unsigned long long)_e)); \
+            if (_end1 >= rpy_revdb.buf_limit)                           \
+                rpy_reverse_db_fetch(__FILE__, __LINE__);               \
             variable = _e;                                              \
     }
 
@@ -116,7 +114,7 @@ RPY_EXTERN void rpy_reverse_db_teardown(void);
     rpy_reverse_db_call_destructor(obj)
 
 RPY_EXTERN void rpy_reverse_db_flush(void);
-RPY_EXTERN char *rpy_reverse_db_fetch(const char *file, int line);
+RPY_EXTERN void rpy_reverse_db_fetch(const char *file, int line);
 RPY_EXTERN void rpy_reverse_db_stop_point(void);
 RPY_EXTERN void rpy_reverse_db_send_answer(int cmd, int64_t arg1, int64_t arg2,
                                            int64_t arg3, RPyString *extra);
@@ -129,6 +127,7 @@ RPY_EXTERN void rpy_reverse_db_watch_restore_state(bool_t any_watch_point);
 RPY_EXTERN void *rpy_reverse_db_weakref_create(void *target);
 RPY_EXTERN void *rpy_reverse_db_weakref_deref(void *weakref);
 //RPY_EXTERN void rpy_reverse_db_call_destructor(void *obj);
+RPY_EXTERN int rpy_reverse_db_fq_register(void *obj);
 RPY_EXTERN void rpy_reverse_db_next_dead(void *result);
 
 /* ------------------------------------------------------------ */

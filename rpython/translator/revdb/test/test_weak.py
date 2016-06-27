@@ -26,6 +26,52 @@ WEAKREF_AFTERWARDS_ALIVE = chr(0xeb)
 ASYNC_FINALIZER_TRIGGER  = 0xff46 - 2**16
 
 
+def get_finalizer_queue_main():
+    from rpython.rtyper.lltypesystem import lltype, rffi
+    from rpython.translator.tool.cbuild import ExternalCompilationInfo
+    eci = ExternalCompilationInfo(
+        pre_include_bits=["#define foobar(x) x\n"])
+    foobar = rffi.llexternal('foobar', [lltype.Signed], lltype.Signed,
+                             compilation_info=eci)
+    class Glob:
+        pass
+    glob = Glob()
+    class X:
+        pass
+    class MyFinalizerQueue(rgc.FinalizerQueue):
+        Class = X
+        def finalizer_trigger(self):
+            glob.ping = True
+    fq = MyFinalizerQueue()
+    #
+    def main(argv):
+        glob.ping = False
+        lst1 = [X() for i in range(256)]
+        lst = [X() for i in range(3000)]
+        for i, x in enumerate(lst):
+            x.baz = i
+            fq.register_finalizer(x)
+        for i in range(3000):
+            lst[i] = None
+            if i % 300 == 150:
+                rgc.collect()
+            revdb.stop_point()
+            j = i + glob.ping * 1000000
+            assert foobar(j) == j
+            if glob.ping:
+                glob.ping = False
+                total = 0
+                while True:
+                    x = fq.next_dead()
+                    if x is None:
+                        break
+                    total = intmask(total * 3 + x.baz)
+                assert foobar(total) == total
+        keepalive_until_here(lst1)
+        return 9
+    return main
+
+
 class TestRecording(BaseRecordingTests):
 
     def test_weakref_create(self):
@@ -39,7 +85,7 @@ class TestRecording(BaseRecordingTests):
             glob.r2 = weakref.ref(X())
             glob.r3 = weakref.ref(X())
             return 9
-        self.compile(main, [], backendopt=False)
+        self.compile(main, backendopt=False)
         out = self.run('Xx')
         rdb = self.fetch_rdb([self.exename, 'Xx'])
         # find the extra WEAKREF_DEAD
@@ -63,7 +109,7 @@ class TestRecording(BaseRecordingTests):
                 assert r1() is x1    # (*)
                 assert r2() is x2    # (*)
             return 9
-        self.compile(main, [], backendopt=False)
+        self.compile(main, backendopt=False)
         out = self.run('Xx')
         rdb = self.fetch_rdb([self.exename, 'Xx'])
         # find the 2 + 16998 first WEAKREF_xxx (all "(*)" but the last two)
@@ -87,56 +133,15 @@ class TestRecording(BaseRecordingTests):
                     rgc.collect()
                 revdb.stop_point()
             return 9
-        self.compile(main, [], backendopt=False)
+        self.compile(main, backendopt=False)
         out = self.run('Xx')
         rdb = self.fetch_rdb([self.exename, 'Xx'])
         x = rdb.next('q'); assert x == 3000    # number of stop points
         assert rdb.done()
 
     def test_finalizer_queue(self):
-        from rpython.rtyper.lltypesystem import lltype, rffi
-        from rpython.translator.tool.cbuild import ExternalCompilationInfo
-        eci = ExternalCompilationInfo(
-            pre_include_bits=["#define foobar(x) x\n"])
-        foobar = rffi.llexternal('foobar', [lltype.Signed], lltype.Signed,
-                                 compilation_info=eci)
-        class Glob:
-            pass
-        glob = Glob()
-        class X:
-            pass
-        class MyFinalizerQueue(rgc.FinalizerQueue):
-            Class = X
-            def finalizer_trigger(self):
-                glob.ping = True
-        fq = MyFinalizerQueue()
-        #
-        def main(argv):
-            glob.ping = False
-            lst1 = [X() for i in range(256)]
-            lst = [X() for i in range(3000)]
-            for i, x in enumerate(lst):
-                x.baz = i
-                fq.register_finalizer(x)
-            for i in range(3000):
-                lst[i] = None
-                if i % 300 == 150:
-                    rgc.collect()
-                revdb.stop_point()
-                j = i + glob.ping * 1000000
-                assert foobar(j) == j
-                if glob.ping:
-                    glob.ping = False
-                    total = 0
-                    while True:
-                        x = fq.next_dead()
-                        if x is None:
-                            break
-                        total = intmask(total * 3 + x.baz)
-                    assert foobar(total) == total
-            keepalive_until_here(lst1)
-            return 9
-        self.compile(main, [], backendopt=False)
+        main = get_finalizer_queue_main()
+        self.compile(main, backendopt=False)
         out = self.run('Xx')
         rdb = self.fetch_rdb([self.exename, 'Xx'])
         uid_seen = set()
@@ -196,7 +201,7 @@ class TestRecording(BaseRecordingTests):
                 assert foobar(x) == x
             print x
             return 9
-        self.compile(main, [], backendopt=False)
+        self.compile(main, backendopt=False)
         out = self.run('Xx')
         assert 1500 < int(out) <= 3000
         rdb = self.fetch_rdb([self.exename, 'Xx'])
@@ -212,7 +217,7 @@ class TestRecording(BaseRecordingTests):
         assert rdb.done()
 
 
-class TestReplaying(InteractiveTests):
+class TestReplayingWeakref(InteractiveTests):
     expected_stop_points = 1
 
     def setup_class(cls):
@@ -255,7 +260,7 @@ class TestReplaying(InteractiveTests):
             keepalive_until_here(keepalive)
             revdb.stop_point()
             return 9
-        compile(cls, main, [], backendopt=False)
+        compile(cls, main, backendopt=False)
         output = run(cls, '')
         lines = output.splitlines()
         assert lines[-1].startswith('prebuilt') and lines[-1].endswith(
@@ -267,4 +272,19 @@ class TestReplaying(InteractiveTests):
         child = self.replay()
         # the asserts are replayed; if we get here it means they passed again
         child.send(Message(CMD_FORWARD, 1))
+        child.expect(ANSWER_AT_END)
+
+
+class TestReplayingFinalizerQueue(InteractiveTests):
+    expected_stop_points = 3000
+
+    def setup_class(cls):
+        from rpython.translator.revdb.test.test_basic import compile, run
+        main = get_finalizer_queue_main()
+        compile(cls, main, backendopt=False)
+        run(cls, '')
+
+    def test_replaying_finalizer_queue(self):
+        child = self.replay()
+        child.send(Message(CMD_FORWARD, 3001))
         child.expect(ANSWER_AT_END)

@@ -11,6 +11,7 @@
 #include <ctype.h>
 #include <setjmp.h>
 #include <signal.h>
+#include <search.h>
 
 #include "structdef.h"
 #include "forwarddecl.h"
@@ -73,6 +74,11 @@ RPY_EXTERN
 void rpy_reverse_db_teardown(void)
 {
     uint64_t stop_points;
+    if (RPY_RDB_REPLAY) {
+        /* hack: prevents RPY_REVDB_EMIT() from calling
+           rpy_reverse_db_fetch(), which has nothing more to fetch now */
+        rpy_revdb.buf_limit += 1;
+    }
     RPY_REVDB_EMIT(stop_points = rpy_revdb.stop_point_seen; ,
                    uint64_t _e, stop_points);
 
@@ -173,8 +179,9 @@ void rpy_reverse_db_flush(void)
 {
     ssize_t content_size = current_packet_size();
     if (content_size != 0) {
+        char *p = rpy_rev_buffer;
         assert(0 < content_size && content_size <= 32767);
-        *(int16_t *)rpy_rev_buffer = content_size;
+        *(int16_t *)p = content_size;
         flush_buffer();
     }
 }
@@ -204,6 +211,8 @@ static void record_stop_point(void)
        Then, call boehm_fq_trigger(), which calls finalizer_trigger().
     */
     int i;
+    char *p = rpy_rev_buffer;
+
     rpy_reverse_db_flush();
 
     GC_invoke_finalizers();
@@ -219,7 +228,7 @@ static void record_stop_point(void)
                 "record_stop_point emitted unexpectedly to the rdb log\n");
         exit(1);
     }
-    *(int16_t *)rpy_rev_buffer = ASYNC_FINALIZER_TRIGGER;
+    *(int16_t *)p = ASYNC_FINALIZER_TRIGGER;
     memcpy(rpy_revdb.buf_p, &rpy_revdb.stop_point_seen, sizeof(uint64_t));
     rpy_revdb.buf_p += sizeof(uint64_t);
     flush_buffer();
@@ -294,7 +303,8 @@ static void patch_prev_offset(int64_t offset, char old, char new)
             exit(1);
         }
         if (pwrite(rpy_rev_fileno, &new, 1, offset) != 1) {
-            fprintf(stderr, "can't patch log position %lld\n", offset);
+            fprintf(stderr, "can't patch log position %lld\n",
+                    (long long)offset);
             exit(1);
         }
     }
@@ -446,6 +456,7 @@ static const char *rpy_rev_filename;
 static uint64_t stopped_time;
 static uint64_t stopped_uid;
 static uint64_t total_stop_points;
+static uint64_t finalizer_trigger_saved_break;
 static jmp_buf jmp_buf_cancel_execution;
 static void (*pending_after_forward)(void);
 static RPyString *empty_string;
@@ -453,6 +464,7 @@ static uint64_t last_recorded_breakpoint_loc;
 static int last_recorded_breakpoint_num;
 static char breakpoint_mode;
 static uint64_t *future_ids, *future_next_id;
+static void *finalizer_tree;
 
 static void attach_gdb(void)
 {
@@ -606,6 +618,11 @@ static void setup_replay_mode(int *argc_p, char **argv_p[])
     /* ignore the SIGCHLD signals so that child processes don't become
        zombies */
     signal(SIGCHLD, SIG_IGN);
+
+    /* initiate the read, which is always at least one byte ahead of
+       RPY_REVDB_EMIT() in order to detect the ASYNC_* operations
+       early enough. */
+    rpy_reverse_db_fetch(__FILE__, __LINE__);
 }
 
 static void fetch_more(ssize_t keep, ssize_t expected_size)
@@ -622,15 +639,19 @@ static void fetch_more(ssize_t keep, ssize_t expected_size)
 }
 
 RPY_EXTERN
-char *rpy_reverse_db_fetch(const char *file, int line)
+void rpy_reverse_db_fetch(const char *file, int line)
 {
     if (!flag_io_disabled) {
         ssize_t keep;
         ssize_t full_packet_size;
+        int16_t header;
+
         if (rpy_revdb.buf_limit != rpy_revdb.buf_p) {
             fprintf(stderr, "bad log format: incomplete packet\n");
             exit(1);
         }
+
+     fetch_more_if_needed:
         keep = rpy_revdb.buf_readend - rpy_revdb.buf_p;
         assert(keep >= 0);
 
@@ -639,13 +660,41 @@ char *rpy_reverse_db_fetch(const char *file, int line)
             fetch_more(keep, sizeof(int16_t));
             keep = rpy_revdb.buf_readend - rpy_rev_buffer;
         }
-        full_packet_size = sizeof(int16_t) + *(int16_t *)rpy_revdb.buf_p;
-        if (keep < full_packet_size) {
-            fetch_more(keep, full_packet_size);
+        header = *(int16_t *)rpy_revdb.buf_p;
+        if (header < 0) {
+            int64_t bp;
+
+            switch (header) {
+
+            case ASYNC_FINALIZER_TRIGGER:
+                if (finalizer_trigger_saved_break != 0) {
+                    fprintf(stderr, "unexpected multiple "
+                                    "ASYNC_FINALIZER_TRIGGER\n");
+                    exit(1);
+                }
+                full_packet_size = sizeof(int16_t) + sizeof(int64_t);
+                if (keep < full_packet_size)
+                    fetch_more(keep, full_packet_size);
+                memcpy(&bp, rpy_revdb.buf_p + sizeof(int16_t), sizeof(int64_t));
+                rpy_revdb.buf_p += full_packet_size;
+                if (bp <= rpy_revdb.stop_point_seen) {
+                    fprintf(stderr, "invalid finalizer break point\n");
+                    exit(1);
+                }
+                finalizer_trigger_saved_break = rpy_revdb.stop_point_break;
+                rpy_revdb.stop_point_break = bp;
+                goto fetch_more_if_needed;
+
+            default:
+                fprintf(stderr, "bad packet header %d", (int)header);
+                exit(1);
+            }
         }
+        full_packet_size = sizeof(int16_t) + header;
+        if (keep < full_packet_size)
+            fetch_more(keep, full_packet_size);
         rpy_revdb.buf_limit = rpy_revdb.buf_p + full_packet_size;
         rpy_revdb.buf_p += sizeof(int16_t);
-        return rpy_revdb.buf_p;
     }
     else {
         /* this is called when we are in execute_rpy_command(): we are
@@ -672,8 +721,8 @@ static void disable_io(void)
     disabled_exc[1] = pypy_g_ExcData.ed_exc_value;
     pypy_g_ExcData.ed_exc_type = NULL;
     pypy_g_ExcData.ed_exc_value = NULL;
-    rpy_revdb.buf_p = NULL;
-    rpy_revdb.buf_limit = NULL;
+    rpy_revdb.buf_p = rpy_rev_buffer;       /* anything readable */
+    rpy_revdb.buf_limit = rpy_rev_buffer;   /* same as buf_p */
     flag_io_disabled = 1;
 }
 
@@ -724,7 +773,7 @@ static void check_at_end(uint64_t stop_points)
                 (long long)stop_points);
         exit(1);
     }
-    if (rpy_revdb.buf_p != rpy_revdb.buf_limit ||
+    if (rpy_revdb.buf_p != rpy_revdb.buf_limit - 1 ||
             read(rpy_rev_fileno, dummy, 1) > 0) {
         fprintf(stderr, "RevDB file error: corrupted file (too much data?)\n");
         exit(1);
@@ -900,6 +949,10 @@ void rpy_reverse_db_watch_restore_state(bool_t any_watch_point)
 
 static void replay_stop_point(void)
 {
+    if (finalizer_trigger_saved_break != 0) {
+        abort();
+    }
+
     while (rpy_revdb.stop_point_break == rpy_revdb.stop_point_seen) {
         save_state();
         breakpoint_mode = 0;
@@ -911,8 +964,6 @@ static void replay_stop_point(void)
         }
         else {
             rpy_revdb_command_t cmd;
-            if (((int64_t)stopped_uid) < 0)
-                attach_gdb();
             write_answer(ANSWER_READY, stopped_time, stopped_uid, 0);
             read_sock(&cmd, sizeof(cmd));
 
@@ -1028,5 +1079,32 @@ uint64_t rpy_reverse_db_unique_id_break(void *new_object)
     return uid;
 }
 
+static int _ftree_compare(const void *obj1, const void *obj2)
+{
+    const struct pypy_header0 *h1 = obj1;
+    const struct pypy_header0 *h2 = obj2;
+    if (h1->h_uid < h2->h_uid)
+        return -1;
+    if (h1->h_uid == h2->h_uid)
+        return 0;
+    else
+        return 1;
+}
+
+RPY_EXTERN
+int rpy_reverse_db_fq_register(void *obj)
+{
+    if (!RPY_RDB_REPLAY) {
+        return 0;     /* recording */
+    }
+    else {
+        void *added = tsearch(obj, &finalizer_tree, _ftree_compare);
+        if (added != obj) {
+            fprintf(stderr, "tsearch: duplicate object\n");
+            exit(1);
+        }
+        return 1;     /* replaying */
+    }
+}
 
 /* ------------------------------------------------------------ */
