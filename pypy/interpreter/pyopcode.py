@@ -1353,20 +1353,11 @@ class __extend__(pyframe.PyFrame):
         w_sum = self.unpack_helper(itemcount, next_instr)
         self.pushvalue(self.space.newlist(w_sum))
         
-    #TODO
-    #get intersection, store as setentry
     def BUILD_MAP_UNPACK_WITH_CALL(self, itemcount, next_instr):
-        w_sum = self.space.newdict()
         num_maps = itemcount & 0xff
-        function_location = (itemcount >> 8) & 0xff
-        for i in range(num_maps, 0, -1):
-            arg = self.space.peek(i)
-            # intersection = _dictviews_and(w_sum, arg) #check after bugs are done
-            self.space.call_method(w_sum, 'update', self.space.peek(i))
-        while itemcount != 0:
-            self.popvalue()
-            itemcount -= 1
-        self.pushvalue(w_sum)
+        w_dict = self.space.newdict()
+        import pdb; pdb.set_trace()
+        self.BUILD_MAP_UNPACK(num_maps, next_instr)
         
     def BUILD_MAP_UNPACK(self, itemcount, next_instr):
         w_dict = self.space.newdict()
