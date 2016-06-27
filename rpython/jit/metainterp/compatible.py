@@ -293,7 +293,7 @@ class PureCallCondition(Condition):
         else:
             assert rettype == VOID
             # XXX maybe we should forbid this
-            call_op = ResOperation(rop.CALL_PURE_R, args, descr)
+            call_op = ResOperation(rop.CALL_PURE_N, args, descr)
             short.append(call_op)
             return
         # add result to call_pure_results
