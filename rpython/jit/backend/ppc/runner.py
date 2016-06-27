@@ -3,6 +3,7 @@ from rpython.rtyper.llinterp import LLInterpreter
 from rpython.rlib import rgc
 from rpython.rlib.jit_hooks import LOOP_RUN_CONTAINER
 from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
+from rpython.jit.backend.ppc.vector_ext import AltiVectorExt
 from rpython.jit.backend.ppc.ppc_assembler import AssemblerPPC
 from rpython.jit.backend.ppc.arch import WORD
 from rpython.jit.backend.ppc.codebuilder import PPCBuilder
@@ -11,6 +12,7 @@ from rpython.jit.backend.ppc.detect_feature import detect_vsx
 
 class PPC_CPU(AbstractLLCPU):
 
+    vector_ext = None
     vector_extension = False # may be set to true in setup
     vector_register_size = 16
     vector_horizontal_operations = False
@@ -47,6 +49,7 @@ class PPC_CPU(AbstractLLCPU):
     def setup_once(self):
         self.assembler.setup_once()
         if detect_vsx():
+            self.vector_ext = AltiVectorExt()
             self.vector_extension = True
             # ??? self.vector_horizontal_operations = True
 

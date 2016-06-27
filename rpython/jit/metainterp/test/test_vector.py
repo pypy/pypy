@@ -28,7 +28,11 @@ def free(mem):
     lltype.free(mem, flavor='raw')
 
 def isclose(a, b, rel_tol=1e-09, abs_tol=0.0):
-    return abs(a-b) <= max(rel_tol * max(abs(a), abs(b)), abs_tol)
+    return abs(a-b) <= max(rel_tol * max(abs(a), abs(b)), abs_tol) \
+           or (math.isnan(a) and math.isnan(b)) or \
+                  (math.isinf(a) and math.isinf(b) and \
+                   (a < 0.0 and b < 0.0) or \
+                   (a > 0.0 and b > 0.0))
 
 class RawStorage(object):
     def __init__(self):
@@ -84,6 +88,8 @@ class VectorizeTests(object):
                               type_system=self.type_system,
                               vec=vec, vec_all=vec_all)
 
+    # FLOAT UNARY
+
     def _vector_float_unary(self, func, type, data):
         func = always_inline(func)
 
@@ -109,10 +115,7 @@ class VectorizeTests(object):
         for i in range(l):
             c = raw_storage_getitem(type,vc,i*size)
             r = func(la[i])
-            assert isclose(r, c) or (math.isnan(r) and math.isnan(c)) or \
-                   (math.isinf(r) and math.isinf(c) and \
-                    (r < 0.0 and c < 0.0) or \
-                    (r > 0.0 and c > 0.0))
+            assert isclose(r, c)
 
         rawstorage.clear()
 
@@ -125,15 +128,14 @@ class VectorizeTests(object):
 
     test_vec_abs_float = \
             vec_float_unary(lambda v: abs(v), rffi.DOUBLE)
+    test_vec_neg_float = \
+            vec_float_unary(lambda v: -v, rffi.DOUBLE)
 
+    # FLOAT BINARY
 
-    @given(data=st.data())
-    @pytest.mark.parametrize('func', [lambda a,b: a+b,
-        lambda a,b: a*b, lambda a,b: a-b])
-    def test_vector_simple_float(self, func, data):
+    def _vector_simple_float(self, func, type, data):
         func = always_inline(func)
 
-        type = rffi.DOUBLE
         size = rffi.sizeof(rffi.DOUBLE)
         myjitdriver = JitDriver(greens = [], reds = 'auto', vectorize=True)
         def f(bytecount, va, vb, vc):
@@ -159,14 +161,28 @@ class VectorizeTests(object):
         self.meta_interp(f, [l*size, va, vb, vc])
 
         for i in range(l):
+            import pdb; pdb.set_trace()
             c = raw_storage_getitem(type,vc,i*size)
             r = func(la[i], lb[i])
-            assert isclose(r, c) or (math.isnan(r) and math.isnan(c)) or \
-                   (math.isinf(r) and math.isinf(c) and \
-                    (r < 0.0 and c < 0.0) or \
-                    (r > 0.0 and c > 0.0))
+            assert isclose(r, c)
 
         rawstorage.clear()
+
+    def _vec_float_binary(test_func, func, type):
+        return pytest.mark.parametrize('func,type', [
+            (func, type)
+        ])(given(data=st.data())(test_func))
+
+    vec_float_binary = functools.partial(_vec_float_binary, _vector_simple_float)
+
+    test_vector_float_add = \
+        vec_float_binary(lambda a,b: a+b, rffi.DOUBLE)
+    test_vector_float_sub = \
+        vec_float_binary(lambda a,b: a-b, rffi.DOUBLE)
+    test_vector_float_mul = \
+        vec_float_binary(lambda a,b: a*b, rffi.DOUBLE)
+    #test_vector_float_div = \
+    #    vec_float_binary(lambda a,b: a/b, rffi.DOUBLE)
 
     def _vector_simple_int(self, func, type, data):
         func = always_inline(func)

@@ -62,8 +62,9 @@ XFL = Form("FM", "frB", "XO1", "Rc")
 XFX = Form("CRM", "rS", "XO1")
 XLL = Form("LL", "XO1")
 XX1 = Form("fvrT", "rA", "rB", "XO1")
-XX2 = Form("fvrT", "fvrB", "XO5")
+XX2 = Form("fvrT", "fvrB", "XO6")
 XX3 = Form("fvrT", "fvrA", "fvrB", "XO9")
+XX3_2 = Form("fvrT", "fvrA", "fvrB", "OE", "XO11")
 XV = Form("ivrT", "rA", "rB", "XO1")
 VX = Form("ivrT", "ivrA", "ivrB", "XO8")
 VXI = Form("ivrT", "SIM", "XO8")
@@ -611,14 +612,22 @@ class PPCVSXAssembler(object):
     # div
     xvdivdp = XX3(60, XO9=102)
     xvdivsp = XX3(60, XO9=88)
+    # cmp
+    xvcmpeqdp = XX3_2(60, XO11=99, OE=0)
+    xvcmpeqdpx = XX3_2(60, XO11=99, OE=1)
+    xvcmpeqsp = XX3_2(60, XO11=67, OE=0)
+    xvcmpeqspx = XX3_2(60, XO11=67, OE=1)
+
+    # logical and and complement
+    xxlandc = XX3(60, XO9=138)
 
     # neg
-    xvnegdp = XX2(60, XO5=505)
-    xvabssp = XX2(60, XO5=441)
+    xvnegdp = XX2(60, XO6=505)
+    xvnegsp = XX2(60, XO6=441)
 
     # abs
-    xvabsdp = XX2(60, XO5=473)
-    xvabssp = XX2(60, XO5=409)
+    xvabsdp = XX2(60, XO6=473)
+    xvabssp = XX2(60, XO6=409)
 
     # INTEGER
     # -------

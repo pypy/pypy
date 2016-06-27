@@ -12,12 +12,16 @@ from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.lltypesystem import lltype
 from rpython.jit.backend.ppc.locations import imm
 from rpython.jit.backend.ppc.arch import IS_BIG_ENDIAN
+from rpython.jit.backend.llsupport.vector_ext import VectorExt
 
 def not_implemented(msg):
     msg = '[ppc/vector_ext] %s\n' % msg
     if we_are_translated():
         llop.debug_print(lltype.Void, msg)
     raise NotImplementedError(msg)
+
+class AltiVectorExt(VectorExt):
+    pass
 
 class VectorAssembler(object):
     _mixin_ = True
@@ -348,22 +352,20 @@ class VectorAssembler(object):
     #    # entries before) become ones
     #    self.mc.PCMPEQ(loc, temp, sizeloc.value)
 
-    #def genop_vec_float_eq(self, op, arglocs, resloc):
-    #    _, rhsloc, sizeloc = arglocs
-    #    size = sizeloc.value
-    #    if size == 4:
-    #        self.mc.CMPPS_xxi(resloc.value, rhsloc.value, 0) # 0 means equal
-    #    else:
-    #        self.mc.CMPPD_xxi(resloc.value, rhsloc.value, 0)
+    def emit_vec_float_eq(self, op, arglocs, resloc):
+        resloc, loc1, loc2, sizeloc = arglocs
+        size = sizeloc.value
+        if size == 4:
+            self.mc.xvcmpeqspx(resloc.value, loc1.value, loc2.value)
+        elif size == 8:
+            self.mc.xvcmpeqdpx(resloc.value, loc1.value, loc2.value)
+        else:
+            notimplemented("[ppc/assembler] float == for size %d" % size)
 
-    #def genop_vec_float_ne(self, op, arglocs, resloc):
-    #    _, rhsloc, sizeloc = arglocs
-    #    size = sizeloc.value
-    #    # b(100) == 1 << 2 means not equal
-    #    if size == 4:
-    #        self.mc.CMPPS_xxi(resloc.value, rhsloc.value, 1 << 2)
-    #    else:
-    #        self.mc.CMPPD_xxi(resloc.value, rhsloc.value, 1 << 2)
+    def emit_vec_float_ne(self, op, arglocs, resloc):
+        self.emit_vec_float_eq(op, arglocs, resloc)
+        resloc, loc1, loc2, sizeloc = arglocs
+        self.mc.xxlandc(resloc.value, resloc.value, resloc.value)
 
     #def genop_vec_int_eq(self, op, arglocs, resloc):
     #    _, rhsloc, sizeloc = arglocs
@@ -629,7 +631,13 @@ class VectorRegalloc(object):
     prepare_vec_int_and = prepare_vec_arith
     prepare_vec_int_or = prepare_vec_arith
     prepare_vec_int_xor = prepare_vec_arith
+
+    prepare_vec_float_eq = prepare_vec_arith
+    prepare_vec_float_ne = prepare_vec_float_eq
+    prepare_vec_int_eq = prepare_vec_float_eq
+    prepare_vec_int_ne = prepare_vec_float_eq
     del prepare_vec_arith
+
 
     def _prepare_vec_store(self, op):
         descr = op.getdescr()
@@ -661,8 +669,6 @@ class VectorRegalloc(object):
         resloc = self.force_allocate_vector_reg(op)
         return [resloc, loc0]
 
-
-
     def prepare_vec_arith_unary(self, op):
         a0 = op.getarg(0)
         loc0 = self.ensure_vector_reg(a0)
@@ -673,19 +679,6 @@ class VectorRegalloc(object):
     prepare_vec_float_neg = prepare_vec_arith_unary
     prepare_vec_float_abs = prepare_vec_arith_unary
     del prepare_vec_arith_unary
-
-    #def prepare_vec_float_eq(self, op):
-    #    assert isinstance(op, VectorOp)
-    #    lhs = op.getarg(0)
-    #    assert isinstance(lhs, VectorOp)
-    #    args = op.getarglist()
-    #    rhsloc = self.make_sure_var_in_reg(op.getarg(1), args)
-    #    lhsloc = self.xrm.force_result_in_reg(op, op.getarg(0), args)
-    #    self.perform(op, [lhsloc, rhsloc, imm(lhs.bytesize)], lhsloc)
-
-    #prepare_vec_float_ne = prepare_vec_float_eq
-    #prepare_vec_int_eq = prepare_vec_float_eq
-    #prepare_vec_int_ne = prepare_vec_float_eq
 
     #def prepare_vec_pack_i(self, op):
     #    # new_res = vec_pack_i(res, src, index, count)

@@ -156,32 +156,12 @@ class GcRewriterAssembler(object):
         index_box = op.getarg(1)
         self.emit_gc_load_or_indexed(op, ptr_box, index_box, itemsize, itemsize, ofs, sign)
 
-    def handle_rawload(self, op):
-        itemsize, ofs, sign = unpack_arraydescr(op.getdescr())
-        ptr_box = op.getarg(0)
-        index_box = op.getarg(1)
-        self.emit_gc_load_or_indexed(op, ptr_box, index_box, itemsize, 1, ofs, sign)
-
     def _emit_mul_if_factor_offset_not_supported(self, index_box,
                                                  factor, offset):
-        # Returns (factor, offset, index_box) where index_box is either
-        # a non-constant BoxInt or None.
-        if isinstance(index_box, ConstInt):
-            return 1, index_box.value * factor + offset, None
-        else:
-            if factor != 1 and factor not in self.cpu.load_supported_factors:
-                # the factor is supported by the cpu
-                # x & (x - 1) == 0 is a quick test for power of 2
-                assert factor > 0
-                if (factor & (factor - 1)) == 0:
-                    index_box = ResOperation(rop.INT_LSHIFT,
-                            [index_box, ConstInt(highest_bit(factor))])
-                else:
-                    index_box = ResOperation(rop.INT_MUL,
-                            [index_box, ConstInt(factor)])
-                self.emit_op(index_box)
-                factor = 1
-            return factor, offset, index_box
+        factor, offset, index_box = cpu_simplify_scale(self.cpu, indexbox, factor, offset)
+        if index_box:
+            self.emit_op(index_box)
+        return factor, offset, index_box
 
     def emit_gc_load_or_indexed(self, op, ptr_box, index_box, itemsize,
                                 factor, offset, sign, type='i'):
@@ -985,3 +965,23 @@ class GcRewriterAssembler(object):
             self._newops.append(load_op)
             self.gcrefs_recently_loaded[index] = load_op
         return load_op
+
+def cpu_simplify_scale(cpu, index_box, factor, offset):
+    # Returns (factor, offset, index_box, [ops]) where index_box is either
+    # a non-constant BoxInt or None.
+    if isinstance(index_box, ConstInt):
+        return 1, index_box.value * factor + offset, None
+    else:
+        if factor != 1 and factor not in cpu.load_supported_factors:
+            # the factor is supported by the cpu
+            # x & (x - 1) == 0 is a quick test for power of 2
+            assert factor > 0
+            if (factor & (factor - 1)) == 0:
+                index_box = ResOperation(rop.INT_LSHIFT,
+                        [index_box, ConstInt(highest_bit(factor))])
+            else:
+                index_box = ResOperation(rop.INT_MUL,
+                        [index_box, ConstInt(factor)])
+            factor = 1
+        return factor, offset, index_box
+

@@ -35,6 +35,7 @@ class AbstractLLCPU(AbstractCPU):
     # can an ISA instruction handle a factor to the offset?
     load_supported_factors = (1,)
 
+    vector_ext = None
     vector_extension = False
     vector_register_size = 0 # in bytes
     vector_horizontal_operations = False

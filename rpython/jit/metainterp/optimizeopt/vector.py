@@ -132,7 +132,7 @@ def optimize_vector(trace, metainterp_sd, jitdriver_sd, warmstate,
         #
         start = time.clock()
         opt = VectorizingOptimizer(metainterp_sd, jitdriver_sd, warmstate.vec_cost)
-        index_vars = opt.run_optimization(info, loop)
+        index_vars = opt.run_optimization(metainterp_sd, info, loop)
         gso = GuardStrengthenOpt(index_vars)
         gso.propagate_all_forward(info, loop, user_code)
         end = time.clock()
@@ -222,7 +222,7 @@ class VectorizingOptimizer(Optimizer):
         self.smallest_type_bytes = 0
         self.orig_label_args = None
 
-    def run_optimization(self, info, loop):
+    def run_optimization(self, metainterp_sd, info, loop):
         self.orig_label_args = loop.label.getarglist_copy()
         self.linear_find_smallest_type(loop)
         byte_count = self.smallest_type_bytes
@@ -235,7 +235,7 @@ class VectorizingOptimizer(Optimizer):
         # find index guards and move to the earliest position
         graph = self.analyse_index_calculations(loop)
         if graph is not None:
-            state = SchedulerState(graph)
+            state = SchedulerState(metainterp_sd.cpu, graph)
             self.schedule(state) # reorder the trace
 
         # unroll
