@@ -528,3 +528,78 @@ class TestCompatible(LLJitMixin):
         self.check_trace_count(7)
 
 
+    def test_quasi_immutable_merge_short_preamble(self):
+        from rpython.rlib.objectmodel import we_are_translated
+        class C(object):
+            _immutable_fields_ = ['version?']
+
+        class Version(object):
+            def __init__(self, cls):
+                self.cls = cls
+        p1 = C()
+        p1.version = Version(p1)
+        p1.x = 1
+        p2 = C()
+        p2.version = Version(p2)
+        p2.x = 1
+        p3 = C()
+        p3.version = Version(p3)
+        p3.x = 3
+
+        driver = jit.JitDriver(greens = [], reds = ['n'])
+
+        class Counter(object):
+            pass
+
+        c = Counter()
+        c.count = 0
+        @jit.elidable_compatible()
+        def g(cls, v):
+            if we_are_translated():
+                c.count += 1
+            return cls.x
+
+        class B(object):
+            pass
+
+        glob_b = B()
+
+        def f(n, x):
+            glob_b.x = x
+            res = 0
+            while n > 0:
+                driver.can_enter_jit(n=n)
+                driver.jit_merge_point(n=n)
+                x = jit.hint(glob_b.x, promote_compatible=True)
+                v = x.version
+                res = g(x, v)
+                n -= res
+                if n % 11 == 5:
+                    n -= 1
+            return res
+
+        def main(x):
+            res = f(100, p1)
+            assert res == 1
+            res = f(100, p2)
+            assert res == 1
+            res = f(100, p3)
+            assert res == 3
+        main(True)
+        main(False)
+
+        x = self.meta_interp(main, [True])
+        assert x < 70
+        x = self.meta_interp(main, [True])
+        assert x < 70
+        x = self.meta_interp(main, [True])
+        assert x < 70
+        x = self.meta_interp(main, [True])
+        assert x < 70
+
+        x = self.meta_interp(main, [False])
+        assert x < 70
+        self.check_trace_count(9)
+        self.check_resops(call_i=0)
+
+

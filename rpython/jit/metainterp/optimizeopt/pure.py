@@ -142,17 +142,15 @@ class OptPure(Optimization):
                     ccond = info._compatibility_conditions
                     if ccond:
                         # it's subject to guard_compatible
-                        copied_op, cond = ccond.prepare_const_arg_call(
+                        copied_op, cond, result = ccond.prepare_const_arg_call(
                                 op, self.optimizer)
                         if copied_op:
-                            result = self._can_optimize_call_pure(copied_op)
-                            if result is not None:
-                                recorded = ccond.record_condition(
-                                        cond, result, self.optimizer)
-                                if recorded:
-                                    self.make_constant(op, result)
-                                    self.last_emitted_operation = REMOVED
-                                    return
+                            recorded = ccond.record_condition(
+                                    cond, result, self.optimizer)
+                            if recorded:
+                                self.make_constant(op, result)
+                                self.last_emitted_operation = REMOVED
+                                return
 
         # Step 1: check if all arguments are constant
         for arg in op.getarglist():

@@ -78,6 +78,20 @@ class CompatibilityCondition(object):
         return True
 
     def prepare_const_arg_call(self, op, optimizer):
+        copied_op, cond = self._prepare_const_arg_call(op, optimizer)
+        if copied_op:
+            result = optimizer._can_optimize_call_pure(copied_op)
+            if result is None:
+                # just call it, we can do that with an @elidable_compatible
+                # function
+                result = do_call(
+                        optimizer.cpu, copied_op.getarglist(),
+                        copied_op.getdescr())
+            return copied_op, cond, result
+        else:
+            return None, None, None
+
+    def _prepare_const_arg_call(self, op, optimizer):
         from rpython.jit.metainterp.quasiimmut import QuasiImmutDescr
         # replace further arguments by constants, if the optimizer knows them
         # already
