@@ -128,6 +128,6 @@ RPY_EXTERN void *rpy_reverse_db_weakref_create(void *target);
 RPY_EXTERN void *rpy_reverse_db_weakref_deref(void *weakref);
 //RPY_EXTERN void rpy_reverse_db_call_destructor(void *obj);
 RPY_EXTERN int rpy_reverse_db_fq_register(void *obj);
-RPY_EXTERN void rpy_reverse_db_next_dead(void *result);
+RPY_EXTERN void *rpy_reverse_db_next_dead(void *result);
 
 /* ------------------------------------------------------------ */

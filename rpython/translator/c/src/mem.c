@@ -106,7 +106,7 @@ void boehm_gc_finalizer_notifier(void)
 }
 #else
 /* see revdb.c */
-RPY_EXTERN void rpy_reverse_db_next_dead(void *);
+RPY_EXTERN void *rpy_reverse_db_next_dead(void *);
 RPY_EXTERN int rpy_reverse_db_fq_register(void *);
 #endif
 
@@ -154,7 +154,7 @@ void *boehm_fq_next_dead(struct boehm_fq_s **fqueue)
     else
         result = NULL;
 #ifdef RPY_REVERSE_DEBUGGER
-    rpy_reverse_db_next_dead(result);
+    result = rpy_reverse_db_next_dead(result);
 #endif
     return result;
 }

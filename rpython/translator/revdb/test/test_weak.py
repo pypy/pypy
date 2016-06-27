@@ -1,4 +1,4 @@
-import weakref
+import py, weakref
 from rpython.rlib import revdb, rgc
 from rpython.rlib.debug import debug_print
 from rpython.rlib.objectmodel import keepalive_until_here

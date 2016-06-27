@@ -204,6 +204,13 @@ void boehm_gc_finalizer_notifier(void)
     rpy_revdb.stop_point_break = rpy_revdb.stop_point_seen + 1;
 }
 
+static void fq_trigger(void)
+{
+    int i = 0;
+    while (boehm_fq_trigger[i])
+        boehm_fq_trigger[i++]();
+}
+
 static void record_stop_point(void)
 {
     /* Invoke the finalizers now.  This will call boehm_fq_callback(),
@@ -216,9 +223,7 @@ static void record_stop_point(void)
     rpy_reverse_db_flush();
 
     GC_invoke_finalizers();
-    i = 0;
-    while (boehm_fq_trigger[i])
-        boehm_fq_trigger[i++]();
+    fq_trigger();
 
     /* This should all be done without emitting anything to the rdb
        log.  We check that, and emit just a ASYNC_FINALIZER_TRIGGER.
@@ -232,13 +237,6 @@ static void record_stop_point(void)
     memcpy(rpy_revdb.buf_p, &rpy_revdb.stop_point_seen, sizeof(uint64_t));
     rpy_revdb.buf_p += sizeof(uint64_t);
     flush_buffer();
-}
-
-RPY_EXTERN
-void rpy_reverse_db_next_dead(void *result)
-{
-    int64_t uid = result ? ((struct pypy_header0 *)result)->h_uid : -1;
-    RPY_REVDB_EMIT(/* nothing */, int64_t _e, uid);
 }
 
 RPY_EXTERN
@@ -950,7 +948,9 @@ void rpy_reverse_db_watch_restore_state(bool_t any_watch_point)
 static void replay_stop_point(void)
 {
     if (finalizer_trigger_saved_break != 0) {
-        abort();
+        rpy_revdb.stop_point_break = finalizer_trigger_saved_break;
+        finalizer_trigger_saved_break = 0;
+        fq_trigger();
     }
 
     while (rpy_revdb.stop_point_break == rpy_revdb.stop_point_seen) {
@@ -1098,13 +1098,46 @@ int rpy_reverse_db_fq_register(void *obj)
         return 0;     /* recording */
     }
     else {
-        void *added = tsearch(obj, &finalizer_tree, _ftree_compare);
-        if (added != obj) {
-            fprintf(stderr, "tsearch: duplicate object\n");
+        /* add the object into the finalizer_tree, keyed by the h_uid */
+        void **item = tsearch(obj, &finalizer_tree, _ftree_compare);
+        if (item == NULL) {
+            fprintf(stderr, "fq_register: out of memory\n");
+            exit(1);
+        }
+        if (*item != obj) {
+            fprintf(stderr, "fq_register: duplicate object\n");
             exit(1);
         }
         return 1;     /* replaying */
     }
+}
+
+RPY_EXTERN
+void *rpy_reverse_db_next_dead(void *result)
+{
+    int64_t uid;
+    RPY_REVDB_EMIT(uid = result ? ((struct pypy_header0 *)result)->h_uid : -1;,
+                   int64_t _e, uid);
+    if (RPY_RDB_REPLAY) {
+        if (uid == -1) {
+            result = NULL;
+        }
+        else {
+            /* fetch and remove the object from the finalizer_tree */
+            void **item;
+            struct pypy_header0 dummy;
+            dummy.h_uid = uid;
+            item = tfind(&dummy, &finalizer_tree, _ftree_compare);
+            if (item == NULL) {
+                fprintf(stderr, "next_dead: object not found\n");
+                exit(1);
+            }
+            result = *item;
+            assert(((struct pypy_header0 *)result)->h_uid == uid);
+            tdelete(result, &finalizer_tree, _ftree_compare);
+        }
+    }
+    return result;
 }
 
 /* ------------------------------------------------------------ */
