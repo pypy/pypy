@@ -58,6 +58,9 @@ def _PyObject_NewVar(space, type, itemcount):
 
 @cpython_api([PyObject], lltype.Void)
 def PyObject_dealloc(space, obj):
+    return _dealloc(space, obj)
+
+def _dealloc(space, obj):
     # This frees an object after its refcount dropped to zero, so we
     # assert that it is really zero here.
     assert obj.c_ob_refcnt == 0

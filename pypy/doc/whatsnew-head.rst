@@ -42,3 +42,14 @@ Sync w_file with the c-level FILE* before returning FILE* in PyFile_AsFile
 Allow rw access to the char* returned from PyString_AS_STRING, also refactor
 PyStringObject to look like cpython's and allow subclassing PyString_Type and
 PyUnicode_Type
+
+.. branch: save_socket_errno
+
+Bug fix: if ``socket.socket()`` failed, the ``socket.error`` did not show
+the errno of the failing system call, but instead some random previous
+errno.
+
+.. branch: PyTuple_Type-subclass
+
+Refactor PyTupleObject to look like cpython's and allow subclassing 
+PyTuple_Type

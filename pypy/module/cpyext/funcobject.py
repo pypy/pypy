@@ -60,8 +60,8 @@ def function_attach(space, py_obj, w_obj):
 def function_dealloc(space, py_obj):
     py_func = rffi.cast(PyFunctionObject, py_obj)
     Py_DecRef(space, py_func.c_func_name)
-    from pypy.module.cpyext.object import PyObject_dealloc
-    PyObject_dealloc(space, py_obj)
+    from pypy.module.cpyext.object import _dealloc
+    _dealloc(space, py_obj)
 
 def code_attach(space, py_obj, w_obj):
     py_code = rffi.cast(PyCodeObject, py_obj)
@@ -80,8 +80,8 @@ def code_dealloc(space, py_obj):
     py_code = rffi.cast(PyCodeObject, py_obj)
     Py_DecRef(space, py_code.c_co_name)
     Py_DecRef(space, py_code.c_co_filename)
-    from pypy.module.cpyext.object import PyObject_dealloc
-    PyObject_dealloc(space, py_obj)
+    from pypy.module.cpyext.object import _dealloc
+    _dealloc(space, py_obj)
 
 @cpython_api([PyObject], PyObject, result_borrowed=True)
 def PyFunction_GetCode(space, w_func):

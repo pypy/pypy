@@ -17,23 +17,9 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
              """
                  PyObject* s = PyByteArray_FromStringAndSize("Hello world", 12);
                  int result = 0;
-                 size_t expected_size;
 
                  if(PyByteArray_Size(s) == 12) {
                      result = 1;
-                 }
-                 #ifdef PYPY_VERSION
-                    expected_size = sizeof(void*)*3;
-                 #elif defined Py_DEBUG
-                    expected_size = 64;
-                 #else
-                    expected_size = 48;
-                 #endif
-                 if(s->ob_type->tp_basicsize != expected_size)
-                 {
-                     printf("tp_basicsize==%ld\\n",
-                            (long)s->ob_type->tp_basicsize);
-                     result = 0;
                  }
                  Py_DECREF(s);
                  return PyBool_FromLong(result);

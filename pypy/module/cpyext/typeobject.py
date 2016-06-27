@@ -371,6 +371,8 @@ def inherit_special(space, pto, base_pto):
     # (minimally, if tp_basicsize is zero we copy it from the base)
     if not pto.c_tp_basicsize:
         pto.c_tp_basicsize = base_pto.c_tp_basicsize
+    if pto.c_tp_itemsize < base_pto.c_tp_itemsize:
+        pto.c_tp_itemsize = base_pto.c_tp_itemsize
     flags = rffi.cast(lltype.Signed, pto.c_tp_flags)
     base_object_pyo = make_ref(space, space.w_object)
     base_object_pto = rffi.cast(PyTypeObjectPtr, base_object_pyo)
@@ -503,7 +505,7 @@ def setup_bytes_buffer_procs(space, pto):
 
 @cpython_api([PyObject], lltype.Void, header=None)
 def type_dealloc(space, obj):
-    from pypy.module.cpyext.object import PyObject_dealloc
+    from pypy.module.cpyext.object import _dealloc
     obj_pto = rffi.cast(PyTypeObjectPtr, obj)
     base_pyo = rffi.cast(PyObject, obj_pto.c_tp_base)
     Py_DecRef(space, obj_pto.c_tp_bases)
@@ -514,7 +516,7 @@ def type_dealloc(space, obj):
         heaptype = rffi.cast(PyHeapTypeObject, obj)
         Py_DecRef(space, heaptype.c_ht_name)
         Py_DecRef(space, base_pyo)
-        PyObject_dealloc(space, obj)
+        _dealloc(space, obj)
 
 
 def type_alloc(space, w_metatype, itemsize=0):
@@ -565,6 +567,8 @@ def type_attach(space, py_obj, w_type):
             subtype_dealloc.api_func.get_wrapper(space))
     if space.is_w(w_type, space.w_str):
         pto.c_tp_itemsize = 1
+    elif space.is_w(w_type, space.w_tuple):
+        pto.c_tp_itemsize = rffi.sizeof(PyObject)
     # buffer protocol
     if space.is_w(w_type, space.w_str):
         setup_bytes_buffer_procs(space, pto)
