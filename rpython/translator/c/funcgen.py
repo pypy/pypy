@@ -597,6 +597,9 @@ class FunctionCodeGenerator(object):
         return self._op_boehm_malloc(op, 1)
 
     def OP_BOEHM_REGISTER_FINALIZER(self, op):
+        if self.db.reverse_debugger:
+            from rpython.translator.revdb import gencsupp
+            return gencsupp.boehm_register_finalizer(self, op)
         return 'GC_REGISTER_FINALIZER(%s, (GC_finalization_proc)%s, NULL, NULL, NULL);' \
                % (self.expr(op.args[0]), self.expr(op.args[1]))
 

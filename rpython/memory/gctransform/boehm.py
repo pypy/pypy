@@ -10,7 +10,7 @@ from rpython.rtyper import rmodel
 
 class BoehmGCTransformer(GCTransformer):
     malloc_zero_filled = True
-    FINALIZER_PTR = lltype.Ptr(lltype.FuncType([llmemory.Address], lltype.Void))
+    FINALIZER_PTR = lltype.Ptr(lltype.FuncType([llmemory.GCREF], lltype.Void))
 
     def __init__(self, translator, inline=False):
         super(BoehmGCTransformer, self).__init__(translator, inline=inline)
@@ -112,18 +112,18 @@ class BoehmGCTransformer(GCTransformer):
             destrptr = None
             DESTR_ARG = None
 
-        if self.translator.config.translation.reverse_debugger:
-            destrptr = None    # XXX for now
-
         if destrptr:
             EXC_INSTANCE_TYPE = self.translator.rtyper.exceptiondata.lltype_of_exception_value
             typename = TYPE.__name__
-            def ll_finalizer(addr):
+            revdb = self.translator.config.translation.reverse_debugger
+            def ll_finalizer(gcref):
                 exc_instance = llop.gc_fetch_exception(EXC_INSTANCE_TYPE)
-                v = llmemory.cast_adr_to_ptr(addr, DESTR_ARG)
+                if revdb:
+                    llop.revdb_call_destructor(lltype.Void, gcref)
+                v = lltype.cast_opaque_ptr(DESTR_ARG, gcref)
                 ll_call_destructor(destrptr, v, typename)
                 llop.gc_restore_exception(lltype.Void, exc_instance)
-            fptr = self.annotate_finalizer(ll_finalizer, [llmemory.Address], lltype.Void)
+            fptr = self.annotate_finalizer(ll_finalizer, [llmemory.GCREF], lltype.Void)
         else:
             fptr = lltype.nullptr(self.FINALIZER_PTR.TO)
 

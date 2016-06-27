@@ -574,6 +574,7 @@ LL_OPERATIONS = {
     'revdb_watch_restore_state': LLOp(),
     'revdb_weakref_create': LLOp(),
     'revdb_weakref_deref':  LLOp(),
+    'revdb_call_destructor': LLOp(),
 }
 # ***** Run test_lloperation after changes. *****
 

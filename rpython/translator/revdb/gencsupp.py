@@ -21,6 +21,10 @@ def emit(normal_code, tp, value):
 def record_malloc_uid(expr):
     return ' RPY_REVDB_REC_UID(%s);' % (expr,)
 
+def boehm_register_finalizer(funcgen, op):
+    return 'rpy_reverse_db_register_destructor(%s, %s);' % (
+        funcgen.expr(op.args[0]), funcgen.expr(op.args[1]))
+
 
 def prepare_database(db):
     FUNCPTR = lltype.Ptr(lltype.FuncType([revdb._CMDPTR, lltype.Ptr(rstr.STR)],

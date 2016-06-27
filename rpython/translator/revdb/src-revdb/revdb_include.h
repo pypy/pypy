@@ -126,8 +126,9 @@ RPY_EXTERN void rpy_reverse_db_watch_save_state(void);
 RPY_EXTERN void rpy_reverse_db_watch_restore_state(bool_t any_watch_point);
 RPY_EXTERN void *rpy_reverse_db_weakref_create(void *target);
 RPY_EXTERN void *rpy_reverse_db_weakref_deref(void *weakref);
-//RPY_EXTERN void rpy_reverse_db_call_destructor(void *obj);
 RPY_EXTERN int rpy_reverse_db_fq_register(void *obj);
 RPY_EXTERN void *rpy_reverse_db_next_dead(void *result);
+RPY_EXTERN void rpy_reverse_db_register_destructor(void *obj, void(*)(void *));
+RPY_EXTERN void rpy_reverse_db_call_destructor(void *obj);
 
 /* ------------------------------------------------------------ */

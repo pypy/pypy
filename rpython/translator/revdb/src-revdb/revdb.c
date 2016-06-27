@@ -211,6 +211,8 @@ static void fq_trigger(void)
         boehm_fq_trigger[i++]();
 }
 
+static long in_invoke_finalizers;
+
 static void record_stop_point(void)
 {
     /* Invoke the finalizers now.  This will call boehm_fq_callback(),
@@ -219,24 +221,54 @@ static void record_stop_point(void)
     */
     int i;
     char *p = rpy_rev_buffer;
+    int64_t done;
 
     rpy_reverse_db_flush();
 
-    GC_invoke_finalizers();
     fq_trigger();
 
-    /* This should all be done without emitting anything to the rdb
+    /* This should be done without emitting anything to the rdb
        log.  We check that, and emit just a ASYNC_FINALIZER_TRIGGER.
     */
     if (current_packet_size() != 0) {
         fprintf(stderr,
-                "record_stop_point emitted unexpectedly to the rdb log\n");
+                "record_stop_point emitted unexpected data into the rdb log\n");
         exit(1);
     }
     *(int16_t *)p = ASYNC_FINALIZER_TRIGGER;
     memcpy(rpy_revdb.buf_p, &rpy_revdb.stop_point_seen, sizeof(uint64_t));
     rpy_revdb.buf_p += sizeof(uint64_t);
     flush_buffer();
+
+    /* Invoke all Boehm finalizers.  For new-style finalizers, this
+       will only cause them to move to the queues, where
+       boehm_fq_next_dead() will be able to fetch them later.  For
+       old-style finalizers, this will really call the finalizers,
+       which first emit to the rdb log the uid of the object.  So
+       after we do that any number of times, we emit the uid -1 to
+       mean "now done, continue with the rest of the program".
+    */
+    in_invoke_finalizers++;
+    GC_invoke_finalizers();
+    in_invoke_finalizers--;
+    RPY_REVDB_EMIT(done = -1;, int64_t _e, done);
+}
+
+RPY_EXTERN
+void rpy_reverse_db_call_destructor(void *obj)
+{
+    /* old-style finalizers.  Should occur only from the 
+       GC_invoke_finalizers() call above. 
+    */
+    int64_t uid;
+
+    if (RPY_RDB_REPLAY)
+        return;
+    if (!in_invoke_finalizers) {
+        fprintf(stderr, "call_destructor: called at an unexpected time\n");
+        exit(1);
+    }
+    RPY_REVDB_EMIT(uid = ((struct pypy_header0 *)obj)->h_uid;, int64_t _e, uid);
 }
 
 RPY_EXTERN
@@ -462,7 +494,7 @@ static uint64_t last_recorded_breakpoint_loc;
 static int last_recorded_breakpoint_num;
 static char breakpoint_mode;
 static uint64_t *future_ids, *future_next_id;
-static void *finalizer_tree;
+static void *finalizer_tree, *destructor_tree;
 
 static void attach_gdb(void)
 {
@@ -649,7 +681,6 @@ void rpy_reverse_db_fetch(const char *file, int line)
             exit(1);
         }
 
-     fetch_more_if_needed:
         keep = rpy_revdb.buf_readend - rpy_revdb.buf_p;
         assert(keep >= 0);
 
@@ -681,7 +712,10 @@ void rpy_reverse_db_fetch(const char *file, int line)
                 }
                 finalizer_trigger_saved_break = rpy_revdb.stop_point_break;
                 rpy_revdb.stop_point_break = bp;
-                goto fetch_more_if_needed;
+                /* Now we should not fetch anything more until we reach
+                   that finalizer_trigger_saved_break point. */
+                rpy_revdb.buf_limit = rpy_revdb.buf_p;
+                return;
 
             default:
                 fprintf(stderr, "bad packet header %d", (int)header);
@@ -945,13 +979,12 @@ void rpy_reverse_db_watch_restore_state(bool_t any_watch_point)
     rpy_revdb.watch_enabled = any_watch_point;
 }
 
+static void replay_call_destructors(void);
+
 static void replay_stop_point(void)
 {
-    if (finalizer_trigger_saved_break != 0) {
-        rpy_revdb.stop_point_break = finalizer_trigger_saved_break;
-        finalizer_trigger_saved_break = 0;
-        fq_trigger();
-    }
+    if (finalizer_trigger_saved_break != 0)
+        replay_call_destructors();
 
     while (rpy_revdb.stop_point_break == rpy_revdb.stop_point_seen) {
         save_state();
@@ -1138,6 +1171,87 @@ void *rpy_reverse_db_next_dead(void *result)
         }
     }
     return result;
+}
+
+struct destructor_s {
+    void *obj;
+    void (*callback)(void *);
+};
+
+ static int _dtree_compare(const void *obj1, const void *obj2)
+{
+    const struct destructor_s *d1 = obj1;
+    const struct destructor_s *d2 = obj2;
+    const struct pypy_header0 *h1 = d1->obj;
+    const struct pypy_header0 *h2 = d2->obj;
+    if (h1->h_uid < h2->h_uid)
+        return -1;
+    if (h1->h_uid == h2->h_uid)
+        return 0;
+    else
+        return 1;
+}
+
+RPY_EXTERN
+void rpy_reverse_db_register_destructor(void *obj, void (*callback)(void *))
+{
+    if (!RPY_RDB_REPLAY) {
+        GC_REGISTER_FINALIZER(obj, (GC_finalization_proc)callback,
+                              NULL, NULL, NULL);
+    }
+    else {
+        struct destructor_s **item;
+        struct destructor_s *node = malloc(sizeof(struct destructor_s));
+        if (!node) {
+            fprintf(stderr, "register_destructor: malloc: out of memory\n");
+            exit(1);
+        }
+        node->obj = obj;
+        node->callback = callback;
+        item = tsearch(node, &destructor_tree, _dtree_compare);
+        if (item == NULL) {
+            fprintf(stderr, "register_destructor: tsearch: out of memory\n");
+            exit(1);
+        }
+        if (*item != node) {
+            fprintf(stderr, "register_destructor: duplicate object\n");
+            exit(1);
+        }
+    }
+}
+
+static void replay_call_destructors(void)
+{
+    rpy_revdb.stop_point_break = finalizer_trigger_saved_break;
+    finalizer_trigger_saved_break = 0;
+    fq_trigger();
+
+    /* Re-enable fetching more, and fetch the uid's of objects
+       with old-style destructors that die now. 
+    */
+    rpy_reverse_db_fetch(__FILE__, __LINE__);
+    while (1) {
+        int64_t uid;
+        struct destructor_s d_dummy, *entry, **item;
+        struct pypy_header0 o_dummy;
+        RPY_REVDB_EMIT(abort();, int64_t _e, uid);
+        if (uid == -1)
+            break;
+
+        d_dummy.obj = &o_dummy;
+        o_dummy.h_uid = uid;
+        item = tfind(&d_dummy, &destructor_tree, _dtree_compare);
+        if (item == NULL) {
+            fprintf(stderr, "next_dead: object not found\n");
+            exit(1);
+        }
+        entry = *item;
+        assert(((struct pypy_header0 *)entry->obj)->h_uid == uid);
+        tdelete(entry, &destructor_tree, _dtree_compare);
+
+        entry->callback(entry->obj);
+        free(entry);
+    }
 }
 
 /* ------------------------------------------------------------ */

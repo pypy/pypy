@@ -28,6 +28,7 @@ ASYNC_FINALIZER_TRIGGER  = 0xff46 - 2**16
 
 def get_finalizer_queue_main():
     from rpython.rtyper.lltypesystem import lltype, rffi
+    #
     from rpython.translator.tool.cbuild import ExternalCompilationInfo
     eci = ExternalCompilationInfo(
         pre_include_bits=["#define foobar(x) x\n"])
@@ -68,6 +69,36 @@ def get_finalizer_queue_main():
                     total = intmask(total * 3 + x.baz)
                 assert foobar(total) == total
         keepalive_until_here(lst1)
+        return 9
+    return main
+
+def get_old_style_finalizer_main():
+    from rpython.rtyper.lltypesystem import lltype, rffi
+    from rpython.translator.tool.cbuild import ExternalCompilationInfo
+    #
+    eci = ExternalCompilationInfo(
+        pre_include_bits=["#define foobar(x) x\n"])
+    foobar = rffi.llexternal('foobar', [lltype.Signed], lltype.Signed,
+                             compilation_info=eci, _nowrapper=True)
+    class Glob:
+        pass
+    glob = Glob()
+    class X:
+        def __del__(self):
+            assert foobar(-7) == -7
+            glob.count += 1
+    def main(argv):
+        glob.count = 0
+        lst = [X() for i in range(3000)]
+        x = -1
+        for i in range(3000):
+            lst[i] = None
+            if i % 300 == 150:
+                rgc.collect()
+            revdb.stop_point()
+            x = glob.count
+            assert foobar(x) == x
+        print x
         return 9
     return main
 
@@ -174,47 +205,36 @@ class TestRecording(BaseRecordingTests):
                 total = intmask(total * 3 + d[uid])
             assert total == expected
 
-    def test_finalizer_recorded(self):
-        py.test.skip("in-progress")
-        from rpython.rtyper.lltypesystem import lltype, rffi
-        from rpython.translator.tool.cbuild import ExternalCompilationInfo
-        eci = ExternalCompilationInfo(
-            pre_include_bits=["#define foobar(x) x\n"])
-        foobar = rffi.llexternal('foobar', [lltype.Signed], lltype.Signed,
-                                 compilation_info=eci)
-        class Glob:
-            pass
-        glob = Glob()
-        class X:
-            def __del__(self):
-                glob.count += 1
-        def main(argv):
-            glob.count = 0
-            lst = [X() for i in range(3000)]
-            x = -1
-            for i in range(3000):
-                lst[i] = None
-                if i % 300 == 150:
-                    rgc.collect()
-                revdb.stop_point()
-                x = glob.count
-                assert foobar(x) == x
-            print x
-            return 9
+    def test_old_style_finalizer(self):
+        main = get_old_style_finalizer_main()
         self.compile(main, backendopt=False)
         out = self.run('Xx')
         assert 1500 < int(out) <= 3000
         rdb = self.fetch_rdb([self.exename, 'Xx'])
-        counts = [rdb.next() for i in range(3000)]
-        assert counts[0] >= 0
-        for i in range(len(counts)-1):
-            assert counts[i] <= counts[i + 1]
-        assert counts[-1] == int(out)
+        seen_uids = set()
+        for i in range(3000):
+            triggered = False
+            if rdb.is_special_packet():
+                time, = rdb.special_packet(ASYNC_FINALIZER_TRIGGER, 'q')
+                assert time == i + 1
+                triggered = True
+                x = intmask(rdb.next())
+                while True:
+                    assert x != -1
+                    assert x not in seen_uids
+                    seen_uids.add(x)
+                    y = intmask(rdb.next())
+                    assert y == -7      # from the __del__
+                    x = intmask(rdb.next())
+                    if x == -1:
+                        break
+            x = rdb.next()
+            assert x == len(seen_uids)
+        assert len(seen_uids) == int(out)
         # write() call
         x = rdb.next(); assert x == len(out)
         x = rdb.next('i'); assert x == 0      # errno
         x = rdb.next('q'); assert x == 3000    # number of stop points
-        assert rdb.done()
 
 
 class TestReplayingWeakref(InteractiveTests):
