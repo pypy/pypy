@@ -70,15 +70,11 @@ class VectorAssembler(object):
     genop_discard_vec_setarrayitem_gc = _emit_vec_setitem
 
     def emit_vec_store(self, op, arglocs, regalloc):
-        baseloc, ofsloc, valueloc, size_loc, baseofs, \
+        baseloc, indexloc, valueloc, sizeloc, baseofs, \
             integer_loc, aligned_loc = arglocs
         #dest_loc = addr_add(base_loc, ofs_loc, baseofs.value, 0)
         assert baseofs.value == 0
-    #    self._vec_store(baseloc, ofsloc, valueloc, integer_loc.value,
-    #                    size_loc.value, regalloc)
-
-    #def _vec_store(self, baseloc, indexloc, valueloc, integer, itemsize, regalloc):
-        if integer:
+        if integer_loc.value:
             Vloloc = regalloc.ivrm.get_scratch_reg()
             Vhiloc = regalloc.ivrm.get_scratch_reg()
             Vploc = regalloc.ivrm.get_scratch_reg()
@@ -117,6 +113,7 @@ class VectorAssembler(object):
             self.mc.stvx(Vlo, indexloc.value, t)
             self.mc.stvx(Vhi, indexloc.value, baseloc.value)
         else:
+            itemsize = sizeloc.value
             if itemsize == 4:
                 self.mc.stxvw4x(valueloc.value, indexloc.value, baseloc.value)
             elif itemsize == 8:

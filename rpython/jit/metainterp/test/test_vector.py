@@ -161,7 +161,6 @@ class VectorizeTests(object):
         self.meta_interp(f, [l*size, va, vb, vc])
 
         for i in range(l):
-            import pdb; pdb.set_trace()
             c = raw_storage_getitem(type,vc,i*size)
             r = func(la[i], lb[i])
             assert isclose(r, c)
