@@ -9,7 +9,7 @@
 PyPy Python interpreter options
 -------------------------------
 
-The following options can be used after ``translate.py
+The following options can be used after ``rpython
 targetpypystandalone`` or as options to ``py.py``.
 
 .. GENERATE: objspace
@@ -22,7 +22,7 @@ targetpypystandalone`` or as options to ``py.py``.
 General translation options
 ---------------------------
 
-The following are options of ``translate.py``.  They must be
+The following are options of ``bin/rpython``.  They must be
 given before the ``targetxxx`` on the command line.
 
 * `--opt -O:`__ set the optimization level `[0, 1, size, mem, 2, 3]`
