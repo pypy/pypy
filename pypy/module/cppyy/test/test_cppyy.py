@@ -4,7 +4,7 @@ from pypy.module.cppyy import interp_cppyy, executor
 
 
 currpath = py.path.local(__file__).dirpath()
-test_dct = str(currpath.join("example01Dict.so"))
+test_dct = str(currpath.join("example01_rflx_rdict.pcm"))#example01Dict.so"))
 
 def setup_module(mod):
     if sys.platform == 'win32':

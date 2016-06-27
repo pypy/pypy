@@ -735,7 +735,7 @@ def _build_basic_converters():
 
     type_info = (
         (rffi.LONG,       ("long", "long int")),
-        (rffi.LONGLONG,   ("long long", "long long int")),
+        (rffi.LONGLONG,   ("long long", "long long int", "Long64_t")),
     )
 
     for c_type, names in type_info:
@@ -743,6 +743,7 @@ def _build_basic_converters():
             _immutable_ = True
             def __init__(self, space, default):
                 self.default = rffi.cast(self.c_type, capi.c_strtoll(space, default))
+
         class ConstRefConverter(ConstRefNumericTypeConverterMixin, BasicConverter):
             _immutable_ = True
             libffitype = jit_libffi.types.pointer
@@ -761,7 +762,7 @@ def _build_basic_converters():
         (rffi.USHORT,     ("unsigned short", "unsigned short int")),
         (rffi.UINT,       ("unsigned", "unsigned int")),
         (rffi.ULONG,      ("unsigned long", "unsigned long int")),
-        (rffi.ULONGLONG,  ("unsigned long long", "unsigned long long int")),
+        (rffi.ULONGLONG,  ("unsigned long long", "unsigned long long int", "ULong64_t")),
     )
 
     for c_type, names in type_info:

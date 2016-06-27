@@ -16,7 +16,8 @@ import commands
 if os.environ.get("ROOTSYS"):
     if config_stat != 0:     # presumably Reflex-only
         rootincpath = [os.path.join(os.environ["ROOTSYS"], "interpreter/cling/include"),
-                       os.path.join(os.environ["ROOTSYS"], "interpreter/llvm/inst/include")]
+                       os.path.join(os.environ["ROOTSYS"], "interpreter/llvm/inst/include"),
+                       os.path.join(os.environ["ROOTSYS"], "include"),]
         rootlibpath = [os.path.join(os.environ["ROOTSYS"], "lib64"), os.path.join(os.environ["ROOTSYS"], "lib")]
     else:
         rootincpath = [incdir]
@@ -39,13 +40,21 @@ ts_helper  = 'auto'
 
 std_string_name = 'std::basic_string<char>'
 
+# force loading (and exposure) of libCore symbols
+with rffi.scoped_str2charp('libCore.so') as ll_libname:
+    _coredll = rdynload.dlopen(ll_libname, rdynload.RTLD_GLOBAL | rdynload.RTLD_NOW)
+
+# require local translator path to pickup common defs
+from rpython.translator import cdir
+translator_c_dir = py.path.local(cdir)
+
 eci = ExternalCompilationInfo(
     separate_module_files=[srcpath.join("clingcwrapper.cxx")],
-    include_dirs=[incpath] + rootincpath,
+    include_dirs=[incpath, translator_c_dir] + rootincpath,
     includes=["clingcwrapper.h"],
     library_dirs=rootlibpath,
     libraries=["Cling"],
-    compile_extra=["-fno-strict-aliasing"],
+    compile_extra=["-fno-strict-aliasing", "-std=c++14"],
     use_cpp_linker=True,
 )
 
