@@ -265,6 +265,11 @@ class VectorizeTests(object):
     test_vec_xor_short = \
         vec_int_arith(lambda a,b: intmask(a)^intmask(b), rffi.SHORT)
 
+    test_vec_int_eq = \
+        vec_int_arith(lambda a,b: a == b, rffi.SIGNED)
+    test_vec_int_ne = \
+        vec_int_arith(lambda a,b: a == b, rffi.SIGNED)
+
     @py.test.mark.parametrize('i',[1,2,3,4,9])
     def test_vec_register_too_small_vector(self, i):
         myjitdriver = JitDriver(greens = [],

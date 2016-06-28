@@ -1,3 +1,4 @@
+from rpython.jit.backend.llsupport.rewrite import cpu_simplify_scale
 from rpython.jit.backend.llsupport.descr import (unpack_arraydescr,
         unpack_fielddescr, unpack_interiorfielddescr)
 from rpython.rlib.objectmodel import specialize, always_inline
@@ -130,7 +131,7 @@ class StoreRestrict(OpRestrict):
         if opnum in (rop.SETARRAYITEM_GC, rop.SETARRAYITEM_RAW):
             itemsize, basesize, _ = unpack_arraydescr(op.getdescr())
             index_box = op.getarg(1)
-            _, _, changed = cpu_simplify_scale(index_box, itemsize, basesize)
+            _, _, changed = cpu_simplify_scale(state.cpu, index_box, itemsize, basesize)
             if changed is not index_box:
                 state.oplist.append(changed)
                 op.setarg(1, changed)

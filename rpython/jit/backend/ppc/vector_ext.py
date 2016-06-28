@@ -16,8 +16,10 @@ from rpython.jit.backend.llsupport.vector_ext import VectorExt
 from rpython.jit.backend.ppc.arch import PARAM_SAVE_AREA_OFFSET
 import rpython.jit.backend.ppc.register as r
 import rpython.jit.backend.ppc.condition as c
+import rpython.jit.backend.ppc.locations as l
 from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.jit.codewriter import longlong
 
 def not_implemented(msg):
     msg = '[ppc/vector_ext] %s\n' % msg
@@ -441,13 +443,14 @@ class VectorAssembler(object):
         res, l0, l1, sizeloc = arglocs
         size = sizeloc.value
         if size == 1:
-            self.vcmpequbx(res.value, l0.value, l1.value)
+            self.mc.vcmpequbx(res.value, l0.value, l1.value)
         elif size == 2:
-            self.vcmpequhx(res.value, l0.value, l1.value)
+            self.mc.vcmpequhx(res.value, l0.value, l1.value)
         elif size == 4:
-            self.vcmpequwx(res.value, l0.value, l1.value)
+            self.mc.vcmpequwx(res.value, l0.value, l1.value)
         elif size == 8:
-            self.vcmpequdx(res.value, l0.value, l1.value)
+            self.mc.vcmpequdx(res.value, l0.value, l1.value)
+        flush_vec_cc(self, regalloc, c.EQ, op.bytesize, res)
 
     def emit_vec_int_ne(self, op, arglocs, regalloc):
         res, l0, l1, sizeloc = arglocs
@@ -455,62 +458,55 @@ class VectorAssembler(object):
         tmp = regalloc.get_scratch_reg().value
         self.mc.vxor(tmp, tmp, tmp)
         if size == 1:
-            self.vcmpequb(res.value, l0.value, l1.value)
-            self.vcmpequbx(res.value, res.value, tmp)
+            self.mc.vcmpequbx(res.value, res.value, tmp)
         elif size == 2:
-            self.vcmpequh(res.value, l0.value, l1.value)
-            self.vcmpequhx(res.value, res.value, tmp)
+            self.mc.vcmpequhx(res.value, res.value, tmp)
         elif size == 4:
-            self.vcmpequw(res.value, l0.value, l1.value)
-            self.vcmpequwx(res.value, res.value, tmp)
+            self.mc.vcmpequwx(res.value, res.value, tmp)
         elif size == 8:
-            self.vcmpequd(res.value, l0.value, l1.value)
-            self.vcmpequdx(res.value, res.value, tmp)
+            self.mc.vcmpequdx(res.value, res.value, tmp)
+        self.mc.vnor(res.value, res.value, res.value)
+        flush_vec_cc(self, regalloc, c.NE, op.bytesize, res)
 
-    #def genop_vec_cast_float_to_int(self, op, arglocs, regalloc):
-    #    self.mc.CVTPD2DQ(resloc, arglocs[0])
-    #def genop_vec_cast_singlefloat_to_float(self, op, arglocs, regalloc):
-    #    self.mc.CVTPS2PD(resloc, arglocs[0])
+    def emit_vec_expand_f(self, op, arglocs, regalloc):
+        resloc, srcloc = arglocs
+        size = op.bytesize
+        res = resloc.value
+        if isinstance(srcloc, l.ConstFloatLoc):
+            # they are aligned!
+            assert size == 8
+            tloc = regalloc.rm.get_scratch_reg()
+            self.mc.load_imm(tloc, srcloc.value)
+            self.mc.lxvd2x(res, 0, tloc.value)
+        elif size == 8:
+            self.mc.vmr(res, srcloc.value, srcloc.value)
+        else:
+            notimplemented("[ppc/assembler] vec expand in this combination not supported")
 
-    #def genop_vec_expand_f(self, op, arglocs, regalloc):
-    #    srcloc, sizeloc = arglocs
-    #    size = sizeloc.value
-    #    if isinstance(srcloc, ConstFloatLoc):
-    #        # they are aligned!
-    #        self.mc.MOVAPD(resloc, srcloc)
-    #    elif size == 4:
-    #        # the register allocator forces src to be the same as resloc
-    #        # r = (s[0], s[0], r[0], r[0])
-    #        # since resloc == srcloc: r = (r[0], r[0], r[0], r[0])
-    #        self.mc.SHUFPS_xxi(resloc.value, srcloc.value, 0)
-    #    elif size == 8:
-    #        self.mc.MOVDDUP(resloc, srcloc)
-    #    else:
-    #        raise AssertionError("float of size %d not supported" % (size,))
-
-    #def genop_vec_expand_i(self, op, arglocs, regalloc):
-    #    srcloc, sizeloc = arglocs
-    #    if not isinstance(srcloc, RegLoc):
-    #        self.mov(srcloc, X86_64_SCRATCH_REG)
-    #        srcloc = X86_64_SCRATCH_REG
-    #    assert not srcloc.is_xmm
-    #    size = sizeloc.value
-    #    if size == 1:
-    #        self.mc.PINSRB_xri(resloc.value, srcloc.value, 0)
-    #        self.mc.PSHUFB(resloc, heap(self.expand_byte_mask_addr))
-    #    elif size == 2:
-    #        self.mc.PINSRW_xri(resloc.value, srcloc.value, 0)
-    #        self.mc.PINSRW_xri(resloc.value, srcloc.value, 4)
-    #        self.mc.PSHUFLW_xxi(resloc.value, resloc.value, 0)
-    #        self.mc.PSHUFHW_xxi(resloc.value, resloc.value, 0)
-    #    elif size == 4:
-    #        self.mc.PINSRD_xri(resloc.value, srcloc.value, 0)
-    #        self.mc.PSHUFD_xxi(resloc.value, resloc.value, 0)
-    #    elif size == 8:
-    #        self.mc.PINSRQ_xri(resloc.value, srcloc.value, 0)
-    #        self.mc.PINSRQ_xri(resloc.value, srcloc.value, 1)
-    #    else:
-    #        raise AssertionError("cannot handle size %d (int expand)" % (size,))
+    def emit_vec_expand_i(self, op, arglocs, regalloc):
+        notimplemented("[vec expand i]")
+        srcloc, sizeloc = arglocs
+        if not isinstance(srcloc, RegLoc):
+            self.mov(srcloc, X86_64_SCRATCH_REG)
+            srcloc = X86_64_SCRATCH_REG
+        assert not srcloc.is_xmm
+        size = sizeloc.value
+        if size == 1:
+            self.mc.PINSRB_xri(resloc.value, srcloc.value, 0)
+            self.mc.PSHUFB(resloc, heap(self.expand_byte_mask_addr))
+        elif size == 2:
+            self.mc.PINSRW_xri(resloc.value, srcloc.value, 0)
+            self.mc.PINSRW_xri(resloc.value, srcloc.value, 4)
+            self.mc.PSHUFLW_xxi(resloc.value, resloc.value, 0)
+            self.mc.PSHUFHW_xxi(resloc.value, resloc.value, 0)
+        elif size == 4:
+            self.mc.PINSRD_xri(resloc.value, srcloc.value, 0)
+            self.mc.PSHUFD_xxi(resloc.value, resloc.value, 0)
+        elif size == 8:
+            self.mc.PINSRQ_xri(resloc.value, srcloc.value, 0)
+            self.mc.PINSRQ_xri(resloc.value, srcloc.value, 1)
+        else:
+            raise AssertionError("cannot handle size %d (int expand)" % (size,))
 
     #def genop_vec_pack_i(self, op, arglocs, regalloc):
     #    resultloc, sourceloc, residxloc, srcidxloc, countloc, sizeloc = arglocs
@@ -621,6 +617,12 @@ class VectorAssembler(object):
     #                    # if they are equal nothing is to be done
 
     #genop_vec_unpack_f = genop_vec_pack_f
+
+    # needed as soon as PPC's support_singlefloat is implemented!
+    #def genop_vec_cast_float_to_int(self, op, arglocs, regalloc):
+    #    self.mc.CVTPD2DQ(resloc, arglocs[0])
+    #def genop_vec_cast_singlefloat_to_float(self, op, arglocs, regalloc):
+    #    self.mc.CVTPS2PD(resloc, arglocs[0])
 
 class VectorRegalloc(object):
     _mixin_ = True
@@ -789,28 +791,24 @@ class VectorRegalloc(object):
 
     #prepare_vec_unpack_f = prepare_vec_unpack_i
 
-    #def prepare_vec_expand_f(self, op):
-    #    assert isinstance(op, VectorOp)
-    #    arg = op.getarg(0)
-    #    args = op.getarglist()
-    #    if arg.is_constant():
-    #        resloc = self.xrm.force_allocate_reg(op)
-    #        srcloc = self.xrm.expand_float(op.bytesize, arg)
-    #    else:
-    #        resloc = self.xrm.force_result_in_reg(op, arg, args)
-    #        srcloc = resloc
-    #    self.perform(op, [srcloc, imm(op.bytesize)], resloc)
+    def expand_float(self, size, box):
+        adr = self.assembler.datablockwrapper.malloc_aligned(16, 16)
+        fs = box.getfloatstorage()
+        rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), adr)[0] = fs
+        rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), adr)[1] = fs
+        return l.ConstFloatLoc(adr)
 
-    #def prepare_vec_expand_i(self, op):
-    #    assert isinstance(op, VectorOp)
-    #    arg = op.getarg(0)
-    #    args = op.getarglist()
-    #    if arg.is_constant():
-    #        srcloc = self.rm.convert_to_imm(arg)
-    #    else:
-    #        srcloc = self.make_sure_var_in_reg(arg, args)
-    #    resloc = self.xrm.force_allocate_reg(op, args)
-    #    self.perform(op, [srcloc, imm(op.bytesize)], resloc)
+    def prepare_vec_expand_f(self, op):
+        arg = op.getarg(0)
+        if arg.is_constant():
+            l0 = self.expand_float(op.bytesize, arg)
+            res = self.force_allocate_vector_reg(op)
+        else:
+            l0 = self.ensure_vector_reg(arg)
+            res = self.force_allocate_vector_reg(op)
+        return [res, l0]
+
+    prepare_vec_expand_i = prepare_vec_expand_f
 
     def prepare_vec_int_is_true(self, op):
         arg = op.getarg(0)
@@ -819,12 +817,12 @@ class VectorRegalloc(object):
         resloc = self.force_allocate_vector_reg(op)
         return [resloc, argloc, imm(arg.bytesize)]
 
-    #def _prepare_vec(self, op):
-    #    # pseudo instruction, needed to create a new variable
-    #    self.xrm.force_allocate_reg(op)
+    def _prepare_vec(self, op):
+        # pseudo instruction, needed to allocate a register for a new variable
+        return [self.force_allocate_vector_reg(op)]
 
-    #prepare_vec_i = _prepare_vec
-    #prepare_vec_f = _prepare_vec
+    prepare_vec_i = _prepare_vec
+    prepare_vec_f = _prepare_vec
 
     def prepare_vec_cast_float_to_int(self, op):
         l0 = self.ensure_vector_reg(op.getarg(0))
@@ -832,18 +830,15 @@ class VectorRegalloc(object):
         return [res, l0]
 
     prepare_vec_cast_int_to_float = prepare_vec_cast_float_to_int
-    #prepare_vec_cast_float_to_singlefloat = prepare_vec_cast_float_to_int
-    #prepare_vec_cast_singlefloat_to_float = prepare_vec_cast_float_to_int
 
-    #def prepare_vec_guard_true(self, op):
-    #    arg = op.getarg(0)
-    #    loc = self.loc(arg)
-    #    self.assembler.guard_vector(op, self.loc(arg), True)
-    #    self.perform_guard(op, [], None)
+    def _prepare_guard(self, box):
+        if self.assembler.guard_success_cc == c.cond_none:
+            notimplemented("[ppc/regalloc] guard")
+            self.assembler.guard_success_cc = c.NE
 
-    #def prepare_vec_guard_false(self, op):
-    #    arg = op.getarg(0)
-    #    loc = self.loc(arg)
-    #    self.assembler.guard_vector(op, self.loc(arg), False)
-    #    self.perform_guard(op, [], None)
+    def prepare_vec_guard_true(self, op):
+        self._prepare_guard(op.getarg(0))
+
+    def prepare_vec_guard_false(self, op):
+        self._prepare_guard(op.getarg(0))
 

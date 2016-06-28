@@ -160,7 +160,7 @@ class GcRewriterAssembler(object):
                                                  factor, offset):
         factor, offset, new_index_box = cpu_simplify_scale(self.cpu, index_box, factor, offset)
         if index_box is not new_index_box:
-            self.emit_op(index_box)
+            self.emit_op(new_index_box)
         return factor, offset, new_index_box
 
     def emit_gc_load_or_indexed(self, op, ptr_box, index_box, itemsize,
