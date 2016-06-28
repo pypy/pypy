@@ -1091,6 +1091,12 @@ class GuardCompatibleDescr(ResumeGuardDescr):
         # list of compatibility conditions about the same variable, with
         # bridges attached to them
         self.other_compat_conditions = []
+        # fallback jump target is the one to jump to if the generated bridges
+        # do not start with a guard_compatible at all, so we don't have a basis
+        # to decide on
+        # XXX it would be better to patch the guard properly in the backend,
+        # but later
+        self.fallback_jump_target = 0
 
     def find_compatible(self, cpu, ref):
         """ callback for the CPU: given a value ref, it returns:
@@ -1108,7 +1114,10 @@ class GuardCompatibleDescr(ResumeGuardDescr):
             if _compatibility_conditions.check_compat_and_activate(
                     cpu, ref, self.rd_loop_token):
                 return _compatibility_conditions.jump_target
-        return 0
+        # none of the other conditions matched. if we have a
+        # fallback_jump_target, go there (otherwise we run the risk of
+        # producing arbitrary amounts of code)
+        return self.fallback_jump_target
 
     def compile_and_attach(self, metainterp, new_loop, orig_inputargs):
         # if new_loop starts with another guard_compatible on the same argument
@@ -1131,6 +1140,9 @@ class GuardCompatibleDescr(ResumeGuardDescr):
             self, metainterp, new_loop, orig_inputargs)
         if compat_cond:
             compat_cond.jump_target = asminfo.asmaddr
+        else:
+            assert self.fallback_jump_target == 0 # this can never happen twice
+            self.fallback_jump_target = asminfo.asmaddr
         return asminfo
 
     def make_a_counter_per_value(self, guard_value_op, index):

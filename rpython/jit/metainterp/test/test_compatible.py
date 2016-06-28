@@ -418,8 +418,7 @@ class TestCompatible(LLJitMixin):
 
         x = self.meta_interp(main, [])
 
-        # trace, two bridges, a finish bridge
-        self.check_trace_count(4)
+        self.check_trace_count(6)
 
     def test_merge_switch_object(self):
         S = lltype.GcStruct('S', ('x', lltype.Signed))
@@ -611,7 +610,7 @@ class TestCompatible(LLJitMixin):
 
         x = self.meta_interp(main, [False])
         assert x < 70
-        self.check_trace_count(9)
+        self.check_trace_count(7)
         self.check_resops(call_i=0)
 
 
