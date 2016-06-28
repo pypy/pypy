@@ -2,7 +2,7 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
-from pypy.module.cpyext.bytesobject import new_empty_str, PyStringObject
+from pypy.module.cpyext.bytesobject import new_empty_str, PyBytesObject
 from pypy.module.cpyext.api import PyObjectP, PyObject, Py_ssize_tP, generic_cpy_call
 from pypy.module.cpyext.pyobject import Py_DecRef, from_ref, make_ref
 from pypy.module.cpyext.typeobjectdefs import PyTypeObjectPtr
@@ -82,14 +82,14 @@ class AppTestBytesObject(AppTestCpythonExtensionBase):
              """
                 PyObject *base;
                 PyTypeObject * type;
-                PyStringObject *obj;
+                PyBytesObject *obj;
                 base = PyBytes_FromString("test");
                 if (PyBytes_GET_SIZE(base) != 4)
                     return PyLong_FromLong(-PyBytes_GET_SIZE(base));
                 type = base->ob_type;
                 if (type->tp_itemsize != 1)
                     return PyLong_FromLong(type->tp_itemsize);
-                obj = (PyStringObject*)type->tp_alloc(type, 10);
+                obj = (PyBytesObject*)type->tp_alloc(type, 10);
                 if (PyBytes_GET_SIZE(obj) != 10)
                     return PyLong_FromLong(PyBytes_GET_SIZE(obj));
                 /* cannot work, there is only RO access
@@ -266,7 +266,7 @@ class AppTestBytesObject(AppTestCpythonExtensionBase):
                  PyObject *s = args;
                  Py_INCREF(s);
                  PyString_InternInPlace(&s);
-                 if (((PyStringObject*)s)->ob_sstate == SSTATE_NOT_INTERNED)
+                 if (((PyBytesObject*)s)->ob_sstate == SSTATE_NOT_INTERNED)
                  {
                     Py_DECREF(s);
                     s = PyString_FromString("interned error");
@@ -284,7 +284,7 @@ class AppTestBytesObject(AppTestCpythonExtensionBase):
              ("test_macro_invocations", "METH_NOARGS",
              """
                 PyObject* o = PyString_FromString("");
-                PyStringObject* u = (PyStringObject*)o;
+                PyBytesObject* u = (PyBytesObject*)o;
 
                 PyString_GET_SIZE(u);
                 PyString_GET_SIZE(o);
@@ -301,17 +301,17 @@ class AppTestBytesObject(AppTestCpythonExtensionBase):
             ("test_hash", "METH_VARARGS",
              '''
                 PyObject* obj = (PyTuple_GetItem(args, 0));
-                long hash = ((PyStringObject*)obj)->ob_shash;
+                long hash = ((PyBytesObject*)obj)->ob_shash;
                 return PyLong_FromLong(hash);
              '''
              ),
             ("test_sstate", "METH_NOARGS",
              '''
                 PyObject *s = PyString_FromString("xyz");
-                /*int sstate = ((PyStringObject*)s)->ob_sstate;
+                /*int sstate = ((PyBytesObject*)s)->ob_sstate;
                 printf("sstate now %d\\n", sstate);*/
                 PyString_InternInPlace(&s);
-                /*sstate = ((PyStringObject*)s)->ob_sstate;
+                /*sstate = ((PyBytesObject*)s)->ob_sstate;
                 printf("sstate now %d\\n", sstate);*/
                 Py_DECREF(s);
                 return PyBool_FromLong(1);
@@ -345,7 +345,7 @@ class AppTestBytesObject(AppTestCpythonExtensionBase):
                     PyObject_HEAD_INIT(NULL)
                     0,                            /* ob_size */
                     "bar.string_",                /* tp_name*/
-                    sizeof(PyStringObject), /* tp_basicsize*/
+                    sizeof(PyBytesObject), /* tp_basicsize*/
                     0                             /* tp_itemsize */
                     };
 
@@ -401,7 +401,7 @@ class AppTestBytesObject(AppTestCpythonExtensionBase):
                             return NULL;
                         }
                         destptr = PyString_AS_STRING(obj);
-                        ((PyStringObject *)obj)->ob_shash = -1;
+                        ((PyBytesObject *)obj)->ob_shash = -1;
                         memcpy(destptr, data, itemsize);
                         return obj;
                     }
@@ -429,14 +429,14 @@ class TestBytes(BaseApiTest):
         py_str.c_ob_sval[2] = 'c'
         ar[0] = rffi.cast(PyObject, py_str)
         api._PyString_Resize(ar, 3)
-        py_str = rffi.cast(PyStringObject, ar[0])
+        py_str = rffi.cast(PyBytesObject, ar[0])
         assert py_str.c_ob_size == 3
         assert py_str.c_ob_sval[1] == 'b'
         assert py_str.c_ob_sval[3] == '\x00'
         # the same for growing
         ar[0] = rffi.cast(PyObject, py_str)
         api._PyString_Resize(ar, 10)
-        py_str = rffi.cast(PyStringObject, ar[0])
+        py_str = rffi.cast(PyBytesObject, ar[0])
         assert py_str.c_ob_size == 10
         assert py_str.c_ob_sval[1] == 'b'
         assert py_str.c_ob_sval[10] == '\x00'
