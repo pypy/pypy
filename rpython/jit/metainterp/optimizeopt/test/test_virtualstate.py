@@ -30,6 +30,9 @@ class FakeOptimizer(Optimizer):
         self._last_debug_merge_point = None
         self.quasi_immutable_deps = None
 
+    def _can_optimize_call_pure(self, op):
+        return True
+
 class BaseTestGenerateGuards(BaseTest):
     def setup_class(self):
         classbox = self.cpu.ts.cls_of_box(InputArgRef(self.nodeaddr))
@@ -490,7 +493,7 @@ class BaseTestGenerateGuards(BaseTest):
         op = ResOperation(
                 rop.CALL_PURE_I, [ConstInt(123), ConstPtr(self.quasiptr)],
                 descr=self.plaincalldescr)
-        copied_op, cond = ccond.prepare_const_arg_call(
+        copied_op, cond, result = ccond.prepare_const_arg_call(
                 op, optimizer)
         ccond.record_condition(cond, ConstInt(5), optimizer)
 
@@ -504,7 +507,7 @@ class BaseTestGenerateGuards(BaseTest):
                 rop.CALL_PURE_I,
                 [ConstInt(123), ConstPtr(self.quasiptr), getfield_op],
                 descr=self.nonwritedescr)
-        copied_op, cond = ccond.prepare_const_arg_call(
+        copied_op, cond, result = ccond.prepare_const_arg_call(
                 op, optimizer)
         ccond.record_condition(cond, ConstInt(5), optimizer)
         value = info.PtrInfo()
@@ -532,7 +535,9 @@ class BaseTestGenerateGuards(BaseTest):
 
     def test_virtualstate_guard_compatible(self):
         value1 = self.make_ccond_info()
+        ccond1 = value1._compatibility_conditions
         value2 = self.make_ccond_info()
+        ccond2 = value2._compatibility_conditions
 
         state1 = not_virtual(self.cpu, 'r', value1)
         state2 = not_virtual(self.cpu, 'r', value2)
@@ -551,6 +556,7 @@ class BaseTestGenerateGuards(BaseTest):
     def test_virtualstate_guard_compatible_make_guards(self):
         value1 = self.make_ccond_info()
         value2 = self.make_ccond_info()
+        ccond2 = value2._compatibility_conditions
 
         state1 = not_virtual(self.cpu, 'r', value1)
         state2 = not_virtual(self.cpu, 'r', value2)
@@ -559,7 +565,7 @@ class BaseTestGenerateGuards(BaseTest):
         cond = ccond2.conditions[:]
         ccond2.conditions = [cond[0]]
         box = InputArgRef(self.nodeaddr)
-        self.guards(state1, state2)
+        self.check_no_guards(state1, state2)
 
         ccond2.conditions = [cond[1]]
         self.check_no_guards(state1, state2)
