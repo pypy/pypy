@@ -3,9 +3,6 @@ from rpython.translator.revdb import ancillary
 from rpython.translator.revdb.message import *
 
 
-maxint64 = int(2**63 - 1)
-
-
 class Breakpoint(Exception):
     def __init__(self, time, num):
         self.time = time
@@ -24,7 +21,9 @@ class AllBreakpoints(object):
         self.stack_depth = 0   # breaks if the depth becomes lower than this
 
     def __repr__(self):
-        return 'AllBreakpoints(%r, %d)' % (self.num2name, self.stack_depth)
+        return 'AllBreakpoints(%r, %r, %r, %d)' % (
+            self.num2name, self.watchvalues, self.watchuids,
+            self.stack_depth)
 
     def compare(self, other):
         if (self.num2name == other.num2name and
@@ -334,6 +333,8 @@ class ReplayProcessGroup(object):
         if self.all_breakpoints.watchuids:
             uids = set()
             uids.update(*self.all_breakpoints.watchuids.values())
+            #print self.all_breakpoints
+            #print '\t===>', uids
             self.attach_printed_objects(uids, watch_env=True)
 
     def update_breakpoints(self):
@@ -379,6 +380,7 @@ class ReplayProcessGroup(object):
             if name.startswith('W'):
                 _, text = self.check_watchpoint_expr(name[1:])
                 if text != self.all_breakpoints.watchvalues[num]:
+                    #print self.active.pid
                     print 'updating watchpoint value: %s => %s' % (
                         name[1:], text)
                     self.all_breakpoints.watchvalues[num] = text
@@ -454,6 +456,10 @@ class ReplayProcessGroup(object):
                 future_uids.sort()
                 pack_uids = [struct.pack('q', uid) for uid in future_uids]
                 pack_uids = ''.join(pack_uids)
+                #print '%d: from %d: CMD_FUTUREIDS %r' % (
+                #    self.active.pid,
+                #    self.active.current_time,
+                #    future_uids)
                 self.active.send(Message(CMD_FUTUREIDS, extra=pack_uids))
                 self.active.expect_ready()
                 self.active.printed_objects = (
@@ -480,6 +486,8 @@ class ReplayProcessGroup(object):
     def attach_printed_objects(self, uids, watch_env):
         for uid in uids:
             nid = self.all_printed_objects[uid]
+            #print '%d: %s => %s (watch_env=%d)' % (self.active.pid, nid, uid,
+            #                                       watch_env)
             self.active.send(Message(CMD_ATTACHID, nid, uid, int(watch_env)))
             self.active.expect_ready()
 

@@ -3,7 +3,7 @@ import subprocess, socket
 import traceback
 from contextlib import contextmanager
 
-from rpython.translator.revdb.process import ReplayProcessGroup, maxint64
+from rpython.translator.revdb.process import ReplayProcessGroup
 from rpython.translator.revdb.process import Breakpoint
 
 r_cmdline = re.compile(r"(\S+)\s*(.*)")

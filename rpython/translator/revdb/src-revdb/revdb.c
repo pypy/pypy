@@ -1155,7 +1155,7 @@ uint64_t rpy_reverse_db_unique_id_break(void *new_object)
             rpy_revdb_commands.rp_alloc(uid, new_object);
         unprotect_jmpbuf();
     }
-    uid_break = *future_next_id++;
+    uid_break = *++future_next_id;
     restore_state();
     rpy_revdb.watch_enabled = watch_enabled;
     return uid;
