@@ -1138,6 +1138,8 @@ class GuardCompatibleDescr(ResumeGuardDescr):
                 self.other_compat_conditions.append(compat_cond)
         asminfo = ResumeGuardDescr.compile_and_attach(
             self, metainterp, new_loop, orig_inputargs)
+        # note that the backend will not patch the switch at all, so it is
+        # vital to *always* do something with asminfo.asmaddr
         if compat_cond:
             compat_cond.jump_target = asminfo.asmaddr
         else:
