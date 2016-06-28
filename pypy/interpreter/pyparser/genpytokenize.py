@@ -140,7 +140,10 @@ def makePyPseudoDFA ():
     special = group(states,
                     makeEOL(),
                     groupStr(states, "@:;.,`"))
-    funny = group(states, operator, bracket, special)
+    revdb_metavar = chain(states,
+                          groupStr(states, "$"),
+                          atleastonce(states, makeDigits()))
+    funny = group(states, operator, bracket, special, revdb_metavar)
     # ____________________________________________________________
     def makeStrPrefix ():
         return chain(states,

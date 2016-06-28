@@ -220,6 +220,10 @@ def generate_tokens(lines, flags):
                     last_comment = ''
                 elif initial == '\\':                      # continued stmt
                     continued = 1
+                elif initial == '$':
+                    token_list.append((tokens.REVDBMETAVAR, token,
+                                       lnum, start, line))
+                    last_comment = ''
                 else:
                     if initial in '([{':
                         if parenlev == 0:

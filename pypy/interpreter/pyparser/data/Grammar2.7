@@ -104,7 +104,7 @@ atom: ('(' [yield_expr|testlist_comp] ')' |
        '[' [listmaker] ']' |
        '{' [dictorsetmaker] '}' |
        '`' testlist1 '`' |
-       NAME | NUMBER | STRING+)
+       NAME | NUMBER | STRING+ | revdb_metavar)
 listmaker: test ( list_for | (',' test)* [','] )
 testlist_comp: test ( comp_for | (',' test)* [','] )
 lambdef: 'lambda' [varargslist] ':' test
@@ -141,3 +141,5 @@ testlist1: test (',' test)*
 encoding_decl: NAME
 
 yield_expr: 'yield' [testlist]
+
+revdb_metavar: '$NUM'

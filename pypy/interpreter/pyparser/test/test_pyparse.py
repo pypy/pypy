@@ -165,3 +165,12 @@ pass"""
         for linefeed in ["\r\n","\r"]:
             tree = self.parse(fmt % linefeed)
             assert expected_tree == tree
+
+    def test_revdb_dollar_num(self):
+        self.parse('$0')
+        self.parse('$5')
+        self.parse('$42')
+        self.parse('2+$42.attrname')
+        py.test.raises(SyntaxError, self.parse, '$')
+        py.test.raises(SyntaxError, self.parse, '$a')
+        py.test.raises(SyntaxError, self.parse, '$.5')
