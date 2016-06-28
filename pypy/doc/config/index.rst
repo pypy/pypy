@@ -15,12 +15,12 @@ the `object space options`_:
 
     ./py.py <`objspace options`_>
 
-and the ``translate.py`` translation entry
+and the ``rpython/bin/rpython`` translation entry
 point which takes arguments of this form:
 
 .. parsed-literal::
 
-    ./translate.py <`translation options`_> <target>
+    ./rpython/bin/rpython <`translation options`_> <target>
 
 For the common case of ``<target>`` being ``targetpypystandalone.py``,
 you can then pass the `object space options`_ after
@@ -28,7 +28,7 @@ you can then pass the `object space options`_ after
 
 .. parsed-literal::
 
-    ./translate.py <`translation options`_> targetpypystandalone.py <`objspace options`_>
+    ./rpython/bin/rpython <`translation options`_> targetpypystandalone.py <`objspace options`_>
 
 There is an `overview`_ of all command line arguments that can be
 passed in either position.
