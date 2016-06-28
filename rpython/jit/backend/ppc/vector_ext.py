@@ -16,6 +16,8 @@ from rpython.jit.backend.llsupport.vector_ext import VectorExt
 from rpython.jit.backend.ppc.arch import PARAM_SAVE_AREA_OFFSET
 import rpython.jit.backend.ppc.register as r
 import rpython.jit.backend.ppc.condition as c
+from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
+from rpython.rtyper.lltypesystem import lltype, rffi
 
 def not_implemented(msg):
     msg = '[ppc/vector_ext] %s\n' % msg
@@ -23,11 +25,53 @@ def not_implemented(msg):
         llop.debug_print(lltype.Void, msg)
     raise NotImplementedError(msg)
 
+def flush_vec_cc(asm, regalloc, condition, size, result_loc):
+    # After emitting an instruction that leaves a boolean result in
+    # a condition code (cc), call this.  In the common case, result_loc
+    # will be set to SPP by the regalloc, which in this case means
+    # "propagate it between this operation and the next guard by keeping
+    # it in the cc".  In the uncommon case, result_loc is another
+    # register, and we emit a load from the cc into this register.
+    assert asm.guard_success_cc == c.cond_none
+    if result_loc is r.SPP:
+        asm.guard_success_cc = condition
+    else:
+        resval = result_loc.value
+        # either doubleword integer 1 (2x) or word integer 1 (4x)
+        ones = regalloc.ivrm.get_scratch_reg().value
+        zeros = regalloc.ivrm.get_scratch_reg().value
+        asm.mc.vxor(zeros, zeros, zeros)
+        if size == 4:
+            asm.mc.vspltisw(ones, 1)
+        else:
+            assert size == 8
+            tloc = regalloc.rm.get_scratch_reg()
+            asm.mc.load_imm(tloc, asm.VEC_DOUBLE_WORD_ONES)
+            asm.mc.lvx(ones, 0, tloc.value)
+        asm.mc.vsel(resval, zeros, ones, resval)
+
 class AltiVectorExt(VectorExt):
     pass
 
 class VectorAssembler(object):
     _mixin_ = True
+
+    VEC_DOUBLE_WORD_ONES = 0
+
+    def setup_once_vector(self):
+        if IS_BIG_ENDIAN:
+            # 2x 64 bit signed integer(1) BE
+            data = (b'\x00' * 7 + b'\x01') * 2
+        else:
+            # 2x 64 bit signed integer(1) LE
+            data = (b'\x01' + b'\x00' * 7) * 2
+        datablockwrapper = MachineDataBlockWrapper(self.cpu.asmmemmgr, [])
+        mem = datablockwrapper.malloc_aligned(len(data), alignment=16)
+        datablockwrapper.done()
+        addr = rffi.cast(rffi.CArrayPtr(lltype.Char), mem)
+        for i in range(len(data)):
+            addr[i] = data[i]
+        self.VEC_DOUBLE_WORD_ONES = mem
 
     def emit_vec_load_f(self, op, arglocs, regalloc):
         resloc, baseloc, indexloc, size_loc, ofs, integer_loc, aligned_loc = arglocs
@@ -360,6 +404,7 @@ class VectorAssembler(object):
         else:
             notimplemented("[ppc/assembler] float == for size %d" % size)
         self.mc.lvx(resloc.value, off, r.SP.value)
+        flush_vec_cc(self, regalloc, c.EQ, op.bytesize, resloc)
 
     def emit_vec_float_ne(self, op, arglocs, regalloc):
         resloc, loc1, loc2, sizeloc = arglocs
@@ -371,15 +416,16 @@ class VectorAssembler(object):
         self.mc.load_imm(offloc, PARAM_SAVE_AREA_OFFSET)
         if size == 4:
             self.mc.xvcmpeqspx(tmp, loc1.value, loc2.value)
-            self.mc.xxlandc(tmp, tmp, tmp) # negate
             self.mc.stxvw4x(tmp, off, r.SP.value)
         elif size == 8:
             self.mc.xvcmpeqdpx(tmp, loc1.value, loc2.value)
-            self.mc.xxlandc(tmp, tmp, tmp) # negate
             self.mc.stxvd2x(tmp, off, r.SP.value)
         else:
             notimplemented("[ppc/assembler] float == for size %d" % size)
-        self.mc.lvx(resloc.value, off, r.SP.value)
+        res = resloc.value
+        self.mc.lvx(res, off, r.SP.value)
+        self.mc.vnor(res, res, res) # complement
+        flush_vec_cc(self, regalloc, c.NE, op.bytesize, resloc)
 
     def emit_vec_cast_int_to_float(self, op, arglocs, regalloc):
         res, l0 = arglocs

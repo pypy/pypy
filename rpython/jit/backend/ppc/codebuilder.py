@@ -683,9 +683,12 @@ class PPCVSXAssembler(object):
     vor = VX(4, XO8=1156)
     veqv = VX(4, XO8=1668)
     vxor = VX(4, XO8=1220)
+    vnor = VX(4, XO8=1284)
 
     # vector move register is alias to vector or
     vmr = vor
+    # complement is equivalent to vnor
+    vnot = vnor
 
     # shift, perm and select
     lvsl = XV(31, XO1=6)

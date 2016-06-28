@@ -185,6 +185,8 @@ class VectorizeTests(object):
 
     test_vec_float_cmp_eq = \
         vec_float_binary(lambda a,b: a == b, rffi.DOUBLE)
+    test_vec_float_cmp_ne = \
+        vec_float_binary(lambda a,b: a != b, rffi.DOUBLE)
 
     def _vector_simple_int(self, func, type, data):
         func = always_inline(func)

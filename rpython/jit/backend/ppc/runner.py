@@ -52,6 +52,7 @@ class PPC_CPU(AbstractLLCPU):
             self.vector_ext = AltiVectorExt()
             self.vector_extension = True
             # ??? self.vector_horizontal_operations = True
+            self.assembler.setup_once_vector()
 
     @rgc.no_release_gil
     def finish_once(self):
