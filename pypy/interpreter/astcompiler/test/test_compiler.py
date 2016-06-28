@@ -940,6 +940,15 @@ class TestCompiler:
         yield (self.st, "x=(lambda: (-0.0, 0.0), lambda: (0.0, -0.0))[1]()",
                         'repr(x)', '(0.0, -0.0)')
 
+    def test_revdb_metavar(self):
+        from pypy.interpreter.reverse_debugging import dbstate, setup_revdb
+        self.space.config.translation.reverse_debugger = True
+        setup_revdb(self.space)
+        dbstate.extend_syntax_with_dollar_num = True
+        dbstate.metavars = [self.space.wrap(6)]
+        self.simple_test("x = 7*$0", "x", 42)
+        dbstate.extend_syntax_with_dollar_num = False
+
 
 class AppTestCompiler:
 

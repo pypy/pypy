@@ -1160,6 +1160,11 @@ class ASTBuilder(object):
         elif first_child_type == tokens.BACKQUOTE:
             expr = self.handle_testlist(atom_node.get_child(1))
             return ast.Repr(expr, atom_node.get_lineno(), atom_node.get_column())
+        elif first_child_type == tokens.REVDBMETAVAR:
+            string = atom_node.get_child(0).get_value()
+            return ast.RevDBMetaVar(int(string[1:]),
+                                    atom_node.get_lineno(),
+                                    atom_node.get_column())
         else:
             raise AssertionError("unknown atom")
 

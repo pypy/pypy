@@ -436,6 +436,8 @@ class __extend__(pyframe.PyFrame):
                 self.WITH_CLEANUP(oparg, next_instr)
             elif opcode == opcodedesc.YIELD_VALUE.index:
                 self.YIELD_VALUE(oparg, next_instr)
+            elif opcode == opcodedesc.LOAD_REVDB_VAR.index:
+                self.LOAD_REVDB_VAR(oparg, next_instr)
             else:
                 self.MISSING_OPCODE(oparg, next_instr)
 
@@ -1304,6 +1306,11 @@ class __extend__(pyframe.PyFrame):
         w_value = self.popvalue()
         w_dict = self.peekvalue()
         self.space.setitem(w_dict, w_key, w_value)
+
+    def LOAD_REVDB_VAR(self, oparg, next_instr):
+        from pypy.interpreter.reverse_debugging import load_metavar
+        w_var = load_metavar(oparg)
+        self.pushvalue(w_var)
 
 
 ### ____________________________________________________________ ###

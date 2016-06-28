@@ -412,6 +412,10 @@ class ObjSpace(object):
 
     def startup(self):
         # To be called before using the space
+        if self.config.translation.reverse_debugger:
+            from pypy.interpreter.reverse_debugging import setup_revdb
+            setup_revdb(self)
+
         self.threadlocals.enter_thread(self)
 
         # Initialize already imported builtin modules

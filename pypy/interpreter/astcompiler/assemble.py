@@ -664,6 +664,7 @@ _static_opcode_stack_effects = {
     ops.JUMP_IF_NOT_DEBUG: 0,
 
     ops.BUILD_LIST_FROM_ARG: 1,
+    ops.LOAD_REVDB_VAR: 1,
 }
 
 

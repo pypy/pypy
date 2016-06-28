@@ -1534,6 +1534,8 @@ class expr(AST):
             return Num.from_object(space, w_node)
         if space.isinstance_w(w_node, get(space).w_Str):
             return Str.from_object(space, w_node)
+        if space.isinstance_w(w_node, get(space).w_RevDBMetaVar):
+            return RevDBMetaVar.from_object(space, w_node)
         if space.isinstance_w(w_node, get(space).w_Attribute):
             return Attribute.from_object(space, w_node)
         if space.isinstance_w(w_node, get(space).w_Subscript):
@@ -2342,6 +2344,41 @@ class Str(expr):
         return Str(_s, _lineno, _col_offset)
 
 State.ast_type('Str', 'expr', ['s'])
+
+
+class RevDBMetaVar(expr):
+
+    def __init__(self, metavar, lineno, col_offset):
+        self.metavar = metavar
+        expr.__init__(self, lineno, col_offset)
+
+    def walkabout(self, visitor):
+        visitor.visit_RevDBMetaVar(self)
+
+    def mutate_over(self, visitor):
+        return visitor.visit_RevDBMetaVar(self)
+
+    def to_object(self, space):
+        w_node = space.call_function(get(space).w_RevDBMetaVar)
+        w_metavar = space.wrap(self.metavar)  # int
+        space.setattr(w_node, space.wrap('metavar'), w_metavar)
+        w_lineno = space.wrap(self.lineno)  # int
+        space.setattr(w_node, space.wrap('lineno'), w_lineno)
+        w_col_offset = space.wrap(self.col_offset)  # int
+        space.setattr(w_node, space.wrap('col_offset'), w_col_offset)
+        return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        w_metavar = get_field(space, w_node, 'metavar', False)
+        w_lineno = get_field(space, w_node, 'lineno', False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False)
+        _metavar = space.int_w(w_metavar)
+        _lineno = space.int_w(w_lineno)
+        _col_offset = space.int_w(w_col_offset)
+        return RevDBMetaVar(_metavar, _lineno, _col_offset)
+
+State.ast_type('RevDBMetaVar', 'expr', ['metavar'])
 
 
 class Attribute(expr):
@@ -3439,6 +3476,8 @@ class ASTVisitor(object):
         return self.default_visitor(node)
     def visit_Str(self, node):
         return self.default_visitor(node)
+    def visit_RevDBMetaVar(self, node):
+        return self.default_visitor(node)
     def visit_Attribute(self, node):
         return self.default_visitor(node)
     def visit_Subscript(self, node):
@@ -3653,6 +3692,9 @@ class GenericASTVisitor(ASTVisitor):
         pass
 
     def visit_Str(self, node):
+        pass
+
+    def visit_RevDBMetaVar(self, node):
         pass
 
     def visit_Attribute(self, node):
