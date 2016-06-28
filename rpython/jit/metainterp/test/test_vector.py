@@ -162,7 +162,7 @@ class VectorizeTests(object):
 
         for i in range(l):
             c = raw_storage_getitem(type,vc,i*size)
-            r = func(la[i], lb[i])
+            r = rffi.cast(type, func(la[i], lb[i]))
             assert isclose(r, c)
 
         rawstorage.clear()
@@ -174,14 +174,17 @@ class VectorizeTests(object):
 
     vec_float_binary = functools.partial(_vec_float_binary, _vector_simple_float)
 
-    test_vector_float_add = \
+    test_vec_float_add = \
         vec_float_binary(lambda a,b: a+b, rffi.DOUBLE)
-    test_vector_float_sub = \
+    test_vec_float_sub = \
         vec_float_binary(lambda a,b: a-b, rffi.DOUBLE)
-    test_vector_float_mul = \
+    test_vec_float_mul = \
         vec_float_binary(lambda a,b: a*b, rffi.DOUBLE)
-    #test_vector_float_div = \
+    #test_vec_float_div = \
     #    vec_float_binary(lambda a,b: a/b, rffi.DOUBLE)
+
+    test_vec_float_cmp_eq = \
+        vec_float_binary(lambda a,b: a == b, rffi.DOUBLE)
 
     def _vector_simple_int(self, func, type, data):
         func = always_inline(func)
@@ -225,76 +228,43 @@ class VectorizeTests(object):
 
     vec_int_arith = functools.partial(vec_int_arith, _vector_simple_int)
 
-    test_vector_signed_add = \
+    test_vec_signed_add = \
         vec_int_arith(lambda a,b: intmask(a+b), rffi.SIGNED)
-    test_vector_int_add = \
+    test_vec_int_add = \
         vec_int_arith(lambda a,b: r_int(a)+r_int(b), rffi.INT)
-    test_vector_short_add = \
+    test_vec_short_add = \
         vec_int_arith(lambda a,b: r_int(a)+r_int(b), rffi.SHORT)
 
-    test_vector_signed_sub = \
+    test_vec_signed_sub = \
         vec_int_arith(lambda a,b: r_int(a)-r_int(b), rffi.SIGNED)
-    test_vector_int_sub = \
+    test_vec_int_sub = \
         vec_int_arith(lambda a,b: r_int(a)-r_int(b), rffi.INT)
-    test_vector_short_sub = \
+    test_vec_short_sub = \
         vec_int_arith(lambda a,b: r_int(a)-r_int(b), rffi.SHORT)
 
-    test_vector_signed_and = \
+    test_vec_signed_and = \
         vec_int_arith(lambda a,b: intmask(a)&intmask(b), rffi.SIGNED)
-    test_vector_int_and = \
+    test_vec_int_and = \
         vec_int_arith(lambda a,b: intmask(a)&intmask(b), rffi.INT)
-    test_vector_short_and = \
+    test_vec_short_and = \
         vec_int_arith(lambda a,b: intmask(a)&intmask(b), rffi.SHORT)
 
-    test_vector_or_signed = \
+    test_vec_or_signed = \
         vec_int_arith(lambda a,b: intmask(a)|intmask(b), rffi.SIGNED)
-    test_vector_or_int = \
+    test_vec_or_int = \
         vec_int_arith(lambda a,b: intmask(a)|intmask(b), rffi.INT)
-    test_vector_or_short = \
+    test_vec_or_short = \
         vec_int_arith(lambda a,b: intmask(a)|intmask(b), rffi.SHORT)
 
-    test_vector_xor_signed = \
+    test_vec_xor_signed = \
         vec_int_arith(lambda a,b: intmask(a)^intmask(b), rffi.SIGNED)
-    test_vector_xor_int = \
+    test_vec_xor_int = \
         vec_int_arith(lambda a,b: intmask(a)^intmask(b), rffi.INT)
-    test_vector_xor_short = \
+    test_vec_xor_short = \
         vec_int_arith(lambda a,b: intmask(a)^intmask(b), rffi.SHORT)
 
-    @py.test.mark.parametrize('i',[1,2,3,8,17,128,130,131,142,143])
-    def test_vectorize_array_get_set(self,i):
-        myjitdriver = JitDriver(greens = [],
-                                reds = 'auto',
-                                vectorize=True)
-        T = lltype.Array(rffi.INT, hints={'nolength': True})
-        def f(d):
-            i = 0
-            va = lltype.malloc(T, d, flavor='raw', zero=True)
-            vb = lltype.malloc(T, d, flavor='raw', zero=True)
-            vc = lltype.malloc(T, d, flavor='raw', zero=True)
-            for j in range(d):
-                va[j] = rffi.r_int(j)
-                vb[j] = rffi.r_int(j)
-            while i < d:
-                myjitdriver.jit_merge_point()
-
-                a = va[i]
-                b = vb[i]
-                ec = intmask(a)+intmask(b)
-                vc[i] = rffi.r_int(ec)
-
-                i += 1
-            res = 0
-            for j in range(d):
-                res += intmask(vc[j])
-            lltype.free(va, flavor='raw')
-            lltype.free(vb, flavor='raw')
-            lltype.free(vc, flavor='raw')
-            return res
-        res = self.meta_interp(f, [i])
-        assert res == f(i)
-
     @py.test.mark.parametrize('i',[1,2,3,4,9])
-    def test_vector_register_too_small_vector(self, i):
+    def test_vec_register_too_small_vector(self, i):
         myjitdriver = JitDriver(greens = [],
                                 reds = 'auto',
                                 vectorize=True)
@@ -328,7 +298,7 @@ class VectorizeTests(object):
         res = self.meta_interp(f, [i])
         assert res == f(i) == 3
 
-    def test_vectorize_max(self):
+    def test_vec_max(self):
         myjitdriver = JitDriver(greens = [],
                                 reds = 'auto',
                                 vectorize=True)

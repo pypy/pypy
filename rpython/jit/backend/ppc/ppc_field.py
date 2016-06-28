@@ -65,6 +65,7 @@ fields = { # bit margins are *inclusive*! (and bit 0 is
     "XO9":    (21, 28),
     "XO10":   (26, 31),
     "XO11":   (22, 28),
+    "XO12":   (22, 31),
     "LL":     ( 9, 10),
     "SIM":    (11, 15),
 }

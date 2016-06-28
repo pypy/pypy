@@ -67,6 +67,7 @@ XX3 = Form("fvrT", "fvrA", "fvrB", "XO9")
 XX3_2 = Form("fvrT", "fvrA", "fvrB", "OE", "XO11")
 XV = Form("ivrT", "rA", "rB", "XO1")
 VX = Form("ivrT", "ivrA", "ivrB", "XO8")
+VC = Form("ivrT", "ivrA", "ivrB", "XO12", "OE")
 VXI = Form("ivrT", "SIM", "XO8")
 VA = Form("ivrT", "ivrA", "ivrB", "ivrC", "XO10")
 
@@ -629,6 +630,29 @@ class PPCVSXAssembler(object):
     xvabsdp = XX2(60, XO6=473)
     xvabssp = XX2(60, XO6=409)
 
+    # conversion from/to
+    xvcvsxddp = XX2(60, XO6=504)
+
+    # compare greater than unsigned int
+    vcmpgtubx = VC(4, XO12=518, OE=1)
+    vcmpgtub = VC(4, XO12=518, OE=0)
+    vcmpgtuhx = VC(4, XO12=584, OE=1)
+    vcmpgtuh = VC(4, XO12=584, OE=0)
+    vcmpgtuwx = VC(4, XO12=646, OE=1)
+    vcmpgtuw = VC(4, XO12=646, OE=0)
+    vcmpgtudx = VC(4, XO12=711, OE=1)
+    vcmpgtud = VC(4, XO12=711, OE=0)
+
+    # compare equal to unsigned int
+    vcmpequbx = VC(4, XO12=6, OE=1)
+    vcmpequb = VC(4, XO12=6, OE=0)
+    vcmpequhx = VC(4, XO12=70, OE=1)
+    vcmpequh = VC(4, XO12=70, OE=0)
+    vcmpequwx = VC(4, XO12=134, OE=1)
+    vcmpequw = VC(4, XO12=134, OE=0)
+    vcmpequdx = VC(4, XO12=199, OE=1)
+    vcmpequd = VC(4, XO12=199, OE=0)
+
     # INTEGER
     # -------
 
@@ -658,6 +682,7 @@ class PPCVSXAssembler(object):
     vand = VX(4, XO8=1028)
     vor = VX(4, XO8=1156)
     veqv = VX(4, XO8=1668)
+    vxor = VX(4, XO8=1220)
 
     # vector move register is alias to vector or
     vmr = vor
