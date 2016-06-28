@@ -28,6 +28,10 @@
 
 #define ASYNC_FINALIZER_TRIGGER    ((int16_t)0xff46)
 
+#define FID_REGULAR_MODE           'R'
+#define FID_SAVED_STATE            'S'
+#define FID_JMPBUF_PROTECTED       'J'
+
 
 typedef struct {
     Signed version;
@@ -40,7 +44,7 @@ typedef struct {
 rpy_revdb_t rpy_revdb;
 static char rpy_rev_buffer[16384];    /* max. 32768 */
 static int rpy_rev_fileno = -1;
-static unsigned char flag_io_disabled;
+static char flag_io_disabled = FID_REGULAR_MODE;
 
 
 static void setup_record_mode(int argc, char *argv[]);
@@ -199,6 +203,7 @@ void boehm_gc_finalizer_notifier(void)
        They are only invoked when we call GC_invoke_finalizers(),
        which we only do at stop points in the case of revdb. 
     */
+    assert(!RPY_RDB_REPLAY);
     assert(rpy_revdb.stop_point_break <= rpy_revdb.stop_point_seen + 1);
     rpy_revdb.stop_point_break = rpy_revdb.stop_point_seen + 1;
 }
@@ -214,26 +219,21 @@ static long in_invoke_finalizers;
 
 static void record_stop_point(void)
 {
-    /* Invoke the finalizers now.  This will call boehm_fq_callback(),
-       which will enqueue the objects in the correct FinalizerQueue.
-       Then, call boehm_fq_trigger(), which calls finalizer_trigger().
-    */
+    /* ===== FINALIZERS =====
+
+       When the GC wants to invoke some finalizers, it causes this
+       to be called at the stop point.  The new-style finalizers
+       are only enqueued at this point.  The old-style finalizers
+       run immediately, conceptually just *after* the stop point.
+     */
     int i;
     char *p = rpy_rev_buffer;
     int64_t done;
 
+    /* Write an ASYNC_FINALIZER_TRIGGER packet */
     rpy_reverse_db_flush();
+    assert(current_packet_size() == 0);
 
-    fq_trigger();
-
-    /* This should be done without emitting anything to the rdb
-       log.  We check that, and emit just a ASYNC_FINALIZER_TRIGGER.
-    */
-    if (current_packet_size() != 0) {
-        fprintf(stderr,
-                "record_stop_point emitted unexpected data into the rdb log\n");
-        exit(1);
-    }
     *(int16_t *)p = ASYNC_FINALIZER_TRIGGER;
     memcpy(rpy_revdb.buf_p, &rpy_revdb.stop_point_seen, sizeof(uint64_t));
     rpy_revdb.buf_p += sizeof(uint64_t);
@@ -251,6 +251,10 @@ static void record_stop_point(void)
     GC_invoke_finalizers();
     in_invoke_finalizers--;
     RPY_REVDB_EMIT(done = -1;, int64_t _e, done);
+
+    /* Now we're back in normal mode.  We trigger the finalizer 
+       queues here. */
+    fq_trigger();
 }
 
 RPY_EXTERN
@@ -276,7 +280,7 @@ Signed rpy_reverse_db_identityhash(struct pypy_header0 *obj)
     /* Boehm only */
     if (obj->h_hash == 0) {
         Signed h;
-        if (flag_io_disabled) {
+        if (flag_io_disabled != FID_REGULAR_MODE) {
             /* This is when running debug commands.  Don't cache the
                hash on the object at all. */
             return ~((Signed)obj);
@@ -378,7 +382,7 @@ void *rpy_reverse_db_weakref_create(void *target)
     r->re_addr = target;
     r->re_off_prev = 0;
 
-    if (!flag_io_disabled) {
+    if (flag_io_disabled == FID_REGULAR_MODE) {
         char alive;
         /* Emit WEAKREF_AFTERWARDS_DEAD, but remember where we emit it.
            If we deref the weakref and it is still alive, we will patch
@@ -415,7 +419,7 @@ void *rpy_reverse_db_weakref_deref(void *weakref)
 {
     struct WEAKLINK *r = (struct WEAKLINK *)weakref;
     void *result = r->re_addr;
-    if (result && !flag_io_disabled) {
+    if (result && flag_io_disabled == FID_REGULAR_MODE) {
         char alive;
         if (!RPY_RDB_REPLAY) {
             if (r->re_off_prev <= 0) {
@@ -471,6 +475,7 @@ void *rpy_reverse_db_weakref_deref(void *weakref)
 #define CMD_QUIT      (-2)
 #define CMD_FORWARD   (-3)
 #define CMD_FUTUREIDS (-4)
+#define CMD_PING      (-5)
 
 #define ANSWER_INIT       (-20)
 #define ANSWER_READY      (-21)
@@ -482,16 +487,14 @@ typedef void (*rpy_revdb_command_fn)(rpy_revdb_command_t *, RPyString *);
 
 static int rpy_rev_sockfd;
 static const char *rpy_rev_filename;
-static uint64_t stopped_time;
-static uint64_t stopped_uid;
+static uint64_t interactive_break = 1, finalizer_break = -1, uid_break = -1;
 static uint64_t total_stop_points;
-static uint64_t finalizer_trigger_saved_break;
 static jmp_buf jmp_buf_cancel_execution;
 static void (*pending_after_forward)(void);
 static RPyString *empty_string;
 static uint64_t last_recorded_breakpoint_loc;
 static int last_recorded_breakpoint_num;
-static char breakpoint_mode;
+static char breakpoint_mode = 'i';
 static uint64_t *future_ids, *future_next_id;
 static void *finalizer_tree, *destructor_tree;
 
@@ -586,6 +589,15 @@ static void reopen_revdb_file(const char *filename)
     }
 }
 
+static void set_revdb_breakpoints(void)
+{
+    /* note: these are uint64_t, so '-1' is bigger than positive values */
+    rpy_revdb.stop_point_break = (interactive_break < finalizer_break ?
+                                  interactive_break : finalizer_break);
+    rpy_revdb.unique_id_break = uid_break;
+    rpy_revdb.watch_enabled = (breakpoint_mode != 'i');
+}
+
 static void setup_replay_mode(int *argc_p, char **argv_p[])
 {
     int argc = *argc_p;
@@ -637,8 +649,9 @@ static void setup_replay_mode(int *argc_p, char **argv_p[])
     rpy_revdb.buf_p = rpy_rev_buffer;
     rpy_revdb.buf_limit = rpy_rev_buffer;
     rpy_revdb.buf_readend = rpy_rev_buffer;
-    rpy_revdb.stop_point_break = 1;
+    rpy_revdb.stop_point_seen = 0;
     rpy_revdb.unique_id_seen = 1;
+    set_revdb_breakpoints();
 
     empty_string = make_rpy_string(0);
 
@@ -670,11 +683,15 @@ static void fetch_more(ssize_t keep, ssize_t expected_size)
 RPY_EXTERN
 void rpy_reverse_db_fetch(const char *file, int line)
 {
-    if (!flag_io_disabled) {
+    if (flag_io_disabled == FID_REGULAR_MODE) {
         ssize_t keep;
         ssize_t full_packet_size;
         int16_t header;
 
+        if (finalizer_break != (uint64_t)-1) {
+            fprintf(stderr, "reverse_db_fetch: finalizer_break != -1\n");
+            exit(1);
+        }
         if (rpy_revdb.buf_limit != rpy_revdb.buf_p) {
             fprintf(stderr, "bad log format: incomplete packet\n");
             exit(1);
@@ -695,7 +712,8 @@ void rpy_reverse_db_fetch(const char *file, int line)
             switch (header) {
 
             case ASYNC_FINALIZER_TRIGGER:
-                if (finalizer_trigger_saved_break != 0) {
+                //fprintf(stderr, "ASYNC_FINALIZER_TRIGGER\n");
+                if (finalizer_break != (uint64_t)-1) {
                     fprintf(stderr, "unexpected multiple "
                                     "ASYNC_FINALIZER_TRIGGER\n");
                     exit(1);
@@ -709,10 +727,10 @@ void rpy_reverse_db_fetch(const char *file, int line)
                     fprintf(stderr, "invalid finalizer break point\n");
                     exit(1);
                 }
-                finalizer_trigger_saved_break = rpy_revdb.stop_point_break;
-                rpy_revdb.stop_point_break = bp;
+                finalizer_break = bp;
+                set_revdb_breakpoints();
                 /* Now we should not fetch anything more until we reach
-                   that finalizer_trigger_saved_break point. */
+                   that finalizer_break point. */
                 rpy_revdb.buf_limit = rpy_revdb.buf_p;
                 return;
 
@@ -734,64 +752,94 @@ void rpy_reverse_db_fetch(const char *file, int line)
         */
         fprintf(stderr, "%s:%d: Attempted to do I/O or access raw memory\n",
                 file, line);
-        longjmp(jmp_buf_cancel_execution, 1);
+        if (flag_io_disabled == FID_JMPBUF_PROTECTED) {
+            longjmp(jmp_buf_cancel_execution, 1);
+        }
+        else {
+            fprintf(stderr, "but we are not in a jmpbuf_protected section\n");
+            exit(1);
+        }
     }
 }
 
-static rpy_revdb_t disabled_state;
-static void *disabled_exc[2];
+static rpy_revdb_t saved_state;
+static void *saved_exc[2];
 
-static void disable_io(void)
+static void change_flag_io_disabled(char oldval, char newval)
 {
-    if (flag_io_disabled) {
-        fprintf(stderr, "unexpected recursive disable_io()\n");
+    if (flag_io_disabled != oldval) {
+        fprintf(stderr, "change_flag_io_disabled(%c, %c) but got %c\n",
+                oldval, newval, flag_io_disabled);
         exit(1);
     }
-    disabled_state = rpy_revdb;   /* save the complete struct */
-    disabled_exc[0] = pypy_g_ExcData.ed_exc_type;
-    disabled_exc[1] = pypy_g_ExcData.ed_exc_value;
-    pypy_g_ExcData.ed_exc_type = NULL;
-    pypy_g_ExcData.ed_exc_value = NULL;
+    flag_io_disabled = newval;
+}
+
+static void save_state(void)
+{
+    /* The program is switching from replaying execution to 
+       time-paused mode.  In time-paused mode, we can run more
+       app-level code like watch points or interactive prints,
+       but they must not be matched against the log, and they must
+       not involve generic I/O.
+    */
+    change_flag_io_disabled(FID_REGULAR_MODE, FID_SAVED_STATE);
+
+    saved_state = rpy_revdb;   /* save the complete struct */
+
+    rpy_revdb.unique_id_seen = (-1ULL) << 63;
+    rpy_revdb.watch_enabled = 0;
+    rpy_revdb.stop_point_break = -1;
+    rpy_revdb.unique_id_break = -1;
     rpy_revdb.buf_p = rpy_rev_buffer;       /* anything readable */
     rpy_revdb.buf_limit = rpy_rev_buffer;   /* same as buf_p */
-    flag_io_disabled = 1;
 }
 
-static void enable_io(int restore_breaks)
+static void restore_state(void)
 {
-    uint64_t v1, v2;
-    if (!flag_io_disabled) {
-        fprintf(stderr, "unexpected enable_io()\n");
-        exit(1);
-    }
-    flag_io_disabled = 0;
+    /* The program is switching from time-paused mode to replaying
+       execution. */
+    change_flag_io_disabled(FID_SAVED_STATE, FID_REGULAR_MODE);
 
+    /* restore the complete struct */
+    rpy_revdb = saved_state;
+
+    /* set the breakpoint fields to the current value of the *_break
+       global variables, which may be different from what is in
+       'save_state' */
+    set_revdb_breakpoints();
+}
+
+static void protect_jmpbuf(void)
+{
+    change_flag_io_disabled(FID_SAVED_STATE, FID_JMPBUF_PROTECTED);
+    saved_exc[0] = pypy_g_ExcData.ed_exc_type;
+    saved_exc[1] = pypy_g_ExcData.ed_exc_value;
+    pypy_g_ExcData.ed_exc_type = NULL;
+    pypy_g_ExcData.ed_exc_value = NULL;
+}
+
+static void unprotect_jmpbuf(void)
+{
+    change_flag_io_disabled(FID_JMPBUF_PROTECTED, FID_SAVED_STATE);
     if (pypy_g_ExcData.ed_exc_type != NULL) {
         fprintf(stderr, "Command crashed with %.*s\n",
                 (int)(pypy_g_ExcData.ed_exc_type->ov_name->rs_chars.length),
                 pypy_g_ExcData.ed_exc_type->ov_name->rs_chars.items);
         exit(1);
     }
-    /* restore the complete struct, with the exception of '*_break' */
-    v1 = rpy_revdb.stop_point_break;
-    v2 = rpy_revdb.unique_id_break;
-    rpy_revdb = disabled_state;
-    if (!restore_breaks) {
-        rpy_revdb.stop_point_break = v1;
-        rpy_revdb.unique_id_break = v2;
-    }
-    pypy_g_ExcData.ed_exc_type = disabled_exc[0];
-    pypy_g_ExcData.ed_exc_value = disabled_exc[1];
+    pypy_g_ExcData.ed_exc_type = saved_exc[0];
+    pypy_g_ExcData.ed_exc_value = saved_exc[1];
 }
 
 static void execute_rpy_function(rpy_revdb_command_fn func,
                                  rpy_revdb_command_t *cmd,
                                  RPyString *extra)
 {
-    disable_io();
+    protect_jmpbuf();
     if (setjmp(jmp_buf_cancel_execution) == 0)
         func(cmd, extra);
-    enable_io(0);
+    unprotect_jmpbuf();
 }
 
 static void check_at_end(uint64_t stop_points)
@@ -888,13 +936,13 @@ static void command_forward(rpy_revdb_command_t *cmd)
         fprintf(stderr, "CMD_FORWARD: negative step\n");
         exit(1);
     }
-    rpy_revdb.stop_point_break = stopped_time + cmd->arg1;
+    assert(flag_io_disabled == FID_SAVED_STATE);
+    interactive_break = saved_state.stop_point_seen + cmd->arg1;
     breakpoint_mode = (char)cmd->arg2;
     if (breakpoint_mode == 'r') {
         last_recorded_breakpoint_loc = 0;
         pending_after_forward = &answer_recorded_breakpoint;
     }
-    rpy_revdb.watch_enabled = (breakpoint_mode != 'i');
 }
 
 static void command_future_ids(rpy_revdb_command_t *cmd, char *extra)
@@ -902,7 +950,7 @@ static void command_future_ids(rpy_revdb_command_t *cmd, char *extra)
     free(future_ids);
     if (cmd->extra_size == 0) {
         future_ids = NULL;
-        rpy_revdb.unique_id_break = 0;
+        uid_break = 0;
     }
     else {
         assert(cmd->extra_size % sizeof(uint64_t) == 0);
@@ -914,7 +962,7 @@ static void command_future_ids(rpy_revdb_command_t *cmd, char *extra)
         }
         memcpy(future_ids, extra, cmd->extra_size);
         future_ids[cmd->extra_size / sizeof(uint64_t)] = 0;
-        rpy_revdb.unique_id_break = *future_ids;
+        uid_break = *future_ids;
     }
     future_next_id = future_ids;
 }
@@ -940,41 +988,16 @@ static void command_default(rpy_revdb_command_t *cmd, char *extra)
     execute_rpy_function(rpy_revdb_commands.rp_funcs[i], cmd, s);
 }
 
-static void save_state(void)
-{
-    stopped_time = rpy_revdb.stop_point_seen;
-    stopped_uid = rpy_revdb.unique_id_seen;
-    rpy_revdb.unique_id_seen = (-1ULL) << 63;
-    rpy_revdb.watch_enabled = 0;
-}
-
-static void restore_state(void)
-{
-    rpy_revdb.stop_point_seen = stopped_time;
-    rpy_revdb.unique_id_seen = stopped_uid;
-    stopped_time = 0;
-    stopped_uid = 0;
-}
-
 RPY_EXTERN
 void rpy_reverse_db_watch_save_state(void)
 {
-    if (stopped_time != 0) {
-        fprintf(stderr, "unexpected recursive watch_save_state\n");
-        exit(1);
-    }
     save_state();
-    disable_io();
-    rpy_revdb.stop_point_break = 0;
-    rpy_revdb.unique_id_break = 0;
 }
 
 RPY_EXTERN
 void rpy_reverse_db_watch_restore_state(bool_t any_watch_point)
 {
-    enable_io(1);
     restore_state();
-    assert(!rpy_revdb.watch_enabled);
     rpy_revdb.watch_enabled = any_watch_point;
 }
 
@@ -982,12 +1005,17 @@ static void replay_call_destructors(void);
 
 static void replay_stop_point(void)
 {
-    if (finalizer_trigger_saved_break != 0)
+    if (finalizer_break != (uint64_t)-1)
         replay_call_destructors();
+
+    if (rpy_revdb.stop_point_break != interactive_break) {
+        fprintf(stderr, "mismatch between interactive_break and "
+                        "stop_point_break\n");
+        exit(1);
+    }
 
     while (rpy_revdb.stop_point_break == rpy_revdb.stop_point_seen) {
         save_state();
-        breakpoint_mode = 0;
 
         if (pending_after_forward) {
             void (*fn)(void) = pending_after_forward;
@@ -996,7 +1024,10 @@ static void replay_stop_point(void)
         }
         else {
             rpy_revdb_command_t cmd;
-            write_answer(ANSWER_READY, stopped_time, stopped_uid, 0);
+            write_answer(ANSWER_READY,
+                         saved_state.stop_point_seen,
+                         saved_state.unique_id_seen,
+                         0);
             read_sock(&cmd, sizeof(cmd));
 
             char extra[cmd.extra_size + 1];
@@ -1020,6 +1051,9 @@ static void replay_stop_point(void)
 
             case CMD_FUTUREIDS:
                 command_future_ids(&cmd, extra);
+                break;
+
+            case CMD_PING:     /* to get only the ANSWER_READY */
                 break;
 
             default:
@@ -1054,7 +1088,7 @@ void rpy_reverse_db_send_answer(int cmd, int64_t arg1, int64_t arg2,
 RPY_EXTERN
 void rpy_reverse_db_breakpoint(int64_t num)
 {
-    if (stopped_time != 0) {
+    if (flag_io_disabled != FID_REGULAR_MODE) {
         fprintf(stderr, "revdb.breakpoint(): cannot be called from a "
                         "debug command\n");
         exit(1);
@@ -1069,9 +1103,16 @@ void rpy_reverse_db_breakpoint(int64_t num)
         last_recorded_breakpoint_num = num;
         return;
 
-    default:      /* 'b' or '\0' for default handling of breakpoints */
-        rpy_revdb.stop_point_break = rpy_revdb.stop_point_seen + 1;
+    case 'b':     /* default handling of breakpoints */
+        interactive_break = rpy_revdb.stop_point_seen + 1;
+        set_revdb_breakpoints();
         write_answer(ANSWER_BREAKPOINT, rpy_revdb.stop_point_break, 0, num);
+        return;
+
+    default:
+        fprintf(stderr, "bad value %d of breakpoint_mode\n",
+                (int)breakpoint_mode);
+        exit(1);
     }
 }
 
@@ -1080,13 +1121,17 @@ long long rpy_reverse_db_get_value(char value_id)
 {
     switch (value_id) {
     case 'c':       /* current_time() */
-        return stopped_time ? stopped_time : rpy_revdb.stop_point_seen;
+        return (flag_io_disabled == FID_REGULAR_MODE ?
+                rpy_revdb.stop_point_seen :
+                saved_state.stop_point_seen);
     case 't':       /* total_time() */
         return total_stop_points;
     case 'b':       /* current_break_time() */
-        return rpy_revdb.stop_point_break;
+        return interactive_break;
     case 'u':       /* currently_created_objects() */
-        return stopped_uid ? stopped_uid : rpy_revdb.unique_id_seen;
+        return (flag_io_disabled == FID_REGULAR_MODE ?
+                rpy_revdb.unique_id_seen :
+                saved_state.unique_id_seen);
     default:
         return -1;
     }
@@ -1096,18 +1141,23 @@ RPY_EXTERN
 uint64_t rpy_reverse_db_unique_id_break(void *new_object)
 {
     uint64_t uid = rpy_revdb.unique_id_seen;
+    bool_t watch_enabled = rpy_revdb.watch_enabled;
+
     if (!new_object) {
         fprintf(stderr, "out of memory: allocation failed, cannot continue\n");
         exit(1);
     }
+
+    save_state();
     if (rpy_revdb_commands.rp_alloc) {
-        bool_t watch_enabled = rpy_revdb.watch_enabled;
-        rpy_reverse_db_watch_save_state();
+        protect_jmpbuf();
         if (setjmp(jmp_buf_cancel_execution) == 0)
             rpy_revdb_commands.rp_alloc(uid, new_object);
-        rpy_reverse_db_watch_restore_state(watch_enabled);
+        unprotect_jmpbuf();
     }
-    rpy_revdb.unique_id_break = *future_next_id++;
+    uid_break = *future_next_id++;
+    restore_state();
+    rpy_revdb.watch_enabled = watch_enabled;
     return uid;
 }
 
@@ -1221,14 +1271,15 @@ void rpy_reverse_db_register_destructor(void *obj, void (*callback)(void *))
 
 static void replay_call_destructors(void)
 {
-    rpy_revdb.stop_point_break = finalizer_trigger_saved_break;
-    finalizer_trigger_saved_break = 0;
     fq_trigger();
 
     /* Re-enable fetching (disabled when we saw ASYNC_FINALIZER_TRIGGER),
        and fetch the uid's of dying objects with old-style destructors.
     */
+    finalizer_break = -1;
+    set_revdb_breakpoints();
     rpy_reverse_db_fetch(__FILE__, __LINE__);
+
     while (1) {
         int64_t uid;
         struct destructor_s d_dummy, *entry, **item;

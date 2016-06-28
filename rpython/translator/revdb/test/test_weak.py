@@ -327,3 +327,9 @@ class TestReplayingOldStyleFinalizer(InteractiveTests):
         child = self.replay()
         child.send(Message(CMD_FORWARD, 3001))
         child.expect(ANSWER_AT_END)
+
+    def test_bug1(self):
+        child = self.replay()
+        for i in range(50):
+            child.send(Message(CMD_FORWARD, i))
+            child.expect_ready()

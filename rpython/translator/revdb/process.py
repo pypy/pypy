@@ -139,6 +139,14 @@ class ReplayProcess(object):
         Returns the Breakpoint or None.
         """
         assert not self.tainted
+
+        # <DEBUGGING ONLY>
+        currents = self.current_time, self.currently_created_objects
+        self.send(Message(CMD_PING))
+        self.expect_ready()
+        assert currents == (self.current_time, self.currently_created_objects)
+        # </DEBUGGING ONLY>
+
         self.send(Message(CMD_FORWARD, steps, ord(breakpoint_mode)))
         #
         # record the first ANSWER_BREAKPOINT, drop the others
@@ -150,7 +158,7 @@ class ReplayProcess(object):
                 break
             if bkpt is None:
                 bkpt = Breakpoint(msg.arg1, msg.arg3)
-        assert msg.cmd == ANSWER_READY
+        assert msg.cmd == ANSWER_READY, msg
         self.update_times(msg)
         return bkpt
 

@@ -8,6 +8,7 @@ CMD_FORK      = -1     # Message(CMD_FORK)
 CMD_QUIT      = -2     # Message(CMD_QUIT)
 CMD_FORWARD   = -3     # Message(CMD_FORWARD, steps, breakpoint_mode)
 CMD_FUTUREIDS = -4     # Message(CMD_FUTUREIDS, extra=list-of-8bytes-uids)
+CMD_PING      = -5     # Message(CMD_PING)
 # extra commands which are not handled by revdb.c, but
 # by revdb.register_debug_command()
 CMD_PRINT       = 1    # Message(CMD_PRINT, extra=expression)

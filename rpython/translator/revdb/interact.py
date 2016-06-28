@@ -65,6 +65,13 @@ class RevDebugControl(object):
                     runner(argument)
                 except Exception as e:
                     traceback.print_exc()
+                    print >> sys.stderr
+                    print >> sys.stderr, 'Something went wrong.  You are now',
+                    print >> sys.stderr, 'in a pdb; press Ctrl-D to continue.'
+                    import pdb; pdb.post_mortem(sys.exc_info()[2])
+                    print >> sys.stderr
+                    print >> sys.stderr, 'You are back running %s.' % (
+                        sys.argv[0],)
 
     def command_help(self, argument):
         """Display commands summary"""
