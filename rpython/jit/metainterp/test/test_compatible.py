@@ -370,6 +370,12 @@ class TestCompatible(LLJitMixin):
         p2 = lltype.malloc(S)
         p2.x = 1
 
+        p3 = lltype.malloc(S)
+        p3.x = 2
+
+        p4 = lltype.malloc(S)
+        p4.x = 2
+
         driver = jit.JitDriver(greens = [], reds = ['n'])
 
         class A(object):
@@ -401,6 +407,12 @@ class TestCompatible(LLJitMixin):
             glob_b.x = p1
             f(1000)
             glob_b.x = p2
+            f(1000)
+            glob_b.x = p3
+            f(1000)
+            glob_b.x = p4
+            f(1000)
+            glob_b.x = p1
             f(1000)
             return c.count
 
