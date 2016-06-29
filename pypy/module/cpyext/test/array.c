@@ -202,7 +202,6 @@ h_getitem(arrayobject *ap, Py_ssize_t i)
     return PyLong_FromLong((long) ((short *)ap->ob_item)[i]);
 }
 
-
 static int
 h_setitem(arrayobject *ap, Py_ssize_t i, PyObject *v)
 {
@@ -2317,6 +2316,56 @@ array_ass_subscr(arrayobject* self, PyObject* item, PyObject* value)
     }
 }
 
+static PyObject*
+array_multiply(PyObject* obj1, PyObject* obj2)
+{
+    if (PyList_Check(obj1) && ((arrayobject*)obj2)->ob_descr->typecode == 'i' && Py_SIZE(obj2) == 1)
+    {
+        int ii, nn;
+        int n = PyList_Size(obj1);
+        PyObject *v = getarrayitem(obj2, 0);
+        long i = PyLong_AsLong(v);  // XXX: error checking?
+        PyObject * ret = PyList_New(n*i);
+        for (ii = 0; ii < i; ii++)
+            for (nn = 0; nn < n; nn++)
+            {
+                v = PyList_GetItem(obj1, nn);
+                PyList_SetItem(ret, nn+ii*n, v);
+            }
+        return ret;
+    }
+    else if (PyList_Check(obj2) && ((arrayobject*)obj1)->ob_descr->typecode == 'i' && Py_SIZE(obj1) == 1)
+    {
+        int ii, nn;
+        int n = PyList_Size(obj2);
+        PyObject *v = getarrayitem(obj1, 0);
+        int i = ((PyIntObject*)v)->ob_ival;
+        PyObject * ret = PyList_New(n*i);
+        for (ii = 0; ii < i; ii++)
+            for (nn = 0; nn < n; nn++)
+            {
+                v = PyList_GetItem(obj2, nn);
+                PyList_SetItem(ret, nn+ii*n, v);
+            }
+        return ret;
+    }
+    else if(obj1->ob_type == &Arraytype)
+        fprintf(stderr, "\nCannot multiply array of type %c and %s\n",
+            ((arrayobject*)obj1)->ob_descr->typecode, obj2->ob_type->tp_name); 
+    else if(obj2->ob_type == &Arraytype)
+        fprintf(stderr, "\nCannot multiply array of type %c and %s\n",
+            ((arrayobject*)obj2)->ob_descr->typecode, obj1->ob_type->tp_name); 
+    Py_INCREF(Py_NotImplemented);
+    return Py_NotImplemented;
+}
+
+static PyNumberMethods array_as_number = {
+    (binaryfunc)NULL, /* nb_add*/
+    (binaryfunc)NULL, /* nb_subtract */
+    (binaryfunc)array_multiply, /* nb_multiply */
+    (binaryfunc)NULL, /* nb_divide */
+};
+
 static PyMappingMethods array_as_mapping = {
     (lenfunc)array_length,
     (binaryfunc)array_subscr,
@@ -2586,7 +2635,7 @@ static PyTypeObject Arraytype = {
     0,                                          /* tp_setattr */
     0,                                          /* tp_reserved */
     (reprfunc)array_repr,                       /* tp_repr */
-    0,                                          /* tp_as_number*/
+    &array_as_number,                           /* tp_as_number*/
     &array_as_sequence,                         /* tp_as_sequence*/
     &array_as_mapping,                          /* tp_as_mapping*/
     0,                                          /* tp_hash */
@@ -2595,7 +2644,8 @@ static PyTypeObject Arraytype = {
     PyObject_GenericGetAttr,                    /* tp_getattro */
     0,                                          /* tp_setattro */
     &array_as_buffer,                           /* tp_as_buffer*/
-    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /* tp_flags */
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | 
+    Py_TPFLAGS_HAVE_WEAKREFS | Py_TPFLAGS_CHECKTYPES,  /* tp_flags */
     arraytype_doc,                              /* tp_doc */
     0,                                          /* tp_traverse */
     0,                                          /* tp_clear */
