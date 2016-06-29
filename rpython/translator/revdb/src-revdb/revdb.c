@@ -389,6 +389,8 @@ void *rpy_reverse_db_weakref_create(void *target)
            it with WEAKREF_AFTERWARDS_ALIVE. */
         if (!RPY_RDB_REPLAY)
             r->re_off_prev = recording_offset();
+        else
+            r->re_off_prev = 1;    /* any number > 0 */
 
         RPY_REVDB_EMIT(alive = WEAKREF_AFTERWARDS_DEAD;, char _e, alive);
 
@@ -420,29 +422,34 @@ void *rpy_reverse_db_weakref_deref(void *weakref)
     struct WEAKLINK *r = (struct WEAKLINK *)weakref;
     void *result = r->re_addr;
     if (result && flag_io_disabled == FID_REGULAR_MODE) {
-        char alive;
-        if (!RPY_RDB_REPLAY) {
-            if (r->re_off_prev <= 0) {
-                fprintf(stderr, "bug in weakrefs: bad previous offset %lld\n",
-                        (long long)r->re_off_prev);
-                exit(1);
-            }
-            patch_prev_offset(r->re_off_prev, WEAKREF_AFTERWARDS_DEAD,
-                                              WEAKREF_AFTERWARDS_ALIVE);
-            r->re_off_prev = recording_offset();
+        if (r->re_off_prev < 0) {
+            fprintf(stderr, "bug in weakrefs: bad previous offset %lld\n",
+                    (long long)r->re_off_prev);
+            exit(1);
         }
-        RPY_REVDB_EMIT(alive = WEAKREF_AFTERWARDS_DEAD;, char _e, alive);
+        if (r->re_off_prev == 0) {
+            /* A prebuilt weakref.  Don't record anything */
+        }
+        else {
+            char alive;
+            if (!RPY_RDB_REPLAY) {
+                patch_prev_offset(r->re_off_prev, WEAKREF_AFTERWARDS_DEAD,
+                                                  WEAKREF_AFTERWARDS_ALIVE);
+                r->re_off_prev = recording_offset();
+            }
+            RPY_REVDB_EMIT(alive = WEAKREF_AFTERWARDS_DEAD;, char _e, alive);
 
-        if (RPY_RDB_REPLAY) {
-            switch (alive) {
-            case WEAKREF_AFTERWARDS_DEAD:
-                r->re_addr = NULL;
-                break;
-            case WEAKREF_AFTERWARDS_ALIVE:
-                break;
-            default:
-                fprintf(stderr, "bad weakref_deref byte in log\n");
-                exit(1);
+            if (RPY_RDB_REPLAY) {
+                switch (alive) {
+                case WEAKREF_AFTERWARDS_DEAD:
+                    r->re_addr = NULL;
+                    break;
+                case WEAKREF_AFTERWARDS_ALIVE:
+                    break;
+                default:
+                    fprintf(stderr, "bad weakref_deref byte in log\n");
+                    exit(1);
+                }
             }
         }
     }

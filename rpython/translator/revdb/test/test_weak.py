@@ -151,6 +151,22 @@ class TestRecording(BaseRecordingTests):
         x = rdb.next('q'); assert x == 0      # number of stop points
         assert rdb.done()
 
+    def test_prebuilt_weakref(self):
+        class X:
+            pass
+        x1 = X()
+        x1.foobar = 9
+        wr = weakref.ref(x1)
+        def main(argv):
+            X().foobar = 43
+            return wr().foobar
+        self.compile(main, backendopt=False)
+        out = self.run('Xx')
+        rdb = self.fetch_rdb([self.exename, 'Xx'])
+        # the weakref is prebuilt, so doesn't generate any WEAKREF_xxx
+        x = rdb.next('q'); assert x == 0      # number of stop points
+        assert rdb.done()
+
     def test_finalizer_light_ignored(self):
         py.test.skip("lightweight finalizers could be skipped, but that "
                      "requires also skipping (instead of recording) any "
