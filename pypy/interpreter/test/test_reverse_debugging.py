@@ -1,5 +1,6 @@
 import dis
 from pypy.interpreter.reverse_debugging import *
+from hypothesis import given, strategies, example
 
 
 class FakeCode:
@@ -10,11 +11,14 @@ class FakeCode:
         self.co_revdb_linestarts = None
 
 
-def test_build_co_revdb_linestarts():
-    fake_lnotab = ("\x01\x02\x03\x04"
-                   "\x00\xFF\x20\x30\x00\xFF\x00\x40"
-                   "\xFF\x00\x0A\x0B\xFF\x00\x0C\x00")
-    code = FakeCode("?" * sum(map(ord, fake_lnotab[0::2])), fake_lnotab)
+@given(strategies.binary())
+@example("\x01\x02\x03\x04"
+         "\x00\xFF\x20\x30\x00\xFF\x00\x40"
+         "\xFF\x00\x0A\x0B\xFF\x00\x0C\x00")
+def test_build_co_revdb_linestarts(lnotab):
+    if len(lnotab) & 1:
+        lnotab = lnotab + '\x00'   # make the length even
+    code = FakeCode("?" * sum(map(ord, lnotab[0::2])), lnotab)
     lstart = build_co_revdb_linestarts(code)
     assert lstart is code.co_revdb_linestarts
 

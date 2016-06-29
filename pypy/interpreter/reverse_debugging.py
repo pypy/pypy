@@ -45,7 +45,7 @@ def setup_revdb(space):
     #revdb.register_debug_command(revdb.CMD_WATCHVALUES, lambda_watchvalues)
 
 
-pycode.PyCode.co_revdb_linestarts = None   # or a string: a list of bits
+pycode.PyCode.co_revdb_linestarts = None   # or a string: an array of bits
 
 
 def potential_stop_point(frame):
@@ -71,28 +71,26 @@ def potential_stop_point(frame):
 
 def build_co_revdb_linestarts(code):
     # inspired by findlinestarts() in the 'dis' standard module
-    assert len(code.co_code) > 0
     bits = [False] * len(code.co_code)
-    bits[0] = True
-    lnotab = code.co_lnotab
-    addr = 0
-    p = 0
-    newline = True
-    while p + 1 < len(lnotab):
-        byte_incr = ord(lnotab[p])
-        line_incr = ord(lnotab[p+1])
-        if byte_incr:
-            if newline:
-                if addr < len(bits):
-                    bits[addr] = True
-                newline = False
-            addr += byte_incr
-        if line_incr:
-            newline = True
-        p += 2
-    if newline:
-        if addr < len(bits):
-            bits[addr] = True
+    if not code.hidden_applevel:
+        lnotab = code.co_lnotab
+        addr = 0
+        p = 0
+        newline = 1
+        while p + 1 < len(lnotab):
+            byte_incr = ord(lnotab[p])
+            line_incr = ord(lnotab[p+1])
+            if byte_incr:
+                if newline != 0:
+                    if addr < len(bits):
+                        bits[addr] = True
+                    newline = 0
+                addr += byte_incr
+            newline |= line_incr
+            p += 2
+        if newline:
+            if addr < len(bits):
+                bits[addr] = True
     #
     byte_list = []
     pending = 0

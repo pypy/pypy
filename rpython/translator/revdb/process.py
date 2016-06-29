@@ -173,9 +173,9 @@ class ReplayProcess(object):
                 break
             elif msg.cmd == ANSWER_LINECACHE:
                 line = linecache.getline(msg.extra, msg.arg1)
-                if not line.endswith('\n'):
-                    line += '\n'
-                sys.stdout.write(line)
+                if line == '':
+                    line = '?'
+                sys.stdout.write(line.strip() + '\n')
                 sys.stdout.flush()
             elif msg.cmd == ANSWER_NEXTNID and pgroup is not None:
                 uid = msg.arg1
