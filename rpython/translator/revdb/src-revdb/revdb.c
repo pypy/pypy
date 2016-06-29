@@ -1097,9 +1097,8 @@ RPY_EXTERN
 void rpy_reverse_db_breakpoint(int64_t num)
 {
     if (flag_io_disabled != FID_REGULAR_MODE) {
-        fprintf(stderr, "revdb.breakpoint(): cannot be called from a "
-                        "debug command\n");
-        exit(1);
+        /* called from a debug command, ignore */
+        return;
     }
 
     switch (breakpoint_mode) {

@@ -64,6 +64,9 @@ class ExecutionContext(object):
         return frame
 
     def enter(self, frame):
+        if self.space.config.translation.reverse_debugger:
+            from pypy.interpreter.reverse_debugging import enter_call
+            enter_call(self.topframeref(), frame)
         frame.f_backref = self.topframeref
         self.topframeref = jit.virtual_ref(frame)
 
@@ -84,6 +87,9 @@ class ExecutionContext(object):
                 # be accessed also later
                 frame_vref()
             jit.virtual_ref_finish(frame_vref, frame)
+        if self.space.config.translation.reverse_debugger:
+            from pypy.interpreter.reverse_debugging import leave_call
+            leave_call(self.topframeref(), frame)
 
     # ________________________________________________________________
 

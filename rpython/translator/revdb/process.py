@@ -19,10 +19,11 @@ class AllBreakpoints(object):
         self.num2name = {}     # {small number: break/watchpoint}
         self.watchvalues = {}  # {small number: resulting text}
         self.watchuids = {}    # {small number: [uid...]}
-        self.stack_id = 0      # breaks when leaving/entering this frame; 0=none
+        self.stack_id = 0      # breaks when leaving/entering a frame from/to
+                               # the frame identified by 'stack_id'
 
     def __repr__(self):
-        return 'AllBreakpoints(%r, %r, %r, %d)' % (
+        return 'AllBreakpoints(%r, %r, %r, %r)' % (
             self.num2name, self.watchvalues, self.watchuids,
             self.stack_id)
 
@@ -304,7 +305,7 @@ class ReplayProcessGroup(object):
         if bkpt:
             raise bkpt
 
-    def go_backward(self, steps, ignore_breakpoints=False):
+    def go_backward(self, steps, ignore_breakpoints=False, rel_stop_at=-1):
         """Go backward, for the given number of 'steps' of time.
 
         Closes the active process.  Implemented as jump_in_time()
@@ -321,7 +322,7 @@ class ReplayProcessGroup(object):
                 first_steps = 957
             self._backward_search_forward(
                 search_start_time       = initial_time - first_steps,
-                search_stop_time        = initial_time - 1,
+                search_stop_time        = initial_time + rel_stop_at,
                 search_go_on_until_time = initial_time - steps)
 
     def _backward_search_forward(self, search_start_time, search_stop_time,
@@ -536,8 +537,8 @@ class ReplayProcessGroup(object):
     def edit_breakpoints(self):
         return self.all_breakpoints
 
-    def get_stack_id(self):
-        self.active.send(Message(CMD_STACKID))
+    def get_stack_id(self, is_parent):
+        self.active.send(Message(CMD_STACKID, is_parent))
         msg = self.active.expect(ANSWER_STACKID, Ellipsis)
         self.active.expect_ready()
         return msg.arg1

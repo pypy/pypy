@@ -154,18 +154,20 @@ class RevDebugControl(object):
         self.remove_tainting()
         try:
             self.pgroup.go_forward(steps)
-            return True
+            return None
         except Breakpoint as b:
             self.hit_breakpoint(b)
-            return False
+            return b
 
-    def move_backward(self, steps):
+    def move_backward(self, steps, rel_stop_at=-1):
+        ignore_bkpt = steps == 1 and rel_stop_at == -1
         try:
-            self.pgroup.go_backward(steps, ignore_breakpoints=(steps==1))
-            return True
+            self.pgroup.go_backward(steps, ignore_breakpoints=ignore_bkpt,
+                                    rel_stop_at=rel_stop_at)
+            return None
         except Breakpoint as b:
             self.hit_breakpoint(b, backward=True)
-            return False
+            return b
 
     def hit_breakpoint(self, b, backward=False):
         if b.num != -1:
@@ -198,7 +200,7 @@ class RevDebugControl(object):
     @contextmanager
     def _stack_id_break(self, stack_id):
         # add temporarily a breakpoint that hits when we enter/leave
-        # the frame identified by 'stack_id'
+        # a frame from/to the frame identified by 'stack_id'
         b = self.pgroup.edit_breakpoints()
         b.stack_id = stack_id
         try:
@@ -208,50 +210,55 @@ class RevDebugControl(object):
 
     def command_next(self, argument):
         """Run forward for one step, skipping calls"""
-        depth1 = self.pgroup.get_stack_id()
-        with self._stack_id_break(depth1):
-            if not self.move_forward(1):
-                # we either hit a regular breakpoint, or we hit the
-                # temporary breakpoint
-                return
-            if depth1 == 0:   # we started outside any frame
-                return
-            if self.pgroup.get_stack_id() == depth1:
-                return        # we are still in the same frame
-        #
-        # If, after running one step, the stack id is different than
-        # before but we didn't leave that frame, then we must have
-        # entered a new one.  Continue until we leave that new frame.
-        # Can't do it more directly because the "breakpoint" of
-        # stack_id is only checked for on function enters and returns
-        # (which simplifies and speeds up things for the RPython
-        # code).
-        self.command_finish('')
+        stack_id = self.pgroup.get_stack_id(is_parent=False)
+        with self._stack_id_break(stack_id):
+            b = self.move_forward(1)
+        if b is None:
+            return    # no breakpoint hit, and no frame just entered: done
+        elif b.num != -1:
+            return    # a regular breakpoint was hit
+        else:
+            # we entered a frame.  Continue running until we leave that
+            # frame again
+            with self._stack_id_break(stack_id):
+                self.command_continue("")
     command_n = command_next
 
     def command_bnext(self, argument):
         """Run backward for one step, skipping calls"""
-        # similar to command_next()
-        depth1 = self.pgroup.get_stack_id()
-        with self._stack_id_break(depth1):
-            if not self.move_backward(1):
-                return
-            if depth1 == 0:
-                return
-            if self.pgroup.get_stack_id() == depth1:
-                return        # we are still in the same frame
-        self.command_bfinish('')
+        stack_id = self.pgroup.get_stack_id(is_parent=False)
+        with self._stack_id_break(stack_id):
+            b = self.move_backward(1, rel_stop_at=0)
+        if b is None:
+            return    # no breakpoint hit, and no frame just
+                      # reverse-entered: done
+        elif b.num != -1:
+            return    # a regular breakpoint was hit
+        else:
+            # we reverse-entered a frame.  Continue running backward
+            # until we go past the reverse-leave (i.e. the entering)
+            # of that frame.
+            with self._stack_id_break(stack_id):
+                self.command_bcontinue("")
     command_bn = command_bnext
 
     def command_finish(self, argument):
         """Run forward until the current function finishes"""
-        with self._stack_id_break(self.pgroup.get_stack_id()):
-            self.command_continue('')
+        stack_id = self.pgroup.get_stack_id(is_parent=True)
+        if stack_id == 0:
+            print 'No stack.'
+        else:
+            with self._stack_id_break(stack_id):
+                self.command_continue('')
 
     def command_bfinish(self, argument):
         """Run backward until the current function is called"""
-        with self._stack_id_break(self.pgroup.get_stack_id()):
-            self.command_bcontinue('')
+        stack_id = self.pgroup.get_stack_id(is_parent=True)
+        if stack_id == 0:
+            print 'No stack.'
+        else:
+            with self._stack_id_break(stack_id):
+                self.command_bcontinue('')
 
     def command_continue(self, argument):
         """Run forward"""

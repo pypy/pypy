@@ -58,8 +58,8 @@ ANSWER_TEXT       = 20
 # CMD_STACKID returns the id of the current or parent frame (depending
 # on the 'parent-flag' passed in), or 0 if not found.  The id can be just
 # the stack depth, or it can be the unique id of the frame object.  When
-# used in CMD_BREAKPOINTS, it means "break if we are entering/leaving that
-# frame".
+# used in CMD_BREAKPOINTS, it means "break if we are entering/leaving a
+# frame from/to the given frame".
 #    Message(ANSWER_STACKID, stack-id)
 ANSWER_STACKID    = 21
 

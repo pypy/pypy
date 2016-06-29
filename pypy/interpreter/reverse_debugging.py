@@ -10,6 +10,7 @@ from pypy.interpreter import gateway, typedef, pycode, pytraceback
 
 class DBState:
     extend_syntax_with_dollar_num = False
+    breakpoint_stack_id = 0
     breakpoint_funcnames = []
     printed_objects = {}
     metavars = []
@@ -37,8 +38,8 @@ def setup_revdb(space):
     revdb.register_debug_command(revdb.CMD_PRINT, lambda_print)
     revdb.register_debug_command(revdb.CMD_BACKTRACE, lambda_backtrace)
     revdb.register_debug_command(revdb.CMD_LOCALS, lambda_locals)
-    #revdb.register_debug_command(revdb.CMD_BREAKPOINTS, lambda_breakpoints)
-    #revdb.register_debug_command(revdb.CMD_MOREINFO, lambda_moreinfo)
+    revdb.register_debug_command(revdb.CMD_BREAKPOINTS, lambda_breakpoints)
+    revdb.register_debug_command(revdb.CMD_STACKID, lambda_stackid)
     revdb.register_debug_command("ALLOCATING", lambda_allocating)
     revdb.register_debug_command(revdb.CMD_ATTACHID, lambda_attachid)
     #revdb.register_debug_command(revdb.CMD_CHECKWATCH, lambda_checkwatch)
@@ -47,6 +48,16 @@ def setup_revdb(space):
 
 pycode.PyCode.co_revdb_linestarts = None   # or a string: an array of bits
 
+
+def enter_call(caller_frame, callee_frame):
+    if dbstate.breakpoint_stack_id != 0:
+        if dbstate.breakpoint_stack_id == revdb.get_unique_id(caller_frame):
+            revdb.breakpoint(-1)
+
+def leave_call(caller_frame, callee_frame):
+    if dbstate.breakpoint_stack_id != 0:
+        if dbstate.breakpoint_stack_id == revdb.get_unique_id(caller_frame):
+            revdb.breakpoint(-1)
 
 def potential_stop_point(frame):
     if not we_are_translated():
@@ -367,6 +378,22 @@ def command_locals(cmd, extra):
     except OperationError as e:
         revdb.send_output('%s\n' % e.errorstr(space, use_repr=True))
 lambda_locals = lambda: command_locals
+
+
+def command_breakpoints(cmd, extra):
+    dbstate.breakpoint_stack_id = cmd.c_arg1
+lambda_breakpoints = lambda: command_breakpoints
+
+def command_stackid(cmd, extra):
+    frame = fetch_cur_frame()
+    if frame is not None and cmd.c_arg1 != 0:     # parent_flag
+        frame = dbstate.space.getexecutioncontext().getnextframe_nohidden(frame)
+    if frame is None:
+        uid = 0
+    else:
+        uid = revdb.get_unique_id(frame)
+    revdb.send_answer(revdb.ANSWER_STACKID, uid)
+lambda_stackid = lambda: command_stackid
 
 
 def command_allocating(uid, gcref):
