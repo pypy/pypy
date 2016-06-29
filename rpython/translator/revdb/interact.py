@@ -196,51 +196,61 @@ class RevDebugControl(object):
     command_bs = command_bstep
 
     @contextmanager
-    def _stack_depth_break(self, range_stop):
-        # add temporarily a breakpoint for "stack_depth < range_stop"
+    def _stack_id_break(self, stack_id):
+        # add temporarily a breakpoint that hits when we enter/leave
+        # the frame identified by 'stack_id'
         b = self.pgroup.edit_breakpoints()
-        b.stack_depth = range_stop
+        b.stack_id = stack_id
         try:
             yield
         finally:
-            b.stack_depth = 0
+            b.stack_id = 0
 
     def command_next(self, argument):
         """Run forward for one step, skipping calls"""
-        depth1 = self.pgroup.get_stack_depth()
-        if self.move_forward(1):
-            depth2 = self.pgroup.get_stack_depth()
-            if depth2 > depth1:
-                # If, after running one step, the stack depth is greater
-                # than before, then continue until it is back to what it was.
-                # Can't do it more directly because the "breakpoint" of
-                # stack_depth is only checked for on function enters and
-                # returns (which simplifies and speeds up things for the
-                # RPython code).
-                with self._stack_depth_break(depth1 + 1):
-                    self.command_continue('')
+        depth1 = self.pgroup.get_stack_id()
+        with self._stack_id_break(depth1):
+            if not self.move_forward(1):
+                # we either hit a regular breakpoint, or we hit the
+                # temporary breakpoint
+                return
+            if depth1 == 0:   # we started outside any frame
+                return
+            if self.pgroup.get_stack_id() == depth1:
+                return        # we are still in the same frame
+        #
+        # If, after running one step, the stack id is different than
+        # before but we didn't leave that frame, then we must have
+        # entered a new one.  Continue until we leave that new frame.
+        # Can't do it more directly because the "breakpoint" of
+        # stack_id is only checked for on function enters and returns
+        # (which simplifies and speeds up things for the RPython
+        # code).
+        self.command_finish('')
     command_n = command_next
 
     def command_bnext(self, argument):
         """Run backward for one step, skipping calls"""
-        depth1 = self.pgroup.get_stack_depth()
-        if self.move_backward(1):
-            depth2 = self.pgroup.get_stack_depth()
-            if depth2 > depth1:
-                # If, after running one bstep, the stack depth is greater
-                # than before, then bcontinue until it is back to what it was.
-                with self._stack_depth_break(depth1 + 1):
-                    self.command_bcontinue('')
+        # similar to command_next()
+        depth1 = self.pgroup.get_stack_id()
+        with self._stack_id_break(depth1):
+            if not self.move_backward(1):
+                return
+            if depth1 == 0:
+                return
+            if self.pgroup.get_stack_id() == depth1:
+                return        # we are still in the same frame
+        self.command_bfinish('')
     command_bn = command_bnext
 
     def command_finish(self, argument):
         """Run forward until the current function finishes"""
-        with self._stack_depth_break(self.pgroup.get_stack_depth()):
+        with self._stack_id_break(self.pgroup.get_stack_id()):
             self.command_continue('')
 
     def command_bfinish(self, argument):
         """Run backward until the current function is called"""
-        with self._stack_depth_break(self.pgroup.get_stack_depth()):
+        with self._stack_id_break(self.pgroup.get_stack_id()):
             self.command_bcontinue('')
 
     def command_continue(self, argument):

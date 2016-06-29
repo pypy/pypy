@@ -19,16 +19,16 @@ class AllBreakpoints(object):
         self.num2name = {}     # {small number: break/watchpoint}
         self.watchvalues = {}  # {small number: resulting text}
         self.watchuids = {}    # {small number: [uid...]}
-        self.stack_depth = 0   # breaks if the depth becomes lower than this
+        self.stack_id = 0      # breaks when leaving/entering this frame; 0=none
 
     def __repr__(self):
         return 'AllBreakpoints(%r, %r, %r, %d)' % (
             self.num2name, self.watchvalues, self.watchuids,
-            self.stack_depth)
+            self.stack_id)
 
     def compare(self, other):
         if (self.num2name == other.num2name and
-            self.stack_depth == other.stack_depth):
+            self.stack_id == other.stack_id):
             if self.watchvalues == other.watchvalues:
                 return 2     # completely equal
             else:
@@ -37,12 +37,12 @@ class AllBreakpoints(object):
             return 0     # different
 
     def is_empty(self):
-        return len(self.num2name) == 0 and self.stack_depth == 0
+        return len(self.num2name) == 0 and self.stack_id == 0
 
     def duplicate(self):
         a = AllBreakpoints()
         a.num2name.update(self.num2name)
-        a.stack_depth = self.stack_depth
+        a.stack_id = self.stack_id
         return a
 
 
@@ -364,7 +364,7 @@ class ReplayProcessGroup(object):
         N = (max(num2name) + 1) if num2name else 0
         if cmp == 0:
             flat = [num2name.get(n, '') for n in range(N)]
-            arg1 = self.all_breakpoints.stack_depth
+            arg1 = self.all_breakpoints.stack_id
             extra = '\x00'.join(flat)
             self.active.send(Message(CMD_BREAKPOINTS, arg1, extra=extra))
             self.active.expect_ready()
@@ -536,8 +536,8 @@ class ReplayProcessGroup(object):
     def edit_breakpoints(self):
         return self.all_breakpoints
 
-    def get_stack_depth(self):
-        self.active.send(Message(CMD_MOREINFO))
-        msg = self.active.expect(ANSWER_MOREINFO, Ellipsis)
+    def get_stack_id(self):
+        self.active.send(Message(CMD_STACKID))
+        msg = self.active.expect(ANSWER_STACKID, Ellipsis)
         self.active.expect_ready()
         return msg.arg1

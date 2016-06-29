@@ -14,9 +14,9 @@ CMD_PING      = -5     # Message(CMD_PING)
 CMD_PRINT       = 1    # Message(CMD_PRINT, extra=expression)
 CMD_BACKTRACE   = 2    # Message(CMD_BACKTRACE)
 CMD_LOCALS      = 3    # Message(CMD_LOCALS)
-CMD_BREAKPOINTS = 4    # Message(CMD_BREAKPOINTS, stack_depth,
+CMD_BREAKPOINTS = 4    # Message(CMD_BREAKPOINTS, stack_id,
                        #         extra="\0-separated names")
-CMD_MOREINFO    = 5    # Message(CMD_MOREINFO)
+CMD_STACKID     = 5    # Message(CMD_STACKID, parent-flag)
 CMD_ATTACHID    = 6    # Message(CMD_ATTACHID, small-num, unique-id)
 CMD_CHECKWATCH  = 7    # Message(CMD_CHECKWATCH, extra=expression)
 CMD_WATCHVALUES = 8    # Message(CMD_WATCHVALUES, extra=texts)
@@ -55,9 +55,13 @@ ANSWER_LINECACHE  = 19
 #    Message(ANSWER_TEXT, extra=text)
 ANSWER_TEXT       = 20
 
-# sent after CMD_MOREINFO:
-#    Message(ANSWER_MOREINFO, stack_depth)
-ANSWER_MOREINFO   = 21
+# CMD_STACKID returns the id of the current or parent frame (depending
+# on the 'parent-flag' passed in), or 0 if not found.  The id can be just
+# the stack depth, or it can be the unique id of the frame object.  When
+# used in CMD_BREAKPOINTS, it means "break if we are entering/leaving that
+# frame".
+#    Message(ANSWER_STACKID, stack-id)
+ANSWER_STACKID    = 21
 
 # sent from CMD_PRINT to record the existence of a recallable object
 #    Message(ANSWER_NEXTNID, unique-id)
