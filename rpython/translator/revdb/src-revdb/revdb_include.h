@@ -29,14 +29,19 @@ RPY_EXTERN rpy_revdb_t rpy_revdb;
 RPY_EXTERN void rpy_reverse_db_setup(int *argc_p, char **argv_p[]);
 RPY_EXTERN void rpy_reverse_db_teardown(void);
 
-#if 1    /* enable to print locations to stderr of all the EMITs */
+#if 0    /* enable to print locations to stderr of all the EMITs */
 #  define _RPY_REVDB_PRINT(mode)                                        \
     fprintf(stderr,                                                     \
             "%s:%d: %0*llx\n",                                          \
             __FILE__, __LINE__, 2 * sizeof(_e),                         \
             ((unsigned long long)_e) & ((2ULL << (8*sizeof(_e)-1)) - 1))
+#  define _RPY_REVDB_PRUID()                                    \
+    fprintf(stderr,                                             \
+            "%s:%d: obj %llu\n",                                \
+            __FILE__, __LINE__, (unsigned long long) uid)
 #else
 #  define _RPY_REVDB_PRINT(mode)  /* nothing */
+#  define _RPY_REVDB_PRUID()      /* nothing */
 #endif
 
 
@@ -72,6 +77,7 @@ RPY_EXTERN void rpy_reverse_db_teardown(void);
             uid = rpy_reverse_db_unique_id_break(expr);                 \
         rpy_revdb.unique_id_seen = uid + 1;                             \
         ((struct pypy_header0 *)expr)->h_uid = uid;                     \
+        _RPY_REVDB_PRUID();                                             \
     } while (0)
 
 #define OP_REVDB_STOP_POINT(r)                                          \
@@ -112,6 +118,12 @@ RPY_EXTERN void rpy_reverse_db_teardown(void);
 
 #define OP_REVDB_CALL_DESTRUCTOR(obj, r)                                \
     rpy_reverse_db_call_destructor(obj)
+
+/* Used only for getting a fast hash value that doesn't change too
+   often (with the minimark GC, it changes at most once).  Here,
+   we'll just return the UID. */
+#define RPY_REVDB_CAST_PTR_TO_INT(obj)   (((struct pypy_header0 *)obj)->h_uid)
+
 
 RPY_EXTERN void rpy_reverse_db_flush(void);
 RPY_EXTERN void rpy_reverse_db_fetch(const char *file, int line);

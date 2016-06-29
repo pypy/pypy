@@ -25,6 +25,10 @@ def boehm_register_finalizer(funcgen, op):
     return 'rpy_reverse_db_register_destructor(%s, %s);' % (
         funcgen.expr(op.args[0]), funcgen.expr(op.args[1]))
 
+def cast_ptr_to_int(funcgen, op):
+    return '%s = RPY_REVDB_CAST_PTR_TO_INT(%s);' % (
+        funcgen.expr(op.result), funcgen.expr(op.args[0]))
+
 
 def prepare_database(db):
     FUNCPTR = lltype.Ptr(lltype.FuncType([revdb._CMDPTR, lltype.Ptr(rstr.STR)],

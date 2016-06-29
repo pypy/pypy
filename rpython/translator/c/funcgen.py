@@ -670,6 +670,12 @@ class FunctionCodeGenerator(object):
     OP_CAST_ADR_TO_PTR = OP_CAST_POINTER
     OP_CAST_OPAQUE_PTR = OP_CAST_POINTER
 
+    def OP_CAST_PTR_TO_INT(self, op):
+        if self.db.reverse_debugger:
+            from rpython.translator.revdb import gencsupp
+            return gencsupp.cast_ptr_to_int(self, op)
+        return self.OP_CAST_POINTER(op)
+
     def OP_LENGTH_OF_SIMPLE_GCARRAY_FROM_OPAQUE(self, op):
         return ('%s = *(long *)(((char *)%s) + sizeof(struct pypy_header0));'
                 '  /* length_of_simple_gcarray_from_opaque */'

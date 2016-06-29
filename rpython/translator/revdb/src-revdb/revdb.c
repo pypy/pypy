@@ -1183,6 +1183,9 @@ static int _ftree_compare(const void *obj1, const void *obj2)
 RPY_EXTERN
 int rpy_reverse_db_fq_register(void *obj)
 {
+    /*fprintf(stderr, "FINALIZER_TREE: %lld -> %p\n",
+              ((struct pypy_header0 *)obj)->h_uid, obj);
+    */
     if (!RPY_RDB_REPLAY) {
         return 0;     /* recording */
     }
