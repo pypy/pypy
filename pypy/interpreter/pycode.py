@@ -420,14 +420,14 @@ class PyCode(eval.Code):
             w(self.co_nlocals),
             w(self.co_stacksize),
             w(self.co_flags),
-            space.wrapbytes(self.co_code),
+            space.newbytes(self.co_code),
             space.newtuple(self.co_consts_w),
             space.newtuple(self.co_names_w),
             space.newtuple([w(v) for v in self.co_varnames]),
             w(self.co_filename),
             w(self.co_name),
             w(self.co_firstlineno),
-            space.wrapbytes(self.co_lnotab),
+            space.newbytes(self.co_lnotab),
             space.newtuple([w(v) for v in self.co_freevars]),
             space.newtuple([w(v) for v in self.co_cellvars]),
             w(self.magic),
@@ -448,7 +448,7 @@ class PyCode(eval.Code):
         space = self.space
         # co_name should be an identifier
         name = self.co_name.decode('utf-8')
-        fn = space.fsdecode_w(space.wrapbytes(self.co_filename))
+        fn = space.fsdecode_w(space.newbytes(self.co_filename))
         return space.wrap(u'<code object %s at 0x%s, file "%s", line %d>' % (
             name, unicode(self.getaddrstring(space)), fn,
             -1 if self.co_firstlineno == 0 else self.co_firstlineno))

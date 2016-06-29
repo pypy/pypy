@@ -137,7 +137,7 @@ class TestW_DictObject(object):
 
     def test_listview_bytes_dict(self):
         w = self.space.wrap
-        wb = self.space.wrapbytes
+        wb = self.space.newbytes
         w_d = self.space.newdict()
         w_d.initialize_content([(wb("a"), w(1)), (wb("b"), w(2))])
         assert self.space.listview_bytes(w_d) == ["a", "b"]
@@ -156,14 +156,14 @@ class TestW_DictObject(object):
 
     def test_keys_on_string_unicode_int_dict(self, monkeypatch):
         w = self.space.wrap
-        wb = self.space.wrapbytes
-        
+        wb = self.space.newbytes
+
         w_d = self.space.newdict()
         w_d.initialize_content([(w(1), wb("a")), (w(2), wb("b"))])
         w_k = self.space.call_method(w_d, "keys")
         w_l = self.space.call_function(self.space.w_list, w_k)
         assert sorted(self.space.listview_int(w_l)) == [1,2]
-        
+
         # make sure that list(d.keys()) calls newlist_bytes for byte dicts
         def not_allowed(*args):
             assert False, 'should not be called'
@@ -177,7 +177,7 @@ class TestW_DictObject(object):
 
         # XXX: it would be nice if the test passed without monkeypatch.undo(),
         # but we need space.newlist_unicode for it
-        monkeypatch.undo() 
+        monkeypatch.undo()
         w_d = self.space.newdict()
         w_d.initialize_content([(w(u"a"), w(1)), (w(u"b"), w(6))])
         w_k = self.space.call_method(w_d, "keys")
@@ -789,7 +789,7 @@ class AppTestDictViews:
         assert not d1.keys().isdisjoint(d2.keys())
         assert not d1.keys().isdisjoint(list(d2.keys()))
         assert not d1.keys().isdisjoint(set(d2.keys()))
-        
+
         assert d1.keys().isdisjoint(['x', 'y', 'z'])
         assert d1.keys().isdisjoint(set(['x', 'y', 'z']))
         assert d1.keys().isdisjoint(set(['x', 'y']))
@@ -968,7 +968,7 @@ class AppTestDictViews:
         items = set(new)
         assert len(items) == 2
         items.add(first)
-        assert items == set(d)        
+        assert items == set(d)
 
 class AppTestStrategies(object):
     def setup_class(cls):
@@ -1131,7 +1131,7 @@ class FakeSpace:
             return obj.decode('ascii')
         return obj
 
-    def wrapbytes(self, obj):
+    def newbytes(self, obj):
         return obj
 
     def new_interned_str(self, s):
@@ -1394,7 +1394,7 @@ class TestBytesDictImplementation(BaseTestRDictImplementation):
     _str_devolves = True
 
     def wrapstrorunicode(self, obj):
-        return self.fakespace.wrapbytes(obj)
+        return self.fakespace.newbytes(obj)
 
 
 class BaseTestDevolvedDictImplementation(BaseTestRDictImplementation):

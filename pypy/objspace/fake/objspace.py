@@ -202,7 +202,7 @@ class FakeObjSpace(ObjSpace):
         "NOT_RPYTHON"
         raise NotImplementedError
 
-    def wrapbytes(self, x):
+    def newbytes(self, x):
         return w_some_obj()
 
     def wrap(self, x):
@@ -223,9 +223,6 @@ class FakeObjSpace(ObjSpace):
     def _wrap_not_rpython(self, x):
         "NOT_RPYTHON"
         raise NotImplementedError
-
-    def wrapbytes(self, x):
-        return w_some_obj()
 
     def _see_interp2app(self, interp2app):
         "NOT_RPYTHON"

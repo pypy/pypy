@@ -252,14 +252,14 @@ if HAVE_OPENSSL_RAND:
                     rffi.cast(rffi.UCHARP, buf.raw), n)
                 if ok == 0 or ok == 1:
                     return space.newtuple([
-                        space.wrapbytes(buf.str(n)),
+                        space.newbytes(buf.str(n)),
                         space.wrap(ok == 1),
                     ])
             else:
                 ok = libssl_RAND_bytes(
                     rffi.cast(rffi.UCHARP, buf.raw), n)
                 if ok == 1:
-                    return space.wrapbytes(buf.str(n))
+                    return space.newbytes(buf.str(n))
 
         raise ssl_error(space, "", errcode=libssl_ERR_get_error())
 
@@ -404,7 +404,7 @@ class SSLSocket(W_Root):
             elif sockstate == SOCKET_HAS_BEEN_CLOSED:
                 if libssl_SSL_get_shutdown(self.ssl) == SSL_RECEIVED_SHUTDOWN:
                     if space.is_none(w_buffer):
-                        return space.wrapbytes('')
+                        return space.newbytes('')
                     else:
                         return space.wrap(0)
                 raise ssl_error(space,
@@ -430,7 +430,7 @@ class SSLSocket(W_Root):
                 elif (err == SSL_ERROR_ZERO_RETURN and
                       libssl_SSL_get_shutdown(self.ssl) == SSL_RECEIVED_SHUTDOWN):
                     if space.is_none(w_buffer):
-                        return space.wrapbytes('')
+                        return space.newbytes('')
                     else:
                         return space.wrap(0)
                 else:
@@ -455,7 +455,7 @@ class SSLSocket(W_Root):
             rwbuffer.setslice(0, result)
             return space.wrap(count)
         else:
-            return space.wrapbytes(result)
+            return space.newbytes(result)
 
     def _get_socket(self, space):
         w_socket = self.w_socket()
@@ -677,7 +677,7 @@ class SSLSocket(W_Root):
                 length = libssl_SSL_get_peer_finished(self.ssl, buf, CB_MAXLEN)
 
             if length > 0:
-                return space.wrapbytes(rffi.charpsize2str(buf, intmask(length)))
+                return space.newbytes(rffi.charpsize2str(buf, intmask(length)))
 
     def descr_get_context(self, space):
         return self.w_ctx
@@ -716,7 +716,7 @@ def _certificate_to_der(space, certificate):
         if length < 0:
             raise _ssl_seterror(space, None, 0)
         try:
-            return space.wrapbytes(rffi.charpsize2str(buf_ptr[0], length))
+            return space.newbytes(rffi.charpsize2str(buf_ptr[0], length))
         finally:
             libssl_OPENSSL_free(buf_ptr[0])
 
@@ -935,7 +935,7 @@ def _create_tuple_for_attribute(space, name, value):
         if length < 0:
             raise _ssl_seterror(space, None, 0)
         try:
-            w_value = space.wrapbytes(rffi.charpsize2str(buf_ptr[0], length))
+            w_value = space.newbytes(rffi.charpsize2str(buf_ptr[0], length))
             w_value = space.call_method(w_value, "decode", space.wrap("utf-8"))
         finally:
             libssl_OPENSSL_free(buf_ptr[0])
@@ -1273,7 +1273,7 @@ def _servername_callback(ssl, ad, arg):
                                            w_ssl_socket, space.w_None, w_ctx)
 
         else:
-            w_servername = space.wrapbytes(rffi.charp2str(servername))
+            w_servername = space.newbytes(rffi.charp2str(servername))
             try:
                 w_servername_idna = space.call_method(
                     w_servername, 'decode', space.wrap('idna'))
@@ -1326,7 +1326,7 @@ class SSLContext(W_Root):
         rgc.add_memory_pressure(10 * 1024 * 1024)
         self.check_hostname = False
         self.register_finalizer(space)
-        
+
         # Defaults
         libssl_SSL_CTX_set_verify(self.ctx, SSL_VERIFY_NONE, None)
         options = SSL_OP_ALL & ~SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS
@@ -1849,7 +1849,7 @@ def w_convert_path(space, path):
     if not path:
         return space.w_None
     else:
-        return fsdecode(space, space.wrapbytes(rffi.charp2str(path)))
+        return fsdecode(space, space.newbytes(rffi.charp2str(path)))
 
 def get_default_verify_paths(space):
     return space.newtuple([

@@ -581,7 +581,7 @@ class W_FrozensetObject(W_BaseSetObject):
         return space.wrap(uid)
 
     def _newobj(self, space, w_iterable):
-        """Make a new frozenset by taking ownership of 'w_iterable'.""" 
+        """Make a new frozenset by taking ownership of 'w_iterable'."""
         return W_FrozensetObject(space, w_iterable)
 
     @staticmethod
@@ -1232,7 +1232,7 @@ class BytesSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
         return self.space.bytes_w(w_item)
 
     def wrap(self, item):
-        return self.space.wrapbytes(item)
+        return self.space.newbytes(item)
 
     def iter(self, w_set):
         return BytesIteratorImplementation(self.space, self, w_set)
@@ -1462,7 +1462,7 @@ class BytesIteratorImplementation(IteratorImplementation):
 
     def next_entry(self):
         for key in self.iterator:
-            return self.space.wrapbytes(key)
+            return self.space.newbytes(key)
         else:
             return None
 

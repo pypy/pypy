@@ -373,10 +373,10 @@ def PyUnicode_Decode(space, s, size, encoding, errors):
     if not encoding:
         # This tracks CPython 2.7, in CPython 3.4 'utf-8' is hardcoded instead
         encoding = PyUnicode_GetDefaultEncoding(space)
-    w_str = space.wrapbytes(rffi.charpsize2str(s, size))
+    w_str = space.newbytes(rffi.charpsize2str(s, size))
     w_encoding = space.wrap(rffi.charp2str(encoding))
     if errors:
-        w_errors = space.wrapbytes(rffi.charp2str(errors))
+        w_errors = space.newbytes(rffi.charp2str(errors))
     else:
         w_errors = None
     return space.call_method(w_str, 'decode', w_encoding, w_errors)
@@ -481,7 +481,7 @@ def PyUnicode_DecodeFSDefaultAndSize(space, s, size):
     locale encoding.
 
     Use 'strict' error handler on Windows."""
-    w_bytes = space.wrapbytes(rffi.charpsize2str(s, size))
+    w_bytes = space.newbytes(rffi.charpsize2str(s, size))
     return space.fsdecode(w_bytes)
 
 
@@ -496,7 +496,7 @@ def PyUnicode_DecodeFSDefault(space, s):
     Use PyUnicode_DecodeFSDefaultAndSize() if you know the string length.
 
     Use 'strict' error handler on Windows."""
-    w_bytes = space.wrapbytes(rffi.charp2str(s))
+    w_bytes = space.newbytes(rffi.charp2str(s))
     return space.fsdecode(w_bytes)
 
 
@@ -516,7 +516,7 @@ def PyUnicode_EncodeFSDefault(space, w_unicode):
 @cpython_api([CONST_STRING], PyObject)
 def PyUnicode_FromString(space, s):
     """Create a Unicode object from an UTF-8 encoded null-terminated char buffer"""
-    w_str = space.wrapbytes(rffi.charp2str(s))
+    w_str = space.newbytes(rffi.charp2str(s))
     return space.call_method(w_str, 'decode', space.wrap("utf-8"))
 
 @cpython_api([CONST_STRING], PyObject)
@@ -594,7 +594,7 @@ def make_conversion_functions(suffix, encoding):
         encoded string s. Return NULL if an exception was raised by
         the codec.
         """
-        w_s = space.wrapbytes(rffi.charpsize2str(s, size))
+        w_s = space.newbytes(rffi.charpsize2str(s, size))
         if errors:
             w_errors = space.wrap(rffi.charp2str(errors))
         else:

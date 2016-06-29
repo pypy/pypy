@@ -39,7 +39,7 @@ class W_MMap(W_Root):
 
     def readline(self):
         self.check_valid()
-        return self.space.wrapbytes(self.mmap.readline())
+        return self.space.newbytes(self.mmap.readline())
 
     @unwrap_spec(w_num=WrappedDefault(None))
     def read(self, w_num):
@@ -48,7 +48,7 @@ class W_MMap(W_Root):
             num = -1
         else:
             num = self.space.int_w(w_num)
-        return self.space.wrapbytes(self.mmap.read(num))
+        return self.space.newbytes(self.mmap.read(num))
 
     def find(self, w_tofind, w_start=None, w_end=None):
         self.check_valid()
@@ -185,13 +185,13 @@ class W_MMap(W_Root):
             return space.wrap(ord(self.mmap.getitem(start)))
         elif step == 1:
             if stop - start < 0:
-                return space.wrapbytes("")
-            return space.wrapbytes(self.mmap.getslice(start, length))
+                return space.newbytes("")
+            return space.newbytes(self.mmap.getslice(start, length))
         else:
             b = StringBuilder(length)
             for i in range(start, stop, step):
                 b.append(self.mmap.getitem(i))
-            return space.wrapbytes(b.build())
+            return space.newbytes(b.build())
 
     def descr_setitem(self, w_index, w_value):
         space = self.space

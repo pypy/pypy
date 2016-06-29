@@ -287,7 +287,7 @@ class W_ZipImporter(W_Root):
         filename = self._find_relative_path(filename)
         try:
             data = self.zip_file.read(filename)
-            return space.wrapbytes(data)
+            return space.newbytes(data)
         except (KeyError, OSError, BadZipfile):
             raise oefmt(space.w_IOError, "Error reading file")
         except RZlibError as e:

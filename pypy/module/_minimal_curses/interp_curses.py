@@ -83,12 +83,12 @@ def tigetstr(space, capname):
         return space.w_None
     except curses_error as e:
         raise convert_error(space, e)
-    return space.wrapbytes(result)
+    return space.newbytes(result)
 
 @unwrap_spec(s='bufferstr')
 def tparm(space, s, args_w):
     args = [space.int_w(a) for a in args_w]
     try:
-        return space.wrapbytes(_curses_tparm(s, args))
+        return space.newbytes(_curses_tparm(s, args))
     except curses_error as e:
         raise convert_error(space, e)

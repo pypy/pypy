@@ -506,12 +506,12 @@ def encode_object(space, w_object, encoding, errors):
             if encoding is None or encoding == 'utf-8':
                 u = space.unicode_w(w_object)
                 eh = unicodehelper.encode_error_handler(space)
-                return space.wrapbytes(unicode_encode_utf_8(
+                return space.newbytes(unicode_encode_utf_8(
                         u, len(u), errors, errorhandler=eh))
             elif encoding == 'ascii':
                 u = space.unicode_w(w_object)
                 eh = unicodehelper.encode_error_handler(space)
-                return space.wrapbytes(unicode_encode_ascii(
+                return space.newbytes(unicode_encode_ascii(
                         u, len(u), errors, errorhandler=eh))
         except unicodehelper.RUnicodeEncodeError as ue:
             raise wrap_encode_error(space, ue)

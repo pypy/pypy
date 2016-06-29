@@ -19,7 +19,7 @@ def PyFile_GetLine(space, w_obj, n):
     try:
         w_readline = space.getattr(w_obj, space.wrap('readline'))
     except OperationError:
-        raise oefmt(space.w_TypeError, 
+        raise oefmt(space.w_TypeError,
             "argument must be a file, or have a readline() method.")
 
     n = rffi.cast(lltype.Signed, n)
@@ -37,7 +37,7 @@ def PyFile_FromString(space, filename, mode):
     On success, return a new file object that is opened on the file given by
     filename, with a file mode given by mode, where mode has the same
     semantics as the standard C routine fopen().  On failure, return NULL."""
-    w_filename = space.wrapbytes(rffi.charp2str(filename))
+    w_filename = space.newbytes(rffi.charp2str(filename))
     w_mode = space.wrap(rffi.charp2str(mode))
     return space.call_method(space.builtin, 'open', w_filename, w_mode)
 

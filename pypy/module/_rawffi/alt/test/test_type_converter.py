@@ -12,14 +12,14 @@ class DummyFromAppLevelConverter(FromAppLevelConverter):
     handle_signed = handle_all
     handle_unsigned = handle_all
     handle_pointer = handle_all
-    handle_char = handle_all        
+    handle_char = handle_all
     handle_unichar = handle_all
     handle_longlong = handle_all
     handle_char_p = handle_all
     handle_unichar_p = handle_all
     handle_float = handle_all
     handle_singlefloat = handle_all
-    
+
     def handle_struct(self, w_ffitype, w_structinstance):
         self.lastval = w_structinstance
 
@@ -119,12 +119,12 @@ class TestFromAppLevel(object):
 
     def test_strings(self):
         # first, try automatic conversion from applevel
-        self.check(app_types.char_p, self.space.wrapbytes('foo'), 'foo')
-        self.check(app_types.unichar_p, self.space.wrap(u'foo\u1234'), u'foo\u1234')    
-        self.check(app_types.unichar_p, self.space.wrap('foo'), u'foo')    
+        self.check(app_types.char_p, self.space.newbytes('foo'), 'foo')
+        self.check(app_types.unichar_p, self.space.wrap(u'foo\u1234'), u'foo\u1234')
+        self.check(app_types.unichar_p, self.space.wrap('foo'), u'foo')
         # then, try to pass explicit pointers
         self.check(app_types.char_p, self.space.wrap(42), 42)
-        self.check(app_types.unichar_p, self.space.wrap(42), 42)        
+        self.check(app_types.unichar_p, self.space.wrap(42), 42)
 
 
 
@@ -136,7 +136,7 @@ class DummyToAppLevelConverter(ToAppLevelConverter):
     get_signed = get_all
     get_unsigned = get_all
     get_pointer = get_all
-    get_char = get_all        
+    get_char = get_all
     get_unichar = get_all
     get_longlong = get_all
     get_char_p = get_all
@@ -144,7 +144,7 @@ class DummyToAppLevelConverter(ToAppLevelConverter):
     get_float = get_all
     get_singlefloat = get_all
     get_unsigned_which_fits_into_a_signed = get_all
-    
+
     def convert(self, w_ffitype, val):
         self.val = val
         return self.do_and_wrap(w_ffitype)

@@ -18,7 +18,7 @@ def decode_error_handler(space):
                                        startingpos, endingpos):
         raise OperationError(space.w_UnicodeDecodeError,
                              space.newtuple([space.wrap(encoding),
-                                             space.wrapbytes(s),
+                                             space.newbytes(s),
                                              space.wrap(startingpos),
                                              space.wrap(endingpos),
                                              space.wrap(msg)]))
@@ -111,7 +111,7 @@ def fsencode(space, w_uni):
         return space.call_method(w_uni, 'encode',
                                  getfilesystemencoding(space),
                                  space.wrap('surrogateescape'))
-    return space.wrapbytes(bytes)
+    return space.newbytes(bytes)
 
 def encode(space, w_data, encoding=None, errors='strict'):
     from pypy.objspace.std.unicodeobject import encode_object

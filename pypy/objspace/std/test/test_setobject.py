@@ -87,7 +87,7 @@ class TestW_SetObject:
         from pypy.objspace.std.floatobject import W_FloatObject
 
         w = self.space.wrap
-        wb = self.space.wrapbytes
+        wb = self.space.newbytes
         intstr = self.space.fromcache(IntegerSetStrategy)
         tmp_func = intstr.get_storage_from_list
         # test if get_storage_from_list is no longer used
@@ -130,7 +130,7 @@ class TestW_SetObject:
 
     def test_listview_bytes_int_on_set(self):
         w = self.space.wrap
-        wb = self.space.wrapbytes
+        wb = self.space.newbytes
 
         w_a = W_SetObject(self.space)
         _initialize_set(self.space, w_a, wb("abcdefg"))
@@ -482,7 +482,7 @@ class AppTestAppSetTest:
                 self.s = s
             def __repr__(self):
                 return repr(self.s)
-        
+
         s = set([1, 2, 3])
         s.add(A(s))
         therepr = repr(s)
@@ -596,7 +596,7 @@ class AppTestAppSetTest:
                 assert v1 == v2
             else:
                 assert False, 'Expected KeyError'
-        
+
     def test_singleton_empty_frozenset(self):
         class Frozenset(frozenset):
             pass
@@ -1023,7 +1023,7 @@ class AppTestAppSetTest:
         s2 = myset.pop()
         assert s2 == s
         assert s2 is s
-        
+
     def test_intersect_frozenset_set(self):
         # worked before
         assert type(frozenset([2]) & set([1, 2])) is frozenset
@@ -1080,4 +1080,4 @@ class AppTestAppSetTest:
         items = set(new)
         assert len(items) == 2
         items.add(first)
-        assert items == set(d)        
+        assert items == set(d)

@@ -324,7 +324,7 @@ def make_formatter_subclass(do_unicode):
         def unknown_fmtchar(self):
             space = self.space
             c = self.fmt[self.fmtpos - 1]
-            w_s = space.wrap(c) if do_unicode else space.wrapbytes(c)
+            w_s = space.newunicode(c) if do_unicode else space.newbytes(c)
             raise oefmt(space.w_ValueError,
                         "unsupported format character %R (%s) at index %d",
                         w_s, hex(ord(c)), self.fmtpos - 1)

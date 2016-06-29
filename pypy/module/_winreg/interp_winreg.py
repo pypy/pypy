@@ -378,7 +378,7 @@ def convert_from_regdata(space, buf, buflen, typ):
         return space.newlist(l)
 
     else: # REG_BINARY and all other types
-        return space.wrapbytes(rffi.charpsize2str(buf, buflen))
+        return space.newbytes(rffi.charpsize2str(buf, buflen))
 
 @unwrap_spec(value_name=str, typ=int)
 def SetValueEx(space, w_hkey, value_name, w_reserved, typ, w_value):

@@ -1948,7 +1948,7 @@ class BytesListStrategy(ListStrategy):
     _none_value = None
 
     def wrap(self, stringval):
-        return self.space.wrapbytes(stringval)
+        return self.space.newbytes(stringval)
 
     def unwrap(self, w_string):
         return self.space.bytes_w(w_string)

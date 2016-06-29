@@ -345,13 +345,13 @@ def interp_attrproperty(name, cls, doc=None):
 def interp_attrproperty_bytes(name, cls, doc=None):
     "NOT_RPYTHON: initialization-time only"
     def fget(space, obj):
-        return space.wrapbytes(getattr(obj, name))
+        return space.newbytes(getattr(obj, name))
     return GetSetProperty(fget, cls=cls, doc=doc)
 
 def interp_attrproperty_fsdecode(name, cls, doc=None):
     "NOT_RPYTHON: initialization-time only"
     def fget(space, obj):
-        return space.fsdecode(space.wrapbytes(getattr(obj, name)))
+        return space.fsdecode(space.newbytes(getattr(obj, name)))
     return GetSetProperty(fget, cls=cls, doc=doc)
 
 def interp_attrproperty_w(name, cls, doc=None):

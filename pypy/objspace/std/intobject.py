@@ -133,7 +133,7 @@ class W_AbstractIntObject(W_Root):
                         "can't convert negative int to unsigned")
         except OverflowError:
             raise oefmt(space.w_OverflowError, "int too big to convert")
-        return space.wrapbytes(byte_string)
+        return space.newbytes(byte_string)
 
     def descr_round(self, space, w_ndigits=None):
         """Rounding an Integral returns itself.

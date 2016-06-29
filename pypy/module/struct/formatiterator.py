@@ -140,7 +140,7 @@ class UnpackFormatIterator(FormatIterator):
     @specialize.argtype(1)
     def appendobj(self, value):
         if isinstance(value, str):
-            self.result_w.append(self.space.wrapbytes(value))
+            self.result_w.append(self.space.newbytes(value))
         else:
             self.result_w.append(self.space.wrap(value))
 

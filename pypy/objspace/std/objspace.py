@@ -340,7 +340,6 @@ class StdObjSpace(ObjSpace):
 
     def newbytes(self, s):
         return W_BytesObject(s)
-    wrapbytes = newbytes
 
     def newunicode(self, uni):
         return W_UnicodeObject(uni)

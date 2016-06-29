@@ -13,7 +13,7 @@ class TestFile(BaseApiTest):
         rffi.free_charp(filename)
         rffi.free_charp(mode)
 
-        space.call_method(w_file, "write", space.wrapbytes("text"))
+        space.call_method(w_file, "write", space.newbytes("text"))
         space.call_method(w_file, "close")
         assert (udir / "_test_file").read() == "text"
 
