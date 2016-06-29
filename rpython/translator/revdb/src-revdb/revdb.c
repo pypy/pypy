@@ -505,7 +505,8 @@ static char breakpoint_mode = 'i';
 static uint64_t *future_ids, *future_next_id;
 static void *finalizer_tree, *destructor_tree;
 
-static void attach_gdb(void)
+RPY_EXTERN
+void attach_gdb(void)
 {
     char cmdline[80];
     sprintf(cmdline, "term -c \"gdb --pid=%d\"", getpid());

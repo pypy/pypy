@@ -5,7 +5,7 @@ from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rtyper.annlowlevel import cast_gcref_to_instance
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter import gateway, typedef, pycode
+from pypy.interpreter import gateway, typedef, pycode, pytraceback
 
 
 class DBState:
@@ -159,8 +159,12 @@ def fetch_cur_frame():
 def compile(source, mode):
     space = dbstate.space
     compiler = space.createcompiler()
-    code = compiler.compile(source, '<revdb>', mode, 0,
-                            hidden_applevel=True)
+    dbstate.extend_syntax_with_dollar_num = True
+    try:
+        code = compiler.compile(source, '<revdb>', mode, 0,
+                                hidden_applevel=True)
+    finally:
+        dbstate.extend_syntax_with_dollar_num = False
     return code
 
 
@@ -213,7 +217,7 @@ def command_print(cmd, expression):
         return
     space = dbstate.space
     try:
-        code = compile(expression, 'exec')
+        code = compile(expression, 'single')
         w_revdb_output = space.wrap(W_RevDBOutput(space))
         w_displayhook = get_revdb_displayhook(space)
         space.sys.setdictvalue(space, 'stdout', w_revdb_output)
@@ -225,22 +229,28 @@ def command_print(cmd, expression):
                            frame.getdictscope())
 
         except OperationError as operationerr:
-            w_type = operationerr.w_type
-            w_value = operationerr.get_w_value(space)
-            w_traceback = space.wrap(operationerr.get_traceback())
+            # can't use sys.excepthook: it will likely try to do 'import
+            # traceback', which might not be doable without using I/O
+            tb = operationerr.get_traceback()
+            if tb is not None:
+                revdb.send_output("Traceback (most recent call last):\n")
+                while tb is not None:
+                    if not isinstance(tb, pytraceback.PyTraceback):
+                        revdb.send_output("  ??? %s\n" % tb)
+                        break
+                    show_frame(tb.frame, tb.get_lineno(), indent='  ')
+                    tb = tb.next
 
             # set the sys.last_xxx attributes
+            w_type = operationerr.w_type
+            w_value = operationerr.get_w_value(space)
+            w_tb = space.wrap(operationerr.get_traceback())
             space.setitem(space.sys.w_dict, space.wrap('last_type'), w_type)
             space.setitem(space.sys.w_dict, space.wrap('last_value'), w_value)
-            space.setitem(space.sys.w_dict, space.wrap('last_traceback'),
-                          w_traceback)
+            space.setitem(space.sys.w_dict, space.wrap('last_traceback'), w_tb)
 
-            # call sys.excepthook if present
-            w_hook = space.sys.getdictvalue(space, 'excepthook')
-            if w_hook is None:
-                raise
-            space.call_function(w_hook, w_type, w_value, w_traceback)
-            return
+            # re-raise, catch me in the outside "except OperationError"
+            raise
 
     except OperationError as e:
         revdb.send_output('%s\n' % e.errorstr(space, use_repr=True))
@@ -248,9 +258,10 @@ def command_print(cmd, expression):
 lambda_print = lambda: command_print
 
 
-def show_frame(frame, indent=''):
+def show_frame(frame, lineno=0, indent=''):
     code = frame.getcode()
-    lineno = frame.get_last_lineno()
+    if lineno == 0:
+        lineno = frame.get_last_lineno()
     revdb.send_output('%sFile "%s", line %d in %s\n%s  ' % (
         indent, code.co_filename, lineno, code.co_name, indent))
     revdb.send_linecache(code.co_filename, lineno)
@@ -262,7 +273,7 @@ def command_backtrace(cmd, extra):
     if cmd.c_arg1 == 0:
         show_frame(frame)
     else:
-        revdb.send_output("Traceback (most recent call last):\n")
+        revdb.send_output("Current call stack (most recent call last):\n")
         frames = []
         while frame is not None:
             frames.append(frame)
