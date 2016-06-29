@@ -666,7 +666,7 @@ class _SSLSocket(W_Root):
                 length = libssl_SSL_get_peer_finished(self.ssl, buf, CB_MAXLEN)
 
             if length > 0:
-                return space.wrap(rffi.charpsize2str(buf, intmask(length)))
+                return space.newbytes(rffi.charpsize2str(buf, intmask(length)))
 
     def descr_get_context(self, space):
         return self.w_ctx
@@ -707,7 +707,7 @@ def _certificate_to_der(space, certificate):
         if length < 0:
             raise _ssl_seterror(space, None, 0)
         try:
-            return space.wrap(rffi.charpsize2str(buf_ptr[0], length))
+            return space.newbytes(rffi.charpsize2str(buf_ptr[0], length))
         finally:
             libssl_OPENSSL_free(buf_ptr[0])
 
@@ -926,7 +926,7 @@ def _create_tuple_for_attribute(space, name, value):
         if length < 0:
             raise _ssl_seterror(space, None, 0)
         try:
-            w_value = space.wrap(rffi.charpsize2str(buf_ptr[0], length))
+            w_value = space.newbytes(rffi.charpsize2str(buf_ptr[0], length))
             w_value = space.call_method(w_value, "decode", space.wrap("utf-8"))
         finally:
             libssl_OPENSSL_free(buf_ptr[0])
@@ -1232,7 +1232,7 @@ def _servername_callback(ssl, ad, arg):
                                            w_ssl_socket, space.w_None, w_ctx)
 
         else:
-            w_servername = space.wrapbytes(rffi.charp2str(servername))
+            w_servername = space.newbytes(rffi.charp2str(servername))
             try:
                 w_servername_idna = space.call_method(
                     w_servername, 'decode', space.wrap('idna'))
@@ -1778,7 +1778,7 @@ def w_convert_path(space, path):
     if not path:
         return space.w_None
     else:
-        return space.wrapbytes(rffi.charp2str(path))
+        return space.newbytes(rffi.charp2str(path))
 
 def get_default_verify_paths(space):
     return space.newtuple([
