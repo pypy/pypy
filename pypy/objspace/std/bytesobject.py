@@ -657,10 +657,6 @@ def _create_list_from_bytes(value):
 W_BytesObject.EMPTY = W_BytesObject('')
 
 
-def wrapstr(space, s):
-    return W_BytesObject(s)
-
-
 def getbytevalue(space, w_value):
     value = space.getindex_w(w_value, None)
     if not 0 <= value < 256:
