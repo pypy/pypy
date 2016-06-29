@@ -32,7 +32,7 @@ from pypy.objspace.std.setobject import W_SetObject, W_FrozensetObject
 from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.objspace.std.tupleobject import W_AbstractTupleObject, W_TupleObject
 from pypy.objspace.std.typeobject import W_TypeObject, TypeCache
-from pypy.objspace.std.unicodeobject import W_UnicodeObject, wrapunicode
+from pypy.objspace.std.unicodeobject import W_UnicodeObject
 
 
 class StdObjSpace(ObjSpace):
@@ -166,9 +166,9 @@ class StdObjSpace(ObjSpace):
                     else:
                         lst.append(unichr(ch))
                 unicode_x = u''.join(lst)
-            return wrapunicode(self, unicode_x)
+            return self.newunicode(unicode_x)
         if isinstance(x, unicode):
-            return wrapunicode(self, x)
+            return self.newunicode(x)
         if isinstance(x, float):
             return W_FloatObject(x)
         if isinstance(x, W_Root):
@@ -341,6 +341,9 @@ class StdObjSpace(ObjSpace):
     def newbytes(self, s):
         return W_BytesObject(s)
     wrapbytes = newbytes
+
+    def newunicode(self, uni):
+        return W_UnicodeObject(uni)
 
     def type(self, w_obj):
         jit.promote(w_obj.__class__)

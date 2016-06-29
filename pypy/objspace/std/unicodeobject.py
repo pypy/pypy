@@ -19,7 +19,7 @@ from pypy.objspace.std.formatting import mod_format
 from pypy.objspace.std.stringmethods import StringMethods
 from pypy.objspace.std.util import IDTAG_SPECIAL, IDTAG_SHIFT
 
-__all__ = ['W_UnicodeObject', 'wrapunicode', 'encode_object', 'decode_object',
+__all__ = ['W_UnicodeObject', 'encode_object', 'decode_object',
            'unicode_from_object', 'unicode_to_decimal_w']
 
 
@@ -463,10 +463,6 @@ class W_UnicodeObject(W_Root):
 
     def _starts_ends_overflow(self, prefix):
         return len(prefix) == 0
-
-
-def wrapunicode(space, uni):
-    return W_UnicodeObject(uni)
 
 
 def _isidentifier(u):
