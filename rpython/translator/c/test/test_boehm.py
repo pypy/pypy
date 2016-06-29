@@ -416,8 +416,10 @@ class TestUsingBoehm(AbstractGCTestClass):
                 print "not triggered!"
                 return 50
             seen = {}
-            for i in range(1000):
+            while True:
                 a = fq.next_dead()
+                if a is None:
+                    break
                 assert a.i not in seen
                 seen[a.i] = True
             if len(seen) < 500:
