@@ -1163,6 +1163,12 @@ class GuardCompatibleDescr(ResumeGuardDescr):
             return self._compatibility_conditions.repr_of_conditions(argrepr)
         return ''
 
+    def repr_of_conditions_as_jit_debug(self, argrepr="?"):
+        if self._compatibility_conditions:
+            return self._compatibility_conditions.repr_of_conditions_as_jit_debug(argrepr)
+        return []
+
+
 # ____________________________________________________________
 
 memory_error = MemoryError()

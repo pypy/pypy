@@ -182,6 +182,13 @@ class CompatibilityCondition(object):
         return "\n".join([cond.repr(argrepr) for cond in self.conditions])
 
 
+    def repr_of_conditions_as_jit_debug(self, argrepr="?"):
+        conditions = [cond.repr(argrepr) for cond in self.conditions]
+        # make fake jit-debug ops to print
+        for i in range(len(conditions)):
+            conditions[i] = "jit_debug('%s')" % (conditions[i], )
+        return conditions
+
 
 class Condition(object):
     def __init__(self, optimizer):

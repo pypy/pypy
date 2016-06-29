@@ -57,6 +57,7 @@ class Logger(object):
 
     def log_bridge(self, inputargs, operations, extra=None,
                    descr=None, ops_offset=None, memo=None):
+        from rpython.jit.metainterp.compile import GuardCompatibleDescr
         if extra == "noopt":
             debug_start("jit-log-noopt-bridge")
             debug_print("# bridge out of Guard",
@@ -80,11 +81,23 @@ class Logger(object):
             debug_stop("jit-log-compiling-bridge")
         else:
             debug_start("jit-log-opt-bridge")
-            debug_print("# bridge out of Guard",
-                        "0x%x" % r_uint(compute_unique_id(descr)),
-                        "with", len(operations), "ops")
-            logops = self._log_operations(inputargs, operations, ops_offset,
-                                          memo)
+            if have_debug_prints():
+                print_after_inputargs = ''
+                debug_print("# bridge out of Guard",
+                            "0x%x" % r_uint(compute_unique_id(descr)),
+                            "with", len(operations), "ops")
+                logops = self._make_log_operations(memo)
+                if isinstance(descr, GuardCompatibleDescr):
+                    if descr.fallback_jump_target == 0:
+                        # this means it's the last attached guard
+                        ccond = descr.other_compat_conditions[-1]
+                        argrepr = logops.repr_of_arg(
+                                inputargs[descr.failarg_index])
+                        conditions = ccond.repr_of_conditions_as_jit_debug(
+                                argrepr)
+                        print_after_inputargs = "\n".join(conditions)
+                logops = self._log_operations(inputargs, operations, ops_offset,
+                                              memo, logops, print_after_inputargs)
             debug_stop("jit-log-opt-bridge")
         return logops
 
@@ -105,11 +118,12 @@ class Logger(object):
         debug_stop("jit-abort-log")
         return logops
 
-    def _log_operations(self, inputargs, operations, ops_offset, memo=None):
+    def _log_operations(self, inputargs, operations, ops_offset, memo=None, logops=None, print_after_inputargs=''):
         if not have_debug_prints():
             return None
-        logops = self._make_log_operations(memo)
-        logops._log_operations(inputargs, operations, ops_offset, memo)
+        if logops is None:
+            logops = self._make_log_operations(memo)
+        logops._log_operations(inputargs, operations, ops_offset, memo, print_after_inputargs)
         return logops
 
     def _make_log_operations(self, memo):
@@ -229,18 +243,14 @@ class LogOperations(object):
             from rpython.jit.metainterp.compile import GuardCompatibleDescr
             descr = op.getdescr()
             assert isinstance(descr, GuardCompatibleDescr)
-            conditions = descr.repr_of_conditions(argreprs[0])
+            conditions = descr.repr_of_conditions_as_jit_debug(argreprs[0])
             if conditions:
-                # make fake jit-debug ops to print
-                conditions = conditions.split("\n")
-                for i in range(len(conditions)):
-                    conditions[i] = "jit_debug('%s')" % (conditions[i], )
                 fail_args += "\n" + "\n".join(conditions)
         return s_offset + res + op.getopname() + '(' + args + ')' + fail_args
 
 
     def _log_operations(self, inputargs, operations, ops_offset=None,
-                        memo=None):
+                        memo=None, print_after_inputargs=''):
         if not have_debug_prints():
             return
         if ops_offset is None:
@@ -248,6 +258,8 @@ class LogOperations(object):
         if inputargs is not None:
             args = ", ".join([self.repr_of_arg(arg) for arg in inputargs])
             debug_print('[' + args + ']')
+        if print_after_inputargs:
+            debug_print(print_after_inputargs)
         for i in range(len(operations)):
             #op = operations[i]
             debug_print(self.repr_of_resop(operations[i], ops_offset))
