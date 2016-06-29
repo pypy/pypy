@@ -50,8 +50,8 @@ def send_nextnid(unique_id):
 def send_watch(text, ok_flag):
     send_answer(ANSWER_WATCH, ok_flag, extra=text)
 
-def send_linecache(filename, linenum):
-    send_answer(ANSWER_LINECACHE, linenum, extra=filename)
+def send_linecache(filename, linenum, strip=True):
+    send_answer(ANSWER_LINECACHE, linenum, int(strip), extra=filename)
 
 def current_time():
     """For RPython debug commands: returns the current time."""

@@ -175,7 +175,11 @@ class ReplayProcess(object):
                 line = linecache.getline(msg.extra, msg.arg1)
                 if line == '':
                     line = '?'
-                sys.stdout.write(line.strip() + '\n')
+                if msg.arg2:    # strip?
+                    line = line.strip()
+                else:
+                    line = line.rstrip('\r\n')
+                sys.stdout.write(line + '\n')
                 sys.stdout.flush()
             elif msg.cmd == ANSWER_NEXTNID and pgroup is not None:
                 uid = msg.arg1
@@ -525,6 +529,7 @@ class ReplayProcessGroup(object):
     def show_locals(self):
         """Show the locals.
         """
+        self.active.tainted = True
         self.active.send(Message(CMD_LOCALS))
         self.active.print_text_answer()
 

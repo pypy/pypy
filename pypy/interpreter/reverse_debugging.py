@@ -36,7 +36,7 @@ def setup_revdb(space):
 
     revdb.register_debug_command(revdb.CMD_PRINT, lambda_print)
     revdb.register_debug_command(revdb.CMD_BACKTRACE, lambda_backtrace)
-    #revdb.register_debug_command(revdb.CMD_LOCALS, lambda_locals)
+    revdb.register_debug_command(revdb.CMD_LOCALS, lambda_locals)
     #revdb.register_debug_command(revdb.CMD_BREAKPOINTS, lambda_breakpoints)
     #revdb.register_debug_command(revdb.CMD_MOREINFO, lambda_moreinfo)
     revdb.register_debug_command("ALLOCATING", lambda_allocating)
@@ -110,6 +110,16 @@ def build_co_revdb_linestarts(code):
     code.co_revdb_linestarts = lstart
     return lstart
 
+def get_final_lineno(code):
+    lineno = code.co_firstlineno
+    lnotab = code.co_lnotab
+    p = 1
+    while p < len(lnotab):
+        line_incr = ord(lnotab[p])
+        lineno += line_incr
+        p += 2
+    return lineno
+
 
 def stop_point_at_start_of_line():
     if revdb.watch_save_state():
@@ -181,10 +191,17 @@ class W_RevDBOutput(W_Root):
                                          space.wrap('utf-8'))   # safe?
         revdb.send_output(space.str_w(w_buffer))
 
+def descr_get_softspace(space, revdb):
+    return space.wrap(revdb.softspace)
+def descr_set_softspace(space, revdb, w_newvalue):
+    revdb.softspace = space.int_w(w_newvalue)
+
 W_RevDBOutput.typedef = typedef.TypeDef(
     "revdb_output",
     write = gateway.interp2app(W_RevDBOutput.descr_write),
-    softspace = typedef.interp_attrproperty("softspace", W_RevDBOutput),
+    softspace = typedef.GetSetProperty(descr_get_softspace,
+                                       descr_set_softspace,
+                                       cls=W_RevDBOutput),
     )
 
 def revdb_displayhook(space, w_obj):
@@ -211,18 +228,21 @@ def get_revdb_displayhook(space):
     return space.wrap(gateway.interp2app(revdb_displayhook))
 
 
+def prepare_print_environment(space):
+    w_revdb_output = space.wrap(W_RevDBOutput(space))
+    w_displayhook = get_revdb_displayhook(space)
+    space.sys.setdictvalue(space, 'stdout', w_revdb_output)
+    space.sys.setdictvalue(space, 'stderr', w_revdb_output)
+    space.sys.setdictvalue(space, 'displayhook', w_displayhook)
+
 def command_print(cmd, expression):
     frame = fetch_cur_frame()
     if frame is None:
         return
     space = dbstate.space
     try:
+        prepare_print_environment(space)
         code = compile(expression, 'single')
-        w_revdb_output = space.wrap(W_RevDBOutput(space))
-        w_displayhook = get_revdb_displayhook(space)
-        space.sys.setdictvalue(space, 'stdout', w_revdb_output)
-        space.sys.setdictvalue(space, 'stderr', w_revdb_output)
-        space.sys.setdictvalue(space, 'displayhook', w_displayhook)
         try:
             code.exec_code(space,
                            frame.get_w_globals(),
@@ -254,24 +274,59 @@ def command_print(cmd, expression):
 
     except OperationError as e:
         revdb.send_output('%s\n' % e.errorstr(space, use_repr=True))
-        return
 lambda_print = lambda: command_print
 
 
-def show_frame(frame, lineno=0, indent=''):
+def file_and_lineno(frame, lineno):
     code = frame.getcode()
+    return 'File "%s", line %d in %s' % (
+        code.co_filename, lineno, code.co_name)
+
+def show_frame(frame, lineno=0, indent=''):
     if lineno == 0:
         lineno = frame.get_last_lineno()
-    revdb.send_output('%sFile "%s", line %d in %s\n%s  ' % (
-        indent, code.co_filename, lineno, code.co_name, indent))
-    revdb.send_linecache(code.co_filename, lineno)
+    revdb.send_output("%s%s\n%s  " % (
+        indent,
+        file_and_lineno(frame, lineno),
+        indent))
+    revdb.send_linecache(frame.getcode().co_filename, lineno)
+
+def display_function_part(frame, max_lines_before, max_lines_after):
+    code = frame.getcode()
+    if code.co_filename.startswith('<builtin>'):
+        return
+    first_lineno = code.co_firstlineno
+    current_lineno = frame.get_last_lineno()
+    final_lineno = get_final_lineno(code)
+    #
+    ellipsis_after = False
+    if first_lineno < current_lineno - max_lines_before - 1:
+        first_lineno = current_lineno - max_lines_before
+        revdb.send_output("...\n")
+    if final_lineno > current_lineno + max_lines_after + 1:
+        final_lineno = current_lineno + max_lines_after
+        ellipsis_after = True
+    #
+    for i in range(first_lineno, final_lineno + 1):
+        if i == current_lineno:
+            revdb.send_output("> ")
+        else:
+            revdb.send_output("  ")
+        revdb.send_linecache(code.co_filename, i, strip=False)
+    #
+    if ellipsis_after:
+        revdb.send_output("...\n")
 
 def command_backtrace(cmd, extra):
     frame = fetch_cur_frame()
     if frame is None:
         return
     if cmd.c_arg1 == 0:
-        show_frame(frame)
+        revdb.send_output("%s:\n" % (
+            file_and_lineno(frame, frame.get_last_lineno()),))
+        display_function_part(frame, max_lines_before=8, max_lines_after=5)
+    elif cmd.c_arg1 == 2:
+        display_function_part(frame, max_lines_before=1000,max_lines_after=1000)
     else:
         revdb.send_output("Current call stack (most recent call last):\n")
         frames = []
@@ -284,6 +339,34 @@ def command_backtrace(cmd, extra):
         while len(frames) > 0:
             show_frame(frames.pop(), indent='  ')
 lambda_backtrace = lambda: command_backtrace
+
+
+def command_locals(cmd, extra):
+    frame = fetch_cur_frame()
+    if frame is None:
+        return
+    space = dbstate.space
+    try:
+        prepare_print_environment(space)
+        space.appexec([space.wrap(space.sys),
+                       frame.getdictscope()], """(sys, locals):
+            lst = locals.keys()
+            lst.sort()
+            print 'Locals:'
+            for key in lst:
+                try:
+                    print '    %s =' % key,
+                    s = '%r' % locals[key]
+                    if len(s) > 140:
+                        s = s[:100] + '...' + s[-30:]
+                    print s
+                except:
+                    exc, val, tb = sys.exc_info()
+                    print '!<%s: %r>' % (exc, val)
+        """)
+    except OperationError as e:
+        revdb.send_output('%s\n' % e.errorstr(space, use_repr=True))
+lambda_locals = lambda: command_locals
 
 
 def command_allocating(uid, gcref):

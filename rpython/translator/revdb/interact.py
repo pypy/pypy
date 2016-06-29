@@ -6,7 +6,7 @@ from contextlib import contextmanager
 from rpython.translator.revdb.process import ReplayProcessGroup
 from rpython.translator.revdb.process import Breakpoint
 
-r_cmdline = re.compile(r"(\S+)\s*(.*)")
+r_cmdline = re.compile(r"([a-zA-Z0-9_]\S*|.)\s*(.*)")
 r_dollar_num = re.compile(r"\$(\d+)\b")
 
 
@@ -255,16 +255,21 @@ class RevDebugControl(object):
     command_bc = command_bcontinue
 
     def command_print(self, argument):
-        """Print an expression"""
+        """Print an expression or execute a line of code"""
         # locate which $NUM appear used in the expression
         nids = map(int, r_dollar_num.findall(argument))
         self.pgroup.print_cmd(argument, nids=nids)
     command_p = command_print
+    locals()['command_!'] = command_print
 
     def command_backtrace(self, argument):
         """Show the backtrace"""
         self.pgroup.show_backtrace(complete=1)
     command_bt = command_backtrace
+
+    def command_list(self, argument):
+        """Show the current function"""
+        self.pgroup.show_backtrace(complete=2)
 
     def command_locals(self, argument):
         """Show the locals"""
