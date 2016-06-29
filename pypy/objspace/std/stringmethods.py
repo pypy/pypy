@@ -36,7 +36,7 @@ class StringMethods(object):
         in frm is mapped to the byte at the same position in to.
         The bytes objects frm and to must be of the same length.
         """
-        from pypy.objspace.std.bytesobject import makebytesdata_w, wrapstr
+        from pypy.objspace.std.bytesobject import makebytesdata_w
 
         base_table = [chr(i) for i in range(256)]
         list_from = makebytesdata_w(space, w_from)
@@ -51,7 +51,7 @@ class StringMethods(object):
             char_to = list_to[i]
             base_table[pos_from] = char_to
 
-        return wrapstr(space, ''.join(base_table))
+        return space.newbytes(''.join(base_table))
 
     def _multi_chr(self, c):
         return c
