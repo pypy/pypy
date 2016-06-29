@@ -997,7 +997,7 @@ class AppTestStrategies(object):
     def test_empty_to_unicode(self):
         d = {}
         assert "EmptyDictStrategy" in self.get_strategy(d)
-        d["a"] = 1
+        d[u"a"] = 1
         assert "UnicodeDictStrategy" in self.get_strategy(d)
         assert d["a"] == 1
         #assert d[b"a"] == 1 # this works in py2, but not in py3

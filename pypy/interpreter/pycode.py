@@ -28,6 +28,7 @@ class BytecodeCorruption(Exception):
 def unpack_str_tuple(space,w_str_tuple):
     return [space.str_w(w_el) for w_el in space.unpackiterable(w_str_tuple)]
 
+
 # Magic numbers for the bytecode version in code objects.
 # See comments in pypy/module/imp/importing.
 cpython_magic, = struct.unpack("<i", imp.get_magic())   # host magic number

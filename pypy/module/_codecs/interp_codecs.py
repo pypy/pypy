@@ -39,7 +39,7 @@ class CodecState(object):
                 w_input = space.newbytes(input)
             else:
                 w_cls = space.w_UnicodeEncodeError
-                w_input = space.wrap(input)
+                w_input = space.newunicode(input)
             w_exc =  space.call_function(
                 w_cls,
                 space.wrap(encoding),

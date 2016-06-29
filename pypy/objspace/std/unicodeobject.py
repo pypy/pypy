@@ -283,7 +283,7 @@ class W_UnicodeObject(W_Root):
         if space.is_w(space.type(self), space.w_unicode):
             return self
         # Subtype -- return genuine unicode string with the same value.
-        return space.wrap(space.unicode_w(self))
+        return space.newunicode(space.unicode_w(self))
 
     def descr_hash(self, space):
         x = compute_hash(self._value)
