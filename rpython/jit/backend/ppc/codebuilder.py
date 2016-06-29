@@ -65,6 +65,7 @@ XX1 = Form("fvrT", "rA", "rB", "XO1")
 XX2 = Form("fvrT", "fvrB", "XO6")
 XX3 = Form("fvrT", "fvrA", "fvrB", "XO9")
 XX3_2 = Form("fvrT", "fvrA", "fvrB", "OE", "XO11")
+XX3_splat = Form("fvrT", "fvrA", "fvrB", "DM", "XO13", "OE")
 XV = Form("ivrT", "rA", "rB", "XO1")
 VX = Form("ivrT", "ivrA", "ivrB", "XO8")
 VC = Form("ivrT", "ivrA", "ivrB", "XO12", "OE")
@@ -652,6 +653,14 @@ class PPCVSXAssembler(object):
     vcmpequw = VC(4, XO12=134, OE=0)
     vcmpequdx = VC(4, XO12=199, OE=1)
     vcmpequd = VC(4, XO12=199, OE=0)
+
+    # permute/splat
+    # splat low of A, and low of B
+    xxspltdl = XX3_splat(60, XO13=10, OE=0, DM=0b00)
+    # splat high of A, and high of B
+    xxspltdh = XX3_splat(60, XO13=10, OE=0, DM=0b11)
+    # generic splat
+    xxspltd = XX3_splat(60, XO13=10, OE=0)
 
     # INTEGER
     # -------

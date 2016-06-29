@@ -44,8 +44,8 @@ fields = { # bit margins are *inclusive*! (and bit 0 is
     "TO":     ( 6, 10),
     "UIMM":   (16, 31),
     "fvrT":   (6,  31, 'unsigned', regname._V, 'overlap'),
-    "fvrA":   (11, 31, 'unsigned', regname._V, 'overlap'),
-    "fvrB":   (16, 31, 'unsigned', regname._V, 'overlap'),
+    "fvrA":   (11, 29, 'unsigned', regname._V, 'overlap'),
+    "fvrB":   (16, 30, 'unsigned', regname._V, 'overlap'),
     # low vector register T (low in a sense:
     # can only address 32 vector registers)
     "ivrT":   (6,  10, 'unsigned', regname._V),
@@ -66,6 +66,8 @@ fields = { # bit margins are *inclusive*! (and bit 0 is
     "XO10":   (26, 31),
     "XO11":   (22, 28),
     "XO12":   (22, 31),
+    "XO13":   (24, 28),
+    "DM":     (22, 23),
     "LL":     ( 9, 10),
     "SIM":    (11, 15),
 }

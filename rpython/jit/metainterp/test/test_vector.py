@@ -440,7 +440,7 @@ class VectorizeTests(object):
                 myjitdriver.jit_merge_point()
                 va[i] = va[i] + variable
                 i += 1
-            val = va[0]
+            val = va[d//2]
             lltype.free(va, flavor='raw')
             return val
         res = self.meta_interp(f, [60,58.4547])

@@ -479,7 +479,10 @@ class VectorAssembler(object):
             self.mc.load_imm(tloc, srcloc.value)
             self.mc.lxvd2x(res, 0, tloc.value)
         elif size == 8:
-            self.mc.vmr(res, srcloc.value, srcloc.value)
+            # splat the low of src to both slots in res
+            src = srcloc.value
+            #import pdb; pdb.set_trace()
+            self.mc.xxspltdl(res, src, src)
         else:
             notimplemented("[ppc/assembler] vec expand in this combination not supported")
 
@@ -804,7 +807,7 @@ class VectorRegalloc(object):
             l0 = self.expand_float(op.bytesize, arg)
             res = self.force_allocate_vector_reg(op)
         else:
-            l0 = self.ensure_vector_reg(arg)
+            l0 = self.ensure_reg(arg)
             res = self.force_allocate_vector_reg(op)
         return [res, l0]
 
