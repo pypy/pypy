@@ -91,15 +91,15 @@ class ReplayProcess(object):
 
     def expect(self, cmd, arg1=0, arg2=0, arg3=0, extra=""):
         msg = self.recv()
-        assert msg.cmd == cmd
+        assert msg.cmd == cmd, msg
         if arg1 is not Ellipsis:
-            assert msg.arg1 == arg1
+            assert msg.arg1 == arg1, msg
         if arg2 is not Ellipsis:
-            assert msg.arg2 == arg2
+            assert msg.arg2 == arg2, msg
         if arg3 is not Ellipsis:
-            assert msg.arg3 == arg3
+            assert msg.arg3 == arg3, msg
         if extra is not Ellipsis:
-            assert msg.extra == extra
+            assert msg.extra == extra, msg
         return msg
 
     def expect_ready(self):
@@ -207,6 +207,9 @@ class ReplayProcessGroup(object):
         child = ReplayProcess(initial_subproc.pid, s1)
         msg = child.expect(ANSWER_INIT, INIT_VERSION_NUMBER, Ellipsis)
         self.total_stop_points = msg.arg2
+        if self.total_stop_points == 0:
+            raise ValueError("%r does not contain any stop point" %
+                             (revdb_log_filename,))
         child.expect_ready()
         self.initial_uid = child.currently_created_objects
 

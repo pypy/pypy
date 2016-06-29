@@ -152,6 +152,9 @@ class ExecutionContext(object):
         Like bytecode_trace() but doesn't invoke any other events besides the
         trace function.
         """
+        if self.space.config.translation.reverse_debugger:
+            from pypy.interpreter.reverse_debugging import potential_stop_point
+            potential_stop_point(frame)
         if (frame.get_w_f_trace() is None or self.is_tracing or
             self.gettrace() is None):
             return

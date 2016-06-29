@@ -1,11 +1,11 @@
 import sys
 from rpython.rlib import revdb
 from rpython.rlib.debug import make_sure_not_resized
-from rpython.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rtyper.annlowlevel import cast_gcref_to_instance
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter import gateway, typedef
+from pypy.interpreter import gateway, typedef, pycode
 
 
 class DBState:
@@ -43,6 +43,90 @@ def setup_revdb(space):
     revdb.register_debug_command(revdb.CMD_ATTACHID, lambda_attachid)
     #revdb.register_debug_command(revdb.CMD_CHECKWATCH, lambda_checkwatch)
     #revdb.register_debug_command(revdb.CMD_WATCHVALUES, lambda_watchvalues)
+
+
+pycode.PyCode.co_revdb_linestarts = None   # or a string: a list of bits
+
+
+def potential_stop_point(frame):
+    if not we_are_translated():
+        return
+    #
+    # We only record a stop_point at every line, not every bytecode.
+    # Uses roughly the same algo as ExecutionContext.run_trace_func()
+    # to know where the line starts are, but tweaked for speed,
+    # avoiding the quadratic complexity when run N times with a large
+    # code object.  A potential difference is that we only record
+    # where the line starts are; the "We jumped backwards in the same
+    # line" case of run_trace_func() is not fully reproduced.
+    #
+    code = frame.pycode
+    lstart = code.co_revdb_linestarts
+    if lstart is None:
+        lstart = build_co_revdb_linestarts(code)
+    index = frame.last_instr
+    c = lstart[index >> 3]
+    if ord(c) & (1 << (index & 7)):
+        stop_point_at_start_of_line()
+
+def build_co_revdb_linestarts(code):
+    # inspired by findlinestarts() in the 'dis' standard module
+    assert len(code.co_code) > 0
+    bits = [False] * len(code.co_code)
+    bits[0] = True
+    lnotab = code.co_lnotab
+    addr = 0
+    p = 0
+    newline = True
+    while p + 1 < len(lnotab):
+        byte_incr = ord(lnotab[p])
+        line_incr = ord(lnotab[p+1])
+        if byte_incr:
+            if newline:
+                if addr < len(bits):
+                    bits[addr] = True
+                newline = False
+            addr += byte_incr
+        if line_incr:
+            newline = True
+        p += 2
+    if newline:
+        if addr < len(bits):
+            bits[addr] = True
+    #
+    byte_list = []
+    pending = 0
+    nextval = 1
+    for bit_is_set in bits:
+        if bit_is_set:
+            pending |= nextval
+        if nextval < 128:
+            nextval <<= 1
+        else:
+            byte_list.append(chr(pending))
+            pending = 0
+            nextval = 1
+    if nextval != 1:
+        byte_list.append(chr(pending))
+    lstart = ''.join(byte_list)
+    code.co_revdb_linestarts = lstart
+    return lstart
+
+
+def stop_point_at_start_of_line():
+    if revdb.watch_save_state():
+        any_watch_point = False
+        #for prog, watch_id, expected in dbstate.watch_progs:
+        #    any_watch_point = True
+        #    got = _watch_expr(prog)
+        #    if got != expected:
+        #        break
+        #else:
+        watch_id = -1
+        revdb.watch_restore_state(any_watch_point)
+        if watch_id != -1:
+            revdb.breakpoint(watch_id)
+    revdb.stop_point()
 
 
 def load_metavar(index):
@@ -113,7 +197,11 @@ def revdb_displayhook(space, w_obj):
         dbstate.printed_objects[uid] = w_obj
         revdb.send_nextnid(uid)   # outputs '$NUM = '
     space.setitem(space.builtin.w_dict, space.wrap('_'), w_obj)
-    revdb.send_output(space.str_w(space.repr(w_obj)))
+    # do str_w(repr()) only now: if w_obj was produced successfully,
+    # but its repr crashes because it tries to do I/O, then we already
+    # have it recorded in '_' and in '$NUM ='.
+    s = space.str_w(space.repr(w_obj))
+    revdb.send_output(s)
     revdb.send_output("\n")
 
 @specialize.memo()
