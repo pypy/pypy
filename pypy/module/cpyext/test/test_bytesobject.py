@@ -206,23 +206,23 @@ class TestBytes(BaseApiTest):
         lltype.free(ar, flavor='raw')
 
     def test_Concat(self, space, api):
-        ref = make_ref(space, space.wrapbytes('abc'))
+        ref = make_ref(space, space.newbytes('abc'))
         ptr = lltype.malloc(PyObjectP.TO, 1, flavor='raw')
         ptr[0] = ref
         prev_refcnt = ref.c_ob_refcnt
-        api.PyBytes_Concat(ptr, space.wrapbytes('def'))
+        api.PyBytes_Concat(ptr, space.newbytes('def'))
         assert ref.c_ob_refcnt == prev_refcnt - 1
         assert space.bytes_w(from_ref(space, ptr[0])) == 'abcdef'
         api.PyBytes_Concat(ptr, space.w_None)
         assert not ptr[0]
         api.PyErr_Clear()
         ptr[0] = lltype.nullptr(PyObject.TO)
-        api.PyBytes_Concat(ptr, space.wrapbytes('def')) # should not crash
+        api.PyBytes_Concat(ptr, space.newbytes('def')) # should not crash
         lltype.free(ptr, flavor='raw')
 
     def test_ConcatAndDel(self, space, api):
-        ref1 = make_ref(space, space.wrapbytes('abc'))
-        ref2 = make_ref(space, space.wrapbytes('def'))
+        ref1 = make_ref(space, space.newbytes('abc'))
+        ref2 = make_ref(space, space.newbytes('def'))
         ptr = lltype.malloc(PyObjectP.TO, 1, flavor='raw')
         ptr[0] = ref1
         prev_refcnf = ref2.c_ob_refcnt
@@ -231,7 +231,7 @@ class TestBytes(BaseApiTest):
         assert ref2.c_ob_refcnt == prev_refcnf - 1
         Py_DecRef(space, ptr[0])
         ptr[0] = lltype.nullptr(PyObject.TO)
-        ref2 = make_ref(space, space.wrapbytes('foo'))
+        ref2 = make_ref(space, space.newbytes('foo'))
         prev_refcnf = ref2.c_ob_refcnt
         api.PyBytes_ConcatAndDel(ptr, ref2) # should not crash
         assert ref2.c_ob_refcnt == prev_refcnf - 1
@@ -241,7 +241,7 @@ class TestBytes(BaseApiTest):
         bufp = lltype.malloc(rffi.CCHARPP.TO, 1, flavor='raw')
         lenp = lltype.malloc(Py_ssize_tP.TO, 1, flavor='raw')
 
-        w_text = space.wrapbytes("text")
+        w_text = space.newbytes("text")
         ref = make_ref(space, w_text)
         prev_refcnt = ref.c_ob_refcnt
         assert api.PyObject_AsCharBuffer(ref, bufp, lenp) == 0
@@ -253,17 +253,17 @@ class TestBytes(BaseApiTest):
         api.Py_DecRef(ref)
 
     def test_eq(self, space, api):
-        assert 1 == api._PyBytes_Eq(space.wrapbytes("hello"), space.wrapbytes("hello"))
-        assert 0 == api._PyBytes_Eq(space.wrapbytes("hello"), space.wrapbytes("world"))
+        assert 1 == api._PyBytes_Eq(space.newbytes("hello"), space.newbytes("hello"))
+        assert 0 == api._PyBytes_Eq(space.newbytes("hello"), space.newbytes("world"))
 
     def test_join(self, space, api):
-        w_sep = space.wrapbytes('<sep>')
-        w_seq = space.newtuple([space.wrapbytes('a'), space.wrapbytes('b')])
+        w_sep = space.newbytes('<sep>')
+        w_seq = space.newtuple([space.newbytes('a'), space.newbytes('b')])
         w_joined = api._PyBytes_Join(w_sep, w_seq)
         assert space.bytes_w(w_joined) == 'a<sep>b'
 
     def test_FromObject(self, space, api):
-        w_obj = space.wrapbytes("test")
+        w_obj = space.newbytes("test")
         assert space.eq_w(w_obj, api.PyBytes_FromObject(w_obj))
         w_obj = space.call_function(space.w_bytearray, w_obj)
         assert space.eq_w(w_obj, api.PyBytes_FromObject(w_obj))

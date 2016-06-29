@@ -58,8 +58,8 @@ class AppTestPosix:
         cls.w_path = space.wrap(str(path))
         cls.w_path2 = space.wrap(str(path2))
         cls.w_pdir = space.wrap(str(pdir))
-        cls.w_bytes_dir = space.wrapbytes(str(bytes_dir))
-        cls.w_esurrogate_dir = space.wrapbytes(str(esurrogate_dir))
+        cls.w_bytes_dir = space.newbytes(str(bytes_dir))
+        cls.w_esurrogate_dir = space.newbytes(str(esurrogate_dir))
         if hasattr(os, 'getuid'):
             cls.w_getuid = space.wrap(os.getuid())
             cls.w_geteuid = space.wrap(os.geteuid())

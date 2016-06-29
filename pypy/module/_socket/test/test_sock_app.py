@@ -166,7 +166,7 @@ def test_ntop_ipv6():
         ("\x00" * 10 + "\xff\xff\x01\x02\x03\x04", "::ffff:1.2.3.4"),
     ]
     for packed, ip in tests:
-        w_ip = space.appexec([w_socket, space.wrapbytes(packed)],
+        w_ip = space.appexec([w_socket, space.newbytes(packed)],
             "(_socket, packed): return _socket.inet_ntop(_socket.AF_INET6, packed)")
         if ip is not None:   # else don't check for the precise representation
             assert space.unwrap(w_ip) == ip
@@ -205,13 +205,13 @@ def test_getaddrinfo():
     host = b"localhost"
     port = 25
     info = socket.getaddrinfo(host, port)
-    w_l = space.appexec([w_socket, space.wrapbytes(host), space.wrap(port)],
+    w_l = space.appexec([w_socket, space.newbytes(host), space.wrap(port)],
                         "(_socket, host, port): return _socket.getaddrinfo(host, port)")
     assert space.unwrap(w_l) == info
     w_l = space.appexec([w_socket, space.wrap(host), space.wrap(port)],
                         "(_socket, host, port): return _socket.getaddrinfo(host, port)")
     assert space.unwrap(w_l) == info
-    w_l = space.appexec([w_socket, space.wrapbytes(host), space.wrap('smtp')],
+    w_l = space.appexec([w_socket, space.newbytes(host), space.wrap('smtp')],
                         "(_socket, host, port): return _socket.getaddrinfo(host, port)")
     assert space.unwrap(w_l) == socket.getaddrinfo(host, 'smtp')
 

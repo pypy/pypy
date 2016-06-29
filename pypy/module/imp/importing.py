@@ -350,7 +350,7 @@ def read_compiled_module(space, cpathname, strbuf):
     """ Read a code object from a file and check it for validity """
 
     w_marshal = space.getbuiltinmodule('marshal')
-    w_code = space.call_method(w_marshal, 'loads', space.wrapbytes(strbuf))
+    w_code = space.call_method(w_marshal, 'loads', space.newbytes(strbuf))
     if not isinstance(w_code, Code):
         raise oefmt(space.w_ImportError, "Non-code object in %s", cpathname)
     return w_code

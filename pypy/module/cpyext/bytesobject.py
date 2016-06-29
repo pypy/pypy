@@ -129,14 +129,14 @@ def bytes_dealloc(space, py_obj):
 def PyBytes_FromStringAndSize(space, char_p, length):
     if char_p:
         s = rffi.charpsize2str(char_p, length)
-        return make_ref(space, space.wrapbytes(s))
+        return make_ref(space, space.newbytes(s))
     else:
         return rffi.cast(PyObject, new_empty_str(space, length))
 
 @cpython_api([CONST_STRING], PyObject)
 def PyBytes_FromString(space, char_p):
     s = rffi.charp2str(char_p)
-    return space.wrapbytes(s)
+    return space.newbytes(s)
 
 @cpython_api([PyObject], rffi.CCHARP, error=0)
 def PyBytes_AsString(space, ref):
@@ -270,4 +270,4 @@ def PyBytes_FromObject(space, w_obj):
     if space.is_w(space.type(w_obj), space.w_bytes):
         return w_obj
     buffer = space.buffer_w(w_obj, space.BUF_FULL_RO)
-    return space.wrapbytes(buffer.as_str())
+    return space.newbytes(buffer.as_str())

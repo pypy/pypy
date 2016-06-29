@@ -19,7 +19,7 @@ class AppTestObject:
             return space.wrap(space.unicode_w(w_obj))
         cls.w_unwrap_wrap_unicode = space.wrap(gateway.interp2app(w_unwrap_wrap_unicode))
         def w_unwrap_wrap_bytes(space, w_obj):
-            return space.wrapbytes(space.bytes_w(w_obj))
+            return space.newbytes(space.bytes_w(w_obj))
         cls.w_unwrap_wrap_bytes = space.wrap(gateway.interp2app(w_unwrap_wrap_bytes))
 
     def test_hash_builtin(self):
