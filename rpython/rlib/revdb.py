@@ -18,6 +18,7 @@ CMD_MOREINFO    = 5
 CMD_ATTACHID    = 6
 CMD_CHECKWATCH  = 7
 CMD_WATCHVALUES = 8
+ANSWER_LINECACHE= 19
 ANSWER_TEXT     = 20
 ANSWER_MOREINFO = 21
 ANSWER_NEXTNID  = 22
@@ -48,6 +49,9 @@ def send_nextnid(unique_id):
 
 def send_watch(text, ok_flag):
     send_answer(ANSWER_WATCH, ok_flag, extra=text)
+
+def send_linecache(filename, linenum):
+    send_answer(ANSWER_LINECACHE, linenum, extra=filename)
 
 def current_time():
     """For RPython debug commands: returns the current time."""

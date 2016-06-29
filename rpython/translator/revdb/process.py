@@ -1,4 +1,5 @@
 import sys, os, struct, socket, errno, subprocess
+import linecache
 from rpython.translator.revdb import ancillary
 from rpython.translator.revdb.message import *
 
@@ -170,6 +171,12 @@ class ReplayProcess(object):
             elif msg.cmd == ANSWER_READY:
                 self.update_times(msg)
                 break
+            elif msg.cmd == ANSWER_LINECACHE:
+                line = linecache.getline(msg.extra, msg.arg1)
+                if not line.endswith('\n'):
+                    line += '\n'
+                sys.stdout.write(line)
+                sys.stdout.flush()
             elif msg.cmd == ANSWER_NEXTNID and pgroup is not None:
                 uid = msg.arg1
                 if uid < pgroup.initial_uid:
@@ -507,6 +514,8 @@ class ReplayProcessGroup(object):
     def show_backtrace(self, complete=1):
         """Show the backtrace.
         """
+        if complete:
+            self.active.tainted = True
         self.active.send(Message(CMD_BACKTRACE, complete))
         self.active.print_text_answer()
 

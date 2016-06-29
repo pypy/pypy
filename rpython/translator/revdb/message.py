@@ -47,6 +47,10 @@ ANSWER_AT_END     = -23
 # if breakpoint_mode=='i': ignored, never sent
 ANSWER_BREAKPOINT = -24
 
+# print one line of a file to the console, for CMD_PRINT
+#    Message(ANSWER_LINECACHE, linenum, extra=filename)
+ANSWER_LINECACHE  = 19
+
 # print text to the console, for CMD_PRINT and others
 #    Message(ANSWER_TEXT, extra=text)
 ANSWER_TEXT       = 20
