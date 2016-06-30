@@ -61,7 +61,7 @@ class TestAssemble(object):
     @vec_asmtest(memory=[(16, signed, [0,0])])
     def test_unaligned_load(self, a, mem):
         a.load_imm(r15, mem)
-        a.lxvd2x(vr0.value, 0, r15.value)
+        a.lxvd2x(0, 0, r15.value)
         a.blr()
         return [ (0, signed, mem), (0, signed, mem+8) ]
 
@@ -69,8 +69,27 @@ class TestAssemble(object):
     def test_unaligned_load_and_store(self, a, mem_l, mem_t):
         a.load_imm(r15, mem_l)
         a.load_imm(r14, mem_t)
-        a.lxvd2x(vr0.value, 0, r15.value)
-        a.stxvd2x(vr0.value, 0, r14.value)
+        a.lxvd2x(0, 0, r15.value)
+        a.stxvd2x(0, 0, r14.value)
         a.blr()
         return [ (1, signed, mem_t), (2, signed, mem_t+8) ]
+
+    def test_xx3_instr(self):
+        a = PPCBuilder()
+        def assign_to_self(v):
+            self.last_value = v
+        a.emit = assign_to_self
+
+        a.xxspltdl(32, 32, 32)
+        #                                               tttttaaaaabbbbb        abt
+        assert hex(int(self.last_value)) == hex(0b11110000000000000000000001010111)
+        a.xxspltdl(32, 2, 2)
+        #                                               tttttaaaaabbbbb        abt
+        assert hex(int(self.last_value)) == hex(0b11110000000000100001000001010001)
+        a.xxspltdl(0, 63, 0)
+        #                                               tttttaaaaabbbbb        abt
+        assert hex(int(self.last_value)) == hex(0b11110000000111110000000001010100)
+        a.xxspltdl(0, 0, 63)
+        #                                               tttttaaaaabbbbb        abt
+        assert hex(int(self.last_value)) == hex(0b11110000000000001111100001010010)
 
