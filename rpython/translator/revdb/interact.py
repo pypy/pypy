@@ -121,26 +121,32 @@ class RevDebugControl(object):
         print ', '.join(lst)
 
     def _bp_kind(self, num):
-        name = self.pgroup.all_breakpoints.num2name.get(num, '??')
-        if name[0] == 'B':
+        break_at = self.pgroup.all_breakpoints.num2break.get(num, '??')
+        if break_at[0] == 'B':
             kind = 'breakpoint'
-            name = name[1:]
-        elif name[0] == 'W':
+            name = break_at[4:]
+        elif break_at[0] == 'W':
             kind = 'watchpoint'
             name = self.pgroup.all_breakpoints.sources.get(num, '??')
         else:
             kind = '?????point'
-            name = repr(name)
+            name = repr(break_at)
         return kind, name
 
-    def _bp_new(self, break_at, nids=None, source_expr=None):
+    def _bp_new(self, source_expr, break_code, break_at, nids=None):
         b = self.pgroup.edit_breakpoints()
         new = 1
-        while new in b.num2name:
+        while new in b.num2break:
             new += 1
-        b.num2name[new] = break_at
+        if len(break_at) > 0xFFFFFF:
+            raise OverflowError("break/watchpoint too complex")
+        b.num2break[new] = (break_code +
+                            chr(len(break_at) & 0xFF) +
+                            chr((len(break_at) >> 8) & 0xFF) +
+                            chr(len(break_at) >> 16) +
+                            break_at)
         b.sources[new] = source_expr
-        if break_at.startswith('W'):
+        if break_code == 'W':
             b.watchvalues[new] = ''
             if nids:
                 b.watchuids[new] = self.pgroup.nids_to_uids(nids)
@@ -149,7 +155,7 @@ class RevDebugControl(object):
 
     def cmd_info_breakpoints(self):
         """List current breakpoints and watchpoints"""
-        lst = self.pgroup.all_breakpoints.num2name.keys()
+        lst = self.pgroup.all_breakpoints.num2break.keys()
         if lst:
             for num in sorted(lst):
                 kind, name = self._bp_kind(num)
@@ -179,7 +185,7 @@ class RevDebugControl(object):
 
     def hit_breakpoint(self, b, backward=False):
         if b.num != -1:
-            kind, name = self._bp_kind(d.num)
+            kind, name = self._bp_kind(b.num)
             self.print_extra_pending_info = 'Hit %s %d: %s' % (kind, b.num,
                                                                name)
         elif backward:
@@ -304,18 +310,18 @@ class RevDebugControl(object):
         if not argument:
             print "Break where?"
             return
-        self._bp_new('B' + argument)
+        self._bp_new(argument, 'B', argument)
     command_b = command_break
 
     def command_delete(self, argument):
         """Delete a breakpoint/watchpoint"""
         arg = int(argument)
         b = self.pgroup.edit_breakpoints()
-        if arg not in b.num2name:
+        if arg not in b.num2break:
             print "No breakpoint/watchpoint number %d" % (arg,)
         else:
             kind, name = self._bp_kind(arg)
-            b.num2name.pop(arg, '')
+            b.num2break.pop(arg, '')
             b.sources.pop(arg, '')
             b.watchvalues.pop(arg, '')
             b.watchuids.pop(arg, '')
@@ -340,5 +346,5 @@ class RevDebugControl(object):
             print 'Watchpoint not added'
             return
         #
-        self._bp_new('W' + compiled_code, nids=nids, source_expr=argument)
+        self._bp_new(argument, 'W', compiled_code, nids=nids)
         self.pgroup.update_watch_values()

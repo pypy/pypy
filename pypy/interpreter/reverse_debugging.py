@@ -6,6 +6,7 @@ from rpython.rtyper.annlowlevel import cast_gcref_to_instance
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter import gateway, typedef, pycode, pytraceback
+from pypy.module.marshal import interp_marshal
 
 
 class DBState:
@@ -41,8 +42,9 @@ def setup_revdb(space):
     revdb.register_debug_command(revdb.CMD_STACKID, lambda_stackid)
     revdb.register_debug_command("ALLOCATING", lambda_allocating)
     revdb.register_debug_command(revdb.CMD_ATTACHID, lambda_attachid)
-    #revdb.register_debug_command(revdb.CMD_CHECKWATCH, lambda_checkwatch)
-    #revdb.register_debug_command(revdb.CMD_WATCHVALUES, lambda_watchvalues)
+    revdb.register_debug_command(revdb.CMD_COMPILEWATCH, lambda_compilewatch)
+    revdb.register_debug_command(revdb.CMD_CHECKWATCH, lambda_checkwatch)
+    revdb.register_debug_command(revdb.CMD_WATCHVALUES, lambda_watchvalues)
 
 
 pycode.PyCode.co_revdb_linestarts = None   # or a string: an array of bits
@@ -138,13 +140,13 @@ def get_final_lineno(code):
 def stop_point_at_start_of_line():
     if revdb.watch_save_state():
         any_watch_point = False
-        #for prog, watch_id, expected in dbstate.watch_progs:
-        #    any_watch_point = True
-        #    got = _watch_expr(prog)
-        #    if got != expected:
-        #        break
-        #else:
-        watch_id = -1
+        for prog, watch_id, expected in dbstate.watch_progs:
+            any_watch_point = True
+            got = _run_watch(prog)
+            if got != expected:
+                break
+        else:
+            watch_id = -1
         revdb.watch_restore_state(any_watch_point)
         if watch_id != -1:
             revdb.breakpoint(watch_id)
@@ -274,6 +276,7 @@ def command_print(cmd, expression):
                         break
                     show_frame(tb.frame, tb.get_lineno(), indent='  ')
                     tb = tb.next
+            revdb.send_output('%s\n' % operationerr.errorstr(space))
 
             # set the sys.last_xxx attributes
             w_type = operationerr.w_type
@@ -282,9 +285,6 @@ def command_print(cmd, expression):
             space.setitem(space.sys.w_dict, space.wrap('last_type'), w_type)
             space.setitem(space.sys.w_dict, space.wrap('last_value'), w_value)
             space.setitem(space.sys.w_dict, space.wrap('last_traceback'), w_tb)
-
-            # re-raise, catch me in the outside "except OperationError"
-            raise
 
     except OperationError as e:
         revdb.send_output('%s\n' % e.errorstr(space, use_repr=True))
@@ -384,25 +384,32 @@ lambda_locals = lambda: command_locals
 
 
 def command_breakpoints(cmd, extra):
+    space = dbstate.space
     dbstate.breakpoint_stack_id = cmd.c_arg1
     funcnames = None
-    for i, name in enumerate(extra.split('\x00')):
-        if name:
-            if name[0] == 'B':
-                if funcnames is None:
-                    funcnames = {}
-                funcnames[name[1:]] = i
-            elif name[0] == 'W':
-                pass
-                ## try:
-                ##     prog = compiler.parse(dbstate.space, name[1:])
-                ## except DuhtonError, e:
-                ##     revdb.send_output('compiling "%s": %s\n' %
-                ##                       (name[1:], e.msg))
-                ## else:
-                ##     watch_progs.append((prog, i, ''))
+    watch_progs = []
+    for i, kind, name in revdb.split_breakpoints_arg(extra):
+        if kind == 'B':
+            if funcnames is None:
+                funcnames = {}
+            funcnames[name] = i
+        elif kind == 'W':
+            code = interp_marshal.loads(space, space.wrap(name))
+            watch_progs.append((code, i, ''))
     dbstate.breakpoint_funcnames = funcnames
+    dbstate.watch_progs = watch_progs[:]
 lambda_breakpoints = lambda: command_breakpoints
+
+
+def command_watchvalues(cmd, extra):
+    expected = extra.split('\x00')
+    for j in range(len(dbstate.watch_progs)):
+        prog, i, _ = dbstate.watch_progs[j]
+        if i >= len(expected):
+            raise IndexError
+        dbstate.watch_progs[j] = prog, i, expected[i]
+lambda_watchvalues = lambda: command_watchvalues
+
 
 def command_stackid(cmd, extra):
     frame = fetch_cur_frame()
@@ -440,3 +447,38 @@ def command_attachid(cmd, extra):
         w_obj = dbstate.w_future
     set_metavar(index_metavar, w_obj)
 lambda_attachid = lambda: command_attachid
+
+
+def command_compilewatch(cmd, expression):
+    space = dbstate.space
+    try:
+        code = compile(expression, 'eval')
+        marshalled_code = space.str_w(interp_marshal.dumps(
+            space, space.wrap(code),
+            space.wrap(interp_marshal.Py_MARSHAL_VERSION)))
+    except OperationError as e:
+        revdb.send_watch(e.errorstr(space), ok_flag=0)
+    else:
+        revdb.send_watch(marshalled_code, ok_flag=1)
+lambda_compilewatch = lambda: command_compilewatch
+
+def command_checkwatch(cmd, marshalled_code):
+    space = dbstate.space
+    try:
+        code = interp_marshal.loads(space, space.wrap(marshalled_code))
+        w_res = code.exec_code(space, space.builtin, space.builtin)
+        text = space.str_w(space.repr(w_res))
+    except OperationError as e:
+        revdb.send_watch(e.errorstr(space), ok_flag=0)
+    else:
+        revdb.send_watch(text, ok_flag=1)
+lambda_checkwatch = lambda: command_checkwatch
+
+def _run_watch(code):
+    space = dbstate.space
+    try:
+        w_res = code.exec_code(space, space.builtin, space.builtin)
+        text = space.str_w(space.repr(w_res))
+    except OperationError as e:
+        return e.errorstr(space)
+    return text

@@ -16,8 +16,8 @@ class Breakpoint(Exception):
 class AllBreakpoints(object):
 
     def __init__(self):
-        self.num2name = {}     # {small number: break/watchpoint}
-        self.sources = {}      # {small number: src text or None}
+        self.num2break = {}    # {small number: encoded break/watchpoint}
+        self.sources = {}      # {small number: src text}
         self.watchvalues = {}  # {small number: resulting text}
         self.watchuids = {}    # {small number: [uid...]}
         self.stack_id = 0      # breaks when leaving/entering a frame from/to
@@ -25,11 +25,11 @@ class AllBreakpoints(object):
 
     def __repr__(self):
         return 'AllBreakpoints(%r, %r, %r, %r)' % (
-            self.num2name, self.watchvalues, self.watchuids,
+            self.num2break, self.watchvalues, self.watchuids,
             self.stack_id)
 
     def compare(self, other):
-        if (self.num2name == other.num2name and
+        if (self.num2break == other.num2break and
             self.stack_id == other.stack_id):
             if self.watchvalues == other.watchvalues:
                 return 2     # completely equal
@@ -39,11 +39,11 @@ class AllBreakpoints(object):
             return 0     # different
 
     def is_empty(self):
-        return len(self.num2name) == 0 and self.stack_id == 0
+        return len(self.num2break) == 0 and self.stack_id == 0
 
     def duplicate(self):
         a = AllBreakpoints()
-        a.num2name.update(self.num2name)
+        a.num2break.update(self.num2break)
         a.stack_id = self.stack_id
         return a
 
@@ -362,24 +362,24 @@ class ReplayProcessGroup(object):
 
         # update the breakpoints/watchpoints
         self.active.breakpoints_cache = None
-        num2name = self.all_breakpoints.num2name
-        N = (max(num2name) + 1) if num2name else 0
+        num2break = self.all_breakpoints.num2break
+        N = (max(num2break) + 1) if num2break else 0
         if cmp == 0:
-            flat = [num2name.get(n, '') for n in range(N)]
+            flat = [num2break.get(n, '\x00') for n in range(N)]
             arg1 = self.all_breakpoints.stack_id
-            extra = '\x00'.join(flat)
+            extra = ''.join(flat)
             self.active.send(Message(CMD_BREAKPOINTS, arg1, extra=extra))
             self.active.expect_ready()
         else:
             assert cmp == 1
 
         # update the watchpoint values
-        if any(name.startswith('W') for name in num2name.values()):
+        if any(name.startswith('W') for name in num2break.values()):
             watchvalues = self.all_breakpoints.watchvalues
             flat = []
             for n in range(N):
                 text = ''
-                name = num2name.get(n, '')
+                name = num2break.get(n, '')
                 if name.startswith('W'):
                     text = watchvalues[n]
                 flat.append(text)
@@ -392,13 +392,13 @@ class ReplayProcessGroup(object):
     def update_watch_values(self):
         self._update_watchpoints_uids()
         seen = set()
-        for num, name in self.all_breakpoints.num2name.items():
+        for num, name in self.all_breakpoints.num2break.items():
             if name.startswith('W'):
-                _, text = self.check_watchpoint_expr(name[1:])
+                _, text = self.check_watchpoint_expr(name[4:])
                 if text != self.all_breakpoints.watchvalues[num]:
                     #print self.active.pid
                     print 'updating watchpoint value: %s => %s' % (
-                        name[1:], text)
+                        self.all_breakpoints.sources[num], text)
                     self.all_breakpoints.watchvalues[num] = text
                 seen.add(num)
         assert set(self.all_breakpoints.watchvalues) == seen

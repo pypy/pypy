@@ -118,6 +118,25 @@ def watch_restore_state(any_watch_point):
     llop.revdb_watch_restore_state(lltype.Void, any_watch_point)
 
 
+def split_breakpoints_arg(breakpoints):
+    # RPython generator to help in splitting the string arg in CMD_BREAKPOINTS
+    n = 0
+    i = 0
+    while i < len(breakpoints):
+        kind = breakpoints[i]
+        i += 1
+        if kind != '\x00':
+            length = (ord(breakpoints[i]) |
+                      (ord(breakpoints[i + 1]) << 8) |
+                      (ord(breakpoints[i + 2]) << 16))
+            assert length >= 0
+            i += 3
+            yield n, kind, breakpoints[i : i + length]
+            i += length
+        n += 1
+    assert i == len(breakpoints)
+
+
 # ____________________________________________________________
 
 
