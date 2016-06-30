@@ -11,7 +11,7 @@ from pypy.interpreter import gateway, typedef, pycode, pytraceback
 class DBState:
     extend_syntax_with_dollar_num = False
     breakpoint_stack_id = 0
-    breakpoint_funcnames = []
+    breakpoint_funcnames = None
     printed_objects = {}
     metavars = []
     watch_progs = []
@@ -31,7 +31,6 @@ def setup_revdb(space):
     dbstate.space = space
     dbstate.w_future = space.w_Ellipsis    # a random prebuilt object
 
-    make_sure_not_resized(dbstate.breakpoint_funcnames)
     make_sure_not_resized(dbstate.watch_progs)
     make_sure_not_resized(dbstate.metavars)
 
@@ -50,6 +49,10 @@ pycode.PyCode.co_revdb_linestarts = None   # or a string: an array of bits
 
 
 def enter_call(caller_frame, callee_frame):
+    if dbstate.breakpoint_funcnames is not None:
+        name = callee_frame.getcode().co_name
+        if name in dbstate.breakpoint_funcnames:
+            revdb.breakpoint(dbstate.breakpoint_funcnames[name])
     if dbstate.breakpoint_stack_id != 0:
         if dbstate.breakpoint_stack_id == revdb.get_unique_id(caller_frame):
             revdb.breakpoint(-1)
@@ -382,6 +385,23 @@ lambda_locals = lambda: command_locals
 
 def command_breakpoints(cmd, extra):
     dbstate.breakpoint_stack_id = cmd.c_arg1
+    funcnames = None
+    for i, name in enumerate(extra.split('\x00')):
+        if name:
+            if name[0] == 'B':
+                if funcnames is None:
+                    funcnames = {}
+                funcnames[name[1:]] = i
+            elif name[0] == 'W':
+                pass
+                ## try:
+                ##     prog = compiler.parse(dbstate.space, name[1:])
+                ## except DuhtonError, e:
+                ##     revdb.send_output('compiling "%s": %s\n' %
+                ##                       (name[1:], e.msg))
+                ## else:
+                ##     watch_progs.append((prog, i, ''))
+    dbstate.breakpoint_funcnames = funcnames
 lambda_breakpoints = lambda: command_breakpoints
 
 def command_stackid(cmd, extra):
