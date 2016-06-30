@@ -150,8 +150,7 @@ class TestRecording(BaseRecordingTests):
         assert match
         hash_value = int(match.group(1))
         rdb = self.fetch_rdb([self.exename, 'Xx'])
-        # compute_identity_hash() call, but only the first one
-        x = rdb.next(); assert intmask(x) == intmask(hash_value)
+        # compute_identity_hash() doesn't record anything
         # write() call
         x = rdb.next(); assert x == len(out)
         x = rdb.next('i'); assert x == 0      # errno

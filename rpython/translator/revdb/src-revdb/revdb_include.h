@@ -35,12 +35,19 @@ RPY_EXTERN void rpy_reverse_db_teardown(void);
             "%s:%d: %0*llx\n",                                          \
             __FILE__, __LINE__, 2 * sizeof(_e),                         \
             ((unsigned long long)_e) & ((2ULL << (8*sizeof(_e)-1)) - 1))
+#endif
+
+#if 1    /* enable to print all allocs to stderr */
 #  define _RPY_REVDB_PRUID()                                    \
     fprintf(stderr,                                             \
             "%s:%d: obj %llu\n",                                \
             __FILE__, __LINE__, (unsigned long long) uid)
-#else
+#endif
+
+#ifndef _RPY_REVDB_PRINT
 #  define _RPY_REVDB_PRINT(mode)  /* nothing */
+#endif
+#ifndef _RPY_REVDB_PRUID
 #  define _RPY_REVDB_PRUID()      /* nothing */
 #endif
 

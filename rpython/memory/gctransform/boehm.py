@@ -29,7 +29,7 @@ class BoehmGCTransformer(GCTransformer):
         ll_malloc_varsize = mh.ll_malloc_varsize
 
         fields = [("hash", lltype.Signed)]
-        if translator.config.translation.reverse_debugger:
+        if translator and translator.config.translation.reverse_debugger:
             fields.append(("uid", lltype.SignedLongLong))
         self.HDR = lltype.Struct("header", *fields)
         HDRPTR = lltype.Ptr(self.HDR)
@@ -74,11 +74,21 @@ class BoehmGCTransformer(GCTransformer):
         # XXX same behavior for zero=True: in theory that's wrong
         if TYPE._is_atomic():
             funcptr = self.malloc_fixedsize_atomic_ptr
+            opname = 'boehm_malloc_atomic'
         else:
             funcptr = self.malloc_fixedsize_ptr
-        v_raw = hop.genop("direct_call",
-                          [funcptr, c_size],
-                          resulttype=llmemory.GCREF)
+            opname = 'boehm_malloc'
+        tr = self.translator
+        if tr and tr.config.translation.reverse_debugger:
+            # Don't check for NULLs after the operation (it crashes anyway
+            # with an explicit error message in case of out-of-memory).
+            # Avoiding a direct_call lets _RPY_REVDB_PRUID() prints the
+            # right file/line, at least for fixed-size mallocs.
+            v_raw = hop.genop(opname, [c_size], resulttype=llmemory.GCREF)
+        else:
+            v_raw = hop.genop("direct_call",
+                              [funcptr, c_size],
+                              resulttype=llmemory.GCREF)
         finalizer_ptr = self.finalizer_funcptr_for_type(TYPE)
         if finalizer_ptr:
             c_finalizer_ptr = Constant(finalizer_ptr, self.FINALIZER_PTR)

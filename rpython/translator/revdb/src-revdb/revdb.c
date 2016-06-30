@@ -279,20 +279,13 @@ Signed rpy_reverse_db_identityhash(struct pypy_header0 *obj)
 {
     /* Boehm only */
     if (obj->h_hash == 0) {
-        Signed h;
-        if (flag_io_disabled != FID_REGULAR_MODE) {
-            /* This is when running debug commands.  Don't cache the
-               hash on the object at all. */
-            return ~((Signed)obj);
-        }
-        /* When recording, we get the hash the normal way from the
-           pointer casted to an int, and record that.  When replaying,
-           we read it from the record.  In both cases, we cache the
-           hash in the object, so that we record/replay only once per
-           object. */
-        RPY_REVDB_EMIT(h = ~((Signed)obj);, Signed _e, h);
-        assert(h != 0);
-        obj->h_hash = h;
+        /* We never need to record anything: if h_hash is zero (which
+           is the case for all newly allocated objects), then we just
+           copy h_uid.  This gives a stable answer.  This would give
+           0 for all prebuilt objects, but these should not have a
+           null h_hash anyway.
+        */
+        obj->h_hash = obj->h_uid;
     }
     return obj->h_hash;
 }
@@ -853,16 +846,18 @@ static void execute_rpy_function(rpy_revdb_command_fn func,
 static void check_at_end(uint64_t stop_points)
 {
     char dummy[1];
+    if (rpy_revdb.buf_p != rpy_revdb.buf_limit - 1 ||
+            read(rpy_rev_fileno, dummy, 1) > 0) {
+        fprintf(stderr, "RevDB file error: corrupted file (too much data or, "
+                        "more likely, non-deterministic run, e.g. a "
+                        "watchpoint with side effects)\n");
+        exit(1);
+    }
     if (stop_points != rpy_revdb.stop_point_seen) {
         fprintf(stderr, "Bad number of stop points "
                 "(seen %lld, recorded %lld)\n",
                 (long long)rpy_revdb.stop_point_seen,
                 (long long)stop_points);
-        exit(1);
-    }
-    if (rpy_revdb.buf_p != rpy_revdb.buf_limit - 1 ||
-            read(rpy_rev_fileno, dummy, 1) > 0) {
-        fprintf(stderr, "RevDB file error: corrupted file (too much data?)\n");
         exit(1);
     }
     if (stop_points != total_stop_points) {
@@ -971,6 +966,7 @@ static void command_future_ids(rpy_revdb_command_t *cmd, char *extra)
         memcpy(future_ids, extra, cmd->extra_size);
         future_ids[cmd->extra_size / sizeof(uint64_t)] = 0;
         uid_break = *future_ids;
+        attach_gdb();
     }
     future_next_id = future_ids;
 }
@@ -1168,10 +1164,17 @@ uint64_t rpy_reverse_db_unique_id_break(void *new_object)
     return uid;
 }
 
+struct destructor_s {
+    void *d_obj;
+    void (*d_callback)(void *);
+};
+
 static int _ftree_compare(const void *obj1, const void *obj2)
 {
-    const struct pypy_header0 *h1 = obj1;
-    const struct pypy_header0 *h2 = obj2;
+    const struct destructor_s *d1 = obj1;
+    const struct destructor_s *d2 = obj2;
+    struct pypy_header0 *h1 = d1->d_obj;
+    struct pypy_header0 *h2 = d2->d_obj;
     if (h1->h_uid < h2->h_uid)
         return -1;
     if (h1->h_uid == h2->h_uid)
@@ -1180,26 +1183,60 @@ static int _ftree_compare(const void *obj1, const void *obj2)
         return 1;
 }
 
+static void _ftree_add(void **tree, void *obj, void (*callback)(void *))
+{
+    /* Note: we always allocate an indirection through a 
+       struct destructor_s, so that Boehm knows that 'obj' must be
+       kept alive. */
+    struct destructor_s *node, **item;
+    node = GC_MALLOC_UNCOLLECTABLE(sizeof(struct destructor_s));
+    node->d_obj = obj;
+    node->d_callback = callback;
+    item = tsearch(node, tree, _ftree_compare);
+    if (item == NULL) {
+        fprintf(stderr, "_ftree_add: out of memory\n");
+        exit(1);
+    }
+    if (*item != node) {
+        fprintf(stderr, "_ftree_add: duplicate object\n");
+        exit(1);
+    }
+}
+
+static struct pypy_header0 *_ftree_pop(void **tree, uint64_t uid,
+                                       void (**callback_out)(void *))
+{
+    struct destructor_s d_dummy, *entry, **item;
+    struct pypy_header0 o_dummy, *result;
+
+    d_dummy.d_obj = &o_dummy;
+    o_dummy.h_uid = uid;
+    item = tfind(&d_dummy, tree, _ftree_compare);
+    if (item == NULL) {
+        fprintf(stderr, "_ftree_pop: object not found\n");
+        exit(1);
+    }
+    entry = *item;
+    result = entry->d_obj;
+    if (callback_out)
+        *callback_out = entry->d_callback;
+    assert(result->h_uid == uid);
+    tdelete(entry, tree, _ftree_compare);
+    GC_FREE(entry);
+    return result;
+}
+
 RPY_EXTERN
 int rpy_reverse_db_fq_register(void *obj)
 {
-    /*fprintf(stderr, "FINALIZER_TREE: %lld -> %p\n",
+    fprintf(stderr, "FINALIZER_TREE: %lld -> %p\n",
               ((struct pypy_header0 *)obj)->h_uid, obj);
-    */
     if (!RPY_RDB_REPLAY) {
         return 0;     /* recording */
     }
     else {
-        /* add the object into the finalizer_tree, keyed by the h_uid */
-        void **item = tsearch(obj, &finalizer_tree, _ftree_compare);
-        if (item == NULL) {
-            fprintf(stderr, "fq_register: out of memory\n");
-            exit(1);
-        }
-        if (*item != obj) {
-            fprintf(stderr, "fq_register: duplicate object\n");
-            exit(1);
-        }
+        /* add the object into the finalizer_tree, keyed by the h_uid. */
+        _ftree_add(&finalizer_tree, obj, NULL);
         return 1;     /* replaying */
     }
 }
@@ -1210,45 +1247,17 @@ void *rpy_reverse_db_next_dead(void *result)
     int64_t uid;
     RPY_REVDB_EMIT(uid = result ? ((struct pypy_header0 *)result)->h_uid : -1;,
                    int64_t _e, uid);
+    fprintf(stderr, "next_dead: object %lld\n", uid);
     if (RPY_RDB_REPLAY) {
         if (uid == -1) {
             result = NULL;
         }
         else {
             /* fetch and remove the object from the finalizer_tree */
-            void **item;
-            struct pypy_header0 dummy;
-            dummy.h_uid = uid;
-            item = tfind(&dummy, &finalizer_tree, _ftree_compare);
-            if (item == NULL) {
-                fprintf(stderr, "next_dead: object not found\n");
-                exit(1);
-            }
-            result = *item;
-            assert(((struct pypy_header0 *)result)->h_uid == uid);
-            tdelete(result, &finalizer_tree, _ftree_compare);
+            result = _ftree_pop(&finalizer_tree, uid, NULL);
         }
     }
     return result;
-}
-
-struct destructor_s {
-    void *obj;
-    void (*callback)(void *);
-};
-
- static int _dtree_compare(const void *obj1, const void *obj2)
-{
-    const struct destructor_s *d1 = obj1;
-    const struct destructor_s *d2 = obj2;
-    const struct pypy_header0 *h1 = d1->obj;
-    const struct pypy_header0 *h2 = d2->obj;
-    if (h1->h_uid < h2->h_uid)
-        return -1;
-    if (h1->h_uid == h2->h_uid)
-        return 0;
-    else
-        return 1;
 }
 
 RPY_EXTERN
@@ -1259,23 +1268,7 @@ void rpy_reverse_db_register_destructor(void *obj, void (*callback)(void *))
                               NULL, NULL, NULL);
     }
     else {
-        struct destructor_s **item;
-        struct destructor_s *node = malloc(sizeof(struct destructor_s));
-        if (!node) {
-            fprintf(stderr, "register_destructor: malloc: out of memory\n");
-            exit(1);
-        }
-        node->obj = obj;
-        node->callback = callback;
-        item = tsearch(node, &destructor_tree, _dtree_compare);
-        if (item == NULL) {
-            fprintf(stderr, "register_destructor: tsearch: out of memory\n");
-            exit(1);
-        }
-        if (*item != node) {
-            fprintf(stderr, "register_destructor: duplicate object\n");
-            exit(1);
-        }
+        _ftree_add(&destructor_tree, obj, callback);
     }
 }
 
@@ -1292,26 +1285,15 @@ static void replay_call_destructors(void)
 
     while (1) {
         int64_t uid;
-        struct destructor_s d_dummy, *entry, **item;
-        struct pypy_header0 o_dummy;
+        struct pypy_header0 *obj;
+        void (*callback)(void *);
 
         RPY_REVDB_EMIT(abort();, int64_t _e, uid);
         if (uid == -1)
             break;
 
-        d_dummy.obj = &o_dummy;
-        o_dummy.h_uid = uid;
-        item = tfind(&d_dummy, &destructor_tree, _dtree_compare);
-        if (item == NULL) {
-            fprintf(stderr, "replay_call_destructors: object not found\n");
-            exit(1);
-        }
-        entry = *item;
-        assert(((struct pypy_header0 *)entry->obj)->h_uid == uid);
-        tdelete(entry, &destructor_tree, _dtree_compare);
-
-        entry->callback(entry->obj);
-        free(entry);
+        obj = _ftree_pop(&destructor_tree, uid, &callback);
+        callback(obj);
     }
 }
 

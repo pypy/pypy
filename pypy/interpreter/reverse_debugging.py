@@ -140,10 +140,13 @@ def get_final_lineno(code):
 def stop_point_at_start_of_line():
     if revdb.watch_save_state():
         any_watch_point = False
+        space = dbstate.space
         for prog, watch_id, expected in dbstate.watch_progs:
             any_watch_point = True
-            got = _run_watch(prog)
-            if got != expected:
+            try:
+                if _run_watch(space, prog) != expected:
+                    break
+            except OperationError:
                 break
         else:
             watch_id = -1
@@ -466,19 +469,15 @@ def command_checkwatch(cmd, marshalled_code):
     space = dbstate.space
     try:
         code = interp_marshal.loads(space, space.wrap(marshalled_code))
-        w_res = code.exec_code(space, space.builtin, space.builtin)
-        text = space.str_w(space.repr(w_res))
+        text = _run_watch(space, code)
     except OperationError as e:
         revdb.send_watch(e.errorstr(space), ok_flag=0)
     else:
         revdb.send_watch(text, ok_flag=1)
 lambda_checkwatch = lambda: command_checkwatch
 
-def _run_watch(code):
-    space = dbstate.space
-    try:
-        w_res = code.exec_code(space, space.builtin, space.builtin)
-        text = space.str_w(space.repr(w_res))
-    except OperationError as e:
-        return e.errorstr(space)
-    return text
+
+def _run_watch(space, prog):
+    w_dict = space.builtin.w_dict
+    w_res = prog.exec_code(space, w_dict, w_dict)
+    return space.str_w(space.repr(w_res))
