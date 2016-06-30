@@ -81,6 +81,7 @@ class Logger(object):
             debug_stop("jit-log-compiling-bridge")
         else:
             debug_start("jit-log-opt-bridge")
+            logops = None
             if have_debug_prints():
                 print_after_inputargs = ''
                 debug_print("# bridge out of Guard",
