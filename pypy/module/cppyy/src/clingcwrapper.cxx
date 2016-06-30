@@ -341,8 +341,32 @@ static inline void copy_args( void* args_, void** vargs ) {
    std::vector<TParameter>& args = *(std::vector<TParameter>*)args_;
    for ( std::vector<TParameter>::size_type i = 0; i < args.size(); ++i ) {
       switch ( args[i].fTypeCode ) {
+      case 'b':          /* bool */
+         vargs[i] = (void*)&args[i].fValue.fBool;
+         break;
+      case 'h':          /* short */
+         vargs[i] = (void*)&args[i].fValue.fShort;
+         break;
+      case 'H':          /* unsigned short */
+         vargs[i] = (void*)&args[i].fValue.fUShort;
+         break;
+      case 'i':          /* int */
+         vargs[i] = (void*)&args[i].fValue.fInt;
+         break;
+      case 'I':          /* unsigned int */
+         vargs[i] = (void*)&args[i].fValue.fUInt;
+         break;
       case 'l':          /* long */
          vargs[i] = (void*)&args[i].fValue.fLong;
+         break;
+      case 'L':          /* unsigned long */
+         vargs[i] = (void*)&args[i].fValue.fULong;
+         break;
+      case 'k':          /* long long */
+         vargs[i] = (void*)&args[i].fValue.fLongLong;
+         break;
+      case 'K':          /* unsigned long long */
+         vargs[i] = (void*)&args[i].fValue.fULongLong;
          break;
       case 'f':          /* double */
          vargs[i] = (void*)&args[i].fValue.fFloat;
@@ -353,9 +377,7 @@ static inline void copy_args( void* args_, void** vargs ) {
       case 'D':          /* long double */
          vargs[i] = (void*)&args[i].fValue.fLongDouble;
          break;
-      case 'k':          /* long long */
-      case 'K':          /* unsigned long long */
-      case 'U':          /* unsigned long */
+      case 'o':
       case 'p':          /* void* */
          vargs[i] = (void*)&args[i].fValue.fVoidp;
          break;
@@ -519,6 +541,8 @@ size_t Cppyy::GetFunctionArgTypeoffset()
 // scope reflection information ----------------------------------------------
 Bool_t Cppyy::IsNamespace( TCppScope_t scope ) {
 // Test if this scope represents a namespace.
+   if ( scope == GLOBAL_HANDLE )
+      return kTRUE;
    TClassRef& cr = type_from_handle( scope );
    if ( cr.GetClass() )
       return cr->Property() & kIsNamespace;
@@ -665,7 +689,7 @@ Cppyy::TCppIndex_t Cppyy::GetNumMethods( TCppScope_t scope )
    return (TCppIndex_t)0;
 }
 
-Cppyy::TCppIndex_t Cppyy::GetMethodIndexAt( TCppScope_t scope, TCppIndex_t imeth)
+Cppyy::TCppIndex_t Cppyy::GetMethodIndexAt( TCppScope_t scope, TCppIndex_t imeth )
 {
    TClassRef& cr = type_from_handle (scope);
    if (cr.GetClass())
@@ -865,21 +889,8 @@ Cppyy::TCppIndex_t Cppyy::GetNumDatamembers( TCppScope_t scope )
    TClassRef& cr = type_from_handle( scope );
    if ( cr.GetClass() && cr->GetListOfDataMembers() )
       return cr->GetListOfDataMembers()->GetSize();
-   else if ( scope == (TCppScope_t)GLOBAL_HANDLE ) {
-      std::cerr << " global data should be retrieved lazily " << std::endl;
-      TCollection* vars = gROOT->GetListOfGlobals( kTRUE );
-      if ( g_globalvars.size() != (GlobalVars_t::size_type)vars->GetSize() ) {
-         g_globalvars.clear();
-         g_globalvars.reserve(vars->GetSize());
 
-         TIter ivar(vars);
-
-         TGlobal* var = 0;
-         while ( (var = (TGlobal*)ivar.Next()) )
-            g_globalvars.push_back( var );
-      }
-      return (TCppIndex_t)g_globalvars.size();
-   }
+// global vars (and unknown classes) are always resolved lazily, so report as '0'
    return (TCppIndex_t)0;
 }
 

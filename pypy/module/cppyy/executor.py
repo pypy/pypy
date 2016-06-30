@@ -318,8 +318,8 @@ def _build_basic_executors():
         (rffi.UINT,       capi.c_call_l,   ("unsigned", "unsigned int")),
         (rffi.LONG,       capi.c_call_l,   ("long", "long int")),
         (rffi.ULONG,      capi.c_call_l,   ("unsigned long", "unsigned long int")),
-        (rffi.LONGLONG,   capi.c_call_ll,  ("long long", "long long int")),
-        (rffi.ULONGLONG,  capi.c_call_ll,  ("unsigned long long", "unsigned long long int")),
+        (rffi.LONGLONG,   capi.c_call_ll,  ("long long", "long long int", "Long64_t")),
+        (rffi.ULONGLONG,  capi.c_call_ll,  ("unsigned long long", "unsigned long long int", "ULong64_t")),
         (rffi.FLOAT,      capi.c_call_f,   ("float",)),
         (rffi.DOUBLE,     capi.c_call_d,   ("double",)),
     )

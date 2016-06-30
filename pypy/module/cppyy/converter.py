@@ -255,6 +255,8 @@ class IntTypeConverterMixin(NumericTypeConverterMixin):
     def convert_argument(self, space, w_obj, address, call_local):
         x = rffi.cast(self.c_ptrtype, address)
         x[0] = self._unwrap_object(space, w_obj)
+        ba = rffi.cast(rffi.CCHARP, address)
+        ba[capi.c_function_arg_typeoffset(space)] = self.typecode
 
 class FloatTypeConverterMixin(NumericTypeConverterMixin):
     _mixin_ = True
@@ -337,7 +339,7 @@ class ConstFloatRefConverter(FloatConverter):
     _immutable_fields_ = ['libffitype', 'typecode']
 
     libffitype = jit_libffi.types.pointer
-    typecode = 'F'
+    typecode = 'f'
 
     def convert_argument_libffi(self, space, w_obj, address, call_local):
         from pypy.module.cppyy.interp_cppyy import FastCallNotPossible
@@ -356,7 +358,7 @@ class ConstDoubleRefConverter(ConstRefNumericTypeConverterMixin, DoubleConverter
     _immutable_fields_ = ['libffitype', 'typecode']
 
     libffitype = jit_libffi.types.pointer
-    typecode = 'D'
+    typecode = 'd'
 
 
 class CStringConverter(TypeConverter):
@@ -713,17 +715,18 @@ def _build_basic_converters():
     "NOT_RPYTHON"
     # signed types (use strtoll in setting of default in __init__)
     type_info = (
-        (rffi.SHORT,      ("short", "short int")),
-        (rffi.INT,        ("int",)),
+        (rffi.SHORT,      ("short", "short int"),      'h'),
+        (rffi.INT,        ("int",),                    'i'),
     )
 
     # constref converters exist only b/c the stubs take constref by value, whereas
     # libffi takes them by pointer (hence it needs the fast-path in testing); note
     # that this is list is not complete, as some classes are specialized
 
-    for c_type, names in type_info:
+    for c_type, names, c_tc in type_info:
         class BasicConverter(ffitypes.typeid(c_type), IntTypeConverterMixin, TypeConverter):
             _immutable_ = True
+            typecode = c_tc
             def __init__(self, space, default):
                 self.default = rffi.cast(self.c_type, capi.c_strtoll(space, default))
         class ConstRefConverter(ConstRefNumericTypeConverterMixin, BasicConverter):
@@ -734,40 +737,35 @@ def _build_basic_converters():
             _converters["const "+name+"&"] = ConstRefConverter
 
     type_info = (
-        (rffi.LONG,       ("long", "long int")),
-        (rffi.LONGLONG,   ("long long", "long long int", "Long64_t")),
+        (rffi.LONG,       ("long", "long int"),                        'l'),
+        (rffi.LONGLONG,   ("long long", "long long int", "Long64_t"),  'k'),
     )
 
-    for c_type, names in type_info:
+    for c_type, names, c_tc in type_info:
         class BasicConverter(ffitypes.typeid(c_type), IntTypeConverterMixin, TypeConverter):
             _immutable_ = True
+            typecode = c_tc
             def __init__(self, space, default):
                 self.default = rffi.cast(self.c_type, capi.c_strtoll(space, default))
-
         class ConstRefConverter(ConstRefNumericTypeConverterMixin, BasicConverter):
             _immutable_ = True
             libffitype = jit_libffi.types.pointer
-            typecode = 'r'
-            def convert_argument(self, space, w_obj, address, call_local):
-                x = rffi.cast(self.c_ptrtype, address)
-                x[0] = self._unwrap_object(space, w_obj)
-                ba = rffi.cast(rffi.CCHARP, address)
-                ba[capi.c_function_arg_typeoffset(space)] = self.typecode
         for name in names:
             _converters[name] = BasicConverter
             _converters["const "+name+"&"] = ConstRefConverter
 
     # unsigned integer types (use strtoull in setting of default in __init__)
     type_info = (
-        (rffi.USHORT,     ("unsigned short", "unsigned short int")),
-        (rffi.UINT,       ("unsigned", "unsigned int")),
-        (rffi.ULONG,      ("unsigned long", "unsigned long int")),
-        (rffi.ULONGLONG,  ("unsigned long long", "unsigned long long int", "ULong64_t")),
+        (rffi.USHORT,     ("unsigned short", "unsigned short int"),                            'H'),
+        (rffi.UINT,       ("unsigned", "unsigned int"),                                        'I'),
+        (rffi.ULONG,      ("unsigned long", "unsigned long int"),                              'L'),
+        (rffi.ULONGLONG,  ("unsigned long long", "unsigned long long int", "ULong64_t"),       'K'),
     )
 
-    for c_type, names in type_info:
+    for c_type, names, c_tc in type_info:
         class BasicConverter(ffitypes.typeid(c_type), IntTypeConverterMixin, TypeConverter):
             _immutable_ = True
+            typecode = c_tc
             def __init__(self, space, default):
                 self.default = rffi.cast(self.c_type, capi.c_strtoull(space, default))
         class ConstRefConverter(ConstRefNumericTypeConverterMixin, BasicConverter):
@@ -776,6 +774,7 @@ def _build_basic_converters():
         for name in names:
             _converters[name] = BasicConverter
             _converters["const "+name+"&"] = ConstRefConverter
+
 _build_basic_converters()
 
 # create the array and pointer converters; all real work is in the mixins
@@ -789,6 +788,8 @@ def _build_array_converters():
         ('I', rffi.sizeof(rffi.UINT),   ("unsigned int", "unsigned")),
         ('l', rffi.sizeof(rffi.LONG),   ("long int", "long")),
         ('L', rffi.sizeof(rffi.ULONG),  ("unsigned long int", "unsigned long")),
+        ('k', rffi.sizeof(rffi.LONGLONG),("long long", "long long int", "Long64_t")),
+        ('K', rffi.sizeof(rffi.ULONGLONG),("unsigned long long", "unsigned long long int", "ULong64_t")),
         ('f', rffi.sizeof(rffi.FLOAT),  ("float",)),
         ('d', rffi.sizeof(rffi.DOUBLE), ("double",)),
     )
