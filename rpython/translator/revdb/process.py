@@ -17,6 +17,7 @@ class AllBreakpoints(object):
 
     def __init__(self):
         self.num2name = {}     # {small number: break/watchpoint}
+        self.sources = {}      # {small number: src text or None}
         self.watchvalues = {}  # {small number: resulting text}
         self.watchuids = {}    # {small number: [uid...]}
         self.stack_id = 0      # breaks when leaving/entering a frame from/to
@@ -402,11 +403,17 @@ class ReplayProcessGroup(object):
                 seen.add(num)
         assert set(self.all_breakpoints.watchvalues) == seen
 
-    def check_watchpoint_expr(self, expr, nids=None):
+    def compile_watchpoint_expr(self, expr):
+        self.active.send(Message(CMD_COMPILEWATCH, extra=expr))
+        msg = self.active.expect(ANSWER_WATCH, Ellipsis, extra=Ellipsis)
+        self.active.expect_ready()
+        return msg.arg1, msg.extra
+
+    def check_watchpoint_expr(self, compiled_code, nids=None):
         if nids:
             uids = self.nids_to_uids(nids)
             self.attach_printed_objects(uids, watch_env=True)
-        self.active.send(Message(CMD_CHECKWATCH, extra=expr))
+        self.active.send(Message(CMD_CHECKWATCH, extra=compiled_code))
         msg = self.active.expect(ANSWER_WATCH, Ellipsis, extra=Ellipsis)
         self.active.expect_ready()
         return msg.arg1, msg.extra

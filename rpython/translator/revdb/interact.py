@@ -120,32 +120,40 @@ class RevDebugControl(object):
         lst = [str(n) for n in sorted(self.pgroup.paused)]
         print ', '.join(lst)
 
-    def _bp_kind(self, name):
+    def _bp_kind(self, num):
+        name = self.pgroup.all_breakpoints.num2name.get(num, '??')
         if name[0] == 'B':
-            return 'breakpoint'
+            kind = 'breakpoint'
+            name = name[1:]
         elif name[0] == 'W':
-            return 'watchpoint'
+            kind = 'watchpoint'
+            name = self.pgroup.all_breakpoints.sources.get(num, '??')
         else:
-            return '?????point'
+            kind = '?????point'
+            name = repr(name)
+        return kind, name
 
-    def _bp_new(self, break_at, nids=None):
+    def _bp_new(self, break_at, nids=None, source_expr=None):
         b = self.pgroup.edit_breakpoints()
         new = 1
         while new in b.num2name:
             new += 1
         b.num2name[new] = break_at
+        b.sources[new] = source_expr
         if break_at.startswith('W'):
             b.watchvalues[new] = ''
             if nids:
                 b.watchuids[new] = self.pgroup.nids_to_uids(nids)
-        print "%s %d added" % (self._bp_kind(break_at).capitalize(), new)
+        kind, name = self._bp_kind(new)
+        print "%s %d added" % (kind.capitalize(), new)
 
     def cmd_info_breakpoints(self):
         """List current breakpoints and watchpoints"""
-        lst = self.pgroup.all_breakpoints.num2name.items()
+        lst = self.pgroup.all_breakpoints.num2name.keys()
         if lst:
-            for num, name in sorted(lst):
-                print '\t%s %d: %s' % (self._bp_kind(name), num, name[1:])
+            for num in sorted(lst):
+                kind, name = self._bp_kind(num)
+                print '\t%s %d: %s' % (kind, num, name)
         else:
             print 'no breakpoints.'
     cmd_info_watchpoints = cmd_info_breakpoints
@@ -171,10 +179,9 @@ class RevDebugControl(object):
 
     def hit_breakpoint(self, b, backward=False):
         if b.num != -1:
-            name = self.pgroup.all_breakpoints.num2name.get(b.num, '??')
-            kind = self._bp_kind(name)
+            kind, name = self._bp_kind(d.num)
             self.print_extra_pending_info = 'Hit %s %d: %s' % (kind, b.num,
-                                                               name[1:])
+                                                               name)
         elif backward:
             b.time -= 1
         if self.pgroup.get_current_time() != b.time:
@@ -307,22 +314,31 @@ class RevDebugControl(object):
         if arg not in b.num2name:
             print "No breakpoint/watchpoint number %d" % (arg,)
         else:
-            name = b.num2name.pop(arg)
+            kind, name = self._bp_kind(arg)
+            b.num2name.pop(arg, '')
+            b.sources.pop(arg, '')
             b.watchvalues.pop(arg, '')
             b.watchuids.pop(arg, '')
-            kind = self._bp_kind(name)
-            print "%s %d deleted: %s" % (kind.capitalize(), arg, name[1:])
+            print "%s %d deleted: %s" % (kind.capitalize(), arg, name)
 
     def command_watch(self, argument):
         """Add a watchpoint (use $NUM in the expression to watch)"""
         if not argument:
             print "Watch what?"
             return
+        #
+        ok_flag, compiled_code = self.pgroup.compile_watchpoint_expr(argument)
+        if not ok_flag:
+            print compiled_code     # the error message
+            print 'Watchpoint not added'
+            return
+        #
         nids = map(int, r_dollar_num.findall(argument))
-        ok_flag, text = self.pgroup.check_watchpoint_expr(argument, nids)
+        ok_flag, text = self.pgroup.check_watchpoint_expr(compiled_code, nids)
         if not ok_flag:
             print text
             print 'Watchpoint not added'
-        else:
-            self._bp_new('W' + argument, nids=nids)
-            self.pgroup.update_watch_values()
+            return
+        #
+        self._bp_new('W' + compiled_code, nids=nids, source_expr=argument)
+        self.pgroup.update_watch_values()

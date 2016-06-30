@@ -18,8 +18,9 @@ CMD_BREAKPOINTS = 4    # Message(CMD_BREAKPOINTS, stack_id,
                        #         extra="\0-separated names")
 CMD_STACKID     = 5    # Message(CMD_STACKID, parent-flag)
 CMD_ATTACHID    = 6    # Message(CMD_ATTACHID, small-num, unique-id)
-CMD_CHECKWATCH  = 7    # Message(CMD_CHECKWATCH, extra=expression)
-CMD_WATCHVALUES = 8    # Message(CMD_WATCHVALUES, extra=texts)
+CMD_COMPILEWATCH= 7    # Message(CMD_COMPILEWATCH, extra=expression)
+CMD_CHECKWATCH  = 8    # Message(CMD_CHECKWATCH, extra=compiled_code)
+CMD_WATCHVALUES = 9    # Message(CMD_WATCHVALUES, extra=texts)
 
 
 # the first message sent by the first child:
@@ -67,6 +68,8 @@ ANSWER_STACKID    = 21
 #    Message(ANSWER_NEXTNID, unique-id)
 ANSWER_NEXTNID    = 22
 
+# sent after CMD_COMPILEWATCH:
+#    Message(ANSWER_WATCH, ok_flag, extra=marshalled_code)
 # sent after CMD_CHECKWATCH:
 #    Message(ANSWER_WATCH, ok_flag, extra=result_of_expr)
 ANSWER_WATCH      = 23
