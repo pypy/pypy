@@ -372,10 +372,10 @@ def PyUnicode_Decode(space, s, size, encoding, errors):
     if not encoding:
         # This tracks CPython 2.7, in CPython 3.4 'utf-8' is hardcoded instead
         encoding = PyUnicode_GetDefaultEncoding(space)
+    w_str = space.newbytes(rffi.charpsize2str(s, size))
     w_encoding = space.wrap(rffi.charp2str(encoding))
-    w_str = space.wrap(rffi.charpsize2str(s, size))
     if errors:
-        w_errors = space.wrap(rffi.charp2str(errors))
+        w_errors = space.newbytes(rffi.charp2str(errors))
     else:
         w_errors = None
     return space.call_method(w_str, 'decode', w_encoding, w_errors)
@@ -427,7 +427,7 @@ def PyUnicode_FromEncodedObject(space, w_obj, encoding, errors):
 @cpython_api([CONST_STRING], PyObject)
 def PyUnicode_FromString(space, s):
     """Create a Unicode object from an UTF-8 encoded null-terminated char buffer"""
-    w_str = space.wrap(rffi.charp2str(s))
+    w_str = space.newbytes(rffi.charp2str(s))
     return space.call_method(w_str, 'decode', space.wrap("utf-8"))
 
 @cpython_api([CONST_STRING, Py_ssize_t], PyObject, result_is_ll=True)
@@ -495,7 +495,7 @@ def make_conversion_functions(suffix, encoding):
         encoded string s. Return NULL if an exception was raised by
         the codec.
         """
-        w_s = space.wrap(rffi.charpsize2str(s, size))
+        w_s = space.newbytes(rffi.charpsize2str(s, size))
         if errors:
             w_errors = space.wrap(rffi.charp2str(errors))
         else:

@@ -13,12 +13,11 @@ $Id: automata.py,v 1.2 2003/10/02 17:37:17 jriehl Exp $
 # PYPY Modification: removed the EMPTY class as it's not needed here
 
 
-# PYPY Modification: we don't need a particuliar DEFAULT class here
-#                    a simple None works fine.
-#                    (Having a DefaultClass inheriting from str makes
-#                     the annotator crash)
-DEFAULT = "\00default" # XXX hack, the rtyper does not support dict of with str|None keys
-                       # anyway using dicts doesn't seem the best final way to store these char indexed tables
+# PYPY Modification: DEFAULT is a singleton, used only in the pre-RPython
+# dicts (see pytokenize.py).  Then DFA.__init__() turns these dicts into
+# more compact strings.
+DEFAULT = object()
+
 # PYPY Modification : removed all automata functions (any, maybe,
 #                     newArcPair, etc.)
 

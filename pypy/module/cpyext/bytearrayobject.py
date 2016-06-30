@@ -25,7 +25,7 @@ from pypy.module.cpyext.pyobject import (
 
 PyByteArrayObjectStruct = lltype.ForwardReference()
 PyByteArrayObject = lltype.Ptr(PyByteArrayObjectStruct)
-PyByteArrayObjectFields = PyVarObjectFields 
+PyByteArrayObjectFields = PyVarObjectFields
 cpython_struct("PyByteArrayObject", PyByteArrayObjectFields, PyByteArrayObjectStruct)
 
 PyByteArray_Check, PyByteArray_CheckExact = build_type_checkers("ByteArray", "w_bytearray")
@@ -46,9 +46,9 @@ def PyByteArray_FromStringAndSize(space, char_p, length):
     """Create a new bytearray object from string and its length, len.  On
     failure, NULL is returned."""
     if char_p:
-        w_s = space.wrap(rffi.charpsize2str(char_p, length))
+        w_s = space.newbytes(rffi.charpsize2str(char_p, length))
     else:
-        w_s = space.wrap(length)
+        w_s = space.newint(length)
     w_buffer = space.call_function(space.w_bytearray, w_s)
     return make_ref(space, w_buffer)
 
@@ -80,7 +80,7 @@ def PyByteArray_Resize(space, w_obj, newlen):
     if space.isinstance_w(w_obj, space.w_bytearray):
         oldlen = space.len_w(w_obj)
         if newlen > oldlen:
-            space.call_method(w_obj, 'extend', space.wrap('\x00' * (newlen - oldlen)))
+            space.call_method(w_obj, 'extend', space.newbytes('\x00' * (newlen - oldlen)))
         elif oldlen > newlen:
             assert newlen >= 0
             space.delslice(w_obj, space.wrap(newlen), space.wrap(oldlen))
