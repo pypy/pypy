@@ -1128,9 +1128,26 @@ class LLFrame(object):
     def op_revdb_stop_point(self, *args):
         pass
 
-    def op_revdb_send_output(self, ll_string):
-        from rpython.rtyper.annlowlevel import hlstr
-        sys.stdout.write(hlstr(ll_string))
+    def op_revdb_send_answer(self, *args):
+        raise NotImplementedError
+    def op_revdb_breakpoint(self, *args):
+        raise NotImplementedError
+    def op_revdb_get_value(self, *args):
+        raise NotImplementedError
+    def op_revdb_get_unique_id(self, *args):
+        raise NotImplementedError
+
+    def op_revdb_watch_save_state(self, *args):
+        return False
+
+    def op_revdb_watch_restore_state(self, *args):
+        raise NotImplementedError
+    def op_revdb_weakref_create(self, *args):
+        raise NotImplementedError
+    def op_revdb_weakref_deref(self, *args):
+        raise NotImplementedError
+    def op_revdb_call_destructor(self, *args):
+        raise NotImplementedError
 
 
 class Tracer(object):

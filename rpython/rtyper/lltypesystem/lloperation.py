@@ -8,7 +8,8 @@ from rpython.rtyper.extregistry import ExtRegistryEntry
 class LLOp(object):
 
     def __init__(self, sideeffects=True, canfold=False, canraise=(),
-                 canmallocgc=False, canrun=False, tryfold=False):
+                 canmallocgc=False, canrun=False, tryfold=False,
+                 revdb_protect=False):
         # self.opname = ... (set afterwards)
 
         if canfold:
@@ -40,6 +41,9 @@ class LLOp(object):
 
         # The operation can be run directly with __call__
         self.canrun = canrun or canfold
+
+        # RevDB: the operation must always be protected with RPY_REVDB_EMIT()
+        self.revdb_protect = revdb_protect
 
     # __________ make the LLOp instances callable from LL helpers __________
 
@@ -385,17 +389,19 @@ LL_OPERATIONS = {
     'boehm_malloc_atomic':  LLOp(),
     'boehm_register_finalizer': LLOp(),
     'boehm_disappearing_link': LLOp(),
-    'raw_malloc':           LLOp(),
+    'raw_malloc':           LLOp(revdb_protect=True),
     'raw_malloc_usage':     LLOp(sideeffects=False),
-    'raw_free':             LLOp(),
-    'raw_memclear':         LLOp(),
-    'raw_memset':           LLOp(),
-    'raw_memcopy':          LLOp(),
-    'raw_memmove':          LLOp(),
-    'raw_load':             LLOp(sideeffects=False, canrun=True),
-    'raw_store':            LLOp(canrun=True),
-    'bare_raw_store':       LLOp(),
+    'raw_free':             LLOp(revdb_protect=True),
+    'raw_memclear':         LLOp(revdb_protect=True),
+    'raw_memset':           LLOp(revdb_protect=True),
+    'raw_memcopy':          LLOp(revdb_protect=True),
+    'raw_memmove':          LLOp(revdb_protect=True),
+    'raw_load':             LLOp(revdb_protect=True, sideeffects=False,
+                                                     canrun=True),
+    'raw_store':            LLOp(revdb_protect=True, canrun=True),
+    'bare_raw_store':       LLOp(revdb_protect=True),
     'gc_load_indexed':      LLOp(sideeffects=False, canrun=True),
+    'gc_store':             LLOp(canrun=True),
     'stack_malloc':         LLOp(), # mmh
     'track_alloc_start':    LLOp(),
     'track_alloc_stop':     LLOp(),
@@ -442,7 +448,7 @@ LL_OPERATIONS = {
     'get_write_barrier_failing_case': LLOp(sideeffects=False),
     'get_write_barrier_from_array_failing_case': LLOp(sideeffects=False),
     'gc_get_type_info_group': LLOp(sideeffects=False),
-    'll_read_timestamp': LLOp(canrun=True),
+    'll_read_timestamp': LLOp(revdb_protect=True, canrun=True),
 
     # __________ GC operations __________
 
@@ -456,8 +462,8 @@ LL_OPERATIONS = {
     # see rlib/objectmodel for gc_identityhash and gc_id
     'gc_identityhash':      LLOp(sideeffects=False, canmallocgc=True),
     'gc_id':                LLOp(sideeffects=False, canmallocgc=True),
-    'gc_obtain_free_space': LLOp(),
-    'gc_set_max_heap_size': LLOp(),
+    'gc_obtain_free_space': LLOp(revdb_protect=True),
+    'gc_set_max_heap_size': LLOp(revdb_protect=True),
     'gc_can_move'         : LLOp(sideeffects=False),
     'gc_thread_run'       : LLOp(),
     'gc_thread_start'     : LLOp(),
@@ -523,7 +529,7 @@ LL_OPERATIONS = {
 
     # __________ misc operations __________
 
-    'stack_current':        LLOp(sideeffects=False),
+    'stack_current':        LLOp(revdb_protect=True, sideeffects=False),
     'keepalive':            LLOp(),
     'same_as':              LLOp(canfold=True),
     'hint':                 LLOp(),

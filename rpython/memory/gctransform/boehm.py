@@ -16,11 +16,11 @@ class BoehmGCTransformer(GCTransformer):
         super(BoehmGCTransformer, self).__init__(translator, inline=inline)
         self.finalizer_funcptrs = {}
 
-        atomic_mh = mallocHelpers()
+        atomic_mh = mallocHelpers(gckind='gc')
         atomic_mh.allocate = lambda size: llop.boehm_malloc_atomic(llmemory.GCREF, size)
         ll_malloc_fixedsize_atomic = atomic_mh._ll_malloc_fixedsize
 
-        mh = mallocHelpers()
+        mh = mallocHelpers(gckind='gc')
         mh.allocate = lambda size: llop.boehm_malloc(llmemory.GCREF, size)
         ll_malloc_fixedsize = mh._ll_malloc_fixedsize
 

@@ -266,7 +266,8 @@ class FunctionCodeGenerator(object):
     def gen_op(self, op):
         macro = 'OP_%s' % op.opname.upper()
         line = None
-        if op.opname.startswith('gc_') and op.opname != 'gc_load_indexed':
+        if (op.opname.startswith('gc_') and op.opname != 'gc_load_indexed'
+                                        and op.opname != 'gc_store'):
             meth = getattr(self.gcpolicy, macro, None)
             if meth:
                 line = meth(self, op)
@@ -278,6 +279,11 @@ class FunctionCodeGenerator(object):
             lst = [self.expr(v) for v in op.args]
             lst.append(self.expr(op.result))
             line = '%s(%s);' % (macro, ', '.join(lst))
+        if self.db.reverse_debugger:
+            from rpython.translator.revdb import gencsupp
+            if op.opname in gencsupp.set_revdb_protected:
+                line = gencsupp.emit(line, self.lltypename(op.result),
+                                     self.expr(op.result))
         if "\n" not in line:
             yield line
         else:
@@ -435,7 +441,7 @@ class FunctionCodeGenerator(object):
         return 'abort();  /* jit_conditional_call */'
 
     # low-level operations
-    def generic_get(self, op, sourceexpr):
+    def generic_get(self, op, sourceexpr, accessing_mem=True):
         T = self.lltypemap(op.result)
         newvalue = self.expr(op.result, special_case_void=False)
         result = '%s = %s;' % (newvalue, sourceexpr)
@@ -445,7 +451,8 @@ class FunctionCodeGenerator(object):
             S = self.lltypemap(op.args[0]).TO
             if (S._gckind != 'gc' and not S._hints.get('is_excdata')
                     and not S._hints.get('static_immutable')
-                    and not S._hints.get('ignore_revdb')):
+                    and not S._hints.get('ignore_revdb')
+                    and accessing_mem):
                 from rpython.translator.revdb import gencsupp
                 result = gencsupp.emit(result, self.lltypename(op.result),
                                        newvalue)
@@ -464,7 +471,7 @@ class FunctionCodeGenerator(object):
                 result = gencsupp.emit_void(result)
         return result
 
-    def OP_GETFIELD(self, op, ampersand=''):
+    def OP_GETFIELD(self, op, ampersand='', accessing_mem=True):
         assert isinstance(op.args[1], Constant)
         STRUCT = self.lltypemap(op.args[0]).TO
         structdef = self.db.gettypedefnode(STRUCT)
@@ -472,7 +479,7 @@ class FunctionCodeGenerator(object):
         expr = ampersand + structdef.ptr_access_expr(self.expr(op.args[0]),
                                                      op.args[1].value,
                                                      baseexpr_is_const)
-        return self.generic_get(op, expr)
+        return self.generic_get(op, expr, accessing_mem=accessing_mem)
 
     def OP_BARE_SETFIELD(self, op):
         assert isinstance(op.args[1], Constant)
@@ -488,9 +495,9 @@ class FunctionCodeGenerator(object):
         RESULT = self.lltypemap(op.result).TO
         if (isinstance(RESULT, FixedSizeArray) or
                 (isinstance(RESULT, Array) and barebonearray(RESULT))):
-            return self.OP_GETFIELD(op, ampersand='')
+            return self.OP_GETFIELD(op, ampersand='', accessing_mem=False)
         else:
-            return self.OP_GETFIELD(op, ampersand='&')
+            return self.OP_GETFIELD(op, ampersand='&', accessing_mem=False)
 
     def OP_GETARRAYSIZE(self, op):
         ARRAY = self.lltypemap(op.args[0]).TO
@@ -498,8 +505,7 @@ class FunctionCodeGenerator(object):
             return '%s = %d;' % (self.expr(op.result),
                                  ARRAY.length)
         else:
-            return '%s = %s->length;' % (self.expr(op.result),
-                                         self.expr(op.args[0]))
+            return self.generic_get(op, '%s->length;' % self.expr(op.args[0]))
 
     def OP_GETARRAYITEM(self, op):
         ARRAY = self.lltypemap(op.args[0]).TO
@@ -563,8 +569,7 @@ class FunctionCodeGenerator(object):
             return '%s = %d;'%(self.expr(op.result), ARRAY.length)
         else:
             assert isinstance(ARRAY, Array)
-            return '%s = %s.length;'%(self.expr(op.result), expr)
-
+            return self.generic_get(op, '%s.length;' % expr)
 
 
     def OP_PTR_NONZERO(self, op):
@@ -608,18 +613,14 @@ class FunctionCodeGenerator(object):
         return 'GC_REGISTER_FINALIZER(%s, (GC_finalization_proc)%s, NULL, NULL, NULL);' \
                % (self.expr(op.args[0]), self.expr(op.args[1]))
 
-    def OP_RAW_MALLOC(self, op):
-        eresult = self.expr(op.result)
-        esize = self.expr(op.args[0])
-        return "OP_RAW_MALLOC(%s, %s, void *);" % (esize, eresult)
-
     def OP_STACK_MALLOC(self, op):
-        eresult = self.expr(op.result)
-        esize = self.expr(op.args[0])
-        return "OP_STACK_MALLOC(%s, %s, void *);" % (esize, eresult)
+        #eresult = self.expr(op.result)
+        #esize = self.expr(op.args[0])
+        #return "OP_STACK_MALLOC(%s, %s, void *);" % (esize, eresult)
+        raise NotImplementedError
 
     def OP_DIRECT_FIELDPTR(self, op):
-        return self.OP_GETFIELD(op, ampersand='&')
+        return self.OP_GETFIELD(op, ampersand='&', accessing_mem=False)
 
     def OP_DIRECT_ARRAYITEMS(self, op):
         ARRAY = self.lltypemap(op.args[0]).TO
@@ -672,8 +673,10 @@ class FunctionCodeGenerator(object):
 
     def OP_CAST_PTR_TO_INT(self, op):
         if self.db.reverse_debugger:
-            from rpython.translator.revdb import gencsupp
-            return gencsupp.cast_ptr_to_int(self, op)
+            TSRC = self.lltypemap(op.args[0])
+            if isinstance(TSRC, Ptr) and TSRC.TO._gckind == 'gc':
+                from rpython.translator.revdb import gencsupp
+                return gencsupp.cast_gcptr_to_int(self, op)
         return self.OP_CAST_POINTER(op)
 
     def OP_LENGTH_OF_SIMPLE_GCARRAY_FROM_OPAQUE(self, op):
@@ -723,6 +726,7 @@ class FunctionCodeGenerator(object):
            '((%(typename)s) (((char *)%(addr)s) + %(offset)s))[0] = %(value)s;'
            % locals())
     OP_BARE_RAW_STORE = OP_RAW_STORE
+    OP_GC_STORE = OP_RAW_STORE     # the difference is only in 'revdb_protect'
 
     def OP_RAW_LOAD(self, op):
         addr = self.expr(op.args[0])

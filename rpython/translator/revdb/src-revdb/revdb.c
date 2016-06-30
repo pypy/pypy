@@ -966,7 +966,7 @@ static void command_future_ids(rpy_revdb_command_t *cmd, char *extra)
         memcpy(future_ids, extra, cmd->extra_size);
         future_ids[cmd->extra_size / sizeof(uint64_t)] = 0;
         uid_break = *future_ids;
-        attach_gdb();
+        //attach_gdb();
     }
     future_next_id = future_ids;
 }
@@ -1274,8 +1274,6 @@ void rpy_reverse_db_register_destructor(void *obj, void (*callback)(void *))
 
 static void replay_call_destructors(void)
 {
-    fq_trigger();
-
     /* Re-enable fetching (disabled when we saw ASYNC_FINALIZER_TRIGGER),
        and fetch the uid's of dying objects with old-style destructors.
     */
@@ -1295,6 +1293,18 @@ static void replay_call_destructors(void)
         obj = _ftree_pop(&destructor_tree, uid, &callback);
         callback(obj);
     }
+
+    /* Now we're back in normal mode.  We trigger the finalizer 
+       queues here. */
+    fq_trigger();
 }
 
 /* ------------------------------------------------------------ */
+
+
+RPY_EXTERN
+void seeing_uid(uint64_t uid)
+{
+    if (uid == 1895569)
+        attach_gdb();
+}

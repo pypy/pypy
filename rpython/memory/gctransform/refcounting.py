@@ -54,7 +54,7 @@ class RefcountingGCTransformer(GCTransformer):
         def ll_no_pointer_dealloc(adr):
             llop.gc_free(lltype.Void, adr)
 
-        mh = mallocHelpers()
+        mh = mallocHelpers(gckind='gc')
         mh.allocate = llmemory.raw_malloc
         def ll_malloc_fixedsize(size):
             size = gc_header_offset + size

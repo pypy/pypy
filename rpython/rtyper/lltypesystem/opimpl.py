@@ -706,6 +706,7 @@ def op_raw_store(p, ofs, newvalue):
     TVAL = lltype.typeOf(newvalue)
     p = rffi.cast(rffi.CArrayPtr(TVAL), p + ofs)
     p[0] = newvalue
+op_gc_store = op_raw_store
 
 def op_raw_load(TVAL, p, ofs):
     from rpython.rtyper.lltypesystem import rffi

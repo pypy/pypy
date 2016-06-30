@@ -83,6 +83,11 @@ class RDB(object):
     def done(self):
         return self.cur == len(self.buffer)
 
+    def write_call(self, expected_string):
+        x = self.next()   # raw_malloc: the pointer we got
+        x = self.next(); assert x == len(expected_string)
+        x = self.next('i'); assert x == 0      # errno
+
 
 def compile(self, entry_point, backendopt=True,
             withsmallfuncsets=None):
@@ -131,9 +136,7 @@ class TestRecording(BaseRecordingTests):
         self.compile(main, backendopt=False)
         assert self.run('abc d') == '[abc, d]\n'
         rdb = self.fetch_rdb([self.exename, 'abc', 'd'])
-        # write() call
-        x = rdb.next(); assert x == len('[abc, d]\n')
-        x = rdb.next('i'); assert x == 0      # errno
+        rdb.write_call('[abc, d]\n')
         x = rdb.next('q'); assert x == 0      # number of stop points
         # that's all we should get from this simple example
         assert rdb.done()
@@ -151,9 +154,7 @@ class TestRecording(BaseRecordingTests):
         hash_value = int(match.group(1))
         rdb = self.fetch_rdb([self.exename, 'Xx'])
         # compute_identity_hash() doesn't record anything
-        # write() call
-        x = rdb.next(); assert x == len(out)
-        x = rdb.next('i'); assert x == 0      # errno
+        rdb.write_call(out)
         # done
         x = rdb.next('q'); assert x == 0      # number of stop points
         assert rdb.done()
@@ -174,8 +175,7 @@ class TestRecording(BaseRecordingTests):
         # write() call (it used to be the case that vtable reads where
         # recorded too; the single byte fetched from the vtable from
         # the '.x' in main() would appear here)
-        x = rdb.next(); assert x == len(out)
-        x = rdb.next('i'); assert x == 0      # errno
+        rdb.write_call(out)
         # done
         x = rdb.next('q'); assert x == 0      # number of stop points
         assert rdb.done()
@@ -195,8 +195,7 @@ class TestRecording(BaseRecordingTests):
         assert out == '41\n'
         rdb = self.fetch_rdb([self.exename, 'Xx'])
         # write() call
-        x = rdb.next(); assert x == len(out)
-        x = rdb.next('i'); assert x == 0      # errno
+        rdb.write_call(out)
         # done
         x = rdb.next('q'); assert x == 0      # number of stop points
         assert rdb.done()
@@ -230,8 +229,7 @@ class TestRecording(BaseRecordingTests):
             assert out == expected_output
             rdb = self.fetch_rdb([self.exename] + input.split())
             # write() call
-            x = rdb.next(); assert x == len(out)
-            x = rdb.next('i'); assert x == 0      # errno
+            rdb.write_call(out)
             x = rdb.next('q'); assert x == 0      # number of stop points
             assert rdb.done()
 

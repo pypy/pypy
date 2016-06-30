@@ -1,5 +1,6 @@
 import py
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rstr
+from rpython.rtyper.lltypesystem.lloperation import LL_OPERATIONS
 from rpython.translator.c.support import cdecl
 from rpython.rlib import exports, revdb
 
@@ -25,9 +26,12 @@ def boehm_register_finalizer(funcgen, op):
     return 'rpy_reverse_db_register_destructor(%s, %s);' % (
         funcgen.expr(op.args[0]), funcgen.expr(op.args[1]))
 
-def cast_ptr_to_int(funcgen, op):
+def cast_gcptr_to_int(funcgen, op):
     return '%s = RPY_REVDB_CAST_PTR_TO_INT(%s);' % (
         funcgen.expr(op.result), funcgen.expr(op.args[0]))
+
+set_revdb_protected = set(opname for opname, opdesc in LL_OPERATIONS.items()
+                                 if opdesc.revdb_protect)
 
 
 def prepare_database(db):

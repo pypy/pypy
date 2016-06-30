@@ -251,9 +251,7 @@ class TestRecording(BaseRecordingTests):
             x = rdb.next()
             assert x == len(seen_uids)
         assert len(seen_uids) == int(out)
-        # write() call
-        x = rdb.next(); assert x == len(out)
-        x = rdb.next('i'); assert x == 0      # errno
+        rdb.write_call(out)
         x = rdb.next('q'); assert x == 3000    # number of stop points
 
 

@@ -8,8 +8,8 @@
 #define OP_STACK_CURRENT(r)  r = (Signed)&r
 
 
-#define OP_RAW_MALLOC(size, r, restype)  {				\
-	r = (restype) malloc(size);				\
+#define OP_RAW_MALLOC(size, r)  {				        \
+	r = malloc(size);				                \
 	if (r != NULL) {						\
 	    COUNT_MALLOC;						\
 	}								\
