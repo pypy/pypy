@@ -1229,8 +1229,8 @@ static struct pypy_header0 *_ftree_pop(void **tree, uint64_t uid,
 RPY_EXTERN
 int rpy_reverse_db_fq_register(void *obj)
 {
-    fprintf(stderr, "FINALIZER_TREE: %lld -> %p\n",
-              ((struct pypy_header0 *)obj)->h_uid, obj);
+    /*fprintf(stderr, "FINALIZER_TREE: %lld -> %p\n",
+              ((struct pypy_header0 *)obj)->h_uid, obj);*/
     if (!RPY_RDB_REPLAY) {
         return 0;     /* recording */
     }
@@ -1247,7 +1247,7 @@ void *rpy_reverse_db_next_dead(void *result)
     int64_t uid;
     RPY_REVDB_EMIT(uid = result ? ((struct pypy_header0 *)result)->h_uid : -1;,
                    int64_t _e, uid);
-    fprintf(stderr, "next_dead: object %lld\n", uid);
+    /*fprintf(stderr, "next_dead: object %lld\n", uid);*/
     if (RPY_RDB_REPLAY) {
         if (uid == -1) {
             result = NULL;
