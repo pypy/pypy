@@ -451,7 +451,7 @@ class VectorizingOptimizer(Optimizer):
             if len_before == len(self.packset.packs):
                 break
 
-        self.packset.split_overloaded_packs()
+        self.packset.split_overloaded_packs(self.cpu.vector_ext)
 
         if not we_are_translated():
             # some test cases check the accumulation variables
@@ -814,12 +814,12 @@ class PackSet(object):
             state.setvector_of_box(seed, 0, vecop) # prevent it from expansion
             state.renamer.start_renaming(seed, vecop)
 
-    def split_overloaded_packs(self):
+    def split_overloaded_packs(self, vector_ext):
         newpacks = []
         for i,pack in enumerate(self.packs):
             load = pack.pack_load(self.vec_reg_size)
             if load > Pack.FULL:
-                pack.split(newpacks, self.vec_reg_size)
+                pack.split(newpacks, self.vec_reg_size, vector_ext)
                 continue
             if load < Pack.FULL:
                 for op in pack.operations:

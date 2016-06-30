@@ -430,21 +430,24 @@ class VectorizeTests(object):
         res = self.meta_interp(f, [60], vec_all=True)
         assert res == f(60) == 34.5
 
-    def test_variable_expand(self):
+    @py.test.mark.parametrize('type,value', [(rffi.DOUBLE, 58.4547),
+        (lltype.Signed, 2300000), (rffi.INT, 4321),
+        (rffi.SHORT, 9922), (rffi.SIGNEDCHAR, -127)])
+    def test_variable_expand(self, type, value):
         myjitdriver = JitDriver(greens = [], reds = 'auto', vectorize=True)
-        T = lltype.Array(rffi.DOUBLE, hints={'nolength': True})
+        T = lltype.Array(type, hints={'nolength': True})
         def f(d,variable):
             va = lltype.malloc(T, d, flavor='raw', zero=True)
             i = 0
             while i < d:
                 myjitdriver.jit_merge_point()
-                va[i] = va[i] + variable
+                va[i] = rffi.cast(type, variable)
                 i += 1
             val = va[d//2]
             lltype.free(va, flavor='raw')
             return val
-        res = self.meta_interp(f, [60,58.4547])
-        assert res == f(60,58.4547) == 58.4547
+        res = self.meta_interp(f, [60,value])
+        assert res == f(60,value) == value
 
     @py.test.mark.parametrize('vec,vec_all',[(False,True),(True,False),(True,True),(False,False)])
     def test_accum(self, vec, vec_all):

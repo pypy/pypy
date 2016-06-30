@@ -755,7 +755,7 @@ class Pack(object):
             node.pack = self
             node.pack_position = i
 
-    def split(self, packlist, vec_reg_size):
+    def split(self, packlist, vec_reg_size, vector_ext):
         """ Combination phase creates the biggest packs that are possible.
             In this step the pack is reduced in size to fit into an
             vector register.
@@ -764,7 +764,7 @@ class Pack(object):
         pack = self
         while pack.pack_load(vec_reg_size) > Pack.FULL:
             pack.clear()
-            oplist, newoplist = pack.slice_operations(vec_reg_size)
+            oplist, newoplist = pack.slice_operations(vec_reg_size, vector_ext)
             pack.operations = oplist
             pack.update_pack_of_nodes()
             if not pack.leftmost().is_typecast():
@@ -782,13 +782,13 @@ class Pack(object):
                 break
         pack.update_pack_of_nodes()
 
-    def opcount_filling_vector_register(self, vec_reg_size):
+    def opcount_filling_vector_register(self, vec_reg_size, vector_ext):
         left = self.leftmost()
-        oprestrict = trans.get(left)
+        oprestrict = vector_ext.get_operation_restriction(left)
         return oprestrict.opcount_filling_vector_register(left, vec_reg_size)
 
-    def slice_operations(self, vec_reg_size):
-        count = self.opcount_filling_vector_register(vec_reg_size)
+    def slice_operations(self, vec_reg_size, vector_ext):
+        count = self.opcount_filling_vector_register(vec_reg_size, vector_ext)
         assert count > 0
         newoplist = self.operations[count:]
         oplist = self.operations[:count]

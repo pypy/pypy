@@ -481,35 +481,35 @@ class VectorAssembler(object):
         elif size == 8:
             # splat the low of src to both slots in res
             src = srcloc.value
-            #import pdb; pdb.set_trace()
             self.mc.xxspltdl(res, src, src)
         else:
             notimplemented("[ppc/assembler] vec expand in this combination not supported")
 
     def emit_vec_expand_i(self, op, arglocs, regalloc):
-        notimplemented("[vec expand i]")
-        srcloc, sizeloc = arglocs
-        if not isinstance(srcloc, RegLoc):
-            self.mov(srcloc, X86_64_SCRATCH_REG)
-            srcloc = X86_64_SCRATCH_REG
-        assert not srcloc.is_xmm
-        size = sizeloc.value
+        res, l0, off = arglocs
+        size = op.bytesize
+
+        self.mc.load_imm(r.SCRATCH2, off.value)
+        self.mc.lvx(res.value, r.SCRATCH2.value, r.SP.value)
         if size == 1:
-            self.mc.PINSRB_xri(resloc.value, srcloc.value, 0)
-            self.mc.PSHUFB(resloc, heap(self.expand_byte_mask_addr))
+            if IS_BIG_ENDIAN:
+                self.mc.vspltb(res.value, res.value, 0b0000)
+            else:
+                self.mc.vspltb(res.value, res.value, 0b1111)
         elif size == 2:
-            self.mc.PINSRW_xri(resloc.value, srcloc.value, 0)
-            self.mc.PINSRW_xri(resloc.value, srcloc.value, 4)
-            self.mc.PSHUFLW_xxi(resloc.value, resloc.value, 0)
-            self.mc.PSHUFHW_xxi(resloc.value, resloc.value, 0)
+            if IS_BIG_ENDIAN:
+                self.mc.vsplth(res.value, res.value, 0b000)
+            else:
+                self.mc.vsplth(res.value, res.value, 0b111)
         elif size == 4:
-            self.mc.PINSRD_xri(resloc.value, srcloc.value, 0)
-            self.mc.PSHUFD_xxi(resloc.value, resloc.value, 0)
+            if IS_BIG_ENDIAN:
+                self.mc.vspltw(res.value, res.value, 0b00)
+            else:
+                self.mc.vspltw(res.value, res.value, 0b11)
         elif size == 8:
-            self.mc.PINSRQ_xri(resloc.value, srcloc.value, 0)
-            self.mc.PINSRQ_xri(resloc.value, srcloc.value, 1)
+            pass
         else:
-            raise AssertionError("cannot handle size %d (int expand)" % (size,))
+            notimplemented("[expand int size not impl]")
 
     #def genop_vec_pack_i(self, op, arglocs, regalloc):
     #    resultloc, sourceloc, residxloc, srcidxloc, countloc, sizeloc = arglocs
@@ -811,7 +811,20 @@ class VectorRegalloc(object):
             res = self.force_allocate_vector_reg(op)
         return [res, l0]
 
-    prepare_vec_expand_i = prepare_vec_expand_f
+    def prepare_vec_expand_i(self, op):
+        arg = op.getarg(0)
+        mc = self.assembler.mc
+        if arg.is_constant():
+            l0 = self.rm.get_scratch_reg()
+            mc.load_imm(l0, arg.value)
+        else:
+            l0 = self.ensure_reg(arg)
+        mc.store(l0.value, r.SP.value, PARAM_SAVE_AREA_OFFSET)
+        size = op.bytesize
+        if size == 8:
+            mc.store(l0.value, r.SP.value, PARAM_SAVE_AREA_OFFSET+8)
+        res = self.force_allocate_vector_reg(op)
+        return [res, l0, imm(PARAM_SAVE_AREA_OFFSET)]
 
     def prepare_vec_int_is_true(self, op):
         arg = op.getarg(0)
