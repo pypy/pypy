@@ -538,7 +538,6 @@ class TestCompatible(LLJitMixin):
         assert x < 30
         self.check_trace_count(7)
 
-
     def test_quasi_immutable_merge_short_preamble(self):
         from rpython.rlib.objectmodel import we_are_translated
         class C(object):
@@ -614,3 +613,64 @@ class TestCompatible(LLJitMixin):
         self.check_resops(call_i=0)
 
 
+    def test_like_objects(self):
+        from rpython.rlib.objectmodel import we_are_translated
+        class Map(object):
+            _immutable_fields_ = ['version?']
+
+            def __init__(self):
+                self.version = Version()
+                self.dct = {}
+
+            def instantiate(self):
+                return Obj(self)
+
+            @jit.elidable_compatible(quasi_immut_field_name_for_second_arg='version')
+            def lookup_version(self, version, name):
+                return self.dct.get(name, -1)
+
+        class Version(object):
+            pass
+
+        class Obj(object):
+            def __init__(self, map):
+                self.map = map
+
+            def lookup(self, name):
+                map = self.map
+                assert isinstance(map, Map)
+                map = jit.hint(map, promote_compatible=True)
+                return map.lookup_version(name)
+
+        m1 = Map()
+        m1.dct['a'] = 1
+        m1.dct['b'] = 2
+        m2 = Map()
+        m2.dct['a'] = 1
+        m2.dct['b'] = 2
+        m2.dct['c'] = 5
+
+        p1 = m1.instantiate()
+        p2 = m2.instantiate()
+
+        driver = jit.JitDriver(greens = [], reds = ['n', 'res', 'p'])
+
+        def f(n, p):
+            res = 0
+            while n > 0:
+                driver.jit_merge_point(n=n, p=p, res=res)
+                res += p.lookup('a')
+                res += p.lookup('c')
+                res += p.lookup('b')
+                n -= 1
+            return res
+
+        def main(x):
+            res = f(100, p1)
+            res = f(100, p2)
+        main(True)
+        main(False)
+
+        self.meta_interp(main, [True], backendopt=True)
+        self.check_trace_count(2)
+        self.check_resops(call_i=0)

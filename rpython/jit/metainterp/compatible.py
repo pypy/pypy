@@ -138,7 +138,6 @@ class CompatibilityCondition(object):
         if not qmutdescr.is_still_valid_for(self.known_valid):
             return None, None
         copied_op.setarg(2, qmutdescr.constantfieldbox)
-        self.last_quasi_immut_field_op = None
         return copied_op, QuasiimmutGetfieldAndPureCallCondition(
                 op, qmutdescr, optimizer)
 
