@@ -89,7 +89,7 @@ class Logger(object):
                             "with", len(operations), "ops")
                 logops = self._make_log_operations(memo)
                 if isinstance(descr, GuardCompatibleDescr):
-                    if descr.fallback_jump_target == 0:
+                    if descr.fallback_jump_target != -1:
                         # this means it's the last attached guard
                         ccond = descr.other_compat_conditions[-1]
                         argrepr = logops.repr_of_arg(

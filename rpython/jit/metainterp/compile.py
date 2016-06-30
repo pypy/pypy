@@ -1136,6 +1136,9 @@ class GuardCompatibleDescr(ResumeGuardDescr):
                 assert isinstance(newdescr, GuardCompatibleDescr)
                 compat_cond = newdescr._compatibility_conditions
                 self.other_compat_conditions.append(compat_cond)
+        if not compat_cond:
+            assert self.fallback_jump_target == 0 # this can never happen twice
+            self.fallback_jump_target = -1
         asminfo = ResumeGuardDescr.compile_and_attach(
             self, metainterp, new_loop, orig_inputargs)
         # note that the backend will not patch the switch at all, so it is
@@ -1143,7 +1146,7 @@ class GuardCompatibleDescr(ResumeGuardDescr):
         if compat_cond:
             compat_cond.jump_target = asminfo.asmaddr
         else:
-            assert self.fallback_jump_target == 0 # this can never happen twice
+            assert self.fallback_jump_target == -1 # this can never happen twice
             self.fallback_jump_target = asminfo.asmaddr
         return asminfo
 
