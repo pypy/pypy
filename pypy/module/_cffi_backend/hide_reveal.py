@@ -1,6 +1,5 @@
 from rpython.rlib import rgc
 from rpython.rlib.rweaklist import RWeakListMixin
-from rpython.rlib.objectmodel import fetch_translated_config
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 
 
@@ -19,7 +18,7 @@ class HideRevealRWeakList:
     def hide_object(self, obj):
         # XXX leaks if we call this function often on the same object
         index = self.glob_gcrefs.add_handle(obj)
-        return rffi.cast(llmemory.Address, index)
+        return rffi.cast(rffi.VOIDP, index)
 
     def reveal_object(self, Class, addr):
         index = rffi.cast(lltype.Signed, addr)
@@ -47,8 +46,7 @@ hide_reveal_slow = HideRevealRWeakList()
 hide_reveal_fast = HideRevealCast()
 
 def hide_reveal():
-    config = fetch_translated_config()
-    if config is not None and config.translation.split_gc_address_space:
+    if rgc.must_split_gc_address_space():
         return hide_reveal_slow
     else:
         return hide_reveal_fast
