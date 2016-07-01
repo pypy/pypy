@@ -315,6 +315,14 @@ class BaseTestDatetime:
         class sub(datetime.timedelta): pass
         assert type(+sub()) is datetime.timedelta
 
+    def test_subclass(self):
+        class MyDate(datetime.date): pass
+        class MyTime(datetime.time): pass
+        class MyDateTime(datetime.datetime): pass
+        assert type(MyDate.today().replace(day=1)) is MyDate
+        assert type(MyTime().replace(hour=1)) is MyTime
+        assert type(MyDateTime.now().replace(day=1, hour=1)) is MyDateTime
+
 
 class TestDatetimeHost(BaseTestDatetime):
     def setup_class(cls):

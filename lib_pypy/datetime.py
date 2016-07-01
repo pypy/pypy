@@ -839,7 +839,7 @@ class date(object):
             month = self._month
         if day is None:
             day = self._day
-        return date(year, month, day)
+        return type(self)(year, month, day)
 
     # Comparisons of date objects with other.
 
@@ -1356,7 +1356,7 @@ class time(object):
             microsecond = self.microsecond
         if tzinfo is True:
             tzinfo = self.tzinfo
-        return time(hour, minute, second, microsecond, tzinfo)
+        return type(self)(hour, minute, second, microsecond, tzinfo)
 
     def __nonzero__(self):
         if self.second or self.microsecond:
@@ -1566,7 +1566,7 @@ class datetime(date):
             microsecond = self.microsecond
         if tzinfo is True:
             tzinfo = self.tzinfo
-        return datetime(year, month, day, hour, minute, second, microsecond,
+        return type(self)(year, month, day, hour, minute, second, microsecond,
                         tzinfo)
 
     def astimezone(self, tz):
