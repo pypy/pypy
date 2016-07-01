@@ -13,7 +13,7 @@ from pypy.module._cffi_backend.cdataobj import W_CData
 from pypy.module._cffi_backend.ctypefunc import SIZE_OF_FFI_ARG, W_CTypeFunc
 from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveSigned
 from pypy.module._cffi_backend.ctypevoid import W_CTypeVoid
-from pypy.module._cffi_backend.hide_reveal import hide_reveal
+from pypy.module._cffi_backend.hide_reveal import hide_reveal1
 
 BIG_ENDIAN = sys.byteorder == 'big'
 
@@ -31,7 +31,7 @@ def make_callback(space, ctype, w_callable, w_error, w_onerror):
     return cdata
 
 def reveal_callback(raw_ptr):
-    return hide_reveal().reveal_object(W_ExternPython, raw_ptr)
+    return hide_reveal1().reveal_object(W_ExternPython, raw_ptr)
 
 
 class Closure(object):
@@ -91,7 +91,7 @@ class W_ExternPython(W_CData):
         return ctype
 
     def hide_object(self):
-        return hide_reveal().hide_object(self)
+        return hide_reveal1().hide_object(rffi.VOIDP, self)
 
     def _repr_extra(self):
         space = self.space
