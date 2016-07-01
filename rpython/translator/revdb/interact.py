@@ -189,12 +189,8 @@ class RevDebugControl(object):
                 'Reverse-hit' if backward else 'Hit',
                 kind, num, name))
         self.print_extra_pending_info = '\n'.join(printing)
-        target_time = b.time
-        if backward:
-            target_time -= 1   # when going backwards, we stop just before
-                               # the breakpoint time, as opposed to just after
-        if self.pgroup.get_current_time() != target_time:
-            self.pgroup.jump_in_time(target_time)
+        if self.pgroup.get_current_time() != b.time:
+            self.pgroup.jump_in_time(b.time)
 
     def remove_tainting(self):
         if self.pgroup.is_tainted():

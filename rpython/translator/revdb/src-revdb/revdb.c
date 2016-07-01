@@ -1106,8 +1106,8 @@ void rpy_reverse_db_breakpoint(int64_t num)
         return;   /* ignored breakpoints */
 
     case 'r':     /* record the breakpoint but continue */
-        if (last_recorded_breakpoint_loc != rpy_revdb.stop_point_seen + 1) {
-            last_recorded_breakpoint_loc = rpy_revdb.stop_point_seen + 1;
+        if (last_recorded_breakpoint_loc != rpy_revdb.stop_point_seen) {
+            last_recorded_breakpoint_loc = rpy_revdb.stop_point_seen;
             n_last_recorded_breakpoints = 0;
         }
         if (n_last_recorded_breakpoints < RECORD_BKPT_NUM) {
