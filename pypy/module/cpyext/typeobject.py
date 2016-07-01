@@ -167,7 +167,7 @@ def memberdescr_attach(space, py_obj, w_obj):
     py_memberdescr.c_d_member = w_obj.member
 
 def memberdescr_realize(space, obj):
-    # XXX NOT TESTED When is this ever called? 
+    # XXX NOT TESTED When is this ever called?
     member = rffi.cast(lltype.Ptr(PyMemberDef), obj)
     w_type = from_ref(space, rffi.cast(PyObject, obj.c_ob_type))
     w_obj = space.allocate_instance(W_MemberDescr, w_type)
@@ -192,7 +192,7 @@ def methoddescr_attach(space, py_obj, w_obj):
     py_methoddescr.c_d_method = w_obj.ml
 
 def classmethoddescr_realize(space, obj):
-    # XXX NOT TESTED When is this ever called? 
+    # XXX NOT TESTED When is this ever called?
     method = rffi.cast(lltype.Ptr(PyMethodDef), obj)
     w_type = from_ref(space, rffi.cast(PyObject, obj.c_ob_type))
     w_obj = space.allocate_instance(W_PyCClassMethodObject, w_type)
@@ -201,7 +201,7 @@ def classmethoddescr_realize(space, obj):
     return w_obj
 
 def methoddescr_realize(space, obj):
-    # XXX NOT TESTED When is this ever called? 
+    # XXX NOT TESTED When is this ever called?
     method = rffi.cast(lltype.Ptr(PyMethodDef), obj)
     w_type = from_ref(space, rffi.cast(PyObject, obj.c_ob_type))
     w_obj = space.allocate_instance(W_PyCMethodObject, w_type)
@@ -371,6 +371,8 @@ def inherit_special(space, pto, base_pto):
     # (minimally, if tp_basicsize is zero we copy it from the base)
     if not pto.c_tp_basicsize:
         pto.c_tp_basicsize = base_pto.c_tp_basicsize
+    if pto.c_tp_itemsize < base_pto.c_tp_itemsize:
+        pto.c_tp_itemsize = base_pto.c_tp_itemsize
     flags = rffi.cast(lltype.Signed, pto.c_tp_flags)
     base_object_pyo = make_ref(space, space.w_object)
     base_object_pto = rffi.cast(PyTypeObjectPtr, base_object_pyo)
@@ -564,7 +566,7 @@ def setup_buffer_procs(space, w_type, pto):
     if space.is_w(w_type, space.w_str):
         # Special case: str doesn't support get_raw_address(), so we have a
         # custom get*buffer that instead gives the address of the char* in the
-        # PyStringObject*!
+        # PyBytesObject*!
         c_buf.c_bf_getreadbuffer = llhelper(
             str_getreadbuffer.api_func.functype,
             str_getreadbuffer.api_func.get_wrapper(space))
@@ -597,7 +599,7 @@ def setup_buffer_procs(space, w_type, pto):
 
 @cpython_api([PyObject], lltype.Void, header=None)
 def type_dealloc(space, obj):
-    from pypy.module.cpyext.object import PyObject_dealloc
+    from pypy.module.cpyext.object import _dealloc
     obj_pto = rffi.cast(PyTypeObjectPtr, obj)
     base_pyo = rffi.cast(PyObject, obj_pto.c_tp_base)
     Py_DecRef(space, obj_pto.c_tp_bases)
@@ -608,7 +610,7 @@ def type_dealloc(space, obj):
         heaptype = rffi.cast(PyHeapTypeObject, obj)
         Py_DecRef(space, heaptype.c_ht_name)
         Py_DecRef(space, base_pyo)
-        PyObject_dealloc(space, obj)
+        _dealloc(space, obj)
 
 
 def type_alloc(space, w_metatype, itemsize=0):
@@ -657,6 +659,10 @@ def type_attach(space, py_obj, w_type):
         pto.c_tp_dealloc = llhelper(
             subtype_dealloc.api_func.functype,
             subtype_dealloc.api_func.get_wrapper(space))
+    if space.is_w(w_type, space.w_str):
+        pto.c_tp_itemsize = 1
+    elif space.is_w(w_type, space.w_tuple):
+        pto.c_tp_itemsize = rffi.sizeof(PyObject)
     # buffer protocol
     setup_buffer_procs(space, w_type, pto)
 
@@ -695,6 +701,8 @@ def type_attach(space, py_obj, w_type):
     if pto.c_tp_base:
         if pto.c_tp_base.c_tp_basicsize > pto.c_tp_basicsize:
             pto.c_tp_basicsize = pto.c_tp_base.c_tp_basicsize
+        if pto.c_tp_itemsize < pto.c_tp_base.c_tp_itemsize:
+            pto.c_tp_itemsize = pto.c_tp_base.c_tp_itemsize
 
     # will be filled later on with the correct value
     # may not be 0
@@ -774,7 +782,7 @@ def _type_realize(space, py_obj):
 
     if py_type.c_ob_type:
         w_metatype = from_ref(space, rffi.cast(PyObject, py_type.c_ob_type))
-    else: 
+    else:
         # Somehow the tp_base type is created with no ob_type, notably
         # PyString_Type and PyBaseString_Type
         # While this is a hack, cpython does it as well.
@@ -789,10 +797,10 @@ def _type_realize(space, py_obj):
     # inheriting tp_as_* slots
     base = py_type.c_tp_base
     if base:
-        if not py_type.c_tp_as_number: py_type.c_tp_as_number = base.c_tp_as_number 
-        if not py_type.c_tp_as_sequence: py_type.c_tp_as_sequence = base.c_tp_as_sequence 
-        if not py_type.c_tp_as_mapping: py_type.c_tp_as_mapping = base.c_tp_as_mapping 
-        if not py_type.c_tp_as_buffer: py_type.c_tp_as_buffer = base.c_tp_as_buffer 
+        if not py_type.c_tp_as_number: py_type.c_tp_as_number = base.c_tp_as_number
+        if not py_type.c_tp_as_sequence: py_type.c_tp_as_sequence = base.c_tp_as_sequence
+        if not py_type.c_tp_as_mapping: py_type.c_tp_as_mapping = base.c_tp_as_mapping
+        if not py_type.c_tp_as_buffer: py_type.c_tp_as_buffer = base.c_tp_as_buffer
 
     return w_obj
 

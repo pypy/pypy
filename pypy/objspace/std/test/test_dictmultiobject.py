@@ -127,7 +127,7 @@ class TestW_DictObject(object):
         space = self.space
         w = space.wrap
 
-        w_l = self.space.newlist([w("a"),w("b")])
+        w_l = space.newlist([w("a"),w("b")])
         w_l.getitems = None
         w_d = space.call_method(space.w_dict, "fromkeys", w_l)
 
@@ -136,8 +136,9 @@ class TestW_DictObject(object):
 
     def test_listview_bytes_dict(self):
         w = self.space.wrap
+        wb = self.space.newbytes
         w_d = self.space.newdict()
-        w_d.initialize_content([(w("a"), w(1)), (w("b"), w(2))])
+        w_d.initialize_content([(wb("a"), w(1)), (wb("b"), w(2))])
         assert self.space.listview_bytes(w_d) == ["a", "b"]
 
     def test_listview_unicode_dict(self):
@@ -154,9 +155,10 @@ class TestW_DictObject(object):
 
     def test_keys_on_string_unicode_int_dict(self, monkeypatch):
         w = self.space.wrap
-        
+        wb = self.space.newbytes
+
         w_d = self.space.newdict()
-        w_d.initialize_content([(w(1), w("a")), (w(2), w("b"))])
+        w_d.initialize_content([(w(1), wb("a")), (w(2), wb("b"))])
         w_l = self.space.call_method(w_d, "keys")
         assert sorted(self.space.listview_int(w_l)) == [1,2]
         
@@ -166,7 +168,7 @@ class TestW_DictObject(object):
         monkeypatch.setattr(self.space, 'newlist', not_allowed)
         #
         w_d = self.space.newdict()
-        w_d.initialize_content([(w("a"), w(1)), (w("b"), w(6))])
+        w_d.initialize_content([(wb("a"), w(1)), (wb("b"), w(6))])
         w_l = self.space.call_method(w_d, "keys")
         assert sorted(self.space.listview_bytes(w_l)) == ["a", "b"]
 
@@ -683,6 +685,7 @@ class AppTest_DictMultiObject(AppTest_DictObject):
         setattr(a, s, 123)
         assert holder.seen is s
 
+
 class AppTestDictViews:
     def test_dictview(self):
         d = {1: 2, 3: 4}
@@ -958,7 +961,7 @@ class AppTestStrategies(object):
     def test_empty_to_string(self):
         d = {}
         assert "EmptyDictStrategy" in self.get_strategy(d)
-        d["a"] = 1
+        d[b"a"] = 1
         assert "BytesDictStrategy" in self.get_strategy(d)
 
         class O(object):

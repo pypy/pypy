@@ -1,6 +1,6 @@
-=========================
+==========================
 What's new in PyPy2.7 5.3+
-=========================
+==========================
 
 .. this is a revision shortly after release-pypy2.7-v5.3
 .. startrev: 873218a739f1
@@ -37,3 +37,19 @@ compatible.
 
 .. branch: pyfile-tell
 Sync w_file with the c-level FILE* before returning FILE* in PyFile_AsFile
+
+.. branch: rw-PyString_AS_STRING
+Allow rw access to the char* returned from PyString_AS_STRING, also refactor
+PyStringObject to look like cpython's and allow subclassing PyString_Type and
+PyUnicode_Type
+
+.. branch: save_socket_errno
+
+Bug fix: if ``socket.socket()`` failed, the ``socket.error`` did not show
+the errno of the failing system call, but instead some random previous
+errno.
+
+.. branch: PyTuple_Type-subclass
+
+Refactor PyTupleObject to look like cpython's and allow subclassing 
+PyTuple_Type

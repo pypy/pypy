@@ -24,7 +24,7 @@ This function is also available as "hexlify()".'''
     for c in data:
         res.append(_value2char(ord(c) >> 4))
         res.append(_value2char(ord(c) & 0xf))
-    return space.wrap(res.build())
+    return space.newbytes(res.build())
 
 # ____________________________________________________________
 
@@ -53,4 +53,4 @@ This function is also available as "unhexlify()".'''
         a = _char2value(space, hexstr[i])
         b = _char2value(space, hexstr[i+1])
         res.append(chr((a << 4) | b))
-    return space.wrap(res.build())
+    return space.newbytes(res.build())

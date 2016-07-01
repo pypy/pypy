@@ -166,7 +166,16 @@ def _setup_ctypes_cache():
         })
 
     if '__int128_t' in rffi.TYPES:
-        _ctypes_cache[rffi.__INT128_T] = ctypes.c_longlong # XXX: Not right at all. But for some reason, It started by while doing JIT compile after a merge with default. Can't extend ctypes, because thats a python standard, right?
+        class c_int128(ctypes.Array):   # based on 2 ulongs
+            _type_ = ctypes.c_uint64
+            _length_ = 2
+            @property
+            def value(self):
+                res = self[0] | (self[1] << 64)
+                if res >= (1 << 127):
+                    res -= 1 << 128
+                return res
+        _ctypes_cache[rffi.__INT128_T] = c_int128
 
     # for unicode strings, do not use ctypes.c_wchar because ctypes
     # automatically converts arrays into unicode strings.

@@ -20,7 +20,7 @@ class TestFile(BaseApiTest):
         assert api.PyFile_CheckExact(w_file)
         assert not api.PyFile_Check(space.wrap("text"))
 
-        space.call_method(w_file, "write", space.wrap("text"))
+        space.call_method(w_file, "write", space.newbytes("text"))
         space.call_method(w_file, "close")
         assert (udir / "_test_file").read() == "text"
 
