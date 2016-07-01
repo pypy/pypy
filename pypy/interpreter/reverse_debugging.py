@@ -499,9 +499,11 @@ def command_compilewatch(cmd, expression):
     space = dbstate.space
     try:
         code = compile(expression, 'eval')
+        # Note: using version 0 to marshal watchpoints, in order to
+        # avoid space.new_interned_str() on unmarshal.  This is
+        # forbidden because it comes with lasting side-effects.
         marshalled_code = space.str_w(interp_marshal.dumps(
-            space, space.wrap(code),
-            space.wrap(interp_marshal.Py_MARSHAL_VERSION)))
+            space, space.wrap(code), space.wrap(0)))
     except OperationError as e:
         revdb.send_watch(e.errorstr(space), ok_flag=0)
     else:
