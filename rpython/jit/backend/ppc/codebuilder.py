@@ -612,7 +612,7 @@ class PPCVSXAssembler(object):
     # mul
     xvmuldp = XX3(60, XO9=112)
     xvmulsp = XX3(60, XO9=80)
-    xsmuldp = XX3(60, XO9=46)
+    xsmuldp = XX3(60, XO9=48)
     # div
     xvdivdp = XX3(60, XO9=102)
     xvdivsp = XX3(60, XO9=88)

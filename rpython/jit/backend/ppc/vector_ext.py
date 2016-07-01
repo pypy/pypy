@@ -333,38 +333,40 @@ class VectorAssembler(object):
             if not scalar_loc.is_reg():
                 scalar_loc = regalloc.force_allocate_reg(scalar_arg)
             assert scalar_arg is not None
-            if accum_info.accum_operation == '+':
-                self._accum_reduce_sum(scalar_arg, vector_loc, scalar_loc)
-            elif accum_info.accum_operation == '*':
-                self._accum_reduce_mul(scalar_arg, vector_loc, scalar_loc)
-            else:
-                not_implemented("accum operator %s not implemented" %
-                                            (accum_info.accum_operation)) 
+            op = accum_info.accum_operation
+            self._accum_reduce(op, scalar_arg, vector_loc, scalar_loc)
             accum_info = accum_info.next()
 
-    def _accum_reduce_mul(self, arg, accumloc, targetloc):
-        notimplemented("[ppc reduce mul]")
-        #scratchloc = X86_64_XMM_SCRATCH_REG
-        #self.mov(accumloc, scratchloc)
-        ## swap the two elements
-        #self.mc.SHUFPD_xxi(scratchloc.value, scratchloc.value, 0x01)
-        #self.mc.MULSD(accumloc, scratchloc)
-        #if accumloc is not targetloc:
-        #    self.mov(accumloc, targetloc)
-
-    def _accum_reduce_sum(self, arg, accumloc, targetloc):
+    def _accum_reduce(self, op, arg, accumloc, targetloc):
         # Currently the accumulator can ONLY be the biggest
         # 64 bit float/int
         tgt = targetloc.value
         acc = accumloc.value
         if arg.type == FLOAT:
             # r = (r[0]+r[1],r[0]+r[1])
-            self.mc.xvmr(tgt, acc, acc)
             if IS_BIG_ENDIAN:
                 self.mc.xxspltd(tgt, acc, acc, 0b00)
             else:
-                self.mc.xxspltd(tgt, acc, acc, 0b01)
-            self.mc.xsadddp(tgt, tgt, acc)
+                self.mc.xxspltd(tgt, acc, acc, 0b10)
+            if op == '+':
+                self.mc.xsadddp(tgt, tgt, acc)
+            elif op == '*':
+                self.mc.xsmuldp(tgt, tgt, acc)
+            else:
+                not_implemented("sum not implemented")
+            return
+        else:
+            assert arg.type == INT
+            self.mc.load_imm(r.SCRATCH2, PARAM_SAVE_AREA_OFFSET)
+            self.mc.stvx(acc, r.SCRATCH2.value, r.SP.value)
+            self.mc.load(tgt, r.SP.value, PARAM_SAVE_AREA_OFFSET)
+            self.mc.load(r.SCRATCH.value, r.SP.value, PARAM_SAVE_AREA_OFFSET+8)
+            if op == '+':
+                self.mc.add(tgt, tgt, acc)
+            elif op == '*':
+                self.mc.mul(tgt, tgt, acc)
+            else:
+                not_implemented("sum not implemented")
             return
 
         not_implemented("reduce sum for %s not impl." % arg)
@@ -514,59 +516,37 @@ class VectorAssembler(object):
         else:
             notimplemented("[expand int size not impl]")
 
-    #def genop_vec_pack_i(self, op, arglocs, regalloc):
-    #    resultloc, sourceloc, residxloc, srcidxloc, countloc, sizeloc = arglocs
-    #    assert isinstance(resultloc, RegLoc)
-    #    assert isinstance(sourceloc, RegLoc)
-    #    size = sizeloc.value
-    #    srcidx = srcidxloc.value
-    #    residx = residxloc.value
-    #    count = countloc.value
-    #    # for small data type conversion this can be quite costy
-    #    # NOTE there might be some combinations that can be handled
-    #    # more efficiently! e.g.
-    #    # v2 = pack(v0,v1,4,4)
-    #    si = srcidx
-    #    ri = residx
-    #    k = count
-    #    while k > 0:
-    #        if size == 8:
-    #            if resultloc.is_xmm and sourceloc.is_xmm: # both xmm
-    #                self.mc.PEXTRQ_rxi(X86_64_SCRATCH_REG.value, sourceloc.value, si)
-    #                self.mc.PINSRQ_xri(resultloc.value, X86_64_SCRATCH_REG.value, ri)
-    #            elif resultloc.is_xmm: # xmm <- reg
-    #                self.mc.PINSRQ_xri(resultloc.value, sourceloc.value, ri)
-    #            else: # reg <- xmm
-    #                self.mc.PEXTRQ_rxi(resultloc.value, sourceloc.value, si)
-    #        elif size == 4:
-    #            if resultloc.is_xmm and sourceloc.is_xmm:
-    #                self.mc.PEXTRD_rxi(X86_64_SCRATCH_REG.value, sourceloc.value, si)
-    #                self.mc.PINSRD_xri(resultloc.value, X86_64_SCRATCH_REG.value, ri)
-    #            elif resultloc.is_xmm:
-    #                self.mc.PINSRD_xri(resultloc.value, sourceloc.value, ri)
-    #            else:
-    #                self.mc.PEXTRD_rxi(resultloc.value, sourceloc.value, si)
-    #        elif size == 2:
-    #            if resultloc.is_xmm and sourceloc.is_xmm:
-    #                self.mc.PEXTRW_rxi(X86_64_SCRATCH_REG.value, sourceloc.value, si)
-    #                self.mc.PINSRW_xri(resultloc.value, X86_64_SCRATCH_REG.value, ri)
-    #            elif resultloc.is_xmm:
-    #                self.mc.PINSRW_xri(resultloc.value, sourceloc.value, ri)
-    #            else:
-    #                self.mc.PEXTRW_rxi(resultloc.value, sourceloc.value, si)
-    #        elif size == 1:
-    #            if resultloc.is_xmm and sourceloc.is_xmm:
-    #                self.mc.PEXTRB_rxi(X86_64_SCRATCH_REG.value, sourceloc.value, si)
-    #                self.mc.PINSRB_xri(resultloc.value, X86_64_SCRATCH_REG.value, ri)
-    #            elif resultloc.is_xmm:
-    #                self.mc.PINSRB_xri(resultloc.value, sourceloc.value, ri)
-    #            else:
-    #                self.mc.PEXTRB_rxi(resultloc.value, sourceloc.value, si)
-    #        si += 1
-    #        ri += 1
-    #        k -= 1
+    def emit_vec_pack_i(self, op, arglocs, regalloc):
+        resultloc, vloc, sourceloc, residxloc, srcidxloc, countloc = arglocs
+        srcidx = srcidxloc.value
+        residx = residxloc.value
+        count = countloc.value
+        # for small data type conversion this can be quite costy
+        # NOTE there might be some combinations that can be handled
+        # more efficiently! e.g.
+        # v2 = pack(v0,v1,4,4)
+        res = resultloc.value
+        vector = vloc.value
+        src = sourceloc.value
+        size = op.bytesize
+        if size == 8:
+            if resultloc.is_vector_reg() and sourceloc.is_vector_reg(): # both vector
+                notimplemented("[ppc/vec_pack_i]")
+            elif resultloc.is_vector_reg(): # vector <- reg
+                self.mc.load_imm(r.SCRATCH, PARAM_SAVE_AREA_OFFSET)
+                self.mc.stvx(vector, r.SCRATCH2.value, r.SP.value)
+                self.mc.store(src, r.SP.value, PARAM_SAVE_AREA_OFFSET+8*residx)
+                self.mc.lvx(res, r.SCRATCH2.value, r.SP.value)
+            else:
+                notimplemented("[ppc/vec_pack_i]")
+        elif size == 4:
+            notimplemented("[ppc/vec_pack_i]")
+        elif size == 2:
+            notimplemented("[ppc/vec_pack_i]")
+        elif size == 1:
+            notimplemented("[ppc/vec_pack_i]")
 
-    #genop_vec_unpack_i = genop_vec_pack_i
+    # TODO emit_vec_unpack_i = emit_vec_pack_i
 
     def emit_vec_pack_f(self, op, arglocs, resultloc):
         resloc, vloc, srcloc, residxloc, srcidxloc, countloc = arglocs
@@ -755,11 +735,12 @@ class VectorRegalloc(object):
         count = op.getarg(3)
         assert isinstance(index, ConstInt)
         assert isinstance(count, ConstInt)
-        srcloc = self.ensure_vector_reg(arg)
+        vloc = self.ensure_vector_reg(op.getarg(0))
+        srcloc = self.ensure_reg(arg)
         resloc = self.force_allocate_vector_reg(op)
         residx = index.value # where to put it in result?
         srcidx = 0
-        return [resloc, srcloc, imm(residx), imm(srcidx), imm(count.value)]
+        return [resloc, vloc, srcloc, imm(residx), imm(srcidx), imm(count.value)]
 
     def prepare_vec_pack_f(self, op):
         # new_res = vec_pack_i(res, src, index, count)
@@ -769,7 +750,7 @@ class VectorRegalloc(object):
         count = op.getarg(3)
         assert isinstance(index, ConstInt)
         assert isinstance(count, ConstInt)
-        assert not arg.is_vector()
+        assert not arg.is_vector_reg()
         srcloc = self.ensure_reg(arg)
         vloc = self.ensure_vector_reg(op.getarg(0))
         resloc = self.force_allocate_vector_reg(op)

@@ -379,23 +379,30 @@ class VectorizeTests(object):
         res = self.meta_interp(f, [count])
         assert res == f(count) == breaks
 
-    def test_sum(self):
+    @py.test.mark.parametrize('type,func,cast',
+            [(rffi.DOUBLE, lambda a,b: a+b, float),
+             (rffi.DOUBLE, lambda a,b: a*b, float),
+             (lltype.Signed, lambda a,b: a+b, int),
+             (lltype.Signed, lambda a,b: a*b, int),
+            ])
+    def test_reduce(self, type, func, cast):
+        func = always_inline(func)
         myjitdriver = JitDriver(greens = [], reds = 'auto', vectorize=True)
-        T = lltype.Array(rffi.DOUBLE, hints={'nolength': True})
+        T = lltype.Array(type, hints={'nolength': True})
         def f(d):
             va = lltype.malloc(T, d, flavor='raw', zero=True)
             for j in range(d):
-                va[j] = float(j)
+                va[j] = cast(j+1)
             i = 0
             accum = 0
             while i < d:
                 myjitdriver.jit_merge_point()
-                accum += va[i]
+                accum = func(accum,va[i])
                 i += 1
             lltype.free(va, flavor='raw')
             return accum
         res = self.meta_interp(f, [60])
-        assert res == f(60) == sum(range(60))
+        assert isclose(res, f(60))
 
     def test_constant_expand(self):
         myjitdriver = JitDriver(greens = [], reds = 'auto', vectorize=True)
