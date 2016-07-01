@@ -1356,8 +1356,19 @@ class __extend__(pyframe.PyFrame):
     def BUILD_MAP_UNPACK_WITH_CALL(self, itemcount, next_instr):
         num_maps = itemcount & 0xff
         w_dict = self.space.newdict()
-        import pdb; pdb.set_trace()
-        self.BUILD_MAP_UNPACK(num_maps, next_instr)
+        for i in range(num_maps, 0, -1):
+            w_item = self.peekvalue(i-1)
+            num_items = w_item.length()
+            for j in range(num_items):
+                (w_key, w_value) = w_item.popitem()
+                if self.space.is_true(self.space.contains(w_dict,w_key)):
+                    raise oefmt(self.space.w_TypeError,
+                        "got multiple values for keyword argument %s", w_key)
+                self.space.setitem(w_dict, w_key, w_value)
+        while num_maps != 0:
+            self.popvalue()
+            num_maps -= 1
+        self.pushvalue(w_dict)
         
     def BUILD_MAP_UNPACK(self, itemcount, next_instr):
         w_dict = self.space.newdict()
