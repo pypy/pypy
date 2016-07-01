@@ -8,9 +8,12 @@ extern "C" {
 #endif
 
 typedef struct {
-    PyObject_HEAD
-    Py_ssize_t ob_size;
-    PyObject **ob_item;    /* XXX optimize to ob_item[] */
+    PyObject_VAR_HEAD
+    PyObject *ob_item[1];
+    /* ob_item contains space for 'ob_size' elements.
+     * Items must normally not be NULL, except during construction when
+     * the tuple is not yet visible outside the function that builds it.
+     */
 } PyTupleObject;
 
 /* defined in varargswrapper.c */

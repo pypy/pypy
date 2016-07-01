@@ -1038,7 +1038,7 @@ class ObjSpace(object):
         return (None, None)
 
     def newlist_bytes(self, list_s):
-        return self.newlist([self.wrap(s) for s in list_s])
+        return self.newlist([self.newbytes(s) for s in list_s])
 
     def newlist_unicode(self, list_u):
         return self.newlist([self.wrap(u) for u in list_u])
@@ -1537,7 +1537,7 @@ class ObjSpace(object):
         # unclear if there is any use at all for getting the bytes in
         # the unicode buffer.)
         try:
-            return self.str_w(w_obj)
+            return self.bytes_w(w_obj)
         except OperationError as e:
             if not e.match(self, self.w_TypeError):
                 raise

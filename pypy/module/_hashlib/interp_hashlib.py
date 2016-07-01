@@ -111,7 +111,7 @@ class W_Hash(W_Root):
     def digest(self, space):
         "Return the digest value as a string of binary data."
         digest = self._digest(space)
-        return space.wrap(digest)
+        return space.newbytes(digest)
 
     def hexdigest(self, space):
         "Return the digest value as a string of hexadecimal digits."

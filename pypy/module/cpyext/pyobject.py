@@ -164,7 +164,7 @@ def create_ref(space, w_obj):
     pytype = rffi.cast(PyTypeObjectPtr, as_pyobj(space, w_type))
     typedescr = get_typedescr(w_obj.typedef)
     if pytype.c_tp_itemsize != 0:
-        itemcount = space.len_w(w_obj) # PyStringObject and subclasses
+        itemcount = space.len_w(w_obj) # PyBytesObject and subclasses
     else:
         itemcount = 0
     py_obj = typedescr.allocate(space, w_type, itemcount=itemcount)

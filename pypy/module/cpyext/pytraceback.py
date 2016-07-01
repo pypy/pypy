@@ -46,5 +46,5 @@ def traceback_dealloc(space, py_obj):
     py_traceback = rffi.cast(PyTracebackObject, py_obj)
     Py_DecRef(space, rffi.cast(PyObject, py_traceback.c_tb_next))
     Py_DecRef(space, rffi.cast(PyObject, py_traceback.c_tb_frame))
-    from pypy.module.cpyext.object import PyObject_dealloc
-    PyObject_dealloc(space, py_obj)
+    from pypy.module.cpyext.object import _dealloc
+    _dealloc(space, py_obj)

@@ -225,11 +225,11 @@ class W_ArrayBase(W_Root):
         """
         size = self.len
         if size == 0:
-            return space.wrap('')
+            return space.newbytes('')
         cbuf = self._charbuf_start()
         s = rffi.charpsize2str(cbuf, size * self.itemsize)
         self._charbuf_stop()
-        return self.space.wrap(s)
+        return self.space.newbytes(s)
 
     def descr_fromstring(self, space, w_s):
         """ fromstring(string)
@@ -263,7 +263,7 @@ class W_ArrayBase(W_Root):
         except OverflowError:
             raise MemoryError
         w_item = space.call_method(w_f, 'read', space.wrap(size))
-        item = space.str_w(w_item)
+        item = space.bytes_w(w_item)
         if len(item) < size:
             n = len(item) % self.itemsize
             elems = max(0, len(item) - (len(item) % self.itemsize))
@@ -338,10 +338,10 @@ class W_ArrayBase(W_Root):
         else:
             args = [space.wrap(self.typecode)]
         try:
-            dct = space.getattr(self, space.wrap('__dict__'))
+            w_dict = space.getattr(self, space.wrap('__dict__'))
         except OperationError:
-            dct = space.w_None
-        return space.newtuple([space.type(self), space.newtuple(args), dct])
+            w_dict = space.w_None
+        return space.newtuple([space.type(self), space.newtuple(args), w_dict])
 
     def descr_copy(self, space):
         """ copy(array)
