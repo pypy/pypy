@@ -170,28 +170,31 @@ class RevDebugControl(object):
             self.pgroup.go_forward(steps)
             return None
         except Breakpoint as b:
-            self.hit_breakpoint(b)
+            self.hit_breakpoints(b)
             return b
 
-    def move_backward(self, steps, rel_stop_at=-1):
-        ignore_bkpt = steps == 1 and rel_stop_at == -1
+    def move_backward(self, steps):
         try:
-            self.pgroup.go_backward(steps, ignore_breakpoints=ignore_bkpt,
-                                    rel_stop_at=rel_stop_at)
+            self.pgroup.go_backward(steps)
             return None
         except Breakpoint as b:
-            self.hit_breakpoint(b, backward=True)
+            self.hit_breakpoints(b, backward=True)
             return b
 
-    def hit_breakpoint(self, b, backward=False):
-        if b.num != -1:
-            kind, name = self._bp_kind(b.num)
-            self.print_extra_pending_info = 'Hit %s %d: %s' % (kind, b.num,
-                                                               name)
-        elif backward:
-            b.time -= 1
-        if self.pgroup.get_current_time() != b.time:
-            self.pgroup.jump_in_time(b.time)
+    def hit_breakpoints(self, b, backward=False):
+        printing = []
+        for num in b.regular_breakpoint_nums():
+            kind, name = self._bp_kind(num)
+            printing.append('%s %s %d: %s' % (
+                'Reverse-hit' if backward else 'Hit',
+                kind, num, name))
+        self.print_extra_pending_info = '\n'.join(printing)
+        target_time = b.time
+        if backward:
+            target_time -= 1   # when going backwards, we stop just before
+                               # the breakpoint time, as opposed to just after
+        if self.pgroup.get_current_time() != target_time:
+            self.pgroup.jump_in_time(target_time)
 
     def remove_tainting(self):
         if self.pgroup.is_tainted():
@@ -226,33 +229,44 @@ class RevDebugControl(object):
         stack_id = self.pgroup.get_stack_id(is_parent=False)
         with self._stack_id_break(stack_id):
             b = self.move_forward(1)
-        if b is None:
-            return    # no breakpoint hit, and no frame just entered: done
-        elif b.num != -1:
-            return    # a regular breakpoint was hit
-        else:
-            # we entered a frame.  Continue running until we leave that
-            # frame again
+        while b is not None:
+            # if we hit a regular breakpoint, stop
+            if any(b.regular_breakpoint_nums()):
+                return
+            # we hit only calls and returns inside stack_id.  If the
+            # last one of these is a "return", then we're now back inside
+            # stack_id, so stop
+            if b.nums[-1] == -2:
+                return
+            # else, the last one is a "call", so we entered another frame.
+            # Continue running until the next call/return event occurs
+            # inside stack_id
             with self._stack_id_break(stack_id):
-                self.command_continue("")
+                b = self.move_forward(self.pgroup.get_max_time() -
+                                      self.pgroup.get_current_time())
+            # and then look at that 'b' again (closes the loop)
     command_n = command_next
 
     def command_bnext(self, argument):
         """Run backward for one step, skipping calls"""
         stack_id = self.pgroup.get_stack_id(is_parent=False)
         with self._stack_id_break(stack_id):
-            b = self.move_backward(1, rel_stop_at=0)
-        if b is None:
-            return    # no breakpoint hit, and no frame just
-                      # reverse-entered: done
-        elif b.num != -1:
-            return    # a regular breakpoint was hit
-        else:
-            # we reverse-entered a frame.  Continue running backward
-            # until we go past the reverse-leave (i.e. the entering)
-            # of that frame.
+            b = self.move_backward(1)
+        while b is not None:
+            # if we hit a regular breakpoint, stop
+            if any(b.regular_breakpoint_nums()):
+                return
+            # we hit only calls and returns inside stack_id.  If the
+            # first one of these is a "call", then we're now back inside
+            # stack_id, so stop
+            if b.nums[0] == -1:
+                return
+            # else, the first one is a "return", so before, we were
+            # inside a different frame.  Continue running until the next
+            # call/return event occurs inside stack_id
             with self._stack_id_break(stack_id):
-                self.command_bcontinue("")
+                b = self.move_backward(self.pgroup.get_current_time() - 1)
+            # and then look at that 'b' again (closes the loop)
     command_bn = command_bnext
 
     def command_finish(self, argument):

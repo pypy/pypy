@@ -5,12 +5,21 @@ from rpython.translator.revdb.message import *
 
 
 class Breakpoint(Exception):
-    def __init__(self, time, num):
-        self.time = time
-        self.num = num
+    def __init__(self, time):
+        self.time = time   # time of the previous stop_point
+        self.nums = []     # list of breakpoint numbers that occurred, in order
+
+    def record_num(self, num):
+        self.nums.append(num)
+
+    def regular_breakpoint_nums(self):
+        for num in self.nums:
+            if num != -1 and num != -2:
+                yield num
 
     def __repr__(self):
-        return 'Breakpoint(%d, %d)' % (self.time, self.num)
+        return 'Breakpoint(%d, %r)' % (self.time, self.nums)
+    __str__ = __repr__
 
 
 class AllBreakpoints(object):
@@ -151,15 +160,15 @@ class ReplayProcess(object):
 
         self.send(Message(CMD_FORWARD, steps, ord(breakpoint_mode)))
         #
-        # record the first ANSWER_BREAKPOINT, drop the others
-        # (in corner cases only could we get more than one)
+        # record all breakpoints that occur together during the *last* step
         bkpt = None
         while True:
             msg = self.recv()
             if msg.cmd != ANSWER_BREAKPOINT:
                 break
-            if bkpt is None:
-                bkpt = Breakpoint(msg.arg1, msg.arg3)
+            if bkpt is None or bkpt.time != msg.arg1:
+                bkpt = Breakpoint(msg.arg1)
+            bkpt.record_num(msg.arg3)
         assert msg.cmd == ANSWER_READY, msg
         self.update_times(msg)
         return bkpt
@@ -306,7 +315,7 @@ class ReplayProcessGroup(object):
         if bkpt:
             raise bkpt
 
-    def go_backward(self, steps, ignore_breakpoints=False, rel_stop_at=-1):
+    def go_backward(self, steps, ignore_breakpoints=False):
         """Go backward, for the given number of 'steps' of time.
 
         Closes the active process.  Implemented as jump_in_time()
@@ -323,7 +332,7 @@ class ReplayProcessGroup(object):
                 first_steps = 957
             self._backward_search_forward(
                 search_start_time       = initial_time - first_steps,
-                search_stop_time        = initial_time + rel_stop_at,
+                search_stop_time        = initial_time,
                 search_go_on_until_time = initial_time - steps)
 
     def _backward_search_forward(self, search_start_time, search_stop_time,

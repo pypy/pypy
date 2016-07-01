@@ -59,14 +59,14 @@ def enter_call(caller_frame, callee_frame):
         name = callee_frame.getcode().co_name
         if name in dbstate.breakpoint_funcnames:
             revdb.breakpoint(dbstate.breakpoint_funcnames[name])
-    if dbstate.breakpoint_stack_id != 0:
+    if dbstate.breakpoint_stack_id != 0 and caller_frame is not None:
         if dbstate.breakpoint_stack_id == revdb.get_unique_id(caller_frame):
             revdb.breakpoint(-1)
 
 def leave_call(caller_frame, callee_frame):
-    if dbstate.breakpoint_stack_id != 0:
+    if dbstate.breakpoint_stack_id != 0 and caller_frame is not None:
         if dbstate.breakpoint_stack_id == revdb.get_unique_id(caller_frame):
-            revdb.breakpoint(-1)
+            revdb.breakpoint(-2)
 
 
 def jump_backward(frame, jumpto):

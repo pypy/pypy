@@ -483,6 +483,8 @@ void *rpy_reverse_db_weakref_deref(void *weakref)
 #define ANSWER_AT_END     (-23)
 #define ANSWER_BREAKPOINT (-24)
 
+#define RECORD_BKPT_NUM   50
+
 typedef void (*rpy_revdb_command_fn)(rpy_revdb_command_t *, RPyString *);
 
 static int rpy_rev_sockfd;
@@ -493,7 +495,8 @@ static jmp_buf jmp_buf_cancel_execution;
 static void (*pending_after_forward)(void);
 static RPyString *empty_string;
 static uint64_t last_recorded_breakpoint_loc;
-static int last_recorded_breakpoint_num;
+static int n_last_recorded_breakpoints;
+static int last_recorded_breakpoint_nums[RECORD_BKPT_NUM];
 static char breakpoint_mode = 'i';
 static uint64_t *future_ids, *future_next_id;
 static void *finalizer_tree, *destructor_tree;
@@ -927,10 +930,11 @@ static void command_fork(void)
 
 static void answer_recorded_breakpoint(void)
 {
-    if (last_recorded_breakpoint_loc != 0) {
+    int i;
+    for (i = 0; i < n_last_recorded_breakpoints; i++)
         write_answer(ANSWER_BREAKPOINT, last_recorded_breakpoint_loc,
-                     0, last_recorded_breakpoint_num);
-    }
+                     0, last_recorded_breakpoint_nums[i]);
+    n_last_recorded_breakpoints = 0;
 }
 
 static void command_forward(rpy_revdb_command_t *cmd)
@@ -943,7 +947,7 @@ static void command_forward(rpy_revdb_command_t *cmd)
     interactive_break = saved_state.stop_point_seen + cmd->arg1;
     breakpoint_mode = (char)cmd->arg2;
     if (breakpoint_mode == 'r') {
-        last_recorded_breakpoint_loc = 0;
+        n_last_recorded_breakpoints = 0;
         pending_after_forward = &answer_recorded_breakpoint;
     }
 }
@@ -1102,8 +1106,14 @@ void rpy_reverse_db_breakpoint(int64_t num)
         return;   /* ignored breakpoints */
 
     case 'r':     /* record the breakpoint but continue */
-        last_recorded_breakpoint_loc = rpy_revdb.stop_point_seen + 1;
-        last_recorded_breakpoint_num = num;
+        if (last_recorded_breakpoint_loc != rpy_revdb.stop_point_seen + 1) {
+            last_recorded_breakpoint_loc = rpy_revdb.stop_point_seen + 1;
+            n_last_recorded_breakpoints = 0;
+        }
+        if (n_last_recorded_breakpoints < RECORD_BKPT_NUM) {
+            last_recorded_breakpoint_nums[n_last_recorded_breakpoints] = num;
+            n_last_recorded_breakpoints++;
+        }
         return;
 
     case 'b':     /* default handling of breakpoints */
