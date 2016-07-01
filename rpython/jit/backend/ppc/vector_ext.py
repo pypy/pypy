@@ -267,10 +267,10 @@ class VectorAssembler(object):
         else:
             notimplemented("[ppc/assembler] float neg for size %d" % size)
 
-    def emit_guard_vec_guard_true(self, guard_op, guard_token, arglocs, regalloc):
+    def emit_vec_guard_true(self, guard_op, arglocs, regalloc):
         self._emit_guard(guard_op, arglocs)
 
-    def emit_guard_vec_guard_false(self, guard_op, guard_token, arglocs, regalloc):
+    def emit_vec_guard_false(self, guard_op, arglocs, regalloc):
         self.guard_success_cc = c.negate(self.guard_success_cc)
         self._emit_guard(guard_op, arglocs)
 
@@ -374,7 +374,7 @@ class VectorAssembler(object):
     def emit_vec_int_is_true(self, op, arglocs, regalloc):
         resloc, argloc, sizeloc = arglocs
         size = sizeloc.value
-        tmp = regalloc.get_scratch_reg().value
+        tmp = regalloc.ivrm.get_scratch_reg().value
         self.mc.vxor(tmp, tmp, tmp)
         # argloc[i] > 0:
         # For an unsigned integer that is equivalent to argloc[i] != 0
@@ -521,24 +521,18 @@ class VectorAssembler(object):
         srcidx = srcidxloc.value
         residx = residxloc.value
         count = countloc.value
-        # for small data type conversion this can be quite costy
-        # NOTE there might be some combinations that can be handled
-        # more efficiently! e.g.
-        # v2 = pack(v0,v1,4,4)
         res = resultloc.value
         vector = vloc.value
         src = sourceloc.value
         size = op.bytesize
         if size == 8:
-            if resultloc.is_vector_reg() and sourceloc.is_vector_reg(): # both vector
-                notimplemented("[ppc/vec_pack_i]")
-            elif resultloc.is_vector_reg(): # vector <- reg
+            if resultloc.is_vector_reg(): # vector <- reg
                 self.mc.load_imm(r.SCRATCH, PARAM_SAVE_AREA_OFFSET)
                 self.mc.stvx(vector, r.SCRATCH2.value, r.SP.value)
                 self.mc.store(src, r.SP.value, PARAM_SAVE_AREA_OFFSET+8*residx)
                 self.mc.lvx(res, r.SCRATCH2.value, r.SP.value)
             else:
-                notimplemented("[ppc/vec_pack_i]")
+                notimplemented("[ppc/vec_pack_i] 64 bit float")
         elif size == 4:
             notimplemented("[ppc/vec_pack_i]")
         elif size == 2:
@@ -546,9 +540,22 @@ class VectorAssembler(object):
         elif size == 1:
             notimplemented("[ppc/vec_pack_i]")
 
-    # TODO emit_vec_unpack_i = emit_vec_pack_i
+    def emit_vec_unpack_i(self, op, arglocs, regalloc):
+        resloc, srcloc, idxloc, countloc = arglocs
+        idx = idxloc.value
+        res = resloc.value
+        src = srcloc.value
+        size = op.bytesize
+        if size == 8:
+            if srcloc.is_vector_reg(): # reg <- vector
+                assert not resloc.is_vector_reg()
+                self.mc.load_imm(r.SCRATCH, PARAM_SAVE_AREA_OFFSET)
+                self.mc.stvx(src, r.SCRATCH2.value, r.SP.value)
+                self.mc.load(res, r.SP.value, PARAM_SAVE_AREA_OFFSET+8*idx)
+            else:
+                notimplemented("[ppc/vec_unpack_i] 64 bit integer")
 
-    def emit_vec_pack_f(self, op, arglocs, resultloc):
+    def emit_vec_pack_f(self, op, arglocs, regalloc):
         resloc, vloc, srcloc, residxloc, srcidxloc, countloc = arglocs
         vec = vloc.value
         res = resloc.value
@@ -590,7 +597,9 @@ class VectorAssembler(object):
                 else:
                     self.mc.xxspltd(res, vec, src, 0b01)
 
-    emit_vec_unpack_f = emit_vec_pack_f
+    def emit_vec_unpack_f(self, op, arglocs, regalloc):
+        resloc, srcloc, idxloc, countloc = arglocs
+        self.emit_vec_pack_f(op, [resloc, srcloc, srcloc, imm(0), idxloc, countloc], regalloc)
 
     # needed as soon as PPC's support_singlefloat is implemented!
     #def genop_vec_cast_float_to_int(self, op, arglocs, regalloc):
@@ -750,7 +759,7 @@ class VectorRegalloc(object):
         count = op.getarg(3)
         assert isinstance(index, ConstInt)
         assert isinstance(count, ConstInt)
-        assert not arg.is_vector_reg()
+        assert not arg.is_vector()
         srcloc = self.ensure_reg(arg)
         vloc = self.ensure_vector_reg(op.getarg(0))
         resloc = self.force_allocate_vector_reg(op)
@@ -758,29 +767,28 @@ class VectorRegalloc(object):
         srcidx = 0
         return [resloc, vloc, srcloc, imm(residx), imm(srcidx), imm(count.value)]
 
-    #def prepare_vec_unpack_i(self, op):
-    #    assert isinstance(op, VectorOp)
-    #    index = op.getarg(1)
-    #    count = op.getarg(2)
-    #    assert isinstance(index, ConstInt)
-    #    assert isinstance(count, ConstInt)
-    #    args = op.getarglist()
-    #    srcloc = self.make_sure_var_in_reg(op.getarg(0), args)
-    #    if op.is_vector():
-    #        resloc =  self.xrm.force_result_in_reg(op, op.getarg(0), args)
-    #        size = op.bytesize
-    #    else:
-    #        # unpack into iX box
-    #        resloc =  self.force_allocate_reg(op, args)
-    #        arg = op.getarg(0)
-    #        assert isinstance(arg, VectorOp)
-    #        size = arg.bytesize
-    #    residx = 0
-    #    args = op.getarglist()
-    #    arglocs = [resloc, srcloc, imm(residx), imm(index.value), imm(count.value), imm(size)]
-    #    self.perform(op, arglocs, resloc)
+    def prepare_vec_unpack_f(self, op):
+        index = op.getarg(1)
+        count = op.getarg(2)
+        assert isinstance(index, ConstInt)
+        assert isinstance(count, ConstInt)
+        srcloc = self.ensure_vector_reg(op.getarg(0))
+        resloc = self.force_allocate_reg(op)
+        return [resloc, srcloc, imm(index.value), imm(count.value)]
 
-    #prepare_vec_unpack_f = prepare_vec_unpack_i
+    def prepare_vec_unpack_i(self, op):
+        assert isinstance(op, VectorOp)
+        index = op.getarg(1)
+        count = op.getarg(2)
+        assert isinstance(index, ConstInt)
+        assert isinstance(count, ConstInt)
+        arg = op.getarg(0)
+        if arg.is_vector():
+            srcloc = self.ensure_vector_reg(op.getarg(0))
+        else:
+            srcloc = self.ensure_reg(op.getarg(0))
+        resloc = self.force_allocate_reg(op)
+        return [resloc, srcloc, imm(index.value), imm(count.value)]
 
     def expand_float(self, size, box):
         adr = self.assembler.datablockwrapper.malloc_aligned(16, 16)
@@ -835,14 +843,19 @@ class VectorRegalloc(object):
 
     prepare_vec_cast_int_to_float = prepare_vec_cast_float_to_int
 
-    def _prepare_guard(self, box):
+    def load_vector_condition_into_cc(self, box):
         if self.assembler.guard_success_cc == c.cond_none:
-            notimplemented("[ppc/regalloc] guard")
+            # compare happended before
+            #loc = self.ensure_reg(box)
+            #mc = self.assembler.mc
+            #mc.cmp_op(0, loc.value, 0, imm=True)
             self.assembler.guard_success_cc = c.NE
 
     def prepare_vec_guard_true(self, op):
-        self._prepare_guard(op.getarg(0))
+        self.load_vector_condition_into_cc(op.getarg(0))
+        return self._prepare_guard(op)
 
     def prepare_vec_guard_false(self, op):
-        self._prepare_guard(op.getarg(0))
+        self.load_vector_condition_into_cc(op.getarg(0))
+        return self._prepare_guard(op)
 
