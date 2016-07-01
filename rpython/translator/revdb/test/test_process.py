@@ -68,7 +68,7 @@ class TestReplayProcessGroup:
         group.active.expect(ANSWER_READY, 1, Ellipsis)
         e = py.test.raises(Breakpoint, group.go_forward, 10, 'b')
         assert e.value.time == 7
-        assert e.value.num == 99
+        assert e.value.nums == [99]
         group._check_current_time(7)
 
     def test_breakpoint_r(self):
@@ -77,8 +77,8 @@ class TestReplayProcessGroup:
         group.active.expect(42, 100, -43, -44, 'set-breakpoint')
         group.active.expect(ANSWER_READY, 1, Ellipsis)
         e = py.test.raises(Breakpoint, group.go_forward, 10, 'r')
-        assert e.value.time == 8
-        assert e.value.num == 99
+        assert e.value.time == 7
+        assert e.value.nums == [99]
         group._check_current_time(10)
 
     def test_breakpoint_i(self):
