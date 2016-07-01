@@ -152,7 +152,7 @@ class W_PyCClassMethodObject(W_PyCFunctionObject):
 
 class W_PyCWrapperObject(W_Root):
     def __init__(self, space, pto, method_name, wrapper_func,
-                 wrapper_func_kwds, doc, func, offset=-1):
+                 wrapper_func_kwds, doc, func, offset=None):
         self.space = space
         self.method_name = method_name
         self.wrapper_func = wrapper_func
@@ -174,15 +174,15 @@ class W_PyCWrapperObject(W_Root):
             raise oefmt(space.w_TypeError,
                         "wrapper %s doesn't take any keyword arguments",
                         self.method_name)
-        if self.offset >= 0:
-            pto = rffi.cast(PyTypeObjectPtr, as_pyobj(space, self.w_objclass))
-            pto_func_as_int = lltype.cast_ptr_to_int(pto) + self.offset
-            # XXX make pto_func the equivalent of this line
-            #lltype.cast_int_to_ptr(pto_func_as_int)
-            func_to_call = rffi.cast(rffi.VOIDP, pto.c_tp_as_number.c_nb_multiply)
-            # print '\ncalling', func_to_call, 'not', self.func
+        if self.offset:
+            ptr = pto = rffi.cast(PyTypeObjectPtr, as_pyobj(space, self.w_objclass))
+            # make ptr the equivalent of this, using the offsets
+            #func_to_call = rffi.cast(rffi.VOIDP, pto.c_tp_as_number.c_nb_multiply)
+            for o in self.offset:
+                ptr_as_int = lltype.cast_ptr_to_int(ptr)
+                ptr = rffi.cast(rffi.VOIDPP, ptr_as_int + o)[0]
+            func_to_call = ptr
         else:
-            # print 'calling', self.method_name,'with no offset'
             func_to_call = self.func
         return self.wrapper_func(space, w_self, w_args, func_to_call)
 
