@@ -304,6 +304,7 @@ def add_operators(space, dict_w, pto):
             struct = getattr(pto, slot_names[0])
             if not struct:
                 continue
+            assert isinstance(struct, lltype._ptr)
             offset.append(rffi.offsetof(struct._T, slot_names[1]))
             func = getattr(struct, slot_names[1])
         func_voidp = rffi.cast(rffi.VOIDP, func)
@@ -818,7 +819,6 @@ def finish_type_1(space, pto):
     base_pyo = rffi.cast(PyObject, pto.c_tp_base)
     if base and not base.c_tp_flags & Py_TPFLAGS_READY:
         name = rffi.charp2str(base.c_tp_name)
-        print 'realizing base while creating child',
         type_realize(space, base_pyo)
     if base and not pto.c_ob_type: # will be filled later
         pto.c_ob_type = base.c_ob_type
