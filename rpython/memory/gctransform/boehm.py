@@ -48,7 +48,7 @@ class BoehmGCTransformer(GCTransformer):
                  self.WEAKLINK, self.convert_weakref_to
                         ) = build_weakref(self.translator.config)
                 self.weakref_create_ptr = self.inittime_helper(
-                    ll_weakref_create, [llmemory.Address], llmemory.WeakRefPtr,
+                    ll_weakref_create, [llmemory.GCREF], llmemory.WeakRefPtr,
                     inline=False)
                 self.weakref_deref_ptr = self.inittime_helper(
                     ll_weakref_deref, [llmemory.WeakRefPtr], llmemory.GCREF)
