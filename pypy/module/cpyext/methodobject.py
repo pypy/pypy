@@ -10,9 +10,10 @@ from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.module.cpyext.api import (
     CONST_STRING, METH_CLASS, METH_COEXIST, METH_KEYWORDS, METH_NOARGS, METH_O,
     METH_STATIC, METH_VARARGS, PyObject, PyObjectFields, bootstrap_function,
-    build_type_checkers, cpython_api, cpython_struct, generic_cpy_call)
+    build_type_checkers, cpython_api, cpython_struct, generic_cpy_call,
+    PyTypeObjectPtr)
 from pypy.module.cpyext.pyobject import (
-    Py_DecRef, from_ref, make_ref, make_typedescr)
+    Py_DecRef, from_ref, make_ref, as_pyobj, make_typedescr)
 
 PyCFunction_typedef = rffi.COpaquePtr(typedef='PyCFunction')
 PyCFunction = lltype.Ptr(lltype.FuncType([PyObject, PyObject], PyObject))
@@ -151,13 +152,14 @@ class W_PyCClassMethodObject(W_PyCFunctionObject):
 
 class W_PyCWrapperObject(W_Root):
     def __init__(self, space, pto, method_name, wrapper_func,
-                 wrapper_func_kwds, doc, func):
+                 wrapper_func_kwds, doc, func, offset=-1):
         self.space = space
         self.method_name = method_name
         self.wrapper_func = wrapper_func
         self.wrapper_func_kwds = wrapper_func_kwds
         self.doc = doc
         self.func = func
+        self.offset = offset
         pyo = rffi.cast(PyObject, pto)
         w_type = from_ref(space, pyo)
         assert isinstance(w_type, W_TypeObject)
@@ -172,7 +174,17 @@ class W_PyCWrapperObject(W_Root):
             raise oefmt(space.w_TypeError,
                         "wrapper %s doesn't take any keyword arguments",
                         self.method_name)
-        return self.wrapper_func(space, w_self, w_args, self.func)
+        if self.offset >= 0:
+            pto = rffi.cast(PyTypeObjectPtr, as_pyobj(space, self.w_objclass))
+            pto_func_as_int = lltype.cast_ptr_to_int(pto) + self.offset
+            # XXX make pto_func the equivalent of this line
+            #lltype.cast_int_to_ptr(pto_func_as_int)
+            func_to_call = rffi.cast(rffi.VOIDP, pto.c_tp_as_number.c_nb_multiply)
+            # print '\ncalling', func_to_call, 'not', self.func
+        else:
+            # print 'calling', self.method_name,'with no offset'
+            func_to_call = self.func
+        return self.wrapper_func(space, w_self, w_args, func_to_call)
 
     def descr_method_repr(self):
         return self.space.wrap("<slot wrapper '%s' of '%s' objects>" %
@@ -300,12 +312,6 @@ def PyDescr_NewMethod(space, w_type, method):
 @cpython_api([PyObject, lltype.Ptr(PyMethodDef)], PyObject)
 def PyDescr_NewClassMethod(space, w_type, method):
     return space.wrap(W_PyCClassMethodObject(space, method, w_type))
-
-def PyDescr_NewWrapper(space, pto, method_name, wrapper_func,
-                       wrapper_func_kwds, doc, func):
-    # not exactly the API sig
-    return space.wrap(W_PyCWrapperObject(space, pto, method_name,
-        wrapper_func, wrapper_func_kwds, doc, func))
 
 @cpython_api([lltype.Ptr(PyMethodDef), PyObject, CONST_STRING], PyObject)
 def Py_FindMethod(space, table, w_obj, name_ptr):
