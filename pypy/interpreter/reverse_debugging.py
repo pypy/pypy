@@ -7,6 +7,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter import gateway, typedef, pycode, pytraceback, pyframe
 from pypy.module.marshal import interp_marshal
+from pypy.interpreter.executioncontext import AbstractActionFlag
 
 
 class DBState:
@@ -19,6 +20,16 @@ class DBState:
     watch_futures = {}
 
 dbstate = DBState()
+
+
+pycode.PyCode.co_revdb_linestarts = None   # or a string: see below
+
+# invariant: "f_revdb_nextline_instr" is the bytecode offset of
+# the start of the line that follows "last_instr".
+pyframe.PyFrame.f_revdb_nextline_instr = 0
+
+
+# ____________________________________________________________
 
 
 def setup_revdb(space):
@@ -47,11 +58,7 @@ def setup_revdb(space):
     revdb.register_debug_command(revdb.CMD_WATCHVALUES, lambda_watchvalues)
 
 
-pycode.PyCode.co_revdb_linestarts = None   # or a string: see below
-
-# invariant: "f_revdb_nextline_instr" is the bytecode offset of
-# the start of the line that follows "last_instr".
-pyframe.PyFrame.f_revdb_nextline_instr = 0
+# ____________________________________________________________
 
 
 def enter_call(caller_frame, callee_frame):
@@ -219,6 +226,9 @@ def set_metavar(index, w_obj):
         missing = index + 1 - len(dbstate.metavars)
         dbstate.metavars = dbstate.metavars + [None] * missing
     dbstate.metavars[index] = w_obj
+
+
+# ____________________________________________________________
 
 
 def fetch_cur_frame():
@@ -526,3 +536,46 @@ def _run_watch(space, prog):
     w_dict = space.builtin.w_dict
     w_res = prog.exec_code(space, w_dict, w_dict)
     return space.str_w(space.repr(w_res))
+
+
+# ____________________________________________________________
+
+
+class RDBSignalActionFlag(AbstractActionFlag):
+    # Used instead of pypy.module.signal.interp_signal.SignalActionFlag
+    # when we have reverse-debugging.  That other class would work too,
+    # but inefficiently: it would generate two words of data per bytecode.
+    # This class is tweaked to generate one byte per _SIG_TICKER_COUNT
+    # bytecodes, at the expense of not reacting to signals instantly.
+
+    _SIG_TICKER_COUNT = 100
+    _ticker_cache = 0
+    _ticker_count = _SIG_TICKER_COUNT * 10
+
+    def get_ticker(self):
+        return self._ticker_cache
+
+    def reset_ticker(self, value):
+        self._ticker_cache = value
+
+    def rearm_ticker(self):
+        self._ticker_cache = -1
+
+    def decrement_ticker(self, by):
+        if we_are_translated():
+            c = self._ticker_count - 1
+            if c < 0:
+                c = self._update_ticker_from_signals()
+            self._ticker_count = c
+        if self.has_bytecode_counter:    # this 'if' is constant-folded
+            print ("RDBSignalActionFlag: has_bytecode_counter: "
+                   "not supported for now")
+            raise NotImplementedError
+        return self._ticker_cache
+
+    def _update_ticker_from_signals(self):
+        from rpython.rlib import rsignal
+        if rsignal.pypysig_check_and_reset():
+            self.rearm_ticker()
+        return self._SIG_TICKER_COUNT
+    _update_ticker_from_signals._dont_inline_ = True

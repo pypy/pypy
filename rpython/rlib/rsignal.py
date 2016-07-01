@@ -87,6 +87,8 @@ del struct_name
 pypysig_getaddr_occurred = external('pypysig_getaddr_occurred', [],
                                     lltype.Ptr(LONG_STRUCT), _nowrapper=True,
                                     elidable_function=True)
+pypysig_check_and_reset = external('pypysig_check_and_reset', [],
+                                   lltype.Bool, _nowrapper=True)
 c_alarm = external('alarm', [rffi.INT], rffi.INT)
 c_pause = external('pause', [], rffi.INT, releasegil=True)
 c_siginterrupt = external('siginterrupt', [rffi.INT, rffi.INT], rffi.INT,
