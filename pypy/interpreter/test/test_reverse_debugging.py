@@ -4,6 +4,7 @@ from hypothesis import given, strategies, example
 
 
 class FakeCode:
+    hidden_applevel = False
     def __init__(self, co_code, co_lnotab):
         self.co_firstlineno = 43
         self.co_code = co_code
@@ -26,7 +27,10 @@ def test_build_co_revdb_linestarts(lnotab):
     for addr, lineno in dis.findlinestarts(code):
         expected_starts.add(addr)
 
-    for index in range(len(code.co_code)):
-        c = lstart[index >> 3]
-        found = ord(c) & (1 << (index & 7))
-        assert (found != 0) == (index in expected_starts)
+    next_start = len(code.co_code)
+    for index in range(len(code.co_code), -1, -1):
+        if index in expected_starts:
+            next_start = index
+        assert lstart[index] == chr(next_start - index
+                                    if next_start - index <= 255
+                                    else 255)

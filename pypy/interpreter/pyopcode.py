@@ -53,10 +53,14 @@ class __extend__(pyframe.PyFrame):
     ### opcode dispatch ###
 
     def dispatch(self, pycode, next_instr, ec):
+        if self.space.config.translation.reverse_debugger:
+            from pypy.interpreter.reverse_debugging import prepare_code
+            prepare_code(pycode)
+        #
         # For the sequel, force 'next_instr' to be unsigned for performance
         next_instr = r_uint(next_instr)
         co_code = pycode.co_code
-
+        #
         try:
             while True:
                 next_instr = self.handle_bytecode(co_code, next_instr, ec)
@@ -1055,6 +1059,11 @@ class __extend__(pyframe.PyFrame):
     def jump_absolute(self, jumpto, ec):
         # this function is overridden by pypy.module.pypyjit.interp_jit
         check_nonneg(jumpto)
+        #
+        if self.space.config.translation.reverse_debugger:
+            from pypy.interpreter.reverse_debugging import jump_backward
+            jump_backward(self, jumpto)
+        #
         return jumpto
 
     def JUMP_FORWARD(self, jumpby, next_instr):
@@ -1308,9 +1317,12 @@ class __extend__(pyframe.PyFrame):
         self.space.setitem(w_dict, w_key, w_value)
 
     def LOAD_REVDB_VAR(self, oparg, next_instr):
-        from pypy.interpreter.reverse_debugging import load_metavar
-        w_var = load_metavar(oparg)
-        self.pushvalue(w_var)
+        if self.space.config.translation.reverse_debugger:
+            from pypy.interpreter.reverse_debugging import load_metavar
+            w_var = load_metavar(oparg)
+            self.pushvalue(w_var)
+        else:
+            self.MISSING_OPCODE(oparg, next_instr)
 
 
 ### ____________________________________________________________ ###

@@ -5,7 +5,7 @@ from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rtyper.annlowlevel import cast_gcref_to_instance
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter import gateway, typedef, pycode, pytraceback
+from pypy.interpreter import gateway, typedef, pycode, pytraceback, pyframe
 from pypy.module.marshal import interp_marshal
 
 
@@ -47,7 +47,11 @@ def setup_revdb(space):
     revdb.register_debug_command(revdb.CMD_WATCHVALUES, lambda_watchvalues)
 
 
-pycode.PyCode.co_revdb_linestarts = None   # or a string: an array of bits
+pycode.PyCode.co_revdb_linestarts = None   # or a string: see below
+
+# invariant: "f_revdb_nextline_instr" is the bytecode offset of
+# the start of the line that follows "last_instr".
+pyframe.PyFrame.f_revdb_nextline_instr = 0
 
 
 def enter_call(caller_frame, callee_frame):
@@ -64,6 +68,17 @@ def leave_call(caller_frame, callee_frame):
         if dbstate.breakpoint_stack_id == revdb.get_unique_id(caller_frame):
             revdb.breakpoint(-1)
 
+
+def jump_backward(frame, jumpto):
+    # When we see a jump backward, we set 'f_revdb_nextline_instr' in
+    # such a way that the next instruction, at 'jumpto', will trigger
+    # stop_point_at_start_of_line().  We have to trigger it even if
+    # 'jumpto' is not actually a start of line.  For example, in a
+    # 'while foo: body', the body ends with a JUMP_ABSOLUTE which
+    # jumps back to the *second* opcode of the while.
+    frame.f_revdb_nextline_instr = jumpto
+
+
 def potential_stop_point(frame):
     if not we_are_translated():
         return
@@ -72,22 +87,49 @@ def potential_stop_point(frame):
     # Uses roughly the same algo as ExecutionContext.run_trace_func()
     # to know where the line starts are, but tweaked for speed,
     # avoiding the quadratic complexity when run N times with a large
-    # code object.  A potential difference is that we only record
-    # where the line starts are; the "We jumped backwards in the same
-    # line" case of run_trace_func() is not fully reproduced.
+    # code object.
     #
-    code = frame.pycode
-    lstart = code.co_revdb_linestarts
-    if lstart is None:
-        lstart = build_co_revdb_linestarts(code)
-    index = frame.last_instr
-    c = lstart[index >> 3]
-    if ord(c) & (1 << (index & 7)):
+    cur = frame.last_instr
+    if cur < frame.f_revdb_nextline_instr:
+        return    # fast path: we're still inside the same line as before
+    #
+    call_stop_point_at_line = True
+    co_revdb_linestarts = frame.pycode.co_revdb_linestarts
+    if cur > frame.f_revdb_nextline_instr:
+        #
+        # We jumped forward over the start of the next line.  We're
+        # inside a different line, but we will only trigger a stop
+        # point if we're at the starting bytecode of that line.  Fetch
+        # from co_revdb_linestarts the start of the line that is at or
+        # follows 'cur'.
+        ch = ord(co_revdb_linestarts[cur])
+        if ch == 0:
+            pass   # we are at the start of a line now
+        else:
+            # We are not, so don't call stop_point_at_start_of_line().
+            # We still have to fill f_revdb_nextline_instr.
+            call_stop_point_at_line = False
+    #
+    if call_stop_point_at_line:
         stop_point_at_start_of_line()
+        cur += 1
+        ch = ord(co_revdb_linestarts[cur])
+    #
+    # Update f_revdb_nextline_instr.  Check if 'ch' was greater than
+    # 255, in which case it was rounded down to 255 and we have to
+    # continue looking
+    nextline_instr = cur + ch
+    while ch == 255:
+        ch = ord(co_revdb_linestarts[nextline_instr])
+        nextline_instr += ch
+    frame.f_revdb_nextline_instr = nextline_instr
+
 
 def build_co_revdb_linestarts(code):
-    # inspired by findlinestarts() in the 'dis' standard module
-    bits = [False] * len(code.co_code)
+    # Inspired by findlinestarts() in the 'dis' standard module.
+    # Set up 'bits' so that it contains \x00 at line starts and \xff
+    # in-between.
+    bits = ['\xff'] * (len(code.co_code) + 1)
     if not code.hidden_applevel:
         lnotab = code.co_lnotab
         addr = 0
@@ -98,33 +140,34 @@ def build_co_revdb_linestarts(code):
             line_incr = ord(lnotab[p+1])
             if byte_incr:
                 if newline != 0:
-                    if addr < len(bits):
-                        bits[addr] = True
+                    bits[addr] = '\x00'
                     newline = 0
                 addr += byte_incr
             newline |= line_incr
             p += 2
         if newline:
-            if addr < len(bits):
-                bits[addr] = True
+            bits[addr] = '\x00'
+    bits[len(code.co_code)] = '\x00'
     #
-    byte_list = []
-    pending = 0
-    nextval = 1
-    for bit_is_set in bits:
-        if bit_is_set:
-            pending |= nextval
-        if nextval < 128:
-            nextval <<= 1
+    # Change 'bits' so that the character at 'i', if not \x00, measures
+    # how far the next \x00 is
+    next_null = len(code.co_code)
+    p = next_null - 1
+    while p >= 0:
+        if bits[p] == '\x00':
+            next_null = p
         else:
-            byte_list.append(chr(pending))
-            pending = 0
-            nextval = 1
-    if nextval != 1:
-        byte_list.append(chr(pending))
-    lstart = ''.join(byte_list)
+            ch = next_null - p
+            if ch > 255: ch = 255
+            bits[p] = chr(ch)
+        p -= 1
+    lstart = ''.join(bits)
     code.co_revdb_linestarts = lstart
     return lstart
+
+def prepare_code(code):
+    if code.co_revdb_linestarts is None:
+        build_co_revdb_linestarts(code)
 
 def get_final_lineno(code):
     lineno = code.co_firstlineno
