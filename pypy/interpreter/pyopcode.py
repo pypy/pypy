@@ -1363,7 +1363,7 @@ class __extend__(pyframe.PyFrame):
                 (w_key, w_value) = w_item.popitem()
                 if self.space.is_true(self.space.contains(w_dict,w_key)):
                     raise oefmt(self.space.w_TypeError,
-                        "got multiple values for keyword argument %s", w_key)
+                        "got multiple values for keyword argument %s", self.space.unicode_w(w_key))
                 self.space.setitem(w_dict, w_key, w_value)
         while num_maps != 0:
             self.popvalue()
