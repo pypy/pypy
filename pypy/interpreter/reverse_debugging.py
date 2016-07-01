@@ -26,7 +26,7 @@ pycode.PyCode.co_revdb_linestarts = None   # or a string: see below
 
 # invariant: "f_revdb_nextline_instr" is the bytecode offset of
 # the start of the line that follows "last_instr".
-pyframe.PyFrame.f_revdb_nextline_instr = 0
+pyframe.PyFrame.f_revdb_nextline_instr = -1
 
 
 # ____________________________________________________________
@@ -69,6 +69,10 @@ def enter_call(caller_frame, callee_frame):
     if dbstate.breakpoint_stack_id != 0 and caller_frame is not None:
         if dbstate.breakpoint_stack_id == revdb.get_unique_id(caller_frame):
             revdb.breakpoint(-1)
+    #
+    code = callee_frame.pycode
+    if code.co_revdb_linestarts is None:
+        build_co_revdb_linestarts(code)
 
 def leave_call(caller_frame, callee_frame):
     if dbstate.breakpoint_stack_id != 0 and caller_frame is not None:
@@ -171,10 +175,6 @@ def build_co_revdb_linestarts(code):
     lstart = ''.join(bits)
     code.co_revdb_linestarts = lstart
     return lstart
-
-def prepare_code(code):
-    if code.co_revdb_linestarts is None:
-        build_co_revdb_linestarts(code)
 
 def get_final_lineno(code):
     lineno = code.co_firstlineno
