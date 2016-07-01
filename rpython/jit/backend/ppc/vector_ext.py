@@ -10,7 +10,7 @@ from rpython.jit.metainterp.resoperation import (rop, ResOperation,
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.lltypesystem import lltype
-from rpython.jit.backend.ppc.locations import imm
+from rpython.jit.backend.ppc.locations import imm, RegisterLocation
 from rpython.jit.backend.ppc.arch import IS_BIG_ENDIAN
 from rpython.jit.backend.llsupport.vector_ext import VectorExt
 from rpython.jit.backend.ppc.arch import PARAM_SAVE_AREA_OFFSET
@@ -105,7 +105,6 @@ class VectorAssembler(object):
             self.mc.vperm(resloc.value, Vhi, Vlo, Vp)
         else:
             self.mc.vperm(resloc.value, Vlo, Vhi, Vp)
-        #self.mc.trap()
 
     def _emit_vec_setitem(self, op, arglocs, regalloc):
         # prepares item scale (raw_store does not)
@@ -318,60 +317,57 @@ class VectorAssembler(object):
     #        index += 1
     #    self.mc.PBLENDW_xxi(loc.value, temp.value, select)
 
-    #def _update_at_exit(self, fail_locs, fail_args, faildescr, regalloc):
-    #    """ If accumulation is done in this loop, at the guard exit
-    #        some vector registers must be adjusted to yield the correct value
-    #    """
-    #    if not isinstance(faildescr, ResumeGuardDescr):
-    #        return
-    #    assert regalloc is not None
-    #    accum_info = faildescr.rd_vector_info
-    #    while accum_info:
-    #        pos = accum_info.getpos_in_failargs()
-    #        scalar_loc = fail_locs[pos]
-    #        vector_loc = accum_info.location
-    #        # the upper elements will be lost if saved to the stack!
-    #        scalar_arg = accum_info.getoriginal()
-    #        assert isinstance(vector_loc, RegLoc)
-    #        if not isinstance(scalar_loc, RegLoc):
-    #            scalar_loc = regalloc.force_allocate_reg(scalar_arg)
-    #        assert scalar_arg is not None
-    #        if accum_info.accum_operation == '+':
-    #            self._accum_reduce_sum(scalar_arg, vector_loc, scalar_loc)
-    #        elif accum_info.accum_operation == '*':
-    #            self._accum_reduce_mul(scalar_arg, vector_loc, scalar_loc)
-    #        else:
-    #            not_implemented("accum operator %s not implemented" %
-    #                                        (accum_info.accum_operation)) 
-    #        accum_info = accum_info.next()
+    def _update_at_exit(self, fail_locs, fail_args, faildescr, regalloc):
+        """ If accumulation is done in this loop, at the guard exit
+            some vector registers must be adjusted to yield the correct value
+        """
+        if not isinstance(faildescr, ResumeGuardDescr):
+            return
+        accum_info = faildescr.rd_vector_info
+        while accum_info:
+            pos = accum_info.getpos_in_failargs()
+            scalar_loc = fail_locs[pos]
+            vector_loc = accum_info.location
+            # the upper elements will be lost if saved to the stack!
+            scalar_arg = accum_info.getoriginal()
+            if not scalar_loc.is_reg():
+                scalar_loc = regalloc.force_allocate_reg(scalar_arg)
+            assert scalar_arg is not None
+            if accum_info.accum_operation == '+':
+                self._accum_reduce_sum(scalar_arg, vector_loc, scalar_loc)
+            elif accum_info.accum_operation == '*':
+                self._accum_reduce_mul(scalar_arg, vector_loc, scalar_loc)
+            else:
+                not_implemented("accum operator %s not implemented" %
+                                            (accum_info.accum_operation)) 
+            accum_info = accum_info.next()
 
-    #def _accum_reduce_mul(self, arg, accumloc, targetloc):
-    #    scratchloc = X86_64_XMM_SCRATCH_REG
-    #    self.mov(accumloc, scratchloc)
-    #    # swap the two elements
-    #    self.mc.SHUFPD_xxi(scratchloc.value, scratchloc.value, 0x01)
-    #    self.mc.MULSD(accumloc, scratchloc)
-    #    if accumloc is not targetloc:
-    #        self.mov(accumloc, targetloc)
+    def _accum_reduce_mul(self, arg, accumloc, targetloc):
+        notimplemented("[ppc reduce mul]")
+        #scratchloc = X86_64_XMM_SCRATCH_REG
+        #self.mov(accumloc, scratchloc)
+        ## swap the two elements
+        #self.mc.SHUFPD_xxi(scratchloc.value, scratchloc.value, 0x01)
+        #self.mc.MULSD(accumloc, scratchloc)
+        #if accumloc is not targetloc:
+        #    self.mov(accumloc, targetloc)
 
-    #def _accum_reduce_sum(self, arg, accumloc, targetloc):
-    #    # Currently the accumulator can ONLY be the biggest
-    #    # size for X86 -> 64 bit float/int
-    #    if arg.type == FLOAT:
-    #        # r = (r[0]+r[1],r[0]+r[1])
-    #        self.mc.HADDPD(accumloc, accumloc)
-    #        # upper bits (> 64) are dirty (but does not matter)
-    #        if accumloc is not targetloc:
-    #            self.mov(accumloc, targetloc)
-    #        return
-    #    elif arg.type == INT:
-    #        scratchloc = X86_64_SCRATCH_REG
-    #        self.mc.PEXTRQ_rxi(targetloc.value, accumloc.value, 0)
-    #        self.mc.PEXTRQ_rxi(scratchloc.value, accumloc.value, 1)
-    #        self.mc.ADD(targetloc, scratchloc)
-    #        return
+    def _accum_reduce_sum(self, arg, accumloc, targetloc):
+        # Currently the accumulator can ONLY be the biggest
+        # 64 bit float/int
+        tgt = targetloc.value
+        acc = accumloc.value
+        if arg.type == FLOAT:
+            # r = (r[0]+r[1],r[0]+r[1])
+            self.mc.xvmr(tgt, acc, acc)
+            if IS_BIG_ENDIAN:
+                self.mc.xxspltd(tgt, acc, acc, 0b00)
+            else:
+                self.mc.xxspltd(tgt, acc, acc, 0b01)
+            self.mc.xsadddp(tgt, tgt, acc)
+            return
 
-    #    not_implemented("reduce sum for %s not impl." % arg)
+        not_implemented("reduce sum for %s not impl." % arg)
 
     def emit_vec_int_is_true(self, op, arglocs, regalloc):
         resloc, argloc, sizeloc = arglocs
@@ -407,6 +403,13 @@ class VectorAssembler(object):
             notimplemented("[ppc/assembler] float == for size %d" % size)
         self.mc.lvx(resloc.value, off, r.SP.value)
         flush_vec_cc(self, regalloc, c.EQ, op.bytesize, resloc)
+
+    def emit_vec_float_xor(self, op, arglocs, regalloc):
+        resloc, l0, l1, sizeloc = arglocs
+        res = resloc.value
+        r0 = l0.value
+        r1 = l1.value
+        self.mc.xxlxor(res, r0, r1)
 
     def emit_vec_float_ne(self, op, arglocs, regalloc):
         resloc, loc1, loc2, sizeloc = arglocs
@@ -565,67 +568,59 @@ class VectorAssembler(object):
 
     #genop_vec_unpack_i = genop_vec_pack_i
 
-    #def genop_vec_pack_f(self, op, arglocs, resultloc):
-    #    resloc, srcloc, residxloc, srcidxloc, countloc, sizeloc = arglocs
-    #    assert isinstance(resloc, RegLoc)
-    #    assert isinstance(srcloc, RegLoc)
-    #    count = countloc.value
-    #    residx = residxloc.value
-    #    srcidx = srcidxloc.value
-    #    size = sizeloc.value
-    #    if size == 4:
-    #        si = srcidx
-    #        ri = residx
-    #        k = count
-    #        while k > 0:
-    #            if resloc.is_xmm:
-    #                src = srcloc.value
-    #                if not srcloc.is_xmm:
-    #                    # if source is a normal register (unpack)
-    #                    assert count == 1
-    #                    assert si == 0
-    #                    self.mov(srcloc, X86_64_XMM_SCRATCH_REG)
-    #                    src = X86_64_XMM_SCRATCH_REG.value
-    #                select = ((si & 0x3) << 6)|((ri & 0x3) << 4)
-    #                self.mc.INSERTPS_xxi(resloc.value, src, select)
-    #            else:
-    #                self.mc.PEXTRD_rxi(resloc.value, srcloc.value, si)
-    #            si += 1
-    #            ri += 1
-    #            k -= 1
-    #    elif size == 8:
-    #        assert resloc.is_xmm
-    #        if srcloc.is_xmm:
-    #            if srcidx == 0:
-    #                if residx == 0:
-    #                    # r = (s[0], r[1])
-    #                    self.mc.MOVSD(resloc, srcloc)
-    #                else:
-    #                    assert residx == 1
-    #                    # r = (r[0], s[0])
-    #                    self.mc.UNPCKLPD(resloc, srcloc)
-    #            else:
-    #                assert srcidx == 1
-    #                if residx == 0:
-    #                    # r = (s[1], r[1])
-    #                    if resloc != srcloc:
-    #                        self.mc.UNPCKHPD(resloc, srcloc)
-    #                    self.mc.SHUFPD_xxi(resloc.value, resloc.value, 1)
-    #                else:
-    #                    assert residx == 1
-    #                    # r = (r[0], s[1])
-    #                    if resloc != srcloc:
-    #                        self.mc.SHUFPD_xxi(resloc.value, resloc.value, 1)
-    #                        self.mc.UNPCKHPD(resloc, srcloc)
-    #                    # if they are equal nothing is to be done
+    def emit_vec_pack_f(self, op, arglocs, resultloc):
+        resloc, vloc, srcloc, residxloc, srcidxloc, countloc = arglocs
+        vec = vloc.value
+        res = resloc.value
+        src = srcloc.value
+        count = countloc.value
+        residx = residxloc.value
+        srcidx = srcidxloc.value
+        size = op.bytesize
+        assert size == 8
+        # srcloc is always a floating point register f, this means it is
+        # vsr[0] == valueof(f)
+        if srcidx == 0:
+            if residx == 0:
+                # r = (s[0], r[1])
+                if IS_BIG_ENDIAN:
+                    self.mc.xxspltd(res, src, vec, 0b10)
+                else:
+                    self.mc.xxspltd(res, src, vec, 0b01)
+            else:
+                assert residx == 1
+                # r = (r[0], s[0])
+                if IS_BIG_ENDIAN:
+                    self.mc.xxspltd(res, vec, src, 0b00)
+                else:
+                    self.mc.xxspltd(res, vec, src, 0b11)
+        else:
+            assert srcidx == 1
+            if residx == 0:
+                # r = (s[1], r[1])
+                if IS_BIG_ENDIAN:
+                    self.mc.xxspltd(res, src, vec, 0b11)
+                else:
+                    self.mc.xxspltd(res, src, vec, 0b00)
+            else:
+                assert residx == 1
+                # r = (r[0], s[1])
+                if IS_BIG_ENDIAN:
+                    self.mc.xxspltd(res, vec, src, 0b10)
+                else:
+                    self.mc.xxspltd(res, vec, src, 0b01)
 
-    #genop_vec_unpack_f = genop_vec_pack_f
+    emit_vec_unpack_f = emit_vec_pack_f
 
     # needed as soon as PPC's support_singlefloat is implemented!
     #def genop_vec_cast_float_to_int(self, op, arglocs, regalloc):
     #    self.mc.CVTPD2DQ(resloc, arglocs[0])
     #def genop_vec_cast_singlefloat_to_float(self, op, arglocs, regalloc):
     #    self.mc.CVTPS2PD(resloc, arglocs[0])
+
+    def emit_vec_f(self, op, arglocs, regalloc):
+        pass
+    emit_vec_i = emit_vec_f
 
 class VectorRegalloc(object):
     _mixin_ = True
@@ -709,9 +704,10 @@ class VectorRegalloc(object):
     prepare_vec_int_xor = prepare_vec_arith
 
     prepare_vec_float_eq = prepare_vec_arith
-    prepare_vec_float_ne = prepare_vec_float_eq
-    prepare_vec_int_eq = prepare_vec_float_eq
-    prepare_vec_int_ne = prepare_vec_float_eq
+    prepare_vec_float_ne = prepare_vec_arith
+    prepare_vec_int_eq = prepare_vec_arith
+    prepare_vec_int_ne = prepare_vec_arith
+    prepare_vec_float_xor = prepare_vec_arith
     del prepare_vec_arith
 
 
@@ -751,24 +747,35 @@ class VectorRegalloc(object):
     prepare_vec_float_abs = prepare_vec_arith_unary
     del prepare_vec_arith_unary
 
-    #def prepare_vec_pack_i(self, op):
-    #    # new_res = vec_pack_i(res, src, index, count)
-    #    assert isinstance(op, VectorOp)
-    #    arg = op.getarg(1)
-    #    index = op.getarg(2)
-    #    count = op.getarg(3)
-    #    assert isinstance(index, ConstInt)
-    #    assert isinstance(count, ConstInt)
-    #    args = op.getarglist()
-    #    srcloc = self.make_sure_var_in_reg(arg, args)
-    #    resloc =  self.xrm.force_result_in_reg(op, op.getarg(0), args)
-    #    residx = index.value # where to put it in result?
-    #    srcidx = 0
-    #    arglocs = [resloc, srcloc, imm(residx), imm(srcidx),
-    #               imm(count.value), imm(op.bytesize)]
-    #    self.perform(op, arglocs, resloc)
+    def prepare_vec_pack_i(self, op):
+        # new_res = vec_pack_i(res, src, index, count)
+        assert isinstance(op, VectorOp)
+        arg = op.getarg(1)
+        index = op.getarg(2)
+        count = op.getarg(3)
+        assert isinstance(index, ConstInt)
+        assert isinstance(count, ConstInt)
+        srcloc = self.ensure_vector_reg(arg)
+        resloc = self.force_allocate_vector_reg(op)
+        residx = index.value # where to put it in result?
+        srcidx = 0
+        return [resloc, srcloc, imm(residx), imm(srcidx), imm(count.value)]
 
-    #prepare_vec_pack_f = prepare_vec_pack_i
+    def prepare_vec_pack_f(self, op):
+        # new_res = vec_pack_i(res, src, index, count)
+        assert isinstance(op, VectorOp)
+        arg = op.getarg(1)
+        index = op.getarg(2)
+        count = op.getarg(3)
+        assert isinstance(index, ConstInt)
+        assert isinstance(count, ConstInt)
+        assert not arg.is_vector()
+        srcloc = self.ensure_reg(arg)
+        vloc = self.ensure_vector_reg(op.getarg(0))
+        resloc = self.force_allocate_vector_reg(op)
+        residx = index.value # where to put it in result?
+        srcidx = 0
+        return [resloc, vloc, srcloc, imm(residx), imm(srcidx), imm(count.value)]
 
     #def prepare_vec_unpack_i(self, op):
     #    assert isinstance(op, VectorOp)

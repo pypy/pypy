@@ -605,12 +605,14 @@ class PPCVSXAssembler(object):
     # add
     xvadddp = XX3(60, XO9=96)
     xvaddsp = XX3(60, XO9=64)
+    xsadddp = XX3(60, XO9=32)
     # sub
     xvsubdp = XX3(60, XO9=104)
     xvsubsp = XX3(60, XO9=72)
     # mul
     xvmuldp = XX3(60, XO9=112)
     xvmulsp = XX3(60, XO9=80)
+    xsmuldp = XX3(60, XO9=46)
     # div
     xvdivdp = XX3(60, XO9=102)
     xvdivsp = XX3(60, XO9=88)
@@ -661,6 +663,12 @@ class PPCVSXAssembler(object):
     xxspltdh = XX3_splat(60, XO13=10, OE=0, DM=0b11)
     # generic splat
     xxspltd = XX3_splat(60, XO13=10, OE=0)
+
+    xxlxor = XX3(60, XO9=154)
+    xxlor = XX3(60, XO9=146)
+
+    # vector move register is alias to vector or
+    xvmr = xxlor
 
     # INTEGER
     # -------

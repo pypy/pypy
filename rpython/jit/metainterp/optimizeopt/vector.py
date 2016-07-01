@@ -793,7 +793,10 @@ class PackSet(object):
             if pack.reduce_init() == 0:
                 vecop = OpHelpers.create_vec(datatype, bytesize, signed, count)
                 oplist.append(vecop)
-                vecop = VecOperation(rop.VEC_INT_XOR, [vecop, vecop],
+                opnum = rop.VEC_INT_XOR
+                if datatype == FLOAT:
+                    opnum = rop.VEC_FLOAT_XOR
+                vecop = VecOperation(opnum, [vecop, vecop],
                                      vecop, count)
                 oplist.append(vecop)
             elif pack.reduce_init() == 1:

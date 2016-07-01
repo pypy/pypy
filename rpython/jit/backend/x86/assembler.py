@@ -645,7 +645,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         bridge_locs = self.rebuild_faillocs_from_descr(bridge_faildescr, version.inputargs)
         #import pdb; pdb.set_trace()
         guard_accum_info = faildescr.rd_vector_info
-        # O(n^2), but usually you only have at most 1 fail argument
+        # O(n**2), but usually you only have at most 1 fail argument
         while guard_accum_info:
             bridge_accum_info = bridge_faildescr.rd_vector_info
             while bridge_accum_info:

@@ -10,7 +10,8 @@ from rpython.jit.backend.ppc.locations import imm, get_fp_offset
 from rpython.jit.backend.ppc.helper.regalloc import _check_imm_arg, check_imm_box
 from rpython.jit.backend.ppc.helper import regalloc as helper
 from rpython.jit.metainterp.history import (Const, ConstInt, ConstFloat, ConstPtr,
-                                            INT, REF, FLOAT, VOID, VECTOR)
+                                            INT, REF, FLOAT, VOID, VECTOR,
+                                            AbstractFailDescr)
 from rpython.jit.metainterp.history import JitCellToken, TargetToken
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.backend.ppc import locations
@@ -370,7 +371,7 @@ class Regalloc(BaseRegalloc, VectorRegalloc):
             self.vrm._check_invariants()
             self.ivrm._check_invariants()
             if self.assembler.mc.get_relative_pos() > self.limit_loop_break:
-                self.assembler.break_long_loop()
+                self.assembler.break_long_loop(self)
                 self.limit_loop_break = (self.assembler.mc.get_relative_pos() +
                                              LIMIT_LOOP_BREAK)
             i += 1
@@ -411,10 +412,16 @@ class Regalloc(BaseRegalloc, VectorRegalloc):
         return gcmap
 
     def loc(self, var):
-        if var.type == FLOAT:
-            return self.fprm.loc(var)
+        if var.is_vector():
+            if var.type == FLOAT:
+                return self.vrm.loc(var)
+            else:
+                return self.ivrm.loc(var)
         else:
-            return self.rm.loc(var)
+            if var.type == FLOAT:
+                return self.fprm.loc(var)
+            else:
+                return self.rm.loc(var)
 
     def next_instruction(self):
         self.rm.next_instruction()
@@ -607,11 +614,24 @@ class Regalloc(BaseRegalloc, VectorRegalloc):
                 args.append(self.loc(arg))
             else:
                 args.append(None)
-        self.possibly_free_vars(op.getfailargs())
         #
         # generate_quick_failure() produces up to 14 instructions per guard
         self.limit_loop_break -= 14 * 4
-        #
+        # specifically for vecopt
+        descr = op.getdescr()
+        if not descr:
+            return args
+        assert isinstance(descr, AbstractFailDescr)
+        if descr.rd_vector_info:
+            accuminfo = descr.rd_vector_info
+            while accuminfo:
+                i = accuminfo.getpos_in_failargs()+1
+                accuminfo.location = args[i]
+                loc = self.loc(accuminfo.getoriginal())
+                args[i] = loc
+                accuminfo = accuminfo.next()
+
+        self.possibly_free_vars(op.getfailargs())
         return args
 
     def load_condition_into_cc(self, box):

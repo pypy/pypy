@@ -78,6 +78,7 @@ class VectorizeTests(object):
     enable_opts = 'intbounds:rewrite:virtualize:string:earlyforce:pure:heap:unroll'
 
     def setup_method(self, method):
+        import pdb; pdb.set_trace()
         if not self.supports_vector_ext():
             py.test.skip("this cpu %s has no implemented vector backend" % CPU)
 

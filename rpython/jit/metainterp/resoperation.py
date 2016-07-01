@@ -994,6 +994,7 @@ _oplist = [
     '_VEC_ARITHMETIC_LAST',
     'VEC_FLOAT_EQ/2b/i',
     'VEC_FLOAT_NE/2b/i',
+    'VEC_FLOAT_XOR/2/f',
     'VEC_INT_IS_TRUE/1b/i',
     'VEC_INT_NE/2b/i',
     'VEC_INT_EQ/2b/i',
