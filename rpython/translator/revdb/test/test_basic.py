@@ -85,8 +85,13 @@ class RDB(object):
 
     def write_call(self, expected_string):
         x = self.next()   # raw_malloc: the pointer we got
+        self.same_thread()
         x = self.next(); assert x == len(expected_string)
+        self.same_thread()
         x = self.next('i'); assert x == 0      # errno
+
+    def same_thread(self):
+        x = self.next('c'); assert x == '\xFC'
 
 
 def compile(self, entry_point, backendopt=True,

@@ -11,6 +11,24 @@ def extra_files():
         srcdir / 'revdb.c',
     ]
 
+def prepare_function(funcgen):
+    stack_bottom = False
+    for block in funcgen.graph.iterblocks():
+        for op in block.operations:
+            if op.opname == 'gc_stack_bottom':
+                stack_bottom = True
+    if stack_bottom:
+        name = funcgen.functionname
+        funcgen.db.stack_bottom_funcnames.append(name)
+        extra_enter_text = '\n'.join(
+            ['RPY_REVDB_CALLBACKLOC(RPY_CALLBACKLOC_%s);' % name] +
+            ['\t' + emit('/*arg*/', funcgen.lltypename(v), funcgen.expr(v))
+                for v in funcgen.graph.getargs()])
+        extra_return_text = '/* RPY_CALLBACK_LEAVE(); */'
+        return extra_enter_text, extra_return_text
+    else:
+        return None, None
+
 def emit_void(normal_code):
     return 'RPY_REVDB_EMIT_VOID(%s);' % (normal_code,)
 
@@ -18,6 +36,21 @@ def emit(normal_code, tp, value):
     if tp == 'void @':
         return emit_void(normal_code)
     return 'RPY_REVDB_EMIT(%s, %s, %s);' % (normal_code, cdecl(tp, '_e'), value)
+
+def emit_residual_call(funcgen, call_code, v_result, expr_result):
+    if getattr(getattr(funcgen.graph, 'func', None),
+               '_revdb_do_all_calls_', False):
+        return call_code   # a hack for ll_call_destructor() to mean
+                           # that the calls should really be done
+    # haaaaack
+    if call_code in ('RPyGilRelease();', 'RPyGilAcquire();'):
+        return '/* ' + call_code + ' */'
+    #
+    tp = funcgen.lltypename(v_result)
+    if tp == 'void @':
+        return 'RPY_REVDB_CALL_VOID(%s);' % (call_code,)
+    return 'RPY_REVDB_CALL(%s, %s, %s);' % (call_code, cdecl(tp, '_e'),
+                                            expr_result)
 
 def record_malloc_uid(expr):
     return ' RPY_REVDB_REC_UID(%s);' % (expr,)
@@ -67,3 +100,21 @@ def prepare_database(db):
 
     exports.EXPORTS_obj2name[s._as_obj()] = 'rpy_revdb_commands'
     db.get(s)
+
+    db.stack_bottom_funcnames = []
+
+def write_revdb_def_file(db, target_path):
+    funcnames = sorted(db.stack_bottom_funcnames)
+    f = target_path.open('w')
+    for i, fn in enumerate(funcnames):
+        print >> f, '#define RPY_CALLBACKLOC_%s %d' % (fn, i)
+    print >> f
+    print >> f, '#define RPY_CALLBACKLOCS \\'
+    funcnames = funcnames or ['NULL']
+    for i, fn in enumerate(funcnames):
+        if i == len(funcnames) - 1:
+            tail = ''
+        else:
+            tail = ', \\'
+        print >> f, '\t(void *)%s%s' % (fn, tail)
+    f.close()

@@ -172,6 +172,13 @@ class FunctionCodeGenerator(object):
     # ____________________________________________________________
 
     def cfunction_body(self):
+        extra_return_text = None
+        if self.db.reverse_debugger:
+            from rpython.translator.revdb import gencsupp
+            (extra_enter_text, extra_return_text) = (
+                gencsupp.prepare_function(self))
+            if extra_enter_text:
+                yield extra_enter_text
         graph = self.graph
         yield 'goto block0;'    # to avoid a warning "this label is not used"
 
@@ -193,6 +200,8 @@ class FunctionCodeGenerator(object):
                 retval = self.expr(block.inputargs[0])
                 if self.exception_policy != "exc_helper":
                     yield 'RPY_DEBUG_RETURN();'
+                if extra_return_text:
+                    yield extra_return_text
                 yield 'return %s;' % retval
                 continue
             elif block.exitswitch is None:
@@ -405,13 +414,8 @@ class FunctionCodeGenerator(object):
                     line += '\nPYPY_INHIBIT_TAIL_CALL();'
                     break
         elif self.db.reverse_debugger:
-            if getattr(getattr(self.graph, 'func', None),
-                       '_revdb_do_all_calls_', False):
-                pass   # a hack for ll_call_destructor() to mean
-                       # that the calls should really be done
-            else:
-                from rpython.translator.revdb import gencsupp
-                line = gencsupp.emit(line, self.lltypename(v_result), r)
+            from rpython.translator.revdb import gencsupp
+            line = gencsupp.emit_residual_call(self, line, v_result, r)
         return line
 
     def OP_DIRECT_CALL(self, op):

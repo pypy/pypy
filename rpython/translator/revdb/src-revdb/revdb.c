@@ -16,6 +16,7 @@
 #include "structdef.h"
 #include "forwarddecl.h"
 #include "preimpl.h"
+#include "revdb_def.h"
 #include "src/rtyper.h"
 #include "src/mem.h"
 #include "src-revdb/revdb_include.h"
@@ -460,6 +461,20 @@ void *rpy_reverse_db_weakref_deref(void *weakref)
     return result;
 }
 
+RPY_EXTERN
+void rpy_reverse_db_callback_loc(int locnum)
+{
+    union {
+        unsigned char n[2];
+        uint16_t u;
+    } r;
+    assert(locnum < 0xFC00);
+    if (!RPY_RDB_REPLAY) {
+        RPY_REVDB_EMIT(r.n[0] = locnum >> 8; r.n[1] = locnum & 0xFF;,
+                       uint16_t _e, r.u);
+    }
+}
+
 
 /* ------------------------------------------------------------ */
 /* Replaying mode                                               */
@@ -862,8 +877,8 @@ static void check_at_end(uint64_t stop_points)
     char dummy[1];
     if (rpy_revdb.buf_p != rpy_revdb.buf_limit - 1 ||
             read(rpy_rev_fileno, dummy, 1) > 0) {
-        fprintf(stderr, "RevDB file error: corrupted file (too much data or, "
-                        "more likely, non-deterministic run, e.g. a "
+        fprintf(stderr, "RevDB file error: too much data: corrupted file, "
+                        "revdb bug, or non-deterministic run, e.g. a "
                         "watchpoint with side effects)\n");
         exit(1);
     }
@@ -1319,6 +1334,35 @@ static void replay_call_destructors(void)
        queues here. */
     fq_trigger();
 }
+
+static void *callbacklocs[] = {
+    RPY_CALLBACKLOCS     /* macro from revdb_def.h */
+};
+
+RPY_EXTERN
+void rpy_reverse_db_invoke_callback(unsigned char e)
+{
+    /* Replaying: we have read the byte which follows calls, expecting
+       to see 0xFC, but we saw something else.  It's part of a two-bytes
+       callback identifier. */
+
+    do {
+        unsigned long index;
+        unsigned char e2;
+        void (*pfn)(void);
+        _RPY_REVDB_EMIT_REPLAY(unsigned char _e, e2)
+        index = (e << 8) | e2;
+        if (index >= (sizeof(callbacklocs) / sizeof(callbacklocs[0]))) {
+            fprintf(stderr, "bad callback index\n");
+            exit(1);
+        }
+        pfn = callbacklocs[index];
+        pfn();
+
+        _RPY_REVDB_EMIT_REPLAY(unsigned char _e, e)
+    } while (e != 0xFC);
+}
+
 
 /* ------------------------------------------------------------ */
 

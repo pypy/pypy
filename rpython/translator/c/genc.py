@@ -735,6 +735,8 @@ class SourceGenerator:
                     print >> fc, '#include "preimpl.h"'
                     print >> fc, '#define PYPY_FILE_NAME "%s"' % name
                     print >> fc, '#include "src/g_include.h"'
+                    if self.database.reverse_debugger:
+                        print >> fc, '#include "revdb_def.h"'
                     print >> fc
                 print >> fc, MARKER
                 for node, impl in nodeiter:
@@ -904,6 +906,9 @@ def gen_source(database, modulename, targetdir,
         n = database.instrument_ncounter
         print >>fi, "#define PYPY_INSTRUMENT_NCOUNTER %d" % n
         fi.close()
+    if database.reverse_debugger:
+        from rpython.translator.revdb import gencsupp
+        gencsupp.write_revdb_def_file(database, targetdir.join('revdb_def.h'))
 
     eci = add_extra_files(database, eci)
     eci = eci.convert_sources_to_files()
