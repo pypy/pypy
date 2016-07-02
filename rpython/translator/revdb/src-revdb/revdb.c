@@ -1326,6 +1326,4 @@ static void replay_call_destructors(void)
 RPY_EXTERN
 void seeing_uid(uint64_t uid)
 {
-    if (uid == 1895569)
-        attach_gdb();
 }

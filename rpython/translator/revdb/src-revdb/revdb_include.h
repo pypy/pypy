@@ -29,7 +29,7 @@ RPY_EXTERN rpy_revdb_t rpy_revdb;
 RPY_EXTERN void rpy_reverse_db_setup(int *argc_p, char **argv_p[]);
 RPY_EXTERN void rpy_reverse_db_teardown(void);
 
-#if 0    /* enable to print locations to stderr of all the EMITs */
+#if 1    /* enable to print locations to stderr of all the EMITs */
 #  define _RPY_REVDB_PRINT(mode)                                        \
     fprintf(stderr,                                                     \
             "%s:%d: %0*llx\n",                                          \
@@ -37,7 +37,8 @@ RPY_EXTERN void rpy_reverse_db_teardown(void);
             ((unsigned long long)_e) & ((2ULL << (8*sizeof(_e)-1)) - 1))
 #endif
 
-#if 0    /* enable to print all allocs to stderr */
+#if 1    /* enable to print all allocs to stderr */
+RPY_EXTERN void seeing_uid(uint64_t uid);
 #  define _RPY_REVDB_PRUID()                                    \
     seeing_uid(uid);                                            \
     fprintf(stderr,                                             \
