@@ -1377,6 +1377,9 @@ class __extend__(pyframe.PyFrame):
         w_dict = self.space.newdict()
         for i in range(itemcount, 0, -1):
             w_item = self.peekvalue(i-1)
+            if not issubclass(w_item.__class__, self.space.newdict().__class__):
+                raise oefmt(self.space.w_TypeError,
+                        "%s is not a mapping", w_item.__class__.__name__)
             num_items = w_item.length()
             for j in range(num_items):
                 (w_key, w_value) = w_item.popitem()
