@@ -296,7 +296,7 @@ def add_operators(space, dict_w, pto):
     for method_name, slot_names, wrapper_func, wrapper_func_kwds, doc in slotdefs_for_wrappers:
         if method_name in dict_w:
             continue
-        offset = [rffi.offsetof(pto._T, slot_names[0])]
+        offset = [rffi.offsetof(lltype.typeOf(pto).TO, slot_names[0])]
         if len(slot_names) == 1:
             func = getattr(pto, slot_names[0])
         else:
@@ -304,8 +304,7 @@ def add_operators(space, dict_w, pto):
             struct = getattr(pto, slot_names[0])
             if not struct:
                 continue
-            assert isinstance(struct, lltype._ptr)
-            offset.append(rffi.offsetof(struct._T, slot_names[1]))
+            offset.append(rffi.offsetof(lltype.typeOf(struct).TO, slot_names[1]))
             func = getattr(struct, slot_names[1])
         func_voidp = rffi.cast(rffi.VOIDP, func)
         if not func:

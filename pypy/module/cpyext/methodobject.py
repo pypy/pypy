@@ -174,16 +174,25 @@ class W_PyCWrapperObject(W_Root):
             raise oefmt(space.w_TypeError,
                         "wrapper %s doesn't take any keyword arguments",
                         self.method_name)
+        func_to_call = self.func
         if self.offset:
-            ptr = pto = rffi.cast(PyTypeObjectPtr, as_pyobj(space, self.w_objclass))
+            ptr = as_pyobj(space, self.w_objclass)
             # make ptr the equivalent of this, using the offsets
-            #func_to_call = rffi.cast(rffi.VOIDP, pto.c_tp_as_number.c_nb_multiply)
-            for o in self.offset:
-                ptr_as_int = lltype.cast_ptr_to_int(ptr)
-                ptr = rffi.cast(rffi.VOIDPP, ptr_as_int + o)[0]
-            func_to_call = ptr
-        else:
-            func_to_call = self.func
+            #func_to_call = rffi.cast(rffi.VOIDP, ptr.c_tp_as_number.c_nb_multiply)
+            if not ptr is rffi.VOIDP:
+                ptr = rffi.cast(rffi.VOIDP, ptr)
+                for o in self.offset:
+                    if not ptr:
+                        break
+                    ptr_as_int = lltype.cast_ptr_to_int(ptr)
+                    pptr = rffi.cast(rffi.VOIDPP, ptr_as_int + o)
+                    if not pptr:
+                        break
+                    ptr = pptr[0]
+                    ptr = rffi.cast(rffi.VOIDP, ptr)
+                if ptr:
+                    func_to_call = ptr
+        assert func_to_call
         return self.wrapper_func(space, w_self, w_args, func_to_call)
 
     def descr_method_repr(self):
