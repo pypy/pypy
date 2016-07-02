@@ -1,4 +1,4 @@
-from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
@@ -176,22 +176,14 @@ class W_PyCWrapperObject(W_Root):
                         self.method_name)
         func_to_call = self.func
         if self.offset:
-            ptr = as_pyobj(space, self.w_objclass)
+            pto = as_pyobj(space, self.w_objclass)
             # make ptr the equivalent of this, using the offsets
             #func_to_call = rffi.cast(rffi.VOIDP, ptr.c_tp_as_number.c_nb_multiply)
-            if not ptr is rffi.VOIDP:
-                ptr = rffi.cast(rffi.VOIDP, ptr)
+            if pto:
+                ptr = llmemory.cast_ptr_to_adr(pto)
                 for o in self.offset:
-                    if not ptr:
-                        break
-                    ptr_as_int = lltype.cast_ptr_to_int(ptr)
-                    pptr = rffi.cast(rffi.VOIDPP, ptr_as_int + o)
-                    if not pptr:
-                        break
-                    ptr = pptr[0]
-                    ptr = rffi.cast(rffi.VOIDP, ptr)
-                if ptr:
-                    func_to_call = ptr
+                    ptr = (ptr + o).address[0]
+                func_to_call = llmemory.cast_adr_to_ptr(ptr, rffi.VOIDP)
         assert func_to_call
         return self.wrapper_func(space, w_self, w_args, func_to_call)
 
