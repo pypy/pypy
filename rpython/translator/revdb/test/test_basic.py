@@ -369,6 +369,10 @@ class TestDebugCommands(InteractiveTests):
                 dbstate.stuff.x = i + 1000
                 revdb.stop_point()
                 print op
+                if i == 1:
+                    if os.fork() == 0:    # child
+                        os.write(2, "this line is from the fork child.\n")
+                        return 0
             return 9
         compile(cls, main, backendopt=False)
         assert run(cls, 'abc d ef') == 'abc\nd\nef\n'

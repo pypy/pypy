@@ -127,6 +127,14 @@ static void write_all(const void *buf, ssize_t count)
     }
 }
 
+static void close_revdb_fileno_in_fork_child(void)
+{
+    if (rpy_rev_fileno >= 0) {
+        close(rpy_rev_fileno);
+        rpy_rev_fileno = -1;
+    }
+}
+
 static void setup_record_mode(int argc, char *argv[])
 {
     char *filename = getenv("PYPYRDB");
@@ -169,6 +177,8 @@ static void setup_record_mode(int argc, char *argv[])
     rpy_revdb.buf_p = rpy_rev_buffer + sizeof(int16_t);
     rpy_revdb.buf_limit = rpy_rev_buffer + sizeof(rpy_rev_buffer) - 32;
     rpy_revdb.unique_id_seen = 1;
+
+    pthread_atfork(NULL, NULL, close_revdb_fileno_in_fork_child);
 }
 
 static void flush_buffer(void)
@@ -221,10 +231,11 @@ static void record_stop_point(void)
 {
     /* ===== FINALIZERS =====
 
-       When the GC wants to invoke some finalizers, it causes this
-       to be called at the stop point.  The new-style finalizers
-       are only enqueued at this point.  The old-style finalizers
-       run immediately, conceptually just *after* the stop point.
+       When the GC wants to invoke some finalizers, it causes this to
+       be called at the stop point.  (This is not called at *every*
+       stop point.)  The new-style finalizers are only enqueued at
+       this point.  The old-style finalizers run immediately,
+       conceptually just *after* the stop point.
      */
     int i;
     char *p = rpy_rev_buffer;
