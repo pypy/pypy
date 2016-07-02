@@ -166,25 +166,30 @@ class W_PyCWrapperObject(W_Root):
         self.w_objclass = w_type
 
     def call(self, space, w_self, w_args, w_kw):
-        if self.wrapper_func is None:
-            assert self.wrapper_func_kwds is not None
-            return self.wrapper_func_kwds(space, w_self, w_args, self.func,
-                                          w_kw)
-        if space.is_true(w_kw):
-            raise oefmt(space.w_TypeError,
-                        "wrapper %s doesn't take any keyword arguments",
-                        self.method_name)
         func_to_call = self.func
         if self.offset:
             pto = as_pyobj(space, self.w_objclass)
             # make ptr the equivalent of this, using the offsets
             #func_to_call = rffi.cast(rffi.VOIDP, ptr.c_tp_as_number.c_nb_multiply)
             if pto:
-                ptr = llmemory.cast_ptr_to_adr(pto)
+                cptr = rffi.cast(rffi.CCHARP, pto)
                 for o in self.offset:
-                    ptr = (ptr + o).address[0]
-                func_to_call = llmemory.cast_adr_to_ptr(ptr, rffi.VOIDP)
+                    ptr = rffi.cast(rffi.VOIDPP, rffi.ptradd(cptr, o))[0]
+                    cptr = rffi.cast(rffi.CCHARP, ptr)
+                func_to_call = rffi.cast(rffi.VOIDP, cptr)
+            else:
+                # Should never happen, assert to get a traceback
+                assert False, "failed to convert w_type %s to PyObject" % str(
+                                                              self.w_objclass)
         assert func_to_call
+        if self.wrapper_func is None:
+            assert self.wrapper_func_kwds is not None
+            return self.wrapper_func_kwds(space, w_self, w_args, func_to_call,
+                                          w_kw)
+        if space.is_true(w_kw):
+            raise oefmt(space.w_TypeError,
+                        "wrapper %s doesn't take any keyword arguments",
+                        self.method_name)
         return self.wrapper_func(space, w_self, w_args, func_to_call)
 
     def descr_method_repr(self):
