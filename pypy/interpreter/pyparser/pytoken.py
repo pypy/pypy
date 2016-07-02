@@ -65,6 +65,8 @@ _add_tok('ATEQUAL', "@=" )
 _add_tok('RARROW', "->")
 _add_tok('ELLIPSIS', "...")
 _add_tok('OP')
+_add_tok('ASYNC')
+_add_tok('AWAIT')
 _add_tok('ERRORTOKEN')
 
 # extra PyPy-specific tokens
