@@ -695,6 +695,8 @@ class SourceGenerator:
 
         print >> f, '#define PYPY_FILE_NAME "%s"' % os.path.basename(f.name)
         print >> f, '#include "src/g_include.h"'
+        if self.database.reverse_debugger:
+            print >> f, '#include "revdb_def.h"'
         print >> f
 
         nextralines = 11 + 1

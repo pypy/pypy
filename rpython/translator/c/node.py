@@ -459,19 +459,23 @@ class ContainerNode(Node):
         self.implementationtypename = db.gettype(
             T, varlength=self.getvarlength())
         parent, parentindex = parentlink(obj)
+        mangled = False
         if obj in exports.EXPORTS_obj2name:
             self.name = exports.EXPORTS_obj2name[obj]
             self.globalcontainer = 2    # meh
         elif parent is None:
             self.name = db.namespace.uniquename('g_' + self.basename())
             self.globalcontainer = True
+            if db.reverse_debugger and T._gckind != 'gc':
+                from rpython.translator.revdb import gencsupp
+                mangled = gencsupp.mangle_name_prebuilt_raw(db, self, T)
         else:
             self.globalcontainer = False
             parentnode = db.getcontainernode(parent)
             defnode = db.gettypedefnode(parentnode.getTYPE())
             self.name = defnode.access_expr(parentnode.name, parentindex)
         if self.typename != self.implementationtypename:
-            if db.gettypedefnode(T).extra_union_for_varlength:
+            if db.gettypedefnode(T).extra_union_for_varlength and not mangled:
                 self.name += '.b'
         self._funccodegen_owner = None
 
@@ -492,19 +496,23 @@ class ContainerNode(Node):
         return getattr(self.obj, self.eci_name, None)
 
     def get_declaration(self):
-        if self.name[-2:] == '.b':
+        name = self.name
+        if name.startswith('RPY_RDB_A('):
+            assert name.endswith(')')
+            name = name[len('RPY_RDB_A('):-1]
+        if name[-2:] == '.b':
             # xxx fish fish
             assert self.implementationtypename.startswith('struct ')
             assert self.implementationtypename.endswith(' @')
             uniontypename = 'union %su @' % self.implementationtypename[7:-2]
-            return uniontypename, self.name[:-2]
+            return uniontypename, name[:-2], True
         else:
-            return self.implementationtypename, self.name
+            return self.implementationtypename, name, False
 
     def forward_declaration(self):
         if llgroup.member_of_group(self.obj):
             return
-        type, name = self.get_declaration()
+        type, name, is_union = self.get_declaration()
         yield '%s;' % (
             forward_cdecl(type, name, self.db.standalone,
                           is_thread_local=self.is_thread_local(),
@@ -514,12 +522,12 @@ class ContainerNode(Node):
         if llgroup.member_of_group(self.obj):
             return []
         lines = list(self.initializationexpr())
-        type, name = self.get_declaration()
-        if name != self.name and len(lines) < 2:
+        type, name, is_union = self.get_declaration()
+        if is_union and len(lines) < 2:
             # a union with length 0
             lines[0] = cdecl(type, name, self.is_thread_local())
         else:
-            if name != self.name:
+            if is_union:
                 lines[0] = '{ ' + lines[0]    # extra braces around the 'a' part
                 lines[-1] += ' }'             # of the union
             lines[0] = '%s = %s' % (
@@ -597,8 +605,8 @@ class StructNode(ContainerNode):
             padding_drop = T._hints['get_padding_drop'](d)
         else:
             padding_drop = []
-        type, name = self.get_declaration()
-        if name != self.name and self.getvarlength() < 1 and len(data) < 2:
+        type, name, is_union = self.get_declaration()
+        if is_union and self.getvarlength() < 1 and len(data) < 2:
             # an empty union
             yield ''
             return
@@ -795,6 +803,11 @@ def generic_initializationexpr(db, value, access_expr, decoration):
             expr = db.get(value)
             if typeOf(value) is Void:
                 comma = ''
+            elif expr.startswith('(&RPY_RDB_A('):
+                # can't use this in static initialization code
+                assert db.reverse_debugger
+                db.late_initializations.append(('%s' % access_expr, expr))
+                expr = 'NULL /* patched later with %s */' % (expr,)
         expr += comma
         i = expr.find('\n')
         if i < 0:

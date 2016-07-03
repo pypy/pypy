@@ -22,11 +22,14 @@ class RDB(object):
         #
         self.cur = 0
         x = self.read1('c'); assert x == '\x00'
-        x = self.read1('P'); assert x == 0x00FF0002
+        x = self.read1('P'); #assert x == ...random version number...
         x = self.read1('P'); assert x == 0
         x = self.read1('P'); assert x == 0
-        self.argc = self.read1('P')
+        size_rdb_struct = self.read1('I')
+        self.argc = self.read1('i')
         self.argv = self.read1('P')
+        self.rdb_struct = self.buffer[self.cur : self.cur + size_rdb_struct]
+        self.cur += size_rdb_struct
         self.current_packet_end = self.cur
         self.read_check_argv(expected_argv)
 

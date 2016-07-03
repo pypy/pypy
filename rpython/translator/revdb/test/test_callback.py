@@ -66,7 +66,7 @@ class TestRecording(BaseRecordingTests):
         rdb.same_thread()                       # callmesimple()
         x = rdb.next('i'); assert x == 55555
         rdb.write_call('55555\n')
-        b = rdb.next('!h'); assert 0 <= b < 10  # -> callback
+        b = rdb.next('!h'); assert 300 <= b < 310  # -> callback
         x = rdb.next('i'); assert x == 40       # arg n
         x = rdb.next('!h'); assert x == b       # -> callback
         x = rdb.next('i'); assert x == 3        # arg n
@@ -81,7 +81,7 @@ class TestRecording(BaseRecordingTests):
         self.compile(main, backendopt=False)
         out = self.run('Xx')
         rdb = self.fetch_rdb([self.exename, 'Xx'])
-        b = rdb.next('!h'); assert 0 <= b < 10  # -> callback
+        b = rdb.next('!h'); assert 300 <= b < 310  # -> callback
         x = rdb.next('i'); assert x == 40       # arg n
         rdb.write_call('40\n')
         x = rdb.next('!h'); assert x == b       # -> callback again

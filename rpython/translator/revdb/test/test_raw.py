@@ -6,11 +6,12 @@ from rpython.translator.revdb.test.test_basic import InteractiveTests
 from rpython.translator.revdb.message import *
 
 
-class TestReplayingBug(InteractiveTests):
+class TestReplayingRaw(InteractiveTests):
     expected_stop_points = 1
 
     def setup_class(cls):
         from rpython.translator.revdb.test.test_basic import compile, run
+        from rpython.translator.revdb.test.test_basic import fetch_rdb
 
         FOO = lltype.Struct('FOO')
         foo = lltype.malloc(FOO, flavor='raw', immortal=True)
@@ -19,15 +20,23 @@ class TestReplayingBug(InteractiveTests):
         bar = lltype.malloc(BAR, flavor='raw', immortal=True)
         bar.p = foo
 
+        BAZ = lltype.Struct('BAZ', ('p', lltype.Ptr(FOO)), ('q', lltype.Signed),
+                            hints={'union': True})
+        baz = lltype.malloc(BAZ, flavor='raw', immortal=True)
+        baz.p = foo
+
         def main(argv):
             assert bar.p == foo
+            assert baz.p == foo
             revdb.stop_point()
             return 9
 
         compile(cls, main, backendopt=False)
         run(cls, '')
+        rdb = fetch_rdb(cls, [cls.exename])
+        assert len(rdb.rdb_struct) >= 4
 
-    def test_replaying_bug(self):
+    def test_replaying_raw(self):
         # This tiny test seems to always have foo at the same address
         # in multiple runs.  Here we recompile with different options
         # just to change that address.

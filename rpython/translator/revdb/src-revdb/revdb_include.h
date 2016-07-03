@@ -29,15 +29,15 @@ RPY_EXTERN rpy_revdb_t rpy_revdb;
 RPY_EXTERN void rpy_reverse_db_setup(int *argc_p, char **argv_p[]);
 RPY_EXTERN void rpy_reverse_db_teardown(void);
 
-#if 0    /* enable to print locations to stderr of all the EMITs */
-#  define _RPY_REVDB_PRINT(mode)                                        \
+#if 1    /* enable to print locations to stderr of all the EMITs */
+#  define _RPY_REVDB_PRINT(mode, _e)                                    \
     fprintf(stderr,                                                     \
             "%s:%d: %0*llx\n",                                          \
             __FILE__, __LINE__, 2 * sizeof(_e),                         \
             ((unsigned long long)_e) & ((2ULL << (8*sizeof(_e)-1)) - 1))
 #endif
 
-#if 0    /* enable to print all mallocs to stderr */
+#if 1    /* enable to print all mallocs to stderr */
 RPY_EXTERN void seeing_uid(uint64_t uid);
 #  define _RPY_REVDB_PRUID()                                    \
     seeing_uid(uid);                                            \
@@ -47,7 +47,7 @@ RPY_EXTERN void seeing_uid(uint64_t uid);
 #endif
 
 #ifndef _RPY_REVDB_PRINT
-#  define _RPY_REVDB_PRINT(mode)  /* nothing */
+#  define _RPY_REVDB_PRINT(mode, _e)  /* nothing */
 #endif
 #ifndef _RPY_REVDB_PRUID
 #  define _RPY_REVDB_PRUID()      /* nothing */
@@ -57,19 +57,9 @@ RPY_EXTERN void seeing_uid(uint64_t uid);
 #define _RPY_REVDB_EMIT_RECORD(decl_e, variable)                        \
         {                                                               \
             decl_e = variable;                                          \
-            _RPY_REVDB_PRINT("write");                                  \
+            _RPY_REVDB_PRINT("write", _e);                              \
             memcpy(rpy_revdb.buf_p, &_e, sizeof(_e));                   \
             if ((rpy_revdb.buf_p += sizeof(_e)) > rpy_revdb.buf_limit)  \
-                rpy_reverse_db_flush();                                 \
-        }
-
-#define _RPY_REVDB_EMIT_RECORD_EXTRA(extra, decl_e, variable)           \
-        {                                                               \
-            decl_e = variable;                                          \
-            _RPY_REVDB_PRINT("write");                                  \
-            rpy_revdb.buf_p[0] = extra;                                 \
-            memcpy(rpy_revdb.buf_p + 1, &_e, sizeof(_e));               \
-            if ((rpy_revdb.buf_p += 1 + sizeof(_e)) > rpy_revdb.buf_limit) \
                 rpy_reverse_db_flush();                                 \
         }
 
@@ -80,7 +70,7 @@ RPY_EXTERN void seeing_uid(uint64_t uid);
             char *_end1 = _src + sizeof(_e);                            \
             memcpy(&_e, _src, sizeof(_e));                              \
             rpy_revdb.buf_p = _end1;                                    \
-            _RPY_REVDB_PRINT("read");                                   \
+            _RPY_REVDB_PRINT("read", _e);                               \
             if (_end1 >= rpy_revdb.buf_limit)                           \
                 rpy_reverse_db_fetch(__FILE__, __LINE__);               \
             variable = _e;                                              \
@@ -99,7 +89,8 @@ RPY_EXTERN void seeing_uid(uint64_t uid);
 #define RPY_REVDB_CALL(call_code, decl_e, variable)                     \
     if (!RPY_RDB_REPLAY) {                                              \
         call_code                                                       \
-        _RPY_REVDB_EMIT_RECORD_EXTRA(0xFC, decl_e, variable)            \
+        _RPY_REVDB_EMIT_RECORD(unsigned char _e, 0xFC)                  \
+        _RPY_REVDB_EMIT_RECORD(decl_e, variable)                        \
     } else {                                                            \
         unsigned char _re;                                              \
         _RPY_REVDB_EMIT_REPLAY(unsigned char _e, _re)                   \

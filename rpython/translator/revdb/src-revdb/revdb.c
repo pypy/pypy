@@ -22,7 +22,6 @@
 #include "src-revdb/revdb_include.h"
 
 #define RDB_SIGNATURE   "RevDB:"
-#define RDB_VERSION     0x00FF0002
 
 #define WEAKREF_AFTERWARDS_DEAD    ((char)0xf2)
 #define WEAKREF_AFTERWARDS_ALIVE   ((char)0xeb)
@@ -37,6 +36,7 @@
 typedef struct {
     Signed version;
     uint64_t reserved1, reserved2;
+    unsigned int size_rdb_struct;
     int argc;
     char **argv;
 } rdb_header_t;
@@ -164,9 +164,14 @@ static void setup_record_mode(int argc, char *argv[])
 
         memset(&h, 0, sizeof(h));
         h.version = RDB_VERSION;
+        h.size_rdb_struct = sizeof(rpy_rdb_struct);
         h.argc = argc;
         h.argv = argv;
         write_all((const char *)&h, sizeof(h));
+
+        /* write the whole content of rpy_rdb_struct */
+        write_all((const char *)&rpy_rdb_struct, sizeof(rpy_rdb_struct));
+
         fprintf(stderr, "PID %d: recording revdb log to '%s'\n",
                         (int)getpid(), filename);
     }
@@ -464,14 +469,11 @@ void *rpy_reverse_db_weakref_deref(void *weakref)
 RPY_EXTERN
 void rpy_reverse_db_callback_loc(int locnum)
 {
-    union {
-        unsigned char n[2];
-        uint16_t u;
-    } r;
+    locnum += 300;
     assert(locnum < 0xFC00);
     if (!RPY_RDB_REPLAY) {
-        RPY_REVDB_EMIT(r.n[0] = locnum >> 8; r.n[1] = locnum & 0xFF;,
-                       uint16_t _e, r.u);
+        _RPY_REVDB_EMIT_RECORD(unsigned char _e, (locnum >> 8));
+        _RPY_REVDB_EMIT_RECORD(unsigned char _e, (locnum & 0xFF));
     }
 }
 
@@ -663,6 +665,10 @@ static void setup_replay_mode(int *argc_p, char **argv_p[])
                 (long)h.version, (long)RDB_VERSION);
         exit(1);
     }
+    if (h.size_rdb_struct != sizeof(rpy_rdb_struct)) {
+        fprintf(stderr, "bad size_rdb_struct\n");
+        exit(1);
+    }
     *argc_p = h.argc;
     *argv_p = h.argv;
 
@@ -675,6 +681,9 @@ static void setup_replay_mode(int *argc_p, char **argv_p[])
         fprintf(stderr, "%s: %m\n", rpy_rev_filename);
         exit(1);
     }
+
+    /* read the whole content of rpy_rdb_struct */
+    read_all((char *)&rpy_rdb_struct, sizeof(rpy_rdb_struct));
 
     rpy_revdb.buf_p = rpy_rev_buffer;
     rpy_revdb.buf_limit = rpy_rev_buffer;
@@ -1335,6 +1344,10 @@ static void replay_call_destructors(void)
     fq_trigger();
 }
 
+struct rpy_rdb_a_s rpy_rdb_struct = {
+    RPY_RDB_STRUCT_CONTENT   /* macro from revdb_def.h */
+};
+
 static void *callbacklocs[] = {
     RPY_CALLBACKLOCS     /* macro from revdb_def.h */
 };
@@ -1352,6 +1365,7 @@ void rpy_reverse_db_invoke_callback(unsigned char e)
         void (*pfn)(void);
         _RPY_REVDB_EMIT_REPLAY(unsigned char _e, e2)
         index = (e << 8) | e2;
+        index -= 300;
         if (index >= (sizeof(callbacklocs) / sizeof(callbacklocs[0]))) {
             fprintf(stderr, "bad callback index\n");
             exit(1);
