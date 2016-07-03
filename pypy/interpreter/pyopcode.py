@@ -1356,18 +1356,19 @@ class __extend__(pyframe.PyFrame):
     def BUILD_MAP_UNPACK_WITH_CALL(self, itemcount, next_instr):
         num_maps = itemcount & 0xff
         w_dict = self.space.newdict()
+        dict_class = w_dict.__class__
         for i in range(num_maps, 0, -1):
             w_item = self.peekvalue(i-1)
-            if not issubclass(w_item.__class__, self.space.newdict().__class__):
+            if not issubclass(w_item.__class__, dict_class):
                 raise oefmt(self.space.w_TypeError,
-                        "%s is not a mapping", w_item.__class__.__name__)
+                        "'%T' object is not a mapping", w_item)
             num_items = w_item.length()
+            keys = w_item.w_keys()
             for j in range(num_items):
-                (w_key, w_value) = w_item.popitem()
-                if self.space.is_true(self.space.contains(w_dict,w_key)):
+                if self.space.is_true(self.space.contains(w_dict,keys.getitem(0))):
                     raise oefmt(self.space.w_TypeError,
-                        "got multiple values for keyword argument %s", self.space.unicode_w(w_key))
-                self.space.setitem(w_dict, w_key, w_value)
+                        "got multiple values for keyword argument %s", self.space.unicode_w(keys.getitem(0)))
+            self.space.call_method(w_dict, 'update', w_item)
         while num_maps != 0:
             self.popvalue()
             num_maps -= 1
@@ -1375,15 +1376,13 @@ class __extend__(pyframe.PyFrame):
         
     def BUILD_MAP_UNPACK(self, itemcount, next_instr):
         w_dict = self.space.newdict()
+        dict_class = w_dict.__class__
         for i in range(itemcount, 0, -1):
             w_item = self.peekvalue(i-1)
-            if not issubclass(w_item.__class__, self.space.newdict().__class__):
+            if not issubclass(w_item.__class__, dict_class):
                 raise oefmt(self.space.w_TypeError,
-                        "%s is not a mapping", w_item.__class__.__name__)
-            num_items = w_item.length()
-            for j in range(num_items):
-                (w_key, w_value) = w_item.popitem()
-                self.space.setitem(w_dict, w_key, w_value)
+                        "'%T' object is not a mapping", w_item)
+            self.space.call_method(w_dict, 'update', w_item)
         while itemcount != 0:
             self.popvalue()
             itemcount -= 1
