@@ -34,6 +34,15 @@ class TestReplayingRaw(InteractiveTests):
         recbar.q = foo
         recbar.super.p = foo
 
+        IBAR = lltype.Struct('IBAR', ('p', lltype.Ptr(FOO)),
+                             hints={'static_immutable': True})
+        ibar = lltype.malloc(IBAR, flavor='raw', immortal=True)
+        ibar.p = foo
+
+        BARI = lltype.Struct('BARI', ('b', lltype.Ptr(IBAR)))
+        bari = lltype.malloc(BARI, flavor='raw', immortal=True)
+        bari.b = ibar
+
         def main(argv):
             assert bar.p == foo
             assert baz.p == foo
@@ -41,6 +50,8 @@ class TestReplayingRaw(InteractiveTests):
                 assert vbar[i] == foo
             assert recbar.q == foo
             assert recbar.super.p == foo
+            assert ibar.p == foo
+            assert bari.b == ibar
             revdb.stop_point()
             return 9
 

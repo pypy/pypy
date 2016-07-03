@@ -4,6 +4,44 @@ from rpython.rtyper.lltypesystem.lloperation import LL_OPERATIONS
 from rpython.translator.c.support import cdecl
 from rpython.rlib import exports, revdb
 
+#
+# How It Works: we arrange things so that when replaying, all variables
+# have the "same" content as they had during recording.  More precisely,
+# we divide all variables according to their type in two categories:
+#
+#  * "moving things", whose value during recording is bitwise different
+#    from their value during replaying;
+#
+#  * "fixed things", whose values are bitwise identical.
+#
+# Moving things are:
+#
+#  * GC pointers.  During replaying they point to locally-allocated
+#    memory that is an object with the "same" content as during
+#    recording;
+#
+#  * pointers to RPython functions;
+#
+#  * pointers to structures with the "static_immutable" hint, like
+#    vtables.
+#
+# Fixed things are the rest:
+#
+#  * integers, floats;
+#
+#  * most raw pointers, which during replaying will thus point to
+#    nonsense.  (This pointer is not used during replaying to
+#    read/write memory: any write is ignored, and any read has its
+#    result recorded in the log.)
+#
+# Note an issue with prebuilt raw pointers to fixed things (i.e. all
+# constants in the C sources that appear either inside the code or
+# inside "static_immutable" or prebuilt GC structures).  During
+# replaying, they must correspond to bitwise the same value as during
+# recording, and not to the local-process address of the raw
+# structure, which is typically different (and should never be used).
+#
+
 
 def extra_files():
     srcdir = py.path.local(__file__).join('..', 'src-revdb')
