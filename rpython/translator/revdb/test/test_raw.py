@@ -25,9 +25,15 @@ class TestReplayingRaw(InteractiveTests):
         baz = lltype.malloc(BAZ, flavor='raw', immortal=True)
         baz.p = foo
 
+        VBAR = lltype.Array(lltype.Ptr(FOO))
+        vbar = lltype.malloc(VBAR, 3, flavor='raw', immortal=True)
+        vbar[0] = vbar[1] = vbar[2] = foo
+
         def main(argv):
             assert bar.p == foo
             assert baz.p == foo
+            for i in range(3):
+                assert vbar[i] == foo
             revdb.stop_point()
             return 9
 
