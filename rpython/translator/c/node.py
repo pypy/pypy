@@ -497,8 +497,7 @@ class ContainerNode(Node):
 
     def get_declaration(self):
         name = self.name
-        if name.startswith('RPY_RDB_A('):
-            assert name.endswith(')')
+        if name.startswith('RPY_RDB_A(') and name.endswith(')'):
             name = name[len('RPY_RDB_A('):-1]
         if name[-2:] == '.b':
             # xxx fish fish
