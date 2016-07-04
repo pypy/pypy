@@ -207,9 +207,9 @@ class VectorizeTests(object):
         bits = size*8
         integers = st.integers(min_value=-2**(bits-1), max_value=2**(bits-1)-1)
         la = data.draw(st.lists(integers, min_size=10, max_size=150))
-        #la = [1,2,3,4,5,6,7,8,9,10,11,12,13]
+        #la = [0] * 10 #1,2,3,4,5,6,7,8,9,10,11,12,13]
         l = len(la)
-        #lb = [1,2,3,4,5,6,7,8,9,10,11,12,13]
+        #lb = [0] * 10 # [1,2,3,4,5,6,7,8,9,10,11,12,13]
         lb = data.draw(st.lists(integers, min_size=l, max_size=l))
 
         rawstorage = RawStorage()

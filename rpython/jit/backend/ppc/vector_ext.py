@@ -251,7 +251,7 @@ class VectorAssembler(object):
 
     def emit_vec_int_xor(self, op, arglocs, regalloc):
         resloc, loc0, loc1, sizeloc = arglocs
-        self.mc.veqv(resloc.value, loc0.value, loc1.value)
+        self.mc.vxor(resloc.value, loc0.value, loc1.value)
 
     def emit_vec_int_signext(self, op, arglocs, regalloc):
         resloc, loc0 = arglocs
