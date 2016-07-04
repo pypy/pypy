@@ -458,14 +458,15 @@ def command_breakpoints(cmd, extra):
     dbstate.breakpoint_stack_id = cmd.c_arg1
     funcnames = None
     watch_progs = []
-    for i, kind, name in revdb.split_breakpoints_arg(extra):
-        if kind == 'B':
-            if funcnames is None:
-                funcnames = {}
-            funcnames[name] = i
-        elif kind == 'W':
-            code = interp_marshal.loads(space, space.wrap(name))
-            watch_progs.append((code, i, ''))
+    with non_standard_code:
+        for i, kind, name in revdb.split_breakpoints_arg(extra):
+            if kind == 'B':
+                if funcnames is None:
+                    funcnames = {}
+                funcnames[name] = i
+            elif kind == 'W':
+                code = interp_marshal.loads(space, space.wrap(name))
+                watch_progs.append((code, i, ''))
     dbstate.breakpoint_funcnames = funcnames
     dbstate.watch_progs = watch_progs[:]
 lambda_breakpoints = lambda: command_breakpoints

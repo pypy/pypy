@@ -136,6 +136,7 @@ class ReplayProcess(object):
                               breakpoints_cache=self.breakpoints_cache,
                               printed_objects=self.printed_objects)
         other.expect_ready()
+        #print >> sys.stderr, 'CLONED', self.current_time
         return other
 
     def close(self):
