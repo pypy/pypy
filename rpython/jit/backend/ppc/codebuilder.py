@@ -713,6 +713,8 @@ class PPCVSXAssembler(object):
     vperm = VA(4, XO10=43)
     vsel = VA(4, XO10=42) 
     vspltisb = VXI(4, XO8=780)
+    vspltisw = VXI(4, XO8=844)
+    vspltisw = VXI(4, XO8=908)
 
     VX_splat = Form("ivrT", "ivrB", "ivrA", "XO8")
     vspltb = VX_splat(4, XO8=524)

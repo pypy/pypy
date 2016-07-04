@@ -6,6 +6,10 @@ LT = 4
 GE = 5
 SO = 6
 NS = 7
+VEQ = 8
+VEQI = 9
+VNE = 10
+VNEI = 11
 cond_none = -1    # invalid
 
 def negate(cond):
@@ -19,6 +23,8 @@ assert negate(LT) == GE
 assert negate(GE) == LT
 assert negate(SO) == NS
 assert negate(NS) == SO
+assert negate(VEQ) == VEQI
+assert negate(VNE) == VNEI
 
 encoding = [
     (2, 12),   # EQ
@@ -29,4 +35,8 @@ encoding = [
     (0, 4),    # GE
     (3, 12),   # SO
     (3, 4),    # NS
+    (24, 12),   # VEQ
+    (24, 4),    # VEQI
+    (26, 12),    # VNE
+    (26, 4),    # VNEI
 ]

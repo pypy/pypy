@@ -34,7 +34,18 @@ def flush_vec_cc(asm, regalloc, condition, size, result_loc):
     # "propagate it between this operation and the next guard by keeping
     # it in the cc".  In the uncommon case, result_loc is another
     # register, and we emit a load from the cc into this register.
+
+    # Possibly invert the bit in the CR
+    bit, invert = c.encoding[condition]
+    assert 24 <= bit <= 27
+    if invert == 12:
+        pass
+    elif invert == 4:
+        asm.mc.crnor(bit, bit, bit)
+    else:
+        assert 0
     assert asm.guard_success_cc == c.cond_none
+    #
     if result_loc is r.SPP:
         asm.guard_success_cc = condition
     else:
@@ -386,6 +397,7 @@ class VectorAssembler(object):
             self.mc.vcmpgtuwx(resloc.value, argloc.value, tmp)
         elif size == 8:
             self.mc.vcmpgtudx(resloc.value, argloc.value, tmp)
+        flush_vec_cc(self, regalloc, c.VNEI, op.bytesize, resloc)
 
     def emit_vec_float_eq(self, op, arglocs, regalloc):
         resloc, loc1, loc2, sizeloc = arglocs
@@ -404,7 +416,7 @@ class VectorAssembler(object):
         else:
             notimplemented("[ppc/assembler] float == for size %d" % size)
         self.mc.lvx(resloc.value, off, r.SP.value)
-        flush_vec_cc(self, regalloc, c.EQ, op.bytesize, resloc)
+        flush_vec_cc(self, regalloc, c.VEQI, op.bytesize, resloc)
 
     def emit_vec_float_xor(self, op, arglocs, regalloc):
         resloc, l0, l1, sizeloc = arglocs
@@ -432,7 +444,7 @@ class VectorAssembler(object):
         res = resloc.value
         self.mc.lvx(res, off, r.SP.value)
         self.mc.vnor(res, res, res) # complement
-        flush_vec_cc(self, regalloc, c.NE, op.bytesize, resloc)
+        flush_vec_cc(self, regalloc, c.VNEI, op.bytesize, resloc)
 
     def emit_vec_cast_int_to_float(self, op, arglocs, regalloc):
         res, l0 = arglocs
@@ -455,7 +467,7 @@ class VectorAssembler(object):
             self.mc.vcmpequwx(res.value, l0.value, l1.value)
         elif size == 8:
             self.mc.vcmpequdx(res.value, l0.value, l1.value)
-        flush_vec_cc(self, regalloc, c.EQ, op.bytesize, res)
+        flush_vec_cc(self, regalloc, c.VEQI, op.bytesize, res)
 
     def emit_vec_int_ne(self, op, arglocs, regalloc):
         res, l0, l1, sizeloc = arglocs
@@ -471,7 +483,7 @@ class VectorAssembler(object):
         elif size == 8:
             self.mc.vcmpequdx(res.value, res.value, tmp)
         self.mc.vnor(res.value, res.value, res.value)
-        flush_vec_cc(self, regalloc, c.NE, op.bytesize, res)
+        flush_vec_cc(self, regalloc, c.VEQI, op.bytesize, res)
 
     def emit_vec_expand_f(self, op, arglocs, regalloc):
         resloc, srcloc = arglocs
@@ -549,7 +561,7 @@ class VectorAssembler(object):
         if size == 8:
             if srcloc.is_vector_reg(): # reg <- vector
                 assert not resloc.is_vector_reg()
-                self.mc.load_imm(r.SCRATCH, PARAM_SAVE_AREA_OFFSET)
+                self.mc.load_imm(r.SCRATCH2, PARAM_SAVE_AREA_OFFSET)
                 self.mc.stvx(src, r.SCRATCH2.value, r.SP.value)
                 self.mc.load(res, r.SP.value, PARAM_SAVE_AREA_OFFSET+8*idx)
             else:
@@ -621,6 +633,17 @@ class VectorRegalloc(object):
         else:
             return self.ivrm.force_allocate_reg(op, forbidden_vars)
 
+    def force_allocate_vector_reg_or_cc(self, op):
+        assert op.type == INT
+        if self.next_op_can_accept_cc(self.operations, self.rm.position):
+            # hack: return the SPP location to mean "lives in CC".  This
+            # SPP will not actually be used, and the location will be freed
+            # after the next op as usual.
+            self.rm.force_allocate_frame_reg(op)
+            return r.SPP
+        else:
+            return self.force_allocate_vector_reg(op)
+
     def ensure_vector_reg(self, box):
         if box.type == FLOAT:
             return self.vrm.make_sure_var_in_reg(box,
@@ -691,14 +714,25 @@ class VectorRegalloc(object):
     prepare_vec_int_and = prepare_vec_arith
     prepare_vec_int_or = prepare_vec_arith
     prepare_vec_int_xor = prepare_vec_arith
-
-    prepare_vec_float_eq = prepare_vec_arith
-    prepare_vec_float_ne = prepare_vec_arith
-    prepare_vec_int_eq = prepare_vec_arith
-    prepare_vec_int_ne = prepare_vec_arith
     prepare_vec_float_xor = prepare_vec_arith
     del prepare_vec_arith
 
+    def prepare_vec_bool(self, op):
+        a0 = op.getarg(0)
+        a1 = op.getarg(1)
+        assert isinstance(op, VectorOp)
+        size = op.bytesize
+        args = op.getarglist()
+        loc0 = self.ensure_vector_reg(a0)
+        loc1 = self.ensure_vector_reg(a1)
+        resloc = self.force_allocate_vector_reg_or_cc(op)
+        return [resloc, loc0, loc1, imm(size)]
+
+    prepare_vec_float_eq = prepare_vec_bool
+    prepare_vec_float_ne = prepare_vec_bool
+    prepare_vec_int_eq = prepare_vec_bool
+    prepare_vec_int_ne = prepare_vec_bool
+    del prepare_vec_bool
 
     def prepare_vec_store(self, op):
         descr = op.getdescr()
@@ -826,7 +860,7 @@ class VectorRegalloc(object):
         arg = op.getarg(0)
         assert isinstance(arg, VectorOp)
         argloc = self.ensure_vector_reg(arg)
-        resloc = self.force_allocate_vector_reg(op)
+        resloc = self.force_allocate_vector_reg_or_cc(op)
         return [resloc, argloc, imm(arg.bytesize)]
 
     def _prepare_vec(self, op):
@@ -843,19 +877,11 @@ class VectorRegalloc(object):
 
     prepare_vec_cast_int_to_float = prepare_vec_cast_float_to_int
 
-    def load_vector_condition_into_cc(self, box):
-        if self.assembler.guard_success_cc == c.cond_none:
-            # compare happended before
-            #loc = self.ensure_reg(box)
-            #mc = self.assembler.mc
-            #mc.cmp_op(0, loc.value, 0, imm=True)
-            self.assembler.guard_success_cc = c.NE
-
     def prepare_vec_guard_true(self, op):
-        self.load_vector_condition_into_cc(op.getarg(0))
+        self.assembler.guard_success_cc = c.VEQ
         return self._prepare_guard(op)
 
     def prepare_vec_guard_false(self, op):
-        self.load_vector_condition_into_cc(op.getarg(0))
+        self.assembler.guard_success_cc = c.VNE
         return self._prepare_guard(op)
 

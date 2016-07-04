@@ -1369,7 +1369,6 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
             allocation. This needs remapping which is done here for both normal registers
             and accumulation registers.
         """
-        import pdb; pdb.set_trace()
         asminfo, bridge_faildescr, version, looptoken = target
         assert isinstance(bridge_faildescr, ResumeGuardDescr)
         assert isinstance(faildescr, ResumeGuardDescr)
@@ -1385,7 +1384,6 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         # if accumulation is saved at the guard, we need to update it here!
         guard_locs = self.rebuild_faillocs_from_descr(faildescr, version.inputargs)
         bridge_locs = self.rebuild_faillocs_from_descr(bridge_faildescr, version.inputargs)
-        #import pdb; pdb.set_trace()
         guard_accum_info = faildescr.rd_vector_info
         # O(n**2), but usually you only have at most 1 fail argument
         while guard_accum_info:
