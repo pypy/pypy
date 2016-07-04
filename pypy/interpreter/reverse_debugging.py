@@ -84,8 +84,8 @@ def jump_backward(frame, jumpto):
     # When we see a jump backward, we set 'f_revdb_nextline_instr' in
     # such a way that the next instruction, at 'jumpto', will trigger
     # stop_point_at_start_of_line().  We have to trigger it even if
-    # 'jumpto' is not actually a start of line.  For example, in a
-    # 'while foo: body', the body ends with a JUMP_ABSOLUTE which
+    # 'jumpto' is not actually a start of line.  For example, after a
+    # 'while foo:', the body ends with a JUMP_ABSOLUTE which
     # jumps back to the *second* opcode of the while.
     frame.f_revdb_nextline_instr = jumpto
 
@@ -248,13 +248,17 @@ def set_metavar(index, w_obj):
 
 
 def fetch_cur_frame():
-    ec = dbstate.space.getexecutioncontext()
-    frame = ec.topframeref()
+    ec = dbstate.space.threadlocals.get_ec()
+    if ec is None:
+        frame = None
+    else:
+        frame = ec.topframeref()
     if frame is None:
         revdb.send_output("No stack.\n")
     return frame
 
 def compile(source, mode):
+    assert not dbstate.standard_code
     space = dbstate.space
     compiler = space.createcompiler()
     code = compiler.compile(source, '<revdb>', mode, 0,
@@ -269,6 +273,7 @@ class W_RevDBOutput(W_Root):
         self.space = space
 
     def descr_write(self, w_buffer):
+        assert not dbstate.standard_code
         space = self.space
         if space.isinstance_w(w_buffer, space.w_unicode):
             w_buffer = space.call_method(w_buffer, 'encode',
@@ -293,6 +298,7 @@ def revdb_displayhook(space, w_obj):
     for non-prebuilt objects.  Such objects are then recorded in
     'printed_objects'.
     """
+    assert not dbstate.standard_code
     if space.is_w(w_obj, space.w_None):
         return
     uid = revdb.get_unique_id(w_obj)
@@ -313,6 +319,7 @@ def get_revdb_displayhook(space):
 
 
 def prepare_print_environment(space):
+    assert not dbstate.standard_code
     w_revdb_output = space.wrap(W_RevDBOutput(space))
     w_displayhook = get_revdb_displayhook(space)
     space.sys.setdictvalue(space, 'stdout', w_revdb_output)
@@ -430,26 +437,27 @@ def command_locals(cmd, extra):
     if frame is None:
         return
     space = dbstate.space
-    try:
-        prepare_print_environment(space)
-        space.appexec([space.wrap(space.sys),
-                       frame.getdictscope()], """(sys, locals):
-            lst = locals.keys()
-            lst.sort()
-            print 'Locals:'
-            for key in lst:
-                try:
-                    print '    %s =' % key,
-                    s = '%r' % locals[key]
-                    if len(s) > 140:
-                        s = s[:100] + '...' + s[-30:]
-                    print s
-                except:
-                    exc, val, tb = sys.exc_info()
-                    print '!<%s: %r>' % (exc, val)
-        """)
-    except OperationError as e:
-        revdb.send_output('%s\n' % e.errorstr(space, use_repr=True))
+    with non_standard_code:
+        try:
+            prepare_print_environment(space)
+            space.appexec([space.wrap(space.sys),
+                           frame.getdictscope()], """(sys, locals):
+                lst = locals.keys()
+                lst.sort()
+                print 'Locals:'
+                for key in lst:
+                    try:
+                        print '    %s =' % key,
+                        s = '%r' % locals[key]
+                        if len(s) > 140:
+                            s = s[:100] + '...' + s[-30:]
+                        print s
+                    except:
+                        exc, val, tb = sys.exc_info()
+                        print '!<%s: %r>' % (exc, val)
+            """)
+        except OperationError as e:
+            revdb.send_output('%s\n' % e.errorstr(space, use_repr=True))
 lambda_locals = lambda: command_locals
 
 
@@ -548,6 +556,7 @@ lambda_checkwatch = lambda: command_checkwatch
 
 
 def _run_watch(space, prog):
+    # must be called from non_standard_code!
     w_dict = space.builtin.w_dict
     w_res = prog.exec_code(space, w_dict, w_dict)
     return space.str_w(space.repr(w_res))
