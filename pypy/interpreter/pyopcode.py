@@ -1352,9 +1352,18 @@ class __extend__(pyframe.PyFrame):
     def BUILD_LIST_UNPACK(self, itemcount, next_instr):
         w_sum = self.unpack_helper(itemcount, next_instr)
         self.pushvalue(self.space.newlist(w_sum))
-        
+    
+    def getFuncDesc(func):
+        if self.space.type(aaa).name.decode('utf-8') == 'method':
+            return "()"
+        elif self.space.type(aaa).name.decode('utf-8') == 'function':
+            return "()"
+        else:
+            return " object";
+    
     def BUILD_MAP_UNPACK_WITH_CALL(self, itemcount, next_instr):
         num_maps = itemcount & 0xff
+        function_location = (itemcount>>8) & 0xff
         w_dict = self.space.newdict()
         dict_class = w_dict.__class__
         for i in range(num_maps, 0, -1):
@@ -1365,9 +1374,15 @@ class __extend__(pyframe.PyFrame):
             num_items = w_item.length()
             keys = w_item.w_keys()
             for j in range(num_items):
-                if self.space.is_true(self.space.contains(w_dict,keys.getitem(0))):
+                if self.space.type(keys.getitem(j)).name.decode('utf-8') == 'method':
+                    err_fun = self.peekvalue(num_maps + function_location-1)
                     raise oefmt(self.space.w_TypeError,
-                        "got multiple values for keyword argument %s", self.space.unicode_w(keys.getitem(0)))
+                        "%N%s keywords must be strings", err_fun, getFuncDesc(err_fun))
+                if self.space.is_true(self.space.contains(w_dict,keys.getitem(j))):
+                    err_fun = self.peekvalue(num_maps + function_location-1)
+                    err_arg = self.space.unicode_w(keys.getitem(j))
+                    raise oefmt(self.space.w_TypeError,
+                        "%N%s got multiple values for keyword argument %s", err_fun, getFuncDesc(err_fun), err_arg)
             self.space.call_method(w_dict, 'update', w_item)
         while num_maps != 0:
             self.popvalue()
