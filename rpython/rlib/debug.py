@@ -158,7 +158,9 @@ class Entry(ExtRegistryEntry):
 
 
 def debug_flush():
-    """ Flushes the debug file
+    """ Flushes the debug file.
+
+    With the reverse-debugger, it also closes the output log.
     """
     pass
 

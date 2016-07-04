@@ -89,8 +89,13 @@ void rpy_reverse_db_teardown(void)
     RPY_REVDB_EMIT(stop_points = rpy_revdb.stop_point_seen; ,
                    uint64_t _e, stop_points);
 
-    if (!RPY_RDB_REPLAY)
+    if (!RPY_RDB_REPLAY) {
         rpy_reverse_db_flush();
+        if (rpy_rev_fileno >= 0) {
+            close(rpy_rev_fileno);
+            rpy_rev_fileno = -1;
+        }
+    }
     else
         check_at_end(stop_points);
 }
