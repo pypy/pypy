@@ -12,6 +12,7 @@ from pypy.interpreter.executioncontext import AbstractActionFlag
 
 class DBState:
     extend_syntax_with_dollar_num = False
+    standard_code = True
     breakpoint_stack_id = 0
     breakpoint_funcnames = None
     printed_objects = {}
@@ -187,22 +188,35 @@ def get_final_lineno(code):
     return lineno
 
 
+class NonStandardCode(object):
+    def __enter__(self):
+        dbstate.standard_code = False
+        self.c = dbstate.space.actionflag._ticker_cache
+    def __exit__(self, *args):
+        dbstate.space.actionflag._ticker_cache = self.c
+        dbstate.standard_code = True
+non_standard_code = NonStandardCode()
+
+
 def stop_point_at_start_of_line():
     if revdb.watch_save_state():
         any_watch_point = False
         space = dbstate.space
-        for prog, watch_id, expected in dbstate.watch_progs:
-            any_watch_point = True
-            try:
-                if _run_watch(space, prog) != expected:
+        with non_standard_code:
+            for prog, watch_id, expected in dbstate.watch_progs:
+                any_watch_point = True
+                try:
+                    if _run_watch(space, prog) != expected:
+                        break
+                except Exception:
                     break
-            except OperationError:
-                break
-        else:
-            watch_id = -1
+            else:
+                watch_id = -1
         revdb.watch_restore_state(any_watch_point)
         if watch_id != -1:
             revdb.breakpoint(watch_id)
+    elif not dbstate.standard_code:
+        return
     revdb.stop_point()
 
 
@@ -312,38 +326,40 @@ def command_print(cmd, expression):
     if frame is None:
         return
     space = dbstate.space
-    try:
-        prepare_print_environment(space)
-        code = compile(expression, 'single')
+    with non_standard_code:
         try:
-            code.exec_code(space,
-                           frame.get_w_globals(),
-                           frame.getdictscope())
+            prepare_print_environment(space)
+            code = compile(expression, 'single')
+            try:
+                code.exec_code(space,
+                               frame.get_w_globals(),
+                               frame.getdictscope())
 
-        except OperationError as operationerr:
-            # can't use sys.excepthook: it will likely try to do 'import
-            # traceback', which might not be doable without using I/O
-            tb = operationerr.get_traceback()
-            if tb is not None:
-                revdb.send_output("Traceback (most recent call last):\n")
-                while tb is not None:
-                    if not isinstance(tb, pytraceback.PyTraceback):
-                        revdb.send_output("  ??? %s\n" % tb)
-                        break
-                    show_frame(tb.frame, tb.get_lineno(), indent='  ')
-                    tb = tb.next
-            revdb.send_output('%s\n' % operationerr.errorstr(space))
+            except OperationError as operationerr:
+                # can't use sys.excepthook: it will likely try to do 'import
+                # traceback', which might not be doable without using I/O
+                tb = operationerr.get_traceback()
+                if tb is not None:
+                    revdb.send_output("Traceback (most recent call last):\n")
+                    while tb is not None:
+                        if not isinstance(tb, pytraceback.PyTraceback):
+                            revdb.send_output("  ??? %s\n" % tb)
+                            break
+                        show_frame(tb.frame, tb.get_lineno(), indent='  ')
+                        tb = tb.next
+                revdb.send_output('%s\n' % operationerr.errorstr(space))
 
-            # set the sys.last_xxx attributes
-            w_type = operationerr.w_type
-            w_value = operationerr.get_w_value(space)
-            w_tb = space.wrap(operationerr.get_traceback())
-            space.setitem(space.sys.w_dict, space.wrap('last_type'), w_type)
-            space.setitem(space.sys.w_dict, space.wrap('last_value'), w_value)
-            space.setitem(space.sys.w_dict, space.wrap('last_traceback'), w_tb)
+                # set the sys.last_xxx attributes
+                w_type = operationerr.w_type
+                w_value = operationerr.get_w_value(space)
+                w_tb = space.wrap(operationerr.get_traceback())
+                w_dict = space.sys.w_dict
+                space.setitem(w_dict, space.wrap('last_type'), w_type)
+                space.setitem(w_dict, space.wrap('last_value'), w_value)
+                space.setitem(w_dict, space.wrap('last_traceback'), w_tb)
 
-    except OperationError as e:
-        revdb.send_output('%s\n' % e.errorstr(space, use_repr=True))
+        except OperationError as e:
+            revdb.send_output('%s\n' % e.errorstr(space, use_repr=True))
 lambda_print = lambda: command_print
 
 
@@ -522,13 +538,14 @@ lambda_compilewatch = lambda: command_compilewatch
 
 def command_checkwatch(cmd, marshalled_code):
     space = dbstate.space
-    try:
-        code = interp_marshal.loads(space, space.wrap(marshalled_code))
-        text = _run_watch(space, code)
-    except OperationError as e:
-        revdb.send_watch(e.errorstr(space), ok_flag=0)
-    else:
-        revdb.send_watch(text, ok_flag=1)
+    with non_standard_code:
+        try:
+            code = interp_marshal.loads(space, space.wrap(marshalled_code))
+            text = _run_watch(space, code)
+        except OperationError as e:
+            revdb.send_watch(e.errorstr(space), ok_flag=0)
+        else:
+            revdb.send_watch(text, ok_flag=1)
 lambda_checkwatch = lambda: command_checkwatch
 
 
@@ -575,7 +592,8 @@ class RDBSignalActionFlag(AbstractActionFlag):
 
     def _update_ticker_from_signals(self):
         from rpython.rlib import rsignal
-        if rsignal.pypysig_check_and_reset():
-            self.rearm_ticker()
+        if dbstate.standard_code:
+            if rsignal.pypysig_check_and_reset():
+                self.rearm_ticker()
         return self._SIG_TICKER_COUNT
     _update_ticker_from_signals._dont_inline_ = True
