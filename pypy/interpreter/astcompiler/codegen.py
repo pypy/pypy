@@ -1199,7 +1199,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
     def visit_RevDBMetaVar(self, node):
         if self.space.config.translation.reverse_debugger:
             from pypy.interpreter.reverse_debugging import dbstate
-            if dbstate.extend_syntax_with_dollar_num:
+            if not dbstate.standard_code:
                 self.emit_op_arg(ops.LOAD_REVDB_VAR, node.metavar)
                 return
         self.error("$NUM is only valid in the reverse-debugger", node)

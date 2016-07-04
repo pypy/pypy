@@ -11,7 +11,6 @@ from pypy.interpreter.executioncontext import AbstractActionFlag
 
 
 class DBState:
-    extend_syntax_with_dollar_num = False
     standard_code = True
     breakpoint_stack_id = 0
     breakpoint_funcnames = None
@@ -258,12 +257,8 @@ def fetch_cur_frame():
 def compile(source, mode):
     space = dbstate.space
     compiler = space.createcompiler()
-    dbstate.extend_syntax_with_dollar_num = True
-    try:
-        code = compiler.compile(source, '<revdb>', mode, 0,
-                                hidden_applevel=True)
-    finally:
-        dbstate.extend_syntax_with_dollar_num = False
+    code = compiler.compile(source, '<revdb>', mode, 0,
+                            hidden_applevel=True)
     return code
 
 
@@ -526,17 +521,16 @@ lambda_attachid = lambda: command_attachid
 
 def command_compilewatch(cmd, expression):
     space = dbstate.space
-    try:
-        code = compile(expression, 'eval')
-        # Note: using version 0 to marshal watchpoints, in order to
-        # avoid space.new_interned_str() on unmarshal.  This is
-        # forbidden because it comes with lasting side-effects.
-        marshalled_code = space.str_w(interp_marshal.dumps(
-            space, space.wrap(code), space.wrap(0)))
-    except OperationError as e:
-        revdb.send_watch(e.errorstr(space), ok_flag=0)
-    else:
-        revdb.send_watch(marshalled_code, ok_flag=1)
+    with non_standard_code:
+        try:
+            code = compile(expression, 'eval')
+            marshalled_code = space.str_w(interp_marshal.dumps(
+                space, space.wrap(code),
+                space.wrap(interp_marshal.Py_MARSHAL_VERSION)))
+        except OperationError as e:
+            revdb.send_watch(e.errorstr(space), ok_flag=0)
+        else:
+            revdb.send_watch(marshalled_code, ok_flag=1)
 lambda_compilewatch = lambda: command_compilewatch
 
 def command_checkwatch(cmd, marshalled_code):

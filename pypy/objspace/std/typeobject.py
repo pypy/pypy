@@ -248,7 +248,8 @@ class W_TypeObject(W_Root):
                 # if it was not actually overriden in the class, we remember this
                 # fact for the next time.
                 if w_descr is object_getattribute(self.space):
-                    self.uses_object_getattribute = True
+                    if self.space._side_effects_ok():
+                        self.uses_object_getattribute = True
                 else:
                     return w_descr
             return None
@@ -275,10 +276,12 @@ class W_TypeObject(W_Root):
                                     self.lookup('__cmp__') or
                                     self.lookup('__hash__') is not default_hash)
         if overrides_eq_cmp_or_hash:
-            self.compares_by_identity_status = OVERRIDES_EQ_CMP_OR_HASH
+            result = OVERRIDES_EQ_CMP_OR_HASH
         else:
-            self.compares_by_identity_status = COMPARES_BY_IDENTITY
-        return self.compares_by_identity_status == COMPARES_BY_IDENTITY
+            result = COMPARES_BY_IDENTITY
+        if self.space._side_effects_ok():
+            self.compares_by_identity_status = result
+        return result == COMPARES_BY_IDENTITY
 
     def ready(self):
         for w_base in self.bases_w:
@@ -454,11 +457,12 @@ class W_TypeObject(W_Root):
 #                print "hit", self, name
                 return tup
         tup = self._lookup_where_all_typeobjects(name)
-        cache.versions[method_hash] = version_tag
-        cache.names[method_hash] = name
-        cache.lookup_where[method_hash] = tup
-        if space.config.objspace.std.withmethodcachecounter:
-            cache.misses[name] = cache.misses.get(name, 0) + 1
+        if space._side_effects_ok():
+            cache.versions[method_hash] = version_tag
+            cache.names[method_hash] = name
+            cache.lookup_where[method_hash] = tup
+            if space.config.objspace.std.withmethodcachecounter:
+                cache.misses[name] = cache.misses.get(name, 0) + 1
 #        print "miss", self, name
         return tup
 
@@ -608,7 +612,7 @@ class W_TypeObject(W_Root):
                             self)
             w_newfunc = space.get(w_newdescr, self)
             if (space.config.objspace.std.newshortcut and
-                not we_are_jitted() and
+                not we_are_jitted() and space._side_effects_ok() and
                 isinstance(w_newtype, W_TypeObject)):
                 self.w_new_function = w_newfunc
         w_newobject = space.call_obj_args(w_newfunc, self, __args__)

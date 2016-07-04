@@ -811,7 +811,8 @@ class ObjSpace(object):
         w_s1 = self.interned_strings.get(s)
         if w_s1 is None:
             w_s1 = w_s
-            self.interned_strings.set(s, w_s1)
+            if self._side_effects_ok():
+                self.interned_strings.set(s, w_s1)
         return w_s1
 
     def new_interned_str(self, s):
@@ -820,8 +821,29 @@ class ObjSpace(object):
         w_s1 = self.interned_strings.get(s)
         if w_s1 is None:
             w_s1 = self.wrap(s)
-            self.interned_strings.set(s, w_s1)
+            if self._side_effects_ok():
+                self.interned_strings.set(s, w_s1)
         return w_s1
+
+    def _side_effects_ok(self):
+        # For the reverse debugger: we run compiled watchpoint
+        # expressions in a fast way that will crash if they have
+        # side-effects.  The obvious Python code with side-effects is
+        # documented "don't do that"; but some non-obvious side
+        # effects are also common, like interning strings (from
+        # unmarshalling the code object containing the watchpoint
+        # expression) to the two attribute caches in mapdict.py and
+        # typeobject.py.  For now, we have to identify such places
+        # that are not acceptable for "reasonable" read-only
+        # watchpoint expressions, and write:
+        #
+        #     if not space._side_effects_ok():
+        #         don't cache.
+        #
+        if self.config.translation.reverse_debugger:
+            from pypy.interpreter.reverse_debugging import dbstate
+            return dbstate.standard_code
+        return True
 
     def is_interned_str(self, s):
         # interface for marshal_impl
