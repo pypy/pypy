@@ -1901,13 +1901,6 @@ array_multiply(PyObject* obj1, PyObject* obj2)
     return Py_NotImplemented;
 }
 
-static PyNumberMethods array_as_number = {
-    (binaryfunc)NULL, /* nb_add*/
-    (binaryfunc)NULL, /* nb_subtract */
-    (binaryfunc)array_multiply, /* nb_multiply */
-    (binaryfunc)NULL, /* nb_divide */
-};
-
 static PyObject*
 array_base_multiply(PyObject* obj1, PyObject* obj2)
 {
@@ -1958,7 +1951,7 @@ array_base_multiply(PyObject* obj1, PyObject* obj2)
 static PyNumberMethods array_base_as_number = {
     (binaryfunc)NULL, /* nb_add*/
     (binaryfunc)NULL, /* nb_subtract */
-    (binaryfunc)array_base_multiply, /* nb_multiply */
+    (binaryfunc)array_multiply, /* nb_multiply */
     (binaryfunc)NULL, /* nb_divide */
 };
 
@@ -2273,7 +2266,7 @@ static PyTypeObject Arraytype = {
     0,                                          /* tp_setattr */
     0,                                          /* tp_compare */
     (reprfunc)array_repr,                       /* tp_repr */
-    &array_as_number,                           /* tp_as_number*/
+    0,                                          /* tp_as_number*/
     &array_as_sequence,                         /* tp_as_sequence*/
     &array_as_mapping,                          /* tp_as_mapping*/
     0,                                          /* tp_hash */
