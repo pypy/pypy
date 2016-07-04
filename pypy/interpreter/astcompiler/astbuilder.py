@@ -475,7 +475,7 @@ class ASTBuilder(object):
             return [self.handle_expr(bases_node.get_child(0))]
         return self.get_expression_list(bases_node)
 
-    def handle_funcdef(self, funcdef_node, decorators=None):
+    def handle_funcdef_impl(self, funcdef_node, is_async, decorators=None):
         name_node = funcdef_node.get_child(1)
         name = self.new_identifier(name_node.get_value())
         self.check_forbidden_name(name, name_node)
@@ -486,8 +486,12 @@ class ASTBuilder(object):
             returns = self.handle_expr(funcdef_node.get_child(4))
             suite += 2
         body = self.handle_suite(funcdef_node.get_child(suite))
-        return ast.FunctionDef(name, args, body, decorators, returns,
-                               funcdef_node.get_lineno(), funcdef_node.get_column())
+        if is_async:
+            return ast.AsyncFunctionDef(name, args, body, decorators, returns,
+                                   funcdef_node.get_lineno(), funcdef_node.get_column())
+        else:
+            return ast.FunctionDef(name, args, body, decorators, returns,
+                                   funcdef_node.get_lineno(), funcdef_node.get_column())
 
     def handle_decorated(self, decorated_node):
         decorators = self.handle_decorators(decorated_node.get_child(0))
