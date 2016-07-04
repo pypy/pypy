@@ -675,7 +675,7 @@ static void setup_replay_mode(int *argc_p, char **argv_p[])
                 "In the replaying process, the addresses are different than\n"
                 "in the recording process.  We don't support this case for\n"
                 "now, sorry.  On Linux, check if Address Space Layout\n"
-                "Randomization (ADSL) is enabled, and disable it with:\n"
+                "Randomization (ASLR) is enabled, and disable it with:\n"
                 "\n"
                 "    echo 0 | sudo tee /proc/sys/kernel/randomize_va_space\n"
                 "\n");
