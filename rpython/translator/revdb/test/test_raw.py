@@ -43,6 +43,13 @@ class TestReplayingRaw(InteractiveTests):
         bari = lltype.malloc(BARI, flavor='raw', immortal=True)
         bari.b = ibar
 
+        class X:
+            pass
+        x = X()
+        x.foo = foo
+        x.ibar = ibar
+        x.bari = bari
+
         def main(argv):
             assert bar.p == foo
             assert baz.p == foo
@@ -52,22 +59,29 @@ class TestReplayingRaw(InteractiveTests):
             assert recbar.super.p == foo
             assert ibar.p == foo
             assert bari.b == ibar
+            assert x.foo == foo
+            assert x.ibar == ibar
+            assert x.bari == bari
             revdb.stop_point()
             return 9
 
         compile(cls, main, backendopt=False)
         run(cls, '')
         rdb = fetch_rdb(cls, [cls.exename])
-        assert len(rdb.rdb_struct) >= 4
+        #assert len(rdb.rdb_struct) >= 4
 
     def test_replaying_raw(self):
         # This tiny test seems to always have foo at the same address
         # in multiple runs.  Here we recompile with different options
         # just to change that address.
-        subprocess.check_call(["make", "clean"],
-                              cwd=os.path.dirname(str(self.exename)))
-        subprocess.check_call(["make", "lldebug"],
-                              cwd=os.path.dirname(str(self.exename)))
+        #
+        # NOTE: not supported right now!  The executable must be
+        # exactly the same one with the same raw addresses.  This
+        # might be fixed in the future.
+        #subprocess.check_call(["make", "clean"],
+        #                      cwd=os.path.dirname(str(self.exename)))
+        #subprocess.check_call(["make", "lldebug"],
+        #                      cwd=os.path.dirname(str(self.exename)))
         #
         child = self.replay()
         child.send(Message(CMD_FORWARD, 2))

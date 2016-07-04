@@ -22,6 +22,7 @@
 #include "src-revdb/revdb_include.h"
 
 #define RDB_SIGNATURE   "RevDB:"
+#define RDB_VERSION     0x00FF0003
 
 #define WEAKREF_AFTERWARDS_DEAD    ((char)0xf2)
 #define WEAKREF_AFTERWARDS_ALIVE   ((char)0xeb)
@@ -36,7 +37,8 @@
 typedef struct {
     Signed version;
     uint64_t reserved1, reserved2;
-    unsigned int size_rdb_struct;
+    void *ptr1, *ptr2;
+    int reversed3;
     int argc;
     char **argv;
 } rdb_header_t;
@@ -164,13 +166,14 @@ static void setup_record_mode(int argc, char *argv[])
 
         memset(&h, 0, sizeof(h));
         h.version = RDB_VERSION;
-        h.size_rdb_struct = sizeof(rpy_rdb_struct);
+        h.ptr1 = &rpy_reverse_db_stop_point;
+        h.ptr2 = &rpy_revdb;
         h.argc = argc;
         h.argv = argv;
         write_all((const char *)&h, sizeof(h));
 
         /* write the whole content of rpy_rdb_struct */
-        write_all((const char *)&rpy_rdb_struct, sizeof(rpy_rdb_struct));
+        /*write_all((const char *)&rpy_rdb_struct, sizeof(rpy_rdb_struct));*/
 
         fprintf(stderr, "PID %d: recording revdb log to '%s'\n",
                         (int)getpid(), filename);
@@ -665,8 +668,17 @@ static void setup_replay_mode(int *argc_p, char **argv_p[])
                 (long)h.version, (long)RDB_VERSION);
         exit(1);
     }
-    if (h.size_rdb_struct != sizeof(rpy_rdb_struct)) {
-        fprintf(stderr, "bad size_rdb_struct\n");
+    if (h.ptr1 != &rpy_reverse_db_stop_point ||
+        h.ptr2 != &rpy_revdb) {
+        fprintf(stderr,
+                "\n"
+                "In the replaying process, the addresses are different than\n"
+                "in the recording process.  We don't support this case for\n"
+                "now, sorry.  On Linux, check if Address Space Layout\n"
+                "Randomization (ADSL) is enabled, and disable it with:\n"
+                "\n"
+                "    echo 0 | sudo tee /proc/sys/kernel/randomize_va_space\n"
+                "\n");
         exit(1);
     }
     *argc_p = h.argc;
@@ -683,7 +695,7 @@ static void setup_replay_mode(int *argc_p, char **argv_p[])
     }
 
     /* read the whole content of rpy_rdb_struct */
-    read_all((char *)&rpy_rdb_struct, sizeof(rpy_rdb_struct));
+    /*read_all((char *)&rpy_rdb_struct, sizeof(rpy_rdb_struct));*/
 
     rpy_revdb.buf_p = rpy_rev_buffer;
     rpy_revdb.buf_limit = rpy_rev_buffer;
@@ -1343,10 +1355,6 @@ static void replay_call_destructors(void)
        queues here. */
     fq_trigger();
 }
-
-struct rpy_rdb_a_s rpy_rdb_struct = {
-    RPY_RDB_STRUCT_CONTENT   /* macro from revdb_def.h */
-};
 
 static void *callbacklocs[] = {
     RPY_CALLBACKLOCS     /* macro from revdb_def.h */

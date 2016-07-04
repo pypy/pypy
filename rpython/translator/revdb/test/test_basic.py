@@ -16,20 +16,19 @@ from rpython.translator.revdb.process import ReplayProcess
 class RDB(object):
     def __init__(self, filename, expected_argv):
         with open(filename, 'rb') as f:
-            header = f.readline()
             self.buffer = f.read()
-        assert header == 'RevDB:\t' + '\t'.join(expected_argv) + '\n'
+        self.cur = self.buffer.index('\x00') + 1
+        header = self.buffer[:self.cur]
+        assert header == 'RevDB:\t' + '\t'.join(expected_argv) + '\n\x00'
         #
-        self.cur = 0
-        x = self.read1('c'); assert x == '\x00'
-        x = self.read1('P'); #assert x == ...random version number...
+        x = self.read1('P'); assert x == 0x00FF0003
         x = self.read1('P'); assert x == 0
         x = self.read1('P'); assert x == 0
-        size_rdb_struct = self.read1('I')
+        x = self.read1('P'); #assert x == &rpy_reverse_db_stop_point
+        x = self.read1('P'); #assert x == &rpy_revdb
+        x = self.read1('i'); assert x == 0
         self.argc = self.read1('i')
         self.argv = self.read1('P')
-        self.rdb_struct = self.buffer[self.cur : self.cur + size_rdb_struct]
-        self.cur += size_rdb_struct
         self.current_packet_end = self.cur
         self.read_check_argv(expected_argv)
 

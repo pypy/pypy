@@ -459,23 +459,24 @@ class ContainerNode(Node):
         self.implementationtypename = db.gettype(
             T, varlength=self.getvarlength())
         parent, parentindex = parentlink(obj)
-        mangled = False
+        ## mangled = False
         if obj in exports.EXPORTS_obj2name:
             self.name = exports.EXPORTS_obj2name[obj]
             self.globalcontainer = 2    # meh
         elif parent is None:
             self.name = db.namespace.uniquename('g_' + self.basename())
             self.globalcontainer = True
-            if db.reverse_debugger and T._gckind != 'gc':
-                from rpython.translator.revdb import gencsupp
-                mangled = gencsupp.mangle_name_prebuilt_raw(db, self, T)
+            ## if db.reverse_debugger and T._gckind != 'gc':
+            ##     from rpython.translator.revdb import gencsupp
+            ##     mangled = gencsupp.mangle_name_prebuilt_raw(db, self, T)
         else:
             self.globalcontainer = False
             parentnode = db.getcontainernode(parent)
             defnode = db.gettypedefnode(parentnode.getTYPE())
             self.name = defnode.access_expr(parentnode.name, parentindex)
         if self.typename != self.implementationtypename:
-            if db.gettypedefnode(T).extra_union_for_varlength and not mangled:
+            if db.gettypedefnode(T).extra_union_for_varlength:
+                 ## and not mangled:
                 self.name += '.b'
         self._funccodegen_owner = None
 
@@ -497,8 +498,8 @@ class ContainerNode(Node):
 
     def get_declaration(self):
         name = self.name
-        if name.startswith('RPY_RDB_A(') and name.endswith(')'):
-            name = name[len('RPY_RDB_A('):-1]
+        ## if name.startswith('RPY_RDB_A(') and name.endswith(')'):
+        ##     name = name[len('RPY_RDB_A('):-1]
         if name[-2:] == '.b':
             # xxx fish fish
             assert self.implementationtypename.startswith('struct ')
@@ -802,11 +803,14 @@ def generic_initializationexpr(db, value, access_expr, decoration):
             expr = db.get(value)
             if typeOf(value) is Void:
                 comma = ''
-            elif expr.startswith('(&RPY_RDB_A('):
-                # can't use this in static initialization code
-                assert db.reverse_debugger
-                db.late_initializations.append(('%s' % access_expr, expr))
-                expr = 'NULL /* patched later with %s */' % (expr,)
+            ## elif expr.startswith('(&RPY_RDB_A('):
+            ##     # can't use this in static initialization code if we
+            ##     # are inside a GC struct or a static_immutable struct.
+            ##     # (It is not needed inside other raw structs, but we
+            ##     # don't try to optimize that here.)
+            ##     assert db.reverse_debugger
+            ##     db.late_initializations.append(('%s' % access_expr, expr))
+            ##     expr = 'NULL /* patched later with %s */' % (expr,)
         expr += comma
         i = expr.find('\n')
         if i < 0:

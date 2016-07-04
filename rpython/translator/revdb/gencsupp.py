@@ -9,37 +9,27 @@ from rpython.rlib import exports, revdb
 # have the "same" content as they had during recording.  More precisely,
 # we divide all variables according to their type in two categories:
 #
-#  * "moving things", whose value during recording is bitwise different
-#    from their value during replaying;
+#  * non-GC pointers, whose values are bitwise identical.
 #
-#  * "fixed things", whose values are bitwise identical.
+#  * GC pointers: these things are "moving", in the sense that the
+#    bitwise value of a GC pointer during recording is different from
+#    its bitwise value during replaying.  The object at the new
+#    address contains the "same" content as the original one, using
+#    this definition of "same".
 #
-# Moving things are:
+# Note that most non-GC pointers are not followed during replaying: we
+# never call external libraries nor call malloc to get pieces of raw
+# memory.  Writes to raw memory are ignored, and reads return a value
+# recorded in the log file.  However, the following are still needed:
 #
-#  * GC pointers.  During replaying they point to locally-allocated
-#    memory that is an object with the "same" content as during
-#    recording;
+#  * function pointers pointing to RPython functions;
 #
-#  * pointers to RPython functions;
+#  * "static-immutable" structs like vtables.
 #
-#  * pointers to structures with the "static_immutable" hint, like
-#    vtables.
-#
-# Fixed things are the rest:
-#
-#  * integers, floats;
-#
-#  * most raw pointers, which during replaying will thus point to
-#    nonsense.  (This pointer is not used during replaying to
-#    read/write memory: any write is ignored, and any read has its
-#    result recorded in the log.)
-#
-# Note an issue with prebuilt raw pointers to fixed things (i.e. all
-# constants in the C sources that appear either inside the code or
-# inside "static_immutable" or prebuilt GC structures).  During
-# replaying, they must correspond to bitwise the same value as during
-# recording, and not to the local-process address of the raw
-# structure, which is typically different (and should never be used).
+# For now. we must make sure that these are at the same address as
+# they were.  This is very roughly checked.  On Linux, it means you
+# must run with Address Space Layout Randomization disabled.  This
+# might be fixed in the future.
 #
 
 
@@ -49,16 +39,16 @@ def extra_files():
         srcdir / 'revdb.c',
     ]
 
-def mangle_name_prebuilt_raw(database, node, S):
-    if (S._gckind != 'gc' and not S._hints.get('is_excdata')
-                          and not S._hints.get('static_immutable')
-                          and not S._hints.get('ignore_revdb')
-                          and not S._hints.get('gcheader')):
-        database.all_raw_structures.append(node)
-        node.name = 'RPY_RDB_A(%s)' % (node.name,)
-        return True
-    else:
-        return False
+## def mangle_name_prebuilt_raw(database, node, S):
+##     if (S._gckind != 'gc' and not S._hints.get('is_excdata')
+##                           and not S._hints.get('static_immutable')
+##                           and not S._hints.get('ignore_revdb')
+##                           and not S._hints.get('gcheader')):
+##         database.all_raw_structures.append(node)
+##         node.name = 'RPY_RDB_A(%s)' % (node.name,)
+##         return True
+##     else:
+##         return False
 
 def prepare_function(funcgen):
     stack_bottom = False
@@ -151,13 +141,13 @@ def prepare_database(db):
     db.get(s)
 
     db.stack_bottom_funcnames = []
-    db.all_raw_structures = []
+    ## db.all_raw_structures = []
 
 def write_revdb_def_file(db, target_path):
     f = target_path.open('w')
     funcnames = sorted(db.stack_bottom_funcnames)
-    print >> f, "#define RDB_VERSION  0x%x" % random.randrange(0, sys.maxint)
-    print >> f
+    ## print >> f, "#define RDB_VERSION  0x%x" % random.randrange(0, sys.maxint)
+    ## print >> f
     for i, fn in enumerate(funcnames):
         print >> f, '#define RPY_CALLBACKLOC_%s %d' % (fn, i)
     print >> f
@@ -169,36 +159,36 @@ def write_revdb_def_file(db, target_path):
         else:
             tail = ', \\'
         print >> f, '\t(void *)%s%s' % (fn, tail)
-    print >> f
+    ## print >> f
 
-    def _base(name):
-        assert name.startswith('RPY_RDB_A(')
-        if name.endswith('.b'):
-            name = name[:-2]
-        name = name[len('RPY_RDB_A('):-1]
-        return name
+    ## def _base(name):
+    ##     assert name.startswith('RPY_RDB_A(')
+    ##     if name.endswith('.b'):
+    ##         name = name[:-2]
+    ##     name = name[len('RPY_RDB_A('):-1]
+    ##     return name
 
-    rawstructs = sorted(db.all_raw_structures, key=lambda node: node.name)
-    print >> f, '#define RPY_RDB_A(name)  (*rpy_rdb_struct.name)'
-    print >> f, 'struct rpy_rdb_a_s {'
-    for i, node in enumerate(rawstructs):
-        print >> f, '\t%s;' % (cdecl(node.typename, '*'+_base(node.name)),)
-    if not rawstructs:
-        print >> f, '\tchar dummy;'
-    print >> f, '};'
-    print >> f, 'RPY_EXTERN struct rpy_rdb_a_s rpy_rdb_struct;'
-    print >> f
-    print >> f, '#define RPY_RDB_STRUCT_CONTENT \\'
-    if not rawstructs:
-        print >> f, '\t0'
-    else:
-        for i, node in enumerate(rawstructs):
-            if i == len(rawstructs) - 1:
-                tail = ''
-            else:
-                tail = ', \\'
-            name = '&' + _base(node.name)
-            if node.typename != node.implementationtypename:
-                name = '(%s)%s' % (cdecl(node.typename, '*'), name)
-            print >> f, '\t%s%s' % (name, tail)
+    ## rawstructs = sorted(db.all_raw_structures, key=lambda node: node.name)
+    ## print >> f, '#define RPY_RDB_A(name)  (*rpy_rdb_struct.name)'
+    ## print >> f, 'struct rpy_rdb_a_s {'
+    ## for i, node in enumerate(rawstructs):
+    ##     print >> f, '\t%s;' % (cdecl(node.typename, '*'+_base(node.name)),)
+    ## if not rawstructs:
+    ##     print >> f, '\tchar dummy;'
+    ## print >> f, '};'
+    ## print >> f, 'RPY_EXTERN struct rpy_rdb_a_s rpy_rdb_struct;'
+    ## print >> f
+    ## print >> f, '#define RPY_RDB_STRUCT_CONTENT \\'
+    ## if not rawstructs:
+    ##     print >> f, '\t0'
+    ## else:
+    ##     for i, node in enumerate(rawstructs):
+    ##         if i == len(rawstructs) - 1:
+    ##             tail = ''
+    ##         else:
+    ##             tail = ', \\'
+    ##         name = '&' + _base(node.name)
+    ##         if node.typename != node.implementationtypename:
+    ##             name = '(%s)%s' % (cdecl(node.typename, '*'), name)
+    ##         print >> f, '\t%s%s' % (name, tail)
     f.close()
