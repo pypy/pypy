@@ -35,6 +35,7 @@ class RevDebugControl(object):
             if last_time != previous_time:
                 print
                 self.pgroup.update_watch_values()
+                last_time = self.pgroup.get_current_time()
             if self.print_extra_pending_info:
                 print self.print_extra_pending_info
                 self.print_extra_pending_info = None

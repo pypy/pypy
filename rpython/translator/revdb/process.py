@@ -399,7 +399,13 @@ class ReplayProcessGroup(object):
         self.active.breakpoints_cache = self.all_breakpoints.duplicate()
 
     def update_watch_values(self):
-        self._update_watchpoints_uids()
+        try:
+            self._update_watchpoints_uids()
+        except socket.error as e:
+            print >> sys.stderr, "socket.error: %s" % (e,)
+            print >> sys.stderr, "restarting at position 1"
+            self.jump_in_time(1)
+            self._update_watchpoints_uids()
         seen = set()
         for num, name in self.all_breakpoints.num2break.items():
             if name.startswith('W'):
@@ -507,9 +513,9 @@ class ReplayProcessGroup(object):
             except IndexError:
                 continue
             if skip_futures and uid >= self.get_currently_created_objects():
-                print >> sys.stderr, (
-                    "note: '$%d' refers to an object that is "
-                    "only created later in time" % nid)
+                #print >> sys.stderr, (
+                #    "note: '$%d' refers to an object that is "
+                #    "only created later in time" % nid)
                 continue
             uids.append(uid)
         return uids

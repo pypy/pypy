@@ -191,9 +191,11 @@ def get_final_lineno(code):
 class NonStandardCode(object):
     def __enter__(self):
         dbstate.standard_code = False
-        self.c = dbstate.space.actionflag._ticker_cache
+        self.t = dbstate.space.actionflag._ticker
+        self.c = dbstate.space.actionflag._ticker_count
     def __exit__(self, *args):
-        dbstate.space.actionflag._ticker_cache = self.c
+        dbstate.space.actionflag._ticker = self.t
+        dbstate.space.actionflag._ticker_count = self.c
         dbstate.standard_code = True
 non_standard_code = NonStandardCode()
 
@@ -206,17 +208,18 @@ def stop_point_at_start_of_line():
             for prog, watch_id, expected in dbstate.watch_progs:
                 any_watch_point = True
                 try:
-                    if _run_watch(space, prog) != expected:
-                        break
+                    got = _run_watch(space, prog)
+                except OperationError as e:
+                    got = e.errorstr(space)
                 except Exception:
+                    break
+                if got != expected:
                     break
             else:
                 watch_id = -1
         revdb.watch_restore_state(any_watch_point)
         if watch_id != -1:
             revdb.breakpoint(watch_id)
-    elif not dbstate.standard_code:
-        return
     revdb.stop_point()
 
 
@@ -566,17 +569,17 @@ class RDBSignalActionFlag(AbstractActionFlag):
     # bytecodes, at the expense of not reacting to signals instantly.
 
     _SIG_TICKER_COUNT = 100
-    _ticker_cache = 0
+    _ticker = 0
     _ticker_count = _SIG_TICKER_COUNT * 10
 
     def get_ticker(self):
-        return self._ticker_cache
+        return self._ticker
 
     def reset_ticker(self, value):
-        self._ticker_cache = value
+        self._ticker = value
 
     def rearm_ticker(self):
-        self._ticker_cache = -1
+        self._ticker = -1
 
     def decrement_ticker(self, by):
         if we_are_translated():
@@ -588,7 +591,7 @@ class RDBSignalActionFlag(AbstractActionFlag):
             print ("RDBSignalActionFlag: has_bytecode_counter: "
                    "not supported for now")
             raise NotImplementedError
-        return self._ticker_cache
+        return self._ticker
 
     def _update_ticker_from_signals(self):
         from rpython.rlib import rsignal

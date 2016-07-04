@@ -494,6 +494,7 @@ class ActionFlag(AbstractActionFlag):
     """The normal class for space.actionflag.  The signal module provides
     a different one."""
     _ticker = 0
+    _ticker_count = -1     # xxx only for reverse_debugger.py
 
     def get_ticker(self):
         return self._ticker
