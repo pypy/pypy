@@ -494,7 +494,10 @@ class ASTBuilder(object):
                                    funcdef_node.get_lineno(), funcdef_node.get_column())
 
     def handle_async_funcdef(self, node, decorators=None):
-        return handle_funcdef_impl(c, node.get_child(1), decorators, 1)
+        return handle_funcdef_impl(node.get_child(1), decorators, 1)
+    
+    def handle_funcdef(self, node, decorators=None):
+        return handle_funcdef_impl(node, decorators, 0)
 
     def handle_decorated(self, decorated_node):
         decorators = self.handle_decorators(decorated_node.get_child(0))
