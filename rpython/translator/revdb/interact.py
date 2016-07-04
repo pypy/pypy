@@ -191,7 +191,11 @@ class RevDebugControl(object):
                 kind, num, name))
         self.print_extra_pending_info = '\n'.join(printing)
         if self.pgroup.get_current_time() != b.time:
-            self.pgroup.jump_in_time(b.time)
+            target_time = b.time
+            if backward and any(self._bp_kind(num)[0] == 'watchpoint'
+                                for num in b.regular_breakpoint_nums()):
+                target_time += 1
+            self.pgroup.jump_in_time(target_time)
 
     def remove_tainting(self):
         if self.pgroup.is_tainted():
