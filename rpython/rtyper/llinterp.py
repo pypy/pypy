@@ -981,6 +981,11 @@ class LLFrame(object):
         return self.op_raw_load(RESTYPE, _address_of_thread_local(), offset)
     op_threadlocalref_get.need_result_type = True
 
+    op_threadlocalref_load = op_threadlocalref_get
+
+    def op_threadlocalref_store(self, offset, value):
+        self.op_raw_store(_address_of_thread_local(), offset, value)
+
     def op_threadlocalref_acquire(self, prev):
         raise NotImplementedError
     def op_threadlocalref_release(self, prev):

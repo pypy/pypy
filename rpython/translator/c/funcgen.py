@@ -963,8 +963,8 @@ class FunctionCodeGenerator(object):
             return None    # use the default
 
     def OP_THREADLOCALREF_GET(self, op):
-        typename = self.db.gettype(op.result.concretetype)
         if isinstance(op.args[0], Constant):
+            typename = self.db.gettype(op.result.concretetype)
             assert isinstance(op.args[0].value, CDefinedIntSymbolic)
             fieldname = op.args[0].value.expr
             assert fieldname.startswith('RPY_TLOFS_')
@@ -974,7 +974,19 @@ class FunctionCodeGenerator(object):
                 cdecl(typename, ''),
                 fieldname)
         else:
-            return 'OP_THREADLOCALREF_GET_NONCONST(%s, %s, %s);' % (
-                cdecl(typename, ''),
-                self.expr(op.args[0]),
-                self.expr(op.result))
+            # this is used for the fall-back path in the JIT
+            return self.OP_THREADLOCALREF_LOAD(op)
+
+    def OP_THREADLOCALREF_LOAD(self, op):
+        typename = self.db.gettype(op.result.concretetype)
+        return 'OP_THREADLOCALREF_LOAD(%s, %s, %s);' % (
+            cdecl(typename, ''),
+            self.expr(op.args[0]),
+            self.expr(op.result))
+
+    def OP_THREADLOCALREF_STORE(self, op):
+        typename = self.db.gettype(op.args[1].concretetype)
+        return 'OP_THREADLOCALREF_STORE(%s, %s, %s);' % (
+            cdecl(typename, ''),
+            self.expr(op.args[0]),
+            self.expr(op.args[1]))

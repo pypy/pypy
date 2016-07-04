@@ -324,8 +324,7 @@ class ThreadLocalField(object):
         def get_or_make_raw():
             if we_are_translated():
                 _threadlocalref_seeme(self)
-                addr = llop.threadlocalref_addr(llmemory.Address)
-                return llop.raw_load(FIELDTYPE, addr, offset)
+                return llop.threadlocalref_load(FIELDTYPE, offset)
             else:
                 return getattr(self.local, 'rawvalue', zero)
 
@@ -333,8 +332,7 @@ class ThreadLocalField(object):
         def setraw(value):
             if we_are_translated():
                 _threadlocalref_seeme(self)
-                addr = llop.threadlocalref_addr(llmemory.Address)
-                llop.raw_store(lltype.Void, addr, offset, value)
+                llop.threadlocalref_store(lltype.Void, offset, value)
             else:
                 self.local.rawvalue = value
 
