@@ -78,7 +78,7 @@ def compile_extension_module(space, modname, include_dirs=[],
     else:
         libraries = []
         if sys.platform.startswith('linux'):
-            compile_extra = ["-Werror", "-g", "-O0", "-fPIC"]
+            compile_extra = ["-Werror", "-g", "-O0", "-Wp,-U_FORTIFY_SOURCE", "-fPIC"]
             link_extra = ["-g"]
         else:
             compile_extra = link_extra = None
