@@ -579,7 +579,7 @@ class W_BytesObject(W_AbstractBytesObject):
     def descr_str(self, space):
         if type(self) is W_BytesObject:
             return self
-        return wrapstr(space, self._value)
+        return W_BytesObject(self._value)
 
     def descr_hash(self, space):
         x = compute_hash(self._value)
@@ -725,8 +725,8 @@ class W_BytesObject(W_AbstractBytesObject):
         l = space.listview_bytes(w_list)
         if l is not None:
             if len(l) == 1:
-                return space.wrap(l[0])
-            return space.wrap(self._val(space).join(l))
+                return space.newbytes(l[0])
+            return space.newbytes(self._val(space).join(l))
         return self._StringMethods_descr_join(space, w_list)
 
     _StringMethods_descr_split = descr_split
@@ -856,10 +856,6 @@ def _create_list_from_bytes(value):
     return [s for s in value]
 
 W_BytesObject.EMPTY = W_BytesObject('')
-
-
-def wrapstr(space, s):
-    return W_BytesObject(s)
 
 
 W_BytesObject.typedef = TypeDef(

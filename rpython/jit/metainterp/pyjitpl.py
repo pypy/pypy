@@ -830,8 +830,11 @@ class MIFrame(object):
                                        mutatefielddescr, orgpc):
         from rpython.jit.metainterp.quasiimmut import QuasiImmutDescr
         cpu = self.metainterp.cpu
+        if self.metainterp.heapcache.is_quasi_immut_known(fielddescr, box):
+            return
         descr = QuasiImmutDescr(cpu, box.getref_base(), fielddescr,
                                 mutatefielddescr)
+        self.metainterp.heapcache.quasi_immut_now_known(fielddescr, box)
         self.metainterp.history.record(rop.QUASIIMMUT_FIELD, [box],
                                        None, descr=descr)
         self.metainterp.generate_guard(rop.GUARD_NOT_INVALIDATED,

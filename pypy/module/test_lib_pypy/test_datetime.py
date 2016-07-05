@@ -315,6 +315,51 @@ class BaseTestDatetime:
         class sub(datetime.timedelta): pass
         assert type(+sub()) is datetime.timedelta
 
+    def test_subclass_date(self):
+        # replace() should return a subclass but not call __new__ or __init__.
+        class MyDate(datetime.date):
+            forbidden = False
+            def __new__(cls):
+                if cls.forbidden: FAIL
+                return datetime.date.__new__(cls, 2016, 2, 3)
+            def __init__(self, *args):
+                if self.forbidden: FAIL
+        d = MyDate()
+        d.forbidden = True
+        d2 = d.replace(day=5)
+        assert type(d2) is MyDate
+        assert d2 == datetime.date(2016, 2, 5)
+
+    def test_subclass_time(self):
+        # replace() should return a subclass but not call __new__ or __init__.
+        class MyTime(datetime.time):
+            forbidden = False
+            def __new__(cls):
+                if cls.forbidden: FAIL
+                return datetime.time.__new__(cls, 1, 2, 3)
+            def __init__(self, *args):
+                if self.forbidden: FAIL
+        d = MyTime()
+        d.forbidden = True
+        d2 = d.replace(hour=5)
+        assert type(d2) is MyTime
+        assert d2 == datetime.time(5, 2, 3)
+
+    def test_subclass_datetime(self):
+        # replace() should return a subclass but not call __new__ or __init__.
+        class MyDatetime(datetime.datetime):
+            forbidden = False
+            def __new__(cls):
+                if cls.forbidden: FAIL
+                return datetime.datetime.__new__(cls, 2016, 4, 5, 1, 2, 3)
+            def __init__(self, *args):
+                if self.forbidden: FAIL
+        d = MyDatetime()
+        d.forbidden = True
+        d2 = d.replace(hour=7)
+        assert type(d2) is MyDatetime
+        assert d2 == datetime.datetime(2016, 4, 5, 7, 2, 3)
+
 
 class TestDatetimeHost(BaseTestDatetime):
     def setup_class(cls):

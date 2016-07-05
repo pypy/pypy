@@ -570,7 +570,7 @@ def charp2string(space, address, maxlength=-1):
         s = rffi.charp2str(charp_addr)
     else:
         s = rffi.charp2strn(charp_addr, maxlength)
-    return space.wrap(s)
+    return space.newbytes(s)
 
 @unwrap_spec(address=r_uint, maxlength=int)
 def wcharp2unicode(space, address, maxlength=-1):
@@ -588,7 +588,7 @@ def charp2rawstring(space, address, maxlength=-1):
     if maxlength == -1:
         return charp2string(space, address)
     s = rffi.charpsize2str(rffi.cast(rffi.CCHARP, address), maxlength)
-    return space.wrap(s)
+    return space.newbytes(s)
 
 @unwrap_spec(address=r_uint, maxlength=int)
 def wcharp2rawunicode(space, address, maxlength=-1):

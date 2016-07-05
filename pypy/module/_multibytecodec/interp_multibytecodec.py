@@ -40,7 +40,7 @@ class MultibyteCodec(W_Root):
             raise wrap_unicodeencodeerror(space, e, input, self.name)
         except RuntimeError:
             raise wrap_runtimeerror(space)
-        return space.newtuple([space.wrap(output),
+        return space.newtuple([space.newbytes(output),
                                space.wrap(len(input))])
 
 
@@ -66,7 +66,7 @@ def wrap_unicodedecodeerror(space, e, input, name):
         space.w_UnicodeDecodeError,
         space.newtuple([
             space.wrap(name),
-            space.wrap(input),
+            space.newbytes(input),
             space.wrap(e.start),
             space.wrap(e.end),
             space.wrap(e.reason)]))

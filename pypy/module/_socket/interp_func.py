@@ -209,7 +209,7 @@ def inet_aton(space, ip):
         buf = rsocket.inet_aton(ip)
     except SocketError as e:
         raise converted_error(space, e)
-    return space.wrap(buf)
+    return space.newbytes(buf)
 
 @unwrap_spec(packed=str)
 def inet_ntoa(space, packed):
@@ -234,7 +234,7 @@ def inet_pton(space, family, ip):
         buf = rsocket.inet_pton(family, ip)
     except SocketError as e:
         raise converted_error(space, e)
-    return space.wrap(buf)
+    return space.newbytes(buf)
 
 @unwrap_spec(family=int, packed=str)
 def inet_ntop(space, family, packed):
@@ -263,10 +263,10 @@ def getaddrinfo(space, w_host, w_port,
     if space.is_w(w_host, space.w_None):
         host = None
     elif space.isinstance_w(w_host, space.w_str):
-        host = space.str_w(w_host)
+        host = space.bytes_w(w_host)
     elif space.isinstance_w(w_host, space.w_unicode):
         w_shost = space.call_method(w_host, "encode", space.wrap("idna"))
-        host = space.str_w(w_shost)
+        host = space.bytes_w(w_shost)
     else:
         raise oefmt(space.w_TypeError,
                     "getaddrinfo() argument 1 must be string or None")
@@ -277,7 +277,7 @@ def getaddrinfo(space, w_host, w_port,
     elif space.isinstance_w(w_port, space.w_int) or space.isinstance_w(w_port, space.w_long):
         port = str(space.int_w(w_port))
     elif space.isinstance_w(w_port, space.w_str):
-        port = space.str_w(w_port)
+        port = space.bytes_w(w_port)
     else:
         raise oefmt(space.w_TypeError,
                     "getaddrinfo() argument 2 must be integer or string")

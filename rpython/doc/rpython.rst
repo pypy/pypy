@@ -135,6 +135,12 @@ We are using
   hash functions and custom equality will not be honored.
   Use ``rpython.rlib.objectmodel.r_dict`` for custom hash functions.
 
+**sets**
+
+  sets are not directly supported in RPython. Instead you should use a
+  plain dict and fill the values with None. Values in that dict
+  will not consume space.
+
 **list comprehensions**
 
   May be used to create allocated, initialized arrays.

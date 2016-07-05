@@ -48,3 +48,8 @@ PyUnicode_Type
 Bug fix: if ``socket.socket()`` failed, the ``socket.error`` did not show
 the errno of the failing system call, but instead some random previous
 errno.
+
+.. branch: PyTuple_Type-subclass
+
+Refactor PyTupleObject to look like cpython's and allow subclassing 
+PyTuple_Type
