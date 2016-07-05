@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env pypy
 
 # Post-process log files to make them diff-able.
 #
@@ -19,7 +19,9 @@ import sys, re
 
 r_hide_tail = re.compile(r"revdb[.]c:\d+: ([0-9a-f]+)")
 
-r_remove = re.compile("\w+[.]c:\d+: obj 92233720368")
+r_remove = re.compile(r"\w+[.]c:\d+: obj 92233720368|"
+                      r"PID \d+ starting, log file disabled|"
+                      r"\[")
 
 
 def post_process(fin, fout):

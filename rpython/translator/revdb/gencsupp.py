@@ -60,7 +60,8 @@ def prepare_function(funcgen):
         name = funcgen.functionname
         funcgen.db.stack_bottom_funcnames.append(name)
         extra_enter_text = '\n'.join(
-            ['RPY_REVDB_CALLBACKLOC(RPY_CALLBACKLOC_%s);' % name] +
+            ['/* this function is a callback */',
+             'RPY_REVDB_CALLBACKLOC(RPY_CALLBACKLOC_%s);' % name] +
             ['\t' + emit('/*arg*/', funcgen.lltypename(v), funcgen.expr(v))
                 for v in funcgen.graph.getargs()])
         extra_return_text = '/* RPY_CALLBACK_LEAVE(); */'

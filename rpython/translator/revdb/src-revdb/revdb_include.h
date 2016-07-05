@@ -22,6 +22,7 @@ typedef struct {
 } rpy_revdb_t;
 
 RPY_EXTERN rpy_revdb_t rpy_revdb;
+RPY_EXTERN int rpy_rev_fileno;
 
 
 /* ------------------------------------------------------------ */
@@ -31,19 +32,23 @@ RPY_EXTERN void rpy_reverse_db_teardown(void);
 
 #if 0    /* enable to print locations to stderr of all the EMITs */
 #  define _RPY_REVDB_PRINT(mode, _e)                                    \
-    fprintf(stderr,                                                     \
-            "%s:%d: %0*llx\n",                                          \
-            __FILE__, __LINE__, 2 * sizeof(_e),                         \
-            ((unsigned long long)_e) & ((2ULL << (8*sizeof(_e)-1)) - 1))
+    if (rpy_rev_fileno >= 0) {                                          \
+        fprintf(stderr,                                                 \
+                "%s:%d: %0*llx\n",                                      \
+                __FILE__, __LINE__, 2 * sizeof(_e),                     \
+                ((unsigned long long)_e) & ((2ULL << (8*sizeof(_e)-1)) - 1)); \
+    }
 #endif
 
 #if 0    /* enable to print all mallocs to stderr */
 RPY_EXTERN void seeing_uid(uint64_t uid);
-#  define _RPY_REVDB_PRUID()                                    \
-    seeing_uid(uid);                                            \
-    fprintf(stderr,                                             \
-            "%s:%d: obj %llu\n",                                \
-            __FILE__, __LINE__, (unsigned long long) uid)
+#  define _RPY_REVDB_PRUID()                                            \
+    if (rpy_rev_fileno >= 0) {                                          \
+        seeing_uid(uid);                                                \
+        fprintf(stderr,                                                 \
+                "%s:%d: obj %llu\n",                                    \
+                __FILE__, __LINE__, (unsigned long long) uid);          \
+    }
 #endif
 
 #ifndef _RPY_REVDB_PRINT

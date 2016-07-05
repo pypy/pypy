@@ -46,7 +46,7 @@ typedef struct {
 
 rpy_revdb_t rpy_revdb;
 static char rpy_rev_buffer[16384];    /* max. 32768 */
-static int rpy_rev_fileno = -1;
+int rpy_rev_fileno = -1;
 static char flag_io_disabled = FID_REGULAR_MODE;
 
 

@@ -420,6 +420,7 @@ def _ll_callback(ffi_cif, ll_res, ll_args, ll_userdata):
     """
     userdata = rffi.cast(USERDATA_P, ll_userdata)
     userdata.callback(ll_args, ll_res, userdata)
+_ll_callback._revdb_do_all_calls_ = True
 
 def ll_callback(ffi_cif, ll_res, ll_args, ll_userdata):
     rposix._errno_after(rffi.RFFI_ERR_ALL | rffi.RFFI_ALT_ERRNO)
