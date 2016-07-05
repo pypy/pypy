@@ -613,7 +613,7 @@ class VectorizeTests(object):
             yield (size, Typ(*t1), Typ(*t2), Typ(*t3), op[0], op[1])
     types = [('rffi.DOUBLE', 'float', 'float'),
              ('rffi.SIGNED', 'int', 'int'),
-             ('rffi.FLOAT', 'rffi.r_singlefloat', 'float'),
+             #('rffi.FLOAT', 'rffi.r_singlefloat', 'float'),
             ]
     operators = [('add', '+'),
                 ]
@@ -629,11 +629,11 @@ class VectorizeTests(object):
                 vector_b = lltype.malloc(T2, size, flavor='raw')
                 vector_c = lltype.malloc(T3, size, flavor='raw')
                 for i in range(size):
-                    vector_a[i] = {type_a_storecast}(i+1)
+                    vector_a[i] = {type_a_storecast}(1)
                 for i in range(size):
-                    vector_b[i] = {type_b_storecast}(i+1)
+                    vector_b[i] = {type_b_storecast}(1)
                 for i in range(size):
-                    vector_c[i] = {type_c_storecast}(i+1)
+                    vector_c[i] = {type_c_storecast}(1)
                 i = 0
                 while i < size:
                     myjitdriver.jit_merge_point()

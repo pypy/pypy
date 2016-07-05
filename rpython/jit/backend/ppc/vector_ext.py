@@ -51,8 +51,8 @@ def flush_vec_cc(asm, regalloc, condition, size, result_loc):
     else:
         resval = result_loc.value
         # either doubleword integer 1 (2x) or word integer 1 (4x)
-        ones = regalloc.ivrm.get_scratch_reg().value
-        zeros = regalloc.ivrm.get_scratch_reg().value
+        ones = regalloc.vrm.get_scratch_reg(type=INT).value
+        zeros = regalloc.vrm.get_scratch_reg(type=INT).value
         asm.mc.vxor(zeros, zeros, zeros)
         if size == 4:
             asm.mc.vspltisw(ones, 1)
@@ -121,15 +121,15 @@ class VectorAssembler(object):
         indexloc = self._apply_offset(indexloc, baseofs)
         assert baseofs.value == 0
         if integer_loc.value:
-            Vloloc = regalloc.ivrm.get_scratch_reg()
-            Vhiloc = regalloc.ivrm.get_scratch_reg()
-            Vploc = regalloc.ivrm.get_scratch_reg()
+            Vloloc = regalloc.vrm.get_scratch_reg(type=INT)
+            Vhiloc = regalloc.vrm.get_scratch_reg(type=INT)
+            Vploc = regalloc.vrm.get_scratch_reg(type=INT)
             tloc = regalloc.rm.get_scratch_reg()
-            V1sloc = regalloc.ivrm.get_scratch_reg()
+            V1sloc = regalloc.vrm.get_scratch_reg(type=INT)
             V1s = V1sloc.value
-            V0sloc = regalloc.ivrm.get_scratch_reg()
+            V0sloc = regalloc.vrm.get_scratch_reg(type=INT)
             V0s = V0sloc.value
-            Vmaskloc = regalloc.ivrm.get_scratch_reg()
+            Vmaskloc = regalloc.vrm.get_scratch_reg(type=INT)
             Vmask = Vmaskloc.value
             Vlo = Vhiloc.value
             Vhi = Vloloc.value
@@ -372,7 +372,7 @@ class VectorAssembler(object):
     def emit_vec_int_is_true(self, op, arglocs, regalloc):
         resloc, argloc, sizeloc = arglocs
         size = sizeloc.value
-        tmp = regalloc.ivrm.get_scratch_reg().value
+        tmp = regalloc.vrm.get_scratch_reg(type=INT).value
         self.mc.vxor(tmp, tmp, tmp)
         # argloc[i] > 0:
         # For an unsigned integer that is equivalent to argloc[i] != 0
@@ -616,13 +616,11 @@ class VectorAssembler(object):
     def emit_vec_cast_float_to_int(self, op, arglocs, regalloc):
         res, l0 = arglocs
         offloc = regalloc.rm.get_scratch_reg()
-        v0 = regalloc.vrm.get_scratch_reg()
+        v0 = regalloc.vrm.get_scratch_reg(type=INT)
         off = offloc.value
         # SP is always 16 byte aligned, and PARAM_SAVE_AREA_OFFSET % 16 == 0
         self.mc.load_imm(offloc, PARAM_SAVE_AREA_OFFSET)
-        self.mc.xvcvdpsxds(v0.value, l0.value)
-        self.mc.stxvd2x(v0.value, off, r.SP.value)
-        self.mc.lvx(res.value, off, r.SP.value)
+        self.mc.xvcvdpsxds(res.value, l0.value)
 
     # needed as soon as PPC's support_singlefloat is implemented!
     #def genop_vec_cast_singlefloat_to_float(self, op, arglocs, regalloc):
@@ -637,10 +635,7 @@ class VectorRegalloc(object):
 
     def force_allocate_vector_reg(self, op):
         forbidden_vars = self.vrm.temp_boxes
-        if op.type == FLOAT:
-            return self.vrm.force_allocate_reg(op, forbidden_vars)
-        else:
-            return self.ivrm.force_allocate_reg(op, forbidden_vars)
+        return self.vrm.force_allocate_reg(op, forbidden_vars)
 
     def force_allocate_vector_reg_or_cc(self, op):
         assert op.type == INT
@@ -654,12 +649,8 @@ class VectorRegalloc(object):
             return self.force_allocate_vector_reg(op)
 
     def ensure_vector_reg(self, box):
-        if box.type == FLOAT:
-            return self.vrm.make_sure_var_in_reg(box,
-                               forbidden_vars=self.vrm.temp_boxes)
-        else:
-            return self.ivrm.make_sure_var_in_reg(box,
-                               forbidden_vars=self.ivrm.temp_boxes)
+        return self.vrm.make_sure_var_in_reg(box,
+                           forbidden_vars=self.vrm.temp_boxes)
 
     def _prepare_load(self, op):
         descr = op.getdescr()
@@ -691,9 +682,9 @@ class VectorRegalloc(object):
         ofs_loc = self.ensure_reg(a1)
         result_loc = self.force_allocate_vector_reg(op)
         tloc = self.rm.get_scratch_reg()
-        Vhiloc = self.ivrm.get_scratch_reg()
-        Vloloc = self.ivrm.get_scratch_reg()
-        Vploc = self.ivrm.get_scratch_reg()
+        Vhiloc = self.vrm.get_scratch_reg(type=INT)
+        Vloloc = self.vrm.get_scratch_reg(type=INT)
+        Vploc = self.vrm.get_scratch_reg(type=INT)
         return [result_loc, base_loc, ofs_loc, imm(itemsize), imm(ofs),
                 Vhiloc, Vloloc, Vploc, tloc]
 

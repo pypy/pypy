@@ -142,27 +142,9 @@ class PPCRegisterManager(RegisterManager):
         self.temp_boxes.append(box)
         return reg
 
-class IntegerVectorRegisterManager(RegisterManager):
-    all_regs              = r.MANAGED_INTEGER_VECTOR_REGS
-    box_types             = [INT]
-    save_around_call_regs = [] # ??? lookup the ABI
-    assert set(save_around_call_regs).issubset(all_regs)
-
-    def __init__(self, longevity, frame_manager=None, assembler=None):
-        RegisterManager.__init__(self, longevity, frame_manager, assembler)
-
-    def ensure_reg(self, box):
-        raise NotImplementedError
-
-    def get_scratch_reg(self):
-        box = TempInt()
-        reg = self.force_allocate_reg(box, forbidden_vars=self.temp_boxes)
-        self.temp_boxes.append(box)
-        return reg
-
-class FloatVectorRegisterManager(IntegerVectorRegisterManager):
+class VectorRegisterManager(RegisterManager):
     all_regs              = r.MANAGED_FLOAT_VECTOR_REGS
-    box_types             = [FLOAT]
+    box_types             = [FLOAT, INT]
     save_around_call_regs = [] # ??? lookup the ABI
     assert set(save_around_call_regs).issubset(all_regs)
 
@@ -172,8 +154,11 @@ class FloatVectorRegisterManager(IntegerVectorRegisterManager):
     def ensure_reg(self, box):
         raise NotImplementedError
 
-    def get_scratch_reg(self):
-        box = TempFloat()
+    def get_scratch_reg(self, type=INT):
+        if type == FLOAT:
+            box = TempFloat()
+        else:
+            box = TempInt()
         reg = self.force_allocate_reg(box, forbidden_vars=self.temp_boxes)
         self.temp_boxes.append(box)
         return reg
@@ -221,10 +206,8 @@ class Regalloc(BaseRegalloc, VectorRegalloc):
                                      assembler = self.assembler)
         self.fprm = FPRegisterManager(self.longevity, frame_manager = self.fm,
                                       assembler = self.assembler)
-        self.vrm = FloatVectorRegisterManager(self.longevity, frame_manager = self.fm,
-                                      assembler = self.assembler)
-        self.ivrm = IntegerVectorRegisterManager(self.longevity, frame_manager = self.fm,
-                                      assembler = self.assembler)
+        self.vrm = VectorRegisterManager(self.longevity, frame_manager = self.fm,
+                                         assembler = self.assembler)
         return operations
 
     def prepare_loop(self, inputargs, operations, looptoken, allgcrefs):
@@ -286,16 +269,13 @@ class Regalloc(BaseRegalloc, VectorRegalloc):
 
     def possibly_free_var(self, var):
         if var is not None:
-            if var.type == FLOAT:
-                if var.is_vector():
+            if var.is_vector():
+                if var.type != VOID:
                     self.vrm.possibly_free_var(var)
-                else:
-                    self.fprm.possibly_free_var(var)
+            elif var.type == FLOAT:
+                self.fprm.possibly_free_var(var)
             elif var.type == INT:
-                if var.is_vector():
-                    self.ivrm.possibly_free_var(var)
-                else:
-                    self.rm.possibly_free_var(var)
+                self.rm.possibly_free_var(var)
 
     def possibly_free_vars(self, vars):
         for var in vars:
@@ -339,7 +319,6 @@ class Regalloc(BaseRegalloc, VectorRegalloc):
             self.rm.position = i
             self.fprm.position = i
             self.vrm.position = i
-            self.ivrm.position = i
             opnum = op.opnum
             if rop.has_no_side_effect(opnum) and op not in self.longevity:
                 i += 1
@@ -348,16 +327,13 @@ class Regalloc(BaseRegalloc, VectorRegalloc):
             #
             for j in range(op.numargs()):
                 box = op.getarg(j)
-                if box.type != FLOAT:
-                    if box.is_vector():
-                        self.ivrm.temp_boxes.append(box)
-                    else:
-                        self.rm.temp_boxes.append(box)
-                else:
-                    if box.is_vector():
+                if box.is_vector():
+                    if box.type != VOID:
                         self.vrm.temp_boxes.append(box)
-                    else:
-                        self.fprm.temp_boxes.append(box)
+                elif box.type != FLOAT:
+                    self.rm.temp_boxes.append(box)
+                else:
+                    self.fprm.temp_boxes.append(box)
             #
             if not we_are_translated() and opnum == rop.FORCE_SPILL:
                 self._consider_force_spill(op)
@@ -369,7 +345,6 @@ class Regalloc(BaseRegalloc, VectorRegalloc):
             self.rm._check_invariants()
             self.fprm._check_invariants()
             self.vrm._check_invariants()
-            self.ivrm._check_invariants()
             if self.assembler.mc.get_relative_pos() > self.limit_loop_break:
                 self.assembler.break_long_loop(self)
                 self.limit_loop_break = (self.assembler.mc.get_relative_pos() +
@@ -413,10 +388,7 @@ class Regalloc(BaseRegalloc, VectorRegalloc):
 
     def loc(self, var):
         if var.is_vector():
-            if var.type == FLOAT:
-                return self.vrm.loc(var)
-            else:
-                return self.ivrm.loc(var)
+            return self.vrm.loc(var)
         else:
             if var.type == FLOAT:
                 return self.fprm.loc(var)
@@ -487,7 +459,6 @@ class Regalloc(BaseRegalloc, VectorRegalloc):
         self.rm.free_temp_vars()
         self.fprm.free_temp_vars()
         self.vrm.free_temp_vars()
-        self.ivrm.free_temp_vars()
 
     # ******************************************************
     # *         P R E P A R E  O P E R A T I O N S         * 
