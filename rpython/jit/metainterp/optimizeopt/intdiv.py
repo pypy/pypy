@@ -25,7 +25,7 @@ def magic_numbers(m):
         # check: is 't * m' small enough to be < 2**(64+i), or not?
         # note that we're really computing (2**(64+i)-1) // m, but the result
         # is the same, because powers of two are not multiples of m.
-        if unsigned_mul_high(t, m) < high_word_dividend:
+        if unsigned_mul_high(t, r_uint(m)) < high_word_dividend:
             quotient = t     # yes, small enough
 
     # k = 2**(64+i) // m + 1
