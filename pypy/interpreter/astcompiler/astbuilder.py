@@ -494,10 +494,21 @@ class ASTBuilder(object):
                                    funcdef_node.get_lineno(), funcdef_node.get_column())
 
     def handle_async_funcdef(self, node, decorators=None):
-        return handle_funcdef_impl(node.get_child(1), decorators, 1)
+        return handle_funcdef_impl(node.get_child(1), 1, decorators)
     
     def handle_funcdef(self, node, decorators=None):
-        return handle_funcdef_impl(node, decorators, 0)
+        return handle_funcdef_impl(node, 0, decorators)
+    
+    def handle_async_stmt(self, node):
+        ch = node.get_child(1)
+        if ch.type == syms.funcdef:
+            return handle_funcdef_impl(ch, 1)
+        elif ch.type == syms.with_stmt:
+            return handle_with_stmt(ch, 1)
+        elif ch.type == syms.for_stmt:
+            return handle_for_stmt(ch, 1)
+        else:
+            raise AssertionError("invalid async statement")
 
     def handle_decorated(self, decorated_node):
         decorators = self.handle_decorators(decorated_node.get_child(0))
