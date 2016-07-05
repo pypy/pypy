@@ -946,34 +946,40 @@ class ASTBuilder(object):
             raise AssertionError("invalid factor node")
         return ast.UnaryOp(op, expr, factor_node.get_lineno(), factor_node.get_column())
 
-    def handle_atom_expr(self, power_node):
+    def handle_atom_expr(self, atom_node):
         start = 0
-        num_ch = power_node.num_children()
-        if power_node.get_child(0).type == tokens.AWAIT:
+        num_ch = atom_node.num_children()
+        if atom_node.get_child(0).type == tokens.AWAIT:
             start = 1
-        atom_expr = self.handle_atom(power_node.get_child(start))
+        atom_expr = self.handle_atom(atom_node.get_child(start))
         if num_ch == 1:
             return atom_expr
         if start and num_ch == 2:
-            return ast.Await(atom_expr, power_node.get_lineno(),
-                             power_node.get_column())
+            return ast.Await(atom_expr, atom_node.get_lineno(),
+                             atom_node.get_column())
         for i in range(start+1, num_ch):
-            trailer = power_node.get_child(i)
+            trailer = atom_node.get_child(i)
             if trailer.type != syms.trailer:
                 break
             tmp_atom_expr = self.handle_trailer(trailer, atom_expr)
             tmp_atom_expr.lineno = atom_expr.lineno
             tmp_atom_expr.col_offset = atom_expr.col_offset
             atom_expr = tmp_atom_expr
+        if start:
+            return ast.Await(atom_expr, atom_node.get_lineno(),
+                             atom_node.get_column())
+        else:
+            return atom_expr
+    
+    def handle_power(self, power_node):
+        atom_expr = self.handle_atom_expr(power_node.get_child(0))
+        if power_node.num_children() == 1:
+            return atom_expr
         if power_node.get_child(-1).type == syms.factor:
             right = self.handle_expr(power_node.get_child(-1))
             atom_expr = ast.BinOp(atom_expr, ast.Pow, right, power_node.get_lineno(),
                                   power_node.get_column())
-        if start:
-            return ast.Await(atom_expr, power_node.get_lineno(),
-                             power_node.get_column())
-        else:
-            return atom_expr
+        return atom_expr
 
     def handle_slice(self, slice_node):
         first_child = slice_node.get_child(0)
