@@ -153,9 +153,6 @@ class StackLocation(AssemblerLocation):
     def __repr__(self):
         return 'FP(%s)+%d' % (self.type, self.value)
 
-    def location_code(self):
-        return 'b'
-
     def get_position(self):
         return self.position
 

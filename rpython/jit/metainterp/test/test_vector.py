@@ -207,9 +207,7 @@ class VectorizeTests(object):
         bits = size*8
         integers = st.integers(min_value=-2**(bits-1), max_value=2**(bits-1)-1)
         la = data.draw(st.lists(integers, min_size=10, max_size=150))
-        #la = [0] * 10 #1,2,3,4,5,6,7,8,9,10,11,12,13]
         l = len(la)
-        #lb = [0] * 10 # [1,2,3,4,5,6,7,8,9,10,11,12,13]
         lb = data.draw(st.lists(integers, min_size=l, max_size=l))
 
         rawstorage = RawStorage()
@@ -238,11 +236,11 @@ class VectorizeTests(object):
     test_vec_short_add = \
         vec_int_arith(lambda a,b: r_int(a)+r_int(b), rffi.SHORT)
 
-    test_vec_signed_sub = \
-        vec_int_arith(lambda a,b: r_int(a)-r_int(b), rffi.SIGNED)
-    test_vec_int_sub = \
+    test_vec_sub_signed = \
+        vec_int_arith(lambda a,b: intmask(a-b), rffi.SIGNED)
+    test_vec_sub_int = \
         vec_int_arith(lambda a,b: r_int(a)-r_int(b), rffi.INT)
-    test_vec_short_sub = \
+    test_vec_sub_short = \
         vec_int_arith(lambda a,b: r_int(a)-r_int(b), rffi.SHORT)
 
     test_vec_signed_and = \

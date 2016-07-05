@@ -14,6 +14,7 @@ from rpython.jit.backend.ppc.helper.assembler import Saved_Volatiles
 from rpython.jit.backend.ppc.helper.regalloc import _check_imm_arg
 import rpython.jit.backend.ppc.register as r
 import rpython.jit.backend.ppc.condition as c
+from rpython.jit.metainterp.compile import ResumeGuardDescr
 from rpython.jit.backend.ppc.register import JITFRAME_FIXED_SIZE
 from rpython.jit.metainterp.history import AbstractFailDescr
 from rpython.jit.backend.llsupport import jitframe, rewrite
@@ -811,7 +812,7 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         #print(hex(rawstart))
         #import pdb; pdb.set_trace()
         return AsmInfo(ops_offset, rawstart + looppos,
-                       size_excluding_failure_stuff - looppos)
+                       size_excluding_failure_stuff - looppos, rawstart + looppos)
 
     def _assemble(self, regalloc, inputargs, operations):
         self._regalloc = regalloc
@@ -876,7 +877,8 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         self.fixup_target_tokens(rawstart)
         self.update_frame_depth(frame_depth)
         self.teardown()
-        return AsmInfo(ops_offset, startpos + rawstart, codeendpos - startpos)
+        return AsmInfo(ops_offset, startpos + rawstart, codeendpos - startpos,
+                       startpos + rawstart)
 
     def reserve_gcref_table(self, allgcrefs):
         # allocate the gc table right now.  We write absolute loads in
@@ -1373,14 +1375,13 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         assert isinstance(bridge_faildescr, ResumeGuardDescr)
         assert isinstance(faildescr, ResumeGuardDescr)
         assert asminfo.rawstart != 0
-        self.mc = codebuf.MachineCodeBlockWrapper()
+        self.mc = PPCBuilder()
         allblocks = self.get_asmmemmgr_blocks(looptoken)
         self.datablockwrapper = MachineDataBlockWrapper(self.cpu.asmmemmgr,
                                                    allblocks)
         frame_info = self.datablockwrapper.malloc_aligned(
             jitframe.JITFRAMEINFO_SIZE, alignment=WORD)
 
-        self.mc.force_frame_size(DEFAULT_FRAME_BYTES)
         # if accumulation is saved at the guard, we need to update it here!
         guard_locs = self.rebuild_faillocs_from_descr(faildescr, version.inputargs)
         bridge_locs = self.rebuild_faillocs_from_descr(bridge_faildescr, version.inputargs)
@@ -1392,7 +1393,7 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
                 if bridge_accum_info.failargs_pos == guard_accum_info.failargs_pos:
                     # the mapping might be wrong!
                     if bridge_accum_info.location is not guard_accum_info.location:
-                        self.mov(guard_accum_info.location, bridge_accum_info.location)
+                        self.regalloc_mov(guard_accum_info.location, bridge_accum_info.location)
                 bridge_accum_info = bridge_accum_info.next()
             guard_accum_info = guard_accum_info.next()
 
@@ -1401,19 +1402,14 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         assert len(guard_locs) == len(bridge_locs)
         for i,gloc in enumerate(guard_locs):
             bloc = bridge_locs[i]
-            bstack = bloc.location_code() == 'b'
-            gstack = gloc.location_code() == 'b'
-            if bstack and gstack:
+            if bloc.is_stack() and gloc.is_stack():
                 pass
             elif gloc is not bloc:
-                self.mov(gloc, bloc)
+                self.regalloc_mov(gloc, bloc)
         offset = self.mc.get_relative_pos()
-        self.mc.JMP_l(0)
-        self.mc.writeimm32(0)
-        self.mc.force_frame_size(DEFAULT_FRAME_BYTES)
+        self.mc.b_abs(asminfo.rawstart)
+
         rawstart = self.materialize_loop(looptoken)
-        # update the jump (above) to the real trace
-        self._patch_jump_to(rawstart + offset, asminfo.rawstart)
         # update the guard to jump right to this custom piece of assembler
         self.patch_jump_for_descr(faildescr, rawstart)
 

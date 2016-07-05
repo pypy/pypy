@@ -88,8 +88,7 @@ class VectorAssembler(object):
 
     def emit_vec_load_f(self, op, arglocs, regalloc):
         resloc, baseloc, indexloc, size_loc, ofs, integer_loc, aligned_loc = arglocs
-        #src_addr = addr_add(baseloc, ofs_loc, ofs.value, 0)
-        assert ofs.value == 0
+        indexloc = self._apply_offset(indexloc, ofs)
         itemsize = size_loc.value
         if itemsize == 4:
             self.mc.lxvw4x(resloc.value, indexloc.value, baseloc.value)
@@ -99,8 +98,7 @@ class VectorAssembler(object):
     def emit_vec_load_i(self, op, arglocs, regalloc):
         resloc, baseloc, indexloc, size_loc, ofs, \
             Vhiloc, Vloloc, Vploc, tloc = arglocs
-        #src_addr = addr_add(base_loc, ofs_loc, ofs.value, 0)
-        assert ofs.value == 0
+        indexloc = self._apply_offset(indexloc, ofs)
         Vlo = Vloloc.value
         Vhi = Vhiloc.value
         self.mc.lvx(Vhi, indexloc.value, baseloc.value)
@@ -117,21 +115,10 @@ class VectorAssembler(object):
         else:
             self.mc.vperm(resloc.value, Vlo, Vhi, Vp)
 
-    def _emit_vec_setitem(self, op, arglocs, regalloc):
-        # prepares item scale (raw_store does not)
-        base_loc, ofs_loc, value_loc, size_loc, baseofs, integer_loc, aligned_loc = arglocs
-        scale = get_scale(size_loc.value)
-        dest_loc = addr_add(base_loc, ofs_loc, baseofs.value, scale)
-        self._vec_store(dest_loc, value_loc, integer_loc.value,
-                        size_loc.value, aligned_loc.value)
-
-    genop_discard_vec_setarrayitem_raw = _emit_vec_setitem
-    genop_discard_vec_setarrayitem_gc = _emit_vec_setitem
-
     def emit_vec_store(self, op, arglocs, regalloc):
         baseloc, indexloc, valueloc, sizeloc, baseofs, \
             integer_loc, aligned_loc = arglocs
-        #dest_loc = addr_add(base_loc, ofs_loc, baseofs.value, 0)
+        indexloc = self._apply_offset(indexloc, baseofs)
         assert baseofs.value == 0
         if integer_loc.value:
             Vloloc = regalloc.ivrm.get_scratch_reg()
