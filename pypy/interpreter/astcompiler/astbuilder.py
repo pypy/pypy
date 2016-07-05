@@ -353,7 +353,7 @@ class ASTBuilder(object):
         return ast.While(loop_test, body, otherwise, while_node.get_lineno(),
                          while_node.get_column())
 
-    def handle_for_stmt(self, for_node):
+    def handle_for_stmt(self, for_node, is_async):
         target_node = for_node.get_child(1)
         target_as_exprlist = self.handle_exprlist(target_node, ast.Store)
         if target_node.num_children() == 1:
@@ -367,8 +367,12 @@ class ASTBuilder(object):
             otherwise = self.handle_suite(for_node.get_child(8))
         else:
             otherwise = None
-        return ast.For(target, expr, body, otherwise, for_node.get_lineno(),
-                       for_node.get_column())
+        if is_async:
+            return ast.AsyncFor(target, expr, body, otherwise, for_node.get_lineno(),
+                                for_node.get_column())
+        else:
+            return ast.For(target, expr, body, otherwise, for_node.get_lineno(),
+                           for_node.get_column())
 
     def handle_except_clause(self, exc, body):
         test = None
@@ -411,7 +415,7 @@ class ASTBuilder(object):
         return ast.Try(body, handlers, otherwise, finally_suite,
                        try_node.get_lineno(), try_node.get_column())
 
-    def handle_with_stmt(self, with_node):
+    def handle_with_stmt(self, with_node, is_async):
         body = self.handle_suite(with_node.get_child(-1))
         i = with_node.num_children() - 1
         while True:
@@ -423,8 +427,12 @@ class ASTBuilder(object):
                 self.set_context(target, ast.Store)
             else:
                 target = None
-            wi = ast.With(test, target, body, with_node.get_lineno(),
-                          with_node.get_column())
+            if is_async:
+                wi = ast.AsyncWith(test, target, body, with_node.get_lineno(),
+                              with_node.get_column())
+            else:
+                wi = ast.With(test, target, body, with_node.get_lineno(),
+                              with_node.get_column())
             if i == 1:
                 break
             body = [wi]
@@ -488,7 +496,7 @@ class ASTBuilder(object):
         body = self.handle_suite(funcdef_node.get_child(suite))
         if is_async:
             return ast.AsyncFunctionDef(name, args, body, decorators, returns,
-                                   funcdef_node.get_lineno(), funcdef_node.get_column())
+                                        funcdef_node.get_lineno(), funcdef_node.get_column())
         else:
             return ast.FunctionDef(name, args, body, decorators, returns,
                                    funcdef_node.get_lineno(), funcdef_node.get_column())
@@ -717,17 +725,19 @@ class ASTBuilder(object):
             elif stmt_type == syms.while_stmt:
                 return self.handle_while_stmt(stmt)
             elif stmt_type == syms.for_stmt:
-                return self.handle_for_stmt(stmt)
+                return self.handle_for_stmt(stmt, 0)
             elif stmt_type == syms.try_stmt:
                 return self.handle_try_stmt(stmt)
             elif stmt_type == syms.with_stmt:
-                return self.handle_with_stmt(stmt)
+                return self.handle_with_stmt(stmt, 0)
             elif stmt_type == syms.funcdef:
                 return self.handle_funcdef(stmt)
             elif stmt_type == syms.classdef:
                 return self.handle_classdef(stmt)
             elif stmt_type == syms.decorated:
                 return self.handle_decorated(stmt)
+            elif stmt_type == syms.async_stmt:
+                return self.handle_async_stmt(stmt)
             else:
                 raise AssertionError("unhandled compound statement")
         else:
