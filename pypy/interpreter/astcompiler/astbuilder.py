@@ -517,6 +517,8 @@ class ASTBuilder(object):
             node = self.handle_funcdef(definition, decorators)
         elif definition.type == syms.classdef:
             node = self.handle_classdef(definition, decorators)
+        elif definition.type == syms.async_funcdef:
+            node = self.handle_async_funcdef(definition, decorators)
         else:
             raise AssertionError("unkown decorated")
         node.lineno = decorated_node.get_lineno()
