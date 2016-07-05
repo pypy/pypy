@@ -545,14 +545,27 @@ class VectorAssembler(object):
         res = resloc.value
         src = srcloc.value
         size = op.bytesize
-        if size == 8:
-            if srcloc.is_vector_reg(): # reg <- vector
-                assert not resloc.is_vector_reg()
-                self.mc.load_imm(r.SCRATCH2, PARAM_SAVE_AREA_OFFSET)
-                self.mc.stvx(src, r.SCRATCH2.value, r.SP.value)
-                self.mc.load(res, r.SP.value, PARAM_SAVE_AREA_OFFSET+8*idx)
-            else:
-                notimplemented("[ppc/vec_unpack_i] 64 bit integer")
+        count = countloc.value
+        if count == 1:
+            assert srcloc.is_vector_reg()
+            assert not resloc.is_vector_reg()
+            off = PARAM_SAVE_AREA_OFFSET
+            self.mc.load_imm(r.SCRATCH2, off)
+            off = off + size*idx
+            self.mc.stvx(src, r.SCRATCH2.value, r.SP.value)
+            if size == 8:
+                self.mc.load(res, r.SP.value, off+size*idx)
+            elif size == 4:
+                self.mc.lwa(res, r.SP.value, off)
+            elif size == 2:
+                self.mc.lha(res, r.SP.value, off)
+            elif size == 1:
+                self.mc.lbz(res, r.SP.value, off)
+                self.mc.extsb(res, res)
+            return
+
+        notimplemented("[ppc/vec_unpack_i] %d bit integer, count %d" % \
+                       (size*8, count))
 
     def emit_vec_pack_f(self, op, arglocs, regalloc):
         resloc, vloc, srcloc, residxloc, srcidxloc, countloc = arglocs
@@ -600,9 +613,18 @@ class VectorAssembler(object):
         resloc, srcloc, idxloc, countloc = arglocs
         self.emit_vec_pack_f(op, [resloc, srcloc, srcloc, imm(0), idxloc, countloc], regalloc)
 
+    def emit_vec_cast_float_to_int(self, op, arglocs, regalloc):
+        res, l0 = arglocs
+        offloc = regalloc.rm.get_scratch_reg()
+        v0 = regalloc.vrm.get_scratch_reg()
+        off = offloc.value
+        # SP is always 16 byte aligned, and PARAM_SAVE_AREA_OFFSET % 16 == 0
+        self.mc.load_imm(offloc, PARAM_SAVE_AREA_OFFSET)
+        self.mc.xvcvdpsxds(v0.value, l0.value)
+        self.mc.stxvd2x(v0.value, off, r.SP.value)
+        self.mc.lvx(res.value, off, r.SP.value)
+
     # needed as soon as PPC's support_singlefloat is implemented!
-    #def genop_vec_cast_float_to_int(self, op, arglocs, regalloc):
-    #    self.mc.CVTPD2DQ(resloc, arglocs[0])
     #def genop_vec_cast_singlefloat_to_float(self, op, arglocs, regalloc):
     #    self.mc.CVTPS2PD(resloc, arglocs[0])
 

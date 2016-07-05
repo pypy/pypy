@@ -635,6 +635,7 @@ class PPCVSXAssembler(object):
 
     # conversion from/to
     xvcvsxddp = XX2(60, XO6=504)
+    xvcvdpsxds = XX2(60, XO6=472)
 
     # compare greater than unsigned int
     vcmpgtubx = VC(4, XO12=518, OE=1)
