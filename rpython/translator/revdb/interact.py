@@ -162,7 +162,7 @@ class RevDebugControl(object):
                 kind, name = self._bp_kind(num)
                 print '\t%s %d: %s' % (kind, num, name)
         else:
-            print 'no breakpoints.'
+            print 'no breakpoints/watchpoints.'
     cmd_info_watchpoints = cmd_info_breakpoints
 
     def move_forward(self, steps):

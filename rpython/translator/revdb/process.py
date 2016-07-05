@@ -203,6 +203,7 @@ class ReplayProcess(object):
                 if nid == new_nid:
                     pgroup.all_printed_objects_lst.append(uid)
                 sys.stdout.write('$%d = ' % nid)
+                sys.stdout.flush()
             else:
                 print >> sys.stderr, "unexpected %r" % (msg,)
 
