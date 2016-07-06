@@ -447,11 +447,16 @@ class ASTBuilder(object):
             target = None
         return ast.withitem(test, target)
 
-    def handle_with_stmt(self, with_node):
+    def handle_with_stmt(self, with_node, is_async):
         body = self.handle_suite(with_node.get_child(-1))
         items = [self.handle_with_item(with_node.get_child(i))
                  for i in range(1, with_node.num_children()-2, 2)]
-        return ast.With(items, body, with_node.get_lineno(), with_node.get_column())
+        if is_async:
+            return ast.AsyncWith(items, body, with_node.get_lineno(),
+                                 with_node.get_column())
+        else:
+            return ast.With(items, body, with_node.get_lineno(),
+                            with_node.get_column())
 
     def handle_classdef(self, classdef_node, decorators=None):
         name_node = classdef_node.get_child(1)
@@ -502,10 +507,10 @@ class ASTBuilder(object):
                                    funcdef_node.get_lineno(), funcdef_node.get_column())
 
     def handle_async_funcdef(self, node, decorators=None):
-        return handle_funcdef_impl(node.get_child(1), 1, decorators)
+        return self.handle_funcdef_impl(node.get_child(1), 1, decorators)
     
     def handle_funcdef(self, node, decorators=None):
-        return handle_funcdef_impl(node, 0, decorators)
+        return self.handle_funcdef_impl(node, 0, decorators)
     
     def handle_async_stmt(self, node):
         ch = node.get_child(1)
