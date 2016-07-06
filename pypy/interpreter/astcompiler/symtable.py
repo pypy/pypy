@@ -366,13 +366,29 @@ class SymtableBuilder(ast.GenericASTVisitor):
         assert isinstance(args, ast.arguments)
         self.visit_sequence(args.defaults)
         self.visit_kwonlydefaults(args.kw_defaults)
-        self._visit_annotations(func, func.args, func.returns)
+        self._visit_annotations(func)
         self.visit_sequence(func.decorator_list)
         new_scope = FunctionScope(func.name, func.lineno, func.col_offset)
         self.push_scope(new_scope, func)
         func.args.walkabout(self)
         self.visit_sequence(func.body)
         self.pop_scope()
+    
+    def visit_AsyncFunctionDef(self, func):
+        self.note_symbol(func.name, SYM_ASSIGNED)
+        # Function defaults and decorators happen in the outer scope.
+        args = func.args
+        assert isinstance(args, ast.arguments)
+        self.visit_sequence(args.defaults)
+        self.visit_kwonlydefaults(args.kw_defaults)
+        self._visit_annotations(func)
+        self.visit_sequence(func.decorator_list)
+        new_scope = FunctionScope(func.name, func.lineno, func.col_offset)
+        self.push_scope(new_scope, func)
+        func.args.walkabout(self)
+        self.visit_sequence(func.body)
+        self.pop_scope()
+    
 
     def visit_Return(self, ret):
         self.scope.note_return(ret)
@@ -507,6 +523,13 @@ class SymtableBuilder(ast.GenericASTVisitor):
         witem.context_expr.walkabout(self)
         if witem.optional_vars:
             witem.optional_vars.walkabout(self)
+    
+    def visit_AsyncWith(self, aw):
+        self.scope.new_temporary_name()
+        self.visit_sequence(aw.items)
+        self.scope.note_try_start(aw)
+        self.visit_sequence(aw.body)
+        self.scope.note_try_end(aw)
 
     def visit_arguments(self, arguments):
         scope = self.scope
@@ -527,13 +550,14 @@ class SymtableBuilder(ast.GenericASTVisitor):
             arg = params[i].arg
             self.note_symbol(arg, SYM_PARAM)
 
-    def _visit_annotations(self, func, args, returns):
+    def _visit_annotations(self, func):
+        args = func.args
         assert isinstance(args, ast.arguments)
         if args.args:
             self._visit_arg_annotations(args.args)
         if args.kwonlyargs:
             self._visit_arg_annotations(args.kwonlyargs)
-        if returns:
+        if func.returns:
             func.returns.walkabout(self)
 
     def _visit_arg_annotations(self, args):
