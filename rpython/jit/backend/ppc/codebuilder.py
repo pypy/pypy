@@ -580,10 +580,7 @@ class BasicPPCAssembler(object):
     xor = XS(31, XO1=316, Rc=0)
     xorx = XS(31, XO1=316, Rc=1)
 
-    #
-
-class PPCVSXAssembler(object):
-    _mixin_ = True
+    # Vector Ext
 
     # floating point operations (ppc got it's own vector
     # unit for double/single precision floating points
@@ -722,13 +719,7 @@ class PPCVSXAssembler(object):
     vsplth = VX_splat(4, XO8=588)
     vspltw = VX_splat(4, XO8=652)
 
-
-
-
-
-
-
-class PPCAssembler(BasicPPCAssembler, PPCVSXAssembler):
+class PPCAssembler(BasicPPCAssembler):
     BA = BasicPPCAssembler
 
     # awkward mnemonics:
