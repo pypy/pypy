@@ -124,8 +124,7 @@ class AppTestDATATYPES:
         assert isinstance(c, cppyy_test_data)
 
         # boolean types through functions
-        c.set_bool(True);
-        assert c.get_bool() == True
+        c.set_bool(True);  assert c.get_bool() == True
         c.set_bool(0);     assert c.get_bool() == False
 
         # boolean types through data members

@@ -284,6 +284,8 @@ class BoolConverter(ffitypes.typeid(bool), TypeConverter):
     def convert_argument(self, space, w_obj, address, call_local):
         x = rffi.cast(rffi.LONGP, address)
         x[0] = self._unwrap_object(space, w_obj)
+        ba = rffi.cast(rffi.CCHARP, address)
+        ba[capi.c_function_arg_typeoffset(space)] = 'b'
 
     def convert_argument_libffi(self, space, w_obj, address, call_local):
         x = rffi.cast(rffi.LONGP, address)
@@ -307,6 +309,8 @@ class CharConverter(ffitypes.typeid(rffi.CHAR), TypeConverter):
     def convert_argument(self, space, w_obj, address, call_local):
         x = rffi.cast(rffi.CCHARP, address)
         x[0] = self._unwrap_object(space, w_obj)
+        ba = rffi.cast(rffi.CCHARP, address)
+        ba[capi.c_function_arg_typeoffset(space)] = 'b'
 
     def convert_argument_libffi(self, space, w_obj, address, call_local):
         x = rffi.cast(self.c_ptrtype, address)

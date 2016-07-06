@@ -368,7 +368,7 @@ static inline void copy_args( void* args_, void** vargs ) {
       case 'K':          /* unsigned long long */
          vargs[i] = (void*)&args[i].fValue.fULongLong;
          break;
-      case 'f':          /* double */
+      case 'f':          /* float */
          vargs[i] = (void*)&args[i].fValue.fFloat;
          break;
       case 'd':          /* double */
