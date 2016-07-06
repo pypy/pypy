@@ -515,11 +515,11 @@ class ASTBuilder(object):
     def handle_async_stmt(self, node):
         ch = node.get_child(1)
         if ch.type == syms.funcdef:
-            return handle_funcdef_impl(ch, 1)
+            return self.handle_funcdef_impl(ch, 1)
         elif ch.type == syms.with_stmt:
-            return handle_with_stmt(ch, 1)
+            return self.handle_with_stmt(ch, 1)
         elif ch.type == syms.for_stmt:
-            return handle_for_stmt(ch, 1)
+            return self.handle_for_stmt(ch, 1)
         else:
             raise AssertionError("invalid async statement")
 
