@@ -317,7 +317,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         self._push_fp_regs_to_jitframe(mc)
 
 
-        # First argument is SPP (= r31), which is the jitframe
+        # First argument is SPP, which is the jitframe
         mc.LGR(r.r2, r.SPP)
 
         # no need to move second argument (frame_depth),
@@ -385,14 +385,12 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         # signature of these cond_call_slowpath functions:
         #   * on entry, r11 contains the function to call
         #   * r2, r3, r4, r5 contain arguments for the call
-        #   * r0 is the gcmap
+        #   * gcmap is pushed
         #   * the old value of these regs must already be stored in the jitframe
         #   * on exit, all registers are restored from the jitframe
 
         mc = InstrBuilder()
         self.mc = mc
-        ofs2 = self.cpu.get_ofs_of_frame_field('jf_gcmap')
-        mc.STG(r.SCRATCH2, l.addr(ofs2,r.SPP))
         mc.store_link()
         mc.push_std_frame()
 
