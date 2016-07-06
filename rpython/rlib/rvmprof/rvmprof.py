@@ -132,7 +132,7 @@ class VMProf(object):
         self.cintf.jitlog_write_marked(jl.MARK_JITLOG_HEADER + blob, len(blob) + 1)
 
     def disable_jitlog(self):
-        from rpython.rlib import debug
+        from rpython.rlib.jitlog import stats_flush_trace_counts
         stats_flush_trace_counts(None)
         self.cintf.jitlog_teardown()
 
