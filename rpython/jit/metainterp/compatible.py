@@ -183,6 +183,8 @@ class CompatibilityCondition(object):
 
     def repr_of_conditions_as_jit_debug(self, argrepr="?"):
         conditions = [cond.repr(argrepr) for cond in self.conditions]
+        # slow but who cares
+        conditions = "\n".join(conditions).split("\n")
         # make fake jit-debug ops to print
         for i in range(len(conditions)):
             conditions[i] = "jit_debug('%s')" % (conditions[i], )
