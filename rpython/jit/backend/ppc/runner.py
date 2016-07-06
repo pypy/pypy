@@ -12,7 +12,7 @@ from rpython.jit.backend.ppc.detect_feature import detect_vsx
 
 class PPC_CPU(AbstractLLCPU):
 
-    vector_ext = None
+    vector_ext = AltiVectorExt()
     vector_extension = False # may be set to true in setup
     vector_register_size = 16
     vector_horizontal_operations = False
@@ -49,7 +49,6 @@ class PPC_CPU(AbstractLLCPU):
     def setup_once(self):
         self.assembler.setup_once()
         if detect_vsx():
-            self.vector_ext = AltiVectorExt()
             self.vector_extension = True
             self.vector_horizontal_operations = True
             self.assembler.setup_once_vector()

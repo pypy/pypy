@@ -272,49 +272,6 @@ class VectorAssembler(object):
         self.guard_success_cc = c.negate(self.guard_success_cc)
         self._emit_guard(guard_op, arglocs)
 
-    #def guard_vector(self, guard_op, regalloc, true):
-    #    assert isinstance(guard_op, VectorGuardOp)
-    #    arg = guard_op.getarg(0)
-    #    assert isinstance(arg, VectorOp)
-    #    size = arg.bytesize
-    #    temp = regalloc.get_scratch_reg().value
-    #    load = arg.bytesize * arg.count - self.cpu.vector_register_size
-    #    assert load == 0
-    #    if true:
-    #        pass
-    #        #self.mc.PXOR(temp, temp)
-    #        # if the vector is not fully packed blend 1s
-    #        #if load < 0:
-    #        #    self.mc.PCMPEQQ(temp, temp) # fill with ones
-    #        #    self._blend_unused_slots(loc, arg, temp)
-    #        #    # reset to zeros
-    #        #    self.mc.PXOR(temp, temp)
-
-    #        # cmp with zeros (in temp) creates ones at each slot where it is zero
-    #        #self.mc.PCMPEQ(loc, temp, size)
-    #        ## temp converted to ones
-    #        #self.mc.PCMPEQQ(temp, temp)
-    #        ## test if all slots are zero
-    #        #self.mc.PTEST(loc, temp)
-    #        #self.guard_success_cc = rx86.Conditions['Z']
-    #    else:
-    #        # if the vector is not fully packed blend 1s
-    #        #if load < 0:
-    #        #    temp = X86_64_XMM_SCRATCH_REG
-    #        #    self.mc.PXOR(temp, temp)
-    #        #    self._blend_unused_slots(loc, arg, temp)
-    #        #self.mc.PTEST(loc, loc)
-    #        self.guard_success_cc = rx86.Conditions['NZ']
-
-    #def _blend_unused_slots(self, loc, arg, temp):
-    #    select = 0
-    #    bits_used = (arg.count * arg.bytesize * 8)
-    #    index = bits_used // 16
-    #    while index < 8:
-    #        select |= (1 << index)
-    #        index += 1
-    #    self.mc.PBLENDW_xxi(loc.value, temp.value, select)
-
     def _update_at_exit(self, fail_locs, fail_args, faildescr, regalloc):
         """ If accumulation is done in this loop, at the guard exit
             some vector registers must be adjusted to yield the correct value
@@ -370,6 +327,7 @@ class VectorAssembler(object):
         not_implemented("reduce sum for %s not impl." % arg)
 
     def emit_vec_int_is_true(self, op, arglocs, regalloc):
+        assert isinstance(op, VectorOp)
         resloc, argloc, sizeloc = arglocs
         size = sizeloc.value
         tmp = regalloc.vrm.get_scratch_reg(type=INT).value
@@ -387,6 +345,7 @@ class VectorAssembler(object):
         flush_vec_cc(self, regalloc, c.VNEI, op.bytesize, resloc)
 
     def emit_vec_float_eq(self, op, arglocs, regalloc):
+        assert isinstance(op, VectorOp)
         resloc, loc1, loc2, sizeloc = arglocs
         size = sizeloc.value
         tmp = regalloc.vrm.get_scratch_reg().value
@@ -413,6 +372,7 @@ class VectorAssembler(object):
         self.mc.xxlxor(res, r0, r1)
 
     def emit_vec_float_ne(self, op, arglocs, regalloc):
+        assert isinstance(op, VectorOp)
         resloc, loc1, loc2, sizeloc = arglocs
         size = sizeloc.value
         tmp = regalloc.vrm.get_scratch_reg().value
@@ -444,6 +404,7 @@ class VectorAssembler(object):
         self.mc.xvcvsxddp(res.value, res.value)
 
     def emit_vec_int_eq(self, op, arglocs, regalloc):
+        assert isinstance(op, VectorOp)
         res, l0, l1, sizeloc = arglocs
         size = sizeloc.value
         if size == 1:
@@ -457,9 +418,10 @@ class VectorAssembler(object):
         flush_vec_cc(self, regalloc, c.VEQI, op.bytesize, res)
 
     def emit_vec_int_ne(self, op, arglocs, regalloc):
+        assert isinstance(op, VectorOp)
         res, l0, l1, sizeloc = arglocs
         size = sizeloc.value
-        tmp = regalloc.get_scratch_reg().value
+        tmp = regalloc.vrm.get_scratch_reg(type=INT).value
         self.mc.vxor(tmp, tmp, tmp)
         if size == 1:
             self.mc.vcmpequbx(res.value, res.value, tmp)
@@ -473,6 +435,7 @@ class VectorAssembler(object):
         flush_vec_cc(self, regalloc, c.VEQI, op.bytesize, res)
 
     def emit_vec_expand_f(self, op, arglocs, regalloc):
+        assert isinstance(op, VectorOp)
         resloc, srcloc = arglocs
         size = op.bytesize
         res = resloc.value
@@ -490,6 +453,7 @@ class VectorAssembler(object):
             not_implemented("vec expand in this combination not supported")
 
     def emit_vec_expand_i(self, op, arglocs, regalloc):
+        assert isinstance(op, VectorOp)
         res, l0, off = arglocs
         size = op.bytesize
 
@@ -516,6 +480,7 @@ class VectorAssembler(object):
             not_implemented("expand int size not impl")
 
     def emit_vec_pack_i(self, op, arglocs, regalloc):
+        assert isinstance(op, VectorOp)
         resultloc, vloc, sourceloc, residxloc, srcidxloc, countloc = arglocs
         srcidx = srcidxloc.value
         residx = residxloc.value
@@ -540,6 +505,7 @@ class VectorAssembler(object):
             not_implemented("vec_pack_i")
 
     def emit_vec_unpack_i(self, op, arglocs, regalloc):
+        assert isinstance(op, VectorOp)
         resloc, srcloc, idxloc, countloc = arglocs
         idx = idxloc.value
         res = resloc.value
@@ -568,6 +534,7 @@ class VectorAssembler(object):
                        (size*8, count))
 
     def emit_vec_pack_f(self, op, arglocs, regalloc):
+        assert isinstance(op, VectorOp)
         resloc, vloc, srcloc, residxloc, srcidxloc, countloc = arglocs
         vec = vloc.value
         res = resloc.value
@@ -692,9 +659,9 @@ class VectorRegalloc(object):
     prepare_vec_load_f = _prepare_load
 
     def prepare_vec_arith(self, op):
+        assert isinstance(op, VectorOp)
         a0 = op.getarg(0)
         a1 = op.getarg(1)
-        assert isinstance(op, VectorOp)
         size = op.bytesize
         args = op.getarglist()
         loc0 = self.ensure_vector_reg(a0)
@@ -718,9 +685,9 @@ class VectorRegalloc(object):
     del prepare_vec_arith
 
     def prepare_vec_bool(self, op):
+        assert isinstance(op, VectorOp)
         a0 = op.getarg(0)
         a1 = op.getarg(1)
-        assert isinstance(op, VectorOp)
         size = op.bytesize
         args = op.getarglist()
         loc0 = self.ensure_vector_reg(a0)
@@ -760,6 +727,7 @@ class VectorRegalloc(object):
         return [resloc, loc0]
 
     def prepare_vec_arith_unary(self, op):
+        assert isinstance(op, VectorOp)
         a0 = op.getarg(0)
         loc0 = self.ensure_vector_reg(a0)
         resloc = self.force_allocate_vector_reg(op)
@@ -832,6 +800,7 @@ class VectorRegalloc(object):
         return l.ConstFloatLoc(adr)
 
     def prepare_vec_expand_f(self, op):
+        assert isinstance(op, VectorOp)
         arg = op.getarg(0)
         if arg.is_constant():
             l0 = self.expand_float(op.bytesize, arg)
@@ -842,9 +811,11 @@ class VectorRegalloc(object):
         return [res, l0]
 
     def prepare_vec_expand_i(self, op):
+        assert isinstance(op, VectorOp)
         arg = op.getarg(0)
         mc = self.assembler.mc
         if arg.is_constant():
+            assert isinstance(arg, ConstInt)
             l0 = self.rm.get_scratch_reg()
             mc.load_imm(l0, arg.value)
         else:
@@ -857,6 +828,7 @@ class VectorRegalloc(object):
         return [res, l0, imm(PARAM_SAVE_AREA_OFFSET)]
 
     def prepare_vec_int_is_true(self, op):
+        assert isinstance(op, VectorOp)
         arg = op.getarg(0)
         assert isinstance(arg, VectorOp)
         argloc = self.ensure_vector_reg(arg)
