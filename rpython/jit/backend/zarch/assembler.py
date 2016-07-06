@@ -500,7 +500,6 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         # r.RSZ is loaded from [r1], to make the caller's store a no-op here
         mc.load(r.RSZ, r.r1, 0)
         #
-        self.pop_gcmap(mc) # push_gcmap(store=True) done by the caller
         mc.restore_link()
         mc.BCR(c.ANY, r.r14)
         self.mc = None
