@@ -10,11 +10,16 @@ from rpython.rlib.debug import (debug_start, debug_stop, have_debug_prints_for,
                                 debug_print)
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rlib.objectmodel import specialize, compute_unique_id
+from rpython.rlib.jitlog import _log_jit_counter
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref, llhelper
 from rpython.rtyper.lltypesystem import rffi, lltype
 
-from rpython.jit.metainterp.debug import (DEBUG_COUNTER, debug_sd,
-        flush_debug_counters)
+DEBUG_COUNTER = lltype.Struct('DEBUG_COUNTER',
+    # 'b'ridge, 'l'abel or # 'e'ntry point
+    ('i', lltype.Signed),      # first field, at offset 0
+    ('type', lltype.Char),
+    ('number', lltype.Signed)
+)
 
 class GuardToken(object):
     def __init__(self, cpu, gcmap, faildescr, failargs, fail_locs,
@@ -69,6 +74,7 @@ class BaseAssembler(object):
         self.memset_addr = 0
         self.rtyper = cpu.rtyper
         self._debug = False
+        self.loop_run_counters = []
 
     def stitch_bridge(self, faildescr, target):
         raise NotImplementedError
@@ -333,7 +339,7 @@ class BaseAssembler(object):
         self._call_assembler_patch_jmp(jmp_location)
 
     def get_loop_run_counters(self, index):
-        return debug_sd.loop_run_counters[index]
+        return self.loop_run_counters[index]
 
     @specialize.argtype(1)
     def _inject_debugging_code(self, looptoken, operations, tp, number):
@@ -366,16 +372,19 @@ class BaseAssembler(object):
         else:
             assert token
             struct.number = compute_unique_id(token)
-        debug_sd.loop_run_counters.append(struct)
+        # YYY very minor leak -- we need the counters to stay alive
+        # forever, just because we want to report them at the end
+        # of the process
+        self.loop_run_counters.append(struct)
         return struct
 
     def finish_once(self):
         if self._debug:
             # TODO remove the old logging system when jitlog is complete
             debug_start('jit-backend-counts')
-            length = len(debug_sd.loop_run_counters)
+            length = len(self.loop_run_counters)
             for i in range(length):
-                struct = debug_sd.loop_run_counters[i]
+                struct = self.loop_run_counters[i]
                 if struct.type == 'l':
                     prefix = 'TargetToken(%d)' % struct.number
                 else:
@@ -391,7 +400,20 @@ class BaseAssembler(object):
                 debug_print(prefix + ':' + str(struct.i))
             debug_stop('jit-backend-counts')
 
-        flush_debug_counters()
+        self.flush_trace_counters()
+
+    def flush_trace_counters(self):
+        # this is always called, the jitlog knows if it is enabled
+        length = len(self.loop_run_counters)
+        for i in range(length):
+            struct = self.loop_run_counters[i]
+            _log_jit_counter(struct)
+            # reset the counter, flush in a later point in time will
+            # add up the counters!
+            struct.i = 0
+        # here would be the point to free some counters
+        # see YYY comment above! but first we should run this every once in a while
+        # not just when jitlog_disable is called
 
     @staticmethod
     @rgc.no_collect

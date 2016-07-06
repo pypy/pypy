@@ -4,6 +4,7 @@ import py
 import weakref
 
 from rpython.rlib import rgc
+from rpython.rlib.debug import debug_flush_trace_counts
 from rpython.jit.codewriter.policy import StopAtXPolicy
 from rpython.jit.metainterp import history
 from rpython.jit.metainterp.test.support import LLJitMixin, noConst
@@ -63,6 +64,20 @@ class BasicTests:
             return g(a) + g(b)
         res = self.interp_operations(f, [8, 98])
         assert res == 110
+
+    def test_flush_trace_count(self):
+        myjitdriver = JitDriver(greens = [], reds = ['i'])
+        def f(i):
+            while i > 0:
+                myjitdriver.can_enter_jit(i=i)
+                myjitdriver.jit_merge_point(i=i)
+                if i == 4:
+                    debug_flush_trace_counts(None)
+                    print("4")
+                i -= 1
+            return i
+        res = self.meta_interp(f, [40])
+        assert res == 0
 
     def test_loop_1(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'res'])

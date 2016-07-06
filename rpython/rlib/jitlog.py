@@ -12,6 +12,14 @@ from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rlib.objectmodel import compute_unique_id, always_inline
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rlib.unroll import unrolling_iterable
+from rpython.rlib.jit_hooks import register_helper
+from rpython.annotator import model as annmodel
+
+@register_helper(None)
+def stats_flush_trace_counts(warmrunnerdesc):
+    print("hello")
+    warmrunnerdesc.metainterp_sd.cpu.assembler.flush_trace_counters()
+    return True
 
 def commonprefix(a,b):
     "Given a list of pathnames, returns the longest common leading component"

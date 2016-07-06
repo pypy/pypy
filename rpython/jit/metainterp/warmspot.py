@@ -168,6 +168,7 @@ def find_loop_headers(graphs):
 
 def find_jit_merge_points(graphs):
     results = _find_jit_marker(graphs, 'jit_merge_point')
+    import pdb; pdb.set_trace()
     if not results:
         raise Exception("no jit_merge_point found!")
     seen = set([graph for graph, block, pos in results])
