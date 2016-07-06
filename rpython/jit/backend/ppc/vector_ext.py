@@ -253,7 +253,7 @@ class VectorAssembler(object):
         elif size == 8:
             self.mc.xvabsdp(resloc.value, argloc.value)
         else:
-            notimplemented("[ppc/assembler] float abs for size %d" % size)
+            not_implemented("float abs for size %d" % size)
 
     def emit_vec_float_neg(self, op, arglocs, regalloc):
         resloc, argloc, sizeloc = arglocs
@@ -263,7 +263,7 @@ class VectorAssembler(object):
         elif size == 8:
             self.mc.xvnegdp(resloc.value, argloc.value)
         else:
-            notimplemented("[ppc/assembler] float neg for size %d" % size)
+            not_implemented("float neg for size %d" % size)
 
     def emit_vec_guard_true(self, guard_op, arglocs, regalloc):
         self._emit_guard(guard_op, arglocs)
@@ -401,7 +401,7 @@ class VectorAssembler(object):
             self.mc.xvcmpeqdpx(tmp, loc1.value, loc2.value)
             self.mc.stxvd2x(tmp, off, r.SP.value)
         else:
-            notimplemented("[ppc/assembler] float == for size %d" % size)
+            not_implemented("[ppc/assembler] float == for size %d" % size)
         self.mc.lvx(resloc.value, off, r.SP.value)
         flush_vec_cc(self, regalloc, c.VEQI, op.bytesize, resloc)
 
@@ -427,7 +427,7 @@ class VectorAssembler(object):
             self.mc.xvcmpeqdpx(tmp, loc1.value, loc2.value)
             self.mc.stxvd2x(tmp, off, r.SP.value)
         else:
-            notimplemented("[ppc/assembler] float == for size %d" % size)
+            not_implemented("float == for size %d" % size)
         res = resloc.value
         self.mc.lvx(res, off, r.SP.value)
         self.mc.vnor(res, res, res) # complement
@@ -487,7 +487,7 @@ class VectorAssembler(object):
             src = srcloc.value
             self.mc.xxspltdl(res, src, src)
         else:
-            notimplemented("[ppc/assembler] vec expand in this combination not supported")
+            not_implemented("vec expand in this combination not supported")
 
     def emit_vec_expand_i(self, op, arglocs, regalloc):
         res, l0, off = arglocs
@@ -513,7 +513,7 @@ class VectorAssembler(object):
         elif size == 8:
             pass
         else:
-            notimplemented("[expand int size not impl]")
+            not_implemented("expand int size not impl")
 
     def emit_vec_pack_i(self, op, arglocs, regalloc):
         resultloc, vloc, sourceloc, residxloc, srcidxloc, countloc = arglocs
@@ -531,13 +531,13 @@ class VectorAssembler(object):
                 self.mc.store(src, r.SP.value, PARAM_SAVE_AREA_OFFSET+8*residx)
                 self.mc.lvx(res, r.SCRATCH2.value, r.SP.value)
             else:
-                notimplemented("[ppc/vec_pack_i] 64 bit float")
+                not_implemented("64 bit float")
         elif size == 4:
-            notimplemented("[ppc/vec_pack_i]")
+            not_implemented("vec_pack_i")
         elif size == 2:
-            notimplemented("[ppc/vec_pack_i]")
+            not_implemented("vec_pack_i")
         elif size == 1:
-            notimplemented("[ppc/vec_pack_i]")
+            not_implemented("vec_pack_i")
 
     def emit_vec_unpack_i(self, op, arglocs, regalloc):
         resloc, srcloc, idxloc, countloc = arglocs
@@ -564,7 +564,7 @@ class VectorAssembler(object):
                 self.mc.extsb(res, res)
             return
 
-        notimplemented("[ppc/vec_unpack_i] %d bit integer, count %d" % \
+        not_implemented("%d bit integer, count %d" % \
                        (size*8, count))
 
     def emit_vec_pack_f(self, op, arglocs, regalloc):
