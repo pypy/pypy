@@ -6,6 +6,7 @@ from rpython.jit.metainterp.history import (VECTOR, FLOAT, INT)
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.metainterp.optimizeopt.schedule import (forwarded_vecinfo,
         failnbail_transformation)
+from rpython.jit.metainterp.jitexc import NotAVectorizeableLoop
 
 class TypeRestrict(object):
     ANY_TYPE = '\x00'
@@ -189,6 +190,25 @@ GUARD_RESTRICT = GuardRestrict([TR_ANY_INTEGER])
 
 
 class VectorExt(object):
+
+    def __init__(self):
+        self._enabled = False
+        self.register_size = 0 # in bytes
+        self.horizontal_operations = False
+
+    def enable(self, vec_size, accum=False):
+        self._enabled = vec_size != 0
+        self.register_size = vec_size
+        self.horizontal_operations = accum
+
+    def is_enabled(self):
+        return self._enabled
+
+    def vec_size(self):
+        return self.register_size
+
+    def supports_accumulation(self):
+        return self.horizontal_operations
 
     # note that the following definition is x86 arch specific
     TR_MAPPING = {

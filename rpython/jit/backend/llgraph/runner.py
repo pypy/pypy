@@ -327,10 +327,8 @@ class LLGraphCPU(model.AbstractCPU):
     supports_guard_gc_type = True
     translate_support_code = False
     is_llgraph = True
-    vector_extension = True
-    vector_register_size = 16 # in bytes
-    vector_horizontal_operations = True
-    vector_pack_slots = True
+    vector_ext = VectorExt()
+    vector_ext.enable(16, accum=True)
 
     def __init__(self, rtyper, stats=None, *ignored_args, **kwds):
         model.AbstractCPU.__init__(self)

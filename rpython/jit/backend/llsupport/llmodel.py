@@ -36,10 +36,6 @@ class AbstractLLCPU(AbstractCPU):
     load_supported_factors = (1,)
 
     vector_ext = None
-    vector_extension = False
-    vector_register_size = 0 # in bytes
-    vector_horizontal_operations = False
-    vector_pack_slots = False
 
     def __init__(self, rtyper, stats, opts, translate_support_code=False,
                  gcdescr=None):
