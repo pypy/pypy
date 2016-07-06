@@ -168,6 +168,8 @@ if 1:
         py.test.raises(SyntaxError, self.parse, 'f()\nxy # blah\nblah()', "single")
         py.test.raises(SyntaxError, self.parse, 'x = 5 # comment\nx = 6\n', "single")
 
+    def test_await(self):
+        self.parse("await result = func()")
 
 class TestPythonParserWithSpace:
 

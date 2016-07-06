@@ -253,9 +253,9 @@ def generate_tokens(lines, flags):
                     if not verify_identifier(token):
                         raise TokenError("invalid character in identifier",
                                          line, lnum, start + 1, token_list)
-                    if token == "async":
+                    if token == 'async':
                         token_list.append((tokens.ASYNC, token, lnum, start, line))
-                    elif token == "await":
+                    elif token == 'await':
                         token_list.append((tokens.AWAIT, token, lnum, start, line))
                     else:
                         token_list.append((tokens.NAME, token, lnum, start, line))
