@@ -151,6 +151,7 @@ void _dbg_print_commit_log(void)
 }
 
 static void reset_modified_from_backup_copies(int segment_num, object_t *only_obj);  /* forward */
+static void undo_modifications_to_single_obj(int segment_num, object_t *only_obj); /* forward */
 
 static bool _stm_validate(void)
 {
@@ -232,7 +233,7 @@ static bool _stm_validate(void)
                     for (; undo < end; undo++) {
                         object_t *obj;
 
-                        if (undo->type != TYPE_POSITION_MARKER) {
+                        if (LIKELY(undo->type != TYPE_POSITION_MARKER)) {
                             /* common case: 'undo->object' was written to
                                in this past commit, so we must check that
                                it was not read by us. */
@@ -262,13 +263,17 @@ static bool _stm_validate(void)
                                an abort. However, from now on, we also assume
                                that an abort would not roll-back to what is in
                                the backup copy, as we don't trace the bkcpy
-                               during major GCs.
+                               during major GCs. (Seg0 may contain the version
+                               found in the other segment and thus not have to
+                               content of our bk_copy)
+
                                We choose the approach to reset all our changes
                                to this obj here, so that we can throw away the
                                backup copy completely: */
                             /* XXX: this browses through the whole list of modified
                                fragments; this may become a problem... */
-                            reset_modified_from_backup_copies(my_segnum, obj);
+                            undo_modifications_to_single_obj(my_segnum, obj);
+
                             continue;
                         }
 
@@ -394,10 +399,14 @@ static void wait_for_inevitable(void)
 */
 static void _validate_and_attach(struct stm_commit_log_entry_s *new)
 {
+    uintptr_t cle_length = 0;
     struct stm_commit_log_entry_s *old;
 
     OPT_ASSERT(new != NULL);
     OPT_ASSERT(new != INEV_RUNNING);
+
+    cle_length = list_count(STM_PSEGMENT->modified_old_objects);
+    assert(cle_length == new->written_count * 3);
 
     soon_finished_or_inevitable_thread_segment();
 
@@ -405,6 +414,16 @@ static void _validate_and_attach(struct stm_commit_log_entry_s *new)
     if (!_stm_validate()) {
         free_cle(new);
         stm_abort_transaction();
+    }
+
+    if (cle_length != list_count(STM_PSEGMENT->modified_old_objects)) {
+        /* something changed the list of modified objs during _stm_validate; or
+         * during a major GC that also does _stm_validate(). That "something"
+         * can only be a reset of a noconflict obj. Thus, we recreate the CL
+         * entry */
+        free_cle(new);
+        new = _create_commit_log_entry();
+        cle_length = list_count(STM_PSEGMENT->modified_old_objects);
     }
 
 #if STM_TESTS
@@ -605,6 +624,10 @@ static void make_bk_slices(object_t *obj,
     size_t start_offset;
     if (first_call) {
         start_offset = 0;
+
+        /* flags like a never-touched obj */
+        assert(obj->stm_flags & GCFLAG_WRITE_BARRIER);
+        assert(!(obj->stm_flags & GCFLAG_WB_EXECUTED));
     } else {
         start_offset = -1;
     }
@@ -1276,6 +1299,48 @@ static void _core_commit_transaction(bool external)
         invoke_general_finalizers(tl);
 }
 
+static void undo_modifications_to_single_obj(int segment_num, object_t *obj)
+{
+    /* special function used for noconflict objs to reset all their
+     * modifications and make them appear untouched in the current transaction.
+     * I.e., reset modifications and remove from all lists. */
+
+    struct stm_priv_segment_info_s *pseg = get_priv_segment(segment_num);
+
+    reset_modified_from_backup_copies(segment_num, obj);
+
+    /* reset read marker (must not be considered read either) */
+    ((struct stm_read_marker_s *)
+     (pseg->pub.segment_base + (((uintptr_t)obj) >> 4)))->rm = 0;
+
+    /* reset possibly marked cards */
+    if (get_page_status_in(segment_num, (uintptr_t)obj / 4096) == PAGE_ACCESSIBLE
+        && obj_should_use_cards(pseg->pub.segment_base, obj)) {
+        /* if header is not accessible, we didn't mark any cards */
+        _reset_object_cards(pseg, obj, CARD_CLEAR, false, false);
+    }
+
+    /* remove from all other lists */
+    LIST_FOREACH_R(pseg->old_objects_with_cards_set, object_t * /*item*/,
+       {
+           if (item == obj) {
+               /* copy last element over this one (HACK) */
+               _lst->count -= 1;
+               _lst->items[_i] = _lst->items[_lst->count];
+               break;
+           }
+       });
+    LIST_FOREACH_R(pseg->objects_pointing_to_nursery, object_t * /*item*/,
+       {
+           if (item == obj) {
+               /* copy last element over this one (HACK) */
+               _lst->count -= 1;
+               _lst->items[_i] = _lst->items[_lst->count];
+               break;
+           }
+       });
+}
+
 static void reset_modified_from_backup_copies(int segment_num, object_t *only_obj)
 {
 #pragma push_macro("STM_PSEGMENT")
@@ -1283,6 +1348,9 @@ static void reset_modified_from_backup_copies(int segment_num, object_t *only_ob
 #undef STM_PSEGMENT
 #undef STM_SEGMENT
     assert(modification_lock_check_wrlock(segment_num));
+
+    /* WARNING: resetting the obj will remove the WB flag. Make sure you either
+     * re-add it or remove it from lists where it was added based on the flag. */
 
     struct stm_priv_segment_info_s *pseg = get_priv_segment(segment_num);
     struct list_s *list = pseg->modified_old_objects;
@@ -1294,7 +1362,7 @@ static void reset_modified_from_backup_copies(int segment_num, object_t *only_ob
             continue;
 
         object_t *obj = undo->object;
-        if (only_obj != NULL && obj != only_obj)
+        if (UNLIKELY(only_obj != NULL) && LIKELY(obj != only_obj))
             continue;
 
         char *dst = REAL_ADDRESS(pseg->pub.segment_base, obj);
@@ -1309,19 +1377,15 @@ static void reset_modified_from_backup_copies(int segment_num, object_t *only_ob
 
         free_bk(undo);
 
-        if (only_obj != NULL) {
-            assert(IMPLY(only_obj != NULL,
-                         (((struct object_s *)dst)->stm_flags
-                          & (GCFLAG_NO_CONFLICT
-                             | GCFLAG_WRITE_BARRIER
-                             | GCFLAG_WB_EXECUTED))
-                         == (GCFLAG_NO_CONFLICT | GCFLAG_WRITE_BARRIER)));
+        if (UNLIKELY(only_obj != NULL)) {
+            assert(((struct object_s *)dst)->stm_flags & GCFLAG_NO_CONFLICT);
+
             /* copy last element over this one */
             end--;
             list->count -= 3;
-            if (undo < end)
-                *undo = *end;
-            undo--;  /* next itr */
+            *undo = *end;
+            /* to neutralise the increment for the next iter: */
+            undo--;
         }
     }
 
@@ -1630,13 +1694,13 @@ static void synchronize_object_enqueue(object_t *obj)
     assert(STM_PSEGMENT->privatization_lock);
     assert(obj->stm_flags & GCFLAG_WRITE_BARRIER);
     assert(!(obj->stm_flags & GCFLAG_WB_EXECUTED));
+    assert(!(obj->stm_flags & GCFLAG_CARDS_SET));
 
     ssize_t obj_size = stmcb_size_rounded_up(
         (struct object_s *)REAL_ADDRESS(STM_SEGMENT->segment_base, obj));
     OPT_ASSERT(obj_size >= 16);
 
     if (LIKELY(is_small_uniform(obj))) {
-        assert(!(obj->stm_flags & GCFLAG_CARDS_SET));
         OPT_ASSERT(obj_size <= GC_LAST_SMALL_SIZE);
         _synchronize_fragment((stm_char *)obj, obj_size);
         return;

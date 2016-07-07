@@ -118,6 +118,9 @@ static void minor_trace_if_young(object_t **pobj)
         char *realnobj = REAL_ADDRESS(STM_SEGMENT->segment_base, nobj);
         memcpy(realnobj, realobj, size);
 
+        /* uint64_t ttt = 0xa0a0a0a0a0a0a0a0; */
+        /* assert(memmem(realobj, size, &ttt, sizeof(uint64_t)) == NULL); */
+
         nobj_sync_now = ((uintptr_t)nobj) | FLAG_SYNC_LARGE;
 
         pforwarded_array[0] = GCWORD_MOVED;

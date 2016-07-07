@@ -205,7 +205,7 @@ uint64_t _stm_total_allocated(void);
    threads than the number of segments, it will block, waiting for the
    next segment to become free.
 */
-#define STM_NB_SEGMENTS    4
+#define STM_NB_SEGMENTS    8
 
 /* Structure of objects
    --------------------
