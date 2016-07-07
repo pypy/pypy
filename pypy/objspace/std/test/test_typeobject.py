@@ -1241,7 +1241,7 @@ class AppTestNewShortcut:
         assert (Y < Y) is True
 
 
-class AppTestComparesByIdentity:
+class AppTestComparesByIdentity(jit.RandomWeAreJittedTestMixin):
 
     def setup_class(cls):
         if cls.runappdirect:
@@ -1250,6 +1250,10 @@ class AppTestComparesByIdentity:
         def compares_by_identity(space, w_cls):
             return space.wrap(w_cls.compares_by_identity())
         cls.w_compares_by_identity = cls.space.wrap(interp2app(compares_by_identity))
+
+        def instance_compares_by_identity(space, w_obj):
+            return space.wrap(space.compares_by_identity(w_obj))
+        cls.w_instance_compares_by_identity = cls.space.wrap(interp2app(instance_compares_by_identity))
 
     def test_compares_by_identity(self):
         class Plain(object):
@@ -1281,6 +1285,15 @@ class AppTestComparesByIdentity:
         assert self.compares_by_identity(type)
         assert self.compares_by_identity(TypeSubclass)
         assert not self.compares_by_identity(TypeSubclassCustomCmp)
+
+        assert self.instance_compares_by_identity(Plain())
+        assert not self.instance_compares_by_identity(CustomEq())
+        assert not self.instance_compares_by_identity(CustomCmp())
+        assert not self.instance_compares_by_identity(CustomHash())
+        assert self.instance_compares_by_identity(Plain)
+        assert self.instance_compares_by_identity(TypeSubclass('a', (object, ), {}))
+        assert not self.instance_compares_by_identity(TypeSubclassCustomCmp('a', (object, ), {}))
+
 
     def test_modify_class(self):
         class X(object):

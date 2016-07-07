@@ -796,7 +796,7 @@ class EmptySetStrategy(SetStrategy):
             strategy = self.space.fromcache(BytesSetStrategy)
         elif type(w_key) is W_UnicodeObject:
             strategy = self.space.fromcache(UnicodeSetStrategy)
-        elif self.space.type(w_key).compares_by_identity():
+        elif self.space.compares_by_identity(w_key):
             strategy = self.space.fromcache(IdentitySetStrategy)
         else:
             strategy = self.space.fromcache(ObjectSetStrategy)
@@ -1399,8 +1399,7 @@ class IdentitySetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
         return {}
 
     def is_correct_type(self, w_key):
-        w_type = self.space.type(w_key)
-        return w_type.compares_by_identity()
+        return self.space.compares_by_identity(w_key)
 
     def may_contain_equal_elements(self, strategy):
         #empty first, probably more likely
@@ -1645,7 +1644,7 @@ def _pick_correct_strategy_unroll(space, w_set, w_iterable):
 
     # check for compares by identity
     for w_item in iterable_w:
-        if not space.type(w_item).compares_by_identity():
+        if not space.compares_by_identity(w_item):
             break
     else:
         w_set.strategy = space.fromcache(IdentitySetStrategy)

@@ -1766,6 +1766,11 @@ class ObjSpace(object):
             _warnings.warn(msg, warningcls, stacklevel=stacklevel)
         """)
 
+    def compares_by_identity(self, w_obj):
+        """ returns True if the object compares by identity (ie inherits __eq__
+        and __hash__ from object) """
+        return self.type(w_obj).compares_by_identity()
+
 
 class AppExecCache(SpaceCache):
     def build(cache, source):

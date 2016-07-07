@@ -70,8 +70,7 @@ class IdentityDictStrategy(AbstractTypedStrategy, DictStrategy):
         return self.erase(d)
 
     def is_correct_type(self, w_obj):
-        w_type = self.space.type(w_obj)
-        return w_type.compares_by_identity()
+        return self.space.compares_by_identity(w_obj)
 
     def _never_equal_to(self, w_lookup_type):
         return False

@@ -352,6 +352,9 @@ class AbstractAttribute(object):
         from pypy.objspace.std.typeobject import _issubtype
         return _issubtype(self.terminator.w_cls, w_type)
 
+    @jit.elidable_compatible(quasi_immut_field_name_for_second_arg="version")
+    def _type_compares_by_identity(self, version):
+        return self.terminator.w_cls.compares_by_identity()
 
 class Terminator(AbstractAttribute):
     _immutable_fields_ = ['w_cls']
@@ -1172,3 +1175,10 @@ def mapdict_type_isinstance(space, w_obj, w_type):
                 if version_tag is not None:
                     return map._type_issubtype(w_type)
     return space.type(w_obj).issubtype(w_type)
+
+def mapdict_compares_by_identity(space, w_obj):
+    if we_are_jitted() and w_obj.user_overridden_class:
+        map = w_obj._get_mapdict_map_no_promote()
+        if map.version is not None:
+            return map._type_compares_by_identity()
+    return space.type(w_obj).compares_by_identity()

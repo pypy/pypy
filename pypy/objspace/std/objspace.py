@@ -657,6 +657,10 @@ class StdObjSpace(ObjSpace):
                     return True
         return mapdict_type_isinstance(self, w_inst, w_type)
 
+    def compares_by_identity(self, w_obj):
+        from pypy.objspace.std.mapdict import mapdict_compares_by_identity
+        return mapdict_compares_by_identity(self, w_obj)
+
     @specialize.memo()
     def _get_interplevel_cls(self, w_type):
         if not hasattr(self, "_interplevel_classes"):
