@@ -2,6 +2,7 @@ import py, weakref
 from rpython.jit.backend import model
 from rpython.jit.backend.llgraph import support
 from rpython.jit.backend.llsupport import symbolic
+from rpython.jit.backend.llsupport.vector_ext import VectorExt
 from rpython.jit.metainterp.history import AbstractDescr
 from rpython.jit.metainterp.history import Const, getkind
 from rpython.jit.metainterp.history import INT, REF, FLOAT, VOID
@@ -931,7 +932,7 @@ class LLGraphCPU(model.AbstractCPU):
     def build_getarrayitem(func):
         def method(self, struct, offset, descr, _count):
             values = []
-            count = self.vector_register_size // descr.get_item_size_in_bytes()
+            count = self.vector_ext.vec_size() // descr.get_item_size_in_bytes()
             assert _count == count
             assert count > 0
             for i in range(count):
@@ -949,7 +950,7 @@ class LLGraphCPU(model.AbstractCPU):
     def _bh_vec_raw_load(self, struct, offset, descr, _count):
         values = []
         stride = descr.get_item_size_in_bytes()
-        count = self.vector_register_size // descr.get_item_size_in_bytes()
+        count = self.vector_ext.vec_size() // descr.get_item_size_in_bytes()
         assert _count == count
         assert count > 0
         for i in range(count):

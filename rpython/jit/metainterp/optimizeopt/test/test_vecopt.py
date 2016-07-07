@@ -28,8 +28,6 @@ from rpython.jit.tool.oparser import OpParser, convert_loop_to_trace
 from rpython.jit.backend.detect_cpu import getcpuclass
 
 CPU = getcpuclass()
-if not CPU.vector_extension:
-    py.test.skip("this cpu %s has no implemented vector backend" % CPU)
 
 class FakeJitDriverStaticData(object):
     vec=True
@@ -111,7 +109,7 @@ class VecTestHelper(DependencyBaseTest):
     def earlyexit(self, loop):
         opt = self.vectoroptimizer(loop)
         graph = opt.analyse_index_calculations(loop)
-        state = SchedulerState(graph)
+        state = SchedulerState(self.cpu, graph)
         opt.schedule(state)
         return graph.loop
 
@@ -133,7 +131,7 @@ class VecTestHelper(DependencyBaseTest):
                 print "CYCLE found %s" % cycle
             self.show_dot_graph(graph, "early_exit_" + self.test_name)
             assert cycle is None
-            state = SchedulerState(graph)
+            state = SchedulerState(self.cpu, graph)
             opt.schedule(state)
         opt.unroll_loop_iterations(loop, unroll_factor)
         self.debug_print_operations(loop)
@@ -269,11 +267,11 @@ class BaseTestVectorize(VecTestHelper):
         pack = Pack([Node(ResOperation(rop.RAW_STORE, [0,0,arg('f',4)], descr), 0),
                      Node(ResOperation(rop.RAW_STORE, [0,0,arg('f',4)], descr), 0),
                     ])
-        assert pack.opcount_filling_vector_register(16) == 2
+        assert pack.opcount_filling_vector_register(16, self.cpu.vector_ext) == 2
 
     def test_opcount_filling_guard(self):
         descr = ArrayDescr(0,4, None, 'S')
-        vec = ResOperation(rop.VEC_RAW_LOAD_I, ['a','i'], descr=descr)
+        vec = ResOperation(rop.VEC_LOAD_I, ['a','i'], descr=descr)
         vec.count = 4
         pack = Pack([Node(ResOperation(rop.GUARD_TRUE, [vec]), 0),
                      Node(ResOperation(rop.GUARD_TRUE, [vec]), 1),
@@ -285,12 +283,13 @@ class BaseTestVectorize(VecTestHelper):
         assert pack.pack_load(16) == 24-16
         assert pack.pack_load(8) == 24-8
         assert pack.pack_load(32) == 24-32
-        assert pack.opcount_filling_vector_register(16) == 4
-        ops, newops = pack.slice_operations(16)
+        ext = self.cpu.vector_ext
+        assert pack.opcount_filling_vector_register(16, ext) == 4
+        ops, newops = pack.slice_operations(16, ext)
         assert len(ops) == 4
         assert len(newops) == 2
-        assert pack.opcount_filling_vector_register(8) == 2
-        ops, newops = pack.slice_operations(8)
+        assert pack.opcount_filling_vector_register(8, ext) == 2
+        ops, newops = pack.slice_operations(8, ext)
         assert len(ops) == 2
         assert len(newops) == 4
 
@@ -1044,10 +1043,10 @@ class BaseTestVectorize(VecTestHelper):
         i18 = int_lt(i13, i1) 
         guard_true(i18) [i11,i1,i2,i3,i4]
         i14 = int_mul(i11, 8) 
-        v19[2xi64] = vec_raw_load_i(i2, i6, descr=arraydescr) 
-        v20[2xi64] = vec_raw_load_i(i3, i6, descr=arraydescr) 
+        v19[2xi64] = vec_load_i(i2, i6, descr=arraydescr) 
+        v20[2xi64] = vec_load_i(i3, i6, descr=arraydescr) 
         v21[2xi64] = vec_int_add(v19, v20) 
-        vec_raw_store(i4, i6, v21, descr=arraydescr) 
+        vec_store(i4, i6, v21, descr=arraydescr) 
         jump(i13, i1, i2, i3, i4)
         """
         loop = self.parse_loop(ops)
@@ -1182,7 +1181,7 @@ class BaseTestVectorize(VecTestHelper):
         guard_true(i2) [p0, i0, v2[2xf64]]
         i10 = int_add(i0, 16)
         i20 = int_lt(i10, 100)
-        v1[2xf64] = vec_raw_load_f(p0, i0, descr=floatarraydescr)
+        v1[2xf64] = vec_load_f(p0, i0, descr=floatarraydescr)
         v3[2xf64] = vec_float_add(v2[2xf64], v1[2xf64])
         jump(p0, i1, v3[2xf64])
         """
@@ -1222,10 +1221,10 @@ class BaseTestVectorize(VecTestHelper):
         i55 = int_add(i44, 16) 
         i629 = int_add(i41, 16)
         i637 = int_add(i37, 16)
-        v61[2xf64] = vec_raw_load_f(i21, i44, descr=floatarraydescr) 
-        v62[2xf64] = vec_raw_load_f(i4, i41, descr=floatarraydescr) 
+        v61[2xf64] = vec_load_f(i21, i44, descr=floatarraydescr) 
+        v62[2xf64] = vec_load_f(i4, i41, descr=floatarraydescr) 
         v63[2xf64] = vec_float_add(v61, v62) 
-        vec_raw_store(i0, i37, v63, descr=floatarraydescr) 
+        vec_store(i0, i37, v63, descr=floatarraydescr) 
         f100 = vec_unpack_f(v61, 1, 1)
         f101 = vec_unpack_f(v62, 1, 1)
         jump(p36, i637, p9, i56, p14, f100, p12, p38, f101, p39, i40, i54, p42, i43, i55, i21, i4, i0, i18)
@@ -1302,11 +1301,11 @@ class BaseTestVectorize(VecTestHelper):
         i400 = int_add(i4, 16)
         i401= int_lt(i400, 100)
         i402 = int_add(i0, 16)
-        v228[4xi32] = vec_raw_load_i(p0, i0, descr=float32arraydescr)
+        v228[4xi32] = vec_load_i(p0, i0, descr=float32arraydescr)
         v229[2xf64] = vec_cast_singlefloat_to_float(v228)
         v230 = vec_unpack_i(v228, 2, 2)
         v231 = vec_cast_singlefloat_to_float(v230)
-        v232 = vec_raw_load_i(p1, i189, descr=float32arraydescr)
+        v232 = vec_load_i(p1, i189, descr=float32arraydescr)
         v233 = vec_cast_singlefloat_to_float(v232)
         v236 = vec_float_add(v229, v233)
         v238 = vec_cast_float_to_singlefloat(v236)
@@ -1315,7 +1314,7 @@ class BaseTestVectorize(VecTestHelper):
         v237 = vec_float_add(v231, v235)
         v239 = vec_cast_float_to_singlefloat(v237)
         v240 = vec_pack_i(v238, v239, 2, 2)
-        vec_raw_store(p2, i4, v240, descr=float32arraydescr)
+        vec_store(p2, i4, v240, descr=float32arraydescr)
         jump(p0, p1, p2, i207, i500)
         """)
         vopt = self.vectorize(trace)
@@ -1355,7 +1354,7 @@ class BaseTestVectorize(VecTestHelper):
         """)
         vopt = self.schedule(trace)
         self.ensure_operations([
-            'v10[2xf64] = vec_raw_load_f(p0,i0,descr=floatarraydescr)',
+            'v10[2xf64] = vec_load_f(p0,i0,descr=floatarraydescr)',
             'v11[2xf64] = vec_float_mul(v10[2xf64], v9[2xf64])',
             'v12[2xf64] = vec_float_eq(v11[2xf64], v11[2xf64])',
             'i100 = vec_unpack_f(v12[4xi32], 0, 1)',

@@ -473,7 +473,7 @@ class VecScheduleState(SchedulerState):
     def __init__(self, graph, packset, cpu, costmodel):
         SchedulerState.__init__(self, cpu, graph)
         self.box_to_vbox = {}
-        self.vec_reg_size = cpu.vector_register_size
+        self.vec_reg_size = cpu.vector_ext.vec_size()
         self.expanded_map = {}
         self.costmodel = costmodel
         self.inputargs = {}

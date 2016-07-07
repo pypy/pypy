@@ -63,6 +63,10 @@ class AbstractX86CPU(AbstractLLCPU):
         if self.HAS_CODEMAP:
             self.codemap.setup()
         self.assembler.setup_once()
+        if self.vector_ext:
+            # TODO
+            pass
+            #self.vector_ext.
 
     @rgc.no_release_gil
     def finish_once(self):
@@ -149,8 +153,9 @@ class CPU_X86_64(AbstractX86CPU):
     HAS_CODEMAP = True
 
 class CPU_X86_64_SSE4(CPU_X86_64):
-    vector_extension = True
-    vector_register_size = 16
-    vector_horizontal_operations = True
+    vector_ext = X86VectorExt()
+    #vector_extension = True
+    #vector_register_size = 16
+    #vector_horizontal_operations = True
 
 CPU = CPU386

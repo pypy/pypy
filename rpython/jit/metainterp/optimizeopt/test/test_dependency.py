@@ -35,6 +35,8 @@ class DependencyBaseTest(BaseTest):
 
     def setup_method(self, method):
         self.test_name = method.__name__
+        if not self.cpu.vector_ext.is_enabled():
+            py.test.skip("cpu %s needs to implement the vector backend" % self.cpu)
 
     def build_dependency(self, ops):
         loop = self.parse_loop(ops)

@@ -15,11 +15,6 @@ from rpython.jit.metainterp.optimizeopt.test.test_vecopt import (FakeMetaInterpS
 from rpython.jit.metainterp.resoperation import rop, ResOperation, VectorizationInfo
 from rpython.jit.tool.oparser import parse as opparse
 from rpython.jit.tool.oparser_model import get_model
-from rpython.jit.backend.detect_cpu import getcpuclass
-
-CPU = getcpuclass()
-if not CPU.vector_extension:
-    py.test.skip("this cpu %s has no implemented vector backend" % CPU)
 
 class FakeVecScheduleState(VecScheduleState):
     def __init__(self):

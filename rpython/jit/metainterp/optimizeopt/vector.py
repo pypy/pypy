@@ -216,6 +216,7 @@ class VectorizingOptimizer(Optimizer):
     def __init__(self, metainterp_sd, jitdriver_sd, cost_threshold):
         Optimizer.__init__(self, metainterp_sd, jitdriver_sd)
         self.cpu = metainterp_sd.cpu
+        self.vector_ext = self.cpu.vector_ext
         self.cost_threshold = cost_threshold
         self.packset = None
         self.unroll_count = 0
@@ -226,7 +227,7 @@ class VectorizingOptimizer(Optimizer):
         self.orig_label_args = loop.label.getarglist_copy()
         self.linear_find_smallest_type(loop)
         byte_count = self.smallest_type_bytes
-        vsize = self.cpu.vector_register_size
+        vsize = self.vector_ext.vec_size()
         if vsize == 0 or byte_count == 0 or loop.label.getopnum() != rop.LABEL:
             # stop, there is no chance to vectorize this trace
             # we cannot optimize normal traces (if there is no label)
@@ -345,7 +346,7 @@ class VectorizingOptimizer(Optimizer):
         loop = graph.loop
         operations = loop.operations
 
-        self.packset = PackSet(self.cpu.vector_register_size)
+        self.packset = PackSet(self.vector_ext.vec_size())
         memory_refs = graph.memory_refs.items()
         # initialize the pack set
         for node_a,memref_a in memory_refs:
@@ -558,7 +559,7 @@ class CostModel(object):
     """
     def __init__(self, cpu, threshold):
         self.threshold = threshold
-        self.vec_reg_size = cpu.vector_register_size
+        self.vec_reg_size = cpu.vector_ext.vec_size()
         self.savings = 0
 
     def reset_savings(self):
