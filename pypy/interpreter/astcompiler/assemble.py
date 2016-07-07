@@ -599,7 +599,7 @@ _static_opcode_stack_effects = {
 
     ops.PRINT_EXPR: -1,
 
-    ops.WITH_CLEANUP_START: -1,
+    ops.WITH_CLEANUP_START: 1,
     ops.WITH_CLEANUP_FINISH: -1,  # XXX Sometimes more
     ops.LOAD_BUILD_CLASS: 1,
     ops.POP_BLOCK: 0,
@@ -640,6 +640,12 @@ _static_opcode_stack_effects = {
     ops.LOAD_DEREF: 1,
     ops.STORE_DEREF: -1,
     ops.DELETE_DEREF: 0,
+    
+    ops.GET_AWAITABLE: 0,
+    ops.SETUP_ASYNC_WITH: 6,
+    ops.BEFORE_ASYNC_WITH: 1,
+    ops.GET_AITER: 0,
+    ops.GET_ANEXT: 1,
 
     ops.LOAD_CONST: 1,
 
