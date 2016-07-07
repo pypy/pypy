@@ -1,5 +1,5 @@
 from rpython.rlib.rarithmetic import LONG_BIT, intmask, r_uint
-from rpython.rlib.rbigint import rbigint, ONERBIGINT
+
 
 from rpython.jit.metainterp.history import ConstInt
 from rpython.jit.metainterp.resoperation import ResOperation, rop
@@ -17,10 +17,19 @@ def magic_numbers(m):
     while (r_uint(1) << (i+1)) < r_uint(m):
         i += 1
 
-    # k = 2**(64+i) // m + 1, computed manually using rbigint
-    #                         because that's the easiest
-    k1 = ONERBIGINT.lshift(LONG_BIT + i).floordiv(rbigint.fromint(m))
-    k = k1.touint() + r_uint(1)
+    # quotient = 2**(64+i) // m
+    high_word_dividend = r_uint(1) << i
+    quotient = r_uint(0)
+    for bit in range(LONG_BIT-1, -1, -1):
+        t = quotient + (r_uint(1) << bit)
+        # check: is 't * m' small enough to be < 2**(64+i), or not?
+        # note that we're really computing (2**(64+i)-1) // m, but the result
+        # is the same, because powers of two are not multiples of m.
+        if unsigned_mul_high(t, r_uint(m)) < high_word_dividend:
+            quotient = t     # yes, small enough
+
+    # k = 2**(64+i) // m + 1
+    k = quotient + r_uint(1)
 
     assert k != r_uint(0)
     # Proof that k < 2**64 holds in all cases, even with the "+1":

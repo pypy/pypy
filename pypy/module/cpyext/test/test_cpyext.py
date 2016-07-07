@@ -129,6 +129,7 @@ def compile_extension_module_applevel(space, modname, include_dirs=[],
     return str(soname)
 
 def freeze_refcnts(self):
+    rawrefcount._dont_free_any_more()
     return #ZZZ
     state = self.space.fromcache(RefcountState)
     self.frozen_refcounts = {}

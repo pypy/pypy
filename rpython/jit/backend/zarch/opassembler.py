@@ -387,8 +387,7 @@ class CallOpAssembler(object):
                 if reg in self._COND_CALL_SAVE_REGS]
         self._push_core_regs_to_jitframe(self.mc, should_be_saved)
 
-        # load gc map into unusual location: r0
-        self.load_gcmap(self.mc, r.SCRATCH2, regalloc.get_gcmap())
+        self.push_gcmap(self.mc, regalloc.get_gcmap())
         #
         # load the 0-to-4 arguments into these registers, with the address of
         # the function to call into r11
