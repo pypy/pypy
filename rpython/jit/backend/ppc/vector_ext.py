@@ -319,7 +319,7 @@ class VectorAssembler(object):
             if op == '+':
                 self.mc.add(tgt, tgt, acc)
             elif op == '*':
-                self.mc.mul(tgt, tgt, acc)
+                self.mc.mulld(tgt, tgt, acc)
             else:
                 not_implemented("sum not implemented")
             return
