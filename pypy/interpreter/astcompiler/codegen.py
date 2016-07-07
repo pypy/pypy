@@ -909,6 +909,13 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op(ops.GET_ITER)
         self.load_const(self.space.w_None)
         self.emit_op(ops.YIELD_FROM)
+    
+    def visit_Await(self, aw):
+        self.update_position(aw.lineno)
+        aw.value.walkabout(self)
+        self.emit_op(ops.GET_AWAITABLE)
+        self.load_const(self.space.w_None)
+        self.emit_op(ops.YIELD_FROM)
 
     def visit_Num(self, num):
         self.update_position(num.lineno)
