@@ -886,7 +886,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         if pos == len(wih.items) - 1:
             self.visit_sequence(wih.body)
         else:
-            self.handle_withitem(wih, pos + 1)
+            self.handle_asyncwithitem(wih, pos + 1)
         self.emit_op(ops.POP_BLOCK)
         self.pop_frame_block(F_BLOCK_FINALLY, body_block)
         self.load_const(self.space.w_None)
