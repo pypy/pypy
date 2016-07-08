@@ -36,9 +36,9 @@ def get_clock_info(name):
 
     if name == "time":
         time.time(info)
-    elif name == "monotonic":
+    elif name == "monotonic" and hasattr(time, "monotonic"):
         time.monotonic(info)
-    elif name == "clock":
+    elif name == "clock" and hasattr(time, "clock"):
         time.clock(info)
     elif name == "perf_counter":
         time.perf_counter(info)
