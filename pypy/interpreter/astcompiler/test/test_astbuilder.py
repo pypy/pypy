@@ -492,12 +492,12 @@ class TestAstBuilder:
         assert not args.args
         assert not args.defaults
         assert args.kwarg is None
-        assert args.vararg == "a"
+        assert args.vararg.arg == "a"
         args = self.get_first_stmt("def f(**a): pass").args
         assert not args.args
         assert not args.defaults
         assert args.vararg is None
-        assert args.kwarg == "a"
+        assert args.kwarg.arg == "a"
         args = self.get_first_stmt("def f(a, b, c=d, *e, **f): pass").args
         assert len(args.args) == 3
         for arg in args.args:
@@ -505,8 +505,8 @@ class TestAstBuilder:
         assert len(args.defaults) == 1
         assert isinstance(args.defaults[0], ast.Name)
         assert args.defaults[0].ctx == ast.Load
-        assert args.vararg == "e"
-        assert args.kwarg == "f"
+        assert args.vararg.arg == "e"
+        assert args.kwarg.arg == "f"
         input = "def f(a=b, c): pass"
         exc = py.test.raises(SyntaxError, self.get_ast, input).value
         assert exc.msg == "non-default argument follows default argument"
