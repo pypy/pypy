@@ -625,7 +625,7 @@ class TestAstBuilder:
             ("/=", ast.Div),
             ("//=", ast.FloorDiv),
             ("%=", ast.Mod),
-            ("@=", ast.MatMul),
+            ("@=", ast.MatMult),
             ("<<=", ast.LShift),
             (">>=", ast.RShift),
             ("&=", ast.BitAnd),
@@ -931,7 +931,7 @@ class TestAstBuilder:
             ("*", ast.Mult),
             ("//", ast.FloorDiv),
             ("%", ast.Mod),
-            ("@", ast.MatMul)
+            ("@", ast.MatMult)
         )
         for op, ast_type in binops:
             bin = self.get_first_expr("a %s b" % (op,))
@@ -987,8 +987,6 @@ class TestAstBuilder:
         assert isinstance(call, ast.Call)
         assert call.args is None
         assert call.keywords is None
-        assert call.starargs is None
-        assert call.kwargs is None
         assert isinstance(call.func, ast.Name)
         assert call.func.ctx == ast.Load
         call = self.get_first_expr("f(2, 3)")
@@ -996,8 +994,6 @@ class TestAstBuilder:
         assert isinstance(call.args[0], ast.Num)
         assert isinstance(call.args[1], ast.Num)
         assert call.keywords is None
-        assert call.starargs is None
-        assert call.kwargs is None
         call = self.get_first_expr("f(a=3)")
         assert call.args is None
         assert len(call.keywords) == 1
@@ -1006,21 +1002,20 @@ class TestAstBuilder:
         assert keyword.arg == "a"
         assert isinstance(keyword.value, ast.Num)
         call = self.get_first_expr("f(*a, **b)")
-        assert call.args is None
-        assert isinstance(call.starargs, ast.Name)
-        assert call.starargs.id == "a"
-        assert call.starargs.ctx == ast.Load
-        assert isinstance(call.kwargs, ast.Name)
-        assert call.kwargs.id == "b"
-        assert call.kwargs.ctx == ast.Load
+        assert isinstance(call.args[0], ast.Starred)
+        assert isinstance(call.keywords[0], ast.keyword)
+        assert call.args[0].value.id == "a"
+        assert call.args[0].ctx == ast.Load
+        assert call.keywords[0].value.id == "b"
         call = self.get_first_expr("f(a, b, x=4, *m, **f)")
-        assert len(call.args) == 2
+        assert len(call.args) == 3
         assert isinstance(call.args[0], ast.Name)
         assert isinstance(call.args[1], ast.Name)
-        assert len(call.keywords) == 1
+        assert isinstance(call.args[2], ast.Starred)
+        assert len(call.keywords) == 2
         assert call.keywords[0].arg == "x"
-        assert call.starargs.id == "m"
-        assert call.kwargs.id == "f"
+        assert call.args[2].value.id == "m"
+        assert call.keywords[1].value.id == "f"
         call = self.get_first_expr("f(x for x in y)")
         assert len(call.args) == 1
         assert isinstance(call.args[0], ast.GeneratorExp)
@@ -1036,8 +1031,6 @@ class TestAstBuilder:
         assert exc.msg == "keyword can't be an expression"
         exc = py.test.raises(SyntaxError, self.get_ast, "f(a=c, a=d)").value
         assert exc.msg == "keyword argument repeated"
-        exc = py.test.raises(SyntaxError, self.get_ast, "f(x, *a, b)").value
-        assert exc.msg == "only named arguments may follow *expression"
 
     def test_attribute(self):
         attr = self.get_first_expr("x.y")
@@ -1345,7 +1338,7 @@ class TestAstBuilder:
         body = mod.body
         assert len(body) == 1
         expr = body[0].value
-        assert expr.op == ast.MatMul
+        assert expr.op == ast.MatMult
         assert isinstance(expr.left, ast.Name)
         assert isinstance(expr.right, ast.Name)
         # imatmul is tested earlier search for @=
