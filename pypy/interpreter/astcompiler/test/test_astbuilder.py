@@ -606,8 +606,6 @@ class TestAstBuilder:
             assert dec.func.id == "dec"
             assert dec.args is None
             assert dec.keywords is None
-            assert dec.starargs is None
-            assert dec.kwargs is None
             definition = self.get_first_stmt("@dec(a, b)\n%s" % (stmt,))
             assert len(definition.decorator_list) == 1
             dec = definition.decorator_list[0]
@@ -615,8 +613,6 @@ class TestAstBuilder:
             assert dec.func.id == "dec"
             assert len(dec.args) == 2
             assert dec.keywords is None
-            assert dec.starargs is None
-            assert dec.kwargs is None
 
     def test_augassign(self):
         aug_assigns = (
