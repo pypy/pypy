@@ -920,7 +920,10 @@ if _WIN:
     QueryPerformanceCounter = external(
         'QueryPerformanceCounter', [rffi.CArrayPtr(lltype.SignedLongLong)],
          lltype.Void)
-    QueryPerformanceFrequency = external(
+    QueryPerformanceCounter = rwin32.winexternal('QueryPerformanceCounter',
+                                                 [rffi.CArrayPtr(lltype.SignedLongLong)],
+                                                 rwin32.DWORD)
+    QueryPerformanceFrequency = rwin32.winexternal(
         'QueryPerformanceFrequency', [rffi.CArrayPtr(lltype.SignedLongLong)], 
         rffi.INT)
     def win_perf_counter(space, w_info=None):
@@ -929,17 +932,23 @@ if _WIN:
             if time_state.divisor == 0.0:
                 QueryPerformanceCounter(a)
                 time_state.counter_start = a[0]
-                failed = QueryPerformanceFrequency(a)
+                # This is returnng 0 here on my windows 7 box
+                # when testing untranslated. rlib/rtime.py ignores the
+                # return value. I do get back a reasonable value...
+                # XXX: What is wrong here?
+                #failed = QueryPerformanceFrequency(a)
+                QueryPerformanceFrequency(a)
                 time_state.divisor = float(a[0])
             if not failed and time_state.divisor != 0.0:
                 QueryPerformanceCounter(a)
                 diff = a[0] - time_state.counter_start
-                resolution = 1 / time_state.divisor
-                _setinfo(space, w_info, "QueryPerformanceCounter()", resolution,
-                         True, False)
-                return space.wrap(float(diff) / time_state.divisor)
             else:
                 raise ValueError("Failed to generate the result.")
+            resolution = 1 / time_state.divisor
+            if w_info is not None:
+                _setinfo(space, w_info, "QueryPerformanceCounter()", resolution,
+                         True, False)
+            return space.wrap(float(diff) / time_state.divisor)
 
     def perf_counter(space, w_info=None):
         try:
@@ -961,7 +970,6 @@ else:
         return time(space, w_info=w_info)
 
 if _WIN:
-    # untested so far
     def process_time(space, w_info=None):
         from rpython.rlib.rposix import GetCurrentProcess, GetProcessTimes
         current_process = GetCurrentProcess()
@@ -972,13 +980,12 @@ if _WIN:
             GetProcessTimes(current_process, creation_time, exit_time,
                             kernel_time, user_time)
             kernel_time2 = (kernel_time.c_dwLowDateTime |
-                            kernel_time.c_dwHighDateTime << 32)
+                            r_ulonglong(kernel_time.c_dwHighDateTime) << 32)
             user_time2 = (user_time.c_dwLowDateTime |
-                          user_time.c_dwHighDateTime << 32)
+                          r_ulonglong(user_time.c_dwHighDateTime) << 32)
         if w_info is not None:
             _setinfo(space, w_info, "GetProcessTimes()", 1e-7, True, False)
         return space.wrap((float(kernel_time2) + float(user_time2)) * 1e-7)
-
 else:
     have_times = hasattr(rposix, 'c_times')
 
