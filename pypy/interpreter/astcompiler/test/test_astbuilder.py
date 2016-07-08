@@ -545,9 +545,9 @@ class TestAstBuilder:
             assert isinstance(func.args.args[0].annotation, ast.Num)
         assert isinstance(func.args.defaults[0], ast.Name)
         func = self.get_first_stmt("def f(*x : 42): pass")
-        assert isinstance(func.args.varargannotation, ast.Num)
+        assert isinstance(func.args.vararg.annotation, ast.Num)
         func = self.get_first_stmt("def f(**kw : 42): pass")
-        assert isinstance(func.args.kwargannotation, ast.Num)
+        assert isinstance(func.args.kwarg.annotation, ast.Num)
         func = self.get_first_stmt("def f(*, kw : 42=a): pass")
         assert isinstance(func.args.kwonlyargs[0].annotation, ast.Num)
 
