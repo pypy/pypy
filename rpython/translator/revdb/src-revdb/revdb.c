@@ -13,6 +13,13 @@
 #include <signal.h>
 #include <search.h>
 
+#ifdef __linux__
+#  define HAVE_PERSONALITY
+#endif
+#ifdef HAVE_PERSONALITY
+#  include <sys/personality.h>
+#endif
+
 #include "structdef.h"
 #include "forwarddecl.h"
 #include "preimpl.h"
@@ -53,6 +60,42 @@ static char flag_io_disabled = FID_REGULAR_MODE;
 static void setup_record_mode(int argc, char *argv[]);
 static void setup_replay_mode(int *argc_p, char **argv_p[]);
 static void check_at_end(uint64_t stop_points);
+
+static void ensure_fixed_address_space(char *argv[])
+{
+#ifdef HAVE_PERSONALITY
+    int pers = personality(0xffffffff);
+    if (pers == -1) {
+        perror("personality");
+        exit(1);
+    }
+    if (!(pers & ADDR_NO_RANDOMIZE)) {
+        pers |= ADDR_NO_RANDOMIZE;
+        if (personality(pers) == -1) {
+            perror("personality");
+            exit(1);
+        }
+        pers = personality(0xffffffff);
+        if (pers == -1 || !(pers & ADDR_NO_RANDOMIZE)) {
+            fprintf(stderr, "cannot set ADDR_NO_RANDOMIZE\n");
+            exit(1);
+        }
+        /* After setting this personality(), we need to restart the
+           current process.  It will then reload the libpypy-c.so at a
+           non-randomized address.
+
+           Potentially buggy to use argv[0] here, but good enough I
+           suppose.  For this reason ensure_fixed_address_space() is
+           not called when running manually without any PYPYRDB
+           environment variable set.
+        */
+        execv(argv[0], argv);
+
+        perror("execv");
+        exit(1);
+    }
+#endif
+}
 
 RPY_EXTERN
 void rpy_reverse_db_setup(int *argc_p, char **argv_p[])
@@ -152,6 +195,8 @@ static void setup_record_mode(int argc, char *argv[])
     assert(RPY_RDB_REPLAY == 0);
 
     if (filename && *filename) {
+        ensure_fixed_address_space(argv);
+
         putenv("PYPYRDB=");
         rpy_rev_fileno = open(filename, O_RDWR | O_CLOEXEC |
                               O_CREAT | O_NOCTTY | O_TRUNC, 0600);
@@ -651,6 +696,8 @@ static void setup_replay_mode(int *argc_p, char **argv_p[])
                 argv[0]);
         exit(2);
     }
+    ensure_fixed_address_space(*argv_p);
+
     rpy_rev_filename = argv[2];
     reopen_revdb_file(rpy_rev_filename);
     rpy_rev_sockfd = atoi(argv[3]);
