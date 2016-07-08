@@ -2,6 +2,10 @@ import sys, os, re
 import subprocess, socket
 import traceback
 from contextlib import contextmanager
+try:
+    import readline
+except ImportError:
+    pass
 
 from rpython.translator.revdb.process import ReplayProcessGroup
 from rpython.translator.revdb.process import Breakpoint
@@ -43,10 +47,8 @@ class RevDebugControl(object):
                 self.pgroup.show_backtrace(complete=0)
                 previous_time = last_time
             prompt = '(%d)$ ' % last_time
-            sys.stdout.write(prompt)
-            sys.stdout.flush()
             try:
-                cmdline = raw_input().strip()
+                cmdline = raw_input(prompt).strip()
             except EOFError:
                 print
                 cmdline = 'quit'
