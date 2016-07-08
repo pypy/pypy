@@ -123,6 +123,8 @@ if _WIN:
         def __init__(self):
             self.n_overflow = 0
             self.last_ticks = 0
+            self.divisor = 0.0
+            self.counter_start = 0
 
         def check_GetTickCount64(self, *args):
             if (self.GetTickCount64_handle !=
@@ -921,25 +923,21 @@ if _WIN:
     QueryPerformanceFrequency = external(
         'QueryPerformanceFrequency', [rffi.CArrayPtr(lltype.SignedLongLong)], 
         rffi.INT)
-    class State(object):
-        divisor = 0.0
-        counter_start = 0
-    state = State()
     def win_perf_counter(space, w_info=None):
         with lltype.scoped_alloc(rffi.CArray(rffi.lltype.SignedLongLong), 1) as a:
             failed = False
-            if state.divisor == 0.0:
+            if time_state.divisor == 0.0:
                 QueryPerformanceCounter(a)
-                state.counter_start = a[0]
+                time_state.counter_start = a[0]
                 failed = QueryPerformanceFrequency(a)
-                state.divisor = float(a[0])
-            if not failed and state.divisor != 0.0:
+                time_state.divisor = float(a[0])
+            if not failed and time_state.divisor != 0.0:
                 QueryPerformanceCounter(a)
-                diff = a[0] - state.counter_start
-                resolution = 1 / state.divisor
+                diff = a[0] - time_state.counter_start
+                resolution = 1 / time_state.divisor
                 _setinfo(space, w_info, "QueryPerformanceCounter()", resolution,
                          True, False)
-                return space.wrap(float(diff) / state.divisor)
+                return space.wrap(float(diff) / time_state.divisor)
             else:
                 raise ValueError("Failed to generate the result.")
 
