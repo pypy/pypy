@@ -917,10 +917,10 @@ if _WIN:
     # hacking to avoid LARGE_INTEGER which is a union...
     QueryPerformanceCounter = external(
         'QueryPerformanceCounter', [rffi.CArrayPtr(lltype.SignedLongLong)],
-         lltype.Void, releasegil=False)
+         lltype.Void)
     QueryPerformanceFrequency = external(
         'QueryPerformanceFrequency', [rffi.CArrayPtr(lltype.SignedLongLong)], 
-        rffi.INT, releasegil=False)
+        rffi.INT)
     class State(object):
         divisor = 0.0
         counter_start = 0
@@ -953,7 +953,6 @@ if _WIN:
                 except Exception:
                     pass
         return time(space, w_info=w_info)
-
 else:
     def perf_counter(space, w_info=None):
         if HAS_MONOTONIC:
@@ -1033,7 +1032,7 @@ else:
         return clock(space)
 
 if HAS_CLOCK:
-    _clock = external('clock', [], clock_t)"
+    _clock = external('clock', [], clock_t)
     def clock(space, w_info=None):
         """clock() -> floating point number
 
@@ -1042,7 +1041,7 @@ if HAS_CLOCK:
         records."""
         if _WIN:
             try:
-                return win_perf_counter(space, w_info=w_info))
+                return win_perf_counter(space, w_info=w_info)
             except ValueError:
                 pass
             value = _clock()
