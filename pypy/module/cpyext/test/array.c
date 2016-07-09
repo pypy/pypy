@@ -2267,7 +2267,7 @@ static PyTypeObject Arraytype = {
     0,                                          /* tp_compare */
     (reprfunc)array_repr,                       /* tp_repr */
     0,                                          /* tp_as_number*/
-    &array_as_sequence,                         /* tp_as_sequence*/
+    0,                                          /* tp_as_sequence*/
     &array_as_mapping,                          /* tp_as_mapping*/
     0,                                          /* tp_hash */
     0,                                          /* tp_call */
