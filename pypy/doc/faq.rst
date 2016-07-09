@@ -369,6 +369,7 @@ In more details:
   step-by-step guide that we can follow to reproduce the problem
   ourselves.  Don't assume we know anything about any program other
   than PyPy.  We would like a guide that we can follow point by point
+  (without guessing or having to figure things out)
   on a machine similar to yours, starting from a bare PyPy, until we
   see the same problem.  (If you can, you can try to reduce the number
   of steps and the time it needs to run, but that is not mandatory.)
