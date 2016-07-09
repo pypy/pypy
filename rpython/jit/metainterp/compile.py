@@ -526,9 +526,7 @@ def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type,
         patch_new_loop_to_load_virtualizable_fields(loop, jitdriver_sd, vable)
 
     original_jitcell_token = loop.original_jitcell_token
-    globaldata = metainterp_sd.globaldata
-    original_jitcell_token.number = n = globaldata.loopnumbering
-    globaldata.loopnumbering += 1
+    original_jitcell_token.number = n = metainterp_sd.jitlog.trace_id
 
     if not we_are_translated():
         show_procedures(metainterp_sd, loop)

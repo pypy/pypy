@@ -3,7 +3,7 @@ from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.pyframe import PyFrame
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.baseobjspace import W_Root
-from rpython.rlib import rvmprof
+from rpython.rlib import rvmprof, jit
 
 # ____________________________________________________________
 
@@ -77,6 +77,7 @@ def enable_jitlog(space, fileno):
     except rvmprof.VMProfError, e:
         raise VMProfError(space, e)
 
+@jit.dont_look_inside
 def disable_jitlog(space):
     """ Disable PyPy's logging facility. """
     rvmprof.disable_jitlog()

@@ -52,7 +52,7 @@ class FakeState(object):
         return 'location'
 
 class FakeGlobalData(object):
-    loopnumbering = 0
+    pass
 
 class FakeMetaInterpStaticData(object):
     all_descrs = []
@@ -80,8 +80,8 @@ def test_compile_loop():
     cpu = FakeCPU()
     staticdata = FakeMetaInterpStaticData()
     staticdata.cpu = cpu
-    staticdata.globaldata = FakeGlobalData()
-    staticdata.globaldata.loopnumbering = 1
+    staticdata.jitlog = jl.VMProfJitLogger(cpu)
+    staticdata.jitlog.trace_id = 1
     #
     loop = parse('''
     [p1]
@@ -108,8 +108,7 @@ def test_compile_loop():
     jitcell_token = target_token.targeting_jitcell_token
     assert jitcell_token == target_token.original_jitcell_token
     assert jitcell_token.target_tokens == [target_token]
-    assert jitcell_token.number == 1
-    assert staticdata.globaldata.loopnumbering == 2
+    assert jitcell_token.number == 2
     #
     assert len(cpu.seen) == 1
     assert cpu.seen[0][2] == jitcell_token

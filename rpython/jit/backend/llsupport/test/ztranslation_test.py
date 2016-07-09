@@ -12,6 +12,7 @@ from rpython.jit.codewriter.policy import StopAtXPolicy
 from rpython.config.config import ConfigError
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rlib import jitlog
 
 
 class TranslationTest(CCompiledMixin):
@@ -240,6 +241,23 @@ class TranslationTestJITStats(CCompiledMixin):
         assert res == 2
         # one for loop and one for the prologue, no unrolling
 
+    def test_flush_trace_counts(self):
+        driver = JitDriver(greens = [], reds = ['i'])
+
+        def f():
+            i = 0
+            while i < 100000:
+                driver.jit_merge_point(i=i)
+                i += 1
+
+        def main():
+            jit_hooks.stats_set_debug(None, True)
+            f()
+            jitlog.stats_flush_trace_counts(None)
+            return 0
+
+        res = self.meta_interp(main, [])
+        assert res == 0
 
 class TranslationRemoveTypePtrTest(CCompiledMixin):
     CPUClass = getcpuclass()

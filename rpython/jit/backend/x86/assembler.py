@@ -493,8 +493,9 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         clt.frame_info.clear() # for now
 
         if log:
+            number = looptoken.number
             operations = self._inject_debugging_code(looptoken, operations,
-                                                     'e', looptoken.number)
+                                                     'e', number)
 
         regalloc = RegAlloc(self, self.cpu.translate_support_code)
         #

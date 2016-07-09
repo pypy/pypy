@@ -122,6 +122,7 @@ class VMProf(object):
             raise VMProfError(os.strerror(rposix.get_saved_errno()))
         self.is_enabled = True
 
+    @jit.dont_look_inside
     def enable_jitlog(self, fileno):
         # initialize the jit log
         from rpython.rlib import jitlog as jl

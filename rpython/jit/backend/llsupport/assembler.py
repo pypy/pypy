@@ -13,6 +13,7 @@ from rpython.rlib.objectmodel import specialize, compute_unique_id
 from rpython.rlib.jitlog import _log_jit_counter
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref, llhelper
 from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib.rvmprof.rvmprof import _get_vmprof
 
 DEBUG_COUNTER = lltype.Struct('DEBUG_COUNTER',
     # 'b'ridge, 'l'abel or # 'e'ntry point
@@ -134,7 +135,9 @@ class BaseAssembler(object):
             # if self._debug is already set it means that someone called
             # set_debug by hand before initializing the assembler. Leave it
             # as it is
-            self.set_debug(have_debug_prints_for('jit-backend-counts'))
+            should_debug = have_debug_prints_for('jit-backend-counts') or \
+                           _get_vmprof().cintf.jitlog_enabled()
+            self.set_debug(should_debug)
         # when finishing, we only have one value at [0], the rest dies
         self.gcmap_for_finish = lltype.malloc(jitframe.GCMAP, 1,
                                               flavor='raw',

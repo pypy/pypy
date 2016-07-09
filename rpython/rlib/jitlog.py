@@ -17,9 +17,7 @@ from rpython.annotator import model as annmodel
 
 @register_helper(None)
 def stats_flush_trace_counts(warmrunnerdesc):
-    print("hello")
     warmrunnerdesc.metainterp_sd.cpu.assembler.flush_trace_counters()
-    return True
 
 def commonprefix(a,b):
     "Given a list of pathnames, returns the longest common leading component"
@@ -235,11 +233,13 @@ def _log_jit_counter(struct):
     cintf = _get_vmprof().cintf
     if not cintf.jitlog_enabled():
         return
-    le_addr = encode_le_addr(struct.number)
-    # not an address (but a number) but it is a machine word
-    le_count = encode_le_addr(struct.i)
-    out = le_addr + le_count
-    cintf.jitlog_write_marked(MARK_JITLOG_COUNTER + out, len(out) + 1)
+    # addr is either a number (trace_id), or the address
+    # of the descriptor. for entries it is a the trace_id,
+    # for any label/bridge entry the addr is the address
+    list = [MARK_JITLOG_COUNTER, encode_le_addr(struct.number),
+            struct.type, encode_le_64bit(struct.i)]
+    content = ''.join(list)
+    cintf.jitlog_write_marked(content, len(content))
 
 class VMProfJitLogger(object):
     def __init__(self, cpu=None):
@@ -265,10 +265,11 @@ class VMProfJitLogger(object):
         self.cintf.jitlog_teardown()
 
     def start_new_trace(self, metainterp_sd, faildescr=None, entry_bridge=False):
+        # even if the logger is not enabled, increment the trace id
+        self.trace_id += 1
         if not self.cintf.jitlog_enabled():
             return
         self.metainterp_sd = metainterp_sd
-        self.trace_id += 1
         content = [encode_le_addr(self.trace_id)]
         if faildescr:
             content.append(encode_str('bridge'))

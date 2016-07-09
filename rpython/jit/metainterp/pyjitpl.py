@@ -1931,7 +1931,6 @@ class MetaInterpGlobalData(object):
         self.initialized = False
         self.indirectcall_dict = None
         self.addr2name = None
-        self.loopnumbering = 0
 
 # ____________________________________________________________
 
