@@ -17,9 +17,9 @@ from pypy.module.cpyext.api import (
     generic_cpy_call, Py_TPFLAGS_READY, Py_TPFLAGS_READYING,
     Py_TPFLAGS_HEAPTYPE, METH_VARARGS, METH_KEYWORDS, CANNOT_FAIL,
     Py_TPFLAGS_HAVE_GETCHARBUFFER, build_type_checkers, StaticObjectBuilder,
-    PyObjectFields, Py_TPFLAGS_BASETYPE)
+    PyObjectFields, Py_TPFLAGS_BASETYPE, PyTypeObject, PyTypeObjectPtr)
 from pypy.module.cpyext.methodobject import (W_PyCClassMethodObject,
-    PyDescr_NewWrapper, PyCFunction_NewEx, PyCFunction_typedef, PyMethodDef,
+    W_PyCWrapperObject, PyCFunction_NewEx, PyCFunction_typedef, PyMethodDef,
     W_PyCMethodObject, W_PyCFunctionObject)
 from pypy.module.cpyext.modsupport import convert_method_defs
 from pypy.module.cpyext.pyobject import (
@@ -30,7 +30,7 @@ from pypy.module.cpyext.slotdefs import (
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext.structmember import PyMember_GetOne, PyMember_SetOne
 from pypy.module.cpyext.typeobjectdefs import (
-    PyTypeObjectPtr, PyTypeObject, PyGetSetDef, PyMemberDef, newfunc,
+    PyGetSetDef, PyMemberDef, newfunc,
     PyNumberMethods, PyMappingMethods, PySequenceMethods, PyBufferProcs)
 from pypy.objspace.std.typeobject import W_TypeObject, find_best_base
 
@@ -296,6 +296,7 @@ def add_operators(space, dict_w, pto):
     for method_name, slot_names, wrapper_func, wrapper_func_kwds, doc in slotdefs_for_wrappers:
         if method_name in dict_w:
             continue
+        offset = [rffi.offsetof(lltype.typeOf(pto).TO, slot_names[0])]
         if len(slot_names) == 1:
             func = getattr(pto, slot_names[0])
         else:
@@ -303,14 +304,16 @@ def add_operators(space, dict_w, pto):
             struct = getattr(pto, slot_names[0])
             if not struct:
                 continue
+            offset.append(rffi.offsetof(lltype.typeOf(struct).TO, slot_names[1]))
             func = getattr(struct, slot_names[1])
         func_voidp = rffi.cast(rffi.VOIDP, func)
         if not func:
             continue
         if wrapper_func is None and wrapper_func_kwds is None:
             continue
-        dict_w[method_name] = PyDescr_NewWrapper(space, pto, method_name, wrapper_func,
-                wrapper_func_kwds, doc, func_voidp)
+        w_obj = W_PyCWrapperObject(space, pto, method_name, wrapper_func,
+                wrapper_func_kwds, doc, func_voidp, offset=offset)
+        dict_w[method_name] = space.wrap(w_obj)
     if pto.c_tp_new:
         add_tp_new_wrapper(space, dict_w, pto)
 
@@ -730,6 +733,7 @@ def type_realize(space, py_obj):
     try:
         w_obj = _type_realize(space, py_obj)
     finally:
+        name = rffi.charp2str(pto.c_tp_name)
         pto.c_tp_flags &= ~Py_TPFLAGS_READYING
     pto.c_tp_flags |= Py_TPFLAGS_READY
     return w_obj
@@ -811,7 +815,8 @@ def finish_type_1(space, pto):
     base = pto.c_tp_base
     base_pyo = rffi.cast(PyObject, pto.c_tp_base)
     if base and not base.c_tp_flags & Py_TPFLAGS_READY:
-        type_realize(space, rffi.cast(PyObject, base_pyo))
+        name = rffi.charp2str(base.c_tp_name)
+        type_realize(space, base_pyo)
     if base and not pto.c_ob_type: # will be filled later
         pto.c_ob_type = base.c_ob_type
     if not pto.c_tp_bases:
