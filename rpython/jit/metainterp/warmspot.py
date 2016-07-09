@@ -893,6 +893,7 @@ class WarmRunnerDesc(object):
         rtyper = self.translator.rtyper
         RESULT = PORTALFUNC.RESULT
         result_kind = history.getkind(RESULT)
+        assert result_kind.startswith(jd.result_type)
         ts = self.cpu.ts
         state = jd.warmstate
         maybe_compile_and_run = jd._maybe_compile_and_run_fn
@@ -921,10 +922,9 @@ class WarmRunnerDesc(object):
                     except EnterJitAssembler as e:
                         while True:
                             try:
-                                e.execute()
+                                return e.execute()
                             except EnterJitAssembler as e:
                                 continue
-                            assert 0  # execute() should always raise for now
                 except jitexc.ContinueRunningNormally as e:
                     args = ()
                     for ARGTYPE, attrname, count in portalfunc_ARGS:
