@@ -1388,5 +1388,13 @@ class TestAstBuilder:
         assert asyncdef.name == 'f'
         assert asyncdef.args.args == None
         assert len(asyncdef.body) == 1
-        expr = asyncdef.body[0]
-        assert isinstance(expr, ast.AsyncWith)
+        asyncwith = asyncdef.body[0]
+        assert isinstance(asyncwith, ast.AsyncWith)
+        assert len(asyncwith.items) == 1
+        asyncitem = asyncwith.items[0]
+        assert isinstance(asyncitem, ast.withitem)
+        assert isinstance(asyncitem.context_expr, ast.Name)
+        assert isinstance(asyncitem.optional_vars, ast.Name)
+        assert len(asyncwith.body) == 1
+        assert isinstance(asyncwith.body[0], ast.Expr)
+        assert isinstance(asyncwith.body[0].value, ast.Num)
