@@ -53,3 +53,14 @@ errno.
 
 Refactor PyTupleObject to look like cpython's and allow subclassing 
 PyTuple_Type
+
+.. branch: call-via-pyobj
+
+Use offsets from PyTypeObject to find actual c function to call rather than
+fixed functions, allows function override after PyType_Ready is called
+
+.. branch: issue2335
+
+Avoid exhausting the stack in the JIT due to successive guard
+failures in the same Python function ending up as successive levels of
+RPython functions, while at app-level the traceback is very short
