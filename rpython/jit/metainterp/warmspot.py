@@ -529,7 +529,7 @@ class WarmRunnerDesc(object):
     def make_enter_function(self, jd):
         from rpython.jit.metainterp.warmstate import WarmEnterState
         state = WarmEnterState(self, jd)
-        maybe_compile_and_run = state.make_entry_point()
+        maybe_compile_and_run, EnterJitAssembler = state.make_entry_point()
         jd.warmstate = state
 
         def crash_in_jit(e):
@@ -560,6 +560,7 @@ class WarmRunnerDesc(object):
         maybe_enter_jit._always_inline_ = True
         jd._maybe_enter_jit_fn = maybe_enter_jit
         jd._maybe_compile_and_run_fn = maybe_compile_and_run
+        jd._EnterJitAssembler = EnterJitAssembler
 
     def make_driverhook_graphs(self):
         s_Str = annmodel.SomeString()
@@ -833,6 +834,7 @@ class WarmRunnerDesc(object):
         #               more stuff
         #
         # to that:
+        # XXX there are too many exceptions all around...
         #
         #       def original_portal(..):
         #           stuff
@@ -841,7 +843,14 @@ class WarmRunnerDesc(object):
         #       def portal_runner(*args):
         #           while 1:
         #               try:
-        #                   return portal(*args)
+        #                   try:
+        #                       return portal(*args)
+        #                   except EnterJitAssembler, e:
+        #                       while True:
+        #                           try:
+        #                               return e.execute()
+        #                           except EnterJitAssembler, e:
+        #                               continue
         #               except ContinueRunningNormally, e:
         #                   *args = *e.new_args
         #               except DoneWithThisFrame, e:
@@ -887,26 +896,35 @@ class WarmRunnerDesc(object):
         ts = self.cpu.ts
         state = jd.warmstate
         maybe_compile_and_run = jd._maybe_compile_and_run_fn
+        EnterJitAssembler = jd._EnterJitAssembler
 
         def ll_portal_runner(*args):
             start = True
             while 1:
                 try:
-                    # maybe enter from the function's start.  Note that the
-                    # 'start' variable is constant-folded away because it's
-                    # the first statement in the loop.
-                    if start:
-                        maybe_compile_and_run(
-                            state.increment_function_threshold, *args)
-                    #
-                    # then run the normal portal function, i.e. the
-                    # interpreter's main loop.  It might enter the jit
-                    # via maybe_enter_jit(), which typically ends with
-                    # handle_fail() being called, which raises on the
-                    # following exceptions --- catched here, because we
-                    # want to interrupt the whole interpreter loop.
-                    return support.maybe_on_top_of_llinterp(rtyper,
-                                                      portal_ptr)(*args)
+                    try:
+                        # maybe enter from the function's start.  Note that the
+                        # 'start' variable is constant-folded away because it's
+                        # the first statement in the loop.
+                        if start:
+                            maybe_compile_and_run(
+                                state.increment_function_threshold, *args)
+                        #
+                        # then run the normal portal function, i.e. the
+                        # interpreter's main loop.  It might enter the jit
+                        # via maybe_enter_jit(), which typically ends with
+                        # handle_fail() being called, which raises on the
+                        # following exceptions --- catched here, because we
+                        # want to interrupt the whole interpreter loop.
+                        return support.maybe_on_top_of_llinterp(rtyper,
+                                                          portal_ptr)(*args)
+                    except EnterJitAssembler as e:
+                        while True:
+                            try:
+                                e.execute()
+                            except EnterJitAssembler as e:
+                                continue
+                            assert 0  # execute() should always raise for now
                 except jitexc.ContinueRunningNormally as e:
                     args = ()
                     for ARGTYPE, attrname, count in portalfunc_ARGS:
@@ -933,6 +951,7 @@ class WarmRunnerDesc(object):
                         raise LLException(ts.get_typeptr(value), value)
                     else:
                         value = cast_base_ptr_to_instance(Exception, value)
+                        assert value is not None
                         raise value
 
         def handle_jitexception(e):
