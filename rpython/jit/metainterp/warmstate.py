@@ -2,7 +2,7 @@ import sys
 import weakref
 
 from rpython.jit.codewriter import support, heaptracker, longlong
-from rpython.jit.metainterp import resoperation, history, jitexc
+from rpython.jit.metainterp import resoperation, history
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
 from rpython.rlib.debug import have_debug_prints_for
 from rpython.rlib.jit import PARAMETERS
@@ -348,8 +348,8 @@ class WarmEnterState(object):
 
     def make_entry_point(self):
         "NOT_RPYTHON"
-        if hasattr(self, 'entry_point_fns'):
-            return self.entry_point_fns
+        if hasattr(self, 'maybe_compile_and_run'):
+            return self.maybe_compile_and_run
 
         warmrunnerdesc = self.warmrunnerdesc
         metainterp_sd = warmrunnerdesc.metainterp_sd
@@ -362,8 +362,6 @@ class WarmEnterState(object):
         confirm_enter_jit = self.confirm_enter_jit
         range_red_args = unrolling_iterable(
             range(num_green_args, num_green_args + jitdriver_sd.num_red_args))
-        name_red_args = unrolling_iterable(
-            [(i, 'arg%d' % i) for i in range(jitdriver_sd.num_red_args)])
         # get a new specialized copy of the method
         ARGS = []
         for kind in jitdriver_sd.red_args_types:
@@ -378,18 +376,6 @@ class WarmEnterState(object):
         func_execute_token = self.cpu.make_execute_token(*ARGS)
         cpu = self.cpu
         jitcounter = self.warmrunnerdesc.jitcounter
-
-        result_type = jitdriver_sd.result_type
-        if result_type == history.VOID:
-            _DoneWithThisFrameCls = jitexc.DoneWithThisFrameVoid
-        elif result_type == history.INT:
-            _DoneWithThisFrameCls = jitexc.DoneWithThisFrameInt
-        elif result_type == history.REF:
-            _DoneWithThisFrameCls = jitexc.DoneWithThisFrameRef
-        elif result_type == history.FLOAT:
-            _DoneWithThisFrameCls = jitexc.DoneWithThisFrameFloat
-        else:
-            raise AssertionError(result_type)
 
         def execute_assembler(loop_token, *args):
             # Call the backend to run the 'looptoken' with the given
@@ -410,13 +396,9 @@ class WarmEnterState(object):
             #
             # Handle the failure
             fail_descr = cpu.get_latest_descr(deadframe)
-            if isinstance(fail_descr, _DoneWithThisFrameCls):
-                # A fast path to avoid raising and immediately catching
-                # a DoneWithThisFrame exception
-                return fail_descr.get_result(cpu, deadframe)
-            else:
-                fail_descr.handle_fail(deadframe, metainterp_sd, jitdriver_sd)
-                assert 0, "should have raised"
+            fail_descr.handle_fail(deadframe, metainterp_sd, jitdriver_sd)
+            #
+            assert 0, "should have raised"
 
         def bound_reached(hash, cell, *args):
             if not confirm_enter_jit(*args):
@@ -437,8 +419,7 @@ class WarmEnterState(object):
 
         def maybe_compile_and_run(increment_threshold, *args):
             """Entry point to the JIT.  Called at the point with the
-            can_enter_jit() hint, and at the start of a function
-            with a different threshold.
+            can_enter_jit() hint.
             """
             # Look for the cell corresponding to the current greenargs.
             # Search for the JitCell that is of the correct subclass of
@@ -456,6 +437,14 @@ class WarmEnterState(object):
                 # not found. increment the counter
                 if jitcounter.tick(hash, increment_threshold):
                     bound_reached(hash, None, *args)
+                return
+
+            # Workaround for issue #2200, maybe temporary.  This is not
+            # a proper fix, but only a hack that should work well enough
+            # for PyPy's main jitdriver...  See test_issue2200_recursion
+            from rpython.jit.metainterp.blackhole import workaround2200
+            if workaround2200.active:
+                workaround2200.active = False
                 return
 
             # Here, we have found 'cell'.
@@ -495,27 +484,14 @@ class WarmEnterState(object):
             execute_args = ()
             for i in range_red_args:
                 execute_args += (unspecialize_value(args[i]), )
-            # run it, but from outside in ll_portal_runner, not from here
-            # (this avoids RPython-level recursion with no corresponding
-            # app-level recursion, as shown by issues 2200 and 2335)
-            raise EnterJitAssembler(procedure_token, *execute_args)
-
-        class EnterJitAssembler(jitexc.JitException):
-            def __init__(self, procedure_token, *args):
-                self.procedure_token = procedure_token
-                for i, argname in name_red_args:
-                    setattr(self, argname, args[i])
-            def execute(self):
-                args = ()
-                for i, argname in name_red_args:
-                    args += (getattr(self, argname), )
-                return execute_assembler(self.procedure_token, *args)
+            # run it!  this executes until interrupted by an exception
+            execute_assembler(procedure_token, *execute_args)
+            assert 0, "should not reach this point"
 
         maybe_compile_and_run._dont_inline_ = True
+        self.maybe_compile_and_run = maybe_compile_and_run
         self.execute_assembler = execute_assembler
-        self.entry_point_fns = (maybe_compile_and_run,
-                                EnterJitAssembler)
-        return self.entry_point_fns
+        return maybe_compile_and_run
 
     # ----------
 

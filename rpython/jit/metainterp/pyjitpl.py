@@ -2543,13 +2543,7 @@ class MetaInterp(object):
             elif box.type == history.REF: args.append(box.getref_base())
             elif box.type == history.FLOAT: args.append(box.getfloatstorage())
             else: assert 0
-        res = self.jitdriver_sd.warmstate.execute_assembler(loop_token, *args)
-        kind = getkind(lltype.typeOf(res))
-        if kind == history.VOID:  raise DoneWithThisFrameVoid()
-        if kind == history.INT:   raise DoneWithThisFrameInt(res)
-        if kind == history.REF:   raise DoneWithThisFrameRef(self.cpu, res)
-        if kind == history.FLOAT: raise DoneWithThisFrameFloat(res)
-        raise AssertionError(kind)
+        self.jitdriver_sd.warmstate.execute_assembler(loop_token, *args)
 
     def prepare_resume_from_failure(self, deadframe, inputargs, resumedescr):
         exception = self.cpu.grab_exc_value(deadframe)
