@@ -1349,3 +1349,33 @@ class TestAstBuilder:
         assert isinstance(expr.left, ast.Name)
         assert isinstance(expr.right, ast.Name)
         # imatmul is tested earlier search for @=
+    
+    def test_asyncFunctionDef(self):
+        mod = self.get_ast("async def f():\n await something()")
+        assert isinstance(mod, ast.Module)
+        body = mod.body
+        assert len(body) == 1
+        expr = body[0].value
+        assert expr.op == ast.MatMul
+        assert isinstance(expr.left, ast.Name)
+        assert isinstance(expr.right, ast.Name)
+    
+    def test_asyncAsyncFor(self):
+        mod = self.get_ast("async def f():\n async for e in i: 1\n else: 2")
+        assert isinstance(mod, ast.Module)
+        body = mod.body
+        assert len(body) == 1
+        expr = body[0].value
+        assert expr.op == ast.MatMul
+        assert isinstance(expr.left, ast.Name)
+        assert isinstance(expr.right, ast.Name)
+    
+    def test_asyncAsyncWith(self):
+        mod = self.get_ast("async def f():\n async with a as b: 1")
+        assert isinstance(mod, ast.Module)
+        body = mod.body
+        assert len(body) == 1
+        expr = body[0].value
+        assert expr.op == ast.MatMul
+        assert isinstance(expr.left, ast.Name)
+        assert isinstance(expr.right, ast.Name)
