@@ -353,7 +353,7 @@ exception", please note that: **We can't do anything without
 reproducing the bug ourselves**.  We cannot do anything with
 tracebacks from gdb, or core dumps.  This is not only because the
 standard PyPy is compiled without debug symbols.  The real reason is
-that a C-level traceback is usually of not help at all in PyPy.
+that a C-level traceback is usually of no help at all in PyPy.
 Debugging PyPy can be annoying.
 
 In more details:
