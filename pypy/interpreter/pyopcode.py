@@ -1402,7 +1402,21 @@ class __extend__(pyframe.PyFrame):
             self.popvalue()
             itemcount -= 1
         self.pushvalue(w_dict)
-        
+    
+    def GET_AWAITABLE(self):
+        pass
+    
+    def SETUP_ASYNC_WITH(self):
+        pass
+    
+    def BEFORE_ASYNC_WITH(self):
+        pass
+    
+    def GET_AITER(self):
+        pass
+    
+    def GET_ANEXT(self):
+        pass
         
 ### ____________________________________________________________ ###
 
