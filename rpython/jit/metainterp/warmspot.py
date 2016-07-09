@@ -834,7 +834,6 @@ class WarmRunnerDesc(object):
         #               more stuff
         #
         # to that:
-        # XXX there are too many exceptions all around...
         #
         #       def original_portal(..):
         #           stuff
@@ -843,20 +842,9 @@ class WarmRunnerDesc(object):
         #       def portal_runner(*args):
         #           while 1:
         #               try:
-        #                   try:
-        #                       return portal(*args)
-        #                   except EnterJitAssembler, e:
-        #                       while True:
-        #                           try:
-        #                               return e.execute()
-        #                           except EnterJitAssembler, e:
-        #                               continue
-        #               except ContinueRunningNormally, e:
-        #                   *args = *e.new_args
-        #               except DoneWithThisFrame, e:
-        #                   return e.return
-        #               except ExitFrameWithException, e:
-        #                   raise Exception, e.value
+        #                   return portal(*args)
+        #               except JitException, e:
+        #                   return handle_jitexception(e)
         #
         #       def portal(*args):
         #           while 1:
@@ -920,6 +908,7 @@ class WarmRunnerDesc(object):
                 return result
 
         def handle_jitexception(e):
+            # XXX there are too many exceptions all around...
             while True:
                 if isinstance(e, EnterJitAssembler):
                     try:

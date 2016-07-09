@@ -407,13 +407,13 @@ class WarmEnterState(object):
                     return None
             if result_type == history.INT:
                 if isinstance(fail_descr, compile.DoneWithThisFrameDescrInt):
-                    return fail_descr.get_result()
+                    return fail_descr.get_result(cpu, deadframe)
             if result_type == history.REF:
                 if isinstance(fail_descr, compile.DoneWithThisFrameDescrRef):
-                    return fail_descr.get_result()
+                    return fail_descr.get_result(cpu, deadframe)
             if result_type == history.FLOAT:
                 if isinstance(fail_descr, compile.DoneWithThisFrameDescrFloat):
-                    return fail_descr.get_result()
+                    return fail_descr.get_result(cpu, deadframe)
             #
             # General case
             fail_descr.handle_fail(deadframe, metainterp_sd, jitdriver_sd)
