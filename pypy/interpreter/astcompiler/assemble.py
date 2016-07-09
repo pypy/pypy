@@ -599,7 +599,7 @@ _static_opcode_stack_effects = {
 
     ops.PRINT_EXPR: -1,
 
-    ops.WITH_CLEANUP_START: 1,
+    ops.WITH_CLEANUP_START: -1,
     ops.WITH_CLEANUP_FINISH: -1,  # XXX Sometimes more
     ops.LOAD_BUILD_CLASS: 1,
     ops.POP_BLOCK: 0,
