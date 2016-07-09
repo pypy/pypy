@@ -615,8 +615,6 @@ class _DoneWithThisFrameDescr(AbstractFailDescr):
     final_descr = True
 
 class DoneWithThisFrameDescrVoid(_DoneWithThisFrameDescr):
-    def get_result(self, cpu, deadframe):
-        return None
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         assert jitdriver_sd.result_type == history.VOID
         raise jitexc.DoneWithThisFrameVoid()

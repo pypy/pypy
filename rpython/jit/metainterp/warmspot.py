@@ -900,52 +900,62 @@ class WarmRunnerDesc(object):
         EnterJitAssembler = jd._EnterJitAssembler
 
         def ll_portal_runner(*args):
-            start = True
-            while 1:
-                try:
+            try:
+                # maybe enter from the function's start.
+                maybe_compile_and_run(
+                    state.increment_function_threshold, *args)
+                #
+                # then run the normal portal function, i.e. the
+                # interpreter's main loop.  It might enter the jit
+                # via maybe_enter_jit(), which typically ends with
+                # handle_fail() being called, which raises on the
+                # following exceptions --- catched here, because we
+                # want to interrupt the whole interpreter loop.
+                return support.maybe_on_top_of_llinterp(rtyper,
+                                                  portal_ptr)(*args)
+            except jitexc.JitException as e:
+                result = handle_jitexception(e)
+                if result_kind != 'void':
+                    result = specialize_value(RESULT, result)
+                return result
+
+        def handle_jitexception(e):
+            while True:
+                if isinstance(e, EnterJitAssembler):
                     try:
-                        # maybe enter from the function's start.  Note that the
-                        # 'start' variable is constant-folded away because it's
-                        # the first statement in the loop.
-                        if start:
-                            maybe_compile_and_run(
-                                state.increment_function_threshold, *args)
-                        #
-                        # then run the normal portal function, i.e. the
-                        # interpreter's main loop.  It might enter the jit
-                        # via maybe_enter_jit(), which typically ends with
-                        # handle_fail() being called, which raises on the
-                        # following exceptions --- catched here, because we
-                        # want to interrupt the whole interpreter loop.
-                        return support.maybe_on_top_of_llinterp(rtyper,
-                                                          portal_ptr)(*args)
-                    except EnterJitAssembler as e:
-                        while True:
-                            try:
-                                return e.execute()
-                            except EnterJitAssembler as e:
-                                continue
-                except jitexc.ContinueRunningNormally as e:
+                        return e.execute()
+                    except jitexc.JitException as e:
+                        continue
+                #
+                if isinstance(e, jitexc.ContinueRunningNormally):
                     args = ()
                     for ARGTYPE, attrname, count in portalfunc_ARGS:
                         x = getattr(e, attrname)[count]
                         x = specialize_value(ARGTYPE, x)
                         args = args + (x,)
-                    start = False
-                    continue
-                except jitexc.DoneWithThisFrameVoid:
-                    assert result_kind == 'void'
-                    return
-                except jitexc.DoneWithThisFrameInt as e:
-                    assert result_kind == 'int'
-                    return specialize_value(RESULT, e.result)
-                except jitexc.DoneWithThisFrameRef as e:
-                    assert result_kind == 'ref'
-                    return specialize_value(RESULT, e.result)
-                except jitexc.DoneWithThisFrameFloat as e:
-                    assert result_kind == 'float'
-                    return specialize_value(RESULT, e.result)
-                except jitexc.ExitFrameWithExceptionRef as e:
+                    try:
+                        result = support.maybe_on_top_of_llinterp(rtyper,
+                                                            portal_ptr)(*args)
+                    except jitexc.JitException as e:
+                        continue
+                    if result_kind != 'void':
+                        result = unspecialize_value(result)
+                    return result
+                #
+                if result_kind == 'void':
+                    if isinstance(e, jitexc.DoneWithThisFrameVoid):
+                        return None
+                if result_kind == 'int':
+                    if isinstance(e, jitexc.DoneWithThisFrameInt):
+                        return e.result
+                if result_kind == 'ref':
+                    if isinstance(e, jitexc.DoneWithThisFrameRef):
+                        return e.result
+                if result_kind == 'float':
+                    if isinstance(e, jitexc.DoneWithThisFrameFloat):
+                        return e.result
+                #
+                if isinstance(e, jitexc.ExitFrameWithExceptionRef):
                     value = ts.cast_to_baseclass(e.value)
                     if not we_are_translated():
                         raise LLException(ts.get_typeptr(value), value)
@@ -953,40 +963,8 @@ class WarmRunnerDesc(object):
                         value = cast_base_ptr_to_instance(Exception, value)
                         assert value is not None
                         raise value
-
-        def handle_jitexception(e):
-            # XXX the bulk of this function is mostly a copy-paste from above
-            try:
-                raise e
-            except jitexc.ContinueRunningNormally as e:
-                args = ()
-                for ARGTYPE, attrname, count in portalfunc_ARGS:
-                    x = getattr(e, attrname)[count]
-                    x = specialize_value(ARGTYPE, x)
-                    args = args + (x,)
-                result = ll_portal_runner(*args)
-                if result_kind != 'void':
-                    result = unspecialize_value(result)
-                return result
-            except jitexc.DoneWithThisFrameVoid:
-                assert result_kind == 'void'
-                return
-            except jitexc.DoneWithThisFrameInt as e:
-                assert result_kind == 'int'
-                return e.result
-            except jitexc.DoneWithThisFrameRef as e:
-                assert result_kind == 'ref'
-                return e.result
-            except jitexc.DoneWithThisFrameFloat as e:
-                assert result_kind == 'float'
-                return e.result
-            except jitexc.ExitFrameWithExceptionRef as e:
-                value = ts.cast_to_baseclass(e.value)
-                if not we_are_translated():
-                    raise LLException(ts.get_typeptr(value), value)
-                else:
-                    value = cast_base_ptr_to_instance(Exception, value)
-                    raise value
+                #
+                raise AssertionError("all cases should have been handled")
 
         jd._ll_portal_runner = ll_portal_runner # for debugging
         jd.portal_runner_ptr = self.helper_func(jd._PTR_PORTAL_FUNCTYPE,
