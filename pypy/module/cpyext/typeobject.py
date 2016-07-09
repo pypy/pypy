@@ -794,27 +794,15 @@ def _type_realize(space, py_obj):
         # While this is a hack, cpython does it as well.
         w_metatype = space.w_type
 
-    base = py_type.c_tp_base
-    bases_set = False 
-    if base and not space.is_w(from_ref(space, base), space.w_int):
-        # inheriting tp_as_* slots
-        # set these now so the functions in add_operators() will have offsets
-        # XXX why is int special (inifinite recursion if these are set on
-        #     a subclass of int, i.e. Enum in test_int_subtype in test_intobject.py)
-        if not py_type.c_tp_as_number: py_type.c_tp_as_number = base.c_tp_as_number
-        if not py_type.c_tp_as_sequence: py_type.c_tp_as_sequence = base.c_tp_as_sequence
-        if not py_type.c_tp_as_mapping: py_type.c_tp_as_mapping = base.c_tp_as_mapping
-        if not py_type.c_tp_as_buffer: py_type.c_tp_as_buffer = base.c_tp_as_buffer
-        bases_set = True 
-
     w_obj = space.allocate_instance(W_PyCTypeObject, w_metatype)
     track_reference(space, py_obj, w_obj)
     w_obj.__init__(space, py_type)
     w_obj.ready()
 
     finish_type_2(space, py_type, w_obj)
-    if base and not bases_set:
-        # inheriting tp_as_* slots
+    # inheriting tp_as_* slots
+    base = py_type.c_tp_base
+    if base:
         if not py_type.c_tp_as_number: py_type.c_tp_as_number = base.c_tp_as_number
         if not py_type.c_tp_as_sequence: py_type.c_tp_as_sequence = base.c_tp_as_sequence
         if not py_type.c_tp_as_mapping: py_type.c_tp_as_mapping = base.c_tp_as_mapping
