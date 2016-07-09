@@ -78,13 +78,26 @@ class AppTestArrayModule(AppTestCpythonExtensionBase):
         rra = pickle.loads(s) # rra is arr backwards
         #assert arr.tolist() == rra.tolist()
 
-    def test_binop_mul_impl(self):
+    def test_subclass(self):
         # check that rmul is called
         module = self.import_module(name='array')
         arr = module.array('i', [2])
         res = [1, 2, 3] * arr
         assert res == [1, 2, 3, 1, 2, 3]
+
+        arr = module.arraybase('i', [2])
+        res = [1, 2, 3] * arr
+        assert res == [1, 2, 3, 1, 2, 3]
+
+        # switch nb_multiply on Arraytype, 
+        # switches BaseArraytpye as well since tp_as_number is a reference
         module.switch_multiply()
+
+        arr = module.array('i', [2])
+        res = [1, 2, 3] * arr
+        assert res == [2, 4, 6]
+
+        arr = module.arraybase('i', [2])
         res = [1, 2, 3] * arr
         assert res == [2, 4, 6]
         
