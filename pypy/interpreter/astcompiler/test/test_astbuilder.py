@@ -1359,22 +1359,34 @@ class TestAstBuilder:
         assert func.id == 'something'
         assert func.ctx == ast.Load
     
-    def test_asyncAsyncFor(self):
+    def test_asyncFor(self):
         mod = self.get_ast("async def f():\n async for e in i: 1\n else: 2")
         assert isinstance(mod, ast.Module)
-        body = mod.body
-        assert len(body) == 1
-        expr = body[0].value
-        assert expr.op == ast.MatMul
-        assert isinstance(expr.left, ast.Name)
-        assert isinstance(expr.right, ast.Name)
+        assert len(mod.body) == 1
+        asyncdef = mod.body[0]
+        assert isinstance(asyncdef, ast.AsyncFunctionDef)
+        assert asyncdef.name == 'f'
+        assert asyncdef.args.args == None
+        assert len(asyncdef.body) == 1
+        asyncfor = asyncdef.body[0]
+        assert isinstance(asyncfor, ast.AsyncFor)
+        assert isinstance(asyncfor.target, ast.Name)
+        assert isinstance(asyncfor.iter, ast.Name)
+        assert len(asyncfor.body) == 1
+        assert isinstance(asyncfor.body[0], ast.Expr)
+        assert isinstance(asyncfor.body[0].value, ast.Num)
+        assert len(asyncfor.orelse) == 1
+        assert isinstance(asyncfor.orelse[0], ast.Expr)
+        assert isinstance(asyncfor.orelse[0].value, ast.Num)
     
-    def test_asyncAsyncWith(self):
+    def test_asyncWith(self):
         mod = self.get_ast("async def f():\n async with a as b: 1")
         assert isinstance(mod, ast.Module)
-        body = mod.body
-        assert len(body) == 1
-        expr = body[0].value
-        assert expr.op == ast.MatMul
-        assert isinstance(expr.left, ast.Name)
-        assert isinstance(expr.right, ast.Name)
+        assert len(mod.body) == 1
+        asyncdef = mod.body[0]
+        assert isinstance(asyncdef, ast.AsyncFunctionDef)
+        assert asyncdef.name == 'f'
+        assert asyncdef.args.args == None
+        assert len(asyncdef.body) == 1
+        expr = asyncdef.body[0]
+        assert isinstance(expr, ast.AsyncWith)
