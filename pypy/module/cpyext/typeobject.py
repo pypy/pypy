@@ -717,8 +717,6 @@ def type_attach(space, py_obj, w_type):
 
 def py_type_ready(space, pto):
     if pto.c_tp_flags & Py_TPFLAGS_READY:
-        name = rffi.charp2str(pto.c_tp_name)
-        print 'py_type_ready',name, 'but PyTP_FLAGS_READY is set'
         return
     type_realize(space, rffi.cast(PyObject, pto))
 

@@ -2147,8 +2147,6 @@ _reconstruct(PyTypeObject *type, PyObject *args)
 static PyObject *
 switch_multiply(void)
 {
-    fprintf(stdout, "switching nb_multiply from %p to %p\n", 
-        Arraytype.tp_as_number->nb_multiply, array_base_multiply);
     Arraytype.tp_as_number->nb_multiply = array_base_multiply;
     Py_RETURN_NONE;
 };
