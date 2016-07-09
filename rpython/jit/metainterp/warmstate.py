@@ -348,6 +348,7 @@ class WarmEnterState(object):
 
     def make_entry_point(self):
         "NOT_RPYTHON"
+        from rpython.jit.metainterp import compile
         if hasattr(self, 'entry_point_fns'):
             return self.entry_point_fns
 
@@ -378,18 +379,7 @@ class WarmEnterState(object):
         func_execute_token = self.cpu.make_execute_token(*ARGS)
         cpu = self.cpu
         jitcounter = self.warmrunnerdesc.jitcounter
-
         result_type = jitdriver_sd.result_type
-        if result_type == history.VOID:
-            _DoneWithThisFrameCls = jitexc.DoneWithThisFrameVoid
-        elif result_type == history.INT:
-            _DoneWithThisFrameCls = jitexc.DoneWithThisFrameInt
-        elif result_type == history.REF:
-            _DoneWithThisFrameCls = jitexc.DoneWithThisFrameRef
-        elif result_type == history.FLOAT:
-            _DoneWithThisFrameCls = jitexc.DoneWithThisFrameFloat
-        else:
-            raise AssertionError(result_type)
 
         def execute_assembler(loop_token, *args):
             # Call the backend to run the 'looptoken' with the given
@@ -410,13 +400,24 @@ class WarmEnterState(object):
             #
             # Handle the failure
             fail_descr = cpu.get_latest_descr(deadframe)
-            if isinstance(fail_descr, _DoneWithThisFrameCls):
-                # A fast path to avoid raising and immediately catching
-                # a DoneWithThisFrame exception
-                return fail_descr.get_result(cpu, deadframe)
-            else:
-                fail_descr.handle_fail(deadframe, metainterp_sd, jitdriver_sd)
-                assert 0, "should have raised"
+            # First, a fast path to avoid raising and immediately catching
+            # a DoneWithThisFrame exception
+            if result_type == history.VOID:
+                if isinstance(fail_descr, compile.DoneWithThisFrameDescrVoid):
+                    return None
+            if result_type == history.INT:
+                if isinstance(fail_descr, compile.DoneWithThisFrameDescrInt):
+                    return fail_descr.get_result()
+            if result_type == history.REF:
+                if isinstance(fail_descr, compile.DoneWithThisFrameDescrRef):
+                    return fail_descr.get_result()
+            if result_type == history.FLOAT:
+                if isinstance(fail_descr, compile.DoneWithThisFrameDescrFloat):
+                    return fail_descr.get_result()
+            #
+            # General case
+            fail_descr.handle_fail(deadframe, metainterp_sd, jitdriver_sd)
+            assert 0, "should have raised"
 
         def bound_reached(hash, cell, *args):
             if not confirm_enter_jit(*args):
