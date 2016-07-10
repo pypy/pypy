@@ -65,7 +65,7 @@ class TestReplayingRaw(InteractiveTests):
             revdb.stop_point()
             return 9
 
-        compile(cls, main, backendopt=False)
+        compile(cls, main, backendopt=False, shared=True)
         run(cls, '')
         rdb = fetch_rdb(cls, [cls.exename])
         #assert len(rdb.rdb_struct) >= 4

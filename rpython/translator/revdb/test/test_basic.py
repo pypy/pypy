@@ -97,12 +97,13 @@ class RDB(object):
 
 
 def compile(self, entry_point, backendopt=True,
-            withsmallfuncsets=None):
+            withsmallfuncsets=None, shared=False):
     t = Translation(entry_point, None, gc="boehm")
     self.t = t
     t.set_backend_extra_options(c_debug_defines=True)
     t.config.translation.reverse_debugger = True
     t.config.translation.lldebug0 = True
+    t.config.translation.shared = shared
     if withsmallfuncsets is not None:
         t.config.translation.withsmallfuncsets = withsmallfuncsets
     if not backendopt:
