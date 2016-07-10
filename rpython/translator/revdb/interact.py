@@ -376,7 +376,8 @@ class RevDebugControl(object):
             from pygments import highlight
             from pygments.lexers import PythonLexer
             from pygments.formatters import TerminalFormatter
-        except ImportError:
+        except ImportError as e:
+            print >> sys.stderr, 'ImportError: %s' % (e,)
             return None
         #
         lexer = PythonLexer()
