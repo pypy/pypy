@@ -65,7 +65,8 @@ class ReplayProcess(object):
 
     def __init__(self, pid, control_socket,
                  breakpoints_cache=AllBreakpoints(),
-                 printed_objects=frozenset()):
+                 printed_objects=frozenset(),
+                 linecacheoutput=None):
         self.pid = pid
         self.control_socket = control_socket
         self.tainted = False
@@ -75,6 +76,7 @@ class ReplayProcess(object):
         #     either already discovered in this child
         #     (if uid < currently_created_objects), or that will
         #     automatically be discovered when we move forward
+        self.linecacheoutput = linecacheoutput or linecache.getline
 
     def _recv_all(self, size):
         pieces = []
@@ -134,7 +136,8 @@ class ReplayProcess(object):
         self.expect_ready()
         other = ReplayProcess(child_pid, s1,
                               breakpoints_cache=self.breakpoints_cache,
-                              printed_objects=self.printed_objects)
+                              printed_objects=self.printed_objects,
+                              linecacheoutput=self.linecacheoutput)
         other.expect_ready()
         #print >> sys.stderr, 'CLONED', self.current_time
         return other
@@ -184,7 +187,7 @@ class ReplayProcess(object):
                 self.update_times(msg)
                 break
             elif msg.cmd == ANSWER_LINECACHE:
-                line = linecache.getline(msg.extra, msg.arg1)
+                line = self.linecacheoutput(msg.extra, msg.arg1)
                 if line == '':
                     line = '?'
                 if msg.arg2:    # strip?
@@ -215,13 +218,14 @@ class ReplayProcessGroup(object):
     STEP_RATIO = 0.25           # subprocess n is between subprocess n-1
                                 #   and the end, at this fraction of interval
 
-    def __init__(self, executable, revdb_log_filename):
+    def __init__(self, executable, revdb_log_filename, linecacheoutput=None):
         s1, s2 = socket.socketpair()
         initial_subproc = subprocess.Popen(
             [executable, '--revdb-replay', revdb_log_filename,
              str(s2.fileno())])
         s2.close()
-        child = ReplayProcess(initial_subproc.pid, s1)
+        child = ReplayProcess(initial_subproc.pid, s1,
+                              linecacheoutput=linecacheoutput)
         msg = child.expect(ANSWER_INIT, INIT_VERSION_NUMBER, Ellipsis)
         self.total_stop_points = msg.arg2
         if self.total_stop_points == 0:

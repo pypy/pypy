@@ -10,11 +10,14 @@ if __name__ == '__main__':
     parser.add_argument('-x', '--executable', dest='executable',
                         help='name of the executable file '
                              'that recorded the log')
+    parser.add_argument('-c', '--color', dest='color',
+                        help='colorize source code (dark,light,off)')
     options = parser.parse_args()
 
     sys.path.insert(0, os.path.abspath(
         os.path.join(__file__, '..', '..', '..', '..')))
 
     from rpython.translator.revdb.interact import RevDebugControl
-    ctrl = RevDebugControl(options.log, executable=options.executable)
+    ctrl = RevDebugControl(options.log, executable=options.executable,
+                           pygments_background=options.color)
     ctrl.interact()

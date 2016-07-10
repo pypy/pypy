@@ -1,6 +1,6 @@
 import sys, os, re
 import subprocess, socket
-import traceback
+import traceback, linecache
 from contextlib import contextmanager
 try:
     import readline
@@ -16,7 +16,8 @@ r_dollar_num = re.compile(r"\$(\d+)\b")
 
 class RevDebugControl(object):
 
-    def __init__(self, revdb_log_filename, executable=None):
+    def __init__(self, revdb_log_filename, executable=None,
+                 pygments_background=None):
         with open(revdb_log_filename, 'rb') as f:
             header = f.readline()
         assert header.endswith('\n')
@@ -28,7 +29,9 @@ class RevDebugControl(object):
             executable = fields[1]
         if not os.path.isfile(executable):
             raise ValueError("executable %r not found" % (executable,))
-        self.pgroup = ReplayProcessGroup(executable, revdb_log_filename)
+        linecacheoutput = self.getlinecacheoutput(pygments_background)
+        self.pgroup = ReplayProcessGroup(executable, revdb_log_filename,
+                                         linecacheoutput)
         self.print_extra_pending_info = None
 
     def interact(self):
@@ -365,3 +368,21 @@ class RevDebugControl(object):
         #
         self._bp_new(argument, 'W', compiled_code, nids=nids)
         self.pgroup.update_watch_values()
+
+    def getlinecacheoutput(self, pygments_background):
+        if not pygments_background or pygments_background == 'off':
+            return
+        try:
+            from pygments import highlight
+            from pygments.lexers import PythonLexer
+            from pygments.formatters import TerminalFormatter
+        except ImportError:
+            return None
+        #
+        lexer = PythonLexer()
+        fmt = TerminalFormatter(bg=pygments_background)
+        #
+        def linecacheoutput(filename, lineno):
+            line = linecache.getline(filename, lineno)
+            return highlight(line, lexer, fmt)
+        return linecacheoutput
