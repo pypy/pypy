@@ -388,7 +388,6 @@ class SymtableBuilder(ast.GenericASTVisitor):
         func.args.walkabout(self)
         self.visit_sequence(func.body)
         self.pop_scope()
-    
 
     def visit_Return(self, ret):
         self.scope.note_return(ret)

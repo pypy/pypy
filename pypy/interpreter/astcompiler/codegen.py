@@ -387,6 +387,30 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             for i in range(len(func.decorator_list)):
                 self.emit_op_arg(ops.CALL_FUNCTION, 1)
         self.name_op(func.name, ast.Store)
+    
+    def visit_AsyncFunctionDef(self, func):
+        self.update_position(func.lineno, True)
+        # Load decorators first, but apply them after the function is created.
+        self.visit_sequence(func.decorator_list)
+        args = func.args
+        assert isinstance(args, ast.arguments)
+        kw_default_count = 0
+        if args.kwonlyargs:
+            kw_default_count = self._visit_kwonlydefaults(args)
+        self.visit_sequence(args.defaults)
+        num_annotations = self._visit_annotations(func, args, func.returns)
+        num_defaults = len(args.defaults) if args.defaults is not None else 0
+        oparg = num_defaults
+        oparg |= kw_default_count << 8
+        oparg |= num_annotations << 16
+        code, qualname = self.sub_scope(AsyncFunctionCodeGenerator, func.name, func,
+                                        func.lineno)
+        self._make_function(code, oparg, qualname=qualname)
+        # Apply decorators.
+        if func.decorator_list:
+            for i in range(len(func.decorator_list)):
+                self.emit_op_arg(ops.CALL_FUNCTION, 1)
+        self.name_op(func.name, ast.Store)
 
     def visit_Lambda(self, lam):
         self.update_position(lam.lineno)
@@ -1539,6 +1563,21 @@ class FunctionCodeGenerator(AbstractFunctionCodeGenerator):
             for i in range(start, len(func.body)):
                 func.body[i].walkabout(self)
 
+class AsyncFunctionCodeGenerator(AbstractFunctionCodeGenerator):
+
+    def _compile(self, func):
+        assert isinstance(func, ast.AsyncFunctionDef)
+        has_docstring = self.ensure_docstring_constant(func.body)
+        start = 1 if has_docstring else 0
+        args = func.args
+        assert isinstance(args, ast.arguments)
+        if args.args:
+            self.argcount = len(args.args)
+        if args.kwonlyargs:
+            self.kwonlyargcount = len(args.kwonlyargs)
+        if func.body:
+            for i in range(start, len(func.body)):
+                func.body[i].walkabout(self)
 
 class LambdaCodeGenerator(AbstractFunctionCodeGenerator):
 
