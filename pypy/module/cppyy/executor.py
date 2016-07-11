@@ -314,7 +314,7 @@ def _build_basic_executors():
         (bool,            capi.c_call_b,   ("bool",)),
         (rffi.CHAR,       capi.c_call_c,   ("char", "unsigned char")),
         (rffi.SHORT,      capi.c_call_h,   ("short", "short int", "unsigned short", "unsigned short int")),
-        (rffi.INT,        capi.c_call_i,   ("int",)),
+        (rffi.INT,        capi.c_call_i,   ("int", "internal_enum_type_t")),
         (rffi.UINT,       capi.c_call_l,   ("unsigned", "unsigned int")),
         (rffi.LONG,       capi.c_call_l,   ("long", "long int")),
         (rffi.ULONG,      capi.c_call_l,   ("unsigned long", "unsigned long int")),

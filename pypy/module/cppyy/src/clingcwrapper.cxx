@@ -558,6 +558,7 @@ Bool_t Cppyy::IsAbstract( TCppType_t klass ) {
 }
 
 Bool_t Cppyy::IsEnum( const std::string& type_name ) {
+   if ( type_name.empty() ) return kFALSE;
    return gInterpreter->ClassInfo_IsEnum( type_name.c_str() );
 }
 
@@ -1068,7 +1069,10 @@ char* cppyy_scope_name(cppyy_scope_t parent, int iscope) {
 }
 
 char* cppyy_resolve_name(const char* cppitem_name) {
-    return cppstring_to_cstring(Cppyy::ResolveName(cppitem_name));
+    std::string str = cppstring_to_cstring(Cppyy::ResolveName(cppitem_name));
+    if (Cppyy::IsEnum(str))
+        return cppstring_to_cstring("internal_enum_type_t");
+    return cppstring_to_cstring(str);
 }
 
 cppyy_scope_t cppyy_get_scope(const char* scope_name) {

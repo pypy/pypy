@@ -446,7 +446,7 @@ def _init_pythonify():
     # install a type for enums to refer to
     # TODO: this is correct for C++98, not for C++11 and in general there will
     # be the same issue for all typedef'd builtin types
-    setattr(gbl, 'unsigned int', int)
+    setattr(gbl, 'internal_enum_type_t', int)
 
     # install nullptr as a unique reference
     setattr(gbl, 'nullptr', cppyy._get_nullptr())

@@ -719,8 +719,8 @@ def _build_basic_converters():
     "NOT_RPYTHON"
     # signed types (use strtoll in setting of default in __init__)
     type_info = (
-        (rffi.SHORT,      ("short", "short int"),      'h'),
-        (rffi.INT,        ("int",),                    'i'),
+        (rffi.SHORT,      ("short", "short int"),          'h'),
+        (rffi.INT,        ("int", "internal_enum_type_t"), 'i'),
     )
 
     # constref converters exist only b/c the stubs take constref by value, whereas
