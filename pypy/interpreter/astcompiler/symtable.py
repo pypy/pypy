@@ -89,10 +89,15 @@ class Scope(object):
         raise SyntaxError("'yield' outside function", yield_node.lineno,
                           yield_node.col_offset)
     
-    def note_yieldFrom(self, yield_node):
+    def note_yieldFrom(self, yieldFrom_node):
         """Called when a yield from is found."""
-        raise SyntaxError("'yield' outside function", yield_node.lineno,
-                          yield_node.col_offset)
+        raise SyntaxError("'yield' outside function", yieldFrom_node.lineno,
+                          yieldFrom_node.col_offset)
+    
+    def note_await(self, await_node):
+        """Called when await is found."""
+        raise SyntaxError("'await' outside function", await_node.lineno,
+                          await_node.col_offset)
 
     def note_return(self, ret):
         """Called when a return statement is found."""
@@ -229,6 +234,10 @@ class ModuleScope(Scope):
     def __init__(self):
         Scope.__init__(self, "top")
 
+    def note_await(self, await_node):
+        raise SyntaxError("'await' outside async function", await_node.lineno,
+                          await_node.col_offset)
+
 
 class FunctionScope(Scope):
 
@@ -259,6 +268,10 @@ class FunctionScope(Scope):
         self.is_generator = True
         if self._in_try_body_depth > 0:
             self.has_yield_inside_try = True
+            
+    def note_await(self, await_node):
+        raise SyntaxError("'await' outside async function", await_node.lineno,
+                          await_node.col_offset)
 
     def note_return(self, ret):
         if ret.value:
@@ -304,6 +317,10 @@ class AsyncFunctionScope(FunctionScope):
     def note_yieldFrom(self, yield_node):
         raise SyntaxError("'yield from' inside async function", yield_node.lineno,
                           yield_node.col_offset)
+        
+    def note_await(self, await_node):
+        pass
+
 
 class ClassScope(Scope):
 
@@ -410,6 +427,10 @@ class SymtableBuilder(ast.GenericASTVisitor):
         func.args.walkabout(self)
         self.visit_sequence(func.body)
         self.pop_scope()
+    
+    def visit_Await(self, aw):
+        self.scope.note_await(aw)
+        ast.GenericASTVisitor.visit_Await(self, aw)
 
     def visit_Return(self, ret):
         self.scope.note_return(ret)
