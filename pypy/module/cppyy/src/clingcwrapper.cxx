@@ -1240,9 +1240,39 @@ cppyy_index_t cppyy_method_index_at(cppyy_scope_t scope, int imeth) {
 }
 
 cppyy_index_t* cppyy_method_indices_from_name(cppyy_scope_t scope, const char* name){
-//NEED TO DO:
-    return (cppyy_index_t*)0;
-//    return (cppyy_index_t*)Cppyy::GetMethodsFromName(scope, name);
+    std::vector<cppyy_index_t> result;
+    TClassRef& cr = type_from_handle(scope);
+    if (cr.GetClass()) {
+        gInterpreter->UpdateListOfMethods(cr.GetClass());
+        int imeth = 0;
+        TFunction* func;
+        TIter next(cr->GetListOfMethods());
+        while ((func = (TFunction*)next())) {
+            if (strcmp(name, func->GetName()) == 0) {
+                if (func->Property() & Cppyy::IsPublicMethod((cppyy_method_t)func))
+                    result.push_back((cppyy_index_t)imeth);
+            }
+            ++imeth;
+        }
+    } else if (scope == (cppyy_scope_t)GLOBAL_HANDLE) {
+        TCollection* funcs = gROOT->GetListOfGlobalFunctions(kTRUE);
+        TFunction* func = 0;
+        TIter ifunc(funcs);
+        while ((func = (TFunction*)ifunc.Next())) {
+            if (strcmp(name, func->GetName()) == 0) {
+                g_globalfuncs.push_back(*func);
+                result.push_back((cppyy_index_t)func);
+            }
+        }
+    }
+
+    if (result.empty())
+        return (cppyy_index_t*)0;
+
+    cppyy_index_t* llresult = (cppyy_index_t*)malloc(sizeof(cppyy_index_t)*(result.size()+1));
+    for (int i = 0; i < (int)result.size(); ++i) llresult[i] = result[i];
+    llresult[result.size()] = -1;
+    return llresult;
 }
 
 char* cppyy_method_name(cppyy_scope_t scope, cppyy_index_t idx) {
