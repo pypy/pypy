@@ -88,6 +88,11 @@ class Scope(object):
         """Called when a yield is found."""
         raise SyntaxError("'yield' outside function", yield_node.lineno,
                           yield_node.col_offset)
+    
+    def note_yieldFrom(self, yield_node):
+        """Called when a yield from is found."""
+        raise SyntaxError("'yield' outside function", yield_node.lineno,
+                          yield_node.col_offset)
 
     def note_return(self, ret):
         """Called when a return statement is found."""
@@ -249,6 +254,11 @@ class FunctionScope(Scope):
         self.is_generator = True
         if self._in_try_body_depth > 0:
             self.has_yield_inside_try = True
+    
+    def note_yieldFrom(self, yield_node):
+        self.is_generator = True
+        if self._in_try_body_depth > 0:
+            self.has_yield_inside_try = True
 
     def note_return(self, ret):
         if ret.value:
@@ -288,8 +298,11 @@ class AsyncFunctionScope(FunctionScope):
         FunctionScope.__init__(self, name, lineno, col_offset)
 
     def note_yield(self, yield_node):
-        """Called when a yield is found."""
         raise SyntaxError("'yield' inside async function", yield_node.lineno,
+                          yield_node.col_offset)
+
+    def note_yieldFrom(self, yield_node):
+        raise SyntaxError("'yield from' inside async function", yield_node.lineno,
                           yield_node.col_offset)
 
 class ClassScope(Scope):
@@ -448,7 +461,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
         ast.GenericASTVisitor.visit_Yield(self, yie)
 
     def visit_YieldFrom(self, yfr):
-        self.scope.note_yield(yfr)
+        self.scope.note_yieldFrom(yfr)
         ast.GenericASTVisitor.visit_YieldFrom(self, yfr)
 
     def visit_Global(self, glob):
