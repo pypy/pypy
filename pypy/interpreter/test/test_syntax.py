@@ -78,6 +78,27 @@ INVALID = splitcases("""
 
     def f():
         (i for i in x) = 10
+    
+    async def foo(a=await something()):
+        pass
+    
+    async def foo():
+        [i async for i in els]
+    
+    async def foo():
+        await
+    
+    def foo():
+        await something()
+    
+    async def foo():
+        yield
+    
+    async def foo():
+        yield from []
+    
+    async def foo():
+        await await fut
 
 """)
 
