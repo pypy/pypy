@@ -42,6 +42,11 @@ class STMThreadLocals(OSThreadLocals):
             interval = space.actionflag.getcheckinterval()
             rstm.set_transaction_length(interval / 10000.0)
 
+    def _set_ec(self, ec, register_in_valuedict=True):
+        # must turn inevitable, for raw_thread_local.set(ec)
+        rstm.become_inevitable()
+        OSThreadLocals._set_ec(self, ec, register_in_valuedict)
+
     def leave_thread(self, space):
         # must turn inevitable, for raw_thread_local.set(None)
         rstm.become_inevitable()
