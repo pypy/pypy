@@ -282,6 +282,15 @@ class FunctionScope(Scope):
         if (self.has_free or self.child_has_free) and not self.optimized:
             raise AssertionError("unknown reason for unoptimization")
 
+class AsyncFunctionScope(FunctionScope):
+
+    def __init__(self, name, lineno, col_offset):
+        FunctionScope.__init__(self, name, lineno, col_offset)
+
+    def note_yield(self, yield_node):
+        """Called when a yield is found."""
+        raise SyntaxError("'yield' inside async function", yield_node.lineno,
+                          yield_node.col_offset)
 
 class ClassScope(Scope):
 
@@ -383,7 +392,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
         self.visit_kwonlydefaults(args.kw_defaults)
         self._visit_annotations(func)
         self.visit_sequence(func.decorator_list)
-        new_scope = FunctionScope(func.name, func.lineno, func.col_offset)
+        new_scope = AsyncFunctionScope(func.name, func.lineno, func.col_offset)
         self.push_scope(new_scope, func)
         func.args.walkabout(self)
         self.visit_sequence(func.body)
