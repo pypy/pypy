@@ -162,6 +162,7 @@ class State(object):
 
             # scope reflection information
             'is_namespace'             : ([c_scope],                  c_int),
+            'is_abstract'              : ([c_type],                   c_int),
             'is_enum'                  : ([c_ccharp],                 c_int),
 
             # type/class reflection information
@@ -367,6 +368,8 @@ def c_function_arg_typeoffset(space):
 # scope reflection information -----------------------------------------------
 def c_is_namespace(space, scope):
     return space.bool_w(call_capi(space, 'is_namespace', [_Arg(h=scope)]))
+def c_is_abstract(space, scope):
+    return space.bool_w(call_capi(space, 'is_abstract', [_Arg(h=cpptype)]))
 def c_is_enum(space, name):
     return space.bool_w(call_capi(space, 'is_enum', [_Arg(s=name)]))
 

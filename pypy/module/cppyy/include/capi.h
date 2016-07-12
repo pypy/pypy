@@ -85,6 +85,8 @@ extern "C" {
     RPY_EXTERN
     int cppyy_is_namespace(cppyy_scope_t scope);
     RPY_EXTERN
+    int cppyy_is_abstract(cppyy_type_t type);
+    RPY_EXTERN
     int cppyy_is_enum(const char* type_name);
 
     /* class reflection information ------------------------------------------- */

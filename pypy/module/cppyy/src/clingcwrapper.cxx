@@ -567,16 +567,18 @@ Bool_t Cppyy::IsEnum( const std::string& type_name ) {
 // class reflection information ----------------------------------------------
 std::string Cppyy::GetFinalName( TCppType_t klass )
 {
-   if ( klass == GLOBAL_HANDLE )    // due to CLING WORKAROUND in InitConverters_
+   if ( klass == GLOBAL_HANDLE )
       return "";
-   // TODO: either this or GetScopedFinalName is wrong
    TClassRef& cr = type_from_handle( klass );
-   return cr->GetName();
+   std::string clName = cr->GetName();
+   std::string::size_type pos = clName.substr( 0, clName.find( '<' ) ).rfind( "::" );
+   if ( pos != std::string::npos )
+      return clName.substr( pos + 2, std::string::npos );
+   return clName;
 }
 
 std::string Cppyy::GetScopedFinalName( TCppType_t klass )
 {
-   // TODO: either this or GetFinalName is wrong
    TClassRef& cr = type_from_handle( klass );
    return cr->GetName();
 }
@@ -1196,6 +1198,10 @@ size_t cppyy_function_arg_typeoffset(){
 /* scope reflection information ------------------------------------------- */
 int cppyy_is_namespace(cppyy_scope_t scope) {
     return (int)Cppyy::IsNamespace(scope);
+}
+
+int cppyy_is_abstract(cppyy_type_t type){
+    return (int)Cppyy::IsAbstract(type);
 }
 
 int cppyy_is_enum(const char* type_name){

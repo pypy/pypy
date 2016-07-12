@@ -238,6 +238,13 @@ _c_is_namespace = rffi.llexternal(
     compilation_info=backend.eci)
 def c_is_namespace(space, scope):
     return _c_is_namespace(scope)
+_c_is_abstract = rffi.llexternal(
+    "cppyy_is_abstract",
+    [C_SCOPE], rffi.INT,
+    releasegil=ts_reflect,
+    compilation_info=backend.eci)
+def c_is_abstract(space, cpptype):
+    return _c_is_abstract(cpptype)
 _c_is_enum = rffi.llexternal(
     "cppyy_is_enum",
     [rffi.CCHARP], rffi.INT,

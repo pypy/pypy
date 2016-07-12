@@ -1078,16 +1078,13 @@ class W_CPPInstance(W_Root):
         return None
 
     def instance__init__(self, args_w):
-        try:
-            constructor_overload = self.cppclass.get_overload(self.cppclass.name)
-            constructor_overload.call(self, args_w)
-        except OperationError as e:
-            if not e.match(self.space, self.space.w_AttributeError):
-                raise
+        if capi.c_is_abstract(self.space, self.cppclass.handle):
             raise oefmt(self.space.w_TypeError,
                         "cannot instantiate abstract class '%s'",
                         self.cppclass.name)
-
+        constructor_overload = self.cppclass.get_overload(self.cppclass.name)
+        constructor_overload.call(self, args_w)
+ 
     def instance__eq__(self, w_other):
         # special case: if other is None, compare pointer-style
         if self.space.is_w(w_other, self.space.w_None):
