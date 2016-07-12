@@ -216,7 +216,7 @@ class State(object):
             'strtoull'                 : ([c_ccharp],                 c_ullong),
             'free'                     : ([c_voidp],                  c_void),
 
-            'charp2stdstring'          : ([c_ccharp],                 c_object),
+            'charp2stdstring'          : ([c_ccharp, c_size_t],       c_object),
             'stdstring2stdstring'      : ([c_object],                 c_object),
         }
 
@@ -517,8 +517,9 @@ def charp2str_free(space, cdata):
     c_free(space, rffi.cast(rffi.VOIDP, charp))
     return pystr
 
-def c_charp2stdstring(space, svalue):
-    return _cdata_to_cobject(space, call_capi(space, 'charp2stdstring', [_Arg(s=svalue)]))
+def c_charp2stdstring(space, svalue, sz):
+    return _cdata_to_cobject(
+        space, call_capi(space, 'charp2stdstring', [_Arg(s=svalue), _Arg(l=sz)]))
 def c_stdstring2stdstring(space, cppobject):
     return _cdata_to_cobject(space, call_capi(space, 'stdstring2stdstring', [_Arg(h=cppobject)]))
 

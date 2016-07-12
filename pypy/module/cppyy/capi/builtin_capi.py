@@ -541,12 +541,12 @@ def charp2str_free(space, charp):
 
 _c_charp2stdstring = rffi.llexternal(
     "cppyy_charp2stdstring",
-    [rffi.CCHARP], C_OBJECT,
+    [rffi.CCHARP, rffi.SIZE_T], C_OBJECT,
     releasegil=ts_helper,
     compilation_info=backend.eci)
-def c_charp2stdstring(space, svalue):
+def c_charp2stdstring(space, svalue, sz):
     charp = rffi.str2charp(svalue)
-    result = _c_charp2stdstring(charp)
+    result = _c_charp2stdstring(charp, sz)
     rffi.free_charp(charp)
     return result
 _c_stdstring2stdstring = rffi.llexternal(

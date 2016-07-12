@@ -177,7 +177,7 @@ extern "C" {
     void cppyy_free(void* ptr);
 
     RPY_EXTERN
-    cppyy_object_t cppyy_charp2stdstring(const char* str);
+    cppyy_object_t cppyy_charp2stdstring(const char* str, size_t sz);
     RPY_EXTERN
     cppyy_object_t cppyy_stdstring2stdstring(cppyy_object_t ptr);
 

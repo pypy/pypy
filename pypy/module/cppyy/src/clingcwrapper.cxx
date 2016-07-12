@@ -1405,8 +1405,8 @@ void cppyy_free(void* ptr) {
     free(ptr);
 }
 
-cppyy_object_t cppyy_charp2stdstring(const char* str){
-    return (cppyy_object_t)new std::string(str);
+cppyy_object_t cppyy_charp2stdstring(const char* str, size_t sz){
+    return (cppyy_object_t)new std::string(str, sz);
 }
 
 cppyy_object_t cppyy_stdstring2stdstring(cppyy_object_t ptr){

@@ -563,7 +563,7 @@ class StdStringConverter(InstanceConverter):
             arg = InstanceConverter._unwrap_object(self, space, w_obj)
             return capi.c_stdstring2stdstring(space, arg)
         else:
-            return capi.c_charp2stdstring(space, space.str_w(w_obj))
+            return capi.c_charp2stdstring(space, space.str_w(w_obj), space.len_w(w_obj))
 
     def to_memory(self, space, w_obj, w_value, offset):
         try:
