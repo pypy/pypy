@@ -418,6 +418,18 @@ class __extend__(pyframe.PyFrame):
                 self.YIELD_VALUE(oparg, next_instr)
             elif opcode == opcodedesc.YIELD_FROM.index:
                 self.YIELD_FROM(oparg, next_instr)
+            elif opcode == opcodedesc.GET_YIELD_FROM_ITER.index:
+                self.GET_YIELD_FROM_ITER(oparg, next_instr)
+            elif opcode == opcodedesc.GET_AWAITABLE.index:
+                self.GET_AWAITABLE(oparg, next_instr)
+            elif opcode == opcodedesc.SETUP_ASYNC_WITH.index:
+                self.SETUP_ASYNC_WITH(oparg, next_instr)
+            elif opcode == opcodedesc.BEFORE_ASYNC_WITH.index:
+                self.BEFORE_ASYNC_WITH(oparg, next_instr)
+            elif opcode == opcodedesc.GET_AITER.index:
+                self.GET_AITER(oparg, next_instr)
+            elif opcode == opcodedesc.GET_ANEXT.index:
+                self.GET_ANEXT(oparg, next_instr)
             else:
                 self.MISSING_OPCODE(oparg, next_instr)
 
@@ -1403,19 +1415,24 @@ class __extend__(pyframe.PyFrame):
             itemcount -= 1
         self.pushvalue(w_dict)
     
-    def GET_AWAITABLE(self):
+    def GET_YIELD_FROM_ITER(self, oparg, next_instr):
+        w_iterable = self.popvalue()
+        w_iterator = self.space.iter(w_iterable)
+        self.pushvalue(w_iterator)
+    
+    def GET_AWAITABLE(self, oparg, next_instr):
         pass
     
-    def SETUP_ASYNC_WITH(self):
+    def SETUP_ASYNC_WITH(self, oparg, next_instr):
         pass
     
-    def BEFORE_ASYNC_WITH(self):
+    def BEFORE_ASYNC_WITH(self, oparg, next_instr):
         pass
     
-    def GET_AITER(self):
+    def GET_AITER(self, oparg, next_instr):
         pass
     
-    def GET_ANEXT(self):
+    def GET_ANEXT(self, oparg, next_instr):
         pass
         
 ### ____________________________________________________________ ###
