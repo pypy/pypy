@@ -103,10 +103,8 @@ def template_byname(space, name):
     except KeyError:
         pass
 
-    opaque_handle = capi.c_get_template(space, name)
-    assert lltype.typeOf(opaque_handle) == capi.C_TYPE
-    if opaque_handle:
-        cpptemplate = W_CPPTemplateType(space, name, opaque_handle)
+    if capi.c_is_template(space, name):
+        cpptemplate = W_CPPTemplateType(space, name)
         state.cpptemplate_cache[name] = cpptemplate
         return cpptemplate
 
@@ -997,14 +995,12 @@ W_ComplexCPPClass.typedef.acceptable_as_base_class = False
 
 
 class W_CPPTemplateType(W_Root):
-    _attrs_ = ['space', 'name', 'handle']
-    _immutable_fields = ['name', 'handle']
+    _attrs_ = ['space', 'name']
+    _immutable_fields = ['name']
 
-    def __init__(self, space, name, opaque_handle):
+    def __init__(self, space, name):
         self.space = space
         self.name = name
-        assert lltype.typeOf(opaque_handle) == capi.C_TYPE
-        self.handle = opaque_handle
 
     @unwrap_spec(args_w='args_w')
     def __call__(self, args_w):

@@ -126,7 +126,6 @@ class State(object):
 
             'resolve_name'             : ([c_ccharp],                 c_ccharp),
             'get_scope'                : ([c_ccharp],                 c_scope),
-            'get_template'             : ([c_ccharp],                 c_type),
             'actual_class'             : ([c_type, c_object],         c_type),
 
             # memory management
@@ -162,6 +161,7 @@ class State(object):
 
             # scope reflection information
             'is_namespace'             : ([c_scope],                  c_int),
+            'is_template'              : ([c_ccharp],                 c_int),
             'is_abstract'              : ([c_type],                   c_int),
             'is_enum'                  : ([c_ccharp],                 c_int),
 
@@ -291,8 +291,6 @@ def c_resolve_name(space, name):
     return charp2str_free(space, call_capi(space, 'resolve_name', [_Arg(s=name)]))
 def c_get_scope_opaque(space, name):
     return rffi.cast(C_SCOPE, space.uint_w(call_capi(space, 'get_scope', [_Arg(s=name)])))
-def c_get_template(space, name):
-    return rffi.cast(C_TYPE, space.uint_w(call_capi(space, 'get_template', [_Arg(s=name)])))
 def c_actual_class(space, cppclass, cppobj):
     args = [_Arg(h=cppclass.handle), _Arg(h=cppobj)]
     return rffi.cast(C_TYPE, space.uint_w(call_capi(space, 'actual_class', args)))
@@ -368,6 +366,8 @@ def c_function_arg_typeoffset(space):
 # scope reflection information -----------------------------------------------
 def c_is_namespace(space, scope):
     return space.bool_w(call_capi(space, 'is_namespace', [_Arg(h=scope)]))
+def c_is_template(space, name):
+    return space.bool_w(call_capi(space, 'is_template', [_Arg(s=name)]))
 def c_is_abstract(space, scope):
     return space.bool_w(call_capi(space, 'is_abstract', [_Arg(h=cpptype)]))
 def c_is_enum(space, name):

@@ -6,21 +6,21 @@
 #include <vector>
 #include <stddef.h>
 
-//ROOT types
-   typedef long	       Long_t;
-   typedef unsigned long ULong_t;
-   typedef long long   Long64_t;
-   typedef unsigned long long ULong64_t;
-   typedef float       Float_t;
-   typedef double      Double_t;
-   typedef long double LongDouble_t;
-   typedef bool        Bool_t;
-   typedef char        Char_t;
-   typedef unsigned char UChar_t;
-   typedef short       Short_t;
-   typedef unsigned short UShort_t;
-   typedef int	       Int_t;
-   typedef unsigned int UInt_t;
+// ROOT types
+typedef long	             Long_t;
+typedef unsigned long        ULong_t;
+typedef long long            Long64_t;
+typedef unsigned long long   ULong64_t;
+typedef float                Float_t;
+typedef double               Double_t;
+typedef long double          LongDouble_t;
+typedef bool                 Bool_t;
+typedef char                 Char_t;
+typedef unsigned char        UChar_t;
+typedef short                Short_t;
+typedef unsigned short       UShort_t;
+typedef int	                 Int_t;
+typedef unsigned int         UInt_t;
 
 namespace Cppyy {
    typedef ptrdiff_t   TCppScope_t;
@@ -36,7 +36,6 @@ namespace Cppyy {
    std::string GetScopeName( TCppScope_t parent, TCppIndex_t iscope );
    std::string ResolveName( const std::string& cppitem_name );
    TCppScope_t GetScope( const std::string& scope_name );
-   TCppType_t  GetTemplate( const std::string& template_name );
    TCppType_t  GetActualClass( TCppType_t klass, TCppObject_t obj );
    size_t      SizeOf( TCppType_t klass );
 
@@ -78,6 +77,7 @@ namespace Cppyy {
 
 // scope reflection information ----------------------------------------------
    Bool_t IsNamespace( TCppScope_t scope );
+   Bool_t IsTemplate( const std::string& template_name );
    Bool_t IsAbstract( TCppType_t type );
    Bool_t IsEnum( const std::string& type_name );
 

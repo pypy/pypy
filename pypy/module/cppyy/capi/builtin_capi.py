@@ -53,13 +53,6 @@ _c_get_scope_opaque = rffi.llexternal(
     compilation_info=backend.eci)
 def c_get_scope_opaque(space, name):
     return _c_get_scope_opaque(name)
-_c_get_template = rffi.llexternal(
-    "cppyy_get_template",
-    [rffi.CCHARP], C_TYPE,
-    releasegil=ts_reflect,
-    compilation_info=backend.eci)
-def c_get_template(space, name):
-    return _c_get_template(name)
 _c_actual_class = rffi.llexternal(
     "cppyy_actual_class",
     [C_TYPE, C_OBJECT], C_TYPE,
@@ -238,6 +231,13 @@ _c_is_namespace = rffi.llexternal(
     compilation_info=backend.eci)
 def c_is_namespace(space, scope):
     return _c_is_namespace(scope)
+_c_is_template = rffi.llexternal(
+    "cppyy_is_template",
+    [rffi.CCHARP], rffi.INT,
+    releasegil=ts_reflect,
+    compilation_info=backend.eci)
+def c_is_template(space, name):
+    return _c_is_template(name)
 _c_is_abstract = rffi.llexternal(
     "cppyy_is_abstract",
     [C_SCOPE], rffi.INT,

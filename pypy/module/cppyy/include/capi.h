@@ -26,8 +26,6 @@ extern "C" {
     RPY_EXTERN
     cppyy_scope_t cppyy_get_scope(const char* scope_name);
     RPY_EXTERN
-    cppyy_type_t cppyy_get_template(const char* template_name);
-    RPY_EXTERN
     cppyy_type_t cppyy_actual_class(cppyy_type_t klass, cppyy_object_t obj);
 
     /* memory management ------------------------------------------------------ */
@@ -84,6 +82,8 @@ extern "C" {
     /* scope reflection information ------------------------------------------- */
     RPY_EXTERN
     int cppyy_is_namespace(cppyy_scope_t scope);
+    RPY_EXTERN
+    int cppyy_is_template(const char* template_name);
     RPY_EXTERN
     int cppyy_is_abstract(cppyy_type_t type);
     RPY_EXTERN

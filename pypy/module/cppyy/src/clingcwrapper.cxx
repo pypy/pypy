@@ -178,9 +178,9 @@ Cppyy::TCppScope_t Cppyy::GetScope( const std::string& sname )
    return (TCppScope_t)sz;
 }
 
-Cppyy::TCppType_t Cppyy::GetTemplate( const std::string& /* template_name */ )
+Bool_t Cppyy::IsTemplate( const std::string& template_name )
 {
-   return (TCppType_t)0;
+   return (Bool_t)gInterpreter->CheckClassTemplate( template_name.c_str() );
 }
 
 Cppyy::TCppType_t Cppyy::GetActualClass( TCppType_t klass, TCppObject_t obj )
@@ -1082,10 +1082,6 @@ cppyy_scope_t cppyy_get_scope(const char* scope_name) {
     return cppyy_scope_t(Cppyy::GetScope(scope_name));
 }
 
-cppyy_type_t cppyy_get_template(const char* template_name) {
-    return cppyy_type_t(Cppyy::GetTemplate(template_name));
-}
-
 cppyy_type_t cppyy_actual_class(cppyy_type_t klass, cppyy_object_t obj) {
     return cppyy_type_t(Cppyy::GetActualClass(klass, (void*)obj));
 }
@@ -1198,6 +1194,10 @@ size_t cppyy_function_arg_typeoffset(){
 /* scope reflection information ------------------------------------------- */
 int cppyy_is_namespace(cppyy_scope_t scope) {
     return (int)Cppyy::IsNamespace(scope);
+}
+
+int cppyy_is_template(const char* template_name) {
+    return (int)Cppyy::IsTemplate(template_name);
 }
 
 int cppyy_is_abstract(cppyy_type_t type){
