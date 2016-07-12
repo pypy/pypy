@@ -455,9 +455,10 @@ class VoidPtrRefConverter(VoidPtrPtrConverter):
     uses_local = True
 
 class InstanceRefConverter(TypeConverter):
-    _immutable_fields_ = ['libffitype', 'cppclass']
+    _immutable_fields_ = ['libffitype', 'typecode', 'cppclass']
 
     libffitype  = jit_libffi.types.pointer
+    typecode    = 'V'
 
     def __init__(self, space, cppclass):
         from pypy.module.cppyy.interp_cppyy import W_CPPClass
@@ -480,7 +481,7 @@ class InstanceRefConverter(TypeConverter):
         x[0] = rffi.cast(rffi.VOIDP, self._unwrap_object(space, w_obj))
         address = rffi.cast(capi.C_OBJECT, address)
         ba = rffi.cast(rffi.CCHARP, address)
-        ba[capi.c_function_arg_typeoffset(space)] = 'o'
+        ba[capi.c_function_arg_typeoffset(space)] = self.typecode
 
     def convert_argument_libffi(self, space, w_obj, address, call_local):
         x = rffi.cast(rffi.VOIDPP, address)
@@ -502,6 +503,7 @@ class InstanceConverter(InstanceRefConverter):
 
 
 class InstancePtrConverter(InstanceRefConverter):
+    typecode    = 'o'
 
     def _unwrap_object(self, space, w_obj):
         try:

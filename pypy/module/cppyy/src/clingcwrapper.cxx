@@ -377,6 +377,7 @@ static inline void copy_args( void* args_, void** vargs ) {
       case 'D':          /* long double */
          vargs[i] = (void*)&args[i].fValue.fLongDouble;
          break;
+      case 'a':
       case 'o':
       case 'p':          /* void* */
          vargs[i] = (void*)&args[i].fValue.fVoidp;
