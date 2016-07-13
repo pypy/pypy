@@ -216,3 +216,11 @@ class AppTestAbstractInst:
         c = C()
         assert isinstance(c, C)
         assert not called
+
+    def test_instancecheck_exception_not_eaten(self):
+        class M(object):
+            def __instancecheck__(self, obj):
+                raise TypeError("foobar")
+
+        e = raises(TypeError, isinstance, 42, M())
+        assert str(e.value) == "foobar"
