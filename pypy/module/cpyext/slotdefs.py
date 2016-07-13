@@ -408,6 +408,8 @@ def build_slot_tp_function(space, typedef, name):
                           ('tp_as_number.c_nb_and', '__and__'),
                           ('tp_as_number.c_nb_xor', '__xor__'),
                           ('tp_as_number.c_nb_or', '__or__'),
+                          ('tp_as_sequence.c_sq_concat', '__add__'),
+                          ('tp_as_sequence.c_sq_inplace_concat', '__iadd__')
                           ]:
         if name == tp_name:
             slot_fn = w_type.getdictvalue(space, attr)
@@ -418,6 +420,23 @@ def build_slot_tp_function(space, typedef, name):
             @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
             def slot_func(space, w_self, w_arg):
                 return space.call_function(slot_fn, w_self, w_arg)
+            api_func = slot_func.api_func
+            handled = True
+
+    # binary-with-Py_ssize_t-type
+    for tp_name, attr in [('tp_as_sequence.c_sq_item', '__getitem'),
+                          ('tp_as_sequence.c_sq_repeat', '__mul__'),
+                          ('tp_as_sequence.c_sq_inplace_repeat', '__imul__'),
+                          ]:
+        if name == tp_name:
+            slot_fn = w_type.getdictvalue(space, attr)
+            if slot_fn is None:
+                return
+
+            @cpython_api([PyObject, Py_ssize_t], PyObject, header=header)
+            @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
+            def slot_func(space, w_self, arg):
+                return space.call_function(slot_fn, w_self, space.wrap(arg))
             api_func = slot_func.api_func
             handled = True
 
@@ -522,6 +541,7 @@ def build_slot_tp_function(space, typedef, name):
         api_func = slot_tp_new.api_func
     else:
         # missing: tp_as_number.nb_nonzero, tp_as_number.nb_coerce
+        # tp_as_sequence.c_sq_contains, tp_as_sequence.c_sq_length
         return
 
     return lambda: llhelper(api_func.functype, api_func.get_wrapper(space))
