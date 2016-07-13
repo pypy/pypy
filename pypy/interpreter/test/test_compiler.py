@@ -621,7 +621,7 @@ def test():
                     yield 8
                 def generator():
                     yield from generator2()
-                for i in generator(): return i
+                return next(generator())
             res = f()
         '''))
         code = self.compiler.compile(snippet, '<tmp>', 'exec', 0)
@@ -629,7 +629,7 @@ def test():
         w_d = space.newdict()
         space.exec_(code, w_d, w_d)
         w_res = space.getitem(w_d, space.wrap('res'))
-        assert space.eq_w(w_res, space.wrap("8"))
+        assert space.eq_w(w_res, space.wrap(8))
 
     def test_dont_inherit_flag(self):
         # this test checks that compile() don't inherit the __future__ flags

@@ -1421,19 +1421,36 @@ class __extend__(pyframe.PyFrame):
         self.pushvalue(w_iterator)
     
     def GET_AWAITABLE(self, oparg, next_instr):
-        pass
+        w_iterable = self.popvalue()
+        self.pushvalue(w_iterable)
     
-    def SETUP_ASYNC_WITH(self, oparg, next_instr):
-        pass
+    def SETUP_ASYNC_WITH(self, offsettoend, next_instr):
+        res = self.popvalue()
+        block = WithBlock(self.valuestackdepth,
+                          next_instr + offsettoend, self.lastblock)
+        self.lastblock = block
+        self.pushvalue(res)
     
     def BEFORE_ASYNC_WITH(self, oparg, next_instr):
-        pass
+        w_manager = self.peekvalue()
+        w_enter = self.space.lookup(w_manager, "__aenter__")
+        w_descr = self.space.lookup(w_manager, "__aexit__")
+        if w_enter is None or w_descr is None:
+            raise oefmt(self.space.w_AttributeError,
+                        "'%T' object is not a context manager (no __aenter__/"
+                        "__aexit__ method)", w_manager)
+        w_exit = self.space.get(w_descr, w_manager)
+        self.settopvalue(w_exit)
+        w_result = self.space.get_and_call_function(w_enter, w_manager)
+        self.pushvalue(w_result)
     
     def GET_AITER(self, oparg, next_instr):
-        pass
+        w_iterable = self.popvalue()
+        self.pushvalue(w_iterable)
     
     def GET_ANEXT(self, oparg, next_instr):
-        pass
+        w_iterable = self.popvalue()
+        self.pushvalue(w_iterable)
         
 ### ____________________________________________________________ ###
 
