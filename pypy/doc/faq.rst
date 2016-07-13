@@ -379,8 +379,9 @@ In more details:
   give us some temporary ssh access to a machine where the bug can be
   reproduced.
 
-* If giving us access would require us to sign a NDA, then we can
-  consider a commerical support contract for a small sum of money.
+* If giving us access would require us to use other tools than ssh,
+  make appointments, or sign a NDA, then we can consider a commerical
+  support contract for a small sum of money.
 
 * If even that is not possible for you, then sorry, we can't help.
 
