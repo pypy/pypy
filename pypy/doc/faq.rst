@@ -380,7 +380,7 @@ In more details:
   reproduced.  Or, maybe we can download a VirtualBox or VMWare
   virtual machine where the problem occurs.
 
-* If giving us access would require us to use other tools than ssh,
+* If giving us access would require us to use tools other than ssh,
   make appointments, or sign a NDA, then we can consider a commerical
   support contract for a small sum of money.
 
