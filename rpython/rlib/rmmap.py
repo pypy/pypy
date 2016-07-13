@@ -70,7 +70,13 @@ if _POSIX:
     CConfig.MREMAP_MAYMOVE = (
         rffi_platform.DefinedConstantInteger("MREMAP_MAYMOVE"))
     CConfig.has_mremap = rffi_platform.Has('mremap(NULL, 0, 0, 0)')
-    # a dirty hack, this is probably a macro
+    CConfig.has_madvise = rffi_platform.Has('madvise(NULL, 0, 0)')
+    # ^^ both are a dirty hack, this is probably a macro
+
+    CConfig.MADV_DONTNEED = (
+        rffi_platform.DefinedConstantInteger('MADV_DONTNEED'))
+    CConfig.MADV_FREE = (
+        rffi_platform.DefinedConstantInteger('MADV_FREE'))
 
 elif _MS_WINDOWS:
     constant_names = ['PAGE_READONLY', 'PAGE_READWRITE', 'PAGE_WRITECOPY',
@@ -144,6 +150,7 @@ c_memmove, _ = external('memmove', [PTR, PTR, size_t], lltype.Void)
 
 if _POSIX:
     has_mremap = cConfig['has_mremap']
+    has_madvise = cConfig['has_madvise']
     c_mmap, c_mmap_safe = external('mmap', [PTR, size_t, rffi.INT, rffi.INT,
                                    rffi.INT, off_t], PTR, macro=True,
                                    save_err_on_unsafe=rffi.RFFI_SAVE_ERRNO)
@@ -154,6 +161,9 @@ if _POSIX:
     if has_mremap:
         c_mremap, _ = external('mremap',
                                [PTR, size_t, size_t, rffi.ULONG], PTR)
+    if has_madvise:
+        _, c_madvise_safe = external('madvise', [PTR, size_t, rffi.INT],
+                                     rffi.INT, _nowrapper=True)
 
     # this one is always safe
     _pagesize = rffi_platform.getintegerfunctionresult('getpagesize',
@@ -755,6 +765,39 @@ if _POSIX:
     else:
         free = c_munmap_safe
 
+    if sys.platform.startswith('linux'):
+        assert has_madvise
+        assert MADV_DONTNEED is not None
+        if MADV_FREE is None:
+            MADV_FREE = 8     # from the kernel sources of Linux >= 4.5
+        class CanUseMadvFree:
+            ok = -1
+        can_use_madv_free = CanUseMadvFree()
+        def madvise_free(addr, map_size):
+            # We don't know if we are running on a recent enough kernel
+            # that supports MADV_FREE.  Check that at runtime: if the
+            # first call to madvise(MADV_FREE) fails, we assume it's
+            # because of EINVAL and we fall back to MADV_DONTNEED.
+            if can_use_madv_free.ok != 0:
+                res = c_madvise_safe(rffi.cast(PTR, addr),
+                                     rffi.cast(size_t, map_size),
+                                     rffi.cast(rffi.INT, MADV_FREE))
+                if can_use_madv_free.ok == -1:
+                    can_use_madv_free.ok = (rffi.cast(lltype.Signed, res) == 0)
+            if can_use_madv_free.ok == 0:
+                c_madvise_safe(rffi.cast(PTR, addr),
+                               rffi.cast(size_t, map_size),
+                               rffi.cast(rffi.INT, MADV_DONTNEED))
+    elif has_madvise and not (MADV_FREE is MADV_DONTNEED is None):
+        use_flag = MADV_FREE if MADV_FREE is not None else MADV_DONTNEED
+        def madvise_free(addr, map_size):
+            c_madvise_safe(rffi.cast(PTR, addr),
+                           rffi.cast(size_t, map_size),
+                           rffi.cast(rffi.INT, use_flag))
+    else:
+        def madvice_free(addr, map_size):
+            "No madvice() on this platform"
+
 elif _MS_WINDOWS:
     def mmap(fileno, length, tagname="", access=_ACCESS_DEFAULT, offset=0):
         # XXX flags is or-ed into access by now.
@@ -906,5 +949,10 @@ elif _MS_WINDOWS:
 
     def free(ptr, map_size):
         VirtualFree_safe(ptr, 0, MEM_RELEASE)
+
+    def madvice_free(addr, map_size):
+        """XXX find a Windows equivalent?
+        'addr' is in the middle of memory obtained with the C malloc()...
+        """
 
 # register_external here?
