@@ -709,7 +709,7 @@ class BasicPPCAssembler(object):
     lvsl = XV(31, XO1=6)
     lvsr = XV(31, XO1=38)
     vperm = VA(4, XO10=43)
-    vsel = VA(4, XO10=42) 
+    vsel = VA(4, XO10=42)
     vspltisb = VXI(4, XO8=780)
     vspltisw = VXI(4, XO8=844)
     vspltisw = VXI(4, XO8=908)

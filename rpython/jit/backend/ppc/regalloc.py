@@ -585,6 +585,7 @@ class Regalloc(BaseRegalloc, VectorRegalloc):
                 args.append(self.loc(arg))
             else:
                 args.append(None)
+        self.possibly_free_vars(op.getfailargs())
         #
         # generate_quick_failure() produces up to 14 instructions per guard
         self.limit_loop_break -= 14 * 4
