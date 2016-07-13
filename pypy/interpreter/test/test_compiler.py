@@ -613,7 +613,7 @@ def test():
         w_res = space.getitem(w_d, space.wrap('res'))
         assert space.eq_w(w_res, space.wrap("var"))
     
-    def test_(self):
+    def test_yield_from(self):
         space = self.space
         snippet = str(py.code.Source(r'''
             def f():
