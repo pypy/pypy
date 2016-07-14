@@ -238,7 +238,7 @@ def convert_member_defs(space, dict_w, members, w_type):
             i += 1
 
 def update_all_slots(space, w_type, pto):
-    #  XXX fill slots in pto
+    # fill slots in pto
     # Not very sure about it, but according to
     # test_call_tp_dealloc_when_created_from_python, we should not
     # overwrite slots that are already set: these ones are probably
@@ -272,6 +272,15 @@ def update_all_slots(space, w_type, pto):
         if len(slot_names) == 1:
             if not getattr(pto, slot_names[0]):
                 setattr(pto, slot_names[0], slot_func_helper)
+        elif (w_type.getname(space) in ('list', 'tuple') and 
+              slot_names[0] == 'c_tp_as_number'):
+            # XXX hack - hwo can we generalize this? The problem is method
+            # names like __mul__ map to more than one slot, and we have no
+            # convenient way to indicate which slots CPython have filled
+            # 
+            # We need at least this special case since Numpy checks that
+            # (list, tuple) do __not__ fill tp_as_number
+            pass
         else:
             assert len(slot_names) == 2
             struct = getattr(pto, slot_names[0])
