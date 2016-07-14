@@ -20,6 +20,7 @@
 #include "TMethod.h"
 #include "TMethodArg.h"
 #include "TROOT.h"
+#include "TSystem.h"
 
 // Standard
 #include <assert.h>
@@ -165,9 +166,10 @@ Cppyy::TCppScope_t Cppyy::GetScope( const std::string& sname )
    if ( icr != g_name2classrefidx.end() )
       return (TCppType_t)icr->second;
 
-   // use TClass directly, to enable auto-loading
+// use TClass directly, to enable auto-loading; class may be stubbed (eg. for
+// function returns) leading to a non-null TClass that is otherwise invalid
    TClassRef cr( TClass::GetClass( scope_name.c_str(), kTRUE, kTRUE ) );
-   if ( !cr.GetClass() )
+   if ( !cr.GetClass() || !cr->Property() )
       return (TCppScope_t)NULL;
 
    // no check for ClassInfo as forward declared classes are okay (fragile)
@@ -1390,7 +1392,8 @@ int cppyy_is_staticdata(cppyy_type_t type, int datamember_index) {
 /* misc helpers ----------------------------------------------------------- */
 RPY_EXTERN
 void* cppyy_load_dictionary(const char* lib_name) {
-    return (void*)(gInterpreter->Load(lib_name) == 0);
+    int result = gSystem->Load(lib_name);
+    return (void*)(result == 0 /* success */ || result == 1 /* already loaded */);
 }
 
 long long cppyy_strtoll(const char* str) {
