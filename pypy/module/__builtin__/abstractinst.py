@@ -109,6 +109,41 @@ def _abstract_isinstance_w_helper(space, w_obj, w_klass_or_tuple):
         return _issubclass_recurse(space, w_abstractclass, w_klass_or_tuple)
 
 
+def recursive_isinstance_type_w(space, w_inst, w_type):
+    # subfunctionality of recursive_isinstance(): assumes that w_type is
+    # a type object.
+    if space.isinstance_w(w_inst, w_type):
+        return True
+    try:
+        w_abstractclass = space.getattr(w_inst, space.wrap('__class__'))
+    except OperationError as e:
+        if e.async(space):      # ignore most exceptions
+            raise
+    else:
+        if w_abstractclass is not space.type(w_inst):
+            if space.isinstance_w(w_abstractclass, space.w_type):
+                return space.issubtype_w(w_abstractclass, w_type)
+    return False
+
+
+def recursive_issubclass_w(space, w_derived, w_cls):
+    # From CPython's function of the same name, which as far as I can tell
+    # is not recursive.
+    if (space.isinstance_w(w_cls, space.w_type) and
+        space.isinstance_w(w_derived, space.w_type)):
+        return space.issubtype_w(w_derived, w_cls)
+    #
+    if (isinstance(w_derived, W_ClassObject) and
+        isinstance(w_cls, W_ClassObject)):
+        return w_derived.is_subclass_of(w_cls)
+    #
+    check_class(space, w_derived, "issubclass() arg 1 must be a class")
+    check_class(space, w_cls, "issubclass() arg 2 must be a class"
+                              " or tuple of classes")
+    XXXX
+    return abstract_issubclass_w(space, w_derived, w_cls)
+
+
 @jit.unroll_safe
 def _issubclass_recurse(space, w_derived, w_top):
     """Internal helper for abstract cases.  Here, w_top cannot be a tuple."""

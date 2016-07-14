@@ -6,6 +6,7 @@ from pypy.interpreter.function import Function, StaticMethod
 from pypy.interpreter.typedef import weakref_descr, GetSetProperty,\
      descr_get_dict, dict_descr, Member, TypeDef
 from pypy.interpreter.astcompiler.misc import mangle
+from pypy.module.__builtin__ import abstractinst
 
 from rpython.rlib.jit import (promote, elidable_promote, we_are_jitted,
      elidable, dont_look_inside, unroll_safe)
@@ -899,13 +900,15 @@ def descr___subclasses__(space, w_type):
 
 # ____________________________________________________________
 
-@gateway.unwrap_spec(w_obj=W_TypeObject, w_sub=W_TypeObject)
+@gateway.unwrap_spec(w_obj=W_TypeObject)
 def type_issubtype(w_obj, space, w_sub):
-    return space.newbool(w_sub.issubtype(w_obj))
+    return space.newbool(
+        abstractinst.recursive_issubclass_w(space, w_sub, w_obj))
 
 @gateway.unwrap_spec(w_obj=W_TypeObject)
 def type_isinstance(w_obj, space, w_inst):
-    return space.newbool(space.type(w_inst).issubtype(w_obj))
+    return space.newbool(
+        abstractinst.recursive_isinstance_type_w(space, w_inst, w_obj))
 
 W_TypeObject.typedef = TypeDef("type",
     __new__ = gateway.interp2app(descr__new__),
