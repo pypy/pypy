@@ -818,9 +818,22 @@ std::string Cppyy::GetMethodArgDefault( TCppMethod_t method, int iarg )
    return "";
 }
 
-std::string Cppyy::GetMethodSignature( TCppScope_t /* scope */, TCppIndex_t /* imeth */ )
+std::string Cppyy::GetMethodSignature( TCppScope_t scope, TCppIndex_t imeth )
 {
-   return "<unknown>";
+   TClassRef& cr = type_from_handle( scope );
+   TFunction* f = type_get_method( scope, imeth );
+   std::ostringstream sig;
+   if ( cr.GetClass() && cr->GetClassInfo() )
+      sig << f->GetReturnTypeName() << " ";
+   sig << cr.GetClassName() << "::" << f->GetName() << "(";
+   int nArgs = f->GetNargs();
+   for ( int iarg = 0; iarg < nArgs; ++iarg ) {
+      sig << ((TMethodArg*)f->GetListOfMethodArgs()->At( iarg ))->GetFullTypeName();
+      if (iarg != nArgs-1)
+         sig << ", ";
+   }
+   sig << ")" << std::ends;
+   return cppstring_to_cstring(sig.str());
 }
 
 Bool_t Cppyy::IsConstMethod( TCppMethod_t method )
