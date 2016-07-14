@@ -5,7 +5,12 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib import rmmap as mmap
 from rpython.rlib.rmmap import RTypeError, RValueError, alloc, free
-from rpython.rlib.rmmap import madvise_free
+try:
+    from rpython.rlib.rmmap import madvise_free
+except ImportError:
+    def madvise_free(addr, size):
+        "Not available"
+
 
 class TestMMap:
     def setup_class(cls):
