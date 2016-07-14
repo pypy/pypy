@@ -380,6 +380,7 @@ def build_slot_tp_function(space, typedef, name):
                           ('tp_as_number.c_nb_absolute', '__abs__'),
                           ('tp_as_number.c_nb_invert', '__invert__'),
                           ('tp_as_number.c_nb_index', '__index__'),
+                          ('tp_as_number.c_nb_hex', '__hex__'),
                           ('tp_str', '__str__'),
                           ('tp_repr', '__repr__'),
                           ('tp_iter', '__iter__'),
@@ -398,7 +399,7 @@ def build_slot_tp_function(space, typedef, name):
 
     # binary functions
     for tp_name, attr in [('tp_as_number.c_nb_add', '__add__'),
-                          ('tp_as_number.c_nb_subtract', '__subtract__'),
+                          ('tp_as_number.c_nb_subtract', '__sub__'),
                           ('tp_as_number.c_nb_multiply', '__mul__'),
                           ('tp_as_number.c_nb_divide', '__div__'),
                           ('tp_as_number.c_nb_remainder', '__mod__'),
@@ -426,6 +427,7 @@ def build_slot_tp_function(space, typedef, name):
     # binary-with-Py_ssize_t-type
     for tp_name, attr in [('tp_as_sequence.c_sq_item', '__getitem'),
                           ('tp_as_sequence.c_sq_repeat', '__mul__'),
+                          ('tp_as_sequence.c_sq_repeat', '__mul__'),
                           ('tp_as_sequence.c_sq_inplace_repeat', '__imul__'),
                           ]:
         if name == tp_name:
@@ -441,7 +443,7 @@ def build_slot_tp_function(space, typedef, name):
             handled = True
 
     # ternary functions
-    for tp_name, attr in [('tp_as_number.c_nb_power', ''),
+    for tp_name, attr in [('tp_as_number.c_nb_power', '__pow__'),
                           ]:
         if name == tp_name:
             slot_fn = w_type.getdictvalue(space, attr)
@@ -542,6 +544,7 @@ def build_slot_tp_function(space, typedef, name):
     else:
         # missing: tp_as_number.nb_nonzero, tp_as_number.nb_coerce
         # tp_as_sequence.c_sq_contains, tp_as_sequence.c_sq_length
+        # richcmpfunc(s)
         return
 
     return lambda: llhelper(api_func.functype, api_func.get_wrapper(space))
