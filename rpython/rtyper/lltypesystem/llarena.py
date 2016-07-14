@@ -440,17 +440,6 @@ if os.name == 'posix':
         if size > 0:    # clear the final misaligned part, if any
             llmemory.raw_memclear(baseaddr, size)
 
-    def madvise_arena_free(baseaddr, size):
-        from rpython.rlib import rmmap
-
-        pagesize = posixpagesize.get()
-        baseaddr = rffi.cast(lltype.Signed, baseaddr)
-        aligned_addr = (baseaddr + pagesize - 1) & ~(pagesize - 1)
-        size -= (aligned_addr - baseaddr)
-        if size >= pagesize:
-            rmmap.madvise_free(rffi.cast(rmmap.PTR, aligned_addr),
-                               size & ~(pagesize - 1))
-
 else:
     # XXX any better implementation on Windows?
     # Should use VirtualAlloc() to reserve the range of pages,
@@ -459,10 +448,22 @@ else:
     # them immediately.
     clear_large_memory_chunk = llmemory.raw_memclear
 
-    def madvise_arena_free(baseaddr, size):
-        """XXX find a Windows equivalent?
-        'baseaddr' is in the middle of memory obtained with the C malloc()...
-        """
+    class PosixPageSize:
+        def get(self):
+            from rpython.rlib import rmmap
+            return rmmap.PAGESIZE
+    posixpagesize = PosixPageSize()
+
+def madvise_arena_free(baseaddr, size):
+    from rpython.rlib import rmmap
+
+    pagesize = posixpagesize.get()
+    baseaddr = rffi.cast(lltype.Signed, baseaddr)
+    aligned_addr = (baseaddr + pagesize - 1) & ~(pagesize - 1)
+    size -= (aligned_addr - baseaddr)
+    if size >= pagesize:
+        rmmap.madvise_free(rffi.cast(rmmap.PTR, aligned_addr),
+                           size & ~(pagesize - 1))
 
 
 if os.name == "posix":

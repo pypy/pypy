@@ -82,7 +82,8 @@ elif _MS_WINDOWS:
     constant_names = ['PAGE_READONLY', 'PAGE_READWRITE', 'PAGE_WRITECOPY',
                       'FILE_MAP_READ', 'FILE_MAP_WRITE', 'FILE_MAP_COPY',
                       'DUPLICATE_SAME_ACCESS', 'MEM_COMMIT', 'MEM_RESERVE',
-                      'MEM_RELEASE', 'PAGE_EXECUTE_READWRITE', 'PAGE_NOACCESS']
+                      'MEM_RELEASE', 'PAGE_EXECUTE_READWRITE', 'PAGE_NOACCESS',
+                      'MEM_RESET']
     for name in constant_names:
         setattr(CConfig, name, rffi_platform.ConstantInteger(name))
 
@@ -232,6 +233,9 @@ elif _MS_WINDOWS:
     VirtualAlloc, VirtualAlloc_safe = winexternal('VirtualAlloc',
                                [rffi.VOIDP, rffi.SIZE_T, DWORD, DWORD],
                                rffi.VOIDP)
+    _, _VirtualAlloc_safe_no_wrapper = winexternal('VirtualAlloc',
+                               [rffi.VOIDP, rffi.SIZE_T, DWORD, DWORD],
+                               rffi.VOIDP, _nowrapper=True)
     _, _VirtualProtect_safe = winexternal('VirtualProtect',
                                   [rffi.VOIDP, rffi.SIZE_T, DWORD, LPDWORD],
                                   BOOL)
@@ -949,3 +953,12 @@ elif _MS_WINDOWS:
 
     def free(ptr, map_size):
         VirtualFree_safe(ptr, 0, MEM_RELEASE)
+
+    def madvise_free(addr, map_size):
+        r = _VirtualAlloc_safe_no_wrapper(
+            rffi.cast(rffi.VOIDP, addr),
+            rffi.cast(rffi.SIZE_T, map_size),
+            rffi.cast(DWORD, MEM_RESET),
+            rffi.cast(DWORD, PAGE_READWRITE))
+        from rpython.rlib import debug
+        debug.debug_print("madvise_free:", r)
