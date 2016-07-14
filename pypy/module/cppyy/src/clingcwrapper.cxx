@@ -48,9 +48,6 @@ static Name2ClassRefIndex_t g_name2classrefidx;
 typedef std::map< Cppyy::TCppMethod_t, CallFunc_t* > Method2CallFunc_t;
 static Method2CallFunc_t g_method2callfunc;
 
-typedef std::vector< TFunction > GlobalFuncs_t;
-static GlobalFuncs_t g_globalfuncs;
-
 typedef std::vector< TGlobal* > GlobalVars_t;
 static GlobalVars_t g_globalvars;
 
@@ -699,24 +696,19 @@ Cppyy::TCppIndex_t Cppyy::GetMethodIndexAt( TCppScope_t scope, TCppIndex_t imeth
 {
    TClassRef& cr = type_from_handle (scope);
    if (cr.GetClass())
-        return (TCppIndex_t)imeth;
-    assert(handle == (TCppType_t)GLOBAL_HANDLE);
-    return (TCppIndex_t)&g_globalfuncs[imeth];
+      return (TCppIndex_t)imeth;
+   assert(handle == (TCppType_t)GLOBAL_HANDLE);
+   return imeth;
 }
 
 std::vector< Cppyy::TCppMethod_t > Cppyy::GetMethodsFromName(
       TCppScope_t scope, const std::string& name )
 {
-// TODO: this method assumes that the call for this name is made only
-// once, and thus there is no need to store the results of the search
-// in g_globalfuncs ... probably true, but needs verification
    std::vector< TCppMethod_t > methods;
    if ( scope == GLOBAL_HANDLE ) {
       TCollection* funcs = gROOT->GetListOfGlobalFunctions( kTRUE );
-      g_globalfuncs.reserve(funcs->GetSize());
 
       TIter ifunc(funcs);
-
       TFunction* func = 0;
       while ( (func = (TFunction*)ifunc.Next()) ) {
       // cover not only direct matches, but also template matches
@@ -822,18 +814,20 @@ std::string Cppyy::GetMethodSignature( TCppScope_t scope, TCppIndex_t imeth )
 {
    TClassRef& cr = type_from_handle( scope );
    TFunction* f = type_get_method( scope, imeth );
-   std::ostringstream sig;
-   if ( cr.GetClass() && cr->GetClassInfo() )
-      sig << f->GetReturnTypeName() << " ";
-   sig << cr.GetClassName() << "::" << f->GetName() << "(";
-   int nArgs = f->GetNargs();
-   for ( int iarg = 0; iarg < nArgs; ++iarg ) {
-      sig << ((TMethodArg*)f->GetListOfMethodArgs()->At( iarg ))->GetFullTypeName();
-      if (iarg != nArgs-1)
-         sig << ", ";
+   if ( cr.GetClass() && cr->GetClassInfo() ) {
+      std::ostringstream sig;
+      sig << f->GetReturnTypeName() << " "
+          << cr.GetClassName() << "::" << f->GetName() << "(";
+      int nArgs = f->GetNargs();
+      for ( int iarg = 0; iarg < nArgs; ++iarg ) {
+         sig << ((TMethodArg*)f->GetListOfMethodArgs()->At( iarg ))->GetFullTypeName();
+         if (iarg != nArgs-1)
+            sig << ", ";
+      }
+      sig << ")" << std::ends;
+      return cppstring_to_cstring(sig.str());
    }
-   sig << ")" << std::ends;
-   return cppstring_to_cstring(sig.str());
+   return "<unknown>";
 }
 
 Bool_t Cppyy::IsConstMethod( TCppMethod_t method )
@@ -1246,23 +1240,23 @@ char* cppyy_base_name(cppyy_type_t type, int base_index){
 }
 
 int cppyy_is_subtype(cppyy_type_t derived, cppyy_type_t base){
-    return (int)Cppyy::IsSubtype( derived, base );
+    return (int)Cppyy::IsSubtype(derived, base);
 }
 
 
 /* calculate offsets between declared and actual type, up-cast: direction > 0; down-cast: direction < 0 */
 ptrdiff_t cppyy_base_offset(cppyy_type_t derived, cppyy_type_t base, cppyy_object_t address, int direction) {
-    return (ptrdiff_t)Cppyy::GetBaseOffset(derived, base, (void*)address, direction,       0);
+    return (ptrdiff_t)Cppyy::GetBaseOffset(derived, base, (void*)address, direction, 0);
 }
 
 
 /* method/function reflection information --------------------------------- */
 int cppyy_num_methods(cppyy_scope_t scope) {
-    return (int)Cppyy::GetNumMethods (scope);
+    return (int)Cppyy::GetNumMethods(scope);
 }
 
 cppyy_index_t cppyy_method_index_at(cppyy_scope_t scope, int imeth) {
-    return cppyy_index_t(Cppyy::GetMethodIndexAt (scope, imeth));
+    return cppyy_index_t(Cppyy::GetMethodIndexAt(scope, imeth));
 }
 
 cppyy_index_t* cppyy_method_indices_from_name(cppyy_scope_t scope, const char* name){
@@ -1275,7 +1269,7 @@ cppyy_index_t* cppyy_method_indices_from_name(cppyy_scope_t scope, const char* n
         TIter next(cr->GetListOfMethods());
         while ((func = (TFunction*)next())) {
             if (strcmp(name, func->GetName()) == 0) {
-                if (func->Property() & Cppyy::IsPublicMethod((cppyy_method_t)func))
+                if (Cppyy::IsPublicMethod((cppyy_method_t)func))
                     result.push_back((cppyy_index_t)imeth);
             }
             ++imeth;
@@ -1285,10 +1279,8 @@ cppyy_index_t* cppyy_method_indices_from_name(cppyy_scope_t scope, const char* n
         TFunction* func = 0;
         TIter ifunc(funcs);
         while ((func = (TFunction*)ifunc.Next())) {
-            if (strcmp(name, func->GetName()) == 0) {
-                g_globalfuncs.push_back(*func);
+            if (strcmp(name, func->GetName()) == 0)
                 result.push_back((cppyy_index_t)func);
-            }
         }
     }
 
