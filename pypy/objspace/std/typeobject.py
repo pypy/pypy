@@ -903,12 +903,12 @@ def descr___subclasses__(space, w_type):
 @gateway.unwrap_spec(w_obj=W_TypeObject)
 def type_issubtype(w_obj, space, w_sub):
     return space.newbool(
-        abstractinst.recursive_issubclass_w(space, w_sub, w_obj))
+        abstractinst.p_recursive_issubclass_w(space, w_sub, w_obj))
 
 @gateway.unwrap_spec(w_obj=W_TypeObject)
 def type_isinstance(w_obj, space, w_inst):
     return space.newbool(
-        abstractinst.recursive_isinstance_type_w(space, w_inst, w_obj))
+        abstractinst.p_recursive_isinstance_type_w(space, w_inst, w_obj))
 
 W_TypeObject.typedef = TypeDef("type",
     __new__ = gateway.interp2app(descr__new__),
