@@ -1418,6 +1418,8 @@ class __extend__(pyframe.PyFrame):
     def GET_YIELD_FROM_ITER(self, oparg, next_instr):
         w_iterable = self.popvalue()
         w_iterator = self.space.iter(w_iterable)
+        #ec = space.getexecutioncontext()
+        #flags = ec.compiler.getcodeflags(self.pycode)
         self.pushvalue(w_iterator)
     
     def GET_AWAITABLE(self, oparg, next_instr):

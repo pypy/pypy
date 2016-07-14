@@ -304,6 +304,31 @@ return next yielded value or raise StopIteration."""
                 block = block.previous
 
 
+class Coroutine(W_Root):
+    "A coroutine object."
+    _immutable_fields_ = ['pycode']
+
+    def __init__(self, frame):
+        self.space = frame.space
+        self.frame = frame     # turned into None when frame_finished_execution
+        self.pycode = frame.pycode
+        self.running = False
+        if self.pycode.co_flags & CO_YIELD_INSIDE_TRY:
+            self.register_finalizer(self.space)
+
+    def descr__repr__(self, space):
+        if self.pycode is None:
+            code_name = '<finished>'
+        else:
+            code_name = self.pycode.co_name
+        addrstring = self.getaddrstring(space)
+        return space.wrap("<coroutine object %s at 0x%s>" %
+                          (code_name, addrstring))
+    
+    #def close
+    #w_close = space.getattr(w_yf, space.wrap("close"))
+
+
 def get_printable_location_genentry(bytecode):
     return '%s <generator>' % (bytecode.get_repr(),)
 generatorentry_driver = jit.JitDriver(greens=['pycode'],
