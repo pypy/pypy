@@ -405,7 +405,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         oparg |= num_annotations << 16
         code, qualname = self.sub_scope(AsyncFunctionCodeGenerator, func.name, func,
                                         func.lineno)
-        code.co_flags |= consts.CO_GENERATOR
+        code.co_flags |= consts.CO_COROUTINE
         self._make_function(code, oparg, qualname=qualname)
         # Apply decorators.
         if func.decorator_list:
