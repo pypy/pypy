@@ -1095,9 +1095,10 @@ class W_CPPInstance(W_Root):
         try:
             # TODO: expecting w_other to be an W_CPPInstance is too limiting
             other = self.space.interp_w(W_CPPInstance, w_other, can_be_None=False)
-            for name in ["", "__gnu_cxx"]:
+            for name in ["", "__gnu_cxx", "__1"]:
                 nss = scope_byname(self.space, name)
-                meth_idx = capi.c_get_global_operator(self.space, nss, self.cppclass, other.cppclass, "==")
+                meth_idx = capi.c_get_global_operator(
+                    self.space, nss, self.cppclass, other.cppclass, "operator==")
                 if meth_idx != -1:
                     f = nss._make_cppfunction("operator==", meth_idx)
                     ol = W_CPPOverload(self.space, nss, [f])

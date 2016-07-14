@@ -112,10 +112,10 @@ Cppyy::TCppScope_t declaring_scope( Cppyy::TCppMethod_t method )
 }
 
 static inline
-char* cppstring_to_cstring(const std::string& name) {
-    char* name_char = (char*)malloc(name.size() + 1);
-    strcpy(name_char, name.c_str());
-    return name_char;
+char* cppstring_to_cstring( const std::string& name ) {
+   char* name_char = (char*)malloc(name.size() + 1 );
+   strcpy( name_char, name.c_str() );
+   return name_char;
 }
 
 
@@ -863,9 +863,23 @@ std::string Cppyy::GetMethodTemplateArgName(
 }
 
 Cppyy::TCppIndex_t Cppyy::GetGlobalOperator(
-      TCppScope_t /* scope */, TCppType_t /* lc */, TCppType_t /* rc */, const std::string& /* op */ )
+      TCppScope_t scope, TCppType_t lc, TCppType_t rc, const std::string& opname )
 {
-   return (TCppIndex_t)0;
+// Find a global operator function with a matching signature
+   std::string proto = GetScopedFinalName(lc) + ", " + GetScopedFinalName(rc);
+   if ( scope == (cppyy_scope_t)GLOBAL_HANDLE ) {
+      TFunction* func = gROOT->GetGlobalFunctionWithPrototype( opname.c_str(), proto.c_str() );
+      if (func) return (TCppIndex_t)func;
+   } else {
+      TClassRef& cr = type_from_handle( scope );
+      if ( cr.GetClass() ) {
+         TFunction* func = cr->GetMethodWithPrototype( opname.c_str(), proto.c_str() );
+         if ( func ) return (TCppIndex_t)cr->GetListOfMethods()->IndexOf( func );
+      }
+   }
+
+// failure ...
+   return (TCppIndex_t)-1;
 }
 
 // method properties ---------------------------------------------------------
