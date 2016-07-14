@@ -238,4 +238,4 @@ class AppTestAbstractInst:
             def __subclasscheck__(self, subcls):
                 return False
 
-        assert issubclass(42, ()) is False
+        assert issubclass(42, M()) is False
