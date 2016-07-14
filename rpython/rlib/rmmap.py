@@ -949,10 +949,3 @@ elif _MS_WINDOWS:
 
     def free(ptr, map_size):
         VirtualFree_safe(ptr, 0, MEM_RELEASE)
-
-    def madvice_free(addr, map_size):
-        """XXX find a Windows equivalent?
-        'addr' is in the middle of memory obtained with the C malloc()...
-        """
-
-# register_external here?
