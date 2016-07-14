@@ -445,11 +445,11 @@ if os.name == 'posix':
 
         pagesize = posixpagesize.get()
         baseaddr = rffi.cast(lltype.Signed, baseaddr)
-        aligned_addr = (baseaddr + pagesize - 1) & (pagesize - 1)
+        aligned_addr = (baseaddr + pagesize - 1) & ~(pagesize - 1)
         size -= (aligned_addr - baseaddr)
         if size >= pagesize:
             rmmap.madvise_free(rffi.cast(rmmap.PTR, aligned_addr),
-                               size & (pagesize - 1))
+                               size & ~(pagesize - 1))
 
 else:
     # XXX any better implementation on Windows?
