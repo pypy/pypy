@@ -64,3 +64,11 @@ fixed functions, allows function override after PyType_Ready is called
 Avoid exhausting the stack in the JIT due to successive guard
 failures in the same Python function ending up as successive levels of
 RPython functions, while at app-level the traceback is very short
+
+.. branch: use-madv-free
+
+Try harder to memory to the OS.  See e.g. issue #2336.  Note that it does
+not show up as a reduction of the VIRT column in ``top``, and the RES
+column might also not show the reduction, particularly on Linux >= 4.5 or
+on OS/X: it uses MADV_FREE, which only marks the pages as returnable to
+the OS if the memory is low.
