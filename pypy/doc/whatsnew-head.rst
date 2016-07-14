@@ -72,3 +72,12 @@ not show up as a reduction of the VIRT column in ``top``, and the RES
 column might also not show the reduction, particularly on Linux >= 4.5 or
 on OS/X: it uses MADV_FREE, which only marks the pages as returnable to
 the OS if the memory is low.
+
+.. branch: cpyext-slotdefs2
+
+Fill in more slots when creating a PyTypeObject from a W_TypeObject
+More slots are still TBD, like tp_print and richcmp
+
+.. branch: json-surrogates
+
+Align json module decode with the cpython's impl, fixes issue 2345
